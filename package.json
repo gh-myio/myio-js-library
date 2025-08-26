@@ -1,0 +1,45 @@
+{
+  "name": "myio-js-library",
+  "version": "0.1.0",
+  "description": "A clean, standalone JS SDK for MYIO projects",
+  "license": "MIT",
+  "repository": "github:gh-myio/myio-js-library",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "engines": { "node": ">=18" },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "clean": "rimraf dist",
+    "build:tsup": "tsup src/index.js --format esm,cjs --dts=false --clean --outDir dist",
+    "build:umd": "rollup -c",
+    "minify:umd": "terser dist/myio-js-library.umd.js -o dist/myio-js-library.umd.min.js --comments=false",
+    "postbuild": "node scripts/copy-dts.js",
+    "build": "npm run clean && npm run build:tsup && npm run build:umd && npm run minify:umd && npm run postbuild",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "dev:test": "vitest",
+    "release": "npm run build && npm publish --access public"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "eslint": "^9.11.1",
+    "rimraf": "^6.0.1",
+    "rollup": "^4.21.0",
+    "terser": "^5.31.6",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.1"
+  }
+}
