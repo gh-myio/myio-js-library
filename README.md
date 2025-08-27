@@ -354,16 +354,34 @@ numbers.toFixedSafe(Infinity); // "—"
 
 ### Energy Formatting Utilities
 
-#### `formatEnergy(value: number, unit: string): string`
+#### `formatEnergy(value: number, unit?: string): string`
 
-Formats energy values with Brazilian locale formatting and appropriate units.
+Formats energy values with Brazilian locale formatting and appropriate units. If no unit is provided, automatically selects the most appropriate unit based on the value magnitude.
+
+**Parameters:**
+- `value: number` - The energy value to format
+- `unit?: string` - Optional unit ('kWh', 'MWh', 'GWh'). If not provided, automatically determined based on value
+
+**Auto-unit selection:**
+- Values ≥ 1,000,000: Converts to GWh
+- Values ≥ 1,000: Converts to MWh  
+- Values < 1,000: Uses kWh
 
 ```javascript
 import { formatEnergy } from 'myio-js-library';
 
+// With explicit unit
 formatEnergy(1234.56, 'kWh'); // "1.234,56 kWh"
 formatEnergy(1000, 'MWh'); // "1.000,00 MWh"
-formatEnergy(null, 'kWh'); // "-"
+
+// Auto-unit selection
+formatEnergy(500); // "500,00 kWh"
+formatEnergy(1500); // "1,50 MWh"
+formatEnergy(2500000); // "2,50 GWh"
+
+// Invalid values
+formatEnergy(null); // "-"
+formatEnergy(NaN); // "-"
 ```
 
 #### `formatAllInSameUnit(values: Array<{value: number, unit: string}>, targetUnit: string): string[]`

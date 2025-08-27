@@ -3,15 +3,40 @@ import { formatEnergy, formatAllInSameUnit, fmtPerc } from '../src/index.ts';
 
 describe('Format utilities', () => {
   describe('formatEnergy', () => {
-    it('should format energy values with Brazilian locale', () => {
+    it('should format energy values with Brazilian locale and explicit unit', () => {
       expect(formatEnergy(1234.56, 'kWh')).toBe('1.234,56 kWh');
       expect(formatEnergy(1000, 'MWh')).toBe('1.000,00 MWh');
+      expect(formatEnergy(2500000, 'GWh')).toBe('2.500.000,00 GWh');
+    });
+
+    it('should auto-select appropriate unit when no unit provided', () => {
+      // Values < 1,000 should use kWh
+      expect(formatEnergy(500)).toBe('500,00 kWh');
+      expect(formatEnergy(999.99)).toBe('999,99 kWh');
+      
+      // Values >= 1,000 and < 1,000,000 should convert to MWh
+      expect(formatEnergy(1000)).toBe('1,00 MWh');
+      expect(formatEnergy(1500)).toBe('1,50 MWh');
+      expect(formatEnergy(999999)).toBe('1.000,00 MWh');
+      
+      // Values >= 1,000,000 should convert to GWh
+      expect(formatEnergy(1000000)).toBe('1,00 GWh');
+      expect(formatEnergy(2500000)).toBe('2,50 GWh');
     });
 
     it('should handle null/undefined values', () => {
       expect(formatEnergy(null, 'kWh')).toBe('-');
       expect(formatEnergy(undefined, 'kWh')).toBe('-');
       expect(formatEnergy(NaN, 'kWh')).toBe('-');
+      expect(formatEnergy(null)).toBe('-');
+      expect(formatEnergy(undefined)).toBe('-');
+      expect(formatEnergy(NaN)).toBe('-');
+    });
+
+    it('should handle edge cases with auto-unit selection', () => {
+      expect(formatEnergy(0)).toBe('0,00 kWh');
+      expect(formatEnergy(0.5)).toBe('0,50 kWh');
+      expect(formatEnergy(1)).toBe('1,00 kWh');
     });
   });
 
