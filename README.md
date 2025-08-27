@@ -40,11 +40,19 @@ pnpm add myio-js-library
 ```javascript
 import { 
   decodePayload, 
+  decodePayloadBase64Xor,
   fetchWithRetry, 
+  http,
   addNamespace, 
   detectDeviceType,
   strings, 
-  numbers 
+  numbers,
+  formatEnergy,
+  formatWaterVolumeM3,
+  formatDateToYMD,
+  exportToCSV,
+  classifyWaterLabel,
+  getValueByDatakey
 } from 'myio-js-library';
 
 // Decode with string key

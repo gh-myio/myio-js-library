@@ -55,4 +55,11 @@ export { normalizeRecipients } from './utils/strings';
 export { decodePayload } from './codec/decodePayload';
 
 // Network utilities
-export { http } from './net/http';
+export { http, fetchWithRetry } from './net/http';
+
+// Codec utilities (additional exports)
+export { decodePayloadBase64Xor } from './codec/decodePayload';
+
+// Utils namespace exports
+export * as strings from './utils/strings';
+export * as numbers from './utils/numbers';
