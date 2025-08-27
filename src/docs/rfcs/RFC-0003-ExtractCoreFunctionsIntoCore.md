@@ -4,12 +4,10 @@
 - Tracking Issue: [myio-js-library#0000](https://github.com/gh-myio/myio-js-library/issues/0000)
 
 # Summary
-[summary]: #summary
 
-We will systematically **extract shared, stable JavaScript functions** from existing MYIO codebases into the new npm package **`myio-js-library`**. The outcome is a **small, tree‑shakeable SDK** that provides consistent utilities (codec, net, strings, numbers, etc.), dual module outputs (ESM + CJS), typed via `.d.ts`, and compatible with Node ≥ 18 and modern browsers. We will add **codemods** and guardrails to migrate consumers with minimal churn and a clear deprecation story.
+Systematically extract shared, stable JavaScript functions from existing MYIO codebases into the npm package `myio-js-library`. The outcome is a small, tree-shakeable SDK that provides consistent utilities (codec, net, strings, numbers, etc.), dual module outputs (ESM + CJS), typed via `.d.ts`, and compatible with Node ≥ 18 and modern browsers. We will add codemods and guardrails to migrate consumers with minimal churn and a clear deprecation story.
 
 # Motivation
-[motivation]: #motivation
 
 * **Deduplication & consistency:** Consolidate repeated helpers (e.g., Base64+XOR decode, HTTP with retries) to a single, maintained source of truth.
 * **Reliability:** Centralize tests and hardening (timeouts, backoff, error semantics) to reduce regressions across apps.
@@ -18,7 +16,6 @@ We will systematically **extract shared, stable JavaScript functions** from exis
 * **Governance:** Versioned releases (SemVer + CHANGELOG) and deprecation policy.
 
 # Guide-level explanation
-[guide-level-explanation]: #guide-level-explanation
 
 ## Goals & Non‑Goals
 
@@ -46,7 +43,6 @@ We will systematically **extract shared, stable JavaScript functions** from exis
 *Rationale:* já implementados/testados na `0.1.0`; apenas formalizar contrato público.
 
 # Reference-level explanation
-[reference-level-explanation]: #reference-level-explanation
 
 ## Definitions
 
@@ -141,7 +137,6 @@ We will create a small discovery script to enumerate potential extraction target
 * Set **deprecation warnings** nos locais antigos.
 
 # Drawbacks
-[drawbacks]: #drawbacks
 
 * **Migration overhead:** Initial effort required to refactor existing codebases to use the new library.
 * **Dependency management:** Introduces a new external dependency that needs to be maintained and versioned.
@@ -149,7 +144,6 @@ We will create a small discovery script to enumerate potential extraction target
 * **Bundle size considerations:** While tree-shakeable, improper usage could increase bundle size.
 
 # Rationale and alternatives
-[rationale-and-alternatives]: #rationale-and-alternatives
 
 ## Why is this design the best in the space of possible designs?
 
@@ -180,7 +174,6 @@ This approach provides the optimal balance between reusability, maintainability,
 - Difficulty in testing utility functions in isolation
 
 # Prior art
-[prior-art]: #prior-art
 
 This approach follows established patterns in the JavaScript ecosystem:
 
@@ -189,7 +182,6 @@ This approach follows established patterns in the JavaScript ecosystem:
 - **Ramda**: Functional programming utilities with consistent API design
 
 # Unresolved questions
-[unresolved-questions]: #unresolved-questions
 
 1. Should we expose subpath exports (`myio-js-library/codec`) for finer tree‑shaking?
 2. Do we want a separate `node/` subpath for Node‑only helpers (e.g., streams, fs)?
@@ -197,7 +189,6 @@ This approach follows established patterns in the JavaScript ecosystem:
 4. What should be the deprecation timeline for legacy function signatures?
 
 # Future possibilities
-[future-possibilities]: #future-possibilities
 
 - **Expanded module coverage**: Additional domains like data validation, caching, and analytics
 - **React integration**: Hooks and components built on top of core utilities

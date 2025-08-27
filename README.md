@@ -289,6 +289,20 @@ strings.normalizeRecipients('a; b, c'); // "a,b,c"
 
 ### Number Utilities
 
+#### `formatNumberReadable(value: number): string`
+
+Formats numbers for Brazilian locale with 2 decimal places. Returns "-" for null, undefined, or NaN values.
+
+```javascript
+import { formatNumberReadable } from 'myio-js-library';
+
+formatNumberReadable(1234.56); // "1.234,56"
+formatNumberReadable(1000); // "1.000,00"
+formatNumberReadable(12.3); // "12,30"
+formatNumberReadable(null); // "-"
+formatNumberReadable(NaN); // "-"
+```
+
 #### `numbers.fmtPerc(x: number, digits?: number): string`
 
 Formats a ratio (0-1) as a percentage string.

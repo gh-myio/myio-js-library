@@ -1,3 +1,11 @@
+// UMD assertions and shorthands
+if (!window.MyIOJSLibrary) {
+  throw new Error('MyIOJSLibrary UMD not available. Please ensure the library is loaded.');
+}
+
+const MyIO = window.MyIOJSLibrary;
+const { formatWater, formatEnergy: formatEnergySDK, formatPercentage, ymd, saoPauloIso, getValueByDatakey } = MyIO;
+
 const DAYS = [
   "Domingo",
   "Segunda-feira",
@@ -152,14 +160,6 @@ const MyIOAuth = (() => {
   return { getToken, getExpiryInfo, clearCache };
 })();
 
-function formatEnergy(value, group) {
-  if (group == "Caixas D'Água") {
-    return (value / 100).toFixed(2) + " m.c.a.";
-  }
-  if (value >= 1000000) return (value / 1000000).toFixed(2) + " GWh";
-  if (value >= 1000) return (value / 1000).toFixed(2) + " MWh";
-  return value.toFixed(2) + " M³";
-}
 // Helper function to format a millisecond timestamp to YYYY-MM-DD
 function formatDateToYMD(timestampMs, tzIdentifier) {
   const date = new Date(timestampMs);
@@ -228,7 +228,7 @@ function createInfoCard(title, value, percentage, img) {
     <div class="device-data-row">
         <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: bold; color: #28a745;">
           <span class="flash-icon flash">⚡</span>
-          <span class="consumption-value">${formatEnergy(value)}</span>
+          <span class="consumption-value">${formatWater(value)}</span>
           ${
             percentage != null
               ? `<span class="device-title-percent" style="color: rgba(0,0,0,0.5); font-weight: 500;">(${percentage}%)</span>`
@@ -2334,32 +2334,13 @@ async function fetchTotalTelemetryByCustomer(customerId) {
     if (ctx.groupDivs && ctx.groupDivs["Caixas D'Água"]) {
       ctx.groupDivs["Caixas D'Água"]
         .find(`[data-group="Caixas D'Água"]`)
-        .text(formatEnergy(totalValue, "Caixas D'Água"));
+        .text(formatWater(totalValue));
     }
   } catch (error) {
     console.error("Error fetching total telemetry by customer:", error);
   }
 }
 
-function getValueByDatakey(dataList, dataSourceNameTarget, dataKeyTarget) {
-  for (const item of dataList) {
-    if (
-      item.datasource.name === dataSourceNameTarget &&
-      item.dataKey.name === dataKeyTarget
-    ) {
-      const itemValue = item.data?.[0]?.[1];
-
-      if (itemValue !== undefined && itemValue !== null) {
-        return itemValue;
-      } else {
-        console.warn(
-          `Valor não encontrado para ${dataSourceNameTarget} - ${dataKeyTarget}`
-        );
-        return null;
-      }
-    }
-  }
-}
 
 async function openConfigCaixa(entityId, entityType) {
   $("#dashboard-popup").remove();
@@ -3139,11 +3120,10 @@ self.onDataUpdated = async function () {
               
               <div class="device-data-row">
                 <div class="consumption-main">
-                  <span data-entity-consumption="${formatEnergy(
-                    adjustedVal,
-                    group
+                  <span data-entity-consumption="${formatWater(
+                    adjustedVal
                   )}" class="consumption-value">
-                    ${formatEnergy(adjustedVal, group)}
+                    ${formatWater(adjustedVal)}
                   </span>
                   <span class="device-title-percent">(${percent}%)</span>
                 </div>
@@ -3194,11 +3174,10 @@ self.onDataUpdated = async function () {
               <div class="device-data-row">
                 <div class="consumption-main">
                   <span class="flash-icon ${isOn ? "flash" : ""}"></span>
-                  <span data-entity-consumption="${formatEnergy(
-                    adjustedVal,
-                    group
+                  <span data-entity-consumption="${formatWater(
+                    adjustedVal
                   )}" class="consumption-value">
-                    ${formatEnergy(adjustedVal, group)}
+                    ${formatWater(adjustedVal)}
                   </span>
                   <span class="device-title-percent">(${perc}%)</span>
                 </div>
@@ -3215,7 +3194,7 @@ self.onDataUpdated = async function () {
       if ($existingCard.length) {
         $existingCard
           .find(".consumption-value")
-          .text(formatEnergy(adjustedVal, group));
+          .text(formatWater(adjustedVal));
         $existingCard.find(".device-title-percent").text(`(${percent}%)`);
         $existingCard.find(".device-image").attr("src", img);
         $existingCard.find(".flash-icon").toggleClass("flash", isOn);

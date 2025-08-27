@@ -1,3 +1,5 @@
+import { formatNumberReadable } from '../format/numbers';
+
 /**
  * Type definition for water report row data
  */
@@ -165,20 +167,4 @@ export function toCSV(rows: (string | number)[][], delimiter: string = ';'): str
       return value;
     }).join(delimiter)
   ).join('\n');
-}
-
-/**
- * Formats numbers for Brazilian locale (helper function)
- * @param value - Number to format
- * @returns Formatted number string
- */
-function formatNumberReadable(value: number): string {
-  if (value == null || isNaN(value)) {
-    return '-';
-  }
-  
-  return value.toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
 }

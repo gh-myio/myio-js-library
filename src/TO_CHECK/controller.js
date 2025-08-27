@@ -1,8 +1,11 @@
-function formatEnergy(value) {
-    if (value >= 1000000) return (value / 1000000).toFixed(2) + " GWh";
-    if (value >= 1000) return (value / 1000).toFixed(2) + " MWh";
-    return value.toFixed(2) + " kWh";
+// UMD assertions and shorthands
+if (!window.MyIOJSLibrary) {
+  throw new Error('MyIOJSLibrary UMD not available. Please ensure the library is loaded.');
 }
+
+const MyIO = window.MyIOJSLibrary;
+const { formatEnergy: formatEnergySDK, formatPercentage, ymd, saoPauloIso, getValueByDatakey } = MyIO;
+
 // Helper function to format a millisecond timestamp to YYYY-MM-DD
 function formatDateToYMD(timestampMs, tzIdentifier) {
     const date = new Date(timestampMs);
@@ -74,7 +77,7 @@ function createInfoCard(title, value, percentage, img) {
     <div class="device-data-row">
         <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: bold; color: #28a745;">
           <span class="flash-icon flash">⚡</span>
-          <span class="consumption-value">${formatEnergy(value)}</span>
+          <span class="consumption-value">${formatEnergySDK(value)}</span>
           ${percentage != null
             ? `<span class="device-title-percent" style="color: rgba(0,0,0,0.5); font-weight: 500;">(${fmtPerc(percentage)}%)</span>`
             : ""
@@ -2126,25 +2129,6 @@ function classify(label) {
   return "Lojas";
 }
 
-function getValueByDatakey(dataList, dataSourceNameTarget, dataKeyTarget) {
-    for (const item of dataList) {
-        if (
-            item.datasource.name === dataSourceNameTarget &&
-            item.dataKey.name === dataKeyTarget
-        ) {
-            const itemValue = item.data?.[0]?.[1];
-
-            if (itemValue !== undefined && itemValue !== null) {
-                return itemValue;
-            } else {
-                console.warn(
-                    `Valor não encontrado para ${dataSourceNameTarget} - ${dataKeyTarget}`
-                );
-                return null;
-            }
-        }
-    }
-}
 
 self.onDataUpdated = async function () {
     const ctx = self.ctx;
@@ -2425,7 +2409,7 @@ self.onDataUpdated = async function () {
           <div class="device-data-row">
             <div class="consumption-main">
               <span class="flash-icon ${isOn ? "flash" : ""}">⚡</span>
-              <span class="consumption-value" data-entity-consumption="${formatEnergy(val)}">${formatEnergy(val)}</span>
+              <span class="consumption-value" data-entity-consumption="${formatEnergySDK(val)}">${formatEnergySDK(val)}</span>
               <span class="device-title-percent">(${perc}%)</span>
             </div>
           </div>
@@ -2438,7 +2422,7 @@ self.onDataUpdated = async function () {
 
             if ($existingCard.length) {
                 // Atualiza apenas os dados do card existente
-                $existingCard.find(".consumption-value").text(formatEnergy(val));
+                $existingCard.find(".consumption-value").text(formatEnergySDK(val));
                 $existingCard.find(".device-title-percent").text(`(${perc}%)`);
                 $existingCard.find(".device-image").attr("src", img);
                 $existingCard.find(".flash-icon").toggleClass("flash", isOn);
@@ -2458,7 +2442,7 @@ self.onDataUpdated = async function () {
     for (const group in groupSums) {
         ctx.groupDivs[group]
             .find(`[data-group="${group}"]`)
-            .text(formatEnergy(groupSums[group]));
+            .text(formatEnergySDK(groupSums[group]));
     }
 
     updateInfoCardsAndChart(groupSums, items);

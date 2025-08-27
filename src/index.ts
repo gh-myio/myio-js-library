@@ -1,6 +1,7 @@
 // Format utilities
 export { formatEnergy, formatAllInSameUnit } from './format/energy';
 export { fmtPerc } from './format/percentage';
+export { formatNumberReadable } from './format/numbers';
 export { 
   formatWaterVolumeM3, 
   formatTankHeadFromCm, 
