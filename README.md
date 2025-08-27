@@ -463,6 +463,249 @@ const result = classify(entity, criteria);
 // { category: 'energy_consumption', subcategory: 'medium_scale', confidence: 1.0 }
 ```
 
+### Water-Specific Utilities
+
+#### Water Formatting Functions
+
+##### `formatWaterVolumeM3(value: number, locale?: string): string`
+
+Formats water volume in cubic meters (M³) using Brazilian locale formatting.
+
+```javascript
+import { formatWaterVolumeM3 } from 'myio-js-library';
+
+formatWaterVolumeM3(12.345); // "12,35 M³"
+formatWaterVolumeM3(1000.5); // "1.000,50 M³"
+formatWaterVolumeM3(12.345, 'en-US'); // "12.35 M³"
+formatWaterVolumeM3(null); // "-"
+```
+
+##### `formatTankHeadFromCm(valueCm: number, locale?: string): string`
+
+Formats tank head from centimeters to meters of water column (m.c.a.).
+
+```javascript
+import { formatTankHeadFromCm } from 'myio-js-library';
+
+formatTankHeadFromCm(178); // "1,78 m.c.a."
+formatTankHeadFromCm(250); // "2,50 m.c.a."
+formatTankHeadFromCm(null); // "-"
+```
+
+##### `calcDeltaPercent(prev: number, current: number): {value: number, type: string}`
+
+Calculates percentage difference between two values and determines the type of change.
+
+```javascript
+import { calcDeltaPercent } from 'myio-js-library';
+
+calcDeltaPercent(100, 120); // { value: 20, type: "increase" }
+calcDeltaPercent(120, 100); // { value: 16.67, type: "decrease" }
+calcDeltaPercent(100, 100); // { value: 0, type: "neutral" }
+calcDeltaPercent(0, 100); // { value: 100, type: "increase" }
+```
+
+##### `formatEnergyByGroup(value: number, group: string): string`
+
+Formats energy/water values based on group type (from MAIN_WATER controller).
+
+```javascript
+import { formatEnergyByGroup } from 'myio-js-library';
+
+formatEnergyByGroup(178, "Caixas D'Água"); // "1,78 m.c.a."
+formatEnergyByGroup(12.345, "Lojas"); // "12,35 M³"
+formatEnergyByGroup(1000000, "Lojas"); // "1,00 M³ (GWh scale)"
+```
+
+#### Water Date Utilities
+
+##### `formatDateForInput(date: Date): string`
+
+Formats a Date object into a 'YYYY-MM-DD' string for HTML input fields.
+
+```javascript
+import { formatDateForInput } from 'myio-js-library';
+
+formatDateForInput(new Date(2025, 7, 26)); // "2025-08-26"
+formatDateForInput(new Date('invalid')); // ""
+```
+
+##### `parseInputDateToDate(inputDateStr: string): Date | null`
+
+Parses a 'YYYY-MM-DD' string into a Date object at midnight local time.
+
+```javascript
+import { parseInputDateToDate } from 'myio-js-library';
+
+parseInputDateToDate('2025-08-26'); // Date object at 2025-08-26 00:00:00
+parseInputDateToDate('invalid'); // null
+```
+
+##### `timeWindowFromInputYMD(startYmd: string, endYmd: string, tzOffset?: string): {startTs: number, endTs: number}`
+
+Creates a time window from two input date strings with timezone offset.
+
+```javascript
+import { timeWindowFromInputYMD } from 'myio-js-library';
+
+timeWindowFromInputYMD('2025-08-01', '2025-08-26', '-03:00');
+// { startTs: 1722470400000, endTs: 1724630399999 }
+```
+
+##### `getSaoPauloISOStringFixed(dateStr: string, endOfDay?: boolean): string`
+
+Gets São Paulo ISO string with fixed offset.
+
+```javascript
+import { getSaoPauloISOStringFixed } from 'myio-js-library';
+
+getSaoPauloISOStringFixed('2025-08-26'); // "2025-08-26T00:00:00.000-03:00"
+getSaoPauloISOStringFixed('2025-08-26', true); // "2025-08-26T23:59:59.999-03:00"
+```
+
+##### `averageByDay(data: TimedValue[]): Array<{day: string, average: number}>`
+
+Calculates the average value per day from time-series data.
+
+```javascript
+import { averageByDay } from 'myio-js-library';
+
+const data = [
+  { ts: new Date('2025-08-26T10:00:00'), value: 100 },
+  { ts: new Date('2025-08-26T14:00:00'), value: 200 },
+  { ts: new Date('2025-08-27T10:00:00'), value: 150 }
+];
+
+averageByDay(data);
+// [
+//   { day: '2025-08-26', average: 150 },
+//   { day: '2025-08-27', average: 150 }
+// ]
+```
+
+#### Water CSV Utilities
+
+##### `buildWaterReportCSV(rows: WaterRow[], meta: object): string`
+
+Builds a CSV string for water consumption reports.
+
+```javascript
+import { buildWaterReportCSV } from 'myio-js-library';
+
+const rows = [
+  {
+    formattedDate: '26/08/2025',
+    day: 'Segunda-feira',
+    avgConsumption: '12,50',
+    minDemand: '10,00',
+    maxDemand: '15,00',
+    totalConsumption: '300,00'
+  }
+];
+
+const meta = {
+  issueDate: '26/08/2025 - 23:19',
+  name: 'Loja A',
+  identifier: 'SCP001'
+};
+
+buildWaterReportCSV(rows, meta);
+// "DATA EMISSÃO;26/08/2025 - 23:19\nTotal;300.00\nLoja:;Loja A;SCP001\n..."
+```
+
+##### `buildWaterStoresCSV(rows: StoreRow[], meta: object): string`
+
+Builds a CSV string for all stores water consumption report.
+
+```javascript
+import { buildWaterStoresCSV } from 'myio-js-library';
+
+const rows = [
+  {
+    entityLabel: 'Loja A',
+    deviceId: 'DEV001',
+    consumptionM3: 150.5
+  }
+];
+
+const meta = {
+  issueDate: '26/08/2025 - 23:19'
+};
+
+buildWaterStoresCSV(rows, meta);
+// "DATA EMISSÃO;26/08/2025 - 23:19\nTotal;150.50\nLoja;Identificador;Consumo\n..."
+```
+
+##### `toCSV(rows: (string|number)[][], delimiter?: string): string`
+
+Basic CSV generation function that converts 2D array to CSV string.
+
+```javascript
+import { toCSV } from 'myio-js-library';
+
+const rows = [
+  ['Header1', 'Header2'],
+  ['Value1', 'Value2'],
+  ['Value3', 'Value4']
+];
+
+toCSV(rows); // "Header1;Header2\nValue1;Value2\nValue3;Value4"
+toCSV(rows, ','); // "Header1,Header2\nValue1,Value2\nValue3,Value4"
+```
+
+#### Water Classification Utilities
+
+##### `classifyWaterLabel(label: string): string`
+
+Classifies water device labels into predefined categories.
+
+```javascript
+import { classifyWaterLabel } from 'myio-js-library';
+
+classifyWaterLabel('Caixa Superior'); // "Caixas D'Água"
+classifyWaterLabel('Administração'); // "Área Comum"
+classifyWaterLabel('Loja 101'); // "Lojas"
+classifyWaterLabel(''); // "Lojas" (default)
+```
+
+##### `classifyWaterLabels(labels: string[]): object`
+
+Classifies multiple labels and returns a summary.
+
+```javascript
+import { classifyWaterLabels } from 'myio-js-library';
+
+const labels = ['Caixa Superior', 'Loja 101', 'Administração'];
+classifyWaterLabels(labels);
+// {
+//   "Caixas D'Água": 1,
+//   "Lojas": 1,
+//   "Área Comum": 1,
+//   total: 3
+// }
+```
+
+##### `getWaterCategories(): string[]`
+
+Gets all possible water classification categories.
+
+```javascript
+import { getWaterCategories } from 'myio-js-library';
+
+getWaterCategories(); // ["Caixas D'Água", "Lojas", "Área Comum"]
+```
+
+##### `isWaterCategory(label: string, category: string): boolean`
+
+Checks if a label belongs to a specific category.
+
+```javascript
+import { isWaterCategory } from 'myio-js-library';
+
+isWaterCategory('Caixa Superior', "Caixas D'Água"); // true
+isWaterCategory('Loja 101', "Caixas D'Água"); // false
+```
+
 ### Data Access Utilities
 
 #### `getValueByDatakey(data: any, datakey: string): any`
