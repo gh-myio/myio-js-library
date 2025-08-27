@@ -61,6 +61,24 @@ describe('Format utilities', () => {
       const result = formatAllInSameUnit(values, 'kWh');
       expect(result).toEqual(['-', '100,00 kWh']);
     });
+
+    it('should format array of numbers with default kWh source unit', () => {
+      const values = [190404.03999999998, 146399.82999999993, 0];
+      const result = formatAllInSameUnit(values, 'kWh');
+      expect(result).toEqual(['190.404,04 kWh', '146.399,83 kWh', '0,00 kWh']);
+    });
+
+    it('should format array of numbers with specified source unit', () => {
+      const values = [1.5, 2.0, 0.5];
+      const result = formatAllInSameUnit(values, 'kWh', 'MWh');
+      expect(result).toEqual(['1.500,00 kWh', '2.000,00 kWh', '500,00 kWh']);
+    });
+
+    it('should handle null/undefined/NaN values in number array', () => {
+      const values = [100, null, undefined, NaN, 200];
+      const result = formatAllInSameUnit(values, 'kWh');
+      expect(result).toEqual(['100,00 kWh', '-', '-', '-', '200,00 kWh']);
+    });
   });
 
   describe('fmtPerc', () => {
