@@ -27,7 +27,7 @@
   ],
   "scripts": {
     "clean": "rimraf dist",
-    "build:tsup": "tsup src/index.js --format esm,cjs --clean --outDir dist",
+    "build:tsup": "tsup src/index.ts --format esm,cjs --clean --outDir dist --dts",
     "build:umd": "rollup -c",
     "minify:umd": "terser dist/myio-js-library.umd.js -o dist/myio-js-library.umd.min.js --comments=false",
     "postbuild": "node scripts/copy-dts.js",
@@ -35,6 +35,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "dev:test": "vitest",
+    "smoke-test": "node scripts/smoke-test.js",
+    "size-check": "node scripts/size-check.js",
     "release": "npm run build && npm publish --access public"
   },
   "devDependencies": {

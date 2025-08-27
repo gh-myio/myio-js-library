@@ -6,7 +6,7 @@ export default {
   output: {
     file: 'dist/myio-js-library.umd.js',
     format: 'umd',
-    name: 'MyIOJSLibrary'
+    name: 'MyIOLibrary'
   },
   plugins: [resolve(), commonjs()]
 };

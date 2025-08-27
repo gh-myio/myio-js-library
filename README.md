@@ -14,6 +14,11 @@ Distributed as **ESM**, **CJS**, and **UMD** (with a pre-minified build for CDN 
 - 📱 **Device detection** — context-aware device type identification.
 - 🧩 **String utilities** — normalization helpers.
 - 🔢 **Number utilities** — safe fixed formatting, percentages.
+- ⚡ **Energy formatting** — Brazilian locale energy unit formatting (kWh, MWh, GWh).
+- 📅 **Date utilities** — date formatting, interval detection, São Paulo timezone handling.
+- 📊 **CSV export** — data export to CSV format with proper escaping (returns strings, no DOM manipulation).
+- 🏷️ **Classification** — energy entity classification utilities.
+- 🔍 **Data access** — nested object value retrieval with datakey paths.
 - ⚡ **Dual module support** — ESM and CJS.
 - 🌍 **Browser-ready** — UMD global + CDN link.
 
@@ -79,16 +84,16 @@ const {
 <script src="https://unpkg.com/myio-js-library@0.1.0/dist/myio-js-library.umd.min.js"></script>
 <script>
   // Decode payload
-  const text = MyIOJSLibrary.decodePayload('AwAVBwo=', 'key');
+  const text = MyIOLibrary.decodePayload('AwAVBwo=', 'key');
   console.log(text); // "hello"
   
   // Add namespace to data
   const data = { temperature: 25, humidity: 60 };
-  const namespaced = MyIOJSLibrary.addNamespace(data, 'sensor1');
+  const namespaced = MyIOLibrary.addNamespace(data, 'sensor1');
   console.log(namespaced); // { "temperature (sensor1)": 25, "humidity (sensor1)": 60 }
   
   // Detect device type
-  const deviceType = MyIOJSLibrary.detectDeviceType('building', 'floor2-room101');
+  const deviceType = MyIOLibrary.detectDeviceType('building', 'floor2-room101');
   console.log(deviceType); // "room"
 </script>
 ```
@@ -298,6 +303,220 @@ import { numbers } from 'myio-js-library';
 numbers.toFixedSafe(3.14159, 2); // "3.14"
 numbers.toFixedSafe(NaN); // "—"
 numbers.toFixedSafe(Infinity); // "—"
+```
+
+### Energy Formatting Utilities
+
+#### `formatEnergy(value: number, unit: string): string`
+
+Formats energy values with Brazilian locale formatting and appropriate units.
+
+```javascript
+import { formatEnergy } from 'myio-js-library';
+
+formatEnergy(1234.56, 'kWh'); // "1.234,56 kWh"
+formatEnergy(1000, 'MWh'); // "1.000,00 MWh"
+formatEnergy(null, 'kWh'); // "-"
+```
+
+#### `formatAllInSameUnit(values: Array<{value: number, unit: string}>, targetUnit: string): string[]`
+
+Converts and formats multiple energy values to the same unit.
+
+```javascript
+import { formatAllInSameUnit } from 'myio-js-library';
+
+const values = [
+  { value: 1, unit: 'kWh' },
+  { value: 1, unit: 'MWh' },
+  { value: 1, unit: 'GWh' }
+];
+
+formatAllInSameUnit(values, 'kWh');
+// ['1,00 kWh', '1.000,00 kWh', '1.000.000,00 kWh']
+```
+
+#### `fmtPerc(value: number): string`
+
+Formats percentage values with Brazilian locale formatting.
+
+**Note:** This function uses Brazilian locale formatting (comma as decimal separator). This is a change from the original behavior which used dot notation. For values less than 0.1%, it returns the formatted percentage rather than "<0,1".
+
+```javascript
+import { fmtPerc } from 'myio-js-library';
+
+fmtPerc(0.1234); // "12,34%"
+fmtPerc(0.5); // "50,00%"
+fmtPerc(0.001); // "0,10%"
+fmtPerc(null); // "-"
+fmtPerc(NaN); // "-"
+```
+
+### Date Utilities
+
+#### `formatDateToYMD(date: Date | number | string): string`
+
+Formats dates to YYYY-MM-DD format.
+
+```javascript
+import { formatDateToYMD } from 'myio-js-library';
+
+formatDateToYMD(new Date('2023-12-25')); // "2023-12-25"
+formatDateToYMD('2023-01-15T12:00:00Z'); // "2023-01-15"
+formatDateToYMD('invalid'); // ""
+```
+
+#### `determineInterval(startDate: Date | string | number, endDate: Date | string | number): string`
+
+Determines appropriate time interval based on date range.
+
+```javascript
+import { determineInterval } from 'myio-js-library';
+
+const start = new Date('2023-01-01');
+const end = new Date('2023-01-05');
+determineInterval(start, end); // "day"
+
+const longRange = new Date('2023-06-01');
+determineInterval(start, longRange); // "month"
+```
+
+#### `getSaoPauloISOString(date: Date | string | number, edge?: 'start' | 'end'): string`
+
+Gets ISO string for date at day edge in São Paulo timezone.
+
+```javascript
+import { getSaoPauloISOString } from 'myio-js-library';
+
+const date = new Date('2023-01-01T12:00:00Z');
+getSaoPauloISOString(date, 'start'); // ISO string for start of day in SP timezone
+getSaoPauloISOString(date, 'end'); // ISO string for end of day in SP timezone
+```
+
+#### `getDateRangeArray(startDate: Date | string | number, endDate: Date | string | number, interval?: 'day' | 'week' | 'month' | 'year'): Date[]`
+
+Generates array of dates within specified range.
+
+```javascript
+import { getDateRangeArray } from 'myio-js-library';
+
+const start = new Date('2023-01-01');
+const end = new Date('2023-01-03');
+const dates = getDateRangeArray(start, end, 'day');
+// [Date('2023-01-01'), Date('2023-01-02'), Date('2023-01-03')]
+```
+
+### CSV Export Utilities
+
+#### `exportToCSV(data: Record<string, any>[], headers: string[], filename?: string): string`
+
+Exports data to CSV format with proper escaping.
+
+```javascript
+import { exportToCSV } from 'myio-js-library';
+
+const data = [
+  { name: 'John', age: 30, city: 'New York' },
+  { name: 'Jane', age: 25, city: 'Los Angeles' }
+];
+const headers = ['name', 'age', 'city'];
+
+const csv = exportToCSV(data, headers);
+// "name,age,city\nJohn,30,New York\nJane,25,Los Angeles"
+```
+
+#### `exportToCSVAll(storesData: Record<string, Record<string, any>[]>, headers: string[], filename?: string): string`
+
+Exports data for multiple stores/entities to CSV format.
+
+```javascript
+import { exportToCSVAll } from 'myio-js-library';
+
+const storesData = {
+  'Store A': [
+    { product: 'Apple', price: 1.50 },
+    { product: 'Banana', price: 0.75 }
+  ],
+  'Store B': [
+    { product: 'Orange', price: 2.00 }
+  ]
+};
+const headers = ['product', 'price'];
+
+const csv = exportToCSVAll(storesData, headers);
+// "Store,product,price\nStore A,Apple,1.5\nStore A,Banana,0.75\nStore B,Orange,2"
+```
+
+### Classification Utilities
+
+#### `classify(entity: Record<string, any>, criteria: Record<string, any>): {category: string, subcategory?: string, confidence: number}`
+
+Classifies energy entities based on their characteristics.
+
+```javascript
+import { classify } from 'myio-js-library';
+
+const entity = { type: 'consumption', powerRating: 5000 };
+const criteria = {};
+
+const result = classify(entity, criteria);
+// { category: 'energy_consumption', subcategory: 'medium_scale', confidence: 1.0 }
+```
+
+### Data Access Utilities
+
+#### `getValueByDatakey(data: any, datakey: string): any`
+
+Retrieves values from nested objects using datakey paths with dot notation and array indices.
+
+```javascript
+import { getValueByDatakey } from 'myio-js-library';
+
+const data = {
+  sensor: {
+    temperature: 25,
+    readings: [10, 20, 30]
+  }
+};
+
+getValueByDatakey(data, 'sensor.temperature'); // 25
+getValueByDatakey(data, 'sensor.readings[1]'); // 20
+getValueByDatakey(data, 'nonexistent.path'); // undefined
+```
+
+#### `getValueByDatakeyLegacy(dataList: any[], dataSourceNameTarget: string, dataKeyTarget: string): any`
+
+Legacy compatibility function for ThingsBoard widgets. Searches for values in data lists by matching dataSourceName and dataKey properties.
+
+```javascript
+import { getValueByDatakeyLegacy } from 'myio-js-library';
+
+const dataList = [
+  { dataSourceName: 'sensor1', dataKey: 'temperature', value: 25 },
+  { dataSourceName: 'sensor1', dataKey: 'humidity', value: 60 },
+  { dataSourceName: 'sensor2', dataKey: 'temperature', value: 22 }
+];
+
+getValueByDatakeyLegacy(dataList, 'sensor1', 'temperature'); // 25
+getValueByDatakeyLegacy(dataList, 'sensor2', 'humidity'); // undefined
+```
+
+#### `findValue(data: any, keyOrPath: string, legacyDataKey?: string): any`
+
+Unified function that supports both modern path-based access and legacy ThingsBoard-style data access.
+
+```javascript
+import { findValue } from 'myio-js-library';
+
+// Modern usage (path-based)
+const modernData = { sensor: { temperature: 25 } };
+findValue(modernData, 'sensor.temperature'); // 25
+
+// Legacy usage (ThingsBoard-style)
+const legacyData = [
+  { dataSourceName: 'sensor1', dataKey: 'temperature', value: 25 }
+];
+findValue(legacyData, 'sensor1', 'temperature'); // 25
 ```
 
 ## 🧪 Development
