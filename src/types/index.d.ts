@@ -20,3 +20,9 @@ export namespace numbers {
   function fmtPerc(x: number, digits?: number): string;
   function toFixedSafe(x: number, digits?: number): string;
 }
+
+export function addNamespace(payload: object, namespace?: string): object;
+
+export function detectDeviceType(name: string, context?: string): string;
+export function getAvailableContexts(): string[];
+export function addDetectionContext(contextName: string, detectFunction: (name: string) => string): void;

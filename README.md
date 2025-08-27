@@ -10,6 +10,8 @@ Distributed as **ESM**, **CJS**, and **UMD** (with a pre-minified build for CDN 
 
 - 🔑 **Core codecs** — e.g., `decodePayloadBase64Xor`.
 - 🌐 **HTTP wrapper** — with retries, timeout, and backoff.
+- 🏷️ **Namespace utilities** — add prefixes/suffixes to object keys.
+- 📱 **Device detection** — context-aware device type identification.
 - 🧩 **String utilities** — normalization helpers.
 - 🔢 **Number utilities** — safe fixed formatting, percentages.
 - ⚡ **Dual module support** — ESM and CJS.
@@ -31,7 +33,14 @@ pnpm add myio-js-library
 
 ### Node.js (ESM)
 ```javascript
-import { decodePayload, fetchWithRetry, strings, numbers } from 'myio-js-library';
+import { 
+  decodePayload, 
+  fetchWithRetry, 
+  addNamespace, 
+  detectDeviceType,
+  strings, 
+  numbers 
+} from 'myio-js-library';
 
 // Decode with string key
 const text = decodePayload('AwAVBwo=', 'key'); // "hello"
@@ -42,19 +51,45 @@ const response = await fetchWithRetry('https://api.example.com/data', {
   retries: 3,
   timeout: 5000
 });
+
+// Add namespace to object keys
+const data = { temperature: 25, humidity: 60 };
+const namespaced = addNamespace(data, 'sensor1'); 
+// { "temperature (sensor1)": 25, "humidity (sensor1)": 60 }
+
+// Detect device type from context
+const deviceType = detectDeviceType('building', 'floor2-room101');
+console.log(deviceType); // "room" or "unknown"
 ```
 
 ### Node.js (CJS)
 ```javascript
-const { decodePayload, fetchWithRetry, strings, numbers } = require('myio-js-library');
+const { 
+  decodePayload, 
+  fetchWithRetry, 
+  addNamespace, 
+  detectDeviceType,
+  strings, 
+  numbers 
+} = require('myio-js-library');
 ```
 
 ### Browser (CDN/UMD)
 ```html
 <script src="https://unpkg.com/myio-js-library@0.1.0/dist/myio-js-library.umd.min.js"></script>
 <script>
+  // Decode payload
   const text = MyIOJSLibrary.decodePayload('AwAVBwo=', 'key');
   console.log(text); // "hello"
+  
+  // Add namespace to data
+  const data = { temperature: 25, humidity: 60 };
+  const namespaced = MyIOJSLibrary.addNamespace(data, 'sensor1');
+  console.log(namespaced); // { "temperature (sensor1)": 25, "humidity (sensor1)": 60 }
+  
+  // Detect device type
+  const deviceType = MyIOJSLibrary.detectDeviceType('building', 'floor2-room101');
+  console.log(deviceType); // "room"
 </script>
 ```
 
@@ -121,6 +156,104 @@ const response = await fetchWithRetry('https://api.example.com/data', {
 #### `http(url: string, options?: object): Promise<Response>`
 
 Alias for `fetchWithRetry`.
+
+### Namespace Utilities
+
+#### `addNamespace(payload: object, namespace?: string): object`
+
+Adds a namespace suffix to all keys in an object. Useful for prefixing data from different sources or sensors.
+
+**Parameters:**
+- `payload: object` - The object whose keys will be namespaced (must be a plain object, not array)
+- `namespace?: string` - The namespace to append (optional, defaults to empty string)
+
+**Returns:** New object with namespaced keys in format `"originalKey (namespace)"`
+
+**Throws:** Error if payload is not a plain object
+
+```javascript
+import { addNamespace } from 'myio-js-library';
+
+// Basic usage
+const data = { temperature: 25, humidity: 60 };
+const result = addNamespace(data, 'sensor1');
+// { "temperature (sensor1)": 25, "humidity (sensor1)": 60 }
+
+// Empty namespace (no suffix added)
+const result2 = addNamespace(data, '');
+// { "temperature": 25, "humidity": 60 }
+
+// Whitespace handling
+const result3 = addNamespace(data, '  room-101  ');
+// { "temperature (room-101)": 25, "humidity (room-101)": 60 }
+```
+
+### Device Detection Utilities
+
+#### `detectDeviceType(context: string, deviceId: string): string`
+
+Detects device type based on context and device ID patterns. Uses built-in detection contexts for common environments.
+
+**Parameters:**
+- `context: string` - The context environment ('building', 'mall', etc.)
+- `deviceId: string` - The device identifier to analyze
+
+**Returns:** Detected device type or 'unknown' if no pattern matches
+
+**Built-in contexts:**
+- **building**: Detects rooms, floors, elevators, stairs, parking, entrance, exit
+- **mall**: Detects stores, corridors, escalators, elevators, parking, entrance, exit, food court, restrooms
+
+```javascript
+import { detectDeviceType } from 'myio-js-library';
+
+// Building context
+detectDeviceType('building', 'floor2-room101'); // "room"
+detectDeviceType('building', 'elevator-A'); // "elevator"
+detectDeviceType('building', 'parking-level1'); // "parking"
+
+// Mall context  
+detectDeviceType('mall', 'store-nike-001'); // "store"
+detectDeviceType('mall', 'corridor-main'); // "corridor"
+detectDeviceType('mall', 'food-court-area'); // "food_court"
+
+// Unknown patterns
+detectDeviceType('building', 'unknown-device'); // "unknown"
+```
+
+#### `getAvailableContexts(): string[]`
+
+Returns list of all available detection contexts.
+
+```javascript
+import { getAvailableContexts } from 'myio-js-library';
+
+const contexts = getAvailableContexts();
+// ['building', 'mall']
+```
+
+#### `addDetectionContext(contextName: string, patterns: object): void`
+
+Adds a new detection context with custom patterns.
+
+**Parameters:**
+- `contextName: string` - Name of the new context
+- `patterns: object` - Object mapping device types to regex patterns
+
+```javascript
+import { addDetectionContext, detectDeviceType } from 'myio-js-library';
+
+// Add custom hospital context
+addDetectionContext('hospital', {
+  room: /^(room|ward|chamber)-/i,
+  operating_room: /^(or|surgery|operating)-/i,
+  emergency: /^(er|emergency|trauma)-/i
+});
+
+// Use the new context
+detectDeviceType('hospital', 'room-icu-101'); // "room"
+detectDeviceType('hospital', 'or-surgery-3'); // "operating_room"
+```
 
 ### String Utilities
 
