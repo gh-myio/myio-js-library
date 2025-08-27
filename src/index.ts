@@ -46,6 +46,13 @@ export {
 // General utilities
 export { getValueByDatakey, getValueByDatakeyLegacy, findValue } from './utils/getValueByDatakey';
 
+// ThingsBoard utilities
+export {
+  getEntityInfoAndAttributesTB,
+  type TBFetchOptions,
+  type TBEntityInfo
+} from './thingsboard/entity';
+
 // Re-export existing utilities
 export { detectDeviceType, getAvailableContexts, addDetectionContext } from './utils/deviceType';
 export { addNamespace } from './utils/namespace';

@@ -289,18 +289,43 @@ strings.normalizeRecipients('a; b, c'); // "a,b,c"
 
 ### Number Utilities
 
-#### `formatNumberReadable(value: number): string`
+#### `formatNumberReadable(value: unknown, locale?: string, minimumFractionDigits?: number, maximumFractionDigits?: number): string`
 
-Formats numbers for Brazilian locale with 2 decimal places. Returns "-" for null, undefined, or NaN values.
+Formats numbers for Brazilian locale with robust input handling. Safely handles strings, numbers, and other types with sensible defaults.
+
+**Parameters:**
+- `value: unknown` - Value to format (number, string, or any other type)
+- `locale?: string` - Locale string (default: 'pt-BR')
+- `minimumFractionDigits?: number` - Minimum decimal places (default: 2)
+- `maximumFractionDigits?: number` - Maximum decimal places (default: 2)
+
+**Features:**
+- Handles string inputs with comma decimal separators (e.g., "12,34" → 12.34)
+- Normalizes -0 to 0
+- Returns "-" for null, undefined, NaN, or invalid inputs
+- Configurable locale and decimal places
 
 ```javascript
 import { formatNumberReadable } from 'myio-js-library';
 
+// Basic usage
 formatNumberReadable(1234.56); // "1.234,56"
 formatNumberReadable(1000); // "1.000,00"
 formatNumberReadable(12.3); // "12,30"
+
+// String inputs (handles comma separators)
+formatNumberReadable("1234,56"); // "1.234,56"
+formatNumberReadable("12.34"); // "12,34"
+
+// Invalid inputs
 formatNumberReadable(null); // "-"
 formatNumberReadable(NaN); // "-"
+formatNumberReadable("invalid"); // "-"
+
+// Custom locale and precision
+formatNumberReadable(1234.56, 'en-US'); // "1,234.56"
+formatNumberReadable(1234.56, 'pt-BR', 0, 0); // "1.235"
+formatNumberReadable(1234.56, 'pt-BR', 1, 3); // "1.234,560"
 ```
 
 #### `numbers.fmtPerc(x: number, digits?: number): string`
@@ -783,6 +808,83 @@ const legacyData = [
 ];
 findValue(legacyData, 'sensor1', 'temperature'); // 25
 ```
+
+### ThingsBoard Utilities
+
+#### `getEntityInfoAndAttributesTB(deviceId: string, opts: TBFetchOptions): Promise<TBEntityInfo>`
+
+Fetches a ThingsBoard device and its `SERVER_SCOPE` attributes with one call. Provides robust parsing and sensible defaults for direct UI use.
+
+**Parameters:**
+- `deviceId: string` - The ThingsBoard device ID
+- `opts: TBFetchOptions` - Configuration options:
+  - `jwt: string` - Bearer token for authentication (required)
+  - `baseUrl?: string` - ThingsBoard base URL (default: '', supports relative or absolute URLs)
+  - `scope?: string` - Attribute scope (default: 'SERVER_SCOPE')
+  - `attributeKeys?: string[]` - Specific attribute keys to fetch (optional)
+  - `fetcher?: typeof fetch` - Custom fetch implementation (default: globalThis.fetch)
+
+**Returns:** Promise resolving to `TBEntityInfo` object with:
+- `label: string` - Device label (fallback to name or 'Sem etiqueta')
+- `andar: string` - Floor information from 'floor' attribute
+- `numeroLoja: string` - Store number from 'NumLoja' attribute
+- `identificadorMedidor: string` - Meter ID from 'IDMedidor' attribute
+- `identificadorDispositivo: string` - Device ID from 'deviceId' attribute
+- `guid: string` - GUID from 'guid' attribute
+- `consumoDiario: number` - Daily consumption from 'maxDailyConsumption' attribute
+- `consumoMadrugada: number` - Night consumption from 'maxNightConsumption' attribute
+
+**UMD Usage (ThingsBoard widgets):**
+```html
+<script src="https://unpkg.com/myio-js-library@0.1.4/dist/myio-js-library.umd.min.js"></script>
+<script>
+  (async () => {
+    const { getEntityInfoAndAttributesTB } = MyIOLibrary;
+    const jwt = localStorage.getItem('jwt_token'); // or your JWT source
+    const deviceId = 'YOUR_DEVICE_ID';
+
+    try {
+      const info = await getEntityInfoAndAttributesTB(deviceId, { jwt });
+      console.log('TB entity info:', info);
+      // {
+      //   label: 'My Device',
+      //   andar: '1',
+      //   numeroLoja: 'A-12',
+      //   identificadorMedidor: 'ID-123',
+      //   identificadorDispositivo: 'DEV-456',
+      //   guid: '...',
+      //   consumoDiario: 10.5,
+      //   consumoMadrugada: 1.2
+      // }
+    } catch (error) {
+      console.error('Failed to fetch device info:', error);
+    }
+  })();
+</script>
+```
+
+**ESM Usage:**
+```javascript
+import { getEntityInfoAndAttributesTB } from 'myio-js-library';
+
+const info = await getEntityInfoAndAttributesTB('DEVICE_ID', {
+  jwt: process.env.TB_JWT!,
+  baseUrl: 'https://thingsboard.example.com'
+});
+```
+
+**Error Handling:**
+The function throws meaningful errors for:
+- Missing `deviceId` parameter
+- Missing `jwt` token
+- HTTP failures (device not found, authentication issues, etc.)
+- Missing fetch implementation
+
+**Robust Parsing:**
+- Numbers are safely coerced from strings (handles comma decimal separators)
+- Invalid numbers default to 0
+- Missing string attributes default to empty string
+- Handles null/undefined values gracefully
 
 ## 🧪 Development
 

@@ -7,39 +7,27 @@ const SDK = window.MyIOLibrary;
 // Pegue só o que você usa neste controller:
 const {
   // energia
-  formatEnergy,
-  formatAllInSameUnit,
-  fmtPerc,
+  formatEnergy, formatAllInSameUnit, fmtPerc,
+
+  // numbers
+  formatNumberReadable,
 
   // datas
-  formatDateToYMD,
-  determineInterval,
-  getSaoPauloISOString,
-  getDateRangeArray,
-  formatDateForInput,
-  parseInputDateToDate,
+  formatDateToYMD, determineInterval, getSaoPauloISOString,
+  getDateRangeArray, formatDateForInput, parseInputDateToDate,
 
   // dados util
   getValueByDatakey,
+
+  // thingsboard
+  getEntityInfoAndAttributesTB, 
 
   // (opcional) rede e codec caso queira usar depois
   // fetchWithRetry,
 } = SDK;
 
 // ===== ADAPTERS PEQUENOS (se precisar de nomes legados) ======================
-
-// Compat: no código abaixo você usava "formatEnergySDK" e "fmtPerc" locais.
-// Mantenha os mesmos nomes para evitar mexer no resto do arquivo.
 const formatEnergySDK = formatEnergy;
-
-// Se em algum ponto você esperava um "fmtPerc" que devolve "12.3" sem "%",
-// continue usando o da lib e acrescente o sufixo onde precisar.
-// Ex.: `(${fmtPerc(x)}%)`
-
-// Compat: você tinha um getSaoPauloISOString(dateStr, endOfDay) local.
-// Use o da lib (mesma assinatura).
-// Ex.: const iso = getSaoPauloISOString('2025-08-27', true);
-// 
 
 function createInfoCard(title, value, percentage, img) {
   return $(`
@@ -502,8 +490,7 @@ async function openDashboardPopupEnergi(
     interval: interval,
     theme: settings.theme || "light",
     timezone: timezone,
-    iframeBaseUrl:
-      settings.iframeBaseUrl || "https://graphs.ingestion.myio-bas.com",
+    iframeBaseUrl: settings.iframeBaseUrl || "https://graphs.ingestion.myio-bas.com",
     apiBaseUrl: apiBaseUrl,
     chartPath: settings.chartPath || "/embed/energy-bar",
   });
@@ -518,8 +505,7 @@ async function openDashboardPopupEnergi(
   };
 
   try {
-    const comparisonData =
-      await window.EnergyChartSDK.EnergyChart.getEnergyComparisonSum(params);
+    const comparisonData = await window.EnergyChartSDK.EnergyChart.getEnergyComparisonSum(params);
     window.consumption = comparisonData.currentPeriod.totalKwh || 0;
     lastConsumption = comparisonData.previousPeriod.totalKwh || 0;
 
@@ -604,7 +590,9 @@ async function openDashboardPopup(entityId, entityType, insueDate) {
     }
   }
 
-  const valores = await getEntityInfoAndAttributes(entityId, jwtToken);
+  const valores = await getEntityInfoAndAttributes(entityId, { 
+    jwt: jwtToken 
+  });
 
   const $popup = $(`
 <div id="dashboard-popup"
@@ -1404,21 +1392,6 @@ tr:hover {
   });
 
   $("#close-dashboard-popup").on("click", () => $("#dashboard-popup").remove());
-
-  // Aqui você pode adicionar sua lógica de atualização dos cards/tabela
-  // Exemplo simples de evitar duplicação:
-  function updateCardOrAdd(group, entityId, label, val, $card) {
-    const $existingCard = $(
-      `#dashboard-popup .device-card-centered[data-entity-id="${entityId}"]`
-    );
-    if ($existingCard.length) {
-      $existingCard.find(".consumption-value").text(val);
-    } else {
-      $(`#dashboard-popup .card-list[data-group="${group}"]`).append($card);
-    }
-  }
-
-  // E sua função de carregar dados e preencher a tabela/cards
 }
 
 function applySortAndDetectChanges() {
@@ -1480,14 +1453,6 @@ function exportToCSV(
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-}
-
-function formatNumberReadable(value) {
-  if (value == null || isNaN(value)) return "-";
-  return value.toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 }
 
 function habilitarBotaoExport() {
@@ -2058,6 +2023,20 @@ function updateInfoCardsAndChart(groupSums, items) {
   });
 }
 
+function classify(label) {
+  const l = (label || "").toLowerCase();
+
+  // Tudo que é “porta de entrada” de energia
+  if (/subesta|rel[óo]gio|entrada/.test(l)) return "Entrada e Relógios";
+
+  // Infra predial
+  if (/administra|adm\.?|bomba|chiller/.test(l))
+    return "Administração e Bombas";
+
+  // Demais: lojas
+  return "Lojas";
+}
+
 self.onInit = async function () {
   const ctx = self.ctx;
 
@@ -2209,20 +2188,6 @@ self.onInit = async function () {
     openWidgetFullScreen();
   });
 };
-
-function classify(label) {
-  const l = (label || "").toLowerCase();
-
-  // Tudo que é “porta de entrada” de energia
-  if (/subesta|rel[óo]gio|entrada/.test(l)) return "Entrada e Relógios";
-
-  // Infra predial
-  if (/administra|adm\.?|bomba|chiller/.test(l))
-    return "Administração e Bombas";
-
-  // Demais: lojas
-  return "Lojas";
-}
 
 self.onDataUpdated = async function () {
   const ctx = self.ctx;
