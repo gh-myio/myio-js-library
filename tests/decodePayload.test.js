@@ -4,7 +4,7 @@ import { decodePayload } from '../src/codec/decodePayload.js';
 describe('decodePayload', () => {
   it('should decode a simple base64 XOR encoded payload', () => {
     // Test data: "hello" XOR with key "key"
-    const encoded = 'BgcMCwY='; // Base64 encoded XOR result
+    const encoded = 'AwAVBwo='; // Base64 encoded XOR result
     const key = 'key';
     const expected = 'hello';
     
@@ -29,11 +29,24 @@ describe('decodePayload', () => {
   });
 
   it('should handle key longer than payload', () => {
-    const encoded = 'BgcMCwY='; // "hello" XOR "key"
+    // Test with a longer key - we'll encode "hello" with the longer key
+    const message = 'hello';
     const key = 'verylongkey';
     
+    // Manually encode for test
+    const encoder = new TextEncoder();
+    const messageBytes = encoder.encode(message);
+    const keyBytes = encoder.encode(key);
+    const xorBytes = new Uint8Array(messageBytes.length);
+    
+    for (let i = 0; i < messageBytes.length; i++) {
+      xorBytes[i] = messageBytes[i] ^ keyBytes[i % keyBytes.length];
+    }
+    
+    const encoded = btoa(String.fromCharCode(...xorBytes));
+    
     const result = decodePayload(encoded, key);
-    expect(result).toBe('hello');
+    expect(result).toBe(message);
   });
 
   it('should handle key shorter than payload', () => {
@@ -85,7 +98,7 @@ describe('decodePayload', () => {
   });
 
   it('should handle numeric keys', () => {
-    const encoded = 'BgcMCwY=';
+    const encoded = 'AwAVBwo=';
     const key = 123;
     
     const result = decodePayload(encoded, key);

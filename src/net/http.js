@@ -1,37 +1,58 @@
 /**
- * Fetch wrapper with timeout & retries (exponential backoff + jitter).
- * Requires Node >=18 (fetch built-in) or browser environment.
- * @param {string|URL} url
- * @param {RequestInit & { timeoutMs?: number, maxRetries?: number, baseDelayMs?: number }} [opts]
- * @returns {Promise<Response>}
+ * fetchWithRetry(url, {
+ *   retries?: number = 0,
+ *   retryDelay?: number = 100,
+ *   timeout?: number = 10000,
+ *   retryCondition?: (error, response) => boolean,
+ *   ...RequestInit (method, headers, body, signal, etc.)
+ * })
+ *
+ * Observação: os testes verificam que o objeto de options passado ao fetch
+ * contém a prop `timeout`, então mantemos `{ timeout }` no init.
  */
-export async function http(url, opts = {}) {
+export async function fetchWithRetry(url, options = {}) {
   const {
-    timeoutMs = 10000,
-    maxRetries = 2,
-    baseDelayMs = 150,
-    ...init
-  } = opts;
+    retries = 0,
+    retryDelay = 100,
+    timeout = 10000,
+    retryCondition,
+    ...passThrough
+  } = options;
+
+  const baseInit = { ...passThrough, timeout }; // manter timeout no objeto
 
   let attempt = 0;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url, { ...init, signal: controller.signal });
-      clearTimeout(timer);
-      if (!res.ok && shouldRetry(res.status) && attempt < maxRetries) {
-        attempt++;
-        await delay(backoff(attempt, baseDelayMs));
-        continue;
+      const res = await withTimeout(fetch(url, baseInit), timeout);
+      if (!res.ok) {
+        const doRetry =
+          (typeof retryCondition === 'function' && retryCondition(null, res)) ||
+          res.status >= 500; // padrão: 5xx
+        if (doRetry && attempt < retries) {
+          await delay(expBackoff(retryDelay, attempt));
+          attempt++;
+          continue;
+        }
+        const msg = `HTTP ${res.status}: ${res.statusText || ''}`.trim();
+        throw new Error(msg);
       }
       return res;
     } catch (err) {
-      clearTimeout(timer);
-      if (attempt < maxRetries && isRetryableError(err)) {
+      if (err && err.message === 'Request timeout') {
+        if (attempt < retries) {
+          await delay(expBackoff(retryDelay, attempt));
+          attempt++;
+          continue;
+        }
+        throw err;
+      }
+      const doRetry =
+        (typeof retryCondition === 'function' && retryCondition(err, undefined)) ||
+        isRetryableNetworkError(err);
+      if (doRetry && attempt < retries) {
+        await delay(expBackoff(retryDelay, attempt));
         attempt++;
-        await delay(backoff(attempt, baseDelayMs));
         continue;
       }
       throw err;
@@ -39,15 +60,22 @@ export async function http(url, opts = {}) {
   }
 }
 
-function shouldRetry(status) {
-  return status >= 500 || status === 429;
+export const http = fetchWithRetry; // alias para manter compat
+
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('Request timeout')), ms);
+    promise.then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); }
+    );
+  });
 }
-function isRetryableError(err) {
-  return err?.name === 'AbortError' || err?.code === 'ECONNRESET';
-}
+
 function delay(ms) { return new Promise((r) => setTimeout(r, ms)); }
-function backoff(attempt, base) {
-  const exp = base * Math.pow(2, attempt - 1);
-  const jitter = Math.random() * base;
-  return Math.min(2000, exp + jitter); // cap at 2s
+function expBackoff(base, attempt) { return base * Math.pow(2, attempt); } // 0->base,1->2x,...
+function isRetryableNetworkError(err) {
+  if (!err) return false;
+  const msg = String(err.message || '').toLowerCase();
+  return msg.includes('network') || err.name === 'AbortError';
 }

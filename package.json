@@ -17,8 +17,14 @@
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "sideEffects": false,
-  "engines": { "node": ">=18" },
-  "files": ["dist", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "clean": "rimraf dist",
     "build:tsup": "tsup src/index.js --format esm,cjs --dts=false --clean --outDir dist",
@@ -32,9 +38,11 @@
     "release": "npm run build && npm publish --access public"
   },
   "devDependencies": {
+    "@eslint/js": "^9.34.0",
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "eslint": "^9.11.1",
+    "globals": "^16.3.0",
     "rimraf": "^6.0.1",
     "rollup": "^4.21.0",
     "terser": "^5.31.6",

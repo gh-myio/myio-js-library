@@ -186,7 +186,7 @@ describe('fetchWithRetry', () => {
 
   it('should handle custom retry condition', async () => {
     const mockResponse = {
-      ok: true,
+      ok: false,
       status: 429, // Rate limited
       statusText: 'Too Many Requests'
     };

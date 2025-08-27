@@ -1,14 +1,21 @@
+export function decodePayload(encoded: string, key: string | number): string;
 export function decodePayloadBase64Xor(encoded: string, xorKey?: number): string;
 
-export function http(
+export function fetchWithRetry(
   url: string | URL,
-  opts?: RequestInit & { timeoutMs?: number; maxRetries?: number; baseDelayMs?: number }
+  options?: RequestInit & {
+    retries?: number;
+    retryDelay?: number;
+    timeout?: number;
+    retryCondition?: (error?: unknown, response?: Response) => boolean;
+  }
 ): Promise<Response>;
+
+export const http: typeof fetchWithRetry;
 
 export namespace strings {
   function normalizeRecipients(val: unknown): string;
 }
-
 export namespace numbers {
   function fmtPerc(x: number, digits?: number): string;
   function toFixedSafe(x: number, digits?: number): string;
