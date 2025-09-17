@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body style="overflow: hidden;flex-direction: column;width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background-color: black;">
+
+    <div style="width: 20vw;" id="content">
+        
+    </div>
+ 
+</body> 
+<script type="module">
+import { renderCardComponent } from './template-card.js';
+import { formatEnergy } from './energy.js';
+import { formatNumberReadable } from './numbers.js';
+
+const entityId = "844dcb60-9011-11f0-a06d-e9509531b1d5"
+const labelOrName = "PERNAMBUCANAS"
+const entityType = "DEVICE"
+const slaveId = "120"
+const ingestionId = "ce6a7e51-e642-4562-8d3d-8f492929d4df"
+const val = "126,14"
+const centralId = "d3202744-05dd-46d1-af33-495e9a2ecd52"
+  
+const isOn = true
+
+const perc = 80;
+const img = `https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k`;
+
+document.getElementById('content').innerHTML = renderCardComponent(entityId, labelOrName, entityType, slaveId, ingestionId, val, centralId, img, perc)
+// data-entity-updated-identifiers='${JSON.stringify(updatedIdentifiers)}'> const updatedIdentifiers = ""
+//entityId, labelOrName, entityType, slaveId, ingestionId, val, centralId, updatedIdentifiers, isOn, MyIOLibrary, perc, img
+</script>
+</html>
