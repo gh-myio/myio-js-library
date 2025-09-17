@@ -8,20 +8,13 @@ const SDK = window.MyIOLibrary;
 const {
   // energia
   formatEnergy, formatAllInSameUnit, fmtPerc,
-
   // numbers
   formatNumberReadable,
-
   // datas
   formatDateToYMD, determineInterval, getSaoPauloISOString,
   getDateRangeArray, formatDateForInput, parseInputDateToDate,
-
   // dados util
   getValueByDatakey,
-
-  // thingsboard
-  getEntityInfoAndAttributesTB, 
-
   // (opcional) rede e codec caso queira usar depois
   // fetchWithRetry,
 } = SDK;
@@ -92,10 +85,7 @@ async function openDashboardPopupEnergi(
   // Estado/variáveis globais para o widget
   window.consumption = 0;
   let percentageValue = 0; // percentual com sinal, número
-  let percentages = 0; // percentual sem sinal, string formatada (ex: "12.3")
   let percentageType = "neutral"; // "increase", "decrease", "neutral"
-  let isLoading = false;
-  let errorMessage = "";
   let lastConsumption = 0;
   const measurement = "kWh";
 
@@ -517,7 +507,6 @@ async function openDashboardPopupEnergi(
       percentageChange = 100;
     }
     percentageValue = percentageChange;
-    percentages = Math.abs(percentageChange).toFixed(1);
     percentageType =
       percentageChange > 0
         ? "increase"
@@ -1474,8 +1463,6 @@ function openDashboardPopupReport(
   entityComsuption,
   entityUpdatedIdentifiers
 ) {
-  const insueDate = $("#dashboard-popup").remove();
-
   const popupContent = `
 
     <div style="
@@ -2172,7 +2159,6 @@ self.onInit = async function () {
     $(".menu-item").removeClass("active");
     $(this).addClass("active");
 
-    const categoria = $(this).text().trim();
     // Alternar cards de energia/água/etc, se necessário
   });
 
@@ -2314,8 +2300,6 @@ self.onDataUpdated = async function () {
     "Administração e Bombas": 0,
     Lojas: 0,
   };
-
-  let totalGeral = 0;
 
   // Mapeia os dispositivos
   devices.forEach((device) => {

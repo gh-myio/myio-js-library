@@ -1,0 +1,23 @@
+name: RFC – Premium Report UI
+description: Track work to adopt the unified List & Cards report (phase 1)
+labels: ["rfc", "frontend", "widget", "report-ui"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue tracks the adoption of the unified premium report UI inside the existing popups.
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What popups/pages are in scope?
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Acceptance criteria
+      options:
+        - label: List & Card views toggle and render the same dataset
+        - label: Premium overlay shows status/timer/progress
+        - label: CSV/PDF exports generate valid files
+        - label: “Lojas” count + total consumption (energy popup) rendered
+        - label: No regression in v2 chart rendering

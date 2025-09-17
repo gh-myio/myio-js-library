@@ -1,0 +1,18 @@
+name: Tracking – Premium Report UI rollout
+description: High-level tracking for rollout across widgets
+labels: ["tracking", "frontend", "widget"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this meta issue to coordinate PRs and environments.
+  - type: checkboxes
+    id: rollout
+    attributes:
+      label: Rollout tasks
+      options:
+        - label: Energy popup (`openDashboardPopupAllReport`) wired to new UI
+        - label: Temperature report wired to new UI
+        - label: Exports validated in both
+        - label: Admin modal password flow verified
+        - label: Docs in repo (README + usage) finalized

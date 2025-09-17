@@ -45,4 +45,28 @@ export default [
       },
     },
   },
+
+  // overrides para arquivos que rodam no browser (PRE_SETUP, MAIN_WATER, TO_CHECK)
+  {
+    files: ['src/PRE_SETUP/**/*.js', 'src/MAIN_WATER/**/*.js', 'src/TO_CHECK/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.es2021,
+        // APIs específicas do browser
+        fetch: 'readonly',
+        atob: 'readonly',
+        btoa: 'readonly',
+        TextDecoder: 'readonly',
+        TextEncoder: 'readonly',
+        AbortController: 'readonly',
+        Response: 'readonly',
+        // Bibliotecas externas usadas
+        QRious: 'readonly',
+        jsPDF: 'readonly',
+        // Widget context (ThingsBoard specific)
+        self: 'readonly',
+      },
+    },
+  },
 ];
