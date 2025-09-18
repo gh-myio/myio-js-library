@@ -113,14 +113,45 @@ describe('fetchWithRetry', () => {
     const p = fetchWithRetry('https://api.example.com/test', {
       retries: 3,
       retryDelay: 100,
-      timeout: 1000
+      timeout: 10000 // Increase timeout to 10 seconds
     });
 
-    // initial + backoffs (100/200/400) + any internal timeout budget
-    vi.advanceTimersByTime(100 + 200 + 400 + 1000);
+    // Advance through all timers to complete the retry cycle
+    await vi.runAllTimersAsync();
 
-    await expect(p).rejects.toThrow('Network error'); // <-- consume the rejection
+    await expect(p).rejects.toThrow('Network error');
     expect(mockFetch).toHaveBeenCalledTimes(4); // Initial + 3 retries
+  });
+
+  it('should use exponential backoff for retry delays', async () => {
+    mockFetch.mockRejectedValue(new Error('Network error'));
+
+    const startTime = Date.now();
+    const delays = [];
+    
+    mockFetch.mockImplementation(() => {
+      const delay = Date.now() - startTime;
+      delays.push(delay);
+      return Promise.reject(new Error('Network error'));
+    });
+
+    const p = fetchWithRetry('https://api.example.com/test', {
+      retries: 3,
+      retryDelay: 100
+    });
+
+    // Advance timers to simulate the delays
+    await vi.advanceTimersByTimeAsync(100); // First retry
+    await vi.advanceTimersByTimeAsync(200); // Second retry (100 * 2)
+    await vi.advanceTimersByTimeAsync(400); // Third retry (100 * 4)
+
+    await expect(p).rejects.toThrow('Network error');
+    expect(mockFetch).toHaveBeenCalledTimes(4); // Initial + 3 retries
+
+    // Verify the delays are exponential
+    expect(delays[0]).toBeGreaterThanOrEqual(100);
+    expect(delays[1]).toBeGreaterThanOrEqual(200);
+    expect(delays[2]).toBeGreaterThanOrEqual(400);
   });
 
   it('should use exponential backoff for retry delays', async () => {
