@@ -68,6 +68,8 @@ export { http, fetchWithRetry } from './net/http';
 // Codec utilities (additional exports)
 export { decodePayloadBase64Xor } from './codec/decodePayload';
 
+export { renderCardComponent } from './thingsboard/main-dashboard-shopping/v-4.0.0/card/template-card.js';
+
 // Utils namespace exports
 export * as strings from './utils/strings';
 export * as numbers from './utils/numbers';
