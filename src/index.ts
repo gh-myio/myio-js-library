@@ -63,7 +63,7 @@ export { normalizeRecipients } from './utils/strings';
 export { decodePayload } from './codec/decodePayload';
 
 // Network utilities
-export { http, fetchWithRetry } from './net/http';
+//export { http, fetchWithRetry } from './net/http';
 
 // Codec utilities (additional exports)
 export { decodePayloadBase64Xor } from './codec/decodePayload';
