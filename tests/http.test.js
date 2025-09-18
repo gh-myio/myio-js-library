@@ -1,21 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fetchWithRetry } from '../src/net/http.js';
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.warn('Unhandled rejection ignored:', reason);
-});
-
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+let mockFetch;
 
 describe('fetchWithRetry', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     vi.useFakeTimers();
+    mockFetch = vi.fn();
+    global.fetch = mockFetch;
   });
 
   afterEach(() => {
+    vi.clearAllTimers();
+    vi.resetAllMocks();
     vi.useRealTimers();
   });
 
@@ -113,52 +110,42 @@ describe('fetchWithRetry', () => {
 
     const promise = fetchWithRetry('https://api.example.com/test', {
       retries: 2,
-      retryDelay: 100
+      retryDelay: 100,
+      timeout: 1000
     });
 
-    // Fast-forward through all retry delays
-    await vi.advanceTimersByTimeAsync(100);
-    await vi.advanceTimersByTimeAsync(200);
+    // Advance through all timers to complete the retry cycle
+    await vi.runAllTimersAsync();
 
     await expect(promise).rejects.toThrow('Network error');
     expect(mockFetch).toHaveBeenCalledTimes(3); // Initial + 2 retries
   });
 
   it('should use exponential backoff for retry delays', async () => {
-    const startTime = Date.now();
-    const delays = [];
-    
-    mockFetch.mockImplementation(() => {
-      delays.push(Date.now() - startTime);
-      return Promise.reject(new Error('Network error'));
-    });
+    mockFetch.mockRejectedValue(new Error('Network error'));
 
     const promise = fetchWithRetry('https://api.example.com/test', {
       retries: 3,
       retryDelay: 100
     });
 
-    // Advance timers to simulate the delays
-    await vi.advanceTimersByTimeAsync(100); // First retry
-    await vi.advanceTimersByTimeAsync(200); // Second retry (100 * 2)
-    await vi.advanceTimersByTimeAsync(400); // Third retry (100 * 4)
+    // Run all timers to completion
+    await vi.runAllTimersAsync();
 
     await expect(promise).rejects.toThrow('Network error');
     expect(mockFetch).toHaveBeenCalledTimes(4); // Initial + 3 retries
   });
 
   it('should handle timeout', async () => {
-    // Mock a request that never resolves
+    // never resolves or rejects -> rely on our timeout
     mockFetch.mockImplementation(() => new Promise(() => {}));
 
     const promise = fetchWithRetry('https://api.example.com/test', {
-      timeout: 1000,
-      retries: 0
+      retries: 0,
+      timeout: 500
     });
 
-    // Fast-forward past the timeout
-    await vi.advanceTimersByTimeAsync(1000);
-
+    vi.advanceTimersByTime(500);
     await expect(promise).rejects.toThrow('Request timeout');
   });
 

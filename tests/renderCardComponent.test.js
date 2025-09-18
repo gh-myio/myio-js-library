@@ -1,7 +1,104 @@
+// @vitest-environment jsdom
+
 /* eslint-disable */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { JSDOM } from "jsdom";
 import { renderCardComponent } from "../src/thingsboard/main-dashboard-shopping/v-4.0.0/card/template-card";
+
+// Mock jQuery for the component
+global.$ = (selector) => {
+  if (typeof selector === 'string') {
+    // Check if it's HTML (contains < and >)
+    if (selector.trim().startsWith('<') && selector.includes('>')) {
+      // HTML string - create element from HTML
+      const div = document.createElement('div');
+      div.innerHTML = selector;
+      const element = div.firstElementChild;
+      return mockJQueryElement(element);
+    } else {
+      // CSS selector - query the document
+      try {
+        const element = document.querySelector(selector);
+        return mockJQueryElement(element);
+      } catch (e) {
+        // Invalid selector, return empty jQuery object
+        return mockJQueryElement(null);
+      }
+    }
+  } else {
+    // DOM element or other object
+    return mockJQueryElement(selector);
+  }
+};
+
+function mockJQueryElement(element) {
+  return {
+    get: (index) => index === 0 ? element : undefined,
+    0: element,
+    length: element ? 1 : 0,
+    find: (selector) => {
+      if (!element) return mockJQueryElement(null);
+      const found = element.querySelector(selector);
+      return mockJQueryElement(found);
+    },
+    on: (event, handler) => {
+      if (element) element.addEventListener(event, handler);
+      return mockJQueryElement(element);
+    },
+    click: (handler) => {
+      if (handler && element) {
+        element.addEventListener('click', handler);
+      } else if (element) {
+        element.click();
+      }
+      return mockJQueryElement(element);
+    },
+    addClass: (className) => {
+      if (element) element.classList.add(className);
+      return mockJQueryElement(element);
+    },
+    removeClass: (className) => {
+      if (element) element.classList.remove(className);
+      return mockJQueryElement(element);
+    },
+    hasClass: (className) => {
+      return element ? element.classList.contains(className) : false;
+    },
+    attr: (name, value) => {
+      if (!element) return undefined;
+      if (value !== undefined) {
+        element.setAttribute(name, value);
+        return mockJQueryElement(element);
+      }
+      return element.getAttribute(name);
+    },
+    html: (content) => {
+      if (!element) return '';
+      if (content !== undefined) {
+        element.innerHTML = content;
+        return mockJQueryElement(element);
+      }
+      return element.innerHTML;
+    },
+    text: (content) => {
+      if (!element) return '';
+      if (content !== undefined) {
+        element.textContent = content;
+        return mockJQueryElement(element);
+      }
+      return element.textContent;
+    },
+    append: (content) => {
+      if (element) {
+        if (typeof content === 'string') {
+          element.insertAdjacentHTML('beforeend', content);
+        } else {
+          element.appendChild(content);
+        }
+      }
+      return mockJQueryElement(element);
+    }
+  };
+}
 
 // Mock do MyIO global
 global.MyIO = {
@@ -12,12 +109,10 @@ global.MyIO = {
 
 describe("renderCardComponent com mockEntities", () => {
   let mockEntities;
-  let dom;
 
   beforeEach(() => {
-    dom = new JSDOM(`<!DOCTYPE html><body><div id="container"></div></body>`);
-    global.document = dom.window.document;
-    global.window = dom.window;
+    // Clean up the DOM and add container
+    document.body.innerHTML = '<div id="container"></div>';
 
     // Mock de entidades
     mockEntities = [
@@ -69,21 +164,24 @@ describe("renderCardComponent com mockEntities", () => {
   it("renderiza todos os cards no container", () => {
     const container = document.getElementById("container");
     mockEntities.forEach((entity) => {
-      const card = renderCardComponent({ entityObject: entity });
+      const cardJQuery = renderCardComponent({ entityObject: entity });
+      const card = cardJQuery.get(0); // Get the actual DOM element
       container.appendChild(card);
     });
     expect(container.children.length).toBe(3);
   });
 
   it("aplica classe offline corretamente", () => {
-    const card = renderCardComponent({ entityObject: mockEntities[1] });
+    const cardJQuery = renderCardComponent({ entityObject: mockEntities[1] });
+    const card = cardJQuery.get(0); // Get the actual DOM element
     expect(card.classList.contains("offline")).toBe(true);
     const flashIcon = card.querySelector(".flash-icon");
     expect(flashIcon.textContent.trim()).toBe("🚨");
   });
 
   it("usa MyIOLibrary para formatar valores", () => {
-    const card = renderCardComponent({ entityObject: mockEntities[0] });
+    const cardJQuery = renderCardComponent({ entityObject: mockEntities[0] });
+    const card = cardJQuery.get(0); // Get the actual DOM element
     const consumo = card.querySelector(".consumption-value").textContent;
     expect(consumo).toBe("1250 kWh · entrada");
     const perc = card.querySelector(".device-title-percent").textContent;
@@ -92,10 +190,11 @@ describe("renderCardComponent com mockEntities", () => {
 
   it("dispara handler ao clicar no dashboard", () => {
     const mockDashboard = vi.fn();
-    const card = renderCardComponent({
+    const cardJQuery = renderCardComponent({
       entityObject: mockEntities[0],
       handleActionDashboard: mockDashboard,
     });
+    const card = cardJQuery.get(0); // Get the actual DOM element
     const dashboardBtn = card.querySelector(".action-dashboard");
     dashboardBtn.click();
     expect(mockDashboard).toHaveBeenCalledWith(mockEntities[0]);
@@ -103,10 +202,11 @@ describe("renderCardComponent com mockEntities", () => {
 
   it("dispara handler ao clicar no checkbox", () => {
     const mockSelect = vi.fn();
-    const card = renderCardComponent({
+    const cardJQuery = renderCardComponent({
       entityObject: mockEntities[1],
       handleSelect: mockSelect,
     });
+    const card = cardJQuery.get(0); // Get the actual DOM element
     const checkbox = card.querySelector(".action-checker");
     checkbox.click();
     expect(mockSelect).toHaveBeenCalledWith(mockEntities[1]);
