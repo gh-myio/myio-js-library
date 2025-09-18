@@ -1,3 +1,4 @@
+/* eslint-disable */
 // ===== MYIO SDK (UMD) ========================================================
 if (!window.MyIOLibrary) {
   throw new Error('MyIOLibrary UMD not available. Check the <script> tag + version.');

@@ -1,3 +1,4 @@
+/* eslint-disable */
 // UMD assertions and shorthands
 if (!window.MyIOJSLibrary) {
   throw new Error('MyIOJSLibrary UMD not available. Please ensure the library is loaded.');
