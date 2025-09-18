@@ -20,8 +20,6 @@
     formatNumberReadable: (n) => Number(n ?? 0).toFixed(1)
   };
 import { renderCardComponent } from './template-card.js';
-import { formatEnergy } from './energy.js';
-import { formatNumberReadable } from './numbers.js';
 
 const entityId = "844dcb60-9011-11f0-a06d-e9509531b1d5"
 const labelOrName = "PERNAMBUCANAS"
@@ -36,15 +34,13 @@ const isOn = true
 const perc = 80;
 const img = `https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k`;
 
-/*
+
 document.getElementById('content').innerHTML = 
     renderCardComponent({
         entityObject: { entityId: "1", labelOrName: "Pump", val: 900, group: "adm" }, 
         handleActionDashboard: console.log
     });
-    */
 
-      // Mock de entidades
 // Mock de entidades
 const mockEntities = [
   {
