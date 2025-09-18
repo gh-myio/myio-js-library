@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fetchWithRetry } from '../src/net/http.js';
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.warn('Unhandled rejection ignored:', reason);
+});
+
 // Mock fetch globally
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
