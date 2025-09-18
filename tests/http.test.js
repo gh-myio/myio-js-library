@@ -5,12 +5,14 @@ let mockFetch;
 
 describe('fetchWithRetry', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers();                  // drive all time ourselves
     mockFetch = vi.fn();
     global.fetch = mockFetch;
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // ensure no pending backoff/timeout ticks keep running after the test
+    await vi.runAllTimersAsync();        // drain pending timers (Vitest v2 supports this)
     vi.clearAllTimers();
     vi.resetAllMocks();
     vi.useRealTimers();
@@ -108,31 +110,34 @@ describe('fetchWithRetry', () => {
   it('should throw error after exhausting all retries', async () => {
     mockFetch.mockRejectedValue(new Error('Network error'));
 
-    const promise = fetchWithRetry('https://api.example.com/test', {
-      retries: 2,
+    const p = fetchWithRetry('https://api.example.com/test', {
+      retries: 3,
       retryDelay: 100,
       timeout: 1000
     });
 
-    // Advance through all timers to complete the retry cycle
-    await vi.runAllTimersAsync();
+    // initial + backoffs (100/200/400) + any internal timeout budget
+    vi.advanceTimersByTime(100 + 200 + 400 + 1000);
 
-    await expect(promise).rejects.toThrow('Network error');
-    expect(mockFetch).toHaveBeenCalledTimes(3); // Initial + 2 retries
+    await expect(p).rejects.toThrow('Network error'); // <-- consume the rejection
+    expect(mockFetch).toHaveBeenCalledTimes(4); // Initial + 3 retries
   });
 
   it('should use exponential backoff for retry delays', async () => {
     mockFetch.mockRejectedValue(new Error('Network error'));
 
-    const promise = fetchWithRetry('https://api.example.com/test', {
+    const p = fetchWithRetry('https://api.example.com/test', {
       retries: 3,
       retryDelay: 100
     });
 
-    // Run all timers to completion
-    await vi.runAllTimersAsync();
+    // deterministically step through the schedule
+    vi.advanceTimersByTime(0);    // initial
+    vi.advanceTimersByTime(100);  // retry #1
+    vi.advanceTimersByTime(200);  // retry #2
+    vi.advanceTimersByTime(400);  // retry #3
 
-    await expect(promise).rejects.toThrow('Network error');
+    await expect(p).rejects.toThrow('Network error');
     expect(mockFetch).toHaveBeenCalledTimes(4); // Initial + 3 retries
   });
 
