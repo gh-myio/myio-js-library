@@ -47,11 +47,11 @@ export {
 export { getValueByDatakey, getValueByDatakeyLegacy, findValue } from './utils/getValueByDatakey';
 
 // ThingsBoard utilities
-export {
-  getEntityInfoAndAttributesTB,
-  type TBFetchOptions,
-  type TBEntityInfo
-} from './thingsboard/entity';
+// export {
+//   getEntityInfoAndAttributesTB,
+//   type TBFetchOptions,
+//   type TBEntityInfo
+// } from './thingsboard/entity';
 
 // Re-export existing utilities
 export { detectDeviceType, getAvailableContexts, addDetectionContext } from './utils/deviceType';
@@ -63,10 +63,12 @@ export { normalizeRecipients } from './utils/strings';
 export { decodePayload } from './codec/decodePayload';
 
 // Network utilities
-export { http, fetchWithRetry } from './net/http';
+//export { http, fetchWithRetry } from './net/http';
 
 // Codec utilities (additional exports)
 export { decodePayloadBase64Xor } from './codec/decodePayload';
+
+export { renderCardComponent } from './thingsboard/main-dashboard-shopping/v-4.0.0/card/template-card.js';
 
 // Utils namespace exports
 export * as strings from './utils/strings';
