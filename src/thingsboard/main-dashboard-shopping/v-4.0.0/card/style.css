@@ -9,7 +9,7 @@ body{
 }
 
 #content {
-  width: 35vw;
+  width: 55vw;
   display: flex;
   flex-wrap: wrap; /* permite quebrar linha */
   justify-content: center;

@@ -24,16 +24,28 @@ export function renderCardComponent({
     connectionStatus,
     centralName,
     connectionStatusTime,
+    timaVal,
+    valType,
   } = entityObject;
 
   // Fallback seguro: não use "MyIOLibrary" direto
   const MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary) ||
     (typeof window !== "undefined" && window.MyIOLibrary) || {
-      formatEnergyByGroup: (v, g) => `${v} kWh${g ? " · " + g : ""}`,
+      formatEnergyByGroup: (v, g) => `${v} kWh`,
       formatNumberReadable: (n) => Number(n ?? 0).toFixed(1),
     };
 
-  const valFormatted = MyIO.formatEnergyByGroup(val, group);
+  let valFormatted = MyIO.formatEnergyByGroup(val);
+
+  if (valType === "ENERGY") {
+    valFormatted = MyIO.formatEnergyByGroup(val);
+  } else if (valType === "WATER") {
+    valFormatted = `${val} m³`;
+  } else if (valType === "TANK") {
+    valFormatted = `${val} m.c.a`;
+  } else {
+    valFormatted = val;
+  }
   const percFormatted = MyIO.formatNumberReadable(perc);
 
   // Injeta CSS uma única vez
@@ -141,6 +153,7 @@ export function renderCardComponent({
   box-shadow: 1px 0 2px rgba(0, 0, 0, .1);
   display: flex;
   flex-direction: column;
+  padding: 0 4px;
   justify-content: space-around;
   align-items: center;
 }
@@ -242,7 +255,7 @@ export function renderCardComponent({
   cursor: pointer;
   padding: 4px;
   border-radius: 50%;
-  transition: background 0.2s;
+  transition: background 0.2s;l
 }
 .device-card-back {
   transform: rotateY(180deg); /* faz o flip funcionar */
@@ -320,40 +333,86 @@ export function renderCardComponent({
     `;
     document.head.appendChild(style);
   }
+  let formattedDateVal;
+  let formattedDate;
+  let Infcolor = "#5cb85c";
+  if (connectionStatusTime) {
+    const date = new Date(connectionStatusTime);
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0"); // mês começa do 0
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
 
-  let img = "";
+    formattedDate = `Online: (${day}/${month}/${year} - ${hours}:${minutes})`;
+
+    const datVal = new Date(timaVal);
+    const dayVal = String(datVal.getDate()).padStart(2, "0");
+    const monthVal = String(datVal.getMonth() + 1).padStart(2, "0"); // mês começa do 0
+    const yearVal = date.getFullYear();
+    const hoursVal = String(date.getHours()).padStart(2, "0");
+    const minutesVal = String(date.getMinutes()).padStart(2, "0");
+
+    const now = new Date();
+    const diffMs = now - datVal;
+
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    let diffText = "";
+    if (diffMinutes < 60) {
+      diffText = `${diffMinutes} minuto${diffMinutes !== 1 ? "s" : ""}`;
+    } else if (diffHours < 24) {
+      diffText = `${diffHours} hora${diffHours !== 1 ? "s" : ""}`;
+    } else {
+      diffText = `${diffDays} dia${diffDays !== 1 ? "s" : ""} `;
+    }
+    formattedDateVal = `${dayVal}/${monthVal}/${yearVal} - ${hoursVal}:${minutesVal} (${diffText})`;
+
+    
+    if (diffHours >= 24) {
+      Infcolor = "#cc2900"; // Mais de 24h: vermelho
+    } else if (diffMinutes >= 30) {
+      Infcolor = "#e89105"; // Entre 30min e 24h: laranja
+    }
+  } else {
+    Infcolor = "#d6dcdd"; // Sem dados: cinza
+  }
+
+  //
+
+  // Função utilitária para normalizar strings
   function normalizeString(str) {
     return str
       .normalize("NFD") // separa letras dos acentos
       .replace(/[\u0300-\u036f]/g, "") // remove os acentos
-      .toUpperCase(); // deixa maiúsculo
+      .toUpperCase(); // deixa em maiúsculo
   }
 
-  let nameType = normalizeString(deviceType);
+  // Mapeamento de imagens por tipo de dispositivo
+  const deviceImages = {
+    MOTOR:
+      "https://dashboard.myio-bas.com/api/images/public/8Ezn8qVBJ3jXD0iDfnEAZ0MZhAP1b5Ts",
+    "3F_MEDIDOR":
+      "https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k",
+    RELOGIO:
+      "https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB",
+    HIDROMETRO:
+      "https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4",
+    ENTRADA:
+      "https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU",
+    CAIXA_DAGUA:
+      "https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq",
+  };
 
-  if (nameType === "MOTOR") {
-    img =
-      "https://dashboard.myio-bas.com/api/images/public/8Ezn8qVBJ3jXD0iDfnEAZ0MZhAP1b5Ts";
-  } else if (nameType === "3F_MEDIDOR") {
-    img =
-      "https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k";
-  } else if (nameType === "RELOGIO") {
-    img =
-      "https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB";
-  } else if (nameType === "HIDROMETRO") {
-    img =
-      "https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4";
-  } else if (nameType === "ENTRADA") {
-    img =
-      "https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU";
-  } 
-    else if (nameType === "CAIXA_DAGUA"){
-      img =
-       "https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq";
-    }
-    else {
-    img = "https://cdn-icons-png.flaticon.com/512/1178/1178428.png";
-  }
+  // URL padrão caso o tipo não seja encontrado
+  const defaultImage =
+    "https://cdn-icons-png.flaticon.com/512/1178/1178428.png";
+
+  // Normaliza e busca a imagem correspondente
+  const nameType = normalizeString(deviceType);
+  const img = deviceImages[nameType] || defaultImage;
 
   // Template HTML do card
   const html = `
@@ -432,7 +491,7 @@ export function renderCardComponent({
           handInfo
             ? `
           <button id="infoButtom-front" class="device-info info-button">
-            <svg xmlns="http://www.w3.org/2000/svg" height="17px" viewBox="0 -960 960 960" width="17px" >
+            <svg xmlns="http://www.w3.org/2000/svg" height="17px" viewBox="0 -960 960 960" width="17px" fill=${Infcolor}>
               <path d="M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/>
             </svg>
           </button>`
@@ -442,15 +501,14 @@ export function renderCardComponent({
         <div class="device-card-back" >
         <div id="status-bar"> 
           <div id="status-information">
-   
             <div style="font-size: 0.85rem; font-weight: bold;  line-height: 1;"><span>Central: ${centralName}</span></div>
             <div style="display: flex; flex-direction: row; gap: 4px;  font-weight: bold; align-items: center;">
-              <div style="font-size: 12px; font-weight: bold;  line-height: 1;"><span></span></div>
+              <div style="font-size: 12px; font-weight: bold;  line-height: 1;"><span> ${formattedDate}</span></div>
               <div style="font-size: 10px; line-height: 1;"><span></span></div> 
             </div>
           </div>
           <button id="infoButtom-back" class="device-info" style="background:none; border:none; cursor:pointer;">
-            <svg xmlns="http://www.w3.org/2000/svg" height="17px" viewBox="0 -960 960 960" width="17px" >
+            <svg xmlns="http://www.w3.org/2000/svg" height="17px" viewBox="0 -960 960 960" width="17px" fill=${Infcolor}>
               <path d="M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/>
             </svg>
           </button>
@@ -460,12 +518,12 @@ export function renderCardComponent({
           <svg xmlns="http://www.w3.org/2000/svg" height="30px" viewBox="0 -960 960 960" width="30px" fill="#dea404">
             <path d="m456-200 174-340H510v-220L330-420h126v220Zm24 120q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/>
           </svg>
-          <div><span>-- kW</span></div>
+          <div><span>${MyIO.formatEnergyByGroup(val / 1000) || "-"}</span></div>
         </div>
 
         <div id="lastconsumptionTime">
           <div style="font-size: 12px; font-weight: bold; color: black; line-height: 1;">Ultima Telemetria:</div>
-          <div style="font-size: 11px; font-weight: bold; color: black; line-height: 1;"></div>
+          <div style="font-size: 11px; font-weight: bold; color: black; line-height: 1;">${formattedDateVal}</div>
         </div>
       </div>
     </div>
@@ -508,7 +566,7 @@ export function renderCardComponent({
       e.stopPropagation();
       handleClickCard(entityObject);
     });
-  } 
+  }
 
   $card.on("click", (e) => {
     if (!$(e.target).closest(".card-action").length) {
