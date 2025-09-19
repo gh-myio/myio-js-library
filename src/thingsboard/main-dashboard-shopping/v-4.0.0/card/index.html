@@ -1,111 +1,151 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link href="style.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <div id="content"></div>
 
-</head>
-<body style="overflow: hidden;flex-direction: column;width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background-color: black;">
-
-    <div style="width: 20vw;" id="content">
-        
-    </div>
- 
-</body> 
-<script type="module">
+    <script type="module">
       window.MyIOLibrary = window.MyIOLibrary || {
-    formatEnergyByGroup: (v, g) => `${v} kWh${g ? " · " + g : ""}`,
-    formatNumberReadable: (n) => Number(n ?? 0).toFixed(1)
-  };
-import { renderCardComponent } from './template-card.js';
+        formatEnergyByGroup: (v, g) => `${v} kWh${g ? " · " + g : ""}`,
+        formatNumberReadable: (n) => Number(n ?? 0).toFixed(1),
+      };
+      import { renderCardComponent } from "./template-card.js";
 
-const entityId = "844dcb60-9011-11f0-a06d-e9509531b1d5"
-const labelOrName = "PERNAMBUCANAS"
-const entityType = "DEVICE"
-const slaveId = "120"
-const ingestionId = "ce6a7e51-e642-4562-8d3d-8f492929d4df"
-const val = "126,14"
-const centralId = "d3202744-05dd-46d1-af33-495e9a2ecd52"
-  
-const isOn = true
+      // Mock de entidades
+      const mockEntities = [
+        {
+          entityId: "dev-001",
+          labelOrName: "Bomba Giovani",
+          entityType: "DEVICE",
+          deviceType: "MOTOR",
+          slaveId: "01",
+          ingestionId: "ing-aaa",
+          val: 1250,
+          centralId: "21.111.222.333",
+          isOn: true,
+          perc: 45,
+          group: "adm",
+          connectionStatus: "online",
+          handInfo: true,
+          valType: "ENERGY",
+          centralName:"Campinas",
+          connectionStatusTime: 173699742300
+        },
+        {
+          entityId: "dev-003",
+          labelOrName: "Relógio Externo",
+          entityType: "DEVICE",
+          deviceType: "RELÓGIO",
+          slaveId: "03",
+          ingestionId: "ing-ccc",
+          val: 1560,
+          centralId: "21.111.222.335",
+          isOn: true,
+          perc: 75,
+          group: "entrada",
+          connectionStatus: "offline",
+          valType: "ENERGY",
+          centralName:"Mestre Álvare",
+          connectionStatusTime: 1736997423000
+        },
+        {
+          entityId: "dev-004",
+          labelOrName: "Hidr. Cardeman",
+          entityType: "DEVICE",
+          deviceType: "HIDROMETRO",
+          slaveId: "04",
+          ingestionId: "ing-ccc",
+          val: 1560,
+          centralId: "21.111.222.335",
+          isOn: true,
+          perc: 85,
+          group: "ambientes",
+          connectionStatus: "online",
+          valType: "ENERGY",
+          centralName:"Teta",
+          connectionStatusTime: 1736997423000
+        },
+        {
+          entityId: "dev-005",
+          labelOrName: "Loja do Vitinho",
+          entityType: "DEVICE",
+          deviceType: "3F_MEDIDOR",
+          slaveId: "05",
+          ingestionId: "ing-ccc",
+          val: 1560,
+          centralId: "21.111.222.335",
+          isOn: true,
+          perc: 85,
+          group: "lojas",
+          connectionStatus: "offline",
+          valType: "ENERGY",
+          centralName:"Ilha Plaza",
+          connectionStatusTime: 1736997423000
 
-const perc = 80;
-const img = `https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k`;
+        },
+        {
+          entityId: "dev-005",
+          labelOrName: "Entrada Poderosa",
+          entityType: "DEVICE",
+          deviceType: "ENTRADa",
+          slaveId: "05",
+          ingestionId: "ing-ccc",
+          val: 1560,
+          centralId: "21.111.222.335",
+          isOn: true,
+          perc: 85,
+          group: "entrada",
+          connectionStatus: "online",
+          valType: "WATER",
+          centralName:"Meir",
+          connectionStatusTime: 1736997423000
+        },
+        {
+          entityId: "dev-006",
+          labelOrName: "Caixa D'TETA",
+          entityType: "DEVICE",
+          deviceType: "CAIXA_DAGUA",
+          slaveId: "05",
+          ingestionId: "ing-ccc",
+          val: 1560,
+          centralId: "21.111.222.335",
+          isOn: true,
+          perc: 85,
+          group: "entrada",
+          connectionStatus: "offline",
+          valType: "TANK",
+          centralName:"BB Campos",
+          connectionStatusTime: 1736997423000
 
+        },
+      ];
 
-document.getElementById('content').innerHTML = 
-    renderCardComponent({
-        entityObject: { entityId: "1", labelOrName: "Pump", val: 900, group: "adm" }, 
-        handleActionDashboard: console.log
-    });
+      // Mock de handlers
+      function logHandler(type) {
+        return (entity) => console.log(`[${type}]`, entity);
+      }
 
-// Mock de entidades
-const mockEntities = [
-  {
-    entityId: "dev-001",
-    labelOrName: "Bomba Principal",
-    entityType: "DEVICE",
-    slaveId: "01",
-    ingestionId: "ing-aaa",
-    val: 1250,
-    centralId: "21.111.222.333",
-    img: "https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k",
-    isOn: true,
-    perc: 45,
-    group: "entrada",
-    connectionStatus: "online"
-  },
-  {
-    entityId: "dev-002",
-    labelOrName: "Chiller Resfriamento",
-    entityType: "DEVICE",
-    slaveId: "02",
-    ingestionId: "ing-bbb",
-    val: 980,
-    centralId: "21.111.222.334",
-    img: "https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k",
-    isOn: false,
-    perc: 30,
-    group: "adm",
-    connectionStatus: "offline"
-  },
-  {
-    entityId: "dev-003",
-    labelOrName: "Relógio Externo",
-    entityType: "DEVICE",
-    slaveId: "03",
-    ingestionId: "ing-ccc",
-    val: 1560,
-    centralId: "21.111.222.335",
-    img: "https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k",
-    isOn: true,
-    perc: 75,
-    group: "relógio",
-    connectionStatus: "offline"
-  }
-];
+      // Renderizar os cards
+      mockEntities.forEach((entity) => {
+        const $card = renderCardComponent({
+          entityObject: entity,
+          handleActionDashboard: () => console.log("dashboard"),
+          handleActionReport: () => console.log("report"),
+          handleActionSettings: () => console.log("settings"),
+          handleSelect: () => console.log("select"),
+          handInfo: true,
+          handleClickCard: () => console.log("handleClickCard"),
+        });
 
-  // Mock de handlers
-  function logHandler(type) {
-    return (entity) => console.log(`[${type}]`, entity);
-  }
-
-  // Renderizar os cards
-  mockEntities.forEach((entity) => {
-
-    const $card = renderCardComponent({
-      entityObject: entity,
-      handleActionDashboard: logHandler("Dashboard"),
-      handleActionReport: logHandler("Report"),
-      handleActionSettings: logHandler("Settings"),
-      handleSelect: logHandler("Select")
-    });
-
-    $("#content").append($card);
-  });
-// data-entity-updated-identifiers='${JSON.stringify(updatedIdentifiers)}'> const updatedIdentifiers = ""
-//entityId, labelOrName, entityType, slaveId, ingestionId, val, centralId, updatedIdentifiers, isOn, MyIOLibrary, perc, img
-</script>
+        // Use o método .append() do jQuery
+        $("#content").append($card);
+      });
+    </script>
+  </body>
 </html>
