@@ -904,6 +904,117 @@ The function throws meaningful errors for:
 - Missing string attributes default to empty string
 - Handles null/undefined values gracefully
 
+#### `renderCardComponent(options: RenderCardOptions): jQuery`
+
+Generates interactive device cards for ThingsBoard dashboard interfaces. Creates dynamic HTML cards with flip animations, action buttons, and real-time status indicators for IoT devices.
+
+**Parameters:**
+- `options: RenderCardOptions` - Configuration object with the following properties:
+  - `entityObject: EntityObject` - Device/entity data and metadata (required)
+  - `handleActionDashboard?: Function` - Callback for dashboard action button
+  - `handleActionReport?: Function` - Callback for report action button  
+  - `handleActionSettings?: Function` - Callback for settings action button
+  - `handleSelect?: Function` - Callback for selection checkbox
+  - `handInfo?: boolean` - Flag to show/hide info button
+  - `handleClickCard?: Function` - Callback for card click events
+
+**Entity Object Structure:**
+```javascript
+{
+  entityId: string,           // Unique identifier for the entity
+  labelOrName: string,        // Display name for the device
+  entityType: string,         // Type classification of the entity
+  deviceType: string,         // Specific device type (MOTOR, HIDROMETRO, etc.)
+  slaveId: string,           // Slave device identifier
+  ingestionId: string,       // Data ingestion identifier
+  val: number,               // Current consumption/measurement value
+  centralId: string,         // Central system identifier
+  updatedIdentifiers: Object, // Updated identification data (default: {})
+  isOn: boolean,             // Device operational status (default: false)
+  perc: number,              // Percentage value (default: 0)
+  group: string,             // Device grouping classification
+  connectionStatus: string,   // Connection status ("online"/"offline")
+  centralName: string,       // Name of the central system
+  connectionStatusTime: string, // Timestamp of last connection
+  timaVal: string,           // Timestamp of last telemetry value
+  valType: string,           // Value type ("ENERGY", "WATER", "TANK")
+}
+```
+
+**Returns:** jQuery object representing the complete device card DOM element with all event handlers attached.
+
+**Key Features:**
+- **Flip Card Animation**: 3D CSS transforms for front/back card views
+- **Dynamic Value Formatting**: Handles different value types (ENERGY, WATER, TANK) with appropriate units
+- **Status Indicators**: Visual feedback for connection status and data freshness
+- **Device Image Mapping**: Maps device types to specific images with fallback support
+- **Event Management**: Comprehensive event handling with proper propagation control
+- **MyIO Library Integration**: Includes fallback mechanism for formatting functions
+
+**Usage Example:**
+```javascript
+import { renderCardComponent } from 'myio-js-library';
+
+const deviceCard = renderCardComponent({
+  entityObject: {
+    entityId: "device-001",
+    labelOrName: "Motor Principal",
+    deviceType: "MOTOR",
+    val: 1250.5,
+    valType: "ENERGY",
+    connectionStatus: "online",
+    // ... other properties
+  },
+  handleActionDashboard: (entity) => {
+    console.log('Dashboard clicked for:', entity.labelOrName);
+  },
+  handleActionReport: (entity) => {
+    console.log('Report clicked for:', entity.labelOrName);
+  },
+  handInfo: true,
+});
+
+// Append to container
+$('#device-container').append(deviceCard);
+```
+
+**UMD Usage (ThingsBoard widgets):**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { renderCardComponent } = MyIOLibrary;
+  
+  const card = renderCardComponent({
+    entityObject: {
+      entityId: "device-001",
+      labelOrName: "Hidrometro Loja A",
+      deviceType: "HIDROMETRO",
+      val: 125.5,
+      valType: "WATER",
+      connectionStatus: "online"
+    },
+    handleActionDashboard: (entity) => {
+      // Navigate to device dashboard
+      window.location.href = `/dashboard/${entity.entityId}`;
+    }
+  });
+  
+  $('#cards-container').append(card);
+</script>
+```
+
+**Visual States:**
+- **Connection Status**: Online (green indicators), Offline (red border, blinking animation)
+- **Data Freshness**: Recent (<30min: green), Moderate (30min-24h: orange), Stale (>24h: red)
+- **Animation Effects**: Hover scale, flip rotation, flash indicators, border blink
+
+**Dependencies:**
+- **jQuery**: Required for DOM manipulation and event handling
+- **MyIO Library**: Optional, with built-in fallbacks for formatting functions
+- **Modern Browser**: CSS3 transforms and animations support
+
+For complete technical documentation, see: [renderCardComponent Technical Documentation](src/thingsboard/main-dashboard-shopping/v-4.0.0/card/renderCardComponent-documentation.md)
+
 ## 🧪 Development
 
 ```bash
