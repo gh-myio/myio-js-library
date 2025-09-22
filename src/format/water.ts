@@ -76,12 +76,12 @@ export function calcDeltaPercent(prev: number, current: number): {
 }
 
 /**
- * Formats energy/water values based on group type (from MAIN_WATER controller)
- * @param value - The value to format
+ * Formats water values based on group type (from MAIN_WATER controller)
+ * @param value - The value to format in cubic meters
  * @param group - The group type ('Caixas D\'Água', 'Lojas', 'Área Comum')
  * @returns Formatted string with appropriate unit
  */
-export function formatEnergyByGroup(value: number, group: string): string {
+export function formatWaterByGroup(value: number, group: string): string {
   if (value === null || value === undefined || isNaN(value)) {
     return '-';
   }
@@ -90,12 +90,9 @@ export function formatEnergyByGroup(value: number, group: string): string {
     return formatTankHeadFromCm(value);
   }
   
-  if (value >= 1000000) {
-    return formatWaterVolumeM3(value / 1000000) + ' (GWh scale)';
-  }
-  
+  // Large numbers: express in thousands of m³ with simplified suffix
   if (value >= 1000) {
-    return formatWaterVolumeM3(value / 1000) + ' (MWh scale)';
+    return formatWaterVolumeM3(value / 1000) + ' x 10³ ';
   }
   
   return formatWaterVolumeM3(value);

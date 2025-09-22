@@ -6,7 +6,7 @@ export {
   formatWaterVolumeM3, 
   formatTankHeadFromCm, 
   calcDeltaPercent, 
-  formatEnergyByGroup, 
+  formatWaterByGroup, 
   formatAllInSameWaterUnit 
 } from './format/water';
 

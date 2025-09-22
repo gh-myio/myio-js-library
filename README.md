@@ -570,16 +570,17 @@ calcDeltaPercent(100, 100); // { value: 0, type: "neutral" }
 calcDeltaPercent(0, 100); // { value: 100, type: "increase" }
 ```
 
-##### `formatEnergyByGroup(value: number, group: string): string`
+##### `formatWaterByGroup(value: number, group: string): string`
 
-Formats energy/water values based on group type (from MAIN_WATER controller).
+Formats water group totals in m³. For values ≥ 1000, it returns the value in thousands of m³ with a simplified `x 10³` suffix.
 
+**Examples**
 ```javascript
-import { formatEnergyByGroup } from 'myio-js-library';
+import { formatWaterByGroup } from 'myio-js-library';
 
-formatEnergyByGroup(178, "Caixas D'Água"); // "1,78 m.c.a."
-formatEnergyByGroup(12.345, "Lojas"); // "12,35 M³"
-formatEnergyByGroup(1000000, "Lojas"); // "1,00 M³ (GWh scale)"
+formatWaterByGroup(178, "Caixas D'Água"); // "1,78 m.c.a."
+formatWaterByGroup(750, "Lojas");    // "750,00 M³"
+formatWaterByGroup(2500, "Lojas");   // "2,50 M³ x 10³ "
 ```
 
 #### Water Date Utilities

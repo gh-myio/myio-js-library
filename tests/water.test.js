@@ -3,7 +3,7 @@ import {
   formatWaterVolumeM3,
   formatTankHeadFromCm,
   calcDeltaPercent,
-  formatEnergyByGroup,
+  formatWaterByGroup,
   formatAllInSameWaterUnit
 } from '../src/format/water';
 
@@ -107,19 +107,33 @@ describe('Water Formatting Functions', () => {
     });
   });
 
-  describe('formatEnergyByGroup', () => {
+  describe('formatWaterByGroup', () => {
+    it('should return empty string for null/NaN', () => {
+      expect(formatWaterByGroup(null)).toBe('-');
+      expect(formatWaterByGroup(Number('foo'))).toBe('-');
+    });
+
     it('should format Caixas D\'Água as tank head', () => {
-      expect(formatEnergyByGroup(178, "Caixas D'Água")).toBe('1,78 m.c.a.');
+      expect(formatWaterByGroup(178, "Caixas D'Água")).toBe('1,78 m.c.a.');
     });
 
     it('should format other groups as water volume', () => {
-      expect(formatEnergyByGroup(12.345, "Lojas")).toBe('12,35 M³');
-      expect(formatEnergyByGroup(12.345, "Área Comum")).toBe('12,35 M³');
+      expect(formatWaterByGroup(12.345, "Lojas")).toBe('12,35 M³');
+      expect(formatWaterByGroup(12.345, "Área Comum")).toBe('12,35 M³');
     });
 
-    it('should handle large values with scaling', () => {
-      expect(formatEnergyByGroup(1000000, "Lojas")).toBe('1,00 M³ (GWh scale)');
-      expect(formatEnergyByGroup(1000, "Lojas")).toBe('1,00 M³ (MWh scale)');
+    it('for values < 1000, preserves base m³ formatting (no x 10³ suffix)', () => {
+      const out = formatWaterByGroup(999, "Lojas");
+      expect(out).not.toMatch(/x 10³/);
+      expect(out).not.toMatch(/GWh/i);
+    });
+
+    it('for values >= 1000, uses simplified x 10³ suffix', () => {
+      const out = formatWaterByGroup(2500, "Lojas");
+      // We don't assert the exact number formatting, only the suffix & absence of legacy text
+      expect(out).toMatch(/x 10³\s*$/);
+      expect(out).not.toMatch(/\(x 10³ m³\)/);
+      expect(out).not.toMatch(/GWh/i);
     });
   });
 
