@@ -11,6 +11,7 @@ export function renderCardComponent({
   const {
     entityId,
     labelOrName,
+    deviceIdentifier,
     entityType,
     deviceType,
     slaveId,
@@ -18,9 +19,7 @@ export function renderCardComponent({
     val,
     centralId,
     updatedIdentifiers = {},
-    isOn = false,
     perc = 0,
-    group,
     connectionStatus,
     centralName,
     connectionStatusTime,
@@ -28,17 +27,54 @@ export function renderCardComponent({
     valType,
   } = entityObject;
 
+  // 1. LÓGICA DE STATUS
+  const DeviceStatus = {
+    CONNECTED: "connected",
+    OFFLINE: "offline",
+    POWER_ON: "power_on",
+    STANDBY: "standby",
+    POWER_OFF: "power_off",
+    WARNING: "warning",
+    DANGER: "danger",
+    MAINTENANCE: "maintenance",
+  };
+
+  const statusIcons = {
+    [DeviceStatus.CONNECTED]: "✅",
+    [DeviceStatus.OFFLINE]: "🔌",
+    [DeviceStatus.POWER_ON]: "⚡",
+    [DeviceStatus.STANDBY]: "⏸️",
+    [DeviceStatus.POWER_OFF]: "⏹️",
+    [DeviceStatus.WARNING]: "⚠️",
+    [DeviceStatus.DANGER]: "🚨",
+    [DeviceStatus.MAINTENANCE]: "🛠️",
+  };
+
+  // 2. NOVA LÓGICA DE CLASSES E ÍCONES
+  const isOfflineOrDanger =
+    connectionStatus === DeviceStatus.OFFLINE ||
+    connectionStatus === DeviceStatus.DANGER;
+
+  const shouldFlashIcon =
+    connectionStatus === DeviceStatus.OFFLINE ||
+    connectionStatus === DeviceStatus.WARNING ||
+    connectionStatus === DeviceStatus.DANGER ||
+    connectionStatus === DeviceStatus.MAINTENANCE;
+
+  const icon =
+    statusIcons[connectionStatus] || statusIcons[DeviceStatus.POWER_ON];
+
   // Fallback seguro: não use "MyIOLibrary" direto
   const MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary) ||
     (typeof window !== "undefined" && window.MyIOLibrary) || {
-      formatEnergyByGroup: (v, g) => `${v} kWh`,
+      formatEnergy: (v, g) => `${v} kWh`,
       formatNumberReadable: (n) => Number(n ?? 0).toFixed(1),
     };
 
-  let valFormatted = MyIO.formatEnergyByGroup(val);
+  let valFormatted = MyIO.formatEnergy(val);
 
   if (valType === "ENERGY") {
-    valFormatted = MyIO.formatEnergyByGroup(val);
+    valFormatted = MyIO.formatEnergy(val);
   } else if (valType === "WATER") {
     valFormatted = `${val} m³`;
   } else if (valType === "TANK") {
@@ -52,6 +88,7 @@ export function renderCardComponent({
   if (!document.getElementById("myio-card-styles")) {
     const style = document.createElement("style");
     style.id = "myio-card-styles";
+    // --- CSS ATUALIZADO ---
     style.textContent = ` 
 .device-card-centered,
 .clickable {
@@ -60,12 +97,12 @@ export function renderCardComponent({
   padding: 8px 12px;
   background: #fff;
   box-shadow: 0 4px 10px rgba(0, 0, 0, .05);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* display: flex; REMOVIDO */
+  /* align-items: center; REMOVIDO */
+  /* justify-content: center; REMOVIDO */
   cursor: pointer;
   transition: transform .2s;
-  min-height: 140px;
+  /* min-height: 140px; REMOVIDO (movido para .device-card-inner) */
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -94,6 +131,19 @@ export function renderCardComponent({
   text-overflow: ellipsis;
   max-width: 90%;
   line-height: 1.1;
+}
+
+.device-subtitle {
+  font-size: 0.7rem; 
+  font-weight: 500;
+  color: #888; /* Cinza */
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90%;
+  line-height: 1.1;
+  margin-top: 2px;
 }
 
 .device-image {
@@ -136,19 +186,13 @@ export function renderCardComponent({
 }
 
 @keyframes flash {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: .2;
-  }
-  100% {
-    opacity: 1;
-  }
+  0% { opacity: 1; }
+  50% { opacity: .2; }
+  100% { opacity: 1; }
 }
 
 .card-actions {
-  width: 10%;
+  flex-shrink: 0;
   height: 100%;
   box-shadow: 1px 0 2px rgba(0, 0, 0, .1);
   display: flex;
@@ -174,23 +218,6 @@ export function renderCardComponent({
   animation: border-blink 1s infinite;
 }
 
-
-.device-info {
-  position: absolute;
-  top: 8px;      /* distância do topo */
-  right: 8px;    /* distância da direita */
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 50%;
-  transition: background 0.2s;
-}
-
-.device-info:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-
 .device-card-centered.flipped .device-card-inner {
   transform: rotateY(180deg);
 }
@@ -205,7 +232,7 @@ export function renderCardComponent({
   font-size: 1.2rem;
 }     
 .device-card-centered {
-  perspective: 1000px; /* perspectiva para 3D */
+  perspective: 1000px;
 }
 
 .device-card-inner {
@@ -213,100 +240,94 @@ export function renderCardComponent({
   width: 100%;
   height: 100%;
   transform-style: preserve-3d;
+  min-height: 140px; /* ATUALIZADO: A altura mínima agora é controlada aqui */
 }
 
 .device-card-front {
   display: flex;
   flex-direction: row;
   justify-content: flex-start;
-  align-items: flex-start; /* topo */
+  align-items: flex-start; /* Agora isso vai funcionar */
   position: absolute;
   width: 100%;
   height: 100%;
   top: 0;
   left: 0;
   backface-visibility: hidden;
+  gap: 4px;
 }
 
 .device-card-back {
-  display: flex;
-  flex-direction: column; /* muda para coluna se quiser empilhar elementos verticalmente */
-  justify-content: flex-start; /* conteúdo começa do topo */
-  align-items: center; /* centraliza horizontalmente */
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  backface-visibility: hidden;
-  transform: rotateY(180deg); /* mantém flip */
-  padding: 10px; /* opcional: espaço interno */
-  gap: 10px; /* opcional: espaço entre elementos */
-}
-
-
-
-.device-info {
-  position: absolute;
-  top: 8px;      /* distância do topo */
-  right: 8px;    /* distância da direita */
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 50%;
-  transition: background 0.2s;l
-}
-.device-card-back {
-  transform: rotateY(180deg); /* faz o flip funcionar */
+  transform: rotateY(180deg);
 }
 
 .device-card-front .device-info,
 .device-card-back .device-info {
-  position: absolute;       /* tira do fluxo do flex */
-  top: 0;                   /* topo do card */
-  right: 8px;               /* canto direito */
-  margin: 0;                /* remove qualquer margem que empurre o botão */
-  display: flex;            /* mantém o conteúdo do botão centralizado */
-  align-items: center;      
-  justify-content: center;  
-  padding: 4px;             
-  border-radius: 50%;       
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 50%;
   cursor: pointer;
-  z-index: 10;              
+  z-index: 10;
+  background: none;
+  border: none;
+  transition: background 0.2s;
+}
+.device-card-front .device-info:hover,
+.device-card-back .device-info:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 
 .device-card-back {
-
   display: flex;
-  flex-direction: column;  /* empilha os elementos */
-  justify-content: flex-start;
-  align-items: flex-start;  /* tudo à esquerda por padrão */
+  flex-direction: column;
+  justify-content: space-around; /* Mantido para preencher o verso */
+  align-items: stretch;
   padding: 10px;
-  gap: 10px;
+  gap: 5px;
   height: 100%;
-    margin-left: -10px;  
+  width: 100%;
+  box-sizing: border-box;
+  
+  /* Posições para o flip */
+  position: absolute;
+  top: 0;
+  left: 0;
+  backface-visibility: hidden;
+  transform: rotateY(180deg);
+}
+
+.device-card-back #status-bar {
+  position: relative;
+  width: 100%;
+  padding-top: 10px;
 }
 
 .device-card-back .value-container {
   display: flex;
-  flex-direction: row;   /* ícone e valor lado a lado */
+  flex-direction: row;
   align-items: center;
   gap: 5px;
-  color: #c19efc;        /* roxo clarinho */
-  align-self: center;    /* centraliza horizontalmente no card */
+  color: #c19efc;
+  align-self: center;
 }
 
 .device-card-back #lastconsumptionTime {
-
   display: flex;
   flex-direction: column;
-  align-items: flex-start; /* mantém à esquerda */
+  align-items: flex-start;
   gap: 2px;
   font-size: 11px;
   font-weight: bold;
   color: black;
+  width: 100%;
+  padding-bottom: 10px;
 }
 
 
@@ -328,9 +349,10 @@ export function renderCardComponent({
 }
 
 .device-card-centered.online .flash-icon {
-  color: #28a745 !important; /* verde premium para online */
+  color: #28a745 !important;
 }
     `;
+    // --- FIM DO CSS ---
     document.head.appendChild(style);
   }
   let formattedDateVal;
@@ -384,6 +406,10 @@ export function renderCardComponent({
 
   // Função utilitária para normalizar strings
   function normalizeString(str) {
+    // Adicionado fallback para caso str seja undefined
+    if (typeof str !== 'string') {
+      str = '';
+    }
     return str
       .normalize("NFD") // separa letras dos acentos
       .replace(/[\u0300-\u036f]/g, "") // remove os acentos
@@ -417,7 +443,7 @@ export function renderCardComponent({
   // Template HTML do card
   const html = `
     <div class="device-card-centered clickable ${
-      connectionStatus === "offline" ? "offline" : ""
+      isOfflineOrDanger ? "offline" : "" 
     }"
       data-entity-id="${entityId}"
       data-entity-label="${labelOrName}"
@@ -463,8 +489,9 @@ export function renderCardComponent({
             }
           </div>
 
-          <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100%;width:85%">
-            <div class="device-title-row">
+          <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100%; flex-grow: 1; min-width: 0; padding: 0 12px;">
+            
+            <div class="device-title-row" style="flex-direction: column; min-height: 38px;">
               <span class="device-title" title="${labelOrName}">
                 ${
                   String(labelOrName ?? "").length > 15
@@ -472,15 +499,21 @@ export function renderCardComponent({
                     : String(labelOrName ?? "")
                 }
               </span>
+              ${deviceIdentifier ? `
+                <span class="device-subtitle" title="${deviceIdentifier}">
+                  ${deviceIdentifier}
+                </span>
+              ` : ''}
             </div>
+
             <img class="device-image" src="${img || ""}" />
             <div class="device-data-row">
               <div class="consumption-main">
-                <span class="flash-icon ${
-                  connectionStatus === "offline" ? "flash" : isOn ? "flash" : ""
-                }">
-                  ${connectionStatus === "offline" ? "🚨" : "⚡"}
+                
+                <span class="flash-icon ${shouldFlashIcon ? "flash" : ""}">
+                  ${icon}
                 </span>
+
                 <span class="consumption-value" data-entity-consumption="${val}">${valFormatted}</span>
                 <span class="device-title-percent">(${percFormatted}%)</span>
               </div>
@@ -518,7 +551,7 @@ export function renderCardComponent({
           <svg xmlns="http://www.w3.org/2000/svg" height="30px" viewBox="0 -960 960 960" width="30px" fill="#dea404">
             <path d="m456-200 174-340H510v-220L330-420h126v220Zm24 120q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/>
           </svg>
-          <div><span>${MyIO.formatEnergyByGroup(val / 1000) || "-"}</span></div>
+          <div><span>${MyIO.formatEnergy(val / 1000) || "-"}</span></div>
         </div>
 
         <div id="lastconsumptionTime">

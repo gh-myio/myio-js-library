@@ -12,16 +12,17 @@
 
     <script type="module">
       window.MyIOLibrary = window.MyIOLibrary || {
-        formatEnergyByGroup: (v, g) => `${v} kWh${g ? " · " + g : ""}`,
+        formatEnergy: (v, g) => `${v} kWh${g ? " · " + g : ""}`,
         formatNumberReadable: (n) => Number(n ?? 0).toFixed(1),
       };
       import { renderCardComponent } from "./template-card.js";
 
-      // Mock de entidades
+      // Mock de entidades (COM deviceIdentifier ADICIONADO)
       const mockEntities = [
         {
           entityId: "dev-001",
           labelOrName: "Bomba Giovani",
+          deviceIdentifier: "MOT-001", // <-- ADICIONADO
           entityType: "DEVICE",
           deviceType: "MOTOR",
           slaveId: "01",
@@ -41,6 +42,7 @@
         {
           entityId: "dev-003",
           labelOrName: "Relógio Externo",
+          deviceIdentifier: "REL-001", // <-- ADICIONADO
           entityType: "DEVICE",
           deviceType: "RELÓGIO",
           slaveId: "03",
@@ -59,6 +61,7 @@
         {
           entityId: "dev-004",
           labelOrName: "Hidr. Cardeman",
+          deviceIdentifier: "HID-001", // <-- ADICIONADO
           entityType: "DEVICE",
           deviceType: "HIDROMETRO",
           slaveId: "04",
@@ -77,6 +80,7 @@
         {
           entityId: "dev-005",
           labelOrName: "Loja do Vitinho",
+          deviceIdentifier: "MED-001", // <-- ADICIONADO
           entityType: "DEVICE",
           deviceType: "3F_MEDIDOR",
           slaveId: "05",
@@ -96,6 +100,7 @@
         {
           entityId: "dev-005",
           labelOrName: "Entrada Poderosa",
+          deviceIdentifier: "ENT-001", // <-- ADICIONADO
           entityType: "DEVICE",
           deviceType: "ENTRADa",
           slaveId: "05",
@@ -114,6 +119,7 @@
         {
           entityId: "dev-006",
           labelOrName: "Caixa D'TETA",
+          deviceIdentifier: "CXA-001", // <-- ADICIONADO
           entityType: "DEVICE",
           deviceType: "CAIXA_DAGUA",
           slaveId: "05",
