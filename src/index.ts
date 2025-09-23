@@ -70,6 +70,11 @@ export { decodePayloadBase64Xor } from './codec/decodePayload';
 
 export { renderCardComponent } from './thingsboard/main-dashboard-shopping/v-4.0.0/card/template-card.js';
 
+// MYIO Components - Drag-to-Footer Dock Implementation
+export { MyIOSelectionStore, MyIOSelectionStoreClass } from './components/SelectionStore.js';
+export { MyIODraggableCard } from './components/DraggableCard.js';
+export { MyIOChartModal } from './components/ChartModal.js';
+
 // Utils namespace exports
 export * as strings from './utils/strings';
 export * as numbers from './utils/numbers';

@@ -828,6 +828,194 @@ const legacyData = [
 findValue(legacyData, 'sensor1', 'temperature'); // 25
 ```
 
+### MYIO Components - Drag-to-Footer Dock Implementation
+
+The library includes three main interactive components for building comparative selection interfaces:
+
+#### `MyIOSelectionStore` - Global Selection Management
+
+A singleton store for managing device selection state, multi-unit totals, and analytics.
+
+```javascript
+import { MyIOSelectionStore } from 'myio-js-library';
+
+// Register entities for selection
+MyIOSelectionStore.registerEntity({
+  id: 'device-001',
+  name: 'Solar Panel North',
+  icon: 'energy',
+  group: 'RENEWABLE_ENERGY',
+  lastValue: 145.6,
+  unit: 'kWh'
+});
+
+// Listen to selection changes
+MyIOSelectionStore.on('selection:change', (data) => {
+  console.log('Selection changed:', data.selectedIds);
+  console.log('Totals:', data.totals);
+});
+
+// Manage selections
+MyIOSelectionStore.add('device-001');
+MyIOSelectionStore.toggle('device-002');
+MyIOSelectionStore.clear();
+
+// Get current state
+const selectedIds = MyIOSelectionStore.getSelectedIds();
+const totals = MyIOSelectionStore.getTotals();
+const display = MyIOSelectionStore.getMultiUnitTotalDisplay();
+// Returns: "Energy: 1,234 kWh | Water: 567 m³"
+
+// Open comparison modal
+MyIOSelectionStore.openComparison();
+```
+
+**Key Features:**
+- **Global state management** - Singleton pattern for app-wide selection state
+- **Multi-unit calculations** - Automatic totals for energy (kWh), water (m³), temperature (°C)
+- **Event system** - React to selection changes with custom callbacks
+- **Analytics integration** - Built-in tracking for user interactions
+- **Time-series data** - Cached data fetching for chart visualization
+- **Accessibility** - Screen reader announcements and ARIA support
+
+#### `MyIODraggableCard` - Interactive Device Cards
+
+Reusable card components with drag-and-drop, checkbox synchronization, and accessibility.
+
+```javascript
+import { MyIODraggableCard } from 'myio-js-library';
+
+const container = document.getElementById('device-grid');
+const entity = {
+  id: 'pump-001',
+  name: 'Water Pump Main',
+  icon: 'water',
+  group: 'HYDRAULIC_SYSTEM',
+  lastValue: 234.7,
+  unit: 'm³',
+  status: 'ok'
+};
+
+// Create draggable card
+const card = new MyIODraggableCard(container, entity, {
+  showCheckbox: true,
+  draggable: true,
+  className: 'custom-card'
+});
+
+// Update entity data
+card.updateEntity({
+  lastValue: 156.8,
+  status: 'alert'
+});
+
+// Manual selection control
+card.setSelected(true);
+
+// Cleanup
+card.destroy();
+```
+
+**Key Features:**
+- **Drag & Drop** - HTML5 drag API with touch support (long-press on mobile)
+- **Checkbox sync** - Two-way synchronization with SelectionStore
+- **Keyboard navigation** - Full accessibility with Tab, Enter, Space, Delete
+- **Visual states** - Connection status, data freshness, selection indicators
+- **Auto-formatting** - Brazilian locale number formatting
+- **Icon system** - Built-in SVG icons for energy, water, temperature, etc.
+
+#### `MyIOChartModal` - Comparative Visualization
+
+Interactive chart modal with Chart.js integration and export functionality.
+
+```javascript
+import { MyIOChartModal } from 'myio-js-library';
+
+// The modal automatically integrates with SelectionStore
+// When user selects devices and clicks "Compare", modal opens automatically
+
+// Manual control (optional)
+const data = {
+  entities: MyIOSelectionStore.getSelectedEntities(),
+  totals: MyIOSelectionStore.getTotals(),
+  count: MyIOSelectionStore.getSelectionCount()
+};
+
+await MyIOChartModal.open(data);
+
+// Export functions
+MyIOChartModal.exportCsv();  // Downloads CSV file
+MyIOChartModal.exportPng();  // Downloads chart as PNG
+MyIOChartModal.exportPdf();  // Placeholder for future implementation
+
+MyIOChartModal.close();
+```
+
+**Key Features:**
+- **Chart.js integration** - Auto-loads Chart.js from CDN
+- **Multiple chart types** - Line charts and bar charts
+- **Time range selection** - 7, 14, or 30-day comparisons
+- **Export functionality** - CSV and PNG export with timestamps
+- **Responsive design** - Adapts to container size
+- **Accessibility** - ARIA dialog, keyboard navigation, focus management
+- **Analytics tracking** - Automatic event tracking for user interactions
+
+#### Complete Integration Example
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Device Comparison Dashboard</title>
+</head>
+<body>
+  <div class="app">
+    <div class="device-grid" id="deviceGrid"></div>
+    <div class="selection-summary" id="summary"></div>
+    <button id="compareBtn">Compare Selected</button>
+  </div>
+
+  <!-- Load MYIO library -->
+  <script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+  <script>
+    const { MyIOSelectionStore, MyIODraggableCard, MyIOChartModal } = MyIOLibrary;
+
+    // Setup analytics
+    MyIOSelectionStore.setAnalytics({
+      track: (event, data) => {
+        console.log('Analytics:', event, data);
+        // Send to your analytics service
+      }
+    });
+
+    // Listen to selection changes
+    MyIOSelectionStore.on('selection:change', (data) => {
+      document.getElementById('summary').textContent = 
+        MyIOSelectionStore.getMultiUnitTotalDisplay();
+      
+      document.getElementById('compareBtn').disabled = data.selectedIds.length < 2;
+    });
+
+    // Create device cards
+    const devices = [
+      { id: 'dev1', name: 'Solar Panel A', icon: 'energy', lastValue: 150, unit: 'kWh' },
+      { id: 'dev2', name: 'Water Tank B', icon: 'water', lastValue: 75, unit: 'm³' }
+    ];
+
+    devices.forEach(device => {
+      MyIOSelectionStore.registerEntity(device);
+      new MyIODraggableCard(document.getElementById('deviceGrid'), device);
+    });
+
+    // Compare button
+    document.getElementById('compareBtn').addEventListener('click', () => {
+      MyIOSelectionStore.openComparison();
+    });
+  </script>
+</body>
+</html>
+```
+
 ### ThingsBoard Utilities
 
 #### `getEntityInfoAndAttributesTB(deviceId: string, opts: TBFetchOptions): Promise<TBEntityInfo>`
