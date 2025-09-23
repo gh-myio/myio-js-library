@@ -18,6 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TypeScript definitions via JSDoc
 - Comprehensive test suite
 - CI/CD pipeline with GitHub Actions
+- Deterministic device type detection with accent-insensitive matching
+- Expanded device type triggers (CAIXA_D_AGUA, ESRL/ELEV, RECALQUE)
+- Context-based priority rules for device detection
+- Comprehensive device type detection tests (64 test cases)
+- Device type detection documentation with examples
+
+### Changed
+- Refactored deviceType.js with priority-based detection system
+- Improved accent normalization for Portuguese diacritics
+- Enhanced CAIXA_D_AGUA detection with multiple variant support
+- Optimized device type matching performance with precompiled rules
 
 ### Changed
 - N/A

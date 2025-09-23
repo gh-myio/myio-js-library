@@ -1,37 +1,115 @@
 /**
  * Device detection contexts for different environments
+ * Uses priority-based detection with accent-insensitive matching
+ */
+
+/**
+ * Normalizes a string by uppercasing, removing diacritics, and collapsing spaces
+ * @param {string} str - The string to normalize
+ * @returns {string} - The normalized string
+ */
+function normalize(str) {
+  if (typeof str !== 'string') return '';
+  
+  // Uppercase and trim
+  let normalized = str.toUpperCase().trim();
+  
+  // Remove diacritics (accents)
+  normalized = normalized
+    .replace(/[ÀÁÂÃÄÅ]/g, 'A')
+    .replace(/[ÈÉÊË]/g, 'E')
+    .replace(/[ÌÍÎÏ]/g, 'I')
+    .replace(/[ÒÓÔÕÖ]/g, 'O')
+    .replace(/[ÙÚÛÜ]/g, 'U')
+    .replace(/[Ç]/g, 'C')
+    .replace(/[Ñ]/g, 'N');
+  
+  // Collapse multiple spaces to single space
+  normalized = normalized.replace(/\s+/g, ' ');
+  
+  return normalized;
+}
+
+/**
+ * Checks if a normalized string matches CAIXA_D_AGUA variants
+ * @param {string} normalizedStr - The normalized string to check
+ * @returns {boolean} - True if it matches CAIXA_D_AGUA patterns
+ */
+function matchCaixaDAgua(normalizedStr) {
+  // Check for SCD
+  if (normalizedStr.includes('SCD')) return true;
+  
+  // Check for textual variants of "CAIXA D'ÁGUA"
+  const caixaVariants = [
+    'CAIXA D\'AGUA',
+    'CAIXA D AGUA',
+    'CAIXA_D_AGUA',
+    'CAIXA DAGUA'
+  ];
+  
+  return caixaVariants.some(variant => normalizedStr.includes(variant));
+}
+
+/**
+ * Device detection contexts with priority-ordered rules
  */
 const contexts = {
   building: (name) => {
-    const upper = name.toUpperCase();
-
-    if (upper.includes('COMPRESSOR')) return 'COMPRESSOR';
-    if (upper.includes('VENT')) return 'VENTILADOR';
-    if (upper.includes('AUTOMATICO') || upper.includes('AUTOMÁTICO')) return 'SELETOR_AUTO_MANUAL';
-    if (upper.includes('TERMOSTATO')) return 'TERMOSTATO';
-    if (upper.includes('3F')) return '3F_MEDIDOR';
-    if (upper.includes('TERMO') || upper.includes('TEMP')) return 'TERMOSTATO';
-    if (upper.includes('HIDR')) return 'HIDROMETRO';
-    if (upper.includes('ABRE')) return 'SOLENOIDE';
-    if (upper.includes('RECALQUE')) return 'MOTOR';
-    if (upper.includes('AUTOMACAO') || upper.includes('AUTOMAÇÃO')) return 'GLOBAL_AUTOMACAO';
-    if (upper.includes('AC')) return 'CONTROLE REMOTO';
-    if (upper.includes('SCD')) return 'CAIXA_D_AGUA';
-
+    const normalized = normalize(name);
+    
+    // Priority-ordered detection rules (first match wins)
+    const rules = [
+      { test: (s) => s.includes('COMPRESSOR'), type: 'COMPRESSOR' },
+      { test: (s) => s.includes('VENT'), type: 'VENTILADOR' },
+      { test: (s) => s.includes('AUTOMATICO'), type: 'SELETOR_AUTO_MANUAL' },
+      { test: (s) => s.includes('ESRL'), type: 'ESCADA_ROLANTE' },
+      { test: (s) => s.includes('ESCADA'), type: 'ESCADA_ROLANTE' },
+      { test: (s) => s.includes('ELEV'), type: 'ELEVADOR' },
+      { test: (s) => s.includes('MOTR') || s.includes('RECALQUE'), type: 'MOTOR' },
+      { test: (s) => s.includes('TERMOSTATO'), type: 'TERMOSTATO' },
+      { test: (s) => s.includes('TERMO') || s.includes('TEMP'), type: 'TERMOSTATO' },
+      { test: (s) => s.includes('3F'), type: '3F_MEDIDOR' },
+      { test: (s) => s.includes('HIDR'), type: 'HIDROMETRO' },
+      { test: (s) => s.includes('ABRE'), type: 'SOLENOIDE' },
+      { test: (s) => matchCaixaDAgua(s), type: 'CAIXA_D_AGUA' },
+      { test: (s) => s.includes('AUTOMACAO') || s.includes('GW_AUTO'), type: 'GLOBAL_AUTOMACAO' },
+      { test: (s) => s.includes('AC'), type: 'CONTROLE REMOTO' }
+    ];
+    
+    // Find first matching rule
+    for (const rule of rules) {
+      if (rule.test(normalized)) {
+        return rule.type;
+      }
+    }
+    
     return 'default';
   },
 
   mall: (name) => {
-    const upper = name.toUpperCase();
-
-    if (upper.includes('CHILLER')) return 'CHILLER';
-    if (upper.includes('ESCADA')) return 'ESCADA_ROLANTE';
-    if (upper.includes('LOJA')) return 'LOJA_SENSOR';
-    if (upper.includes('ILUMINACAO') || upper.includes('ILUMINAÇÃO')) return 'ILUMINACAO';
-
+    const normalized = normalize(name);
+    
+    // Priority-ordered detection rules for mall context
+    const rules = [
+      { test: (s) => s.includes('CHILLER'), type: 'CHILLER' },
+      { test: (s) => s.includes('ESCADA'), type: 'ESCADA_ROLANTE' },
+      { test: (s) => s.includes('LOJA'), type: 'LOJA_SENSOR' },
+      { test: (s) => s.includes('ILUMINACAO'), type: 'ILUMINACAO' }
+    ];
+    
+    // Find first matching rule
+    for (const rule of rules) {
+      if (rule.test(normalized)) {
+        return rule.type;
+      }
+    }
+    
     return 'default';
   }
 };
+
+// Track if we've already warned about unknown contexts to avoid spam
+const warnedContexts = new Set();
 
 /**
  * Detects the device type based on the given name and context.
@@ -50,7 +128,11 @@ export function detectDeviceType(name, context = 'building') {
   const detectFunction = contexts[context];
   
   if (!detectFunction) {
-    console.warn(`[myio-js-library] Context "${context}" not found. Using default fallback.`);
+    // Only warn once per unknown context to avoid spam
+    if (!warnedContexts.has(context)) {
+      console.warn(`[myio-js-library] Context "${context}" not found. Using default fallback.`);
+      warnedContexts.add(context);
+    }
     return contexts.building(name);
   }
 
