@@ -69,6 +69,7 @@ export { decodePayload } from './codec/decodePayload';
 export { decodePayloadBase64Xor } from './codec/decodePayload';
 
 export { renderCardComponent } from './thingsboard/main-dashboard-shopping/v-4.0.0/card/template-card.js';
+export { renderCardComponent as renderCardComponentEnhanced, renderCardComponentV2, renderCardComponentLegacy } from './thingsboard/main-dashboard-shopping/v-4.0.0/card/template-card-v2.js';
 
 // MYIO Components - Drag-to-Footer Dock Implementation
 export { MyIOSelectionStore, MyIOSelectionStoreClass } from './components/SelectionStore.js';

@@ -1,0 +1,995 @@
+/* eslint-disable */
+/**
+ * MYIO Enhanced Card Component - Version 2
+ * Updated to integrate with MyIODraggableCard and MyIOSelectionStore
+ * 
+ * @version 2.0.0
+ * @author MYIO Frontend Guild
+ */
+
+// Import the new MYIO components
+import { MyIOSelectionStore } from '../../../../components/SelectionStore.js';
+import { MyIODraggableCard } from '../../../../components/DraggableCard.js';
+
+export function renderCardComponentV2({
+  entityObject,
+  handleActionDashboard,
+  handleActionReport,
+  handleActionSettings,
+  handleSelect,
+  handInfo,
+  handleClickCard,
+  useNewComponents = true, // Flag to enable/disable new components
+  enableSelection = true,  // Flag to enable selection functionality
+  enableDragDrop = true,   // Flag to enable drag and drop
+}) {
+  const {
+    entityId,
+    labelOrName,
+    deviceIdentifier,
+    entityType,
+    deviceType,
+    slaveId,
+    ingestionId,
+    val,
+    centralId,
+    updatedIdentifiers = {},
+    perc = 0,
+    connectionStatus,
+    centralName,
+    connectionStatusTime,
+    timaVal,
+    valType,
+  } = entityObject;
+
+  // If new components are disabled, fall back to original implementation
+  if (!useNewComponents) {
+    return renderCardComponentLegacy({
+      entityObject,
+      handleActionDashboard,
+      handleActionReport,
+      handleActionSettings,
+      handleSelect,
+      handInfo,
+      handleClickCard,
+    });
+  }
+
+  // Map device status to connection status
+  const mapConnectionStatus = (status) => {
+    const statusMap = {
+      'connected': 'ok',
+      'offline': 'offline',
+      'power_on': 'ok',
+      'standby': 'alert',
+      'power_off': 'fail',
+      'warning': 'alert',
+      'danger': 'fail',
+      'maintenance': 'alert'
+    };
+    return statusMap[status] || 'unknown';
+  };
+
+  // Map device type to icon
+  const mapDeviceTypeToIcon = (deviceType) => {
+    const typeMap = {
+      'MOTOR': 'energy',
+      '3F_MEDIDOR': 'energy',
+      'RELOGIO': 'energy',
+      'HIDROMETRO': 'water',
+      'ENTRADA': 'energy',
+      'CAIXA_DAGUA': 'water',
+      'TANK': 'water',
+    };
+    
+    const normalizedType = deviceType?.toUpperCase() || '';
+    return typeMap[normalizedType] || 'generic';
+  };
+
+  // Determine unit based on value type
+  const determineUnit = (valType, val) => {
+    switch (valType) {
+      case 'ENERGY':
+        return 'kWh';
+      case 'WATER':
+        return 'm³';
+      case 'TANK':
+        return 'm.c.a';
+      default:
+        return '';
+    }
+  };
+
+  // Create entity object for MyIODraggableCard
+  const cardEntity = {
+    id: entityId,
+    name: labelOrName || 'Dispositivo',
+    icon: mapDeviceTypeToIcon(deviceType),
+    group: deviceIdentifier || entityType || 'Dispositivo',
+    lastValue: Number(val) || 0,
+    unit: determineUnit(valType, val),
+    status: mapConnectionStatus(connectionStatus)
+  };
+
+  // Register entity with SelectionStore if selection is enabled
+  if (enableSelection && MyIOSelectionStore) {
+    MyIOSelectionStore.registerEntity(cardEntity);
+  }
+
+  // Create container for the card
+  const container = document.createElement('div');
+  container.className = 'myio-enhanced-card-container';
+  
+  // Add enhanced styling
+  if (!document.getElementById('myio-enhanced-card-styles')) {
+    const style = document.createElement('style');
+    style.id = 'myio-enhanced-card-styles';
+    style.textContent = `
+      .myio-enhanced-card-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+      
+      .myio-enhanced-card-container .myio-draggable-card {
+        width: 100%;
+        border-radius: 10px;
+        padding: 8px 12px;
+        background: #fff;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, .05);
+        cursor: pointer;
+        transition: transform .2s;
+        box-sizing: border-box;
+        overflow: hidden;
+        min-height: 140px;
+        display: flex;
+        flex-direction: row;
+        align-items: stretch;
+      }
+      
+      .myio-enhanced-card-container .myio-draggable-card:hover {
+        transform: scale(1.05);
+      }
+      
+      .myio-enhanced-card-container .myio-draggable-card.selected {
+        border: 2px solid #00e09e;
+        box-shadow: 0 4px 12px rgba(0,224,158,0.2);
+        background: linear-gradient(135deg, #f0fdf9, #ecfdf5);
+      }
+      
+      .myio-enhanced-card-container .myio-draggable-card.offline {
+        border: 2px solid #ff4d4f;
+        animation: border-blink 1s infinite;
+      }
+      
+      @keyframes border-blink {
+        0%, 100% { box-shadow: 0 0 8px rgba(255, 77, 79, 0.9); }
+        50% { box-shadow: 0 0 16px rgba(255, 0, 0, 0.6); }
+      }
+      
+      .myio-enhanced-card-container .card-actions {
+        flex-shrink: 0;
+        height: 100%;
+        box-shadow: 1px 0 2px rgba(0, 0, 0, .1);
+        display: flex;
+        flex-direction: column;
+        padding: 0 4px;
+        justify-content: space-around;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .myio-enhanced-card-container .card-action {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        border: none;
+        background: rgba(0, 0, 0, 0.05);
+      }
+      
+      .myio-enhanced-card-container .card-action:hover {
+        background: rgba(0, 224, 158, 0.1);
+        transform: scale(1.1);
+      }
+      
+      .myio-enhanced-card-container .card-action img {
+        width: 20px;
+        height: 20px;
+      }
+      
+      .myio-enhanced-card-container .card-checkbox {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+      }
+      
+      .myio-enhanced-card-container .card-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 0 12px;
+        text-align: center;
+      }
+      
+      .myio-enhanced-card-container .card-title {
+        font-weight: 700;
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+      }
+      
+      .myio-enhanced-card-container .card-group {
+        font-size: 0.7rem;
+        color: #888;
+        margin-bottom: 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+      }
+      
+      .myio-enhanced-card-container .card-value {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #28a745;
+      }
+      
+      .myio-enhanced-card-container .card-unit {
+        font-size: 0.75rem;
+        color: rgba(0, 0, 0, 0.6);
+      }
+      
+      .myio-enhanced-card-container .card-percentage {
+        font-size: 0.75rem;
+        color: rgba(0, 0, 0, 0.45);
+        margin-left: 4px;
+      }
+      
+      .myio-enhanced-card-container .card-icon {
+        width: 24px;
+        height: 24px;
+        margin-bottom: 8px;
+      }
+      
+      .myio-enhanced-card-container .card-icon svg {
+        width: 100%;
+        height: 100%;
+        fill: currentColor;
+      }
+      
+      .myio-enhanced-card-container .card-status-indicator {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        z-index: 10;
+      }
+      
+      .myio-enhanced-card-container .card-status-ok {
+        background: #28a745;
+      }
+      
+      .myio-enhanced-card-container .card-status-alert {
+        background: #ffc107;
+      }
+      
+      .myio-enhanced-card-container .card-status-fail,
+      .myio-enhanced-card-container .card-status-offline {
+        background: #dc3545;
+      }
+      
+      .myio-enhanced-card-container .card-status-unknown {
+        background: #6c757d;
+      }
+      
+      .myio-enhanced-card-container .info-panel {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(4px);
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 16px;
+        border-radius: 10px;
+        z-index: 20;
+      }
+      
+      .myio-enhanced-card-container .info-panel.active {
+        display: flex;
+      }
+      
+      .myio-enhanced-card-container .info-close {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: none;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        color: #666;
+      }
+      
+      .myio-enhanced-card-container .info-content {
+        text-align: center;
+        font-size: 0.8rem;
+        line-height: 1.4;
+      }
+      
+      .myio-enhanced-card-container .info-content strong {
+        display: block;
+        margin-bottom: 8px;
+        color: #333;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // Get device image URL
+  const getDeviceImageUrl = (deviceType) => {
+    // Normalize device type
+    function normalizeString(str) {
+      if (typeof str !== 'string') {
+        str = '';
+      }
+      return str
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase();
+    }
+
+    // Device image mapping
+    const deviceImages = {
+      MOTOR: "https://dashboard.myio-bas.com/api/images/public/8Ezn8qVBJ3jXD0iDfnEAZ0MZhAP1b5Ts",
+      "3F_MEDIDOR": "https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k",
+      RELOGIO: "https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB",
+      HIDROMETRO: "https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4",
+      ENTRADA: "https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU",
+      CAIXA_DAGUA: "https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq",
+    };
+
+    const defaultImage = "https://cdn-icons-png.flaticon.com/512/1178/1178428.png";
+    const nameType = normalizeString(deviceType);
+    return deviceImages[nameType] || defaultImage;
+  };
+
+  // Create custom card HTML instead of using MyIODraggableCard
+  const deviceImageUrl = getDeviceImageUrl(deviceType);
+  
+  // Create card HTML with central image (matching original layout)
+  const cardHTML = `
+    <div class="device-card-centered clickable ${cardEntity.status === 'offline' ? 'offline' : ''}" 
+         data-entity-id="${entityId}"
+         draggable="${enableDragDrop}"
+         tabindex="0"
+         role="article"
+         aria-label="${cardEntity.name}, ${cardEntity.group}">
+      
+      <div class="device-card-inner">
+        <div class="device-card-front">
+          ${enableSelection && typeof handleSelect === 'function' ? 
+            `<input type="checkbox" class="card-checkbox action-checker" aria-label="Select ${cardEntity.name}" style="position: absolute; top: 8px; right: 8px; z-index: 10;">` : 
+            ''}
+          
+          <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100%; flex-grow: 1; min-width: 0; padding: 0 12px 0 20px; margin-left: 16px;">
+            
+            <div class="device-title-row" style="flex-direction: column; min-height: 38px; text-align: center; width: 100%;">
+              <span class="device-title" title="${cardEntity.name}">
+                ${cardEntity.name.length > 15 ? cardEntity.name.slice(0, 15) + "…" : cardEntity.name}
+              </span>
+              ${deviceIdentifier ? `
+                <span class="device-subtitle" title="${deviceIdentifier}">
+                  ${deviceIdentifier}
+                </span>
+              ` : ''}
+            </div>
+
+            <img class="device-image" src="${deviceImageUrl}" alt="${deviceType}" />
+            
+            <div class="device-data-row">
+              <div class="consumption-main">
+                <span class="flash-icon ${cardEntity.status === 'offline' ? 'flash' : ''}">
+                  ${cardEntity.status === 'offline' ? '🔌' : '✅'}
+                </span>
+                <span class="consumption-value">${cardEntity.lastValue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${cardEntity.unit}</span>
+                <span class="device-title-percent">(${perc.toFixed(1)}%)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = cardHTML;
+  const enhancedCardElement = container.querySelector('.device-card-centered');
+
+  // Add premium enhanced card styles
+  if (!document.getElementById('myio-enhanced-card-layout-styles')) {
+    const layoutStyle = document.createElement('style');
+    layoutStyle.id = 'myio-enhanced-card-layout-styles';
+    layoutStyle.textContent = `
+      /* Premium Enhanced Card Design - Reduced Size (10% smaller) */
+      .device-card-centered.clickable {
+        width: 90% !important;
+        max-width: 280px !important;
+        border-radius: 14px !important;
+        padding: 18px !important;
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%) !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        border: 1px solid rgba(226, 232, 240, 0.8) !important;
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        min-height: 126px !important;
+        margin: 0 auto;
+      }
+      
+      .device-card-centered.clickable::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #00e09e 0%, #00b4d8 50%, #7209b7 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      
+      .device-card-centered.clickable:hover {
+        transform: translateY(-4px) scale(1.02) !important;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08) !important;
+        border-color: rgba(0, 224, 158, 0.3) !important;
+      }
+      
+      .device-card-centered.clickable:hover::before {
+        opacity: 1;
+      }
+      
+      /* Premium Selection State */
+      .device-card-centered.selected {
+        border: 2px solid #00e09e !important;
+        box-shadow: 0 12px 40px rgba(0, 224, 158, 0.25), 0 4px 12px rgba(0, 224, 158, 0.15) !important;
+        background: linear-gradient(145deg, #f0fdf9 0%, #ecfdf5 50%, #f0fdf9 100%) !important;
+        transform: translateY(-2px) !important;
+      }
+      
+      .device-card-centered.selected::before {
+        opacity: 1;
+        background: linear-gradient(90deg, #00e09e 0%, #00d4aa 100%);
+      }
+      
+      /* Premium Offline State */
+      .device-card-centered.offline {
+        border: 2px solid #ef4444 !important;
+        background: linear-gradient(145deg, #fef2f2 0%, #fee2e2 50%, #fef2f2 100%) !important;
+        animation: premium-offline-pulse 2s infinite !important;
+      }
+      
+      .device-card-centered.offline::before {
+        opacity: 1;
+        background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+      }
+      
+      @keyframes premium-offline-pulse {
+        0%, 100% { 
+          box-shadow: 0 8px 32px rgba(239, 68, 68, 0.15), 0 2px 8px rgba(239, 68, 68, 0.1);
+        }
+        50% { 
+          box-shadow: 0 12px 40px rgba(239, 68, 68, 0.25), 0 4px 12px rgba(239, 68, 68, 0.2);
+        }
+      }
+      
+      /* Premium Device Image - Reduced Size (10% smaller) */
+      .device-card-centered .device-image {
+        max-height: 47px !important;
+        width: auto;
+        margin: 10px 0 !important;
+        display: block;
+        filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.1));
+        transition: all 0.3s ease;
+        border-radius: 7px;
+      }
+      
+      .device-card-centered:hover .device-image {
+        filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.15));
+        transform: scale(1.05);
+      }
+      
+      /* Premium Typography - Reduced Size (10% smaller) - FORCED VERTICAL LAYOUT */
+      .device-card-centered .device-title-row {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        width: 100% !important;
+        min-height: 38px !important;
+        margin-bottom: 8px !important;
+      }
+      
+      .device-card-centered .device-title {
+        font-weight: 700 !important;
+        font-size: 0.85rem !important;
+        color: #1e293b !important;
+        margin: 0 0 4px 0 !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        letter-spacing: -0.025em;
+        display: block !important;
+        width: 100% !important;
+        text-align: center !important;
+      }
+      
+      .device-card-centered .device-subtitle {
+        font-size: 0.67rem !important;
+        color: #64748b !important;
+        font-weight: 500 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        opacity: 0.8;
+        display: block !important;
+        width: 100% !important;
+        text-align: center !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      
+      /* Premium Value Display - Reduced Size (10% smaller) */
+      .device-card-centered .consumption-main {
+        background: linear-gradient(135deg, rgba(0, 224, 158, 0.1) 0%, rgba(0, 180, 216, 0.1) 100%);
+        border-radius: 10px;
+        padding: 7px 10px;
+        margin-top: 7px;
+        border: 1px solid rgba(0, 224, 158, 0.2);
+        backdrop-filter: blur(10px);
+      }
+      
+      .device-card-centered .consumption-value {
+        font-weight: 700 !important;
+        font-size: 0.9rem !important;
+        color: #059669 !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      }
+      
+      .device-card-centered .device-title-percent {
+        font-size: 0.72rem !important;
+        color: #6b7280 !important;
+        font-weight: 600 !important;
+        margin-left: 5px;
+      }
+      
+      /* Premium Status Icons - Reduced Size (10% smaller) */
+      .device-card-centered .flash-icon {
+        font-size: 1rem !important;
+        margin-right: 7px;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+        transition: all 0.3s ease;
+      }
+      
+      .device-card-centered:hover .flash-icon {
+        transform: scale(1.1);
+      }
+      
+      .device-card-centered .flash-icon.flash {
+        animation: premium-flash 1.5s infinite;
+      }
+      
+      @keyframes premium-flash {
+        0%, 100% { 
+          opacity: 1; 
+          transform: scale(1);
+          filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+        }
+        50% { 
+          opacity: 0.3; 
+          transform: scale(1.15);
+          filter: drop-shadow(0 4px 8px rgba(239, 68, 68, 0.3));
+        }
+      }
+      
+      /* Premium Checkbox - Reduced Size (10% smaller) */
+      .device-card-centered .card-checkbox {
+        width: 16px !important;
+        height: 16px !important;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.9) !important;
+        border: 2px solid #e2e8f0 !important;
+        border-radius: 5px !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        position: relative;
+      }
+      
+      .device-card-centered .card-checkbox:hover {
+        border-color: #00e09e !important;
+        box-shadow: 0 3px 6px rgba(0, 224, 158, 0.15);
+        transform: scale(1.05);
+      }
+      
+      .device-card-centered .card-checkbox:checked {
+        background: linear-gradient(135deg, #00e09e 0%, #00d4aa 100%) !important;
+        border-color: #00e09e !important;
+        box-shadow: 0 3px 10px rgba(0, 224, 158, 0.3);
+      }
+      
+      .device-card-centered .card-checkbox:checked::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 10px;
+        font-weight: bold;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      }
+      
+      /* Premium Card Actions - Mirrored to Left Side - Reduced Size (10% smaller) */
+      .device-card-centered .card-actions {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        z-index: 10;
+      }
+      
+      .device-card-centered .card-action {
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: 9px !important;
+        background: rgba(255, 255, 255, 0.9) !important;
+        border: 1px solid rgba(226, 232, 240, 0.8) !important;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .device-card-centered .card-action:hover {
+        background: rgba(0, 224, 158, 0.1) !important;
+        border-color: rgba(0, 224, 158, 0.3) !important;
+        transform: scale(1.1) translateY(-1px);
+        box-shadow: 0 3px 10px rgba(0, 224, 158, 0.15);
+      }
+      
+      .device-card-centered .card-action img {
+        width: 16px !important;
+        height: 16px !important;
+        filter: grayscale(0.2) brightness(0.8);
+        transition: all 0.3s ease;
+      }
+      
+      .device-card-centered .card-action:hover img {
+        filter: grayscale(0) brightness(1);
+        transform: scale(1.1);
+      }
+      
+      /* Premium Info Panel */
+      .myio-enhanced-card-container .info-panel {
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(20px) !important;
+        border-radius: 16px !important;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+      }
+      
+      .myio-enhanced-card-container .info-close {
+        background: rgba(239, 68, 68, 0.1) !important;
+        border: 1px solid rgba(239, 68, 68, 0.2) !important;
+        border-radius: 8px !important;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+      }
+      
+      .myio-enhanced-card-container .info-close:hover {
+        background: rgba(239, 68, 68, 0.2) !important;
+        transform: scale(1.1);
+      }
+      
+      /* Premium Responsive Design */
+      @media (max-width: 768px) {
+        .device-card-centered.clickable {
+          padding: 16px !important;
+          border-radius: 12px !important;
+        }
+        
+        .device-card-centered .device-image {
+          max-height: 44px !important;
+        }
+        
+        .device-card-centered .card-action {
+          width: 32px !important;
+          height: 32px !important;
+        }
+      }
+      
+      /* Premium Dark Mode Support */
+      @media (prefers-color-scheme: dark) {
+        .device-card-centered.clickable {
+          background: linear-gradient(145deg, #1e293b 0%, #334155 100%) !important;
+          border-color: rgba(71, 85, 105, 0.8) !important;
+          color: #f1f5f9 !important;
+        }
+        
+        .device-card-centered .device-title {
+          color: #f1f5f9 !important;
+        }
+        
+        .device-card-centered .device-subtitle {
+          color: #94a3b8 !important;
+        }
+        
+        .device-card-centered .card-action {
+          background: rgba(30, 41, 59, 0.9) !important;
+          border-color: rgba(71, 85, 105, 0.8) !important;
+        }
+      }
+    `;
+    document.head.appendChild(layoutStyle);
+  }
+
+  // Create action buttons container
+  const actionsContainer = document.createElement('div');
+  actionsContainer.className = 'card-actions';
+
+  // Add action buttons
+  if (typeof handleActionDashboard === 'function') {
+    const dashboardBtn = document.createElement('button');
+    dashboardBtn.className = 'card-action action-dashboard';
+    dashboardBtn.title = 'Dashboard';
+    dashboardBtn.innerHTML = '<img src="https://dashboard.myio-bas.com/api/images/public/TAVXE0sTbCZylwGsMF9lIWdllBB3iFtS"/>';
+    dashboardBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleActionDashboard(entityObject);
+    });
+    actionsContainer.appendChild(dashboardBtn);
+  }
+
+  if (typeof handleActionReport === 'function') {
+    const reportBtn = document.createElement('button');
+    reportBtn.className = 'card-action action-report';
+    reportBtn.title = 'Relatório';
+    reportBtn.innerHTML = '<img src="https://dashboard.myio-bas.com/api/images/public/d9XuQwMYQCG2otvtNSlqUHGavGaSSpz4"/>';
+    reportBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleActionReport(entityObject);
+    });
+    actionsContainer.appendChild(reportBtn);
+  }
+
+  if (typeof handleActionSettings === 'function') {
+    const settingsBtn = document.createElement('button');
+    settingsBtn.className = 'card-action action-settings';
+    settingsBtn.title = 'Configurações';
+    settingsBtn.innerHTML = '<img src="https://dashboard.myio-bas.com/api/images/public/5n9tze6vED2uwIs5VvJxGzNNZ9eV4yoz"/>';
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleActionSettings(entityObject);
+    });
+    actionsContainer.appendChild(settingsBtn);
+  }
+
+  // Add info panel if requested
+  if (handInfo) {
+    const infoPanel = document.createElement('div');
+    infoPanel.className = 'info-panel';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'info-close';
+    closeBtn.innerHTML = '×';
+    closeBtn.addEventListener('click', () => {
+      infoPanel.classList.remove('active');
+    });
+    
+    const infoContent = document.createElement('div');
+    infoContent.className = 'info-content';
+    
+    // Format connection info
+    let connectionInfo = '';
+    if (connectionStatusTime) {
+      const date = new Date(connectionStatusTime);
+      connectionInfo = `<strong>Central:</strong> ${centralName || 'N/A'}<br>`;
+      connectionInfo += `<strong>Última Conexão:</strong> ${date.toLocaleString('pt-BR')}<br>`;
+    }
+    
+    if (timaVal) {
+      const telemetryDate = new Date(timaVal);
+      const now = new Date();
+      const diffMs = now - telemetryDate;
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      
+      connectionInfo += `<strong>Última Telemetria:</strong> ${telemetryDate.toLocaleString('pt-BR')}`;
+      if (diffHours > 0) {
+        connectionInfo += ` (${diffHours}h atrás)`;
+      }
+    }
+    
+    infoContent.innerHTML = connectionInfo || '<strong>Informações não disponíveis</strong>';
+    
+    infoPanel.appendChild(closeBtn);
+    infoPanel.appendChild(infoContent);
+    container.appendChild(infoPanel);
+    
+    // Add info button to actions
+    const infoBtn = document.createElement('button');
+    infoBtn.className = 'card-action action-info';
+    infoBtn.title = 'Informações';
+    infoBtn.innerHTML = '📊';
+    infoBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      infoPanel.classList.toggle('active');
+    });
+    actionsContainer.appendChild(infoBtn);
+  }
+
+  // Insert actions container into the card
+  if (enhancedCardElement && actionsContainer.children.length > 0) {
+    enhancedCardElement.insertBefore(actionsContainer, enhancedCardElement.firstChild);
+  }
+
+  // Handle selection events
+  if (enableSelection && MyIOSelectionStore) {
+    const checkbox = enhancedCardElement.querySelector('.card-checkbox');
+    
+    // Handle checkbox changes
+    if (checkbox) {
+      checkbox.addEventListener('change', (e) => {
+        e.stopPropagation();
+        if (e.target.checked) {
+          MyIOSelectionStore.add(entityId);
+        } else {
+          MyIOSelectionStore.remove(entityId);
+        }
+      });
+    }
+    
+    // Listen for selection changes from the store
+    const handleSelectionChange = (data) => {
+      const isSelected = data.selectedIds.includes(entityId);
+      if (checkbox) {
+        checkbox.checked = isSelected;
+      }
+      enhancedCardElement.classList.toggle('selected', isSelected);
+      
+      if (typeof handleSelect === 'function') {
+        handleSelect(entityObject);
+      }
+    };
+    
+    MyIOSelectionStore.on('selection:change', handleSelectionChange);
+    
+    // Set initial state
+    const isInitiallySelected = MyIOSelectionStore.isSelected(entityId);
+    if (checkbox) {
+      checkbox.checked = isInitiallySelected;
+    }
+    enhancedCardElement.classList.toggle('selected', isInitiallySelected);
+    
+    // Cleanup function
+    container._cleanup = () => {
+      MyIOSelectionStore.off('selection:change', handleSelectionChange);
+    };
+  }
+
+  // Handle drag and drop
+  if (enableDragDrop) {
+    enhancedCardElement.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/myio-id', entityId);
+      e.dataTransfer.setData('application/json', JSON.stringify(entityObject));
+      e.dataTransfer.effectAllowed = 'copy';
+      
+      if (MyIOSelectionStore) {
+        MyIOSelectionStore.startDrag(entityId);
+      }
+    });
+    
+    enhancedCardElement.addEventListener('dragend', () => {
+      // Drag end handling if needed
+    });
+  }
+
+  // Handle card clicks
+  if (typeof handleClickCard === 'function') {
+    enhancedCardElement.addEventListener('click', (e) => {
+      if (!e.target.closest('.card-action') && !e.target.closest('.card-checkbox')) {
+        handleClickCard(entityObject);
+      }
+    });
+  }
+
+  // Return jQuery-like object for compatibility
+  const jQueryLikeObject = {
+    get: (index) => index === 0 ? container : undefined,
+    0: container,
+    length: 1,
+    find: (selector) => {
+      const found = container.querySelector(selector);
+      return {
+        get: (index) => index === 0 ? found : undefined,
+        0: found,
+        length: found ? 1 : 0,
+        on: (event, handler) => {
+          if (found) found.addEventListener(event, handler);
+          return this;
+        }
+      };
+    },
+    on: (event, handler) => {
+      container.addEventListener(event, handler);
+      return this;
+    },
+    addClass: (className) => {
+      container.classList.add(className);
+      return this;
+    },
+    removeClass: (className) => {
+      container.classList.remove(className);
+      return this;
+    },
+    // Add cleanup method
+    destroy: () => {
+      if (container._cleanup) {
+        container._cleanup();
+      }
+    }
+  };
+
+  return jQueryLikeObject;
+}
+
+// Legacy fallback function (original implementation)
+function renderCardComponentLegacy(options) {
+  // This would contain the original renderCardComponent implementation
+  // For now, we'll import and call the original function
+  const { renderCardComponent } = require('./template-card.js');
+  return renderCardComponent(options);
+}
+
+// Enhanced wrapper that provides both old and new functionality
+export function renderCardComponent(options) {
+  // Check if new components are available and user wants to use them
+  const useNewComponents = options.useNewComponents !== false && 
+                          typeof MyIOSelectionStore !== 'undefined' && 
+                          typeof MyIODraggableCard !== 'undefined';
+  
+  if (useNewComponents) {
+    return renderCardComponentV2(options);
+  } else {
+    return renderCardComponentLegacy(options);
+  }
+}
+
+// Export legacy version for flexibility
+export { renderCardComponentLegacy };
