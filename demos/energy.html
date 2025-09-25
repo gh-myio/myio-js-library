@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Modal Demo</title>
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            margin: 40px;
+            background: #f5f5f5;
+        }
+        .demo-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .demo-button {
+            background: #4A148C;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        .demo-button:hover {
+            background: #5c307d;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>Premium Modal Components Demo</h1>
+        <p>Click the buttons below to test each modal component:</p>
+        
+        <button class="demo-button" onclick="openEnergyDemo()">
+            ⚡ Energy Modal
+        </button>
+        
+        <button class="demo-button" onclick="openReportDemo()">
+            📊 Device Report Modal
+        </button>
+        
+        <button class="demo-button" onclick="openAllReportDemo()">
+            📋 All Report Modal
+        </button>
+        
+        <button class="demo-button" onclick="openSettingsDemo()">
+            ⚙️ Settings Modal
+        </button>
+    </div>
+
+    <!-- Load the library (when built) -->
+    <script src="../dist/myio-js-library.umd.min.js"></script>
+    
+    <script>
+        // Mock data for demos
+        function openEnergyDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('Library not loaded. Build the project first.');
+                return;
+            }
+            
+            MyIOLibrary.openDashboardPopupEnergy({
+                deviceId: 'demo-device-123',
+                label: 'ENTRADA SUBESTAÇÃO',
+                gatewayId: 'GW-123',
+                slaveId: 1,
+                ingestionId: 'a1b2c3d4-demo-ingestion-id',
+                date: { start: '2025-09-01', end: '2025-09-25' },
+                ui: { theme: 'light' },
+                api: {
+                    clientId: 'demo-client',
+                    clientSecret: 'demo-secret',
+                    dataApiBaseUrl: 'https://api.data.apps.myio-bas.com',
+                    graphsBaseUrl: 'https://graphs.apps.myio-bas.com',
+                    timezone: 'America/Sao_Paulo'
+                }
+            });
+        }
+        
+        function openReportDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('Library not loaded. Build the project first.');
+                return;
+            }
+            
+            MyIOLibrary.openDashboardPopupReport({
+                ingestionId: 'demo-ingestion-123',
+                deviceId: 'demo-device-123',
+                deviceLabel: 'Entrada Subestação',
+                storeLabel: 'Outback',
+                date: { start: '2025-09-01', end: '2025-09-25' },
+                api: { 
+                    clientId: 'demo-client',
+                    clientSecret: 'demo-secret',
+                    dataApiBaseUrl: 'https://api.data.apps.myio-bas.com'
+                }
+            });
+        }
+        
+        function openAllReportDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('Library not loaded. Build the project first.');
+                return;
+            }
+            
+            MyIOLibrary.openDashboardPopupAllReport({
+                customerId: 'demo-customer-123',
+                date: { start: '2025-09-01', end: '2025-09-25' },
+                api: { 
+                    clientId: 'demo-client',
+                    clientSecret: 'demo-secret',
+                    dataApiBaseUrl: 'https://api.data.apps.myio-bas.com'
+                },
+                filters: {
+                    excludeLabels: [
+                        /bomba.*secund[aá]ria/i,
+                        /^administra[cç][aã]o\s*1$/i,
+                        /chiller/i
+                    ]
+                }
+            });
+        }
+        
+        function openSettingsDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('Library not loaded. Build the project first.');
+                return;
+            }
+            
+            MyIOLibrary.openDashboardPopup({
+                deviceId: 'demo-device-123',
+                api: { tbJwtToken: 'demo-jwt-token' },
+                seed: {
+                    label: 'Chiller Demo',
+                    floor: 'E1',
+                    storeNumber: 'SCP00480',
+                    meterId: '12345',
+                    deviceRef: 'DEMO001A',
+                    guid: '5d344a31-demo-guid',
+                    maxDailyKwh: 10000,
+                    maxNightKwh: 1500,
+                    maxBusinessKwh: 8000
+                }
+            });
+        }
+    </script>
+</body>
+</html>
