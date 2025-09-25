@@ -1,0 +1,634 @@
+// src/thingsboard/main-dashboard-shopping/v-4.0.0/card/head-office/card-head-office.js
+// Core Head Office card component implementation
+
+/* eslint-env browser */
+
+import { CSS_STRING } from './card-head-office.css.js';
+import { Icons, ICON_MAP } from '../../head-office/card-head-office.icons';
+import { DEFAULT_I18N } from '../../head-office/card-head-office.types';
+
+const CSS_TAG = 'head-office-card-v1';
+
+/**
+ * Ensure CSS is injected once per page
+ */
+function ensureCss() {
+  if (!document.querySelector(`style[data-myio-css="${CSS_TAG}"]`)) {
+    const style = document.createElement('style');
+    style.setAttribute('data-myio-css', CSS_TAG);
+    style.textContent = CSS_STRING;
+    document.head.appendChild(style);
+  }
+}
+
+/**
+ * Normalize and validate parameters
+ */
+function normalizeParams(params) {
+  if (!params || !params.entityObject) {
+    throw new Error('renderCardCompenteHeadOffice: entityObject is required');
+  }
+
+  const entityObject = params.entityObject;
+  if (!entityObject.entityId) {
+    console.warn('renderCardCompenteHeadOffice: entityId is missing, generating temporary ID');
+    entityObject.entityId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  return {
+    entityObject,
+    i18n: { ...DEFAULT_I18N, ...(params.i18n || {}) },
+    enableSelection: Boolean(params.enableSelection),
+    enableDragDrop: Boolean(params.enableDragDrop),
+    useNewComponents: Boolean(params.useNewComponents),
+    callbacks: {
+      handleActionDashboard: params.handleActionDashboard,
+      handleActionReport: params.handleActionReport,
+      handleActionSettings: params.handleActionSettings,
+      handleSelect: params.handleSelect,
+      handInfo: params.handInfo,
+      handleClickCard: params.handleClickCard
+    }
+  };
+}
+
+/**
+ * Get icon SVG for device type
+ */
+function getIconSvg(deviceType) {
+  return ICON_MAP[deviceType] || ICON_MAP.DEFAULT;
+}
+
+/**
+ * Format primary value based on type
+ */
+function formatPrimaryValue(val, valType) {
+  if (val === null || val === undefined || isNaN(val)) {
+    return { num: '—', unit: '', suffix: '' };
+  }
+
+  switch (valType) {
+    case 'power_kw':
+      return {
+        num: val.toFixed(1),
+        unit: 'kW',
+        suffix: ''
+      };
+    case 'flow_m3h':
+      return {
+        num: val.toFixed(1),
+        unit: 'm³/h',
+        suffix: ''
+      };
+    case 'temp_c':
+      return {
+        num: val.toFixed(1),
+        unit: '°C',
+        suffix: ''
+      };
+    default:
+      return {
+        num: val.toFixed(1),
+        unit: '',
+        suffix: ''
+      };
+  }
+}
+
+/**
+ * Format temperature value
+ */
+function formatTemperature(temp) {
+  if (temp === null || temp === undefined || isNaN(temp)) {
+    return '—';
+  }
+  return `${temp.toFixed(0)}°C`;
+}
+
+/**
+ * Format operation hours
+ */
+function formatOperationHours(hours) {
+  if (hours === null || hours === undefined || isNaN(hours)) {
+    return '—';
+  }
+  return `${hours.toFixed(3)}h`;
+}
+
+/**
+ * Format relative time
+ */
+function formatRelativeTime(timestamp) {
+  if (!timestamp) return '—';
+  
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / (1000 * 60));
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) return `${days}d`;
+  if (hours > 0) return `${hours}h`;
+  if (minutes > 0) return `${minutes}m`;
+  return 'agora';
+}
+
+/**
+ * Get status chip class and label
+ */
+function getStatusInfo(connectionStatus, i18n) {
+  switch (connectionStatus) {
+    case 'RUNNING':
+    case 'ONLINE':
+      return { chipClass: 'chip--ok', label: i18n.in_operation };
+    case 'ALERT':
+      return { chipClass: 'chip--alert', label: i18n.alert };
+    case 'FAILURE':
+      return { chipClass: 'chip--failure', label: i18n.failure };
+    case 'OFFLINE':
+    case 'PAUSED':
+    default:
+      return { chipClass: 'chip--offline', label: i18n.offline };
+  }
+}
+
+/**
+ * Get card state class for alert/failure border
+ */
+function getCardStateClass(connectionStatus) {
+  switch (connectionStatus) {
+    case 'ALERT':
+      return 'is-alert';
+    case 'FAILURE':
+      return 'is-failure';
+    default:
+      return '';
+  }
+}
+
+/**
+ * Build DOM structure
+ */
+function buildDOM(state) {
+  const { entityObject, i18n, enableSelection, enableDragDrop } = state;
+  
+  // Root container
+  const root = document.createElement('div');
+  root.className = 'myio-ho-card';
+  root.setAttribute('role', 'group');
+  root.setAttribute('data-entity-id', entityObject.entityId);
+  
+  if (enableDragDrop) {
+    root.setAttribute('draggable', 'true');
+  }
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'myio-ho-card__header';
+
+  // Icon
+  const iconContainer = document.createElement('div');
+  iconContainer.className = 'myio-ho-card__icon';
+  iconContainer.innerHTML = getIconSvg(entityObject.deviceType);
+  header.appendChild(iconContainer);
+
+  // Title section
+  const titleSection = document.createElement('div');
+  titleSection.className = 'myio-ho-card__title';
+
+  const nameEl = document.createElement('div');
+  nameEl.className = 'myio-ho-card__name';
+  nameEl.textContent = entityObject.labelOrName || 'Unknown Device';
+  titleSection.appendChild(nameEl);
+
+  if (entityObject.deviceIdentifier) {
+    const codeEl = document.createElement('div');
+    codeEl.className = 'myio-ho-card__code';
+    codeEl.textContent = entityObject.deviceIdentifier;
+    titleSection.appendChild(codeEl);
+  }
+
+  header.appendChild(titleSection);
+
+  // Actions section
+  const actionsSection = document.createElement('div');
+  actionsSection.className = 'myio-ho-card__actions';
+
+  // Kebab menu
+  const kebabBtn = document.createElement('button');
+  kebabBtn.className = 'myio-ho-card__kebab';
+  kebabBtn.setAttribute('aria-label', 'Open actions');
+  kebabBtn.setAttribute('aria-haspopup', 'menu');
+  kebabBtn.innerHTML = Icons.kebab;
+  actionsSection.appendChild(kebabBtn);
+
+  // Menu
+  const menu = document.createElement('div');
+  menu.className = 'myio-ho-card__menu';
+  menu.setAttribute('role', 'menu');
+  menu.setAttribute('hidden', '');
+
+  const dashboardBtn = document.createElement('button');
+  dashboardBtn.setAttribute('role', 'menuitem');
+  dashboardBtn.setAttribute('data-action', 'dashboard');
+  dashboardBtn.textContent = i18n.menu_dashboard;
+  menu.appendChild(dashboardBtn);
+
+  const reportBtn = document.createElement('button');
+  reportBtn.setAttribute('role', 'menuitem');
+  reportBtn.setAttribute('data-action', 'report');
+  reportBtn.textContent = i18n.menu_report;
+  menu.appendChild(reportBtn);
+
+  const settingsBtn = document.createElement('button');
+  settingsBtn.setAttribute('role', 'menuitem');
+  settingsBtn.setAttribute('data-action', 'settings');
+  settingsBtn.textContent = i18n.menu_settings;
+  menu.appendChild(settingsBtn);
+
+  actionsSection.appendChild(menu);
+
+  // Selection checkbox
+  if (enableSelection) {
+    const selectLabel = document.createElement('label');
+    selectLabel.className = 'myio-ho-card__select';
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    selectLabel.appendChild(checkbox);
+    
+    actionsSection.appendChild(selectLabel);
+  }
+
+  header.appendChild(actionsSection);
+  root.appendChild(header);
+
+  // Status chip
+  const statusSection = document.createElement('div');
+  statusSection.className = 'myio-ho-card__status';
+  
+  const chip = document.createElement('span');
+  chip.className = 'chip';
+  statusSection.appendChild(chip);
+  
+  root.appendChild(statusSection);
+
+  // Primary metric
+  const primarySection = document.createElement('div');
+  primarySection.className = 'myio-ho-card__primary';
+  primarySection.setAttribute('role', 'button');
+  primarySection.setAttribute('tabindex', '0');
+
+  const valueContainer = document.createElement('div');
+  valueContainer.className = 'myio-ho-card__value';
+
+  const numSpan = document.createElement('span');
+  numSpan.className = 'num';
+  valueContainer.appendChild(numSpan);
+
+  const unitSpan = document.createElement('span');
+  unitSpan.className = 'unit';
+  valueContainer.appendChild(unitSpan);
+
+  const suffixSpan = document.createElement('span');
+  suffixSpan.className = 'suffix';
+  suffixSpan.textContent = i18n.current_suffix;
+  valueContainer.appendChild(suffixSpan);
+
+  primarySection.appendChild(valueContainer);
+  root.appendChild(primarySection);
+
+  // Efficiency bar
+  const effSection = document.createElement('div');
+  effSection.className = 'myio-ho-card__eff';
+
+  const effLabel = document.createElement('div');
+  effLabel.className = 'label';
+  effLabel.textContent = i18n.efficiency;
+  effSection.appendChild(effLabel);
+
+  const barContainer = document.createElement('div');
+  barContainer.className = 'bar';
+  barContainer.setAttribute('role', 'progressbar');
+  barContainer.setAttribute('aria-valuemin', '0');
+  barContainer.setAttribute('aria-valuemax', '100');
+
+  const barFill = document.createElement('div');
+  barFill.className = 'bar__fill';
+  barContainer.appendChild(barFill);
+
+  effSection.appendChild(barContainer);
+
+  const percSpan = document.createElement('div');
+  percSpan.className = 'perc';
+  effSection.appendChild(percSpan);
+
+  root.appendChild(effSection);
+
+  // Footer metrics
+  const footer = document.createElement('div');
+  footer.className = 'myio-ho-card__footer';
+
+  // Temperature metric
+  const tempMetric = document.createElement('div');
+  tempMetric.className = 'metric';
+
+  const tempIcon = document.createElement('i');
+  tempIcon.className = 'ico ico-temp';
+  tempIcon.innerHTML = Icons.thermometer;
+  tempMetric.appendChild(tempIcon);
+
+  const tempLabel = document.createElement('div');
+  tempLabel.className = 'label';
+  tempLabel.textContent = i18n.temperature;
+  tempMetric.appendChild(tempLabel);
+
+  const tempVal = document.createElement('div');
+  tempVal.className = 'val';
+  tempMetric.appendChild(tempVal);
+
+  footer.appendChild(tempMetric);
+
+  // Operation time metric
+  const opTimeMetric = document.createElement('div');
+  opTimeMetric.className = 'metric';
+
+  const opTimeIcon = document.createElement('i');
+  opTimeIcon.className = 'ico ico-clock';
+  opTimeIcon.innerHTML = Icons.dot; // Using dot as clock placeholder
+  opTimeMetric.appendChild(opTimeIcon);
+
+  const opTimeLabel = document.createElement('div');
+  opTimeLabel.className = 'label';
+  opTimeLabel.textContent = i18n.operation_time;
+  opTimeMetric.appendChild(opTimeLabel);
+
+  const opTimeVal = document.createElement('div');
+  opTimeVal.className = 'val';
+  opTimeMetric.appendChild(opTimeVal);
+
+  footer.appendChild(opTimeMetric);
+
+  // Updated metric
+  const updatedMetric = document.createElement('div');
+  updatedMetric.className = 'metric';
+
+  const updatedIcon = document.createElement('i');
+  updatedIcon.className = 'ico ico-sync';
+  updatedIcon.innerHTML = Icons.dot; // Using dot as sync placeholder
+  updatedMetric.appendChild(updatedIcon);
+
+  const updatedLabel = document.createElement('div');
+  updatedLabel.className = 'label';
+  updatedLabel.textContent = i18n.updated;
+  updatedMetric.appendChild(updatedLabel);
+
+  const updatedVal = document.createElement('div');
+  updatedVal.className = 'val';
+  updatedMetric.appendChild(updatedVal);
+
+  footer.appendChild(updatedMetric);
+
+  root.appendChild(footer);
+
+  return root;
+}
+
+/**
+ * Paint/update DOM with current state
+ */
+function paint(root, state) {
+  const { entityObject, i18n } = state;
+
+  // Update card state class
+  const stateClass = getCardStateClass(entityObject.connectionStatus);
+  root.className = `myio-ho-card ${stateClass}`;
+
+  // Update status chip
+  const statusInfo = getStatusInfo(entityObject.connectionStatus, i18n);
+  const chip = root.querySelector('.chip');
+  chip.className = `chip ${statusInfo.chipClass}`;
+  chip.textContent = statusInfo.label;
+
+  // Update primary value
+  const primaryValue = formatPrimaryValue(entityObject.val, entityObject.valType);
+  const numSpan = root.querySelector('.myio-ho-card__value .num');
+  const unitSpan = root.querySelector('.myio-ho-card__value .unit');
+  
+  numSpan.textContent = primaryValue.num;
+  unitSpan.textContent = primaryValue.unit;
+
+  // Update efficiency
+  const perc = entityObject.perc || 0;
+  const barFill = root.querySelector('.bar__fill');
+  const percSpan = root.querySelector('.myio-ho-card__eff .perc');
+  const barContainer = root.querySelector('.bar');
+  
+  barFill.style.width = `${Math.max(0, Math.min(100, perc))}%`;
+  percSpan.textContent = `${Math.round(perc)}%`;
+  barContainer.setAttribute('aria-valuenow', Math.round(perc).toString());
+  barContainer.setAttribute('aria-label', `${i18n.efficiency} ${Math.round(perc)}%`);
+
+  // Update footer metrics
+  const tempVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(1) .val');
+  tempVal.textContent = formatTemperature(entityObject.temperatureC);
+
+  const opTimeVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(2) .val');
+  opTimeVal.textContent = formatOperationHours(entityObject.operationHours);
+
+  const updatedVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(3) .val');
+  updatedVal.textContent = formatRelativeTime(entityObject.timaVal);
+}
+
+/**
+ * Bind event listeners
+ */
+function bindEvents(root, state, callbacks) {
+  const { entityObject } = state;
+
+  // Kebab menu toggle
+  const kebabBtn = root.querySelector('.myio-ho-card__kebab');
+  const menu = root.querySelector('.myio-ho-card__menu');
+
+  function toggleMenu() {
+    const isHidden = menu.hasAttribute('hidden');
+    if (isHidden) {
+      menu.removeAttribute('hidden');
+      kebabBtn.setAttribute('aria-expanded', 'true');
+    } else {
+      menu.setAttribute('hidden', '');
+      kebabBtn.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function closeMenu() {
+    menu.setAttribute('hidden', '');
+    kebabBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  kebabBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleMenu();
+  });
+
+  // Close menu on outside click
+  document.addEventListener('click', closeMenu);
+
+  // Close menu on escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeMenu();
+    }
+  });
+
+  // Menu actions
+  const dashboardBtn = menu.querySelector('[data-action="dashboard"]');
+  const reportBtn = menu.querySelector('[data-action="report"]');
+  const settingsBtn = menu.querySelector('[data-action="settings"]');
+
+  if (callbacks.handleActionDashboard) {
+    dashboardBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeMenu();
+      callbacks.handleActionDashboard(e, entityObject);
+    });
+  }
+
+  if (callbacks.handleActionReport) {
+    reportBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeMenu();
+      callbacks.handleActionReport(e, entityObject);
+    });
+  }
+
+  if (callbacks.handleActionSettings) {
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeMenu();
+      callbacks.handleActionSettings(e, entityObject);
+    });
+  }
+
+  // Selection checkbox
+  const checkbox = root.querySelector('.myio-ho-card__select input[type="checkbox"]');
+  if (checkbox && callbacks.handleSelect) {
+    checkbox.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const isSelected = checkbox.checked;
+      
+      // Toggle selected visual state
+      root.classList.toggle('is-selected', isSelected);
+      
+      callbacks.handleSelect(isSelected, entityObject);
+    });
+  }
+
+  // Card click
+  const primarySection = root.querySelector('.myio-ho-card__primary');
+  if (callbacks.handleClickCard) {
+    function handleCardClick(e) {
+      // Don't trigger if clicking on actions or checkbox
+      if (e.target.closest('.myio-ho-card__actions')) return;
+      callbacks.handleClickCard(e, entityObject);
+    }
+
+    root.addEventListener('click', handleCardClick);
+    
+    // Keyboard support
+    primarySection.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        callbacks.handleClickCard(e, entityObject);
+      }
+    });
+  }
+
+  // Drag and drop
+  if (state.enableDragDrop) {
+    root.addEventListener('dragstart', (e) => {
+      root.classList.add('is-dragging');
+      e.dataTransfer.setData('text/plain', entityObject.entityId);
+      
+      // Custom event
+      const customEvent = new CustomEvent('myio:dragstart', {
+        detail: { entityObject },
+        bubbles: true
+      });
+      root.dispatchEvent(customEvent);
+    });
+
+    root.addEventListener('dragend', () => {
+      root.classList.remove('is-dragging');
+    });
+
+    root.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const draggedId = e.dataTransfer.getData('text/plain');
+      
+      // Custom event
+      const customEvent = new CustomEvent('myio:drop', {
+        detail: { draggedId, targetEntity: entityObject },
+        bubbles: true
+      });
+      root.dispatchEvent(customEvent);
+    });
+
+    root.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+  }
+
+  // Store cleanup functions
+  root._cleanup = () => {
+    document.removeEventListener('click', closeMenu);
+    document.removeEventListener('keydown', closeMenu);
+  };
+}
+
+/**
+ * Unbind event listeners
+ */
+function unbindEvents(root) {
+  if (root._cleanup) {
+    root._cleanup();
+    delete root._cleanup;
+  }
+}
+
+/**
+ * Main render function
+ */
+export function renderCardCompenteHeadOffice(containerEl, params) {
+  if (!containerEl) {
+    throw new Error('renderCardCompenteHeadOffice: containerEl is required');
+  }
+
+  ensureCss();
+  const state = normalizeParams(params);
+  const root = buildDOM(state);
+  
+  containerEl.appendChild(root);
+  bindEvents(root, state, state.callbacks);
+  paint(root, state);
+
+  return {
+    update(next) {
+      if (next) {
+        Object.assign(state.entityObject, next);
+        paint(root, state);
+      }
+    },
+    
+    destroy() {
+      unbindEvents(root);
+      if (root.parentNode) {
+        root.parentNode.removeChild(root);
+      }
+    },
+    
+    getRoot() {
+      return root;
+    }
+  };
+}
