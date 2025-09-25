@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYIO Head Office Card Component Demo</title>
+    
+    <!-- Load MYIO Library from local dist -->
+    <script src="../../../../../dist/myio-js-library.umd.min.js"></script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f7fa;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .demo-header {
+            max-width: 1200px;
+            margin: 0 auto 30px;
+            text-align: center;
+        }
+        
+        .demo-header h1 {
+            color: #0f172a;
+            margin-bottom: 10px;
+        }
+        
+        .demo-header p {
+            color: #64748b;
+            font-size: 16px;
+        }
+        
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #334155;
+            margin: 30px 0 15px;
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        
+        .controls button {
+            background: #007ecc;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        
+        .controls button:hover {
+            background: #0066aa;
+        }
+        
+        .log-output {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+        }
+        
+        .log-time {
+            color: #94a3b8;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-header">
+        <h1>MYIO Head Office Card Component Demo</h1>
+        <p>Demonstração do componente renderCardCompenteHeadOffice</p>
+    </div>
+    
+    <div class="demo-container">
+        <div class="controls">
+            <button onclick="updateAllCards()">Atualizar Métricas</button>
+            <button onclick="toggleStatus()">Alternar Status</button>
+            <button onclick="addNewCard()">Adicionar Card</button>
+            <button onclick="clearLog()">Limpar Log</button>
+        </div>
+        
+        <h2 class="section-title">Cards Grid</h2>
+        <div id="cards-grid" class="cards-grid"></div>
+        
+        <h2 class="section-title">Event Log</h2>
+        <div id="log-output" class="log-output">
+            <div class="log-entry">
+                <span class="log-time">--:--:--</span>
+                Aguardando eventos...
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Get the library components
+        const { renderCardCompenteHeadOffice } = MyIOLibrary;
+        
+        // Store card handles for updates
+        const cardHandles = [];
+        
+        // Sample device data
+        const sampleDevices = [
+            {
+                entityId: 'elv-001',
+                labelOrName: 'Elevador Social Norte 01',
+                deviceIdentifier: 'ELV-001',
+                deviceType: 'ELEVATOR',
+                val: 15.2,
+                valType: 'power_kw',
+                perc: 94,
+                connectionStatus: 'RUNNING',
+                temperatureC: 28,
+                operationHours: 12.847
+            },
+            {
+                entityId: 'esc-002',
+                labelOrName: 'Escada Rolante Sul 02',
+                deviceIdentifier: 'ESC-002',
+                deviceType: 'ESCADA_ROLANTE',
+                val: 8.7,
+                valType: 'power_kw',
+                perc: 87,
+                connectionStatus: 'RUNNING',
+                temperatureC: 26,
+                operationHours: 7.405
+            },
+            {
+                entityId: 'chl-003',
+                labelOrName: 'Chiller Principal',
+                deviceIdentifier: 'CHL-003',
+                deviceType: 'CHILLER',
+                val: 45.3,
+                valType: 'power_kw',
+                perc: 78,
+                connectionStatus: 'ALERT',
+                temperatureC: 32,
+                operationHours: 156.234
+            },
+            {
+                entityId: 'pmp-004',
+                labelOrName: 'Bomba de Água Torre A',
+                deviceIdentifier: 'PMP-004',
+                deviceType: 'PUMP',
+                val: 5.8,
+                valType: 'power_kw',
+                perc: 92,
+                connectionStatus: 'RUNNING',
+                temperatureC: 25,
+                operationHours: 48.123
+            }
+        ];
+        
+        // Log function
+        function log(message, type = 'info') {
+            const logOutput = document.getElementById('log-output');
+            const time = new Date().toLocaleTimeString('pt-BR');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">${time}</span>${message}`;
+            logOutput.appendChild(entry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+        
+        // Clear log
+        function clearLog() {
+            const logOutput = document.getElementById('log-output');
+            logOutput.innerHTML = '<div class="log-entry"><span class="log-time">--:--:--</span>Log limpo</div>';
+        }
+        
+        // Initialize cards
+        function initializeCards() {
+            const grid = document.getElementById('cards-grid');
+            
+            sampleDevices.forEach((device, index) => {
+                const container = document.createElement('div');
+                grid.appendChild(container);
+                
+                const handle = renderCardCompenteHeadOffice(container, {
+                    entityObject: device,
+                    handleActionDashboard: (ev, entity) => {
+                        log(`Dashboard clicked: ${entity.labelOrName} (${entity.entityId})`);
+                    },
+                    handleActionReport: (ev, entity) => {
+                        log(`Report clicked: ${entity.labelOrName} (${entity.entityId})`);
+                    },
+                    handleActionSettings: (ev, entity) => {
+                        log(`Settings clicked: ${entity.labelOrName} (${entity.entityId})`);
+                    },
+                    handleSelect: (checked, entity) => {
+                        log(`Selection ${checked ? 'checked' : 'unchecked'}: ${entity.labelOrName}`);
+                    },
+                    handleClickCard: (ev, entity) => {
+                        log(`Card clicked: ${entity.labelOrName} - Power: ${entity.val}kW`);
+                    },
+                    useNewComponents: true,
+                    enableSelection: true,
+                    enableDragDrop: true
+                });
+                
+                cardHandles.push({ handle, device, container });
+            });
+            
+            log('Cards initialized successfully');
+        }
+        
+        // Update all cards with random values
+        function updateAllCards() {
+            cardHandles.forEach(({ handle, device }) => {
+                const newVal = (Math.random() * 50 + 5).toFixed(1);
+                const newPerc = Math.floor(Math.random() * 30 + 70);
+                const newTemp = Math.floor(Math.random() * 10 + 22);
+                const newHours = device.operationHours + 0.1;
+                
+                handle.update({
+                    val: parseFloat(newVal),
+                    perc: newPerc,
+                    temperatureC: newTemp,
+                    operationHours: newHours
+                });
+            });
+            
+            log('All cards updated with new metrics');
+        }
+        
+        // Toggle status between different states
+        let statusIndex = 0;
+        const statuses = ['RUNNING', 'ALERT', 'FAILURE', 'OFFLINE'];
+        
+        function toggleStatus() {
+            statusIndex = (statusIndex + 1) % statuses.length;
+            const newStatus = statuses[statusIndex];
+            
+            cardHandles.forEach(({ handle }) => {
+                handle.update({
+                    connectionStatus: newStatus
+                });
+            });
+            
+            log(`Status changed to: ${newStatus}`);
+        }
+        
+        // Add a new card
+        function addNewCard() {
+            const grid = document.getElementById('cards-grid');
+            const container = document.createElement('div');
+            grid.appendChild(container);
+            
+            const newDevice = {
+                entityId: `dev-${Date.now()}`,
+                labelOrName: `Novo Dispositivo ${cardHandles.length + 1}`,
+                deviceIdentifier: `DEV-${cardHandles.length + 1}`,
+                deviceType: 'DEVICE',
+                val: Math.random() * 30 + 10,
+                valType: 'power_kw',
+                perc: Math.floor(Math.random() * 100),
+                connectionStatus: 'RUNNING',
+                temperatureC: 25,
+                operationHours: 0
+            };
+            
+            const handle = renderCardCompenteHeadOffice(container, {
+                entityObject: newDevice,
+                handleActionDashboard: (ev, entity) => {
+                    log(`Dashboard clicked: ${entity.labelOrName}`);
+                },
+                handleActionReport: (ev, entity) => {
+                    log(`Report clicked: ${entity.labelOrName}`);
+                },
+                handleActionSettings: (ev, entity) => {
+                    log(`Settings clicked: ${entity.labelOrName}`);
+                },
+                handleSelect: (checked, entity) => {
+                    log(`Selection ${checked ? 'checked' : 'unchecked'}: ${entity.labelOrName}`);
+                },
+                handleClickCard: (ev, entity) => {
+                    log(`Card clicked: ${entity.labelOrName}`);
+                },
+                useNewComponents: true,
+                enableSelection: true,
+                enableDragDrop: true
+            });
+            
+            cardHandles.push({ handle, device: newDevice, container });
+            log(`New card added: ${newDevice.labelOrName}`);
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeCards();
+        });
+    </script>
+</body>
+</html>
