@@ -35,12 +35,13 @@ export function renderCardComponentV2({
     centralId,
     updatedIdentifiers = {},
     perc = 0,
-    connectionStatus,
+    deviceStatus,
     centralName,
     connectionStatusTime,
-    timaVal,
+    timeVal,
     valType,
   } = entityObject;
+
 
   // If new components are disabled, fall back to original implementation
   if (!useNewComponents) {
@@ -55,11 +56,65 @@ export function renderCardComponentV2({
     });
   }
 
+  // 1. LÓGICA DE STATUS
+  const DeviceStatusType = {
+      POWER_ON: "power_on",
+      STANDBY: "standby",
+      POWER_OFF: "power_off",
+      WARNING: "warning",
+      DANGER: "danger",
+      MAINTENANCE: "maintenance",
+      NO_INFO: "no_info",
+  };
+
+  const connectionStatusType = {
+    CONNECTED: "connected",
+    OFFLINE: "offline"
+  }
+
+    const mapDeviceToConnectionStatus = (deviceStatus) => {
+    // Se o status for 'no_info', o dispositivo está offline.
+    if (deviceStatus === DeviceStatusType.NO_INFO) {
+      return connectionStatusType.OFFLINE;
+    }
+    // Para qualquer outro status, o dispositivo é considerado conectado.
+    return connectionStatusType.CONNECTED;
+  };
+
+  const connectionStatus = mapDeviceToConnectionStatus(deviceStatus);
+
+  const deviceStatusIcons = {
+      [DeviceStatusType.POWER_ON]: "⚡",
+      [DeviceStatusType.STANDBY]: "🔌",
+      [DeviceStatusType.POWER_OFF]: "🔴",
+      [DeviceStatusType.WARNING]: "⚠️",
+      [DeviceStatusType.DANGER]: "🚨",
+      [DeviceStatusType.MAINTENANCE]: "🛠️",
+      [DeviceStatusType.NO_INFO]: "❓️",
+  };
+
+  const connectionStatusIcons = {
+    [connectionStatusType.CONNECTED]: "🟢",
+    [connectionStatusType.OFFLINE]: "🚫"
+  }
+
+  // 2. NOVA LÓGICA DE CLASSES E ÍCONES
+  const isOffline =
+    deviceStatus === DeviceStatusType.OFFLINE
+
+  const shouldFlashIcon =
+    deviceStatus === DeviceStatusType.OFFLINE ||
+    deviceStatus === DeviceStatusType.WARNING ||
+    deviceStatus === DeviceStatusType.DANGER ||
+    deviceStatus === DeviceStatusType.MAINTENANCE;
+
+  const icon = deviceStatusIcons[deviceStatus] || deviceStatusIcons[DeviceStatusType.POWER_ON];
+
+  const connectionIcon = connectionStatusIcons[connectionStatus] || connectionStatusIcons[connectionStatusType.OFFLINE];
+
   // Map device status to connection status
-  const mapConnectionStatus = (status) => {
+  const mapDeviceStatus = (status) => {
     const statusMap = {
-      'connected': 'ok',
-      'offline': 'offline',
       'power_on': 'ok',
       'standby': 'alert',
       'power_off': 'fail',
@@ -108,7 +163,7 @@ export function renderCardComponentV2({
     group: deviceIdentifier || entityType || 'Dispositivo',
     lastValue: Number(val) || 0,
     unit: determineUnit(valType, val),
-    status: mapConnectionStatus(connectionStatus)
+    status: mapDeviceStatus(deviceStatus)
   };
 
   // Register entity with SelectionStore if selection is enabled
@@ -128,16 +183,17 @@ export function renderCardComponentV2({
       .myio-enhanced-card-container {
         position: relative;
         width: 100%;
-        height: 100%;
-      }
-      
+          height: 100%;
+        }
+
       .myio-enhanced-card-container .myio-draggable-card {
         width: 100%;
         border-radius: 10px;
-        padding: 8px 12px;
+        padding: 8px 12px;  
         background: #fff;
         box-shadow: 0 4px 10px rgba(0, 0, 0, .05);
         cursor: pointer;
+      
         transition: transform .2s;
         box-sizing: border-box;
         overflow: hidden;
@@ -377,54 +433,59 @@ export function renderCardComponentV2({
   
   // Create card HTML with central image (matching original layout)
   const cardHTML = `
-    <div class="device-card-centered clickable ${cardEntity.status === 'offline' ? 'offline' : ''}" 
-         data-entity-id="${entityId}"
-         draggable="${enableDragDrop}"
-         tabindex="0"
-         role="article"
-         aria-label="${cardEntity.name}, ${cardEntity.group}">
-      
-      <div class="device-card-inner">
-        <div class="device-card-front">
-          ${enableSelection && typeof handleSelect === 'function' ? 
-            `<input type="checkbox" class="card-checkbox action-checker" aria-label="Select ${cardEntity.name}" style="position: absolute; top: 8px; right: 8px; z-index: 10;">` : 
-            ''}
-          
-          <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100%; flex-grow: 1; min-width: 0; padding: 0 12px 0 20px; margin-left: 16px;">
+      <div class="device-card-centered clickable ${cardEntity.status === 'offline' ? 'offline' : ''}" 
+          data-entity-id="${entityId}"
+          draggable="${enableDragDrop}"
+          tabindex="0"
+          role="article"
+          aria-label="${cardEntity.name}, ${cardEntity.group}">
+        
+        <div class="device-card-inner">
+          <div class="device-card-front">
+            ${enableSelection && typeof handleSelect === 'function' ? 
+              `<input type="checkbox" class="card-checkbox action-checker" aria-label="Select ${cardEntity.name}" style="position: absolute; top: 8px; right: 8px; z-index: 10;">` : 
+              ''}
             
-            <div class="device-title-row" style="flex-direction: column; min-height: 38px; text-align: center; width: 100%;">
-              <span class="device-title" title="${cardEntity.name}">
-                ${cardEntity.name.length > 15 ? cardEntity.name.slice(0, 15) + "…" : cardEntity.name}
-              </span>
-              ${deviceIdentifier ? `
-                <span class="device-subtitle" title="${deviceIdentifier}">
-                  ${deviceIdentifier}
+            <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100%; flex-grow: 1; min-width: 0; padding: 0 12px 0 20px; margin-left: 16px;">
+              
+              <div class="device-title-row" style="flex-direction: column; min-height: 38px; text-align: center; width: 100%;">
+                <span class="device-title" title="${cardEntity.name}">
+                  ${cardEntity.name.length > 15 ? cardEntity.name.slice(0, 15) + "…" : cardEntity.name}
                 </span>
-              ` : ''}
-            </div>
+                ${deviceIdentifier ? `
+                  <span class="device-subtitle" title="${deviceIdentifier}">
+                    ${deviceIdentifier}
+                  </span>
+                ` : ''}
+              </div>
 
-            <img class="device-image" src="${deviceImageUrl}" alt="${deviceType}" />
-            
-            <div class="device-data-row">
-              <div class="consumption-main">
-                <span class="flash-icon ${cardEntity.status === 'offline' ? 'flash' : ''}">
-                  ${cardEntity.status === 'offline' ? '🔌' : '✅'}
-                </span>
-                <span class="consumption-value">${cardEntity.lastValue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${cardEntity.unit}</span>
-                <span class="device-title-percent">(${perc.toFixed(1)}%)</span>
+              <img class="device-image" src="${deviceImageUrl}" alt="${deviceType}" />
+              
+              <div class="device-data-row">
+                <div class="consumption-main">
+                  <span class="flash-icon ${shouldFlashIcon ? "flash" : ""}">
+                    ${icon}
+                  </span>
+                  <span class="consumption-value">${cardEntity.lastValue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${cardEntity.unit}</span>
+                  <span class="device-title-percent">(${perc.toFixed(1)}%)</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
+
+        <div class="connection-status-icon">
+          ${connectionIcon}
+        </div>
+        
       </div>
-    </div>
-  `;
+    `;
 
   container.innerHTML = cardHTML;
   const enhancedCardElement = container.querySelector('.device-card-centered');
 
   // Add premium enhanced card styles
-  if (!document.getElementById('myio-enhanced-card-layout-styles')) {
+  if (!document.getElementById('myio-enhanced-card-layout-stylđes')) {
     const layoutStyle = document.createElement('style');
     layoutStyle.id = 'myio-enhanced-card-layout-styles';
     layoutStyle.textContent = `
@@ -717,6 +778,23 @@ export function renderCardComponentV2({
         background: rgba(239, 68, 68, 0.2) !important;
         transform: scale(1.1);
       }
+
+      .device-card-centered .connection-status-icon {
+        position: absolute;
+        bottom: 10px;
+        right: 12px;
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.8);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);  
+        font-size: 14px;
+        z-index: 5;
+        backdrop-filter: blur(4px);
+      }
       
       /* Premium Responsive Design */
       @media (max-width: 768px) {
@@ -824,8 +902,8 @@ export function renderCardComponentV2({
       connectionInfo += `<strong>Última Conexão:</strong> ${date.toLocaleString('pt-BR')}<br>`;
     }
     
-    if (timaVal) {
-      const telemetryDate = new Date(timaVal);
+    if (timeVal) {
+      const telemetryDate = new Date(timeVal);
       const now = new Date();
       const diffMs = now - telemetryDate;
       const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
