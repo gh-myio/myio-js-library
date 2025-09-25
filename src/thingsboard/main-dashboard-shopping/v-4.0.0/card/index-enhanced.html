@@ -318,7 +318,7 @@
           isOn: true,
           perc: 45,
           group: "adm",
-          connectionStatus: "online",
+          deviceStatus: "power_on",
           handInfo: true,
           valType: "ENERGY",
           centralName: "Campinas",
@@ -338,7 +338,7 @@
           isOn: true,
           perc: 75,
           group: "entrada",
-          connectionStatus: "offline",
+          deviceStatus: "power_on",
           valType: "ENERGY",
           centralName: "Mestre Álvare",
           connectionStatusTime: Date.now() - 3600000, // 1 hour ago
@@ -357,7 +357,7 @@
           isOn: true,
           perc: 85,
           group: "ambientes",
-          connectionStatus: "online",
+          deviceStatus: "power_off",
           valType: "WATER",
           centralName: "Teta",
           connectionStatusTime: Date.now() - 120000, // 2 minutes ago
@@ -376,7 +376,7 @@
           isOn: true,
           perc: 65,
           group: "lojas",
-          connectionStatus: "warning",
+          deviceStatus: "no_info",
           valType: "ENERGY",
           centralName: "Ilha Plaza",
           connectionStatusTime: Date.now() - 900000, // 15 minutes ago
@@ -395,7 +395,7 @@
           isOn: true,
           perc: 95,
           group: "entrada",
-          connectionStatus: "online",
+          deviceStatus: "maintenance",
           valType: "ENERGY",
           centralName: "Meir",
           connectionStatusTime: Date.now() - 180000, // 3 minutes ago
@@ -414,7 +414,7 @@
           isOn: true,
           perc: 72,
           group: "reservatorio",
-          connectionStatus: "maintenance",
+          deviceStatus: "danger",
           valType: "TANK",
           centralName: "BB Campos",
           connectionStatusTime: Date.now() - 7200000, // 2 hours ago
@@ -477,7 +477,7 @@
             });
           }
 
-          $("#content").append($card);
+          $("#content").append($card[0]);
         });
 
         logAnalytics('Cards Rendered', { 
