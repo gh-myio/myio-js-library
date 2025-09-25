@@ -3,9 +3,9 @@
 
 /* eslint-env browser */
 
-import { CSS_STRING } from './card-head-office.css';
-import { Icons, ICON_MAP } from './card-head-office.icons';
-import { DEFAULT_I18N } from './card-head-office.types';
+import { CSS_STRING } from './card-head-office.css.js';
+import { Icons, ICON_MAP } from '../../head-office/card-head-office.icons';
+import { DEFAULT_I18N } from '../../head-office/card-head-office.types';
 
 const CSS_TAG = 'head-office-card-v1';
 

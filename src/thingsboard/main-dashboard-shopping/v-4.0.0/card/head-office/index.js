@@ -2,4 +2,4 @@
 // Re-export Head Office card component
 
 export { renderCardCompenteHeadOffice } from './card-head-office.js';
-export * from './card-head-office.types.ts';
+export * from '../../head-office/card-head-office.types';
