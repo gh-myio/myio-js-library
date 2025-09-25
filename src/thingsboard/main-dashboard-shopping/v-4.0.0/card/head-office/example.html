@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Head Office Card Component - Example</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f7fa;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .controls h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        
+        .control-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background: #f8f9fa;
+        }
+        
+        button.active {
+            background: #007ecc;
+            color: white;
+            border-color: #007ecc;
+        }
+        
+        .log {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .log-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .clear-log {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+    </style>
+    <script src="../../../../../../dist/myio-js-library.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>MYIO Head Office Card Component</h1>
+        
+        <div class="controls">
+            <h3>Controls</h3>
+            <div class="control-group">
+                <button onclick="updateAllCards()">Update All Cards</button>
+                <button onclick="toggleSelection()">Toggle Selection</button>
+                <button onclick="toggleDragDrop()">Toggle Drag & Drop</button>
+                <button onclick="simulateAlert()">Simulate Alert</button>
+                <button onclick="simulateFailure()">Simulate Failure</button>
+                <button onclick="resetStatus()">Reset Status</button>
+            </div>
+        </div>
+        
+        <div class="cards-grid" id="cards-grid"></div>
+        
+        <div class="controls">
+            <div class="log-header">
+                <h3>Event Log</h3>
+                <button class="clear-log" onclick="clearLog()">Clear</button>
+            </div>
+            <div class="log" id="event-log">Component loading...\n</div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the component (in a real scenario, this would be from the built library)
+        //import { renderCardCompenteHeadOffice } from './card-head-office.js';
+              // Access components from global MyIOLibrary
+        const { 
+            renderCardCompenteHeadOffice 
+        } = MyIOLibrary;
+        
+        // Global state
+        let cardInstances = [];
+        let selectionEnabled = true;
+        let dragDropEnabled = true;
+        
+        // Sample data
+        const sampleDevices = [
+            {
+                entityId: 'ELV-001',
+                labelOrName: 'Elevador Social Norte 01',
+                deviceIdentifier: 'ELV-001',
+                deviceType: 'ELEVADOR',
+                val: 22.8,
+                valType: 'power_kw',
+                perc: 89,
+                connectionStatus: 'RUNNING',
+                temperatureC: 26,
+                operationHours: 8.934,
+                timaVal: Date.now() - 15 * 60 * 1000 // 15 minutes ago
+            },
+            {
+                entityId: 'ESC-002',
+                labelOrName: 'Escada Rolante Sul 02',
+                deviceIdentifier: 'ESC-002',
+                deviceType: 'ESCADA_ROLANTE',
+                val: 15.2,
+                valType: 'power_kw',
+                perc: 94,
+                connectionStatus: 'RUNNING',
+                temperatureC: 28,
+                operationHours: 12.847,
+                timaVal: Date.now() - 7 * 60 * 1000 // 7 minutes ago
+            },
+            {
+                entityId: 'CHL-003',
+                labelOrName: 'Chiller Principal',
+                deviceIdentifier: 'CHL-003',
+                deviceType: 'CHILLER',
+                val: 45.6,
+                valType: 'power_kw',
+                perc: 76,
+                connectionStatus: 'ALERT',
+                temperatureC: 32,
+                operationHours: 24.156,
+                timaVal: Date.now() - 2 * 60 * 1000 // 2 minutes ago
+            },
+            {
+                entityId: 'PMP-004',
+                labelOrName: 'Bomba de Água Principal',
+                deviceIdentifier: 'PMP-004',
+                deviceType: 'PUMP',
+                val: 8.3,
+                valType: 'flow_m3h',
+                perc: 67,
+                connectionStatus: 'FAILURE',
+                temperatureC: 35,
+                operationHours: 18.234,
+                timaVal: Date.now() - 45 * 60 * 1000 // 45 minutes ago
+            },
+            {
+                entityId: 'FAN-005',
+                labelOrName: 'Ventilador Central',
+                deviceIdentifier: 'FAN-005',
+                deviceType: 'VENTILADOR',
+                val: 12.1,
+                valType: 'power_kw',
+                perc: 82,
+                connectionStatus: 'RUNNING',
+                temperatureC: 24,
+                operationHours: 6.789,
+                timaVal: Date.now() - 1 * 60 * 1000 // 1 minute ago
+            },
+            {
+                entityId: 'MTR-006',
+                labelOrName: 'Motor Compressor 01',
+                deviceIdentifier: 'MTR-006',
+                deviceType: 'MOTOR',
+                val: 18.7,
+                valType: 'power_kw',
+                perc: 91,
+                connectionStatus: 'OFFLINE',
+                temperatureC: null,
+                operationHours: 0,
+                timaVal: Date.now() - 120 * 60 * 1000 // 2 hours ago
+            }
+        ];
+        
+        // Logging function
+        function log(message) {
+            const logEl = document.getElementById('event-log');
+            const timestamp = new Date().toLocaleTimeString();
+            logEl.textContent += `[${timestamp}] ${message}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        // Clear log
+        window.clearLog = function() {
+            document.getElementById('event-log').textContent = '';
+        };
+        
+        // Event handlers
+        function handleActionDashboard(event, entity) {
+            log(`Dashboard opened for: ${entity.labelOrName}`);
+        }
+        
+        function handleActionReport(event, entity) {
+            log(`Report generated for: ${entity.labelOrName}`);
+        }
+        
+        function handleActionSettings(event, entity) {
+            log(`Settings opened for: ${entity.labelOrName}`);
+        }
+        
+        function handleSelect(checked, entity) {
+            log(`Selection ${checked ? 'enabled' : 'disabled'} for: ${entity.labelOrName}`);
+            if (checked) {
+                log(`Card background changed to light green for: ${entity.labelOrName}`);
+            } else {
+                log(`Card background reset to normal for: ${entity.labelOrName}`);
+            }
+        }
+        
+        function handleClickCard(event, entity) {
+            log(`Card clicked: ${entity.labelOrName}`);
+        }
+        
+        // Initialize cards
+        function initializeCards() {
+            const grid = document.getElementById('cards-grid');
+            grid.innerHTML = '';
+            cardInstances.forEach(card => card.destroy());
+            cardInstances = [];
+            
+            sampleDevices.forEach((device, index) => {
+                const cardContainer = document.createElement('div');
+                grid.appendChild(cardContainer);
+                
+                const card = renderCardCompenteHeadOffice(cardContainer, {
+                    entityObject: device,
+                    handleActionDashboard,
+                    handleActionReport,
+                    handleActionSettings,
+                    handleSelect,
+                    handleClickCard,
+                    enableSelection: selectionEnabled,
+                    enableDragDrop: dragDropEnabled,
+                    useNewComponents: true
+                });
+                
+                cardInstances.push(card);
+            });
+            
+            log(`Initialized ${sampleDevices.length} cards`);
+        }
+        
+        // Control functions
+        window.updateAllCards = function() {
+            cardInstances.forEach((card, index) => {
+                const randomVal = (Math.random() * 50 + 10).toFixed(1);
+                const randomPerc = Math.floor(Math.random() * 40 + 60);
+                const randomTemp = Math.floor(Math.random() * 15 + 20);
+                
+                card.update({
+                    val: parseFloat(randomVal),
+                    perc: randomPerc,
+                    temperatureC: randomTemp,
+                    timaVal: Date.now()
+                });
+            });
+            log('Updated all cards with random values');
+        };
+        
+        window.toggleSelection = function() {
+            selectionEnabled = !selectionEnabled;
+            log(`Selection ${selectionEnabled ? 'enabled' : 'disabled'}`);
+            initializeCards(); // Reinitialize to apply changes
+        };
+        
+        window.toggleDragDrop = function() {
+            dragDropEnabled = !dragDropEnabled;
+            log(`Drag & Drop ${dragDropEnabled ? 'enabled' : 'disabled'}`);
+            initializeCards(); // Reinitialize to apply changes
+        };
+        
+        window.simulateAlert = function() {
+            const randomIndex = Math.floor(Math.random() * cardInstances.length);
+            cardInstances[randomIndex].update({
+                connectionStatus: 'ALERT'
+            });
+            log(`Simulated ALERT status for card ${randomIndex + 1}`);
+        };
+        
+        window.simulateFailure = function() {
+            const randomIndex = Math.floor(Math.random() * cardInstances.length);
+            cardInstances[randomIndex].update({
+                connectionStatus: 'FAILURE'
+            });
+            log(`Simulated FAILURE status for card ${randomIndex + 1}`);
+        };
+        
+        window.resetStatus = function() {
+            cardInstances.forEach((card, index) => {
+                card.update({
+                    connectionStatus: 'RUNNING'
+                });
+            });
+            log('Reset all cards to RUNNING status');
+        };
+        
+        // Listen for custom events
+        document.addEventListener('myio:dragstart', (e) => {
+            log(`Drag started: ${e.detail.entityObject.labelOrName}`);
+        });
+        
+        document.addEventListener('myio:drop', (e) => {
+            log(`Drop event: ${e.detail.draggedId} onto ${e.detail.targetEntity.labelOrName}`);
+        });
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            log('DOM loaded, initializing cards...');
+            initializeCards();
+        });
+        
+        // Auto-update simulation
+        setInterval(() => {
+            if (Math.random() < 0.3) { // 30% chance every 5 seconds
+                const randomIndex = Math.floor(Math.random() * cardInstances.length);
+                const randomVal = (Math.random() * 50 + 10).toFixed(1);
+                cardInstances[randomIndex].update({
+                    val: parseFloat(randomVal),
+                    timaVal: Date.now()
+                });
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
