@@ -1204,6 +1204,190 @@ $('#device-container').append(deviceCard);
 
 For complete technical documentation, see: [renderCardComponent Technical Documentation](src/thingsboard/main-dashboard-shopping/v-4.0.0/card/renderCardComponent-documentation.md)
 
+#### `renderCardCompenteHeadOffice(containerEl: HTMLElement, params: object): object`
+
+Renders premium device cards for MYIO SIM Head Office dashboards with atomic styling and comprehensive event handling. This component provides a self-contained, fully-styled card interface matching the Head Office visual requirements.
+
+**Parameters:**
+- `containerEl: HTMLElement` - The container element where the card will be rendered (required)
+- `params: object` - Configuration object with the following properties:
+  - `entityObject: EntityObject` - Device/entity data and metadata (required)
+  - `handleActionDashboard?: Function` - Callback for dashboard menu action
+  - `handleActionReport?: Function` - Callback for report menu action
+  - `handleActionSettings?: Function` - Callback for settings menu action
+  - `handleSelect?: Function` - Callback for selection checkbox toggle
+  - `handInfo?: Function` - Callback for info icon click (optional)
+  - `handleClickCard?: Function` - Callback for card body click
+  - `useNewComponents?: boolean` - Enable new component features (default: false)
+  - `enableSelection?: boolean` - Show selection checkbox (default: false)
+  - `enableDragDrop?: boolean` - Enable drag and drop functionality (default: false)
+  - `i18n?: object` - Custom internationalization labels
+
+**Entity Object Structure:**
+```javascript
+{
+  entityId: string,              // Unique identifier (required)
+  labelOrName: string,           // Display name (e.g., "Elevador Social Norte 01")
+  deviceIdentifier?: string,     // Device code (e.g., "ELV-002")
+  entityType?: string,           // Entity type (e.g., "DEVICE")
+  deviceType?: string,           // Device type (ELEVATOR, ESCADA_ROLANTE, CHILLER, PUMP, etc.)
+  slaveId?: string | number,     // Slave identifier
+  ingestionId?: string | number, // Ingestion identifier
+  centralId?: string,            // Central system ID
+  centralName?: string,          // Central system name
+  
+  // Primary metric
+  val?: number | null,           // Current value (e.g., power in kW)
+  valType?: string,              // Value type (power_kw, flow_m3h, temp_c, custom)
+  timaVal?: number | null,       // Timestamp of value (ms)
+  
+  // Efficiency
+  perc?: number,                 // Efficiency percentage (0-100)
+  
+  // Status
+  connectionStatus?: string,     // ONLINE, OFFLINE, ALERT, FAILURE, RUNNING, PAUSED
+  connectionStatusTime?: number, // Last connection timestamp (ms)
+  
+  // Secondary metrics
+  temperatureC?: number | null,  // Temperature in Celsius
+  operationHours?: number | null,// Operation hours (e.g., 12.847)
+  
+  // Optional identifiers
+  updatedIdentifiers?: object,   // Additional identification data
+}
+```
+
+**Returns:** Object with control methods:
+- `update(next: Partial<EntityObject>): void` - Update card with new data
+- `destroy(): void` - Remove card and cleanup event handlers
+- `getRoot(): HTMLElement` - Get the root DOM element
+
+**Key Features:**
+- **Atomic CSS Injection**: Self-contained styling with no external CSS dependencies
+- **Visual States**: Connection status chips (Em operação, Alerta, Falha, Offline)
+- **Efficiency Bar**: Segmented progress bar with percentage display
+- **3-Dot Menu**: Dropdown menu with dashboard, report, and settings actions
+- **Selection Support**: Optional checkbox for multi-selection interfaces
+- **Drag & Drop**: Optional drag and drop functionality for card reordering
+- **Accessibility**: Full keyboard navigation and ARIA support
+- **Responsive Design**: Adapts to container size with proper text truncation
+- **Alert Borders**: Visual indicators for alert and failure states
+
+**Usage Example:**
+```javascript
+import { renderCardCompenteHeadOffice } from 'myio-js-library';
+
+const container = document.getElementById('card-container');
+const card = renderCardCompenteHeadOffice(container, {
+  entityObject: {
+    entityId: 'elv-001',
+    labelOrName: 'Elevador Social Norte 01',
+    deviceIdentifier: 'ELV-001',
+    deviceType: 'ELEVATOR',
+    val: 15.2,
+    valType: 'power_kw',
+    perc: 94,
+    connectionStatus: 'RUNNING',
+    temperatureC: 28,
+    operationHours: 12.847
+  },
+  handleActionDashboard: (ev, entity) => {
+    console.log('Open dashboard for:', entity.labelOrName);
+  },
+  handleActionReport: (ev, entity) => {
+    console.log('Generate report for:', entity.labelOrName);
+  },
+  handleActionSettings: (ev, entity) => {
+    console.log('Open settings for:', entity.labelOrName);
+  },
+  handleSelect: (checked, entity) => {
+    console.log('Selection changed:', checked, entity.entityId);
+  },
+  handleClickCard: (ev, entity) => {
+    console.log('Card clicked:', entity.labelOrName);
+  },
+  useNewComponents: true,
+  enableSelection: true,
+  enableDragDrop: true
+});
+
+// Update card with new values
+card.update({
+  val: 18.4,
+  perc: 88,
+  temperatureC: 27,
+  operationHours: 13.5
+});
+
+// Clean up when done
+card.destroy();
+```
+
+**UMD Usage (ThingsBoard widgets):**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { renderCardCompenteHeadOffice } = MyIOLibrary;
+  
+  const container = document.getElementById('cards-grid');
+  const entities = [
+    {
+      entityId: 'esc-001',
+      labelOrName: 'Escada Rolante Sul 02',
+      deviceIdentifier: 'ESC-001',
+      deviceType: 'ESCADA_ROLANTE',
+      val: 8.7,
+      valType: 'power_kw',
+      perc: 87,
+      connectionStatus: 'RUNNING',
+      temperatureC: 26,
+      operationHours: 7.405
+    }
+  ];
+  
+  entities.forEach(entity => {
+    const cell = document.createElement('div');
+    container.appendChild(cell);
+    
+    renderCardCompenteHeadOffice(cell, {
+      entityObject: entity,
+      handleActionDashboard: (e, ent) => openDashboard(ent),
+      handleActionReport: (e, ent) => openReport(ent),
+      handleActionSettings: (e, ent) => openSettings(ent),
+      handleSelect: (checked, ent) => toggleSelection(ent, checked),
+      handleClickCard: (e, ent) => openQuickView(ent),
+      useNewComponents: true,
+      enableSelection: true
+    });
+  });
+</script>
+```
+
+**Visual Components:**
+- **Header**: Device icon, title, device code, 3-dot menu
+- **Status Row**: Colored chip indicating operational status
+- **Primary Metric**: Large value display with unit and "Atual" suffix
+- **Efficiency Bar**: Horizontal progress bar with percentage
+- **Footer Metrics**: Temperature, operation time, last update time
+
+**CSS Theming Variables:**
+```css
+:root {
+  --myio-card-radius: 16px;
+  --myio-card-shadow: 0 2px 8px rgba(10, 31, 68, .06);
+  --myio-card-bg: #fff;
+  --myio-card-border: #e9eef5;
+  --myio-chip-ok-bg: #e8f7ff;
+  --myio-chip-ok-fg: #007ecc;
+  --myio-chip-alert-bg: #fff4e5;
+  --myio-chip-alert-fg: #b96b00;
+  --myio-chip-failure-bg: #ffeaea;
+  --myio-chip-failure-fg: #b71c1c;
+}
+```
+
+For complete technical documentation and implementation details, see: [RFC-0007-renderCardCompenteHeadOffice](src/docs/rfcs/RFC-0007-renderCardCompenteHeadOffice.md)
+
 ## 🧪 Development
 
 ```bash
