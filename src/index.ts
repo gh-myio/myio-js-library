@@ -77,6 +77,14 @@ export { MyIOSelectionStore, MyIOSelectionStoreClass } from './components/Select
 export { MyIODraggableCard } from './components/DraggableCard.js';
 export { MyIOChartModal } from './components/ChartModal.js';
 
+// Premium Modal Components
+export {
+  openDashboardPopupEnergy,
+  openDashboardPopupReport,
+  openDashboardPopupAllReport,
+  openDashboardPopup
+} from './components/premium-modals';
+
 // Utils namespace exports
 export * as strings from './utils/strings';
 export * as numbers from './utils/numbers';
