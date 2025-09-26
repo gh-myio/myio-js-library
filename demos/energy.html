@@ -79,6 +79,39 @@
             </div>
         </div>
         
+        <h2>🆕 NEW: Premium Date Range Input Component</h2>
+        <p style="color: #666; margin-bottom: 20px;">
+            <strong>createInputDateRangePickerInsideDIV</strong> - Automatic creation of beautifully styled date range inputs inside any DIV container. 
+            This component combines the functionality of createDateRangePicker with premium MyIO styling.
+        </p>
+        
+        <div style="background: #f0f8ff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #4A148C;">
+            <h3>✨ Premium Component Demo</h3>
+            <p style="margin-bottom: 16px; color: #555;">
+                Click the button below to create a premium date range input with automatic styling injection:
+            </p>
+            
+            <!-- Container where the component will be created -->
+            <div id="premium-daterange-container" style="margin: 16px 0;"></div>
+            
+            <div style="margin-top: 16px;">
+                <button class="demo-button" onclick="createPremiumDateRangePicker()" style="background: #28a745;">
+                    🎨 Create Premium Date Range Input
+                </button>
+                <button class="demo-button" onclick="showPremiumPickerValue()" style="background: #17a2b8;">
+                    📅 Show Selected Range
+                </button>
+                <button class="demo-button" onclick="destroyPremiumPicker()" style="background: #dc3545;">
+                    🗑️ Destroy Component
+                </button>
+            </div>
+            
+            <div id="premium-output" style="margin-top: 16px; padding: 12px; background: #e9ecef; border-radius: 4px; display: none;">
+                <strong>Component Output:</strong>
+                <div id="premium-details"></div>
+            </div>
+        </div>
+
         <h2>🔮 Future Modals (Coming Soon)</h2>
         <button class="demo-button" onclick="openEnergyDemo()" style="opacity: 0.6;">
             ⚡ Energy Modal (Coming Soon)
@@ -224,6 +257,176 @@
             
             output.style.display = 'block';
         }
+        
+        // Premium Date Range Input Component Demo
+        let premiumPickerController = null;
+        
+        function createPremiumDateRangePicker() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+            
+            if (!MyIOLibrary.createInputDateRangePickerInsideDIV) {
+                alert('❌ createInputDateRangePickerInsideDIV not available in this build.\n\nThis component is part of the latest MyIOLibrary implementation.');
+                return;
+            }
+            
+            // Destroy existing instance if any
+            if (premiumPickerController) {
+                premiumPickerController.destroy();
+                premiumPickerController = null;
+            }
+            
+            // Create the premium component
+            MyIOLibrary.createInputDateRangePickerInsideDIV({
+                containerId: 'premium-daterange-container',
+                inputId: 'premium-date-input',
+                label: 'Período de Análise Energética',
+                placeholder: 'Selecione o período para análise',
+                pickerOptions: {
+                    presetStart: '2025-09-01',
+                    presetEnd: '2025-09-25',
+                    maxRangeDays: 31,
+                    onApply: (result) => {
+                        console.log('Premium picker date range applied:', result);
+                        
+                        // Show success message in helper
+                        if (premiumPickerController) {
+                            const days = Math.ceil((new Date(result.endISO).getTime() - new Date(result.startISO).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                            premiumPickerController.setHelperText(`✅ Período de ${days} dias selecionado com sucesso!`, 'success');
+                            
+                            // Reset helper after 3 seconds
+                            setTimeout(() => {
+                                if (premiumPickerController) {
+                                    premiumPickerController.setHelperText('Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm', 'default');
+                                }
+                            }, 3000);
+                        }
+                    }
+                },
+                injectStyles: true,
+                showHelper: true
+            }).then(controller => {
+                premiumPickerController = controller;
+                
+                // Success feedback
+                alert(`✅ Premium Date Range Input Created Successfully!
+
+🎨 Features Demonstrated:
+• Automatic HTML structure creation inside DIV
+• Premium MyIO styling injection (purple theme)
+• Beautiful wrapper with shadow and padding
+• Label, input, and helper text components
+• Accessibility features (ARIA labels)
+• Responsive design (mobile-friendly)
+• Error handling and validation
+• Memory management with destroy() method
+
+🔧 Technical Details:
+• Container ID: premium-daterange-container
+• Input ID: premium-date-input
+• Component: createInputDateRangePickerInsideDIV
+• Styling: Automatic injection enabled
+• Max Range: 31 days enforced
+
+Try selecting a date range and see the helper text update!`);
+                
+            }).catch(error => {
+                console.error('Failed to create premium date picker:', error);
+                alert(`❌ Failed to create premium component: ${error.message}`);
+            });
+        }
+        
+        function showPremiumPickerValue() {
+            if (!premiumPickerController) {
+                alert('Please create the premium date range picker first!');
+                return;
+            }
+            
+            try {
+                const dates = premiumPickerController.getDates();
+                const displayValue = premiumPickerController.getDisplayValue();
+                
+                // Calculate range info
+                const startDate = new Date(dates.startISO);
+                const endDate = new Date(dates.endISO);
+                const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                
+                // Show output
+                const output = document.getElementById('premium-output');
+                const details = document.getElementById('premium-details');
+                
+                details.innerHTML = `
+                    <div style="margin: 8px 0;"><strong>Display Value:</strong> ${displayValue || 'No date selected'}</div>
+                    <div style="margin: 8px 0;"><strong>Start ISO:</strong> ${dates.startISO || 'Not set'}</div>
+                    <div style="margin: 8px 0;"><strong>End ISO:</strong> ${dates.endISO || 'Not set'}</div>
+                    <div style="margin: 8px 0;"><strong>Duration:</strong> ${dates.startISO ? diffDays + ' days' : 'Not calculated'}</div>
+                    <div style="margin: 8px 0; color: ${!dates.startISO ? '#6c757d' : diffDays <= 31 ? '#28a745' : '#dc3545'};">
+                        <strong>Validation:</strong> ${!dates.startISO ? '⏳ No date selected' : diffDays <= 31 ? '✅ Within 31-day limit' : '❌ Exceeds 31-day limit'}
+                    </div>
+                    <div style="margin: 8px 0; color: #4A148C;">
+                        <strong>Component:</strong> ✨ createInputDateRangePickerInsideDIV (Premium)
+                    </div>
+                    <div style="margin: 8px 0; color: #6c757d;">
+                        <strong>Styling:</strong> 🎨 Premium MyIO styling automatically injected
+                    </div>
+                `;
+                
+                output.style.display = 'block';
+                
+                // Update helper text to show success
+                premiumPickerController.setHelperText('📊 Dados exibidos com sucesso!', 'success');
+                setTimeout(() => {
+                    if (premiumPickerController) {
+                        premiumPickerController.setHelperText('Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm', 'default');
+                    }
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Error getting premium picker value:', error);
+                alert(`❌ Error getting picker value: ${error.message}`);
+                
+                // Show error in helper
+                if (premiumPickerController) {
+                    premiumPickerController.setHelperText('❌ Erro ao obter dados do componente', 'error');
+                }
+            }
+        }
+        
+        function destroyPremiumPicker() {
+            if (!premiumPickerController) {
+                alert('No premium date range picker to destroy.');
+                return;
+            }
+            
+            try {
+                premiumPickerController.destroy();
+                premiumPickerController = null;
+                
+                // Hide output
+                const output = document.getElementById('premium-output');
+                output.style.display = 'none';
+                
+                alert(`✅ Premium Date Range Input Destroyed Successfully!
+
+🧹 Cleanup Performed:
+• Date picker instance destroyed
+• Wrapper element removed from DOM
+• Input element removed
+• Label and helper text removed
+• Event listeners cleaned up
+• Memory freed
+
+The container DIV is now empty and ready for a new component.`);
+                
+            } catch (error) {
+                console.error('Error destroying premium picker:', error);
+                alert(`❌ Error destroying component: ${error.message}`);
+            }
+        }
+        
         // Mock data for demos
         function openEnergyDemo() {
             if (typeof MyIOLibrary === 'undefined') {

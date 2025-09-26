@@ -88,6 +88,13 @@ export {
 // DateRangePicker - Public API
 export { createDateRangePicker, type CreateDateRangePickerOptions, type DateRangeControl, type DateRangeResult } from './components/createDateRangePicker';
 
+// Premium Date Range Input Component
+export { createInputDateRangePickerInsideDIV } from './components/createInputDateRangePickerInsideDIV';
+export type { 
+  CreateInputDateRangePickerInsideDIVParams, 
+  DateRangeInputController 
+} from './components/createInputDateRangePickerInsideDIV';
+
 // Utils namespace exports
 export * as strings from './utils/strings';
 export * as numbers from './utils/numbers';

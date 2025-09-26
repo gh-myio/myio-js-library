@@ -945,6 +945,138 @@ The component includes premium MyIO styling with:
 - Responsive design for mobile and desktop
 - Portuguese month names and day abbreviations
 
+### Premium Date Range Input Component
+
+#### `createInputDateRangePickerInsideDIV(params: CreateInputDateRangePickerInsideDIVParams): Promise<DateRangeInputController>`
+
+Creates a complete, beautifully styled date range input inside a target DIV container, combining the functionality of `createDateRangePicker` with premium MyIO styling. This component automatically creates the HTML structure, injects styling, and provides a clean API for ThingsBoard widgets and other applications.
+
+**Parameters:**
+- `params: CreateInputDateRangePickerInsideDIVParams` - Configuration object:
+  - `containerId: string` - The DIV id where the input will be created (required)
+  - `inputId: string` - The id to set on the created input (required)
+  - `label?: string` - Optional label text (default: "Período de Datas")
+  - `placeholder?: string` - Input placeholder (default: "Clique para selecionar período")
+  - `pickerOptions?: CreateDateRangePickerOptions` - Pass-through options for createDateRangePicker
+  - `classNames?: object` - Custom CSS classes for wrapper, label, input, and helper
+  - `injectStyles?: boolean` - Inject premium MyIO styling (default: true)
+  - `showHelper?: boolean` - Show helper text with format info (default: true)
+
+**Returns:** Promise resolving to `DateRangeInputController` object with:
+- `input: HTMLInputElement` - The created input element
+- `container: HTMLElement` - The target container element
+- `wrapper: HTMLElement` - The wrapper element created by this component
+- `picker: DateRangeControl` - The date range picker instance
+- `getDisplayValue(): string` - Get current display value from input
+- `getDates(): DateRangeResult` - Get current date range data
+- `setDates(startISO: string, endISO: string): void` - Set date range programmatically
+- `setHelperText(text: string, type?: 'default' | 'success' | 'error'): void` - Update helper text
+- `destroy(): void` - Clean up and remove all created elements
+
+**Key Features:**
+- **Automatic HTML Creation**: Creates complete styled input structure inside target DIV
+- **Premium MyIO Styling**: Beautiful styling matching demos/energy.html with purple brand colors
+- **Container-Based**: Works with any DIV container, perfect for ThingsBoard widgets
+- **Accessibility Built-in**: ARIA labels, keyboard navigation, screen reader support
+- **Responsive Design**: Mobile-friendly with proper touch targets
+- **Error Handling**: Robust validation and graceful error recovery
+- **Memory Management**: Proper cleanup with destroy() method
+
+**Usage Example:**
+```javascript
+import { createInputDateRangePickerInsideDIV } from 'myio-js-library';
+
+const controller = await createInputDateRangePickerInsideDIV({
+  containerId: 'date-picker-container',
+  inputId: 'energy-date-range',
+  label: 'Período de Análise',
+  pickerOptions: {
+    presetStart: '2025-09-01',
+    presetEnd: '2025-09-25',
+    onApply: (result) => {
+      console.log('Date range selected:', result);
+      // result.startISO: "2025-09-01T00:00:00-03:00"
+      // result.endISO: "2025-09-25T23:59:59-03:00"
+      loadEnergyData(result.startISO, result.endISO);
+    }
+  }
+});
+
+// Get current selection
+const dates = controller.getDates();
+console.log('Current range:', dates.startISO, 'to', dates.endISO);
+
+// Update helper text
+controller.setHelperText('Período válido selecionado', 'success');
+
+// Clean up when done
+controller.destroy();
+```
+
+**ThingsBoard Widget Integration:**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { createInputDateRangePickerInsideDIV } = MyIOLibrary;
+  
+  // In your widget's onInit function
+  self.onInit = async function() {
+    try {
+      // Create date range picker in existing container
+      self.dateRangePicker = await createInputDateRangePickerInsideDIV({
+        containerId: 'widget-date-container',
+        inputId: 'energy-widget-dates',
+        label: 'Período de Datas',
+        placeholder: 'Selecione o período de análise',
+        pickerOptions: {
+          maxRangeDays: 31,
+          onApply: (result) => {
+            // Update widget state and reload data
+            updateWidgetData(result.startISO, result.endISO);
+          }
+        }
+      });
+      
+      console.log('[ENERGY] Date range picker initialized successfully');
+    } catch (error) {
+      console.error('[ENERGY] Failed to initialize date picker:', error);
+      // Fallback to legacy implementation
+      initLegacyDatePicker();
+    }
+  };
+
+  // Clean up on widget destroy
+  self.onDestroy = function() {
+    if (self.dateRangePicker) {
+      self.dateRangePicker.destroy();
+    }
+  };
+</script>
+```
+
+**Premium Styling Features:**
+- **MyIO Brand Colors**: Purple theme (#4A148C) with hover effects
+- **Responsive Layout**: Adapts to mobile and desktop with proper spacing
+- **Accessibility**: High contrast mode support, reduced motion support
+- **Visual Feedback**: Hover states, focus indicators, success/error states
+- **Typography**: Roboto font family with proper line heights
+- **Shadow Effects**: Subtle shadows and smooth transitions
+
+**Migration from Basic Implementation:**
+```javascript
+// OLD: Manual HTML + basic styling
+var $inputStart = $('input[name="startDatetimes"]');
+MyIOLibrary.createDateRangePicker($inputStart[0], options);
+
+// NEW: Automatic creation + premium styling
+const controller = await MyIOLibrary.createInputDateRangePickerInsideDIV({
+  containerId: 'date-container',
+  inputId: 'startDatetimes',
+  label: 'Período de Datas',
+  pickerOptions: options
+});
+```
+
 ### MYIO Components - Drag-to-Footer Dock Implementation
 
 The library includes three main interactive components for building comparative selection interfaces:

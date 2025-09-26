@@ -30,7 +30,7 @@ export class DeviceReportModal {
 
   public show(): ModalHandle {
     this.modal = createModal({
-      title: `Relatório - ${this.params.deviceLabel || 'Dispositivo'}`,
+      title: `Relatório - ${this.params.deviceLabel || 'SEM ID CADASTRADO'} - ${this.params.storeLabel || 'SEM ETIQUETA'}`,
       width: '80vw',
       height: '90vh',
       theme: this.params.ui?.theme || 'light'
