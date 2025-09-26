@@ -1077,6 +1077,109 @@ const controller = await MyIOLibrary.createInputDateRangePickerInsideDIV({
 });
 ```
 
+### Premium Modal Components
+
+The library includes four premium modal components for ThingsBoard dashboards that provide comprehensive device analytics and reporting capabilities.
+
+#### `openDashboardPopupReport(params: OpenDeviceReportParams): ModalHandle`
+
+Opens a device-specific daily consumption report modal with built-in date range picker, sortable table, and CSV export functionality.
+
+**Parameters:**
+- `ingestionId: string` - Data ingestion identifier (required)
+- `deviceId?: string` - Optional device ID for additional metadata
+- `identifier?: string` - Device identifier/code (e.g., "ENTRADA-001", "CHILLER-A")
+- `label?: string` - Human-readable label/name (e.g., "Outback", "Shopping Center Norte")
+- `ui?: object` - UI configuration (theme, width)
+- `api: object` - API configuration:
+  - `clientId?: string` - Client ID for data API
+  - `clientSecret?: string` - Client secret for data API
+  - `dataApiBaseUrl?: string` - Data API base URL
+  - `ingestionToken?: string` - Token for data ingestion access
+
+**Returns:** `ModalHandle` object with:
+- `close(): void` - Close the modal
+- `on(event: 'close'|'loaded'|'error', handler: Function): void` - Event listeners
+
+**Key Features:**
+- **Built-in Date Range Picker**: No need to specify dates in parameters
+- **Automatic Data Loading**: Fetches daily consumption data for selected period
+- **Sortable Table**: Click column headers to sort by date or consumption
+- **CSV Export**: Download report data with proper Brazilian formatting
+- **Responsive Design**: Works on desktop and mobile devices
+- **Error Handling**: Graceful error display and recovery
+
+**Usage Example:**
+```javascript
+import { openDashboardPopupReport } from 'myio-js-library';
+
+const modal = openDashboardPopupReport({
+  ingestionId: 'abc123-ingestion-id',
+  deviceId: 'device-uuid',
+  identifier: 'ENTRADA-001',
+  label: 'Outback Shopping',
+  api: {
+    clientId: 'your-client-id',
+    clientSecret: 'your-client-secret',
+    dataApiBaseUrl: 'https://api.data.apps.myio-bas.com',
+    ingestionToken: 'your-ingestion-token'
+  }
+});
+
+modal.on('loaded', (data) => {
+  console.log('Report loaded:', data.count, 'days');
+});
+
+modal.on('close', () => {
+  console.log('Modal closed');
+});
+```
+
+**UMD Usage (ThingsBoard widgets):**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { openDashboardPopupReport } = MyIOLibrary;
+  
+  const modal = openDashboardPopupReport({
+    ingestionId: 'demo-ingestion-123',
+    deviceId: 'demo-device-123',
+    identifier: 'ENTRADA-001',
+    label: 'Outback',
+    api: { 
+      clientId: 'demo-client',
+      clientSecret: 'demo-secret',
+      dataApiBaseUrl: 'https://api.data.apps.myio-bas.com',
+      ingestionToken: 'demo-ingestion-token'
+    }
+  });
+  
+  modal.on('loaded', (data) => {
+    console.log('Device report loaded with', data.count, 'days of data');
+  });
+</script>
+```
+
+**Migration from Legacy API:**
+```javascript
+// OLD API (deprecated)
+MyIOLibrary.openDashboardPopupReport({
+  ingestionId: 'demo-ingestion-123',
+  deviceLabel: 'Entrada Subestação',    // ❌ Deprecated
+  storeLabel: 'Outback',                // ❌ Deprecated
+  date: { start: '2025-09-01', end: '2025-09-25' }, // ❌ Deprecated
+  api: { tbJwtToken: 'jwt-token' }      // ❌ Deprecated
+});
+
+// NEW API (recommended)
+MyIOLibrary.openDashboardPopupReport({
+  ingestionId: 'demo-ingestion-123',
+  identifier: 'ENTRADA-001',           // ✅ Clear device identifier
+  label: 'Outback',                    // ✅ Clear human-readable name
+  api: { ingestionToken: 'ingestion-token' } // ✅ Clear token purpose
+});
+```
+
 ### MYIO Components - Drag-to-Footer Dock Implementation
 
 The library includes three main interactive components for building comparative selection interfaces:

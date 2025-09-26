@@ -299,7 +299,7 @@
                             // Reset helper after 3 seconds
                             setTimeout(() => {
                                 if (premiumPickerController) {
-                                    premiumPickerController.setHelperText('Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm', 'default');
+                                    //premiumPickerController.setHelperText('Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm', 'default');
                                 }
                             }, 3000);
                         }
@@ -380,7 +380,7 @@ Try selecting a date range and see the helper text update!`);
                 premiumPickerController.setHelperText('📊 Dados exibidos com sucesso!', 'success');
                 setTimeout(() => {
                     if (premiumPickerController) {
-                        premiumPickerController.setHelperText('Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm', 'default');
+                        //premiumPickerController.setHelperText('Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm', 'default');
                     }
                 }, 2000);
                 
@@ -458,17 +458,49 @@ The container DIV is now empty and ready for a new component.`);
                 return;
             }
             
+            // Mock energy fetcher for local testing
+            const mockEnergyFetcher = async ({ baseUrl, ingestionId, startISO, endISO }) => {
+                console.log('[DEMO] Mock fetcher called with:', { baseUrl, ingestionId, startISO, endISO });
+                
+                // Simulate API delay
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Generate mock consumption data for the date range
+                const startDate = new Date(startISO);
+                const endDate = new Date(endISO);
+                const consumption = [];
+                
+                for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                    // Skip some days randomly to test zero-filling
+                    if (Math.random() > 0.2) {
+                        consumption.push({
+                            timestamp: d.toISOString(),
+                            value: Math.random() * 50 + 10 // 10-60 kWh
+                        });
+                    }
+                }
+                
+                return {
+                    data: [{
+                        id: ingestionId,
+                        label: 'Demo Device',
+                        consumption: consumption
+                    }]
+                };
+            };
+            
             MyIOLibrary.openDashboardPopupReport({
                 ingestionId: 'demo-ingestion-123',
                 deviceId: 'demo-device-123',
-                deviceLabel: 'Entrada Subestação',
-                storeLabel: 'Outback',
-                date: { start: '2025-09-01', end: '2025-09-25' },
+                identifier: 'ENTRADA-001',
+                label: 'Outback',
                 api: { 
                     clientId: 'demo-client',
                     clientSecret: 'demo-secret',
-                    dataApiBaseUrl: 'https://api.data.apps.myio-bas.com'
-                }
+                    dataApiBaseUrl: 'https://api.data.apps.myio-bas.com',
+                    ingestionToken: 'demo-ingestion-token'
+                },
+                fetcher: mockEnergyFetcher // Inject mock fetcher for local testing
             });
         }
         
@@ -504,7 +536,6 @@ Open the All Report Modal?`);
 
             const modal = MyIOLibrary.openDashboardPopupAllReport({
                 customerId: 'demo-customer-123',
-                date: { start: '2025-09-01', end: '2025-09-25' },
                 api: {
                     clientId: 'demo-client',
                     clientSecret: 'demo-secret',

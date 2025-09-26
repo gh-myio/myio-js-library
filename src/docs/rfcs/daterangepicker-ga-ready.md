@@ -105,7 +105,7 @@ function attach(input: HTMLInputElement, opts: AttachOptions) {
   helpText.className = 'myio-text-muted';
   helpText.style.fontSize = '12px';
   helpText.style.marginTop = '4px';
-  helpText.textContent = 'Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm';
+  //helpText.textContent = 'Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm';
   input.parentNode?.appendChild(helpText);
   
   // Setup picker

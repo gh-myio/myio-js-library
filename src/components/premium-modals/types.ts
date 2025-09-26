@@ -13,6 +13,7 @@ export interface BaseApiCfg {
   graphsBaseUrl?: string;
   timezone?: string;        // default: "America/Sao_Paulo"
   tbJwtToken?: string;      // required only for Settings writes
+  ingestionToken?: string;  // NEW: token for data ingestion access
 }
 
 export interface BaseUiCfg {
@@ -31,19 +32,26 @@ export interface OpenEnergyParams {
   api: BaseApiCfg;
 }
 
+// Energy fetcher type for dependency injection
+export type EnergyFetcher = (args: {
+  baseUrl: string;
+  ingestionId: string;
+  startISO: string;
+  endISO: string;
+}) => Promise<any>;
+
 export interface OpenDeviceReportParams {
   ingestionId: string;
   deviceId?: string;
-  deviceLabel?: string;
-  storeLabel?: string;
-  date?: Partial<DateRange>;
+  identifier?: string;    // NEW: replaces deviceLabel (device identifier/code)
+  label?: string;         // NEW: replaces storeLabel (human-readable name)
   ui?: BaseUiCfg;
   api: BaseApiCfg;
+  fetcher?: EnergyFetcher; // Optional dependency injection for testing
 }
 
 export interface OpenAllReportParams {
   customerId: string;
-  date?: Partial<DateRange>;
   ui?: BaseUiCfg;
   api: BaseApiCfg;
   filters?: { excludeLabels?: (RegExp | string)[] };

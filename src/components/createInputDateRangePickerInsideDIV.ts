@@ -320,7 +320,7 @@ export async function createInputDateRangePickerInsideDIV(
     helperEl = document.createElement('div');
     helperEl.id = `${inputId}-helper`;
     helperEl.className = classNames.helper || 'myio-daterange-helper';
-    helperEl.textContent = 'Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm';
+    //helperEl.textContent = 'Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm';
     helperEl.setAttribute('aria-live', 'polite');
   }
 
@@ -355,7 +355,7 @@ export async function createInputDateRangePickerInsideDIV(
         setTimeout(() => {
           if (helperEl) {
             helperEl.className = classNames.helper || 'myio-daterange-helper';
-            helperEl.textContent = 'Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm';
+            //helperEl.textContent = 'Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm';
           }
         }, 3000);
       }

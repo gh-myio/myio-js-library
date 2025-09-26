@@ -3665,6 +3665,10 @@ function openDashboardPopupReport(
       }
 
       try {
+        // Show loading overlay
+        $("#loading-overlay").show();
+        $("#btn-load").prop("disabled", true);
+
         // Format timestamps with timezone offset
         const startTime = toISOWithOffset(new Date(start + "T00:00:00-03:00"));
         const endTime = toISOWithOffset(new Date(end + "T23:59:59-03:00"), true);
@@ -3679,16 +3683,43 @@ function openDashboardPopupReport(
         const response = await fetchWithAuth(url);
         const data = await response.json();
 
-        // Handle response - expect array even for single device
-        if (!Array.isArray(data) || data.length === 0) {
+        // Handle response - expect array with data property
+        const dataArray = Array.isArray(data) ? data : (data.data || []);
+        
+        if (!Array.isArray(dataArray) || dataArray.length === 0) {
           console.warn("[REPORT] Data API returned empty or invalid response");
-          self.ctx.$scope.reportData = [];
+          // Zero-fill the date range for empty response
+          const dateRange = getDateRangeArray(start, end);
+          const reportData = dateRange.map((dateStr) => {
+            const [ano, mes, dia] = dateStr.split("-");
+            return {
+              date: `${dia}/${mes}/${ano}`,
+              consumptionKwh: 0
+            };
+          });
+          
+          self.ctx.$scope.reportData = reportData;
           self.ctx.$scope.totalConsumption = 0;
+          
+          // Generate timestamp for report
+          const now = new Date();
+          const dia = String(now.getDate()).padStart(2, "0");
+          const mes = String(now.getMonth() + 1).padStart(2, "0");
+          const ano = now.getFullYear();
+          const hora = String(now.getHours()).padStart(2, "0");
+          const minuto = String(now.getMinutes()).padStart(2, "0");
+          const insueDate = ` ${dia}/${mes}/${ano} - ${hora}:${minuto}`;
+          
+          self.ctx.$scope.insueDate = insueDate;
+          document.getElementById("total-consumo").textContent = MyIOLibrary.formatEnergy(0);
+          document.getElementById("inssueDate").textContent = insueDate;
+          
           updateTable();
+          habilitarBotaoExport();
           return;
         }
 
-        const deviceData = data[0]; // First (and likely only) device
+        const deviceData = dataArray[0]; // First (and likely only) device
         const consumption = deviceData.consumption || [];
 
         // Generate date range array
@@ -3745,6 +3776,10 @@ function openDashboardPopupReport(
         self.ctx.$scope.reportData = [];
         self.ctx.$scope.totalConsumption = 0;
         updateTable();
+      } finally {
+        // Always restore UI state
+        $("#loading-overlay").hide();
+        $("#btn-load").prop("disabled", false);
       }
     });
 

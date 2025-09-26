@@ -5,16 +5,43 @@ import { toCsv } from '../internal/engines/CsvExporter';
 import { fmtPt } from '../internal/engines/NumberFmt';
 import { AuthClient } from '../internal/engines/AuthClient';
 import { attach as attachDateRangePicker, DateRangeControl } from '../internal/DateRangePickerJQ';
-import { OpenDeviceReportParams, ModalHandle } from '../types';
+import { OpenDeviceReportParams, ModalHandle, EnergyFetcher } from '../types';
 
 interface DailyReading {
   date: string; // YYYY-MM-DD
   consumption: number;
 }
 
+// Default energy fetcher implementation
+const createDefaultEnergyFetcher = (params: OpenDeviceReportParams): EnergyFetcher => {
+  return async ({ baseUrl, ingestionId, startISO, endISO }) => {
+    const url = `${baseUrl}/api/v1/telemetry/devices/${ingestionId}/energy?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=1d&page=1&pageSize=1000&deep=0`;
+    
+    // Use ingestionToken from API parameters
+    const token = params.api.ingestionToken;
+    if (!token) {
+      throw new Error('ingestionToken is required for Data/Ingestion API calls');
+    }
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    return response.json();
+  };
+};
+
 export class DeviceReportModal {
   private modal: any;
   private authClient: AuthClient;
+  private energyFetcher: EnergyFetcher;
   private data: DailyReading[] = [];
   private isLoading = false;
   private eventHandlers: { [key: string]: (() => void)[] } = {};
@@ -26,11 +53,14 @@ export class DeviceReportModal {
       clientSecret: params.api.clientSecret,
       base: params.api.dataApiBaseUrl
     });
+    
+    // Use injected fetcher or create default with params
+    this.energyFetcher = params.fetcher || createDefaultEnergyFetcher(params);
   }
 
   public show(): ModalHandle {
     this.modal = createModal({
-      title: `Relatório - ${this.params.deviceLabel || 'SEM ID CADASTRADO'} - ${this.params.storeLabel || 'SEM ETIQUETA'}`,
+      title: `Relatório - ${this.params.identifier || 'SEM IDENTIFICADOR'} - ${this.params.label || 'SEM ETIQUETA'}`,
       width: '80vw',
       height: '90vh',
       theme: this.params.ui?.theme || 'light'
@@ -97,11 +127,11 @@ export class DeviceReportModal {
     loadBtn?.addEventListener('click', () => this.loadData());
     exportBtn?.addEventListener('click', () => this.exportCSV());
 
-    // Initialize DateRangePicker
+    // Initialize DateRangePicker with default current month range
     try {
       this.dateRangePicker = await attachDateRangePicker(dateRangeInput, {
-        presetStart: this.params.date?.start || this.getDefaultStartDate(),
-        presetEnd: this.params.date?.end || this.getDefaultEndDate(),
+        presetStart: this.getDefaultStartDate(),
+        presetEnd: this.getDefaultEndDate(),
         maxRangeDays: 31,
         parentEl: this.modal.element,
         onApply: ({ startISO, endISO }) => {
@@ -146,13 +176,19 @@ export class DeviceReportModal {
       const startDate = startISO.split('T')[0];
       const endDate = endISO.split('T')[0];
       
-      // Generate complete date range
+      // Generate complete date range for zero-filling
       const dateRange = rangeDaysInclusive(startDate, endDate);
       
-      // Mock API call - replace with real implementation
-      const mockData = this.generateMockData(dateRange);
+      // Use injected fetcher (real API or mock for testing)
+      const apiResponse = await this.energyFetcher({
+        baseUrl: this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com',
+        ingestionId: this.params.ingestionId,
+        startISO,
+        endISO
+      });
       
-      this.data = mockData;
+      // Process API response
+      this.data = this.processApiResponse(apiResponse, dateRange);
       this.renderTable();
       exportBtn.disabled = false;
       
@@ -173,8 +209,39 @@ export class DeviceReportModal {
     }
   }
 
+  private processApiResponse(apiResponse: any, dateRange: string[]): DailyReading[] {
+    // Handle response - expect array with data property
+    const dataArray = Array.isArray(apiResponse) ? apiResponse : (apiResponse.data || []);
+    
+    if (!Array.isArray(dataArray) || dataArray.length === 0) {
+      console.warn("[DeviceReportModal] API returned empty or invalid response, zero-filling date range");
+      return dateRange.map(date => ({ date, consumption: 0 }));
+    }
+
+    const deviceData = dataArray[0]; // First (and likely only) device
+    const consumption = deviceData.consumption || [];
+
+    // Build daily consumption map
+    const dailyMap: { [key: string]: number } = {};
+    
+    consumption.forEach((item: any) => {
+      if (item.timestamp && item.value != null) {
+        const date = item.timestamp.slice(0, 10); // Extract YYYY-MM-DD
+        const value = Number(item.value);
+        if (!dailyMap[date]) dailyMap[date] = 0;
+        dailyMap[date] += value;
+      }
+    });
+
+    // Generate complete date range with zero-fill for missing dates
+    return dateRange.map(date => ({
+      date,
+      consumption: dailyMap[date] || 0
+    }));
+  }
+
   private generateMockData(dateRange: string[]): DailyReading[] {
-    // Generate realistic mock data for demo
+    // Fallback mock data generator (kept for compatibility)
     return dateRange.map(date => ({
       date,
       consumption: Math.random() * 50 + 10 // 10-60 kWh
@@ -257,7 +324,7 @@ export class DeviceReportModal {
     const timestamp = now.toLocaleDateString('pt-BR') + ' - ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     
     const csvData = [
-      ['Dispositivo/Loja', this.params.deviceLabel || 'N/A', this.params.storeLabel || ''],
+      ['Dispositivo/Loja', this.params.identifier || 'N/A', this.params.label || ''],
       ['DATA EMISSÃO', timestamp, ''],
       ['Total', fmtPt(total), ''],
       ['Data', 'Consumo', ''],
@@ -265,7 +332,7 @@ export class DeviceReportModal {
     ];
 
     const csvContent = toCsv(csvData);
-    this.downloadCSV(csvContent, `relatorio-${this.params.deviceLabel || 'dispositivo'}-${new Date().toISOString().split('T')[0]}.csv`);
+    this.downloadCSV(csvContent, `relatorio-${this.params.identifier || 'dispositivo'}-${new Date().toISOString().split('T')[0]}.csv`);
   }
 
   private downloadCSV(content: string, filename: string): void {

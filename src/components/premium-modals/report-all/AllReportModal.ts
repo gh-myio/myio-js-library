@@ -141,11 +141,11 @@ export class AllReportModal {
       this.renderTable();
     });
 
-    // Initialize DateRangePicker
+    // Initialize DateRangePicker with default current month range
     try {
       this.dateRangePicker = await attachDateRangePicker(dateRangeInput, {
-        presetStart: this.params.date?.start || this.getDefaultStartDate(),
-        presetEnd: this.params.date?.end || this.getDefaultEndDate(),
+        presetStart: this.getDefaultStartDate(),
+        presetEnd: this.getDefaultEndDate(),
         maxRangeDays: 31,
         parentEl: this.modal.element,
         onApply: ({ startISO, endISO }) => {

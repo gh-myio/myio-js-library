@@ -234,7 +234,7 @@ export async function createInputDateRangePickerInsideDIV(
   // 7. Create helper text
   const helperEl = document.createElement('div');
   helperEl.className = 'myio-daterange-helper';
-  helperEl.textContent = 'Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm';
+  //helperEl.textContent = 'Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm';
 
   // 8. Assemble structure
   wrapper.appendChild(inputEl);
