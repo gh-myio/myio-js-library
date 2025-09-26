@@ -38,6 +38,12 @@ export class DeviceReportModal {
 
     this.renderContent();
     this.modal.on('close', () => {
+      // Cleanup DateRangePicker
+      if (this.dateRangePicker) {
+        this.dateRangePicker.destroy();
+        this.dateRangePicker = null;
+      }
+      
       this.authClient.clearCache();
       this.emit('close');
     });
@@ -55,12 +61,8 @@ export class DeviceReportModal {
         <div style="margin-bottom: 16px;">
           <div style="display: flex; gap: 16px; align-items: end; margin-bottom: 16px;">
             <div class="myio-form-group" style="margin-bottom: 0;">
-              <label class="myio-label" for="start-date">Data Início</label>
-              <input type="date" id="start-date" class="myio-input" value="${this.getDefaultStartDate()}" style="width: 150px;">
-            </div>
-            <div class="myio-form-group" style="margin-bottom: 0;">
-              <label class="myio-label" for="end-date">Data Fim</label>
-              <input type="date" id="end-date" class="myio-input" value="${this.getDefaultEndDate()}" style="width: 150px;">
+              <label class="myio-label" for="date-range">Período</label>
+              <input type="text" id="date-range" class="myio-input" readonly placeholder="Selecione o período" style="width: 300px;">
             </div>
             <button id="load-btn" class="myio-btn myio-btn-primary">
               <span class="myio-spinner" id="load-spinner" style="display: none;"></span>
@@ -87,45 +89,45 @@ export class DeviceReportModal {
     this.setupEventListeners();
   }
 
-  private setupEventListeners(): void {
+  private async setupEventListeners(): Promise<void> {
     const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
     const exportBtn = document.getElementById('export-btn') as HTMLButtonElement;
-    const startInput = document.getElementById('start-date') as HTMLInputElement;
-    const endInput = document.getElementById('end-date') as HTMLInputElement;
+    const dateRangeInput = document.getElementById('date-range') as HTMLInputElement;
 
     loadBtn?.addEventListener('click', () => this.loadData());
     exportBtn?.addEventListener('click', () => this.exportCSV());
 
-    // Validate date range
-    const validateDates = () => {
-      const start = new Date(startInput.value);
-      const end = new Date(endInput.value);
-      const diffDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-      
-      if (diffDays > 31) {
-        this.showError('Período máximo permitido: 31 dias');
-        loadBtn.disabled = true;
-      } else if (diffDays < 0) {
-        this.showError('Data de início deve ser anterior à data de fim');
-        loadBtn.disabled = true;
-      } else {
-        this.hideError();
-        loadBtn.disabled = false;
-      }
-    };
-
-    startInput?.addEventListener('change', validateDates);
-    endInput?.addEventListener('change', validateDates);
+    // Initialize DateRangePicker
+    try {
+      this.dateRangePicker = await attachDateRangePicker(dateRangeInput, {
+        presetStart: this.params.date?.start || this.getDefaultStartDate(),
+        presetEnd: this.params.date?.end || this.getDefaultEndDate(),
+        maxRangeDays: 31,
+        parentEl: this.modal.element,
+        onApply: ({ startISO, endISO }) => {
+          // Optional: auto-load when date range changes
+          this.hideError();
+          console.log('Date range selected:', { startISO, endISO });
+        }
+      });
+    } catch (error) {
+      console.warn('DateRangePicker initialization failed, using fallback:', error);
+      // DateRangePicker will automatically fallback to native inputs
+    }
   }
 
   private async loadData(): Promise<void> {
     if (this.isLoading) return;
 
-    const startInput = document.getElementById('start-date') as HTMLInputElement;
-    const endInput = document.getElementById('end-date') as HTMLInputElement;
     const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
     const exportBtn = document.getElementById('export-btn') as HTMLButtonElement;
     const spinner = document.getElementById('load-spinner');
+
+    // Get date range from DateRangePicker
+    if (!this.dateRangePicker) {
+      this.showError('Seletor de data não inicializado');
+      return;
+    }
 
     this.isLoading = true;
     loadBtn.disabled = true;
@@ -133,8 +135,16 @@ export class DeviceReportModal {
     spinner!.style.display = 'inline-block';
 
     try {
-      const startDate = startInput.value;
-      const endDate = endInput.value;
+      const { startISO, endISO } = this.dateRangePicker.getDates();
+      
+      if (!startISO || !endISO) {
+        this.showError('Selecione um período válido');
+        return;
+      }
+
+      // Extract date parts for range generation (YYYY-MM-DD format)
+      const startDate = startISO.split('T')[0];
+      const endDate = endISO.split('T')[0];
       
       // Generate complete date range
       const dateRange = rangeDaysInclusive(startDate, endDate);
