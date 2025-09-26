@@ -32,18 +32,6 @@ The API mirrors our existing library style (MyIOLibrary.renderCardComponentV2) a
 - The modals must feel premium: accessible, keyboard-navigable, adaptive layout, subtle motion, consistent tokens, and robust error/empty states.
 - Improved reliability: single source of truth for date/time handling, sorting, and CSV formatting; uniform auth and error flows.
 
-### Source Reference
-
-The original widget source files (.html, .css, .js) from the ThingsBoard implementation are available in:
-`C:\Projetos\GitHub\myio\myio-js-library-PROD.git\src\thingsboard\main-dashboard-shopping\v-4.0.0\modal\`
-
-These files serve as the primary reference to ensure all parameters, data bindings, and UI flows are correctly understood when componentizing:
-- `controller.js` - Contains the complete modal implementations
-- `template.html` - HTML structure and Angular bindings
-- `style.css` - Complete styling and responsive design
-
-**Critical Requirement**: The new modal components must remain as faithful as possible to the current widget behavior and layout. Improvements, refactors, or redesigns will be considered only after the initial extraction and componentization are complete.
-
 ## Guide-Level Explanation
 
 ### Modal Primitives (Atomic Design)
@@ -249,37 +237,37 @@ interface SettingsModalParams {
 
 #### Energy Modal
 
-- **Left card**: device identity + readonly info fields (Label, Floor, Store#, Meter ID, Device ID, GUID).
-- **Right card**: EnergyChartSDK v2 embedded with readingType=energy, granularity=1d.
-- **Header KPIs** (optional): min/max/avg/total (when chart returns aggregates).
-- **"Load"** re-renders chart and recomputes comparison deltas (current vs previous period).
-- **Device sprite** uses classifyDevice(label) to choose the correct icon (substation, meter, chiller/pump, default).
+- Left card: device identity + readonly info fields (Label, Floor, Store#, Meter ID, Device ID, GUID).
+- Right card: EnergyChartSDK v2 embedded with readingType=energy, granularity=1d.
+- Header KPIs (optional): min/max/avg/total (when chart returns aggregates).
+- "Load" re-renders chart and recomputes comparison deltas (current vs previous period).
+- Device sprite uses classifyDevice(label) to choose the correct icon (substation, meter, chiller/pump, default).
 
 #### Device Report Modal
 
 - Fetch `/telemetry/devices/{ingestionId}/energy?startTime=...&endTime=...&granularity=1d&page=1&pageSize=1000&deep=0`.
 - Build complete date range array and fill gaps with 0 for missing days.
-- Show **Total** row at top.
-- **Table**: sticky headers, client-side sorting (date asc/desc; consumption asc/desc).
-- **Export CSV** (semicolon separator, "pt-BR" decimals).
+- Show Total row at top.
+- Table: sticky headers, client-side sorting (date asc/desc; consumption asc/desc).
+- Export CSV (semicolon separator, "pt-BR" decimals).
 
 #### All Report Modal (by store)
 
 - Fetch totals for the given customerId via paginated Data API endpoint; merge all pages.
-- Build table with **Loja / Identificador / Consumo**, allow sorting by any column.
-- Show header stats: **Stores count** and **Total consumption**.
-- **CSV export** included.
+- Build table with Loja / Identificador / Consumo, allow sorting by any column.
+- Show header stats: Stores count and Total consumption.
+- CSV export included.
 
 #### Settings Modal
 
 - Load current TB device and SERVER_SCOPE attributes:
-  - `floor`, `NumLoja`, `IDMedidor`, `deviceId`, `guid`,
-  - `maxDailyConsumption`, `maxNightConsumption`, `maxBusinessConsumption`.
+  - floor, NumLoja, IDMedidor, deviceId, guid,
+  - maxDailyConsumption, maxNightConsumption, maxBusinessConsumption.
 - Provide inputs with validation (numeric for kWh fields).
-- **On Save**:
+- On Save:
   - PATCH device label via `/api/device` (ThingsBoard).
   - POST attributes to `/api/plugins/telemetry/DEVICE/{deviceId}/SERVER_SCOPE`.
-  - Show success/error toast; close on success.
+- Show success/error toast; close on success.
 
 ### 3) Styling (Atomic, Embedded)
 
@@ -299,7 +287,7 @@ Each modal injects a scoped `<style>` with the following CSS variables (themeabl
 }
 ```
 
-**Premium touches:**
+Premium touches:
 
 - Backdrop blur and soft drop shadows.
 - Focus ring on interactive elements (`:focus-visible`).
@@ -349,116 +337,6 @@ Each modal injects a scoped `<style>` with the following CSS variables (themeabl
 - Add `MyIOLibrary.openDashboardPopupDemand` (kW demand profile).
 - Add role-based edit controls in Settings (hide alarms for non-admins).
 - Provide a Storybook playground for the components with fake data.
-
-## Implementation Requirements
-
-### Faithful Componentization
-
-**Primary Goal**: Extract and componentize the existing modal implementations with complete fidelity to current behavior.
-
-**Source Files Reference**:
-- **Controller Logic**: `src/thingsboard/main-dashboard-shopping/v-4.0.0/modal/controller.js`
-  - Contains complete implementations of all four modal functions
-  - Data API integration patterns
-  - ThingsBoard REST API calls
-  - Date handling and timezone logic
-  - Authentication flows (MyIOAuth, JWT tokens)
-  - CSV export formatting
-  - Sorting and filtering logic
-
-- **HTML Structure**: `src/thingsboard/main-dashboard-shopping/v-4.0.0/modal/template.html`
-  - Angular template bindings
-  - Date range controls
-  - Search functionality
-  - Group layout structure
-
-- **Styling**: `src/thingsboard/main-dashboard-shopping/v-4.0.0/modal/style.css`
-  - Complete responsive design
-  - Modal overlay patterns
-  - Card layouts and animations
-  - Mobile breakpoints and alerts
-
-### Demo and Validation Requirements
-
-For validation during development, we must provide **demo screens with mock data** inside the library. These demos will:
-
-1. **Simulate realistic scenarios** with representative data sets
-2. **Allow team verification** of styling, data formatting, and interactivity
-3. **Remove dependency on live APIs** during development and testing
-4. **Provide regression testing** against the original widget behavior
-
-Demo data should include:
-- Typical device lists with various consumption patterns
-- Edge cases (zero consumption, missing data, error states)
-- Different date ranges and time periods
-- Various device types and classifications
-
-### Internal Reuse and Atomization
-
-**Mandatory internal reuse** wherever possible:
-
-**Example**: `openDashboardPopupReport` and `openDashboardPopupAllReport` both rely on a shared grid engine. This grid component and the CSV export engine should be abstracted into internal primitives and reused across both modals.
-
-**Shared Components to Extract**:
-- **DataTable Engine**: Unified table rendering, sorting, and pagination
-- **CSV Export Engine**: Single implementation for semicolon-separated, pt-BR formatted exports
-- **Date Range Controls**: Consistent date picker behavior across all modals
-- **Modal Shell**: Common overlay, focus trap, and responsive container
-- **Loading States**: Unified spinner and error display patterns
-- **Authentication Client**: Shared Data API and ThingsBoard token management
-
-**Anti-Pattern**: Avoid duplicating logic for table rendering, sorting, and CSV generation — use a single implementation consumed by both report modals.
-
-### Development Phases
-
-**Phase 1: Faithful Extraction** (This RFC)
-- Extract existing modal functions with zero behavior changes
-- Componentize shared primitives identified in source analysis
-- Implement demo screens with mock data
-- Ensure 100% visual and functional parity
-
-**Phase 2: Premium Improvements** (Future)
-- Enhanced theming and dark mode support
-- Advanced filtering and multi-select capabilities
-- Performance optimizations
-- Additional accessibility features
-
-### Source Code Analysis Summary
-
-From `controller.js` analysis, the key functions to componentize:
-
-1. **`openDashboardPopupEnergy`**:
-   - Device info display with ThingsBoard attributes
-   - EnergyChartSDK v2 integration
-   - Comparison data with previous period
-   - Device classification and icon selection
-
-2. **`openDashboardPopupReport`**:
-   - Daily consumption table with date range filling
-   - Data API telemetry endpoint integration
-   - Client-side sorting (date/consumption)
-   - CSV export with pt-BR formatting
-
-3. **`openDashboardPopupAllReport`**:
-   - Customer-wide device totals
-   - Pagination handling for large datasets
-   - Label filtering with regex patterns
-   - Store-level aggregation and sorting
-
-4. **`openDashboardPopup`** (Settings):
-   - ThingsBoard device and attribute management
-   - Form validation for numeric fields
-   - Server scope attribute updates
-   - Success/error feedback patterns
-
-### Critical Implementation Notes
-
-- **Date Handling**: Use `toISOWithOffset()` function pattern for timezone-aware timestamps
-- **Authentication**: Implement `MyIOAuth` pattern for Data API token caching
-- **Device Classification**: Preserve `classifyDevice()` logic for icon selection
-- **Error Handling**: Maintain existing retry patterns and user feedback
-- **Responsive Design**: Keep mobile alert patterns and breakpoint behavior
-- **State Management**: Preserve local state isolation between modals
 
 ## Appendix A – DOM Structure (Energy Modal)
 

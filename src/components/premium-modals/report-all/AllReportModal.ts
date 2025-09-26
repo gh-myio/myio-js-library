@@ -186,14 +186,15 @@ export class AllReportModal {
       const startDate = startISO.split('T')[0];
       const endDate = endISO.split('T')[0];
 
-      // Mock API call - replace with real implementation
-      const mockData = this.generateMockData();
-
-      this.data = mockData;
+      // Real Customer Totals API call
+      const customerTotalsData = await this.fetchCustomerTotals(startISO, endISO);
+      
+      // Process and map the API response
+      this.data = this.mapCustomerTotalsResponse(customerTotalsData);
 
       // Initialize all stores as selected by default
       this.selectedStoreIds = new Set(
-        mockData.map(store => this.generateStoreId(store.name))
+        this.data.map(store => this.generateStoreId(store.name))
       );
 
       this.currentPage = 1;
@@ -217,50 +218,6 @@ export class AllReportModal {
       loadBtn.disabled = false;
       spinner!.style.display = 'none';
     }
-  }
-
-  private generateMockData(): StoreReading[] {
-    // Generate realistic mock data for multiple stores
-    const storeData = [
-      { name: 'McDonalds', identifier: 'SCMAL1230B' },
-      { name: 'Burger King', identifier: 'BKMAL0945A' },
-      { name: 'Subway', identifier: 'SUBRI2156C' },
-      { name: 'Pizza Hut', identifier: 'PHMAL3789D' },
-      { name: 'KFC', identifier: 'KFCSP1642E' },
-      { name: 'Outback', identifier: 'OBMAL5823F' },
-      { name: 'Habib\'s', identifier: 'HBSP2947G' },
-      { name: 'Giraffas', identifier: 'GRMAL4156H' },
-      { name: 'Spoleto', identifier: 'SPMAL8372I' },
-      { name: 'Bob\'s', identifier: 'BOBSP6419J' },
-      { name: 'Domino\'s', identifier: 'DMMAL9573K' },
-      { name: 'China in Box', identifier: 'CIBSP3864L' },
-      { name: 'Açaí Concept', identifier: 'ACMAL7251M' },
-      { name: 'Starbucks', identifier: 'SBMAL1598N' },
-      { name: 'Dunkin\'', identifier: 'DKSP4729O' },
-      { name: 'Kopenhagen', identifier: 'KPMAL8163P' },
-      { name: 'Cacau Show', identifier: 'CSMAL5947Q' },
-      { name: 'Boticário', identifier: 'BTMAL2831R' },
-      { name: 'Natura', identifier: 'NTSP6472S' }
-    ];
-
-    return storeData
-      .filter(store => !this.shouldExcludeStore(store.name))
-      .map(store => ({
-        identifier: store.identifier,
-        name: store.name,
-        consumption: Math.round((Math.random() * 2000 + 500) * 100) / 100 // 500-2500 kWh with 2 decimal places
-      }));
-  }
-
-  private shouldExcludeStore(storeName: string): boolean {
-    if (!this.params.filters?.excludeLabels) return false;
-
-    return this.params.filters.excludeLabels.some(filter => {
-      if (filter instanceof RegExp) {
-        return filter.test(storeName);
-      }
-      return storeName.toLowerCase().includes(filter.toLowerCase());
-    });
   }
 
   private getFilteredData(): StoreReading[] {
@@ -603,6 +560,138 @@ export class AllReportModal {
 
     const csvContent = toCsv(csvData);
     this.downloadCSV(csvContent, `relatorio-geral-lojas-${new Date().toISOString().split('T')[0]}.csv`);
+  }
+
+  private async fetchCustomerTotals(startISO: string, endISO: string): Promise<any[]> {
+    // Check if custom fetcher is provided (for testing/demo)
+    if (this.params.fetcher) {
+      return await this.params.fetcher({
+        baseUrl: this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com',
+        token: await this.authClient.getBearer(),
+        customerId: this.params.customerId,
+        startISO,
+        endISO
+      });
+    }
+
+    // Real Customer Totals API implementation
+    const token = await this.authClient.getBearer();
+    const baseUrl = this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com';
+    
+    // Format timestamps for API call
+    const startTime = encodeURIComponent(startISO);
+    const endTime = encodeURIComponent(endISO);
+    
+    const url = `${baseUrl}/api/v1/telemetry/customers/${this.params.customerId}/energy/devices/totals?startTime=${startTime}&endTime=${endTime}`;
+    
+    console.log('[AllReportModal] Fetching customer totals:', { url, customerId: this.params.customerId });
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Clear cached token and retry once
+        this.authClient.clearCache();
+        const newToken = await this.authClient.getBearer();
+        const retryResponse = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${newToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!retryResponse.ok) {
+          throw new Error(`Erro de autenticação: ${retryResponse.status} ${retryResponse.statusText}`);
+        }
+        
+        return await retryResponse.json();
+      }
+      
+      throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('[AllReportModal] Customer totals response:', data);
+    
+    return Array.isArray(data) ? data : [];
+  }
+
+  private mapCustomerTotalsResponse(apiData: any[]): StoreReading[] {
+    if (!Array.isArray(apiData) || apiData.length === 0) {
+      console.warn('[AllReportModal] Empty or invalid API response:', apiData);
+      return [];
+    }
+
+    const mappedData = apiData
+      .map(item => {
+        // Handle various possible field names from the API
+        const identifier = item.identifier || item.deviceId || item.id || 'N/A';
+        const name = item.deviceLabel || item.name || item.label || identifier;
+        const consumption = this.parseConsumptionValue(item);
+
+        return {
+          identifier: String(identifier).toUpperCase(),
+          name: String(name),
+          consumption: consumption
+        };
+      })
+      .filter(store => {
+        // Apply exclude filters if configured
+        return !this.shouldExcludeStore(store.name);
+      })
+      .filter(store => {
+        // Filter out invalid consumption values
+        return !isNaN(store.consumption) && store.consumption >= 0;
+      });
+
+    console.log('[AllReportModal] Mapped customer totals:', mappedData.length, 'stores');
+    return mappedData;
+  }
+
+  private parseConsumptionValue(item: any): number {
+    // Try various possible field names for consumption value
+    const possibleFields = [
+      'total_value',
+      'totalValue', 
+      'consumption',
+      'value',
+      'total',
+      'energy',
+      'kwh'
+    ];
+
+    for (const field of possibleFields) {
+      if (item[field] !== undefined && item[field] !== null) {
+        const value = typeof item[field] === 'string' 
+          ? parseFloat(item[field].replace(',', '.')) 
+          : Number(item[field]);
+        
+        if (!isNaN(value)) {
+          return Math.round(value * 100) / 100; // Round to 2 decimal places
+        }
+      }
+    }
+
+    console.warn('[AllReportModal] No valid consumption value found in item:', item);
+    return 0;
+  }
+
+  private shouldExcludeStore(storeName: string): boolean {
+    if (!this.params.filters?.excludeLabels) return false;
+
+    return this.params.filters.excludeLabels.some(filter => {
+      if (filter instanceof RegExp) {
+        return filter.test(storeName);
+      }
+      return storeName.toLowerCase().includes(filter.toLowerCase());
+    });
   }
 
   private downloadCSV(content: string, filename: string): void {
