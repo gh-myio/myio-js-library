@@ -38,27 +38,169 @@
         <h1>Premium Modal Components Demo</h1>
         <p>Click the buttons below to test each modal component:</p>
         
-        <button class="demo-button" onclick="openEnergyDemo()">
-            ⚡ Energy Modal
-        </button>
-        
+        <h2>🎯 Current Implementation (Working)</h2>
         <button class="demo-button" onclick="openReportDemo()">
-            📊 Device Report Modal
+            📊 Device Report Modal (Native Date Inputs)
         </button>
         
-        <button class="demo-button" onclick="openAllReportDemo()">
-            📋 All Report Modal
+        <h2>🚀 Future Implementation (DateRangePicker)</h2>
+        <p style="color: #666; margin-bottom: 20px;">
+            Preview of the standardized jQuery DateRangePicker that will replace native date inputs across all modals.
+        </p>
+        
+        <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3>DateRangePicker Demo</h3>
+            <label for="demo-picker" style="display: block; margin-bottom: 8px; font-weight: 500;">
+                Período de Datas
+            </label>
+            <input type="text" id="demo-picker" readonly 
+                   style="width: 300px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; background: white;"
+                   placeholder="Clique para selecionar período">
+            <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm
+            </div>
+            
+            <div style="margin-top: 16px;">
+                <button class="demo-button" onclick="loadDateRangePicker()" style="margin-right: 10px;">
+                    📅 Load DateRangePicker
+                </button>
+                <button class="demo-button" onclick="showSelectedRange()" style="background: #28a745;">
+                    ✅ Show Selected Range
+                </button>
+            </div>
+            
+            <div id="range-output" style="margin-top: 16px; padding: 12px; background: #e9ecef; border-radius: 4px; display: none;">
+                <strong>Selected Range:</strong>
+                <div id="range-details"></div>
+            </div>
+        </div>
+        
+        <h2>🔮 Future Modals (Coming Soon)</h2>
+        <button class="demo-button" onclick="openEnergyDemo()" style="opacity: 0.6;">
+            ⚡ Energy Modal (Coming Soon)
         </button>
         
-        <button class="demo-button" onclick="openSettingsDemo()">
-            ⚙️ Settings Modal
+        <button class="demo-button" onclick="openAllReportDemo()" style="opacity: 0.6;">
+            📋 All Report Modal (Coming Soon)
+        </button>
+        
+        <button class="demo-button" onclick="openSettingsDemo()" style="opacity: 0.6;">
+            ⚙️ Settings Modal (Coming Soon)
         </button>
     </div>
 
     <!-- Load the library (when built) -->
     <script src="../dist/myio-js-library.umd.min.js"></script>
     
+    <!-- DateRangePicker CDN Dependencies (for demo) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.css">
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/min/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.min.js"></script>
+    
     <script>
+        // DateRangePicker Demo Implementation
+        let demoPickerInstance = null;
+        
+        function loadDateRangePicker() {
+            if (typeof jQuery === 'undefined' || typeof moment === 'undefined') {
+                alert('DateRangePicker dependencies not loaded. Check CDN connections.');
+                return;
+            }
+            
+            const $ = jQuery.noConflict(true); // Avoid conflicts
+            const input = document.getElementById('demo-picker');
+            
+            if (demoPickerInstance) {
+                // Destroy existing instance
+                $(input).data('daterangepicker')?.remove();
+            }
+            
+            // Setup DateRangePicker with production configuration
+            $(input).daterangepicker({
+                timePicker: true,
+                timePicker24Hour: true,
+                timePickerIncrement: 1,
+                autoApply: true,
+                autoUpdateInput: true,
+                linkedCalendars: true,
+                showCustomRangeLabel: true,
+                maxSpan: { days: 31 },  // Native range enforcement
+                maxDate: moment().endOf('day'),
+                opens: 'right',
+                drops: 'down',
+                locale: {
+                    format: 'DD/MM/YY HH:mm',
+                    separator: ' até ',
+                    applyLabel: 'Aplicar',
+                    cancelLabel: 'Cancelar',
+                    fromLabel: 'De',
+                    toLabel: 'Até',
+                    customRangeLabel: 'Personalizado',
+                    daysOfWeek: ['Do','Se','Te','Qa','Qi','Se','Sa'],
+                    monthNames: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+                    firstDay: 1
+                },
+                applyButtonClasses: 'btn btn-primary',
+                cancelClass: 'btn btn-muted',
+                ranges: {
+                    'Hoje': [moment().startOf('day'), moment().endOf('day')],
+                    'Últimos 7 dias': [moment().subtract(6,'days').startOf('day'), moment().endOf('day')],
+                    'Últimos 30 dias': [moment().subtract(29,'days').startOf('day'), moment().endOf('day')],
+                    'Mês Anterior': [moment().subtract(1,'month').startOf('month'), moment().subtract(1,'month').endOf('month')]
+                }
+            });
+            
+            // Set default range (current month)
+            const startDate = moment().startOf('month');
+            const endDate = moment().endOf('day');
+            
+            $(input).data('daterangepicker').setStartDate(startDate);
+            $(input).data('daterangepicker').setEndDate(endDate);
+            
+            // Update input display
+            const formatted = `${startDate.format('DD/MM/YY HH:mm')} até ${endDate.format('DD/MM/YY HH:mm')}`;
+            input.value = formatted;
+            
+            demoPickerInstance = $(input).data('daterangepicker');
+            
+            // Success feedback
+            alert('✅ DateRangePicker loaded successfully!\n\nFeatures:\n• Time selection (24h format)\n• Preset ranges in Portuguese\n• Max 31 days enforcement\n• Timezone-aware output\n• Premium MyIO styling (purple buttons)');
+        }
+        
+        function showSelectedRange() {
+            if (!demoPickerInstance) {
+                alert('Please load DateRangePicker first!');
+                return;
+            }
+            
+            const picker = demoPickerInstance;
+            
+            // Get dates with timezone preservation (production format)
+            const startISO = picker.startDate.format('YYYY-MM-DD[T]HH:mm:ssZ');
+            const endISO = picker.endDate.format('YYYY-MM-DD[T]HH:mm:ssZ');
+            const startLabel = picker.startDate.format('DD/MM/YY HH:mm');
+            const endLabel = picker.endDate.format('DD/MM/YY HH:mm');
+            
+            // Calculate range info
+            const diffDays = picker.endDate.diff(picker.startDate, 'days') + 1;
+            
+            // Show output
+            const output = document.getElementById('range-output');
+            const details = document.getElementById('range-details');
+            
+            details.innerHTML = `
+                <div style="margin: 8px 0;"><strong>Start:</strong> ${startISO}</div>
+                <div style="margin: 8px 0;"><strong>End:</strong> ${endISO}</div>
+                <div style="margin: 8px 0;"><strong>Display:</strong> ${startLabel} até ${endLabel}</div>
+                <div style="margin: 8px 0;"><strong>Duration:</strong> ${diffDays} days</div>
+                <div style="margin: 8px 0; color: ${diffDays <= 31 ? '#28a745' : '#dc3545'};">
+                    <strong>Range Check:</strong> ${diffDays <= 31 ? '✅ Within 31-day limit' : '❌ Exceeds 31-day limit'}
+                </div>
+            `;
+            
+            output.style.display = 'block';
+        }
         // Mock data for demos
         function openEnergyDemo() {
             if (typeof MyIOLibrary === 'undefined') {

@@ -290,3 +290,194 @@ export const MODAL_STYLES = `
 .myio-mt-0 { margin-top: 0; }
 .myio-p-0 { padding: 0; }
 `;
+
+// Premium DateRangePicker styling with MyIO brand colors
+export const DATERANGEPICKER_STYLES = `
+/* MyIO Premium DateRangePicker Styling */
+.myio-modal-scope .daterangepicker {
+  font-family: var(--myio-font);
+  border: 1px solid var(--myio-border);
+  border-radius: var(--myio-radius);
+  box-shadow: var(--myio-shadow-lg);
+  background: var(--myio-card);
+  z-index: var(--myio-z-popover, 10000);
+}
+
+.myio-modal-scope .daterangepicker .calendar-table {
+  background: var(--myio-card);
+  border: none;
+}
+
+.myio-modal-scope .daterangepicker .calendar-table th,
+.myio-modal-scope .daterangepicker .calendar-table td {
+  border: none;
+  padding: 8px;
+  text-align: center;
+  font-size: 13px;
+}
+
+.myio-modal-scope .daterangepicker .calendar-table th {
+  background: var(--myio-bg);
+  color: var(--myio-text);
+  font-weight: 600;
+}
+
+.myio-modal-scope .daterangepicker .calendar-table td.available:hover {
+  background: var(--myio-bg);
+  color: var(--myio-text);
+}
+
+.myio-modal-scope .daterangepicker .calendar-table td.in-range {
+  background: rgba(74, 20, 140, 0.1);
+  color: var(--myio-text);
+}
+
+.myio-modal-scope .daterangepicker .calendar-table td.start-date,
+.myio-modal-scope .daterangepicker .calendar-table td.end-date {
+  background: var(--myio-brand-700);
+  color: white;
+  border-radius: 4px;
+}
+
+.myio-modal-scope .daterangepicker .calendar-table td.active {
+  background: var(--myio-brand-700);
+  color: white;
+  border-radius: 4px;
+}
+
+/* Premium button styling for Aplicar/Cancelar */
+.myio-modal-scope .daterangepicker .drp-buttons {
+  border-top: 1px solid var(--myio-border);
+  padding: 12px 16px;
+  background: var(--myio-bg);
+  text-align: right;
+}
+
+.myio-modal-scope .daterangepicker .drp-buttons .btn {
+  margin-left: 8px;
+  padding: 8px 16px;
+  border-radius: var(--myio-radius-sm);
+  font-family: var(--myio-font);
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all var(--myio-transition);
+  min-width: 80px;
+}
+
+/* Aplicar button - MyIO Primary */
+.myio-modal-scope .daterangepicker .drp-buttons .applyBtn {
+  background: linear-gradient(135deg, var(--myio-brand-700) 0%, var(--myio-accent) 100%);
+  color: white;
+  box-shadow: 0 2px 4px rgba(74, 20, 140, 0.2);
+}
+
+.myio-modal-scope .daterangepicker .drp-buttons .applyBtn:hover {
+  background: linear-gradient(135deg, var(--myio-brand-600) 0%, var(--myio-brand-700) 100%);
+  box-shadow: 0 4px 8px rgba(74, 20, 140, 0.3);
+  transform: translateY(-1px);
+}
+
+.myio-modal-scope .daterangepicker .drp-buttons .applyBtn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(74, 20, 140, 0.2);
+}
+
+/* Cancelar button - MyIO Secondary */
+.myio-modal-scope .daterangepicker .drp-buttons .cancelBtn {
+  background: var(--myio-card);
+  color: var(--myio-text);
+  border: 1px solid var(--myio-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.myio-modal-scope .daterangepicker .drp-buttons .cancelBtn:hover {
+  background: var(--myio-bg);
+  border-color: var(--myio-brand-700);
+  color: var(--myio-brand-700);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.myio-modal-scope .daterangepicker .drp-buttons .cancelBtn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Ranges (preset buttons) styling */
+.myio-modal-scope .daterangepicker .ranges {
+  background: var(--myio-bg);
+  border-right: 1px solid var(--myio-border);
+}
+
+.myio-modal-scope .daterangepicker .ranges li {
+  padding: 10px 16px;
+  margin: 2px 8px;
+  border-radius: var(--myio-radius-sm);
+  cursor: pointer;
+  transition: all var(--myio-transition);
+  font-size: 13px;
+  color: var(--myio-text);
+}
+
+.myio-modal-scope .daterangepicker .ranges li:hover {
+  background: rgba(74, 20, 140, 0.1);
+  color: var(--myio-brand-700);
+}
+
+.myio-modal-scope .daterangepicker .ranges li.active {
+  background: var(--myio-brand-700);
+  color: white;
+  font-weight: 500;
+}
+
+/* Time picker styling */
+.myio-modal-scope .daterangepicker .calendar-time {
+  border-top: 1px solid var(--myio-border);
+  background: var(--myio-bg);
+  padding: 8px;
+}
+
+.myio-modal-scope .daterangepicker .calendar-time select {
+  border: 1px solid var(--myio-border);
+  border-radius: var(--myio-radius-sm);
+  padding: 4px 8px;
+  font-family: var(--myio-font);
+  background: var(--myio-card);
+  color: var(--myio-text);
+}
+
+.myio-modal-scope .daterangepicker .calendar-time select:focus {
+  outline: none;
+  border-color: var(--myio-brand-700);
+  box-shadow: 0 0 0 2px rgba(74, 20, 140, 0.2);
+}
+
+/* Header styling */
+.myio-modal-scope .daterangepicker .drp-calendar {
+  background: var(--myio-card);
+}
+
+.myio-modal-scope .daterangepicker .month {
+  color: var(--myio-brand-700);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.myio-modal-scope .daterangepicker .prev,
+.myio-modal-scope .daterangepicker .next {
+  color: var(--myio-brand-700);
+  border: 1px solid var(--myio-border);
+  border-radius: var(--myio-radius-sm);
+  background: var(--myio-card);
+  transition: all var(--myio-transition);
+}
+
+.myio-modal-scope .daterangepicker .prev:hover,
+.myio-modal-scope .daterangepicker .next:hover {
+  background: var(--myio-brand-700);
+  color: white;
+  border-color: var(--myio-brand-700);
+}
+`;

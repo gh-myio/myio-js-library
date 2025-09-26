@@ -4,6 +4,7 @@ import { toISOWithOffset, rangeDaysInclusive } from '../internal/engines/DateEng
 import { toCsv } from '../internal/engines/CsvExporter';
 import { fmtPt } from '../internal/engines/NumberFmt';
 import { AuthClient } from '../internal/engines/AuthClient';
+import { attach as attachDateRangePicker, DateRangeControl } from '../internal/DateRangePickerJQ';
 import { OpenDeviceReportParams, ModalHandle } from '../types';
 
 interface DailyReading {
@@ -17,6 +18,7 @@ export class DeviceReportModal {
   private data: DailyReading[] = [];
   private isLoading = false;
   private eventHandlers: { [key: string]: (() => void)[] } = {};
+  private dateRangePicker: DateRangeControl | null = null;
 
   constructor(private params: OpenDeviceReportParams) {
     this.authClient = new AuthClient({

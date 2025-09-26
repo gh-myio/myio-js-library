@@ -85,6 +85,9 @@ export {
   openDashboardPopup
 } from './components/premium-modals';
 
+// DateRangePicker (default-on, no flags)
+export { DateRangePickerJQ } from './components/premium-modals/internal/DateRangePickerJQ';
+
 // Utils namespace exports
 export * as strings from './utils/strings';
 export * as numbers from './utils/numbers';
