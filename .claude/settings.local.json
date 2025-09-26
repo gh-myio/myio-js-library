@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node:*)",
+      "Bash(start \"\" \"file:///C:/Projetos/GitHub/myio/myio-js-library-PROD.git/demos/energy.html\")",
+      "Bash(start \"\" \"file:///C:/Projetos/GitHub/myio/myio-js-library-PROD.git/test-modal.html\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

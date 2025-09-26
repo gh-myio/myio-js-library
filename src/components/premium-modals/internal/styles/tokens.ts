@@ -116,18 +116,20 @@ export const MODAL_STYLES = `
 
 .myio-modal-header {
   padding: var(--myio-spacing);
-  border-bottom: 1px solid var(--myio-border);
+  border-bottom: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--myio-card);
+  background: #7C3AED;
+  color: white;
+  border-radius: var(--myio-radius) var(--myio-radius) 0 0;
 }
 
 .myio-modal-title {
   font-size: var(--myio-font-size-lg);
   font-weight: 600;
   margin: 0;
-  color: var(--myio-brand-700);
+  color: white;
 }
 
 .myio-modal-close {
@@ -135,19 +137,19 @@ export const MODAL_STYLES = `
   border: none;
   font-size: 20px;
   cursor: pointer;
-  padding: 4px;
+  padding: 4px 8px;
   border-radius: var(--myio-radius-sm);
-  color: var(--myio-text-muted);
+  color: rgba(255, 255, 255, 0.8);
   transition: background-color var(--myio-transition);
 }
 
 .myio-modal-close:hover {
-  background: var(--myio-bg);
-  color: var(--myio-text);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
 }
 
 .myio-modal-close:focus-visible {
-  outline: 2px solid var(--myio-brand-700);
+  outline: 2px solid rgba(255, 255, 255, 0.5);
   outline-offset: 2px;
 }
 

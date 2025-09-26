@@ -44,13 +44,13 @@ const CDN_RESOURCES = [
   {
     id: 'moment-2.29.4',
     src: 'https://cdn.jsdelivr.net/npm/moment@2.29.4/min/moment.min.js',
-    integrity: 'sha384-2/I3ujRVtIoWlBwRlHzLgIqGZudYdqjj8YjNlZmWs4KWYZr8VoD6S5YpHJJr7Bb',
+    integrity: 'sha384-2xoILS8hBHw+Atyv/qJLEdk8dFdW1hbGjfeQ3G0GU3pGNPlqck0chRqjMTZ5blGf',
     crossorigin: 'anonymous'
   },
   {
     id: 'daterangepicker-3.1.0',
     src: 'https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.min.js',
-    integrity: 'sha384-jQONMjSZJHf7gVONvFl5aaOTPKKsMKwJ8+qf7TVjqXi1voGGEHAjv4YLp2YN5mbN',
+    integrity: 'sha384-IbJFThFkdkMvvxP0U8wOffxBHPYEJE65UtA/l25/jJQUt/hft6OdAuKLxGjtOVnL',
     crossorigin: 'anonymous'
   }
 ];
@@ -58,7 +58,7 @@ const CDN_RESOURCES = [
 const CSS_RESOURCE = {
   id: 'daterangepicker-css',
   href: 'https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.css',
-  integrity: 'sha384-xjCC5+IOqNSbIEY5Ff6X7mSYEUjGGkI2YPQKQqQKQqQKQqQKQqQKQqQKQqQKQqQK',
+  integrity: 'sha384-zLkQsiLfAQqGeIJeKLC+rcCR1YoYaQFLCL7cLDUoKE1ajKJzySpjzWGfYS2vjSG+',
   crossorigin: 'anonymous'
 };
 
@@ -298,8 +298,8 @@ export async function attach(input: HTMLInputElement, opts: AttachOptions = {}):
     const $ = await CDNLoader.ensureLoaded();
     return createDateRangePicker($, input, opts);
   } catch (error) {
-    console.warn('DateRangePicker: Falling back to native inputs:', error);
-    return createNativeFallback(input, opts);
+    console.error('DateRangePicker: Failed to load dependencies. Native date inputs are forbidden in this project.', error);
+    throw new Error('DateRangePicker dependencies unavailable. Please ensure jQuery, moment.js, and daterangepicker are accessible.');
   }
 }
 

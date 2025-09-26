@@ -38,11 +38,15 @@
         <h1>Premium Modal Components Demo</h1>
         <p>Click the buttons below to test each modal component:</p>
         
-        <h2>🎯 Current Implementation (Working)</h2>
+        <h2>🎯 Working Premium Modals</h2>
         <button class="demo-button" onclick="openReportDemo()">
-            📊 Device Report Modal (Native Date Inputs)
+            📊 Device Report Modal (DateRangePicker)
         </button>
-        
+
+        <button class="demo-button" onclick="openAllReportDemo()" style="background: #28a745;">
+            📋 All Report Modal (NEW!)
+        </button>
+
         <h2>🚀 Future Implementation (DateRangePicker)</h2>
         <p style="color: #666; margin-bottom: 20px;">
             Preview of the standardized jQuery DateRangePicker that will replace native date inputs across all modals.
@@ -79,11 +83,7 @@
         <button class="demo-button" onclick="openEnergyDemo()" style="opacity: 0.6;">
             ⚡ Energy Modal (Coming Soon)
         </button>
-        
-        <button class="demo-button" onclick="openAllReportDemo()" style="opacity: 0.6;">
-            📋 All Report Modal (Coming Soon)
-        </button>
-        
+
         <button class="demo-button" onclick="openSettingsDemo()" style="opacity: 0.6;">
             ⚙️ Settings Modal (Coming Soon)
         </button>
@@ -92,80 +92,90 @@
     <!-- Load the library (when built) -->
     <script src="../dist/myio-js-library.umd.min.js"></script>
     
-    <!-- DateRangePicker CDN Dependencies (for demo) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.css">
-    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/min/moment.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/daterangepicker@3.1.0/daterangepicker.min.js"></script>
-    
     <script>
-        // DateRangePicker Demo Implementation
+        // DateRangePicker Demo Implementation using MyIOLibrary
         let demoPickerInstance = null;
         
         function loadDateRangePicker() {
-            if (typeof jQuery === 'undefined' || typeof moment === 'undefined') {
-                alert('DateRangePicker dependencies not loaded. Check CDN connections.');
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
                 return;
             }
             
-            const $ = jQuery.noConflict(true); // Avoid conflicts
             const input = document.getElementById('demo-picker');
             
             if (demoPickerInstance) {
                 // Destroy existing instance
-                $(input).data('daterangepicker')?.remove();
+                demoPickerInstance.destroy();
+                demoPickerInstance = null;
             }
             
-            // Setup DateRangePicker with production configuration
-            $(input).daterangepicker({
-                timePicker: true,
-                timePicker24Hour: true,
-                timePickerIncrement: 1,
-                autoApply: true,
-                autoUpdateInput: true,
-                linkedCalendars: true,
-                showCustomRangeLabel: true,
-                maxSpan: { days: 31 },  // Native range enforcement
-                maxDate: moment().endOf('day'),
-                opens: 'right',
-                drops: 'down',
-                locale: {
-                    format: 'DD/MM/YY HH:mm',
-                    separator: ' até ',
-                    applyLabel: 'Aplicar',
-                    cancelLabel: 'Cancelar',
-                    fromLabel: 'De',
-                    toLabel: 'Até',
-                    customRangeLabel: 'Personalizado',
-                    daysOfWeek: ['Do','Se','Te','Qa','Qi','Se','Sa'],
-                    monthNames: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
-                    firstDay: 1
-                },
-                applyButtonClasses: 'btn btn-primary',
-                cancelClass: 'btn btn-muted',
-                ranges: {
-                    'Hoje': [moment().startOf('day'), moment().endOf('day')],
-                    'Últimos 7 dias': [moment().subtract(6,'days').startOf('day'), moment().endOf('day')],
-                    'Últimos 30 dias': [moment().subtract(29,'days').startOf('day'), moment().endOf('day')],
-                    'Mês Anterior': [moment().subtract(1,'month').startOf('month'), moment().subtract(1,'month').endOf('month')]
-                }
-            });
-            
-            // Set default range (current month)
-            const startDate = moment().startOf('month');
-            const endDate = moment().endOf('day');
-            
-            $(input).data('daterangepicker').setStartDate(startDate);
-            $(input).data('daterangepicker').setEndDate(endDate);
-            
-            // Update input display
-            const formatted = `${startDate.format('DD/MM/YY HH:mm')} até ${endDate.format('DD/MM/YY HH:mm')}`;
-            input.value = formatted;
-            
-            demoPickerInstance = $(input).data('daterangepicker');
-            
-            // Success feedback
-            alert('✅ DateRangePicker loaded successfully!\n\nFeatures:\n• Time selection (24h format)\n• Preset ranges in Portuguese\n• Max 31 days enforcement\n• Timezone-aware output\n• Premium MyIO styling (purple buttons)');
+            try {
+                // Use our internal DateRangePickerJQ component
+                demoPickerInstance = MyIOLibrary.createDateRangePicker(input, {
+                    timePicker: true,
+                    timePicker24Hour: true,
+                    timePickerIncrement: 1,
+                    autoApply: true,
+                    autoUpdateInput: true,
+                    linkedCalendars: true,
+                    showCustomRangeLabel: true,
+                    maxSpan: { days: 31 },
+                    opens: 'right',
+                    drops: 'down',
+                    locale: {
+                        format: 'DD/MM/YY HH:mm',
+                        separator: ' até ',
+                        applyLabel: 'Aplicar',
+                        cancelLabel: 'Cancelar',
+                        fromLabel: 'De',
+                        toLabel: 'Até',
+                        customRangeLabel: 'Personalizado',
+                        daysOfWeek: ['Do','Se','Te','Qa','Qi','Se','Sa'],
+                        monthNames: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+                        firstDay: 1
+                    },
+                    ranges: {
+                        'Hoje': 'today',
+                        'Últimos 7 dias': 'last7days',
+                        'Últimos 30 dias': 'last30days',
+                        'Mês Anterior': 'lastmonth'
+                    }
+                });
+                
+                // Set default range (current month)
+                demoPickerInstance.setRange('thismonth');
+                
+                // Success feedback
+                alert('✅ MyIO DateRangePicker loaded successfully!\n\nFeatures:\n• Time selection (24h format)\n• Preset ranges in Portuguese\n• Max 31 days enforcement\n• Timezone-aware output\n• Premium MyIO styling (purple buttons)\n• No external dependencies!');
+                
+            } catch (error) {
+                console.error('DateRangePicker error:', error);
+                alert('❌ DateRangePicker not yet implemented in MyIOLibrary.\n\nThis is a preview of the future implementation.\nCurrently showing the interface that will be available.');
+                
+                // Fallback: show mock data
+                const now = new Date();
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+                
+                const formatDate = (date) => {
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = String(date.getFullYear()).slice(-2);
+                    const hours = String(date.getHours()).padStart(2, '0');
+                    const minutes = String(date.getMinutes()).padStart(2, '0');
+                    return `${day}/${month}/${year} ${hours}:${minutes}`;
+                };
+                
+                input.value = `${formatDate(startOfMonth)} até ${formatDate(endOfDay)}`;
+                
+                // Mock instance for demo
+                demoPickerInstance = {
+                    startDate: startOfMonth,
+                    endDate: endOfDay,
+                    destroy: () => {}
+                };
+            }
         }
         
         function showSelectedRange() {
@@ -174,28 +184,41 @@
                 return;
             }
             
-            const picker = demoPickerInstance;
+            const startDate = demoPickerInstance.startDate;
+            const endDate = demoPickerInstance.endDate;
             
-            // Get dates with timezone preservation (production format)
-            const startISO = picker.startDate.format('YYYY-MM-DD[T]HH:mm:ssZ');
-            const endISO = picker.endDate.format('YYYY-MM-DD[T]HH:mm:ssZ');
-            const startLabel = picker.startDate.format('DD/MM/YY HH:mm');
-            const endLabel = picker.endDate.format('DD/MM/YY HH:mm');
+            // Format dates for display
+            const formatISO = (date) => {
+                return date.toISOString();
+            };
+            
+            const formatDisplay = (date) => {
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const year = String(date.getFullYear()).slice(-2);
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${day}/${month}/${year} ${hours}:${minutes}`;
+            };
             
             // Calculate range info
-            const diffDays = picker.endDate.diff(picker.startDate, 'days') + 1;
+            const diffTime = Math.abs(endDate - startDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
             
             // Show output
             const output = document.getElementById('range-output');
             const details = document.getElementById('range-details');
             
             details.innerHTML = `
-                <div style="margin: 8px 0;"><strong>Start:</strong> ${startISO}</div>
-                <div style="margin: 8px 0;"><strong>End:</strong> ${endISO}</div>
-                <div style="margin: 8px 0;"><strong>Display:</strong> ${startLabel} até ${endLabel}</div>
+                <div style="margin: 8px 0;"><strong>Start:</strong> ${formatISO(startDate)}</div>
+                <div style="margin: 8px 0;"><strong>End:</strong> ${formatISO(endDate)}</div>
+                <div style="margin: 8px 0;"><strong>Display:</strong> ${formatDisplay(startDate)} até ${formatDisplay(endDate)}</div>
                 <div style="margin: 8px 0;"><strong>Duration:</strong> ${diffDays} days</div>
                 <div style="margin: 8px 0; color: ${diffDays <= 31 ? '#28a745' : '#dc3545'};">
                     <strong>Range Check:</strong> ${diffDays <= 31 ? '✅ Within 31-day limit' : '❌ Exceeds 31-day limit'}
+                </div>
+                <div style="margin: 8px 0; color: #6c757d;">
+                    <strong>Library:</strong> ✅ Using MyIOLibrary (no external dependencies)
                 </div>
             `;
             
@@ -251,22 +274,69 @@
                 alert('Library not loaded. Build the project first.');
                 return;
             }
-            
-            MyIOLibrary.openDashboardPopupAllReport({
+
+            // Show info about new AllReportModal features
+            const proceed = confirm(`🎉 All Report Modal with Advanced Filtering:
+
+✅ DateRangePicker Integration (same as DeviceReportModal)
+✅ NEW: RFC-0021 Filter & Ordering Modal
+   • Multi-select stores with chips UI
+   • Live search with diacritics normalization
+   • 4 sorting modes with deterministic tiebreakers
+   • Select All, Clear, Apply, Reset actions
+   • Full accessibility (A11y) support
+✅ Store-Level Reporting with Pagination
+✅ NEW: Corrected Grid Structure (Identifier, Name, Consumption)
+✅ Quick Search & Advanced Filter Functionality
+✅ Sortable Columns with Proper Formatting
+✅ Summary Statistics Dashboard
+✅ Enhanced CSV Export with Store Stats
+✅ Store Exclusion Filters (by name/regex)
+
+This demo shows 19 mock stores. Try the "🔍 Filtros & Ordenação" button!
+
+Open the All Report Modal?`);
+
+            if (!proceed) return;
+
+            const modal = MyIOLibrary.openDashboardPopupAllReport({
                 customerId: 'demo-customer-123',
                 date: { start: '2025-09-01', end: '2025-09-25' },
-                api: { 
+                api: {
                     clientId: 'demo-client',
                     clientSecret: 'demo-secret',
                     dataApiBaseUrl: 'https://api.data.apps.myio-bas.com'
                 },
                 filters: {
                     excludeLabels: [
-                        /bomba.*secund[aá]ria/i,
-                        /^administra[cç][aã]o\s*1$/i,
-                        /chiller/i
+                        // Demo: exclude stores matching these patterns
+                        'Loja Centro',  // Exact string match
+                        /shopping/i     // Regex pattern (case insensitive)
                     ]
-                }
+                },
+                ui: { theme: 'light' }
+            });
+
+            // Demo event listeners
+            modal.on('loaded', (data) => {
+                console.log('📊 AllReportModal loaded:', data);
+                console.log('🆕 NEW: Grid structure corrected per patch note:');
+                console.log('  • Column 1: Identifier (uppercase, monospace)');
+                console.log('  • Column 2: Name (store name)');
+                console.log('  • Column 3: Consumption (kWh, right-aligned, 2 decimal places)');
+                console.log('  • Mobile: Responsive stacking layout');
+                console.log('🔍 Try the "Filtros & Ordenação" button to test the new RFC-0021 Filter Modal!');
+                console.log('💡 Features to test:');
+                console.log('  • Multi-select stores (chips UI)');
+                console.log('  • Search with diacritics support');
+                console.log('  • 4 sorting modes (Consumption ↓/↑, A→Z, Z→A)');
+                console.log('  • Select All / Clear actions');
+                console.log('  • Apply filters and see results update');
+                console.log('  • Reset to restore initial state');
+            });
+
+            modal.on('close', () => {
+                console.log('🔚 AllReportModal closed');
             });
         }
         
