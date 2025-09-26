@@ -1260,6 +1260,146 @@ function isValidUUID(str) {
   return uuidRegex.test(str);
 }
 
+// ============================================
+// RFC CUSTOMER TOTALS - Data Processing Pipeline
+// ============================================
+
+/**
+ * Maps Customer Totals API response to UI table rows with robust fallback chains
+ * @param {any} raw - Raw API response (array or {data: []})
+ * @returns {Array} Normalized UI rows
+ */
+function mapCustomerTotalsResponse(raw) {
+  const arr = Array.isArray(raw) ? raw : (raw?.data ?? []);
+  if (!Array.isArray(arr)) {
+    console.warn("[ALL_REPORT] Customer totals API returned invalid response format");
+    return [];
+  }
+
+  return arr.map((d) => {
+    const id = String(d.id ?? d.deviceId ?? '');
+    const identifier = String(d.identifier ?? d.deviceId ?? (id ? id.slice(0, 8) : 'N/A')).toUpperCase();
+    const name = String(d.deviceLabel ?? d.label ?? d.name ?? 'Dispositivo sem nome');
+    const consumptionKwh = Number(d.total_value ?? d.totalKwh ?? 0);
+    return { id, identifier, name, consumptionKwh };
+  });
+}
+
+/**
+ * Applies sorting to data with consistent type handling and Portuguese locale
+ * @param {Array} data - Array of UI rows
+ * @param {string} column - Column to sort by (identifier, name, consumptionKwh)
+ * @param {boolean} reverse - Sort direction (true = descending)
+ * @returns {Array} Sorted data
+ */
+function applySorting(data, column, reverse) {
+  const norm = (s) => s?.toString().toLowerCase?.() ?? '';
+  return [...data].sort((a, b) => {
+    if (column === 'consumptionKwh') {
+      return reverse ? b.consumptionKwh - a.consumptionKwh : a.consumptionKwh - b.consumptionKwh;
+    }
+    const A = column === 'identifier' ? norm(a.identifier) : norm(a.name);
+    const B = column === 'identifier' ? norm(b.identifier) : norm(b.name);
+    return reverse ? B.localeCompare(A, 'pt-BR') : A.localeCompare(B, 'pt-BR');
+  });
+}
+
+/**
+ * Updates the All Report table with processed data
+ * @param {Array} data - Processed and sorted device data
+ */
+function updateAllReportTable(data) {
+  const tbody = document.getElementById("reportBody");
+  if (!tbody) return;
+
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="no-data">Nenhum dado disponível</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map((device, index) => {
+    const isEven = index % 2 === 0;
+    const bgColor = isEven ? '#f9f9f9' : 'white';
+    
+    return `
+      <tr style="background-color: ${bgColor};">
+        <td style="font-family: monospace; font-weight: 600;">${device.identifier}</td>
+        <td>${device.name}</td>
+        <td style="text-align: right;">${MyIOLibrary.formatEnergy(device.consumptionKwh)}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+/**
+ * Updates the grand total in the sticky header row
+ * @param {Array} data - Device data array
+ */
+function updateGrandTotal(data) {
+  const grandTotal = data.reduce((sum, device) => sum + device.consumptionKwh, 0);
+  const grandTotalEl = document.getElementById('grandTotal');
+  if (grandTotalEl) {
+    grandTotalEl.textContent = MyIOLibrary.formatEnergy(grandTotal);
+  }
+}
+
+/**
+ * Updates the header stats (stores count and total consumption)
+ * @param {Array} data - Device data array
+ */
+function renderAllReportStats(data) {
+  const elCount = document.getElementById('storesCount');
+  const elTotal = document.getElementById('totalKwh');
+  if (!elCount || !elTotal) return;
+
+  const totalLojas = data.length;
+  const totalKwh = data.reduce((acc, row) => acc + (Number(row.consumptionKwh) || 0), 0);
+
+  elCount.textContent = totalLojas.toString();
+  elTotal.textContent = MyIOLibrary.formatEnergy(totalKwh);
+}
+
+/**
+ * Enables the CSV export button
+ */
+function habilitarBotaoExportAll() {
+  const btn = document.getElementById("exportCsvBtn");
+  if (btn) {
+    btn.disabled = false;
+    btn.style.backgroundColor = "#5c307d";
+    btn.style.color = "#fff";
+    btn.style.cursor = "pointer";
+  }
+}
+
+/**
+ * Clears all report data and resets UI to empty state
+ */
+function clearAllReportData() {
+  const tbody = document.getElementById("reportBody");
+  if (tbody) {
+    tbody.innerHTML = '<tr><td colspan="3" class="no-data">Nenhum dado disponível</td></tr>';
+  }
+  
+  const grandTotalEl = document.getElementById('grandTotal');
+  if (grandTotalEl) {
+    grandTotalEl.textContent = '0,00 kWh';
+  }
+  
+  const elCount = document.getElementById('storesCount');
+  const elTotal = document.getElementById('totalKwh');
+  if (elCount) elCount.textContent = '0';
+  if (elTotal) elTotal.textContent = '0,00 kWh';
+  
+  const btn = document.getElementById("exportCsvBtn");
+  if (btn) {
+    btn.disabled = true;
+    btn.style.backgroundColor = "#ccc";
+    btn.style.color = "#666";
+    btn.style.cursor = "not-allowed";
+  }
+}
+
 // Helper function to format timestamp to YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
 function formatDateToYMD(timestampMs, withTime = false) {
   const tzIdentifier = self.ctx.timeWindow.timezone || self.ctx.settings.timezone || "America/Sao_Paulo";
@@ -2519,6 +2659,14 @@ async function fetchAllCustomerTotals({ baseUrl, token, limit = 200 }) {
 async function openDashboardPopupAllReport(entityId, entityType) {
   $("#dashboard-popup").remove();
 
+  // Get customerId from settings or use default
+  const resolvedCustomerId = (self.ctx.settings && self.ctx.settings.customerId) || DEFAULT_CUSTOMER_ID;
+  
+  if (!resolvedCustomerId) {
+    alert("customerId ausente. Configure o widget ou forneça customerId válido.");
+    return;
+  }
+
   // Conteúdo interno do popup (a tabela do relatório)
   const popupContent = `
 <div class="widget-container">
@@ -2555,15 +2703,19 @@ async function openDashboardPopupAllReport(entityId, entityType) {
         </div>
         <table id="reportTable">
             <thead>
+                <tr class="totals-row" style="background: #e0e0e0; font-weight: bold;">
+                  <td colspan="2">Total Geral:</td>
+                  <td id="grandTotal" style="text-align: right;">0,00 kWh</td>
+                </tr>
                 <tr>
-                    <th class="sortable" data-sort-key="entityLabel">
-                        <span class="label">Loja</span><span class="arrow"></span>
-                    </th>
-                    <th class="sortable" data-sort-key="deviceId">
+                    <th class="sortable" data-sort-key="identifier">
                         <span class="label">Identificador</span><span class="arrow"></span>
                     </th>
-                    <th class="sortable" data-sort-key="consumptionKwh">
-                        <span class="label">Consumo</span><span class="arrow"></span>
+                    <th class="sortable" data-sort-key="name">
+                        <span class="label">Nome</span><span class="arrow"></span>
+                    </th>
+                    <th class="sortable" data-sort-key="consumptionKwh" style="text-align: right;">
+                        <span class="label">Consumo (kWh)</span><span class="arrow"></span>
                     </th>
                 </tr>
             </thead>
@@ -3032,148 +3184,57 @@ tr:hover {
   updateReportTable(self.ctx.$scope.reportData);
   renderHeaderStats(self.ctx.$scope.reportData);
 
-  // Seleciona o botão
+  // Local load button handler for All Report - RFC Implementation
   $("#loadDataBtn").on("click", async () => {
-    const startDateStr = $("#startDate").val(); // yyyy-MM-dd
-    const endDateStr = $("#endDate").val(); // yyyy-MM-dd
-
-    if (!startDateStr || !endDateStr) {
-      alert("Selecione as duas datas antes de carregar.");
-      return;
-    }
-
-    // Quebra a string em ano, mês, dia
-    const [startY, startM, startD] = startDateStr.split("-").map(Number);
-    const [endY, endM, endD] = endDateStr.split("-").map(Number);
-
-    // Cria datas no horário local
-    const startDate = new Date(startY, startM - 1, startD, 0, 0, 0, 0);
-    const endDate = new Date(endY, endM - 1, endD, 23, 59, 59, 999);
-
-    const datasources = self.ctx.datasources || [];
-    if (datasources.length === 0) {
-      console.warn("Nenhum datasource encontrado");
-      return;
-    }
-
-    // Get customerId from settings or use default
-    const customerId = (self.ctx.settings && self.ctx.settings.customerId) || DEFAULT_CUSTOMER_ID;
-    if (!customerId) {
-      alert("customerId ausente. Configure o widget (settings.customerId) ou DEFAULT_CUSTOMER_ID.");
-      return;
-    }
-
+    const { start, end } = allReportState;
+    if (!start || !end) return alert('Selecione as datas de início e fim.');
+    
     try {
+      // Show loading state
+      $("#loadingOverlay").show();
+      $("#loadDataBtn").prop("disabled", true);
+      
       // Format timestamps with timezone offset
-      const startTime = toISOWithOffset(startDate);
-      const endTime = toISOWithOffset(endDate, true);
-
-      // Build Data API URL for customer totals
-      const baseUrl = `${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/energy/devices/totals?startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`;
-
-      console.log(`[loadDataBtn] Calling Data API customer totals: ${baseUrl.split('?')[0]} with customerId=${customerId}`);
-
-      // Fetch all customer totals with pagination
-      //const allDeviceData = await fetchAllCustomerTotals(baseUrl);
-
+      const startTime = toISOWithOffset(new Date(start + "T00:00:00-03:00"));
+      const endTime = toISOWithOffset(new Date(end + "T23:59:59-03:00"), true);
+      
+      // Build Customer Totals API URL
+      const baseUrl = `${DATA_API_HOST}/api/v1/telemetry/customers/${resolvedCustomerId}/energy/devices/totals?startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`;
+      
+      console.log(`[ALL_REPORT] Calling Customer Totals API: ${baseUrl.split('?')[0]} with customerId=${resolvedCustomerId}`);
+      
+      // Fetch data using existing auth helper
       const TOKEN_INJESTION = await MyIOAuth.getToken();
-
       const allDeviceData = await fetchAllCustomerTotals({
         baseUrl,
         token: TOKEN_INJESTION,
-        limit: 100, // ajuste fino
+        limit: 100,
       });
-
-      const allDeviceDataFiltered = allDeviceData.filter(ds => {
-        const lbl = (ds.label || ds.entity?.label || ds.entityLabel || ds.entityName || "").toLowerCase();
-
-        // regex para detectar padrões indesejados
-        return !(
-          /bomba.*secund[aá]ria/.test(lbl) ||
-          /^administra[cç][aã]o\s*1\b/.test(lbl) ||
-          /^administra[cç][aã]o\s*2\b/.test(lbl) ||
-          /chiller/.test(lbl) ||
-          /^entrada\b/.test(lbl) ||
-          /^rel[oó]gio\b/.test(lbl)
-        );
-      });
-
-      /*
-      const allDeviceDataFiltered = allDeviceData.filter(ds => {
-        const lbl = ds.label || ds.entity?.label || ds.entityLabel || ds.entityName || "";
-        console.log(" allDeviceDataFiltered >>> full data:", ds);
-        return isLojaLabel(lbl);
-      });
-      */
-
-      // 2) ordena por label
-      allDeviceDataFiltered.sort((a, b) => {
-        const labelA = (a.entity?.label || a.label || '').toLowerCase();
-        const labelB = (b.entity?.label || b.label || '').toLowerCase();
-        return labelA.localeCompare(labelB);
-      });
-
-      console.log(`datasources (filtrados) count: ${allDeviceDataFiltered.length}`);
-
-      // Create map by device ID for fast lookup
-      const deviceDataMap = new Map();
-      let zeroFilledCount = 0;
-
-      allDeviceDataFiltered.forEach((device) => {
-        if (device.id) {
-          deviceDataMap.set(String(device.id), device);
-        }
-      });
-
-      // Update report data with consumption values
-      self.ctx.$scope.reportData.forEach((device) => {
-        if (device.ingestionId && isValidUUID(device.ingestionId)) {
-          const apiDevice = deviceDataMap.get(String(device.ingestionId));
-          if (apiDevice) {
-            device.consumptionKwh = Number(apiDevice.total_value || 0);
-          } else {
-            device.consumptionKwh = 0;
-            zeroFilledCount++;
-            //console.log(`[loadDataBtn] Zero-filled '${device.entityLabel}': no readings in range`);
-          }
-        } else {
-          device.consumptionKwh = 0;
-          device.error = "Dispositivo sem ingestionId válido";
-          device.isValid = false;
-          console.warn(`[loadDataBtn] Device '${device.entityLabel}' has invalid or missing ingestionId`);
-        }
-      });
-
-      if (zeroFilledCount > 0) {
-        //console.log(`[loadDataBtn] Zero-filled ${zeroFilledCount} devices with no readings in the selected time range`);
-      }
-
-      // Defaults if not already set
-      self.ctx.$scope.sortColumn = self.ctx.$scope.sortColumn || 'consumptionKwh';
-      self.ctx.$scope.sortReverse = self.ctx.$scope.sortReverse ?? true;
-
-      // Initial render with sorting applied
-      applySortAndDetectChanges();
-      if (Array.isArray(self.ctx.$scope.reportDataSorted) && self.ctx.$scope.reportDataSorted.length) {
-        self.ctx.$scope.reportData = self.ctx.$scope.reportDataSorted;
-      }
-
-      // Atualiza a tabela no popup
-      updateReportTable(self.ctx.$scope.reportData);
-      habilitarBotaoExport();
-      renderHeaderStats(self.ctx.$scope.reportData);
-
-      // Update header arrows to match current state
-      updateMainReportSortUI();
-
-      // Attach header click handlers
-      attachMainReportSortHeaderHandlers();
-
-      console.log(`[loadDataBtn] Successfully updated ${self.ctx.$scope.reportData.length} devices in report table`);
-
-    } catch (err) {
-      console.error("[loadDataBtn] Error fetching from Data API:", err);
+      
+      // Process and map response according to RFC
+      const processedData = mapCustomerTotalsResponse(allDeviceData);
+      
+      // Apply sorting
+      const sortColumn = 'name'; // Default sort by name
+      const sortReverse = false; // Default ascending
+      const sortedData = applySorting(processedData, sortColumn, sortReverse);
+      
+      // Update table with processed data
+      updateAllReportTable(sortedData);
+      updateGrandTotal(sortedData);
+      renderAllReportStats(sortedData);
+      habilitarBotaoExportAll();
+      
+      console.log(`[ALL_REPORT] Successfully processed ${processedData.length} devices`);
+      
+    } catch (error) {
+      console.error("[ALL_REPORT] Error fetching from Customer Totals API:", error);
       alert("Erro ao buscar dados da API. Veja console para detalhes.");
+      clearAllReportData();
+    } finally {
+      // Always restore UI state
+      $("#loadingOverlay").hide();
+      $("#loadDataBtn").prop("disabled", false);
     }
   });
 

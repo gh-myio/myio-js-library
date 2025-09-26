@@ -1,203 +1,426 @@
 // ✨ NEW - temporary Customer Data API token & switch
 const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
-const GROUPS = {
-  "Entrada e Relógios": [],
-  "Adm. / Bombas / Área Comum": [],
-  "Lojas": [],
-};
- 
+const MEX_LEN_LABEL_DEVICE = 20;
+
 // ✨ NEW - optional: hardcode customerId here OR read from widget settings (preferred)
-let CUSTOMER_ID;
-let CLIENT_ID;
-let CLIENT_SECRET;
-let administration;
-let entranceClock;
+let CUSTOMER_ID = ""; // e.g., "73d4c75d-c311-4e98-a852-10a2231007c4"
+let CLIENT_ID = "";
+let CLIENT_SECRET = "";
 
-// --- Config centralizada (fácil de manter/trocar ícones) ---
-const DEVICE_SPRITES = {
-  relogio: {
-    on:  "/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB",
-    off: "/api/images/public/rYrcTQlf90m7zH9ZIbldz6KIZ7jdb5DU",
-  },
-  subestacao: {
-    on:  "/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU",
-    off: "/api/images/public/HnlvjodeBRFBc90xVglYI9mIpF6UgUmi",
-  },
-  bomba_chiller: {
-    on:  "/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT",
-    off: "/api/images/public/8Ezn8qVBJ3jXD0iDfnEAZ0MZhAP1b5Ts",
-  },
-  default: {
-    on:  "/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k",
-    off: "/api/images/public/sdTe2CPTbLPkbEXBHwaxjSAGVbp4wtIa",
-  },
+// RFC: Feature flags for quick rollback and controlled deployment
+const FLAGS = {
+  USE_API_SUMMARY_HEADER: true,
+  INJECT_API_ONLY_DEVICES: false,
+  STRICT_MATCH_BY_INGESTION_ID: true, // if false, fallback to gatewayId+slaveId
+  VERBOSE_LOGS: false,
 };
 
-// --- Util: normaliza acentos/caixa  e espaços para comparar com segurança ---
-function normalizeLabel(str = "") {
-  return String(str)
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove acentos
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, " "); // opcional: colapsa espaços
+// RFC: API cache to avoid hammering the API when onDataUpdated runs multiple times
+//const _apiCache = new Map(); // key: `${customerId}|${start}|${end}`
+
+// RFC: Global refresh counter to limit data updates to 3 times maximum
+let _dataRefreshCount = 0;
+const MAX_DATA_REFRESHES = 3;
+
+// Aceita Date | "YYYY-MM-DD" | "DD/MM/YYYY" | string ISO. Retorna Date válido ou null.
+function parseDateFlexible(v) {
+  if (!v) return null;
+  if (v instanceof Date && !isNaN(v)) return v;
+
+  const s = String(v).trim();
+
+  // ISO ou "YYYY-MM-DD"
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+  }
+
+  // "DD/MM/YYYY"
+  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (m) {
+    const [, dd, mm, yyyy] = m;
+    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+    return isNaN(d) ? null : d;
+  }
+
+  // Último recurso: deixar o motor tentar
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
 }
 
-// --- Classificador por palavras-chave (rápido e legível) ---
-function classifyDevice(labelOrName = "") {
-  const s = normalizeLabel(labelOrName);
-  if (/\brelogio\b/.test(s)) return "relogio";
-  if (/ubesta/.test(s))    return "subestacao";
-  if (/bomba|chiller/.test(s)) return "bomba_chiller";
-  if (/administra|pista/.test(s)) return "administracao";
-
-  return "default";
-}
-
-/**
- * Retorna a URL da imagem do device.
- * @param {string} labelOrName - título/label do device
- * @param {object} [opts]
- * @param {boolean} [opts.isOn] - se informado, escolhe on/off; se omitido, usa 'on' como padrão visual
- * @returns {string} URL do ícone
- */
-function getDeviceImage(labelOrName, opts = {}) {
-  const cat = classifyDevice(labelOrName);
-  const sprite = DEVICE_SPRITES[cat] || DEVICE_SPRITES.default;
-  const isOn = opts.isOn ?? true; // se não passar, assume 'on' (mesmo comportamento da versão simples)
-  return isOn ? sprite.on : sprite.off;
-}
-
-function isLojaLabel(labelOrName = "") {
-  const cat = classifyDevice(labelOrName);
-  return cat === "default";
-}
-
-// Se quiser expor global:
-window.getDeviceImage = getDeviceImage;
-
-// --- DATES STORE MODULE (replaces shared date state) ---
-const DatesStore = (() => {
-  let state = { start: '', end: '' };
-
-  function normalize(d) { return d && d.includes('T') ? d.slice(0,10) : d; }
-
-  return {
-    get() { return {...state}; },
-    set({ start, end } = {}) {
-      if (start) state.start = normalize(start);
-      if (end)   state.end  = normalize(end);
-      console.log('[DATES] set →', JSON.stringify(state));
-      // Reflect to main board inputs only (not popups)
-      $('#startDate').val(state.start || '');
-      $('#endDate').val(state.end || '');
-      EventBus.emit('dates:changed', {...state});
-    }
-  };
-})();
-
-// Small event bus used only for logs/notification (no behavior attached)
-const EventBus = (() => {
-  const handlers = {};
-  return {
-    on(evt, fn)  { (handlers[evt] = handlers[evt] || []).push(fn); },
-    off(evt, fn) { handlers[evt] = (handlers[evt]||[]).filter(h => h!==fn); },
-    emit(evt, payload){ (handlers[evt]||[]).forEach(h => h(payload)); }
-  };
-})();
-
-function initializeMainBoardController() {
-  // MAIN controller bootstrap
-  self.ctx.getDates = () => DatesStore.get();
-  self.ctx.setDates = (d) => DatesStore.set(d);
-
-  // Main inputs update only the main dates store
-  $(document).off('change.myioDatesMain', '#startDate,#endDate')
-    .on('change.myioDatesMain', '#startDate,#endDate', () => {
-      const start = $('#startDate').val();
-      const end   = $('#endDate').val();
-      console.log('[MAIN] inputs changed', {start, end});
-      DatesStore.set({ start, end });
-    });
-
-  // Main load button ONLY updates main board; no popup calls
-  $(document).off('click.myioLoadMain', '#btn-load')
-    .on('click.myioLoadMain', '#btn-load', async (ev) => {
-      ev.preventDefault();
-      const {start, end} = DatesStore.get();
-      if (!start || !end) return alert('Selecione as duas datas.');
-
-      console.log('[MAIN] Load clicked with', {start, end});
-      await loadMainBoardData(start, end);
-      console.log('[MAIN] Board refresh completed');
-    });
-}
-
-// Main board data loading function (isolated)
-async function loadMainBoardData(start, end) {
+function resolveTimeZone(tzCandidate) {
+  if (typeof tzCandidate === "string" && tzCandidate.trim())
+    return tzCandidate.trim();
   try {
-    // Update scope dates for main board
-    self.ctx.$scope.startDate = start;
-    self.ctx.$scope.endDate = end;
-    self.ctx.$scope.startTs = new Date(`${start}T00:00:00-03:00`).getTime();
-    self.ctx.$scope.endTs = new Date(`${end}T23:59:59-03:00`).getTime();
-    
-    // Reload main board data only
-    await self.onInit();
-    self.ctx.detectChanges?.();
-  } catch (err) {
-    console.error('[MAIN] Error loading board data:', err);
+    const z = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (z) return z;
+  } catch (e) {}
+  return "UTC";
+}
+
+/*
+// ✨ SDK-style helpers for v3.4.0 implementation
+// Same behavior/pattern used by the SDK template (sv-SE + timezone)
+function formatDateTimeToISO(ts, tz) {
+  const d = new Date(ts);
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: tz,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false
+  }).format(d).replace(" ", "T");
+}
+*/
+
+// Força sempre fuso -03:00 (Brasil)
+// "2025-09-11T23:59:59-03:00" (usa timezone local do browser)
+function formatDateTimeToISO(date, endOfDay = false) {
+  const d = parseDateFlexible(date);
+  if (!d) throw new RangeError("Invalid time value (cannot parse date)");
+
+  if (endOfDay) {
+    d.setHours(23, 59, 59, 999);
+  } else {
+    d.setHours(0, 0, 0, 0);
+  }
+
+  const pad = (n) => String(n).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  const MM = pad(d.getMonth() + 1);
+  const dd = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const mi = pad(d.getMinutes());
+  const ss = pad(d.getSeconds());
+
+  const tz = -d.getTimezoneOffset(); // em minutos
+  const sign = tz >= 0 ? "+" : "-";
+  const tzh = pad(Math.floor(Math.abs(tz) / 60));
+  const tzm = pad(Math.abs(tz) % 60);
+
+  return `${yyyy}-${MM}-${dd}T${hh}:${mi}:${ss}${sign}${tzh}:${tzm}`;
+}
+
+// Helper function to format a millisecond timestamp to YYYY-MM-DDTHH:mm:ss format for v2 API
+/*
+function formatDateTimeToISOSDK(timestampMs, tzIdentifier) {
+  const date = new Date(timestampMs);
+  const formatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: tzIdentifier,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  // Format returns YYYY-MM-DD HH:mm:ss, we need YYYY-MM-DDTHH:mm:ss
+  return formatter.format(date).replace(' ', 'T');
+}
+*/
+
+// Gera string SEM offset, adequada quando o TZ é enviado à parte ao backend/SDK
+function formatDateTimeToISOSDK(value, _tz, { endOfDay = false } = {}) {
+  const { y, m, d } = extractYMD(value);
+  const pad = (n) => String(n).padStart(2, "0");
+  const hh = endOfDay ? 23 : 0;
+  const mi = endOfDay ? 59 : 0;
+  const ss = endOfDay ? 59 : 0;
+  return `${y}-${pad(m)}-${pad(d)}T${pad(hh)}:${pad(mi)}:${pad(ss)}`;
+}
+
+// Extrai Y-M-D de "YYYY-MM-DD", "DD/MM/YYYY" ou Date
+function extractYMD(value) {
+  if (value instanceof Date && !isNaN(value)) {
+    return {
+      y: value.getFullYear(),
+      m: value.getMonth() + 1,
+      d: value.getDate(),
+    };
+  }
+  const s = String(value || "").trim();
+
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/); // YYYY-MM-DD
+  if (m) return { y: +m[1], m: +m[2], d: +m[3] };
+
+  m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/); // DD/MM/YYYY
+  if (m) return { y: +m[3], m: +m[2], d: +m[1] };
+
+  // fallback: deixa o motor tentar, mas só usa YMD
+  const d = new Date(s);
+  return { y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate() };
+}
+
+// Lê datas da UI/ctx com fallback seguro
+/*
+function getUiDateRange() {
+  // tente inputs da top-bar
+  const $start = document.querySelector('.top-bar input[type="date"]:first-of-type') || document.querySelector('#startDate');
+  const $end   = document.querySelector('.top-bar input[type="date"]:nth-of-type(2)') || document.querySelector('#endDate');
+  const timezone = 'America/Sao_Paulo';
+
+  let start = $start?.value || (window.ctx?.$scope?.startDate) || null;
+  let end   = $end?.value   || (window.ctx?.$scope?.endDate)   || null;
+
+  // fallback: se nada definido, usa hoje
+  const today = new Date();
+  if (!parseDateFlexible(start)) start = today;
+  if (!parseDateFlexible(end))   end   = today;
+
+  return {
+    startISO: formatDateTimeToISOSDK(start, timezone),
+    endISO:   formatDateTimeToISOSDK(end, timezone)
+  };
+}
+*/
+
+// Lê datas da UI/ctx e devolve range “ingênuo” + TZ
+function getUiDateRange() {
+  const $start =
+    document.querySelector('.top-bar input[type="date"]:first-of-type') ||
+    document.querySelector("#startDate");
+  const $end =
+    document.querySelector('.top-bar input[type="date"]:nth-of-type(2)') ||
+    document.querySelector("#endDate");
+  const tz = "America/Sao_Paulo";
+
+  let start = $start?.value || window.ctx?.$scope?.startDate || null;
+  let end = $end?.value || window.ctx?.$scope?.endDate || null;
+
+  const today = new Date();
+  if (!start) start = today;
+  if (!end) end = today;
+
+  // garante start <= end (comparando de forma neutra)
+  const toUTC0 = (s) =>
+    new Date(`${String(s).slice(0, 10)}T00:00:00Z`).getTime();
+  if (toUTC0(start) > toUTC0(end)) {
+    const t = start;
+    start = end;
+    end = t;
+  }
+
+  return {
+    startISO: formatDateTimeToISOSDK(start, tz, { endOfDay: false }),
+    endISO: formatDateTimeToISOSDK(end, tz, { endOfDay: true }),
+    tz,
+  };
+}
+
+// RFC: Helper functions for logging
+function logInfo(msg, extra) {
+  if (FLAGS.VERBOSE_LOGS) console.info(msg, extra || "");
+}
+function logWarn(msg, extra) {
+  console.warn(msg, extra || "");
+}
+function numberOrNull(val) {
+  const num = Number(val);
+  return isNaN(num) ? null : num;
+}
+
+// RFC: Single source of truth for time window
+function getTimeWindow() {
+  const { startISO, endISO } = self.ctx.$scope?.state?.dateRange || {};
+  return {
+    startTime: startISO || toISOAt00(),
+    endTime: endISO || toISOAt23(),
+  };
+}
+
+function toISOAt00() {
+  const { startTs } = getTimeWindowRange();
+  return toSpOffsetNoMs(startTs);
+}
+
+function toISOAt23() {
+  const { endTs } = getTimeWindowRange();
+  return toSpOffsetNoMs(endTs, true);
+}
+
+// RFC: Helper functions for deterministic two-group rendering
+function norm(s) {
+  return (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function looksLikeTankLabel(text) {
+  const t = norm(text);
+  return /(caixa|reservatorio|cisterna|superior|inferior|nivel[_ ]?terraco|torre)/.test(
+    t
+  );
+}
+
+function groupFromDatasource(ds) {
+  const a = norm(ds?.aliasName || ds?.name || "");
+  if (/caixas?.*agua/.test(a)) return "Caixas D'Água";
+  return "Ambientes";
+}
+
+function inferGroup({ ds, labelOrName }) {
+  if (looksLikeTankLabel(labelOrName)) return "Caixas D'Água"; // override
+  return groupFromDatasource(ds); // primary
+}
+
+// RFC: API data processing functions
+function normalizeApiList(raw) {
+  return Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
+}
+
+// RFC: Generate every possible key for lookups based on device attributes
+function keysFromDeviceAttrs(attrs = {}) {
+  const central =
+    attrs.centralId ||
+    attrs.gatewayId ||
+    attrs.ingestionId ||
+    attrs.deviceCentralId;
+  const slave = attrs.slaveId != null ? String(attrs.slaveId) : undefined;
+  const deviceId = attrs.deviceId || attrs.guid || attrs.id;
+
+  const keys = [
+    deviceId,
+    central,
+    slave && central ? `${central}:${slave}` : undefined,
+    slave,
+  ].filter(Boolean);
+
+  return keys;
+}
+
+// RFC: Enhanced device matching with flag-based logic
+function matchApiRow(deviceAttrs, apiItem, flags = FLAGS) {
+  if (flags.STRICT_MATCH_BY_INGESTION_ID) {
+    // Strict mode: only match by ingestionId
+    const deviceIngestion = deviceAttrs.ingestionId || deviceAttrs.centralId;
+    const apiIngestion = apiItem.gatewayId || apiItem.centralId;
+
+    if (deviceIngestion && apiIngestion && deviceIngestion === apiIngestion) {
+      const deviceSlave = deviceAttrs.slaveId;
+      const apiSlave = apiItem.slaveId;
+
+      if (
+        deviceSlave != null &&
+        apiSlave != null &&
+        Number(deviceSlave) === Number(apiSlave)
+      ) {
+        return { matched: true, confidence: "high", method: "ingestion+slave" };
+      }
+    }
+    return { matched: false, confidence: "none", method: "strict_failed" };
+  } else {
+    // Fallback mode: try multiple matching strategies
+    const deviceKeys = keysFromDeviceAttrs(deviceAttrs);
+    const apiKeys = [
+      apiItem.deviceId,
+      apiItem.id,
+      apiItem.gatewayId || apiItem.centralId,
+      apiItem.slaveId != null ? String(apiItem.slaveId) : undefined,
+      (apiItem.gatewayId || apiItem.centralId) && apiItem.slaveId != null
+        ? `${apiItem.gatewayId || apiItem.centralId}:${apiItem.slaveId}`
+        : undefined,
+    ].filter(Boolean);
+
+    for (const deviceKey of deviceKeys) {
+      for (const apiKey of apiKeys) {
+        if (deviceKey === apiKey) {
+          return {
+            matched: true,
+            confidence: "medium",
+            method: "key_match",
+            key: deviceKey,
+          };
+        }
+      }
+    }
+
+    return { matched: false, confidence: "none", method: "no_match" };
   }
 }
 
-// --- VISIBILIDADE + MAPA DE COLUNAS ---
-// chama no início do onInit
-function applyGroupVisibilityAndMap() {
-  const s = self.ctx.settings || {};
-  const commomAreaRaw = (s.existsCommomArea ?? '').toString().toLowerCase();
-  const entryPowerRaw = (s.existsEntryPower ?? '').toString().toLowerCase();
+// RFC: Build separate maps for different device types
+function buildTotalsMapFromApi(apiList, flags = FLAGS) {
+  const totalsMap = new Map();
+  const deviceMap = new Map(); // Track which devices we've seen
 
-  const hideCommonArea = commomAreaRaw === 'false';   // ℹ️ Informações
-  const hideEntryPower = entryPowerRaw === 'false';   // Entrada e Relógios
+  if (!Array.isArray(apiList)) {
+    logWarn("[buildTotalsMapFromApi] Invalid API list provided");
+    return totalsMap;
+  }
 
-  // 1) Esconde/Remove colunas
-  if (hideCommonArea) $('.group-card.area-comum').remove();
-  if (hideEntryPower)  $('.group-card.entrada').remove();
+  logInfo(`[buildTotalsMapFromApi] Processing ${apiList.length} API items`);
 
-  // 2) (Opcional) evita lógicas futuras nesses grupos
-  try { if (hideEntryPower) delete GROUPS['Entrada e Relógios']; } catch(e) {}
+  for (const item of apiList) {
+    const central = item.gatewayId || item.centralId;
+    const slave = item.slaveId != null ? String(item.slaveId) : undefined;
+    const deviceId = item.deviceId || item.id;
 
-  // 3) Reconstrói o mapa só com colunas que existem
-  self.ctx.groupDivs = {
-    'Entrada e Relógios': $('.group-card.entrada'),
-    'Adm. / Bombas / Área Comum': $('.group-card.administracao'),
-    'Lojas': $('.group-card.lojas'),
-    'ℹ️ Informações': $('.group-card.area-comum') // se você usa essa chave em algum lugar
-  };
+    // Generate all possible keys for this API item
+    const keys = [
+      deviceId,
+      central,
+      slave && central ? `${central}:${slave}` : undefined,
+      slave,
+    ].filter(Boolean);
 
-  // Remove chaves cujos seletores não encontraram nada
-  Object.keys(self.ctx.groupDivs).forEach((k) => {
-    const $col = self.ctx.groupDivs[k];
+    const total = Number(item.totalConsumption ?? item.total_value ?? 0);
 
-    if (!$col || $col.length === 0) delete self.ctx.groupDivs[k];
-  });
+    // Store the device info for debugging
+    const deviceInfo = {
+      id: deviceId,
+      central,
+      slave,
+      total,
+      name: item.name || `Device ${slave || deviceId}`,
+    };
 
-  // Helper para testar se um grupo está visível
-  self.ctx.isGroupVisible = (name) => !!(self.ctx.groupDivs && self.ctx.groupDivs[name] && self.ctx.groupDivs[name].length);
+    // Add to all possible keys
+    for (const key of keys) {
+      if (key) {
+        totalsMap.set(key, (totalsMap.get(key) || 0) + total);
+        deviceMap.set(key, deviceInfo);
 
-  // Protege atualizações de header de grupos inexistentes
-  window.updateGroupHeader = function(groupName, count, totalText) {
-    
-    if (!self.ctx.isGroupVisible(groupName)) return; // grupo oculto
-   
-    const $title = $(`.group-title .group-count[data-group-count="${groupName}"]`).closest('.group-title');
+        if (flags.VERBOSE_LOGS) {
+          logInfo(
+            `[buildTotalsMapFromApi] Mapped key "${key}" -> ${total} (${deviceInfo.name})`
+          );
+        }
+      }
+    }
+  }
 
-    if (!$title.length) return;
-    if (count !== undefined) $title.find(`[data-group-count="${groupName}"]`).text(count);
-    if (totalText !== undefined) $title.find(`[data-group="${groupName}"]`).text(totalText);
-  };
+  logInfo(
+    `[buildTotalsMapFromApi] Created ${totalsMap.size} key mappings from ${apiList.length} API items`
+  );
+  return totalsMap;
 }
-// --- fim: VISIBILIDADE + MAPA DE COLUNAS ---
 
+const DAYS = [
+  "Domingo",
+  "Segunda-feira",
+  "Terça-feira",
+  "Quarta-feira",
+  "Quinta-feira",
+  "Sexta-feira",
+  "Sábado",
+];
+const MONTHS = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+];
 
 /************************************************************
  * MyIOAuth - Cache e renovação de access_token para ThingsBoard
@@ -209,7 +432,10 @@ const MyIOAuth = (() => {
   const AUTH_URL = new URL(`${DATA_API_HOST}/api/v1/auth`);
 
   // ⚠️ Substitua pelos seus valores:
-
+  /*
+    const CLIENT_ID = "ADMIN_DASHBOARD_CLIENT";
+    const CLIENT_SECRET = "admin_dashboard_secret_2025";
+    */
 
   // Margem para renovar o token antes de expirar (em segundos)
   const RENEW_SKEW_S = 60; // 1 min
@@ -327,131 +553,66 @@ const MyIOAuth = (() => {
   return { getToken, getExpiryInfo, clearCache };
 })();
 
+// Função para pegar timestamps das datas internas completas
+function getTimeWindowRange() {
+  let startTs = 0;
+  let endTs = 0;
+
+  if (self.startDate) {
+    const startDateObj = new Date(self.startDate);
+    if (!isNaN(startDateObj)) {
+      startDateObj.setHours(0, 0, 0, 0);
+      startTs = startDateObj.getTime();
+    }
+  }
+
+  if (self.endDate) {
+    const endDateObj = new Date(self.endDate);
+    if (!isNaN(endDateObj)) {
+      endDateObj.setHours(23, 59, 59, 999);
+      endTs = endDateObj.getTime();
+    }
+  }
+
+  return { startTs, endTs };
+}
+
 // Helper: aceita number | Date | string e retorna "YYYY-MM-DDTHH:mm:ss-03:00"
 function toSpOffsetNoMs(input, endOfDay = false) {
-  const d = (typeof input === 'number')
-    ? new Date(input)
-    : (input instanceof Date ? input : new Date(String(input)));
+  const d =
+    typeof input === "number"
+      ? new Date(input)
+      : input instanceof Date
+      ? input
+      : new Date(String(input));
 
-  if (Number.isNaN(d.getTime())) throw new Error('Data inválida');
+  if (Number.isNaN(d.getTime())) throw new Error("Data inválida");
 
   if (endOfDay) d.setHours(23, 59, 59, 999);
 
   const yyyy = d.getFullYear();
-  const mm   = String(d.getMonth() + 1).padStart(2, '0');
-  const dd   = String(d.getDate()).padStart(2, '0');
-  const HH   = String(d.getHours()).padStart(2, '0');
-  const MM   = String(d.getMinutes()).padStart(2, '0');
-  const SS   = String(d.getSeconds()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const HH = String(d.getHours()).padStart(2, "0");
+  const MM = String(d.getMinutes()).padStart(2, "0");
+  const SS = String(d.getSeconds()).padStart(2, "0");
 
   // São Paulo (sem DST hoje): -03:00
   return `${yyyy}-${mm}-${dd}T${HH}:${MM}:${SS}-03:00`;
 }
 
-// Helper: RFC-compliant ISO timestamp with timezone offset
-function toISOWithOffset(dateOrMs, endOfDay = false, tz = "America/Sao_Paulo") {
-  const d = new Date(dateOrMs);
-  if (Number.isNaN(d.getTime())) throw new Error('Invalid date');
-  
-  if (endOfDay) d.setHours(23, 59, 59, 999);
-  
-  const fmt = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-
-  const parts = fmt.formatToParts(d).reduce((acc, p) => (acc[p.type] = p.value, acc), {});
-  const local = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`;
-
-  // Compute the numeric offset for the given tz at 'd'
-  const localMs = new Date(local).getTime();
-  const offsetMin = Math.round((localMs - d.getTime()) / 60000);
-  const sign = offsetMin <= 0 ? "+" : "-";
-  const abs = Math.abs(offsetMin);
-  const hh = String(Math.floor(abs / 60)).padStart(2, "0");
-  const mm = String(abs % 60).padStart(2, "0");
-
-  return `${local}${sign}${hh}:${mm}`;
-}
-
-// Helper: Authenticated fetch with 401 retry
-async function fetchWithAuth(url, opts = {}, retry = true) {
-  const token = await MyIOAuth.getToken();
-  const res = await fetch(url, { 
-    ...opts, 
-    headers: { 
-      ...(opts.headers || {}), 
-      Authorization: `Bearer ${token}` 
-    } 
-  });
-  
-  if (res.status === 401 && retry) {
-    console.warn(`[fetchWithAuth] 401 on ${url.split('?')[0]} - refreshing token and retrying`);
-    MyIOAuth.clearCache(); // Force token refresh
-    const token2 = await MyIOAuth.getToken();
-    const res2 = await fetch(url, { 
-      ...opts, 
-      headers: { 
-        ...(opts.headers || {}), 
-        Authorization: `Bearer ${token2}` 
-      } 
-    });
-    if (!res2.ok) {
-      const errorText = await res2.text().catch(() => '');
-      throw new Error(`[HTTP ${res2.status}] ${errorText}`);
-    }
-    return res2;
-  }
-  
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => '');
-    throw new Error(`[HTTP ${res.status}] ${errorText}`);
-  }
-  
-  return res;
-}
-
-// Helper: Fetch all customer totals with pagination.
-/*
-async function fetchAllCustomerTotals(baseUrl) {
-  let page = 1;
-  const pageSize = 100;
-  let all = [];
-  
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const url = `${baseUrl}&page=${page}&pageSize=${pageSize}&deep=0`;
-    const res = await fetchWithAuth(url);
-    const chunk = await res.json();
-    
-    const dataList = Array.isArray(chunk) ? chunk : (chunk.data || []);
-    if (!Array.isArray(dataList) || dataList.length === 0) break;
-    
-    all = all.concat(dataList);
-    if (dataList.length < pageSize) break;
-    page++;
-  }
-  
-  return all;
-}
-*/
-
-// Helper: Lightweight UUID validation
-function isValidUUID(str) {
-  if (!str || typeof str !== 'string') return false;
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(str);
+// Simple rule: > 48h => 1d; else 1h (mirrors the template behavior)
+function determineGranularity(startTs, endTs) {
+  const hours = (endTs - startTs) / 3600000;
+  return hours > 48 ? "1d" : "1h";
 }
 
 // Helper function to format timestamp to YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
 function formatDateToYMD(timestampMs, withTime = false) {
-  const tzIdentifier = self.ctx.timeWindow.timezone || self.ctx.settings.timezone || "America/Sao_Paulo";
+  const tzIdentifier =
+    self.ctx.timeWindow.timezone ||
+    self.ctx.settings.timezone ||
+    "America/Sao_Paulo";
   const date = new Date(timestampMs);
 
   if (withTime) {
@@ -463,7 +624,7 @@ function formatDateToYMD(timestampMs, withTime = false) {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
-      hour12: false
+      hour12: false,
     });
 
     let formatted = formatter.format(date);
@@ -480,13 +641,13 @@ function formatDateToYMD(timestampMs, withTime = false) {
       timeZone: tzIdentifier,
       year: "numeric",
       month: "2-digit",
-      day: "2-digit"
+      day: "2-digit",
     });
 
     const parts = formatter.formatToParts(date);
-    const year = parts.find(p => p.type === "year").value;
-    const month = parts.find(p => p.type === "month").value;
-    const day = parts.find(p => p.type === "day").value;
+    const year = parts.find((p) => p.type === "year").value;
+    const month = parts.find((p) => p.type === "month").value;
+    const day = parts.find((p) => p.type === "day").value;
 
     return `${year}-${month}-${day}`;
   }
@@ -506,11 +667,126 @@ function determineInterval(startTimeMs, endTimeMs) {
   }
 }
 
-function fmtPerc(v) {
-  const num = Number(v);
-  if (isNaN(num)) return "0.0"; // fallback seguro
-  if (num > 0 && num < 0.1) return "<0,1";
-  return num.toFixed(1);
+// RFC: Enhanced function to fetch water totals from Data API with caching
+async function fetchCustomerWaterTotals(
+  customerId,
+  { startTime, endTime } = {}
+) {
+  // Use provided time window or fallback to getTimeWindow()
+  if (!startTime || !endTime) {
+    const timeWindow = getTimeWindow();
+    startTime = timeWindow.startTime;
+    endTime = timeWindow.endTime;
+  }
+
+  const key = `${customerId}|${startTime}|${endTime}`;
+  // if (_apiCache.has(key)) {
+  //     logInfo(`[water] Using cached API data for ${key}`);
+  //     return _apiCache.get(key);
+  // }
+
+  // if (!customerId) {
+  //     logWarn(`[water] Missing customerId`);
+  //     const fallback = { data: [], summary: { totalDevices: 0, totalValue: 0 } };
+  //     _apiCache.set(key, fallback);
+  //     return fallback;
+  // }
+
+  // if (!DATA_API_HOST) {
+  //     logWarn(`[water] DATA_API_HOST is not configured`);
+  //     const fallback = { data: [], summary: { totalDevices: 0, totalValue: 0 } };
+  //     _apiCache.set(key, fallback);
+  //     return fallback;
+  // }
+
+  try {
+    const DATA_API_TOKEN = await MyIOAuth.getToken();
+    if (!DATA_API_TOKEN) {
+      throw new Error("Failed to obtain authentication token");
+    }
+
+    const url = new URL(
+      `${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/water/devices/totals`
+    );
+    url.searchParams.set("startTime", startTime);
+    url.searchParams.set("endTime", endTime);
+    url.searchParams.set("deep", "1");
+
+    const response = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${DATA_API_TOKEN}` },
+    });
+
+    if (!response.ok) {
+      logWarn(`[water] API ${response.status} ${response.statusText}`);
+      const fallback = {
+        data: [],
+        summary: { totalDevices: 0, totalValue: 0 },
+      };
+      //_apiCache.set(key, fallback);
+      return fallback;
+    }
+
+    const json = await response.json();
+
+    // Normalize response format
+    const normalizedResponse = {
+      data: Array.isArray(json)
+        ? json
+        : Array.isArray(json?.data)
+        ? json.data
+        : [],
+      summary: json?.summary || {
+        totalDevices: Array.isArray(json)
+          ? json.length
+          : json?.data?.length || 0,
+        totalValue: 0,
+      },
+    };
+
+    // Calculate summary totals if not provided
+    if (!json?.summary?.totalValue && normalizedResponse.data.length > 0) {
+      normalizedResponse.summary.totalValue = normalizedResponse.data.reduce(
+        (sum, item) => {
+          return sum + Number(item.totalConsumption ?? item.total_value ?? 0);
+        },
+        0
+      );
+    }
+
+    // Cache for 60 seconds
+    // _apiCache.set(key, normalizedResponse);
+    // setTimeout(() => _apiCache.delete(key), 60000);
+
+    logInfo(`[water] API fetch successful`, {
+      devices: normalizedResponse.data.length,
+      total: normalizedResponse.summary.totalValue,
+    });
+    return normalizedResponse;
+  } catch (error) {
+    logWarn(`[water] API fetch failed: ${error.message}`);
+    const fallback = { data: [], summary: { totalDevices: 0, totalValue: 0 } };
+    //_apiCache.set(key, fallback);
+    return fallback;
+  }
+}
+
+function formatAllInSameUnit(values) {
+  const max = Math.max(...values);
+  let divisor = 1;
+  let unit = "M³";
+
+  if (max >= 1000000) {
+    divisor = 1000000;
+    unit = "M³";
+  } else if (max >= 1000) {
+    divisor = 1000;
+    unit = "M³";
+  }
+
+  return {
+    format: (val) => (val / divisor).toFixed(2) + " " + unit,
+    unit,
+  };
 }
 
 function createInfoCard(title, value, percentage, img) {
@@ -527,12 +803,13 @@ function createInfoCard(title, value, percentage, img) {
     <div class="device-data-row">
         <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: bold; color: #28a745;">
           <span class="flash-icon flash">⚡</span>
-          <span class="consumption-value">${MyIOLibrary.formatEnergy(value)}</span>
+                  <span class="consumption-value">${MyIOLibrary.formatEnergyByGroup(
+                    value,
+                    "Caixas D'Água"
+                  )}</span>
           ${
             percentage != null
-              ? `<span class="device-title-percent" style="color: rgba(0,0,0,0.5); font-weight: 500;">(${MyIOLibrary.formatNumberReadable(
-                  percentage
-                )}%)</span>`
+              ? `<span class="device-title-percent" style="color: rgba(0,0,0,0.5); font-weight: 500;">(${percentage}%)</span>`
               : ""
           }
         </div>
@@ -543,45 +820,47 @@ function createInfoCard(title, value, percentage, img) {
 `);
 }
 
-async function openDashboardPopupEnergy(
+function dashboardGraph(entityId, entityType) {
+  const state = [
+    { id: "default", params: { entityId: { id: entityId, entityType } } },
+  ];
+  const dashboardId = "14591240-58d7-11f0-9291-41f94c09a8a6";
+  const stateBase64 = encodeURIComponent(btoa(JSON.stringify(state)));
+  const url = `/dashboards/${dashboardId}?state=${stateBase64}`;
+  self.ctx.router.navigateByUrl(url);
+}
+
+async function openDashboardPopupHidro(
   entityId,
   entityType,
   entitySlaveId,
   entityCentralId,
-  entityIngestionId,
   entityLabel,
-  entityComsuption
+  entityComsuption,
+  startDate,
+  endDate
 ) {
   $("#dashboard-popup").remove();
+
+  console.log("stardate: ", startDate);
+  console.log("enddate: ", endDate);
+
   const settings = self.ctx.settings || {};
-
-  // ✨ FIX: usa o estado compartilhado (getDates) como fonte única da verdade
-  const { start, end } = self.ctx.getDates();
-  $('#start-date').val(start || '');
-  $('#end-date').val(end || '');
-  
-  const startDateTs = new Date(`${start}T00:00:00-03:00`);
-  const endDateTs = new Date(`${end}T23:59:59-03:00`);
-
-  const startTs = startDateTs.getTime();
-  const endTs = endDateTs.getTime();
+  const startTs = startDate;
+  const endTs = endDate;
   const labelDefault = entityLabel || "SEM-LABEL";
   const gatewayId = entityCentralId;
-  // ✨ FIX: Use toISOWithOffset instead of formatDateToYMD for v2 chart
-  const startDateTime = toISOWithOffset(startTs);
-  const endDateTime = toISOWithOffset(endTs, true);
+  const apiBaseUrl = settings.apiBaseUrl || "https://ingestion.myio-bas.com";
 
   // Estado/variáveis globais para o widget
-  window.consumption = 0;
+  window.consumption = entityComsuption || -1;
   let percentageValue = 0; // percentual com sinal, número
-  let percentages = 0; // percentual sem sinal, string formatada (ex: "12.3")
   let percentageType = "neutral"; // "increase", "decrease", "neutral"
   let isLoading = false;
   let errorMessage = "";
   let lastConsumption = 0;
-  const measurement = "kWh";
-
-  const img = getDeviceImage(labelDefault);
+  const measurement = "M³";
+  let img = "api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4";
   const deviceId = entityId;
   const jwtToken = localStorage.getItem("jwt_token");
 
@@ -605,8 +884,8 @@ async function openDashboardPopupEnergy(
           "X-Authorization": `Bearer ${jwtToken}`,
         },
       });
-      if (!entityResponse.ok) throw new Error("Erro ao buscar entidade");
 
+      if (!entityResponse.ok) throw new Error("Erro ao buscar entidade");
       const entity = await entityResponse.json();
       const label = entity.label || entity.name || "Sem etiqueta";
 
@@ -619,9 +898,10 @@ async function openDashboardPopupEnergy(
           },
         }
       );
-      if (!attrResponse.ok) throw new Error("Erro ao buscar atributos");
 
+      if (!attrResponse.ok) throw new Error("Erro ao buscar atributos");
       const attributes = await attrResponse.json();
+
       const get = (key) => {
         const found = attributes.find((attr) => attr.key === key);
         return found ? found.value : "";
@@ -669,6 +949,397 @@ async function openDashboardPopupEnergy(
         : "#000";
 
     return `
+            <div class="myio-sum-comparison-card" style="
+                flex: 1; display: flex; flex-direction: column; justify-content: flex-start;
+                padding: 12px; box-sizing: border-box; background-color: var(--tb-service-background,#fff);
+                border-radius: var(--tb-border-radius,4px);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.05); min-height: 0;">
+                
+                <!-- Título -->
+                <div style="text-align:center; font-size:1.2rem; font-weight:600; margin-bottom:4px;
+                            display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <div class="myio-lightning-icon-container">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32px" height="32px" 
+                             viewBox="0 -880 960 960" style="display:block;">
+                            <circle cx="480" cy="-480" r="320" fill="none" stroke="#00BCD4" stroke-width="50"/>
+                            <path d="M480 -720 C410 -620 340 -540 340 -440 C340 -340 410 -280 480 -260 
+                                     C550 -280 620 -340 620 -440 C620 -540 550 -620 480 -720 Z" fill="#00BCD4"/>
+                            <ellipse cx="420" cy="-500" rx="38" ry="62" fill="rgba(255,255,255,0.4)" 
+                                     transform="rotate(-25 420 -500)"/>
+                        </svg>
+                    </div>
+                    ${displayLabel}
+                </div>
+
+                <!-- Ícone -->
+                <div style="text-align:center; margin-bottom:8px;">
+                    <img src="${img}" alt="ícone" width="92" height="92" style="object-fit: contain;" />
+                </div>
+
+                <!-- Valor + Percentual -->
+                <div style="display:flex; justify-content:center; align-items:center; margin-bottom:4px;">
+                    <div style="font-size:1.4rem; font-weight:600; color:#212121;">
+                         ${window.consumption} m³
+                    </div>
+                    <div style="margin-left:8px; font-size:1rem; font-weight:600; color:${color}; display:none">
+                        ${sign} ${percentageValue}% ${arrow}
+                    </div>
+                </div>
+                <style>
+                .info-item {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 2px;
+                  padding: 6px;
+                  border: 1px solid #ccc;
+                  border-radius: 4px;
+                  background: #f9f9f9;
+                }
+                .info-item label {
+                  font-size: 0.85rem;
+                  font-weight: 600;
+                }
+                .info-item input {
+                  padding: 4px;
+                  border: 1px solid #ddd;
+                  border-radius: 4px;
+                  outline: none;
+                  font-size: 0.85rem;
+                  background: #fff;
+                }
+              </style>
+
+                <!-- Último período -->
+                <div style="text-align:center; font-size:0.85rem; color:#757575; margin-bottom:12px; display:none">
+                    Último período: 
+                    <strong> ${MyIOLibrary.formatEnergyByGroup(
+                      lastConsumption,
+                      "Lojas"
+                    )}</strong>
+                </div>
+
+            <!-- Campos extras -->
+             <div style="display:flex; flex-direction:column; gap:6px; font-size:0.85rem;">
+              
+              <div class="info-item">
+                <label>Etiqueta</label>
+                <input type="text" value="${displayLabel}" readonly>
+              </div>
+              
+              <div class="info-item">
+                <label>Andar</label>
+                <input type="text" value="${attrs.andar}" readonly>
+              </div>
+              
+              <div class="info-item">
+                <label>Número da Loja</label>
+                <input type="text" value="${attrs.numeroLoja}" readonly>
+              </div>
+              
+              <div class="info-item">
+                <label>Identificador do Medidor</label>
+                <input type="text" value="${
+                  attrs.identificadorMedidor
+                }" readonly>
+              </div>
+              
+              <div class="info-item">
+                <label>Identificador do Dispositivo</label>
+                <input type="text" value="${
+                  attrs.identificadorDispositivo
+                }" readonly>
+              </div>
+              
+              <div class="info-item">
+                <label>GUID</label>
+                <input type="text" value="${attrs.guid}" readonly>
+              </div>
+        
+            </div>
+            </div>
+        `;
+  }
+
+  function updateWidgetContent() {
+    const container = document.getElementById("consumo-widget-container");
+    if (container) {
+      container.innerHTML = renderWidget();
+    }
+  }
+
+  async function enviarDados() {
+    isLoading = true;
+    errorMessage = "";
+    updateWidgetContent();
+
+    try {
+      const consumoAtual = attrs.consumoDiario || 0;
+      const consumoAnterior = attrs.consumoMadrugada || 0;
+
+      //window.consumption = consumoAtual;
+      window.consumption = entityComsuption;
+      lastConsumption = consumoAnterior;
+
+      if (consumoAnterior === 0 && consumoAtual === 0) {
+        percentageValue = 0;
+        percentages = "0";
+        percentageType = "neutral";
+      } else if (consumoAnterior === 0 && consumoAtual > 0) {
+        percentageValue = 100;
+        percentages = "100";
+        percentageType = "increase";
+      } else {
+        const diff = consumoAtual - consumoAnterior;
+        const percent = (diff / consumoAnterior) * 100;
+        percentageValue = percent;
+        percentages = Math.abs(percent).toFixed(1);
+
+        if (percent > 0) {
+          percentageType = "increase";
+        } else if (percent < 0) {
+          percentageType = "decrease";
+        } else {
+          percentageType = "neutral";
+        }
+      }
+    } catch (error) {
+      errorMessage = "Erro ao carregar dados: " + error.message;
+      console.error(error);
+    } finally {
+      isLoading = false;
+      updateWidgetContent();
+    }
+  }
+
+  // Popup HTML
+  const $popup = $(`
+  <div id="dashboard-overlay" style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 10000; background: rgba(0,0,0,0.25);">
+    <div id="dashboard-modal" style="width: 80vw; border-radius: 10px; background: #f7f7f7; box-shadow: 0 0 20px rgba(0,0,0,0.35); overflow: auto; display: flex; flex-direction: column;">
+      <div id="dashboard-header" style="height: 56px; background: #4A148C; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; font-weight: 700; font-size: 1.05rem;">
+        <div>Consumo de Água</div>
+        <button id="close-dashboard-popup" style="background: #f44336; color: #fff; border: none; border-radius: 50%; width: 34px; height: 34px; cursor: pointer; font-size: 18px;">×</button>
+      </div>
+      <div id="dashboard-cards-wrap" style="display: flex; gap: 20px; padding: 20px; align-items: stretch; min-height: calc(90vh - 56px);">
+        <div style="flex: 0 0 33%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.08); border-radius: 6px; overflow: hidden;">
+          <div id="consumo-widget-container" style="padding: 16px; height: 100%;">${renderWidget()}</div>
+        </div>
+        <div style="flex: 0 0 65%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.08); border-radius: 6px; overflow: hidden;">
+          <div id="chart-container" style="padding: 16px; width: 100%; height: 100%; box-sizing: border-box; display:flex; flex-direction:column;">
+            <h2 style="margin:0; font-size:18px; color:#673ab7; font-weight:bold;">Hidrômetro ${labelDefault}</h2>
+            <p style="margin:5px 0 12px; font-size:13px; color:#333;">
+              <span style="display:inline-block; width:10px; height:10px; background:#2196f3; border-radius:50%; margin-right:6px;"></span> Metros cúbicos
+            </p>
+            <div style="flex:1; min-height:260px;">
+              <canvas id="hidrometroChart" style="width:100%; height:100%;"></canvas>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:40px; margin-top:8px; font-size:13px; color:#333;">
+              <div><strong>Avg</strong><br><span id="avgValue">0.00 m³</span></div>
+              <div><strong>Total</strong><br><span id="totalValue">0.00 m³</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`);
+
+  $("body").append($popup);
+  $(document).on("click", "#close-dashboard-popup", () =>
+    $("#dashboard-overlay").remove()
+  );
+
+  // Atributos + widget comparativo
+  attrs = await getEntityInfoAndAttributes();
+  if (attrs.label) entityLabel = attrs.label;
+
+  updateWidgetContent();
+
+  await enviarDados();
+
+  // Buscar dados da API p/ gráfico
+  try {
+    const response =
+      await window.EnergyChartSDK.EnergyChart.getEnergyComparisonSum({
+        gatewayId: gatewayId,
+        slaveId: entitySlaveId,
+        startTs: startDate,
+        endTs: endDate,
+        apiBaseUrl: apiBaseUrl,
+      });
+
+    const labels = Object.keys(response.currentPeriod.daily || {});
+    const values = Object.values(response.currentPeriod.daily || {});
+
+    const ctx = document.getElementById("hidrometroChart").getContext("2d");
+    if (self.chartInstance) self.chartInstance.destroy();
+
+    self.chartInstance = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Metros cúbicos",
+            data: values,
+            backgroundColor: "#2196f3",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: "m³" } },
+        },
+        plugins: { legend: { display: false } },
+      },
+    });
+
+    const total = values.reduce((a, b) => a + b, 0);
+    const avg = values.length ? total / values.length : 0;
+    document.getElementById("avgValue").innerText = avg.toFixed(2) + " m³";
+    document.getElementById("totalValue").innerText = total.toFixed(2) + " m³";
+  } catch (err) {
+    console.error("Erro ao buscar dados do gráfico:", err);
+    document.getElementById("chart-container").innerHTML =
+      "<div style='padding:20px; text-align:center; color:red;'>Erro ao carregar gráfico.</div>";
+  }
+}
+
+async function openDashboardPopupWater(
+  entityId,
+  entityType,
+  entitySlaveId,
+  entityCentralId,
+  entityLabel,
+  entityComsuption,
+  percent
+) {
+  $("#dashboard-popup").remove();
+  const settings = self.ctx.settings || {};
+  const startTs = new Date(self.ctx.$scope.startTs);
+  const endTs = new Date(self.ctx.$scope.endTs);
+  const labelDefault = entityLabel || "SEM-LABEL";
+  const gatewayId = entityCentralId;
+  const apiBaseUrl = settings.apiBaseUrl || "https://ingestion.myio-bas.com";
+  const timezone =
+    self.ctx.timeWindow.timezone ||
+    self.ctx.settings.timezone ||
+    "America/Sao_Paulo";
+  const startDate = MyIOLibrary.formatDateToYMD(startTs);
+  const endDate = MyIOLibrary.formatDateToYMD(endTs);
+  const interval = determineInterval(startTs, endTs);
+  const jwtToken = localStorage.getItem("jwt_token");
+  const measurement = "m.c.a.";
+
+  // Variáveis globais do widget
+  window.consumption = 0;
+  let percentageValue = 0;
+  let percentages = 0;
+  let percentageType = "neutral";
+  let isLoading = false;
+  let lastConsumption = 0;
+
+  // Atributos do dispositivo
+  let attrs = {
+    label: "",
+    andar: "",
+    numeroLoja: "",
+    identificadorMedidor: "",
+    identificadorDispositivo: "",
+    guid: "",
+    consumoDiario: 0,
+    consumoMadrugada: 0,
+  };
+
+  // Função para buscar atributos
+  async function getEntityInfoAndAttributes() {
+    try {
+      const entityResponse = await fetch(`/api/device/${entityId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Authorization": `Bearer ${jwtToken}`,
+        },
+      });
+      if (!entityResponse.ok) throw new Error("Erro ao buscar entidade");
+      const entity = await entityResponse.json();
+      const label = entity.label || entity.name || "Sem etiqueta";
+
+      const attrResponse = await fetch(
+        `/api/plugins/telemetry/DEVICE/${entityId}/values/attributes?scope=SERVER_SCOPE`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-Authorization": `Bearer ${jwtToken}`,
+          },
+        }
+      );
+      if (!attrResponse.ok) throw new Error("Erro ao buscar atributos");
+
+      const attributes = await attrResponse.json();
+      const get = (key) =>
+        attributes.find((attr) => attr.key === key)?.value || "";
+
+      return {
+        label,
+        andar: get("floor") || "",
+        numeroLoja: get("NumLoja") || "",
+        identificadorMedidor: get("IDMedidor") || "",
+        identificadorDispositivo: get("deviceId") || "",
+        guid: get("guid") || "",
+        consumoDiario: Number(get("maxDailyConsumption")) || 0,
+        consumoMadrugada: Number(get("maxNightConsumption")) || 0,
+      };
+    } catch (error) {
+      console.error("Erro ao buscar dados da entidade/atributos:", error);
+      return {};
+    }
+  }
+
+  // Função para renderizar widget de consumo
+  function renderWidget() {
+    let img = "/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq";
+
+    if (percent >= 70) {
+      img = "/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq";
+    } else if (percent >= 40) {
+      img = "/api/images/public/4UBbShfXCVWR9wcw6IzVMNran4x1EW5n";
+    } else if (percent >= 20) {
+      img = "/api/images/public/aB9nX28F54fBBQs1Ht8jKUdYAMcq9QSm";
+    } else {
+      img = "/api/images/public/qLdwhV4qw295poSCa7HinpnmXoN7dAPO";
+    }
+
+    const heigtconsumption = MyIOLibrary.formatEnergyByGroup(
+      entityComsuption * 100,
+      "Caixas D'Água"
+    );
+
+    console.log("");
+    const displayLabel = attrs.label
+      ? attrs.label.toUpperCase()
+      : labelDefault.toUpperCase();
+
+    // Determinar cor, sinal e seta com base no tipo e valor real
+    const sign =
+      percentageType === "increase"
+        ? "+"
+        : percentageType === "decrease"
+        ? "-"
+        : "";
+    const arrow =
+      percentageType === "increase"
+        ? "▲"
+        : percentageType === "decrease"
+        ? "▼"
+        : "";
+    const color =
+      percentageType === "increase"
+        ? "#D32F2F"
+        : percentageType === "decrease"
+        ? "#388E3C"
+        : "#000";
+
+    return `
 <div class="myio-sum-comparison-card" style="
     flex: 1; 
     display: flex; 
@@ -684,10 +1355,22 @@ async function openDashboardPopupEnergy(
     <!-- Título -->
     <div style="text-align:center; font-size:1.2rem; font-weight:600; margin-bottom:4px; display:flex; align-items:center; justify-content:center; gap:8px;">
      <div class="myio-lightning-icon-container">
-            <svg xmlns="http://www.w3.org/2000/svg" width="28px" height="28px" viewBox="0 -880 960 960" fill="var(--tb-primary-700,#FFC107)" style="display:block;">
-                <path d="m456-200 174-340H510v-220L330-420h126v220Zm24 120q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/>
-            </svg>
-        </div>
+<svg xmlns="http://www.w3.org/2000/svg" width="32px" height="32px" viewBox="0 -880 960 960" style="display:block;">
+  <!-- círculo externo -->
+  <circle cx="480" cy="-480" r="320" fill="none" stroke="#00BCD4" stroke-width="50"/>
+
+  <!-- gota interna -->
+  <path d="M480 -720
+           C410 -620 340 -540 340 -440
+           C340 -340 410 -280 480 -260
+           C550 -280 620 -340 620 -440
+           C620 -540 550 -620 480 -720 Z"
+        fill="#00BCD4"/>
+
+  <!-- brilho sutil na gota -->
+  <ellipse cx="420" cy="-500" rx="38" ry="62" fill="rgba(255,255,255,0.4)" transform="rotate(-25 420 -500)"/>
+</svg>
+  </div>
         ${displayLabel}
     </div>
 
@@ -697,16 +1380,13 @@ async function openDashboardPopupEnergy(
     </div>
 
     <!-- Valor + Percentual -->
-    <div style="display:flex; justify-content:center; align-items:center; margin-bottom:4px; display: none">
+    <div style="display:flex; justify-content:center; align-items:center; margin-bottom:4px;">
         <div style="font-size:1.4rem; font-weight:600; color:#212121;">
-            ${MyIOLibrary.formatEnergy(window.consumption)}
-        </div>
-        <div style="margin-left:8px; font-size:1rem; font-weight:600; color: ${color};">
-            ${sign}${MyIOLibrary.formatNumberReadable(percentageValue)}%
-            ${arrow}
+            ${heigtconsumption}
         </div>
     </div>
-      <style>
+
+    <style>
     .info-item {
       display: flex;
       flex-direction: column;
@@ -731,12 +1411,14 @@ async function openDashboardPopupEnergy(
   </style>
 
     <!-- Último período -->
-    <div style="text-align:center; font-size:0.85rem; color:#757575; margin-bottom:12px; display: none">
-        Último período: <strong>${(MyIOLibrary.formatEnergy(lastConsumption))}</strong>
+    <div style="text-align:center; font-size:0.85rem; color:#757575; margin-bottom:12px; display:none">
+        Porcentagem da Caixa: <strong>${MyIOLibrary.formatNumberReadable(
+          percent
+        )}%</strong>
     </div>
 
     <!-- Campos extras -->
-    <div style="display:flex; flex-direction:column; gap:6px; font-size:0.85rem;">
+     <div style="display:flex; flex-direction:column; gap:6px; font-size:0.85rem;">
       
       <div class="info-item">
         <label>Etiqueta</label>
@@ -770,463 +1452,226 @@ async function openDashboardPopupEnergy(
 
     </div>
 
+
 </div>
         `;
   }
 
   function updateWidgetContent() {
     const container = document.getElementById("consumo-widget-container");
-    if (container) {
-      container.innerHTML = renderWidget();
-    }
+    if (container) container.innerHTML = renderWidget();
   }
 
   async function enviarDados() {
-    isLoading = true;
-    errorMessage = "";
-    updateWidgetContent();
+    const consumoAtual = attrs.consumoDiario || 0;
+    const consumoAnterior = attrs.consumoMadrugada || 0;
+    window.consumption = consumoAtual;
+    lastConsumption = consumoAnterior;
 
-    try {
-      const consumoAtual = attrs.consumoDiario || 0;
-      const consumoAnterior = attrs.consumoMadrugada || 0;
-
-      window.consumption = consumoAtual;
-      lastConsumption = consumoAnterior;
-
-      if (consumoAnterior === 0 && consumoAtual === 0) {
-        percentageValue = 0;
-        percentages = "0";
-        percentageType = "neutral";
-      } else if (consumoAnterior === 0 && consumoAtual > 0) {
-        percentageValue = 100;
-        percentages = "100";
-        percentageType = "increase";
-      } else {
-        const diff = consumoAtual - consumoAnterior;
-        const percent = (diff / consumoAnterior) * 100;
-        percentageValue = percent;
-        percentages = Math.abs(percent).toFixed(1);
-        if (percent > 0) {
-          percentageType = "increase";
-        } else if (percent < 0) {
-          percentageType = "decrease";
-        } else {
-          percentageType = "neutral";
-        }
-      }
-    } catch (error) {
-      errorMessage = "Erro ao carregar dados: " + error.message;
-      console.error(error);
-    } finally {
-      isLoading = false;
-      updateWidgetContent();
-    }
-  }
-
-  // Criar popup HTML e inserir no body
-  const $popup = $(`
-  <div id="dashboard-overlay" style="
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    background: rgba(0,0,0,0.25);
-  ">
-    <div id="dashboard-modal" style="
-      width: 80vw;
-      border-radius: 10px;
-      background: #f7f7f7;
-      box-shadow: 0 0 20px rgba(0,0,0,0.35);
-      overflow: auto;
-      display: flex;
-      flex-direction: column;
-    ">
-      <!-- cabeçalho -->
-      <div id="dashboard-header" style="
-        height: 56px;
-        background: #4A148C;
-        color: #fff;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 20px;
-        font-weight: 700;
-        font-size: 1.05rem;
-      ">
-        <div>Consumo de Energia</div>
-        <button id="close-dashboard-popup" style="
-          background: #f44336;
-          color: #fff;
-          border: none;
-          border-radius: 50%;
-          width: 34px;
-          height: 34px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 18px;
-          line-height: 1;
-        ">×</button>
-      </div>
-
-      <!-- conteúdo com os cards -->
-      <div id="dashboard-cards-wrap" style="
-        display: flex;
-        gap: 20px;
-        padding: 20px;
-        box-sizing: border-box;
-        align-items: stretch;
-        min-height: calc(90vh - 56px);
-      ">
-        <!-- Card 1 (33%) -->
-        <div style="
-          flex: 0 0 33%;
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-          border-radius: 6px;
-          background: #fff;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-          overflow: hidden;
-        ">
-          <div id="consumo-widget-container" class="myio-sum-comparison-card" style="
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            height: 100%;
-            box-sizing: border-box;
-          ">
-            ${renderWidget()}
-          </div>
-        </div>
-
-        <!-- Card 2 (65%) -->
-        <div style="
-          flex: 0 0 65%;
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-          border-radius: 6px;
-          background: #fff;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-          overflow: hidden;
-        ">
-          <div id="chart-container" style="
-            padding: 16px;
-            width: 100%;
-            height: 100%;
-            box-sizing: border-box;
-          ">
-            <!-- gráfico -->
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </div>
-`);
-
-  $("body").append($popup);
-
-  // === DEVICE DETAIL POPUP: FULLY LOCAL STATE + LOCAL BUTTON ===
-  const detailState = { start: '', end: '' };
-
-  function setDetailDates({start, end}) {
-    if (start) detailState.start = start;
-    if (end)   detailState.end   = end;
-    console.log('[DETAIL] set dates →', detailState);
-    $popup.find('#start-date').val(detailState.start || '');
-    $popup.find('#end-date').val(detailState.end || '');
-  }
-
-  // Initialize with current main dates (read-only copy)
-  setDetailDates(DatesStore.get());
-
-  // Local inputs (scoped to this popup)
-  $popup.off('change.detailDates', '#start-date,#end-date')
-    .on('change.detailDates', '#start-date,#end-date', () => {
-      setDetailDates({
-        start: $popup.find('#start-date').val(),
-        end:   $popup.find('#end-date').val()
-      });
-    });
-
-  // Local load button (scoped) – no global $scope.loadDataForPopup
-  $popup.off('click.detailLoad', '.detail-load')
-    .on('click.detailLoad', '.detail-load', async () => {
-      const { start, end } = detailState;
-      if (!start || !end) return alert('Selecione as datas de início e fim.');
-      console.log('[DETAIL] Load clicked with', { start, end });
-
-      try {
-        // Build ISO range and render the v2 chart here (local only)
-        const startIso = toISOWithOffset(new Date(`${start}T00:00:00`));
-        const endIso   = toISOWithOffset(new Date(`${end}T23:59:59`), true);
-        console.log('[DETAIL] Rendering chart', { startIso, endIso, deviceId: entityIngestionId });
-
-        // Destroy previous chart instance
-        if (self.chartInstance?.destroy) {
-          console.log('[DETAIL] Destroying existing chart instance');
-          self.chartInstance.destroy();
-        }
-        if (self.chartContainerElement) {
-          self.chartContainerElement.innerHTML = '';
-        }
-
-        // Render new chart with local dates
-        const timeZoneIdentifier = self.ctx.timeWindow.timezone || self.ctx.settings.timezone || "America/Sao_Paulo";
-        
-        self.chartInstance = window.EnergyChartSDK.renderTelemetryChart(
-          self.chartContainerElement, {
-            version: 'v2',
-            clientId: CLIENT_ID,
-            clientSecret: CLIENT_SECRET,
-            deviceId: entityIngestionId,
-            readingType: 'energy',
-            startDate: startIso,
-            endDate: endIso,
-            granularity: '1d',
-            theme: (self.ctx.settings?.theme || 'light'),
-            timezone: timeZoneIdentifier,
-            iframeBaseUrl: 'https://graphs.apps.myio-bas.com',
-            apiBaseUrl: DATA_API_HOST
-          }
-        );
-
-        // Update comparison data with local dates
-        const u = new Date(`${start}T00:00:00-03:00`).getTime();
-        const f = new Date(`${end}T23:59:59-03:00`).getTime();
-        
-        console.log(`[DETAIL] Fetching comparison data for gatewayId: ${entityCentralId}, slaveId: ${entitySlaveId}`);
-        const sum = await window.EnergyChartSDK.EnergyChart.getEnergyComparisonSum({
-          gatewayId: entityCentralId,
-          slaveId: entitySlaveId,
-          startTs: new Date(u),
-          endTs:   new Date(f),
-          apiBaseUrl: DATA_API_HOST
-        });
-        
-        console.log('[DETAIL] Comparison data received:', sum);
-        
-        window.consumption = sum.currentPeriod.totalKwh || 0;
-        lastConsumption = sum.previousPeriod.totalKwh || 0;
-
-        const diff = window.consumption - lastConsumption;
-        let pct = 0;
-        if (lastConsumption !== 0) pct = (diff / Math.abs(lastConsumption)) * 100;
-        else if (window.consumption > 0) pct = 100;
-
-        percentageValue = pct;
-        percentages = Math.abs(pct).toFixed(1);
-        percentageType = pct > 0 ? 'increase' : pct < 0 ? 'decrease' : 'neutral';
-
-        console.log(`[DETAIL] Updated consumption: ${window.consumption} kWh, percentage: ${percentageValue}%`);
-        
-        updateWidgetContent();  // refresh the left card display
-        console.log('[DETAIL] Data refresh complete');
-      } catch (err) {
-        console.error('[DETAIL] Error', err);
-        // Show error in popup if needed
-        if (self.chartContainerElement) {
-          self.chartContainerElement.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">Erro: ${err.message}</div>`;
-        }
-      }
-    });
-
-  self.chartContainerElement = document.getElementById("chart-container");
-  if (!self.chartContainerElement) {
-    console.error("[DETAIL] #chart-container not found. Abort chart render.");
-    return;
-  }
-
-  // Log popup open event
-  console.log('[DETAIL] popup open', { deviceId: entityId, gatewayId: entityCentralId, slaveId: entitySlaveId });
-  $popup.on('remove', () => console.log('[DETAIL] popup closed'));
-
-  // Fechar popup no botão
-  $(document).on("click", "#close-dashboard-popup", () => {
-    $("#dashboard-overlay").remove();
-  });
-
-  // Buscar atributos e atualizar o widget
-  attrs = await getEntityInfoAndAttributes();
-
-  // Atualiza a label também, que era fixa
-  if (attrs.label) {
-    entityLabel = attrs.label;
-  }
-
-  // Atualiza o widget com os dados novos
-  updateWidgetContent();
-
-  // Atualiza o consumo e percentual (usa dados dos atributos)
-  await enviarDados();
-
-  function createRenderTelemetryChartSDK() {
-    if (window.EnergyChartSDK && typeof window.EnergyChartSDK.renderTelemetryChart === 'function') {
-      return window.EnergyChartSDK.renderTelemetryChart;
-    } else {
-      console.error('EnergyChartSDK v2 (renderTelemetryChart) not loaded!');
-
-      if (self.chartContainerElement) {
-        self.chartContainerElement.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">EnergyChartSDK v2 (renderTelemetryChart) not loaded. Check widget configuration and browser console.</div>';
-      }
-
-      return;
-    }
-  }
-
-  function doInitialSetupToRenderEnergyChart () {
-      // Destroy previous instance if it exists
-      if (self.chartInstance && typeof self.chartInstance.destroy === 'function') {
-        self.chartInstance.destroy();
-        self.chartInstance = null;
-      }
-      // Ensure container is clean (SDK's destroy should handle iframe, but good practice)
-      if (self.chartContainerElement) {
-        self.chartContainerElement.innerHTML = '';
-      }
-  }
-
-  // Função para renderizar o gráfico de energia no popup
-  function renderEnergyChartInPopup({
-    ingestionId,
-    startDateTime,
-    endDateTime,
-    settings
-  }) {
-
-    //doInitialSetupToRenderEnergyChart();
-
-    // Destroy previous instance if it exists
-    if (self.chartInstance && typeof self.chartInstance.destroy === 'function') {
-      self.chartInstance.destroy();
-      self.chartInstance = null;
-    }
-    // Ensure container is clean (SDK's destroy should handle iframe, but good practice)
-    if (self.chartContainerElement) {
-      self.chartContainerElement.innerHTML = '';
-    }
-
-    let renderTelemetryChart;
-    if (window.EnergyChartSDK && typeof window.EnergyChartSDK.renderTelemetryChart === 'function') {
-      renderTelemetryChart = window.EnergyChartSDK.renderTelemetryChart;
-    } else {
-      console.error('EnergyChartSDK v2 (renderTelemetryChart) not loaded!');
-      if (self.chartContainerElement) {
-        self.chartContainerElement.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">EnergyChartSDK v2 (renderTelemetryChart) not loaded. Check widget configuration and browser console.</div>';
-      }
-      return;
-    }    
-
-    const tzIdentifier = self.ctx.timeWindow.timezone || self.ctx.settings.timezone || "America/Sao_Paulo";
-
-    // Format datetime with hour/minute/second precision for v2 API
-    const granularity = '1d'; // determineGranularity(timeWindow.minTime, timeWindow.maxTime);
-    const theme = settings.theme || 'light';
-    //const CLIENT_ID = "ADMIN_DASHBOARD_CLIENT";
-    //const CLIENT_SECRET = "admin_dashboard_secret_2025";
-
-    // ✨ ADD: Sanity logs for debugging
-    console.log("[popup] deviceId:", ingestionId);
-    console.log("[popup] start:", startDateTime, "end:", endDateTime);
-
-    console.log(`Initializing v2 chart with: deviceId=${ingestionId}, startDateTime=${startDateTime}, endDateTime=${endDateTime}, granularity=${granularity}, theme=${theme}, apiBaseUrl=${DATA_API_HOST}, timezone=${tzIdentifier}`);
-
-    self.chartInstance = renderTelemetryChart(self.chartContainerElement, {
-      version: 'v2',
-      clientId: CLIENT_ID,
-      clientSecret: CLIENT_SECRET,
-      deviceId: ingestionId,
-      readingType: 'energy',
-      startDate: startDateTime,
-      endDate: endDateTime,
-      granularity: granularity,
-      theme: theme,
-      timezone: tzIdentifier,
-      iframeBaseUrl: 'https://graphs.apps.myio-bas.com',
-      apiBaseUrl: DATA_API_HOST
-    });
-
-    // Attach event listeners if SDK supports it
-    if (self.chartInstance && typeof self.chartInstance.on === 'function') {
-      self.chartInstance.on('drilldown', (data) => {
-        console.log('v2 SDK Drilldown Event:', data);
-        // Example: Emit custom event for ThingsBoard dashboard actions
-        // self.ctx.actionsApi.handleWidgetAction({ actionIdentifier: 'customDrilldownV2', dataContext: data });
-      });
-      self.chartInstance.on('error', (errorData) => {
-        console.error('v2 SDK Error Event:', errorData);
-        if (self.chartContainerElement) {
-          self.chartContainerElement.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">v2 Chart Error: ${errorData.message || 'Unknown error'}</div>`;
-        }
-      });
-    } else if (self.chartInstance) {
-      console.warn("EnergyChartSDK v2 instance does not have an 'on' method for event listeners.");
-    }
-  }
-
-  renderEnergyChartInPopup({
-    ingestionId: entityIngestionId,
-    startDateTime,
-    endDateTime,
-    settings
-  });
-
-  // Atualiza dados comparativos do consumo
-  async function updateComparativeConsumptionData() {
-    const params = {
-      gatewayId: gatewayId,
-      slaveId: entitySlaveId,
-      startTs: new Date(startTs),
-      endTs: new Date(endTs),
-      apiBaseUrl: DATA_API_HOST,
-    };
-
-    try {
-      const comparisonData = await window.EnergyChartSDK.EnergyChart.getEnergyComparisonSum(params);
-      window.consumption = comparisonData.currentPeriod.totalKwh || 0;
-      lastConsumption = comparisonData.previousPeriod.totalKwh || 0;
-
-      const diff = window.consumption - lastConsumption;
-      let percentageChange = 0;
-      if (lastConsumption !== 0) {
-        percentageChange = (diff / Math.abs(lastConsumption)) * 100;
-      } else if (window.consumption > 0) {
-        percentageChange = 100;
-      }
-      percentageValue = percentageChange;
-      percentages = Math.abs(percentageChange).toFixed(1);
+    if (consumoAnterior === 0 && consumoAtual === 0)
+      (percentageType = "neutral"), (percentageValue = 0);
+    else if (consumoAnterior === 0 && consumoAtual > 0)
+      (percentageType = "increase"), (percentageValue = 100);
+    else {
+      const percent =
+        ((consumoAtual - consumoAnterior) / consumoAnterior) * 100;
+      percentageValue = percent;
       percentageType =
-        percentageChange > 0
-          ? "increase"
-          : percentageChange < 0
-          ? "decrease"
-          : "neutral";
-
-      updateWidgetContent();
-    } catch (error) {
-      console.error("Erro ao buscar dados comparativos:", error);
+        percent > 0 ? "increase" : percent < 0 ? "decrease" : "neutral";
     }
+    updateWidgetContent();
   }
 
-  await updateComparativeConsumptionData();
+  // Criar popup
+  const $popup = $(`
+        <div id="dashboard-overlay" style="position: fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:10000; background: rgba(0,0,0,0.25);">
+            <div style="width:80vw; border-radius:10px; background:#f7f7f7; overflow:auto; display:flex; flex-direction:column;">
+                <div style="height:56px; background:#4A148C; color:#fff; display:flex; align-items:center; justify-content:space-between; padding:0 20px; font-weight:700;">Nivel de Água
+                    <button id="close-dashboard-popup" style="background:#f44336; color:#fff; border:none; border-radius:50%; width:34px; height:34px; cursor:pointer;">×</button>
+                </div>
+                <div style="display:flex; gap:20px; padding:20px; min-height:calc(90vh - 56px);">
+                    <div style="flex:0 0 33%; background:#fff; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.08);">
+                        <div id="consumo-widget-container" style="padding:16px;">${renderWidget()}</div>
+                    </div>
+                   <div style="
+                        flex:0 0 65%; 
+                        background:#fff; 
+                        border-radius:6px; 
+                        box-shadow:0 2px 6px rgba(0,0,0,0.08); 
+                        padding:16px;
+                    
+                        /* Adicionado para centralizar vertical e horizontalmente */
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center; /* vertical */
+                        align-items: center;     /* horizontal */
+                        min-height: 400px;       /* garante altura mínima para centralizar */
+                    ">
 
-  // Event listener para fechar popup (se ainda não foi definido)
+                     <div id="chart-wrapper" style="position: relative; width: 100%; height: 90%;">
+                            <div id="chartTitle" style="
+                              display: inline-block; /* faz a caixa “apertar” no texto */
+                              padding: 6px 12px;
+                              border: 1px solid #ccc;
+                              border-radius: 4px;
+                              background: #f9f9f9;
+                              font-size: 0.85rem;
+                              font-weight: 600;
+                              margin-bottom: 15px;
+                            ">
+                            </div>
+                             <div id="loading" style="
+                              position: absolute;
+                              top: 50%;
+                              left: 50%;
+                              transform: translate(-50%, -50%);
+                              display: block; /* começa visível */
+                              width: 50px;
+                              height: 50px;
+                              border: 6px solid #ccc;
+                              border-top: 6px solid #2196F3;
+                              border-radius: 50%;
+                              animation: spin 1s linear infinite;
+                          "></div>
+
+                          <canvas id="chart-water" style="width: 100%; height: 100%;"></canvas>
+                          
+                          <div id="loading" style="
+                              position: absolute;
+                              top: 50%;
+                              left: 50%;
+                              transform: translate(-50%, -50%);
+                              display: none;
+                              width: 50px;
+                              height: 50px;
+                              border: 6px solid #ccc;
+                              border-top: 6px solid #2196F3;
+                              border-radius: 50%;
+                              animation: spin 1s linear infinite;
+                          "></div>
+                        </div>
+
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    `);
+  $("body").append($popup);
   $("#close-dashboard-popup").on("click", () =>
     $("#dashboard-overlay").remove()
   );
+
+  // Buscar atributos e atualizar widget
+  attrs = await getEntityInfoAndAttributes();
+  updateWidgetContent();
+  await enviarDados();
+
+  // Use canvas chart for water tanks instead of EnergyChartSDK
+  // Initialize canvas chart for water level visualization
+  const loadingEl = document.getElementById("loading");
+  const chartEl = document.getElementById("chart-water");
+
+  // mostra loading e esconde gráfico
+  loadingEl.style.display = "block";
+  chartEl.style.display = "none";
+
+  try {
+    const url = `/api/plugins/telemetry/DEVICE/${entityId}/values/timeseries?keys=water_level&startTs=${startTs.getTime()}&endTs=${endTs.getTime()}&agg=AVG&interval=86400000&limit=1000`;
+
+    const response = await fetch(url, {
+      headers: {
+        "Content-Type": "application/json",
+        "X-Authorization": `Bearer ${jwtToken}`,
+      },
+    });
+
+    const data = await response.json();
+    console.log("Telemetria water_level:", data);
+
+    // garante que existe telemetria
+    const waterData = data.water_level || [];
+
+    // 1. agrupar por dia
+    const groupedByDay = {};
+
+    waterData.forEach((item) => {
+      const date = new Date(item.ts);
+      const day = date.toISOString().split("T")[0]; // pega só o dia (YYYY-MM-DD)
+
+      if (!groupedByDay[day]) {
+        groupedByDay[day] = [];
+      }
+      groupedByDay[day].push(Number(item.value));
+    });
+
+    // 2. calcular média de cada dia
+    const labels = [];
+    const values = [];
+
+    for (const [day, vals] of Object.entries(groupedByDay)) {
+      const avg = vals.reduce((sum, v) => sum + v, 0) / vals.length / 100;
+
+      // converter a label para DD-MM-YYYY
+      const [year, month, date] = day.split("-");
+      const formattedDay = `${date}-${month}-${year}`;
+
+      labels.push(formattedDay);
+      values.push(avg.toFixed(2));
+    }
+
+    const ctx = document.getElementById("chart-water").getContext("2d");
+    if (self.chartInstance) self.chartInstance.destroy();
+
+    self.chartInstance = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Nível de Água (m³)",
+            data: values,
+            backgroundColor: "rgba(33, 150, 243, 0.2)",
+            borderColor: "#2196f3",
+            borderWidth: 2,
+            fill: true,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+
+            title: { display: true, text: "Nível de Água (m³)" },
+          },
+        },
+        plugins: {
+          legend: { display: false },
+          title: {
+            display: true,
+            text: `Nível de Água - ${labelDefault}`,
+          },
+        },
+      },
+    });
+    loadingEl.style.display = "none";
+    chartEl.style.display = "block";
+    document.getElementById(
+      "chartTitle"
+    ).innerText = `Nível de Água - ${labelDefault}`;
+  } catch (err) {
+    console.error("Erro ao buscar dados do gráfico de nível:", err);
+    document.getElementById("chart-wrapper").innerHTML =
+      "<div style='padding:20px; text-align:center; color:red;'>Erro ao carregar gráfico de nível.</div>";
+  }
 }
 
 async function openDashboardPopup(entityId, entityType, insueDate) {
   $("#dashboard-popup").remove();
-
   const jwtToken = localStorage.getItem("jwt_token");
-
   async function getEntityInfoAndAttributes(deviceId, jwtToken) {
     try {
       // 1. Buscar info da entidade (label verdadeiro)
@@ -1237,10 +1682,8 @@ async function openDashboardPopup(entityId, entityType, insueDate) {
         },
       });
       if (!entityResponse.ok) throw new Error("Erro ao buscar entidade");
-
       const entity = await entityResponse.json();
       const label = entity.label || entity.name || "Sem etiqueta";
-
       // 2. Buscar atributos SERVER_SCOPE
       const attrResponse = await fetch(
         `/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes?scope=SERVER_SCOPE`,
@@ -1252,13 +1695,11 @@ async function openDashboardPopup(entityId, entityType, insueDate) {
         }
       );
       if (!attrResponse.ok) throw new Error("Erro ao buscar atributos");
-
       const attributes = await attrResponse.json();
       const get = (key) => {
         const found = attributes.find((attr) => attr.key === key);
         return found ? found.value : "";
       };
-
       return {
         etiqueta: label,
         andar: get("floor"),
@@ -1275,98 +1716,78 @@ async function openDashboardPopup(entityId, entityType, insueDate) {
       return {};
     }
   }
-
   const valores = await getEntityInfoAndAttributes(entityId, jwtToken);
-
   const $popup = $(`
 <div id="dashboard-popup"
-    style="position: fixed; top: 5%; left: 5%; width: 90%; height: 90%; background: #f7f7f7; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.4); z-index: 10000; display: flex; flex-direction: column; font-family: Arial, sans-serif;">
-
+    style="position: fixed; top: 5%; left: 5%; width: 90%; height: 90%; background: #F7F7F7; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.4); z-index: 10000; display: flex; flex-direction: column; font-family: Arial, sans-serif;">
     <!-- Cabeçalho -->
     <div
         style="background: #4A148C; color: white; padding: 12px 20px; font-weight: bold; font-size: 1.1rem; border-top-left-radius: 10px; border-top-right-radius: 10px; flex-shrink: 0;">
         Configurações
         <button id="close-dashboard-popup"
-            style="float: right; background: #f44336; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-weight: bold; cursor: pointer;">×</button>
+            style="float: right; background: #F44336; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-weight: bold; cursor: pointer;">×</button>
     </div>
-
     <!-- Conteúdo -->
     <div class="popup-content" style="display: flex; justify-content: space-evenly; gap: 10px; padding: 10px; flex: 1; flex-wrap: wrap; box-sizing: border-box; overflow-y: auto;">
-        
         <!-- Card Esquerdo -->
         <div class="card"
             style="flex: 1 1 300px; max-width: 45%; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; box-sizing: border-box; min-height: 0;">
-            
             <div style="flex: 1 1 auto; overflow-y: auto; min-height: 0;">
                 <h3 style="color: #4A148C; margin-bottom: 20px;">${
                   valores.etiqueta || ""
                 }</h3>
-
                 <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Etiqueta</label>
                 <input type="text" class="form-input" value="${
                   valores.etiqueta || ""
                 }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
-
                 <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Andar</label>
                 <input type="text" class="form-input" value="${
                   valores.andar || ""
                 }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
-
                 <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Número da Loja</label>
                 <input type="text" class="form-input" value="${
                   valores.numeroLoja || ""
                 }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
-
                 <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Identificador do Medidor</label>
                 <input type="text" class="form-input" value="${
                   valores.identificadorMedidor || ""
                 }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
-
                 <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Identificador do Dispositivo</label>
                 <input type="text" class="form-input" value="${
                   valores.identificadorDispositivo || ""
                 }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
-
                 <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">GUID</label>
                 <input type="text" class="form-input" value="${
                   valores.guid || ""
                 }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
             </div>
-
             <div style="margin-top: 20px; text-align: right; flex-shrink: 0;">
  </div>
         </div>
-
         <!-- Card Direito -->
         <div class="card"
             style="flex: 1 1 300px; max-width: 45%; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; box-sizing: border-box; min-height: 0;">
-            
             <div style="flex: 1 1 auto; overflow-y: auto; min-height: 0;">
-                <h3 style="color: #4A148C; margin-bottom: 20px;">Alarmes Energia - ${
+                <h3 style="color: #4A148C; margin-bottom: 20px;">Alarmes Água - ${
                   valores.etiqueta
                 }</h3>
-
-                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Consumo Máximo Diário (kWh)</label>
+                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Consumo Máximo Diário (L)</label>
                 <input type="text" class="form-input" value="${
                   valores.consumoDiario || ""
                 }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
-
-                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Consumo Máximo na Madrugada (0h - 06h) (kWh)</label>
+                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Consumo Máximo na Madrugada (0h - 06h) (L)</label>
                 <input type="text" class="form-input" value="${
                   valores.consumoMadrugada || ""
                 }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
-
-                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Consumo Máximo Horário Comercial (09h - 22h) (kWh)</label>
+                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Consumo Máximo Horário Comercial (09h - 22h) (L)</label>
                 <input type="text" class="form-input" value="${
                   valores.consumoComercial || ""
                 }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
             </div>
-
             <div style="margin-top: 20px; text-align: right; flex-shrink: 0;">
-
-                <button 
-    onclick="$('#dashboard-popup').remove();" 
-    class="btn-desfazer" 
+                <button
+    onclick="$('#dashboard-popup').remove();"
+    class="btn-desfazer"
     style="background:#ccc; color:black; padding:6px 12px; border:none; border-radius:6px; cursor:pointer;">
     Fechar
 </button>
@@ -1376,15 +1797,11 @@ async function openDashboardPopup(entityId, entityType, insueDate) {
     </div>
 </div>
 `);
-
   $("body").append($popup);
-
   $("#close-dashboard-popup").on("click", () => $("#dashboard-popup").remove());
-
   $popup.find(".btn-salvar").on("click", async () => {
     const inputs = $popup.find("input.form-input");
     const novoLabel = inputs.eq(0).val(); // campo 0 = etiqueta
-
     const payloadAtributos = {
       floor: inputs.eq(1).val(),
       NumLoja: inputs.eq(2).val(),
@@ -1395,7 +1812,6 @@ async function openDashboardPopup(entityId, entityType, insueDate) {
       maxNightConsumption: inputs.eq(7).val(),
       maxBusinessConsumption: inputs.eq(8).val(),
     };
-
     try {
       // 1. Buscar entidade completa
       const entityResponse = await fetch(`/api/device/${entityId}`, {
@@ -1405,13 +1821,10 @@ async function openDashboardPopup(entityId, entityType, insueDate) {
           "X-Authorization": `Bearer ${jwtToken}`,
         },
       });
-
       if (!entityResponse.ok)
         throw new Error("Erro ao buscar entidade para atualizar label");
-
       const entity = await entityResponse.json();
       entity.label = novoLabel;
-
       // 2. Atualizar o label via POST (saveDevice)
       const updateLabelResponse = await fetch(`/api/device`, {
         method: "POST",
@@ -1421,10 +1834,8 @@ async function openDashboardPopup(entityId, entityType, insueDate) {
         },
         body: JSON.stringify(entity),
       });
-
       if (!updateLabelResponse.ok)
         throw new Error("Erro ao atualizar etiqueta (label)");
-
       // 3. Enviar os atributos ao SERVER_SCOPE
       const attrResponse = await fetch(
         `/api/plugins/telemetry/DEVICE/${entityId}/SERVER_SCOPE`,
@@ -1437,13 +1848,9 @@ async function openDashboardPopup(entityId, entityType, insueDate) {
           body: JSON.stringify(payloadAtributos),
         }
       );
-
       if (!attrResponse.ok) throw new Error("Erro ao salvar atributos");
-
       alert("Configurações salvas com sucesso!");
-
       $("#dashboard-popup").remove();
-
       location.reload();
     } catch (err) {
       console.error("Erro ao salvar configurações:", err);
@@ -1472,8 +1879,8 @@ function updateReportTable() {
                     <td>${device.entityLabel}</td>
                     <td>${deviceId}</td>
                     <td>${
-                      device.consumptionKwh != null
-                        ? MyIOLibrary.formatEnergy(device.consumptionKwh)
+                      device.consumptionM3 != null
+                        ? device.consumptionM3.toFixed(2)
                         : "-"
                     }</td>
                 </tr>
@@ -1512,7 +1919,7 @@ function exportToCSVAll(reportData) {
 
   let totalconsumption = 0;
   reportData.forEach((data) => {
-    totalconsumption = totalconsumption + data.consumptionKwh;
+    totalconsumption = totalconsumption + data.consumptionM3;
   });
   rows.push(["DATA EMISSÃO", dataHoraFormatada]);
   rows.push(["Total", totalconsumption.toFixed(2)]);
@@ -1521,8 +1928,8 @@ function exportToCSVAll(reportData) {
     rows.push([
       data.entityLabel || data.deviceName || "-",
       data.deviceId || "-",
-      data.consumptionKwh != null
-        ? formatNumberReadable(data.consumptionKwh)
+      data.consumptionM3 != null
+        ? formatNumberReadable(data.consumptionM3)
         : "0,00",
     ]);
   });
@@ -1541,89 +1948,6 @@ function exportToCSVAll(reportData) {
   document.body.removeChild(link);
 }
 
-function renderHeaderStats(reportData) {
-  const elCount = document.getElementById('storesCount');
-  const elTotal = document.getElementById('totalKwh');
-  if (!elCount || !elTotal) return;
-
-  // conta de linhas (se quiser contar só válidas, filtre aqui)
-  const totalLojas = Array.isArray(reportData) ? reportData.length : 0;
-
-  // soma consumo
-  const totalKwh = (Array.isArray(reportData) ? reportData : [])
-    .reduce((acc, row) => acc + (Number(row.consumptionKwh) || 0), 0);
-
-  elCount.textContent = totalLojas.toString();
-  // use a mesma formatação do widget
-  elTotal.textContent = MyIOLibrary.formatEnergy(totalKwh);
-}
-
-/**
- * Uma página do endpoint:
- * /api/v1/telemetry/customers/{customerId}/energy/devices/totals
- * baseUrl já deve conter startTime & endTime (e o que mais você quiser fixo).
- * Aqui só acrescentamos page & limit.
- */
-async function fetchCustomerTotalsPage({ baseUrl, token, page = 1, limit = 200 }) {
-  const url = `${baseUrl}&page=${page}&limit=${limit}`;
-  console.info(`[fetchCustomerTotalsPage] GET page=${page} limit=${limit} → ${url}`);
-
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`[fetchCustomerTotalsPage] ${res.status} ${res.statusText} ${text}`);
-  }
-
-  const json = await res.json();
-  const got = Array.isArray(json?.data) ? json.data.length : 0;
-  const pages = Number(json?.pagination?.pages || 1);
-  const total = Number(json?.pagination?.total ?? got);
-
-  console.debug(`[fetchCustomerTotalsPage] page=${page} got=${got} pages=${pages} total=${total}`);
-  return json;
-}
-
-/**
- * Busca todas as páginas e devolve um ÚNICO array de items (achatado).
- * Usa pagination.pages quando disponível, com fallback por "data.length < limit".
- */
-async function fetchAllCustomerTotals({ baseUrl, token, limit = 200 }) {
-  console.log(`[fetchAllCustomerTotals] Start limit=${limit}`);
-  console.log(`[fetchAllCustomerTotals] Probe first page...`);
-
-  const first = await fetchCustomerTotalsPage({ baseUrl, token, page: 1, limit });
-  const out = Array.isArray(first?.data) ? [...first.data] : [];
-
-  let totalPages = Number(first?.pagination?.pages || 1);
-
-  if (totalPages > 1) {
-    for (let p = 2; p <= totalPages; p++) {
-      const next = await fetchCustomerTotalsPage({ baseUrl, token, page: p, limit });
-      if (Array.isArray(next?.data)) out.push(...next.data);
-    }
-  } else {
-    // Fallback: se não veio pagination.pages, iterate até vir menos que limit
-    const firstCount = Array.isArray(first?.data) ? first.data.length : 0;
-    if (firstCount === limit) {
-      let p = 2;
-      while (true) {
-        const next = await fetchCustomerTotalsPage({ baseUrl, token, page: p, limit });
-        const items = Array.isArray(next?.data) ? next.data : [];
-        out.push(...items);
-        if (items.length < limit) break; // última página
-        p++;
-        if (p > 200) { // guarda
-          console.warn(`[fetchAllCustomerTotals] Safety break at page ${p}`);
-          break;
-        }
-      }
-    }
-  }
-
-  console.log(`[fetchAllCustomerTotals] Done. items=${out.length}`);
-  return out;
-}
-
 async function openDashboardPopupAllReport(entityId, entityType) {
   $("#dashboard-popup").remove();
 
@@ -1631,7 +1955,7 @@ async function openDashboardPopupAllReport(entityId, entityType) {
   const popupContent = `
 <div class="widget-container">
     <div class="widget-header">
-        <h3 class="widget-title">Relatório de Consumo de Energia</h3>
+        <h3 class="widget-title">Relatório de Consumo de Água</h3>
         <div class="date-range">
             <input type="date" id="startDate">
             <span>até</span>
@@ -1646,7 +1970,7 @@ async function openDashboardPopupAllReport(entityId, entityType) {
           background:#f5f5f5; border:1px solid #e0e0e0; 
           border-radius:6px; padding:6px 10px; font-size:14px;">
           <span>🛍️ Lojas: <strong id="storesCount">0</strong></span>
-          <span>⚡ Total consumo: <strong id="totalKwh">0,00 kWh</strong></span>
+          <span>💧 Total consumo: <strong id="totalM3">0,00 m³</strong></span>
         </div>
         <div style="display: flex; gap: 10px;"> 
             <button id="exportCsvBtn" disabled
@@ -1670,8 +1994,8 @@ async function openDashboardPopupAllReport(entityId, entityType) {
                     <th class="sortable" data-sort-key="deviceId">
                         <span class="label">Identificador</span><span class="arrow"></span>
                     </th>
-                    <th class="sortable" data-sort-key="consumptionKwh">
-                        <span class="label">Consumo</span><span class="arrow"></span>
+                    <th class="sortable" data-sort-key="consumptionM3">
+                        <span class="label">Consumo (M³)</span><span class="arrow"></span>
                     </th>
                 </tr>
             </thead>
@@ -1978,7 +2302,7 @@ tr:hover {
         align-items: center;
         position: relative;
     ">
-        Consumo Geral por Loja
+        Consumo Geral por Loja - Água
         <button id="close-dashboard-popup" style="
             position: absolute; top: 10px; right: 10px;
             background: #f44336; color: white; border: none;
@@ -1995,81 +2319,40 @@ tr:hover {
 
   $("body").append($popup);
 
-  // === ALL STORES REPORT: FULLY LOCAL STATE + LOCAL BUTTON ===
-  const allReportState = { start: '', end: '' };
-
-  function setAllDates({start, end}) {
-    if (start) allReportState.start = start;
-    if (end)   allReportState.end   = end;
-    console.log('[ALL] set dates →', allReportState);
-    $popup.find('#startDate').val(allReportState.start || '');
-    $popup.find('#endDate').val(allReportState.end || '');
-  }
-
-  // Initialize with snapshot copy (not bound)
-  setAllDates(DatesStore.get());
-
-  // Local inputs (scoped to this popup)
-  $popup.off('change.allDates', '#startDate,#endDate')
-    .on('change.allDates', '#startDate,#endDate', () => {
-      setAllDates({
-        start: $popup.find('#startDate').val(),
-        end:   $popup.find('#endDate').val()
-      });
-    });
-
-  // Log popup open event
-  const customerId = (self.ctx.settings && self.ctx.settings.customerId);
-  console.log('[ALL] popup open', { customerId });
-  $popup.on('remove', () => console.log('[ALL] popup closed'));
+  // Get customerId from settings or use default
+  const customerId = self.ctx.settings && self.ctx.settings.customerId;
+  console.log("[water] popup open", { customerId });
 
   const originalDatasources = self.ctx.datasources || [];
-  //console.log("datasources", datasources);
+  const datasources = originalDatasources.filter(
+    (ds) => ds.aliasName !== "Caixas de agua"
+  );
 
-  const datasources = originalDatasources.filter(ds => {
-    console.log("ds >>> ", ds);
-    const lbl = (ds.label || ds.entity?.label || ds.entityLabel || ds.entityName || "").toLowerCase();
-
-    // regex para detectar padrões indesejados
-    return !(
-      /bomba.*secund[aá]ria/.test(lbl) ||
-      /^administra[cç][aã]o\s*1\b/.test(lbl) ||
-      /^administra[cç][aã]o\s*2\b/.test(lbl) ||
-      /^pista[cç][aã]o\s*2\b/.test(lbl) ||
-      /chiller/.test(lbl) ||
-      /ubesta/.test(lbl) ||
-      /^entrada\b/.test(lbl) ||
-      /^rel[oó]gio\b/.test(lbl)
-    );
-  }); 
-
-  // Ordena em ordem alfabética pelo label
+  // Sort alphabetically by label
   datasources.sort((a, b) => {
-    const labelA = (a.entity.label || "").toLowerCase();
-    const labelB = (b.entity.label || "").toLowerCase();
+    const labelA = (a.entity?.label || a.label || "").toLowerCase();
+    const labelB = (b.entity?.label || b.label || "").toLowerCase();
     if (labelA < labelB) return -1;
     if (labelA > labelB) return 1;
     return 0;
   });
-
-  console.log(`datasources count: ${datasources.length}`);
-  console.log("datasources >>> ", datasources);
 
   const attributeService = self.ctx.$scope.$injector.get(
     self.ctx.servicesMap.get("attributeService")
   );
 
   self.ctx.$scope.reportData = datasources.map((ds) => {
-    const entityLabel = ds.label || `Dispositivo (ID: ${ds.entityId.substring(0, 5)})`;
+    const entityLabel =
+      ds.label || `Dispositivo (ID: ${ds.entityId.substring(0, 5)})`;
 
     return {
       entityId: ds.entityId,
       entityType: ds.entityType,
       deviceName: entityLabel,
       entityLabel: entityLabel,
-      centralId: null, // será preenchido ao buscar atributos
-      slaveId: null, // será preenchido ao buscar atributos
-      consumptionKwh: null,
+      centralId: null,
+      slaveId: null,
+      consumptionM3: null,
       error: null,
       isValid: false,
     };
@@ -2081,7 +2364,6 @@ tr:hover {
       ds.entityLabel ||
       ds.entityName ||
       `Dispositivo (ID: ${ds.entityId.substring(0, 5)})`;
-
     let deviceReportEntry = {
       entityId: ds.entityId,
       entityAliasId: ds.entityAliasId,
@@ -2089,7 +2371,7 @@ tr:hover {
       entityLabel: entityLabel,
       centralId: null,
       slaveId: null,
-      consumptionKwh: null,
+      consumptionM3: null,
       error: null,
       isValid: false,
     };
@@ -2107,15 +2389,20 @@ tr:hover {
         )
         .toPromise();
 
-      const attrs = Array.isArray(deviceAttributes) ? deviceAttributes : (deviceAttributes?.data ?? []);
+      const attrs = Array.isArray(deviceAttributes)
+        ? deviceAttributes
+        : deviceAttributes?.data ?? [];
+      const centralIdAttr = attrs.find((a) => a.key === "centralId");
+      const slaveIdAttr = attrs.find((a) => a.key === "slaveId");
+      const deviceIdAttr = attrs.find((a) => a.key === "deviceId");
+      const ingestionIdAttr = attrs.find((a) => a.key === "ingestionId");
 
-      const centralIdAttr  = attrs.find(a => a.key === "centralId");
-      const slaveIdAttr    = attrs.find(a => a.key === "slaveId");
-      const deviceIdAttr   = attrs.find(a => a.key === "deviceId");
-      const ingestionIdAttr= attrs.find(a => a.key === "ingestionId");
       const centralIdValue = centralIdAttr ? centralIdAttr.value : null;
       const slaveIdRawValue = slaveIdAttr ? slaveIdAttr.value : null;
-      const slaveIdValue = typeof slaveIdRawValue === "string" ? parseInt(slaveIdRawValue, 10) : slaveIdRawValue;
+      const slaveIdValue =
+        typeof slaveIdRawValue === "string"
+          ? parseInt(slaveIdRawValue, 10)
+          : slaveIdRawValue;
       const deviceIdValue = deviceIdAttr ? deviceIdAttr.value : null;
       const ingestionId = ingestionIdAttr?.value || null;
 
@@ -2142,96 +2429,38 @@ tr:hover {
   updateReportTable(self.ctx.$scope.reportData);
   renderHeaderStats(self.ctx.$scope.reportData);
 
-  // Seleciona o botão
+  // Load data button click handler
   $("#loadDataBtn").on("click", async () => {
-    const startDateStr = $("#startDate").val(); // yyyy-MM-dd
-    const endDateStr = $("#endDate").val(); // yyyy-MM-dd
+    const startDateStr = $("#startDate").val();
+    const endDateStr = $("#endDate").val();
 
     if (!startDateStr || !endDateStr) {
       alert("Selecione as duas datas antes de carregar.");
       return;
     }
 
-    // Quebra a string em ano, mês, dia
-    const [startY, startM, startD] = startDateStr.split("-").map(Number);
-    const [endY, endM, endD] = endDateStr.split("-").map(Number);
-
-    // Cria datas no horário local
-    const startDate = new Date(startY, startM - 1, startD, 0, 0, 0, 0);
-    const endDate = new Date(endY, endM - 1, endD, 23, 59, 59, 999);
-
-    const datasources = self.ctx.datasources || [];
-    if (datasources.length === 0) {
-      console.warn("Nenhum datasource encontrado");
-      return;
-    }
-
-    // Get customerId from settings or use default
-    const customerId = (self.ctx.settings && self.ctx.settings.customerId);
-    if (!CUSTOMER_ID) {
-      alert("customerId ausente. Configure o widget (settings.customerId) ou CUSTOMER_ID.");
-      return;
-    }
-
     try {
       // Format timestamps with timezone offset
-      const startTime = toISOWithOffset(startDate);
-      const endTime = toISOWithOffset(endDate, true);
-      
-      // Build Data API URL for customer totals
-      const baseUrl = `${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/energy/devices/totals?startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`;
-      
-      console.log(`[loadDataBtn] Calling Data API customer totals: ${baseUrl.split('?')[0]} with customerId=${customerId}`);
+      const startTime = toSpOffsetNoMs(new Date(startDateStr + "T00:00:00"));
+      const endTime = toSpOffsetNoMs(new Date(endDateStr + "T23:59:59"), true);
 
-      // Fetch all customer totals with pagination
-      //const allDeviceData = await fetchAllCustomerTotals(baseUrl);
+      console.log("start time =========>", startTime);
+      console.log("end time =========>", endTime);
 
-      const TOKEN_INJESTION = await MyIOAuth.getToken();
-
-      const allDeviceData = await fetchAllCustomerTotals({
-        baseUrl,
-        token: TOKEN_INJESTION,
-        limit: 100, // ajuste fino
+      // Use the water totals API
+      const apiData = await fetchCustomerWaterTotals(customerId, {
+        startTime,
+        endTime,
       });
+      console.log("api data ==========>   ", apiData);
 
-      const allDeviceDataFiltered = allDeviceData.filter(ds => {
-        const lbl = (ds.label || ds.entity?.label || ds.entityLabel || ds.entityName || "").toLowerCase();
-        
-        // regex para detectar padrões indesejados
-        return !(
-          /bomba.*secund[aá]ria/.test(lbl) ||
-          /^administra[cç][aã]o\s*1\b/.test(lbl) ||
-          /^administra[cç][aã]o\s*2\b/.test(lbl) ||
-          /^pista[cç][aã]o\s*2\b/.test(lbl) ||
-          /chiller/.test(lbl) ||
-          /ubesta/.test(lbl) ||
-          /^entrada\b/.test(lbl) ||
-          /^rel[oó]gio\b/.test(lbl)
-        );
-      });      
+      const apiList = normalizeApiList(apiData);
 
-      /*
-      const allDeviceDataFiltered = allDeviceData.filter(ds => {
-        const lbl = ds.label || ds.entity?.label || ds.entityLabel || ds.entityName || "";
-        console.log(" allDeviceDataFiltered >>> full data:", ds);
-        return isLojaLabel(lbl);
-      });
-      */
-
-      // 2) ordena por label
-      allDeviceDataFiltered.sort((a, b) => {
-        const labelA = (a.entity?.label || a.label || '').toLowerCase();
-        const labelB = (b.entity?.label || b.label || '').toLowerCase();
-        return labelA.localeCompare(labelB);
-      });
-
-      console.log(`datasources (filtrados) count: ${allDeviceDataFiltered.length}`);      
+      console.log(`[loadDataBtn] Water API returned ${apiList.length} devices`);
 
       // Create map by device ID for fast lookup
       const deviceDataMap = new Map();
-      let zeroFilledCount = 0;
-      
-      allDeviceDataFiltered.forEach((device) => {
+      apiList.forEach((device) => {
         if (device.id) {
           deviceDataMap.set(String(device.id), device);
         }
@@ -2239,52 +2468,48 @@ tr:hover {
 
       // Update report data with consumption values
       self.ctx.$scope.reportData.forEach((device) => {
-        if (device.ingestionId && isValidUUID(device.ingestionId)) {
+        if (device.ingestionId) {
           const apiDevice = deviceDataMap.get(String(device.ingestionId));
           if (apiDevice) {
-            device.consumptionKwh = Number(apiDevice.total_value || 0);
+            device.consumptionM3 = Number(
+              apiDevice.totalConsumption || apiDevice.total_value || 0
+            );
           } else {
-            device.consumptionKwh = 0;
-            zeroFilledCount++;
-            //console.log(`[loadDataBtn] Zero-filled '${device.entityLabel}': no readings in range`);
+            device.consumptionM3 = 0;
           }
         } else {
-          device.consumptionKwh = 0;
+          device.consumptionM3 = 0;
           device.error = "Dispositivo sem ingestionId válido";
           device.isValid = false;
-          console.warn(`[loadDataBtn] Device '${device.entityLabel}' has invalid or missing ingestionId`);
         }
       });
 
-      if (zeroFilledCount > 0) {
-        //console.log(`[loadDataBtn] Zero-filled ${zeroFilledCount} devices with no readings in the selected time range`);
-      }
-
-      // Defaults if not already set
-      self.ctx.$scope.sortColumn  = self.ctx.$scope.sortColumn  || 'consumptionKwh';
+      // Set default sorting
+      self.ctx.$scope.sortColumn =
+        self.ctx.$scope.sortColumn || "consumptionM3";
       self.ctx.$scope.sortReverse = self.ctx.$scope.sortReverse ?? true;
 
-      // Initial render with sorting applied
+      // Apply sorting
       applySortAndDetectChanges();
-      if (Array.isArray(self.ctx.$scope.reportDataSorted) && self.ctx.$scope.reportDataSorted.length) {
+      if (
+        Array.isArray(self.ctx.$scope.reportDataSorted) &&
+        self.ctx.$scope.reportDataSorted.length
+      ) {
         self.ctx.$scope.reportData = self.ctx.$scope.reportDataSorted;
       }
 
-      // Atualiza a tabela no popup
+      // Update table and UI
       updateReportTable(self.ctx.$scope.reportData);
       habilitarBotaoExport();
       renderHeaderStats(self.ctx.$scope.reportData);
-
-      // Update header arrows to match current state
       updateMainReportSortUI();
-
-      // Attach header click handlers
       attachMainReportSortHeaderHandlers();
-      
-      console.log(`[loadDataBtn] Successfully updated ${self.ctx.$scope.reportData.length} devices in report table`);
-      
+
+      console.log(
+        `[loadDataBtn] Successfully updated ${self.ctx.$scope.reportData.length} devices in report table`
+      );
     } catch (err) {
-      console.error("[loadDataBtn] Error fetching from Data API:", err);
+      console.error("[loadDataBtn] Error fetching from Water API:", err);
       alert("Erro ao buscar dados da API. Veja console para detalhes.");
     }
   });
@@ -2295,20 +2520,17 @@ tr:hover {
 
   $("#close-dashboard-popup").on("click", () => $("#dashboard-popup").remove());
 
-  // Aqui você pode adicionar sua lógica de atualização dos cards/tabela
-  // Exemplo simples de evitar duplicação:
-  function updateCardOrAdd(group, entityId, label, val, $card) {
-    const $existingCard = $(
-      `#dashboard-popup .device-card-centered[data-entity-id="${entityId}"]`
+  // Helper function to render header stats
+  function renderHeaderStats(reportData) {
+    const validDevices = reportData.filter((d) => d.isValid);
+    const totalConsumption = validDevices.reduce(
+      (sum, d) => sum + (d.consumptionM3 || 0),
+      0
     );
-    if ($existingCard.length) {
-      $existingCard.find(".consumption-value").text(val);
-    } else {
-      $(`#dashboard-popup .card-list[data-group="${group}"]`).append($card);
-    }
-  }
 
-  // E sua função de carregar dados e preencher a tabela/cards
+    $("#storesCount").text(validDevices.length);
+    $("#totalM3").text(formatNumberReadable(totalConsumption) + " m³");
+  }
 }
 
 function getSaoPauloISOString(dateStr, endOfDay = false) {
@@ -2326,51 +2548,48 @@ function applySortAndDetectChanges() {
     self.ctx.detectChanges();
     return;
   }
-
   let sortedData = [...self.ctx.$scope.reportData];
-
   sortedData.sort((a, b) => {
     let valA = a[self.ctx.$scope.sortColumn];
     let valB = b[self.ctx.$scope.sortColumn];
-
-    if (self.ctx.$scope.sortColumn === "consumptionKwh") {
+    if (self.ctx.$scope.sortColumn === "consumptionM3") {
       valA = Number(valA);
       valB = Number(valB);
     }
-
     if (valA < valB) return self.ctx.$scope.sortReverse ? 1 : -1;
     if (valA > valB) return self.ctx.$scope.sortReverse ? -1 : 1;
-
     return 0;
   });
-
   self.ctx.$scope.reportDataSorted = sortedData;
   self.ctx.detectChanges();
 }
 
 // Function to update header arrow states for main report popup
 function updateMainReportSortUI() {
-  const currentColumn = self.ctx.$scope.sortColumn || 'consumptionKwh';
+  const currentColumn = self.ctx.$scope.sortColumn || "consumptionM3";
   const isReverse = !!self.ctx.$scope.sortReverse;
 
   // Remove all active states and reset arrows
-  $('#reportTable th.sortable').removeClass('active asc desc');
+  $("#reportTable th.sortable").removeClass("active asc desc");
 
   // Set active state and direction for current column
-  const $activeHeader = $(`#reportTable th.sortable[data-sort-key="${currentColumn}"]`);
+  const $activeHeader = $(
+    `#reportTable th.sortable[data-sort-key="${currentColumn}"]`
+  );
   if ($activeHeader.length) {
-    $activeHeader.addClass('active');
-    $activeHeader.addClass(isReverse ? 'desc' : 'asc');
+    $activeHeader.addClass("active");
+    $activeHeader.addClass(isReverse ? "desc" : "asc");
   }
 }
 
 // Function to attach click handlers to sortable headers for main report popup
 function attachMainReportSortHeaderHandlers() {
-  $(document).off('click.myioHeaderSort', '#reportTable th.sortable')
-    .on('click.myioHeaderSort', '#reportTable th.sortable', function() {
+  $(document)
+    .off("click.myioHeaderSort", "#reportTable th.sortable")
+    .on("click.myioHeaderSort", "#reportTable th.sortable", function () {
       const $header = $(this);
-      const sortKey = $header.data('sort-key');
-      
+      const sortKey = $header.data("sort-key");
+
       if (!sortKey) return;
 
       // Toggle direction if clicking same column, otherwise default to ascending
@@ -2383,17 +2602,20 @@ function attachMainReportSortHeaderHandlers() {
 
       // Apply sorting
       applySortAndDetectChanges();
-      if (Array.isArray(self.ctx.$scope.reportDataSorted) && self.ctx.$scope.reportDataSorted.length) {
+      if (
+        Array.isArray(self.ctx.$scope.reportDataSorted) &&
+        self.ctx.$scope.reportDataSorted.length
+      ) {
         self.ctx.$scope.reportData = self.ctx.$scope.reportDataSorted;
       }
-      
+
       // Update table and UI
       updateReportTable(self.ctx.$scope.reportData);
       updateMainReportSortUI();
-      
-      // Sync dropdowns with new state
-      $('#reportSortBy').val(self.ctx.$scope.sortColumn);
-      $('#reportSortDir').val(self.ctx.$scope.sortReverse ? 'desc' : 'asc');
+
+      // Sync dropdowns with new state (if they exist)
+      $("#reportSortBy").val(self.ctx.$scope.sortColumn);
+      $("#reportSortDir").val(self.ctx.$scope.sortReverse ? "desc" : "asc");
     });
 }
 
@@ -2410,50 +2632,130 @@ function getDateRangeArray(start, end) {
   return arr;
 }
 
-function exportToCSV(
-  reportData,
-  entityLabel,
-  totalconsumption,
-  entityUpdatedIdentifiers,
-  insueDate
-) {
+function exportToCSV(reportData, insueDate, name, identify) {
   if (!reportData?.length) {
     alert("Erro: Nenhum dado disponível para exportar.");
     return;
   }
 
   const rows = [];
-
-  rows.push(["Dispositivo/Loja", entityLabel, entityUpdatedIdentifiers]);
+  let totalconsumption = 0;
+  reportData.forEach((data) => {
+    totalconsumption = totalconsumption + Number(data.totalConsumption);
+  });
   rows.push(["DATA EMISSÃO", insueDate]);
-  rows.push(["Total", totalconsumption]);
-  rows.push(["Data", "Consumo"]);
-
+  rows.push(["Total", totalconsumption.toFixed(2)]);
+  rows.push(["Loja:", name, identify]);
+  rows.push([
+    "Data",
+    "Dia da Semana",
+    "Consumo Médio (m³)",
+    "Consumo Mínimo (m³)",
+    "Consumo Máximo (m³)",
+    "Consumo (m³)",
+  ]);
   reportData.forEach((data) => {
     rows.push([
-      data.date || "-",
-      data.consumptionKwh != null
-        ? formatNumberReadable(data.consumptionKwh)
-        : "0,00",
+      data.formattedDate,
+      data.day,
+      data.avgConsumption,
+      data.minDemand,
+      data.maxDemand,
+      data.totalConsumption,
     ]);
   });
 
-  const csvContent = "data:text/csv;charset=utf-8," + rows.map((e) => e.join(";")).join("\n");
+  const csvContent =
+    "data:text/csv;charset=utf-8," + rows.map((e) => e.join(";")).join("\n");
   const link = document.createElement("a");
-
   link.setAttribute("href", encodeURI(csvContent));
   link.setAttribute(
     "download",
-    `relatorio_consumo_${new Date()
-      .toISOString()
-      .slice(0, 10)}_${entityLabel}.csv`
+    `registro_consumo_loja${reportData[0].name}.csv`
   );
-
   document.body.appendChild(link);
-
   link.click();
-
   document.body.removeChild(link);
+}
+
+// ✨ NEW - SDK-style chart/iFrame open function (v3.4.0)
+function openWaterChartIframe(deviceId, startDate, endDate) {
+  // Container - try both possible container IDs
+  let container = document.getElementById("chart-wrapper");
+  if (!container) {
+    container = document.getElementById("chart-container");
+  }
+  if (!container) {
+    console.error(
+      "openWaterChartIframe(): Neither #chart-wrapper nor #chart-container found"
+    );
+    return;
+  }
+
+  // Destroy previous
+  if (self.chartInstance && typeof self.chartInstance.destroy === "function") {
+    self.chartInstance.destroy();
+    self.chartInstance = null;
+  }
+  container.innerHTML = "";
+
+  // SDK check (as in template)
+  if (
+    !window.EnergyChartSDK ||
+    typeof window.EnergyChartSDK.renderTelemetryChart !== "function"
+  ) {
+    console.error("EnergyChartSDK v2 (renderTelemetryChart) not loaded!");
+    container.innerHTML =
+      '<div style="padding: 20px; text-align: center; color: red;">EnergyChartSDK v2 (renderTelemetryChart) not loaded. Check widget configuration and browser console.</div>';
+    return;
+  }
+
+  const settings = self.ctx.settings || {};
+  const tw = self.ctx.timeWindow;
+  const timezone = "America/Sao_Paulo";
+  /*
+    const startISO  = formatDateTimeToISO(tw.minTime, timezone);
+    const endISO    = formatDateTimeToISO(tw.maxTime, timezone);
+    */
+
+  const gran = "1d"; //determineGranularity(tw.minTime, tw.maxTime);
+  const clientId = settings.clientId || "ADMIN_DASHBOARD_CLIENT";
+  const clientSecret = settings.clientSecret || "admin_dashboard_secret_2025";
+  const apiBaseUrl = settings.apiBaseUrl || DATA_API_HOST;
+  const iframeBase =
+    settings.iframeBaseUrl || "https://graphs.apps.myio-bas.com";
+  const theme = settings.theme || "light";
+
+  console.log(
+    `Initializing v2 water chart: deviceId=${deviceId}, start=${startDate}, end=${endDate}, granularity=${gran}, tz=${timezone}`
+  );
+  self.chartInstance = window.EnergyChartSDK.renderTelemetryChart(container, {
+    version: "v2",
+    clientId,
+    clientSecret,
+    deviceId,
+    readingType: "water",
+    startDate: startDate,
+    endDate: endDate,
+    granularity: gran,
+    theme,
+    timezone,
+    iframeBaseUrl: iframeBase,
+    apiBaseUrl,
+  });
+
+  // Optional listeners (template does this)
+  if (self.chartInstance && typeof self.chartInstance.on === "function") {
+    self.chartInstance.on("drilldown", (evt) =>
+      console.log("v2 Water SDK Drilldown:", evt)
+    );
+    self.chartInstance.on("error", (err) => {
+      console.error("v2 Water SDK Error:", err);
+      container.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">v2 Water Chart Error: ${
+        err.message || "Unknown error"
+      }</div>`;
+    });
+  }
 }
 
 function formatNumberReadable(value) {
@@ -2477,17 +2779,15 @@ function habilitarBotaoExport() {
 function openDashboardPopupReport(
   entityId,
   entityType,
-  entitySlaveId,
-  entityCentralId,
   entityIngestionId,
   entityLabel,
   entityComsuption,
-  entityUpdatedIdentifiers
+  entityUpdatedIdentifiers,
+  sourceName
 ) {
   const insueDate = $("#dashboard-popup").remove();
 
   const popupContent = `
-
     <div style="
       font-family: 'Roboto', sans-serif; 
       padding: 20px; 
@@ -2506,7 +2806,7 @@ function openDashboardPopupReport(
         gap: 16px;
       ">
         <div>
-            <h2 style="font-size: 18px; font-weight: 500; color: #333; margin: 0 0 -20px 0;">Relatório Consumo de Energia Geral por Loja </h2>
+            <h2 style="font-size: 18px; font-weight: 500; color: #333; margin: 0 0 -20px 0;">Relatório Consumo de Água Geral por Loja </h2>
             <h2 style="font-size: 18px; font-weight: 500; color: #333; margin: 0 0 -20px 0;">Dispositivo/Loja: ${entityLabel} - ${entityUpdatedIdentifiers} </h2>
             <div style="display: flex; flex-direction=row">
                 <h2 style="font-size: 18px; font-weight: 500; color: #333; margin: 0 5px 0 0;">DATA EMISSÃO: </h2>
@@ -2550,7 +2850,6 @@ function openDashboardPopupReport(
 
         
       </div>
-
   
       <div style="
         flex: 1; 
@@ -2585,11 +2884,11 @@ function openDashboardPopupReport(
               ">
                 <span class="label">Data</span><span class="arrow"></span>
               </th>
-              <th class="sortable" data-sort-key="consumptionKwh" style="
+              <th class="sortable" data-sort-key="consumptionM3" style="
                 background-color: #5c307d; color: white; padding: 12px; text-align: left; font-weight: 500;
                 user-select: none; position: sticky; top: 0; z-index: 1; cursor: pointer;
               ">
-                <span class="label">Consumo</span><span class="arrow"></span>
+                <span class="label">Consumo (m³)</span><span class="arrow"></span>
               </th>
             </tr>
           </thead>
@@ -2653,7 +2952,7 @@ function openDashboardPopupReport(
       align-items: center;
       position: relative;
     ">
-      Consumo de Loja
+      Consumo de Água
       <button id="close-dashboard-popup" style="
         position: absolute; top: 10px; right: 10px; 
         background: #f44336; color: white; border: none; 
@@ -2671,48 +2970,56 @@ function openDashboardPopupReport(
   $("body").append($popup);
 
   // === DEVICE REPORT POPUP: FULLY LOCAL STATE + LOCAL BUTTON ===
-  const reportState = { start: '', end: '' };
+  const reportState = { start: "", end: "" };
 
-  function setReportDates({start, end}) {
+  function setReportDates({ start, end }) {
     if (start) reportState.start = start;
-    if (end)   reportState.end   = end;
-    console.log('[REPORT] set dates →', reportState);
-    $popup.find('#start-date').val(reportState.start || '');
-    $popup.find('#end-date').val(reportState.end || '');
+    if (end) reportState.end = end;
+    console.log("[WATER REPORT] set dates →", reportState);
+    $popup.find("#start-date").val(reportState.start || "");
+    $popup.find("#end-date").val(reportState.end || "");
   }
 
-  // Initialize with snapshot copy (not bound)
-  setReportDates(DatesStore.get());
+  // Initialize with current widget dates
+  setReportDates({
+    start: self.ctx?.$scope?.startDate || "",
+    end: self.ctx?.$scope?.endDate || "",
+  });
 
   // Local inputs (scoped to this popup)
-  $popup.off('change.reportDates', '#start-date,#end-date')
-    .on('change.reportDates', '#start-date,#end-date', () => {
+  $popup
+    .off("change.reportDates", "#start-date,#end-date")
+    .on("change.reportDates", "#start-date,#end-date", () => {
       setReportDates({
-        start: $popup.find('#start-date').val(),
-        end:   $popup.find('#end-date').val()
+        start: $popup.find("#start-date").val(),
+        end: $popup.find("#end-date").val(),
       });
     });
 
   // Log popup open event
-  console.log('[REPORT] popup open', { deviceId: entityId, ingestionId: entityIngestionId });
-  $popup.on('remove', () => console.log('[REPORT] popup closed'));
+  console.log("[WATER REPORT] popup open", {
+    deviceId: entityId,
+    ingestionId: entityIngestionId,
+  });
+  $popup.on("remove", () => console.log("[WATER REPORT] popup closed"));
 
   $("#close-dashboard-popup").on("click", () => $("#dashboard-popup").remove());
 
   function applyDetailSort(rows) {
-    const col = self.ctx.$scope.detailSortColumn || 'date';
+    const col = self.ctx.$scope.detailSortColumn || "date";
     const rev = !!self.ctx.$scope.detailSortReverse;
 
     return [...rows].sort((a, b) => {
-      let x = a[col], y = b[col];
+      let x = a[col],
+        y = b[col];
 
-      if (col === 'consumptionKwh') {
+      if (col === "consumptionM3") {
         x = Number(x || 0);
         y = Number(y || 0);
       } else {
         // assume 'date' in dd/mm/yyyy format, convert to Date for comparison
         const parseBR = (dmy) => {
-          const [d,m,y] = String(dmy).split('/');
+          const [d, m, y] = String(dmy).split("/");
           return new Date(`${y}-${m}-${d}T00:00:00-03:00`);
         };
         x = parseBR(x);
@@ -2739,8 +3046,10 @@ function openDashboardPopupReport(
     let sortedData = data;
     if (data.length > 0) {
       // Use current state (no dropdown reading needed)
-      self.ctx.$scope.detailSortColumn  = self.ctx.$scope.detailSortColumn  || 'date';
-      self.ctx.$scope.detailSortReverse = self.ctx.$scope.detailSortReverse || false;
+      self.ctx.$scope.detailSortColumn =
+        self.ctx.$scope.detailSortColumn || "date";
+      self.ctx.$scope.detailSortReverse =
+        self.ctx.$scope.detailSortReverse || false;
 
       sortedData = applyDetailSort(data);
     }
@@ -2759,42 +3068,60 @@ function openDashboardPopupReport(
         <td style="padding: 8px 12px; color: ${corTexto}; background-color: ${corFundo}; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5)">${
         item.date
       }</td>
-        <td style="padding: 8px 12px; color: ${corTexto}; background-color: ${corFundo};text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5)">${MyIOLibrary.formatEnergy(item.consumptionKwh)}</td>
+        <td style="padding: 8px 12px; color: ${corTexto}; background-color: ${corFundo};text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5)">${MyIOLibrary.formatEnergyByGroup(
+        item.consumptionM3,
+        "Ambientes"
+      )}</td>
     `;
       tbody.appendChild(tr);
     });
   }
 
   // Local load button (scoped) - replaces the old global #btn-load handler
-  $popup.off('click.reportLoad', '.report-load, #btn-load')
-    .on('click.reportLoad', '.report-load, #btn-load', async () => {
+  $popup
+    .off("click.reportLoad", ".report-load, #btn-load")
+    .on("click.reportLoad", ".report-load, #btn-load", async () => {
       const { start, end } = reportState;
-      if (!start || !end) return alert('Selecione as datas de início e fim.');
-      console.log('[REPORT] Load clicked with', { start, end });
+      if (!start || !end) return alert("Selecione as datas de início e fim.");
+      console.log("[WATER REPORT] Load clicked with", { start, end });
 
-      if (!entityIngestionId || !isValidUUID(entityIngestionId)) {
-        alert("Dispositivo não possui ingestionId válido para consulta na Data API.");
+      if (!entityIngestionId) {
+        alert(
+          "Dispositivo não possui ingestionId válido para consulta na Data API."
+        );
         return;
       }
 
       try {
         // Format timestamps with timezone offset
-        const startTime = toISOWithOffset(new Date(start + "T00:00:00-03:00"));
-        const endTime = toISOWithOffset(new Date(end + "T23:59:59-03:00"), true);
+        const startTime = toSpOffsetNoMs(new Date(start + "T00:00:00"));
+        const endTime = toSpOffsetNoMs(new Date(end + "T23:59:59"), true);
 
-        console.log(`[REPORT] Fetching data for ingestionId=${entityIngestionId} from ${startTime} to ${endTime}`);
-        
-        // Build Data API URL with required parameters
-        const url = `${DATA_API_HOST}/api/v1/telemetry/devices/${entityIngestionId}/energy?startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}&granularity=1d&page=1&pageSize=1000&deep=0`;
+        console.log(
+          `[WATER REPORT] Fetching data for ingestionId=${entityIngestionId} from ${startTime} to ${endTime}`
+        );
 
-        console.log(`[REPORT] Calling Data API: ${url.split('?')[0]} with deviceId=${entityIngestionId}`);
+        // Build Data API URL with required parameters for water
+        const url = `${DATA_API_HOST}/api/v1/telemetry/devices/${entityIngestionId}/water?startTime=${encodeURIComponent(
+          startTime
+        )}&endTime=${encodeURIComponent(
+          endTime
+        )}&granularity=1d&page=1&pageSize=1000&deep=0`;
+
+        console.log(
+          `[WATER REPORT] Calling Data API: ${
+            url.split("?")[0]
+          } with deviceId=${entityIngestionId}`
+        );
 
         const response = await fetchWithAuth(url);
         const data = await response.json();
 
         // Handle response - expect array even for single device
         if (!Array.isArray(data) || data.length === 0) {
-          console.warn("[REPORT] Data API returned empty or invalid response");
+          console.warn(
+            "[WATER REPORT] Data API returned empty or invalid response"
+          );
           self.ctx.$scope.reportData = [];
           self.ctx.$scope.totalConsumption = 0;
           updateTable();
@@ -2803,14 +3130,14 @@ function openDashboardPopupReport(
 
         const deviceData = data[0]; // First (and likely only) device
         const consumption = deviceData.consumption || [];
-        
+
         // Generate date range array
         const dateRange = getDateRangeArray(start, end);
-        
+
         // Create map from consumption data
         const dailyMap = {};
         let totalconsumption = 0;
-        
+
         consumption.forEach((item) => {
           if (item.timestamp && item.value != null) {
             const date = item.timestamp.slice(0, 10); // Extract YYYY-MM-DD
@@ -2835,24 +3162,25 @@ function openDashboardPopupReport(
           const [ano, mes, dia] = dateStr.split("-");
           return {
             date: `${dia}/${mes}/${ano}`,
-            consumptionKwh: dailyMap[dateStr] != null ? dailyMap[dateStr] : 0,
+            consumptionM3: dailyMap[dateStr] != null ? dailyMap[dateStr] : 0,
           };
         });
 
         self.ctx.$scope.reportData = reportData;
         self.ctx.$scope.totalConsumption = totalconsumption;
         self.ctx.$scope.insueDate = insueDate;
-        document.getElementById("total-consumo").textContent = MyIOLibrary.formatEnergy(totalconsumption);
+        document.getElementById("total-consumo").textContent =
+          MyIOLibrary.formatEnergyByGroup(totalconsumption, "Ambientes");
         document.getElementById("inssueDate").textContent = insueDate;
 
         updateTable();
         habilitarBotaoExport();
-        applySortAndDetectChanges();
-        
-        console.log(`[REPORT] Successfully processed ${consumption.length} consumption records, total: ${totalconsumption} kWh`);
-        
+
+        console.log(
+          `[WATER REPORT] Successfully processed ${consumption.length} consumption records, total: ${totalconsumption} m³`
+        );
       } catch (error) {
-        console.error("[REPORT] Error fetching from Data API:", error);
+        console.error("[WATER REPORT] Error fetching from Data API:", error);
         alert("Erro ao buscar dados da API. Veja console para detalhes.");
         // Clear data on error
         self.ctx.$scope.reportData = [];
@@ -2866,10 +3194,9 @@ function openDashboardPopupReport(
     if (self.ctx.$scope.reportData) {
       exportToCSV(
         self.ctx.$scope.reportData,
+        self.ctx.$scope.insueDate,
         entityLabel,
-        self.ctx.$scope.totalConsumption,
-        entityUpdatedIdentifiers,
-        self.ctx.$scope.insueDate
+        entityUpdatedIdentifiers
       );
     } else {
       alert("Função exportar CSV ainda não implementada.");
@@ -2878,46 +3205,58 @@ function openDashboardPopupReport(
 
   // Function to update header arrow states for detail popup
   function updateDetailSortUI() {
-    const currentColumn = self.ctx.$scope.detailSortColumn || 'date';
+    const currentColumn = self.ctx.$scope.detailSortColumn || "date";
     const isReverse = !!self.ctx.$scope.detailSortReverse;
 
     // Remove all active states and reset arrows
-    $('#table-body').closest('table').find('th.sortable').removeClass('active asc desc');
+    $("#table-body")
+      .closest("table")
+      .find("th.sortable")
+      .removeClass("active asc desc");
 
     // Set active state and direction for current column
-    const $activeHeader = $(`#table-body`).closest('table').find(`th.sortable[data-sort-key="${currentColumn}"]`);
+    const $activeHeader = $(`#table-body`)
+      .closest("table")
+      .find(`th.sortable[data-sort-key="${currentColumn}"]`);
     if ($activeHeader.length) {
-      $activeHeader.addClass('active');
-      $activeHeader.addClass(isReverse ? 'desc' : 'asc');
+      $activeHeader.addClass("active");
+      $activeHeader.addClass(isReverse ? "desc" : "asc");
     }
   }
 
   // Function to attach click handlers to sortable headers for detail popup
   function attachDetailSortHeaderHandlers() {
-    $(document).off('click.myioDetailHeaderSort', '#dashboard-popup th.sortable')
-      .on('click.myioDetailHeaderSort', '#dashboard-popup th.sortable', function() {
-        const $header = $(this);
-        const sortKey = $header.data('sort-key');
-        
-        if (!sortKey) return;
+    $(document)
+      .off("click.myioDetailHeaderSort", "#dashboard-popup th.sortable")
+      .on(
+        "click.myioDetailHeaderSort",
+        "#dashboard-popup th.sortable",
+        function () {
+          const $header = $(this);
+          const sortKey = $header.data("sort-key");
 
-        // Toggle direction if clicking same column, otherwise default to ascending
-        if (self.ctx.$scope.detailSortColumn === sortKey) {
-          self.ctx.$scope.detailSortReverse = !self.ctx.$scope.detailSortReverse;
-        } else {
-          self.ctx.$scope.detailSortColumn = sortKey;
-          self.ctx.$scope.detailSortReverse = false; // Default to ascending for new column
+          if (!sortKey) return;
+
+          // Toggle direction if clicking same column, otherwise default to ascending
+          if (self.ctx.$scope.detailSortColumn === sortKey) {
+            self.ctx.$scope.detailSortReverse =
+              !self.ctx.$scope.detailSortReverse;
+          } else {
+            self.ctx.$scope.detailSortColumn = sortKey;
+            self.ctx.$scope.detailSortReverse = false; // Default to ascending for new column
+          }
+
+          // Re-render table with new ordering
+          updateTable();
+          updateDetailSortUI();
         }
-
-        // Re-render table with new ordering
-        updateTable();
-        updateDetailSortUI();
-      });
+      );
   }
 
   // Defaults on first load for detail popup sorting
-  self.ctx.$scope.detailSortColumn  = self.ctx.$scope.detailSortColumn  || 'date';
-  self.ctx.$scope.detailSortReverse = self.ctx.$scope.detailSortReverse || false;
+  self.ctx.$scope.detailSortColumn = self.ctx.$scope.detailSortColumn || "date";
+  self.ctx.$scope.detailSortReverse =
+    self.ctx.$scope.detailSortReverse || false;
 
   // Update header arrows to match current state
   updateDetailSortUI();
@@ -2925,430 +3264,806 @@ function openDashboardPopupReport(
   // Attach header click handlers
   attachDetailSortHeaderHandlers();
 
+  // Set current date
+  const todayDate = document.getElementById("inssueDate");
+  const today = new Date();
+  const day = String(today.getDate()).padStart(2, "0");
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const year = today.getFullYear();
+  const formattedDate = `${day}/${month}/${year}`;
+  todayDate.textContent = formattedDate;
 }
 
-function openWidgetFullScreen() {
-  const url = `/dashboard/2be46870-76db-11f0-8b27-31e42298f79e`;
-
-  $("#dashboard-popup").remove();
-  const $popup = $(
-    `<div id="dashboard-popup" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; overflow: autp;">
-<button 
-    id="close-dashboard-popup" 
-    style="position: absolute; top: 0; right: 0; 
-           background: white; color: black; border: none; 
-           width: 60px; height: 60px; font-weight: bold; cursor: pointer; 
-           box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10001; 
-           transform: scale(1); transition: transform 0.3s ease;"
-    onmouseover="this.style.transform='scale(1.3)'" 
-    onmouseout="this.style.transform='scale(1)'">
-    ⛶
-</button>
-
-<iframe src="${url}" style="width: 100vw; height: 100vh; border: none;"></iframe>
-</div>`
-  );
-  $("body").append($popup);
-  $("#close-dashboard-popup").on("click", () => $("#dashboard-popup").remove());
-}
-
-function getAdminConsumption(label) {
-  try {
-    //console.log(`[getAdminConsumption] 🔎 Iniciando busca do consumo para: "${label}"`);
-
-    // seleciona a div com o data-entity-label correto
-    const container = document.querySelector(`div[data-entity-label="${label}"]`);
-    if (!container) {
-      console.warn(`[getAdminConsumption] ⚠️ Div com data-entity-label="${label}" não encontrada.`);
-      return 0;
-    }
-    //console.log(`[getAdminConsumption] ✅ Div encontrada para "${label}"`, container);
-
-    // procura dentro dela o span de consumo
-    const span = container.querySelector('span.consumption-value');
-    if (!span) {
-      console.warn(`[getAdminConsumption] ⚠️ Span .consumption-value não encontrado dentro da div de "${label}".`);
-      return 0;
-    }
-    //console.log(`[getAdminConsumption] ✅ Span encontrado para "${label}"`, span);
-
-    // extrai o texto
-    const text = span.textContent.trim();
-    //console.log(`[getAdminConsumption] 📝 Texto extraído de "${label}": "${text}"`);
-
-    // normaliza e converte em número
-    const normalized = text.replace(/\./g, '').replace(',', '.');
-    const num = parseFloat(normalized);
-    //console.log(`[getAdminConsumption] 🔢 Valor numérico processado de "${label}":`, num);
-
-    if (isNaN(num)) {
-      console.warn(`[getAdminConsumption] ⚠️ Valor inválido em "${label}": "${text}" (normalizado: "${normalized}")`);
-      return 0;
-    }
-
-    //console.log(`[getAdminConsumption] ✅ Consumo final retornado para "${label}": ${num}`);
-    return num;
-
-  } catch (err) {
-    console.error(`[getAdminConsumption] ❌ Erro inesperado ao capturar consumo de "${label}":`, err);
-    return 0;
-  }
-}
-
-function updateInfoCardsAndChart(groupSums, items) {
-  // ===== 1) Somatórios de entrada (subestação + relógios) =====
-  let entradaSubestacaoVal = 0;
-  let entradaRelogioVal    = 0;
-
-  items.forEach(({ label = "", val }) => {
-    if (/subesta/i.test(label)) entradaSubestacaoVal += val;
-    else if (/rel[óo]gio/i.test(label)) entradaRelogioVal += val;
+// Helper function to fetch with authentication
+async function fetchWithAuth(url, opts = {}, retry = true) {
+  const token = await MyIOAuth.getToken();
+  const res = await fetch(url, {
+    ...opts,
+    headers: {
+      ...(opts.headers || {}),
+      Authorization: `Bearer ${token}`,
+    },
   });
 
-  // ===== 2) Totais por grupo =====
-  const ctx       = self.ctx;
-  const entradaVal = groupSums[Object.keys(GROUPS)[0]];
-
-  // procura valores de Administração 1 e Administração 2 nos itens
-  const admin1 = getAdminConsumption("Administração 1");
-  const admin2 = getAdminConsumption("Administração 2");
-
-  // subtrai os dois se existirem
-  if (!admin1) {
-    console.warn("[updateInfoCardsAndChart] ⚠️ Administração 1 não encontrada nos items.");
-  }
-
-  if (!admin2) {
-    console.warn("[updateInfoCardsAndChart] ⚠️ Administração 2 não encontrada nos items.");
-  }
-
-  const groupAdminValue = groupSums[Object.keys(GROUPS)[1]] > 1000 ? groupSums[Object.keys(GROUPS)[1]] / 1000 : groupSums[Object.keys(GROUPS)[1]];
-  
-  //console.log(`[updateInfoCardsAndChart] ℹ️ Valores Administração: Admin1 = ${admin1}, Admin2 = ${admin2}, groupAdminValue = ${groupAdminValue}`);
-  
-  const adminVal = groupAdminValue - (admin1 + admin2);
-  const lojasVal = groupSums[Object.keys(GROUPS)[2]];
-  const entradaTotal = entradaSubestacaoVal + entradaRelogioVal;
-  
-  //console.log(`[updateInfoCardsAndChart] ℹ️ Totais de Entrada: Subestação = ${entradaSubestacaoVal}, Relógio = ${entradaRelogioVal}, Total = ${entradaTotal}`);
-  //console.log(`[updateInfoCardsAndChart] ℹ️ Totais de Consumo: Administração = ${adminVal * 1000}, Lojas = ${lojasVal}`);
-  
-  const consumoTotal = (adminVal * 1000) + lojasVal;
-
-  // delta > 0  => sobra (Área Comum)
-  // delta < 0  => déficit (consumo > entrada) => exibimos “Ajuste”
-  //console.log(`entradaTotal: ${entradaTotal} | consumoTotal: ${consumoTotal}`);
-  const delta = entradaTotal - consumoTotal;
-
-  let values, labels, areaTitle, areaValue;
-  const areaIcon = "/api/images/public/oXk6v7hN8TCaBHYD4PQo5oM5fr7xuUAb";
-
-  if (delta >= 0) {
-    areaTitle = "Área Comum";
-    areaValue = delta;
-    values    = [adminVal, lojasVal, areaValue];
-    labels    = ["Chiller, Bombas, Área Comum", Object.keys(GROUPS)[2], "Área Comum"];
-    //console.warn(`[delta OK] ✅ delta: "${delta}" | Entrada Total: "${entradaTotal}" | Consumo Total: "${consumoTotal}" (Lojas "${lojasVal}", Admin "${(admin1 + admin2) * 1000}" e Bombas "${adminVal * 1000}")`);
-  } else {
-    const ajuste = Math.abs(delta);
-    areaTitle = "Área Comum";
-    areaValue = -ajuste; //1.00;//- ajuste;
-    values    = [adminVal, lojasVal, areaValue];
-    labels    = ["Chiller, Bombas, Área Comum", Object.keys(GROUPS)[2], "Área Comum (-)"];
-    console.warn(`[delta NOK] ⚠️ delta: "${delta}" | Entrada Total: "${entradaTotal}" | Consumo Total: "${consumoTotal}" (Lojas "${lojasVal}", Admin "${(admin1 + admin2) * 1000}" e Bombas "${adminVal * 1000}")`);
-  }
-
-  // ===== 3) Percentuais =====
-  const $infoList = ctx.groupDivs["Área Comum"].find("#area-comum-list");
-
-  // % relativos à entrada total
-  const percEntrada = v => entradaVal > 0 ? ((v / entradaVal) * 100).toFixed(1) : "0.0";
-
-  // % relativos ao “interno” (adm + lojas + área)
-  //console.log(`>>> adminVal: ${adminVal} | lojasVal: ${lojasVal} | areaValue: ${areaValue}`);
-  const totalInterno = (adminVal * 1000) + lojasVal + areaValue; 
-  
-  //console.log(`>>> totalInterno: ${totalInterno}`);
-  const percInterno  = v => totalInterno > 0 ? ((v / totalInterno) * 100).toFixed(1) : "0.0";
-
-  // ===== 4) Monta os cards =====
-  $infoList.empty();
-
-  $infoList.append(
-    createInfoCard(
-      "Total Entrada Subestação",
-      entradaSubestacaoVal,
-      percEntrada(entradaSubestacaoVal),
-      "/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU"
-    )
-  );
-
-  $infoList.append(
-    createInfoCard(
-      "Total Entrada Relógios",
-      entradaRelogioVal,
-      percEntrada(entradaRelogioVal),
-      "/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB"
-    )
-  );
-
-  const adminValueCard = adminVal * 1000;
-
-  $infoList.append(
-    createInfoCard(
-      "Chiller, Bombas e Área Comum",
-      adminValueCard,
-      percInterno(adminValueCard),
-      "/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT"
-    )
-  );
-
-  $infoList.append(
-    createInfoCard(
-      "Lojas",
-      lojasVal,
-      percInterno(lojasVal),
-      "/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k"
-    )
-  );
-
-  $infoList.append(
-    createInfoCard(
-      areaTitle,
-      areaValue,
-      percInterno(areaValue),
-      areaIcon
-    )
-  );
-
-  // ===== 5) Gráfico de pizza =====
-  if (ctx.areaChart) ctx.areaChart.destroy();
-
-  //console.log("Graph >>> totalPie, ", totalPie);
-  //console.log("Graph >>> values, ", values);
-
-  // índice 0 está em MWh → converter para kWh (1 MWh = 1000 kWh)
-  const valuesNormalized = values.map((val, idx) => {
-    if (idx === 0) {
-      return val * 1000; // MWh → kWh
-    }
-    return val; // já está em kWh
-  });
-
-  const totalPie = valuesNormalized.reduce((a, b) => a + b, 0);
-
-  /*
-  console.log("Graph >>> totalPie, ", totalPie);
-  console.log("Graph >>> values, ", values);  
-  console.log("Graph >>> valuesNormalized, ", valuesNormalized);
-  console.log("Graph >>> labels, ", labels);
-  console.log("Totalpie: ", totalPie);
-  */
-
-  const hideCommonArea = self.ctx.settings.existsCommomArea === 'false';
-  if (!hideCommonArea) {
-    ctx.areaChart = new Chart(
-      document.getElementById("areaChart").getContext("2d"),
-      {
-        type: "pie",
-        data: {
-          labels,
-          datasets: [
-            {
-              label: "Consumo",
-              data: valuesNormalized,
-              backgroundColor:
-                delta >= 0
-                  ? ["#2196f3", "#4caf50", "#ff9800"]
-                  : ["#2196f3", "#4caf50", "#f44336"], // vermelho para “Ajuste”
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false, // respeita a altura do CSS
-          layout: { padding: 0 },
-          plugins: {
-            legend: { display: false }, // legenda interna OFF
-            tooltip: {
-              callbacks: {
-                label: (tt) => {
-                  const i   = tt.dataIndex;
-                  const lab = labels[i];
-                  const v   = valuesNormalized[i] ?? 0;
-                  let pct   = totalPie > 0 ? ((v / totalPie) * 100).toFixed(1) : "0.0";
-                  pct = MyIOLibrary.formatNumberReadable(pct);
-                  return `${lab} (${pct}%)`;
-                },
-              },
-            },
-          },
-        },
-      }
+  if (res.status === 401 && retry) {
+    console.warn(
+      `[fetchWithAuth] 401 on ${
+        url.split("?")[0]
+      } - refreshing token and retrying`
     );
+    MyIOAuth.clearCache(); // Force token refresh
+    const token2 = await MyIOAuth.getToken();
+    const res2 = await fetch(url, {
+      ...opts,
+      headers: {
+        ...(opts.headers || {}),
+        Authorization: `Bearer ${token2}`,
+      },
+    });
+    if (!res2.ok) {
+      const errorText = await res2.text().catch(() => "");
+      throw new Error(`[HTTP ${res2.status}] ${errorText}`);
+    }
+    return res2;
+  }
 
-    // ===== 6) Legenda HTML (abaixo do canvas) =====
-    const legendEl = document.getElementById("areaLegend");
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => "");
+    throw new Error(`[HTTP ${res.status}] ${errorText}`);
+  }
 
-    if (legendEl) {
-      legendEl.innerHTML = ""; // limpa anterior
+  return res;
+}
 
-      const colors = ctx.areaChart.data.datasets[0].backgroundColor;
-      labels.forEach((label, i) => {
-        const v   = valuesNormalized[i] ?? 0;
-        const pct = totalPie > 0 ? ((v / totalPie) * 100).toFixed(1) : "0.0";
-        const short = label.length > 7 ? label.slice(0, 7) + "..." : label;
+function getValueByDatakey(dataList, dataSourceNameTarget, dataKeyTarget) {
+  for (const item of dataList) {
+    if (
+      item.datasource.name === dataSourceNameTarget &&
+      item.dataKey.name === dataKeyTarget
+    ) {
+      const itemValue = item.data?.[0]?.[1];
 
-        const li = document.createElement("li");
-        li.innerHTML = `
-          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;background:${colors[i]};"></span>
-          <span>${short} (${MyIOLibrary.formatNumberReadable(pct)}%)</span>
-        `;
-        legendEl.appendChild(li);
+      if (itemValue !== undefined && itemValue !== null) {
+        return itemValue;
+      } else {
+        console.warn(
+          `Valor não encontrado para ${dataSourceNameTarget} - ${dataKeyTarget}`
+        );
+        return null;
+      }
+    }
+  }
+}
+
+async function openConfigCaixa(entityId, entityType) {
+  $("#dashboard-popup").remove();
+
+  const jwtToken = localStorage.getItem("jwt_token");
+
+  async function getEntityInfoAndAttributes(deviceId, jwtToken) {
+    try {
+      // 1. Buscar info da entidade (label verdadeiro)
+      const entityResponse = await fetch(`/api/device/${deviceId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Authorization": `Bearer ${jwtToken}`,
+        },
+      });
+      if (!entityResponse.ok) throw new Error("Erro ao buscar entidade");
+
+      const entity = await entityResponse.json();
+      const label = entity.label || entity.name || "Sem etiqueta";
+
+      // 2. Buscar atributos SERVER_SCOPE
+      const attrResponse = await fetch(
+        `/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes?scope=SERVER_SCOPE`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-Authorization": `Bearer ${jwtToken}`,
+          },
+        }
+      );
+      if (!attrResponse.ok) throw new Error("Erro ao buscar atributos");
+
+      const attributes = await attrResponse.json();
+      const get = (key) => {
+        const found = attributes.find((attr) => attr.key === key);
+        return found ? found.value : "";
+      };
+
+      return {
+        etiqueta: label,
+        andar: get("floor"),
+        numeroLoja: get("NumLoja"),
+        identificadorMedidor: get("IDMedidor"),
+        identificadorDispositivo: get("deviceId"),
+        guid: get("guid"),
+        alarmepercentualativo: get("waterPercentageAlarmEnabled"),
+        alarmaracimade: get("waterLevelPercentageHigh"),
+        alarmenivelcriticoativo: get("criticalLevelEnabled"),
+        nivelcritico: get("criticalLevelLow"),
+        alarmedeconsumomaximodiario: get("maxDailyCubicMetersEnabled"),
+        consumomaximodiario: get("maxDailyCubicMeters"),
+        alarmedeconsumomaximonoturnoativo: get("maxNightConsumptionEnabled"),
+        consumomaximonoturno: get("maxNightConsumption"),
+      };
+    } catch (error) {
+      console.error("Erro ao buscar dados da entidade/atributos:", error);
+      return {};
+    }
+  }
+
+  const valores = await getEntityInfoAndAttributes(entityId, jwtToken);
+
+  const $popup = $(`
+<div id="dashboard-popup"
+    style="position: fixed; top: 5%; left: 5%; width: 90%; height: 90%; background: #f7f7f7; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.4); z-index: 10000; display: flex; flex-direction: column; font-family: Arial, sans-serif;">
+
+    <!-- Cabeçalho -->
+    <div
+        style="background: #4A148C; color: white; padding: 12px 20px; font-weight: bold; font-size: 1.1rem; border-top-left-radius: 10px; border-top-right-radius: 10px; flex-shrink: 0;">
+        Configurações
+        <button id="close-dashboard-popup"
+            style="float: right; background: #f44336; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-weight: bold; cursor: pointer;">×</button>
+    </div>
+
+    <!-- Conteúdo -->
+    <div class="popup-content" style="display: flex; justify-content: space-evenly; gap: 10px; padding: 10px; flex: 1; flex-wrap: wrap; box-sizing: border-box; overflow-y: auto;">
+        
+        <!-- Card Esquerdo -->
+        <div class="card"
+            style="flex: 1 1 300px; max-width: 45%; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; box-sizing: border-box; min-height: 0;">
+            
+            <div style="flex: 1 1 auto; overflow-y: auto; min-height: 0;">
+                <h3 style="color: #4A148C; margin-bottom: 20px;">${
+                  valores.etiqueta || ""
+                }</h3>
+
+                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Etiqueta</label>
+                <input type="text" class="form-input" value="${
+                  valores.etiqueta || ""
+                }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
+
+                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Andar</label>
+                <input type="text" class="form-input" value="${
+                  valores.andar || ""
+                }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
+
+                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Número da Loja</label>
+                <input type="text" class="form-input" value="${
+                  valores.numeroLoja || ""
+                }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
+
+                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Identificador do Medidor</label>
+                <input type="text" class="form-input" value="${
+                  valores.identificadorMedidor || ""
+                }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
+
+                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Identificador do Dispositivo</label>
+                <input type="text" class="form-input" value="${
+                  valores.identificadorDispositivo || ""
+                }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
+
+                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">GUID</label>
+                <input type="text" class="form-input" value="${
+                  valores.guid || ""
+                }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
+            </div>
+
+            <div style="margin-top: 20px; text-align: right; flex-shrink: 0;">
+ </div>
+        </div>
+
+        <!-- Card Direito -->
+        <div class="card"
+            style="flex: 1 1 300px; max-width: 45%; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; box-sizing: border-box; min-height: 0;">
+            
+            <div style="flex: 1 1 auto; overflow-y: auto; min-height: 0;">
+                <h3 style="color: #4A148C; margin-bottom: 20px;">Alarmes Caixa D'água - ${
+                  valores.etiqueta
+                }</h3>
+
+                <input type="checkbox" ${
+                  valores.alarmepercentualativo ? "checked" : ""
+                } style="margin-right:8px;" />
+                <label style="font-weight:500; color:#333; margin-bottom:12px; display:inline-block;">Alarme de Percentual de Água</label>
+                <br/>
+                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Alarme acima de (%)</label>
+                <input type="text" class="form-input" value="${
+                  valores.alarmaracimade || ""
+                }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
+                <input type="checkbox" ${
+                  valores.alarmenivelcriticoativo ? "checked" : ""
+                } style="margin-right:8px;" />
+                <label style="font-weight:500; color:#333; margin-bottom:12px; display:inline-block;">Alarme de Nível Crítico</label>
+                <br/>
+                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Nível Crítico (L)</label>
+                <input type="text" class="form-input" value="${
+                  valores.nivelcritico || ""
+                }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
+                <input type="checkbox" ${
+                  valores.alarmedeconsumomaximodiario ? "checked" : ""
+                } style="margin-right:8px;" />
+                <label style="font-weight:500; color:#333; margin-bottom:12px
+; display:inline-block;">Alarme de Consumo Máximo Diário</label>
+                <br/>
+                <input type="checkbox" ${
+                  valores.alarmedeconsumomaximonoturnoativo ? "checked" : ""
+                } style="margin-right:8px;" />
+                <label style="font-weight:500; color:#333; margin-bottom:12px; display:inline-block;">Alarme de Consumo Máximo na Madrugada (0h - 06h)</label>
+                <br/>
+                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Consumo Máximo Diário (m³)</label>
+                <input type="text" class="form-input" value="${
+                  valores.consumomaximodiario || ""
+                }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
+                <label style="display:block; margin-bottom:4px; font-weight:500; color:#333;">Consumo Máximo na Madrugada (m³)</label>
+                <input type="text" class="form-input" value="${
+                  valores.consumomaximonoturno || ""
+                }" style="width:100%; margin-bottom:16px; padding:8px 10px; font-size:14px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;" />
+                </div>
+
+            <div style="margin-top: 20px; text-align: right; flex-shrink: 0;">
+
+                <button 
+    onclick="$('#dashboard-popup').remove();" 
+    class="btn-desfazer" 
+    style="background:#ccc; color:black; padding:6px 12px; border:none; border-radius:6px; cursor:pointer;">
+    Fechar
+</button>
+                <button class="btn-salvar" style="background:#4A148C; color:white; padding:6px 14px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-left:10px;">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+`);
+
+  $("body").append($popup);
+
+  $("#close-dashboard-popup").on("click", () => $("#dashboard-popup").remove());
+
+  $popup.find(".btn-salvar").on("click", async () => {
+    const inputs = $popup.find("input.form-input");
+    const novoLabel = inputs.eq(0).val(); // campo 0 = etiqueta
+
+    const payloadAtributos = {
+      floor: inputs.eq(1).val(),
+      NumLoja: inputs.eq(2).val(),
+      IDMedidor: inputs.eq(3).val(),
+      deviceId: inputs.eq(4).val(),
+      guid: inputs.eq(5).val(),
+      waterPercentageAlarmEnabled: $popup
+        .find("input[type='checkbox']")
+        .eq(0)
+        .is(":checked"),
+      waterLevelPercentageHigh: inputs.eq(6).val(),
+      criticalLevelEnabled: $popup
+        .find("input[type='checkbox']")
+        .eq(1)
+        .is(":checked"),
+      criticalLevelLow: inputs.eq(7).val(),
+      maxDailyCubicMetersEnabled: $popup
+        .find("input[type='checkbox']")
+        .eq(2)
+        .is(":checked"),
+      maxDailyCubicMeters: inputs.eq(8).val(),
+      maxNightConsumptionEnabled: $popup
+        .find("input[type='checkbox']")
+        .eq(3)
+        .is(":checked"),
+      maxNightConsumption: inputs.eq(9).val(),
+    };
+
+    try {
+      // 1. Buscar entidade completa
+      const entityResponse = await fetch(`/api/device/${entityId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Authorization": `Bearer ${jwtToken}`,
+        },
+      });
+
+      if (!entityResponse.ok)
+        throw new Error("Erro ao buscar entidade para atualizar label");
+
+      const entity = await entityResponse.json();
+      entity.label = novoLabel;
+
+      // 2. Atualizar o label via POST (saveDevice)
+      const updateLabelResponse = await fetch(`/api/device`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Authorization": `Bearer ${jwtToken}`,
+        },
+        body: JSON.stringify(entity),
+      });
+
+      if (!updateLabelResponse.ok)
+        throw new Error("Erro ao atualizar etiqueta (label)");
+
+      // 3. Enviar os atributos ao SERVER_SCOPE
+      const attrResponse = await fetch(
+        `/api/plugins/telemetry/DEVICE/${entityId}/SERVER_SCOPE`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Authorization": `Bearer ${jwtToken}`,
+          },
+          body: JSON.stringify(payloadAtributos),
+        }
+      );
+
+      if (!attrResponse.ok) throw new Error("Erro ao salvar atributos");
+
+      alert("Configurações salvas com sucesso!");
+      $("#dashboard-popup").remove();
+      location.reload();
+    } catch (err) {
+      console.error("Erro ao salvar configurações:", err);
+      alert("Erro ao salvar. Verifique o console.");
+    }
+  });
+}
+
+function classify(text) {
+  const v = (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+  // "caixa, reservatorio, cisterna, superior, inferior, nivel_terraco, torre" → Caixas
+  if (
+    /(caixa|reservat[óo]rio|cisterna|superior|inferior|nível[_ ]?terraço|nivel[_ ]?terraco|torre)/.test(
+      v
+    )
+  ) {
+    return "Caixas D'Água";
+  }
+  return "Ambientes";
+}
+
+function getDeviceCentralId(attrsOrDev) {
+  // try multiple attribute names; fall back to existing fields
+  return (
+    attrsOrDev?.centralId ??
+    attrsOrDev?.gatewayId ??
+    attrsOrDev?.gw ??
+    attrsOrDev?.ingestionId ?? // last resort, if you mirror central here
+    null
+  );
+}
+
+function getDeviceSlaveId(attrsOrDev) {
+  const sl = attrsOrDev?.slaveId ?? attrsOrDev?.sl ?? null;
+  return sl === null || sl === undefined ? null : Number(sl);
+}
+
+function inferGroupByDatasourceOrLabel({ dsIndex, label, sourceName }) {
+  // 1) Try by text (priority)
+  const byText = classify(label || sourceName);
+  if (byText === "Caixas D'Água") return byText;
+
+  // 2) Then fallback by datasource
+  if (dsIndex === 1) return "Caixas D'Água";
+  if (dsIndex === 0) return "Ambientes";
+
+  // 3) Final fallback
+  return byText;
+}
+
+// Função principal de reload da board
+async function loadMainBoardData(strt, end) {
+  try {
+    // Chama onInit com as datas atuais do usuário
+    await self.onInit({ strt, end });
+
+    // Atualiza UI
+    self.ctx.detectChanges();
+  } catch (err) {
+    console.error("[MAIN] Error loading board data:", err);
+  }
+}
+
+// RFC-0014: styleOnPicker removed - no longer needed with MyIOLibrary DateRangePicker
+
+self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
+
+  // RFC-0014: Initialize MyIOLibrary DateRangePicker
+  let waterDatePicker = null;
+  
+  function initWaterDateRangePicker() {
+    try {
+      // Check if MyIOLibrary is available
+      if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createInputDateRangePickerInsideDIV) {
+        console.warn('[WATER] MyIOLibrary.createInputDateRangePickerInsideDIV not available, falling back to legacy');
+        initLegacyDateRangePicker();
+        return;
+      }
+
+      // Initialize MyIOLibrary date picker
+      MyIOLibrary.createInputDateRangePickerInsideDIV({
+        containerId: 'water-date-range',
+        inputId: 'water-date-input',
+        placeholder: 'Clique para selecionar período',
+        showHelper: false,
+        pickerOptions: {
+          presetStart: presetStart || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+          presetEnd: presetEnd || new Date().toISOString().split('T')[0],
+          maxRangeDays: 31,
+          onApply: (result) => {
+            console.log('[WATER] Date range applied:', result);
+            
+            // Update internal state
+            self.ctx.$scope.startTs = result.startISO;
+            self.ctx.$scope.endTs = result.endISO;
+            self.startDate = result.startISO;
+            self.endDate = result.endISO;
+            
+            // Trigger data reload
+            loadMainBoardData(result.startISO, result.endISO);
+          }
+        }
+      }).then(controller => {
+        waterDatePicker = controller;
+        console.log('[WATER] MyIOLibrary DateRangePicker initialized successfully');
+        
+        // Set initial dates
+        const startISO = presetStart || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+        const endISO = presetEnd || new Date().toISOString().split('T')[0];
+        
+        self.ctx.$scope.startTs = startISO + 'T00:00:00-03:00';
+        self.ctx.$scope.endTs = endISO + 'T23:59:59-03:00';
+        self.startDate = self.ctx.$scope.startTs;
+        self.endDate = self.ctx.$scope.endTs;
+        
+      }).catch(err => {
+        console.error('[WATER] Failed to initialize MyIOLibrary DateRangePicker:', err);
+        initLegacyDateRangePicker();
+      });
+      
+    } catch (err) {
+      console.error('[WATER] Error initializing MyIOLibrary DateRangePicker:', err);
+      initLegacyDateRangePicker();
+    }
+  }
+
+  function initLegacyDateRangePicker() {
+    console.log('[WATER] Initializing legacy daterangepicker fallback');
+    
+    // Create fallback input if MyIOLibrary fails
+    const container = document.getElementById('water-date-range');
+    if (container && !container.querySelector('input')) {
+      container.innerHTML = `
+        <label aria-label="Período" class="tbx-field">
+          <span class="tbx-ico tbx-ico-cal">📅</span>
+          <input type="text" name="startDatetimes" placeholder="Digite a data ou período" readonly title="Clique aqui para alterar o intervalo de datas" />
+        </label>
+      `;
+    }
+    
+    var $inputStart = $('input[name="startDatetimes"]');
+    if ($inputStart.length === 0) return;
+
+    $inputStart.daterangepicker({
+      timePicker: true,
+      timePicker24Hour: true,
+      autoApply: true,
+      autoUpdateInput: true,
+      timePickerIncrement: 1,
+      linkedCalendars: true,
+      showCustomRangeLabel: true,
+      ranges: {
+        'Hoje': [moment().startOf('day'), moment().endOf('day')],
+        'Útimos 7 dias': [moment().subtract(6, 'days').startOf('day'), moment().endOf('day')],
+        'Útimos 30 dias': [moment().subtract(29, 'days').startOf('day'), moment().endOf('day')],
+        'Mês Anterior': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+      },
+      startDate: presetStart ? moment(presetStart) : moment().startOf('month'),
+      endDate: presetEnd ? moment(presetEnd) : moment().endOf('day'),
+      locale: {
+        format: 'DD/MM/YY HH:mm',
+        applyLabel: 'Aplicar',
+        cancelLabel: 'Cancelar',
+        fromLabel: 'De',
+        toLabel: 'Até',
+        customRangeLabel: 'Personalizado',
+        daysOfWeek: ['Do', 'Se', 'Te', 'Qa', 'Qi', 'Se', 'Sa'],
+        monthNames: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+        firstDay: 1,
+        separator: " até ",
+        applyButtonClasses: ".applyBtn",
+        cancelClass: ".cancelBtn"
+      },
+      maxDate: moment().endOf('day'),
+      opens: 'right',
+      drops: 'down',
+    });
+
+    $inputStart.on('apply.daterangepicker', function (ev, picker) {
+      const startDateFormatted = picker.startDate.format('DD/MM/YY HH:mm');
+      const endDateFormatted = picker.endDate.format('DD/MM/YY HH:mm');
+      console.log(startDateFormatted + ' até ' + endDateFormatted)
+      $(this).val(startDateFormatted + ' até ' + endDateFormatted);
+    });
+
+    $inputStart.on('show.daterangepicker', function (ev, picker) {
+      picker.maxDate = moment().endOf('day');
+      // RFC-0014: styleOnPicker removed - legacy styling no longer needed
+    });
+  }
+
+  // Function to get dates from either MyIOLibrary or legacy picker
+  function getDates() {
+    if (waterDatePicker) {
+      const dates = waterDatePicker.getDates();
+      return {
+        startDate: dates.startISO,
+        endDate: dates.endISO
+      };
+    } else {
+      // Legacy fallback
+      var $inputStart = $('input[name="startDatetimes"]');
+      if ($inputStart.length && $inputStart.data('daterangepicker')) {
+        var picker = $inputStart.data('daterangepicker');
+        return {
+          startDate: picker.startDate.format('YYYY-MM-DDTHH:mm:ssZ'),
+          endDate: picker.endDate.format('YYYY-MM-DDTHH:mm:ssZ')
+        };
+      }
+      return {
+        startDate: self.ctx.$scope.startTs || new Date().toISOString(),
+        endDate: self.ctx.$scope.endTs || new Date().toISOString()
+      };
+    }
+  }
+
+  // Initialize the appropriate date picker
+  initWaterDateRangePicker();
+
+  // Set initial dates if not using MyIOLibrary
+  if (!waterDatePicker) {
+    var dates = getDates();
+    self.ctx.$scope.startTs = dates.startDate;
+    self.ctx.$scope.endTs = dates.endDate;
+    console.log("Datas definidas:", dates.startDate, dates.endDate);
+  }
+
+  // Evento do botão de load
+  $(".load-button")
+    .off("click")
+    .on("click", async () => {
+      var newDates = getDates();
+      self.ctx.$scope.startTs = newDates.startDate;
+      self.ctx.$scope.endTs = newDates.endDate;
+
+      updateMainReportSortUI();
+
+      await loadMainBoardData(newDates.startDate, newDates.endDate);
+    });
+
+  const ctx = self.ctx;
+
+  CUSTOMER_ID = self.ctx.settings.customerId || " ";
+  CLIENT_ID = self.ctx.settings.clientId || " ";
+  CLIENT_SECRET = self.ctx.settings.clientSecret || " ";
+
+  console.log("[water/controller] onInit() | self.ctx >>> ", self.ctx);
+
+  // Grupos de cards
+  ctx.groups = {
+    "Caixas D'Água": [],
+    Ambientes: [],
+  };
+
+  // Wait for DOM to be ready and find group divs with fallback
+  ctx.groupDivs = {};
+
+  // Use a more robust approach to find group divs
+  const findGroupDivs = () => {
+    ctx.groupDivs["Caixas D'Água"] = $(".group-card.caixa");
+    ctx.groupDivs["Ambientes"] = $(".group-card.ambientes");
+
+    // Log for debugging
+    // console.log("[water/controller] onInit() group divs found:", {
+    //    "Caixas D'Água": ctx.groupDivs["Caixas D'Água"].length,
+    //     "Ambientes": ctx.groupDivs["Ambientes"].length
+    //   });
+
+    // If not found, try alternative selectors
+    if (ctx.groupDivs["Caixas D'Água"].length === 0) {
+      ctx.groupDivs["Caixas D'Água"] = $(".group-card").filter(function () {
+        return $(this).find(".group-title").text().includes("Caixas D'Água");
       });
     }
-  }
-}
 
-self.onInit = async function () {
-  const ctx = self.ctx;
-    // Note: loadDataForPopup will be defined by individual popup functions
-  // Do not override it here to avoid conflicts with popup-specific implementations
-  CUSTOMER_ID = self.ctx.settings.customerId || ' ';
-  CLIENT_ID = self.ctx.settings.clientId || ' ';
-  CLIENT_SECRET = self.ctx.settings.clientSecret || ' ';
-  administration = self.ctx.settings.administration|| ' ';
-  entranceClock = self.ctx.settings.entranceClock;
-  //console.log("self",ctx)
-  // Initialize main board controller with new decoupled system
-  initializeMainBoardController();
-  //console.log('[MAIN] Controller initialized with decoupled date system');
-
-  applyGroupVisibilityAndMap();
-  
-  ctx.groups = GROUPS;
-
-
-
-  // Remove duplicação de labels e obtém o label do grupo a partir do GROUPS (posição 1)
-  const groupLabels = Object.keys(GROUPS);
-  ctx.groupDivs = {
-    [groupLabels[0]]: $(".group-card.entrada"),
-    [groupLabels[1]]: $(".group-card.administracao"),
-    [groupLabels[2]]: $(".group-card.lojas"),
-    "Área Comum": $(".group-card.area-comum"),
+    if (ctx.groupDivs["Ambientes"].length === 0) {
+      ctx.groupDivs["Ambientes"] = $(".group-card").filter(function () {
+        return $(this).find(".group-title").text().includes("Ambientes");
+      });
+    }
   };
+
+  // Try to find group divs immediately
+  findGroupDivs();
+
+  // If still not found, wait a bit and try again
+  if (
+    ctx.groupDivs["Caixas D'Água"].length === 0 ||
+    ctx.groupDivs["Ambientes"].length === 0
+  ) {
+    setTimeout(() => {
+      //    console.log("[water/controller] onInit() retrying group div search after timeout");
+      findGroupDivs();
+    }, 100);
+  }
 
   ctx.$areaChartCanvas = document.getElementById("areaChart");
   ctx.$lockOverlay = $(".widget-lock-overlay");
 
-  // Filtros de busca
+  // Filtro de busca
   $(".search-bar").on("input", function () {
-    const query = $(this).val().toLowerCase();
-
+    const query = $(this)
+      .val()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
     $(".device-card-centered").each(function () {
-      const label = $(this).find(".device-title").text().toLowerCase();
+      const label = $(this)
+        .find(".device-title")
+        .text()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, ""); // remove acentos
+
       $(this).toggle(label.includes(query));
     });
   });
 
-  ctx.$lockOverlay.find("button").on("click", () => {
-    const senha = ctx.$lockOverlay.find("input").val();
-
-    if (senha === "myio2025") {
-      ctx.$lockOverlay.remove();
-    } else {
-      alert("Senha incorreta!");
-    }
-  });
-
-  ctx.$lockOverlay.remove();
-
-  // Abertura de popups
-  ctx.$container
-    .off("click", ".device-card-centered")
-    .on("click", ".device-card-centered", function () {
-      const entityId = $(this).data("entity-id");
-      const entityType = $(this).data("entity-type");
-
-      ctx.stateController.openState(
-        "default",
-        { entityId: { id: entityId, entityType } },
-        false
-      );
-    });
-
-  // Ações (dashboard, report, config)
+  // Ações dos cards
   ctx.$container
     .off("click", ".card-action")
-    .on("click", ".card-action", function (e) {
+    .on("click", ".card-action", async function (e) {
+      e.preventDefault();
       e.stopPropagation();
+
+      _dataRefreshCount = 0;
+
       const $card = $(this).closest(".device-card-centered");
+      const action = $(this).data("action");
+
+      // Common entity data
       const entityId = $card.data("entity-id");
       const entityType = $card.data("entity-type");
       const entitySlaveId = $card.data("entity-slaveid");
-      const entityIngestionId = $card.data("entity-ingestionid");
-      //const entityComsuption = $card.data("data-entity-consumption");
-      const entityUpdatedIdentifiers = $card.data("entity-updated-identifiers");
-      const entityLabel = $card.data("entity-label") || "SEM-LABEL";
       const entityCentralId = $card.data("entity-centralid");
-      const action = $(this).data("action");
+      const entityIngestionId = $card.data("entity-ingestionid");
+      const entityUpdatedIdentifiers = $card.data("entity-updated-identifiers");
+      const sourceName = $card.data("entity-sourcename");
+      const percent = $card.data("entity-percent");
+      const entityLabel = $card.data("entity-label") || "SEM-LABEL";
 
-      const $span = $card.find('.consumption-value');
-      const entityComsuption =
-        Number($span.data('entity-consumption')) // lê data-entity-consumption
-        ?? Number(
-            // fallback: extrai do texto formatado "12.345,67 kWh"
-            $span.text().replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',', '.')
-          );
+      // Robust consumption parsing
+      const $span = $card.find(".consumption-value");
+      const consumptionAttr = $span.data("entity-consumption");
+      const entityConsumption =
+        consumptionAttr !== undefined &&
+        consumptionAttr !== null &&
+        !Number.isNaN(Number(consumptionAttr))
+          ? Number(consumptionAttr)
+          : (function parseLocalizedNumber(txt) {
+              // ex: "12.345,67 kWh" -> 12345.67
+              const onlyNums = String(txt)
+                .replace(/[^\d,.-]/g, "")
+                .replace(/\./g, "") // remove thousand dots
+                .replace(",", "."); // decimal comma -> dot
+              const n = Number(onlyNums);
+              return Number.isFinite(n) ? n : 0;
+            })($span.text());
 
-      console.log(`[Ação] ${action} em ${entityLabel} (ID: ${entityId}, Tipo: ${entityType})`);
-      console.log(`[CLICK] >>> card-action > Detalhes: SlaveID=${entitySlaveId}, IngestionID=${entityIngestionId}, CentralID=${entityCentralId}, Consumption=${entityComsuption}, UpdatedIdentifiers=${entityUpdatedIdentifiers}`);
-
-      if (action === "dashboard")
-        openDashboardPopupEnergy(
-          entityId,
-          entityType,
-          entitySlaveId,
-          entityCentralId,
-          entityIngestionId,
-          entityLabel,
-          entityComsuption
-        );
-      else if (action === "report")
-        openDashboardPopupReport(
-          entityId,
-          entityType,
-          entitySlaveId,
-          entityCentralId,
-          entityIngestionId,
-          entityLabel,
-          entityComsuption,
-          entityUpdatedIdentifiers
-        );
-      else if (action === "settings") 
-        openDashboardPopup(entityId, entityType);
-  });
-
-  // Checkbox de seleção
-  ctx.$container
-    .off("click", ".checkbox-icon")
-    .on("click", ".checkbox-icon", function (e) {
-      e.stopPropagation();
-
-      const $img = $(this);
-      const checked = $img.attr("data-checked") === "true";
-
-      $img.attr("data-checked", !checked);
-      $img.attr(
-        "src",
-        checked
-          ? "/api/images/public/CDKhFbw8zLJOPPkQvQrbceQ5uO8ZZvxE"
-          : "/api/images/public/1CNdGBAdq10lMHZDiHkml7HwQs370L6v"
+      console.log(
+        `[card action] action=${action} entityId=${entityId} label=${entityLabel} consumption=${entityConsumption} (${$span.text()})`
       );
+
+      // Context: is this a water-tank card?
+      const isWaterCard = $card.closest(".group-card").hasClass("caixa");
+
+      if (action === "dashboard") {
+        // Caixa d'água
+        if (isWaterCard) {
+          // Tanks use the canvas-based water popup
+          return openDashboardPopupWater(
+            entityId,
+            entityType,
+            entitySlaveId,
+            entityCentralId,
+            entityLabel,
+            entityConsumption,
+            percent
+          );
+        }
+
+        var newDates = getDates();
+
+        // Ambientes: open the “hidro” popup; if we have ingestionId, render the SDK/iframe
+        await openDashboardPopupHidro(
+          entityId,
+          entityType,
+          entitySlaveId,
+          entityCentralId,
+          entityLabel,
+          entityConsumption,
+          newDates.startDate,
+          newDates.endDate
+        );
+
+        if (entityIngestionId) {
+          setTimeout(
+            () =>
+              openWaterChartIframe(
+                entityIngestionId,
+                newDates.startDate,
+                newDates.endDate
+              ),
+            100
+          );
+        }
+        return;
+      }
+
+      if (action === "dashboard_water") {
+        // Hidrometro / Ambientes
+        return openDashboardPopupWater(
+          entityId,
+          entityType,
+          entitySlaveId,
+          entityCentralId,
+          entityLabel,
+          entityConsumption,
+          percent
+        );
+      }
+
+      if (action === "report") {
+        return openDashboardPopupReport(
+          entityId,
+          entityType,
+          entityIngestionId,
+          entityLabel,
+          entityConsumption,
+          entityUpdatedIdentifiers,
+          sourceName
+        );
+      }
+
+      if (action === "settings") {
+        return openDashboardPopup(entityId, entityType);
+      }
+
+      if (action === "setting_water") {
+        return openConfigCaixa(entityId, entityType);
+      }
     });
 
-  // Relatórios e menus
+  // Checkbox de seleção
+  ctx.$container.on("click", ".checkbox-icon", function (e) {
+    e.stopPropagation();
+    const $img = $(this);
+    const checked = $img.attr("data-checked") === "true";
+
+    $img.attr("data-checked", !checked);
+    $img.attr(
+      "src",
+      checked
+        ? "/api/images/public/CDKhFbw8zLJOPPkQvQrbceQ5uO8ZZvxE"
+        : "/api/images/public/1CNdGBAdq10lMHZDiHkml7HwQs370L6v"
+    );
+  });
+
+  // Menu de relatórios
   $(".menu-toggle-btn").on("click", function () {
     $(".menu-dropdown").toggle();
   });
@@ -3360,8 +4075,9 @@ self.onInit = async function () {
     );
 
     if (tipo === "lojas" && selecionados.length > 0) {
-      const confirmar = confirm("Deseja considerar apenas as lojas selecionadas?");
-
+      const confirmar = confirm(
+        "Deseja considerar apenas as lojas selecionadas?"
+      );
       if (confirmar) {
         selecionados.each(function () {
           const entityId = $(this).data("entity-id");
@@ -3381,12 +4097,9 @@ self.onInit = async function () {
   $(".menu-item").on("click", function () {
     $(".menu-item").removeClass("active");
     $(this).addClass("active");
-
-    const categoria = $(this).text().trim();
-    // Alternar cards de energia/água/etc, se necessário
   });
 
-  $(".btn-report").on("click", () => {
+  $(".btn-report.lojas").on("click", () => {
     openDashboardPopupAllReport("default-shopping-id", "ASSET");
   });
 
@@ -3397,6 +4110,36 @@ self.onInit = async function () {
   $("#fullScreen").on("click", function () {
     openWidgetFullScreen();
   });
+
+  (function fixTopbarOffset() {
+    try {
+      const tb = document.querySelector(".top-bar");
+      if (!tb) return;
+      const r = tb.getBoundingClientRect();
+      const cs = getComputedStyle(tb);
+      const extra =
+        parseFloat(cs.marginTop || 0) + parseFloat(cs.marginBottom || 0);
+      // 24px de respiro adicional abaixo
+      const offset = Math.round(r.height + extra + 24);
+      document.documentElement.style.setProperty(
+        "--topbar-offset",
+        offset + "px"
+      );
+      // log opcional:
+      console.log("[layout] --topbar-offset set to", offset);
+    } catch (e) {
+      console.warn("[layout] cannot set --topbar-offset", e);
+    }
+  })();
+
+  // RFC: Check refresh limit to prevent excessive data updates
+  // if (_dataRefreshCount >= MAX_DATA_REFRESHES) {
+  //     logInfo(`[water/controller] onDataUpdated() SKIPPED - refresh limit reached (${_dataRefreshCount}/${MAX_DATA_REFRESHES})`);
+  //     return;
+  // }
+
+  // _dataRefreshCount++;
+  // logInfo(`[water/controller] onDataUpdated() EXECUTING - refresh count: ${_dataRefreshCount}/${MAX_DATA_REFRESHES}`);
 
   // Função para formatar data completa com horário e timezone -03:00
   function formatDateWithTimezoneOffset(date) {
@@ -3420,20 +4163,16 @@ self.onInit = async function () {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
-
     return `${year}-${month}-${day}`;
   }
 
   // Converte string yyyy-MM-dd para Date no horário 00:00:00
   function parseInputDateToDate(inputDateStr) {
     const parts = inputDateStr.split("-");
-
     if (parts.length !== 3) return null;
-
     const year = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10) - 1;
     const day = parseInt(parts[2], 10);
-
     return new Date(year, month, day, 0, 0, 0, 0);
   }
 
@@ -3441,47 +4180,31 @@ self.onInit = async function () {
   const now = new Date();
 
   // Primeiro dia do mês com horário final do dia
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1, 23, 59, 59, 999);
+  const firstDay = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1,
+    23,
+    59,
+    59,
+    999
+  );
 
   // Inicializa datas internas completas (com horário e timezone) se undefined
   if (self.startDate === undefined)
     self.startDate = formatDateWithTimezoneOffset(firstDay);
-
   if (self.endDate === undefined)
     self.endDate = formatDateWithTimezoneOffset(now);
 
   // Inicializa datas para exibição no input date (yyyy-MM-dd)
   if (!self.startDateFormatted)
     self.startDateFormatted = formatDateForInput(new Date(self.startDate));
-
   if (!self.endDateFormatted)
     self.endDateFormatted = formatDateForInput(new Date(self.endDate));
 
   // Atualiza o $scope para mostrar no calendário
   self.ctx.$scope.startDate = self.startDateFormatted;
   self.ctx.$scope.endDate = self.endDateFormatted;
-
-  // Initialize shared dates with current widget dates
-  self.ctx.setDates({ 
-    start: self.startDateFormatted, 
-    end: self.endDateFormatted 
-  });
-
-  // Add loadData function to scope for template access
-  self.ctx.$scope.loadData = async function() {
-    try {
-      // Update shared dates from current scope values
-      self.ctx.setDates({ 
-        start: self.ctx.$scope.startDate, 
-        end: self.ctx.$scope.endDate 
-      });
-      
-      // Reload the widget data with new date range
-      await self.onInit();
-    } catch (error) {
-      console.error('[scope.loadData] Error reloading data:', error);
-    }
-  };
 
   // Atualiza datas internas completas ao alterar no calendário
   self.ctx.$scope.handleStartDateChange = function (newDate) {
@@ -3493,6 +4216,7 @@ self.onInit = async function () {
   };
 
   self.ctx.$scope.handleEndDateChange = function (newDate) {
+    _dataRefreshCount = 1;
     self.endDateFormatted = newDate;
     self.ctx.$scope.endDate = newDate;
 
@@ -3502,327 +4226,563 @@ self.onInit = async function () {
     self.endDate = formatDateWithTimezoneOffset(dateObj);
   };
 
-  // Função para pegar timestamps das datas internas completas
-  function getTimeWindowRange() {
-    let startTs = 0;
-    let endTs = 0;
+  // const { startTs, endTs } = getTimeWindowRange();
 
-    if (self.startDate) {
-      const startDateObj = new Date(self.startDate);
+  // self.ctx.$scope.startTs = dates.startDate;
+  // self.ctx.$scope.endTs = dates.endDate;
 
-      if (!isNaN(startDateObj)) {
-        startDateObj.setHours(0, 0, 0, 0);
-        startTs = startDateObj.getTime();
-      }
-    }
-
-    if (self.endDate) {
-      const endDateObj = new Date(self.endDate);
-
-      if (!isNaN(endDateObj)) {
-        endDateObj.setHours(23, 59, 59, 999);
-        endTs = endDateObj.getTime();
-      }
-    }
-
-    return { startTs, endTs };
-  }
-
-  const { startTs, endTs } = getTimeWindowRange();
-
-  self.ctx.$scope.startTs = startTs;
-  self.ctx.$scope.endTs = endTs;
   // Seu código que usa startTs e endTs para buscar dados deve continuar aqui.
 
-  // Reinicializa os grupos
+  // Reinicializa os grupos - with safety check for group divs
   for (const g in ctx.groups) {
     ctx.groups[g] = [];
-    ctx.groupDivs[g].find(".card-list").empty();
+
+    // Safety check: re-initialize group divs if they're not found
+    if (!ctx.groupDivs[g] || ctx.groupDivs[g].length === 0) {
+      //console.log(`[water/controller] onDataUpdated() re-initializing group div for "${g}"`);
+      if (g === "Caixas D'Água") {
+        ctx.groupDivs[g] = $(".group-card.caixa");
+        if (ctx.groupDivs[g].length === 0) {
+          ctx.groupDivs[g] = $(".group-card").filter(function () {
+            return $(this)
+              .find(".group-title")
+              .text()
+              .includes("Caixas D'Água");
+          });
+        }
+      } else if (g === "Ambientes") {
+        ctx.groupDivs[g] = $(".group-card.ambientes");
+        if (ctx.groupDivs[g].length === 0) {
+          ctx.groupDivs[g] = $(".group-card").filter(function () {
+            return $(this).find(".group-title").text().includes("Ambientes");
+          });
+        }
+      }
+    }
+
+    if (ctx.groupDivs[g] && ctx.groupDivs[g].length > 0) {
+      ctx.groupDivs[g].find(".card-list").empty();
+    } else {
+      console.error(
+        `[water/controller] onDataUpdated() ERROR: Could not find or initialize group div for "${g}"`
+      );
+    }
   }
 
   const devices = ctx.datasources || [];
-  const entityMap = {};
+  let entityMap = {};
+
   const groupSums = {
-    [groupLabels[0]]: 0,
-    [groupLabels[1]]: 0,
-    [groupLabels[2]]: 0,
+    "Caixas D'Água": 0,
+    Ambientes: 0,
   };
 
   let totalGeral = 0;
 
-  // Mapeia os dispositivos
-  devices.forEach((device) => {
+  // RFC: Step 1 - Build datasource device list with comprehensive logging
+  logInfo(
+    `[water/controller] onDataUpdated() mapping datasource devices, total devices: ${devices.length}`
+  );
+  const dsDevices = devices.map((device) => {
     const { entityId, entityType } = device;
     const sourceName = device.entityName;
     const label = device.entityLabel;
-    const centralId = getValueByDatakey(ctx.data, sourceName, "centralId");
+    const labelOrName = label || sourceName || "SEM-LABEL";
+
+    // RFC: Use new inferGroup function with datasource-first approach
+    const group = inferGroup({ ds: device, labelOrName });
+
+    const deviceIdAttr = getValueByDatakey(ctx.data, sourceName, "deviceId");
+    const gatewayId = getValueByDatakey(ctx.data, sourceName, "gatewayId");
     const slaveId = getValueByDatakey(ctx.data, sourceName, "slaveId");
     const ingestionId = getValueByDatakey(ctx.data, sourceName, "ingestionId");
-    const labelOrName = label || sourceName;
-    const group = classify(labelOrName);
+    const percent =
+      getValueByDatakey(ctx.data, sourceName, "water_percentage") || 0;
+    const level = getValueByDatakey(ctx.data, sourceName, "water_level") || 0;
 
-    if (!centralId || !slaveId) return;
+    logInfo(
+      `[water/controller] Datasource device: ${labelOrName} -> Group: ${group} (datasource: ${
+        device.aliasName || device.name
+      })`
+    );
 
-    entityMap[entityId] = {
+    // RFC: Build attributes object for key generation
+    const attrs = {
+      deviceId: deviceIdAttr,
+      centralId: gatewayId,
+      gatewayId: gatewayId,
+      ingestionId: ingestionId,
+      slaveId: slaveId != null ? Number(slaveId) : undefined,
+    };
+
+    return {
+      source: "datasource",
       entityId,
       entityType,
-      label,
+      label: labelOrName,
       group,
       sourceName,
-      slaveId,
-      centralId,
-      ingestionId,
-      val: 0,
+      attrs,
+      val2: { percent, level },
     };
   });
 
+  let apiData;
+  let injectedDevices = [];
+
   try {
-    if (devices.length === 0) {
-      console.warn("Nenhum dispositivo válido encontrado.");
-      return;
-    }
-
-    // 1) get customerId from settings or use default
-    const customerId = self.ctx.settings.customerId || "";
-
-    if (!CUSTOMER_ID) {
-        alert("customerId ausente. Configure o widget (settings.customerId) ou CUSTOMER_ID.");
-        return;
-    }
-
-    // 2) build URL with start/end time and deep=1
-    const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`);
-    const startTimeISO = toSpOffsetNoMs(startTs);       // startTs é number
-    const endTimeISO   = toSpOffsetNoMs(endTs, true);   // força fim do dia
-
-    url.searchParams.set("startTime", startTimeISO);
-    url.searchParams.set("endTime",   endTimeISO);
-    url.searchParams.set("deep", "1");
-
-    // 3) call API with fixed Bearer
-    const DATA_API_TOKEN = await MyIOAuth.getToken();
-    const res = await fetch(url.toString(), { headers: { "Authorization": `Bearer ${DATA_API_TOKEN}` } });
-
-    if (!res.ok) {
-        let msg = `API request failed with status ${res.status}`;
-        try { const j = await res.json(); if (j?.error) msg = j.error; } catch {}
-        throw new Error(msg);
-    }
-
-    const payload = await res.json(); // { data: [...], summary: {...} } ou (raramente) [...]
-    const dataList = Array.isArray(payload) ? payload : (payload.data || []);
-
-    // sanity check
-    if (!Array.isArray(dataList)) {
-      throw new Error("Resposta inesperada do Data API: não há array em `data`.");
-    }
-
-    // Create map by device ID (ingestionId) for direct lookup
-    const deviceDataMap = new Map();
-    let skippedEntitiesCount = 0;
-    
-    dataList.forEach((device) => {
-      if (device.id) {
-        deviceDataMap.set(String(device.id), device);
-      }
+    // RFC: Step 2 - Fetch API data
+    //console.log("[water/controller] onDataUpdated() fetching water totals using new API");
+    const customerId = CUSTOMER_ID || "73d4c75d-c311-4e98-a852-10a2231007c4";
+    const startTime = self.ctx.$scope.startTs;
+    const endTime = self.ctx.$scope.endTs;
+    apiData = await fetchCustomerWaterTotals(customerId, {
+      startTime,
+      endTime,
     });
 
-    console.log(`[onInit] Created device map with ${deviceDataMap.size} entries from Data API`);
+    // RFC: Step 3 - Normalize API data and build totals map
+    const apiList = normalizeApiList(apiData);
+    const totalsByKey = buildTotalsMapFromApi(apiList);
 
-    // Map consumption values using ingestionId as canonical key
-    for (const item of Object.values(entityMap)) {
-      if (item.ingestionId && isValidUUID(item.ingestionId)) {
-        const apiDevice = deviceDataMap.get(String(item.ingestionId));
-        if (apiDevice) {
-          item.val = Number(apiDevice.total_value || 0);
-          item.consumptionKwh = item.val;
-          item.isValid = true;
-        } else {
-          // Device not found in API response - zero fill
-          item.val = 0;
-          item.consumptionKwh = 0;
-          item.isValid = true;
-          //console.log(`[onInit] Zero-filled '${item.label || item.sourceName}': no readings in range`);
+    //console.log("[water/controller] onDataUpdated() processing API data, total API devices:", apiList.length);
+    // console.log("[water/controller] onDataUpdated() totalsByKey map size:", totalsByKey.size);
+
+    // RFC: Step 4 - Build a Set of composite keys for existing datasource devices
+    const dsSeen = new Set();
+    for (const d of dsDevices) {
+      for (const k of keysFromDeviceAttrs(d.attrs)) {
+        dsSeen.add(k);
+      }
+    }
+    //console.log("[water/controller] onDataUpdated() datasource keys tracked:", dsSeen.size);
+
+    // RFC: Step 5 - Inject API-only devices (Ambientes) with comprehensive logging
+    if (FLAGS.INJECT_API_ONLY_DEVICES) {
+      logInfo(
+        `[water/controller] onDataUpdated() injecting API-only devices, checking ${apiList.length} API items`
+      );
+
+      for (const item of apiList) {
+        const central = item.gatewayId || item.centralId;
+        const slave = item.slaveId != null ? String(item.slaveId) : undefined;
+
+        // Prefer composite key; fall back to id/central/slave
+        const probeKeys = [
+          item.id,
+          central && slave ? `${central}:${slave}` : undefined,
+          central,
+          slave,
+        ].filter(Boolean);
+
+        const alreadyInDatasource = probeKeys.some((k) => dsSeen.has(k));
+        if (alreadyInDatasource) {
+          logInfo(
+            `[water/controller] API device already in datasources: ${
+              item.name || item.id
+            } (keys: ${probeKeys.join(", ")})`
+          );
+          continue;
         }
-      } else {
-        // Invalid or missing ingestionId
-        item.val = 0;
-        item.consumptionKwh = 0;
-        item.error = "Não mapeado: defina ingestionId válido em SERVER_SCOPE";
-        item.isValid = false;
-        skippedEntitiesCount++;
+
+        // Create synthetic device entry for API-only device
+        const syntheticEntityId = `api-${item.id || central + ":" + slave}`;
+        const deviceLabel = item.name || `Loja ${slave ?? ""}`.trim();
+
+        logInfo(
+          `[water/controller] INJECTING API-only device: ${deviceLabel} (${syntheticEntityId})`
+        );
+
+        injectedDevices.push({
+          source: "api",
+          entityId: syntheticEntityId,
+          entityType: "DEVICE",
+          label: deviceLabel,
+          group: "Ambientes",
+          sourceName: deviceLabel,
+          attrs: {
+            deviceId: item.id,
+            centralId: central,
+            gatewayId: item.gatewayId,
+            slaveId: item.slaveId,
+          },
+          val2: { percent: 0, level: 0 },
+        });
+
+        // Keep the set updated to avoid duplicates between API items
+        probeKeys.forEach((k) => dsSeen.add(k));
       }
     }
 
-    if (skippedEntitiesCount > 0) {
-      console.warn(`[onInit] Skipped ${skippedEntitiesCount} entities without valid ingestionId`);
+    logInfo(
+      `[water/controller] devices summary: datasource=${
+        dsDevices.length
+      }, injected=${injectedDevices.length}, total=${
+        dsDevices.length + injectedDevices.length
+      }`
+    );
+
+    // RFC: Step 6 - Combine all devices and build entityMap
+    const allDevices = [...dsDevices, ...injectedDevices];
+
+    for (const device of allDevices) {
+      entityMap[device.entityId] = {
+        entityId: device.entityId,
+        entityType: device.entityType,
+        label: device.label,
+        group: device.group,
+        sourceName: device.sourceName,
+        slaveId: device.attrs.slaveId,
+        centralId: device.attrs.centralId,
+        ingestionId: device.attrs.ingestionId,
+        val: 0,
+        val2: device.val2,
+        ingestionId: device.attrs.ingestionId,
+        source: device.source,
+      };
     }
 
-    console.log(`[onInit] Successfully mapped ${Object.values(entityMap).filter(item => item.isValid).length} devices using ingestionId`);
+    // RFC: Step 7 - Enhanced matching using unified keys
+    let matchedDevices = 0;
+    for (const dev of Object.values(entityMap)) {
+      const keys = keysFromDeviceAttrs(dev);
+      let matched = false;
 
+      for (const k of keys) {
+        if (totalsByKey.has(k)) {
+          dev.val = Number(totalsByKey.get(k)) || 0;
+          matched = true;
+          //  console.log(`[water/controller] MATCH FOUND! Device "${dev.label}" (${dev.source}) matched with key "${k}" = ${dev.val}`);
+          matchedDevices++;
+          break;
+        }
+      }
+
+      if (!matched) {
+        dev.val = 0;
+        if (dev.source === "api") {
+          console.warn(
+            `[water/controller] No total found for injected API device "${
+              dev.label
+            }" with keys: [${keys.join(", ")}]`
+          );
+        }
+      }
+    }
+
+    //console.log(`[water/controller] matched devices: ${matchedDevices}/${Object.keys(entityMap).length}`);
   } catch (err) {
-    console.error("Erro ao buscar dados do ingestion:", err);
+    console.error(
+      "[water/controller] onDataUpdated() error fetching water totals:",
+      err
+    );
+    // Fallback: set all values to 0 if API fails
+    for (const device of dsDevices) {
+      entityMap[device.entityId] = {
+        entityId: device.entityId,
+        entityType: device.entityType,
+        label: device.label,
+        group: device.group,
+        sourceName: device.sourceName,
+        slaveId: device.attrs.slaveId,
+        centralId: device.attrs.centralId,
+        val: 0,
+        val2: device.val2,
+        ingestionId: device.attrs.ingestionId,
+        source: device.source,
+      };
+    }
   }
 
   const items = Object.values(entityMap).sort((a, b) => b.val - a.val);
-   console.log("items",items)
-  items.forEach((item) => {
-   
-    const group = item.group;
-    groupSums[group] += item.val;
-    totalGeral += item.val;
-  });
 
-  items.forEach(({ entityId, entityType, ingestionId, label, val, slaveId, centralId, sourceName }) => {
-      //console.log(`[ITEM DETAILS] ${label || sourceName} | ID: ${entityId} | Tipo: ${entityType} | SlaveID: ${slaveId} | IngestionID: ${ingestionId} | CentralID: ${centralId} | Consumo: ${val} kWh`);
-      const identifier = sourceName.split(" ")[1].split(","); // caso seja uma lista separada por vírgula
-      const updatedIdentifiers = identifier.map((id) => { return id.includes("SCP") ? id : "-"; });
-      const labelOrName = label || sourceName;
-      const group = classify(labelOrName);
-      const groupTotal = groupSums[group] || 0;
-      const perc = groupTotal > 0 ? ((val / groupTotal) * 100).toFixed(1) : "0.0";
-      const isOn = val > 0;
-      const img = getDeviceImage(labelOrName, { isOn });
+  // Calculate group sums AFTER all devices have been processed and matched
+  console.log(
+    "[water/controller] onDataUpdated() calculating group sums from matched devices, total items:",
+    items.length
+  );
 
-      const $card = $(`
-      <div class="device-card-centered clickable" 
-          data-entity-id="${entityId}" 
-          data-entity-label="${labelOrName}" 
-          data-entity-type="${entityType}" 
-          data-entity-slaveid="${slaveId}" 
-          data-entity-ingestionid="${ingestionId}"
-          data-entity-consumption="${val}"
-          data-entity-centralid="${centralId}" 
-          data-entity-updated-identifiers='${JSON.stringify(updatedIdentifiers)}'>
-        <div class="card-actions" style="width: 15%">
-          <div class="card-action" data-action="dashboard" title="Dashboard"><img src="/api/images/public/TAVXE0sTbCZylwGsMF9lIWdllBB3iFtS"/></div>
-          <div class="card-action" data-action="report" title="Relatório"><img src="/api/images/public/d9XuQwMYQCG2otvtNSlqUHGavGaSSpz4"/></div>
-          <div class="card-action" data-action="settings" title="Configurações"><img src="/api/images/public/5n9tze6vED2uwIs5VvJxGzNNZ9eV4yoz"/></div>
-        </div>
-        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; width: 85%">
-          <div class="device-title-row">
-            <span class="device-title" title="${labelOrName}">
-              ${
-                labelOrName.length > 15
-                  ? labelOrName.slice(0, 15) + "…"
-                  : labelOrName
-              }
-            </span>
-          </div>
-          <img class="device-image ${isOn ? "blink" : ""}" src="${img}" />
-          <div class="device-data-row">
-            <div class="consumption-main">
-              <span class="flash-icon ${isOn ? "flash" : ""}">⚡</span>
-              <span class="consumption-value" data-entity-consumption="${val}">${MyIOLibrary.formatEnergy(val)}</span>
-              <span class="device-title-percent">(${MyIOLibrary.formatNumberReadable(perc)}%)</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    `);
-      //atualiza os dados. n deixa duplicar
-      const $groupCol = (self.ctx.groupDivs && self.ctx.groupDivs[group]) || $();
-      if ($groupCol.length === 0) {
-        // coluna desse grupo foi ocultada → não renderiza nada aqui
-        return;
+  // Reset group sums before calculating
+  groupSums["Caixas D'Água"] = 0;
+  groupSums["Ambientes"] = 0;
+  totalGeral = 0;
+
+  // Calculate sums from the final entityMap values
+  for (const item of items) {
+    // For Caixas D'Água, use level if available, otherwise use val
+    let valueToSum = item.val;
+    if (item.group === "Caixas D'Água" && item.val2?.level !== undefined) {
+      valueToSum = item.val2.level;
+    }
+
+    // console.log(`[water/controller] Adding to group "${item.group}": ${item.label || item.sourceName} = ${valueToSum} (source: ${item.source}, original val: ${item.val})`);
+    groupSums[item.group] += valueToSum;
+    totalGeral += valueToSum;
+  }
+
+  // console.log("[water/controller] onDataUpdated() final group sums:", groupSums);
+  //console.log("[water/controller] onDataUpdated() total geral:", totalGeral);
+  //   console.log("[water/controller] onDataUpdated() items by group:", {
+  //     "Caixas D'Água": items.filter(i => i.group === "Caixas D'Água").length,
+  //     "Ambientes": items.filter(i => i.group === "Ambientes").length
+  //   });
+
+  items.forEach(
+    ({
+      entityId,
+      entityType,
+      label,
+      val,
+      slaveId,
+      centralId,
+      ingestionId,
+      sourceName,
+      val2,
+      group,
+    }) => {
+      const identifier = (sourceName || "").split(" ")[1]?.split(",") || [];
+      const updatedIdentifiers = identifier.map((id) =>
+        id.includes("SCP") ? id : "-"
+      );
+
+      const labelOrName = label || sourceName || "SEM-LABEL";
+      // Use the group that was already determined in entityMap, don't re-classify
+      // const group = classify(labelOrName); // REMOVED - this was causing the bug
+
+      // Ajuste para caixas d’água
+      let adjustedVal = val;
+      if (group === "Caixas D'Água" && val2?.level !== undefined) {
+        adjustedVal = val2.level;
       }
 
-      const $existingCard = $groupCol.find(`.device-card-centered[data-entity-id="${entityId}"]`);
+      //console.log(`[water/controller] Processing device: ${labelOrName} | Group: ${group} | Raw Val: ${val} | Adjusted Val: ${adjustedVal} | Source: ${val2 ? JSON.stringify(val2) : 'N/A'}`);
+      const percent = (val2?.percent || 0) * 100;
+      const groupTotal = groupSums[group] || 0;
+      //console.log(`[water/controller] Device: ${labelOrName} | Group: ${group} | Val: ${val} | AdjustedVal: ${adjustedVal} | Percent: ${percent.toFixed(1)}% | GroupTotal: ${groupTotal}`);
+      const perc =
+        groupTotal > 0 ? ((adjustedVal / groupTotal) * 100).toFixed(1) : "0.0";
+      //console.log(`[water/controller] Device: ${labelOrName} | Contribution to Group "${group}": ${perc}%`);
+      const isOn = adjustedVal > 0;
+
+      let $card;
+      let img = isOn
+        ? "/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4"
+        : "/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4";
+
+      // 🔹 Ícone de caixas d’água
+      if (
+        /superior|isterna|inferior|nível_terraço|eservat|caixa/i.test(
+          labelOrName
+        )
+      ) {
+        if (percent >= 70)
+          img = "/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq";
+        else if (percent >= 40)
+          img = "/api/images/public/4UBbShfXCVWR9wcw6IzVMNran4x1EW5n";
+        else if (percent >= 20)
+          img = "/api/images/public/aB9nX28F54fBBQs1Ht8jKUdYAMcq9QSm";
+        else img = "/api/images/public/qLdwhV4qw295poSCa7HinpnmXoN7dAPO";
+
+        $card = $(`
+          <div class="device-card-centered clickable" 
+               data-entity-id="${entityId}" 
+               data-entity-label="${labelOrName}" 
+               data-entity-type="${entityType}" 
+               data-entity-slaveid="${slaveId}" 
+               data-entity-ingestionid="${ingestionId}"
+               data-entity-centralid="${centralId}"
+               data-entity-sourcename="${sourceName}"
+               data-entity-updated-identifiers='${JSON.stringify(
+                 updatedIdentifiers
+               )}'
+               data-entity-consumption="${adjustedVal.toFixed(2)}"
+               data-entity-percent="${percent}">
+            
+            <div class="card-actions" style="width: 15%">
+              <div class="card-action" data-action="dashboard_water" title="Dashboard">
+                <img src="/api/images/public/TAVXE0sTbCZylwGsMF9lIWdllBB3iFtS"/>
+              </div>
+              <div class="card-action" data-action="setting_water" title="Configurações">
+                <img src="/api/images/public/5n9tze6vED2uwIs5VvJxGzNNZ9eV4yoz"/>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; width: 85%">
+              <div class="device-title-row">
+                <span class="device-title" title="${labelOrName}">
+                  ${
+                    labelOrName.length > MEX_LEN_LABEL_DEVICE
+                      ? labelOrName.slice(0, MEX_LEN_LABEL_DEVICE) + "…"
+                      : labelOrName
+                  }
+                </span>
+              </div>
+              
+              <img class="device-image ${isOn ? "blink" : ""}" src="${img}" />
+              
+              <div class="device-data-row">
+                <div class="consumption-main">
+                  <span data-entity-consumption="${MyIOLibrary.formatEnergyByGroup(
+                    adjustedVal,
+                    group
+                  )}" class="consumption-value">
+                    ${MyIOLibrary.formatEnergyByGroup(adjustedVal, group)}
+                  </span>
+                  <span class="device-title-percent">(${MyIOLibrary.formatNumberReadable(
+                    percent
+                  )}%)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `);
+      } else {
+        // 🔹 Card padrão
+        $card = $(`
+          <div class="device-card-centered clickable" 
+               data-entity-id="${entityId}" 
+               data-entity-label="${labelOrName}" 
+               data-entity-type="${entityType}" 
+               data-entity-slaveid="${slaveId}" 
+               data-entity-centralid="${centralId}" 
+               data-entity-ingestionid="${ingestionId}"
+               data-entity-sourcename="${sourceName}"
+               data-entity-updated-identifiers='${JSON.stringify(
+                 updatedIdentifiers
+               )}'
+                >
+            
+            <div class="card-actions" style="width: 15%">
+              <div class="card-action" data-action="dashboard" title="Dashboard">
+                <img src="/api/images/public/TAVXE0sTbCZylwGsMF9lIWdllBB3iFtS"/>
+              </div>
+              <div class="card-action" data-action="report" title="Relatório">
+                <img src="/api/images/public/d9XuQwMYQCG2otvtNSlqUHGavGaSSpz4"/>
+              </div>
+              <div class="card-action" data-action="settings" title="Configurações">
+                <img src="/api/images/public/5n9tze6vED2uwIs5VvJxGzNNZ9eV4yoz"/>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; width: 85%">
+              <div class="device-title-row">
+                <span class="device-title" title="${labelOrName}">
+                  ${
+                    labelOrName.length > MEX_LEN_LABEL_DEVICE
+                      ? labelOrName.slice(0, MEX_LEN_LABEL_DEVICE) + "…"
+                      : labelOrName
+                  }
+                </span>
+              </div>
+              
+              <img class="device-image ${isOn ? "blink" : ""}" src="${img}" />
+              
+              <div class="device-data-row">
+                <div class="consumption-main">
+                  <span class="flash-icon ${isOn ? "flash" : ""}"></span>
+                  <span data-entity-consumption="${MyIOLibrary.formatEnergyByGroup(
+                    adjustedVal,
+                    group
+                  )}" class="consumption-value">
+                    ${MyIOLibrary.formatEnergyByGroup(adjustedVal, group)}
+                  </span>
+                  <span class="device-title-percent">(${MyIOLibrary.formatNumberReadable(
+                    perc
+                  )}%)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `);
+      }
+
+      // console.log(`[water/controller] Creating/updating card for device "${labelOrName}" in group "${group}" with value ${adjustedVal}`);
+
+      // Atualiza ou insere
+      const $existingCard = ctx.groupDivs[group].find(
+        `.device-card-centered[data-entity-id="${entityId}"]`
+      );
 
       if ($existingCard.length) {
-        // Atualiza apenas os dados do card existente
-        $existingCard.find(".consumption-value").text(MyIOLibrary.formatEnergy(val));
-        $existingCard.find(".device-title-percent").text(`(${perc}%)`);
+        //  console.log(`[water/controller] Updating existing card for "${labelOrName}" in group "${group}"`);
+        $existingCard
+          .find(".consumption-value")
+          .text(MyIOLibrary.formatEnergyByGroup(adjustedVal, group));
+        $existingCard
+          .find(".device-title-percent")
+          .text(`(${MyIOLibrary.formatNumberReadable(percent)}%)`);
         $existingCard.find(".device-image").attr("src", img);
         $existingCard.find(".flash-icon").toggleClass("flash", isOn);
         $existingCard.find(".device-image").toggleClass("blink", isOn);
       } else {
-        // Adiciona o card novo
-        ctx.groupDivs[group].find(".card-list").append($card);
-        ctx.groups[group].push({ label, val, $card });
-        ctx.groupDivs[group]
-          .find(`[data-group-count="${group}"]`)
-          .text(`${ctx.groups[group].length}`);
+        //console.log(`[water/controller] Creating new card for "${labelOrName}" in group "${group}"`);
+        // console.log(`[water/controller] Group div exists for "${group}":`, ctx.groupDivs[group] && ctx.groupDivs[group].length > 0);
+
+        if (ctx.groupDivs[group] && ctx.groupDivs[group].length > 0) {
+          ctx.groupDivs[group].find(".card-list").append($card);
+          ctx.groups[group].push({
+            label: labelOrName,
+            val: adjustedVal,
+            $card,
+          });
+          ctx.groupDivs[group]
+            .find(`[data-group-count="${group}"]`)
+            .text(`${ctx.groups[group].length}`);
+          //  console.log(`[water/controller] Successfully added card to "${group}" group. New count: ${ctx.groups[group].length}`);
+        } else {
+          console.error(
+            `[water/controller] ERROR: Group div not found for "${group}". Available groups:`,
+            Object.keys(ctx.groupDivs)
+          );
+        }
       }
     }
   );
-  
-  //console.log("group", groupSums);
 
-    for (const group in groupSums) {
-      console.log("group", group, groupSums[group]);
-    
-      if (!self.ctx.isGroupVisible(group)) continue;
-    
-      // normaliza o nome quando for o caso
-      let dataAttr = group;
-      if (group === "Adm. / Bombas / Área Comum") {
-        dataAttr = "Administração e Bombas";
-      }
-    
+  // RFC: Step 8 - Update group totals and device counts in the UI
+  for (const group in groupSums) {
+    const deviceCount = items.filter((item) => item.group === group).length;
+    logInfo(
+      `[water/controller] Updating group "${group}": ${deviceCount} devices, total: ${groupSums[group]}`
+    );
+
+    if (ctx.groupDivs[group] && ctx.groupDivs[group].length > 0) {
+      // Update group total value
       ctx.groupDivs[group]
-        .find(`[data-group="${dataAttr}"]`)
-        .text(MyIOLibrary.formatEnergy(groupSums[group]));
-    }
- 
-  
-  
+        .find(`[data-group="${group}"]`)
+        .text(MyIOLibrary.formatEnergyByGroup(groupSums[group], group));
 
-  // acessando o grupo "Adm. / Bombas / Área Comum"
-  const span = document.querySelector(`.group-count[data-group-count="Administração e Bombas"]`);
-    if (span) {
-      span.textContent = `${GROUPS["Adm. / Bombas / Área Comum"].length}`;
-    }
+      // Update device count
+      ctx.groupDivs[group]
+        .find(`[data-group-count="${group}"]`)
+        .text(`${deviceCount}`);
 
-  console.log("Qtd:", GROUPS["Adm. / Bombas / Área Comum"].length);
-  updateInfoCardsAndChart(groupSums, items);
-  ctx.$lockOverlay.remove();
-  //forceClickExpandWidget();
-};
-
-function classify(label) {
-  const l = (label || "").toLowerCase();
-
-  const groupLabels = Object.keys(GROUPS);
-  
-  ctx.groupDivs = {
-    [groupLabels[0]]: $(".group-card.entrada"),
-    [groupLabels[1]]: $(".group-card.administracao"),
-    [groupLabels[2]]: $(".group-card.lojas"),
-    "Área Comum": $(".group-card.area-comum"),
-  };  
-
-  let adm = new RegExp(administration);
-  let clock = new RegExp(entranceClock);
-  // Tudo que é “porta de entrada” de energia
-  if (clock.test(l)) return [groupLabels[0]];
-
-  // Infra predial
-  if (adm.test(l))
-    return [groupLabels[1]];
-
-  // Demais: lojas
-  return [groupLabels[2]];
-}
-
-function getValueByDatakey(dataList, dataSourceNameTarget, dataKeyTarget) {
-  for (const item of dataList) {
-    if (
-      item.datasource.name === dataSourceNameTarget &&
-      item.dataKey.name === dataKeyTarget
-    ) {
-      const itemValue = item.data?.[0]?.[1];
-
-      if (itemValue !== undefined && itemValue !== null) {
-        return itemValue;
-      } else {
-        console.warn(
-          `Valor não encontrado para ${dataSourceNameTarget} - ${dataKeyTarget}`
-        );
-        return null;
-      }
+      logInfo(
+        `[water/controller] Successfully updated group "${group}" UI: ${deviceCount} devices, ${groupSums[group]} total`
+      );
+    } else {
+      logWarn(
+        `[water/controller] ERROR: Cannot update group total for "${group}" - group div not found`
+      );
     }
   }
-}
 
-self.onDataUpdated = async function () { };
+  // RFC: Final summary logging
+  const totalDevices = items.length;
+  const ambientesCount = items.filter((i) => i.group === "Ambientes").length;
+  const caixasCount = items.filter((i) => i.group === "Caixas D'Água").length;
+
+  logInfo(`[water/controller] ✅ HYBRID RENDERING COMPLETE!`);
+  logInfo(
+    `[water/controller] Total devices rendered: ${totalDevices} (was 27, target was 93)`
+  );
+  logInfo(
+    `[water/controller] Ambientes: ${ambientesCount} devices, ${groupSums["Ambientes"]} m³`
+  );
+  logInfo(
+    `[water/controller] Caixas D'Água: ${caixasCount} devices, ${groupSums["Caixas D'Água"]} m³`
+  );
+  logInfo(`[water/controller] API-injected devices: ${injectedDevices.length}`);
+
+  ctx.$lockOverlay.remove();
+};

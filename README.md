@@ -1135,6 +1135,127 @@ modal.on('close', () => {
 });
 ```
 
+#### `openDashboardPopupAllReport(params: OpenAllReportParams): ModalHandle`
+
+Opens a customer-level energy consumption report modal with real-time data from the Customer Totals API. This modal provides comprehensive reporting across all devices for a customer with advanced sorting, filtering, and export capabilities.
+
+**Parameters:**
+- `customerId: string` - ThingsBoard customer ID (required)
+- `ui?: object` - UI configuration (theme, width)
+- `api: object` - API configuration:
+  - `clientId?: string` - Client ID for data API authentication
+  - `clientSecret?: string` - Client secret for data API authentication
+  - `dataApiBaseUrl?: string` - Data API base URL (default: 'https://api.data.apps.myio-bas.com')
+- `filters?: object` - Optional filtering configuration:
+  - `excludeLabels?: (RegExp | string)[]` - Patterns to exclude devices by label
+- `fetcher?: Function` - Optional custom fetcher for testing/mocking
+
+**Returns:** `ModalHandle` object with:
+- `close(): void` - Close the modal
+- `on(event: 'close'|'loaded'|'error', handler: Function): void` - Event listeners
+
+**Key Features:**
+- **Real Customer Totals API Integration**: Calls `/api/v1/telemetry/customers/{customerId}/energy/devices/totals`
+- **Built-in Date Range Picker**: Interactive date selection with validation
+- **Robust Data Processing**: Handles pagination, fallback chains, and data normalization
+- **Sortable Table Structure**: Sticky totals row + sortable columns (Identifier, Name, Consumption)
+- **Portuguese Locale Support**: Brazilian number formatting and sorting
+- **Comprehensive Error Handling**: Network failures, authentication, and validation errors
+- **CSV Export**: Consistent formatting with UI using `MyIOLibrary.formatEnergy`
+- **Production Ready**: Authentication via `fetchWithAuth` pattern with automatic token refresh
+
+**Usage Example:**
+```javascript
+import { openDashboardPopupAllReport } from 'myio-js-library';
+
+const modal = openDashboardPopupAllReport({
+  customerId: '73d4c75d-c311-4e98-a852-10a2231007c4',
+  api: {
+    clientId: 'your-client-id',
+    clientSecret: 'your-client-secret',
+    dataApiBaseUrl: 'https://api.data.apps.myio-bas.com'
+  },
+  filters: {
+    excludeLabels: [
+      /bomba.*secund[aá]ria/i,     // Regex patterns
+      /^administra[cç][aã]o\s*1$/i,
+      'Entrada Principal'           // Exact string matches
+    ]
+  }
+});
+
+modal.on('loaded', (data) => {
+  console.log('Customer report loaded:', data.count, 'devices');
+  console.log('Total consumption:', data.totalKwh, 'kWh');
+});
+
+modal.on('error', (error) => {
+  console.error('Report error:', error.message);
+});
+```
+
+**UMD Usage (ThingsBoard widgets):**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { openDashboardPopupAllReport } = MyIOLibrary;
+  
+  const modal = openDashboardPopupAllReport({
+    customerId: 'your-customer-id',
+    api: {
+      clientId: 'your-client-id',
+      clientSecret: 'your-client-secret'
+    }
+  });
+  
+  modal.on('loaded', (data) => {
+    console.log('All stores report loaded with', data.count, 'devices');
+    console.log('Grand total:', data.totalKwh, 'kWh');
+  });
+</script>
+```
+
+**Data Flow:**
+```
+User clicks "Carregar" 
+→ Format timestamps with timezone offset
+→ Call Customer Totals API with fetchWithAuth
+→ Process response with mapCustomerTotalsResponse
+→ Apply sorting with applySorting (Portuguese locale)
+→ Update table with updateAllReportTable
+→ Update totals with updateGrandTotal
+→ Enable CSV export with habilitarBotaoExportAll
+```
+
+**API Integration:**
+```
+GET ${DATA_API_HOST}/api/v1/telemetry/customers/{customerId}/energy/devices/totals
+  ?startTime=2025-09-01T00%3A00%3A00-03%3A00
+  &endTime=2025-09-25T23%3A59%3A59-03%3A00
+
+Authorization: Bearer ${MyIOAuth.getToken()}
+```
+
+**Migration from Legacy Implementation:**
+```javascript
+// OLD: Mock/placeholder data
+MyIOLibrary.openDashboardPopupAllReport({
+  // Used mock data or device-by-device calls
+});
+
+// NEW: Real Customer Totals API
+MyIOLibrary.openDashboardPopupAllReport({
+  customerId: 'your-customer-id',        // ✅ Real customer ID
+  api: {
+    clientId: 'your-client-id',          // ✅ Real API credentials
+    clientSecret: 'your-client-secret'
+  }
+  // ✅ Calls real Customer Totals API endpoint
+  // ✅ Handles pagination automatically
+  // ✅ Robust error handling and recovery
+});
+```
+
 **UMD Usage (ThingsBoard widgets):**
 ```html
 <script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
