@@ -828,6 +828,123 @@ const legacyData = [
 findValue(legacyData, 'sensor1', 'temperature'); // 25
 ```
 
+### DateRangePicker Component
+
+#### `createDateRangePicker(input: HTMLInputElement, options?: CreateDateRangePickerOptions): Promise<DateRangeControl>`
+
+Creates a MyIO-styled date range picker with Portuguese localization and timezone-aware output. This component provides a clean, user-friendly interface for selecting date ranges with built-in validation and formatting.
+
+**Parameters:**
+- `input: HTMLInputElement` - The input element to attach the date range picker to (required)
+- `options?: CreateDateRangePickerOptions` - Configuration options:
+  - `presetStart?: string` - Preset start date (ISO string or YYYY-MM-DD)
+  - `presetEnd?: string` - Preset end date (ISO string or YYYY-MM-DD)
+  - `maxRangeDays?: number` - Maximum range in days (default: 31)
+  - `parentEl?: HTMLElement` - Parent element for modal positioning
+  - `onApply?: (result: DateRangeResult) => void` - Callback when date range is applied
+
+**Returns:** Promise resolving to `DateRangeControl` object with:
+- `getDates(): DateRangeResult` - Get current selected dates
+- `setDates(startISO: string, endISO: string): void` - Set date range programmatically
+- `destroy(): void` - Clean up and remove the picker
+
+**DateRangeResult Structure:**
+```javascript
+{
+  startISO: string,    // "YYYY-MM-DDTHH:mm:ss-03:00" (São Paulo timezone)
+  endISO: string,      // "YYYY-MM-DDTHH:mm:ss-03:00" (São Paulo timezone)
+  startLabel: string,  // "DD/MM/YY HH:mm" (display format)
+  endLabel: string     // "DD/MM/YY HH:mm" (display format)
+}
+```
+
+**Key Features:**
+- **Portuguese Localization**: All labels, buttons, and formats in Brazilian Portuguese
+- **Timezone Aware**: Outputs São Paulo timezone (-03:00) ISO strings
+- **Time Selection**: 24-hour format time picker with minute precision
+- **Preset Ranges**: Built-in ranges (Hoje, Últimos 7 dias, Últimos 30 dias, Mês Anterior)
+- **Range Validation**: Configurable maximum range enforcement (default: 31 days)
+- **Premium Styling**: MyIO brand colors and consistent design
+- **No Dependencies**: Self-contained with automatic CDN loading of required libraries
+- **Accessibility**: Full keyboard navigation and screen reader support
+
+**Usage Example:**
+```javascript
+import { createDateRangePicker } from 'myio-js-library';
+
+const input = document.getElementById('date-range');
+const picker = await createDateRangePicker(input, {
+  maxRangeDays: 31,
+  presetStart: '2025-09-01',
+  presetEnd: '2025-09-25',
+  onApply: (result) => {
+    console.log('Date range selected:', result);
+    // result.startISO: "2025-09-01T00:00:00-03:00"
+    // result.endISO: "2025-09-25T23:59:59-03:00"
+    // result.startLabel: "01/09/25 00:00"
+    // result.endLabel: "25/09/25 23:59"
+  }
+});
+
+// Get current selection
+const dates = picker.getDates();
+console.log('Current range:', dates.startISO, 'to', dates.endISO);
+
+// Set new range programmatically
+picker.setDates('2025-10-01T00:00:00-03:00', '2025-10-31T23:59:59-03:00');
+
+// Clean up when done
+picker.destroy();
+```
+
+**UMD Usage (ThingsBoard widgets):**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { createDateRangePicker } = MyIOLibrary;
+  
+  (async () => {
+    const input = document.getElementById('dateRange');
+    const picker = await createDateRangePicker(input, {
+      maxRangeDays: 31,
+      onApply: (result) => {
+        // Update your dashboard with the selected date range
+        updateDashboard(result.startISO, result.endISO);
+      }
+    });
+    
+    // Set default to current month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    picker.setDates(
+      startOfMonth.toISOString(),
+      endOfMonth.toISOString()
+    );
+  })();
+</script>
+```
+
+**Preset Ranges:**
+- **Hoje**: Current day (00:00 to 23:59)
+- **Últimos 7 dias**: Last 7 days including today
+- **Últimos 30 dias**: Last 30 days including today
+- **Mês Anterior**: Previous month (full month)
+
+**Error Handling:**
+The component includes robust error handling:
+- Automatic fallback to native date inputs if dependencies fail to load
+- Graceful degradation with user-friendly error messages
+- Console warnings for debugging in development
+
+**Styling:**
+The component includes premium MyIO styling with:
+- Purple brand colors (#4A148C)
+- Consistent button styling and hover effects
+- Responsive design for mobile and desktop
+- Portuguese month names and day abbreviations
+
 ### MYIO Components - Drag-to-Footer Dock Implementation
 
 The library includes three main interactive components for building comparative selection interfaces:

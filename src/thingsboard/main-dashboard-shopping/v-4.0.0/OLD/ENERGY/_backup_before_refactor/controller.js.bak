@@ -4137,68 +4137,68 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     document.head.appendChild(script);
   }
 
-  // Initialize MyIOLibrary DateRangePicker
+  // Inicializa o daterangepicker
   var $inputStart = $('input[name="startDatetimes"]');
-  var dateRangePicker;
-  
-  console.log('[DateRangePicker] Using MyIOLibrary.createDateRangePicker');
-  
-  // Initialize the createDateRangePicker component
-  MyIOLibrary.createDateRangePicker($inputStart[0], {
-    presetStart: presetStart,
-    presetEnd: presetEnd,
-    onApply: function(result) {
-      console.log('[DateRangePicker] Applied:', result);
-      
-      // Update internal dates for compatibility
-      self.ctx.$scope.startTs = result.startISO;
-      self.ctx.$scope.endTs = result.endISO;
-      
-      // The input display is automatically handled by the component
-    }
-  }).then(function(picker) {
-    dateRangePicker = picker;
-    console.log('[DateRangePicker] Successfully initialized');
-  }).catch(function(error) {
-    console.error('[DateRangePicker] Failed to initialize:', error);
+
+  $inputStart.daterangepicker({
+    timePicker: true,
+    timePicker24Hour: true,
+    autoApply: true,
+    autoUpdateInput: true,
+    timePickerIncrement: 1,
+    linkedCalendars: true,
+    showCustomRangeLabel: true,
+    ranges: {
+      'Hoje': [moment().startOf('day'), moment().endOf('day')],
+      'Útimos 7 dias': [moment().subtract(6, 'days').startOf('day'), moment().endOf('day')],
+      'Útimos 30 dias': [moment().subtract(29, 'days').startOf('day'), moment().endOf('day')],
+      'Mês Anterior': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+    },
+    startDate: presetStart ? moment(presetStart) : moment().startOf('month'),
+    endDate: presetEnd ? moment(presetEnd) : moment().endOf('day'), // 👈 aqui muda para 23:59
+    locale: {
+      format: 'DD/MM/YY HH:mm',
+      applyLabel: 'Aplicar',
+      cancelLabel: 'Cancelar',
+      fromLabel: 'De',
+      toLabel: 'Até',
+      customRangeLabel: 'Personalizado',
+      daysOfWeek: ['Do', 'Se', 'Te', 'Qa', 'Qi', 'Se', 'Sa'],
+      monthNames: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+      firstDay: 1,
+      separator: " até ",
+      applyButtonClasses: ".applyBtn",
+      cancelClass: ".cancelBtn"
+    },
+    maxDate: moment().endOf('day'), // 👈 maxDate também até 23:59 de hoje
+    opens: 'right',
+    drops: 'down',
+  }
+  );
+
+  $inputStart.on('apply.daterangepicker', function (ev, picker) {
+    const startDateFormatted = picker.startDate.format('DD/MM/YY HH:mm');
+    const endDateFormatted = picker.endDate.format('DD/MM/YY HH:mm');
+    console.log(startDateFormatted + ' até ' + endDateFormatted)
+    $(this).val(startDateFormatted + ' até ' + endDateFormatted);
   });
 
-  styleOnPicker();
-
-  // Helper function to format dates consistently
-  function formatDateToDisplay(date) {
-    const d = new Date(date);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = String(d.getFullYear()).slice(-2);
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
-  }
+  $inputStart.on('show.daterangepicker', function (ev, picker) {
+    picker.maxDate = moment().endOf('day'); // 👈 garante que limite seja até 23:59 de hoje
+    styleOnPicker()
+  });
 
   // Função para pegar datas do picker
   function getDates() {
-    if (dateRangePicker && dateRangePicker.getDates) {
-      const result = dateRangePicker.getDates();
-      return {
-        startDate: result.startISO,
-        endDate: result.endISO
-      };
-    }
-    // Fallback to current scope values
+    var picker = $inputStart.data('daterangepicker');
     return {
-      startDate: self.ctx.$scope.startTs || new Date().toISOString(),
-      endDate: self.ctx.$scope.endTs || new Date().toISOString()
+      startDate: picker.startDate.format('YYYY-MM-DDTHH:mm:ssZ'),
+      endDate: picker.endDate.format('YYYY-MM-DDTHH:mm:ssZ')
     };
   }
 
-  // Initialize dates with defaults
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  var dates = {
-    startDate: presetStart || startOfMonth.toISOString(),
-    endDate: presetEnd || now.toISOString()
-  };
+  // Atualiza datas no escopo
+  var dates = getDates();
   self.ctx.$scope.startTs = dates.startDate;
   self.ctx.$scope.endTs = dates.endDate;
 
