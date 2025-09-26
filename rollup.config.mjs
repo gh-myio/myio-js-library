@@ -1,5 +1,20 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
+import { visualizer } from 'rollup-plugin-visualizer';
+
+const plugins = [resolve(), commonjs()];
+
+// Add visualizer plugin when ANALYZE environment variable is set
+if (process.env.ANALYZE) {
+  plugins.push(
+    visualizer({
+      filename: 'dist/bundle-analysis.html',
+      open: true,
+      gzipSize: true,
+      brotliSize: true
+    })
+  );
+}
 
 export default {
   input: 'dist/index.js',
@@ -8,5 +23,5 @@ export default {
     format: 'umd',
     name: 'MyIOLibrary'
   },
-  plugins: [resolve(), commonjs()]
+  plugins
 };
