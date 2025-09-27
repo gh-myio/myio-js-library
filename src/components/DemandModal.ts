@@ -11,8 +11,8 @@ export interface DemandModalParams {
   // Required parameters
   token: string;                       // JWT token for ThingsBoard authentication
   deviceId: string;                    // ThingsBoard device UUID
-  startDate: string;                   // ISO date string "YYYY-MM-DD"
-  endDate: string;                     // ISO date string "YYYY-MM-DD"
+  startDate: string;                   // ISO datetime string "YYYY-MM-DDTHH:mm:ss±HH:mm"
+  endDate: string;                     // ISO datetime string "YYYY-MM-DDTHH:mm:ss±HH:mm"
   
   // Optional parameters
   label?: string;                      // Device/store label (default: "Dispositivo")
@@ -284,8 +284,8 @@ function injectCSS(styles: DemandModalStyles): void {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: ${styles.spacingLg};
-      background: ${styles.primaryColor};
+      padding: ${styles.spacingMd};
+      background: #4A148C;
       color: white;
     }
 
@@ -515,8 +515,8 @@ async function fetchTelemetryData(
   startDate: string,
   endDate: string
 ): Promise<any[]> {
-  const startTs = new Date(startDate + 'T00:00:00').getTime();
-  const endTs = new Date(endDate + 'T23:59:59').getTime();
+  const startTs = new Date(startDate).getTime();
+  const endTs = new Date(endDate).getTime();
 
   const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?` +
     `keys=consumption&startTs=${startTs}&endTs=${endTs}&limit=50000&` +
