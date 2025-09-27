@@ -94,7 +94,7 @@ export class AllReportModal {
             <button id="export-btn" class="myio-btn myio-btn-secondary" disabled>
               Exportar CSV
             </button>
-            <button id="filter-btn" class="myio-btn myio-btn-secondary" style="background: #7C3AED; color: white;">
+            <button id="filter-btn" class="myio-btn myio-btn-secondary" style="background: #4A148C; color: white;">
               🔍 Filtros & Ordenação
             </button>
             <div class="myio-form-group" style="margin-bottom: 0; margin-left: auto;">
@@ -530,10 +530,10 @@ export class AllReportModal {
     const filterBtn = document.getElementById('filter-btn') as HTMLButtonElement;
     if (filterBtn && selectedIds.length > 0 && selectedIds.length < this.data.length) {
       filterBtn.innerHTML = `🔍 Filtros & Ordenação (${selectedIds.length})`;
-      filterBtn.style.background = '#5B21B6'; // Darker purple for active state
+      filterBtn.style.background = '#3A0E5C'; // Darker purple for active state
     } else {
       filterBtn.innerHTML = '🔍 Filtros & Ordenação';
-      filterBtn.style.background = '#7C3AED';
+      filterBtn.style.background = '#4A148C';
     }
   }
 
@@ -695,7 +695,10 @@ export class AllReportModal {
   }
 
   private downloadCSV(content: string, filename: string): void {
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    // Add UTF-8 BOM to ensure proper encoding of special characters
+    const BOM = '\uFEFF';
+    const csvWithBOM = BOM + content;
+    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
@@ -704,6 +707,7 @@ export class AllReportModal {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   private getDefaultStartDate(): string {

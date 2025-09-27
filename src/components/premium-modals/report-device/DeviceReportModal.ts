@@ -336,7 +336,10 @@ export class DeviceReportModal {
   }
 
   private downloadCSV(content: string, filename: string): void {
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    // Add UTF-8 BOM to ensure proper encoding of special characters
+    const BOM = '\uFEFF';
+    const csvWithBOM = BOM + content;
+    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
@@ -345,6 +348,7 @@ export class DeviceReportModal {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   private getDefaultStartDate(): string {

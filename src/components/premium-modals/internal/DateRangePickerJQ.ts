@@ -314,12 +314,13 @@ function createDateRangePicker($: any, input: HTMLInputElement, opts: AttachOpti
   input.readOnly = true;
   input.setAttribute('aria-label', 'Período de datas');
   
-  // Add helper text
+  // Add helper text container for proper alignment
   const helpText = document.createElement('div');
   helpText.className = 'myio-text-muted';
   helpText.style.fontSize = '12px';
   helpText.style.marginTop = '4px';
-  //helpText.textContent = 'Formato: DD/MM/YY HH:mm até DD/MM/YY HH:mm';
+  helpText.style.display = 'flex';
+  helpText.style.alignItems = 'center';
   input.parentNode?.appendChild(helpText);
   
   // Normalize preset dates

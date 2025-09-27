@@ -98,3 +98,13 @@ export type {
 // Utils namespace exports
 export * as strings from './utils/strings';
 export * as numbers from './utils/numbers';
+
+// Demand Modal Component
+export { 
+  openDemandModal,
+  type DemandModalParams,
+  type DemandModalPdfConfig,
+  type DemandModalStyles,
+  type DemandModalInstance,
+  type TelemetryFetcher
+} from './components/DemandModal';

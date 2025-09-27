@@ -2,9 +2,7 @@
   <div class="status-container">
     <div class="top-bar">
       <div class="date-range">
-        <input type="date" [(ngModel)]="startDate" (ngModelChange)="handleStartDateChange($event)" [max]="endDate" />
-        <span>até</span>
-        <input type="date" [(ngModel)]="endDate" (ngModelChange)="handleEndDateChange($event)" [min]="startDate" />
+        <div id="myio-date-range-picker"></div>
         <button class="load-button" (click)="loadData()" [disabled]="isLoading">
           <i class="material-icons">refresh</i>
           Carregar

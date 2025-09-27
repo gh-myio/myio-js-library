@@ -129,21 +129,41 @@ function initializeMainBoardController() {
   self.ctx.getDates = () => DatesStore.get();
   self.ctx.setDates = (d) => DatesStore.set(d);
 
-  // Main inputs update only the main dates store
-  $(document)
-    .off("change.myioDatesMain", "#startDate,#endDate")
-    .on("change.myioDatesMain", "#startDate,#endDate", () => {
-      const start = $("#startDate").val();
-      const end = $("#endDate").val();
-      console.log("[MAIN] inputs changed", {
-        start,
-        end,
-      });
-      DatesStore.set({
-        start,
-        end,
-      });
+  // Initialize MyIOLibrary.createDateRangePicker
+  const dateRangePickerContainer = document.getElementById('myio-date-range-picker');
+  if (dateRangePickerContainer) {
+    // Get default dates (current month start to today)
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const defaultStart = firstDay.toISOString().split('T')[0];
+    const defaultEnd = now.toISOString().split('T')[0];
+
+    // Initialize the date range picker
+    const dateRangePicker = MyIOLibrary.createDateRangePicker({
+      container: dateRangePickerContainer,
+      startDate: defaultStart,
+      endDate: defaultEnd,
+      maxRangeDays: 31,
+      onChange: (dates) => {
+        console.log("[MAIN] Date range picker changed", dates);
+        DatesStore.set({
+          start: dates.startDate,
+          end: dates.endDate,
+        });
+      }
     });
+
+    // Store reference for later use
+    self.ctx.dateRangePicker = dateRangePicker;
+
+    // Set initial dates in store
+    DatesStore.set({
+      start: defaultStart,
+      end: defaultEnd,
+    });
+  } else {
+    console.warn("[MAIN] Date range picker container not found");
+  }
 
   // Main load button ONLY updates main board; no popup calls
   $(document)
@@ -3773,152 +3793,25 @@ self.onInit = async function () {
     openWidgetFullScreen();
   });
 
-  // Função para formatar data completa com horário e timezone -03:00
-  function formatDateWithTimezoneOffset(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
+  // Get current dates from the date range picker
+  const { start, end } = self.ctx.getDates();
+  
+  // Convert to timestamps for data fetching
+  const startTs = new Date(`${start}T00:00:00-03:00`).getTime();
+  const endTs = new Date(`${end}T23:59:59-03:00`).getTime();
 
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    const seconds = String(date.getSeconds()).padStart(2, "0");
-    const milliseconds = String(date.getMilliseconds()).padStart(3, "0");
-
-    // Fixo timezone -03:00
-    const timezone = "-03:00";
-
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}${timezone}`;
-  }
-
-  // Formata data só para yyyy-MM-dd para o input date
-  function formatDateForInput(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-  }
-
-  // Converte string yyyy-MM-dd para Date no horário 00:00:00
-  function parseInputDateToDate(inputDateStr) {
-    const parts = inputDateStr.split("-");
-
-    if (parts.length !== 3) return null;
-
-    const year = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1;
-    const day = parseInt(parts[2], 10);
-
-    return new Date(year, month, day, 0, 0, 0, 0);
-  }
-
-  // Pega data atual
-  const now = new Date();
-
-  // Primeiro dia do mês com horário final do dia
-  const firstDay = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    1,
-    23,
-    59,
-    59,
-    999
-  );
-
-  // Inicializa datas internas completas (com horário e timezone) se undefined
-  if (self.startDate === undefined)
-    self.startDate = formatDateWithTimezoneOffset(firstDay);
-
-  if (self.endDate === undefined)
-    self.endDate = formatDateWithTimezoneOffset(now);
-
-  // Inicializa datas para exibição no input date (yyyy-MM-dd)
-  if (!self.startDateFormatted)
-    self.startDateFormatted = formatDateForInput(new Date(self.startDate));
-
-  if (!self.endDateFormatted)
-    self.endDateFormatted = formatDateForInput(new Date(self.endDate));
-
-  // Atualiza o $scope para mostrar no calendário
-  self.ctx.$scope.startDate = self.startDateFormatted;
-  self.ctx.$scope.endDate = self.endDateFormatted;
-
-  // Initialize shared dates with current widget dates
-  self.ctx.setDates({
-    start: self.startDateFormatted,
-    end: self.endDateFormatted,
-  });
+  self.ctx.$scope.startTs = startTs;
+  self.ctx.$scope.endTs = endTs;
 
   // Add loadData function to scope for template access
   self.ctx.$scope.loadData = async function () {
     try {
-      // Update shared dates from current scope values
-      self.ctx.setDates({
-        start: self.ctx.$scope.startDate,
-        end: self.ctx.$scope.endDate,
-      });
-
-      // Reload the widget data with new date range
+      // Reload the widget data with current date range from picker
       await self.onInit();
     } catch (error) {
       console.error("[scope.loadData] Error reloading data:", error);
     }
   };
-
-  // Atualiza datas internas completas ao alterar no calendário
-  self.ctx.$scope.handleStartDateChange = function (newDate) {
-    self.startDateFormatted = newDate;
-    self.ctx.$scope.startDate = newDate;
-
-    const dateObj = parseInputDateToDate(newDate);
-    self.startDate = formatDateWithTimezoneOffset(dateObj);
-  };
-
-  self.ctx.$scope.handleEndDateChange = function (newDate) {
-    self.endDateFormatted = newDate;
-    self.ctx.$scope.endDate = newDate;
-
-    const dateObj = parseInputDateToDate(newDate);
-    // Ajusta para fim do dia 23:59:59.999
-    dateObj.setHours(23, 59, 59, 999);
-    self.endDate = formatDateWithTimezoneOffset(dateObj);
-  };
-
-  // Função para pegar timestamps das datas internas completas
-  function getTimeWindowRange() {
-    let startTs = 0;
-    let endTs = 0;
-
-    if (self.startDate) {
-      const startDateObj = new Date(self.startDate);
-
-      if (!isNaN(startDateObj)) {
-        startDateObj.setHours(0, 0, 0, 0);
-        startTs = startDateObj.getTime();
-      }
-    }
-
-    if (self.endDate) {
-      const endDateObj = new Date(self.endDate);
-
-      if (!isNaN(endDateObj)) {
-        endDateObj.setHours(23, 59, 59, 999);
-        endTs = endDateObj.getTime();
-      }
-    }
-
-    return {
-      startTs,
-      endTs,
-    };
-  }
-
-  const { startTs, endTs } = getTimeWindowRange();
-
-  self.ctx.$scope.startTs = startTs;
-  self.ctx.$scope.endTs = endTs;
-  // Seu código que usa startTs e endTs para buscar dados deve continuar aqui.
 
   // Reinicializa os grupos
   for (const g in ctx.groups) {

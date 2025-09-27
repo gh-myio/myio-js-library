@@ -112,6 +112,56 @@
             </div>
         </div>
 
+        <h2>🆕 NEW: Demand Modal Component</h2>
+        <p style="color: #666; margin-bottom: 20px;">
+            <strong>openDemandModal</strong> - RFC 0015 implementation with Chart.js integration, PDF export, and ThingsBoard telemetry data.
+        </p>
+        
+        <div style="background: #f0f8ff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #4A148C;">
+            <h3>⚡ Demand Modal Demo</h3>
+            <p style="margin-bottom: 16px; color: #555;">
+                Interactive demand/consumption chart with zoom, pan, and PDF export capabilities:
+            </p>
+            
+            <div style="margin-top: 16px;">
+                <button class="demo-button" onclick="openDemandModalDemo()" style="background: #4A148C;">
+                    ⚡ Normal Pattern Demo
+                </button>
+                <button class="demo-button" onclick="openDemandModalCustomDemo()" style="background: #28a745;">
+                    🎨 High Demand + Custom Style
+                </button>
+                <button class="demo-button" onclick="openDemandModalEnglishDemo()" style="background: #17a2b8;">
+                    🌍 Variable Pattern (English)
+                </button>
+            </div>
+            
+            <div style="margin-top: 12px;">
+                <button class="demo-button" onclick="openDemandModalLowDemo()" style="background: #6c757d;">
+                    📉 Low Demand Scenario
+                </button>
+                <button class="demo-button" onclick="openDemandModalWithGapsDemo()" style="background: #fd7e14;">
+                    🕳️ Data Gaps Demo
+                </button>
+                <button class="demo-button" onclick="openDemandModalErrorDemo()" style="background: #dc3545;">
+                    ❌ Error State Demo
+                </button>
+            </div>
+            
+            <div style="margin-top: 16px; padding: 12px; background: #e9ecef; border-radius: 4px;">
+                <strong>Features Demonstrated:</strong>
+                <ul style="margin: 8px 0; padding-left: 20px; color: #555;">
+                    <li>📊 Interactive Chart.js line chart with smooth curves</li>
+                    <li>🔍 Zoom/pan controls (wheel zoom, drag select, Ctrl+pan)</li>
+                    <li>📄 PDF export with chart image and data table</li>
+                    <li>⚡ Peak demand highlighting (yellow pill)</li>
+                    <li>🌐 Internationalization (Portuguese/English)</li>
+                    <li>📱 Responsive design and fullscreen mode</li>
+                    <li>♿ Full accessibility (focus trap, ARIA labels)</li>
+                    <li>🎨 Customizable styling tokens</li>
+                </ul>
+            </div>
+        </div>
+
         <h2>🔮 Future Modals (Coming Soon)</h2>
         <button class="demo-button" onclick="openEnergyDemo()" style="opacity: 0.6;">
             ⚡ Energy Modal (Coming Soon)
@@ -424,6 +474,547 @@ The container DIV is now empty and ready for a new component.`);
             } catch (error) {
                 console.error('Error destroying premium picker:', error);
                 alert(`❌ Error destroying component: ${error.message}`);
+            }
+        }
+        
+        // Mock Telemetry Data Generator for Demos
+        function createMockTelemetryFetcher(options = {}) {
+            return async (params) => {
+                console.log('[MOCK] Generating telemetry data for:', params);
+                
+                // Simulate API delay
+                await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 400));
+                
+                const {
+                    baseConsumption = 50000,     // 50 kWh per day base
+                    peakMultiplier = 2.5,
+                    pattern = 'normal',
+                    dataGaps = false,
+                    noiseLevel = 0.1
+                } = options;
+
+                const startTs = new Date(params.startDate + 'T00:00:00').getTime();
+                const endTs = new Date(params.endDate + 'T23:59:59').getTime();
+                const intervalMs = 15 * 60 * 1000; // 15-minute intervals
+                
+                const data = [];
+                let cumulativeConsumption = 0;
+
+                // Pattern multipliers
+                const patternMultipliers = { normal: 1.0, high: 1.8, low: 0.6, variable: 1.0 };
+                const baseMultiplier = patternMultipliers[pattern] || 1.0;
+
+                for (let ts = startTs; ts <= endTs; ts += intervalMs) {
+                    const date = new Date(ts);
+                    const hour = date.getHours();
+                    const dayOfWeek = date.getDay();
+                    
+                    // Skip some data points to simulate gaps
+                    if (dataGaps && Math.random() < 0.05) continue;
+
+                    // Calculate hourly consumption based on realistic patterns
+                    let hourlyConsumption = baseConsumption / 24 / 4; // Base 15-min consumption
+                    
+                    // Business hours pattern (higher consumption 8 AM - 10 PM)
+                    if (hour >= 8 && hour <= 22) {
+                        hourlyConsumption *= peakMultiplier;
+                    } else if (hour >= 6 && hour <= 7) {
+                        hourlyConsumption *= 1.5; // Morning ramp-up
+                    } else if (hour >= 23 || hour <= 5) {
+                        hourlyConsumption *= 0.3; // Night time
+                    }
+
+                    // Weekend pattern (slightly lower consumption)
+                    if (dayOfWeek === 0 || dayOfWeek === 6) {
+                        hourlyConsumption *= 0.8;
+                    }
+
+                    // Variable pattern - changes throughout the period
+                    if (pattern === 'variable') {
+                        const daysSinceStart = (ts - startTs) / (1000 * 60 * 60 * 24);
+                        const variableMultiplier = 0.7 + 0.6 * Math.sin(daysSinceStart * 0.5) + 0.3 * Math.cos(daysSinceStart * 0.3);
+                        hourlyConsumption *= variableMultiplier;
+                    }
+
+                    // Apply base pattern multiplier
+                    hourlyConsumption *= baseMultiplier;
+
+                    // Add random noise
+                    const noise = 1 + (Math.random() - 0.5) * 2 * noiseLevel;
+                    hourlyConsumption *= noise;
+
+                    // Ensure minimum consumption
+                    hourlyConsumption = Math.max(hourlyConsumption, 100);
+
+                    // Add to cumulative consumption
+                    cumulativeConsumption += hourlyConsumption;
+
+                    data.push({
+                        ts,
+                        value: cumulativeConsumption.toFixed(2)
+                    });
+                }
+
+                console.log(`[MOCK] Generated ${data.length} data points`);
+                return data;
+            };
+        }
+
+        // Demand Modal Component Demos
+        function openDemandModalDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+            
+            if (!MyIOLibrary.openDemandModal) {
+                alert('❌ openDemandModal not available in this build.\n\nThis component is part of the latest MyIOLibrary implementation.');
+                return;
+            }
+            
+            try {
+                // Create mock fetcher for normal consumption pattern
+                const mockFetcher = createMockTelemetryFetcher({
+                    pattern: 'normal',
+                    baseConsumption: 45000,
+                    peakMultiplier: 2.2,
+                    noiseLevel: 0.08
+                });
+
+                // Basic demo with mock data
+                const modal = MyIOLibrary.openDemandModal({
+                    token: 'demo-jwt-token-12345',
+                    deviceId: 'demo-device-uuid-abcd-1234',
+                    startDate: '2024-01-01',
+                    endDate: '2024-01-31',
+                    label: 'Loja Centro - Demo',
+                    fetcher: mockFetcher,
+                    onClose: () => {
+                        console.log('✅ Demand Modal closed successfully');
+                    }
+                });
+                
+                console.log('⚡ Demand Modal opened:', modal);
+                
+                // Show success message
+                setTimeout(() => {
+                    alert(`✅ Demand Modal Demo Opened Successfully!
+
+🎯 Features Demonstrated:
+• Purple header with lightning icon and device label
+• Period display: 01/01/2024 → 31/01/2024
+• Interactive Chart.js line chart with smooth curves
+• Zoom controls (wheel zoom, drag select, Ctrl+pan)
+• Reset Zoom button to return to full view
+• PDF export with chart image and data table
+• Peak demand highlighting (yellow pill)
+• Fullscreen toggle for better chart viewing
+• Loading state with animated spinner
+• Realistic mock data with business hour patterns
+• Focus trap and ESC key to close
+• Responsive design for mobile devices
+
+🔧 Technical Implementation:
+• Chart.js 4.4.0 with zoom plugin dynamically loaded
+• jsPDF for client-side PDF generation
+• Mock telemetry data with realistic consumption patterns
+• Accessibility features (ARIA labels, focus management)
+• CSS variables for easy theming
+• Memory management with proper cleanup
+
+📊 Mock Data Features:
+• 15-minute interval data points
+• Business hours peak consumption (8 AM - 10 PM)
+• Weekend consumption reduction
+• Random noise for realistic variation
+• Cumulative consumption calculation
+
+Try the zoom controls and PDF export!`);
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error opening demand modal:', error);
+                alert(`❌ Error opening Demand Modal: ${error.message}`);
+            }
+        }
+        
+        function openDemandModalCustomDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+            
+            if (!MyIOLibrary.openDemandModal) {
+                alert('❌ openDemandModal not available in this build.');
+                return;
+            }
+            
+            try {
+                // Create mock fetcher for high demand pattern
+                const mockFetcher = createMockTelemetryFetcher({
+                    pattern: 'high',
+                    baseConsumption: 75000,
+                    peakMultiplier: 3.0,
+                    noiseLevel: 0.12
+                });
+
+                // Custom styled demo
+                const modal = MyIOLibrary.openDemandModal({
+                    token: 'demo-jwt-token-custom',
+                    deviceId: 'demo-device-custom-5678',
+                    startDate: '2024-02-01',
+                    endDate: '2024-02-29',
+                    label: 'Shopping Center - Customizado',
+                    fetcher: mockFetcher,
+                    styles: {
+                        primaryColor: '#1976D2',      // Blue instead of purple
+                        accentColor: '#FF9800',       // Orange instead of yellow
+                        borderRadius: '12px',         // More rounded corners
+                        fontFamily: 'Georgia, serif', // Different font
+                        zIndex: 20000                 // Higher z-index
+                    },
+                    pdf: {
+                        enabled: true,
+                        fileName: 'demanda-customizada-fev2024.pdf'
+                    },
+                    onClose: () => {
+                        console.log('🎨 Custom styled Demand Modal closed');
+                    }
+                });
+                
+                console.log('🎨 Custom Demand Modal opened:', modal);
+                
+                setTimeout(() => {
+                    alert(`🎨 Custom Styled Demand Modal Demo!
+
+🌈 Custom Styling Applied:
+• Primary Color: Blue (#1976D2) instead of purple
+• Accent Color: Orange (#FF9800) instead of yellow
+• Border Radius: 12px for more rounded corners
+• Font Family: Georgia serif instead of sans-serif
+• Z-Index: 20000 for higher stacking order
+• Custom PDF filename: demanda-customizada-fev2024.pdf
+
+🔧 Styling Tokens Demonstrated:
+• primaryColor: Header background and chart line color
+• accentColor: Peak demand pill background
+• borderRadius: Modal card and button corner radius
+• fontFamily: Typography throughout the modal
+• zIndex: Modal overlay stacking order
+
+📊 High Demand Mock Data:
+• 75 kWh base daily consumption (vs 45 kWh normal)
+• 3.0x peak multiplier (vs 2.2x normal)
+• Higher noise level for more variation
+• Simulates busy shopping center consumption
+
+All other features remain the same:
+• Interactive chart with zoom/pan
+• PDF export with custom filename
+• Accessibility and responsive design
+• Focus management and keyboard navigation
+
+This shows how easy it is to customize the modal appearance!`);
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error opening custom demand modal:', error);
+                alert(`❌ Error opening Custom Demand Modal: ${error.message}`);
+            }
+        }
+        
+        function openDemandModalEnglishDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+            
+            if (!MyIOLibrary.openDemandModal) {
+                alert('❌ openDemandModal not available in this build.');
+                return;
+            }
+            
+            try {
+                // Create mock fetcher for variable consumption pattern
+                const mockFetcher = createMockTelemetryFetcher({
+                    pattern: 'variable',
+                    baseConsumption: 55000,
+                    peakMultiplier: 2.5,
+                    noiseLevel: 0.15
+                });
+
+                // English localization demo
+                const modal = MyIOLibrary.openDemandModal({
+                    token: 'demo-jwt-token-english',
+                    deviceId: 'demo-device-english-9999',
+                    startDate: '2024-03-01',
+                    endDate: '2024-03-31',
+                    label: 'Main Entrance Meter',
+                    locale: 'en-US',
+                    fetcher: mockFetcher,
+                    pdf: {
+                        enabled: true,
+                        fileName: 'demand-report-march2024.pdf'
+                    },
+                    onClose: () => {
+                        console.log('🌍 English Demand Modal closed');
+                    }
+                });
+                
+                console.log('🌍 English Demand Modal opened:', modal);
+                
+                setTimeout(() => {
+                    alert(`🌍 English Localization Demo!
+
+🇺🇸 English Interface Features:
+• Title: "Demand – Main Entrance Meter"
+• Period: "Period: 03/01/2024 → 03/31/2024" (US date format)
+• Peak: "Maximum: X.XX kW at MM/DD/YYYY HH:mm"
+• Buttons: "Export PDF", "Fullscreen", "Close"
+• Chart Y-axis: "Demand (kW)"
+• Zoom help: "Scroll: zoom | Drag: select | Ctrl+Drag: pan"
+• Loading: "Loading data..."
+• Error: "Error loading data"
+• No data: "No demand points in the selected period"
+
+🔧 Localization Features:
+• Date formatting follows US standards (MM/DD/YYYY)
+• Number formatting with US decimal separators
+• All UI text translated to English
+• PDF report generated in English
+• Chart tooltips and labels in English
+
+📊 Variable Pattern Mock Data:
+• Seasonal consumption variations using sine/cosine waves
+• 55 kWh base consumption with dynamic changes
+• Higher noise level (15%) for realistic variation
+• Demonstrates long-term consumption trends
+
+📊 Same Functionality:
+• Interactive Chart.js visualization
+• Zoom/pan controls work identically
+• PDF export with English headers
+• Peak detection and highlighting
+• Responsive design and accessibility
+
+This demonstrates the i18n capabilities of the component!`);
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error opening English demand modal:', error);
+                alert(`❌ Error opening English Demand Modal: ${error.message}`);
+            }
+        }
+        
+        // Additional Demand Modal Demo Scenarios
+        function openDemandModalLowDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+            
+            if (!MyIOLibrary.openDemandModal) {
+                alert('❌ openDemandModal not available in this build.');
+                return;
+            }
+            
+            try {
+                // Create mock fetcher for low demand pattern
+                const mockFetcher = createMockTelemetryFetcher({
+                    pattern: 'low',
+                    baseConsumption: 25000,
+                    peakMultiplier: 1.8,
+                    noiseLevel: 0.06
+                });
+
+                const modal = MyIOLibrary.openDemandModal({
+                    token: 'demo-jwt-token-low',
+                    deviceId: 'demo-device-low-demand',
+                    startDate: '2024-04-01',
+                    endDate: '2024-04-30',
+                    label: 'Pequena Loja - Baixo Consumo',
+                    fetcher: mockFetcher,
+                    onClose: () => {
+                        console.log('📉 Low Demand Modal closed');
+                    }
+                });
+                
+                console.log('📉 Low Demand Modal opened:', modal);
+                
+                setTimeout(() => {
+                    alert(`📉 Low Demand Scenario Demo!
+
+🏪 Small Store Simulation:
+• Base Consumption: 25 kWh/day (vs 45 kWh normal)
+• Peak Multiplier: 1.8x (vs 2.2x normal)
+• Lower noise level (6%) for more stable consumption
+• Simulates small retail store or office space
+
+📊 Expected Chart Characteristics:
+• Lower overall demand values (typically 1-5 kW)
+• Less dramatic peaks during business hours
+• More consistent consumption pattern
+• Smaller yellow peak pill values
+
+🎯 Use Cases:
+• Small retail stores
+• Office spaces
+• Residential applications
+• Low-power equipment monitoring
+
+This demonstrates how the component handles different consumption scales while maintaining the same functionality and user experience.`);
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error opening low demand modal:', error);
+                alert(`❌ Error opening Low Demand Modal: ${error.message}`);
+            }
+        }
+        
+        function openDemandModalWithGapsDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+            
+            if (!MyIOLibrary.openDemandModal) {
+                alert('❌ openDemandModal not available in this build.');
+                return;
+            }
+            
+            try {
+                // Create mock fetcher with data gaps
+                const mockFetcher = createMockTelemetryFetcher({
+                    pattern: 'normal',
+                    baseConsumption: 50000,
+                    peakMultiplier: 2.3,
+                    dataGaps: true,
+                    noiseLevel: 0.1
+                });
+
+                const modal = MyIOLibrary.openDemandModal({
+                    token: 'demo-jwt-token-gaps',
+                    deviceId: 'demo-device-with-gaps',
+                    startDate: '2024-05-01',
+                    endDate: '2024-05-31',
+                    label: 'Medidor com Falhas de Comunicação',
+                    fetcher: mockFetcher,
+                    onClose: () => {
+                        console.log('🕳️ Data Gaps Modal closed');
+                    }
+                });
+                
+                console.log('🕳️ Data Gaps Modal opened:', modal);
+                
+                setTimeout(() => {
+                    alert(`🕳️ Data Gaps Scenario Demo!
+
+📡 Communication Issues Simulation:
+• Random 5% data point loss during generation
+• Simulates real-world communication failures
+• Tests component robustness with incomplete data
+• Demonstrates gap handling in chart visualization
+
+📊 Expected Chart Behavior:
+• Some missing data points in the timeline
+• Chart.js automatically connects available points
+• Peak detection works with available data
+• PDF export includes note about data gaps
+
+🔧 Real-World Scenarios:
+• Network connectivity issues
+• Device communication failures
+• Maintenance periods
+• Power outages affecting data collection
+
+🎯 Component Resilience:
+• Graceful handling of missing data
+• No crashes or errors with gaps
+• Maintains functionality with partial data
+• User-friendly visualization of incomplete datasets
+
+This demonstrates the component's robustness in handling real-world data quality issues.`);
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error opening data gaps modal:', error);
+                alert(`❌ Error opening Data Gaps Modal: ${error.message}`);
+            }
+        }
+        
+        function openDemandModalErrorDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+            
+            if (!MyIOLibrary.openDemandModal) {
+                alert('❌ openDemandModal not available in this build.');
+                return;
+            }
+            
+            try {
+                // Create mock fetcher that simulates an error
+                const errorFetcher = async (params) => {
+                    console.log('[ERROR DEMO] Simulating API failure for:', params);
+                    
+                    // Simulate API delay before error
+                    await new Promise(resolve => setTimeout(resolve, 1200));
+                    
+                    // Throw a realistic error
+                    throw new Error('HTTP 401: Token expired or invalid');
+                };
+
+                const modal = MyIOLibrary.openDemandModal({
+                    token: 'invalid-expired-token',
+                    deviceId: 'demo-device-error',
+                    startDate: '2024-06-01',
+                    endDate: '2024-06-30',
+                    label: 'Teste de Erro - Token Inválido',
+                    fetcher: errorFetcher,
+                    onClose: () => {
+                        console.log('❌ Error Demo Modal closed');
+                    }
+                });
+                
+                console.log('❌ Error Demo Modal opened:', modal);
+                
+                setTimeout(() => {
+                    alert(`❌ Error State Demo!
+
+🚨 Authentication Failure Simulation:
+• Mock fetcher throws "HTTP 401: Token expired or invalid"
+• Tests error handling and user feedback
+• Demonstrates graceful failure recovery
+• Shows proper error state UI
+
+📊 Expected Behavior:
+• Loading spinner appears initially
+• After ~1.2 seconds, error state is shown
+• Red warning icon with error message
+• Chart area is hidden, error message displayed
+• All other modal functions remain available
+
+🔧 Error Handling Features:
+• User-friendly Portuguese error messages
+• No application crashes or console errors
+• Modal remains functional (can be closed)
+• Proper cleanup on modal destruction
+• Error logging for debugging
+
+🎯 Real-World Error Scenarios:
+• Expired authentication tokens
+• Network connectivity issues
+• Invalid device IDs
+• Server maintenance periods
+• Rate limiting responses
+
+This demonstrates the component's robust error handling and user experience during failure conditions.`);
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error opening error demo modal:', error);
+                alert(`❌ Error opening Error Demo Modal: ${error.message}`);
             }
         }
         

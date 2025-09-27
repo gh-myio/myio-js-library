@@ -20,12 +20,47 @@
   min-width: 300px;
 }
 
+.date-range #myio-date-range-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .date-range input[type="date"] {
   padding: 6px 10px;
   font-size: 0.9rem;
   border-radius: 6px;
   border: 1px solid #ccc;
   background: #fafafa;
+}
+
+/* MyIOLibrary DateRangePicker styles */
+.myio-date-range-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+}
+
+.myio-date-range-picker input {
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #fafafa;
+  color: #333;
+}
+
+.myio-date-range-picker input:focus {
+  outline: none;
+  border-color: #2196f3;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+.myio-date-range-picker .separator {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0 4px;
 }
 
 .date-range button.load-button {

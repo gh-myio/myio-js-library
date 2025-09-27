@@ -1861,6 +1861,174 @@ card.destroy();
 
 For complete technical documentation and implementation details, see: [RFC-0007-renderCardCompenteHeadOffice](src/docs/rfcs/RFC-0007-renderCardCompenteHeadOffice.md)
 
+### Demand Modal Component
+
+#### `openDemandModal(params: DemandModalParams): Promise<DemandModalInstance>`
+
+Opens a fully-styled demand/consumption modal with interactive Chart.js visualization, zoom/pan controls, PDF export, and ThingsBoard telemetry integration. This component implements RFC 0015 specifications with comprehensive accessibility and internationalization support.
+
+**Parameters:**
+- `params: DemandModalParams` - Configuration object:
+  - `token: string` - JWT token for ThingsBoard authentication (required)
+  - `deviceId: string` - ThingsBoard device UUID (required)
+  - `startDate: string` - ISO date string "YYYY-MM-DD" (required)
+  - `endDate: string` - ISO date string "YYYY-MM-DD" (required)
+  - `label?: string` - Device/store label (default: "Dispositivo")
+  - `container?: HTMLElement | string` - Mount container (default: document.body)
+  - `onClose?: () => void` - Callback when modal closes
+  - `locale?: 'pt-BR' | 'en-US' | string` - Locale for formatting (default: 'pt-BR')
+  - `pdf?: DemandModalPdfConfig` - PDF export configuration
+  - `styles?: Partial<DemandModalStyles>` - Style customization tokens
+
+**Returns:** Promise resolving to `DemandModalInstance` object with:
+- `destroy(): void` - Clean up modal and resources
+
+**Key Features:**
+- **Interactive Chart.js Visualization**: Smooth line chart with purple stroke and light fill
+- **Zoom/Pan Controls**: Mouse wheel zoom, drag selection, Ctrl+pan, Reset Zoom button
+- **PDF Export**: A4 portrait report with chart image, metadata, and data table
+- **Peak Demand Highlighting**: Yellow pill showing maximum demand value and timestamp
+- **Fullscreen Mode**: Toggle to expand modal to full viewport with chart resize
+- **ThingsBoard Integration**: Fetches telemetry data using consumption endpoint
+- **Internationalization**: Portuguese/English localization with proper date/number formatting
+- **Accessibility**: Focus trap, ARIA labels, keyboard navigation (ESC to close)
+- **Responsive Design**: Mobile-friendly with touch-optimized controls
+- **Dynamic Library Loading**: Chart.js, zoom plugin, and jsPDF loaded on-demand
+- **Customizable Styling**: CSS variables and style tokens for theming
+
+**Usage Example:**
+```javascript
+import { openDemandModal } from 'myio-js-library';
+
+// Basic usage
+const modal = await openDemandModal({
+  token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  deviceId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  startDate: '2024-01-01',
+  endDate: '2024-01-31',
+  label: 'Loja Centro'
+});
+
+// Advanced usage with customization
+const modal = await openDemandModal({
+  token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  deviceId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  startDate: '2024-01-01',
+  endDate: '2024-01-31',
+  label: 'Shopping Center Norte',
+  locale: 'en-US',
+  styles: {
+    primaryColor: '#1976D2',      // Blue theme
+    accentColor: '#FF9800',       // Orange highlights
+    borderRadius: '12px'          // Rounded corners
+  },
+  pdf: {
+    enabled: true,
+    fileName: 'demand-report-jan2024.pdf'
+  },
+  onClose: () => {
+    console.log('Modal closed');
+  }
+});
+
+// Clean up when needed
+modal.destroy();
+```
+
+**UMD Usage (ThingsBoard widgets):**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { openDemandModal } = MyIOLibrary;
+  
+  // In your widget action handler
+  async function openDemandChart() {
+    try {
+      const modal = await openDemandModal({
+        token: ctx.defaultSubscription.subscriptionContext.user.token,
+        deviceId: entityId.id,
+        startDate: '2024-01-01',
+        endDate: '2024-01-31',
+        label: entityLabel,
+        onClose: () => {
+          console.log('Demand modal closed');
+        }
+      });
+    } catch (error) {
+      console.error('Failed to open demand modal:', error);
+    }
+  }
+</script>
+```
+
+**ThingsBoard API Integration:**
+The component fetches telemetry data from ThingsBoard REST API:
+```
+GET /api/plugins/telemetry/DEVICE/{deviceId}/values/timeseries
+  ?keys=consumption
+  &startTs={startMillis}
+  &endTs={endMillis}
+  &limit=50000
+  &intervalType=MILLISECONDS
+  &interval=54000000
+  &agg=SUM
+  &orderBy=ASC
+
+Headers:
+  X-Authorization: Bearer {token}
+```
+
+**Data Processing:**
+- Converts cumulative consumption to demand (kW) using time deltas
+- Filters out negative values (meter resets)
+- Converts Wh to kWh when necessary
+- Computes peak demand value and timestamp
+- Sorts data chronologically for chart display
+
+**Styling Customization:**
+```javascript
+const customStyles = {
+  // Color tokens
+  primaryColor: '#4A148C',      // Header and chart line color
+  accentColor: '#FFC107',       // Peak demand pill color
+  dangerColor: '#f44336',       // Error state color
+  backgroundColor: '#ffffff',   // Modal background
+  overlayColor: 'rgba(0, 0, 0, 0.5)', // Backdrop color
+  
+  // Layout tokens
+  borderRadius: '8px',          // Card border radius
+  buttonRadius: '6px',          // Button border radius
+  pillRadius: '20px',           // Peak pill border radius
+  zIndex: 10000,                // Modal z-index
+  
+  // Typography tokens
+  fontFamily: 'Roboto, Arial, sans-serif',
+  fontSizeMd: '16px',
+  fontWeightBold: '600'
+};
+
+const modal = await openDemandModal({
+  // ... other params
+  styles: customStyles
+});
+```
+
+**Error Handling:**
+- Network failures show user-friendly error messages
+- Invalid tokens display authentication errors
+- Empty datasets show "no data" message
+- Library loading failures gracefully degrade
+- All errors are caught and displayed in the UI
+
+**Performance Considerations:**
+- External libraries loaded dynamically (Chart.js, jsPDF)
+- Chart rendering optimized for large datasets
+- Memory cleanup on modal destroy
+- Debounced resize handling
+- Efficient data processing pipeline
+
+For complete technical specifications, see: [RFC-0015-MyIO-DemandModal-Component](src/docs/rfcs/RFC-0015-MyIO-DemandModal-Component.md)
+
 ## 🧪 Development
 
 ```bash

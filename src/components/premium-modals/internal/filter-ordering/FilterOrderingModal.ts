@@ -438,7 +438,7 @@ export class FilterOrderingModal {
         top: 0;
         z-index: 1;
         padding: 16px 20px;
-        background: var(--myio-purple-600, #7C3AED);
+        background: var(--myio-purple-600, #4A148C);
         color: #fff;
         border-radius: 16px 16px 0 0;
         display: flex;
@@ -476,7 +476,7 @@ export class FilterOrderingModal {
         gap: 12px;
         padding: 16px 20px;
         color: #fff;
-        background: #7C3AED;
+        background: #4A148C;
         position: sticky;
         top: 0;
         z-index: 1;
@@ -588,7 +588,7 @@ export class FilterOrderingModal {
         gap: 10px;
         height: 44px;
         border-radius: 12px;
-        border: 2px solid #8B5CF6;
+        border: 2px solid #4A148C;
         background: #fff;
         padding: 0 14px;
         cursor: pointer;
@@ -597,29 +597,29 @@ export class FilterOrderingModal {
       }
 
       .chip:hover {
-        background: #F3E8FF;
+        background: #EDE7F3;
       }
 
       .chip.selected {
-        background: #F3E8FF;
-        border-color: #7C3AED;
+        background: #EDE7F3;
+        border-color: #4A148C;
       }
 
       .chip .checkbox {
         width: 22px;
         height: 22px;
         border-radius: 6px;
-        border: 2px solid #8B5CF6;
+        border: 2px solid #4A148C;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 14px;
         font-weight: bold;
-        color: #7C3AED;
+        color: #4A148C;
       }
 
       .chip.selected .checkbox {
-        background: #7C3AED;
+        background: #4A148C;
         color: white;
       }
 
@@ -684,12 +684,12 @@ export class FilterOrderingModal {
       }
 
       .btn.primary {
-        background: #7C3AED;
+        background: #4A148C;
         color: #fff;
       }
 
       .btn.primary:hover {
-        background: #6D28D9;
+        background: #3A0E5C;
       }
 
       .btn.secondary {

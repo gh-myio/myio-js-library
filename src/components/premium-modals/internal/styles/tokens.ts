@@ -120,7 +120,7 @@ export const MODAL_STYLES = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #7C3AED;
+  background: #4A148C;
   color: white;
   border-radius: var(--myio-radius) var(--myio-radius) 0 0;
 }
@@ -246,13 +246,24 @@ export const MODAL_STYLES = `
 
 .myio-table th,
 .myio-table td {
-  padding: var(--myio-spacing-sm);
+  padding: var(--myio-spacing-sm) var(--myio-spacing);
   text-align: left;
   border-bottom: 1px solid var(--myio-border);
 }
 
+.myio-table th:first-child,
+.myio-table td:first-child {
+  padding-left: var(--myio-spacing-lg);
+}
+
+.myio-table th:last-child,
+.myio-table td:last-child {
+  padding-right: var(--myio-spacing-lg);
+}
+
 .myio-table th {
-  background: var(--myio-bg);
+  background: var(--myio-brand-700);
+  color: white;
   font-weight: 600;
   position: sticky;
   top: 0;
