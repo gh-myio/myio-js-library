@@ -7,6 +7,7 @@
  */
 
 // Type definitions
+// Type definitions
 export interface DemandModalParams {
   // Required parameters
   token: string;                       // JWT token for ThingsBoard authentication
@@ -23,6 +24,8 @@ export interface DemandModalParams {
   styles?: Partial<DemandModalStyles>; // Style customization tokens
   fetcher?: TelemetryFetcher;          // Optional custom fetcher for testing/mocking
   telemetryQuery?: TelemetryQueryParams; // ThingsBoard API query parameters
+  yAxisLabel?: string;                 // Custom Y-axis label (default: "Demanda (kW)")
+  correctionFactor?: number;           // Value multiplier (default: 1.0)
 }
 
 // ThingsBoard telemetry query parameters
@@ -41,7 +44,8 @@ export type TelemetryFetcher = (params: {
   deviceId: string;
   startDate: string;
   endDate: string;
-}) => Promise<any[]>;
+  telemetryQuery?: TelemetryQueryParams; // Pass telemetryQuery to custom fetcher
+}) => Promise<any>; // Return type changed to any to handle multiple keys
 
 export interface DemandModalPdfConfig {
   enabled?: boolean;                   // Enable PDF export (default: true)
@@ -87,9 +91,9 @@ export interface DemandModalInstance {
   destroy(): void;                     // Clean up modal and resources
 }
 
-interface DemandDataPoint {
+interface MultiSeriesDataPoint {
   x: number;                           // Timestamp in milliseconds
-  y: number;                           // Demand value in kW
+  y: number;                           // Corrected value
 }
 
 interface DemandPeak {
@@ -97,12 +101,21 @@ interface DemandPeak {
   timestamp: number;                   // Timestamp of peak in milliseconds
   formattedValue: string;              // Formatted value with units
   formattedTime: string;               // Formatted timestamp
+  key?: string;                        // Key name for multi-series peak
 }
 
-interface DemandChartData {
-  points: DemandDataPoint[];           // Chart data points
-  peak: DemandPeak | null;             // Peak demand information
-  isEmpty: boolean;                    // Whether dataset is empty
+interface SeriesData {
+  key: string;                         // Telemetry key name
+  label: string;                       // Display label for the series
+  points: MultiSeriesDataPoint[];      // Data points for this series
+  peak: DemandPeak | null;             // Peak for this specific series
+  color: string;                       // Chart line color
+}
+
+interface MultiSeriesChartData {
+  series: SeriesData[];                // Array of all series
+  globalPeak: DemandPeak | null;       // Overall peak across all series
+  isEmpty: boolean;                    // Whether all series are empty
 }
 
 // Default styles
@@ -526,7 +539,7 @@ async function fetchTelemetryData(
   startDate: string,
   endDate: string,
   queryParams?: TelemetryQueryParams
-): Promise<any[]> {
+): Promise<any> { // Changed return type to any to handle full response object
   const startTs = new Date(startDate).getTime();
   const endTs = new Date(endDate).getTime();
 
@@ -554,69 +567,100 @@ async function fetchTelemetryData(
   }
 
   const data = await response.json();
-  // Use the first key from keys parameter to access data
-  const primaryKey = keys.split(',')[0];
-  return data[primaryKey] || [];
+  return data; // Return the full data object
 }
 
 /**
- * Process telemetry data into chart format
+ * Process telemetry data into multi-series chart format
  */
-function processChartData(rawData: any[], locale: string): DemandChartData {
-  if (!rawData || rawData.length === 0) {
-    return { points: [], peak: null, isEmpty: true };
-  }
+function processMultiSeriesChartData(
+  rawData: any, // Full API response object
+  keys: string,
+  correctionFactor: number,
+  locale: string
+): MultiSeriesChartData {
+  const seriesKeys = keys.split(',').map(k => k.trim());
+  const seriesData: SeriesData[] = [];
+  let globalPeak: DemandPeak | null = null;
+  let isEmpty = true;
 
-  // Sort by timestamp
-  const sortedData = rawData.sort((a, b) => a.ts - b.ts);
-  
-  // Calculate demand (kW) from consumption deltas
-  const points: DemandDataPoint[] = [];
-  let previousValue = 0;
-  let previousTs = 0;
+  // Predefined color palette
+  const colors = ['#4A148C', '#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0', '#795548', '#607D8B'];
 
-  for (let i = 0; i < sortedData.length; i++) {
-    const current = sortedData[i];
-    const currentValue = parseFloat(current.value);
-    const currentTs = current.ts;
+  seriesKeys.forEach((key, index) => {
+    const rawSeries = rawData[key] || [];
+    if (rawSeries.length === 0) {
+      seriesData.push({ key, label: key, points: [], peak: null, color: colors[index % colors.length] });
+      return;
+    }
 
-    if (i > 0) {
-      const deltaWh = currentValue - previousValue;
-      const deltaHours = (currentTs - previousTs) / (1000 * 60 * 60);
-      
-      // Only include positive deltas (ignore meter resets)
-      if (deltaWh > 0 && deltaHours > 0) {
-        const demandKw = deltaWh / 1000 / deltaHours; // Convert Wh to kW
-        points.push({
-          x: currentTs,
-          y: demandKw
-        });
+    isEmpty = false;
+
+    // Sort by timestamp
+    const sortedData = rawSeries.sort((a: any, b: any) => a.ts - b.ts);
+
+    // Calculate demand (kW) from consumption deltas and apply correction factor
+    const points: MultiSeriesDataPoint[] = [];
+    let previousValue = 0;
+    let previousTs = 0;
+
+    for (let i = 0; i < sortedData.length; i++) {
+      const current = sortedData[i];
+      const currentValue = parseFloat(current.value);
+      const currentTs = current.ts;
+
+      if (i > 0) {
+        const deltaWh = currentValue - previousValue;
+        const deltaHours = (currentTs - previousTs) / (1000 * 60 * 60);
+
+        // Only include positive deltas (ignore meter resets)
+        if (deltaWh > 0 && deltaHours > 0) {
+          const demandKw = (deltaWh / 1000 / deltaHours) * correctionFactor; // Apply correction factor
+          points.push({
+            x: currentTs,
+            y: demandKw
+          });
+        }
+      }
+
+      previousValue = currentValue;
+      previousTs = currentTs;
+    }
+
+    // Find peak demand for this series
+    let seriesPeak: DemandPeak | null = null;
+    if (points.length > 0) {
+      const maxPoint = points.reduce((max, point) =>
+        point.y > max.y ? point : max
+      );
+
+      seriesPeak = {
+        value: maxPoint.y,
+        timestamp: maxPoint.x,
+        formattedValue: maxPoint.y.toFixed(2),
+        formattedTime: formatDateTime(new Date(maxPoint.x), locale),
+        key: key
+      };
+
+      // Update global peak if this series' peak is higher
+      if (!globalPeak || seriesPeak.value > globalPeak.value) {
+        globalPeak = seriesPeak;
       }
     }
 
-    previousValue = currentValue;
-    previousTs = currentTs;
-  }
-
-  // Find peak demand
-  let peak: DemandPeak | null = null;
-  if (points.length > 0) {
-    const maxPoint = points.reduce((max, point) => 
-      point.y > max.y ? point : max
-    );
-
-    peak = {
-      value: maxPoint.y,
-      timestamp: maxPoint.x,
-      formattedValue: maxPoint.y.toFixed(2),
-      formattedTime: formatDateTime(new Date(maxPoint.x), locale)
-    };
-  }
+    seriesData.push({
+      key,
+      label: key, // Use key as label for now, can be customized later
+      points,
+      peak: seriesPeak,
+      color: colors[index % colors.length]
+    });
+  });
 
   return {
-    points,
-    peak,
-    isEmpty: points.length === 0
+    series: seriesData,
+    globalPeak,
+    isEmpty
   };
 }
 
@@ -658,7 +702,7 @@ function createFocusTrap(container: HTMLElement): () => void {
  * Generate PDF report
  */
 async function generatePdfReport(
-  chartData: DemandChartData,
+  chartData: MultiSeriesChartData,
   params: DemandModalParams,
   strings: any,
   chartCanvas: HTMLCanvasElement
@@ -686,9 +730,10 @@ async function generatePdfReport(
   doc.text(`${strings.period}: ${startDate} → ${endDate}`, 20, 65);
 
   // Peak info
-  if (chartData.peak) {
+  if (chartData.globalPeak) {
+    const peak = chartData.globalPeak;
     doc.text(
-      `${strings.maximum}: ${chartData.peak.formattedValue} kW ${strings.at} ${chartData.peak.formattedTime}`,
+      `${strings.maximum}: ${peak.formattedValue} kW ${peak.key ? `(${peak.key}) ` : ''}${strings.at} ${peak.formattedTime}`,
       20, 80
     );
   }
@@ -698,15 +743,16 @@ async function generatePdfReport(
   doc.addImage(chartImage, 'PNG', 20, 95, 170, 100);
 
   // Sample data table
-  if (chartData.points.length > 0) {
+  if (chartData.series.length > 0 && chartData.series[0].points.length > 0) {
     doc.text('Amostra de Dados:', 20, 210);
     
     let y = 225;
-    const samplePoints = chartData.points.slice(0, 10);
+    // Take sample points from the first series for the table
+    const samplePoints = chartData.series[0].points.slice(0, 10);
     
     doc.setFontSize(10);
     doc.text('Data/Hora', 20, y);
-    doc.text('Demanda (kW)', 100, y);
+    doc.text(params.yAxisLabel || strings.demand, 100, y); // Use configurable Y-axis label
     y += 10;
 
     samplePoints.forEach(point => {
@@ -838,7 +884,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
 
   // State
   let chart: any = null;
-  let chartData: DemandChartData | null = null;
+  let chartData: MultiSeriesChartData | null = null;
   let isFullscreen = false;
 
   // Prevent body scroll
@@ -940,10 +986,15 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
 
       // Use custom fetcher if provided, otherwise use default ThingsBoard fetcher
       const rawData = params.fetcher 
-        ? await params.fetcher({ token: params.token, deviceId: params.deviceId, startDate: params.startDate, endDate: params.endDate })
+        ? await params.fetcher({ token: params.token, deviceId: params.deviceId, startDate: params.startDate, endDate: params.endDate, telemetryQuery: params.telemetryQuery })
         : await fetchTelemetryData(params.token, params.deviceId, params.startDate, params.endDate, params.telemetryQuery);
       
-      chartData = processChartData(rawData, locale);
+      chartData = processMultiSeriesChartData(
+        rawData, 
+        params.telemetryQuery?.keys || 'consumption', 
+        params.correctionFactor || 1.0, 
+        locale
+      );
 
       if (chartData.isEmpty) {
         errorEl.style.display = 'flex';
@@ -951,9 +1002,10 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
         return;
       }
 
-      // Show peak information
-      if (chartData.peak) {
-        const date = new Date(chartData.peak.timestamp);
+      // Show global peak information
+      if (chartData.globalPeak) {
+        const peak = chartData.globalPeak;
+        const date = new Date(peak.timestamp);
         const dateStr = date.toLocaleDateString(locale, {
           day: '2-digit',
           month: '2-digit',
@@ -964,7 +1016,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
           minute: '2-digit'
         });
         
-        peakEl.textContent = `${strings.maximum}: ${chartData.peak.formattedValue} kW ${strings.at} ${dateStr} ${strings.atTime} ${timeStr}${strings.timeUnit}`;
+        peakEl.textContent = `${strings.maximum}: ${peak.formattedValue} kW ${peak.key ? `(${peak.key}) ` : ''}${strings.at} ${dateStr} ${strings.atTime} ${timeStr}${strings.timeUnit}`;
         peakEl.style.display = 'block';
       }
 
@@ -975,22 +1027,25 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
       chart = new Chart(chartCanvas, {
         type: 'line',
         data: {
-          datasets: [{
-            label: strings.demand,
-            data: chartData.points,
-            borderColor: styles.primaryColor,
-            backgroundColor: styles.primaryColor + '20',
-            fill: true,
+          datasets: chartData.series.map(series => ({
+            label: series.label,
+            data: series.points,
+            borderColor: series.color,
+            backgroundColor: series.color + '20',
+            fill: false, // No fill for multi-series
             tension: 0.4,
             pointRadius: 2,
             pointHoverRadius: 6,
-          }]
+          }))
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { display: false },
+            legend: { 
+              display: chartData.series.length > 1, // Show legend only if multiple series
+              position: 'top'
+            },
             zoom: {
               zoom: {
                 wheel: { enabled: true },
@@ -1028,7 +1083,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
             y: {
               title: {
                 display: true,
-                text: strings.demand
+                text: params.yAxisLabel || strings.demand // Use configurable Y-axis label
               },
               beginAtZero: true
             }
