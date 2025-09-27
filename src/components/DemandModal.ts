@@ -22,6 +22,17 @@ export interface DemandModalParams {
   pdf?: DemandModalPdfConfig;          // PDF export configuration
   styles?: Partial<DemandModalStyles>; // Style customization tokens
   fetcher?: TelemetryFetcher;          // Optional custom fetcher for testing/mocking
+  telemetryQuery?: TelemetryQueryParams; // ThingsBoard API query parameters
+}
+
+// ThingsBoard telemetry query parameters
+export interface TelemetryQueryParams {
+  keys?: string;                       // Telemetry keys (default: "consumption")
+  limit?: number;                      // Maximum number of data points (default: 50000)
+  intervalType?: string;               // Interval type (default: "MILLISECONDS")
+  interval?: number;                   // Interval value (default: 54000000)
+  agg?: string;                        // Aggregation function (default: "SUM")
+  orderBy?: string;                    // Sort order (default: "ASC")
 }
 
 // Type for custom telemetry fetcher
@@ -513,14 +524,23 @@ async function fetchTelemetryData(
   token: string,
   deviceId: string,
   startDate: string,
-  endDate: string
+  endDate: string,
+  queryParams?: TelemetryQueryParams
 ): Promise<any[]> {
   const startTs = new Date(startDate).getTime();
   const endTs = new Date(endDate).getTime();
 
+  // Use provided parameters or defaults
+  const keys = queryParams?.keys || 'consumption';
+  const limit = queryParams?.limit || 50000;
+  const intervalType = queryParams?.intervalType || 'MILLISECONDS';
+  const interval = queryParams?.interval || 54000000;
+  const agg = queryParams?.agg || 'SUM';
+  const orderBy = queryParams?.orderBy || 'ASC';
+
   const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?` +
-    `keys=consumption&startTs=${startTs}&endTs=${endTs}&limit=50000&` +
-    `intervalType=MILLISECONDS&interval=54000000&agg=SUM&orderBy=ASC`;
+    `keys=${keys}&startTs=${startTs}&endTs=${endTs}&limit=${limit}&` +
+    `intervalType=${intervalType}&interval=${interval}&agg=${agg}&orderBy=${orderBy}`;
 
   const response = await fetch(url, {
     headers: {
@@ -534,7 +554,9 @@ async function fetchTelemetryData(
   }
 
   const data = await response.json();
-  return data.consumption || [];
+  // Use the first key from keys parameter to access data
+  const primaryKey = keys.split(',')[0];
+  return data[primaryKey] || [];
 }
 
 /**
@@ -919,7 +941,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
       // Use custom fetcher if provided, otherwise use default ThingsBoard fetcher
       const rawData = params.fetcher 
         ? await params.fetcher({ token: params.token, deviceId: params.deviceId, startDate: params.startDate, endDate: params.endDate })
-        : await fetchTelemetryData(params.token, params.deviceId, params.startDate, params.endDate);
+        : await fetchTelemetryData(params.token, params.deviceId, params.startDate, params.endDate, params.telemetryQuery);
       
       chartData = processChartData(rawData, locale);
 
