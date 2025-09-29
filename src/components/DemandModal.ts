@@ -150,10 +150,14 @@ const DEFAULT_STYLES: DemandModalStyles = {
 // External library CDN URLs
 const CHART_JS_CDN = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js';
 const ZOOM_PLUGIN_CDN = 'https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js';
+const JSPDF_VERSION = '2.5.1';
+const JSPDF_CDN = `https://cdnjs.cloudflare.com/ajax/libs/jspdf/${JSPDF_VERSION}/jspdf.umd.min.js`;
 
 // Global state for library loading
 let chartJsLoaded = false;
 let zoomPluginLoaded = false;
+let jsPdfLoaded = false;
+let _jspdfPromise: Promise<void> | null = null;
 let cssInjected = false;
 
 // Localization strings
@@ -213,27 +217,25 @@ async function loadScript(url: string, checkGlobal: string): Promise<void> {
     const existingScript = document.querySelector(`script[src="${url}"]`);
     if (existingScript) {
       // Wait for existing script to load
-      setTimeout(() => {
+      existingScript.addEventListener('load', () => {
         if ((window as any)[checkGlobal]) {
           resolve();
         } else {
           reject(new Error(`Library ${checkGlobal} not available after loading ${url}`));
         }
-      }, 500);
+      });
+      existingScript.addEventListener('error', () => reject(new Error(`Failed to load ${url}`)));
       return;
     }
 
     const script = document.createElement('script');
     script.src = url;
     script.onload = () => {
-      // Wait for library to be fully available
-      setTimeout(() => {
-        if ((window as any)[checkGlobal]) {
-          resolve();
-        } else {
-          reject(new Error(`Library ${checkGlobal} not available after loading ${url}`));
-        }
-      }, 200);
+      if ((window as any)[checkGlobal]) {
+        resolve();
+      } else {
+        reject(new Error(`Library ${checkGlobal} not available after loading ${url}`));
+      }
     };
     script.onerror = () => reject(new Error(`Failed to load ${url}`));
     document.head.appendChild(script);
@@ -256,9 +258,116 @@ async function loadExternalLibraries(): Promise<void> {
       await loadScript(ZOOM_PLUGIN_CDN, 'ChartZoom');
       zoomPluginLoaded = true;
     }
+
+    // Load jsPDF
+    if (!jsPdfLoaded) {
+      await ensureJsPDF();
+      jsPdfLoaded = true;
+    }
   } catch (error) {
     throw new Error(`Failed to load external libraries: ${error}`);
   }
+}
+
+/**
+ * Ensures jsPDF is loaded and available.
+ */
+function ensureJsPDF(): Promise<void> {
+  if (window.jspdf?.jsPDF) {
+    console.info('jsPDF already loaded.');
+    return Promise.resolve();
+  }
+  if (_jspdfPromise) {
+    console.info('jsPDF loading already in progress.');
+    return _jspdfPromise;
+  }
+
+  _jspdfPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-lib="jspdf"]');
+    if (existing) {
+      existing.addEventListener('load', () => {
+        if (window.jspdf?.jsPDF) {
+          console.info('jsPDF loaded via existing script.');
+          resolve();
+        } else {
+          reject(new Error('jsPDF loaded but window.jspdf.jsPDF missing'));
+        }
+      });
+      existing.addEventListener('error', () => reject(new Error('Failed to load jsPDF via existing script')));
+      return;
+    }
+
+    const s = document.createElement('script');
+    s.src = JSPDF_CDN;
+    s.async = true;
+    s.defer = true;
+    s.dataset.lib = 'jspdf';
+    s.onload = () => {
+      if (window.jspdf?.jsPDF) {
+        console.info('jsPDF loaded successfully.');
+        resolve();
+      } else {
+        reject(new Error('jsPDF loaded but window.jspdf.jsPDF missing'));
+      }
+    };
+    s.onerror = () => reject(new Error('Failed to load jsPDF from CDN'));
+    document.head.appendChild(s);
+  }).finally(() => {
+    _jspdfPromise = null; // Clear promise after resolution/rejection
+  });
+
+  return _jspdfPromise;
+}
+
+/**
+ * Resolves the jsPDF constructor from the window object.
+ */
+function getJsPDFCtor(): typeof window.jspdf.jsPDF {
+  // Primary (OLD working)
+  if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+  // Defensive fallback if future versions change global shape
+  if ((window as any).jsPDF?.jsPDF) return (window as any).jsPDF.jsPDF;
+  if ((window as any).jsPDF) return (window as any).jsPDF;
+  throw new Error('jsPDF constructor not found on window');
+}
+
+/**
+ * Safely saves the PDF, with a Blob URL fallback for restrictive environments.
+ */
+function savePdfSafe(doc: any, filename: string) {
+  try {
+    doc.save(filename); // preferred path
+  } catch (e) {
+    console.warn('doc.save() failed, attempting Blob URL fallback:', e);
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank') || alert('Pop-up blocked. Allow pop-ups to download the PDF.');
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  }
+}
+
+/**
+ * Adds a Chart.js canvas to the PDF document, handling scaling.
+ */
+function addCanvasToPdf(doc: any, canvas: HTMLCanvasElement, x = 10, y = 20, maxWmm = 190) {
+  const img = canvas.toDataURL('image/png', 1.0); // High quality PNG
+  const pageWmm = doc.internal.pageSize.getWidth();
+  const mmW = Math.min(maxWmm, pageWmm - x * 2);
+  const mmH = (canvas.height / canvas.width) * mmW; // Maintain aspect ratio
+  doc.addImage(img, 'PNG', x, y, mmW, mmH, undefined, 'FAST');
+  return y + mmH;
+}
+
+/**
+ * Ensures there is enough room on the current PDF page, adding a new page if necessary.
+ */
+function ensureRoom(doc: any, nextY: number, minRoom = 40) {
+  const h = doc.internal.pageSize.getHeight();
+  if (nextY + minRoom > h) {
+    doc.addPage();
+    return 20; // Start at top of new page
+  }
+  return nextY;
 }
 
 /**
@@ -707,71 +816,77 @@ async function generatePdfReport(
   strings: any,
   chartCanvas: HTMLCanvasElement
 ): Promise<void> {
-  // Handle different jsPDF loading patterns
-  const jsPDFConstructor = (window as any).jsPDF?.jsPDF || (window as any).jsPDF;
-  
-  if (!jsPDFConstructor) {
-    throw new Error('jsPDF library not available');
-  }
-  
-  const doc = new jsPDFConstructor();
+  const JsPDF = getJsPDFCtor();
+  const doc = new JsPDF('p', 'mm', 'a4');
 
   // Header
   doc.setFontSize(20);
-  doc.text(strings.reportTitle, 20, 30);
+  doc.setTextColor(74, 20, 140); // MyIO purple
+  doc.text(strings.reportTitle, 20, 20);
 
   // Device info
-  doc.setFontSize(12);
+  doc.setFontSize(14);
+  doc.setTextColor(0, 0, 0);
   const label = params.label || 'Dispositivo';
-  doc.text(`${strings.title} - ${label}`, 20, 50);
+  doc.text(`${strings.title} - ${label}`, 20, 35);
   
   const startDate = formatDate(new Date(params.startDate), params.locale || 'pt-BR');
   const endDate = formatDate(new Date(params.endDate), params.locale || 'pt-BR');
-  doc.text(`${strings.period}: ${startDate} → ${endDate}`, 20, 65);
+  doc.text(`${strings.period}: ${startDate} - ${endDate}`, 20, 45);
 
   // Peak info
+  let currentY = 55;
   if (chartData.globalPeak) {
     const peak = chartData.globalPeak;
+    doc.setFontSize(12);
+    doc.setTextColor(255, 152, 0); // Orange for peak
     doc.text(
       `${strings.maximum}: ${peak.formattedValue} kW ${peak.key ? `(${peak.key}) ` : ''}${strings.at} ${peak.formattedTime}`,
-      20, 80
+      20, currentY
     );
+    currentY += 10;
   }
 
   // Chart image
-  const chartImage = chartCanvas.toDataURL('image/png');
-  doc.addImage(chartImage, 'PNG', 20, 95, 170, 100);
+  currentY = ensureRoom(doc, currentY, 120); // Ensure room for chart
+  currentY = addCanvasToPdf(doc, chartCanvas, 20, currentY);
+  currentY += 10; // Add some padding after chart
 
   // Sample data table
   if (chartData.series.length > 0 && chartData.series[0].points.length > 0) {
-    doc.text('Amostra de Dados:', 20, 210);
+    currentY = ensureRoom(doc, currentY, 60); // Ensure room for table header and a few rows
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Amostra de Dados:', 20, currentY);
+    currentY += 10;
     
-    let y = 225;
-    // Take sample points from the first series for the table
-    const samplePoints = chartData.series[0].points.slice(0, 10);
+    const samplePoints = chartData.series[0].points.slice(0, 10); // Take sample from first series
     
     doc.setFontSize(10);
-    doc.text('Data/Hora', 20, y);
-    doc.text(params.yAxisLabel || strings.demand, 100, y); // Use configurable Y-axis label
-    y += 10;
+    doc.text('Data/Hora', 20, currentY);
+    doc.text(params.yAxisLabel || strings.demand, 100, currentY);
+    currentY += 7; // Smaller increment for table rows
 
     samplePoints.forEach(point => {
+      currentY = ensureRoom(doc, currentY, 10); // Ensure room for each row
       const dateStr = formatDateTime(new Date(point.x), params.locale || 'pt-BR');
-      doc.text(dateStr, 20, y);
-      doc.text(point.y.toFixed(2), 100, y);
-      y += 8;
+      doc.text(dateStr, 20, currentY);
+      doc.text(point.y.toFixed(2), 100, currentY);
+      currentY += 7;
     });
   }
 
   // Footer
+  currentY = ensureRoom(doc, currentY, 20); // Ensure room for footer
   doc.setFontSize(8);
-  doc.text(strings.reportFooter, 20, 280);
-  doc.text(new Date().toLocaleString(params.locale || 'pt-BR'), 20, 290);
+  doc.setTextColor(128, 128, 128); // Grey for footer
+  doc.text(`${strings.reportFooter}`, 20, doc.internal.pageSize.getHeight() - 15);
+  doc.text(`Gerado em: ${new Date().toLocaleString(params.locale || 'pt-BR')}`, 20, doc.internal.pageSize.getHeight() - 10);
 
   // Download
   const fileName = params.pdf?.fileName || 
-    `demanda-${params.label || 'dispositivo'}-${params.startDate}-${params.endDate}.pdf`;
-  doc.save(fileName);
+    `demanda_${label.replace(/\s+/g,"_")}_${new Date().toISOString().slice(0,10)}.pdf`;
+  savePdfSafe(doc, fileName);
 }
 
 /**
@@ -926,23 +1041,96 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
       return;
     }
 
-    // Temporary fallback: export chart as image instead of PDF
+    const btn = pdfBtn; // Use the actual PDF button element
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳</span> Gerando PDF...';
+
     try {
-      const chartImage = chartCanvas.toDataURL('image/png');
+      // Ensure jsPDF is loaded
+      await ensureJsPDF();
       
-      // Create a temporary link to download the image
-      const link = document.createElement('a');
-      link.download = `demanda-${params.label || 'dispositivo'}-${params.startDate}-${params.endDate}.png`;
-      link.href = chartImage;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Wait for fonts to be ready for accurate canvas rendering
+      await (document as any).fonts?.ready?.catch((e: any) => console.warn('Font loading interrupted or failed:', e));
+
+      const JsPDF = getJsPDFCtor();
+      const doc = new JsPDF('p', 'mm', 'a4');
+
+      // Header
+      doc.setFontSize(20);
+      doc.setTextColor(74, 20, 140); // MyIO purple
+      doc.text(strings.reportTitle, 20, 20);
+
+      // Device info
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      const label = params.label || 'Dispositivo';
+      doc.text(`${strings.title} - ${label}`, 20, 35);
       
-      alert('📊 Gráfico exportado como imagem PNG!\n\nO export em PDF será implementado em uma próxima versão.');
-      
+      const startDate = formatDate(new Date(params.startDate), params.locale || 'pt-BR');
+      const endDate = formatDate(new Date(params.endDate), params.locale || 'pt-BR');
+      doc.text(`${strings.period}: ${startDate} - ${endDate}`, 20, 45);
+
+      // Peak info
+      let currentY = 55;
+      if (chartData.globalPeak) {
+        const peak = chartData.globalPeak;
+        doc.setFontSize(12);
+        doc.setTextColor(255, 152, 0); // Orange for peak
+        doc.text(
+          `${strings.maximum}: ${peak.formattedValue} kW ${peak.key ? `(${peak.key}) ` : ''}${strings.at} ${peak.formattedTime}`,
+          20, currentY
+        );
+        currentY += 10;
+      }
+
+      // Chart image
+      currentY = ensureRoom(doc, currentY, 120); // Ensure room for chart
+      currentY = addCanvasToPdf(doc, chartCanvas, 20, currentY);
+      currentY += 10; // Add some padding after chart
+
+      // Sample data table
+      if (chartData.series.length > 0 && chartData.series[0].points.length > 0) {
+        currentY = ensureRoom(doc, currentY, 60); // Ensure room for table header and a few rows
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text('Amostra de Dados:', 20, currentY);
+        currentY += 10;
+        
+        const samplePoints = chartData.series[0].points.slice(0, 10); // Take sample from first series
+        
+        doc.setFontSize(10);
+        doc.text('Data/Hora', 20, currentY);
+        doc.text(params.yAxisLabel || strings.demand, 100, currentY);
+        currentY += 7; // Smaller increment for table rows
+
+        samplePoints.forEach(point => {
+          currentY = ensureRoom(doc, currentY, 10); // Ensure room for each row
+          const dateStr = formatDateTime(new Date(point.x), params.locale || 'pt-BR');
+          doc.text(dateStr, 20, currentY);
+          doc.text(point.y.toFixed(2), 100, currentY);
+          currentY += 7;
+        });
+      }
+
+      // Footer
+      currentY = ensureRoom(doc, currentY, 20); // Ensure room for footer
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128); // Grey for footer
+      doc.text(`${strings.reportFooter}`, 20, doc.internal.pageSize.getHeight() - 15);
+      doc.text(`Gerado em: ${new Date().toLocaleString(params.locale || 'pt-BR')}`, 20, doc.internal.pageSize.getHeight() - 10);
+
+      // Download
+      const fileName = params.pdf?.fileName || 
+        `demanda_${label.replace(/\s+/g,"_")}_${new Date().toISOString().slice(0,10)}.pdf`;
+      savePdfSafe(doc, fileName);
+
     } catch (error) {
-      console.error('Image export failed:', error);
-      alert('Erro ao exportar gráfico. Tente novamente.');
+      console.error('[PDF Export] Error:', error);
+      alert('Erro ao gerar PDF. Por favor, tente novamente. Verifique o console para mais detalhes.');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
     }
   }
 
