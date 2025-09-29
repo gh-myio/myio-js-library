@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Formatting Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #4A148C;
+        }
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .test-result {
+            background: #f0f8ff;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        .expected {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .actual {
+            color: #007bff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 Energy Formatting Integration Test</h1>
+        <p>Testing the integration of <code>formatEnergy</code> function into card template-v2.js</p>
+
+        <div class="test-section">
+            <h3>⚡ Energy Device Cards (Should use formatEnergy)</h3>
+            <p>These cards should show intelligent unit conversion: Wh → kWh → MWh → GWh</p>
+            <div class="card-grid" id="energy-cards"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>💧 Water Device Cards (Should use original formatting)</h3>
+            <p>These cards should maintain original formatting with m³ units</p>
+            <div class="card-grid" id="water-cards"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Test Results</h3>
+            <div id="test-results"></div>
+        </div>
+    </div>
+
+    <!-- Load the library -->
+    <script src="dist/myio-js-library.umd.min.js"></script>
+    
+    <script>
+        // Test data for energy devices
+        const energyTestCases = [
+            {
+                name: 'Small Energy (500 Wh)',
+                entityObject: {
+                    entityId: 'energy-1',
+                    labelOrName: 'Motor Pequeno',
+                    deviceIdentifier: 'MOT001',
+                    deviceType: 'MOTOR',
+                    val: 500,
+                    valType: 'ENERGY',
+                    deviceStatus: 'power_on',
+                    perc: 15.5
+                },
+                expected: '500,00 kWh' // formatEnergy should keep as kWh for small values
+            },
+            {
+                name: 'Medium Energy (1,500 kWh)',
+                entityObject: {
+                    entityId: 'energy-2',
+                    labelOrName: 'Medidor Trifásico',
+                    deviceIdentifier: '3F001',
+                    deviceType: '3F_MEDIDOR',
+                    val: 1500,
+                    valType: 'ENERGY',
+                    deviceStatus: 'power_on',
+                    perc: 45.2
+                },
+                expected: '1.500,00 kWh' // formatEnergy should format with Brazilian locale
+            },
+            {
+                name: 'Large Energy (1,200,000 Wh = 1.2 MWh)',
+                entityObject: {
+                    entityId: 'energy-3',
+                    labelOrName: 'Entrada Principal',
+                    deviceIdentifier: 'ENT001',
+                    deviceType: 'ENTRADA',
+                    val: 1200000,
+                    valType: 'ENERGY',
+                    deviceStatus: 'power_on',
+                    perc: 78.9
+                },
+                expected: '1.200,00 MWh' // formatEnergy should convert to MWh
+            },
+            {
+                name: 'Very Large Energy (2,500,000 kWh = 2.5 GWh)',
+                entityObject: {
+                    entityId: 'energy-4',
+                    labelOrName: 'Relógio Principal',
+                    deviceIdentifier: 'REL001',
+                    deviceType: 'RELOGIO',
+                    val: 2500000,
+                    valType: 'ENERGY',
+                    deviceStatus: 'power_on',
+                    perc: 92.1
+                },
+                expected: '2.500,00 GWh' // formatEnergy should convert to GWh
+            }
+        ];
+
+        // Test data for water devices (should not use formatEnergy)
+        const waterTestCases = [
+            {
+                name: 'Water Meter',
+                entityObject: {
+                    entityId: 'water-1',
+                    labelOrName: 'Hidrômetro',
+                    deviceIdentifier: 'HID001',
+                    deviceType: 'HIDROMETRO',
+                    val: 1234.56,
+                    valType: 'WATER',
+                    deviceStatus: 'power_on',
+                    perc: 67.3
+                },
+                expected: '1.234,56 m³' // Should use original formatting
+            },
+            {
+                name: 'Water Tank',
+                entityObject: {
+                    entityId: 'water-2',
+                    labelOrName: 'Caixa D\'Água',
+                    deviceIdentifier: 'CXA001',
+                    deviceType: 'CAIXA_DAGUA',
+                    val: 89.12,
+                    valType: 'TANK',
+                    deviceStatus: 'power_on',
+                    perc: 34.7
+                },
+                expected: '89,12 m.c.a' // Should use original formatting
+            }
+        ];
+
+        function createTestCard(testCase, container) {
+            if (typeof MyIOLibrary === 'undefined') {
+                container.innerHTML = '<p style="color: red;">❌ MyIOLibrary not loaded</p>';
+                return null;
+            }
+
+            // Create a container for this test card
+            const cardContainer = document.createElement('div');
+            cardContainer.style.border = '1px solid #ddd';
+            cardContainer.style.borderRadius = '8px';
+            cardContainer.style.padding = '15px';
+            cardContainer.style.background = '#fafafa';
+
+            // Add test info
+            const testInfo = document.createElement('div');
+            testInfo.innerHTML = `
+                <h4>${testCase.name}</h4>
+                <p><strong>Device:</strong> ${testCase.entityObject.deviceType} (${testCase.entityObject.valType})</p>
+                <p><strong>Value:</strong> ${testCase.entityObject.val}</p>
+                <p><strong>Expected:</strong> <span class="expected">${testCase.expected}</span></p>
+            `;
+            cardContainer.appendChild(testInfo);
+
+            // Create card container
+            const cardDiv = document.createElement('div');
+            cardDiv.style.marginTop = '15px';
+            cardContainer.appendChild(cardDiv);
+
+            try {
+                // Render the card using the enhanced component
+                const cardComponent = MyIOLibrary.renderCardComponentV2({
+                    entityObject: testCase.entityObject,
+                    useNewComponents: true,
+                    enableSelection: false,
+                    enableDragDrop: false
+                });
+
+                // Append the card to the container
+                if (cardComponent && cardComponent[0]) {
+                    cardDiv.appendChild(cardComponent[0]);
+                    
+                    // Extract the actual displayed value
+                    setTimeout(() => {
+                        const consumptionValueEl = cardComponent[0].querySelector('.consumption-value');
+                        if (consumptionValueEl) {
+                            const actualValue = consumptionValueEl.textContent.trim();
+                            
+                            // Add result info
+                            const resultInfo = document.createElement('div');
+                            resultInfo.className = 'test-result';
+                            resultInfo.innerHTML = `
+                                <p><strong>Actual:</strong> <span class="actual">${actualValue}</span></p>
+                                <p><strong>Status:</strong> ${actualValue === testCase.expected ? 
+                                    '<span style="color: #28a745;">✅ PASS</span>' : 
+                                    '<span style="color: #dc3545;">❌ FAIL</span>'}</p>
+                            `;
+                            cardContainer.appendChild(resultInfo);
+                            
+                            return {
+                                name: testCase.name,
+                                expected: testCase.expected,
+                                actual: actualValue,
+                                passed: actualValue === testCase.expected
+                            };
+                        }
+                    }, 100);
+                } else {
+                    cardDiv.innerHTML = '<p style="color: red;">❌ Failed to render card</p>';
+                }
+            } catch (error) {
+                console.error('Error rendering card:', error);
+                cardDiv.innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+            }
+
+            container.appendChild(cardContainer);
+        }
+
+        function runTests() {
+            const energyContainer = document.getElementById('energy-cards');
+            const waterContainer = document.getElementById('water-cards');
+            const resultsContainer = document.getElementById('test-results');
+
+            // Test energy devices
+            energyTestCases.forEach(testCase => {
+                createTestCard(testCase, energyContainer);
+            });
+
+            // Test water devices
+            waterTestCases.forEach(testCase => {
+                createTestCard(testCase, waterContainer);
+            });
+
+            // Show summary after a delay to allow cards to render
+            setTimeout(() => {
+                resultsContainer.innerHTML = `
+                    <div class="test-result">
+                        <h4>🎯 Integration Test Summary</h4>
+                        <p><strong>✅ Energy Devices:</strong> Should use <code>formatEnergy()</code> for intelligent unit conversion</p>
+                        <p><strong>💧 Water Devices:</strong> Should use original formatting with fixed units</p>
+                        <p><strong>🔧 Implementation:</strong> Smart detection via <code>isEnergyDevice()</code> function</p>
+                        <p><strong>📊 Expected Behavior:</strong></p>
+                        <ul>
+                            <li>500 Wh → "500,00 kWh" (stays in kWh)</li>
+                            <li>1,500 kWh → "1.500,00 kWh" (Brazilian formatting)</li>
+                            <li>1,200,000 Wh → "1.200,00 MWh" (auto-converts to MWh)</li>
+                            <li>2,500,000 kWh → "2.500,00 GWh" (auto-converts to GWh)</li>
+                            <li>Water values → Original formatting with m³/m.c.a units</li>
+                        </ul>
+                        <p><strong>🎯 Status:</strong> Check individual test results above for pass/fail status</p>
+                    </div>
+                `;
+            }, 2000);
+        }
+
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', runTests);
+    </script>
+</body>
+</html>
