@@ -42,6 +42,116 @@ export function renderCardComponentV2({
     valType,
   } = entityObject;
 
+  /*********************************************************
+ * MyIO Global Toast Manager
+ * - Cria um único elemento de toast no DOM.
+ * - Evita múltiplos toasts de diferentes widgets.
+ * - Simples de usar: MyIOToast.show('Sua mensagem');
+ *********************************************************/
+  const MyIOToast = (function() {
+      let toastContainer = null;
+      let toastTimeout = null;
+
+      // CSS para um toast simples e agradável
+      const TOAST_CSS = `
+          #myio-global-toast-container {
+              position: fixed;
+              top: 25px;
+              right: 25px;
+              z-index: 99999;
+              width: 320px;
+              padding: 16px;
+              border-radius: 8px;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+              font-size: 15px;
+              color: #fff;
+              transform: translateX(120%);
+              transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+              box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+              border-left: 5px solid transparent;
+              display: flex;
+              align-items: center;
+          }
+          #myio-global-toast-container.show {
+              transform: translateX(0);
+          }
+          #myio-global-toast-container.warning {
+              background-color: #ff9800; /* Laranja para alerta */
+              border-color: #f57c00;
+          }
+          #myio-global-toast-container.error {
+              background-color: #d32f2f; /* Vermelho para erro */
+              border-color: #b71c1c;
+          }
+          #myio-global-toast-container::before {
+              content: '⚠️'; /* Ícone de alerta */
+              margin-right: 12px;
+              font-size: 20px;
+          }
+          #myio-global-toast-container.error::before {
+              content: '🚫'; /* Ícone de erro */
+          }
+      `;
+
+      // Função para criar o elemento do toast (só roda uma vez)
+      function createToastElement() {
+          if (document.getElementById('myio-global-toast-container')) {
+              toastContainer = document.getElementById('myio-global-toast-container');
+              return;
+          }
+
+          // Injeta o CSS no <head>
+          const style = document.createElement('style');
+          style.id = 'myio-global-toast-styles';
+          style.textContent = TOAST_CSS;
+          document.head.appendChild(style);
+
+          // Cria o elemento HTML e anexa ao <body>
+          toastContainer = document.createElement('div');
+          toastContainer.id = 'myio-global-toast-container';
+          document.body.appendChild(toastContainer);
+      }
+
+      /**
+       * Exibe o toast com uma mensagem.
+       * @param {string} message - A mensagem a ser exibida.
+       * @param {string} [type='warning'] - O tipo do toast ('warning' ou 'error').
+       * @param {number} [duration=3500] - Duração em milissegundos.
+       */
+      function show(message, type = 'warning', duration = 3500) {
+          if (!toastContainer) {
+              createToastElement();
+          }
+
+          clearTimeout(toastTimeout);
+
+          toastContainer.textContent = message;
+          toastContainer.className = ''; // Reseta classes
+          toastContainer.classList.add(type);
+
+          // Força o navegador a reconhecer a mudança antes de adicionar a classe 'show'
+          // para garantir que a animação sempre funcione.
+          setTimeout(() => {
+              toastContainer.classList.add('show');
+          }, 10);
+
+          toastTimeout = setTimeout(() => {
+              toastContainer.classList.remove('show');
+          }, duration);
+      }
+
+      // Garante que o elemento seja criado assim que o script for carregado.
+      if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', createToastElement);
+      } else {
+          createToastElement();
+      }
+
+      return {
+          show: show
+      };
+  })();
+
 
   // If new components are disabled, fall back to original implementation
   if (!useNewComponents) {
@@ -945,9 +1055,25 @@ export function renderCardComponentV2({
     if (checkbox) {
       checkbox.addEventListener('change', (e) => {
         e.stopPropagation();
+
+        // Lógica para quando o usuário MARCA o checkbox
         if (e.target.checked) {
+          const currentCount = MyIOSelectionStore.getSelectedEntities().length;
+
+          const isTryingToAdd = e.target.checked;
+
+          if (isTryingToAdd && currentCount >= 6) {
+              e.preventDefault(); // Previne a ação padrão
+              e.target.checked = false; // Desfaz a marcação do checkbox
+              MyIOToast.show('Não é possível selecionar mais de 6 itens.', 'warning');
+              return; // Interrompe a execução
+          }
+
+          // Se o limite não foi atingido, adiciona normalmente
           MyIOSelectionStore.add(entityId);
+
         } else {
+          // Lógica para quando o usuário DESMARCA (sempre permitido)
           MyIOSelectionStore.remove(entityId);
         }
       });
