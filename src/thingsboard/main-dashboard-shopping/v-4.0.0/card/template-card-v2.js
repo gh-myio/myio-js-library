@@ -617,9 +617,7 @@ export function renderCardComponentV2({
           </div>
         </div>
 
-        <div class="connection-status-icon">
-          ${connectionIcon}
-        </div>
+        <div class="connection-status-icon" data-conn="${connectionStatus}" data-state="${deviceStatus}" aria-label="${connectionStatus}"></div>
         
       </div>
     `;
@@ -627,12 +625,14 @@ export function renderCardComponentV2({
   container.innerHTML = cardHTML;
   const enhancedCardElement = container.querySelector('.device-card-centered');
 
-  // Add premium enhanced card styles
-  if (!document.getElementById('myio-enhanced-card-layout-stylđes')) {
+  // Add premium enhanced card styles with Piano-Key Actions & Flat Status
+  if (!document.getElementById('myio-enhanced-card-layout-styles')) {
     const layoutStyle = document.createElement('style');
     layoutStyle.id = 'myio-enhanced-card-layout-styles';
     layoutStyle.textContent = `
-      /* Premium Enhanced Card Design - Reduced Size (10% smaller) */
+      /* ===== MYIO Card v2 — Clean Piano Keys & Flat Status ===== */
+
+      /* Card shell (kept) */
       .device-card-centered.clickable {
         width: 90% !important;
         max-width: 280px !important;
@@ -671,8 +671,8 @@ export function renderCardComponentV2({
       .device-card-centered.clickable:hover::before {
         opacity: 1;
       }
-      
-      /* Premium Selection State */
+
+      /* Selected / Offline (kept) */
       .device-card-centered.selected {
         border: 2px solid #00e09e !important;
         box-shadow: 0 12px 40px rgba(0, 224, 158, 0.25), 0 4px 12px rgba(0, 224, 158, 0.15) !important;
@@ -685,7 +685,6 @@ export function renderCardComponentV2({
         background: linear-gradient(90deg, #00e09e 0%, #00d4aa 100%);
       }
       
-      /* Premium Offline State */
       .device-card-centered.offline {
         border: 2px solid #ef4444 !important;
         background: linear-gradient(145deg, #fef2f2 0%, #fee2e2 50%, #fef2f2 100%) !important;
@@ -705,8 +704,8 @@ export function renderCardComponentV2({
           box-shadow: 0 12px 40px rgba(239, 68, 68, 0.25), 0 4px 12px rgba(239, 68, 68, 0.2);
         }
       }
-      
-      /* Premium Device Image - Reduced Size (10% smaller) */
+
+      /* Device image & titles (kept) */
       .device-card-centered .device-image {
         max-height: 47px !important;
         width: auto;
@@ -722,7 +721,6 @@ export function renderCardComponentV2({
         transform: scale(1.05);
       }
       
-      /* Premium Typography - Reduced Size (10% smaller) - FORCED VERTICAL LAYOUT */
       .device-card-centered .device-title-row {
         display: flex !important;
         flex-direction: column !important;
@@ -759,8 +757,8 @@ export function renderCardComponentV2({
         margin: 0 !important;
         padding: 0 !important;
       }
-      
-      /* Premium Value Display - Reduced Size (10% smaller) */
+
+      /* Value pill (kept) */
       .device-card-centered .consumption-main {
         background: linear-gradient(135deg, rgba(0, 224, 158, 0.1) 0%, rgba(0, 180, 216, 0.1) 100%);
         border-radius: 10px;
@@ -784,11 +782,9 @@ export function renderCardComponentV2({
         margin-left: 5px;
       }
       
-      /* Premium Status Icons - Reduced Size (10% smaller) */
       .device-card-centered .flash-icon {
         font-size: 1rem !important;
         margin-right: 7px;
-        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
         transition: all 0.3s ease;
       }
       
@@ -812,8 +808,8 @@ export function renderCardComponentV2({
           filter: drop-shadow(0 4px 8px rgba(239, 68, 68, 0.3));
         }
       }
-      
-      /* Premium Checkbox - Reduced Size (10% smaller) */
+
+      /* Checkbox (kept) */
       .device-card-centered .card-checkbox {
         width: 16px !important;
         height: 16px !important;
@@ -850,71 +846,96 @@ export function renderCardComponentV2({
         font-weight: bold;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
       }
-      
-      /* Premium Card Actions - Mirrored to Left Side - Reduced Size (10% smaller) */
+
+      /* ——— NEW: Piano-Key Actions (flat by default, full height) ——— */
       .device-card-centered .card-actions {
         position: absolute;
-        top: 10px;
-        left: 10px;
+        left: 12px;
+        top: 12px;
+        bottom: 12px;
+        padding: 6px 0;
         display: flex;
         flex-direction: column;
-        gap: 7px;
+        gap: 0;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 8px;
+        background: #fff;
+        overflow: visible;
+        box-shadow: none !important;
         z-index: 10;
       }
       
       .device-card-centered .card-action {
-        width: 32px !important;
-        height: 32px !important;
-        border-radius: 9px !important;
-        background: rgba(255, 255, 255, 0.9) !important;
-        border: 1px solid rgba(226, 232, 240, 0.8) !important;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        width: 36px !important;
+        height: 36px !important;
+        border: 0;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+        background: #fff !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        transform: translateZ(0);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
       }
       
-      .device-card-centered .card-action:hover {
-        background: rgba(0, 224, 158, 0.1) !important;
-        border-color: rgba(0, 224, 158, 0.3) !important;
-        transform: scale(1.1) translateY(-1px);
-        box-shadow: 0 3px 10px rgba(0, 224, 158, 0.15);
+      .device-card-centered .card-action:last-child {
+        border-bottom: 0;
       }
       
       .device-card-centered .card-action img {
         width: 16px !important;
         height: 16px !important;
-        filter: grayscale(0.2) brightness(0.8);
-        transition: all 0.3s ease;
+        filter: grayscale(0.2) brightness(0.85);
+        transition: transform 0.18s ease, filter 0.18s ease;
+      }
+
+      /* Lift on interaction only */
+      .device-card-centered .card-action:hover,
+      .device-card-centered .card-action:focus-visible {
+        transform: translateY(-2px) scale(1.05);
+        box-shadow: 0 6px 14px rgba(16, 24, 40, 0.12), 0 2px 6px rgba(16, 24, 40, 0.08);
+        outline: none;
       }
       
-      .device-card-centered .card-action:hover img {
+      .device-card-centered .card-action:hover img,
+      .device-card-centered .card-action:focus-visible img {
         filter: grayscale(0) brightness(1);
-        transform: scale(1.1);
+        transform: scale(1.08);
       }
-      
-      /* Premium Info Panel */
-      .myio-enhanced-card-container .info-panel {
-        background: rgba(255, 255, 255, 0.95) !important;
-        backdrop-filter: blur(20px) !important;
-        border-radius: 16px !important;
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+
+      /* ——— NEW: Flat Status (CSS dot, never clipped) ——— */
+      .device-card-centered .connection-status-icon {
+        position: absolute;
+        bottom: 18px;
+        right: 18px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #22c55e;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        z-index: 5;
       }
-      
-      .myio-enhanced-card-container .info-close {
-        background: rgba(239, 68, 68, 0.1) !important;
-        border: 1px solid rgba(239, 68, 68, 0.2) !important;
-        border-radius: 8px !important;
-        width: 28px;
-        height: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.3s ease;
+
+      /* Map colors by connection or device state */
+      .device-card-centered .connection-status-icon[data-conn="offline"] {
+        background: #94a3b8;
+      }
+      .device-card-centered .connection-status-icon[data-state="warning"] {
+        background: #f59e0b;
+      }
+      .device-card-centered .connection-status-icon[data-state="danger"] {
+        background: #ef4444;
+      }
+      .device-card-centered .connection-status-icon[data-state="no_info"] {
+        background: #94a3b8;
+      }
+      .device-card-centered .connection-status-icon[data-state="maintenance"] {
+        background: #0ea5e9;
       }
       
       .myio-enhanced-card-container .info-close:hover {
@@ -922,24 +943,7 @@ export function renderCardComponentV2({
         transform: scale(1.1);
       }
 
-      .device-card-centered .connection-status-icon {
-        position: absolute;
-        bottom: 10px;
-        right: 12px;
-        width: 22px;
-        height: 22px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.8);
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);  
-        font-size: 14px;
-        z-index: 5;
-        backdrop-filter: blur(4px);
-      }
-      
-      /* Premium Responsive Design */
+      /* Responsive / Dark mode (kept) */
       @media (max-width: 768px) {
         .device-card-centered.clickable {
           padding: 16px !important;
@@ -951,12 +955,11 @@ export function renderCardComponentV2({
         }
         
         .device-card-centered .card-action {
-          width: 32px !important;
-          height: 32px !important;
+          width: 36px !important;
+          height: 36px !important;
         }
       }
       
-      /* Premium Dark Mode Support */
       @media (prefers-color-scheme: dark) {
         .device-card-centered.clickable {
           background: linear-gradient(145deg, #1e293b 0%, #334155 100%) !important;
@@ -972,9 +975,14 @@ export function renderCardComponentV2({
           color: #94a3b8 !important;
         }
         
+        .device-card-centered .card-actions {
+          border-color: rgba(71, 85, 105, 0.8);
+          background: #1e293b;
+        }
+        
         .device-card-centered .card-action {
-          background: rgba(30, 41, 59, 0.9) !important;
-          border-color: rgba(71, 85, 105, 0.8) !important;
+          background: #1e293b !important;
+          border-bottom: 1px solid rgba(71, 85, 105, 0.8);
         }
       }
     `;
