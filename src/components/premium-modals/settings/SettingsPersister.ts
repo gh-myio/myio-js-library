@@ -22,9 +22,9 @@ export class DefaultSettingsPersister implements SettingsPersister {
 
       const device = await getRes.json();
 
-      // 2. Update device with new label
-      const putRes = await fetch(`${this.tbBaseUrl}/api/device`, {
-        method: 'PUT',
+      // 2. Update device with new label using POST (ThingsBoard only accepts POST)
+      const postRes = await fetch(`${this.tbBaseUrl}/api/device`, {
+        method: 'POST',
         headers: {
           'X-Authorization': `Bearer ${this.jwtToken}`,
           'Content-Type': 'application/json'
@@ -32,8 +32,8 @@ export class DefaultSettingsPersister implements SettingsPersister {
         body: JSON.stringify({ ...device, label: this.sanitizeLabel(label) })
       });
 
-      if (!putRes.ok) {
-        throw this.createHttpError(putRes.status, await putRes.text().catch(() => ''));
+      if (!postRes.ok) {
+        throw this.createHttpError(postRes.status, await postRes.text().catch(() => ''));
       }
 
       return { ok: true };

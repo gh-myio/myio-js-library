@@ -48,6 +48,7 @@ export class DeviceReportModal {
   private isLoading = false;
   private eventHandlers: { [key: string]: (() => void)[] } = {};
   private dateRangePicker: DateRangeControl | null = null;
+  private sortState: { key: keyof DailyReading | null; direction: 'asc' | 'desc' } = { key: null, direction: 'asc' };
 
   constructor(private params: OpenDeviceReportParams) {
     this.authClient = new AuthClient({
@@ -256,6 +257,14 @@ export class DeviceReportModal {
 
     const total = this.calculateTotal();
     
+    // Helper function to get sort indicator
+    const getSortIndicator = (columnKey: string) => {
+      if (this.sortState.key === columnKey) {
+        return this.sortState.direction === 'asc' ? '↑' : '↓';
+      }
+      return '↕';
+    };
+    
     container.innerHTML = `
       <div style="margin-bottom: 16px; padding: 12px; background: var(--myio-bg); border-radius: 6px;">
         <strong>Total: ${fmtPt(total)} kWh</strong>
@@ -267,11 +276,11 @@ export class DeviceReportModal {
             <tr>
               <th style="cursor: pointer;" data-sort="date">
                 Data
-                <span style="margin-left: 4px; opacity: 0.5;">↕</span>
+                <span style="margin-left: 4px; opacity: ${this.sortState.key === 'date' ? '1' : '0.5'};">${getSortIndicator('date')}</span>
               </th>
               <th style="cursor: pointer; text-align: right;" data-sort="consumption">
                 Consumo (kWh)
-                <span style="margin-left: 4px; opacity: 0.5;">↕</span>
+                <span style="margin-left: 4px; opacity: ${this.sortState.key === 'consumption' ? '1' : '0.5'};">${getSortIndicator('consumption')}</span>
               </th>
             </tr>
           </thead>
@@ -302,12 +311,28 @@ export class DeviceReportModal {
   }
 
   private sortData(key: keyof DailyReading): void {
+    // Determine sort direction
+    if (this.sortState.key === key) {
+      // Same column clicked, toggle direction
+      this.sortState.direction = this.sortState.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+      // New column clicked, start with ascending
+      this.sortState.key = key;
+      this.sortState.direction = 'asc';
+    }
+
+    // Sort the data
     this.data.sort((a, b) => {
+      let comparison = 0;
+      
       if (key === 'date') {
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
+        comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
       } else {
-        return a.consumption - b.consumption;
+        comparison = a.consumption - b.consumption;
       }
+      
+      // Apply sort direction
+      return this.sortState.direction === 'desc' ? -comparison : comparison;
     });
   }
 

@@ -349,15 +349,15 @@ export class AllReportModal {
             <tr>
               <th style="cursor: pointer; width: 25%;" data-sort="identifier">
                 Identifier
-                <span style="margin-left: 4px; opacity: 0.5;">${this.getSortIcon('identifier')}</span>
+                <span style="margin-left: 4px; opacity: ${this.getSortOpacity('identifier')};">${this.getSortIcon('identifier')}</span>
               </th>
               <th style="cursor: pointer; width: 45%;" data-sort="name">
                 Name
-                <span style="margin-left: 4px; opacity: 0.5;">${this.getSortIcon('name')}</span>
+                <span style="margin-left: 4px; opacity: ${this.getSortOpacity('name')};">${this.getSortIcon('name')}</span>
               </th>
               <th style="cursor: pointer; text-align: right; width: 30%;" data-sort="consumption">
                 Consumption (kWh)
-                <span style="margin-left: 4px; opacity: 0.5;">${this.getSortIcon('consumption')}</span>
+                <span style="margin-left: 4px; opacity: ${this.getSortOpacity('consumption')};">${this.getSortIcon('consumption')}</span>
               </th>
             </tr>
           </thead>
@@ -380,6 +380,10 @@ export class AllReportModal {
   private getSortIcon(field: keyof StoreReading): string {
     if (this.sortField !== field) return '↕';
     return this.sortDirection === 'asc' ? '↑' : '↓';
+  }
+
+  private getSortOpacity(field: keyof StoreReading): string {
+    return this.sortField === field ? '1' : '0.5';
   }
 
   private setupTableSorting(): void {
