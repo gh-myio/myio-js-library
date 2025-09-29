@@ -11,7 +11,6 @@ export class SettingsModalView {
   constructor(config: ModalConfig) {
     this.config = config;
     this.createModal();
-    this.attachEventListeners();
   }
 
   render(initialData: Record<string, any>): void {
@@ -21,6 +20,7 @@ export class SettingsModalView {
     // Portal to document.body to escape widget stacking contexts
     document.body.appendChild(this.container);
     this.populateForm(initialData);
+    this.attachEventListeners(); // Attach event listeners after DOM is ready
     this.setupAccessibility();
     this.setupFocusTrap();
     this.applyTheme();
@@ -125,7 +125,7 @@ export class SettingsModalView {
           </div>
           <div class="modal-footer">
             <button type="button" class="btn-cancel">Fechar</button>
-            <button type="submit" class="btn-save btn-primary">Salvar</button>
+            <button type="button" class="btn-save btn-primary">Salvar</button>
           </div>
         </div>
       </div>
@@ -527,6 +527,19 @@ export class SettingsModalView {
         event.preventDefault();
         event.stopPropagation();
         this.config.onClose();
+      });
+    }
+
+    // Handle save button (Salvar button)
+    const saveBtn = this.modal.querySelector('.btn-save') as HTMLButtonElement;
+    if (saveBtn) {
+      saveBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.hideError();
+        
+        const formData = this.getFormData();
+        this.config.onSave(formData);
       });
     }
 
