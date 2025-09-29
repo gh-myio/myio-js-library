@@ -73,16 +73,25 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
 
     const attributesArray = await response.json();
     
-    // Convert array format to object and extract namespaced settings
+    // Convert array format to object and map API fields to form fields
     const attributes: Record<string, unknown> = {};
     const settingsNamespace = 'myio.settings.energy.';
 
     for (const attr of attributesArray) {
-      if (attr.key && attr.key.startsWith(settingsNamespace)) {
-        // Remove namespace prefix and version key
-        const key = attr.key.replace(settingsNamespace, '');
-        if (key !== '__version') {
-          attributes[key] = attr.value;
+      if (attr.key && attr.value !== undefined && attr.value !== null && attr.value !== '') {
+        // Handle namespaced settings
+        if (attr.key.startsWith(settingsNamespace)) {
+          const key = attr.key.replace(settingsNamespace, '');
+          if (key !== '__version') {
+            attributes[key] = attr.value;
+          }
+        }
+        // Handle direct API fields mapping to form fields
+        else if (attr.key === 'floor') {
+          attributes.floor = attr.value; // floor -> Andar
+        }
+        else if (attr.key === 'identifier') {
+          attributes.identifier = attr.value; // identifier -> Número da Loja (read-only)
         }
       }
     }
@@ -123,8 +132,8 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
   static sanitizeFetchedData(data: Record<string, any>): Record<string, any> {
     const sanitized: Record<string, any> = {};
 
-    // String fields
-    const stringFields = ['label', 'floor', 'storeNumber', 'meterId', 'deviceRef', 'guid'];
+    // String fields (updated to match new form structure)
+    const stringFields = ['label', 'floor', 'identifier'];
     for (const field of stringFields) {
       if (data[field] && typeof data[field] === 'string') {
         sanitized[field] = data[field].trim();
@@ -142,14 +151,6 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
       }
     }
 
-    // GUID validation
-    if (sanitized.guid) {
-      const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!guidPattern.test(sanitized.guid)) {
-        console.warn('[SettingsFetcher] Invalid GUID format, removing:', sanitized.guid);
-        delete sanitized.guid;
-      }
-    }
 
     return sanitized;
   }

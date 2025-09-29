@@ -53,10 +53,7 @@ export interface OpenDashboardPopupSettingsParams {
   seed?: {
     label?: string;
     floor?: string;
-    storeNumber?: string;
-    meterId?: string;
-    deviceRef?: string;
-    guid?: string;
+    identifier?: string; // Store number (read-only)
     maxDailyKwh?: number;
     maxNightKwh?: number;
     maxBusinessKwh?: number;
@@ -112,6 +109,7 @@ export interface ModalConfig {
   closeOnBackdrop?: boolean;
   themeTokens?: Record<string, string | number>;
   i18n?: { t: (key: string, def?: string) => string };
+  deviceLabel?: string; // Dynamic label for the left column section
   onSave: (formData: Record<string, any>) => Promise<void>;
   onClose: () => void;
 }

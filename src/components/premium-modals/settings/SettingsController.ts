@@ -25,6 +25,7 @@ export class SettingsController {
       closeOnBackdrop: params.ui?.closeOnBackdrop !== false,
       themeTokens: params.ui?.themeTokens,
       i18n: params.ui?.i18n,
+      deviceLabel: params.label, // Pass the device label for dynamic section titles
       onSave: this.handleSave.bind(this),
       onClose: this.handleClose.bind(this)
     });

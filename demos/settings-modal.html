@@ -350,7 +350,16 @@ function openDeviceSettings() {
             
             MyIOLibrary.openDashboardPopupSettings({
                 deviceId: 'demo-device-123',
+                label: 'Loja do Vitinho', // Dynamic device label for section titles
                 jwtToken: 'demo-jwt-token',
+                seed: {
+                    label: 'Loja do Vitinho',
+                    floor: 'L0L1', // Andar
+                    identifier: '01A', // Número da Loja (read-only)
+                    maxDailyKwh: 150,
+                    maxNightKwh: 20,
+                    maxBusinessKwh: 120
+                },
                 onSaved: (result) => {
                     console.log('Settings saved:', result);
                     showStatus('Configurações salvas com sucesso!', 'success');

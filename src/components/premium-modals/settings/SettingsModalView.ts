@@ -139,7 +139,7 @@ export class SettingsModalView {
         <!-- Left Column: Outback -->
         <div class="form-column">
           <div class="form-card">
-            <h4 class="section-title">Outback</h4>
+            <h4 class="section-title">${this.config.deviceLabel || 'Outback'}</h4>
             
             <div class="form-group">
               <label for="label">Etiqueta</label>
@@ -152,24 +152,8 @@ export class SettingsModalView {
             </div>
             
             <div class="form-group">
-              <label for="storeNumber">Número da Loja</label>
-              <input type="text" id="storeNumber" name="storeNumber" maxlength="20">
-            </div>
-            
-            <div class="form-group">
-              <label for="meterId">Identificador do Medidor</label>
-              <input type="text" id="meterId" name="meterId" maxlength="50">
-            </div>
-            
-            <div class="form-group">
-              <label for="deviceRef">Identificador do Dispositivo</label>
-              <input type="text" id="deviceRef" name="deviceRef" maxlength="50">
-            </div>
-            
-            <div class="form-group">
-              <label for="guid">GUID</label>
-              <input type="text" id="guid" name="guid" maxlength="36" 
-                     pattern="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}">
+              <label for="identifier">Número da Loja</label>
+              <input type="text" id="identifier" name="identifier" maxlength="20" readonly>
             </div>
           </div>
         </div>
@@ -177,7 +161,7 @@ export class SettingsModalView {
         <!-- Right Column: Energy Alarms -->
         <div class="form-column">
           <div class="form-card">
-            <h4 class="section-title">Alarmes Energia - Outback</h4>
+            <h4 class="section-title">Alarmes Energia - ${this.config.deviceLabel || 'Outback'}</h4>
             
             <div class="form-group">
               <label for="maxDailyKwh">Consumo Máximo Diário (kWh)</label>
@@ -341,6 +325,12 @@ export class SettingsModalView {
         
         .form-group input:invalid {
           border-color: #dc3545;
+        }
+        
+        .form-group input[readonly] {
+          background-color: #f8f9fa;
+          color: #6c757d;
+          cursor: not-allowed;
         }
         
         .modal-footer {
