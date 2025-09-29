@@ -176,14 +176,14 @@ describe("renderCardComponent com mockEntities", () => {
     const card = cardJQuery.get(0); // Get the actual DOM element
     expect(card.classList.contains("offline")).toBe(true);
     const flashIcon = card.querySelector(".flash-icon");
-    expect(flashIcon.textContent.trim()).toBe("🔌"); // offline status shows plug icon
+    expect(flashIcon.textContent.trim()).toBe("🚨");
   });
 
   it("usa MyIOLibrary para formatar valores", () => {
     const cardJQuery = renderCardComponent({ entityObject: mockEntities[0] });
     const card = cardJQuery.get(0); // Get the actual DOM element
     const consumo = card.querySelector(".consumption-value").textContent;
-    expect(consumo).toBe("1250"); // The actual output is just the number
+    expect(consumo).toBe("1250 kWh · entrada");
     const perc = card.querySelector(".device-title-percent").textContent;
     expect(perc).toBe("(85.0%)");
   });

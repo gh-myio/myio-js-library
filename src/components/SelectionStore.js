@@ -5,6 +5,7 @@
  * @version 1.0.0
  * @author MYIO Frontend Guild
  */
+/* eslint-disable */
 
 class MyIOSelectionStoreClass {
   constructor() {
