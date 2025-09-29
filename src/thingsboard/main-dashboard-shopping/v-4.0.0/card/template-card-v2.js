@@ -10,6 +10,7 @@
 // Import the new MYIO components
 import { MyIOSelectionStore } from '../../../../components/SelectionStore.js';
 import { MyIODraggableCard } from '../../../../components/DraggableCard.js';
+import { formatEnergy } from '../../../../format/energy.js';
 
 export function renderCardComponentV2({
   entityObject,
@@ -141,11 +142,43 @@ export function renderCardComponentV2({
     return typeMap[normalizedType] || 'generic';
   };
 
-  // Determine unit based on value type
-  const determineUnit = (valType, val) => {
+  // Check if device is energy-related
+  const isEnergyDevice = (valType, deviceType) => {
+    // Check by value type first
+    if (valType === 'ENERGY') {
+      return true;
+    }
+    
+    // Check by device type
+    const energyDeviceTypes = ['MOTOR', '3F_MEDIDOR', 'RELOGIO', 'ENTRADA'];
+    const normalizedType = deviceType?.toUpperCase() || '';
+    return energyDeviceTypes.includes(normalizedType);
+  };
+
+  // Smart formatting function that uses formatEnergy for energy devices
+  const formatCardValue = (value, valType, deviceType) => {
+    const numValue = Number(value) || 0;
+    
+    if (isEnergyDevice(valType, deviceType)) {
+      // Use formatEnergy for intelligent unit conversion (Wh → kWh → MWh → GWh)
+      return formatEnergy(numValue);
+    } else {
+      // Use existing formatting for non-energy devices
+      const unit = determineUnit(valType, numValue, deviceType);
+      const formattedValue = numValue.toLocaleString('pt-BR', { 
+        minimumFractionDigits: 0, 
+        maximumFractionDigits: 2 
+      });
+      return `${formattedValue} ${unit}`;
+    }
+  };
+
+  // Determine unit based on value type (updated to work with formatEnergy)
+  const determineUnit = (valType, val, deviceType) => {
     switch (valType) {
       case 'ENERGY':
-        return 'kWh';
+        // Unit will be determined by formatEnergy
+        return '';
       case 'WATER':
         return 'm³';
       case 'TANK':
@@ -466,7 +499,7 @@ export function renderCardComponentV2({
                   <span class="flash-icon ${shouldFlashIcon ? "flash" : ""}">
                     ${icon}
                   </span>
-                  <span class="consumption-value">${cardEntity.lastValue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${cardEntity.unit}</span>
+                  <span class="consumption-value">${formatCardValue(cardEntity.lastValue, valType, deviceType)}</span>
                   <span class="device-title-percent">(${perc.toFixed(1)}%)</span>
                 </div>
               </div>
