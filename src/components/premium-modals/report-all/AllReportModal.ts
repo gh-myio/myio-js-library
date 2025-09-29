@@ -94,7 +94,7 @@ export class AllReportModal {
             <button id="export-btn" class="myio-btn myio-btn-secondary" disabled>
               Exportar CSV
             </button>
-            <button id="filter-btn" class="myio-btn myio-btn-secondary" style="background: #4A148C; color: white;">
+            <button id="filter-btn" class="myio-btn myio-btn-secondary" style="background: var(--myio-brand-700); color: white;">
               🔍 Filtros & Ordenação
             </button>
             <div class="myio-form-group" style="margin-bottom: 0; margin-left: auto;">
@@ -530,10 +530,10 @@ export class AllReportModal {
     const filterBtn = document.getElementById('filter-btn') as HTMLButtonElement;
     if (filterBtn && selectedIds.length > 0 && selectedIds.length < this.data.length) {
       filterBtn.innerHTML = `🔍 Filtros & Ordenação (${selectedIds.length})`;
-      filterBtn.style.background = '#3A0E5C'; // Darker purple for active state
+      filterBtn.style.background = 'var(--myio-brand-600)'; // Darker purple for active state
     } else {
       filterBtn.innerHTML = '🔍 Filtros & Ordenação';
-      filterBtn.style.background = '#4A148C';
+      filterBtn.style.background = 'var(--myio-brand-700)';
     }
   }
 

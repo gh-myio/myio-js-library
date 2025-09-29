@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings Modal Demo - MyIO Library</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .demo-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .demo-section {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .demo-section:last-child {
+            border-bottom: none;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        h2 {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .description {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        
+        .demo-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: background 0.2s;
+        }
+        
+        .demo-button:hover {
+            background: #0056b3;
+        }
+        
+        .demo-button.secondary {
+            background: #6c757d;
+        }
+        
+        .demo-button.secondary:hover {
+            background: #545b62;
+        }
+        
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            max-width: 300px;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .demo-config {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>🔧 Settings Modal Demo</h1>
+        <p class="description">
+            This demo showcases the new <code>openDashboardPopupSettings</code> API that provides 
+            a reusable settings modal for device configuration management with ThingsBoard persistence.
+        </p>
+        
+        <div class="status info">
+            <strong>Note:</strong> This demo uses mock data and simulated API calls. 
+            In a real ThingsBoard environment, you would provide a valid JWT token and device ID.
+        </div>
+    </div>
+
+    <div class="demo-container">
+        <div class="demo-section">
+            <h2>📋 Basic Settings Modal</h2>
+            <p class="description">
+                Opens a settings modal with minimal configuration. Uses mock JWT token and device ID.
+            </p>
+            
+            <button class="demo-button" onclick="openBasicSettings()">
+                Open Basic Settings
+            </button>
+            
+            <div class="code-block">
+MyIOLibrary.openDashboardPopupSettings({
+  deviceId: 'demo-device-123',
+  jwtToken: 'demo-jwt-token',
+  onSaved: (result) => {
+    console.log('Settings saved:', result);
+    alert('Settings saved successfully!');
+  },
+  onClose: () => {
+    console.log('Modal closed');
+  }
+});
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🎯 Pre-populated Settings</h2>
+            <p class="description">
+                Opens a settings modal with pre-populated form data using the <code>seed</code> parameter.
+            </p>
+            
+            <button class="demo-button" onclick="openPrePopulatedSettings()">
+                Open Pre-populated Settings
+            </button>
+            
+            <div class="code-block">
+MyIOLibrary.openDashboardPopupSettings({
+  deviceId: 'demo-device-456',
+  jwtToken: 'demo-jwt-token',
+  seed: {
+    label: 'Demo Store Device',
+    floor: '2nd Floor',
+    storeNumber: 'ST-001',
+    meterId: 'MET-12345',
+    maxDailyKwh: 150,
+    maxNightKwh: 20,
+    maxBusinessKwh: 120
+  },
+  ui: {
+    title: 'Store Device Configuration',
+    width: 700
+  }
+});
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🎨 Custom UI Configuration</h2>
+            <p class="description">
+                Demonstrates UI customization options including custom title, width, and theme tokens.
+            </p>
+            
+            <button class="demo-button" onclick="openCustomUISettings()">
+                Open Custom UI Settings
+            </button>
+            
+            <div class="code-block">
+MyIOLibrary.openDashboardPopupSettings({
+  deviceId: 'demo-device-789',
+  jwtToken: 'demo-jwt-token',
+  ui: {
+    title: '⚡ Energy Device Settings',
+    width: 800,
+    themeTokens: {
+      'primary-color': '#28a745',
+      'border-radius': '12px'
+    }
+  },
+  seed: {
+    label: 'Energy Monitor Pro',
+    guid: '550e8400-e29b-41d4-a716-446655440000'
+  }
+});
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🔧 Error Handling Demo</h2>
+            <p class="description">
+                Demonstrates error handling with custom error callbacks and user action guidance.
+            </p>
+            
+            <button class="demo-button secondary" onclick="openErrorHandlingDemo()">
+                Open Error Handling Demo
+            </button>
+            
+            <div class="code-block">
+MyIOLibrary.openDashboardPopupSettings({
+  deviceId: 'invalid-device',
+  jwtToken: 'expired-token',
+  onError: (error) => {
+    console.error('Settings error:', error);
+    if (error.userAction === 'RE_AUTH') {
+      alert('Authentication required. Please log in again.');
+    } else {
+      alert(`Error: ${error.message}`);
+    }
+  },
+  onEvent: (event) => {
+    console.log('Settings event:', event);
+  }
+});
+            </div>
+        </div>
+    </div>
+
+    <div class="demo-container">
+        <h2>🧪 Interactive Testing</h2>
+        <p class="description">
+            Configure your own settings modal parameters and test the API.
+        </p>
+        
+        <div class="demo-config">
+            <div class="form-group">
+                <label for="deviceId">Device ID:</label>
+                <input type="text" id="deviceId" value="test-device-001" />
+            </div>
+            
+            <div class="form-group">
+                <label for="deviceLabel">Device Label (seed):</label>
+                <input type="text" id="deviceLabel" value="Test Device" />
+            </div>
+            
+            <div class="form-group">
+                <label for="modalTitle">Modal Title:</label>
+                <input type="text" id="modalTitle" value="Device Settings" />
+            </div>
+            
+            <div class="form-group">
+                <label for="modalWidth">Modal Width (px):</label>
+                <input type="number" id="modalWidth" value="600" />
+            </div>
+            
+            <button class="demo-button" onclick="openCustomSettings()">
+                Open Custom Settings
+            </button>
+        </div>
+    </div>
+
+    <div class="demo-container">
+        <h2>📚 ThingsBoard Integration Example</h2>
+        <p class="description">
+            Example of how to integrate with a real ThingsBoard widget.
+        </p>
+        
+        <div class="code-block">
+// In ThingsBoard widget controller
+function openDeviceSettings() {
+  const jwtToken = localStorage.getItem('jwt_token');
+  const deviceId = self.ctx.datasources[0]?.entityId;
+  
+  if (!jwtToken) {
+    alert('Please log in to modify settings');
+    return;
+  }
+  
+  MyIOLibrary.openDashboardPopupSettings({
+    deviceId: deviceId,
+    jwtToken: jwtToken,
+    onSaved: (result) => {
+      if (result.ok) {
+        // Refresh widget data
+        self.ctx.detectChanges();
+        console.log('Settings updated successfully');
+      } else {
+        console.error('Failed to save settings:', result);
+      }
+    },
+    onError: (error) => {
+      if (error.userAction === 'RE_AUTH') {
+        // Redirect to login or show auth modal
+        window.location.href = '/login';
+      }
+    }
+  });
+}
+        </div>
+    </div>
+
+    <!-- Load the MyIO Library -->
+    <script src="../dist/myio-js-library.umd.js"></script>
+    
+    <script>
+        // Demo functions
+        function openBasicSettings() {
+            console.log('[Demo] Opening basic settings modal');
+            
+            MyIOLibrary.openDashboardPopupSettings({
+                deviceId: 'demo-device-123',
+                jwtToken: 'demo-jwt-token',
+                onSaved: (result) => {
+                    console.log('Settings saved:', result);
+                    showStatus('Configurações salvas com sucesso!', 'success');
+                },
+                onClose: () => {
+                    console.log('Modal closed');
+                    showStatus('Modal fechado', 'info');
+                },
+                onError: (error) => {
+                    console.error('Settings error:', error);
+                    showStatus(`Erro: ${error.message}`, 'error');
+                }
+            });
+        }
+        
+        function openPrePopulatedSettings() {
+            console.log('[Demo] Opening pre-populated settings modal');
+            
+            MyIOLibrary.openDashboardPopupSettings({
+                deviceId: 'demo-device-456',
+                jwtToken: 'demo-jwt-token',
+                seed: {
+                    label: 'Demo Store Device',
+                    floor: '2nd Floor',
+                    storeNumber: 'ST-001',
+                    meterId: 'MET-12345',
+                    deviceRef: 'DEV-001',
+                    maxDailyKwh: 150,
+                    maxNightKwh: 20,
+                    maxBusinessKwh: 120
+                },
+                ui: {
+                    title: 'Store Device Configuration',
+                    width: 700
+                },
+                onSaved: (result) => {
+                    console.log('Settings saved:', result);
+                    showStatus('Pre-populated settings saved!', 'success');
+                },
+                onClose: () => {
+                    showStatus('Pre-populated modal closed', 'info');
+                }
+            });
+        }
+        
+        function openCustomUISettings() {
+            console.log('[Demo] Opening custom UI settings modal');
+            
+            MyIOLibrary.openDashboardPopupSettings({
+                deviceId: 'demo-device-789',
+                jwtToken: 'demo-jwt-token',
+                ui: {
+                    title: '⚡ Energy Device Settings',
+                    width: 800,
+                    themeTokens: {
+                        'primary-color': '#28a745',
+                        'border-radius': '12px'
+                    }
+                },
+                seed: {
+                    label: 'Energy Monitor Pro',
+                    guid: '550e8400-e29b-41d4-a716-446655440000'
+                },
+                onSaved: (result) => {
+                    console.log('Custom UI settings saved:', result);
+                    showStatus('Custom UI settings saved!', 'success');
+                },
+                onClose: () => {
+                    showStatus('Custom UI modal closed', 'info');
+                }
+            });
+        }
+        
+        function openErrorHandlingDemo() {
+            console.log('[Demo] Opening error handling demo');
+            
+            // This will trigger various error scenarios
+            MyIOLibrary.openDashboardPopupSettings({
+                deviceId: 'invalid-device',
+                jwtToken: 'expired-token',
+                onError: (error) => {
+                    console.error('Settings error:', error);
+                    if (error.userAction === 'RE_AUTH') {
+                        showStatus('Authentication required. Please log in again.', 'error');
+                    } else {
+                        showStatus(`Error: ${error.message}`, 'error');
+                    }
+                },
+                onEvent: (event) => {
+                    console.log('Settings event:', event);
+                    showStatus(`Event: ${event.type}`, 'info');
+                },
+                onSaved: (result) => {
+                    showStatus('Error demo - this should not happen', 'error');
+                },
+                onClose: () => {
+                    showStatus('Error demo modal closed', 'info');
+                }
+            });
+        }
+        
+        function openCustomSettings() {
+            const deviceId = document.getElementById('deviceId').value;
+            const deviceLabel = document.getElementById('deviceLabel').value;
+            const modalTitle = document.getElementById('modalTitle').value;
+            const modalWidth = parseInt(document.getElementById('modalWidth').value);
+            
+            console.log('[Demo] Opening custom configured settings modal');
+            
+            MyIOLibrary.openDashboardPopupSettings({
+                deviceId: deviceId,
+                jwtToken: 'custom-demo-token',
+                seed: {
+                    label: deviceLabel
+                },
+                ui: {
+                    title: modalTitle,
+                    width: modalWidth
+                },
+                onSaved: (result) => {
+                    console.log('Custom settings saved:', result);
+                    showStatus(`Custom settings saved for device: ${deviceId}`, 'success');
+                },
+                onClose: () => {
+                    showStatus('Custom modal closed', 'info');
+                },
+                onError: (error) => {
+                    console.error('Custom settings error:', error);
+                    showStatus(`Custom error: ${error.message}`, 'error');
+                }
+            });
+        }
+        
+        function showStatus(message, type) {
+            // Remove existing status messages
+            const existingStatus = document.querySelectorAll('.status.demo-status');
+            existingStatus.forEach(el => el.remove());
+            
+            // Create new status message
+            const statusEl = document.createElement('div');
+            statusEl.className = `status demo-status ${type}`;
+            statusEl.textContent = message;
+            
+            // Insert after the first demo container
+            const firstContainer = document.querySelector('.demo-container');
+            firstContainer.parentNode.insertBefore(statusEl, firstContainer.nextSibling);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (statusEl.parentNode) {
+                    statusEl.parentNode.removeChild(statusEl);
+                }
+            }, 5000);
+        }
+        
+        // Initialize demo
+        console.log('[Demo] Settings Modal Demo loaded');
+        console.log('[Demo] MyIOLibrary available:', typeof MyIOLibrary !== 'undefined');
+        console.log('[Demo] openDashboardPopupSettings available:', typeof MyIOLibrary?.openDashboardPopupSettings === 'function');
+        
+        if (typeof MyIOLibrary === 'undefined') {
+            showStatus('MyIOLibrary not loaded. Please build the library first.', 'error');
+        } else if (typeof MyIOLibrary.openDashboardPopupSettings !== 'function') {
+            showStatus('openDashboardPopupSettings not available in MyIOLibrary', 'error');
+        } else {
+            showStatus('Demo ready! All functions are available.', 'success');
+        }
+    </script>
+</body>
+</html>

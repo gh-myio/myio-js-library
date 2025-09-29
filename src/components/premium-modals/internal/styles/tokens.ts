@@ -2,9 +2,9 @@
 export const CSS_TOKENS = `
 :root {
   /* Brand Colors */
-  --myio-brand-700: #4A148C;
-  --myio-brand-600: #5c307d;
-  --myio-accent: #5c307d;
+  --myio-brand-700: #3e1a7d;
+  --myio-brand-600: #2d1458;
+  --myio-accent: #2d1458;
   --myio-danger: #d32f2f;
   --myio-success: #388E3C;
   --myio-warning: #f57c00;
@@ -120,7 +120,7 @@ export const MODAL_STYLES = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #4A148C;
+  background: var(--myio-brand-700);
   color: white;
   border-radius: var(--myio-radius) var(--myio-radius) 0 0;
 }

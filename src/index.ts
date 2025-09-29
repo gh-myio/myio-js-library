@@ -85,6 +85,16 @@ export {
   openDashboardPopup
 } from './components/premium-modals';
 
+// Settings Modal Component
+export { openDashboardPopupSettings } from './components/premium-modals/settings/openDashboardPopupSettings';
+export type { 
+  OpenDashboardPopupSettingsParams,
+  PersistResult,
+  SettingsError,
+  SettingsEvent,
+  TbScope
+} from './components/premium-modals/settings/types';
+
 // DateRangePicker - Public API
 export { createDateRangePicker, type CreateDateRangePickerOptions, type DateRangeControl, type DateRangeResult } from './components/createDateRangePicker';
 
