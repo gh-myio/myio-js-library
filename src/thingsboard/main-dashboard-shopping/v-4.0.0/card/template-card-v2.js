@@ -853,7 +853,7 @@ export function renderCardComponentV2({
         left: 12px;
         top: 12px;
         bottom: 12px;
-        padding: 6px 0;
+        padding: 0;
         display: flex;
         flex-direction: column;
         gap: 0;
@@ -879,10 +879,19 @@ export function renderCardComponentV2({
         display: flex;
         align-items: center;
         justify-content: center;
+        margin: 0;
+        border-radius: 0;
+      }
+      
+      .device-card-centered .card-action:first-child {
+        border-top-left-radius: 7px;
+        border-top-right-radius: 7px;
       }
       
       .device-card-centered .card-action:last-child {
         border-bottom: 0;
+        border-bottom-left-radius: 7px;
+        border-bottom-right-radius: 7px;
       }
       
       .device-card-centered .card-action img {
