@@ -17,14 +17,16 @@ const createDefaultEnergyFetcher = (params: OpenDeviceReportParams): EnergyFetch
   return async ({ baseUrl, ingestionId, startISO, endISO }) => {
     const url = `${baseUrl}/api/v1/telemetry/devices/${ingestionId}/energy?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=1d&page=1&pageSize=1000&deep=0`;
     
-    // Use ingestionToken from API parameters
+    // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
+    // This token provides access to telemetry data from the ingestion system
     const token = params.api.ingestionToken;
     if (!token) {
-      throw new Error('ingestionToken is required for Data/Ingestion API calls');
+      throw new Error('ingestionToken is required for Data API calls to data.apps.myio-bas.com');
     }
     
     const response = await fetch(url, {
       headers: {
+        // Using ingestionToken for Data API endpoints (data.apps.myio-bas.com)
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }

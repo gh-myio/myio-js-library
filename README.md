@@ -1081,6 +1081,30 @@ const controller = await MyIOLibrary.createInputDateRangePickerInsideDIV({
 
 The library includes four premium modal components for ThingsBoard dashboards that provide comprehensive device analytics and reporting capabilities.
 
+#### Token Authentication
+
+Both AllReportModal and DeviceReportModal use a dual-token authentication system to access different API endpoints:
+
+- **`api.tbJwtToken`** - Used for ThingsBoard API endpoints (/) for device management and configuration
+- **`api.ingestionToken`** - Used for Data API endpoints (https://data.apps.myio-bas.com) for telemetry data access
+
+**Important**: The tokens are automatically applied based on the target endpoint. You must provide the appropriate token in the API configuration:
+
+```javascript
+// Example API configuration with both tokens
+const apiConfig = {
+  clientId: 'your-client-id',
+  clientSecret: 'your-client-secret',
+  dataApiBaseUrl: 'https://data.apps.myio-bas.com',
+  tbJwtToken: 'jwt-token-for-thingsboard-apis',      // For ThingsBoard endpoints
+  ingestionToken: 'ingestion-token-for-data-apis'    // For Data API endpoints
+};
+```
+
+The modals will automatically select the correct token based on the API endpoint being called:
+- Data API calls (data.apps.myio-bas.com) → Uses `ingestionToken`
+- ThingsBoard API calls (/) → Uses `tbJwtToken`
+
 #### `openDashboardPopupReport(params: OpenDeviceReportParams): ModalHandle`
 
 Opens a device-specific daily consumption report modal with built-in date range picker, sortable table, and CSV export functionality.

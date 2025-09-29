@@ -565,9 +565,11 @@ export class AllReportModal {
   private async fetchCustomerTotals(startISO: string, endISO: string): Promise<any[]> {
     // Check if custom fetcher is provided (for testing/demo)
     if (this.params.fetcher) {
+      // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
+      const token = this.params.api.ingestionToken || await this.authClient.getBearer();
       return await this.params.fetcher({
         baseUrl: this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com',
-        token: await this.authClient.getBearer(),
+        token: token,
         customerId: this.params.customerId,
         startISO,
         endISO
@@ -575,7 +577,12 @@ export class AllReportModal {
     }
 
     // Real Customer Totals API implementation
-    const token = await this.authClient.getBearer();
+    // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
+    const token = this.params.api.ingestionToken;
+    if (!token) {
+      throw new Error('ingestionToken is required for Data API calls to data.apps.myio-bas.com');
+    }
+    
     const baseUrl = this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com';
     
     // Format timestamps for API call
@@ -589,31 +596,13 @@ export class AllReportModal {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
+        // Using ingestionToken for Data API endpoints (data.apps.myio-bas.com)
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        // Clear cached token and retry once
-        this.authClient.clearCache();
-        const newToken = await this.authClient.getBearer();
-        const retryResponse = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${newToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (!retryResponse.ok) {
-          throw new Error(`Erro de autenticação: ${retryResponse.status} ${retryResponse.statusText}`);
-        }
-        
-        return await retryResponse.json();
-      }
-      
       throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
     }
 
