@@ -828,6 +828,667 @@ const legacyData = [
 findValue(legacyData, 'sensor1', 'temperature'); // 25
 ```
 
+### DateRangePicker Component
+
+#### `createDateRangePicker(input: HTMLInputElement, options?: CreateDateRangePickerOptions): Promise<DateRangeControl>`
+
+Creates a MyIO-styled date range picker with Portuguese localization and timezone-aware output. This component provides a clean, user-friendly interface for selecting date ranges with built-in validation and formatting.
+
+**Parameters:**
+- `input: HTMLInputElement` - The input element to attach the date range picker to (required)
+- `options?: CreateDateRangePickerOptions` - Configuration options:
+  - `presetStart?: string` - Preset start date (ISO string or YYYY-MM-DD)
+  - `presetEnd?: string` - Preset end date (ISO string or YYYY-MM-DD)
+  - `maxRangeDays?: number` - Maximum range in days (default: 31)
+  - `parentEl?: HTMLElement` - Parent element for modal positioning
+  - `onApply?: (result: DateRangeResult) => void` - Callback when date range is applied
+
+**Returns:** Promise resolving to `DateRangeControl` object with:
+- `getDates(): DateRangeResult` - Get current selected dates
+- `setDates(startISO: string, endISO: string): void` - Set date range programmatically
+- `destroy(): void` - Clean up and remove the picker
+
+**DateRangeResult Structure:**
+```javascript
+{
+  startISO: string,    // "YYYY-MM-DDTHH:mm:ss-03:00" (São Paulo timezone)
+  endISO: string,      // "YYYY-MM-DDTHH:mm:ss-03:00" (São Paulo timezone)
+  startLabel: string,  // "DD/MM/YY HH:mm" (display format)
+  endLabel: string     // "DD/MM/YY HH:mm" (display format)
+}
+```
+
+**Key Features:**
+- **Portuguese Localization**: All labels, buttons, and formats in Brazilian Portuguese
+- **Timezone Aware**: Outputs São Paulo timezone (-03:00) ISO strings
+- **Time Selection**: 24-hour format time picker with minute precision
+- **Preset Ranges**: Built-in ranges (Hoje, Últimos 7 dias, Últimos 30 dias, Mês Anterior)
+- **Range Validation**: Configurable maximum range enforcement (default: 31 days)
+- **Premium Styling**: MyIO brand colors and consistent design
+- **No Dependencies**: Self-contained with automatic CDN loading of required libraries
+- **Accessibility**: Full keyboard navigation and screen reader support
+
+**Usage Example:**
+```javascript
+import { createDateRangePicker } from 'myio-js-library';
+
+const input = document.getElementById('date-range');
+const picker = await createDateRangePicker(input, {
+  maxRangeDays: 31,
+  presetStart: '2025-09-01',
+  presetEnd: '2025-09-25',
+  onApply: (result) => {
+    console.log('Date range selected:', result);
+    // result.startISO: "2025-09-01T00:00:00-03:00"
+    // result.endISO: "2025-09-25T23:59:59-03:00"
+    // result.startLabel: "01/09/25 00:00"
+    // result.endLabel: "25/09/25 23:59"
+  }
+});
+
+// Get current selection
+const dates = picker.getDates();
+console.log('Current range:', dates.startISO, 'to', dates.endISO);
+
+// Set new range programmatically
+picker.setDates('2025-10-01T00:00:00-03:00', '2025-10-31T23:59:59-03:00');
+
+// Clean up when done
+picker.destroy();
+```
+
+**UMD Usage (ThingsBoard widgets):**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { createDateRangePicker } = MyIOLibrary;
+  
+  (async () => {
+    const input = document.getElementById('dateRange');
+    const picker = await createDateRangePicker(input, {
+      maxRangeDays: 31,
+      onApply: (result) => {
+        // Update your dashboard with the selected date range
+        updateDashboard(result.startISO, result.endISO);
+      }
+    });
+    
+    // Set default to current month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    picker.setDates(
+      startOfMonth.toISOString(),
+      endOfMonth.toISOString()
+    );
+  })();
+</script>
+```
+
+**Preset Ranges:**
+- **Hoje**: Current day (00:00 to 23:59)
+- **Últimos 7 dias**: Last 7 days including today
+- **Últimos 30 dias**: Last 30 days including today
+- **Mês Anterior**: Previous month (full month)
+
+**Error Handling:**
+The component includes robust error handling:
+- Automatic fallback to native date inputs if dependencies fail to load
+- Graceful degradation with user-friendly error messages
+- Console warnings for debugging in development
+
+**Styling:**
+The component includes premium MyIO styling with:
+- Purple brand colors (#4A148C)
+- Consistent button styling and hover effects
+- Responsive design for mobile and desktop
+- Portuguese month names and day abbreviations
+
+### Premium Date Range Input Component
+
+#### `createInputDateRangePickerInsideDIV(params: CreateInputDateRangePickerInsideDIVParams): Promise<DateRangeInputController>`
+
+Creates a complete, beautifully styled date range input inside a target DIV container, combining the functionality of `createDateRangePicker` with premium MyIO styling. This component automatically creates the HTML structure, injects styling, and provides a clean API for ThingsBoard widgets and other applications.
+
+**Parameters:**
+- `params: CreateInputDateRangePickerInsideDIVParams` - Configuration object:
+  - `containerId: string` - The DIV id where the input will be created (required)
+  - `inputId: string` - The id to set on the created input (required)
+  - `label?: string` - Optional label text (default: "Período de Datas")
+  - `placeholder?: string` - Input placeholder (default: "Clique para selecionar período")
+  - `pickerOptions?: CreateDateRangePickerOptions` - Pass-through options for createDateRangePicker
+  - `classNames?: object` - Custom CSS classes for wrapper, label, input, and helper
+  - `injectStyles?: boolean` - Inject premium MyIO styling (default: true)
+  - `showHelper?: boolean` - Show helper text with format info (default: true)
+
+**Returns:** Promise resolving to `DateRangeInputController` object with:
+- `input: HTMLInputElement` - The created input element
+- `container: HTMLElement` - The target container element
+- `wrapper: HTMLElement` - The wrapper element created by this component
+- `picker: DateRangeControl` - The date range picker instance
+- `getDisplayValue(): string` - Get current display value from input
+- `getDates(): DateRangeResult` - Get current date range data
+- `setDates(startISO: string, endISO: string): void` - Set date range programmatically
+- `setHelperText(text: string, type?: 'default' | 'success' | 'error'): void` - Update helper text
+- `destroy(): void` - Clean up and remove all created elements
+
+**Key Features:**
+- **Automatic HTML Creation**: Creates complete styled input structure inside target DIV
+- **Premium MyIO Styling**: Beautiful styling matching demos/energy.html with purple brand colors
+- **Container-Based**: Works with any DIV container, perfect for ThingsBoard widgets
+- **Accessibility Built-in**: ARIA labels, keyboard navigation, screen reader support
+- **Responsive Design**: Mobile-friendly with proper touch targets
+- **Error Handling**: Robust validation and graceful error recovery
+- **Memory Management**: Proper cleanup with destroy() method
+
+**Usage Example:**
+```javascript
+import { createInputDateRangePickerInsideDIV } from 'myio-js-library';
+
+const controller = await createInputDateRangePickerInsideDIV({
+  containerId: 'date-picker-container',
+  inputId: 'energy-date-range',
+  label: 'Período de Análise',
+  pickerOptions: {
+    presetStart: '2025-09-01',
+    presetEnd: '2025-09-25',
+    onApply: (result) => {
+      console.log('Date range selected:', result);
+      // result.startISO: "2025-09-01T00:00:00-03:00"
+      // result.endISO: "2025-09-25T23:59:59-03:00"
+      loadEnergyData(result.startISO, result.endISO);
+    }
+  }
+});
+
+// Get current selection
+const dates = controller.getDates();
+console.log('Current range:', dates.startISO, 'to', dates.endISO);
+
+// Update helper text
+controller.setHelperText('Período válido selecionado', 'success');
+
+// Clean up when done
+controller.destroy();
+```
+
+**ThingsBoard Widget Integration:**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { createInputDateRangePickerInsideDIV } = MyIOLibrary;
+  
+  // In your widget's onInit function
+  self.onInit = async function() {
+    try {
+      // Create date range picker in existing container
+      self.dateRangePicker = await createInputDateRangePickerInsideDIV({
+        containerId: 'widget-date-container',
+        inputId: 'energy-widget-dates',
+        label: 'Período de Datas',
+        placeholder: 'Selecione o período de análise',
+        pickerOptions: {
+          maxRangeDays: 31,
+          onApply: (result) => {
+            // Update widget state and reload data
+            updateWidgetData(result.startISO, result.endISO);
+          }
+        }
+      });
+      
+      console.log('[ENERGY] Date range picker initialized successfully');
+    } catch (error) {
+      console.error('[ENERGY] Failed to initialize date picker:', error);
+      // Fallback to legacy implementation
+      initLegacyDatePicker();
+    }
+  };
+
+  // Clean up on widget destroy
+  self.onDestroy = function() {
+    if (self.dateRangePicker) {
+      self.dateRangePicker.destroy();
+    }
+  };
+</script>
+```
+
+**Premium Styling Features:**
+- **MyIO Brand Colors**: Purple theme (#4A148C) with hover effects
+- **Responsive Layout**: Adapts to mobile and desktop with proper spacing
+- **Accessibility**: High contrast mode support, reduced motion support
+- **Visual Feedback**: Hover states, focus indicators, success/error states
+- **Typography**: Roboto font family with proper line heights
+- **Shadow Effects**: Subtle shadows and smooth transitions
+
+**Migration from Basic Implementation:**
+```javascript
+// OLD: Manual HTML + basic styling
+var $inputStart = $('input[name="startDatetimes"]');
+MyIOLibrary.createDateRangePicker($inputStart[0], options);
+
+// NEW: Automatic creation + premium styling
+const controller = await MyIOLibrary.createInputDateRangePickerInsideDIV({
+  containerId: 'date-container',
+  inputId: 'startDatetimes',
+  label: 'Período de Datas',
+  pickerOptions: options
+});
+```
+
+### Premium Modal Components
+
+The library includes four premium modal components for ThingsBoard dashboards that provide comprehensive device analytics and reporting capabilities.
+
+#### `openDashboardPopupReport(params: OpenDeviceReportParams): ModalHandle`
+
+Opens a device-specific daily consumption report modal with built-in date range picker, sortable table, and CSV export functionality.
+
+**Parameters:**
+- `ingestionId: string` - Data ingestion identifier (required)
+- `deviceId?: string` - Optional device ID for additional metadata
+- `identifier?: string` - Device identifier/code (e.g., "ENTRADA-001", "CHILLER-A")
+- `label?: string` - Human-readable label/name (e.g., "Outback", "Shopping Center Norte")
+- `ui?: object` - UI configuration (theme, width)
+- `api: object` - API configuration:
+  - `clientId?: string` - Client ID for data API
+  - `clientSecret?: string` - Client secret for data API
+  - `dataApiBaseUrl?: string` - Data API base URL
+  - `ingestionToken?: string` - Token for data ingestion access
+
+**Returns:** `ModalHandle` object with:
+- `close(): void` - Close the modal
+- `on(event: 'close'|'loaded'|'error', handler: Function): void` - Event listeners
+
+**Key Features:**
+- **Built-in Date Range Picker**: No need to specify dates in parameters
+- **Automatic Data Loading**: Fetches daily consumption data for selected period
+- **Sortable Table**: Click column headers to sort by date or consumption
+- **CSV Export**: Download report data with proper Brazilian formatting
+- **Responsive Design**: Works on desktop and mobile devices
+- **Error Handling**: Graceful error display and recovery
+
+**Usage Example:**
+```javascript
+import { openDashboardPopupReport } from 'myio-js-library';
+
+const modal = openDashboardPopupReport({
+  ingestionId: 'abc123-ingestion-id',
+  deviceId: 'device-uuid',
+  identifier: 'ENTRADA-001',
+  label: 'Outback Shopping',
+  api: {
+    clientId: 'your-client-id',
+    clientSecret: 'your-client-secret',
+    dataApiBaseUrl: 'https://api.data.apps.myio-bas.com',
+    ingestionToken: 'your-ingestion-token'
+  }
+});
+
+modal.on('loaded', (data) => {
+  console.log('Report loaded:', data.count, 'days');
+});
+
+modal.on('close', () => {
+  console.log('Modal closed');
+});
+```
+
+#### `openDashboardPopupAllReport(params: OpenAllReportParams): ModalHandle`
+
+Opens a customer-level energy consumption report modal with real-time data from the Customer Totals API. This modal provides comprehensive reporting across all devices for a customer with advanced sorting, filtering, and export capabilities.
+
+**Parameters:**
+- `customerId: string` - ThingsBoard customer ID (required)
+- `ui?: object` - UI configuration (theme, width)
+- `api: object` - API configuration:
+  - `clientId?: string` - Client ID for data API authentication
+  - `clientSecret?: string` - Client secret for data API authentication
+  - `dataApiBaseUrl?: string` - Data API base URL (default: 'https://api.data.apps.myio-bas.com')
+- `filters?: object` - Optional filtering configuration:
+  - `excludeLabels?: (RegExp | string)[]` - Patterns to exclude devices by label
+- `fetcher?: Function` - Optional custom fetcher for testing/mocking
+
+**Returns:** `ModalHandle` object with:
+- `close(): void` - Close the modal
+- `on(event: 'close'|'loaded'|'error', handler: Function): void` - Event listeners
+
+**Key Features:**
+- **Real Customer Totals API Integration**: Calls `/api/v1/telemetry/customers/{customerId}/energy/devices/totals`
+- **Built-in Date Range Picker**: Interactive date selection with validation
+- **Robust Data Processing**: Handles pagination, fallback chains, and data normalization
+- **Sortable Table Structure**: Sticky totals row + sortable columns (Identifier, Name, Consumption)
+- **Portuguese Locale Support**: Brazilian number formatting and sorting
+- **Comprehensive Error Handling**: Network failures, authentication, and validation errors
+- **CSV Export**: Consistent formatting with UI using `MyIOLibrary.formatEnergy`
+- **Production Ready**: Authentication via `fetchWithAuth` pattern with automatic token refresh
+
+**Usage Example:**
+```javascript
+import { openDashboardPopupAllReport } from 'myio-js-library';
+
+const modal = openDashboardPopupAllReport({
+  customerId: '73d4c75d-c311-4e98-a852-10a2231007c4',
+  api: {
+    clientId: 'your-client-id',
+    clientSecret: 'your-client-secret',
+    dataApiBaseUrl: 'https://api.data.apps.myio-bas.com'
+  },
+  filters: {
+    excludeLabels: [
+      /bomba.*secund[aá]ria/i,     // Regex patterns
+      /^administra[cç][aã]o\s*1$/i,
+      'Entrada Principal'           // Exact string matches
+    ]
+  }
+});
+
+modal.on('loaded', (data) => {
+  console.log('Customer report loaded:', data.count, 'devices');
+  console.log('Total consumption:', data.totalKwh, 'kWh');
+});
+
+modal.on('error', (error) => {
+  console.error('Report error:', error.message);
+});
+```
+
+**UMD Usage (ThingsBoard widgets):**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { openDashboardPopupAllReport } = MyIOLibrary;
+  
+  const modal = openDashboardPopupAllReport({
+    customerId: 'your-customer-id',
+    api: {
+      clientId: 'your-client-id',
+      clientSecret: 'your-client-secret'
+    }
+  });
+  
+  modal.on('loaded', (data) => {
+    console.log('All stores report loaded with', data.count, 'devices');
+    console.log('Grand total:', data.totalKwh, 'kWh');
+  });
+</script>
+```
+
+**Data Flow:**
+```
+User clicks "Carregar" 
+→ Format timestamps with timezone offset
+→ Call Customer Totals API with fetchWithAuth
+→ Process response with mapCustomerTotalsResponse
+→ Apply sorting with applySorting (Portuguese locale)
+→ Update table with updateAllReportTable
+→ Update totals with updateGrandTotal
+→ Enable CSV export with habilitarBotaoExportAll
+```
+
+**API Integration:**
+```
+GET ${DATA_API_HOST}/api/v1/telemetry/customers/{customerId}/energy/devices/totals
+  ?startTime=2025-09-01T00%3A00%3A00-03%3A00
+  &endTime=2025-09-25T23%3A59%3A59-03%3A00
+
+Authorization: Bearer ${MyIOAuth.getToken()}
+```
+
+**Migration from Legacy Implementation:**
+```javascript
+// OLD: Mock/placeholder data
+MyIOLibrary.openDashboardPopupAllReport({
+  // Used mock data or device-by-device calls
+});
+
+// NEW: Real Customer Totals API
+MyIOLibrary.openDashboardPopupAllReport({
+  customerId: 'your-customer-id',        // ✅ Real customer ID
+  api: {
+    clientId: 'your-client-id',          // ✅ Real API credentials
+    clientSecret: 'your-client-secret'
+  }
+  // ✅ Calls real Customer Totals API endpoint
+  // ✅ Handles pagination automatically
+  // ✅ Robust error handling and recovery
+});
+```
+
+**UMD Usage (ThingsBoard widgets):**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { openDashboardPopupReport } = MyIOLibrary;
+  
+  const modal = openDashboardPopupReport({
+    ingestionId: 'demo-ingestion-123',
+    deviceId: 'demo-device-123',
+    identifier: 'ENTRADA-001',
+    label: 'Outback',
+    api: { 
+      clientId: 'demo-client',
+      clientSecret: 'demo-secret',
+      dataApiBaseUrl: 'https://api.data.apps.myio-bas.com',
+      ingestionToken: 'demo-ingestion-token'
+    }
+  });
+  
+  modal.on('loaded', (data) => {
+    console.log('Device report loaded with', data.count, 'days of data');
+  });
+</script>
+```
+
+**Migration from Legacy API:**
+```javascript
+// OLD API (deprecated)
+MyIOLibrary.openDashboardPopupReport({
+  ingestionId: 'demo-ingestion-123',
+  deviceLabel: 'Entrada Subestação',    // ❌ Deprecated
+  storeLabel: 'Outback',                // ❌ Deprecated
+  date: { start: '2025-09-01', end: '2025-09-25' }, // ❌ Deprecated
+  api: { tbJwtToken: 'jwt-token' }      // ❌ Deprecated
+});
+
+// NEW API (recommended)
+MyIOLibrary.openDashboardPopupReport({
+  ingestionId: 'demo-ingestion-123',
+  identifier: 'ENTRADA-001',           // ✅ Clear device identifier
+  label: 'Outback',                    // ✅ Clear human-readable name
+  api: { ingestionToken: 'ingestion-token' } // ✅ Clear token purpose
+});
+```
+
+### MYIO Components - Drag-to-Footer Dock Implementation
+
+The library includes three main interactive components for building comparative selection interfaces:
+
+#### `MyIOSelectionStore` - Global Selection Management
+
+A singleton store for managing device selection state, multi-unit totals, and analytics.
+
+```javascript
+import { MyIOSelectionStore } from 'myio-js-library';
+
+// Register entities for selection
+MyIOSelectionStore.registerEntity({
+  id: 'device-001',
+  name: 'Solar Panel North',
+  icon: 'energy',
+  group: 'RENEWABLE_ENERGY',
+  lastValue: 145.6,
+  unit: 'kWh'
+});
+
+// Listen to selection changes
+MyIOSelectionStore.on('selection:change', (data) => {
+  console.log('Selection changed:', data.selectedIds);
+  console.log('Totals:', data.totals);
+});
+
+// Manage selections
+MyIOSelectionStore.add('device-001');
+MyIOSelectionStore.toggle('device-002');
+MyIOSelectionStore.clear();
+
+// Get current state
+const selectedIds = MyIOSelectionStore.getSelectedIds();
+const totals = MyIOSelectionStore.getTotals();
+const display = MyIOSelectionStore.getMultiUnitTotalDisplay();
+// Returns: "Energy: 1,234 kWh | Water: 567 m³"
+
+// Open comparison modal
+MyIOSelectionStore.openComparison();
+```
+
+**Key Features:**
+- **Global state management** - Singleton pattern for app-wide selection state
+- **Multi-unit calculations** - Automatic totals for energy (kWh), water (m³), temperature (°C)
+- **Event system** - React to selection changes with custom callbacks
+- **Analytics integration** - Built-in tracking for user interactions
+- **Time-series data** - Cached data fetching for chart visualization
+- **Accessibility** - Screen reader announcements and ARIA support
+
+#### `MyIODraggableCard` - Interactive Device Cards
+
+Reusable card components with drag-and-drop, checkbox synchronization, and accessibility.
+
+```javascript
+import { MyIODraggableCard } from 'myio-js-library';
+
+const container = document.getElementById('device-grid');
+const entity = {
+  id: 'pump-001',
+  name: 'Water Pump Main',
+  icon: 'water',
+  group: 'HYDRAULIC_SYSTEM',
+  lastValue: 234.7,
+  unit: 'm³',
+  status: 'ok'
+};
+
+// Create draggable card
+const card = new MyIODraggableCard(container, entity, {
+  showCheckbox: true,
+  draggable: true,
+  className: 'custom-card'
+});
+
+// Update entity data
+card.updateEntity({
+  lastValue: 156.8,
+  status: 'alert'
+});
+
+// Manual selection control
+card.setSelected(true);
+
+// Cleanup
+card.destroy();
+```
+
+**Key Features:**
+- **Drag & Drop** - HTML5 drag API with touch support (long-press on mobile)
+- **Checkbox sync** - Two-way synchronization with SelectionStore
+- **Keyboard navigation** - Full accessibility with Tab, Enter, Space, Delete
+- **Visual states** - Connection status, data freshness, selection indicators
+- **Auto-formatting** - Brazilian locale number formatting
+- **Icon system** - Built-in SVG icons for energy, water, temperature, etc.
+
+#### `MyIOChartModal` - Comparative Visualization
+
+Interactive chart modal with Chart.js integration and export functionality.
+
+```javascript
+import { MyIOChartModal } from 'myio-js-library';
+
+// The modal automatically integrates with SelectionStore
+// When user selects devices and clicks "Compare", modal opens automatically
+
+// Manual control (optional)
+const data = {
+  entities: MyIOSelectionStore.getSelectedEntities(),
+  totals: MyIOSelectionStore.getTotals(),
+  count: MyIOSelectionStore.getSelectionCount()
+};
+
+await MyIOChartModal.open(data);
+
+// Export functions
+MyIOChartModal.exportCsv();  // Downloads CSV file
+MyIOChartModal.exportPng();  // Downloads chart as PNG
+MyIOChartModal.exportPdf();  // Placeholder for future implementation
+
+MyIOChartModal.close();
+```
+
+**Key Features:**
+- **Chart.js integration** - Auto-loads Chart.js from CDN
+- **Multiple chart types** - Line charts and bar charts
+- **Time range selection** - 7, 14, or 30-day comparisons
+- **Export functionality** - CSV and PNG export with timestamps
+- **Responsive design** - Adapts to container size
+- **Accessibility** - ARIA dialog, keyboard navigation, focus management
+- **Analytics tracking** - Automatic event tracking for user interactions
+
+#### Complete Integration Example
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Device Comparison Dashboard</title>
+</head>
+<body>
+  <div class="app">
+    <div class="device-grid" id="deviceGrid"></div>
+    <div class="selection-summary" id="summary"></div>
+    <button id="compareBtn">Compare Selected</button>
+  </div>
+
+  <!-- Load MYIO library -->
+  <script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+  <script>
+    const { MyIOSelectionStore, MyIODraggableCard, MyIOChartModal } = MyIOLibrary;
+
+    // Setup analytics
+    MyIOSelectionStore.setAnalytics({
+      track: (event, data) => {
+        console.log('Analytics:', event, data);
+        // Send to your analytics service
+      }
+    });
+
+    // Listen to selection changes
+    MyIOSelectionStore.on('selection:change', (data) => {
+      document.getElementById('summary').textContent = 
+        MyIOSelectionStore.getMultiUnitTotalDisplay();
+      
+      document.getElementById('compareBtn').disabled = data.selectedIds.length < 2;
+    });
+
+    // Create device cards
+    const devices = [
+      { id: 'dev1', name: 'Solar Panel A', icon: 'energy', lastValue: 150, unit: 'kWh' },
+      { id: 'dev2', name: 'Water Tank B', icon: 'water', lastValue: 75, unit: 'm³' }
+    ];
+
+    devices.forEach(device => {
+      MyIOSelectionStore.registerEntity(device);
+      new MyIODraggableCard(document.getElementById('deviceGrid'), device);
+    });
+
+    // Compare button
+    document.getElementById('compareBtn').addEventListener('click', () => {
+      MyIOSelectionStore.openComparison();
+    });
+  </script>
+</body>
+</html>
+```
+
 ### ThingsBoard Utilities
 
 #### `getEntityInfoAndAttributesTB(deviceId: string, opts: TBFetchOptions): Promise<TBEntityInfo>`
@@ -1015,6 +1676,358 @@ $('#device-container').append(deviceCard);
 - **Modern Browser**: CSS3 transforms and animations support
 
 For complete technical documentation, see: [renderCardComponent Technical Documentation](src/thingsboard/main-dashboard-shopping/v-4.0.0/card/renderCardComponent-documentation.md)
+
+#### `renderCardCompenteHeadOffice(containerEl: HTMLElement, params: object): object`
+
+Renders premium device cards for MYIO SIM Head Office dashboards with atomic styling and comprehensive event handling. This component provides a self-contained, fully-styled card interface matching the Head Office visual requirements.
+
+**Parameters:**
+- `containerEl: HTMLElement` - The container element where the card will be rendered (required)
+- `params: object` - Configuration object with the following properties:
+  - `entityObject: EntityObject` - Device/entity data and metadata (required)
+  - `handleActionDashboard?: Function` - Callback for dashboard menu action
+  - `handleActionReport?: Function` - Callback for report menu action
+  - `handleActionSettings?: Function` - Callback for settings menu action
+  - `handleSelect?: Function` - Callback for selection checkbox toggle
+  - `handInfo?: Function` - Callback for info icon click (optional)
+  - `handleClickCard?: Function` - Callback for card body click
+  - `useNewComponents?: boolean` - Enable new component features (default: false)
+  - `enableSelection?: boolean` - Show selection checkbox (default: false)
+  - `enableDragDrop?: boolean` - Enable drag and drop functionality (default: false)
+  - `i18n?: object` - Custom internationalization labels
+
+**Entity Object Structure:**
+```javascript
+{
+  entityId: string,              // Unique identifier (required)
+  labelOrName: string,           // Display name (e.g., "Elevador Social Norte 01")
+  deviceIdentifier?: string,     // Device code (e.g., "ELV-002")
+  entityType?: string,           // Entity type (e.g., "DEVICE")
+  deviceType?: string,           // Device type (ELEVATOR, ESCADA_ROLANTE, CHILLER, PUMP, etc.)
+  slaveId?: string | number,     // Slave identifier
+  ingestionId?: string | number, // Ingestion identifier
+  centralId?: string,            // Central system ID
+  centralName?: string,          // Central system name
+  
+  // Primary metric
+  val?: number | null,           // Current value (e.g., power in kW)
+  valType?: string,              // Value type (power_kw, flow_m3h, temp_c, custom)
+  timaVal?: number | null,       // Timestamp of value (ms)
+  
+  // Efficiency
+  perc?: number,                 // Efficiency percentage (0-100)
+  
+  // Status
+  connectionStatus?: string,     // ONLINE, OFFLINE, ALERT, FAILURE, RUNNING, PAUSED
+  connectionStatusTime?: number, // Last connection timestamp (ms)
+  
+  // Secondary metrics
+  temperatureC?: number | null,  // Temperature in Celsius
+  operationHours?: number | null,// Operation hours (e.g., 12.847)
+  
+  // Optional identifiers
+  updatedIdentifiers?: object,   // Additional identification data
+}
+```
+
+**Returns:** Object with control methods:
+- `update(next: Partial<EntityObject>): void` - Update card with new data
+- `destroy(): void` - Remove card and cleanup event handlers
+- `getRoot(): HTMLElement` - Get the root DOM element
+
+**Key Features:**
+- **Atomic CSS Injection**: Self-contained styling with no external CSS dependencies
+- **Visual States**: Connection status chips (Em operação, Alerta, Falha, Offline)
+- **Efficiency Bar**: Segmented progress bar with percentage display
+- **3-Dot Menu**: Dropdown menu with dashboard, report, and settings actions
+- **Selection Support**: Optional checkbox for multi-selection interfaces
+- **Drag & Drop**: Optional drag and drop functionality for card reordering
+- **Accessibility**: Full keyboard navigation and ARIA support
+- **Responsive Design**: Adapts to container size with proper text truncation
+- **Alert Borders**: Visual indicators for alert and failure states
+
+**Usage Example:**
+```javascript
+import { renderCardCompenteHeadOffice } from 'myio-js-library';
+
+const container = document.getElementById('card-container');
+const card = renderCardCompenteHeadOffice(container, {
+  entityObject: {
+    entityId: 'elv-001',
+    labelOrName: 'Elevador Social Norte 01',
+    deviceIdentifier: 'ELV-001',
+    deviceType: 'ELEVATOR',
+    val: 15.2,
+    valType: 'power_kw',
+    perc: 94,
+    connectionStatus: 'RUNNING',
+    temperatureC: 28,
+    operationHours: 12.847
+  },
+  handleActionDashboard: (ev, entity) => {
+    console.log('Open dashboard for:', entity.labelOrName);
+  },
+  handleActionReport: (ev, entity) => {
+    console.log('Generate report for:', entity.labelOrName);
+  },
+  handleActionSettings: (ev, entity) => {
+    console.log('Open settings for:', entity.labelOrName);
+  },
+  handleSelect: (checked, entity) => {
+    console.log('Selection changed:', checked, entity.entityId);
+  },
+  handleClickCard: (ev, entity) => {
+    console.log('Card clicked:', entity.labelOrName);
+  },
+  useNewComponents: true,
+  enableSelection: true,
+  enableDragDrop: true
+});
+
+// Update card with new values
+card.update({
+  val: 18.4,
+  perc: 88,
+  temperatureC: 27,
+  operationHours: 13.5
+});
+
+// Clean up when done
+card.destroy();
+```
+
+**UMD Usage (ThingsBoard widgets):**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { renderCardCompenteHeadOffice } = MyIOLibrary;
+  
+  const container = document.getElementById('cards-grid');
+  const entities = [
+    {
+      entityId: 'esc-001',
+      labelOrName: 'Escada Rolante Sul 02',
+      deviceIdentifier: 'ESC-001',
+      deviceType: 'ESCADA_ROLANTE',
+      val: 8.7,
+      valType: 'power_kw',
+      perc: 87,
+      connectionStatus: 'RUNNING',
+      temperatureC: 26,
+      operationHours: 7.405
+    }
+  ];
+  
+  entities.forEach(entity => {
+    const cell = document.createElement('div');
+    container.appendChild(cell);
+    
+    renderCardCompenteHeadOffice(cell, {
+      entityObject: entity,
+      handleActionDashboard: (e, ent) => openDashboard(ent),
+      handleActionReport: (e, ent) => openReport(ent),
+      handleActionSettings: (e, ent) => openSettings(ent),
+      handleSelect: (checked, ent) => toggleSelection(ent, checked),
+      handleClickCard: (e, ent) => openQuickView(ent),
+      useNewComponents: true,
+      enableSelection: true
+    });
+  });
+</script>
+```
+
+**Visual Components:**
+- **Header**: Device icon, title, device code, 3-dot menu
+- **Status Row**: Colored chip indicating operational status
+- **Primary Metric**: Large value display with unit and "Atual" suffix
+- **Efficiency Bar**: Horizontal progress bar with percentage
+- **Footer Metrics**: Temperature, operation time, last update time
+
+**CSS Theming Variables:**
+```css
+:root {
+  --myio-card-radius: 16px;
+  --myio-card-shadow: 0 2px 8px rgba(10, 31, 68, .06);
+  --myio-card-bg: #fff;
+  --myio-card-border: #e9eef5;
+  --myio-chip-ok-bg: #e8f7ff;
+  --myio-chip-ok-fg: #007ecc;
+  --myio-chip-alert-bg: #fff4e5;
+  --myio-chip-alert-fg: #b96b00;
+  --myio-chip-failure-bg: #ffeaea;
+  --myio-chip-failure-fg: #b71c1c;
+}
+```
+
+For complete technical documentation and implementation details, see: [RFC-0007-renderCardCompenteHeadOffice](src/docs/rfcs/RFC-0007-renderCardCompenteHeadOffice.md)
+
+### Demand Modal Component
+
+#### `openDemandModal(params: DemandModalParams): Promise<DemandModalInstance>`
+
+Opens a fully-styled demand/consumption modal with interactive Chart.js visualization, zoom/pan controls, PDF export, and ThingsBoard telemetry integration. This component implements RFC 0015 specifications with comprehensive accessibility and internationalization support.
+
+**Parameters:**
+- `params: DemandModalParams` - Configuration object:
+  - `token: string` - JWT token for ThingsBoard authentication (required)
+  - `deviceId: string` - ThingsBoard device UUID (required)
+  - `startDate: string` - ISO date string "YYYY-MM-DD" (required)
+  - `endDate: string` - ISO date string "YYYY-MM-DD" (required)
+  - `label?: string` - Device/store label (default: "Dispositivo")
+  - `container?: HTMLElement | string` - Mount container (default: document.body)
+  - `onClose?: () => void` - Callback when modal closes
+  - `locale?: 'pt-BR' | 'en-US' | string` - Locale for formatting (default: 'pt-BR')
+  - `pdf?: DemandModalPdfConfig` - PDF export configuration
+  - `styles?: Partial<DemandModalStyles>` - Style customization tokens
+
+**Returns:** Promise resolving to `DemandModalInstance` object with:
+- `destroy(): void` - Clean up modal and resources
+
+**Key Features:**
+- **Interactive Chart.js Visualization**: Smooth line chart with purple stroke and light fill
+- **Zoom/Pan Controls**: Mouse wheel zoom, drag selection, Ctrl+pan, Reset Zoom button
+- **PDF Export**: A4 portrait report with chart image, metadata, and data table
+- **Peak Demand Highlighting**: Yellow pill showing maximum demand value and timestamp
+- **Fullscreen Mode**: Toggle to expand modal to full viewport with chart resize
+- **ThingsBoard Integration**: Fetches telemetry data using consumption endpoint
+- **Internationalization**: Portuguese/English localization with proper date/number formatting
+- **Accessibility**: Focus trap, ARIA labels, keyboard navigation (ESC to close)
+- **Responsive Design**: Mobile-friendly with touch-optimized controls
+- **Dynamic Library Loading**: Chart.js, zoom plugin, and jsPDF loaded on-demand
+- **Customizable Styling**: CSS variables and style tokens for theming
+
+**Usage Example:**
+```javascript
+import { openDemandModal } from 'myio-js-library';
+
+// Basic usage
+const modal = await openDemandModal({
+  token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  deviceId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  startDate: '2024-01-01',
+  endDate: '2024-01-31',
+  label: 'Loja Centro'
+});
+
+// Advanced usage with customization
+const modal = await openDemandModal({
+  token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  deviceId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  startDate: '2024-01-01',
+  endDate: '2024-01-31',
+  label: 'Shopping Center Norte',
+  locale: 'en-US',
+  styles: {
+    primaryColor: '#1976D2',      // Blue theme
+    accentColor: '#FF9800',       // Orange highlights
+    borderRadius: '12px'          // Rounded corners
+  },
+  pdf: {
+    enabled: true,
+    fileName: 'demand-report-jan2024.pdf'
+  },
+  onClose: () => {
+    console.log('Modal closed');
+  }
+});
+
+// Clean up when needed
+modal.destroy();
+```
+
+**UMD Usage (ThingsBoard widgets):**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { openDemandModal } = MyIOLibrary;
+  
+  // In your widget action handler
+  async function openDemandChart() {
+    try {
+      const modal = await openDemandModal({
+        token: ctx.defaultSubscription.subscriptionContext.user.token,
+        deviceId: entityId.id,
+        startDate: '2024-01-01',
+        endDate: '2024-01-31',
+        label: entityLabel,
+        onClose: () => {
+          console.log('Demand modal closed');
+        }
+      });
+    } catch (error) {
+      console.error('Failed to open demand modal:', error);
+    }
+  }
+</script>
+```
+
+**ThingsBoard API Integration:**
+The component fetches telemetry data from ThingsBoard REST API:
+```
+GET /api/plugins/telemetry/DEVICE/{deviceId}/values/timeseries
+  ?keys=consumption
+  &startTs={startMillis}
+  &endTs={endMillis}
+  &limit=50000
+  &intervalType=MILLISECONDS
+  &interval=54000000
+  &agg=SUM
+  &orderBy=ASC
+
+Headers:
+  X-Authorization: Bearer {token}
+```
+
+**Data Processing:**
+- Converts cumulative consumption to demand (kW) using time deltas
+- Filters out negative values (meter resets)
+- Converts Wh to kWh when necessary
+- Computes peak demand value and timestamp
+- Sorts data chronologically for chart display
+
+**Styling Customization:**
+```javascript
+const customStyles = {
+  // Color tokens
+  primaryColor: '#4A148C',      // Header and chart line color
+  accentColor: '#FFC107',       // Peak demand pill color
+  dangerColor: '#f44336',       // Error state color
+  backgroundColor: '#ffffff',   // Modal background
+  overlayColor: 'rgba(0, 0, 0, 0.5)', // Backdrop color
+  
+  // Layout tokens
+  borderRadius: '8px',          // Card border radius
+  buttonRadius: '6px',          // Button border radius
+  pillRadius: '20px',           // Peak pill border radius
+  zIndex: 10000,                // Modal z-index
+  
+  // Typography tokens
+  fontFamily: 'Roboto, Arial, sans-serif',
+  fontSizeMd: '16px',
+  fontWeightBold: '600'
+};
+
+const modal = await openDemandModal({
+  // ... other params
+  styles: customStyles
+});
+```
+
+**Error Handling:**
+- Network failures show user-friendly error messages
+- Invalid tokens display authentication errors
+- Empty datasets show "no data" message
+- Library loading failures gracefully degrade
+- All errors are caught and displayed in the UI
+
+**Performance Considerations:**
+- External libraries loaded dynamically (Chart.js, jsPDF)
+- Chart rendering optimized for large datasets
+- Memory cleanup on modal destroy
+- Debounced resize handling
+- Efficient data processing pipeline
+
+For complete technical specifications, see: [RFC-0015-MyIO-DemandModal-Component](src/docs/rfcs/RFC-0015-MyIO-DemandModal-Component.md)
 
 ## 🧪 Development
 

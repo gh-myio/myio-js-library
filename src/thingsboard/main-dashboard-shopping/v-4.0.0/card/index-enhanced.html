@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MYIO Enhanced Card Component Demo</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link href="style.css" rel="stylesheet" type="text/css" />
+    <!-- Load MYIO Library from local dist -->
+    <script src="../../../../../dist/myio-js-library.umd.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      
+      .demo-header {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      }
+      
+      .demo-controls {
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      
+      .demo-controls button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+      }
+      
+      .demo-controls button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      
+      .btn-primary {
+        background: #007bff;
+        color: white;
+      }
+      
+      .btn-primary:hover:not(:disabled) {
+        background: #0056b3;
+      }
+      
+      .btn-success {
+        background: #28a745;
+        color: white;
+      }
+      
+      .btn-success:hover:not(:disabled) {
+        background: #1e7e34;
+      }
+      
+      .btn-warning {
+        background: #ffc107;
+        color: #212529;
+      }
+      
+      .btn-warning:hover:not(:disabled) {
+        background: #e0a800;
+      }
+      
+      .btn-danger {
+        background: #dc3545;
+        color: white;
+      }
+      
+      .btn-danger:hover:not(:disabled) {
+        background: #c82333;
+      }
+      
+      .selection-summary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      }
+      
+      .selection-summary h3 {
+        margin: 0 0 10px 0;
+        font-size: 1.2rem;
+      }
+      
+      .selection-text {
+        font-size: 1rem;
+        opacity: 0.9;
+      }
+      
+      .cards-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+      }
+      
+      .version-toggle {
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      }
+      
+      .version-toggle label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        font-weight: 500;
+      }
+      
+      .version-toggle input[type="radio"] {
+        margin: 0;
+      }
+      
+      .analytics-log {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 10px;
+        max-height: 200px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 0.85rem;
+        margin-top: 10px;
+      }
+      
+      .analytics-log .log-entry {
+        margin-bottom: 5px;
+        padding: 2px 5px;
+        border-radius: 3px;
+      }
+      
+      .analytics-log .log-entry.event {
+        background: #e3f2fd;
+        color: #1976d2;
+      }
+      
+      .analytics-log .log-entry.action {
+        background: #f3e5f5;
+        color: #7b1fa2;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="demo-header">
+      <h1>🚀 MYIO Enhanced Card Component Demo</h1>
+      <p>This demo showcases the enhanced card component with drag-to-footer dock functionality, selection management, and chart comparison features.</p>
+    </div>
+
+    <div class="version-toggle">
+      <h3>Component Version:</h3>
+      <label>
+        <input type="radio" name="version" value="enhanced" checked>
+        Enhanced Version (with MYIO components)
+      </label>
+      <label>
+        <input type="radio" name="version" value="legacy">
+        Legacy Version (original implementation)
+      </label>
+    </div>
+
+    <div class="selection-summary">
+      <h3>📊 Selection Summary</h3>
+      <div class="selection-text" id="summary-text">No items selected</div>
+    </div>
+
+    <div class="demo-controls">
+      <button id="compare-btn" class="btn-primary" disabled>📈 Compare Selected</button>
+      <button id="clear-btn" class="btn-warning">🗑️ Clear Selection</button>
+      <button id="select-all-btn" class="btn-success">✅ Select All</button>
+      <button id="export-csv-btn" class="btn-primary" disabled>📄 Export CSV</button>
+      <button id="export-png-btn" class="btn-primary" disabled>🖼️ Export PNG</button>
+      <button id="refresh-btn" class="btn-danger">🔄 Refresh Cards</button>
+    </div>
+
+    <div class="demo-controls">
+      <strong>Analytics Log:</strong>
+      <button id="clear-log-btn" class="btn-warning">Clear Log</button>
+      <div class="analytics-log" id="analytics-log"></div>
+    </div>
+
+    <div class="cards-container" id="content"></div>
+
+    <script>
+      // Access components from global MyIOLibrary
+      const { 
+        renderCardComponent, 
+        renderCardComponentEnhanced,
+        renderCardComponentV2,
+        renderCardComponentLegacy,
+        MyIOSelectionStore, 
+        MyIODraggableCard, 
+        MyIOChartModal 
+      } = MyIOLibrary;
+
+      // Analytics logging
+      function logAnalytics(event, data, type = 'event') {
+        const logContainer = document.getElementById('analytics-log');
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('div');
+        logEntry.className = `log-entry ${type}`;
+        logEntry.innerHTML = `<strong>[${timestamp}]</strong> ${event}: ${JSON.stringify(data, null, 2)}`;
+        logContainer.appendChild(logEntry);
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+
+      // Setup selection store with analytics
+      if (MyIOSelectionStore) {
+        MyIOSelectionStore.setAnalytics({
+          track: (event, data) => {
+            logAnalytics(event, data, 'event');
+          }
+        });
+
+        // Listen to selection changes
+        MyIOSelectionStore.on('selection:change', (data) => {
+          const summaryText = document.getElementById('summary-text');
+          const compareBtn = document.getElementById('compare-btn');
+          const exportCsvBtn = document.getElementById('export-csv-btn');
+          const exportPngBtn = document.getElementById('export-png-btn');
+          
+          if (data.selectedIds.length === 0) {
+            summaryText.textContent = 'No items selected';
+            compareBtn.disabled = true;
+            exportCsvBtn.disabled = true;
+            exportPngBtn.disabled = true;
+          } else {
+            const display = MyIOSelectionStore.getMultiUnitTotalDisplay();
+            summaryText.innerHTML = `
+              <strong>${data.selectedIds.length} items selected</strong><br>
+              ${display}
+            `;
+            compareBtn.disabled = data.selectedIds.length < 2;
+            exportCsvBtn.disabled = data.selectedIds.length === 0;
+            exportPngBtn.disabled = data.selectedIds.length === 0;
+          }
+          
+          logAnalytics('Selection Changed', {
+            count: data.selectedIds.length,
+            ids: data.selectedIds,
+            totals: MyIOSelectionStore.getTotals()
+          }, 'action');
+        });
+
+        // Compare button handler
+        document.getElementById('compare-btn').addEventListener('click', () => {
+          logAnalytics('Compare Button Clicked', { action: 'open_comparison' }, 'action');
+          MyIOSelectionStore.openComparison();
+        });
+
+        // Clear button handler
+        document.getElementById('clear-btn').addEventListener('click', () => {
+          logAnalytics('Clear Button Clicked', { action: 'clear_selection' }, 'action');
+          MyIOSelectionStore.clear();
+        });
+
+        // Select all button handler
+        document.getElementById('select-all-btn').addEventListener('click', () => {
+          mockEntities.forEach(entity => {
+            MyIOSelectionStore.add(entity.entityId);
+          });
+          logAnalytics('Select All Clicked', { action: 'select_all' }, 'action');
+        });
+
+        // Export handlers
+        document.getElementById('export-csv-btn').addEventListener('click', () => {
+          if (MyIOChartModal && MyIOChartModal.exportCsv) {
+            MyIOChartModal.exportCsv();
+            logAnalytics('Export CSV Clicked', { action: 'export_csv' }, 'action');
+          }
+        });
+
+        document.getElementById('export-png-btn').addEventListener('click', () => {
+          if (MyIOChartModal && MyIOChartModal.exportPng) {
+            MyIOChartModal.exportPng();
+            logAnalytics('Export PNG Clicked', { action: 'export_png' }, 'action');
+          }
+        });
+      }
+
+      // Clear log handler
+      document.getElementById('clear-log-btn').addEventListener('click', () => {
+        document.getElementById('analytics-log').innerHTML = '';
+      });
+
+      // Mock de entidades
+      const mockEntities = [
+        {
+          entityId: "dev-001",
+          labelOrName: "Bomba Giovani",
+          deviceIdentifier: "MOT-001",
+          entityType: "DEVICE",
+          deviceType: "MOTOR",
+          slaveId: "01",
+          ingestionId: "ing-aaa",
+          val: 1250,
+          centralId: "21.111.222.333",
+          isOn: true,
+          perc: 45,
+          group: "adm",
+          deviceStatus: "power_on",
+          handInfo: true,
+          valType: "ENERGY",
+          centralName: "Campinas",
+          connectionStatusTime: Date.now() - 300000, // 5 minutes ago
+          timaVal: Date.now() - 60000 // 1 minute ago
+        },
+        {
+          entityId: "dev-003",
+          labelOrName: "Relógio Externo",
+          deviceIdentifier: "REL-001",
+          entityType: "DEVICE",
+          deviceType: "RELOGIO",
+          slaveId: "03",
+          ingestionId: "ing-ccc",
+          val: 1560,
+          centralId: "21.111.222.335",
+          isOn: true,
+          perc: 75,
+          group: "entrada",
+          deviceStatus: "power_on",
+          valType: "ENERGY",
+          centralName: "Mestre Álvare",
+          connectionStatusTime: Date.now() - 3600000, // 1 hour ago
+          timaVal: Date.now() - 1800000 // 30 minutes ago
+        },
+        {
+          entityId: "dev-004",
+          labelOrName: "Hidr. Cardeman",
+          deviceIdentifier: "HID-001",
+          entityType: "DEVICE",
+          deviceType: "HIDROMETRO",
+          slaveId: "04",
+          ingestionId: "ing-ccc",
+          val: 156,
+          centralId: "21.111.222.335",
+          isOn: true,
+          perc: 85,
+          group: "ambientes",
+          deviceStatus: "power_off",
+          valType: "WATER",
+          centralName: "Teta",
+          connectionStatusTime: Date.now() - 120000, // 2 minutes ago
+          timaVal: Date.now() - 30000 // 30 seconds ago
+        },
+        {
+          entityId: "dev-005",
+          labelOrName: "Loja do Vitinho",
+          deviceIdentifier: "MED-001",
+          entityType: "DEVICE",
+          deviceType: "3F_MEDIDOR",
+          slaveId: "05",
+          ingestionId: "ing-ccc",
+          val: 890,
+          centralId: "21.111.222.335",
+          isOn: true,
+          perc: 65,
+          group: "lojas",
+          deviceStatus: "no_info",
+          valType: "ENERGY",
+          centralName: "Ilha Plaza",
+          connectionStatusTime: Date.now() - 900000, // 15 minutes ago
+          timaVal: Date.now() - 600000 // 10 minutes ago
+        },
+        {
+          entityId: "dev-006",
+          labelOrName: "Entrada Poderosa",
+          deviceIdentifier: "ENT-001",
+          entityType: "DEVICE",
+          deviceType: "ENTRADA",
+          slaveId: "06",
+          ingestionId: "ing-ddd",
+          val: 2340,
+          centralId: "21.111.222.336",
+          isOn: true,
+          perc: 95,
+          group: "entrada",
+          deviceStatus: "maintenance",
+          valType: "ENERGY",
+          centralName: "Meir",
+          connectionStatusTime: Date.now() - 180000, // 3 minutes ago
+          timaVal: Date.now() - 45000 // 45 seconds ago
+        },
+        {
+          entityId: "dev-007",
+          labelOrName: "Caixa D'TETA",
+          deviceIdentifier: "CXA-001",
+          entityType: "DEVICE",
+          deviceType: "CAIXA_DAGUA",
+          slaveId: "07",
+          ingestionId: "ing-eee",
+          val: 178,
+          centralId: "21.111.222.337",
+          isOn: true,
+          perc: 72,
+          group: "reservatorio",
+          deviceStatus: "danger",
+          valType: "TANK",
+          centralName: "BB Campos",
+          connectionStatusTime: Date.now() - 7200000, // 2 hours ago
+          timaVal: Date.now() - 3600000 // 1 hour ago
+        }
+      ];
+
+      // Function to render cards
+      function renderCards(useEnhanced = true) {
+        const container = document.getElementById('content');
+        container.innerHTML = '';
+
+        mockEntities.forEach((entity) => {
+          let $card;
+          
+          if (useEnhanced && renderCardComponentV2) {
+            // Use enhanced version with new components
+            $card = renderCardComponentV2({
+              entityObject: entity,
+              useNewComponents: true,
+              enableSelection: true,
+              enableDragDrop: true,
+              handleActionDashboard: (entity) => {
+                logAnalytics('Dashboard Clicked', { entityId: entity.entityId, name: entity.labelOrName }, 'action');
+              },
+              handleActionReport: (entity) => {
+                logAnalytics('Report Clicked', { entityId: entity.entityId, name: entity.labelOrName }, 'action');
+              },
+              handleActionSettings: (entity) => {
+                logAnalytics('Settings Clicked', { entityId: entity.entityId, name: entity.labelOrName }, 'action');
+              },
+              handleSelect: (entity) => {
+                logAnalytics('Selection Changed', { entityId: entity.entityId, name: entity.labelOrName }, 'action');
+              },
+              handInfo: true,
+              handleClickCard: (entity) => {
+                logAnalytics('Card Clicked', { entityId: entity.entityId, name: entity.labelOrName }, 'action');
+              }
+            });
+          } else {
+            // Use legacy version
+            $card = renderCardComponent({
+              entityObject: entity,
+              handleActionDashboard: (entity) => {
+                logAnalytics('Dashboard Clicked (Legacy)', { entityId: entity.entityId, name: entity.labelOrName }, 'action');
+              },
+              handleActionReport: (entity) => {
+                logAnalytics('Report Clicked (Legacy)', { entityId: entity.entityId, name: entity.labelOrName }, 'action');
+              },
+              handleActionSettings: (entity) => {
+                logAnalytics('Settings Clicked (Legacy)', { entityId: entity.entityId, name: entity.labelOrName }, 'action');
+              },
+              handleSelect: (entity) => {
+                logAnalytics('Selection Changed (Legacy)', { entityId: entity.entityId, name: entity.labelOrName }, 'action');
+              },
+              handInfo: true,
+              handleClickCard: (entity) => {
+                logAnalytics('Card Clicked (Legacy)', { entityId: entity.entityId, name: entity.labelOrName }, 'action');
+              }
+            });
+          }
+
+          $("#content").append($card[0]);
+        });
+
+        logAnalytics('Cards Rendered', { 
+          version: useEnhanced ? 'enhanced' : 'legacy', 
+          count: mockEntities.length 
+        }, 'action');
+      }
+
+      // Version toggle handler
+      document.querySelectorAll('input[name="version"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          const useEnhanced = e.target.value === 'enhanced';
+          renderCards(useEnhanced);
+          
+          // Clear selection when switching versions
+          if (MyIOSelectionStore) {
+            MyIOSelectionStore.clear();
+          }
+        });
+      });
+
+      // Refresh button handler
+      document.getElementById('refresh-btn').addEventListener('click', () => {
+        const useEnhanced = document.querySelector('input[name="version"]:checked').value === 'enhanced';
+        renderCards(useEnhanced);
+        
+        if (MyIOSelectionStore) {
+          MyIOSelectionStore.clear();
+        }
+        
+        logAnalytics('Cards Refreshed', { action: 'refresh' }, 'action');
+      });
+
+      // Initial render
+      renderCards(true);
+      
+      // Log initial load
+      logAnalytics('Demo Loaded', { 
+        components: {
+          MyIOSelectionStore: !!MyIOSelectionStore,
+          MyIODraggableCard: !!MyIODraggableCard,
+          MyIOChartModal: !!MyIOChartModal,
+          renderCardComponentV2: !!renderCardComponentV2
+        }
+      }, 'event');
+    </script>
+  </body>
+</html>

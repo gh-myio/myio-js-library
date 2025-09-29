@@ -1,6 +1,6 @@
 {
   "name": "myio-js-library",
-  "version": "0.1.15",
+  "version": "0.1.28",
   "description": "A clean, standalone JS SDK for MYIO projects",
   "license": "MIT",
   "repository": "github:gh-myio/myio-js-library",
@@ -37,6 +37,8 @@
     "dev:test": "vitest",
     "smoke-test": "node scripts/smoke-test.js",
     "size-check": "node scripts/size-check.js",
+    "bundle-size": "node scripts/check-bundle-size.mjs",
+    "bundle-analyze": "rollup -c --environment ANALYZE",
     "release": "npm run build && npm publish --access public"
   },
   "devDependencies": {
@@ -49,6 +51,7 @@
     "jsdom": "^22.1.0",
     "rimraf": "^6.0.1",
     "rollup": "^4.21.0",
+    "rollup-plugin-visualizer": "^6.0.3",
     "terser": "^5.31.6",
     "tsup": "^8.5.0",
     "typescript": "^5.6.2",

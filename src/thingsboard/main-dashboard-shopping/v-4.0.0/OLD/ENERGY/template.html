@@ -1,0 +1,61 @@
+<div class="main-content">
+  <div class="status-container">
+    <div class="top-bar">
+      <div class="date-range">
+        <div id="myio-date-range-picker"></div>
+        <button class="load-button" (click)="loadData()" [disabled]="isLoading">
+          <i class="material-icons">refresh</i>
+          Carregar
+        </button>
+      </div>
+
+      <input class="search-bar" placeholder="🔍 Buscar por nome..." />
+      <button class="btn-report">
+        📋 Relatório Consumo Geral por Loja
+      </button>
+      <button class="btn-report">
+        📈 Relatório Comparativo por Loja
+      </button>
+    </div>
+
+    <div class="group-wrapper-columns">
+
+      <div class="group-card administracao">
+        <div class="group-title">
+          Adm. e Bombas
+          <span class="group-count" data-group-count="Administração e Bombas">(0)</span>
+          <span class="group-total" data-group="Administração e Bombas">-- kWh</span>
+        </div>
+        <div class="card-list"></div>
+      </div>
+
+      <div class="group-card lojas">
+        <div class="group-title">
+          Lojas
+          <span class="group-count" data-group-count="Lojas">(0)</span>
+          <span class="group-total" data-group="Lojas">-- kWh</span>
+        </div>
+        <div class="card-list"></div>
+      </div>
+
+      <div class="group-card area-comum">
+        <div class="group-title">ℹ️ Informações</div>
+        <div class="card-list" id="area-comum-list"></div>
+        <div class="area-pie-card">
+          <canvas id="areaChart" class="area-pie"></canvas>
+          <ul id="areaLegend" class="chart-legend"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Alerta que só aparece em celulares -->
+<div class="alerta-mobile">
+  <h1>Dispositivo não suportado</h1>
+  <p>
+    Este widget não está disponível para aparelhos móveis. Acesse de um
+    computador para melhor experiência.
+  </p>
+  <img src="https://myio.com.br/app/uploads/2020/05/Logotest01.png" />
+</div>

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Modal Overlay and Layering</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            background: linear-gradient(45deg, #f0f0f0, #e0e0e0);
+            min-height: 100vh;
+        }
+
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .test-button {
+            background: #7C3AED;
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .test-button:hover {
+            background: #6D28D9;
+            transform: translateY(-2px);
+        }
+
+        .behind-content {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 8px;
+            color: white;
+            z-index: 5000;
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        .scroll-content {
+            height: 200vh;
+            background: linear-gradient(to bottom, #fff 0%, #f0f0f0 50%, #e0e0e0 100%);
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 8px;
+        }
+
+        .scroll-item {
+            padding: 20px;
+            margin: 10px 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 Filter Modal Vertical Centering Test</h1>
+        <p>Testing updated modal centering with improved positioning:</p>
+
+        <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin: 20px 0;">
+            <h3>✅ Updated Centering Features:</h3>
+            <ul>
+                <li><strong>Perfect Centering:</strong> Modal now centered both horizontally and vertically</li>
+                <li><strong>Better Mobile:</strong> 20px padding prevents edge-to-edge on small screens</li>
+                <li><strong>Smooth Animation:</strong> Scale effect (0.98→1.0) + translateY(-12px→0)</li>
+                <li><strong>Responsive Height:</strong> Max-height accounts for viewport padding</li>
+                <li><strong>Focus Trap:</strong> Tab navigation confined to modal</li>
+                <li><strong>Body Lock:</strong> Page scroll disabled when modal is open</li>
+            </ul>
+        </div>
+
+        <button class="test-button" onclick="testModalOverlay()">
+            🧪 Test Filter Modal Overlay
+        </button>
+
+        <button class="test-button" onclick="testBodyScrollLock()">
+            🔒 Test Body Scroll Lock
+        </button>
+
+        <button class="test-button" onclick="inspectModalDOM()">
+            🔍 Inspect Modal DOM Structure
+        </button>
+    </div>
+
+    <!-- Test element that should be behind modal -->
+    <div class="behind-content">
+        🚨 This should be BEHIND the modal (z-index: 5000)
+    </div>
+
+    <!-- Long content to test scroll locking -->
+    <div class="scroll-content">
+        <h2>📜 Long Content for Scroll Test</h2>
+        <div class="scroll-item">Content Item 1 - This page has a lot of content to test scroll locking</div>
+        <div class="scroll-item">Content Item 2 - When modal is open, this content should not be scrollable</div>
+        <div class="scroll-item">Content Item 3 - The modal should prevent body scroll completely</div>
+        <div class="scroll-item">Content Item 4 - Test by opening modal and trying to scroll</div>
+        <div class="scroll-item">Content Item 5 - The backdrop should dim this content</div>
+        <div class="scroll-item">Content Item 6 - Modal should be perfectly centered over content</div>
+        <div class="scroll-item">Content Item 7 - Focus should be trapped within the modal</div>
+        <div class="scroll-item">Content Item 8 - ESC key should close the modal gracefully</div>
+        <div class="scroll-item">Content Item 9 - Clicking backdrop should also close modal</div>
+        <div class="scroll-item">Content Item 10 - All animations should be smooth (160ms)</div>
+    </div>
+
+    <!-- Load MyIO Library -->
+    <script src="dist/myio-js-library.umd.min.js"></script>
+
+    <script>
+        console.log('🚀 Testing Modal Overlay Implementation');
+        console.log('MyIOLibrary loaded:', typeof MyIOLibrary);
+
+        // Mock store data for testing
+        const mockStores = [
+            { id: 'store-1', label: 'Loja Shopping Center', consumption: 1250.50 },
+            { id: 'store-2', label: 'Supermercado Central', consumption: 890.25 },
+            { id: 'store-3', label: 'Farmácia São João', consumption: 456.75 },
+            { id: 'store-4', label: 'Padaria Pão Quente', consumption: 234.80 },
+            { id: 'store-5', label: 'Açougue do Bairro', consumption: 567.30 }
+        ];
+
+        let modalInstance = null;
+
+        function testModalOverlay() {
+            console.log('🧪 Testing Modal Overlay...');
+
+            if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.attachFilterOrderingModal) {
+                alert('❌ FilterOrderingModal not available in MyIOLibrary!');
+                return;
+            }
+
+            try {
+                // Create modal instance
+                modalInstance = MyIOLibrary.attachFilterOrderingModal({
+                    title: '🧪 Test Filtros & Ordenação',
+                    items: mockStores,
+                    initialSelected: ['store-1', 'store-3'],
+                    onApply: ({ selected, sort }) => {
+                        console.log('✅ Modal Applied:', { selected, sort });
+                        alert(`✅ Applied: ${selected.length} stores selected, sort: ${sort}`);
+                    },
+                    onClose: () => {
+                        console.log('🔚 Modal Closed');
+                    }
+                });
+
+                // Open the modal
+                modalInstance.open();
+
+                console.log('✅ Modal opened successfully');
+
+                // Test DOM structure after a brief delay
+                setTimeout(() => {
+                    inspectModalDOM();
+                }, 200);
+
+            } catch (error) {
+                console.error('❌ Error testing modal:', error);
+                alert('❌ Error: ' + error.message);
+            }
+        }
+
+        function testBodyScrollLock() {
+            console.log('🔒 Testing Body Scroll Lock...');
+
+            if (!modalInstance) {
+                alert('❌ Please open modal first using "Test Filter Modal Overlay"');
+                return;
+            }
+
+            // Check if body has the scroll lock class
+            const hasScrollLock = document.body.classList.contains('body--myio-modal-open');
+
+            console.log('Body scroll lock class present:', hasScrollLock);
+            console.log('Body overflow style:', window.getComputedStyle(document.body).overflow);
+
+            if (hasScrollLock) {
+                alert('✅ Body scroll lock is ACTIVE!\n\nTry scrolling the page - it should be blocked.');
+            } else {
+                alert('❌ Body scroll lock is NOT active. Check implementation.');
+            }
+        }
+
+        function inspectModalDOM() {
+            console.log('🔍 Inspecting Modal DOM Structure...');
+
+            // Look for overlay element
+            const overlay = document.querySelector('.myio-modal-overlay');
+            const root = document.querySelector('.myio-modal-root');
+            const card = document.querySelector('.myio-modal-card');
+
+            const results = [];
+
+            // Check overlay
+            if (overlay) {
+                const overlayStyles = window.getComputedStyle(overlay);
+                results.push(`✅ Overlay found: z-index ${overlayStyles.zIndex}, opacity ${overlayStyles.opacity}`);
+                results.push(`   Background: ${overlayStyles.backgroundColor}`);
+                results.push(`   Backdrop filter: ${overlayStyles.backdropFilter}`);
+            } else {
+                results.push('❌ Overlay (.myio-modal-overlay) NOT FOUND');
+            }
+
+            // Check root
+            if (root) {
+                const rootStyles = window.getComputedStyle(root);
+                results.push(`✅ Root found: z-index ${rootStyles.zIndex}, opacity ${rootStyles.opacity}`);
+                results.push(`   Position: ${rootStyles.position}`);
+                results.push(`   Parent: ${root.parentElement?.tagName || 'unknown'}`);
+            } else {
+                results.push('❌ Root (.myio-modal-root) NOT FOUND');
+            }
+
+            // Check card
+            if (card) {
+                const cardStyles = window.getComputedStyle(card);
+                results.push(`✅ Card found: transform ${cardStyles.transform}`);
+                results.push(`   Background: ${cardStyles.backgroundColor}`);
+                results.push(`   Border radius: ${cardStyles.borderRadius}`);
+            } else {
+                results.push('❌ Card (.myio-modal-card) NOT FOUND');
+            }
+
+            // Check body class
+            const bodyHasClass = document.body.classList.contains('body--myio-modal-open');
+            results.push(`${bodyHasClass ? '✅' : '❌'} Body scroll lock class: ${bodyHasClass}`);
+
+            // Check portal structure
+            const overlayParent = overlay?.parentElement?.tagName;
+            const rootParent = root?.parentElement?.tagName;
+            results.push(`Portal check: Overlay parent=${overlayParent}, Root parent=${rootParent}`);
+
+            console.log('🔍 Modal DOM Inspection Results:');
+            results.forEach(result => console.log(result));
+
+            // Show results in alert
+            alert('🔍 Modal DOM Inspection:\n\n' + results.join('\n'));
+        }
+
+        // Add keyboard shortcut for quick testing
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'm') {
+                e.preventDefault();
+                testModalOverlay();
+            }
+
+            if (e.ctrlKey && e.key === 'i') {
+                e.preventDefault();
+                inspectModalDOM();
+            }
+        });
+
+        console.log('💡 Keyboard shortcuts:');
+        console.log('  Ctrl+M = Open test modal');
+        console.log('  Ctrl+I = Inspect modal DOM');
+    </script>
+</body>
+</html>

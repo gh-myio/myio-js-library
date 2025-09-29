@@ -1,28 +1,16 @@
-export function decodePayload(encoded: string, key: string | number): string;
-export function decodePayloadBase64Xor(encoded: string, xorKey?: number): string;
+// Type definitions for MyIO JS Library
+// Project: [LIBRARY_NAME]
+// Definitions by: [YOUR_NAME] <[YOUR_EMAIL]>
 
-export function fetchWithRetry(
-  url: string | URL,
-  options?: RequestInit & {
-    retries?: number;
-    retryDelay?: number;
-    timeout?: number;
-    retryCondition?: (error?: unknown, response?: Response) => boolean;
+// Add any global type definitions here
+// For example:
+// declare var MyGlobal: MyGlobalInterface;
+
+declare global {
+  interface Window {
+    jspdf?: { jsPDF: any };
+    jsPDF?: any; // defensive
   }
-): Promise<Response>;
-
-export const http: typeof fetchWithRetry;
-
-export namespace strings {
-  function normalizeRecipients(val: unknown): string;
-}
-export namespace numbers {
-  function fmtPerc(x: number, digits?: number): string;
-  function toFixedSafe(x: number, digits?: number): string;
 }
 
-export function addNamespace(payload: object, namespace?: string): object;
-
-export function detectDeviceType(name: string, context?: string): string;
-export function getAvailableContexts(): string[];
-export function addDetectionContext(contextName: string, detectFunction: (name: string) => string): void;
+export {}; // This ensures the file is treated as a module

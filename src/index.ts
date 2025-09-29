@@ -69,7 +69,42 @@ export { decodePayload } from './codec/decodePayload';
 export { decodePayloadBase64Xor } from './codec/decodePayload';
 
 export { renderCardComponent } from './thingsboard/main-dashboard-shopping/v-4.0.0/card/template-card.js';
+export { renderCardComponent as renderCardComponentEnhanced, renderCardComponentV2, renderCardComponentLegacy } from './thingsboard/main-dashboard-shopping/v-4.0.0/card/template-card-v2.js';
+export { renderCardCompenteHeadOffice } from './thingsboard/main-dashboard-shopping/v-4.0.0/card/head-office';
+
+// MYIO Components - Drag-to-Footer Dock Implementation
+export { MyIOSelectionStore, MyIOSelectionStoreClass } from './components/SelectionStore.js';
+export { MyIODraggableCard } from './components/DraggableCard.js';
+export { MyIOChartModal } from './components/ChartModal.js';
+
+// Premium Modal Components
+export {
+  openDashboardPopupEnergy,
+  openDashboardPopupReport,
+  openDashboardPopupAllReport,
+  openDashboardPopup
+} from './components/premium-modals';
+
+// DateRangePicker - Public API
+export { createDateRangePicker, type CreateDateRangePickerOptions, type DateRangeControl, type DateRangeResult } from './components/createDateRangePicker';
+
+// Premium Date Range Input Component
+export { createInputDateRangePickerInsideDIV } from './components/createInputDateRangePickerInsideDIV';
+export type { 
+  CreateInputDateRangePickerInsideDIVParams, 
+  DateRangeInputController 
+} from './components/createInputDateRangePickerInsideDIV';
 
 // Utils namespace exports
 export * as strings from './utils/strings';
 export * as numbers from './utils/numbers';
+
+// Demand Modal Component
+export { 
+  openDemandModal,
+  type DemandModalParams,
+  type DemandModalPdfConfig,
+  type DemandModalStyles,
+  type DemandModalInstance,
+  type TelemetryFetcher
+} from './components/DemandModal';
