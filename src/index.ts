@@ -55,6 +55,12 @@ export {
   type MyIOAuthConfig,
   type MyIOAuthInstance 
 } from './thingsboard/auth/buildMyioIngestionAuth';
+export {
+  fetchThingsboardCustomerServerScopeAttrs,
+  fetchThingsboardCustomerAttrsFromStorage,
+  extractMyIOCredentials,
+  type ThingsboardCustomerAttrsConfig
+} from './thingsboard/api/fetchThingsboardCustomerServerScopeAttrs';
 // export {
 //   getEntityInfoAndAttributesTB,
 //   type TBFetchOptions,

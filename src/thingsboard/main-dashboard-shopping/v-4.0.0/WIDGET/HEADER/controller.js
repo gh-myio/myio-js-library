@@ -8,43 +8,6 @@ let CUSTOMER_ID;
 // MyIO Authentication instance - will be initialized after credentials are loaded
 let MyIOAuth = null;
 
-async function fetchCustomerServerScopeAttrs() {
-  const tbToken = localStorage.getItem("jwt_token");
-
-  if (!tbToken)
-    throw new Error("JWT do ThingsBoard não encontrado (localStorage.jwt_token).");
-
-  const url = `/api/plugins/telemetry/CUSTOMER/${CUSTOMER_ID}/values/attributes/SERVER_SCOPE`;
-  const res = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      "X-Authorization": `Bearer ${tbToken}`,
-    },
-  });
-
-  if (!res.ok) {
-    console.warn(`[customer attrs] HTTP ${res.status}`);
-    return {};
-  }
-
-  const payload = await res.json();
-
-  // Pode vir como array [{key,value}] OU como objeto { key: [{value}] }
-  const map = {};
-
-  if (Array.isArray(payload)) {
-    for (const it of payload) map[it.key] = it.value;
-  } else if (payload && typeof payload === "object") {
-    for (const k of Object.keys(payload)) {
-      const v = payload[k];
-
-      if (Array.isArray(v) && v.length) map[k] = v[0]?.value ?? v[0];
-    }
-  }
-
-  return map;
-}
-
 /* ==== Tooltip premium (global no <body>) ==== */
 function setupTooltipPremium(target, text) {
   if (!target) return;
@@ -101,7 +64,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
   CUSTOMER_ID = self.ctx.settings.customerId || " ";
 
-  const customerCredentials = await fetchCustomerServerScopeAttrs();
+  const tbToken = localStorage.getItem("jwt_token");
+  const customerCredentials = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(CUSTOMER_ID, tbToken);
 
   CLIENT_ID = customerCredentials.client_id || " ";
   CLIENT_SECRET = customerCredentials.client_secret || " ";
