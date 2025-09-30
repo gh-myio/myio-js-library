@@ -1,151 +1,18 @@
 // === Botões premium do popup (reforço por JS, independe da ordem de CSS) ===
 const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
-
-// Import the extracted utility function
-// Note: In a ThingsBoard widget context, we'll load this as a script tag or use the global function
-// For now, we'll assume the utility is available globally
-
-let CUSTOMER_TB_ID;
 let CLIENT_ID;
 let CLIENT_SECRET;
 let INGESTION_ID;
 let CUSTOMER_ID;
 
-const MyIOAuth = (() => {
-  // ==== CONFIG ====
-  const AUTH_URL = new URL(`${DATA_API_HOST}/api/v1/auth`);
-
-  // ⚠️ Substitua pelos seus valores:
-
-  // Margem para renovar o token antes de expirar (em segundos)
-  const RENEW_SKEW_S = 60; // 1 min
-  // Em caso de erro, re-tenta com backoff simples
-  const RETRY_BASE_MS = 500;
-  const RETRY_MAX_ATTEMPTS = 3;
-
-  // Cache em memória (por aba). Se quiser compartilhar entre widgets/abas,
-  // você pode trocar por localStorage (com os devidos cuidados de segurança).
-  let _token = null; // string
-  let _expiresAt = 0; // epoch em ms
-  let _inFlight = null; // Promise em andamento para evitar corridas
-
-  function _now() {
-    return Date.now();
-  }
-
-  function _aboutToExpire() {
-    // true se não temos token ou se falta pouco para expirar
-    if (!_token) return true;
-    const skewMs = RENEW_SKEW_S * 1000;
-    return _now() >= _expiresAt - skewMs;
-  }
-
-  async function _sleep(ms) {
-    return new Promise((res) => setTimeout(res, ms));
-  }
-
-  async function _requestNewToken() {
-    const body = {
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-    };
-
-    let attempt = 0;
-    while (true) {
-      try {
-        const resp = await fetch(AUTH_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
-        });
-
-        if (!resp.ok) {
-          const text = await resp.text().catch(() => "");
-          throw new Error(
-            `Auth falhou: HTTP ${resp.status} ${resp.statusText} ${text}`
-          );
-        }
-
-        const json = await resp.json();
-        // Espera formato:
-        // { access_token, token_type, expires_in, scope }
-        if (!json || !json.access_token || !json.expires_in) {
-          throw new Error("Resposta de auth não contem campos esperados.");
-        }
-
-        _token = json.access_token;
-        // Define expiração absoluta (agora + expires_in)
-        _expiresAt = _now() + Number(json.expires_in) * 1000;
-
-        // Logs úteis para depuração (não imprimem o token)
-        console.log(
-          "[MyIOAuth] Novo token obtido. Expira em ~",
-          Math.round(Number(json.expires_in) / 60),
-          "min"
-        );
-
-        return _token;
-      } catch (err) {
-        attempt++;
-        console.warn(
-          `[MyIOAuth] Erro ao obter token (tentativa ${attempt}/${RETRY_MAX_ATTEMPTS}):`,
-          err?.message || err
-        );
-        if (attempt >= RETRY_MAX_ATTEMPTS) {
-          throw err;
-        }
-        const backoff = RETRY_BASE_MS * Math.pow(2, attempt - 1);
-        await _sleep(backoff);
-      }
-    }
-  }
-
-  async function getToken() {
-    // Evita múltiplas chamadas paralelas de renovação
-    if (_inFlight) {
-      return _inFlight;
-    }
-
-    if (_aboutToExpire()) {
-      _inFlight = _requestNewToken().finally(() => {
-        _inFlight = null;
-      });
-      return _inFlight;
-    }
-
-    return _token;
-  }
-
-  // Helpers opcionais
-  function getExpiryInfo() {
-    return {
-      expiresAt: _expiresAt,
-      expiresInSeconds: Math.max(0, Math.floor((_expiresAt - _now()) / 1000)),
-    };
-  }
-
-  function clearCache() {
-    _token = null;
-    _expiresAt = 0;
-    _inFlight = null;
-  }
-
-  return {
-    getToken,
-    getExpiryInfo,
-    clearCache,
-  };
-})();
+// MyIO Authentication instance - will be initialized after credentials are loaded
+let MyIOAuth = null;
 
 async function fetchCustomerServerScopeAttrs() {
   const tbToken = localStorage.getItem("jwt_token");
 
   if (!tbToken)
-    throw new Error(
-      "JWT do ThingsBoard não encontrado (localStorage.jwt_token)."
-    );
+    throw new Error("JWT do ThingsBoard não encontrado (localStorage.jwt_token).");
 
   const url = `/api/plugins/telemetry/CUSTOMER/${CUSTOMER_ID}/values/attributes/SERVER_SCOPE`;
   const res = await fetch(url, {
@@ -174,6 +41,7 @@ async function fetchCustomerServerScopeAttrs() {
       if (Array.isArray(v) && v.length) map[k] = v[0]?.value ?? v[0];
     }
   }
+
   return map;
 }
 
@@ -194,12 +62,12 @@ function setupTooltipPremium(target, text) {
   const pad = 10;
 
   function position(ev) {
-    let x = ev.clientX + 12,
-      y = ev.clientY - 36;
-    const vw = window.innerWidth,
-      rect = tip.getBoundingClientRect();
+    let x = ev.clientX + 12, y = ev.clientY - 36;
+    const vw = window.innerWidth, rect = tip.getBoundingClientRect();
+
     if (x + rect.width + pad > vw) x = vw - rect.width - pad;
     if (y < pad) y = ev.clientY + 18;
+
     tip.style.left = x + "px";
     tip.style.top = y + "px";
   }
@@ -208,6 +76,7 @@ function setupTooltipPremium(target, text) {
     if (ev) position(ev);
     tip.classList.add("show");
   }
+
   function hide() {
     tip.classList.remove("show");
   }
@@ -238,6 +107,26 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   CLIENT_SECRET = customerCredentials.client_secret || " ";
   INGESTION_ID = customerCredentials.ingestionId || " ";
 
+  // Initialize MyIO Authentication with extracted component
+  if (typeof MyIOLibrary?.buildMyioIngestionAuth === 'function') {
+    MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+      dataApiHost: DATA_API_HOST, 
+      clientId: CLIENT_ID,
+      clientSecret: CLIENT_SECRET
+    });
+    console.log("[MyIOAuth] Initialized with extracted component");
+  } else {
+    console.warn("[MyIOAuth] buildMyioIngestionAuth not available, using fallback");
+    // Fallback: create a simple auth object for compatibility
+    MyIOAuth = {
+      getToken: async () => {
+        throw new Error("Authentication component not available");
+      },
+      clearCache: () => {},
+      isTokenValid: () => false
+    };
+  }
+
   // Initialize MyIOLibrary DateRangePicker
   var $inputStart = $('input[name="startDatetimes"]');
 
@@ -256,14 +145,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       // The input display is automatically handled by the component
     },
-  })
-    .then(function (picker) {
+  }).then(function (picker) {
       dateRangePicker = picker;
       console.log("[DateRangePicker] Successfully initialized");
-    })
-    .catch(function (error) {
+  }).catch(function (error) {
       console.error("[DateRangePicker] Failed to initialize:", error);
-    });
+  });
 
   // elementos
   const inputStart = q("#tbx-date-start"); // compat
@@ -272,10 +159,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const btnLoad = q("#tbx-btn-load");
   const btnGen = q("#tbx-btn-report-general");
 
-  setupTooltipPremium(
-    inputRange,
-    "📅 Clique para alterar o intervalo de datas"
-  );
+  setupTooltipPremium( inputRange, "📅 Clique para alterar o intervalo de datas");
 
   // layout (garantia de 50/50)
   const row = self.ctx.$container[0].querySelector(".tbx-row");
@@ -345,12 +229,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
   // boot
   (async () => {
-    //const ok = await waitFor(libsReady);
-    // if (!ok){
-    //   console.error('[tbx] DateRangePicker não carregou. Confira Resources e ordem dos scripts.');
-    //   return;
-    // }
-
     const $ = window.jQuery;
     const m = window.moment;
 
@@ -368,18 +246,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       const startDate = self.ctx.$scope.startTs || inputStart.value + "T00:00:00-03:00";
       const endDate = self.ctx.$scope.endTs || inputEnd.value + "T23:59:00-03:00";
 
-      console.log(
-        "Filho enviando para o pai -> start:",
-        startDate,
-        "end:",
-        endDate
-      );
+      console.log( "Filho enviando para o pai -> start:", startDate,
+        "end:", endDate);
 
       // Dispara evento global
       window.dispatchEvent(
-        new CustomEvent("myio:update-date", {
-          detail: { startDate, endDate },
-        })
+        new CustomEvent("myio:update-date", {detail: { startDate, endDate }, })
       );
     });
 

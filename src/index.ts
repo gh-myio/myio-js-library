@@ -48,6 +48,13 @@ export { getValueByDatakey, getValueByDatakeyLegacy, findValue } from './utils/g
 
 // ThingsBoard utilities
 export { buildListItemsThingsboardByUniqueDatasource } from './thingsboard/utils/buildListItemsThingsboardByUniqueDatasource';
+export { 
+  buildMyioIngestionAuth, 
+  clearAllAuthCaches, 
+  getAuthCacheStats,
+  type MyIOAuthConfig,
+  type MyIOAuthInstance 
+} from './thingsboard/auth/buildMyioIngestionAuth';
 // export {
 //   getEntityInfoAndAttributesTB,
 //   type TBFetchOptions,
