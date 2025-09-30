@@ -37,7 +37,7 @@ export class AllReportModal {
   private currentSortMode: SortMode = 'CONSUMPTION_DESC';
 
   // Debug logging flag - can be enabled globally
-  private static DEBUG_ENABLED = (globalThis as any).MYIO_DEBUG_ALLREPORT || false;
+  private static DEBUG_ENABLED = (globalThis as any).MYIO_DEBUG_ALLREPORT || true;
 
   constructor(private params: OpenAllReportParams) {
     this.authClient = new AuthClient({
