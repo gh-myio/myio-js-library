@@ -77,7 +77,7 @@ export class AllReportModal {
   }
 
   // Helper: pick a numeric consumption from an API item
-  private pickNumericConsumption(item: any): number {
+  private pickConsumption(item: any): number {
     const fields = ['total_value','totalValue','consumption','value','total','energy','kwh'];
     for (const f of fields) {
       if (item?.[f] !== undefined && item?.[f] !== null) {
@@ -662,47 +662,74 @@ export class AllReportModal {
     return data;
   }
 
-  // Replace this whole method
   private mapCustomerTotalsResponse(apiResponse: any): StoreReading[] {
-    // 1) normalize array from API
-    const dataArray: any[] = Array.isArray(apiResponse?.data)
+    // 1) Extract API data array
+    const apiArray: any[] = Array.isArray(apiResponse?.data)
       ? apiResponse.data
       : Array.isArray(apiResponse)
         ? apiResponse
         : [];
 
-    if (!dataArray.length) {
+    if (!apiArray.length) {
       console.warn('[AllReportModal] Empty/invalid API response:', apiResponse);
       return [];
     }
 
-    // 2) build sum-by-id (in case the API returns multiple rows per same id)
-    const sumById = new Map<string, number>();
-    for (const it of dataArray) {
-      const key = String(it?.id || '');
-      if (!key) continue;
+    // 2) Build primary index by ID (with aggregation for duplicate IDs)
+    const sumByApiId = new Map<string, number>();
+    let apiItemsWithoutId = 0;
 
-      const val = this.parseConsumptionValue(it); // reuses your existing helper
-      sumById.set(key, (sumById.get(key) || 0) + val);
+    for (const item of apiArray) {
+      const consumption = this.pickConsumption(item);
+      
+      if (item?.id) {
+        const id = String(item.id);
+        sumByApiId.set(id, (sumByApiId.get(id) || 0) + consumption);
+      } else {
+        apiItemsWithoutId++;
+      }
     }
 
-    // 3) map to UI rows using itemsList.id
-    let matched = 0;
-    const rows: StoreReading[] = this.params.itemsList.map((storeItem) => {
-      const c = sumById.get(storeItem.id) ?? 0;
-      if (c > 0) matched++;
+    // 3) Map itemsList to rows with fallback strategy
+    let matchedById = 0, matchedBySubstring = 0;
+    
+    const rows: StoreReading[] = this.params.itemsList.map((listItem) => {
+      // Primary: exact ID match
+      let consumption = sumByApiId.get(listItem.id) ?? 0;
+      
+      if (consumption > 0) {
+        matchedById++;
+      } else {
+        // Fallback: substring match in name/assetName
+        for (const apiItem of apiArray) {
+          const assetName = apiItem?.assetName || '';
+          const name = apiItem?.name || '';
+          
+          if (assetName.includes(listItem.identifier) || name.includes(listItem.identifier)) {
+            consumption += this.pickConsumption(apiItem);
+          }
+        }
+        
+        if (consumption > 0) {
+          matchedBySubstring++;
+        }
+      }
+
       return {
-        identifier: storeItem.identifier, // keep original code shown in the table
-        name: storeItem.label,            // friendly name from itemsList
-        consumption: Math.round(c * 100) / 100
+        identifier: listItem.identifier,
+        name: listItem.label,
+        consumption: Math.round(consumption * 100) / 100
       };
     });
 
-    console.log('[AllReportModal] Mapping by id stats:', {
-      apiItems: dataArray.length,
-      uniqueIdsInApi: sumById.size,
+    console.log('[AllReportModal] Mapping stats:', {
+      apiItems: apiArray.length,
+      uniqueApiIds: sumByApiId.size,
       itemsInList: this.params.itemsList.length,
-      matched
+      matchedById,
+      matchedBySubstring,
+      unmatched: this.params.itemsList.length - matchedById - matchedBySubstring,
+      apiItemsWithoutId
     });
 
     return rows;
