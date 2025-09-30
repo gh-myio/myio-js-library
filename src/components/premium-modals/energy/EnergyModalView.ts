@@ -43,28 +43,56 @@ export class EnergyModalView {
     const container = document.createElement('div');
     container.className = 'myio-energy-modal-scope';
     
+    const { device } = this.config.context;
+    const identifier = device.attributes.identifier || 'SEM IDENTIFICADOR';
+    const label = device.label || 'SEM ETIQUETA';
+    
     container.innerHTML = `
       <style>
         ${this.getModalStyles()}
       </style>
-      <div class="myio-energy-modal-layout">
-        <!-- Left Column: Device Summary -->
-        <div class="myio-energy-device-summary">
-          ${this.renderDeviceSummary()}
+      <div class="myio-modal-scope">
+        <!-- Controls Section -->
+        <div style="margin-bottom: 16px;">
+          <div style="display: flex; gap: 16px; align-items: end; margin-bottom: 16px;">
+            <div class="myio-form-group" style="margin-bottom: 0;">
+              <label class="myio-label">Período</label>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <span style="font-size: 14px; color: var(--myio-text-muted);">
+                  ${this.formatDateRange(this.config.params.startDate, this.config.params.endDate)}
+                </span>
+              </div>
+            </div>
+            <button id="export-csv-btn" class="myio-btn myio-btn-secondary" disabled>
+              Exportar CSV
+            </button>
+            <button id="close-btn" class="myio-btn myio-btn-secondary">
+              Fechar
+            </button>
+          </div>
         </div>
         
-        <!-- Right Column: Chart Container -->
-        <div class="myio-energy-chart-section">
-          <div id="energy-chart-container" class="myio-energy-chart-container">
-            <div class="myio-loading-state">
-              <div class="myio-spinner"></div>
-              <p>${this.getI18nText('loading')}</p>
-            </div>
+        <!-- Error Container -->
+        <div id="energy-error" class="myio-energy-error" style="display: none;">
+          <!-- Error messages will be displayed here -->
+        </div>
+        
+        <!-- Main Chart Container - Full Width -->
+        <div id="energy-chart-container" class="myio-energy-chart-container">
+          <div class="myio-loading-state">
+            <div class="myio-spinner"></div>
+            <p>${this.getI18nText('loading')}</p>
           </div>
-          
-          <div id="energy-error" class="myio-energy-error" style="display: none;">
-            <!-- Error messages will be displayed here -->
-          </div>
+        </div>
+        
+        <!-- KPIs Section -->
+        <div id="energy-kpis" style="display: none; margin-top: 16px;">
+          <!-- KPI cards will be rendered here -->
+        </div>
+        
+        <!-- Data Table Section -->
+        <div id="energy-table" style="display: none; margin-top: 16px;">
+          <!-- Data table will be rendered here -->
         </div>
       </div>
     `;
@@ -964,6 +992,18 @@ export class EnergyModalView {
         }
       }
     `;
+  }
+
+  /**
+   * Formats date range for display
+   */
+  private formatDateRange(startDate: string | Date, endDate: string | Date): string {
+    const formatDate = (date: string | Date): string => {
+      const d = typeof date === 'string' ? new Date(date) : date;
+      return d.toLocaleDateString('pt-BR');
+    };
+    
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
   }
 
   /**

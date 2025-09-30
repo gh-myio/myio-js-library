@@ -64,8 +64,11 @@ export class EnergyModal {
       this.context = await this.fetchDeviceContext();
       
       // 2. Create and configure modal
+      const identifier = this.context.device.attributes.identifier || 'SEM IDENTIFICADOR';
+      const label = this.context.device.label || 'SEM ETIQUETA';
+      
       this.modal = createModal({
-        title: this.buildModalTitle(),
+        title: `Relatório de Energia - ${identifier} - ${label}`,
         width: '80vw',
         height: '90vh',
         theme: (this.params.theme === 'dark' ? 'dark' : 'light') as 'light' | 'dark'
