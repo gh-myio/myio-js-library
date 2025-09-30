@@ -106,13 +106,14 @@
     <script src="../dist/myio-js-library.umd.js"></script>
     <script>
         // Debug status management
+        let debugEnabled = false;
+        
         function updateDebugStatus() {
-            const isEnabled = window.MYIO_DEBUG_ALLREPORT;
             const statusEl = document.getElementById('debug-status');
             
-            if (isEnabled) {
+            if (debugEnabled) {
                 statusEl.className = 'debug-info debug-enabled';
-                statusEl.innerHTML = '<strong>Debug Logging: ENABLED</strong><br>Check the browser console for detailed logs.';
+                statusEl.innerHTML = '<strong>Debug Logging: ENABLED</strong><br>The next modal opened will show detailed logs in the console.';
             } else {
                 statusEl.className = 'debug-info debug-disabled';
                 statusEl.innerHTML = '<strong>Debug Logging: DISABLED</strong><br>Click "Enable Debug" to see detailed console output.';
@@ -121,14 +122,14 @@
 
         // Enable debug logging
         document.getElementById('enable-debug').addEventListener('click', () => {
-            window.MYIO_DEBUG_ALLREPORT = true;
+            debugEnabled = true;
             updateDebugStatus();
-            console.log('🐛 AllReportModal debug logging ENABLED');
+            console.log('🐛 AllReportModal debug logging ENABLED for next modal');
         });
 
         // Disable debug logging
         document.getElementById('disable-debug').addEventListener('click', () => {
-            window.MYIO_DEBUG_ALLREPORT = false;
+            debugEnabled = false;
             updateDebugStatus();
             console.log('🐛 AllReportModal debug logging DISABLED');
         });
@@ -232,7 +233,8 @@
                             label: 'Loja E - Substring Match (should find via name)'
                         }
                     ],
-                    fetcher: mockCustomerTotalsFetcher
+                    fetcher: mockCustomerTotalsFetcher,
+                    debug: debugEnabled  // Pass the debug flag as parameter
                 });
 
                 console.log('✅ AllReportModal opened successfully');

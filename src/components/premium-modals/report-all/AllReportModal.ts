@@ -36,8 +36,8 @@ export class AllReportModal {
   private selectedStoreIds: Set<string> = new Set();
   private currentSortMode: SortMode = 'CONSUMPTION_DESC';
 
-  // Debug logging flag - can be enabled globally
-  private static DEBUG_ENABLED = (globalThis as any).MYIO_DEBUG_ALLREPORT || true;
+  // Debug logging flag - controlled by params.debug
+  private debugEnabled: boolean;
 
   constructor(private params: OpenAllReportParams) {
     this.authClient = new AuthClient({
@@ -46,10 +46,14 @@ export class AllReportModal {
       base: params.api.dataApiBaseUrl
     });
 
+    // Set debug flag from params
+    this.debugEnabled = !!params.debug;
+
     this.debugLog('🚀 AllReportModal initialized', {
       customerId: params.customerId,
       itemsListLength: params.itemsList?.length || 0,
       itemsList: params.itemsList,
+      debugEnabled: this.debugEnabled,
       apiConfig: {
         hasIngestionToken: !!params.api.ingestionToken,
         dataApiBaseUrl: params.api.dataApiBaseUrl
@@ -59,7 +63,7 @@ export class AllReportModal {
 
   // Debug logging helper
   private debugLog(message: string, data?: any): void {
-    if (AllReportModal.DEBUG_ENABLED) {
+    if (this.debugEnabled) {
       console.log(`[AllReportModal DEBUG] ${message}`, data || '');
     }
   }
