@@ -46,14 +46,15 @@ export class AllReportModal {
       base: params.api.dataApiBaseUrl
     });
 
-    // Set debug flag from params
-    this.debugEnabled = !!params.debug;
+    // Set debug flag from params (1 = enabled, 0 = disabled)
+    this.debugEnabled = params.debug === 1;
 
     this.debugLog('🚀 AllReportModal initialized', {
       customerId: params.customerId,
       itemsListLength: params.itemsList?.length || 0,
       itemsList: params.itemsList,
       debugEnabled: this.debugEnabled,
+      debugParam: params.debug,
       apiConfig: {
         hasIngestionToken: !!params.api.ingestionToken,
         dataApiBaseUrl: params.api.dataApiBaseUrl
@@ -115,8 +116,10 @@ export class AllReportModal {
   }
 
   public show(): ModalHandle {
+    this.debugLog('🎭 Modal show() called - creating modal UI');
+
     this.modal = createModal({
-      title: 'Relatório Geral - Todas as Lojas',
+      title: `Relatório Geral - Todas as Lojas${this.debugEnabled ? ' [DEBUG MODE]' : ''}`,
       width: '85vw',
       height: '90vh',
       theme: this.params.ui?.theme || 'light'
@@ -124,6 +127,8 @@ export class AllReportModal {
 
     this.renderContent();
     this.modal.on('close', () => {
+      this.debugLog('🚪 Modal closing - cleaning up resources');
+      
       // Cleanup DateRangePicker
       if (this.dateRangePicker) {
         this.dateRangePicker.destroy();
@@ -139,6 +144,8 @@ export class AllReportModal {
       this.authClient.clearCache();
       this.emit('close');
     });
+
+    this.debugLog('✅ Modal created and ready to use');
 
     return {
       close: () => this.modal.close(),

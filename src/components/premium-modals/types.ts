@@ -71,7 +71,7 @@ export interface OpenAllReportParams {
   api: BaseApiCfg;
   itemsList: StoreItem[]; // Mandatory list of items to display
   fetcher?: CustomerTotalsFetcher; // Optional dependency injection for testing
-  debug?: boolean; // Optional debug logging flag
+  debug?: 1 | 0; // Optional debug logging flag (1 = enabled, 0 = disabled)
 }
 
 export interface OpenSettingsParams {
