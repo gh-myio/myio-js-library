@@ -71,25 +71,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   CLIENT_SECRET = customerCredentials.client_secret || " ";
   INGESTION_ID = customerCredentials.ingestionId || " ";
 
-  // Initialize MyIO Authentication with extracted component
-  if (typeof MyIOLibrary?.buildMyioIngestionAuth === 'function') {
-    MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-      dataApiHost: DATA_API_HOST, 
-      clientId: CLIENT_ID,
-      clientSecret: CLIENT_SECRET
-    });
-    console.log("[MyIOAuth] Initialized with extracted component");
-  } else {
-    console.warn("[MyIOAuth] buildMyioIngestionAuth not available, using fallback");
-    // Fallback: create a simple auth object for compatibility
-    MyIOAuth = {
-      getToken: async () => {
-        throw new Error("Authentication component not available");
-      },
-      clearCache: () => {},
-      isTokenValid: () => false
-    };
-  }
+  MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+    dataApiHost: DATA_API_HOST, 
+    clientId: CLIENT_ID,
+    clientSecret: CLIENT_SECRET
+  });
+  console.log("[MyIOAuth] Initialized with extracted component");
 
   // Initialize MyIOLibrary DateRangePicker
   var $inputStart = $('input[name="startDatetimes"]');
@@ -144,8 +131,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         console.warn(e);
       }
     });
-  const fireCE = (name, detail) =>
-    self.ctx.$container[0].dispatchEvent(new CustomEvent(name, { detail }));
+
+  const fireCE = (name, detail) => self.ctx.$container[0].dispatchEvent(new CustomEvent(name, { detail }));
 
   // estado
   self.__range = { start: null, end: null };
@@ -157,8 +144,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
   // filtros (expostos)
   self.getFilters = () => {
-    const s = self.__range.start,
-      e = self.__range.end;
+    const s = self.__range.start, e = self.__range.end;
     return {
       startDate: inputStart?.value || null, // YYYY-MM-DD (compat)
       endDate: inputEnd?.value || null, // YYYY-MM-DD (compat)
@@ -210,13 +196,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       const startDate = self.ctx.$scope.startTs || inputStart.value + "T00:00:00-03:00";
       const endDate = self.ctx.$scope.endTs || inputEnd.value + "T23:59:00-03:00";
 
-      console.log( "Filho enviando para o pai -> start:", startDate,
-        "end:", endDate);
+      console.log( "Filho enviando para o pai -> start:", startDate, "end:", endDate);
 
       // Dispara evento global
-      window.dispatchEvent(
-        new CustomEvent("myio:update-date", {detail: { startDate, endDate }, })
-      );
+      window.dispatchEvent(new CustomEvent("myio:update-date", {detail: { startDate, endDate }, }));
     });
 
     btnGen?.addEventListener("click", async () => {
@@ -224,7 +207,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       fireCE("tbx:report:general", p);
       emitTo(listeners.general, p);
 
-      const tbToken = await MyIOAuth.getToken();
+      const ingestionAuthToken = await MyIOAuth.getToken();
       // Use the extracted utility function from MyIOLibrary
       const itemsListTB = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data);
       console.log("[header] itemsListTB >>> ", itemsListTB);
@@ -236,7 +219,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           clientId: CLIENT_ID,
           clientSecret: CLIENT_SECRET,
           dataApiBaseUrl: DATA_API_HOST,
-          ingestionToken: tbToken,
+          ingestionToken: ingestionAuthToken,
         },
         itemsList: itemsListTB,
         ui: { theme: "light" },
