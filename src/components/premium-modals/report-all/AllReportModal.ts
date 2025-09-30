@@ -669,7 +669,7 @@ export class AllReportModal {
       ['Consumo Médio por Loja', (totalConsumption / this.data.length).toFixed(2), 'kWh', ''],
       ['', '', '', ''],
       ['DETALHAMENTO POR LOJA', '', '', ''],
-      ['Identifier', 'Name', 'Consumption (kWh)', ''],
+      ['Identificador', 'Nome', 'Consumo (kWh)', ''],
       ...sortedData.map(row => [row.identifier, row.name, row.consumption.toFixed(2), ''])
     ];
 

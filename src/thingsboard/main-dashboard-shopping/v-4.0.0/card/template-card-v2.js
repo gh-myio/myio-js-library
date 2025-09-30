@@ -564,6 +564,8 @@ export function renderCardComponentV2({
       HIDROMETRO: "https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4",
       ENTRADA: "https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU",
       CAIXA_DAGUA: "https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq",
+      ELEVADOR: "https://dashboard.myio-bas.com/api/images/public/rAjOvdsYJLGah6w6BABPJSD9znIyrkJX",
+      ESCADA_ROLANTE: "https://dashboard.myio-bas.com/api/images/public/EJ997iB2HD1AYYUHwIloyQOOszeqb2jp",
     };
 
     const defaultImage = "https://cdn-icons-png.flaticon.com/512/1178/1178428.png";
