@@ -211,11 +211,24 @@ export class AllReportModal {
     loadBtn?.addEventListener('click', () => this.loadData());
     exportBtn?.addEventListener('click', () => this.exportCSV());
     filterBtn?.addEventListener('click', () => this.openFilterModal());
-    searchInput?.addEventListener('input', (e) => {
-      this.searchFilter = (e.target as HTMLInputElement).value.toLowerCase();
-      this.currentPage = 1;
-      this.renderTable();
-    });
+    
+    // Fix search input event listener
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        this.searchFilter = (e.target as HTMLInputElement).value.toLowerCase();
+        this.currentPage = 1;
+        this.renderTable();
+        this.renderPagination();
+      });
+      
+      // Also handle keyup for better responsiveness
+      searchInput.addEventListener('keyup', (e) => {
+        this.searchFilter = (e.target as HTMLInputElement).value.toLowerCase();
+        this.currentPage = 1;
+        this.renderTable();
+        this.renderPagination();
+      });
+    }
 
     // Initialize DateRangePicker with default current month range
     try {
