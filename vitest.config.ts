@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     // Use 'node' environment for tests (switch to 'jsdom' if DOM APIs are needed)
     environment: 'node',
+    globals: true,
     coverage: {
       reporter: ['text', 'lcov', 'html'],
     },

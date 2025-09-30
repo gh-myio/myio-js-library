@@ -1,0 +1,32 @@
+<section aria-label="Filtros e ações" class="tbx-toolbar">
+  <div class="tbx-row">
+    <!-- COL ESQUERDA (50%) -->
+    <div class="tbx-col tbx-col-left">
+      <!-- compat (ocultos) -->
+      <label class="tbx-field" style="display:none"><input id="tbx-date-start" type="date"></label>
+      <span class="tbx-ate" style="display:none">até</span>
+      <label class="tbx-field" style="display:none"><input id="tbx-date-end" type="date"></label>
+
+      <!-- range -->
+      <label aria-label="Período" class="tbx-field">
+        <span class="tbx-ico tbx-ico-cal">📅</span>
+       <input type="text" name="startDatetimes" placeholder="Digite a data ou período" readonly title="Clique aqui para alterar o intervalo de datas"
+       />
+       </label>
+
+      <!-- carregar -->
+      <button class="tbx-btn tbx-btn-primary" id="tbx-btn-load" title="Carregar">
+        <span class="tbx-ico rotate">⟲</span>
+        <span>Carregar</span>
+      </button>
+    </div>
+
+    <!-- COL DIREITA (50%) -->
+    <div class="tbx-col tbx-col-right">
+      <button class="tbx-btn tbx-btn-primary" id="tbx-btn-report-general" title="Relatório Consumo Geral por Loja">
+        <span class="tbx-ico">🧾</span>
+        <span>Relatório Consumo Geral por Loja</span>
+      </button>
+    </div>
+  </div>
+</section>

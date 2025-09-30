@@ -47,6 +47,7 @@ export {
 export { getValueByDatakey, getValueByDatakeyLegacy, findValue } from './utils/getValueByDatakey';
 
 // ThingsBoard utilities
+export { buildListItemsThingsboardByUniqueDatasource } from './thingsboard/utils/buildListItemsThingsboardByUniqueDatasource';
 // export {
 //   getEntityInfoAndAttributesTB,
 //   type TBFetchOptions,

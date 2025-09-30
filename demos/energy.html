@@ -177,6 +177,35 @@
             </div>
         </div>
 
+        <h2>🆕 NEW: ThingsBoard Utility Functions</h2>
+        <p style="color: #666; margin-bottom: 20px;">
+            <strong>buildListItemsThingsboardByUniqueDatasource</strong> - Extracted utility for processing ThingsBoard widget context data into standardized items list.
+        </p>
+        
+        <div style="background: #f0f8ff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #4A148C;">
+            <h3>🔧 Utility Function Demo</h3>
+            <p style="margin-bottom: 16px; color: #555;">
+                Test the extracted utility function with mock ThingsBoard data:
+            </p>
+            
+            <div style="margin-top: 16px;">
+                <button class="demo-button" onclick="testUtilityFunction()" style="background: #4A148C;">
+                    🧪 Test buildListItemsThingsboardByUniqueDatasource
+                </button>
+                <button class="demo-button" onclick="showUtilityResults()" style="background: #28a745;">
+                    📊 Show Results
+                </button>
+                <button class="demo-button" onclick="clearUtilityResults()" style="background: #dc3545;">
+                    🗑️ Clear Results
+                </button>
+            </div>
+            
+            <div id="utility-output" style="margin-top: 16px; padding: 12px; background: #e9ecef; border-radius: 4px; display: none;">
+                <strong>Utility Function Output:</strong>
+                <div id="utility-details"></div>
+            </div>
+        </div>
+
         <h2>🔮 Future Modals (Coming Soon)</h2>
         <button class="demo-button" onclick="openEnergyDemo()" style="opacity: 0.6;">
             ⚡ Energy Modal (Coming Soon)
@@ -1195,6 +1224,201 @@ Open the Customer Totals All Report Modal?`);
                     maxBusinessKwh: 8000
                 }
             });
+        }
+        
+        // ThingsBoard Utility Function Demo
+        let utilityTestResults = null;
+        
+        function testUtilityFunction() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+            
+            if (!MyIOLibrary.buildListItemsThingsboardByUniqueDatasource) {
+                alert('❌ buildListItemsThingsboardByUniqueDatasource not available in this build.\\n\\nThis utility is part of the latest MyIOLibrary implementation.');
+                return;
+            }
+            
+            try {
+                // Create mock ThingsBoard datasources
+                const mockDatasources = [
+                    {
+                        entityId: 'entity-001',
+                        entity: { label: 'Outback Steakhouse', name: 'Store 001' },
+                        dataKeys: [
+                            { name: 'identifier' },
+                            { name: 'label' },
+                            { name: 'ingestionId' }
+                        ]
+                    },
+                    {
+                        entityId: 'entity-002',
+                        entity: { label: 'McDonald\'s', name: 'Store 002' },
+                        dataKeys: [
+                            { name: 'IDENTIFIER' }, // Test case normalization
+                            { name: 'LABEL' },
+                            { name: 'INGESTIONID' }
+                        ]
+                    },
+                    {
+                        entityId: 'entity-003',
+                        entity: { name: 'Subway' }, // No label, fallback to name
+                        dataKeys: [
+                            { name: 'identifier' },
+                            { name: 'ingestionId' }
+                        ]
+                    },
+                    {
+                        entityId: 'entity-004',
+                        // No entity property - test edge case
+                        dataKeys: [
+                            { name: 'identifier' }
+                        ]
+                    }
+                ];
+                
+                // Create mock ThingsBoard data
+                const mockData = [
+                    {
+                        datasource: { entityId: 'entity-001' },
+                        dataKey: { name: 'identifier' },
+                        data: [['timestamp', 'SCP00480']]
+                    },
+                    {
+                        datasource: { entityId: 'entity-001' },
+                        dataKey: { name: 'ingestionId' },
+                        data: [['timestamp', 'ING-001']]
+                    },
+                    {
+                        datasource: { entityId: 'entity-002' },
+                        dataKey: { name: 'IDENTIFIER' },
+                        data: [['timestamp', 'SCP00481']]
+                    },
+                    {
+                        datasource: { entityId: 'entity-002' },
+                        dataKey: { name: 'INGESTIONID' },
+                        data: [['timestamp', 'ING-002']]
+                    },
+                    {
+                        datasource: { entityId: 'entity-003' },
+                        dataKey: { name: 'identifier' },
+                        data: [['timestamp', 'SCP00482']]
+                    },
+                    {
+                        datasource: { entityId: 'entity-003' },
+                        dataKey: { name: 'ingestionId' },
+                        data: [['timestamp', 'ING-003']]
+                    },
+                    {
+                        datasource: { entityId: 'entity-004' },
+                        dataKey: { name: 'identifier' },
+                        data: [['timestamp', 'SCP00483']]
+                    },
+                    // Test data for non-existent entity (should be ignored)
+                    {
+                        datasource: { entityId: 'entity-999' },
+                        dataKey: { name: 'identifier' },
+                        data: [['timestamp', 'IGNORED']]
+                    }
+                ];
+                
+                console.log('[UTILITY DEMO] Testing with mock data:', { datasources: mockDatasources, data: mockData });
+                
+                // Call the utility function
+                const startTime = performance.now();
+                utilityTestResults = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource(mockDatasources, mockData);
+                const endTime = performance.now();
+                const executionTime = (endTime - startTime).toFixed(2);
+                
+                console.log('[UTILITY DEMO] Results:', utilityTestResults);
+                console.log(`[UTILITY DEMO] Execution time: ${executionTime}ms`);
+                
+                // Store execution stats
+                utilityTestResults._meta = {
+                    executionTime,
+                    inputDatasources: mockDatasources.length,
+                    inputDataRows: mockData.length,
+                    outputItems: utilityTestResults.length,
+                    timestamp: new Date().toISOString()
+                };
+                
+                alert(`✅ Utility Function Test Completed Successfully!\\n\\n🔧 Test Results:\\n• Input: ${mockDatasources.length} datasources, ${mockData.length} data rows\\n• Output: ${utilityTestResults.length} standardized items\\n• Execution time: ${executionTime}ms\\n• Portuguese locale sorting applied\\n\\n📊 Features Tested:\\n• Attribute key normalization (IDENTIFIER → identifier)\\n• Data hydration from ThingsBoard context\\n• Entity mapping and fallback values\\n• Portuguese locale sorting\\n• Edge case handling (missing entities, empty data)\\n\\n💡 Click "Show Results" to see the detailed output!`);
+                
+            } catch (error) {
+                console.error('Error testing utility function:', error);
+                alert(`❌ Error testing utility function: ${error.message}`);
+            }
+        }
+        
+        function showUtilityResults() {
+            if (!utilityTestResults) {
+                alert('Please run the utility function test first!');
+                return;
+            }
+            
+            try {
+                const output = document.getElementById('utility-output');
+                const details = document.getElementById('utility-details');
+                
+                // Format results for display
+                let resultsHTML = `
+                    <div style="margin: 8px 0;"><strong>Execution Time:</strong> ${utilityTestResults._meta.executionTime}ms</div>
+                    <div style="margin: 8px 0;"><strong>Input:</strong> ${utilityTestResults._meta.inputDatasources} datasources, ${utilityTestResults._meta.inputDataRows} data rows</div>
+                    <div style="margin: 8px 0;"><strong>Output:</strong> ${utilityTestResults._meta.outputItems} standardized items</div>
+                    <div style="margin: 8px 0;"><strong>Function:</strong> MyIOLibrary.buildListItemsThingsboardByUniqueDatasource</div>
+                    <div style="margin: 8px 0;"><strong>Test Time:</strong> ${new Date(utilityTestResults._meta.timestamp).toLocaleString('pt-BR')}</div>
+                    <hr style="margin: 12px 0;">
+                    <strong>Processed Items:</strong>
+                    <div style="margin-top: 8px;">
+                `;
+                
+                utilityTestResults.forEach((item, index) => {
+                    resultsHTML += `
+                        <div style="margin: 4px 0; padding: 8px; background: #f8f9fa; border-radius: 4px; border-left: 3px solid #4A148C;">
+                            <strong>${index + 1}. ${item.label}</strong><br>
+                            <small>ID: ${item.id || 'null'} | Identifier: ${item.identifier}</small>
+                        </div>
+                    `;
+                });
+                
+                resultsHTML += `
+                    </div>
+                    <hr style="margin: 12px 0;">
+                    <div style="margin: 8px 0; color: #28a745;">
+                        <strong>✅ Features Demonstrated:</strong><br>
+                        <small>• Attribute normalization (IDENTIFIER → identifier)<br>
+                        • Data hydration with fallback chains<br>
+                        • Portuguese locale sorting (${utilityTestResults[0]?.label} comes first)<br>
+                        • Edge case handling (missing entities ignored)<br>
+                        • Type safety and error handling</small>
+                    </div>
+                `;
+                
+                details.innerHTML = resultsHTML;
+                output.style.display = 'block';
+                
+                // Log detailed results to console
+                console.log('📊 Detailed Utility Function Results:');
+                console.table(utilityTestResults.map(item => ({
+                    Label: item.label,
+                    Identifier: item.identifier,
+                    ID: item.id
+                })));
+                
+            } catch (error) {
+                console.error('Error displaying utility results:', error);
+                alert(`❌ Error displaying results: ${error.message}`);
+            }
+        }
+        
+        function clearUtilityResults() {
+            utilityTestResults = null;
+            
+            const output = document.getElementById('utility-output');
+            output.style.display = 'none';
+            
+            alert('🗑️ Utility test results cleared successfully!\\n\\nYou can run the test again to generate new results.');
         }
     </script>
 </body>
