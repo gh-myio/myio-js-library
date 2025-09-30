@@ -8,12 +8,12 @@ import { validateOptions } from './utils';
  * Opens the energy detail modal for a specific device
  * 
  * @param options Configuration options for the energy modal
- * @returns Object with close method to programmatically close the modal
+ * @returns Promise that resolves to an object with close method
  * 
  * @example
  * ```typescript
- * // Basic usage
- * const modal = openDashboardPopupEnergy({
+ * // Basic usage with await
+ * const modal = await openDashboardPopupEnergy({
  *   deviceId: 'DEVICE_UUID',
  *   startDate: '2025-09-01',
  *   endDate: '2025-09-30',
@@ -23,11 +23,21 @@ import { validateOptions } from './utils';
  * 
  * // Close programmatically
  * modal.close();
+ * 
+ * // Usage with client credentials
+ * const modal = await openDashboardPopupEnergy({
+ *   deviceId: 'DEVICE_UUID',
+ *   startDate: '2025-09-01',
+ *   endDate: '2025-09-30',
+ *   tbJwtToken: myTbToken,
+ *   clientId: CLIENT_ID,
+ *   clientSecret: CLIENT_SECRET
+ * });
  * ```
  */
-export function openDashboardPopupEnergy(
+export async function openDashboardPopupEnergy(
   options: OpenDashboardPopupEnergyOptions
-): { close: () => void } {
+): Promise<{ close: () => void }> {
   try {
     // Validate parameters early
     validateOptions(options);
@@ -44,28 +54,13 @@ export function openDashboardPopupEnergy(
     // Create modal instance
     const modal = new EnergyModal(options);
     
-    // Start the async show process but return synchronously
-    modal.show().catch(error => {
-      console.error('[openDashboardPopupEnergy] Async error in modal.show():', error);
-      
-      // Trigger onError callback if provided
-      if (options.onError) {
-        try {
-          options.onError({
-            code: 'UNKNOWN_ERROR',
-            message: error instanceof Error ? error.message : 'Unknown error occurred',
-            cause: error
-          });
-        } catch (callbackError) {
-          console.warn('[openDashboardPopupEnergy] onError callback failed:', callbackError);
-        }
-      }
-    });
+    // Wait for the modal to fully initialize and show
+    const modalHandle = await modal.show();
     
-    // Return close handle immediately
-    return {
-      close: () => modal.close()
-    };
+    console.log('[openDashboardPopupEnergy] Energy modal opened successfully');
+    
+    // Return the close handle
+    return modalHandle;
     
   } catch (error) {
     console.error('[openDashboardPopupEnergy] Error opening modal:', error);
@@ -74,7 +69,7 @@ export function openDashboardPopupEnergy(
     if (options.onError) {
       try {
         options.onError({
-          code: 'VALIDATION_ERROR',
+          code: error instanceof Error && error.message.includes('validation') ? 'VALIDATION_ERROR' : 'UNKNOWN_ERROR',
           message: error instanceof Error ? error.message : 'Unknown error occurred',
           cause: error
         });

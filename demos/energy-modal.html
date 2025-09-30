@@ -482,17 +482,18 @@ const modal = openDashboardPopupEnergy({
             return baseConfig;
         }
         
-        function openEnergyModal() {
+        async function openEnergyModal() {
             try {
                 const config = getFormData();
-                currentModal = window.MyIOLibrary.openDashboardPopupEnergy(config);
                 showStatus('Opening energy modal...', 'info');
+                currentModal = await window.MyIOLibrary.openDashboardPopupEnergy(config);
+                showStatus('Energy modal opened successfully!', 'success');
             } catch (error) {
                 showStatus(`Error: ${error.message}`, 'error');
             }
         }
         
-        function openWithCustomStyles() {
+        async function openWithCustomStyles() {
             try {
                 const config = getFormData();
                 config.styles = {
@@ -509,19 +510,21 @@ const modal = openDashboardPopupEnergy({
                     close: 'Close Window'
                 };
                 
-                currentModal = window.MyIOLibrary.openDashboardPopupEnergy(config);
                 showStatus('Opening modal with custom styles...', 'info');
+                currentModal = await window.MyIOLibrary.openDashboardPopupEnergy(config);
+                showStatus('Custom modal opened successfully!', 'success');
             } catch (error) {
                 showStatus(`Error: ${error.message}`, 'error');
             }
         }
         
-        function openWithErrorHandling() {
+        async function openWithErrorHandling() {
             try {
                 const config = getFormData();
                 config.deviceId = ''; // Force validation error
                 
-                currentModal = window.MyIOLibrary.openDashboardPopupEnergy(config);
+                showStatus('Testing error handling...', 'info');
+                currentModal = await window.MyIOLibrary.openDashboardPopupEnergy(config);
             } catch (error) {
                 showStatus(`Validation Error: ${error.message}`, 'error');
             }
