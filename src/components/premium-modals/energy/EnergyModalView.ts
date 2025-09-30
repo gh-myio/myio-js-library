@@ -53,20 +53,8 @@ export class EnergyModalView {
           ${this.renderDeviceSummary()}
         </div>
         
-        <!-- Right Column: Chart and Data -->
+        <!-- Right Column: Chart Container -->
         <div class="myio-energy-chart-section">
-          <div class="myio-energy-header">
-            <h3>${this.config.context.device.label}</h3>
-            <div class="myio-energy-actions">
-              <button id="export-csv-btn" class="myio-btn myio-btn-secondary" disabled>
-                ${this.getI18nText('exportCsv')}
-              </button>
-              <button id="close-btn" class="myio-btn myio-btn-outline">
-                ${this.getI18nText('close')}
-              </button>
-            </div>
-          </div>
-          
           <div id="energy-chart-container" class="myio-energy-chart-container">
             <div class="myio-loading-state">
               <div class="myio-spinner"></div>
@@ -76,14 +64,6 @@ export class EnergyModalView {
           
           <div id="energy-error" class="myio-energy-error" style="display: none;">
             <!-- Error messages will be displayed here -->
-          </div>
-          
-          <div id="energy-kpis" class="myio-energy-kpis" style="display: none;">
-            <!-- KPIs will be populated by renderEnergyData -->
-          </div>
-          
-          <div id="energy-table" class="myio-energy-table" style="display: none;">
-            <!-- Table will be populated by renderEnergyData -->
           </div>
         </div>
       </div>
@@ -100,32 +80,190 @@ export class EnergyModalView {
    */
   private renderDeviceSummary(): string {
     const { device, resolved } = this.config.context;
-    const classification = classifyDevice(device.attributes);
-    const icon = getDeviceIcon(classification);
+    const displayLabel = device.label.toUpperCase();
+    const deviceImage = this.getDeviceImage(device.label);
+    const consumption = this.currentEnergyData ? 
+      this.currentEnergyData.consumption.reduce((sum, item) => sum + item.value, 0) : 0;
     
     return `
-      <div class="myio-device-card">
-        <div class="myio-device-icon">
-          ${icon}
+      <div class="myio-sum-comparison-card" style="
+        flex: 1; 
+        display: flex; 
+        flex-direction: column; 
+        justify-content: flex-start; 
+        padding: 12px; 
+        box-sizing: border-box; 
+        background-color: var(--tb-service-background,#fff); 
+        border-radius: var(--tb-border-radius,4px); 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.05);
+        min-height: 0;
+      ">
+        <!-- Title -->
+        <div style="text-align:center; font-size:1.2rem; font-weight:600; margin-bottom:4px; display:flex; align-items:center; justify-content:center; gap:8px;">
+          <div class="myio-lightning-icon-container">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28px" height="28px" viewBox="0 -880 960 960" fill="var(--tb-primary-700,#FFC107)" style="display:block;">
+              <path d="m456-200 174-340H510v-220L330-420h126v220Zm24 120q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/>
+            </svg>
+          </div>
+          ${displayLabel}
         </div>
-        <div class="myio-device-info">
-          <h4>${device.label}</h4>
-          <p class="myio-device-id">${device.id}</p>
-          ${resolved.ingestionId ? `<p class="myio-ingestion-id">ID: ${resolved.ingestionId}</p>` : ''}
-          ${device.attributes.floor ? `<p class="myio-device-floor">Floor: ${device.attributes.floor}</p>` : ''}
-          ${device.attributes.NumLoja ? `<p class="myio-store-number">Store: ${device.attributes.NumLoja}</p>` : ''}
+
+        <!-- Icon -->
+        <div style="text-align:center; margin-bottom:8px;">
+          <img src="${deviceImage}" alt="ícone" width="92" height="92" style="object-fit: contain;" />
         </div>
-      </div>
-      
-      <div class="myio-device-metadata">
-        <h5>${this.getI18nText('deviceSummary')}</h5>
-        <div class="myio-metadata-grid">
-          ${resolved.centralId ? `<div><span>Central ID:</span> ${resolved.centralId}</div>` : ''}
-          ${resolved.slaveId ? `<div><span>Slave ID:</span> ${resolved.slaveId}</div>` : ''}
-          ${resolved.customerId ? `<div><span>Customer ID:</span> ${resolved.customerId}</div>` : ''}
+
+        <!-- Consumption Value (will be updated when data loads) -->
+        <div id="consumption-display" style="display:flex; justify-content:center; align-items:center; margin-bottom:4px; display: none">
+          <div style="font-size:1.4rem; font-weight:600; color:#212121;">
+            <span id="consumption-value">${this.formatEnergyValue(consumption)}</span>
+          </div>
         </div>
+
+        <style>
+          .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #f9f9f9;
+          }
+          .info-item label {
+            font-size: 0.85rem;
+            font-weight: 600;
+          }
+          .info-item input {
+            padding: 4px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            outline: none;
+            font-size: 0.85rem;
+            background: #fff;
+          }
+        </style>
+
+        <!-- Attribute Fields -->
+        <div style="display:flex; flex-direction:column; gap:6px; font-size:0.85rem;">
+          
+          <div class="info-item">
+            <label>Etiqueta</label>
+            <input type="text" value="${displayLabel}" readonly>
+          </div>
+          
+          <div class="info-item">
+            <label>Andar</label>
+            <input type="text" value="${device.attributes.floor || ''}" readonly>
+          </div>
+          
+          <div class="info-item">
+            <label>Número da Loja</label>
+            <input type="text" value="${device.attributes.NumLoja || ''}" readonly>
+          </div>
+          
+          <div class="info-item">
+            <label>Identificador do Medidor</label>
+            <input type="text" value="${device.attributes.IDMedidor || ''}" readonly>
+          </div>
+          
+          <div class="info-item">
+            <label>Identificador do Dispositivo</label>
+            <input type="text" value="${device.attributes.deviceId || ''}" readonly>
+          </div>
+          
+          <div class="info-item">
+            <label>GUID</label>
+            <input type="text" value="${device.attributes.guid || ''}" readonly>
+          </div>
+          
+          <div style="margin-top: 12px;">
+            <button id="device-telemetry-btn" style="
+              width: 100%;
+              padding: 12px 16px;
+              background: linear-gradient(135deg, #4A148C 0%, #6A1B9A 100%);
+              color: white;
+              border: none;
+              border-radius: 8px;
+              font-size: 14px;
+              font-weight: 600;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+              transition: all 0.3s ease;
+              box-shadow: 0 2px 8px rgba(74, 20, 140, 0.3);
+            " 
+            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(74, 20, 140, 0.4)';" 
+            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(74, 20, 140, 0.3)';">
+              <span style="font-size: 20px;">⚡</span>
+              <span>Visualizar telemetrias instantâneas</span>
+            </button>
+          </div>
+
+        </div>
+
       </div>
     `;
+  }
+
+  /**
+   * Gets device image based on classification
+   */
+  private getDeviceImage(labelOrName: string): string {
+    const DEVICE_SPRITES = {
+      relogio: {
+        on: "/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB",
+        off: "/api/images/public/rYrcTQlf90m7zH9ZIbldz6KIZ7jdb5DU",
+      },
+      subestacao: {
+        on: "/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU",
+        off: "/api/images/public/HnlvjodeBRFBc90xVglYI9mIpF6UgUmi",
+      },
+      bomba_chiller: {
+        on: "/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT",
+        off: "/api/images/public/8Ezn8qVBJ3jXD0iDfnEAZ0MZhAP1b5Ts",
+      },
+      default: {
+        on: "/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k",
+        off: "/api/images/public/sdTe2CPTbLPkbEXBHwaxjSAGVbp4wtIa",
+      },
+    };
+
+    const normalizeLabel = (str = "") => {
+      return String(str)
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove acentos
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, " "); // opcional: colapsa espaços
+    };
+
+    const classifyDevice = (labelOrName = "") => {
+      const s = normalizeLabel(labelOrName);
+      if (/\brelogio\b/.test(s)) return "relogio";
+      if (/subesta/.test(s)) return "subestacao";
+      if (/bomba|chiller/.test(s)) return "bomba_chiller";
+      if (/administra/.test(s)) return "administracao";
+      return "default";
+    };
+
+    const cat = classifyDevice(labelOrName);
+    const sprite = DEVICE_SPRITES[cat] || DEVICE_SPRITES.default;
+    const isOn = this.currentEnergyData ? 
+      this.currentEnergyData.consumption.reduce((sum, item) => sum + item.value, 0) > 0 : true;
+    
+    return isOn ? sprite.on : sprite.off;
+  }
+
+  /**
+   * Formats energy value for display
+   */
+  private formatEnergyValue(value: number): string {
+    if (value >= 1000) {
+      return `${(value / 1000).toFixed(2)} MWh`;
+    }
+    return `${value.toFixed(2)} kWh`;
   }
 
   /**
@@ -174,6 +312,9 @@ export class EnergyModalView {
     this.hideLoadingState();
     this.hideError();
     
+    // Update consumption value in left panel
+    this.updateConsumptionDisplay(energyData);
+    
     // Render chart
     this.renderChart(energyData);
     
@@ -187,6 +328,30 @@ export class EnergyModalView {
     const exportBtn = document.getElementById('export-csv-btn') as HTMLButtonElement;
     if (exportBtn) {
       exportBtn.disabled = false;
+    }
+  }
+
+  /**
+   * Updates the consumption display in the left panel
+   */
+  private updateConsumptionDisplay(energyData: EnergyData): void {
+    const totalConsumption = energyData.consumption.reduce((sum, item) => sum + item.value, 0);
+    const consumptionValueElement = document.getElementById('consumption-value');
+    const consumptionDisplayElement = document.getElementById('consumption-display');
+    
+    if (consumptionValueElement) {
+      consumptionValueElement.textContent = this.formatEnergyValue(totalConsumption);
+    }
+    
+    if (consumptionDisplayElement) {
+      consumptionDisplayElement.style.display = 'flex';
+    }
+    
+    // Update device image based on consumption (on/off state)
+    const deviceImage = document.querySelector('.myio-energy-device-summary img') as HTMLImageElement;
+    if (deviceImage) {
+      const newImageSrc = this.getDeviceImage(this.config.context.device.label);
+      deviceImage.src = newImageSrc;
     }
   }
 
@@ -212,25 +377,31 @@ export class EnergyModalView {
     try {
       // Check if EnergyChartSDK is available
       if (typeof window !== 'undefined' && (window as any).EnergyChartSDK) {
+        // Normalize dates to ISO format with timezone offset
+        const startISO = this.normalizeToSaoPauloISO(this.config.params.startDate, false);
+        const endISO = this.normalizeToSaoPauloISO(this.config.params.endDate, true);
+        
         const chartConfig = {
-          apiBaseUrl: this.config.params.dataApiHost,
-          iframeBaseUrl: this.config.params.chartsBaseUrl,
-          timezone: this.config.params.timezone || 'America/Sao_Paulo',
+          version: 'v2',
+          clientId: this.config.params.clientId || 'ADMIN_DASHBOARD_CLIENT',
+          clientSecret: this.config.params.clientSecret || 'admin_dashboard_secret_2025',
           deviceId: this.config.context.resolved.ingestionId,
-          startDate: this.config.params.startDate,
-          endDate: this.config.params.endDate,
+          readingType: 'energy',
+          startDate: startISO,
+          endDate: endISO,
           granularity: this.config.params.granularity || '1d',
           theme: this.config.params.theme || 'light',
-          
-          // Authentication
-          ...(this.config.params.ingestionToken 
-            ? { token: this.config.params.ingestionToken }
-            : { 
-                clientId: this.config.params.clientId, 
-                clientSecret: this.config.params.clientSecret 
-              }
-          )
+          timezone: this.config.params.timezone || 'America/Sao_Paulo',
+          iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
+          apiBaseUrl: this.config.params.dataApiHost || 'https://api.data.apps.myio-bas.com'
         };
+
+        console.log('[EnergyModalView] Rendering chart with SDK config:', {
+          deviceId: chartConfig.deviceId,
+          startDate: chartConfig.startDate,
+          endDate: chartConfig.endDate,
+          granularity: chartConfig.granularity
+        });
 
         (window as any).EnergyChartSDK.renderTelemetryChart(this.chartContainer, chartConfig);
         return true;
@@ -240,6 +411,33 @@ export class EnergyModalView {
     }
     
     return false;
+  }
+
+  /**
+   * Helper function to normalize dates to São Paulo timezone ISO string
+   */
+  private normalizeToSaoPauloISO(dateLike: string | Date, endOfDay: boolean = false): string {
+    let date: Date;
+    
+    if (typeof dateLike === 'string') {
+      // Handle YYYY-MM-DD format
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateLike)) {
+        date = new Date(dateLike + 'T00:00:00-03:00');
+      } else {
+        date = new Date(dateLike);
+      }
+    } else {
+      date = new Date(dateLike);
+    }
+    
+    // Set to end of day if requested
+    if (endOfDay) {
+      date.setHours(23, 59, 59, 999);
+    } else {
+      date.setHours(0, 0, 0, 0);
+    }
+    
+    return date.toISOString().replace('Z', '-03:00');
   }
 
   /**

@@ -66,8 +66,8 @@ export class EnergyModal {
       // 2. Create and configure modal
       this.modal = createModal({
         title: this.buildModalTitle(),
-        width: this.params.styles?.modalWidth || DEFAULT_STYLES.modalWidth,
-        height: this.params.styles?.modalHeight || DEFAULT_STYLES.modalHeight,
+        width: '80vw',
+        height: '90vh',
         theme: (this.params.theme === 'dark' ? 'dark' : 'light') as 'light' | 'dark'
       });
 
