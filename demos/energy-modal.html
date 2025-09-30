@@ -267,9 +267,9 @@
         <div class="demo-section">
             <h3>📖 Usage Examples</h3>
             
-            <h4>Basic Usage:</h4>
+            <h4>Basic Usage (Async):</h4>
             <div class="code-block">
-const modal = openDashboardPopupEnergy({
+const modal = await openDashboardPopupEnergy({
   deviceId: 'DEVICE_UUID',
   startDate: '2025-09-01',
   endDate: '2025-09-30',
@@ -281,9 +281,9 @@ const modal = openDashboardPopupEnergy({
 modal.close();
             </div>
 
-            <h4>With Client Credentials:</h4>
+            <h4>With Client Credentials (Async):</h4>
             <div class="code-block">
-const modal = openDashboardPopupEnergy({
+const modal = await openDashboardPopupEnergy({
   deviceId: 'DEVICE_UUID',
   startDate: '2025-09-01',
   endDate: '2025-09-30',
@@ -295,6 +295,24 @@ const modal = openDashboardPopupEnergy({
   onClose: () => console.log('Modal closed'),
   onError: (error) => console.error('Modal error:', error)
 });
+            </div>
+
+            <h4>Widget Integration:</h4>
+            <div class="code-block">
+// In your ThingsBoard widget
+try {
+  const modal = await MyIO.openDashboardPopupEnergy({
+    deviceId: it.entityId,
+    startDate: self.ctx.scope.startDateISO,
+    endDate: self.ctx.scope.endDateISO,
+    tbJwtToken: localStorage.getItem("jwt_token"),
+    ingestionToken: await MyIOAuth.getToken(),
+    clientId: CLIENT_ID,
+    clientSecret: CLIENT_SECRET
+  });
+} catch (error) {
+  console.error('Energy modal error:', error);
+}
             </div>
         </div>
     </div>
@@ -330,19 +348,26 @@ const modal = openDashboardPopupEnergy({
                     z-index: 10000;
                 `;
                 
+                const identifier = 'DEMO-001';
+                const label = options.label || 'Demo Energy Device';
+                
                 modalElement.innerHTML = `
                     <div style="
                         background: white;
                         border-radius: 12px;
                         padding: 30px;
-                        max-width: 800px;
-                        width: 90%;
-                        max-height: 80%;
-                        overflow-y: auto;
+                        width: 95vw;
+                        max-width: 1400px;
+                        height: 90vh;
+                        max-height: 900px;
+                        overflow: hidden;
                         box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+                        display: flex;
+                        flex-direction: column;
                     ">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h2 style="margin: 0; color: #1f2937;">Energy Report - ${options.label || options.deviceId}</h2>
+                        <!-- Header following DeviceReportModal pattern -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #e5e7eb; padding-bottom: 15px;">
+                            <h2 style="margin: 0; color: #1f2937; font-size: 20px;">Relatório de Energia - ${identifier} - ${label}</h2>
                             <button onclick="this.closest('[style*=fixed]').remove()" style="
                                 background: none;
                                 border: none;
@@ -352,44 +377,75 @@ const modal = openDashboardPopupEnergy({
                             ">&times;</button>
                         </div>
                         
-                        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                            <h3 style="margin-top: 0; color: #374151;">📊 Demo Energy Data</h3>
-                            <p><strong>Device:</strong> ${options.deviceId}</p>
-                            <p><strong>Period:</strong> ${options.startDate} to ${options.endDate}</p>
-                            <p><strong>Granularity:</strong> ${options.granularity || '1d'}</p>
-                            <p><strong>Theme:</strong> ${options.theme || 'light'}</p>
+                        <!-- Controls Section -->
+                        <div style="margin-bottom: 16px;">
+                            <div style="display: flex; gap: 16px; align-items: end; margin-bottom: 16px;">
+                                <div style="margin-bottom: 0;">
+                                    <label style="display: block; font-weight: 500; margin-bottom: 5px; color: #374151;">Período</label>
+                                    <span style="font-size: 14px; color: #6b7280;">
+                                        ${new Date(options.startDate).toLocaleDateString('pt-BR')} - ${new Date(options.endDate).toLocaleDateString('pt-BR')}
+                                    </span>
+                                </div>
+                                <button onclick="alert('CSV export would happen here')" style="
+                                    background: #6366f1;
+                                    color: white;
+                                    border: none;
+                                    padding: 8px 16px;
+                                    border-radius: 6px;
+                                    cursor: pointer;
+                                    font-size: 14px;
+                                ">Exportar CSV</button>
+                                <button onclick="this.closest('[style*=fixed]').remove()" style="
+                                    background: #f3f4f6;
+                                    color: #374151;
+                                    border: 1px solid #d1d5db;
+                                    padding: 8px 16px;
+                                    border-radius: 6px;
+                                    cursor: pointer;
+                                    font-size: 14px;
+                                ">Fechar</button>
+                            </div>
                         </div>
                         
-                        <div style="background: #dbeafe; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-                            <p style="margin: 0; color: #1e40af;">
-                                <strong>🔋 Total Consumption:</strong> 1,234.56 kWh<br>
-                                <strong>📈 Average Daily:</strong> 41.15 kWh<br>
-                                <strong>⚡ Peak Day:</strong> 67.89 kWh (${options.startDate})
-                            </p>
+                        <!-- Main Chart Container - Full Width -->
+                        <div style="
+                            flex: 1;
+                            background: #f8fafc;
+                            border: 1px solid #e5e7eb;
+                            border-radius: 8px;
+                            padding: 20px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            margin-bottom: 16px;
+                            min-height: 400px;
+                        ">
+                            <div style="text-align: center;">
+                                <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+                                <h3 style="margin: 0 0 8px 0; color: #374151;">Full-Width Energy Chart</h3>
+                                <p style="margin: 0; color: #6b7280;">
+                                    EnergyChartSDK would render here with device: ${options.deviceId}<br>
+                                    Period: ${options.startDate} to ${options.endDate}<br>
+                                    Granularity: ${options.granularity || '1d'}<br>
+                                    Theme: ${options.theme || 'light'}
+                                </p>
+                            </div>
                         </div>
                         
-                        <div style="text-align: center; color: #6b7280; font-style: italic;">
-                            This is a demo modal. In production, this would show real energy charts and data.
-                        </div>
-                        
-                        <div style="margin-top: 20px; text-align: right;">
-                            <button onclick="alert('CSV export would happen here')" style="
-                                background: #6366f1;
-                                color: white;
-                                border: none;
-                                padding: 8px 16px;
-                                border-radius: 6px;
-                                cursor: pointer;
-                                margin-right: 10px;
-                            ">Export CSV</button>
-                            <button onclick="this.closest('[style*=fixed]').remove()" style="
-                                background: #f3f4f6;
-                                color: #374151;
-                                border: 1px solid #d1d5db;
-                                padding: 8px 16px;
-                                border-radius: 6px;
-                                cursor: pointer;
-                            ">Close</button>
+                        <!-- KPIs Section -->
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px;">
+                            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #6366f1; margin-bottom: 8px;">1,234.56 kWh</div>
+                                <div style="font-size: 14px; color: #666;">Total Consumption</div>
+                            </div>
+                            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #6366f1; margin-bottom: 8px;">41.15 kWh</div>
+                                <div style="font-size: 14px; color: #666;">Average Daily</div>
+                            </div>
+                            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #6366f1; margin-bottom: 8px;">67.89 kWh</div>
+                                <div style="font-size: 14px; color: #666;">Peak Day</div>
+                            </div>
                         </div>
                     </div>
                 `;
