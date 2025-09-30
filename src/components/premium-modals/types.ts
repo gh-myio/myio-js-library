@@ -63,7 +63,11 @@ export interface OpenAllReportParams {
   customerId: string;
   ui?: BaseUiCfg;
   api: BaseApiCfg;
-  filters?: { excludeLabels?: (RegExp | string)[] };
+  filters?: { 
+    excludeLabels?: (RegExp | string)[];
+    excludeIds?: string[];
+    forceOnlyIds?: string[];
+  };
   fetcher?: CustomerTotalsFetcher; // Optional dependency injection for testing
 }
 

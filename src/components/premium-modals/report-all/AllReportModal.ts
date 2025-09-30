@@ -566,7 +566,7 @@ export class AllReportModal {
     this.downloadCSV(csvContent, `relatorio-geral-lojas-${new Date().toISOString().split('T')[0]}.csv`);
   }
 
-  private async fetchCustomerTotals(startISO: string, endISO: string): Promise<any[]> {
+  private async fetchCustomerTotals(startISO: string, endISO: string): Promise<any> {
     // Check if custom fetcher is provided (for testing/demo)
     if (this.params.fetcher) {
       // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
@@ -613,16 +613,29 @@ export class AllReportModal {
     const data = await response.json();
     console.log('[AllReportModal] Customer totals response:', data);
     
-    return Array.isArray(data) ? data : [];
+    return data;
   }
 
-  private mapCustomerTotalsResponse(apiData: any[]): StoreReading[] {
-    if (!Array.isArray(apiData) || apiData.length === 0) {
-      console.warn('[AllReportModal] Empty or invalid API response:', apiData);
+  private mapCustomerTotalsResponse(apiResponse: any): StoreReading[] {
+    // Handle the API response structure: { data: [...], summary: {...} }
+    let dataArray: any[] = [];
+    
+    if (apiResponse && apiResponse.data && Array.isArray(apiResponse.data)) {
+      dataArray = apiResponse.data;
+    } else if (Array.isArray(apiResponse)) {
+      // Fallback for direct array response
+      dataArray = apiResponse;
+    } else {
+      console.warn('[AllReportModal] Invalid API response structure:', apiResponse);
       return [];
     }
 
-    const mappedData = apiData
+    if (dataArray.length === 0) {
+      console.warn('[AllReportModal] Empty data array in API response');
+      return [];
+    }
+
+    const mappedData = dataArray
       .map(item => {
         // Handle various possible field names from the API
         const identifier = item.identifier || item.deviceId || item.id || 'N/A';
@@ -636,15 +649,15 @@ export class AllReportModal {
         };
       })
       .filter(store => {
-        // Apply exclude filters if configured
-        return !this.shouldExcludeStore(store.name);
+        // Apply new filter logic with priority: forceOnlyIds > excludeIds > excludeLabels
+        return !this.shouldExcludeStore(store.name, store.identifier);
       })
       .filter(store => {
         // Filter out invalid consumption values
         return !isNaN(store.consumption) && store.consumption >= 0;
       });
 
-    console.log('[AllReportModal] Mapped customer totals:', mappedData.length, 'stores');
+    console.log('[AllReportModal] Mapped customer totals:', mappedData.length, 'stores from', dataArray.length, 'total devices');
     return mappedData;
   }
 
@@ -676,15 +689,31 @@ export class AllReportModal {
     return 0;
   }
 
-  private shouldExcludeStore(storeName: string): boolean {
-    if (!this.params.filters?.excludeLabels) return false;
+  private shouldExcludeStore(storeName: string, storeId: string): boolean {
+    const filters = this.params.filters;
+    if (!filters) return false;
 
-    return this.params.filters.excludeLabels.some(filter => {
-      if (filter instanceof RegExp) {
-        return filter.test(storeName);
-      }
-      return storeName.toLowerCase().includes(filter.toLowerCase());
-    });
+    // Priority 1: forceOnlyIds - if present, only include these IDs
+    if (filters.forceOnlyIds && Array.isArray(filters.forceOnlyIds) && filters.forceOnlyIds.length > 0) {
+      return !filters.forceOnlyIds.includes(storeId);
+    }
+
+    // Priority 2: excludeIds - if present, exclude these IDs
+    if (filters.excludeIds && Array.isArray(filters.excludeIds) && filters.excludeIds.length > 0) {
+      return filters.excludeIds.includes(storeId);
+    }
+
+    // Priority 3: excludeLabels - if present, exclude by label patterns
+    if (filters.excludeLabels && Array.isArray(filters.excludeLabels) && filters.excludeLabels.length > 0) {
+      return filters.excludeLabels.some(filter => {
+        if (filter instanceof RegExp) {
+          return filter.test(storeName);
+        }
+        return storeName.toLowerCase().includes(filter.toLowerCase());
+      });
+    }
+
+    return false;
   }
 
   private downloadCSV(content: string, filename: string): void {
