@@ -44,6 +44,52 @@ export class AllReportModal {
     });
   }
 
+  // Helper: normalize identifiers (upper, strip spaces and non-alphanum)
+  private normalizeId(v: string | null | undefined): string {
+    return (v || '')
+      .toString()
+      .normalize('NFKC')
+      .toUpperCase()
+      .replace(/\s+/g, '')
+      .replace(/[^A-Z0-9]/g, '');
+  }
+
+  // Helper: extract store identifier from API item
+  // Priority: assetName -> parse from name (last token or token after space) -> null
+  private resolveStoreIdentifierFromApi(item: any): string | null {
+    if (item?.assetName) {
+      return item.assetName;
+    }
+    // Examples of `name`: "3F SCMAL2AC205HIJ", "3F SCMAL0L102A"
+    const name: string = item?.name || '';
+    if (!name) return null;
+
+    // Try last "word" that looks like an alphanumeric code
+    const tokens = name.trim().split(/\s+/);
+    const last = tokens[tokens.length - 1] || '';
+    if (/[A-Za-z0-9]{3,}/.test(last)) {
+      return last;
+    }
+
+    // Fallback: first token that looks like a code
+    const maybe = tokens.find(t => /[A-Za-z0-9]{3,}/.test(t));
+    return maybe || null;
+  }
+
+  // Helper: pick a numeric consumption from an API item
+  private pickNumericConsumption(item: any): number {
+    const fields = ['total_value','totalValue','consumption','value','total','energy','kwh'];
+    for (const f of fields) {
+      if (item?.[f] !== undefined && item?.[f] !== null) {
+        const n = typeof item[f] === 'string'
+          ? parseFloat(item[f].replace(',', '.'))
+          : Number(item[f]);
+        if (!Number.isNaN(n)) return n;
+      }
+    }
+    return 0;
+  }
+
   public show(): ModalHandle {
     this.modal = createModal({
       title: 'Relatório Geral - Todas as Lojas',
@@ -265,7 +311,7 @@ export class AllReportModal {
     if (!container) return;
 
     const totalConsumption = this.calculateTotalConsumption();
-    const storeCount = this.data.length;
+    const storeCount = Math.max(1, this.data.length);
 
     container.innerHTML = `
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 16px; background: var(--myio-bg); border-radius: 6px;">
@@ -488,7 +534,8 @@ export class AllReportModal {
 
   private convertToStoreItems(): StoreItem[] {
     return this.data.map(store => ({
-      id: this.generateStoreId(store.name),
+      id: this.generateStoreId(store.name), // or this.generateStoreId(store.identifier) if you prefer
+      identifier: store.identifier,         // <-- required by StoreItem
       label: store.name,
       consumption: store.consumption
     }));
@@ -616,42 +663,47 @@ export class AllReportModal {
   }
 
   private mapCustomerTotalsResponse(apiResponse: any): StoreReading[] {
-    // Handle the API response structure: { data: [...], summary: {...} }
+    // 1) Normalize raw array
     let dataArray: any[] = [];
-    
-    if (apiResponse && apiResponse.data && Array.isArray(apiResponse.data)) {
+    if (apiResponse && Array.isArray(apiResponse.data)) {
       dataArray = apiResponse.data;
     } else if (Array.isArray(apiResponse)) {
-      // Fallback for direct array response
       dataArray = apiResponse;
     } else {
       console.warn('[AllReportModal] Invalid API response structure:', apiResponse);
       return [];
     }
 
-    // Create a map of API data by device ID for quick lookup
-    const apiDataMap = new Map<string, any>();
-    dataArray.forEach(item => {
-      const deviceId = item.id || item.deviceId || item.identifier;
-      if (deviceId) {
-        apiDataMap.set(String(deviceId), item);
-      }
-    });
+    // 2) Aggregate devices by STORE identifier
+    // key = normalized store identifier (e.g., "SCMAL2AC205HIJ")
+    const storeAgg = new Map<string, number>();
 
-    // Use the predefined itemsList and match consumption values from API
-    const mappedData = this.params.itemsList.map(storeItem => {
-      const apiItem = apiDataMap.get(storeItem.id);
-      const consumption = apiItem ? this.parseConsumptionValue(apiItem) : 0;
+    for (const item of dataArray) {
+      const rawStoreId = this.resolveStoreIdentifierFromApi(item);
+      if (!rawStoreId) continue;
+      const key = this.normalizeId(rawStoreId);
+      const val = this.pickNumericConsumption(item);
+      storeAgg.set(key, (storeAgg.get(key) || 0) + val);
+    }
 
+    // 3) Map to UI rows using itemsList identifiers
+    const rows: StoreReading[] = this.params.itemsList.map((storeItem) => {
+      // itemsList provides the store code in `identifier` and the display label in `label`
+      const normalizedIdentifier = this.normalizeId(storeItem.identifier);
+      const consumption = storeAgg.get(normalizedIdentifier) || 0;
       return {
-        identifier: storeItem.identifier,
+        identifier: storeItem.identifier, // keep original formatting in UI
         name: storeItem.label,
-        consumption: consumption
+        consumption: Math.round(consumption * 100) / 100
       };
     });
 
-    console.log('[AllReportModal] Mapped customer totals:', mappedData.length, 'stores from itemsList, matched with', apiDataMap.size, 'API items');
-    return mappedData;
+    console.log(
+      '[AllReportModal] Aggregated:',
+      { storesInApi: storeAgg.size, storesInList: this.params.itemsList.length }
+    );
+
+    return rows;
   }
 
   private parseConsumptionValue(item: any): number {
@@ -681,7 +733,6 @@ export class AllReportModal {
     console.warn('[AllReportModal] No valid consumption value found in item:', item);
     return 0;
   }
-
 
   private downloadCSV(content: string, filename: string): void {
     // Add UTF-8 BOM to ensure proper encoding of special characters
