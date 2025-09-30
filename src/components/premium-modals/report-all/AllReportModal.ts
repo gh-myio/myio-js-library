@@ -342,10 +342,11 @@ export class AllReportModal {
 
     // Apply quick search filter
     if (this.searchFilter) {
-      filtered = filtered.filter(store =>
-        store.name.toLowerCase().includes(this.searchFilter) ||
-        store.identifier.toLowerCase().includes(this.searchFilter)
-      );
+      filtered = filtered.filter(store => {
+        const name = (store.name || '').toString().toLowerCase();
+        const identifier = (store.identifier || '').toString().toLowerCase();
+        return name.includes(this.searchFilter) || identifier.includes(this.searchFilter);
+      });
     }
 
     return filtered.sort((a, b) => {
