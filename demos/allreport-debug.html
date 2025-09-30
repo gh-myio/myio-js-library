@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AllReportModal Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #3e1a7d;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        .btn:hover {
+            background: #2d1458;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .debug-enabled {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .debug-disabled {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐛 AllReportModal Debug Test</h1>
+        
+        <div id="debug-status" class="debug-info debug-disabled">
+            <strong>Debug Logging: DISABLED</strong><br>
+            To enable debug logging, click the "Enable Debug" button below.
+        </div>
+
+        <div style="margin: 20px 0;">
+            <button id="enable-debug" class="btn">Enable Debug Logging</button>
+            <button id="disable-debug" class="btn">Disable Debug Logging</button>
+            <button id="open-modal" class="btn">Open AllReportModal</button>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <h3>📋 Test Configuration</h3>
+            <p><strong>Customer ID:</strong> test-customer-123</p>
+            <p><strong>Items List:</strong> 5 test stores</p>
+            <p><strong>API:</strong> Mock fetcher (simulates real API response)</p>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <h3>🔍 How to Debug</h3>
+            <ol>
+                <li>Click "Enable Debug Logging" to see detailed console output</li>
+                <li>Open browser console (F12)</li>
+                <li>Click "Open AllReportModal"</li>
+                <li>Select a date range and click "Carregar"</li>
+                <li>Watch the console for detailed debug logs</li>
+            </ol>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <h3>📊 Expected Debug Output</h3>
+            <ul>
+                <li><code>[AllReportModal DEBUG] 🚀 AllReportModal initialized</code></li>
+                <li><code>[AllReportModal DEBUG] 📊 Starting loadData process</code></li>
+                <li><code>[AllReportModal DEBUG] 🌐 Fetching customer totals from API...</code></li>
+                <li><code>[AllReportModal DEBUG] ✅ API response received</code></li>
+                <li><code>[AllReportModal DEBUG] 🔍 Starting mapCustomerTotalsResponse</code></li>
+                <li><code>[AllReportModal DEBUG] 📋 API data array extracted</code></li>
+                <li><code>[AllReportModal DEBUG] 🔨 Building ID index from API data...</code></li>
+                <li><code>[AllReportModal DEBUG] 🎯 Starting itemsList mapping...</code></li>
+                <li><code>[AllReportModal DEBUG] 📊 Final mapping stats</code></li>
+                <li><code>[AllReportModal DEBUG] ✅ Data mapping completed</code></li>
+                <li><code>[AllReportModal DEBUG] 🎨 Rendering UI components...</code></li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="../dist/myio-js-library.umd.js"></script>
+    <script>
+        // Debug status management
+        function updateDebugStatus() {
+            const isEnabled = window.MYIO_DEBUG_ALLREPORT;
+            const statusEl = document.getElementById('debug-status');
+            
+            if (isEnabled) {
+                statusEl.className = 'debug-info debug-enabled';
+                statusEl.innerHTML = '<strong>Debug Logging: ENABLED</strong><br>Check the browser console for detailed logs.';
+            } else {
+                statusEl.className = 'debug-info debug-disabled';
+                statusEl.innerHTML = '<strong>Debug Logging: DISABLED</strong><br>Click "Enable Debug" to see detailed console output.';
+            }
+        }
+
+        // Enable debug logging
+        document.getElementById('enable-debug').addEventListener('click', () => {
+            window.MYIO_DEBUG_ALLREPORT = true;
+            updateDebugStatus();
+            console.log('🐛 AllReportModal debug logging ENABLED');
+        });
+
+        // Disable debug logging
+        document.getElementById('disable-debug').addEventListener('click', () => {
+            window.MYIO_DEBUG_ALLREPORT = false;
+            updateDebugStatus();
+            console.log('🐛 AllReportModal debug logging DISABLED');
+        });
+
+        // Mock API fetcher that simulates the real API response structure
+        function mockCustomerTotalsFetcher({ baseUrl, token, customerId, startISO, endISO }) {
+            console.log('🎭 Mock fetcher called with:', { baseUrl, token, customerId, startISO, endISO });
+            
+            // Simulate API response with the exact structure from your example
+            return Promise.resolve({
+                "data": [
+                    {
+                        "id": "store-1-id",
+                        "name": "3F SCMAL0L102A",
+                        "slaveId": 8,
+                        "gatewayId": "45250d44-bad0-4071-aaa0-8091cfb12691",
+                        "deviceType": "energy",
+                        "total_value": 5096.275530555556,
+                        "customerId": "e01bdd22-3be6-4b75-9dae-442c8b8c186e",
+                        "customerName": "Mestre Álvare",
+                        "assetId": null
+                    },
+                    {
+                        "id": "store-2-id",
+                        "name": "3F SCMAL2AC205HIJ",
+                        "slaveId": 41,
+                        "gatewayId": "d3202744-05dd-46d1-af33-495e9a2ecd52",
+                        "deviceType": "energy",
+                        "total_value": 755.7327772005775,
+                        "customerId": "e01bdd22-3be6-4b75-9dae-442c8b8c186e",
+                        "customerName": "Mestre Álvare",
+                        "assetId": "a56fd2d3-c3c9-47b1-962e-f019303157bb",
+                        "assetName": "SCMAL2AC205HIJ"
+                    },
+                    {
+                        "id": "store-3-id",
+                        "name": "3F SCMAL2AC201D",
+                        "slaveId": 42,
+                        "gatewayId": "d3202744-05dd-46d1-af33-495e9a2ecd52",
+                        "deviceType": "energy",
+                        "total_value": 0.015,
+                        "customerId": "e01bdd22-3be6-4b75-9dae-442c8b8c186e",
+                        "customerName": "Mestre Álvare",
+                        "assetId": "e6c2c7d6-56fc-43d4-8ede-aced752bf8f0",
+                        "assetName": "SCMAL2AC201D"
+                    },
+                    {
+                        "id": "unmatched-store-id",
+                        "name": "3F UNMATCHED_STORE",
+                        "slaveId": 99,
+                        "gatewayId": "unmatched-gateway",
+                        "deviceType": "energy",
+                        "total_value": 1234.56,
+                        "customerId": "e01bdd22-3be6-4b75-9dae-442c8b8c186e",
+                        "customerName": "Mestre Álvare",
+                        "assetId": null
+                    }
+                ],
+                "summary": {
+                    "totalDevices": 4,
+                    "totalValue": 7086.583307756133
+                }
+            });
+        }
+
+        // Open AllReportModal with test configuration
+        document.getElementById('open-modal').addEventListener('click', () => {
+            console.log('🚀 Opening AllReportModal with test configuration...');
+            
+            try {
+                const modal = MyIOLibrary.openDashboardPopupAllReport({
+                    customerId: 'test-customer-123',
+                    api: {
+                        ingestionToken: 'test-token-123',
+                        dataApiBaseUrl: 'https://api.test.myio.com'
+                    },
+                    itemsList: [
+                        {
+                            id: 'store-1-id',
+                            identifier: 'SCMAL0L102A',
+                            label: 'Loja A - SCMAL0L102A'
+                        },
+                        {
+                            id: 'store-2-id',
+                            identifier: 'SCMAL2AC205HIJ',
+                            label: 'Loja B - SCMAL2AC205HIJ'
+                        },
+                        {
+                            id: 'store-3-id',
+                            identifier: 'SCMAL2AC201D',
+                            label: 'Loja C - SCMAL2AC201D'
+                        },
+                        {
+                            id: 'no-match-id',
+                            identifier: 'NOMATCH123',
+                            label: 'Loja D - No Match (should show 0.00)'
+                        },
+                        {
+                            id: 'substring-match-id',
+                            identifier: 'UNMATCHED_STORE',
+                            label: 'Loja E - Substring Match (should find via name)'
+                        }
+                    ],
+                    fetcher: mockCustomerTotalsFetcher
+                });
+
+                console.log('✅ AllReportModal opened successfully');
+            } catch (error) {
+                console.error('❌ Error opening AllReportModal:', error);
+                alert('Error opening modal: ' + error.message);
+            }
+        });
+
+        // Initialize debug status
+        updateDebugStatus();
+
+        console.log('🎯 AllReportModal Debug Test Page Ready');
+        console.log('💡 Enable debug logging and open the modal to see detailed logs');
+    </script>
+</body>
+</html>

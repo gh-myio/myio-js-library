@@ -36,12 +36,32 @@ export class AllReportModal {
   private selectedStoreIds: Set<string> = new Set();
   private currentSortMode: SortMode = 'CONSUMPTION_DESC';
 
+  // Debug logging flag - can be enabled globally
+  private static DEBUG_ENABLED = (globalThis as any).MYIO_DEBUG_ALLREPORT || false;
+
   constructor(private params: OpenAllReportParams) {
     this.authClient = new AuthClient({
       clientId: params.api.clientId,
       clientSecret: params.api.clientSecret,
       base: params.api.dataApiBaseUrl
     });
+
+    this.debugLog('🚀 AllReportModal initialized', {
+      customerId: params.customerId,
+      itemsListLength: params.itemsList?.length || 0,
+      itemsList: params.itemsList,
+      apiConfig: {
+        hasIngestionToken: !!params.api.ingestionToken,
+        dataApiBaseUrl: params.api.dataApiBaseUrl
+      }
+    });
+  }
+
+  // Debug logging helper
+  private debugLog(message: string, data?: any): void {
+    if (AllReportModal.DEBUG_ENABLED) {
+      console.log(`[AllReportModal DEBUG] ${message}`, data || '');
+    }
   }
 
   // Helper: normalize identifiers (upper, strip spaces and non-alphanum)
@@ -206,6 +226,8 @@ export class AllReportModal {
   private async loadData(): Promise<void> {
     if (this.isLoading) return;
 
+    this.debugLog('📊 Starting loadData process');
+
     const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
     const exportBtn = document.getElementById('export-btn') as HTMLButtonElement;
     const spinner = document.getElementById('load-spinner');
@@ -222,6 +244,7 @@ export class AllReportModal {
 
     try {
       const { startISO, endISO } = this.dateRangePicker.getDates();
+      this.debugLog('📅 Date range selected', { startISO, endISO });
 
       if (!startISO || !endISO) {
         this.showError('Selecione um período válido');
@@ -232,21 +255,37 @@ export class AllReportModal {
       const endDate = endISO.split('T')[0];
 
       // Real Customer Totals API call
+      this.debugLog('🌐 Fetching customer totals from API...');
       const customerTotalsData = await this.fetchCustomerTotals(startISO, endISO);
+      this.debugLog('✅ API response received', customerTotalsData);
       
       // Process and map the API response
+      this.debugLog('🔄 Processing API response...');
       this.data = this.mapCustomerTotalsResponse(customerTotalsData);
+      this.debugLog('✅ Data mapping completed', {
+        mappedDataLength: this.data.length,
+        mappedData: this.data,
+        totalConsumption: this.calculateTotalConsumption()
+      });
 
       // Initialize all stores as selected by default
       this.selectedStoreIds = new Set(
         this.data.map(store => this.generateStoreId(store.name))
       );
+      this.debugLog('🎯 Store IDs initialized', {
+        selectedStoreIdsSize: this.selectedStoreIds.size,
+        selectedStoreIds: Array.from(this.selectedStoreIds)
+      });
 
       this.currentPage = 1;
+      
+      this.debugLog('🎨 Rendering UI components...');
       this.renderSummary();
       this.renderTable();
       this.renderPagination();
       exportBtn.disabled = false;
+
+      this.debugLog('🎉 Load process completed successfully');
 
       this.emit('loaded', {
         date: { start: startDate, end: endDate },
@@ -255,6 +294,7 @@ export class AllReportModal {
       });
 
     } catch (error) {
+      this.debugLog('❌ Error in loadData', error);
       this.showError('Erro ao carregar dados: ' + (error as Error).message);
       console.error('Error loading data:', error);
       this.emit('error', { message: (error as Error).message, context: 'loadData' });
@@ -663,6 +703,8 @@ export class AllReportModal {
   }
 
   private mapCustomerTotalsResponse(apiResponse: any): StoreReading[] {
+    this.debugLog('🔍 Starting mapCustomerTotalsResponse', { apiResponse });
+
     // 1) Extract API data array
     const apiArray: any[] = Array.isArray(apiResponse?.data)
       ? apiResponse.data
@@ -670,7 +712,15 @@ export class AllReportModal {
         ? apiResponse
         : [];
 
+    this.debugLog('📋 API data array extracted', {
+      isDataProperty: !!apiResponse?.data,
+      isDirectArray: Array.isArray(apiResponse),
+      apiArrayLength: apiArray.length,
+      firstFewItems: apiArray.slice(0, 3)
+    });
+
     if (!apiArray.length) {
+      this.debugLog('⚠️ Empty API array, returning empty result');
       console.warn('[AllReportModal] Empty/invalid API response:', apiResponse);
       return [];
     }
@@ -679,50 +729,91 @@ export class AllReportModal {
     const sumByApiId = new Map<string, number>();
     let apiItemsWithoutId = 0;
 
-    for (const item of apiArray) {
+    this.debugLog('🔨 Building ID index from API data...');
+    for (const [index, item] of apiArray.entries()) {
       const consumption = this.pickConsumption(item);
+      this.debugLog(`📊 Processing API item ${index}`, {
+        item,
+        extractedConsumption: consumption,
+        hasId: !!item?.id
+      });
       
       if (item?.id) {
         const id = String(item.id);
-        sumByApiId.set(id, (sumByApiId.get(id) || 0) + consumption);
+        const previousSum = sumByApiId.get(id) || 0;
+        sumByApiId.set(id, previousSum + consumption);
+        this.debugLog(`✅ Added to ID index: ${id} = ${previousSum} + ${consumption} = ${previousSum + consumption}`);
       } else {
         apiItemsWithoutId++;
+        this.debugLog(`❌ API item without ID:`, item);
       }
     }
+
+    this.debugLog('📊 ID index built', {
+      sumByApiIdSize: sumByApiId.size,
+      sumByApiIdEntries: Array.from(sumByApiId.entries()),
+      apiItemsWithoutId
+    });
 
     // 3) Map itemsList to rows with fallback strategy
     let matchedById = 0, matchedBySubstring = 0;
     
-    const rows: StoreReading[] = this.params.itemsList.map((listItem) => {
+    this.debugLog('🎯 Starting itemsList mapping...');
+    const rows: StoreReading[] = this.params.itemsList.map((listItem, index) => {
+      this.debugLog(`🔍 Processing listItem ${index}`, listItem);
+
       // Primary: exact ID match
       let consumption = sumByApiId.get(listItem.id) ?? 0;
+      this.debugLog(`🎯 Primary ID match for ${listItem.id}: ${consumption}`);
       
       if (consumption > 0) {
         matchedById++;
+        this.debugLog(`✅ Matched by ID: ${listItem.id} -> ${consumption}`);
       } else {
+        this.debugLog(`🔄 No ID match, trying substring fallback for identifier: ${listItem.identifier}`);
+        
         // Fallback: substring match in name/assetName
-        for (const apiItem of apiArray) {
+        for (const [apiIndex, apiItem] of apiArray.entries()) {
           const assetName = apiItem?.assetName || '';
           const name = apiItem?.name || '';
           
-          if (assetName.includes(listItem.identifier) || name.includes(listItem.identifier)) {
-            consumption += this.pickConsumption(apiItem);
+          const assetNameMatch = assetName.includes(listItem.identifier);
+          const nameMatch = name.includes(listItem.identifier);
+          
+          if (assetNameMatch || nameMatch) {
+            const itemConsumption = this.pickConsumption(apiItem);
+            consumption += itemConsumption;
+            this.debugLog(`✅ Substring match found in API item ${apiIndex}`, {
+              listItemIdentifier: listItem.identifier,
+              apiItemAssetName: assetName,
+              apiItemName: name,
+              assetNameMatch,
+              nameMatch,
+              itemConsumption,
+              totalConsumption: consumption
+            });
           }
         }
         
         if (consumption > 0) {
           matchedBySubstring++;
+          this.debugLog(`✅ Matched by substring: ${listItem.identifier} -> ${consumption}`);
+        } else {
+          this.debugLog(`❌ No match found for: ${listItem.identifier}`);
         }
       }
 
-      return {
+      const result = {
         identifier: listItem.identifier,
         name: listItem.label,
         consumption: Math.round(consumption * 100) / 100
       };
+
+      this.debugLog(`📝 Final row for ${listItem.identifier}:`, result);
+      return result;
     });
 
-    console.log('[AllReportModal] Mapping stats:', {
+    const stats = {
       apiItems: apiArray.length,
       uniqueApiIds: sumByApiId.size,
       itemsInList: this.params.itemsList.length,
@@ -730,7 +821,10 @@ export class AllReportModal {
       matchedBySubstring,
       unmatched: this.params.itemsList.length - matchedById - matchedBySubstring,
       apiItemsWithoutId
-    });
+    };
+
+    this.debugLog('📊 Final mapping stats:', stats);
+    console.log('[AllReportModal] Mapping stats:', stats);
 
     return rows;
   }
