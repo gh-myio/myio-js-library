@@ -662,46 +662,48 @@ export class AllReportModal {
     return data;
   }
 
+  // Replace this whole method
   private mapCustomerTotalsResponse(apiResponse: any): StoreReading[] {
-    // 1) Normalize raw array
-    let dataArray: any[] = [];
-    if (apiResponse && Array.isArray(apiResponse.data)) {
-      dataArray = apiResponse.data;
-    } else if (Array.isArray(apiResponse)) {
-      dataArray = apiResponse;
-    } else {
-      console.warn('[AllReportModal] Invalid API response structure:', apiResponse);
+    // 1) normalize array from API
+    const dataArray: any[] = Array.isArray(apiResponse?.data)
+      ? apiResponse.data
+      : Array.isArray(apiResponse)
+        ? apiResponse
+        : [];
+
+    if (!dataArray.length) {
+      console.warn('[AllReportModal] Empty/invalid API response:', apiResponse);
       return [];
     }
 
-    // 2) Aggregate devices by STORE identifier
-    // key = normalized store identifier (e.g., "SCMAL2AC205HIJ")
-    const storeAgg = new Map<string, number>();
+    // 2) build sum-by-id (in case the API returns multiple rows per same id)
+    const sumById = new Map<string, number>();
+    for (const it of dataArray) {
+      const key = String(it?.id || '');
+      if (!key) continue;
 
-    for (const item of dataArray) {
-      const rawStoreId = this.resolveStoreIdentifierFromApi(item);
-      if (!rawStoreId) continue;
-      const key = this.normalizeId(rawStoreId);
-      const val = this.pickNumericConsumption(item);
-      storeAgg.set(key, (storeAgg.get(key) || 0) + val);
+      const val = this.parseConsumptionValue(it); // reuses your existing helper
+      sumById.set(key, (sumById.get(key) || 0) + val);
     }
 
-    // 3) Map to UI rows using itemsList identifiers
+    // 3) map to UI rows using itemsList.id
+    let matched = 0;
     const rows: StoreReading[] = this.params.itemsList.map((storeItem) => {
-      // itemsList provides the store code in `identifier` and the display label in `label`
-      const normalizedIdentifier = this.normalizeId(storeItem.identifier);
-      const consumption = storeAgg.get(normalizedIdentifier) || 0;
+      const c = sumById.get(storeItem.id) ?? 0;
+      if (c > 0) matched++;
       return {
-        identifier: storeItem.identifier, // keep original formatting in UI
-        name: storeItem.label,
-        consumption: Math.round(consumption * 100) / 100
+        identifier: storeItem.identifier, // keep original code shown in the table
+        name: storeItem.label,            // friendly name from itemsList
+        consumption: Math.round(c * 100) / 100
       };
     });
 
-    console.log(
-      '[AllReportModal] Aggregated:',
-      { storesInApi: storeAgg.size, storesInList: this.params.itemsList.length }
-    );
+    console.log('[AllReportModal] Mapping by id stats:', {
+      apiItems: dataArray.length,
+      uniqueIdsInApi: sumById.size,
+      itemsInList: this.params.itemsList.length,
+      matched
+    });
 
     return rows;
   }
