@@ -8,10 +8,9 @@ import { attach as attachDateRangePicker, DateRangeControl } from '../internal/D
 import {
   attachFilterOrderingModal,
   FilterModalHandle,
-  StoreItem,
   SortMode
 } from '../internal/filter-ordering/FilterOrderingModal';
-import { OpenAllReportParams, ModalHandle } from '../types';
+import { OpenAllReportParams, ModalHandle, StoreItem } from '../types';
 
 interface StoreReading {
   identifier: string;  // e.g., "SCMAL1230B" - unique store identifier
@@ -630,34 +629,28 @@ export class AllReportModal {
       return [];
     }
 
-    if (dataArray.length === 0) {
-      console.warn('[AllReportModal] Empty data array in API response');
-      return [];
-    }
+    // Create a map of API data by device ID for quick lookup
+    const apiDataMap = new Map<string, any>();
+    dataArray.forEach(item => {
+      const deviceId = item.id || item.deviceId || item.identifier;
+      if (deviceId) {
+        apiDataMap.set(String(deviceId), item);
+      }
+    });
 
-    const mappedData = dataArray
-      .map(item => {
-        // Handle various possible field names from the API
-        const identifier = item.identifier || item.deviceId || item.id || 'N/A';
-        const name = item.deviceLabel || item.name || item.label || identifier;
-        const consumption = this.parseConsumptionValue(item);
+    // Use the predefined itemsList and match consumption values from API
+    const mappedData = this.params.itemsList.map(storeItem => {
+      const apiItem = apiDataMap.get(storeItem.id);
+      const consumption = apiItem ? this.parseConsumptionValue(apiItem) : 0;
 
-        return {
-          identifier: String(identifier).toUpperCase(),
-          name: String(name),
-          consumption: consumption
-        };
-      })
-      .filter(store => {
-        // Apply new filter logic with priority: forceOnlyIds > excludeIds > excludeLabels
-        return !this.shouldExcludeStore(store.name, store.identifier);
-      })
-      .filter(store => {
-        // Filter out invalid consumption values
-        return !isNaN(store.consumption) && store.consumption >= 0;
-      });
+      return {
+        identifier: storeItem.identifier,
+        name: storeItem.label,
+        consumption: consumption
+      };
+    });
 
-    console.log('[AllReportModal] Mapped customer totals:', mappedData.length, 'stores from', dataArray.length, 'total devices');
+    console.log('[AllReportModal] Mapped customer totals:', mappedData.length, 'stores from itemsList, matched with', apiDataMap.size, 'API items');
     return mappedData;
   }
 
@@ -689,32 +682,6 @@ export class AllReportModal {
     return 0;
   }
 
-  private shouldExcludeStore(storeName: string, storeId: string): boolean {
-    const filters = this.params.filters;
-    if (!filters) return false;
-
-    // Priority 1: forceOnlyIds - if present, only include these IDs
-    if (filters.forceOnlyIds && Array.isArray(filters.forceOnlyIds) && filters.forceOnlyIds.length > 0) {
-      return !filters.forceOnlyIds.includes(storeId);
-    }
-
-    // Priority 2: excludeIds - if present, exclude these IDs
-    if (filters.excludeIds && Array.isArray(filters.excludeIds) && filters.excludeIds.length > 0) {
-      return filters.excludeIds.includes(storeId);
-    }
-
-    // Priority 3: excludeLabels - if present, exclude by label patterns
-    if (filters.excludeLabels && Array.isArray(filters.excludeLabels) && filters.excludeLabels.length > 0) {
-      return filters.excludeLabels.some(filter => {
-        if (filter instanceof RegExp) {
-          return filter.test(storeName);
-        }
-        return storeName.toLowerCase().includes(filter.toLowerCase());
-      });
-    }
-
-    return false;
-  }
 
   private downloadCSV(content: string, filename: string): void {
     // Add UTF-8 BOM to ensure proper encoding of special characters

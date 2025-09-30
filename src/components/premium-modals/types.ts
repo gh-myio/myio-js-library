@@ -59,15 +59,17 @@ export type CustomerTotalsFetcher = (args: {
   endISO: string;
 }) => Promise<any[]>;
 
+export interface StoreItem {
+  id: string;         // Device ID to match with API response
+  identifier: string; // Display identifier (e.g., "SCMAL1230B")
+  label: string;      // Display name (e.g., "McDonalds")
+}
+
 export interface OpenAllReportParams {
   customerId: string;
   ui?: BaseUiCfg;
   api: BaseApiCfg;
-  filters?: { 
-    excludeLabels?: (RegExp | string)[];
-    excludeIds?: string[];
-    forceOnlyIds?: string[];
-  };
+  itemsList: StoreItem[]; // Mandatory list of items to display
   fetcher?: CustomerTotalsFetcher; // Optional dependency injection for testing
 }
 
