@@ -723,6 +723,10 @@ export class AllReportModal {
         ? apiResponse
         : [];
 
+    // Always log this for debugging (survives minification)
+    console.log('[AllReportModal] NEW MAPPING - API array length:', apiArray.length);
+    console.log('[AllReportModal] NEW MAPPING - ItemsList length:', this.params.itemsList.length);
+
     this.debugLog('📋 API data array extracted', {
       isDataProperty: !!apiResponse?.data,
       isDirectArray: Array.isArray(apiResponse),
@@ -739,10 +743,24 @@ export class AllReportModal {
     // 2) Build primary index by ID (with aggregation for duplicate IDs)
     const sumByApiId = new Map<string, number>();
     let apiItemsWithoutId = 0;
+    let totalApiConsumption = 0;
 
     this.debugLog('🔨 Building ID index from API data...');
     for (const [index, item] of apiArray.entries()) {
       const consumption = this.pickConsumption(item);
+      totalApiConsumption += consumption;
+      
+      // Log first few items for debugging
+      if (index < 3) {
+        console.log(`[AllReportModal] NEW MAPPING - API item ${index}:`, {
+          id: item?.id,
+          name: item?.name,
+          assetName: item?.assetName,
+          total_value: item?.total_value,
+          extractedConsumption: consumption
+        });
+      }
+      
       this.debugLog(`📊 Processing API item ${index}`, {
         item,
         extractedConsumption: consumption,
@@ -760,6 +778,9 @@ export class AllReportModal {
       }
     }
 
+    console.log('[AllReportModal] NEW MAPPING - Total API consumption:', totalApiConsumption);
+    console.log('[AllReportModal] NEW MAPPING - Unique API IDs:', sumByApiId.size);
+
     this.debugLog('📊 ID index built', {
       sumByApiIdSize: sumByApiId.size,
       sumByApiIdEntries: Array.from(sumByApiId.entries()),
@@ -768,6 +789,7 @@ export class AllReportModal {
 
     // 3) Map itemsList to rows with fallback strategy
     let matchedById = 0, matchedBySubstring = 0;
+    let totalMappedConsumption = 0;
     
     this.debugLog('🎯 Starting itemsList mapping...');
     const rows: StoreReading[] = this.params.itemsList.map((listItem, index) => {
@@ -776,6 +798,16 @@ export class AllReportModal {
       // Primary: exact ID match
       let consumption = sumByApiId.get(listItem.id) ?? 0;
       this.debugLog(`🎯 Primary ID match for ${listItem.id}: ${consumption}`);
+      
+      // Log first few items for debugging
+      if (index < 3) {
+        console.log(`[AllReportModal] NEW MAPPING - ItemsList item ${index}:`, {
+          id: listItem.id,
+          identifier: listItem.identifier,
+          label: listItem.label,
+          idMatchConsumption: consumption
+        });
+      }
       
       if (consumption > 0) {
         matchedById++;
@@ -794,6 +826,17 @@ export class AllReportModal {
           if (assetNameMatch || nameMatch) {
             const itemConsumption = this.pickConsumption(apiItem);
             consumption += itemConsumption;
+            
+            // Log substring matches for debugging
+            if (index < 3) {
+              console.log(`[AllReportModal] NEW MAPPING - Substring match for ${listItem.identifier}:`, {
+                apiItemName: name,
+                apiItemAssetName: assetName,
+                itemConsumption,
+                totalConsumption: consumption
+              });
+            }
+            
             this.debugLog(`✅ Substring match found in API item ${apiIndex}`, {
               listItemIdentifier: listItem.identifier,
               apiItemAssetName: assetName,
@@ -820,6 +863,8 @@ export class AllReportModal {
         consumption: Math.round(consumption * 100) / 100
       };
 
+      totalMappedConsumption += result.consumption;
+
       this.debugLog(`📝 Final row for ${listItem.identifier}:`, result);
       return result;
     });
@@ -831,8 +876,13 @@ export class AllReportModal {
       matchedById,
       matchedBySubstring,
       unmatched: this.params.itemsList.length - matchedById - matchedBySubstring,
-      apiItemsWithoutId
+      apiItemsWithoutId,
+      totalApiConsumption,
+      totalMappedConsumption
     };
+
+    // Always log final stats (survives minification)
+    console.log('[AllReportModal] NEW MAPPING - Final stats:', stats);
 
     this.debugLog('📊 Final mapping stats:', stats);
     console.log('[AllReportModal] Mapping stats:', stats);
