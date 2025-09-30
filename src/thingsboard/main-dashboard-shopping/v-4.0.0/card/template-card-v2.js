@@ -558,7 +558,7 @@ export function renderCardComponentV2({
 
     // Device image mapping
     const deviceImages = {
-      MOTOR: "https://dashboard.myio-bas.com/api/images/public/8Ezn8qVBJ3jXD0iDfnEAZ0MZhAP1b5Ts",
+      MOTOR: "https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT",
       "3F_MEDIDOR": "https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k",
       RELOGIO: "https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB",
       HIDROMETRO: "https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4",
