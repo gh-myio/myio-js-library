@@ -91,15 +91,17 @@ console.log('Client Secret:', attrs.client_secret);
 console.log('Ingestion ID:', attrs.ingestionId);
 ```
 
-#### Automatic Token Retrieval
+#### With Token Parameter
 ```javascript
-// Automatically get token from localStorage
-const attrs = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage('customer-uuid-123');
+// Provide token directly
+const tbToken = localStorage.getItem('jwt_token');
+const attrs = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage('customer-uuid-123', tbToken);
 
-// Use custom token key
+// Use custom baseUrl
 const attrs2 = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(
   'customer-uuid-123', 
-  'custom_jwt_key'
+  tbToken,
+  'https://custom.thingsboard.com'
 );
 ```
 

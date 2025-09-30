@@ -277,12 +277,9 @@ describe('fetchThingsboardCustomerServerScopeAttrs', () => {
 describe('fetchThingsboardCustomerAttrsFromStorage', () => {
   beforeEach(() => {
     fetch.mockClear();
-    localStorageMock.getItem.mockClear();
   });
 
-  test('should fetch attributes using token from localStorage', async () => {
-    localStorageMock.getItem.mockReturnValue('stored-jwt-token');
-    
+  test('should fetch attributes using provided token', async () => {
     fetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -291,45 +288,45 @@ describe('fetchThingsboardCustomerAttrsFromStorage', () => {
       ]
     });
 
-    const result = await fetchThingsboardCustomerAttrsFromStorage('customer-123');
+    const result = await fetchThingsboardCustomerAttrsFromStorage('customer-123', 'provided-jwt-token');
 
-    expect(localStorageMock.getItem).toHaveBeenCalledWith('jwt_token');
     expect(result).toEqual({
       client_id: 'stored-client'
     });
+
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/plugins/telemetry/CUSTOMER/customer-123/values/attributes/SERVER_SCOPE',
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Authorization': 'Bearer provided-jwt-token'
+        }
+      }
+    );
   });
 
-  test('should use custom token key', async () => {
-    localStorageMock.getItem.mockReturnValue('custom-token');
-    
+  test('should use custom baseUrl when provided', async () => {
     fetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => []
     });
 
-    await fetchThingsboardCustomerAttrsFromStorage('customer-123', 'custom_jwt_key');
+    await fetchThingsboardCustomerAttrsFromStorage('customer-123', 'token-456', 'https://custom.thingsboard.com');
 
-    expect(localStorageMock.getItem).toHaveBeenCalledWith('custom_jwt_key');
+    expect(fetch).toHaveBeenCalledWith(
+      'https://custom.thingsboard.com/api/plugins/telemetry/CUSTOMER/customer-123/values/attributes/SERVER_SCOPE',
+      expect.any(Object)
+    );
   });
 
-  test('should throw error when token not found in localStorage', async () => {
-    localStorageMock.getItem.mockReturnValue(null);
+  test('should throw error for missing required parameters', async () => {
+    await expect(fetchThingsboardCustomerAttrsFromStorage('', 'token'))
+      .rejects.toThrow('customerId and tbToken are required');
 
-    await expect(fetchThingsboardCustomerAttrsFromStorage('customer-123'))
-      .rejects.toThrow('JWT token not found in localStorage (key: jwt_token)');
-  });
-
-  test('should throw error when localStorage is not available', async () => {
-    // Temporarily remove localStorage
-    const originalLocalStorage = global.localStorage;
-    delete global.localStorage;
-
-    await expect(fetchThingsboardCustomerAttrsFromStorage('customer-123'))
-      .rejects.toThrow('localStorage is not available in this environment');
-
-    // Restore localStorage
-    global.localStorage = originalLocalStorage;
+    await expect(fetchThingsboardCustomerAttrsFromStorage('customer', ''))
+      .rejects.toThrow('customerId and tbToken are required');
   });
 });
 

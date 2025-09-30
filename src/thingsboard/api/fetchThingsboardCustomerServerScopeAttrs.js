@@ -118,32 +118,25 @@ function processAttributesResponse(payload) {
 }
 
 /**
- * Fetch customer attributes with automatic token retrieval from localStorage
+ * Fetch customer attributes with token parameter
  * Convenience function for ThingsBoard widget contexts
  * 
  * @param {string} customerId Customer UUID
- * @param {string} [tokenKey='jwt_token'] localStorage key for JWT token
+ * @param {string} tbToken JWT token for authentication
+ * @param {string} [baseUrl] Optional base URL for ThingsBoard API
  * @returns {Promise<Object>} Promise resolving to attributes map
  * 
  * @example
  * ```javascript
- * const attrs = await fetchThingsboardCustomerAttrsFromStorage('customer-uuid');
+ * const tbToken = localStorage.getItem('jwt_token');
+ * const attrs = await fetchThingsboardCustomerAttrsFromStorage('customer-uuid', tbToken);
  * ```
  */
-export async function fetchThingsboardCustomerAttrsFromStorage(customerId, tokenKey = 'jwt_token') {
-  if (typeof localStorage === 'undefined') {
-    throw new Error('localStorage is not available in this environment');
-  }
-
-  const tbToken = localStorage.getItem(tokenKey);
-  
-  if (!tbToken) {
-    throw new Error(`JWT token not found in localStorage (key: ${tokenKey})`);
-  }
-
+export async function fetchThingsboardCustomerAttrsFromStorage(customerId, tbToken, baseUrl) {
   return fetchThingsboardCustomerServerScopeAttrs({
     customerId,
-    tbToken
+    tbToken,
+    baseUrl
   });
 }
 
