@@ -1,0 +1,169 @@
+// energy/types.ts - Comprehensive types for openDashboardPopupEnergy component
+
+export interface OpenDashboardPopupEnergyOptions {
+  // Identity / Context (REQUIRED)
+  deviceId: string;                    // TB device UUID for entity fetch
+  startDate: string | Date;            // ISO with TZ offset or 'YYYY-MM-DD'
+  endDate: string | Date;              // ISO with TZ offset or 'YYYY-MM-DD'
+  tbJwtToken: string;                  // REQUIRED for TB REST fetches
+
+  // Optional Identity Resolution
+  label?: string;                      // Display label (fallback to TB label/name)
+  customerId?: string;                 // Optional; if absent, show device view
+  ingestionId?: string;                // Optional; try resolving from TB attributes
+  centralId?: string;                  // Optional; may come from attributes
+  slaveId?: number | string;           // Optional; may come from attributes
+
+  // Authentication Strategy (ONE REQUIRED)
+  ingestionToken?: string;             // For direct Data API access
+  clientId?: string;                   // For SDK auth flow
+  clientSecret?: string;               // For SDK auth flow
+
+  // Endpoints / Environment
+  dataApiHost?: string;                // default: https://api.data.apps.myio-bas.com
+  chartsBaseUrl?: string;              // default: https://graphs.apps.myio-bas.com
+  timezone?: string;                   // default: "America/Sao_Paulo"
+  theme?: 'light' | 'dark' | string;   // default: 'light'
+
+  // Behavior Configuration
+  granularity?: '1d' | '1h' | '15m';   // default: '1d'
+  closeOnEsc?: boolean;                // default: true
+  zIndex?: number;                     // default: 10000
+
+  // Event Hooks
+  onOpen?: (ctx: EnergyModalContext) => void;
+  onClose?: () => void;
+  onError?: (err: EnergyModalError) => void;
+
+  // Customization
+  i18n?: Partial<EnergyModalI18n>;
+  styles?: Partial<EnergyModalStyleOverrides>;
+}
+
+export interface EnergyModalContext {
+  device: {
+    id: string;
+    label: string;
+    attributes: Record<string, any>;
+  };
+  resolved: {
+    ingestionId?: string;
+    centralId?: string;
+    slaveId?: number | string;
+    customerId?: string;
+  };
+}
+
+export interface EnergyModalI18n {
+  title: string;
+  loading: string;
+  error: string;
+  noData: string;
+  exportCsv: string;
+  close: string;
+  totalConsumption: string;
+  averageDaily: string;
+  peakDay: string;
+  dateRange: string;
+  deviceSummary: string;
+  energyChart: string;
+  kwhUnit: string;
+}
+
+export interface EnergyModalStyleOverrides {
+  primaryColor: string;
+  backgroundColor: string;
+  textColor: string;
+  borderColor: string;
+  borderRadius: string;
+  fontFamily: string;
+  modalWidth: string;
+  modalHeight: string;
+}
+
+export interface EnergyModalError {
+  code: 'VALIDATION_ERROR' | 'NETWORK_ERROR' | 'AUTH_ERROR' | 'TOKEN_EXPIRED' | 'UNKNOWN_ERROR';
+  message: string;
+  field?: string;
+  userAction?: 'RETRY' | 'RE_AUTH' | 'CONTACT_ADMIN' | 'FIX_INPUT';
+  cause?: unknown;
+}
+
+export interface EnergyData {
+  deviceId: string;
+  consumption: EnergyDataPoint[];
+  granularity: string;
+  dateRange: {
+    start: string;
+    end: string;
+  };
+}
+
+export interface EnergyDataPoint {
+  timestamp: string;
+  value: number;
+}
+
+export interface EnergyDataParams {
+  ingestionId: string;
+  startISO: string;
+  endISO: string;
+  granularity: string;
+}
+
+export interface DataFetcherConfig {
+  dataApiHost?: string;
+  ingestionToken?: string;
+  clientId?: string;
+  clientSecret?: string;
+}
+
+export interface EnergyViewConfig {
+  context: EnergyModalContext;
+  params: OpenDashboardPopupEnergyOptions;
+  onExport: () => void;
+  onError: (error: EnergyModalError) => void;
+}
+
+export interface ChartOptions {
+  dataApiHost?: string;
+  chartsBaseUrl?: string;
+  timezone: string;
+  ingestionId: string;
+  startISO: string;
+  endISO: string;
+  granularity: string;
+  theme: string;
+  ingestionToken?: string;
+  clientId?: string;
+  clientSecret?: string;
+}
+
+// Default i18n values
+export const DEFAULT_I18N: EnergyModalI18n = {
+  title: 'Energy Details',
+  loading: 'Loading energy data...',
+  error: 'Error loading data',
+  noData: 'No data available',
+  exportCsv: 'Export CSV',
+  close: 'Close',
+  totalConsumption: 'Total Consumption',
+  averageDaily: 'Average Daily',
+  peakDay: 'Peak Day',
+  dateRange: 'Date Range',
+  deviceSummary: 'Device Summary',
+  energyChart: 'Energy Chart',
+  kwhUnit: 'kWh'
+};
+
+// Default style overrides
+export const DEFAULT_STYLES: EnergyModalStyleOverrides = {
+  primaryColor: '#6366f1',
+  backgroundColor: '#ffffff',
+  textColor: '#1f2937',
+  borderColor: '#e5e7eb',
+  borderRadius: '8px',
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  modalWidth: '90vw',
+  modalHeight: '90vh'
+};

@@ -99,6 +99,15 @@ export {
   openDashboardPopup
 } from './components/premium-modals';
 
+// Energy Modal Types
+export type {
+  OpenDashboardPopupEnergyOptions,
+  EnergyModalContext,
+  EnergyModalI18n,
+  EnergyModalStyleOverrides,
+  EnergyModalError
+} from './components/premium-modals/energy/openDashboardPopupEnergy';
+
 // Settings Modal Component
 export { openDashboardPopupSettings } from './components/premium-modals/settings/openDashboardPopupSettings';
 export type { 
