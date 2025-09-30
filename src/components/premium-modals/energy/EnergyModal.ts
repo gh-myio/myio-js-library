@@ -79,7 +79,8 @@ export class EnergyModal {
         context: this.context,
         params: this.params,
         onExport: () => this.handleExport(),
-        onError: (error) => this.handleError(error)
+        onError: (error) => this.handleError(error),
+        onDateRangeChange: (startISO, endISO) => this.handleDateRangeChange(startISO, endISO)
       });
 
       // 4. Setup modal event handlers
@@ -320,6 +321,42 @@ export class EnergyModal {
       this.on('close', () => {
         document.removeEventListener('keydown', handleKeyDown);
       });
+    }
+  }
+
+  /**
+   * Handles date range changes from the date picker
+   */
+  private async handleDateRangeChange(startISO: string, endISO: string): Promise<void> {
+    if (!this.context?.resolved.ingestionId || !this.view) {
+      return;
+    }
+
+    try {
+      console.log('[EnergyModal] Date range changed:', { startISO, endISO });
+
+      // Show loading state
+      this.view.showLoadingState();
+
+      // Fetch energy data with new date range
+      const energyData = await this.dataFetcher.fetchEnergyData({
+        ingestionId: this.context.resolved.ingestionId,
+        startISO,
+        endISO,
+        granularity: this.params.granularity || '1d'
+      });
+
+      console.log('[EnergyModal] Energy data reloaded:', {
+        dataPoints: energyData.consumption.length,
+        totalConsumption: energyData.consumption.reduce((sum, point) => sum + point.value, 0)
+      });
+
+      // Render updated energy data
+      this.view.renderEnergyData(energyData);
+
+    } catch (error) {
+      console.error('[EnergyModal] Error reloading energy data:', error);
+      this.handleError(error as Error);
     }
   }
 

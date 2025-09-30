@@ -2,6 +2,7 @@
 
 import { toCsv } from '../internal/engines/CsvExporter';
 import { fmtPt } from '../internal/engines/NumberFmt';
+import { attach as attachDateRangePicker, DateRangeControl } from '../internal/DateRangePickerJQ';
 import { 
   EnergyViewConfig, 
   EnergyData, 
@@ -20,6 +21,8 @@ export class EnergyModalView {
   private chartContainer: HTMLElement | null = null;
   private config: EnergyViewConfig;
   private currentEnergyData: EnergyData | null = null;
+  private dateRangePicker: DateRangeControl | null = null;
+  private isLoading = false;
 
   constructor(modal: any, config: EnergyViewConfig) {
     this.modal = modal;
@@ -56,13 +59,13 @@ export class EnergyModalView {
         <div style="margin-bottom: 16px;">
           <div style="display: flex; gap: 16px; align-items: end; margin-bottom: 16px;">
             <div class="myio-form-group" style="margin-bottom: 0;">
-              <label class="myio-label">Período</label>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <span style="font-size: 14px; color: var(--myio-text-muted);">
-                  ${this.formatDateRange(this.config.params.startDate, this.config.params.endDate)}
-                </span>
-              </div>
+              <label class="myio-label" for="date-range">Período</label>
+              <input type="text" id="date-range" class="myio-input" readonly placeholder="Selecione o período" style="width: 300px;">
             </div>
+            <button id="load-btn" class="myio-btn myio-btn-primary">
+              <span class="myio-spinner" id="load-spinner" style="display: none;"></span>
+              Carregar
+            </button>
             <button id="export-csv-btn" class="myio-btn myio-btn-secondary" disabled>
               Exportar CSV
             </button>
@@ -101,182 +104,6 @@ export class EnergyModalView {
     this.chartContainer = container.querySelector('#energy-chart-container') as HTMLElement;
     
     return container;
-  }
-
-  /**
-   * Renders the device summary card
-   */
-  private renderDeviceSummary(): string {
-    const { device, resolved } = this.config.context;
-    const displayLabel = device.label.toUpperCase();
-    const deviceImage = this.getDeviceImage(device.label);
-    const consumption = this.currentEnergyData ? 
-      this.currentEnergyData.consumption.reduce((sum, item) => sum + item.value, 0) : 0;
-    
-    return `
-      <div class="myio-sum-comparison-card" style="
-        flex: 1; 
-        display: flex; 
-        flex-direction: column; 
-        justify-content: flex-start; 
-        padding: 12px; 
-        box-sizing: border-box; 
-        background-color: var(--tb-service-background,#fff); 
-        border-radius: var(--tb-border-radius,4px); 
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.05);
-        min-height: 0;
-      ">
-        <!-- Title -->
-        <div style="text-align:center; font-size:1.2rem; font-weight:600; margin-bottom:4px; display:flex; align-items:center; justify-content:center; gap:8px;">
-          <div class="myio-lightning-icon-container">
-            <svg xmlns="http://www.w3.org/2000/svg" width="28px" height="28px" viewBox="0 -880 960 960" fill="var(--tb-primary-700,#FFC107)" style="display:block;">
-              <path d="m456-200 174-340H510v-220L330-420h126v220Zm24 120q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/>
-            </svg>
-          </div>
-          ${displayLabel}
-        </div>
-
-        <!-- Icon -->
-        <div style="text-align:center; margin-bottom:8px;">
-          <img src="${deviceImage}" alt="ícone" width="92" height="92" style="object-fit: contain;" />
-        </div>
-
-        <!-- Consumption Value (will be updated when data loads) -->
-        <div id="consumption-display" style="display:flex; justify-content:center; align-items:center; margin-bottom:4px; display: none">
-          <div style="font-size:1.4rem; font-weight:600; color:#212121;">
-            <span id="consumption-value">${this.formatEnergyValue(consumption)}</span>
-          </div>
-        </div>
-
-        <style>
-          .info-item {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            padding: 6px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            background: #f9f9f9;
-          }
-          .info-item label {
-            font-size: 0.85rem;
-            font-weight: 600;
-          }
-          .info-item input {
-            padding: 4px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            outline: none;
-            font-size: 0.85rem;
-            background: #fff;
-          }
-        </style>
-
-        <!-- Attribute Fields -->
-        <div style="display:flex; flex-direction:column; gap:6px; font-size:0.85rem;">
-          
-          <div class="info-item">
-            <label>Etiqueta</label>
-            <input type="text" value="${displayLabel}" readonly>
-          </div>
-          
-          <div class="info-item">
-            <label>Andar</label>
-            <input type="text" value="${device.attributes.floor || ''}" readonly>
-          </div>
-          
-          <div class="info-item">
-            <label>Número da Loja</label>
-            <input type="text" value="${device.attributes.identifier || ''}" readonly>
-          </div>
-          
-          <div style="margin-top: 12px;">
-            <button id="device-telemetry-btn" style="
-              width: 100%;
-              padding: 12px 16px;
-              background: linear-gradient(135deg, #4A148C 0%, #6A1B9A 100%);
-              color: white;
-              border: none;
-              border-radius: 8px;
-              font-size: 14px;
-              font-weight: 600;
-              cursor: pointer;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              gap: 8px;
-              transition: all 0.3s ease;
-              box-shadow: 0 2px 8px rgba(74, 20, 140, 0.3);
-            " 
-            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(74, 20, 140, 0.4)';" 
-            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(74, 20, 140, 0.3)';">
-              <span style="font-size: 20px;">⚡</span>
-              <span>Visualizar telemetrias instantâneas</span>
-            </button>
-          </div>
-
-        </div>
-
-      </div>
-    `;
-  }
-
-  /**
-   * Gets device image based on classification
-   */
-  private getDeviceImage(labelOrName: string): string {
-    const DEVICE_SPRITES = {
-      relogio: {
-        on: "/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB",
-        off: "/api/images/public/rYrcTQlf90m7zH9ZIbldz6KIZ7jdb5DU",
-      },
-      subestacao: {
-        on: "/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU",
-        off: "/api/images/public/HnlvjodeBRFBc90xVglYI9mIpF6UgUmi",
-      },
-      bomba_chiller: {
-        on: "/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT",
-        off: "/api/images/public/8Ezn8qVBJ3jXD0iDfnEAZ0MZhAP1b5Ts",
-      },
-      default: {
-        on: "/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k",
-        off: "/api/images/public/sdTe2CPTbLPkbEXBHwaxjSAGVbp4wtIa",
-      },
-    };
-
-    const normalizeLabel = (str = "") => {
-      return String(str)
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove acentos
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, " "); // opcional: colapsa espaços
-    };
-
-    const classifyDevice = (labelOrName = "") => {
-      const s = normalizeLabel(labelOrName);
-      if (/\brelogio\b/.test(s)) return "relogio";
-      if (/subesta/.test(s)) return "subestacao";
-      if (/bomba|chiller/.test(s)) return "bomba_chiller";
-      if (/administra/.test(s)) return "administracao";
-      return "default";
-    };
-
-    const cat = classifyDevice(labelOrName);
-    const sprite = DEVICE_SPRITES[cat] || DEVICE_SPRITES.default;
-    const isOn = this.currentEnergyData ? 
-      this.currentEnergyData.consumption.reduce((sum, item) => sum + item.value, 0) > 0 : true;
-    
-    return isOn ? sprite.on : sprite.off;
-  }
-
-  /**
-   * Formats energy value for display
-   */
-  private formatEnergyValue(value: number): string {
-    if (value >= 1000) {
-      return `${(value / 1000).toFixed(2)} MWh`;
-    }
-    return `${value.toFixed(2)} kWh`;
   }
 
   /**
@@ -325,9 +152,6 @@ export class EnergyModalView {
     this.hideLoadingState();
     this.hideError();
     
-    // Update consumption value in left panel
-    this.updateConsumptionDisplay(energyData);
-    
     // Render chart
     this.renderChart(energyData);
     
@@ -341,30 +165,6 @@ export class EnergyModalView {
     const exportBtn = document.getElementById('export-csv-btn') as HTMLButtonElement;
     if (exportBtn) {
       exportBtn.disabled = false;
-    }
-  }
-
-  /**
-   * Updates the consumption display in the left panel
-   */
-  private updateConsumptionDisplay(energyData: EnergyData): void {
-    const totalConsumption = energyData.consumption.reduce((sum, item) => sum + item.value, 0);
-    const consumptionValueElement = document.getElementById('consumption-value');
-    const consumptionDisplayElement = document.getElementById('consumption-display');
-    
-    if (consumptionValueElement) {
-      consumptionValueElement.textContent = this.formatEnergyValue(totalConsumption);
-    }
-    
-    if (consumptionDisplayElement) {
-      consumptionDisplayElement.style.display = 'flex';
-    }
-    
-    // Update device image based on consumption (on/off state)
-    const deviceImage = document.querySelector('.myio-energy-device-summary img') as HTMLImageElement;
-    if (deviceImage) {
-      const newImageSrc = this.getDeviceImage(this.config.context.device.label);
-      deviceImage.src = newImageSrc;
     }
   }
 
@@ -390,9 +190,18 @@ export class EnergyModalView {
     try {
       // Check if EnergyChartSDK is available
       if (typeof window !== 'undefined' && (window as any).EnergyChartSDK) {
-        // Normalize dates to ISO format with timezone offset
-        const startISO = this.normalizeToSaoPauloISO(this.config.params.startDate, false);
-        const endISO = this.normalizeToSaoPauloISO(this.config.params.endDate, true);
+        // Get current dates from date range picker or use defaults
+        let startISO: string, endISO: string;
+        
+        if (this.dateRangePicker) {
+          const dates = this.dateRangePicker.getDates();
+          startISO = dates.startISO;
+          endISO = dates.endISO;
+        } else {
+          // Fallback to original params
+          startISO = this.normalizeToSaoPauloISO(this.config.params.startDate, false);
+          endISO = this.normalizeToSaoPauloISO(this.config.params.endDate, true);
+        }
         
         const chartConfig = {
           version: 'v2',
@@ -618,11 +427,75 @@ export class EnergyModalView {
   }
 
   /**
+   * Gets default start date (first day of current month)
+   */
+  private getDefaultStartDate(): string {
+    const date = new Date();
+    date.setDate(1); // First day of current month
+    return date.toISOString().split('T')[0];
+  }
+
+  /**
+   * Gets default end date (today)
+   */
+  private getDefaultEndDate(): string {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  /**
+   * Loads data with new date range
+   */
+  private async loadData(): Promise<void> {
+    if (this.isLoading) return;
+
+    const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
+    const exportBtn = document.getElementById('export-csv-btn') as HTMLButtonElement;
+    const spinner = document.getElementById('load-spinner');
+
+    if (!this.dateRangePicker) {
+      this.showError('Seletor de data não inicializado');
+      return;
+    }
+
+    this.isLoading = true;
+    loadBtn.disabled = true;
+    exportBtn.disabled = true;
+    spinner!.style.display = 'inline-block';
+
+    try {
+      const { startISO, endISO } = this.dateRangePicker.getDates();
+      
+      if (!startISO || !endISO) {
+        this.showError('Selecione um período válido');
+        return;
+      }
+
+      // Show loading state
+      this.showLoadingState();
+
+      // Trigger reload via config callback
+      if (this.config.onDateRangeChange) {
+        await this.config.onDateRangeChange(startISO, endISO);
+      }
+
+    } catch (error) {
+      this.showError('Erro ao carregar dados: ' + (error as Error).message);
+      console.error('Error loading data:', error);
+    } finally {
+      this.isLoading = false;
+      loadBtn.disabled = false;
+      spinner!.style.display = 'none';
+    }
+  }
+
+  /**
    * Sets up event listeners
    */
-  private setupEventListeners(): void {
+  private async setupEventListeners(): Promise<void> {
     const exportBtn = document.getElementById('export-csv-btn');
     const closeBtn = document.getElementById('close-btn');
+    const loadBtn = document.getElementById('load-btn');
+    const dateRangeInput = document.getElementById('date-range') as HTMLInputElement;
 
     if (exportBtn) {
       exportBtn.addEventListener('click', () => {
@@ -643,6 +516,30 @@ export class EnergyModalView {
       closeBtn.addEventListener('click', () => {
         this.modal.close();
       });
+    }
+
+    if (loadBtn) {
+      loadBtn.addEventListener('click', () => this.loadData());
+    }
+
+    // Initialize DateRangePicker with widget dates as defaults
+    try {
+      this.dateRangePicker = await attachDateRangePicker(dateRangeInput, {
+        presetStart: this.config.params.startDate instanceof Date 
+          ? this.config.params.startDate.toISOString().split('T')[0]
+          : this.config.params.startDate,
+        presetEnd: this.config.params.endDate instanceof Date
+          ? this.config.params.endDate.toISOString().split('T')[0] 
+          : this.config.params.endDate,
+        maxRangeDays: 31,
+        parentEl: this.modal.element,
+        onApply: ({ startISO, endISO }) => {
+          this.hideError();
+          console.log('Date range selected:', { startISO, endISO });
+        }
+      });
+    } catch (error) {
+      console.warn('DateRangePicker initialization failed, using fallback:', error);
     }
   }
 
@@ -686,14 +583,14 @@ export class EnergyModalView {
   }
 
   /**
-   * Gets modal styles
+   * Gets modal styles with header color matching openDashboardPopupEnergy
    */
   private getModalStyles(): string {
     const styles = this.config.params.styles || {};
     
     return `
       .myio-energy-modal-scope {
-        --myio-energy-primary: ${styles.primaryColor || '#6366f1'};
+        --myio-energy-primary: ${styles.primaryColor || '#4A148C'};
         --myio-energy-bg: ${styles.backgroundColor || '#ffffff'};
         --myio-energy-text: ${styles.textColor || '#1f2937'};
         --myio-energy-border: ${styles.borderColor || '#e5e7eb'};
@@ -702,106 +599,6 @@ export class EnergyModalView {
         
         font-family: var(--myio-energy-font);
         color: var(--myio-energy-text);
-        width: 100vw;
-        height: 100vh;
-        position: fixed;
-        top: 0;
-        left: 0;
-        z-index: 10000;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .myio-energy-modal-layout {
-        display: grid;
-        grid-template-columns: 300px 1fr;
-        gap: 24px;
-        width: 95vw;
-        max-width: 1400px;
-        height: 90vh;
-        max-height: 900px;
-        background: var(--myio-energy-bg);
-        border-radius: var(--myio-energy-radius);
-        padding: 20px;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        overflow: hidden;
-      }
-
-      .myio-energy-device-summary {
-        background: var(--myio-energy-bg);
-        border-radius: var(--myio-energy-radius);
-        padding: 20px;
-        border: 1px solid var(--myio-energy-border);
-        height: fit-content;
-      }
-
-      .myio-device-card {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 20px;
-      }
-
-      .myio-device-icon {
-        font-size: 48px;
-        width: 64px;
-        height: 64px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--myio-energy-primary);
-        border-radius: var(--myio-energy-radius);
-        color: white;
-      }
-
-      .myio-device-info h4 {
-        margin: 0 0 8px 0;
-        font-size: 18px;
-        font-weight: 600;
-      }
-
-      .myio-device-info p {
-        margin: 4px 0;
-        font-size: 14px;
-        color: #666;
-      }
-
-      .myio-device-metadata h5 {
-        margin: 0 0 12px 0;
-        font-size: 16px;
-        font-weight: 600;
-      }
-
-      .myio-metadata-grid div {
-        display: flex;
-        justify-content: space-between;
-        padding: 8px 0;
-        border-bottom: 1px solid var(--myio-energy-border);
-      }
-
-      .myio-energy-chart-section {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-      }
-
-      .myio-energy-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .myio-energy-header h3 {
-        margin: 0;
-        font-size: 24px;
-        font-weight: 600;
-      }
-
-      .myio-energy-actions {
-        display: flex;
-        gap: 12px;
       }
 
       .myio-btn {
@@ -824,14 +621,24 @@ export class EnergyModalView {
         cursor: not-allowed;
       }
 
-      .myio-btn-secondary {
+      .myio-btn-primary {
         background: var(--myio-energy-primary);
         color: white;
         border-color: var(--myio-energy-primary);
       }
 
+      .myio-btn-primary:hover:not(:disabled) {
+        background: #6A1B9A;
+      }
+
+      .myio-btn-secondary {
+        background: #f3f4f6;
+        color: var(--myio-energy-text);
+        border-color: var(--myio-energy-border);
+      }
+
       .myio-btn-secondary:hover:not(:disabled) {
-        background: #5856eb;
+        background: #e5e7eb;
       }
 
       .myio-energy-chart-container {
@@ -975,6 +782,32 @@ export class EnergyModalView {
         text-align: center;
       }
 
+      .myio-form-group {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .myio-label {
+        font-weight: 500;
+        margin-bottom: 5px;
+        color: var(--myio-energy-text);
+      }
+
+      .myio-input {
+        padding: 8px 12px;
+        border: 1px solid var(--myio-energy-border);
+        border-radius: var(--myio-energy-radius);
+        font-size: 14px;
+        background: var(--myio-energy-bg);
+        color: var(--myio-energy-text);
+      }
+
+      .myio-input:focus {
+        outline: none;
+        border-color: var(--myio-energy-primary);
+        box-shadow: 0 0 0 3px rgba(74, 20, 140, 0.1);
+      }
+
       @media (max-width: 768px) {
         .myio-energy-modal-layout {
           grid-template-columns: 1fr;
@@ -986,30 +819,20 @@ export class EnergyModalView {
           gap: 12px;
           align-items: stretch;
         }
-        
-        .myio-energy-actions {
-          justify-content: center;
-        }
       }
     `;
-  }
-
-  /**
-   * Formats date range for display
-   */
-  private formatDateRange(startDate: string | Date, endDate: string | Date): string {
-    const formatDate = (date: string | Date): string => {
-      const d = typeof date === 'string' ? new Date(date) : date;
-      return d.toLocaleDateString('pt-BR');
-    };
-    
-    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
   }
 
   /**
    * Destroys the view and cleans up resources
    */
   destroy(): void {
+    // Cleanup DateRangePicker
+    if (this.dateRangePicker) {
+      this.dateRangePicker.destroy();
+      this.dateRangePicker = null;
+    }
+    
     this.currentEnergyData = null;
     this.container = null;
     this.chartContainer = null;

@@ -123,6 +123,7 @@ export interface EnergyViewConfig {
   params: OpenDashboardPopupEnergyOptions;
   onExport: () => void;
   onError: (error: EnergyModalError) => void;
+  onDateRangeChange?: (startISO: string, endISO: string) => Promise<void>;
 }
 
 export interface ChartOptions {
