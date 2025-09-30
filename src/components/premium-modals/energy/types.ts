@@ -141,18 +141,18 @@ export interface ChartOptions {
 
 // Default i18n values
 export const DEFAULT_I18N: EnergyModalI18n = {
-  title: 'Energy Details',
-  loading: 'Loading energy data...',
-  error: 'Error loading data',
-  noData: 'No data available',
-  exportCsv: 'Export CSV',
-  close: 'Close',
-  totalConsumption: 'Total Consumption',
-  averageDaily: 'Average Daily',
-  peakDay: 'Peak Day',
-  dateRange: 'Date Range',
-  deviceSummary: 'Device Summary',
-  energyChart: 'Energy Chart',
+  title: 'Dashboard - Gráfico',
+  loading: 'Carregando dados...',
+  error: 'Ocorreu um erro ao carregar os dados',
+  noData: 'Nenhum dado disponível para o período selecionado',
+  exportCsv: 'Exportar CSV',
+  close: 'Fechar',
+  totalConsumption: 'Consumo total',
+  averageDaily: 'Média diária',
+  peakDay: 'Pico do dia',
+  dateRange: 'Período',
+  deviceSummary: 'Detalhes do dispositivo',
+  energyChart: 'Consumo de Energia',
   kwhUnit: 'kWh'
 };
 

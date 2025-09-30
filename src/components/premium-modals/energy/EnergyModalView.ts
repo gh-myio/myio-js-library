@@ -159,22 +159,7 @@ export class EnergyModalView {
           
           <div class="info-item">
             <label>Número da Loja</label>
-            <input type="text" value="${device.attributes.NumLoja || ''}" readonly>
-          </div>
-          
-          <div class="info-item">
-            <label>Identificador do Medidor</label>
-            <input type="text" value="${device.attributes.IDMedidor || ''}" readonly>
-          </div>
-          
-          <div class="info-item">
-            <label>Identificador do Dispositivo</label>
-            <input type="text" value="${device.attributes.deviceId || ''}" readonly>
-          </div>
-          
-          <div class="info-item">
-            <label>GUID</label>
-            <input type="text" value="${device.attributes.guid || ''}" readonly>
+            <input type="text" value="${device.attributes.identifier || ''}" readonly>
           </div>
           
           <div style="margin-top: 12px;">
@@ -689,14 +674,31 @@ export class EnergyModalView {
         
         font-family: var(--myio-energy-font);
         color: var(--myio-energy-text);
+        width: 100vw;
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 10000;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
       .myio-energy-modal-layout {
         display: grid;
         grid-template-columns: 300px 1fr;
         gap: 24px;
-        height: 100%;
+        width: 95vw;
+        max-width: 1400px;
+        height: 90vh;
+        max-height: 900px;
+        background: var(--myio-energy-bg);
+        border-radius: var(--myio-energy-radius);
         padding: 20px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        overflow: hidden;
       }
 
       .myio-energy-device-summary {
