@@ -585,7 +585,8 @@ export class EnergyModalView {
 
       .myio-energy-chart-container {
         flex: 1;
-        min-height: 400px;
+        min-height: 60vh;
+        height: 100%;
         background: var(--myio-energy-bg);
         border-radius: var(--myio-energy-radius);
         border: 1px solid var(--myio-energy-border);
