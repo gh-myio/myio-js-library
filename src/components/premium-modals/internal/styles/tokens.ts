@@ -115,7 +115,7 @@ export const MODAL_STYLES = `
 }
 
 .myio-modal-header {
-  padding: 8px;
+  padding: 4px;
   border-bottom: none;
   display: flex;
   align-items: center;
@@ -123,13 +123,15 @@ export const MODAL_STYLES = `
   background: var(--myio-brand-700);
   color: white;
   border-radius: var(--myio-radius) var(--myio-radius) 0 0;
+  min-height: 20px;
 }
 
 .myio-modal-title {
-  font-size: 8px;
+  font-size: 18px !important;
   font-weight: 600;
-  margin: 0;
+  margin: 6px !important;
   color: white;
+  line-height: 2 !important;
 }
 
 .myio-modal-close {

@@ -88,9 +88,12 @@ export class EnergyModalView {
           </div>
         </div>
         
-        <!-- KPIs Section -->
-        <div id="energy-kpis" style="display: none; margin-top: 16px;">
-          <!-- KPI cards will be rendered here -->
+        <!-- KPI Button Section -->
+        <div id="energy-kpi-btn" style="display: none; margin-top: 16px; text-align: center;">
+          <button id="show-kpis-btn" class="myio-btn myio-btn-secondary" title="Show detailed metrics">
+            <span style="font-size: 16px; font-weight: bold;">+</span>
+            <span style="margin-left: 8px;">Show Metrics</span>
+          </button>
         </div>
         
       </div>
@@ -116,7 +119,7 @@ export class EnergyModalView {
     }
     
     this.hideError();
-    this.hideKPIs();
+    this.hideKPIButton();
   }
 
   /**
@@ -150,8 +153,8 @@ export class EnergyModalView {
     // Render chart
     this.renderChart(energyData);
     
-    // Render KPIs
-    this.renderKPIs(energyData);
+    // Show KPI button
+    this.showKPIButton();
     
     
     // Enable export button
@@ -302,36 +305,13 @@ export class EnergyModalView {
   }
 
   /**
-   * Renders KPI cards
+   * Shows the KPI button
    */
-  private renderKPIs(energyData: EnergyData): void {
-    const kpisContainer = document.getElementById('energy-kpis');
-    if (!kpisContainer) return;
-
-    const totalConsumption = energyData.consumption.reduce((sum, item) => sum + item.value, 0);
-    const averageDaily = totalConsumption / Math.max(1, energyData.consumption.length);
-    const peakDay = energyData.consumption.reduce((max, item) => 
-      item.value > max.value ? item : max, energyData.consumption[0] || { value: 0, timestamp: '' });
-
-    kpisContainer.innerHTML = `
-      <div class="myio-kpi-grid">
-        <div class="myio-kpi-card">
-          <div class="myio-kpi-value">${formatNumber(totalConsumption)} ${this.getI18nText('kwhUnit')}</div>
-          <div class="myio-kpi-label">${this.getI18nText('totalConsumption')}</div>
-        </div>
-        <div class="myio-kpi-card">
-          <div class="myio-kpi-value">${formatNumber(averageDaily)} ${this.getI18nText('kwhUnit')}</div>
-          <div class="myio-kpi-label">${this.getI18nText('averageDaily')}</div>
-        </div>
-        <div class="myio-kpi-card">
-          <div class="myio-kpi-value">${formatNumber(peakDay.value)} ${this.getI18nText('kwhUnit')}</div>
-          <div class="myio-kpi-label">${this.getI18nText('peakDay')}</div>
-          ${peakDay.timestamp ? `<div class="myio-kpi-date">${formatDate(peakDay.timestamp)}</div>` : ''}
-        </div>
-      </div>
-    `;
-
-    kpisContainer.style.display = 'block';
+  private showKPIButton(): void {
+    const kpiButtonContainer = document.getElementById('energy-kpi-btn');
+    if (kpiButtonContainer) {
+      kpiButtonContainer.style.display = 'block';
+    }
   }
 
 
@@ -454,6 +434,7 @@ export class EnergyModalView {
     const exportBtn = document.getElementById('export-csv-btn');
     const closeBtn = document.getElementById('close-btn');
     const loadBtn = document.getElementById('load-btn');
+    const showKpisBtn = document.getElementById('show-kpis-btn');
     const dateRangeInput = document.getElementById('date-range') as HTMLInputElement;
 
     if (exportBtn) {
@@ -479,6 +460,14 @@ export class EnergyModalView {
 
     if (loadBtn) {
       loadBtn.addEventListener('click', () => this.loadData());
+    }
+
+    if (showKpisBtn) {
+      showKpisBtn.addEventListener('click', () => {
+        // TODO: Open KPI modal here
+        console.log('[EnergyModalView] Show KPIs modal clicked');
+        alert('KPI modal functionality to be implemented');
+      });
     }
 
     // Initialize DateRangePicker with widget dates as defaults
@@ -519,10 +508,10 @@ export class EnergyModalView {
     }
   }
 
-  private hideKPIs(): void {
-    const kpisContainer = document.getElementById('energy-kpis');
-    if (kpisContainer) {
-      kpisContainer.style.display = 'none';
+  private hideKPIButton(): void {
+    const kpiButtonContainer = document.getElementById('energy-kpi-btn');
+    if (kpiButtonContainer) {
+      kpiButtonContainer.style.display = 'none';
     }
   }
 
@@ -647,38 +636,6 @@ export class EnergyModalView {
         font-weight: 500;
       }
 
-      .myio-kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 16px;
-        margin-bottom: 20px;
-      }
-
-      .myio-kpi-card {
-        background: var(--myio-energy-bg);
-        border: 1px solid var(--myio-energy-border);
-        border-radius: var(--myio-energy-radius);
-        padding: 20px;
-        text-align: center;
-      }
-
-      .myio-kpi-value {
-        font-size: 24px;
-        font-weight: bold;
-        color: var(--myio-energy-primary);
-        margin-bottom: 8px;
-      }
-
-      .myio-kpi-label {
-        font-size: 14px;
-        color: #666;
-        margin-bottom: 4px;
-      }
-
-      .myio-kpi-date {
-        font-size: 12px;
-        color: #999;
-      }
 
 
       .myio-fallback-chart h4 {
