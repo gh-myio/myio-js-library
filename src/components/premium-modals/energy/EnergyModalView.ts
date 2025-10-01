@@ -54,9 +54,9 @@ export class EnergyModalView {
       <style>
         ${this.getModalStyles()}
       </style>
-      <div class="myio-modal-scope">
+      <div class="myio-modal-scope" style="height: 100%; display: flex; flex-direction: column;">
         <!-- Controls Section -->
-        <div style="margin-bottom: 16px;">
+        <div style="margin-bottom: 16px; flex-shrink: 0;">
           <div style="display: flex; gap: 16px; align-items: end; margin-bottom: 16px;">
             <div class="myio-form-group" style="margin-bottom: 0;">
               <label class="myio-label" for="date-range">Período</label>
@@ -76,12 +76,12 @@ export class EnergyModalView {
         </div>
         
         <!-- Error Container -->
-        <div id="energy-error" class="myio-energy-error" style="display: none;">
+        <div id="energy-error" class="myio-energy-error" style="display: none; flex-shrink: 0;">
           <!-- Error messages will be displayed here -->
         </div>
         
         <!-- Main Chart Container - Full Width -->
-        <div id="energy-chart-container" class="myio-energy-chart-container">
+        <div id="energy-chart-container" class="myio-energy-chart-container" style="width: 100%; flex: 1; box-sizing: border-box;">
           <div class="myio-loading-state">
             <div class="myio-spinner"></div>
             <p>${this.getI18nText('loading')}</p>
@@ -89,7 +89,7 @@ export class EnergyModalView {
         </div>
         
         <!-- KPI Button Section -->
-        <div id="energy-kpi-btn" style="display: none; margin-top: 16px; text-align: center;">
+        <div id="energy-kpi-btn" style="display: none; margin-top: 16px; text-align: center; flex-shrink: 0;">
           <button id="show-kpis-btn" class="myio-btn myio-btn-secondary" title="Show detailed metrics">
             <span style="font-size: 16px; font-weight: bold;">+</span>
             <span style="margin-left: 8px;">Show Metrics</span>
@@ -184,50 +184,85 @@ export class EnergyModalView {
    */
   private tryRenderWithSDK(energyData: EnergyData): boolean {
     try {
-      // Check if EnergyChartSDK is available
-      if (typeof window !== 'undefined' && (window as any).EnergyChartSDK) {
-        // Get current dates from date range picker or use defaults
-        let startISO: string, endISO: string;
-        
-        if (this.dateRangePicker) {
-          const dates = this.dateRangePicker.getDates();
-          startISO = dates.startISO;
-          endISO = dates.endISO;
-        } else {
-          // Fallback to original params
-          startISO = this.normalizeToSaoPauloISO(this.config.params.startDate, false);
-          endISO = this.normalizeToSaoPauloISO(this.config.params.endDate, true);
-        }
-        
-        const chartConfig = {
-          version: 'v2',
-          clientId: this.config.params.clientId || 'ADMIN_DASHBOARD_CLIENT',
-          clientSecret: this.config.params.clientSecret || 'admin_dashboard_secret_2025',
-          deviceId: this.config.context.resolved.ingestionId,
-          readingType: 'energy',
-          startDate: startISO,
-          endDate: endISO,
-          granularity: this.config.params.granularity || '1d',
-          theme: this.config.params.theme || 'light',
-          timezone: this.config.params.timezone || 'America/Sao_Paulo',
-          iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
-          apiBaseUrl: this.config.params.dataApiHost || 'https://api.data.apps.myio-bas.com'
-        };
-
-        console.log('[EnergyModalView] Rendering chart with SDK config:', {
-          deviceId: chartConfig.deviceId,
-          startDate: chartConfig.startDate,
-          endDate: chartConfig.endDate,
-          granularity: chartConfig.granularity
-        });
-
-        (window as any).EnergyChartSDK.renderTelemetryChart(this.chartContainer, chartConfig);
-        return true;
+      // Destroy previous instance if it exists
+      if ((this as any).chartInstance && typeof (this as any).chartInstance.destroy === 'function') {
+        (this as any).chartInstance.destroy();
+        (this as any).chartInstance = null;
       }
+
+      // Ensure container is clean
+      if (this.chartContainer) {
+        this.chartContainer.innerHTML = '';
+      }
+
+      let renderTelemetryChart;
+      if (typeof window !== 'undefined' && (window as any).EnergyChartSDK && typeof (window as any).EnergyChartSDK.renderTelemetryChart === 'function') {
+        renderTelemetryChart = (window as any).EnergyChartSDK.renderTelemetryChart;
+      } else {
+        console.error('[EnergyModalView] EnergyChartSDK v2 (renderTelemetryChart) not loaded!');
+        if (this.chartContainer) {
+          this.chartContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">EnergyChartSDK v2 (renderTelemetryChart) not loaded. Check widget configuration and browser console.</div>';
+        }
+        return false;
+      }
+
+      // Get current dates from date range picker or use defaults
+      let startISO: string, endISO: string;
+
+      if (this.dateRangePicker) {
+        const dates = this.dateRangePicker.getDates();
+        startISO = dates.startISO;
+        endISO = dates.endISO;
+      } else {
+        // Fallback to original params
+        startISO = this.normalizeToSaoPauloISO(this.config.params.startDate, false);
+        endISO = this.normalizeToSaoPauloISO(this.config.params.endDate, true);
+      }
+
+      const tzIdentifier = this.config.params.timezone || 'America/Sao_Paulo';
+      const granularity = this.config.params.granularity || '1d';
+      const theme = this.config.params.theme || 'light';
+      const ingestionId = this.config.context.resolved.ingestionId;
+
+      console.log(`[EnergyModalView] Initializing v2 chart with: deviceId=${ingestionId}, startDate=${startISO}, endDate=${endISO}, granularity=${granularity}, theme=${theme}, timezone=${tzIdentifier}`);
+
+      const chartConfig = {
+        version: 'v2',
+        clientId: this.config.params.clientId || 'ADMIN_DASHBOARD_CLIENT',
+        clientSecret: this.config.params.clientSecret || 'admin_dashboard_secret_2025',
+        deviceId: ingestionId,
+        readingType: 'energy',
+        startDate: startISO,
+        endDate: endISO,
+        granularity: granularity,
+        theme: theme,
+        timezone: tzIdentifier,
+        iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
+        apiBaseUrl: this.config.params.dataApiHost || 'https://api.data.apps.myio-bas.com'
+      };
+
+      (this as any).chartInstance = renderTelemetryChart(this.chartContainer, chartConfig);
+
+      // Attach event listeners if SDK supports it
+      if ((this as any).chartInstance && typeof (this as any).chartInstance.on === 'function') {
+        (this as any).chartInstance.on('drilldown', (data: any) => {
+          console.log('[EnergyModalView] v2 SDK Drilldown Event:', data);
+        });
+        (this as any).chartInstance.on('error', (errorData: any) => {
+          console.error('[EnergyModalView] v2 SDK Error Event:', errorData);
+          if (this.chartContainer) {
+            this.chartContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">v2 Chart Error: ${errorData.message || 'Unknown error'}</div>`;
+          }
+        });
+      } else if ((this as any).chartInstance) {
+        console.warn("[EnergyModalView] EnergyChartSDK v2 instance does not have an 'on' method for event listeners.");
+      }
+
+      return true;
     } catch (error) {
       console.warn('[EnergyModalView] EnergyChartSDK failed, using fallback:', error);
     }
-    
+
     return false;
   }
 
@@ -583,17 +618,44 @@ export class EnergyModalView {
         background: #e5e7eb;
       }
 
+      .myio-modal-scope {
+        height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+      }
+
       .myio-energy-chart-container {
-        flex: 1;
-        min-height: 60vh;
-        height: 100%;
+        flex: 1 !important;
+        min-height: 800px !important;
+        height: 800px !important;
         background: var(--myio-energy-bg);
         border-radius: var(--myio-energy-radius);
         border: 1px solid var(--myio-energy-border);
-        padding: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        padding: 10px !important;
+        display: block !important;
+        overflow: hidden !important;
+      }
+
+      .myio-energy-chart-container > iframe {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 700px !important;
+        border: none !important;
+      }
+
+      .myio-energy-chart-container iframe,
+      .myio-energy-chart-container iframe body,
+      .myio-energy-chart-container iframe html {
+        height: 100% !important;
+        min-height: 700px !important;
+      }
+
+      .myio-energy-chart-container .chart-wrapper,
+      .myio-energy-chart-container .chart-container,
+      .myio-energy-chart-container canvas,
+      .myio-energy-chart-container svg {
+        height: 700px !important;
+        min-height: 700px !important;
       }
 
       .myio-loading-state {
@@ -702,12 +764,23 @@ export class EnergyModalView {
    * Destroys the view and cleans up resources
    */
   destroy(): void {
+    // Cleanup chart instance
+    if ((this as any).chartInstance && typeof (this as any).chartInstance.destroy === 'function') {
+      (this as any).chartInstance.destroy();
+      (this as any).chartInstance = null;
+    }
+
     // Cleanup DateRangePicker
     if (this.dateRangePicker) {
       this.dateRangePicker.destroy();
       this.dateRangePicker = null;
     }
-    
+
+    // Clear chart container
+    if (this.chartContainer) {
+      this.chartContainer.innerHTML = '';
+    }
+
     this.currentEnergyData = null;
     this.container = null;
     this.chartContainer = null;
