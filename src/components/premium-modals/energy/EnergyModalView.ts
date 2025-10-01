@@ -93,10 +93,6 @@ export class EnergyModalView {
           <!-- KPI cards will be rendered here -->
         </div>
         
-        <!-- Data Table Section -->
-        <div id="energy-table" style="display: none; margin-top: 16px;">
-          <!-- Data table will be rendered here -->
-        </div>
       </div>
     `;
 
@@ -121,7 +117,6 @@ export class EnergyModalView {
     
     this.hideError();
     this.hideKPIs();
-    this.hideTable();
   }
 
   /**
@@ -158,8 +153,6 @@ export class EnergyModalView {
     // Render KPIs
     this.renderKPIs(energyData);
     
-    // Render data table
-    this.renderDataTable(energyData);
     
     // Enable export button
     const exportBtn = document.getElementById('export-csv-btn') as HTMLButtonElement;
@@ -341,40 +334,6 @@ export class EnergyModalView {
     kpisContainer.style.display = 'block';
   }
 
-  /**
-   * Renders data table
-   */
-  private renderDataTable(energyData: EnergyData): void {
-    const tableContainer = document.getElementById('energy-table');
-    if (!tableContainer) return;
-
-    const tableHTML = `
-      <div class="myio-table-container">
-        <h4>Consumption Data</h4>
-        <div class="myio-table-wrapper">
-          <table class="myio-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Consumption (${this.getI18nText('kwhUnit')})</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${energyData.consumption.map(item => `
-                <tr>
-                  <td>${formatDate(item.timestamp)}</td>
-                  <td>${formatNumber(item.value)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-
-    tableContainer.innerHTML = tableHTML;
-    tableContainer.style.display = 'block';
-  }
 
   /**
    * Exports data to CSV
@@ -567,12 +526,6 @@ export class EnergyModalView {
     }
   }
 
-  private hideTable(): void {
-    const tableContainer = document.getElementById('energy-table');
-    if (tableContainer) {
-      tableContainer.style.display = 'none';
-    }
-  }
 
   /**
    * Gets internationalized text
@@ -727,42 +680,6 @@ export class EnergyModalView {
         color: #999;
       }
 
-      .myio-table-container h4 {
-        margin: 0 0 16px 0;
-        font-size: 18px;
-        font-weight: 600;
-      }
-
-      .myio-table-wrapper {
-        max-height: 300px;
-        overflow-y: auto;
-        border: 1px solid var(--myio-energy-border);
-        border-radius: var(--myio-energy-radius);
-      }
-
-      .myio-table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-
-      .myio-table th,
-      .myio-table td {
-        padding: 12px;
-        text-align: left;
-        border-bottom: 1px solid var(--myio-energy-border);
-      }
-
-      .myio-table th {
-        background: #f9fafb;
-        font-weight: 600;
-        position: sticky;
-        top: 0;
-      }
-
-      .myio-table td:last-child {
-        text-align: right;
-        font-weight: 500;
-      }
 
       .myio-fallback-chart h4 {
         margin: 0 0 16px 0;

@@ -68,7 +68,7 @@ export class EnergyModal {
       const label = this.context.device.label || 'SEM ETIQUETA';
       
       this.modal = createModal({
-        title: `Relatório de Energia - ${identifier} - ${label}`,
+        title: `Energy Report - ${identifier} - ${label}`,
         width: '80vw',
         height: '90vh',
         theme: (this.params.theme === 'dark' ? 'dark' : 'light') as 'light' | 'dark'
@@ -79,7 +79,7 @@ export class EnergyModal {
         context: this.context,
         params: this.params,
         onExport: () => this.handleExport(),
-        onError: (error) => this.handleError(error),
+        onError: (error) => this.handleEnergyModalError(error),
         onDateRangeChange: (startISO, endISO) => this.handleDateRangeChange(startISO, endISO)
       });
 
@@ -376,6 +376,29 @@ export class EnergyModal {
       console.error('[EnergyModal] Export error:', error);
       this.handleError(new Error('Failed to export data to CSV'));
     }
+  }
+
+  /**
+   * Handles EnergyModalError types from the view
+   */
+  private handleEnergyModalError(error: EnergyModalError): void {
+    console.error('[EnergyModal] EnergyModalError occurred:', error);
+
+    // Show error in view if available
+    if (this.view) {
+      this.view.showError(error.message);
+    }
+
+    // Trigger onError callback
+    if (this.params.onError) {
+      try {
+        this.params.onError(error);
+      } catch (callbackError) {
+        console.warn('[EnergyModal] onError callback error:', callbackError);
+      }
+    }
+
+    this.emit('error', { message: error.message, error });
   }
 
   /**
