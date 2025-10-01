@@ -90,7 +90,7 @@ export class EnergyModalView {
         
         <!-- KPI Button Section -->
         <div id="energy-kpi-btn" style="display: none; margin-top: 16px; text-align: center; flex-shrink: 0;">
-          <button id="show-kpis-btn" class="myio-btn myio-btn-secondary" title="Show detailed metrics">
+          <button id="show-kpis-btn" class="myio-btn myio-btn-secondary" title="Show detailed metrics" style="display: none;">
             <span style="font-size: 16px; font-weight: bold;">+</span>
             <span style="margin-left: 8px;">Show Metrics</span>
           </button>
@@ -626,8 +626,8 @@ export class EnergyModalView {
 
       .myio-energy-chart-container {
         flex: 1 !important;
-        min-height: 416px !important;
-        height: 416px !important;
+        min-height: 353px !important;
+        height: 353px !important;
         background: var(--myio-energy-bg);
         border-radius: var(--myio-energy-radius);
         border: 1px solid var(--myio-energy-border);
@@ -639,7 +639,7 @@ export class EnergyModalView {
       .myio-energy-chart-container > iframe {
         width: 100% !important;
         height: 100% !important;
-        min-height: 480px !important;
+        min-height: 408px !important;
         border: none !important;
       }
 
@@ -647,15 +647,15 @@ export class EnergyModalView {
       .myio-energy-chart-container iframe body,
       .myio-energy-chart-container iframe html {
         height: 100% !important;
-        min-height: 480px !important;
+        min-height: 408px !important;
       }
 
       .myio-energy-chart-container .chart-wrapper,
       .myio-energy-chart-container .chart-container,
       .myio-energy-chart-container canvas,
       .myio-energy-chart-container svg {
-        height: 480px !important;
-        min-height: 480px !important;
+        height: 408px !important;
+        min-height: 408px !important;
       }
 
       .myio-loading-state {
