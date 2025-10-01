@@ -626,8 +626,8 @@ export class EnergyModalView {
 
       .myio-energy-chart-container {
         flex: 1 !important;
-        min-height: 800px !important;
-        height: 800px !important;
+        min-height: 416px !important;
+        height: 416px !important;
         background: var(--myio-energy-bg);
         border-radius: var(--myio-energy-radius);
         border: 1px solid var(--myio-energy-border);
@@ -639,7 +639,7 @@ export class EnergyModalView {
       .myio-energy-chart-container > iframe {
         width: 100% !important;
         height: 100% !important;
-        min-height: 700px !important;
+        min-height: 480px !important;
         border: none !important;
       }
 
@@ -647,15 +647,15 @@ export class EnergyModalView {
       .myio-energy-chart-container iframe body,
       .myio-energy-chart-container iframe html {
         height: 100% !important;
-        min-height: 700px !important;
+        min-height: 480px !important;
       }
 
       .myio-energy-chart-container .chart-wrapper,
       .myio-energy-chart-container .chart-container,
       .myio-energy-chart-container canvas,
       .myio-energy-chart-container svg {
-        height: 700px !important;
-        min-height: 700px !important;
+        height: 480px !important;
+        min-height: 480px !important;
       }
 
       .myio-loading-state {
