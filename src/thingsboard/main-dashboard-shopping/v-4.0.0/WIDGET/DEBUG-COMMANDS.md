@@ -326,6 +326,36 @@ Execute este script no console para diagnosticar o problema:
 - Temperature: "Temperatura (°C)" / Total: 23.45 °C
 **Arquivos:** `DeviceReportModal.ts`, `types.ts`, `TELEMETRY/controller.js:519`
 
+### 11. AllReportModal - Domain-Aware (Energy/Water Only)
+**Problema:** Modal "Relatório Geral por Loja" hardcoded para energy (kWh) e não sincronizava com MENU
+**Análise:**
+- MENU emite evento `myio:dashboard-state` com domain (energy/water/temperature/alarm)
+- HEADER precisa escutar e sincronizar botão "Relatório Geral"
+- Só energy e water têm suporte (temperature não tem relatório de totais)
+- Datasource precisa ser dinâmico: Alias "Lojas" (energy) ou "Todos Hidrometros" (water)
+**Solução:**
+1. **AllReportModal (types.ts, AllReportModal.ts):**
+   - Adicionar `domain?: 'energy' | 'water'` ao `OpenAllReportParams`
+   - Criar `DOMAIN_CONFIG` com endpoint, unit, label, totalLabel
+   - URL dinâmica: `/${domain}/devices/totals` (energy ou water)
+   - Labels dinâmicos na tabela e CSV
+2. **HEADER (controller.js):**
+   - Adicionar variável `currentDomain` (default: 'energy')
+   - Listener `'myio:dashboard-state'`: atualizar currentDomain
+   - Enable/disable botão: `btnGen.disabled = !['energy', 'water'].includes(domain)`
+   - Passar `domain: currentDomain` para `openDashboardPopupAllReport()`
+   - Cache do orchestrator usa domain correto
+3. **Datasource (ThingsBoard):**
+   - Widget HEADER precisa ter 2 datasources configurados:
+     * Alias "Lojas" (energy devices) com keys: ingestionId, identifier, label
+     * Alias "Todos Hidrometros" (water devices) com keys: ingestionId, identifier, label
+**Resultado:**
+- Menu em "Água" → Botão enabled → Abre relatório de água (m³)
+- Menu em "Energia" → Botão enabled → Abre relatório de energia (kWh)
+- Menu em "Temperatura" → Botão disabled
+- Menu em "Alarmes" → Botão disabled
+**Arquivos:** `AllReportModal.ts`, `types.ts`, `HEADER/controller.js:12,227-238,303-332`
+
 ---
 
 ## 🧪 Comandos de Validação

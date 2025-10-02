@@ -55,7 +55,7 @@
     border-bottom: 1px solid var(--myio-border);
     padding: 0;
     margin: 0;
-    min-height: 60px;
+    min-height: 75px;
 }
 
 #myio-root .myio-footer {

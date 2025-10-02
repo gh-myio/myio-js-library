@@ -68,6 +68,7 @@ export interface StoreItem {
 
 export interface OpenAllReportParams {
   customerId: string;
+  domain?: 'energy' | 'water'; // Data domain (default: 'energy') - only energy and water supported
   ui?: BaseUiCfg;
   api: BaseApiCfg;
   itemsList: StoreItem[]; // Mandatory list of items to display

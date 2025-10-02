@@ -12,10 +12,35 @@ import {
 } from '../internal/filter-ordering/FilterOrderingModal';
 import { OpenAllReportParams, ModalHandle, StoreItem } from '../types';
 
+// Domain configuration
+type Domain = 'energy' | 'water';
+
+interface DomainConfig {
+  endpoint: string;     // API endpoint path
+  unit: string;         // Display unit (kWh, m³)
+  label: string;        // Column label
+  totalLabel: string;   // Total section label
+}
+
+const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
+  energy: {
+    endpoint: 'energy',
+    unit: 'kWh',
+    label: 'Consumption (kWh)',
+    totalLabel: 'Total kWh'
+  },
+  water: {
+    endpoint: 'water',
+    unit: 'm³',
+    label: 'Consumo (m³)',
+    totalLabel: 'Total m³'
+  }
+};
+
 interface StoreReading {
   identifier: string;  // e.g., "SCMAL1230B" - unique store identifier
   name: string;        // e.g., "McDonalds" - human-readable name
-  consumption: number; // e.g., 152.43 - consumption in kWh
+  consumption: number; // e.g., 152.43 - consumption in kWh or m³
 }
 
 export class AllReportModal {
@@ -39,12 +64,19 @@ export class AllReportModal {
   // Debug logging flag - controlled by params.debug
   private debugEnabled: boolean;
 
+  // Domain configuration
+  private domainConfig: DomainConfig;
+
   constructor(private params: OpenAllReportParams) {
     this.authClient = new AuthClient({
       clientId: params.api.clientId,
       clientSecret: params.api.clientSecret,
       base: params.api.dataApiBaseUrl
     });
+
+    // Set domain configuration
+    const domain = params.domain || 'energy';
+    this.domainConfig = DOMAIN_CONFIG[domain];
 
     // Set debug flag from params (1 = enabled, 0 = disabled)
     this.debugEnabled = params.debug === 1;
@@ -386,7 +418,7 @@ export class AllReportModal {
         </div>
         <div style="text-align: center;">
           <div style="font-size: 24px; font-weight: bold; color: var(--myio-primary);">${fmtPt(totalConsumption)}</div>
-          <div style="color: var(--myio-text-muted);">Total kWh</div>
+          <div style="color: var(--myio-text-muted);">${this.domainConfig.totalLabel}</div>
         </div>
         <div style="text-align: center;">
           <div style="font-size: 24px; font-weight: bold; color: var(--myio-primary);">${fmtPt(totalConsumption / storeCount)}</div>
@@ -466,7 +498,7 @@ export class AllReportModal {
                 <span style="margin-left: 4px; opacity: ${this.getSortOpacity('name')};">${this.getSortIcon('name')}</span>
               </th>
               <th style="cursor: pointer; text-align: right; width: 30%;" data-sort="consumption">
-                Consumption (kWh)
+                ${this.domainConfig.label}
                 <span style="margin-left: 4px; opacity: ${this.getSortOpacity('consumption')};">${this.getSortIcon('consumption')}</span>
               </th>
             </tr>
@@ -476,7 +508,7 @@ export class AllReportModal {
               <tr>
                 <td data-label="Identifier" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>
                 <td data-label="Name"><strong>${row.name}</strong></td>
-                <td data-label="Consumption (kWh)" style="text-align: right; font-weight: bold;">${row.consumption.toFixed(2)}</td>
+                <td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${row.consumption.toFixed(2)}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -665,11 +697,11 @@ export class AllReportModal {
       ['DATA EMISSÃO', timestamp, '', ''],
       ['RESUMO', '', '', ''],
       ['Total de Lojas', this.data.length.toString(), '', ''],
-      ['Consumo Total', totalConsumption.toFixed(2), 'kWh', ''],
-      ['Consumo Médio por Loja', (totalConsumption / this.data.length).toFixed(2), 'kWh', ''],
+      ['Consumo Total', totalConsumption.toFixed(2), this.domainConfig.unit, ''],
+      ['Consumo Médio por Loja', (totalConsumption / this.data.length).toFixed(2), this.domainConfig.unit, ''],
       ['', '', '', ''],
       ['DETALHAMENTO POR LOJA', '', '', ''],
-      ['Identificador', 'Nome', 'Consumo (kWh)', ''],
+      ['Identificador', 'Nome', this.domainConfig.label, ''],
       ...sortedData.map(row => [row.identifier, row.name, row.consumption.toFixed(2), ''])
     ];
 
@@ -704,9 +736,10 @@ export class AllReportModal {
     const startTime = encodeURIComponent(startISO);
     const endTime = encodeURIComponent(endISO);
     
-    const url = `${baseUrl}/api/v1/telemetry/customers/${this.params.customerId}/energy/devices/totals?startTime=${startTime}&endTime=${endTime}`;
-    
-    console.log('[AllReportModal] Fetching customer totals:', { url, customerId: this.params.customerId });
+    const endpoint = this.domainConfig.endpoint;
+    const url = `${baseUrl}/api/v1/telemetry/customers/${this.params.customerId}/${endpoint}/devices/totals?startTime=${startTime}&endTime=${endTime}`;
+
+    console.log('[AllReportModal] Fetching customer totals:', { url, customerId: this.params.customerId, domain: this.params.domain || 'energy' });
     
     const response = await fetch(url, {
       method: 'GET',

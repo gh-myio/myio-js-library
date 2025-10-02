@@ -8,6 +8,9 @@ let CUSTOMER_ID;
 // MyIO Authentication instance - will be initialized after credentials are loaded
 let MyIOAuth = null;
 
+// RFC-0042: Track current domain from MENU widget
+let currentDomain = 'energy'; // default to energy
+
 /* ==== Tooltip premium (global no <body>) ==== */
 function setupTooltipPremium(target, text) {
   if (!target) return;
@@ -220,6 +223,20 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
     // Botões
     const payload = () => self.getFilters();
+    // RFC-0042: Listen for dashboard state changes from MENU
+    window.addEventListener('myio:dashboard-state', (ev) => {
+      const { tab } = ev.detail;
+      console.log(`[HEADER] Dashboard state changed to: ${tab}`);
+      currentDomain = tab;
+
+      // Enable/disable btnGen based on domain (only energy and water supported)
+      if (btnGen) {
+        const isSupported = tab === 'energy' || tab === 'water';
+        btnGen.disabled = !isSupported;
+        console.log(`[HEADER] Relatório Geral button ${isSupported ? 'enabled' : 'disabled'} for domain: ${tab}`);
+      }
+    });
+
     btnLoad?.addEventListener("click", () => {
       // RFC-0042: Standardized period emission
       const startISO = toISO(self.ctx.$scope.startTs || inputStart.value + "T00:00:00", 'America/Sao_Paulo');
@@ -282,29 +299,37 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       try {
         const ingestionAuthToken = await MyIOAuth.getToken();
 
+        // RFC-0042: Use current domain to determine correct datasource and cache
+        const domain = currentDomain || 'energy';
+        console.log(`[HEADER] Opening All Report for domain: ${domain}`);
+
         // RFC-0042: Check orchestrator cache if available
         let itemsListTB;
         if (window.MyIOOrchestrator && window.MyIOOrchestrator.getCurrentPeriod()) {
           const currentPeriod = window.MyIOOrchestrator.getCurrentPeriod();
-          const cacheKey = window.cacheKey ? window.cacheKey('energy', currentPeriod) : null;
+          const cacheKey = window.cacheKey ? window.cacheKey(domain, currentPeriod) : null;
 
           if (cacheKey && window.MyIOOrchestrator.memCache) {
             const cached = window.MyIOOrchestrator.memCache.get(cacheKey);
             if (cached && cached.data) {
-              console.log("[HEADER] Using cached items from orchestrator");
+              console.log(`[HEADER] Using cached items from orchestrator for domain: ${domain}`);
               itemsListTB = cached.data;
             }
           }
         }
 
         // Fallback: build from TB datasources
+        // IMPORTANT: Widget HEADER must have TWO datasources configured:
+        // 1. Alias "Lojas" (for energy)
+        // 2. Alias "Todos Hidrometros" (for water)
         if (!itemsListTB || itemsListTB.length === 0) {
           itemsListTB = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data);
-          console.log("[HEADER] Built items from datasources (cache miss):", itemsListTB.length);
+          console.log(`[HEADER] Built items from datasources (cache miss) for domain ${domain}:`, itemsListTB.length);
         }
 
         const modal = MyIOLibrary.openDashboardPopupAllReport({
           customerId: INGESTION_ID,
+          domain: domain, // ← NEW: pass domain ('energy' or 'water')
           debug: 0,
           api: {
             clientId: CLIENT_ID,
