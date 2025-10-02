@@ -92,6 +92,7 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
     }
   }
 
+
   // ThingsBoard lifecycle
   self.onInit = function () {
 
@@ -99,11 +100,12 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
     registerGlobalEvents();
     setupResizeObserver();
 
+
     // Log útil para conferir se os states existem
     try {
       const states = (ctx?.dashboard?.configuration?.states) || {};
      // console.log('[myio-container] states disponíveis:', Object.keys(states));
-      // Esperados: "menu", "telemetry_content"
+      // Esperados: "menu", "telemetry_content", "water_content", "temperature_content", "alarm_content", "footer"
     } catch (e) {
       console.warn('[myio-container] não foi possível listar states:', e);
     }

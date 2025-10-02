@@ -80,10 +80,12 @@ MAIN_VIEW/template.html:
 +-- aside.myio-sidebar
 |   +-- tb-dashboard-state[stateId="menu"]
 +-- main.myio-content
-    +-- tb-dashboard-state[stateId="telemetry_content"]
-    +-- tb-dashboard-state[stateId="water_content"]
-    +-- tb-dashboard-state[stateId="temperature_content"]
-    +-- tb-dashboard-state[stateId="alarm_content"]
+|   +-- tb-dashboard-state[stateId="telemetry_content"]
+|   +-- tb-dashboard-state[stateId="water_content"]
+|   +-- tb-dashboard-state[stateId="temperature_content"]
+|   +-- tb-dashboard-state[stateId="alarm_content"]
++-- footer.myio-footer
+    +-- tb-dashboard-state[stateId="footer"]
 ```
 
 ### State Management Flow
@@ -151,6 +153,10 @@ MAIN_VIEW/template.html:
       [hidden]="!isStateActive('alarm_content')">
     </tb-dashboard-state>
   </main>
+
+  <footer class="myio-footer">
+    <tb-dashboard-state class="tb-child" [ctx]="ctx" stateId="footer"></tb-dashboard-state>
+  </footer>
 </section>
 ```
 
@@ -415,6 +421,21 @@ Each content state must be properly configured in the ThingsBoard dashboard:
               "sizeY": 20,
               "row": 0,
               "col": 6
+            }
+          }
+        }
+      }
+    },
+    "footer": {
+      "name": "Footer",
+      "layouts": {
+        "main": {
+          "widgets": {
+            "footer-widget-id": {
+              "sizeX": 24,
+              "sizeY": 4,
+              "row": 20,
+              "col": 0
             }
           }
         }
