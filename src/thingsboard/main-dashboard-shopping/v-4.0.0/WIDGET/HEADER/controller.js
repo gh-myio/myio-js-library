@@ -234,15 +234,44 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       console.log("[HEADER] Emitting standardized period:", period);
 
-      // Emit standardized event for orchestrator
-      window.dispatchEvent(new CustomEvent("myio:update-date", {
-        detail: { period }
-      }));
+      // RFC-0042: Cross-context emission (parent + all iframes)
+      function emitToAllContexts(eventName, detail) {
+        // 1. Emit to current window (for MAIN_VIEW orchestrator)
+        window.dispatchEvent(new CustomEvent(eventName, { detail }));
+        console.log(`[HEADER] ✅ Emitted ${eventName} to current window`);
+
+        // 2. Emit to parent window (if in iframe)
+        if (window.parent && window.parent !== window) {
+          try {
+            window.parent.dispatchEvent(new CustomEvent(eventName, { detail }));
+            console.log(`[HEADER] ✅ Emitted ${eventName} to parent window`);
+          } catch (e) {
+            console.warn(`[HEADER] ⚠️ Cannot emit ${eventName} to parent:`, e.message);
+          }
+        }
+
+        // 3. Emit to all iframes (for TELEMETRY widgets)
+        try {
+          const iframes = document.querySelectorAll('iframe');
+          console.log(`[HEADER] Found ${iframes.length} iframes`);
+          iframes.forEach((iframe, idx) => {
+            try {
+              iframe.contentWindow.dispatchEvent(new CustomEvent(eventName, { detail }));
+              console.log(`[HEADER] ✅ Emitted ${eventName} to iframe ${idx}`);
+            } catch (e) {
+              console.warn(`[HEADER] ⚠️ Cannot emit ${eventName} to iframe ${idx}:`, e.message);
+            }
+          });
+        } catch (e) {
+          console.warn(`[HEADER] ⚠️ Cannot access iframes:`, e.message);
+        }
+      }
+
+      // Emit standardized event to all contexts
+      emitToAllContexts("myio:update-date", { period });
 
       // Backward compatibility: also emit old format
-      window.dispatchEvent(new CustomEvent("myio:update-date-legacy", {
-        detail: { startDate: startISO, endDate: endISO }
-      }));
+      emitToAllContexts("myio:update-date-legacy", { startDate: startISO, endDate: endISO });
     });
 
     btnGen?.addEventListener("click", async () => {

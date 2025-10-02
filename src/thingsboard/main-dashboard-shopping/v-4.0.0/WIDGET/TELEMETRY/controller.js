@@ -8,6 +8,8 @@
  * - Evento (myio:update-date): mostra modal + atualiza
  * =========================================================================*/
 
+console.log("🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT");
+
 const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
 const MAX_FIRST_HYDRATES = 1;
 
@@ -298,9 +300,11 @@ function buildAuthoritativeItems() {
 
     let tbId = tbFromIngestion || tbFromIdentifier || null;
     if (tbFromIngestion && tbFromIdentifier && tbFromIngestion !== tbFromIdentifier) {
+      /*
       console.warn("[DeviceCards] TB id mismatch for item", {
         label: r.label, identifier: r.identifier, ingestionId, tbFromIngestion, tbFromIdentifier
       });
+      */
       tbId = tbFromIngestion;
     }
 
@@ -409,7 +413,6 @@ function renderHeader(count, groupSum) {
 
 function renderList(visible) {
 
-  console.log(" RODRIGO ESTEVE AQUI !");
   const $ul = $list().empty();
 
   visible.forEach(it => {
@@ -420,7 +423,7 @@ function renderList(visible) {
       entityId: it.tbId || it.id,            // preferir TB deviceId
       labelOrName: it.label,
       deviceType: it.deviceType,
-      val: valNum * 1000, // TODO verificar ESSE MULTIPLICADOR PQ PRECISA DELE ?
+      val: valNum, // TODO verificar ESSE MULTIPLICADOR PQ PRECISA DELE ?
       perc: it.perc ?? 0,
       deviceStatus: connectionStatus,        // "power_on" | "power_off"
       entityType: "DEVICE",
@@ -436,7 +439,7 @@ function renderList(visible) {
     };
     
     if (it.label === 'Allegria') {
-        console.log("RENDER CARD ALLEGRIA >>> it.value: " , it.value);
+        //console.log("RENDER CARD ALLEGRIA >>> it.value: " , it.value);
     }
     
     const myTbToken = localStorage.getItem("jwt_token");
@@ -788,45 +791,125 @@ self.onInit = async function () {
             };
   
   $root().find("#labelWidgetId").text(self.ctx.settings?.labelWidget);
-  
+
+  // RFC-0042: Set widget configuration from settings FIRST
+  WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
+  WIDGET_GROUP_TYPE = self.ctx.settings?.GROUP_TYPE || null;
+  console.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}, groupType=${WIDGET_GROUP_TYPE}`);
+
+  // RFC-0042: Request data from orchestrator (defined early for use in handlers)
+  function requestDataFromOrchestrator() {
+    if (!self.ctx.scope?.startDateISO || !self.ctx.scope?.endDateISO) {
+      console.warn('[TELEMETRY] No date range set, cannot request data');
+      return;
+    }
+
+    const period = {
+      startISO: self.ctx.scope.startDateISO,
+      endISO: self.ctx.scope.endDateISO,
+      granularity: window.calcGranularity ? window.calcGranularity(self.ctx.scope.startDateISO, self.ctx.scope.endDateISO) : 'day',
+      tz: 'America/Sao_Paulo'
+    };
+
+    console.log(`[TELEMETRY] Requesting data for domain=${WIDGET_DOMAIN}, period:`, period);
+
+    // RFC-0042: Emit request event to parent window (where Orchestrator lives)
+    const targetWindow = window.parent || window;
+    targetWindow.dispatchEvent(new CustomEvent('myio:telemetry:request-data', {
+      detail: { domain: WIDGET_DOMAIN, period }
+    }));
+  }
+
   // Listener com modal: evento externo de mudança de data
   dateUpdateHandler = function (ev) {
+    console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ DATE UPDATE EVENT RECEIVED!`, ev.detail);
+
     try {
-      const { startDate, endDate } = ev.detail || {};
-      console.log("[DeviceCards] Data range updated:", startDate, endDate);
+      // RFC-0042: Handle both old and new format
+      let startISO, endISO;
+
+      if (ev.detail?.period) {
+        // New format from HEADER
+        startISO = ev.detail.period.startISO;
+        endISO = ev.detail.period.endISO;
+        console.log(`[TELEMETRY ${WIDGET_DOMAIN}] Using NEW format (period object)`);
+      } else {
+        // Old format (backward compatibility)
+        const { startDate, endDate } = ev.detail || {};
+        startISO = new Date(startDate).toISOString();
+        endISO = new Date(endDate).toISOString();
+        console.log(`[TELEMETRY ${WIDGET_DOMAIN}] Using OLD format (startDate/endDate)`);
+      }
+
+      console.log(`[TELEMETRY ${WIDGET_DOMAIN}] Date range updated:`, startISO, endISO);
 
       // Datas mandatórias salvas no scope
       self.ctx.scope = self.ctx.scope || {};
-      self.ctx.scope.startDateISO = new Date(startDate).toISOString();
-      self.ctx.scope.endDateISO   = new Date(endDate).toISOString();
+      self.ctx.scope.startDateISO = startISO;
+      self.ctx.scope.endDateISO = endISO;
 
-      // Exibe modal e atualiza
-      showBusy(); // mensagem fixa
-      if (typeof hydrateAndRender === "function") {
-        hydrateAndRender();
+      // Exibe modal
+      showBusy();
+
+      // RFC-0042: Request data from orchestrator (check parent window if in iframe)
+      const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+
+      if (orchestrator) {
+        console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Requesting data from orchestrator (${window.MyIOOrchestrator ? 'current' : 'parent'} window)`);
+        requestDataFromOrchestrator();
       } else {
-        console.error("[DeviceCards] hydrateAndRender não encontrada.");
+        // Fallback to old behavior
+        console.warn(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Orchestrator not available, using legacy fetch`);
+        if (typeof hydrateAndRender === "function") {
+          hydrateAndRender();
+        } else {
+          console.error(`[TELEMETRY ${WIDGET_DOMAIN}] hydrateAndRender não encontrada.`);
+        }
       }
     } catch (err) {
-      console.error("[DeviceCards] dateUpdateHandler error:", err);
+      console.error(`[TELEMETRY ${WIDGET_DOMAIN}] dateUpdateHandler error:`, err);
+      hideBusy();
     }
   };
 
+  console.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Registering myio:update-date listener...`);
   window.addEventListener("myio:update-date", dateUpdateHandler);
+  console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ myio:update-date listener registered!`);
 
-  // RFC-0042: Set widget configuration from settings
-  WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
-  WIDGET_GROUP_TYPE = self.ctx.settings?.GROUP_TYPE || null;
-  console.log(`[TELEMETRY] Configured: domain=${WIDGET_DOMAIN}, groupType=${WIDGET_GROUP_TYPE}`);
+  // Test if listener is working
+  setTimeout(() => {
+    console.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧪 Testing listener registration...`);
+    const testEvent = new CustomEvent('myio:update-date', {
+      detail: {
+        period: {
+          startISO: '2025-09-26T00:00:00-03:00',
+          endISO: '2025-10-02T23:59:59-03:00',
+          granularity: 'day',
+          tz: 'America/Sao_Paulo'
+        }
+      }
+    });
+    // Don't dispatch, just check if handler exists
+    if (typeof dateUpdateHandler === 'function') {
+      console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ dateUpdateHandler is defined and ready`);
+    } else {
+      console.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ dateUpdateHandler is NOT defined!`);
+    }
+  }, 100);
 
   // RFC-0042: Listen for data provision from orchestrator
   dataProvideHandler = function (ev) {
+    console.log(`[TELEMETRY] Received provide-data event:`, ev.detail);
     const { domain, periodKey, items } = ev.detail;
 
     // Only process if it's for my domain
     if (domain !== WIDGET_DOMAIN) {
+      console.log(`[TELEMETRY] Ignoring event for domain ${domain}, my domain is ${WIDGET_DOMAIN}`);
       return;
     }
+
+    // Show busy modal while processing data
+    showBusy();
 
     // Validate current period matches
     const myPeriod = {
@@ -843,24 +926,106 @@ self.onInit = async function () {
 
     // Extract my datasource IDs
     const myDatasourceIds = extractDatasourceIds(self.ctx.datasources);
+    console.log(`[TELEMETRY] My datasource IDs:`, myDatasourceIds);
+    console.log(`[TELEMETRY] Sample orchestrator items:`, items.slice(0, 3));
 
-    // Filter items by datasource IDs
-    let filtered = items.filter(item =>
-      myDatasourceIds.includes(item.id) || myDatasourceIds.includes(item.tbId) || myDatasourceIds.includes(item.ingestionId)
-    );
-
-    // Further filter by GROUP_TYPE if specified
-    if (WIDGET_GROUP_TYPE) {
-      filtered = filtered.filter(item => item.groupType === WIDGET_GROUP_TYPE);
-      console.log(`[TELEMETRY] Filtered to ${filtered.length} items for groupType=${WIDGET_GROUP_TYPE}`);
+    // RFC-0042: Debug datasources structure to understand the mapping
+    if (self.ctx.datasources && self.ctx.datasources.length > 0) {
+      console.log(`[TELEMETRY] Datasource[0] keys:`, Object.keys(self.ctx.datasources[0]));
+      console.log(`[TELEMETRY] Datasource[0] entityId:`, self.ctx.datasources[0].entityId);
+      console.log(`[TELEMETRY] Datasource[0] entityName:`, self.ctx.datasources[0].entityName);
+      console.log(`[TELEMETRY] Datasource[0] full:`, JSON.stringify(self.ctx.datasources[0], null, 2));
+    }
+    if (self.ctx.data && self.ctx.data.length > 0) {
+      console.log(`[TELEMETRY] Data[0] keys:`, Object.keys(self.ctx.data[0]));
+      console.log(`[TELEMETRY] Data[0] full:`, JSON.stringify(self.ctx.data[0], null, 2));
     }
 
-    STATE.itemsBase = filtered;
-    STATE.itemsEnriched = filtered; // Already enriched by orchestrator
+    // RFC-0042: Debug groupType distribution
+    const groupTypeCounts = {};
+    items.forEach(item => {
+      const gt = item.groupType || 'null';
+      groupTypeCounts[gt] = (groupTypeCounts[gt] || 0) + 1;
+    });
+    console.log(`[TELEMETRY] GroupType distribution:`, groupTypeCounts);
+
+    // RFC-0042: Filter items by datasource IDs
+    // ThingsBoard datasource entityId should match API item id (ingestionId)
+    const datasourceIdSet = new Set(myDatasourceIds);
+    let filtered = items.filter(item => {
+      // Check if item.id (from API) matches any datasource entityId
+      return datasourceIdSet.has(item.id) || datasourceIdSet.has(item.tbId);
+    });
+
+    console.log(`[TELEMETRY] Filtered ${items.length} items down to ${filtered.length} items matching datasources`);
+
+    // If no matches, log warning and use all items (temporary fallback)
+    if (filtered.length === 0) {
+      console.warn(`[TELEMETRY] No items match datasource IDs! Using all items as fallback.`);
+      console.warn(`[TELEMETRY] Sample datasource ID:`, myDatasourceIds[0]);
+      console.warn(`[TELEMETRY] Sample API item ID:`, items[0]?.id);
+      filtered = items;
+    }
+
+    // Convert orchestrator items to TELEMETRY widget format
+    filtered = filtered.map(item => ({
+      id: item.tbId || item.id,
+      tbId: item.tbId || item.id,
+      ingestionId: item.ingestionId || item.id,
+      identifier: item.identifier || item.id,
+      label: item.label || item.identifier || item.id,
+      value: Number(item.value || 0),
+      perc: 0,
+      deviceType: item.deviceType || 'energy',
+      groupType: item.groupType || null, // RFC-0042: Include groupType for filtering
+      slaveId: item.slaveId || null,
+      centralId: item.centralId || null,
+      updatedIdentifiers: {}
+    }));
+
+    // RFC-0042: Optional secondary filter by GROUP_TYPE (if API supports it)
+    if (WIDGET_GROUP_TYPE && filtered.some(item => item.groupType)) {
+      const beforeFilter = filtered.length;
+      const withGroupType = filtered.filter(item => item.groupType === WIDGET_GROUP_TYPE);
+
+      if (withGroupType.length > 0) {
+        filtered = withGroupType;
+        console.log(`[TELEMETRY] Further filtered by groupType=${WIDGET_GROUP_TYPE}: ${beforeFilter} → ${filtered.length} items`);
+      } else {
+        console.log(`[TELEMETRY] groupType=${WIDGET_GROUP_TYPE} not found in items, skipping groupType filter`);
+      }
+    }
+
+    console.log(`[TELEMETRY] Using ${filtered.length} items after processing`);
+
+    // IMPORTANT: Merge orchestrator data with existing TB data
+    // Keep original labels/identifiers from TB, only update values from orchestrator
+    if (!STATE.itemsBase || STATE.itemsBase.length === 0) {
+      // First load: build from TB data
+      STATE.itemsBase = buildAuthoritativeItems();
+    }
+
+    // Create map of orchestrator values by ingestionId
+    const orchestratorValues = new Map();
+    filtered.forEach(item => {
+      if (item.ingestionId) {
+        orchestratorValues.set(item.ingestionId, Number(item.value || 0));
+      }
+    });
+
+    // Update values in existing items
+    STATE.itemsEnriched = STATE.itemsBase.map(tbItem => {
+      const orchestratorValue = orchestratorValues.get(tbItem.ingestionId);
+      return {
+        ...tbItem,
+        value: orchestratorValue !== undefined ? orchestratorValue : (tbItem.value || 0),
+        perc: 0
+      };
+    });
 
     // Sanitize selection
     if (STATE.selectedIds && STATE.selectedIds.size) {
-      const valid = new Set(filtered.map(x => x.id));
+      const valid = new Set(STATE.itemsBase.map(x => x.id));
       const next = new Set([...STATE.selectedIds].filter(id => valid.has(id)));
       STATE.selectedIds = next.size ? next : null;
     }
@@ -870,14 +1035,57 @@ self.onInit = async function () {
   };
 
   /**
-   * Extracts datasource entity IDs from ThingsBoard context.
+   * Extracts ingestionIds from ThingsBoard ctx.data (not datasource entityIds).
+   * Each device has 6 keys (slaveId, centralId, ingestionId, connectionStatus, deviceType, identifier).
+   * We need to extract the ingestionId values to match with API data.
    */
   function extractDatasourceIds(datasources) {
-    if (!Array.isArray(datasources)) return [];
-    return datasources.map(ds => ds?.entityId?.id || ds?.entityId).filter(Boolean);
+    // Build index from ctx.data to get ingestionId for each device
+    const ingestionIds = new Set();
+    const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+
+    for (const row of rows) {
+      const key = String(row?.dataKey?.name || "").toLowerCase();
+      const val = row?.data?.[0]?.[1];
+
+      if (key === "ingestionid" && val && isValidUUID(String(val))) {
+        ingestionIds.add(String(val));
+      }
+    }
+
+    return Array.from(ingestionIds);
   }
 
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
+
+  // Check for stored data from orchestrator (in case we missed the event)
+  setTimeout(() => {
+    // RFC-0042: Check parent window for orchestrator data (if in iframe)
+    const orchestratorData = window.MyIOOrchestratorData || window.parent?.MyIOOrchestratorData;
+
+    // First, try stored data
+    if (orchestratorData && orchestratorData[WIDGET_DOMAIN]) {
+      const storedData = orchestratorData[WIDGET_DOMAIN];
+      const age = Date.now() - storedData.timestamp;
+
+      // Use stored data if it's less than 30 seconds old
+      if (age < 30000) {
+        console.log(`[TELEMETRY] Using stored orchestrator data for domain ${WIDGET_DOMAIN} (${window.MyIOOrchestratorData ? 'current' : 'parent'} window)`);
+        dataProvideHandler({
+          detail: {
+            domain: WIDGET_DOMAIN,
+            periodKey: storedData.periodKey,
+            items: storedData.items
+          }
+        });
+        return;
+      }
+    }
+
+    // If no stored data, request fresh data
+    console.log(`[TELEMETRY] No stored data found, requesting fresh data for domain ${WIDGET_DOMAIN}`);
+    requestDataFromOrchestrator();
+  }, 500); // Wait 500ms for widget to fully initialize
 
   // Auth do cliente/ingestion
   const customerTB_ID = self.ctx.settings?.customerTB_ID || "";

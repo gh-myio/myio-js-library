@@ -94,12 +94,68 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
 
 
   // ThingsBoard lifecycle
-  self.onInit = function () {
+  self.onInit = async function () {
 
     rootEl = $('#myio-root');
     registerGlobalEvents();
     setupResizeObserver();
 
+    // Initialize MyIO Library and Authentication
+    const MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary)
+         || (typeof window !== "undefined" && window.MyIOLibrary)
+         || null;
+
+    if (MyIO) {
+      try {
+        // Get credentials from settings
+        const customerTB_ID = self.ctx.settings?.customerTB_ID || "";
+        const jwt = localStorage.getItem("jwt_token");
+
+        let CLIENT_ID = "";
+        let CLIENT_SECRET = "";
+        let CUSTOMER_ING_ID = "";
+
+        if (customerTB_ID && jwt) {
+          try {
+            // Fetch customer attributes
+            const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
+            CLIENT_ID = attrs?.client_id || "";
+            CLIENT_SECRET = attrs?.client_secret || "";
+            CUSTOMER_ING_ID = attrs?.ingestionId || "";
+          } catch (err) {
+            console.warn("[MAIN_VIEW] Failed to fetch customer attributes:", err);
+          }
+        }
+
+        // Fallback credentials if not found
+        if (!CLIENT_ID || !CLIENT_SECRET) {
+          console.log("[MAIN_VIEW] Using fallback credentials");
+          CLIENT_ID = "mestreal_mfh4e642_4flnuh";
+          CLIENT_SECRET = "gv0zfmdekNxYA296OcqFrnBAVU4PhbUBhBwNlMCamk2oXDHeXJqu1K6YtpVOZ5da";
+          CUSTOMER_ING_ID = "e01bdd22-3be6-4b75-9dae-442c8b8c186e"; // Valid customer ID
+        }
+
+        // Set credentials in orchestrator
+        MyIOOrchestrator.setCredentials(CUSTOMER_ING_ID, CLIENT_ID, CLIENT_SECRET);
+
+        // Build auth and get token
+        const myIOAuth = MyIO.buildMyioIngestionAuth({
+          dataApiHost: "https://api.data.apps.myio-bas.com",
+          clientId: CLIENT_ID,
+          clientSecret: CLIENT_SECRET
+        });
+
+        // Get token and set it in token manager
+        const ingestionToken = await myIOAuth.getToken();
+        MyIOOrchestrator.tokenManager.setToken('ingestionToken', ingestionToken);
+
+        console.log("[MAIN_VIEW] Auth initialized successfully with CLIENT_ID:", CLIENT_ID);
+      } catch (err) {
+        console.error("[MAIN_VIEW] Auth initialization failed:", err);
+      }
+    } else {
+      console.warn("[MAIN_VIEW] MyIOLibrary not available");
+    }
 
     // Log útil para conferir se os states existem
     try {
@@ -436,10 +492,100 @@ const MyIOOrchestrator = (() => {
   }
 
   async function fetchAndEnrich(domain, period) {
-    // This will be populated by TELEMETRY widget logic
-    // For now, return empty array
-    console.warn('[Orchestrator] fetchAndEnrich not yet fully implemented');
-    return [];
+    try {
+      // Use hardcoded credentials as fallback
+      const fallbackClientId = "mestreal_mfh4e642_4flnuh";
+      const fallbackClientSecret = "gv0zfmdekNxYA296OcqFrnBAVU4PhbUBhBwNlMCamk2oXDHeXJqu1K6YtpVOZ5da";
+      
+      // Use stored credentials or fallback
+      const clientId = CLIENT_ID || fallbackClientId;
+      const clientSecret = CLIENT_SECRET || fallbackClientSecret;
+      
+      if (!clientId || !clientSecret) {
+        throw new Error('Missing CLIENT_ID or CLIENT_SECRET');
+      }
+
+      // Create fresh MyIOAuth instance every time (like TELEMETRY widget)
+      const MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary)
+           || (typeof window !== "undefined" && window.MyIOLibrary)
+           || null;
+
+      if (!MyIO) {
+        throw new Error('MyIOLibrary not available');
+      }
+
+      const myIOAuth = MyIO.buildMyioIngestionAuth({
+        dataApiHost: DATA_API_HOST,
+        clientId: clientId,
+        clientSecret: clientSecret
+      });
+
+      // Get fresh token
+      const token = await myIOAuth.getToken();
+      if (!token) {
+        throw new Error('Failed to get ingestion token');
+      }
+
+      // Use stored customer ID or fallback
+      const customerId = CUSTOMER_ING_ID || "e01bdd22-3be6-4b75-9dae-442c8b8c186e";
+
+      // Build API URL based on domain
+      const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/${domain}/devices/totals`);
+      url.searchParams.set('startTime', period.startISO);
+      url.searchParams.set('endTime', period.endISO);
+      url.searchParams.set('deep', '1');
+
+      console.log(`[Orchestrator] Fetching from: ${url.toString()}`);
+
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          emitTokenExpired();
+        }
+        throw new Error(`API error: ${res.status}`);
+      }
+
+      const json = await res.json();
+      const rows = Array.isArray(json) ? json : (json?.data ?? []);
+
+      // RFC-0042: Debug first row to see available fields
+      if (rows.length > 0) {
+        console.log(`[Orchestrator] Sample API row (full):`, JSON.stringify(rows[0], null, 2));
+        console.log(`[Orchestrator] Sample API row groupType field:`, rows[0].groupType);
+      }
+
+      // Convert API response to enriched items format
+      const items = rows.map(row => ({
+        id: row.id,
+        tbId: row.id,
+        ingestionId: row.id,
+        identifier: row.identifier || row.id,
+        label: row.label || row.identifier || row.id,
+        value: Number(row.total_value || 0),
+        perc: 0,
+        deviceType: row.deviceType || 'energy',
+        slaveId: row.slaveId || null,
+        centralId: row.centralId || null,
+        groupType: row.groupType || 'stores'
+      }));
+
+      // RFC-0042: Debug groupType distribution
+      const groupTypeCounts = {};
+      items.forEach(item => {
+        const gt = item.groupType || 'null';
+        groupTypeCounts[gt] = (groupTypeCounts[gt] || 0) + 1;
+      });
+
+      console.log(`[Orchestrator] fetchAndEnrich: fetched ${items.length} items for domain ${domain}`);
+      console.log(`[Orchestrator] GroupType distribution:`, groupTypeCounts);
+      return items;
+    } catch (error) {
+      console.error(`[Orchestrator] fetchAndEnrich error for domain ${domain}:`, error);
+      return [];
+    }
   }
 
   async function hydrateDomain(domain, period) {
@@ -487,11 +633,53 @@ const MyIOOrchestrator = (() => {
     return fetchPromise;
   }
 
+  // RFC-0042: Cross-context event forwarding helper
+  function emitToAllContexts(eventName, detail) {
+    // 1. Emit to current window
+    window.dispatchEvent(new CustomEvent(eventName, { detail }));
+
+    // 2. Emit to parent window if in iframe
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.dispatchEvent(new CustomEvent(eventName, { detail }));
+      }
+    } catch (e) {
+      // Cross-origin iframe, ignore
+    }
+
+    // 3. Emit to all child iframes
+    try {
+      const iframes = document.querySelectorAll('iframe');
+      iframes.forEach((iframe, idx) => {
+        try {
+          iframe.contentWindow.dispatchEvent(new CustomEvent(eventName, { detail }));
+        } catch (e) {
+          // Cross-origin iframe, ignore
+        }
+      });
+    } catch (e) {
+      // Cannot access iframes, ignore
+    }
+  }
+
   // Event emitters
   function emitProvide(domain, periodKey, items) {
-    window.dispatchEvent(new CustomEvent('myio:telemetry:provide-data', {
-      detail: { domain, periodKey, items }
-    }));
+    console.log(`[Orchestrator] Emitting provide-data event for domain ${domain} with ${items.length} items`);
+
+    // Store data for late-joining widgets
+    if (!window.MyIOOrchestratorData) {
+      window.MyIOOrchestratorData = {};
+    }
+    window.MyIOOrchestratorData[domain] = { periodKey, items, timestamp: Date.now() };
+
+    // RFC-0042: Emit to all contexts (parent, current, iframes)
+    emitToAllContexts('myio:telemetry:provide-data', { domain, periodKey, items });
+
+    // Retry mechanism for late-joining widgets
+    setTimeout(() => {
+      console.log(`[Orchestrator] Retrying event emission for domain ${domain}`);
+      emitToAllContexts('myio:telemetry:provide-data', { domain, periodKey, items });
+    }, 1000);
   }
 
   function emitHydrated(domain, periodKey, count) {
@@ -544,7 +732,12 @@ const MyIOOrchestrator = (() => {
 
   // Event listeners
   window.addEventListener('myio:update-date', (ev) => {
+    console.log('[Orchestrator] Received myio:update-date event', ev.detail);
     currentPeriod = ev.detail.period;
+
+    // RFC-0042: Cross-context emission removed - HEADER already handles this
+    // No need to re-emit here as it creates infinite loop
+
     if (visibleTab && currentPeriod) {
       hydrateDomain(visibleTab, currentPeriod);
     }
