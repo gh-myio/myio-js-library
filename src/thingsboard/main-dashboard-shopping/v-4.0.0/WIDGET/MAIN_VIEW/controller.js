@@ -553,8 +553,8 @@ const MyIOOrchestrator = (() => {
 
       // RFC-0042: Debug first row to see available fields
       if (rows.length > 0) {
-        console.log(`[Orchestrator] Sample API row (full):`, JSON.stringify(rows[0], null, 2));
-        console.log(`[Orchestrator] Sample API row groupType field:`, rows[0].groupType);
+        //console.log(`[Orchestrator] Sample API row (full):`, JSON.stringify(rows[0], null, 2));
+        //console.log(`[Orchestrator] Sample API row groupType field:`, rows[0].groupType);
       }
 
       // Convert API response to enriched items format

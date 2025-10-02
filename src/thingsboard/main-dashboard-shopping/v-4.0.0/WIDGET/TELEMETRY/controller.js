@@ -84,12 +84,15 @@ function ensureBusyModalDOM() {
   return $root().find(`#${BUSY_ID}`);
 }
 function showBusy(message) {
+  console.log(`[TELEMETRY] 🔄 showBusy() called with message: "${message || 'default'}"`);
   const $m = ensureBusyModalDOM();
   const text = (message && String(message).trim()) || "aguarde.. carregando os dados...";
   $m.find(`#${BUSY_ID}-msg`).text(text);
   $m.css("display","flex");
+  console.log(`[TELEMETRY] ✅ Modal displayed, current display style:`, $m.css("display"));
 }
 function hideBusy() {
+  console.log(`[TELEMETRY] ⏸️ hideBusy() called`);
   $root().find(`#${BUSY_ID}`).css("display","none");
 }
 
@@ -849,7 +852,9 @@ self.onInit = async function () {
       self.ctx.scope.endDateISO = endISO;
 
       // Exibe modal
+      console.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Calling showBusy()...`);
       showBusy();
+      console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ showBusy() called`);
 
       // RFC-0042: Request data from orchestrator (check parent window if in iframe)
       const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
@@ -908,7 +913,8 @@ self.onInit = async function () {
       return;
     }
 
-    // Show busy modal while processing data
+    // Show busy modal (may be called from provide-data without dateUpdate event)
+    console.log(`[TELEMETRY] 🔄 Calling showBusy() from dataProvideHandler...`);
     showBusy();
 
     // Validate current period matches
@@ -926,10 +932,11 @@ self.onInit = async function () {
 
     // Extract my datasource IDs
     const myDatasourceIds = extractDatasourceIds(self.ctx.datasources);
-    console.log(`[TELEMETRY] My datasource IDs:`, myDatasourceIds);
-    console.log(`[TELEMETRY] Sample orchestrator items:`, items.slice(0, 3));
+    //console.log(`[TELEMETRY] My datasource IDs:`, myDatasourceIds);
+    //console.log(`[TELEMETRY] Sample orchestrator items:`, items.slice(0, 3));
 
     // RFC-0042: Debug datasources structure to understand the mapping
+    /*
     if (self.ctx.datasources && self.ctx.datasources.length > 0) {
       console.log(`[TELEMETRY] Datasource[0] keys:`, Object.keys(self.ctx.datasources[0]));
       console.log(`[TELEMETRY] Datasource[0] entityId:`, self.ctx.datasources[0].entityId);
@@ -940,6 +947,7 @@ self.onInit = async function () {
       console.log(`[TELEMETRY] Data[0] keys:`, Object.keys(self.ctx.data[0]));
       console.log(`[TELEMETRY] Data[0] full:`, JSON.stringify(self.ctx.data[0], null, 2));
     }
+      */
 
     // RFC-0042: Debug groupType distribution
     const groupTypeCounts = {};
@@ -1002,7 +1010,9 @@ self.onInit = async function () {
     // Keep original labels/identifiers from TB, only update values from orchestrator
     if (!STATE.itemsBase || STATE.itemsBase.length === 0) {
       // First load: build from TB data
+      console.log(`[TELEMETRY] Building itemsBase from TB data...`);
       STATE.itemsBase = buildAuthoritativeItems();
+      console.log(`[TELEMETRY] Built ${STATE.itemsBase.length} items from TB`);
     }
 
     // Create map of orchestrator values by ingestionId
@@ -1012,16 +1022,22 @@ self.onInit = async function () {
         orchestratorValues.set(item.ingestionId, Number(item.value || 0));
       }
     });
+    console.log(`[TELEMETRY] Orchestrator values map size: ${orchestratorValues.size}`);
 
     // Update values in existing items
     STATE.itemsEnriched = STATE.itemsBase.map(tbItem => {
       const orchestratorValue = orchestratorValues.get(tbItem.ingestionId);
+      if (orchestratorValue !== undefined) {
+        //console.log(`[TELEMETRY] Updating ${tbItem.label} (${tbItem.ingestionId}): ${tbItem.value} → ${orchestratorValue}`);
+      }
       return {
         ...tbItem,
         value: orchestratorValue !== undefined ? orchestratorValue : (tbItem.value || 0),
         perc: 0
       };
     });
+
+    console.log(`[TELEMETRY] Enriched ${STATE.itemsEnriched.length} items with orchestrator values`);
 
     // Sanitize selection
     if (STATE.selectedIds && STATE.selectedIds.size) {
@@ -1031,7 +1047,11 @@ self.onInit = async function () {
     }
 
     reflowFromState();
-    hideBusy();
+
+    // Minimum delay to ensure user sees the modal (500ms)
+    setTimeout(() => {
+      hideBusy();
+    }, 500);
   };
 
   /**
