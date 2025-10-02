@@ -345,15 +345,10 @@ function enrichItemsWithTotals(items, apiMap) {
   return items.map(it => {
     let raw = 0;
     
-    console.log("enrichItemsWithTotals FROM ingestionId: ", it);
-    console.log("enrichItemsWithTotals apiMap.get(String(it.ingestionId)): ", apiMap.get(String(it.ingestionId)));
-    console.log("enrichItemsWithTotals Number(row?.total_value ?? 0): ", Number(row?.total_value ?? 0));
-    
     if (it.ingestionId && isValidUUID(it.ingestionId)) {
         const row = apiMap.get(String(it.ingestionId));
         raw = Number(row?.total_value ?? 0);
     }
-    
     
     const value = Number(raw || 0) ; // toTargetUnit(raw); TODO verificar se ainda precisa dessa chamada
     
