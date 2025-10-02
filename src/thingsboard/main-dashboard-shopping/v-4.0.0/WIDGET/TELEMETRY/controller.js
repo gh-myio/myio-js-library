@@ -12,8 +12,13 @@ const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
 const MAX_FIRST_HYDRATES = 1;
 
 let dateUpdateHandler = null;
+let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
 //let DEVICE_TYPE = "energy";
 let MyIO = null;
+
+// RFC-0042: Widget configuration (from settings)
+let WIDGET_DOMAIN = 'energy'; // Will be set in onInit
+let WIDGET_GROUP_TYPE = null;  // Will be set in onInit
 
 /** ===================== STATE ===================== **/
 let CLIENT_ID       = "";
@@ -809,6 +814,71 @@ self.onInit = async function () {
 
   window.addEventListener("myio:update-date", dateUpdateHandler);
 
+  // RFC-0042: Set widget configuration from settings
+  WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
+  WIDGET_GROUP_TYPE = self.ctx.settings?.GROUP_TYPE || null;
+  console.log(`[TELEMETRY] Configured: domain=${WIDGET_DOMAIN}, groupType=${WIDGET_GROUP_TYPE}`);
+
+  // RFC-0042: Listen for data provision from orchestrator
+  dataProvideHandler = function (ev) {
+    const { domain, periodKey, items } = ev.detail;
+
+    // Only process if it's for my domain
+    if (domain !== WIDGET_DOMAIN) {
+      return;
+    }
+
+    // Validate current period matches
+    const myPeriod = {
+      startISO: self.ctx.scope?.startDateISO,
+      endISO: self.ctx.scope?.endDateISO
+    };
+
+    if (!myPeriod.startISO || !myPeriod.endISO) {
+      console.warn(`[TELEMETRY] No period set, ignoring data provision`);
+      return;
+    }
+
+    console.log(`[TELEMETRY] Received ${items.length} items from orchestrator for domain ${domain}`);
+
+    // Extract my datasource IDs
+    const myDatasourceIds = extractDatasourceIds(self.ctx.datasources);
+
+    // Filter items by datasource IDs
+    let filtered = items.filter(item =>
+      myDatasourceIds.includes(item.id) || myDatasourceIds.includes(item.tbId) || myDatasourceIds.includes(item.ingestionId)
+    );
+
+    // Further filter by GROUP_TYPE if specified
+    if (WIDGET_GROUP_TYPE) {
+      filtered = filtered.filter(item => item.groupType === WIDGET_GROUP_TYPE);
+      console.log(`[TELEMETRY] Filtered to ${filtered.length} items for groupType=${WIDGET_GROUP_TYPE}`);
+    }
+
+    STATE.itemsBase = filtered;
+    STATE.itemsEnriched = filtered; // Already enriched by orchestrator
+
+    // Sanitize selection
+    if (STATE.selectedIds && STATE.selectedIds.size) {
+      const valid = new Set(filtered.map(x => x.id));
+      const next = new Set([...STATE.selectedIds].filter(id => valid.has(id)));
+      STATE.selectedIds = next.size ? next : null;
+    }
+
+    reflowFromState();
+    hideBusy();
+  };
+
+  /**
+   * Extracts datasource entity IDs from ThingsBoard context.
+   */
+  function extractDatasourceIds(datasources) {
+    if (!Array.isArray(datasources)) return [];
+    return datasources.map(ds => ds?.entityId?.id || ds?.entityId).filter(Boolean);
+  }
+
+  window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
+
   // Auth do cliente/ingestion
   const customerTB_ID = self.ctx.settings?.customerTB_ID || "";
   //DEVICE_TYPE = self.ctx.settings?.DEVICE_TYPE || "energy";
@@ -875,6 +945,10 @@ self.onDestroy = function () {
   if (dateUpdateHandler) {
     window.removeEventListener("myio:update-date", dateUpdateHandler);
     console.log("[DeviceCards] Event listener 'myio:update-date' removido.");
+  }
+  if (dataProvideHandler) {
+    window.removeEventListener('myio:telemetry:provide-data', dataProvideHandler);
+    console.log("[DeviceCards] Event listener 'myio:telemetry:provide-data' removido.");
   }
   try { $root().off(); } catch (_e) {}
   hideBusy();

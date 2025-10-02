@@ -5,11 +5,28 @@ self.onInit = function () {
   scope.links = settings.links || [];
   scope.groupDashboardId = settings.groupDashboardId;
 
+  // RFC-0042: State ID to Domain mapping
+  const DOMAIN_BY_STATE = {
+    telemetry_content: 'energy',
+    water_content: 'water',
+    temperature_content: 'temperature',
+    alarm_content: null // No domain for alarms
+  };
+
   scope.changeDashboardState = function (e, stateId, index) {
     e.preventDefault();
 
     // Marca o link selecionado e desmarca os outros
     scope.links.forEach((link, i) => link.enableLink = (i === index));
+
+    // RFC-0042: Notify orchestrator of tab change
+    const domain = DOMAIN_BY_STATE[stateId];
+    if (domain) {
+      console.log(`[MENU] Tab changed to domain: ${domain}`);
+      window.dispatchEvent(new CustomEvent('myio:dashboard-state', {
+        detail: { tab: domain }
+      }));
+    }
 
     try {
       const main = document.getElementsByTagName("main")[0];

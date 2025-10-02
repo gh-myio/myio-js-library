@@ -1,16 +1,38 @@
 {
   "schema": {
     "type": "object",
-    "title": "Settings",
+    "title": "Telemetry Widget Settings",
     "properties": {
         "labelWidget":{
             "type":"string",
-            "title": "LabelWidget"
+            "title": "Widget Label",
+            "default": "Devices"
         },
         "customerTB_ID":{
             "type":"string",
-            "title": "customerTB_ID"
+            "title": "ThingsBoard Customer ID"
+        },
+        "DOMAIN": {
+            "type": "string",
+            "title": "Domain",
+            "enum": ["energy", "water", "temperature"],
+            "default": "energy",
+            "description": "Data domain for this widget"
+        },
+        "GROUP_TYPE": {
+            "type": "string",
+            "title": "Group Type Filter (optional)",
+            "enum": ["", "entry_meters", "common_area", "stores", "substation"],
+            "default": "",
+            "description": "Filter devices by group type (for Energy columns)"
         }
-    }
-  }
+    },
+    "required": ["customerTB_ID", "DOMAIN"]
+  },
+  "form": [
+    "labelWidget",
+    "customerTB_ID",
+    "DOMAIN",
+    "GROUP_TYPE"
+  ]
 }

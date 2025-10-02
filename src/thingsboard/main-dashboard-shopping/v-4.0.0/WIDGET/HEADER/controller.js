@@ -134,6 +134,34 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
   const fireCE = (name, detail) => self.ctx.$container[0].dispatchEvent(new CustomEvent(name, { detail }));
 
+  // RFC-0042: Utility functions (reuse from MAIN_VIEW if available, otherwise define locally)
+  const toISO = window.toISO || function(dt, tz = 'America/Sao_Paulo') {
+    const d = (typeof dt === 'number') ? new Date(dt)
+            : (dt instanceof Date) ? dt
+            : new Date(String(dt));
+    if (Number.isNaN(d.getTime())) throw new Error('Invalid date');
+    const offset = -d.getTimezoneOffset();
+    const offsetHours = Math.floor(Math.abs(offset) / 60);
+    const offsetMins = Math.abs(offset) % 60;
+    const offsetStr = `${offset >= 0 ? '+' : '-'}${String(offsetHours).padStart(2, '0')}:${String(offsetMins).padStart(2, '0')}`;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hour = String(d.getHours()).padStart(2, '0');
+    const minute = String(d.getMinutes()).padStart(2, '0');
+    const second = String(d.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hour}:${minute}:${second}${offsetStr}`;
+  };
+
+  const calcGranularity = window.calcGranularity || function(startISO, endISO) {
+    const start = new Date(startISO);
+    const end = new Date(endISO);
+    const diffDays = (end - start) / (1000 * 60 * 60 * 24);
+    if (diffDays > 92) return 'month';
+    if (diffDays > 3) return 'day';
+    return 'hour';
+  };
+
   // estado
   self.__range = { start: null, end: null };
 
@@ -193,13 +221,28 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // Botões
     const payload = () => self.getFilters();
     btnLoad?.addEventListener("click", () => {
-      const startDate = self.ctx.$scope.startTs || inputStart.value + "T00:00:00-03:00";
-      const endDate = self.ctx.$scope.endTs || inputEnd.value + "T23:59:00-03:00";
+      // RFC-0042: Standardized period emission
+      const startISO = toISO(self.ctx.$scope.startTs || inputStart.value + "T00:00:00", 'America/Sao_Paulo');
+      const endISO = toISO(self.ctx.$scope.endTs || inputEnd.value + "T23:59:00", 'America/Sao_Paulo');
 
-      console.log( "Filho enviando para o pai -> start:", startDate, "end:", endDate);
+      const period = {
+        startISO,
+        endISO,
+        granularity: calcGranularity(startISO, endISO),
+        tz: 'America/Sao_Paulo'
+      };
 
-      // Dispara evento global
-      window.dispatchEvent(new CustomEvent("myio:update-date", {detail: { startDate, endDate }, }));
+      console.log("[HEADER] Emitting standardized period:", period);
+
+      // Emit standardized event for orchestrator
+      window.dispatchEvent(new CustomEvent("myio:update-date", {
+        detail: { period }
+      }));
+
+      // Backward compatibility: also emit old format
+      window.dispatchEvent(new CustomEvent("myio:update-date-legacy", {
+        detail: { startDate: startISO, endDate: endISO }
+      }));
     });
 
     btnGen?.addEventListener("click", async () => {
@@ -207,23 +250,46 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       fireCE("tbx:report:general", p);
       emitTo(listeners.general, p);
 
-      const ingestionAuthToken = await MyIOAuth.getToken();
-      // Use the extracted utility function from MyIOLibrary
-      const itemsListTB = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data);
-      console.log("[header] itemsListTB >>> ", itemsListTB);
+      try {
+        const ingestionAuthToken = await MyIOAuth.getToken();
 
-      const modal = MyIOLibrary.openDashboardPopupAllReport({
-        customerId: INGESTION_ID,
-        debug: 0,
-        api: {
-          clientId: CLIENT_ID,
-          clientSecret: CLIENT_SECRET,
-          dataApiBaseUrl: DATA_API_HOST,
-          ingestionToken: ingestionAuthToken,
-        },
-        itemsList: itemsListTB,
-        ui: { theme: "light" },
-      });
+        // RFC-0042: Check orchestrator cache if available
+        let itemsListTB;
+        if (window.MyIOOrchestrator && window.MyIOOrchestrator.getCurrentPeriod()) {
+          const currentPeriod = window.MyIOOrchestrator.getCurrentPeriod();
+          const cacheKey = window.cacheKey ? window.cacheKey('energy', currentPeriod) : null;
+
+          if (cacheKey && window.MyIOOrchestrator.memCache) {
+            const cached = window.MyIOOrchestrator.memCache.get(cacheKey);
+            if (cached && cached.data) {
+              console.log("[HEADER] Using cached items from orchestrator");
+              itemsListTB = cached.data;
+            }
+          }
+        }
+
+        // Fallback: build from TB datasources
+        if (!itemsListTB || itemsListTB.length === 0) {
+          itemsListTB = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data);
+          console.log("[HEADER] Built items from datasources (cache miss):", itemsListTB.length);
+        }
+
+        const modal = MyIOLibrary.openDashboardPopupAllReport({
+          customerId: INGESTION_ID,
+          debug: 0,
+          api: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            dataApiBaseUrl: DATA_API_HOST,
+            ingestionToken: ingestionAuthToken,
+          },
+          itemsList: itemsListTB,
+          ui: { theme: "light" },
+        });
+      } catch (err) {
+        console.error("[HEADER] Failed to open All-Report modal:", err);
+        alert("Erro ao abrir relatório geral. Tente novamente.");
+      }
     });
 
     // Compat com actionsApi
