@@ -55,7 +55,7 @@ self.onInit = function () {
       }
 
       // Usa o dashboardId das configurações (se existir) ou fallback fixo
-      const dashboardId = settings.dashboardId || "79111e50-9d68-11f0-afe1-175479a33d89";
+      const dashboardId = settings.groupDashboardId;
 
       if (!stateParam) {
         console.warn(`[menu] Nenhum stateParam definido para stateId: ${stateId}`);
