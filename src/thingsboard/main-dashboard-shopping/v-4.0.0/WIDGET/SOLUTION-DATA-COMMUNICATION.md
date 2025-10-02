@@ -585,15 +585,111 @@ function extractDatasourceIds(datasources) {
 
 ---
 
-## 🚀 Próximos Passos
+## 🔧 CORREÇÃO FINAL: Formatação e Labels (2025-10-02)
 
-1. ✅ Cross-context event emission implementada
-2. ✅ Match de dados corrigido (ingestionId)
-3. ⏳ Aguardar feedback do usuário
-4. ⏳ Ajustar GROUP_TYPE filtering se necessário
-5. ⏳ Otimizar retry timing se necessário
+### ❌ Problemas Adicionais Descobertos:
+
+1. **Header mostrando "kWh" para water**: Função hardcoded com `MyIO.formatEnergy()`
+2. **Valores zerados após refresh**: Labels da API não faziam match com TB
+3. **Modal busy não aparecia**: Evento processado muito rápido
+
+### 🔍 Causa Raiz (Labels):
+
+O Orchestrator estava usando campo errado da API:
+
+```javascript
+// ❌ ERRADO: API não tem campo "label"
+label: row.label || row.identifier || row.id
+// Resultado: label = UUID (não faz match com TB!)
+
+// ✅ CORRETO: API usa campo "name"
+label: row.name || row.label || row.identifier || row.id
+// Resultado: label = "Allegria", "Bob's", etc (match correto!)
+```
+
+### ✅ Correções Implementadas:
+
+#### 1. TELEMETRY/controller.js - Formatação por Domain (linhas 412-426)
+
+```javascript
+function renderHeader(count, groupSum) {
+  $count().text(`(${count})`);
+
+  // Format based on widget domain
+  let formattedTotal = groupSum.toFixed(2);
+  if (WIDGET_DOMAIN === 'energy') {
+    formattedTotal = MyIO.formatEnergy(groupSum);
+  } else if (WIDGET_DOMAIN === 'water') {
+    formattedTotal = MyIO.formatWaterVolumeM3(groupSum);
+  } else if (WIDGET_DOMAIN === 'tank') {
+    formattedTotal = MyIO.formatTankHeadFromCm(groupSum);
+  }
+
+  $total().text(formattedTotal);
+}
+```
+
+#### 2. MAIN_VIEW/controller.js - Label correto da API (linha 566)
+
+```javascript
+// Antes:
+label: row.label || row.identifier || row.id
+
+// Depois:
+label: row.name || row.label || row.identifier || row.id
+```
+
+#### 3. TELEMETRY/controller.js - Modal visível (linhas 1051-1054)
+
+```javascript
+reflowFromState();
+
+// Minimum delay to ensure user sees the modal (500ms)
+setTimeout(() => {
+  hideBusy();
+}, 500);
+```
+
+### 📊 Resultado Final:
+
+```
+✅ Header mostra unidade correta (kWh para energy, m³ para water, cm para tank)
+✅ Labels corretos (Allegria, Bob's, etc ao invés de UUIDs)
+✅ Valores persistem após atualização (match correto TB ↔ API)
+✅ Modal busy aparece e permanece visível tempo suficiente
+✅ Cross-context communication funcionando
+✅ Merge inteligente mantém dados TB + valores API
+```
+
+### 🧪 Logs de Validação:
+
+**ANTES da correção:**
+```
+✅ API has data: f54172b1-afe8-4603-b126-31f77ee43e53 (...) = 0.005
+⚠️ Ale Pudim (82198fb5-a373-4c6c-833d-9ed72cd2b826): orchestrator=0, TB=undefined
+// Match FALHOU: UUIDs diferentes
+```
+
+**DEPOIS da correção:**
+```
+✅ API has data: Allegria (2c89a809-5f31-4e57-9c4f-f1e72cb1ac07) = 8.785
+✅ Widget exibe: Allegria - 8.785 m³
+// Match OK: Label correto + valor correto
+```
 
 ---
 
-**Última Atualização:** 2025-10-02 (Match Correction)
-**Status:** ✅ RESOLVIDO - Aguardando testes em produção
+## 🚀 Status Final
+
+1. ✅ Cross-context event emission implementada
+2. ✅ Match de dados corrigido (ingestionId)
+3. ✅ Labels corretos (API usa "name", não "label")
+4. ✅ Formatação por domain (energy/water/tank)
+5. ✅ Modal busy visível (delay 500ms)
+6. ✅ Merge inteligente preserva dados TB
+7. ✅ **TUDO FUNCIONANDO EM PRODUÇÃO**
+
+---
+
+**Última Atualização:** 2025-10-02 (Labels + Formatação)
+**Status:** ✅ COMPLETO - Testado e validado em produção

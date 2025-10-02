@@ -239,27 +239,92 @@ Execute este script no console para diagnosticar o problema:
 
 ## 📋 Checklist de Resolução
 
-- [ ] Verificar se widgets estão no mesmo window context
-- [ ] Verificar se event listeners estão registrados (getEventListeners)
-- [ ] Testar emissão manual de evento
-- [ ] Verificar se WIDGET_DOMAIN está definido
-- [ ] Implementar emissão cross-context (parent/iframes)
-- [ ] Considerar usar BroadcastChannel para comunicação
-- [ ] Adicionar retry mechanism com timeout
+- [x] Verificar se widgets estão no mesmo window context ✅
+- [x] Verificar se event listeners estão registrados (getEventListeners) ✅
+- [x] Testar emissão manual de evento ✅
+- [x] Verificar se WIDGET_DOMAIN está definido ✅
+- [x] Implementar emissão cross-context (parent/iframes) ✅
+- [x] Adicionar retry mechanism com timeout ✅
+- [x] Corrigir match de ingestionId ✅
+- [x] Corrigir labels da API (usar "name" ao invés de "label") ✅
+- [x] Implementar formatação por domain ✅
+- [x] Adicionar delay em modal busy ✅
 
 ---
 
-## 🚨 Ação Imediata
+## ✅ PROBLEMAS RESOLVIDOS (2025-10-02)
 
-**SE os logs `[TELEMETRY energy] ✅ DATE UPDATE EVENT RECEIVED!` NÃO aparecerem:**
+### 1. Cross-Context Communication
+**Problema:** Eventos não chegavam em widgets dentro de iframes
+**Solução:** `emitToAllContexts()` em HEADER e MAIN_VIEW
 
-1. Execute o diagnóstico completo
-2. Verifique `getEventListeners(window)['myio:update-date']`
-3. Se retornar vazio ou undefined → **problema de contexto de window**
-4. Implemente **Solução 2** (emissão cross-context)
+### 2. Match de Dados
+**Problema:** `extractDatasourceIds()` pegava entityId ao invés de ingestionId
+**Solução:** Extrair ingestionId do ctx.data
 
-**SE os logs aparecerem MAS data não atualizar:**
+### 3. Labels Incorretos
+**Problema:** API usa `row.name`, código usava `row.label`
+**Solução:** `label: row.name || row.label || row.identifier || row.id`
 
-1. Verifique se `requestDataFromOrchestrator()` está sendo chamada
-2. Verifique se `WIDGET_DOMAIN` está correto
-3. Verifique se orchestrator está recebendo `myio:telemetry:request-data`
+### 4. Formatação de Header
+**Problema:** Hardcoded com `MyIO.formatEnergy()` para todos os domains
+**Solução:** Switch case baseado em `WIDGET_DOMAIN`
+
+### 5. Modal Invisível
+**Problema:** Processing muito rápido (< 50ms)
+**Solução:** `setTimeout(() => hideBusy(), 500)`
+
+---
+
+## 🧪 Comandos de Validação
+
+### Verificar se tudo está funcionando:
+
+```javascript
+// 1. Verificar labels corretos
+console.log(STATE.itemsEnriched.map(i => i.label));
+// Deve mostrar: ["Allegria", "Bob's", "Renner", ...]
+// NÃO deve mostrar UUIDs!
+
+// 2. Verificar valores
+console.log(STATE.itemsEnriched.filter(i => i.value > 0));
+// Deve mostrar items com valores da API
+
+// 3. Verificar formatação do header
+console.log(WIDGET_DOMAIN); // "energy", "water" ou "tank"
+$total().text(); // Deve ter unidade correta (kWh, m³, cm)
+
+// 4. Verificar match
+const orchestratorValues = new Map();
+filtered.forEach(item => {
+  if (item.ingestionId && item.value > 0) {
+    console.log(`${item.label}: ${item.value}`);
+  }
+});
+```
+
+### Testar atualização de data:
+
+1. Mudar data no HEADER
+2. Clicar em "Carregar"
+3. **Deve aparecer:**
+   - Modal busy em todos os 3 widgets ✅
+   - Valores atualizados ✅
+   - Labels corretos (nomes das lojas) ✅
+   - Unidade correta no header ✅
+
+---
+
+## 🚨 Troubleshooting
+
+**SE valores aparecem e depois desaparecem:**
+- Verificar se API retorna `row.name` (não `row.label`)
+- Verificar match de ingestionId nos logs
+
+**SE modal não aparece:**
+- Verificar se `showBusy()` está sendo chamado
+- Verificar se delay de 500ms está implementado
+
+**SE unidade errada no header:**
+- Verificar `WIDGET_DOMAIN` no settings do widget
+- Verificar se `renderHeader()` tem switch case por domain

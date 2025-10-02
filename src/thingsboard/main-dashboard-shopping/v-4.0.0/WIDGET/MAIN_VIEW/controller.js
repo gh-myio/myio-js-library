@@ -563,7 +563,7 @@ const MyIOOrchestrator = (() => {
         tbId: row.id,
         ingestionId: row.id,
         identifier: row.identifier || row.id,
-        label: row.label || row.identifier || row.id,
+        label: row.name || row.label || row.identifier || row.id,  // ← API usa "name", não "label"
         value: Number(row.total_value || 0),
         perc: 0,
         deviceType: row.deviceType || 'energy',

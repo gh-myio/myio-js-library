@@ -411,7 +411,18 @@ function recomputePercentages(visible) {
 /** ===================== RENDER ===================== **/
 function renderHeader(count, groupSum) {
   $count().text(`(${count})`);
-  $total().text(MyIO.formatEnergy(groupSum));
+
+  // Format based on widget domain
+  let formattedTotal = groupSum.toFixed(2);
+  if (WIDGET_DOMAIN === 'energy') {
+    formattedTotal = MyIO.formatEnergy(groupSum);
+  } else if (WIDGET_DOMAIN === 'water') {
+    formattedTotal = MyIO.formatWaterVolumeM3(groupSum);
+  } else if (WIDGET_DOMAIN === 'tank') {
+    formattedTotal = MyIO.formatTankHeadFromCm(groupSum);
+  }
+
+  $total().text(formattedTotal);
 }
 
 function renderList(visible) {
@@ -1019,7 +1030,13 @@ self.onInit = async function () {
     const orchestratorValues = new Map();
     filtered.forEach(item => {
       if (item.ingestionId) {
-        orchestratorValues.set(item.ingestionId, Number(item.value || 0));
+        const value = Number(item.value || 0);
+        orchestratorValues.set(item.ingestionId, value);
+
+        // Debug: log non-zero values from API
+        if (value > 0) {
+          console.log(`[TELEMETRY] ✅ API has data: ${item.label} (${item.ingestionId}) = ${value}`);
+        }
       }
     });
     console.log(`[TELEMETRY] Orchestrator values map size: ${orchestratorValues.size}`);
@@ -1027,9 +1044,12 @@ self.onInit = async function () {
     // Update values in existing items
     STATE.itemsEnriched = STATE.itemsBase.map(tbItem => {
       const orchestratorValue = orchestratorValues.get(tbItem.ingestionId);
-      if (orchestratorValue !== undefined) {
-        //console.log(`[TELEMETRY] Updating ${tbItem.label} (${tbItem.ingestionId}): ${tbItem.value} → ${orchestratorValue}`);
+
+      // Debug: log when value is missing or zero
+      if (orchestratorValue === undefined || orchestratorValue === 0) {
+        console.warn(`[TELEMETRY] ⚠️ ${tbItem.label} (${tbItem.ingestionId}): orchestrator=${orchestratorValue}, TB=${tbItem.value}`);
       }
+
       return {
         ...tbItem,
         value: orchestratorValue !== undefined ? orchestratorValue : (tbItem.value || 0),
