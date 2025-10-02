@@ -1,0 +1,18 @@
+<section class="shops-menu-root">
+  <div class="menu-header">
+    <button class="hamburger-btn">☰ Menu</button>
+  </div>
+  
+  <nav class="menu-list">
+    <a
+      href="#"
+      *ngFor="let link of links; let i = index"
+      id="link{{ i }}"
+      class="menu-item"
+      (click)="changeDashboardState($event, link.stateId, i)"
+      [class.active]="link.enableLink"
+    >
+      <span class="label">{{ link.content }}</span>
+    </a>
+  </nav>
+</section>

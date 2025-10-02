@@ -9,25 +9,11 @@
  * =========================================================================*/
 
 const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
-let dateUpdateHandler = null;
-
- let UNIT_TARGET = null;
- let API_UNIT    = null;
- let DECIMALS    = null;
-
 const MAX_FIRST_HYDRATES = 1;
 
-/** ============== MyIO (fallbacks seguros) ============== **/
-const MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary)
-         || (typeof window !== "undefined" && window.MyIOLibrary)
-         || {
-              formatNumberReadable: (n, d=2) => Number(n ?? 0).toLocaleString("pt-BR", {
-                minimumFractionDigits: d, maximumFractionDigits: d
-              }),
-              formatEnergy: (n) => `${Number(n || 0).toLocaleString("pt-BR", {
-                minimumFractionDigits: 2, maximumFractionDigits: 2
-              })} ${UNIT_TARGET}`
-            };
+let dateUpdateHandler = null;
+//let DEVICE_TYPE = "energy";
+let MyIO = null;
 
 /** ===================== STATE ===================== **/
 let CLIENT_ID       = "";
@@ -198,10 +184,12 @@ function escapeHtml(s) {
     .replace(/&/g,"&amp;").replace(/</g,"&lt;")
     .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
 }
+
 function isValidUUID(v) {
   if (!v || typeof v !== "string") return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 }
+
 function toSpOffsetNoMs(dt, endOfDay=false) {
   const d = (typeof dt === "number") ? new Date(dt)
           : (dt instanceof Date) ? dt
@@ -210,10 +198,30 @@ function toSpOffsetNoMs(dt, endOfDay=false) {
   if (endOfDay) d.setHours(23,59,59,999);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}T${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}-03:00`;
 }
+
+// converts raw API value to the UI target unit
 function toTargetUnit(raw) {
+  /*
   const x = Number(raw || 0);
-  if (UNIT_TARGET === "MWh" && API_UNIT === "kWh") return x / 1000;
+
+  if (DEVICE_TYPE === "energy") {
+    return MyIO.formatEnergy(x);
+  }
+
+  if (DEVICE_TYPE === "water") {
+    return MyIO.formatWaterVolumeM3(x);
+  }
+
+  if (DEVICE_TYPE === "tank") {
+    return MyIO.formatTankHeadFromCm(x);
+  }
+
+  // Default fallback for temperature or unknown types
   return x;
+  */
+  // TODO Trecho comentado, pois já faz o tratamento no componente
+
+  return Number(raw || 0)
 }
 function mustGetDateRange() {
   const s = self.ctx?.scope?.startDateISO;
@@ -268,12 +276,17 @@ function buildTbIdIndexes() {
 function buildAuthoritativeItems() {
   // items da LIB: [{ id: ingestionId, identifier, label }, ...]
   const base = MyIO.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data) || [];
+
+  //console.log("[TELEMETRY][buildAuthoritativeItems] base: ", base);
+
   const ok   = Array.isArray(base) ? base.filter(x => x && x.id) : [];
 
   const tbIdIdx   = buildTbIdIndexes();   // { byIdentifier, byIngestion }
   const attrsByTb = buildTbAttrIndex();   // tbId -> { slaveId, centralId, deviceType }
 
   const mapped = ok.map(r => {
+    //console.log("[TELEMETRY][buildAuthoritativeItems] ok.map: ", r);
+
     const ingestionId = r.id;
     const tbFromIngestion  = ingestionId ? tbIdIdx.byIngestion.get(ingestionId) : null;
     const tbFromIdentifier = r.identifier ? tbIdIdx.byIdentifier.get(r.identifier) : null;
@@ -300,7 +313,7 @@ function buildAuthoritativeItems() {
     };
   });
 
-  console.log(`[DeviceCards] TB items: ${mapped.length}`);
+  //console.log(`[DeviceCards] TB items: ${mapped.length}`);
   return mapped;
 }
 
@@ -324,18 +337,26 @@ async function fetchApiTotals(startISO, endISO) {
   const rows = Array.isArray(json) ? json : (json?.data ?? []);
   const map = new Map();
   for (const r of rows) if (r && r.id) map.set(String(r.id), r);
-  console.log(`[DeviceCards] API rows: ${rows.length}, map keys: ${map.size}`);
+  //console.log(`[DeviceCards] API rows: ${rows.length}, map keys: ${map.size}`);
   return map;
 }
 
 function enrichItemsWithTotals(items, apiMap) {
   return items.map(it => {
     let raw = 0;
+    
+    console.log("enrichItemsWithTotals FROM ingestionId: ", it);
+    console.log("enrichItemsWithTotals apiMap.get(String(it.ingestionId)): ", apiMap.get(String(it.ingestionId)));
+    console.log("enrichItemsWithTotals Number(row?.total_value ?? 0): ", Number(row?.total_value ?? 0));
+    
     if (it.ingestionId && isValidUUID(it.ingestionId)) {
-      const row = apiMap.get(String(it.ingestionId));
-      raw = Number(row?.total_value ?? 0);
+        const row = apiMap.get(String(it.ingestionId));
+        raw = Number(row?.total_value ?? 0);
     }
-    const value = toTargetUnit(raw);
+    
+    
+    const value = Number(raw || 0) ; // toTargetUnit(raw); TODO verificar se ainda precisa dessa chamada
+    
     return { ...it, value, perc: 0 };
   });
 }
@@ -352,7 +373,7 @@ function applyFilters(enriched, searchTerm, selectedIds, sortMode) {
   if (q) {
     v = v.filter(x =>
       (x.label || "").toLowerCase().includes(q) ||
-      (x.identifier || "").toLowerCase().includes(q)
+      String(x.identifier || "").toLowerCase().includes(q) 
     );
   }
 
@@ -387,6 +408,8 @@ function renderHeader(count, groupSum) {
 }
 
 function renderList(visible) {
+
+  console.log(" RODRIGO ESTEVE AQUI !");
   const $ul = $list().empty();
 
   visible.forEach(it => {
@@ -396,9 +419,8 @@ function renderList(visible) {
     const entityObject = {
       entityId: it.tbId || it.id,            // preferir TB deviceId
       labelOrName: it.label,
-      deviceType: it.deviceType || "energy",
-      val: valNum,
-      valType: "ENERGY",
+      deviceType: it.deviceType,
+      val: valNum * 1000, // TODO verificar ESSE MULTIPLICADOR PQ PRECISA DELE ?
       perc: it.perc ?? 0,
       deviceStatus: connectionStatus,        // "power_on" | "power_off"
       entityType: "DEVICE",
@@ -413,6 +435,10 @@ function renderList(visible) {
       timaVal: Date.now()
     };
     
+    if (it.label === 'Allegria') {
+        console.log("RENDER CARD ALLEGRIA >>> it.value: " , it.value);
+    }
+    
     const myTbToken = localStorage.getItem("jwt_token");
     let cachedIngestionToken = null;
     
@@ -426,8 +452,7 @@ function renderList(visible) {
 
       handleActionDashboard: async () => {
        try {
-        console.log("handleActionDashboard >>> it: " , it);
-        const tokenIngestionDashBoard = await MyIOAuth.getToken();
+                const tokenIngestionDashBoard = await MyIOAuth.getToken();
         const myTbTokenDashBoard = localStorage.getItem("jwt_token");
         const modal = MyIO.openDashboardPopupEnergy({
           deviceId: it.id, // Use actual device ID
@@ -753,14 +778,17 @@ self.onInit = async function () {
     flexDirection: "column",
     position: "relative"
   });
+
+  MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary)
+         || (typeof window !== "undefined" && window.MyIOLibrary)
+         || {
+              showAlert: function() {
+                alert("A Bliblioteca Myio não foi carregada corretamente!");
+              }
+            };
   
   $root().find("#labelWidgetId").text(self.ctx.settings?.labelWidget);
   
-  // Unidade alvo (UI) e unidade da API
-       UNIT_TARGET = self.ctx.settings?.UNIT_TARGET;
-       API_UNIT    = self.ctx.settings?.API_UNIT;
-       DECIMALS    = self.ctx.settings?.DECIMALS;
-
   // Listener com modal: evento externo de mudança de data
   dateUpdateHandler = function (ev) {
     try {
@@ -783,10 +811,12 @@ self.onInit = async function () {
       console.error("[DeviceCards] dateUpdateHandler error:", err);
     }
   };
+
   window.addEventListener("myio:update-date", dateUpdateHandler);
 
   // Auth do cliente/ingestion
   const customerTB_ID = self.ctx.settings?.customerTB_ID || "";
+  //DEVICE_TYPE = self.ctx.settings?.DEVICE_TYPE || "energy";
   const jwt = localStorage.getItem("jwt_token");
 
   try {

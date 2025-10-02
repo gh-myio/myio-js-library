@@ -1,0 +1,16 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Settings",
+    "properties": {
+        "labelWidget":{
+            "type":"string",
+            "title": "LabelWidget"
+        },
+        "customerTB_ID":{
+            "type":"string",
+            "title": "customerTB_ID"
+        }
+    }
+  }
+}

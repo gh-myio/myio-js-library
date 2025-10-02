@@ -30,7 +30,7 @@ export function renderCardComponentV2({
     deviceIdentifier,
     entityType,
     deviceType,
-    slaveId,
+    slaveId, 
     ingestionId,
     val,
     centralId,
@@ -40,7 +40,6 @@ export function renderCardComponentV2({
     centralName,
     connectionStatusTime,
     timeVal,
-    valType,
   } = entityObject;
 
   /*********************************************************
@@ -210,8 +209,7 @@ export function renderCardComponentV2({
   }
 
   // 2. NOVA LÓGICA DE CLASSES E ÍCONES
-  const isOffline =
-    deviceStatus === DeviceStatusType.OFFLINE
+  const isOffline = deviceStatus === DeviceStatusType.OFFLINE
 
   const shouldFlashIcon =
     deviceStatus === DeviceStatusType.OFFLINE ||
@@ -220,7 +218,6 @@ export function renderCardComponentV2({
     deviceStatus === DeviceStatusType.MAINTENANCE;
 
   const icon = deviceStatusIcons[deviceStatus] || deviceStatusIcons[DeviceStatusType.POWER_ON];
-
   const connectionIcon = connectionStatusIcons[connectionStatus] || connectionStatusIcons[connectionStatusType.OFFLINE];
 
   // Map device status to connection status
@@ -239,11 +236,16 @@ export function renderCardComponentV2({
   // Map device type to icon
   const mapDeviceTypeToIcon = (deviceType) => {
     const typeMap = {
+      'COMPRESSOR': 'energy',
+      'VENTILADOR': 'energy',
+      'ESCADA_ROLANTE': 'energy',
+      'ELEVADOR': 'energy',
       'MOTOR': 'energy',
       '3F_MEDIDOR': 'energy',
       'RELOGIO': 'energy',
-      'HIDROMETRO': 'water',
       'ENTRADA': 'energy',
+      'SUBESTACAO': 'energy',
+      'HIDROMETRO': 'water',
       'CAIXA_DAGUA': 'water',
       'TANK': 'water',
     };
@@ -252,29 +254,43 @@ export function renderCardComponentV2({
     return typeMap[normalizedType] || 'generic';
   };
 
-  // Check if device is energy-related
-  const isEnergyDevice = (valType, deviceType) => {
-    // Check by value type first
-    if (valType === 'ENERGY') {
-      return true;
-    }
-    
-    // Check by device type
-    const energyDeviceTypes = ['MOTOR', '3F_MEDIDOR', 'RELOGIO', 'ENTRADA'];
+  // Get value type from device type (replaces valType logic)
+  const getValueTypeFromDeviceType = (deviceType) => {
+    const typeMap = {
+      'COMPRESSOR': 'ENERGY',
+      'VENTILADOR': 'ENERGY',
+      'ESCADA_ROLANTE': 'ENERGY',
+      'ELEVADOR': 'ENERGY',
+      'MOTOR': 'ENERGY',
+      '3F_MEDIDOR': 'ENERGY', 
+      'RELOGIO': 'ENERGY',
+      'ENTRADA': 'ENERGY',
+      'SUBESTACAO': 'ENERGY',
+      'HIDROMETRO': 'WATER',
+      'CAIXA_DAGUA': 'WATER',
+      'TANK': 'TANK'
+    };
+    const normalizedType = deviceType?.toUpperCase() || '';
+    return typeMap[normalizedType] || 'ENERGY';
+  };
+
+  // Check if device is energy-related (now uses deviceType only)
+  const isEnergyDevice = (deviceType) => {
+    const energyDeviceTypes = ['COMPRESSOR', 'VENTILADOR', 'ESCADA_ROLANTE', 'ELEVADOR', 'MOTOR', '3F_MEDIDOR', 'RELOGIO', 'ENTRADA', 'SUBESTACAO'];
     const normalizedType = deviceType?.toUpperCase() || '';
     return energyDeviceTypes.includes(normalizedType);
   };
 
   // Smart formatting function that uses formatEnergy for energy devices
-  const formatCardValue = (value, valType, deviceType) => {
+  const formatCardValue = (value, deviceType) => {
     const numValue = Number(value) || 0;
     
-    if (isEnergyDevice(valType, deviceType)) {
+    if (isEnergyDevice(deviceType)) {
       // Use formatEnergy for intelligent unit conversion (Wh → kWh → MWh → GWh)
       return formatEnergy(numValue);
     } else {
       // Use existing formatting for non-energy devices
-      const unit = determineUnit(valType, numValue, deviceType);
+      const unit = determineUnit(deviceType);
       const formattedValue = numValue.toLocaleString('pt-BR', { 
         minimumFractionDigits: 0, 
         maximumFractionDigits: 2 
@@ -283,9 +299,10 @@ export function renderCardComponentV2({
     }
   };
 
-  // Determine unit based on value type (updated to work with formatEnergy)
-  const determineUnit = (valType, val, deviceType) => {
-    switch (valType) {
+  // Determine unit based on device type (updated to work with formatEnergy)
+  const determineUnit = (deviceType) => {
+    const valueType = getValueTypeFromDeviceType(deviceType);
+    switch (valueType) {
       case 'ENERGY':
         // Unit will be determined by formatEnergy
         return '';
@@ -305,7 +322,7 @@ export function renderCardComponentV2({
     icon: mapDeviceTypeToIcon(deviceType),
     group: deviceIdentifier || entityType || 'Dispositivo',
     lastValue: Number(val) || 0,
-    unit: determineUnit(valType, val),
+    unit: determineUnit(deviceType),
     status: mapDeviceStatus(deviceStatus)
   };
 
@@ -611,7 +628,7 @@ export function renderCardComponentV2({
                   <span class="flash-icon ${shouldFlashIcon ? "flash" : ""}">
                     ${icon}
                   </span>
-                  <span class="consumption-value">${formatCardValue(cardEntity.lastValue, valType, deviceType)}</span>
+                  <span class="consumption-value">${formatCardValue(cardEntity.lastValue, deviceType)}</span>
                   <span class="device-title-percent">(${perc.toFixed(1)}%)</span>
                 </div>
               </div>
@@ -927,9 +944,22 @@ export function renderCardComponentV2({
         border-radius: 50%;
         background: #22c55e;
         border: 1px solid rgba(0, 0, 0, 0.06);
-        box-shadow: none !important;
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15),
+                    0 1px 3px rgba(0, 0, 0, 0.1),
+                    inset 0 -2px 4px rgba(0, 0, 0, 0.1),
+                    inset 0 2px 3px rgba(255, 255, 255, 0.4) !important;
         backdrop-filter: none !important;
         z-index: 5;
+        transform: translateZ(0);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .device-card-centered .connection-status-icon:hover {
+        transform: translateZ(2px) scale(1.05);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2),
+                    0 2px 4px rgba(0, 0, 0, 0.12),
+                    inset 0 -2px 5px rgba(0, 0, 0, 0.15),
+                    inset 0 2px 4px rgba(255, 255, 255, 0.5) !important;
       }
 
       /* Map colors by connection or device state */
@@ -1086,7 +1116,7 @@ export function renderCardComponentV2({
     const infoBtn = document.createElement('button');
     infoBtn.className = 'card-action action-info';
     infoBtn.title = 'Informações';
-    infoBtn.innerHTML = '📊';
+    infoBtn.innerHTML = 'ℹ️';
     infoBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       infoPanel.classList.toggle('active');
