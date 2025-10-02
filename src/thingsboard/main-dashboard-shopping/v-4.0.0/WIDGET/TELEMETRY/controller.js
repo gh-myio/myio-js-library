@@ -505,17 +505,18 @@ function renderList(visible) {
       handleActionReport: async () => {
         try {
           showBusy(); // mensagem fixa
-          
+
           if (!isAuthReady()) throw new Error("Auth not ready");
-          
+
           const ingestionToken = await MyIOAuth.getToken();
-          
+
           if (!ingestionToken) throw new Error("No ingestion token");
-          
+
           await MyIO.openDashboardPopupReport({
             ingestionId: it.ingestionId, // sempre ingestionId
             identifier: it.identifier,
             label: it.label,
+            domain: WIDGET_DOMAIN, // 'energy', 'water', or 'temperature'
             api: {
               dataApiBaseUrl: DATA_API_HOST,
               clientId: CLIENT_ID,

@@ -7,6 +7,37 @@ import { AuthClient } from '../internal/engines/AuthClient';
 import { attach as attachDateRangePicker, DateRangeControl } from '../internal/DateRangePickerJQ';
 import { OpenDeviceReportParams, ModalHandle, EnergyFetcher } from '../types';
 
+// Domain configuration
+type Domain = 'energy' | 'water' | 'temperature';
+
+interface DomainConfig {
+  endpoint: string;     // API endpoint path
+  unit: string;         // Display unit (kWh, m³, °C)
+  label: string;        // Column label
+  formatter: (value: number) => string; // Value formatter
+}
+
+const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
+  energy: {
+    endpoint: 'energy',
+    unit: 'kWh',
+    label: 'Consumo (kWh)',
+    formatter: (v) => fmtPt(v)
+  },
+  water: {
+    endpoint: 'water',
+    unit: 'm³',
+    label: 'Consumo (m³)',
+    formatter: (v) => fmtPt(v)
+  },
+  temperature: {
+    endpoint: 'temperature',
+    unit: '°C',
+    label: 'Temperatura (°C)',
+    formatter: (v) => fmtPt(v)
+  }
+};
+
 interface DailyReading {
   date: string; // YYYY-MM-DD
   consumption: number;
@@ -15,15 +46,17 @@ interface DailyReading {
 // Default energy fetcher implementation
 const createDefaultEnergyFetcher = (params: OpenDeviceReportParams): EnergyFetcher => {
   return async ({ baseUrl, ingestionId, startISO, endISO }) => {
-    const url = `${baseUrl}/api/v1/telemetry/devices/${ingestionId}/energy?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=1d&page=1&pageSize=1000&deep=0`;
-    
+    const domain = params.domain || 'energy';
+    const endpoint = DOMAIN_CONFIG[domain].endpoint;
+    const url = `${baseUrl}/api/v1/telemetry/devices/${ingestionId}/${endpoint}?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=1d&page=1&pageSize=1000&deep=0`;
+
     // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
     // This token provides access to telemetry data from the ingestion system
     const token = params.api.ingestionToken;
     if (!token) {
       throw new Error('ingestionToken is required for Data API calls to data.apps.myio-bas.com');
     }
-    
+
     const response = await fetch(url, {
       headers: {
         // Using ingestionToken for Data API endpoints (data.apps.myio-bas.com)
@@ -31,11 +64,11 @@ const createDefaultEnergyFetcher = (params: OpenDeviceReportParams): EnergyFetch
         'Content-Type': 'application/json'
       }
     });
-    
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    
+
     return response.json();
   };
 };
@@ -49,6 +82,7 @@ export class DeviceReportModal {
   private eventHandlers: { [key: string]: (() => void)[] } = {};
   private dateRangePicker: DateRangeControl | null = null;
   private sortState: { key: keyof DailyReading | null; direction: 'asc' | 'desc' } = { key: null, direction: 'asc' };
+  private domainConfig: DomainConfig;
 
   constructor(private params: OpenDeviceReportParams) {
     this.authClient = new AuthClient({
@@ -56,7 +90,11 @@ export class DeviceReportModal {
       clientSecret: params.api.clientSecret,
       base: params.api.dataApiBaseUrl
     });
-    
+
+    // Set domain configuration
+    const domain = params.domain || 'energy';
+    this.domainConfig = DOMAIN_CONFIG[domain];
+
     // Use injected fetcher or create default with params
     this.energyFetcher = params.fetcher || createDefaultEnergyFetcher(params);
   }
@@ -267,9 +305,9 @@ export class DeviceReportModal {
     
     container.innerHTML = `
       <div style="margin-bottom: 16px; padding: 12px; background: var(--myio-bg); border-radius: 6px;">
-        <strong>Total: ${fmtPt(total)} kWh</strong>
+        <strong>Total: ${this.domainConfig.formatter(total)} ${this.domainConfig.unit}</strong>
       </div>
-      
+
       <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--myio-border); border-radius: 6px;">
         <table class="myio-table">
           <thead>
@@ -279,7 +317,7 @@ export class DeviceReportModal {
                 <span style="margin-left: 4px; opacity: ${this.sortState.key === 'date' ? '1' : '0.5'};">${getSortIndicator('date')}</span>
               </th>
               <th style="cursor: pointer; text-align: right;" data-sort="consumption">
-                Consumo (kWh)
+                ${this.domainConfig.label}
                 <span style="margin-left: 4px; opacity: ${this.sortState.key === 'consumption' ? '1' : '0.5'};">${getSortIndicator('consumption')}</span>
               </th>
             </tr>
@@ -288,7 +326,7 @@ export class DeviceReportModal {
             ${this.data.map(row => `
               <tr>
                 <td>${this.formatDate(row.date)}</td>
-                <td style="text-align: right;">${fmtPt(row.consumption)}</td>
+                <td style="text-align: right;">${this.domainConfig.formatter(row.consumption)}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -349,13 +387,13 @@ export class DeviceReportModal {
     const total = this.calculateTotal();
     const now = new Date();
     const timestamp = now.toLocaleDateString('pt-BR') + ' - ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    
+
     const csvData = [
       ['Dispositivo/Loja', this.params.identifier || 'N/A', this.params.label || ''],
       ['DATA EMISSÃO', timestamp, ''],
-      ['Total', fmtPt(total), ''],
-      ['Data', 'Consumo', ''],
-      ...this.data.map(row => [this.formatDate(row.date), fmtPt(row.consumption)])
+      ['Total', this.domainConfig.formatter(total), this.domainConfig.unit],
+      ['Data', this.domainConfig.label, ''],
+      ...this.data.map(row => [this.formatDate(row.date), this.domainConfig.formatter(row.consumption)])
     ];
 
     const csvContent = toCsv(csvData);

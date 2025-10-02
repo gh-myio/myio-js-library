@@ -310,6 +310,22 @@ Execute este script no console para diagnosticar o problema:
 **Benefício:** Código mais simples, menos configuração, menos lugares para bugs
 **Arquivos:** `TELEMETRY/controller.js`, `TELEMETRY/settings.schema`, `MAIN_VIEW/controller.js`
 
+### 10. DeviceReportModal - Domain Support
+**Problema:** Modal de relatório hardcoded "Consumo (kWh)" para todos os domains
+**Análise:** Widget TELEMETRY pode ser energy, water ou temperature, mas modal sempre mostrava kWh
+**Solução:**
+- Adicionar `domain?: 'energy' | 'water' | 'temperature'` ao `OpenDeviceReportParams` (types.ts)
+- Criar `DOMAIN_CONFIG` com endpoint, unit, label e formatter por domain
+- Atualizar fetcher para usar endpoint dinâmico (`/energy`, `/water`, `/temperature`)
+- Atualizar renderTable() para exibir unidade e label corretos
+- Atualizar exportCSV() para usar unidade correta no CSV
+- Passar `domain: WIDGET_DOMAIN` do TELEMETRY para `openDashboardPopupReport()`
+**Resultado:**
+- Energy: "Consumo (kWh)" / Total: 1234.56 kWh
+- Water: "Consumo (m³)" / Total: 45.78 m³
+- Temperature: "Temperatura (°C)" / Total: 23.45 °C
+**Arquivos:** `DeviceReportModal.ts`, `types.ts`, `TELEMETRY/controller.js:519`
+
 ---
 
 ## 🧪 Comandos de Validação

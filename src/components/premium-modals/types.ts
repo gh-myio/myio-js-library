@@ -45,6 +45,7 @@ export interface OpenDeviceReportParams {
   deviceId?: string;
   identifier?: string;    // NEW: replaces deviceLabel (device identifier/code)
   label?: string;         // NEW: replaces storeLabel (human-readable name)
+  domain?: 'energy' | 'water' | 'temperature'; // NEW: data domain (default: 'energy')
   ui?: BaseUiCfg;
   api: BaseApiCfg;
   fetcher?: EnergyFetcher; // Optional dependency injection for testing
