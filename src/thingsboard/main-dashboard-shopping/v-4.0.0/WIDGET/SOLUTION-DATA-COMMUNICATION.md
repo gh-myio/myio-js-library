@@ -687,9 +687,98 @@ setTimeout(() => {
 4. ✅ Formatação por domain (energy/water/tank)
 5. ✅ Modal busy visível (delay 500ms)
 6. ✅ Merge inteligente preserva dados TB
-7. ✅ **TUDO FUNCIONANDO EM PRODUÇÃO**
+7. ✅ readingType dinâmico em EnergyModalView
+8. ✅ Double-fetch removido do onInit
+9. ✅ centralName support adicionado
+10. ✅ **TUDO FUNCIONANDO EM PRODUÇÃO**
 
 ---
 
-**Última Atualização:** 2025-10-02 (Labels + Formatação)
+## 🔧 CORREÇÃO ADICIONAL: readingType e Double-Fetch (2025-10-02)
+
+### ❌ Problema 6: readingType Hardcoded
+**Sintoma:** Modal de gráfico abria com `readingType: 'energy'` mesmo para widgets water/tank
+
+**Causa:** EnergyModalView.ts linha 234 tinha `readingType: 'energy'` hardcoded
+
+**Solução:**
+1. Adicionar parâmetro `readingType: WIDGET_DOMAIN` ao chamar `MyIO.openDashboardPopupEnergy()` (TELEMETRY/controller.js:478)
+2. Adicionar tipo `readingType?: 'energy' | 'water' | 'tank'` em OpenDashboardPopupEnergyOptions (types.ts:29)
+3. Usar `readingType: this.config.params.readingType || 'energy'` no chartConfig (EnergyModalView.ts:234)
+
+**Resultado:** Gráfico agora respeita o domain do widget (water mostra dados de água, tank mostra dados de tanque)
+
+---
+
+### ❌ Problema 7: Water Zerava Dados no onInit
+**Sintoma:** Widget water carregava dados corretos, mas após ~500ms dava refresh e zerava tudo
+
+**Causa:** Double-fetch:
+1. onInit chamava `hydrateAndRender()` → fetch direto na API (dados corretos)
+2. 500ms depois verificava `MyIOOrchestratorData` → se vazio, sobrescrevia com zeros
+
+**Solução:**
+1. Remover chamada a `hydrateAndRender()` no onInit (TELEMETRY/controller.js:1180-1214)
+2. Construir `itemsBase` do ThingsBoard com valores zerados (placeholder)
+3. Aguardar orchestrator prover dados via evento
+4. Validar dados armazenados: só usar se `items.length > 0`
+
+**Código (onInit):**
+```javascript
+// RFC-0042: Removed direct API fetch - now using orchestrator
+console.log(`[TELEMETRY ${WIDGET_DOMAIN}] onInit - Waiting for orchestrator data...`);
+
+// Build initial itemsBase from ThingsBoard data
+if (hasData && (!STATE.itemsBase || STATE.itemsBase.length === 0)) {
+  STATE.itemsBase = buildAuthoritativeItems();
+
+  // Initial render with zero values (will be updated by orchestrator)
+  STATE.itemsEnriched = STATE.itemsBase.map(item => ({ ...item, value: 0, perc: 0 }));
+  reflowFromState();
+}
+
+showBusy(); // Wait for orchestrator
+```
+
+**Código (check stored data):**
+```javascript
+if (age < 30000 && storedData.items && storedData.items.length > 0) {
+  console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Using stored orchestrator data`);
+  dataProvideHandler({ detail: { domain: WIDGET_DOMAIN, periodKey: storedData.periodKey, items: storedData.items }});
+  return;
+} else {
+  console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Stored data is too old or empty, ignoring`);
+}
+```
+
+**Resultado:** Dados não zeram mais, sempre aguardam orchestrator prover dados corretos
+
+---
+
+### ✅ Problema 8: centralName Support
+**Objetivo:** Substituir `centralName: "N/A"` hardcoded por valor real do ThingsBoard
+
+**Implementação:**
+1. Extrair `centralName` do ctx.data em `buildTbAttrIndex()` (linha 267):
+```javascript
+if (key === "centralname") slot.centralName = val;
+```
+
+2. Mapear em `buildAuthoritativeItems()` (linha 324):
+```javascript
+centralName: attr?.centralName || null,
+```
+
+3. Usar em renderList (linha 450):
+```javascript
+centralName: it.centralName || "N/A",
+```
+
+**Nota:** Requer adicionar `centralName` (server_scope attribute) aos dataKeys do datasource no ThingsBoard
+
+**Resultado:** Widget exibe nome correto da central ao invés de "N/A"
+
+---
+
+**Última Atualização:** 2025-10-02 (readingType + Double-Fetch + centralName)
 **Status:** ✅ COMPLETO - Testado e validado em produção

@@ -274,6 +274,42 @@ Execute este script no console para diagnosticar o problema:
 **Problema:** Processing muito rápido (< 50ms)
 **Solução:** `setTimeout(() => hideBusy(), 500)`
 
+### 6. readingType Hardcoded no EnergyModalView
+**Problema:** `readingType: 'energy'` hardcoded, não funcionava para water/tank
+**Solução:**
+- Passar `readingType: WIDGET_DOMAIN` em `MyIO.openDashboardPopupEnergy()`
+- Usar `this.config.params.readingType || 'energy'` no chartConfig
+**Arquivos:** `TELEMETRY/controller.js:478`, `EnergyModalView.ts:234`, `types.ts:29`
+
+### 7. Double-Fetch no onInit (Water Zerava Dados)
+**Problema:** onInit chamava `hydrateAndRender()` (fetch direto API) + 500ms depois orchestrator sobrescrevia com dados vazios
+**Solução:**
+- Remover chamada a `hydrateAndRender()` no onInit
+- Construir `itemsBase` do TB com valores zerados
+- Aguardar orchestrator prover dados corretos
+- Adicionar validação: só usar dados armazenados se `items.length > 0`
+**Arquivo:** `TELEMETRY/controller.js:1180-1214`
+
+### 8. centralName Support
+**Problema:** `centralName: "N/A"` hardcoded
+**Solução:**
+- Extrair `centralName` do ctx.data em `buildTbAttrIndex()`
+- Mapear em `buildAuthoritativeItems()`
+- Usar `it.centralName || "N/A"` em renderList
+**Nota:** Requer adicionar `centralName` aos dataKeys no ThingsBoard
+**Arquivo:** `TELEMETRY/controller.js:267,324,450`
+
+### 9. GROUP_TYPE Removido (Redundante)
+**Problema:** Filtro `GROUP_TYPE` redundante com datasource do ThingsBoard
+**Análise:** Datasource já define quais devices aparecem no widget, tornando filtro por groupType desnecessário
+**Solução:**
+- Remover variável `WIDGET_GROUP_TYPE`
+- Remover lógica de filtro secundário por groupType
+- Remover campo `GROUP_TYPE` do settings.schema
+- Simplificar typedef em MAIN_VIEW (remover GroupType)
+**Benefício:** Código mais simples, menos configuração, menos lugares para bugs
+**Arquivos:** `TELEMETRY/controller.js`, `TELEMETRY/settings.schema`, `MAIN_VIEW/controller.js`
+
 ---
 
 ## 🧪 Comandos de Validação

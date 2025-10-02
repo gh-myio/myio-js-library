@@ -17,14 +17,7 @@
             "title": "Domain",
             "enum": ["energy", "water", "temperature"],
             "default": "energy",
-            "description": "Data domain for this widget"
-        },
-        "GROUP_TYPE": {
-            "type": "string",
-            "title": "Group Type Filter (optional)",
-            "enum": ["", "entry_meters", "common_area", "stores", "substation"],
-            "default": "",
-            "description": "Filter devices by group type (for Energy columns)"
+            "description": "Data domain for this widget (energy, water, or temperature)"
         }
     },
     "required": ["customerTB_ID", "DOMAIN"]
@@ -32,7 +25,6 @@
   "form": [
     "labelWidget",
     "customerTB_ID",
-    "DOMAIN",
-    "GROUP_TYPE"
+    "DOMAIN"
   ]
 }

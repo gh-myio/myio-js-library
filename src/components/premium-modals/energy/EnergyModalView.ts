@@ -231,7 +231,7 @@ export class EnergyModalView {
         clientId: this.config.params.clientId || 'ADMIN_DASHBOARD_CLIENT',
         clientSecret: this.config.params.clientSecret || 'admin_dashboard_secret_2025',
         deviceId: ingestionId,
-        readingType: 'energy',
+        readingType: this.config.params.readingType || 'energy',
         startDate: startISO,
         endDate: endISO,
         granularity: granularity,

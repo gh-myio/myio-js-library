@@ -20,7 +20,6 @@ let MyIO = null;
 
 // RFC-0042: Widget configuration (from settings)
 let WIDGET_DOMAIN = 'energy'; // Will be set in onInit
-let WIDGET_GROUP_TYPE = null;  // Will be set in onInit
 
 /** ===================== STATE ===================== **/
 let CLIENT_ID       = "";
@@ -471,10 +470,11 @@ function renderList(visible) {
 
       handleActionDashboard: async () => {
        try {
-                const tokenIngestionDashBoard = await MyIOAuth.getToken();
+        const tokenIngestionDashBoard = await MyIOAuth.getToken();
         const myTbTokenDashBoard = localStorage.getItem("jwt_token");
         const modal = MyIO.openDashboardPopupEnergy({
           deviceId: it.id, // Use actual device ID
+          readingType: WIDGET_DOMAIN, // 'energy', 'water', or 'tank'
           startDate: self.ctx.scope.startDateISO,
           endDate: self.ctx.scope.endDateISO,
           tbJwtToken: myTbTokenDashBoard,
@@ -810,8 +810,7 @@ self.onInit = async function () {
 
   // RFC-0042: Set widget configuration from settings FIRST
   WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
-  WIDGET_GROUP_TYPE = self.ctx.settings?.GROUP_TYPE || null;
-  console.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}, groupType=${WIDGET_GROUP_TYPE}`);
+  console.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}`);
 
   // RFC-0042: Request data from orchestrator (defined early for use in handlers)
   function requestDataFromOrchestrator() {
@@ -962,13 +961,7 @@ self.onInit = async function () {
     }
       */
 
-    // RFC-0042: Debug groupType distribution
-    const groupTypeCounts = {};
-    items.forEach(item => {
-      const gt = item.groupType || 'null';
-      groupTypeCounts[gt] = (groupTypeCounts[gt] || 0) + 1;
-    });
-    console.log(`[TELEMETRY] GroupType distribution:`, groupTypeCounts);
+    // Data filtering is done by datasource IDs (ThingsBoard handles grouping)
 
     // RFC-0042: Filter items by datasource IDs
     // ThingsBoard datasource entityId should match API item id (ingestionId)
@@ -998,24 +991,10 @@ self.onInit = async function () {
       value: Number(item.value || 0),
       perc: 0,
       deviceType: item.deviceType || 'energy',
-      groupType: item.groupType || null, // RFC-0042: Include groupType for filtering
       slaveId: item.slaveId || null,
       centralId: item.centralId || null,
       updatedIdentifiers: {}
     }));
-
-    // RFC-0042: Optional secondary filter by GROUP_TYPE (if API supports it)
-    if (WIDGET_GROUP_TYPE && filtered.some(item => item.groupType)) {
-      const beforeFilter = filtered.length;
-      const withGroupType = filtered.filter(item => item.groupType === WIDGET_GROUP_TYPE);
-
-      if (withGroupType.length > 0) {
-        filtered = withGroupType;
-        console.log(`[TELEMETRY] Further filtered by groupType=${WIDGET_GROUP_TYPE}: ${beforeFilter} → ${filtered.length} items`);
-      } else {
-        console.log(`[TELEMETRY] groupType=${WIDGET_GROUP_TYPE} not found in items, skipping groupType filter`);
-      }
-    }
 
     console.log(`[TELEMETRY] Using ${filtered.length} items after processing`);
 
@@ -1105,14 +1084,18 @@ self.onInit = async function () {
     // RFC-0042: Check parent window for orchestrator data (if in iframe)
     const orchestratorData = window.MyIOOrchestratorData || window.parent?.MyIOOrchestratorData;
 
+    console.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔍 Checking for stored orchestrator data...`);
+
     // First, try stored data
     if (orchestratorData && orchestratorData[WIDGET_DOMAIN]) {
       const storedData = orchestratorData[WIDGET_DOMAIN];
       const age = Date.now() - storedData.timestamp;
 
-      // Use stored data if it's less than 30 seconds old
-      if (age < 30000) {
-        console.log(`[TELEMETRY] Using stored orchestrator data for domain ${WIDGET_DOMAIN} (${window.MyIOOrchestratorData ? 'current' : 'parent'} window)`);
+      console.log(`[TELEMETRY ${WIDGET_DOMAIN}] Found stored data: ${storedData.items?.length || 0} items, age: ${age}ms`);
+
+      // Use stored data if it's less than 30 seconds old AND has items
+      if (age < 30000 && storedData.items && storedData.items.length > 0) {
+        console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Using stored orchestrator data (${window.MyIOOrchestratorData ? 'current' : 'parent'} window)`);
         dataProvideHandler({
           detail: {
             domain: WIDGET_DOMAIN,
@@ -1121,11 +1104,15 @@ self.onInit = async function () {
           }
         });
         return;
+      } else {
+        console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Stored data is too old or empty, ignoring`);
       }
+    } else {
+      console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ℹ️ No stored data found for domain ${WIDGET_DOMAIN}`);
     }
 
     // If no stored data, request fresh data
-    console.log(`[TELEMETRY] No stored data found, requesting fresh data for domain ${WIDGET_DOMAIN}`);
+    console.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Requesting fresh data from orchestrator...`);
     requestDataFromOrchestrator();
   }, 500); // Wait 500ms for widget to fully initialize
 
@@ -1168,8 +1155,25 @@ self.onInit = async function () {
   // ------------------------------------------------------------
 
   const hasData = Array.isArray(self.ctx.data) && self.ctx.data.length > 0;
-  showBusy(); // mensagem fixa
+  // RFC-0042: Removed direct API fetch - now using orchestrator
+  console.log(`[TELEMETRY ${WIDGET_DOMAIN}] onInit - Waiting for orchestrator data...`);
 
+  // Build initial itemsBase from ThingsBoard data
+  if (hasData && (!STATE.itemsBase || STATE.itemsBase.length === 0)) {
+    console.log(`[TELEMETRY ${WIDGET_DOMAIN}] Building itemsBase from TB data in onInit...`);
+    STATE.itemsBase = buildAuthoritativeItems();
+    console.log(`[TELEMETRY ${WIDGET_DOMAIN}] Built ${STATE.itemsBase.length} items from TB`);
+
+    // Initial render with zero values (will be updated by orchestrator)
+    STATE.itemsEnriched = STATE.itemsBase.map(item => ({ ...item, value: 0, perc: 0 }));
+    reflowFromState();
+  }
+
+  // Show busy modal while waiting for orchestrator
+  showBusy();
+
+  // RFC-0042: OLD CODE - Direct API fetch (now handled by orchestrator)
+  /*
   if (hasData) {
     STATE.firstHydrates++;
     if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) {
@@ -1185,6 +1189,7 @@ self.onInit = async function () {
       }
     }, 200);
   }
+  */
 };
 
 // onDataUpdated removido (no-op por ora)

@@ -26,6 +26,7 @@ export interface OpenDashboardPopupEnergyOptions {
   theme?: 'light' | 'dark' | string;   // default: 'light'
 
   // Behavior Configuration
+  readingType?: 'energy' | 'water' | 'tank';  // default: 'energy'
   granularity?: '1d' | '1h' | '15m';   // default: '1d'
   closeOnEsc?: boolean;                // default: true
   zIndex?: number;                     // default: 10000

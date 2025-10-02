@@ -197,7 +197,6 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
 /**
  * @typedef {'hour'|'day'|'month'} Granularity
  * @typedef {'energy'|'water'|'temperature'} Domain
- * @typedef {'entry_meters'|'common_area'|'stores'|'substation'} GroupType
  */
 
 /**
@@ -215,7 +214,6 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
  * @property {string} ingestionId - Data Ingestion API UUID
  * @property {string} identifier - Human-readable ID
  * @property {string} label - Display name
- * @property {GroupType} groupType - Device category
  * @property {number} value - Consumption total
  * @property {number} perc - Percentage of group total
  * @property {string|null} slaveId - Modbus slave ID
@@ -568,19 +566,10 @@ const MyIOOrchestrator = (() => {
         perc: 0,
         deviceType: row.deviceType || 'energy',
         slaveId: row.slaveId || null,
-        centralId: row.centralId || null,
-        groupType: row.groupType || 'stores'
+        centralId: row.centralId || null
       }));
 
-      // RFC-0042: Debug groupType distribution
-      const groupTypeCounts = {};
-      items.forEach(item => {
-        const gt = item.groupType || 'null';
-        groupTypeCounts[gt] = (groupTypeCounts[gt] || 0) + 1;
-      });
-
       console.log(`[Orchestrator] fetchAndEnrich: fetched ${items.length} items for domain ${domain}`);
-      console.log(`[Orchestrator] GroupType distribution:`, groupTypeCounts);
       return items;
     } catch (error) {
       console.error(`[Orchestrator] fetchAndEnrich error for domain ${domain}:`, error);
