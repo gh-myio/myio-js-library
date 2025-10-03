@@ -1194,6 +1194,7 @@ export function renderCardComponentV2({
     enhancedCardElement.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('text/myio-id', entityId);
       e.dataTransfer.setData('application/json', JSON.stringify(entityObject));
+      e.dataTransfer.setData('text/myio-name', entityObject.labelOrName);
       e.dataTransfer.effectAllowed = 'copy';
       
       if (MyIOSelectionStore) {
