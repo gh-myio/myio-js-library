@@ -6,10 +6,19 @@ justify-content: space-between;
 gap: 12px;
 margin-bottom: 16px;
 padding: 10px;
-background: #ffffff;
+background: #f5f5f5 !important;
 border-radius: 10px;
-width: 92%;
+width: 100%;
 box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Garante fundo cinza em todos elementos filhos do top-bar, exceto botões */
+.top-bar input,
+.top-bar > div,
+.top-bar .date-range,
+.top-bar #water-date-range,
+.top-bar #water-date-range * {
+  background: transparent !important;
 }
 
 /* Water Widget DateRangePicker - RFC-0014 Aligned */
@@ -24,10 +33,18 @@ box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 .water-widget__daterange {
-  min-width: 280px;
+  min-width: 380px;
   flex-grow: 3;
   flex-shrink: 2;
   flex-basis: 0;
+}
+
+/* Remove background cinza do input de data */
+#water-date-range,
+#water-date-range .tbx-field,
+#water-date-range input {
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .water-widget__daterange-label {
@@ -57,7 +74,7 @@ display: flex;
 align-items: center;
 gap: 8px;
 flex: 0 0 auto;
-min-width: 300px;
+min-width: 400px;
 }
 
 /* Botão carregar */

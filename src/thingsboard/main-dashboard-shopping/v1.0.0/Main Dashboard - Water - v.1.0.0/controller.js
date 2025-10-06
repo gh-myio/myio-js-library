@@ -48,177 +48,15 @@ function parseDateFlexible(v) {
   return isNaN(d) ? null : d;
 }
 
-function resolveTimeZone(tzCandidate) {
-  if (typeof tzCandidate === "string" && tzCandidate.trim())
-    return tzCandidate.trim();
-  try {
-    const z = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (z) return z;
-  } catch (e) {}
-  return "UTC";
-}
-
-/*
-// ✨ SDK-style helpers for v3.4.0 implementation
-// Same behavior/pattern used by the SDK template (sv-SE + timezone)
-function formatDateTimeToISO(ts, tz) {
-  const d = new Date(ts);
-  return new Intl.DateTimeFormat("sv-SE", {
-    timeZone: tz,
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
-    hour12: false
-  }).format(d).replace(" ", "T");
-}
-*/
-
-// Força sempre fuso -03:00 (Brasil)
-// "2025-09-11T23:59:59-03:00" (usa timezone local do browser)
-function formatDateTimeToISO(date, endOfDay = false) {
-  const d = parseDateFlexible(date);
-  if (!d) throw new RangeError("Invalid time value (cannot parse date)");
-
-  if (endOfDay) {
-    d.setHours(23, 59, 59, 999);
-  } else {
-    d.setHours(0, 0, 0, 0);
-  }
-
-  const pad = (n) => String(n).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const MM = pad(d.getMonth() + 1);
-  const dd = pad(d.getDate());
-  const hh = pad(d.getHours());
-  const mi = pad(d.getMinutes());
-  const ss = pad(d.getSeconds());
-
-  const tz = -d.getTimezoneOffset(); // em minutos
-  const sign = tz >= 0 ? "+" : "-";
-  const tzh = pad(Math.floor(Math.abs(tz) / 60));
-  const tzm = pad(Math.abs(tz) % 60);
-
-  return `${yyyy}-${MM}-${dd}T${hh}:${mi}:${ss}${sign}${tzh}:${tzm}`;
-}
-
-// Helper function to format a millisecond timestamp to YYYY-MM-DDTHH:mm:ss format for v2 API
-/*
-function formatDateTimeToISOSDK(timestampMs, tzIdentifier) {
-  const date = new Date(timestampMs);
-  const formatter = new Intl.DateTimeFormat('sv-SE', {
-    timeZone: tzIdentifier,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  });
-
-  // Format returns YYYY-MM-DD HH:mm:ss, we need YYYY-MM-DDTHH:mm:ss
-  return formatter.format(date).replace(' ', 'T');
-}
-*/
-
-// Gera string SEM offset, adequada quando o TZ é enviado à parte ao backend/SDK
-function formatDateTimeToISOSDK(value, _tz, { endOfDay = false } = {}) {
-  const { y, m, d } = extractYMD(value);
-  const pad = (n) => String(n).padStart(2, "0");
-  const hh = endOfDay ? 23 : 0;
-  const mi = endOfDay ? 59 : 0;
-  const ss = endOfDay ? 59 : 0;
-  return `${y}-${pad(m)}-${pad(d)}T${pad(hh)}:${pad(mi)}:${pad(ss)}`;
-}
-
-// Extrai Y-M-D de "YYYY-MM-DD", "DD/MM/YYYY" ou Date
-function extractYMD(value) {
-  if (value instanceof Date && !isNaN(value)) {
-    return {
-      y: value.getFullYear(),
-      m: value.getMonth() + 1,
-      d: value.getDate(),
-    };
-  }
-  const s = String(value || "").trim();
-
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/); // YYYY-MM-DD
-  if (m) return { y: +m[1], m: +m[2], d: +m[3] };
-
-  m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/); // DD/MM/YYYY
-  if (m) return { y: +m[3], m: +m[2], d: +m[1] };
-
-  // fallback: deixa o motor tentar, mas só usa YMD
-  const d = new Date(s);
-  return { y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate() };
-}
-
-// Lê datas da UI/ctx com fallback seguro
-/*
-function getUiDateRange() {
-  // tente inputs da top-bar
-  const $start = document.querySelector('.top-bar input[type="date"]:first-of-type') || document.querySelector('#startDate');
-  const $end   = document.querySelector('.top-bar input[type="date"]:nth-of-type(2)') || document.querySelector('#endDate');
-  const timezone = 'America/Sao_Paulo';
-
-  let start = $start?.value || (window.ctx?.$scope?.startDate) || null;
-  let end   = $end?.value   || (window.ctx?.$scope?.endDate)   || null;
-
-  // fallback: se nada definido, usa hoje
-  const today = new Date();
-  if (!parseDateFlexible(start)) start = today;
-  if (!parseDateFlexible(end))   end   = today;
-
-  return {
-    startISO: formatDateTimeToISOSDK(start, timezone),
-    endISO:   formatDateTimeToISOSDK(end, timezone)
-  };
-}
-*/
-
-// Lê datas da UI/ctx e devolve range “ingênuo” + TZ
-function getUiDateRange() {
-  const $start =
-    document.querySelector('.top-bar input[type="date"]:first-of-type') ||
-    document.querySelector("#startDate");
-  const $end =
-    document.querySelector('.top-bar input[type="date"]:nth-of-type(2)') ||
-    document.querySelector("#endDate");
-  const tz = "America/Sao_Paulo";
-
-  let start = $start?.value || window.ctx?.$scope?.startDate || null;
-  let end = $end?.value || window.ctx?.$scope?.endDate || null;
-
-  const today = new Date();
-  if (!start) start = today;
-  if (!end) end = today;
-
-  // garante start <= end (comparando de forma neutra)
-  const toUTC0 = (s) =>
-    new Date(`${String(s).slice(0, 10)}T00:00:00Z`).getTime();
-  if (toUTC0(start) > toUTC0(end)) {
-    const t = start;
-    start = end;
-    end = t;
-  }
-
-  return {
-    startISO: formatDateTimeToISOSDK(start, tz, { endOfDay: false }),
-    endISO: formatDateTimeToISOSDK(end, tz, { endOfDay: true }),
-    tz,
-  };
-}
-
 // RFC: Helper functions for logging
 function logInfo(msg, extra) {
   if (FLAGS.VERBOSE_LOGS) console.info(msg, extra || "");
 }
+
 function logWarn(msg, extra) {
   console.warn(msg, extra || "");
 }
-function numberOrNull(val) {
-  const num = Number(val);
-  return isNaN(num) ? null : num;
-}
+
 
 // RFC: Single source of truth for time window
 function getTimeWindow() {
@@ -291,55 +129,6 @@ function keysFromDeviceAttrs(attrs = {}) {
   return keys;
 }
 
-// RFC: Enhanced device matching with flag-based logic
-function matchApiRow(deviceAttrs, apiItem, flags = FLAGS) {
-  if (flags.STRICT_MATCH_BY_INGESTION_ID) {
-    // Strict mode: only match by ingestionId
-    const deviceIngestion = deviceAttrs.ingestionId || deviceAttrs.centralId;
-    const apiIngestion = apiItem.gatewayId || apiItem.centralId;
-
-    if (deviceIngestion && apiIngestion && deviceIngestion === apiIngestion) {
-      const deviceSlave = deviceAttrs.slaveId;
-      const apiSlave = apiItem.slaveId;
-
-      if (
-        deviceSlave != null &&
-        apiSlave != null &&
-        Number(deviceSlave) === Number(apiSlave)
-      ) {
-        return { matched: true, confidence: "high", method: "ingestion+slave" };
-      }
-    }
-    return { matched: false, confidence: "none", method: "strict_failed" };
-  } else {
-    // Fallback mode: try multiple matching strategies
-    const deviceKeys = keysFromDeviceAttrs(deviceAttrs);
-    const apiKeys = [
-      apiItem.deviceId,
-      apiItem.id,
-      apiItem.gatewayId || apiItem.centralId,
-      apiItem.slaveId != null ? String(apiItem.slaveId) : undefined,
-      (apiItem.gatewayId || apiItem.centralId) && apiItem.slaveId != null
-        ? `${apiItem.gatewayId || apiItem.centralId}:${apiItem.slaveId}`
-        : undefined,
-    ].filter(Boolean);
-
-    for (const deviceKey of deviceKeys) {
-      for (const apiKey of apiKeys) {
-        if (deviceKey === apiKey) {
-          return {
-            matched: true,
-            confidence: "medium",
-            method: "key_match",
-            key: deviceKey,
-          };
-        }
-      }
-    }
-
-    return { matched: false, confidence: "none", method: "no_match" };
-  }
-}
 
 // RFC: Build separate maps for different device types
 function buildTotalsMapFromApi(apiList, flags = FLAGS) {
@@ -422,136 +211,8 @@ const MONTHS = [
   "dezembro",
 ];
 
-/************************************************************
- * MyIOAuth - Cache e renovação de access_token para ThingsBoard
- * Autor: você :)
- * Dependências: nenhuma (usa fetch nativo)
- ************************************************************/
-const MyIOAuth = (() => {
-  // ==== CONFIG ====
-  const AUTH_URL = new URL(`${DATA_API_HOST}/api/v1/auth`);
-
-  // ⚠️ Substitua pelos seus valores:
-  /*
-    const CLIENT_ID = "ADMIN_DASHBOARD_CLIENT";
-    const CLIENT_SECRET = "admin_dashboard_secret_2025";
-    */
-
-  // Margem para renovar o token antes de expirar (em segundos)
-  const RENEW_SKEW_S = 60; // 1 min
-  // Em caso de erro, re-tenta com backoff simples
-  const RETRY_BASE_MS = 500;
-  const RETRY_MAX_ATTEMPTS = 3;
-
-  // Cache em memória (por aba). Se quiser compartilhar entre widgets/abas,
-  // você pode trocar por localStorage (com os devidos cuidados de segurança).
-  let _token = null; // string
-  let _expiresAt = 0; // epoch em ms
-  let _inFlight = null; // Promise em andamento para evitar corridas
-
-  function _now() {
-    return Date.now();
-  }
-
-  function _aboutToExpire() {
-    // true se não temos token ou se falta pouco para expirar
-    if (!_token) return true;
-    const skewMs = RENEW_SKEW_S * 1000;
-    return _now() >= _expiresAt - skewMs;
-  }
-
-  async function _sleep(ms) {
-    return new Promise((res) => setTimeout(res, ms));
-  }
-
-  async function _requestNewToken() {
-    const body = {
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-    };
-
-    let attempt = 0;
-    while (true) {
-      try {
-        const resp = await fetch(AUTH_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-
-        if (!resp.ok) {
-          const text = await resp.text().catch(() => "");
-          throw new Error(
-            `Auth falhou: HTTP ${resp.status} ${resp.statusText} ${text}`
-          );
-        }
-
-        const json = await resp.json();
-        // Espera formato:
-        // { access_token, token_type, expires_in, scope }
-        if (!json || !json.access_token || !json.expires_in) {
-          throw new Error("Resposta de auth não contem campos esperados.");
-        }
-
-        _token = json.access_token;
-        // Define expiração absoluta (agora + expires_in)
-        _expiresAt = _now() + Number(json.expires_in) * 1000;
-
-        // Logs úteis para depuração (não imprimem o token)
-        console.log(
-          "[MyIOAuth] Novo token obtido. Expira em ~",
-          Math.round(Number(json.expires_in) / 60),
-          "min"
-        );
-
-        return _token;
-      } catch (err) {
-        attempt++;
-        console.warn(
-          `[MyIOAuth] Erro ao obter token (tentativa ${attempt}/${RETRY_MAX_ATTEMPTS}):`,
-          err?.message || err
-        );
-        if (attempt >= RETRY_MAX_ATTEMPTS) {
-          throw err;
-        }
-        const backoff = RETRY_BASE_MS * Math.pow(2, attempt - 1);
-        await _sleep(backoff);
-      }
-    }
-  }
-
-  async function getToken() {
-    // Evita múltiplas chamadas paralelas de renovação
-    if (_inFlight) {
-      return _inFlight;
-    }
-
-    if (_aboutToExpire()) {
-      _inFlight = _requestNewToken().finally(() => {
-        _inFlight = null;
-      });
-      return _inFlight;
-    }
-
-    return _token;
-  }
-
-  // Helpers opcionais
-  function getExpiryInfo() {
-    return {
-      expiresAt: _expiresAt,
-      expiresInSeconds: Math.max(0, Math.floor((_expiresAt - _now()) / 1000)),
-    };
-  }
-
-  function clearCache() {
-    _token = null;
-    _expiresAt = 0;
-    _inFlight = null;
-  }
-
-  return { getToken, getExpiryInfo, clearCache };
-})();
+// MyIOAuth instance - initialized in onInit
+let myIOAuth = null;
 
 // Função para pegar timestamps das datas internas completas
 function getTimeWindowRange() {
@@ -700,7 +361,7 @@ async function fetchCustomerWaterTotals(
   // }
 
   try {
-    const DATA_API_TOKEN = await MyIOAuth.getToken();
+    const DATA_API_TOKEN = await myIOAuth.getToken();
     if (!DATA_API_TOKEN) {
       throw new Error("Failed to obtain authentication token");
     }
@@ -768,66 +429,6 @@ async function fetchCustomerWaterTotals(
     //_apiCache.set(key, fallback);
     return fallback;
   }
-}
-
-function formatAllInSameUnit(values) {
-  const max = Math.max(...values);
-  let divisor = 1;
-  let unit = "M³";
-
-  if (max >= 1000000) {
-    divisor = 1000000;
-    unit = "M³";
-  } else if (max >= 1000) {
-    divisor = 1000;
-    unit = "M³";
-  }
-
-  return {
-    format: (val) => (val / divisor).toFixed(2) + " " + unit,
-    unit,
-  };
-}
-
-function createInfoCard(title, value, percentage, img) {
-  return $(`
-<div class="info-card" style="height: 170px;">
-  <div class="device-main-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 4px;">
-    
-    <div class="device-title-row" style="margin-bottom: 2px;">
-      <span class="device-title" title="${title}">${title}</span>
-    </div>
-
-    ${img ? `<img class="device-image" src="${img}" />` : ""}
-
-    <div class="device-data-row">
-        <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: bold; color: #28a745;">
-          <span class="flash-icon flash">⚡</span>
-                  <span class="consumption-value">${MyIOLibrary.formatEnergyByGroup(
-                    value,
-                    "Caixas D'Água"
-                  )}</span>
-          ${
-            percentage != null
-              ? `<span class="device-title-percent" style="color: rgba(0,0,0,0.5); font-weight: 500;">(${percentage}%)</span>`
-              : ""
-          }
-        </div>
-    </div>
-
-  </div>
-</div>
-`);
-}
-
-function dashboardGraph(entityId, entityType) {
-  const state = [
-    { id: "default", params: { entityId: { id: entityId, entityType } } },
-  ];
-  const dashboardId = "14591240-58d7-11f0-9291-41f94c09a8a6";
-  const stateBase64 = encodeURIComponent(btoa(JSON.stringify(state)));
-  const url = `/dashboards/${dashboardId}?state=${stateBase64}`;
-  self.ctx.router.navigateByUrl(url);
 }
 
 async function openDashboardPopupHidro(
@@ -1012,7 +613,7 @@ async function openDashboardPopupHidro(
                 <!-- Último período -->
                 <div style="text-align:center; font-size:0.85rem; color:#757575; margin-bottom:12px; display:none">
                     Último período: 
-                    <strong> ${MyIOLibrary.formatEnergyByGroup(
+                    <strong> ${MyIOLibrary.formatWaterByGroup(
                       lastConsumption,
                       "Lojas"
                     )}</strong>
@@ -1309,7 +910,7 @@ async function openDashboardPopupWater(
       img = "/api/images/public/qLdwhV4qw295poSCa7HinpnmXoN7dAPO";
     }
 
-    const heigtconsumption = MyIOLibrary.formatEnergyByGroup(
+    const heigtconsumption = MyIOLibrary.formatWaterByGroup(
       entityComsuption * 100,
       "Caixas D'Água"
     );
@@ -2533,15 +2134,6 @@ tr:hover {
   }
 }
 
-function getSaoPauloISOString(dateStr, endOfDay = false) {
-  if (!dateStr) return "";
-  if (endOfDay) {
-    return `${dateStr}T23:59:59.999-03:00`;
-  } else {
-    return `${dateStr}T00:00:00.000-03:00`;
-  }
-}
-
 function applySortAndDetectChanges() {
   if (!self.ctx.$scope.reportData) {
     self.ctx.$scope.reportDataSorted = [];
@@ -3068,7 +2660,7 @@ function openDashboardPopupReport(
         <td style="padding: 8px 12px; color: ${corTexto}; background-color: ${corFundo}; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5)">${
         item.date
       }</td>
-        <td style="padding: 8px 12px; color: ${corTexto}; background-color: ${corFundo};text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5)">${MyIOLibrary.formatEnergyByGroup(
+        <td style="padding: 8px 12px; color: ${corTexto}; background-color: ${corFundo};text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5)">${MyIOLibrary.formatWaterByGroup(
         item.consumptionM3,
         "Ambientes"
       )}</td>
@@ -3170,7 +2762,7 @@ function openDashboardPopupReport(
         self.ctx.$scope.totalConsumption = totalconsumption;
         self.ctx.$scope.insueDate = insueDate;
         document.getElementById("total-consumo").textContent =
-          MyIOLibrary.formatEnergyByGroup(totalconsumption, "Ambientes");
+          MyIOLibrary.formatWaterByGroup(totalconsumption, "Ambientes");
         document.getElementById("inssueDate").textContent = insueDate;
 
         updateTable();
@@ -3276,7 +2868,7 @@ function openDashboardPopupReport(
 
 // Helper function to fetch with authentication
 async function fetchWithAuth(url, opts = {}, retry = true) {
-  const token = await MyIOAuth.getToken();
+  const token = await myIOAuth.getToken();
   const res = await fetch(url, {
     ...opts,
     headers: {
@@ -3292,7 +2884,7 @@ async function fetchWithAuth(url, opts = {}, retry = true) {
       } - refreshing token and retrying`
     );
     MyIOAuth.clearCache(); // Force token refresh
-    const token2 = await MyIOAuth.getToken();
+    const token2 = await myIOAuth.getToken();
     const res2 = await fetch(url, {
       ...opts,
       headers: {
@@ -3608,53 +3200,6 @@ async function openConfigCaixa(entityId, entityType) {
   });
 }
 
-function classify(text) {
-  const v = (text || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-
-  // "caixa, reservatorio, cisterna, superior, inferior, nivel_terraco, torre" → Caixas
-  if (
-    /(caixa|reservat[óo]rio|cisterna|superior|inferior|nível[_ ]?terraço|nivel[_ ]?terraco|torre)/.test(
-      v
-    )
-  ) {
-    return "Caixas D'Água";
-  }
-  return "Ambientes";
-}
-
-function getDeviceCentralId(attrsOrDev) {
-  // try multiple attribute names; fall back to existing fields
-  return (
-    attrsOrDev?.centralId ??
-    attrsOrDev?.gatewayId ??
-    attrsOrDev?.gw ??
-    attrsOrDev?.ingestionId ?? // last resort, if you mirror central here
-    null
-  );
-}
-
-function getDeviceSlaveId(attrsOrDev) {
-  const sl = attrsOrDev?.slaveId ?? attrsOrDev?.sl ?? null;
-  return sl === null || sl === undefined ? null : Number(sl);
-}
-
-function inferGroupByDatasourceOrLabel({ dsIndex, label, sourceName }) {
-  // 1) Try by text (priority)
-  const byText = classify(label || sourceName);
-  if (byText === "Caixas D'Água") return byText;
-
-  // 2) Then fallback by datasource
-  if (dsIndex === 1) return "Caixas D'Água";
-  if (dsIndex === 0) return "Ambientes";
-
-  // 3) Final fallback
-  return byText;
-}
-
 // Função principal de reload da board
 async function loadMainBoardData(strt, end) {
   try {
@@ -3675,128 +3220,54 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // RFC-0014: Initialize MyIOLibrary DateRangePicker
   let waterDatePicker = null;
   
-  function initWaterDateRangePicker() {
-    try {
-      // Check if MyIOLibrary is available
-      if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createInputDateRangePickerInsideDIV) {
-        console.warn('[WATER] MyIOLibrary.createInputDateRangePickerInsideDIV not available, falling back to legacy');
-        initLegacyDateRangePicker();
+  function initWaterDateRangePicker(retryCount = 0) {
+    // Check if MyIOLibrary is available
+    if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createInputDateRangePickerInsideDIV) {
+      if (retryCount < 5) {
+        console.warn(`[WATER] MyIOLibrary not ready yet, retrying... (${retryCount + 1}/5)`);
+        setTimeout(() => initWaterDateRangePicker(retryCount + 1), 200);
         return;
       }
+      console.error('[WATER] MyIOLibrary.createInputDateRangePickerInsideDIV not available after retries. Please ensure myio-js-library is loaded.');
+      return;
+    }
 
-      // Initialize MyIOLibrary date picker
-      MyIOLibrary.createInputDateRangePickerInsideDIV({
-        containerId: 'water-date-range',
-        inputId: 'water-date-input',
-        placeholder: 'Clique para selecionar período',
-        showHelper: false,
-        pickerOptions: {
-          presetStart: presetStart || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-          presetEnd: presetEnd || new Date().toISOString().split('T')[0],
-          maxRangeDays: 31,
-          onApply: (result) => {
-            console.log('[WATER] Date range applied:', result);
-            
-            // Update internal state
-            self.ctx.$scope.startTs = result.startISO;
-            self.ctx.$scope.endTs = result.endISO;
-            self.startDate = result.startISO;
-            self.endDate = result.endISO;
-            
-            // Trigger data reload
-            loadMainBoardData(result.startISO, result.endISO);
-          }
+    // Initialize MyIOLibrary date picker
+    MyIOLibrary.createInputDateRangePickerInsideDIV({
+      containerId: 'water-date-range',
+      inputId: 'water-date-input',
+      placeholder: 'Clique para selecionar período',
+      showHelper: false,
+      pickerOptions: {
+        presetStart: presetStart || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+        presetEnd: presetEnd || new Date().toISOString().split('T')[0],
+        maxRangeDays: 31,
+        onApply: (result) => {
+          console.log('[WATER] Date range applied:', result);
+
+          // Convert YYYY-MM-DD to full ISO with timezone
+          const startWithTime = result.startISO + 'T00:00:00-03:00';
+          const endWithTime = result.endISO + 'T23:59:59-03:00';
+
+          // Update internal state
+          self.ctx.$scope.startTs = startWithTime;
+          self.ctx.$scope.endTs = endWithTime;
+          self.startDate = startWithTime;
+          self.endDate = endWithTime;
+
+          // Trigger data reload
+          loadMainBoardData(result.startISO, result.endISO);
         }
-      }).then(controller => {
-        waterDatePicker = controller;
-        console.log('[WATER] MyIOLibrary DateRangePicker initialized successfully');
-        
-        // Set initial dates
-        const startISO = presetStart || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-        const endISO = presetEnd || new Date().toISOString().split('T')[0];
-        
-        self.ctx.$scope.startTs = startISO + 'T00:00:00-03:00';
-        self.ctx.$scope.endTs = endISO + 'T23:59:59-03:00';
-        self.startDate = self.ctx.$scope.startTs;
-        self.endDate = self.ctx.$scope.endTs;
-        
-      }).catch(err => {
-        console.error('[WATER] Failed to initialize MyIOLibrary DateRangePicker:', err);
-        initLegacyDateRangePicker();
-      });
-      
-    } catch (err) {
-      console.error('[WATER] Error initializing MyIOLibrary DateRangePicker:', err);
-      initLegacyDateRangePicker();
-    }
-  }
-
-  function initLegacyDateRangePicker() {
-    console.log('[WATER] Initializing legacy daterangepicker fallback');
-    
-    // Create fallback input if MyIOLibrary fails
-    const container = document.getElementById('water-date-range');
-    if (container && !container.querySelector('input')) {
-      container.innerHTML = `
-        <label aria-label="Período" class="tbx-field">
-          <span class="tbx-ico tbx-ico-cal">📅</span>
-          <input type="text" name="startDatetimes" placeholder="Digite a data ou período" readonly title="Clique aqui para alterar o intervalo de datas" />
-        </label>
-      `;
-    }
-    
-    var $inputStart = $('input[name="startDatetimes"]');
-    if ($inputStart.length === 0) return;
-
-    $inputStart.daterangepicker({
-      timePicker: true,
-      timePicker24Hour: true,
-      autoApply: true,
-      autoUpdateInput: true,
-      timePickerIncrement: 1,
-      linkedCalendars: true,
-      showCustomRangeLabel: true,
-      ranges: {
-        'Hoje': [moment().startOf('day'), moment().endOf('day')],
-        'Útimos 7 dias': [moment().subtract(6, 'days').startOf('day'), moment().endOf('day')],
-        'Útimos 30 dias': [moment().subtract(29, 'days').startOf('day'), moment().endOf('day')],
-        'Mês Anterior': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-      },
-      startDate: presetStart ? moment(presetStart) : moment().startOf('month'),
-      endDate: presetEnd ? moment(presetEnd) : moment().endOf('day'),
-      locale: {
-        format: 'DD/MM/YY HH:mm',
-        applyLabel: 'Aplicar',
-        cancelLabel: 'Cancelar',
-        fromLabel: 'De',
-        toLabel: 'Até',
-        customRangeLabel: 'Personalizado',
-        daysOfWeek: ['Do', 'Se', 'Te', 'Qa', 'Qi', 'Se', 'Sa'],
-        monthNames: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
-        firstDay: 1,
-        separator: " até ",
-        applyButtonClasses: ".applyBtn",
-        cancelClass: ".cancelBtn"
-      },
-      maxDate: moment().endOf('day'),
-      opens: 'right',
-      drops: 'down',
-    });
-
-    $inputStart.on('apply.daterangepicker', function (ev, picker) {
-      const startDateFormatted = picker.startDate.format('DD/MM/YY HH:mm');
-      const endDateFormatted = picker.endDate.format('DD/MM/YY HH:mm');
-      console.log(startDateFormatted + ' até ' + endDateFormatted)
-      $(this).val(startDateFormatted + ' até ' + endDateFormatted);
-    });
-
-    $inputStart.on('show.daterangepicker', function (ev, picker) {
-      picker.maxDate = moment().endOf('day');
-      // RFC-0014: styleOnPicker removed - legacy styling no longer needed
+      }
+    }).then(controller => {
+      waterDatePicker = controller;
+      console.log('[WATER] MyIOLibrary DateRangePicker initialized successfully');
+    }).catch(err => {
+      console.error('[WATER] Failed to initialize MyIOLibrary DateRangePicker:', err);
     });
   }
 
-  // Function to get dates from either MyIOLibrary or legacy picker
+  // Function to get dates from MyIOLibrary picker
   function getDates() {
     if (waterDatePicker) {
       const dates = waterDatePicker.getDates();
@@ -3804,33 +3275,27 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         startDate: dates.startISO,
         endDate: dates.endISO
       };
-    } else {
-      // Legacy fallback
-      var $inputStart = $('input[name="startDatetimes"]');
-      if ($inputStart.length && $inputStart.data('daterangepicker')) {
-        var picker = $inputStart.data('daterangepicker');
-        return {
-          startDate: picker.startDate.format('YYYY-MM-DDTHH:mm:ssZ'),
-          endDate: picker.endDate.format('YYYY-MM-DDTHH:mm:ssZ')
-        };
-      }
-      return {
-        startDate: self.ctx.$scope.startTs || new Date().toISOString(),
-        endDate: self.ctx.$scope.endTs || new Date().toISOString()
-      };
     }
+    // Fallback to scope values if picker not initialized
+    return {
+      startDate: self.ctx.$scope.startTs || new Date().toISOString(),
+      endDate: self.ctx.$scope.endTs || new Date().toISOString()
+    };
   }
 
-  // Initialize the appropriate date picker
+  // Set initial dates before initializing picker
+  const initialStartISO = presetStart || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+  const initialEndISO = presetEnd || new Date().toISOString().split('T')[0];
+
+  self.ctx.$scope.startTs = initialStartISO + 'T00:00:00-03:00';
+  self.ctx.$scope.endTs = initialEndISO + 'T23:59:59-03:00';
+  self.startDate = self.ctx.$scope.startTs;
+  self.endDate = self.ctx.$scope.endTs;
+
+  console.log("Datas iniciais definidas:", self.ctx.$scope.startTs, self.ctx.$scope.endTs);
+
+  // Initialize the date picker
   initWaterDateRangePicker();
-
-  // Set initial dates if not using MyIOLibrary
-  if (!waterDatePicker) {
-    var dates = getDates();
-    self.ctx.$scope.startTs = dates.startDate;
-    self.ctx.$scope.endTs = dates.endDate;
-    console.log("Datas definidas:", dates.startDate, dates.endDate);
-  }
 
   // Evento do botão de load
   $(".load-button")
@@ -3850,6 +3315,28 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   CUSTOMER_ID = self.ctx.settings.customerId || " ";
   CLIENT_ID = self.ctx.settings.clientId || " ";
   CLIENT_SECRET = self.ctx.settings.clientSecret || " ";
+
+  // Initialize MyIOAuth using MyIOLibrary
+  function initMyIOAuth(retryCount = 0) {
+    if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.buildMyioIngestionAuth) {
+      if (retryCount < 5) {
+        console.warn(`[WATER] MyIOLibrary.buildMyioIngestionAuth not ready yet, retrying... (${retryCount + 1}/5)`);
+        setTimeout(() => initMyIOAuth(retryCount + 1), 200);
+        return;
+      }
+      console.error('[WATER] MyIOLibrary.buildMyioIngestionAuth not available after retries.');
+      return;
+    }
+
+    myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+      dataApiHost: DATA_API_HOST,
+      clientId: CLIENT_ID,
+      clientSecret: CLIENT_SECRET
+    });
+    console.log("[WATER] MyIOAuth initialized successfully");
+  }
+
+  initMyIOAuth();
 
   console.log("[water/controller] onInit() | self.ctx >>> ", self.ctx);
 
@@ -4131,15 +3618,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       console.warn("[layout] cannot set --topbar-offset", e);
     }
   })();
-
-  // RFC: Check refresh limit to prevent excessive data updates
-  // if (_dataRefreshCount >= MAX_DATA_REFRESHES) {
-  //     logInfo(`[water/controller] onDataUpdated() SKIPPED - refresh limit reached (${_dataRefreshCount}/${MAX_DATA_REFRESHES})`);
-  //     return;
-  // }
-
-  // _dataRefreshCount++;
-  // logInfo(`[water/controller] onDataUpdated() EXECUTING - refresh count: ${_dataRefreshCount}/${MAX_DATA_REFRESHES}`);
 
   // Função para formatar data completa com horário e timezone -03:00
   function formatDateWithTimezoneOffset(date) {
@@ -4520,13 +3998,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     totalGeral += valueToSum;
   }
 
-  // console.log("[water/controller] onDataUpdated() final group sums:", groupSums);
-  //console.log("[water/controller] onDataUpdated() total geral:", totalGeral);
-  //   console.log("[water/controller] onDataUpdated() items by group:", {
-  //     "Caixas D'Água": items.filter(i => i.group === "Caixas D'Água").length,
-  //     "Ambientes": items.filter(i => i.group === "Ambientes").length
-  //   });
-
   items.forEach(
     ({
       entityId,
@@ -4622,11 +4093,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               
               <div class="device-data-row">
                 <div class="consumption-main">
-                  <span data-entity-consumption="${MyIOLibrary.formatEnergyByGroup(
+                  <span data-entity-consumption="${MyIOLibrary.formatWaterByGroup(
                     adjustedVal,
                     group
                   )}" class="consumption-value">
-                    ${MyIOLibrary.formatEnergyByGroup(adjustedVal, group)}
+                    ${MyIOLibrary.formatWaterByGroup(adjustedVal, group)}
                   </span>
                   <span class="device-title-percent">(${MyIOLibrary.formatNumberReadable(
                     percent
@@ -4680,11 +4151,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               <div class="device-data-row">
                 <div class="consumption-main">
                   <span class="flash-icon ${isOn ? "flash" : ""}"></span>
-                  <span data-entity-consumption="${MyIOLibrary.formatEnergyByGroup(
+                  <span data-entity-consumption="${MyIOLibrary.formatWaterByGroup(
                     adjustedVal,
                     group
                   )}" class="consumption-value">
-                    ${MyIOLibrary.formatEnergyByGroup(adjustedVal, group)}
+                    ${MyIOLibrary.formatWaterByGroup(adjustedVal, group)}
                   </span>
                   <span class="device-title-percent">(${MyIOLibrary.formatNumberReadable(
                     perc
@@ -4707,7 +4178,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         //  console.log(`[water/controller] Updating existing card for "${labelOrName}" in group "${group}"`);
         $existingCard
           .find(".consumption-value")
-          .text(MyIOLibrary.formatEnergyByGroup(adjustedVal, group));
+          .text(MyIOLibrary.formatWaterByGroup(adjustedVal, group));
         $existingCard
           .find(".device-title-percent")
           .text(`(${MyIOLibrary.formatNumberReadable(percent)}%)`);
@@ -4750,7 +4221,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // Update group total value
       ctx.groupDivs[group]
         .find(`[data-group="${group}"]`)
-        .text(MyIOLibrary.formatEnergyByGroup(groupSums[group], group));
+        .text(MyIOLibrary.formatWaterByGroup(groupSums[group], group));
 
       // Update device count
       ctx.groupDivs[group]
