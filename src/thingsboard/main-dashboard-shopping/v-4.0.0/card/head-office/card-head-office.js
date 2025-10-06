@@ -137,6 +137,25 @@ function formatRelativeTime(timestamp) {
 }
 
 /**
+ * Calcula a porcentagem do consumo em relação a uma meta.
+ * @param {number} target - O valor da meta (deve ser maior que zero).
+ * @param {number} consumption - O valor consumido.
+ * @returns {number} A porcentagem do consumo em relação à meta. Retorna 0 se a meta for inválida.
+ */
+function calculateConsumptionPercentage(target, consumption) {
+  // Garante que os valores sejam numéricos e a meta seja positiva para evitar erros.
+  const numericTarget = Number(target);
+  const numericConsumption = Number(consumption);
+
+  if (isNaN(numericTarget) || isNaN(numericConsumption) || numericTarget <= 0) {
+    return 0;
+  }
+
+  const percentage = (numericConsumption / numericTarget) * 100;
+  return percentage;
+}
+
+/**
  * Get status chip class and label
  */
 function getStatusInfo(connectionStatus, i18n) {
@@ -422,7 +441,7 @@ function paint(root, state) {
   unitSpan.textContent = primaryValue.unit;
 
   // Update efficiency
-  const perc = entityObject.perc || 0;
+  const perc = calculateConsumptionPercentage(entityObject.consumptionTargetValue, entityObject.val);
   const barFill = root.querySelector('.bar__fill');
   const percSpan = root.querySelector('.myio-ho-card__eff .perc');
   const barContainer = root.querySelector('.bar');
