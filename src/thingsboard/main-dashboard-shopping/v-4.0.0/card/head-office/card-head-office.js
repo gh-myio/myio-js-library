@@ -2,7 +2,7 @@
 // Core Head Office card component implementation
 
 /* eslint-env browser */
-
+/* eslint-disable */
 import { CSS_STRING } from './card-head-office.css.js';
 import { Icons, ICON_MAP } from '../../head-office/card-head-office.icons';
 import { DEFAULT_I18N } from '../../head-office/card-head-office.types';
@@ -34,6 +34,9 @@ function normalizeParams(params) {
     console.warn('renderCardCompenteHeadOffice: entityId is missing, generating temporary ID');
     entityObject.entityId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
+
+  console.log('params', params);
+  
 
   return {
     entityObject,
@@ -230,21 +233,21 @@ function buildDOM(state) {
 
   const dashboardBtn = document.createElement('button');
   dashboardBtn.setAttribute('role', 'menuitem');
-  dashboardBtn.setAttribute('data-action', 'dashboard');
-  dashboardBtn.textContent = i18n.menu_dashboard;
+  dashboardBtn.setAttribute('data-action', 'info');
+  dashboardBtn.textContent = "Mais informações";
   menu.appendChild(dashboardBtn);
 
-  const reportBtn = document.createElement('button');
-  reportBtn.setAttribute('role', 'menuitem');
-  reportBtn.setAttribute('data-action', 'report');
-  reportBtn.textContent = i18n.menu_report;
-  menu.appendChild(reportBtn);
+  // const reportBtn = document.createElement('button');
+  // reportBtn.setAttribute('role', 'menuitem');
+  // reportBtn.setAttribute('data-action', 'report');
+  // reportBtn.textContent = i18n.menu_report;
+  // menu.appendChild(reportBtn);
 
-  const settingsBtn = document.createElement('button');
-  settingsBtn.setAttribute('role', 'menuitem');
-  settingsBtn.setAttribute('data-action', 'settings');
-  settingsBtn.textContent = i18n.menu_settings;
-  menu.appendChild(settingsBtn);
+  // const settingsBtn = document.createElement('button');
+  // settingsBtn.setAttribute('role', 'menuitem');
+  // settingsBtn.setAttribute('data-action', 'settings');
+  // settingsBtn.textContent = i18n.menu_settings;
+  // menu.appendChild(settingsBtn);
 
   actionsSection.appendChild(menu);
 
@@ -482,33 +485,55 @@ function bindEvents(root, state, callbacks) {
   });
 
   // Menu actions
-  const dashboardBtn = menu.querySelector('[data-action="dashboard"]');
-  const reportBtn = menu.querySelector('[data-action="report"]');
-  const settingsBtn = menu.querySelector('[data-action="settings"]');
+  //const dashboardBtn = menu.querySelector('[data-action="dashboard"]');
+  // const reportBtn = menu.querySelector('[data-action="report"]');
+  // const settingsBtn = menu.querySelector('[data-action="settings"]');
+  const infoBtn = menu.querySelector('[data-action="info"]');
 
-  if (callbacks.handleActionDashboard) {
-    dashboardBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeMenu();
-      callbacks.handleActionDashboard(e, entityObject);
-    });
-  }
+  // if (callbacks.handleActionDashboard) {
+  //   dashboardBtn.addEventListener('click', (e) => {
+  //     e.stopPropagation();
+  //     closeMenu();
+  //     callbacks.handleActionDashboard(e, entityObject);
+  //   });
+  // }
 
-  if (callbacks.handleActionReport) {
-    reportBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeMenu();
-      callbacks.handleActionReport(e, entityObject);
-    });
-  }
+  // if (callbacks.handleActionReport) {
+  //   reportBtn.addEventListener('click', (e) => {
+  //     e.stopPropagation();
+  //     closeMenu();
+  //     callbacks.handleActionReport(e, entityObject);
+  //   });
+  // }
 
-  if (callbacks.handleActionSettings) {
-    settingsBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeMenu();
-      callbacks.handleActionSettings(e, entityObject);
-    });
-  }
+  // if (callbacks.handleActionSettings) {
+  //   settingsBtn.addEventListener('click', (e) => {
+  //     e.stopPropagation();
+  //     closeMenu();
+  //     callbacks.handleActionSettings(e, entityObject);
+  //   });
+  // }
+
+
+  infoBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeMenu(); // Fecha o menu kebab ao abrir o modal
+      console.log('state', state);
+      const consumptionTargetValue = formatPrimaryValue(state.entityObject.consumptionTargetValue, 'power_kw');
+      const consumptionToleranceValue = formatPrimaryValue(state.entityObject.consumptionToleranceValue, 'power_kw');
+      const consumptionExcessValue = formatPrimaryValue(state.entityObject.consumptionExcessValue, 'power_kw');
+      
+
+      const infoData = {
+        title: state.entityObject.labelOrName || 'Dispositivo sem nome',
+        meta: `${consumptionTargetValue.num} ${consumptionTargetValue.unit}` || '0 kWh',
+        tolerancia: `${consumptionToleranceValue.num} ${consumptionToleranceValue.unit}` || '0 kWh',
+        excedente: `${consumptionExcessValue.num} ${consumptionExcessValue.unit}` || '0 kWh'
+      };
+      
+      // Chama a função para mostrar o modal com os dados
+      showInfoModal(infoData);
+  });
 
   // Selection checkbox
   const checkbox = root.querySelector('.myio-ho-card__select input[type="checkbox"]');
@@ -596,6 +621,79 @@ function unbindEvents(root) {
   }
 }
 
+/**
+ * Cria a estrutura do modal e a anexa ao body (se ainda não existir).
+ * Também configura os eventos para fechar o modal.
+ */
+function createInfoModal() {
+  // Evita criar o modal múltiplas vezes
+  if (document.getElementById('myio-info-modal')) {
+    return;
+  }
+
+  const modalOverlay = document.createElement('div');
+  modalOverlay.className = 'myio-modal-overlay';
+  modalOverlay.id = 'myio-info-modal';
+
+  const modalContent = document.createElement('div');
+  modalContent.className = 'myio-modal-content';
+
+  const closeButton = document.createElement('button');
+  closeButton.className = 'myio-modal-close';
+  closeButton.innerHTML = '&times;';
+  closeButton.setAttribute('aria-label', 'Fechar modal');
+  
+  // +++ ADICIONADO O TÍTULO +++
+  const modalTitle = document.createElement('h3');
+  modalTitle.className = 'myio-modal-title';
+  modalTitle.id = 'myio-info-modal-title';
+
+  const modalBody = document.createElement('div');
+  modalBody.id = 'myio-info-modal-body';
+
+  modalContent.appendChild(closeButton);
+  modalContent.appendChild(modalTitle); // +++ ADICIONADO
+  modalContent.appendChild(modalBody);
+  modalOverlay.appendChild(modalContent);
+  document.body.appendChild(modalOverlay);
+
+  // Função para fechar o modal
+  const closeModal = () => {
+    modalOverlay.classList.remove('visible');
+  };
+
+  // Eventos para fechar
+  closeButton.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) {
+      closeModal();
+    }
+  });
+}
+
+/**
+ * Exibe o modal com as informações fornecidas.
+ * @param {object} data - Objeto com os dados a serem exibidos. Ex: { title: 'Nome do Device', meta: '120kWh', ... }
+ */
+function showInfoModal(data) {
+  createInfoModal();
+
+  const modalOverlay = document.getElementById('myio-info-modal');
+  const modalTitle = document.getElementById('myio-info-modal-title'); // <<< Pega o elemento do título
+  const modalBody = document.getElementById('myio-info-modal-body');
+
+  // +++ DEFINE O TÍTULO DO MODAL +++
+  modalTitle.textContent = data.title || 'Informações'; // Usa um título padrão se não for fornecido
+
+  // Constrói o conteúdo do modal
+  modalBody.innerHTML = `
+    <p><strong>Meta:</strong> ${data.meta || 'N/D'}</p>
+    <p><strong>Tolerância:</strong> ${data.tolerancia || 'N/D'}</p>
+    <p><strong>Excedente PG/NPG:</strong> ${data.excedente || 'N/D'}</p>
+  `;
+
+  modalOverlay.classList.add('visible');
+}
 /**
  * Main render function
  */

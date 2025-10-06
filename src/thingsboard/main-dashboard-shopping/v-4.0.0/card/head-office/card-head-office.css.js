@@ -155,7 +155,7 @@ export const CSS_STRING = `
 
 .myio-ho-card__menu {
   position: absolute;
-  top: 100%;
+  top: 16%;
   right: 0;
   background: white;
   border: 1px solid var(--myio-card-border);
@@ -165,6 +165,74 @@ export const CSS_STRING = `
   min-width: 140px;
   padding: 4px 0;
   margin-top: 4px;
+}
+
+/* Estilos para o Modal */
+.myio-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000; /* Garante que o modal fique na frente de tudo */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.myio-modal-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.myio-modal-content {
+  background-color: #fff;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  position: relative;
+  min-width: 300px;
+  text-align: left;
+  font-family: sans-serif; /* Use a fonte que preferir */
+  line-height: 1.6;
+}
+
+.myio-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  border: none;
+  background: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #888;
+}
+
+.myio-modal-close:hover {
+    color: #000;
+}
+
+.myio-modal-content p {
+  margin: 0;
+  color: #333;
+}
+
+.myio-modal-content strong {
+    color: #000;
+}
+
+.myio-modal-title {
+  margin-top: 0;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+  font-size: 1.25rem; /* 20px */
+  color: #333;
+  font-weight: 600;
 }
 
 .myio-ho-card__menu[hidden] {
