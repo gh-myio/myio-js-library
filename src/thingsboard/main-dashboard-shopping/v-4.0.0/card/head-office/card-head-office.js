@@ -252,21 +252,27 @@ function buildDOM(state) {
 
   const dashboardBtn = document.createElement('button');
   dashboardBtn.setAttribute('role', 'menuitem');
-  dashboardBtn.setAttribute('data-action', 'info');
-  dashboardBtn.textContent = "Mais informações";
+  dashboardBtn.setAttribute('data-action', 'dashboard');
+  dashboardBtn.textContent = "Dashboard";
   menu.appendChild(dashboardBtn);
 
-  // const reportBtn = document.createElement('button');
-  // reportBtn.setAttribute('role', 'menuitem');
-  // reportBtn.setAttribute('data-action', 'report');
-  // reportBtn.textContent = i18n.menu_report;
-  // menu.appendChild(reportBtn);
+  const reportBtn = document.createElement('button');
+  reportBtn.setAttribute('role', 'menuitem');
+  reportBtn.setAttribute('data-action', 'report');
+  reportBtn.textContent = i18n.menu_report;
+  menu.appendChild(reportBtn);
 
-  // const settingsBtn = document.createElement('button');
-  // settingsBtn.setAttribute('role', 'menuitem');
-  // settingsBtn.setAttribute('data-action', 'settings');
-  // settingsBtn.textContent = i18n.menu_settings;
-  // menu.appendChild(settingsBtn);
+  const settingsBtn = document.createElement('button');
+  settingsBtn.setAttribute('role', 'menuitem');
+  settingsBtn.setAttribute('data-action', 'settings');
+  settingsBtn.textContent = i18n.menu_settings;
+  menu.appendChild(settingsBtn);
+
+  const infoDataBtn = document.createElement('button');
+  infoDataBtn.setAttribute('role', 'menuitem');
+  infoDataBtn.setAttribute('data-action', 'info');
+  infoDataBtn.textContent = "Mais informações";
+  menu.appendChild(infoDataBtn);
 
   actionsSection.appendChild(menu);
 
@@ -440,16 +446,36 @@ function paint(root, state) {
   numSpan.textContent = primaryValue.num;
   unitSpan.textContent = primaryValue.unit;
 
-  // Update efficiency
-  const perc = calculateConsumptionPercentage(entityObject.consumptionTargetValue, entityObject.val);
-  const barFill = root.querySelector('.bar__fill');
-  const percSpan = root.querySelector('.myio-ho-card__eff .perc');
+  // Seleciona o contêiner principal da barra ANTES de qualquer lógica
   const barContainer = root.querySelector('.bar');
-  
-  barFill.style.width = `${Math.max(0, Math.min(100, perc))}%`;
-  percSpan.textContent = `${Math.round(perc)}%`;
-  barContainer.setAttribute('aria-valuenow', Math.round(perc).toString());
-  barContainer.setAttribute('aria-label', `${i18n.efficiency} ${Math.round(perc)}%`);
+  const effContainer = root.querySelector('.myio-ho-card__eff'); // Contêiner do texto "%"
+
+  // 1. Verifica se o valor da meta é válido (não é nulo, indefinido ou zero)
+  const targetValue = entityObject.consumptionTargetValue;
+
+  if (targetValue) {
+    // --- A META EXISTE: MOSTRA E ATUALIZA A BARRA ---
+
+    // Garante que os elementos estejam visíveis
+    barContainer.style.display = ''; // Reverte para o display padrão do CSS
+    effContainer.style.display = '';
+
+    // Pega os elementos internos da barra
+    const barFill = root.querySelector('.bar__fill');
+    const percSpan = root.querySelector('.myio-ho-card__eff .perc');
+    
+    // Calcula e atualiza a barra
+    const perc = calculateConsumptionPercentage(targetValue, entityObject.val);
+    
+    barFill.style.width = `${Math.max(0, Math.min(100, perc))}%`;
+    percSpan.textContent = `${Math.round(perc)}%`;
+    barContainer.setAttribute('aria-valuenow', Math.round(perc).toString());
+    barContainer.setAttribute('aria-label', `${i18n.efficiency} ${Math.round(perc)}%`);
+
+  } else {
+    barContainer.style.display = 'none';
+    effContainer.style.display = 'none';
+  }
 
   // Update footer metrics
   const tempVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(1) .val');
@@ -504,56 +530,74 @@ function bindEvents(root, state, callbacks) {
   });
 
   // Menu actions
-  //const dashboardBtn = menu.querySelector('[data-action="dashboard"]');
-  // const reportBtn = menu.querySelector('[data-action="report"]');
-  // const settingsBtn = menu.querySelector('[data-action="settings"]');
+  const dashboardBtn = menu.querySelector('[data-action="dashboard"]');
+  const reportBtn = menu.querySelector('[data-action="report"]');
+  const settingsBtn = menu.querySelector('[data-action="settings"]');
   const infoBtn = menu.querySelector('[data-action="info"]');
 
-  // if (callbacks.handleActionDashboard) {
-  //   dashboardBtn.addEventListener('click', (e) => {
-  //     e.stopPropagation();
-  //     closeMenu();
-  //     callbacks.handleActionDashboard(e, entityObject);
-  //   });
-  // }
+  if (callbacks.handleActionDashboard) {
+    dashboardBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeMenu();
+      callbacks.handleActionDashboard(e, entityObject);
+    });
+  }
 
-  // if (callbacks.handleActionReport) {
-  //   reportBtn.addEventListener('click', (e) => {
-  //     e.stopPropagation();
-  //     closeMenu();
-  //     callbacks.handleActionReport(e, entityObject);
-  //   });
-  // }
+  if (callbacks.handleActionReport) {
+    reportBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeMenu();
+      callbacks.handleActionReport(e, entityObject);
+    });
+  }
 
-  // if (callbacks.handleActionSettings) {
-  //   settingsBtn.addEventListener('click', (e) => {
-  //     e.stopPropagation();
-  //     closeMenu();
-  //     callbacks.handleActionSettings(e, entityObject);
-  //   });
-  // }
-
+  if (callbacks.handleActionSettings) {
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeMenu();
+      callbacks.handleActionSettings(e, entityObject);
+    });
+  }
 
   infoBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeMenu(); // Fecha o menu kebab ao abrir o modal
-      console.log('state', state);
-      const consumptionTargetValue = formatPrimaryValue(state.entityObject.consumptionTargetValue, 'power_kw');
-      const consumptionToleranceValue = formatPrimaryValue(state.entityObject.consumptionToleranceValue, 'power_kw');
-      const consumptionExcessValue = formatPrimaryValue(state.entityObject.consumptionExcessValue, 'power_kw');
-      
+      e.stopPropagation();
+      closeMenu();
 
-      const infoData = {
-        title: state.entityObject.labelOrName || 'Dispositivo sem nome',
-        meta: `${consumptionTargetValue.num} ${consumptionTargetValue.unit}` || '0 kWh',
-        tolerancia: `${consumptionToleranceValue.num} ${consumptionToleranceValue.unit}` || '0 kWh',
-        excedente: `${consumptionExcessValue.num} ${consumptionExcessValue.unit}` || '0 kWh'
-      };
+      const title = state.entityObject.labelOrName || 'Dispositivo sem nome';
       
-      // Chama a função para mostrar o modal com os dados
-      showInfoModal(infoData);
+      const ultimaLeitura = formatPrimaryValue(state.entityObject.val, 'power_kw');
+      const central = 'L2AC';
+
+      // 2. Inicia a montagem do HTML do corpo do modal com os dados padrão
+      let modalBodyContent = '';
+      if (ultimaLeitura && central) {
+          // Adiciona a telemetria ao conteúdo se ela existir
+          modalBodyContent += `<p><strong>Central:</strong> ${central}</p>`;
+          modalBodyContent += `<p><strong>Última Conexão:</strong> 06/10/2025, 18:48:37</p>`;
+      } else {
+          modalBodyContent += `<p>Nenhuma leitura recente disponível.</p>`;
+      }
+
+      // 3. Tenta obter os dados de meta (que são opcionais)
+      const consumptionTargetValue = state.entityObject.consumptionTargetValue ? formatPrimaryValue(state.entityObject.consumptionTargetValue, 'power_kw') : null;
+      const consumptionToleranceValue = state.entityObject.consumptionToleranceValue ? formatPrimaryValue(state.entityObject.consumptionToleranceValue, 'power_kw') : null;
+      const consumptionExcessValue = state.entityObject.consumptionExcessValue ? formatPrimaryValue(state.entityObject.consumptionExcessValue, 'power_kw') : null;
+
+      // 4. Se TODOS os dados de meta existirem, adiciona o bloco de HTML correspondente
+      if (consumptionTargetValue && consumptionToleranceValue && consumptionExcessValue) {
+          // Adiciona uma linha divisória para separar os blocos de informação
+          modalBodyContent += `<hr>`; 
+          
+          modalBodyContent += `
+              <p><strong>Meta:</strong> ${consumptionTargetValue.num} ${consumptionTargetValue.unit}</p>
+              <p><strong>Tolerância:</strong> ${consumptionToleranceValue.num} ${consumptionToleranceValue.unit}</p>
+              <p><strong>Excedente PG/NPG:</strong> ${consumptionExcessValue.num} ${consumptionExcessValue.unit}</p>
+          `;
+      }
+
+      // 5. Chama a função para mostrar o modal, passando o título e o conteúdo HTML já prontos
+      showInfoModal(title, modalBodyContent);
   });
-
   // Selection checkbox
   const checkbox = root.querySelector('.myio-ho-card__select input[type="checkbox"]');
   if (checkbox && callbacks.handleSelect) {
@@ -694,24 +738,17 @@ function createInfoModal() {
  * Exibe o modal com as informações fornecidas.
  * @param {object} data - Objeto com os dados a serem exibidos. Ex: { title: 'Nome do Device', meta: '120kWh', ... }
  */
-function showInfoModal(data) {
-  createInfoModal();
+function showInfoModal(title, bodyHtml) {
+    createInfoModal();
 
-  const modalOverlay = document.getElementById('myio-info-modal');
-  const modalTitle = document.getElementById('myio-info-modal-title'); // <<< Pega o elemento do título
-  const modalBody = document.getElementById('myio-info-modal-body');
+    const modalOverlay = document.getElementById('myio-info-modal');
+    const modalTitle = document.getElementById('myio-info-modal-title');
+    const modalBody = document.getElementById('myio-info-modal-body');
 
-  // +++ DEFINE O TÍTULO DO MODAL +++
-  modalTitle.textContent = data.title || 'Informações'; // Usa um título padrão se não for fornecido
+    modalTitle.textContent = title || 'Informações';
+    modalBody.innerHTML = bodyHtml; // Define o HTML diretamente
 
-  // Constrói o conteúdo do modal
-  modalBody.innerHTML = `
-    <p><strong>Meta:</strong> ${data.meta || 'N/D'}</p>
-    <p><strong>Tolerância:</strong> ${data.tolerancia || 'N/D'}</p>
-    <p><strong>Excedente PG/NPG:</strong> ${data.excedente || 'N/D'}</p>
-  `;
-
-  modalOverlay.classList.add('visible');
+    modalOverlay.classList.add('visible');
 }
 /**
  * Main render function
