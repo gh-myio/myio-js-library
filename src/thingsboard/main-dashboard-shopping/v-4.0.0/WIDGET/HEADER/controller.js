@@ -240,19 +240,44 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
     // Botões
     const payload = () => self.getFilters();
+
+    // Helper function to update button text and state based on domain
+    const updateReportButton = (domain) => {
+      if (!btnGen) return;
+
+      const btnText = document.getElementById('tbx-btn-report-general-text');
+      const domainLabels = {
+        'energy': 'Relatório Consumo Geral de Energia por Loja',
+        'water': 'Relatório Consumo Geral de Água por Loja'
+      };
+
+      const isSupported = domain === 'energy' || domain === 'water';
+
+      // Update button text
+      if (btnText && domainLabels[domain]) {
+        btnText.textContent = domainLabels[domain];
+        btnGen.title = domainLabels[domain];
+      } else if (btnText) {
+        btnText.textContent = 'Relatório Consumo Geral';
+        btnGen.title = 'Relatório Consumo Geral';
+      }
+
+      // Update button state
+      btnGen.disabled = !isSupported;
+      LogHelper.log(`[HEADER] Relatório Geral button ${isSupported ? 'enabled' : 'disabled'} for domain: ${domain}`);
+      LogHelper.log(`[HEADER] Button text updated to: ${btnText?.textContent}`);
+    };
+
     // RFC-0042: Listen for dashboard state changes from MENU
     window.addEventListener('myio:dashboard-state', (ev) => {
       const { tab } = ev.detail;
       LogHelper.log(`[HEADER] Dashboard state changed to: ${tab}`);
       currentDomain = tab;
-
-      // Enable/disable btnGen based on domain (only energy and water supported)
-      if (btnGen) {
-        const isSupported = tab === 'energy' || tab === 'water';
-        btnGen.disabled = !isSupported;
-        LogHelper.log(`[HEADER] Relatório Geral button ${isSupported ? 'enabled' : 'disabled'} for domain: ${tab}`);
-      }
+      updateReportButton(tab);
     });
+
+    // Initial button state (disabled by default in HTML, will be enabled when domain is set)
+    updateReportButton(currentDomain);
 
     btnLoad?.addEventListener("click", () => {
       // RFC-0042: Standardized period emission
@@ -337,26 +362,58 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
         // Fallback: build from TB datasources
         // IMPORTANT: Widget HEADER must have TWO datasources configured:
-        // datasources[0]: Alias "Lojas" (for energy)
-        // datasources[1]: Alias "Todos Hidrometros" (for water)
+        // - Alias "Lojas" (for energy)
+        // - Alias "Todos Hidrometros" (for water)
         if (!itemsListTB || itemsListTB.length === 0) {
-          // Select correct datasource based on domain
-          const datasourceIndex = domain === 'energy' ? 0 : domain === 'water' ? 1 : 0;
-          const selectedDatasource = self.ctx.datasources[datasourceIndex];
+          LogHelper.log("[HEADER] self.ctx.datasources >>>", self.ctx.datasources);
 
-          console.log("[HEADER] self.ctx.datasources >>>" , self.ctx.datasources);
+          // Build items from ALL datasources (function unifies them)
+          const allItems = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data);
+          LogHelper.log(`[HEADER] Built ${allItems.length} total items from all datasources`);
 
-          if (!selectedDatasource) {
-            LogHelper.error(`[HEADER] No datasource found at index ${datasourceIndex} for domain ${domain}`);
-            console.log(`[HEADER] No datasource found at index ${datasourceIndex} for domain ${domain}`);
-            throw new Error(`Datasource not configured for domain: ${domain}`);
+          // Determine which datasource alias to filter by based on domain
+          const targetAliasName = domain === 'energy' ? 'Lojas' : domain === 'water' ? 'Todos Hidrometros' : null;
+
+          if (!targetAliasName) {
+            LogHelper.error(`[HEADER] No alias mapping for domain: ${domain}`);
+            throw new Error(`Domain not supported: ${domain}`);
           }
 
-          LogHelper.log(`[HEADER] Using datasource[${datasourceIndex}] (${selectedDatasource.name || selectedDatasource.entityAliasId || 'unnamed'}) for domain: ${domain}`);
+          LogHelper.log(`[HEADER] Filtering items by aliasName: ${targetAliasName}`);
 
-          // Build items from the selected datasource only
-          itemsListTB = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource([selectedDatasource], self.ctx.data);
-          LogHelper.log(`[HEADER] Built ${itemsListTB.length} items for domain ${domain}`);
+          // Filter items by matching datasource alias
+          itemsListTB = allItems.filter(item => {
+            // Find which datasource this item belongs to
+            const itemDatasource = self.ctx.datasources.find(ds => {
+              // Check if this datasource contains this item's ID
+              return self.ctx.data.some(dataRow => {
+                const rowDatasourceEntityAliasId = dataRow?.datasource?.entityAliasId;
+                const rowEntityId = dataRow?.datasource?.entityId?.id || dataRow?.datasource?.entityId;
+                const dsEntityAliasId = ds?.entityAliasId;
+
+                // Match by datasource entityAliasId and item ID
+                return rowDatasourceEntityAliasId === dsEntityAliasId &&
+                       (rowEntityId === item.id || dataRow?.data?.[0]?.[1] === item.id);
+              });
+            });
+
+            // Check if this datasource matches the target alias
+            const matchesAlias = itemDatasource?.aliasName === targetAliasName;
+
+            if (matchesAlias) {
+              LogHelper.log(`[HEADER] Item ${item.label} matches alias ${targetAliasName}`);
+            }
+
+            return matchesAlias;
+          });
+
+          LogHelper.log(`[HEADER] Filtered to ${itemsListTB.length} items for domain ${domain} (alias: ${targetAliasName})`);
+
+          if (itemsListTB.length === 0) {
+            LogHelper.warn(`[HEADER] No items found for alias ${targetAliasName}. Available datasources:`,
+              self.ctx.datasources.map(ds => ({ name: ds.name, entityAliasId: ds.entityAliasId }))
+            );
+          }
         }
 
         const modal = MyIOLibrary.openDashboardPopupAllReport({
