@@ -96,9 +96,9 @@ export class AllReportModal {
 
   // Debug logging helper
   private debugLog(message: string, data?: any): void {
-    //if (this.debugEnabled) {
+    if (this.debugEnabled) {
       console.log(`[AllReportModal DEBUG] ${message}`, data || '');
-    //}
+    }
   }
 
   // Helper: normalize identifiers (upper, strip spaces and non-alphanum)
