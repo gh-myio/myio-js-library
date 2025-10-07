@@ -7,6 +7,28 @@
    * Por simplicidade no exemplo, os ícones '•' e '×' são mantidos, mas estilizaremos para parecerem melhores.
    */
 
+  // Debug configuration
+  const DEBUG_ACTIVE = true;
+
+  // LogHelper utility
+  const LogHelper = {
+    log: function(...args) {
+      if (DEBUG_ACTIVE) {
+        LogHelper.log(...args);
+      }
+    },
+    warn: function(...args) {
+      if (DEBUG_ACTIVE) {
+        LogHelper.warn(...args);
+      }
+    },
+    error: function(...args) {
+      if (DEBUG_ACTIVE) {
+        LogHelper.error(...args);
+      }
+    }
+  };
+
   // URL da biblioteca externa
   const MYIO_SCRIPT_URL =
     "https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js";
@@ -221,7 +243,7 @@
 
       this.$root = ctx?.$container?.[0];
       if (!this.$root) {
-        console.error("MyIO Footer: Root container not found.");
+        LogHelper.error("MyIO Footer: Root container not found.");
         return;
       }
 
@@ -255,7 +277,7 @@
       s.src = MYIO_SCRIPT_URL;
       s.onload = onReady;
       s.onerror = () =>
-        console.error("MyIO Footer: Failed to load MyIOLibrary.");
+        LogHelper.error("MyIO Footer: Failed to load MyIOLibrary.");
       document.head.appendChild(s);
     },
 
@@ -422,7 +444,7 @@
         MyIOSelectionStore?.off?.("selection:change", this.boundRenderDock);
         MyIOSelectionStore?.off?.("selection:totals", this.boundRenderDock);
       } catch (e) {
-        console.warn("MyIO Footer: Error during listener cleanup.", e);
+        LogHelper.warn("MyIO Footer: Error during listener cleanup.", e);
       }
 
       // 2. Remove listeners do DOM interno

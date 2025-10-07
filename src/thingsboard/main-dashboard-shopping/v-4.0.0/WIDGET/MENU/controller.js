@@ -1,3 +1,25 @@
+// Debug configuration
+const DEBUG_ACTIVE = true;
+
+// LogHelper utility
+const LogHelper = {
+  log: function(...args) {
+    if (DEBUG_ACTIVE) {
+      LogHelper.log(...args);
+    }
+  },
+  warn: function(...args) {
+    if (DEBUG_ACTIVE) {
+      LogHelper.warn(...args);
+    }
+  },
+  error: function(...args) {
+    if (DEBUG_ACTIVE) {
+      LogHelper.error(...args);
+    }
+  }
+};
+
 self.onInit = function () {
   const settings = self.ctx.settings || {};
   const scope = self.ctx.$scope;
@@ -22,7 +44,7 @@ self.onInit = function () {
     // RFC-0042: Notify orchestrator of tab change
     const domain = DOMAIN_BY_STATE[stateId];
     if (domain) {
-      console.log(`[MENU] Tab changed to domain: ${domain}`);
+      LogHelper.log(`[MENU] Tab changed to domain: ${domain}`);
       window.dispatchEvent(new CustomEvent('myio:dashboard-state', {
         detail: { tab: domain }
       }));
@@ -31,7 +53,7 @@ self.onInit = function () {
     try {
       const main = document.getElementsByTagName("main")[0];
       if (!main) {
-        console.error("[menu] Elemento <main> não encontrado.");
+        LogHelper.error("[menu] Elemento <main> não encontrado.");
         return;
       }
 
@@ -58,7 +80,7 @@ self.onInit = function () {
       const dashboardId = settings.groupDashboardId;
 
       if (!stateParam) {
-        console.warn(`[menu] Nenhum stateParam definido para stateId: ${stateId}`);
+        LogHelper.warn(`[menu] Nenhum stateParam definido para stateId: ${stateId}`);
         main.innerHTML = `<div style="padding:20px; text-align:center; font-size:16px;">não tem</div>`;
         return;
       }
@@ -80,7 +102,7 @@ self.onInit = function () {
           Seu navegador não suporta iframes.
         </iframe>`;
     } catch (err) {
-      console.warn("[menu] Falha ao abrir estado:", err);
+      LogHelper.warn("[menu] Falha ao abrir estado:", err);
     }
   };
 };

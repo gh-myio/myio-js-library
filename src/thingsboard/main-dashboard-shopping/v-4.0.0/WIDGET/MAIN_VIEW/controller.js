@@ -7,7 +7,7 @@
  *********************************************************/
 
 // Debug configuration
-const DEBUG_ACTIVE = true;
+const DEBUG_ACTIVE = false;
 
 // LogHelper utility
 const LogHelper = {
