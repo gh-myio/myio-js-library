@@ -214,6 +214,14 @@ const MONTHS = [
 // MyIOAuth instance - initialized in onInit
 let myIOAuth = null;
 
+// Helper function to format water values based on group
+function formatWaterValue(value, group) {
+  const isCaixa = group.toLowerCase().includes('caixa');
+  return isCaixa
+    ? MyIOLibrary.formatWaterByGroup(value, group)
+    : MyIOLibrary.formatWaterVolumeM3(value);
+}
+
 // Função para pegar timestamps das datas internas completas
 function getTimeWindowRange() {
   let startTs = 0;
@@ -613,10 +621,7 @@ async function openDashboardPopupHidro(
                 <!-- Último período -->
                 <div style="text-align:center; font-size:0.85rem; color:#757575; margin-bottom:12px; display:none">
                     Último período: 
-                    <strong> ${MyIOLibrary.formatWaterByGroup(
-                      lastConsumption,
-                      "Lojas"
-                    )}</strong>
+                    <strong> ${MyIOLibrary.formatWaterVolumeM3(lastConsumption)}</strong>
                 </div>
 
             <!-- Campos extras -->
@@ -2660,7 +2665,7 @@ function openDashboardPopupReport(
         <td style="padding: 8px 12px; color: ${corTexto}; background-color: ${corFundo}; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5)">${
         item.date
       }</td>
-        <td style="padding: 8px 12px; color: ${corTexto}; background-color: ${corFundo};text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5)">${MyIOLibrary.formatWaterByGroup(
+        <td style="padding: 8px 12px; color: ${corTexto}; background-color: ${corFundo};text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5)">${MyIOLibrary.formatWaterVolumeM3(
         item.consumptionM3,
         "Ambientes"
       )}</td>
@@ -2761,8 +2766,7 @@ function openDashboardPopupReport(
         self.ctx.$scope.reportData = reportData;
         self.ctx.$scope.totalConsumption = totalconsumption;
         self.ctx.$scope.insueDate = insueDate;
-        document.getElementById("total-consumo").textContent =
-          MyIOLibrary.formatWaterByGroup(totalconsumption, "Ambientes");
+        document.getElementById("total-consumo").textContent = MyIOLibrary.formatWaterVolumeM3(totalconsumption, "Ambientes");
         document.getElementById("inssueDate").textContent = insueDate;
 
         updateTable();
@@ -3915,7 +3919,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         ingestionId: device.attrs.ingestionId,
         val: 0,
         val2: device.val2,
-        ingestionId: device.attrs.ingestionId,
         source: device.source,
       };
     }
@@ -3950,10 +3953,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
     //console.log(`[water/controller] matched devices: ${matchedDevices}/${Object.keys(entityMap).length}`);
   } catch (err) {
-    console.error(
-      "[water/controller] onDataUpdated() error fetching water totals:",
-      err
-    );
+    console.error("[water/controller] onDataUpdated() error fetching water totals:", err);
     // Fallback: set all values to 0 if API fails
     for (const device of dsDevices) {
       entityMap[device.entityId] = {
@@ -4030,8 +4030,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       const percent = (val2?.percent || 0) * 100;
       const groupTotal = groupSums[group] || 0;
       //console.log(`[water/controller] Device: ${labelOrName} | Group: ${group} | Val: ${val} | AdjustedVal: ${adjustedVal} | Percent: ${percent.toFixed(1)}% | GroupTotal: ${groupTotal}`);
-      const perc =
-        groupTotal > 0 ? ((adjustedVal / groupTotal) * 100).toFixed(1) : "0.0";
+      const perc = groupTotal > 0 ? ((adjustedVal / groupTotal) * 100).toFixed(1) : "0.0";
       //console.log(`[water/controller] Device: ${labelOrName} | Contribution to Group "${group}": ${perc}%`);
       const isOn = adjustedVal > 0;
 
@@ -4046,12 +4045,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           labelOrName
         )
       ) {
-        if (percent >= 70)
-          img = "/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq";
-        else if (percent >= 40)
-          img = "/api/images/public/4UBbShfXCVWR9wcw6IzVMNran4x1EW5n";
-        else if (percent >= 20)
-          img = "/api/images/public/aB9nX28F54fBBQs1Ht8jKUdYAMcq9QSm";
+
+        if (percent >= 70) img = "/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq";
+        else if (percent >= 40) img = "/api/images/public/4UBbShfXCVWR9wcw6IzVMNran4x1EW5n";
+        else if (percent >= 20) img = "/api/images/public/aB9nX28F54fBBQs1Ht8jKUdYAMcq9QSm";
         else img = "/api/images/public/qLdwhV4qw295poSCa7HinpnmXoN7dAPO";
 
         $card = $(`
@@ -4093,11 +4090,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               
               <div class="device-data-row">
                 <div class="consumption-main">
-                  <span data-entity-consumption="${MyIOLibrary.formatWaterByGroup(
+                  <span data-entity-consumption="${formatWaterValue(
                     adjustedVal,
                     group
                   )}" class="consumption-value">
-                    ${MyIOLibrary.formatWaterByGroup(adjustedVal, group)}
+                    ${formatWaterValue(adjustedVal, group)}
                   </span>
                   <span class="device-title-percent">(${MyIOLibrary.formatNumberReadable(
                     percent
@@ -4151,15 +4148,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               <div class="device-data-row">
                 <div class="consumption-main">
                   <span class="flash-icon ${isOn ? "flash" : ""}"></span>
-                  <span data-entity-consumption="${MyIOLibrary.formatWaterByGroup(
-                    adjustedVal,
-                    group
-                  )}" class="consumption-value">
-                    ${MyIOLibrary.formatWaterByGroup(adjustedVal, group)}
+                  <span data-entity-consumption="${formatWaterValue(adjustedVal, group)}" class="consumption-value">
+                    ${formatWaterValue(adjustedVal, group)}
                   </span>
-                  <span class="device-title-percent">(${MyIOLibrary.formatNumberReadable(
-                    perc
-                  )}%)</span>
+                  <span class="device-title-percent">(${MyIOLibrary.formatNumberReadable(perc)}%)</span>
                 </div>
               </div>
             </div>
@@ -4170,18 +4162,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // console.log(`[water/controller] Creating/updating card for device "${labelOrName}" in group "${group}" with value ${adjustedVal}`);
 
       // Atualiza ou insere
-      const $existingCard = ctx.groupDivs[group].find(
-        `.device-card-centered[data-entity-id="${entityId}"]`
-      );
+      const $existingCard = ctx.groupDivs[group].find(`.device-card-centered[data-entity-id="${entityId}"]`);
 
       if ($existingCard.length) {
         //  console.log(`[water/controller] Updating existing card for "${labelOrName}" in group "${group}"`);
-        $existingCard
-          .find(".consumption-value")
-          .text(MyIOLibrary.formatWaterByGroup(adjustedVal, group));
-        $existingCard
-          .find(".device-title-percent")
-          .text(`(${MyIOLibrary.formatNumberReadable(percent)}%)`);
+        $existingCard.find(".consumption-value").text(formatWaterValue(adjustedVal, group));
+        $existingCard.find(".device-title-percent").text(`(${MyIOLibrary.formatNumberReadable(percent)}%)`);
         $existingCard.find(".device-image").attr("src", img);
         $existingCard.find(".flash-icon").toggleClass("flash", isOn);
         $existingCard.find(".device-image").toggleClass("blink", isOn);
@@ -4196,9 +4182,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             val: adjustedVal,
             $card,
           });
-          ctx.groupDivs[group]
-            .find(`[data-group-count="${group}"]`)
-            .text(`${ctx.groups[group].length}`);
+
+          ctx.groupDivs[group].find(`[data-group-count="${group}"]`).text(`${ctx.groups[group].length}`);
           //  console.log(`[water/controller] Successfully added card to "${group}" group. New count: ${ctx.groups[group].length}`);
         } else {
           console.error(
@@ -4213,28 +4198,18 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // RFC: Step 8 - Update group totals and device counts in the UI
   for (const group in groupSums) {
     const deviceCount = items.filter((item) => item.group === group).length;
-    logInfo(
-      `[water/controller] Updating group "${group}": ${deviceCount} devices, total: ${groupSums[group]}`
-    );
+    logInfo(`[water/controller] Updating group "${group}": ${deviceCount} devices, total: ${groupSums[group]}`);
 
     if (ctx.groupDivs[group] && ctx.groupDivs[group].length > 0) {
       // Update group total value
-      ctx.groupDivs[group]
-        .find(`[data-group="${group}"]`)
-        .text(MyIOLibrary.formatWaterByGroup(groupSums[group], group));
+      ctx.groupDivs[group].find(`[data-group="${group}"]`).text(formatWaterValue(groupSums[group], group));
 
       // Update device count
-      ctx.groupDivs[group]
-        .find(`[data-group-count="${group}"]`)
-        .text(`${deviceCount}`);
+      ctx.groupDivs[group].find(`[data-group-count="${group}"]`).text(`${deviceCount}`);
 
-      logInfo(
-        `[water/controller] Successfully updated group "${group}" UI: ${deviceCount} devices, ${groupSums[group]} total`
-      );
+      logInfo(`[water/controller] Successfully updated group "${group}" UI: ${deviceCount} devices, ${groupSums[group]} total`);
     } else {
-      logWarn(
-        `[water/controller] ERROR: Cannot update group total for "${group}" - group div not found`
-      );
+      logWarn(`[water/controller] ERROR: Cannot update group total for "${group}" - group div not found`);
     }
   }
 

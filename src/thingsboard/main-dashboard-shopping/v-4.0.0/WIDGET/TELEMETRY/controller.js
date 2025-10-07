@@ -573,9 +573,15 @@ function renderList(visible) {
           hideBusy();
         }
       },
+      
+      handleClickCard: () => {
+      //  console.log("Card clicado:", entityObject); 
+      },
 
-      handleSelect: () => {},
-      handleClickCard: () => {}
+     handleSelect: (e) => {
+        //console.log("Card selecionado:", e);
+        // se quiser diferenciar clique de seleção
+      },
     });
 
     $ul.append($card);
@@ -1080,6 +1086,16 @@ self.onInit = async function () {
 
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
 
+
+  window.addEventListener('myio:device-params', (ev) => {
+        console.log("[CARDS]filtro",ev.detail )
+    window.dispatchEvent(new CustomEvent('myio:device-params-global', {
+        detail: {
+          id: ev.detail.id,
+          name: ev.detail.name
+        }
+    }));
+      });
   // Check for stored data from orchestrator (in case we missed the event)
   setTimeout(() => {
     // RFC-0042: Check parent window for orchestrator data (if in iframe)
