@@ -603,8 +603,10 @@ const MyIOOrchestrator = (() => {
     const key = cacheKey(domain, period);
     const startTime = Date.now();
 
+    LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, { key, inFlight: inFlight.has(key) });
+
     if (inFlight.has(key)) {
-      if (config.debugMode) LogHelper.log(`[Orchestrator] Coalescing request for ${key}`);
+      LogHelper.log(`[Orchestrator] ⏭️ Coalescing duplicate request for ${key}`);
       return inFlight.get(key);
     }
 
@@ -743,29 +745,38 @@ const MyIOOrchestrator = (() => {
 
   // Event listeners
   window.addEventListener('myio:update-date', (ev) => {
-    LogHelper.log('[Orchestrator] Received myio:update-date event', ev.detail);
+    LogHelper.log('[Orchestrator] 📅 Received myio:update-date event', ev.detail);
     currentPeriod = ev.detail.period;
 
     // RFC-0042: Cross-context emission removed - HEADER already handles this
     // No need to re-emit here as it creates infinite loop
 
     if (visibleTab && currentPeriod) {
+      LogHelper.log(`[Orchestrator] 📅 myio:update-date → hydrateDomain(${visibleTab})`);
       hydrateDomain(visibleTab, currentPeriod);
     }
   });
 
   window.addEventListener('myio:dashboard-state', (ev) => {
+    LogHelper.log('[Orchestrator] 🔄 Received myio:dashboard-state event', ev.detail);
     visibleTab = ev.detail.tab;
     if (visibleTab && currentPeriod) {
+      LogHelper.log(`[Orchestrator] 🔄 myio:dashboard-state → hydrateDomain(${visibleTab})`);
       hydrateDomain(visibleTab, currentPeriod);
+    } else {
+      LogHelper.log(`[Orchestrator] 🔄 myio:dashboard-state skipped (visibleTab=${visibleTab}, currentPeriod=${!!currentPeriod})`);
     }
   });
 
   window.addEventListener('myio:telemetry:request-data', (ev) => {
+    LogHelper.log('[Orchestrator] 📡 Received myio:telemetry:request-data event', ev.detail);
     const { domain, period } = ev.detail;
     const p = period || currentPeriod;
     if (p) {
+      LogHelper.log(`[Orchestrator] 📡 myio:telemetry:request-data → hydrateDomain(${domain})`);
       hydrateDomain(domain, p);
+    } else {
+      LogHelper.log(`[Orchestrator] 📡 myio:telemetry:request-data skipped (no period)`);
     }
   });
 

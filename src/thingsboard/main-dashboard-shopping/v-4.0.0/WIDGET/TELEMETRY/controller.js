@@ -39,6 +39,7 @@ let dateUpdateHandler = null;
 let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
 //let DEVICE_TYPE = "energy";
 let MyIO = null;
+let hasRequestedInitialData = false; // Flag to prevent duplicate initial requests
 
 // RFC-0042: Widget configuration (from settings)
 let WIDGET_DOMAIN = 'energy'; // Will be set in onInit
@@ -848,6 +849,9 @@ self.onInit = async function () {
       return;
     }
 
+    // Mark that we've requested initial data
+    hasRequestedInitialData = true;
+
     const period = {
       startISO: self.ctx.scope.startDateISO,
       endISO: self.ctx.scope.endDateISO,
@@ -954,10 +958,6 @@ self.onInit = async function () {
       return;
     }
 
-    // Show busy modal (may be called from provide-data without dateUpdate event)
-    LogHelper.log(`[TELEMETRY] 🔄 Calling showBusy() from dataProvideHandler...`);
-    showBusy();
-
     // Validate current period matches
     const myPeriod = {
       startISO: self.ctx.scope?.startDateISO,
@@ -965,9 +965,14 @@ self.onInit = async function () {
     };
 
     if (!myPeriod.startISO || !myPeriod.endISO) {
-      LogHelper.warn(`[TELEMETRY] No period set, ignoring data provision`);
+      LogHelper.warn(`[TELEMETRY] No period set, ignoring data provision and hiding busy`);
+      hideBusy(); // IMPORTANT: Hide busy before returning
       return;
     }
+
+    // Show busy modal
+    LogHelper.log(`[TELEMETRY] 🔄 Processing data from orchestrator...`);
+    showBusy();
 
     LogHelper.log(`[TELEMETRY] Received ${items.length} items from orchestrator for domain ${domain}`);
 
@@ -1150,9 +1155,13 @@ self.onInit = async function () {
       LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ℹ️ No stored data found for domain ${WIDGET_DOMAIN}`);
     }
 
-    // If no stored data, request fresh data
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Requesting fresh data from orchestrator...`);
-    requestDataFromOrchestrator();
+    // If no stored data AND we haven't requested yet, request fresh data
+    if (!hasRequestedInitialData) {
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Requesting fresh data from orchestrator...`);
+      requestDataFromOrchestrator();
+    } else {
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⏭️ Skipping duplicate request (already requested via event)`);
+    }
   }, 500); // Wait 500ms for widget to fully initialize
 
   // Auth do cliente/ingestion

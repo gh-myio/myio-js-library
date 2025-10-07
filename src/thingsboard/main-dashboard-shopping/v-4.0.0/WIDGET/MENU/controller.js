@@ -136,12 +136,13 @@ self.onInit = function () {
 
     // RFC-0042: Notify orchestrator of tab change
     const domain = DOMAIN_BY_STATE[stateId];
-    if (domain) {
-      LogHelper.log(`[MENU] Tab changed to domain: ${domain}`);
-      window.dispatchEvent(new CustomEvent('myio:dashboard-state', {
-        detail: { tab: domain }
-      }));
-    }
+
+    // ALWAYS dispatch event, even for null domain (alarms, etc)
+    // This ensures HEADER can disable buttons for unsupported domains
+    LogHelper.log(`[MENU] Tab changed to domain: ${domain || 'null (unsupported)'}`);
+    window.dispatchEvent(new CustomEvent('myio:dashboard-state', {
+      detail: { tab: domain }
+    }));
 
     try {
       const main = document.getElementsByTagName("main")[0];

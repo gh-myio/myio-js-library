@@ -187,7 +187,6 @@
 
 .shops-menu-root.collapsed {
   width: 60px;
-  transition: width 0.3s ease;
 }
 
 /* Hide text elements when collapsed */
@@ -226,12 +225,4 @@
 
 .shops-menu-root.collapsed .logout-icon {
   margin: 0;
-}
-
-/* Smooth transition for all collapsible elements */
-.shops-menu-root .user-name,
-.shops-menu-root .user-email,
-.shops-menu-root .menu-item .label,
-.shops-menu-root .logout-text {
-  transition: opacity 0.2s ease;
 }

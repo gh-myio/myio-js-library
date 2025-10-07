@@ -389,6 +389,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
           LogHelper.log(`[HEADER] Filtering items by aliasName: ${targetAliasName}`);
 
+          console.log("[HEADER] self.ctx.datasources >>> ", self.ctx.datasources);
+
           // Filter items by matching datasource alias
           itemsListTB = allItems.filter(item => {
             // Find which datasource this item belongs to
