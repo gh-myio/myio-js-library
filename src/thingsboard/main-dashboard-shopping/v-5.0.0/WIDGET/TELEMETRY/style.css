@@ -57,7 +57,10 @@
 .shops-root .shops-count {
     font: 700 11px/1 var(--font-ui);
     color: #3E1A7D;
+    background: rgba(62, 26, 125, .08);
     padding: 3px 6px;
+    border-radius: 6px;
+    border: 1px solid rgba(62, 26, 125, .15);
 }
 
 .shops-root .shops-header-actions {
