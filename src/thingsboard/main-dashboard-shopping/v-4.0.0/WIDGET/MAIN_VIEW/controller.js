@@ -6,6 +6,28 @@
  * dashboards configurados no próprio ThingsBoard.
  *********************************************************/
 
+// Debug configuration
+const DEBUG_ACTIVE = true;
+
+// LogHelper utility
+const LogHelper = {
+  log: function(...args) {
+    if (DEBUG_ACTIVE) {
+      console.log(...args);
+    }
+  },
+  warn: function(...args) {
+    if (DEBUG_ACTIVE) {
+      console.warn(...args);
+    }
+  },
+  error: function(...args) {
+    if (DEBUG_ACTIVE) {
+      console.error(...args);
+    }
+  }
+};
+
 let globalStartDateFilter = null; // ISO ex.: '2025-09-01T00:00:00-03:00'
 let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
 
@@ -45,7 +67,7 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
         }
       }
     } catch (e) {
-      console.warn('[myio-container] sizing warn:', e);
+      LogHelper.warn('[myio-container] sizing warn:', e);
     }
   }
 
@@ -123,13 +145,13 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
             CLIENT_SECRET = attrs?.client_secret || "";
             CUSTOMER_ING_ID = attrs?.ingestionId || "";
           } catch (err) {
-            console.warn("[MAIN_VIEW] Failed to fetch customer attributes:", err);
+            LogHelper.warn("[MAIN_VIEW] Failed to fetch customer attributes:", err);
           }
         }
 
         // Fallback credentials if not found
         if (!CLIENT_ID || !CLIENT_SECRET) {
-          console.log("[MAIN_VIEW] Using fallback credentials");
+          LogHelper.log("[MAIN_VIEW] Using fallback credentials");
           CLIENT_ID = "mestreal_mfh4e642_4flnuh";
           CLIENT_SECRET = "gv0zfmdekNxYA296OcqFrnBAVU4PhbUBhBwNlMCamk2oXDHeXJqu1K6YtpVOZ5da";
           CUSTOMER_ING_ID = "e01bdd22-3be6-4b75-9dae-442c8b8c186e"; // Valid customer ID
@@ -149,21 +171,21 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
         const ingestionToken = await myIOAuth.getToken();
         MyIOOrchestrator.tokenManager.setToken('ingestionToken', ingestionToken);
 
-        console.log("[MAIN_VIEW] Auth initialized successfully with CLIENT_ID:", CLIENT_ID);
+        LogHelper.log("[MAIN_VIEW] Auth initialized successfully with CLIENT_ID:", CLIENT_ID);
       } catch (err) {
-        console.error("[MAIN_VIEW] Auth initialization failed:", err);
+        LogHelper.error("[MAIN_VIEW] Auth initialization failed:", err);
       }
     } else {
-      console.warn("[MAIN_VIEW] MyIOLibrary not available");
+      LogHelper.warn("[MAIN_VIEW] MyIOLibrary not available");
     }
 
     // Log útil para conferir se os states existem
     try {
       const states = (ctx?.dashboard?.configuration?.states) || {};
-     // console.log('[myio-container] states disponíveis:', Object.keys(states));
+     // LogHelper.log('[myio-container] states disponíveis:', Object.keys(states));
       // Esperados: "menu", "telemetry_content", "water_content", "temperature_content", "alarm_content", "footer"
     } catch (e) {
-      console.warn('[myio-container] não foi possível listar states:', e);
+      LogHelper.warn('[myio-container] não foi possível listar states:', e);
     }
   };
 
@@ -327,13 +349,13 @@ const MyIOOrchestrator = (() => {
       this.cacheHitRatio = this.totalRequests > 0 ? (this.cacheHits / this.totalRequests) * 100 : 0;
 
       if (config.debugMode) {
-        console.log(`[Orchestrator] ${domain} hydration: ${duration}ms (${fromCache ? 'cache' : 'fresh'})`);
+        LogHelper.log(`[Orchestrator] ${domain} hydration: ${duration}ms (${fromCache ? 'cache' : 'fresh'})`);
       }
     },
 
     recordError(domain, error) {
       this.errorCounts[domain] = (this.errorCounts[domain] || 0) + 1;
-      console.error(`[Orchestrator] ${domain} error:`, error);
+      LogHelper.error(`[Orchestrator] ${domain} error:`, error);
     },
 
     generateTelemetrySummary() {
@@ -374,7 +396,7 @@ const MyIOOrchestrator = (() => {
     while (memCache.size > config.maxCacheSize) {
       const oldestKey = memCache.keys().next().value;
       memCache.delete(oldestKey);
-      if (config.debugMode) console.log(`[Orchestrator] Evicted cache key: ${oldestKey}`);
+      if (config.debugMode) LogHelper.log(`[Orchestrator] Evicted cache key: ${oldestKey}`);
     }
 
     persistToStorage(key, memCache.get(key));
@@ -384,12 +406,12 @@ const MyIOOrchestrator = (() => {
     try {
       const payload = JSON.stringify({ [key]: entry });
       if (payload.length > 5 * 1024 * 1024) {
-        console.warn('[Orchestrator] Payload too large for localStorage');
+        LogHelper.warn('[Orchestrator] Payload too large for localStorage');
         return;
       }
       localStorage.setItem(`myio:cache:${key}`, payload);
     } catch (e) {
-      console.warn('[Orchestrator] localStorage persist failed:', e);
+      LogHelper.warn('[Orchestrator] localStorage persist failed:', e);
     }
   }
 
@@ -407,7 +429,7 @@ const MyIOOrchestrator = (() => {
       }
     }
 
-    if (config.debugMode) console.log(`[Orchestrator] Cache invalidated: ${domain}`);
+    if (config.debugMode) LogHelper.log(`[Orchestrator] Cache invalidated: ${domain}`);
   }
 
   function abortInflight(key) {
@@ -480,7 +502,7 @@ const MyIOOrchestrator = (() => {
       return map;
     } catch (err) {
       if (err.name === 'AbortError') {
-        console.log(`[Orchestrator] Fetch aborted: ${key}`);
+        LogHelper.log(`[Orchestrator] Fetch aborted: ${key}`);
         return new Map();
       }
       throw err;
@@ -533,7 +555,7 @@ const MyIOOrchestrator = (() => {
       url.searchParams.set('endTime', period.endISO);
       url.searchParams.set('deep', '1');
 
-      console.log(`[Orchestrator] Fetching from: ${url.toString()}`);
+      LogHelper.log(`[Orchestrator] Fetching from: ${url.toString()}`);
 
       const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` }
@@ -551,8 +573,8 @@ const MyIOOrchestrator = (() => {
 
       // RFC-0042: Debug first row to see available fields
       if (rows.length > 0) {
-        //console.log(`[Orchestrator] Sample API row (full):`, JSON.stringify(rows[0], null, 2));
-        //console.log(`[Orchestrator] Sample API row groupType field:`, rows[0].groupType);
+        //LogHelper.log(`[Orchestrator] Sample API row (full):`, JSON.stringify(rows[0], null, 2));
+        //LogHelper.log(`[Orchestrator] Sample API row groupType field:`, rows[0].groupType);
       }
 
       // Convert API response to enriched items format
@@ -569,10 +591,10 @@ const MyIOOrchestrator = (() => {
         centralId: row.centralId || null
       }));
 
-      console.log(`[Orchestrator] fetchAndEnrich: fetched ${items.length} items for domain ${domain}`);
+      LogHelper.log(`[Orchestrator] fetchAndEnrich: fetched ${items.length} items for domain ${domain}`);
       return items;
     } catch (error) {
-      console.error(`[Orchestrator] fetchAndEnrich error for domain ${domain}:`, error);
+      LogHelper.error(`[Orchestrator] fetchAndEnrich error for domain ${domain}:`, error);
       return [];
     }
   }
@@ -582,7 +604,7 @@ const MyIOOrchestrator = (() => {
     const startTime = Date.now();
 
     if (inFlight.has(key)) {
-      if (config.debugMode) console.log(`[Orchestrator] Coalescing request for ${key}`);
+      if (config.debugMode) LogHelper.log(`[Orchestrator] Coalescing request for ${key}`);
       return inFlight.get(key);
     }
 
@@ -653,7 +675,7 @@ const MyIOOrchestrator = (() => {
 
   // Event emitters
   function emitProvide(domain, periodKey, items) {
-    console.log(`[Orchestrator] Emitting provide-data event for domain ${domain} with ${items.length} items`);
+    LogHelper.log(`[Orchestrator] Emitting provide-data event for domain ${domain} with ${items.length} items`);
 
     // Store data for late-joining widgets
     if (!window.MyIOOrchestratorData) {
@@ -666,7 +688,7 @@ const MyIOOrchestrator = (() => {
 
     // Retry mechanism for late-joining widgets
     setTimeout(() => {
-      console.log(`[Orchestrator] Retrying event emission for domain ${domain}`);
+      LogHelper.log(`[Orchestrator] Retrying event emission for domain ${domain}`);
       emitToAllContexts('myio:telemetry:provide-data', { domain, periodKey, items });
     }, 1000);
   }
@@ -707,7 +729,7 @@ const MyIOOrchestrator = (() => {
 
       window.dispatchEvent(new CustomEvent('myio:token-rotated', { detail: {} }));
 
-      if (config.debugMode) console.log('[Orchestrator] Tokens rotated');
+      if (config.debugMode) LogHelper.log('[Orchestrator] Tokens rotated');
     },
 
     getToken(type) {
@@ -721,7 +743,7 @@ const MyIOOrchestrator = (() => {
 
   // Event listeners
   window.addEventListener('myio:update-date', (ev) => {
-    console.log('[Orchestrator] Received myio:update-date event', ev.detail);
+    LogHelper.log('[Orchestrator] Received myio:update-date event', ev.detail);
     currentPeriod = ev.detail.period;
 
     // RFC-0042: Cross-context emission removed - HEADER already handles this
@@ -764,7 +786,7 @@ const MyIOOrchestrator = (() => {
       try {
         window.tbClient.sendTelemetry(metrics.generateTelemetrySummary());
       } catch (e) {
-        console.warn('[Orchestrator] Failed to send telemetry:', e);
+        LogHelper.warn('[Orchestrator] Failed to send telemetry:', e);
       }
     }, 5 * 60 * 1000);
   }
@@ -803,4 +825,4 @@ const MyIOOrchestrator = (() => {
 // Expose globally
 window.MyIOOrchestrator = MyIOOrchestrator;
 
-console.log('[MyIOOrchestrator] Initialized');
+LogHelper.log('[MyIOOrchestrator] Initialized');

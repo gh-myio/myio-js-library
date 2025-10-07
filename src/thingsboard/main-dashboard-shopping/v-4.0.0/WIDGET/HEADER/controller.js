@@ -340,20 +340,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         // datasources[0]: Alias "Lojas" (for energy)
         // datasources[1]: Alias "Todos Hidrometros" (for water)
         if (!itemsListTB || itemsListTB.length === 0) {
-          // Select correct datasource based on domain
-          const datasourceIndex = domain === 'energy' ? 0 : domain === 'water' ? 1 : 0;
-          const selectedDatasource = self.ctx.datasources[datasourceIndex];
-
-          if (!selectedDatasource) {
-            LogHelper.error(`[HEADER] No datasource found at index ${datasourceIndex} for domain ${domain}`);
-            throw new Error(`Datasource not configured for domain: ${domain}`);
-          }
-
-          LogHelper.log(`[HEADER] Using datasource[${datasourceIndex}] (${selectedDatasource.name || 'unnamed'}) for domain: ${domain}`);
-
-          // Build items from the selected datasource only
-          itemsListTB = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource([selectedDatasource], self.ctx.data);
-          LogHelper.log(`[HEADER] Built ${itemsListTB.length} items from datasource for domain ${domain}`);
+          // Build items from ALL datasources (the function handles filtering internally)
+          itemsListTB = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data);
+          LogHelper.log(`[HEADER] Built ${itemsListTB.length} items from all datasources for domain ${domain}`);
         }
 
         const modal = MyIOLibrary.openDashboardPopupAllReport({
