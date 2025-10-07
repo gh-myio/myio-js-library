@@ -52,7 +52,21 @@
   padding-bottom: 10px; border-bottom: 1px solid #eee;
 }
 
-.hamburger-btn { background: none; border: 0; font-size: 18px; cursor: pointer; }
+.hamburger-btn {
+  background: none;
+  border: 0;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.hamburger-btn:hover {
+  transform: scale(1.1);
+}
+
+.hamburger-btn:active {
+  transform: scale(0.95);
+}
 
 /* lista em coluna, com divisores */
 .menu-list{
@@ -64,7 +78,9 @@
 
 /* cada item ocupa 100% da largura da linha */
 .menu-item{
-  display:block;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   width:100%;
   padding:12px 16px;
   color:var(--text);
@@ -72,6 +88,12 @@
   border-bottom:1px solid var(--divider) !important; /* padroniza divisor */
   border-radius: var(--radius);
   transition: background .2s ease, color .2s ease, box-shadow .2s ease;
+}
+
+.menu-icon {
+  font-size: 20px;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 .menu-item {
@@ -157,4 +179,59 @@
 
 .logout-text {
   font-weight: 500;
+}
+
+/* ============================================
+   COLLAPSED MENU STATE (menu recolhido)
+   ============================================ */
+
+.shops-menu-root.collapsed {
+  width: 60px;
+  transition: width 0.3s ease;
+}
+
+/* Hide text elements when collapsed */
+.shops-menu-root.collapsed .user-name,
+.shops-menu-root.collapsed .user-email,
+.shops-menu-root.collapsed .menu-item .label,
+.shops-menu-root.collapsed .logout-text {
+  display: none;
+}
+
+/* Adjust user info when collapsed */
+.shops-menu-root.collapsed .user-info {
+  padding: 12px 8px;
+  text-align: center;
+}
+
+/* Center hamburger button when collapsed */
+.shops-menu-root.collapsed .menu-header {
+  justify-content: center;
+  padding-bottom: 10px;
+}
+
+/* Center menu items when collapsed */
+.shops-menu-root.collapsed .menu-item {
+  padding: 12px 8px;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Center logout button when collapsed */
+.shops-menu-root.collapsed .logout-btn {
+  padding: 12px 8px;
+  justify-content: center;
+}
+
+.shops-menu-root.collapsed .logout-icon {
+  margin: 0;
+}
+
+/* Smooth transition for all collapsible elements */
+.shops-menu-root .user-name,
+.shops-menu-root .user-email,
+.shops-menu-root .menu-item .label,
+.shops-menu-root .logout-text {
+  transition: opacity 0.2s ease;
 }

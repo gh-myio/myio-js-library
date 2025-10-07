@@ -27,6 +27,42 @@ self.onInit = function () {
   scope.links = settings.links || [];
   scope.groupDashboardId = settings.groupDashboardId;
 
+  // Function to get icon for each menu item based on stateId
+  scope.getMenuIcon = function(stateId) {
+    const icons = {
+      'telemetry_content': '⚡',
+      'water_content': '💧',
+      'temperature_content': '🌡️',
+      'alarm_content': '🔔'
+    };
+    return icons[stateId] || '📄';
+  };
+
+  // Hamburger menu toggle
+  const hamburgerBtn = document.querySelector('.hamburger-btn');
+  const menuRoot = document.querySelector('.shops-menu-root');
+  let isMenuCollapsed = false;
+
+  if (hamburgerBtn && menuRoot) {
+    hamburgerBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      isMenuCollapsed = !isMenuCollapsed;
+
+      if (isMenuCollapsed) {
+        menuRoot.classList.add('collapsed');
+        LogHelper.log('[MENU] Menu collapsed');
+      } else {
+        menuRoot.classList.remove('collapsed');
+        LogHelper.log('[MENU] Menu expanded');
+      }
+
+      // Emit event to notify other widgets (like MAIN_VIEW)
+      window.dispatchEvent(new CustomEvent('myio:menu-toggle', {
+        detail: { collapsed: isMenuCollapsed }
+      }));
+    });
+  }
+
   // Fetch and display user info
   fetchUserInfo();
 

@@ -16,7 +16,9 @@
       class="menu-item"
       (click)="changeDashboardState($event, link.stateId, i)"
       [class.active]="link.enableLink"
+      [attr.data-icon]="getMenuIcon(link.stateId)"
     >
+      <span class="menu-icon">{{ getMenuIcon(link.stateId) }}</span>
       <span class="label">{{ link.content }}</span>
     </a>
   </nav>
