@@ -26,7 +26,7 @@ const LogHelper = {
 let MyIOAuth = null;
 
 // RFC-0042: Track current domain from MENU widget
-let currentDomain = 'energy'; // default to energy
+let currentDomain = null; // Will be set by MENU widget via 'myio:dashboard-state' event
 
 /* ==== Tooltip premium (global no <body>) ==== */
 function setupTooltipPremium(target, text) {
@@ -342,7 +342,15 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         const ingestionAuthToken = await MyIOAuth.getToken();
 
         // RFC-0042: Use current domain to determine correct datasource and cache
-        const domain = currentDomain || 'energy';
+        const domain = currentDomain;
+
+        // Safety check: button should be disabled if domain is not supported
+        if (!domain || (domain !== 'energy' && domain !== 'water')) {
+          LogHelper.error(`[HEADER] Invalid domain: ${domain}. Button should be disabled.`);
+          alert('Domínio inválido. Por favor, selecione Energia ou Água no menu.');
+          return;
+        }
+
         LogHelper.log(`[HEADER] Opening All Report for domain: ${domain}`);
 
         // RFC-0042: Check orchestrator cache if available
