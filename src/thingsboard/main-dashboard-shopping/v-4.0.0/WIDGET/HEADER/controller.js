@@ -289,6 +289,57 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // Initial controls state (disabled by default in HTML, will be enabled when domain is set)
     updateControlsState(currentDomain);
 
+    // RFC-0042: Helper function to emit period to all contexts
+    function emitToAllContexts(eventName, detail) {
+      // 1. Emit to current window (for MAIN_VIEW orchestrator)
+      window.dispatchEvent(new CustomEvent(eventName, { detail }));
+      LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to current window`);
+
+      // 2. Emit to parent window (if in iframe)
+      if (window.parent && window.parent !== window) {
+        try {
+          window.parent.dispatchEvent(new CustomEvent(eventName, { detail }));
+          LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to parent window`);
+        } catch (e) {
+          LogHelper.warn(`[HEADER] ⚠️ Cannot emit ${eventName} to parent:`, e.message);
+        }
+      }
+
+      // 3. Emit to all iframes (for TELEMETRY widgets)
+      try {
+        const iframes = document.querySelectorAll('iframe');
+        LogHelper.log(`[HEADER] Found ${iframes.length} iframes`);
+        iframes.forEach((iframe, idx) => {
+          try {
+            iframe.contentWindow.dispatchEvent(new CustomEvent(eventName, { detail }));
+            LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to iframe ${idx}`);
+          } catch (e) {
+            LogHelper.warn(`[HEADER] ⚠️ Cannot emit ${eventName} to iframe ${idx}:`, e.message);
+          }
+        });
+      } catch (e) {
+        LogHelper.warn(`[HEADER] ⚠️ Cannot access iframes:`, e.message);
+      }
+    }
+
+    // RFC-0042: Emit initial period automatically when HEADER loads
+    // This ensures TELEMETRY widgets don't hang waiting for data on first load
+    setTimeout(() => {
+      const startISO = toISO(self.__range.start.toDate(), 'America/Sao_Paulo');
+      const endISO = toISO(self.__range.end.toDate(), 'America/Sao_Paulo');
+
+      const initialPeriod = {
+        startISO,
+        endISO,
+        granularity: calcGranularity(startISO, endISO),
+        tz: 'America/Sao_Paulo'
+      };
+
+      LogHelper.log("[HEADER] 🚀 Emitting initial period automatically:", initialPeriod);
+      emitToAllContexts("myio:update-date", { period: initialPeriod });
+      emitToAllContexts("myio:update-date-legacy", { startDate: startISO, endDate: endISO });
+    }, 1000); // Wait 1s for widgets to initialize
+
     btnLoad?.addEventListener("click", () => {
       // RFC-0042: Standardized period emission
       const startISO = toISO(self.ctx.$scope.startTs || inputStart.value + "T00:00:00", 'America/Sao_Paulo');
@@ -303,40 +354,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       LogHelper.log("[HEADER] Emitting standardized period:", period);
 
-      // RFC-0042: Cross-context emission (parent + all iframes)
-      function emitToAllContexts(eventName, detail) {
-        // 1. Emit to current window (for MAIN_VIEW orchestrator)
-        window.dispatchEvent(new CustomEvent(eventName, { detail }));
-        LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to current window`);
-
-        // 2. Emit to parent window (if in iframe)
-        if (window.parent && window.parent !== window) {
-          try {
-            window.parent.dispatchEvent(new CustomEvent(eventName, { detail }));
-            LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to parent window`);
-          } catch (e) {
-            LogHelper.warn(`[HEADER] ⚠️ Cannot emit ${eventName} to parent:`, e.message);
-          }
-        }
-
-        // 3. Emit to all iframes (for TELEMETRY widgets)
-        try {
-          const iframes = document.querySelectorAll('iframe');
-          LogHelper.log(`[HEADER] Found ${iframes.length} iframes`);
-          iframes.forEach((iframe, idx) => {
-            try {
-              iframe.contentWindow.dispatchEvent(new CustomEvent(eventName, { detail }));
-              LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to iframe ${idx}`);
-            } catch (e) {
-              LogHelper.warn(`[HEADER] ⚠️ Cannot emit ${eventName} to iframe ${idx}:`, e.message);
-            }
-          });
-        } catch (e) {
-          LogHelper.warn(`[HEADER] ⚠️ Cannot access iframes:`, e.message);
-        }
-      }
-
-      // Emit standardized event to all contexts
+      // Emit standardized event to all contexts (use shared function)
       emitToAllContexts("myio:update-date", { period });
 
       // Backward compatibility: also emit old format

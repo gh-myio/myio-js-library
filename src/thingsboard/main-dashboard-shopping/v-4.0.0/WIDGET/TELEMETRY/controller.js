@@ -40,6 +40,7 @@ let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
 //let DEVICE_TYPE = "energy";
 let MyIO = null;
 let hasRequestedInitialData = false; // Flag to prevent duplicate initial requests
+let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent duplicate processing
 
 // RFC-0042: Widget configuration (from settings)
 let WIDGET_DOMAIN = 'energy'; // Will be set in onInit
@@ -849,9 +850,6 @@ self.onInit = async function () {
       return;
     }
 
-    // Mark that we've requested initial data
-    hasRequestedInitialData = true;
-
     const period = {
       startISO: self.ctx.scope.startDateISO,
       endISO: self.ctx.scope.endDateISO,
@@ -896,6 +894,11 @@ self.onInit = async function () {
       self.ctx.scope.startDateISO = startISO;
       self.ctx.scope.endDateISO = endISO;
 
+      // IMPORTANT: Reset lastProcessedPeriodKey when new date range is selected
+      // This allows processing fresh data for the new period
+      lastProcessedPeriodKey = null;
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Reset lastProcessedPeriodKey for new date range`);
+
       // Exibe modal
       LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Calling showBusy()...`);
       showBusy();
@@ -906,6 +909,11 @@ self.onInit = async function () {
 
       if (orchestrator) {
         LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Requesting data from orchestrator (${window.MyIOOrchestrator ? 'current' : 'parent'} window)`);
+
+        // IMPORTANT: Mark as requested BEFORE calling requestDataFromOrchestrator
+        // This prevents the setTimeout(500ms) from making a duplicate request
+        hasRequestedInitialData = true;
+
         requestDataFromOrchestrator();
       } else {
         // Fallback to old behavior
@@ -957,6 +965,16 @@ self.onInit = async function () {
       LogHelper.log(`[TELEMETRY] Ignoring event for domain ${domain}, my domain is ${WIDGET_DOMAIN}`);
       return;
     }
+
+    // IMPORTANT: Prevent duplicate processing of the same periodKey
+    // The Orchestrator retries emission after 1s, so we need to deduplicate
+    if (lastProcessedPeriodKey === periodKey) {
+      LogHelper.log(`[TELEMETRY] ⏭️ Skipping duplicate provide-data for periodKey: ${periodKey}`);
+      return;
+    }
+
+    // Mark this periodKey as processed
+    lastProcessedPeriodKey = periodKey;
 
     // Validate current period matches
     const myPeriod = {
@@ -1050,7 +1068,7 @@ self.onInit = async function () {
 
         // Debug: log non-zero values from API
         if (value > 0) {
-          LogHelper.log(`[TELEMETRY] ✅ API has data: ${item.label} (${item.ingestionId}) = ${value}`);
+          //LogHelper.log(`[TELEMETRY] ✅ API has data: ${item.label} (${item.ingestionId}) = ${value}`);
         }
       }
     });
@@ -1062,7 +1080,7 @@ self.onInit = async function () {
 
       // Debug: log when value is missing or zero
       if (orchestratorValue === undefined || orchestratorValue === 0) {
-        LogHelper.warn(`[TELEMETRY] ⚠️ ${tbItem.label} (${tbItem.ingestionId}): orchestrator=${orchestratorValue}, TB=${tbItem.value}`);
+        //LogHelper.warn(`[TELEMETRY] ⚠️ ${tbItem.label} (${tbItem.ingestionId}): orchestrator=${orchestratorValue}, TB=${tbItem.value}`);
       }
 
       return {

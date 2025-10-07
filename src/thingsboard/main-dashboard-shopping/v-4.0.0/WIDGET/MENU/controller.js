@@ -68,7 +68,7 @@ self.onInit = function () {
 
   async function fetchUserInfo() {
     try {
-      LogHelper.log("[MENU] Fetching user info from /api/auth/user");
+      //LogHelper.log("[MENU] Fetching user info from /api/auth/user");
 
       const response = await fetch('/api/auth/user', {
         method: 'GET',
@@ -84,7 +84,7 @@ self.onInit = function () {
       }
 
       const user = await response.json();
-      LogHelper.log("[MENU] User info received:", user);
+      //LogHelper.log("[MENU] User info received:", user);
 
       // Update user info in the UI
       const userNameEl = document.getElementById('user-name');
@@ -96,12 +96,12 @@ self.onInit = function () {
         const fullName = `${firstName} ${lastName}`.trim() || 'Usuário';
         userNameEl.textContent = fullName;
 
-        LogHelper.log("[MENU] User name set to:", fullName);
+        //LogHelper.log("[MENU] User name set to:", fullName);
       }
 
       if (userEmailEl && user?.email) {
         userEmailEl.textContent = user.email;
-        LogHelper.log("[MENU] User email set to:", user.email);
+        //LogHelper.log("[MENU] User email set to:", user.email);
       }
 
     } catch (err) {
@@ -139,7 +139,7 @@ self.onInit = function () {
 
     // ALWAYS dispatch event, even for null domain (alarms, etc)
     // This ensures HEADER can disable buttons for unsupported domains
-    LogHelper.log(`[MENU] Tab changed to domain: ${domain || 'null (unsupported)'}`);
+    //LogHelper.log(`[MENU] Tab changed to domain: ${domain || 'null (unsupported)'}`);
     window.dispatchEvent(new CustomEvent('myio:dashboard-state', {
       detail: { tab: domain }
     }));
@@ -204,7 +204,7 @@ self.onInit = function () {
   scope.handleLogout = async function (e) {
     e.preventDefault();
 
-    LogHelper.log("[MENU] Logout button clicked");
+    //LogHelper.log("[MENU] Logout button clicked");
 
     // Confirm before logout
     const confirmed = confirm("Tem certeza que deseja sair?");
@@ -220,7 +220,7 @@ self.onInit = function () {
     }
 
     try {
-      LogHelper.log("[MENU] Sending logout request to /api/auth/logout");
+      //LogHelper.log("[MENU] Sending logout request to /api/auth/logout");
 
       const response = await fetch('/api/auth/logout', {
         method: 'POST',
@@ -231,7 +231,7 @@ self.onInit = function () {
         credentials: 'include'
       });
 
-      LogHelper.log("[MENU] Logout response status:", response.status);
+      //LogHelper.log("[MENU] Logout response status:", response.status);
 
       if (response.ok || response.status === 200 || response.status === 401) {
         // Clear local storage
