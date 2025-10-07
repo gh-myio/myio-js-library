@@ -241,31 +241,41 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // Botões
     const payload = () => self.getFilters();
 
-    // Helper function to update button text and state based on domain
-    const updateReportButton = (domain) => {
-      if (!btnGen) return;
-
+    // Helper function to update controls state based on domain
+    const updateControlsState = (domain) => {
       const btnText = document.getElementById('tbx-btn-report-general-text');
       const domainLabels = {
         'energy': 'Relatório Consumo Geral de Energia por Loja',
         'water': 'Relatório Consumo Geral de Água por Loja'
       };
 
+      // Only energy and water are supported for all controls
       const isSupported = domain === 'energy' || domain === 'water';
 
-      // Update button text
-      if (btnText && domainLabels[domain]) {
-        btnText.textContent = domainLabels[domain];
-        btnGen.title = domainLabels[domain];
-      } else if (btnText) {
-        btnText.textContent = 'Relatório Consumo Geral';
-        btnGen.title = 'Relatório Consumo Geral';
+      // Update report button text and state
+      if (btnGen) {
+        if (btnText && domainLabels[domain]) {
+          btnText.textContent = domainLabels[domain];
+          btnGen.title = domainLabels[domain];
+        } else if (btnText) {
+          btnText.textContent = 'Relatório Consumo Geral';
+          btnGen.title = 'Relatório Consumo Geral';
+        }
+
+        btnGen.disabled = !isSupported;
+        LogHelper.log(`[HEADER] Relatório Geral button ${btnGen.disabled ? 'disabled' : 'enabled'} for domain: ${domain}`);
       }
 
-      // Update button state
-      btnGen.disabled = !isSupported;
-      LogHelper.log(`[HEADER] Relatório Geral button ${isSupported ? 'enabled' : 'disabled'} for domain: ${domain}`);
-      LogHelper.log(`[HEADER] Button text updated to: ${btnText?.textContent}`);
+      // Update date range input and load button state (same rule as report button)
+      if (inputRange) {
+        inputRange.disabled = !isSupported;
+        LogHelper.log(`[HEADER] Date range input ${isSupported ? 'enabled' : 'disabled'} for domain: ${domain}`);
+      }
+
+      if (btnLoad) {
+        btnLoad.disabled = !isSupported;
+        LogHelper.log(`[HEADER] Carregar button ${isSupported ? 'enabled' : 'disabled'} for domain: ${domain}`);
+      }
     };
 
     // RFC-0042: Listen for dashboard state changes from MENU
@@ -273,11 +283,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       const { tab } = ev.detail;
       LogHelper.log(`[HEADER] Dashboard state changed to: ${tab}`);
       currentDomain = tab;
-      updateReportButton(tab);
+      updateControlsState(tab);
     });
 
-    // Initial button state (disabled by default in HTML, will be enabled when domain is set)
-    updateReportButton(currentDomain);
+    // Initial controls state (disabled by default in HTML, will be enabled when domain is set)
+    updateControlsState(currentDomain);
 
     btnLoad?.addEventListener("click", () => {
       // RFC-0042: Standardized period emission
