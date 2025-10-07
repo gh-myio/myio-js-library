@@ -128,6 +128,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const inputEnd = q("#tbx-date-end"); // compat
   const inputRange = q("#tbx-date-range");
   const btnLoad = q("#tbx-btn-load");
+  const btnForceRefresh = q("#tbx-btn-force-refresh");
   const btnGen = q("#tbx-btn-report-general");
 
   setupTooltipPremium( inputRange, "📅 Clique para alterar o intervalo de datas");
@@ -276,6 +277,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         btnLoad.disabled = !isSupported;
         LogHelper.log(`[HEADER] Carregar button ${isSupported ? 'enabled' : 'disabled'} for domain: ${domain}`);
       }
+
+      if (btnForceRefresh) {
+        btnForceRefresh.disabled = !isSupported;
+        LogHelper.log(`[HEADER] Force Refresh button ${isSupported ? 'enabled' : 'disabled'} for domain: ${domain}`);
+      }
     };
 
     // RFC-0042: Listen for dashboard state changes from MENU
@@ -359,6 +365,76 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       // Backward compatibility: also emit old format
       emitToAllContexts("myio:update-date-legacy", { startDate: startISO, endDate: endISO });
+    });
+
+    // RFC-0042: Force Refresh button - clears all cache and reloads data
+    btnForceRefresh?.addEventListener("click", (event) => {
+      LogHelper.log("[HEADER] 🔄 Force Refresh clicked");
+
+      // Check if this is a programmatic click (from TELEMETRY timeout) or user click
+      const isProgrammatic = event.isTrusted === false;
+
+      if (!isProgrammatic) {
+        // Only show confirmation for manual user clicks
+        const confirmed = confirm("Isso vai limpar todo o cache e recarregar os dados. Continuar?");
+        if (!confirmed) {
+          LogHelper.log("[HEADER] Force Refresh cancelled by user");
+          return;
+        }
+      } else {
+        LogHelper.log("[HEADER] Force Refresh triggered programmatically (auto-recovery)");
+      }
+
+      try {
+        // Clear localStorage cache for energy and water (not temperature)
+        localStorage.removeItem('myio:cache:energy');
+        localStorage.removeItem('myio:cache:water');
+        LogHelper.log("[HEADER] ✅ LocalStorage cache cleared (energy + water)");
+
+        // Invalidate orchestrator cache if available
+        if (window.MyIOOrchestrator && window.MyIOOrchestrator.invalidateCache) {
+          window.MyIOOrchestrator.invalidateCache('energy');
+          window.MyIOOrchestrator.invalidateCache('water');
+          LogHelper.log("[HEADER] ✅ Orchestrator cache invalidated");
+        }
+
+        // IMPORTANT: Clear visual content of TELEMETRY widgets for current domain
+        // Emit custom event that TELEMETRY widgets can listen to
+        const clearEvent = new CustomEvent('myio:telemetry:clear', {
+          detail: { domain: currentDomain }
+        });
+
+        // Emit to current window
+        window.dispatchEvent(clearEvent);
+        LogHelper.log(`[HEADER] ✅ Emitted clear event for domain: ${currentDomain}`);
+
+        // Emit to all iframes (where TELEMETRY widgets live)
+        try {
+          const iframes = document.querySelectorAll('iframe');
+          iframes.forEach((iframe, idx) => {
+            try {
+              iframe.contentWindow.dispatchEvent(clearEvent);
+              LogHelper.log(`[HEADER] ✅ Emitted clear event to iframe ${idx}`);
+            } catch (e) {
+              LogHelper.warn(`[HEADER] ⚠️ Cannot emit clear event to iframe ${idx}:`, e.message);
+            }
+          });
+        } catch (e) {
+          LogHelper.warn(`[HEADER] ⚠️ Cannot access iframes:`, e.message);
+        }
+
+        // Show success message only for manual clicks
+        if (!isProgrammatic) {
+          alert("Cache limpo com sucesso! Clique em 'Carregar' para buscar dados atualizados.");
+        }
+
+        LogHelper.log("[HEADER] 🔄 Force Refresh completed successfully");
+      } catch (err) {
+        LogHelper.error("[HEADER] ❌ Error during Force Refresh:", err);
+        if (!isProgrammatic) {
+          alert("Erro ao limpar cache. Consulte o console para detalhes.");
+        }
+      }
     });
 
     btnGen?.addEventListener("click", async () => {

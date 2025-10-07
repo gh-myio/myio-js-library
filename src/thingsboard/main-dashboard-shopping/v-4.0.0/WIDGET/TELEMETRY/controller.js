@@ -41,6 +41,7 @@ let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
 let MyIO = null;
 let hasRequestedInitialData = false; // Flag to prevent duplicate initial requests
 let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent duplicate processing
+let busyTimeoutId = null; // Timeout ID for busy fallback
 
 // RFC-0042: Widget configuration (from settings)
 let WIDGET_DOMAIN = 'energy'; // Will be set in onInit
@@ -108,14 +109,118 @@ function ensureBusyModalDOM() {
 }
 function showBusy(message) {
   LogHelper.log(`[TELEMETRY] 🔄 showBusy() called with message: "${message || 'default'}"`);
+
+  // Get current call stack for debugging
+  const stack = new Error().stack;
+  LogHelper.log(`[TELEMETRY] 📍 showBusy() called from:`, stack?.split('\n')[2]?.trim());
+
   const $m = ensureBusyModalDOM();
   const text = (message && String(message).trim()) || "aguarde.. carregando os dados...";
   $m.find(`#${BUSY_ID}-msg`).text(text);
   $m.css("display","flex");
   LogHelper.log(`[TELEMETRY] ✅ Modal displayed, current display style:`, $m.css("display"));
+
+  // IMPORTANT: Clear any existing timeout
+  if (busyTimeoutId) {
+    LogHelper.warn(`[TELEMETRY] ⚠️ showBusy() called while timeout already exists! Clearing previous timeout (ID: ${busyTimeoutId})`);
+    clearTimeout(busyTimeoutId);
+    busyTimeoutId = null;
+  }
+
+  // RFC-0042: Fallback - if busy modal is still showing after 10s, clear cache and retry
+  busyTimeoutId = setTimeout(() => {
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⏰ Timeout callback fired (ID: ${busyTimeoutId})`);
+
+    // IMPORTANT: Check if busy modal is actually still visible before proceeding
+    const $modal = $root().find(`#${BUSY_ID}`);
+    const isStillBusy = $modal.length > 0 && $modal.css('display') !== 'none';
+
+    if (!isStillBusy) {
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Timeout fired but modal already hidden - no action needed`);
+      busyTimeoutId = null;
+      return;
+    }
+
+    LogHelper.warn(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ BUSY TIMEOUT (10s) - Modal still visible, clearing cache and retrying...`);
+
+    try {
+      // IMPORTANT: Try to trigger HEADER buttons programmatically first
+      let autoRetrySucceeded = false;
+
+      try {
+        // Step 1: Click "Limpar" button to clear cache
+        const btnForceRefresh = document.getElementById('tbx-btn-force-refresh');
+        if (btnForceRefresh && !btnForceRefresh.disabled) {
+          LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Auto-clicking "Limpar" button...`);
+          btnForceRefresh.click();
+        } else {
+          LogHelper.warn(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ "Limpar" button not found or disabled`);
+
+          // Fallback: Clear cache manually
+          localStorage.removeItem('myio:cache:energy');
+          localStorage.removeItem('myio:cache:water');
+          LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Cache cleared manually (energy + water)`);
+
+          // Invalidate orchestrator cache if available
+          if (window.MyIOOrchestrator && window.MyIOOrchestrator.invalidateCache) {
+            window.MyIOOrchestrator.invalidateCache('energy');
+            window.MyIOOrchestrator.invalidateCache('water');
+            LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Orchestrator cache invalidated`);
+          }
+        }
+
+        // Step 2: Wait 500ms then click "Carregar" button to reload data
+        setTimeout(() => {
+          const btnLoad = document.getElementById('tbx-btn-load');
+          if (btnLoad && !btnLoad.disabled) {
+            LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Auto-clicking "Carregar" button...`);
+            btnLoad.click();
+            autoRetrySucceeded = true;
+
+            // Hide busy after triggering reload
+            hideBusy();
+          } else {
+            LogHelper.warn(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ "Carregar" button not found or disabled`);
+            hideBusy();
+          }
+
+          // Show alert AFTER auto-retry attempt
+          if (autoRetrySucceeded) {
+            alert('Timeout ao carregar dados. Cache limpo e dados recarregados automaticamente.');
+          } else {
+            alert('Timeout ao carregar dados. Por favor, clique em "Limpar" e depois "Carregar" manualmente.');
+          }
+        }, 500);
+
+      } catch (err) {
+        LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ Error during auto-retry:`, err);
+        hideBusy();
+        alert('Timeout ao carregar dados. Por favor, clique em "Limpar" e depois "Carregar" manualmente.');
+      }
+
+    } catch (err) {
+      LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ Error in timeout handler:`, err);
+      hideBusy();
+    }
+
+    busyTimeoutId = null;
+  }, 10000); // 10 seconds
+
+  LogHelper.log(`[TELEMETRY] ⏰ Created busyTimeout with ID: ${busyTimeoutId}`);
 }
+
 function hideBusy() {
   LogHelper.log(`[TELEMETRY] ⏸️ hideBusy() called`);
+
+  // IMPORTANT: Clear the timeout when manually hiding busy
+  if (busyTimeoutId) {
+    LogHelper.log(`[TELEMETRY] ✅ Clearing busyTimeout (ID: ${busyTimeoutId})`);
+    clearTimeout(busyTimeoutId);
+    busyTimeoutId = null;
+  } else {
+    LogHelper.log(`[TELEMETRY] ⚠️ No busyTimeout to clear (already null)`);
+  }
+
   $root().find(`#${BUSY_ID}`).css("display","none");
 }
 
@@ -934,6 +1039,54 @@ self.onInit = async function () {
   window.addEventListener("myio:update-date", dateUpdateHandler);
   LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ myio:update-date listener registered!`);
 
+  // RFC-0042: Listen for clear event from HEADER (when user clicks "Limpar" button)
+  window.addEventListener("myio:telemetry:clear", (ev) => {
+    const { domain } = ev.detail;
+
+    // Only clear if it's for my domain
+    if (domain !== WIDGET_DOMAIN) {
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Ignoring clear event for domain: ${domain}`);
+      return;
+    }
+
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧹 Received clear event - clearing visual content`);
+
+    try {
+      // Clear the items list
+      STATE.itemsBase = [];
+      STATE.itemsEnriched = [];
+      STATE.selectedIds = null;
+
+      // IMPORTANT: Use $root() to get elements within THIS widget's scope
+      const $widget = $root();
+
+      // Clear the visual list
+      const $shopsList = $widget.find('#shopsList');
+      if ($shopsList.length > 0) {
+        $shopsList.empty();
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ shopsList cleared`);
+      }
+
+      // Reset counts to 0
+      const $shopsCount = $widget.find('#shopsCount');
+      const $shopsTotal = $widget.find('#shopsTotal');
+
+      if ($shopsCount.length > 0) {
+        $shopsCount.text('(0)');
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ shopsCount reset to 0`);
+      }
+
+      if ($shopsTotal.length > 0) {
+        $shopsTotal.text('0,00');
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ shopsTotal reset to 0,00`);
+      }
+
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧹 Clear completed successfully`);
+    } catch (err) {
+      LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ Error during clear:`, err);
+    }
+  });
+
   // Test if listener is working
   setTimeout(() => {
     LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧪 Testing listener registration...`);
@@ -988,9 +1141,9 @@ self.onInit = async function () {
       return;
     }
 
-    // Show busy modal
+    // IMPORTANT: Do NOT call showBusy() here - it was already called in dateUpdateHandler
+    // Calling it again creates a NEW timeout that won't be properly cancelled
     LogHelper.log(`[TELEMETRY] 🔄 Processing data from orchestrator...`);
-    showBusy();
 
     LogHelper.log(`[TELEMETRY] Received ${items.length} items from orchestrator for domain ${domain}`);
 
