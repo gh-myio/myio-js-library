@@ -34,8 +34,6 @@ function normalizeParams(params) {
     console.warn('renderCardCompenteHeadOffice: entityId is missing, generating temporary ID');
     entityObject.entityId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
-
-  console.log('params', params);
   
 
   return {
@@ -482,7 +480,7 @@ function paint(root, state) {
   tempVal.textContent = formatTemperature(entityObject.temperatureC);
 
   const opTimeVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(2) .val');
-  opTimeVal.textContent = formatOperationHours(entityObject.operationHours);
+  opTimeVal.textContent = entityObject.operationHours;
 
   const updatedVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(3) .val');
   updatedVal.textContent = formatRelativeTime(entityObject.timaVal);
@@ -572,8 +570,8 @@ function bindEvents(root, state, callbacks) {
       let modalBodyContent = '';
       if (ultimaLeitura && central) {
           // Adiciona a telemetria ao conteúdo se ela existir
-          modalBodyContent += `<p><strong>Central:</strong> ${central}</p>`;
-          modalBodyContent += `<p><strong>Última Conexão:</strong> 06/10/2025, 18:48:37</p>`;
+          modalBodyContent += `<p><strong>Central:</strong> ${entityObject.deviceIdentifier}</p>`;
+          modalBodyContent += `<p><strong>Última Conexão:</strong> ${entityObject.operationHours}</p>`;
       } else {
           modalBodyContent += `<p>Nenhuma leitura recente disponível.</p>`;
       }
@@ -581,8 +579,8 @@ function bindEvents(root, state, callbacks) {
       // 3. Tenta obter os dados de meta (que são opcionais)
       const consumptionTargetValue = state.entityObject.consumptionTargetValue ? formatPrimaryValue(state.entityObject.consumptionTargetValue, 'power_kw') : null;
       const consumptionToleranceValue = state.entityObject.consumptionToleranceValue ? formatPrimaryValue(state.entityObject.consumptionToleranceValue, 'power_kw') : null;
-      const consumptionExcessValue = state.entityObject.consumptionExcessValue ? formatPrimaryValue(state.entityObject.consumptionExcessValue, 'power_kw') : null;
-
+      const consumptionExcessValue = state.entityObject.consumptionExcessValue != null ? formatPrimaryValue(state.entityObject.consumptionExcessValue, 'power_kw') : null;
+      
       // 4. Se TODOS os dados de meta existirem, adiciona o bloco de HTML correspondente
       if (consumptionTargetValue && consumptionToleranceValue && consumptionExcessValue) {
           // Adiciona uma linha divisória para separar os blocos de informação
