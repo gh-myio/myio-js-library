@@ -1,9 +1,26 @@
 // === Botões premium do popup (reforço por JS, independe da ordem de CSS) ===
-const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
-let CLIENT_ID;
-let CLIENT_SECRET;
-let INGESTION_ID;
-let CUSTOMER_ID;
+
+// Debug configuration
+const DEBUG_ACTIVE = true;
+
+// LogHelper utility
+const LogHelper = {
+  log: function(...args) {
+    if (DEBUG_ACTIVE) {
+      console.log(...args);
+    }
+  },
+  warn: function(...args) {
+    if (DEBUG_ACTIVE) {
+      console.warn(...args);
+    }
+  },
+  error: function(...args) {
+    if (DEBUG_ACTIVE) {
+      console.error(...args);
+    }
+  }
+};
 
 // MyIO Authentication instance - will be initialized after credentials are loaded
 let MyIOAuth = null;
@@ -65,33 +82,33 @@ function setupTooltipPremium(target, text) {
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const q = (sel) => self.ctx.$container[0].querySelector(sel);
 
-  CUSTOMER_ID = self.ctx.settings.customerId || " ";
-
+  const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
+  const CUSTOMER_ID = self.ctx.settings.customerId || " ";
   const tbToken = localStorage.getItem("jwt_token");
   const customerCredentials = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(CUSTOMER_ID, tbToken);
-
-  CLIENT_ID = customerCredentials.client_id || " ";
-  CLIENT_SECRET = customerCredentials.client_secret || " ";
-  INGESTION_ID = customerCredentials.ingestionId || " ";
+  const CLIENT_ID = customerCredentials.client_id || " ";
+  const CLIENT_SECRET = customerCredentials.client_secret || " ";
+  const INGESTION_ID = customerCredentials.ingestionId || " ";
 
   MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
     dataApiHost: DATA_API_HOST, 
     clientId: CLIENT_ID,
     clientSecret: CLIENT_SECRET
   });
-  console.log("[MyIOAuth] Initialized with extracted component");
+  
+  LogHelper.log("[MyIOAuth] Initialized with extracted component");
 
   // Initialize MyIOLibrary DateRangePicker
   var $inputStart = $('input[name="startDatetimes"]');
 
-  console.log("[DateRangePicker] Using MyIOLibrary.createDateRangePicker");
+  LogHelper.log("[DateRangePicker] Using MyIOLibrary.createDateRangePicker");
 
   // Initialize the createDateRangePicker component
   MyIOLibrary.createDateRangePicker($inputStart[0], {
     presetStart: presetStart,
     presetEnd: presetEnd,
     onApply: function (result) {
-      console.log("[DateRangePicker] Applied:", result);
+      LogHelper.log("[DateRangePicker] Applied:", result);
 
       // Update internal dates for compatibility
       self.ctx.$scope.startTs = result.startISO;
@@ -101,9 +118,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     },
   }).then(function (picker) {
       dateRangePicker = picker;
-      console.log("[DateRangePicker] Successfully initialized");
+      LogHelper.log("[DateRangePicker] Successfully initialized");
   }).catch(function (error) {
-      console.error("[DateRangePicker] Failed to initialize:", error);
+      LogHelper.error("[DateRangePicker] Failed to initialize:", error);
   });
 
   // elementos
@@ -131,7 +148,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       try {
         fn(payload);
       } catch (e) {
-        console.warn(e);
+        LogHelper.warn(e);
       }
     });
 
@@ -226,14 +243,14 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // RFC-0042: Listen for dashboard state changes from MENU
     window.addEventListener('myio:dashboard-state', (ev) => {
       const { tab } = ev.detail;
-      console.log(`[HEADER] Dashboard state changed to: ${tab}`);
+      LogHelper.log(`[HEADER] Dashboard state changed to: ${tab}`);
       currentDomain = tab;
 
       // Enable/disable btnGen based on domain (only energy and water supported)
       if (btnGen) {
         const isSupported = tab === 'energy' || tab === 'water';
         btnGen.disabled = !isSupported;
-        console.log(`[HEADER] Relatório Geral button ${isSupported ? 'enabled' : 'disabled'} for domain: ${tab}`);
+        LogHelper.log(`[HEADER] Relatório Geral button ${isSupported ? 'enabled' : 'disabled'} for domain: ${tab}`);
       }
     });
 
@@ -249,38 +266,38 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         tz: 'America/Sao_Paulo'
       };
 
-      console.log("[HEADER] Emitting standardized period:", period);
+      LogHelper.log("[HEADER] Emitting standardized period:", period);
 
       // RFC-0042: Cross-context emission (parent + all iframes)
       function emitToAllContexts(eventName, detail) {
         // 1. Emit to current window (for MAIN_VIEW orchestrator)
         window.dispatchEvent(new CustomEvent(eventName, { detail }));
-        console.log(`[HEADER] ✅ Emitted ${eventName} to current window`);
+        LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to current window`);
 
         // 2. Emit to parent window (if in iframe)
         if (window.parent && window.parent !== window) {
           try {
             window.parent.dispatchEvent(new CustomEvent(eventName, { detail }));
-            console.log(`[HEADER] ✅ Emitted ${eventName} to parent window`);
+            LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to parent window`);
           } catch (e) {
-            console.warn(`[HEADER] ⚠️ Cannot emit ${eventName} to parent:`, e.message);
+            LogHelper.warn(`[HEADER] ⚠️ Cannot emit ${eventName} to parent:`, e.message);
           }
         }
 
         // 3. Emit to all iframes (for TELEMETRY widgets)
         try {
           const iframes = document.querySelectorAll('iframe');
-          console.log(`[HEADER] Found ${iframes.length} iframes`);
+          LogHelper.log(`[HEADER] Found ${iframes.length} iframes`);
           iframes.forEach((iframe, idx) => {
             try {
               iframe.contentWindow.dispatchEvent(new CustomEvent(eventName, { detail }));
-              console.log(`[HEADER] ✅ Emitted ${eventName} to iframe ${idx}`);
+              LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to iframe ${idx}`);
             } catch (e) {
-              console.warn(`[HEADER] ⚠️ Cannot emit ${eventName} to iframe ${idx}:`, e.message);
+              LogHelper.warn(`[HEADER] ⚠️ Cannot emit ${eventName} to iframe ${idx}:`, e.message);
             }
           });
         } catch (e) {
-          console.warn(`[HEADER] ⚠️ Cannot access iframes:`, e.message);
+          LogHelper.warn(`[HEADER] ⚠️ Cannot access iframes:`, e.message);
         }
       }
 
@@ -301,7 +318,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
         // RFC-0042: Use current domain to determine correct datasource and cache
         const domain = currentDomain || 'energy';
-        console.log(`[HEADER] Opening All Report for domain: ${domain}`);
+        LogHelper.log(`[HEADER] Opening All Report for domain: ${domain}`);
 
         // RFC-0042: Check orchestrator cache if available
         let itemsListTB;
@@ -312,7 +329,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           if (cacheKey && window.MyIOOrchestrator.memCache) {
             const cached = window.MyIOOrchestrator.memCache.get(cacheKey);
             if (cached && cached.data) {
-              console.log(`[HEADER] Using cached items from orchestrator for domain: ${domain}`);
+              LogHelper.log(`[HEADER] Using cached items from orchestrator for domain: ${domain}`);
               itemsListTB = cached.data;
             }
           }
@@ -324,7 +341,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         // 2. Alias "Todos Hidrometros" (for water)
         if (!itemsListTB || itemsListTB.length === 0) {
           itemsListTB = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data);
-          console.log(`[HEADER] Built items from datasources (cache miss) for domain ${domain}:`, itemsListTB.length);
+          LogHelper.log(`[HEADER] Built items from datasources (cache miss) for domain ${domain}:`, itemsListTB.length);
         }
 
         const modal = MyIOLibrary.openDashboardPopupAllReport({
@@ -341,7 +358,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           ui: { theme: "light" },
         });
       } catch (err) {
-        console.error("[HEADER] Failed to open All-Report modal:", err);
+        LogHelper.error("[HEADER] Failed to open All-Report modal:", err);
         alert("Erro ao abrir relatório geral. Tente novamente.");
       }
     });
@@ -353,7 +370,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       });
     }
 
-    console.log("[tbx] DRP pronto:", self.getFilters());
+    LogHelper.log("[tbx] DRP pronto:", self.getFilters());
   })();
 };
 
