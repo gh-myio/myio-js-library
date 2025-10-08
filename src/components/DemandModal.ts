@@ -1436,6 +1436,27 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
           borderWidth: 1,
         }));
         chart.options.plugins.legend.display = chartData.series.length > 1;
+
+        // Update tooltip callbacks to ensure locale is captured
+        chart.options.plugins.tooltip.callbacks = {
+          title: function(context: any) {
+            const timestamp = context[0].parsed.x;
+            const date = new Date(timestamp);
+            return date.toLocaleDateString(locale, {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+          },
+          label: function(context: any) {
+            const seriesLabel = context.dataset.label || '';
+            const value = context.parsed.y;
+            return `${seriesLabel}: ${value.toFixed(2)} kW`;
+          }
+        };
+
         chart.update();
       } else {
         // Create new chart
@@ -1454,9 +1475,30 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { 
+            legend: {
               display: chartData.series.length > 1, // Show legend only if multiple series
               position: 'top'
+            },
+            tooltip: {
+              callbacks: {
+                title: function(context: any) {
+                  // Format the timestamp to readable date/time
+                  const timestamp = context[0].parsed.x;
+                  const date = new Date(timestamp);
+                  return date.toLocaleDateString(locale, {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+                },
+                label: function(context: any) {
+                  const seriesLabel = context.dataset.label || '';
+                  const value = context.parsed.y;
+                  return `${seriesLabel}: ${value.toFixed(2)} kW`;
+                }
+              }
             },
             zoom: {
               zoom: {
