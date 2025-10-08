@@ -431,7 +431,7 @@ function paint(root, state) {
   root.className = `myio-ho-card ${stateClass}`;
 
   // Update status chip
-  const statusInfo = getStatusInfo(entityObject.connectionStatus, i18n);
+  const statusInfo = getStatusInfo(String(entityObject.connectionStatus).toUpperCase(), i18n);
   const chip = root.querySelector('.chip');
   chip.className = `chip ${statusInfo.chipClass}`;
   chip.textContent = statusInfo.label;
