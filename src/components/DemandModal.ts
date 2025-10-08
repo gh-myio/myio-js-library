@@ -14,7 +14,7 @@ export interface DemandModalParams {
   deviceId: string;                    // ThingsBoard device UUID
   startDate: string;                   // ISO datetime string "YYYY-MM-DDTHH:mm:ss±HH:mm"
   endDate: string;                     // ISO datetime string "YYYY-MM-DDTHH:mm:ss±HH:mm"
-  
+
   // Optional parameters
   label?: string;                      // Device/store label (default: "Dispositivo")
   container?: HTMLElement | string;    // Mount container (default: document.body)
@@ -26,6 +26,7 @@ export interface DemandModalParams {
   telemetryQuery?: TelemetryQueryParams; // ThingsBoard API query parameters
   yAxisLabel?: string;                 // Custom Y-axis label (default: "Demanda (kW)")
   correctionFactor?: number;           // Value multiplier (default: 1.0)
+  timezoneOffset?: number;             // Timezone offset in hours (default: -3 for UTC-3/Brazil)
 }
 
 // ThingsBoard telemetry query parameters
@@ -767,12 +768,17 @@ function processMultiSeriesChartData(
   keys: string,
   correctionFactor: number,
   locale: string,
-  aggregation?: string // Add aggregation type to determine processing method
+  aggregation?: string, // Add aggregation type to determine processing method
+  timezoneOffset?: number // Timezone offset in hours (default: -3)
 ): MultiSeriesChartData {
   const seriesKeys = keys.split(',').map(k => k.trim());
   const seriesData: SeriesData[] = [];
   let globalPeak: DemandPeak | null = null;
   let isEmpty = true;
+
+  // Default timezone offset: -3 hours (Brazil/São Paulo)
+  const tzOffset = timezoneOffset !== undefined ? timezoneOffset : -3;
+  const tzOffsetMs = tzOffset * 60 * 60 * 1000;
 
   // Predefined color palette
   const colors = ['#4A148C', '#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0', '#795548', '#607D8B'];
@@ -799,7 +805,8 @@ function processMultiSeriesChartData(
       for (let i = 0; i < sortedData.length; i++) {
         const current = sortedData[i];
         const value = parseFloat(current.value) * correctionFactor;
-        const timestamp = current.ts;
+        // Apply timezone offset to convert UTC to local time
+        const timestamp = current.ts + tzOffsetMs;
 
         points.push({
           x: timestamp,
@@ -823,8 +830,10 @@ function processMultiSeriesChartData(
           // Only include positive deltas (ignore meter resets)
           if (deltaWh > 0 && deltaHours > 0) {
             const demandKw = (deltaWh / 1000 / deltaHours) * correctionFactor;
+            // Apply timezone offset to convert UTC to local time
+            const timestamp = currentTs + tzOffsetMs;
             points.push({
-              x: currentTs,
+              x: timestamp,
               y: demandKw
             });
           }
@@ -1415,7 +1424,8 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
         params.telemetryQuery?.keys || 'consumption',
         params.correctionFactor || 1.0,
         locale,
-        params.telemetryQuery?.agg || 'MAX' // Pass aggregation type
+        params.telemetryQuery?.agg || 'MAX', // Pass aggregation type
+        params.timezoneOffset // Pass timezone offset (default: -3)
       );
 
       if (chartData.isEmpty) {
@@ -1462,12 +1472,11 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
           title: function(context: any) {
             const timestamp = context[0].parsed.x;
             const date = new Date(timestamp);
+            // Show only date for daily aggregation (no time)
             return date.toLocaleDateString(locale, {
               day: '2-digit',
               month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
+              year: 'numeric'
             });
           },
           label: function(context: any) {
@@ -1502,15 +1511,13 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
             tooltip: {
               callbacks: {
                 title: function(context: any) {
-                  // Format the timestamp to readable date/time
+                  // Format the timestamp to readable date (without time for daily aggregation)
                   const timestamp = context[0].parsed.x;
                   const date = new Date(timestamp);
                   return date.toLocaleDateString(locale, {
                     day: '2-digit',
                     month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
+                    year: 'numeric'
                   });
                 },
                 label: function(context: any) {
@@ -1545,11 +1552,10 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
               ticks: {
                 callback: function(value: any) {
                   const date = new Date(value);
-                  return date.toLocaleDateString(locale, { 
-                    month: '2-digit', 
+                  // Show only date for daily aggregation (no time)
+                  return date.toLocaleDateString(locale, {
                     day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit'
+                    month: '2-digit'
                   });
                 }
               }
