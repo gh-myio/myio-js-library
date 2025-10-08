@@ -277,6 +277,120 @@ export const CSS_STRING = `
   cursor: pointer;
 }
 
+/* =============================================== */
+/* === ESTILOS PARA O MODAL DE INFORMAÇÕES === */
+/* =============================================== */
+
+/* Fundo escurecido que cobre a tela */
+.myio-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+/* Torna o modal visível */
+.myio-modal-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Caixa de conteúdo do modal */
+.myio-modal-content {
+  background: #fff;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 450px;
+  position: relative;
+  transform: translateY(-20px);
+  transition: transform 0.3s ease;
+}
+
+.myio-modal-overlay.visible .myio-modal-content {
+  transform: translateY(0);
+}
+
+/* Título do modal */
+.myio-modal-title {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 12px;
+}
+
+/* Botão de fechar (X) */
+.myio-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+  color: #aaa;
+  line-height: 1;
+  padding: 0;
+}
+.myio-modal-close:hover {
+  color: #333;
+}
+
+/* Linha de informação (ícone + label + valor) */
+.info-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+}
+
+/* Estilo do ícone */
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  color: #555;
+}
+.info-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Rótulo (Ex: "Central:") */
+.info-label {
+  color: #666;
+  font-weight: 500;
+}
+
+/* Valor da informação */
+.info-value {
+  margin-left: auto;
+  font-weight: 600;
+  color: #333;
+  text-align: right;
+}
+
+/* Divisor entre seções */
+.info-divider {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 16px 0;
+}
+
 /* Status chip */
 .myio-ho-card__status {
   margin-bottom: 16px;

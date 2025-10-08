@@ -21,6 +21,14 @@ function ensureCss() {
   }
 }
 
+const ModalIcons = {
+  central: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h9"/><path d="M12 16a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z"/></svg>`,
+  connection: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 6v6l4 2"/></svg>`,
+  target: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,
+  tolerance: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
+  excess: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`
+};
+
 /**
  * Normalize and validate parameters
  */
@@ -72,7 +80,7 @@ function formatPrimaryValue(val, valType) {
     case 'power_kw':
       return {
         num: val.toFixed(1),
-        unit: 'kW',
+        unit: 'kWh',
         suffix: ''
       };
     case 'flow_m3h':
@@ -552,52 +560,73 @@ function bindEvents(root, state, callbacks) {
   }
 
   if (callbacks.handleActionSettings) {
-    settingsBtn.addEventListener('click', (e) => {
+    console.log('DEBUG: Anexando listener ao botão SETTINGS.');
+    dashboardBtn.addEventListener('click', (e) => {
+      console.log('DEBUG: Botão SETTINGS foi CLICADO!');
       e.stopPropagation();
       closeMenu();
       callbacks.handleActionSettings(e, entityObject);
     });
   }
+  
   console.log('DEBUG: Anexando listener ao botão INFO.');
   infoBtn.addEventListener('click', (e) => {
-      console.log('DEBUG: Botão INFO foi CLICADO!');
-      e.stopPropagation();
-      closeMenu();
+    console.log('DEBUG: Botão INFO foi CLICADO!');
+    e.stopPropagation();
+    closeMenu();
 
-      const title = state.entityObject.labelOrName || 'Dispositivo sem nome';
-      
-      const ultimaLeitura = formatPrimaryValue(state.entityObject.val, 'power_kw');
-      const central = 'L2AC';
+    const title = state.entityObject.labelOrName || 'Dispositivo sem nome';
+    let modalBodyContent = '<div class="info-section">'; // Inicia a primeira seção
 
-      // 2. Inicia a montagem do HTML do corpo do modal com os dados padrão
-      let modalBodyContent = '';
-      if (ultimaLeitura && central) {
-          // Adiciona a telemetria ao conteúdo se ela existir
-          modalBodyContent += `<p><strong>Central:</strong> ${entityObject.deviceIdentifier}</p>`;
-          modalBodyContent += `<p><strong>Última Conexão:</strong> ${entityObject.operationHours}</p>`;
-      } else {
-          modalBodyContent += `<p>Nenhuma leitura recente disponível.</p>`;
-      }
+    // Informações básicas
+    modalBodyContent += `
+      <div class="info-row">
+        <span class="info-icon">${ModalIcons.central}</span>
+        <span class="info-label">Central:</span>
+        <span class="info-value">${entityObject.deviceIdentifier || 'N/A'}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-icon">${ModalIcons.connection}</span>
+        <span class="info-label">Última Conexão:</span>
+        <span class="info-value">${entityObject.operationHours || 'N/A'}</span>
+      </div>
+    `;
 
-      // 3. Tenta obter os dados de meta (que são opcionais)
-      const consumptionTargetValue = state.entityObject.consumptionTargetValue ? formatPrimaryValue(state.entityObject.consumptionTargetValue, 'power_kw') : null;
-      const consumptionToleranceValue = state.entityObject.consumptionToleranceValue ? formatPrimaryValue(state.entityObject.consumptionToleranceValue, 'power_kw') : null;
-      const consumptionExcessValue = state.entityObject.consumptionExcessValue != null ? formatPrimaryValue(state.entityObject.consumptionExcessValue, 'power_kw') : null;
-      
-      // 4. Se TODOS os dados de meta existirem, adiciona o bloco de HTML correspondente
-      if (consumptionTargetValue && consumptionToleranceValue && consumptionExcessValue) {
-          // Adiciona uma linha divisória para separar os blocos de informação
-          modalBodyContent += `<hr>`; 
-          
-          modalBodyContent += `
-              <p><strong>Meta:</strong> ${consumptionTargetValue.num} ${consumptionTargetValue.unit}</p>
-              <p><strong>Tolerância:</strong> ${consumptionToleranceValue.num} ${consumptionToleranceValue.unit}</p>
-              <p><strong>Excedente PG/NPG:</strong> ${consumptionExcessValue.num} ${consumptionExcessValue.unit}</p>
-          `;
-      }
+    modalBodyContent += '</div>'; // Fecha a primeira seção
 
-      // 5. Chama a função para mostrar o modal, passando o título e o conteúdo HTML já prontos
-      showInfoModal(title, modalBodyContent);
+    // Tenta obter os dados de meta (que são opcionais)
+    const consumptionTargetValue = state.entityObject.consumptionTargetValue ? formatPrimaryValue(state.entityObject.consumptionTargetValue, 'power_kw') : null;
+    const consumptionToleranceValue = state.entityObject.consumptionToleranceValue ? formatPrimaryValue(state.entityObject.consumptionToleranceValue, 'power_kw') : null;
+    const consumptionExcessValue = state.entityObject.consumptionExcessValue != null ? formatPrimaryValue(state.entityObject.consumptionExcessValue, 'power_kw') : null;
+
+    // Se TODOS os dados de meta existirem, adiciona o bloco de HTML correspondente
+    if (consumptionTargetValue && consumptionToleranceValue && consumptionExcessValue) {
+        modalBodyContent += '<hr class="info-divider">';
+        modalBodyContent += '<div class="info-section">'; // Inicia a segunda seção
+
+        modalBodyContent += `
+          <div class="info-row">
+            <span class="info-icon">${ModalIcons.target}</span>
+            <span class="info-label">Meta:</span>
+            <span class="info-value">${consumptionTargetValue.num} ${consumptionTargetValue.unit}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-icon">${ModalIcons.tolerance}</span>
+            <span class="info-label">Tolerância:</span>
+            <span class="info-value">${consumptionToleranceValue.num} ${consumptionToleranceValue.unit}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-icon">${ModalIcons.excess}</span>
+            <span class="info-label">Excedente PG/NPG:</span>
+            <span class="info-value">${consumptionExcessValue.num} ${consumptionExcessValue.unit}</span>
+          </div>
+        `;
+
+        modalBodyContent += '</div>'; // Fecha a segunda seção
+    }
+
+    // Chama a função para mostrar o modal
+    showInfoModal(title, modalBodyContent);
   });
   // Selection checkbox
   const checkbox = root.querySelector('.myio-ho-card__select input[type="checkbox"]');
