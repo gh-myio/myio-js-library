@@ -31,10 +31,10 @@ export interface DemandModalParams {
 // ThingsBoard telemetry query parameters
 export interface TelemetryQueryParams {
   keys?: string;                       // Telemetry keys (default: "consumption")
-  limit?: number;                      // Maximum number of data points (default: 50000)
+  limit?: number;                      // Maximum number of data points (ONLY used when agg=NONE)
   intervalType?: string;               // Interval type (default: "MILLISECONDS")
-  interval?: number;                   // Interval value (default: 54000000)
-  agg?: string;                        // Aggregation function (default: "SUM")
+  interval?: number;                   // Interval value (default: 86400000 - 24 hours)
+  agg?: string;                        // Aggregation function (default: "MAX")
   orderBy?: string;                    // Sort order (default: "ASC")
 }
 
@@ -170,16 +170,22 @@ const STRINGS = {
     atTime: 'ás',
     timeUnit: 'hs',
     exportPdf: 'Exportar PDF',
+    exportCsv: 'Exportar CSV',
     fullscreen: 'Tela cheia',
     close: 'Fechar',
     resetZoom: 'Reset Zoom',
     loading: 'Carregando dados...',
     noData: 'Sem pontos de demanda no período selecionado',
     error: 'Erro ao carregar dados',
-    zoomHelp: 'Scroll: zoom | Drag: selecionar | Ctrl+Drag: mover',
+    zoomHelp: 'Scroll: zoom | Arraste: mover | Ctrl+Arraste: selecionar',
     demand: 'Demanda (kW)',
     reportTitle: 'Relatório de Demanda',
-    reportFooter: 'MyIO Energy Management System'
+    reportFooter: 'MyIO Energy Management System',
+    startDate: 'Data Inicial',
+    endDate: 'Data Final',
+    updatePeriod: 'Atualizar',
+    invalidDateRange: 'Data final deve ser maior que data inicial',
+    maxRangeExceeded: 'Período máximo de 30 dias'
   },
   'en-US': {
     title: 'Demand',
@@ -189,16 +195,22 @@ const STRINGS = {
     atTime: 'at',
     timeUnit: '',
     exportPdf: 'Export PDF',
+    exportCsv: 'Export CSV',
     fullscreen: 'Fullscreen',
     close: 'Close',
     resetZoom: 'Reset Zoom',
     loading: 'Loading data...',
     noData: 'No demand points in the selected period',
     error: 'Error loading data',
-    zoomHelp: 'Scroll: zoom | Drag: select | Ctrl+Drag: pan',
+    zoomHelp: 'Scroll: zoom | Drag: pan | Ctrl+Drag: select',
     demand: 'Demand (kW)',
     reportTitle: 'Demand Report',
-    reportFooter: 'MyIO Energy Management System'
+    reportFooter: 'MyIO Energy Management System',
+    startDate: 'Start Date',
+    endDate: 'End Date',
+    updatePeriod: 'Update',
+    invalidDateRange: 'End date must be greater than start date',
+    maxRangeExceeded: 'Maximum range of 30 days'
   }
 };
 
@@ -483,6 +495,69 @@ function injectCSS(styles: DemandModalStyles): void {
       border-bottom: 1px solid #e0e0e0;
     }
 
+    .myio-demand-modal-period-selector {
+      display: flex;
+      align-items: center;
+      gap: ${styles.spacingMd};
+      padding: ${styles.spacingMd} ${styles.spacingLg};
+      background: #f9f9f9;
+      border-bottom: 1px solid #e0e0e0;
+      flex-wrap: wrap;
+    }
+
+    .myio-demand-modal-period-selector label {
+      display: flex;
+      flex-direction: column;
+      gap: ${styles.spacingXs};
+      font-size: ${styles.fontSizeSm};
+      color: ${styles.textPrimary};
+      font-weight: ${styles.fontWeightBold};
+    }
+
+    .myio-demand-modal-date-input {
+      padding: ${styles.spacingSm};
+      border: 1px solid #ccc;
+      border-radius: ${styles.buttonRadius};
+      font-size: ${styles.fontSizeSm};
+      font-family: inherit;
+      min-width: 150px;
+    }
+
+    .myio-demand-modal-date-input:focus {
+      outline: 2px solid ${styles.primaryColor};
+      outline-offset: 1px;
+    }
+
+    .myio-demand-modal-btn-update {
+      background: ${styles.primaryColor};
+      border: none;
+      color: white;
+      padding: ${styles.spacingSm} ${styles.spacingMd};
+      border-radius: ${styles.buttonRadius};
+      cursor: pointer;
+      font-size: ${styles.fontSizeSm};
+      font-family: inherit;
+      font-weight: ${styles.fontWeightBold};
+      align-self: flex-end;
+      margin-bottom: 2px;
+    }
+
+    .myio-demand-modal-btn-update:hover {
+      background: #6A1B9A;
+    }
+
+    .myio-demand-modal-btn-update:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .myio-demand-modal-period-error {
+      flex-basis: 100%;
+      color: ${styles.dangerColor};
+      font-size: ${styles.fontSizeXs};
+      margin-top: -${styles.spacingSm};
+    }
+
     .myio-demand-modal-peak {
       margin: ${styles.spacingMd} ${styles.spacingLg} 0;
       padding: ${styles.spacingSm} ${styles.spacingMd};
@@ -654,15 +729,20 @@ async function fetchTelemetryData(
 
   // Use provided parameters or defaults
   const keys = queryParams?.keys || 'consumption';
-  const limit = queryParams?.limit || 50000;
   const intervalType = queryParams?.intervalType || 'MILLISECONDS';
-  const interval = queryParams?.interval || 54000000;
-  const agg = queryParams?.agg || 'SUM';
+  const interval = queryParams?.interval || 86400000; // 24 hours in milliseconds
+  const agg = queryParams?.agg || 'MAX';
   const orderBy = queryParams?.orderBy || 'ASC';
 
-  const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?` +
-    `keys=${keys}&startTs=${startTs}&endTs=${endTs}&limit=${limit}&` +
+  // Build URL - only include limit when agg=NONE
+  let url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?` +
+    `keys=${keys}&startTs=${startTs}&endTs=${endTs}&` +
     `intervalType=${intervalType}&interval=${interval}&agg=${agg}&orderBy=${orderBy}`;
+
+  // Add limit only when aggregation is NONE (per ThingsBoard API docs)
+  if (agg === 'NONE' && queryParams?.limit) {
+    url += `&limit=${queryParams.limit}`;
+  }
 
   const response = await fetch(url, {
     headers: {
@@ -937,8 +1017,11 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
           <h2 id="modal-title" class="myio-demand-modal-title">${strings.title} – ${label}</h2>
         </div>
         <div class="myio-demand-modal-actions">
-          <button class="myio-demand-modal-btn myio-demand-modal-btn-pdf" type="button">
+          <button class="myio-demand-modal-btn myio-demand-modal-btn-pdf" type="button" style="display: none;">
             ${strings.exportPdf}
+          </button>
+          <button class="myio-demand-modal-btn myio-demand-modal-btn-csv" type="button">
+            ${strings.exportCsv}
           </button>
           <button class="myio-demand-modal-btn myio-demand-modal-btn-fullscreen" type="button" aria-label="${strings.fullscreen}">
             ⛶
@@ -952,7 +1035,22 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
       <div class="myio-demand-modal-period">
         ${strings.period}: ${startDateFormatted} → ${endDateFormatted}
       </div>
-      
+
+      <div class="myio-demand-modal-period-selector">
+        <label>
+          ${strings.startDate}:
+          <input type="date" class="myio-demand-modal-date-input myio-demand-modal-date-start" />
+        </label>
+        <label>
+          ${strings.endDate}:
+          <input type="date" class="myio-demand-modal-date-input myio-demand-modal-date-end" />
+        </label>
+        <button class="myio-demand-modal-btn-update" type="button">
+          ${strings.updatePeriod}
+        </button>
+        <div class="myio-demand-modal-period-error" style="display: none;"></div>
+      </div>
+
       <div class="myio-demand-modal-peak" style="display: none;"></div>
       
       <div class="myio-demand-modal-content">
@@ -989,6 +1087,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   const closeBtn = overlay.querySelector('.myio-demand-modal-btn-close') as HTMLButtonElement;
   const fullscreenBtn = overlay.querySelector('.myio-demand-modal-btn-fullscreen') as HTMLButtonElement;
   const pdfBtn = overlay.querySelector('.myio-demand-modal-btn-pdf') as HTMLButtonElement;
+  const csvBtn = overlay.querySelector('.myio-demand-modal-btn-csv') as HTMLButtonElement;
   const resetBtn = overlay.querySelector('.myio-demand-modal-btn-reset') as HTMLButtonElement;
   const chartCanvas = overlay.querySelector('.myio-demand-modal-chart') as HTMLCanvasElement;
   const loadingEl = overlay.querySelector('.myio-demand-modal-loading') as HTMLElement;
@@ -996,11 +1095,18 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   const errorText = overlay.querySelector('.myio-demand-modal-error-text') as HTMLElement;
   const peakEl = overlay.querySelector('.myio-demand-modal-peak') as HTMLElement;
   const contentEl = overlay.querySelector('.myio-demand-modal-content') as HTMLElement;
+  const periodDisplayEl = overlay.querySelector('.myio-demand-modal-period') as HTMLElement;
+  const dateStartInput = overlay.querySelector('.myio-demand-modal-date-start') as HTMLInputElement;
+  const dateEndInput = overlay.querySelector('.myio-demand-modal-date-end') as HTMLInputElement;
+  const updateBtn = overlay.querySelector('.myio-demand-modal-btn-update') as HTMLButtonElement;
+  const periodErrorEl = overlay.querySelector('.myio-demand-modal-period-error') as HTMLElement;
 
   // State
   let chart: any = null;
   let chartData: MultiSeriesChartData | null = null;
   let isFullscreen = false;
+  let currentStartDate = params.startDate;
+  let currentEndDate = params.endDate;
 
   // Prevent body scroll
   const originalOverflow = document.body.style.overflow;
@@ -1032,6 +1138,55 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   function resetZoom() {
     if (chart) {
       chart.resetZoom();
+    }
+  }
+
+  function exportCsv() {
+    if (!chartData) {
+      alert('Nenhum dado disponível para exportar');
+      return;
+    }
+
+    const btn = csvBtn;
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳</span> Gerando CSV...';
+
+    try {
+      // CSV Header with BOM for Excel compatibility
+      const BOM = '\uFEFF';
+      let csv = BOM + 'Data/Hora,Série,Valor (kW)\n';
+
+      // Add data rows
+      chartData.series.forEach(series => {
+        series.points.forEach(point => {
+          const dateStr = formatDateTime(new Date(point.x), locale);
+          const value = point.y.toFixed(2);
+          csv += `${dateStr},${series.label},${value}\n`;
+        });
+      });
+
+      // Create blob and download
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      const labelSafe = label.replace(/\s+/g, '_');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      link.download = `demanda_${labelSafe}_${dateStr}.csv`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+    } catch (error) {
+      console.error('[CSV Export] Error:', error);
+      alert('Erro ao gerar CSV. Por favor, tente novamente.');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
     }
   }
 
@@ -1134,11 +1289,64 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
     }
   }
 
+  // Initialize date inputs with current values
+  function initializeDateInputs() {
+    const startDate = new Date(currentStartDate);
+    const endDate = new Date(currentEndDate);
+
+    // Format to YYYY-MM-DD for HTML5 date input
+    dateStartInput.value = startDate.toISOString().split('T')[0];
+    dateEndInput.value = endDate.toISOString().split('T')[0];
+  }
+
+  // Validate and update period
+  async function updatePeriod() {
+    periodErrorEl.style.display = 'none';
+
+    const newStartDate = dateStartInput.value;
+    const newEndDate = dateEndInput.value;
+
+    if (!newStartDate || !newEndDate) {
+      periodErrorEl.textContent = strings.error;
+      periodErrorEl.style.display = 'block';
+      return;
+    }
+
+    const startDateObj = new Date(newStartDate);
+    const endDateObj = new Date(newEndDate);
+
+    // Validation: end date must be >= start date
+    if (endDateObj < startDateObj) {
+      periodErrorEl.textContent = strings.invalidDateRange;
+      periodErrorEl.style.display = 'block';
+      return;
+    }
+
+    // Validation: maximum 30 days
+    const diffTime = Math.abs(endDateObj.getTime() - startDateObj.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 30) {
+      periodErrorEl.textContent = strings.maxRangeExceeded;
+      periodErrorEl.style.display = 'block';
+      return;
+    }
+
+    // Update state with ISO format including time
+    currentStartDate = startDateObj.toISOString();
+    currentEndDate = endDateObj.toISOString();
+
+    // Reload data with new date range
+    await loadData();
+  }
+
   // Event listeners
   closeBtn.addEventListener('click', closeModal);
   fullscreenBtn.addEventListener('click', toggleFullscreen);
   resetBtn.addEventListener('click', resetZoom);
   pdfBtn.addEventListener('click', exportPdf);
+  csvBtn.addEventListener('click', exportCsv);
+  updateBtn.addEventListener('click', updatePeriod);
 
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) {
@@ -1158,10 +1366,11 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
       loadingEl.style.display = 'flex';
       contentEl.style.display = 'none';
       errorEl.style.display = 'none';
+      peakEl.style.display = 'none';
 
       // Validate date range - maximum 30 days
-      const startDateObj = new Date(params.startDate);
-      const endDateObj = new Date(params.endDate);
+      const startDateObj = new Date(currentStartDate);
+      const endDateObj = new Date(currentEndDate);
       const diffTime = Math.abs(endDateObj.getTime() - startDateObj.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -1172,10 +1381,15 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
         return;
       }
 
+      // Update period display
+      const startDateFormatted = formatDate(startDateObj, locale);
+      const endDateFormatted = formatDate(endDateObj, locale);
+      periodDisplayEl.textContent = `${strings.period}: ${startDateFormatted} → ${endDateFormatted}`;
+
       // Use custom fetcher if provided, otherwise use default ThingsBoard fetcher
-      const rawData = params.fetcher 
-        ? await params.fetcher({ token: params.token, deviceId: params.deviceId, startDate: params.startDate, endDate: params.endDate, telemetryQuery: params.telemetryQuery })
-        : await fetchTelemetryData(params.token, params.deviceId, params.startDate, params.endDate, params.telemetryQuery);
+      const rawData = params.fetcher
+        ? await params.fetcher({ token: params.token, deviceId: params.deviceId, startDate: currentStartDate, endDate: currentEndDate, telemetryQuery: params.telemetryQuery })
+        : await fetchTelemetryData(params.token, params.deviceId, currentStartDate, currentEndDate, params.telemetryQuery);
       
       chartData = processMultiSeriesChartData(
         rawData, 
@@ -1208,22 +1422,32 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
         peakEl.style.display = 'block';
       }
 
-      // Create chart
+      // Create or update chart
       const Chart = (window as any).Chart;
       Chart.register((window as any).ChartZoom);
 
-      chart = new Chart(chartCanvas, {
-        type: 'line',
+      if (chart) {
+        // Update existing chart
+        chart.data.datasets = chartData.series.map(series => ({
+          label: series.label,
+          data: series.points,
+          borderColor: series.color,
+          backgroundColor: series.color + 'CC',
+          borderWidth: 1,
+        }));
+        chart.options.plugins.legend.display = chartData.series.length > 1;
+        chart.update();
+      } else {
+        // Create new chart
+        chart = new Chart(chartCanvas, {
+        type: 'bar',
         data: {
           datasets: chartData.series.map(series => ({
             label: series.label,
             data: series.points,
             borderColor: series.color,
-            backgroundColor: series.color + '20',
-            fill: false, // No fill for multi-series
-            tension: 0.4,
-            pointRadius: 2,
-            pointHoverRadius: 6,
+            backgroundColor: series.color + 'CC', // More opaque for bars
+            borderWidth: 1,
           }))
         },
         options: {
@@ -1244,7 +1468,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
               pan: {
                 enabled: true,
                 mode: 'x',
-                modifierKey: 'ctrl',
+                // No modifierKey - pan is free after zoom
               },
             },
           },
@@ -1282,6 +1506,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
           }
         }
       });
+      }
 
       loadingEl.style.display = 'none';
       contentEl.style.display = 'flex';
@@ -1293,6 +1518,9 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
       errorText.textContent = `${strings.error}: ${error instanceof Error ? error.message : 'Unknown error'}`;
     }
   }
+
+  // Initialize date inputs
+  initializeDateInputs();
 
   // Start loading data
   loadData();

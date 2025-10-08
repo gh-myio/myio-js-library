@@ -1,10 +1,10 @@
+/* eslint-disable no-undef, no-unused-vars */
 (function (self) {
   /**
-   * NOTA: Este script depende de um script externo (MyIOLibrary).
-   * https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js
-   *
-   * Para os ícones, idealmente, você carregaria uma biblioteca como Font Awesome ou Material Icons.
-   * Por simplicidade no exemplo, os ícones '•' e '×' são mantidos, mas estilizaremos para parecerem melhores.
+   * FOOTER WIDGET - MYIO Selection Dock
+   * - Injects CSS and HTML dynamically
+   * - Depends on MyIOLibrary (external script)
+   * - Listens to MyIOSelectionStore for selection changes
    */
 
   // Debug configuration
@@ -14,17 +14,17 @@
   const LogHelper = {
     log: function(...args) {
       if (DEBUG_ACTIVE) {
-        LogHelper.log(...args);
+        console.log('[FOOTER]', ...args);
       }
     },
     warn: function(...args) {
       if (DEBUG_ACTIVE) {
-        LogHelper.warn(...args);
+        console.warn('[FOOTER]', ...args);
       }
     },
     error: function(...args) {
       if (DEBUG_ACTIVE) {
-        LogHelper.error(...args);
+        console.error('[FOOTER]', ...args);
       }
     }
   };
@@ -32,194 +32,408 @@
   // URL da biblioteca externa
   const MYIO_SCRIPT_URL =
     "https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js";
-  // ID para a tag <style> injetada
-  const FOOTER_STYLE_ID = "myio-footer-styles";
 
-  // --- 1. Template CSS (Formatado e legível com melhorias visuais) ---
+  // --- CSS Template ---
   const FOOTER_CSS = `
-    /* Importa a fonte Inter do Google Fonts para uma tipografia moderna */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+/* ===== MYIO Premium Footer - Design System ===== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-    .myio-footer {
-  /* --- Variáveis de Design System (Ajuste aqui para customizar) --- */
-  --color-primary: #00e09e; /* Verde vibrante */
-  --color-primary-dim: rgba(0, 224, 158, .2); /* Verde mais claro para fundo */
-  --color-background-dark: #121a2b; /* Fundo mais escuro */
-  --color-background-medium: #1c2743; /* Fundo médio */
-  --color-text-light: #fff;
-  --color-text-dim: rgba(255, 255, 255, .7);
-  --color-border-subtle: rgba(255, 255, 255, .1);
-  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
-  --border-radius-base: 8px;
-  --transition-speed: 0.2s ease-in-out;
-  
-  /* --- Layout Base --- (MODIFICADO) --- */
-  position: fixed;   /* ALTERADO */
-  bottom: 0;         /* ADICIONADO */
-  left: 0;           /* ADICIONADO */
-  right: 0;          /* ADICIONADO */
-  width: 100%;       
-  height: 60px;
-  z-index: 1000;     /* ADICIONADO */
-  
-  display: grid;
-  grid-template-columns: 1fr auto; /* Dock flexível, Direita fixa */
-  align-items: center;
-  padding: 0 15px; /* Mais padding nas laterais */
-  box-sizing: border-box; /* Garante que padding não adicione largura */
-  
-  /* --- Estilo Base --- */
-  font-family: var(--font-family-base);
-  color: var(--color-text-light);
-  background: linear-gradient(90deg, var(--color-background-dark), var(--color-background-medium));
-  border-top: 2px solid var(--color-primary);
-  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2); /* Sombra sutil para profundidade */
+.myio-footer-widget {
+  /* --- Premium Dark Theme Variables --- */
+  --footer-primary: #00e09e;
+  --footer-primary-glow: rgba(0, 224, 158, 0.4);
+  --footer-bg-start: #1a1f35;
+  --footer-bg-end: #0a0e1a;
+  --footer-text: #ffffff;
+  --footer-text-dim: rgba(255, 255, 255, 0.65);
+  --footer-border: rgba(255, 255, 255, 0.08);
+  --footer-shadow: 0 -12px 48px rgba(0, 0, 0, 0.6);
+  --footer-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* --- Layout - Ocupa 100% do container --- */
+  position: relative !important;
+  width: 100% !important;
+  height: 60px !important;
+  margin: 0 !important;
+  padding: 0 24px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+
+  /* --- Display Grid --- */
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  align-items: center !important;
+  gap: 20px !important;
+
+  /* --- Premium Design --- */
+  background: linear-gradient(135deg, var(--footer-bg-start) 0%, var(--footer-bg-end) 100%) !important;
+  box-shadow: var(--footer-shadow) !important;
+  border-top: 2px solid var(--footer-primary) !important;
+  border-radius: 0 !important;
+  backdrop-filter: blur(10px) !important;
+
+  /* --- Typography --- */
+  color: var(--footer-text) !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+
+  /* --- Animation --- */
+  transition: var(--footer-transition) !important;
 }
-    
-    .myio-dock {
-      display: flex;
-      align-items: center;
-      gap: 10px; /* Mais espaço entre os chips */
-      overflow-x: auto; /* Permite rolagem horizontal */
-      padding: 5px 0; /* Pequeno padding para rolagem */
-      
-      /* Estilização da barra de rolagem para navegadores Webkit */
-      scrollbar-width: thin; /* Firefox */
-      scrollbar-color: var(--color-primary) var(--color-background-medium); /* Firefox */
-    }
-    .myio-dock::-webkit-scrollbar {
-      height: 6px; /* Altura da barra de rolagem */
-    }
-    .myio-dock::-webkit-scrollbar-thumb {
-      background: var(--color-primary);
-      border-radius: 6px;
-    }
-    .myio-dock::-webkit-scrollbar-track {
-      background: var(--color-background-medium);
-    }
-    
-    .myio-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px; /* Mais espaço dentro do chip */
-      padding: 7px 12px;
-      border-radius: 20px; /* Borda mais arredondada */
-      background: rgba(255, 255, 255, .08); /* Fundo um pouco mais visível */
-      border: 1px solid var(--color-border-subtle);
-      white-space: nowrap;
-      font-size: 0.875em; /* Tamanho da fonte ligeiramente menor */
-      font-weight: 500; /* Medium weight */
-      transition: background var(--transition-speed);
-      cursor: default; /* Indica que não é clicável no chip em si */
-    }
 
-    .myio-chip:hover {
-        background: rgba(255, 255, 255, .12); /* Leve destaque ao passar o mouse */
-    }
-    
-    /* Ícone de remoção do chip */
-    .myio-chip button {
-      background: none;
-      border: none;
-      color: var(--color-text-dim); /* Cor mais sutil */
-      cursor: pointer;
-      padding: 0;
-      margin-left: 4px; /* Mais espaço */
-      font-size: 1.1em;
-      line-height: 1;
-      font-family: var(--font-family-base);
-      transition: color var(--transition-speed);
-    }
-    .myio-chip button:hover {
-      color: var(--color-text-light); /* Fica branco ao passar o mouse */
-    }
-    
-    .myio-chip-icon {
-      color: var(--color-primary); /* Ícone verde vibrante */
-      font-size: 1.2em; /* Tamanho do ícone de ponto */
-    }
+/* Premium accent shimmer line */
+.myio-footer-widget::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--footer-primary) 20%,
+    #00b4d8 50%,
+    var(--footer-primary) 80%,
+    transparent 100%
+  );
+  animation: shimmer 3s ease-in-out infinite;
+  z-index: 1;
+}
 
-    .myio-right {
-      display: flex;
-      align-items: center;
-      gap: 15px; /* Mais espaço entre elementos da direita */
-      padding-left: 15px; /* Garante que não encoste no dock */
-    }
-    
-    .myio-compare {
-      height: 40px; /* Altura maior para o botão */
-      min-width: 100px; /* Largura mínima */
-      padding: 0 18px;
-      border-radius: var(--border-radius-base);
-      border: none; /* Remove a borda original */
-      background: var(--color-primary); /* Fundo verde sólido */
-      color: var(--color-background-dark); /* Texto escuro no botão verde */
-      cursor: pointer;
-      font-weight: 600; /* Semibold */
-      font-size: 1em;
-      transition: background var(--transition-speed), transform var(--transition-speed);
-      box-shadow: 0 2px 8px rgba(0, 224, 158, 0.3); /* Sombra mais destacada */
-    }
-    .myio-compare:hover:not(:disabled) {
-      background: #00ffb5; /* Levemente mais claro ao passar o mouse */
-      transform: translateY(-1px); /* Efeito de elevação */
-    }
-    .myio-compare:active:not(:disabled) {
-      transform: translateY(0); /* Efeito de clique */
-      box-shadow: 0 1px 4px rgba(0, 224, 158, 0.3);
-    }
-    .myio-compare:disabled {
-      opacity: 0.6; /* Menos opaco, mas ainda visível */
-      cursor: not-allowed;
-      background: rgba(255, 255, 255, .1); /* Fundo cinza sutil */
-      color: var(--color-text-dim);
-      box-shadow: none; /* Sem sombra quando desabilitado */
-      transform: none;
-    }
-    
-    .myio-meta {
-      font-variant-numeric: tabular-nums;
-      opacity: 0.85;
-      white-space: nowrap;
-      font-size: 0.9em;
-      font-weight: 500;
-    }
-    
-    .myio-empty {
-      color: var(--color-text-dim);
-      padding-left: 8px; /* Mais padding para o texto de placeholder */
-      font-style: italic;
-    }
+@keyframes shimmer {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
 
-    /* Responsividade básica */
-    @media (max-width: 768px) {
-        .myio-footer {
-            grid-template-columns: 1fr; /* Stack verticalmente em telas menores */
-            height: auto;
-            padding: 10px 15px;
-            gap: 10px; /* Espaço entre dock e direita */
-        }
-        .myio-right {
-            justify-content: space-between; /* Distribui itens */
-            padding-left: 0;
-            width: 100%;
-        }
-        .myio-dock {
-            width: 100%;
-        }
-    }
-  `;
+/* Visual feedback when dragging */
+.myio-footer-widget.drag-over {
+  border-top: 3px solid var(--footer-primary) !important;
+  box-shadow: 0 -12px 48px var(--footer-primary-glow), var(--footer-shadow) !important;
+  background: linear-gradient(135deg,
+    rgba(0, 224, 158, 0.1) 0%,
+    var(--footer-bg-start) 50%,
+    var(--footer-bg-end) 100%
+  ) !important;
+}
 
-  // --- 2. Template HTML (Formatado com estrutura para ícones) ---
+.myio-footer-widget.drag-over::before {
+  height: 3px;
+  animation: pulse-glow 0.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.7;
+    filter: brightness(1.5);
+  }
+}
+
+/* ===== Dock Area ===== */
+.myio-dock {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding: 0 !important;
+  height: 100% !important;
+
+  /* Custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: var(--footer-primary) rgba(255, 255, 255, 0.05);
+}
+
+.myio-dock::-webkit-scrollbar {
+  height: 4px;
+}
+
+.myio-dock::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.myio-dock::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, var(--footer-primary), #00b4d8);
+  border-radius: 2px;
+  transition: var(--footer-transition);
+}
+
+.myio-dock::-webkit-scrollbar-thumb:hover {
+  background: var(--footer-primary);
+}
+
+/* ===== Chip Cards (Premium Design) ===== */
+.myio-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px 16px !important;
+  border-radius: 24px !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  white-space: nowrap !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  color: var(--footer-text) !important;
+  transition: var(--footer-transition) !important;
+  cursor: default !important;
+  position: relative !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Chip premium shine effect */
+.myio-chip::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.myio-chip:hover {
+  background: linear-gradient(135deg, rgba(0, 224, 158, 0.15) 0%, rgba(0, 180, 216, 0.1) 100%) !important;
+  border-color: var(--footer-primary) !important;
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 6px 20px rgba(0, 224, 158, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+.myio-chip:hover::before {
+  left: 100%;
+}
+
+.myio-chip-icon {
+  font-size: 16px !important;
+  color: var(--footer-primary) !important;
+  filter: drop-shadow(0 0 8px var(--footer-primary-glow)) !important;
+  animation: pulse-icon 2s ease-in-out infinite;
+}
+
+@keyframes pulse-icon {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+/* Chip remove button */
+.myio-chip button {
+  background: none !important;
+  border: none !important;
+  color: var(--footer-text-dim) !important;
+  cursor: pointer !important;
+  padding: 4px !important;
+  margin: 0 0 0 4px !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  width: 20px !important;
+  height: 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  transition: var(--footer-transition) !important;
+}
+
+.myio-chip button:hover {
+  color: #ff4d4f !important;
+  background: rgba(255, 77, 79, 0.15) !important;
+  transform: rotate(90deg) scale(1.2) !important;
+}
+
+.myio-chip button:active {
+  transform: rotate(90deg) scale(0.9) !important;
+}
+
+/* ===== Right Controls ===== */
+.myio-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 20px !important;
+  padding-left: 20px !important;
+  border-left: 1px solid var(--footer-border) !important;
+  height: 100% !important;
+}
+
+/* Meta info (totals) */
+.myio-meta {
+  font-variant-numeric: tabular-nums !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: var(--footer-text) !important;
+  white-space: nowrap !important;
+  padding: 8px 16px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--footer-border) !important;
+  letter-spacing: 0.5px !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Compare button (Premium CTA) */
+.myio-compare {
+  position: relative !important;
+  height: 44px !important;
+  min-width: 120px !important;
+  padding: 0 24px !important;
+  border-radius: 22px !important;
+  border: none !important;
+  background: linear-gradient(135deg, var(--footer-primary) 0%, #00b4d8 100%) !important;
+  color: #0a0e1a !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  transition: var(--footer-transition) !important;
+  box-shadow: 0 4px 16px var(--footer-primary-glow) !important;
+  overflow: hidden !important;
+}
+
+.myio-compare::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+
+.myio-compare:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.05) !important;
+  box-shadow: 0 8px 24px var(--footer-primary-glow), 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  background: linear-gradient(135deg, #00ffb5 0%, #00e09e 100%) !important;
+}
+
+.myio-compare:hover:not(:disabled)::before {
+  transform: translateX(100%);
+}
+
+.myio-compare:active:not(:disabled) {
+  transform: translateY(0) scale(0.98) !important;
+  box-shadow: 0 2px 8px var(--footer-primary-glow) !important;
+}
+
+.myio-compare:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: var(--footer-text-dim) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Empty state */
+.myio-empty {
+  color: var(--footer-text-dim) !important;
+  font-size: 13px !important;
+  font-style: italic !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.myio-empty::before {
+  content: '↓';
+  font-size: 18px;
+  animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* ===== Responsive Design ===== */
+@media (max-width: 1024px) {
+  .myio-footer-widget {
+    max-height: none !important;
+    height: auto !important;
+    grid-template-columns: 1fr !important;
+    padding: 12px 16px !important;
+    gap: 12px !important;
+  }
+
+  .myio-right {
+    border-left: none !important;
+    border-top: 1px solid var(--footer-border) !important;
+    padding-left: 0 !important;
+    padding-top: 12px !important;
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .myio-dock {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .myio-right {
+    height: auto !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .myio-footer-widget {
+    padding: 10px 12px !important;
+  }
+
+  .myio-chip {
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+  }
+
+  .myio-meta {
+    font-size: 12px !important;
+    padding: 6px 12px !important;
+  }
+
+  .myio-compare {
+    height: 38px !important;
+    min-width: 100px !important;
+    font-size: 12px !important;
+    padding: 0 16px !important;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .myio-footer-widget {
+    --footer-bg-start: #000000;
+    --footer-bg-end: #0a0e1a;
+  }
+}
+`;
+
+  // --- HTML Template ---
   const FOOTER_HTML = `
-    <div class="myio-dock" id="myioDock" aria-live="polite"></div>
-    <div class="myio-right">
-      <div class="myio-meta" id="myioTotals">0 selecionados</div>
-      <button id="myioCompare" class="myio-compare" disabled>Compare</button>
-    </div>
-  `;
+<section class="myio-footer-widget">
+  <div class="myio-dock" id="myioDock" aria-live="polite"></div>
+  <div class="myio-right">
+    <div class="myio-meta" id="myioTotals">0 selecionados</div>
+    <button id="myioCompare" class="myio-compare" disabled>Compare</button>
+  </div>
+</section>
+`;
 
-  // --- 3. Controlador do Footer (Objeto encapsulado) ---
+  // --- Controlador do Footer (Objeto encapsulado) ---
   const footerController = {
     $root: null,
     $footerEl: null,
@@ -227,19 +441,25 @@
     $totals: null,
     $compareBtn: null,
     initialized: false,
+    styleId: 'myio-footer-styles',
 
     // Armazena referências às funções com 'this' vinculado para remoção segura
     boundRenderDock: null,
     boundCompareClick: null,
     boundDragOver: null,
     boundDrop: null,
+    boundDragEnter: null,
+    boundDragLeave: null,
     boundChipClick: null,
 
     /**
      * Inicializa o controlador
      */
     init(ctx) {
-      if (this.initialized) return;
+      if (this.initialized) {
+        LogHelper.log("Footer: Already initialized, skipping");
+        return;
+      }
 
       this.$root = ctx?.$container?.[0];
       if (!this.$root) {
@@ -247,13 +467,61 @@
         return;
       }
 
+      LogHelper.log("Footer: Initializing...");
+
+      // Inject CSS (apenas uma vez)
+      this.injectCSS();
+
+      // Inject HTML (verifica se já existe)
+      this.injectHTML();
+
+      // Load library and setup
       this.ensureLibraryLoaded(() => {
-        this.mountTemplate();
-        this.queryDOMElements(); // Consultar elementos *após* montar
-        this.bindEvents();
-        this.renderDock(); // Renderização inicial
-        this.initialized = true;
+        this.queryDOMElements();
+
+        // Só faz bind de eventos se não estiver inicializado
+        if (!this.initialized) {
+          this.bindEvents();
+          this.renderDock();
+          this.initialized = true;
+          LogHelper.log("Footer: Initialized successfully");
+        }
       });
+    },
+
+    /**
+     * Injeta o CSS na página
+     */
+    injectCSS() {
+      // Remove CSS anterior se existir
+      const existingStyle = document.getElementById(this.styleId);
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+
+      // Cria e injeta novo CSS
+      const style = document.createElement('style');
+      style.id = this.styleId;
+      style.textContent = FOOTER_CSS;
+      document.head.appendChild(style);
+      LogHelper.log("Footer: CSS injected");
+    },
+
+    /**
+     * Injeta o HTML no container
+     */
+    injectHTML() {
+      if (!this.$root) return;
+
+      // Verifica se já existe o HTML injetado
+      const existingWidget = this.$root.querySelector('.myio-footer-widget');
+      if (existingWidget) {
+        LogHelper.log("Footer: HTML already exists, skipping injection");
+        return;
+      }
+
+      this.$root.innerHTML = FOOTER_HTML;
+      LogHelper.log("Footer: HTML injected");
     },
 
     /**
@@ -263,7 +531,7 @@
       if (window.MyIOLibrary) {
         return onReady();
       }
-      
+
       const scriptId = "myio-library-script";
       let existingScript = document.getElementById(scriptId);
 
@@ -271,7 +539,7 @@
         existingScript.addEventListener('load', onReady);
         return;
       }
-      
+
       const s = document.createElement("script");
       s.id = scriptId;
       s.src = MYIO_SCRIPT_URL;
@@ -282,34 +550,24 @@
     },
 
     /**
-     * Injeta o CSS e o HTML do footer no DOM
-     */
-    mountTemplate() {
-      // Injeta CSS no <head> para garantir prioridade e fácil remoção
-      if (!document.getElementById(FOOTER_STYLE_ID)) {
-        const style = document.createElement("style");
-        style.id = FOOTER_STYLE_ID;
-        style.textContent = FOOTER_CSS;
-        document.head.appendChild(style);
-      }
-
-      // Cria o elemento principal do footer
-      const footerSection = document.createElement("section");
-      footerSection.className = "myio-footer";
-      footerSection.innerHTML = FOOTER_HTML;
-
-      this.$root.appendChild(footerSection);
-      this.$footerEl = footerSection; // Armazena a referência ao footer
-    },
-
-    /**
-     * Consulta os elementos do DOM *uma vez* e armazena as referências
+     * Consulta os elementos do DOM
      */
     queryDOMElements() {
-      if (!this.$footerEl) return;
+      this.$footerEl = this.$root.querySelector(".myio-footer-widget");
+      if (!this.$footerEl) {
+        LogHelper.error("MyIO Footer: .myio-footer-widget element not found");
+        return;
+      }
       this.$dock = this.$footerEl.querySelector("#myioDock");
       this.$totals = this.$footerEl.querySelector("#myioTotals");
       this.$compareBtn = this.$footerEl.querySelector("#myioCompare");
+
+      LogHelper.log("Footer: DOM elements found:", {
+        footer: !!this.$footerEl,
+        dock: !!this.$dock,
+        totals: !!this.$totals,
+        compareBtn: !!this.$compareBtn
+      });
     },
 
     /**
@@ -317,6 +575,7 @@
      */
     renderDock() {
       if (!window.MyIOLibrary || !this.$dock || !this.$totals || !this.$compareBtn) {
+        LogHelper.warn("Footer: renderDock skipped - missing dependencies");
         return;
       }
 
@@ -325,37 +584,40 @@
       const count = selected.length;
       const totals = MyIOSelectionStore.getMultiUnitTotalDisplay();
 
+      LogHelper.log("Footer: renderDock", {
+        selectedCount: count,
+        totals: totals
+      });
+
       if (count === 0) {
         const emptyEl = document.createElement("span");
         emptyEl.className = "myio-empty";
         emptyEl.textContent = "Arraste itens para cá ou selecione no card";
-        this.$dock.replaceChildren(emptyEl); // Mais seguro e performático
+        this.$dock.replaceChildren(emptyEl);
       } else {
-        // Cria chips de forma eficiente e segura
         const chips = selected.map((ent) => {
           const chip = document.createElement("div");
           chip.className = "myio-chip";
 
           const icon = document.createElement("span");
           icon.className = "myio-chip-icon";
-          icon.textContent = "•"; // Pode ser substituído por um SVG/ícone de fonte
+          icon.textContent = "•";
 
           const name = document.createElement("span");
-          name.textContent = ent.name; // Usa textContent (seguro contra XSS)
+          name.textContent = ent.name;
 
           const removeBtn = document.createElement("button");
           removeBtn.title = `Remover ${ent.name}`;
           removeBtn.setAttribute("aria-label", `Remover ${ent.name}`);
-          removeBtn.dataset.entityId = ent.id; // ID para delegação de evento
-          removeBtn.textContent = "×"; // Pode ser substituído por um SVG/ícone de fonte
+          removeBtn.dataset.entityId = ent.id;
+          removeBtn.textContent = "×";
 
           chip.append(icon, name, removeBtn);
           return chip;
         });
-        this.$dock.replaceChildren(...chips); // Renderiza todos de uma vez
+        this.$dock.replaceChildren(...chips);
       }
 
-      // Atualiza totais e botão
       this.$totals.textContent =
         count > 0 ? `${count} selecionado(s) | ${totals}` : "0 selecionados";
       this.$compareBtn.disabled = count < 2;
@@ -368,39 +630,39 @@
       if (!window.MyIOLibrary) return;
       const { MyIOSelectionStore } = window.MyIOLibrary;
 
-      // 1. Armazena funções vinculadas (para remoção correta)
       this.boundRenderDock = this.renderDock.bind(this);
       this.boundCompareClick = this.onCompareClick.bind(this);
-      this.boundDragOver = (e) => e.preventDefault();
+      this.boundDragOver = this.onDragOver.bind(this);
       this.boundDrop = this.onDrop.bind(this);
+      this.boundDragEnter = this.onDragEnter.bind(this);
+      this.boundDragLeave = this.onDragLeave.bind(this);
       this.boundChipClick = this.onChipClick.bind(this);
 
-      // 2. Ouve a store externa
       MyIOSelectionStore.on("selection:change", this.boundRenderDock);
       MyIOSelectionStore.on("selection:totals", this.boundRenderDock);
 
-      // 3. Ouve elementos do DOM interno
       if (this.$compareBtn) {
         this.$compareBtn.addEventListener("click", this.boundCompareClick);
       }
 
-      // 4. Delegação de evento para cliques nos chips
       if (this.$dock) {
         this.$dock.addEventListener("click", this.boundChipClick);
       }
 
-      // 5. Eventos de Drag and Drop no footer
       if (this.$footerEl) {
         this.$footerEl.addEventListener("dragover", this.boundDragOver);
+        this.$footerEl.addEventListener("dragenter", this.boundDragEnter);
+        this.$footerEl.addEventListener("dragleave", this.boundDragLeave);
         this.$footerEl.addEventListener("drop", this.boundDrop);
       }
+
+      LogHelper.log("Footer: Events bound");
     },
 
     /**
      * Manipulador de clique para o "dock" (delegação)
      */
     onChipClick(e) {
-      // Verifica se o clique foi em um botão de remover
       const removeBtn = e.target.closest("button[data-entity-id]");
       if (removeBtn && window.MyIOLibrary) {
         const id = removeBtn.dataset.entityId;
@@ -418,16 +680,53 @@
     },
 
     /**
+     * Visual feedback quando drag entra no footer
+     */
+    onDragEnter(e) {
+      e.preventDefault();
+      if (this.$footerEl) {
+        this.$footerEl.classList.add('drag-over');
+      }
+    },
+
+    /**
+     * Remove visual feedback quando drag sai do footer
+     */
+    onDragLeave(e) {
+      e.preventDefault();
+      if (e.target === this.$footerEl) {
+        this.$footerEl.classList.remove('drag-over');
+      }
+    },
+
+    /**
+     * Previne comportamento padrão durante dragover
+     */
+    onDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    },
+
+    /**
      * Manipulador de evento 'drop'
      */
     onDrop(e) {
       e.preventDefault();
+
+      if (this.$footerEl) {
+        this.$footerEl.classList.remove('drag-over');
+      }
+
       if (window.MyIOLibrary) {
         const id =
           e.dataTransfer?.getData("text/myio-id") ||
           e.dataTransfer?.getData("text/plain");
+
         if (id) {
+          LogHelper.log("Footer: Item dropped with ID:", id);
           window.MyIOLibrary.MyIOSelectionStore.add(id);
+        } else {
+          LogHelper.warn("Footer: Drop event without valid ID");
         }
       }
     },
@@ -436,18 +735,23 @@
      * Limpa o widget, removendo listeners e elementos do DOM
      */
     destroy() {
-      if (!this.initialized) return;
+      if (!this.initialized) {
+        LogHelper.log("Footer: Not initialized, skipping destroy");
+        return;
+      }
 
-      // 1. Remove listeners da store externa
+      LogHelper.log("Footer: Destroying...");
+
+      // Remove listeners da store externa
       try {
         const { MyIOSelectionStore } = window.MyIOLibrary || {};
         MyIOSelectionStore?.off?.("selection:change", this.boundRenderDock);
         MyIOSelectionStore?.off?.("selection:totals", this.boundRenderDock);
       } catch (e) {
-        LogHelper.warn("MyIO Footer: Error during listener cleanup.", e);
+        LogHelper.warn("Footer: Error during listener cleanup.", e);
       }
 
-      // 2. Remove listeners do DOM interno
+      // Remove listeners do DOM
       if (this.$compareBtn) {
         this.$compareBtn.removeEventListener("click", this.boundCompareClick);
       }
@@ -456,32 +760,43 @@
       }
       if (this.$footerEl) {
         this.$footerEl.removeEventListener("dragover", this.boundDragOver);
+        this.$footerEl.removeEventListener("dragenter", this.boundDragEnter);
+        this.$footerEl.removeEventListener("dragleave", this.boundDragLeave);
         this.$footerEl.removeEventListener("drop", this.boundDrop);
       }
 
-      // 3. Remove elementos do DOM
-      const style = document.getElementById(FOOTER_STYLE_ID);
-      style?.remove();
-      this.$footerEl?.remove();
+      // NÃO remove CSS (mantém para próxima inicialização)
+      // NÃO limpa HTML (mantém o widget visível)
 
-      // 4. Reseta o estado interno
+      // Reseta apenas o estado interno
       this.initialized = false;
       this.$root = null;
       this.$footerEl = null;
       this.$dock = null;
       this.$totals = null;
       this.$compareBtn = null;
+
+      LogHelper.log("Footer: Destroyed successfully (HTML/CSS preserved)");
     },
   };
 
-  // --- 4. Hooks do Ciclo de Vida do Widget ---
+  // --- ThingsBoard Widget Lifecycle Hooks ---
 
   self.onInit = function () {
-    // Passa o contexto do widget (self.ctx) para o controlador
+    LogHelper.log("Footer: onInit called");
     footerController.init(self.ctx);
   };
 
+  self.onDataUpdated = function () {
+    // Footer não recebe dados do ThingsBoard
+  };
+
+  self.onResize = function () {
+    // Responsividade tratada via CSS
+  };
+
   self.onDestroy = function () {
+    LogHelper.log("Footer: onDestroy called");
     footerController.destroy();
   };
 })(self);

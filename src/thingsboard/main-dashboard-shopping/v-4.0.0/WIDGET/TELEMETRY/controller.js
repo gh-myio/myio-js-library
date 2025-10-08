@@ -571,6 +571,9 @@ function renderList(visible) {
     const $card = MyIO.renderCardComponentV2({
       entityObject,
       handInfo: true,
+      useNewComponents: true,  // Habilitar novos componentes
+      enableSelection: true,   // Habilitar seleção
+      enableDragDrop: true,    // Habilitar drag and drop
 
       handleActionDashboard: async () => {
        try {
