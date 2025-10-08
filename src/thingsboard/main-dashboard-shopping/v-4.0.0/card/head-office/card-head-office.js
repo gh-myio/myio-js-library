@@ -534,7 +534,9 @@ function bindEvents(root, state, callbacks) {
   const infoBtn = menu.querySelector('[data-action="info"]');
 
   if (callbacks.handleActionDashboard) {
+    console.log('DEBUG: Anexando listener ao botão DASHBOARD.');
     dashboardBtn.addEventListener('click', (e) => {
+      console.log('DEBUG: Botão DASHBOARD foi CLICADO!');
       e.stopPropagation();
       closeMenu();
       callbacks.handleActionDashboard(e, entityObject);
@@ -556,8 +558,9 @@ function bindEvents(root, state, callbacks) {
       callbacks.handleActionSettings(e, entityObject);
     });
   }
-
+  console.log('DEBUG: Anexando listener ao botão INFO.');
   infoBtn.addEventListener('click', (e) => {
+      console.log('DEBUG: Botão INFO foi CLICADO!');
       e.stopPropagation();
       closeMenu();
 

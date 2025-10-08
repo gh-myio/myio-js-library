@@ -10,7 +10,7 @@
 // Import the new MYIO components
 import { MyIOSelectionStore } from '../../../../components/SelectionStore.js';
 import { MyIODraggableCard } from '../../../../components/DraggableCard.js';
-import { formatEnergy } from '../../../../format/energy.js';
+import { formatEnergy } from '../../../../format/energy.ts';
 
 export function renderCardComponentV2({
   entityObject,
