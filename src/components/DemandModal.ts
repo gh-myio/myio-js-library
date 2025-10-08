@@ -766,7 +766,8 @@ function processMultiSeriesChartData(
   rawData: any, // Full API response object
   keys: string,
   correctionFactor: number,
-  locale: string
+  locale: string,
+  aggregation?: string // Add aggregation type to determine processing method
 ): MultiSeriesChartData {
   const seriesKeys = keys.split(',').map(k => k.trim());
   const seriesData: SeriesData[] = [];
@@ -788,32 +789,50 @@ function processMultiSeriesChartData(
     // Sort by timestamp
     const sortedData = rawSeries.sort((a: any, b: any) => a.ts - b.ts);
 
-    // Calculate demand (kW) from consumption deltas and apply correction factor
     const points: MultiSeriesDataPoint[] = [];
-    let previousValue = 0;
-    let previousTs = 0;
 
-    for (let i = 0; i < sortedData.length; i++) {
-      const current = sortedData[i];
-      const currentValue = parseFloat(current.value);
-      const currentTs = current.ts;
+    // Check if data is already aggregated (MAX, AVG, etc.) or raw (NONE)
+    const isAggregated = aggregation && aggregation !== 'NONE';
 
-      if (i > 0) {
-        const deltaWh = currentValue - previousValue;
-        const deltaHours = (currentTs - previousTs) / (1000 * 60 * 60);
+    if (isAggregated) {
+      // Data is already aggregated - use values directly
+      for (let i = 0; i < sortedData.length; i++) {
+        const current = sortedData[i];
+        const value = parseFloat(current.value) * correctionFactor;
+        const timestamp = current.ts;
 
-        // Only include positive deltas (ignore meter resets)
-        if (deltaWh > 0 && deltaHours > 0) {
-          const demandKw = (deltaWh / 1000 / deltaHours) * correctionFactor; // Apply correction factor
-          points.push({
-            x: currentTs,
-            y: demandKw
-          });
-        }
+        points.push({
+          x: timestamp,
+          y: value
+        });
       }
+    } else {
+      // Data is raw - calculate demand from consumption deltas
+      let previousValue = 0;
+      let previousTs = 0;
 
-      previousValue = currentValue;
-      previousTs = currentTs;
+      for (let i = 0; i < sortedData.length; i++) {
+        const current = sortedData[i];
+        const currentValue = parseFloat(current.value);
+        const currentTs = current.ts;
+
+        if (i > 0) {
+          const deltaWh = currentValue - previousValue;
+          const deltaHours = (currentTs - previousTs) / (1000 * 60 * 60);
+
+          // Only include positive deltas (ignore meter resets)
+          if (deltaWh > 0 && deltaHours > 0) {
+            const demandKw = (deltaWh / 1000 / deltaHours) * correctionFactor;
+            points.push({
+              x: currentTs,
+              y: demandKw
+            });
+          }
+        }
+
+        previousValue = currentValue;
+        previousTs = currentTs;
+      }
     }
 
     // Find peak demand for this series
@@ -1392,10 +1411,11 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
         : await fetchTelemetryData(params.token, params.deviceId, currentStartDate, currentEndDate, params.telemetryQuery);
       
       chartData = processMultiSeriesChartData(
-        rawData, 
-        params.telemetryQuery?.keys || 'consumption', 
-        params.correctionFactor || 1.0, 
-        locale
+        rawData,
+        params.telemetryQuery?.keys || 'consumption',
+        params.correctionFactor || 1.0,
+        locale,
+        params.telemetryQuery?.agg || 'MAX' // Pass aggregation type
       );
 
       if (chartData.isEmpty) {
