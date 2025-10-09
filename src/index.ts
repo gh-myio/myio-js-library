@@ -46,6 +46,24 @@ export {
 // General utilities
 export { getValueByDatakey, getValueByDatakeyLegacy, findValue } from './utils/getValueByDatakey';
 
+// Device Status utilities
+export {
+  DeviceStatusType,
+  ConnectionStatusType,
+  deviceStatusIcons,
+  connectionStatusIcons,
+  mapDeviceToConnectionStatus,
+  mapDeviceStatusToCardStatus,
+  shouldFlashIcon,
+  isDeviceOffline,
+  getDeviceStatusIcon,
+  getConnectionStatusIcon,
+  isValidDeviceStatus,
+  isValidConnectionStatus,
+  getDeviceStatusInfo,
+  calculateDeviceStatus
+} from './utils/deviceStatus.js';
+
 // ThingsBoard utilities
 export { buildListItemsThingsboardByUniqueDatasource } from './thingsboard/utils/buildListItemsThingsboardByUniqueDatasource';
 export { 

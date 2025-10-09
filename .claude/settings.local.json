@@ -7,7 +7,8 @@
       "Bash(node:*)",
       "Bash(start \"\" \"file:///C:/Projetos/GitHub/myio/myio-js-library-PROD.git/demos/energy.html\")",
       "Bash(start \"\" \"file:///C:/Projetos/GitHub/myio/myio-js-library-PROD.git/test-modal.html\")",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(start \"\" \"file:///C:/Projetos/GitHub/myio/myio-js-library-PROD.git/demos/calculate-device-status.html\")"
     ],
     "deny": [],
     "ask": []

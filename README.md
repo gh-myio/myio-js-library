@@ -19,6 +19,7 @@ Distributed as **ESM**, **CJS**, and **UMD** (with a pre-minified build for CDN 
 - 📊 **CSV export** — data export to CSV format with proper escaping (returns strings, no DOM manipulation).
 - 🏷️ **Classification** — energy entity classification utilities.
 - 🔍 **Data access** — nested object value retrieval with datakey paths.
+- 🔌 **Device status** — comprehensive status calculation and management with `calculateDeviceStatus`.
 - ⚡ **Dual module support** — ESM and CJS.
 - 🌍 **Browser-ready** — UMD global + CDN link.
 
@@ -38,21 +39,23 @@ pnpm add myio-js-library
 
 ### Node.js (ESM)
 ```javascript
-import { 
-  decodePayload, 
+import {
+  decodePayload,
   decodePayloadBase64Xor,
-  fetchWithRetry, 
+  fetchWithRetry,
   http,
-  addNamespace, 
+  addNamespace,
   detectDeviceType,
-  strings, 
+  strings,
   numbers,
   formatEnergy,
   formatWaterVolumeM3,
   formatDateToYMD,
   exportToCSV,
   classifyWaterLabel,
-  getValueByDatakey
+  getValueByDatakey,
+  calculateDeviceStatus,
+  DeviceStatusType
 } from 'myio-js-library';
 
 // Decode with string key
@@ -67,12 +70,22 @@ const response = await fetchWithRetry('https://api.example.com/data', {
 
 // Add namespace to object keys
 const data = { temperature: 25, humidity: 60 };
-const namespaced = addNamespace(data, 'sensor1'); 
+const namespaced = addNamespace(data, 'sensor1');
 // { "temperature (sensor1)": 25, "humidity (sensor1)": 60 }
 
 // Detect device type from context
 const deviceType = detectDeviceType('building', 'floor2-room101');
 console.log(deviceType); // "room" or "unknown"
+
+// Calculate device status
+const status = calculateDeviceStatus({
+  connectionStatus: "online",
+  lastConsumptionValue: 500,
+  limitOfPowerOnStandByWatts: 100,
+  limitOfPowerOnAlertWatts: 1000,
+  limitOfPowerOnFailureWatts: 2000
+});
+console.log(status); // "power_on"
 ```
 
 ### Node.js (CJS)
@@ -770,6 +783,219 @@ import { isWaterCategory } from 'myio-js-library';
 
 isWaterCategory('Caixa Superior', "Caixas D'Água"); // true
 isWaterCategory('Loja 101', "Caixas D'Água"); // false
+```
+
+### Device Status Utilities
+
+The library provides comprehensive device status management utilities for IoT applications, enabling centralized status calculation, validation, and visual mapping.
+
+#### `calculateDeviceStatus(params: object): string`
+
+Calculates device operational status based on connection state and power consumption metrics. This is the primary function for determining device status across MYIO applications.
+
+**Parameters:**
+- `connectionStatus: "waiting" | "offline" | "online"` - Device connection state (required)
+- `lastConsumptionValue: number | null` - Power consumption in watts (required)
+- `limitOfPowerOnStandByWatts: number` - Upper threshold for standby mode in watts (required)
+- `limitOfPowerOnAlertWatts: number` - Upper threshold for normal operation (power_on) in watts (required)
+- `limitOfPowerOnFailureWatts: number` - Upper threshold for warning mode in watts (required)
+
+**Returns:** Device status string from `DeviceStatusType` enum:
+- `"not_installed"` - Device waiting for installation
+- `"no_info"` - Device offline, no information available
+- `"power_on"` - Device in normal operation
+- `"standby"` - Low power consumption mode (0 to standby limit)
+- `"warning"` - Elevated consumption (alert limit to failure limit)
+- `"failure"` - Critical consumption (above failure limit)
+- `"maintenance"` - Invalid state requiring attention
+
+**Decision Logic:**
+```
+waiting → NOT_INSTALLED
+offline → NO_INFO
+online + no data → POWER_ON
+online + (0 ≤ consumption ≤ standbyLimit) → STANDBY
+online + (standbyLimit < consumption ≤ alertLimit) → POWER_ON
+online + (alertLimit < consumption ≤ failureLimit) → WARNING
+online + (consumption > failureLimit) → FAILURE
+invalid → MAINTENANCE
+```
+
+**Usage Example:**
+```javascript
+import { calculateDeviceStatus, DeviceStatusType } from 'myio-js-library';
+
+// Air Conditioner - Normal operation
+const acStatus = calculateDeviceStatus({
+  connectionStatus: "online",
+  lastConsumptionValue: 2500,        // 2.5 kW
+  limitOfPowerOnStandByWatts: 500,   // 500W standby
+  limitOfPowerOnAlertWatts: 3000,    // 3kW alert
+  limitOfPowerOnFailureWatts: 5000   // 5kW failure
+});
+console.log(acStatus); // "power_on"
+
+// Elevator - Standby
+const elevatorStatus = calculateDeviceStatus({
+  connectionStatus: "online",
+  lastConsumptionValue: 80,          // 80W
+  limitOfPowerOnStandByWatts: 150,
+  limitOfPowerOnAlertWatts: 800,
+  limitOfPowerOnFailureWatts: 1200
+});
+console.log(elevatorStatus); // "standby"
+
+// Offline device
+const offlineStatus = calculateDeviceStatus({
+  connectionStatus: "offline",
+  lastConsumptionValue: null,
+  limitOfPowerOnStandByWatts: 100,
+  limitOfPowerOnAlertWatts: 1000,
+  limitOfPowerOnFailureWatts: 2000
+});
+console.log(offlineStatus); // "no_info"
+```
+
+**Interactive Demo:**
+See [demos/calculate-device-status.html](demos/calculate-device-status.html) for an interactive demonstration with multiple scenarios.
+
+**Complete Documentation:**
+See [docs/calculateDeviceStatus.md](docs/calculateDeviceStatus.md) for comprehensive documentation with advanced examples.
+
+#### Device Status Constants and Helper Functions
+
+##### `DeviceStatusType` - Status Type Enum
+
+```javascript
+import { DeviceStatusType } from 'myio-js-library';
+
+DeviceStatusType.POWER_ON       // "power_on"
+DeviceStatusType.STANDBY        // "standby"
+DeviceStatusType.POWER_OFF      // "power_off"
+DeviceStatusType.WARNING        // "warning"
+DeviceStatusType.FAILURE        // "failure"
+DeviceStatusType.MAINTENANCE    // "maintenance"
+DeviceStatusType.NO_INFO        // "no_info"
+DeviceStatusType.NOT_INSTALLED  // "not_installed"
+```
+
+##### `deviceStatusIcons` - Icon Mapping
+
+```javascript
+import { deviceStatusIcons, getDeviceStatusIcon } from 'myio-js-library';
+
+// Icon map
+deviceStatusIcons[DeviceStatusType.POWER_ON]      // "⚡"
+deviceStatusIcons[DeviceStatusType.STANDBY]       // "🔌"
+deviceStatusIcons[DeviceStatusType.WARNING]       // "⚠️"
+deviceStatusIcons[DeviceStatusType.FAILURE]       // "🚨"
+deviceStatusIcons[DeviceStatusType.NO_INFO]       // "❓️"
+deviceStatusIcons[DeviceStatusType.NOT_INSTALLED] // "📦"
+
+// Helper function
+getDeviceStatusIcon("warning"); // "⚠️"
+getDeviceStatusIcon("failure"); // "🚨"
+```
+
+##### `getDeviceStatusInfo(deviceStatus: string): object`
+
+Gets comprehensive status information including derived properties.
+
+```javascript
+import { getDeviceStatusInfo } from 'myio-js-library';
+
+const info = getDeviceStatusInfo("warning");
+console.log(info);
+// {
+//   deviceStatus: "warning",
+//   connectionStatus: "connected",
+//   cardStatus: "alert",
+//   deviceIcon: "⚠️",
+//   connectionIcon: "🟢",
+//   shouldFlash: true,
+//   isOffline: false,
+//   isValid: true
+// }
+```
+
+##### Status Mapping Functions
+
+```javascript
+import {
+  mapDeviceStatusToCardStatus,
+  mapDeviceToConnectionStatus,
+  shouldFlashIcon,
+  isDeviceOffline
+} from 'myio-js-library';
+
+// Map to simplified card status
+mapDeviceStatusToCardStatus("warning");  // "alert"
+mapDeviceStatusToCardStatus("power_on"); // "ok"
+mapDeviceStatusToCardStatus("failure");  // "fail"
+
+// Map to connection status
+mapDeviceToConnectionStatus("no_info");   // "offline"
+mapDeviceToConnectionStatus("power_on");  // "connected"
+
+// Visual indicators
+shouldFlashIcon("failure");   // true (requires attention)
+shouldFlashIcon("warning");   // true (requires attention)
+shouldFlashIcon("power_on");  // false (normal operation)
+
+isDeviceOffline("no_info");   // true
+isDeviceOffline("standby");   // false
+```
+
+##### Validation Functions
+
+```javascript
+import {
+  isValidDeviceStatus,
+  isValidConnectionStatus
+} from 'myio-js-library';
+
+isValidDeviceStatus("warning");      // true
+isValidDeviceStatus("invalid");      // false
+
+isValidConnectionStatus("connected"); // true
+isValidConnectionStatus("unknown");   // false
+```
+
+**Complete Integration Example:**
+```javascript
+import {
+  calculateDeviceStatus,
+  getDeviceStatusInfo,
+  DeviceStatusType
+} from 'myio-js-library';
+
+// Calculate status from device data
+const deviceStatus = calculateDeviceStatus({
+  connectionStatus: device.isOnline ? "online" : "offline",
+  lastConsumptionValue: device.powerWatts,
+  limitOfPowerOnStandByWatts: 100,
+  limitOfPowerOnAlertWatts: 1000,
+  limitOfPowerOnFailureWatts: 2000
+});
+
+// Get complete status information
+const statusInfo = getDeviceStatusInfo(deviceStatus);
+
+// Update UI
+if (statusInfo.shouldFlash) {
+  element.classList.add('flash-animation');
+}
+
+element.innerHTML = `
+  <span class="status-icon">${statusInfo.deviceIcon}</span>
+  <span class="status-text">${statusInfo.deviceStatus}</span>
+  <span class="connection-icon">${statusInfo.connectionIcon}</span>
+`;
+
+// Handle critical states
+if (deviceStatus === DeviceStatusType.FAILURE) {
+  sendAlert(`Device ${device.id} in critical state!`);
+}
 ```
 
 ### Data Access Utilities

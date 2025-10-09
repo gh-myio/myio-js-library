@@ -15,9 +15,10 @@ export const DeviceStatusType = {
   STANDBY: "standby",
   POWER_OFF: "power_off",
   WARNING: "warning",
-  DANGER: "danger",
+  FAILURE: "failure",
   MAINTENANCE: "maintenance",
   NO_INFO: "no_info",
+  NOT_INSTALLED: "not_installed",
 };
 
 /**
@@ -38,9 +39,10 @@ export const deviceStatusIcons = {
   [DeviceStatusType.STANDBY]: "🔌",
   [DeviceStatusType.POWER_OFF]: "🔴",
   [DeviceStatusType.WARNING]: "⚠️",
-  [DeviceStatusType.DANGER]: "🚨",
+  [DeviceStatusType.FAILURE]: "🚨",
   [DeviceStatusType.MAINTENANCE]: "🛠️",
   [DeviceStatusType.NO_INFO]: "❓️",
+  [DeviceStatusType.NOT_INSTALLED]: "📦",
 };
 
 /**
@@ -80,7 +82,7 @@ export function mapDeviceStatusToCardStatus(deviceStatus) {
     [DeviceStatusType.STANDBY]: 'alert',
     [DeviceStatusType.POWER_OFF]: 'fail',
     [DeviceStatusType.WARNING]: 'alert',
-    [DeviceStatusType.DANGER]: 'fail',
+    [DeviceStatusType.FAILURE]: 'fail',
     [DeviceStatusType.MAINTENANCE]: 'alert',
     [DeviceStatusType.NO_INFO]: 'unknown'
   };
@@ -97,7 +99,7 @@ export function shouldFlashIcon(deviceStatus) {
   return (
     deviceStatus === DeviceStatusType.POWER_OFF ||
     deviceStatus === DeviceStatusType.WARNING ||
-    deviceStatus === DeviceStatusType.DANGER ||
+    deviceStatus === DeviceStatusType.FAILURE ||
     deviceStatus === DeviceStatusType.MAINTENANCE
   );
 }
@@ -171,4 +173,147 @@ export function getDeviceStatusInfo(deviceStatus) {
     isOffline: isDeviceOffline(deviceStatus),
     isValid: isValidDeviceStatus(deviceStatus)
   };
+}
+
+/**
+ * Calculates device status based on connection status and power consumption
+ *
+ * @param {Object} params - Configuration object
+ * @param {string} params.connectionStatus - Connection status: "waiting", "offline", or "online"
+ * @param {number|null} params.lastConsumptionValue - Last power consumption value in watts
+ * @param {number} params.limitOfPowerOnStandByWatts - Upper limit for standby mode in watts
+ * @param {number} params.limitOfPowerOnAlertWatts - Upper limit for warning mode in watts
+ * @param {number} params.limitOfPowerOnFailureWatts - Upper limit for failure mode in watts
+ * @returns {string} Device status from DeviceStatusType enum
+ *
+ * @example
+ * // Device is waiting for installation
+ * calculateDeviceStatus({
+ *   connectionStatus: "waiting",
+ *   lastConsumptionValue: null,
+ *   limitOfPowerOnStandByWatts: 100,
+ *   limitOfPowerOnAlertWatts: 1000,
+ *   limitOfPowerOnFailureWatts: 2000
+ * }); // Returns "not_installed"
+ *
+ * @example
+ * // Device is offline
+ * calculateDeviceStatus({
+ *   connectionStatus: "offline",
+ *   lastConsumptionValue: null,
+ *   limitOfPowerOnStandByWatts: 100,
+ *   limitOfPowerOnAlertWatts: 1000,
+ *   limitOfPowerOnFailureWatts: 2000
+ * }); // Returns "no_info"
+ *
+ * @example
+ * // Device is online but no consumption data
+ * calculateDeviceStatus({
+ *   connectionStatus: "online",
+ *   lastConsumptionValue: null,
+ *   limitOfPowerOnStandByWatts: 100,
+ *   limitOfPowerOnAlertWatts: 1000,
+ *   limitOfPowerOnFailureWatts: 2000
+ * }); // Returns "power_on"
+ *
+ * @example
+ * // Device in standby mode
+ * calculateDeviceStatus({
+ *   connectionStatus: "online",
+ *   lastConsumptionValue: 50,
+ *   limitOfPowerOnStandByWatts: 100,
+ *   limitOfPowerOnAlertWatts: 1000,
+ *   limitOfPowerOnFailureWatts: 2000
+ * }); // Returns "standby"
+ *
+ * @example
+ * // Device with normal operation (power_on)
+ * calculateDeviceStatus({
+ *   connectionStatus: "online",
+ *   lastConsumptionValue: 500,
+ *   limitOfPowerOnStandByWatts: 100,
+ *   limitOfPowerOnAlertWatts: 1000,
+ *   limitOfPowerOnFailureWatts: 2000
+ * }); // Returns "power_on"
+ *
+ * @example
+ * // Device with warning consumption
+ * calculateDeviceStatus({
+ *   connectionStatus: "online",
+ *   lastConsumptionValue: 1500,
+ *   limitOfPowerOnStandByWatts: 100,
+ *   limitOfPowerOnAlertWatts: 1000,
+ *   limitOfPowerOnFailureWatts: 2000
+ * }); // Returns "warning"
+ *
+ * @example
+ * // Device with failure consumption
+ * calculateDeviceStatus({
+ *   connectionStatus: "online",
+ *   lastConsumptionValue: 2500,
+ *   limitOfPowerOnStandByWatts: 100,
+ *   limitOfPowerOnAlertWatts: 1000,
+ *   limitOfPowerOnFailureWatts: 2000
+ * }); // Returns "failure"
+ */
+export function calculateDeviceStatus({
+  connectionStatus,
+  lastConsumptionValue,
+  limitOfPowerOnStandByWatts,
+  limitOfPowerOnAlertWatts,
+  limitOfPowerOnFailureWatts
+}) {
+  // Validate connectionStatus
+  const validConnectionStatuses = ["waiting", "offline", "online"];
+  if (!validConnectionStatuses.includes(connectionStatus)) {
+    return DeviceStatusType.MAINTENANCE;
+  }
+
+  // If waiting for installation
+  if (connectionStatus === "waiting") {
+    return DeviceStatusType.NOT_INSTALLED;
+  }
+
+  // If offline
+  if (connectionStatus === "offline") {
+    return DeviceStatusType.NO_INFO;
+  }
+
+  // If online but no consumption data
+  if (connectionStatus === "online" && (lastConsumptionValue === null || lastConsumptionValue === undefined)) {
+    return DeviceStatusType.POWER_ON;
+  }
+
+  // If online with consumption data
+  if (connectionStatus === "online" && lastConsumptionValue !== null && lastConsumptionValue !== undefined) {
+    const consumption = Number(lastConsumptionValue);
+
+    // Check if consumption is valid
+    if (isNaN(consumption)) {
+      return DeviceStatusType.MAINTENANCE;
+    }
+
+    // Standby: 0 <= consumption <= limitOfPowerOnStandByWatts
+    if (consumption >= 0 && consumption <= limitOfPowerOnStandByWatts) {
+      return DeviceStatusType.STANDBY;
+    }
+
+    // Power On (Normal): consumption > limitOfPowerOnStandByWatts && consumption <= limitOfPowerOnAlertWatts
+    if (consumption > limitOfPowerOnStandByWatts && consumption <= limitOfPowerOnAlertWatts) {
+      return DeviceStatusType.POWER_ON;
+    }
+
+    // Warning: consumption > limitOfPowerOnAlertWatts && consumption <= limitOfPowerOnFailureWatts
+    if (consumption > limitOfPowerOnAlertWatts && consumption <= limitOfPowerOnFailureWatts) {
+      return DeviceStatusType.WARNING;
+    }
+
+    // Failure: consumption > limitOfPowerOnFailureWatts
+    if (consumption > limitOfPowerOnFailureWatts) {
+      return DeviceStatusType.FAILURE;
+    }
+  }
+
+  // Fallback
+  return DeviceStatusType.MAINTENANCE;
 }
