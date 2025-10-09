@@ -150,7 +150,7 @@
                 val: 22.8,
                 valType: 'power_kw',
                 perc: 89,
-                connectionStatus: 'RUNNING',
+                deviceStatus: 'power_on',
                 temperatureC: 26,
                 operationHours: 8.934,
                 timaVal: Date.now() - 15 * 60 * 1000 // 15 minutes ago
@@ -163,7 +163,7 @@
                 val: 15.2,
                 valType: 'power_kw',
                 perc: 94,
-                connectionStatus: 'RUNNING',
+                deviceStatus: 'power_on',
                 temperatureC: 28,
                 operationHours: 12.847,
                 timaVal: Date.now() - 7 * 60 * 1000 // 7 minutes ago
@@ -176,7 +176,7 @@
                 val: 45.6,
                 valType: 'power_kw',
                 perc: 76,
-                connectionStatus: 'ALERT',
+                deviceStatus: 'warning',
                 temperatureC: 32,
                 operationHours: 24.156,
                 timaVal: Date.now() - 2 * 60 * 1000 // 2 minutes ago
@@ -189,7 +189,7 @@
                 val: 8.3,
                 valType: 'flow_m3h',
                 perc: 67,
-                connectionStatus: 'FAILURE',
+                deviceStatus: 'danger',
                 temperatureC: 35,
                 operationHours: 18.234,
                 timaVal: Date.now() - 45 * 60 * 1000 // 45 minutes ago
@@ -202,7 +202,7 @@
                 val: 12.1,
                 valType: 'power_kw',
                 perc: 82,
-                connectionStatus: 'RUNNING',
+                deviceStatus: 'power_on',
                 temperatureC: 24,
                 operationHours: 6.789,
                 timaVal: Date.now() - 1 * 60 * 1000 // 1 minute ago
@@ -215,7 +215,7 @@
                 val: 18.7,
                 valType: 'power_kw',
                 perc: 91,
-                connectionStatus: 'OFFLINE',
+                deviceStatus: 'no_info',
                 temperatureC: null,
                 operationHours: 0,
                 timaVal: Date.now() - 120 * 60 * 1000 // 2 hours ago
@@ -322,26 +322,26 @@
         window.simulateAlert = function() {
             const randomIndex = Math.floor(Math.random() * cardInstances.length);
             cardInstances[randomIndex].update({
-                connectionStatus: 'ALERT'
+                deviceStatus: 'warning'
             });
-            log(`Simulated ALERT status for card ${randomIndex + 1}`);
+            log(`Simulated WARNING status for card ${randomIndex + 1}`);
         };
-        
+
         window.simulateFailure = function() {
             const randomIndex = Math.floor(Math.random() * cardInstances.length);
             cardInstances[randomIndex].update({
-                connectionStatus: 'FAILURE'
+                deviceStatus: 'danger'
             });
-            log(`Simulated FAILURE status for card ${randomIndex + 1}`);
+            log(`Simulated DANGER status for card ${randomIndex + 1}`);
         };
-        
+
         window.resetStatus = function() {
             cardInstances.forEach((card, index) => {
                 card.update({
-                    connectionStatus: 'RUNNING'
+                    deviceStatus: 'power_on'
                 });
             });
-            log('Reset all cards to RUNNING status');
+            log('Reset all cards to POWER_ON status');
         };
         
         // Listen for custom events

@@ -7,6 +7,11 @@ import { CSS_STRING } from './card-head-office.css.js';
 import { Icons, ICON_MAP } from '../../head-office/card-head-office.icons';
 import { DEFAULT_I18N } from '../../head-office/card-head-office.types';
 import { formatEnergy } from '../../../../../format/energy.ts';
+import {
+  DeviceStatusType,
+  mapDeviceToConnectionStatus,
+  getDeviceStatusInfo
+} from '../../../../../utils/deviceStatus.js';
 
 const CSS_TAG = 'head-office-card-v1';
 
@@ -164,47 +169,49 @@ function calculateConsumptionPercentage(target, consumption) {
 }
 
 /**
- * Get status chip class and label
+ * Get status chip class and label based on deviceStatus
  */
-function getStatusInfo(connectionStatus, i18n) {
-  switch (connectionStatus) {
-    case 'RUNNING':
-    case 'ONLINE':
+function getStatusInfo(deviceStatus, i18n) {
+  switch (deviceStatus) {
+    case DeviceStatusType.POWER_ON:
       return { chipClass: 'chip--ok', label: i18n.in_operation };
-    case 'ALERT':
+    case DeviceStatusType.WARNING:
       return { chipClass: 'chip--alert', label: i18n.alert };
-    case 'FAILURE':
+    case DeviceStatusType.DANGER:
+    case DeviceStatusType.POWER_OFF:
       return { chipClass: 'chip--failure', label: i18n.failure };
-    case 'OFFLINE':
-    case 'PAUSED':
+    case DeviceStatusType.STANDBY:
+      return { chipClass: 'chip--alert', label: i18n.alert };
+    case DeviceStatusType.MAINTENANCE:
+      return { chipClass: 'chip--alert', label: i18n.alert };
+    case DeviceStatusType.NO_INFO:
     default:
       return { chipClass: 'chip--offline', label: i18n.offline };
   }
 }
 
 /**
- * Get card state class for status border
+ * Get card state class for status border based on deviceStatus
  */
-function getCardStateClass(connectionStatus) {
-  // Normaliza o status para maiúsculas para garantir a correspondência
-  switch (String(connectionStatus || '').toUpperCase()) {
-    
-    case 'RUNNING':
-    case 'ONLINE':
+function getCardStateClass(deviceStatus) {
+  switch (deviceStatus) {
+    case DeviceStatusType.POWER_ON:
       return '';
 
-    case 'OFFLINE':
-    case 'PAUSED':
+    case DeviceStatusType.NO_INFO:
       return 'is-offline';
 
-    case 'ALERT':
+    case DeviceStatusType.WARNING:
+    case DeviceStatusType.STANDBY:
+    case DeviceStatusType.MAINTENANCE:
       return 'is-alert';
 
-    case 'FAILURE':
+    case DeviceStatusType.DANGER:
+    case DeviceStatusType.POWER_OFF:
       return 'is-failure';
-      
+
     default:
-      return ''; 
+      return '';
   }
 }
 
@@ -448,12 +455,12 @@ function buildDOM(state) {
 function paint(root, state) {
   const { entityObject, i18n } = state;
 
-  // Update card state class
-  const stateClass = getCardStateClass(entityObject.connectionStatus);
+  // Update card state class using deviceStatus
+  const stateClass = getCardStateClass(entityObject.deviceStatus);
   root.className = `myio-ho-card ${stateClass}`;
 
-  // Update status chip
-  const statusInfo = getStatusInfo(String(entityObject.connectionStatus).toUpperCase(), i18n);
+  // Update status chip using deviceStatus
+  const statusInfo = getStatusInfo(entityObject.deviceStatus, i18n);
   const chip = root.querySelector('.chip');
   chip.className = `chip ${statusInfo.chipClass}`;
   chip.textContent = statusInfo.label;

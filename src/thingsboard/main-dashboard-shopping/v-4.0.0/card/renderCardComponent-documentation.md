@@ -55,7 +55,7 @@ The `entityObject` parameter contains the following properties:
   isOn: boolean,             // Device operational status (default: false)
   perc: number,              // Percentage value (default: 0)
   group: string,             // Device grouping classification
-  connectionStatus: string,   // Connection status ("online"/"offline")
+  deviceStatus: string,      // Device status: 'power_on', 'standby', 'power_off', 'warning', 'danger', 'maintenance', 'no_info'
   centralName: string,       // Name of the central system
   connectionStatusTime: string, // Timestamp of last connection
   timaVal: string,           // Timestamp of last telemetry value
@@ -148,9 +148,15 @@ const deviceImages = {
 
 ## Visual States
 
-### Connection Status
-- **Online**: Green indicators, normal styling
-- **Offline**: Red border, blinking animation, alert icons
+### Device Status
+The component supports standardized device status values:
+- **power_on**: Device operating normally (green indicators)
+- **standby**: Device in standby mode (amber indicators)
+- **power_off**: Device powered off (red indicators)
+- **warning**: Warning condition (amber indicators, flashing)
+- **danger**: Critical error (red indicators, flashing)
+- **maintenance**: Under maintenance (amber indicators)
+- **no_info**: No device info/offline (gray indicators, blinking border)
 
 ### Data Freshness Indicators
 - **Recent (< 30 min)**: Green color (`#5cb85c`)
@@ -182,7 +188,7 @@ const deviceCard = renderCardComponent({
     deviceType: "MOTOR",
     val: 1250.5,
     valType: "ENERGY",
-    connectionStatus: "online",
+    deviceStatus: "power_on",
     // ... other properties
   },
   handleActionDashboard: (entity) => {

@@ -11,6 +11,18 @@
 import { MyIOSelectionStore } from '../../../../components/SelectionStore.js';
 import { MyIODraggableCard } from '../../../../components/DraggableCard.js';
 import { formatEnergy } from '../../../../format/energy.ts';
+import {
+  DeviceStatusType,
+  ConnectionStatusType,
+  deviceStatusIcons,
+  connectionStatusIcons,
+  mapDeviceToConnectionStatus,
+  mapDeviceStatusToCardStatus,
+  shouldFlashIcon as shouldIconFlash,
+  isDeviceOffline,
+  getDeviceStatusIcon,
+  getConnectionStatusIcon
+} from '../../../../utils/deviceStatus.js';
 
 export function renderCardComponentV2({
   entityObject,
@@ -166,72 +178,12 @@ export function renderCardComponentV2({
     });
   }
 
-  // 1. LÓGICA DE STATUS
-  const DeviceStatusType = {
-      POWER_ON: "power_on",
-      STANDBY: "standby",
-      POWER_OFF: "power_off",
-      WARNING: "warning",
-      DANGER: "danger",
-      MAINTENANCE: "maintenance",
-      NO_INFO: "no_info",
-  };
-
-  const connectionStatusType = {
-    CONNECTED: "connected",
-    OFFLINE: "offline"
-  }
-
-    const mapDeviceToConnectionStatus = (deviceStatus) => {
-    // Se o status for 'no_info', o dispositivo está offline.
-    if (deviceStatus === DeviceStatusType.NO_INFO) {
-      return connectionStatusType.OFFLINE;
-    }
-    // Para qualquer outro status, o dispositivo é considerado conectado.
-    return connectionStatusType.CONNECTED;
-  };
-
+  // 1. LÓGICA DE STATUS - Usando utilitário centralizado
   const connectionStatus = mapDeviceToConnectionStatus(deviceStatus);
-
-  const deviceStatusIcons = {
-      [DeviceStatusType.POWER_ON]: "⚡",
-      [DeviceStatusType.STANDBY]: "🔌",
-      [DeviceStatusType.POWER_OFF]: "🔴",
-      [DeviceStatusType.WARNING]: "⚠️",
-      [DeviceStatusType.DANGER]: "🚨",
-      [DeviceStatusType.MAINTENANCE]: "🛠️",
-      [DeviceStatusType.NO_INFO]: "❓️",
-  };
-
-  const connectionStatusIcons = {
-    [connectionStatusType.CONNECTED]: "🟢",
-    [connectionStatusType.OFFLINE]: "🚫"
-  }
-
-  // 2. NOVA LÓGICA DE CLASSES E ÍCONES
-  const isOffline = deviceStatus === DeviceStatusType.OFFLINE
-
-  const shouldFlashIcon =
-    deviceStatus === DeviceStatusType.OFFLINE ||
-    deviceStatus === DeviceStatusType.WARNING ||
-    deviceStatus === DeviceStatusType.DANGER ||
-    deviceStatus === DeviceStatusType.MAINTENANCE;
-
-  const icon = deviceStatusIcons[deviceStatus] || deviceStatusIcons[DeviceStatusType.POWER_ON];
-  const connectionIcon = connectionStatusIcons[connectionStatus] || connectionStatusIcons[connectionStatusType.OFFLINE];
-
-  // Map device status to connection status
-  const mapDeviceStatus = (status) => {
-    const statusMap = {
-      'power_on': 'ok',
-      'standby': 'alert',
-      'power_off': 'fail',
-      'warning': 'alert',
-      'danger': 'fail',
-      'maintenance': 'alert'
-    };
-    return statusMap[status] || 'unknown';
-  };
+  const isOffline = isDeviceOffline(deviceStatus);
+  const shouldFlashIcon = shouldIconFlash(deviceStatus);
+  const icon = getDeviceStatusIcon(deviceStatus);
+  const connectionIcon = getConnectionStatusIcon(connectionStatus);
 
   // Map device type to icon
   const mapDeviceTypeToIcon = (deviceType) => {
@@ -323,7 +275,7 @@ export function renderCardComponentV2({
     group: deviceIdentifier || entityType || 'Dispositivo',
     lastValue: Number(val) || 0,
     unit: determineUnit(deviceType),
-    status: mapDeviceStatus(deviceStatus)
+    status: mapDeviceStatusToCardStatus(deviceStatus)
   };
 
   // Register entity with SelectionStore if selection is enabled

@@ -40,7 +40,7 @@ const card = renderCardCompenteHeadOffice(container, {
     val: 22.8,
     valType: 'power_kw',
     perc: 89,
-    connectionStatus: 'RUNNING',
+    deviceStatus: 'power_on',
     temperatureC: 26,
     operationHours: 8.934
   },
@@ -101,7 +101,7 @@ const card = renderCardCompenteHeadOffice(container, {
 | `val` | `number` | Primary metric value |
 | `valType` | `string` | Value type: 'power_kw', 'flow_m3h', 'temp_c', 'custom' |
 | `perc` | `number` | Efficiency percentage (0-100) |
-| `connectionStatus` | `string` | Status: 'RUNNING', 'ALERT', 'FAILURE', 'OFFLINE' |
+| `deviceStatus` | `string` | Status: 'power_on', 'standby', 'power_off', 'warning', 'danger', 'maintenance', 'no_info' |
 | `temperatureC` | `number` | Temperature in Celsius |
 | `operationHours` | `number` | Operation hours (decimal) |
 | `timaVal` | `number` | Timestamp of last update |
@@ -138,14 +138,25 @@ The component includes icons for the following device types:
 | `CAIXA_D_AGUA` | 💧 | Water tank |
 | *Unknown* | ⚙️ | Generic gear (fallback) |
 
-## Status States
+## Device Status States
 
-| Status | Chip Color | Border | Description |
-|--------|------------|--------|-------------|
-| `RUNNING`/`ONLINE` | Blue | None | Normal operation |
-| `ALERT` | Amber | Orange | Warning state |
-| `FAILURE` | Red | Red | Error state |
-| `OFFLINE`/`PAUSED` | Gray | None | Inactive |
+The component uses standardized device status values based on the `deviceStatus` utility.
+
+| Device Status | Chip Color | Border | Description |
+|---------------|------------|--------|-------------|
+| `power_on` | Blue | None | Device is powered on and operating normally |
+| `standby` | Amber | Orange | Device is in standby/idle mode |
+| `power_off` | Red | Red | Device is powered off |
+| `warning` | Amber | Orange | Device has a warning condition |
+| `danger` | Red | Red | Device has a critical error |
+| `maintenance` | Amber | Orange | Device is under maintenance |
+| `no_info` | Gray | None | No device information available (offline) |
+
+### Connection Status Derivation
+
+The connection status is automatically derived from `deviceStatus`:
+- **Connected**: All statuses except `no_info`
+- **Offline**: Only `no_info` status
 
 ## Theming
 
@@ -205,7 +216,7 @@ entities.forEach((entity, index) => {
       val: entity.timeseries?.power?.[0]?.value,
       valType: 'power_kw',
       perc: entity.timeseries?.efficiency?.[0]?.value,
-      connectionStatus: entity.attributes?.status,
+      deviceStatus: entity.attributes?.deviceStatus || 'no_info',
       temperatureC: entity.timeseries?.temperature?.[0]?.value,
       operationHours: entity.timeseries?.operationHours?.[0]?.value,
       timaVal: entity.timeseries?.power?.[0]?.ts
@@ -235,7 +246,7 @@ card.update({
   val: 25.3,
   perc: 92,
   temperatureC: 28,
-  connectionStatus: 'ALERT'
+  deviceStatus: 'warning'
 });
 ```
 
