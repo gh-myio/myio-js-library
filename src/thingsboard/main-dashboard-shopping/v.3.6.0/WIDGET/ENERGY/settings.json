@@ -1,0 +1,22 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Settings",
+    "properties": {
+        "clientID":{
+            "type":"string",
+            "title": "clientID"
+        },
+        "secretid":{
+            "type":"string",
+            "title": "secretid"
+            
+        },
+        "DEFAULT_CUSTOMER_ID":{
+            "type":"string",
+            "title": "DEFAULT_CUSTOMER_ID"
+            
+        }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Settings",
+    "properties": {
+        "clientId":{
+            "type":"string",
+            "title": "clientId"
+        },
+        "clientSecret":{
+            "type":"string",
+            "title": "secretid"
+        },
+        "customerId":{
+            "type":"string",
+            "title": "customerId"
+        }
+    }
+  }
+}

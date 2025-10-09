@@ -1,0 +1,67 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "MAIN_VIEW Orchestrator Settings",
+    "properties": {
+      "cacheTtlMinutes": {
+        "title": "Cache TTL (minutes)",
+        "type": "number",
+        "default": 5,
+        "description": "Time-to-live for cached data entries"
+      },
+      "enableStaleWhileRevalidate": {
+        "title": "Enable Stale-While-Revalidate",
+        "type": "boolean",
+        "default": true,
+        "description": "Serve stale data immediately while refreshing in background"
+      },
+      "maxCacheSize": {
+        "title": "Max Cache Size",
+        "type": "number",
+        "default": 50,
+        "description": "Maximum number of cache entries (LRU eviction)"
+      },
+      "debugMode": {
+        "title": "Debug Mode",
+        "type": "boolean",
+        "default": false,
+        "description": "Enable console logging and debug overlay (Ctrl+Shift+D)"
+      },
+      "domainsEnabled": {
+        "title": "Enabled Domains",
+        "type": "object",
+        "properties": {
+          "energy": {
+            "title": "Energy Domain",
+            "type": "boolean",
+            "default": true
+          },
+          "water": {
+            "title": "Water Domain",
+            "type": "boolean",
+            "default": true
+          },
+          "temperature": {
+            "title": "Temperature Domain",
+            "type": "boolean",
+            "default": true
+          }
+        }
+      }
+    }
+  },
+  "form": [
+    "cacheTtlMinutes",
+    "enableStaleWhileRevalidate",
+    "maxCacheSize",
+    "debugMode",
+    {
+      "key": "domainsEnabled",
+      "items": [
+        "domainsEnabled.energy",
+        "domainsEnabled.water",
+        "domainsEnabled.temperature"
+      ]
+    }
+  ]
+}

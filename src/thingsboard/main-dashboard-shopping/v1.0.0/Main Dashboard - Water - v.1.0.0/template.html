@@ -1,0 +1,50 @@
+<div class="main-content">
+  <div class="status-container">
+    <div class="top-bar">
+      <div class="date-range">
+        <!-- MyIOLibrary DateRangePicker container -->
+        <div id="water-date-range" class="water-widget__daterange" aria-label="Date range selector"></div>
+        <button id="tbx-btn-load" class="load-button">
+          <i class="material-icons">refresh</i>
+          Carregar
+        </button>
+      </div>
+
+      <input class="search-bar" placeholder="🔍 Buscar por nome..." />
+      <button class="btn-report lojas">
+        📋 Relatório Consumo Geral por Loja
+      </button>
+      <!--<span id="fullScreen" class="btn-fullScreen">⛶</span>-->
+      <!--<button class="btn-report shopping">📈 Relatório Shopping por Dia</button>-->
+    </div>
+
+    <div class="group-wrapper-columns">
+      <div class="group-card caixa">
+        <div class="group-title">
+          Caixas D'Água
+          <span class="group-count" data-group-count="Caixas D'Água">(0)</span>
+        </div>
+        <div class="card-list"></div>
+      </div>
+
+      <div class="group-card lojas">
+        <div class="group-title">
+          Ambientes
+          <span class="group-count" data-group-count="Ambientes">(0)</span>
+          <span class="group-total" data-group="Ambientes">-- m³</span>
+        </div>
+        <div class="card-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Alerta que só aparece em celulares -->
+<div class="alerta-mobile">
+  <h1>Dispositivo não suportado</h1>
+  <p>
+    Este widget não está disponível para aparelhos móveis. Acesse de um
+    computador para melhor experiência.
+  </p>
+  <img src="https://myio.com.br/app/uploads/2020/05/Logotest01.png" />
+</div>

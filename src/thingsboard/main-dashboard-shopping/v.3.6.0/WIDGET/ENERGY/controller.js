@@ -1410,7 +1410,6 @@ async function openDashboardPopupEnergy(
           "X-Authorization": `Bearer ${jwtToken}`,
         },
       });
-
       if (!entityResponse.ok) throw new Error("Erro ao buscar entidade");
 
       const entity = await entityResponse.json();
@@ -1784,7 +1783,7 @@ async function openDashboardPopupEnergy(
         start: $popup.find('#start-date').val(),
         end: $popup.find('#end-date').val()
       });
-  });
+    });
 
   // Local load button (scoped) – no global $scope.loadDataForPopup
   $popup.off('click.detailLoad', '.detail-load')
@@ -1931,11 +1930,11 @@ async function openDashboardPopupEnergy(
             label: entityLabel,
             telemetryQuery: {
                 keys: 'a,b,c',
-                limit: 50000,
                 intervalType: 'MILLISECONDS',
-                interval: 4935000,
+                interval: 86400000, // 24 horas em milissegundos
                 agg: 'MAX',
                 orderBy: 'ASC'
+                // limit removido - só funciona com agg=NONE
             },
             yAxisLabel: 'Potência (kW)',
             correctionFactor: 1,

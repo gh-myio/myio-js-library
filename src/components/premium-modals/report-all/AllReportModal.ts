@@ -96,9 +96,9 @@ export class AllReportModal {
 
   // Debug logging helper
   private debugLog(message: string, data?: any): void {
-    //if (this.debugEnabled) {
+    if (this.debugEnabled) {
       console.log(`[AllReportModal DEBUG] ${message}`, data || '');
-    //}
+    }
   }
 
   // Helper: normalize identifiers (upper, strip spaces and non-alphanum)
@@ -271,11 +271,11 @@ export class AllReportModal {
         parentEl: this.modal.element,
         onApply: ({ startISO, endISO }) => {
           this.hideError();
-          console.log('Date range selected:', { startISO, endISO });
+          this.debugLog('Date range selected:', { startISO, endISO });
         }
       });
     } catch (error) {
-      console.warn('DateRangePicker initialization failed, using fallback:', error);
+      this.debugLog('DateRangePicker initialization failed, using fallback:', error);
     }
   }
 
@@ -352,7 +352,7 @@ export class AllReportModal {
     } catch (error) {
       this.debugLog('❌ Error in loadData', error);
       this.showError('Erro ao carregar dados: ' + (error as Error).message);
-      console.error('Error loading data:', error);
+      this.debugLog('Error loading data:', error);
       this.emit('error', { message: (error as Error).message, context: 'loadData' });
     } finally {
       this.isLoading = false;
@@ -739,8 +739,8 @@ export class AllReportModal {
     const endpoint = this.domainConfig.endpoint;
     const url = `${baseUrl}/api/v1/telemetry/customers/${this.params.customerId}/${endpoint}/devices/totals?startTime=${startTime}&endTime=${endTime}`;
 
-    console.log('[AllReportModal] Fetching customer totals:', { url, customerId: this.params.customerId, domain: this.params.domain || 'energy' });
-    
+    this.debugLog('[AllReportModal] Fetching customer totals:', { url, customerId: this.params.customerId, domain: this.params.domain || 'energy' });
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -755,7 +755,7 @@ export class AllReportModal {
     }
 
     const data = await response.json();
-    console.log('[AllReportModal] Customer totals response:', data);
+    this.debugLog('[AllReportModal] Customer totals response:', data);
     
     return data;
   }
@@ -771,8 +771,8 @@ export class AllReportModal {
         : [];
 
     // Always log this for debugging (survives minification)
-    console.log('[AllReportModal] NEW MAPPING - API array length:', apiArray.length);
-    console.log('[AllReportModal] NEW MAPPING - ItemsList length:', this.params.itemsList.length);
+    this.debugLog('[AllReportModal] NEW MAPPING - API array length:', apiArray.length);
+    this.debugLog('[AllReportModal] NEW MAPPING - ItemsList length:', this.params.itemsList.length);
 
     this.debugLog('📋 API data array extracted', {
       isDataProperty: !!apiResponse?.data,
@@ -783,7 +783,7 @@ export class AllReportModal {
 
     if (!apiArray.length) {
       this.debugLog('⚠️ Empty API array, returning empty result');
-      console.warn('[AllReportModal] Empty/invalid API response:', apiResponse);
+      this.debugLog('[AllReportModal] Empty/invalid API response:', apiResponse);
       return [];
     }
 
@@ -799,7 +799,7 @@ export class AllReportModal {
       
       // Log first few items for debugging
       if (index < 3) {
-        console.log(`[AllReportModal] NEW MAPPING - API item ${index}:`, {
+        this.debugLog(`[AllReportModal] NEW MAPPING - API item ${index}:`, {
           id: item?.id,
           name: item?.name,
           assetName: item?.assetName,
@@ -825,8 +825,8 @@ export class AllReportModal {
       }
     }
 
-    console.log('[AllReportModal] NEW MAPPING - Total API consumption:', totalApiConsumption);
-    console.log('[AllReportModal] NEW MAPPING - Unique API IDs:', sumByApiId.size);
+    this.debugLog('[AllReportModal] NEW MAPPING - Total API consumption:', totalApiConsumption);
+    this.debugLog('[AllReportModal] NEW MAPPING - Unique API IDs:', sumByApiId.size);
 
     this.debugLog('📊 ID index built', {
       sumByApiIdSize: sumByApiId.size,
@@ -848,7 +848,7 @@ export class AllReportModal {
       
       // Log first few items for debugging
       if (index < 3) {
-        console.log(`[AllReportModal] NEW MAPPING - ItemsList item ${index}:`, {
+        this.debugLog(`[AllReportModal] NEW MAPPING - ItemsList item ${index}:`, {
           id: listItem.id,
           identifier: listItem.identifier,
           label: listItem.label,
@@ -876,7 +876,7 @@ export class AllReportModal {
             
             // Log substring matches for debugging
             if (index < 3) {
-              console.log(`[AllReportModal] NEW MAPPING - Substring match for ${listItem.identifier}:`, {
+              this.debugLog(`[AllReportModal] NEW MAPPING - Substring match for ${listItem.identifier}:`, {
                 apiItemName: name,
                 apiItemAssetName: assetName,
                 itemConsumption,
@@ -929,10 +929,10 @@ export class AllReportModal {
     };
 
     // Always log final stats (survives minification)
-    console.log('[AllReportModal] NEW MAPPING - Final stats:', stats);
+    this.debugLog('[AllReportModal] NEW MAPPING - Final stats:', stats);
 
     this.debugLog('📊 Final mapping stats:', stats);
-    console.log('[AllReportModal] Mapping stats:', stats);
+    this.debugLog('[AllReportModal] Mapping stats:', stats);
 
     return rows;
   }
@@ -961,7 +961,7 @@ export class AllReportModal {
       }
     }
 
-    console.warn('[AllReportModal] No valid consumption value found in item:', item);
+    this.debugLog('[AllReportModal] No valid consumption value found in item:', item);
     return 0;
   }
 
