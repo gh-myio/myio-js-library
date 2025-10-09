@@ -561,7 +561,7 @@ function bindEvents(root, state, callbacks) {
 
   if (callbacks.handleActionSettings) {
     console.log('DEBUG: Anexando listener ao botão SETTINGS.');
-    dashboardBtn.addEventListener('click', (e) => {
+    settingsBtn.addEventListener('click', (e) => {
       console.log('DEBUG: Botão SETTINGS foi CLICADO!');
       e.stopPropagation();
       closeMenu();
