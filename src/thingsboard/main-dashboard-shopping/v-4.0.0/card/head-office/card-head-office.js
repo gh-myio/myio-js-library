@@ -6,6 +6,7 @@
 import { CSS_STRING } from './card-head-office.css.js';
 import { Icons, ICON_MAP } from '../../head-office/card-head-office.icons';
 import { DEFAULT_I18N } from '../../head-office/card-head-office.types';
+import { formatEnergy } from '../../../../../format/energy.ts';
 
 const CSS_TAG = 'head-office-card-v1';
 
@@ -22,7 +23,8 @@ function ensureCss() {
 }
 
 const ModalIcons = {
-  central: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h9"/><path d="M12 16a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z"/></svg>`,
+  centralName: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h9"/><path d="M12 16a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z"/></svg>`,
+  identifier: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`,
   connection: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 6v6l4 2"/></svg>`,
   target: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,
   tolerance: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
@@ -181,16 +183,28 @@ function getStatusInfo(connectionStatus, i18n) {
 }
 
 /**
- * Get card state class for alert/failure border
+ * Get card state class for status border
  */
 function getCardStateClass(connectionStatus) {
-  switch (connectionStatus) {
+  // Normaliza o status para maiúsculas para garantir a correspondência
+  switch (String(connectionStatus || '').toUpperCase()) {
+    
+    case 'RUNNING':
+    case 'ONLINE':
+      return '';
+
+    case 'OFFLINE':
+    case 'PAUSED':
+      return 'is-offline';
+
     case 'ALERT':
       return 'is-alert';
+
     case 'FAILURE':
       return 'is-failure';
+      
     default:
-      return '';
+      return ''; 
   }
 }
 
@@ -259,25 +273,25 @@ function buildDOM(state) {
   const dashboardBtn = document.createElement('button');
   dashboardBtn.setAttribute('role', 'menuitem');
   dashboardBtn.setAttribute('data-action', 'dashboard');
-  dashboardBtn.textContent = "Dashboard";
+  dashboardBtn.innerHTML = `<img src="https://dashboard.myio-bas.com/api/images/public/TAVXE0sTbCZylwGsMF9lIWdllBB3iFtS" width="16" height="16"/> <span>Dashboard</span>`;
   menu.appendChild(dashboardBtn);
 
   const reportBtn = document.createElement('button');
   reportBtn.setAttribute('role', 'menuitem');
   reportBtn.setAttribute('data-action', 'report');
-  reportBtn.textContent = i18n.menu_report;
+  reportBtn.innerHTML = `<img src="https://dashboard.myio-bas.com/api/images/public/d9XuQwMYQCG2otvtNSlqUHGavGaSSpz4" width="16" height="16"/> <span>${i18n.menu_report}</span>`;
   menu.appendChild(reportBtn);
 
   const settingsBtn = document.createElement('button');
   settingsBtn.setAttribute('role', 'menuitem');
   settingsBtn.setAttribute('data-action', 'settings');
-  settingsBtn.textContent = i18n.menu_settings;
+  settingsBtn.innerHTML = `<img src="https://dashboard.myio-bas.com/api/images/public/5n9tze6vED2uwIs5VvJxGzNNZ9eV4yoz" width="16" height="16"/> <span>${i18n.menu_settings}</span>`;
   menu.appendChild(settingsBtn);
 
   const infoDataBtn = document.createElement('button');
   infoDataBtn.setAttribute('role', 'menuitem');
   infoDataBtn.setAttribute('data-action', 'info');
-  infoDataBtn.textContent = "Mais informações";
+  infoDataBtn.innerHTML = `<img src="data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3ccircle cx='12' cy='12' r='10'%3e%3c/circle%3e%3cline x1='12' y1='16' x2='12' y2='12'%3e%3c/line%3e%3cline x1='12' y1='8' x2='12.01' y2='8'%3e%3c/line%3e%3c/svg%3e"/> <span>Mais informações</span>`;
   menu.appendChild(infoDataBtn);
 
   actionsSection.appendChild(menu);
@@ -445,12 +459,12 @@ function paint(root, state) {
   chip.textContent = statusInfo.label;
 
   // Update primary value
-  const primaryValue = formatPrimaryValue(entityObject.val, entityObject.valType);
+  const primaryValue = formatEnergy(entityObject.val);
   const numSpan = root.querySelector('.myio-ho-card__value .num');
   const unitSpan = root.querySelector('.myio-ho-card__value .unit');
   
-  numSpan.textContent = primaryValue.num;
-  unitSpan.textContent = primaryValue.unit;
+  numSpan.textContent = primaryValue;
+  //unitSpan.textContent = primaryValue.unit;
 
   // Seleciona o contêiner principal da barra ANTES de qualquer lógica
   const barContainer = root.querySelector('.bar');
@@ -491,7 +505,7 @@ function paint(root, state) {
   opTimeVal.textContent = entityObject.operationHours;
 
   const updatedVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(3) .val');
-  updatedVal.textContent = formatRelativeTime(entityObject.timaVal);
+  updatedVal.textContent = formatRelativeTime(entityObject.updated);
 }
 
 /**
@@ -575,13 +589,18 @@ function bindEvents(root, state, callbacks) {
     // Informações básicas
     modalBodyContent += `
       <div class="info-row">
-        <span class="info-icon">${ModalIcons.central}</span>
-        <span class="info-label">Central:</span>
+        <span class="info-icon">${ModalIcons.centralName}</span>
+        <span class="info-label">Central: </span>
+        <span class="info-value">${entityObject.centralName || 'N/A'}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-icon">${ModalIcons.identifier}</span>
+        <span class="info-label">Identifier: </span>
         <span class="info-value">${entityObject.deviceIdentifier || 'N/A'}</span>
       </div>
       <div class="info-row">
         <span class="info-icon">${ModalIcons.connection}</span>
-        <span class="info-label">Última Conexão:</span>
+        <span class="info-label">Última Conexão: </span>
         <span class="info-value">${entityObject.operationHours || 'N/A'}</span>
       </div>
     `;

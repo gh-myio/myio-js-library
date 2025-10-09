@@ -110,6 +110,25 @@ export const CSS_STRING = `
   min-width: 0;
 }
 
+/* Adicione estas duas novas regras ao seu CSS_STRING */
+
+/* Estado Offline */
+.myio-ho-card.is-offline {
+  border-color: rgba(100, 116, 139, 0.4); /* Usa a cor do chip-offline com transparência */
+  box-shadow: 0 0 0 1px rgba(100, 116, 139, 0.4), var(--myio-card-shadow);
+}
+
+/* Regras que já existem (mantenha-as) */
+.myio-ho-card.is-alert {
+  border-color: var(--myio-badge-border);
+  box-shadow: 0 0 0 1px var(--myio-badge-border), var(--myio-card-shadow);
+}
+
+.myio-ho-card.is-failure {
+  border-color: var(--myio-badge-border-failure);
+  box-shadow: 0 0 0 1px var(--myio-badge-border-failure), var(--myio-card-shadow);
+}
+
 .myio-ho-card__name {
   font-weight: 600;
   font-size: 15px;
@@ -319,6 +338,18 @@ export const CSS_STRING = `
 
 .myio-modal-overlay.visible .myio-modal-content {
   transform: translateY(0);
+}
+
+.myio-ho-card__menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Espaço entre o ícone e o texto */
+  text-align: left;
+  width: 100%;
+}
+
+.myio-ho-card__menu button img {
+  flex-shrink: 0; /* Impede que o ícone seja espremido */
 }
 
 /* Título do modal */
