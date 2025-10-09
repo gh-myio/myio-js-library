@@ -2658,8 +2658,7 @@ function openDashboardPopupReport(
         item.date
       }</td>
         <td style="padding: 8px 12px; color: ${corTexto}; background-color: ${corFundo};text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5)">${MyIOLibrary.formatWaterVolumeM3(
-        item.consumptionM3,
-        "Ambientes"
+        item.consumptionM3
       )}</td>
     `;
       tbody.appendChild(tr);
@@ -2758,7 +2757,7 @@ function openDashboardPopupReport(
         self.ctx.$scope.reportData = reportData;
         self.ctx.$scope.totalConsumption = totalconsumption;
         self.ctx.$scope.insueDate = insueDate;
-        document.getElementById("total-consumo").textContent = MyIOLibrary.formatWaterVolumeM3(totalconsumption, "Ambientes");
+        document.getElementById("total-consumo").textContent = MyIOLibrary.formatWaterVolumeM3(totalconsumption);
         document.getElementById("inssueDate").textContent = insueDate;
 
         updateTable();
