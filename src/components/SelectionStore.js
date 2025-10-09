@@ -25,11 +25,11 @@ class MyIOSelectionStoreClass {
 
   // Core Selection Methods
   add(id) {
-    if (typeof id !== 'string' || !id.trim()) return;
-    
+
+    console.log("Biblioteca ID",id)
     const wasSelected = this.selectedIds.has(id);
     this.selectedIds.add(id);
-    
+
     if (!wasSelected) {
       this._emitSelectionChange('add', id);
       this._trackEvent('footer_dock.drop_add', { entityId: id });
@@ -37,12 +37,15 @@ class MyIOSelectionStoreClass {
   }
 
   remove(id) {
-    if (typeof id !== 'string' || !this.selectedIds.has(id)) return;
-    
-    this.selectedIds.delete(id);
+    // Procura o objeto com o id
+    const itemToRemove = Array.from(this.selectedIds).find(obj => obj.id === id);
+    if (!itemToRemove) return; // não encontrado
+    console.log("DELETE ID",id)
+    this.selectedIds.delete(itemToRemove); // remove o objeto inteiro
     this._emitSelectionChange('remove', id);
     this._trackEvent('footer_dock.remove_chip', { entityId: id });
   }
+
 
   toggle(id) {
     if (this.isSelected(id)) {
@@ -104,9 +107,8 @@ class MyIOSelectionStoreClass {
   }
 
   getSelectedEntities() {
-    return this.getSelectedIds()
-      .map(id => this.entities.get(id))
-      .filter(entity => entity !== undefined);
+    console.log("biblioteca:",this.getSelectedIds() )
+    return this.getSelectedIds();
   }
 
   getTotals() {
