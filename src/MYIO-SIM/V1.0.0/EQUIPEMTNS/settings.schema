@@ -1,0 +1,12 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Settings",
+    "properties": {
+        "customerId":{
+            "type":"string",
+            "title": "customerId"
+        }
+    }
+  }
+}

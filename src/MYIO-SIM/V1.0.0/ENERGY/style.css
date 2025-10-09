@@ -1,0 +1,111 @@
+.energy-dashboard {
+  font-family: "Inter", sans-serif;
+  color: #1c2743;
+  height: 100vh;
+  overflow-y: scroll;         /* sempre mostra a barra de rolagem vertical */
+  overflow-x: scroll;         /* evita barra horizontal desnecessária */
+  padding-right: 20px;         /* espaço para a barra não sobrepor conteúdo */
+  box-sizing: border-box;
+}
+
+
+
+.title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.subtitle {
+  margin: 0 0 20px;
+  color: #6b7a90;
+  font-size: 14px;
+}
+
+.cards {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.card {
+  flex: 1;
+  background: linear-gradient(180deg,#ffffff 0%, #f7fbff 100%);
+  border: 1px solid #E6EEF5;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.label {
+  font-size: 13px;
+  color: #6b7a90;
+}
+
+.value {
+  font-size: 22px;
+  margin: 4px 0;
+}
+
+.trend {
+  font-size: 12px;
+}
+
+.trend.up { color: #d97706; }
+.trend.down { color: #1f9d55; }
+
+.progress-bar {
+  background: #e6eef5;
+  height: 8px;
+  border-radius: 6px;
+  margin: 6px 0;
+}
+
+.progress {
+  background: #2563eb;
+  height: 100%;
+  border-radius: 6px;
+}
+
+.meta {
+  font-size: 12px;
+  color: #6b7a90;
+}
+
+.charts {
+  display: flex;
+  gap: 16px;
+}
+
+.chart-box {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #E6EEF5;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* ====== CONTROLES DE ZOOM ====== */
+.toolbar-zoom{
+  position: sticky; top: 6px; z-index: 2;
+  display:flex; gap:6px; justify-content:flex-end; margin-bottom:8px;
+}
+.toolbar-zoom button{
+  border:1px solid var(--card-bd);
+  background:#fff; border-radius:10px; padding:4px 10px;
+  font-size: var(--fs-lg); color: var(--ink-1); cursor:pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,.04);
+}
+.toolbar-zoom button:hover{ background:#f3f8fc; }
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 4 cards por linha */
+  gap: 16px;                             /* espaço entre os cards */
+}
+
+.cards-grid > * {
+  min-width: 0;
+  width: auto;
+  box-sizing: border-box;
+}

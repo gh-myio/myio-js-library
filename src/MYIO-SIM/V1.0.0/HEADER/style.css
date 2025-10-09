@@ -1,0 +1,375 @@
+:root{
+  --card-bg: #ffffff;
+  --card-bg-grad: linear-gradient(180deg,#ffffff 0%, #f7fbff 100%);
+  --card-bd: #E6EEF5;
+  --ink-1: #1C2743;
+  --ink-2: #6b7a90;
+  --ok: #1f9d55;
+  --warn: #d97706;
+  --down: #099250;    /* verde para queda boa */
+  --up: #c2410c;      /* laranja para alta ruim */
+  --bar-ok: #9fc131;
+  --bar-bg: #1c2743;  /* base azul escuro, fina */
+  --shadow: 0 8px 24px rgba(31,116,164,0.08);
+  --radius: 16px;
+}
+
+.myio-toolbar-root{
+  display:flex; flex-direction:column; gap:16px;
+  width:100%; height:100%;
+  padding: 12px 12px 6px 12px;
+  box-sizing:border-box;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  color: var(--ink-1);
+}
+
+/* ===== Cards ===== */
+.myio-cards{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap:16px;
+}
+.myio-card{
+  background: var(--card-bg-grad);
+  border:1px solid var(--card-bd);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding:16px;
+  display:flex; flex-direction:column; gap:8px;
+  min-height: 110px;
+}
+.myio-card-hd{
+  display:flex; align-items:center; justify-content:space-between;
+  font-size:.9rem; color: var(--ink-2);
+}
+.myio-card-ico{ opacity:.65; }
+.myio-card-main{ display:flex; flex-direction:column; gap:4px; }
+.myio-kpi{ font-size:1.8rem; font-weight:800; letter-spacing:.3px; }
+.myio-subrow{ display:flex; align-items:center; gap:8px; font-size:.90rem; color: var(--ink-2); }
+.myio-foot{ font-size:.85rem; color: var(--ink-2); }
+.dot{ width:10px; height:10px; border-radius:10px; display:inline-block; }
+.dot-ok{ background: var(--bar-ok); }
+
+.myio-bar{
+  height:10px; width:100%; border-radius:20px; 
+  background: linear-gradient(90deg, var(--bar-bg) 0 80%, #c3d3e6 80% 100%);
+  overflow:hidden; border: 0;
+}
+.myio-bar-fill{
+  height:100%; border-radius:20px; background: var(--bar-ok);
+  transition: width .3s ease;
+}
+
+.ok{ color: var(--ok); font-weight:600; }
+.warn{ color: var(--warn); font-weight:600; }
+.trend.down{ color: var(--down); font-weight:600; }
+.trend.up{ color: var(--up); font-weight:600; }
+
+/* ===== Tabs ===== */
+.myio-tabs-row{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px;
+}
+.myio-tabs{ display:flex; gap:10px; flex-wrap:wrap; }
+.tab{
+  display:inline-flex; align-items:center; gap:8px;
+  border:1px solid #E6EEF5; background:#fff; color: var(--ink-1);
+  border-radius: 12px; padding:8px 14px; font-weight:600; cursor:pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,.04);
+}
+.tab:hover{ filter: brightness(0.98); }
+.tab.is-active{
+  background:#e9f0f6; border-color:#d5e2ee;
+}
+.tab .ico{ opacity:.8; }
+
+/* Filtro button */
+.myio-filter-btn{
+  margin-left:auto; display:inline-flex; align-items:center; gap:8px;
+  border:1px solid #101828; background:#fff; border-radius:12px;
+  padding:8px 14px; font-weight:700; cursor:pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+.myio-filter-btn:hover{ filter: brightness(0.98); }
+
+@media (max-width: 1200px){
+  .myio-cards{ grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+}
+@media (max-width: 680px){
+  .myio-cards{ grid-template-columns: 1fr; }
+  .myio-toolbar-root{ padding: 8px; }
+}
+
+/* ==== Modal ==== */
+.myio-modal{ position:fixed; inset:0; display:none; z-index:9999; }
+.myio-modal[aria-hidden="false"]{ display:block; }
+.myio-modal-backdrop{ position:absolute; inset:0; background:rgba(16,24,40,.45); }
+.myio-modal-card{
+  position:absolute; left:50%; top:50%; transform:translate(-50%, -50%);
+  width:min(1000px, 92vw);
+  background:#fff; border-radius:16px; box-shadow: 0 24px 64px rgba(0,0,0,.25);
+  overflow:hidden; display:flex; flex-direction:column;
+}
+.myio-modal-hd{ display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid #E6EEF5; }
+.myio-modal-body{ padding:16px 18px; display:flex; flex-direction:column; gap:12px; }
+.myio-modal-ft{ display:flex; justify-content:flex-end; gap:12px; padding:14px 18px; border-top:1px solid #E6EEF5; }
+
+.close-x{ border:0; background:transparent; font-size:24px; cursor:pointer; line-height:1; }
+
+.flt-row{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.flt-search{ display:flex; align-items:center; gap:8px; flex:1; border:2px solid #BBD0E3; border-radius:12px; padding:6px 10px; }
+.flt-search:focus-within{ border-color:#4F93CE; box-shadow: 0 0 0 3px rgba(79,147,206,.15); }
+.flt-search input{ width:100%; border:0; outline:0; font-size:15px; }
+
+.link-btn{ border:0; background:transparent; font-weight:600; cursor:pointer; color:#344054; }
+.save-btn{ border:0; background:#B7D14B; color:#1C2743; font-weight:700; padding:8px 12px; border-radius:10px; cursor:pointer; }
+.apply-btn{ border:0; background:#1D4F91; color:#fff; font-weight:700; padding:10px 16px; border-radius:10px; cursor:pointer; }
+
+.flt-list{ display:flex; flex-direction:column; gap:12px; max-height:48vh; overflow:auto; padding-right:4px; }
+.flt-item{
+  border:1px solid #CFDCE8; border-radius:12px; padding:14px; display:flex; align-items:center; gap:10px;
+}
+.flt-item:hover{ background:#F7FAFF; }
+.flt-radio{ width:18px; height:18px; border-radius:10px; border:2px solid #6991B7; display:inline-block; position:relative; flex:0 0 auto; }
+.flt-item[aria-selected="true"] .flt-radio{ border-color:#1D4F91; }
+.flt-item[aria-selected="true"] .flt-radio::after{ content:""; position:absolute; inset:3px; border-radius:8px; background:#1D4F91; }
+
+.flt-title{ font-weight:700; }
+.flt-chip{ margin-left:auto; background:#EFF6FF; color:#1C2743; padding:2px 8px; border-radius:10px; font-size:12px; border:1px solid #D6E4F2; }
+
+/* ===== v2 – acabamento premium ===== */
+.myio-card.v2{
+  position: relative;
+  background:
+    radial-gradient(120% 120% at 0% 0%, #ffffff 0%, #f8fbff 60%, #f4f8fd 100%);
+  border: 1px solid #E6EEF5;
+  border-radius: 18px;
+  box-shadow:
+    0 1px 1px rgba(16,24,40,.04),
+    0 8px 22px rgba(31,116,164,.08);
+  padding: 14px 16px 16px;
+  transition: box-shadow .2s ease, transform .08s ease;
+}
+.myio-card.v2:hover{ transform: translateY(-1px); box-shadow:
+  0 2px 2px rgba(16,24,40,.05),
+  0 10px 26px rgba(31,116,164,.12);
+}
+
+.myio-card.v2 .myio-card-hd{
+  padding-bottom: 6px;
+}
+.myio-card.v2 .hd-title{
+  font-size: 0.92rem; font-weight: 700; color:#4a5b6b;
+}
+.myio-card.v2 .hd-ico{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; border:1px solid #E3EDF6; border-radius:10px;
+  background:#f7fbff;
+}
+
+.myio-card.v2 .kpi{
+  font-size: 2rem; line-height: 1.1; font-weight: 800; letter-spacing: .2px;
+  color: #0f1f2e;
+}
+.myio-card.v2 .subrow{
+  margin-top: 6px; display:flex; align-items:center; gap:8px;
+  color:#6b7a90; font-size:.95rem;
+}
+.myio-card.v2 .foot{
+  margin-top: 6px; color:#6b7a90; font-size:.9rem;
+}
+
+/* chips (ok/warn/trend) */
+.chip{
+  display:inline-flex; align-items:center; gap:6px;
+  font-weight: 700; font-size: .95rem; margin-top: 6px;
+}
+.chip.ok{ color:#1f9d55; }
+.chip.warn{ color:#d97706; }
+.chip.trend.down{ color:#099250; }
+.chip.trend.up{ color:#c2410c; }
+
+/* barra com “rabinho” verde no final */
+.myio-card.v2 .bar{
+  --pct: 0;              /* preenchido (0–100) */
+  --tail: 10;            /* “rabinho” em % do card preenchido */
+  margin-top:10px; height:10px; width:100%;
+  background:#e6eff7; border-radius:20px; overflow:hidden;
+  box-shadow: inset 0 1px 2px rgba(16,24,40,.08);
+}
+.myio-card.v2 .bar-fill{
+  height:100%;
+  /* faixa azul + cauda verde no final (percentual controlado por JS) */
+  background:
+    linear-gradient(90deg,
+      #1d4f91 0 calc(100% - var(--tail)*1%),
+      #9fc131 calc(100% - var(--tail)*1%) 100%);
+  width: calc(var(--pct) * 1%);  /* recebe via JS */
+  transition: width .35s ease;
+}
+
+/* “água” com glow sutil */
+#card-water.v2{ box-shadow:
+  0 1px 1px rgba(16,24,40,.04),
+  0 8px 22px rgba(79,147,206,.10),
+  0 0 0 1px rgba(122,169,210,.06) inset;
+}
+
+
+/* aliases para compatibilidade */
+.myio-card-main .kpi        { composes: myio-kpi; }      /* se seu bundler não suporta 'composes', use as regras abaixo */
+.myio-card-main .subrow     { display:flex; align-items:center; gap:8px; color:#6b7a90; font-size:.95rem; }
+.myio-card-main .bar        { height:10px; width:100%; border-radius:20px; background:#e6eff7; overflow:hidden; box-shadow: inset 0 1px 2px rgba(16,24,40,.08); }
+.myio-card-main .bar-fill   { height:100%; background:linear-gradient(90deg,#1d4f91 0 calc(100% - 8%), #9fc131 calc(100% - 8%) 100%); transition:width .35s; }
+
+/* garante grid lado a lado (já existe) */
+.myio-cards{ display:grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap:16px; }
+
+/* em telas menores, quebra em 2 e depois 1 */
+@media (max-width: 1200px){ .myio-cards{ grid-template-columns: repeat(2, minmax(220px,1fr)); } }
+@media (max-width: 680px) { .myio-cards{ grid-template-columns: 1fr; } }
+
+.myio-card.v2 .hd-title {
+  margin-bottom: 2px; /* aproxima do KPI */
+  display: block;
+}
+.myio-card.v2 .myio-card-hd {
+  padding-bottom: 0;  /* remove espaçamento desnecessário */
+}
+
+/* ===== Cards ===== */
+.myio-cards{
+  display: grid;
+  grid-template-columns: repeat(5, minmax(220px, 1fr)); /* 5 colunas */
+  gap: 16px;
+  grid-auto-flow: row dense; /* evita item “pegar” a linha inteira */
+}
+
+/* card da logo */
+.myio-card-logo {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:110px;
+  padding:0;
+  background:#6A1B9A;        /* cor roxa principal da logo */
+  border:0;                  /* sem borda clara */
+  box-shadow:0 4px 14px rgba(0,0,0,.15); /* sombra mais intensa pra destacar */
+}
+
+.myio-card-logo .logo-box {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  height:100%;
+}
+
+.myio-card-logo .logo-box img {
+  max-width: 210px;   /* antes 140px → +50% */
+  max-height: 84px;   /* antes 56px → +50% */
+  object-fit: contain;
+  opacity:1;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.25));
+}
+
+
+/* breakpoints (opcional, ajuste como preferir) */
+@media (max-width: 1280px){
+  .myio-cards{ grid-template-columns: repeat(4, minmax(220px, 1fr)); }
+}
+@media (max-width: 1024px){
+  .myio-cards{ grid-template-columns: repeat(3, minmax(220px, 1fr)); }
+}
+@media (max-width: 768px){
+  .myio-cards{ grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+}
+@media (max-width: 560px){
+  .myio-cards{ grid-template-columns: 1fr; }
+}
+
+/* card da logo com fundo roxo */
+.myio-card.v2.myio-card-logo {
+  background: #6A1B9A !important;  /* força o roxo */
+  border: 0;                        /* tira a borda azulada */
+  box-shadow: 0 4px 14px rgba(0,0,0,.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.myio-card.v2.myio-card-logo .logo-box img {
+  max-width: 210px;  /* +50% do tamanho original */
+  max-height: 84px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.25));
+}
+
+/* card da logo com fundo roxo */
+.myio-card.v2.myio-card-logo{
+  background: #5E35B1 !important;   /* roxo */
+  background-image: none !important; /* remove o gradiente */
+  border: 0 !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,.20);
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* logo +50% */
+.myio-card.v2.myio-card-logo .logo-box img{
+  transform: scale(2.1);
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.25));
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Container principal do modal */
+.myio-modal {
+    position: fixed; /* Fixa o modal na tela, ignorando a rolagem */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex; /* Permite centralizar o conteúdo do modal */
+    justify-content: center; /* Centraliza horizontalmente */
+    align-items: center; /* Centraliza verticalmente */
+    z-index: 1000; /* Coloca o modal acima de todo o resto */
+}
+
+/* Fundo semi-transparente do modal (o "backdrop") */
+.myio-modal-backdrop {
+    position: absolute; /* Posição absoluta dentro do .myio-modal */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Cor preta com 50% de opacidade */
+}
+
+/* Conteúdo do modal (o "cartão" branco) */
+.myio-modal-card {
+    position: relative; /* Para que o conteúdo fique acima do backdrop */
+    z-index: 1001;
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Estado inicial do modal (escondido) */
+/* Isso é útil se você usar o atributo aria-hidden para mostrar/esconder */
+.myio-modal[aria-hidden="true"] {
+    display: none;
+}
+
+.tab input:focus{
+    border: none;
+    outline: none;
+    cursor: pointer;
+}
