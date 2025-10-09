@@ -3,19 +3,17 @@
     "type": "object",
     "title": "Settings",
     "properties": {
-        "clientID":{
+        "clientId":{
             "type":"string",
-            "title": "clientID"
+            "title": "clientId"
         },
-        "secretid":{
+        "clientSecret":{
             "type":"string",
             "title": "secretid"
-            
         },
-        "DEFAULT_CUSTOMER_ID":{
+        "customerId":{
             "type":"string",
-            "title": "DEFAULT_CUSTOMER_ID"
-            
+            "title": "customerId"
         }
     }
   }
