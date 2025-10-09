@@ -112,9 +112,9 @@ export const CSS_STRING = `
 
 /* Adicione estas duas novas regras ao seu CSS_STRING */
 
-/* Estado Offline */
+/* Estado Offline - Apenas borda do card */
 .myio-ho-card.is-offline {
-  border-color: rgba(100, 116, 139, 0.4); /* Usa a cor do chip-offline com transparência */
+  border-color: rgba(100, 116, 139, 0.4);
   box-shadow: 0 0 0 1px rgba(100, 116, 139, 0.4), var(--myio-card-shadow);
 }
 
@@ -453,8 +453,8 @@ export const CSS_STRING = `
 }
 
 .chip--offline {
-  background: var(--myio-chip-offline-bg);
-  color: var(--myio-chip-offline-fg);
+  background: #000000;
+  color: #ffffff;
 }
 
 /* Primary metric */
@@ -479,6 +479,7 @@ export const CSS_STRING = `
   align-items: baseline;
   gap: 4px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 .myio-ho-card__value .num {

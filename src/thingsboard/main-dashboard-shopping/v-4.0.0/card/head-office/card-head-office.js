@@ -345,11 +345,6 @@ function buildDOM(state) {
   unitSpan.className = 'unit';
   valueContainer.appendChild(unitSpan);
 
-  const suffixSpan = document.createElement('span');
-  suffixSpan.className = 'suffix';
-  suffixSpan.textContent = i18n.current_suffix;
-  valueContainer.appendChild(suffixSpan);
-
   primarySection.appendChild(valueContainer);
   root.appendChild(primarySection);
 
@@ -602,7 +597,7 @@ function bindEvents(root, state, callbacks) {
       </div>
       <div class="info-row">
         <span class="info-icon">${ModalIcons.identifier}</span>
-        <span class="info-label">Identifier: </span>
+        <span class="info-label">Identificador: </span>
         <span class="info-value">${entityObject.deviceIdentifier || 'N/A'}</span>
       </div>
       <div class="info-row">
