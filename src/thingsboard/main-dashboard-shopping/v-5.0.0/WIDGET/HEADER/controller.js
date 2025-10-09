@@ -1,7 +1,7 @@
 // === Botões premium do popup (reforço por JS, independe da ordem de CSS) ===
 
 // Debug configuration
-const DEBUG_ACTIVE = false;
+const DEBUG_ACTIVE = true; // Set to false to disable debug logs
 
 // LogHelper utility
 const LogHelper = {
@@ -330,7 +330,16 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
     // RFC-0042: Emit initial period automatically when HEADER loads
     // This ensures TELEMETRY widgets don't hang waiting for data on first load
+    // ONLY emit if currentDomain is supported (energy or water)
     setTimeout(() => {
+      // Check if current domain is supported before emitting
+      const isSupported = currentDomain === 'energy' || currentDomain === 'water';
+
+      if (!isSupported) {
+        LogHelper.log(`[HEADER] ⏭️ Skipping initial period emission - unsupported domain: ${currentDomain || 'null'}`);
+        return;
+      }
+
       const startISO = toISO(self.__range.start.toDate(), 'America/Sao_Paulo');
       const endISO = toISO(self.__range.end.toDate(), 'America/Sao_Paulo');
 
@@ -341,7 +350,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         tz: 'America/Sao_Paulo'
       };
 
-      LogHelper.log("[HEADER] 🚀 Emitting initial period automatically:", initialPeriod);
+      LogHelper.log(`[HEADER] 🚀 Emitting initial period for domain ${currentDomain}:`, initialPeriod);
       emitToAllContexts("myio:update-date", { period: initialPeriod });
       emitToAllContexts("myio:update-date-legacy", { startDate: startISO, endDate: endISO });
     }, 1000); // Wait 1s for widgets to initialize

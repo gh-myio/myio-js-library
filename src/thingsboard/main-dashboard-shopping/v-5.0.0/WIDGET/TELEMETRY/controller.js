@@ -8,8 +8,9 @@
  * - Evento (myio:update-date): mostra modal + atualiza
  * =========================================================================*/
 
+/* eslint-disable no-undef, no-unused-vars */
 // Debug configuration
-const DEBUG_ACTIVE = true;
+const DEBUG_ACTIVE = true; // Set to false to disable debug logs
 
 // LogHelper utility
 const LogHelper = {
@@ -107,121 +108,95 @@ function ensureBusyModalDOM() {
   $root().append(html);
   return $root().find(`#${BUSY_ID}`);
 }
+// RFC-0044: Use centralized busy management
 function showBusy(message) {
   LogHelper.log(`[TELEMETRY] 🔄 showBusy() called with message: "${message || 'default'}"`);
 
-  // Get current call stack for debugging
-  const stack = new Error().stack;
-  LogHelper.log(`[TELEMETRY] 📍 showBusy() called from:`, stack?.split('\n')[2]?.trim());
-
-  const $m = ensureBusyModalDOM();
-  const text = (message && String(message).trim()) || "aguarde.. carregando os dados...";
-  $m.find(`#${BUSY_ID}-msg`).text(text);
-  $m.css("display","flex");
-  LogHelper.log(`[TELEMETRY] ✅ Modal displayed, current display style:`, $m.css("display"));
-
-  // IMPORTANT: Clear any existing timeout
-  if (busyTimeoutId) {
-    LogHelper.warn(`[TELEMETRY] ⚠️ showBusy() called while timeout already exists! Clearing previous timeout (ID: ${busyTimeoutId})`);
-    clearTimeout(busyTimeoutId);
-    busyTimeoutId = null;
+  // Prevent multiple simultaneous busy calls
+  if (window.busyInProgress) {
+    LogHelper.log(`[TELEMETRY] ⏭️ Skipping duplicate showBusy() call`);
+    return;
   }
 
-  // RFC-0042: Fallback - if busy modal is still showing after 10s, clear cache and retry
-  busyTimeoutId = setTimeout(() => {
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⏰ Timeout callback fired (ID: ${busyTimeoutId})`);
+  window.busyInProgress = true;
 
-    // IMPORTANT: Check if busy modal is actually still visible before proceeding
-    const $modal = $root().find(`#${BUSY_ID}`);
-    const isStillBusy = $modal.length > 0 && $modal.css('display') !== 'none';
-
-    if (!isStillBusy) {
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Timeout fired but modal already hidden - no action needed`);
-      busyTimeoutId = null;
-      return;
-    }
-
-    LogHelper.warn(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ BUSY TIMEOUT (10s) - Modal still visible, clearing cache and retrying...`);
-
+  // Centralized busy with enhanced synchronization
+  const safeShowBusy = () => {
     try {
-      // IMPORTANT: Try to trigger HEADER buttons programmatically first
-      let autoRetrySucceeded = false;
-
-      try {
-        // Step 1: Click "Limpar" button to clear cache
-        const btnForceRefresh = document.getElementById('tbx-btn-force-refresh');
-        if (btnForceRefresh && !btnForceRefresh.disabled) {
-          LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Auto-clicking "Limpar" button...`);
-          btnForceRefresh.click();
-        } else {
-          LogHelper.warn(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ "Limpar" button not found or disabled`);
-
-          // Fallback: Clear cache manually
-          localStorage.removeItem('myio:cache:energy');
-          localStorage.removeItem('myio:cache:water');
-          LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Cache cleared manually (energy + water)`);
-
-          // Invalidate orchestrator cache if available
-          if (window.MyIOOrchestrator && window.MyIOOrchestrator.invalidateCache) {
-            window.MyIOOrchestrator.invalidateCache('energy');
-            window.MyIOOrchestrator.invalidateCache('water');
-            LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Orchestrator cache invalidated`);
-          }
-        }
-
-        // Step 2: Wait 500ms then click "Carregar" button to reload data
-        setTimeout(() => {
-          const btnLoad = document.getElementById('tbx-btn-load');
-          if (btnLoad && !btnLoad.disabled) {
-            LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Auto-clicking "Carregar" button...`);
-            btnLoad.click();
-            autoRetrySucceeded = true;
-
-            // Hide busy after triggering reload
-            hideBusy();
-          } else {
-            LogHelper.warn(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ "Carregar" button not found or disabled`);
-            hideBusy();
-          }
-
-          // Show alert AFTER auto-retry attempt
-          if (autoRetrySucceeded) {
-            alert('Timeout ao carregar dados. Cache limpo e dados recarregados automaticamente.');
-          } else {
-            alert('Timeout ao carregar dados. Por favor, clique em "Limpar" e depois "Carregar" manualmente.');
-          }
-        }, 500);
-
-      } catch (err) {
-        LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ Error during auto-retry:`, err);
-        hideBusy();
-        alert('Timeout ao carregar dados. Por favor, clique em "Limpar" e depois "Carregar" manualmente.');
+      if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.showGlobalBusy === 'function') {
+        const text = (message && String(message).trim()) || "Carregando dados...";
+        window.MyIOOrchestrator.showGlobalBusy(WIDGET_DOMAIN, text);
+        LogHelper.log(`[TELEMETRY] ✅ Using centralized busy for domain: ${WIDGET_DOMAIN}`);
+      } else {
+        LogHelper.warn(`[TELEMETRY] ⚠️ Orchestrator not available, using fallback busy`);
+        const $m = ensureBusyModalDOM();
+        const text = (message && String(message).trim()) || "aguarde.. carregando os dados...";
+        $m.find(`#${BUSY_ID}-msg`).text(text);
+        $m.css("display","flex");
       }
-
     } catch (err) {
-      LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ Error in timeout handler:`, err);
-      hideBusy();
+      LogHelper.error(`[TELEMETRY] ❌ Error in showBusy:`, err);
+    } finally {
+      // Always reset busy flag after a short delay
+      setTimeout(() => {
+        window.busyInProgress = false;
+      }, 500);
     }
+  };
 
-    busyTimeoutId = null;
-  }, 10000); // 10 seconds
+  // Ensure orchestrator is ready before showing busy (max 30 attempts = 3 seconds)
+  let attempts = 0;
+  const maxAttempts = 30;
+  const checkOrchestratorReady = () => {
+    attempts++;
+    if (window.MyIOOrchestrator) {
+      safeShowBusy();
+    } else if (attempts >= maxAttempts) {
+      LogHelper.warn(`[TELEMETRY] Orchestrator not available after ${maxAttempts} attempts, using fallback`);
+      safeShowBusy(); // Use fallback
+    } else {
+      setTimeout(checkOrchestratorReady, 100);
+    }
+  };
 
-  LogHelper.log(`[TELEMETRY] ⏰ Created busyTimeout with ID: ${busyTimeoutId}`);
+  checkOrchestratorReady();
 }
 
 function hideBusy() {
   LogHelper.log(`[TELEMETRY] ⏸️ hideBusy() called`);
 
-  // IMPORTANT: Clear the timeout when manually hiding busy
-  if (busyTimeoutId) {
-    LogHelper.log(`[TELEMETRY] ✅ Clearing busyTimeout (ID: ${busyTimeoutId})`);
-    clearTimeout(busyTimeoutId);
-    busyTimeoutId = null;
-  } else {
-    LogHelper.log(`[TELEMETRY] ⚠️ No busyTimeout to clear (already null)`);
-  }
+  const safeHideBusy = () => {
+    try {
+      if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.hideGlobalBusy === 'function') {
+        window.MyIOOrchestrator.hideGlobalBusy();
+        LogHelper.log(`[TELEMETRY] ✅ Using centralized hideBusy`);
+      } else {
+        LogHelper.warn(`[TELEMETRY] ⚠️ Orchestrator not available, using fallback hideBusy`);
+        $root().find(`#${BUSY_ID}`).css("display","none");
+      }
+    } catch (err) {
+      LogHelper.error(`[TELEMETRY] ❌ Error in hideBusy:`, err);
+    } finally {
+      window.busyInProgress = false;
+    }
+  };
 
-  $root().find(`#${BUSY_ID}`).css("display","none");
+  // Ensure orchestrator is ready before hiding busy (max 30 attempts = 3 seconds)
+  let attempts = 0;
+  const maxAttempts = 30;
+  const checkOrchestratorReady = () => {
+    attempts++;
+    if (window.MyIOOrchestrator) {
+      safeHideBusy();
+    } else if (attempts >= maxAttempts) {
+      LogHelper.warn(`[TELEMETRY] Orchestrator not available after ${maxAttempts} attempts, using fallback`);
+      safeHideBusy(); // Use fallback
+    } else {
+      setTimeout(checkOrchestratorReady, 100);
+    }
+  };
+
+  checkOrchestratorReady();
 }
 
 /** ===================== GLOBAL SUCCESS MODAL (fora do widget) ===================== **/
@@ -596,6 +571,9 @@ function renderList(visible) {
     const $card = MyIO.renderCardComponentV2({
       entityObject,
       handInfo: true,
+      useNewComponents: true,  // Habilitar novos componentes
+      enableSelection: true,   // Habilitar seleção
+      enableDragDrop: true,    // Habilitar drag and drop
 
       handleActionDashboard: async () => {
        try {
@@ -1110,12 +1088,12 @@ self.onInit = async function () {
 
   // RFC-0042: Listen for data provision from orchestrator
   dataProvideHandler = function (ev) {
-    LogHelper.log(`[TELEMETRY] Received provide-data event:`, ev.detail);
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${ev.detail.domain}, periodKey: ${ev.detail.periodKey}, items: ${ev.detail.items?.length || 0}`);
     const { domain, periodKey, items } = ev.detail;
 
     // Only process if it's for my domain
     if (domain !== WIDGET_DOMAIN) {
-      LogHelper.log(`[TELEMETRY] Ignoring event for domain ${domain}, my domain is ${WIDGET_DOMAIN}`);
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⏭️ Ignoring event for domain ${domain}, my domain is ${WIDGET_DOMAIN}`);
       return;
     }
 
@@ -1254,10 +1232,21 @@ self.onInit = async function () {
 
     reflowFromState();
 
-    // Minimum delay to ensure user sees the modal (500ms)
+    // RFC-0044: ALWAYS hide busy when data is provided, regardless of source
+    LogHelper.log(`[TELEMETRY] 🏁 Data processed successfully - ensuring busy is hidden`);
+    
+    // Force hide busy with minimal delay to ensure UI update
     setTimeout(() => {
       hideBusy();
-    }, 500);
+      // Double-check: if orchestrator busy is still showing, force hide it
+      if (window.MyIOOrchestrator && window.MyIOOrchestrator.getBusyState) {
+        const busyState = window.MyIOOrchestrator.getBusyState();
+        if (busyState.isVisible) {
+          LogHelper.warn(`[TELEMETRY] ⚠️ Orchestrator busy still visible after data processing - force hiding`);
+          window.MyIOOrchestrator.hideGlobalBusy();
+        }
+      }
+    }, 100); // Reduced to 100ms for faster response
   };
 
   /**
@@ -1388,8 +1377,13 @@ self.onInit = async function () {
     reflowFromState();
   }
 
-  // Show busy modal while waiting for orchestrator
-  showBusy();
+  // Only show busy if we have a date range defined
+  if (self.ctx?.scope?.startDateISO && self.ctx?.scope?.endDateISO) {
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Initial period defined, showing busy...`);
+    showBusy();
+  } else {
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] No initial period, waiting for myio:update-date event...`);
+  }
 
   // RFC-0042: OLD CODE - Direct API fetch (now handled by orchestrator)
   /*

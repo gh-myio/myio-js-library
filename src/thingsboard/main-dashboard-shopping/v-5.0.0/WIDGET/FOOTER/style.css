@@ -1,0 +1,385 @@
+/* ===== MYIO Premium Footer - Design System ===== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+.myio-footer-widget {
+  /* --- Premium Dark Theme Variables --- */
+  --footer-primary: #00e09e;
+  --footer-primary-glow: rgba(0, 224, 158, 0.4);
+  --footer-bg-start: #1a1f35;
+  --footer-bg-end: #0a0e1a;
+  --footer-text: #ffffff;
+  --footer-text-dim: rgba(255, 255, 255, 0.65);
+  --footer-border: rgba(255, 255, 255, 0.08);
+  --footer-shadow: 0 -12px 48px rgba(0, 0, 0, 0.6);
+  --footer-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* --- Layout - Ocupa 100% do container --- */
+  position: relative !important;
+  width: 100% !important;
+  height: 60px !important;
+  margin: 0 !important;
+  padding: 0 24px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+
+  /* --- Display Grid --- */
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  align-items: center !important;
+  gap: 20px !important;
+
+  /* --- Premium Design --- */
+  background: linear-gradient(135deg, var(--footer-bg-start) 0%, var(--footer-bg-end) 100%) !important;
+  box-shadow: var(--footer-shadow) !important;
+  border-top: 2px solid var(--footer-primary) !important;
+  border-radius: 0 !important; /* No border radius for grid area */
+  backdrop-filter: blur(10px) !important;
+
+  /* --- Typography --- */
+  color: var(--footer-text) !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+
+  /* --- Animation --- */
+  transition: var(--footer-transition) !important;
+}
+
+/* Premium accent shimmer line */
+.myio-footer-widget::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--footer-primary) 20%,
+    #00b4d8 50%,
+    var(--footer-primary) 80%,
+    transparent 100%
+  );
+  animation: shimmer 3s ease-in-out infinite;
+  z-index: 1;
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Visual feedback when dragging */
+.myio-footer-widget.drag-over {
+  border-top: 3px solid var(--footer-primary) !important;
+  box-shadow: 0 -12px 48px var(--footer-primary-glow), var(--footer-shadow) !important;
+  background: linear-gradient(135deg,
+    rgba(0, 224, 158, 0.1) 0%,
+    var(--footer-bg-start) 50%,
+    var(--footer-bg-end) 100%
+  ) !important;
+}
+
+.myio-footer-widget.drag-over::before {
+  height: 3px;
+  animation: pulse-glow 0.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.7;
+    filter: brightness(1.5);
+  }
+}
+
+/* ===== Dock Area ===== */
+.myio-dock {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding: 0 !important;
+  height: 100% !important;
+
+  /* Custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: var(--footer-primary) rgba(255, 255, 255, 0.05);
+}
+
+.myio-dock::-webkit-scrollbar {
+  height: 4px;
+}
+
+.myio-dock::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.myio-dock::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, var(--footer-primary), #00b4d8);
+  border-radius: 2px;
+  transition: var(--footer-transition);
+}
+
+.myio-dock::-webkit-scrollbar-thumb:hover {
+  background: var(--footer-primary);
+}
+
+/* ===== Chip Cards (Premium Design) ===== */
+.myio-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px 16px !important;
+  border-radius: 24px !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  white-space: nowrap !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  color: var(--footer-text) !important;
+  transition: var(--footer-transition) !important;
+  cursor: default !important;
+  position: relative !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Chip premium shine effect */
+.myio-chip::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.myio-chip:hover {
+  background: linear-gradient(135deg, rgba(0, 224, 158, 0.15) 0%, rgba(0, 180, 216, 0.1) 100%) !important;
+  border-color: var(--footer-primary) !important;
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 6px 20px rgba(0, 224, 158, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+.myio-chip:hover::before {
+  left: 100%;
+}
+
+.myio-chip-icon {
+  font-size: 16px !important;
+  color: var(--footer-primary) !important;
+  filter: drop-shadow(0 0 8px var(--footer-primary-glow)) !important;
+  animation: pulse-icon 2s ease-in-out infinite;
+}
+
+@keyframes pulse-icon {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+/* Chip remove button */
+.myio-chip button {
+  background: none !important;
+  border: none !important;
+  color: var(--footer-text-dim) !important;
+  cursor: pointer !important;
+  padding: 4px !important;
+  margin: 0 0 0 4px !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  width: 20px !important;
+  height: 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  transition: var(--footer-transition) !important;
+}
+
+.myio-chip button:hover {
+  color: #ff4d4f !important;
+  background: rgba(255, 77, 79, 0.15) !important;
+  transform: rotate(90deg) scale(1.2) !important;
+}
+
+.myio-chip button:active {
+  transform: rotate(90deg) scale(0.9) !important;
+}
+
+/* ===== Right Controls ===== */
+.myio-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 20px !important;
+  padding-left: 20px !important;
+  border-left: 1px solid var(--footer-border) !important;
+  height: 100% !important;
+}
+
+/* Meta info (totals) */
+.myio-meta {
+  font-variant-numeric: tabular-nums !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: var(--footer-text) !important;
+  white-space: nowrap !important;
+  padding: 8px 16px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--footer-border) !important;
+  letter-spacing: 0.5px !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Compare button (Premium CTA) */
+.myio-compare {
+  position: relative !important;
+  height: 44px !important;
+  min-width: 120px !important;
+  padding: 0 24px !important;
+  border-radius: 22px !important;
+  border: none !important;
+  background: linear-gradient(135deg, var(--footer-primary) 0%, #00b4d8 100%) !important;
+  color: #0a0e1a !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  transition: var(--footer-transition) !important;
+  box-shadow: 0 4px 16px var(--footer-primary-glow) !important;
+  overflow: hidden !important;
+}
+
+.myio-compare::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+
+.myio-compare:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.05) !important;
+  box-shadow: 0 8px 24px var(--footer-primary-glow), 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  background: linear-gradient(135deg, #00ffb5 0%, #00e09e 100%) !important;
+}
+
+.myio-compare:hover:not(:disabled)::before {
+  transform: translateX(100%);
+}
+
+.myio-compare:active:not(:disabled) {
+  transform: translateY(0) scale(0.98) !important;
+  box-shadow: 0 2px 8px var(--footer-primary-glow) !important;
+}
+
+.myio-compare:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: var(--footer-text-dim) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Empty state */
+.myio-empty {
+  color: var(--footer-text-dim) !important;
+  font-size: 13px !important;
+  font-style: italic !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.myio-empty::before {
+  content: '↓';
+  font-size: 18px;
+  animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* ===== Responsive Design ===== */
+@media (max-width: 1024px) {
+  .myio-footer-widget {
+    max-height: none !important;
+    height: auto !important;
+    grid-template-columns: 1fr !important;
+    padding: 12px 16px !important;
+    gap: 12px !important;
+  }
+
+  .myio-right {
+    border-left: none !important;
+    border-top: 1px solid var(--footer-border) !important;
+    padding-left: 0 !important;
+    padding-top: 12px !important;
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .myio-dock {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .myio-right {
+    height: auto !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .myio-footer-widget {
+    padding: 10px 12px !important;
+  }
+
+  .myio-chip {
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+  }
+
+  .myio-meta {
+    font-size: 12px !important;
+    padding: 6px 12px !important;
+  }
+
+  .myio-compare {
+    height: 38px !important;
+    min-width: 100px !important;
+    font-size: 12px !important;
+    padding: 0 16px !important;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .myio-footer-widget {
+    --footer-bg-start: #000000;
+    --footer-bg-end: #0a0e1a;
+  }
+}
