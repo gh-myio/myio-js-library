@@ -110,6 +110,25 @@ export const CSS_STRING = `
   min-width: 0;
 }
 
+/* Adicione estas duas novas regras ao seu CSS_STRING */
+
+/* Estado Offline */
+.myio-ho-card.is-offline {
+  border-color: rgba(100, 116, 139, 0.4); /* Usa a cor do chip-offline com transparência */
+  box-shadow: 0 0 0 1px rgba(100, 116, 139, 0.4), var(--myio-card-shadow);
+}
+
+/* Regras que já existem (mantenha-as) */
+.myio-ho-card.is-alert {
+  border-color: var(--myio-badge-border);
+  box-shadow: 0 0 0 1px var(--myio-badge-border), var(--myio-card-shadow);
+}
+
+.myio-ho-card.is-failure {
+  border-color: var(--myio-badge-border-failure);
+  box-shadow: 0 0 0 1px var(--myio-badge-border-failure), var(--myio-card-shadow);
+}
+
 .myio-ho-card__name {
   font-weight: 600;
   font-size: 15px;
@@ -155,7 +174,7 @@ export const CSS_STRING = `
 
 .myio-ho-card__menu {
   position: absolute;
-  top: 100%;
+  top: 16%;
   right: 0;
   background: white;
   border: 1px solid var(--myio-card-border);
@@ -165,6 +184,74 @@ export const CSS_STRING = `
   min-width: 140px;
   padding: 4px 0;
   margin-top: 4px;
+}
+
+/* Estilos para o Modal */
+.myio-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000; /* Garante que o modal fique na frente de tudo */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.myio-modal-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.myio-modal-content {
+  background-color: #fff;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  position: relative;
+  min-width: 300px;
+  text-align: left;
+  font-family: sans-serif; /* Use a fonte que preferir */
+  line-height: 1.6;
+}
+
+.myio-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  border: none;
+  background: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #888;
+}
+
+.myio-modal-close:hover {
+    color: #000;
+}
+
+.myio-modal-content p {
+  margin: 0;
+  color: #333;
+}
+
+.myio-modal-content strong {
+    color: #000;
+}
+
+.myio-modal-title {
+  margin-top: 0;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+  font-size: 1.25rem; /* 20px */
+  color: #333;
+  font-weight: 600;
 }
 
 .myio-ho-card__menu[hidden] {
@@ -207,6 +294,132 @@ export const CSS_STRING = `
   height: 16px;
   margin: 0;
   cursor: pointer;
+}
+
+/* =============================================== */
+/* === ESTILOS PARA O MODAL DE INFORMAÇÕES === */
+/* =============================================== */
+
+/* Fundo escurecido que cobre a tela */
+.myio-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+/* Torna o modal visível */
+.myio-modal-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Caixa de conteúdo do modal */
+.myio-modal-content {
+  background: #fff;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 450px;
+  position: relative;
+  transform: translateY(-20px);
+  transition: transform 0.3s ease;
+}
+
+.myio-modal-overlay.visible .myio-modal-content {
+  transform: translateY(0);
+}
+
+.myio-ho-card__menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Espaço entre o ícone e o texto */
+  text-align: left;
+  width: 100%;
+}
+
+.myio-ho-card__menu button img {
+  flex-shrink: 0; /* Impede que o ícone seja espremido */
+}
+
+/* Título do modal */
+.myio-modal-title {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 12px;
+}
+
+/* Botão de fechar (X) */
+.myio-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+  color: #aaa;
+  line-height: 1;
+  padding: 0;
+}
+.myio-modal-close:hover {
+  color: #333;
+}
+
+/* Linha de informação (ícone + label + valor) */
+.info-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+}
+
+/* Estilo do ícone */
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  color: #555;
+}
+.info-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Rótulo (Ex: "Central:") */
+.info-label {
+  color: #666;
+  font-weight: 500;
+}
+
+/* Valor da informação */
+.info-value {
+  margin-left: auto;
+  font-weight: 600;
+  color: #333;
+  text-align: right;
+}
+
+/* Divisor entre seções */
+.info-divider {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 16px 0;
 }
 
 /* Status chip */

@@ -10,7 +10,7 @@
 // Import the new MYIO components
 import { MyIOSelectionStore } from '../../../../components/SelectionStore.js';
 import { MyIODraggableCard } from '../../../../components/DraggableCard.js';
-import { formatEnergy } from '../../../../format/energy.js';
+import { formatEnergy } from '../../../../format/energy.ts';
 
 export function renderCardComponentV2({
   entityObject,
@@ -1141,7 +1141,8 @@ export function renderCardComponentV2({
         // Lógica para quando o usuário MARCA o checkbox
         if (e.target.checked) {
           const currentCount = MyIOSelectionStore.getSelectedEntities().length;
-
+          const selectedEntityes = MyIOSelectionStore.getSelectedEntities()
+          console.log("selectedEntityes",selectedEntityes)
           const isTryingToAdd = e.target.checked;
 
           if (isTryingToAdd && currentCount >= 6) {
@@ -1150,14 +1151,28 @@ export function renderCardComponentV2({
               MyIOToast.show('Não é possível selecionar mais de 6 itens.', 'warning');
               return; // Interrompe a execução
           }
+          
 
+          window.dispatchEvent(new CustomEvent('myio:device-params', {
+            detail: {
+              id: entityId,
+              name: labelOrName
+            }
+        }));
           // Se o limite não foi atingido, adiciona normalmente
-          MyIOSelectionStore.add(entityId);
+          //MyIOSelectionStore.add(entityId);
 
         } else {
           // Lógica para quando o usuário DESMARCA (sempre permitido)
-          MyIOSelectionStore.remove(entityId);
-        }
+          window.dispatchEvent(new CustomEvent('myio:device-params-remove', {
+            detail: {
+              id: entityId,
+              name: labelOrName
+            }
+        }));
+
+
+       }
       });
     }
     
