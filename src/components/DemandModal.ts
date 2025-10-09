@@ -1028,8 +1028,6 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   overlay.setAttribute('aria-labelledby', 'modal-title');
 
   const label = params.label || 'Dispositivo';
-  const startDateFormatted = formatDate(new Date(params.startDate), locale);
-  const endDateFormatted = formatDate(new Date(params.endDate), locale);
 
   overlay.innerHTML = `
     <div class="myio-demand-modal-card">
@@ -1052,10 +1050,6 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
             ×
           </button>
         </div>
-      </div>
-      
-      <div class="myio-demand-modal-period">
-        ${strings.period}: ${startDateFormatted} → ${endDateFormatted}
       </div>
 
       <div class="myio-demand-modal-period-selector">
@@ -1117,7 +1111,6 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   const errorText = overlay.querySelector('.myio-demand-modal-error-text') as HTMLElement;
   const peakEl = overlay.querySelector('.myio-demand-modal-peak') as HTMLElement;
   const contentEl = overlay.querySelector('.myio-demand-modal-content') as HTMLElement;
-  const periodDisplayEl = overlay.querySelector('.myio-demand-modal-period') as HTMLElement;
   const dateStartInput = overlay.querySelector('.myio-demand-modal-date-start') as HTMLInputElement;
   const dateEndInput = overlay.querySelector('.myio-demand-modal-date-end') as HTMLInputElement;
   const updateBtn = overlay.querySelector('.myio-demand-modal-btn-update') as HTMLButtonElement;
@@ -1409,11 +1402,6 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
         errorText.textContent = 'O Limite de busca é de 30 dias de intervalo.';
         return;
       }
-
-      // Update period display
-      const startDateFormatted = formatDate(startDateObj, locale);
-      const endDateFormatted = formatDate(endDateObj, locale);
-      periodDisplayEl.textContent = `${strings.period}: ${startDateFormatted} → ${endDateFormatted}`;
 
       // Use custom fetcher if provided, otherwise use default ThingsBoard fetcher
       const rawData = params.fetcher
