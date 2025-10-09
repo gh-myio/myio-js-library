@@ -53,14 +53,10 @@
   --border-radius-base: 8px;
   --transition-speed: 0.2s ease-in-out;
   
-  /* --- Layout Base --- (MODIFICADO) --- */
-  position: fixed;   /* ALTERADO */
-  bottom: 0;         /* ADICIONADO */
-  left: 0;           /* ADICIONADO */
-  right: 0;          /* ADICIONADO */
+  /* --- Layout Base (não fixo por padrão) --- */
+  position: relative;
   width: 100%;       
   height: 60px;
-  z-index: 1000;     /* ADICIONADO */
   
   display: grid;
   grid-template-columns: 1fr auto; /* Dock flexível, Direita fixa */
@@ -75,6 +71,16 @@
   border-top: 2px solid var(--color-primary);
   box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2); /* Sombra sutil para profundidade */
 }
+
+    /* Variante fixa opcional (ancora ao viewport) */
+    .myio-footer.is-fixed {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      z-index: 1000;
+    }
     
     .myio-dock {
       display: flex;
@@ -242,6 +248,7 @@
       if (this.initialized) return;
 
       this.$root = ctx?.$container?.[0];
+      this.ctx = ctx;
       if (!this.$root) {
         LogHelper.error("MyIO Footer: Root container not found.");
         return;
@@ -297,6 +304,12 @@
       const footerSection = document.createElement("section");
       footerSection.className = "myio-footer";
       footerSection.innerHTML = FOOTER_HTML;
+
+      // Habilita modo fixo opcional via settings do widget (ctx.settings.fixedFooter)
+      try {
+        const fixed = !!(this.ctx && this.ctx.settings && this.ctx.settings.fixedFooter);
+        if (fixed) footerSection.classList.add('is-fixed');
+      } catch (_) { /* noop */ }
 
       this.$root.appendChild(footerSection);
       this.$footerEl = footerSection; // Armazena a referência ao footer
