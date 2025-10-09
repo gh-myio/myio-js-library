@@ -2,10 +2,11 @@
 // Core Head Office card component implementation
 
 /* eslint-env browser */
-
+/* eslint-disable */
 import { CSS_STRING } from './card-head-office.css.js';
 import { Icons, ICON_MAP } from '../../head-office/card-head-office.icons';
 import { DEFAULT_I18N } from '../../head-office/card-head-office.types';
+import { formatEnergy } from '../../../../../format/energy.ts';
 
 const CSS_TAG = 'head-office-card-v1';
 
@@ -21,6 +22,15 @@ function ensureCss() {
   }
 }
 
+const ModalIcons = {
+  centralName: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h9"/><path d="M12 16a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z"/></svg>`,
+  identifier: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`,
+  connection: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 6v6l4 2"/></svg>`,
+  target: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,
+  tolerance: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
+  excess: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`
+};
+
 /**
  * Normalize and validate parameters
  */
@@ -34,6 +44,7 @@ function normalizeParams(params) {
     console.warn('renderCardCompenteHeadOffice: entityId is missing, generating temporary ID');
     entityObject.entityId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
+  
 
   return {
     entityObject,
@@ -71,7 +82,7 @@ function formatPrimaryValue(val, valType) {
     case 'power_kw':
       return {
         num: val.toFixed(1),
-        unit: 'kW',
+        unit: 'kWh',
         suffix: ''
       };
     case 'flow_m3h':
@@ -134,6 +145,25 @@ function formatRelativeTime(timestamp) {
 }
 
 /**
+ * Calcula a porcentagem do consumo em relação a uma meta.
+ * @param {number} target - O valor da meta (deve ser maior que zero).
+ * @param {number} consumption - O valor consumido.
+ * @returns {number} A porcentagem do consumo em relação à meta. Retorna 0 se a meta for inválida.
+ */
+function calculateConsumptionPercentage(target, consumption) {
+  // Garante que os valores sejam numéricos e a meta seja positiva para evitar erros.
+  const numericTarget = Number(target);
+  const numericConsumption = Number(consumption);
+
+  if (isNaN(numericTarget) || isNaN(numericConsumption) || numericTarget <= 0) {
+    return 0;
+  }
+
+  const percentage = (numericConsumption / numericTarget) * 100;
+  return percentage;
+}
+
+/**
  * Get status chip class and label
  */
 function getStatusInfo(connectionStatus, i18n) {
@@ -153,16 +183,28 @@ function getStatusInfo(connectionStatus, i18n) {
 }
 
 /**
- * Get card state class for alert/failure border
+ * Get card state class for status border
  */
 function getCardStateClass(connectionStatus) {
-  switch (connectionStatus) {
+  // Normaliza o status para maiúsculas para garantir a correspondência
+  switch (String(connectionStatus || '').toUpperCase()) {
+    
+    case 'RUNNING':
+    case 'ONLINE':
+      return '';
+
+    case 'OFFLINE':
+    case 'PAUSED':
+      return 'is-offline';
+
     case 'ALERT':
       return 'is-alert';
+
     case 'FAILURE':
       return 'is-failure';
+      
     default:
-      return '';
+      return ''; 
   }
 }
 
@@ -231,20 +273,26 @@ function buildDOM(state) {
   const dashboardBtn = document.createElement('button');
   dashboardBtn.setAttribute('role', 'menuitem');
   dashboardBtn.setAttribute('data-action', 'dashboard');
-  dashboardBtn.textContent = i18n.menu_dashboard;
+  dashboardBtn.innerHTML = `<img src="https://dashboard.myio-bas.com/api/images/public/TAVXE0sTbCZylwGsMF9lIWdllBB3iFtS" width="16" height="16"/> <span>Dashboard</span>`;
   menu.appendChild(dashboardBtn);
 
   const reportBtn = document.createElement('button');
   reportBtn.setAttribute('role', 'menuitem');
   reportBtn.setAttribute('data-action', 'report');
-  reportBtn.textContent = i18n.menu_report;
+  reportBtn.innerHTML = `<img src="https://dashboard.myio-bas.com/api/images/public/d9XuQwMYQCG2otvtNSlqUHGavGaSSpz4" width="16" height="16"/> <span>${i18n.menu_report}</span>`;
   menu.appendChild(reportBtn);
 
   const settingsBtn = document.createElement('button');
   settingsBtn.setAttribute('role', 'menuitem');
   settingsBtn.setAttribute('data-action', 'settings');
-  settingsBtn.textContent = i18n.menu_settings;
+  settingsBtn.innerHTML = `<img src="https://dashboard.myio-bas.com/api/images/public/5n9tze6vED2uwIs5VvJxGzNNZ9eV4yoz" width="16" height="16"/> <span>${i18n.menu_settings}</span>`;
   menu.appendChild(settingsBtn);
+
+  const infoDataBtn = document.createElement('button');
+  infoDataBtn.setAttribute('role', 'menuitem');
+  infoDataBtn.setAttribute('data-action', 'info');
+  infoDataBtn.innerHTML = `<img src="data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3ccircle cx='12' cy='12' r='10'%3e%3c/circle%3e%3cline x1='12' y1='16' x2='12' y2='12'%3e%3c/line%3e%3cline x1='12' y1='8' x2='12.01' y2='8'%3e%3c/line%3e%3c/svg%3e"/> <span>Mais informações</span>`;
+  menu.appendChild(infoDataBtn);
 
   actionsSection.appendChild(menu);
 
@@ -405,39 +453,59 @@ function paint(root, state) {
   root.className = `myio-ho-card ${stateClass}`;
 
   // Update status chip
-  const statusInfo = getStatusInfo(entityObject.connectionStatus, i18n);
+  const statusInfo = getStatusInfo(String(entityObject.connectionStatus).toUpperCase(), i18n);
   const chip = root.querySelector('.chip');
   chip.className = `chip ${statusInfo.chipClass}`;
   chip.textContent = statusInfo.label;
 
   // Update primary value
-  const primaryValue = formatPrimaryValue(entityObject.val, entityObject.valType);
+  const primaryValue = formatEnergy(entityObject.val);
   const numSpan = root.querySelector('.myio-ho-card__value .num');
   const unitSpan = root.querySelector('.myio-ho-card__value .unit');
   
-  numSpan.textContent = primaryValue.num;
-  unitSpan.textContent = primaryValue.unit;
+  numSpan.textContent = primaryValue;
+  //unitSpan.textContent = primaryValue.unit;
 
-  // Update efficiency
-  const perc = entityObject.perc || 0;
-  const barFill = root.querySelector('.bar__fill');
-  const percSpan = root.querySelector('.myio-ho-card__eff .perc');
+  // Seleciona o contêiner principal da barra ANTES de qualquer lógica
   const barContainer = root.querySelector('.bar');
-  
-  barFill.style.width = `${Math.max(0, Math.min(100, perc))}%`;
-  percSpan.textContent = `${Math.round(perc)}%`;
-  barContainer.setAttribute('aria-valuenow', Math.round(perc).toString());
-  barContainer.setAttribute('aria-label', `${i18n.efficiency} ${Math.round(perc)}%`);
+  const effContainer = root.querySelector('.myio-ho-card__eff'); // Contêiner do texto "%"
+
+  // 1. Verifica se o valor da meta é válido (não é nulo, indefinido ou zero)
+  const targetValue = entityObject.consumptionTargetValue;
+
+  if (targetValue) {
+    // --- A META EXISTE: MOSTRA E ATUALIZA A BARRA ---
+
+    // Garante que os elementos estejam visíveis
+    barContainer.style.display = ''; // Reverte para o display padrão do CSS
+    effContainer.style.display = '';
+
+    // Pega os elementos internos da barra
+    const barFill = root.querySelector('.bar__fill');
+    const percSpan = root.querySelector('.myio-ho-card__eff .perc');
+    
+    // Calcula e atualiza a barra
+    const perc = calculateConsumptionPercentage(targetValue, entityObject.val);
+    
+    barFill.style.width = `${Math.max(0, Math.min(100, perc))}%`;
+    percSpan.textContent = `${Math.round(perc)}%`;
+    barContainer.setAttribute('aria-valuenow', Math.round(perc).toString());
+    barContainer.setAttribute('aria-label', `${i18n.efficiency} ${Math.round(perc)}%`);
+
+  } else {
+    barContainer.style.display = 'none';
+    effContainer.style.display = 'none';
+  }
 
   // Update footer metrics
   const tempVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(1) .val');
   tempVal.textContent = formatTemperature(entityObject.temperatureC);
 
   const opTimeVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(2) .val');
-  opTimeVal.textContent = formatOperationHours(entityObject.operationHours);
+  opTimeVal.textContent = entityObject.operationHours;
 
   const updatedVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(3) .val');
-  updatedVal.textContent = formatRelativeTime(entityObject.timaVal);
+  updatedVal.textContent = formatRelativeTime(entityObject.updated);
 }
 
 /**
@@ -485,6 +553,7 @@ function bindEvents(root, state, callbacks) {
   const dashboardBtn = menu.querySelector('[data-action="dashboard"]');
   const reportBtn = menu.querySelector('[data-action="report"]');
   const settingsBtn = menu.querySelector('[data-action="settings"]');
+  const infoBtn = menu.querySelector('[data-action="info"]');
 
   if (callbacks.handleActionDashboard) {
     dashboardBtn.addEventListener('click', (e) => {
@@ -509,7 +578,69 @@ function bindEvents(root, state, callbacks) {
       callbacks.handleActionSettings(e, entityObject);
     });
   }
+  
+  infoBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeMenu();
 
+    const title = state.entityObject.labelOrName || 'Dispositivo sem nome';
+    let modalBodyContent = '<div class="info-section">'; // Inicia a primeira seção
+
+    // Informações básicas
+    modalBodyContent += `
+      <div class="info-row">
+        <span class="info-icon">${ModalIcons.centralName}</span>
+        <span class="info-label">Central: </span>
+        <span class="info-value">${entityObject.centralName || 'N/A'}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-icon">${ModalIcons.identifier}</span>
+        <span class="info-label">Identifier: </span>
+        <span class="info-value">${entityObject.deviceIdentifier || 'N/A'}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-icon">${ModalIcons.connection}</span>
+        <span class="info-label">Última Conexão: </span>
+        <span class="info-value">${entityObject.operationHours || 'N/A'}</span>
+      </div>
+    `;
+
+    modalBodyContent += '</div>'; // Fecha a primeira seção
+
+    // Tenta obter os dados de meta (que são opcionais)
+    const consumptionTargetValue = state.entityObject.consumptionTargetValue ? formatPrimaryValue(state.entityObject.consumptionTargetValue, 'power_kw') : null;
+    const consumptionToleranceValue = state.entityObject.consumptionToleranceValue ? formatPrimaryValue(state.entityObject.consumptionToleranceValue, 'power_kw') : null;
+    const consumptionExcessValue = state.entityObject.consumptionExcessValue != null ? formatPrimaryValue(state.entityObject.consumptionExcessValue, 'power_kw') : null;
+
+    // Se TODOS os dados de meta existirem, adiciona o bloco de HTML correspondente
+    if (consumptionTargetValue && consumptionToleranceValue && consumptionExcessValue) {
+        modalBodyContent += '<hr class="info-divider">';
+        modalBodyContent += '<div class="info-section">'; // Inicia a segunda seção
+
+        modalBodyContent += `
+          <div class="info-row">
+            <span class="info-icon">${ModalIcons.target}</span>
+            <span class="info-label">Meta:</span>
+            <span class="info-value">${consumptionTargetValue.num} ${consumptionTargetValue.unit}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-icon">${ModalIcons.tolerance}</span>
+            <span class="info-label">Tolerância:</span>
+            <span class="info-value">${consumptionToleranceValue.num} ${consumptionToleranceValue.unit}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-icon">${ModalIcons.excess}</span>
+            <span class="info-label">Excedente PG/NPG:</span>
+            <span class="info-value">${consumptionExcessValue.num} ${consumptionExcessValue.unit}</span>
+          </div>
+        `;
+
+        modalBodyContent += '</div>'; // Fecha a segunda seção
+    }
+
+    // Chama a função para mostrar o modal
+    showInfoModal(title, modalBodyContent);
+  });
   // Selection checkbox
   const checkbox = root.querySelector('.myio-ho-card__select input[type="checkbox"]');
   if (checkbox && callbacks.handleSelect) {
@@ -596,6 +727,72 @@ function unbindEvents(root) {
   }
 }
 
+/**
+ * Cria a estrutura do modal e a anexa ao body (se ainda não existir).
+ * Também configura os eventos para fechar o modal.
+ */
+function createInfoModal() {
+  // Evita criar o modal múltiplas vezes
+  if (document.getElementById('myio-info-modal')) {
+    return;
+  }
+
+  const modalOverlay = document.createElement('div');
+  modalOverlay.className = 'myio-modal-overlay';
+  modalOverlay.id = 'myio-info-modal';
+
+  const modalContent = document.createElement('div');
+  modalContent.className = 'myio-modal-content';
+
+  const closeButton = document.createElement('button');
+  closeButton.className = 'myio-modal-close';
+  closeButton.innerHTML = '&times;';
+  closeButton.setAttribute('aria-label', 'Fechar modal');
+  
+  // +++ ADICIONADO O TÍTULO +++
+  const modalTitle = document.createElement('h3');
+  modalTitle.className = 'myio-modal-title';
+  modalTitle.id = 'myio-info-modal-title';
+
+  const modalBody = document.createElement('div');
+  modalBody.id = 'myio-info-modal-body';
+
+  modalContent.appendChild(closeButton);
+  modalContent.appendChild(modalTitle); // +++ ADICIONADO
+  modalContent.appendChild(modalBody);
+  modalOverlay.appendChild(modalContent);
+  document.body.appendChild(modalOverlay);
+
+  // Função para fechar o modal
+  const closeModal = () => {
+    modalOverlay.classList.remove('visible');
+  };
+
+  // Eventos para fechar
+  closeButton.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) {
+      closeModal();
+    }
+  });
+}
+
+/**
+ * Exibe o modal com as informações fornecidas.
+ * @param {object} data - Objeto com os dados a serem exibidos. Ex: { title: 'Nome do Device', meta: '120kWh', ... }
+ */
+function showInfoModal(title, bodyHtml) {
+    createInfoModal();
+
+    const modalOverlay = document.getElementById('myio-info-modal');
+    const modalTitle = document.getElementById('myio-info-modal-title');
+    const modalBody = document.getElementById('myio-info-modal-body');
+
+    modalTitle.textContent = title || 'Informações';
+    modalBody.innerHTML = bodyHtml; // Define o HTML diretamente
+
+    modalOverlay.classList.add('visible');
+}
 /**
  * Main render function
  */

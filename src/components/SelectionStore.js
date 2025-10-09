@@ -7,8 +7,10 @@
  */
 /* eslint-disable */
 
+
 class MyIOSelectionStoreClass {
   constructor() {
+    this.state =  {selectedDevice: null}
     this.selectedIds = new Set();
     this.entities = new Map();
     this.eventListeners = new Map();
@@ -25,8 +27,7 @@ class MyIOSelectionStoreClass {
 
   // Core Selection Methods
   add(id) {
-
-    console.log("Biblioteca ID",id)
+    console.log("Entrou na LIB", id)
     const wasSelected = this.selectedIds.has(id);
     this.selectedIds.add(id);
 
@@ -37,6 +38,7 @@ class MyIOSelectionStoreClass {
   }
 
   remove(id) {
+    console.log("ITEM PARA REMOÇÂO ID",id);
     // Procura o objeto com o id
     const itemToRemove = Array.from(this.selectedIds).find(obj => obj.id === id);
     if (!itemToRemove) return; // não encontrado
