@@ -167,9 +167,7 @@ const STRINGS = {
     title: 'Demanda',
     period: 'Período',
     maximum: 'Máxima',
-    at: 'no dia',
-    atTime: 'ás',
-    timeUnit: 'hs',
+    at: 'em',
     exportPdf: 'Exportar PDF',
     exportCsv: 'Exportar CSV',
     fullscreen: 'Tela cheia',
@@ -193,8 +191,6 @@ const STRINGS = {
     period: 'Period',
     maximum: 'Maximum',
     at: 'on',
-    atTime: 'at',
-    timeUnit: '',
     exportPdf: 'Export PDF',
     exportCsv: 'Export CSV',
     fullscreen: 'Fullscreen',
@@ -703,15 +699,13 @@ function formatDate(date: Date, locale: string): string {
 }
 
 /**
- * Format datetime according to locale
+ * Format date according to locale (without time)
  */
 function formatDateTime(date: Date, locale: string): string {
   return date.toLocaleDateString(locale, {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
+    year: 'numeric'
   });
 }
 
@@ -969,15 +963,15 @@ async function generatePdfReport(
     currentY += 10;
     
     const samplePoints = chartData.series[0].points.slice(0, 10); // Take sample from first series
-    
+
     doc.setFontSize(10);
-    doc.text('Data/Hora', 20, currentY);
+    doc.text('Data', 20, currentY);
     doc.text(params.yAxisLabel || strings.demand, 100, currentY);
     currentY += 7; // Smaller increment for table rows
 
     samplePoints.forEach(point => {
       currentY = ensureRoom(doc, currentY, 10); // Ensure room for each row
-      const dateStr = formatDateTime(new Date(point.x), params.locale || 'pt-BR');
+      const dateStr = formatDate(new Date(point.x), params.locale || 'pt-BR');
       doc.text(dateStr, 20, currentY);
       doc.text(point.y.toFixed(2), 100, currentY);
       currentY += 7;
@@ -1183,12 +1177,12 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
     try {
       // CSV Header with BOM for Excel compatibility
       const BOM = '\uFEFF';
-      let csv = BOM + 'Data/Hora,Série,Valor (kW)\n';
+      let csv = BOM + 'Data,Série,Valor (kW)\n';
 
       // Add data rows
       chartData.series.forEach(series => {
         series.points.forEach(point => {
-          const dateStr = formatDateTime(new Date(point.x), locale);
+          const dateStr = formatDate(new Date(point.x), locale);
           const value = point.y.toFixed(2);
           csv += `${dateStr},${series.label},${value}\n`;
         });
@@ -1281,15 +1275,15 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
         currentY += 10;
         
         const samplePoints = chartData.series[0].points.slice(0, 10); // Take sample from first series
-        
+
         doc.setFontSize(10);
-        doc.text('Data/Hora', 20, currentY);
+        doc.text('Data', 20, currentY);
         doc.text(params.yAxisLabel || strings.demand, 100, currentY);
         currentY += 7; // Smaller increment for table rows
 
         samplePoints.forEach(point => {
           currentY = ensureRoom(doc, currentY, 10); // Ensure room for each row
-          const dateStr = formatDateTime(new Date(point.x), params.locale || 'pt-BR');
+          const dateStr = formatDate(new Date(point.x), params.locale || 'pt-BR');
           doc.text(dateStr, 20, currentY);
           doc.text(point.y.toFixed(2), 100, currentY);
           currentY += 7;
@@ -1322,9 +1316,16 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
     const startDate = new Date(currentStartDate);
     const endDate = new Date(currentEndDate);
 
-    // Format to YYYY-MM-DD for HTML5 date input
-    dateStartInput.value = startDate.toISOString().split('T')[0];
-    dateEndInput.value = endDate.toISOString().split('T')[0];
+    // Format to YYYY-MM-DD for HTML5 date input (using local date, not UTC)
+    const formatLocalDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    dateStartInput.value = formatLocalDate(startDate);
+    dateEndInput.value = formatLocalDate(endDate);
   }
 
   // Validate and update period
@@ -1443,12 +1444,8 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
           month: '2-digit',
           year: 'numeric'
         });
-        const timeStr = date.toLocaleTimeString(locale, {
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-        
-        peakEl.textContent = `${strings.maximum}: ${peak.formattedValue} kW ${peak.key ? `(${peak.key}) ` : ''}${strings.at} ${dateStr} ${strings.atTime} ${timeStr}${strings.timeUnit}`;
+
+        peakEl.textContent = `${strings.maximum}: ${peak.formattedValue} kW ${peak.key ? `(${peak.key}) ` : ''}${strings.at} ${dateStr}`;
         peakEl.style.display = 'block';
       }
 
