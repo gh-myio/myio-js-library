@@ -50,8 +50,8 @@
 /* ===== Cards ===== */
 .myio-cards{
   display:grid;
-  grid-template-columns: repeat(5, minmax(180px, 1fr));
-  gap:12px;
+  grid-template-columns: repeat(5, 1fr);
+  gap:10px;
   background: transparent !important;
 }
 .myio-card{
@@ -118,13 +118,7 @@
 }
 .myio-filter-btn:hover{ filter: brightness(0.98); }
 
-@media (max-width: 1200px){
-  .myio-cards{ grid-template-columns: repeat(2, minmax(220px, 1fr)); }
-}
-@media (max-width: 680px){
-  .myio-cards{ grid-template-columns: 1fr; }
-  .myio-toolbar-root{ padding: 8px; }
-}
+/* Removido - definições duplicadas movidas para o final do arquivo */
 
 /* ==== Modal ==== */
 .myio-modal{ position:fixed; inset:0; display:none; z-index:9999; }
@@ -249,12 +243,7 @@
 .myio-card-main .bar        { height:10px; width:100%; border-radius:20px; background:#e6eff7; overflow:hidden; box-shadow: inset 0 1px 2px rgba(16,24,40,.08); }
 .myio-card-main .bar-fill   { height:100%; background:linear-gradient(90deg,#1d4f91 0 calc(100% - 8%), #9fc131 calc(100% - 8%) 100%); transition:width .35s; }
 
-/* garante grid lado a lado (já existe) */
-.myio-cards{ display:grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap:16px; }
-
-/* em telas menores, quebra em 2 e depois 1 */
-@media (max-width: 1200px){ .myio-cards{ grid-template-columns: repeat(2, minmax(220px,1fr)); } }
-@media (max-width: 680px) { .myio-cards{ grid-template-columns: 1fr; } }
+/* Removido - definições duplicadas que sobrescreviam o grid principal */
 
 .myio-card.v2 .hd-title {
   margin-bottom: 2px; /* aproxima do KPI */
@@ -292,17 +281,26 @@
   filter: drop-shadow(0 2px 4px rgba(0,0,0,.25));
 }
 
-/* breakpoints responsivos */
-@media (max-width: 1280px){
-  .myio-cards{ grid-template-columns: repeat(4, minmax(180px, 1fr)); }
+/* breakpoints responsivos - prioriza 5 colunas */
+@media (max-width: 1200px){
+  .myio-cards{
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
 }
 @media (max-width: 1024px){
-  .myio-cards{ grid-template-columns: repeat(3, minmax(180px, 1fr)); }
+  .myio-cards{
+    grid-template-columns: repeat(5, minmax(140px, 1fr));
+    gap: 6px;
+  }
 }
-@media (max-width: 768px){
-  .myio-cards{ grid-template-columns: repeat(2, minmax(180px, 1fr)); }
+@media (max-width: 900px){
+  .myio-cards{ grid-template-columns: repeat(3, 1fr); }
 }
-@media (max-width: 560px){
+@media (max-width: 600px){
+  .myio-cards{ grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 400px){
   .myio-cards{ grid-template-columns: 1fr; }
 }
 
