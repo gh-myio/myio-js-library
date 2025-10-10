@@ -879,103 +879,72 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     });
 
 
-    // Inicializa o daterangepicker
-    var $inputStart = $('input[name="startDatetimes"]');
-
-    $inputStart.daterangepicker({
-        timePicker: true,
-        timePicker24Hour: true,
-        autoApply: true,
-        autoUpdateInput: true,
-        timePickerIncrement: 1,
-        linkedCalendars: true,
-        showCustomRangeLabel: true,
-        ranges: {
-            'Hoje': [moment().startOf('day'), moment().endOf('day')],
-            'Útimos 7 dias': [moment().subtract(6, 'days').startOf('day'), moment().endOf('day')],
-            'Útimos 30 dias': [moment().subtract(29, 'days').startOf('day'), moment().endOf('day')],
-            'Mês Anterior': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-        },
-        startDate: presetStart ? moment(presetStart) : moment().startOf('month'),
-        endDate: presetEnd ? moment(presetEnd) : moment().endOf('day'), // 👈 aqui muda para 23:59
-        locale: {
-            format: 'DD/MM/YY HH:mm',
-            applyLabel: 'Aplicar',
-            cancelLabel: 'Cancelar',
-            fromLabel: 'De',
-            toLabel: 'Até',
-            customRangeLabel: 'Personalizado',
-            daysOfWeek: ['Do', 'Se', 'Te', 'Qa', 'Qi', 'Se', 'Sa'],
-            monthNames: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
-            firstDay: 1,
-            separator: " até ",
-            applyButtonClasses: ".applyBtn",
-            cancelClass: ".cancelBtn"
-        },
-        maxDate: moment().endOf('day'), // 👈 maxDate também até 23:59 de hoje
-        opens: 'left',
-        drops: 'down',
-    }
-    );
-
-    // Requer moment-timezone carregado
+    // Inicializa o daterangepicker usando o componente MyIOLibrary
     const TZ = 'America/Sao_Paulo';
+    const hoje = new Date();
 
-    $inputStart.on('apply.daterangepicker', function (ev, picker) {
-        // Para exibir no input
-        const startLabel = picker.startDate.format('DD/MM/YY HH:mm');
-        const endLabel = picker.endDate.format('DD/MM/YY HH:mm');
-        $(this).val(`${startLabel} até ${endLabel}`);
+    // Define datas iniciais (início do mês até hoje)
+    const startDate = presetStart ? new Date(presetStart) : new Date(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0);
+    const endDate = presetEnd ? new Date(presetEnd) : new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59);
 
-        // Representações:
-        // 1) ISO com offset local (-03:00)
-        const startISOOffset = picker.startDate.clone().tz(TZ).format('YYYY-MM-DDTHH:mm:ssZ');
-        const endISOOffset = picker.endDate.clone().tz(TZ).format('YYYY-MM-DDTHH:mm:ssZ');
+    // Converte para ISO strings
+    const startISO = startDate.toISOString();
+    const endISO = endDate.toISOString();
 
-        // 2) ISO em UTC (termina com 'Z') — útil p/ backends
-        const startUTC = picker.startDate.clone().utc().toISOString();
-        const endUTC = picker.endDate.clone().utc().toISOString();
+    let timeStart = startISO;
+    let timeEnd = endISO;
 
-        // 3) Epoch (ms) — útil para queries por timestamp
-        const startMs = picker.startDate.valueOf();
-        const endMs = picker.endDate.valueOf();
+    // Encontra o input existente
+    const inputElement = document.querySelector('input[name="startDatetimes"]');
 
-        console.log("[MENU] START", startMs)
-        console.log("[MENU] end", endMs)
-        // Envie o que preferir; abaixo mando os dois formatos
-        window.dispatchEvent(new CustomEvent('myio:update-date', {
-            detail: {
-                startDate: startISOOffset, // "2025-09-10T00:00:00-03:00"
-                endDate: endISOOffset,   // "2025-09-12T23:59:00-03:00"
-                startUtc: startUTC,       // "2025-09-10T03:00:00.000Z"
-                endUtc: endUTC,         // "2025-09-13T02:59:00.000Z"
-                startMs,
-                endMs,
-                tz: TZ
+    // Inicializa o date range picker do MyIOLibrary (sem container, apenas no input)
+    // Usando a biblioteca diretamente no input existente
+    if (inputElement && typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createDateRangePicker) {
+        MyIOLibrary.createDateRangePicker(inputElement, {
+            presetStart: startISO,
+            presetEnd: endISO,
+            maxRangeDays: 365,
+            onApply: (result) => {
+                // Atualiza as variáveis de tempo
+                timeStart = result.startISO;
+                timeEnd = result.endISO;
+
+                // Calcula epoch timestamps
+                const startMs = new Date(result.startISO).getTime();
+                const endMs = new Date(result.endISO).getTime();
+
+                // Formata para timezone de São Paulo (simulação do formato com offset)
+                const startDate = new Date(result.startISO);
+                const endDate = new Date(result.endISO);
+
+                // ISO com offset -03:00 (simulado)
+                const startISOOffset = result.startISO.replace('Z', '-03:00');
+                const endISOOffset = result.endISO.replace('Z', '-03:00');
+
+                console.log("[MENU] START", startMs);
+                console.log("[MENU] end", endMs);
+
+                // Dispara evento customizado mantendo a mesma estrutura
+                window.dispatchEvent(new CustomEvent('myio:update-date', {
+                    detail: {
+                        startDate: startISOOffset,
+                        endDate: endISOOffset,
+                        startUtc: result.startISO,
+                        endUtc: result.endISO,
+                        startMs,
+                        endMs,
+                        tz: TZ
+                    }
+                }));
             }
-        }));
-    });
-
-
-    $inputStart.on('show.daterangepicker', function (ev, picker) {
-        picker.maxDate = moment().endOf('day'); // 👈 garante que limite seja até 23:59 de hoje
-    });
-
-    // Função para pegar datas do picker
-    function getDates() {
-        var picker = $inputStart.data('daterangepicker');
-        return {
-            startDate: picker.startDate.format('YYYY-MM-DDTHH:mm:ssZ'),
-            endDate: picker.endDate.format('YYYY-MM-DDTHH:mm:ssZ'),
-            inicio: picker.startDate.format('DD/MM'),
-            fim: picker.endDate.format('DD/MM')
-        };
+        }).then(picker => {
+            console.log('[MENU] Date range picker inicializado com MyIOLibrary');
+        }).catch(err => {
+            console.error('[MENU] Erro ao inicializar date picker:', err);
+        });
+    } else {
+        console.warn('[MENU] MyIOLibrary.createDateRangePicker não disponível');
     }
-
-    // Atualiza datas no escopo
-    var dates = getDates();
-    let timeStart = dates.startDate
-    let timeEnd = dates.endDate
 
     const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
     CLIENT_ID = self.ctx.settings.clientId;
@@ -997,56 +966,20 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         });
     }
 
-    const hoje = new Date();
-
-    // início do mês → 00:00:00
-    const startDate = new Date(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0);
-    const startDateISO = startDate.toISOString().replace(".000Z", "-03:00"); // ISO com timezone
-    self.ctx.$scope.startDateISO = timeStart
-
-    const startDateLast = new Date(
-        hoje.getFullYear(),
-        hoje.getMonth(),
-        1,
-        0,
-        0,
-        0
-    );
-    const startDateISOLast = startDateLast
-        .toISOString()
-        .replace(".000Z", "-03:00"); // ISO com timezone
-
-    // fim do dia atual → 23:59:59
-    const endDate = new Date(
-        hoje.getFullYear(),
-        hoje.getMonth(),
-        hoje.getDate(),
-        23,
-        59,
-        59
-    );
-    const endDateISO = endDate.toISOString().replace(".000Z", "-03:00");
+    // Atualiza escopo com datas iniciais
+    self.ctx.$scope.startDateISO = timeStart;
     self.ctx.$scope.endDateISO = timeEnd;
 
-    const endDateLast = new Date(
-        hoje.getFullYear(),
-        hoje.getMonth() - 1,
-        hoje.getDate(),
-        23,
-        59,
-        59
-    );
-
-    const endDateISOLast = endDateLast.toISOString().replace(".000Z", "-03:00");
+    // Dispara evento inicial com as datas preset
+    const startDateFormatted = timeStart.replace('Z', '-03:00');
+    const endDateFormatted = timeEnd.replace('Z', '-03:00');
 
     window.dispatchEvent(new CustomEvent('myio:update-date', {
         detail: {
-            startDate: startDateISO,
-            endDate: endDateISO,
+            startDate: startDateFormatted,
+            endDate: endDateFormatted,
         }
     }));
-
-    const timeWindow = `Intervalo: ${formatDiaMes(startDate)} - ${formatDiaMes(endDate)}`;
 
 
 

@@ -917,102 +917,17 @@ function formatDiaMes(date) {
 /* ====== Lifecycle ====== */
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
-  // Inicializa o daterangepicker
-  var $inputStart = $('input[name="startDatetimes"]');
+  // Define timezone e datas iniciais
+  const TZ = 'America/Sao_Paulo';
+  const hoje = new Date();
 
-  $inputStart.daterangepicker({
-    timePicker: true,
-    timePicker24Hour: true,
-    autoApply: true,
-    autoUpdateInput: true,
-    timePickerIncrement: 1,
-    linkedCalendars: true,
-    showCustomRangeLabel: true,
-    ranges: {
-      'Hoje': [moment().startOf('day'), moment().endOf('day')],
-      'Útimos 7 dias': [moment().subtract(6, 'days').startOf('day'), moment().endOf('day')],
-      'Útimos 30 dias': [moment().subtract(29, 'days').startOf('day'), moment().endOf('day')],
-      'Mês Anterior': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-    },
-    startDate: presetStart ? moment(presetStart) : moment().startOf('month'),
-    endDate: presetEnd ? moment(presetEnd) : moment().endOf('day'), // 👈 aqui muda para 23:59
-    locale: {
-      format: 'DD/MM/YY HH:mm',
-      applyLabel: 'Aplicar',
-      cancelLabel: 'Cancelar',
-      fromLabel: 'De',
-      toLabel: 'Até',
-      customRangeLabel: 'Personalizado',
-      daysOfWeek: ['Do', 'Se', 'Te', 'Qa', 'Qi', 'Se', 'Sa'],
-      monthNames: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
-      firstDay: 1,
-      separator: " até ",
-      applyButtonClasses: ".applyBtn",
-      cancelClass: ".cancelBtn"
-    },
-    maxDate: moment().endOf('day'), // 👈 maxDate também até 23:59 de hoje
-    opens: 'left',
-    drops: 'down',
-  }
-  );
-    
-    // Requer moment-timezone carregado
-    const TZ = 'America/Sao_Paulo';
-    
-    $inputStart.on('apply.daterangepicker', function (ev, picker) {
-      // Para exibir no input
-      const startLabel = picker.startDate.format('DD/MM/YY HH:mm');
-      const endLabel   = picker.endDate.format('DD/MM/YY HH:mm');
-      $(this).val(`${startLabel} até ${endLabel}`);
-    
-      // Representações:
-      // 1) ISO com offset local (-03:00)
-      const startISOOffset = picker.startDate.clone().tz(TZ).format('YYYY-MM-DDTHH:mm:ssZ');
-      const endISOOffset   = picker.endDate.clone().tz(TZ).format('YYYY-MM-DDTHH:mm:ssZ');
-    
-      // 2) ISO em UTC (termina com 'Z') — útil p/ backends
-      const startUTC = picker.startDate.clone().utc().toISOString();
-      const endUTC   = picker.endDate.clone().utc().toISOString();
-    
-      // 3) Epoch (ms) — útil para queries por timestamp
-      const startMs = picker.startDate.valueOf();
-      const endMs   = picker.endDate.valueOf();
-      updateTotalConsumption(self.ctx.filterCustom||self.ctx.$scope.custumer,startISOOffset,endISOOffset)
-      
-      // Envie o que preferir; abaixo mando os dois formatos
-      window.dispatchEvent(new CustomEvent('myio:update-date', {
-        detail: {
-          startDate: startISOOffset, // "2025-09-10T00:00:00-03:00"
-          endDate:   endISOOffset,   // "2025-09-12T23:59:00-03:00"
-          startUtc:  startUTC,       // "2025-09-10T03:00:00.000Z"
-          endUtc:    endUTC,         // "2025-09-13T02:59:00.000Z"
-          startMs,
-          endMs,
-          tz: TZ
-        }
-      }));
-    });
+  // Define datas iniciais (início do mês até hoje)
+  const startDate = presetStart ? new Date(presetStart) : new Date(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0);
+  const endDate = presetEnd ? new Date(presetEnd) : new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59);
 
-
-  $inputStart.on('show.daterangepicker', function (ev, picker) {
-    picker.maxDate = moment().endOf('day'); // 👈 garante que limite seja até 23:59 de hoje
-  });
-
-  // Função para pegar datas do picker
-  function getDates() {
-    var picker = $inputStart.data('daterangepicker');
-    return {
-      startDate: picker.startDate.format('YYYY-MM-DDTHH:mm:ssZ'),
-      endDate: picker.endDate.format('YYYY-MM-DDTHH:mm:ssZ'),
-      inicio: picker.startDate.format('DD/MM'),
-      fim: picker.endDate.format('DD/MM')
-    };
-  }
-
-  // Atualiza datas no escopo
-  var dates = getDates();
-  let timeStart = dates.startDate
-  let timeEnd = dates.endDate
+  // Converte para ISO strings
+  let timeStart = startDate.toISOString();
+  let timeEnd = endDate.toISOString();
 
   const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
   CLIENT_ID = self.ctx.settings.clientId;
@@ -1039,58 +954,28 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     });
   }
 
-  const hoje = new Date();
-
-  // início do mês → 00:00:00
-  const startDate = new Date(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0);
-  const startDateISO = startDate.toISOString().replace(".000Z", "-03:00"); // ISO com timezone
-  self.ctx.$scope.startDateISO = timeStart
-
-  const startDateLast = new Date(
-    hoje.getFullYear(),
-    hoje.getMonth(),
-    1,
-    0,
-    0,
-    0
-  );
-  const startDateISOLast = startDateLast
-    .toISOString()
-    .replace(".000Z", "-03:00"); // ISO com timezone
-
-  // fim do dia atual → 23:59:59
-  const endDate = new Date(
-    hoje.getFullYear(),
-    hoje.getMonth(),
-    hoje.getDate(),
-    23,
-    59,
-    59
-  );
-  const endDateISO = endDate.toISOString().replace(".000Z", "-03:00");
+  // Atualiza escopo com datas iniciais
+  self.ctx.$scope.startDateISO = timeStart;
   self.ctx.$scope.endDateISO = timeEnd;
 
-  const endDateLast = new Date(
-    hoje.getFullYear(),
-    hoje.getMonth() - 1,
-    hoje.getDate(),
-    23,
-    59,
-    59
-  );
-  
-  const endDateISOLast = endDateLast.toISOString().replace(".000Z", "-03:00");
-  
+  // Formata datas para timezone -03:00
+  const startDateISO = timeStart.replace('Z', '-03:00');
+  const endDateISO = timeEnd.replace('Z', '-03:00');
+
+  // Dispara evento inicial com as datas
   window.dispatchEvent(new CustomEvent('myio:update-date', {
     detail: {
       startDate: startDateISO,
-      endDate:   endDateISO,
+      endDate: endDateISO,
     }
-  }));  
+  }));
 
+  // Atualiza intervalo de datas na UI
   const timeWindow = `Intervalo: ${formatDiaMes(startDate)} - ${formatDiaMes(endDate)}`;
   const timeinterval = document.getElementById("energy-peak");
-  timeinterval.innerText = timeWindow;
+  if (timeinterval) {
+    timeinterval.innerText = timeWindow;
+  }
 
   const custumer = [];
 
