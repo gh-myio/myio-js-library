@@ -5,4 +5,42 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    background: transparent !important;
+}
+
+/* Força transparência total em todas as sections */
+section {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    overflow: hidden;
+}
+
+section *,
+section *::before,
+section *::after {
+    background-color: transparent !important;
+}
+
+/* Exceções específicas que precisam de fundo */
+section .tab,
+section .myio-filter-btn {
+    background: #fff !important;
+    background-color: #fff !important;
+}
+
+section .myio-card.v2.myio-card-logo {
+    background: #5E35B1 !important;
+    background-color: #5E35B1 !important;
+}
+
+/* Elementos de UI que precisam de fundo */
+section .myio-bar,
+section .myio-bar-fill,
+section .dot-ok {
+    background: revert !important;
+}
+
+section button[style*="background-color: #6A1B9A"] {
+    background-color: #6A1B9A !important;
 }

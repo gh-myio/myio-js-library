@@ -1,11 +1,11 @@
-<section style="height: 20%;">
+<section style="height: 180px; min-height: 180px; max-height: 180px; overflow: hidden; background: transparent;">
   <tb-dashboard-state class="content" [ctx]="ctx" stateId="header"></tb-dashboard-state>
 </section>
 
-<section style="height: 15%;">
+<section style="height: 80px; min-height: 80px; max-height: 80px; overflow: hidden; background: transparent;">
   <tb-dashboard-state class="content" [ctx]="ctx" stateId="menu"></tb-dashboard-state>
 </section>
 
-<section id="mainView" style="height: 50%">
+<section id="mainView" style="height: calc(100% - 260px); overflow: auto; background: transparent;">
   <tb-dashboard-state class="content" [ctx]="ctx" stateId="content_equipaments"></tb-dashboard-state>
 </section>

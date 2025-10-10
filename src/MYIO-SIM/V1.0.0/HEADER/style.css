@@ -15,28 +15,54 @@
 }
 
 .myio-toolbar-root{
-  display:flex; flex-direction:column; gap:16px;
+  display:flex; flex-direction:column; gap:8px;
   width:100%; height:100%;
-  padding: 12px 12px 6px 12px;
+  max-height: 180px;
+  padding: 8px 12px 4px 12px;
   box-sizing:border-box;
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial;
   color: var(--ink-1);
+  background: transparent !important;
+  overflow: hidden;
+}
+
+/* Força transparência em todos os elementos internos */
+.myio-toolbar-root *,
+.myio-toolbar-root *::before,
+.myio-toolbar-root *::after {
+  background-color: transparent !important;
+}
+
+/* Exceção apenas para o card da logo que precisa do roxo */
+.myio-card.v2.myio-card-logo {
+  background: #5E35B1 !important;
+  background-color: #5E35B1 !important;
+  background-image: none !important;
+}
+
+/* E para os botões/tabs do menu que precisam de fundo */
+.tab,
+.myio-filter-btn {
+  background: #fff !important;
+  background-color: #fff !important;
 }
 
 /* ===== Cards ===== */
 .myio-cards{
   display:grid;
-  grid-template-columns: repeat(4, minmax(220px, 1fr));
-  gap:16px;
+  grid-template-columns: repeat(5, minmax(180px, 1fr));
+  gap:12px;
+  background: transparent !important;
 }
 .myio-card{
-  background: var(--card-bg-grad);
+  background: transparent !important;
   border:1px solid var(--card-bd);
-  border-radius: var(--radius);
+  border-radius: 14px;
   box-shadow: var(--shadow);
-  padding:16px;
-  display:flex; flex-direction:column; gap:8px;
-  min-height: 110px;
+  padding:10px 12px;
+  display:flex; flex-direction:column; gap:4px;
+  min-height: 140px;
+  max-height: 140px;
 }
 .myio-card-hd{
   display:flex; align-items:center; justify-content:space-between;
@@ -140,14 +166,16 @@
 /* ===== v2 – acabamento premium ===== */
 .myio-card.v2{
   position: relative;
-  background: transparent;
+  background: transparent !important;
   border: 1px solid #E6EEF5;
-  border-radius: 18px;
+  border-radius: 14px;
   box-shadow:
     0 1px 1px rgba(16,24,40,.04),
     0 8px 22px rgba(31,116,164,.08);
-  padding: 14px 16px 16px;
+  padding: 10px 12px 12px;
   transition: box-shadow .2s ease, transform .08s ease;
+  min-height: 140px;
+  max-height: 140px;
 }
 .myio-card.v2:hover{ transform: translateY(-1px); box-shadow:
   0 2px 2px rgba(16,24,40,.05),
@@ -158,24 +186,24 @@
   padding-bottom: 6px;
 }
 .myio-card.v2 .hd-title{
-  font-size: 0.92rem; font-weight: 700; color:#4a5b6b;
+  font-size: 0.82rem; font-weight: 700; color:#4a5b6b;
 }
 .myio-card.v2 .hd-ico{
   display:inline-flex; align-items:center; justify-content:center;
-  width:28px; height:28px; border:1px solid #E3EDF6; border-radius:10px;
+  width:24px; height:24px; border:1px solid #E3EDF6; border-radius:8px;
   background:transparent;
 }
 
 .myio-card.v2 .kpi{
-  font-size: 2rem; line-height: 1.1; font-weight: 800; letter-spacing: .2px;
+  font-size: 1.6rem; line-height: 1.1; font-weight: 800; letter-spacing: .2px;
   color: #0f1f2e;
 }
 .myio-card.v2 .subrow{
-  margin-top: 6px; display:flex; align-items:center; gap:8px;
-  color:#6b7a90; font-size:.95rem;
+  margin-top: 4px; display:flex; align-items:center; gap:6px;
+  color:#6b7a90; font-size:.85rem;
 }
 .myio-card.v2 .foot{
-  margin-top: 6px; color:#6b7a90; font-size:.9rem;
+  margin-top: 4px; color:#6b7a90; font-size:.80rem;
 }
 
 /* chips (ok/warn/trend) */
@@ -236,87 +264,46 @@
   padding-bottom: 0;  /* remove espaçamento desnecessário */
 }
 
-/* ===== Cards ===== */
-.myio-cards{
-  display: grid;
-  grid-template-columns: repeat(5, minmax(220px, 1fr)); /* 5 colunas */
-  gap: 16px;
-  grid-auto-flow: row dense; /* evita item “pegar” a linha inteira */
-}
-
-/* card da logo */
-.myio-card-logo {
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  min-height:110px;
-  padding:0;
-  background:#6A1B9A;        /* cor roxa principal da logo */
-  border:0;                  /* sem borda clara */
-  box-shadow:0 4px 14px rgba(0,0,0,.15); /* sombra mais intensa pra destacar */
-}
-
-.myio-card-logo .logo-box {
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  width:100%;
-  height:100%;
-}
-
-.myio-card-logo .logo-box img {
-  max-width: 210px;   /* antes 140px → +50% */
-  max-height: 84px;   /* antes 56px → +50% */
-  object-fit: contain;
-  opacity:1;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,.25));
-}
-
-
-/* breakpoints (opcional, ajuste como preferir) */
-@media (max-width: 1280px){
-  .myio-cards{ grid-template-columns: repeat(4, minmax(220px, 1fr)); }
-}
-@media (max-width: 1024px){
-  .myio-cards{ grid-template-columns: repeat(3, minmax(220px, 1fr)); }
-}
-@media (max-width: 768px){
-  .myio-cards{ grid-template-columns: repeat(2, minmax(220px, 1fr)); }
-}
-@media (max-width: 560px){
-  .myio-cards{ grid-template-columns: 1fr; }
-}
-
-/* card da logo com fundo roxo */
+/* ===== Card da Logo - Versão Única e Limpa ===== */
 .myio-card.v2.myio-card-logo {
-  background: #6A1B9A !important;  /* força o roxo */
-  border: 0;                        /* tira a borda azulada */
-  box-shadow: 0 4px 14px rgba(0,0,0,.2);
+  background: #5E35B1 !important;
+  background-color: #5E35B1 !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,.20);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
 }
+
+.myio-card.v2.myio-card-logo .logo-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
 .myio-card.v2.myio-card-logo .logo-box img {
-  max-width: 210px;  /* +50% do tamanho original */
-  max-height: 84px;
+  max-width: 240px;
+  max-height: 160px;
   object-fit: contain;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,.25));
 }
 
-/* card da logo com fundo roxo */
-.myio-card.v2.myio-card-logo{
-  background: #5E35B1 !important;   /* roxo */
-  background-image: none !important; /* remove o gradiente */
-  border: 0 !important;
-  box-shadow: 0 4px 14px rgba(0,0,0,.20);
-  display:flex; align-items:center; justify-content:center;
+/* breakpoints responsivos */
+@media (max-width: 1280px){
+  .myio-cards{ grid-template-columns: repeat(4, minmax(180px, 1fr)); }
 }
-
-/* logo +50% */
-.myio-card.v2.myio-card-logo .logo-box img{
-  transform: scale(2.1);
-  object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,.25));
+@media (max-width: 1024px){
+  .myio-cards{ grid-template-columns: repeat(3, minmax(180px, 1fr)); }
+}
+@media (max-width: 768px){
+  .myio-cards{ grid-template-columns: repeat(2, minmax(180px, 1fr)); }
+}
+@media (max-width: 560px){
+  .myio-cards{ grid-template-columns: 1fr; }
 }
 
 @keyframes spin {
