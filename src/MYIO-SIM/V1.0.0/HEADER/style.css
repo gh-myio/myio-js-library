@@ -1,6 +1,6 @@
 :root{
-  --card-bg: #ffffff;
-  --card-bg-grad: linear-gradient(180deg,#ffffff 0%, #f7fbff 100%);
+  --card-bg: transparent;
+  --card-bg-grad: transparent;
   --card-bd: #E6EEF5;
   --ink-1: #1C2743;
   --ink-2: #6b7a90;
@@ -140,8 +140,7 @@
 /* ===== v2 – acabamento premium ===== */
 .myio-card.v2{
   position: relative;
-  background:
-    radial-gradient(120% 120% at 0% 0%, #ffffff 0%, #f8fbff 60%, #f4f8fd 100%);
+  background: transparent;
   border: 1px solid #E6EEF5;
   border-radius: 18px;
   box-shadow:
@@ -164,7 +163,7 @@
 .myio-card.v2 .hd-ico{
   display:inline-flex; align-items:center; justify-content:center;
   width:28px; height:28px; border:1px solid #E3EDF6; border-radius:10px;
-  background:#f7fbff;
+  background:transparent;
 }
 
 .myio-card.v2 .kpi{
