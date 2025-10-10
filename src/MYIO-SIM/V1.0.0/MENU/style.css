@@ -8,7 +8,7 @@
   overflow-x: auto; /* permite rolagem horizontal se necessário */
   padding: 20px;
   box-sizing: border-box;
-  background: #fff;
+  background: transparent !important;
 }
 
 .myio-tabs-row {
@@ -44,16 +44,28 @@
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, .04);
   white-space: nowrap;
-  flex-shrink: 0; /* não encolhe */
+  flex-shrink: 0;
+  transition: all 0.2s ease;
 }
 
 .tab:hover {
-  background: #f4f8fb;
+  background: #f0f4f8;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .08);
+  transform: translateY(-1px);
 }
 
 .tab.is-active {
-  background: #e9f0f6;
-  border-color: #d5e2ee;
+  background: #1D4F91 !important;
+  color: #ffffff !important;
+  border-color: #1a4278;
+  box-shadow: 0 4px 12px rgba(29, 79, 145, .25);
+  font-weight: 700;
+}
+
+.tab.is-active:hover {
+  background: #1a4278 !important;
+  transform: translateY(-1px);
 }
 
 .tab .ico {
