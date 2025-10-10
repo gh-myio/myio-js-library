@@ -539,6 +539,14 @@ async function fetchLastConnectTime(deviceId, jwtToken) {
   }
 }
 
+// Show/hide loading overlay
+function showLoadingOverlay(show) {
+  const overlay = document.getElementById("equipments-loading-overlay");
+  if (overlay) {
+    overlay.style.display = show ? "flex" : "none";
+  }
+}
+
 // Initialize cards
 function initializeCards(devices) {
   const grid = document.getElementById("cards-grid");
@@ -814,57 +822,199 @@ self.onInit = async function () {
   CLIENT_SECRET = customerCredentials.client_secret || " ";
   INGESTION_ID = customerCredentials.ingestionId || " ";
 
-  const custumer = [];
+  // Show loading overlay initially
+  showLoadingOverlay(true);
 
-  self.ctx.data.forEach((data) => {
-    if (data.datasource.aliasName === "Shopping") {
-      // adiciona no array custumes
-      custumer.push({
-        name: data.datasource.entityLabel, // ou outro campo que seja o "nome"
-        value: data.data[0][1], // ou o dado que você precisa salvar
-      });
+  // ===== EQUIPMENTS: Listen for energy cache from MAIN orchestrator =====
+  let energyCacheFromMain = null;
+
+  window.addEventListener('myio:energy-data-ready', (ev) => {
+    console.log("[EQUIPMENTS] Received energy data from orchestrator:", ev.detail);
+    energyCacheFromMain = ev.detail.cache;
+
+    // Re-render cards with updated consumption data
+    if (energyCacheFromMain) {
+      enrichDevicesWithConsumption();
     }
   });
 
-  const apiDevices = await updateTotalConsumption(
-    custumer,
-    datesFromParent.start,
-    datesFromParent.end
-  );
-
-  console.log("apiDevices", apiDevices);
-
-  const devicesArray = Array.isArray(apiDevices)
-    ? apiDevices
-    : Object.values(apiDevices);
-
-  // Pega a lista correta de dispositivos que está no PRIMEIRO elemento do array
-  const listaDeDispositivosDaApi = devicesArray[0];
-
-  //   console.log(
-  //     "[equipaments] Lista de dispositivos que veio da API:",
-  //     listaDeDispositivosDaApi
-  //   );
-
-  // Agora o loop é feito na lista correta
-  listaDeDispositivosDaApi.forEach((dispositivoDaApi) => {
-    // Agora 'dispositivoDaApi' é o objeto que você espera, como {id: "...", total_value: ...}
-
-    const ingestionId = dispositivoDaApi.id;
-
-    // O resto da sua lógica para usar o mapa continua igual
-    const entityId = ingestionIdToEntityIdMap.get(ingestionId);
-
-    if (entityId && devices[entityId]) {
-      devices[entityId].values.push({
-        val: dispositivoDaApi.total_value,
-        ts: Date.now(),
-        dataType: "total_consumption",
-      });
+  // Helper function to enrich devices with consumption from cache
+  function enrichDevicesWithConsumption() {
+    if (!energyCacheFromMain) {
+      console.warn("[EQUIPMENTS] No energy cache available yet");
+      return;
     }
+
+    console.log("[EQUIPMENTS] Enriching devices with consumption from cache...");
+
+    // Iterate through devices and add consumption from cache
+    Object.entries(devices).forEach(([entityId, device]) => {
+      // Find ingestionId for this device
+      const ingestionIdItem = device.values.find(v => v.dataType === "ingestionId");
+      if (ingestionIdItem && ingestionIdItem.value) {
+        const ingestionId = ingestionIdItem.value;
+        const cached = energyCacheFromMain.get(ingestionId);
+
+        if (cached) {
+          // Remove old consumption data if exists
+          const consumptionIndex = device.values.findIndex(v => v.dataType === "total_consumption");
+          if (consumptionIndex >= 0) {
+            device.values[consumptionIndex] = {
+              val: cached.total_value,
+              ts: cached.timestamp,
+              dataType: "total_consumption",
+            };
+          } else {
+            device.values.push({
+              val: cached.total_value,
+              ts: cached.timestamp,
+              dataType: "total_consumption",
+            });
+          }
+        }
+      }
+    });
+
+    // Re-render cards and hide loading
+    renderDeviceCards().then(() => {
+      showLoadingOverlay(false);
+    });
+  }
+
+  // Wait for initial energy cache from MAIN
+  const waitForEnergyCache = new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      console.warn("[EQUIPMENTS] Timeout waiting for energy cache, proceeding without it");
+      showLoadingOverlay(false); // Hide loading on timeout
+      resolve(null);
+    }, 10000); // 10 second timeout
+
+    const handler = (ev) => {
+      clearTimeout(timeout);
+      window.removeEventListener('myio:energy-data-ready', handler);
+      energyCacheFromMain = ev.detail.cache;
+      console.log("[EQUIPMENTS] Initial energy cache received:", energyCacheFromMain.size, "devices");
+      resolve(energyCacheFromMain);
+    };
+
+    window.addEventListener('myio:energy-data-ready', handler);
   });
 
-  // Helper para encontrar um valor específico no array 'values' de cada devicet
+  // Wait for energy cache before rendering
+  const initialCache = await waitForEnergyCache;
+
+  if (initialCache) {
+    // Add consumption data from cache to devices
+    initialCache.forEach((cached, ingestionId) => {
+      const entityId = ingestionIdToEntityIdMap.get(ingestionId);
+      if (entityId && devices[entityId]) {
+        devices[entityId].values.push({
+          val: cached.total_value,
+          ts: cached.timestamp,
+          dataType: "total_consumption",
+        });
+      }
+    });
+  }
+
+  // Helper function to render device cards
+  async function renderDeviceCards() {
+    const promisesDeCards = Object.entries(devices)
+      .filter(([entityId, device]) =>
+        device.values.some((valor) => valor.dataType === "total_consumption")
+      )
+      .map(async ([entityId, device]) => {
+        const tbToken = localStorage.getItem("jwt_token");
+        const lastConnectTimestamp = await fetchLastConnectTime(entityId, tbToken);
+
+        let operationHoursFormatted = "0s";
+        if (lastConnectTimestamp) {
+          const nowMs = new Date().getTime();
+          const durationMs = nowMs - lastConnectTimestamp;
+          operationHoursFormatted = formatarDuracao(durationMs > 0 ? durationMs : 0);
+        }
+
+        const deviceTemperature = await getDeviceTemperature(entityId, tbToken);
+        const latestTimestamp = Math.max(...device.values.map((v) => v.ts || 0));
+        const updatedFormatted = formatRelativeTime(latestTimestamp);
+
+        const rawConnectionStatus = findValue(device.values, "connectionStatus", "offline");
+        const consumptionValue = findValue(device.values, "total_consumption", 0);
+
+        let mappedConnectionStatus = "offline";
+        const statusLower = String(rawConnectionStatus).toLowerCase();
+        if (statusLower === "online" || statusLower === "ok" || statusLower === "running") {
+          mappedConnectionStatus = "online";
+        } else if (statusLower === "waiting") {
+          mappedConnectionStatus = "waiting";
+        }
+
+        const deviceType = findValue(device.values, "deviceType", "").toUpperCase();
+        let standbyLimit = 100;
+        let alertLimit = 1000;
+        let failureLimit = 2000;
+
+        switch(deviceType) {
+          case 'CHILLER':
+            standbyLimit = 1000;
+            alertLimit = 6000;
+            failureLimit = 8000;
+            break;
+          case 'AR_CONDICIONADO':
+          case 'AC':
+            standbyLimit = 500;
+            alertLimit = 3000;
+            failureLimit = 5000;
+            break;
+          case 'ELEVADOR':
+          case 'ELEVATOR':
+            standbyLimit = 150;
+            alertLimit = 800;
+            failureLimit = 1200;
+            break;
+          case 'BOMBA':
+          case 'PUMP':
+            standbyLimit = 200;
+            alertLimit = 1000;
+            failureLimit = 1500;
+            break;
+          default:
+            break;
+        }
+
+        const deviceStatus = MyIOLibrary.calculateDeviceStatus({
+          connectionStatus: mappedConnectionStatus,
+          lastConsumptionValue: Number(consumptionValue) || null,
+          limitOfPowerOnStandByWatts: standbyLimit,
+          limitOfPowerOnAlertWatts: alertLimit,
+          limitOfPowerOnFailureWatts: failureLimit
+        });
+
+        return {
+          entityId: entityId,
+          labelOrName: device.label,
+          val: consumptionValue,
+          deviceIdentifier: findValue(device.values, "identifier"),
+          centralName: findValue(device.values, "centralName", null),
+          ingestionId: findValue(device.values, "ingestionId", null),
+          deviceType: deviceType,
+          deviceStatus: deviceStatus,
+          valType: "power_kw",
+          perc: Math.floor(Math.random() * (95 - 70 + 1)) + 70,
+          temperatureC: deviceTemperature[0].value,
+          operationHours: operationHoursFormatted || 0,
+          updated: updatedFormatted,
+        };
+      });
+
+    const devicesFormatadosParaCards = await Promise.all(promisesDeCards);
+    initializeCards(devicesFormatadosParaCards);
+
+    // Hide loading after rendering
+    showLoadingOverlay(false);
+  }
+
+  // Helper para encontrar um valor específico no array 'values' de cada device
   const findValue = (values, dataType, defaultValue = "N/D") => {
     const item = values.find((v) => v.dataType === dataType);
     if (!item) return defaultValue;
@@ -872,113 +1022,8 @@ self.onInit = async function () {
     return item.val !== undefined ? item.val : item.value;
   };
 
-  const tbToken = localStorage.getItem("jwt_token");
-
-  // 1. Usamos Object.entries para manter o [entityId, deviceObject]
-  const promisesDeCards = Object.entries(devices)
-    .filter(([entityId, device]) =>
-      device.values.some((valor) => valor.dataType === "total_consumption")
-    )
-    .map(async ([entityId, device]) => {
-      const tbToken = localStorage.getItem("jwt_token");
-      const lastConnectTimestamp = await fetchLastConnectTime(
-        entityId,
-        tbToken
-      );
-
-      let operationHoursFormatted = "0s"; // Valor padrão
-      if (lastConnectTimestamp) {
-        const nowMs = new Date().getTime();
-        const durationMs = nowMs - lastConnectTimestamp;
-        operationHoursFormatted = formatarDuracao(
-          durationMs > 0 ? durationMs : 0
-        );
-      }
-
-      const deviceTemperature = await getDeviceTemperature(entityId, tbToken);
-
-      const latestTimestamp = Math.max(...device.values.map((v) => v.ts || 0));
-      const updatedFormatted = formatRelativeTime(latestTimestamp);
-
-      // Obter connectionStatus e consumo atual
-      const rawConnectionStatus = findValue(device.values, "connectionStatus", "offline");
-      const consumptionValue = findValue(device.values, "total_consumption", 0);
-
-      // Mapear connectionStatus para o formato esperado pela função
-      let mappedConnectionStatus = "offline";
-      const statusLower = String(rawConnectionStatus).toLowerCase();
-      if (statusLower === "online" || statusLower === "ok" || statusLower === "running") {
-        mappedConnectionStatus = "online";
-      } else if (statusLower === "waiting") {
-        mappedConnectionStatus = "waiting";
-      }
-
-      // Definir limites de consumo baseados no tipo de dispositivo (você pode ajustar estes valores)
-      const deviceType = findValue(device.values, "deviceType", "").toUpperCase();
-      let standbyLimit = 100;    // watts
-      let alertLimit = 1000;     // watts
-      let failureLimit = 2000;   // watts
-
-      // Ajustar limites por tipo de dispositivo
-      switch(deviceType) {
-        case 'CHILLER':
-          standbyLimit = 1000;
-          alertLimit = 6000;
-          failureLimit = 8000;
-          break;
-        case 'AR_CONDICIONADO':
-        case 'AC':
-          standbyLimit = 500;
-          alertLimit = 3000;
-          failureLimit = 5000;
-          break;
-        case 'ELEVADOR':
-        case 'ELEVATOR':
-          standbyLimit = 150;
-          alertLimit = 800;
-          failureLimit = 1200;
-          break;
-        case 'BOMBA':
-        case 'PUMP':
-          standbyLimit = 200;
-          alertLimit = 1000;
-          failureLimit = 1500;
-          break;
-        default:
-          // Usa valores padrão já definidos
-          break;
-      }
-
-      // Calcular deviceStatus usando a nova função
-      const deviceStatus = MyIOLibrary.calculateDeviceStatus({
-        connectionStatus: mappedConnectionStatus,
-        lastConsumptionValue: Number(consumptionValue) || null,
-        limitOfPowerOnStandByWatts: standbyLimit,
-        limitOfPowerOnAlertWatts: alertLimit,
-        limitOfPowerOnFailureWatts: failureLimit
-      });
-
-      return {
-        entityId: entityId,
-        labelOrName: device.label,
-        val: consumptionValue,
-        deviceIdentifier: findValue(device.values, "identifier"),
-        centralName: findValue(device.values, "centralName", null),
-        ingestionId: findValue(device.values, "ingestionId", null),
-        deviceType: deviceType,
-        deviceStatus: deviceStatus, // Usa o status calculado
-        valType: "power_kw",
-        perc: Math.floor(Math.random() * (95 - 70 + 1)) + 70,
-        temperatureC: deviceTemperature[0].value,
-        operationHours: operationHoursFormatted || 0,
-        updated: updatedFormatted,
-      };
-    });
-
-  const devicesFormatadosParaCards = await Promise.all(promisesDeCards);
-
-  // 3. AGORA sim chame a função com os dados prontos
-  initializeCards(devicesFormatadosParaCards);
+  // Render initial cards with energy data from cache
+  await renderDeviceCards();
 
   // ZOOM de fontes — agora usando o WRAP como root das variáveis
   const wrap = document.getElementById("equipWrap");

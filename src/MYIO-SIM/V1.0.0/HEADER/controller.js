@@ -916,6 +916,8 @@ function formatDiaMes(date) {
 
 /* ====== Lifecycle ====== */
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
+  // Show loading on Energy card while waiting for cache
+  showEnergyCardLoading(true);
 
   // Define timezone e datas iniciais
   const TZ = 'America/Sao_Paulo';
@@ -1000,6 +1002,103 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
 };
 
+// ===== HEADER: Equipment Card Handler =====
+function updateEquipmentCard() {
+  // Find datasources[0] with aliasName="Equipamentos"
+  let totalDevices = 0;
+  let onlineDevices = 0;
+
+  self.ctx.data.forEach((data) => {
+    if (data.datasource.aliasName === "Equipamentos") {
+      totalDevices++;
+      const status = String(data.data?.[0]?.[1] || '').toLowerCase();
+      if (status === "online") {
+        onlineDevices++;
+      }
+    }
+  });
+
+  const percentage = totalDevices > 0 ? Math.round((onlineDevices / totalDevices) * 100) : 0;
+
+  const statusDevice = document.getElementById("equip-kpi");
+  const percentDevice = document.getElementById("equip-sub");
+
+  if (statusDevice) statusDevice.innerText = `${onlineDevices}/${totalDevices}`;
+  if (percentDevice) percentDevice.innerText = `${percentage}% operational`;
+
+  console.log("[HEADER] Equipment card updated:", { online: onlineDevices, total: totalDevices, percentage });
+}
+
+// ===== HEADER: Energy Card Handler =====
+function showEnergyCardLoading(isLoading) {
+  const energyKpi = document.getElementById("energy-kpi");
+  const energyTrend = document.getElementById("energy-trend");
+
+  if (isLoading) {
+    if (energyKpi) {
+      energyKpi.innerHTML = `
+        <svg style="width:28px; height:28px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
+          <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
+                  stroke-dasharray="90,150" stroke-dashoffset="0">
+          </circle>
+        </svg>
+      `;
+    }
+    if (energyTrend) {
+      energyTrend.innerText = "Carregando...";
+    }
+  }
+}
+
+function updateEnergyCard(energyCache) {
+  // Find datasources[1] with aliasName="Lojas"
+  // Build list of ingestionIds from ctx.data
+  const ingestionIds = [];
+
+  self.ctx.data.forEach((data) => {
+    if (data.datasource.aliasName === "Lojas") {
+      // data[].item.data[1] é o ingestionId
+      const ingestionId = data.data?.[1]?.[1]; // data[indexOfIngestionId][1] = value
+      if (ingestionId) {
+        ingestionIds.push(ingestionId);
+      }
+    }
+  });
+
+  console.log("[HEADER] Energy card: Found ingestionIds from Lojas:", ingestionIds.length);
+
+  // Sum consumption from cache for all ingestionIds
+  let totalConsumption = 0;
+  if (energyCache) {
+    ingestionIds.forEach(ingestionId => {
+      const cached = energyCache.get(ingestionId);
+      if (cached) {
+        totalConsumption += cached.total_value || 0;
+      }
+    });
+  }
+
+  const energyKpi = document.getElementById("energy-kpi");
+  const energyTrend = document.getElementById("energy-trend");
+
+  if (energyKpi) {
+    energyKpi.innerText = MyIOLibrary.formatEnergy ? MyIOLibrary.formatEnergy(totalConsumption) : `${totalConsumption.toFixed(2)} kWh`;
+  }
+
+  // Optional: update trend (can be calculated later based on historical data)
+  if (energyTrend) {
+    energyTrend.innerText = ""; // Clear for now
+  }
+
+  console.log("[HEADER] Energy card updated:", { totalConsumption, devices: ingestionIds.length });
+}
+
+// ===== HEADER: Listen for energy data from MAIN orchestrator =====
+window.addEventListener('myio:energy-data-ready', (ev) => {
+  console.log("[HEADER] Received energy data from orchestrator:", ev.detail);
+  updateEnergyCard(ev.detail.cache);
+});
+
 self.onDataUpdated = function () {
   if (_dataRefreshCount >= MAX_DATA_REFRESHES) {
     return;
@@ -1007,27 +1106,8 @@ self.onDataUpdated = function () {
 
   _dataRefreshCount++;
 
-  const totalDevices = self.ctx.data.length;
-  let onlineDevices = 0;
-
-  self.ctx.data.forEach((device) => {
-    const status = device.data?.[0]?.[1];
-    if (status === "online") {
-      onlineDevices++;
-    }
-  });
-
-  // evitar divisão por zero
-  let percentage =
-    totalDevices > 0 ? ((onlineDevices / totalDevices) * 100).toFixed(1) : 0;
-  percentage = Number(percentage).toFixed(0);
-
-  const statusDevice = document.getElementById("equip-kpi");
-  const percentDevice = document.getElementById("equip-sub");
-
-
-  statusDevice.innerText = `${onlineDevices}/${totalDevices}`;
-  percentDevice.innerText = `${percentage}% operational`;
+  // Update Equipment card
+  updateEquipmentCard();
 };
 
 self.onDestroy = function () {

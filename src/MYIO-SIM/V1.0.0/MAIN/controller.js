@@ -6,39 +6,8 @@ let CLIENT_ID;
 let CLIENT_SECRET;
 let INGESTION_ID;
 
-function d(name, code, icon, status, powerKw, effPct, tempC, hours) {
-  return { name, code, icon, status, powerKw, effPct, tempC, hours };
-}
-
-function clamp(v, a, b) {
-  return Math.max(a, Math.min(b, v));
-}
-function formatNumber(n, d = 0) {
-  return Number(n).toLocaleString("en-US", {
-    minimumFractionDigits: d,
-    maximumFractionDigits: d,
-  });
-}
-function formatHours(h) {
-  return formatNumber(h, 3);
-}
-function escapeHtml(s = "") {
-  return String(s).replace(
-    /[&<>"']/g,
-    (m) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[
-        m
-      ])
-  );
-}
-function isDanger(status) {
-  const s = String(status || "").toLowerCase();
-  return s === "alert" || s === "fail" || s === "erro" || s === "fault";
-}
-
-// RFC: Global refresh counter to limit data updates to 3 times maximum
-let _dataRefreshCount = 0;
-const MAX_DATA_REFRESHES = 1;
+// NOTE: Funções de formatação removidas - não são mais usadas no MAIN
+// O MAIN agora é apenas o orquestrador de dados
 
 const MyIOAuth = (() => {
   // ==== CONFIG ====
@@ -262,278 +231,117 @@ function isValidUUID(str) {
   return uuidRegex.test(str);
 }
 
-async function updateTotalConsumption(
-  customersArray,
-  startDateISO,
-  endDateISO
-) {
-  let totalConsumption = 0;
-  for (const c of customersArray) {
-    // Pula se value estiver vazio
-    if (!c.value) continue;
+// NOTE: Funções de rendering e device data removidas
+// Essas responsabilidades agora pertencem aos widgets HEADER e EQUIPMENTS
+
+
+// ===== ORCHESTRATOR: Energy Cache Management =====
+const MyIOOrchestrator = (() => {
+  // In-memory cache for energy data
+  let energyCache = new Map(); // Map<ingestionId, energyData>
+  let isFetching = false;
+  let lastFetchParams = null;
+
+  async function fetchEnergyData(customersArray, startDateISO, endDateISO) {
+    // Prevent duplicate fetches
+    const fetchKey = `${JSON.stringify(customersArray)}_${startDateISO}_${endDateISO}`;
+    if (isFetching && lastFetchParams === fetchKey) {
+      console.log("[MAIN] [Orchestrator] Fetch already in progress, skipping...");
+      return energyCache;
+    }
+
+    isFetching = true;
+    lastFetchParams = fetchKey;
+    console.log("[MAIN] [Orchestrator] Fetching energy data...", { startDateISO, endDateISO, customers: customersArray.length });
+
     try {
-      const TOKEN_INJESTION = await MyIOAuth.getToken();
-      const response = await fetch(
-        `${DATA_API_HOST}/api/v1/telemetry/customers/${
-          c.value
-        }/energy/devices/totals?startTime=${encodeURIComponent(
-          startDateISO
-        )}&endTime=${encodeURIComponent(endDateISO)}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${TOKEN_INJESTION}`,
-            "Content-Type": "application/json",
-          },
+      const TOKEN_INGESTION = await MyIOAuth.getToken();
+
+      // Fetch energy data for all customers
+      const allDevicesData = [];
+      for (const customer of customersArray) {
+        if (!customer.value) continue;
+
+        try {
+          const response = await fetch(
+            `${DATA_API_HOST}/api/v1/telemetry/customers/${customer.value}/energy/devices/totals?startTime=${encodeURIComponent(startDateISO)}&endTime=${encodeURIComponent(endDateISO)}`,
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${TOKEN_INGESTION}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (!response.ok) {
+            console.warn(`[MAIN] [Orchestrator] Failed to fetch energy for customer ${customer.value}: HTTP ${response.status}`);
+            continue;
+          }
+
+          const data = await response.json();
+          const devicesList = Array.isArray(data) ? data : (data[0] || []);
+          allDevicesData.push(...devicesList);
+
+        } catch (err) {
+          console.error(`[MAIN] [Orchestrator] Error fetching energy for customer ${customer.value}:`, err);
         }
-      );
-      if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
-      const data = await response.json();
-      console.log(`[equipaments] Dados do customer ${c.value}:`, data);
-
-      return data;
-    } catch (err) {
-      console.error(
-        `[equipaments] Falha ao buscar dados do customer ${c.value}:`,
-        err
-      );
-    }
-  }
-}
-
-// Helper: Authenticated fetch with 401 retry
-async function fetchWithAuth(url, opts = {}, retry = true) {
-  const token = await MyIOAuth.getToken();
-  const res = await fetch(url, {
-    ...opts,
-    headers: {
-      ...(opts.headers || {}),
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (res.status === 401 && retry) {
-    console.warn(
-      `[equipaments] [fetchWithAuth] 401 on ${
-        url.split("?")[0]
-      } - refreshing token and retrying`
-    );
-    MyIOAuth.clearCache(); // Force token refresh
-    const token2 = await MyIOAuth.getToken();
-    const res2 = await fetch(url, {
-      ...opts,
-      headers: {
-        ...(opts.headers || {}),
-        Authorization: `Bearer ${token2}`,
-      },
-    });
-    if (!res2.ok) {
-      const errorText = await res2.text().catch(() => "");
-      throw new Error(`[HTTP ${res2.status}] ${errorText}`);
-    }
-    return res2;
-  }
-
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => "");
-    throw new Error(`[HTTP ${res.status}] ${errorText}`);
-  }
-
-  return res;
-}
-
-function latestNumber(arr) {
-  if (!Array.isArray(arr) || !arr.length) return null;
-
-  const v = Number(arr[arr.length - 1][1]);
-
-  return Number.isFinite(v) ? v : null;
-}
-
-function resolveEntityValue(chunks) {
-  for (const key of CONFIG.valueKeysTry) {
-    const ch = chunks.find((c) => c.dataKey?.name === key);
-
-    if (ch) {
-      const v = latestNumber(ch.data);
-      if (v !== null) return v;
-    }
-  }
-  // fallback: primeiro numérico válido
-  for (const ch of chunks) {
-    const v = latestNumber(ch.data);
-
-    if (v !== null) return v;
-  }
-  return 0;
-}
-
-function renderCard(dev, idx) {
-  const status = (dev.status || "ok").toLowerCase();
-  const statusCls =
-    status === "ok" ? "chip ok" : status === "alert" ? "chip warn" : "chip err";
-  const chipText =
-    status === "ok"
-      ? `<span class="dot"></span> Em operação`
-      : status === "alert"
-      ? `⚠️ Alerta`
-      : `✖ Falha`;
-  const dangerCls = isDanger(status) ? "danger" : "";
-
-  return `
-  <section class="equip-card ${dangerCls}">
-    <header class="equip-hd">
-      <div class="equip-id">
-        <div class="equip-icon" aria-hidden="true">${dev.icon}</div>
-        <div class="equip-meta">
-          <div class="equip-title">${escapeHtml(dev.name)}</div>
-          <div class="equip-code">${escapeHtml(dev.code)}</div>
-        </div>
-      </div>
-      <button class="equip-menu" aria-label="menu">⋮</button>
-    </header>
-
-    <div class="equip-status">
-      <span class="${statusCls}">${chipText}</span>
-    </div>
-
-    <div class="equip-power">
-      <span class="power">${formatNumber(dev.powerKw, 1)}</span>
-      <span class="unit">kW</span>
-      <div class="sub">Atual</div>
-    </div>
-
-    <div class="equip-eff">
-      <div class="label">Eficiência</div>
-      <div class="bar"><div class="fill" id="effFill_${idx}" style="width:0%"></div></div>
-      <div class="pct">${Math.round(dev.effPct)}%</div>
-    </div>
-
-    <footer class="equip-ft">
-      <div class="ft-item">
-        <div class="ico">🌡️</div>
-        <div>
-          <div class="k">Temperatura</div>
-          <div class="v">${formatNumber(dev.tempC, 0)}°C</div>
-        </div>
-      </div>
-      <div class="ft-item">
-        <div class="ico">⏱️</div>
-        <div>
-          <div class="k">Tempo de operação</div>
-          <div class="v">${formatHours(dev.hours)}h</div>
-        </div>
-      </div>
-    </footer>
-  </section>`;
-}
-
-function renderGrid(list) {
-  const grid = document.getElementById("equipGrid");
-  grid.innerHTML = list.map(renderCard).join("");
-  list.forEach((dev, i) => {
-    const fill = document.querySelector(`#effFill_${i}`);
-    if (fill) fill.style.width = clamp(dev.effPct, 0, 100) + "%";
-  });
-}
-
-// Log function
-function log(message, type = "info") {
-  const logOutput = document.getElementById("log-output");
-  const time = new Date().toLocaleTimeString("pt-BR");
-  const entry = document.createElement("div");
-  entry.className = "log-entry";
-  entry.innerHTML = `<span class="log-time">${time}</span>${message}`;
-  //logOutput.appendChild(entry);
-  //logOutput.scrollTop = logOutput.scrollHeight;
-}
-
-async function getDeviceData() {
-  try {
-    const { startTs, endTs } = getTimeWindowRange(); // Pega o período de tempo atual
-    console.log("[equipaments] startTs", new Date(1758833451000));
-    //console.log("endTs",endTs)
-    const baseUrl = `${DATA_API_HOST}/api/v1/telemetry/customers/${CUSTOMER_ID}/energy/devices/totals?startTime=${encodeURIComponent(
-      new Date(1758833451000)
-    )}&endTime=${encodeURIComponent(new Date(1758833451000))}`;
-    // url.searchParams.set("startTime", toSpOffsetNoMs(startTs));
-    // url.searchParams.set("endTime", toSpOffsetNoMs(endTs, true));
-    // url.searchParams.set("deep", "1");
-
-    const DATA_API_TOKEN = await MyIOAuth.getToken();
-    const res = await fetch(baseUrl.toString(), {
-      headers: { Authorization: `Bearer ${DATA_API_TOKEN}` },
-    });
-
-    if (!res.ok) {
-      throw new Error(`API request failed with status ${res.status}`);
-    }
-
-    const payload = await res.json();
-    const dataList = Array.isArray(payload) ? payload : payload.data || [];
-
-    // Cria um mapa para busca rápida usando o ingestionId
-    const deviceDataMap = new Map();
-    dataList.forEach((device) => {
-      if (device.id) {
-        deviceDataMap.set(String(device.id), device);
       }
-    });
 
-    return deviceDataMap;
-  } catch (err) {
-    console.error(
-      "[equipaments] Falha ao buscar dados de consumo da API:",
-      err
-    );
+      // Clear and repopulate cache
+      energyCache.clear();
+      allDevicesData.forEach(device => {
+        if (device.id) {
+          energyCache.set(device.id, {
+            ingestionId: device.id,
+            total_value: device.total_value || 0,
+            timestamp: Date.now()
+          });
+        }
+      });
+
+      console.log(`[MAIN] [Orchestrator] Energy cache updated: ${energyCache.size} devices`);
+
+      // Emit event with cached data
+      window.dispatchEvent(new CustomEvent('myio:energy-data-ready', {
+        detail: {
+          cache: energyCache,
+          totalDevices: energyCache.size,
+          startDate: startDateISO,
+          endDate: endDateISO,
+          timestamp: Date.now()
+        }
+      }));
+
+      return energyCache;
+
+    } catch (err) {
+      console.error("[MAIN] [Orchestrator] Fatal error fetching energy data:", err);
+      return energyCache;
+    } finally {
+      isFetching = false;
+    }
   }
-}
 
-// Initialize cards
-function initializeCards(devices) {
-  const grid = document.getElementById("cards-grid");
+  function getCache() {
+    return energyCache;
+  }
 
-  devices.forEach((device, index) => {
-    const container = document.createElement("div");
-    grid.appendChild(container);
+  function getCachedDevice(ingestionId) {
+    return energyCache.get(ingestionId) || null;
+  }
 
-    const handle = MyIOLibrary.renderCardCompenteHeadOffice(container, {
-      entityObject: device,
-      handleActionDashboard: (ev, entity) => {
-        log(`Dashboard clicked: ${entity.labelOrName} (${entity.entityId})`);
-      },
-      handleActionReport: (ev, entity) => {
-        log(`Report clicked: ${entity.labelOrName} (${entity.entityId})`);
-      },
-      handleActionSettings: (ev, entity) => {
-        log(`Settings clicked: ${entity.labelOrName} (${entity.entityId})`);
-      },
-      handleSelect: (checked, entity) => {
-        log(
-          `Selection ${checked ? "checked" : "unchecked"}: ${
-            entity.labelOrName
-          }`
-        );
-      },
-      handleClickCard: (ev, entity) => {
-        log(`Card clicked: ${entity.labelOrName} - Power: ${entity.val}kW`);
-      },
-      useNewComponents: true,
-      enableSelection: true,
-      enableDragDrop: true,
-    });
-
-    //cardHandles.push({ handle, device, container });
-  });
-
-  log("Cards initialized successfully");
-}
-
+  return {
+    fetchEnergyData,
+    getCache,
+    getCachedDevice
+  };
+})();
 
 self.onInit = async function () {
-    
-    
-    
+
+
+
   // -- util: aplica no $scope e roda digest
   function applyParams(p) {
     self.ctx.$scope.startDateISO = p?.globalStartDateFilter || null;
@@ -604,6 +412,35 @@ self.onInit = async function () {
     });
   }
 
+  // ===== ORCHESTRATOR: Listen for date updates from MENU =====
+  window.addEventListener('myio:update-date', async (ev) => {
+    console.log("[MAIN] [Orchestrator] Date update received:", ev.detail);
+    const { startDate, endDate } = ev.detail;
+
+    if (startDate && endDate) {
+      // Update scope
+      applyParams({
+        globalStartDateFilter: startDate,
+        globalEndDateFilter: endDate
+      });
+
+      // Use customerId from settings
+      const customerId = self.ctx.settings.customerId;
+      if (!customerId) {
+        console.error("[MAIN] [Orchestrator] customerId não encontrado em settings");
+        return;
+      }
+
+      const custumer = [{
+        name: "Customer",
+        value: customerId
+      }];
+
+      // Fetch and cache energy data
+      await MyIOOrchestrator.fetchEnergyData(custumer, startDate, endDate);
+    }
+  });
+
   window.addEventListener('myio:filter-params', (ev) => {
     console.log("[EQUIPAMENTS]filtro",ev.detail )
   });
@@ -635,198 +472,35 @@ self.onInit = async function () {
   };
   window.addEventListener("myio:date-params", self._onDateParams);
 
-//  console.log("[equipaments] self.ctx:", self.ctx);
-  CUSTOMER_ID = self.ctx.settings.customerId || " ";
- // console.log("[equipaments] CUSTOMER_ID:", CUSTOMER_ID);
+  // NOTE: MAIN agora é apenas o orquestrador
+  // Não precisa processar devices localmente
 
-  // Objeto principal para armazenar os dados dos dispositivos
-  const devices = {};
+  // ===== ORCHESTRATOR: Initial energy data fetch =====
+  // Use apenas o customerId do settings, não precisa iterar datasources
+  const customerId = self.ctx.settings.customerId;
 
-  // 🗺️ NOVO: Mapa para conectar o ingestionId ao ID da entidade do ThingsBoard
-  const ingestionIdToEntityIdMap = new Map();
+  if (!customerId) {
+    console.error("[MAIN] [Orchestrator] customerId não encontrado em settings");
+    return;
+  }
 
-  // --- FASE 1: Monta o objeto inicial e o mapa de IDs ---
-  self.ctx.data.forEach((data) => {
-    if (data.datasource.aliasName !== "Shopping") {
-      const entityId = data.datasource.entity.id.id;
+  const custumer = [{
+    name: "Customer",
+    value: customerId
+  }];
 
-      // Cria o objeto do dispositivo se for a primeira vez
-      if (!devices[entityId]) {
-        devices[entityId] = {
-          name: data.datasource.name,
-          label: data.datasource.entityLabel,
-          values: [],
-        };
-      }
+  console.log("[MAIN] [Orchestrator] Initial setup with customerId:", customerId);
+  console.log("[MAIN] [Orchestrator] Date range:", { start: datesFromParent.start, end: datesFromParent.end });
 
-      // Adiciona o valor atual ao array
-      devices[entityId].values.push({
-        dataType: data.dataKey.name,
-        value: data.data[0][1],
-        ts: data.data[0][0],
-      });
+  // Fetch energy data using orchestrator
+  await MyIOOrchestrator.fetchEnergyData(custumer, datesFromParent.start, datesFromParent.end);
 
-      // ✅ LÓGICA DO MAPA: Se o dado for o ingestionId, guardamos a relação
-      if (data.dataKey.name === "ingestionId" && data.data[0][1]) {
-        const ingestionId = data.data[0][1];
-        ingestionIdToEntityIdMap.set(ingestionId, entityId);
-      }
-    }
-  });
+  // NOTE: O MAIN não precisa mais renderizar cards próprios
+  // Os dados de energia agora vêm do cache do orchestrador
+  // e são consumidos pelos widgets HEADER e EQUIPMENTS via eventos
 
-//   console.log("[equipaments] Devices Iniciais:", devices);
-//   console.log(
-//     "[equipaments] Mapa de IDs (ingestionId -> entityId):",
-//     ingestionIdToEntityIdMap
-//   );
+  console.log("[MAIN] [Orchestrator] Initialization complete - data available via cache");
 
-//   console.log("[equipaments] devices", devices);
-//   console.log("[equipaments] Tamanho:", Object.keys(devices).length);
-
-  const customerCredentials = await fetchCustomerServerScopeAttrs(CUSTOMER_ID);
-
-  CLIENT_ID = customerCredentials.client_id || " ";
-  CLIENT_SECRET = customerCredentials.client_secret || " ";
-  INGESTION_ID = customerCredentials.ingestionId || " ";
-
-//   console.log("[equipaments] CLIENT_ID:", CLIENT_ID);
-//   console.log("[equipaments] CLIENT_SECRET:", CLIENT_SECRET);
-//   console.log("[equipaments] INGESTION_ID:", INGESTION_ID);
-
-  // const devices = await getDeviceData();
-  // console.log("devices:", devices);
-
-  /*
-  const hoje = new Date();
-  // início do mês → 00:00:00
-  
-  const startDate = new Date(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0);
-  const startDateISO = startDate.toISOString().replace(".000Z", "-03:00"); // ISO com timezone
-  self.ctx.$scope.startDateISO = startDateISO;
-  */
-
-  /*
-
-  const endDate = new Date(
-    hoje.getFullYear(),
-    hoje.getMonth(),
-    hoje.getDate(),
-    23,
-    59,
-    59
-  );
-  const endDateISO = endDate.toISOString().replace(".000Z", "-03:00");
-  self.ctx.$scope.endDateISO = endDateISO;
-  */
-
-  const custumer = [];
-
-  self.ctx.data.forEach((data) => {
-    if (data.datasource.aliasName === "Shopping") {
-      // adiciona no array custumes
-      custumer.push({
-        name: data.datasource.entityLabel, // ou outro campo que seja o "nome"
-        value: data.data[0][1], // ou o dado que você precisa salvar
-      });
-    }
-  });
-
-//   console.log("[equipaments] on init Equipments >> custumer: ", custumer);
-//   console.log("[equipaments] on init Equipments >> startDateISO: ", datesFromParent.start);
-//   console.log("[equipaments] on init Equipments >> endDateISO: ", datesFromParent.end);
-
-  const apiDevices = await updateTotalConsumption(custumer, datesFromParent.start, datesFromParent.end);
-
-  const devicesArray = Array.isArray(apiDevices)
-    ? apiDevices
-    : Object.values(apiDevices);
-
-  // Pega a lista correta de dispositivos que está no PRIMEIRO elemento do array
-  const listaDeDispositivosDaApi = devicesArray[0];
-
-//   console.log(
-//     "[equipaments] Lista de dispositivos que veio da API:",
-//     listaDeDispositivosDaApi
-//   );
-
-  // Agora o loop é feito na lista correta
-  listaDeDispositivosDaApi.forEach((dispositivoDaApi) => {
-    // Agora 'dispositivoDaApi' é o objeto que você espera, como {id: "...", total_value: ...}
-    const ingestionId = dispositivoDaApi.id;
-
-    // O resto da sua lógica para usar o mapa continua igual
-    const entityId = ingestionIdToEntityIdMap.get(ingestionId);
-
-    if (entityId && devices[entityId]) {
-      devices[entityId].values.push({
-        val: dispositivoDaApi.total_value,
-        ts: Date.now(),
-        dataType: "total_consumption",
-      });
-    }
-  });
-
-  // Helper para encontrar um valor específico no array 'values' de cada device
-  const findValue = (values, dataType, defaultValue = "N/D") => {
-    const item = values.find((v) => v.dataType === dataType);
-    if (!item) return defaultValue;
-    // Retorna a propriedade 'val' (da nossa API) ou 'value' (do ThingsBoard)
-    return item.val !== undefined ? item.val : item.value;
-  };
-
-  // 1. Usamos Object.entries para manter o [entityId, deviceObject]
-  const devicesFormatadosParaCards = Object.entries(devices)
-    // 2. Filtramos para manter apenas os que receberam o valor da API
-    .filter(([entityId, device]) =>
-      device.values.some((valor) => valor.dataType === "total_consumption")
-    )
-    // 3. Mapeamos os filtrados para o formato final do card
-    .map(([entityId, device]) => {
-      return {
-        entityId: entityId,
-        labelOrName: device.label,
-        val: findValue(device.values, "total_consumption", 0),
-        deviceIdentifier: findValue(device.values, "identifier"),
-        deviceType: findValue(device.values, "deviceType"),
-        connectionStatus: findValue(device.values, "connectionStatus"),
-        valType: "power_kw",
-        perc: Math.floor(Math.random() * (95 - 70 + 1)) + 70,
-        temperatureC: Math.floor(Math.random() * (35 - 25 + 1)) + 25,
-        operationHours: parseFloat((Math.random() * 100).toFixed(3)),
-      };
-    });
-renderAllCards()
-//   console.log(
-//     "[equipaments] 🚀 Array Final formatado para os cards:",
-//     devicesFormatadosParaCards
-//   );
-//   console.log(
-//     `[equipaments] Total de cards a serem renderizados: ${devicesFormatadosParaCards.length}`
-//   );
-
-  // AGORA, a sua função initializeCards deve receber esta nova variável!
-  initializeCards(devicesFormatadosParaCards);
-
-  // ZOOM de fontes — agora usando o WRAP como root das variáveis
-  const wrap = document.getElementById("equipWrap");
-  const key = `tb-font-scale:${ctx?.widget?.id || "equip"}`;
-  const saved = +localStorage.getItem(key);
-  if (saved && saved >= 0.8 && saved <= 1.4)
-    wrap.style.setProperty("--fs", saved);
-
-  const getScale = () => +getComputedStyle(wrap).getPropertyValue("--fs") || 1;
-  const setScale = (v) => {
-    const s = Math.min(1.3, Math.max(0.8, +v.toFixed(2)));
-    wrap.style.setProperty("--fs", s);
-    localStorage.setItem(key, s);
-  };
-
-  document
-    .getElementById("fontMinus")
-    ?.addEventListener("click", () => setScale(getScale() - 0.06));
-  document
-    .getElementById("fontPlus")
-    ?.addEventListener("click", () => setScale(getScale() + 0.06));
 };
 
 self.onDestroy = function () {
