@@ -424,7 +424,7 @@ export const CSS_STRING = `
 
 /* Status chip */
 .myio-ho-card__status {
-  margin-bottom: 14px;
+  margin-bottom: 7px;
 }
 
 .chip {
