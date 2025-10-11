@@ -414,7 +414,7 @@ const MyIOOrchestrator = (() => {
             total_value: device.total_value || 0,
             timestamp: Date.now()
           });
-          console.log(`[MAIN] [Orchestrator] Cached device: ${device.name} (${device.id}) = ${device.total_value} kWh`);
+          //console.log(`[MAIN] [Orchestrator] Cached device: ${device.name} (${device.id}) = ${device.total_value} kWh`);
         }
       });
 

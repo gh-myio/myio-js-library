@@ -46,6 +46,7 @@ export const CSS_STRING = `
   transition: all 0.2s ease;
   min-width: 252px;
   max-width: 288px;
+  overflow: visible;
 }
 
 .myio-ho-card:hover {
@@ -87,6 +88,7 @@ export const CSS_STRING = `
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 10px;
+  overflow: visible;
 }
 
 .myio-ho-card__icon {
@@ -149,6 +151,8 @@ export const CSS_STRING = `
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 10;
 }
 
 .myio-ho-card__kebab {
@@ -160,6 +164,7 @@ export const CSS_STRING = `
   color: var(--myio-muted);
   transition: all 0.15s ease;
   position: relative;
+  overflow: visible;
 }
 
 .myio-ho-card__kebab:hover {
@@ -174,14 +179,14 @@ export const CSS_STRING = `
 
 .myio-ho-card__menu {
   position: absolute;
-  top: 16%;
+  top: 100%;
   right: 0;
   background: white;
   border: 1px solid var(--myio-card-border);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-  min-width: 140px;
+  z-index: 10000;
+  min-width: 160px;
   padding: 4px 0;
   margin-top: 4px;
 }

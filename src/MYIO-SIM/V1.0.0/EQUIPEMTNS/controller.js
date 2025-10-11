@@ -555,7 +555,7 @@ function initializeCards(devices) {
 
   devices.forEach((device, index) => {
     const container = document.createElement("div");
-    console.log("[EQUIPMENTS] Rendering device:", device);
+    //console.log("[EQUIPMENTS] Rendering device:", device);
     grid.appendChild(container);
 
     // Garantir que o deviceStatus existe (fallback para no_info se não existir)
