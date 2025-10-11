@@ -916,8 +916,7 @@ function formatDiaMes(date) {
 
 /* ====== Lifecycle ====== */
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
-  // Show loading on Energy card while waiting for cache
-  showEnergyCardLoading(true);
+  // Global busy modal is managed by MAIN orchestrator
 
   // Define timezone e datas iniciais
   const TZ = 'America/Sao_Paulo';

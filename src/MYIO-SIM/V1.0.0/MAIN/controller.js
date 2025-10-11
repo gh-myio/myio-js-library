@@ -1,5 +1,27 @@
 /* global self, ctx */
 
+// Debug configuration
+const DEBUG_ACTIVE = false;
+
+// LogHelper utility
+const LogHelper = {
+  log: function(...args) {
+    if (DEBUG_ACTIVE) {
+      console.log(...args);
+    }
+  },
+  warn: function(...args) {
+    if (DEBUG_ACTIVE) {
+      console.warn(...args);
+    }
+  },
+  error: function(...args) {
+    if (DEBUG_ACTIVE) {
+      console.error(...args);
+    }
+  }
+};
+
 const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
 let CUSTOMER_ID_TB; // ThingsBoard Customer ID
 let CUSTOMER_INGESTION_ID; // Ingestion API Customer ID
@@ -107,26 +129,253 @@ function isValidUUID(str) {
 
 // ===== ORCHESTRATOR: Energy Cache Management =====
 const MyIOOrchestrator = (() => {
+  // ========== BUSY OVERLAY MANAGEMENT ==========
+  const BUSY_OVERLAY_ID = 'myio-orchestrator-busy-overlay';
+  let globalBusyState = {
+    isVisible: false,
+    timeoutId: null,
+    startTime: null,
+    currentDomain: null,
+    requestCount: 0
+  };
+
+  function ensureOrchestratorBusyDOM() {
+    let el = document.getElementById(BUSY_OVERLAY_ID);
+    if (el) return el;
+
+    el = document.createElement('div');
+    el.id = BUSY_OVERLAY_ID;
+    el.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: rgba(45, 20, 88, 0.6);
+      backdrop-filter: blur(3px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      font-family: Inter, system-ui, sans-serif;
+    `;
+
+    const container = document.createElement('div');
+    container.style.cssText = `
+      background: #2d1458;
+      color: #fff;
+      border-radius: 18px;
+      padding: 24px 32px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-width: 320px;
+    `;
+
+    const spinner = document.createElement('div');
+    spinner.style.cssText = `
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(255,255,255,0.25);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    `;
+
+    const message = document.createElement('div');
+    message.id = `${BUSY_OVERLAY_ID}-message`;
+    message.style.cssText = `
+      font-weight: 600;
+      font-size: 14px;
+      letter-spacing: 0.2px;
+    `;
+    message.textContent = 'Carregando dados...';
+
+    container.appendChild(spinner);
+    container.appendChild(message);
+    el.appendChild(container);
+    document.body.appendChild(el);
+
+    // Add CSS animation
+    if (!document.querySelector('#myio-busy-styles')) {
+      const styleEl = document.createElement('style');
+      styleEl.id = 'myio-busy-styles';
+      styleEl.textContent = `
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(styleEl);
+    }
+
+    return el;
+  }
+
+  function showGlobalBusy(domain = 'energy', message = 'Carregando dados de energia...') {
+    LogHelper.log(`[Orchestrator] 🔄 showGlobalBusy() domain=${domain} message="${message}"`);
+
+    const el = ensureOrchestratorBusyDOM();
+    const messageEl = el.querySelector(`#${BUSY_OVERLAY_ID}-message`);
+
+    if (messageEl) {
+      messageEl.textContent = message;
+    }
+
+    // Clear existing timeout
+    if (globalBusyState.timeoutId) {
+      clearTimeout(globalBusyState.timeoutId);
+      globalBusyState.timeoutId = null;
+    }
+
+    // Update state
+    globalBusyState.isVisible = true;
+    globalBusyState.currentDomain = domain;
+    globalBusyState.startTime = Date.now();
+    globalBusyState.requestCount++;
+
+    el.style.display = 'flex';
+
+    // Extended timeout (25s)
+    globalBusyState.timeoutId = setTimeout(() => {
+      LogHelper.warn(`[Orchestrator] ⚠️ BUSY TIMEOUT (25s) for domain ${domain}`);
+      hideGlobalBusy();
+      globalBusyState.timeoutId = null;
+    }, 25000);
+
+    LogHelper.log(`[Orchestrator] ✅ Global busy shown for ${domain}`);
+  }
+
+  function hideGlobalBusy() {
+    LogHelper.log(`[Orchestrator] ⏸️ hideGlobalBusy() called`);
+
+    const el = document.getElementById(BUSY_OVERLAY_ID);
+    if (el) {
+      el.style.display = 'none';
+    }
+
+    // Clear timeout
+    if (globalBusyState.timeoutId) {
+      clearTimeout(globalBusyState.timeoutId);
+      globalBusyState.timeoutId = null;
+    }
+
+    // Update state
+    globalBusyState.isVisible = false;
+    globalBusyState.currentDomain = null;
+    globalBusyState.startTime = null;
+
+    LogHelper.log(`[Orchestrator] ✅ Global busy hidden`);
+  }
+
   // In-memory cache for energy data
   let energyCache = new Map(); // Map<ingestionId, energyData>
   let isFetching = false;
   let lastFetchParams = null;
 
+  // ========== CACHE PERSISTENCE ==========
+  function persistToStorage(key, entry) {
+    try {
+      const payload = JSON.stringify({ [key]: entry });
+      if (payload.length > 5 * 1024 * 1024) {
+        LogHelper.warn('[Orchestrator] Payload too large for localStorage');
+        return;
+      }
+      localStorage.setItem(`myio:cache:${key}`, payload);
+      LogHelper.log(`[Orchestrator] Cache persisted to localStorage: ${key}`);
+    } catch (e) {
+      LogHelper.warn('[Orchestrator] localStorage persist failed:', e);
+    }
+  }
+
+  function loadFromStorage(key) {
+    try {
+      const item = localStorage.getItem(`myio:cache:${key}`);
+      if (!item) return null;
+
+      const parsed = JSON.parse(item);
+      const entry = parsed[key];
+
+      if (!entry) return null;
+
+      // Check if cache is fresh (TTL: 5 minutes)
+      const age = Date.now() - (entry.hydratedAt || 0);
+      const ttl = 5 * 60 * 1000; // 5 minutes
+
+      if (age > ttl) {
+        LogHelper.log(`[Orchestrator] Cache expired for ${key}, age: ${Math.round(age/1000)}s`);
+        localStorage.removeItem(`myio:cache:${key}`);
+        return null;
+      }
+
+      LogHelper.log(`[Orchestrator] Cache loaded from localStorage: ${key}, age: ${Math.round(age/1000)}s`);
+      return entry;
+    } catch (e) {
+      LogHelper.warn('[Orchestrator] localStorage load failed:', e);
+      return null;
+    }
+  }
+
+  function clearStorageCache(domain = '*') {
+    const prefix = domain === '*' ? 'myio:cache:' : `myio:cache:${domain}:`;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(prefix)) {
+          localStorage.removeItem(key);
+          LogHelper.log(`[Orchestrator] Cleared cache: ${key}`);
+        }
+      }
+    } catch (e) {
+      LogHelper.warn('[Orchestrator] clearStorageCache failed:', e);
+    }
+  }
+
+  function cacheKey(customerIngestionId, startDateISO, endDateISO) {
+    return `energy:${customerIngestionId}:${startDateISO}:${endDateISO}`;
+  }
+
   async function fetchEnergyData(customerIngestionId, startDateISO, endDateISO) {
+    const key = cacheKey(customerIngestionId, startDateISO, endDateISO);
+
     // Prevent duplicate fetches
-    const fetchKey = `${customerIngestionId}_${startDateISO}_${endDateISO}`;
-    if (isFetching && lastFetchParams === fetchKey) {
+    if (isFetching && lastFetchParams === key) {
       console.log("[MAIN] [Orchestrator] Fetch already in progress, skipping...");
       return energyCache;
     }
 
+    // Try to load from localStorage first
+    const cachedEntry = loadFromStorage(key);
+    if (cachedEntry && cachedEntry.data) {
+      console.log(`[MAIN] [Orchestrator] Using cached data from localStorage (${cachedEntry.data.size || 0} devices)`);
+
+      // Restore Map from cached data
+      energyCache = new Map(cachedEntry.data);
+
+      // Emit event with cached data
+      window.dispatchEvent(new CustomEvent('myio:energy-data-ready', {
+        detail: {
+          cache: energyCache,
+          totalDevices: energyCache.size,
+          startDate: startDateISO,
+          endDate: endDateISO,
+          timestamp: cachedEntry.hydratedAt,
+          fromCache: true
+        }
+      }));
+
+      return energyCache;
+    }
+
     isFetching = true;
-    lastFetchParams = fetchKey;
-    console.log("[MAIN] [Orchestrator] Fetching energy data...", {
+    lastFetchParams = key;
+    console.log("[MAIN] [Orchestrator] Fetching energy data from API...", {
       customerIngestionId,
       startDateISO,
       endDateISO
     });
+
+    // Show global busy modal
+    showGlobalBusy('energy', 'Carregando dados de energia...');
 
     try {
       // Get token from MyIO auth component
@@ -149,7 +398,11 @@ const MyIOOrchestrator = (() => {
       }
 
       const data = await response.json();
-      const devicesList = Array.isArray(data) ? data : (data[0] || []);
+      console.log("[MAIN] [Orchestrator] API Response:", data);
+
+      // API returns { data: [...] }
+      const devicesList = Array.isArray(data) ? data : (data.data || []);
+      console.log("[MAIN] [Orchestrator] Devices list extracted:", devicesList.length, "devices");
 
       // Clear and repopulate cache
       energyCache.clear();
@@ -157,13 +410,23 @@ const MyIOOrchestrator = (() => {
         if (device.id) {
           energyCache.set(device.id, {
             ingestionId: device.id,
+            name: device.name,
             total_value: device.total_value || 0,
             timestamp: Date.now()
           });
+          console.log(`[MAIN] [Orchestrator] Cached device: ${device.name} (${device.id}) = ${device.total_value} kWh`);
         }
       });
 
       console.log(`[MAIN] [Orchestrator] Energy cache updated: ${energyCache.size} devices`);
+
+      // Persist to localStorage
+      const cacheEntry = {
+        data: Array.from(energyCache.entries()), // Convert Map to array for JSON serialization
+        hydratedAt: Date.now(),
+        ttlMinutes: 5
+      };
+      persistToStorage(key, cacheEntry);
 
       // Emit event with cached data
       window.dispatchEvent(new CustomEvent('myio:energy-data-ready', {
@@ -172,7 +435,8 @@ const MyIOOrchestrator = (() => {
           totalDevices: energyCache.size,
           startDate: startDateISO,
           endDate: endDateISO,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          fromCache: false
         }
       }));
 
@@ -183,6 +447,8 @@ const MyIOOrchestrator = (() => {
       return energyCache;
     } finally {
       isFetching = false;
+      // Hide global busy modal
+      hideGlobalBusy();
     }
   }
 
@@ -194,12 +460,30 @@ const MyIOOrchestrator = (() => {
     return energyCache.get(ingestionId) || null;
   }
 
+  function invalidateCache(domain = 'energy') {
+    console.log(`[MAIN] [Orchestrator] Invalidating cache for domain: ${domain}`);
+    energyCache.clear();
+    clearStorageCache(domain);
+    isFetching = false;
+    lastFetchParams = null;
+  }
+
   return {
     fetchEnergyData,
     getCache,
-    getCachedDevice
+    getCachedDevice,
+    invalidateCache,
+    clearStorageCache,
+    showGlobalBusy,
+    hideGlobalBusy,
+    getBusyState: () => ({ ...globalBusyState })
   };
 })();
+
+// Expose globally
+window.MyIOOrchestrator = MyIOOrchestrator;
+
+LogHelper.log('[MyIOOrchestrator] Initialized');
 
 self.onInit = async function () {
   // ===== STEP 1: Get ThingsBoard Customer ID and fetch credentials =====
