@@ -563,7 +563,7 @@ function initializeCards(devices) {
       device.deviceStatus = 'no_info';
     }
 
-    const handle = MyIOLibrary.renderCardCompenteHeadOffice(container, {
+    const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
       handleActionDashboard: async () => {
         try {
@@ -670,7 +670,7 @@ function initializeCards(devices) {
       enableDragDrop: true,
     });
 
-    // O componente renderCardCompenteHeadOffice agora gerencia o estilo baseado em deviceStatus
+    // O componente renderCardComponentHeadOffice agora gerencia o estilo baseado em deviceStatus
     // Não é mais necessário aplicar classes manualmente
   });
 

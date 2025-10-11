@@ -129,10 +129,10 @@
 
     <script type="module">
         // Import the component (in a real scenario, this would be from the built library)
-        //import { renderCardCompenteHeadOffice } from './card-head-office.js';
+        //import { renderCardComponentHeadOffice } from './card-head-office.js';
               // Access components from global MyIOLibrary
-        const { 
-            renderCardCompenteHeadOffice 
+        const {
+            renderCardComponentHeadOffice
         } = MyIOLibrary;
         
         // Global state
@@ -272,7 +272,7 @@
                 const cardContainer = document.createElement('div');
                 grid.appendChild(cardContainer);
                 
-                const card = renderCardCompenteHeadOffice(cardContainer, {
+                const card = renderCardComponentHeadOffice(cardContainer, {
                     entityObject: device,
                     handleActionDashboard,
                     handleActionReport,

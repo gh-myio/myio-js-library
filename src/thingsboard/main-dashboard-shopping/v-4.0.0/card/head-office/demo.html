@@ -99,7 +99,7 @@
 <body>
     <div class="demo-header">
         <h1>MYIO Head Office Card Component Demo</h1>
-        <p>Demonstração do componente renderCardCompenteHeadOffice</p>
+        <p>Demonstração do componente renderCardComponentHeadOffice</p>
     </div>
     
     <div class="demo-container">
@@ -124,7 +124,7 @@
     
     <script>
         // Get the library components
-        const { renderCardCompenteHeadOffice } = MyIOLibrary;
+        const { renderCardComponentHeadOffice } = MyIOLibrary;
         
         // Store card handles for updates
         const cardHandles = [];
@@ -230,7 +230,7 @@
                 const container = document.createElement('div');
                 grid.appendChild(container);
                 
-                const handle = renderCardCompenteHeadOffice(container, {
+                const handle = renderCardComponentHeadOffice(container, {
                     entityObject: device,
                     handleActionDashboard: (ev, entity) => {
                         log(`Dashboard clicked: ${entity.labelOrName} (${entity.entityId})`);
@@ -313,7 +313,7 @@
                 operationHours: 0
             };
             
-            const handle = renderCardCompenteHeadOffice(container, {
+            const handle = renderCardComponentHeadOffice(container, {
                 entityObject: newDevice,
                 handleActionDashboard: (ev, entity) => {
                     log(`Dashboard clicked: ${entity.labelOrName}`);

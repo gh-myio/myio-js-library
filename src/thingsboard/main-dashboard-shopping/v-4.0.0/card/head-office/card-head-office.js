@@ -798,9 +798,9 @@ function showInfoModal(title, bodyHtml) {
 /**
  * Main render function
  */
-export function renderCardCompenteHeadOffice(containerEl, params) {
+export function renderCardComponentHeadOffice(containerEl, params) {
   if (!containerEl) {
-    throw new Error('renderCardCompenteHeadOffice: containerEl is required');
+    throw new Error('renderCardComponentHeadOffice: containerEl is required');
   }
 
   ensureCss();

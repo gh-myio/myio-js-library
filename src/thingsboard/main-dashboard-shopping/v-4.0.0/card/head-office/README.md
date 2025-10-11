@@ -1,6 +1,6 @@
 # Head Office Card Component
 
-The `renderCardCompenteHeadOffice` component provides a premium, atomic UI card for displaying device information in MYIO Head Office dashboards within ThingsBoard widgets.
+The `renderCardComponentHeadOffice` component provides a premium, atomic UI card for displaying device information in MYIO Head Office dashboards within ThingsBoard widgets.
 
 ## Features
 
@@ -17,13 +17,13 @@ The `renderCardCompenteHeadOffice` component provides a premium, atomic UI card 
 The component is exported from the main MYIO JS Library:
 
 ```javascript
-import { renderCardCompenteHeadOffice } from 'myio-js-library';
+import { renderCardComponentHeadOffice } from 'myio-js-library';
 ```
 
 Or in ThingsBoard widgets:
 
 ```javascript
-const card = MyIOLibrary.renderCardCompenteHeadOffice(container, params);
+const card = MyIOLibrary.renderCardComponentHeadOffice(container, params);
 ```
 
 ## Basic Usage
@@ -31,7 +31,7 @@ const card = MyIOLibrary.renderCardCompenteHeadOffice(container, params);
 ```javascript
 const container = document.getElementById('card-container');
 
-const card = renderCardCompenteHeadOffice(container, {
+const card = renderCardComponentHeadOffice(container, {
   entityObject: {
     entityId: 'ELV-002',
     labelOrName: 'Elevador Social Norte 01',
@@ -178,7 +178,7 @@ Override CSS variables to customize appearance:
 Customize labels by providing an `i18n` object:
 
 ```javascript
-const card = renderCardCompenteHeadOffice(container, {
+const card = renderCardComponentHeadOffice(container, {
   entityObject: { /* ... */ },
   i18n: {
     in_operation: 'Operating',
@@ -207,7 +207,7 @@ entities.forEach((entity, index) => {
   cardContainer.className = 'card-cell';
   gridContainer.appendChild(cardContainer);
 
-  const card = MyIOLibrary.renderCardCompenteHeadOffice(cardContainer, {
+  const card = MyIOLibrary.renderCardComponentHeadOffice(cardContainer, {
     entityObject: {
       entityId: entity.id,
       labelOrName: entity.label || entity.name,
@@ -354,7 +354,7 @@ renderCardComponentV2({
 });
 
 // New Head Office approach
-renderCardCompenteHeadOffice(container, {
+renderCardComponentHeadOffice(container, {
   entityObject: entityData,
   // ... other options
 });
