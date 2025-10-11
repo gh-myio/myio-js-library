@@ -36,7 +36,7 @@ export const CSS_STRING = `
   border: 1px solid var(--myio-card-border);
   border-radius: var(--myio-card-radius);
   box-shadow: var(--myio-card-shadow);
-  padding: 16px;
+  padding: 14px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   line-height: 1.4;
@@ -44,8 +44,8 @@ export const CSS_STRING = `
   position: relative;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-width: 280px;
-  max-width: 320px;
+  min-width: 252px;
+  max-width: 288px;
 }
 
 .myio-ho-card:hover {
@@ -86,7 +86,7 @@ export const CSS_STRING = `
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .myio-ho-card__icon {
@@ -424,7 +424,7 @@ export const CSS_STRING = `
 
 /* Status chip */
 .myio-ho-card__status {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .chip {
@@ -459,8 +459,8 @@ export const CSS_STRING = `
 
 /* Primary metric */
 .myio-ho-card__primary {
-  margin-bottom: 16px;
-  padding: 8px 0;
+  margin-bottom: 14px;
+  padding: 7px 0;
   border-radius: 8px;
   transition: background-color 0.15s ease;
 }
@@ -507,7 +507,7 @@ export const CSS_STRING = `
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .myio-ho-card__eff .label {
@@ -546,7 +546,7 @@ export const CSS_STRING = `
 .myio-ho-card__footer {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
 }
 
 .myio-ho-card__footer .metric {
@@ -595,16 +595,16 @@ export const CSS_STRING = `
 /* Responsive adjustments */
 @media (max-width: 320px) {
   .myio-ho-card {
-    min-width: 260px;
-    padding: 14px;
+    min-width: 234px;
+    padding: 12px;
   }
-  
+
   .myio-ho-card__value .num {
     font-size: 20px;
   }
-  
+
   .myio-ho-card__footer {
-    gap: 8px;
+    gap: 7px;
   }
 }
 

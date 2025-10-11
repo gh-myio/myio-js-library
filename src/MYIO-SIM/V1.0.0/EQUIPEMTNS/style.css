@@ -62,8 +62,8 @@
 
 .cards-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    /* 4 cards por linha */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    /* responsivo: 4 a 6 cards por linha */
     gap: 16px;
     /* espaço entre os cards */
 }
@@ -72,6 +72,47 @@
     min-width: 0;
     width: auto;
     box-sizing: border-box;
+}
+
+/* Responsividade da grid: 4 a 6 cards por linha */
+@media (min-width: 1920px) {
+    .cards-grid {
+        grid-template-columns: repeat(6, 1fr);
+        /* 6 cards em telas muito grandes (≥1920px) */
+        gap: 14px;
+    }
+}
+
+@media (min-width: 1600px) and (max-width: 1919px) {
+    .cards-grid {
+        grid-template-columns: repeat(5, 1fr);
+        /* 5 cards em telas grandes (1600-1919px) */
+        gap: 15px;
+    }
+}
+
+@media (min-width: 1280px) and (max-width: 1599px) {
+    .cards-grid {
+        grid-template-columns: repeat(5, 1fr);
+        /* 5 cards em telas médias (1280-1599px) */
+        gap: 14px;
+    }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+    .cards-grid {
+        grid-template-columns: repeat(4, 1fr);
+        /* 4 cards em telas menores (1024-1279px) */
+        gap: 16px;
+    }
+}
+
+@media (max-width: 1023px) {
+    .cards-grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        /* responsivo em telas pequenas (<1024px) */
+        gap: 12px;
+    }
 }
 
 
