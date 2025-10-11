@@ -1,141 +1,11 @@
 /* global self, ctx */
 
 const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
-let CUSTOMER_ID;
-let CLIENT_ID;
-let CLIENT_SECRET;
-let INGESTION_ID;
-
-// NOTE: Funções de formatação removidas - não são mais usadas no MAIN
-// O MAIN agora é apenas o orquestrador de dados
-
-const MyIOAuth = (() => {
-  // ==== CONFIG ====
-  const AUTH_URL = new URL(`${DATA_API_HOST}/api/v1/auth`);
-
-  // ⚠️ Substitua pelos seus valores:
-
-  // Margem para renovar o token antes de expirar (em segundos)
-  const RENEW_SKEW_S = 60; // 1 min
-  // Em caso de erro, re-tenta com backoff simples
-  const RETRY_BASE_MS = 500;
-  const RETRY_MAX_ATTEMPTS = 3;
-
-  // Cache em memória (por aba). Se quiser compartilhar entre widgets/abas,
-  // você pode trocar por localStorage (com os devidos cuidados de segurança).
-  let _token = null; // string
-  let _expiresAt = 0; // epoch em ms
-  let _inFlight = null; // Promise em andamento para evitar corridas
-
-  function _now() {
-    return Date.now();
-  }
-
-  function _aboutToExpire() {
-    // true se não temos token ou se falta pouco para expirar
-    if (!_token) return true;
-    const skewMs = RENEW_SKEW_S * 1000;
-    return _now() >= _expiresAt - skewMs;
-  }
-
-  async function _sleep(ms) {
-    return new Promise((res) => setTimeout(res, ms));
-  }
-
-  async function _requestNewToken() {
-    const body = {
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-    };
-
-    let attempt = 0;
-    while (true) {
-      try {
-        const resp = await fetch(AUTH_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
-        });
-
-        if (!resp.ok) {
-          const text = await resp.text().catch(() => "");
-          throw new Error(
-            `Auth falhou: HTTP ${resp.status} ${resp.statusText} ${text}`
-          );
-        }
-
-        const json = await resp.json();
-        // Espera formato:
-        // { access_token, token_type, expires_in, scope }
-        if (!json || !json.access_token || !json.expires_in) {
-          throw new Error("Resposta de auth não contem campos esperados.");
-        }
-
-        _token = json.access_token;
-        // Define expiração absoluta (agora + expires_in)
-        _expiresAt = _now() + Number(json.expires_in) * 1000;
-
-        // Logs úteis para depuração (não imprimem o token)
-        console.log(
-          "[equipaments] [MyIOAuth] Novo token obtido. Expira em ~",
-          Math.round(Number(json.expires_in) / 60),
-          "min"
-        );
-
-        return _token;
-      } catch (err) {
-        attempt++;
-        console.warn(
-          `[equipaments] [MyIOAuth] Erro ao obter token (tentativa ${attempt}/${RETRY_MAX_ATTEMPTS}):`,
-          err?.message || err
-        );
-        if (attempt >= RETRY_MAX_ATTEMPTS) {
-          throw err;
-        }
-        const backoff = RETRY_BASE_MS * Math.pow(2, attempt - 1);
-        await _sleep(backoff);
-      }
-    }
-  }
-
-  async function getToken() {
-    // Evita múltiplas chamadas paralelas de renovação
-    if (_inFlight) {
-      return _inFlight;
-    }
-
-    if (_aboutToExpire()) {
-      _inFlight = _requestNewToken().finally(() => {
-        _inFlight = null;
-      });
-      return _inFlight;
-    }
-
-    return _token;
-  }
-
-  // Helpers opcionais
-  function getExpiryInfo() {
-    return {
-      expiresAt: _expiresAt,
-      expiresInSeconds: Math.max(0, Math.floor((_expiresAt - _now()) / 1000)),
-    };
-  }
-
-  function clearCache() {
-    _token = null;
-    _expiresAt = 0;
-    _inFlight = null;
-  }
-
-  return {
-    getToken,
-    getExpiryInfo,
-    clearCache,
-  };
-})();
+let CUSTOMER_ID_TB; // ThingsBoard Customer ID
+let CUSTOMER_INGESTION_ID; // Ingestion API Customer ID
+let CLIENT_ID_INGESTION;
+let CLIENT_SECRET_INGESTION;
+let myIOAuth; // Instance of MyIO auth component
 
 async function fetchCustomerServerScopeAttrs(customerTbId) {
   if (!customerTbId) return {};
@@ -242,9 +112,9 @@ const MyIOOrchestrator = (() => {
   let isFetching = false;
   let lastFetchParams = null;
 
-  async function fetchEnergyData(customersArray, startDateISO, endDateISO) {
+  async function fetchEnergyData(customerIngestionId, startDateISO, endDateISO) {
     // Prevent duplicate fetches
-    const fetchKey = `${JSON.stringify(customersArray)}_${startDateISO}_${endDateISO}`;
+    const fetchKey = `${customerIngestionId}_${startDateISO}_${endDateISO}`;
     if (isFetching && lastFetchParams === fetchKey) {
       console.log("[MAIN] [Orchestrator] Fetch already in progress, skipping...");
       return energyCache;
@@ -252,45 +122,38 @@ const MyIOOrchestrator = (() => {
 
     isFetching = true;
     lastFetchParams = fetchKey;
-    console.log("[MAIN] [Orchestrator] Fetching energy data...", { startDateISO, endDateISO, customers: customersArray.length });
+    console.log("[MAIN] [Orchestrator] Fetching energy data...", {
+      customerIngestionId,
+      startDateISO,
+      endDateISO
+    });
 
     try {
-      const TOKEN_INGESTION = await MyIOAuth.getToken();
+      // Get token from MyIO auth component
+      const TOKEN_INGESTION = await myIOAuth.getToken();
 
-      // Fetch energy data for all customers
-      const allDevicesData = [];
-      for (const customer of customersArray) {
-        if (!customer.value) continue;
-
-        try {
-          const response = await fetch(
-            `${DATA_API_HOST}/api/v1/telemetry/customers/${customer.value}/energy/devices/totals?startTime=${encodeURIComponent(startDateISO)}&endTime=${encodeURIComponent(endDateISO)}`,
-            {
-              method: "GET",
-              headers: {
-                Authorization: `Bearer ${TOKEN_INGESTION}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          if (!response.ok) {
-            console.warn(`[MAIN] [Orchestrator] Failed to fetch energy for customer ${customer.value}: HTTP ${response.status}`);
-            continue;
-          }
-
-          const data = await response.json();
-          const devicesList = Array.isArray(data) ? data : (data[0] || []);
-          allDevicesData.push(...devicesList);
-
-        } catch (err) {
-          console.error(`[MAIN] [Orchestrator] Error fetching energy for customer ${customer.value}:`, err);
+      const response = await fetch(
+        `${DATA_API_HOST}/api/v1/telemetry/customers/${customerIngestionId}/energy/devices/totals?startTime=${encodeURIComponent(startDateISO)}&endTime=${encodeURIComponent(endDateISO)}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${TOKEN_INGESTION}`,
+            "Content-Type": "application/json",
+          },
         }
+      );
+
+      if (!response.ok) {
+        console.warn(`[MAIN] [Orchestrator] Failed to fetch energy: HTTP ${response.status}`);
+        return energyCache;
       }
+
+      const data = await response.json();
+      const devicesList = Array.isArray(data) ? data : (data[0] || []);
 
       // Clear and repopulate cache
       energyCache.clear();
-      allDevicesData.forEach(device => {
+      devicesList.forEach(device => {
         if (device.id) {
           energyCache.set(device.id, {
             ingestionId: device.id,
@@ -339,8 +202,51 @@ const MyIOOrchestrator = (() => {
 })();
 
 self.onInit = async function () {
+  // ===== STEP 1: Get ThingsBoard Customer ID and fetch credentials =====
+  CUSTOMER_ID_TB = self.ctx.settings.customerId;
 
+  if (!CUSTOMER_ID_TB) {
+    console.error("[MAIN] [Orchestrator] customerId não encontrado em settings");
+    return;
+  }
 
+  console.log("[MAIN] [Orchestrator] ThingsBoard Customer ID:", CUSTOMER_ID_TB);
+
+  // Fetch customer attributes from ThingsBoard
+  const customerAttrs = await fetchCustomerServerScopeAttrs(CUSTOMER_ID_TB);
+
+  CUSTOMER_INGESTION_ID = customerAttrs.customerIngestionId || customerAttrs.ingestionId;
+  CLIENT_ID_INGESTION = customerAttrs.clientIdIngestion || customerAttrs.client_id;
+  CLIENT_SECRET_INGESTION = customerAttrs.clientSecretIngestion || customerAttrs.client_secret;
+
+  if (!CUSTOMER_INGESTION_ID || !CLIENT_ID_INGESTION || !CLIENT_SECRET_INGESTION) {
+    console.error("[MAIN] [Orchestrator] Credenciais de Ingestion não encontradas:", {
+      customerIngestionId: CUSTOMER_INGESTION_ID,
+      hasClientId: !!CLIENT_ID_INGESTION,
+      hasClientSecret: !!CLIENT_SECRET_INGESTION
+    });
+    return;
+  }
+
+  console.log("[MAIN] [Orchestrator] Ingestion credentials loaded:", {
+    customerIngestionId: CUSTOMER_INGESTION_ID,
+    clientId: CLIENT_ID_INGESTION
+  });
+
+  // ===== STEP 2: Initialize MyIO Auth Component =====
+  // Check if MyIOLibrary is available
+  if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.buildMyioIngestionAuth) {
+    console.error("[MAIN] [Orchestrator] MyIOLibrary não está disponível. Verifique se a biblioteca foi carregada corretamente.");
+    return;
+  }
+
+  myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+    dataApiHost: DATA_API_HOST,
+    clientId: CLIENT_ID_INGESTION,
+    clientSecret: CLIENT_SECRET_INGESTION
+  });
+
+  console.log("[MAIN] [Orchestrator] MyIO Auth initialized");
 
   // -- util: aplica no $scope e roda digest
   function applyParams(p) {
@@ -424,20 +330,10 @@ self.onInit = async function () {
         globalEndDateFilter: endDate
       });
 
-      // Use customerId from settings
-      const customerId = self.ctx.settings.customerId;
-      if (!customerId) {
-        console.error("[MAIN] [Orchestrator] customerId não encontrado em settings");
-        return;
+      // Fetch and cache energy data using Ingestion Customer ID
+      if (CUSTOMER_INGESTION_ID) {
+        await MyIOOrchestrator.fetchEnergyData(CUSTOMER_INGESTION_ID, startDate, endDate);
       }
-
-      const custumer = [{
-        name: "Customer",
-        value: customerId
-      }];
-
-      // Fetch and cache energy data
-      await MyIOOrchestrator.fetchEnergyData(custumer, startDate, endDate);
     }
   });
 
@@ -472,32 +368,12 @@ self.onInit = async function () {
   };
   window.addEventListener("myio:date-params", self._onDateParams);
 
-  // NOTE: MAIN agora é apenas o orquestrador
-  // Não precisa processar devices localmente
-
   // ===== ORCHESTRATOR: Initial energy data fetch =====
-  // Use apenas o customerId do settings, não precisa iterar datasources
-  const customerId = self.ctx.settings.customerId;
-
-  if (!customerId) {
-    console.error("[MAIN] [Orchestrator] customerId não encontrado em settings");
-    return;
-  }
-
-  const custumer = [{
-    name: "Customer",
-    value: customerId
-  }];
-
-  console.log("[MAIN] [Orchestrator] Initial setup with customerId:", customerId);
+  console.log("[MAIN] [Orchestrator] Initial setup with Ingestion Customer ID:", CUSTOMER_INGESTION_ID);
   console.log("[MAIN] [Orchestrator] Date range:", { start: datesFromParent.start, end: datesFromParent.end });
 
   // Fetch energy data using orchestrator
-  await MyIOOrchestrator.fetchEnergyData(custumer, datesFromParent.start, datesFromParent.end);
-
-  // NOTE: O MAIN não precisa mais renderizar cards próprios
-  // Os dados de energia agora vêm do cache do orchestrador
-  // e são consumidos pelos widgets HEADER e EQUIPMENTS via eventos
+  await MyIOOrchestrator.fetchEnergyData(CUSTOMER_INGESTION_ID, datesFromParent.start, datesFromParent.end);
 
   console.log("[MAIN] [Orchestrator] Initialization complete - data available via cache");
 
