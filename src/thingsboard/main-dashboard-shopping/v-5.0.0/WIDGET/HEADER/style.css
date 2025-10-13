@@ -114,37 +114,6 @@
     transform: translateY(1px);
 }
 
-.tbx-btn-secondary {
-    background: #3E1A7D;
-    color: #fff;
-}
-
-.tbx-btn-secondary:hover {
-    background: #2d1458;
-}
-
-.tbx-btn-secondary:active {
-    background: #1f0e3d;
-    transform: translateY(1px);
-}
-
-/* Botões disabled */
-.tbx-btn:disabled,
-.tbx-btn[disabled] {
-    background: #e5e7eb !important;
-    color: #9ca3af !important;
-    cursor: not-allowed !important;
-    opacity: 0.6;
-    box-shadow: none !important;
-    transform: none !important;
-}
-
-.tbx-btn-primary:disabled,
-.tbx-btn-primary[disabled] {
-    background: #d1d5db !important;
-    color: #6b7280 !important;
-}
-
 /* Ícones */
 .tbx-ico {
     display: inline-block;

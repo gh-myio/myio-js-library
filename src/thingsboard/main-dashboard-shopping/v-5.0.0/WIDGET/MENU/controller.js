@@ -1,124 +1,9 @@
-// Debug configuration
-const DEBUG_ACTIVE = true;
-
-// LogHelper utility
-const LogHelper = {
-  log: function(...args) {
-    if (DEBUG_ACTIVE) {
-      console.log(...args);
-    }
-  },
-  warn: function(...args) {
-    if (DEBUG_ACTIVE) {
-      console.warn(...args);
-    }
-  },
-  error: function(...args) {
-    if (DEBUG_ACTIVE) {
-      console.error(...args);
-    }
-  }
-};
-
 self.onInit = function () {
   const settings = self.ctx.settings || {};
   const scope = self.ctx.$scope;
 
   scope.links = settings.links || [];
   scope.groupDashboardId = settings.groupDashboardId;
-
-  // Function to get icon for each menu item based on stateId
-  scope.getMenuIcon = function(stateId) {
-    const icons = {
-      'telemetry_content': '⚡',
-      'water_content': '💧',
-      'temperature_content': '🌡️',
-      'alarm_content': '🔔'
-    };
-    return icons[stateId] || '📄';
-  };
-
-  // Hamburger menu toggle
-  const hamburgerBtn = document.querySelector('.hamburger-btn');
-  const menuRoot = document.querySelector('.shops-menu-root');
-  let isMenuCollapsed = false;
-
-  if (hamburgerBtn && menuRoot) {
-    hamburgerBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      isMenuCollapsed = !isMenuCollapsed;
-
-      if (isMenuCollapsed) {
-        menuRoot.classList.add('collapsed');
-        LogHelper.log('[MENU] Menu collapsed');
-      } else {
-        menuRoot.classList.remove('collapsed');
-        LogHelper.log('[MENU] Menu expanded');
-      }
-
-      // Emit event to notify other widgets (like MAIN_VIEW)
-      window.dispatchEvent(new CustomEvent('myio:menu-toggle', {
-        detail: { collapsed: isMenuCollapsed }
-      }));
-    });
-  }
-
-  // Fetch and display user info
-  fetchUserInfo();
-
-  async function fetchUserInfo() {
-    try {
-      //LogHelper.log("[MENU] Fetching user info from /api/auth/user");
-
-      const response = await fetch('/api/auth/user', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Authorization': 'Bearer ' + localStorage.getItem('jwt_token')
-        },
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch user info: ${response.status}`);
-      }
-
-      const user = await response.json();
-      //LogHelper.log("[MENU] User info received:", user);
-
-      // Update user info in the UI
-      const userNameEl = document.getElementById('user-name');
-      const userEmailEl = document.getElementById('user-email');
-
-      if (userNameEl && user) {
-        const firstName = user.firstName || '';
-        const lastName = user.lastName || '';
-        const fullName = `${firstName} ${lastName}`.trim() || 'Usuário';
-        userNameEl.textContent = fullName;
-
-        //LogHelper.log("[MENU] User name set to:", fullName);
-      }
-
-      if (userEmailEl && user?.email) {
-        userEmailEl.textContent = user.email;
-        //LogHelper.log("[MENU] User email set to:", user.email);
-      }
-
-    } catch (err) {
-      LogHelper.error("[MENU] Error fetching user info:", err);
-
-      // Fallback UI
-      const userNameEl = document.getElementById('user-name');
-      const userEmailEl = document.getElementById('user-email');
-
-      if (userNameEl) {
-        userNameEl.textContent = 'Usuário';
-      }
-      if (userEmailEl) {
-        userEmailEl.textContent = '';
-      }
-    }
-  }
 
   // RFC-0042: State ID to Domain mapping
   const DOMAIN_BY_STATE = {
@@ -136,18 +21,17 @@ self.onInit = function () {
 
     // RFC-0042: Notify orchestrator of tab change
     const domain = DOMAIN_BY_STATE[stateId];
-
-    // ALWAYS dispatch event, even for null domain (alarms, etc)
-    // This ensures HEADER can disable buttons for unsupported domains
-    //LogHelper.log(`[MENU] Tab changed to domain: ${domain || 'null (unsupported)'}`);
-    window.dispatchEvent(new CustomEvent('myio:dashboard-state', {
-      detail: { tab: domain }
-    }));
+    if (domain) {
+      console.log(`[MENU] Tab changed to domain: ${domain}`);
+      window.dispatchEvent(new CustomEvent('myio:dashboard-state', {
+        detail: { tab: domain }
+      }));
+    }
 
     try {
       const main = document.getElementsByTagName("main")[0];
       if (!main) {
-        LogHelper.error("[menu] Elemento <main> não encontrado.");
+        console.error("[menu] Elemento <main> não encontrado.");
         return;
       }
 
@@ -161,26 +45,38 @@ self.onInit = function () {
           stateParam = "W3siaWQiOiJ3YXRlcl9jb250ZW50IiwicGFyYW1zIjp7fX1d";
           break;
         case "temperature_content":
-         stateParam = "W3siaWQiOiJ0ZW1wZXJhdHVyZV9jb250ZW50IiwicGFyYW1zIjp7fX1d";
-         break;
+          stateParam = "W3siaWQiOiJ0ZW1wZXJhdHVyZV9jb250ZW50IiwicGFyYW1zIjp7fX1d";
+          break;
         case "alarm_content":
-            stateParam = "W3siaWQiOiJhbGFybV9jb250ZW50IiwicGFyYW1zIjp7fX1d";
-            break
+          stateParam = "W3siaWQiOiJhbGFybV9jb250ZW50IiwicGFyYW1zIjp7fX1d";
+          break;
         default:
           stateParam = undefined;
       }
 
-      // Usa o dashboardId das configurações (se existir) ou fallback fixo
-      const dashboardId = settings.groupDashboardId;
+      // Função que pega o segmento depois de 'all/'
+      function getSegmentAfterAll() {
+        const href = window.location.href;
+        const match = href.match(/all\/([^\/?#]+)/i);
+        return match ? match[1] : null; // retorna null se não achar
+      }
+
+      const dashboardId = getSegmentAfterAll(); // apenas o valor dinâmico, sem fallback
 
       if (!stateParam) {
-        LogHelper.warn(`[menu] Nenhum stateParam definido para stateId: ${stateId}`);
+        console.warn(`[menu] Nenhum stateParam definido para stateId: ${stateId}`);
         main.innerHTML = `<div style="padding:20px; text-align:center; font-size:16px;">não tem</div>`;
         return;
       }
 
+      if (!dashboardId) {
+        console.error("[menu] Nenhum dashboardId encontrado na URL atual.");
+        main.innerHTML = `<div style="padding:20px; text-align:center; font-size:16px;">Dashboard inválido</div>`;
+        return;
+      }
+
       // Monta a URL do iframe (embed ThingsBoard)
-      const url = `/dashboard/${dashboardId}?embed=true&state=${stateParam}`;
+      const url = `/dashboard/${dashboardId}?&state=${stateParam}`;
 
       // Insere o iframe dentro do <main>
       main.innerHTML = `
@@ -196,79 +92,7 @@ self.onInit = function () {
           Seu navegador não suporta iframes.
         </iframe>`;
     } catch (err) {
-      LogHelper.warn("[menu] Falha ao abrir estado:", err);
-    }
-  };
-
-  // Logout handler
-  scope.handleLogout = async function (e) {
-    e.preventDefault();
-
-    //LogHelper.log("[MENU] Logout button clicked");
-
-    // Confirm before logout
-    const confirmed = confirm("Tem certeza que deseja sair?");
-    if (!confirmed) {
-      LogHelper.log("[MENU] Logout cancelled by user");
-      return;
-    }
-
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) {
-      logoutBtn.disabled = true;
-      logoutBtn.querySelector('.logout-text').textContent = 'Saindo...';
-    }
-
-    try {
-      //LogHelper.log("[MENU] Sending logout request to /api/auth/logout");
-
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Authorization': 'Bearer ' + localStorage.getItem('jwt_token')
-        },
-        credentials: 'include'
-      });
-
-      //LogHelper.log("[MENU] Logout response status:", response.status);
-
-      if (response.ok || response.status === 200 || response.status === 401) {
-        // Clear local storage
-        LogHelper.log("[MENU] Clearing local storage and session data");
-        localStorage.removeItem('jwt_token');
-        sessionStorage.clear();
-
-        // Clear orchestrator cache if available
-        if (window.MyIOOrchestrator) {
-          try {
-            window.MyIOOrchestrator.invalidateCache('*');
-            LogHelper.log("[MENU] Orchestrator cache cleared");
-          } catch (err) {
-            LogHelper.warn("[MENU] Failed to clear orchestrator cache:", err);
-          }
-        }
-
-        LogHelper.log("[MENU] Redirecting to login page");
-
-        // Redirect to login page
-        window.location.href = '/login';
-      } else {
-        throw new Error(`Logout failed with status: ${response.status}`);
-      }
-    } catch (err) {
-      LogHelper.error("[MENU] Logout error:", err);
-      alert('Erro ao fazer logout. Você será redirecionado para a tela de login.');
-
-      // Force redirect even on error
-      localStorage.removeItem('jwt_token');
-      sessionStorage.clear();
-      window.location.href = '/login';
-    } finally {
-      if (logoutBtn) {
-        logoutBtn.disabled = false;
-        logoutBtn.querySelector('.logout-text').textContent = 'Sair';
-      }
+      console.warn("[menu] Falha ao abrir estado:", err);
     }
   };
 };

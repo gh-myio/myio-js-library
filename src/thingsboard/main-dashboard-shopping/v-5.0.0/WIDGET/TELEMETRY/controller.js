@@ -8,30 +8,7 @@
  * - Evento (myio:update-date): mostra modal + atualiza
  * =========================================================================*/
 
-/* eslint-disable no-undef, no-unused-vars */
-// Debug configuration
-const DEBUG_ACTIVE = true; // Set to false to disable debug logs
-
-// LogHelper utility
-const LogHelper = {
-  log: function(...args) {
-    if (DEBUG_ACTIVE) {
-      console.log(...args);
-    }
-  },
-  warn: function(...args) {
-    if (DEBUG_ACTIVE) {
-      console.warn(...args);
-    }
-  },
-  error: function(...args) {
-    if (DEBUG_ACTIVE) {
-      console.error(...args);
-    }
-  }
-};
-
-LogHelper.log("🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT");
+console.log("🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT");
 
 const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
 const MAX_FIRST_HYDRATES = 1;
@@ -40,9 +17,6 @@ let dateUpdateHandler = null;
 let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
 //let DEVICE_TYPE = "energy";
 let MyIO = null;
-let hasRequestedInitialData = false; // Flag to prevent duplicate initial requests
-let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent duplicate processing
-let busyTimeoutId = null; // Timeout ID for busy fallback
 
 // RFC-0042: Widget configuration (from settings)
 let WIDGET_DOMAIN = 'energy'; // Will be set in onInit
@@ -108,95 +82,17 @@ function ensureBusyModalDOM() {
   $root().append(html);
   return $root().find(`#${BUSY_ID}`);
 }
-// RFC-0044: Use centralized busy management
 function showBusy(message) {
-  LogHelper.log(`[TELEMETRY] 🔄 showBusy() called with message: "${message || 'default'}"`);
-
-  // Prevent multiple simultaneous busy calls
-  if (window.busyInProgress) {
-    LogHelper.log(`[TELEMETRY] ⏭️ Skipping duplicate showBusy() call`);
-    return;
-  }
-
-  window.busyInProgress = true;
-
-  // Centralized busy with enhanced synchronization
-  const safeShowBusy = () => {
-    try {
-      if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.showGlobalBusy === 'function') {
-        const text = (message && String(message).trim()) || "Carregando dados...";
-        window.MyIOOrchestrator.showGlobalBusy(WIDGET_DOMAIN, text);
-        LogHelper.log(`[TELEMETRY] ✅ Using centralized busy for domain: ${WIDGET_DOMAIN}`);
-      } else {
-        LogHelper.warn(`[TELEMETRY] ⚠️ Orchestrator not available, using fallback busy`);
-        const $m = ensureBusyModalDOM();
-        const text = (message && String(message).trim()) || "aguarde.. carregando os dados...";
-        $m.find(`#${BUSY_ID}-msg`).text(text);
-        $m.css("display","flex");
-      }
-    } catch (err) {
-      LogHelper.error(`[TELEMETRY] ❌ Error in showBusy:`, err);
-    } finally {
-      // Always reset busy flag after a short delay
-      setTimeout(() => {
-        window.busyInProgress = false;
-      }, 500);
-    }
-  };
-
-  // Ensure orchestrator is ready before showing busy (max 30 attempts = 3 seconds)
-  let attempts = 0;
-  const maxAttempts = 30;
-  const checkOrchestratorReady = () => {
-    attempts++;
-    if (window.MyIOOrchestrator) {
-      safeShowBusy();
-    } else if (attempts >= maxAttempts) {
-      LogHelper.warn(`[TELEMETRY] Orchestrator not available after ${maxAttempts} attempts, using fallback`);
-      safeShowBusy(); // Use fallback
-    } else {
-      setTimeout(checkOrchestratorReady, 100);
-    }
-  };
-
-  checkOrchestratorReady();
+  console.log(`[TELEMETRY] 🔄 showBusy() called with message: "${message || 'default'}"`);
+  const $m = ensureBusyModalDOM();
+  const text = (message && String(message).trim()) || "aguarde.. carregando os dados...";
+  $m.find(`#${BUSY_ID}-msg`).text(text);
+  $m.css("display","flex");
+  console.log(`[TELEMETRY] ✅ Modal displayed, current display style:`, $m.css("display"));
 }
-
 function hideBusy() {
-  LogHelper.log(`[TELEMETRY] ⏸️ hideBusy() called`);
-
-  const safeHideBusy = () => {
-    try {
-      if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.hideGlobalBusy === 'function') {
-        window.MyIOOrchestrator.hideGlobalBusy();
-        LogHelper.log(`[TELEMETRY] ✅ Using centralized hideBusy`);
-      } else {
-        LogHelper.warn(`[TELEMETRY] ⚠️ Orchestrator not available, using fallback hideBusy`);
-        $root().find(`#${BUSY_ID}`).css("display","none");
-      }
-    } catch (err) {
-      LogHelper.error(`[TELEMETRY] ❌ Error in hideBusy:`, err);
-    } finally {
-      window.busyInProgress = false;
-    }
-  };
-
-  // Ensure orchestrator is ready before hiding busy (max 30 attempts = 3 seconds)
-  let attempts = 0;
-  const maxAttempts = 30;
-  const checkOrchestratorReady = () => {
-    attempts++;
-    if (window.MyIOOrchestrator) {
-      safeHideBusy();
-    } else if (attempts >= maxAttempts) {
-      LogHelper.warn(`[TELEMETRY] Orchestrator not available after ${maxAttempts} attempts, using fallback`);
-      safeHideBusy(); // Use fallback
-    } else {
-      setTimeout(checkOrchestratorReady, 100);
-    }
-  };
-
-  checkOrchestratorReady();
+  console.log(`[TELEMETRY] ⏸️ hideBusy() called`);
+  $root().find(`#${BUSY_ID}`).css("display","none");
 }
 
 /** ===================== GLOBAL SUCCESS MODAL (fora do widget) ===================== **/
@@ -391,7 +287,7 @@ function buildAuthoritativeItems() {
   // items da LIB: [{ id: ingestionId, identifier, label }, ...]
   const base = MyIO.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data) || [];
 
-  //LogHelper.log("[TELEMETRY][buildAuthoritativeItems] base: ", base);
+  //console.log("[TELEMETRY][buildAuthoritativeItems] base: ", base);
 
   const ok   = Array.isArray(base) ? base.filter(x => x && x.id) : [];
 
@@ -399,7 +295,7 @@ function buildAuthoritativeItems() {
   const attrsByTb = buildTbAttrIndex();   // tbId -> { slaveId, centralId, deviceType }
 
   const mapped = ok.map(r => {
-    //LogHelper.log("[TELEMETRY][buildAuthoritativeItems] ok.map: ", r);
+    //console.log("[TELEMETRY][buildAuthoritativeItems] ok.map: ", r);
 
     const ingestionId = r.id;
     const tbFromIngestion  = ingestionId ? tbIdIdx.byIngestion.get(ingestionId) : null;
@@ -408,7 +304,7 @@ function buildAuthoritativeItems() {
     let tbId = tbFromIngestion || tbFromIdentifier || null;
     if (tbFromIngestion && tbFromIdentifier && tbFromIngestion !== tbFromIdentifier) {
       /*
-      LogHelper.warn("[DeviceCards] TB id mismatch for item", {
+      console.warn("[DeviceCards] TB id mismatch for item", {
         label: r.label, identifier: r.identifier, ingestionId, tbFromIngestion, tbFromIdentifier
       });
       */
@@ -430,7 +326,7 @@ function buildAuthoritativeItems() {
     };
   });
 
-  //LogHelper.log(`[DeviceCards] TB items: ${mapped.length}`);
+  //console.log(`[DeviceCards] TB items: ${mapped.length}`);
   return mapped;
 }
 
@@ -446,7 +342,7 @@ async function fetchApiTotals(startISO, endISO) {
 
   const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {
-    LogHelper.warn("[DeviceCards] API fetch failed:", res.status);
+    console.warn("[DeviceCards] API fetch failed:", res.status);
     return new Map();
   }
 
@@ -454,7 +350,7 @@ async function fetchApiTotals(startISO, endISO) {
   const rows = Array.isArray(json) ? json : (json?.data ?? []);
   const map = new Map();
   for (const r of rows) if (r && r.id) map.set(String(r.id), r);
-  //LogHelper.log(`[DeviceCards] API rows: ${rows.length}, map keys: ${map.size}`);
+  //console.log(`[DeviceCards] API rows: ${rows.length}, map keys: ${map.size}`);
   return map;
 }
 
@@ -558,7 +454,7 @@ function renderList(visible) {
     };
     
     if (it.label === 'Allegria') {
-        //LogHelper.log("RENDER CARD ALLEGRIA >>> it.value: " , it.value);
+        //console.log("RENDER CARD ALLEGRIA >>> it.value: " , it.value);
     }
     
     const myTbToken = localStorage.getItem("jwt_token");
@@ -566,14 +462,11 @@ function renderList(visible) {
     
     MyIOAuth.getToken().then(token => {
       cachedIngestionToken = token;
-    }).catch(err => LogHelper.warn('Token cache failed:', err));
+    }).catch(err => console.warn('Token cache failed:', err));
 
     const $card = MyIO.renderCardComponentV2({
       entityObject,
       handInfo: true,
-      useNewComponents: true,  // Habilitar novos componentes
-      enableSelection: true,   // Habilitar seleção
-      enableDragDrop: true,    // Habilitar drag and drop
 
       handleActionDashboard: async () => {
        try {
@@ -589,20 +482,20 @@ function renderList(visible) {
           clientId: CLIENT_ID,
           clientSecret: CLIENT_SECRET,
           onOpen: (context) => {
-            LogHelper.log('Modal opened:', context);
+            console.log('Modal opened:', context);
             hideBusy(); // Hide loading when modal opens
           },
           onError: (error) => {
-            LogHelper.error('Modal error:', error);
+            console.error('Modal error:', error);
             hideBusy();
             alert(`Erro: ${error.message}`);
           },
           onClose: () => {
-            LogHelper.log('Modal closed');
+            console.log('Modal closed');
           }
         });
        } catch (err) {
-          LogHelper.warn("[DeviceCards] Report open blocked:", err?.message || err);
+          console.warn("[DeviceCards] Report open blocked:", err?.message || err);
           alert("Credenciais ainda carregando. Tente novamente em instantes.");
         } finally {
           hideBusy();
@@ -632,7 +525,7 @@ function renderList(visible) {
             }
           });
         } catch (err) {
-          LogHelper.warn("[DeviceCards] Report open blocked:", err?.message || err);
+          console.warn("[DeviceCards] Report open blocked:", err?.message || err);
           alert("Credenciais ainda carregando. Tente novamente em instantes.");
         } finally {
           hideBusy();
@@ -651,7 +544,7 @@ function renderList(visible) {
             null;
         }
         if (!tbId || tbId === it.ingestionId) {
-          LogHelper.warn("[DeviceCards] Missing/ambiguous TB id for Settings", {
+          console.warn("[DeviceCards] Missing/ambiguous TB id for Settings", {
             label: it.label, identifier: it.identifier, ingestionId: it.ingestionId, tbId
           });
           hideBusy();
@@ -666,7 +559,7 @@ function renderList(visible) {
             jwtToken: jwt,
             ui: { title: "Configurações", width: 900 },
             onSaved: (payload) => {
-              LogHelper.log("[Settings Saved]", payload);
+              console.log("[Settings Saved]", payload);
               hideBusy();
               // Mostra modal global de sucesso com contador e reload
               showGlobalSuccessModal(6);
@@ -682,11 +575,11 @@ function renderList(visible) {
       },
       
       handleClickCard: () => {
-      //  LogHelper.log("Card clicado:", entityObject); 
+      //  console.log("Card clicado:", entityObject); 
       },
 
      handleSelect: (e) => {
-        //LogHelper.log("Card selecionado:", e);
+        //console.log("Card selecionado:", e);
         // se quiser diferenciar clique de seleção
       },
     });
@@ -862,14 +755,14 @@ async function hydrateAndRender() {
     try {
       range = mustGetDateRange();
     } catch (_e) {
-      LogHelper.warn("[DeviceCards] Aguardando intervalo de datas (startDateISO/endDateISO).");
+      console.warn("[DeviceCards] Aguardando intervalo de datas (startDateISO/endDateISO).");
       return;
     }
 
     // 1) Auth
     const okAuth = await ensureAuthReady(6000, 150);
     if (!okAuth) {
-      LogHelper.warn("[DeviceCards] Auth not ready; adiando hidratação.");
+      console.warn("[DeviceCards] Auth not ready; adiando hidratação.");
       return;
     }
 
@@ -881,7 +774,7 @@ async function hydrateAndRender() {
     try {
       apiMap = await fetchApiTotals(range.startISO, range.endISO);
     } catch (err) {
-      LogHelper.error("[DeviceCards] API error:", err);
+      console.error("[DeviceCards] API error:", err);
       apiMap = new Map();
     }
 
@@ -904,6 +797,7 @@ async function hydrateAndRender() {
 
 /** ===================== TB LIFE CYCLE ===================== **/
 self.onInit = async function () {
+
   $(self.ctx.$container).css({
     height: "100%",
     overflow: "hidden",
@@ -924,12 +818,12 @@ self.onInit = async function () {
 
   // RFC-0042: Set widget configuration from settings FIRST
   WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
-  LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}`);
+  console.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}`);
 
   // RFC-0042: Request data from orchestrator (defined early for use in handlers)
   function requestDataFromOrchestrator() {
     if (!self.ctx.scope?.startDateISO || !self.ctx.scope?.endDateISO) {
-      LogHelper.warn('[TELEMETRY] No date range set, cannot request data');
+      console.warn('[TELEMETRY] No date range set, cannot request data');
       return;
     }
 
@@ -940,7 +834,7 @@ self.onInit = async function () {
       tz: 'America/Sao_Paulo'
     };
 
-    LogHelper.log(`[TELEMETRY] Requesting data for domain=${WIDGET_DOMAIN}, period:`, period);
+    console.log(`[TELEMETRY] Requesting data for domain=${WIDGET_DOMAIN}, period:`, period);
 
     // RFC-0042: Emit request event to parent window (where Orchestrator lives)
     const targetWindow = window.parent || window;
@@ -951,7 +845,7 @@ self.onInit = async function () {
 
   // Listener com modal: evento externo de mudança de data
   dateUpdateHandler = function (ev) {
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ DATE UPDATE EVENT RECEIVED!`, ev.detail);
+    console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ DATE UPDATE EVENT RECEIVED!`, ev.detail);
 
     try {
       // RFC-0042: Handle both old and new format
@@ -961,113 +855,55 @@ self.onInit = async function () {
         // New format from HEADER
         startISO = ev.detail.period.startISO;
         endISO = ev.detail.period.endISO;
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Using NEW format (period object)`);
+        console.log(`[TELEMETRY ${WIDGET_DOMAIN}] Using NEW format (period object)`);
       } else {
         // Old format (backward compatibility)
         const { startDate, endDate } = ev.detail || {};
         startISO = new Date(startDate).toISOString();
         endISO = new Date(endDate).toISOString();
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Using OLD format (startDate/endDate)`);
+        console.log(`[TELEMETRY ${WIDGET_DOMAIN}] Using OLD format (startDate/endDate)`);
       }
 
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Date range updated:`, startISO, endISO);
+      console.log(`[TELEMETRY ${WIDGET_DOMAIN}] Date range updated:`, startISO, endISO);
 
       // Datas mandatórias salvas no scope
       self.ctx.scope = self.ctx.scope || {};
       self.ctx.scope.startDateISO = startISO;
       self.ctx.scope.endDateISO = endISO;
 
-      // IMPORTANT: Reset lastProcessedPeriodKey when new date range is selected
-      // This allows processing fresh data for the new period
-      lastProcessedPeriodKey = null;
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Reset lastProcessedPeriodKey for new date range`);
-
       // Exibe modal
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Calling showBusy()...`);
+      console.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Calling showBusy()...`);
       showBusy();
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ showBusy() called`);
+      console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ showBusy() called`);
 
       // RFC-0042: Request data from orchestrator (check parent window if in iframe)
       const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
 
       if (orchestrator) {
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Requesting data from orchestrator (${window.MyIOOrchestrator ? 'current' : 'parent'} window)`);
-
-        // IMPORTANT: Mark as requested BEFORE calling requestDataFromOrchestrator
-        // This prevents the setTimeout(500ms) from making a duplicate request
-        hasRequestedInitialData = true;
-
+        console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Requesting data from orchestrator (${window.MyIOOrchestrator ? 'current' : 'parent'} window)`);
         requestDataFromOrchestrator();
       } else {
         // Fallback to old behavior
-        LogHelper.warn(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Orchestrator not available, using legacy fetch`);
+        console.warn(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Orchestrator not available, using legacy fetch`);
         if (typeof hydrateAndRender === "function") {
           hydrateAndRender();
         } else {
-          LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] hydrateAndRender não encontrada.`);
+          console.error(`[TELEMETRY ${WIDGET_DOMAIN}] hydrateAndRender não encontrada.`);
         }
       }
     } catch (err) {
-      LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] dateUpdateHandler error:`, err);
+      console.error(`[TELEMETRY ${WIDGET_DOMAIN}] dateUpdateHandler error:`, err);
       hideBusy();
     }
   };
 
-  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Registering myio:update-date listener...`);
+  console.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Registering myio:update-date listener...`);
   window.addEventListener("myio:update-date", dateUpdateHandler);
-  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ myio:update-date listener registered!`);
-
-  // RFC-0042: Listen for clear event from HEADER (when user clicks "Limpar" button)
-  window.addEventListener("myio:telemetry:clear", (ev) => {
-    const { domain } = ev.detail;
-
-    // Only clear if it's for my domain
-    if (domain !== WIDGET_DOMAIN) {
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Ignoring clear event for domain: ${domain}`);
-      return;
-    }
-
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧹 Received clear event - clearing visual content`);
-
-    try {
-      // Clear the items list
-      STATE.itemsBase = [];
-      STATE.itemsEnriched = [];
-      STATE.selectedIds = null;
-
-      // IMPORTANT: Use $root() to get elements within THIS widget's scope
-      const $widget = $root();
-
-      // Clear the visual list
-      const $shopsList = $widget.find('#shopsList');
-      if ($shopsList.length > 0) {
-        $shopsList.empty();
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ shopsList cleared`);
-      }
-
-      // Reset counts to 0
-      const $shopsCount = $widget.find('#shopsCount');
-      const $shopsTotal = $widget.find('#shopsTotal');
-
-      if ($shopsCount.length > 0) {
-        $shopsCount.text('(0)');
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ shopsCount reset to 0`);
-      }
-
-      if ($shopsTotal.length > 0) {
-        $shopsTotal.text('0,00');
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ shopsTotal reset to 0,00`);
-      }
-
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧹 Clear completed successfully`);
-    } catch (err) {
-      LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ Error during clear:`, err);
-    }
-  });
+  console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ myio:update-date listener registered!`);
 
   // Test if listener is working
   setTimeout(() => {
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧪 Testing listener registration...`);
+    console.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧪 Testing listener registration...`);
     const testEvent = new CustomEvent('myio:update-date', {
       detail: {
         period: {
@@ -1080,32 +916,26 @@ self.onInit = async function () {
     });
     // Don't dispatch, just check if handler exists
     if (typeof dateUpdateHandler === 'function') {
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ dateUpdateHandler is defined and ready`);
+      console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ dateUpdateHandler is defined and ready`);
     } else {
-      LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ dateUpdateHandler is NOT defined!`);
+      console.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ dateUpdateHandler is NOT defined!`);
     }
   }, 100);
 
   // RFC-0042: Listen for data provision from orchestrator
   dataProvideHandler = function (ev) {
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${ev.detail.domain}, periodKey: ${ev.detail.periodKey}, items: ${ev.detail.items?.length || 0}`);
+    console.log(`[TELEMETRY] Received provide-data event:`, ev.detail);
     const { domain, periodKey, items } = ev.detail;
 
     // Only process if it's for my domain
     if (domain !== WIDGET_DOMAIN) {
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⏭️ Ignoring event for domain ${domain}, my domain is ${WIDGET_DOMAIN}`);
+      console.log(`[TELEMETRY] Ignoring event for domain ${domain}, my domain is ${WIDGET_DOMAIN}`);
       return;
     }
 
-    // IMPORTANT: Prevent duplicate processing of the same periodKey
-    // The Orchestrator retries emission after 1s, so we need to deduplicate
-    if (lastProcessedPeriodKey === periodKey) {
-      LogHelper.log(`[TELEMETRY] ⏭️ Skipping duplicate provide-data for periodKey: ${periodKey}`);
-      return;
-    }
-
-    // Mark this periodKey as processed
-    lastProcessedPeriodKey = periodKey;
+    // Show busy modal (may be called from provide-data without dateUpdate event)
+    console.log(`[TELEMETRY] 🔄 Calling showBusy() from dataProvideHandler...`);
+    showBusy();
 
     // Validate current period matches
     const myPeriod = {
@@ -1114,33 +944,28 @@ self.onInit = async function () {
     };
 
     if (!myPeriod.startISO || !myPeriod.endISO) {
-      LogHelper.warn(`[TELEMETRY] No period set, ignoring data provision and hiding busy`);
-      hideBusy(); // IMPORTANT: Hide busy before returning
+      console.warn(`[TELEMETRY] No period set, ignoring data provision`);
       return;
     }
 
-    // IMPORTANT: Do NOT call showBusy() here - it was already called in dateUpdateHandler
-    // Calling it again creates a NEW timeout that won't be properly cancelled
-    LogHelper.log(`[TELEMETRY] 🔄 Processing data from orchestrator...`);
-
-    LogHelper.log(`[TELEMETRY] Received ${items.length} items from orchestrator for domain ${domain}`);
+    console.log(`[TELEMETRY] Received ${items.length} items from orchestrator for domain ${domain}`);
 
     // Extract my datasource IDs
     const myDatasourceIds = extractDatasourceIds(self.ctx.datasources);
-    //LogHelper.log(`[TELEMETRY] My datasource IDs:`, myDatasourceIds);
-    //LogHelper.log(`[TELEMETRY] Sample orchestrator items:`, items.slice(0, 3));
+    //console.log(`[TELEMETRY] My datasource IDs:`, myDatasourceIds);
+    //console.log(`[TELEMETRY] Sample orchestrator items:`, items.slice(0, 3));
 
     // RFC-0042: Debug datasources structure to understand the mapping
     /*
     if (self.ctx.datasources && self.ctx.datasources.length > 0) {
-      LogHelper.log(`[TELEMETRY] Datasource[0] keys:`, Object.keys(self.ctx.datasources[0]));
-      LogHelper.log(`[TELEMETRY] Datasource[0] entityId:`, self.ctx.datasources[0].entityId);
-      LogHelper.log(`[TELEMETRY] Datasource[0] entityName:`, self.ctx.datasources[0].entityName);
-      LogHelper.log(`[TELEMETRY] Datasource[0] full:`, JSON.stringify(self.ctx.datasources[0], null, 2));
+      console.log(`[TELEMETRY] Datasource[0] keys:`, Object.keys(self.ctx.datasources[0]));
+      console.log(`[TELEMETRY] Datasource[0] entityId:`, self.ctx.datasources[0].entityId);
+      console.log(`[TELEMETRY] Datasource[0] entityName:`, self.ctx.datasources[0].entityName);
+      console.log(`[TELEMETRY] Datasource[0] full:`, JSON.stringify(self.ctx.datasources[0], null, 2));
     }
     if (self.ctx.data && self.ctx.data.length > 0) {
-      LogHelper.log(`[TELEMETRY] Data[0] keys:`, Object.keys(self.ctx.data[0]));
-      LogHelper.log(`[TELEMETRY] Data[0] full:`, JSON.stringify(self.ctx.data[0], null, 2));
+      console.log(`[TELEMETRY] Data[0] keys:`, Object.keys(self.ctx.data[0]));
+      console.log(`[TELEMETRY] Data[0] full:`, JSON.stringify(self.ctx.data[0], null, 2));
     }
       */
 
@@ -1154,13 +979,13 @@ self.onInit = async function () {
       return datasourceIdSet.has(item.id) || datasourceIdSet.has(item.tbId);
     });
 
-    LogHelper.log(`[TELEMETRY] Filtered ${items.length} items down to ${filtered.length} items matching datasources`);
+    console.log(`[TELEMETRY] Filtered ${items.length} items down to ${filtered.length} items matching datasources`);
 
     // If no matches, log warning and use all items (temporary fallback)
     if (filtered.length === 0) {
-      LogHelper.warn(`[TELEMETRY] No items match datasource IDs! Using all items as fallback.`);
-      LogHelper.warn(`[TELEMETRY] Sample datasource ID:`, myDatasourceIds[0]);
-      LogHelper.warn(`[TELEMETRY] Sample API item ID:`, items[0]?.id);
+      console.warn(`[TELEMETRY] No items match datasource IDs! Using all items as fallback.`);
+      console.warn(`[TELEMETRY] Sample datasource ID:`, myDatasourceIds[0]);
+      console.warn(`[TELEMETRY] Sample API item ID:`, items[0]?.id);
       filtered = items;
     }
 
@@ -1179,15 +1004,15 @@ self.onInit = async function () {
       updatedIdentifiers: {}
     }));
 
-    LogHelper.log(`[TELEMETRY] Using ${filtered.length} items after processing`);
+    console.log(`[TELEMETRY] Using ${filtered.length} items after processing`);
 
     // IMPORTANT: Merge orchestrator data with existing TB data
     // Keep original labels/identifiers from TB, only update values from orchestrator
     if (!STATE.itemsBase || STATE.itemsBase.length === 0) {
       // First load: build from TB data
-      LogHelper.log(`[TELEMETRY] Building itemsBase from TB data...`);
+      console.log(`[TELEMETRY] Building itemsBase from TB data...`);
       STATE.itemsBase = buildAuthoritativeItems();
-      LogHelper.log(`[TELEMETRY] Built ${STATE.itemsBase.length} items from TB`);
+      console.log(`[TELEMETRY] Built ${STATE.itemsBase.length} items from TB`);
     }
 
     // Create map of orchestrator values by ingestionId
@@ -1199,11 +1024,11 @@ self.onInit = async function () {
 
         // Debug: log non-zero values from API
         if (value > 0) {
-          //LogHelper.log(`[TELEMETRY] ✅ API has data: ${item.label} (${item.ingestionId}) = ${value}`);
+          console.log(`[TELEMETRY] ✅ API has data: ${item.label} (${item.ingestionId}) = ${value}`);
         }
       }
     });
-    LogHelper.log(`[TELEMETRY] Orchestrator values map size: ${orchestratorValues.size}`);
+    console.log(`[TELEMETRY] Orchestrator values map size: ${orchestratorValues.size}`);
 
     // Update values in existing items
     STATE.itemsEnriched = STATE.itemsBase.map(tbItem => {
@@ -1211,7 +1036,7 @@ self.onInit = async function () {
 
       // Debug: log when value is missing or zero
       if (orchestratorValue === undefined || orchestratorValue === 0) {
-        //LogHelper.warn(`[TELEMETRY] ⚠️ ${tbItem.label} (${tbItem.ingestionId}): orchestrator=${orchestratorValue}, TB=${tbItem.value}`);
+        console.warn(`[TELEMETRY] ⚠️ ${tbItem.label} (${tbItem.ingestionId}): orchestrator=${orchestratorValue}, TB=${tbItem.value}`);
       }
 
       return {
@@ -1221,7 +1046,7 @@ self.onInit = async function () {
       };
     });
 
-    LogHelper.log(`[TELEMETRY] Enriched ${STATE.itemsEnriched.length} items with orchestrator values`);
+    console.log(`[TELEMETRY] Enriched ${STATE.itemsEnriched.length} items with orchestrator values`);
 
     // Sanitize selection
     if (STATE.selectedIds && STATE.selectedIds.size) {
@@ -1232,21 +1057,10 @@ self.onInit = async function () {
 
     reflowFromState();
 
-    // RFC-0044: ALWAYS hide busy when data is provided, regardless of source
-    LogHelper.log(`[TELEMETRY] 🏁 Data processed successfully - ensuring busy is hidden`);
-    
-    // Force hide busy with minimal delay to ensure UI update
+    // Minimum delay to ensure user sees the modal (500ms)
     setTimeout(() => {
       hideBusy();
-      // Double-check: if orchestrator busy is still showing, force hide it
-      if (window.MyIOOrchestrator && window.MyIOOrchestrator.getBusyState) {
-        const busyState = window.MyIOOrchestrator.getBusyState();
-        if (busyState.isVisible) {
-          LogHelper.warn(`[TELEMETRY] ⚠️ Orchestrator busy still visible after data processing - force hiding`);
-          window.MyIOOrchestrator.hideGlobalBusy();
-        }
-      }
-    }, 100); // Reduced to 100ms for faster response
+    }, 500);
   };
 
   /**
@@ -1273,33 +1087,40 @@ self.onInit = async function () {
 
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
 
-
   window.addEventListener('myio:device-params', (ev) => {
-        LogHelper.log("[CARDS]filtro",ev.detail )
-    window.dispatchEvent(new CustomEvent('myio:device-params-global', {
-        detail: {
-          id: ev.detail.id,
-          name: ev.detail.name
-        }
-    }));
-      });
+
+    // Salva no storage
+    localStorage.setItem("myio:device-params-global", JSON.stringify([ev.detail]));
+
+});
+
+window.addEventListener('myio:device-params-remove', (ev) => {
+    // Salva o item que deve ser removido
+    localStorage.setItem(
+        "myio:device-params-global-remove",
+        JSON.stringify([ev.detail])
+    );
+    console.log("[CARDS] Item marcado para remoção:", ev.detail);
+});
+
+
   // Check for stored data from orchestrator (in case we missed the event)
   setTimeout(() => {
     // RFC-0042: Check parent window for orchestrator data (if in iframe)
     const orchestratorData = window.MyIOOrchestratorData || window.parent?.MyIOOrchestratorData;
 
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔍 Checking for stored orchestrator data...`);
+    console.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔍 Checking for stored orchestrator data...`);
 
     // First, try stored data
     if (orchestratorData && orchestratorData[WIDGET_DOMAIN]) {
       const storedData = orchestratorData[WIDGET_DOMAIN];
       const age = Date.now() - storedData.timestamp;
 
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Found stored data: ${storedData.items?.length || 0} items, age: ${age}ms`);
+      console.log(`[TELEMETRY ${WIDGET_DOMAIN}] Found stored data: ${storedData.items?.length || 0} items, age: ${age}ms`);
 
       // Use stored data if it's less than 30 seconds old AND has items
       if (age < 30000 && storedData.items && storedData.items.length > 0) {
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Using stored orchestrator data (${window.MyIOOrchestratorData ? 'current' : 'parent'} window)`);
+        console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Using stored orchestrator data (${window.MyIOOrchestratorData ? 'current' : 'parent'} window)`);
         dataProvideHandler({
           detail: {
             domain: WIDGET_DOMAIN,
@@ -1309,19 +1130,15 @@ self.onInit = async function () {
         });
         return;
       } else {
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Stored data is too old or empty, ignoring`);
+        console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Stored data is too old or empty, ignoring`);
       }
     } else {
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ℹ️ No stored data found for domain ${WIDGET_DOMAIN}`);
+      console.log(`[TELEMETRY ${WIDGET_DOMAIN}] ℹ️ No stored data found for domain ${WIDGET_DOMAIN}`);
     }
 
-    // If no stored data AND we haven't requested yet, request fresh data
-    if (!hasRequestedInitialData) {
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Requesting fresh data from orchestrator...`);
-      requestDataFromOrchestrator();
-    } else {
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⏭️ Skipping duplicate request (already requested via event)`);
-    }
+    // If no stored data, request fresh data
+    console.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Requesting fresh data from orchestrator...`);
+    requestDataFromOrchestrator();
   }, 500); // Wait 500ms for widget to fully initialize
 
   // Auth do cliente/ingestion
@@ -1341,10 +1158,10 @@ self.onInit = async function () {
       clientSecret: CLIENT_SECRET
     });
 
-    LogHelper.log("[DeviceCards] Auth init OK");
+    console.log("[DeviceCards] Auth init OK");
     try { await MyIOAuth.getToken(); } catch (_) {}
   } catch (err) {
-    LogHelper.error("[DeviceCards] Auth init FAIL", err);
+    console.error("[DeviceCards] Auth init FAIL", err);
   }
 
   // Bind UI
@@ -1364,26 +1181,21 @@ self.onInit = async function () {
 
   const hasData = Array.isArray(self.ctx.data) && self.ctx.data.length > 0;
   // RFC-0042: Removed direct API fetch - now using orchestrator
-  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] onInit - Waiting for orchestrator data...`);
+  console.log(`[TELEMETRY ${WIDGET_DOMAIN}] onInit - Waiting for orchestrator data...`);
 
   // Build initial itemsBase from ThingsBoard data
   if (hasData && (!STATE.itemsBase || STATE.itemsBase.length === 0)) {
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Building itemsBase from TB data in onInit...`);
+    console.log(`[TELEMETRY ${WIDGET_DOMAIN}] Building itemsBase from TB data in onInit...`);
     STATE.itemsBase = buildAuthoritativeItems();
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Built ${STATE.itemsBase.length} items from TB`);
+    console.log(`[TELEMETRY ${WIDGET_DOMAIN}] Built ${STATE.itemsBase.length} items from TB`);
 
     // Initial render with zero values (will be updated by orchestrator)
     STATE.itemsEnriched = STATE.itemsBase.map(item => ({ ...item, value: 0, perc: 0 }));
     reflowFromState();
   }
 
-  // Only show busy if we have a date range defined
-  if (self.ctx?.scope?.startDateISO && self.ctx?.scope?.endDateISO) {
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Initial period defined, showing busy...`);
-    showBusy();
-  } else {
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] No initial period, waiting for myio:update-date event...`);
-  }
+  // Show busy modal while waiting for orchestrator
+  showBusy();
 
   // RFC-0042: OLD CODE - Direct API fetch (now handled by orchestrator)
   /*
@@ -1412,11 +1224,11 @@ self.onResize = function () {};
 self.onDestroy = function () {
   if (dateUpdateHandler) {
     window.removeEventListener("myio:update-date", dateUpdateHandler);
-    LogHelper.log("[DeviceCards] Event listener 'myio:update-date' removido.");
+    console.log("[DeviceCards] Event listener 'myio:update-date' removido.");
   }
   if (dataProvideHandler) {
     window.removeEventListener('myio:telemetry:provide-data', dataProvideHandler);
-    LogHelper.log("[DeviceCards] Event listener 'myio:telemetry:provide-data' removido.");
+    console.log("[DeviceCards] Event listener 'myio:telemetry:provide-data' removido.");
   }
   try { $root().off(); } catch (_e) {}
   hideBusy();

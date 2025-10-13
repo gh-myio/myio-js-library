@@ -6,28 +6,6 @@
  * dashboards configurados no próprio ThingsBoard.
  *********************************************************/
 
-// Debug configuration
-const DEBUG_ACTIVE = false;
-
-// LogHelper utility
-const LogHelper = {
-  log: function(...args) {
-    if (DEBUG_ACTIVE) {
-      console.log(...args);
-    }
-  },
-  warn: function(...args) {
-    if (DEBUG_ACTIVE) {
-      console.warn(...args);
-    }
-  },
-  error: function(...args) {
-    if (DEBUG_ACTIVE) {
-      console.error(...args);
-    }
-  }
-};
-
 let globalStartDateFilter = null; // ISO ex.: '2025-09-01T00:00:00-03:00'
 let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
 
@@ -41,35 +19,36 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
 
   // Atualiza a altura útil do conteúdo e garante que os elementos estão bem posicionados
   function applySizing() {
-    try {
-      const sidebarW = getCssVar('--sidebar-w');
+  try {
+    if (!rootEl) return;
 
-      // Força recálculo do layout se necessário
-      if (rootEl) {
-        rootEl.style.display = 'grid';
+    // Força recálculo do layout se necessário
+    rootEl.style.display = 'grid';
 
-        // Garante que os tb-child elementos não tenham overflow issues
-        const tbChildren = $$('.tb-child', rootEl);
-        tbChildren.forEach(child => {
-          child.style.overflow = 'hidden';
-          child.style.width = '100%';
-          child.style.height = '100%';
-        });
+    // Ajusta apenas os tb-child de sidebar e content
+    const sidebarChildren = $$('.myio-sidebar .tb-child', rootEl);
+    sidebarChildren.forEach(child => {
+      child.style.overflow = 'hidden';
+      child.style.width = '100%';
+      child.style.height = '100%';
+    });
 
-        // Especial tratamento para o conteúdo principal
-        const content = $('.myio-content', rootEl);
-        if (content) {
-          const contentChild = $('.tb-child', content);
-          if (contentChild) {
-            contentChild.style.overflow = 'visible';
-            contentChild.style.minHeight = '100%';
-          }
-        }
+    const content = $('.myio-content', rootEl);
+    if (content) {
+      const contentChild = $('.tb-child', content);
+      if (contentChild) {
+        contentChild.style.overflow = 'auto';
+        contentChild.style.minHeight = '0'; // deixa o footer fluir
+        contentChild.style.height = '100%';
       }
-    } catch (e) {
-      LogHelper.warn('[myio-container] sizing warn:', e);
     }
+
+    // Footer não precisa de ajustes, ele segue naturalmente o grid
+  } catch (e) {
+    console.warn('[myio-container] sizing warn:', e);
   }
+}
+
 
   function getCssVar(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '0px';
@@ -145,13 +124,13 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
             CLIENT_SECRET = attrs?.client_secret || "";
             CUSTOMER_ING_ID = attrs?.ingestionId || "";
           } catch (err) {
-            LogHelper.warn("[MAIN_VIEW] Failed to fetch customer attributes:", err);
+            console.warn("[MAIN_VIEW] Failed to fetch customer attributes:", err);
           }
         }
 
         // Fallback credentials if not found
         if (!CLIENT_ID || !CLIENT_SECRET) {
-          LogHelper.log("[MAIN_VIEW] Using fallback credentials");
+          console.log("[MAIN_VIEW] Using fallback credentials");
           CLIENT_ID = "mestreal_mfh4e642_4flnuh";
           CLIENT_SECRET = "gv0zfmdekNxYA296OcqFrnBAVU4PhbUBhBwNlMCamk2oXDHeXJqu1K6YtpVOZ5da";
           CUSTOMER_ING_ID = "e01bdd22-3be6-4b75-9dae-442c8b8c186e"; // Valid customer ID
@@ -171,21 +150,21 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
         const ingestionToken = await myIOAuth.getToken();
         MyIOOrchestrator.tokenManager.setToken('ingestionToken', ingestionToken);
 
-        LogHelper.log("[MAIN_VIEW] Auth initialized successfully with CLIENT_ID:", CLIENT_ID);
+        console.log("[MAIN_VIEW] Auth initialized successfully with CLIENT_ID:", CLIENT_ID);
       } catch (err) {
-        LogHelper.error("[MAIN_VIEW] Auth initialization failed:", err);
+        console.error("[MAIN_VIEW] Auth initialization failed:", err);
       }
     } else {
-      LogHelper.warn("[MAIN_VIEW] MyIOLibrary not available");
+      console.warn("[MAIN_VIEW] MyIOLibrary not available");
     }
 
     // Log útil para conferir se os states existem
     try {
       const states = (ctx?.dashboard?.configuration?.states) || {};
-     // LogHelper.log('[myio-container] states disponíveis:', Object.keys(states));
+     // console.log('[myio-container] states disponíveis:', Object.keys(states));
       // Esperados: "menu", "telemetry_content", "water_content", "temperature_content", "alarm_content", "footer"
     } catch (e) {
-      LogHelper.warn('[myio-container] não foi possível listar states:', e);
+      console.warn('[myio-container] não foi possível listar states:', e);
     }
   };
 
@@ -312,227 +291,8 @@ function isValidUUID(v) {
 
 // ========== ORCHESTRATOR SINGLETON ==========
 
-const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
-
 const MyIOOrchestrator = (() => {
-// ========== PHASE 1: BUSY OVERLAY MANAGEMENT (RFC-0044) ==========
-const BUSY_OVERLAY_ID = 'myio-orchestrator-busy-overlay';
-let globalBusyState = {
-  isVisible: false,
-  timeoutId: null,
-  startTime: null,
-  currentDomain: null,
-  requestCount: 0
-};
-
-function ensureOrchestratorBusyDOM() {
-  let el = document.getElementById(BUSY_OVERLAY_ID);
-  if (el) return el;
-  
-  el = document.createElement('div');
-  el.id = BUSY_OVERLAY_ID;
-  el.style.cssText = `
-    position: fixed;
-    inset: 0;
-    background: rgba(45, 20, 88, 0.6);
-    backdrop-filter: blur(3px);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 99999;
-    font-family: Inter, system-ui, sans-serif;
-  `;
-  
-  const container = document.createElement('div');
-  container.style.cssText = `
-    background: #2d1458;
-    color: #fff;
-    border-radius: 18px;
-    padding: 24px 32px;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
-    border: 1px solid rgba(255,255,255,0.1);
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    min-width: 320px;
-  `;
-  
-  const spinner = document.createElement('div');
-  spinner.style.cssText = `
-    width: 24px;
-    height: 24px;
-    border: 3px solid rgba(255,255,255,0.25);
-    border-top-color: #ffffff;
-    border-radius: 50%;
-    animation: spin 0.9s linear infinite;
-  `;
-  
-  const message = document.createElement('div');
-  message.id = `${BUSY_OVERLAY_ID}-message`;
-  message.style.cssText = `
-    font-weight: 600;
-    font-size: 14px;
-    letter-spacing: 0.2px;
-  `;
-  message.textContent = 'Carregando dados...';
-  
-  container.appendChild(spinner);
-  container.appendChild(message);
-  el.appendChild(container);
-  document.body.appendChild(el);
-  
-  // Add CSS animation
-  if (!document.querySelector('#myio-busy-styles')) {
-    const styleEl = document.createElement('style');
-    styleEl.id = 'myio-busy-styles';
-    styleEl.textContent = `
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-    `;
-    document.head.appendChild(styleEl);
-  }
-  
-  return el;
-}
-
-// PHASE 1: Centralized busy management with extended timeout
-function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...') {
-  LogHelper.log(`[Orchestrator] 🔄 showGlobalBusy() domain=${domain} message="${message}"`);
-  
-  const el = ensureOrchestratorBusyDOM();
-  const messageEl = el.querySelector(`#${BUSY_OVERLAY_ID}-message`);
-  
-  if (messageEl) {
-    messageEl.textContent = message;
-  }
-  
-  // Clear existing timeout
-  if (globalBusyState.timeoutId) {
-    clearTimeout(globalBusyState.timeoutId);
-    globalBusyState.timeoutId = null;
-  }
-  
-  // Update state
-  globalBusyState.isVisible = true;
-  globalBusyState.currentDomain = domain;
-  globalBusyState.startTime = Date.now();
-  globalBusyState.requestCount++;
-  
-  el.style.display = 'flex';
-  
-  // PHASE 1: Extended timeout (25s instead of 10s)
-  globalBusyState.timeoutId = setTimeout(() => {
-    LogHelper.warn(`[Orchestrator] ⚠️ BUSY TIMEOUT (25s) for domain ${domain} - implementing recovery`);
-    
-    // Check if still actually busy
-    if (globalBusyState.isVisible && el.style.display !== 'none') {
-      // PHASE 3: Circuit breaker pattern - try graceful recovery
-      try {
-        // Emit recovery event
-        window.dispatchEvent(new CustomEvent('myio:busy-timeout-recovery', {
-          detail: { domain, duration: Date.now() - globalBusyState.startTime }
-        }));
-        
-        // Try to invalidate cache for the specific domain
-        if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.invalidateCache === 'function') {
-          window.MyIOOrchestrator.invalidateCache(domain);
-          LogHelper.log(`[Orchestrator] 🧹 Cache invalidated for domain ${domain}`);
-        }
-        
-        // Hide busy and show user-friendly message
-        hideGlobalBusy();
-        
-        // PHASE 4: Non-intrusive notification instead of alert
-        showRecoveryNotification();
-        
-      } catch (err) {
-        LogHelper.error(`[Orchestrator] ❌ Error in timeout recovery:`, err);
-        hideGlobalBusy();
-      }
-    }
-    
-    globalBusyState.timeoutId = null;
-  }, 25000); // 25 seconds (Phase 1 requirement)
-  
-  LogHelper.log(`[Orchestrator] ✅ Global busy shown for ${domain}, timeout ID: ${globalBusyState.timeoutId}`);
-}
-
-function hideGlobalBusy() {
-  LogHelper.log(`[Orchestrator] ⏸️ hideGlobalBusy() called`);
-  
-  const el = document.getElementById(BUSY_OVERLAY_ID);
-  if (el) {
-    el.style.display = 'none';
-  }
-  
-  // Clear timeout
-  if (globalBusyState.timeoutId) {
-    clearTimeout(globalBusyState.timeoutId);
-    globalBusyState.timeoutId = null;
-  }
-  
-  // Update state
-  globalBusyState.isVisible = false;
-  globalBusyState.currentDomain = null;
-  globalBusyState.startTime = null;
-  
-  LogHelper.log(`[Orchestrator] ✅ Global busy hidden`);
-}
-
-// PHASE 4: Non-intrusive recovery notification
-function showRecoveryNotification() {
-  const notification = document.createElement('div');
-  notification.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: #f97316;
-    color: white;
-    padding: 12px 16px;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    z-index: 999999;
-    font-family: Inter, system-ui, sans-serif;
-  `;
-  notification.textContent = 'Dados recarregados automaticamente';
-  document.body.appendChild(notification);
-  
-  setTimeout(() => {
-    if (notification.parentNode) {
-      notification.parentNode.removeChild(notification);
-    }
-  }, 4000);
-}
-
-// PHASE 2: Shared state management for widgets coordination
-let sharedWidgetState = {
-  activePeriod: null,
-  lastProcessedPeriodKey: null,
-  busyWidgets: new Set(),
-  mutex: false
-};
-
-// PHASE 3: Enhanced event emission with debounce
-let eventEmissionDebounce = new Map();
-
-function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
-  const key = `${domain}:${periodKey}`;
-  
-  if (eventEmissionDebounce.has(key)) {
-    clearTimeout(eventEmissionDebounce.get(key));
-  }
-  
-  const timeoutId = setTimeout(() => {
-    emitProvide(domain, periodKey, items);
-    eventEmissionDebounce.delete(key);
-  }, delay);
-  
-  eventEmissionDebounce.set(key, timeoutId);
-}
+  const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
 
   // State
   const memCache = new Map();
@@ -568,13 +328,13 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       this.cacheHitRatio = this.totalRequests > 0 ? (this.cacheHits / this.totalRequests) * 100 : 0;
 
       if (config.debugMode) {
-        LogHelper.log(`[Orchestrator] ${domain} hydration: ${duration}ms (${fromCache ? 'cache' : 'fresh'})`);
+        console.log(`[Orchestrator] ${domain} hydration: ${duration}ms (${fromCache ? 'cache' : 'fresh'})`);
       }
     },
 
     recordError(domain, error) {
       this.errorCounts[domain] = (this.errorCounts[domain] || 0) + 1;
-      LogHelper.error(`[Orchestrator] ${domain} error:`, error);
+      console.error(`[Orchestrator] ${domain} error:`, error);
     },
 
     generateTelemetrySummary() {
@@ -615,7 +375,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     while (memCache.size > config.maxCacheSize) {
       const oldestKey = memCache.keys().next().value;
       memCache.delete(oldestKey);
-      if (config.debugMode) LogHelper.log(`[Orchestrator] Evicted cache key: ${oldestKey}`);
+      if (config.debugMode) console.log(`[Orchestrator] Evicted cache key: ${oldestKey}`);
     }
 
     persistToStorage(key, memCache.get(key));
@@ -625,12 +385,12 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     try {
       const payload = JSON.stringify({ [key]: entry });
       if (payload.length > 5 * 1024 * 1024) {
-        LogHelper.warn('[Orchestrator] Payload too large for localStorage');
+        console.warn('[Orchestrator] Payload too large for localStorage');
         return;
       }
       localStorage.setItem(`myio:cache:${key}`, payload);
     } catch (e) {
-      LogHelper.warn('[Orchestrator] localStorage persist failed:', e);
+      console.warn('[Orchestrator] localStorage persist failed:', e);
     }
   }
 
@@ -648,7 +408,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       }
     }
 
-    if (config.debugMode) LogHelper.log(`[Orchestrator] Cache invalidated: ${domain}`);
+    if (config.debugMode) console.log(`[Orchestrator] Cache invalidated: ${domain}`);
   }
 
   function abortInflight(key) {
@@ -721,7 +481,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       return map;
     } catch (err) {
       if (err.name === 'AbortError') {
-        LogHelper.log(`[Orchestrator] Fetch aborted: ${key}`);
+        console.log(`[Orchestrator] Fetch aborted: ${key}`);
         return new Map();
       }
       throw err;
@@ -774,7 +534,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       url.searchParams.set('endTime', period.endISO);
       url.searchParams.set('deep', '1');
 
-      LogHelper.log(`[Orchestrator] Fetching from: ${url.toString()}`);
+      console.log(`[Orchestrator] Fetching from: ${url.toString()}`);
 
       const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` }
@@ -792,8 +552,8 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
       // RFC-0042: Debug first row to see available fields
       if (rows.length > 0) {
-        //LogHelper.log(`[Orchestrator] Sample API row (full):`, JSON.stringify(rows[0], null, 2));
-        //LogHelper.log(`[Orchestrator] Sample API row groupType field:`, rows[0].groupType);
+        //console.log(`[Orchestrator] Sample API row (full):`, JSON.stringify(rows[0], null, 2));
+        //console.log(`[Orchestrator] Sample API row groupType field:`, rows[0].groupType);
       }
 
       // Convert API response to enriched items format
@@ -810,63 +570,33 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         centralId: row.centralId || null
       }));
 
-      LogHelper.log(`[Orchestrator] fetchAndEnrich: fetched ${items.length} items for domain ${domain}`);
+      console.log(`[Orchestrator] fetchAndEnrich: fetched ${items.length} items for domain ${domain}`);
       return items;
     } catch (error) {
-      LogHelper.error(`[Orchestrator] fetchAndEnrich error for domain ${domain}:`, error);
+      console.error(`[Orchestrator] fetchAndEnrich error for domain ${domain}:`, error);
       return [];
     }
   }
 
-  // PHASE 1 & 2: Enhanced hydrateDomain with centralized busy and mutex
   async function hydrateDomain(domain, period) {
     const key = cacheKey(domain, period);
     const startTime = Date.now();
 
-    LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, { key, inFlight: inFlight.has(key) });
-
-    // PHASE 2: Mutex to prevent duplicate requests across widgets
-    if (sharedWidgetState.mutex) {
-      LogHelper.log(`[Orchestrator] ⏸️ Waiting for mutex release...`);
-      await new Promise(resolve => {
-        const checkMutex = () => {
-          if (!sharedWidgetState.mutex) {
-            resolve();
-          } else {
-            setTimeout(checkMutex, 50);
-          }
-        };
-        checkMutex();
-      });
-    }
-
     if (inFlight.has(key)) {
-      LogHelper.log(`[Orchestrator] ⏭️ Coalescing duplicate request for ${key}`);
+      if (config.debugMode) console.log(`[Orchestrator] Coalescing request for ${key}`);
       return inFlight.get(key);
     }
 
     const cached = readCache(key);
 
-    // PHASE 3: Use debounced emission for cached data
     if (cached) {
-      LogHelper.log(`[Orchestrator] 🎯 Cache hit for ${domain}, fresh: ${cached.fresh}`);
-      debouncedEmitProvide(domain, key, cached.data);
+      emitProvide(domain, key, cached.data);
       metrics.recordHydration(domain, Date.now() - startTime, true);
 
       if (cached.fresh) {
-        // IMPORTANT: Always hide busy for fresh cache hits
-        LogHelper.log(`[Orchestrator] ✅ Fresh cache hit - hiding busy immediately`);
-        setTimeout(() => hideGlobalBusy(), 100); // Small delay to ensure UI update
-        return cached.data;
+        return;
       }
     }
-
-    // PHASE 1: Show centralized busy overlay
-    showGlobalBusy(domain, `Carregando dados ${domain}...`);
-    
-    // PHASE 2: Set mutex for coordination
-    sharedWidgetState.mutex = true;
-    sharedWidgetState.activePeriod = period;
 
     const fetchPromise = (async () => {
       try {
@@ -875,33 +605,19 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         writeCache(key, items);
 
         emitHydrated(domain, key, items.length);
-        
-        // PHASE 3: Use debounced emission for fresh data
-        debouncedEmitProvide(domain, key, items);
+        emitProvide(domain, key, items);
 
         const duration = Date.now() - startTime;
         metrics.recordHydration(domain, duration, false);
 
-        LogHelper.log(`[Orchestrator] ✅ Fresh data fetched for ${domain} in ${duration}ms`);
         return items;
       } catch (error) {
-        LogHelper.error(`[Orchestrator] ❌ Error fetching ${domain}:`, error);
         metrics.recordError(domain, error);
         emitError(domain, error);
         throw error;
-      } finally {
-        // PHASE 1: Hide busy overlay
-        LogHelper.log(`[Orchestrator] 🏁 Finally block - hiding busy for ${domain}`);
-        hideGlobalBusy();
-        
-        // PHASE 2: Release mutex
-        sharedWidgetState.mutex = false;
       }
     })()
-      .finally(() => {
-        inFlight.delete(key);
-        LogHelper.log(`[Orchestrator] 🧹 Cleaned up inFlight for ${key}`);
-      });
+      .finally(() => inFlight.delete(key));
 
     inFlight.set(key, fetchPromise);
     return fetchPromise;
@@ -938,7 +654,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
   // Event emitters
   function emitProvide(domain, periodKey, items) {
-    LogHelper.log(`[Orchestrator] Emitting provide-data event for domain ${domain} with ${items.length} items`);
+    console.log(`[Orchestrator] Emitting provide-data event for domain ${domain} with ${items.length} items`);
 
     // Store data for late-joining widgets
     if (!window.MyIOOrchestratorData) {
@@ -951,7 +667,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
     // Retry mechanism for late-joining widgets
     setTimeout(() => {
-      LogHelper.log(`[Orchestrator] Retrying event emission for domain ${domain}`);
+      console.log(`[Orchestrator] Retrying event emission for domain ${domain}`);
       emitToAllContexts('myio:telemetry:provide-data', { domain, periodKey, items });
     }, 1000);
   }
@@ -992,7 +708,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
       window.dispatchEvent(new CustomEvent('myio:token-rotated', { detail: {} }));
 
-      if (config.debugMode) LogHelper.log('[Orchestrator] Tokens rotated');
+      if (config.debugMode) console.log('[Orchestrator] Tokens rotated');
     },
 
     getToken(type) {
@@ -1006,38 +722,29 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
   // Event listeners
   window.addEventListener('myio:update-date', (ev) => {
-    LogHelper.log('[Orchestrator] 📅 Received myio:update-date event', ev.detail);
+    console.log('[Orchestrator] Received myio:update-date event', ev.detail);
     currentPeriod = ev.detail.period;
 
     // RFC-0042: Cross-context emission removed - HEADER already handles this
     // No need to re-emit here as it creates infinite loop
 
     if (visibleTab && currentPeriod) {
-      LogHelper.log(`[Orchestrator] 📅 myio:update-date → hydrateDomain(${visibleTab})`);
       hydrateDomain(visibleTab, currentPeriod);
     }
   });
 
   window.addEventListener('myio:dashboard-state', (ev) => {
-    LogHelper.log('[Orchestrator] 🔄 Received myio:dashboard-state event', ev.detail);
     visibleTab = ev.detail.tab;
     if (visibleTab && currentPeriod) {
-      LogHelper.log(`[Orchestrator] 🔄 myio:dashboard-state → hydrateDomain(${visibleTab})`);
       hydrateDomain(visibleTab, currentPeriod);
-    } else {
-      LogHelper.log(`[Orchestrator] 🔄 myio:dashboard-state skipped (visibleTab=${visibleTab}, currentPeriod=${!!currentPeriod})`);
     }
   });
 
   window.addEventListener('myio:telemetry:request-data', (ev) => {
-    LogHelper.log('[Orchestrator] 📡 Received myio:telemetry:request-data event', ev.detail);
     const { domain, period } = ev.detail;
     const p = period || currentPeriod;
     if (p) {
-      LogHelper.log(`[Orchestrator] 📡 myio:telemetry:request-data → hydrateDomain(${domain})`);
       hydrateDomain(domain, p);
-    } else {
-      LogHelper.log(`[Orchestrator] 📡 myio:telemetry:request-data skipped (no period)`);
     }
   });
 
@@ -1058,7 +765,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       try {
         window.tbClient.sendTelemetry(metrics.generateTelemetrySummary());
       } catch (e) {
-        LogHelper.warn('[Orchestrator] Failed to send telemetry:', e);
+        console.warn('[Orchestrator] Failed to send telemetry:', e);
       }
     }, 5 * 60 * 1000);
   }
@@ -1081,17 +788,6 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     config,
     memCache,
 
-    // RFC-0044: PHASE 1 - Expose centralized busy management
-    showGlobalBusy,
-    hideGlobalBusy,
-    
-    // RFC-0044: PHASE 2 - Expose shared state
-    getSharedWidgetState: () => sharedWidgetState,
-    setSharedPeriod: (period) => { sharedWidgetState.activePeriod = period; },
-    
-    // RFC-0044: PHASE 4 - Expose busy state for debugging
-    getBusyState: () => ({ ...globalBusyState }),
-
     setCredentials: (customerId, clientId, clientSecret) => {
       CUSTOMER_ING_ID = customerId;
       CLIENT_ID = clientId;
@@ -1101,13 +797,6 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     destroy: () => {
       clearInterval(cleanupInterval);
       invalidateCache('*');
-      
-      // RFC-0044: Clean up busy overlay on destroy
-      hideGlobalBusy();
-      const busyEl = document.getElementById(BUSY_OVERLAY_ID);
-      if (busyEl && busyEl.parentNode) {
-        busyEl.parentNode.removeChild(busyEl);
-      }
     }
   };
 })();
@@ -1115,4 +804,4 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 // Expose globally
 window.MyIOOrchestrator = MyIOOrchestrator;
 
-LogHelper.log('[MyIOOrchestrator] Initialized');
+console.log('[MyIOOrchestrator] Initialized');

@@ -48,16 +48,19 @@
 
 .shops-root .shops-title {
     margin: 0;
-    font: 800 14px/1.2 var(--font-ui);
+    font: 800 18px/1.2 var(--font-ui);
     color: #3E1A7D;
     text-shadow: 0 1px 2px rgba(62, 26, 125, .1);
     letter-spacing: .3px;
 }
 
 .shops-root .shops-count {
-    font: 700 11px/1 var(--font-ui);
+    font: 700 14px/1 var(--font-ui);
     color: #3E1A7D;
-    padding: 3px 6px;
+    background: rgba(62, 26, 125, .08);
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(62, 26, 125, .15);
 }
 
 .shops-root .shops-header-actions {
@@ -85,8 +88,6 @@
 .shops-root .icon-btn svg {
     fill: #44506b;
     display: block;
-    width: 14px;
-    height: 14px;
 }
 
 .shops-root .search-wrap {
@@ -109,12 +110,12 @@
 }
 
 .shops-root .shops-total {
-    font: 800 13px/1 var(--font-ui);
+    font: 800 16px/1 var(--font-ui);
     color: #3E1A7D;
     text-decoration: none;
     background: linear-gradient(135deg, rgba(62, 26, 125, .08) 0%, rgba(62, 26, 125, .12) 100%);
-    padding: 6px 10px;
-    border-radius: 8px;
+    padding: 8px 12px;
+    border-radius: 10px;
     border: 1px solid rgba(62, 26, 125, .2);
     box-shadow: 0 4px 12px rgba(62, 26, 125, .1);
     letter-spacing: .2px;

@@ -1,32 +1,12 @@
 // === Botões premium do popup (reforço por JS, independe da ordem de CSS) ===
-
-// Debug configuration
-const DEBUG_ACTIVE = true; // Set to false to disable debug logs
-
-// LogHelper utility
-const LogHelper = {
-  log: function(...args) {
-    if (DEBUG_ACTIVE) {
-      console.log(...args);
-    }
-  },
-  warn: function(...args) {
-    if (DEBUG_ACTIVE) {
-      console.warn(...args);
-    }
-  },
-  error: function(...args) {
-    if (DEBUG_ACTIVE) {
-      console.error(...args);
-    }
-  }
-};
+const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
+let CLIENT_ID;
+let CLIENT_SECRET;
+let INGESTION_ID;
+let CUSTOMER_ID;
 
 // MyIO Authentication instance - will be initialized after credentials are loaded
 let MyIOAuth = null;
-
-// RFC-0042: Track current domain from MENU widget
-let currentDomain = null; // Will be set by MENU widget via 'myio:dashboard-state' event
 
 /* ==== Tooltip premium (global no <body>) ==== */
 function setupTooltipPremium(target, text) {
@@ -82,33 +62,33 @@ function setupTooltipPremium(target, text) {
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const q = (sel) => self.ctx.$container[0].querySelector(sel);
 
-  const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
-  const CUSTOMER_ID = self.ctx.settings.customerId || " ";
+  CUSTOMER_ID = self.ctx.settings.customerId || " ";
+
   const tbToken = localStorage.getItem("jwt_token");
   const customerCredentials = await MyIOLibrary.fetchThingsboardCustomerAttrsFromStorage(CUSTOMER_ID, tbToken);
-  const CLIENT_ID = customerCredentials.client_id || " ";
-  const CLIENT_SECRET = customerCredentials.client_secret || " ";
-  const INGESTION_ID = customerCredentials.ingestionId || " ";
+
+  CLIENT_ID = customerCredentials.client_id || " ";
+  CLIENT_SECRET = customerCredentials.client_secret || " ";
+  INGESTION_ID = customerCredentials.ingestionId || " ";
 
   MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
     dataApiHost: DATA_API_HOST, 
     clientId: CLIENT_ID,
     clientSecret: CLIENT_SECRET
   });
-  
-  LogHelper.log("[MyIOAuth] Initialized with extracted component");
+  console.log("[MyIOAuth] Initialized with extracted component");
 
   // Initialize MyIOLibrary DateRangePicker
   var $inputStart = $('input[name="startDatetimes"]');
 
-  LogHelper.log("[DateRangePicker] Using MyIOLibrary.createDateRangePicker");
+  console.log("[DateRangePicker] Using MyIOLibrary.createDateRangePicker");
 
   // Initialize the createDateRangePicker component
   MyIOLibrary.createDateRangePicker($inputStart[0], {
     presetStart: presetStart,
     presetEnd: presetEnd,
     onApply: function (result) {
-      LogHelper.log("[DateRangePicker] Applied:", result);
+      console.log("[DateRangePicker] Applied:", result);
 
       // Update internal dates for compatibility
       self.ctx.$scope.startTs = result.startISO;
@@ -118,9 +98,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     },
   }).then(function (picker) {
       dateRangePicker = picker;
-      LogHelper.log("[DateRangePicker] Successfully initialized");
+      console.log("[DateRangePicker] Successfully initialized");
   }).catch(function (error) {
-      LogHelper.error("[DateRangePicker] Failed to initialize:", error);
+      console.error("[DateRangePicker] Failed to initialize:", error);
   });
 
   // elementos
@@ -128,7 +108,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const inputEnd = q("#tbx-date-end"); // compat
   const inputRange = q("#tbx-date-range");
   const btnLoad = q("#tbx-btn-load");
-  const btnForceRefresh = q("#tbx-btn-force-refresh");
   const btnGen = q("#tbx-btn-report-general");
 
   setupTooltipPremium( inputRange, "📅 Clique para alterar o intervalo de datas");
@@ -149,7 +128,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       try {
         fn(payload);
       } catch (e) {
-        LogHelper.warn(e);
+        console.warn(e);
       }
     });
 
@@ -241,120 +220,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
     // Botões
     const payload = () => self.getFilters();
-
-    // Helper function to update controls state based on domain
-    const updateControlsState = (domain) => {
-      const btnText = document.getElementById('tbx-btn-report-general-text');
-      const domainLabels = {
-        'energy': 'Relatório Consumo Geral de Energia por Loja',
-        'water': 'Relatório Consumo Geral de Água por Loja'
-      };
-
-      // Only energy and water are supported for all controls
-      const isSupported = domain === 'energy' || domain === 'water';
-
-      // Update report button text and state
-      if (btnGen) {
-        if (btnText && domainLabels[domain]) {
-          btnText.textContent = domainLabels[domain];
-          btnGen.title = domainLabels[domain];
-        } else if (btnText) {
-          btnText.textContent = 'Relatório Consumo Geral';
-          btnGen.title = 'Relatório Consumo Geral';
-        }
-
-        btnGen.disabled = !isSupported;
-        LogHelper.log(`[HEADER] Relatório Geral button ${btnGen.disabled ? 'disabled' : 'enabled'} for domain: ${domain}`);
-      }
-
-      // Update date range input and load button state (same rule as report button)
-      if (inputRange) {
-        inputRange.disabled = !isSupported;
-        LogHelper.log(`[HEADER] Date range input ${isSupported ? 'enabled' : 'disabled'} for domain: ${domain}`);
-      }
-
-      if (btnLoad) {
-        btnLoad.disabled = !isSupported;
-        LogHelper.log(`[HEADER] Carregar button ${isSupported ? 'enabled' : 'disabled'} for domain: ${domain}`);
-      }
-
-      if (btnForceRefresh) {
-        btnForceRefresh.disabled = !isSupported;
-        LogHelper.log(`[HEADER] Force Refresh button ${isSupported ? 'enabled' : 'disabled'} for domain: ${domain}`);
-      }
-    };
-
-    // RFC-0042: Listen for dashboard state changes from MENU
-    window.addEventListener('myio:dashboard-state', (ev) => {
-      const { tab } = ev.detail;
-      LogHelper.log(`[HEADER] Dashboard state changed to: ${tab}`);
-      currentDomain = tab;
-      updateControlsState(tab);
-    });
-
-    // Initial controls state (disabled by default in HTML, will be enabled when domain is set)
-    updateControlsState(currentDomain);
-
-    // RFC-0042: Helper function to emit period to all contexts
-    function emitToAllContexts(eventName, detail) {
-      // 1. Emit to current window (for MAIN_VIEW orchestrator)
-      window.dispatchEvent(new CustomEvent(eventName, { detail }));
-      LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to current window`);
-
-      // 2. Emit to parent window (if in iframe)
-      if (window.parent && window.parent !== window) {
-        try {
-          window.parent.dispatchEvent(new CustomEvent(eventName, { detail }));
-          LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to parent window`);
-        } catch (e) {
-          LogHelper.warn(`[HEADER] ⚠️ Cannot emit ${eventName} to parent:`, e.message);
-        }
-      }
-
-      // 3. Emit to all iframes (for TELEMETRY widgets)
-      try {
-        const iframes = document.querySelectorAll('iframe');
-        LogHelper.log(`[HEADER] Found ${iframes.length} iframes`);
-        iframes.forEach((iframe, idx) => {
-          try {
-            iframe.contentWindow.dispatchEvent(new CustomEvent(eventName, { detail }));
-            LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to iframe ${idx}`);
-          } catch (e) {
-            LogHelper.warn(`[HEADER] ⚠️ Cannot emit ${eventName} to iframe ${idx}:`, e.message);
-          }
-        });
-      } catch (e) {
-        LogHelper.warn(`[HEADER] ⚠️ Cannot access iframes:`, e.message);
-      }
-    }
-
-    // RFC-0042: Emit initial period automatically when HEADER loads
-    // This ensures TELEMETRY widgets don't hang waiting for data on first load
-    // ONLY emit if currentDomain is supported (energy or water)
-    setTimeout(() => {
-      // Check if current domain is supported before emitting
-      const isSupported = currentDomain === 'energy' || currentDomain === 'water';
-
-      if (!isSupported) {
-        LogHelper.log(`[HEADER] ⏭️ Skipping initial period emission - unsupported domain: ${currentDomain || 'null'}`);
-        return;
-      }
-
-      const startISO = toISO(self.__range.start.toDate(), 'America/Sao_Paulo');
-      const endISO = toISO(self.__range.end.toDate(), 'America/Sao_Paulo');
-
-      const initialPeriod = {
-        startISO,
-        endISO,
-        granularity: calcGranularity(startISO, endISO),
-        tz: 'America/Sao_Paulo'
-      };
-
-      LogHelper.log(`[HEADER] 🚀 Emitting initial period for domain ${currentDomain}:`, initialPeriod);
-      emitToAllContexts("myio:update-date", { period: initialPeriod });
-      emitToAllContexts("myio:update-date-legacy", { startDate: startISO, endDate: endISO });
-    }, 1000); // Wait 1s for widgets to initialize
-
     btnLoad?.addEventListener("click", () => {
       // RFC-0042: Standardized period emission
       const startISO = toISO(self.ctx.$scope.startTs || inputStart.value + "T00:00:00", 'America/Sao_Paulo');
@@ -367,83 +232,17 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         tz: 'America/Sao_Paulo'
       };
 
-      LogHelper.log("[HEADER] Emitting standardized period:", period);
+      console.log("[HEADER] Emitting standardized period:", period);
 
-      // Emit standardized event to all contexts (use shared function)
-      emitToAllContexts("myio:update-date", { period });
+      // Emit standardized event for orchestrator
+      window.dispatchEvent(new CustomEvent("myio:update-date", {
+        detail: { period }
+      }));
 
       // Backward compatibility: also emit old format
-      emitToAllContexts("myio:update-date-legacy", { startDate: startISO, endDate: endISO });
-    });
-
-    // RFC-0042: Force Refresh button - clears all cache and reloads data
-    btnForceRefresh?.addEventListener("click", (event) => {
-      LogHelper.log("[HEADER] 🔄 Force Refresh clicked");
-
-      // Check if this is a programmatic click (from TELEMETRY timeout) or user click
-      const isProgrammatic = event.isTrusted === false;
-
-      if (!isProgrammatic) {
-        // Only show confirmation for manual user clicks
-        const confirmed = confirm("Isso vai limpar todo o cache e recarregar os dados. Continuar?");
-        if (!confirmed) {
-          LogHelper.log("[HEADER] Force Refresh cancelled by user");
-          return;
-        }
-      } else {
-        LogHelper.log("[HEADER] Force Refresh triggered programmatically (auto-recovery)");
-      }
-
-      try {
-        // Clear localStorage cache for energy and water (not temperature)
-        localStorage.removeItem('myio:cache:energy');
-        localStorage.removeItem('myio:cache:water');
-        LogHelper.log("[HEADER] ✅ LocalStorage cache cleared (energy + water)");
-
-        // Invalidate orchestrator cache if available
-        if (window.MyIOOrchestrator && window.MyIOOrchestrator.invalidateCache) {
-          window.MyIOOrchestrator.invalidateCache('energy');
-          window.MyIOOrchestrator.invalidateCache('water');
-          LogHelper.log("[HEADER] ✅ Orchestrator cache invalidated");
-        }
-
-        // IMPORTANT: Clear visual content of TELEMETRY widgets for current domain
-        // Emit custom event that TELEMETRY widgets can listen to
-        const clearEvent = new CustomEvent('myio:telemetry:clear', {
-          detail: { domain: currentDomain }
-        });
-
-        // Emit to current window
-        window.dispatchEvent(clearEvent);
-        LogHelper.log(`[HEADER] ✅ Emitted clear event for domain: ${currentDomain}`);
-
-        // Emit to all iframes (where TELEMETRY widgets live)
-        try {
-          const iframes = document.querySelectorAll('iframe');
-          iframes.forEach((iframe, idx) => {
-            try {
-              iframe.contentWindow.dispatchEvent(clearEvent);
-              LogHelper.log(`[HEADER] ✅ Emitted clear event to iframe ${idx}`);
-            } catch (e) {
-              LogHelper.warn(`[HEADER] ⚠️ Cannot emit clear event to iframe ${idx}:`, e.message);
-            }
-          });
-        } catch (e) {
-          LogHelper.warn(`[HEADER] ⚠️ Cannot access iframes:`, e.message);
-        }
-
-        // Show success message only for manual clicks
-        if (!isProgrammatic) {
-          alert("Cache limpo com sucesso! Clique em 'Carregar' para buscar dados atualizados.");
-        }
-
-        LogHelper.log("[HEADER] 🔄 Force Refresh completed successfully");
-      } catch (err) {
-        LogHelper.error("[HEADER] ❌ Error during Force Refresh:", err);
-        if (!isProgrammatic) {
-          alert("Erro ao limpar cache. Consulte o console para detalhes.");
-        }
-      }
+      window.dispatchEvent(new CustomEvent("myio:update-date-legacy", {
+        detail: { startDate: startISO, endDate: endISO }
+      }));
     });
 
     btnGen?.addEventListener("click", async () => {
@@ -454,94 +253,29 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       try {
         const ingestionAuthToken = await MyIOAuth.getToken();
 
-        // RFC-0042: Use current domain to determine correct datasource and cache
-        const domain = currentDomain;
-
-        // Safety check: button should be disabled if domain is not supported
-        if (!domain || (domain !== 'energy' && domain !== 'water')) {
-          LogHelper.error(`[HEADER] Invalid domain: ${domain}. Button should be disabled.`);
-          alert('Domínio inválido. Por favor, selecione Energia ou Água no menu.');
-          return;
-        }
-
-        LogHelper.log(`[HEADER] Opening All Report for domain: ${domain}`);
-
         // RFC-0042: Check orchestrator cache if available
         let itemsListTB;
         if (window.MyIOOrchestrator && window.MyIOOrchestrator.getCurrentPeriod()) {
           const currentPeriod = window.MyIOOrchestrator.getCurrentPeriod();
-          const cacheKey = window.cacheKey ? window.cacheKey(domain, currentPeriod) : null;
+          const cacheKey = window.cacheKey ? window.cacheKey('energy', currentPeriod) : null;
 
           if (cacheKey && window.MyIOOrchestrator.memCache) {
             const cached = window.MyIOOrchestrator.memCache.get(cacheKey);
             if (cached && cached.data) {
-              LogHelper.log(`[HEADER] Using cached items from orchestrator for domain: ${domain}`);
+              console.log("[HEADER] Using cached items from orchestrator");
               itemsListTB = cached.data;
             }
           }
         }
 
         // Fallback: build from TB datasources
-        // IMPORTANT: Widget HEADER must have TWO datasources configured:
-        // - Alias "Lojas" (for energy)
-        // - Alias "Todos Hidrometros" (for water)
         if (!itemsListTB || itemsListTB.length === 0) {
-          LogHelper.log("[HEADER] self.ctx.datasources >>>", self.ctx.datasources);
-
-          // Build items from ALL datasources (function unifies them)
-          const allItems = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data);
-          LogHelper.log(`[HEADER] Built ${allItems.length} total items from all datasources`);
-
-          // Determine which datasource alias to filter by based on domain
-          const targetAliasName = domain === 'energy' ? 'Lojas' : domain === 'water' ? 'Todos Hidrometros' : null;
-
-          if (!targetAliasName) {
-            LogHelper.error(`[HEADER] No alias mapping for domain: ${domain}`);
-            throw new Error(`Domain not supported: ${domain}`);
-          }
-
-          LogHelper.log(`[HEADER] Filtering items by aliasName: ${targetAliasName}`);
-
-          console.log("[HEADER] self.ctx.datasources >>> ", self.ctx.datasources);
-
-          // Filter items by matching datasource alias
-          itemsListTB = allItems.filter(item => {
-            // Find which datasource this item belongs to
-            const itemDatasource = self.ctx.datasources.find(ds => {
-              // Check if this datasource contains this item's ID
-              return self.ctx.data.some(dataRow => {
-                const rowDatasourceEntityAliasId = dataRow?.datasource?.entityAliasId;
-                const rowEntityId = dataRow?.datasource?.entityId?.id || dataRow?.datasource?.entityId;
-                const dsEntityAliasId = ds?.entityAliasId;
-
-                // Match by datasource entityAliasId and item ID
-                return rowDatasourceEntityAliasId === dsEntityAliasId &&
-                       (rowEntityId === item.id || dataRow?.data?.[0]?.[1] === item.id);
-              });
-            });
-
-            // Check if this datasource matches the target alias
-            const matchesAlias = itemDatasource?.aliasName === targetAliasName;
-
-            if (matchesAlias) {
-              LogHelper.log(`[HEADER] Item ${item.label} matches alias ${targetAliasName}`);
-            }
-
-            return matchesAlias;
-          });
-
-          LogHelper.log(`[HEADER] Filtered to ${itemsListTB.length} items for domain ${domain} (alias: ${targetAliasName})`);
-
-          if (itemsListTB.length === 0) {
-            LogHelper.warn(`[HEADER] No items found for alias ${targetAliasName}. Available datasources:`,
-              self.ctx.datasources.map(ds => ({ name: ds.name, entityAliasId: ds.entityAliasId }))
-            );
-          }
+          itemsListTB = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data);
+          console.log("[HEADER] Built items from datasources (cache miss):", itemsListTB.length);
         }
 
         const modal = MyIOLibrary.openDashboardPopupAllReport({
           customerId: INGESTION_ID,
-          domain: domain, // ← NEW: pass domain ('energy' or 'water')
           debug: 0,
           api: {
             clientId: CLIENT_ID,
@@ -553,7 +287,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           ui: { theme: "light" },
         });
       } catch (err) {
-        LogHelper.error("[HEADER] Failed to open All-Report modal:", err);
+        console.error("[HEADER] Failed to open All-Report modal:", err);
         alert("Erro ao abrir relatório geral. Tente novamente.");
       }
     });
@@ -565,7 +299,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       });
     }
 
-    LogHelper.log("[tbx] DRP pronto:", self.getFilters());
+    console.log("[tbx] DRP pronto:", self.getFilters());
   })();
 };
 
