@@ -682,12 +682,31 @@ function renderList(visible) {
       },
       
       handleClickCard: () => {
-      //  LogHelper.log("Card clicado:", entityObject); 
+        //LogHelper.log("Card clicado:", entityObject);
       },
 
-     handleSelect: (e) => {
-        //LogHelper.log("Card selecionado:", e);
-        // se quiser diferenciar clique de seleção
+      handleSelect: (entityObj) => {
+        // Adiciona à SelectionStore quando o card é selecionado
+        const MyIOSelectionStore = MyIO?.MyIOSelectionStore || window.MyIOSelectionStore;
+
+        if (!MyIOSelectionStore) {
+          LogHelper.error("[TELEMETRY] MyIOSelectionStore not available in handleSelect!");
+          return;
+        }
+
+        // Registra a entidade na store
+        const cardEntity = {
+          id: entityObj.entityId,
+          name: entityObj.labelOrName || 'Dispositivo',
+          icon: 'energy', // Pode ser mapeado baseado no deviceType
+          group: entityObj.deviceIdentifier || entityObj.entityType || 'Dispositivo',
+          lastValue: Number(entityObj.val) || 0,
+          unit: WIDGET_DOMAIN === 'energy' ? 'kWh' : WIDGET_DOMAIN === 'water' ? 'm³' : '',
+          status: entityObj.deviceStatus || 'unknown'
+        };
+
+        MyIOSelectionStore.registerEntity(cardEntity);
+        LogHelper.log("[TELEMETRY] Entity registered in SelectionStore:", cardEntity);
       },
     });
 
@@ -1274,15 +1293,60 @@ self.onInit = async function () {
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
 
 
+  // RFC: Fix selection integration with FOOTER
+  // When a card is selected, register entity and add it to MyIOSelectionStore so FOOTER can display it
   window.addEventListener('myio:device-params', (ev) => {
-        LogHelper.log("[CARDS]filtro",ev.detail )
+    LogHelper.log("[TELEMETRY] Card selected:", ev.detail);
+
+    // Try both MyIO.MyIOSelectionStore and window.MyIOSelectionStore
+    const MyIOSelectionStore = MyIO?.MyIOSelectionStore || window.MyIOSelectionStore;
+
+    if (MyIOSelectionStore) {
+      // First, register the entity with full metadata from the card event
+      const cardEntity = {
+        id: ev.detail.id,
+        name: ev.detail.name || 'Dispositivo',
+        icon: ev.detail.icon || 'generic',
+        group: ev.detail.deviceIdentifier || ev.detail.group || 'Dispositivo',
+        lastValue: Number(ev.detail.lastValue) || 0,
+        unit: ev.detail.unit || (WIDGET_DOMAIN === 'energy' ? 'kWh' : WIDGET_DOMAIN === 'water' ? 'm³' : ''),
+        status: ev.detail.status || 'unknown'
+      };
+
+      MyIOSelectionStore.registerEntity(cardEntity);
+      LogHelper.log("[TELEMETRY] Entity registered in SelectionStore:", cardEntity);
+
+      // Then add to selection (triggers events to FOOTER)
+      MyIOSelectionStore.add(ev.detail.id);
+      LogHelper.log("[TELEMETRY] Added to SelectionStore:", ev.detail.id);
+    } else {
+      LogHelper.error("[TELEMETRY] MyIOSelectionStore not available!");
+    }
+
+    // Also emit global event for backward compatibility
     window.dispatchEvent(new CustomEvent('myio:device-params-global', {
-        detail: {
-          id: ev.detail.id,
-          name: ev.detail.name
-        }
+      detail: {
+        id: ev.detail.id,
+        name: ev.detail.name
+      }
     }));
-      });
+  });
+
+  // RFC: Handle card deselection
+  window.addEventListener('myio:device-params-remove', (ev) => {
+    LogHelper.log("[TELEMETRY] Card deselected:", ev.detail);
+
+    // Try both MyIO.MyIOSelectionStore and window.MyIOSelectionStore
+    const MyIOSelectionStore = MyIO?.MyIOSelectionStore || window.MyIOSelectionStore;
+
+    // Remove from SelectionStore so FOOTER receives the selection:change event
+    if (MyIOSelectionStore) {
+      MyIOSelectionStore.remove(ev.detail.id);
+      LogHelper.log("[TELEMETRY] Removed from SelectionStore:", ev.detail.id);
+    } else {
+      LogHelper.error("[TELEMETRY] MyIOSelectionStore not available!");
+    }
+  });
   // Check for stored data from orchestrator (in case we missed the event)
   setTimeout(() => {
     // RFC-0042: Check parent window for orchestrator data (if in iframe)

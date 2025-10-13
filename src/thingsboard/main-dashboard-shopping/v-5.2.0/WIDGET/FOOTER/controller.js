@@ -1,6 +1,8 @@
-(function (self) {
   /**
-   * NOTA: Este script depende de um script externo (MyIOLibrary).
+   * NOTA: Este script depende da biblioteca MyIOLibrary.
+   *
+   * IMPORTANTE: Adicione a biblioteca como Resource no widget do ThingsBoard:
+   * Widget Settings > Resources > Add Resource > External Resource:
    * https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js
    *
    * Para os ícones, idealmente, você carregaria uma biblioteca como Font Awesome ou Material Icons.
@@ -28,10 +30,6 @@
       }
     }
   };
-
-  // URL da biblioteca externa
-  const MYIO_SCRIPT_URL =
-    "https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js";
 
   // --- 3. Controlador do Footer (Objeto encapsulado) ---
   const footerController = {
@@ -62,38 +60,21 @@
         return;
       }
 
-      this.ensureLibraryLoaded(() => {
-        this.mountTemplate();
-        this.queryDOMElements(); // Consultar elementos *após* montar
-        this.bindEvents();
-        this.renderDock(); // Renderização inicial
-        this.initialized = true;
-      });
-    },
-
-    /**
-     * Garante que a MyIOLibrary esteja carregada
-     */
-    ensureLibraryLoaded(onReady) {
-      if (window.MyIOLibrary) {
-        return onReady();
-      }
-      
-      const scriptId = "myio-library-script";
-      let existingScript = document.getElementById(scriptId);
-
-      if (existingScript) {
-        existingScript.addEventListener('load', onReady);
+      // Verifica se a biblioteca MyIOLibrary está carregada via Resources
+      if (!window.MyIOLibrary) {
+        LogHelper.error(
+          "MyIO Footer: MyIOLibrary not found. " +
+          "Please add the library as a Resource in ThingsBoard widget settings:\n" +
+          "https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"
+        );
         return;
       }
-      
-      const s = document.createElement("script");
-      s.id = scriptId;
-      s.src = MYIO_SCRIPT_URL;
-      s.onload = onReady;
-      s.onerror = () =>
-        LogHelper.error("MyIO Footer: Failed to load MyIOLibrary.");
-      document.head.appendChild(s);
+
+      this.mountTemplate();
+      this.queryDOMElements(); // Consultar elementos *após* montar
+      this.bindEvents();
+      this.renderDock(); // Renderização inicial
+      this.initialized = true;
     },
 
     /**
@@ -109,6 +90,15 @@
         const fixed = !!(this.ctx && this.ctx.settings && this.ctx.settings.fixedFooter);
         if (fixed) footerSection.classList.add('is-fixed');
       } catch (_) { /* noop */ }
+
+      // Insere o conteúdo do template explicitamente
+      footerSection.innerHTML = `
+        <div class="myio-dock" id="myioDock" aria-live="polite"></div>
+        <div class="myio-right">
+          <div class="myio-meta" id="myioTotals">0 selecionados</div>
+          <button id="myioCompare" class="myio-compare" disabled>Compare</button>
+        </div>
+      `;
 
       this.$root.appendChild(footerSection);
       this.$footerEl = footerSection; // Armazena a referência ao footer
@@ -128,11 +118,18 @@
      * Renderiza o conteúdo do "dock" (chips ou mensagem de vazio)
      */
     renderDock() {
-      if (!window.MyIOLibrary || !this.$dock || !this.$totals || !this.$compareBtn) {
+      if (!this.$dock || !this.$totals || !this.$compareBtn) {
         return;
       }
 
-      const { MyIOSelectionStore } = window.MyIOLibrary;
+      // Try both window.MyIOLibrary.MyIOSelectionStore and window.MyIOSelectionStore
+      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+
+      if (!MyIOSelectionStore) {
+        LogHelper.error("MyIO Footer: MyIOSelectionStore not found.");
+        return;
+      }
+
       const selected = MyIOSelectionStore.getSelectedEntities();
       const count = selected.length;
       const totals = MyIOSelectionStore.getMultiUnitTotalDisplay();
@@ -177,8 +174,13 @@
      * Vincula todos os ouvintes de eventos
      */
     bindEvents() {
-      if (!window.MyIOLibrary) return;
-      const { MyIOSelectionStore } = window.MyIOLibrary;
+      // Try both window.MyIOLibrary.MyIOSelectionStore and window.MyIOSelectionStore
+      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+
+      if (!MyIOSelectionStore) {
+        LogHelper.error("MyIO Footer: MyIOSelectionStore not available for binding events.");
+        return;
+      }
 
       // 1. Armazena funções vinculadas (para remoção correta)
       this.boundRenderDock = this.renderDock.bind(this);
@@ -214,9 +216,12 @@
     onChipClick(e) {
       // Verifica se o clique foi em um botão de remover
       const removeBtn = e.target.closest("button[data-entity-id]");
-      if (removeBtn && window.MyIOLibrary) {
-        const id = removeBtn.dataset.entityId;
-        window.MyIOLibrary.MyIOSelectionStore.remove(id);
+      if (removeBtn) {
+        const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+        if (MyIOSelectionStore) {
+          const id = removeBtn.dataset.entityId;
+          MyIOSelectionStore.remove(id);
+        }
       }
     },
 
@@ -224,8 +229,9 @@
      * Manipulador de clique para o botão "Compare"
      */
     onCompareClick() {
-      if (window.MyIOLibrary) {
-        window.MyIOLibrary.MyIOSelectionStore.openComparison();
+      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+      if (MyIOSelectionStore) {
+        MyIOSelectionStore.openComparison();
       }
     },
 
@@ -234,12 +240,13 @@
      */
     onDrop(e) {
       e.preventDefault();
-      if (window.MyIOLibrary) {
+      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+      if (MyIOSelectionStore) {
         const id =
           e.dataTransfer?.getData("text/myio-id") ||
           e.dataTransfer?.getData("text/plain");
         if (id) {
-          window.MyIOLibrary.MyIOSelectionStore.add(id);
+          MyIOSelectionStore.add(id);
         }
       }
     },
@@ -252,9 +259,11 @@
 
       // 1. Remove listeners da store externa
       try {
-        const { MyIOSelectionStore } = window.MyIOLibrary || {};
-        MyIOSelectionStore?.off?.("selection:change", this.boundRenderDock);
-        MyIOSelectionStore?.off?.("selection:totals", this.boundRenderDock);
+        const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+        if (MyIOSelectionStore) {
+          MyIOSelectionStore.off("selection:change", this.boundRenderDock);
+          MyIOSelectionStore.off("selection:totals", this.boundRenderDock);
+        }
       } catch (e) {
         LogHelper.warn("MyIO Footer: Error during listener cleanup.", e);
       }
@@ -294,4 +303,3 @@
   self.onDestroy = function () {
     footerController.destroy();
   };
-})(self);
