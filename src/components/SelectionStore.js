@@ -54,6 +54,9 @@ class MyIOSelectionStoreClass {
     console.log('[SelectionStore] 🏗️ NEW INSTANCE CREATED at:', new Date().toISOString());
     console.trace('[SelectionStore] Constructor called from:');
 
+    // Constants
+    this.MAX_SELECTION = 6; // Limite máximo de dispositivos selecionados
+
     this.state =  {selectedDevice: null}
     this.selectedIds = new Set();
     this.entities = new Map();
@@ -65,6 +68,7 @@ class MyIOSelectionStoreClass {
     // Initialize event listener maps
     this.eventListeners.set('selection:change', []);
     this.eventListeners.set('selection:totals', []);
+    this.eventListeners.set('selection:limit-reached', []);
     this.eventListeners.set('comparison:open', []);
     this.eventListeners.set('comparison:too_many', []);
 
@@ -94,12 +98,31 @@ class MyIOSelectionStoreClass {
   add(id) {
     console.log("[MyIOSelectionStoreClass] Entrou na LIB", id)
     const wasSelected = this.selectedIds.has(id);
-    this.selectedIds.add(id);
 
-    if (!wasSelected) {
-      this._emitSelectionChange('add', id);
-      this._trackEvent('footer_dock.drop_add', { entityId: id });
+    // Se já está selecionado, não faz nada
+    if (wasSelected) {
+      console.log("[MyIOSelectionStoreClass] Item já está selecionado:", id);
+      return;
     }
+
+    // Verifica se atingiu o limite máximo
+    if (this.selectedIds.size >= this.MAX_SELECTION) {
+      console.warn(`[MyIOSelectionStoreClass] Limite de seleção atingido (${this.MAX_SELECTION})`);
+      this._emit('selection:limit-reached', {
+        maxAllowed: this.MAX_SELECTION,
+        currentCount: this.selectedIds.size,
+        attemptedId: id
+      });
+      this._trackEvent('selection.limit_reached', {
+        entityId: id,
+        limit: this.MAX_SELECTION
+      });
+      return;
+    }
+
+    this.selectedIds.add(id);
+    this._emitSelectionChange('add', id);
+    this._trackEvent('footer_dock.drop_add', { entityId: id });
   }
 
   remove(id) {

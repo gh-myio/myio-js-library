@@ -43,6 +43,7 @@
     $dock: null,
     $totals: null,
     $compareBtn: null,
+    $alertOverlay: null,
     initialized: false,
 
     // Armazena referências às funções com 'this' vinculado para remoção segura
@@ -51,6 +52,7 @@
     boundDragOver: null,
     boundDrop: null,
     boundChipClick: null,
+    boundLimitReached: null,
 
     /**
      * Inicializa o controlador
@@ -292,6 +294,70 @@
     },
 
     /**
+     * Mostra o alerta premium quando o limite de seleção é atingido
+     */
+    showLimitAlert() {
+      LogHelper.log("[MyIO Footer] Showing limit alert");
+
+      // Remove qualquer alerta existente
+      if (this.$alertOverlay) {
+        this.hideLimitAlert();
+      }
+
+      // Cria o overlay do alerta
+      const overlay = document.createElement("div");
+      overlay.className = "myio-alert-overlay";
+
+      overlay.innerHTML = `
+        <div class="myio-alert-box">
+          <div class="myio-alert-icon">⚠</div>
+          <h2 class="myio-alert-title">Limite Atingido</h2>
+          <p class="myio-alert-message">
+            Você pode selecionar no máximo <strong>6 dispositivos</strong> para comparação.
+            Remova um dispositivo antes de adicionar outro.
+          </p>
+          <button class="myio-alert-button">Entendi</button>
+        </div>
+      `;
+
+      // Adiciona ao body para que fique acima de tudo
+      document.body.appendChild(overlay);
+      this.$alertOverlay = overlay;
+
+      // Adiciona listener no botão e no overlay (clique fora)
+      const closeBtn = overlay.querySelector(".myio-alert-button");
+      const closeAlert = () => this.hideLimitAlert();
+
+      closeBtn.addEventListener("click", closeAlert);
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) {
+          closeAlert();
+        }
+      });
+
+      LogHelper.log("[MyIO Footer] Limit alert displayed");
+    },
+
+    /**
+     * Esconde o alerta premium
+     */
+    hideLimitAlert() {
+      if (this.$alertOverlay && this.$alertOverlay.parentNode) {
+        this.$alertOverlay.remove();
+        this.$alertOverlay = null;
+        LogHelper.log("[MyIO Footer] Limit alert hidden");
+      }
+    },
+
+    /**
+     * Handler para evento de limite atingido
+     */
+    onLimitReached(data) {
+      LogHelper.log("[MyIO Footer] Limit reached event received:", data);
+      this.showLimitAlert();
+    },
+
+    /**
      * Vincula todos os ouvintes de eventos
      */
     bindEvents() {
@@ -340,6 +406,7 @@
       this.boundDragOver = (e) => e.preventDefault();
       this.boundDrop = this.onDrop.bind(this);
       this.boundChipClick = this.onChipClick.bind(this);
+      this.boundLimitReached = this.onLimitReached.bind(this);
 
       // 2. Ouve a store externa
       LogHelper.log("[MyIO Footer] About to register selection:change listener...");
@@ -352,10 +419,15 @@
       const result2 = MyIOSelectionStore.on("selection:totals", this.boundRenderDock);
       LogHelper.log("[MyIO Footer] Result from .on() call:", result2);
 
+      LogHelper.log("[MyIO Footer] About to register selection:limit-reached listener...");
+      const result3 = MyIOSelectionStore.on("selection:limit-reached", this.boundLimitReached);
+      LogHelper.log("[MyIO Footer] Result from .on() call:", result3);
+
       // DEBUG: Verify registration worked
       LogHelper.log("[MyIO Footer] Current listeners count after registration:", {
         'selection:change': MyIOSelectionStore.eventListeners?.get('selection:change')?.length || 0,
-        'selection:totals': MyIOSelectionStore.eventListeners?.get('selection:totals')?.length || 0
+        'selection:totals': MyIOSelectionStore.eventListeners?.get('selection:totals')?.length || 0,
+        'selection:limit-reached': MyIOSelectionStore.eventListeners?.get('selection:limit-reached')?.length || 0
       });
 
       LogHelper.log("[MyIO Footer] Registered listeners on SelectionStore");
@@ -430,10 +502,14 @@
         if (MyIOSelectionStore) {
           MyIOSelectionStore.off("selection:change", this.boundRenderDock);
           MyIOSelectionStore.off("selection:totals", this.boundRenderDock);
+          MyIOSelectionStore.off("selection:limit-reached", this.boundLimitReached);
         }
       } catch (e) {
         LogHelper.warn("MyIO Footer: Error during listener cleanup.", e);
       }
+
+      // Remove o alerta se estiver visível
+      this.hideLimitAlert();
 
       // 2. Remove listeners do DOM interno
       if (this.$compareBtn) {

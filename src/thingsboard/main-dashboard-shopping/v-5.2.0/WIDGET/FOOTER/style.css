@@ -102,6 +102,7 @@
   gap: 12px;
   padding: 12px 16px;
   height: 56px;
+  flex-shrink: 0;
 
   background: linear-gradient(
     135deg,
@@ -146,6 +147,7 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .myio-chip-name {
@@ -165,39 +167,63 @@
   letter-spacing: -0.01em;
 }
 
-/* Remove Button */
+/* Remove Button - Premium Style */
 .myio-chip-remove {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   padding: 0;
-  margin-left: 4px;
+  margin-left: 8px;
+  flex-shrink: 0;
 
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-tertiary);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+/* Hover shine effect */
+.myio-chip-remove::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  transition: left 0.4s;
+}
+
+.myio-chip-remove:hover::before {
+  left: 100%;
 }
 
 .myio-chip-remove:hover {
-  background: rgba(255, 68, 68, 0.15);
-  border-color: var(--color-error);
-  color: var(--color-error);
-  transform: scale(1.1);
+  background: linear-gradient(135deg, rgba(255, 68, 68, 0.25) 0%, rgba(255, 68, 68, 0.15) 100%);
+  border-color: rgba(255, 68, 68, 0.5);
+  color: #ff4444;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
 }
 
 .myio-chip-remove:active {
   transform: scale(0.95);
+  box-shadow: 0 2px 6px rgba(255, 68, 68, 0.2);
 }
 
 .myio-chip-remove svg {
-  width: 14px;
-  height: 14px;
+  position: relative;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
   stroke-width: 2.5;
+  stroke-linecap: round;
 }
 
 /* ==========================================
@@ -353,6 +379,129 @@
 
 .myio-compare:disabled::after {
   display: none;
+}
+
+/* ==========================================
+   Premium Alert Overlay
+   ========================================== */
+
+.myio-alert-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.myio-alert-box {
+  position: relative;
+  max-width: 480px;
+  width: 90%;
+  padding: 32px;
+
+  background: linear-gradient(135deg, var(--color-surface-elevated) 0%, var(--color-surface) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.myio-alert-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.2) 0%, rgba(255, 152, 0, 0.2) 100%);
+  border: 2px solid rgba(255, 193, 7, 0.5);
+  border-radius: 50%;
+
+  color: #ffc107;
+  font-size: 32px;
+}
+
+.myio-alert-title {
+  margin: 0 0 12px;
+
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+.myio-alert-message {
+  margin: 0 0 28px;
+
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.myio-alert-button {
+  width: 100%;
+  height: 48px;
+
+  font-family: var(--font-family);
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  border: none;
+  border-radius: 12px;
+  color: var(--color-background);
+  cursor: pointer;
+
+  box-shadow: 0 4px 16px rgba(0, 224, 158, 0.4);
+  transition: var(--transition);
+}
+
+.myio-alert-button:hover {
+  background: linear-gradient(135deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
+  box-shadow: 0 6px 24px rgba(0, 224, 158, 0.5);
+  transform: translateY(-2px);
+}
+
+.myio-alert-button:active {
+  transform: translateY(0) scale(0.98);
 }
 
 /* ==========================================

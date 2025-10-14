@@ -1298,7 +1298,7 @@ self.onInit = async function () {
           name: ev.detail.name || 'Dispositivo',
           icon: ev.detail.icon || 'generic',
           group: ev.detail.deviceIdentifier || ev.detail.group || 'Dispositivo',
-          lastValue: Number(ev.detail.lastValue) || 0,
+          lastValue: Number(ev.detail.total_value) || 0,
           unit: ev.detail.unit || (WIDGET_DOMAIN === 'energy' ? 'kWh' : WIDGET_DOMAIN === 'water' ? 'm³' : ''),
           status: ev.detail.status || 'unknown'
         };
