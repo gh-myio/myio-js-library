@@ -523,12 +523,27 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
         enumerable: true
       });
     }
+
+    // CRITICAL: Also update window.MyIOLibrary.MyIOSelectionStore (UMD export)
+    // The UMD bundle exports the module-level variable, but when reloading,
+    // it creates a new module scope, so we need to explicitly update the reference
+    if (globalThis.window.MyIOLibrary && typeof globalThis.window.MyIOLibrary === 'object') {
+      console.log('[SelectionStore] 🔗 Updating window.MyIOLibrary.MyIOSelectionStore to point to singleton');
+      globalThis.window.MyIOLibrary.MyIOSelectionStore = _singletonInstance;
+    }
   }
   // SECOND: Check if a getter is already defined (instance already protected)
   else if (Object.getOwnPropertyDescriptor(globalThis.window, 'MyIOSelectionStore')?.get) {
     // Getter already defined, reuse existing instance
     console.log('[SelectionStore] 🔄 REUSING protected global instance via getter');
     MyIOSelectionStore = globalThis.window.MyIOSelectionStore;
+    _singletonInstance = MyIOSelectionStore;
+
+    // Also update window.MyIOLibrary.MyIOSelectionStore (UMD export)
+    if (globalThis.window.MyIOLibrary && typeof globalThis.window.MyIOLibrary === 'object') {
+      console.log('[SelectionStore] 🔗 Updating window.MyIOLibrary.MyIOSelectionStore to point to singleton');
+      globalThis.window.MyIOLibrary.MyIOSelectionStore = _singletonInstance;
+    }
   }
   // THIRD: Check if instance exists as plain property - upgrade it to protected getter
   else if (globalThis.window.MyIOSelectionStore && typeof globalThis.window.MyIOSelectionStore === 'object') {
@@ -549,6 +564,12 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
       configurable: false,
       enumerable: true
     });
+
+    // Also update window.MyIOLibrary.MyIOSelectionStore (UMD export)
+    if (globalThis.window.MyIOLibrary && typeof globalThis.window.MyIOLibrary === 'object') {
+      console.log('[SelectionStore] 🔗 Updating window.MyIOLibrary.MyIOSelectionStore to point to singleton');
+      globalThis.window.MyIOLibrary.MyIOSelectionStore = _singletonInstance;
+    }
   } else {
     // Create new instance and protect it with getter
     console.log('[SelectionStore] 🆕 Creating new protected singleton instance');
@@ -567,6 +588,12 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
       configurable: false,
       enumerable: true
     });
+
+    // Also set window.MyIOLibrary.MyIOSelectionStore (UMD export)
+    if (globalThis.window.MyIOLibrary && typeof globalThis.window.MyIOLibrary === 'object') {
+      console.log('[SelectionStore] 🔗 Setting window.MyIOLibrary.MyIOSelectionStore to singleton');
+      globalThis.window.MyIOLibrary.MyIOSelectionStore = _singletonInstance;
+    }
 
     console.log('[SelectionStore] 🔒 Instance protected and ready');
   }
