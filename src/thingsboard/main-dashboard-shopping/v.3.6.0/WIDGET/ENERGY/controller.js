@@ -1929,7 +1929,7 @@ async function openDashboardPopupEnergy(
             endDate: endDate,
             label: entityLabel,
             telemetryQuery: {
-                keys: 'a,b,c',
+                keys: 'consumption',
                 intervalType: 'MILLISECONDS',
                 interval: 86400000, // 24 horas em milissegundos
                 agg: 'MAX',
