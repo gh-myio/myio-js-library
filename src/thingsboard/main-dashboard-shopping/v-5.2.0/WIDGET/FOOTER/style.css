@@ -32,12 +32,12 @@
   left: 0;
   right: 0;
   width: 100%;
-  height: 80px;
+  height: 88px;
   z-index: 10000;
 
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 28px;
   padding: 0 32px;
   box-sizing: border-box;
 
@@ -46,13 +46,15 @@
   color: var(--color-text-primary);
   background: linear-gradient(
     180deg,
-    var(--color-surface) 0%,
-    var(--color-background) 100%
+    rgba(26, 31, 40, 0.98) 0%,
+    rgba(15, 20, 25, 0.98) 100%
   );
-  border-top: 1px solid var(--color-border);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  border-top: 2px solid rgba(0, 224, 158, 0.3);
+  box-shadow:
+    var(--shadow-lg),
+    0 -2px 24px rgba(0, 224, 158, 0.15);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 /* ==========================================
@@ -63,33 +65,37 @@
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 8px 0;
+  padding: 10px 0;
   margin: 0 -8px;
   padding-left: 8px;
+  padding-right: 8px;
 
   /* Custom Scrollbar */
   scrollbar-width: thin;
-  scrollbar-color: var(--color-primary) transparent;
+  scrollbar-color: rgba(0, 224, 158, 0.6) transparent;
 }
 
 .myio-dock::-webkit-scrollbar {
-  height: 4px;
+  height: 6px;
 }
 
 .myio-dock::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 224, 158, 0.08);
+  border-radius: 3px;
 }
 
 .myio-dock::-webkit-scrollbar-thumb {
-  background: var(--color-primary);
-  border-radius: 2px;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+  border-radius: 3px;
+  box-shadow: 0 0 8px rgba(0, 224, 158, 0.4);
 }
 
 .myio-dock::-webkit-scrollbar-thumb:hover {
-  background: var(--color-primary-hover);
+  background: linear-gradient(90deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
+  box-shadow: 0 0 12px rgba(0, 224, 158, 0.6);
 }
 
 /* ==========================================
@@ -99,24 +105,45 @@
 .myio-chip {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  height: 56px;
+  gap: 14px;
+  padding: 14px 18px;
+  height: 64px;
   flex-shrink: 0;
 
   background: linear-gradient(
     135deg,
-    var(--color-surface-elevated) 0%,
-    var(--color-surface) 100%
+    rgba(0, 224, 158, 0.12) 0%,
+    rgba(0, 224, 158, 0.06) 100%
   );
-  border: 1px solid var(--color-border);
+  border: 1px solid rgba(0, 224, 158, 0.3);
   border-radius: var(--radius-lg);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 
   white-space: nowrap;
   cursor: default;
   transition: var(--transition);
   animation: chipSlideIn 0.3s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Chip glow effect */
+.myio-chip::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle,
+    rgba(0, 224, 158, 0.15) 0%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.3s;
 }
 
 @keyframes chipSlideIn {
@@ -133,38 +160,46 @@
 .myio-chip:hover {
   background: linear-gradient(
     135deg,
-    var(--color-surface-elevated) 0%,
-    var(--color-surface-elevated) 100%
+    rgba(0, 224, 158, 0.18) 0%,
+    rgba(0, 224, 158, 0.1) 100%
   );
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  transform: translateY(-2px);
+  border-color: rgba(0, 224, 158, 0.5);
+  box-shadow:
+    0 6px 16px rgba(0, 224, 158, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transform: translateY(-3px);
+}
+
+.myio-chip:hover::before {
+  opacity: 1;
 }
 
 /* Chip Content */
 .myio-chip-content {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
   flex-shrink: 0;
 }
 
 .myio-chip-name {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   color: var(--color-text-primary);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .myio-chip-value {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 18px;
+  font-weight: 700;
   color: var(--color-primary);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 8px rgba(0, 224, 158, 0.4);
 }
 
 /* Remove Button - Premium Style */
@@ -231,12 +266,28 @@
    ========================================== */
 
 .myio-empty {
-  color: var(--color-text-tertiary);
-  font-size: 14px;
-  font-weight: 500;
-  font-style: italic;
-  padding: 8px 0;
-  opacity: 0.6;
+  color: var(--color-primary);
+  font-size: 15px;
+  font-weight: 600;
+  font-style: normal;
+  padding: 12px 24px;
+  opacity: 0.7;
+  background: linear-gradient(135deg, rgba(0, 224, 158, 0.08) 0%, transparent 100%);
+  border: 1px dashed rgba(0, 224, 158, 0.3);
+  border-radius: var(--radius-md);
+  text-shadow: 0 0 8px rgba(0, 224, 158, 0.3);
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.5;
+    box-shadow: 0 0 0 rgba(0, 224, 158, 0.3);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 16px rgba(0, 224, 158, 0.3);
+  }
 }
 
 /* ==========================================
@@ -255,18 +306,31 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
-  padding: 0 4px;
-  min-width: 140px;
+  gap: 6px;
+  padding: 8px 16px;
+  min-width: 160px;
+  background: linear-gradient(135deg, rgba(0, 224, 158, 0.08) 0%, rgba(0, 224, 158, 0.04) 100%);
+  border: 1px solid rgba(0, 224, 158, 0.2);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .myio-meta::before {
   content: attr(data-label);
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-text-tertiary);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-primary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 8px rgba(0, 224, 158, 0.4);
+}
+
+/* Stats value styling */
+#myioTotals {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 /* Compare Button - Premium Style */
