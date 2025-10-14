@@ -3210,99 +3210,124 @@ async function loadMainBoardData(strt, end) {
 
 // RFC-0014: styleOnPicker removed - no longer needed with MyIOLibrary DateRangePicker
 
+// --- DATES STORE MODULE (shared with ENERGY via localStorage) ---
+const DatesStore = (() => {
+  const STORAGE_KEY = 'myio_dashboard_dates';
+
+  // Initialize state from localStorage or use defaults
+  let state = (() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        console.log('[WATER][DATES] Loaded from localStorage:', parsed);
+        return parsed;
+      }
+    } catch (e) {
+      console.warn('[WATER][DATES] Failed to load from localStorage:', e);
+    }
+    return { start: '', end: '' };
+  })();
+
+  function normalize(d) {
+    if (!d) return d;
+    // Handle ISO date with timezone (from daterangepicker)
+    if (d.includes('T')) {
+      return d.slice(0, 10);
+    }
+    // Handle date already in YYYY-MM-DD format
+    return d;
+  }
+
+  function saveToStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.warn('[WATER][DATES] Failed to save to localStorage:', e);
+    }
+  }
+
+  return {
+    get() { return { ...state }; },
+    set({ start, end } = {}) {
+      if (start) state.start = normalize(start);
+      if (end) state.end = normalize(end);
+      console.log('[WATER][DATES] set →', JSON.stringify(state));
+
+      // Save to localStorage for persistence across widget navigation
+      saveToStorage();
+    }
+  };
+})();
+
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
-  // RFC-0014: Initialize MyIOLibrary DateRangePicker
-  let waterDatePicker = null;
-  
-  function initWaterDateRangePicker(retryCount = 0) {
-    // Check if MyIOLibrary is available
-    if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createInputDateRangePickerInsideDIV) {
-      if (retryCount < 5) {
-        console.warn(`[WATER] MyIOLibrary not ready yet, retrying... (${retryCount + 1}/5)`);
-        setTimeout(() => initWaterDateRangePicker(retryCount + 1), 200);
-        return;
-      }
-      console.error('[WATER] MyIOLibrary.createInputDateRangePickerInsideDIV not available after retries. Please ensure myio-js-library is loaded.');
-      return;
+  // Initialize MyIOLibrary DateRangePicker (aligned with ENERGY widget)
+  var $inputStart = $('input[name="startDatetimes"]');
+  var dateRangePicker;
+
+  // Get dates from DatesStore (which loads from localStorage) if presets not provided
+  const storedDates = DatesStore.get();
+  const effectivePresetStart = presetStart || storedDates.start;
+  const effectivePresetEnd = presetEnd || storedDates.end;
+
+  console.log('[WATER] Using MyIOLibrary.createDateRangePicker');
+  console.log('[WATER] Preset dates:', { effectivePresetStart, effectivePresetEnd });
+
+  // Initialize the createDateRangePicker component
+  MyIOLibrary.createDateRangePicker($inputStart[0], {
+    presetStart: effectivePresetStart,
+    presetEnd: effectivePresetEnd,
+    onApply: function(result) {
+      console.log('[WATER] DateRangePicker Applied:', result);
+
+      // Update internal dates for compatibility
+      self.ctx.$scope.startTs = result.startISO;
+      self.ctx.$scope.endTs = result.endISO;
+      self.startDate = result.startISO;
+      self.endDate = result.endISO;
+
+      // Update DatesStore for persistence across widget navigation
+      DatesStore.set({
+        start: result.startISO,
+        end: result.endISO
+      });
     }
-
-    // Initialize MyIOLibrary date picker
-    MyIOLibrary.createInputDateRangePickerInsideDIV({
-      containerId: 'water-date-range',
-      inputId: 'water-date-input',
-      placeholder: 'Clique para selecionar período',
-      showHelper: false,
-      pickerOptions: {
-        presetStart: presetStart || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-        presetEnd: presetEnd || new Date().toISOString().split('T')[0],
-        maxRangeDays: 31,
-        onApply: (result) => {
-          console.log('[WATER] Date range applied:', result);
-
-          // Convert YYYY-MM-DD to full ISO with timezone
-          const startWithTime = result.startISO + 'T00:00:00-03:00';
-          const endWithTime = result.endISO + 'T23:59:59-03:00';
-
-          // Update internal state
-          self.ctx.$scope.startTs = startWithTime;
-          self.ctx.$scope.endTs = endWithTime;
-          self.startDate = startWithTime;
-          self.endDate = endWithTime;
-
-          // Trigger data reload
-          loadMainBoardData(result.startISO, result.endISO);
-        }
-      }
-    }).then(controller => {
-      waterDatePicker = controller;
-      console.log('[WATER] MyIOLibrary DateRangePicker initialized successfully');
-    }).catch(err => {
-      console.error('[WATER] Failed to initialize MyIOLibrary DateRangePicker:', err);
-    });
-  }
-
-  // Function to get dates from MyIOLibrary picker
-  function getDates() {
-    if (waterDatePicker) {
-      const dates = waterDatePicker.getDates();
-      return {
-        startDate: dates.startISO,
-        endDate: dates.endISO
-      };
-    }
-    // Fallback to scope values if picker not initialized
-    return {
-      startDate: self.ctx.$scope.startTs || new Date().toISOString(),
-      endDate: self.ctx.$scope.endTs || new Date().toISOString()
-    };
-  }
-
-  // Set initial dates before initializing picker
-  const initialStartISO = presetStart || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-  const initialEndISO = presetEnd || new Date().toISOString().split('T')[0];
-
-  self.ctx.$scope.startTs = initialStartISO + 'T00:00:00-03:00';
-  self.ctx.$scope.endTs = initialEndISO + 'T23:59:59-03:00';
-  self.startDate = self.ctx.$scope.startTs;
-  self.endDate = self.ctx.$scope.endTs;
-
-  console.log("Datas iniciais definidas:", self.ctx.$scope.startTs, self.ctx.$scope.endTs);
-
-  // Initialize the date picker
-  initWaterDateRangePicker();
+  }).then(function(picker) {
+    dateRangePicker = picker;
+    console.log('[WATER] DateRangePicker Successfully initialized');
+  }).catch(function(error) {
+    console.error('[WATER] DateRangePicker Failed to initialize:', error);
+  });
 
   // Evento do botão de load
   $(".load-button")
     .off("click")
     .on("click", async () => {
-      var newDates = getDates();
-      self.ctx.$scope.startTs = newDates.startDate;
-      self.ctx.$scope.endTs = newDates.endDate;
+      // Get dates from the date picker if available
+      var startDate, endDate;
+      if (dateRangePicker && typeof dateRangePicker.getDates === 'function') {
+        const dates = dateRangePicker.getDates();
+        startDate = dates.startISO;
+        endDate = dates.endISO;
+      } else {
+        // Fallback to scope values if picker not ready
+        startDate = self.ctx.$scope.startTs;
+        endDate = self.ctx.$scope.endTs;
+      }
+
+      self.ctx.$scope.startTs = startDate;
+      self.ctx.$scope.endTs = endDate;
+
+      // Update DatesStore for persistence
+      DatesStore.set({
+        start: startDate,
+        end: endDate
+      });
 
       updateMainReportSortUI();
 
-      await loadMainBoardData(newDates.startDate, newDates.endDate);
+      await loadMainBoardData(startDate, endDate);
     });
 
   const ctx = self.ctx;

@@ -2,9 +2,13 @@
   <div class="status-container">
     <div class="top-bar">
       <div class="date-range">
-        <!-- MyIOLibrary DateRangePicker container -->
-        <div id="water-date-range" class="water-widget__daterange" aria-label="Date range selector"></div>
-        <button id="tbx-btn-load" class="load-button">
+        <!-- range -->
+        <label aria-label="Período" class="tbx-field">
+          <span class="tbx-ico tbx-ico-cal">📅</span>
+          <input type="text" name="startDatetimes" placeholder="Digite a data ou período" readonly title="Clique aqui para alterar o intervalo de datas" />
+        </label>
+
+        <button class="load-button">
           <i class="material-icons">refresh</i>
           Carregar
         </button>

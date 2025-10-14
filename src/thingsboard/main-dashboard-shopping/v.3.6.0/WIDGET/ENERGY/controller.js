@@ -963,9 +963,24 @@ window.loadScript = loadScript;
 
 // --- DATES STORE MODULE (replaces shared date state) ---
 const DatesStore = (() => {
-  let state = { start: '', end: '' };
+  const STORAGE_KEY = 'myio_dashboard_dates';
 
-  function normalize(d) { 
+  // Initialize state from localStorage or use defaults
+  let state = (() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        console.log('[DATES] Loaded from localStorage:', parsed);
+        return parsed;
+      }
+    } catch (e) {
+      console.warn('[DATES] Failed to load from localStorage:', e);
+    }
+    return { start: '', end: '' };
+  })();
+
+  function normalize(d) {
     if (!d) return d;
     // Handle ISO date with timezone (from daterangepicker)
     if (d.includes('T')) {
@@ -975,12 +990,24 @@ const DatesStore = (() => {
     return d;
   }
 
+  function saveToStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.warn('[DATES] Failed to save to localStorage:', e);
+    }
+  }
+
   return {
     get() { return { ...state }; },
     set({ start, end } = {}) {
       if (start) state.start = normalize(start);
       if (end) state.end = normalize(end);
       console.log('[DATES] set →', JSON.stringify(state));
+
+      // Save to localStorage for persistence across widget navigation
+      saveToStorage();
+
       // Reflect to main board inputs only (not popups)
       $('#startDate').val(state.start || '');
       $('#endDate').val(state.end || '');
@@ -4174,13 +4201,19 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // Initialize MyIOLibrary DateRangePicker
   var $inputStart = $('input[name="startDatetimes"]');
   var dateRangePicker;
-  
+
+  // Get dates from DatesStore (which loads from localStorage) if presets not provided
+  const storedDates = DatesStore.get();
+  const effectivePresetStart = presetStart || storedDates.start;
+  const effectivePresetEnd = presetEnd || storedDates.end;
+
   console.log('[DateRangePicker] Using MyIOLibrary.createDateRangePicker');
-  
+  console.log('[DateRangePicker] Preset dates:', { effectivePresetStart, effectivePresetEnd });
+
   // Initialize the createDateRangePicker component
   MyIOLibrary.createDateRangePicker($inputStart[0], {
-    presetStart: presetStart,
-    presetEnd: presetEnd,
+    presetStart: effectivePresetStart,
+    presetEnd: effectivePresetEnd,
     onApply: function(result) {
       console.log('[DateRangePicker] Applied:', result);
       
