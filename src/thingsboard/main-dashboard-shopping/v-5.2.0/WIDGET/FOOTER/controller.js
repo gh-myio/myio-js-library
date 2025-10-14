@@ -213,6 +213,11 @@
     bindEvents() {
       LogHelper.log("[MyIO Footer] bindEvents() called");
 
+      // DEBUG: Check which SelectionStore instance we're using
+      LogHelper.log("[MyIO Footer] window.MyIOLibrary:", !!window.MyIOLibrary);
+      LogHelper.log("[MyIO Footer] window.MyIOLibrary.MyIOSelectionStore:", !!window.MyIOLibrary?.MyIOSelectionStore);
+      LogHelper.log("[MyIO Footer] window.MyIOSelectionStore:", !!window.MyIOSelectionStore);
+
       // Try both window.MyIOLibrary.MyIOSelectionStore and window.MyIOSelectionStore
       const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
 
@@ -220,6 +225,14 @@
         LogHelper.error("[MyIO Footer] MyIOSelectionStore not available for binding events.");
         return;
       }
+
+      // DEBUG: Verify we have the correct instance
+      LogHelper.log("[MyIO Footer] Using SelectionStore instance:", MyIOSelectionStore.constructor.name);
+      LogHelper.log("[MyIO Footer] SelectionStore has .on method:", typeof MyIOSelectionStore.on);
+      LogHelper.log("[MyIO Footer] Current listeners count before registration:", {
+        'selection:change': MyIOSelectionStore.eventListeners?.get('selection:change')?.length || 0,
+        'selection:totals': MyIOSelectionStore.eventListeners?.get('selection:totals')?.length || 0
+      });
 
       // 1. Armazena funções vinculadas (para remoção correta)
       this.boundRenderDock = this.renderDock.bind(this);
@@ -229,8 +242,16 @@
       this.boundChipClick = this.onChipClick.bind(this);
 
       // 2. Ouve a store externa
+      LogHelper.log("[MyIO Footer] About to register selection:change listener...");
       MyIOSelectionStore.on("selection:change", this.boundRenderDock);
+      LogHelper.log("[MyIO Footer] About to register selection:totals listener...");
       MyIOSelectionStore.on("selection:totals", this.boundRenderDock);
+
+      // DEBUG: Verify registration worked
+      LogHelper.log("[MyIO Footer] Current listeners count after registration:", {
+        'selection:change': MyIOSelectionStore.eventListeners?.get('selection:change')?.length || 0,
+        'selection:totals': MyIOSelectionStore.eventListeners?.get('selection:totals')?.length || 0
+      });
 
       LogHelper.log("[MyIO Footer] Registered listeners on SelectionStore");
 

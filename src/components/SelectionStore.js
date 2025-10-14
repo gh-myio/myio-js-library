@@ -10,6 +10,9 @@
 
 class MyIOSelectionStoreClass {
   constructor() {
+    console.log('[SelectionStore] 🏗️ NEW INSTANCE CREATED at:', new Date().toISOString());
+    console.trace('[SelectionStore] Constructor called from:');
+
     this.state =  {selectedDevice: null}
     this.selectedIds = new Set();
     this.entities = new Map();
@@ -17,7 +20,7 @@ class MyIOSelectionStoreClass {
     this.analytics = null;
     this.timeSeriesCache = new Map();
     this.cacheExpiry = 5 * 60 * 1000; // 5 minutes
-    
+
     // Initialize event listener maps
     this.eventListeners.set('selection:change', []);
     this.eventListeners.set('selection:totals', []);
@@ -413,13 +416,25 @@ class MyIOSelectionStoreClass {
   }
 }
 
-// Create singleton instance
-const MyIOSelectionStore = new MyIOSelectionStoreClass();
+// Create singleton instance - ONLY if it doesn't exist yet
+let MyIOSelectionStore;
 
-// Export to global scope for browser usage
 if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined') {
-  globalThis.window.MyIOSelectionStore = MyIOSelectionStore;
+  // Check if instance already exists in window
+  if (globalThis.window.MyIOSelectionStore) {
+    console.log('[SelectionStore] 🔄 REUSING existing global instance');
+    MyIOSelectionStore = globalThis.window.MyIOSelectionStore;
+  } else {
+    console.log('[SelectionStore] 🆕 Creating new global singleton instance');
+    MyIOSelectionStore = new MyIOSelectionStoreClass();
+    globalThis.window.MyIOSelectionStore = MyIOSelectionStore;
+  }
+
+  // Always export the class for those who want to create their own instances
   globalThis.window.MyIOSelectionStoreClass = MyIOSelectionStoreClass;
+} else {
+  // Non-browser environment (Node.js, etc.)
+  MyIOSelectionStore = new MyIOSelectionStoreClass();
 }
 
 // Export for module usage
