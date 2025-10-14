@@ -1181,6 +1181,15 @@ self.onInit = async function () {
       updatedIdentifiers: {}
     }));
 
+    // DEBUG: Log sample item with value
+    if (filtered.length > 0 && filtered[0].value > 0) {
+      LogHelper.log(`[TELEMETRY] 🔍 Sample orchestrator item after mapping:`, {
+        ingestionId: filtered[0].ingestionId,
+        label: filtered[0].label,
+        value: filtered[0].value
+      });
+    }
+
     LogHelper.log(`[TELEMETRY] Using ${filtered.length} items after processing`);
 
     // IMPORTANT: Merge orchestrator data with existing TB data
@@ -1201,7 +1210,7 @@ self.onInit = async function () {
 
         // Debug: log non-zero values from API
         if (value > 0) {
-          //LogHelper.log(`[TELEMETRY] ✅ API has data: ${item.label} (${item.ingestionId}) = ${value}`);
+          LogHelper.log(`[TELEMETRY] ✅ Orchestrator has data: ${item.label} (${item.ingestionId}) = ${value}`);
         }
       }
     });
@@ -1211,9 +1220,11 @@ self.onInit = async function () {
     STATE.itemsEnriched = STATE.itemsBase.map(tbItem => {
       const orchestratorValue = orchestratorValues.get(tbItem.ingestionId);
 
-      // Debug: log when value is missing or zero
-      if (orchestratorValue === undefined || orchestratorValue === 0) {
-        //LogHelper.warn(`[TELEMETRY] ⚠️ ${tbItem.label} (${tbItem.ingestionId}): orchestrator=${orchestratorValue}, TB=${tbItem.value}`);
+      // DEBUG: Log matching process for all items
+      if (orchestratorValue !== undefined && orchestratorValue > 0) {
+        LogHelper.log(`[TELEMETRY] ✅ MATCH FOUND: ${tbItem.label} (ingestionId: ${tbItem.ingestionId}) = ${orchestratorValue}`);
+      } else {
+        LogHelper.warn(`[TELEMETRY] ❌ NO MATCH: ${tbItem.label} (ingestionId: ${tbItem.ingestionId}), orchestrator=${orchestratorValue}, TB=${tbItem.value}`);
       }
 
       return {

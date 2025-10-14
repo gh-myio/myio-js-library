@@ -7,7 +7,7 @@
  *********************************************************/
 
 // Debug configuration
-const DEBUG_ACTIVE = false;
+const DEBUG_ACTIVE = true; // TEMPORARY - for debugging orchestrator issue
 
 // LogHelper utility
 const LogHelper = {
@@ -149,28 +149,28 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
           }
         }
 
-        // Check if credentials are missing and show alert
+        // Check if credentials are present
         if (!CLIENT_ID || !CLIENT_SECRET || !CUSTOMER_ING_ID) {
-          LogHelper.error("[MAIN_VIEW] Missing credentials - CLIENT_ID, CLIENT_SECRET, or CUSTOMER_ING_ID not found");
-          showCredentialsAlert();
-          return; // Stop initialization without credentials
+          LogHelper.warn("[MAIN_VIEW] Missing credentials - CLIENT_ID, CLIENT_SECRET, or CUSTOMER_ING_ID not found");
+          LogHelper.warn("[MAIN_VIEW] Orchestrator will be available but won't be able to fetch data without credentials");
+          // Don't return - let orchestrator be exposed even without credentials
+        } else {
+          // Set credentials in orchestrator (only if present)
+          MyIOOrchestrator.setCredentials(CUSTOMER_ING_ID, CLIENT_ID, CLIENT_SECRET);
+
+          // Build auth and get token
+          const myIOAuth = MyIO.buildMyioIngestionAuth({
+            dataApiHost: "https://api.data.apps.myio-bas.com",
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET
+          });
+
+          // Get token and set it in token manager
+          const ingestionToken = await myIOAuth.getToken();
+          MyIOOrchestrator.tokenManager.setToken('ingestionToken', ingestionToken);
+
+          LogHelper.log("[MAIN_VIEW] Auth initialized successfully with CLIENT_ID:", CLIENT_ID);
         }
-
-        // Set credentials in orchestrator
-        MyIOOrchestrator.setCredentials(CUSTOMER_ING_ID, CLIENT_ID, CLIENT_SECRET);
-
-        // Build auth and get token
-        const myIOAuth = MyIO.buildMyioIngestionAuth({
-          dataApiHost: "https://api.data.apps.myio-bas.com",
-          clientId: CLIENT_ID,
-          clientSecret: CLIENT_SECRET
-        });
-
-        // Get token and set it in token manager
-        const ingestionToken = await myIOAuth.getToken();
-        MyIOOrchestrator.tokenManager.setToken('ingestionToken', ingestionToken);
-
-        LogHelper.log("[MAIN_VIEW] Auth initialized successfully with CLIENT_ID:", CLIENT_ID);
       } catch (err) {
         LogHelper.error("[MAIN_VIEW] Auth initialization failed:", err);
       }
@@ -922,6 +922,14 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         centralId: row.centralId || null
       }));
 
+      // DEBUG: Log sample item with value
+      if (items.length > 0 && items[0].value > 0) {
+        LogHelper.log(`[Orchestrator] 🔍 Sample API row → item:`, {
+          api_row: { id: rows[0].id, total_value: rows[0].total_value, name: rows[0].name },
+          mapped_item: { id: items[0].id, ingestionId: items[0].ingestionId, value: items[0].value, label: items[0].label }
+        });
+      }
+
       LogHelper.log(`[Orchestrator] fetchAndEnrich: fetched ${items.length} items for domain ${domain}`);
       return items;
     } catch (error) {
@@ -959,10 +967,11 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
     const cached = readCache(key);
 
-    // PHASE 3: Use debounced emission for cached data
+    // IMPORTANT: Emit cached data immediately (no debounce)
+    // Debounce was causing race conditions with fresh data
     if (cached) {
       LogHelper.log(`[Orchestrator] 🎯 Cache hit for ${domain}, fresh: ${cached.fresh}`);
-      debouncedEmitProvide(domain, key, cached.data);
+      emitProvide(domain, key, cached.data);
       metrics.recordHydration(domain, Date.now() - startTime, true);
 
       if (cached.fresh) {
@@ -987,9 +996,10 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         writeCache(key, items);
 
         emitHydrated(domain, key, items.length);
-        
-        // PHASE 3: Use debounced emission for fresh data
-        debouncedEmitProvide(domain, key, items);
+
+        // IMPORTANT: Emit immediately for fresh data (no debounce)
+        // Debounce caused issues where empty data was emitted before fetch completed
+        emitProvide(domain, key, items);
 
         const duration = Date.now() - startTime;
         metrics.recordHydration(domain, duration, false);

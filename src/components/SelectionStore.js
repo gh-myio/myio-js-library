@@ -9,23 +9,45 @@
 
 
 class MyIOSelectionStoreClass {
+  // Global debug flag - controls all console logs
+  static GlobalDebug = false;
+
+  /**
+   * Enable or disable all console logs from SelectionStore
+   * @param {boolean} enabled - true to enable logs, false to disable
+   */
+  static setGlobalDebug(enabled) {
+    MyIOSelectionStoreClass.GlobalDebug = !!enabled;
+    console.log(`[SelectionStore] 🔧 Global debug ${enabled ? 'ENABLED' : 'DISABLED'}`);
+  }
+
+  /**
+   * Internal logging method - respects GlobalDebug flag
+   */
+  _log(level, ...args) {
+    if (!MyIOSelectionStoreClass.GlobalDebug) return;
+
+    const logMethod = console[level] || console.log;
+    logMethod.apply(console, args);
+  }
+
   constructor() {
-    console.log('[SelectionStore] 🔍 Constructor called - checking for existing instance...');
-    console.log('[SelectionStore] typeof document:', typeof document);
+    this._log('log', '[SelectionStore] 🔍 Constructor called - checking for existing instance...');
+    this._log('log', '[SelectionStore] typeof document:', typeof document);
 
     // DEBUG: Check if we're in an iframe
     if (typeof window !== 'undefined') {
-      console.log('[SelectionStore] window.top === window:', window.top === window);
-      console.log('[SelectionStore] document location:', window.location.href);
-      console.log('[SelectionStore] Is in iframe:', window !== window.top);
+      this._log('log', '[SelectionStore] window.top === window:', window.top === window);
+      this._log('log', '[SelectionStore] document location:', window.location.href);
+      this._log('log', '[SelectionStore] Is in iframe:', window !== window.top);
     }
 
-    console.log('[SelectionStore] document.__MyIOSelectionStore_INSTANCE__:', !!document?.__MyIOSelectionStore_INSTANCE__);
+    this._log('log', '[SelectionStore] document.__MyIOSelectionStore_INSTANCE__:', !!document?.__MyIOSelectionStore_INSTANCE__);
 
     // DEBUG: List all __MyIO* properties on document to debug
     if (typeof document !== 'undefined') {
       const myioProps = Object.getOwnPropertyNames(document).filter(key => key.startsWith('__MyIO'));
-      console.log('[SelectionStore] All __MyIO* properties on document:', myioProps);
+      this._log('log', '[SelectionStore] All __MyIO* properties on document:', myioProps);
     }
 
     // CRITICAL: Check if singleton already exists BEFORE initializing
@@ -35,9 +57,9 @@ class MyIOSelectionStoreClass {
     try {
       const targetWindow = (typeof window !== 'undefined' && window.top) ? window.top : window;
       existingInstance = targetWindow?.__MyIOSelectionStore_INSTANCE__;
-      console.log('[SelectionStore] Checking window.top.__MyIOSelectionStore_INSTANCE__:', !!existingInstance);
+      this._log('log', '[SelectionStore] Checking window.top.__MyIOSelectionStore_INSTANCE__:', !!existingInstance);
     } catch (e) {
-      console.warn('[SelectionStore] Cannot access window.top:', e.message);
+      this._log('warn', '[SelectionStore] Cannot access window.top:', e.message);
     }
 
     if (!existingInstance) {
@@ -46,13 +68,15 @@ class MyIOSelectionStoreClass {
     }
 
     if (existingInstance) {
-      console.warn('[SelectionStore] ⚠️ Constructor called but instance already exists! Returning existing instance.');
-      console.log('[SelectionStore] Existing instance has listeners:', existingInstance.eventListeners.get('selection:change')?.length || 0);
+      this._log('warn', '[SelectionStore] ⚠️ Constructor called but instance already exists! Returning existing instance.');
+      this._log('log', '[SelectionStore] Existing instance has listeners:', existingInstance.eventListeners.get('selection:change')?.length || 0);
       return existingInstance;
     }
 
-    console.log('[SelectionStore] 🏗️ NEW INSTANCE CREATED at:', new Date().toISOString());
-    console.trace('[SelectionStore] Constructor called from:');
+    this._log('log', '[SelectionStore] 🏗️ NEW INSTANCE CREATED at:', new Date().toISOString());
+    if (MyIOSelectionStoreClass.GlobalDebug) {
+      console.trace('[SelectionStore] Constructor called from:');
+    }
 
     // Constants
     this.MAX_SELECTION = 6; // Limite máximo de dispositivos selecionados
@@ -77,37 +101,37 @@ class MyIOSelectionStoreClass {
     try {
       const targetWindow = (typeof window !== 'undefined' && window.top) ? window.top : window;
       if (targetWindow) {
-        console.log('[SelectionStore] 💾 Storing instance in window.top.__MyIOSelectionStore_INSTANCE__');
+        this._log('log', '[SelectionStore] 💾 Storing instance in window.top.__MyIOSelectionStore_INSTANCE__');
         targetWindow.__MyIOSelectionStore_INSTANCE__ = this;
-        console.log('[SelectionStore] ✅ Stored in top window! Verify:', !!targetWindow.__MyIOSelectionStore_INSTANCE__);
+        this._log('log', '[SelectionStore] ✅ Stored in top window! Verify:', !!targetWindow.__MyIOSelectionStore_INSTANCE__);
       }
     } catch (e) {
       // Cross-origin iframe - can't access window.top
-      console.warn('[SelectionStore] ⚠️ Cannot access window.top (cross-origin iframe):', e.message);
+      this._log('warn', '[SelectionStore] ⚠️ Cannot access window.top (cross-origin iframe):', e.message);
 
       // Fallback to document
       if (typeof document !== 'undefined') {
-        console.log('[SelectionStore] 💾 Storing instance in document.__MyIOSelectionStore_INSTANCE__ (fallback)');
+        this._log('log', '[SelectionStore] 💾 Storing instance in document.__MyIOSelectionStore_INSTANCE__ (fallback)');
         document.__MyIOSelectionStore_INSTANCE__ = this;
-        console.log('[SelectionStore] ✅ Stored! Verify:', !!document.__MyIOSelectionStore_INSTANCE__);
+        this._log('log', '[SelectionStore] ✅ Stored! Verify:', !!document.__MyIOSelectionStore_INSTANCE__);
       }
     }
   }
 
   // Core Selection Methods
   add(id) {
-    console.log("[MyIOSelectionStoreClass] Entrou na LIB", id)
+    this._log('log', "[MyIOSelectionStoreClass] Entrou na LIB", id)
     const wasSelected = this.selectedIds.has(id);
 
     // Se já está selecionado, não faz nada
     if (wasSelected) {
-      console.log("[MyIOSelectionStoreClass] Item já está selecionado:", id);
+      this._log('log', "[MyIOSelectionStoreClass] Item já está selecionado:", id);
       return;
     }
 
     // Verifica se atingiu o limite máximo
     if (this.selectedIds.size >= this.MAX_SELECTION) {
-      console.warn(`[MyIOSelectionStoreClass] Limite de seleção atingido (${this.MAX_SELECTION})`);
+      this._log('warn', `[MyIOSelectionStoreClass] Limite de seleção atingido (${this.MAX_SELECTION})`);
       this._emit('selection:limit-reached', {
         maxAllowed: this.MAX_SELECTION,
         currentCount: this.selectedIds.size,
@@ -126,10 +150,10 @@ class MyIOSelectionStoreClass {
   }
 
   remove(id) {
-    console.log("[MyIOSelectionStoreClass] ITEM PARA REMOÇÃO ID",id);
+    this._log('log', "[MyIOSelectionStoreClass] ITEM PARA REMOÇÃO ID",id);
     // Check if ID exists in the Set
     if (!this.selectedIds.has(id)) return; // not found
-    console.log("[MyIOSelectionStoreClass] DELETE ID",id)
+    this._log('log', "[MyIOSelectionStoreClass] DELETE ID",id)
     this.selectedIds.delete(id); // remove the ID string
     this._emitSelectionChange('remove', id);
     this._trackEvent('footer_dock.remove_chip', { entityId: id });
@@ -196,7 +220,7 @@ class MyIOSelectionStoreClass {
   }
 
   getSelectedEntities() {
-    console.log("[MyIOSelectionStoreClass] biblioteca:",this.getSelectedIds() )
+    this._log('log', "[MyIOSelectionStoreClass] biblioteca:",this.getSelectedIds() )
     // Return full entity objects from entities Map based on selected IDs
     return this.getSelectedIds()
       .map(id => this.entities.get(id))
@@ -279,20 +303,20 @@ class MyIOSelectionStoreClass {
 
   // Event System
   on(event, callback) {
-    console.log(`[SelectionStore] 📝 Registering listener for event: ${event}`);
+    this._log('log', `[SelectionStore] 📝 Registering listener for event: ${event}`);
 
     if (typeof event !== 'string' || typeof callback !== 'function') {
-      console.error(`[SelectionStore] ❌ Invalid registration: event=${typeof event}, callback=${typeof callback}`);
+      this._log('error', `[SelectionStore] ❌ Invalid registration: event=${typeof event}, callback=${typeof callback}`);
       return;
     }
 
     if (!this.eventListeners.has(event)) {
-      console.log(`[SelectionStore] 🆕 Creating new listener array for: ${event}`);
+      this._log('log', `[SelectionStore] 🆕 Creating new listener array for: ${event}`);
       this.eventListeners.set(event, []);
     }
 
     this.eventListeners.get(event).push(callback);
-    console.log(`[SelectionStore] ✅ Listener registered! Total for ${event}: ${this.eventListeners.get(event).length}`);
+    this._log('log', `[SelectionStore] ✅ Listener registered! Total for ${event}: ${this.eventListeners.get(event).length}`);
   }
 
   off(event, callback) {
@@ -426,39 +450,39 @@ class MyIOSelectionStoreClass {
   }
 
   _emit(event, data) {
-    console.log(`[SelectionStore] 🔔 Emitting event: ${event}, listeners: ${this.eventListeners.get(event)?.length || 0}`);
-    console.log(`[SelectionStore] 📦 Event data:`, data);
+    this._log('log', `[SelectionStore] 🔔 Emitting event: ${event}, listeners: ${this.eventListeners.get(event)?.length || 0}`);
+    this._log('log', `[SelectionStore] 📦 Event data:`, data);
 
     if (!this.eventListeners.has(event)) {
-      console.warn(`[SelectionStore] ⚠️ No listener map for event: ${event}`);
+      this._log('warn', `[SelectionStore] ⚠️ No listener map for event: ${event}`);
       return;
     }
 
     const listeners = this.eventListeners.get(event);
     if (listeners.length === 0) {
-      console.warn(`[SelectionStore] ⚠️ No listeners registered for event: ${event}`);
+      this._log('warn', `[SelectionStore] ⚠️ No listeners registered for event: ${event}`);
     }
 
     listeners.forEach((callback, index) => {
-      console.log(`[SelectionStore] 🎯 Calling listener #${index} for ${event}`);
+      this._log('log', `[SelectionStore] 🎯 Calling listener #${index} for ${event}`);
       try {
         callback(data);
       } catch (error) {
-        console.error(`[SelectionStore] ❌ Error in ${event} listener #${index}:`, error);
+        this._log('error', `[SelectionStore] ❌ Error in ${event} listener #${index}:`, error);
       }
     });
   }
 
   _trackEvent(eventName, payload = {}) {
     if (!this.analytics) return;
-    
+
     try {
       this.analytics.track(eventName, {
         timestamp: Date.now(),
         ...payload
       });
     } catch (error) {
-      console.error('Analytics tracking error:', error);
+      this._log('error', 'Analytics tracking error:', error);
     }
   }
 
@@ -501,18 +525,26 @@ class MyIOSelectionStoreClass {
   }
 }
 
+// Module-level logging helper (respects GlobalDebug)
+function _moduleLog(level, ...args) {
+  if (!MyIOSelectionStoreClass.GlobalDebug) return;
+
+  const logMethod = console[level] || console.log;
+  logMethod.apply(console, args);
+}
+
 // Create singleton instance with getter/setter pattern to prevent overwrites
 let MyIOSelectionStore;
 let _singletonInstance = null; // Hidden instance holder
 
 if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined') {
-  console.log('[SelectionStore] 🔧 Module initialization - checking for existing instance...');
+  _moduleLog('log', '[SelectionStore] 🔧 Module initialization - checking for existing instance...');
 
   // CRITICAL: Protect window.MyIOLibrary from being overwritten by UMD
   // The UMD does: global.MyIOLibrary = {} on each load, destroying previous references
   // We need to preserve the object across loads
   if (!globalThis.window.__MyIOLibrary_PROTECTED__) {
-    console.log('[SelectionStore] 🛡️ Protecting window.MyIOLibrary object from UMD overwrites...');
+    _moduleLog('log', '[SelectionStore] 🛡️ Protecting window.MyIOLibrary object from UMD overwrites...');
 
     // Store reference to existing MyIOLibrary object (if any)
     const existingLib = globalThis.window.MyIOLibrary;
@@ -522,7 +554,7 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
       get: function() {
         // Return existing object or create new one if needed
         if (!globalThis.window.__MyIOLibrary_INSTANCE__) {
-          console.log('[SelectionStore] 📦 Creating protected MyIOLibrary container object');
+          _moduleLog('log', '[SelectionStore] 📦 Creating protected MyIOLibrary container object');
           globalThis.window.__MyIOLibrary_INSTANCE__ = existingLib || {};
         }
         return globalThis.window.__MyIOLibrary_INSTANCE__;
@@ -530,7 +562,7 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
       set: function(value) {
         // UMD tries to assign: global.MyIOLibrary = {}
         // We intercept this and merge properties instead of replacing
-        console.log('[SelectionStore] 🔄 UMD tried to overwrite MyIOLibrary - merging properties instead');
+        _moduleLog('log', '[SelectionStore] 🔄 UMD tried to overwrite MyIOLibrary - merging properties instead');
 
         if (value && typeof value === 'object') {
           const currentLib = globalThis.window.__MyIOLibrary_INSTANCE__ || {};
@@ -539,7 +571,7 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
           Object.keys(value).forEach(key => {
             // Skip MyIOSelectionStore if it's already set correctly
             if (key === 'MyIOSelectionStore' && currentLib.MyIOSelectionStore) {
-              console.log('[SelectionStore] ⏭️ Skipping MyIOSelectionStore - already set');
+              _moduleLog('log', '[SelectionStore] ⏭️ Skipping MyIOSelectionStore - already set');
               return;
             }
             currentLib[key] = value[key];
@@ -553,7 +585,7 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
     });
 
     globalThis.window.__MyIOLibrary_PROTECTED__ = true;
-    console.log('[SelectionStore] ✅ window.MyIOLibrary protected!');
+    _moduleLog('log', '[SelectionStore] ✅ window.MyIOLibrary protected!');
   }
 
   // Check window.top first (shared across iframes), then document and window
@@ -562,33 +594,33 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
   try {
     const targetWindow = (globalThis.window.top) ? globalThis.window.top : globalThis.window;
     existingInstance = targetWindow.__MyIOSelectionStore_INSTANCE__;
-    console.log('[SelectionStore] window.top.__MyIOSelectionStore_INSTANCE__:', !!existingInstance);
+    _moduleLog('log', '[SelectionStore] window.top.__MyIOSelectionStore_INSTANCE__:', !!existingInstance);
   } catch (e) {
-    console.warn('[SelectionStore] Cannot access window.top during module init:', e.message);
+    _moduleLog('warn', '[SelectionStore] Cannot access window.top during module init:', e.message);
   }
 
   if (!existingInstance) {
     existingInstance = (typeof document !== 'undefined' && document.__MyIOSelectionStore_INSTANCE__)
       || globalThis.window.__MyIOSelectionStore_INSTANCE__;
-    console.log('[SelectionStore] document.__MyIOSelectionStore_INSTANCE__:', !!(typeof document !== 'undefined' && document.__MyIOSelectionStore_INSTANCE__));
-    console.log('[SelectionStore] window.__MyIOSelectionStore_INSTANCE__:', !!globalThis.window.__MyIOSelectionStore_INSTANCE__);
+    _moduleLog('log', '[SelectionStore] document.__MyIOSelectionStore_INSTANCE__:', !!(typeof document !== 'undefined' && document.__MyIOSelectionStore_INSTANCE__));
+    _moduleLog('log', '[SelectionStore] window.__MyIOSelectionStore_INSTANCE__:', !!globalThis.window.__MyIOSelectionStore_INSTANCE__);
   }
 
   // FIRST: Check if constructor already created an instance (hidden global)
   if (existingInstance) {
-    console.log('[SelectionStore] 🔄 REUSING constructor-created instance from __MyIOSelectionStore_INSTANCE__');
+    _moduleLog('log', '[SelectionStore] 🔄 REUSING constructor-created instance from __MyIOSelectionStore_INSTANCE__');
     _singletonInstance = existingInstance;
     MyIOSelectionStore = _singletonInstance;
 
     // CRITICAL: Also define window.MyIOSelectionStore to point to the same instance
     if (!Object.getOwnPropertyDescriptor(globalThis.window, 'MyIOSelectionStore')?.get) {
-      console.log('[SelectionStore] 🔗 Defining window.MyIOSelectionStore getter to point to singleton');
+      _moduleLog('log', '[SelectionStore] 🔗 Defining window.MyIOSelectionStore getter to point to singleton');
       Object.defineProperty(globalThis.window, 'MyIOSelectionStore', {
         get: function() {
           return _singletonInstance;
         },
         set: function(value) {
-          console.warn('[SelectionStore] ⚠️ Attempted to overwrite singleton - ignoring');
+          _moduleLog('warn', '[SelectionStore] ⚠️ Attempted to overwrite singleton - ignoring');
         },
         configurable: false,
         enumerable: true
@@ -599,27 +631,27 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
     // The UMD bundle exports the module-level variable, but when reloading,
     // it creates a new module scope, so we need to explicitly update the reference
     if (globalThis.window.MyIOLibrary && typeof globalThis.window.MyIOLibrary === 'object') {
-      console.log('[SelectionStore] 🔗 Updating window.MyIOLibrary.MyIOSelectionStore to point to singleton');
+      _moduleLog('log', '[SelectionStore] 🔗 Updating window.MyIOLibrary.MyIOSelectionStore to point to singleton');
       globalThis.window.MyIOLibrary.MyIOSelectionStore = _singletonInstance;
     }
   }
   // SECOND: Check if a getter is already defined (instance already protected)
   else if (Object.getOwnPropertyDescriptor(globalThis.window, 'MyIOSelectionStore')?.get) {
     // Getter already defined, reuse existing instance
-    console.log('[SelectionStore] 🔄 REUSING protected global instance via getter');
+    _moduleLog('log', '[SelectionStore] 🔄 REUSING protected global instance via getter');
     MyIOSelectionStore = globalThis.window.MyIOSelectionStore;
     _singletonInstance = MyIOSelectionStore;
 
     // Also update window.MyIOLibrary.MyIOSelectionStore (UMD export)
     if (globalThis.window.MyIOLibrary && typeof globalThis.window.MyIOLibrary === 'object') {
-      console.log('[SelectionStore] 🔗 Updating window.MyIOLibrary.MyIOSelectionStore to point to singleton');
+      _moduleLog('log', '[SelectionStore] 🔗 Updating window.MyIOLibrary.MyIOSelectionStore to point to singleton');
       globalThis.window.MyIOLibrary.MyIOSelectionStore = _singletonInstance;
     }
   }
   // THIRD: Check if instance exists as plain property - upgrade it to protected getter
   else if (globalThis.window.MyIOSelectionStore && typeof globalThis.window.MyIOSelectionStore === 'object') {
     // Instance exists as plain property - upgrade it to protected getter
-    console.log('[SelectionStore] 🔒 UPGRADING existing instance to protected');
+    _moduleLog('log', '[SelectionStore] 🔒 UPGRADING existing instance to protected');
     _singletonInstance = globalThis.window.MyIOSelectionStore;
     MyIOSelectionStore = _singletonInstance;
 
@@ -629,7 +661,7 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
         return _singletonInstance;
       },
       set: function(value) {
-        console.warn('[SelectionStore] ⚠️ Attempted to overwrite singleton - ignoring');
+        _moduleLog('warn', '[SelectionStore] ⚠️ Attempted to overwrite singleton - ignoring');
         // Silently ignore attempts to overwrite
       },
       configurable: false,
@@ -638,12 +670,12 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
 
     // Also update window.MyIOLibrary.MyIOSelectionStore (UMD export)
     if (globalThis.window.MyIOLibrary && typeof globalThis.window.MyIOLibrary === 'object') {
-      console.log('[SelectionStore] 🔗 Updating window.MyIOLibrary.MyIOSelectionStore to point to singleton');
+      _moduleLog('log', '[SelectionStore] 🔗 Updating window.MyIOLibrary.MyIOSelectionStore to point to singleton');
       globalThis.window.MyIOLibrary.MyIOSelectionStore = _singletonInstance;
     }
   } else {
     // Create new instance and protect it with getter
-    console.log('[SelectionStore] 🆕 Creating new protected singleton instance');
+    _moduleLog('log', '[SelectionStore] 🆕 Creating new protected singleton instance');
     _singletonInstance = new MyIOSelectionStoreClass();
     MyIOSelectionStore = _singletonInstance;
 
@@ -653,7 +685,7 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
         return _singletonInstance;
       },
       set: function(value) {
-        console.warn('[SelectionStore] ⚠️ Attempted to overwrite singleton - ignoring');
+        _moduleLog('warn', '[SelectionStore] ⚠️ Attempted to overwrite singleton - ignoring');
         // Silently ignore attempts to overwrite
       },
       configurable: false,
@@ -662,11 +694,11 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
 
     // Also set window.MyIOLibrary.MyIOSelectionStore (UMD export)
     if (globalThis.window.MyIOLibrary && typeof globalThis.window.MyIOLibrary === 'object') {
-      console.log('[SelectionStore] 🔗 Setting window.MyIOLibrary.MyIOSelectionStore to singleton');
+      _moduleLog('log', '[SelectionStore] 🔗 Setting window.MyIOLibrary.MyIOSelectionStore to singleton');
       globalThis.window.MyIOLibrary.MyIOSelectionStore = _singletonInstance;
     }
 
-    console.log('[SelectionStore] 🔒 Instance protected and ready');
+    _moduleLog('log', '[SelectionStore] 🔒 Instance protected and ready');
   }
 
   // Always export the class (writable so it can be overridden if needed)
