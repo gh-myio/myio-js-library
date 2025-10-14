@@ -416,22 +416,49 @@ class MyIOSelectionStoreClass {
   }
 }
 
-// Create singleton instance - ONLY if it doesn't exist yet
+// Create singleton instance using Object.defineProperty to prevent overwrites
 let MyIOSelectionStore;
 
 if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined') {
-  // Check if instance already exists in window
-  if (globalThis.window.MyIOSelectionStore) {
-    console.log('[SelectionStore] 🔄 REUSING existing global instance');
+  // Check if property descriptor exists and is non-configurable (already locked)
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis.window, 'MyIOSelectionStore');
+
+  if (descriptor && !descriptor.configurable) {
+    // Property is locked, use existing instance
+    console.log('[SelectionStore] 🔄 REUSING locked global instance');
     MyIOSelectionStore = globalThis.window.MyIOSelectionStore;
+  } else if (globalThis.window.MyIOSelectionStore) {
+    // Instance exists but isn't locked yet - lock it now
+    console.log('[SelectionStore] 🔒 LOCKING existing instance');
+    MyIOSelectionStore = globalThis.window.MyIOSelectionStore;
+
+    // Lock the property to prevent future overwrites
+    Object.defineProperty(globalThis.window, 'MyIOSelectionStore', {
+      value: MyIOSelectionStore,
+      writable: false,
+      configurable: false,
+      enumerable: true
+    });
   } else {
+    // Create new instance and lock it immediately
     console.log('[SelectionStore] 🆕 Creating new global singleton instance');
     MyIOSelectionStore = new MyIOSelectionStoreClass();
-    globalThis.window.MyIOSelectionStore = MyIOSelectionStore;
+
+    // Define property as non-configurable and non-writable to prevent overwrites
+    Object.defineProperty(globalThis.window, 'MyIOSelectionStore', {
+      value: MyIOSelectionStore,
+      writable: false,
+      configurable: false,
+      enumerable: true
+    });
+
+    console.log('[SelectionStore] 🔒 Instance locked and ready');
   }
 
-  // Always export the class for those who want to create their own instances
-  globalThis.window.MyIOSelectionStoreClass = MyIOSelectionStoreClass;
+  // Always export the class (writable so it can be overridden if needed)
+  if (!globalThis.window.MyIOSelectionStoreClass) {
+    globalThis.window.MyIOSelectionStoreClass = MyIOSelectionStoreClass;
+  }
 } else {
   // Non-browser environment (Node.js, etc.)
   MyIOSelectionStore = new MyIOSelectionStoreClass();
