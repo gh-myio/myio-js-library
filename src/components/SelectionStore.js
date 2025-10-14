@@ -11,21 +11,24 @@
 class MyIOSelectionStoreClass {
   constructor() {
     console.log('[SelectionStore] 🔍 Constructor called - checking for existing instance...');
-    console.log('[SelectionStore] typeof window:', typeof window);
-    console.log('[SelectionStore] window === globalThis.window:', typeof window !== 'undefined' && window === globalThis?.window);
-    console.log('[SelectionStore] window.__MyIOSelectionStore_INSTANCE__:', !!window?.__MyIOSelectionStore_INSTANCE__);
+    console.log('[SelectionStore] typeof document:', typeof document);
+    console.log('[SelectionStore] document.__MyIOSelectionStore_INSTANCE__:', !!document?.__MyIOSelectionStore_INSTANCE__);
 
-    // DEBUG: List all __MyIO* properties on window to debug
-    if (typeof window !== 'undefined') {
-      const myioProps = Object.getOwnPropertyNames(window).filter(key => key.startsWith('__MyIO'));
-      console.log('[SelectionStore] All __MyIO* properties on window:', myioProps);
+    // DEBUG: List all __MyIO* properties on document to debug
+    if (typeof document !== 'undefined') {
+      const myioProps = Object.getOwnPropertyNames(document).filter(key => key.startsWith('__MyIO'));
+      console.log('[SelectionStore] All __MyIO* properties on document:', myioProps);
     }
 
     // CRITICAL: Check if singleton already exists BEFORE initializing
-    if (typeof window !== 'undefined' && window.__MyIOSelectionStore_INSTANCE__) {
+    // Try document first (more reliable across contexts), then window as fallback
+    const existingInstance = (typeof document !== 'undefined' && document.__MyIOSelectionStore_INSTANCE__)
+      || (typeof window !== 'undefined' && window.__MyIOSelectionStore_INSTANCE__);
+
+    if (existingInstance) {
       console.warn('[SelectionStore] ⚠️ Constructor called but instance already exists! Returning existing instance.');
-      console.log('[SelectionStore] Existing instance has listeners:', window.__MyIOSelectionStore_INSTANCE__.eventListeners.get('selection:change')?.length || 0);
-      return window.__MyIOSelectionStore_INSTANCE__;
+      console.log('[SelectionStore] Existing instance has listeners:', existingInstance.eventListeners.get('selection:change')?.length || 0);
+      return existingInstance;
     }
 
     console.log('[SelectionStore] 🏗️ NEW INSTANCE CREATED at:', new Date().toISOString());
@@ -46,8 +49,13 @@ class MyIOSelectionStoreClass {
     this.eventListeners.set('comparison:too_many', []);
 
     // Store this instance in a hidden global variable
-    if (typeof window !== 'undefined') {
-      console.log('[SelectionStore] 💾 Storing instance in window.__MyIOSelectionStore_INSTANCE__');
+    // Use document instead of window as it's more reliably shared across contexts
+    if (typeof document !== 'undefined') {
+      console.log('[SelectionStore] 💾 Storing instance in document.__MyIOSelectionStore_INSTANCE__');
+      document.__MyIOSelectionStore_INSTANCE__ = this;
+      console.log('[SelectionStore] ✅ Stored! Verify:', !!document.__MyIOSelectionStore_INSTANCE__);
+    } else if (typeof window !== 'undefined') {
+      console.log('[SelectionStore] 💾 Storing instance in window.__MyIOSelectionStore_INSTANCE__ (fallback)');
       window.__MyIOSelectionStore_INSTANCE__ = this;
       console.log('[SelectionStore] ✅ Stored! Verify:', !!window.__MyIOSelectionStore_INSTANCE__);
     }
@@ -447,12 +455,18 @@ let _singletonInstance = null; // Hidden instance holder
 
 if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined') {
   console.log('[SelectionStore] 🔧 Module initialization - checking for existing instance...');
-  console.log('[SelectionStore] globalThis.window.__MyIOSelectionStore_INSTANCE__:', !!globalThis.window.__MyIOSelectionStore_INSTANCE__);
+
+  // Check both document and window for existing instance
+  const existingInstance = (typeof document !== 'undefined' && document.__MyIOSelectionStore_INSTANCE__)
+    || globalThis.window.__MyIOSelectionStore_INSTANCE__;
+
+  console.log('[SelectionStore] document.__MyIOSelectionStore_INSTANCE__:', !!(typeof document !== 'undefined' && document.__MyIOSelectionStore_INSTANCE__));
+  console.log('[SelectionStore] window.__MyIOSelectionStore_INSTANCE__:', !!globalThis.window.__MyIOSelectionStore_INSTANCE__);
 
   // FIRST: Check if constructor already created an instance (hidden global)
-  if (globalThis.window.__MyIOSelectionStore_INSTANCE__) {
+  if (existingInstance) {
     console.log('[SelectionStore] 🔄 REUSING constructor-created instance from __MyIOSelectionStore_INSTANCE__');
-    _singletonInstance = globalThis.window.__MyIOSelectionStore_INSTANCE__;
+    _singletonInstance = existingInstance;
     MyIOSelectionStore = _singletonInstance;
   }
   // SECOND: Check if a getter is already defined (instance already protected)
