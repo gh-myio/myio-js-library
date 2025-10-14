@@ -439,14 +439,20 @@ let MyIOSelectionStore;
 let _singletonInstance = null; // Hidden instance holder
 
 if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined') {
-  // Check if a getter is already defined (instance already protected)
-  const descriptor = Object.getOwnPropertyDescriptor(globalThis.window, 'MyIOSelectionStore');
-
-  if (descriptor && descriptor.get) {
+  // FIRST: Check if constructor already created an instance (hidden global)
+  if (globalThis.window.__MyIOSelectionStore_INSTANCE__) {
+    console.log('[SelectionStore] 🔄 REUSING constructor-created instance from __MyIOSelectionStore_INSTANCE__');
+    _singletonInstance = globalThis.window.__MyIOSelectionStore_INSTANCE__;
+    MyIOSelectionStore = _singletonInstance;
+  }
+  // SECOND: Check if a getter is already defined (instance already protected)
+  else if (Object.getOwnPropertyDescriptor(globalThis.window, 'MyIOSelectionStore')?.get) {
     // Getter already defined, reuse existing instance
-    console.log('[SelectionStore] 🔄 REUSING protected global instance');
+    console.log('[SelectionStore] 🔄 REUSING protected global instance via getter');
     MyIOSelectionStore = globalThis.window.MyIOSelectionStore;
-  } else if (globalThis.window.MyIOSelectionStore && typeof globalThis.window.MyIOSelectionStore === 'object') {
+  }
+  // THIRD: Check if instance exists as plain property - upgrade it to protected getter
+  else if (globalThis.window.MyIOSelectionStore && typeof globalThis.window.MyIOSelectionStore === 'object') {
     // Instance exists as plain property - upgrade it to protected getter
     console.log('[SelectionStore] 🔒 UPGRADING existing instance to protected');
     _singletonInstance = globalThis.window.MyIOSelectionStore;
