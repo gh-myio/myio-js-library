@@ -191,13 +191,20 @@ class MyIOSelectionStoreClass {
 
   // Event System
   on(event, callback) {
-    if (typeof event !== 'string' || typeof callback !== 'function') return;
-    
+    console.log(`[SelectionStore] 📝 Registering listener for event: ${event}`);
+
+    if (typeof event !== 'string' || typeof callback !== 'function') {
+      console.error(`[SelectionStore] ❌ Invalid registration: event=${typeof event}, callback=${typeof callback}`);
+      return;
+    }
+
     if (!this.eventListeners.has(event)) {
+      console.log(`[SelectionStore] 🆕 Creating new listener array for: ${event}`);
       this.eventListeners.set(event, []);
     }
-    
+
     this.eventListeners.get(event).push(callback);
+    console.log(`[SelectionStore] ✅ Listener registered! Total for ${event}: ${this.eventListeners.get(event).length}`);
   }
 
   off(event, callback) {
@@ -331,13 +338,25 @@ class MyIOSelectionStoreClass {
   }
 
   _emit(event, data) {
-    if (!this.eventListeners.has(event)) return;
-    
-    this.eventListeners.get(event).forEach(callback => {
+    console.log(`[SelectionStore] 🔔 Emitting event: ${event}, listeners: ${this.eventListeners.get(event)?.length || 0}`);
+    console.log(`[SelectionStore] 📦 Event data:`, data);
+
+    if (!this.eventListeners.has(event)) {
+      console.warn(`[SelectionStore] ⚠️ No listener map for event: ${event}`);
+      return;
+    }
+
+    const listeners = this.eventListeners.get(event);
+    if (listeners.length === 0) {
+      console.warn(`[SelectionStore] ⚠️ No listeners registered for event: ${event}`);
+    }
+
+    listeners.forEach((callback, index) => {
+      console.log(`[SelectionStore] 🎯 Calling listener #${index} for ${event}`);
       try {
         callback(data);
       } catch (error) {
-        console.error(`Error in ${event} listener:`, error);
+        console.error(`[SelectionStore] ❌ Error in ${event} listener #${index}:`, error);
       }
     });
   }
