@@ -12,6 +12,14 @@ class MyIOSelectionStoreClass {
   constructor() {
     console.log('[SelectionStore] 🔍 Constructor called - checking for existing instance...');
     console.log('[SelectionStore] typeof document:', typeof document);
+
+    // DEBUG: Check if we're in an iframe
+    if (typeof window !== 'undefined') {
+      console.log('[SelectionStore] window.top === window:', window.top === window);
+      console.log('[SelectionStore] document location:', window.location.href);
+      console.log('[SelectionStore] Is in iframe:', window !== window.top);
+    }
+
     console.log('[SelectionStore] document.__MyIOSelectionStore_INSTANCE__:', !!document?.__MyIOSelectionStore_INSTANCE__);
 
     // DEBUG: List all __MyIO* properties on document to debug
@@ -21,9 +29,21 @@ class MyIOSelectionStoreClass {
     }
 
     // CRITICAL: Check if singleton already exists BEFORE initializing
-    // Try document first (more reliable across contexts), then window as fallback
-    const existingInstance = (typeof document !== 'undefined' && document.__MyIOSelectionStore_INSTANCE__)
-      || (typeof window !== 'undefined' && window.__MyIOSelectionStore_INSTANCE__);
+    // Try window.top first (shared across iframes), then document, then window
+    let existingInstance = null;
+
+    try {
+      const targetWindow = (typeof window !== 'undefined' && window.top) ? window.top : window;
+      existingInstance = targetWindow?.__MyIOSelectionStore_INSTANCE__;
+      console.log('[SelectionStore] Checking window.top.__MyIOSelectionStore_INSTANCE__:', !!existingInstance);
+    } catch (e) {
+      console.warn('[SelectionStore] Cannot access window.top:', e.message);
+    }
+
+    if (!existingInstance) {
+      existingInstance = (typeof document !== 'undefined' && document.__MyIOSelectionStore_INSTANCE__)
+        || (typeof window !== 'undefined' && window.__MyIOSelectionStore_INSTANCE__);
+    }
 
     if (existingInstance) {
       console.warn('[SelectionStore] ⚠️ Constructor called but instance already exists! Returning existing instance.');
@@ -49,15 +69,24 @@ class MyIOSelectionStoreClass {
     this.eventListeners.set('comparison:too_many', []);
 
     // Store this instance in a hidden global variable
-    // Use document instead of window as it's more reliably shared across contexts
-    if (typeof document !== 'undefined') {
-      console.log('[SelectionStore] 💾 Storing instance in document.__MyIOSelectionStore_INSTANCE__');
-      document.__MyIOSelectionStore_INSTANCE__ = this;
-      console.log('[SelectionStore] ✅ Stored! Verify:', !!document.__MyIOSelectionStore_INSTANCE__);
-    } else if (typeof window !== 'undefined') {
-      console.log('[SelectionStore] 💾 Storing instance in window.__MyIOSelectionStore_INSTANCE__ (fallback)');
-      window.__MyIOSelectionStore_INSTANCE__ = this;
-      console.log('[SelectionStore] ✅ Stored! Verify:', !!window.__MyIOSelectionStore_INSTANCE__);
+    // Strategy: Store in the top-most window to share across iframes
+    try {
+      const targetWindow = (typeof window !== 'undefined' && window.top) ? window.top : window;
+      if (targetWindow) {
+        console.log('[SelectionStore] 💾 Storing instance in window.top.__MyIOSelectionStore_INSTANCE__');
+        targetWindow.__MyIOSelectionStore_INSTANCE__ = this;
+        console.log('[SelectionStore] ✅ Stored in top window! Verify:', !!targetWindow.__MyIOSelectionStore_INSTANCE__);
+      }
+    } catch (e) {
+      // Cross-origin iframe - can't access window.top
+      console.warn('[SelectionStore] ⚠️ Cannot access window.top (cross-origin iframe):', e.message);
+
+      // Fallback to document
+      if (typeof document !== 'undefined') {
+        console.log('[SelectionStore] 💾 Storing instance in document.__MyIOSelectionStore_INSTANCE__ (fallback)');
+        document.__MyIOSelectionStore_INSTANCE__ = this;
+        console.log('[SelectionStore] ✅ Stored! Verify:', !!document.__MyIOSelectionStore_INSTANCE__);
+      }
     }
   }
 
@@ -456,12 +485,23 @@ let _singletonInstance = null; // Hidden instance holder
 if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined') {
   console.log('[SelectionStore] 🔧 Module initialization - checking for existing instance...');
 
-  // Check both document and window for existing instance
-  const existingInstance = (typeof document !== 'undefined' && document.__MyIOSelectionStore_INSTANCE__)
-    || globalThis.window.__MyIOSelectionStore_INSTANCE__;
+  // Check window.top first (shared across iframes), then document and window
+  let existingInstance = null;
 
-  console.log('[SelectionStore] document.__MyIOSelectionStore_INSTANCE__:', !!(typeof document !== 'undefined' && document.__MyIOSelectionStore_INSTANCE__));
-  console.log('[SelectionStore] window.__MyIOSelectionStore_INSTANCE__:', !!globalThis.window.__MyIOSelectionStore_INSTANCE__);
+  try {
+    const targetWindow = (globalThis.window.top) ? globalThis.window.top : globalThis.window;
+    existingInstance = targetWindow.__MyIOSelectionStore_INSTANCE__;
+    console.log('[SelectionStore] window.top.__MyIOSelectionStore_INSTANCE__:', !!existingInstance);
+  } catch (e) {
+    console.warn('[SelectionStore] Cannot access window.top during module init:', e.message);
+  }
+
+  if (!existingInstance) {
+    existingInstance = (typeof document !== 'undefined' && document.__MyIOSelectionStore_INSTANCE__)
+      || globalThis.window.__MyIOSelectionStore_INSTANCE__;
+    console.log('[SelectionStore] document.__MyIOSelectionStore_INSTANCE__:', !!(typeof document !== 'undefined' && document.__MyIOSelectionStore_INSTANCE__));
+    console.log('[SelectionStore] window.__MyIOSelectionStore_INSTANCE__:', !!globalThis.window.__MyIOSelectionStore_INSTANCE__);
+  }
 
   // FIRST: Check if constructor already created an instance (hidden global)
   if (existingInstance) {
