@@ -1135,10 +1135,12 @@ export function renderCardComponentV2({
         checkbox.checked = isSelected;
       }
       enhancedCardElement.classList.toggle('selected', isSelected);
-      
-      if (typeof handleSelect === 'function') {
-        handleSelect(entityObject);
-      }
+
+      // REMOVED: handleSelect call that was blocking event loop
+      // Previously, this was called for ALL 300+ cards whenever ANY card was selected,
+      // causing 164-167ms of blocking that prevented FOOTER from updating
+      // The handleSelect callback should only be called when the user directly interacts
+      // with THIS card's checkbox (line 1108), not when other cards change selection
     };
     
     MyIOSelectionStore.on('selection:change', handleSelectionChange);
