@@ -508,6 +508,21 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined
     console.log('[SelectionStore] 🔄 REUSING constructor-created instance from __MyIOSelectionStore_INSTANCE__');
     _singletonInstance = existingInstance;
     MyIOSelectionStore = _singletonInstance;
+
+    // CRITICAL: Also define window.MyIOSelectionStore to point to the same instance
+    if (!Object.getOwnPropertyDescriptor(globalThis.window, 'MyIOSelectionStore')?.get) {
+      console.log('[SelectionStore] 🔗 Defining window.MyIOSelectionStore getter to point to singleton');
+      Object.defineProperty(globalThis.window, 'MyIOSelectionStore', {
+        get: function() {
+          return _singletonInstance;
+        },
+        set: function(value) {
+          console.warn('[SelectionStore] ⚠️ Attempted to overwrite singleton - ignoring');
+        },
+        configurable: false,
+        enumerable: true
+      });
+    }
   }
   // SECOND: Check if a getter is already defined (instance already protected)
   else if (Object.getOwnPropertyDescriptor(globalThis.window, 'MyIOSelectionStore')?.get) {
