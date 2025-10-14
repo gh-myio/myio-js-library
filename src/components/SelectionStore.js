@@ -12,7 +12,14 @@ class MyIOSelectionStoreClass {
   constructor() {
     console.log('[SelectionStore] 🔍 Constructor called - checking for existing instance...');
     console.log('[SelectionStore] typeof window:', typeof window);
+    console.log('[SelectionStore] window === globalThis.window:', typeof window !== 'undefined' && window === globalThis?.window);
     console.log('[SelectionStore] window.__MyIOSelectionStore_INSTANCE__:', !!window?.__MyIOSelectionStore_INSTANCE__);
+
+    // DEBUG: List all __MyIO* properties on window to debug
+    if (typeof window !== 'undefined') {
+      const myioProps = Object.getOwnPropertyNames(window).filter(key => key.startsWith('__MyIO'));
+      console.log('[SelectionStore] All __MyIO* properties on window:', myioProps);
+    }
 
     // CRITICAL: Check if singleton already exists BEFORE initializing
     if (typeof window !== 'undefined' && window.__MyIOSelectionStore_INSTANCE__) {
@@ -439,6 +446,9 @@ let MyIOSelectionStore;
 let _singletonInstance = null; // Hidden instance holder
 
 if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined') {
+  console.log('[SelectionStore] 🔧 Module initialization - checking for existing instance...');
+  console.log('[SelectionStore] globalThis.window.__MyIOSelectionStore_INSTANCE__:', !!globalThis.window.__MyIOSelectionStore_INSTANCE__);
+
   // FIRST: Check if constructor already created an instance (hidden global)
   if (globalThis.window.__MyIOSelectionStore_INSTANCE__) {
     console.log('[SelectionStore] 🔄 REUSING constructor-created instance from __MyIOSelectionStore_INSTANCE__');
