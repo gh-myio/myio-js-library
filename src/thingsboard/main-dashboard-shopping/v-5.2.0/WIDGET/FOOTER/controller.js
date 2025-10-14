@@ -82,10 +82,11 @@
       }
       LogHelper.log("[MyIO Footer] MyIOLibrary found");
 
-      this.mountTemplate();
-      LogHelper.log("[MyIO Footer] Template mounted");
+      // IMPORTANTE: NÃO chamamos mountTemplate() porque o ThingsBoard já renderizou template.html!
+      // this.mountTemplate(); // ← REMOVIDO
+      LogHelper.log("[MyIO Footer] Using ThingsBoard template.html (not mounting manually)");
 
-      this.queryDOMElements(); // Consultar elementos *após* montar
+      this.queryDOMElements(); // Consultar elementos do template.html
       LogHelper.log("[MyIO Footer] DOM elements queried:", {
         dock: !!this.$dock,
         totals: !!this.$totals,
@@ -130,12 +131,28 @@
 
     /**
      * Consulta os elementos do DOM *uma vez* e armazena as referências
+     * IMPORTANTE: Como não montamos o template manualmente, buscamos direto do $root
      */
     queryDOMElements() {
-      if (!this.$footerEl) return;
+      // Busca a section do footer (renderizada pelo template.html do ThingsBoard)
+      this.$footerEl = this.$root.querySelector(".myio-footer");
+
+      if (!this.$footerEl) {
+        LogHelper.error("[MyIO Footer] .myio-footer section not found in template!");
+        return;
+      }
+
+      // Busca os elementos dentro da section
       this.$dock = this.$footerEl.querySelector("#myioDock");
       this.$totals = this.$footerEl.querySelector("#myioTotals");
       this.$compareBtn = this.$footerEl.querySelector("#myioCompare");
+
+      LogHelper.log("[MyIO Footer] Found elements from ThingsBoard template:", {
+        $footerEl: this.$footerEl,
+        $dock: this.$dock,
+        $totals: this.$totals,
+        $compareBtn: this.$compareBtn
+      });
     },
 
     /**
@@ -171,40 +188,107 @@
         totals
       });
 
+      // DEBUG: Log each entity
+      LogHelper.log("[MyIO Footer] Selected entities details:");
+      selected.forEach((ent, idx) => {
+        LogHelper.log(`[MyIO Footer]   Entity ${idx}:`, ent);
+      });
+
       if (count === 0) {
+        LogHelper.log("[MyIO Footer] Count is 0, rendering empty message");
         const emptyEl = document.createElement("span");
         emptyEl.className = "myio-empty";
         emptyEl.textContent = "Arraste itens para cá ou selecione no card";
         this.$dock.replaceChildren(emptyEl); // Mais seguro e performático
+        LogHelper.log("[MyIO Footer] Empty message rendered");
       } else {
+        LogHelper.log(`[MyIO Footer] Count is ${count}, creating chips...`);
         // Cria chips de forma eficiente e segura
-        const chips = selected.map((ent) => {
+        const chips = selected.map((ent, idx) => {
+          LogHelper.log(`[MyIO Footer]   Creating chip ${idx} for entity:`, ent);
+
+          if (!ent || !ent.name) {
+            LogHelper.error(`[MyIO Footer]   Entity ${idx} is invalid:`, ent);
+            return null;
+          }
+
           const chip = document.createElement("div");
           chip.className = "myio-chip";
 
-          const icon = document.createElement("span");
-          icon.className = "myio-chip-icon";
-          icon.textContent = "•"; // Pode ser substituído por um SVG/ícone de fonte
+          // Conteúdo do chip (nome + valor)
+          const content = document.createElement("div");
+          content.className = "myio-chip-content";
 
           const name = document.createElement("span");
-          name.textContent = ent.name; // Usa textContent (seguro contra XSS)
+          name.className = "myio-chip-name";
+          name.textContent = ent.name;
 
+          const value = document.createElement("span");
+          value.className = "myio-chip-value";
+          // Formata o valor com unidade
+          const formattedValue = ent.lastValue
+            ? `${this._formatValue(ent.lastValue)} ${ent.unit || ''}`.trim()
+            : 'Sem dados';
+          value.textContent = formattedValue;
+
+          content.append(name, value);
+
+          // Botão de remover
           const removeBtn = document.createElement("button");
+          removeBtn.className = "myio-chip-remove";
           removeBtn.title = `Remover ${ent.name}`;
           removeBtn.setAttribute("aria-label", `Remover ${ent.name}`);
-          removeBtn.dataset.entityId = ent.id; // ID para delegação de evento
-          removeBtn.textContent = "×"; // Pode ser substituído por um SVG/ícone de fonte
+          removeBtn.dataset.entityId = ent.id;
+          removeBtn.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          `;
 
-          chip.append(icon, name, removeBtn);
+          chip.append(content, removeBtn);
+          LogHelper.log(`[MyIO Footer]   Chip ${idx} created successfully`);
           return chip;
-        });
+        }).filter(chip => chip !== null); // Remove null chips
+
+        LogHelper.log(`[MyIO Footer] Total chips created: ${chips.length}`);
+        LogHelper.log("[MyIO Footer] About to call replaceChildren with chips:", chips);
+
         this.$dock.replaceChildren(...chips); // Renderiza todos de uma vez
+
+        LogHelper.log("[MyIO Footer] replaceChildren completed");
+        LogHelper.log("[MyIO Footer] $dock.children.length:", this.$dock.children.length);
+        LogHelper.log("[MyIO Footer] $dock.innerHTML:", this.$dock.innerHTML);
       }
 
       // Atualiza totais e botão
-      this.$totals.textContent =
-        count > 0 ? `${count} selecionado(s) | ${totals}` : "0 selecionados";
+      const deviceText = count === 1 ? 'dispositivo' : 'dispositivos';
+      const newTotalsText = `${count} ${deviceText}`;
+
+      LogHelper.log(`[MyIO Footer] Updating totals text to: "${newTotalsText}"`);
+      this.$totals.textContent = newTotalsText;
+      LogHelper.log("[MyIO Footer] Totals updated. Current text:", this.$totals.textContent);
+
       this.$compareBtn.disabled = count < 2;
+      LogHelper.log("[MyIO Footer] renderDock() completed");
+    },
+
+    /**
+     * Formata valores numéricos para exibição
+     */
+    _formatValue(value) {
+      if (typeof value !== 'number' || isNaN(value)) return '0';
+
+      // Para valores grandes (>= 1000), usa notação com separadores
+      if (Math.abs(value) >= 1000) {
+        return new Intl.NumberFormat('pt-BR', {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2
+        }).format(value);
+      }
+
+      // Para valores pequenos, mostra até 2 casas decimais
+      return value.toFixed(2).replace(/\.?0+$/, '');
     },
 
     /**
@@ -363,8 +447,9 @@
         this.$footerEl.removeEventListener("drop", this.boundDrop);
       }
 
-      // 3. Remove elementos do DOM
-      this.$footerEl?.remove();
+      // 3. Limpa conteúdo (mas não remove elementos, pois são do template.html do ThingsBoard)
+      if (this.$dock) this.$dock.innerHTML = '';
+      if (this.$totals) this.$totals.textContent = '0 selecionados';
 
       // 4. Reseta o estado interno
       this.initialized = false;

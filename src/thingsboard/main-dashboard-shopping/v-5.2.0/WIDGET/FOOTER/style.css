@@ -1,190 +1,409 @@
-/* Importa a fonte Inter do Google Fonts para uma tipografia moderna */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+/* ==========================================
+   MYIO Footer - Premium Design System
+   ========================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 .myio-footer {
-  /* --- Variáveis de Design System (Ajuste aqui para customizar) --- */
-  --color-primary: #00e09e; /* Verde vibrante */
-  --color-primary-dim: rgba(0, 224, 158, .2); /* Verde mais claro para fundo */
-  --color-background-dark: #121a2b; /* Fundo mais escuro */
-  --color-background-medium: #1c2743; /* Fundo médio */
-  --color-text-light: #fff;
-  --color-text-dim: rgba(255, 255, 255, .7);
-  --color-border-subtle: rgba(255, 255, 255, .1);
-  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
-  --border-radius-base: 8px;
-  --transition-speed: 0.2s ease-in-out;
+  /* Design Tokens */
+  --color-primary: #00e09e;
+  --color-primary-hover: #00ffb5;
+  --color-primary-dark: #00c489;
+  --color-background: #0f1419;
+  --color-surface: #1a1f28;
+  --color-surface-elevated: #242b36;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-text-tertiary: rgba(255, 255, 255, 0.5);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-error: #ff4444;
 
-  /* --- Layout Base (FIXO por padrão para sempre estar visível) --- */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Layout */
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   width: 100%;
-  height: 60px;
-  z-index: 1000;
+  height: 80px;
+  z-index: 10000;
 
-  display: grid;
-  grid-template-columns: 1fr auto; /* Dock flexível, Direita fixa */
-  align-items: center;
-  padding: 0 15px; /* Mais padding nas laterais */
-  box-sizing: border-box; /* Garante que padding não adicione largura */
-
-  /* --- Estilo Base --- */
-  font-family: var(--font-family-base);
-  color: var(--color-text-light);
-  background: linear-gradient(90deg, var(--color-background-dark), var(--color-background-medium));
-  border-top: 2px solid var(--color-primary);
-  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2); /* Sombra sutil para profundidade */
-}
-
-/* Variante fixa opcional (ancora ao viewport) */
-.myio-footer.is-fixed {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 60px;
-  z-index: 1000;
-}
-
-.myio-dock {
   display: flex;
   align-items: center;
-  gap: 10px; /* Mais espaço entre os chips */
-  overflow-x: auto; /* Permite rolagem horizontal */
-  padding: 5px 0; /* Pequeno padding para rolagem */
+  gap: 24px;
+  padding: 0 32px;
+  box-sizing: border-box;
 
-  /* Estilização da barra de rolagem para navegadores Webkit */
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: var(--color-primary) var(--color-background-medium); /* Firefox */
+  /* Visual */
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background: linear-gradient(
+    180deg,
+    var(--color-surface) 0%,
+    var(--color-background) 100%
+  );
+  border-top: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ==========================================
+   Dock Area (Chips Container)
+   ========================================== */
+
+.myio-dock {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 0;
+  margin: 0 -8px;
+  padding-left: 8px;
+
+  /* Custom Scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-primary) transparent;
 }
 
 .myio-dock::-webkit-scrollbar {
-  height: 6px; /* Altura da barra de rolagem */
+  height: 4px;
+}
+
+.myio-dock::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .myio-dock::-webkit-scrollbar-thumb {
   background: var(--color-primary);
-  border-radius: 6px;
+  border-radius: 2px;
 }
 
-.myio-dock::-webkit-scrollbar-track {
-  background: var(--color-background-medium);
+.myio-dock::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-hover);
 }
+
+/* ==========================================
+   Chip (Device Card)
+   ========================================== */
 
 .myio-chip {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 8px; /* Mais espaço dentro do chip */
-  padding: 7px 12px;
-  border-radius: 20px; /* Borda mais arredondada */
-  background: rgba(255, 255, 255, .08); /* Fundo um pouco mais visível */
-  border: 1px solid var(--color-border-subtle);
+  gap: 12px;
+  padding: 12px 16px;
+  height: 56px;
+
+  background: linear-gradient(
+    135deg,
+    var(--color-surface-elevated) 0%,
+    var(--color-surface) 100%
+  );
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+
   white-space: nowrap;
-  font-size: 0.875em; /* Tamanho da fonte ligeiramente menor */
-  font-weight: 500; /* Medium weight */
-  transition: background var(--transition-speed);
-  cursor: default; /* Indica que não é clicável no chip em si */
+  cursor: default;
+  transition: var(--transition);
+  animation: chipSlideIn 0.3s ease-out;
+}
+
+@keyframes chipSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .myio-chip:hover {
-  background: rgba(255, 255, 255, .12); /* Leve destaque ao passar o mouse */
+  background: linear-gradient(
+    135deg,
+    var(--color-surface-elevated) 0%,
+    var(--color-surface-elevated) 100%
+  );
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transform: translateY(-2px);
 }
 
-/* Ícone de remoção do chip */
-.myio-chip button {
-  background: none;
-  border: none;
-  color: var(--color-text-dim); /* Cor mais sutil */
-  cursor: pointer;
+/* Chip Content */
+.myio-chip-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.myio-chip-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.myio-chip-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Remove Button */
+.myio-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  margin-left: 4px; /* Mais espaço */
-  font-size: 1.1em;
-  line-height: 1;
-  font-family: var(--font-family-base);
-  transition: color var(--transition-speed);
+  margin-left: 4px;
+
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: var(--transition);
 }
 
-.myio-chip button:hover {
-  color: var(--color-text-light); /* Fica branco ao passar o mouse */
+.myio-chip-remove:hover {
+  background: rgba(255, 68, 68, 0.15);
+  border-color: var(--color-error);
+  color: var(--color-error);
+  transform: scale(1.1);
 }
 
-.myio-chip-icon {
-  color: var(--color-primary); /* Ícone verde vibrante */
-  font-size: 1.2em; /* Tamanho do ícone de ponto */
+.myio-chip-remove:active {
+  transform: scale(0.95);
 }
+
+.myio-chip-remove svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.5;
+}
+
+/* ==========================================
+   Empty State
+   ========================================== */
+
+.myio-empty {
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+  font-weight: 500;
+  font-style: italic;
+  padding: 8px 0;
+  opacity: 0.6;
+}
+
+/* ==========================================
+   Right Section (Stats + Compare Button)
+   ========================================== */
 
 .myio-right {
   display: flex;
   align-items: center;
-  gap: 15px; /* Mais espaço entre elementos da direita */
-  padding-left: 15px; /* Garante que não encoste no dock */
+  gap: 20px;
+  flex-shrink: 0;
 }
 
+/* Stats Display */
+.myio-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 0 4px;
+  min-width: 140px;
+}
+
+.myio-meta::before {
+  content: attr(data-label);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Compare Button - Premium Style */
 .myio-compare {
-  height: 40px; /* Altura maior para o botão */
-  min-width: 100px; /* Largura mínima */
-  padding: 0 18px;
-  border-radius: var(--border-radius-base);
-  border: none; /* Remove a borda original */
-  background: var(--color-primary); /* Fundo verde sólido */
-  color: var(--color-background-dark); /* Texto escuro no botão verde */
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  min-width: 140px;
+  padding: 0 24px;
+
+  font-family: var(--font-family);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+
+  background: linear-gradient(
+    135deg,
+    var(--color-primary) 0%,
+    var(--color-primary-dark) 100%
+  );
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-background);
   cursor: pointer;
-  font-weight: 600; /* Semibold */
-  font-size: 1em;
-  transition: background var(--transition-speed), transform var(--transition-speed);
-  box-shadow: 0 2px 8px rgba(0, 224, 158, 0.3); /* Sombra mais destacada */
+  overflow: hidden;
+
+  box-shadow:
+    0 0 0 1px rgba(0, 224, 158, 0.2),
+    0 4px 16px rgba(0, 224, 158, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+
+  transition: var(--transition);
 }
 
-.myio-compare:hover:not(:disabled) {
-  background: #00ffb5; /* Levemente mais claro ao passar o mouse */
-  transform: translateY(-1px); /* Efeito de elevação */
+/* Button Shine Effect */
+.myio-compare::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: left 0.5s;
 }
 
-.myio-compare:active:not(:disabled) {
-  transform: translateY(0); /* Efeito de clique */
-  box-shadow: 0 1px 4px rgba(0, 224, 158, 0.3);
+.myio-compare:hover::before {
+  left: 100%;
 }
 
+.myio-compare:hover {
+  background: linear-gradient(
+    135deg,
+    var(--color-primary-hover) 0%,
+    var(--color-primary) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(0, 224, 158, 0.3),
+    0 6px 24px rgba(0, 224, 158, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.myio-compare:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow:
+    0 0 0 1px rgba(0, 224, 158, 0.2),
+    0 2px 8px rgba(0, 224, 158, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Disabled State */
 .myio-compare:disabled {
-  opacity: 0.6; /* Menos opaco, mas ainda visível */
+  background: var(--color-surface);
+  color: var(--color-text-tertiary);
   cursor: not-allowed;
-  background: rgba(255, 255, 255, .1); /* Fundo cinza sutil */
-  color: var(--color-text-dim);
-  box-shadow: none; /* Sem sombra quando desabilitado */
+  opacity: 0.5;
+  box-shadow: none;
   transform: none;
 }
 
-.myio-meta {
-  font-variant-numeric: tabular-nums;
-  opacity: 0.85;
-  white-space: nowrap;
-  font-size: 0.9em;
-  font-weight: 500;
+.myio-compare:disabled::before {
+  display: none;
 }
 
-.myio-empty {
-  color: var(--color-text-dim);
-  padding-left: 8px; /* Mais padding para o texto de placeholder */
-  font-style: italic;
+.myio-compare:disabled:hover {
+  transform: none;
 }
 
-/* Responsividade básica */
-@media (max-width: 768px) {
+/* Button Icon (Optional) */
+.myio-compare::after {
+  content: '→';
+  font-size: 18px;
+  margin-left: 4px;
+  transition: transform 0.2s;
+}
+
+.myio-compare:hover::after {
+  transform: translateX(4px);
+}
+
+.myio-compare:disabled::after {
+  display: none;
+}
+
+/* ==========================================
+   Responsive Design
+   ========================================== */
+
+@media (max-width: 1024px) {
   .myio-footer {
-    grid-template-columns: 1fr; /* Stack verticalmente em telas menores */
-    height: auto;
-    padding: 10px 15px;
-    gap: 10px; /* Espaço entre dock e direita */
+    height: 72px;
+    padding: 0 20px;
+    gap: 16px;
   }
 
-  .myio-right {
-    justify-content: space-between; /* Distribui itens */
-    padding-left: 0;
-    width: 100%;
+  .myio-chip {
+    height: 52px;
+    padding: 10px 14px;
+  }
+
+  .myio-compare {
+    height: 44px;
+    min-width: 120px;
+    padding: 0 20px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .myio-footer {
+    flex-direction: column;
+    height: auto;
+    min-height: 120px;
+    padding: 16px 20px;
+    gap: 12px;
   }
 
   .myio-dock {
     width: 100%;
+    justify-content: flex-start;
+  }
+
+  .myio-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .myio-meta {
+    align-items: flex-start;
+  }
+
+  .myio-compare {
+    flex: 1;
+    max-width: 200px;
   }
 }
