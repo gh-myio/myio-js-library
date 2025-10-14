@@ -396,9 +396,22 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       try {
         // Clear localStorage cache for energy and water (not temperature)
-        localStorage.removeItem('myio:cache:energy');
-        localStorage.removeItem('myio:cache:water');
-        LogHelper.log("[HEADER] ✅ LocalStorage cache cleared (energy + water)");
+        // IMPORTANT: Cache keys have format: myio:cache:{domain}:{startISO}:{endISO}:{granularity}
+        // We need to iterate and remove all keys starting with the domain prefix
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('myio:cache:energy:') || key.startsWith('myio:cache:water:'))) {
+            keysToRemove.push(key);
+          }
+        }
+
+        keysToRemove.forEach(key => {
+          localStorage.removeItem(key);
+          LogHelper.log(`[HEADER] 🗑️ Removed localStorage key: ${key}`);
+        });
+
+        LogHelper.log(`[HEADER] ✅ LocalStorage cache cleared (${keysToRemove.length} keys removed)`);
 
         // Invalidate orchestrator cache if available
         if (window.MyIOOrchestrator && window.MyIOOrchestrator.invalidateCache) {

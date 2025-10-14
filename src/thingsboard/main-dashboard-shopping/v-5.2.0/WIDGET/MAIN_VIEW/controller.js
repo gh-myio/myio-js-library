@@ -149,12 +149,11 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
           }
         }
 
-        // Fallback credentials if not found
-        if (!CLIENT_ID || !CLIENT_SECRET) {
-          LogHelper.log("[MAIN_VIEW] Using fallback credentials");
-          CLIENT_ID = "mestreal_mfh4e642_4flnuh";
-          CLIENT_SECRET = "gv0zfmdekNxYA296OcqFrnBAVU4PhbUBhBwNlMCamk2oXDHeXJqu1K6YtpVOZ5da";
-          CUSTOMER_ING_ID = "e01bdd22-3be6-4b75-9dae-442c8b8c186e"; // Valid customer ID
+        // Check if credentials are missing and show alert
+        if (!CLIENT_ID || !CLIENT_SECRET || !CUSTOMER_ING_ID) {
+          LogHelper.error("[MAIN_VIEW] Missing credentials - CLIENT_ID, CLIENT_SECRET, or CUSTOMER_ING_ID not found");
+          showCredentialsAlert();
+          return; // Stop initialization without credentials
         }
 
         // Set credentials in orchestrator
@@ -500,12 +499,125 @@ function showRecoveryNotification() {
   `;
   notification.textContent = 'Dados recarregados automaticamente';
   document.body.appendChild(notification);
-  
+
   setTimeout(() => {
     if (notification.parentNode) {
       notification.parentNode.removeChild(notification);
     }
   }, 4000);
+}
+
+// Premium alert for missing credentials
+function showCredentialsAlert() {
+  const overlay = document.createElement('div');
+  overlay.id = 'myio-credentials-alert';
+  overlay.style.cssText = `
+    position: fixed;
+    inset: 0;
+    background: rgba(45, 20, 88, 0.75);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999999;
+    font-family: Inter, system-ui, sans-serif;
+  `;
+
+  const alertBox = document.createElement('div');
+  alertBox.style.cssText = `
+    background: linear-gradient(135deg, #2d1458 0%, #1a0b33 100%);
+    color: #fff;
+    border-radius: 20px;
+    padding: 40px 48px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    border: 2px solid rgba(255,255,255,0.1);
+    max-width: 500px;
+    text-align: center;
+    animation: slideIn 0.3s ease-out;
+  `;
+
+  alertBox.innerHTML = `
+    <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+    <h2 style="
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0 0 16px 0;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    ">Credenciais Não Encontradas</h2>
+    <p style="
+      font-size: 16px;
+      line-height: 1.6;
+      margin: 0 0 24px 0;
+      color: rgba(255,255,255,0.85);
+    ">
+      As credenciais de autenticação não foram configuradas no sistema.
+      <br><br>
+      <strong>Credenciais necessárias:</strong>
+      <br>• CLIENT_ID
+      <br>• CLIENT_SECRET
+      <br>• CUSTOMER_ING_ID
+      <br><br>
+      Entre em contato com o administrador para configurar as credenciais necessárias.
+    </p>
+    <button id="credentials-alert-close" style="
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+      transition: all 0.2s ease;
+    ">Fechar</button>
+  `;
+
+  overlay.appendChild(alertBox);
+  document.body.appendChild(overlay);
+
+  // Add CSS animation
+  if (!document.querySelector('#myio-credentials-alert-styles')) {
+    const styleEl = document.createElement('style');
+    styleEl.id = 'myio-credentials-alert-styles';
+    styleEl.textContent = `
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-20px) scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      #credentials-alert-close:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(245, 158, 11, 0.5);
+      }
+
+      #credentials-alert-close:active {
+        transform: translateY(0);
+      }
+    `;
+    document.head.appendChild(styleEl);
+  }
+
+  // Close button handler
+  const closeBtn = document.getElementById('credentials-alert-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      if (overlay.parentNode) {
+        overlay.parentNode.removeChild(overlay);
+      }
+    });
+  }
+
+  LogHelper.error('[MAIN_VIEW] Credentials alert displayed - system halted');
 }
 
 // PHASE 2: Shared state management for widgets coordination
@@ -732,17 +844,13 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
   async function fetchAndEnrich(domain, period) {
     try {
-      // Use hardcoded credentials as fallback
-      const fallbackClientId = "mestreal_mfh4e642_4flnuh";
-      const fallbackClientSecret = "gv0zfmdekNxYA296OcqFrnBAVU4PhbUBhBwNlMCamk2oXDHeXJqu1K6YtpVOZ5da";
-      
-      // Use stored credentials or fallback
-      const clientId = CLIENT_ID || fallbackClientId;
-      const clientSecret = CLIENT_SECRET || fallbackClientSecret;
-      
-      if (!clientId || !clientSecret) {
-        throw new Error('Missing CLIENT_ID or CLIENT_SECRET');
+      // Validate credentials exist
+      if (!CLIENT_ID || !CLIENT_SECRET) {
+        throw new Error('Missing CLIENT_ID or CLIENT_SECRET - credentials not configured');
       }
+
+      const clientId = CLIENT_ID;
+      const clientSecret = CLIENT_SECRET;
 
       // Create fresh MyIOAuth instance every time (like TELEMETRY widget)
       const MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary)
@@ -765,8 +873,12 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         throw new Error('Failed to get ingestion token');
       }
 
-      // Use stored customer ID or fallback
-      const customerId = CUSTOMER_ING_ID || "e01bdd22-3be6-4b75-9dae-442c8b8c186e";
+      // Validate customer ID exists
+      if (!CUSTOMER_ING_ID) {
+        throw new Error('Missing CUSTOMER_ING_ID - customer not configured');
+      }
+
+      const customerId = CUSTOMER_ING_ID;
 
       // Build API URL based on domain
       const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/${domain}/devices/totals`);

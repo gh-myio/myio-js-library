@@ -6,66 +6,45 @@ justify-content: space-between;
 gap: 12px;
 margin-bottom: 16px;
 padding: 10px;
-background: #f5f5f5 !important;
+background: #ffffff;
 border-radius: 10px;
-width: 100%;
+width: 92%;
 box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
-/* Garante fundo cinza em todos elementos filhos do top-bar, exceto botões */
-.top-bar input,
-.top-bar > div,
-.top-bar .date-range,
-.top-bar #water-date-range,
-.top-bar #water-date-range * {
-  background: transparent !important;
+/* Campo flat (data/período) - aligned with ENERGY */
+.tbx-field {
+flex-grow: 3;
+flex-shrink: 2;
+flex-basis: 0;
+min-width: 350px;
+padding: 6px 10px;
+font-size: 0.9rem;
+border: 1px solid #ccc;
+border-radius: 6px;
+background: #fff;
+box-sizing: border-box;
+align-items: center;
+justify-content: center;
+text-align: center;
+cursor: pointer;
+
+/* 🔑 Garantindo que nada seja cortado */
+white-space: normal; /* permite quebra de linha */
+overflow: auto;      /* ativa scroll se necessário */
 }
 
-/* Water Widget DateRangePicker - RFC-0014 Aligned */
-.water-widget {
-  --gap: 12px;
-  --radius: 12px;
-  --card-bg: #fff;
-  --border: 1px solid rgba(0,0,0,.08);
-  --primary-color: #4A148C;
-  --accent-color: #5c307d;
-  font-family: 'Roboto', Arial, sans-serif;
+.tbx-field input{
+width: 90%;
+text-align: center;
+cursor: pointer;
+border: none;
 }
 
-.water-widget__daterange {
-  min-width: 380px;
-  flex-grow: 3;
-  flex-shrink: 2;
-  flex-basis: 0;
-}
-
-/* Remove background cinza do input de data */
-#water-date-range,
-#water-date-range .tbx-field,
-#water-date-range input {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-
-.water-widget__daterange-label {
-  opacity: 0.85;
-  font-size: 0.9rem;
-  margin-left: 8px;
-  color: #666;
-  white-space: nowrap;
-}
-
-.water-skeleton {
-  height: 160px;
-  border-radius: var(--radius);
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: pulse 1.2s infinite;
-}
-
-@keyframes pulse {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+.tbx-field input:focus {
+outline: none;      /* Remove o contorno padrão */
+box-shadow: none;
+border: none;
 }
 
 /* Grupo do range + botão */
@@ -74,7 +53,7 @@ display: flex;
 align-items: center;
 gap: 8px;
 flex: 0 0 auto;
-min-width: 400px;
+min-width: 300px;
 }
 
 /* Botão carregar */
@@ -882,18 +861,4 @@ canvas+ul li:hover::after {
 .group-card.caixa .group-title .group-total {
   order: 2 !important;
   margin-left: 6px !important;     /* NÃO vai para a direita */
-}
-
-/* Inputs “flat” como no print */
-.tbx-field{
-  flex-grow: 3;
-  flex-shrink: 1;
-  flex-basis: 0;
-  width: 100%;
-  padding: 6px 10px;
-  font-size: 0.9rem;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  background: #fff;
-  box-sizing: border-box;
 }

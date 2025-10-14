@@ -3,6 +3,11 @@
     "type": "object",
     "title": "MAIN_VIEW Orchestrator Settings",
     "properties": {
+      "customerTB_ID": {
+        "title": "Customer ThingsBoard ID",
+        "type": "string",
+        "description": "ID do customer no ThingsBoard para buscar atributos de autenticação (client_id, client_secret, ingestionId)"
+      },
       "cacheTtlMinutes": {
         "title": "Cache TTL (minutes)",
         "type": "number",
@@ -51,6 +56,7 @@
     }
   },
   "form": [
+    "customerTB_ID",
     "cacheTtlMinutes",
     "enableStaleWhileRevalidate",
     "maxCacheSize",
