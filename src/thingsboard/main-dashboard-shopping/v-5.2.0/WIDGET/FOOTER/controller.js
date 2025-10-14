@@ -9,6 +9,11 @@
    * Por simplicidade no exemplo, os ícones '•' e '×' são mantidos, mas estilizaremos para parecerem melhores.
    */
 
+  // CRITICAL DEBUG: Log immediately to confirm script is loaded
+  console.log('[FOOTER] 🔵 Script carregado em:', new Date().toISOString());
+  console.log('[FOOTER] self object:', typeof self);
+  console.log('[FOOTER] self.ctx:', !!self?.ctx);
+
   // Debug configuration
   const DEBUG_ACTIVE = true;
 
@@ -16,17 +21,17 @@
   const LogHelper = {
     log: function(...args) {
       if (DEBUG_ACTIVE) {
-        LogHelper.log(...args);
+        console.log(...args);
       }
     },
     warn: function(...args) {
       if (DEBUG_ACTIVE) {
-        LogHelper.warn(...args);
+        console.warn(...args);
       }
     },
     error: function(...args) {
       if (DEBUG_ACTIVE) {
-        LogHelper.error(...args);
+        console.error(...args);
       }
     }
   };
@@ -51,29 +56,48 @@
      * Inicializa o controlador
      */
     init(ctx) {
-      if (this.initialized) return;
+      LogHelper.log("[MyIO Footer] init() called");
+
+      if (this.initialized) {
+        LogHelper.log("[MyIO Footer] Already initialized, skipping");
+        return;
+      }
 
       this.$root = ctx?.$container?.[0];
       this.ctx = ctx;
       if (!this.$root) {
-        LogHelper.error("MyIO Footer: Root container not found.");
+        LogHelper.error("[MyIO Footer] Root container not found.");
         return;
       }
+      LogHelper.log("[MyIO Footer] Root container found");
 
       // Verifica se a biblioteca MyIOLibrary está carregada via Resources
       if (!window.MyIOLibrary) {
         LogHelper.error(
-          "MyIO Footer: MyIOLibrary not found. " +
+          "[MyIO Footer] MyIOLibrary not found. " +
           "Please add the library as a Resource in ThingsBoard widget settings:\n" +
           "https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"
         );
         return;
       }
+      LogHelper.log("[MyIO Footer] MyIOLibrary found");
 
       this.mountTemplate();
+      LogHelper.log("[MyIO Footer] Template mounted");
+
       this.queryDOMElements(); // Consultar elementos *após* montar
+      LogHelper.log("[MyIO Footer] DOM elements queried:", {
+        dock: !!this.$dock,
+        totals: !!this.$totals,
+        compareBtn: !!this.$compareBtn
+      });
+
       this.bindEvents();
+      LogHelper.log("[MyIO Footer] Events bound");
+
       this.renderDock(); // Renderização inicial
+      LogHelper.log("[MyIO Footer] Initial render complete");
+
       this.initialized = true;
     },
 
@@ -118,7 +142,14 @@
      * Renderiza o conteúdo do "dock" (chips ou mensagem de vazio)
      */
     renderDock() {
+      LogHelper.log("[MyIO Footer] renderDock() called");
+
       if (!this.$dock || !this.$totals || !this.$compareBtn) {
+        LogHelper.warn("[MyIO Footer] DOM elements not ready:", {
+          dock: !!this.$dock,
+          totals: !!this.$totals,
+          compareBtn: !!this.$compareBtn
+        });
         return;
       }
 
@@ -126,13 +157,19 @@
       const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
 
       if (!MyIOSelectionStore) {
-        LogHelper.error("MyIO Footer: MyIOSelectionStore not found.");
+        LogHelper.error("[MyIO Footer] MyIOSelectionStore not found.");
         return;
       }
 
       const selected = MyIOSelectionStore.getSelectedEntities();
       const count = selected.length;
       const totals = MyIOSelectionStore.getMultiUnitTotalDisplay();
+
+      LogHelper.log("[MyIO Footer] Rendering dock:", {
+        count,
+        selected,
+        totals
+      });
 
       if (count === 0) {
         const emptyEl = document.createElement("span");
@@ -174,11 +211,13 @@
      * Vincula todos os ouvintes de eventos
      */
     bindEvents() {
+      LogHelper.log("[MyIO Footer] bindEvents() called");
+
       // Try both window.MyIOLibrary.MyIOSelectionStore and window.MyIOSelectionStore
       const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
 
       if (!MyIOSelectionStore) {
-        LogHelper.error("MyIO Footer: MyIOSelectionStore not available for binding events.");
+        LogHelper.error("[MyIO Footer] MyIOSelectionStore not available for binding events.");
         return;
       }
 
@@ -192,6 +231,8 @@
       // 2. Ouve a store externa
       MyIOSelectionStore.on("selection:change", this.boundRenderDock);
       MyIOSelectionStore.on("selection:totals", this.boundRenderDock);
+
+      LogHelper.log("[MyIO Footer] Registered listeners on SelectionStore");
 
       // 3. Ouve elementos do DOM interno
       if (this.$compareBtn) {
@@ -296,8 +337,21 @@
   // --- 4. Hooks do Ciclo de Vida do Widget ---
 
   self.onInit = function () {
+    console.log('[FOOTER] 🟢 onInit chamado!');
+    console.log('[FOOTER] self.ctx:', self.ctx);
+    console.log('[FOOTER] self.ctx.$container:', self.ctx?.$container);
+    console.log('[FOOTER] self.ctx.$container[0]:', self.ctx?.$container?.[0]);
+    console.log('[FOOTER] MyIOLibrary disponível:', !!window.MyIOLibrary);
+    console.log('[FOOTER] SelectionStore disponível:', !!(window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore));
+
     // Passa o contexto do widget (self.ctx) para o controlador
-    footerController.init(self.ctx);
+    try {
+      footerController.init(self.ctx);
+      console.log('[FOOTER] ✅ Inicialização completa!');
+    } catch (error) {
+      console.error('[FOOTER] ❌ Erro durante inicialização:', error);
+      console.error('[FOOTER] Stack trace:', error.stack);
+    }
   };
 
   self.onDestroy = function () {

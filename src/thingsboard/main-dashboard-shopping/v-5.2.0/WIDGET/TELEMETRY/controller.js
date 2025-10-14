@@ -686,33 +686,10 @@ function renderList(visible) {
       },
 
       handleSelect: (entityObj) => {
-        // IMPORTANT: Don't let selection errors break card rendering
-        try {
-          // Adiciona à SelectionStore quando o card é selecionado
-          const MyIOSelectionStore = MyIO?.MyIOSelectionStore || window.MyIOSelectionStore;
-
-          if (!MyIOSelectionStore) {
-            LogHelper.warn("[TELEMETRY] MyIOSelectionStore not available in handleSelect, selection disabled");
-            return;
-          }
-
-          // Registra a entidade na store
-          const cardEntity = {
-            id: entityObj.entityId,
-            name: entityObj.labelOrName || 'Dispositivo',
-            icon: 'energy', // Pode ser mapeado baseado no deviceType
-            group: entityObj.deviceIdentifier || entityObj.entityType || 'Dispositivo',
-            lastValue: Number(entityObj.val) || 0,
-            unit: WIDGET_DOMAIN === 'energy' ? 'kWh' : WIDGET_DOMAIN === 'water' ? 'm³' : '',
-            status: entityObj.deviceStatus || 'unknown'
-          };
-
-          MyIOSelectionStore.registerEntity(cardEntity);
-          LogHelper.log("[TELEMETRY] Entity registered in SelectionStore:", cardEntity);
-        } catch (err) {
-          LogHelper.error("[TELEMETRY] Error in handleSelect (non-fatal):", err);
-          // Don't rethrow - we don't want selection errors to break card rendering
-        }
+        // NOTE: This callback is called during card rendering, NOT during user selection
+        // Entity registration is handled by the 'myio:device-params' event listener instead
+        // which is only triggered when the user actually clicks the checkbox
+        LogHelper.log("[TELEMETRY] handleSelect called (no-op):", entityObj.labelOrName);
       },
     });
 
