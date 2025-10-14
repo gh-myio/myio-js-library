@@ -10,6 +10,17 @@
 
 class MyIOSelectionStoreClass {
   constructor() {
+    console.log('[SelectionStore] 🔍 Constructor called - checking for existing instance...');
+    console.log('[SelectionStore] typeof window:', typeof window);
+    console.log('[SelectionStore] window.__MyIOSelectionStore_INSTANCE__:', !!window?.__MyIOSelectionStore_INSTANCE__);
+
+    // CRITICAL: Check if singleton already exists BEFORE initializing
+    if (typeof window !== 'undefined' && window.__MyIOSelectionStore_INSTANCE__) {
+      console.warn('[SelectionStore] ⚠️ Constructor called but instance already exists! Returning existing instance.');
+      console.log('[SelectionStore] Existing instance has listeners:', window.__MyIOSelectionStore_INSTANCE__.eventListeners.get('selection:change')?.length || 0);
+      return window.__MyIOSelectionStore_INSTANCE__;
+    }
+
     console.log('[SelectionStore] 🏗️ NEW INSTANCE CREATED at:', new Date().toISOString());
     console.trace('[SelectionStore] Constructor called from:');
 
@@ -26,6 +37,13 @@ class MyIOSelectionStoreClass {
     this.eventListeners.set('selection:totals', []);
     this.eventListeners.set('comparison:open', []);
     this.eventListeners.set('comparison:too_many', []);
+
+    // Store this instance in a hidden global variable
+    if (typeof window !== 'undefined') {
+      console.log('[SelectionStore] 💾 Storing instance in window.__MyIOSelectionStore_INSTANCE__');
+      window.__MyIOSelectionStore_INSTANCE__ = this;
+      console.log('[SelectionStore] ✅ Stored! Verify:', !!window.__MyIOSelectionStore_INSTANCE__);
+    }
   }
 
   // Core Selection Methods
@@ -416,43 +434,56 @@ class MyIOSelectionStoreClass {
   }
 }
 
-// Create singleton instance using Object.defineProperty to prevent overwrites
+// Create singleton instance with getter/setter pattern to prevent overwrites
 let MyIOSelectionStore;
+let _singletonInstance = null; // Hidden instance holder
 
 if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined') {
-  // Check if property descriptor exists and is non-configurable (already locked)
+  // Check if a getter is already defined (instance already protected)
   const descriptor = Object.getOwnPropertyDescriptor(globalThis.window, 'MyIOSelectionStore');
 
-  if (descriptor && !descriptor.configurable) {
-    // Property is locked, use existing instance
-    console.log('[SelectionStore] 🔄 REUSING locked global instance');
+  if (descriptor && descriptor.get) {
+    // Getter already defined, reuse existing instance
+    console.log('[SelectionStore] 🔄 REUSING protected global instance');
     MyIOSelectionStore = globalThis.window.MyIOSelectionStore;
-  } else if (globalThis.window.MyIOSelectionStore) {
-    // Instance exists but isn't locked yet - lock it now
-    console.log('[SelectionStore] 🔒 LOCKING existing instance');
-    MyIOSelectionStore = globalThis.window.MyIOSelectionStore;
+  } else if (globalThis.window.MyIOSelectionStore && typeof globalThis.window.MyIOSelectionStore === 'object') {
+    // Instance exists as plain property - upgrade it to protected getter
+    console.log('[SelectionStore] 🔒 UPGRADING existing instance to protected');
+    _singletonInstance = globalThis.window.MyIOSelectionStore;
+    MyIOSelectionStore = _singletonInstance;
 
-    // Lock the property to prevent future overwrites
+    // Replace with getter that always returns same instance
     Object.defineProperty(globalThis.window, 'MyIOSelectionStore', {
-      value: MyIOSelectionStore,
-      writable: false,
+      get: function() {
+        return _singletonInstance;
+      },
+      set: function(value) {
+        console.warn('[SelectionStore] ⚠️ Attempted to overwrite singleton - ignoring');
+        // Silently ignore attempts to overwrite
+      },
       configurable: false,
       enumerable: true
     });
   } else {
-    // Create new instance and lock it immediately
-    console.log('[SelectionStore] 🆕 Creating new global singleton instance');
-    MyIOSelectionStore = new MyIOSelectionStoreClass();
+    // Create new instance and protect it with getter
+    console.log('[SelectionStore] 🆕 Creating new protected singleton instance');
+    _singletonInstance = new MyIOSelectionStoreClass();
+    MyIOSelectionStore = _singletonInstance;
 
-    // Define property as non-configurable and non-writable to prevent overwrites
+    // Define getter/setter that protects the singleton
     Object.defineProperty(globalThis.window, 'MyIOSelectionStore', {
-      value: MyIOSelectionStore,
-      writable: false,
+      get: function() {
+        return _singletonInstance;
+      },
+      set: function(value) {
+        console.warn('[SelectionStore] ⚠️ Attempted to overwrite singleton - ignoring');
+        // Silently ignore attempts to overwrite
+      },
       configurable: false,
       enumerable: true
     });
 
-    console.log('[SelectionStore] 🔒 Instance locked and ready');
+    console.log('[SelectionStore] 🔒 Instance protected and ready');
   }
 
   // Always export the class (writable so it can be overridden if needed)
