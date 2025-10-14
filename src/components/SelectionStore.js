@@ -485,6 +485,54 @@ let _singletonInstance = null; // Hidden instance holder
 if (typeof globalThis !== 'undefined' && typeof globalThis.window !== 'undefined') {
   console.log('[SelectionStore] 🔧 Module initialization - checking for existing instance...');
 
+  // CRITICAL: Protect window.MyIOLibrary from being overwritten by UMD
+  // The UMD does: global.MyIOLibrary = {} on each load, destroying previous references
+  // We need to preserve the object across loads
+  if (!globalThis.window.__MyIOLibrary_PROTECTED__) {
+    console.log('[SelectionStore] 🛡️ Protecting window.MyIOLibrary object from UMD overwrites...');
+
+    // Store reference to existing MyIOLibrary object (if any)
+    const existingLib = globalThis.window.MyIOLibrary;
+
+    // Define a getter/setter that preserves the object
+    Object.defineProperty(globalThis.window, 'MyIOLibrary', {
+      get: function() {
+        // Return existing object or create new one if needed
+        if (!globalThis.window.__MyIOLibrary_INSTANCE__) {
+          console.log('[SelectionStore] 📦 Creating protected MyIOLibrary container object');
+          globalThis.window.__MyIOLibrary_INSTANCE__ = existingLib || {};
+        }
+        return globalThis.window.__MyIOLibrary_INSTANCE__;
+      },
+      set: function(value) {
+        // UMD tries to assign: global.MyIOLibrary = {}
+        // We intercept this and merge properties instead of replacing
+        console.log('[SelectionStore] 🔄 UMD tried to overwrite MyIOLibrary - merging properties instead');
+
+        if (value && typeof value === 'object') {
+          const currentLib = globalThis.window.__MyIOLibrary_INSTANCE__ || {};
+
+          // Merge new properties from UMD into existing object
+          Object.keys(value).forEach(key => {
+            // Skip MyIOSelectionStore if it's already set correctly
+            if (key === 'MyIOSelectionStore' && currentLib.MyIOSelectionStore) {
+              console.log('[SelectionStore] ⏭️ Skipping MyIOSelectionStore - already set');
+              return;
+            }
+            currentLib[key] = value[key];
+          });
+
+          globalThis.window.__MyIOLibrary_INSTANCE__ = currentLib;
+        }
+      },
+      configurable: false,
+      enumerable: true
+    });
+
+    globalThis.window.__MyIOLibrary_PROTECTED__ = true;
+    console.log('[SelectionStore] ✅ window.MyIOLibrary protected!');
+  }
+
   // Check window.top first (shared across iframes), then document and window
   let existingInstance = null;
 
