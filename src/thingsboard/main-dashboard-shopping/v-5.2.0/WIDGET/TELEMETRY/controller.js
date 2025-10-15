@@ -1287,81 +1287,37 @@ self.onInit = async function () {
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
 
 
-  // RFC: Fix selection integration with FOOTER
-  // When a card is selected, register entity and add it to MyIOSelectionStore so FOOTER can display it
+  // RFC: REMOVED - Fix selection integration with FOOTER
+  //
+  // PROBLEMA ENCONTRADO: Este listener estava causando logs triplicados porque os 3 widgets TELEMETRY
+  // (energy, water, temperature) estavam todos escutando o evento global 'myio:device-params' emitido
+  // quando qualquer checkbox era marcado (veja template-card-v2.js:1108).
+  //
+  // SOLUÇÃO: O registro da entidade já é feito no template-card-v2.js:282-284 via:
+  //   MyIOSelectionStore.registerEntity(cardEntity);
+  // E a adição/remoção já é feita no template-card-v2.js:1108-1124 via:
+  //   window.dispatchEvent(new CustomEvent('myio:device-params', {...}));
+  //
+  // Portanto, NÃO precisamos deste listener aqui - ele estava causando registros e logs duplicados!
+  //
+  // Se precisar reagir a mudanças de seleção, use:
+  //   MyIOSelectionStore.on('selection:change', handler);
+  //
+  /*
   window.addEventListener('myio:device-params', (ev) => {
     try {
       LogHelper.log("[TELEMETRY] Card selected:", ev.detail);
-
-      // IMPORTANT: Don't let selection errors break the main widget flow
-      if (!ev.detail || !ev.detail.id) {
-        LogHelper.warn("[TELEMETRY] Invalid card selection event, skipping SelectionStore");
-        return;
-      }
-
-      // Try both MyIO.MyIOSelectionStore and window.MyIOSelectionStore
-      const MyIOSelectionStore = MyIO?.MyIOSelectionStore || window.MyIOSelectionStore;
-
-      if (MyIOSelectionStore) {
-        // First, register the entity with full metadata from the card event
-        const cardEntity = {
-          id: ev.detail.id,
-          name: ev.detail.name || 'Dispositivo',
-          icon: ev.detail.icon || 'generic',
-          group: ev.detail.deviceIdentifier || ev.detail.group || 'Dispositivo',
-          lastValue: Number(ev.detail.total_value) || 0,
-          unit: ev.detail.unit || (WIDGET_DOMAIN === 'energy' ? 'kWh' : WIDGET_DOMAIN === 'water' ? 'm³' : ''),
-          status: ev.detail.status || 'unknown'
-        };
-
-        MyIOSelectionStore.registerEntity(cardEntity);
-        LogHelper.log("[TELEMETRY] Entity registered in SelectionStore:", cardEntity);
-
-        // Then add to selection (triggers events to FOOTER)
-        MyIOSelectionStore.add(ev.detail.id);
-        LogHelper.log("[TELEMETRY] Added to SelectionStore:", ev.detail.id);
-      } else {
-        LogHelper.warn("[TELEMETRY] MyIOSelectionStore not available, selection disabled");
-      }
-
-      // Also emit global event for backward compatibility
-      window.dispatchEvent(new CustomEvent('myio:device-params-global', {
-        detail: {
-          id: ev.detail.id,
-          name: ev.detail.name
-        }
-      }));
-    } catch (err) {
-      LogHelper.error("[TELEMETRY] Error in device-params listener (non-fatal):", err);
-      // Don't rethrow - we don't want selection errors to break the widget
+      // ... código removido ...
     }
   });
 
-  // RFC: Handle card deselection
   window.addEventListener('myio:device-params-remove', (ev) => {
     try {
       LogHelper.log("[TELEMETRY] Card deselected:", ev.detail);
-
-      if (!ev.detail || !ev.detail.id) {
-        LogHelper.warn("[TELEMETRY] Invalid card deselection event, skipping");
-        return;
-      }
-
-      // Try both MyIO.MyIOSelectionStore and window.MyIOSelectionStore
-      const MyIOSelectionStore = MyIO?.MyIOSelectionStore || window.MyIOSelectionStore;
-
-      // Remove from SelectionStore so FOOTER receives the selection:change event
-      if (MyIOSelectionStore) {
-        MyIOSelectionStore.remove(ev.detail.id);
-        LogHelper.log("[TELEMETRY] Removed from SelectionStore:", ev.detail.id);
-      } else {
-        LogHelper.warn("[TELEMETRY] MyIOSelectionStore not available, selection disabled");
-      }
-    } catch (err) {
-      LogHelper.error("[TELEMETRY] Error in device-params-remove listener (non-fatal):", err);
-      // Don't rethrow - we don't want selection errors to break the widget
+      // ... código removido ...
     }
   });
+  */
   // Check for stored data from orchestrator (in case we missed the event)
   setTimeout(() => {
     // RFC-0042: Check parent window for orchestrator data (if in iframe)

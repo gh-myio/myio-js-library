@@ -1103,27 +1103,14 @@ export function renderCardComponentV2({
               MyIOToast.show('Não é possível selecionar mais de 6 itens.', 'warning');
               return; // Interrompe a execução
           }
-          
 
-          window.dispatchEvent(new CustomEvent('myio:device-params', {
-            detail: {
-              id: entityId,
-              name: labelOrName
-            }
-        }));
-          // Se o limite não foi atingido, adiciona normalmente
-          //MyIOSelectionStore.add(entityId);
+          // Adiciona ao SelectionStore diretamente (sem evento global para evitar logs triplicados)
+          MyIOSelectionStore.add(entityId);
 
         } else {
           // Lógica para quando o usuário DESMARCA (sempre permitido)
-          window.dispatchEvent(new CustomEvent('myio:device-params-remove', {
-            detail: {
-              id: entityId,
-              name: labelOrName
-            }
-        }));
-
-
+          // Remove do SelectionStore diretamente (sem evento global para evitar logs triplicados)
+          MyIOSelectionStore.remove(entityId);
        }
       });
     }

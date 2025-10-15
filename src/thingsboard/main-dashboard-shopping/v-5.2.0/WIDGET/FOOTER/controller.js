@@ -10,13 +10,13 @@
    */
 
   // Debug configuration
-  const DEBUG_ACTIVE = false;
+  const DEBUG_ACTIVE = true;
 
   // LogHelper utility
   const LogHelper = {
     log: function(...args) {
       if (DEBUG_ACTIVE) {
-        LogHelper.log(...args);
+        console.log(...args);
       }
     },
     warn: function(...args) {
@@ -256,6 +256,31 @@
         LogHelper.log("[MyIO Footer] replaceChildren completed");
         LogHelper.log("[MyIO Footer] $dock.children.length:", this.$dock.children.length);
         LogHelper.log("[MyIO Footer] $dock.innerHTML:", this.$dock.innerHTML);
+
+        // DEBUG: Check if CSS is being applied
+        if (this.$dock.children.length > 0) {
+          const dockStyles = window.getComputedStyle(this.$dock);
+          const firstChip = this.$dock.children[0];
+          const chipStyles = window.getComputedStyle(firstChip);
+
+          LogHelper.log("[MyIO Footer] 🎨 CSS DIAGNOSTICS:");
+          LogHelper.log("  $dock display:", dockStyles.display);
+          LogHelper.log("  $dock flexDirection:", dockStyles.flexDirection);
+          LogHelper.log("  $dock gap:", dockStyles.gap);
+          LogHelper.log("  firstChip display:", chipStyles.display);
+          LogHelper.log("  firstChip className:", firstChip.className);
+          LogHelper.log("  firstChip background:", chipStyles.background);
+          LogHelper.log("  firstChip border:", chipStyles.border);
+
+          const removeBtn = firstChip.querySelector('.myio-chip-remove');
+          if (removeBtn) {
+            const btnStyles = window.getComputedStyle(removeBtn);
+            LogHelper.log("  removeBtn background:", btnStyles.background);
+            LogHelper.log("  removeBtn border:", btnStyles.border);
+            LogHelper.log("  removeBtn width:", btnStyles.width);
+            LogHelper.log("  removeBtn height:", btnStyles.height);
+          }
+        }
       }
 
       // Atualiza totais e botão
