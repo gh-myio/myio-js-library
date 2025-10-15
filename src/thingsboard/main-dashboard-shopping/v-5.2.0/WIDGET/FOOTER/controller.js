@@ -31,6 +31,451 @@
     }
   };
 
+  // --- 2. Injeção de CSS (executada uma vez) ---
+  let cssInjected = false;
+  function injectCSS() {
+    if (cssInjected) return;
+
+    const styleId = 'myio-footer-premium-styles';
+    if (document.getElementById(styleId)) {
+      cssInjected = true;
+      return;
+    }
+
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+/* ==========================================
+   MYIO Footer - Premium Design System
+   ========================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+.myio-footer {
+  /* Design Tokens - Purple Theme */
+  --color-primary: #9E8CBE;
+  --color-primary-hover: #B8A5D6;
+  --color-primary-dark: #8472A8;
+  --color-background: #0f1419;
+  --color-surface: #1a1f28;
+  --color-surface-elevated: #242b36;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-text-tertiary: rgba(255, 255, 255, 0.5);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-error: #ff4444;
+
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Layout */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 88px;
+  z-index: 10000;
+
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 0 32px;
+  box-sizing: border-box;
+
+  /* Visual */
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background: linear-gradient(
+    180deg,
+    rgba(158, 140, 190, 0.95) 0%,
+    rgba(132, 114, 168, 0.98) 100%
+  );
+  border-top: 2px solid rgba(184, 165, 214, 0.5);
+  box-shadow:
+    var(--shadow-lg),
+    0 -2px 24px rgba(158, 140, 190, 0.3);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.myio-dock {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 10px 0;
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(158, 140, 190, 0.6) transparent;
+}
+
+.myio-dock::-webkit-scrollbar {
+  height: 6px;
+}
+
+.myio-dock::-webkit-scrollbar-track {
+  background: rgba(158, 140, 190, 0.08);
+  border-radius: 3px;
+}
+
+.myio-dock::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+  border-radius: 3px;
+  box-shadow: 0 0 8px rgba(158, 140, 190, 0.4);
+}
+
+.myio-chip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  height: 64px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(158, 140, 190, 0.25) 0%, rgba(158, 140, 190, 0.15) 100%);
+  border: 1px solid rgba(184, 165, 214, 0.4);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+  cursor: default;
+  transition: var(--transition);
+  animation: chipSlideIn 0.3s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes chipSlideIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.myio-chip:hover {
+  background: linear-gradient(135deg, rgba(158, 140, 190, 0.35) 0%, rgba(158, 140, 190, 0.25) 100%);
+  border-color: rgba(184, 165, 214, 0.6);
+  box-shadow: 0 6px 16px rgba(158, 140, 190, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transform: translateY(-3px);
+}
+
+.myio-chip-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.myio-chip-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.myio-chip-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.myio-chip-remove {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin-left: 8px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.myio-chip-remove:hover {
+  background: linear-gradient(135deg, rgba(255, 68, 68, 0.25) 0%, rgba(255, 68, 68, 0.15) 100%);
+  border-color: rgba(255, 68, 68, 0.5);
+  color: #ff4444;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
+}
+
+.myio-chip-remove svg {
+  position: relative;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.myio-empty {
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 12px 24px;
+  opacity: 0.9;
+  background: linear-gradient(135deg, rgba(158, 140, 190, 0.15) 0%, transparent 100%);
+  border: 1px dashed rgba(184, 165, 214, 0.4);
+  border-radius: var(--radius-md);
+  text-shadow: 0 0 8px rgba(158, 140, 190, 0.3);
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.7; box-shadow: 0 0 0 rgba(158, 140, 190, 0.3); }
+  50% { opacity: 1; box-shadow: 0 0 16px rgba(158, 140, 190, 0.3); }
+}
+
+.myio-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
+.myio-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 16px;
+  min-width: 140px;
+  background: linear-gradient(135deg, rgba(158, 140, 190, 0.15) 0%, rgba(158, 140, 190, 0.08) 100%);
+  border: 1px solid rgba(184, 165, 214, 0.3);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.myio-meta-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 8px rgba(158, 140, 190, 0.4);
+}
+
+#myioTotals {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.myio-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: linear-gradient(135deg, rgba(200, 200, 200, 0.2) 0%, rgba(200, 200, 200, 0.1) 100%);
+  border: 1px solid rgba(200, 200, 200, 0.3);
+  border-radius: var(--radius-md);
+  color: #cccccc;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.myio-clear-btn:hover {
+  background: linear-gradient(135deg, rgba(200, 200, 200, 0.3) 0%, rgba(200, 200, 200, 0.2) 100%);
+  border-color: rgba(200, 200, 200, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(200, 200, 200, 0.3);
+}
+
+.myio-clear-btn:disabled {
+  background: var(--color-surface);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-tertiary);
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
+.myio-clear-btn:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.myio-clear-btn svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+}
+
+.myio-compare {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  min-width: 140px;
+  padding: 0 24px;
+  font-family: var(--font-family);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  background: #3E1A7D;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(62, 26, 125, 0.5), 0 4px 16px rgba(62, 26, 125, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: var(--transition);
+}
+
+.myio-compare:hover {
+  background: linear-gradient(135deg, #5A2CB8 0%, #3E1A7D 100%);
+  box-shadow: 0 0 0 1px rgba(62, 26, 125, 0.7), 0 6px 24px rgba(62, 26, 125, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.myio-compare:disabled {
+  background: var(--color-surface);
+  color: var(--color-text-tertiary);
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: none;
+  transform: none;
+}
+
+.myio-compare::after {
+  content: '→';
+  font-size: 18px;
+  margin-left: 4px;
+  transition: transform 0.2s;
+}
+
+.myio-compare:hover::after {
+  transform: translateX(4px);
+}
+
+.myio-compare:disabled::after {
+  display: none;
+}
+
+.myio-alert-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.myio-alert-box {
+  position: relative;
+  max-width: 480px;
+  width: 90%;
+  padding: 32px;
+  background: linear-gradient(135deg, var(--color-surface-elevated) 0%, var(--color-surface) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(40px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.myio-alert-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.2) 0%, rgba(255, 152, 0, 0.2) 100%);
+  border: 2px solid rgba(255, 193, 7, 0.5);
+  border-radius: 50%;
+  color: #ffc107;
+  font-size: 32px;
+}
+
+.myio-alert-title {
+  margin: 0 0 12px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+.myio-alert-message {
+  margin: 0 0 28px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.myio-alert-button {
+  width: 100%;
+  height: 48px;
+  font-family: var(--font-family);
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  border: none;
+  border-radius: 12px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(158, 140, 190, 0.4);
+  transition: var(--transition);
+}
+
+.myio-alert-button:hover {
+  background: linear-gradient(135deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
+  box-shadow: 0 6px 24px rgba(158, 140, 190, 0.5);
+  transform: translateY(-2px);
+}
+    `;
+
+    document.head.appendChild(style);
+    cssInjected = true;
+    LogHelper.log("[MyIO Footer] ✅ CSS injected successfully");
+  }
+
   // --- 3. Controlador do Footer (Objeto encapsulado) ---
   const footerController = {
     $root: null,
@@ -38,12 +483,14 @@
     $dock: null,
     $totals: null,
     $compareBtn: null,
+    $clearBtn: null,
     $alertOverlay: null,
     initialized: false,
 
     // Armazena referências às funções com 'this' vinculado para remoção segura
     boundRenderDock: null,
     boundCompareClick: null,
+    boundClearClick: null,
     boundDragOver: null,
     boundDrop: null,
     boundChipClick: null,
@@ -59,6 +506,9 @@
         LogHelper.log("[MyIO Footer] Already initialized, skipping");
         return;
       }
+
+      // Injeta o CSS primeiro
+      injectCSS();
 
       this.$root = ctx?.$container?.[0];
       this.ctx = ctx;
@@ -142,12 +592,14 @@
       // Busca os elementos dentro da section
       this.$dock = this.$footerEl.querySelector("#myioDock");
       this.$totals = this.$footerEl.querySelector("#myioTotals");
+      this.$clearBtn = this.$footerEl.querySelector("#myioClear");
       this.$compareBtn = this.$footerEl.querySelector("#myioCompare");
 
       LogHelper.log("[MyIO Footer] Found elements from ThingsBoard template:", {
         $footerEl: this.$footerEl,
         $dock: this.$dock,
         $totals: this.$totals,
+        $clearBtn: this.$clearBtn,
         $compareBtn: this.$compareBtn
       });
     },
@@ -284,14 +736,15 @@
       }
 
       // Atualiza totais e botão
-      const deviceText = count === 1 ? 'dispositivo' : 'dispositivos';
-      const newTotalsText = `${count} ${deviceText}`;
+      const itemText = count === 1 ? 'item' : 'itens';
+      const newTotalsText = `${count} ${itemText}`;
 
       LogHelper.log(`[MyIO Footer] Updating totals text to: "${newTotalsText}"`);
       this.$totals.textContent = newTotalsText;
       LogHelper.log("[MyIO Footer] Totals updated. Current text:", this.$totals.textContent);
 
       this.$compareBtn.disabled = count < 2;
+      this.$clearBtn.disabled = count === 0;
       LogHelper.log("[MyIO Footer] renderDock() completed");
     },
 
@@ -423,6 +876,7 @@
       // 1. Armazena funções vinculadas (para remoção correta)
       this.boundRenderDock = this.renderDock.bind(this);
       this.boundCompareClick = this.onCompareClick.bind(this);
+      this.boundClearClick = this.onClearClick.bind(this);
       this.boundDragOver = (e) => e.preventDefault();
       this.boundDrop = this.onDrop.bind(this);
       this.boundChipClick = this.onChipClick.bind(this);
@@ -455,6 +909,10 @@
       // 3. Ouve elementos do DOM interno
       if (this.$compareBtn) {
         this.$compareBtn.addEventListener("click", this.boundCompareClick);
+      }
+
+      if (this.$clearBtn) {
+        this.$clearBtn.addEventListener("click", this.boundClearClick);
       }
 
       // 4. Delegação de evento para cliques nos chips
@@ -491,6 +949,17 @@
       const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
       if (MyIOSelectionStore) {
         MyIOSelectionStore.openComparison();
+      }
+    },
+
+    /**
+     * Manipulador de clique para o botão "Clear" (limpar tudo)
+     */
+    onClearClick() {
+      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+      if (MyIOSelectionStore) {
+        LogHelper.log("[MyIO Footer] Clearing all selections");
+        MyIOSelectionStore.clear();
       }
     },
 
@@ -535,6 +1004,9 @@
       if (this.$compareBtn) {
         this.$compareBtn.removeEventListener("click", this.boundCompareClick);
       }
+      if (this.$clearBtn) {
+        this.$clearBtn.removeEventListener("click", this.boundClearClick);
+      }
       if (this.$dock) {
         this.$dock.removeEventListener("click", this.boundChipClick);
       }
@@ -553,6 +1025,7 @@
       this.$footerEl = null;
       this.$dock = null;
       this.$totals = null;
+      this.$clearBtn = null;
       this.$compareBtn = null;
     },
   };
