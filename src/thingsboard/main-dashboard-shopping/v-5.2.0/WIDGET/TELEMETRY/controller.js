@@ -1222,9 +1222,9 @@ self.onInit = async function () {
 
       // DEBUG: Log matching process for all items
       if (orchestratorValue !== undefined && orchestratorValue > 0) {
-        LogHelper.log(`[TELEMETRY] ✅ MATCH FOUND: ${tbItem.label} (ingestionId: ${tbItem.ingestionId}) = ${orchestratorValue}`);
+        //LogHelper.log(`[TELEMETRY] ✅ MATCH FOUND: ${tbItem.label} (ingestionId: ${tbItem.ingestionId}) = ${orchestratorValue}`);
       } else {
-        LogHelper.warn(`[TELEMETRY] ❌ NO MATCH: ${tbItem.label} (ingestionId: ${tbItem.ingestionId}), orchestrator=${orchestratorValue}, TB=${tbItem.value}`);
+        //LogHelper.warn(`[TELEMETRY] ❌ NO MATCH: ${tbItem.label} (ingestionId: ${tbItem.ingestionId}), orchestrator=${orchestratorValue}, TB=${tbItem.value}`);
       }
 
       return {

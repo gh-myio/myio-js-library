@@ -133,20 +133,42 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
         const customerTB_ID = self.ctx.settings?.customerTB_ID || "";
         const jwt = localStorage.getItem("jwt_token");
 
+        LogHelper.log("[MAIN_VIEW] 🔍 Credentials fetch starting...");
+        LogHelper.log("[MAIN_VIEW] customerTB_ID:", customerTB_ID ? customerTB_ID : "❌ NOT FOUND IN SETTINGS");
+        LogHelper.log("[MAIN_VIEW] jwt token:", jwt ? "✅ FOUND" : "❌ NOT FOUND IN localStorage");
+
         let CLIENT_ID = "";
         let CLIENT_SECRET = "";
         let CUSTOMER_ING_ID = "";
 
         if (customerTB_ID && jwt) {
           try {
+            LogHelper.log("[MAIN_VIEW] 📡 Fetching customer attributes from ThingsBoard...");
             // Fetch customer attributes
             const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
+
+            LogHelper.log("[MAIN_VIEW] 📦 Received attrs:", attrs);
+
             CLIENT_ID = attrs?.client_id || "";
             CLIENT_SECRET = attrs?.client_secret || "";
             CUSTOMER_ING_ID = attrs?.ingestionId || "";
+
+            LogHelper.log("[MAIN_VIEW] 🔑 Parsed credentials:");
+            LogHelper.log("[MAIN_VIEW]   CLIENT_ID:", CLIENT_ID ? "✅ " + CLIENT_ID : "❌ EMPTY");
+            LogHelper.log("[MAIN_VIEW]   CLIENT_SECRET:", CLIENT_SECRET ? "✅ " + CLIENT_SECRET.substring(0, 10) + "..." : "❌ EMPTY");
+            LogHelper.log("[MAIN_VIEW]   CUSTOMER_ING_ID:", CUSTOMER_ING_ID ? "✅ " + CUSTOMER_ING_ID : "❌ EMPTY");
           } catch (err) {
-            LogHelper.warn("[MAIN_VIEW] Failed to fetch customer attributes:", err);
+            LogHelper.error("[MAIN_VIEW] ❌ Failed to fetch customer attributes:", err);
+            LogHelper.error("[MAIN_VIEW] Error details:", {
+              message: err.message,
+              stack: err.stack,
+              name: err.name
+            });
           }
+        } else {
+          LogHelper.warn("[MAIN_VIEW] ⚠️ Cannot fetch credentials - missing required data:");
+          if (!customerTB_ID) LogHelper.warn("[MAIN_VIEW]   - customerTB_ID is missing from settings");
+          if (!jwt) LogHelper.warn("[MAIN_VIEW]   - JWT token is missing from localStorage");
         }
 
         // Check if credentials are present
@@ -156,7 +178,23 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
           // Don't return - let orchestrator be exposed even without credentials
         } else {
           // Set credentials in orchestrator (only if present)
+          LogHelper.log("[MAIN_VIEW] 🔐 Calling MyIOOrchestrator.setCredentials...");
+          LogHelper.log("[MAIN_VIEW] 🔐 Arguments:", {
+            customerId: CUSTOMER_ING_ID,
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET.substring(0, 10) + "..."
+          });
+
           MyIOOrchestrator.setCredentials(CUSTOMER_ING_ID, CLIENT_ID, CLIENT_SECRET);
+
+          LogHelper.log("[MAIN_VIEW] 🔐 setCredentials completed, verifying...");
+          // Verify credentials were set
+          const currentCreds = MyIOOrchestrator.getCredentials?.();
+          if (currentCreds) {
+            LogHelper.log("[MAIN_VIEW] ✅ Credentials verified in orchestrator:", currentCreds);
+          } else {
+            LogHelper.warn("[MAIN_VIEW] ⚠️ Orchestrator does not have getCredentials method");
+          }
 
           // Build auth and get token
           const myIOAuth = MyIO.buildMyioIngestionAuth({
@@ -665,6 +703,12 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   let CLIENT_ID = '';
   let CLIENT_SECRET = '';
 
+  // Credentials promise resolver for async wait
+  let credentialsResolver = null;
+  let credentialsPromise = new Promise(resolve => {
+    credentialsResolver = resolve;
+  });
+
   // Metrics
   const metrics = {
     hydrationTimes: [],
@@ -844,8 +888,36 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
   async function fetchAndEnrich(domain, period) {
     try {
+      LogHelper.log(`[Orchestrator] 🔍 fetchAndEnrich called for ${domain}`);
+
+      // Wait for credentials to be set (with timeout to prevent infinite wait)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Credentials timeout after 10s')), 10000)
+      );
+
+      try {
+        LogHelper.log(`[Orchestrator] ⏳ Waiting for credentials to be set...`);
+        await Promise.race([credentialsPromise, timeoutPromise]);
+        LogHelper.log(`[Orchestrator] ✅ Credentials available, proceeding with fetch`);
+      } catch (err) {
+        LogHelper.error(`[Orchestrator] ⚠️ Credentials timeout - ${err.message}`);
+        throw new Error('Credentials not available - initialization timeout');
+      }
+
+      // Log current credential state after waiting
+      LogHelper.log(`[Orchestrator] 🔍 Current credentials state:`, {
+        CLIENT_ID: CLIENT_ID || "❌ EMPTY",
+        CLIENT_SECRET_length: CLIENT_SECRET?.length || 0,
+        CUSTOMER_ING_ID: CUSTOMER_ING_ID || "❌ EMPTY"
+      });
+
       // Validate credentials exist
       if (!CLIENT_ID || !CLIENT_SECRET) {
+        LogHelper.error(`[Orchestrator] ❌ Credentials validation failed:`, {
+          CLIENT_ID: CLIENT_ID || "MISSING",
+          CLIENT_SECRET_exists: !!CLIENT_SECRET,
+          CUSTOMER_ING_ID: CUSTOMER_ING_ID || "MISSING"
+        });
         throw new Error('Missing CLIENT_ID or CLIENT_SECRET - credentials not configured');
       }
 
@@ -1215,9 +1287,35 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     getBusyState: () => ({ ...globalBusyState }),
 
     setCredentials: (customerId, clientId, clientSecret) => {
+      LogHelper.log(`[Orchestrator] 🔐 setCredentials called with:`, {
+        customerId,
+        clientId,
+        clientSecretLength: clientSecret?.length || 0
+      });
+
       CUSTOMER_ING_ID = customerId;
       CLIENT_ID = clientId;
       CLIENT_SECRET = clientSecret;
+
+      LogHelper.log(`[Orchestrator] ✅ Credentials set successfully:`, {
+        CUSTOMER_ING_ID,
+        CLIENT_ID,
+        CLIENT_SECRET_length: CLIENT_SECRET?.length || 0
+      });
+
+      // Resolve the promise to unblock waiting fetchAndEnrich calls
+      if (credentialsResolver) {
+        credentialsResolver();
+        LogHelper.log(`[Orchestrator] ✅ Credentials promise resolved - unblocking pending requests`);
+      }
+    },
+
+    getCredentials: () => {
+      return {
+        CUSTOMER_ING_ID,
+        CLIENT_ID,
+        CLIENT_SECRET_length: CLIENT_SECRET?.length || 0
+      };
     },
 
     destroy: () => {

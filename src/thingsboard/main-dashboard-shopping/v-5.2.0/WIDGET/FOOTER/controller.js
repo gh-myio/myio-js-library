@@ -9,19 +9,14 @@
    * Por simplicidade no exemplo, os ícones '•' e '×' são mantidos, mas estilizaremos para parecerem melhores.
    */
 
-  // CRITICAL DEBUG: Log immediately to confirm script is loaded
-  console.log('[FOOTER] 🔵 Script carregado em:', new Date().toISOString());
-  console.log('[FOOTER] self object:', typeof self);
-  console.log('[FOOTER] self.ctx:', !!self?.ctx);
-
   // Debug configuration
-  const DEBUG_ACTIVE = true;
+  const DEBUG_ACTIVE = false;
 
   // LogHelper utility
   const LogHelper = {
     log: function(...args) {
       if (DEBUG_ACTIVE) {
-        console.log(...args);
+        LogHelper.log(...args);
       }
     },
     warn: function(...args) {
@@ -537,20 +532,25 @@
     },
   };
 
+  // CRITICAL DEBUG: Log immediately to confirm script is loaded
+  LogHelper.log('[FOOTER] 🔵 Script carregado em:', new Date().toISOString());
+  LogHelper.log('[FOOTER] self object:', typeof self);
+  LogHelper.log('[FOOTER] self.ctx:', !!self?.ctx);
+
   // --- 4. Hooks do Ciclo de Vida do Widget ---
 
   self.onInit = function () {
-    console.log('[FOOTER] 🟢 onInit chamado!');
-    console.log('[FOOTER] self.ctx:', self.ctx);
-    console.log('[FOOTER] self.ctx.$container:', self.ctx?.$container);
-    console.log('[FOOTER] self.ctx.$container[0]:', self.ctx?.$container?.[0]);
-    console.log('[FOOTER] MyIOLibrary disponível:', !!window.MyIOLibrary);
-    console.log('[FOOTER] SelectionStore disponível:', !!(window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore));
+    LogHelper.log('[FOOTER] 🟢 onInit chamado!');
+    LogHelper.log('[FOOTER] self.ctx:', self.ctx);
+    LogHelper.log('[FOOTER] self.ctx.$container:', self.ctx?.$container);
+    LogHelper.log('[FOOTER] self.ctx.$container[0]:', self.ctx?.$container?.[0]);
+    LogHelper.log('[FOOTER] MyIOLibrary disponível:', !!window.MyIOLibrary);
+    LogHelper.log('[FOOTER] SelectionStore disponível:', !!(window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore));
 
     // Passa o contexto do widget (self.ctx) para o controlador
     try {
       footerController.init(self.ctx);
-      console.log('[FOOTER] ✅ Inicialização completa!');
+      LogHelper.log('[FOOTER] ✅ Inicialização completa!');
     } catch (error) {
       console.error('[FOOTER] ❌ Erro durante inicialização:', error);
       console.error('[FOOTER] Stack trace:', error.stack);
