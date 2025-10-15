@@ -59,14 +59,13 @@
     min-height: 75px;
 }
 
+
 #myio-root .myio-footer {
-    grid-area: footer;
-    background: var(--myio-panel);
-    border-top: 1px solid var(--myio-border);
-    padding: 0;
-    margin: 0;
-    min-height: 60px;
+  grid-area: footer;
+  min-height: 60px;
+  overflow: visible;
 }
+
 
 /* Aparência comum */
 #myio-root .myio-sidebar {
@@ -76,8 +75,7 @@
 /* Neutralizador de states internos */
 #myio-root .myio-sidebar .tb-child,
 #myio-root .myio-header .tb-child,
-#myio-root .myio-content .tb-child,
-#myio-root .myio-footer .tb-child {
+#myio-root .myio-content .tb-child {
     width: 100%;
     height: 100%;
     margin: 0 !important;
@@ -86,6 +84,16 @@
     align-items: stretch;
     justify-content: stretch;
     overflow: visible;
+}
+#myio-root .myio-footer .tb-child {
+      /* Remove o padding padrão do Gridster */
+  padding: 0 !important;
+
+  /* Aplica todo o estilo visual que estava no #myio-root .myio-footer */
+  background: linear-gradient(90deg, #121a2b, #1c2743);
+  border-top: 2px solid #00e09e;
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2);
+  
 }
 
 /* wrapper interno (nível 1 e 2) */
