@@ -3300,6 +3300,22 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     console.error('[WATER] DateRangePicker Failed to initialize:', error);
   });
 
+  // Função para pegar datas do picker
+  function getDates() {
+    if (dateRangePicker && dateRangePicker.getDates) {
+      const result = dateRangePicker.getDates();
+      return {
+        startDate: result.startISO,
+        endDate: result.endISO
+      };
+    }
+    // Fallback to current scope values
+    return {
+      startDate: self.ctx.$scope.startTs || new Date().toISOString(),
+      endDate: self.ctx.$scope.endTs || new Date().toISOString()
+    };
+  }
+
   // Evento do botão de load
   $(".load-button")
     .off("click")
