@@ -737,7 +737,7 @@
 
       // Atualiza totais e botão
       const itemText = count === 1 ? 'item' : 'itens';
-      const newTotalsText = `${count} ${itemText}`;
+      const newTotalsText = `${count} ${itemText} (${totals})`;
 
       LogHelper.log(`[MyIO Footer] Updating totals text to: "${newTotalsText}"`);
       this.$totals.textContent = newTotalsText;
