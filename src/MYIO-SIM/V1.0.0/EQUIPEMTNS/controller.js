@@ -678,8 +678,9 @@ function initializeCards(devices) {
 }
 
 self.onInit = async function () {
-  // -- util: aplica no $scope e roda digest
-  function applyParams(p) {
+    setTimeout(async () => {
+ // -- util: aplica no $scope e roda digest
+ function applyParams(p) {
     self.ctx.$scope.startDateISO = p?.globalStartDateFilter || null;
     self.ctx.$scope.endDateISO = p?.globalEndDateFilter || null;
     if (self.ctx?.$scope?.$applyAsync) self.ctx.$scope.$applyAsync();
@@ -824,101 +825,7 @@ self.onInit = async function () {
 
   // Show loading overlay initially
   showLoadingOverlay(true);
-
-  // ===== EQUIPMENTS: Listen for energy cache from MAIN orchestrator =====
-  let energyCacheFromMain = null;
-
-  window.addEventListener('myio:energy-data-ready', (ev) => {
-    console.log("[EQUIPMENTS] Received energy data from orchestrator:", ev.detail);
-    energyCacheFromMain = ev.detail.cache;
-
-    // Re-render cards with updated consumption data
-    if (energyCacheFromMain) {
-      enrichDevicesWithConsumption();
-    }
-  });
-
-  // Helper function to enrich devices with consumption from cache
-  function enrichDevicesWithConsumption() {
-    if (!energyCacheFromMain) {
-      console.warn("[EQUIPMENTS] No energy cache available yet");
-      return;
-    }
-
-    console.log("[EQUIPMENTS] Enriching devices with consumption from cache...");
-
-    // Iterate through devices and add consumption from cache
-    Object.entries(devices).forEach(([entityId, device]) => {
-      // Find ingestionId for this device
-      const ingestionIdItem = device.values.find(v => v.dataType === "ingestionId");
-      if (ingestionIdItem && ingestionIdItem.value) {
-        const ingestionId = ingestionIdItem.value;
-        const cached = energyCacheFromMain.get(ingestionId);
-
-        if (cached) {
-          // Remove old consumption data if exists
-          const consumptionIndex = device.values.findIndex(v => v.dataType === "total_consumption");
-          if (consumptionIndex >= 0) {
-            device.values[consumptionIndex] = {
-              val: cached.total_value,
-              ts: cached.timestamp,
-              dataType: "total_consumption",
-            };
-          } else {
-            device.values.push({
-              val: cached.total_value,
-              ts: cached.timestamp,
-              dataType: "total_consumption",
-            });
-          }
-        }
-      }
-    });
-
-    // Re-render cards and hide loading
-    renderDeviceCards().then(() => {
-      showLoadingOverlay(false);
-    });
-  }
-
-  // Wait for initial energy cache from MAIN
-  const waitForEnergyCache = new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      console.warn("[EQUIPMENTS] Timeout waiting for energy cache, proceeding without it");
-      showLoadingOverlay(false); // Hide loading on timeout
-      resolve(null);
-    }, 10000); // 10 second timeout
-
-    const handler = (ev) => {
-      clearTimeout(timeout);
-      window.removeEventListener('myio:energy-data-ready', handler);
-      energyCacheFromMain = ev.detail.cache;
-      console.log("[EQUIPMENTS] Initial energy cache received:", energyCacheFromMain.size, "devices");
-      resolve(energyCacheFromMain);
-    };
-
-    window.addEventListener('myio:energy-data-ready', handler);
-  });
-
-  // Wait for energy cache before rendering
-  const initialCache = await waitForEnergyCache;
-
-  if (initialCache) {
-    // Add consumption data from cache to devices
-    initialCache.forEach((cached, ingestionId) => {
-      const entityId = ingestionIdToEntityIdMap.get(ingestionId);
-      if (entityId && devices[entityId]) {
-        devices[entityId].values.push({
-          val: cached.total_value,
-          ts: cached.timestamp,
-          dataType: "total_consumption",
-        });
-      }
-    });
-  }
-
-  // Helper function to render device cards
-  async function renderDeviceCards() {
+   async function renderDeviceCards() {
     const promisesDeCards = Object.entries(devices)
       .filter(([entityId, device]) =>
         device.values.some((valor) => valor.dataType === "total_consumption")
@@ -1014,17 +921,126 @@ self.onInit = async function () {
     showLoadingOverlay(false);
   }
 
-  // Helper para encontrar um valor específico no array 'values' de cada device
-  const findValue = (values, dataType, defaultValue = "N/D") => {
+    function enrichDevicesWithConsumption() {
+    if (!energyCacheFromMain) {
+      console.warn("[EQUIPMENTS] No energy cache available yet");
+      return;
+    }
+
+    console.log("[EQUIPMENTS] Enriching devices with consumption from cache...");
+
+    // Iterate through devices and add consumption from cache
+    Object.entries(devices).forEach(([entityId, device]) => {
+      // Find ingestionId for this device
+      const ingestionIdItem = device.values.find(v => v.dataType === "ingestionId");
+      if (ingestionIdItem && ingestionIdItem.value) {
+        const ingestionId = ingestionIdItem.value;
+        const cached = energyCacheFromMain.get(ingestionId);
+
+        if (cached) {
+          // Remove old consumption data if exists
+          const consumptionIndex = device.values.findIndex(v => v.dataType === "total_consumption");
+          if (consumptionIndex >= 0) {
+            device.values[consumptionIndex] = {
+              val: cached.total_value,
+              ts: cached.timestamp,
+              dataType: "total_consumption",
+            };
+          } else {
+            device.values.push({
+              val: cached.total_value,
+              ts: cached.timestamp,
+              dataType: "total_consumption",
+            });
+          }
+        }
+      }
+    });
+
+    // Re-render cards and hide loading
+    renderDeviceCards().then(() => {
+      showLoadingOverlay(false);
+    });
+  }
+
+    const findValue = (values, dataType, defaultValue = "N/D") => {
     const item = values.find((v) => v.dataType === dataType);
     if (!item) return defaultValue;
     // Retorna a propriedade 'val' (da nossa API) ou 'value' (do ThingsBoard)
     return item.val !== undefined ? item.val : item.value;
   };
 
-  // Render initial cards with energy data from cache
-  await renderDeviceCards();
+  async function waitForOrchestrator(timeoutMs = 15000) {
+  return new Promise((resolve) => {
+    let interval;
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      console.error("[EQUIPMENTS] Timeout: MyIOOrchestrator não foi encontrado na window.");
+      resolve(null);
+    }, timeoutMs);
 
+    interval = setInterval(() => {
+      if (window.parent && window.parent.MyIOOrchestrator) {
+        clearTimeout(timeout);
+        clearInterval(interval);
+        console.log("[EQUIPMENTS] MyIOOrchestrator encontrado!");
+        resolve(window.parent.MyIOOrchestrator);
+      }
+    }, 100); // Verifica a cada 100ms
+  });
+}
+
+
+  // ===== EQUIPMENTS: Listen for energy cache from MAIN orchestrator =====
+     let energyCacheFromMain = null;
+
+    // Função para processar os dados recebidos e renderizar
+    async function processAndRender(cache) {
+      if (!cache || cache.size === 0) {
+        console.warn("[EQUIPMENTS] Cache de energia está vazio. Nenhum card será renderizado.");
+        showLoadingOverlay(false);
+        return;
+      }
+      
+      energyCacheFromMain = cache;
+      enrichDevicesWithConsumption(); // A sua função original é chamada aqui
+      await renderDeviceCards();      // E a sua outra função original é chamada aqui
+    }
+
+    // Lógica principal: "verificar-depois-ouvir"
+const orchestrator = await waitForOrchestrator();
+
+if (orchestrator) {
+  const existingCache = orchestrator.getCache();
+
+  if (existingCache && existingCache.size > 0) {
+    // CAMINHO 1: (Navegação de volta)
+    console.log("[EQUIPMENTS] Cache do Orquestrador já existe. Usando-o diretamente.");
+    await processAndRender(existingCache);
+  } else {
+    // CAMINHO 2: (Primeiro carregamento)
+    console.log("[EQUIPMENTS] Cache vazio. Aguardando evento 'myio:energy-data-ready'...");
+    const waitForEnergyCache = new Promise((resolve) => {
+      const handlerTimeout = setTimeout(() => {
+        console.warn("[EQUIPMENTS] Timeout esperando pelo evento de cache.");
+        resolve(null);
+      }, 15000);
+
+      const handler = (ev) => {
+        clearTimeout(handlerTimeout);
+        window.removeEventListener('myio:energy-data-ready', handler);
+        resolve(ev.detail.cache);
+      };
+      window.addEventListener('myio:energy-data-ready', handler);
+    });
+    
+    const initialCache = await waitForEnergyCache;
+    await processAndRender(initialCache);
+  }
+} else {
+  // O erro do timeout já terá sido logado pela função 'waitForOrchestrator'
+  showLoadingOverlay(false);
+}
   // ZOOM de fontes — agora usando o WRAP como root das variáveis
   const wrap = document.getElementById("equipWrap");
   const key = `tb-font-scale:${ctx?.widget?.id || "equip"}`;
@@ -1045,6 +1061,7 @@ self.onInit = async function () {
   document
     .getElementById("fontPlus")
     ?.addEventListener("click", () => setScale(getScale() + 0.06));
+    }, 0)
 };
 
 self.onDestroy = function () {

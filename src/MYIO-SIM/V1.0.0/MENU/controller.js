@@ -11,129 +11,142 @@ let _dataRefreshCount = 0;
 const MAX_DATA_REFRESHES = 1;
 
 function publishSwitch(targetStateId) {
-    const detail = { targetStateId, source: "menu_v_1_0_0", ts: Date.now() };
-    window.dispatchEvent(new CustomEvent(EVT_SWITCH, { detail }));
-    // console.log("[menu] switch ->", detail);
+  const detail = { targetStateId, source: "menu_v_1_0_0", ts: Date.now() };
+  window.dispatchEvent(new CustomEvent(EVT_SWITCH, { detail }));
+  // console.log("[menu] switch ->", detail);
 }
 
 function setActiveTab(btn, root) {
-    root
-        .querySelectorAll(".tab.is-active")
-        .forEach((b) => b.classList.remove("is-active"));
-    btn.classList.add("is-active");
+  root
+    .querySelectorAll(".tab.is-active")
+    .forEach((b) => b.classList.remove("is-active"));
+  btn.classList.add("is-active");
 }
 
 function bindTabs(root) {
-    if (root._tabsBound) return;
+  if (root._tabsBound) return;
 
-    root._tabsBound = true;
+  root._tabsBound = true;
 
-    root.addEventListener("click", (ev) => {
-        const tab = ev.target.closest?.(".tab");
+  root.addEventListener("click", (ev) => {
+    const tab = ev.target.closest?.(".tab");
 
-        if (tab && root.contains(tab)) {
-            const target = tab.getAttribute("data-target");
+    if (tab && root.contains(tab)) {
+      const target = tab.getAttribute("data-target");
 
-            if (target) {
-                setActiveTab(tab, root);
-                publishSwitch(target);
-            }
-        }
-    });
-
-    const initial =
-        root.querySelector(".tab.is-active") || root.querySelector(".tab");
-
-    if (initial) {
-        publishSwitch(initial.getAttribute("data-target"));
+      if (target) {
+        setActiveTab(tab, root);
+        publishSwitch(target);
+      }
     }
+  });
+
+  const initial =
+    root.querySelector(".tab.is-active") || root.querySelector(".tab");
+
+  if (initial) {
+    publishSwitch(initial.getAttribute("data-target"));
+  }
 }
 
 /* ====== mock ====== */
 const FILTER_DATA = [
-    { id: "A", name: "Shopping A", floors: 2 },
-    { id: "B", name: "Shopping B", floors: 1 },
-    { id: "C", name: "Shopping C", floors: 1 },
+  { id: "A", name: "Shopping A", floors: 2 },
+  { id: "B", name: "Shopping B", floors: 1 },
+  { id: "C", name: "Shopping C", floors: 1 },
 ];
 
 function injectModalGlobal() {
-    // ==== Config & helpers ====================================================
-    const PRESET_KEY = "myio_dashboard_filter_presets_v1";
-    // Estado global (compartilhado entre aberturas)
-    if (!window.myioFilterSel) {
-        window.myioFilterSel = { malls: [], floors: [], places: [] };
+  // ==== Config & helpers ====================================================
+  const PRESET_KEY = "myio_dashboard_filter_presets_v1";
+  // Estado global (compartilhado entre aberturas)
+  if (!window.myioFilterSel) {
+    window.myioFilterSel = { malls: [], floors: [], places: [] };
+  }
+  if (!window.myioFilterQuery) {
+    window.myioFilterQuery = "";
+  }
+  if (!window.myioFilterPresets) {
+    try {
+      window.myioFilterPresets = JSON.parse(
+        localStorage.getItem(PRESET_KEY) || "[]"
+      );
+    } catch {
+      window.myioFilterPresets = [];
     }
-    if (!window.myioFilterQuery) {
-        window.myioFilterQuery = "";
-    }
-    if (!window.myioFilterPresets) {
-        try {
-            window.myioFilterPresets = JSON.parse(localStorage.getItem(PRESET_KEY) || "[]");
-        } catch {
-            window.myioFilterPresets = [];
-        }
-    }
+  }
 
-    // Fonte de dados: preferir window.mallsTree (formato do original)
-    // Se não existir, converte um FILTER_DATA simples em uma árvore mínima.
-    function getTree() {
-        if (Array.isArray(window.mallsTree) && window.mallsTree.length) {
-            return window.mallsTree;
-        }
-        // fallback a partir de FILTER_DATA = [{id,name,floors:n}]
-        if (Array.isArray(window.FILTER_DATA) && window.FILTER_DATA.length) {
-            return window.FILTER_DATA.map(m => {
-                const mallId = m.id || crypto.randomUUID();
-                const floors = Array.from({ length: Number(m.floors || 1) }).map((_, i) => {
-                    const floorId = `${mallId}-F${i + 1}`;
-                    // sem places reais, colocamos 0..2 mockados
-                    const places = Array.from({ length: 3 }).map((__, k) => ({
-                        id: `${floorId}-P${k + 1}`,
-                        name: `Loja ${k + 1}`
-                    }));
-                    return { id: floorId, name: `Piso ${i + 1}`, children: places };
-                });
-                return { id: mallId, name: m.name || `Shopping ${mallId}`, children: floors };
-            });
-        }
-        // último fallback vazio
-        return [];
+  // Fonte de dados: preferir window.mallsTree (formato do original)
+  // Se não existir, converte um FILTER_DATA simples em uma árvore mínima.
+  function getTree() {
+    if (Array.isArray(window.mallsTree) && window.mallsTree.length) {
+      return window.mallsTree;
     }
-
-    const mallsTree = getTree();
-
-    // Flatten para mapa id->nome (chips)
-    function flatten(tree) {
-        const list = [];
-        for (const mall of tree) {
-            list.push({ id: mall.id, name: mall.name });
-            for (const fl of mall.children || []) {
-                list.push({ id: fl.id, name: fl.name });
-                for (const pl of fl.children || []) list.push({ id: pl.id, name: pl.name });
-            }
-        }
-        return list;
+    // fallback a partir de FILTER_DATA = [{id,name,floors:n}]
+    if (Array.isArray(window.FILTER_DATA) && window.FILTER_DATA.length) {
+      return window.FILTER_DATA.map((m) => {
+        const mallId = m.id || crypto.randomUUID();
+        const floors = Array.from({ length: Number(m.floors || 1) }).map(
+          (_, i) => {
+            const floorId = `${mallId}-F${i + 1}`;
+            // sem places reais, colocamos 0..2 mockados
+            const places = Array.from({ length: 3 }).map((__, k) => ({
+              id: `${floorId}-P${k + 1}`,
+              name: `Loja ${k + 1}`,
+            }));
+            return { id: floorId, name: `Piso ${i + 1}`, children: places };
+          }
+        );
+        return {
+          id: mallId,
+          name: m.name || `Shopping ${mallId}`,
+          children: floors,
+        };
+      });
     }
+    // último fallback vazio
+    return [];
+  }
 
-    function nodeMatchesQuery(nodeName, q) {
-        if (!q) return true;
-        return nodeName.toLowerCase().includes(q.toLowerCase());
+  const mallsTree = getTree();
+
+  // Flatten para mapa id->nome (chips)
+  function flatten(tree) {
+    const list = [];
+    for (const mall of tree) {
+      list.push({ id: mall.id, name: mall.name });
+      for (const fl of mall.children || []) {
+        list.push({ id: fl.id, name: fl.name });
+        for (const pl of fl.children || [])
+          list.push({ id: pl.id, name: pl.name });
+      }
     }
+    return list;
+  }
 
-    function toggle(arr, val) {
-        return arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val];
-    }
+  function nodeMatchesQuery(nodeName, q) {
+    if (!q) return true;
+    return nodeName.toLowerCase().includes(q.toLowerCase());
+  }
 
-    function countSelected(sel) {
-        return (sel.malls?.length || 0) + (sel.floors?.length || 0) + (sel.places?.length || 0);
-    }
+  function toggle(arr, val) {
+    return arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
+  }
 
-    // ==== Construção do container (uma única vez) =============================
-    let container = document.getElementById("modalGlobal");
-    if (!container) {
-        container = document.createElement("div");
-        container.id = "modalGlobal";
-        container.innerHTML = `
+  function countSelected(sel) {
+    return (
+      (sel.malls?.length || 0) +
+      (sel.floors?.length || 0) +
+      (sel.places?.length || 0)
+    );
+  }
+
+  // ==== Construção do container (uma única vez) =============================
+  let container = document.getElementById("modalGlobal");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "modalGlobal";
+    container.innerHTML = `
       <style>
         .myio-modal {
           position: fixed; inset: 0; display: flex; justify-content: center; align-items: center;
@@ -267,476 +280,510 @@ function injectModalGlobal() {
         </div>
       </div>
     `;
-        document.body.appendChild(container);
+    document.body.appendChild(container);
 
-        // listeners globais de fechar
-        container.querySelectorAll('[data-close]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                container.querySelector(".myio-modal").setAttribute("aria-hidden", "true");
-            });
-        });
-    }
+    // listeners globais de fechar
+    container.querySelectorAll("[data-close]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        container
+          .querySelector(".myio-modal")
+          .setAttribute("aria-hidden", "true");
+      });
+    });
+  }
 
-    // ==== Referências do DOM ==================================================
-    const modal = container.querySelector(".myio-modal");
-    const elSearch = container.querySelector("#fltSearch");
-    const elList = container.querySelector("#fltList");
-    const elClear = container.querySelector("#fltClear");
-    const elSave = container.querySelector("#fltSave");
-    const elApply = container.querySelector("#fltApply");
-    const elChips = container.querySelector("#fltChips");
-    const elPresets = container.querySelector("#fltPresets");
-    const elCount = container.querySelector("#fltCount");
+  // ==== Referências do DOM ==================================================
+  const modal = container.querySelector(".myio-modal");
+  const elSearch = container.querySelector("#fltSearch");
+  const elList = container.querySelector("#fltList");
+  const elClear = container.querySelector("#fltClear");
+  const elSave = container.querySelector("#fltSave");
+  const elApply = container.querySelector("#fltApply");
+  const elChips = container.querySelector("#fltChips");
+  const elPresets = container.querySelector("#fltPresets");
+  const elCount = container.querySelector("#fltCount");
 
-    // ==== Render helpers ======================================================
-    const flatMap = new Map(flatten(mallsTree).map(n => [n.id, n.name]));
+  // ==== Render helpers ======================================================
+  const flatMap = new Map(flatten(mallsTree).map((n) => [n.id, n.name]));
 
-    function isMallChecked(sel, mallId) {
-        return sel.malls.includes(mallId);
-    }
-    function isFloorChecked(sel, floorId) {
-        return sel.floors.includes(floorId);
-    }
-    function isPlaceChecked(sel, placeId) {
-        return sel.places.includes(placeId);
-    }
+  function isMallChecked(sel, mallId) {
+    return sel.malls.includes(mallId);
+  }
+  function isFloorChecked(sel, floorId) {
+    return sel.floors.includes(floorId);
+  }
+  function isPlaceChecked(sel, placeId) {
+    return sel.places.includes(placeId);
+  }
 
-    function renderCount() {
-        const c = countSelected(window.myioFilterSel);
-        elCount.textContent = `${c} selecionado${c === 1 ? "" : "s"}`;
-    }
+  function renderCount() {
+    const c = countSelected(window.myioFilterSel);
+    elCount.textContent = `${c} selecionado${c === 1 ? "" : "s"}`;
+  }
 
-    function renderChips() {
-        elChips.innerHTML = "";
-        const chips = [
-            ...window.myioFilterSel.malls.map(id => ({ id, label: flatMap.get(id) })),
-            ...window.myioFilterSel.floors.map(id => ({ id, label: flatMap.get(id) })),
-            ...window.myioFilterSel.places.map(id => ({ id, label: flatMap.get(id) })),
-        ].filter(c => !!c.label);
+  function renderChips() {
+    elChips.innerHTML = "";
+    const chips = [
+      ...window.myioFilterSel.malls.map((id) => ({
+        id,
+        label: flatMap.get(id),
+      })),
+      ...window.myioFilterSel.floors.map((id) => ({
+        id,
+        label: flatMap.get(id),
+      })),
+      ...window.myioFilterSel.places.map((id) => ({
+        id,
+        label: flatMap.get(id),
+      })),
+    ].filter((c) => !!c.label);
 
-        for (const c of chips) {
-            const chip = document.createElement("span");
-            chip.className = "chip";
-            chip.innerHTML = `
+    for (const c of chips) {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.innerHTML = `
         <span>${c.label}</span>
         <button class="rm" title="Remover" aria-label="Remover seleção">×</button>
       `;
-            chip.querySelector(".rm").addEventListener("click", () => {
-                window.myioFilterSel = {
-                    malls: window.myioFilterSel.malls.filter(x => x !== c.id),
-                    floors: window.myioFilterSel.floors.filter(x => x !== c.id),
-                    places: window.myioFilterSel.places.filter(x => x !== c.id),
-                };
-                renderAll();
-            });
-            elChips.appendChild(chip);
-        }
+      chip.querySelector(".rm").addEventListener("click", () => {
+        window.myioFilterSel = {
+          malls: window.myioFilterSel.malls.filter((x) => x !== c.id),
+          floors: window.myioFilterSel.floors.filter((x) => x !== c.id),
+          places: window.myioFilterSel.places.filter((x) => x !== c.id),
+        };
+        renderAll();
+      });
+      elChips.appendChild(chip);
     }
+  }
 
-    function renderTree() {
-        const q = window.myioFilterQuery || "";
-        elList.innerHTML = "";
+  function renderTree() {
+    const q = window.myioFilterQuery || "";
+    elList.innerHTML = "";
 
-        mallsTree.forEach(mall => {
-            // floor & place ids
-            const floorIds = (mall.children || []).map(f => f.id);
-            const placeIds = (mall.children || []).flatMap(f => (f.children || []).map(p => p.id));
+    mallsTree.forEach((mall) => {
+      // floor & place ids
+      const floorIds = (mall.children || []).map((f) => f.id);
+      const placeIds = (mall.children || []).flatMap((f) =>
+        (f.children || []).map((p) => p.id)
+      );
 
-            // decide se mall aparece pelos filtros
-            const mallMatch = nodeMatchesQuery(mall.name, q);
-            // container do mall
-            const mallCard = document.createElement("div");
-            mallCard.className = "mall-card";
-            mallCard.innerHTML = `
+      // decide se mall aparece pelos filtros
+      const mallMatch = nodeMatchesQuery(mall.name, q);
+      // container do mall
+      const mallCard = document.createElement("div");
+      mallCard.className = "mall-card";
+      mallCard.innerHTML = `
         <label class="mall-head">
-          <input type="checkbox" ${isMallChecked(window.myioFilterSel, mall.id) ? "checked" : ""} />
+          <input type="checkbox" ${
+            isMallChecked(window.myioFilterSel, mall.id) ? "checked" : ""
+          } />
           <span class="font-medium">${mall.name}</span>
-          <span class="badge" style="margin-left:6px">${(mall.children || []).length} pisos</span>
+          <span class="badge" style="margin-left:6px">${
+            (mall.children || []).length
+          } pisos</span>
         </label>
         <div class="sub"></div>
       `;
-            const mallCheck = mallCard.querySelector("input");
-            const mallSub = mallCard.querySelector(".sub");
+      const mallCheck = mallCard.querySelector("input");
+      const mallSub = mallCard.querySelector(".sub");
 
-            // click no mall: seleciona/deseleciona mall + floors + places
-            mallCheck.addEventListener("change", () => {
-                const checked = mallCheck.checked;
-                window.myioFilterSel = {
-                    malls: checked
-                        ? [...new Set([...window.myioFilterSel.malls, mall.id])]
-                        : window.myioFilterSel.malls.filter(id => id !== mall.id),
-                    floors: checked
-                        ? [...new Set([...window.myioFilterSel.floors, ...floorIds])]
-                        : window.myioFilterSel.floors.filter(id => !floorIds.includes(id)),
-                    places: checked
-                        ? [...new Set([...window.myioFilterSel.places, ...placeIds])]
-                        : window.myioFilterSel.places.filter(id => !placeIds.includes(id)),
-                };
-                renderAll();
-            });
+      // click no mall: seleciona/deseleciona mall + floors + places
+      mallCheck.addEventListener("change", () => {
+        const checked = mallCheck.checked;
+        window.myioFilterSel = {
+          malls: checked
+            ? [...new Set([...window.myioFilterSel.malls, mall.id])]
+            : window.myioFilterSel.malls.filter((id) => id !== mall.id),
+          floors: checked
+            ? [...new Set([...window.myioFilterSel.floors, ...floorIds])]
+            : window.myioFilterSel.floors.filter(
+                (id) => !floorIds.includes(id)
+              ),
+          places: checked
+            ? [...new Set([...window.myioFilterSel.places, ...placeIds])]
+            : window.myioFilterSel.places.filter(
+                (id) => !placeIds.includes(id)
+              ),
+        };
+        renderAll();
+      });
 
-            // floors
-            (mall.children || [])
-                .filter(fl => {
-                    const floorMatch = nodeMatchesQuery(fl.name, q);
-                    const hasPlaceMatch = (fl.children || []).some(p => nodeMatchesQuery(p.name, q));
-                    // Exibe o floor se: mall já bateu OU floor bate OR alguma loja bate
-                    return mallMatch || floorMatch || hasPlaceMatch;
-                })
-                .forEach(fl => {
-                    const floorCard = document.createElement("div");
-                    floorCard.className = "floor-card";
-                    floorCard.innerHTML = `
+      // floors
+      (mall.children || [])
+        .filter((fl) => {
+          const floorMatch = nodeMatchesQuery(fl.name, q);
+          const hasPlaceMatch = (fl.children || []).some((p) =>
+            nodeMatchesQuery(p.name, q)
+          );
+          // Exibe o floor se: mall já bateu OU floor bate OR alguma loja bate
+          return mallMatch || floorMatch || hasPlaceMatch;
+        })
+        .forEach((fl) => {
+          const floorCard = document.createElement("div");
+          floorCard.className = "floor-card";
+          floorCard.innerHTML = `
             <label class="floor-head">
-              <input type="checkbox" ${isFloorChecked(window.myioFilterSel, fl.id) ? "checked" : ""} />
+              <input type="checkbox" ${
+                isFloorChecked(window.myioFilterSel, fl.id) ? "checked" : ""
+              } />
               <span>${fl.name}</span>
-              <span class="badge" style="margin-left:6px">${(fl.children || []).length} ambientes</span>
+              <span class="badge" style="margin-left:6px">${
+                (fl.children || []).length
+              } ambientes</span>
             </label>
             <div class="places"></div>
           `;
-                    const floorCheck = floorCard.querySelector("input");
-                    const placesBox = floorCard.querySelector(".places");
+          const floorCheck = floorCard.querySelector("input");
+          const placesBox = floorCard.querySelector(".places");
 
-                    floorCheck.addEventListener("change", () => {
-                        const checked = floorCheck.checked;
-                        const thisPlaceIds = (fl.children || []).map(p => p.id);
-                        window.myioFilterSel = {
-                            malls: checked
-                                ? [...new Set([...window.myioFilterSel.malls, mall.id])]
-                                : window.myioFilterSel.malls, // não removemos o mall automaticamente (outros floors podem continuar)
-                            floors: toggle(window.myioFilterSel.floors, fl.id),
-                            places: checked
-                                ? [...new Set([...window.myioFilterSel.places, ...thisPlaceIds])]
-                                : window.myioFilterSel.places.filter(id => !thisPlaceIds.includes(id)),
-                        };
-                        renderAll();
-                    });
+          floorCheck.addEventListener("change", () => {
+            const checked = floorCheck.checked;
+            const thisPlaceIds = (fl.children || []).map((p) => p.id);
+            window.myioFilterSel = {
+              malls: checked
+                ? [...new Set([...window.myioFilterSel.malls, mall.id])]
+                : window.myioFilterSel.malls, // não removemos o mall automaticamente (outros floors podem continuar)
+              floors: toggle(window.myioFilterSel.floors, fl.id),
+              places: checked
+                ? [
+                    ...new Set([
+                      ...window.myioFilterSel.places,
+                      ...thisPlaceIds,
+                    ]),
+                  ]
+                : window.myioFilterSel.places.filter(
+                    (id) => !thisPlaceIds.includes(id)
+                  ),
+            };
+            renderAll();
+          });
 
-                    (fl.children || [])
-                        .filter(p => {
-                            const pmatch = nodeMatchesQuery(p.name, q);
-                            // Exibe place se qualquer nó ancestral/ele mesmo bate
-                            return mallMatch || nodeMatchesQuery(fl.name, q) || pmatch;
-                        })
-                        .forEach(p => {
-                            const li = document.createElement("label");
-                            li.className = "place-item";
-                            li.innerHTML = `
-                <input type="checkbox" ${isPlaceChecked(window.myioFilterSel, p.id) ? "checked" : ""} />
+          (fl.children || [])
+            .filter((p) => {
+              const pmatch = nodeMatchesQuery(p.name, q);
+              // Exibe place se qualquer nó ancestral/ele mesmo bate
+              return mallMatch || nodeMatchesQuery(fl.name, q) || pmatch;
+            })
+            .forEach((p) => {
+              const li = document.createElement("label");
+              li.className = "place-item";
+              li.innerHTML = `
+                <input type="checkbox" ${
+                  isPlaceChecked(window.myioFilterSel, p.id) ? "checked" : ""
+                } />
                 <span class="text-sm">${p.name}</span>
               `;
-                            const chk = li.querySelector("input");
-                            chk.addEventListener("change", () => {
-                                const checked = chk.checked;
-                                window.myioFilterSel = {
-                                    malls: checked
-                                        ? [...new Set([...window.myioFilterSel.malls, mall.id])]
-                                        : window.myioFilterSel.malls,
-                                    floors: checked
-                                        ? [...new Set([...window.myioFilterSel.floors, fl.id])]
-                                        : window.myioFilterSel.floors,
-                                    places: toggle(window.myioFilterSel.places, p.id),
-                                };
-                                renderAll();
-                            });
-                            placesBox.appendChild(li);
-                        });
-
-                    mallSub.appendChild(floorCard);
-                });
-
-            // Só adiciona o mallCard se ele próprio ou seus filhos batem a busca
-            if (
-                mallMatch ||
-                mallSub.children.length > 0
-            ) {
-                elList.appendChild(mallCard);
-            }
-        });
-        if (!window.custumersSelected) window.custumersSelected = [];
-
-        if (!elList.children.length) {
-            if (Array.isArray(self.ctx.$scope.custumer) && self.ctx.$scope.custumer.length) {
-                elList.style.textAlign = "left";
-
-                self.ctx.$scope.custumer.forEach(c => {
-                    const item = document.createElement("button");
-                    item.className = "custumers";
-
-                    // armazenar o dado no próprio botão
-                    item.custumerData = c;
-
-                    // quadrado à esquerda
-                    const box = document.createElement("div");
-                    box.className = "checkbox";
-                    item.appendChild(box);
-
-                    // texto do cliente
-                    const text = document.createElement("span");
-                    text.textContent = c.name;
-                    item.appendChild(text);
-                    window.custumersSelected = [];
-                    // clique para selecionar/deselecionar
-                    item.addEventListener("click", () => {
-                        const isSelected = item.classList.toggle("selected");
-                        if (isSelected) {
-                            window.custumersSelected.push(c); // adiciona ao array
-                        } else {
-                            window.custumersSelected = window.custumersSelected.filter(x => x !== c);
-                        }
-                        // console.log("Selecionados:", window.custumersSelected);
-                    });
-                    self.ctx.filterCustom = window.custumersSelected
-                    elList.appendChild(item);
-                });
-            } else {
-                const empty = document.createElement("div");
-                empty.style.color = "#6b7280";
-                empty.style.fontSize = "14px";
-                empty.style.textAlign = "left";
-                empty.textContent = "Nenhum resultado encontrado para o filtro atual.";
-                elList.appendChild(empty);
-            }
-        }
-
-    }
-
-    function renderPresets() {
-        elPresets.innerHTML = "";
-        const presets = window.myioFilterPresets || [];
-        if (!presets.length) {
-            const empty = document.createElement("div");
-            empty.style.color = "#6b7280";
-            empty.style.fontSize = "12px";
-            empty.textContent = "Nenhum preset salvo ainda.";
-            elPresets.appendChild(empty);
-            return;
-        }
-        presets.slice(0, 12).forEach(p => {
-            const row = document.createElement("div");
-            row.className = "preset-item";
-            const btnApply = document.createElement("button");
-            btnApply.textContent = p.name;
-            btnApply.title = "Aplicar preset";
-            btnApply.style.textDecoration = "underline";
-
-            const btnDel = document.createElement("button");
-            btnDel.innerHTML = "🗑️";
-            btnDel.title = "Excluir preset";
-
-            btnApply.addEventListener("click", () => {
-                // aplica seleção do preset
+              const chk = li.querySelector("input");
+              chk.addEventListener("change", () => {
+                const checked = chk.checked;
                 window.myioFilterSel = {
-                    malls: [...(p.selection?.malls || [])],
-                    floors: [...(p.selection?.floors || [])],
-                    places: [...(p.selection?.places || [])],
+                  malls: checked
+                    ? [...new Set([...window.myioFilterSel.malls, mall.id])]
+                    : window.myioFilterSel.malls,
+                  floors: checked
+                    ? [...new Set([...window.myioFilterSel.floors, fl.id])]
+                    : window.myioFilterSel.floors,
+                  places: toggle(window.myioFilterSel.places, p.id),
                 };
                 renderAll();
+              });
+              placesBox.appendChild(li);
             });
 
-            btnDel.addEventListener("click", () => {
-                window.myioFilterPresets = (window.myioFilterPresets || []).filter(x => x.id !== p.id);
-                try {
-                    localStorage.setItem(PRESET_KEY, JSON.stringify(window.myioFilterPresets));
-                } catch { }
-                renderPresets();
-            });
-
-            row.appendChild(btnApply);
-            row.appendChild(btnDel);
-            elPresets.appendChild(row);
+          mallSub.appendChild(floorCard);
         });
-    }
 
-    function renderAll() {
-        renderCount();
-        renderChips();
-        renderTree();
-        // não precisa re-render presets a cada clique, mas aqui é seguro:
+      // Só adiciona o mallCard se ele próprio ou seus filhos batem a busca
+      if (mallMatch || mallSub.children.length > 0) {
+        elList.appendChild(mallCard);
+      }
+    });
+    if (!window.custumersSelected) window.custumersSelected = [];
+
+    if (!elList.children.length) {
+      if (
+        Array.isArray(self.ctx.$scope.custumer) &&
+        self.ctx.$scope.custumer.length
+      ) {
+        elList.style.textAlign = "left";
+
+        self.ctx.$scope.custumer.forEach((c) => {
+          const item = document.createElement("button");
+          item.className = "custumers";
+
+          // armazenar o dado no próprio botão
+          item.custumerData = c;
+
+          // quadrado à esquerda
+          const box = document.createElement("div");
+          box.className = "checkbox";
+          item.appendChild(box);
+
+          // texto do cliente
+          const text = document.createElement("span");
+          text.textContent = c.name;
+          item.appendChild(text);
+          window.custumersSelected = [];
+          // clique para selecionar/deselecionar
+          item.addEventListener("click", () => {
+            const isSelected = item.classList.toggle("selected");
+            if (isSelected) {
+              window.custumersSelected.push(c); // adiciona ao array
+            } else {
+              window.custumersSelected = window.custumersSelected.filter(
+                (x) => x !== c
+              );
+            }
+            // console.log("Selecionados:", window.custumersSelected);
+          });
+          self.ctx.filterCustom = window.custumersSelected;
+          elList.appendChild(item);
+        });
+      } else {
+        const empty = document.createElement("div");
+        empty.style.color = "#6b7280";
+        empty.style.fontSize = "14px";
+        empty.style.textAlign = "left";
+        empty.textContent = "Nenhum resultado encontrado para o filtro atual.";
+        elList.appendChild(empty);
+      }
+    }
+  }
+
+  function renderPresets() {
+    elPresets.innerHTML = "";
+    const presets = window.myioFilterPresets || [];
+    if (!presets.length) {
+      const empty = document.createElement("div");
+      empty.style.color = "#6b7280";
+      empty.style.fontSize = "12px";
+      empty.textContent = "Nenhum preset salvo ainda.";
+      elPresets.appendChild(empty);
+      return;
+    }
+    presets.slice(0, 12).forEach((p) => {
+      const row = document.createElement("div");
+      row.className = "preset-item";
+      const btnApply = document.createElement("button");
+      btnApply.textContent = p.name;
+      btnApply.title = "Aplicar preset";
+      btnApply.style.textDecoration = "underline";
+
+      const btnDel = document.createElement("button");
+      btnDel.innerHTML = "🗑️";
+      btnDel.title = "Excluir preset";
+
+      btnApply.addEventListener("click", () => {
+        // aplica seleção do preset
+        window.myioFilterSel = {
+          malls: [...(p.selection?.malls || [])],
+          floors: [...(p.selection?.floors || [])],
+          places: [...(p.selection?.places || [])],
+        };
+        renderAll();
+      });
+
+      btnDel.addEventListener("click", () => {
+        window.myioFilterPresets = (window.myioFilterPresets || []).filter(
+          (x) => x.id !== p.id
+        );
+        try {
+          localStorage.setItem(
+            PRESET_KEY,
+            JSON.stringify(window.myioFilterPresets)
+          );
+        } catch {}
         renderPresets();
-    }
+      });
 
-    // ==== Bind de eventos de UI ==============================================
-    if (!elSearch._bound) {
-        elSearch._bound = true;
-        elSearch.addEventListener("input", (e) => {
-            window.myioFilterQuery = e.target.value || "";
-            renderTree();
-        });
-    }
+      row.appendChild(btnApply);
+      row.appendChild(btnDel);
+      elPresets.appendChild(row);
+    });
+  }
 
-    if (!elClear._bound) {
-        elClear._bound = true;
-        elClear.addEventListener("click", () => {
-            window.myioFilterSel = { malls: [], floors: [], places: [] };
-            window.myioFilterQuery = "";
-            elSearch.value = "";
-            renderAll();
-        });
-    }
+  function renderAll() {
+    renderCount();
+    renderChips();
+    renderTree();
+    // não precisa re-render presets a cada clique, mas aqui é seguro:
+    renderPresets();
+  }
 
-    if (!elSave._bound) {
-        elSave._bound = true;
-        elSave.addEventListener("click", () => {
-            const name = prompt("Nome do preset:");
-            if (!name) return;
-            const preset = {
-                id: crypto.randomUUID(),
-                name,
-                selection: {
-                    malls: [...window.myioFilterSel.malls],
-                    floors: [...window.myioFilterSel.floors],
-                    places: [...window.myioFilterSel.places],
-                },
-                createdAt: Date.now(),
-            };
-            const next = [preset, ...(window.myioFilterPresets || [])].slice(0, 12);
-            window.myioFilterPresets = next;
-            try {
-                localStorage.setItem(PRESET_KEY, JSON.stringify(next));
-            } catch { }
-            renderPresets();
-        });
-    }
+  // ==== Bind de eventos de UI ==============================================
+  if (!elSearch._bound) {
+    elSearch._bound = true;
+    elSearch.addEventListener("input", (e) => {
+      window.myioFilterQuery = e.target.value || "";
+      renderTree();
+    });
+  }
 
-    if (!elApply._bound) {
-        elApply._bound = true;
-        elApply.addEventListener("click", async () => {
-            // Itens selecionados
-            //console.log("Itens selecionados:", window.custumersSelected);
+  if (!elClear._bound) {
+    elClear._bound = true;
+    elClear.addEventListener("click", () => {
+      window.myioFilterSel = { malls: [], floors: [], places: [] };
+      window.myioFilterQuery = "";
+      elSearch.value = "";
+      renderAll();
+    });
+  }
 
+  if (!elSave._bound) {
+    elSave._bound = true;
+    elSave.addEventListener("click", () => {
+      const name = prompt("Nome do preset:");
+      if (!name) return;
+      const preset = {
+        id: crypto.randomUUID(),
+        name,
+        selection: {
+          malls: [...window.myioFilterSel.malls],
+          floors: [...window.myioFilterSel.floors],
+          places: [...window.myioFilterSel.places],
+        },
+        createdAt: Date.now(),
+      };
+      const next = [preset, ...(window.myioFilterPresets || [])].slice(0, 12);
+      window.myioFilterPresets = next;
+      try {
+        localStorage.setItem(PRESET_KEY, JSON.stringify(next));
+      } catch {}
+      renderPresets();
+    });
+  }
 
+  if (!elApply._bound) {
+    elApply._bound = true;
+    elApply.addEventListener("click", async () => {
+      // Itens selecionados
+      //console.log("Itens selecionados:", window.custumersSelected);
+      // Desabilita botão enquanto carrega
+      elApply.disabled = true;
 
+      // Chama a função que atualiza o consumo
 
+      // Reabilita botão
+      elApply.disabled = false;
 
-            // Desabilita botão enquanto carrega
-            elApply.disabled = true;
+      // Dispara evento com os custumers selecionados
+      window.dispatchEvent(
+        new CustomEvent("myio:filter-applied", {
+          detail: {
+            selection: window.custumersSelected,
+            ts: Date.now(),
+          },
+        })
+      );
 
-            // Chama a função que atualiza o consumo
+      // Fecha modal
+      modal.setAttribute("aria-hidden", "true");
+    });
+  }
 
+  // ==== Abrir modal e sincronizar estado visual ============================
+  modal.setAttribute("aria-hidden", "false");
+  // repõe valor de busca persistido em memória
+  if (elSearch.value !== (window.myioFilterQuery || "")) {
+    elSearch.value = window.myioFilterQuery || "";
+  }
+  renderAll();
 
-            // Reabilita botão
-            elApply.disabled = false;
-
-            // Dispara evento com os custumers selecionados
-            window.dispatchEvent(
-                new CustomEvent("myio:filter-applied", {
-                    detail: {
-                        selection: window.custumersSelected,
-                        ts: Date.now(),
-                    }
-                })
-            );
-
-            // Fecha modal
-            modal.setAttribute("aria-hidden", "true");
-        });
-    }
-
-    // ==== Abrir modal e sincronizar estado visual ============================
-    modal.setAttribute("aria-hidden", "false");
-    // repõe valor de busca persistido em memória
-    if (elSearch.value !== (window.myioFilterQuery || "")) {
-        elSearch.value = window.myioFilterQuery || "";
-    }
-    renderAll();
-
-    // Foco no input de busca
-    setTimeout(() => elSearch?.focus(), 0);
+  // Foco no input de busca
+  setTimeout(() => elSearch?.focus(), 0);
 }
 
 function bindFilter(root) {
-    if (root._filterBound) return;
-    root._filterBound = true;
-    const modal = document.getElementById("filterModal");
-    if (!modal) return; // se modal não existe, sai
+  if (root._filterBound) return;
+  root._filterBound = true;
+  const modal = document.getElementById("filterModal");
+  if (!modal) return; // se modal não existe, sai
 
-    const listEl = modal.querySelector("#fltList");
-    const inp = modal.querySelector("#fltSearch");
-    const btnClear = modal.querySelector("#fltClear");
-    const btnSave = modal.querySelector("#fltSave");
-    const btnApply = modal.querySelector("#fltApply");
+  const listEl = modal.querySelector("#fltList");
+  const inp = modal.querySelector("#fltSearch");
+  const btnClear = modal.querySelector("#fltClear");
+  const btnSave = modal.querySelector("#fltSave");
+  const btnApply = modal.querySelector("#fltApply");
 
-    // agora adiciona os listeners
-    btnSave?.addEventListener("click", () => {
-        const sel = listEl.dataset.selectedId || null;
-        //console.log("[filter] salvar preset (mock) selection=", sel);
-    });
+  // agora adiciona os listeners
+  btnSave?.addEventListener("click", () => {
+    const sel = listEl.dataset.selectedId || null;
+    //console.log("[filter] salvar preset (mock) selection=", sel);
+  });
 
-    btnApply?.addEventListener("click", () => {
-        const sel = listEl.dataset.selectedId || null;
-        // window.dispatchEvent(
-        //   new CustomEvent(EVT_FILTER_APPLIED, { detail: { selectedMallId: sel, ts: Date.now() } })
-        // );
-        //console.log("[filter] applied:", sel);
-        modal.setAttribute("aria-hidden", "true");
-    });
+  btnApply?.addEventListener("click", () => {
+    const sel = listEl.dataset.selectedId || null;
+    // window.dispatchEvent(
+    //   new CustomEvent(EVT_FILTER_APPLIED, { detail: { selectedMallId: sel, ts: Date.now() } })
+    // );
+    //console.log("[filter] applied:", sel);
+    modal.setAttribute("aria-hidden", "true");
+  });
 
-    modal.querySelectorAll("[data-close]").forEach(btn => {
-        btn.addEventListener("click", () => modal.setAttribute("aria-hidden", "true"));
-    });
+  modal.querySelectorAll("[data-close]").forEach((btn) => {
+    btn.addEventListener("click", () =>
+      modal.setAttribute("aria-hidden", "true")
+    );
+  });
 }
 
 /* ====== Cards summary (igual antes) ====== */
 function setBarPercent(elBarFill, pct, tail = 8) {
-    const track = elBarFill?.parentElement;
-    if (!elBarFill || !track) return;
-    // limita 0–100
-    const p = Math.max(0, Math.min(100, pct || 0));
-    track.style.setProperty("--pct", p);
-    track.style.setProperty("--tail", tail); // % do preenchido que será verde
-    elBarFill.style.width = p + "%";
+  const track = elBarFill?.parentElement;
+  if (!elBarFill || !track) return;
+  // limita 0–100
+  const p = Math.max(0, Math.min(100, pct || 0));
+  track.style.setProperty("--pct", p);
+  track.style.setProperty("--tail", tail); // % do preenchido que será verde
+  elBarFill.style.width = p + "%";
 }
 
-
-
-
 function formatDiaMes(date) {
-    const dia = String(date.getDate()).padStart(2, "0");   // garante 2 dígitos
-    const mes = String(date.getMonth() + 1).padStart(2, "0"); // meses começam em 0
-    return `${dia}/${mes}`;
+  const dia = String(date.getDate()).padStart(2, "0"); // garante 2 dígitos
+  const mes = String(date.getMonth() + 1).padStart(2, "0"); // meses começam em 0
+  return `${dia}/${mes}`;
 }
 
 /* ====== Lifecycle ====== */
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
+  // Extrai o segmento após 'all/' da URL
+  function getSegmentAfterAll() {
+    const match = window.location.href.match(/all\/([^\/?#]+)/i);
+    return match ? match[1] : null;
+  }
 
-    // Extrai o segmento após 'all/' da URL
-    function getSegmentAfterAll() {
-        const match = window.location.href.match(/all\/([^\/?#]+)/i);
-        return match ? match[1] : null;
-    }
+  const dashboardId = getSegmentAfterAll();
 
-    const dashboardId = getSegmentAfterAll();
+  // Mapeamento dos botões → estados
+  const dashboards = {
+    equipmentsButton: {
+      stateId: "content_equipments_v_1_0_0",
+      state: "W3siaWQiOiJjb250ZW50X2VxdWlwbWVudHMiLCJwYXJhbXMiOnt9fV0%253D",
+    },
+    energyButton: {
+      stateId: "content_energy_v_1_0_0",
+      state: "W3siaWQiOiJjb250ZW50X2VuZXJneSIsInBhcmFtcyI6e319XQ%253D%253D",
+    },
+    waterButton: {
+      stateId: "content_water_v_1_0_0",
+      state: "W3siaWQiOiJjb250ZW50X3dhdGVyIiwicGFyYW1zIjp7fX1d",
+    },
+    temperatureButton: {
+      stateId: "content_temperature_v_1_0_0",
+      state: "W3siaWQiOiJjb250ZW50X3RlbXBlcmF0dXJlIiwicGFyYW1zIjp7fX1d",
+    },
+  };
 
-    // Mapeamento dos botões → estados
-    const dashboards = {
-        equipmentsButton: {
-            stateId: "content_equipaments_v_1_0_0",
-            state: "W3siaWQiOiJjb250ZW50X2VxdWlwYW1lbnRzX3ZfMV8wXzAiLCJwYXJhbXMiOnt9fV0%253D"
-        },
-        energyButton: {
-            stateId: "content_energy_v_1_0_0",
-            state: "W3siaWQiOiJjb250ZW50X2VuZXJneV92XzFfMF8wIiwicGFyYW1zIjp7fX1d"
-        },
-        waterButton: {
-            stateId: "content_water_v_1_0_0",
-            state: "W3siaWQiOiJjb250ZW50X3dhdGVyX3ZfMV8wXzAiLCJwYXJhbXMiOnt9fV0%253D"
-        },
-        temperatureButton: {
-            stateId: "content_temperature_v_1_0_0",
-            state: "W3siaWQiOiJjb250ZW50X3RlbXBlcmF0dXJlX3ZfMV8wXzAiLCJwYXJhbXMiOnt9fV0%253D"
-        }
-    };
+  const mainView = document.querySelector("#mainView");
 
-    const mainView = document.querySelector("#mainView");
-
-    /**
-     * Renderiza o dashboard no mainView
-     * @param {string} stateId - ID do estado do dashboard
-     * @param {string} state - parâmetro de estado na URL
-     */
-    function renderDashboard(stateId, state) {
-        mainView.innerHTML = `
+  /**
+   * Renderiza o dashboard no mainView
+   * @param {string} stateId - ID do estado do dashboard
+   * @param {string} state - parâmetro de estado na URL
+   */
+  function renderDashboard(stateId, state) {
+    mainView.innerHTML = `
         <tb-dashboard-state class="content" [ctx]="ctx" stateId="${stateId}">
             <iframe
                 src="/dashboard/${dashboardId}?state=${state}"
@@ -744,171 +791,170 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             </iframe>
         </tb-dashboard-state>
     `;
-    }
+  }
 
-    // Automatiza a atribuição de eventos aos botões
-    Object.entries(dashboards).forEach(([buttonId, { stateId, state }]) => {
-        const button = document.getElementById(buttonId);
-        if (button) {
-            button.addEventListener("click", () => renderDashboard(stateId, state));
-        }
+  // Automatiza a atribuição de eventos aos botões
+  Object.entries(dashboards).forEach(([buttonId, { stateId, state }]) => {
+    const button = document.getElementById(buttonId);
+    if (button) {
+      button.addEventListener("click", () => renderDashboard(stateId, state));
+    }
+  });
+
+  // Inicializa o daterangepicker usando o componente MyIOLibrary
+  const TZ = "America/Sao_Paulo";
+  const hoje = new Date();
+
+  // Define datas iniciais (início do mês até hoje)
+  const startDate = presetStart
+    ? new Date(presetStart)
+    : new Date(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0);
+  const endDate = presetEnd
+    ? new Date(presetEnd)
+    : new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59);
+
+  // Converte para ISO strings
+  const startISO = startDate.toISOString();
+  const endISO = endDate.toISOString();
+
+  let timeStart = startISO;
+  let timeEnd = endISO;
+
+  // Encontra o input existente
+  const inputElement = document.querySelector('input[name="startDatetimes"]');
+
+  // Inicializa o date range picker do MyIOLibrary (sem container, apenas no input)
+  // Usando a biblioteca diretamente no input existente
+  if (
+    inputElement &&
+    typeof MyIOLibrary !== "undefined" &&
+    MyIOLibrary.createDateRangePicker
+  ) {
+    MyIOLibrary.createDateRangePicker(inputElement, {
+      presetStart: startISO,
+      presetEnd: endISO,
+      maxRangeDays: 365,
+      onApply: (result) => {
+        // Atualiza as variáveis de tempo
+        timeStart = result.startISO;
+        timeEnd = result.endISO;
+
+        // Calcula epoch timestamps
+        const startMs = new Date(result.startISO).getTime();
+        const endMs = new Date(result.endISO).getTime();
+
+        // Formata para timezone de São Paulo (simulação do formato com offset)
+        const startDate = new Date(result.startISO);
+        const endDate = new Date(result.endISO);
+
+        // ISO com offset -03:00 (simulado)
+        const startISOOffset = result.startISO.replace("Z", "-03:00");
+        const endISOOffset = result.endISO.replace("Z", "-03:00");
+
+        console.log("[MENU] START", startMs);
+        console.log("[MENU] end", endMs);
+
+        // Dispara evento customizado mantendo a mesma estrutura
+        window.dispatchEvent(
+          new CustomEvent("myio:update-date", {
+            detail: {
+              startDate: startISOOffset,
+              endDate: endISOOffset,
+              startUtc: result.startISO,
+              endUtc: result.endISO,
+              startMs,
+              endMs,
+              tz: TZ,
+            },
+          })
+        );
+      },
+    })
+      .then((picker) => {
+        console.log("[MENU] Date range picker inicializado com MyIOLibrary");
+      })
+      .catch((err) => {
+        console.error("[MENU] Erro ao inicializar date picker:", err);
+      });
+  } else {
+    console.warn("[MENU] MyIOLibrary.createDateRangePicker não disponível");
+  }
+
+  const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
+  CLIENT_ID = self.ctx.settings.clientId;
+  CLIENT_SECRET = self.ctx.settings.clientSecret;
+
+  bindTabs(root);
+  bindFilter(root);
+
+  // mocks (remova se alimentar via API/telemetria)
+
+  const filterBtn = document.getElementById("filterBtn");
+
+  if (filterBtn) {
+    filterBtn.addEventListener("click", () => {
+      injectModalGlobal(); // cria o modal se ainda não existe
+      bindFilter(document.body); // agora os elementos existem
     });
+  }
 
+  // Atualiza escopo com datas iniciais
+  self.ctx.$scope.startDateISO = timeStart;
+  self.ctx.$scope.endDateISO = timeEnd;
 
-    // Inicializa o daterangepicker usando o componente MyIOLibrary
-    const TZ = 'America/Sao_Paulo';
-    const hoje = new Date();
+  // Dispara evento inicial com as datas preset
+  const startDateFormatted = timeStart.replace("Z", "-03:00");
+  const endDateFormatted = timeEnd.replace("Z", "-03:00");
 
-    // Define datas iniciais (início do mês até hoje)
-    const startDate = presetStart ? new Date(presetStart) : new Date(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0);
-    const endDate = presetEnd ? new Date(presetEnd) : new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59);
+  window.dispatchEvent(
+    new CustomEvent("myio:update-date", {
+      detail: {
+        startDate: startDateFormatted,
+        endDate: endDateFormatted,
+      },
+    })
+  );
 
-    // Converte para ISO strings
-    const startISO = startDate.toISOString();
-    const endISO = endDate.toISOString();
+  const custumer = [];
 
-    let timeStart = startISO;
-    let timeEnd = endISO;
-
-    // Encontra o input existente
-    const inputElement = document.querySelector('input[name="startDatetimes"]');
-
-    // Inicializa o date range picker do MyIOLibrary (sem container, apenas no input)
-    // Usando a biblioteca diretamente no input existente
-    if (inputElement && typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createDateRangePicker) {
-        MyIOLibrary.createDateRangePicker(inputElement, {
-            presetStart: startISO,
-            presetEnd: endISO,
-            maxRangeDays: 365,
-            onApply: (result) => {
-                // Atualiza as variáveis de tempo
-                timeStart = result.startISO;
-                timeEnd = result.endISO;
-
-                // Calcula epoch timestamps
-                const startMs = new Date(result.startISO).getTime();
-                const endMs = new Date(result.endISO).getTime();
-
-                // Formata para timezone de São Paulo (simulação do formato com offset)
-                const startDate = new Date(result.startISO);
-                const endDate = new Date(result.endISO);
-
-                // ISO com offset -03:00 (simulado)
-                const startISOOffset = result.startISO.replace('Z', '-03:00');
-                const endISOOffset = result.endISO.replace('Z', '-03:00');
-
-                console.log("[MENU] START", startMs);
-                console.log("[MENU] end", endMs);
-
-                // Dispara evento customizado mantendo a mesma estrutura
-                window.dispatchEvent(new CustomEvent('myio:update-date', {
-                    detail: {
-                        startDate: startISOOffset,
-                        endDate: endISOOffset,
-                        startUtc: result.startISO,
-                        endUtc: result.endISO,
-                        startMs,
-                        endMs,
-                        tz: TZ
-                    }
-                }));
-            }
-        }).then(picker => {
-            console.log('[MENU] Date range picker inicializado com MyIOLibrary');
-        }).catch(err => {
-            console.error('[MENU] Erro ao inicializar date picker:', err);
-        });
-    } else {
-        console.warn('[MENU] MyIOLibrary.createDateRangePicker não disponível');
+  // não apagar!!
+  self.ctx.data.forEach((data) => {
+    if (data.datasource.aliasName === "Shopping") {
+      // adiciona no array custumes
+      custumer.push({
+        name: data.datasource.entityLabel, // ou outro campo que seja o "nome"
+        value: data.data[0][1], // ou o dado que você precisa salvar
+      });
     }
+  });
 
-    const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
-    CLIENT_ID = self.ctx.settings.clientId;
-    CLIENT_SECRET = self.ctx.settings.clientSecret;
-
-    bindTabs(root);
-    bindFilter(root);
-
-    // mocks (remova se alimentar via API/telemetria)
-
-
-    const filterBtn = document.getElementById("filterBtn");
-
-
-    if (filterBtn) {
-        filterBtn.addEventListener("click", () => {
-            injectModalGlobal(); // cria o modal se ainda não existe
-            bindFilter(document.body); // agora os elementos existem
-        });
-    }
-
-    // Atualiza escopo com datas iniciais
-    self.ctx.$scope.startDateISO = timeStart;
-    self.ctx.$scope.endDateISO = timeEnd;
-
-    // Dispara evento inicial com as datas preset
-    const startDateFormatted = timeStart.replace('Z', '-03:00');
-    const endDateFormatted = timeEnd.replace('Z', '-03:00');
-
-    window.dispatchEvent(new CustomEvent('myio:update-date', {
-        detail: {
-            startDate: startDateFormatted,
-            endDate: endDateFormatted,
-        }
-    }));
-
-
-
-    const custumer = [];
-
-    // não apagar!!
-    self.ctx.data.forEach(data => {
-        if (data.datasource.aliasName === "Shopping") {
-            // adiciona no array custumes
-            custumer.push({
-                name: data.datasource.entityLabel, // ou outro campo que seja o "nome"
-                value: data.data[0][1]                  // ou o dado que você precisa salvar
-            });
-        }
-
-    });
-
-
-
-    self.ctx.$scope.custumer = custumer
-    // console.log("custumer",custumer)
-
-
-
+  self.ctx.$scope.custumer = custumer;
+  // console.log("custumer",custumer)
 };
 
 self.onDataUpdated = function () {
-    if (_dataRefreshCount >= MAX_DATA_REFRESHES) {
-        return;
+  if (_dataRefreshCount >= MAX_DATA_REFRESHES) {
+    return;
+  }
+
+  _dataRefreshCount++;
+
+  const totalDevices = self.ctx.data.length;
+  let onlineDevices = 0;
+
+  self.ctx.data.forEach((device) => {
+    const status = device.data?.[0]?.[1];
+    if (status === "online") {
+      onlineDevices++;
     }
+  });
 
-    _dataRefreshCount++;
-
-    const totalDevices = self.ctx.data.length;
-    let onlineDevices = 0;
-
-    self.ctx.data.forEach((device) => {
-        const status = device.data?.[0]?.[1];
-        if (status === "online") {
-            onlineDevices++;
-        }
-    });
-
-    // evitar divisão por zero
-    let percentage =
-        totalDevices > 0 ? ((onlineDevices / totalDevices) * 100).toFixed(1) : 0;
-    percentage = Number(percentage).toFixed(0);
-
-
-
-
+  // evitar divisão por zero
+  let percentage =
+    totalDevices > 0 ? ((onlineDevices / totalDevices) * 100).toFixed(1) : 0;
+  percentage = Number(percentage).toFixed(0);
 };
 
 self.onDestroy = function () {
-    /* nada a limpar */
+  /* nada a limpar */
 };

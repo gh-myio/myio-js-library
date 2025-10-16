@@ -488,6 +488,7 @@ LogHelper.log('[MyIOOrchestrator] Initialized');
 self.onInit = async function () {
   // ===== STEP 1: Get ThingsBoard Customer ID and fetch credentials =====
   CUSTOMER_ID_TB = self.ctx.settings.customerId;
+  self.ctx.$scope.mainContentStateId = 'content_equipments';
 
   if (!CUSTOMER_ID_TB) {
     console.error("[MAIN] [Orchestrator] customerId não encontrado em settings");
@@ -620,6 +621,8 @@ self.onInit = async function () {
       }
     }
   });
+
+
 
   window.addEventListener('myio:filter-params', (ev) => {
     console.log("[EQUIPAMENTS]filtro",ev.detail )

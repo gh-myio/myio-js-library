@@ -133,7 +133,7 @@ const MyIOAuth = (() => {
 })();
 
 async function updateTotalConsumption(customersArray, startDateISO, endDateISO) {
-      const energyTotal = document.getElementById("energy-kpi");
+     const energyTotal = document.getElementById("energy-kpi");
      energyTotal.innerHTML = `
        <svg style="width:28px; height:28px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
          <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round" 
@@ -162,8 +162,11 @@ async function updateTotalConsumption(customersArray, startDateISO, endDateISO) 
         }
       );
 
+      console.log('response ==============================>', response);
+
       if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
       const data = await response.json();
+      console.log('data ==============================>', data);      
 
       totalConsumption += data.total_value;
      //console.log("deu bom aiiii", totalConsumption)
@@ -658,6 +661,8 @@ function injectModalGlobal() {
            // console.log("Selecionados:", window.custumersSelected);
           });
           self.ctx.filterCustom = window.custumersSelected
+          console.log('window.custumersSelected >>>>>>>>>>>>>', window.custumersSelected);
+          
           elList.appendChild(item);
         });
       } else {
@@ -784,6 +789,8 @@ function injectModalGlobal() {
       elApply.disabled = true;
 
       // Chama a função que atualiza o consumo
+      console.log('>>>>>>>>>>>>>>>>>>>>>> pre consumo');
+      
       await updateTotalConsumption(
         window.custumersSelected,
         self.ctx.$scope.startDateISO,
@@ -977,7 +984,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   if (timeinterval) {
     timeinterval.innerText = timeWindow;
   }
-
+  
   const custumer = [];
 
   // não apagar!!
@@ -989,6 +996,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
          value: data.data[0][1]                  // ou o dado que você precisa salvar
       });
      }
+     
      updateTotalConsumption(custumer, startDateISO, endDateISO)
   });
 
@@ -1053,15 +1061,26 @@ function updateEnergyCard(energyCache) {
   // Find datasources[1] with aliasName="Lojas"
   // Build list of ingestionIds from ctx.data
   const ingestionIds = [];
+  const energyKpi = document.getElementById("energy-kpi");
+  const energyTrend = document.getElementById("energy-trend");
+
+  console.log(energyKpi.innerHTML);
+  
+
+  if(energyKpi.innerHTML !== '0,00 kWh') {
+    return; // já está carregando
+  }
 
   self.ctx.data.forEach((data) => {
-    if (data.datasource.aliasName === "Lojas") {
+    console.log('data', data);
+    
+    // if (data.datasource.aliasName === "Lojas" || da"ta.datasource.aliasName === "Equipamentos) {        
       // data[].item.data[1] é o ingestionId
-      const ingestionId = data.data?.[1]?.[1]; // data[indexOfIngestionId][1] = value
+      const ingestionId = data.data?.[0]?.[1]; // data[indexOfIngestionId][1] = value
       if (ingestionId) {
         ingestionIds.push(ingestionId);
       }
-    }
+    // }
   });
 
   console.log("[HEADER] Energy card: Found ingestionIds from Lojas:", ingestionIds.length);
@@ -1076,9 +1095,6 @@ function updateEnergyCard(energyCache) {
       }
     });
   }
-
-  const energyKpi = document.getElementById("energy-kpi");
-  const energyTrend = document.getElementById("energy-trend");
 
   if (energyKpi) {
     energyKpi.innerText = MyIOLibrary.formatEnergy ? MyIOLibrary.formatEnergy(totalConsumption) : `${totalConsumption.toFixed(2)} kWh`;

@@ -16,11 +16,6 @@ section {
     overflow: hidden;
 }
 
-section *,
-section *::before,
-section *::after {
-    background-color: transparent !important;
-}
 
 /* Exceções específicas que precisam de fundo */
 section .tab,
@@ -43,4 +38,7 @@ section .dot-ok {
 
 section button[style*="background-color: #6A1B9A"] {
     background-color: #6A1B9A !important;
+}
+.tb-dashboard-toolbar {
+    display: none !important;
 }

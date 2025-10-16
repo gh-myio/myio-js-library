@@ -195,6 +195,10 @@
     letter-spacing: .2px;
 }
 
+.tb-dashboard-toolbar {
+  display: none !important;
+}
+
 .equip-menu {
     border: 0;
     background: transparent;
