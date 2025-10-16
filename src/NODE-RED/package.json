@@ -1,0 +1,43 @@
+{
+  "name": "myio-nodered-scheduling-tests",
+  "version": "1.0.0",
+  "description": "Unit tests for MYIO Node-RED scheduling engine",
+  "main": "agendamento-refactored.js",
+  "scripts": {
+    "test": "jest --verbose --coverage",
+    "test:watch": "jest --watch",
+    "test:no-feriado": "jest --testNamePattern='SEM FERIADO'",
+    "test:feriado": "jest --testNamePattern='COM FERIADO'",
+    "test:edge": "jest --testNamePattern='Edge Cases'"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coverageDirectory": "./coverage",
+    "collectCoverageFrom": [
+      "agendamento-refactored.module.js"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 65,
+        "functions": 90,
+        "lines": 65,
+        "statements": 65
+      }
+    },
+    "testMatch": [
+      "**/*.test.js"
+    ]
+  },
+  "keywords": [
+    "myio",
+    "node-red",
+    "scheduling",
+    "automation",
+    "testing"
+  ],
+  "author": "MYIO Team",
+  "license": "ISC",
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

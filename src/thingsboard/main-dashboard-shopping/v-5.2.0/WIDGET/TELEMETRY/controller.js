@@ -1370,6 +1370,11 @@ self.onInit = async function () {
     CLIENT_SECRET   = attrs?.client_secret || "";
     CUSTOMER_ING_ID = attrs?.ingestionId   || "";
 
+    // Expõe credenciais globalmente para uso no FOOTER (modal de comparação)
+    window.__MYIO_CLIENT_ID__ = CLIENT_ID;
+    window.__MYIO_CLIENT_SECRET__ = CLIENT_SECRET;
+    window.__MYIO_CUSTOMER_ING_ID__ = CUSTOMER_ING_ID;
+
     MyIOAuth = MyIO.buildMyioIngestionAuth({
       dataApiHost: DATA_API_HOST,
       clientId: CLIENT_ID,

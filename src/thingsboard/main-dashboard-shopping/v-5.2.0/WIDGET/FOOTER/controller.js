@@ -486,6 +486,7 @@
     $clearBtn: null,
     $alertOverlay: null,
     initialized: false,
+    currentUnitType: null, // Tracks current unit type (energy, water, tank, etc)
 
     // Armazena referências às funções com 'this' vinculado para remoção segura
     boundRenderDock: null,
@@ -495,6 +496,7 @@
     boundDrop: null,
     boundChipClick: null,
     boundLimitReached: null,
+    boundDashboardStateChange: null,
 
     /**
      * Inicializa o controlador
@@ -605,6 +607,25 @@
     },
 
     /**
+     * Detecta o tipo de unidade (icon) das entidades selecionadas
+     * Retorna: 'energy', 'water', 'tank', 'mixed', ou null
+     */
+    _detectUnitType(entities) {
+      if (!entities || entities.length === 0) return null;
+
+      const types = new Set();
+      entities.forEach(entity => {
+        if (entity && entity.icon) {
+          types.add(entity.icon);
+        }
+      });
+
+      if (types.size === 0) return null;
+      if (types.size > 1) return 'mixed'; // Tipos misturados!
+      return Array.from(types)[0]; // Um único tipo
+    },
+
+    /**
      * Renderiza o conteúdo do "dock" (chips ou mensagem de vazio)
      */
     renderDock() {
@@ -629,6 +650,28 @@
 
       const selected = MyIOSelectionStore.getSelectedEntities();
       const count = selected.length;
+
+      // INTELIGÊNCIA: Detecta tipo de unidade e reseta se houver mudança
+      const detectedType = this._detectUnitType(selected);
+
+      // Se detectou tipos misturados, limpa a seleção automaticamente
+      if (detectedType === 'mixed') {
+        LogHelper.warn("[MyIO Footer] ⚠️ Mixed unit types detected! Clearing selection to prevent invalid comparison.");
+        this.showMixedUnitsAlert();
+        MyIOSelectionStore.clear();
+        return; // renderDock será chamado novamente após o clear
+      }
+
+      // Se mudou o tipo de unidade (ex: de 'energy' para 'water'), limpa a seleção
+      if (detectedType && this.currentUnitType && detectedType !== this.currentUnitType) {
+        LogHelper.warn(`[MyIO Footer] ⚠️ Unit type changed from '${this.currentUnitType}' to '${detectedType}'! Clearing selection.`);
+        this.currentUnitType = detectedType;
+        MyIOSelectionStore.clear();
+        return; // renderDock será chamado novamente após o clear
+      }
+
+      // Atualiza o tipo atual
+      this.currentUnitType = detectedType;
 
       // Calcula os totais manualmente a partir dos lastValue das entidades
       let totalValue = 0;
@@ -786,6 +829,53 @@
     },
 
     /**
+     * Mostra o alerta premium quando tipos de unidades são misturados
+     */
+    showMixedUnitsAlert() {
+      LogHelper.log("[MyIO Footer] Showing mixed units alert");
+
+      // Remove qualquer alerta existente
+      if (this.$alertOverlay) {
+        this.hideAlert();
+      }
+
+      // Cria o overlay do alerta
+      const overlay = document.createElement("div");
+      overlay.className = "myio-alert-overlay";
+
+      overlay.innerHTML = `
+        <div class="myio-alert-box">
+          <div class="myio-alert-icon">⚠</div>
+          <h2 class="myio-alert-title">Tipos Incompatíveis</h2>
+          <p class="myio-alert-message">
+            Você não pode comparar dispositivos de <strong>tipos diferentes</strong>
+            (ex: energia vs água). A seleção foi limpa automaticamente.
+            <br><br>
+            Selecione apenas dispositivos do mesmo tipo para comparação.
+          </p>
+          <button class="myio-alert-button">Entendi</button>
+        </div>
+      `;
+
+      // Adiciona ao body para que fique acima de tudo
+      document.body.appendChild(overlay);
+      this.$alertOverlay = overlay;
+
+      // Adiciona listener no botão e no overlay (clique fora)
+      const closeBtn = overlay.querySelector(".myio-alert-button");
+      const closeAlert = () => this.hideAlert();
+
+      closeBtn.addEventListener("click", closeAlert);
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) {
+          closeAlert();
+        }
+      });
+
+      LogHelper.log("[MyIO Footer] Mixed units alert displayed");
+    },
+
+    /**
      * Mostra o alerta premium quando o limite de seleção é atingido
      */
     showLimitAlert() {
@@ -793,7 +883,7 @@
 
       // Remove qualquer alerta existente
       if (this.$alertOverlay) {
-        this.hideLimitAlert();
+        this.hideAlert();
       }
 
       // Cria o overlay do alerta
@@ -818,7 +908,7 @@
 
       // Adiciona listener no botão e no overlay (clique fora)
       const closeBtn = overlay.querySelector(".myio-alert-button");
-      const closeAlert = () => this.hideLimitAlert();
+      const closeAlert = () => this.hideAlert();
 
       closeBtn.addEventListener("click", closeAlert);
       overlay.addEventListener("click", (e) => {
@@ -831,14 +921,21 @@
     },
 
     /**
-     * Esconde o alerta premium
+     * Esconde o alerta premium (genérico)
      */
-    hideLimitAlert() {
+    hideAlert() {
       if (this.$alertOverlay && this.$alertOverlay.parentNode) {
         this.$alertOverlay.remove();
         this.$alertOverlay = null;
-        LogHelper.log("[MyIO Footer] Limit alert hidden");
+        LogHelper.log("[MyIO Footer] Alert hidden");
       }
+    },
+
+    /**
+     * Alias para compatibilidade com código antigo
+     */
+    hideLimitAlert() {
+      this.hideAlert();
     },
 
     /**
@@ -847,6 +944,35 @@
     onLimitReached(data) {
       LogHelper.log("[MyIO Footer] Limit reached event received:", data);
       this.showLimitAlert();
+    },
+
+    /**
+     * Handler para evento de mudança de dashboard (troca de aba no MENU)
+     * Limpa a seleção do FOOTER quando o usuário troca entre energy/water/tank
+     */
+    onDashboardStateChange(event) {
+      const newTab = event.detail?.tab;
+
+      LogHelper.log(`[MyIO Footer] Dashboard state changed to: ${newTab}`);
+
+      // Se mudou para uma aba válida (energy, water, temperature)
+      // Limpa a seleção para evitar comparações inválidas
+      if (newTab && (newTab === 'energy' || newTab === 'water' || newTab === 'temperature' || newTab === 'tank')) {
+        const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+
+        if (MyIOSelectionStore) {
+          const count = MyIOSelectionStore.getSelectionCount();
+
+          // Só limpa se houver algo selecionado
+          if (count > 0) {
+            LogHelper.log(`[MyIO Footer] Clearing ${count} selected items due to tab change`);
+            MyIOSelectionStore.clear();
+
+            // Reseta o tipo atual
+            this.currentUnitType = null;
+          }
+        }
+      }
     },
 
     /**
@@ -900,6 +1026,7 @@
       this.boundDrop = this.onDrop.bind(this);
       this.boundChipClick = this.onChipClick.bind(this);
       this.boundLimitReached = this.onLimitReached.bind(this);
+      this.boundDashboardStateChange = this.onDashboardStateChange.bind(this);
 
       // 2. Ouve a store externa
       LogHelper.log("[MyIO Footer] About to register selection:change listener...");
@@ -944,6 +1071,10 @@
         this.$footerEl.addEventListener("dragover", this.boundDragOver);
         this.$footerEl.addEventListener("drop", this.boundDrop);
       }
+
+      // 6. Evento de mudança de aba no MENU (limpa seleção ao trocar entre energy/water/tank)
+      window.addEventListener("myio:dashboard-state", this.boundDashboardStateChange);
+      LogHelper.log("[MyIO Footer] Registered listener for myio:dashboard-state (tab change from MENU)");
     },
 
     /**
@@ -962,13 +1093,369 @@
     },
 
     /**
+     * Abre a modal de comparação premium com gráfico stacked
+     */
+    async openComparisonModal() {
+      LogHelper.log("[MyIO Footer] Opening comparison modal...");
+
+      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+      if (!MyIOSelectionStore) {
+        LogHelper.error("[MyIO Footer] SelectionStore not found");
+        return;
+      }
+
+      const selected = MyIOSelectionStore.getSelectedEntities();
+      const count = selected.length;
+
+      if (count < 2) {
+        LogHelper.warn("[MyIO Footer] Need at least 2 devices for comparison");
+        alert("Selecione pelo menos 2 dispositivos para comparar.");
+        return;
+      }
+
+      try {
+        // Detecta o tipo de unidade e o readingType
+        const unitType = this.currentUnitType || this._detectUnitType(selected);
+        const readingType = this._mapUnitTypeToReadingType(unitType);
+
+        LogHelper.log(`[MyIO Footer] Comparison readingType: ${readingType}`);
+
+        // Prepara dataSources para o SDK
+        const dataSources = selected.map(entity => ({
+          type: 'device',
+          id: entity.id,
+          label: entity.name || entity.id
+        }));
+
+        // Obtém credenciais e período
+        const ctx = self.ctx || {};
+        const startDate = ctx.scope?.startDateISO || new Date(new Date().setDate(1)).toISOString();
+        const endDate = ctx.scope?.endDateISO || new Date().toISOString();
+
+        // Calcula granularidade baseada no período
+        const granularity = this._calculateGranularity(startDate, endDate);
+
+        // Obtém credenciais de autenticação
+        const clientId = window.__MYIO_CLIENT_ID__ || '';
+        const clientSecret = window.__MYIO_CLIENT_SECRET__ || '';
+
+        if (!clientId || !clientSecret) {
+          LogHelper.error("[MyIO Footer] Missing client credentials");
+          alert("Credenciais de autenticação não encontradas. Recarregue a página.");
+          return;
+        }
+
+        LogHelper.log("[MyIO Footer] Opening modal with config:", {
+          dataSources: dataSources.length,
+          readingType,
+          startDate,
+          endDate,
+          granularity
+        });
+
+        // Cria o overlay da modal
+        this._createComparisonModalOverlay({
+          dataSources,
+          readingType,
+          startDate,
+          endDate,
+          granularity,
+          clientId,
+          clientSecret
+        });
+
+      } catch (error) {
+        LogHelper.error("[MyIO Footer] Error opening comparison modal:", error);
+        alert("Erro ao abrir modal de comparação. Verifique o console.");
+      }
+    },
+
+    /**
+     * Mapeia unitType (icon) para readingType do SDK
+     */
+    _mapUnitTypeToReadingType(unitType) {
+      const mapping = {
+        'energy': 'energy',
+        'water': 'water',
+        'tank': 'tank',
+        'temperature': 'temperature'
+      };
+      return mapping[unitType] || 'energy';
+    },
+
+    /**
+     * Calcula a granularidade ideal baseada no período
+     */
+    _calculateGranularity(startISO, endISO) {
+      const start = new Date(startISO);
+      const end = new Date(endISO);
+      const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+
+      if (diffDays <= 1) return '1h';   // 1 dia: granularidade horária
+      if (diffDays <= 7) return '1d';   // 1 semana: diária
+      if (diffDays <= 31) return '1d';  // 1 mês: diária
+      if (diffDays <= 90) return '1w';  // 3 meses: semanal
+      return '1M';                       // Mais de 3 meses: mensal
+    },
+
+    /**
+     * Cria o overlay da modal de comparação com chart SDK
+     */
+    _createComparisonModalOverlay(config) {
+      // Remove modal existente se houver
+      const existingModal = document.getElementById('myio-comparison-modal');
+      if (existingModal) {
+        existingModal.remove();
+      }
+
+      // Cria overlay
+      const overlay = document.createElement('div');
+      overlay.id = 'myio-comparison-modal';
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 100000;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.2s ease-out;
+      `;
+
+      // Cria container da modal
+      const modalBox = document.createElement('div');
+      modalBox.style.cssText = `
+        position: relative;
+        width: 95%;
+        max-width: 1400px;
+        height: 90vh;
+        background: linear-gradient(135deg, #242b36 0%, #1a1f28 100%);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      `;
+
+      // Header da modal
+      const header = document.createElement('div');
+      header.style.cssText = `
+        padding: 24px 32px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(0, 0, 0, 0.2);
+      `;
+      header.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div style="
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #9E8CBE 0%, #8472A8 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+          ">📊</div>
+          <div>
+            <h2 style="
+              margin: 0;
+              font-size: 24px;
+              font-weight: 700;
+              color: #ffffff;
+              letter-spacing: -0.02em;
+            ">Comparação de Dispositivos</h2>
+            <p style="
+              margin: 4px 0 0;
+              font-size: 14px;
+              color: rgba(255, 255, 255, 0.7);
+            ">${config.dataSources.length} dispositivos selecionados</p>
+          </div>
+        </div>
+        <button id="myio-comparison-close" style="
+          width: 40px;
+          height: 40px;
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 10px;
+          color: #ffffff;
+          font-size: 24px;
+          cursor: pointer;
+          transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">×</button>
+      `;
+
+      // Container do chart
+      const chartContainer = document.createElement('div');
+      chartContainer.id = 'myio-comparison-chart';
+      chartContainer.style.cssText = `
+        flex: 1;
+        padding: 32px;
+        overflow: hidden;
+        position: relative;
+      `;
+
+      // Loading state
+      chartContainer.innerHTML = `
+        <div style="
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          text-align: center;
+          color: #ffffff;
+        ">
+          <div style="
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(158, 140, 190, 0.3);
+            border-top-color: #9E8CBE;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+          "></div>
+          <p style="font-size: 16px; font-weight: 600;">Carregando comparação...</p>
+        </div>
+      `;
+
+      // Monta modal
+      modalBox.appendChild(header);
+      modalBox.appendChild(chartContainer);
+      overlay.appendChild(modalBox);
+      document.body.appendChild(overlay);
+
+      // Adiciona CSS para animações
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(40px) scale(0.95); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        #myio-comparison-close:hover {
+          background: rgba(255, 68, 68, 0.25);
+          border-color: rgba(255, 68, 68, 0.5);
+          transform: scale(1.1);
+        }
+      `;
+      document.head.appendChild(style);
+
+      // Event listeners
+      const closeBtn = header.querySelector('#myio-comparison-close');
+      const closeModal = () => {
+        overlay.remove();
+        style.remove();
+      };
+
+      closeBtn.addEventListener('click', closeModal);
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeModal();
+      });
+
+      // Renderiza o chart usando SDK
+      this._renderComparisonChart(chartContainer, config);
+    },
+
+    /**
+     * Renderiza o chart de comparação usando energy-chart-sdk
+     */
+    async _renderComparisonChart(container, config) {
+      try {
+        // Carrega o SDK dinamicamente se ainda não estiver disponível
+        if (!window.MyIOEnergyChartSDK?.renderTelemetryStackedChart) {
+          LogHelper.log("[MyIO Footer] Loading energy-chart-sdk...");
+          await this._loadEnergyChartSDK();
+        }
+
+        const { renderTelemetryStackedChart } = window.MyIOEnergyChartSDK;
+
+        LogHelper.log("[MyIO Footer] Rendering stacked chart with config:", config);
+
+        // Limpa loading
+        container.innerHTML = '';
+
+        // Renderiza o chart
+        const chartInstance = renderTelemetryStackedChart(container, {
+          version: 'v2',
+          clientId: config.clientId,
+          clientSecret: config.clientSecret,
+          dataSources: config.dataSources,
+          readingType: config.readingType,
+          startDate: config.startDate.split('T')[0], // Converte ISO para YYYY-MM-DD
+          endDate: config.endDate.split('T')[0],
+          granularity: config.granularity,
+          theme: 'dark', // Combina com o tema do footer
+          timezone: 'America/Sao_Paulo',
+          apiBaseUrl: 'https://api.data.apps.myio-bas.com',
+          deep: false
+        });
+
+        LogHelper.log("[MyIO Footer] Chart rendered successfully:", chartInstance);
+
+      } catch (error) {
+        LogHelper.error("[MyIO Footer] Error rendering chart:", error);
+        container.innerHTML = `
+          <div style="
+            text-align: center;
+            color: #ffffff;
+            padding: 40px;
+          ">
+            <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+            <h3 style="margin: 0 0 8px; font-size: 20px; font-weight: 600;">Erro ao Carregar Gráfico</h3>
+            <p style="margin: 0; font-size: 14px; color: rgba(255, 255, 255, 0.7);">
+              ${error.message || 'Erro desconhecido. Verifique o console.'}
+            </p>
+          </div>
+        `;
+      }
+    },
+
+    /**
+     * Carrega o SDK de charts dinamicamente
+     */
+    async _loadEnergyChartSDK() {
+      return new Promise((resolve, reject) => {
+        if (window.MyIOEnergyChartSDK) {
+          resolve();
+          return;
+        }
+
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/@myio/energy-chart-sdk@latest/dist/energy-chart-sdk.umd.min.js';
+        script.onload = () => {
+          LogHelper.log("[MyIO Footer] Energy chart SDK loaded successfully");
+          resolve();
+        };
+        script.onerror = () => {
+          reject(new Error('Failed to load energy-chart-sdk'));
+        };
+        document.head.appendChild(script);
+      });
+    },
+
+    /**
      * Manipulador de clique para o botão "Compare"
      */
     onCompareClick() {
-      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-      if (MyIOSelectionStore) {
-        MyIOSelectionStore.openComparison();
-      }
+      this.openComparisonModal();
     },
 
     /**
@@ -1032,6 +1519,11 @@
       if (this.$footerEl) {
         this.$footerEl.removeEventListener("dragover", this.boundDragOver);
         this.$footerEl.removeEventListener("drop", this.boundDrop);
+      }
+
+      // 3. Remove listener do evento de mudança de aba do MENU
+      if (this.boundDashboardStateChange) {
+        window.removeEventListener("myio:dashboard-state", this.boundDashboardStateChange);
       }
 
       // 3. Limpa conteúdo (mas não remove elementos, pois são do template.html do ThingsBoard)
