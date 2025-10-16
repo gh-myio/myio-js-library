@@ -629,12 +629,23 @@
 
       const selected = MyIOSelectionStore.getSelectedEntities();
       const count = selected.length;
-      const totals = MyIOSelectionStore.getMultiUnitTotalDisplay();
+
+      // Calcula os totais manualmente a partir dos lastValue das entidades
+      let totalValue = 0;
+      selected.forEach(entity => {
+        if (entity && typeof entity.lastValue === 'number') {
+          totalValue += entity.lastValue;
+        }
+      });
+
+      // Formata o total usando formatação brasileira
+      const totals = this._formatValue(totalValue);
 
       LogHelper.log("[MyIO Footer] Rendering dock:", {
         count,
         selected,
-        totals
+        totalValue,
+        totalsFormatted: totals
       });
 
       // DEBUG: Log each entity
@@ -737,7 +748,15 @@
 
       // Atualiza totais e botão
       const itemText = count === 1 ? 'item' : 'itens';
-      const newTotalsText = `${count} ${itemText} (${totals})`;
+
+      // Se não houver seleção, mostra mensagem padrão
+      let newTotalsText;
+      if (count === 0) {
+        newTotalsText = '0 itens';
+      } else {
+        // Mostra a contagem e os totais formatados
+        newTotalsText = `${count} ${itemText} (${totals})`;
+      }
 
       LogHelper.log(`[MyIO Footer] Updating totals text to: "${newTotalsText}"`);
       this.$totals.textContent = newTotalsText;
