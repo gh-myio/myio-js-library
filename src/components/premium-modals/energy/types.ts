@@ -1,18 +1,32 @@
 // energy/types.ts - Comprehensive types for openDashboardPopupEnergy component
 
 export interface OpenDashboardPopupEnergyOptions {
-  // Identity / Context (REQUIRED)
-  deviceId: string;                    // TB device UUID for entity fetch
+  // ⭐ NEW: Mode Configuration (default: 'single')
+  mode?: 'single' | 'comparison';
+
+  // ========================================
+  // SINGLE MODE PARAMETERS (original behavior)
+  // ========================================
+  deviceId?: string;                   // TB device UUID for entity fetch (required for single mode)
   startDate: string | Date;            // ISO with TZ offset or 'YYYY-MM-DD'
   endDate: string | Date;              // ISO with TZ offset or 'YYYY-MM-DD'
-  tbJwtToken: string;                  // REQUIRED for TB REST fetches
+  tbJwtToken?: string;                 // REQUIRED for TB REST fetches in single mode
 
-  // Optional Identity Resolution
+  // Optional Identity Resolution (single mode)
   label?: string;                      // Display label (fallback to TB label/name)
   customerId?: string;                 // Optional; if absent, show device view
   ingestionId?: string;                // Optional; try resolving from TB attributes
   centralId?: string;                  // Optional; may come from attributes
   slaveId?: number | string;           // Optional; may come from attributes
+
+  // ========================================
+  // COMPARISON MODE PARAMETERS (new)
+  // ========================================
+  dataSources?: Array<{
+    type: 'device';
+    id: string;                        // Ingestion device ID
+    label: string;                     // Display name for device
+  }>
 
   // Authentication Strategy (ONE REQUIRED)
   ingestionToken?: string;             // For direct Data API access
@@ -27,9 +41,10 @@ export interface OpenDashboardPopupEnergyOptions {
 
   // Behavior Configuration
   readingType?: 'energy' | 'water' | 'tank';  // default: 'energy'
-  granularity?: '1d' | '1h' | '15m';   // default: '1d'
+  granularity?: '1d' | '1h' | '15m';   // default: '1d' (REQUIRED for comparison mode)
   closeOnEsc?: boolean;                // default: true
   zIndex?: number;                     // default: 10000
+  deep?: boolean;                      // default: false (used in comparison mode)
 
   // Event Hooks
   onOpen?: (ctx: EnergyModalContext) => void;

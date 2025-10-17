@@ -6,24 +6,47 @@ import { EnergyModalError, OpenDashboardPopupEnergyOptions } from './types';
  * Validates the required parameters for openDashboardPopupEnergy
  */
 export function validateOptions(options: OpenDashboardPopupEnergyOptions): void {
-  if (!options.tbJwtToken) {
-    throw new Error('tbJwtToken is required for ThingsBoard API access');
+  const mode = options.mode || 'single';
+
+  // MODE-SPECIFIC VALIDATION
+  if (mode === 'single') {
+    // Single mode requires deviceId and tbJwtToken
+    if (!options.tbJwtToken) {
+      throw new Error('tbJwtToken is required for ThingsBoard API access in single mode');
+    }
+
+    if (!options.deviceId) {
+      throw new Error('deviceId is required for single mode');
+    }
+  } else if (mode === 'comparison') {
+    // Comparison mode requires dataSources and granularity
+    if (!options.dataSources || options.dataSources.length === 0) {
+      throw new Error('dataSources is required for comparison mode');
+    }
+
+    if (!options.granularity) {
+      throw new Error('granularity is required for comparison mode');
+    }
   }
-  
-  if (!options.deviceId) {
-    throw new Error('deviceId is required');
-  }
-  
+
+  // COMMON VALIDATIONS
   if (!options.startDate || !options.endDate) {
     throw new Error('startDate and endDate are required');
   }
-  
-  // Validate authentication strategy
-  const hasIngestionToken = !!options.ingestionToken;
-  const hasClientCredentials = !!(options.clientId && options.clientSecret);
-  
-  if (!hasIngestionToken && !hasClientCredentials) {
-    throw new Error('Either ingestionToken or clientId/clientSecret must be provided');
+
+  // Validate authentication strategy (only for single mode or when needed)
+  if (mode === 'single') {
+    const hasIngestionToken = !!options.ingestionToken;
+    const hasClientCredentials = !!(options.clientId && options.clientSecret);
+
+    if (!hasIngestionToken && !hasClientCredentials) {
+      throw new Error('Either ingestionToken or clientId/clientSecret must be provided');
+    }
+  } else if (mode === 'comparison') {
+    // Comparison mode needs clientId/clientSecret for SDK
+    if (!options.clientId || !options.clientSecret) {
+      throw new Error('clientId and clientSecret are required for comparison mode');
+    }
   }
 }
 

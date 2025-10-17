@@ -27,7 +27,59 @@ export class EnergyModalView {
   constructor(modal: any, config: EnergyViewConfig) {
     this.modal = modal;
     this.config = config;
+
+    // ⭐ VALIDATE MODE CONFIGURATION
+    this.validateConfiguration();
+
     this.render();
+  }
+
+  /**
+   * Validates configuration based on mode
+   */
+  private validateConfiguration(): void {
+    const mode = this.config.params.mode || 'single';
+
+    if (mode === 'single') {
+      // Validate single mode parameters
+      if (!this.config.params.deviceId) {
+        console.error('[EnergyModalView] deviceId is required for single mode');
+        throw new Error('deviceId is required for single mode');
+      }
+    } else if (mode === 'comparison') {
+      // Validate comparison mode parameters
+      if (!this.config.params.dataSources || this.config.params.dataSources.length === 0) {
+        console.error('[EnergyModalView] dataSources is required for comparison mode');
+        throw new Error('dataSources is required for comparison mode with at least 1 device');
+      }
+
+      if (this.config.params.dataSources.length < 2) {
+        console.warn('[EnergyModalView] Comparison with less than 2 devices');
+      }
+
+      // ⚠️ CRITICAL: granularity is REQUIRED for stacked chart
+      if (!this.config.params.granularity) {
+        console.error('[EnergyModalView] granularity is required for comparison mode');
+        throw new Error('granularity is required for comparison mode');
+      }
+    }
+  }
+
+  /**
+   * Gets modal title based on mode
+   */
+  private getModalTitle(): string {
+    const mode = this.config.params.mode || 'single';
+
+    if (mode === 'comparison') {
+      const count = this.config.params.dataSources?.length || 0;
+      return `Comparação de ${count} Dispositivos`;
+    } else {
+      // Single mode - original behavior
+      const { device } = this.config.context;
+      const label = device.label || device.id || 'Dispositivo';
+      return `Consumo - ${label}`;
+    }
   }
 
   /**
@@ -45,10 +97,9 @@ export class EnergyModalView {
   private createModalContent(): HTMLElement {
     const container = document.createElement('div');
     container.className = 'myio-energy-modal-scope';
-    
-    const { device } = this.config.context;
-    const identifier = device.attributes.identifier || 'SEM IDENTIFICADOR';
-    const label = device.label || 'SEM ETIQUETA';
+
+    // Get title based on mode
+    const modalTitle = this.getModalTitle();
     
     container.innerHTML = `
       <style>
@@ -181,8 +232,33 @@ export class EnergyModalView {
 
   /**
    * Attempts to render chart using EnergyChartSDK
+   * Routes to appropriate render method based on mode
    */
   private tryRenderWithSDK(energyData: EnergyData): boolean {
+    const mode = this.config.params.mode || 'single';
+
+    // ========================================
+    // MODO SINGLE (original behavior - kept intact)
+    // ========================================
+    if (mode === 'single') {
+      return this.renderSingleDeviceChart(energyData);
+    }
+
+    // ========================================
+    // MODO COMPARISON (new)
+    // ========================================
+    else if (mode === 'comparison') {
+      return this.renderComparisonChart();
+    }
+
+    return false;
+  }
+
+  /**
+   * ⭐ NEW METHOD: Renders single device chart (extracted from original tryRenderWithSDK)
+   * This method maintains the original behavior exactly as it was
+   */
+  private renderSingleDeviceChart(energyData: EnergyData): boolean {
     try {
       // Destroy previous instance if it exists
       if ((this as any).chartInstance && typeof (this as any).chartInstance.destroy === 'function') {
@@ -261,6 +337,94 @@ export class EnergyModalView {
       return true;
     } catch (error) {
       console.warn('[EnergyModalView] EnergyChartSDK failed, using fallback:', error);
+    }
+
+    return false;
+  }
+
+  /**
+   * ⭐ NEW METHOD: Renders comparison chart with multiple devices
+   * Uses renderTelemetryStackedChart from SDK
+   */
+  private renderComparisonChart(): boolean {
+    try {
+      // Destroy previous instance if it exists
+      if ((this as any).chartInstance && typeof (this as any).chartInstance.destroy === 'function') {
+        (this as any).chartInstance.destroy();
+        (this as any).chartInstance = null;
+      }
+
+      // Ensure container is clean
+      if (this.chartContainer) {
+        this.chartContainer.innerHTML = '';
+      }
+
+      // Check if renderTelemetryStackedChart is available
+      let renderTelemetryStackedChart;
+      if (typeof window !== 'undefined' && (window as any).EnergyChartSDK && typeof (window as any).EnergyChartSDK.renderTelemetryStackedChart === 'function') {
+        renderTelemetryStackedChart = (window as any).EnergyChartSDK.renderTelemetryStackedChart;
+      } else {
+        console.error('[EnergyModalView] renderTelemetryStackedChart not available in SDK');
+        if (this.chartContainer) {
+          this.chartContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">EnergyChartSDK renderTelemetryStackedChart not loaded. Check SDK version.</div>';
+        }
+        return false;
+      }
+
+      // Get current dates
+      let startDateStr: string, endDateStr: string;
+
+      if (this.dateRangePicker) {
+        const dates = this.dateRangePicker.getDates();
+        // ⚠️ IMPORTANT: Comparison requires YYYY-MM-DD format (no time)
+        startDateStr = dates.startISO.split('T')[0];
+        endDateStr = dates.endISO.split('T')[0];
+      } else {
+        // Fallback to params
+        const startDate = new Date(this.config.params.startDate);
+        const endDate = new Date(this.config.params.endDate);
+        startDateStr = startDate.toISOString().split('T')[0];
+        endDateStr = endDate.toISOString().split('T')[0];
+      }
+
+      const tzIdentifier = this.config.params.timezone || 'America/Sao_Paulo';
+      const theme = this.config.params.theme || 'light';
+
+      const chartConfig = {
+        version: 'v2',
+        clientId: this.config.params.clientId || 'ADMIN_DASHBOARD_CLIENT',
+        clientSecret: this.config.params.clientSecret || 'admin_dashboard_secret_2025',
+        dataSources: this.config.params.dataSources!,  // Already validated in constructor
+        readingType: this.config.params.readingType || 'energy',
+        startDate: startDateStr,  // ← NO TIME (YYYY-MM-DD)
+        endDate: endDateStr,      // ← NO TIME (YYYY-MM-DD)
+        granularity: this.config.params.granularity!,  // ← REQUIRED
+        theme: theme,
+        timezone: tzIdentifier,
+        apiBaseUrl: this.config.params.dataApiHost || 'https://api.data.apps.myio-bas.com',
+        deep: this.config.params.deep || false
+      };
+
+      console.log('[EnergyModalView] Rendering comparison chart with SDK:', chartConfig);
+
+      (this as any).chartInstance = renderTelemetryStackedChart(this.chartContainer, chartConfig);
+
+      // Attach event listeners if SDK supports it
+      if ((this as any).chartInstance && typeof (this as any).chartInstance.on === 'function') {
+        (this as any).chartInstance.on('error', (errorData: any) => {
+          console.error('[EnergyModalView] Comparison chart error:', errorData);
+          if (this.chartContainer) {
+            this.chartContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">Comparison Chart Error: ${errorData.message || 'Unknown error'}</div>`;
+          }
+        });
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[EnergyModalView] Error rendering comparison chart:', error);
+      if (this.chartContainer) {
+        this.chartContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">Error: ${(error as Error).message}</div>`;
+      }
     }
 
     return false;
@@ -418,10 +582,14 @@ export class EnergyModalView {
 
   /**
    * Loads data with new date range
+   * Behavior differs based on mode:
+   * - Single mode: Fetches data via callback
+   * - Comparison mode: Renders chart directly (SDK handles fetch)
    */
   private async loadData(): Promise<void> {
     if (this.isLoading) return;
 
+    const mode = this.config.params.mode || 'single';
     const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
     const exportBtn = document.getElementById('export-csv-btn') as HTMLButtonElement;
     const spinner = document.getElementById('load-spinner');
@@ -438,7 +606,7 @@ export class EnergyModalView {
 
     try {
       const { startISO, endISO } = this.dateRangePicker.getDates();
-      
+
       if (!startISO || !endISO) {
         this.showError('Selecione um período válido');
         return;
@@ -447,6 +615,22 @@ export class EnergyModalView {
       // Show loading state
       this.showLoadingState();
 
+      // ⭐ COMPARISON MODE: Skip data fetch, render chart directly
+      // SDK handles data fetching internally for multiple devices
+      if (mode === 'comparison') {
+        console.log('[EnergyModalView] Comparison mode: rendering chart directly');
+        const success = this.tryRenderWithSDK(null as any);  // energyData not used in comparison
+
+        if (success) {
+          this.hideLoadingState();
+          this.hideError();
+        } else {
+          this.showError('Erro ao carregar gráfico de comparação');
+        }
+        return;
+      }
+
+      // ⭐ SINGLE MODE: Original behavior (fetch data via callback)
       // Trigger reload via config callback
       if (this.config.onDateRangeChange) {
         await this.config.onDateRangeChange(startISO, endISO);

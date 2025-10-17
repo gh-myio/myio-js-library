@@ -9,6 +9,8 @@
    * Por simplicidade no exemplo, os ícones '•' e '×' são mantidos, mas estilizaremos para parecerem melhores.
    */
 
+  const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
+
   // Debug configuration
   const DEBUG_ACTIVE = true;
 
@@ -74,18 +76,15 @@
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Layout */
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  position: relative;
   width: 100%;
-  height: 88px;
-  z-index: 10000;
+  height: 46px;
+  z-index: 1000;
 
   display: flex;
   align-items: center;
-  gap: 28px;
-  padding: 0 32px;
+  gap: 14px;
+  padding: 0 18px;
   box-sizing: border-box;
 
   /* Visual */
@@ -137,13 +136,13 @@
 .myio-chip {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 18px;
-  height: 64px;
+  gap: 7px;
+  padding: 5px 10px;
+  height: 34px;
   flex-shrink: 0;
   background: linear-gradient(135deg, rgba(158, 140, 190, 0.25) 0%, rgba(158, 140, 190, 0.15) 100%);
   border: 1px solid rgba(184, 165, 214, 0.4);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   white-space: nowrap;
   cursor: default;
@@ -174,7 +173,7 @@
 }
 
 .myio-chip-name {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   color: #ffffff;
   letter-spacing: -0.02em;
@@ -184,7 +183,7 @@
 }
 
 .myio-chip-value {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   color: #ffffff;
   font-variant-numeric: tabular-nums;
@@ -197,14 +196,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 22px;
+  height: 22px;
   padding: 0;
-  margin-left: 8px;
+  margin-left: 5px;
   flex-shrink: 0;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+  border-radius: 4px;
   color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -258,9 +257,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 8px 16px;
-  min-width: 140px;
+  gap: 0px;
+  padding: 4px 9px;
+  min-width: 100px;
   background: linear-gradient(135deg, rgba(158, 140, 190, 0.15) 0%, rgba(158, 140, 190, 0.08) 100%);
   border: 1px solid rgba(184, 165, 214, 0.3);
   border-radius: var(--radius-md);
@@ -277,7 +276,7 @@
 }
 
 #myioTotals {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--color-text-primary);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -287,8 +286,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   background: linear-gradient(135deg, rgba(200, 200, 200, 0.2) 0%, rgba(200, 200, 200, 0.1) 100%);
   border: 1px solid rgba(200, 200, 200, 0.3);
@@ -320,8 +319,8 @@
 }
 
 .myio-clear-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   stroke-width: 2;
 }
 
@@ -330,12 +329,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 48px;
-  min-width: 140px;
-  padding: 0 24px;
+  gap: 4px;
+  height: 32px;
+  min-width: 100px;
+  padding: 0 16px;
   font-family: var(--font-family);
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: -0.01em;
   text-transform: uppercase;
@@ -366,8 +365,8 @@
 
 .myio-compare::after {
   content: '→';
-  font-size: 18px;
-  margin-left: 4px;
+  font-size: 14px;
+  margin-left: 2px;
   transition: transform 0.2s;
 }
 
@@ -1093,7 +1092,8 @@
     },
 
     /**
-     * Abre a modal de comparação premium com gráfico stacked
+     * Abre a modal de comparação premium usando openDashboardPopupEnergy
+     * NOVO: Usa o modo 'comparison' do EnergyModalView
      */
     async openComparisonModal() {
       LogHelper.log("[MyIO Footer] Opening comparison modal...");
@@ -1120,10 +1120,11 @@
 
         LogHelper.log(`[MyIO Footer] Comparison readingType: ${readingType}`);
 
-        // Prepara dataSources para o SDK
+        // ⭐ NOVO: Prepara dataSources com ingestionId
+        // IMPORTANTE: Usa ingestionId, não o ID do ThingsBoard
         const dataSources = selected.map(entity => ({
           type: 'device',
-          id: entity.id,
+          id: entity.ingestionId || entity.id,  // Prioriza ingestionId
           label: entity.name || entity.id
         }));
 
@@ -1135,14 +1136,16 @@
         // Calcula granularidade baseada no período
         const granularity = this._calculateGranularity(startDate, endDate);
 
-        // Obtém credenciais de autenticação
-        const clientId = window.__MYIO_CLIENT_ID__ || '';
-        const clientSecret = window.__MYIO_CLIENT_SECRET__ || '';
+        // ⭐ Obtém credenciais de autenticação com fallback
+        const clientId = window.__MYIO_CLIENT_ID__ || 'mestreal_mfh4e642_4flnuh';
+        const clientSecret = window.__MYIO_CLIENT_SECRET__ || 'gv0zfmdekNxYA296OcqFrnBAVU4PhbUBhBwNlMCamk2oXDHeXJqu1K6YtpVOZ5da';
 
-        if (!clientId || !clientSecret) {
-          LogHelper.error("[MyIO Footer] Missing client credentials");
-          alert("Credenciais de autenticação não encontradas. Recarregue a página.");
-          return;
+        // Log se estiver usando fallback
+        if (!window.__MYIO_CLIENT_ID__) {
+          LogHelper.warn("[MyIO Footer] Using fallback clientId");
+        }
+        if (!window.__MYIO_CLIENT_SECRET__) {
+          LogHelper.warn("[MyIO Footer] Using fallback clientSecret");
         }
 
         LogHelper.log("[MyIO Footer] Opening modal with config:", {
@@ -1150,19 +1153,55 @@
           readingType,
           startDate,
           endDate,
-          granularity
+          granularity,
+          clientId
         });
 
-        // Cria o overlay da modal
-        this._createComparisonModalOverlay({
-          dataSources,
-          readingType,
-          startDate,
-          endDate,
-          granularity,
-          clientId,
-          clientSecret
+        // ⭐ NOVO: Usa openDashboardPopupEnergy em modo comparison
+        // Substitui a modal customizada (_createComparisonModalOverlay)
+        if (!window.MyIOLibrary?.openDashboardPopupEnergy) {
+          LogHelper.error("[MyIO Footer] openDashboardPopupEnergy not available");
+          alert("Biblioteca MyIO não está carregada. Recarregue a página.");
+          return;
+        }
+
+        // ⭐ Usa as variáveis com fallback (já definidas acima)
+        const MyIOAuthFooter = MyIOLibrary.buildMyioIngestionAuth({
+          dataApiHost: DATA_API_HOST,
+          clientId: clientId,          // ← Usa a variável com fallback
+          clientSecret: clientSecret   // ← Usa a variável com fallback
+        });        
+
+        const myTbTokenDashBoardFooter = localStorage.getItem("jwt_token");
+        const tokenIngestionDashBoardComparison = await MyIOAuthFooter.getToken();
+
+        const modal = window.MyIOLibrary.openDashboardPopupEnergy({
+          mode: 'comparison',  // ← MODO COMPARISON
+          tbJwtToken: myTbTokenDashBoardFooter,
+          ingestionToken: tokenIngestionDashBoardComparison,
+          dataSources: dataSources,
+          readingType: readingType,
+          startDate: startDate,
+          endDate: endDate,
+          granularity: granularity,  // ← OBRIGATÓRIO para comparison
+          clientId: clientId,
+          clientSecret: clientSecret,
+          dataApiHost: 'https://api.data.apps.myio-bas.com',
+          theme: 'dark',  // Combina com o tema do footer
+          deep: false,
+          onOpen: (context) => {
+            LogHelper.log('[FOOTER] Comparison modal opened:', context);
+          },
+          onClose: () => {
+            LogHelper.log('[FOOTER] Comparison modal closed');
+          },
+          onError: (error) => {
+            LogHelper.error('[FOOTER] Comparison modal error:', error);
+            alert(`Erro: ${error.message}`);
+          }
         });
+
+        LogHelper.log("[MyIO Footer] Modal opened successfully:", modal);
 
       } catch (error) {
         LogHelper.error("[MyIO Footer] Error opening comparison modal:", error);
