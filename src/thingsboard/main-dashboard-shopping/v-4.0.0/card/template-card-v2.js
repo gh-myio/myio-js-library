@@ -275,7 +275,8 @@ export function renderCardComponentV2({
     group: deviceIdentifier || entityType || 'Dispositivo',
     lastValue: Number(val) || 0,
     unit: determineUnit(deviceType),
-    status: mapDeviceStatusToCardStatus(deviceStatus)
+    status: mapDeviceStatusToCardStatus(deviceStatus),
+    ingestionId: ingestionId || entityId  // ⭐ ADD: Store ingestionId for API calls (comparison mode)
   };
 
   // Register entity with SelectionStore if selection is enabled
