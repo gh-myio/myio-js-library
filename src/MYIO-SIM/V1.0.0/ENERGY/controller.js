@@ -23,6 +23,9 @@ let totalConsumptionCache = {
 
 const TOTAL_CONSUMPTION_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
+// ✅ DEBOUNCE: Prevent infinite loops
+let isUpdatingTotalConsumption = false;
+
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
@@ -426,24 +429,32 @@ function initializeTotalConsumptionCard() {
  * Atualiza o card de consumo total
  */
 function updateTotalConsumptionCard() {
-  const valueEl = document.getElementById("total-consumption-value");
-  const trendEl = document.getElementById("total-consumption-trend");
-  const infoEl = document.getElementById("total-consumption-info");
-
-  // ✅ Try cache first
-  const cached = getCachedTotalConsumption();
-  if (cached) {
-    console.log("[ENERGY] Using cached total consumption");
-    renderTotalConsumptionUI(cached, valueEl, trendEl, infoEl);
+  // ✅ PREVENT INFINITE LOOPS: Check if already updating
+  if (isUpdatingTotalConsumption) {
+    console.log("[ENERGY] Update already in progress, skipping...");
     return;
   }
 
-  if (!window.MyIOOrchestrator) {
-    console.warn("[ENERGY] MyIOOrchestrator not available");
-    return;
-  }
+  isUpdatingTotalConsumption = true;
 
   try {
+    const valueEl = document.getElementById("total-consumption-value");
+    const trendEl = document.getElementById("total-consumption-trend");
+    const infoEl = document.getElementById("total-consumption-info");
+
+    // ✅ Try cache first
+    const cached = getCachedTotalConsumption();
+    if (cached) {
+      console.log("[ENERGY] Using cached total consumption");
+      renderTotalConsumptionUI(cached, valueEl, trendEl, infoEl);
+      return;
+    }
+
+    if (!window.MyIOOrchestrator) {
+      console.warn("[ENERGY] MyIOOrchestrator not available");
+      return;
+    }
+
     // Pega dados do orquestrador
     const customerTotal = totalConsumptionCache.customerTotal || 0;
     const energyData = window.MyIOOrchestrator.getEnergyWidgetData(customerTotal);
@@ -467,6 +478,10 @@ function updateTotalConsumptionCard() {
   } catch (error) {
     console.error("[ENERGY] Error updating total consumption card:", error);
 
+    const valueEl = document.getElementById("total-consumption-value");
+    const trendEl = document.getElementById("total-consumption-trend");
+    const infoEl = document.getElementById("total-consumption-info");
+
     // Show error state
     if (valueEl) {
       valueEl.textContent = "Erro";
@@ -478,6 +493,11 @@ function updateTotalConsumptionCard() {
     if (infoEl) {
       infoEl.textContent = "";
     }
+  } finally {
+    // ✅ Reset flag after a short delay to allow DOM updates
+    setTimeout(() => {
+      isUpdatingTotalConsumption = false;
+    }, 100);
   }
 }
 
@@ -745,8 +765,9 @@ self.onInit = async function() {
     console.log("[ENERGY] Received energy data from orchestrator:", ev.detail);
     const { cache } = ev.detail;
 
-    // Update total consumption card when equipment data arrives
-    updateTotalConsumptionCard();
+    // ✅ NOTE: We don't call updateTotalConsumptionCard() here to avoid loops
+    // The card will be updated when HEADER emits 'myio:customer-total-consumption'
+    // This event is only for future chart updates
 
     // TODO: Update charts with real data when orchestrator sends it
     // updateCharts(cache);
