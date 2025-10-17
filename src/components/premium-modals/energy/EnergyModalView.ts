@@ -234,7 +234,7 @@ export class EnergyModalView {
    * Attempts to render chart using EnergyChartSDK
    * Routes to appropriate render method based on mode
    */
-  private tryRenderWithSDK(energyData: EnergyData): boolean {
+  public tryRenderWithSDK(energyData: EnergyData): boolean {
     const mode = this.config.params.mode || 'single';
 
     // ========================================

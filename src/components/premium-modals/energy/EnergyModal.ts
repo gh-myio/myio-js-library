@@ -60,23 +60,43 @@ export class EnergyModal {
     try {
       console.log('[EnergyModal] Starting modal show process');
 
-      // 1. Fetch device context from ThingsBoard
-      this.context = await this.fetchDeviceContext();
-      
-      // 2. Create and configure modal
-      const identifier = this.context.device.attributes.identifier || 'SEM IDENTIFICADOR';
-      const label = this.context.device.label || 'SEM ETIQUETA';
-      
-      this.modal = createModal({
-        title: `Energy Report - ${identifier} - ${label}`,
-        width: '80vw',
-        height: '90vh',
-        theme: (this.params.theme === 'dark' ? 'dark' : 'light') as 'light' | 'dark'
-      });
+      const mode = this.params.mode || 'single';
+      console.log(`[EnergyModal] Mode: ${mode}`);
+
+      // ⭐ NEW: Only fetch device context in SINGLE mode
+      if (mode === 'single') {
+        // 1. Fetch device context from ThingsBoard
+        this.context = await this.fetchDeviceContext();
+
+        // 2. Create and configure modal with device info
+        const identifier = this.context.device.attributes.identifier || 'SEM IDENTIFICADOR';
+        const label = this.context.device.label || 'SEM ETIQUETA';
+
+        this.modal = createModal({
+          title: `Energy Report - ${identifier} - ${label}`,
+          width: '80vw',
+          height: '90vh',
+          theme: (this.params.theme === 'dark' ? 'dark' : 'light') as 'light' | 'dark'
+        });
+      }
+      // ⭐ NEW: Comparison mode - skip ThingsBoard fetch
+      else if (mode === 'comparison') {
+        // Create minimal context (no device info needed)
+        this.context = this.createComparisonContext();
+
+        // Create modal with comparison title
+        const deviceCount = this.params.dataSources?.length || 0;
+        this.modal = createModal({
+          title: `Comparação de ${deviceCount} Dispositivos`,
+          width: '80vw',
+          height: '90vh',
+          theme: (this.params.theme === 'dark' ? 'dark' : 'light') as 'light' | 'dark'
+        });
+      }
 
       // 3. Create and render view
       this.view = new EnergyModalView(this.modal, {
-        context: this.context,
+        context: this.context!,
         params: this.params,
         onExport: () => this.handleExport(),
         onError: (error) => this.handleEnergyModalError(error),
@@ -85,14 +105,17 @@ export class EnergyModal {
 
       // 4. Setup modal event handlers
       this.setupModalEventHandlers();
-      
-      // 5. Load and render energy data
-      await this.loadEnergyData();
-      
-      // 6. Trigger onOpen callback
+
+      // ⭐ NEW: Only load energy data in SINGLE mode
+      // In comparison mode, the SDK handles data fetching
+      if (mode === 'single') {
+        await this.loadEnergyData();
+      }
+
+      // 5. Trigger onOpen callback
       if (this.params.onOpen) {
         try {
-          this.params.onOpen(this.context);
+          this.params.onOpen(this.context!);
         } catch (error) {
           console.warn('[EnergyModal] onOpen callback error:', error);
         }
@@ -103,7 +126,7 @@ export class EnergyModal {
       return {
         close: () => this.close()
       };
-      
+
     } catch (error) {
       console.error('[EnergyModal] Error showing modal:', error);
       this.handleError(error as Error);
@@ -134,6 +157,28 @@ export class EnergyModal {
       i18n: { ...DEFAULT_I18N, ...params.i18n },
       // Merge styles with defaults
       styles: { ...DEFAULT_STYLES, ...params.styles }
+    };
+  }
+
+  /**
+   * Creates a minimal context for comparison mode
+   * No ThingsBoard data fetching required
+   */
+  private createComparisonContext(): EnergyModalContext {
+    const deviceCount = this.params.dataSources?.length || 0;
+
+    return {
+      device: {
+        id: 'comparison',
+        label: `Comparação (${deviceCount} dispositivos)`,
+        attributes: {}
+      },
+      resolved: {
+        ingestionId: null,
+        centralId: null,
+        slaveId: null,
+        customerId: null
+      }
     };
   }
 
@@ -234,6 +279,14 @@ export class EnergyModal {
    * Loads energy data and renders it
    */
   private async loadEnergyData(): Promise<void> {
+    const mode = this.params.mode || 'single';
+
+    // ⭐ SAFETY: Only load data in single mode
+    if (mode !== 'single') {
+      console.log('[EnergyModal] Skipping loadEnergyData in comparison mode');
+      return;
+    }
+
     if (!this.context?.resolved.ingestionId) {
       const error = new Error('ingestionId not found in device attributes. Please configure the device properly.');
       this.handleError(error);
@@ -328,12 +381,43 @@ export class EnergyModal {
    * Handles date range changes from the date picker
    */
   private async handleDateRangeChange(startISO: string, endISO: string): Promise<void> {
-    if (!this.context?.resolved.ingestionId || !this.view) {
+    const mode = this.params.mode || 'single';
+
+    if (!this.view) {
       return;
     }
 
     try {
-      console.log('[EnergyModal] Date range changed:', { startISO, endISO });
+      console.log('[EnergyModal] Date range changed:', { startISO, endISO, mode });
+
+      // ⭐ COMPARISON MODE: Let SDK handle data fetch
+      if (mode === 'comparison') {
+        console.log('[EnergyModal] Comparison mode: re-rendering chart with new dates');
+
+        // Update params with new dates
+        this.params.startDate = startISO;
+        this.params.endDate = endISO;
+
+        // Show loading state
+        this.view.showLoadingState();
+
+        // Re-render chart (SDK will fetch new data)
+        const success = this.view.tryRenderWithSDK(null as any);
+
+        if (success) {
+          this.view.hideLoadingState();
+          this.view.hideError();
+        } else {
+          this.view.showError('Erro ao recarregar gráfico de comparação');
+        }
+
+        return;
+      }
+
+      // ⭐ SINGLE MODE: Original behavior
+      if (!this.context?.resolved.ingestionId) {
+        return;
+      }
 
       // Show loading state
       this.view.showLoadingState();
@@ -364,12 +448,20 @@ export class EnergyModal {
    * Handles CSV export
    */
   private handleExport(): void {
+    const mode = this.params.mode || 'single';
+
     if (!this.view) {
       console.warn('[EnergyModal] Cannot export: view not initialized');
       return;
     }
 
     try {
+      // ⭐ NEW: Disable export in comparison mode (for now)
+      if (mode === 'comparison') {
+        alert('Export não disponível no modo de comparação');
+        return;
+      }
+
       this.view.exportToCsv();
       console.log('[EnergyModal] CSV export completed');
     } catch (error) {
