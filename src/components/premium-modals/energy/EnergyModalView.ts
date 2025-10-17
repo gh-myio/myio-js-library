@@ -713,14 +713,14 @@ export class EnergyModalView {
   /**
    * Helper methods for hiding/showing sections
    */
-  private hideLoadingState(): void {
+  public hideLoadingState(): void {
     const loadingState = this.chartContainer?.querySelector('.myio-loading-state');
     if (loadingState) {
       loadingState.remove();
     }
   }
 
-  private hideError(): void {
+  public hideError(): void {
     const errorContainer = document.getElementById('energy-error');
     if (errorContainer) {
       errorContainer.style.display = 'none';

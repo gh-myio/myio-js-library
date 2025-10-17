@@ -106,10 +106,19 @@ export class EnergyModal {
       // 4. Setup modal event handlers
       this.setupModalEventHandlers();
 
-      // ⭐ NEW: Only load energy data in SINGLE mode
-      // In comparison mode, the SDK handles data fetching
+      // ⭐ NEW: Mode-specific data loading
       if (mode === 'single') {
+        // Single mode: Fetch and render energy data
         await this.loadEnergyData();
+      } else if (mode === 'comparison') {
+        // Comparison mode: Directly render comparison chart (SDK handles data fetch)
+        console.log('[EnergyModal] Triggering comparison chart render');
+        const success = this.view.tryRenderWithSDK(null as any);
+
+        if (!success) {
+          const error = new Error('Failed to render comparison chart. Check if EnergyChartSDK is loaded.');
+          this.handleError(error);
+        }
       }
 
       // 5. Trigger onOpen callback
