@@ -1,0 +1,352 @@
+/*
+ * ThingsBoard Widget: TELEMETRY_INFO (MyIO v-5.2.0)
+ * - Estilos baseados no TELEMETRY v-5.2.0
+ * - Design system unificado com CSS variables
+ */
+
+.telemetry-info-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  background: var(--myio-bg, #0f1419);
+  color: var(--myio-text, #e8ebf0);
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-sizing: border-box;
+}
+
+/* ========== HEADER ========== */
+
+.info-header {
+  margin-bottom: 20px;
+}
+
+.info-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #00e09e;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+/* ========== CONTENT GRID ========== */
+
+.info-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ========== CARDS ========== */
+
+.info-card {
+  background: var(--myio-panel, #1c2743);
+  border: 1px solid var(--myio-border, #2e3a52);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.info-card:hover {
+  border-color: rgba(0, 224, 158, 0.3);
+}
+
+.chart-card {
+  grid-column: 1 / -1; /* Ocupa toda a largura */
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--myio-border, #2e3a52);
+}
+
+.card-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  color: #00e09e;
+  letter-spacing: -0.01em;
+}
+
+.card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+/* ========== STATS ========== */
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.stat-row.main-stat {
+  font-size: 16px;
+  font-weight: 600;
+  color: #00e09e;
+}
+
+.stat-label {
+  color: #a8b2c1;
+  flex-shrink: 0;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #e8ebf0;
+  margin-left: auto;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-perc {
+  color: #00e09e;
+  font-weight: 500;
+  min-width: 60px;
+  text-align: right;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========== CONSUMER GROUPS ========== */
+
+.consumer-group {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(46, 58, 82, 0.5);
+}
+
+.consumer-group:last-of-type:not(.total-group) {
+  border-bottom: none;
+}
+
+.consumer-group.total-group {
+  border-bottom: none;
+  border-top: 2px solid #00e09e;
+  margin-top: 8px;
+  padding-top: 12px;
+}
+
+/* ========== DEVICES LIST ========== */
+
+.devices-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #a8b2c1;
+  margin-top: 8px;
+  padding-left: 16px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.devices-list:empty {
+  display: none;
+}
+
+.device-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.device-item::before {
+  content: "•";
+  color: #00e09e;
+  font-weight: bold;
+}
+
+/* ========== CHART ========== */
+
+.chart-container {
+  position: relative;
+  height: 300px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-container canvas {
+  max-height: 100%;
+  max-width: 100%;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--myio-border, #2e3a52);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.legend-label {
+  color: #a8b2c1;
+}
+
+.legend-value {
+  font-weight: 600;
+  color: #e8ebf0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========== SCROLLBARS ========== */
+
+.card-body::-webkit-scrollbar,
+.devices-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.card-body::-webkit-scrollbar-track,
+.devices-list::-webkit-scrollbar-track {
+  background: rgba(46, 58, 82, 0.3);
+  border-radius: 3px;
+}
+
+.card-body::-webkit-scrollbar-thumb,
+.devices-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 224, 158, 0.3);
+  border-radius: 3px;
+}
+
+.card-body::-webkit-scrollbar-thumb:hover,
+.devices-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 224, 158, 0.5);
+}
+
+/* ========== RESPONSIVE ========== */
+
+@media (max-width: 1200px) {
+  .info-content {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-card {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .telemetry-info-root {
+    padding: 12px;
+  }
+
+  .info-content {
+    gap: 12px;
+  }
+
+  .info-card {
+    padding: 12px;
+  }
+
+  .info-title {
+    font-size: 18px;
+  }
+
+  .card-title {
+    font-size: 14px;
+  }
+
+  .stat-row {
+    font-size: 13px;
+  }
+
+  .stat-row.main-stat {
+    font-size: 15px;
+  }
+
+  .chart-container {
+    height: 250px;
+  }
+
+  .chart-legend {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+/* ========== LOADING STATE ========== */
+
+.info-card.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.info-card.loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  border: 3px solid rgba(0, 224, 158, 0.2);
+  border-top-color: #00e09e;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ========== EMPTY STATE ========== */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  color: #a8b2c1;
+  text-align: center;
+  gap: 8px;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  opacity: 0.5;
+}
+
+.empty-state-text {
+  font-size: 14px;
+}

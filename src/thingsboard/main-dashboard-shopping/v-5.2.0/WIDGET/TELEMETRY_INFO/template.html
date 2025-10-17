@@ -1,0 +1,94 @@
+<!--
+  ThingsBoard Widget: TELEMETRY_INFO (MyIO v-5.2.0)
+  - Consolida informações de entrada e consumidores
+  - Gráfico de pizza com distribuição de consumo
+  - Integrado com MyIO Orchestrator (RFC-0042)
+-->
+
+<section class="telemetry-info-root">
+  <header class="info-header">
+    <h2 class="info-title">ℹ️ Informações de Energia</h2>
+  </header>
+
+  <div class="info-content">
+    <!-- Seção Entrada -->
+    <div class="info-card entrada-card">
+      <div class="card-header">
+        <span class="card-icon">📥</span>
+        <h3 class="card-title">Entrada</h3>
+      </div>
+      <div class="card-body">
+        <div class="stat-row main-stat">
+          <span class="stat-label">Total:</span>
+          <span class="stat-value" id="entradaTotal">0,00 kWh</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-perc" id="entradaPerc">100%</span>
+        </div>
+        <div class="devices-list" id="entradaDevices">
+          <!-- Dispositivos de entrada (opcional) -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Seção Consumidores -->
+    <div class="info-card consumidores-card">
+      <div class="card-header">
+        <span class="card-icon">📊</span>
+        <h3 class="card-title">Consumidores</h3>
+      </div>
+      <div class="card-body">
+        <!-- Área Comum -->
+        <div class="consumer-group">
+          <div class="stat-row">
+            <span class="stat-label">🏢 Área Comum:</span>
+            <span class="stat-value" id="areaComumTotal">0,00 kWh</span>
+            <span class="stat-perc" id="areaComumPerc">(0%)</span>
+          </div>
+        </div>
+
+        <!-- Equipamentos -->
+        <div class="consumer-group">
+          <div class="stat-row">
+            <span class="stat-label">⚙️ Equipamentos:</span>
+            <span class="stat-value" id="equipamentosTotal">0,00 kWh</span>
+            <span class="stat-perc" id="equipamentosPerc">(0%)</span>
+          </div>
+        </div>
+
+        <!-- Lojas -->
+        <div class="consumer-group">
+          <div class="stat-row">
+            <span class="stat-label">🏪 Lojas:</span>
+            <span class="stat-value" id="lojasTotal">0,00 kWh</span>
+            <span class="stat-perc" id="lojasPerc">(0%)</span>
+          </div>
+        </div>
+
+        <!-- Total Consumidores -->
+        <div class="consumer-group total-group">
+          <div class="stat-row main-stat">
+            <span class="stat-label">TOTAL:</span>
+            <span class="stat-value" id="consumidoresTotal">0,00 kWh</span>
+            <span class="stat-perc" id="consumidoresPerc">(100%)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráfico de Pizza -->
+    <div class="info-card chart-card">
+      <div class="card-header">
+        <h3 class="card-title">Distribuição de Consumo</h3>
+      </div>
+      <div class="card-body">
+        <div class="chart-container">
+          <canvas id="consumptionPieChart"></canvas>
+        </div>
+        <div class="chart-legend" id="chartLegend">
+          <!-- Legenda gerada dinamicamente -->
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

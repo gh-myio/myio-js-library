@@ -1,0 +1,76 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "TELEMETRY_INFO Settings",
+    "properties": {
+      "labelWidget": {
+        "title": "Widget Label",
+        "type": "string",
+        "default": "Informações de Energia"
+      },
+      "DOMAIN": {
+        "title": "Domain",
+        "type": "string",
+        "default": "energy",
+        "enum": ["energy", "water", "temperature"],
+        "description": "Data domain to filter orchestrator data"
+      },
+      "customerTB_ID": {
+        "title": "Customer ThingsBoard ID",
+        "type": "string",
+        "description": "ThingsBoard customer ID (required for data filtering)"
+      },
+      "showDevicesList": {
+        "title": "Show Devices List",
+        "type": "boolean",
+        "default": false,
+        "description": "Display list of entrada devices in the card"
+      },
+      "chartColors": {
+        "title": "Chart Colors",
+        "type": "object",
+        "properties": {
+          "areaComum": {
+            "title": "Área Comum Color",
+            "type": "string",
+            "default": "#4CAF50"
+          },
+          "equipamentos": {
+            "title": "Equipamentos Color",
+            "type": "string",
+            "default": "#2196F3"
+          },
+          "lojas": {
+            "title": "Lojas Color",
+            "type": "string",
+            "default": "#FFC107"
+          }
+        }
+      },
+      "DEBUG_ACTIVE": {
+        "title": "Enable Debug Logs",
+        "type": "boolean",
+        "default": false,
+        "description": "Show detailed console logs for debugging"
+      }
+    },
+    "required": ["customerTB_ID", "DOMAIN"]
+  },
+  "form": [
+    "labelWidget",
+    "DOMAIN",
+    "customerTB_ID",
+    "showDevicesList",
+    {
+      "key": "chartColors",
+      "type": "section",
+      "title": "Chart Color Configuration",
+      "items": [
+        "chartColors.areaComum",
+        "chartColors.equipamentos",
+        "chartColors.lojas"
+      ]
+    },
+    "DEBUG_ACTIVE"
+  ]
+}

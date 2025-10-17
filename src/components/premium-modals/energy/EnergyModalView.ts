@@ -401,6 +401,7 @@ export class EnergyModalView {
         granularity: this.config.params.granularity!,  // ← REQUIRED
         theme: theme,
         timezone: tzIdentifier,
+        iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
         apiBaseUrl: this.config.params.dataApiHost || 'https://api.data.apps.myio-bas.com',
         deep: this.config.params.deep || false
       };
