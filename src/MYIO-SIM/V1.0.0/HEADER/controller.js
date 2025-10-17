@@ -1065,15 +1065,23 @@ function updateEnergyCard(energyCache) {
   // ✅ FIX: Removed early return - always process updates
   console.log("[HEADER] Updating energy card with cache:", energyCache?.size || 0, "devices");
 
-  self.ctx.data.forEach((data) => {
-    console.log('[HEADER] Processing data row:', data);
+  // ✅ FIX: Add safety check for undefined data
+  if (Array.isArray(self.ctx.data)) {
+    self.ctx.data.forEach((data) => {
+      // Skip if data is undefined or null
+      if (!data || !data.datasource || !data.data) {
+        return;
+      }
 
-    // Extract ingestionId from data
-    const ingestionId = data.data?.[0]?.[1]; // data[indexOfIngestionId][1] = value
-    if (ingestionId) {
-      ingestionIds.push(ingestionId);
-    }
-  });
+      //console.log('[HEADER] Processing data row:', data);
+
+      // Extract ingestionId from data
+      const ingestionId = data.data?.[0]?.[1]; // data[indexOfIngestionId][1] = value
+      if (ingestionId) {
+        ingestionIds.push(ingestionId);
+      }
+    });
+  }
 
   console.log("[HEADER] Energy card: Found ingestionIds:", ingestionIds.length);
 
@@ -1084,7 +1092,7 @@ function updateEnergyCard(energyCache) {
       const cached = energyCache.get(ingestionId);
       if (cached) {
         totalConsumption += cached.total_value || 0;
-        console.log(`[HEADER] Device ${cached.name}: ${cached.total_value} kWh`);
+        //console.log(`[HEADER] Device ${cached.name}: ${cached.total_value} kWh`);
       }
     });
   }
@@ -1102,6 +1110,16 @@ function updateEnergyCard(energyCache) {
   }
 
   console.log("[HEADER] Energy card update complete:", { totalConsumption, devices: ingestionIds.length });
+
+  // ✅ EMIT EVENT: Notify ENERGY widget of customer total consumption
+  window.dispatchEvent(new CustomEvent('myio:customer-total-consumption', {
+    detail: {
+      customerTotal: totalConsumption,
+      deviceCount: ingestionIds.length,
+      timestamp: Date.now()
+    }
+  }));
+  console.log(`[HEADER] Emitted customer total consumption: ${totalConsumption} kWh`);
 }
 
 // ===== HEADER: Listen for energy data from MAIN orchestrator =====

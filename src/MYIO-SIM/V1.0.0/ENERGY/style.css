@@ -51,8 +51,9 @@
   font-size: 12px;
 }
 
-.trend.up { color: #d97706; }
-.trend.down { color: #1f9d55; }
+.trend.up { color: #dc2626; } /* Red for increase in demand (bad) */
+.trend.down { color: #16a34a; } /* Green for decrease in demand (good) */
+.trend.neutral { color: #6b7280; } /* Gray for no change */
 
 .progress-bar {
   background: #e6eef5;
@@ -108,4 +109,32 @@
   min-width: 0;
   width: auto;
   box-sizing: border-box;
+}
+
+/* Peak Demand Card Styles */
+#peak-demand-card {
+  position: relative;
+}
+
+#peak-demand-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+}
+
+.loading-spinner {
+  display: inline-block;
+}
+
+.device-info {
+  display: block;
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

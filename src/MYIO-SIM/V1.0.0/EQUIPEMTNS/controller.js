@@ -982,11 +982,13 @@ self.onInit = async function () {
     }, timeoutMs);
 
     interval = setInterval(() => {
-      if (window.parent && window.parent.MyIOOrchestrator) {
+      // ✅ Try window first (same frame), then window.parent (iframe)
+      const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+      if (orchestrator) {
         clearTimeout(timeout);
         clearInterval(interval);
         console.log("[EQUIPMENTS] MyIOOrchestrator encontrado!");
-        resolve(window.parent.MyIOOrchestrator);
+        resolve(orchestrator);
       }
     }, 100); // Verifica a cada 100ms
   });

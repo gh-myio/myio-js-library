@@ -963,6 +963,22 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         self.ctx.$scope.startDateISO = startISOOffset;
         self.ctx.$scope.endDateISO = endISOOffset;
 
+        // ✅ Save dates globally for ENERGY widget to access
+        window.myioDateRange = {
+          startDate: startISOOffset,
+          endDate: endISOOffset,
+          startMs,
+          endMs
+        };
+
+        // ✅ Also save to localStorage as backup
+        localStorage.setItem('myio:date-range', JSON.stringify({
+          startDate: startISOOffset,
+          endDate: endISOOffset,
+          startMs,
+          endMs
+        }));
+
         console.log("[MENU] Dispatching myio:update-date event:", {
           startDate: startISOOffset,
           endDate: endISOOffset
@@ -1250,6 +1266,19 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // Dispara evento inicial com as datas preset
   const startDateFormatted = timeStart.replace("Z", "-03:00");
   const endDateFormatted = timeEnd.replace("Z", "-03:00");
+
+  // ✅ Save initial dates globally for other widgets
+  window.myioDateRange = {
+    startDate: startDateFormatted,
+    endDate: endDateFormatted,
+    startMs: new Date(timeStart).getTime(),
+    endMs: new Date(timeEnd).getTime()
+  };
+
+  // ✅ Also save to localStorage
+  localStorage.setItem('myio:date-range', JSON.stringify(window.myioDateRange));
+
+  console.log("[MENU] Initial dates saved globally:", window.myioDateRange);
 
   window.dispatchEvent(
     new CustomEvent("myio:update-date", {

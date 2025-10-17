@@ -468,6 +468,43 @@ const MyIOOrchestrator = (() => {
     lastFetchParams = null;
   }
 
+  /**
+   * Calcula o total de consumo de todos os equipamentos no cache
+   * @returns {number} - Total em kWh
+   */
+  function getTotalEquipmentsConsumption() {
+    let total = 0;
+    energyCache.forEach(device => {
+      total += device.total_value || 0;
+    });
+    console.log(`[MAIN] [Orchestrator] Total equipments consumption: ${total} kWh (${energyCache.size} devices)`);
+    return total;
+  }
+
+  /**
+   * Obtém dados agregados para o widget ENERGY
+   * @param {number} customerTotalConsumption - Consumo total do customer (vindo do HEADER)
+   * @returns {object} - { customerTotal, equipmentsTotal, difference, percentage }
+   */
+  function getEnergyWidgetData(customerTotalConsumption = 0) {
+    const equipmentsTotal = getTotalEquipmentsConsumption();
+    const difference = customerTotalConsumption - equipmentsTotal;
+    const percentage = customerTotalConsumption > 0
+      ? (difference / customerTotalConsumption) * 100
+      : 0;
+
+    const result = {
+      customerTotal: customerTotalConsumption,
+      equipmentsTotal: equipmentsTotal,
+      difference: difference,
+      percentage: percentage,
+      deviceCount: energyCache.size
+    };
+
+    console.log(`[MAIN] [Orchestrator] Energy widget data:`, result);
+    return result;
+  }
+
   return {
     fetchEnergyData,
     getCache,
@@ -476,7 +513,9 @@ const MyIOOrchestrator = (() => {
     clearStorageCache,
     showGlobalBusy,
     hideGlobalBusy,
-    getBusyState: () => ({ ...globalBusyState })
+    getBusyState: () => ({ ...globalBusyState }),
+    getTotalEquipmentsConsumption,
+    getEnergyWidgetData
   };
 })();
 

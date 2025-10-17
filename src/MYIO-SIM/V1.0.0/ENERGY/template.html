@@ -9,15 +9,29 @@
 
   <!-- Cards -->
   <div class="cards">
-    <div class="card">
+    <div class="card" id="total-consumption-card">
       <p class="label">Consumo Total</p>
-      <h3 class="value">28.4 MWh</h3>
-      <span class="trend down">▼ -12% vs mês anterior</span>
+      <h3 class="value" id="total-consumption-value">
+        <svg class="loading-spinner" style="width:24px; height:24px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
+          <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
+                  stroke-dasharray="90,150" stroke-dashoffset="0">
+          </circle>
+        </svg>
+      </h3>
+      <span class="trend neutral" id="total-consumption-trend">Aguardando dados...</span>
+      <span class="device-info" id="total-consumption-info"></span>
     </div>
-    <div class="card">
+    <div class="card" id="peak-demand-card">
       <p class="label">Pico de Demanda</p>
-      <h3 class="value">1.892 kW</h3>
-      <span class="trend up">▲ +5% vs ontem</span>
+      <h3 class="value" id="peak-demand-value">
+        <svg class="loading-spinner" style="width:24px; height:24px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
+          <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
+                  stroke-dasharray="90,150" stroke-dashoffset="0">
+          </circle>
+        </svg>
+      </h3>
+      <span class="trend neutral" id="peak-demand-trend">Aguardando dados...</span>
+      <span class="device-info" id="peak-demand-device"></span>
     </div>
     <div class="card">
       <p class="label">Meta x Consumo Real</p>
