@@ -11,7 +11,7 @@ let _dataRefreshCount = 0;
 const MAX_DATA_REFRESHES = 1;
 
 function publishSwitch(targetStateId) {
-  const detail = { targetStateId, source: "menu_v_1_0_0", ts: Date.now() };
+  const detail = { targetStateId, source: "menu", ts: Date.now() };
   window.dispatchEvent(new CustomEvent(EVT_SWITCH, { detail }));
   // console.log("[menu] switch ->", detail);
 }
@@ -230,6 +230,45 @@ function injectModalGlobal() {
 
         .kbd { background:#f5f7fa; border:1px solid #e6eef5; padding:2px 6px; border-radius:6px; font-size:11px; color:#475467; }
         .badge { border:1px solid #CFDCE8; border-radius:999px; padding:2px 8px; font-size:11px; color:#334155; }
+
+        /* ===== LIMPAR BUTTON PREMIUM STYLE ===== */
+        .myio-clear-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          background: linear-gradient(135deg, rgba(200, 200, 200, 0.2) 0%, rgba(200, 200, 200, 0.1) 100%);
+          border: 1px solid rgba(200, 200, 200, 0.3);
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          color: #cccccc;
+        }
+
+        .myio-clear-btn:hover {
+          background: linear-gradient(135deg, rgba(220, 53, 69, 0.15) 0%, rgba(220, 53, 69, 0.05) 100%);
+          border-color: rgba(220, 53, 69, 0.4);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
+        }
+
+        .myio-clear-btn:active {
+          transform: translateY(0);
+          box-shadow: 0 2px 6px rgba(220, 53, 69, 0.15);
+        }
+
+        .myio-clear-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .myio-clear-btn svg {
+          width: 20px;
+          height: 20px;
+          stroke-width: 2;
+        }
       </style>
 
       <div class="myio-modal" id="filterModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="fltTitle">
@@ -247,7 +286,12 @@ function injectModalGlobal() {
                 <span class="search-ico">🔎</span>
                 <input id="fltSearch" type="text" placeholder="Buscar shopping, piso, loja/ambiente…" autocomplete="off">
               </div>
-              <button class="link-btn" id="fltClear">🧹 Limpar</button>
+              <button class="myio-clear-btn" id="fltClear" title="Limpar seleção">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+              </button>
               <button class="save-btn" id="fltSave">💾 Salvar preset</button>
               <span id="fltCount" class="badge" title="Total de seleções">0 selecionados</span>
             </div>
@@ -319,6 +363,16 @@ function injectModalGlobal() {
   function renderCount() {
     const c = countSelected(window.myioFilterSel);
     elCount.textContent = `${c} selecionado${c === 1 ? "" : "s"}`;
+  }
+
+  function updateClearButtonState() {
+    const count = countSelected(window.myioFilterSel);
+    const hasCustomers = (window.custumersSelected || []).length > 0;
+
+    // Botão habilitado se houver algo selecionado (malls/floors/places OU customers)
+    if (elClear) {
+      elClear.disabled = (count === 0 && !hasCustomers);
+    }
   }
 
   function renderChips() {
@@ -609,6 +663,7 @@ function injectModalGlobal() {
     renderTree();
     // não precisa re-render presets a cada clique, mas aqui é seguro:
     renderPresets();
+    updateClearButtonState();
   }
 
   // ==== Bind de eventos de UI ==============================================
@@ -623,10 +678,21 @@ function injectModalGlobal() {
   if (!elClear._bound) {
     elClear._bound = true;
     elClear.addEventListener("click", () => {
+      // ✅ Limpa seleção de malls/floors/places
       window.myioFilterSel = { malls: [], floors: [], places: [] };
       window.myioFilterQuery = "";
       elSearch.value = "";
+
+      // ⭐ NOVO: Limpa customers selecionados
+      window.custumersSelected = [];
+
+      // ⭐ NOVO: Limpa seleção visual dos customers
+      document.querySelectorAll('.custumers.selected').forEach(item => {
+        item.classList.remove('selected');
+      });
+
       renderAll();
+      console.log('[MENU FILTER] Seleção limpa completamente');
     });
   }
 
@@ -758,19 +824,19 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // Mapeamento dos botões → estados
   const dashboards = {
     equipmentsButton: {
-      stateId: "content_equipments_v_1_0_0",
+      stateId: "content_equipments",
       state: "W3siaWQiOiJjb250ZW50X2VxdWlwbWVudHMiLCJwYXJhbXMiOnt9fV0%253D",
     },
     energyButton: {
-      stateId: "content_energy_v_1_0_0",
+      stateId: "content_energy",
       state: "W3siaWQiOiJjb250ZW50X2VuZXJneSIsInBhcmFtcyI6e319XQ%253D%253D",
     },
     waterButton: {
-      stateId: "content_water_v_1_0_0",
+      stateId: "content_water",
       state: "W3siaWQiOiJjb250ZW50X3dhdGVyIiwicGFyYW1zIjp7fX1d",
     },
     temperatureButton: {
-      stateId: "content_temperature_v_1_0_0",
+      stateId: "content_temperature",
       state: "W3siaWQiOiJjb250ZW50X3RlbXBlcmF0dXJlIiwicGFyYW1zIjp7fX1d",
     },
   };
@@ -835,39 +901,32 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       presetEnd: endISO,
       maxRangeDays: 365,
       onApply: (result) => {
-        // Atualiza as variáveis de tempo
+        // ✅ FIX: ONLY store dates internally, don't dispatch event
         timeStart = result.startISO;
         timeEnd = result.endISO;
 
-        // Calcula epoch timestamps
-        const startMs = new Date(result.startISO).getTime();
-        const endMs = new Date(result.endISO).getTime();
-
-        // Formata para timezone de São Paulo (simulação do formato com offset)
-        const startDate = new Date(result.startISO);
-        const endDate = new Date(result.endISO);
-
-        // ISO com offset -03:00 (simulado)
+        // Update scope for other components to read (if needed)
         const startISOOffset = result.startISO.replace("Z", "-03:00");
         const endISOOffset = result.endISO.replace("Z", "-03:00");
 
-        console.log("[MENU] START", startMs);
-        console.log("[MENU] end", endMs);
+        self.ctx.$scope.startDateISO = startISOOffset;
+        self.ctx.$scope.endDateISO = endISOOffset;
 
-        // Dispara evento customizado mantendo a mesma estrutura
-        window.dispatchEvent(
-          new CustomEvent("myio:update-date", {
-            detail: {
-              startDate: startISOOffset,
-              endDate: endISOOffset,
-              startUtc: result.startISO,
-              endUtc: result.endISO,
-              startMs,
-              endMs,
-              tz: TZ,
-            },
-          })
-        );
+        // Update UI display
+        const startDate = new Date(result.startISO);
+        const endDate = new Date(result.endISO);
+        const timeWindow = `Intervalo: ${formatDiaMes(startDate)} - ${formatDiaMes(endDate)}`;
+        const timeinterval = document.getElementById("energy-peak");
+        if (timeinterval) {
+          timeinterval.innerText = timeWindow;
+        }
+
+        console.log("[MENU] Date selection updated (no fetch):", {
+          start: result.startISO,
+          end: result.endISO
+        });
+
+        // ✅ NO EVENT DISPATCHING - data will only be fetched when user clicks "Carregar" button
       },
     })
       .then((picker) => {
@@ -878,6 +937,292 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       });
   } else {
     console.warn("[MENU] MyIOLibrary.createDateRangePicker não disponível");
+  }
+
+  // ===== CARREGAR BUTTON HANDLER =====
+  const btnCarregar = document.getElementById("load-button");
+
+  if (btnCarregar) {
+    btnCarregar.addEventListener("click", async () => {
+      console.log("[MENU] Carregar button clicked - fetching data...");
+
+      // Disable button during fetch
+      btnCarregar.disabled = true;
+      const originalHTML = btnCarregar.innerHTML;
+      btnCarregar.innerHTML = '<i class="material-icons">hourglass_empty</i> Carregando...';
+
+      try {
+        // Prepare date range with timezone offset
+        const startISOOffset = timeStart.replace("Z", "-03:00");
+        const endISOOffset = timeEnd.replace("Z", "-03:00");
+
+        const startMs = new Date(timeStart).getTime();
+        const endMs = new Date(timeEnd).getTime();
+
+        // Update scope
+        self.ctx.$scope.startDateISO = startISOOffset;
+        self.ctx.$scope.endDateISO = endISOOffset;
+
+        console.log("[MENU] Dispatching myio:update-date event:", {
+          startDate: startISOOffset,
+          endDate: endISOOffset
+        });
+
+        // ✅ NOW dispatch event to trigger data fetch
+        window.dispatchEvent(
+          new CustomEvent("myio:update-date", {
+            detail: {
+              startDate: startISOOffset,
+              endDate: endISOOffset,
+              startUtc: timeStart,
+              endUtc: timeEnd,
+              startMs,
+              endMs,
+              tz: TZ,
+            },
+          })
+        );
+
+        // Also update customer consumption if applicable
+        if (window.custumersSelected && window.custumersSelected.length > 0) {
+          const MyIOAuth = (() => {
+            const AUTH_URL = new URL(`${DATA_API_HOST}/api/v1/auth`);
+            const RENEW_SKEW_S = 60;
+            const RETRY_BASE_MS = 500;
+            const RETRY_MAX_ATTEMPTS = 3;
+
+            let _token = null;
+            let _expiresAt = 0;
+            let _inFlight = null;
+
+            function _now() {
+              return Date.now();
+            }
+
+            function _aboutToExpire() {
+              if (!_token) return true;
+              const skewMs = RENEW_SKEW_S * 1000;
+              return _now() >= _expiresAt - skewMs;
+            }
+
+            async function _sleep(ms) {
+              return new Promise((res) => setTimeout(res, ms));
+            }
+
+            async function _requestNewToken() {
+              const body = {
+                client_id: CLIENT_ID,
+                client_secret: CLIENT_SECRET,
+              };
+
+              let attempt = 0;
+              while (true) {
+                try {
+                  const resp = await fetch(AUTH_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body),
+                  });
+
+                  if (!resp.ok) {
+                    const text = await resp.text().catch(() => "");
+                    throw new Error(
+                      `Auth falhou: HTTP ${resp.status} ${resp.statusText} ${text}`
+                    );
+                  }
+
+                  const json = await resp.json();
+                  if (!json || !json.access_token || !json.expires_in) {
+                    throw new Error("Resposta de auth não contem campos esperados.");
+                  }
+
+                  _token = json.access_token;
+                  _expiresAt = _now() + Number(json.expires_in) * 1000;
+
+                  console.log(
+                    "[MyIOAuth] Novo token obtido. Expira em ~",
+                    Math.round(Number(json.expires_in) / 60),
+                    "min"
+                  );
+
+                  return _token;
+                } catch (err) {
+                  attempt++;
+                  console.warn(
+                    `[MyIOAuth] Erro ao obter token (tentativa ${attempt}/${RETRY_MAX_ATTEMPTS}):`,
+                    err?.message || err
+                  );
+                  if (attempt >= RETRY_MAX_ATTEMPTS) {
+                    throw err;
+                  }
+                  const backoff = RETRY_BASE_MS * Math.pow(2, attempt - 1);
+                  await _sleep(backoff);
+                }
+              }
+            }
+
+            async function getToken() {
+              if (_inFlight) {
+                return _inFlight;
+              }
+
+              if (_aboutToExpire()) {
+                _inFlight = _requestNewToken().finally(() => {
+                  _inFlight = null;
+                });
+                return _inFlight;
+              }
+
+              return _token;
+            }
+
+            return { getToken };
+          })();
+
+          async function updateTotalConsumption(customersArray, startDateISO, endDateISO) {
+            const energyTotal = document.getElementById("energy-kpi");
+            energyTotal.innerHTML = `
+              <svg style="width:28px; height:28px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
+                <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
+                        stroke-dasharray="90,150" stroke-dashoffset="0">
+                </circle>
+              </svg>
+            `;
+
+            let totalConsumption = 0;
+
+            for (const c of customersArray) {
+              if (!c.value) continue;
+
+              try {
+                const TOKEN_INJESTION = await MyIOAuth.getToken();
+
+                const response = await fetch(
+                  `${DATA_API_HOST}/api/v1/telemetry/customers/${c.value}/energy/total?startTime=${encodeURIComponent(startDateISO)}&endTime=${encodeURIComponent(endDateISO)}`,
+                  {
+                    method: "GET",
+                    headers: {
+                      Authorization: `Bearer ${TOKEN_INJESTION}`,
+                      "Content-Type": "application/json",
+                    },
+                  }
+                );
+
+                if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
+                const data = await response.json();
+
+                totalConsumption += data.total_value;
+              } catch (err) {
+                console.error(`Falha ao buscar dados do customer ${c.value}:`, err);
+              }
+            }
+
+            const percentDiference = document.getElementById("energy-trend");
+
+            energyTotal.innerText = `${MyIOLibrary.formatEnergy(totalConsumption)}`;
+            percentDiference.innerText = `↑ 100%`;
+            percentDiference.style.color = "red";
+          }
+
+          await updateTotalConsumption(
+            window.custumersSelected,
+            startISOOffset,
+            endISOOffset
+          );
+        }
+
+      } catch (error) {
+        console.error("[MENU] Error loading data:", error);
+        alert("Erro ao carregar dados. Tente novamente.");
+      } finally {
+        // Re-enable button
+        btnCarregar.disabled = false;
+        btnCarregar.innerHTML = originalHTML;
+      }
+    });
+
+    console.log("[MENU] Carregar button handler registered");
+  } else {
+    console.warn("[MENU] Carregar button (load-button) not found");
+  }
+
+  // ===== LIMPAR BUTTON HANDLER (Force Refresh) =====
+  const btnLimpar = document.getElementById("myio-clear-btn");
+
+  if (btnLimpar) {
+    btnLimpar.addEventListener("click", (event) => {
+      console.log("[MENU] 🔄 Limpar (Force Refresh) clicked");
+
+      // Confirmação do usuário
+      const confirmed = confirm("Isso vai limpar todo o cache e recarregar os dados. Continuar?");
+      if (!confirmed) {
+        console.log("[MENU] Force Refresh cancelado pelo usuário");
+        return;
+      }
+
+      try {
+        // Limpa localStorage cache para energy e water
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('myio:cache:energy:') || key.startsWith('myio:cache:water:'))) {
+            keysToRemove.push(key);
+          }
+        }
+
+        keysToRemove.forEach(key => {
+          localStorage.removeItem(key);
+          console.log(`[MENU] 🗑️ Removida chave do localStorage: ${key}`);
+        });
+
+        console.log(`[MENU] ✅ Cache do localStorage limpo (${keysToRemove.length} chaves removidas)`);
+
+        // Invalida cache do orquestrador se disponível
+        if (window.MyIOOrchestrator && window.MyIOOrchestrator.invalidateCache) {
+          window.MyIOOrchestrator.invalidateCache('energy');
+          window.MyIOOrchestrator.invalidateCache('water');
+          console.log("[MENU] ✅ Cache do orquestrador invalidado");
+        }
+
+        // Limpa conteúdo visual dos widgets TELEMETRY
+        const clearEvent = new CustomEvent('myio:telemetry:clear', {
+          detail: { domain: 'energy' } // ou pegar do estado atual
+        });
+
+        window.dispatchEvent(clearEvent);
+        console.log(`[MENU] ✅ Evento de limpeza emitido`);
+
+        // Emite para todos os iframes
+        try {
+          const iframes = document.querySelectorAll('iframe');
+          iframes.forEach((iframe, idx) => {
+            try {
+              iframe.contentWindow.dispatchEvent(clearEvent);
+              console.log(`[MENU] ✅ Evento de limpeza emitido para iframe ${idx}`);
+            } catch (e) {
+              console.warn(`[MENU] ⚠️ Não foi possível emitir para iframe ${idx}:`, e.message);
+            }
+          });
+        } catch (e) {
+          console.warn(`[MENU] ⚠️ Não foi possível acessar iframes:`, e.message);
+        }
+
+        console.log("[MENU] 🔄 Force Refresh concluído com sucesso");
+
+        // Recarrega a página para limpar todos os widgets visuais
+        alert("Cache limpo com sucesso! A página será recarregada para aplicar as mudanças.");
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      } catch (err) {
+        console.error("[MENU] ❌ Erro durante Force Refresh:", err);
+        alert("Erro ao limpar cache. Consulte o console para detalhes.");
+      }
+    });
+
+    console.log("[MENU] Limpar button handler registered");
+  } else {
+    console.warn("[MENU] Limpar button (myio-clear-btn) not found");
   }
 
   const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;

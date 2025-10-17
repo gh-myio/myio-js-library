@@ -678,6 +678,9 @@ function initializeCards(devices) {
 }
 
 self.onInit = async function () {
+    // ⭐ CRITICAL FIX: Show loading IMMEDIATELY before setTimeout
+    showLoadingOverlay(true);
+
     setTimeout(async () => {
  // -- util: aplica no $scope e roda digest
  function applyParams(p) {
@@ -823,8 +826,7 @@ self.onInit = async function () {
   CLIENT_SECRET = customerCredentials.client_secret || " ";
   INGESTION_ID = customerCredentials.ingestionId || " ";
 
-  // Show loading overlay initially
-  showLoadingOverlay(true);
+  // ✅ Loading overlay already shown at start of onInit (moved up for better UX)
    async function renderDeviceCards() {
     const promisesDeCards = Object.entries(devices)
       .filter(([entityId, device]) =>

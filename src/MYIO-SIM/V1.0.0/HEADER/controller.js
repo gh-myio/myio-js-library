@@ -1058,32 +1058,24 @@ function showEnergyCardLoading(isLoading) {
 }
 
 function updateEnergyCard(energyCache) {
-  // Find datasources[1] with aliasName="Lojas"
-  // Build list of ingestionIds from ctx.data
   const ingestionIds = [];
   const energyKpi = document.getElementById("energy-kpi");
   const energyTrend = document.getElementById("energy-trend");
 
-  console.log(energyKpi.innerHTML);
-  
-
-  if(energyKpi.innerHTML !== '0,00 kWh') {
-    return; // já está carregando
-  }
+  // ✅ FIX: Removed early return - always process updates
+  console.log("[HEADER] Updating energy card with cache:", energyCache?.size || 0, "devices");
 
   self.ctx.data.forEach((data) => {
-    console.log('data', data);
-    
-    // if (data.datasource.aliasName === "Lojas" || da"ta.datasource.aliasName === "Equipamentos) {        
-      // data[].item.data[1] é o ingestionId
-      const ingestionId = data.data?.[0]?.[1]; // data[indexOfIngestionId][1] = value
-      if (ingestionId) {
-        ingestionIds.push(ingestionId);
-      }
-    // }
+    console.log('[HEADER] Processing data row:', data);
+
+    // Extract ingestionId from data
+    const ingestionId = data.data?.[0]?.[1]; // data[indexOfIngestionId][1] = value
+    if (ingestionId) {
+      ingestionIds.push(ingestionId);
+    }
   });
 
-  console.log("[HEADER] Energy card: Found ingestionIds from Lojas:", ingestionIds.length);
+  console.log("[HEADER] Energy card: Found ingestionIds:", ingestionIds.length);
 
   // Sum consumption from cache for all ingestionIds
   let totalConsumption = 0;
@@ -1092,12 +1084,16 @@ function updateEnergyCard(energyCache) {
       const cached = energyCache.get(ingestionId);
       if (cached) {
         totalConsumption += cached.total_value || 0;
+        console.log(`[HEADER] Device ${cached.name}: ${cached.total_value} kWh`);
       }
     });
   }
 
+  // ✅ ALWAYS update, even if value is same
   if (energyKpi) {
-    energyKpi.innerText = MyIOLibrary.formatEnergy ? MyIOLibrary.formatEnergy(totalConsumption) : `${totalConsumption.toFixed(2)} kWh`;
+    const formatted = MyIOLibrary.formatEnergy ? MyIOLibrary.formatEnergy(totalConsumption) : `${totalConsumption.toFixed(2)} kWh`;
+    energyKpi.innerText = formatted;
+    console.log(`[HEADER] Energy card updated: ${formatted}`);
   }
 
   // Optional: update trend (can be calculated later based on historical data)
@@ -1105,7 +1101,7 @@ function updateEnergyCard(energyCache) {
     energyTrend.innerText = ""; // Clear for now
   }
 
-  console.log("[HEADER] Energy card updated:", { totalConsumption, devices: ingestionIds.length });
+  console.log("[HEADER] Energy card update complete:", { totalConsumption, devices: ingestionIds.length });
 }
 
 // ===== HEADER: Listen for energy data from MAIN orchestrator =====
