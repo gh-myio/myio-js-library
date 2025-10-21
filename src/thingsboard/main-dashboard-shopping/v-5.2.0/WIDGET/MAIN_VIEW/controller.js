@@ -115,12 +115,80 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
   }
 
 
+  // RFC-0047: Clean up expired cache from localStorage
+  function cleanupExpiredCache() {
+    LogHelper.log('[Orchestrator] 🧹 Starting cleanup of expired cache...');
+
+    const now = Date.now();
+    const ttlMs = 30 * 60_000; // 30 minutes in milliseconds
+    let removedCount = 0;
+    let totalCount = 0;
+
+    try {
+      // Iterate through all localStorage keys
+      const keysToRemove = [];
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const storageKey = localStorage.key(i);
+
+        // Only process myio:cache: keys
+        if (!storageKey || !storageKey.startsWith('myio:cache:')) {
+          continue;
+        }
+
+        totalCount++;
+
+        try {
+          const valueStr = localStorage.getItem(storageKey);
+          if (!valueStr) continue;
+
+          const parsed = JSON.parse(valueStr);
+
+          // Extract cache entry (format: { "TB_ID:domain:...": { data, cachedAt, ... } })
+          const cacheEntry = Object.values(parsed)[0];
+
+          if (!cacheEntry || !cacheEntry.cachedAt) {
+            // Invalid or old format cache, mark for removal
+            LogHelper.warn(`[Orchestrator] Invalid cache entry (missing cachedAt): ${storageKey}`);
+            keysToRemove.push(storageKey);
+            continue;
+          }
+
+          const age = now - cacheEntry.cachedAt;
+          const expired = age > ttlMs;
+
+          if (expired) {
+            const ageMinutes = Math.round(age / 60_000);
+            LogHelper.log(`[Orchestrator] ⏰ Removing expired cache: ${storageKey} (age: ${ageMinutes} minutes)`);
+            keysToRemove.push(storageKey);
+          }
+        } catch (parseErr) {
+          LogHelper.warn(`[Orchestrator] Failed to parse cache entry: ${storageKey}`, parseErr);
+          keysToRemove.push(storageKey); // Remove corrupted entries
+        }
+      }
+
+      // Remove expired keys
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+        removedCount++;
+      });
+
+      LogHelper.log(`[Orchestrator] ✅ Cache cleanup complete: ${removedCount}/${totalCount} entries removed`);
+    } catch (err) {
+      LogHelper.error('[Orchestrator] ❌ Error during cache cleanup:', err);
+    }
+  }
+
   // ThingsBoard lifecycle
   self.onInit = async function () {
 
     rootEl = $('#myio-root');
     registerGlobalEvents();
     setupResizeObserver();
+
+    // RFC-0047: Clean up expired cache on init
+    cleanupExpiredCache();
 
     // Initialize MyIO Library and Authentication
     const MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary)
@@ -252,6 +320,38 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
 })();
 
 // ========== RFC-0042: ORCHESTRATOR IMPLEMENTATION ==========
+// ========== RFC-0045: ROBUST CACHE STRATEGY WITH PRIORITIZATION ==========
+
+/**
+ * Global shared state for widget coordination and cache management
+ * Prevents race conditions and ensures first widget priority
+ */
+if (!window.MyIOOrchestratorState) {
+  window.MyIOOrchestratorState = {
+    // Widget registration and priority
+    widgetPriority: [],
+    widgetRegistry: new Map(), // widgetId -> {domain, registeredAt}
+
+    // Cache management
+    cache: {},
+
+    // Loading state per domain
+    loading: {},
+
+    // Pending listeners for late-joining widgets
+    pendingListeners: {},
+
+    // Last emission timestamp per domain (deduplication)
+    lastEmission: {},
+
+    // Lock to prevent concurrent requests
+    locks: {}
+  };
+
+  LogHelper.log('[Orchestrator] 🌍 Global state initialized:', window.MyIOOrchestratorState);
+}
+
+const OrchestratorState = window.MyIOOrchestratorState;
 
 /**
  * @typedef {'hour'|'day'|'month'} Granularity
@@ -324,9 +424,12 @@ function calcGranularity(startISO, endISO) {
 
 /**
  * Generates cache key from domain and period.
+ * RFC-0047: Enhanced cache key with Customer TB ID for multi-tenancy support
+ * Format: myio:cache:TB_ID:domain:startISO:endISO:granularity
  */
 function cacheKey(domain, period) {
-  return `${domain}:${period.startISO}:${period.endISO}:${period.granularity}`;
+  const customerTbId = self.ctx.settings?.customerTB_ID || 'default';
+  return `${customerTbId}:${domain}:${period.startISO}:${period.endISO}:${period.granularity}`;
 }
 
 /**
@@ -437,32 +540,38 @@ function ensureOrchestratorBusyDOM() {
 // PHASE 1: Centralized busy management with extended timeout
 function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...') {
   LogHelper.log(`[Orchestrator] 🔄 showGlobalBusy() domain=${domain} message="${message}"`);
-  
+
   const el = ensureOrchestratorBusyDOM();
   const messageEl = el.querySelector(`#${BUSY_OVERLAY_ID}-message`);
-  
+
   if (messageEl) {
     messageEl.textContent = message;
   }
-  
+
   // Clear existing timeout
   if (globalBusyState.timeoutId) {
     clearTimeout(globalBusyState.timeoutId);
     globalBusyState.timeoutId = null;
   }
-  
+
   // Update state
   globalBusyState.isVisible = true;
   globalBusyState.currentDomain = domain;
   globalBusyState.startTime = Date.now();
   globalBusyState.requestCount++;
-  
+
   el.style.display = 'flex';
-  
+
+  // RFC-0048: Start widget monitoring (will be stopped by hideGlobalBusy)
+  // This is defined later in the orchestrator initialization
+  if (window.MyIOOrchestrator?.widgetBusyMonitor) {
+    window.MyIOOrchestrator.widgetBusyMonitor.startMonitoring(domain);
+  }
+
   // PHASE 1: Extended timeout (25s instead of 10s)
   globalBusyState.timeoutId = setTimeout(() => {
     LogHelper.warn(`[Orchestrator] ⚠️ BUSY TIMEOUT (25s) for domain ${domain} - implementing recovery`);
-    
+
     // Check if still actually busy
     if (globalBusyState.isVisible && el.style.display !== 'none') {
       // PHASE 3: Circuit breaker pattern - try graceful recovery
@@ -471,50 +580,55 @@ function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...') {
         window.dispatchEvent(new CustomEvent('myio:busy-timeout-recovery', {
           detail: { domain, duration: Date.now() - globalBusyState.startTime }
         }));
-        
+
         // Try to invalidate cache for the specific domain
         if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.invalidateCache === 'function') {
           window.MyIOOrchestrator.invalidateCache(domain);
           LogHelper.log(`[Orchestrator] 🧹 Cache invalidated for domain ${domain}`);
         }
-        
+
         // Hide busy and show user-friendly message
         hideGlobalBusy();
-        
+
         // PHASE 4: Non-intrusive notification instead of alert
         showRecoveryNotification();
-        
+
       } catch (err) {
         LogHelper.error(`[Orchestrator] ❌ Error in timeout recovery:`, err);
         hideGlobalBusy();
       }
     }
-    
+
     globalBusyState.timeoutId = null;
   }, 25000); // 25 seconds (Phase 1 requirement)
-  
+
   LogHelper.log(`[Orchestrator] ✅ Global busy shown for ${domain}, timeout ID: ${globalBusyState.timeoutId}`);
 }
 
 function hideGlobalBusy() {
   LogHelper.log(`[Orchestrator] ⏸️ hideGlobalBusy() called`);
-  
+
+  // RFC-0048: Stop widget monitoring for current domain
+  if (window.MyIOOrchestrator?.widgetBusyMonitor && globalBusyState.currentDomain) {
+    window.MyIOOrchestrator.widgetBusyMonitor.stopMonitoring(globalBusyState.currentDomain);
+  }
+
   const el = document.getElementById(BUSY_OVERLAY_ID);
   if (el) {
     el.style.display = 'none';
   }
-  
+
   // Clear timeout
   if (globalBusyState.timeoutId) {
     clearTimeout(globalBusyState.timeoutId);
     globalBusyState.timeoutId = null;
   }
-  
+
   // Update state
   globalBusyState.isVisible = false;
   globalBusyState.currentDomain = null;
   globalBusyState.startTime = null;
-  
+
   LogHelper.log(`[Orchestrator] ✅ Global busy hidden`);
 }
 
@@ -690,7 +804,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   const abortControllers = new Map();
 
   const config = {
-    ttlMinutes: 5,
+    ttlMinutes: 30, // RFC-0047: Changed from 5 to 30 minutes
     enableStaleWhileRevalidate: true,
     maxCacheSize: 50,
     debugMode: false,
@@ -749,24 +863,66 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   };
 
   // Cache operations
+  // RFC-0047: Enhanced cache read with expiration validation
   function readCache(key) {
     const entry = memCache.get(key);
     if (!entry) return null;
 
-    const age = Date.now() - entry.hydratedAt;
+    // RFC-0045 FIX 1: Validate cache must have data
+    // Don't serve empty arrays as valid cache
+    if (!entry.data || entry.data.length === 0) {
+      LogHelper.warn(`[Orchestrator] ⚠️ Cache for ${key} is empty, invalidating`);
+      memCache.delete(key);
+      return null;
+    }
+
+    // RFC-0047: Validate cache expiration (30 minutes)
+    const age = Date.now() - entry.cachedAt;
+    const expired = age > entry.ttlMinutes * 60_000;
+
+    if (expired) {
+      LogHelper.warn(`[Orchestrator] ⏰ Cache for ${key} expired (age: ${Math.round(age / 60_000)} minutes)`);
+      memCache.delete(key);
+      // Also remove from localStorage
+      try {
+        localStorage.removeItem(`myio:cache:${key}`);
+      } catch (e) {
+        LogHelper.warn('[Orchestrator] Failed to remove expired cache from localStorage:', e);
+      }
+      return null;
+    }
+
     const fresh = age < entry.ttlMinutes * 60_000;
 
     return { ...entry, fresh };
   }
 
+  // RFC-0047: Enhanced cache write with timestamp
   function writeCache(key, data) {
+    // RFC-0045 FIX 2: Don't cache empty arrays
+    // Empty data should not be persisted as it causes bugs when served from cache
+    if (!data || data.length === 0) {
+      LogHelper.warn(`[Orchestrator] ⚠️ Skipping cache write for ${key} - empty data`);
+      return;
+    }
+
     if (memCache.has(key)) memCache.delete(key);
 
-    memCache.set(key, {
+    const now = Date.now();
+
+    // RFC-0047: Enhanced cache entry with timestamp and TTL metadata
+    const cacheEntry = {
       data,
-      hydratedAt: Date.now(),
-      ttlMinutes: config.ttlMinutes
-    });
+      cachedAt: now, // Timestamp when cache was created
+      hydratedAt: now, // Backward compatibility
+      ttlMinutes: config.ttlMinutes, // TTL in minutes (30)
+      expiresAt: now + (config.ttlMinutes * 60_000) // Explicit expiration timestamp
+    };
+
+    memCache.set(key, cacheEntry);
+
+    // Log cache write
+    LogHelper.log(`[Orchestrator] 💾 Cache written for ${key}: ${data.length} items, TTL: ${config.ttlMinutes} min, expires: ${new Date(cacheEntry.expiresAt).toLocaleTimeString()}`);
 
     while (memCache.size > config.maxCacheSize) {
       const oldestKey = memCache.keys().next().value;
@@ -774,7 +930,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       if (config.debugMode) LogHelper.log(`[Orchestrator] Evicted cache key: ${oldestKey}`);
     }
 
-    persistToStorage(key, memCache.get(key));
+    persistToStorage(key, cacheEntry);
   }
 
   function persistToStorage(key, entry) {
@@ -823,14 +979,32 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     inFlight.clear();
   }
 
+  // RFC-0047: Enhanced clearStorageCache with TB_ID awareness
   function clearStorageCache(domain) {
-    const prefix = domain ? `myio:cache:${domain}:` : 'myio:cache:';
+    const customerTbId = self.ctx.settings?.customerTB_ID || 'default';
+
+    // RFC-0047: Updated prefix format to include TB_ID
+    // Format: myio:cache:TB_ID:domain: or myio:cache:TB_ID: (all domains for customer)
+    const prefix = domain
+      ? `myio:cache:${customerTbId}:${domain}:`
+      : `myio:cache:${customerTbId}:`;
+
+    LogHelper.log(`[Orchestrator] 🧹 Clearing localStorage cache with prefix: ${prefix}`);
+
+    const keysToRemove = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && key.startsWith(prefix)) {
-        localStorage.removeItem(key);
+        keysToRemove.push(key);
       }
     }
+
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+      LogHelper.log(`[Orchestrator] 🗑️ Removed cache key: ${key}`);
+    });
+
+    LogHelper.log(`[Orchestrator] ✅ Cleared ${keysToRemove.length} cache entries`);
   }
 
   // Data fetching
@@ -1130,24 +1304,114 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     }
   }
 
-  // Event emitters
+  // RFC-0045: Enhanced emitProvide with deduplication and retry
   function emitProvide(domain, periodKey, items) {
-    LogHelper.log(`[Orchestrator] Emitting provide-data event for domain ${domain} with ${items.length} items`);
+    const now = Date.now();
+    const key = `${domain}_${periodKey}`;
 
-    // Store data for late-joining widgets
+    // RFC-0045 FIX 3: Don't emit empty arrays
+    // Empty data propagates to widgets causing them to show zero values
+    if (!items || items.length === 0) {
+      LogHelper.warn(`[Orchestrator] ⚠️ Skipping emitProvide for ${domain} - no items to emit`);
+      return;
+    }
+
+    // 1. PREVENT DUPLICATE EMISSIONS (< 100ms)
+    if (OrchestratorState.lastEmission[key]) {
+      const timeSinceLastEmit = now - OrchestratorState.lastEmission[key];
+      if (timeSinceLastEmit < 100) {
+        LogHelper.log(`[Orchestrator] ⏭️ Skipping duplicate emission for ${domain} (${timeSinceLastEmit}ms ago)`);
+        return;
+      }
+    }
+
+    OrchestratorState.lastEmission[key] = now;
+
+    // 2. STORE IN CACHE WITH VERSION (Single Source of Truth)
     if (!window.MyIOOrchestratorData) {
       window.MyIOOrchestratorData = {};
     }
-    window.MyIOOrchestratorData[domain] = { periodKey, items, timestamp: Date.now() };
 
-    // RFC-0042: Emit to all contexts (parent, current, iframes)
-    emitToAllContexts('myio:telemetry:provide-data', { domain, periodKey, items });
+    const version = (window.MyIOOrchestratorData[domain]?.version || 0) + 1;
 
-    // Retry mechanism for late-joining widgets
-    setTimeout(() => {
-      LogHelper.log(`[Orchestrator] Retrying event emission for domain ${domain}`);
-      emitToAllContexts('myio:telemetry:provide-data', { domain, periodKey, items });
-    }, 1000);
+    window.MyIOOrchestratorData[domain] = {
+      periodKey,
+      items,
+      timestamp: now,
+      version: version
+    };
+
+    OrchestratorState.cache[domain] = {
+      periodKey,
+      items,
+      timestamp: now,
+      version: version
+    };
+
+    LogHelper.log(`[Orchestrator] 📦 Cache updated for ${domain}: ${items.length} items (v${version})`);
+
+    // 3. EMIT EVENT TO ALL CONTEXTS
+    const eventDetail = { domain, periodKey, items, version };
+
+    // 3a. Emit to current window
+    window.dispatchEvent(new CustomEvent('myio:telemetry:provide-data', { detail: eventDetail }));
+
+    // 3b. Emit to parent (if in iframe)
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.dispatchEvent(new CustomEvent('myio:telemetry:provide-data', { detail: eventDetail }));
+      }
+    } catch (e) {
+      // Cross-origin, ignore
+    }
+
+    // 3c. Emit to iframes (only the ones that are ready)
+    try {
+      const iframes = document.querySelectorAll('iframe');
+      iframes.forEach((iframe, idx) => {
+        try {
+          // Check if iframe is loaded before emitting
+          if (iframe.contentWindow && iframe.contentWindow.document.readyState === 'complete') {
+            iframe.contentWindow.dispatchEvent(new CustomEvent('myio:telemetry:provide-data', { detail: eventDetail }));
+            LogHelper.log(`[Orchestrator] ✅ Emitted to iframe ${idx} for ${domain}`);
+          } else {
+            LogHelper.warn(`[Orchestrator] ⏳ Iframe ${idx} not ready yet, will retry`);
+
+            // Schedule retry for iframe not loaded
+            setTimeout(() => {
+              if (iframe.contentWindow && iframe.contentWindow.document.readyState === 'complete') {
+                iframe.contentWindow.dispatchEvent(new CustomEvent('myio:telemetry:provide-data', { detail: eventDetail }));
+                LogHelper.log(`[Orchestrator] ✅ Retry: Emitted to iframe ${idx} for ${domain}`);
+              }
+            }, 500);
+          }
+        } catch (err) {
+          LogHelper.warn(`[Orchestrator] Cannot emit to iframe ${idx}:`, err.message);
+        }
+      });
+    } catch (e) {
+      LogHelper.warn(`[Orchestrator] Cannot enumerate iframes:`, e.message);
+    }
+
+    // 4. MARK AS NOT LOADING
+    OrchestratorState.loading[domain] = false;
+
+    // 5. PROCESS PENDING LISTENERS (widgets that arrived late)
+    if (OrchestratorState.pendingListeners[domain]) {
+      LogHelper.log(`[Orchestrator] 🔔 Processing ${OrchestratorState.pendingListeners[domain].length} pending listeners for ${domain}`);
+
+      OrchestratorState.pendingListeners[domain].forEach(callback => {
+        try {
+          callback({ detail: eventDetail });
+        } catch (err) {
+          LogHelper.error(`[Orchestrator] Error calling pending listener:`, err);
+        }
+      });
+
+      delete OrchestratorState.pendingListeners[domain];
+    }
+
+    LogHelper.log(`[Orchestrator] 📡 Emitted provide-data for ${domain} with ${items.length} items`);
   }
 
   function emitHydrated(domain, periodKey, count) {
@@ -1198,6 +1462,35 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     }
   };
 
+  // RFC-0045: Widget registration system for priority management
+  /**
+   * Registra widget com prioridade baseada na ordem de inicialização
+   */
+  function registerWidget(widgetId, domain) {
+    if (!OrchestratorState.widgetPriority.includes(widgetId)) {
+      OrchestratorState.widgetPriority.push(widgetId);
+
+      const priority = OrchestratorState.widgetPriority.indexOf(widgetId) + 1;
+
+      // Store in registry with metadata
+      OrchestratorState.widgetRegistry.set(widgetId, {
+        domain,
+        registeredAt: Date.now(),
+        priority
+      });
+
+      LogHelper.log(`[Orchestrator] 📝 Widget registered: ${widgetId} (domain: ${domain}, priority: ${priority})`);
+    }
+  }
+
+  /**
+   * Listener para widgets se registrarem
+   */
+  window.addEventListener('myio:widget:register', (ev) => {
+    const { widgetId, domain } = ev.detail;
+    registerWidget(widgetId, domain);
+  });
+
   // Event listeners
   window.addEventListener('myio:update-date', (ev) => {
     LogHelper.log('[Orchestrator] 📅 Received myio:update-date event', ev.detail);
@@ -1223,28 +1516,84 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     }
   });
 
-  window.addEventListener('myio:telemetry:request-data', (ev) => {
-    LogHelper.log('[Orchestrator] 📡 Received myio:telemetry:request-data event', ev.detail);
-    const { domain, period } = ev.detail;
-    const p = period || currentPeriod;
-    if (p) {
-      LogHelper.log(`[Orchestrator] 📡 myio:telemetry:request-data → hydrateDomain(${domain})`);
-      hydrateDomain(domain, p);
-    } else {
-      LogHelper.log(`[Orchestrator] 📡 myio:telemetry:request-data skipped (no period)`);
+  // RFC-0045: Enhanced request-data listener with priority and pending listeners
+  window.addEventListener('myio:telemetry:request-data', async (ev) => {
+    const { domain, period, widgetId, priority } = ev.detail;
+
+    LogHelper.log(`[Orchestrator] 📨 Received data request from widget ${widgetId} (domain: ${domain}, priority: ${priority})`);
+
+    // Verificar se já temos dados frescos no cache
+    const cached = OrchestratorState.cache[domain];
+    if (cached && (Date.now() - cached.timestamp < 30000)) {
+      LogHelper.log(`[Orchestrator] ✅ Serving from cache for ${domain} (age: ${Date.now() - cached.timestamp}ms)`);
+      emitProvide(domain, cached.periodKey, cached.items);
+      return;
+    }
+
+    // Verificar se já está em progresso
+    if (OrchestratorState.loading[domain]) {
+      LogHelper.log(`[Orchestrator] ⏳ Already loading ${domain}, adding to pending listeners`);
+
+      // Adicionar listener pendente
+      if (!OrchestratorState.pendingListeners[domain]) {
+        OrchestratorState.pendingListeners[domain] = [];
+      }
+
+      OrchestratorState.pendingListeners[domain].push((data) => {
+        // Emitir diretamente para o widget solicitante
+        window.dispatchEvent(new CustomEvent('myio:telemetry:provide-data', { detail: data.detail }));
+      });
+
+      return;
+    }
+
+    // Buscar dados frescos
+    OrchestratorState.loading[domain] = true;
+
+    try {
+      const p = period || currentPeriod;
+      if (p) {
+        LogHelper.log(`[Orchestrator] 📡 myio:telemetry:request-data → hydrateDomain(${domain})`);
+        await hydrateDomain(domain, p);
+      } else {
+        LogHelper.log(`[Orchestrator] 📡 myio:telemetry:request-data skipped (no period)`);
+        OrchestratorState.loading[domain] = false;
+      }
+    } catch (error) {
+      LogHelper.error(`[Orchestrator] Error hydrating ${domain}:`, error);
+      OrchestratorState.loading[domain] = false;
     }
   });
 
-  // Cleanup interval
+  // RFC-0047: Enhanced cleanup interval with localStorage sync
   const cleanupInterval = setInterval(() => {
     const now = Date.now();
+    let cleanedCount = 0;
+
+    // Clean memCache
     for (const [key, entry] of memCache.entries()) {
-      const age = now - entry.hydratedAt;
-      if (age > entry.ttlMinutes * 60_000 * 2) {
+      const age = now - entry.cachedAt; // RFC-0047: Use cachedAt instead of hydratedAt
+      // RFC-0047: Clean entries older than TTL (not 2x TTL)
+      if (age > entry.ttlMinutes * 60_000) {
         memCache.delete(key);
+        cleanedCount++;
+
+        // Also remove from localStorage
+        try {
+          localStorage.removeItem(`myio:cache:${key}`);
+        } catch (e) {
+          LogHelper.warn('[Orchestrator] Failed to remove from localStorage:', e);
+        }
       }
     }
-  }, 10 * 60 * 1000);
+
+    if (cleanedCount > 0) {
+      LogHelper.log(`[Orchestrator] 🧹 Periodic cleanup: removed ${cleanedCount} expired entries`);
+    }
+
+    // RFC-0047: Also clean localStorage periodically
+    cleanupExpiredCache();
+  }, 10 * 60 * 1000); // Every 10 minutes
 
   // Telemetry reporting
   if (!config.debugMode && typeof window.tbClient !== 'undefined') {
@@ -1256,6 +1605,62 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       }
     }, 5 * 60 * 1000);
   }
+
+  // RFC-0048: Widget Busy Monitor - Detects stuck widgets showing busy for too long
+  const widgetBusyMonitor = {
+    timers: new Map(), // domain -> timeoutId
+    TIMEOUT_MS: 30000, // 30 seconds
+
+    startMonitoring(domain) {
+      // Clear existing timer if any
+      this.stopMonitoring(domain);
+
+      const timerId = setTimeout(() => {
+        LogHelper.error(`[WidgetMonitor] ⚠️ Widget ${domain} has been showing busy for more than ${this.TIMEOUT_MS/1000}s!`);
+        LogHelper.error(`[WidgetMonitor] Possible issues:`);
+        LogHelper.error(`[WidgetMonitor] 1. Widget não recebeu dados do orchestrator`);
+        LogHelper.error(`[WidgetMonitor] 2. Widget recebeu dados vazios mas não chamou hideBusy()`);
+        LogHelper.error(`[WidgetMonitor] 3. Erro silencioso impedindo processamento`);
+
+        // Log current busy state
+        const busyState = globalBusyState;
+        LogHelper.error(`[WidgetMonitor] Current busy state:`, busyState);
+
+        // Log cache state for this domain
+        const cacheKey = `${domain}:${currentPeriod?.startISO || 'unknown'}:${currentPeriod?.endISO || 'unknown'}`;
+        const cached = memCache.get(cacheKey);
+        LogHelper.error(`[WidgetMonitor] Cache state for ${domain}:`, {
+          hasCachedData: !!cached,
+          itemCount: cached?.items?.length || 0,
+          cachedAt: cached?.cachedAt ? new Date(cached.cachedAt).toISOString() : 'never'
+        });
+
+        // Attempt auto-recovery: force hide busy for stuck widget
+        LogHelper.warn(`[WidgetMonitor] 🔧 Attempting auto-recovery: forcing hideBusy for ${domain}`);
+        hideGlobalBusy();
+      }, this.TIMEOUT_MS);
+
+      this.timers.set(domain, timerId);
+      LogHelper.log(`[WidgetMonitor] ✅ Started monitoring ${domain} (timeout: ${this.TIMEOUT_MS/1000}s)`);
+    },
+
+    stopMonitoring(domain) {
+      const timerId = this.timers.get(domain);
+      if (timerId) {
+        clearTimeout(timerId);
+        this.timers.delete(domain);
+        LogHelper.log(`[WidgetMonitor] ✅ Stopped monitoring ${domain}`);
+      }
+    },
+
+    stopAll() {
+      for (const [domain, timerId] of this.timers.entries()) {
+        clearTimeout(timerId);
+        LogHelper.log(`[WidgetMonitor] ✅ Stopped monitoring ${domain}`);
+      }
+      this.timers.clear();
+    }
+  };
 
   // Public API
   return {
@@ -1278,13 +1683,16 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     // RFC-0044: PHASE 1 - Expose centralized busy management
     showGlobalBusy,
     hideGlobalBusy,
-    
+
     // RFC-0044: PHASE 2 - Expose shared state
     getSharedWidgetState: () => sharedWidgetState,
     setSharedPeriod: (period) => { sharedWidgetState.activePeriod = period; },
-    
+
     // RFC-0044: PHASE 4 - Expose busy state for debugging
     getBusyState: () => ({ ...globalBusyState }),
+
+    // RFC-0048: Expose widget busy monitor
+    widgetBusyMonitor,
 
     setCredentials: (customerId, clientId, clientSecret) => {
       LogHelper.log(`[Orchestrator] 🔐 setCredentials called with:`, {
@@ -1321,7 +1729,10 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     destroy: () => {
       clearInterval(cleanupInterval);
       invalidateCache('*');
-      
+
+      // RFC-0048: Stop all widget monitors
+      widgetBusyMonitor.stopAll();
+
       // RFC-0044: Clean up busy overlay on destroy
       hideGlobalBusy();
       const busyEl = document.getElementById(BUSY_OVERLAY_ID);
