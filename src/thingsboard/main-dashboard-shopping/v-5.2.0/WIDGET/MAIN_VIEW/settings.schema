@@ -8,6 +8,12 @@
         "type": "string",
         "description": "ID do customer no ThingsBoard para buscar atributos de autenticação (client_id, client_secret, ingestionId)"
       },
+      "enableCache": {
+        "title": "Enable Cache System",
+        "type": "boolean",
+        "default": true,
+        "description": "RFC-0052: Enable/disable cache system globally. Set to FALSE to always fetch fresh data from API (use for troubleshooting or real-time dashboards). WARNING: Disabling cache increases API load."
+      },
       "cacheTtlMinutes": {
         "title": "Cache TTL (minutes)",
         "type": "number",
@@ -57,17 +63,13 @@
   },
   "form": [
     "customerTB_ID",
+    "enableCache",
     "cacheTtlMinutes",
     "enableStaleWhileRevalidate",
     "maxCacheSize",
     "debugMode",
-    {
-      "key": "domainsEnabled",
-      "items": [
-        "domainsEnabled.energy",
-        "domainsEnabled.water",
-        "domainsEnabled.temperature"
-      ]
-    }
+    "domainsEnabled.energy",
+    "domainsEnabled.water",
+    "domainsEnabled.temperature"
   ]
 }

@@ -31,9 +31,11 @@ const LogHelper = {
 let globalStartDateFilter = null; // ISO ex.: '2025-09-01T00:00:00-03:00'
 let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
 
-// RFC-0051.1: Global widget settings (will be populated in onInit)
+// RFC-0051.1 + RFC-0052: Global widget settings (will be populated in onInit)
+// IMPORTANT: customerTB_ID must NEVER be 'default' - it must always be a valid ThingsBoard ID
 let widgetSettings = {
-  customerTB_ID: 'default',
+  customerTB_ID: null,  // RFC-0052: Changed from 'default' to null - MUST be set in onInit
+  enableCache: true,    // RFC-0052: New - enable/disable cache globally
   cacheTtlMinutes: 30,
   enableStaleWhileRevalidate: true,
   maxCacheSize: 50,
@@ -127,6 +129,12 @@ let widgetSettings = {
 
   // RFC-0047: Clean up expired cache from localStorage
   function cleanupExpiredCache() {
+    // RFC-0052: Skip cleanup if cache is disabled
+    if (!widgetSettings.enableCache) {
+      LogHelper.log('[Orchestrator] ⏭️ Cache disabled - skipping cleanup');
+      return;
+    }
+
     LogHelper.log('[Orchestrator] 🧹 Starting cleanup of expired cache...');
 
     const now = Date.now();
@@ -195,9 +203,19 @@ let widgetSettings = {
 
     rootEl = $('#myio-root');
 
-    // RFC-0051.1: Populate global widget settings early to avoid undefined errors
+    // RFC-0051.1 + RFC-0052: Populate global widget settings early to avoid undefined errors
     // These settings are available globally to all functions
-    widgetSettings.customerTB_ID = self.ctx.settings?.customerTB_ID || 'default';
+
+    // CRITICAL: customerTB_ID MUST be set - abort if missing
+    const customerTB_ID = self.ctx.settings?.customerTB_ID;
+    if (!customerTB_ID) {
+      LogHelper.error('[Orchestrator] ❌ CRITICAL: customerTB_ID is missing from widget settings!');
+      LogHelper.error('[Orchestrator] Widget cannot function without customerTB_ID. Please configure it in widget settings.');
+      throw new Error('customerTB_ID is required but not found in widget settings');
+    }
+
+    widgetSettings.customerTB_ID = customerTB_ID;
+    widgetSettings.enableCache = self.ctx.settings?.enableCache ?? true;  // RFC-0052: New
     widgetSettings.cacheTtlMinutes = self.ctx.settings?.cacheTtlMinutes ?? 30;
     widgetSettings.enableStaleWhileRevalidate = self.ctx.settings?.enableStaleWhileRevalidate ?? true;
     widgetSettings.maxCacheSize = self.ctx.settings?.maxCacheSize ?? 50;
@@ -210,9 +228,16 @@ let widgetSettings = {
 
     LogHelper.log('[Orchestrator] 📋 Widget settings captured:', {
       customerTB_ID: widgetSettings.customerTB_ID,
+      enableCache: widgetSettings.enableCache,  // RFC-0052
       cacheTtlMinutes: widgetSettings.cacheTtlMinutes,
       debugMode: widgetSettings.debugMode
     });
+
+    // RFC-0052: Warn if cache is disabled
+    if (!widgetSettings.enableCache) {
+      LogHelper.warn('[Orchestrator] ⚠️ CACHE DISABLED - All requests will fetch fresh data from API');
+      LogHelper.warn('[Orchestrator] This increases API load. Enable cache for better performance.');
+    }
 
     // RFC-0051.2: Expose orchestrator stub IMMEDIATELY
     // This prevents race conditions with TELEMETRY widgets that check for orchestrator
@@ -871,8 +896,9 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   const inFlight = new Map();
   const abortControllers = new Map();
 
-  // RFC-0051.1: Read config from widgetSettings (captured in closure)
+  // RFC-0051.1 + RFC-0052: Read config from widgetSettings (captured in closure)
   const config = {
+    enableCache: widgetSettings.enableCache,  // RFC-0052: New - enable/disable cache globally
     ttlMinutes: widgetSettings.cacheTtlMinutes,
     enableStaleWhileRevalidate: widgetSettings.enableStaleWhileRevalidate,
     maxCacheSize: widgetSettings.maxCacheSize,
@@ -881,6 +907,13 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   };
 
   LogHelper.log('[Orchestrator] 🔧 Config initialized from settings:', config);
+
+  // RFC-0052: Log cache status
+  if (config.enableCache) {
+    LogHelper.log(`[Orchestrator] ✅ Cache ENABLED (TTL: ${config.ttlMinutes} min)`);
+  } else {
+    LogHelper.warn('[Orchestrator] ⚠️ Cache DISABLED - Always fetching fresh data');
+  }
 
   let visibleTab = 'energy';
   let currentPeriod = null;
@@ -936,6 +969,12 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   // Cache operations
   // RFC-0047: Enhanced cache read with expiration validation
   function readCache(key) {
+    // RFC-0052: Do not read from cache if cache is disabled
+    if (!config.enableCache) {
+      LogHelper.log(`[Orchestrator] ⏭️ Cache disabled - skipping read for ${key}`);
+      return null; // Always return null = cache miss
+    }
+
     const entry = memCache.get(key);
     if (!entry) return null;
 
@@ -970,6 +1009,12 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
   // RFC-0047: Enhanced cache write with timestamp
   function writeCache(key, data) {
+    // RFC-0052: Do not write to cache if cache is disabled
+    if (!config.enableCache) {
+      LogHelper.log(`[Orchestrator] ⏭️ Cache disabled - skipping write for ${key}`);
+      return;
+    }
+
     // RFC-0045 FIX 2: Don't cache empty arrays
     // Empty data should not be persisted as it causes bugs when served from cache
     if (!data || data.length === 0) {
@@ -1018,6 +1063,12 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   }
 
   function invalidateCache(domain = '*') {
+    // RFC-0052: Log warning if cache is disabled
+    if (!config.enableCache) {
+      LogHelper.log(`[Orchestrator] ⏭️ Cache disabled - invalidateCache('${domain}') has no effect`);
+      return; // Early return - no cache to invalidate
+    }
+
     if (domain === '*') {
       memCache.clear();
       abortAllInflight();
@@ -1262,6 +1313,13 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     const startTime = Date.now();
 
     LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, { key, inFlight: inFlight.has(key) });
+
+    // RFC-0052: Log cache status
+    if (config.enableCache) {
+      LogHelper.log(`[Orchestrator] 🔍 Checking cache for ${domain}...`);
+    } else {
+      LogHelper.log(`[Orchestrator] 🔄 Cache disabled - will fetch fresh data for ${domain}...`);
+    }
 
     // PHASE 2: Mutex to prevent duplicate requests across widgets
     if (sharedWidgetState.mutex) {
