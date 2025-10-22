@@ -31,6 +31,16 @@ const LogHelper = {
 let globalStartDateFilter = null; // ISO ex.: '2025-09-01T00:00:00-03:00'
 let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
 
+// RFC-0051.1: Global widget settings (will be populated in onInit)
+let widgetSettings = {
+  customerTB_ID: 'default',
+  cacheTtlMinutes: 30,
+  enableStaleWhileRevalidate: true,
+  maxCacheSize: 50,
+  debugMode: false,
+  domainsEnabled: { energy: true, water: true, temperature: true }
+};
+
 (function () {
   // Utilitários DOM
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -184,6 +194,63 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
   self.onInit = async function () {
 
     rootEl = $('#myio-root');
+
+    // RFC-0051.1: Populate global widget settings early to avoid undefined errors
+    // These settings are available globally to all functions
+    widgetSettings.customerTB_ID = self.ctx.settings?.customerTB_ID || 'default';
+    widgetSettings.cacheTtlMinutes = self.ctx.settings?.cacheTtlMinutes ?? 30;
+    widgetSettings.enableStaleWhileRevalidate = self.ctx.settings?.enableStaleWhileRevalidate ?? true;
+    widgetSettings.maxCacheSize = self.ctx.settings?.maxCacheSize ?? 50;
+    widgetSettings.debugMode = self.ctx.settings?.debugMode ?? false;
+    widgetSettings.domainsEnabled = self.ctx.settings?.domainsEnabled ?? {
+      energy: true,
+      water: true,
+      temperature: true
+    };
+
+    LogHelper.log('[Orchestrator] 📋 Widget settings captured:', {
+      customerTB_ID: widgetSettings.customerTB_ID,
+      cacheTtlMinutes: widgetSettings.cacheTtlMinutes,
+      debugMode: widgetSettings.debugMode
+    });
+
+    // RFC-0051.2: Expose orchestrator stub IMMEDIATELY
+    // This prevents race conditions with TELEMETRY widgets that check for orchestrator
+    // We expose a stub with isReady flag that will be set to true when fully initialized
+    if (!window.MyIOOrchestrator) {
+      window.MyIOOrchestrator = {
+        // Status flags
+        isReady: false,
+        credentialsSet: false,
+
+        // Data access methods (will be populated later)
+        getCurrentPeriod: () => null,
+        getCache: () => null,
+        getCredentials: () => null,
+        invalidateCache: (domain) => {
+          LogHelper.warn('[Orchestrator] ⚠️ invalidateCache called before orchestrator is ready');
+        },
+
+        // Credential management (will be populated later)
+        setCredentials: async (customerId, clientId, clientSecret) => {
+          LogHelper.warn('[Orchestrator] ⚠️ setCredentials called before orchestrator is ready');
+        },
+
+        // Token manager stub
+        tokenManager: {
+          setToken: (key, token) => {
+            LogHelper.warn('[Orchestrator] ⚠️ tokenManager.setToken called before orchestrator is ready');
+          }
+        },
+
+        // Internal state (will be populated later)
+        memCache: null,
+        inFlight: {}
+      };
+
+      LogHelper.log('[Orchestrator] ⚡ Exposed to window.MyIOOrchestrator EARLY (stub mode)');
+    }
+
     registerGlobalEvents();
     setupResizeObserver();
 
@@ -197,8 +264,8 @@ let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
 
     if (MyIO) {
       try {
-        // Get credentials from settings
-        const customerTB_ID = self.ctx.settings?.customerTB_ID || "";
+        // RFC-0051.1: Use widgetSettings from closure
+        const customerTB_ID = widgetSettings.customerTB_ID !== 'default' ? widgetSettings.customerTB_ID : "";
         const jwt = localStorage.getItem("jwt_token");
 
         LogHelper.log("[MAIN_VIEW] 🔍 Credentials fetch starting...");
@@ -427,8 +494,9 @@ function calcGranularity(startISO, endISO) {
  * RFC-0047: Enhanced cache key with Customer TB ID for multi-tenancy support
  * Format: myio:cache:TB_ID:domain:startISO:endISO:granularity
  */
+// RFC-0051.1: Use widgetSettings from closure instead of self.ctx.settings
 function cacheKey(domain, period) {
-  const customerTbId = self.ctx.settings?.customerTB_ID || 'default';
+  const customerTbId = widgetSettings.customerTB_ID;
   return `${customerTbId}:${domain}:${period.startISO}:${period.endISO}:${period.granularity}`;
 }
 
@@ -803,13 +871,16 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   const inFlight = new Map();
   const abortControllers = new Map();
 
+  // RFC-0051.1: Read config from widgetSettings (captured in closure)
   const config = {
-    ttlMinutes: 30, // RFC-0047: Changed from 5 to 30 minutes
-    enableStaleWhileRevalidate: true,
-    maxCacheSize: 50,
-    debugMode: false,
-    domainsEnabled: { energy: true, water: true, temperature: true }
+    ttlMinutes: widgetSettings.cacheTtlMinutes,
+    enableStaleWhileRevalidate: widgetSettings.enableStaleWhileRevalidate,
+    maxCacheSize: widgetSettings.maxCacheSize,
+    debugMode: widgetSettings.debugMode,
+    domainsEnabled: widgetSettings.domainsEnabled
   };
+
+  LogHelper.log('[Orchestrator] 🔧 Config initialized from settings:', config);
 
   let visibleTab = 'energy';
   let currentPeriod = null;
@@ -980,8 +1051,9 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   }
 
   // RFC-0047: Enhanced clearStorageCache with TB_ID awareness
+  // RFC-0051.1: Use widgetSettings from closure
   function clearStorageCache(domain) {
-    const customerTbId = self.ctx.settings?.customerTB_ID || 'default';
+    const customerTbId = widgetSettings.customerTB_ID;
 
     // RFC-0047: Updated prefix format to include TB_ID
     // Format: myio:cache:TB_ID:domain: or myio:cache:TB_ID: (all domains for customer)
@@ -1711,6 +1783,11 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         CLIENT_SECRET_length: CLIENT_SECRET?.length || 0
       });
 
+      // RFC-0051.2: Mark credentials as set
+      if (window.MyIOOrchestrator) {
+        window.MyIOOrchestrator.credentialsSet = true;
+      }
+
       // Resolve the promise to unblock waiting fetchAndEnrich calls
       if (credentialsResolver) {
         credentialsResolver();
@@ -1743,7 +1820,28 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   };
 })();
 
-// Expose globally
-window.MyIOOrchestrator = MyIOOrchestrator;
+// RFC-0051.2: Update stub with real implementation and mark as ready
+if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
+  // Merge real implementation with stub
+  Object.assign(window.MyIOOrchestrator, MyIOOrchestrator);
 
-LogHelper.log('[MyIOOrchestrator] Initialized');
+  // Mark as ready
+  window.MyIOOrchestrator.isReady = true;
+  window.MyIOOrchestrator.credentialsSet = false; // Will be set by setCredentials()
+
+  LogHelper.log('[Orchestrator] ✅ Orchestrator fully initialized and ready');
+
+  // Emit ready event for widgets that are waiting
+  window.dispatchEvent(new CustomEvent('myio:orchestrator:ready', {
+    detail: { timestamp: Date.now() }
+  }));
+
+  LogHelper.log('[Orchestrator] 📢 Emitted myio:orchestrator:ready event');
+} else {
+  // Fallback: no stub exists (shouldn't happen but be safe)
+  window.MyIOOrchestrator = MyIOOrchestrator;
+  window.MyIOOrchestrator.isReady = true;
+  window.MyIOOrchestrator.credentialsSet = false;
+
+  LogHelper.log('[MyIOOrchestrator] Initialized (no stub found)');
+}

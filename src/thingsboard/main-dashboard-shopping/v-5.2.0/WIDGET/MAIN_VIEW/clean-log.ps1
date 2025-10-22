@@ -1,6 +1,6 @@
 # Script para limpar linhas de stack trace do log
-$inputFile = "dashboard.myio-bas.com-1760757095745.log"
-$outputFile = "dashboard.myio-bas.com-1760757095745-CLEAN.log"
+$inputFile = "dashboard.myio-bas.com-1761152489200.log"
+$outputFile = "dashboard.myio-bas.com-1761152489200-CLEAN.log"
 
 Write-Host "Limpando arquivo de log..." -ForegroundColor Cyan
 Write-Host "Input: $inputFile" -ForegroundColor Gray

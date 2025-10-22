@@ -144,19 +144,49 @@ function showBusy(message) {
     }
   };
 
-  // Ensure orchestrator is ready before showing busy (max 30 attempts = 3 seconds)
-  let attempts = 0;
-  const maxAttempts = 30;
-  const checkOrchestratorReady = () => {
-    attempts++;
-    if (window.MyIOOrchestrator) {
+  // RFC-0051.3: Check if orchestrator exists and is ready
+  const checkOrchestratorReady = async () => {
+    // First, check if orchestrator exists and is ready
+    if (window.MyIOOrchestrator?.isReady) {
       safeShowBusy();
-    } else if (attempts >= maxAttempts) {
-      LogHelper.warn(`[TELEMETRY] Orchestrator not available after ${maxAttempts} attempts, using fallback`);
-      safeShowBusy(); // Use fallback
-    } else {
-      setTimeout(checkOrchestratorReady, 100);
+      return;
     }
+
+    // Wait for orchestrator ready event (with timeout)
+    const ready = await new Promise((resolve) => {
+      let timeout;
+      let interval;
+
+      // Listen for ready event
+      const handler = () => {
+        clearTimeout(timeout);
+        clearInterval(interval);
+        window.removeEventListener('myio:orchestrator:ready', handler);
+        resolve(true);
+      };
+
+      window.addEventListener('myio:orchestrator:ready', handler);
+
+      // Timeout after 5 seconds
+      timeout = setTimeout(() => {
+        clearInterval(interval);
+        window.removeEventListener('myio:orchestrator:ready', handler);
+        LogHelper.warn('[TELEMETRY] ⚠️ Orchestrator ready timeout after 5s, using fallback');
+        resolve(false);
+      }, 5000);
+
+      // Also poll isReady flag (fallback if event is missed)
+      interval = setInterval(() => {
+        if (window.MyIOOrchestrator?.isReady) {
+          clearInterval(interval);
+          clearTimeout(timeout);
+          window.removeEventListener('myio:orchestrator:ready', handler);
+          resolve(true);
+        }
+      }, 100);
+    });
+
+    safeShowBusy();
   };
 
   checkOrchestratorReady();
@@ -181,19 +211,49 @@ function hideBusy() {
     }
   };
 
-  // Ensure orchestrator is ready before hiding busy (max 30 attempts = 3 seconds)
-  let attempts = 0;
-  const maxAttempts = 30;
-  const checkOrchestratorReady = () => {
-    attempts++;
-    if (window.MyIOOrchestrator) {
+  // RFC-0051.3: Check if orchestrator exists and is ready
+  const checkOrchestratorReady = async () => {
+    // First, check if orchestrator exists and is ready
+    if (window.MyIOOrchestrator?.isReady) {
       safeHideBusy();
-    } else if (attempts >= maxAttempts) {
-      LogHelper.warn(`[TELEMETRY] Orchestrator not available after ${maxAttempts} attempts, using fallback`);
-      safeHideBusy(); // Use fallback
-    } else {
-      setTimeout(checkOrchestratorReady, 100);
+      return;
     }
+
+    // Wait for orchestrator ready event (with timeout)
+    const ready = await new Promise((resolve) => {
+      let timeout;
+      let interval;
+
+      // Listen for ready event
+      const handler = () => {
+        clearTimeout(timeout);
+        clearInterval(interval);
+        window.removeEventListener('myio:orchestrator:ready', handler);
+        resolve(true);
+      };
+
+      window.addEventListener('myio:orchestrator:ready', handler);
+
+      // Timeout after 5 seconds
+      timeout = setTimeout(() => {
+        clearInterval(interval);
+        window.removeEventListener('myio:orchestrator:ready', handler);
+        LogHelper.warn('[TELEMETRY] ⚠️ Orchestrator ready timeout after 5s, using fallback');
+        resolve(false);
+      }, 5000);
+
+      // Also poll isReady flag (fallback if event is missed)
+      interval = setInterval(() => {
+        if (window.MyIOOrchestrator?.isReady) {
+          clearInterval(interval);
+          clearTimeout(timeout);
+          window.removeEventListener('myio:orchestrator:ready', handler);
+          resolve(true);
+        }
+      }, 100);
+    });
+
+    safeHideBusy();
   };
 
   checkOrchestratorReady();

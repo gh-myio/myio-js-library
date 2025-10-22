@@ -11,8 +11,8 @@
       "cacheTtlMinutes": {
         "title": "Cache TTL (minutes)",
         "type": "number",
-        "default": 5,
-        "description": "Time-to-live for cached data entries"
+        "default": 30,
+        "description": "Time-to-live for cached data entries (RFC-0047: changed from 5 to 30 minutes)"
       },
       "enableStaleWhileRevalidate": {
         "title": "Enable Stale-While-Revalidate",
