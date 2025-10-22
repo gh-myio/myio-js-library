@@ -1,10 +1,39 @@
 # Script para limpar linhas de stack trace do log
-$inputFile = "dashboard.myio-bas.com-1761152489200.log"
-$outputFile = "dashboard.myio-bas.com-1761152489200-CLEAN.log"
+# Usage: .\clean-log.ps1 [inputFile]
+# Example: .\clean-log.ps1 dashboard.myio-bas.com-1761158233079.log
 
+param(
+    [Parameter(Position=0)]
+    [string]$inputFile
+)
+
+# Se não foi passado parâmetro, procurar o arquivo .log mais recente
+if ([string]::IsNullOrEmpty($inputFile)) {
+    $logFiles = Get-ChildItem -Path "." -Filter "*.log" | Where-Object { $_.Name -notlike "*-CLEAN.log" } | Sort-Object LastWriteTime -Descending
+
+    if ($logFiles.Count -eq 0) {
+        Write-Host "[ERROR] Nenhum arquivo .log encontrado no diretorio atual" -ForegroundColor Red
+        exit 1
+    }
+
+    $inputFile = $logFiles[0].Name
+    Write-Host "[INFO] Arquivo nao especificado. Usando o mais recente: $inputFile" -ForegroundColor Yellow
+}
+
+# Verificar se o arquivo existe
+if (-not (Test-Path $inputFile)) {
+    Write-Host "[ERROR] Arquivo nao encontrado: $inputFile" -ForegroundColor Red
+    exit 1
+}
+
+# Gerar nome do arquivo de saída
+$outputFile = $inputFile -replace '\.log$', '-CLEAN.log'
+
+Write-Host ""
 Write-Host "Limpando arquivo de log..." -ForegroundColor Cyan
-Write-Host "Input: $inputFile" -ForegroundColor Gray
+Write-Host "Input:  $inputFile" -ForegroundColor Gray
 Write-Host "Output: $outputFile" -ForegroundColor Gray
+Write-Host ""
 
 # Padrões para filtrar (linhas que devem ser REMOVIDAS)
 $patterns = @(
@@ -66,8 +95,8 @@ Get-Content $inputFile | ForEach-Object {
     }
 } | Set-Content $outputFile -Encoding UTF8
 
-Write-Host "`n"
-Write-Host "Limpeza concluída!" -ForegroundColor Green
+Write-Host ""
+Write-Host "Limpeza concluida!" -ForegroundColor Green
 Write-Host "Linhas lidas: $linesRead" -ForegroundColor Cyan
 Write-Host "Linhas mantidas: $linesKept" -ForegroundColor Cyan
 Write-Host "Linhas removidas: $($linesRead - $linesKept)" -ForegroundColor Yellow

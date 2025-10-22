@@ -1,45 +1,66 @@
 {
-  "schema": {
-    "type": "object",
-    "title": "Settings",
-    "properties": {
-      "linkCount": {
-        "title": "Número de Links",
-        "type": "integer",
-        "minimum": 1,
-        "default": 1
-      },
-         "groupDashboardId":{
-        "type": "string",
-        "title": "Dashboard Dashboard ID",
-        "default": "" 
-      },
-      "links": {
-        "type": "array",
-        "title": "Configuração dos Links",
-        "items": {
-          "type": "object",
-          "properties": {
-            "content": {
-              "title": "Menu String",
-              "type": "string",
-              "default": "Menu Entry"
+    "schema": {
+        "type": "object",
+        "title": "Settings",
+        "properties": {
+            "linkCount": {
+                "title": "Número de Links",
+                "type": "integer",
+                "minimum": 1,
+                "default": 1
             },
-            "stateId": {
-              "title": "State ID",
-              "type": "string",
-              "default": ""
+            "groupDashboardId": {
+                "type": "string",
+                "title": "Dashboard Dashboard ID",
+                "default": ""
             },
-            "enableLink": {
-              "title": "Habilitar Link",
-              "type": "boolean",
-              "default": false
+            "energyDashboardLink": {
+                "type": "string",
+                "title": "URL do Dashboard de Energia",
+                "default": ""
+            },
+            "waterDashboardLink": {
+                "type": "string",
+                "title": "URL do Dashboard de ÁGUA",
+                "default": ""
+            },
+            "temperatureDashboardLink": {
+                "type": "string",
+                "title": "URL do Dashboard de Temperatura",
+                "default": ""
+            },
+            "alarmDashboardLink": {
+                "type": "string",
+                "title": "URL do Dashboard de Alarmes",
+                "default": ""
+            },
+            
+            "links": {
+                "type": "array",
+                "title": "Configuração dos Links",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "title": "Menu String",
+                            "type": "string",
+                            "default": "Menu Entry"
+                        },
+                        "stateId": {
+                            "title": "State ID",
+                            "type": "string",
+                            "default": ""
+                        },
+                        "enableLink": {
+                            "title": "Habilitar Link",
+                            "type": "boolean",
+                            "default": false
+                        }
+                    }
+                },
+                "minItems": 1,
+                "maxItems": 5
             }
-          }
-        },
-        "minItems": 1,
-        "maxItems": 5
-      }
+        }
     }
-  }
 }
