@@ -346,6 +346,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     let lastEmission = {};
 
     // RFC-0042: Helper function to emit period to all contexts
+    // RFC-0053: Simplified event emission (no iframes!)
     function emitToAllContexts(eventName, detail) {
       // RFC-0045 FIX: Prevent duplicate emissions within 200ms
       const now = Date.now();
@@ -358,35 +359,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       lastEmission[key] = now;
 
-      // 1. Emit to current window (for MAIN_VIEW orchestrator)
+      // RFC-0053: Single window context - all widgets in same window
       window.dispatchEvent(new CustomEvent(eventName, { detail }));
-      LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to current window`);
-
-      // 2. Emit to parent window (if in iframe)
-      if (window.parent && window.parent !== window) {
-        try {
-          window.parent.dispatchEvent(new CustomEvent(eventName, { detail }));
-          LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to parent window`);
-        } catch (e) {
-          LogHelper.warn(`[HEADER] ⚠️ Cannot emit ${eventName} to parent:`, e.message);
-        }
-      }
-
-      // 3. Emit to all iframes (for TELEMETRY widgets)
-      try {
-        const iframes = document.querySelectorAll('iframe');
-        LogHelper.log(`[HEADER] Found ${iframes.length} iframes`);
-        iframes.forEach((iframe, idx) => {
-          try {
-            iframe.contentWindow.dispatchEvent(new CustomEvent(eventName, { detail }));
-            LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to iframe ${idx}`);
-          } catch (e) {
-            LogHelper.warn(`[HEADER] ⚠️ Cannot emit ${eventName} to iframe ${idx}:`, e.message);
-          }
-        });
-      } catch (e) {
-        LogHelper.warn(`[HEADER] ⚠️ Cannot access iframes:`, e.message);
-      }
+      LogHelper.log(`[HEADER] ✅ RFC-0053: Emitted ${eventName} (single context)`);
     }
 
 
@@ -463,29 +438,13 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         }
 
         // IMPORTANT: Clear visual content of TELEMETRY widgets for current domain
-        // Emit custom event that TELEMETRY widgets can listen to
+        // RFC-0053: Single window context - no iframe emission needed
         const clearEvent = new CustomEvent('myio:telemetry:clear', {
           detail: { domain: currentDomain }
         });
 
-        // Emit to current window
         window.dispatchEvent(clearEvent);
-        LogHelper.log(`[HEADER] ✅ Emitted clear event for domain: ${currentDomain}`);
-
-        // Emit to all iframes (where TELEMETRY widgets live)
-        try {
-          const iframes = document.querySelectorAll('iframe');
-          iframes.forEach((iframe, idx) => {
-            try {
-              iframe.contentWindow.dispatchEvent(clearEvent);
-              LogHelper.log(`[HEADER] ✅ Emitted clear event to iframe ${idx}`);
-            } catch (e) {
-              LogHelper.warn(`[HEADER] ⚠️ Cannot emit clear event to iframe ${idx}:`, e.message);
-            }
-          });
-        } catch (e) {
-          LogHelper.warn(`[HEADER] ⚠️ Cannot access iframes:`, e.message);
-        }
+        LogHelper.log(`[HEADER] ✅ RFC-0053: Emitted clear event for domain: ${currentDomain} (single context)`);
 
         // Show success message only for manual clicks
         if (!isProgrammatic) {

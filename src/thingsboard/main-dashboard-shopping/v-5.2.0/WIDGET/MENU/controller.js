@@ -147,61 +147,56 @@ self.onInit = function () {
       })
     );
 
+    // RFC-0053: Navegação via Estados do ThingsBoard (preferido)
+    try {
+      if (self.ctx?.dashboard && typeof self.ctx.dashboard.openDashboardState === 'function') {
+        LogHelper.log(`[MENU] RFC-0053: Navegando para estado TB: ${stateId}`);
+        self.ctx.dashboard.openDashboardState(stateId);
+        return; // já navegou via TB; não usar fallback
+      }
+    } catch (err) {
+      LogHelper.warn("[MENU] RFC-0053: openDashboardState indisponível:", err);
+    }
+
+    // RFC-0053: Use content containers with show/hide logic (no iframes!)
     try {
       const main = document.getElementsByTagName("main")[0];
       if (!main) {
-        LogHelper.error("[menu] Elemento <main> não encontrado.");
+        LogHelper.error("[MENU] <main> element not found in DOM");
         return;
       }
 
-      // Mapeia os stateId para os valores codificados
-      let stateParam;
-      switch (stateId) {
-        case "telemetry_content":
-          stateParam = `${settings.energyDashboardLink}`;
-          break;
-        case "water_content":
-          stateParam = `${settings.waterDashboardLink}`;
-          break;
-        case "temperature_content":
-          stateParam = `${settings.temperatureDashboardLink}`;
-          break;
-        case "alarm_content":
-          stateParam = `${settings.alarmDashboardLink}`;
-          break;
-        default:
-          stateParam = undefined;
-      }
+      // Find all content containers with data-content-state attribute
+      const allContents = main.querySelectorAll('[data-content-state]');
 
-      // Usa o dashboardId das configurações (se existir) ou fallback fixo
-      const dashboardId = settings.groupDashboardId;
-
-      if (!stateParam) {
-        LogHelper.warn(
-          `[menu] Nenhum stateParam definido para stateId: ${stateId}`
-        );
-        main.innerHTML = `<div style="padding:20px; text-align:center; font-size:16px;">não tem</div>`;
+      if (allContents.length === 0) {
+        LogHelper.error('[MENU] No content containers found with data-content-state attribute');
+        main.innerHTML = `<div style="padding: 20px; text-align: center; color: #666;">
+          <p><strong>Error: Content containers not configured</strong></p>
+          <p>Expected containers with data-content-state attribute in MAIN_VIEW template.html</p>
+        </div>`;
         return;
       }
 
-      // Monta a URL do iframe (embed ThingsBoard)
-      const url = `/dashboard/${dashboardId}?embed=true&state=${stateParam}`;
+      // Hide all content containers
+      allContents.forEach(content => {
+        content.style.display = 'none';
+      });
 
-      // Insere o iframe dentro do <main>
-      main.innerHTML = `
-        <iframe 
-          src="${url}" 
-          width="100%" 
-          height="100%" 
-          frameborder="0"
-          style="border:0;" 
-          allowfullscreen 
-          title="Dashboard ThingsBoard"
-        >
-          Seu navegador não suporta iframes.
-        </iframe>`;
+      // Show target container
+      const targetContent = main.querySelector(`[data-content-state="${stateId}"]`);
+      if (targetContent) {
+        targetContent.style.display = 'block';
+        LogHelper.log(`[MENU] ✅ RFC-0053: Showing content container for ${stateId} (no iframe!)`);
+      } else {
+        LogHelper.warn(`[MENU] Content container not found for ${stateId}`);
+        main.innerHTML = `<div style="padding: 20px; text-align: center; color: #ff6b6b;">
+          <p><strong>State "${stateId}" not configured</strong></p>
+          <p>Available containers: ${Array.from(allContents).map(c => c.getAttribute('data-content-state')).join(', ')}</p>
+        </div>`;
+      }
     } catch (err) {
-      LogHelper.warn("[menu] Falha ao abrir estado:", err);
+      LogHelper.error("[MENU] RFC-0053: Failed to switch content container:", err);
     }
   };
 

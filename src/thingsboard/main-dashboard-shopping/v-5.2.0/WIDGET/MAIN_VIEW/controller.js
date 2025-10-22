@@ -233,8 +233,22 @@ let widgetSettings = {
       debugMode: widgetSettings.debugMode
     });
 
-    // RFC-0052: Warn if cache is disabled
-    if (!widgetSettings.enableCache) {
+    // RFC-0052: Initialize config AFTER widgetSettings are populated
+    config = {
+      enableCache: widgetSettings.enableCache,
+      ttlMinutes: widgetSettings.cacheTtlMinutes,
+      enableStaleWhileRevalidate: widgetSettings.enableStaleWhileRevalidate,
+      maxCacheSize: widgetSettings.maxCacheSize,
+      debugMode: widgetSettings.debugMode,
+      domainsEnabled: widgetSettings.domainsEnabled
+    };
+
+    LogHelper.log('[Orchestrator] 🔧 Config initialized from settings:', config);
+
+    // RFC-0052: Log cache status
+    if (config.enableCache) {
+      LogHelper.log(`[Orchestrator] ✅ Cache ENABLED (TTL: ${config.ttlMinutes} min)`);
+    } else {
       LogHelper.warn('[Orchestrator] ⚠️ CACHE DISABLED - All requests will fetch fresh data from API');
       LogHelper.warn('[Orchestrator] This increases API load. Enable cache for better performance.');
     }
@@ -896,24 +910,8 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   const inFlight = new Map();
   const abortControllers = new Map();
 
-  // RFC-0051.1 + RFC-0052: Read config from widgetSettings (captured in closure)
-  const config = {
-    enableCache: widgetSettings.enableCache,  // RFC-0052: New - enable/disable cache globally
-    ttlMinutes: widgetSettings.cacheTtlMinutes,
-    enableStaleWhileRevalidate: widgetSettings.enableStaleWhileRevalidate,
-    maxCacheSize: widgetSettings.maxCacheSize,
-    debugMode: widgetSettings.debugMode,
-    domainsEnabled: widgetSettings.domainsEnabled
-  };
-
-  LogHelper.log('[Orchestrator] 🔧 Config initialized from settings:', config);
-
-  // RFC-0052: Log cache status
-  if (config.enableCache) {
-    LogHelper.log(`[Orchestrator] ✅ Cache ENABLED (TTL: ${config.ttlMinutes} min)`);
-  } else {
-    LogHelper.warn('[Orchestrator] ⚠️ Cache DISABLED - Always fetching fresh data');
-  }
+  // RFC-0051.1 + RFC-0052: Config will be initialized in onInit() after widgetSettings are populated
+  let config = null;
 
   let visibleTab = 'energy';
   let currentPeriod = null;
@@ -941,7 +939,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       if (fromCache) this.cacheHits++;
       this.cacheHitRatio = this.totalRequests > 0 ? (this.cacheHits / this.totalRequests) * 100 : 0;
 
-      if (config.debugMode) {
+      if (config?.debugMode) {
         LogHelper.log(`[Orchestrator] ${domain} hydration: ${duration}ms (${fromCache ? 'cache' : 'fresh'})`);
       }
     },
@@ -970,7 +968,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   // RFC-0047: Enhanced cache read with expiration validation
   function readCache(key) {
     // RFC-0052: Do not read from cache if cache is disabled
-    if (!config.enableCache) {
+    if (!config?.enableCache) {
       LogHelper.log(`[Orchestrator] ⏭️ Cache disabled - skipping read for ${key}`);
       return null; // Always return null = cache miss
     }
@@ -1010,7 +1008,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   // RFC-0047: Enhanced cache write with timestamp
   function writeCache(key, data) {
     // RFC-0052: Do not write to cache if cache is disabled
-    if (!config.enableCache) {
+    if (!config?.enableCache) {
       LogHelper.log(`[Orchestrator] ⏭️ Cache disabled - skipping write for ${key}`);
       return;
     }
@@ -1031,19 +1029,19 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       data,
       cachedAt: now, // Timestamp when cache was created
       hydratedAt: now, // Backward compatibility
-      ttlMinutes: config.ttlMinutes, // TTL in minutes (30)
-      expiresAt: now + (config.ttlMinutes * 60_000) // Explicit expiration timestamp
+      ttlMinutes: config?.ttlMinutes ?? 30, // TTL in minutes (30)
+      expiresAt: now + ((config?.ttlMinutes ?? 30) * 60_000) // Explicit expiration timestamp
     };
 
     memCache.set(key, cacheEntry);
 
     // Log cache write
-    LogHelper.log(`[Orchestrator] 💾 Cache written for ${key}: ${data.length} items, TTL: ${config.ttlMinutes} min, expires: ${new Date(cacheEntry.expiresAt).toLocaleTimeString()}`);
+    LogHelper.log(`[Orchestrator] 💾 Cache written for ${key}: ${data.length} items, TTL: ${config?.ttlMinutes ?? 30} min, expires: ${new Date(cacheEntry.expiresAt).toLocaleTimeString()}`);
 
-    while (memCache.size > config.maxCacheSize) {
+    while (memCache.size > (config?.maxCacheSize ?? 50)) {
       const oldestKey = memCache.keys().next().value;
       memCache.delete(oldestKey);
-      if (config.debugMode) LogHelper.log(`[Orchestrator] Evicted cache key: ${oldestKey}`);
+      if (config?.debugMode) LogHelper.log(`[Orchestrator] Evicted cache key: ${oldestKey}`);
     }
 
     persistToStorage(key, cacheEntry);
@@ -1064,7 +1062,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
   function invalidateCache(domain = '*') {
     // RFC-0052: Log warning if cache is disabled
-    if (!config.enableCache) {
+    if (!config?.enableCache) {
       LogHelper.log(`[Orchestrator] ⏭️ Cache disabled - invalidateCache('${domain}') has no effect`);
       return; // Early return - no cache to invalidate
     }
@@ -1082,7 +1080,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       }
     }
 
-    if (config.debugMode) LogHelper.log(`[Orchestrator] Cache invalidated: ${domain}`);
+    if (config?.debugMode) LogHelper.log(`[Orchestrator] Cache invalidated: ${domain}`);
   }
 
   function abortInflight(key) {
@@ -1315,7 +1313,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, { key, inFlight: inFlight.has(key) });
 
     // RFC-0052: Log cache status
-    if (config.enableCache) {
+    if (config?.enableCache) {
       LogHelper.log(`[Orchestrator] 🔍 Checking cache for ${domain}...`);
     } else {
       LogHelper.log(`[Orchestrator] 🔄 Cache disabled - will fetch fresh data for ${domain}...`);
@@ -1405,32 +1403,14 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     return fetchPromise;
   }
 
-  // RFC-0042: Cross-context event forwarding helper
+  // RFC-0053: Simplified event emission (no iframes!)
+  // Replaced 3-layer forwarding (current + parent + children) with single window emission
   function emitToAllContexts(eventName, detail) {
-    // 1. Emit to current window
+    // Single window context - all widgets in same window
     window.dispatchEvent(new CustomEvent(eventName, { detail }));
 
-    // 2. Emit to parent window if in iframe
-    try {
-      if (window.parent && window.parent !== window) {
-        window.parent.dispatchEvent(new CustomEvent(eventName, { detail }));
-      }
-    } catch (e) {
-      // Cross-origin iframe, ignore
-    }
-
-    // 3. Emit to all child iframes
-    try {
-      const iframes = document.querySelectorAll('iframe');
-      iframes.forEach((iframe, idx) => {
-        try {
-          iframe.contentWindow.dispatchEvent(new CustomEvent(eventName, { detail }));
-        } catch (e) {
-          // Cross-origin iframe, ignore
-        }
-      });
-    } catch (e) {
-      // Cannot access iframes, ignore
+    if (config?.debugMode) {
+      LogHelper.log(`[Orchestrator] 📡 RFC-0053: Emitted ${eventName} (single context)`, detail);
     }
   }
 
@@ -1486,42 +1466,8 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     // 3a. Emit to current window
     window.dispatchEvent(new CustomEvent('myio:telemetry:provide-data', { detail: eventDetail }));
 
-    // 3b. Emit to parent (if in iframe)
-    try {
-      if (window.parent && window.parent !== window) {
-        window.parent.dispatchEvent(new CustomEvent('myio:telemetry:provide-data', { detail: eventDetail }));
-      }
-    } catch (e) {
-      // Cross-origin, ignore
-    }
-
-    // 3c. Emit to iframes (only the ones that are ready)
-    try {
-      const iframes = document.querySelectorAll('iframe');
-      iframes.forEach((iframe, idx) => {
-        try {
-          // Check if iframe is loaded before emitting
-          if (iframe.contentWindow && iframe.contentWindow.document.readyState === 'complete') {
-            iframe.contentWindow.dispatchEvent(new CustomEvent('myio:telemetry:provide-data', { detail: eventDetail }));
-            LogHelper.log(`[Orchestrator] ✅ Emitted to iframe ${idx} for ${domain}`);
-          } else {
-            LogHelper.warn(`[Orchestrator] ⏳ Iframe ${idx} not ready yet, will retry`);
-
-            // Schedule retry for iframe not loaded
-            setTimeout(() => {
-              if (iframe.contentWindow && iframe.contentWindow.document.readyState === 'complete') {
-                iframe.contentWindow.dispatchEvent(new CustomEvent('myio:telemetry:provide-data', { detail: eventDetail }));
-                LogHelper.log(`[Orchestrator] ✅ Retry: Emitted to iframe ${idx} for ${domain}`);
-              }
-            }, 500);
-          }
-        } catch (err) {
-          LogHelper.warn(`[Orchestrator] Cannot emit to iframe ${idx}:`, err.message);
-        }
-      });
-    } catch (e) {
-      LogHelper.warn(`[Orchestrator] Cannot enumerate iframes:`, e.message);
-    }
+    // RFC-0053: Contexto único — sem emissão para parent/iframes
+    // Todos os widgets recebem via window.dispatchEvent acima
 
     // 4. MARK AS NOT LOADING
     OrchestratorState.loading[domain] = false;
@@ -1580,7 +1526,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
       window.dispatchEvent(new CustomEvent('myio:token-rotated', { detail: {} }));
 
-      if (config.debugMode) LogHelper.log('[Orchestrator] Tokens rotated');
+      if (config?.debugMode) LogHelper.log('[Orchestrator] Tokens rotated');
     },
 
     getToken(type) {
@@ -1726,7 +1672,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   }, 10 * 60 * 1000); // Every 10 minutes
 
   // Telemetry reporting
-  if (!config.debugMode && typeof window.tbClient !== 'undefined') {
+  if (!config?.debugMode && typeof window.tbClient !== 'undefined') {
     setInterval(() => {
       try {
         window.tbClient.sendTelemetry(metrics.generateTelemetrySummary());

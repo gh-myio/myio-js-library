@@ -1004,9 +1004,8 @@ self.onInit = async function () {
 
     LogHelper.log(`[TELEMETRY] Requesting data for domain=${WIDGET_DOMAIN}, period:`, period);
 
-    // RFC-0042: Emit request event to parent window (where Orchestrator lives)
-    const targetWindow = window.parent || window;
-    targetWindow.dispatchEvent(new CustomEvent('myio:telemetry:request-data', {
+    // RFC-0053: Single window context - emit to current window only
+    window.dispatchEvent(new CustomEvent('myio:telemetry:request-data', {
       detail: { domain: WIDGET_DOMAIN, period }
     }));
   }
@@ -1060,11 +1059,11 @@ self.onInit = async function () {
         return; // Don't request data again, we already have it
       }
 
-      // RFC-0042: Request data from orchestrator (check parent window if in iframe)
-      const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+      // RFC-0053: Direct access to orchestrator (single window context)
+      const orchestrator = window.MyIOOrchestrator;
 
       if (orchestrator) {
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Requesting data from orchestrator (${window.MyIOOrchestrator ? 'current' : 'parent'} window)`);
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Requesting data from orchestrator (single window)`);
 
         // IMPORTANT: Mark as requested BEFORE calling requestDataFromOrchestrator
         // This prevents the setTimeout(500ms) from making a duplicate request
@@ -1396,8 +1395,8 @@ self.onInit = async function () {
   */
   // Check for stored data from orchestrator (in case we missed the event)
   setTimeout(() => {
-    // RFC-0042: Check parent window for orchestrator data (if in iframe)
-    const orchestratorData = window.MyIOOrchestratorData || window.parent?.MyIOOrchestratorData;
+    // RFC-0053: Direct access to orchestrator data (single window context)
+    const orchestratorData = window.MyIOOrchestratorData;
 
     LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔍 Checking for stored orchestrator data...`);
 
@@ -1410,7 +1409,7 @@ self.onInit = async function () {
 
       // Use stored data if it's less than 30 seconds old AND has items
       if (age < 30000 && storedData.items && storedData.items.length > 0) {
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Using stored orchestrator data (${window.MyIOOrchestratorData ? 'current' : 'parent'} window)`);
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Using stored orchestrator data (single window)`);
         dataProvideHandler({
           detail: {
             domain: WIDGET_DOMAIN,

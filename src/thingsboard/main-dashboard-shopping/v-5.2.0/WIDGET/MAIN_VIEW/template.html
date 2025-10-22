@@ -8,7 +8,19 @@
   </header>
 
   <main class="myio-content">
-    <tb-dashboard-state class="tb-child" [ctx]="ctx" stateId="alarm_content"></tb-dashboard-state>
+    <!-- RFC-0053: All states pre-loaded with show/hide logic (no iframes!) -->
+    <div data-content-state="telemetry_content" style="display:none;">
+      <tb-dashboard-state class="tb-child" [ctx]="ctx" stateId="telemetry_content"></tb-dashboard-state>
+    </div>
+    <div data-content-state="water_content" style="display:none;">
+      <tb-dashboard-state class="tb-child" [ctx]="ctx" stateId="water_content"></tb-dashboard-state>
+    </div>
+    <div data-content-state="temperature_content" style="display:none;">
+      <tb-dashboard-state class="tb-child" [ctx]="ctx" stateId="temperature_content"></tb-dashboard-state>
+    </div>
+    <div data-content-state="alarm_content" style="display:block;">
+      <tb-dashboard-state class="tb-child" [ctx]="ctx" stateId="alarm_content"></tb-dashboard-state>
+    </div>
   </main>
 
   <footer class="myio-footer">
