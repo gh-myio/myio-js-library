@@ -91,19 +91,37 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const INGESTION_ID = customerCredentials.ingestionId || " ";
 
   MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-    dataApiHost: DATA_API_HOST, 
+    dataApiHost: DATA_API_HOST,
     clientId: CLIENT_ID,
     clientSecret: CLIENT_SECRET
   });
-  
+
   LogHelper.log("[MyIOAuth] Initialized with extracted component");
+
+  // RFC-0049: FIX - Ensure default period is always set
+  // Calculate default period: 1st of month 00:00 → today 23:59
+  if (!presetStart || !presetEnd) {
+    const now = new Date();
+    presetStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    presetEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0, 0);
+
+    LogHelper.log("[HEADER] 🔧 FIX - Using calculated default period:", {
+      start: presetStart.toISOString(),
+      end: presetEnd.toISOString()
+    });
+  } else {
+    LogHelper.log("[HEADER] Using provided preset period:", {
+      start: presetStart,
+      end: presetEnd
+    });
+  }
 
   // Initialize MyIOLibrary DateRangePicker
   var $inputStart = $('input[name="startDatetimes"]');
 
   LogHelper.log("[DateRangePicker] Using MyIOLibrary.createDateRangePicker");
 
-  // Initialize the createDateRangePicker component
+  // Initialize the createDateRangePicker component with guaranteed presets
   MyIOLibrary.createDateRangePicker($inputStart[0], {
     presetStart: presetStart,
     presetEnd: presetEnd,
@@ -118,7 +136,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     },
   }).then(function (picker) {
       dateRangePicker = picker;
-      LogHelper.log("[DateRangePicker] Successfully initialized");
+      LogHelper.log("[DateRangePicker] Successfully initialized with period");
   }).catch(function (error) {
       LogHelper.error("[DateRangePicker] Failed to initialize:", error);
   });
@@ -284,19 +302,62 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
     };
 
+    // RFC-0042: Track if we already emitted initial period
+    let hasEmittedInitialPeriod = false;
+
     // RFC-0042: Listen for dashboard state changes from MENU
     window.addEventListener('myio:dashboard-state', (ev) => {
       const { tab } = ev.detail;
       LogHelper.log(`[HEADER] Dashboard state changed to: ${tab}`);
       currentDomain = tab;
       updateControlsState(tab);
+
+      // RFC-0045 FIX: Emit initial period when domain is set for the first time
+      // This ensures orchestrator has currentPeriod set immediately
+      if (!hasEmittedInitialPeriod && (tab === 'energy' || tab === 'water')) {
+        hasEmittedInitialPeriod = true;
+
+        // Wait for dateRangePicker to be ready
+        setTimeout(() => {
+          if (self.__range.start && self.__range.end) {
+            const startISO = toISO(self.__range.start.toDate(), 'America/Sao_Paulo');
+            const endISO = toISO(self.__range.end.toDate(), 'America/Sao_Paulo');
+
+            const initialPeriod = {
+              startISO,
+              endISO,
+              granularity: calcGranularity(startISO, endISO),
+              tz: 'America/Sao_Paulo'
+            };
+
+            LogHelper.log(`[HEADER] 🚀 Emitting initial period for domain ${tab}:`, initialPeriod);
+            emitToAllContexts("myio:update-date", { period: initialPeriod });
+          } else {
+            LogHelper.warn(`[HEADER] ⚠️ Cannot emit initial period - dateRangePicker not ready yet`);
+          }
+        }, 300); // Small delay to ensure dateRangePicker is initialized
+      }
     });
 
     // Initial controls state (disabled by default in HTML, will be enabled when domain is set)
     updateControlsState(currentDomain);
 
+    // RFC-0045 FIX: Track last emission to prevent duplicates
+    let lastEmission = {};
+
     // RFC-0042: Helper function to emit period to all contexts
     function emitToAllContexts(eventName, detail) {
+      // RFC-0045 FIX: Prevent duplicate emissions within 200ms
+      const now = Date.now();
+      const key = `${eventName}:${JSON.stringify(detail)}`;
+
+      if (lastEmission[key] && (now - lastEmission[key]) < 200) {
+        LogHelper.warn(`[HEADER] ⏭️ Skipping duplicate ${eventName} emission (${now - lastEmission[key]}ms ago)`);
+        return;
+      }
+
+      lastEmission[key] = now;
+
       // 1. Emit to current window (for MAIN_VIEW orchestrator)
       window.dispatchEvent(new CustomEvent(eventName, { detail }));
       LogHelper.log(`[HEADER] ✅ Emitted ${eventName} to current window`);
@@ -328,32 +389,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
     }
 
-    // RFC-0042: Emit initial period automatically when HEADER loads
-    // This ensures TELEMETRY widgets don't hang waiting for data on first load
-    // ONLY emit if currentDomain is supported (energy or water)
-    setTimeout(() => {
-      // Check if current domain is supported before emitting
-      const isSupported = currentDomain === 'energy' || currentDomain === 'water';
-
-      if (!isSupported) {
-        LogHelper.log(`[HEADER] ⏭️ Skipping initial period emission - unsupported domain: ${currentDomain || 'null'}`);
-        return;
-      }
-
-      const startISO = toISO(self.__range.start.toDate(), 'America/Sao_Paulo');
-      const endISO = toISO(self.__range.end.toDate(), 'America/Sao_Paulo');
-
-      const initialPeriod = {
-        startISO,
-        endISO,
-        granularity: calcGranularity(startISO, endISO),
-        tz: 'America/Sao_Paulo'
-      };
-
-      LogHelper.log(`[HEADER] 🚀 Emitting initial period for domain ${currentDomain}:`, initialPeriod);
-      emitToAllContexts("myio:update-date", { period: initialPeriod });
-      emitToAllContexts("myio:update-date-legacy", { startDate: startISO, endDate: endISO });
-    }, 1000); // Wait 1s for widgets to initialize
 
     btnLoad?.addEventListener("click", () => {
       // RFC-0042: Standardized period emission
@@ -395,13 +430,20 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
 
       try {
-        // Clear localStorage cache for energy and water (not temperature)
-        // IMPORTANT: Cache keys have format: myio:cache:{domain}:{startISO}:{endISO}:{granularity}
-        // We need to iterate and remove all keys starting with the domain prefix
+        // RFC-0047: Enhanced cache clearing with TB_ID support
+        // Cache keys format: myio:cache:TB_ID:domain:startISO:endISO:granularity
+        const customerTbId = self.ctx.settings?.customerTB_ID || 'default';
+
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (key && (key.startsWith('myio:cache:energy:') || key.startsWith('myio:cache:water:'))) {
+          if (!key) continue;
+
+          // RFC-0047: Match new cache key format with TB_ID
+          const energyPrefix = `myio:cache:${customerTbId}:energy:`;
+          const waterPrefix = `myio:cache:${customerTbId}:water:`;
+
+          if (key.startsWith(energyPrefix) || key.startsWith(waterPrefix)) {
             keysToRemove.push(key);
           }
         }

@@ -989,6 +989,17 @@ self.onInit = async function () {
       showBusy();
       LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ showBusy() called`);
 
+      // RFC-0045 FIX: Check if there's a pending provide-data event waiting for this period
+      if (pendingProvideData) {
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Found pending provide-data event, processing now...`);
+        const pending = pendingProvideData;
+        pendingProvideData = null; // Clear pending event
+
+        // Process the pending event immediately
+        dataProvideHandler({ detail: pending });
+        return; // Don't request data again, we already have it
+      }
+
       // RFC-0042: Request data from orchestrator (check parent window if in iframe)
       const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
 
@@ -1088,6 +1099,9 @@ self.onInit = async function () {
     }
   }, 100);
 
+  // RFC-0045 FIX: Store pending provide-data events that arrive before update-date
+  let pendingProvideData = null;
+
   // RFC-0042: Listen for data provision from orchestrator
   dataProvideHandler = function (ev) {
     LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${ev.detail.domain}, periodKey: ${ev.detail.periodKey}, items: ${ev.detail.items?.length || 0}`);
@@ -1106,20 +1120,22 @@ self.onInit = async function () {
       return;
     }
 
-    // Mark this periodKey as processed
-    lastProcessedPeriodKey = periodKey;
-
     // Validate current period matches
     const myPeriod = {
       startISO: self.ctx.scope?.startDateISO,
       endISO: self.ctx.scope?.endDateISO
     };
 
+    // RFC-0045 FIX: If period not set yet, STORE the event and wait for myio:update-date
     if (!myPeriod.startISO || !myPeriod.endISO) {
-      LogHelper.warn(`[TELEMETRY] No period set, ignoring data provision and hiding busy`);
-      hideBusy(); // IMPORTANT: Hide busy before returning
+      LogHelper.warn(`[TELEMETRY] ⏸️ Period not set yet, storing provide-data event for later processing`);
+      pendingProvideData = { domain, periodKey, items };
+      // DON'T call hideBusy() here - wait for update-date to process the data
       return;
     }
+
+    // Mark this periodKey as processed ONLY when actually processing
+    lastProcessedPeriodKey = periodKey;
 
     // IMPORTANT: Do NOT call showBusy() here - it was already called in dateUpdateHandler
     // Calling it again creates a NEW timeout that won't be properly cancelled
@@ -1210,7 +1226,7 @@ self.onInit = async function () {
 
         // Debug: log non-zero values from API
         if (value > 0) {
-          LogHelper.log(`[TELEMETRY] ✅ Orchestrator has data: ${item.label} (${item.ingestionId}) = ${value}`);
+          //LogHelper.log(`[TELEMETRY] ✅ Orchestrator has data: ${item.label} (${item.ingestionId}) = ${value}`);
         }
       }
     });
