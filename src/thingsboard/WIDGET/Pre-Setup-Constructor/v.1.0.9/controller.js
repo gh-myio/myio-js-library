@@ -2989,12 +2989,25 @@ function handleIngestionSyncModal(modal) {
       if (centralIdConfig?.mode === 'force' && centralIdConfig?.value) {
         // Forçar: ignora atributo do device e sempre usa o valor configurado
         central = centralIdConfig.value;
+        // Popular d.attributes.centralId para matchIngestionRecord usar
+        if (!d.attributes) d.attributes = {};
+        d.attributes.centralId = central;
       } else if (centralIdConfig?.mode === 'fallback' && centralIdConfig?.value) {
         // Fallback: usa atributo do device, se não tiver usa o valor configurado
         central = d.centralId ?? d.centralID ?? centralIdConfig.value;
+        // Popular d.attributes.centralId se não existir
+        if (!d.attributes) d.attributes = {};
+        if (!d.attributes.centralId) {
+          d.attributes.centralId = central;
+        }
       } else {
         // Usar atributo: comportamento original (lê do device, null se não tiver)
         central = d.centralId ?? d.centralID ?? null;
+        // Garantir que d.attributes.centralId existe se temos centralId
+        if (central && !d.attributes) d.attributes = {};
+        if (central && !d.attributes.centralId) {
+          d.attributes.centralId = central;
+        }
       }
 
       if (!tbId) {
@@ -3011,7 +3024,7 @@ function handleIngestionSyncModal(modal) {
         continue;
       }
 
-      const { rec, reason } = matchIngestionRecord(d, index); // strict centralId#slaveId lookup
+      const { rec, reason } = matchIngestionRecord(d, index); // strict centralId#slaveId lookup (agora com d.attributes.centralId populado)
 
       if (!rec) {
         skipped;

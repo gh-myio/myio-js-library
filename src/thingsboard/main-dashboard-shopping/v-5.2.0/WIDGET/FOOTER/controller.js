@@ -33,6 +33,115 @@
     }
   };
 
+  /********************************************************
+   * MyIOToast - Toast de notificação simples
+   * Mesma implementação do template-card-v2.js
+   * - Simples de usar: MyIOToast.show('Sua mensagem');
+   *********************************************************/
+  const MyIOToast = (function() {
+      let toastContainer = null;
+      let toastTimeout = null;
+
+      // CSS para um toast simples e agradável
+      const TOAST_CSS = `
+          #myio-global-toast-container {
+              position: fixed;
+              top: 25px;
+              right: 25px;
+              z-index: 99999;
+              width: 320px;
+              padding: 16px;
+              border-radius: 8px;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+              font-size: 15px;
+              color: #fff;
+              transform: translateX(120%);
+              transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+              box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+              border-left: 5px solid transparent;
+              display: flex;
+              align-items: center;
+          }
+          #myio-global-toast-container.show {
+              transform: translateX(0);
+          }
+          #myio-global-toast-container.warning {
+              background-color: #ff9800; /* Laranja para alerta */
+              border-color: #f57c00;
+          }
+          #myio-global-toast-container.error {
+              background-color: #d32f2f; /* Vermelho para erro */
+              border-color: #b71c1c;
+          }
+          #myio-global-toast-container::before {
+              content: '⚠️'; /* Ícone de alerta */
+              margin-right: 12px;
+              font-size: 20px;
+          }
+          #myio-global-toast-container.error::before {
+              content: '🚫'; /* Ícone de erro */
+          }
+      `;
+
+      // Função para criar o elemento do toast (só roda uma vez)
+      function createToastElement() {
+          if (document.getElementById('myio-global-toast-container')) {
+              toastContainer = document.getElementById('myio-global-toast-container');
+              return;
+          }
+
+          // Injeta o CSS no <head>
+          const style = document.createElement('style');
+          style.id = 'myio-global-toast-styles';
+          style.textContent = TOAST_CSS;
+          document.head.appendChild(style);
+
+          // Cria o elemento HTML e anexa ao <body>
+          toastContainer = document.createElement('div');
+          toastContainer.id = 'myio-global-toast-container';
+          document.body.appendChild(toastContainer);
+      }
+
+      /**
+       * Exibe o toast com uma mensagem.
+       * @param {string} message - A mensagem a ser exibida.
+       * @param {string} [type='warning'] - O tipo do toast ('warning' ou 'error').
+       * @param {number} [duration=3500] - Duração em milissegundos.
+       */
+      function show(message, type = 'warning', duration = 3500) {
+          if (!toastContainer) {
+              createToastElement();
+          }
+
+          clearTimeout(toastTimeout);
+
+          toastContainer.textContent = message;
+          toastContainer.className = ''; // Reseta classes
+          toastContainer.classList.add(type);
+
+          // Força o navegador a reconhecer a mudança antes de adicionar a classe 'show'
+          // para garantir que a animação sempre funcione.
+          setTimeout(() => {
+              toastContainer.classList.add('show');
+          }, 10);
+
+          toastTimeout = setTimeout(() => {
+              toastContainer.classList.remove('show');
+          }, duration);
+      }
+
+      // Garante que o elemento seja criado assim que o script for carregado.
+      if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', createToastElement);
+      } else {
+          createToastElement();
+      }
+
+      return {
+          show: show
+      };
+  })();
+
   // --- 2. Injeção de CSS (executada uma vez) ---
   let cssInjected = false;
   function injectCSS() {
@@ -875,59 +984,12 @@
     },
 
     /**
-     * Mostra o alerta premium quando o limite de seleção é atingido
+     * Mostra o alerta quando o limite de seleção é atingido
+     * Usa MyIOToast.show (mesma implementação do template-card-v2.js)
      */
     showLimitAlert() {
-      LogHelper.log("[MyIO Footer] Showing limit alert");
-
-      // Remove qualquer alerta existente
-      if (this.$alertOverlay) {
-        this.hideAlert();
-      }
-
-      // Cria o overlay do alerta
-      const overlay = document.createElement("div");
-      overlay.className = "myio-alert-overlay";
-
-      overlay.innerHTML = `
-        <div class="myio-alert-box">
-          <div class="myio-alert-icon">⚠</div>
-          <h2 class="myio-alert-title">Limite Atingido</h2>
-          <p class="myio-alert-message">
-            Você pode selecionar no máximo <strong>6 dispositivos</strong> para comparação.
-            Remova um dispositivo antes de adicionar outro.
-          </p>
-          <button class="myio-alert-button">Entendi</button>
-        </div>
-      `;
-
-      // Adiciona ao body para que fique acima de tudo
-      document.body.appendChild(overlay);
-      this.$alertOverlay = overlay;
-
-      // Adiciona listener no botão e no overlay (clique fora)
-      const closeBtn = overlay.querySelector(".myio-alert-button");
-      const closeAlert = () => this.hideAlert();
-
-      closeBtn.addEventListener("click", closeAlert);
-      overlay.addEventListener("click", (e) => {
-        if (e.target === overlay) {
-          closeAlert();
-        }
-      });
-
-      LogHelper.log("[MyIO Footer] Limit alert displayed");
-    },
-
-    /**
-     * Esconde o alerta premium (genérico)
-     */
-    hideAlert() {
-      if (this.$alertOverlay && this.$alertOverlay.parentNode) {
-        this.$alertOverlay.remove();
-        this.$alertOverlay = null;
-        LogHelper.log("[MyIO Footer] Alert hidden");
-      }
+      LogHelper.log("[MyIO Footer] Showing limit alert via MyIOToast");
+      MyIOToast.show('Você pode selecionar no máximo 6 dispositivos para comparação.', 'warning');
     },
 
     /**
@@ -1608,3 +1670,4 @@
   self.onDestroy = function () {
     footerController.destroy();
   };
+  
