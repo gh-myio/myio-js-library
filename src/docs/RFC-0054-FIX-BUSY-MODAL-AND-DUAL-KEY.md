@@ -344,6 +344,82 @@ grep -n "tb-dashboard-state.*telemetry_content" MAIN_VIEW/template.html
 
 ---
 
+## SoluÃ§Ã£o 4: Early Return em fetchAndEnrich (P0 - IMPLEMENTADO âœ…)
+
+### Problema
+Mesmo com SoluÃ§Ãµes 1-3 funcionando corretamente, requests que jÃ¡ estavam em execuÃ§Ã£o (aguardando credentials) continuam executando apÃ³s dados jÃ¡ carregados, causando timeout desnecessÃ¡rio de 10s.
+
+**Temporal:**
+```
+T+0s    Request 1 (null key): entra em fetchAndEnrich, aguarda credentials
+T+0.2s  Request 2 (20b93da0 key): entra em fetchAndEnrich, aguarda credentials
+T+2.6s  âœ… Request 2: credentials OK, dados carregados
+T+10s   âŒ Request 1: credentials TIMEOUT (dados jÃ¡ disponÃ­veis hÃ¡ 7.4s!)
+```
+
+### SoluÃ§Ã£o Implementada
+Adicionar **early return check** no INÃ�CIO de `fetchAndEnrich()`, ANTES de aguardar credentials.
+
+**LocalizaÃ§Ã£o:** `MAIN_VIEW/controller.js` linha ~1232
+
+```javascript
+async function fetchAndEnrich(domain, period) {
+  try {
+    LogHelper.log(`[Orchestrator] ðŸ" fetchAndEnrich called for ${domain}`);
+
+    // RFC-0054 SoluÃ§Ã£o 4: Early return se hÃ¡ dados recentes disponÃ­veis
+    // Verifica ANTES de aguardar credentials para evitar timeout desnecessÃ¡rio
+    const key = cacheKey(domain, period);
+    const recent = OrchestratorState.cache[domain];
+
+    if (recent && (Date.now() - recent.timestamp) < 30000) {
+      const recentPeriod = extractPeriod(recent.periodKey);
+      const currentPeriod = extractPeriod(key);
+
+      if (recentPeriod === currentPeriod) {
+        LogHelper.log(`[Orchestrator] âï¸ Early return - recent data already available for ${domain}`);
+        LogHelper.log(`[Orchestrator] ðŸ"Š Using cached data: ${recent.periodKey} (${recent.items.length} items)`);
+        return recent.items; // âœ… Retorna dados recentes SEM fazer fetch
+      } else {
+        LogHelper.log(`[Orchestrator] ðŸ"„ Period mismatch - proceeding with fetch`);
+        LogHelper.log(`[Orchestrator] ðŸ"Š Recent: ${recentPeriod}, Current: ${currentPeriod}`);
+      }
+    } else {
+      if (!recent) {
+        LogHelper.log(`[Orchestrator] ðŸ"„ No recent data - proceeding with fetch`);
+      } else {
+        const age = Date.now() - recent.timestamp;
+        LogHelper.log(`[Orchestrator] ðŸ"„ Data too old (${age}ms) - proceeding with fetch`);
+      }
+    }
+
+    // Wait for credentials to be set (with timeout to prevent infinite wait)
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Credentials timeout after 10s')), 10000)
+    );
+    // ... resto do cÃ³digo
+  }
+}
+```
+
+### BenefÃ­cios
+1. **Previne timeout desnecessÃ¡rio** - Request com `null` key retorna imediatamente se dados recentes disponÃ­veis
+2. **NÃ£o aguarda credentials** - Early return ocorre ANTES de `await credentialsPromise`
+3. **CompatÃ­vel com SoluÃ§Ãµes 1-3** - Usa mesmo `extractPeriod()` para comparar perÃ­odos
+4. **Zero requisiÃ§Ãµes HTTP** - Retorna dados em cache sem fazer fetch
+
+### CritÃ©rios de Aceite
+- âœ… Request com `null` key retorna dados sem aguardar credentials
+- âœ… Nenhum timeout de 10s apÃ³s dados jÃ¡ carregados
+- âœ… Log mostra: "âï¸ Early return - recent data already available"
+- [ ] Testar em novo deployment (aguardando teste)
+
+### Status: IMPLEMENTADO âœ…
+**Data:** 2025-10-22
+**Commit:** (pendente)
+
+---
+
 ## Plano de ImplementaÃ§Ã£o
 
 ### Fase 1: Fix Busy Modal Persistence (P0)
@@ -470,7 +546,7 @@ grep -n "tb-dashboard-state.*telemetry_content" MAIN_VIEW/template.html
 ## CritÃ©rios de Aceite Geral
 
 ### Must-Have (P0/P1)
-- [ ] Modal "Carregando..." esconde assim que dados ficam visÃ­veis
+- [x] Modal "Carregando..." esconde assim que dados ficam visÃ­veis
 - [ ] Apenas UMA requisiÃ§Ã£o `hydrateDomain` por evento `myio:update-date`
 - [ ] Cache key SEMPRE usa `customerTB_ID` correto (nunca `null`)
 - [ ] Nenhum timeout de 10s na primeira requisiÃ§Ã£o

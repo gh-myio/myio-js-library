@@ -86,8 +86,7 @@
 
 /* Neutralizador de states internos */
 #myio-root .myio-sidebar .tb-child,
-#myio-root .myio-header .tb-child,
-#myio-root .myio-content .tb-child {
+#myio-root .myio-header .tb-child {
     width: 100%;
     height: 100%;
     margin: 0 !important;
@@ -96,6 +95,18 @@
     align-items: stretch;
     justify-content: stretch;
     overflow: visible;
+}
+
+/* Widgets de content precisam de scroll - NÃO forçar overflow: visible */
+#myio-root .myio-content .tb-child {
+    width: 100%;
+    height: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+    overflow: auto; /* ✅ MUDADO: permite scroll nos widgets */
 }
 
 /* ThingsBoard wrapper para widgets dinamicamente carregados */
@@ -158,12 +169,16 @@
     max-width: none;
 }
 
-/* força wrapper do content sem scroll extra */
+/*
+  REMOVIDO: Esta regra estava bloqueando scroll nos widgets TELEMETRY
+  Comentado em 2025-10-23 para corrigir bug de scroll
+
 #myio-root .myio-content .tb-child [style*="overflow"],
 #myio-root .myio-content .tb-child .scroll,
 #myio-root .myio-content .tb-child .tb-scroll {
     overflow: visible;
 }
+*/
 
 /* Scrollbar suave apenas no content */
 #myio-root .myio-content::-webkit-scrollbar {

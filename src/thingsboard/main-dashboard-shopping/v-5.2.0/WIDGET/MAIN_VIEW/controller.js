@@ -60,22 +60,45 @@ let widgetSettings = {
       if (rootEl) {
         rootEl.style.display = 'grid';
 
-        // Garante que os tb-child elementos nÃ£o tenham overflow issues
-        const tbChildren = $$('.tb-child', rootEl);
-        tbChildren.forEach(child => {
-          child.style.overflow = 'hidden';
-          child.style.width = '100%';
-          child.style.height = '100%';
-        });
+        // Garante que os tb-child elementos do MENU não tenham overflow issues
+        const menu = $('.myio-menu', rootEl);
+        if (menu) {
+          const menuChildren = $$('.tb-child', menu);
+          menuChildren.forEach(child => {
+            child.style.overflow = 'hidden';
+            child.style.width = '100%';
+            child.style.height = '100%';
+          });
+        }
 
-        // Especial tratamento para o conteÃºdo principal
+        // Especial tratamento para o conteúdo principal - permite scroll nos widgets
         const content = $('.myio-content', rootEl);
         if (content) {
+          // Primeiro: container direto do content deve ter overflow auto para controlar scroll
           const contentChild = $('.tb-child', content);
           if (contentChild) {
-            contentChild.style.overflow = 'visible';
-            contentChild.style.minHeight = '100%';
+            contentChild.style.overflow = 'auto';  // Mudado de 'visible' para 'auto'
+            contentChild.style.height = '100%';
+            contentChild.style.width = '100%';
           }
+
+          // Segundo: dentro dos states, os widgets individuais também precisam de scroll
+          const stateContainers = $$('[data-content-state]', content);
+          LogHelper.log(`[MAIN_VIEW] Found ${stateContainers.length} state containers`);
+          stateContainers.forEach((stateContainer, idx) => {
+            const widgetsInState = $$('.tb-child', stateContainer);
+            LogHelper.log(`[MAIN_VIEW] State ${idx}: ${widgetsInState.length} widgets found`, {
+              state: stateContainer.getAttribute('data-content-state'),
+              display: stateContainer.style.display
+            });
+            widgetsInState.forEach((widget, widgetIdx) => {
+              const before = widget.style.overflow;
+              widget.style.overflow = 'auto';
+              widget.style.width = '100%';
+              widget.style.height = '100%';
+              LogHelper.log(`[MAIN_VIEW]   Widget ${widgetIdx}: overflow ${before} → auto`);
+            });
+          });
 
           // DiagnÃ³stico: logar dimensÃµes do container visÃ­vel
           const visible = Array.from(content.querySelectorAll('[data-content-state]'))
@@ -928,7 +951,7 @@ let sharedWidgetState = {
   activePeriod: null,
   lastProcessedPeriodKey: null,
   busyWidgets: new Set(),
-  mutex: false
+  mutexMap: new Map() // RFC-0054 FIX: Mutex por domínio (não global)
 };
 
 // PHASE 3: Enhanced event emission with debounce
@@ -1229,6 +1252,32 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     try {
       LogHelper.log(`[Orchestrator] ðŸ” fetchAndEnrich called for ${domain}`);
 
+      // RFC-0054 Solução 4: Early return se há dados recentes disponíveis
+      // Verifica ANTES de aguardar credentials para evitar timeout desnecessário
+      const key = cacheKey(domain, period);
+      const recent = OrchestratorState.cache[domain];
+
+      if (recent && (Date.now() - recent.timestamp) < 30000) {
+        const recentPeriod = extractPeriod(recent.periodKey);
+        const currentPeriod = extractPeriod(key);
+
+        if (recentPeriod === currentPeriod) {
+          LogHelper.log(`[Orchestrator] ⏭️ Early return - recent data already available for ${domain}`);
+          LogHelper.log(`[Orchestrator] 📊 Using cached data: ${recent.periodKey} (${recent.items.length} items)`);
+          return recent.items; // ✅ Retorna dados recentes SEM fazer fetch
+        } else {
+          LogHelper.log(`[Orchestrator] 🔄 Period mismatch - proceeding with fetch`);
+          LogHelper.log(`[Orchestrator] 📊 Recent: ${recentPeriod}, Current: ${currentPeriod}`);
+        }
+      } else {
+        if (!recent) {
+          LogHelper.log(`[Orchestrator] 🔄 No recent data - proceeding with fetch`);
+        } else {
+          const age = Date.now() - recent.timestamp;
+          LogHelper.log(`[Orchestrator] 🔄 Data too old (${age}ms) - proceeding with fetch`);
+        }
+      }
+
       // Wait for credentials to be set (with timeout to prevent infinite wait)
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Credentials timeout after 10s')), 10000)
@@ -1367,6 +1416,32 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
     LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, { key, inFlight: inFlight.has(key) });
 
+
+    // RFC-0054 FIX 2: Early return ANTES do mutex - verifica se há dados recentes disponíveis
+    const recent = OrchestratorState.cache[domain];
+    if (recent && (Date.now() - recent.timestamp) < 30000) {
+      const recentPeriod = extractPeriod(recent.periodKey);
+      const currentPeriod = extractPeriod(key);
+
+      if (recentPeriod === currentPeriod) {
+        LogHelper.log(`[Orchestrator] ⏭️ Early return in hydrateDomain - recent data available for ${domain}`);
+        LogHelper.log(`[Orchestrator] 📊 Using cached: ${recent.periodKey}, Requested: ${key}`);
+
+        // Emitir dados imediatamente sem aguardar mutex
+        emitProvide(domain, recent.periodKey, recent.items);
+
+        return recent.items;
+      } else {
+        LogHelper.log(`[Orchestrator] 🔄 Different period - proceeding: recent=${recentPeriod}, current=${currentPeriod}`);
+
+        // RFC-0054 FIX 3: Liberar mutex quando período muda para evitar deadlock
+        if (sharedWidgetState.mutexMap.get(domain)) {
+          LogHelper.log(`[Orchestrator] 🔓 Releasing mutex for ${domain} - period changed`);
+          sharedWidgetState.mutexMap.set(domain, false);
+        }
+      }
+    }
+
     // RFC-0052: Log cache status
     if (config?.enableCache) {
       LogHelper.log(`[Orchestrator] ðŸ” Checking cache for ${domain}...`);
@@ -1375,11 +1450,11 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     }
 
     // PHASE 2: Mutex to prevent duplicate requests across widgets
-    if (sharedWidgetState.mutex) {
+    if (sharedWidgetState.mutexMap.get(domain)) {
       LogHelper.log(`[Orchestrator] â¸ï¸ Waiting for mutex release...`);
       await new Promise(resolve => {
         const checkMutex = () => {
-          if (!sharedWidgetState.mutex) {
+          if (!sharedWidgetState.mutexMap.get(domain)) {
             resolve();
           } else {
             setTimeout(checkMutex, 50);
@@ -1437,7 +1512,9 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     showGlobalBusy(domain, 'Carregando dados...');
     
     // PHASE 2: Set mutex for coordination
-    sharedWidgetState.mutex = true;
+    // RFC-0054 FIX: Lock mutex POR DOMÍNIO
+
+    sharedWidgetState.mutexMap.set(domain, true);
     sharedWidgetState.activePeriod = period;
 
     const fetchPromise = (async () => {
@@ -1501,12 +1578,12 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
             LogHelper.log(`[Orchestrator] 📊 Cache: ${OrchestratorState.cache[domain].periodKey}, Request: ${key}`);
             // NÃO libera mutex - previne requisições duplicadas
           } else {
-            sharedWidgetState.mutex = false;
-            LogHelper.log(`[Orchestrator] 🔓 Mutex released - different period`);
+            sharedWidgetState.mutexMap.set(domain, false);
+            LogHelper.log(`[Orchestrator] 🔓 Mutex released for ${domain} - different period`);
           }
         } else {
-          sharedWidgetState.mutex = false;
-          LogHelper.log(`[Orchestrator] 🔓 Mutex released - no recent data`);
+          sharedWidgetState.mutexMap.set(domain, false);
+          LogHelper.log(`[Orchestrator] 🔓 Mutex released for ${domain} - no recent data`);
         }
       }
     })()
