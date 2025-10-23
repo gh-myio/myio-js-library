@@ -29,7 +29,7 @@
 }
 
 .shops-root .shops-header {
-    flex-shrink: 0; /* ✅ Header fixo, não encolhe */
+    flex: 0 0 auto; /* ✅ Header ocupa apenas o espaço necessário */
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -131,10 +131,13 @@
 }
 
 .shops-root .shops-list {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 16px 10px;
+    flex: 1 1 0; /* ✅ Mudado de 'auto' para '0' - força ocupar espaço disponível */
+    min-height: 0; /* ✅ Permite shrink em flexbox */
+    height: 100%; /* ✅ REVERTIDO: Força altura para ativar overflow */
+    overflow-y: auto; /* ✅ Scroll vertical */
+    overflow-x: hidden; /* ✅ Sem scroll horizontal */
+    padding: 16px 10px 48px 10px; /* ✅ Aumentado padding-bottom para 48px para garantir visibilidade total */
+    scroll-padding-bottom: 48px; /* ✅ Garante que scroll considere padding-bottom */
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 12px;
