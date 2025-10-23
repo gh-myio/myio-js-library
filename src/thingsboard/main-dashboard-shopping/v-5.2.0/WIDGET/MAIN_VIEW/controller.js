@@ -76,6 +76,16 @@ let widgetSettings = {
             contentChild.style.overflow = 'visible';
             contentChild.style.minHeight = '100%';
           }
+
+          // Diagnóstico: logar dimensões do container visível
+          const visible = Array.from(content.querySelectorAll('[data-content-state]'))
+            .find(div => (div.style.display !== 'none'));
+          if (visible) {
+            const r1 = content.getBoundingClientRect();
+            const r2 = visible.getBoundingClientRect();
+            const r3 = contentChild ? contentChild.getBoundingClientRect() : null;
+            LogHelper.log('[MAIN_VIEW] sizing content dims', { content: { w: r1.width, h: r1.height }, visible: { w: r2.width, h: r2.height }, child: r3 ? { w: r3.width, h: r3.height } : null });
+          }
         }
       }
     } catch (e) {

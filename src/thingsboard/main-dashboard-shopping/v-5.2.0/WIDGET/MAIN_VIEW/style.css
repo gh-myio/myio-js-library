@@ -50,6 +50,15 @@
     position: relative;
 }
 
+/* Garantir que os containers de conteúdo preencham a área disponível */
+#myio-root .myio-content [data-content-state] {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+    box-sizing: border-box;
+}
+
 #myio-root .myio-header {
     grid-area: header;
     background: var(--myio-panel);
@@ -87,6 +96,15 @@
     align-items: stretch;
     justify-content: stretch;
     overflow: visible;
+}
+
+/* ThingsBoard wrapper para widgets dinamicamente carregados */
+#myio-root .myio-content .tb-child tb-dynamic-component,
+#myio-root .myio-content .tb-child tb-dynamic-component > * {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
 }
 #myio-root .myio-footer .tb-child {
       /* Remove o padding padrão do Gridster */
