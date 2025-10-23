@@ -1349,6 +1349,17 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     }
   }
 
+  /**
+   * RFC-0054 Solução 1: Extrai período da cache key, ignorando customerTB_ID
+   * @param {string} cacheKey - Ex: 'null:energy:2025-10-01...:day' ou '20b93da0:energy:2025-10-01...:day'
+   * @returns {string} Ex: 'energy:2025-10-01...:day'
+   */
+  function extractPeriod(cacheKey) {
+    if (!cacheKey) return '';
+    const parts = cacheKey.split(':');
+    return parts.slice(1).join(':'); // Remove primeiro segmento (customerTB_ID)
+  }
+
   // PHASE 1 & 2: Enhanced hydrateDomain with centralized busy and mutex
   async function hydrateDomain(domain, period) {
     const key = cacheKey(domain, period);
@@ -1403,12 +1414,23 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     // reemitir sem abrir modal e retornar imediatamente
     try {
       const recent = OrchestratorState.cache[domain];
-      if (recent && recent.periodKey === key && (Date.now() - recent.timestamp) < 30000) {
-        LogHelper.log(`[Orchestrator] ⏭️ No-busy refresh for ${domain} (recent data)`);
-        emitProvide(domain, recent.periodKey, recent.items);
-        return recent.items;
+
+      if (recent && (Date.now() - recent.timestamp) < 30000) {
+        const recentPeriod = extractPeriod(recent.periodKey);
+        const currentPeriod = extractPeriod(key);
+
+        if (recentPeriod === currentPeriod) {
+          LogHelper.log(`[Orchestrator] ⏭️ No-busy refresh for ${domain} (recent data, period match)`);
+          if (recent.periodKey !== key) {
+            LogHelper.log(`[Orchestrator] 📝 Cache key mismatch ignored: ${key} vs ${recent.periodKey}`);
+          }
+          emitProvide(domain, recent.periodKey, recent.items);
+          return recent.items; // ✅ Retorna dados recentes mesmo com customerTB_ID diferente
+        }
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      LogHelper.warn(`[Orchestrator] ⚠️ Cache check failed:`, e);
+    }
   }
 
     // PHASE 1: Show centralized busy overlay
@@ -1429,6 +1451,27 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         // IMPORTANT: Emit immediately for fresh data (no debounce)
         // Debounce caused issues where empty data was emitted before fetch completed
         emitProvide(domain, key, items);
+        LogHelper.log(`[Orchestrator] 📡 Emitted provide-data for ${domain} with ${items.length} items`);
+
+        // RFC-0054 Solução 3: Cancelar requisições pendentes para o mesmo período
+        const currentPeriod = extractPeriod(key);
+        let canceledCount = 0;
+
+        inFlight.forEach((promise, pendingKey) => {
+          if (pendingKey !== key) { // Não cancelar a própria requisição
+            const pendingPeriod = extractPeriod(pendingKey);
+
+            if (pendingPeriod === currentPeriod) {
+              LogHelper.log(`[Orchestrator] ❌ Canceling redundant request: ${pendingKey}`);
+              inFlight.delete(pendingKey);
+              canceledCount++;
+            }
+          }
+        });
+
+        if (canceledCount > 0) {
+          LogHelper.log(`[Orchestrator] 🧹 Canceled ${canceledCount} redundant requests for ${domain}`);
+        }
 
         const duration = Date.now() - startTime;
         metrics.recordHydration(domain, duration, false);
@@ -1444,9 +1487,27 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         // PHASE 1: Hide busy overlay
         LogHelper.log(`[Orchestrator] 🏁 Finally block - hiding busy for ${domain}`);
         hideGlobalBusy(domain);
-        
-        // PHASE 2: Release mutex
-        sharedWidgetState.mutex = false;
+
+        // RFC-0054 Solução 2: Mutex Condicional - não liberar se há dados recentes válidos
+        const hasRecentData = OrchestratorState.cache[domain] &&
+                              (Date.now() - OrchestratorState.cache[domain].timestamp) < 30000;
+
+        if (hasRecentData) {
+          const recentPeriod = extractPeriod(OrchestratorState.cache[domain].periodKey);
+          const currentPeriod = extractPeriod(key);
+
+          if (recentPeriod === currentPeriod) {
+            LogHelper.log(`[Orchestrator] ⏭️ Keeping mutex locked - recent data available for ${domain}`);
+            LogHelper.log(`[Orchestrator] 📊 Cache: ${OrchestratorState.cache[domain].periodKey}, Request: ${key}`);
+            // NÃO libera mutex - previne requisições duplicadas
+          } else {
+            sharedWidgetState.mutex = false;
+            LogHelper.log(`[Orchestrator] 🔓 Mutex released - different period`);
+          }
+        } else {
+          sharedWidgetState.mutex = false;
+          LogHelper.log(`[Orchestrator] 🔓 Mutex released - no recent data`);
+        }
       }
     })()
       .finally(() => {
@@ -1906,10 +1967,3 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
 
   LogHelper.log('[MyIOOrchestrator] Initialized (no stub found)');
 }
-
-
-
-
-
-
-

@@ -717,7 +717,388 @@ window.addEventListener('myio:orchestrator:ready', () => {
 
 Critérios de aceite finais
 - Modal não permanece visível quando dados já estão na tela.
-- Ausência de logs com 
-ull:energy:... em chaves.
+- Ausência de logs com null:energy:... em chaves.
 - Busy overlay não reabre em loop para o mesmo período dentro de 30s.
 - Redução clara de requisições duplicadas para o mesmo periodKey.
+
+---
+
+## Atualização 2025-10-23 02:01 — Análise LOG dashboard.myio-bas.com-1761185672056-CLEAN.log
+
+### Status de Implementação
+
+**✅ P0: Contador de Requisições Ativas - IMPLEMENTADO E FUNCIONANDO**
+
+Evidência do log:
+```
+Linha 68:  [Orchestrator] 📢 Active requests for energy: 1 (totalBefore=0)
+Linha 75:  [Orchestrator] 📢 Active requests for energy: 1 (totalBefore=0)
+Linha 82:  [Orchestrator] 📢 Active requests for energy: 2 (totalBefore=1)
+Linha 177: [Orchestrator] ⬇ hideGlobalBusy(energy) -> 2→1, total=1
+Linha 233: [Orchestrator] ⬇ hideGlobalBusy(energy) -> 1→0, total=0
+Linha 234: [Orchestrator] ✅ Global busy hidden
+```
+
+**Resultado:** Modal esconde corretamente quando contador chega a 0, mesmo com requisições paralelas. ✅
+
+---
+
+### 🐛 Novos Problemas Identificados
+
+#### Problema 4: Mutex Release Causa Requisição Desnecessária Após Dados Carregados (P0 - CRÍTICO)
+
+**Descrição:**
+Após dados serem carregados com sucesso (T+2.6s), uma requisição antiga com `null` key que estava esperando o mutex ser liberado EXECUTA quando a primeira requisição dá timeout (T+10s), causando:
+- Nova requisição desnecessária para API
+- Risco de modal reabrir mesmo com dados visíveis
+- Logs poluídos com erros de timeout
+
+**Sequência Temporal do Problema:**
+
+```
+T+0s    Requisição 1: hydrateDomain(key: 'null:energy:...', inFlight: false)
+        ↳ Active requests: 0→1
+        ↳ showGlobalBusy()
+        ↳ fetchAndEnrich() aguardando credentials...
+
+T+0.2s  Requisição 2: hydrateDomain(key: '20b93da0:energy:...', inFlight: false)
+        ↳ Active requests: 0→1
+        ↳ fetchAndEnrich() aguardando credentials...
+
+T+0.4s  Requisição 3: TELEMETRY widget request
+        ↳ hydrateDomain(key: 'null:energy:...', inFlight: TRUE)
+        ↳ ⏸️ Waiting for mutex release... (BLOQUEIA AQUI!)
+
+T+2.6s  ✅ DADOS CARREGADOS COM SUCESSO (Requisição 2)
+        ↳ fetchAndEnrich: fetched 354 items
+        ↳ 3x widgets processaram dados (1, 65, 231 items)
+        ↳ hideGlobalBusy: 2→1
+        ↳ hideGlobalBusy: 1→0
+        ↳ ✅ Modal escondida, usuário VÊ OS DADOS!
+
+T+10s   ❌ TIMEOUT Requisição 1 (null key)
+        ↳ Credentials timeout after 10s
+        ↳ fetchAndEnrich error
+        ↳ finally block executa:
+            - hideGlobalBusy: 1→0
+            - sharedWidgetState.mutex = false ❌ LIBERA MUTEX
+            - delete inFlight[key]
+
+T+10s   ❌ Requisição 3 DESBLOQUEIA
+        ↳ Mutex foi liberado → sai do "waiting for mutex"
+        ↳ hydrateDomain executa NOVAMENTE
+        ↳ Active requests: 0→1
+        ↳ showGlobalBusy() ❌ REABRE MODAL!
+        ↳ Nova requisição para API (desnecessária!)
+
+T+20s   ❌ SEGUNDO TIMEOUT
+        ↳ Credentials timeout after 10s
+        ↳ hideGlobalBusy: 1→0
+```
+
+**Evidência no Log:**
+```
+Linha 233: [Orchestrator] ⬇ hideGlobalBusy(energy) -> 1→0, total=0
+Linha 234: [Orchestrator] ✅ Global busy hidden
+           ↑ Dados carregados, modal escondida ✅
+
+Linha 243: [Orchestrator] ⚠️ Credentials timeout - Credentials timeout after 10s
+           ↑ Timeout da primeira requisição (esperado)
+
+Linha 252: [Orchestrator] 📢 Active requests for energy: 1 (totalBefore=0)
+Linha 253: [Orchestrator] ✅ Global busy shown (domain=energy)
+           ↑ ❌ MODAL REABRE! Dados já estavam visíveis há 7.4 segundos!
+
+Linha 266: [Orchestrator] ⚠️ Credentials timeout - Credentials timeout after 10s
+           ↑ Segundo timeout (requisição desnecessária)
+```
+
+**Análise Técnica:**
+
+1. **Cache Key Mismatch:** O código que verifica cache recente compara `periodKey` completa:
+   ```javascript
+   // Linha ~1406 MAIN_VIEW/controller.js
+   if (recent && recent.periodKey === key && (Date.now() - recent.timestamp) < 30000) {
+     // Retorna dados recentes
+   }
+   ```
+
+   **Problema:**
+   - `key` da requisição problemática: `null:energy:2025-10-01...`
+   - `key` dos dados em cache: `20b93da0:energy:2025-10-01...`
+   - **NÃO BATEM!** Comparação falha e faz nova requisição
+
+2. **Mutex Release Incondicional:** O `finally` block sempre libera o mutex, mesmo quando há dados recentes válidos:
+   ```javascript
+   // Linha ~1440 MAIN_VIEW/controller.js
+   finally {
+     hideGlobalBusy(domain);
+     sharedWidgetState.mutex = false; // ❌ Sempre libera
+     delete sharedWidgetState.inFlight[key];
+   }
+   ```
+
+---
+
+### 🎯 Soluções Propostas
+
+#### Solução 1: Comparar Período Ignorando customerTB_ID (RECOMENDADA)
+
+**Objetivo:** Permitir que requisições com `null` customerTB_ID aproveitem cache de requisições com customerTB_ID correto.
+
+**Implementação:**
+```javascript
+// MAIN_VIEW/controller.js - antes da linha ~1406
+
+/**
+ * RFC-0054: Extrai período da cache key, ignorando customerTB_ID
+ * @param {string} cacheKey - Ex: 'null:energy:2025-10-01...:day' ou '20b93da0:energy:2025-10-01...:day'
+ * @returns {string} Ex: 'energy:2025-10-01...:day'
+ */
+function extractPeriod(cacheKey) {
+  if (!cacheKey) return '';
+  const parts = cacheKey.split(':');
+  return parts.slice(1).join(':'); // Remove primeiro segmento (customerTB_ID)
+}
+
+// Substituir verificação de cache (linha ~1405-1410):
+try {
+  const recent = OrchestratorState.cache[domain];
+
+  if (recent && (Date.now() - recent.timestamp) < 30000) {
+    const recentPeriod = extractPeriod(recent.periodKey);
+    const currentPeriod = extractPeriod(key);
+
+    if (recentPeriod === currentPeriod) {
+      LogHelper.log(`[Orchestrator] ⏭️ No-busy refresh for ${domain} (recent data, period match)`);
+      if (recent.periodKey !== key) {
+        LogHelper.log(`[Orchestrator] 📝 Cache key mismatch ignored: ${key} vs ${recent.periodKey}`);
+      }
+      emitProvide(domain, recent.periodKey, recent.items);
+      return recent.items; // ✅ Retorna dados recentes mesmo com customerTB_ID diferente
+    }
+  }
+} catch (e) {
+  LogHelper.warn(`[Orchestrator] ⚠️ Cache check failed:`, e);
+}
+```
+
+**Critérios de Aceite:**
+- Requisição com `null:energy:2025-10-01...` encontra cache `20b93da0:energy:2025-10-01...`
+- Log mostra: "⏭️ No-busy refresh for energy (recent data, period match)"
+- Log mostra: "📝 Cache key mismatch ignored: null:energy... vs 20b93da0:energy..."
+- Retorna dados imediatamente sem fazer nova requisição
+
+---
+
+#### Solução 2: Mutex Condicional Baseado em Cache Recente
+
+**Objetivo:** Não liberar mutex se há dados recentes válidos disponíveis.
+
+**Implementação:**
+```javascript
+// MAIN_VIEW/controller.js - finally block (linha ~1440)
+
+finally {
+  LogHelper.log(`[Orchestrator] 🏁 Finally block - hiding busy for ${domain}`);
+  hideGlobalBusy(domain);
+
+  // RFC-0054: Verificar se há dados recentes antes de liberar mutex
+  const hasRecentData = OrchestratorState.cache[domain] &&
+                        (Date.now() - OrchestratorState.cache[domain].timestamp) < 30000;
+
+  if (hasRecentData) {
+    const recentPeriod = extractPeriod(OrchestratorState.cache[domain].periodKey);
+    const currentPeriod = extractPeriod(key);
+
+    if (recentPeriod === currentPeriod) {
+      LogHelper.log(`[Orchestrator] ⏭️ Keeping mutex locked - recent data available for ${domain}`);
+      LogHelper.log(`[Orchestrator] 📊 Cache: ${OrchestratorState.cache[domain].periodKey}, Request: ${key}`);
+      // NÃO libera mutex - previne requisições duplicadas
+    } else {
+      sharedWidgetState.mutex = false;
+      LogHelper.log(`[Orchestrator] 🔓 Mutex released - different period`);
+    }
+  } else {
+    sharedWidgetState.mutex = false;
+    LogHelper.log(`[Orchestrator] 🔓 Mutex released - no recent data`);
+  }
+
+  delete sharedWidgetState.inFlight[key];
+  LogHelper.log(`[Orchestrator] 🧹 Cleaned up inFlight for ${key}`);
+}
+```
+
+**Critérios de Aceite:**
+- Após dados serem carregados, mutex NÃO é liberado para requisições do mesmo período
+- Log mostra: "⏭️ Keeping mutex locked - recent data available"
+- Requisições bloqueadas permanecem bloqueadas e eventualmente expiram silenciosamente
+- Modal NÃO reabre após dados já visíveis
+
+---
+
+#### Solução 3: Cancelar Requisições Pendentes Após Sucesso
+
+**Objetivo:** Ao carregar dados com sucesso, cancelar todas as requisições pendentes para o mesmo período.
+
+**Implementação:**
+```javascript
+// MAIN_VIEW/controller.js - após emitProvide (linha ~1360)
+
+// Após emitir dados com sucesso
+emitProvide(domain, key, items);
+LogHelper.log(`[Orchestrator] 📡 Emitted provide-data for ${domain} with ${items.length} items`);
+
+// RFC-0054: Cancelar requisições pendentes para o mesmo período
+const currentPeriod = extractPeriod(key);
+let canceledCount = 0;
+
+Object.keys(sharedWidgetState.inFlight).forEach(pendingKey => {
+  if (pendingKey !== key) { // Não cancelar a própria requisição
+    const pendingPeriod = extractPeriod(pendingKey);
+
+    if (pendingPeriod === currentPeriod) {
+      LogHelper.log(`[Orchestrator] ❌ Canceling redundant request: ${pendingKey}`);
+      delete sharedWidgetState.inFlight[pendingKey];
+      canceledCount++;
+    }
+  }
+});
+
+if (canceledCount > 0) {
+  LogHelper.log(`[Orchestrator] 🧹 Canceled ${canceledCount} redundant requests for ${domain}`);
+}
+```
+
+**Critérios de Aceite:**
+- Após primeira requisição bem-sucedida, outras requisições para mesmo período são canceladas
+- Log mostra: "❌ Canceling redundant request: null:energy:..."
+- Log mostra: "🧹 Canceled X redundant requests for energy"
+- Requisições canceladas não executam `fetchAndEnrich`
+
+---
+
+### 📊 Comparativo: Antes vs Depois das Soluções
+
+**ANTES (Problema Atual):**
+```
+T+0s:   Req1 (null key) inicia → aguarda credentials
+T+0.2s: Req2 (key correto) inicia → aguarda credentials
+T+0.4s: Req3 (null key) → bloqueada por mutex
+T+2.6s: Req2 sucesso → dados visíveis ✅
+T+10s:  Req1 timeout → libera mutex
+        Req3 desbloqueia → NOVA REQUISIÇÃO ❌
+        Modal REABRE ❌
+T+20s:  Req3 timeout
+```
+
+**DEPOIS (Com Soluções 1+2+3):**
+```
+T+0s:   Req1 (null key) inicia → aguarda credentials
+T+0.2s: Req2 (key correto) inicia → aguarda credentials
+T+0.4s: Req3 (null key) → bloqueada por mutex
+T+2.6s: Req2 sucesso → dados visíveis ✅
+        → Cancelamento automático de Req1 e Req3 ✅
+        → Mutex mantido bloqueado ✅
+T+10s:  Req1 timeout silencioso (já cancelada)
+        Req3 permanece bloqueada (não executa) ✅
+```
+
+---
+
+### 🔬 Plano de Testes para Novas Soluções
+
+#### Teste 1: Cache Key Mismatch Resolvido
+**Setup:**
+1. Limpar cache
+2. Abrir dashboard
+3. Aguardar primeira requisição com `null` key dar timeout
+4. Verificar se segunda requisição com key correto carrega dados
+
+**Expectativa:**
+- Terceira requisição (com `null` key) encontra cache da segunda
+- Log: "⏭️ No-busy refresh for energy (recent data, period match)"
+- Log: "📝 Cache key mismatch ignored: null:energy... vs 20b93da0:energy..."
+- Dados retornados sem nova chamada à API
+
+#### Teste 2: Mutex Não Liberado com Dados Recentes
+**Setup:**
+1. Carregar dados com sucesso
+2. Forçar timeout de requisição antiga
+3. Verificar logs
+
+**Expectativa:**
+- Log: "⏭️ Keeping mutex locked - recent data available for energy"
+- Modal NÃO reabre
+- Nenhuma nova requisição para API
+
+#### Teste 3: Requisições Redundantes Canceladas
+**Setup:**
+1. Abrir console
+2. Carregar dashboard
+3. Observar logs após primeira requisição bem-sucedida
+
+**Expectativa:**
+- Log: "❌ Canceling redundant request: null:energy:..."
+- Log: "🧹 Canceled X redundant requests for energy"
+- Apenas uma requisição para API chega a `fetchAndEnrich`
+
+---
+
+### 📝 Checklist de Implementação
+
+**Solução 1: Cache Key Comparison (P0 - CRÍTICO)**
+- [x] Implementar função `extractPeriod(cacheKey)` - Linha 1357
+- [x] Modificar verificação de cache recente (linha ~1415-1433)
+- [x] Adicionar logs de debug para cache key mismatch
+- [ ] Testar com requisições `null` e `20b93da0` keys
+
+**Solução 2: Mutex Condicional (P0 - CRÍTICO)**
+- [x] Modificar `finally` block em `fetchAndEnrich` - Linha 1470-1489
+- [x] Adicionar verificação de cache recente antes de liberar mutex
+- [x] Adicionar logs para decisão de mutex
+- [ ] Testar que mutex permanece bloqueado quando apropriado
+
+**Solução 3: Cancelamento de Requisições (P1 - ALTA)**
+- [x] Implementar loop de cancelamento após `emitProvide` - Linha 1456-1474
+- [x] Adicionar contador de requisições canceladas
+- [x] Implementar `inFlight.delete()` para requisições redundantes
+- [ ] Testar que `inFlight` é limpo corretamente
+
+**Validação Geral:**
+- [ ] Executar script clean-log em novo teste
+- [ ] Verificar log: "⏭️ No-busy refresh for energy (recent data, period match)"
+- [ ] Verificar log: "📝 Cache key mismatch ignored: null:energy... vs 20b93da0:energy..."
+- [ ] Verificar log: "⏭️ Keeping mutex locked - recent data available"
+- [ ] Verificar log: "❌ Canceling redundant request: null:energy..."
+- [ ] Verificar log: "🧹 Canceled X redundant requests for energy"
+- [ ] Verificar ausência de "📢 Active requests" após dados carregados
+- [ ] Verificar ausência de "✅ Global busy shown" após modal escondida
+- [ ] Verificar apenas UMA chamada à API por período
+
+---
+
+### 🎯 Impacto Esperado
+
+**Performance:**
+- ✅ Redução de ~66% em requisições à API (2-3 requests → 1 request)
+- ✅ Eliminação de 10-20s de timeouts desnecessários
+- ✅ Menor carga no servidor de API
+
+**UX:**
+- ✅ Modal NÃO reabre após dados visíveis
+- ✅ Experiência mais fluida e previsível
+- ✅ Menos "flicker" de loading
+
+**Logs:**
+- ✅ Menos erros de timeout nos logs
+- ✅ Logs mais limpos e interpretáveis
+- ✅ Melhor rastreabilidade de requisições
+
+---
+
+**Status Final RFC-0054:**
+- ✅ P0: Contador de Requisições - IMPLEMENTADO
+- ⚠️ P0: Mutex Release/Cache Key - SOLUÇÃO PROPOSTA (3 fixes)
+- ❌ P1: Dual Cache Key - PENDENTE (waitForCredentials)
+- ❌ P2: Múltiplas Instâncias - PENDENTE (investigação)
