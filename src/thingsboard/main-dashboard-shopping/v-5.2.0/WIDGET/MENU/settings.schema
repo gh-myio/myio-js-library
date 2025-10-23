@@ -9,32 +9,6 @@
                 "minimum": 1,
                 "default": 1
             },
-            "groupDashboardId": {
-                "type": "string",
-                "title": "Dashboard Dashboard ID",
-                "default": ""
-            },
-            "energyDashboardLink": {
-                "type": "string",
-                "title": "URL do Dashboard de Energia",
-                "default": ""
-            },
-            "waterDashboardLink": {
-                "type": "string",
-                "title": "URL do Dashboard de ÁGUA",
-                "default": ""
-            },
-            "temperatureDashboardLink": {
-                "type": "string",
-                "title": "URL do Dashboard de Temperatura",
-                "default": ""
-            },
-            "alarmDashboardLink": {
-                "type": "string",
-                "title": "URL do Dashboard de Alarmes",
-                "default": ""
-            },
-            
             "links": {
                 "type": "array",
                 "title": "Configuração dos Links",

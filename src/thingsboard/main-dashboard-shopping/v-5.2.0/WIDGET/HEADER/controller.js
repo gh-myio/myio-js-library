@@ -25,8 +25,19 @@ const LogHelper = {
 // MyIO Authentication instance - will be initialized after credentials are loaded
 let MyIOAuth = null;
 
-// RFC-0042: Track current domain from MENU widget
-let currentDomain = null; // Will be set by MENU widget via 'myio:dashboard-state' event
+// RFC-0054 FIX: Use global variable to share state across multiple HEADER instances
+// This prevents race conditions when multiple widgets are loaded
+// VERSION: 2025-10-23-v2
+if (!window.__myioCurrentDomain) {
+  window.__myioCurrentDomain = null;
+  console.log('[HEADER] VERSION: 2025-10-23-v2 - Global currentDomain initialized');
+}
+
+// RFC-0042: Track current domain from MENU widget (use global reference)
+let currentDomain = {
+  get value() { return window.__myioCurrentDomain; },
+  set value(v) { window.__myioCurrentDomain = v; }
+};
 
 /* ==== Tooltip premium (global no <body>) ==== */
 function setupTooltipPremium(target, text) {
@@ -308,8 +319,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // RFC-0042: Listen for dashboard state changes from MENU
     window.addEventListener('myio:dashboard-state', (ev) => {
       const { tab } = ev.detail;
-      LogHelper.log(`[HEADER] Dashboard state changed to: ${tab}`);
-      currentDomain = tab;
+      LogHelper.log(`[HEADER] Dashboard state changed to: ${tab} (previous: ${currentDomain.value})`);
+      currentDomain.value = tab;
+      LogHelper.log(`[HEADER] currentDomain is now: ${currentDomain.value}`);
       updateControlsState(tab);
 
       // RFC-0045 FIX: Emit initial period when domain is set for the first time
@@ -366,6 +378,22 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
 
     btnLoad?.addEventListener("click", () => {
+      LogHelper.log("[HEADER] 🔄 Carregar button clicked");
+      LogHelper.log(`[HEADER] 🔍 currentDomain value: ${currentDomain.value} (type: ${typeof currentDomain.value})`);
+
+      // RFC-0054: Validate current domain
+      if (!currentDomain.value) {
+        LogHelper.error("[HEADER] ❌ Cannot load - currentDomain is null");
+        alert("Erro: Domínio atual não definido. Por favor, selecione uma aba no menu.");
+        return;
+      }
+
+      if (currentDomain.value !== 'energy' && currentDomain.value !== 'water') {
+        LogHelper.warn(`[HEADER] ⚠️ Cannot load - domain ${currentDomain.value} not supported`);
+        alert(`Domínio "${currentDomain.value}" não suporta carregamento de dados.`);
+        return;
+      }
+
       // RFC-0042: Standardized period emission
       const startISO = toISO(self.ctx.$scope.startTs || inputStart.value + "T00:00:00", 'America/Sao_Paulo');
       const endISO = toISO(self.ctx.$scope.endTs || inputEnd.value + "T23:59:00", 'America/Sao_Paulo');
@@ -440,11 +468,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         // IMPORTANT: Clear visual content of TELEMETRY widgets for current domain
         // RFC-0053: Single window context - no iframe emission needed
         const clearEvent = new CustomEvent('myio:telemetry:clear', {
-          detail: { domain: currentDomain }
+          detail: { domain: currentDomain.value }
         });
 
         window.dispatchEvent(clearEvent);
-        LogHelper.log(`[HEADER] ✅ RFC-0053: Emitted clear event for domain: ${currentDomain} (single context)`);
+        LogHelper.log(`[HEADER] ✅ RFC-0053: Emitted clear event for domain: ${currentDomain.value} (single context)`);
 
         // Show success message only for manual clicks
         if (!isProgrammatic) {
@@ -469,7 +497,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         const ingestionAuthToken = await MyIOAuth.getToken();
 
         // RFC-0042: Use current domain to determine correct datasource and cache
-        const domain = currentDomain;
+        const domain = currentDomain.value;
 
         // Safety check: button should be disabled if domain is not supported
         if (!domain || (domain !== 'energy' && domain !== 'water')) {

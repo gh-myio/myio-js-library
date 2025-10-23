@@ -25,7 +25,6 @@ self.onInit = function () {
   const scope = self.ctx.$scope;
 
   scope.links = settings.links || [];
-  scope.groupDashboardId = settings.groupDashboardId;
 
   // Function to get icon for each menu item based on stateId
   scope.getMenuIcon = function (stateId) {

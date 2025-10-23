@@ -382,7 +382,18 @@ let widgetSettings = {
         if (!CLIENT_ID || !CLIENT_SECRET || !CUSTOMER_ING_ID) {
           LogHelper.warn("[MAIN_VIEW] Missing credentials - CLIENT_ID, CLIENT_SECRET, or CUSTOMER_ING_ID not found");
           LogHelper.warn("[MAIN_VIEW] Orchestrator will be available but won't be able to fetch data without credentials");
-          // Don't return - let orchestrator be exposed even without credentials
+
+          // RFC-0054 FIX: Dispatch initial tab event even without credentials (with delay)
+          // This enables HEADER controls, even though data fetch will fail
+          LogHelper.log('[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...');
+          setTimeout(() => {
+            LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (no credentials)');
+            window.dispatchEvent(
+              new CustomEvent('myio:dashboard-state', {
+                detail: { tab: 'energy' }
+              })
+            );
+          }, 100);
         } else {
           // Set credentials in orchestrator (only if present)
           LogHelper.log("[MAIN_VIEW] ðŸ” Calling MyIOOrchestrator.setCredentials...");
@@ -415,12 +426,49 @@ let widgetSettings = {
           MyIOOrchestrator.tokenManager.setToken('ingestionToken', ingestionToken);
 
           LogHelper.log("[MAIN_VIEW] Auth initialized successfully with CLIENT_ID:", CLIENT_ID);
+
+          // RFC-0054 FIX: Dispatch initial tab event AFTER credentials AND with delay
+          // Delay ensures HEADER has time to register its listener
+          // This ensures customerTB_ID is available for cache key generation
+          LogHelper.log('[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...');
+          setTimeout(() => {
+            LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (after credentials + delay)');
+            window.dispatchEvent(
+              new CustomEvent('myio:dashboard-state', {
+                detail: { tab: 'energy' }
+              })
+            );
+          }, 100);
         }
       } catch (err) {
         LogHelper.error("[MAIN_VIEW] Auth initialization failed:", err);
+
+        // RFC-0054 FIX: Dispatch initial tab event even on error (with delay)
+        // This enables HEADER controls, even though data fetch will fail
+        LogHelper.log('[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...');
+        setTimeout(() => {
+          LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (after error)');
+          window.dispatchEvent(
+            new CustomEvent('myio:dashboard-state', {
+              detail: { tab: 'energy' }
+            })
+          );
+        }, 100);
       }
     } else {
       LogHelper.warn("[MAIN_VIEW] MyIOLibrary not available");
+
+      // RFC-0054 FIX: Dispatch initial tab event even without MyIOLibrary (with delay)
+      // This enables HEADER controls, even though data fetch will fail
+      LogHelper.log('[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...');
+      setTimeout(() => {
+        LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (no MyIOLibrary)');
+        window.dispatchEvent(
+          new CustomEvent('myio:dashboard-state', {
+            detail: { tab: 'energy' }
+          })
+        );
+      }, 100);
     }
 
     // Log Ãºtil para conferir se os states existem
@@ -1450,11 +1498,23 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     }
 
     // PHASE 2: Mutex to prevent duplicate requests across widgets
+    // RFC-0054 FIX: Add timeout to prevent infinite waiting (deadlock prevention)
     if (sharedWidgetState.mutexMap.get(domain)) {
       LogHelper.log(`[Orchestrator] â¸ï¸ Waiting for mutex release...`);
-      await new Promise(resolve => {
+      const mutexTimeout = 5000;
+      const startWait = Date.now();
+
+      await new Promise((resolve, reject) => {
         const checkMutex = () => {
+          const waitTime = Date.now() - startWait;
+
           if (!sharedWidgetState.mutexMap.get(domain)) {
+            LogHelper.log(`[Orchestrator] Mutex released after ${waitTime}ms`);
+            resolve();
+          } else if (waitTime >= mutexTimeout) {
+            LogHelper.error(`[Orchestrator] Mutex timeout after ${mutexTimeout}ms - forcing release to prevent deadlock`);
+            LogHelper.error(`[Orchestrator] Force releasing mutex for domain: ${domain}`);
+            sharedWidgetState.mutexMap.set(domain, false);
             resolve();
           } else {
             setTimeout(checkMutex, 50);
