@@ -1091,6 +1091,7 @@ function emitAreaComumBreakdown(periodKey) {
 
       if (label.includes('climatizacao') || label.includes('hvac') || label.includes('ar condicionado') ||
           label.includes('chiller') || label.includes('bomba primaria') || label.includes('bomba secundaria') ||
+          label.includes('bombas condensadoras') || label.includes('bombas condensadora') || label.includes('bomba condensadora') ||
           label.includes('bombas primarias') || label.includes('bombas secundarias')) {
         breakdown.climatizacao += energia;
       } else if (label.includes('elevador')) {

@@ -375,9 +375,14 @@ function renderStats() {
   $('#lojasTotal').text(formatEnergy(STATE.consumidores.lojas.total));
   $('#lojasPerc').text(`(${STATE.consumidores.lojas.perc.toFixed(1)}%)`);
 
-  // Outros Equipamentos
-  $('#outrosTotal').text(formatEnergy(STATE.consumidores.outros.total));
-  $('#outrosPerc').text(`(${STATE.consumidores.outros.perc.toFixed(1)}%)`);
+  // Outros Equipamentos (RFC-0056: Defensiva para compatibilidade)
+  if (STATE.consumidores.outros) {
+    $('#outrosTotal').text(formatEnergy(STATE.consumidores.outros.total));
+    $('#outrosPerc').text(`(${STATE.consumidores.outros.perc.toFixed(1)}%)`);
+  } else {
+    $('#outrosTotal').text('0,00 kWh');
+    $('#outrosPerc').text('(0%)');
+  }
 
   // Área Comum (residual)
   $('#areaComumTotal').text(formatEnergy(STATE.consumidores.areaComum.total));
@@ -451,7 +456,7 @@ function renderPieChart() {
         STATE.consumidores.elevadores.total,
         STATE.consumidores.escadasRolantes.total,
         STATE.consumidores.lojas.total,
-        STATE.consumidores.outros.total,
+        STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
         STATE.consumidores.areaComum.total
       ],
       backgroundColor: [
@@ -565,6 +570,227 @@ function renderChartLegend() {
   });
 
   LogHelper.log("RFC-0056: Chart legend rendered with 5 items");
+}
+
+// ===================== MODAL FUNCTIONS =====================
+
+let modalPieChartInstance = null;
+
+/**
+ * Open expanded modal view
+ */
+function openModal() {
+  LogHelper.log("Opening expanded modal...");
+
+  const $modal = $('#modalExpanded');
+
+  // CRITICAL: Move modal to body to escape widget container constraints
+  if ($modal.parent()[0] !== document.body) {
+    LogHelper.log("Moving modal to body for full-screen display");
+    $modal.detach().appendTo('body');
+  }
+
+  // Show modal
+  $modal.css('display', 'flex');
+
+  // Update modal data with current STATE
+  updateModalData();
+
+  // Render modal chart
+  renderModalChart();
+
+  // Prevent body scroll
+  $('body').css('overflow', 'hidden');
+
+  LogHelper.log("Modal opened successfully");
+}
+
+/**
+ * Close expanded modal view
+ */
+function closeModal() {
+  LogHelper.log("Closing expanded modal...");
+
+  const $modal = $('#modalExpanded');
+  $modal.css('display', 'none');
+
+  // Destroy modal chart instance
+  if (modalPieChartInstance) {
+    modalPieChartInstance.destroy();
+    modalPieChartInstance = null;
+  }
+
+  // Restore body scroll
+  $('body').css('overflow', '');
+
+  LogHelper.log("Modal closed successfully");
+}
+
+/**
+ * Update modal cards with current STATE values
+ */
+function updateModalData() {
+  LogHelper.log("Updating modal data...");
+
+  // Entrada
+  $('#modalEntradaTotal').text(formatEnergy(STATE.entrada.total));
+  $('#modalEntradaPerc').text(`${STATE.entrada.perc.toFixed(1)}%`);
+
+  // Lojas
+  $('#modalLojasTotal').text(formatEnergy(STATE.consumidores.lojas.total));
+  $('#modalLojasPerc').text(`(${STATE.consumidores.lojas.perc.toFixed(1)}%)`);
+
+  // Climatização
+  $('#modalClimatizacaoTotal').text(formatEnergy(STATE.consumidores.climatizacao.total));
+  $('#modalClimatizacaoPerc').text(`(${STATE.consumidores.climatizacao.perc.toFixed(1)}%)`);
+
+  // Elevadores
+  $('#modalElevadoresTotal').text(formatEnergy(STATE.consumidores.elevadores.total));
+  $('#modalElevadoresPerc').text(`(${STATE.consumidores.elevadores.perc.toFixed(1)}%)`);
+
+  // Escadas Rolantes
+  $('#modalEscadasTotal').text(formatEnergy(STATE.consumidores.escadasRolantes.total));
+  $('#modalEscadasPerc').text(`(${STATE.consumidores.escadasRolantes.perc.toFixed(1)}%)`);
+
+  // Outros Equipamentos
+  if (STATE.consumidores.outros) {
+    $('#modalOutrosTotal').text(formatEnergy(STATE.consumidores.outros.total));
+    $('#modalOutrosPerc').text(`(${STATE.consumidores.outros.perc.toFixed(1)}%)`);
+  } else {
+    $('#modalOutrosTotal').text('0,00 kWh');
+    $('#modalOutrosPerc').text('(0%)');
+  }
+
+  // Área Comum
+  $('#modalAreaComumTotal').text(formatEnergy(STATE.consumidores.areaComum.total));
+  $('#modalAreaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(1)}%)`);
+
+  // Total Consumidores
+  $('#modalConsumidoresTotal').text(formatEnergy(STATE.consumidores.totalGeral));
+  $('#modalConsumidoresPerc').text(`(${STATE.consumidores.percGeral.toFixed(1)}%)`);
+
+  LogHelper.log("Modal data updated successfully");
+}
+
+/**
+ * Render modal pie chart
+ */
+function renderModalChart() {
+  LogHelper.log("Rendering modal chart...");
+
+  const ctx = document.getElementById('modalConsumptionPieChart');
+  if (!ctx) {
+    LogHelper.warn("Modal chart canvas not found");
+    return;
+  }
+
+  // Destroy existing instance
+  if (modalPieChartInstance) {
+    modalPieChartInstance.destroy();
+  }
+
+  // RFC-0056: 5 categories for pie chart (sem Entrada)
+  const data = [
+    STATE.consumidores.climatizacao.total,
+    STATE.consumidores.elevadores.total,
+    STATE.consumidores.escadasRolantes.total,
+    STATE.consumidores.lojas.total,
+    STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
+    STATE.consumidores.areaComum.total
+  ];
+
+  const labels = [
+    'Climatização',
+    'Elevadores',
+    'Esc. Rolantes',
+    'Lojas',
+    'Outros',
+    'Área Comum'
+  ];
+
+  const colors = [
+    CHART_COLORS.climatizacao,
+    CHART_COLORS.elevadores,
+    CHART_COLORS.escadasRolantes,
+    CHART_COLORS.lojas,
+    CHART_COLORS.outros,
+    CHART_COLORS.areaComum
+  ];
+
+  modalPieChartInstance = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: colors,
+        borderColor: '#FFFFFF',
+        borderWidth: 3,
+        hoverOffset: 12
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#FFFFFF',
+          bodyColor: '#FFFFFF',
+          borderColor: '#00C896',
+          borderWidth: 1,
+          padding: 12,
+          displayColors: true,
+          callbacks: {
+            label: function(context) {
+              const label = context.label || '';
+              const value = context.parsed || 0;
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const perc = total > 0 ? (value / total * 100).toFixed(1) : 0;
+              return `${label}: ${formatEnergy(value)} (${perc}%)`;
+            }
+          }
+        }
+      },
+      animation: {
+        animateRotate: true,
+        animateScale: true,
+        duration: 800,
+        easing: 'easeOutQuart'
+      }
+    }
+  });
+
+  // Render modal legend
+  renderModalChartLegend();
+
+  LogHelper.log("Modal chart rendered successfully");
+}
+
+/**
+ * Render modal chart legend
+ */
+function renderModalChartLegend() {
+  const $legend = $('#modalChartLegend').empty();
+
+  const items = [
+    { label: 'Climatização', color: CHART_COLORS.climatizacao, value: STATE.consumidores.climatizacao.total },
+    { label: 'Elevadores', color: CHART_COLORS.elevadores, value: STATE.consumidores.elevadores.total },
+    { label: 'Esc. Rolantes', color: CHART_COLORS.escadasRolantes, value: STATE.consumidores.escadasRolantes.total },
+    { label: 'Lojas', color: CHART_COLORS.lojas, value: STATE.consumidores.lojas.total },
+    { label: 'Outros', color: CHART_COLORS.outros, value: STATE.consumidores.outros ? STATE.consumidores.outros.total : 0 },
+    { label: 'Área Comum', color: CHART_COLORS.areaComum, value: STATE.consumidores.areaComum.total }
+  ];
+
+  items.forEach(item => {
+    const html = `<div class="legend-item"><div class="legend-color" style="background: ${item.color}"></div><span class="legend-label">${item.label}:</span><span class="legend-value">${formatEnergy(item.value)}</span></div>`;
+    $legend.append(html);
+  });
+
+  LogHelper.log("Modal chart legend rendered with 6 items");
 }
 
 /**
@@ -794,21 +1020,29 @@ function recalculateWithReceivedData() {
     fallbackTimer = null;
   }
 
-  // Atualizar STATE.consumidores com dados recebidos
-  STATE.consumidores.lojas.total = RECEIVED_DATA.lojas_total.total_kWh;
-  STATE.consumidores.climatizacao.total = RECEIVED_DATA.climatizacao.total;
-  STATE.consumidores.elevadores.total = RECEIVED_DATA.elevadores.total;
-  STATE.consumidores.escadasRolantes.total = RECEIVED_DATA.escadas_rolantes.total;
-  STATE.consumidores.outros.total = RECEIVED_DATA.outros.total;
+  // Atualizar STATE.consumidores com dados recebidos (RFC-0056: Defensive)
+  // Ensure objects exist before setting properties
+  if (!STATE.consumidores.lojas) STATE.consumidores.lojas = { total: 0, perc: 0 };
+  if (!STATE.consumidores.climatizacao) STATE.consumidores.climatizacao = { total: 0, perc: 0 };
+  if (!STATE.consumidores.elevadores) STATE.consumidores.elevadores = { total: 0, perc: 0 };
+  if (!STATE.consumidores.escadasRolantes) STATE.consumidores.escadasRolantes = { total: 0, perc: 0 };
+  if (!STATE.consumidores.outros) STATE.consumidores.outros = { total: 0, perc: 0 };
 
-  // Recalcular Área Comum como residual
+  STATE.consumidores.lojas.total = RECEIVED_DATA.lojas_total?.total_kWh || 0;
+  STATE.consumidores.climatizacao.total = RECEIVED_DATA.climatizacao?.total || 0;
+  STATE.consumidores.elevadores.total = RECEIVED_DATA.elevadores?.total || 0;
+  STATE.consumidores.escadasRolantes.total = RECEIVED_DATA.escadas_rolantes?.total || 0;
+  STATE.consumidores.outros.total = RECEIVED_DATA.outros?.total || 0;
+
+  // Recalcular Área Comum como residual (RFC-0056: Defensive calculation)
   const somaConsumidores =
-    STATE.consumidores.lojas.total +
-    STATE.consumidores.climatizacao.total +
-    STATE.consumidores.elevadores.total +
-    STATE.consumidores.escadasRolantes.total +
-    STATE.consumidores.outros.total;
+    (STATE.consumidores.lojas?.total || 0) +
+    (STATE.consumidores.climatizacao?.total || 0) +
+    (STATE.consumidores.elevadores?.total || 0) +
+    (STATE.consumidores.escadasRolantes?.total || 0) +
+    (STATE.consumidores.outros?.total || 0);
 
+  if (!STATE.consumidores.areaComum) STATE.consumidores.areaComum = { total: 0, perc: 0 };
   STATE.consumidores.areaComum.total = Math.max(0, STATE.entrada.total - somaConsumidores);
 
   // Recalcular total geral (SEM incluir entrada)
@@ -986,6 +1220,15 @@ self.onInit = async function() {
     chartColors: CHART_COLORS
   });
 
+  // RFC-0056: Migration - Ensure 'outros' exists in STATE (for backwards compatibility)
+  if (!STATE.consumidores.outros) {
+    LogHelper.warn("[RFC-0056] Migration: Adding 'outros' to STATE.consumidores");
+    STATE.consumidores.outros = { devices: [], total: 0, perc: 0 };
+  }
+  if (!RECEIVED_DATA.outros) {
+    RECEIVED_DATA.outros = null;
+  }
+
   // Set widget label
   const widgetLabel = self.ctx.settings?.labelWidget || 'Informações de Energia';
   $root().find('.info-title').text(widgetLabel);
@@ -1053,6 +1296,33 @@ self.onInit = async function() {
     }
   }, 500);
 
+  // Setup modal event listeners
+  $('#btnExpandModal').on('click', function() {
+    LogHelper.log("Expand button clicked");
+    openModal();
+  });
+
+  $('#btnCloseModal').on('click', function() {
+    LogHelper.log("Close button clicked");
+    closeModal();
+  });
+
+  // Close modal on overlay click
+  $('#modalExpanded').on('click', function(e) {
+    if (e.target.id === 'modalExpanded') {
+      LogHelper.log("Modal overlay clicked");
+      closeModal();
+    }
+  });
+
+  // Close modal on ESC key
+  $(document).on('keydown', function(e) {
+    if (e.key === 'Escape' && $('#modalExpanded').css('display') === 'flex') {
+      LogHelper.log("ESC key pressed - closing modal");
+      closeModal();
+    }
+  });
+
   LogHelper.log("Widget initialized successfully (RFC-0056)");
 };
 
@@ -1114,6 +1384,39 @@ self.onDestroy = function() {
     } catch (error) {
       LogHelper.warn("Error destroying chart:", error);
     }
+  }
+
+  // Destroy modal chart
+  if (modalPieChartInstance) {
+    try {
+      modalPieChartInstance.destroy();
+      modalPieChartInstance = null;
+      LogHelper.log("Modal chart destroyed");
+    } catch (error) {
+      LogHelper.warn("Error destroying modal chart:", error);
+    }
+  }
+
+  // Remove modal event listeners
+  try {
+    $('#btnExpandModal').off('click');
+    $('#btnCloseModal').off('click');
+    $('#modalExpanded').off('click');
+    $(document).off('keydown');
+    LogHelper.log("Modal event listeners removed");
+  } catch (error) {
+    LogHelper.warn("Error removing modal listeners:", error);
+  }
+
+  // Remove modal from body if it was moved there
+  try {
+    const $modal = $('#modalExpanded');
+    if ($modal.parent()[0] === document.body) {
+      LogHelper.log("Removing modal from body");
+      $modal.remove();
+    }
+  } catch (error) {
+    LogHelper.warn("Error removing modal from body:", error);
   }
 
   // Clear jQuery event handlers

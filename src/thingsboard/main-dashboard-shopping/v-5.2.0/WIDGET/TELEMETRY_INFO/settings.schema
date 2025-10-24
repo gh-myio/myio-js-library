@@ -82,19 +82,12 @@
     "DOMAIN",
     "customerTB_ID",
     "showDevicesList",
-    {
-      "key": "chartColors",
-      "type": "section",
-      "title": "Chart Color Configuration (RFC-0056)",
-      "items": [
-        "chartColors.climatizacao",
-        "chartColors.elevadores",
-        "chartColors.escadasRolantes",
-        "chartColors.lojas",
-        "chartColors.outros",
-        "chartColors.areaComum"
-      ]
-    },
+    "chartColors.climatizacao",
+    "chartColors.elevadores",
+    "chartColors.escadasRolantes",
+    "chartColors.lojas",
+    "chartColors.outros",
+    "chartColors.areaComum",
     "DEBUG_ACTIVE"
   ]
 }
