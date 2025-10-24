@@ -193,7 +193,8 @@
 .shops-menu-root.collapsed .user-name,
 .shops-menu-root.collapsed .user-email,
 .shops-menu-root.collapsed .menu-item .label,
-.shops-menu-root.collapsed .logout-text {
+.shops-menu-root.collapsed .logout-text,
+.shops-menu-root.collapsed .menu-label {
   display: none;
 }
 
@@ -225,4 +226,213 @@
 
 .shops-menu-root.collapsed .logout-icon {
   margin: 0;
+}
+
+/* Center shopping selector button when collapsed */
+.shops-menu-root.collapsed .shopping-selector-btn {
+  padding: 12px 8px;
+  justify-content: center;
+}
+
+/* ============================================
+   RFC-0055: SHOPPING SELECTOR MODAL
+   ============================================ */
+
+/* Shopping selector button in menu footer */
+.shopping-selector-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--brand);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.shopping-selector-btn:hover {
+  background: var(--hover-bg);
+  color: var(--brand);
+}
+
+.shopping-selector-btn:active {
+  background: #e0d5f7;
+}
+
+.shopping-selector-btn .menu-icon {
+  font-size: 20px;
+  display: inline-block;
+}
+
+.shopping-selector-btn .menu-label {
+  font-weight: 500;
+}
+
+/* Modal container */
+.shopping-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.shopping-modal.show {
+  opacity: 1;
+}
+
+.shopping-modal.closing {
+  opacity: 0;
+}
+
+/* Modal overlay */
+.shopping-modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+/* Modal content box */
+.shopping-modal-content {
+  position: relative;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  transform: scale(0.9);
+  transition: transform 0.3s ease;
+}
+
+.shopping-modal.show .shopping-modal-content {
+  transform: scale(1);
+}
+
+.shopping-modal.closing .shopping-modal-content {
+  transform: scale(0.9);
+}
+
+/* Modal header */
+.shopping-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--divider);
+  background: var(--brand);
+  color: var(--ghost);
+}
+
+.shopping-modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.shopping-modal-close {
+  background: none;
+  border: none;
+  color: var(--ghost);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.shopping-modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Modal body */
+.shopping-modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Shopping option cards */
+.shopping-option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border: 2px solid var(--divider);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.shopping-option:hover {
+  border-color: var(--brand);
+  background: var(--hover-bg);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+
+.shopping-option:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+}
+
+.shopping-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.shopping-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .shopping-modal-content {
+    width: 95%;
+    max-width: none;
+  }
+
+  .shopping-modal-body {
+    padding: 16px;
+  }
+
+  .shopping-option {
+    padding: 16px;
+  }
+
+  .shopping-icon {
+    font-size: 28px;
+  }
+
+  .shopping-name {
+    font-size: 16px;
+  }
 }

@@ -103,6 +103,12 @@ self.onInit = function () {
       if (userEmailEl && user?.email) {
         userEmailEl.textContent = user.email;
         //LogHelper.log("[MENU] User email set to:", user.email);
+
+        // RFC-0055: Check if user is from sacavalcante.com.br domain
+        if (user.email && user.email.endsWith('@sacavalcante.com.br')) {
+          LogHelper.log("[MENU] User from sacavalcante.com.br detected - enabling shopping selector");
+          addShoppingSelectorButton();
+        }
       }
     } catch (err) {
       LogHelper.error("[MENU] Error fetching user info:", err);
@@ -272,4 +278,112 @@ self.onInit = function () {
       }
     }
   };
+
+  // RFC-0055: Add shopping selector button for sacavalcante.com.br users
+  function addShoppingSelectorButton() {
+    // Check if button already exists
+    if (document.getElementById('shopping-selector-btn')) {
+      LogHelper.log("[MENU] Shopping selector button already exists");
+      return;
+    }
+
+    // Find the menu footer (where logout button is)
+    const menuFooter = document.querySelector('.shops-menu-root .menu-footer');
+    const logoutBtn = document.getElementById('logout-btn');
+
+    if (!menuFooter) {
+      LogHelper.error("[MENU] Menu footer not found - cannot add shopping selector");
+      return;
+    }
+
+    // Create shopping selector button
+    const shoppingSelectorBtn = document.createElement('button');
+    shoppingSelectorBtn.id = 'shopping-selector-btn';
+    shoppingSelectorBtn.className = 'shopping-selector-btn';
+    shoppingSelectorBtn.innerHTML = `
+      <span class="menu-icon">🏢</span>
+      <span class="menu-label">Trocar Shopping</span>
+    `;
+
+    // Insert before logout button
+    if (logoutBtn) {
+      menuFooter.insertBefore(shoppingSelectorBtn, logoutBtn);
+    } else {
+      menuFooter.appendChild(shoppingSelectorBtn);
+    }
+
+    // Add click handler
+    shoppingSelectorBtn.addEventListener('click', () => {
+      LogHelper.log("[MENU] Shopping selector clicked");
+      showShoppingModal();
+    });
+
+    LogHelper.log("[MENU] Shopping selector button added successfully");
+  }
+
+  // RFC-0055: Show modal with shopping options
+  function showShoppingModal() {
+    // Remove existing modal if any
+    const existingModal = document.getElementById('shopping-modal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'shopping-modal';
+    modal.className = 'shopping-modal';
+    modal.innerHTML = `
+      <div class="shopping-modal-overlay"></div>
+      <div class="shopping-modal-content">
+        <div class="shopping-modal-header">
+          <h2>Selecione o Shopping</h2>
+          <button class="shopping-modal-close">&times;</button>
+        </div>
+        <div class="shopping-modal-body">
+          <div class="shopping-option" data-url="https://dashboard.myio-bas.com/dashboards/all/ed5a0dd0-a3b7-11f0-afe1-175479a33d89">
+            <div class="shopping-icon">🏢</div>
+            <div class="shopping-name">Mestre Álvaro</div>
+          </div>
+          <div class="shopping-option" data-url="https://dashboard.myio-bas.com/dashboards/all/1e785950-af55-11f0-9722-210aa9448abc">
+            <div class="shopping-icon">🏢</div>
+            <div class="shopping-name">Mont Serrat</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Add to body
+    document.body.appendChild(modal);
+
+    // Add event listeners
+    const closeBtn = modal.querySelector('.shopping-modal-close');
+    const overlay = modal.querySelector('.shopping-modal-overlay');
+    const options = modal.querySelectorAll('.shopping-option');
+
+    // Close handlers
+    const closeModal = () => {
+      modal.classList.add('closing');
+      setTimeout(() => modal.remove(), 300);
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', closeModal);
+
+    // Shopping selection handlers
+    options.forEach(option => {
+      option.addEventListener('click', () => {
+        const url = option.getAttribute('data-url');
+        const name = option.querySelector('.shopping-name').textContent;
+
+        LogHelper.log(`[MENU] Navigating to ${name}: ${url}`);
+        window.location.href = url;
+      });
+    });
+
+    // Show modal with animation
+    setTimeout(() => modal.classList.add('show'), 10);
+
+    LogHelper.log("[MENU] Shopping modal displayed");
+  }
 };
