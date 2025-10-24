@@ -82,7 +82,7 @@
       </div>
     </div>
 
-    <!-- ========== ROW 3: ESC. ROLANTES + ÁREA COMUM ========== -->
+    <!-- ========== ROW 3: ESC. ROLANTES + OUTROS EQUIPAMENTOS ========== -->
     <div class="info-card escadas-card">
       <div class="card-header">
         <span class="card-icon">🎢</span>
@@ -99,10 +99,27 @@
       </div>
     </div>
 
-    <div class="info-card area-comum-card">
+    <div class="info-card outros-card">
+      <div class="card-header">
+        <span class="card-icon">⚙️</span>
+        <h3 class="card-title">Outros Equipamentos</h3>
+      </div>
+      <div class="card-body">
+        <div class="stat-row main-stat">
+          <span class="stat-label">Total:</span>
+          <span class="stat-value" id="outrosTotal">0,00 kWh</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-perc" id="outrosPerc">(0%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== ROW 4: ÁREA COMUM (RESIDUAL) ========== -->
+    <div class="info-card area-comum-card" style="grid-column: span 2;">
       <div class="card-header">
         <span class="card-icon">🏢</span>
-        <h3 class="card-title">Área Comum</h3>
+        <h3 class="card-title">Área Comum (Residual)</h3>
       </div>
       <div class="card-body">
         <div class="stat-row main-stat">
@@ -113,7 +130,7 @@
           <span class="stat-perc" id="areaComumPerc">(0%)</span>
         </div>
         <div class="residual-note">
-          <small>* Calculado como residual</small>
+          <small>* Entrada - (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)</small>
         </div>
       </div>
     </div>

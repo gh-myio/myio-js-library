@@ -27,23 +27,44 @@
         "description": "Display list of entrada devices in the card"
       },
       "chartColors": {
-        "title": "Chart Colors",
+        "title": "Chart Colors (RFC-0056: 6 categories)",
         "type": "object",
         "properties": {
-          "areaComum": {
-            "title": "Área Comum Color",
+          "climatizacao": {
+            "title": "Climatização Color",
             "type": "string",
-            "default": "#4CAF50"
+            "default": "#00C896",
+            "description": "Teal (MyIO accent)"
           },
-          "equipamentos": {
-            "title": "Equipamentos Color",
+          "elevadores": {
+            "title": "Elevadores Color",
             "type": "string",
-            "default": "#2196F3"
+            "default": "#5B2EBC",
+            "description": "Purple (MyIO primary)"
+          },
+          "escadasRolantes": {
+            "title": "Escadas Rolantes Color",
+            "type": "string",
+            "default": "#FF6B6B",
+            "description": "Red"
           },
           "lojas": {
             "title": "Lojas Color",
             "type": "string",
-            "default": "#FFC107"
+            "default": "#FFC107",
+            "description": "Yellow"
+          },
+          "outros": {
+            "title": "Outros Equipamentos Color",
+            "type": "string",
+            "default": "#9C27B0",
+            "description": "Deep Purple"
+          },
+          "areaComum": {
+            "title": "Área Comum Color (Residual)",
+            "type": "string",
+            "default": "#4CAF50",
+            "description": "Green"
           }
         }
       },
@@ -64,11 +85,14 @@
     {
       "key": "chartColors",
       "type": "section",
-      "title": "Chart Color Configuration",
+      "title": "Chart Color Configuration (RFC-0056)",
       "items": [
-        "chartColors.areaComum",
-        "chartColors.equipamentos",
-        "chartColors.lojas"
+        "chartColors.climatizacao",
+        "chartColors.elevadores",
+        "chartColors.escadasRolantes",
+        "chartColors.lojas",
+        "chartColors.outros",
+        "chartColors.areaComum"
       ]
     },
     "DEBUG_ACTIVE"

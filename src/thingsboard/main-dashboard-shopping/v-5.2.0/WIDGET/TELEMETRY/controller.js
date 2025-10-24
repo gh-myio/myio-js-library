@@ -902,6 +902,252 @@ function syncChecklistSelectionVisual() {
   });
 }
 
+/** ===================== RFC-0056 FIX v1.1: EMISSION ===================== **/
+
+/**
+ * Normaliza valor de kWh para MWh com 2 decimais
+ * @param {number} kWhValue - valor em kWh
+ * @returns {number} valor em MWh arredondado
+ */
+function normalizeToMWh(kWhValue) {
+  if (typeof kWhValue !== 'number' || isNaN(kWhValue)) return 0;
+  return Math.round((kWhValue / 1000) * 100) / 100;
+}
+
+/**
+ * Normaliza label de dispositivo para classificação consistente
+ * @param {string} str - label do dispositivo
+ * @returns {string} label normalizado
+ */
+function normalizeLabel(str) {
+  if (!str) return '';
+  return str.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Dispatcher: determina tipo de widget e emite evento apropriado
+ * RFC-0056 FIX v1.1: Consolidação em myio:telemetry:update
+ */
+function emitTelemetryUpdate() {
+  try {
+    // Determinar tipo de widget pelo datasource alias
+    const widgetType = detectWidgetType();
+
+    if (!widgetType) {
+      LogHelper.log('[RFC-0056] Widget type not detected - skipping emission');
+      return;
+    }
+
+    // Construir periodKey a partir do filtro atual
+    const periodKey = buildPeriodKey();
+
+    if (widgetType === 'lojas') {
+      emitLojasTotal(periodKey);
+    } else if (widgetType === 'areacomum') {
+      emitAreaComumBreakdown(periodKey);
+    }
+  } catch (err) {
+    LogHelper.error('[RFC-0056] Error in emitTelemetryUpdate:', err);
+  }
+}
+
+/**
+ * Detecta tipo de widget baseado no datasource alias
+ * @returns {'lojas'|'areacomum'|null}
+ */
+function detectWidgetType() {
+  try {
+    LogHelper.log("🔍 [detectWidgetType] Iniciando detecção de tipo de widget...");
+
+    const datasources = ctx.datasources || [];
+    LogHelper.log(`[detectWidgetType] Total de datasources detectados: ${datasources.length}`);
+
+    if (!datasources.length) {
+      LogHelper.warn("[detectWidgetType] Nenhum datasource encontrado em ctx.datasources!");
+      return null;
+    }
+
+    // Percorrer todos os datasources
+    for (let i = 0; i < datasources.length; i++) {
+      const ds = datasources[i];
+      const alias = (ds.aliasName || '').toString().toLowerCase().trim();
+
+      LogHelper.log(`🔸 [detectWidgetType] Verificando datasource[${i}]`);
+      LogHelper.log(`    ↳ aliasName:     ${ds.aliasName || '(vazio)'}`);
+      LogHelper.log(`    ↳ entityName:    ${ds.entityName || '(vazio)'}`);
+      LogHelper.log(`    ↳ alias normalizado: "${alias}"`);
+
+      if (!alias) {
+        LogHelper.warn(`[detectWidgetType] ⚠️ Alias vazio ou indefinido no datasource[${i}].`);
+        continue;
+      }
+
+      if (alias.includes('lojas')) {
+        LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "lojas" (com base no alias "${alias}")`);
+        return 'lojas';
+      }
+
+      if (alias.includes('areacomum') || alias.includes('area_comum')) {
+        LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "areacomum" (com base no alias "${alias}")`);
+        return 'areacomum';
+      }
+    }
+
+    LogHelper.warn("[detectWidgetType] ⚠️ Nenhum tipo de widget correspondente encontrado.");
+    return null;
+  } catch (err) {
+    LogHelper.error("[detectWidgetType] ❌ Erro durante detecção de tipo de widget:", err);
+    return null;
+  }
+}
+
+
+/**
+ * Constrói periodKey do filtro atual
+ * Formato: "YYYY-MM-DD_YYYY-MM-DD" ou "realtime"
+ */
+function buildPeriodKey() {
+  const timewindow = ctx.defaultSubscription?.subscriptionTimewindow;
+
+  if (!timewindow || timewindow.realtimeWindowMs) {
+    return 'realtime';
+  }
+
+  const startMs = timewindow.fixedWindow?.startTimeMs || Date.now() - 86400000;
+  const endMs = timewindow.fixedWindow?.endTimeMs || Date.now();
+
+  const startDate = new Date(startMs).toISOString().split('T')[0];
+  const endDate = new Date(endMs).toISOString().split('T')[0];
+
+  return `${startDate}_${endDate}`;
+}
+
+/**
+ * Emite evento lojas_total
+ * RFC-0056 FIX v1.1: TELEMETRY (Lojas) → TELEMETRY_INFO
+ */
+function emitLojasTotal(periodKey) {
+  try {
+    // Calcular total de Lojas a partir dos itens enriquecidos
+    const lojasTotal = STATE.itemsEnriched.reduce((sum, item) => {
+      return sum + (item.value || 0);
+    }, 0);
+
+    const totalMWh = normalizeToMWh(lojasTotal);
+
+    const payload = {
+      type: 'lojas_total',
+      domain: 'energy',
+      periodKey: periodKey,
+      timestamp: Date.now(),
+      source: 'TELEMETRY_Lojas',
+      data: {
+        total_kWh: lojasTotal,
+        total_MWh: totalMWh,
+        device_count: STATE.itemsEnriched.length
+      }
+    };
+
+    // Cache em sessionStorage
+    const cacheKey = `myio:telemetry:lojas_${periodKey}`;
+    try {
+      sessionStorage.setItem(cacheKey, JSON.stringify(payload));
+    } catch (e) {
+      LogHelper.warn('[RFC-0056] sessionStorage write failed:', e);
+    }
+
+    // Dispatch consolidated event
+    const event = new CustomEvent('myio:telemetry:update', {
+      detail: payload,
+      bubbles: true,
+      cancelable: false
+    });
+
+    window.dispatchEvent(event);
+    LogHelper.log(`[RFC-0056] ✅ Emitted lojas_total: ${totalMWh} MWh (${STATE.itemsEnriched.length} devices)`);
+
+  } catch (err) {
+    LogHelper.error('[RFC-0056] Error in emitLojasTotal:', err);
+  }
+}
+
+/**
+ * Emite evento areacomum_breakdown
+ * RFC-0056 FIX v1.1: TELEMETRY (AreaComum) → TELEMETRY_INFO
+ */
+function emitAreaComumBreakdown(periodKey) {
+  try {
+    // Classificar dispositivos por categoria
+    const breakdown = {
+      climatizacao: 0,
+      elevadores: 0,
+      escadas_rolantes: 0,
+      outros: 0
+    };
+
+    STATE.itemsEnriched.forEach(item => {
+      const label = normalizeLabel(item.label || item.name || '');
+      const energia = item.value || 0;
+
+      if (label.includes('climatizacao') || label.includes('hvac') || label.includes('ar condicionado') ||
+          label.includes('chiller') || label.includes('bomba primaria') || label.includes('bomba secundaria') ||
+          label.includes('bombas primarias') || label.includes('bombas secundarias')) {
+        breakdown.climatizacao += energia;
+      } else if (label.includes('elevador')) {
+        breakdown.elevadores += energia;
+      } else if (label.includes('escada') && label.includes('rolante')) {
+        breakdown.escadas_rolantes += energia;
+      } else {
+        breakdown.outros += energia;
+      }
+    });
+
+    const payload = {
+      type: 'areacomum_breakdown',
+      domain: 'energy',
+      periodKey: periodKey,
+      timestamp: Date.now(),
+      source: 'TELEMETRY_AreaComum',
+      data: {
+        climatizacao_kWh: breakdown.climatizacao,
+        climatizacao_MWh: normalizeToMWh(breakdown.climatizacao),
+        elevadores_kWh: breakdown.elevadores,
+        elevadores_MWh: normalizeToMWh(breakdown.elevadores),
+        escadas_rolantes_kWh: breakdown.escadas_rolantes,
+        escadas_rolantes_MWh: normalizeToMWh(breakdown.escadas_rolantes),
+        outros_kWh: breakdown.outros,
+        outros_MWh: normalizeToMWh(breakdown.outros),
+        device_count: STATE.itemsEnriched.length
+      }
+    };
+
+    // Cache em sessionStorage
+    const cacheKey = `myio:telemetry:areacomum_${periodKey}`;
+    try {
+      sessionStorage.setItem(cacheKey, JSON.stringify(payload));
+    } catch (e) {
+      LogHelper.warn('[RFC-0056] sessionStorage write failed:', e);
+    }
+
+    // Dispatch consolidated event
+    const event = new CustomEvent('myio:telemetry:update', {
+      detail: payload,
+      bubbles: true,
+      cancelable: false
+    });
+
+    window.dispatchEvent(event);
+
+    const totalMWh = normalizeToMWh(
+      breakdown.climatizacao + breakdown.elevadores + breakdown.escadas_rolantes + breakdown.outros
+    );
+    LogHelper.log(`[RFC-0056] ✅ Emitted areacomum_breakdown: ${totalMWh} MWh (${STATE.itemsEnriched.length} devices)`);
+
+  } catch (err) {
+    LogHelper.error('[RFC-0056] Error in emitAreaComumBreakdown:', err);
+  }
+}
+
 /** ===================== RECOMPUTE (local only) ===================== **/
 function reflowFromState() {
   const visible = applyFilters(STATE.itemsEnriched, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
@@ -1311,6 +1557,9 @@ self.onInit = async function () {
 
     LogHelper.log(`[TELEMETRY] Enriched ${STATE.itemsEnriched.length} items with orchestrator values`);
 
+    // RFC-0056 FIX v1.1: Emit telemetry update after enrichment
+    emitTelemetryUpdate();
+
     // Sanitize selection
     if (STATE.selectedIds && STATE.selectedIds.size) {
       const valid = new Set(STATE.itemsBase.map(x => x.id));
@@ -1361,6 +1610,26 @@ self.onInit = async function () {
 
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
 
+  // RFC-0056 FIX v1.1: Listen for request_refresh from TELEMETRY_INFO
+  let requestRefreshHandler = function(ev) {
+    const { type, domain, periodKey } = ev.detail || {};
+
+    if (type !== 'request_refresh') return;
+    if (domain !== WIDGET_DOMAIN) return;
+
+    LogHelper.log(`[RFC-0056] Received request_refresh for domain ${domain}, periodKey ${periodKey}`);
+
+    // Re-emit telemetry data
+    const currentPeriodKey = buildPeriodKey();
+    if (currentPeriodKey === periodKey) {
+      LogHelper.log(`[RFC-0056] Re-emitting data for current period`);
+      emitTelemetryUpdate();
+    } else {
+      LogHelper.warn(`[RFC-0056] Period mismatch: requested ${periodKey}, current ${currentPeriodKey}`);
+    }
+  };
+
+  window.addEventListener('myio:telemetry:update', requestRefreshHandler);
 
   // RFC: REMOVED - Fix selection integration with FOOTER
   //
@@ -1532,6 +1801,11 @@ self.onDestroy = function () {
   if (dataProvideHandler) {
     window.removeEventListener('myio:telemetry:provide-data', dataProvideHandler);
     LogHelper.log("[DeviceCards] Event listener 'myio:telemetry:provide-data' removido.");
+  }
+  // RFC-0056 FIX v1.1: Remove request_refresh listener
+  if (requestRefreshHandler) {
+    window.removeEventListener('myio:telemetry:update', requestRefreshHandler);
+    LogHelper.log("[RFC-0056] Event listener 'myio:telemetry:update' removido.");
   }
   try { $root().off(); } catch (_e) {}
   hideBusy();

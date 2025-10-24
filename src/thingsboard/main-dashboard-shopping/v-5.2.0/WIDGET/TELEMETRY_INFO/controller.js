@@ -30,13 +30,14 @@ const LogHelper = {
 let WIDGET_DOMAIN = 'energy';
 let SHOW_DEVICES_LIST = false;
 
-// RFC-0056: Chart colors with MyIO palette
+// RFC-0056: Chart colors with MyIO palette (6 categories)
 let CHART_COLORS = {
   climatizacao: '#00C896',    // Teal (MyIO accent)
   elevadores: '#5B2EBC',      // Purple (MyIO primary)
   escadasRolantes: '#FF6B6B', // Red
   lojas: '#FFC107',           // Yellow
-  areaComum: '#4CAF50'        // Green
+  outros: '#9C27B0',          // Deep Purple
+  areaComum: '#4CAF50'        // Green (residual)
 };
 
 // ===================== STATE =====================
@@ -52,6 +53,7 @@ const STATE = {
     elevadores: { devices: [], total: 0, perc: 0 },
     escadasRolantes: { devices: [], total: 0, perc: 0 },
     lojas: { devices: [], total: 0, perc: 0 },
+    outros: { devices: [], total: 0, perc: 0 }, // ← RFC-0056: Outros equipamentos de AreaComum
     areaComum: { devices: [], total: 0, perc: 0 }, // ← Residual
     totalGeral: 0,
     percGeral: 100
@@ -373,6 +375,10 @@ function renderStats() {
   $('#lojasTotal').text(formatEnergy(STATE.consumidores.lojas.total));
   $('#lojasPerc').text(`(${STATE.consumidores.lojas.perc.toFixed(1)}%)`);
 
+  // Outros Equipamentos
+  $('#outrosTotal').text(formatEnergy(STATE.consumidores.outros.total));
+  $('#outrosPerc').text(`(${STATE.consumidores.outros.perc.toFixed(1)}%)`);
+
   // Área Comum (residual)
   $('#areaComumTotal').text(formatEnergy(STATE.consumidores.areaComum.total));
   $('#areaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(1)}%)`);
@@ -395,10 +401,10 @@ function renderStats() {
 }
 
 /**
- * RFC-0056: Render pie chart with 5 slices (no Entrada)
+ * RFC-0056: Render pie chart with 6 slices (no Entrada)
  */
 function renderPieChart() {
-  LogHelper.log("RFC-0056: Rendering pie chart with 5 categories...");
+  LogHelper.log("RFC-0056: Rendering pie chart with 6 categories...");
 
   const canvas = document.getElementById('consumptionPieChart');
   if (!canvas) {
@@ -429,13 +435,14 @@ function renderPieChart() {
 
   const ctx = canvas.getContext('2d');
 
-  // ========== CHART DATA (5 slices) ==========
+  // ========== CHART DATA (6 slices) ==========
   const data = {
     labels: [
       '❄️ Climatização',
       '🛗 Elevadores',
       '🎢 Esc. Rolantes',
       '🏪 Lojas',
+      '⚙️ Outros',
       '🏢 Área Comum'
     ],
     datasets: [{
@@ -444,6 +451,7 @@ function renderPieChart() {
         STATE.consumidores.elevadores.total,
         STATE.consumidores.escadasRolantes.total,
         STATE.consumidores.lojas.total,
+        STATE.consumidores.outros.total,
         STATE.consumidores.areaComum.total
       ],
       backgroundColor: [
@@ -451,6 +459,7 @@ function renderPieChart() {
         CHART_COLORS.elevadores,      // #5B2EBC (Purple)
         CHART_COLORS.escadasRolantes, // #FF6B6B (Red)
         CHART_COLORS.lojas,           // #FFC107 (Yellow)
+        CHART_COLORS.outros,          // #9C27B0 (Deep Purple)
         CHART_COLORS.areaComum        // #4CAF50 (Green)
       ],
       borderColor: '#FFFFFF',  // ← Light border
@@ -595,6 +604,8 @@ function processOrchestratorData(items) {
     STATE.consumidores.escadasRolantes.total = 0;
     STATE.consumidores.lojas.devices = [];
     STATE.consumidores.lojas.total = 0;
+    STATE.consumidores.outros.devices = [];
+    STATE.consumidores.outros.total = 0;
     STATE.consumidores.areaComum.devices = [];
     STATE.consumidores.areaComum.total = 0;
     STATE.consumidores.totalGeral = 0;
@@ -609,6 +620,334 @@ function processOrchestratorData(items) {
 
   // Update display
   updateDisplay();
+}
+
+// ===================== RFC-0056 FIX v1.1: RECEPTOR =====================
+
+let telemetryUpdateHandler = null;
+let debounceTimer = null;
+let fallbackTimer = null;
+
+// RFC-0056 FIX v1.1: Dados recebidos dos widgets TELEMETRY
+const RECEIVED_DATA = {
+  lojas_total: null,
+  climatizacao: null,
+  elevadores: null,
+  escadas_rolantes: null,
+  outros: null
+};
+
+/**
+ * Configura listener consolidado para myio:telemetry:update
+ * RFC-0056 FIX v1.1: Evento único com detail.type discriminador
+ */
+function setupTelemetryListener() {
+  telemetryUpdateHandler = function(ev) {
+    const { type, domain, periodKey, timestamp, source, data } = ev.detail || {};
+
+    LogHelper.log(`[RFC-0056] Received telemetry update: type=${type}, source=${source}, periodKey=${periodKey}`);
+
+    // Validar domínio
+    if (domain !== WIDGET_DOMAIN) {
+      LogHelper.log(`[RFC-0056] Ignoring domain: ${domain} (expecting: ${WIDGET_DOMAIN})`);
+      return;
+    }
+
+    // Validar periodKey (previne cross-period mix-ups)
+    const currentPeriodKey = buildCurrentPeriodKey();
+    if (periodKey !== currentPeriodKey) {
+      LogHelper.warn(`[RFC-0056] Period mismatch: received ${periodKey}, current ${currentPeriodKey}`);
+      return;
+    }
+
+    // Dispatch por tipo
+    switch (type) {
+      case 'lojas_total':
+        handleLojasTotal(data, timestamp, periodKey);
+        break;
+      case 'areacomum_breakdown':
+        handleAreaComumBreakdown(data, timestamp, periodKey);
+        break;
+      case 'request_refresh':
+        handleRequestRefresh(periodKey);
+        break;
+      default:
+        LogHelper.warn(`[RFC-0056] Unknown event type: ${type}`);
+    }
+  };
+
+  window.addEventListener('myio:telemetry:update', telemetryUpdateHandler);
+
+  // Tentar carregar do cache
+  tryLoadFromCache();
+
+  // Fallback: se após 3s não temos dados completos, solicitar refresh
+  startFallbackTimeout();
+}
+
+/**
+ * Handler: lojas_total
+ */
+function handleLojasTotal(data, timestamp, periodKey) {
+  RECEIVED_DATA.lojas_total = { ...data, timestamp, periodKey };
+  LogHelper.log(`[RFC-0056] ✅ Lojas total updated: ${data.total_MWh} MWh`);
+
+  // Agendar recalculo com debounce
+  scheduleRecalculation();
+}
+
+/**
+ * Handler: areacomum_breakdown
+ */
+function handleAreaComumBreakdown(data, timestamp, periodKey) {
+  RECEIVED_DATA.climatizacao = {
+    total: data.climatizacao_kWh,
+    totalMWh: data.climatizacao_MWh,
+    timestamp,
+    periodKey
+  };
+  RECEIVED_DATA.elevadores = {
+    total: data.elevadores_kWh,
+    totalMWh: data.elevadores_MWh,
+    timestamp,
+    periodKey
+  };
+  RECEIVED_DATA.escadas_rolantes = {
+    total: data.escadas_rolantes_kWh,
+    totalMWh: data.escadas_rolantes_MWh,
+    timestamp,
+    periodKey
+  };
+  RECEIVED_DATA.outros = {
+    total: data.outros_kWh,
+    totalMWh: data.outros_MWh,
+    timestamp,
+    periodKey
+  };
+
+  LogHelper.log(`[RFC-0056] ✅ AreaComum breakdown updated:`, {
+    climatizacao: data.climatizacao_MWh,
+    elevadores: data.elevadores_MWh,
+    escadas_rolantes: data.escadas_rolantes_MWh,
+    outros: data.outros_MWh
+  });
+
+  // Agendar recalculo com debounce
+  scheduleRecalculation();
+}
+
+/**
+ * Handler: request_refresh
+ * Outro widget solicita re-emissão dos dados (fallback)
+ */
+function handleRequestRefresh(periodKey) {
+  LogHelper.log(`[RFC-0056] Received request_refresh for period: ${periodKey}`);
+
+  // Este widget é receptor, não emissor - ignora
+  // (apenas TELEMETRY responde a request_refresh)
+}
+
+/**
+ * Agenda recalculo com debounce de 300ms
+ * RFC-0056 FIX v1.1: Reduz recalculos redundantes quando ambos eventos chegam juntos
+ */
+function scheduleRecalculation() {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+  }
+
+  debounceTimer = setTimeout(() => {
+    debounceTimer = null;
+
+    if (canRecalculate()) {
+      recalculateWithReceivedData();
+    } else {
+      LogHelper.warn('[RFC-0056] Cannot recalculate yet - waiting for more data');
+    }
+  }, 300);
+}
+
+/**
+ * Verifica se temos dados suficientes para recalcular
+ */
+function canRecalculate() {
+  const hasLojas = RECEIVED_DATA.lojas_total !== null;
+  const hasAreaComum =
+    RECEIVED_DATA.climatizacao !== null &&
+    RECEIVED_DATA.elevadores !== null &&
+    RECEIVED_DATA.escadas_rolantes !== null &&
+    RECEIVED_DATA.outros !== null;
+
+  return hasLojas && hasAreaComum;
+}
+
+/**
+ * Recalcula valores usando dados recebidos
+ * RFC-0056 FIX v1.1: Substitui cálculo local por valores recebidos
+ */
+function recalculateWithReceivedData() {
+  LogHelper.log('[RFC-0056] 🔄 Recalculating with received data...');
+
+  // Cancelar fallback timer (dados completos recebidos)
+  if (fallbackTimer) {
+    clearTimeout(fallbackTimer);
+    fallbackTimer = null;
+  }
+
+  // Atualizar STATE.consumidores com dados recebidos
+  STATE.consumidores.lojas.total = RECEIVED_DATA.lojas_total.total_kWh;
+  STATE.consumidores.climatizacao.total = RECEIVED_DATA.climatizacao.total;
+  STATE.consumidores.elevadores.total = RECEIVED_DATA.elevadores.total;
+  STATE.consumidores.escadasRolantes.total = RECEIVED_DATA.escadas_rolantes.total;
+  STATE.consumidores.outros.total = RECEIVED_DATA.outros.total;
+
+  // Recalcular Área Comum como residual
+  const somaConsumidores =
+    STATE.consumidores.lojas.total +
+    STATE.consumidores.climatizacao.total +
+    STATE.consumidores.elevadores.total +
+    STATE.consumidores.escadasRolantes.total +
+    STATE.consumidores.outros.total;
+
+  STATE.consumidores.areaComum.total = Math.max(0, STATE.entrada.total - somaConsumidores);
+
+  // Recalcular total geral (SEM incluir entrada)
+  STATE.consumidores.totalGeral = somaConsumidores + STATE.consumidores.areaComum.total;
+
+  // Recalcular percentuais
+  STATE.consumidores.lojas.perc = STATE.entrada.total > 0
+    ? (STATE.consumidores.lojas.total / STATE.entrada.total) * 100
+    : 0;
+  STATE.consumidores.climatizacao.perc = STATE.entrada.total > 0
+    ? (STATE.consumidores.climatizacao.total / STATE.entrada.total) * 100
+    : 0;
+  STATE.consumidores.elevadores.perc = STATE.entrada.total > 0
+    ? (STATE.consumidores.elevadores.total / STATE.entrada.total) * 100
+    : 0;
+  STATE.consumidores.escadasRolantes.perc = STATE.entrada.total > 0
+    ? (STATE.consumidores.escadasRolantes.total / STATE.entrada.total) * 100
+    : 0;
+  STATE.consumidores.outros.perc = STATE.entrada.total > 0
+    ? (STATE.consumidores.outros.total / STATE.entrada.total) * 100
+    : 0;
+  STATE.consumidores.areaComum.perc = STATE.entrada.total > 0
+    ? (STATE.consumidores.areaComum.total / STATE.entrada.total) * 100
+    : 0;
+  STATE.consumidores.percGeral = STATE.entrada.total > 0
+    ? (STATE.consumidores.totalGeral / STATE.entrada.total) * 100
+    : 0;
+
+  // Validação: Total consumidores vs Entrada
+  const diff = Math.abs(STATE.entrada.total - STATE.consumidores.totalGeral);
+  const tolerance = STATE.entrada.total * 0.02; // 2%
+
+  if (diff > tolerance) {
+    LogHelper.warn(`[RFC-0056] ⚠️ Validation warning: Entrada (${STATE.entrada.total.toFixed(2)} kWh) != Total Consumidores (${STATE.consumidores.totalGeral.toFixed(2)} kWh), diff: ${diff.toFixed(2)} kWh`);
+    showValidationWarning(diff);
+  } else {
+    hideValidationWarning();
+  }
+
+  // Atualizar display
+  updateDisplay();
+
+  LogHelper.log('[RFC-0056] ✅ Recalculation complete');
+}
+
+/**
+ * Tenta carregar dados do cache sessionStorage
+ * RFC-0056 FIX v1.1: Performance < 100ms reload
+ */
+function tryLoadFromCache() {
+  try {
+    const periodKey = buildCurrentPeriodKey();
+
+    const cacheKeyLojas = `myio:telemetry:lojas_${periodKey}`;
+    const cacheKeyAreaComum = `myio:telemetry:areacomum_${periodKey}`;
+
+    const cachedLojas = sessionStorage.getItem(cacheKeyLojas);
+    const cachedAreaComum = sessionStorage.getItem(cacheKeyAreaComum);
+
+    if (cachedLojas) {
+      const payload = JSON.parse(cachedLojas);
+      handleLojasTotal(payload.data, payload.timestamp, payload.periodKey);
+      LogHelper.log('[RFC-0056] 📦 Loaded lojas from cache');
+    }
+
+    if (cachedAreaComum) {
+      const payload = JSON.parse(cachedAreaComum);
+      handleAreaComumBreakdown(payload.data, payload.timestamp, payload.periodKey);
+      LogHelper.log('[RFC-0056] 📦 Loaded areacomum from cache');
+    }
+
+  } catch (err) {
+    LogHelper.warn('[RFC-0056] Cache load failed:', err);
+  }
+}
+
+/**
+ * Inicia timer de fallback (3s)
+ * RFC-0056 FIX v1.1: Se após 3s não recebemos dados, emite request_refresh
+ */
+function startFallbackTimeout() {
+  fallbackTimer = setTimeout(() => {
+    if (!canRecalculate()) {
+      LogHelper.warn('[RFC-0056] ⏱️ Fallback timeout - requesting refresh');
+
+      const periodKey = buildCurrentPeriodKey();
+      const event = new CustomEvent('myio:telemetry:update', {
+        detail: {
+          type: 'request_refresh',
+          domain: WIDGET_DOMAIN,
+          periodKey: periodKey,
+          timestamp: Date.now(),
+          source: 'TELEMETRY_INFO'
+        },
+        bubbles: true,
+        cancelable: false
+      });
+
+      window.dispatchEvent(event);
+    }
+  }, 3000);
+}
+
+/**
+ * Constrói periodKey atual baseado no timewindow do widget
+ */
+function buildCurrentPeriodKey() {
+  const timewindow = self.ctx?.defaultSubscription?.subscriptionTimewindow;
+
+  if (!timewindow || timewindow.realtimeWindowMs) {
+    return 'realtime';
+  }
+
+  const startMs = timewindow.fixedWindow?.startTimeMs || Date.now() - 86400000;
+  const endMs = timewindow.fixedWindow?.endTimeMs || Date.now();
+
+  const startDate = new Date(startMs).toISOString().split('T')[0];
+  const endDate = new Date(endMs).toISOString().split('T')[0];
+
+  return `${startDate}_${endDate}`;
+}
+
+/**
+ * Exibe marker de warning de validação na UI
+ * RFC-0056 FIX v1.1: Ajuda debugging sem console
+ */
+function showValidationWarning(diff) {
+  // Adicionar ⚠️ no card Total Consumidores
+  const $totalCard = $('.total-card .card-title');
+  if ($totalCard.length && !$totalCard.find('.validation-warning').length) {
+    $totalCard.append(' <span class="validation-warning" style="color: #FF6B6B; font-size: 0.9em;" title="Diferença de ' + diff.toFixed(2) + ' kWh detectada">⚠️</span>');
+  }
+}
+
+/**
+ * Remove marker de warning
+ */
+function hideValidationWarning() {
+  $('.validation-warning').remove();
 }
 
 // ===================== WIDGET LIFECYCLE =====================
@@ -630,12 +969,13 @@ self.onInit = async function() {
   WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
   SHOW_DEVICES_LIST = self.ctx.settings?.showDevicesList || false;
 
-  // RFC-0056: Load chart colors (with defaults)
+  // RFC-0056: Load chart colors (with defaults) - 6 categories
   CHART_COLORS = {
     climatizacao: self.ctx.settings?.chartColors?.climatizacao || '#00C896',
     elevadores: self.ctx.settings?.chartColors?.elevadores || '#5B2EBC',
     escadasRolantes: self.ctx.settings?.chartColors?.escadasRolantes || '#FF6B6B',
     lojas: self.ctx.settings?.chartColors?.lojas || '#FFC107',
+    outros: self.ctx.settings?.chartColors?.outros || '#9C27B0',
     areaComum: self.ctx.settings?.chartColors?.areaComum || '#4CAF50'
   };
 
@@ -673,6 +1013,9 @@ self.onInit = async function() {
   };
 
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
+
+  // RFC-0056 FIX v1.1: Listen for consolidated telemetry updates
+  setupTelemetryListener();
 
   // Listen for date updates
   dateUpdateHandler = function(ev) {
@@ -744,6 +1087,22 @@ self.onDestroy = function() {
   if (dataProvideHandler) {
     window.removeEventListener('myio:telemetry:provide-data', dataProvideHandler);
     dataProvideHandler = null;
+  }
+
+  // RFC-0056 FIX v1.1: Remove telemetry listener
+  if (telemetryUpdateHandler) {
+    window.removeEventListener('myio:telemetry:update', telemetryUpdateHandler);
+    telemetryUpdateHandler = null;
+  }
+
+  // RFC-0056 FIX v1.1: Clear timers
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
+  if (fallbackTimer) {
+    clearTimeout(fallbackTimer);
+    fallbackTimer = null;
   }
 
   // Destroy chart

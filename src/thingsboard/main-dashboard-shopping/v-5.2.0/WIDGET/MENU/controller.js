@@ -386,4 +386,32 @@ self.onInit = function () {
 
     LogHelper.log("[MENU] Shopping modal displayed");
   }
+
+  // RFC-0056 FIX: Emit initial dashboard-state to prevent race condition
+  // The first link is usually the default (energy/telemetry)
+  // This ensures HEADER and other widgets know the initial domain immediately
+  setTimeout(() => {
+    const firstLink = scope.links && scope.links[0];
+    if (firstLink && firstLink.enableLink !== false) {
+      const firstStateId = firstLink.stateId || 'telemetry_content';
+      const firstDomain = DOMAIN_BY_STATE[firstStateId] || 'energy';
+
+      LogHelper.log(`[MENU] RFC-0056 FIX: Emitting initial dashboard-state for domain: ${firstDomain}`);
+
+      window.dispatchEvent(
+        new CustomEvent("myio:dashboard-state", {
+          detail: { tab: firstDomain },
+        })
+      );
+    } else {
+      // Fallback: emit energy as default
+      LogHelper.log(`[MENU] RFC-0056 FIX: No first link found, emitting default domain: energy`);
+
+      window.dispatchEvent(
+        new CustomEvent("myio:dashboard-state", {
+          detail: { tab: 'energy' },
+        })
+      );
+    }
+  }, 100); // Small delay to ensure HEADER is ready to listen
 };
