@@ -1,4 +1,4 @@
-/*
+﻿/*
  * ThingsBoard Widget: TELEMETRY_INFO (MyIO v-5.2.0)
  * RFC-0056: Light Mode Theme + Grid 2 Columns Layout
  * Paleta MyIO: #5B2EBC (primary), #00C896 (accent)
@@ -79,10 +79,10 @@
 
 /* RFC-0056 FIX: Layout Grid
  * ROW 1: [Entrada] [Lojas]
- * ROW 2: [Climatização] [Elevadores]
+ * ROW 2: [ClimatizaÃ§Ã£o] [Elevadores]
  * ROW 3: [Esc. Rolantes] [Outros]
- * ROW 4: [Área Comum] [Total Consumidores]  ← SAME ROW (2 columns)
- * ROW 5: [Chart - Full Width]                ← FULL WIDTH (100%)
+ * ROW 4: [Ãrea Comum] [Total Consumidores]  â† SAME ROW (2 columns)
+ * ROW 5: [Chart - Full Width]                â† FULL WIDTH (100%)
  */
 
 /* Chart ALWAYS takes full width (100%) */
@@ -90,7 +90,7 @@
   grid-column: 1 / -1; /* Span all columns (both in 2-col grid) */
 }
 
-/* Desktop: Área Comum + Total side by side */
+/* Desktop: Ãrea Comum + Total side by side */
 @media (min-width: 769px) {
   .area-comum-card {
     grid-column: 1; /* First column */
@@ -153,7 +153,7 @@
 .stat-row {
   display: flex;
   align-items: center;
-  justify-content: space-between; /* RFC-0056: Espaça valor e percentual */
+  justify-content: space-between; /* RFC-0056: EspaÃ§a valor e percentual */
   gap: 12px;
   font-size: 14px;
   line-height: 1.4;
@@ -173,9 +173,9 @@
 .stat-value {
   font-weight: 600;
   color: var(--myio-text, #222222);
-  text-align: left; /* RFC-0056: Alinhado à esquerda */
+  text-align: left; /* RFC-0056: Alinhado Ã  esquerda */
   font-variant-numeric: tabular-nums;
-  flex: 1; /* RFC-0056: Cresce para ocupar espaço disponível */
+  flex: 1; /* RFC-0056: Cresce para ocupar espaÃ§o disponÃ­vel */
 }
 
 .stat-perc {
@@ -214,7 +214,7 @@
 }
 
 .device-item::before {
-  content: "•";
+  content: "â€¢";
   color: var(--myio-accent, #00C896);
   font-weight: bold;
 }
@@ -314,7 +314,7 @@
 
 /* Mobile: 1 coluna */
 @media (max-width: 768px) {
-  /* Keep 2 columns, but make most cards full width; keep Área Comum + Total side by side */
+  /* Keep 2 columns, but make most cards full width; keep Ãrea Comum + Total side by side */
   .info-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -324,7 +324,7 @@
     grid-column: 1 / -1;
   }
 
-  /* Override: Área Comum + Total stay on the same row (one per column) */
+  /* Override: Ãrea Comum + Total stay on the same row (one per column) */
   .info-grid .area-comum-card {
     grid-column: 1;
   }
@@ -376,14 +376,14 @@
   }
 }
 
-/* Tablet: 2 colunas (mantém) */
+/* Tablet: 2 colunas (mantÃ©m) */
 @media (min-width: 769px) and (max-width: 1200px) {
   .info-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-/* Desktop: 2 colunas (mantém) */
+/* Desktop: 2 colunas (mantÃ©m) */
 @media (min-width: 1201px) {
   .info-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -622,7 +622,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px; /* RFC-0056: Espaçamento entre título e valores */
+  gap: 4px; /* RFC-0056: EspaÃ§amento entre tÃ­tulo e valores */
 }
 
 .modal-card-content h3 {
@@ -755,27 +755,31 @@
     }
   }
 
-/* ========== OVERRIDES: Pairing and ~10% font reduction ========== */
+/* ========== OVERRIDES: Pairing and font reduction ========== */
 
 /* Maintain 2-column pairs on all widths; chart remains full width */
 @media (max-width: 768px) {
   .info-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
   .info-grid .info-card { grid-column: auto !important; }
-  .chart-card { grid-column: 1 / -1 !important; }
+  .info-grid > .chart-card { grid-column: 1 / -1 !important; }
 }
 
-/* Proportional font-size reduction (~10%) */
-.info-title { font-size: 18px !important; }
-.card-title { font-size: 14px !important; }
-.stat-row { font-size: 13px !important; }
-.stat-row.main-stat { font-size: 16px !important; }
-.stat-perc { font-size: 13px !important; }
-.devices-list { font-size: 11px !important; }
-.empty-state-icon { font-size: 43px !important; }
-.empty-state-text { font-size: 13px !important; }
+/* Ensure chart spans both columns on all widths */
+.info-grid > .chart-card { grid-column: 1 / -1 !important; }
+
+/* Proportional font-size reduction (~12%) */
+.info-title { font-size: 17px !important; }
+.card-title { font-size: 13px !important; }
+.stat-row { font-size: 12px !important; }
+.stat-row.main-stat { font-size: 15px !important; }
+.stat-perc { font-size: 12px !important; }
+.devices-list { font-size: 10px !important; }
+.empty-state-icon { font-size: 42px !important; }
+.empty-state-text { font-size: 12px !important; }
 .empty-state-hint, .empty-state-hint small { font-size: 11px !important; }
-.modal-header h2 { font-size: 22px !important; }
-.modal-card-icon { font-size: 29px !important; }
-.modal-card-value { font-size: 16px !important; }
-.modal-card-perc { font-size: 13px !important; }
-.modal-chart-title { font-size: 18px !important; }
+.modal-header h2 { font-size: 21px !important; }
+.modal-card-icon { font-size: 28px !important; }
+.modal-card-value { font-size: 15px !important; }
+.modal-card-perc { font-size: 12px !important; }
+.modal-chart-title { font-size: 17px !important; }
+

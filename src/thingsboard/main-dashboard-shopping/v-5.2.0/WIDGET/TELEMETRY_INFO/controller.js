@@ -1342,7 +1342,7 @@ self.onInit = async function() {
   }
 
   // Expand button - use delegation on container (PRIMARY)
-  $container.on('click', '#btnExpandModal', function(e) {
+  $container.on('click', '#btnExpandModal, .btn-expand', function(e) {
     e.preventDefault();
     e.stopPropagation();
     console.log("[TELEMETRY_INFO] ✅ DELEGATED Expand button clicked!"); // Force log even if DEBUG off
@@ -1360,13 +1360,28 @@ self.onInit = async function() {
       openModal();
     }, { capture: false });
   }
+  // Also bind by class, in case id changes or duplicates
+  const nativeBtnsByClass = document.getElementsByClassName('btn-expand');
+  if (nativeBtnsByClass && nativeBtnsByClass.length) {
+    Array.prototype.forEach.call(nativeBtnsByClass, function(el){
+      el.addEventListener('click', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[TELEMETRY_INFO] ✅ NATIVE(.btn-expand) Expand button clicked!');
+        openModal();
+      }, { capture: false });
+    });
+  }
 
   // Ultimate fallback: capture-phase on window to intercept the click
   window.addEventListener('click', function(e) {
     const t = e.target;
     if (!t) return;
     // match self or svg/path inside the button
-    const btn = t.id === 'btnExpandModal' ? t : (t.closest ? t.closest('#btnExpandModal') : null);
+    let btn = t.id === 'btnExpandModal' ? t : (t.closest ? t.closest('#btnExpandModal') : null);
+    if (!btn && t.closest) {
+      btn = t.closest('.btn-expand');
+    }
     if (btn) {
       e.preventDefault();
       e.stopPropagation();
