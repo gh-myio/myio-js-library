@@ -13,7 +13,7 @@
 
 // ===================== CONFIGURATION =====================
 
-let DEBUG_ACTIVE = false;
+let DEBUG_ACTIVE = true; // RFC-0056: Temporary debug mode to troubleshoot expand button
 
 // LogHelper
 const LogHelper = {
@@ -82,8 +82,12 @@ const CATEGORIES = {
 
 // ===================== DOM HELPERS =====================
 
-const $root = () => $(self.ctx.$container[0]);
-const $ = selector => self.ctx.$container.find(selector);
+// Preserve global jQuery and avoid shadowing `$`
+const $J = window.jQuery || window.$;
+// Root jQuery object for this widget container
+const $root = () => $J(self.ctx.$container);
+// Find elements within this widget container
+const $$ = (selector) => $root().find(selector);
 
 // ===================== CLASSIFICATION LOGIC (RFC-0056) =====================
 
@@ -354,52 +358,51 @@ function renderStats() {
   LogHelper.log("RFC-0056: Rendering stats for 6 categories...");
 
   // ========== ENTRADA ==========
-  $('#entradaTotal').text(formatEnergy(STATE.entrada.total));
-  $('#entradaPerc').text('100%');
+  $$('#entradaTotal').text(formatEnergy(STATE.entrada.total));
 
   // ========== CONSUMIDORES ==========
 
   // Climatização
-  $('#climatizacaoTotal').text(formatEnergy(STATE.consumidores.climatizacao.total));
-  $('#climatizacaoPerc').text(`(${STATE.consumidores.climatizacao.perc.toFixed(1)}%)`);
+  $$('#climatizacaoTotal').text(formatEnergy(STATE.consumidores.climatizacao.total));
+  $$('#climatizacaoPerc').text(`(${STATE.consumidores.climatizacao.perc.toFixed(1)}%)`);
 
   // Elevadores
-  $('#elevadoresTotal').text(formatEnergy(STATE.consumidores.elevadores.total));
-  $('#elevadoresPerc').text(`(${STATE.consumidores.elevadores.perc.toFixed(1)}%)`);
+  $$('#elevadoresTotal').text(formatEnergy(STATE.consumidores.elevadores.total));
+  $$('#elevadoresPerc').text(`(${STATE.consumidores.elevadores.perc.toFixed(1)}%)`);
 
   // Escadas Rolantes
-  $('#escadasRolantesTotal').text(formatEnergy(STATE.consumidores.escadasRolantes.total));
-  $('#escadasRolantesPerc').text(`(${STATE.consumidores.escadasRolantes.perc.toFixed(1)}%)`);
+  $$('#escadasRolantesTotal').text(formatEnergy(STATE.consumidores.escadasRolantes.total));
+  $$('#escadasRolantesPerc').text(`(${STATE.consumidores.escadasRolantes.perc.toFixed(1)}%)`);
 
   // Lojas
-  $('#lojasTotal').text(formatEnergy(STATE.consumidores.lojas.total));
-  $('#lojasPerc').text(`(${STATE.consumidores.lojas.perc.toFixed(1)}%)`);
+  $$('#lojasTotal').text(formatEnergy(STATE.consumidores.lojas.total));
+  $$('#lojasPerc').text(`(${STATE.consumidores.lojas.perc.toFixed(1)}%)`);
 
   // Outros Equipamentos (RFC-0056: Defensiva para compatibilidade)
   if (STATE.consumidores.outros) {
-    $('#outrosTotal').text(formatEnergy(STATE.consumidores.outros.total));
-    $('#outrosPerc').text(`(${STATE.consumidores.outros.perc.toFixed(1)}%)`);
+    $$('#outrosTotal').text(formatEnergy(STATE.consumidores.outros.total));
+    $$('#outrosPerc').text(`(${STATE.consumidores.outros.perc.toFixed(1)}%)`);
   } else {
-    $('#outrosTotal').text('0,00 kWh');
-    $('#outrosPerc').text('(0%)');
+    $$('#outrosTotal').text('0,00 kWh');
+    $$('#outrosPerc').text('(0%)');
   }
 
   // Área Comum (residual)
-  $('#areaComumTotal').text(formatEnergy(STATE.consumidores.areaComum.total));
-  $('#areaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(1)}%)`);
+  $$('#areaComumTotal').text(formatEnergy(STATE.consumidores.areaComum.total));
+  $$('#areaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(1)}%)`);
 
   // ========== TOTAL ==========
-  $('#consumidoresTotal').text(formatEnergy(STATE.consumidores.totalGeral));
-  $('#consumidoresPerc').text('(100%)');
+  $$('#consumidoresTotal').text(formatEnergy(STATE.consumidores.totalGeral));
+  $$('#consumidoresPerc').text('(100%)');
 
   // ========== DEVICES LIST (opcional) ==========
   if (SHOW_DEVICES_LIST) {
-    const $list = $('#entradaDevices').empty();
+    const $list = $$('#entradaDevices').empty();
     STATE.entrada.devices.forEach(device => {
       $list.append(`<div class="device-item">${device.label || device.identifier || device.id}</div>`);
     });
   } else {
-    $('#entradaDevices').empty();
+    $$('#entradaDevices').empty();
   }
 
   LogHelper.log("RFC-0056: Stats rendered successfully");
@@ -426,7 +429,7 @@ function renderPieChart() {
   // Check if Chart.js is available
   if (typeof Chart === 'undefined') {
     LogHelper.error("Chart.js library not loaded!");
-    $(canvas).parent().html(`
+    $J(canvas).parent().html(`
       <div class="empty-state">
         <div class="empty-state-icon">📊</div>
         <div class="empty-state-text">Chart.js não carregado</div>
@@ -523,7 +526,7 @@ function renderPieChart() {
  * RFC-0056: Render custom chart legend with 5 categories
  */
 function renderChartLegend() {
-  const $legend = $('#chartLegend').empty();
+  const $legend = $$('#chartLegend').empty();
 
   const items = [
     {
@@ -582,7 +585,7 @@ let modalPieChartInstance = null;
 function openModal() {
   LogHelper.log("Opening expanded modal...");
 
-  const $modal = $('#modalExpanded');
+  const $modal = $J('#modalExpanded');
 
   // CRITICAL: Move modal to body to escape widget container constraints
   if ($modal.parent()[0] !== document.body) {
@@ -600,7 +603,7 @@ function openModal() {
   renderModalChart();
 
   // Prevent body scroll
-  $('body').css('overflow', 'hidden');
+  $J('body').css('overflow', 'hidden');
 
   LogHelper.log("Modal opened successfully");
 }
@@ -611,7 +614,7 @@ function openModal() {
 function closeModal() {
   LogHelper.log("Closing expanded modal...");
 
-  const $modal = $('#modalExpanded');
+  const $modal = $J('#modalExpanded');
   $modal.css('display', 'none');
 
   // Destroy modal chart instance
@@ -621,7 +624,7 @@ function closeModal() {
   }
 
   // Restore body scroll
-  $('body').css('overflow', '');
+  $J('body').css('overflow', '');
 
   LogHelper.log("Modal closed successfully");
 }
@@ -633,41 +636,40 @@ function updateModalData() {
   LogHelper.log("Updating modal data...");
 
   // Entrada
-  $('#modalEntradaTotal').text(formatEnergy(STATE.entrada.total));
-  $('#modalEntradaPerc').text(`${STATE.entrada.perc.toFixed(1)}%`);
+  $J('#modalEntradaTotal').text(formatEnergy(STATE.entrada.total));
 
   // Lojas
-  $('#modalLojasTotal').text(formatEnergy(STATE.consumidores.lojas.total));
-  $('#modalLojasPerc').text(`(${STATE.consumidores.lojas.perc.toFixed(1)}%)`);
+  $J('#modalLojasTotal').text(formatEnergy(STATE.consumidores.lojas.total));
+  $J('#modalLojasPerc').text(`(${STATE.consumidores.lojas.perc.toFixed(1)}%)`);
 
   // Climatização
-  $('#modalClimatizacaoTotal').text(formatEnergy(STATE.consumidores.climatizacao.total));
-  $('#modalClimatizacaoPerc').text(`(${STATE.consumidores.climatizacao.perc.toFixed(1)}%)`);
+  $J('#modalClimatizacaoTotal').text(formatEnergy(STATE.consumidores.climatizacao.total));
+  $J('#modalClimatizacaoPerc').text(`(${STATE.consumidores.climatizacao.perc.toFixed(1)}%)`);
 
   // Elevadores
-  $('#modalElevadoresTotal').text(formatEnergy(STATE.consumidores.elevadores.total));
-  $('#modalElevadoresPerc').text(`(${STATE.consumidores.elevadores.perc.toFixed(1)}%)`);
+  $J('#modalElevadoresTotal').text(formatEnergy(STATE.consumidores.elevadores.total));
+  $J('#modalElevadoresPerc').text(`(${STATE.consumidores.elevadores.perc.toFixed(1)}%)`);
 
   // Escadas Rolantes
-  $('#modalEscadasTotal').text(formatEnergy(STATE.consumidores.escadasRolantes.total));
-  $('#modalEscadasPerc').text(`(${STATE.consumidores.escadasRolantes.perc.toFixed(1)}%)`);
+  $J('#modalEscadasTotal').text(formatEnergy(STATE.consumidores.escadasRolantes.total));
+  $J('#modalEscadasPerc').text(`(${STATE.consumidores.escadasRolantes.perc.toFixed(1)}%)`);
 
   // Outros Equipamentos
   if (STATE.consumidores.outros) {
-    $('#modalOutrosTotal').text(formatEnergy(STATE.consumidores.outros.total));
-    $('#modalOutrosPerc').text(`(${STATE.consumidores.outros.perc.toFixed(1)}%)`);
+    $J('#modalOutrosTotal').text(formatEnergy(STATE.consumidores.outros.total));
+    $J('#modalOutrosPerc').text(`(${STATE.consumidores.outros.perc.toFixed(1)}%)`);
   } else {
-    $('#modalOutrosTotal').text('0,00 kWh');
-    $('#modalOutrosPerc').text('(0%)');
+    $J('#modalOutrosTotal').text('0,00 kWh');
+    $J('#modalOutrosPerc').text('(0%)');
   }
 
   // Área Comum
-  $('#modalAreaComumTotal').text(formatEnergy(STATE.consumidores.areaComum.total));
-  $('#modalAreaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(1)}%)`);
+  $J('#modalAreaComumTotal').text(formatEnergy(STATE.consumidores.areaComum.total));
+  $J('#modalAreaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(1)}%)`);
 
   // Total Consumidores
-  $('#modalConsumidoresTotal').text(formatEnergy(STATE.consumidores.totalGeral));
-  $('#modalConsumidoresPerc').text(`(${STATE.consumidores.percGeral.toFixed(1)}%)`);
+  $J('#modalConsumidoresTotal').text(formatEnergy(STATE.consumidores.totalGeral));
+  $J('#modalConsumidoresPerc').text(`(${STATE.consumidores.percGeral.toFixed(1)}%)`);
 
   LogHelper.log("Modal data updated successfully");
 }
@@ -774,7 +776,7 @@ function renderModalChart() {
  * Render modal chart legend
  */
 function renderModalChartLegend() {
-  const $legend = $('#modalChartLegend').empty();
+  const $legend = $J('#modalChartLegend').empty();
 
   const items = [
     { label: 'Climatização', color: CHART_COLORS.climatizacao, value: STATE.consumidores.climatizacao.total },
@@ -1048,28 +1050,27 @@ function recalculateWithReceivedData() {
   // Recalcular total geral (SEM incluir entrada)
   STATE.consumidores.totalGeral = somaConsumidores + STATE.consumidores.areaComum.total;
 
-  // Recalcular percentuais
-  STATE.consumidores.lojas.perc = STATE.entrada.total > 0
-    ? (STATE.consumidores.lojas.total / STATE.entrada.total) * 100
+  // Recalcular percentuais (RFC-0056: Baseados em Total Consumidores, não em Entrada)
+  const totalConsumidores = STATE.consumidores.totalGeral;
+  STATE.consumidores.lojas.perc = totalConsumidores > 0
+    ? (STATE.consumidores.lojas.total / totalConsumidores) * 100
     : 0;
-  STATE.consumidores.climatizacao.perc = STATE.entrada.total > 0
-    ? (STATE.consumidores.climatizacao.total / STATE.entrada.total) * 100
+  STATE.consumidores.climatizacao.perc = totalConsumidores > 0
+    ? (STATE.consumidores.climatizacao.total / totalConsumidores) * 100
     : 0;
-  STATE.consumidores.elevadores.perc = STATE.entrada.total > 0
-    ? (STATE.consumidores.elevadores.total / STATE.entrada.total) * 100
+  STATE.consumidores.elevadores.perc = totalConsumidores > 0
+    ? (STATE.consumidores.elevadores.total / totalConsumidores) * 100
     : 0;
-  STATE.consumidores.escadasRolantes.perc = STATE.entrada.total > 0
-    ? (STATE.consumidores.escadasRolantes.total / STATE.entrada.total) * 100
+  STATE.consumidores.escadasRolantes.perc = totalConsumidores > 0
+    ? (STATE.consumidores.escadasRolantes.total / totalConsumidores) * 100
     : 0;
-  STATE.consumidores.outros.perc = STATE.entrada.total > 0
-    ? (STATE.consumidores.outros.total / STATE.entrada.total) * 100
+  STATE.consumidores.outros.perc = totalConsumidores > 0
+    ? (STATE.consumidores.outros.total / totalConsumidores) * 100
     : 0;
-  STATE.consumidores.areaComum.perc = STATE.entrada.total > 0
-    ? (STATE.consumidores.areaComum.total / STATE.entrada.total) * 100
+  STATE.consumidores.areaComum.perc = totalConsumidores > 0
+    ? (STATE.consumidores.areaComum.total / totalConsumidores) * 100
     : 0;
-  STATE.consumidores.percGeral = STATE.entrada.total > 0
-    ? (STATE.consumidores.totalGeral / STATE.entrada.total) * 100
-    : 0;
+  STATE.consumidores.percGeral = 100; // Total Consumidores é sempre 100% de si mesmo
 
   // Validação: Total consumidores vs Entrada
   const diff = Math.abs(STATE.entrada.total - STATE.consumidores.totalGeral);
@@ -1171,7 +1172,7 @@ function buildCurrentPeriodKey() {
  */
 function showValidationWarning(diff) {
   // Adicionar ⚠️ no card Total Consumidores
-  const $totalCard = $('.total-card .card-title');
+  const $totalCard = $$('.total-card .card-title');
   if ($totalCard.length && !$totalCard.find('.validation-warning').length) {
     $totalCard.append(' <span class="validation-warning" style="color: #FF6B6B; font-size: 0.9em;" title="Diferença de ' + diff.toFixed(2) + ' kWh detectada">⚠️</span>');
   }
@@ -1181,7 +1182,7 @@ function showValidationWarning(diff) {
  * Remove marker de warning
  */
 function hideValidationWarning() {
-  $('.validation-warning').remove();
+  $$('.validation-warning').remove();
 }
 
 // ===================== WIDGET LIFECYCLE =====================
@@ -1190,7 +1191,7 @@ self.onInit = async function() {
   LogHelper.log("Widget initializing (RFC-0056)...");
 
   // Setup container styles
-  $(self.ctx.$container).css({
+  $root().css({
     height: "100%",
     overflow: "auto",
     display: "flex",
@@ -1296,19 +1297,94 @@ self.onInit = async function() {
     }
   }, 500);
 
-  // Setup modal event listeners
-  $('#btnExpandModal').on('click', function() {
-    LogHelper.log("Expand button clicked");
+  // Setup modal event listeners (RFC-0056: Using event delegation for robustness)
+  const $container = $root();
+
+  LogHelper.log("Setting up modal event listeners...");
+  LogHelper.log("Container:", $container.length > 0 ? "found" : "NOT FOUND");
+
+  // RFC-0056 FIX: Immediate button binding (no setTimeout)
+  // Use multiple selectors to ensure button is found
+  const bindExpandButton = () => {
+    // Try multiple selection strategies
+    const $btn1 = $container.find('#btnExpandModal');
+    const $btn2 = $container.find('.btn-expand');
+    const $btn3 = $root().find('#btnExpandModal');
+
+    const $btn = $btn1.length > 0 ? $btn1 : ($btn2.length > 0 ? $btn2 : $btn3);
+
+    LogHelper.log("Expand button found:", $btn.length > 0 ? "YES" : "NO");
+
+    if ($btn.length > 0) {
+      LogHelper.log("Button HTML:", $btn[0].outerHTML);
+
+      // DIRECT binding (no delegation needed since button is in widget container)
+      $btn.off('click').on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log("[TELEMETRY_INFO] ✅ DIRECT Expand button clicked!"); // Force log
+        openModal();
+      });
+      LogHelper.log("✅ Direct click handler attached to button");
+      return true;
+    } else {
+      LogHelper.error("❌ Button #btnExpandModal NOT FOUND in container!");
+      return false;
+    }
+  };
+
+  // Try binding immediately
+  if (!bindExpandButton()) {
+    // If not found, retry after DOM settles
+    setTimeout(bindExpandButton, 100);
+    setTimeout(bindExpandButton, 500);
+    setTimeout(bindExpandButton, 1000);
+  }
+
+  // Expand button - use delegation on container (PRIMARY)
+  $container.on('click', '#btnExpandModal', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log("[TELEMETRY_INFO] ✅ DELEGATED Expand button clicked!"); // Force log even if DEBUG off
+    LogHelper.log("Expand button clicked (delegated)");
     openModal();
   });
 
-  $('#btnCloseModal').on('click', function() {
+  // Fallback: native DOM listener directly on the element (in case jQuery delegation fails)
+  const nativeBtn = document.getElementById('btnExpandModal');
+  if (nativeBtn) {
+    nativeBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('[TELEMETRY_INFO] ✅ NATIVE Expand button clicked!');
+      openModal();
+    }, { capture: false });
+  }
+
+  // Ultimate fallback: capture-phase on window to intercept the click
+  window.addEventListener('click', function(e) {
+    const t = e.target;
+    if (!t) return;
+    // match self or svg/path inside the button
+    const btn = t.id === 'btnExpandModal' ? t : (t.closest ? t.closest('#btnExpandModal') : null);
+    if (btn) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('[TELEMETRY_INFO] ✅ CAPTURE Expand button clicked!');
+      openModal();
+    }
+  }, true);
+
+  // Close button - delegate to body since modal moves there
+  $J('body').on('click', '#btnCloseModal', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
     LogHelper.log("Close button clicked");
     closeModal();
   });
 
   // Close modal on overlay click
-  $('#modalExpanded').on('click', function(e) {
+  $J('body').on('click', '#modalExpanded', function(e) {
     if (e.target.id === 'modalExpanded') {
       LogHelper.log("Modal overlay clicked");
       closeModal();
@@ -1316,8 +1392,8 @@ self.onInit = async function() {
   });
 
   // Close modal on ESC key
-  $(document).on('keydown', function(e) {
-    if (e.key === 'Escape' && $('#modalExpanded').css('display') === 'flex') {
+  $J(document).on('keydown.telemetryInfoModal', function(e) {
+    if (e.key === 'Escape' && $J('#modalExpanded').css('display') === 'flex') {
       LogHelper.log("ESC key pressed - closing modal");
       closeModal();
     }
@@ -1397,12 +1473,13 @@ self.onDestroy = function() {
     }
   }
 
-  // Remove modal event listeners
+  // Remove modal event listeners (RFC-0056: Cleanup delegated events)
   try {
-    $('#btnExpandModal').off('click');
-    $('#btnCloseModal').off('click');
-    $('#modalExpanded').off('click');
-    $(document).off('keydown');
+  const $container = $root();
+    $container.off('click', '#btnExpandModal');
+    $J('body').off('click', '#btnCloseModal');
+    $J('body').off('click', '#modalExpanded');
+    $J(document).off('keydown.telemetryInfoModal');
     LogHelper.log("Modal event listeners removed");
   } catch (error) {
     LogHelper.warn("Error removing modal listeners:", error);
@@ -1410,7 +1487,7 @@ self.onDestroy = function() {
 
   // Remove modal from body if it was moved there
   try {
-    const $modal = $('#modalExpanded');
+    const $modal = $J('#modalExpanded');
     if ($modal.parent()[0] === document.body) {
       LogHelper.log("Removing modal from body");
       $modal.remove();

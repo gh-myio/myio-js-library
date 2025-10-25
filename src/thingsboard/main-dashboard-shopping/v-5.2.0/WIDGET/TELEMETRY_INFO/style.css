@@ -77,10 +77,28 @@
   transform: translateY(-2px);
 }
 
-/* Full-width cards (Total, Chart) */
-.total-card,
+/* RFC-0056 FIX: Layout Grid
+ * ROW 1: [Entrada] [Lojas]
+ * ROW 2: [Climatização] [Elevadores]
+ * ROW 3: [Esc. Rolantes] [Outros]
+ * ROW 4: [Área Comum] [Total Consumidores]  ← SAME ROW (2 columns)
+ * ROW 5: [Chart - Full Width]                ← FULL WIDTH (100%)
+ */
+
+/* Chart ALWAYS takes full width (100%) */
 .chart-card {
-  grid-column: 1 / -1;
+  grid-column: 1 / -1; /* Span all columns (both in 2-col grid) */
+}
+
+/* Desktop: Área Comum + Total side by side */
+@media (min-width: 769px) {
+  .area-comum-card {
+    grid-column: 1; /* First column */
+  }
+
+  .total-card {
+    grid-column: 2; /* Second column */
+  }
 }
 
 .card-header {
@@ -103,6 +121,23 @@
   margin: 0;
   color: var(--myio-primary, #5B2EBC);
   letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* Tooltip icon */
+.info-tooltip {
+  font-size: 14px;
+  color: var(--myio-accent, #00C896);
+  cursor: help;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.info-tooltip:hover {
+  opacity: 1;
 }
 
 .card-body {
@@ -113,18 +148,19 @@
   overflow-y: auto;
 }
 
-/* ========== STATS ========== */
+/* ========== STATS (RFC-0056 FIX: Valor + Percentual na mesma linha) ========== */
 
 .stat-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between; /* RFC-0056: Espaça valor e percentual */
+  gap: 12px;
   font-size: 14px;
   line-height: 1.4;
 }
 
 .stat-row.main-stat {
-  font-size: 16px;
+  font-size: 18px; /* RFC-0056: Aumentado de 16px para 18px para destaque */
   font-weight: 600;
   color: var(--myio-primary, #5B2EBC);
 }
@@ -137,18 +173,19 @@
 .stat-value {
   font-weight: 600;
   color: var(--myio-text, #222222);
-  margin-left: auto;
-  text-align: right;
+  text-align: left; /* RFC-0056: Alinhado à esquerda */
   font-variant-numeric: tabular-nums;
+  flex: 1; /* RFC-0056: Cresce para ocupar espaço disponível */
 }
 
 .stat-perc {
   color: var(--myio-accent, #00C896);
   font-weight: 500;
-  min-width: 60px;
+  font-size: 14px; /* RFC-0056: Percentual um pouco menor que o valor */
   text-align: right;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* ========== DEVICES LIST ========== */
@@ -277,13 +314,27 @@
 
 /* Mobile: 1 coluna */
 @media (max-width: 768px) {
+  /* Keep 2 columns, but make most cards full width; keep Área Comum + Total side by side */
   .info-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .total-card,
-  .chart-card {
+  /* Default: all cards span both columns (full width) */
+  .info-grid .info-card {
+    grid-column: 1 / -1;
+  }
+
+  /* Override: Área Comum + Total stay on the same row (one per column) */
+  .info-grid .area-comum-card {
     grid-column: 1;
+  }
+  .info-grid .total-card {
+    grid-column: 2;
+  }
+
+  /* Chart remains full width */
+  .info-grid .chart-card {
+    grid-column: 1 / -1;
   }
 
   .telemetry-info-root {
@@ -569,22 +620,30 @@
 .modal-card-content {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px; /* RFC-0056: Espaçamento entre título e valores */
 }
 
 .modal-card-content h3 {
   font-size: 13px;
   font-weight: 600;
   color: var(--myio-primary, #5B2EBC);
-  margin: 0 0 8px 0;
+  margin: 0;
   letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
+/* RFC-0056 FIX: Valor + Percentual na mesma linha no modal */
 .modal-card-value {
   font-size: 18px;
   font-weight: 700;
   color: var(--myio-text, #222222);
-  margin-bottom: 4px;
   font-variant-numeric: tabular-nums;
+  display: inline; /* RFC-0056: inline para ficar ao lado do percentual */
+  margin-right: 8px;
 }
 
 .modal-card-perc {
@@ -592,6 +651,8 @@
   font-weight: 500;
   color: var(--myio-accent, #00C896);
   font-variant-numeric: tabular-nums;
+  display: inline; /* RFC-0056: inline para ficar ao lado do valor */
+  white-space: nowrap;
 }
 
 /* Modal card color accents */
@@ -639,10 +700,10 @@
   min-height: 0;
 }
 
-.modal-chart-container canvas {
-  max-height: 100%;
-  max-width: 100%;
-}
+  .modal-chart-container canvas {
+    max-height: 100%;
+    max-width: 100%;
+  }
 
 .modal-chart-legend {
   display: flex;
@@ -669,16 +730,16 @@
   border-radius: 4px;
 }
 
-.modal-cards-column::-webkit-scrollbar-thumb:hover {
-  background: var(--myio-text-secondary, #666666);
-}
+  .modal-cards-column::-webkit-scrollbar-thumb:hover {
+    background: var(--myio-text-secondary, #666666);
+  }
 
 /* ========== MODAL RESPONSIVE ========== */
 
-@media (max-width: 1200px) {
-  .modal-body {
-    flex-direction: column;
-  }
+  @media (max-width: 1200px) {
+    .modal-body {
+      flex-direction: column;
+    }
 
   .modal-cards-column,
   .modal-chart-column {
@@ -689,7 +750,32 @@
     max-height: 40%;
   }
 
-  .modal-chart-column {
-    flex: 1;
+    .modal-chart-column {
+      flex: 1;
+    }
   }
+
+/* ========== OVERRIDES: Pairing and ~10% font reduction ========== */
+
+/* Maintain 2-column pairs on all widths; chart remains full width */
+@media (max-width: 768px) {
+  .info-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+  .info-grid .info-card { grid-column: auto !important; }
+  .chart-card { grid-column: 1 / -1 !important; }
 }
+
+/* Proportional font-size reduction (~10%) */
+.info-title { font-size: 18px !important; }
+.card-title { font-size: 14px !important; }
+.stat-row { font-size: 13px !important; }
+.stat-row.main-stat { font-size: 16px !important; }
+.stat-perc { font-size: 13px !important; }
+.devices-list { font-size: 11px !important; }
+.empty-state-icon { font-size: 43px !important; }
+.empty-state-text { font-size: 13px !important; }
+.empty-state-hint, .empty-state-hint small { font-size: 11px !important; }
+.modal-header h2 { font-size: 22px !important; }
+.modal-card-icon { font-size: 29px !important; }
+.modal-card-value { font-size: 16px !important; }
+.modal-card-perc { font-size: 13px !important; }
+.modal-chart-title { font-size: 18px !important; }

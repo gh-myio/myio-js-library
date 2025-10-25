@@ -26,11 +26,7 @@
       </div>
       <div class="card-body">
         <div class="stat-row main-stat">
-          <span class="stat-label">Total:</span>
           <span class="stat-value" id="entradaTotal">0,00 kWh</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-perc" id="entradaPerc">100%</span>
         </div>
         <div class="devices-list" id="entradaDevices">
           <!-- Dispositivos de entrada (opcional) -->
@@ -45,10 +41,7 @@
       </div>
       <div class="card-body">
         <div class="stat-row main-stat">
-          <span class="stat-label">Total:</span>
           <span class="stat-value" id="lojasTotal">0,00 kWh</span>
-        </div>
-        <div class="stat-row">
           <span class="stat-perc" id="lojasPerc">(0%)</span>
         </div>
       </div>
@@ -62,10 +55,7 @@
       </div>
       <div class="card-body">
         <div class="stat-row main-stat">
-          <span class="stat-label">Total:</span>
           <span class="stat-value" id="climatizacaoTotal">0,00 kWh</span>
-        </div>
-        <div class="stat-row">
           <span class="stat-perc" id="climatizacaoPerc">(0%)</span>
         </div>
       </div>
@@ -78,10 +68,7 @@
       </div>
       <div class="card-body">
         <div class="stat-row main-stat">
-          <span class="stat-label">Total:</span>
           <span class="stat-value" id="elevadoresTotal">0,00 kWh</span>
-        </div>
-        <div class="stat-row">
           <span class="stat-perc" id="elevadoresPerc">(0%)</span>
         </div>
       </div>
@@ -95,10 +82,7 @@
       </div>
       <div class="card-body">
         <div class="stat-row main-stat">
-          <span class="stat-label">Total:</span>
           <span class="stat-value" id="escadasRolantesTotal">0,00 kWh</span>
-        </div>
-        <div class="stat-row">
           <span class="stat-perc" id="escadasRolantesPerc">(0%)</span>
         </div>
       </div>
@@ -111,36 +95,29 @@
       </div>
       <div class="card-body">
         <div class="stat-row main-stat">
-          <span class="stat-label">Total:</span>
           <span class="stat-value" id="outrosTotal">0,00 kWh</span>
-        </div>
-        <div class="stat-row">
           <span class="stat-perc" id="outrosPerc">(0%)</span>
         </div>
       </div>
     </div>
 
-    <!-- ========== ROW 4: ÁREA COMUM (RESIDUAL) ========== -->
-    <div class="info-card area-comum-card" style="grid-column: span 2;">
+    <!-- ========== ROW 4: ÁREA COMUM + TOTAL (SAME ROW) ========== -->
+    <div class="info-card area-comum-card">
       <div class="card-header">
         <span class="card-icon">🏢</span>
-        <h3 class="card-title">Área Comum (Residual)</h3>
+        <h3 class="card-title">
+          Área Comum
+          <span class="info-tooltip" title="Entrada - (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)">ℹ️</span>
+        </h3>
       </div>
       <div class="card-body">
         <div class="stat-row main-stat">
-          <span class="stat-label">Total:</span>
           <span class="stat-value" id="areaComumTotal">0,00 kWh</span>
-        </div>
-        <div class="stat-row">
           <span class="stat-perc" id="areaComumPerc">(0%)</span>
-        </div>
-        <div class="residual-note">
-          <small>* Entrada - (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)</small>
         </div>
       </div>
     </div>
 
-    <!-- ========== ROW 4: TOTAL (FULL WIDTH) ========== -->
     <div class="info-card total-card">
       <div class="card-header">
         <span class="card-icon">📊</span>
@@ -148,7 +125,6 @@
       </div>
       <div class="card-body">
         <div class="stat-row main-stat">
-          <span class="stat-label">TOTAL:</span>
           <span class="stat-value" id="consumidoresTotal">0,00 kWh</span>
           <span class="stat-perc" id="consumidoresPerc">(100%)</span>
         </div>
@@ -196,7 +172,6 @@
             <div class="modal-card-content">
               <h3>Entrada</h3>
               <div class="modal-card-value" id="modalEntradaTotal">0,00 kWh</div>
-              <div class="modal-card-perc" id="modalEntradaPerc">100%</div>
             </div>
           </div>
 
@@ -251,7 +226,10 @@
           <div class="modal-card modal-area-comum">
             <div class="modal-card-icon">🏢</div>
             <div class="modal-card-content">
-              <h3>Área Comum (Residual)</h3>
+              <h3>
+                Área Comum
+                <span class="info-tooltip" title="Entrada - (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)">ℹ️</span>
+              </h3>
               <div class="modal-card-value" id="modalAreaComumTotal">0,00 kWh</div>
               <div class="modal-card-perc" id="modalAreaComumPerc">(0%)</div>
             </div>
