@@ -568,3 +568,45 @@
     height: 20px !important;
     /* Era 16px */
 }
+
+/* ============ RFC-0056: FONT SIZE REDUCTION (~25%) ============ */
+
+/* Header: label, contador, filtro, total */
+.shops-root .shops-title {
+    font-size: 11px !important;        /* era 14px → 11px (-21%) */
+}
+
+.shops-root .shops-count {
+    font-size: 9px !important;         /* era 11px → 9px (-18%) */
+}
+
+.shops-root #shopsSearch {
+    font-size: 10px !important;        /* era 12px → 10px (-17%) */
+}
+
+.shops-root .shops-total {
+    font-size: 11px !important;        /* era 13px → 11px (-15%) */
+}
+
+/* Modal */
+.shops-root .shops-modal-header h3 {
+    font-size: 14px !important;        /* era 18px → 14px (-22%) */
+}
+
+.shops-root .block-label {
+    font-size: 12px !important;        /* era 15px → 12px (-20%) */
+}
+
+/* Buttons */
+.shops-root .btn {
+    font-size: 10px !important;        /* era 12px → 10px (-17%) */
+}
+
+.shops-root .tiny-btn {
+    font-size: 11px !important;        /* era 13px → 11px (-15%) */
+}
+
+/* Cards grid */
+.shops-root .shops-list {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important; /* era 260px → 220px */
+}

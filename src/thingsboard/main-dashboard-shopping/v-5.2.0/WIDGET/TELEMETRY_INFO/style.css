@@ -767,19 +767,32 @@
 /* Ensure chart spans both columns on all widths */
 .info-grid > .chart-card { grid-column: 1 / -1 !important; }
 
-/* Proportional font-size reduction (~12%) */
-.info-title { font-size: 17px !important; }
-.card-title { font-size: 13px !important; }
-.stat-row { font-size: 12px !important; }
-.stat-row.main-stat { font-size: 15px !important; }
-.stat-perc { font-size: 12px !important; }
-.devices-list { font-size: 10px !important; }
-.empty-state-icon { font-size: 42px !important; }
-.empty-state-text { font-size: 12px !important; }
-.empty-state-hint, .empty-state-hint small { font-size: 11px !important; }
-.modal-header h2 { font-size: 21px !important; }
-.modal-card-icon { font-size: 28px !important; }
-.modal-card-value { font-size: 15px !important; }
-.modal-card-perc { font-size: 12px !important; }
-.modal-chart-title { font-size: 17px !important; }
+/* RFC-0056 FIX: Proportional font-size reduction (~35%) for ultra-compact layout */
+/* Cards principais */
+.info-title { font-size: 13px !important; }           /* era 20px → 13px (-35%) */
+.card-title { font-size: 10px !important; }           /* era 16px → 10px (-37%) */
+.card-icon { font-size: 14px !important; }            /* era 20px → 14px (-30%) */
+.stat-row { font-size: 9px !important; }              /* era 14px → 9px (-36%) */
+.stat-row.main-stat { font-size: 12px !important; }   /* era 18px → 12px (-33%) */
+.stat-value { font-size: 12px !important; }           /* era 18px → 12px (-33%) */
+.stat-perc { font-size: 9px !important; }             /* era 14px → 9px (-36%) */
+.devices-list { font-size: 8px !important; }          /* era 12px → 8px (-33%) */
+
+/* Empty states */
+.empty-state-icon { font-size: 32px !important; }     /* era 48px → 32px (-33%) */
+.empty-state-text { font-size: 10px !important; }     /* era 14px → 10px (-29%) */
+.empty-state-hint, .empty-state-hint small { font-size: 9px !important; } /* era 12px → 9px (-25%) */
+
+/* Modal */
+.modal-header h2 { font-size: 16px !important; }      /* era 24px → 16px (-33%) */
+.modal-card-icon { font-size: 20px !important; }      /* era 32px → 20px (-37%) */
+.modal-card-content h3 { font-size: 10px !important; } /* era 13px → 10px (-23%) */
+.modal-card-value { font-size: 12px !important; }     /* era 18px → 12px (-33%) */
+.modal-card-perc { font-size: 10px !important; }      /* era 14px → 10px (-29%) */
+.modal-chart-title { font-size: 13px !important; }    /* era 20px → 13px (-35%) */
+
+/* Chart legend */
+.legend-item { font-size: 9px !important; }           /* era 12px → 9px (-25%) */
+.legend-label { font-size: 9px !important; }          /* era 12px → 9px (-25%) */
+.legend-value { font-size: 9px !important; }          /* era 12px → 9px (-25%) */
 
