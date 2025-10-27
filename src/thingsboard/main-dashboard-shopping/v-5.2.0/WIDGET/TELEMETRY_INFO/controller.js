@@ -445,14 +445,7 @@ function renderPieChart() {
 
   // ========== CHART DATA (6 slices) ==========
   const data = {
-    labels: [
-      'â„ï¸ ClimatizaÃ§Ã£o',
-      'ðŸ›— Elevadores',
-      'ðŸŽ¢ Esc. Rolantes',
-      'ðŸª Lojas',
-      'âš™ï¸ Outros',
-      'ðŸ¢ Ãrea Comum'
-    ],
+    labels: ['Climatização','Elevadores','Esc. Rolantes','Lojas','Outros','Área Comum'],
     datasets: [{
       data: [
         STATE.consumidores.climatizacao.total,
@@ -529,36 +522,11 @@ function renderChartLegend() {
   const $legend = $$('#chartLegend').empty();
 
   const items = [
-    {
-      label: 'â„ï¸ ClimatizaÃ§Ã£o',
-      color: CHART_COLORS.climatizacao,
-      value: STATE.consumidores.climatizacao.total,
-      perc: STATE.consumidores.climatizacao.perc
-    },
-    {
-      label: 'ðŸ›— Elevadores',
-      color: CHART_COLORS.elevadores,
-      value: STATE.consumidores.elevadores.total,
-      perc: STATE.consumidores.elevadores.perc
-    },
-    {
-      label: 'ðŸŽ¢ Esc. Rolantes',
-      color: CHART_COLORS.escadasRolantes,
-      value: STATE.consumidores.escadasRolantes.total,
-      perc: STATE.consumidores.escadasRolantes.perc
-    },
-    {
-      label: 'ðŸª Lojas',
-      color: CHART_COLORS.lojas,
-      value: STATE.consumidores.lojas.total,
-      perc: STATE.consumidores.lojas.perc
-    },
-    {
-      label: 'ðŸ¢ Ãrea Comum',
-      color: CHART_COLORS.areaComum,
-      value: STATE.consumidores.areaComum.total,
-      perc: STATE.consumidores.areaComum.perc
-    }
+    { label: 'Climatização', color: CHART_COLORS.climatizacao, value: STATE.consumidores.climatizacao.total, perc: STATE.consumidores.climatizacao.perc },
+    { label: 'Elevadores', color: CHART_COLORS.elevadores, value: STATE.consumidores.elevadores.total, perc: STATE.consumidores.elevadores.perc },
+    { label: 'Esc. Rolantes', color: CHART_COLORS.escadasRolantes, value: STATE.consumidores.escadasRolantes.total, perc: STATE.consumidores.escadasRolantes.perc },
+    { label: 'Lojas', color: CHART_COLORS.lojas, value: STATE.consumidores.lojas.total, perc: STATE.consumidores.lojas.perc },
+    { label: 'Área Comum', color: CHART_COLORS.areaComum, value: STATE.consumidores.areaComum.total, perc: STATE.consumidores.areaComum.perc }
   ];
 
   items.forEach(item => {
@@ -751,14 +719,7 @@ function renderModalChart() {
     STATE.consumidores.areaComum.total
   ];
 
-  const labels = [
-    'ClimatizaÃ§Ã£o',
-    'Elevadores',
-    'Esc. Rolantes',
-    'Lojas',
-    'Outros',
-    'Ãrea Comum'
-  ];
+  
 
   const colors = [
     CHART_COLORS.climatizacao,
@@ -768,6 +729,8 @@ function renderModalChart() {
     CHART_COLORS.outros,
     CHART_COLORS.areaComum
   ];
+
+  const labels = ['Climatização','Elevadores','Esc. Rolantes','Lojas','Outros','Área Comum'];
 
   modalPieChartInstance = new Chart(ctx, {
     type: 'pie',
@@ -829,12 +792,11 @@ function renderModalChartLegend() {
   const $legend = $J('#modalChartLegend').empty();
 
   const items = [
-    { label: 'ClimatizaÃ§Ã£o', color: CHART_COLORS.climatizacao, value: STATE.consumidores.climatizacao.total },
-    { label: 'Elevadores', color: CHART_COLORS.elevadores, value: STATE.consumidores.elevadores.total },
-    { label: 'Esc. Rolantes', color: CHART_COLORS.escadasRolantes, value: STATE.consumidores.escadasRolantes.total },
-    { label: 'Lojas', color: CHART_COLORS.lojas, value: STATE.consumidores.lojas.total },
-    { label: 'Outros', color: CHART_COLORS.outros, value: STATE.consumidores.outros ? STATE.consumidores.outros.total : 0 },
-    { label: 'Ãrea Comum', color: CHART_COLORS.areaComum, value: STATE.consumidores.areaComum.total }
+    { label: 'Climatização', color: CHART_COLORS.climatizacao, value: STATE.consumidores.climatizacao.total, perc: STATE.consumidores.climatizacao.perc },
+    { label: 'Elevadores', color: CHART_COLORS.elevadores, value: STATE.consumidores.elevadores.total, perc: STATE.consumidores.elevadores.perc },
+    { label: 'Esc. Rolantes', color: CHART_COLORS.escadasRolantes, value: STATE.consumidores.escadasRolantes.total, perc: STATE.consumidores.escadasRolantes.perc },
+    { label: 'Lojas', color: CHART_COLORS.lojas, value: STATE.consumidores.lojas.total, perc: STATE.consumidores.lojas.perc },
+    { label: 'Área Comum', color: CHART_COLORS.areaComum, value: STATE.consumidores.areaComum.total, perc: STATE.consumidores.areaComum.perc }
   ];
 
   items.forEach(item => {
@@ -1588,4 +1550,3 @@ self.onDestroy = function() {
 
   LogHelper.log("Widget destroyed successfully");
 };
-

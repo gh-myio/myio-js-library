@@ -79,10 +79,10 @@
 
 /* RFC-0056 FIX: Layout Grid
  * ROW 1: [Entrada] [Lojas]
- * ROW 2: [ClimatizaÃ§Ã£o] [Elevadores]
+ * ROW 2: [Climatização] [Elevadores]
  * ROW 3: [Esc. Rolantes] [Outros]
- * ROW 4: [Ãrea Comum] [Total Consumidores]  â† SAME ROW (2 columns)
- * ROW 5: [Chart - Full Width]                â† FULL WIDTH (100%)
+ * ROW 4: [ÃÁÁrea Comum] [Total Consumidores]  ← SAME ROW (2 columns)
+ * ROW 5: [Chart - Full Width]                ← FULL WIDTH (100%)
  */
 
 /* Chart ALWAYS takes full width (100%) */
@@ -90,7 +90,7 @@
   grid-column: 1 / -1; /* Span all columns (both in 2-col grid) */
 }
 
-/* Desktop: Ãrea Comum + Total side by side */
+/* Desktop: ÃÁÁrea Comum + Total side by side */
 @media (min-width: 769px) {
   .area-comum-card {
     grid-column: 1; /* First column */
@@ -175,7 +175,7 @@
   color: var(--myio-text, #222222);
   text-align: left; /* RFC-0056: Alinhado Ã  esquerda */
   font-variant-numeric: tabular-nums;
-  flex: 1; /* RFC-0056: Cresce para ocupar espaÃ§o disponÃ­vel */
+  flex: 1; /* RFC-0056: Cresce para ocupar espaço disponível */
 }
 
 .stat-perc {
@@ -314,7 +314,7 @@
 
 /* Mobile: 1 coluna */
 @media (max-width: 768px) {
-  /* Keep 2 columns, but make most cards full width; keep Ãrea Comum + Total side by side */
+  /* Keep 2 columns, but make most cards full width; keep ÃÁÁrea Comum + Total side by side */
   .info-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -324,7 +324,7 @@
     grid-column: 1 / -1;
   }
 
-  /* Override: Ãrea Comum + Total stay on the same row (one per column) */
+  /* Override: ÃÁÁrea Comum + Total stay on the same row (one per column) */
   .info-grid .area-comum-card {
     grid-column: 1;
   }
@@ -815,7 +815,3 @@ body.modal-open-telemetry-info {
 .modal-chart-legend .legend-item { font-size: 14px !important; }
 .modal-chart-legend .legend-label { font-size: 14px !important; }
 .modal-chart-legend .legend-value { font-size: 14px !important; font-weight: 600 !important; }
-
-
-
-
