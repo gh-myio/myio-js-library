@@ -8,7 +8,12 @@
   <!-- HEADER -->
   <header class="info-header">
     <h2 class="info-title">ℹ️ Informações de Energia</h2>
-    <button class="btn-expand" id="btnExpandModal" title="Expandir visualização">
+    <button
+      class="btn-expand"
+      id="btnExpandModal"
+      title="Expandir visualização"
+      style="display: flex !important; cursor: pointer !important; z-index: 9999 !important;"
+      onclick="console.log('[TELEMETRY_INFO] Button clicked!'); if(window.TELEMETRY_INFO_openModal) { window.TELEMETRY_INFO_openModal(); } else { alert('Function not loaded yet!'); }">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
       </svg>
@@ -149,12 +154,16 @@
   </div>
 
   <!-- ========== MODAL EXPANDIDA ========== -->
-  <div class="modal-overlay" id="modalExpanded" style="display: none;">
+  <div class="modal-overlay" id="modalExpanded" style="display: none;" onclick="if(event.target.id === 'modalExpanded') { window.TELEMETRY_INFO_closeModal && window.TELEMETRY_INFO_closeModal(); }">
     <div class="modal-container">
       <!-- Modal Header -->
       <div class="modal-header">
         <h2>📊 Visão Detalhada - Informações de Energia</h2>
-        <button class="btn-close" id="btnCloseModal" title="Fechar">
+        <button
+          class="btn-close"
+          id="btnCloseModal"
+          title="Fechar"
+          onclick="console.log('[TELEMETRY_INFO] Close button clicked!'); window.TELEMETRY_INFO_closeModal && window.TELEMETRY_INFO_closeModal()">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>

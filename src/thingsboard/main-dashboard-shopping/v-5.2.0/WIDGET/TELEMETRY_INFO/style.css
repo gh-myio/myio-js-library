@@ -477,23 +477,33 @@
   display: block;
 }
 
-/* ========== MODAL OVERLAY ========== */
+/* ========== MODAL OVERLAY (RFC-0056 FIX: Maximum z-index, fullscreen when shown) ========== */
+
+/* Prevent body scroll when modal is open */
+body.modal-open-telemetry-info {
+  overflow: hidden !important;
+}
 
 .modal-overlay {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
-  background: rgba(0, 0, 0, 0.75);
-  z-index: 999999 !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.5) !important;
+  z-index: 2147483647 !important; /* MAXIMUM 32-bit z-index */
+  /* display controlled by inline style */
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: all !important;
+  backdrop-filter: blur(4px) !important;
   animation: fadeIn 0.2s ease;
   margin: 0 !important;
   padding: 0 !important;
+  contain: none !important; /* Prevent containment issues */
+  isolation: auto !important; /* Don't create new stacking context */
 }
 
 @keyframes fadeIn {
@@ -505,21 +515,25 @@
   }
 }
 
-/* ========== MODAL CONTAINER ========== */
+/* ========== MODAL CONTAINER (RFC-0056 FIX: Fullscreen inside overlay) ========== */
 
 .modal-container {
-  background: var(--myio-bg, #FFFFFF);
-  border-radius: 16px;
+  background: var(--myio-bg, #FFFFFF) !important;
+  color: var(--myio-text, #222222) !important;
+  border-radius: 16px !important;
   width: 95vw !important;
   height: 90vh !important;
-  max-width: 1800px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: slideUp 0.3s ease;
-  overflow: hidden;
-  position: relative;
-  margin: 0 !important;
+  max-width: 1800px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+  animation: slideUp 0.3s ease !important;
+  overflow: hidden !important;
+  position: relative !important;
+  z-index: 10 !important;
+  /* visibility and opacity controlled by parent overlay */
+  pointer-events: all !important;
+  margin: 0 auto !important;
 }
 
 @keyframes slideUp {
@@ -539,7 +553,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  padding: 24px 32px;  /* RFC-0056: Aumentado de 20px 24px para 24px 32px */
   border-bottom: 2px solid var(--myio-border, #E0E0E0);
   background: var(--myio-bg-secondary, #F9F9F9);
 }
@@ -576,8 +590,8 @@
 .modal-body {
   flex: 1;
   display: flex;
-  gap: 24px;
-  padding: 24px;
+  gap: 32px;      /* RFC-0056: Aumentado de 24px para 32px para melhor separação */
+  padding: 32px;  /* RFC-0056: Aumentado de 24px para 32px para mais espaço */
   overflow: hidden;
 }
 
@@ -587,7 +601,7 @@
   width: 30%;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  gap: 18px;  /* RFC-0056: Aumentado de 16px para 18px para melhor espaçamento */
   align-content: start;
   overflow-y: auto;
   padding-right: 8px;
@@ -597,9 +611,9 @@
   background: var(--myio-bg-secondary, #F9F9F9);
   border: 2px solid var(--myio-border, #E0E0E0);
   border-radius: 12px;
-  padding: 16px;
+  padding: 20px;  /* RFC-0056: Aumentado de 16px para 20px para mais espaçamento */
   display: flex;
-  gap: 12px;
+  gap: 14px;      /* RFC-0056: Aumentado de 12px para 14px */
   align-items: flex-start;
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px var(--myio-shadow, rgba(0, 0, 0, 0.05));
@@ -622,7 +636,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px; /* RFC-0056: EspaÃ§amento entre tÃ­tulo e valores */
+  gap: 8px; /* RFC-0056: Aumentado de 4px para 8px para melhor legibilidade */
 }
 
 .modal-card-content h3 {
@@ -783,16 +797,25 @@
 .empty-state-text { font-size: 10px !important; }     /* era 14px → 10px (-29%) */
 .empty-state-hint, .empty-state-hint small { font-size: 9px !important; } /* era 12px → 9px (-25%) */
 
-/* Modal */
-.modal-header h2 { font-size: 16px !important; }      /* era 24px → 16px (-33%) */
-.modal-card-icon { font-size: 20px !important; }      /* era 32px → 20px (-37%) */
-.modal-card-content h3 { font-size: 10px !important; } /* era 13px → 10px (-23%) */
-.modal-card-value { font-size: 12px !important; }     /* era 18px → 12px (-33%) */
-.modal-card-perc { font-size: 10px !important; }      /* era 14px → 10px (-29%) */
-.modal-chart-title { font-size: 13px !important; }    /* era 20px → 13px (-35%) */
+/* Modal - RFC-0056 FIX: Aumentado SIGNIFICATIVAMENTE para legibilidade e estética */
+.modal-header h2 { font-size: 26px !important; }       /* Título principal maior e mais visível */
+.modal-card-icon { font-size: 36px !important; }       /* Ícones maiores e mais atrativos */
+.modal-card-content h3 { font-size: 14px !important; } /* Títulos dos cards mais legíveis */
+.modal-card-value { font-size: 22px !important; }      /* Valores principais BEM maiores */
+.modal-card-perc { font-size: 16px !important; }       /* Percentuais maiores */
+.modal-chart-title { font-size: 22px !important; }     /* Título do gráfico maior */
+.btn-close svg { width: 26px !important; height: 26px !important; } /* Botão fechar maior */
 
-/* Chart legend */
+/* Chart legend - main widget */
 .legend-item { font-size: 9px !important; }           /* era 12px → 9px (-25%) */
 .legend-label { font-size: 9px !important; }          /* era 12px → 9px (-25%) */
 .legend-value { font-size: 9px !important; }          /* era 12px → 9px (-25%) */
+
+/* Modal chart legend - RFC-0056 FIX: Legenda maior na modal */
+.modal-chart-legend .legend-item { font-size: 14px !important; }
+.modal-chart-legend .legend-label { font-size: 14px !important; }
+.modal-chart-legend .legend-value { font-size: 14px !important; font-weight: 600 !important; }
+
+
+
 

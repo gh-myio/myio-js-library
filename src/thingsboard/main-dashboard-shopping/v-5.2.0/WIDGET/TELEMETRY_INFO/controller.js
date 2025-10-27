@@ -1,14 +1,14 @@
-/* =========================================================================
+﻿/* =========================================================================
  * ThingsBoard Widget: TELEMETRY_INFO (MyIO v-5.2.0)
  * RFC-0056: 6 Categories + Light Mode + Grid 2 Columns
- * - Consolida informações de entrada e consumidores
- * - Gráfico de pizza com distribuição de consumo (5 categorias)
+ * - Consolida informaÃ§Ãµes de entrada e consumidores
+ * - GrÃ¡fico de pizza com distribuiÃ§Ã£o de consumo (5 categorias)
  * - Integrado com MyIO Orchestrator (RFC-0042)
- * - Área Comum calculado como residual
+ * - Ãrea Comum calculado como residual
  *
  * Autor: MyIO Team
  * Data: 2025-01-24
- * Versão: 2.0.0 (RFC-0056)
+ * VersÃ£o: 2.0.0 (RFC-0056)
  * =========================================================================*/
 
 // ===================== CONFIGURATION =====================
@@ -53,8 +53,8 @@ const STATE = {
     elevadores: { devices: [], total: 0, perc: 0 },
     escadasRolantes: { devices: [], total: 0, perc: 0 },
     lojas: { devices: [], total: 0, perc: 0 },
-    outros: { devices: [], total: 0, perc: 0 }, // ← RFC-0056: Outros equipamentos de AreaComum
-    areaComum: { devices: [], total: 0, perc: 0 }, // ← Residual
+    outros: { devices: [], total: 0, perc: 0 }, // â† RFC-0056: Outros equipamentos de AreaComum
+    areaComum: { devices: [], total: 0, perc: 0 }, // â† Residual
     totalGeral: 0,
     percGeral: 100
   },
@@ -77,7 +77,7 @@ const CATEGORIES = {
   ELEVADORES: 'elevadores',
   ESCADAS_ROLANTES: 'escadas_rolantes',
   LOJAS: 'lojas',
-  AREA_COMUM: 'area_comum' // ← Residual (calculado)
+  AREA_COMUM: 'area_comum' // â† Residual (calculado)
 };
 
 // ===================== DOM HELPERS =====================
@@ -112,16 +112,16 @@ function classifyDevice(labelOrName = "", datasourceAlias = "") {
   const s = normalizeLabel(labelOrName);
 
   // ========== 1. ENTRADA ==========
-  // Dispositivos de medição principal (relógios, subestações)
+  // Dispositivos de mediÃ§Ã£o principal (relÃ³gios, subestaÃ§Ãµes)
   if (/\brelogio\b/.test(s)) return CATEGORIES.ENTRADA;
   if (/subesta/.test(s)) return CATEGORIES.ENTRADA;
   if (/\bentrada\b/.test(s)) return CATEGORIES.ENTRADA;
   if (/medicao/.test(s)) return CATEGORIES.ENTRADA;
   if (/medidor principal/.test(s)) return CATEGORIES.ENTRADA;
-  if (/geracao/.test(s)) return CATEGORIES.ENTRADA; // Geração solar, etc
+  if (/geracao/.test(s)) return CATEGORIES.ENTRADA; // GeraÃ§Ã£o solar, etc
 
-  // ========== 2. CLIMATIZAÇÃO ==========
-  // Chillers, bombas, sistemas de climatização
+  // ========== 2. CLIMATIZAÃ‡ÃƒO ==========
+  // Chillers, bombas, sistemas de climatizaÃ§Ã£o
   if (/chiller/.test(s)) return CATEGORIES.CLIMATIZACAO;
   if (/\bbomba\b/.test(s)) return CATEGORIES.CLIMATIZACAO;
   if (/bomba primaria/.test(s)) return CATEGORIES.CLIMATIZACAO;
@@ -151,9 +151,9 @@ function classifyDevice(labelOrName = "", datasourceAlias = "") {
   if (/\bstore\b/.test(s)) return CATEGORIES.LOJAS; // EN
   if (/varejo/.test(s)) return CATEGORIES.LOJAS;
 
-  // ========== 6. ÁREA COMUM (Residual) ==========
-  // Nota: Área Comum NÃO é classificado aqui, é CALCULADO como residual!
-  // Apenas itens explicitamente rotulados como "área comum" vão aqui
+  // ========== 6. ÃREA COMUM (Residual) ==========
+  // Nota: Ãrea Comum NÃƒO Ã© classificado aqui, Ã© CALCULADO como residual!
+  // Apenas itens explicitamente rotulados como "Ã¡rea comum" vÃ£o aqui
   if (/area comum/.test(s)) return CATEGORIES.AREA_COMUM;
   if (/iluminacao/.test(s)) return CATEGORIES.AREA_COMUM;
   if (/corredor/.test(s)) return CATEGORIES.AREA_COMUM;
@@ -161,17 +161,17 @@ function classifyDevice(labelOrName = "", datasourceAlias = "") {
   if (/estacionamento/.test(s)) return CATEGORIES.AREA_COMUM;
 
   // ========== DEFAULT ==========
-  // Items não classificados vão para LOJAS (comportamento padrão)
+  // Items nÃ£o classificados vÃ£o para LOJAS (comportamento padrÃ£o)
   return CATEGORIES.LOJAS;
 }
 
 // ===================== DATA PROCESSING (RFC-0056) =====================
 
 /**
- * RFC-0056: Aggregate telemetry data with residual calculation for Área Comum
+ * RFC-0056: Aggregate telemetry data with residual calculation for Ãrea Comum
  *
  * Formula:
- *   Área Comum = Entrada - (Climatização + Elevadores + Esc.Rolantes + Lojas)
+ *   Ãrea Comum = Entrada - (ClimatizaÃ§Ã£o + Elevadores + Esc.Rolantes + Lojas)
  */
 function aggregateData(items) {
   LogHelper.log("RFC-0056: Aggregating data with 6 categories:", items.length, "items");
@@ -225,14 +225,14 @@ function aggregateData(items) {
   const areaComumExplicitTotal = areaComumExplicit.reduce((sum, i) => sum + (i.value || 0), 0);
 
   // ========== 3. RESIDUAL CALCULATION ==========
-  // Área Comum = Entrada - (Todos os outros consumidores)
-  // Inclui também devices explicitamente rotulados como "Área Comum"
+  // Ãrea Comum = Entrada - (Todos os outros consumidores)
+  // Inclui tambÃ©m devices explicitamente rotulados como "Ãrea Comum"
   const areaComumResidual = entradaTotal - (climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + lojasTotal);
-  const areaComumTotal = Math.max(0, areaComumResidual + areaComumExplicitTotal); // ← Nunca negativo
+  const areaComumTotal = Math.max(0, areaComumResidual + areaComumExplicitTotal); // â† Nunca negativo
 
   // Total de consumidores = Entrada (sempre 100%)
   const consumidoresTotal = climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + lojasTotal + areaComumTotal;
-  const grandTotal = entradaTotal; // Entrada = referência 100%
+  const grandTotal = entradaTotal; // Entrada = referÃªncia 100%
 
   LogHelper.log("RFC-0056: Totals calculated:", {
     entradaTotal: entradaTotal.toFixed(2),
@@ -247,7 +247,7 @@ function aggregateData(items) {
   });
 
   // ========== 4. CALCULATE PERCENTAGES ==========
-  // Todos os percentuais são baseados na Entrada (= 100%)
+  // Todos os percentuais sÃ£o baseados na Entrada (= 100%)
   STATE.entrada = {
     devices: entrada,
     total: entradaTotal,
@@ -276,12 +276,12 @@ function aggregateData(items) {
       perc: grandTotal > 0 ? (lojasTotal / grandTotal) * 100 : 0
     },
     areaComum: {
-      devices: areaComumExplicit, // ← Apenas devices explícitos (residual não tem devices)
+      devices: areaComumExplicit, // â† Apenas devices explÃ­citos (residual nÃ£o tem devices)
       total: areaComumTotal,
       perc: grandTotal > 0 ? (areaComumTotal / grandTotal) * 100 : 0
     },
     totalGeral: consumidoresTotal,
-    percGeral: 100 // ← Total sempre 100% (= entrada)
+    percGeral: 100 // â† Total sempre 100% (= entrada)
   };
 
   STATE.grandTotal = grandTotal;
@@ -314,7 +314,7 @@ function validateTotals() {
   const tolerance = 0.01; // 10 Wh
 
   if (diff > tolerance) {
-    LogHelper.warn("⚠️ RFC-0056: Total validation FAILED!");
+    LogHelper.warn("âš ï¸ RFC-0056: Total validation FAILED!");
     LogHelper.warn("  Entrada:  ", entrada.toFixed(2), "kWh");
     LogHelper.warn("  Sum:      ", sum.toFixed(2), "kWh");
     LogHelper.warn("  Diff:     ", diff.toFixed(2), "kWh");
@@ -326,7 +326,7 @@ function validateTotals() {
       areaComum: STATE.consumidores.areaComum.total.toFixed(2)
     });
   } else {
-    LogHelper.log("✅ RFC-0056: Totals validated successfully");
+    LogHelper.log("âœ… RFC-0056: Totals validated successfully");
     LogHelper.log("  Entrada = Sum =", entrada.toFixed(2), "kWh (Diff:", diff.toFixed(4), "kWh)");
   }
 }
@@ -362,7 +362,7 @@ function renderStats() {
 
   // ========== CONSUMIDORES ==========
 
-  // Climatização
+  // ClimatizaÃ§Ã£o
   $$('#climatizacaoTotal').text(formatEnergy(STATE.consumidores.climatizacao.total));
   $$('#climatizacaoPerc').text(`(${STATE.consumidores.climatizacao.perc.toFixed(1)}%)`);
 
@@ -387,7 +387,7 @@ function renderStats() {
     $$('#outrosPerc').text('(0%)');
   }
 
-  // Área Comum (residual)
+  // Ãrea Comum (residual)
   $$('#areaComumTotal').text(formatEnergy(STATE.consumidores.areaComum.total));
   $$('#areaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(1)}%)`);
 
@@ -431,8 +431,8 @@ function renderPieChart() {
     LogHelper.error("Chart.js library not loaded!");
     $J(canvas).parent().html(`
       <div class="empty-state">
-        <div class="empty-state-icon">📊</div>
-        <div class="empty-state-text">Chart.js não carregado</div>
+        <div class="empty-state-icon">ðŸ“Š</div>
+        <div class="empty-state-text">Chart.js nÃ£o carregado</div>
         <div class="empty-state-hint">
           <small>Adicione Chart.js v4.4.0 nos External Resources</small>
         </div>
@@ -446,12 +446,12 @@ function renderPieChart() {
   // ========== CHART DATA (6 slices) ==========
   const data = {
     labels: [
-      '❄️ Climatização',
-      '🛗 Elevadores',
-      '🎢 Esc. Rolantes',
-      '🏪 Lojas',
-      '⚙️ Outros',
-      '🏢 Área Comum'
+      'â„ï¸ ClimatizaÃ§Ã£o',
+      'ðŸ›— Elevadores',
+      'ðŸŽ¢ Esc. Rolantes',
+      'ðŸª Lojas',
+      'âš™ï¸ Outros',
+      'ðŸ¢ Ãrea Comum'
     ],
     datasets: [{
       data: [
@@ -470,7 +470,7 @@ function renderPieChart() {
         CHART_COLORS.outros,          // #9C27B0 (Deep Purple)
         CHART_COLORS.areaComum        // #4CAF50 (Green)
       ],
-      borderColor: '#FFFFFF',  // ← Light border
+      borderColor: '#FFFFFF',  // â† Light border
       borderWidth: 2,
       hoverBorderWidth: 3,
       hoverBorderColor: '#222222'
@@ -530,31 +530,31 @@ function renderChartLegend() {
 
   const items = [
     {
-      label: '❄️ Climatização',
+      label: 'â„ï¸ ClimatizaÃ§Ã£o',
       color: CHART_COLORS.climatizacao,
       value: STATE.consumidores.climatizacao.total,
       perc: STATE.consumidores.climatizacao.perc
     },
     {
-      label: '🛗 Elevadores',
+      label: 'ðŸ›— Elevadores',
       color: CHART_COLORS.elevadores,
       value: STATE.consumidores.elevadores.total,
       perc: STATE.consumidores.elevadores.perc
     },
     {
-      label: '🎢 Esc. Rolantes',
+      label: 'ðŸŽ¢ Esc. Rolantes',
       color: CHART_COLORS.escadasRolantes,
       value: STATE.consumidores.escadasRolantes.total,
       perc: STATE.consumidores.escadasRolantes.perc
     },
     {
-      label: '🏪 Lojas',
+      label: 'ðŸª Lojas',
       color: CHART_COLORS.lojas,
       value: STATE.consumidores.lojas.total,
       perc: STATE.consumidores.lojas.perc
     },
     {
-      label: '🏢 Área Comum',
+      label: 'ðŸ¢ Ãrea Comum',
       color: CHART_COLORS.areaComum,
       value: STATE.consumidores.areaComum.total,
       perc: STATE.consumidores.areaComum.perc
@@ -583,18 +583,60 @@ let modalPieChartInstance = null;
  * Open expanded modal view
  */
 function openModal() {
+  console.log("[TELEMETRY_INFO] ðŸš€ openModal() called");
   LogHelper.log("Opening expanded modal...");
 
   const $modal = $J('#modalExpanded');
 
-  // CRITICAL: Move modal to body to escape widget container constraints
-  if ($modal.parent()[0] !== document.body) {
-    LogHelper.log("Moving modal to body for full-screen display");
-    $modal.detach().appendTo('body');
+  if (!$modal || $modal.length === 0) {
+    console.error("[TELEMETRY_INFO] âŒ Modal element #modalExpanded NOT FOUND!");
+    return;
   }
 
-  // Show modal
-  $modal.css('display', 'flex');
+  console.log("[TELEMETRY_INFO] Modal found:", $modal.length, "elements");
+  console.log("[TELEMETRY_INFO] Modal current parent:", $modal.parent()[0]?.tagName || "NONE");
+
+  // CRITICAL: ALWAYS remove and re-add to body to ensure it's the LAST element (highest stacking)
+  console.log("[TELEMETRY_INFO] ðŸ“¦ Re-appending modal to body to ensure it's last element");
+  $modal.detach().appendTo(document.body);
+  console.log("[TELEMETRY_INFO] âœ… Modal is now last element in body");
+
+  // RFC-0056 FIX: ULTRA-FORCE modal visibility with MAXIMUM z-index
+  console.log("[TELEMETRY_INFO] ðŸŽ¨ Setting modal visibility with MAX z-index...");
+
+  const MAX_Z_INDEX = '2147483647'; // Maximum 32-bit signed integer
+
+  $modal.css({
+    'display': 'flex',
+    'visibility': 'visible',
+    'opacity': '1',
+    'pointer-events': 'all',
+    'z-index': MAX_Z_INDEX,
+    'position': 'fixed',
+    'top': '0',
+    'left': '0',
+    'right': '0',
+    'bottom': '0',
+    'width': '100vw',
+    'height': '100vh',
+    'background': 'rgba(0, 0, 0, 0.75)'
+  });
+
+  // Force with !important for ABSOLUTE override
+  $modal[0].style.setProperty('display', 'flex', 'important');
+  $modal[0].style.setProperty('visibility', 'visible', 'important');
+  $modal[0].style.setProperty('opacity', '1', 'important');
+  $modal[0].style.setProperty('position', 'fixed', 'important');
+  $modal[0].style.setProperty('z-index', MAX_Z_INDEX, 'important');
+  $modal[0].style.setProperty('width', '100vw', 'important');
+  $modal[0].style.setProperty('height', '100vh', 'important');
+  $modal[0].style.setProperty('top', '0', 'important');
+  $modal[0].style.setProperty('left', '0', 'important');
+
+  console.log("[TELEMETRY_INFO] âœ… Modal visibility styles applied with z-index:", MAX_Z_INDEX);
+
+  // Add a class to body to prevent scrolling
+  $J('body').addClass('modal-open-telemetry-info');
 
   // Update modal data with current STATE
   updateModalData();
@@ -608,10 +650,14 @@ function openModal() {
   LogHelper.log("Modal opened successfully");
 }
 
+// RFC-0056 FIX: Expose openModal globally for onclick handler
+window.TELEMETRY_INFO_openModal = openModal;
+
 /**
  * Close expanded modal view
  */
 function closeModal() {
+  console.log("[TELEMETRY_INFO] ðŸ”’ closeModal() called");
   LogHelper.log("Closing expanded modal...");
 
   const $modal = $J('#modalExpanded');
@@ -623,9 +669,13 @@ function closeModal() {
     modalPieChartInstance = null;
   }
 
+  // Remove body class
+  $J('body').removeClass('modal-open-telemetry-info');
+
   // Restore body scroll
   $J('body').css('overflow', '');
 
+  console.log("[TELEMETRY_INFO] âœ… Modal closed successfully");
   LogHelper.log("Modal closed successfully");
 }
 
@@ -642,7 +692,7 @@ function updateModalData() {
   $J('#modalLojasTotal').text(formatEnergy(STATE.consumidores.lojas.total));
   $J('#modalLojasPerc').text(`(${STATE.consumidores.lojas.perc.toFixed(1)}%)`);
 
-  // Climatização
+  // ClimatizaÃ§Ã£o
   $J('#modalClimatizacaoTotal').text(formatEnergy(STATE.consumidores.climatizacao.total));
   $J('#modalClimatizacaoPerc').text(`(${STATE.consumidores.climatizacao.perc.toFixed(1)}%)`);
 
@@ -663,7 +713,7 @@ function updateModalData() {
     $J('#modalOutrosPerc').text('(0%)');
   }
 
-  // Área Comum
+  // Ãrea Comum
   $J('#modalAreaComumTotal').text(formatEnergy(STATE.consumidores.areaComum.total));
   $J('#modalAreaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(1)}%)`);
 
@@ -702,12 +752,12 @@ function renderModalChart() {
   ];
 
   const labels = [
-    'Climatização',
+    'ClimatizaÃ§Ã£o',
     'Elevadores',
     'Esc. Rolantes',
     'Lojas',
     'Outros',
-    'Área Comum'
+    'Ãrea Comum'
   ];
 
   const colors = [
@@ -779,12 +829,12 @@ function renderModalChartLegend() {
   const $legend = $J('#modalChartLegend').empty();
 
   const items = [
-    { label: 'Climatização', color: CHART_COLORS.climatizacao, value: STATE.consumidores.climatizacao.total },
+    { label: 'ClimatizaÃ§Ã£o', color: CHART_COLORS.climatizacao, value: STATE.consumidores.climatizacao.total },
     { label: 'Elevadores', color: CHART_COLORS.elevadores, value: STATE.consumidores.elevadores.total },
     { label: 'Esc. Rolantes', color: CHART_COLORS.escadasRolantes, value: STATE.consumidores.escadasRolantes.total },
     { label: 'Lojas', color: CHART_COLORS.lojas, value: STATE.consumidores.lojas.total },
     { label: 'Outros', color: CHART_COLORS.outros, value: STATE.consumidores.outros ? STATE.consumidores.outros.total : 0 },
-    { label: 'Área Comum', color: CHART_COLORS.areaComum, value: STATE.consumidores.areaComum.total }
+    { label: 'Ãrea Comum', color: CHART_COLORS.areaComum, value: STATE.consumidores.areaComum.total }
   ];
 
   items.forEach(item => {
@@ -867,7 +917,7 @@ const RECEIVED_DATA = {
 
 /**
  * Configura listener consolidado para myio:telemetry:update
- * RFC-0056 FIX v1.1: Evento único com detail.type discriminador
+ * RFC-0056 FIX v1.1: Evento Ãºnico com detail.type discriminador
  */
 function setupTelemetryListener() {
   telemetryUpdateHandler = function(ev) {
@@ -875,7 +925,7 @@ function setupTelemetryListener() {
 
     LogHelper.log(`[RFC-0056] Received telemetry update: type=${type}, source=${source}, periodKey=${periodKey}`);
 
-    // Validar domínio
+    // Validar domÃ­nio
     if (domain !== WIDGET_DOMAIN) {
       LogHelper.log(`[RFC-0056] Ignoring domain: ${domain} (expecting: ${WIDGET_DOMAIN})`);
       return;
@@ -909,7 +959,7 @@ function setupTelemetryListener() {
   // Tentar carregar do cache
   tryLoadFromCache();
 
-  // Fallback: se após 3s não temos dados completos, solicitar refresh
+  // Fallback: se apÃ³s 3s nÃ£o temos dados completos, solicitar refresh
   startFallbackTimeout();
 }
 
@@ -918,7 +968,7 @@ function setupTelemetryListener() {
  */
 function handleLojasTotal(data, timestamp, periodKey) {
   RECEIVED_DATA.lojas_total = { ...data, timestamp, periodKey };
-  LogHelper.log(`[RFC-0056] ✅ Lojas total updated: ${data.total_MWh} MWh`);
+  LogHelper.log(`[RFC-0056] âœ… Lojas total updated: ${data.total_MWh} MWh`);
 
   // Agendar recalculo com debounce
   scheduleRecalculation();
@@ -953,7 +1003,7 @@ function handleAreaComumBreakdown(data, timestamp, periodKey) {
     periodKey
   };
 
-  LogHelper.log(`[RFC-0056] ✅ AreaComum breakdown updated:`, {
+  LogHelper.log(`[RFC-0056] âœ… AreaComum breakdown updated:`, {
     climatizacao: data.climatizacao_MWh,
     elevadores: data.elevadores_MWh,
     escadas_rolantes: data.escadas_rolantes_MWh,
@@ -966,12 +1016,12 @@ function handleAreaComumBreakdown(data, timestamp, periodKey) {
 
 /**
  * Handler: request_refresh
- * Outro widget solicita re-emissão dos dados (fallback)
+ * Outro widget solicita re-emissÃ£o dos dados (fallback)
  */
 function handleRequestRefresh(periodKey) {
   LogHelper.log(`[RFC-0056] Received request_refresh for period: ${periodKey}`);
 
-  // Este widget é receptor, não emissor - ignora
+  // Este widget Ã© receptor, nÃ£o emissor - ignora
   // (apenas TELEMETRY responde a request_refresh)
 }
 
@@ -1011,10 +1061,10 @@ function canRecalculate() {
 
 /**
  * Recalcula valores usando dados recebidos
- * RFC-0056 FIX v1.1: Substitui cálculo local por valores recebidos
+ * RFC-0056 FIX v1.1: Substitui cÃ¡lculo local por valores recebidos
  */
 function recalculateWithReceivedData() {
-  LogHelper.log('[RFC-0056] 🔄 Recalculating with received data...');
+  LogHelper.log('[RFC-0056] ðŸ”„ Recalculating with received data...');
 
   // Cancelar fallback timer (dados completos recebidos)
   if (fallbackTimer) {
@@ -1036,7 +1086,7 @@ function recalculateWithReceivedData() {
   STATE.consumidores.escadasRolantes.total = RECEIVED_DATA.escadas_rolantes?.total || 0;
   STATE.consumidores.outros.total = RECEIVED_DATA.outros?.total || 0;
 
-  // Recalcular Área Comum como residual (RFC-0056: Defensive calculation)
+  // Recalcular Ãrea Comum como residual (RFC-0056: Defensive calculation)
   const somaConsumidores =
     (STATE.consumidores.lojas?.total || 0) +
     (STATE.consumidores.climatizacao?.total || 0) +
@@ -1050,7 +1100,7 @@ function recalculateWithReceivedData() {
   // Recalcular total geral (SEM incluir entrada)
   STATE.consumidores.totalGeral = somaConsumidores + STATE.consumidores.areaComum.total;
 
-  // Recalcular percentuais (RFC-0056: Baseados em Total Consumidores, não em Entrada)
+  // Recalcular percentuais (RFC-0056: Baseados em Total Consumidores, nÃ£o em Entrada)
   const totalConsumidores = STATE.consumidores.totalGeral;
   STATE.consumidores.lojas.perc = totalConsumidores > 0
     ? (STATE.consumidores.lojas.total / totalConsumidores) * 100
@@ -1070,14 +1120,14 @@ function recalculateWithReceivedData() {
   STATE.consumidores.areaComum.perc = totalConsumidores > 0
     ? (STATE.consumidores.areaComum.total / totalConsumidores) * 100
     : 0;
-  STATE.consumidores.percGeral = 100; // Total Consumidores é sempre 100% de si mesmo
+  STATE.consumidores.percGeral = 100; // Total Consumidores Ã© sempre 100% de si mesmo
 
-  // Validação: Total consumidores vs Entrada
+  // ValidaÃ§Ã£o: Total consumidores vs Entrada
   const diff = Math.abs(STATE.entrada.total - STATE.consumidores.totalGeral);
   const tolerance = STATE.entrada.total * 0.02; // 2%
 
   if (diff > tolerance) {
-    LogHelper.warn(`[RFC-0056] ⚠️ Validation warning: Entrada (${STATE.entrada.total.toFixed(2)} kWh) != Total Consumidores (${STATE.consumidores.totalGeral.toFixed(2)} kWh), diff: ${diff.toFixed(2)} kWh`);
+    LogHelper.warn(`[RFC-0056] âš ï¸ Validation warning: Entrada (${STATE.entrada.total.toFixed(2)} kWh) != Total Consumidores (${STATE.consumidores.totalGeral.toFixed(2)} kWh), diff: ${diff.toFixed(2)} kWh`);
     showValidationWarning(diff);
   } else {
     hideValidationWarning();
@@ -1086,7 +1136,7 @@ function recalculateWithReceivedData() {
   // Atualizar display
   updateDisplay();
 
-  LogHelper.log('[RFC-0056] ✅ Recalculation complete');
+  LogHelper.log('[RFC-0056] âœ… Recalculation complete');
 }
 
 /**
@@ -1106,13 +1156,13 @@ function tryLoadFromCache() {
     if (cachedLojas) {
       const payload = JSON.parse(cachedLojas);
       handleLojasTotal(payload.data, payload.timestamp, payload.periodKey);
-      LogHelper.log('[RFC-0056] 📦 Loaded lojas from cache');
+      LogHelper.log('[RFC-0056] ðŸ“¦ Loaded lojas from cache');
     }
 
     if (cachedAreaComum) {
       const payload = JSON.parse(cachedAreaComum);
       handleAreaComumBreakdown(payload.data, payload.timestamp, payload.periodKey);
-      LogHelper.log('[RFC-0056] 📦 Loaded areacomum from cache');
+      LogHelper.log('[RFC-0056] ðŸ“¦ Loaded areacomum from cache');
     }
 
   } catch (err) {
@@ -1122,12 +1172,12 @@ function tryLoadFromCache() {
 
 /**
  * Inicia timer de fallback (3s)
- * RFC-0056 FIX v1.1: Se após 3s não recebemos dados, emite request_refresh
+ * RFC-0056 FIX v1.1: Se apÃ³s 3s nÃ£o recebemos dados, emite request_refresh
  */
 function startFallbackTimeout() {
   fallbackTimer = setTimeout(() => {
     if (!canRecalculate()) {
-      LogHelper.warn('[RFC-0056] ⏱️ Fallback timeout - requesting refresh');
+      LogHelper.warn('[RFC-0056] â±ï¸ Fallback timeout - requesting refresh');
 
       const periodKey = buildCurrentPeriodKey();
       const event = new CustomEvent('myio:telemetry:update', {
@@ -1148,7 +1198,7 @@ function startFallbackTimeout() {
 }
 
 /**
- * Constrói periodKey atual baseado no timewindow do widget
+ * ConstrÃ³i periodKey atual baseado no timewindow do widget
  */
 function buildCurrentPeriodKey() {
   const timewindow = self.ctx?.defaultSubscription?.subscriptionTimewindow;
@@ -1167,14 +1217,14 @@ function buildCurrentPeriodKey() {
 }
 
 /**
- * Exibe marker de warning de validação na UI
+ * Exibe marker de warning de validaÃ§Ã£o na UI
  * RFC-0056 FIX v1.1: Ajuda debugging sem console
  */
 function showValidationWarning(diff) {
-  // Adicionar ⚠️ no card Total Consumidores
+  // Adicionar âš ï¸ no card Total Consumidores
   const $totalCard = $$('.total-card .card-title');
   if ($totalCard.length && !$totalCard.find('.validation-warning').length) {
-    $totalCard.append(' <span class="validation-warning" style="color: #FF6B6B; font-size: 0.9em;" title="Diferença de ' + diff.toFixed(2) + ' kWh detectada">⚠️</span>');
+    $totalCard.append(' <span class="validation-warning" style="color: #FF6B6B; font-size: 0.9em;" title="DiferenÃ§a de ' + diff.toFixed(2) + ' kWh detectada">âš ï¸</span>');
   }
 }
 
@@ -1189,6 +1239,26 @@ function hideValidationWarning() {
 
 self.onInit = async function() {
   LogHelper.log("Widget initializing (RFC-0056)...");
+
+  // RFC-0056 FIX: Expose openModal globally IMMEDIATELY for onclick handler
+  window.TELEMETRY_INFO_openModal = openModal;
+  window.TELEMETRY_INFO_closeModal = closeModal;
+  LogHelper.log("âœ… Modal functions exposed globally");
+
+  // RFC-0056 FIX: Move modal to body immediately (but keep it hidden) to escape widget constraints
+  setTimeout(() => {
+    const $modal = $J('#modalExpanded');
+    if ($modal.length > 0 && $modal.parent()[0] !== document.body) {
+      console.log("[TELEMETRY_INFO] ðŸ“¦ INIT: Moving modal to body (keeping it hidden)");
+      $modal.detach().appendTo(document.body);
+      // Ensure it stays hidden with ULTRA z-index
+      $modal.css({
+        'display': 'none',
+        'z-index': '2147483647' // Maximum 32-bit integer
+      });
+      console.log("[TELEMETRY_INFO] âœ… INIT: Modal moved to body and hidden with max z-index");
+    }
+  }, 100);
 
   // Setup container styles
   $root().css({
@@ -1231,7 +1301,7 @@ self.onInit = async function() {
   }
 
   // Set widget label
-  const widgetLabel = self.ctx.settings?.labelWidget || 'Informações de Energia';
+  const widgetLabel = self.ctx.settings?.labelWidget || 'InformaÃ§Ãµes de Energia';
   $root().find('.info-title').text(widgetLabel);
 
   // Listen for orchestrator data
@@ -1322,13 +1392,13 @@ self.onInit = async function() {
       $btn.off('click').on('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log("[TELEMETRY_INFO] ✅ DIRECT Expand button clicked!"); // Force log
+        console.log("[TELEMETRY_INFO] âœ… DIRECT Expand button clicked!"); // Force log
         openModal();
       });
-      LogHelper.log("✅ Direct click handler attached to button");
+      LogHelper.log("âœ… Direct click handler attached to button");
       return true;
     } else {
-      LogHelper.error("❌ Button #btnExpandModal NOT FOUND in container!");
+      LogHelper.error("âŒ Button #btnExpandModal NOT FOUND in container!");
       return false;
     }
   };
@@ -1345,7 +1415,7 @@ self.onInit = async function() {
   $container.on('click', '#btnExpandModal, .btn-expand', function(e) {
     e.preventDefault();
     e.stopPropagation();
-    console.log("[TELEMETRY_INFO] ✅ DELEGATED Expand button clicked!"); // Force log even if DEBUG off
+    console.log("[TELEMETRY_INFO] âœ… DELEGATED Expand button clicked!"); // Force log even if DEBUG off
     LogHelper.log("Expand button clicked (delegated)");
     openModal();
   });
@@ -1356,7 +1426,7 @@ self.onInit = async function() {
     nativeBtn.addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
-      console.log('[TELEMETRY_INFO] ✅ NATIVE Expand button clicked!');
+      console.log('[TELEMETRY_INFO] âœ… NATIVE Expand button clicked!');
       openModal();
     }, { capture: false });
   }
@@ -1367,7 +1437,7 @@ self.onInit = async function() {
       el.addEventListener('click', function(e){
         e.preventDefault();
         e.stopPropagation();
-        console.log('[TELEMETRY_INFO] ✅ NATIVE(.btn-expand) Expand button clicked!');
+        console.log('[TELEMETRY_INFO] âœ… NATIVE(.btn-expand) Expand button clicked!');
         openModal();
       }, { capture: false });
     });
@@ -1385,7 +1455,7 @@ self.onInit = async function() {
     if (btn) {
       e.preventDefault();
       e.stopPropagation();
-      console.log('[TELEMETRY_INFO] ✅ CAPTURE Expand button clicked!');
+      console.log('[TELEMETRY_INFO] âœ… CAPTURE Expand button clicked!');
       openModal();
     }
   }, true);
@@ -1518,3 +1588,4 @@ self.onDestroy = function() {
 
   LogHelper.log("Widget destroyed successfully");
 };
+
