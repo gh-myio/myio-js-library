@@ -844,26 +844,50 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const mainView = document.querySelector("#mainView");
 
   /**
-   * Renderiza o dashboard no mainView
+   * RFC-0057: Switch content states using show/hide (no innerHTML manipulation!)
+   * This prevents widgets from being destroyed/recreated on every navigation
    * @param {string} stateId - ID do estado do dashboard
-   * @param {string} state - parâmetro de estado na URL
    */
-  function renderDashboard(stateId, state) {
-    mainView.innerHTML = `
-        <tb-dashboard-state class="content" [ctx]="ctx" stateId="${stateId}">
-            <iframe
-                src="/dashboard/${dashboardId}?state=${state}"
-                style="width:100%; height:100%; border:none;">
-            </iframe>
-        </tb-dashboard-state>
-    `;
+  function switchContentState(stateId) {
+    try {
+      if (!mainView) {
+        console.error("[MENU] #mainView element not found in DOM");
+        return;
+      }
+
+      // Find all content containers with data-content-state attribute
+      const allContents = mainView.querySelectorAll('[data-content-state]');
+
+      if (allContents.length === 0) {
+        console.error('[MENU] No content containers found with data-content-state attribute');
+        return;
+      }
+
+      // Hide all content containers
+      allContents.forEach(content => {
+        content.style.display = 'none';
+      });
+
+      // Show target container
+      const targetContent = mainView.querySelector(`[data-content-state="${stateId}"]`);
+      if (targetContent) {
+        targetContent.style.display = 'block';
+        console.log(`[MENU] ✅ RFC-0057: Showing content state: ${stateId} (no dynamic rendering!)`);
+      } else {
+        console.warn(`[MENU] Content state not found: ${stateId}`);
+        console.log(`[MENU] Available states: ${Array.from(allContents).map(c => c.getAttribute('data-content-state')).join(', ')}`);
+      }
+    } catch (err) {
+      console.error("[MENU] RFC-0057: Failed to switch content state:", err);
+    }
   }
 
   // Automatiza a atribuição de eventos aos botões
-  Object.entries(dashboards).forEach(([buttonId, { stateId, state }]) => {
+  // RFC-0057: Using switchContentState instead of renderDashboard
+  Object.entries(dashboards).forEach(([buttonId, { stateId }]) => {
     const button = document.getElementById(buttonId);
     if (button) {
-      button.addEventListener("click", () => renderDashboard(stateId, state));
+      button.addEventListener("click", () => switchContentState(stateId));
     }
   });
 
@@ -1177,21 +1201,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
 
       try {
-        // Limpa localStorage cache para energy e water
-        const keysToRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (key.startsWith('myio:cache:energy:') || key.startsWith('myio:cache:water:'))) {
-            keysToRemove.push(key);
-          }
-        }
-
-        keysToRemove.forEach(key => {
-          localStorage.removeItem(key);
-          console.log(`[MENU] 🗑️ Removida chave do localStorage: ${key}`);
-        });
-
-        console.log(`[MENU] ✅ Cache do localStorage limpo (${keysToRemove.length} chaves removidas)`);
+        // RFC-0057: No longer using localStorage, only memory cache
 
         // Invalida cache do orquestrador se disponível
         if (window.MyIOOrchestrator && window.MyIOOrchestrator.invalidateCache) {
@@ -1208,20 +1218,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         window.dispatchEvent(clearEvent);
         console.log(`[MENU] ✅ Evento de limpeza emitido`);
 
-        // Emite para todos os iframes
-        try {
-          const iframes = document.querySelectorAll('iframe');
-          iframes.forEach((iframe, idx) => {
-            try {
-              iframe.contentWindow.dispatchEvent(clearEvent);
-              console.log(`[MENU] ✅ Evento de limpeza emitido para iframe ${idx}`);
-            } catch (e) {
-              console.warn(`[MENU] ⚠️ Não foi possível emitir para iframe ${idx}:`, e.message);
-            }
-          });
-        } catch (e) {
-          console.warn(`[MENU] ⚠️ Não foi possível acessar iframes:`, e.message);
-        }
+        // RFC-0057: Removed iframe event dispatch - no longer using iframes
 
         console.log("[MENU] 🔄 Force Refresh concluído com sucesso");
 

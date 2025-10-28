@@ -6,6 +6,18 @@
   <tb-dashboard-state class="content" [ctx]="ctx" stateId="menu"></tb-dashboard-state>
 </section>
 
+<!-- RFC-0057: All content states pre-rendered with show/hide logic (no dynamic innerHTML!) -->
 <section id="mainView" style="height: calc(100% - 260px); overflow: auto; background: transparent;">
-  <tb-dashboard-state id="mainContentState" class="content" [ctx]="ctx" stateId="content_equipments"></tb-dashboard-state>
+  <div data-content-state="content_equipments" style="display:block; height:100%; width:100%;">
+    <tb-dashboard-state class="content" [ctx]="ctx" stateId="content_equipments"></tb-dashboard-state>
+  </div>
+  <div data-content-state="content_energy" style="display:none; height:100%; width:100%;">
+    <tb-dashboard-state class="content" [ctx]="ctx" stateId="content_energy"></tb-dashboard-state>
+  </div>
+  <div data-content-state="content_water" style="display:none; height:100%; width:100%;">
+    <tb-dashboard-state class="content" [ctx]="ctx" stateId="content_water"></tb-dashboard-state>
+  </div>
+  <div data-content-state="content_temperature" style="display:none; height:100%; width:100%;">
+    <tb-dashboard-state class="content" [ctx]="ctx" stateId="content_temperature"></tb-dashboard-state>
+  </div>
 </section>

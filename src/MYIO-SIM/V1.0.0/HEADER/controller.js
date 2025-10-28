@@ -1065,20 +1065,24 @@ function updateEnergyCard(energyCache) {
   // ✅ FIX: Removed early return - always process updates
   console.log("[HEADER] Updating energy card with cache:", energyCache?.size || 0, "devices");
 
-  // ✅ FIX: Add safety check for undefined data
+  // RFC-0057: Enhanced safety check with try-catch
   if (Array.isArray(self.ctx.data)) {
-    self.ctx.data.forEach((data) => {
-      // Skip if data is undefined or null
-      if (!data || !data.datasource || !data.data) {
-        return;
-      }
+    self.ctx.data.forEach((data, index) => {
+      try {
+        // Skip if data is undefined or null
+        if (!data || !data.datasource || !data.data) {
+          return;
+        }
 
-      //console.log('[HEADER] Processing data row:', data);
+        //console.log('[HEADER] Processing data row:', data);
 
-      // Extract ingestionId from data
-      const ingestionId = data.data?.[0]?.[1]; // data[indexOfIngestionId][1] = value
-      if (ingestionId) {
-        ingestionIds.push(ingestionId);
+        // Extract ingestionId from data
+        const ingestionId = data.data?.[0]?.[1]; // data[indexOfIngestionId][1] = value
+        if (ingestionId) {
+          ingestionIds.push(ingestionId);
+        }
+      } catch (err) {
+        console.warn(`[HEADER] Skipped data item ${index} due to error:`, err.message);
       }
     });
   }

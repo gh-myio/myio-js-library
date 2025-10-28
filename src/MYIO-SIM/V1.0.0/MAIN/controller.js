@@ -267,103 +267,56 @@ const MyIOOrchestrator = (() => {
     LogHelper.log(`[Orchestrator] ✅ Global busy hidden`);
   }
 
-  // In-memory cache for energy data
+  // RFC-0057: Simplified - memory-only cache (no localStorage)
   let energyCache = new Map(); // Map<ingestionId, energyData>
   let isFetching = false;
   let lastFetchParams = null;
-
-  // ========== CACHE PERSISTENCE ==========
-  function persistToStorage(key, entry) {
-    try {
-      const payload = JSON.stringify({ [key]: entry });
-      if (payload.length > 5 * 1024 * 1024) {
-        LogHelper.warn('[Orchestrator] Payload too large for localStorage');
-        return;
-      }
-      localStorage.setItem(`myio:cache:${key}`, payload);
-      LogHelper.log(`[Orchestrator] Cache persisted to localStorage: ${key}`);
-    } catch (e) {
-      LogHelper.warn('[Orchestrator] localStorage persist failed:', e);
-    }
-  }
-
-  function loadFromStorage(key) {
-    try {
-      const item = localStorage.getItem(`myio:cache:${key}`);
-      if (!item) return null;
-
-      const parsed = JSON.parse(item);
-      const entry = parsed[key];
-
-      if (!entry) return null;
-
-      // Check if cache is fresh (TTL: 5 minutes)
-      const age = Date.now() - (entry.hydratedAt || 0);
-      const ttl = 5 * 60 * 1000; // 5 minutes
-
-      if (age > ttl) {
-        LogHelper.log(`[Orchestrator] Cache expired for ${key}, age: ${Math.round(age/1000)}s`);
-        localStorage.removeItem(`myio:cache:${key}`);
-        return null;
-      }
-
-      LogHelper.log(`[Orchestrator] Cache loaded from localStorage: ${key}, age: ${Math.round(age/1000)}s`);
-      return entry;
-    } catch (e) {
-      LogHelper.warn('[Orchestrator] localStorage load failed:', e);
-      return null;
-    }
-  }
-
-  function clearStorageCache(domain = '*') {
-    const prefix = domain === '*' ? 'myio:cache:' : `myio:cache:${domain}:`;
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(prefix)) {
-          localStorage.removeItem(key);
-          LogHelper.log(`[Orchestrator] Cleared cache: ${key}`);
-        }
-      }
-    } catch (e) {
-      LogHelper.warn('[Orchestrator] clearStorageCache failed:', e);
-    }
-  }
+  let lastFetchTimestamp = null;
 
   function cacheKey(customerIngestionId, startDateISO, endDateISO) {
     return `energy:${customerIngestionId}:${startDateISO}:${endDateISO}`;
   }
 
+  function invalidateCache(domain = 'energy') {
+    LogHelper.log(`[Orchestrator] Invalidating ${domain} cache`);
+    energyCache.clear();
+    lastFetchParams = null;
+    lastFetchTimestamp = null;
+  }
+
   async function fetchEnergyData(customerIngestionId, startDateISO, endDateISO) {
     const key = cacheKey(customerIngestionId, startDateISO, endDateISO);
 
-    // Prevent duplicate fetches
+    // RFC-0057: Check for duplicate fetches
     if (isFetching && lastFetchParams === key) {
       console.log("[MAIN] [Orchestrator] Fetch already in progress, skipping...");
       return energyCache;
     }
 
-    // Try to load from localStorage first
-    const cachedEntry = loadFromStorage(key);
-    if (cachedEntry && cachedEntry.data) {
-      console.log(`[MAIN] [Orchestrator] Using cached data from localStorage (${cachedEntry.data.size || 0} devices)`);
+    // RFC-0057: Check memory cache (no localStorage)
+    if (energyCache.size > 0 && lastFetchParams === key) {
+      const cacheAge = lastFetchTimestamp ? Date.now() - lastFetchTimestamp : 0;
+      const cacheTTL = 5 * 60 * 1000; // 5 minutes
 
-      // Restore Map from cached data
-      energyCache = new Map(cachedEntry.data);
+      if (cacheAge < cacheTTL) {
+        console.log(`[MAIN] [Orchestrator] Using cached data from memory (${energyCache.size} devices, age: ${Math.round(cacheAge/1000)}s)`);
 
-      // Emit event with cached data
-      window.dispatchEvent(new CustomEvent('myio:energy-data-ready', {
-        detail: {
-          cache: energyCache,
-          totalDevices: energyCache.size,
-          startDate: startDateISO,
-          endDate: endDateISO,
-          timestamp: cachedEntry.hydratedAt,
-          fromCache: true
-        }
-      }));
+        // Emit event with cached data
+        window.dispatchEvent(new CustomEvent('myio:energy-data-ready', {
+          detail: {
+            cache: energyCache,
+            totalDevices: energyCache.size,
+            startDate: startDateISO,
+            endDate: endDateISO,
+            timestamp: lastFetchTimestamp,
+            fromCache: true
+          }
+        }));
 
-      return energyCache;
+        return energyCache;
+      } else {
+        console.log(`[MAIN] [Orchestrator] Cache expired (age: ${Math.round(cacheAge/1000)}s), fetching fresh data...`);
+      }
     }
 
     isFetching = true;
@@ -381,28 +334,42 @@ const MyIOOrchestrator = (() => {
       // Get token from MyIO auth component
       const TOKEN_INGESTION = await myIOAuth.getToken();
 
-      const response = await fetch(
-        `${DATA_API_HOST}/api/v1/telemetry/customers/${customerIngestionId}/energy/devices/totals?startTime=${encodeURIComponent(startDateISO)}&endTime=${encodeURIComponent(endDateISO)}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${TOKEN_INGESTION}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const apiUrl = `${DATA_API_HOST}/api/v1/telemetry/customers/${customerIngestionId}/energy/devices/totals?startTime=${encodeURIComponent(startDateISO)}&endTime=${encodeURIComponent(endDateISO)}&deep=1`;
+      console.log("[MAIN] [Orchestrator] 🌐 API URL:", apiUrl);
+
+      const response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${TOKEN_INGESTION}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log(`[MAIN] [Orchestrator] 📡 API Status: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
-        console.warn(`[MAIN] [Orchestrator] Failed to fetch energy: HTTP ${response.status}`);
+        console.warn(`[MAIN] [Orchestrator] ❌ Failed to fetch energy: HTTP ${response.status}`);
         return energyCache;
       }
 
       const data = await response.json();
-      console.log("[MAIN] [Orchestrator] API Response:", data);
+      console.log("[MAIN] [Orchestrator] 📦 API Response:", data);
+
+      // Log summary if available
+      if (data.summary) {
+        console.log("[MAIN] [Orchestrator] 📊 API Summary:", data.summary);
+      }
 
       // API returns { data: [...] }
       const devicesList = Array.isArray(data) ? data : (data.data || []);
-      console.log("[MAIN] [Orchestrator] Devices list extracted:", devicesList.length, "devices");
+      console.log("[MAIN] [Orchestrator] 📋 Devices list extracted:", devicesList.length, "devices");
+
+      // Log first device if available for debugging
+      if (devicesList.length > 0) {
+        console.log("[MAIN] [Orchestrator] 🔍 First device sample:", devicesList[0]);
+      } else {
+        console.warn("[MAIN] [Orchestrator] ⚠️ API returned ZERO devices! Check if data exists for this period.");
+      }
 
       // Clear and repopulate cache
       energyCache.clear();
@@ -420,13 +387,8 @@ const MyIOOrchestrator = (() => {
 
       console.log(`[MAIN] [Orchestrator] Energy cache updated: ${energyCache.size} devices`);
 
-      // Persist to localStorage
-      const cacheEntry = {
-        data: Array.from(energyCache.entries()), // Convert Map to array for JSON serialization
-        hydratedAt: Date.now(),
-        ttlMinutes: 5
-      };
-      persistToStorage(key, cacheEntry);
+      // RFC-0057: Update timestamp for memory cache
+      lastFetchTimestamp = Date.now();
 
       // Emit event with cached data
       window.dispatchEvent(new CustomEvent('myio:energy-data-ready', {
@@ -460,13 +422,7 @@ const MyIOOrchestrator = (() => {
     return energyCache.get(ingestionId) || null;
   }
 
-  function invalidateCache(domain = 'energy') {
-    console.log(`[MAIN] [Orchestrator] Invalidating cache for domain: ${domain}`);
-    energyCache.clear();
-    clearStorageCache(domain);
-    isFetching = false;
-    lastFetchParams = null;
-  }
+  // RFC-0057: invalidateCache already defined above (line 280), no duplicate needed
 
   /**
    * Calcula o total de consumo de todos os equipamentos no cache
@@ -510,7 +466,7 @@ const MyIOOrchestrator = (() => {
     getCache,
     getCachedDevice,
     invalidateCache,
-    clearStorageCache,
+    // RFC-0057: Removed clearStorageCache - no longer using localStorage
     showGlobalBusy,
     hideGlobalBusy,
     getBusyState: () => ({ ...globalBusyState }),

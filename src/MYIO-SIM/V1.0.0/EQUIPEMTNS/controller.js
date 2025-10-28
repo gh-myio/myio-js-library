@@ -6,35 +6,7 @@ let CLIENT_ID;
 let CLIENT_SECRET;
 let INGESTION_ID;
 
-function d(name, code, icon, status, powerKw, effPct, tempC, hours) {
-  return { name, code, icon, status, powerKw, effPct, tempC, hours };
-}
-
-function clamp(v, a, b) {
-  return Math.max(a, Math.min(b, v));
-}
-function formatNumber(n, d = 0) {
-  return Number(n).toLocaleString("en-US", {
-    minimumFractionDigits: d,
-    maximumFractionDigits: d,
-  });
-}
-function formatHours(h) {
-  return formatNumber(h, 3);
-}
-function escapeHtml(s = "") {
-  return String(s).replace(
-    /[&<>"']/g,
-    (m) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[
-        m
-      ])
-  );
-}
-function isDanger(status) {
-  const s = String(status || "").toLowerCase();
-  return s === "alert" || s === "fail" || s === "erro" || s === "fault";
-}
+// RFC-0057: Removed unused utility functions: d(), clamp(), formatNumber(), formatHours(), escapeHtml(), isDanger()
 
 // RFC: Global refresh counter to limit data updates to 3 times maximum
 let _dataRefreshCount = 0;
@@ -147,23 +119,16 @@ const MyIOAuth = (() => {
     return _token;
   }
 
-  // Helpers opcionais
-  function getExpiryInfo() {
-    return {
-      expiresAt: _expiresAt,
-      expiresInSeconds: Math.max(0, Math.floor((_expiresAt - _now()) / 1000)),
-    };
-  }
-
   function clearCache() {
     _token = null;
     _expiresAt = 0;
     _inFlight = null;
   }
 
+  // RFC-0057: Removed unused getExpiryInfo()
+
   return {
     getToken,
-    getExpiryInfo,
     clearCache,
   };
 })();
@@ -202,58 +167,7 @@ async function fetchCustomerServerScopeAttrs(customerTbId) {
   return map;
 }
 
-// Helper: aceita number | Date | string e retorna "YYYY-MM-DDTHH:mm:ss-03:00"
-function toSpOffsetNoMs(input, endOfDay = false) {
-  const d =
-    typeof input === "number"
-      ? new Date(input)
-      : input instanceof Date
-      ? input
-      : new Date(String(input));
-
-  if (Number.isNaN(d.getTime())) throw new Error("Data inválida");
-
-  if (endOfDay) d.setHours(23, 59, 59, 999);
-
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const HH = String(d.getHours()).padStart(2, "0");
-  const MM = String(d.getMinutes()).padStart(2, "0");
-  const SS = String(d.getSeconds()).padStart(2, "0");
-
-  // São Paulo (sem DST hoje): -03:00
-  return `${yyyy}-${mm}-${dd}T${HH}:${MM}:${SS}-03:00`;
-}
-
-// Função para pegar timestamps das datas internas completas
-function getTimeWindowRange() {
-  let startTs = 0;
-  let endTs = 0;
-
-  if (self.startDate) {
-    const startDateObj = new Date(self.startDate);
-
-    if (!isNaN(startDateObj)) {
-      startDateObj.setHours(0, 0, 0, 0);
-      startTs = startDateObj.getTime();
-    }
-  }
-
-  if (self.endDate) {
-    const endDateObj = new Date(self.endDate);
-
-    if (!isNaN(endDateObj)) {
-      endDateObj.setHours(23, 59, 59, 999);
-      endTs = endDateObj.getTime();
-    }
-  }
-
-  return {
-    startTs,
-    endTs,
-  };
-}
+// RFC-0057: Removed unused functions: toSpOffsetNoMs(), getTimeWindowRange()
 
 /**
  * Converte um timestamp em uma string de tempo relativo (ex: "há 5 minutos").
@@ -350,128 +264,7 @@ async function getDeviceTemperature(deviceId, token) {
   });
 }
 
-function isValidUUID(str) {
-  if (!str || typeof str !== "string") return false;
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(str);
-}
-
-async function updateTotalConsumption(
-  customersArray,
-  startDateISO,
-  endDateISO
-) {
-  let totalConsumption = 0;
-  for (const c of customersArray) {
-    // Pula se value estiver vazio
-    if (!c.value) continue;
-    try {
-      const TOKEN_INJESTION = await MyIOAuth.getToken();
-      const response = await fetch(
-        `${DATA_API_HOST}/api/v1/telemetry/customers/${
-          c.value
-        }/energy/devices/totals?startTime=${encodeURIComponent(
-          startDateISO
-        )}&endTime=${encodeURIComponent(endDateISO)}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${TOKEN_INJESTION}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
-      const data = await response.json();
-      console.log(`[equipaments] Dados do customer ${c.value}:`, data);
-
-      return data;
-    } catch (err) {
-      console.error(
-        `[equipaments] Falha ao buscar dados do customer ${c.value}:`,
-        err
-      );
-    }
-  }
-}
-
-// Helper: Authenticated fetch with 401 retry
-async function fetchWithAuth(url, opts = {}, retry = true) {
-  const token = await MyIOAuth.getToken();
-  const res = await fetch(url, {
-    ...opts,
-    headers: {
-      ...(opts.headers || {}),
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (res.status === 401 && retry) {
-    console.warn(
-      `[equipaments] [fetchWithAuth] 401 on ${
-        url.split("?")[0]
-      } - refreshing token and retrying`
-    );
-    MyIOAuth.clearCache(); // Force token refresh
-    const token2 = await MyIOAuth.getToken();
-    const res2 = await fetch(url, {
-      ...opts,
-      headers: {
-        ...(opts.headers || {}),
-        Authorization: `Bearer ${token2}`,
-      },
-    });
-    if (!res2.ok) {
-      const errorText = await res2.text().catch(() => "");
-      throw new Error(`[HTTP ${res2.status}] ${errorText}`);
-    }
-    return res2;
-  }
-
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => "");
-    throw new Error(`[HTTP ${res.status}] ${errorText}`);
-  }
-
-  return res;
-}
-
-function latestNumber(arr) {
-  if (!Array.isArray(arr) || !arr.length) return null;
-
-  const v = Number(arr[arr.length - 1][1]);
-
-  return Number.isFinite(v) ? v : null;
-}
-
-function resolveEntityValue(chunks) {
-  for (const key of CONFIG.valueKeysTry) {
-    const ch = chunks.find((c) => c.dataKey?.name === key);
-
-    if (ch) {
-      const v = latestNumber(ch.data);
-      if (v !== null) return v;
-    }
-  }
-  // fallback: primeiro numérico válido
-  for (const ch of chunks) {
-    const v = latestNumber(ch.data);
-
-    if (v !== null) return v;
-  }
-  return 0;
-}
-
-function getKeyByValue(map, searchValue) {
-  for (let [key, value] of map.entries()) {
-    if (value === searchValue) {
-      return key; // Retorna a primeira chave encontrada
-    }
-  }
-  // Opcional: retorna undefined se não encontrar
-  return undefined;
-}
+// RFC-0057: Removed unused functions: isValidUUID(), updateTotalConsumption(), fetchWithAuth(), latestNumber(), resolveEntityValue(), getKeyByValue()
 
 // Log function
 function log(message, type = "info") {
@@ -522,22 +315,7 @@ function formatarDuracao(ms) {
   return parts.length > 0 ? parts.join(" ") : "0s";
 }
 
-async function fetchLastConnectTime(deviceId, jwtToken) {
-  const apiUrl = `https://dashboard.myio-bas.com/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes?keys=lastConnectTime`;
-  try {
-    const response = await fetch(apiUrl, {
-      method: "GET",
-      headers: { "X-Authorization": `Bearer ${jwtToken}` },
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
-    // O valor do atributo está em data[0].value
-    return data[0]?.value || null;
-  } catch (error) {
-    console.error(`Erro ao buscar lastConnectTime para ${deviceId}:`, error);
-    return null;
-  }
-}
+// RFC-0057: Removed unused function: fetchLastConnectTime() (was commented out in usage anyway)
 
 // Show/hide loading overlay
 function showLoadingOverlay(show) {
@@ -812,6 +590,9 @@ self.onInit = async function () {
         ts: data.data[0][0],
       });
 
+      //console.log(`[EQUIPMENTS] Device ${entityId} - Added dataKey: ${data.dataKey.name} with value: ${data.data[0][1]}`);
+      //console.log(`[EQUIPMENTS] Current device values:`, devices[entityId].values);
+
       // ✅ LÓGICA DO MAPA: Se o dado for o ingestionId, guardamos a relação
       if (data.dataKey.name === "ingestionId" && data.data[0][1]) {
         const ingestionId = data.data[0][1];
@@ -833,10 +614,11 @@ self.onInit = async function () {
         device.values.some((valor) => valor.dataType === "total_consumption")
       )
       .map(async ([entityId, device]) => {
-        const tbToken = localStorage.getItem("jwt_token");
-        const lastConnectTimestamp = await fetchLastConnectTime(entityId, tbToken);
+        const tbToken = localStorage.getItem("jwt_token");       
+        const lastConnectTimestamp = findValue(device.values, "lastConnectTime", "");
 
         let operationHoursFormatted = "0s";
+
         if (lastConnectTimestamp) {
           const nowMs = new Date().getTime();
           const durationMs = nowMs - lastConnectTimestamp;
@@ -852,6 +634,7 @@ self.onInit = async function () {
 
         let mappedConnectionStatus = "offline";
         const statusLower = String(rawConnectionStatus).toLowerCase();
+        
         if (statusLower === "online" || statusLower === "ok" || statusLower === "running") {
           mappedConnectionStatus = "online";
         } else if (statusLower === "waiting") {
@@ -925,11 +708,11 @@ self.onInit = async function () {
 
     function enrichDevicesWithConsumption() {
     if (!energyCacheFromMain) {
-      console.warn("[EQUIPMENTS] No energy cache available yet");
+      console.warn("[EQUIPMENTS] No energy from MAIN available yet");
       return;
     }
 
-    console.log("[EQUIPMENTS] Enriching devices with consumption from cache...");
+    console.log("[EQUIPMENTS] Enriching devices with consumption from MAIN...");
 
     // Iterate through devices and add consumption from cache
     Object.entries(devices).forEach(([entityId, device]) => {
@@ -982,8 +765,8 @@ self.onInit = async function () {
     }, timeoutMs);
 
     interval = setInterval(() => {
-      // ✅ Try window first (same frame), then window.parent (iframe)
-      const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+      // RFC-0057: No longer checking window.parent - not using iframes
+      const orchestrator = window.MyIOOrchestrator;
       if (orchestrator) {
         clearTimeout(timeout);
         clearInterval(interval);
