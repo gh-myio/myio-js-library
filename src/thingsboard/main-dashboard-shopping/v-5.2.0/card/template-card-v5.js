@@ -1127,6 +1127,3 @@ export function renderCardComponentV5({
 export function renderCardComponent(options) {
   return renderCardComponentV5(options);
 }
-
-// Export for direct use
-export { renderCardComponentV5 };
