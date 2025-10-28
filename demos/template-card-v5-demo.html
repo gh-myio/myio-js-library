@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Template Card v5 - Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .demo-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .demo-header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .demo-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .demo-header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .version-comparison {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .version-comparison h2 {
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .comparison-item {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .comparison-item h3 {
+            color: #334155;
+            font-size: 1rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .comparison-item .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge.old {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .badge.new {
+            background: #d1fae5;
+            color: #059669;
+        }
+
+        .comparison-item ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .comparison-item li {
+            padding: 8px 0;
+            color: #64748b;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: start;
+            gap: 8px;
+        }
+
+        .comparison-item li::before {
+            content: '→';
+            color: #00e09e;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .cards-demo {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .cards-demo h2 {
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 24px;
+            margin-top: 20px;
+        }
+
+        .card-wrapper {
+            min-height: 140px;
+        }
+
+        .info-box {
+            background: linear-gradient(135deg, #00e09e 0%, #00d4aa 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+
+        .info-box h3 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        .info-box ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .info-box li {
+            padding: 6px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-box li::before {
+            content: '✓';
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-header">
+            <h1>Template Card v5.0 Demo</h1>
+            <p>Novo componente otimizado para v5.2.0 com espaçamento melhorado e UI mais limpa</p>
+        </div>
+
+        <div class="version-comparison">
+            <h2>Principais Mudanças em v5.0</h2>
+
+            <div class="info-box">
+                <h3>Melhorias Implementadas</h3>
+                <ul>
+                    <li>Ícone de informações removido da lateral (movido para modal de configurações)</li>
+                    <li>Gap da imagem reduzido de 10px para 4px (superior e inferior)</li>
+                    <li>Altura mínima do card reduzida de 126px para 114px</li>
+                    <li>Interface mais limpa com menos elementos visuais</li>
+                    <li>Melhor aproveitamento do espaço vertical</li>
+                </ul>
+            </div>
+
+            <div class="comparison-grid">
+                <div class="comparison-item">
+                    <h3>
+                        <span class="badge old">v2</span>
+                        Piano-Key Actions
+                    </h3>
+                    <ul>
+                        <li>4 botões laterais</li>
+                        <li>Incluía botão de info (ℹ️)</li>
+                        <li>Overlay de informações no card</li>
+                    </ul>
+                </div>
+
+                <div class="comparison-item">
+                    <h3>
+                        <span class="badge new">v5</span>
+                        Piano-Key Actions
+                    </h3>
+                    <ul>
+                        <li>3 botões laterais (otimizado)</li>
+                        <li>Info integrado em Settings</li>
+                        <li>Interface mais limpa</li>
+                    </ul>
+                </div>
+
+                <div class="comparison-item">
+                    <h3>
+                        <span class="badge old">v2</span>
+                        Espaçamento
+                    </h3>
+                    <ul>
+                        <li>Gap da imagem: 10px</li>
+                        <li>Altura mínima: 126px</li>
+                        <li>Mais espaço vertical</li>
+                    </ul>
+                </div>
+
+                <div class="comparison-item">
+                    <h3>
+                        <span class="badge new">v5</span>
+                        Espaçamento
+                    </h3>
+                    <ul>
+                        <li>Gap da imagem: 4px</li>
+                        <li>Altura mínima: 114px</li>
+                        <li>Densidade otimizada</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="cards-demo">
+            <h2>Visualização dos Cards v5</h2>
+            <p style="color: #64748b; margin-bottom: 20px;">
+                Exemplos de cards com diferentes tipos de dispositivos e estados
+            </p>
+
+            <div class="cards-grid" id="cards-container">
+                <!-- Cards will be rendered here by JavaScript -->
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>MYIO Frontend Guild • Template Card v5.0.0</p>
+            <p>Documentação: <a href="../docs/RFC-0001-template-card-v5.md" style="color: #00e09e;">RFC-0001</a></p>
+        </div>
+    </div>
+
+    <script>
+        // Mock data for demonstration
+        const mockDevices = [
+            {
+                entityId: 'device-1',
+                labelOrName: 'Motor Principal',
+                deviceIdentifier: 'MOTOR-001',
+                deviceType: 'MOTOR',
+                val: 12500,
+                perc: 78.5,
+                deviceStatus: 'ok',
+                centralName: 'Central A',
+                connectionStatusTime: new Date().toISOString(),
+                timeVal: new Date().toISOString()
+            },
+            {
+                entityId: 'device-2',
+                labelOrName: 'Medidor Trifásico',
+                deviceIdentifier: '3F-MED-002',
+                deviceType: '3F_MEDIDOR',
+                val: 45600,
+                perc: 92.3,
+                deviceStatus: 'ok',
+                centralName: 'Central B',
+                connectionStatusTime: new Date().toISOString(),
+                timeVal: new Date().toISOString()
+            },
+            {
+                entityId: 'device-3',
+                labelOrName: 'Hidrômetro Norte',
+                deviceIdentifier: 'HIDRO-003',
+                deviceType: 'HIDROMETRO',
+                val: 1234.56,
+                perc: 45.2,
+                deviceStatus: 'ok',
+                centralName: 'Central A',
+                connectionStatusTime: new Date().toISOString(),
+                timeVal: new Date().toISOString()
+            },
+            {
+                entityId: 'device-4',
+                labelOrName: 'Elevador 1',
+                deviceIdentifier: 'ELEV-004',
+                deviceType: 'ELEVADOR',
+                val: 8900,
+                perc: 34.7,
+                deviceStatus: 'warning',
+                centralName: 'Central C',
+                connectionStatusTime: new Date().toISOString(),
+                timeVal: new Date().toISOString()
+            },
+            {
+                entityId: 'device-5',
+                labelOrName: 'Escada Rolante',
+                deviceIdentifier: 'ESC-005',
+                deviceType: 'ESCADA_ROLANTE',
+                val: 15600,
+                perc: 67.8,
+                deviceStatus: 'ok',
+                centralName: 'Central B',
+                connectionStatusTime: new Date().toISOString(),
+                timeVal: new Date().toISOString()
+            },
+            {
+                entityId: 'device-6',
+                labelOrName: 'Caixa D\'água',
+                deviceIdentifier: 'CAIXA-006',
+                deviceType: 'CAIXA_DAGUA',
+                val: 5000,
+                perc: 85.0,
+                deviceStatus: 'ok',
+                centralName: 'Central A',
+                connectionStatusTime: new Date().toISOString(),
+                timeVal: new Date().toISOString()
+            },
+            {
+                entityId: 'device-7',
+                labelOrName: 'Entrada Principal',
+                deviceIdentifier: 'ENT-007',
+                deviceType: 'ENTRADA',
+                val: 78900,
+                perc: 100.0,
+                deviceStatus: 'danger',
+                centralName: 'Central C',
+                connectionStatusTime: new Date(Date.now() - 3600000).toISOString(),
+                timeVal: new Date(Date.now() - 3600000).toISOString()
+            },
+            {
+                entityId: 'device-8',
+                labelOrName: 'Relógio Medidor',
+                deviceIdentifier: 'REL-008',
+                deviceType: 'RELOGIO',
+                val: 23400,
+                perc: 56.4,
+                deviceStatus: 'ok',
+                centralName: 'Central B',
+                connectionStatusTime: new Date().toISOString(),
+                timeVal: new Date().toISOString()
+            }
+        ];
+
+        // Utility functions
+        const formatEnergy = (value) => {
+            if (value >= 1000000000) return `${(value / 1000000000).toFixed(2)} GWh`;
+            if (value >= 1000000) return `${(value / 1000000).toFixed(2)} MWh`;
+            if (value >= 1000) return `${(value / 1000).toFixed(2)} kWh`;
+            return `${value.toFixed(2)} Wh`;
+        };
+
+        const getDeviceImageUrl = (deviceType) => {
+            const deviceImages = {
+                MOTOR: "https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT",
+                "3F_MEDIDOR": "https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k",
+                RELOGIO: "https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB",
+                HIDROMETRO: "https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4",
+                ENTRADA: "https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU",
+                CAIXA_DAGUA: "https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq",
+                ELEVADOR: "https://dashboard.myio-bas.com/api/images/public/rAjOvdsYJLGah6w6BABPJSD9znIyrkJX",
+                ESCADA_ROLANTE: "https://dashboard.myio-bas.com/api/images/public/EJ997iB2HD1AYYUHwIloyQOOszeqb2jp",
+            };
+            const normalizedType = deviceType?.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") || '';
+            return deviceImages[normalizedType] || "https://cdn-icons-png.flaticon.com/512/1178/1178428.png";
+        };
+
+        const isEnergyDevice = (deviceType) => {
+            const energyDeviceTypes = ['COMPRESSOR', 'VENTILADOR', 'ESCADA_ROLANTE', 'ELEVADOR', 'MOTOR', '3F_MEDIDOR', 'RELOGIO', 'ENTRADA', 'SUBESTACAO'];
+            return energyDeviceTypes.includes(deviceType?.toUpperCase() || '');
+        };
+
+        const formatCardValue = (value, deviceType) => {
+            const numValue = Number(value) || 0;
+            if (isEnergyDevice(deviceType)) {
+                return formatEnergy(numValue);
+            } else {
+                const unit = deviceType?.toUpperCase() === 'HIDROMETRO' || deviceType?.toUpperCase() === 'CAIXA_DAGUA' ? 'm³' : 'm.c.a';
+                return `${numValue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${unit}`;
+            }
+        };
+
+        const getStatusIcon = (deviceStatus) => {
+            const icons = {
+                ok: '⚡',
+                warning: '⚠️',
+                danger: '🔥',
+                offline: '❌'
+            };
+            return icons[deviceStatus] || '⚡';
+        };
+
+        // Render card function (simplified inline version)
+        const renderCard = (device) => {
+            const imageUrl = getDeviceImageUrl(device.deviceType);
+            const formattedValue = formatCardValue(device.val, device.deviceType);
+            const statusIcon = getStatusIcon(device.deviceStatus);
+            const offlineClass = device.deviceStatus === 'danger' ? 'offline' : '';
+
+            const cardHTML = `
+                <div class="device-card-v5 ${offlineClass}" data-entity-id="${device.entityId}">
+                    <div class="card-actions-v5">
+                        <button class="card-action-v5" title="Dashboard" onclick="handleAction('dashboard', '${device.entityId}')">
+                            <img src="https://dashboard.myio-bas.com/api/images/public/TAVXE0sTbCZylwGsMF9lIWdllBB3iFtS" alt="Dashboard"/>
+                        </button>
+                        <button class="card-action-v5" title="Relatório" onclick="handleAction('report', '${device.entityId}')">
+                            <img src="https://dashboard.myio-bas.com/api/images/public/d9XuQwMYQCG2otvtNSlqUHGavGaSSpz4" alt="Relatório"/>
+                        </button>
+                        <button class="card-action-v5" title="Configurações + Info" onclick="handleAction('settings', '${device.entityId}')">
+                            <img src="https://dashboard.myio-bas.com/api/images/public/5n9tze6vED2uwIs5VvJxGzNNZ9eV4yoz" alt="Configurações"/>
+                        </button>
+                    </div>
+
+                    <div class="card-content-v5">
+                        <div class="device-title-v5">${device.labelOrName}</div>
+                        ${device.deviceIdentifier ? `<div class="device-subtitle-v5">${device.deviceIdentifier}</div>` : ''}
+
+                        <img class="device-image-v5" src="${imageUrl}" alt="${device.deviceType}" />
+
+                        <div class="consumption-main-v5">
+                            <span class="flash-icon-v5">${statusIcon}</span>
+                            <span class="consumption-value-v5">${formattedValue}</span>
+                            <span class="device-percent-v5">(${device.perc.toFixed(1)}%)</span>
+                        </div>
+                    </div>
+
+                    <div class="connection-status-v5" data-state="${device.deviceStatus}"></div>
+                </div>
+            `;
+            return cardHTML;
+        };
+
+        // Global action handler
+        window.handleAction = (action, deviceId) => {
+            const device = mockDevices.find(d => d.entityId === deviceId);
+            if (!device) return;
+
+            switch(action) {
+                case 'dashboard':
+                    alert(`📊 Dashboard: ${device.labelOrName}`);
+                    break;
+                case 'report':
+                    alert(`📈 Relatório: ${device.labelOrName}`);
+                    break;
+                case 'settings':
+                    alert(
+                        `⚙️ Configurações + Info\n\n` +
+                        `Dispositivo: ${device.labelOrName}\n` +
+                        `Central: ${device.centralName}\n` +
+                        `Status: ${device.deviceStatus}\n` +
+                        `Última Conexão: ${new Date(device.connectionStatusTime).toLocaleString('pt-BR')}`
+                    );
+                    break;
+            }
+        };
+
+        // Render all cards
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('cards-container');
+            const cardsHTML = mockDevices.map(device => renderCard(device)).join('');
+            container.innerHTML = cardsHTML;
+
+            // Add card styles
+            const style = document.createElement('style');
+            style.textContent = `
+                .device-card-v5 {
+                    position: relative;
+                    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+                    border-radius: 14px;
+                    padding: 18px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+                    border: 1px solid rgba(226, 232, 240, 0.8);
+                    min-height: 114px;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                }
+
+                .device-card-v5:hover {
+                    transform: translateY(-4px) scale(1.02);
+                    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+                }
+
+                .device-card-v5.offline {
+                    border: 2px solid #ef4444;
+                    animation: offline-pulse 2s infinite;
+                }
+
+                @keyframes offline-pulse {
+                    0%, 100% { box-shadow: 0 8px 32px rgba(239, 68, 68, 0.15); }
+                    50% { box-shadow: 0 12px 40px rgba(239, 68, 68, 0.25); }
+                }
+
+                .card-actions-v5 {
+                    position: absolute;
+                    left: 12px;
+                    top: 12px;
+                    bottom: 12px;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-evenly;
+                    gap: 0;
+                    border: 1px solid rgba(226, 232, 240, 0.9);
+                    border-radius: 8px;
+                    background: #fff;
+                    z-index: 10;
+                }
+
+                .card-action-v5 {
+                    width: 36px;
+                    flex: 1;
+                    min-height: 36px;
+                    border: 0;
+                    border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+                    background: #fff;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.2s ease;
+                }
+
+                .card-action-v5:first-child {
+                    border-top-left-radius: 7px;
+                    border-top-right-radius: 7px;
+                }
+
+                .card-action-v5:last-child {
+                    border-bottom: 0;
+                    border-bottom-left-radius: 7px;
+                    border-bottom-right-radius: 7px;
+                }
+
+                .card-action-v5:hover {
+                    transform: translateY(-2px) scale(1.05);
+                    box-shadow: 0 6px 14px rgba(16, 24, 40, 0.12);
+                }
+
+                .card-action-v5 img {
+                    width: 16px;
+                    height: 16px;
+                }
+
+                .card-content-v5 {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    text-align: center;
+                    padding-left: 56px;
+                    padding-right: 20px;
+                }
+
+                .device-title-v5 {
+                    font-weight: 700;
+                    font-size: 0.85rem;
+                    color: #1e293b;
+                    margin-bottom: 4px;
+                }
+
+                .device-subtitle-v5 {
+                    font-size: 0.67rem;
+                    color: #64748b;
+                    text-transform: uppercase;
+                    margin-bottom: 8px;
+                }
+
+                .device-image-v5 {
+                    max-height: 47px;
+                    width: auto;
+                    margin: 4px 0;
+                    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.1));
+                    border-radius: 7px;
+                }
+
+                .consumption-main-v5 {
+                    background: linear-gradient(135deg, rgba(0, 224, 158, 0.1) 0%, rgba(0, 180, 216, 0.1) 100%);
+                    border-radius: 10px;
+                    padding: 7px 10px;
+                    margin-top: 7px;
+                    border: 1px solid rgba(0, 224, 158, 0.2);
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+
+                .flash-icon-v5 {
+                    font-size: 1rem;
+                }
+
+                .consumption-value-v5 {
+                    font-weight: 700;
+                    font-size: 0.9rem;
+                    color: #059669;
+                }
+
+                .device-percent-v5 {
+                    font-size: 0.72rem;
+                    color: #6b7280;
+                }
+
+                .connection-status-v5 {
+                    position: absolute;
+                    bottom: 18px;
+                    right: 18px;
+                    width: 14px;
+                    height: 14px;
+                    border-radius: 50%;
+                    background: #22c55e;
+                    border: 1px solid rgba(0, 0, 0, 0.06);
+                    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+                }
+
+                .connection-status-v5[data-state="warning"] {
+                    background: #f59e0b;
+                }
+
+                .connection-status-v5[data-state="danger"] {
+                    background: #ef4444;
+                }
+
+                .connection-status-v5[data-state="offline"] {
+                    background: #94a3b8;
+                }
+            `;
+            document.head.appendChild(style);
+
+            console.log('✅ Template Card v5 Demo Ready');
+            console.log(`📊 ${mockDevices.length} cards rendered`);
+        });
+    </script>
+</body>
+</html>

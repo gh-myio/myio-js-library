@@ -628,9 +628,8 @@ function renderList(visible) {
       cachedIngestionToken = token;
     }).catch(err => LogHelper.warn('Token cache failed:', err));
 
-    const $card = MyIO.renderCardComponentV2({
+    const $card = MyIO.renderCardComponentV5({
       entityObject,
-      handInfo: true,
       useNewComponents: true,  // Habilitar novos componentes
       enableSelection: true,   // Habilitar seleção
       enableDragDrop: true,    // Habilitar drag and drop
@@ -1636,12 +1635,12 @@ self.onInit = async function () {
   //
   // PROBLEMA ENCONTRADO: Este listener estava causando logs triplicados porque os 3 widgets TELEMETRY
   // (energy, water, temperature) estavam todos escutando o evento global 'myio:device-params' emitido
-  // quando qualquer checkbox era marcado (veja template-card-v2.js:1108).
+  // quando qualquer checkbox era marcado (veja template-card-v5.js).
   //
-  // SOLUÇÃO: O registro da entidade já é feito no template-card-v2.js:282-284 via:
+  // SOLUÇÃO: O registro da entidade já é feito no template-card-v5.js via:
   //   MyIOSelectionStore.registerEntity(cardEntity);
-  // E a adição/remoção já é feita no template-card-v2.js:1108-1124 via:
-  //   window.dispatchEvent(new CustomEvent('myio:device-params', {...}));
+  // E a adição/remoção já é feita no template-card-v5.js via checkbox event handler:
+  //   MyIOSelectionStore.add(entityId) / MyIOSelectionStore.remove(entityId);
   //
   // Portanto, NÃO precisamos deste listener aqui - ele estava causando registros e logs duplicados!
   //
