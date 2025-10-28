@@ -67,6 +67,7 @@ let pieChartInstance = null;
 // Event handlers
 let dateUpdateHandler = null;
 let dataProvideHandler = null;
+let clearCacheHandler = null;
 let lastProcessedPeriodKey = null;
 
 // ===================== CATEGORIES (RFC-0056) =====================
@@ -654,7 +655,8 @@ function updateModalData() {
   LogHelper.log("Updating modal data...");
 
   // Entrada
-  $J('#modalEntradaTotal').text(formatEnergy(STATE.entrada.total));
+  // REMOVED: Modal redesigned as chart-only (no cards to update)
+  return;
 
   // Lojas
   $J('#modalLojasTotal').text(formatEnergy(STATE.consumidores.lojas.total));
@@ -747,6 +749,9 @@ function renderModalChart() {
     options: {
       responsive: true,
       maintainAspectRatio: true,
+      layout: {
+        padding: 0
+      },
       plugins: {
         legend: {
           display: false
@@ -796,6 +801,7 @@ function renderModalChartLegend() {
     { label: 'Elevadores', color: CHART_COLORS.elevadores, value: STATE.consumidores.elevadores.total, perc: STATE.consumidores.elevadores.perc },
     { label: 'Esc. Rolantes', color: CHART_COLORS.escadasRolantes, value: STATE.consumidores.escadasRolantes.total, perc: STATE.consumidores.escadasRolantes.perc },
     { label: 'Lojas', color: CHART_COLORS.lojas, value: STATE.consumidores.lojas.total, perc: STATE.consumidores.lojas.perc },
+    { label: 'Outros', color: CHART_COLORS.outros, value: STATE.consumidores.outros ? STATE.consumidores.outros.total : 0, perc: STATE.consumidores.outros ? STATE.consumidores.outros.perc : 0 },
     { label: 'Área Comum', color: CHART_COLORS.areaComum, value: STATE.consumidores.areaComum.total, perc: STATE.consumidores.areaComum.perc }
   ];
 
@@ -804,7 +810,7 @@ function renderModalChartLegend() {
     $legend.append(html);
   });
 
-  LogHelper.log("Modal chart legend rendered with 6 items");
+  LogHelper.log("Modal chart legend rendered (6 categories)");
 }
 
 /**
@@ -1290,6 +1296,52 @@ self.onInit = async function() {
 
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
 
+  // Listen for clear cache event from HEADER
+  clearCacheHandler = function(ev) {
+    const { domain } = ev.detail || {};
+
+    // Only process if it's for my domain
+    if (domain !== WIDGET_DOMAIN) {
+      LogHelper.log(`Ignoring clear event for domain: ${domain} (expecting: ${WIDGET_DOMAIN})`);
+      return;
+    }
+
+    LogHelper.log(`[CLEAR] Received clear cache event for domain: ${domain}`);
+
+    // Clear all STATE data
+    STATE.entrada = { devices: [], total: 0, perc: 100 };
+    STATE.consumidores = {
+      climatizacao: { devices: [], total: 0, perc: 0 },
+      elevadores: { devices: [], total: 0, perc: 0 },
+      escadasRolantes: { devices: [], total: 0, perc: 0 },
+      lojas: { devices: [], total: 0, perc: 0 },
+      outros: { devices: [], total: 0, perc: 0 },
+      areaComum: { devices: [], total: 0, perc: 0 },
+      totalGeral: 0,
+      percGeral: 0
+    };
+
+    // Clear RECEIVED_DATA
+    RECEIVED_DATA = {
+      entrada: null,
+      climatizacao: null,
+      elevadores: null,
+      escadasRolantes: null,
+      lojas: null,
+      outros: null
+    };
+
+    // Reset period key
+    lastProcessedPeriodKey = null;
+
+    // Update display with cleared data
+    updateDisplay();
+
+    LogHelper.log("[CLEAR] ✅ Widget data cleared and display updated");
+  };
+
+  window.addEventListener('myio:telemetry:clear', clearCacheHandler);
+
   // RFC-0056 FIX v1.1: Listen for consolidated telemetry updates
   setupTelemetryListener();
 
@@ -1480,6 +1532,11 @@ self.onDestroy = function() {
   if (dataProvideHandler) {
     window.removeEventListener('myio:telemetry:provide-data', dataProvideHandler);
     dataProvideHandler = null;
+  }
+
+  if (clearCacheHandler) {
+    window.removeEventListener('myio:telemetry:clear', clearCacheHandler);
+    clearCacheHandler = null;
   }
 
   // RFC-0056 FIX v1.1: Remove telemetry listener

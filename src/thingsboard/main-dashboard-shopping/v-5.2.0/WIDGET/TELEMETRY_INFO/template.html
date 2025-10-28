@@ -153,116 +153,34 @@
 
   </div>
 
-  <!-- ========== MODAL EXPANDIDA ========== -->
+  <!-- ========== MODAL EXPANDIDA (PREMIUM CLEAN) ========== -->
   <div class="modal-overlay" id="modalExpanded" style="display: none;" onclick="if(event.target.id === 'modalExpanded') { window.TELEMETRY_INFO_closeModal && window.TELEMETRY_INFO_closeModal(); }">
     <div class="modal-container">
-      <!-- Modal Header -->
-      <div class="modal-header">
-        <h2>📊 Visão Detalhada - Informações de Energia</h2>
-        <button
-          class="btn-close"
-          id="btnCloseModal"
-          title="Fechar"
-          onclick="console.log('[TELEMETRY_INFO] Close button clicked!'); window.TELEMETRY_INFO_closeModal && window.TELEMETRY_INFO_closeModal()">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
+      <!-- Close Button (Floating) -->
+      <button
+        class="btn-close-floating"
+        id="btnCloseModal"
+        title="Fechar"
+        onclick="console.log('[TELEMETRY_INFO] Close button clicked!'); window.TELEMETRY_INFO_closeModal && window.TELEMETRY_INFO_closeModal()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
 
-      <!-- Modal Body: 30% Cards + 70% Chart -->
-      <div class="modal-body">
-        <!-- LEFT COLUMN: 30% - 8 Cards (2 per row) -->
-        <div class="modal-cards-column">
-          <!-- Row 1: Entrada + Lojas -->
-          <div class="modal-card modal-entrada">
-            <div class="modal-card-icon">📥</div>
-            <div class="modal-card-content">
-              <h3>Entrada</h3>
-              <div class="modal-card-value" id="modalEntradaTotal">0,00 kWh</div>
-            </div>
-          </div>
+      <!-- Modal Content: Chart Only -->
+      <div class="modal-body-clean">
+        <h2 class="modal-title-clean">Distribuição de Consumo de Energia</h2>
 
-          <div class="modal-card modal-lojas">
-            <div class="modal-card-icon">🏪</div>
-            <div class="modal-card-content">
-              <h3>Lojas</h3>
-              <div class="modal-card-value" id="modalLojasTotal">0,00 kWh</div>
-              <div class="modal-card-perc" id="modalLojasPerc">(0%)</div>
-            </div>
-          </div>
-
-          <!-- Row 2: Climatização + Elevadores -->
-          <div class="modal-card modal-climatizacao">
-            <div class="modal-card-icon">❄️</div>
-            <div class="modal-card-content">
-              <h3>Climatização</h3>
-              <div class="modal-card-value" id="modalClimatizacaoTotal">0,00 kWh</div>
-              <div class="modal-card-perc" id="modalClimatizacaoPerc">(0%)</div>
-            </div>
-          </div>
-
-          <div class="modal-card modal-elevadores">
-            <div class="modal-card-icon">🛗</div>
-            <div class="modal-card-content">
-              <h3>Elevadores</h3>
-              <div class="modal-card-value" id="modalElevadoresTotal">0,00 kWh</div>
-              <div class="modal-card-perc" id="modalElevadoresPerc">(0%)</div>
-            </div>
-          </div>
-
-          <!-- Row 3: Escadas Rolantes + Outros -->
-          <div class="modal-card modal-escadas">
-            <div class="modal-card-icon">🎢</div>
-            <div class="modal-card-content">
-              <h3>Esc. Rolantes</h3>
-              <div class="modal-card-value" id="modalEscadasTotal">0,00 kWh</div>
-              <div class="modal-card-perc" id="modalEscadasPerc">(0%)</div>
-            </div>
-          </div>
-
-          <div class="modal-card modal-outros">
-            <div class="modal-card-icon">⚙️</div>
-            <div class="modal-card-content">
-              <h3>Outros Equipamentos</h3>
-              <div class="modal-card-value" id="modalOutrosTotal">0,00 kWh</div>
-              <div class="modal-card-perc" id="modalOutrosPerc">(0%)</div>
-            </div>
-          </div>
-
-          <!-- Row 4: Área Comum + Total -->
-          <div class="modal-card modal-area-comum">
-            <div class="modal-card-icon">🏢</div>
-            <div class="modal-card-content">
-              <h3>
-                Área Comum
-                <span class="info-tooltip" title="Entrada - (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)">ℹ️</span>
-              </h3>
-              <div class="modal-card-value" id="modalAreaComumTotal">0,00 kWh</div>
-              <div class="modal-card-perc" id="modalAreaComumPerc">(0%)</div>
-            </div>
-          </div>
-
-          <div class="modal-card modal-total">
-            <div class="modal-card-icon">📊</div>
-            <div class="modal-card-content">
-              <h3>Total Consumidores</h3>
-              <div class="modal-card-value" id="modalConsumidoresTotal">0,00 kWh</div>
-              <div class="modal-card-perc" id="modalConsumidoresPerc">(100%)</div>
-            </div>
+        <!-- Inner White Container for Chart -->
+        <div class="modal-chart-inner-container">
+          <div class="modal-chart-wrapper">
+            <canvas id="modalConsumptionPieChart"></canvas>
           </div>
         </div>
 
-        <!-- RIGHT COLUMN: 70% - Chart -->
-        <div class="modal-chart-column">
-          <h3 class="modal-chart-title">Distribuição de Consumo</h3>
-          <div class="modal-chart-container">
-            <canvas id="modalConsumptionPieChart"></canvas>
-          </div>
-          <div class="modal-chart-legend" id="modalChartLegend">
-            <!-- Legenda gerada dinamicamente -->
-          </div>
+        <div class="modal-legend-clean" id="modalChartLegend">
+          <!-- Legenda gerada dinamicamente -->
         </div>
       </div>
     </div>
