@@ -7,12 +7,12 @@
 <section class="telemetry-info-root">
   <!-- HEADER -->
   <header class="info-header">
-    <h2 class="info-title">ℹ️ Informações de Energia</h2>
+    <h2 class="info-title" id="infoTitleHeader">ℹ️ Informações de Energia</h2>
     <button
       class="btn-expand"
       id="btnExpandModal"
       title="Expandir visualização"
-      style="display: flex !important; cursor: pointer !important; z-index: 9999 !important;"
+      style="display: none !important; cursor: pointer !important; z-index: 9999 !important;"
       onclick="console.log('[TELEMETRY_INFO] Button clicked!'); if(window.TELEMETRY_INFO_openModal) { window.TELEMETRY_INFO_openModal(); } else { alert('Function not loaded yet!'); }">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
@@ -170,7 +170,7 @@
 
       <!-- Modal Content: Chart Only -->
       <div class="modal-body-clean">
-        <h2 class="modal-title-clean">Distribuição de Consumo de Energia</h2>
+        <h2 class="modal-title-clean" id="modalTitleHeader">Distribuição de Consumo de Energia</h2>
 
         <!-- Inner White Container for Chart -->
         <div class="modal-chart-inner-container">

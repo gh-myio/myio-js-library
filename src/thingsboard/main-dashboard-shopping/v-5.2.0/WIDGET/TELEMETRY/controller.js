@@ -945,10 +945,16 @@ function emitTelemetryUpdate() {
     // Construir periodKey a partir do filtro atual
     const periodKey = buildPeriodKey();
 
-    if (widgetType === 'lojas') {
-      emitLojasTotal(periodKey);
-    } else if (widgetType === 'areacomum') {
-      emitAreaComumBreakdown(periodKey);
+    // RFC-0002: Domain-specific emission
+    if (WIDGET_DOMAIN === 'water') {
+      emitWaterTelemetry(widgetType, periodKey);
+    } else {
+      // Default: energy domain
+      if (widgetType === 'lojas') {
+        emitLojasTotal(periodKey);
+      } else if (widgetType === 'areacomum') {
+        emitAreaComumBreakdown(periodKey);
+      }
     }
   } catch (err) {
     LogHelper.error('[RFC-0056] Error in emitTelemetryUpdate:', err);
@@ -957,7 +963,8 @@ function emitTelemetryUpdate() {
 
 /**
  * Detecta tipo de widget baseado no datasource alias
- * @returns {'lojas'|'areacomum'|null}
+ * RFC-0002: Added 'entrada' detection for water domain
+ * @returns {'lojas'|'areacomum'|'entrada'|null}
  */
 function detectWidgetType() {
   try {
@@ -984,6 +991,12 @@ function detectWidgetType() {
       if (!alias) {
         LogHelper.warn(`[detectWidgetType] ⚠️ Alias vazio ou indefinido no datasource[${i}].`);
         continue;
+      }
+
+      // RFC-0002: Check for entrada (water domain)
+      if (alias.includes('entrada')) {
+        LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "entrada" (com base no alias "${alias}")`);
+        return 'entrada';
       }
 
       if (alias.includes('lojas')) {
@@ -1150,6 +1163,65 @@ function emitAreaComumBreakdown(periodKey) {
 
   } catch (err) {
     LogHelper.error('[RFC-0056] Error in emitAreaComumBreakdown:', err);
+  }
+}
+
+/**
+ * RFC-0002: Emit water telemetry data
+ * Emits myio:telemetry:provide-water for TELEMETRY_INFO to consume
+ * @param {string} widgetType - 'entrada', 'lojas', or 'areacomum' (detected from alias)
+ * @param {string} periodKey - Period identifier
+ */
+function emitWaterTelemetry(widgetType, periodKey) {
+  try {
+    // Map widgetType to water context (direct mapping)
+    let context = null;
+    if (widgetType === 'entrada') {
+      context = 'entrada';
+    } else if (widgetType === 'lojas') {
+      context = 'lojas';
+    } else if (widgetType === 'areacomum') {
+      context = 'areaComum';
+    }
+
+    if (!context) {
+      LogHelper.warn(`[RFC-0002 Water] Unknown widget type: ${widgetType}`);
+      return;
+    }
+
+    // Calculate total in m³
+    const totalM3 = STATE.itemsEnriched.reduce((sum, item) => sum + (item.value || 0), 0);
+
+    // Build device list
+    const devices = STATE.itemsEnriched.map(item => ({
+      id: item.id || item.entityId || '',
+      label: item.label || item.name || '',
+      value: item.value || 0,
+      deviceType: item.deviceType || 'HIDROMETRO'
+    }));
+
+    const payload = {
+      context: context,
+      domain: 'water',
+      total: totalM3,
+      devices: devices,
+      periodKey: periodKey,
+      timestamp: new Date().toISOString()
+    };
+
+    // Dispatch water event
+    const event = new CustomEvent('myio:telemetry:provide-water', {
+      detail: payload,
+      bubbles: true,
+      cancelable: false
+    });
+
+    window.dispatchEvent(event);
+
+    LogHelper.log(`[RFC-0002 Water] ✅ Emitted water telemetry: context=${context}, total=${totalM3.toFixed(2)} m³, devices=${devices.length}`);
+
+  } catch (err) {
+    LogHelper.error('[RFC-0002 Water] Error in emitWaterTelemetry:', err);
   }
 }
 

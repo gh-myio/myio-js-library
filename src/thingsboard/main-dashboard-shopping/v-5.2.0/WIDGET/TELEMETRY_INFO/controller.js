@@ -40,6 +40,50 @@ let CHART_COLORS = {
   areaComum: '#4CAF50'        // Green (residual)
 };
 
+// RFC-0002: Domain labels for multi-domain support (energy, water, gas)
+const DOMAIN_LABELS = {
+  energy: {
+    title: 'Energia',
+    unit: 'kWh',
+    icon: 'ℹ️'
+  },
+  water: {
+    title: 'Água',
+    unit: 'm³',
+    icon: '💧'
+  },
+  gas: {
+    title: 'Gás',
+    unit: 'm³',
+    icon: '🔥'
+  }
+};
+
+/**
+ * RFC-0002: Get domain label configuration
+ * @param {string} domain - Domain identifier ('energy', 'water', 'gas')
+ * @returns {Object} Domain configuration with title, unit, and icon
+ */
+function getDomainLabel(domain = 'energy') {
+  // Always fallback to 'energy' if domain is invalid or undefined
+  return DOMAIN_LABELS[domain] || DOMAIN_LABELS.energy;
+}
+
+/**
+ * RFC-0002: Format value based on domain
+ * @param {number} value - Numeric value
+ * @param {string} domain - Domain ('energy' or 'water')
+ * @returns {string} Formatted string with unit
+ */
+function formatValue(value, domain = 'energy') {
+  if (domain === 'water') {
+    // Format as m³ with 2 decimals
+    return value.toFixed(2).replace('.', ',') + ' m³';
+  }
+  // Default: energy (kWh)
+  return formatEnergy(value);
+}
+
 // ===================== STATE =====================
 
 const STATE = {
@@ -64,9 +108,47 @@ const STATE = {
 // Chart instance
 let pieChartInstance = null;
 
+// RFC-0002: STATE for water domain (4 contexts)
+const STATE_WATER = {
+  domain: 'water',
+  entrada: {
+    context: 'entrada',
+    devices: [],
+    total: 0,
+    perc: 100,
+    source: 'widget-telemetry-entrada'
+  },
+  areaComum: {
+    context: 'areaComum',
+    devices: [],
+    total: 0,
+    perc: 0,
+    source: 'widget-telemetry-area-comum'
+  },
+  lojas: {
+    context: 'lojas',
+    devices: [],
+    total: 0,
+    perc: 0,
+    source: 'widget-telemetry-lojas'
+  },
+  pontosNaoMapeados: {
+    context: 'pontosNaoMapeados',
+    devices: [],
+    total: 0,
+    perc: 0,
+    isCalculated: true,
+    hasInconsistency: false
+  },
+  grandTotal: 0,
+  periodKey: null,
+  lastUpdate: null
+};
+
 // Event handlers
 let dateUpdateHandler = null;
 let dataProvideHandler = null;
+let waterProvideHandler = null; // RFC-0002: Handler for water events
 let clearCacheHandler = null;
 let lastProcessedPeriodKey = null;
 
@@ -815,14 +897,23 @@ function renderModalChartLegend() {
 
 /**
  * Update entire display
+ * RFC-0002: Supports both energy and water domains
  */
 function updateDisplay() {
-  LogHelper.log("Updating display...");
+  LogHelper.log(`Updating display for domain: ${WIDGET_DOMAIN}...`);
 
   try {
-    renderStats();
-    renderPieChart();
-    LogHelper.log("Display updated successfully");
+    // RFC-0002: Domain-specific rendering
+    if (WIDGET_DOMAIN === 'water') {
+      renderWaterStats();
+      renderWaterPieChart();
+      LogHelper.log("[RFC-0002 Water] Display updated successfully");
+    } else {
+      // Default: energy domain
+      renderStats();
+      renderPieChart();
+      LogHelper.log("Display updated successfully");
+    }
   } catch (error) {
     LogHelper.error("Error updating display:", error);
   }
@@ -1107,6 +1198,247 @@ function recalculateWithReceivedData() {
   LogHelper.log('[RFC-0056] âœ… Recalculation complete');
 }
 
+// ===================== RFC-0002: WATER DOMAIN FUNCTIONS =====================
+
+/**
+ * RFC-0002: Process water telemetry data from TELEMETRY widgets
+ * @param {Object} eventDetail - Event detail with context, total, devices, periodKey
+ */
+function processWaterTelemetryData(eventDetail) {
+  const { context, total, devices, periodKey } = eventDetail;
+
+  LogHelper.log(`[RFC-0002 Water] Received data: context=${context}, total=${total} m³, devices=${devices?.length || 0}`);
+
+  // Validate period key
+  if (periodKey && STATE_WATER.periodKey && periodKey !== STATE_WATER.periodKey) {
+    LogHelper.warn(`[RFC-0002 Water] Period mismatch: received ${periodKey}, current ${STATE_WATER.periodKey}`);
+    return;
+  }
+
+  // Set period key if first time
+  if (!STATE_WATER.periodKey) {
+    STATE_WATER.periodKey = periodKey;
+  }
+
+  // Update state based on context
+  switch (context) {
+    case 'entrada':
+      STATE_WATER.entrada.total = total || 0;
+      STATE_WATER.entrada.devices = devices || [];
+      STATE_WATER.entrada.perc = 100; // Always 100% of itself
+      break;
+
+    case 'areaComum':
+      STATE_WATER.areaComum.total = total || 0;
+      STATE_WATER.areaComum.devices = devices || [];
+      break;
+
+    case 'lojas':
+      STATE_WATER.lojas.total = total || 0;
+      STATE_WATER.lojas.devices = devices || [];
+      break;
+
+    default:
+      LogHelper.warn(`[RFC-0002 Water] Unknown context: ${context}`);
+      return;
+  }
+
+  // Recalculate pontos não mapeados and percentages
+  calculateWaterPontosNaoMapeados();
+  calculateWaterPercentages();
+
+  // Update last update timestamp
+  STATE_WATER.lastUpdate = new Date().toISOString();
+
+  // Update display
+  updateDisplay();
+
+  LogHelper.log(`[RFC-0002 Water] State updated:`, {
+    entrada: STATE_WATER.entrada.total,
+    areaComum: STATE_WATER.areaComum.total,
+    lojas: STATE_WATER.lojas.total,
+    pontosNaoMapeados: STATE_WATER.pontosNaoMapeados.total
+  });
+}
+
+/**
+ * RFC-0002: Calculate "Pontos Não Mapeados" as residual
+ * Formula: entrada - (areaComum + lojas)
+ */
+function calculateWaterPontosNaoMapeados() {
+  const entrada = STATE_WATER.entrada.total;
+  const areaComum = STATE_WATER.areaComum.total;
+  const lojas = STATE_WATER.lojas.total;
+
+  // Sum of measured points
+  const medidosTotal = areaComum + lojas;
+
+  // Residual (difference)
+  const naoMapeados = entrada - medidosTotal;
+
+  // Check for inconsistency (negative indicates measurement error)
+  const hasInconsistency = naoMapeados < 0;
+
+  STATE_WATER.pontosNaoMapeados.total = hasInconsistency ? 0 : naoMapeados;
+  STATE_WATER.pontosNaoMapeados.hasInconsistency = hasInconsistency;
+
+  // Update grand total (sum of all measured, excluding entrada)
+  STATE_WATER.grandTotal = medidosTotal + (hasInconsistency ? 0 : naoMapeados);
+
+  if (hasInconsistency) {
+    LogHelper.warn(`[RFC-0002 Water] ⚠️ Inconsistency detected: entrada (${entrada} m³) < medidos (${medidosTotal} m³)`);
+  }
+
+  LogHelper.log(`[RFC-0002 Water] Calculated pontos não mapeados: ${STATE_WATER.pontosNaoMapeados.total.toFixed(2)} m³`);
+}
+
+/**
+ * RFC-0002: Calculate percentages relative to entrada
+ */
+function calculateWaterPercentages() {
+  const entrada = STATE_WATER.entrada.total;
+
+  if (entrada === 0) {
+    // No entrada, all percentages are 0
+    STATE_WATER.areaComum.perc = 0;
+    STATE_WATER.lojas.perc = 0;
+    STATE_WATER.pontosNaoMapeados.perc = 0;
+    return;
+  }
+
+  // Percentage relative to entrada
+  STATE_WATER.areaComum.perc = (STATE_WATER.areaComum.total / entrada) * 100;
+  STATE_WATER.lojas.perc = (STATE_WATER.lojas.total / entrada) * 100;
+  STATE_WATER.pontosNaoMapeados.perc = (STATE_WATER.pontosNaoMapeados.total / entrada) * 100;
+
+  LogHelper.log(`[RFC-0002 Water] Percentages:`, {
+    areaComum: STATE_WATER.areaComum.perc.toFixed(1) + '%',
+    lojas: STATE_WATER.lojas.perc.toFixed(1) + '%',
+    naoMapeados: STATE_WATER.pontosNaoMapeados.perc.toFixed(1) + '%'
+  });
+}
+
+/**
+ * RFC-0002: Render water stats (4 cards MVP)
+ * Reuses existing HTML structure but hides energy-only cards
+ */
+function renderWaterStats() {
+  LogHelper.log('[RFC-0002 Water] Rendering stats...');
+
+  // Hide energy-only cards
+  $$('.climatizacao-card').hide();
+  $$('.elevadores-card').hide();
+  $$('.escadas-card').hide();
+  $$('.outros-card').hide();
+
+  // Update Entrada card
+  $$('#entradaTotal').text(formatValue(STATE_WATER.entrada.total, 'water'));
+
+  // Update Lojas card
+  $$('#lojasTotal').text(formatValue(STATE_WATER.lojas.total, 'water'));
+  $$('#lojasPerc').text(`(${STATE_WATER.lojas.perc.toFixed(1)}%)`);
+
+  // Reuse "área comum" card for water área comum
+  $$('#areaComumTotal').text(formatValue(STATE_WATER.areaComum.total, 'water'));
+  $$('#areaComumPerc').text(`(${STATE_WATER.areaComum.perc.toFixed(1)}%)`);
+
+  // Reuse "total consumidores" card for "pontos não mapeados"
+  const $totalCard = $$('.total-card .card-title');
+  if ($totalCard.length > 0) {
+    $totalCard.text('Pontos Não Mapeados');
+  }
+  $$('#consumidoresTotal').text(formatValue(STATE_WATER.pontosNaoMapeados.total, 'water'));
+  $$('#consumidoresPerc').text(`(${STATE_WATER.pontosNaoMapeados.perc.toFixed(1)}%)`);
+
+  // Show warning if inconsistency
+  if (STATE_WATER.pontosNaoMapeados.hasInconsistency) {
+    const $totalCardTitle = $$('.total-card .card-title');
+    if ($totalCardTitle.length && !$totalCardTitle.find('.validation-warning').length) {
+      $totalCardTitle.append(' <span class="validation-warning" style="color: #FF6B6B; font-size: 0.9em;" title="Inconsistência: soma dos medidos > entrada">⚠️</span>');
+    }
+  } else {
+    $$('.total-card .validation-warning').remove();
+  }
+
+  LogHelper.log('[RFC-0002 Water] Stats rendered');
+}
+
+/**
+ * RFC-0002: Render water pie chart (4 contexts MVP)
+ */
+function renderWaterPieChart() {
+  LogHelper.log('[RFC-0002 Water] Rendering pie chart...');
+
+  const chartData = [
+    { label: 'Área Comum', color: '#4CAF50', value: STATE_WATER.areaComum.total, perc: STATE_WATER.areaComum.perc },
+    { label: 'Lojas', color: '#FFC107', value: STATE_WATER.lojas.total, perc: STATE_WATER.lojas.perc },
+    { label: 'Pontos Não Mapeados', color: '#9E9E9E', value: STATE_WATER.pontosNaoMapeados.total, perc: STATE_WATER.pontosNaoMapeados.perc }
+  ];
+
+  // Filter out zero values
+  const validData = chartData.filter(item => item.value > 0);
+
+  if (validData.length === 0) {
+    LogHelper.warn('[RFC-0002 Water] No data to render chart');
+    return;
+  }
+
+  // Render main widget chart
+  const chartCanvas = $$('#consumptionPieChart')[0];
+  if (chartCanvas) {
+    if (pieChartInstance) {
+      pieChartInstance.destroy();
+    }
+
+    pieChartInstance = new Chart(chartCanvas.getContext('2d'), {
+      type: 'pie',
+      data: {
+        labels: validData.map(item => item.label),
+        datasets: [{
+          data: validData.map(item => item.value),
+          backgroundColor: validData.map(item => item.color),
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = formatValue(context.parsed, 'water');
+                const perc = validData[context.dataIndex].perc.toFixed(1);
+                return `${label}: ${value} (${perc}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Render legend
+  const $legend = $$('#chartLegend');
+  if ($legend.length > 0) {
+    $legend.empty();
+    validData.forEach(item => {
+      $legend.append(`
+        <div class="legend-item">
+          <span class="legend-color" style="background-color: ${item.color};"></span>
+          <span class="legend-label">${item.label}</span>
+          <span class="legend-value">${formatValue(item.value, 'water')} (${item.perc.toFixed(1)}%)</span>
+        </div>
+      `);
+    });
+  }
+
+  LogHelper.log('[RFC-0002 Water] Pie chart rendered');
+}
+
 /**
  * Tenta carregar dados do cache sessionStorage
  * RFC-0056 FIX v1.1: Performance < 100ms reload
@@ -1268,9 +1600,26 @@ self.onInit = async function() {
     RECEIVED_DATA.outros = null;
   }
 
-  // Set widget label
-  const widgetLabel = self.ctx.settings?.labelWidget || 'InformaÃ§Ãµes de Energia';
-  $root().find('.info-title').text(widgetLabel);
+  // RFC-0002: Set widget label (dynamic based on domain)
+  const domainConfig = getDomainLabel(WIDGET_DOMAIN);
+
+  // Priority: 1) Manual config from settings, 2) Auto from domain
+  const widgetLabel = self.ctx.settings?.labelWidget || `${domainConfig.icon} Informações de ${domainConfig.title}`;
+  const modalLabel = self.ctx.settings?.modalTitle || `Distribuição de Consumo de ${domainConfig.title}`;
+
+  // Update header title
+  const $infoTitle = $root().find('.info-title');
+  if ($infoTitle.length > 0) {
+    $infoTitle.html(widgetLabel);
+  }
+
+  // Update modal title (using ID for safer targeting)
+  const $modalTitle = $J('#modalTitleHeader');
+  if ($modalTitle.length > 0) {
+    $modalTitle.text(modalLabel);
+  }
+
+  LogHelper.log(`[RFC-0002] Títulos atualizados: domain=${WIDGET_DOMAIN}, title=${domainConfig.title}`);
 
   // Listen for orchestrator data
   dataProvideHandler = function(ev) {
@@ -1296,6 +1645,26 @@ self.onInit = async function() {
 
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
 
+  // RFC-0002: Listen for water domain events
+  if (WIDGET_DOMAIN === 'water') {
+    waterProvideHandler = function(ev) {
+      const { domain, context, total, devices, periodKey } = ev.detail;
+
+      // Only process water domain
+      if (domain !== 'water') {
+        LogHelper.log(`[RFC-0002 Water] Ignoring event for domain: ${domain}`);
+        return;
+      }
+
+      LogHelper.log(`[RFC-0002 Water] Received event: context=${context}, domain=${domain}`);
+
+      processWaterTelemetryData(ev.detail);
+    };
+
+    window.addEventListener('myio:telemetry:provide-water', waterProvideHandler);
+    LogHelper.log('[RFC-0002 Water] Listener configured for myio:telemetry:provide-water');
+  }
+
   // Listen for clear cache event from HEADER
   clearCacheHandler = function(ev) {
     const { domain } = ev.detail || {};
@@ -1308,28 +1677,41 @@ self.onInit = async function() {
 
     LogHelper.log(`[CLEAR] Received clear cache event for domain: ${domain}`);
 
-    // Clear all STATE data
-    STATE.entrada = { devices: [], total: 0, perc: 100 };
-    STATE.consumidores = {
-      climatizacao: { devices: [], total: 0, perc: 0 },
-      elevadores: { devices: [], total: 0, perc: 0 },
-      escadasRolantes: { devices: [], total: 0, perc: 0 },
-      lojas: { devices: [], total: 0, perc: 0 },
-      outros: { devices: [], total: 0, perc: 0 },
-      areaComum: { devices: [], total: 0, perc: 0 },
-      totalGeral: 0,
-      percGeral: 0
-    };
+    // RFC-0002: Clear domain-specific STATE
+    if (domain === 'water') {
+      // Clear water state
+      STATE_WATER.entrada = { context: 'entrada', devices: [], total: 0, perc: 100, source: 'widget-telemetry-entrada' };
+      STATE_WATER.areaComum = { context: 'areaComum', devices: [], total: 0, perc: 0, source: 'widget-telemetry-area-comum' };
+      STATE_WATER.lojas = { context: 'lojas', devices: [], total: 0, perc: 0, source: 'widget-telemetry-lojas' };
+      STATE_WATER.pontosNaoMapeados = { context: 'pontosNaoMapeados', devices: [], total: 0, perc: 0, isCalculated: true, hasInconsistency: false };
+      STATE_WATER.grandTotal = 0;
+      STATE_WATER.periodKey = null;
+      STATE_WATER.lastUpdate = null;
+      LogHelper.log("[CLEAR] Water state cleared");
+    } else {
+      // Clear energy state (default)
+      STATE.entrada = { devices: [], total: 0, perc: 100 };
+      STATE.consumidores = {
+        climatizacao: { devices: [], total: 0, perc: 0 },
+        elevadores: { devices: [], total: 0, perc: 0 },
+        escadasRolantes: { devices: [], total: 0, perc: 0 },
+        lojas: { devices: [], total: 0, perc: 0 },
+        outros: { devices: [], total: 0, perc: 0 },
+        areaComum: { devices: [], total: 0, perc: 0 },
+        totalGeral: 0,
+        percGeral: 0
+      };
 
-    // Clear RECEIVED_DATA
-    RECEIVED_DATA = {
-      entrada: null,
-      climatizacao: null,
-      elevadores: null,
-      escadasRolantes: null,
-      lojas: null,
-      outros: null
-    };
+      // Clear RECEIVED_DATA
+      RECEIVED_DATA.entrada = null;
+      RECEIVED_DATA.climatizacao = null;
+      RECEIVED_DATA.elevadores = null;
+      RECEIVED_DATA.escadasRolantes = null;
+      RECEIVED_DATA.lojas = null;
+      RECEIVED_DATA.outros = null;
+
+      LogHelper.log("[CLEAR] Energy state cleared");
+    }
 
     // Reset period key
     lastProcessedPeriodKey = null;
