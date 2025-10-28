@@ -6,7 +6,15 @@ export interface OpenDashboardPopupSettingsParams {
   ingestionId?: string; // Optional for UI display only
   identifier?: string;
   label?: string;
-  
+
+  // Connection information (from card v5 info panel)
+  connectionData?: {
+    centralName?: string;
+    connectionStatusTime?: string;
+    timeVal?: string;
+    deviceStatus?: string;
+  };
+
   // Authentication (REQUIRED)
   jwtToken: string; // ThingsBoard JWT token for persistence
   
@@ -110,6 +118,12 @@ export interface ModalConfig {
   themeTokens?: Record<string, string | number>;
   i18n?: { t: (key: string, def?: string) => string };
   deviceLabel?: string; // Dynamic label for the left column section
+  connectionData?: { // Connection info from card v5
+    centralName?: string;
+    connectionStatusTime?: string;
+    timeVal?: string;
+    deviceStatus?: string;
+  };
   onSave: (formData: Record<string, any>) => Promise<void>;
   onClose: () => void;
 }

@@ -336,6 +336,8 @@ Para dúvidas ou problemas:
 - 🎨 Gap da imagem reduzido de 10px para 4px
 - 📏 Altura mínima reduzida de 126px para 114px
 - 🔧 Info integrado na modal de configurações
+- 📊 Fontes da telemetria reduzidas (valor: 0.9rem → 0.75rem, percentual: 0.72rem → 0.65rem)
+- 🎯 Quadrado de consumo mais compacto (padding: 7px 10px → 4px 8px)
 - 📱 Responsividade melhorada
 - ⚡ Performance otimizada
 - 🎯 Baseado em template-card-v2.js

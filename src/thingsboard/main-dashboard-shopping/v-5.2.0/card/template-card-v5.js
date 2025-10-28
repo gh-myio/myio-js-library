@@ -690,33 +690,33 @@ export function renderCardComponentV5({
         padding: 0 !important;
       }
 
-      /* Value pill */
+      /* Value pill - COMPACT */
       .device-card-centered .consumption-main {
         background: linear-gradient(135deg, rgba(0, 224, 158, 0.1) 0%, rgba(0, 180, 216, 0.1) 100%);
-        border-radius: 10px;
-        padding: 7px 10px;
-        margin-top: 7px;
+        border-radius: 8px;
+        padding: 4px 8px;
+        margin-top: 5px;
         border: 1px solid rgba(0, 224, 158, 0.2);
         backdrop-filter: blur(10px);
       }
 
       .device-card-centered .consumption-value {
         font-weight: 700 !important;
-        font-size: 0.9rem !important;
+        font-size: 0.75rem !important;
         color: #059669 !important;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
       }
 
       .device-card-centered .device-title-percent {
-        font-size: 0.72rem !important;
+        font-size: 0.65rem !important;
         color: #6b7280 !important;
         font-weight: 600 !important;
-        margin-left: 5px;
+        margin-left: 4px;
       }
 
       .device-card-centered .flash-icon {
-        font-size: 1rem !important;
-        margin-right: 7px;
+        font-size: 0.85rem !important;
+        margin-right: 5px;
         transition: all 0.3s ease;
       }
 

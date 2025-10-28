@@ -140,22 +140,24 @@ export class SettingsModalView {
         <div class="form-column">
           <div class="form-card">
             <h4 class="section-title">${this.config.deviceLabel || 'Outback'}</h4>
-            
+
             <div class="form-group">
               <label for="label">Etiqueta</label>
               <input type="text" id="label" name="label" required maxlength="255">
             </div>
-            
+
             <div class="form-group">
               <label for="floor">Andar</label>
               <input type="text" id="floor" name="floor" maxlength="50">
             </div>
-            
+
             <div class="form-group">
               <label for="identifier">Número da Loja</label>
               <input type="text" id="identifier" name="identifier" maxlength="20" readonly>
             </div>
           </div>
+
+          ${this.getConnectionInfoHTML()}
         </div>
 
         <!-- Right Column: Energy Alarms -->
@@ -178,6 +180,118 @@ export class SettingsModalView {
               <input type="number" id="maxBusinessKwh" name="maxBusinessKwh" min="0" step="0.1">
             </div>
           </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private getConnectionInfoHTML(): string {
+    if (!this.config.connectionData) {
+      return '';
+    }
+
+    const { centralName, connectionStatusTime, timeVal, deviceStatus } = this.config.connectionData;
+
+    // Format connection time
+    let connectionTimeFormatted = 'N/A';
+    if (connectionStatusTime) {
+      try {
+        const date = new Date(connectionStatusTime);
+        connectionTimeFormatted = date.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      } catch (e) {
+        connectionTimeFormatted = 'Formato inválido';
+      }
+    }
+
+    // Format telemetry time
+    let telemetryTimeFormatted = 'N/A';
+    let timeSinceLastTelemetry = '';
+    if (timeVal) {
+      try {
+        const telemetryDate = new Date(timeVal);
+        telemetryTimeFormatted = telemetryDate.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+
+        // Calculate time difference
+        const now = new Date();
+        const diffMs = now.getTime() - telemetryDate.getTime();
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        const diffHours = Math.floor(diffMinutes / 60);
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (diffDays > 0) {
+          timeSinceLastTelemetry = `(${diffDays}d atrás)`;
+        } else if (diffHours > 0) {
+          timeSinceLastTelemetry = `(${diffHours}h atrás)`;
+        } else if (diffMinutes > 0) {
+          timeSinceLastTelemetry = `(${diffMinutes}min atrás)`;
+        } else {
+          timeSinceLastTelemetry = '(agora)';
+        }
+      } catch (e) {
+        telemetryTimeFormatted = 'Formato inválido';
+      }
+    }
+
+    // Map device status to readable text
+    const statusMap: Record<string, { text: string; color: string }> = {
+      ok: { text: 'Normal', color: '#22c55e' },
+      warning: { text: 'Atenção', color: '#f59e0b' },
+      danger: { text: 'Erro', color: '#ef4444' },
+      offline: { text: 'Offline', color: '#94a3b8' },
+      no_info: { text: 'Sem informação', color: '#94a3b8' }
+    };
+
+    const statusInfo = statusMap[deviceStatus || ''] || { text: 'Desconhecido', color: '#6b7280' };
+
+    return `
+      <div class="form-card info-card">
+        <h4 class="section-title">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 6px;">
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+            <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+          </svg>
+          Informações de Conexão
+        </h4>
+
+        <div class="info-row">
+          <span class="info-label">Central:</span>
+          <span class="info-value">${centralName || 'N/A'}</span>
+        </div>
+
+        <div class="info-row">
+          <span class="info-label">Status:</span>
+          <span class="info-value" style="color: ${statusInfo.color}; font-weight: 600;">
+            ${statusInfo.text}
+          </span>
+        </div>
+
+        <div class="info-row">
+          <span class="info-label">Última Conexão:</span>
+          <span class="info-value">${connectionTimeFormatted}</span>
+        </div>
+
+        <div class="info-row">
+          <span class="info-label">Última Telemetria:</span>
+          <span class="info-value">
+            ${telemetryTimeFormatted}
+            ${timeSinceLastTelemetry ? `<span class="time-since">${timeSinceLastTelemetry}</span>` : ''}
+          </span>
+        </div>
+
+        <div class="info-note">
+          ℹ️ Informações de conexão e telemetria do dispositivo
         </div>
       </div>
     `;
@@ -434,6 +548,67 @@ export class SettingsModalView {
         
         .modal-body::-webkit-scrollbar-thumb:hover {
           background: #a8a8a8;
+        }
+
+        /* Connection Info Card Styles */
+        .info-card {
+          margin-top: 20px;
+          background: linear-gradient(135deg, #f8fafc 0%, #f0f9ff 100%);
+          border: 1px solid #e0e7ff;
+        }
+
+        .info-card .section-title {
+          color: #2563eb;
+          display: flex;
+          align-items: center;
+        }
+
+        .info-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          padding: 10px 0;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .info-row:last-of-type {
+          border-bottom: none;
+          padding-bottom: 12px;
+        }
+
+        .info-label {
+          font-weight: 600;
+          color: #475569;
+          font-size: 13px;
+          flex-shrink: 0;
+          min-width: 140px;
+        }
+
+        .info-value {
+          text-align: right;
+          color: #1e293b;
+          font-size: 13px;
+          word-break: break-word;
+        }
+
+        .time-since {
+          display: inline-block;
+          margin-left: 6px;
+          color: #64748b;
+          font-size: 12px;
+          font-style: italic;
+        }
+
+        .info-note {
+          margin-top: 12px;
+          padding: 10px;
+          background: rgba(59, 130, 246, 0.1);
+          border-radius: 6px;
+          font-size: 12px;
+          color: #1e40af;
+          display: flex;
+          align-items: center;
+          gap: 6px;
         }
       </style>
     `;

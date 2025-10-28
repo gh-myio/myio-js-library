@@ -82,9 +82,57 @@ actionsContainer.appendChild(infoBtn);
 - Melhor densidade de informação
 - Mais cards visíveis na viewport sem scroll
 
-#### 3. [A DEFINIR]
+#### 3. Redução de Fontes e Compactação do Valor de Consumo
 
-_Espaço reservado para a terceira mudança a ser especificada._
+**Antes (v2):**
+```css
+.consumption-main {
+  padding: 7px 10px;
+  margin-top: 7px;
+  border-radius: 10px;
+}
+
+.consumption-value {
+  font-size: 0.9rem;
+}
+
+.device-title-percent {
+  font-size: 0.72rem;
+}
+
+.flash-icon {
+  font-size: 1rem;
+  margin-right: 7px;
+}
+```
+
+**Depois (v5):**
+```css
+.consumption-main {
+  padding: 4px 8px;      /* Reduzido ~43% */
+  margin-top: 5px;       /* Reduzido ~29% */
+  border-radius: 8px;    /* Reduzido 20% */
+}
+
+.consumption-value {
+  font-size: 0.75rem;    /* Reduzido ~17% */
+}
+
+.device-title-percent {
+  font-size: 0.65rem;    /* Reduzido ~10% */
+}
+
+.flash-icon {
+  font-size: 0.85rem;    /* Reduzido 15% */
+  margin-right: 5px;     /* Reduzido ~29% */
+}
+```
+
+**Impacto para o Usuário:**
+- Quadrado verde de consumo mais compacto e discreto
+- Melhor legibilidade em telas menores
+- Mais espaço visual para outros elementos do card
+- Hierarquia visual melhorada (título mais proeminente que valor)
 
 ---
 
@@ -176,6 +224,29 @@ export function renderCardComponentV5({
   /* ... */
   min-height: 114px !important;  /* Reduzido de 126px para 114px */
   /* ... */
+}
+```
+
+#### Compactação do Valor de Consumo
+
+```css
+.device-card-centered .consumption-main {
+  border-radius: 8px;        /* Reduzido de 10px */
+  padding: 4px 8px;          /* Reduzido de 7px 10px */
+  margin-top: 5px;           /* Reduzido de 7px */
+}
+
+.device-card-centered .consumption-value {
+  font-size: 0.75rem !important;  /* Reduzido de 0.9rem */
+}
+
+.device-card-centered .device-title-percent {
+  font-size: 0.65rem !important;  /* Reduzido de 0.72rem */
+}
+
+.device-card-centered .flash-icon {
+  font-size: 0.85rem !important;  /* Reduzido de 1rem */
+  margin-right: 5px;              /* Reduzido de 7px */
 }
 ```
 

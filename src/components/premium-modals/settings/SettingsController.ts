@@ -26,6 +26,7 @@ export class SettingsController {
       themeTokens: params.ui?.themeTokens,
       i18n: params.ui?.i18n,
       deviceLabel: params.label, // Pass the device label for dynamic section titles
+      connectionData: params.connectionData, // Pass connection info for display
       onSave: this.handleSave.bind(this),
       onClose: this.handleClose.bind(this)
     });

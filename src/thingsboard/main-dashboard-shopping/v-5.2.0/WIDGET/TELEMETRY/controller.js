@@ -612,9 +612,8 @@ function renderList(visible) {
       centralId: it.centralId || "N/A",
       centralName: it.centralName || "N/A",
       updatedIdentifiers: it.updatedIdentifiers || {},
-      handInfo: true,
-      connectionStatusTime: Date.now(),
-      timaVal: Date.now()
+      connectionStatusTime: it.connectionStatusTime || Date.now(),
+      timeVal: it.timeVal || Date.now()
     };
     
     if (it.label === 'Allegria') {
@@ -723,6 +722,12 @@ function renderList(visible) {
             deviceId: tbId, // TB deviceId
             label: it.label,
             jwtToken: jwt,
+            connectionData: {
+              centralName: it.centralName,
+              connectionStatusTime: it.connectionStatusTime,
+              timeVal: it.timeVal,
+              deviceStatus: connectionStatus
+            },
             ui: { title: "Configurações", width: 900 },
             onSaved: (payload) => {
               LogHelper.log("[Settings Saved]", payload);
