@@ -8,32 +8,34 @@
     background: transparent !important;
 }
 
-/* Força transparência total em todas as sections */
-section {
+/* Força transparência nas sections que NÃO são o footer */
+#container > section {
     background: transparent !important;
     background-color: transparent !important;
     background-image: none !important;
     overflow: hidden;
 }
 
-/* RFC-0058: Exception for footer section - needs full height and visible overflow */
-section:has(> .content[ng-reflect-state-id="footer"]) {
+/* RFC-0058: CRITICAL - Override for footer outer wrapper section */
+#container > section:last-child {
     height: 46px !important;
     min-height: 46px !important;
     max-height: 46px !important;
     padding: 0 !important;
     margin: 0 !important;
     overflow: visible !important;
-    background: none !important; /* Let footer widget handle its own background */
+    background: transparent !important;
 }
 
-section:has(> .content[ng-reflect-state-id="footer"]) > .content {
+/* RFC-0058: tb-dashboard-state child must fill parent completely */
+#container > section:last-child > .content {
     height: 100% !important;
     width: 100% !important;
     padding: 0 !important;
     margin: 0 !important;
     display: block !important;
     overflow: visible !important;
+    background: transparent !important;
 }
 
 

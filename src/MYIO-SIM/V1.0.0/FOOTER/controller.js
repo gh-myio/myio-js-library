@@ -11,8 +11,9 @@
 
   const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
 
-  // Debug configuration
+  // Debug configuration - ALWAYS TRUE for debugging footer issues
   const DEBUG_ACTIVE = true;
+  console.log("[MYIO FOOTER] Script loaded, DEBUG_ACTIVE=" + DEBUG_ACTIVE);
 
   // LogHelper utility
   const LogHelper = {
@@ -145,14 +146,22 @@
   // --- 2. Injeção de CSS (executada uma vez) ---
   let cssInjected = false;
   function injectCSS() {
-    if (cssInjected) return;
+    console.log("[MYIO FOOTER] injectCSS() called, cssInjected=" + cssInjected);
+
+    if (cssInjected) {
+      console.log("[MYIO FOOTER] CSS already injected, skipping");
+      return;
+    }
 
     const styleId = 'myio-footer-premium-styles';
-    if (document.getElementById(styleId)) {
+    const existingStyle = document.getElementById(styleId);
+    if (existingStyle) {
+      console.log("[MYIO FOOTER] Style element already exists in DOM");
       cssInjected = true;
       return;
     }
 
+    console.log("[MYIO FOOTER] Creating and injecting CSS...");
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
@@ -603,6 +612,9 @@ section:has(> .content[ng-reflect-state-id="footer"]) > .content {
 
     document.head.appendChild(style);
     cssInjected = true;
+    console.log("[MYIO FOOTER] ✅✅✅ CSS INJECTED SUCCESSFULLY into <head>!");
+    console.log("[MYIO FOOTER] Style element ID:", style.id);
+    console.log("[MYIO FOOTER] CSS length:", style.textContent.length, "characters");
     LogHelper.log("[MyIO Footer] ✅ CSS injected successfully");
   }
 
@@ -632,15 +644,20 @@ section:has(> .content[ng-reflect-state-id="footer"]) > .content {
      * Inicializa o controlador
      */
     init(ctx) {
+      console.log("[MYIO FOOTER] ==================== INIT CALLED ====================");
+      console.log("[MYIO FOOTER] Context:", ctx);
       LogHelper.log("[MyIO Footer] init() called");
 
       if (this.initialized) {
+        console.log("[MYIO FOOTER] Already initialized, skipping");
         LogHelper.log("[MyIO Footer] Already initialized, skipping");
         return;
       }
 
       // Injeta o CSS primeiro
+      console.log("[MYIO FOOTER] About to call injectCSS()...");
       injectCSS();
+      console.log("[MYIO FOOTER] injectCSS() completed");
 
       this.$root = ctx?.$container?.[0];
       this.ctx = ctx;
@@ -1672,6 +1689,8 @@ section:has(> .content[ng-reflect-state-id="footer"]) > .content {
   // --- 4. Hooks do Ciclo de Vida do Widget ---
 
   self.onInit = function () {
+    console.log('[MYIO FOOTER] ==================== onInit CALLED ====================');
+    console.log('[FOOTER] 🟢 onInit chamado!');
     LogHelper.log('[FOOTER] 🟢 onInit chamado!');
     LogHelper.log('[FOOTER] self.ctx:', self.ctx);
     LogHelper.log('[FOOTER] self.ctx.$container:', self.ctx?.$container);
@@ -1681,6 +1700,7 @@ section:has(> .content[ng-reflect-state-id="footer"]) > .content {
 
     // Passa o contexto do widget (self.ctx) para o controlador
     try {
+      console.log('[MYIO FOOTER] Calling footerController.init()...');
       footerController.init(self.ctx);
       LogHelper.log('[FOOTER] ✅ Inicialização completa!');
     } catch (error) {
