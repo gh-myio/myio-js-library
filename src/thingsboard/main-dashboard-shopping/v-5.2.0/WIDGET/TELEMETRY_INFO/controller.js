@@ -1372,7 +1372,7 @@ function renderWaterPieChart() {
   const chartData = [
     { label: 'Área Comum', color: '#4CAF50', value: STATE_WATER.areaComum.total, perc: STATE_WATER.areaComum.perc },
     { label: 'Lojas', color: '#FFC107', value: STATE_WATER.lojas.total, perc: STATE_WATER.lojas.perc },
-    { label: 'Pontos Não Mapeados', color: '#9E9E9E', value: STATE_WATER.pontosNaoMapeados.total, perc: STATE_WATER.pontosNaoMapeados.perc }
+    { label: 'Pontos Não Mapeados', color: '#2196F3', value: STATE_WATER.pontosNaoMapeados.total, perc: STATE_WATER.pontosNaoMapeados.perc }
   ];
 
   // Filter out zero values

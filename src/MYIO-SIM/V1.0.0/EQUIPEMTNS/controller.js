@@ -696,6 +696,12 @@ self.onInit = async function () {
           temperatureC: deviceTemperature[0].value,
           operationHours: operationHoursFormatted || 0,
           updated: updatedFormatted,
+          // RFC-0058: Add properties for MyIOSelectionStore (FOOTER)
+          id: entityId,                    // Alias for entityId
+          name: device.label,              // Alias for labelOrName
+          lastValue: consumptionValue,     // Alias for val
+          unit: 'kWh',                     // Energy unit
+          icon: 'energy'                   // Domain identifier for SelectionStore
         };
       });
 

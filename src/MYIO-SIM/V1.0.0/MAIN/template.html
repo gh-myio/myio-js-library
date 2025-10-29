@@ -7,7 +7,7 @@
 </section>
 
 <!-- RFC-0057: All content states pre-rendered with show/hide logic (no dynamic innerHTML!) -->
-<section id="mainView" style="height: calc(100% - 260px); overflow: auto; background: transparent;">
+<section id="mainView" style="height: calc(100% - 306px); overflow: auto; background: transparent;">
   <div data-content-state="content_equipments" style="display:block; height:100%; width:100%;">
     <tb-dashboard-state class="content" [ctx]="ctx" stateId="content_equipments"></tb-dashboard-state>
   </div>
@@ -20,4 +20,9 @@
   <div data-content-state="content_temperature" style="display:none; height:100%; width:100%;">
     <tb-dashboard-state class="content" [ctx]="ctx" stateId="content_temperature"></tb-dashboard-state>
   </div>
+</section>
+
+<!-- RFC-0058: Footer with device selection and comparison -->
+<section style="height: 46px; min-height: 46px; max-height: 46px; overflow: hidden; background: transparent; display: block; box-sizing: border-box;">
+  <tb-dashboard-state class="content" [ctx]="ctx" stateId="footer"></tb-dashboard-state>
 </section>

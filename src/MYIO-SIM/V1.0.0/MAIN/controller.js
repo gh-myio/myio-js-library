@@ -513,6 +513,11 @@ self.onInit = async function () {
     clientId: CLIENT_ID_INGESTION
   });
 
+  // RFC-0058: Expose credentials globally for FOOTER widget
+  window.__MYIO_CLIENT_ID__ = CLIENT_ID_INGESTION;
+  window.__MYIO_CLIENT_SECRET__ = CLIENT_SECRET_INGESTION;
+  window.__MYIO_CUSTOMER_INGESTION_ID__ = CUSTOMER_INGESTION_ID;
+
   // ===== STEP 2: Initialize MyIO Auth Component =====
   // Check if MyIOLibrary is available
   if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.buildMyioIngestionAuth) {
