@@ -1,4 +1,5 @@
 import { ModalConfig } from './types';
+import {mapDeviceStatusToCardStatus} from '../../../utils/deviceStatus';
 
 export class SettingsModalView {
   private container: HTMLElement;
@@ -244,6 +245,8 @@ export class SettingsModalView {
       }
     }
 
+    
+  
     // Map device status to readable text
     const statusMap: Record<string, { text: string; color: string }> = {
       ok: { text: 'Normal', color: '#22c55e' },
@@ -253,7 +256,7 @@ export class SettingsModalView {
       no_info: { text: 'Sem informação', color: '#94a3b8' }
     };
 
-    const statusInfo = statusMap[deviceStatus || ''] || { text: 'Desconhecido', color: '#6b7280' };
+    const statusInfo = statusMap[mapDeviceStatusToCardStatus(deviceStatus) || ''] || { text: 'Desconhecido', color: '#6b7280' };
 
     return `
       <div class="form-card info-card">
