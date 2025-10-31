@@ -535,7 +535,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           LogHelper.log(`[HEADER] Built ${allItems.length} total items from all datasources`);
 
           // Determine which datasource alias to filter by based on domain
-          const targetAliasName = domain === 'energy' ? 'Lojas' : domain === 'water' ? 'Todos Hidrometros' : null;
+          const targetAliasName = domain === 'energy' ? 'Lojas' : domain === 'water' ? 'Todos Hidrometros Lojas' : null;
 
           if (!targetAliasName) {
             LogHelper.error(`[HEADER] No alias mapping for domain: ${domain}`);

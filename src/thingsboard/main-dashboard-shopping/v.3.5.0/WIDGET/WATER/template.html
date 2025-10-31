@@ -1,0 +1,70 @@
+<div class="main-content">
+  <div class="status-container">
+    <div class="top-bar">
+      <div class="date-range">
+        <input
+          type="date"
+          [(ngModel)]="startDate"
+          (ngModelChange)="handleStartDateChange($event)"
+          [max]="endDate"
+        />
+        <span>até</span>
+        <input
+          type="date"
+          [(ngModel)]="endDate"
+          (ngModelChange)="handleEndDateChange($event)"
+          [min]="startDate"
+        />
+        <button class="load-button" (click)="loadData()" [disabled]="isLoading">
+          <i class="material-icons">refresh</i>
+          Carregar
+        </button>
+      </div>
+
+      <input class="search-bar" placeholder="🔍 Buscar por nome..." />
+      <button class="btn-report lojas">
+        📋 Relatório Consumo Geral por Loja
+      </button>
+      <!--<span id="fullScreen" class="btn-fullScreen">⛶</span>-->
+      <!--<button class="btn-report shopping">📈 Relatório Shopping por Dia</button>-->
+    </div>
+
+    <div class="group-wrapper-columns">
+      <div class="group-card caixa">
+        <div class="group-title">
+          Caixas D'Água
+          <span class="group-count" data-group-count="Caixas D'Água">(0)</span>
+        </div>
+        <div class="card-list"></div>
+      </div>
+
+      <!--<div class="group-card administracao">-->
+      <!--<div class="group-title">-->
+      <!--Adm. e Bombas-->
+      <!--<span class="group-count" data-group-count="Administração e Bombas">(0)</span>-->
+      <!--<span class="group-total" data-group="Administração e Bombas">m³</span>-->
+      <!--</div>-->
+      <!--<div class="card-list"></div>-->
+      <!--</div>-->
+
+      <div class="group-card lojas">
+        <div class="group-title">
+          Ambientes
+          <span class="group-count" data-group-count="Ambientes">(0)</span>
+          <span class="group-total" data-group="Ambientes">-- m³</span>
+        </div>
+        <div class="card-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Alerta que só aparece em celulares -->
+<div class="alerta-mobile">
+  <h1>Dispositivo não suportado</h1>
+  <p>
+    Este widget não está disponível para aparelhos móveis. Acesse de um
+    computador para melhor experiência.
+  </p>
+  <img src="https://myio.com.br/app/uploads/2020/05/Logotest01.png" />
+</div>

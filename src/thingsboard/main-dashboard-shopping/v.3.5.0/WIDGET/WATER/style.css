@@ -1,0 +1,829 @@
+.top-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 10px;
+  background: #FFFFFF;
+  border-radius: 10px;
+  width: 92%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 300px;
+}
+
+.date-range input[type="date"] {
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #fafafa;
+}
+
+.date-range button.load-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #2196f3;
+  color: white;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s ease;
+}
+
+.date-range button.load-button:hover {
+  background-color: #1976d2;
+}
+
+.search-bar {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-width: 200px;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.btn-report {
+  flex: 0 0 auto;
+  width: auto;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #2196f3, #1976d2);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+  cursor: pointer;
+  font-size: 0.80rem;
+  padding: 6px 10px;
+}
+
+.btn-fullScreen {
+    font-size: 20px;
+    cursor: pointer;
+    transition: transform 0.3s ease; /* animação suave ao transformar */
+}
+
+.btn-fullScreen:hover {
+    transform: scale(1.3); /* aumenta suavemente ao passar o mouse */
+}
+
+
+.status-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* Container das colunas */
+.group-wrapper-columns {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  height: 100vh;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: auto;
+  padding-bottom: 10px;
+}
+
+/* Coluna genérica */
+.group-card {
+  height: 90%;
+  overflow-y: auto;
+  background: #f9f9f9;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+/* RFC: Caixas D'Água takes 1/3 of space */
+.group-card.caixa {
+  flex: 1 1 0;   /* força proporção igual */
+  max-width: 50%; /* garante que não ultrapassem metade */
+}
+
+/* Filhos da Caixa ocupam 100% da coluna */
+.group-card.caixa > .device-card-centered,
+.group-card.caixa > .clickable {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* RFC: Ambientes takes 2/3 of space with wrapping */
+.group-card.ambientes {
+  display: flex;
+  flex-wrap: wrap;      /* permite múltiplas linhas */
+  gap: 10px;            /* espaço entre os filhos */
+  flex-direction: row;
+  flex: 1 1 0;   /* força proporção igual */
+  max-width: 50%; /* garante que não ultrapassem metade */
+}
+
+/* RFC: Ambientes children - dois por linha, cada um 45% */
+.group-card.ambientes > .device-card-centered,
+.group-card.ambientes > .clickable {
+  box-sizing: border-box;
+}
+
+/* Legacy: Coluna específica: Lojas (kept for compatibility) */
+.group-card.lojas {
+  flex: 2 1 400px; /* cresce proporcionalmente mais que Caixa */
+  display: flex;
+  flex-wrap: wrap;      /* permite múltiplas linhas */
+  gap: 10px;            /* espaço entre os filhos */
+  flex-direction: row;
+}
+
+/* Legacy: Filhos das Lojas: dois por linha, cada um 45% */
+.group-card.lojas > .device-card-centered,
+.group-card.lojas > .clickable {
+  box-sizing: border-box;
+}
+
+/* Cartões internos (filhos) */
+.device-card-centered,
+.clickable {
+  border-radius: 10px;
+  padding: 8px 12px;
+  flex: 0 0 45%;    
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  max-width: 45%;  
+  justify-content: flex-start;
+  cursor: pointer;
+  transition: transform 0.2s;
+  position: relative;
+  min-height: 140px;
+  gap: 10px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+
+.device-card-centered:hover,
+.clickable:hover,
+.info-card:hover {
+  transform: scale(1.05);
+}
+
+.device-title-row {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 4px;
+  padding: 0 4px;
+  min-height: 22px;
+}
+
+.device-title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90%;
+  line-height: 1.1;
+}
+
+.device-image {
+  max-height: 55px;
+  width: auto;
+  margin: 4px 0;
+  display: block;
+}
+
+.device-data-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: auto;
+  margin-bottom: 6px;
+  gap: 6px;
+  width: 100%;
+}
+
+.consumption-main {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #02c298;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.device-title-percent {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.45);
+  font-weight: 500;
+  margin-left: 0;
+}
+
+.flash {
+  animation: flash 1s infinite;
+  color: #ff9800;
+}
+
+@keyframes flash {
+  0% { opacity: 1; }
+  50% { opacity: 0.2; }
+  100% { opacity: 1; }
+}
+
+.card-actions {
+  gap: 13px;
+  width: 36px;
+  padding: 5px;
+  height: 100%;
+  box-shadow: 1px 0 2px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.card-action img {
+  width: 24px;
+  height: 24px;
+  transition: transform 0.2s ease;
+  cursor: pointer;
+}
+
+.card-action img:hover {
+  transform: scale(1.15);
+}
+
+.alerta-mobile {
+  display: none;
+}
+
+.group-title {
+  font-size: 0.82rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: #000;
+  margin-left: 6px;
+  gap: 2px;
+}
+
+.group-count::before { content: "("; }
+.group-count::after { content: ")"; }
+
+.group-count {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.4);
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Cabeçalho com título à esquerda, contador no meio e total à direita */
+.group-title {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.group-title .group-count {
+  justify-self: center;
+}
+
+.group-title .group-total {
+  justify-self: end;
+}
+
+.group-total {
+  font-size: 0.8rem;
+  color: #2196f3;
+  font-weight: 600;
+  margin: 0;
+}
+
+.card-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  row-gap: 8px;
+}
+
+
+.widget-lock-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  backdrop-filter: blur(6px);
+  background-color: rgba(255, 255, 255, 0.6);
+  z-index: 999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.password-modal {
+  background: white;
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.password-modal input {
+  padding: 6px 10px;
+  font-size: 1rem;
+  margin-bottom: 12px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+.password-modal button {
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  background-color: #2196f3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.password-modal button:hover {
+  background-color: #1976d2;
+}
+
+.area-pie-chart {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  margin: 12px auto 4px;
+}
+
+canvas+ul li {
+  position: relative;
+}
+
+canvas+ul li:hover::after {
+  content: attr(title);
+  position: absolute;
+  top: -1.5em;
+  left: 0;
+  background: #333;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.floating-report-menu {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 10;
+}
+
+.menu-toggle-btn {
+  background-color: #1976d2;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.menu-dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  margin-top: 4px;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.menu-dropdown .menu-item {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.menu-dropdown .menu-item:hover {
+  background: #f2f2f2;
+}
+
+.side-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 220px;
+  height: 100vh;
+  background: #fff;
+  border-right: 1px solid #ddd;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.05);
+  padding: 10px 0;
+  z-index: 990;
+  display: none;
+}
+
+.menu-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: bold;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.hamburger-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.menu-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  margin-top: 12px;
+}
+
+.menu-item {
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+.menu-item.active,
+.menu-item:hover {
+  background-color: #fce4ec;
+  font-weight: bold;
+}
+
+.main-content {
+  margin-left: 5px;
+  /* esse valor precisa bater com o side-menu */
+  height: 100vh;
+  /* ajusta de acordo com header/footer */
+  display: flex;
+  gap: 16px;
+  overflow: hidden;
+  /* impede scroll geral */
+}
+
+.group-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  max-height: 100%;
+  padding-right: 8px;
+  /* opcional */
+}
+
+.report-buttons {
+  position: absolute;
+  top: 10px;
+  right: 30px;
+  display: flex;
+  gap: 10px;
+  z-index: 10;
+}
+
+
+
+.btn-report:hover {
+  background: linear-gradient(135deg, #1976d2, #0d47a1);
+}
+
+.btn-report.lojas {
+  flex: 0 0 20%;
+}
+
+.btn-report.shopping {
+  flex: 0 0 25%;
+}
+
+
+
+
+
+@media (max-width: 1100px) {
+
+  /* Estilo base: alerta oculto por padrão */
+  .alerta-mobile {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #4B0082;
+    color: #4B0082;
+    color: white;
+    font-family: Arial, sans-serif;
+    z-index: 9999;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+    box-sizing: border-box;
+    text-align: center;
+  }
+
+  .alerta-mobile img {
+    width: 25vw;
+    height: auto;
+  }
+
+  .alerta-mobile h1 {
+    font-size: 2rem;
+    margin-bottom: 10px;
+  }
+
+  .alerta-mobile p {
+    font-size: 1.2rem;
+  }
+}
+
+
+
+/* area comum */
+
+/* Container pai com altura controlada e grid */
+#area-comum-list {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  /* ou 5, conforme seu layout */
+  row-gap: 4px;
+  column-gap: 12px;
+  padding: 8px;
+}
+
+/* Cada card ocupa a altura total disponível dentro da célula */
+.info-card {
+  grid-column: span 2;
+  height: 100%;
+  /* faz o filho preencher a altura da célula */
+  min-height: 0;
+  /* permite encolher */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: transform 0.2s;
+  position: relative;
+  box-sizing: border-box;
+  gap: 20px;
+  overflow: hidden;
+}
+
+/* Primeira linha: dois filhos, 50% cada */
+#area-comum-list .info-card:nth-child(1),
+#area-comum-list .info-card:nth-child(2) {
+  grid-column: span 3;
+}
+
+/* Terceira linha: três filhos, 33% cada */
+#area-comum-list .info-card:nth-child(3),
+#area-comum-list .info-card:nth-child(4),
+#area-comum-list .info-card:nth-child(5) {
+  grid-column: span 2;
+}
+
+/* Conteúdo interno do card */
+.info-card .device-title {
+  font-size: 16px;
+  width: 80%;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.info-card .device-image {
+  max-width: 90px;
+  /* estava 50px */
+  max-height: 80px;
+  /* novo */
+  height: auto;
+  margin: 8px 0;
+}
+
+.info-card .device-data-row {
+  font-size: 13px;
+  color: #666;
+  text-align: center;
+}
+
+.info-card .device-title-percent {
+  font-size: 12px;
+  color: #999;
+}
+
+.info-card .flash-icon {
+  font-weight: bold;
+  color: #4CAF50;
+  font-size: 14px;
+}
+
+#area-comum-list .card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  flex-grow: 1;
+  min-height: 0;
+  padding-bottom: 10px;
+  height: 130px;
+}
+
+.device-main-content {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* === WATER LAYOUT FIXES (override) === */
+
+/* 50% / 50% garantido nas duas colunas visíveis */
+.group-card.caixa,
+.group-card.lojas {
+  flex: 1 1 0 !important;   /* mesmo “peso” */
+  max-width: 50% !important;/* não passa de metade */
+  min-width: 0;              /* evita “empurrões” quando há overflow interno */
+}
+
+/* garante que a coluna de “Ambientes” (que é .lojas no HTML) quebre em linhas */
+.group-card.lojas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* header com: título à esquerda | (count) centralizado | total à direita */
+.group-title {
+  display: grid !important;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: baseline;
+  gap: 6px;
+}
+.group-title .group-count { justify-self: center; }
+.group-title .group-total { justify-self: end; }
+
+/* ajuda o flex parent a distribuir bem a altura */
+.group-wrapper-columns { align-items: stretch; }
+
+/* Coluna da esquerda (Caixas D'Água) → 40% */
+.group-card.caixa {
+  flex: 0 0 40% !important;
+  max-width: 40% !important;
+}
+
+/* Coluna da direita (Ambientes) → 60% */
+.group-card.lojas {
+  flex: 0 0 60% !important;
+  max-width: 60% !important;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  flex-direction: row;
+}
+
+/* altura total da área útil abaixo da top-bar */
+:root { --chrome-offset: 160px; } /* ajuste fino se necessário (150–190) */
+
+/* mantém o wrapper na tela inteira (cada coluna rola sozinha) */
+.group-wrapper-columns {
+  height: 100vh;             /* volta ao comportamento original */
+  overflow: hidden;          /* evita scroll duplo no wrapper */
+  align-items: stretch;
+}
+
+/* cada coluna ocupa a área útil e tem o próprio scroll */
+.group-card {
+  height: calc(100vh - var(--chrome-offset));
+  overflow-y: auto;
+  padding-bottom: 20px;       /* espaço para o último card não ficar cortado */
+  scroll-padding-bottom: 20px;
+}
+
+/* estrutura base do cabeçalho */
+.group-title {
+  display: flex !important;
+  align-items: baseline;
+  gap: 6px;
+}
+
+/* "(7)" sempre colado no label */
+.group-title .group-count {
+  margin-left: 4px;
+}
+
+/* total à direita apenas em Ambientes (= .lojas) */
+.group-card.lojas .group-title .group-total {
+  margin-left: auto;   /* vai pro canto direito */
+}
+
+/* em Caixas d'Água (= .caixa) mantenha o total colado no label */
+.group-card.caixa .group-title .group-total {
+  margin-left: 6px;    /* NÃO empurra pra direita */
+}
+
+/* ===== FIX: alturas e scroll por coluna, sem cortar o último card ===== */
+
+/* valor default; vamos recalcular via JS (abaixo) */
+:root { --topbar-offset: 132px; } /* altura da top-bar + margens + respiro */
+
+.group-wrapper-columns {
+  height: calc(100vh - var(--topbar-offset)) !important;
+  overflow: hidden !important;   /* evita scroll duplo no wrapper */
+  align-items: stretch !important;
+}
+
+/* cada coluna rola sozinha */
+.group-card {
+  height: 100% !important;
+  overflow-y: auto !important;
+}
+
+/* garante “respiro” no fim da coluna para o último card */
+.group-card .card-list,
+.group-card {
+  padding-bottom: 56px !important; /* ↑ aumenta se ainda cortar */
+}
+
+/* ===== FIX: cabeçalhos dos grupos ===== */
+.group-title {
+  display: flex !important;        /* mata qualquer grid anterior */
+  align-items: baseline !important;
+  gap: 6px !important;
+}
+
+/* (count) SEMPRE colado ao título, à esquerda */
+.group-title .group-count {
+  order: 1 !important;
+  margin-left: 6px !important;
+}
+
+/* total: só a coluna de Ambientes (.lojas) empurra p/ direita */
+.group-card.lojas .group-title .group-total {
+  order: 2 !important;
+  margin-left: auto !important;    /* direita */
+}
+
+/* em Caixas d'Água (.caixa), total permanece colado ao label */
+.group-card.caixa .group-title .group-total {
+  order: 2 !important;
+  margin-left: 6px !important;     /* NÃO vai para a direita */
+}
