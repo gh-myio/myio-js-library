@@ -1,0 +1,119 @@
+.card {
+  font-family: Arial, sans-serif;
+  background-color: white;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.code {
+  font-size: 14px;
+  color: #bbbbbb;
+  margin: 2px 0 0 0;
+}
+
+.code span {
+  color: #2b6cb0;
+  text-decoration: none;
+}
+
+.code span:hover {
+  text-decoration: underline;
+}
+
+.info {
+  font-size: 14px;
+  margin: 4px 0;
+}
+
+.info span {
+  font-weight: bold;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #22c55e;
+  color: #fff;
+  font-weight: bold;
+  text-decoration: none;
+  padding: 12px;
+  border-radius: 8px;
+  transition: background 0.3s;
+  margin-top: 15px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background-color: #16a34a;
+}
+
+.btn2 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #1f0291;
+  color: #fff;
+  font-weight: bold;
+  text-decoration: none;
+  padding: 12px;
+  border-radius: 8px;
+  transition: background 0.3s;
+  margin-top: 15px;
+  cursor: pointer;
+}
+
+.btn2:hover {
+  background-color: #3212b3;
+}
+
+a {
+  color: white;
+}
+
+a:hover {
+  color: white;
+  text-decoration: none;
+}
+
+#code,
+#active,
+#number,
+#floor,
+#responsiblity,
+#phone,
+#installation,
+#fabrication {
+  font-weight: normal;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #1c2743;
+  padding: 10px;
+  width: 80px;
+  height: 80px; /* garante quadrado fixo */
+  border-radius: 8px; /* opcional, para combinar com o card */
+}
+
+.logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain; /* garante proporção */
+}

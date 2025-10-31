@@ -1,0 +1,65 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Public Store Widget Settings",
+    "properties": {
+      "showSettings": {
+        "type": "boolean",
+        "title": "Show Settings Button",
+        "description": "Display the settings (gear icon) button in the header",
+        "default": true
+      },
+      "showReport": {
+        "type": "boolean",
+        "title": "Show Consumption Report Button",
+        "description": "Display the Consumption Report button in the header",
+        "default": true
+      },
+      "showInstant": {
+        "type": "boolean",
+        "title": "Show Instant Telemetry Button",
+        "description": "Display the Instant Telemetry button in the header",
+        "default": true
+      },
+      "showChartCTA": {
+        "type": "boolean",
+        "title": "Show Chart Expand Button",
+        "description": "Display the 'Open Detailed Dashboard' button below the chart",
+        "default": true
+      },
+      "primaryColor": {
+        "type": "string",
+        "title": "Primary Button Color",
+        "description": "Hex color code for primary buttons (e.g., #1976d2)",
+        "default": "#1976d2"
+      }
+    }
+  },
+  "form": [
+    {
+      "key": "showSettings",
+      "type": "checkbox",
+      "title": "Show Settings Button"
+    },
+    {
+      "key": "showReport",
+      "type": "checkbox",
+      "title": "Show Consumption Report Button"
+    },
+    {
+      "key": "showInstant",
+      "type": "checkbox",
+      "title": "Show Instant Telemetry Button"
+    },
+    {
+      "key": "showChartCTA",
+      "type": "checkbox",
+      "title": "Show Chart Expand Button"
+    },
+    {
+      "key": "primaryColor",
+      "type": "color",
+      "title": "Primary Button Color"
+    }
+  ]
+}

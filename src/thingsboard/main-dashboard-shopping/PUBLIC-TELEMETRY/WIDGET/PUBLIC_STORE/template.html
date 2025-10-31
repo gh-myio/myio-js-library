@@ -1,0 +1,139 @@
+<section class="public-store-widget">
+  <!-- Apply dynamic primary color -->
+  <style>
+    :root {
+      --primary-color: {{settings.primaryColor || '#1976d2'}};
+    }
+  </style>
+
+  <!-- Store Header -->
+  <div class="store-header">
+    <!-- Device Info -->
+    <div class="device-info">
+      <h1 class="device-label" id="storeDeviceLabel">Loading...</h1>
+      <p class="device-identifier" id="storeIdentifier">Store: -</p>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <!-- Settings Button - Conditional -->
+      <button class="btn-icon"
+              id="btnSettings"
+              ng-if="settings.showSettings !== false"
+              title="Settings"
+              aria-label="Open device settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 1v6m0 6v6M1 12h6m6 0h6" stroke-linecap="round"></path>
+          <path d="M4.2 4.2l4.2 4.2m7.4 0l4.2-4.2M19.8 19.8l-4.2-4.2m-7.4 0l-4.2 4.2" stroke-linecap="round"></path>
+        </svg>
+      </button>
+
+      <!-- Report Button - Conditional -->
+      <button class="btn-primary"
+              id="btnReport"
+              ng-if="settings.showReport !== false"
+              aria-label="Open consumption report">
+        <span class="btn-icon-text">📊</span>
+        <span class="btn-text">Consumption Report</span>
+      </button>
+
+      <!-- Instant Telemetry Button - Conditional -->
+      <button class="btn-secondary"
+              id="btnInstant"
+              ng-if="settings.showInstant !== false"
+              aria-label="Open instant telemetry">
+        <span class="btn-icon-text">⚡</span>
+        <span class="btn-text">Instant Telemetry</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Energy Chart Section -->
+  <div class="energy-chart" id="energyChart">
+    <div class="chart-header">
+      <h2>Energy Consumption (kWh)</h2>
+      <span class="chart-subtitle">Daily Consumption - Click to expand</span>
+    </div>
+
+    <div class="chart-placeholder" id="chartPlaceholder">
+      <!-- Placeholder SVG Bar Chart -->
+      <svg viewBox="0 0 800 200" class="bar-chart">
+        <defs>
+          <linearGradient id="barGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:var(--primary-color);stop-opacity:1" />
+            <stop offset="100%" style="stop-color:var(--primary-color);stop-opacity:0.6" />
+          </linearGradient>
+        </defs>
+
+        <!-- Sample bars -->
+        <rect x="20" y="140" width="20" height="60" fill="url(#barGradient)" rx="2" />
+        <rect x="50" y="100" width="20" height="100" fill="url(#barGradient)" rx="2" />
+        <rect x="80" y="80" width="20" height="120" fill="url(#barGradient)" rx="2" />
+        <rect x="110" y="40" width="20" height="160" fill="url(#barGradient)" rx="2" />
+        <rect x="140" y="90" width="20" height="110" fill="url(#barGradient)" rx="2" />
+        <rect x="170" y="110" width="20" height="90" fill="url(#barGradient)" rx="2" />
+        <rect x="200" y="130" width="20" height="70" fill="url(#barGradient)" rx="2" />
+        <rect x="230" y="120" width="20" height="80" fill="url(#barGradient)" rx="2" />
+        <rect x="260" y="70" width="20" height="130" fill="url(#barGradient)" rx="2" />
+        <rect x="290" y="50" width="20" height="150" fill="url(#barGradient)" rx="2" />
+        <rect x="320" y="60" width="20" height="140" fill="url(#barGradient)" rx="2" />
+        <rect x="350" y="95" width="20" height="105" fill="url(#barGradient)" rx="2" />
+        <rect x="380" y="115" width="20" height="85" fill="url(#barGradient)" rx="2" />
+        <rect x="410" y="100" width="20" height="100" fill="url(#barGradient)" rx="2" />
+        <rect x="440" y="80" width="20" height="120" fill="url(#barGradient)" rx="2" />
+        <rect x="470" y="45" width="20" height="155" fill="url(#barGradient)" rx="2" />
+        <rect x="500" y="90" width="20" height="110" fill="url(#barGradient)" rx="2" />
+        <rect x="530" y="105" width="20" height="95" fill="url(#barGradient)" rx="2" />
+        <rect x="560" y="125" width="20" height="75" fill="url(#barGradient)" rx="2" />
+        <rect x="590" y="135" width="20" height="65" fill="url(#barGradient)" rx="2" />
+        <rect x="620" y="145" width="20" height="55" fill="url(#barGradient)" rx="2" />
+        <rect x="650" y="120" width="20" height="80" fill="url(#barGradient)" rx="2" />
+        <rect x="680" y="100" width="20" height="100" fill="url(#barGradient)" rx="2" />
+        <rect x="710" y="110" width="20" height="90" fill="url(#barGradient)" rx="2" />
+        <rect x="740" y="130" width="20" height="70" fill="url(#barGradient)" rx="2" />
+        <rect x="770" y="140" width="20" height="60" fill="url(#barGradient)" rx="2" />
+
+        <!-- Axis line -->
+        <line x1="10" y1="200" x2="800" y2="200" stroke="#e0e0e0" stroke-width="2" />
+
+        <!-- Labels -->
+        <text x="30" y="218" font-size="11" fill="#666" text-anchor="middle">01</text>
+        <text x="150" y="218" font-size="11" fill="#666" text-anchor="middle">05</text>
+        <text x="300" y="218" font-size="11" fill="#666" text-anchor="middle">10</text>
+        <text x="450" y="218" font-size="11" fill="#666" text-anchor="middle">15</text>
+        <text x="600" y="218" font-size="11" fill="#666" text-anchor="middle">20</text>
+        <text x="750" y="218" font-size="11" fill="#666" text-anchor="middle">25</text>
+      </svg>
+
+      <p class="chart-hint">Click anywhere on the chart to view detailed energy dashboard</p>
+    </div>
+
+    <!-- Chart Expand Button - Conditional -->
+    <button class="btn-chart-expand"
+            id="btnExpandChart"
+            ng-if="settings.showChartCTA !== false"
+            aria-label="Open detailed energy dashboard">
+      Open Detailed Dashboard →
+    </button>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div class="spinner"></div>
+    <p>Loading store data...</p>
+  </div>
+
+  <!-- Error Message -->
+  <div class="error-message" id="errorMessage" style="display: none;">
+    <p>⚠️ <span id="errorText"></span></p>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-notification" id="toastNotification" style="display: none;">
+    <div class="toast-content">
+      <span class="toast-icon">ℹ️</span>
+      <span id="toastText"></span>
+    </div>
+  </div>
+</section>
