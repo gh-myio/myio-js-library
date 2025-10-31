@@ -79,6 +79,15 @@ export class SettingsModalView {
     });
   }
 
+    private formatDomainLabel(domain: string): string {
+    const MAP: Record<Domain, string> = {
+      energy: 'de energia',
+      water: 'de água',
+      temperature: 'de temperatura',
+    };
+    return MAP[domain];
+  }
+
   getFormData(): Record<string, any> {
     const formData = new FormData(this.form);
     const data: Record<string, any> = {};
@@ -164,7 +173,7 @@ export class SettingsModalView {
         <!-- Right Column: Energy Alarms -->
         <div class="form-column">
           <div class="form-card">
-            <h4 class="section-title">Alarmes Energia - ${this.config.deviceLabel || 'Outback'}</h4>
+            <h4 class="section-title">Alarmes ${this.formatDomainLabel(this.config.domain)} - ${this.config.deviceLabel || 'Outback'}</h4>
             
             <div class="form-group">
               <label for="maxDailyKwh">Consumo Máximo Diário (kWh)</label>
