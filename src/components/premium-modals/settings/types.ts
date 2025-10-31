@@ -1,4 +1,5 @@
 export type TbScope = 'CLIENT_SCOPE' | 'SERVER_SCOPE';
+export type Domain = 'energy' | 'water' | 'temperature';
 
 export interface OpenDashboardPopupSettingsParams {
   // Device identification
@@ -6,6 +7,8 @@ export interface OpenDashboardPopupSettingsParams {
   ingestionId?: string; // Optional for UI display only
   identifier?: string;
   label?: string;
+  domain?: Domain; // Domain for the left column section
+
 
   // Connection information (from card v5 info panel)
   connectionData?: {
@@ -118,6 +121,7 @@ export interface ModalConfig {
   themeTokens?: Record<string, string | number>;
   i18n?: { t: (key: string, def?: string) => string };
   deviceLabel?: string; // Dynamic label for the left column section
+  domain: Domain; // Domain for the left column section
   connectionData?: { // Connection info from card v5
     centralName?: string;
     connectionStatusTime?: string;

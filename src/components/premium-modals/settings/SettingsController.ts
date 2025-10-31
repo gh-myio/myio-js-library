@@ -23,6 +23,7 @@ export class SettingsController {
       width: params.ui?.width || 600,
       theme: 'light', // Default theme
       closeOnBackdrop: params.ui?.closeOnBackdrop !== false,
+      domain: params.domain || 'energy',
       themeTokens: params.ui?.themeTokens,
       i18n: params.ui?.i18n,
       deviceLabel: params.label, // Pass the device label for dynamic section titles
