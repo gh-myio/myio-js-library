@@ -1062,8 +1062,15 @@ function updateEnergyCard(energyCache) {
   const energyKpi = document.getElementById("energy-kpi");
   const energyTrend = document.getElementById("energy-trend");
 
-  // ✅ FIX: Removed early return - always process updates
-  console.log("[HEADER] Updating energy card with cache:", energyCache?.size || 0, "devices");
+  console.log("[HEADER] Updating energy card | cache devices:", energyCache?.size || 0);
+  console.log("[HEADER] energyKpi element found:", !!energyKpi);
+  console.log("[HEADER] energyTrend element found:", !!energyTrend);
+
+  // RFC-0057: Check if ctx and ctx.data are available
+  if (!self.ctx || !self.ctx.data) {
+    console.warn("[HEADER] updateEnergyCard: ctx or ctx.data not available yet. Skipping update.");
+    return;
+  }
 
   // RFC-0057: Enhanced safety check with try-catch
   if (Array.isArray(self.ctx.data)) {
@@ -1106,6 +1113,8 @@ function updateEnergyCard(energyCache) {
     const formatted = MyIOLibrary.formatEnergy ? MyIOLibrary.formatEnergy(totalConsumption) : `${totalConsumption.toFixed(2)} kWh`;
     energyKpi.innerText = formatted;
     console.log(`[HEADER] Energy card updated: ${formatted}`);
+  } else {
+    console.error("[HEADER] energyKpi element not found! Card may not be visible.");
   }
 
   // Optional: update trend (can be calculated later based on historical data)
@@ -1116,14 +1125,17 @@ function updateEnergyCard(energyCache) {
   console.log("[HEADER] Energy card update complete:", { totalConsumption, devices: ingestionIds.length });
 
   // ✅ EMIT EVENT: Notify ENERGY widget of customer total consumption
+  const customerTotalEvent = {
+    customerTotal: totalConsumption,
+    deviceCount: ingestionIds.length,
+    timestamp: Date.now()
+  };
+
   window.dispatchEvent(new CustomEvent('myio:customer-total-consumption', {
-    detail: {
-      customerTotal: totalConsumption,
-      deviceCount: ingestionIds.length,
-      timestamp: Date.now()
-    }
+    detail: customerTotalEvent
   }));
-  console.log(`[HEADER] Emitted customer total consumption: ${totalConsumption} kWh`);
+
+  console.log(`[HEADER] ✅ Emitted myio:customer-total-consumption:`, customerTotalEvent);
 }
 
 // ===== HEADER: Listen for energy data from MAIN orchestrator =====
