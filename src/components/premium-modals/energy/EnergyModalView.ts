@@ -121,6 +121,7 @@ export class EnergyModalView {
             <button id="export-csv-btn" class="myio-btn myio-btn-secondary" disabled>
               Exportar CSV
             </button>
+            ${this.config.params.readingType === 'energy' ? `
             <button id="view-telemetry-btn" class="myio-btn myio-btn-secondary" style="
               background: linear-gradient(135deg, #4A148C 0%, #6A1B9A 100%);
               color: white;
@@ -129,8 +130,9 @@ export class EnergyModalView {
               box-shadow: 0 2px 8px rgba(74, 20, 140, 0.3);
             ">
               <span style="font-size: 16px; margin-right: 4px;">⚡</span>
-              Telemetrias
+              Telemetrias Instantâneas
             </button>
+            ` : ''}
             <button id="close-btn" class="myio-btn myio-btn-secondary">
               Fechar
             </button>
@@ -705,9 +707,16 @@ export class EnergyModalView {
           }
 
           // Get current date range from DateRangePicker
-          const dates = this.dateRangePicker?.getValue();
-          const startDate = dates?.start || this.config.params.startDate;
-          const endDate = dates?.end || this.config.params.endDate;
+          let startDate = this.config.params.startDate;
+          let endDate = this.config.params.endDate;
+
+          if (this.dateRangePicker) {
+            const dates = this.dateRangePicker.getDates();
+            if (dates.startISO && dates.endISO) {
+              startDate = dates.startISO.split('T')[0]; // Extract YYYY-MM-DD
+              endDate = dates.endISO.split('T')[0];
+            }
+          }
 
           await openDemandModal({
             token: jwtToken,
