@@ -654,9 +654,10 @@ export class AllReportModal {
     });
   }
 
-  private generateStoreId(storeName: string): string {
-    // Generate consistent ID from store name
-    return storeName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  private generateStoreId(storeName: string | undefined | null): string {
+    // Generate consistent ID from store name or identifier
+    const name = (storeName || 'SEM-ID').toString();
+    return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
   }
 
   private applyFiltersAndSort(selectedIds: string[], sortMode: SortMode): void {
