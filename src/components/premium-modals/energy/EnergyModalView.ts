@@ -3,16 +3,17 @@
 import { toCsv } from '../internal/engines/CsvExporter';
 import { fmtPt } from '../internal/engines/NumberFmt';
 import { attach as attachDateRangePicker, DateRangeControl } from '../internal/DateRangePickerJQ';
-import { 
-  EnergyViewConfig, 
-  EnergyData, 
-  DEFAULT_I18N 
+import { openDemandModal } from '../../DemandModal';
+import {
+  EnergyViewConfig,
+  EnergyData,
+  DEFAULT_I18N
 } from './types';
-import { 
-  formatNumber, 
-  formatDate, 
-  classifyDevice, 
-  getDeviceIcon 
+import {
+  formatNumber,
+  formatDate,
+  classifyDevice,
+  getDeviceIcon
 } from './utils';
 
 export class EnergyModalView {
@@ -119,6 +120,16 @@ export class EnergyModalView {
             </button>
             <button id="export-csv-btn" class="myio-btn myio-btn-secondary" disabled>
               Exportar CSV
+            </button>
+            <button id="view-telemetry-btn" class="myio-btn myio-btn-secondary" style="
+              background: linear-gradient(135deg, #4A148C 0%, #6A1B9A 100%);
+              color: white;
+              border: none;
+              transition: all 0.3s ease;
+              box-shadow: 0 2px 8px rgba(74, 20, 140, 0.3);
+            ">
+              <span style="font-size: 16px; margin-right: 4px;">⚡</span>
+              Telemetrias
             </button>
             <button id="close-btn" class="myio-btn myio-btn-secondary">
               Fechar
@@ -680,6 +691,43 @@ export class EnergyModalView {
 
     if (loadBtn) {
       loadBtn.addEventListener('click', () => this.loadData());
+    }
+
+    const viewTelemetryBtn = document.getElementById('view-telemetry-btn');
+    if (viewTelemetryBtn) {
+      viewTelemetryBtn.addEventListener('click', async () => {
+        try {
+          console.log('[EnergyModalView] Opening demand modal');
+
+          const jwtToken = localStorage.getItem('jwt_token');
+          if (!jwtToken) {
+            throw new Error('Token de autenticação não encontrado');
+          }
+
+          // Get current date range from DateRangePicker
+          const dates = this.dateRangePicker?.getValue();
+          const startDate = dates?.start || this.config.params.startDate;
+          const endDate = dates?.end || this.config.params.endDate;
+
+          await openDemandModal({
+            token: jwtToken,
+            deviceId: this.config.params.deviceId,
+            startDate: startDate instanceof Date ? startDate.toISOString().split('T')[0] : startDate,
+            endDate: endDate instanceof Date ? endDate.toISOString().split('T')[0] : endDate,
+            label: this.config.params.label || 'Dispositivo',
+            telemetryQuery: {
+              keys: 'consumption',
+              intervalType: 'MILLISECONDS',
+              interval: 86400000, // 24 hours
+              agg: 'MAX',
+              limit: 10000
+            }
+          });
+        } catch (error) {
+          console.error('[EnergyModalView] Error opening demand modal:', error);
+          this.showError('Erro ao abrir telemetrias: ' + (error as Error).message);
+        }
+      });
     }
 
     if (showKpisBtn) {
