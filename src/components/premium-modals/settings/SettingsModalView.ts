@@ -1,4 +1,5 @@
 import { ModalConfig } from './types';
+import {mapDeviceStatusToCardStatus} from '../../../utils/deviceStatus';
 
 export class SettingsModalView {
   private container: HTMLElement;
@@ -76,6 +77,15 @@ export class SettingsModalView {
     formInputs.forEach(input => {
       input.disabled = isLoading;
     });
+  }
+
+    private formatDomainLabel(domain: string): string {
+    const MAP: Record<Domain, string> = {
+      energy: 'de energia',
+      water: 'de água',
+      temperature: 'de temperatura',
+    };
+    return MAP[domain];
   }
 
   getFormData(): Record<string, any> {
@@ -163,7 +173,7 @@ export class SettingsModalView {
         <!-- Right Column: Energy Alarms -->
         <div class="form-column">
           <div class="form-card">
-            <h4 class="section-title">Alarmes Energia - ${this.config.deviceLabel || 'Outback'}</h4>
+            <h4 class="section-title">Alarmes ${this.formatDomainLabel(this.config.domain)} - ${this.config.deviceLabel || 'Outback'}</h4>
             
             <div class="form-group">
               <label for="maxDailyKwh">Consumo Máximo Diário (kWh)</label>
@@ -244,6 +254,8 @@ export class SettingsModalView {
       }
     }
 
+    
+  
     // Map device status to readable text
     const statusMap: Record<string, { text: string; color: string }> = {
       ok: { text: 'Normal', color: '#22c55e' },
@@ -253,7 +265,7 @@ export class SettingsModalView {
       no_info: { text: 'Sem informação', color: '#94a3b8' }
     };
 
-    const statusInfo = statusMap[deviceStatus || ''] || { text: 'Desconhecido', color: '#6b7280' };
+    const statusInfo = statusMap[mapDeviceStatusToCardStatus(deviceStatus) || ''] || { text: 'Desconhecido', color: '#6b7280' };
 
     return `
       <div class="form-card info-card">

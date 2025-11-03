@@ -761,6 +761,7 @@ export class EnergyModalView {
         
         font-family: var(--myio-energy-font);
         color: var(--myio-energy-text);
+        height: -webkit-fill-available;
       }
 
       .myio-btn {
