@@ -369,8 +369,16 @@ async function fetchCustomerWaterTotals(
     const url = new URL(
       `${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/water/devices/totals`
     );
-    url.searchParams.set("startTime", startTime);
-    url.searchParams.set("endTime", endTime);
+    // Convert timestamps to ISO 8601 format if needed
+    const startTimeISO = typeof startTime === 'string' && startTime.includes('T')
+      ? startTime
+      : toSpOffsetNoMs(startTime);
+    const endTimeISO = typeof endTime === 'string' && endTime.includes('T')
+      ? endTime
+      : toSpOffsetNoMs(endTime, true);
+
+    url.searchParams.set("startTime", startTimeISO);
+    url.searchParams.set("endTime", endTimeISO);
     url.searchParams.set("deep", "1");
 
     const response = await fetch(url.toString(), {
