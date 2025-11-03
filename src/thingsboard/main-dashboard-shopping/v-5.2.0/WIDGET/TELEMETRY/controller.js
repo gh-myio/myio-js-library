@@ -415,19 +415,28 @@ async function ensureAuthReady(maxMs = 6000, stepMs = 150) {
 
 /** ===================== TB INDEXES ===================== **/
 function buildTbAttrIndex() {
-  const byTbId = new Map(); // tbId -> { slaveId, centralId, deviceType, centralName }
+  const byTbId = new Map(); // tbId -> { slaveId, centralId, deviceType, centralName, lastConnectTime, lastActivityTime }
   const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
   for (const row of rows) {
     const key = String(row?.dataKey?.name || "").toLowerCase();
     const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
     const val  = row?.data?.[0]?.[1];
     if (!tbId || val == null) continue;
-    if (!byTbId.has(tbId)) byTbId.set(tbId, { slaveId: null, centralId: null, deviceType: null, centralName: null });
+    if (!byTbId.has(tbId)) byTbId.set(tbId, {
+      slaveId: null,
+      centralId: null,
+      deviceType: null,
+      centralName: null,
+      lastConnectTime: null,
+      lastActivityTime: null
+    });
     const slot = byTbId.get(tbId);
-    if (key === "slaveid")     slot.slaveId     = val;
-    if (key === "centralid")   slot.centralId   = val;
-    if (key === "devicetype")  slot.deviceType  = val;
-    if (key === "centralname") slot.centralName = val;
+    if (key === "slaveid")           slot.slaveId         = val;
+    if (key === "centralid")         slot.centralId       = val;
+    if (key === "devicetype")        slot.deviceType      = val;
+    if (key === "centralname")       slot.centralName     = val;
+    if (key === "lastconnecttime")   slot.lastConnectTime = val;
+    if (key === "lastactivitytime")  slot.lastActivityTime = val;
   }
   return byTbId;
 }
@@ -486,7 +495,9 @@ function buildAuthoritativeItems() {
       centralId: attrs.centralId ?? null,
       centralName: attrs.centralName ?? null,
       deviceType: attrs.deviceType || "energy",
-      updatedIdentifiers: {}
+      updatedIdentifiers: {},
+      connectionStatusTime: attrs.lastConnectTime ?? null,
+      timeVal: attrs.lastActivityTime ?? null
     };
   });
 
@@ -729,8 +740,8 @@ function renderList(visible) {
             domain: WIDGET_DOMAIN,
             connectionData: {
               centralName: it.centralName,
-              connectionStatusTime: it.connectionStatusTime,
-              timeVal: it.timeVal,
+              connectionStatusTime: it.connectionStatusTime || Date.now(),
+              timeVal: it.timeVal || Date.now(),
               deviceStatus: connectionStatus
             },
             ui: { title: "Configurações", width: 900 },
