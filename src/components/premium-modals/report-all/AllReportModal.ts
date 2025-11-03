@@ -250,15 +250,15 @@ export class AllReportModal {
         this.searchFilter = (e.target as HTMLInputElement).value.toLowerCase();
         this.currentPage = 1;
         this.renderTable();
-        this.renderPagination();
+        // RFC-0060: Removed pagination
       });
-      
+
       // Also handle keyup for better responsiveness
       searchInput.addEventListener('keyup', (e) => {
         this.searchFilter = (e.target as HTMLInputElement).value.toLowerCase();
         this.currentPage = 1;
         this.renderTable();
-        this.renderPagination();
+        // RFC-0060: Removed pagination
       });
     }
 
@@ -324,9 +324,9 @@ export class AllReportModal {
         totalConsumption: this.calculateTotalConsumption()
       });
 
-      // Initialize all stores as selected by default
+      // RFC-0061: Initialize all stores as selected by default (use identifier for uniqueness)
       this.selectedStoreIds = new Set(
-        this.data.map(store => this.generateStoreId(store.name))
+        this.data.map(store => this.generateStoreId(store.identifier))
       );
       this.debugLog('🎯 Store IDs initialized', {
         selectedStoreIdsSize: this.selectedStoreIds.size,
@@ -338,7 +338,7 @@ export class AllReportModal {
       this.debugLog('🎨 Rendering UI components...');
       this.renderSummary();
       this.renderTable();
-      this.renderPagination();
+      // RFC-0060: Removed pagination
       exportBtn.disabled = false;
 
       this.debugLog('🎉 Load process completed successfully');
@@ -364,10 +364,10 @@ export class AllReportModal {
   private getFilteredData(): StoreReading[] {
     let filtered = this.data;
 
-    // Apply filter modal selections (if any stores are selected)
+    // RFC-0061: Apply filter modal selections (if any stores are selected)
     if (this.selectedStoreIds.size > 0) {
       filtered = this.data.filter(store => {
-        const storeId = this.generateStoreId(store.name);
+        const storeId = this.generateStoreId(store.identifier);
         return this.selectedStoreIds.has(storeId);
       });
     }
@@ -398,9 +398,8 @@ export class AllReportModal {
   }
 
   private getPaginatedData(): StoreReading[] {
-    const filtered = this.getFilteredData();
-    const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-    return filtered.slice(startIndex, startIndex + this.itemsPerPage);
+    // RFC-0060: Removed pagination - return all filtered data
+    return this.getFilteredData();
   }
 
   private renderSummary(): void {
@@ -543,12 +542,14 @@ export class AllReportModal {
 
         this.currentPage = 1;
         this.renderTable();
-        this.renderPagination();
+        // RFC-0060: Removed pagination
       });
     });
   }
 
   private renderPagination(): void {
+    // RFC-0060: Pagination removed - this function is now deprecated
+    return;
     const container = document.getElementById('pagination-container');
     if (!container) return;
 
@@ -586,7 +587,7 @@ export class AllReportModal {
       if (this.currentPage > 1) {
         this.currentPage--;
         this.renderTable();
-        this.renderPagination();
+        // RFC-0060: Removed pagination
       }
     });
 
@@ -594,7 +595,7 @@ export class AllReportModal {
       if (this.currentPage < totalPages) {
         this.currentPage++;
         this.renderTable();
-        this.renderPagination();
+        // RFC-0060: Removed pagination
       }
     });
 
@@ -630,12 +631,27 @@ export class AllReportModal {
   }
 
   private convertToStoreItems(): StoreItem[] {
-    return this.data.map(store => ({
-      id: this.generateStoreId(store.name), // or this.generateStoreId(store.identifier) if you prefer
-      identifier: store.identifier,         // <-- required by StoreItem
-      label: store.name,
-      consumption: store.consumption
-    }));
+    // RFC-0061: Detect duplicate labels to append identifier
+    const labelCounts = new Map<string, number>();
+    this.data.forEach(store => {
+      const count = labelCounts.get(store.name) || 0;
+      labelCounts.set(store.name, count + 1);
+    });
+
+    return this.data.map(store => {
+      // If label appears more than once, append identifier in small italic font
+      const isDuplicate = labelCounts.get(store.name)! > 1;
+      const label = isDuplicate
+        ? `${store.name} <span style="font-size: 7px; font-style: italic; color: #666;">(${store.identifier})</span>`
+        : store.name;
+
+      return {
+        id: this.generateStoreId(store.identifier), // Use identifier for unique ID
+        identifier: store.identifier,
+        label: label,
+        consumption: store.consumption
+      };
+    });
   }
 
   private generateStoreId(storeName: string): string {
@@ -671,7 +687,7 @@ export class AllReportModal {
     this.currentPage = 1;
     this.renderSummary();
     this.renderTable();
-    this.renderPagination();
+    // RFC-0060: Removed pagination
 
     // Update filter button to show active state
     const filterBtn = document.getElementById('filter-btn') as HTMLButtonElement;
@@ -685,24 +701,15 @@ export class AllReportModal {
   }
 
   private exportCSV(): void {
-    const totalConsumption = this.calculateTotalConsumption();
-    const now = new Date();
-    const timestamp = now.toLocaleDateString('pt-BR') + ' - ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
+    // RFC-0060: Simplified CSV export - only header and data rows
     // Get all data (not just filtered/paginated) for export
     const sortedData = [...this.data].sort((a, b) => b.consumption - a.consumption);
 
     const csvData = [
-      ['RELATÓRIO GERAL - TODAS AS LOJAS', '', '', ''],
-      ['DATA EMISSÃO', timestamp, '', ''],
-      ['RESUMO', '', '', ''],
-      ['Total de Lojas', this.data.length.toString(), '', ''],
-      ['Consumo Total', totalConsumption.toFixed(2), this.domainConfig.unit, ''],
-      ['Consumo Médio por Loja', (totalConsumption / this.data.length).toFixed(2), this.domainConfig.unit, ''],
-      ['', '', '', ''],
-      ['DETALHAMENTO POR LOJA', '', '', ''],
-      ['Identificador', 'Nome', this.domainConfig.label, ''],
-      ...sortedData.map(row => [row.identifier, row.name, row.consumption.toFixed(2), ''])
+      // Header row only
+      ['Identificador', 'Nome', `Consumo (${this.domainConfig.unit})`],
+      // Data rows
+      ...sortedData.map(row => [row.identifier, row.name, row.consumption.toFixed(2)])
     ];
 
     const csvContent = toCsv(csvData);
