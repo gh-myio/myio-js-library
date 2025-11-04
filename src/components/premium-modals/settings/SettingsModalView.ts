@@ -144,53 +144,60 @@ export class SettingsModalView {
   }
 
   private getFormHTML(): string {
+    // Determine unit based on domain
+    const unit = this.config.domain === 'water' ? 'L' : 'kWh';
+
     return `
-      <div class="form-columns">
-        <!-- Left Column: Outback -->
-        <div class="form-column">
-          <div class="form-card">
-            <h4 class="section-title">${this.config.deviceLabel || 'Outback'}</h4>
+      <div class="form-layout">
+        <!-- Top Row: Two cards side by side -->
+        <div class="form-columns">
+          <!-- Left Column: Device Label -->
+          <div class="form-column">
+            <div class="form-card">
+              <h4 class="section-title">${this.config.deviceLabel || 'Outback'}</h4>
 
-            <div class="form-group">
-              <label for="label">Etiqueta</label>
-              <input type="text" id="label" name="label" required maxlength="255">
-            </div>
+              <div class="form-group">
+                <label for="label">Etiqueta</label>
+                <input type="text" id="label" name="label" required maxlength="255">
+              </div>
 
-            <div class="form-group">
-              <label for="floor">Andar</label>
-              <input type="text" id="floor" name="floor" maxlength="50">
-            </div>
+              <div class="form-group">
+                <label for="floor">Andar</label>
+                <input type="text" id="floor" name="floor" maxlength="50">
+              </div>
 
-            <div class="form-group">
-              <label for="identifier">Número da Loja</label>
-              <input type="text" id="identifier" name="identifier" maxlength="20" readonly>
+              <div class="form-group">
+                <label for="identifier">Número da Loja</label>
+                <input type="text" id="identifier" name="identifier" maxlength="20" readonly>
+              </div>
             </div>
           </div>
 
-          ${this.getConnectionInfoHTML()}
-        </div>
+          <!-- Right Column: Alarms -->
+          <div class="form-column">
+            <div class="form-card">
+              <h4 class="section-title">Alarmes ${this.formatDomainLabel(this.config.domain)} - ${this.config.deviceLabel || 'Outback'}</h4>
 
-        <!-- Right Column: Energy Alarms -->
-        <div class="form-column">
-          <div class="form-card">
-            <h4 class="section-title">Alarmes ${this.formatDomainLabel(this.config.domain)} - ${this.config.deviceLabel || 'Outback'}</h4>
-            
-            <div class="form-group">
-              <label for="maxDailyKwh">Consumo Máximo Diário (kWh)</label>
-              <input type="number" id="maxDailyKwh" name="maxDailyKwh" min="0" step="0.1">
-            </div>
-            
-            <div class="form-group">
-              <label for="maxNightKwh">Consumo Máximo na Madrugada (0h–06h)</label>
-              <input type="number" id="maxNightKwh" name="maxNightKwh" min="0" step="0.1">
-            </div>
-            
-            <div class="form-group">
-              <label for="maxBusinessKwh">Consumo Máximo Horário Comercial (09h–22h)</label>
-              <input type="number" id="maxBusinessKwh" name="maxBusinessKwh" min="0" step="0.1">
+              <div class="form-group">
+                <label for="maxDailyKwh">Consumo Máximo Diário (${unit})</label>
+                <input type="number" id="maxDailyKwh" name="maxDailyKwh" min="0" step="0.1">
+              </div>
+
+              <div class="form-group">
+                <label for="maxNightKwh">Consumo Máximo na Madrugada (0h–06h)</label>
+                <input type="number" id="maxNightKwh" name="maxNightKwh" min="0" step="0.1">
+              </div>
+
+              <div class="form-group">
+                <label for="maxBusinessKwh">Consumo Máximo Horário Comercial (09h–22h)</label>
+                <input type="number" id="maxBusinessKwh" name="maxBusinessKwh" min="0" step="0.1">
+              </div>
             </div>
           </div>
         </div>
+
+        <!-- Bottom Row: Connection Info spanning full width -->
+        ${this.getConnectionInfoHTML()}
       </div>
     `;
   }
@@ -268,7 +275,7 @@ export class SettingsModalView {
     const statusInfo = statusMap[mapDeviceStatusToCardStatus(deviceStatus) || ''] || { text: 'Desconhecido', color: '#6b7280' };
 
     return `
-      <div class="form-card info-card">
+      <div class="form-card info-card-wide">
         <h4 class="section-title">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="vertical-align: text-bottom; margin-right: 6px;">
             <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
@@ -277,33 +284,31 @@ export class SettingsModalView {
           Informações de Conexão
         </h4>
 
-        <div class="info-row">
-          <span class="info-label">Central:</span>
-          <span class="info-value">${centralName || 'N/A'}</span>
-        </div>
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">Central:</span>
+            <span class="info-value">${centralName || 'N/A'}</span>
+          </div>
 
-        <div class="info-row">
-          <span class="info-label">Status:</span>
-          <span class="info-value" style="color: ${statusInfo.color}; font-weight: 600;">
-            ${statusInfo.text}
-          </span>
-        </div>
+          <div class="info-row">
+            <span class="info-label">Status:</span>
+            <span class="info-value" style="color: ${statusInfo.color}; font-weight: 600;">
+              ${statusInfo.text}
+            </span>
+          </div>
 
-        <div class="info-row">
-          <span class="info-label">Última Conexão:</span>
-          <span class="info-value">${connectionTimeFormatted}</span>
-        </div>
+          <div class="info-row">
+            <span class="info-label">Última Conexão:</span>
+            <span class="info-value">${connectionTimeFormatted}</span>
+          </div>
 
-        <div class="info-row">
-          <span class="info-label">Última Telemetria:</span>
-          <span class="info-value">
-            ${telemetryTimeFormatted}
-            ${timeSinceLastTelemetry ? `<span class="time-since">${timeSinceLastTelemetry}</span>` : ''}
-          </span>
-        </div>
-
-        <div class="info-note">
-          ℹ️ Informações de conexão e telemetria do dispositivo
+          <div class="info-row">
+            <span class="info-label">Última Telemetria:</span>
+            <span class="info-value">
+              ${telemetryTimeFormatted}
+              ${timeSinceLastTelemetry ? `<span class="time-since">${timeSinceLastTelemetry}</span>` : ''}
+            </span>
+          </div>
         </div>
       </div>
     `;
@@ -390,12 +395,18 @@ export class SettingsModalView {
           font-size: 14px;
         }
         
+        .form-layout {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
         .form-columns {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 20px;
         }
-        
+
         .form-column {
           display: flex;
           flex-direction: column;
@@ -527,17 +538,22 @@ export class SettingsModalView {
             width: 95vw !important;
             margin: 10px;
           }
-          
+
           .form-columns {
             grid-template-columns: 1fr;
             gap: 16px;
           }
-          
+
+          .info-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+
           .modal-header, .modal-body, .modal-footer {
             padding-left: 16px;
             padding-right: 16px;
           }
-          
+
           .form-card {
             padding: 16px;
           }
@@ -562,30 +578,35 @@ export class SettingsModalView {
           background: #a8a8a8;
         }
 
-        /* Connection Info Card Styles */
-        .info-card {
+        /* Connection Info Card Styles - Wide layout spanning 2 columns */
+        .info-card-wide {
           margin-top: 20px;
           background: linear-gradient(135deg, #f8fafc 0%, #f0f9ff 100%);
           border: 1px solid #e0e7ff;
+          grid-column: 1 / -1; /* Span all columns */
         }
 
-        .info-card .section-title {
+        .info-card-wide .section-title {
           color: #2563eb;
           display: flex;
           align-items: center;
+          margin-bottom: 12px;
+        }
+
+        .info-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px 24px;
         }
 
         .info-row {
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
-          padding: 10px 0;
-          border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-        }
-
-        .info-row:last-of-type {
-          border-bottom: none;
-          padding-bottom: 12px;
+          align-items: center;
+          padding: 8px 12px;
+          background: rgba(255, 255, 255, 0.6);
+          border-radius: 6px;
+          border: 1px solid rgba(0, 0, 0, 0.05);
         }
 
         .info-label {
@@ -593,7 +614,6 @@ export class SettingsModalView {
           color: #475569;
           font-size: 13px;
           flex-shrink: 0;
-          min-width: 140px;
         }
 
         .info-value {
@@ -601,6 +621,7 @@ export class SettingsModalView {
           color: #1e293b;
           font-size: 13px;
           word-break: break-word;
+          margin-left: 12px;
         }
 
         .time-since {
@@ -609,18 +630,6 @@ export class SettingsModalView {
           color: #64748b;
           font-size: 12px;
           font-style: italic;
-        }
-
-        .info-note {
-          margin-top: 12px;
-          padding: 10px;
-          background: rgba(59, 130, 246, 0.1);
-          border-radius: 6px;
-          font-size: 12px;
-          color: #1e40af;
-          display: flex;
-          align-items: center;
-          gap: 6px;
         }
       </style>
     `;

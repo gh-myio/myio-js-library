@@ -158,7 +158,11 @@
             </p>
             
             <button class="demo-button" onclick="openBasicSettings()">
-                Open Basic Settings
+                Open Energy Settings (kWh)
+            </button>
+
+            <button class="demo-button secondary" onclick="openWaterSettings()">
+                Open Water Settings (L)
             </button>
             
             <div class="code-block">
@@ -346,12 +350,19 @@ function openDeviceSettings() {
     <script>
         // Demo functions
         function openBasicSettings() {
-            console.log('[Demo] Opening basic settings modal');
-            
+            console.log('[Demo] Opening basic settings modal - ENERGY');
+
             MyIOLibrary.openDashboardPopupSettings({
                 deviceId: 'demo-device-123',
                 label: 'Loja do Vitinho', // Dynamic device label for section titles
                 jwtToken: 'demo-jwt-token',
+                domain: 'energy', // Will show "kWh" unit
+                connectionData: {
+                    centralName: 'Central-SP-001',
+                    connectionStatusTime: new Date(Date.now() - 3600000).toISOString(), // 1h ago
+                    timeVal: new Date(Date.now() - 600000).toISOString(), // 10min ago
+                    deviceStatus: 'ok'
+                },
                 seed: {
                     label: 'Loja do Vitinho',
                     floor: 'L0L1', // Andar
@@ -371,6 +382,38 @@ function openDeviceSettings() {
                 onError: (error) => {
                     console.error('Settings error:', error);
                     showStatus(`Erro: ${error.message}`, 'error');
+                }
+            });
+        }
+
+        function openWaterSettings() {
+            console.log('[Demo] Opening water settings modal - WATER');
+
+            MyIOLibrary.openDashboardPopupSettings({
+                deviceId: 'demo-device-water-456',
+                label: 'Hidrômetro Principal',
+                jwtToken: 'demo-jwt-token',
+                domain: 'water', // Will show "L" unit (Litros)
+                connectionData: {
+                    centralName: 'Central-RJ-002',
+                    connectionStatusTime: new Date(Date.now() - 7200000).toISOString(), // 2h ago
+                    timeVal: new Date(Date.now() - 300000).toISOString(), // 5min ago
+                    deviceStatus: 'warning'
+                },
+                seed: {
+                    label: 'Hidrômetro Principal',
+                    floor: 'Subsolo',
+                    identifier: '02B',
+                    maxDailyKwh: 5000, // Actually 5000L for water
+                    maxNightKwh: 500,
+                    maxBusinessKwh: 4000
+                },
+                onSaved: (result) => {
+                    console.log('Water settings saved:', result);
+                    showStatus('Configurações de água salvas!', 'success');
+                },
+                onClose: () => {
+                    showStatus('Modal de água fechado', 'info');
                 }
             });
         }
