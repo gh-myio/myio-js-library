@@ -1,4 +1,4 @@
-// Debug configuration
+"// Debug configuration";
 const DEBUG_ACTIVE = true;
 
 // LogHelper utility
@@ -25,6 +25,56 @@ self.onInit = function () {
   const scope = self.ctx.$scope;
 
   scope.links = settings.links || [];
+
+  // guarda último nome válido para reaproveitar em edge cases
+  const STORAGE_KEY = "myio:current-shopping-name";
+
+  function updateShoppingLabel() {
+    const name = getCurrentDashboardTitle();
+    setShoppingButtonLabel(name);
+  }
+
+  // pega o título do dashboard de forma resiliente (várias versões do TB)
+  function getCurrentDashboardTitle() {
+    // Primeiro tenta pegar do dashboard (caso um dia alguém ative o título)
+    const name =
+      self.ctx?.dashboard?.title ||
+      self.ctx?.dashboard?.dashboard?.title ||
+      self.ctx?.dashboard?.config?.title ||
+      self.ctx?.dashboard?.configuration?.title ||
+      null;
+
+    if (name) return name;
+
+    // ✅ Se não estiver no dashboard, pega do datasource principal
+    try {
+      const ds = self.ctx?.datasources?.[0];
+      if (ds?.name) return ds.name.trim();
+    } catch {}
+
+    return null;
+  }
+
+  function setShoppingButtonLabel(name) {
+    const el = document.getElementById("ssb-current-shopping");
+    if (!el) return;
+    const has = !!(name && name.trim());
+    el.textContent = has ? name.trim() : "";
+    el.style.display = has ? "block" : "none";
+  }
+
+  // chama e persiste o nome atual
+  function updateShoppingLabelFromDashboard() {
+    const title = getCurrentDashboardTitle();
+    if (title) {
+      setShoppingButtonLabel(title);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(title));
+      } catch {}
+    } else {
+      setShoppingButtonLabel(null);
+    }
+  }
 
   // Function to get icon for each menu item based on stateId
   scope.getMenuIcon = function (stateId) {
@@ -67,64 +117,112 @@ self.onInit = function () {
   // Fetch and display user info
   fetchUserInfo();
 
-  async function fetchUserInfo() {
-    try {
-      //LogHelper.log("[MENU] Fetching user info from /api/auth/user");
-
-      const response = await fetch("/api/auth/user", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Authorization": "Bearer " + localStorage.getItem("jwt_token"),
-        },
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch user info: ${response.status}`);
-      }
-
-      const user = await response.json();
-      //LogHelper.log("[MENU] User info received:", user);
-
-      // Update user info in the UI
-      const userNameEl = document.getElementById("user-name");
-      const userEmailEl = document.getElementById("user-email");
-
-      if (userNameEl && user) {
-        const firstName = user.firstName || "";
-        const lastName = user.lastName || "";
-        const fullName = `${firstName} ${lastName}`.trim() || "Usuário";
-        userNameEl.textContent = fullName;
-
-        //LogHelper.log("[MENU] User name set to:", fullName);
-      }
-
-      if (userEmailEl && user?.email) {
-        userEmailEl.textContent = user.email;
-        //LogHelper.log("[MENU] User email set to:", user.email);
-
-        // RFC-0055: Check if user is from sacavalcante.com.br domain
-        if (user.email && user.email.endsWith('@sacavalcante.com.br')) {
-          LogHelper.log("[MENU] User from sacavalcante.com.br detected - enabling shopping selector");
-          addShoppingSelectorButton();
-        }
-      }
-    } catch (err) {
-      LogHelper.error("[MENU] Error fetching user info:", err);
-
-      // Fallback UI
-      const userNameEl = document.getElementById("user-name");
-      const userEmailEl = document.getElementById("user-email");
-
-      if (userNameEl) {
-        userNameEl.textContent = "Usuário";
-      }
-      if (userEmailEl) {
-        userEmailEl.textContent = "";
-      }
-    }
+async function fetchUserInfo() {
+  // helper local para montar headers sem enviar "Bearer null"
+  function buildAuthHeaders() {
+    const token = localStorage.getItem("jwt_token");
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["X-Authorization"] = "Bearer " + token;
+    return headers;
   }
+
+  try {
+    const response = await fetch("/api/auth/user", {
+      method: "GET",
+      headers: buildAuthHeaders(),
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      LogHelper.warn("[MENU] /api/auth/user status:", response.status);
+      if (response.status === 401) {
+        // token expirado/invalidado → força login
+        localStorage.removeItem("jwt_token");
+        sessionStorage.clear();
+        window.location.href = "/login";
+        return;
+      }
+      throw new Error(`Failed to fetch user info: ${response.status}`);
+    }
+
+    const user = await response.json();
+    console.log("user >>>>>>>>>>>>>>>>", user);
+
+    // Atualiza UI do usuário imediatamente (mesmo que a busca de atributos falhe)
+    const userNameEl = document.getElementById("user-name");
+    const userEmailEl = document.getElementById("user-email");
+
+    if (userNameEl) {
+      const fullName =
+        `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+        user.name ||
+        "Usuário";
+      userNameEl.textContent = fullName;
+    }
+    if (userEmailEl && user?.email) {
+      userEmailEl.textContent = user.email;
+    }
+
+    // Busca atributos do CUSTOMER (pode dar 400/404 quando não existem atributos)
+    let isUserAdmin = false;
+    try {
+      const attrRes = await fetch(
+        `/api/plugins/telemetry/CUSTOMER/${user.customerId.id}/values/attributes/SERVER_SCOPE`,
+        {
+          method: "GET",
+          headers: buildAuthHeaders(),
+          credentials: "include",
+        }
+      );
+
+      if (attrRes.ok) {
+        // pode vir vazio ou não-JSON em alguns casos; defenda o parse
+        const userAttributes = await attrRes.json().catch(() => []);
+        LogHelper.log("[MENU] User attributes received:", userAttributes);
+
+        if (Array.isArray(userAttributes)) {
+          for (const attr of userAttributes) {
+            if (attr && attr.key === "isUserAdmin") {
+              isUserAdmin = !!attr.value;
+              break;
+            }
+          }
+        }
+      } else if (attrRes.status === 400 || attrRes.status === 404) {
+        // Sem atributos → segue fluxo normal
+        LogHelper.warn("[MENU] CUSTOMER attributes not found (400/404). Proceeding without admin.");
+      } else if (attrRes.status === 401) {
+        // token expirado durante a segunda chamada
+        localStorage.removeItem("jwt_token");
+        sessionStorage.clear();
+        window.location.href = "/login";
+        return;
+      } else {
+        LogHelper.warn("[MENU] Unexpected attributes status:", attrRes.status);
+      }
+    } catch (attrErr) {
+      // Não quebre a exibição do usuário por causa dos atributos
+      LogHelper.warn("[MENU] Ignoring attributes error:", attrErr);
+    }
+
+    // Habilita botão de troca de shopping apenas para admin
+    if (isUserAdmin) {
+      LogHelper.log("[MENU] User admin detected - enabling shopping selector");
+      addShoppingSelectorButton();
+      updateShoppingLabel();
+    }
+  } catch (err) {
+    LogHelper.error("[MENU] Error fetching user info:", err);
+
+    // Fallback UI
+    const userNameEl = document.getElementById("user-name");
+    const userEmailEl = document.getElementById("user-email");
+
+    if (userNameEl) userNameEl.textContent = "Usuário";
+    if (userEmailEl) userEmailEl.textContent = "";
+  }
+}
+
 
   // RFC-0042: State ID to Domain mapping
   const DOMAIN_BY_STATE = {
@@ -154,7 +252,10 @@ self.onInit = function () {
 
     // RFC-0053: Navegação via Estados do ThingsBoard (preferido)
     try {
-      if (self.ctx?.dashboard && typeof self.ctx.dashboard.openDashboardState === 'function') {
+      if (
+        self.ctx?.dashboard &&
+        typeof self.ctx.dashboard.openDashboardState === "function"
+      ) {
         LogHelper.log(`[MENU] RFC-0053: Navegando para estado TB: ${stateId}`);
         self.ctx.dashboard.openDashboardState(stateId);
         return; // já navegou via TB; não usar fallback
@@ -172,10 +273,12 @@ self.onInit = function () {
       }
 
       // Find all content containers with data-content-state attribute
-      const allContents = main.querySelectorAll('[data-content-state]');
+      const allContents = main.querySelectorAll("[data-content-state]");
 
       if (allContents.length === 0) {
-        LogHelper.error('[MENU] No content containers found with data-content-state attribute');
+        LogHelper.error(
+          "[MENU] No content containers found with data-content-state attribute"
+        );
         main.innerHTML = `<div style="padding: 20px; text-align: center; color: #666;">
           <p><strong>Error: Content containers not configured</strong></p>
           <p>Expected containers with data-content-state attribute in MAIN_VIEW template.html</p>
@@ -184,24 +287,33 @@ self.onInit = function () {
       }
 
       // Hide all content containers
-      allContents.forEach(content => {
-        content.style.display = 'none';
+      allContents.forEach((content) => {
+        content.style.display = "none";
       });
 
       // Show target container
-      const targetContent = main.querySelector(`[data-content-state="${stateId}"]`);
+      const targetContent = main.querySelector(
+        `[data-content-state="${stateId}"]`
+      );
       if (targetContent) {
-        targetContent.style.display = 'block';
-        LogHelper.log(`[MENU] ✅ RFC-0053: Showing content container for ${stateId} (no iframe!)`);
+        targetContent.style.display = "block";
+        LogHelper.log(
+          `[MENU] ✅ RFC-0053: Showing content container for ${stateId} (no iframe!)`
+        );
       } else {
         LogHelper.warn(`[MENU] Content container not found for ${stateId}`);
         main.innerHTML = `<div style="padding: 20px; text-align: center; color: #ff6b6b;">
           <p><strong>State "${stateId}" not configured</strong></p>
-          <p>Available containers: ${Array.from(allContents).map(c => c.getAttribute('data-content-state')).join(', ')}</p>
+          <p>Available containers: ${Array.from(allContents)
+            .map((c) => c.getAttribute("data-content-state"))
+            .join(", ")}</p>
         </div>`;
       }
     } catch (err) {
-      LogHelper.error("[MENU] RFC-0053: Failed to switch content container:", err);
+      LogHelper.error(
+        "[MENU] RFC-0053: Failed to switch content container:",
+        err
+      );
     }
   };
 
@@ -281,39 +393,47 @@ self.onInit = function () {
 
   // RFC-0055: Add shopping selector button for sacavalcante.com.br users
   function addShoppingSelectorButton() {
-    // Check if button already exists
-    if (document.getElementById('shopping-selector-btn')) {
+    if (document.getElementById("shopping-selector-btn")) {
       LogHelper.log("[MENU] Shopping selector button already exists");
       return;
     }
 
-    // Find the menu footer (where logout button is)
-    const menuFooter = document.querySelector('.shops-menu-root .menu-footer');
-    const logoutBtn = document.getElementById('logout-btn');
-
+    const menuFooter = document.querySelector(".shops-menu-root .menu-footer");
+    const logoutBtn = document.getElementById("logout-btn");
     if (!menuFooter) {
-      LogHelper.error("[MENU] Menu footer not found - cannot add shopping selector");
+      LogHelper.error(
+        "[MENU] Menu footer not found - cannot add shopping selector"
+      );
       return;
     }
 
-    // Create shopping selector button
-    const shoppingSelectorBtn = document.createElement('button');
-    shoppingSelectorBtn.id = 'shopping-selector-btn';
-    shoppingSelectorBtn.className = 'shopping-selector-btn';
+    const shoppingSelectorBtn = document.createElement("button");
+    shoppingSelectorBtn.id = "shopping-selector-btn";
+    shoppingSelectorBtn.className = "shopping-selector-btn";
+    shoppingSelectorBtn.type = "button";
+    shoppingSelectorBtn.setAttribute("aria-label", "Trocar Shopping");
+
+    // detecta Mac uma vez e injeta direto no template
+    const isMac = /mac/i.test(navigator.userAgent);
     shoppingSelectorBtn.innerHTML = `
-      <span class="menu-icon">🏢</span>
-      <span class="menu-label">Trocar Shopping</span>
-    `;
+    <div class="ssb-grid">
+      <span class="ssb-icon" aria-hidden="true">🏬</span>
+      <div class="ssb-text">
+        <span class="ssb-title">Trocar Shopping</span>
+        <span class="ssb-sub" id="ssb-current-shopping"></span>
+      </div>
+      <span class="ssb-kbd" aria-hidden="true">${isMac ? "⌘K" : "Ctrl+K"}</span>
+    </div>
+  `;
 
-    // Insert before logout button
-    if (logoutBtn) {
-      menuFooter.insertBefore(shoppingSelectorBtn, logoutBtn);
-    } else {
-      menuFooter.appendChild(shoppingSelectorBtn);
-    }
+    if (logoutBtn) menuFooter.insertBefore(shoppingSelectorBtn, logoutBtn);
+    else menuFooter.appendChild(shoppingSelectorBtn);
 
-    // Add click handler
-    shoppingSelectorBtn.addEventListener('click', () => {
+    // rótulo inicial
+    updateShoppingLabelFromDashboard();
+
+    // clique
+    shoppingSelectorBtn.addEventListener("click", () => {
       LogHelper.log("[MENU] Shopping selector clicked");
       showShoppingModal();
     });
@@ -323,68 +443,164 @@ self.onInit = function () {
 
   // RFC-0055: Show modal with shopping options
   function showShoppingModal() {
-    // Remove existing modal if any
-    const existingModal = document.getElementById('shopping-modal');
-    if (existingModal) {
-      existingModal.remove();
+    // tenta usar o documento de nível mais alto (dashboard inteiro)
+    const topWin = window.top || window;
+    const topDoc = (() => {
+      try {
+        return topWin.document;
+      } catch {
+        return document;
+      }
+    })();
+
+    const SCOPE = topDoc; // onde vamos injetar (top-level ou fallback)
+    const STYLE_ID = "myio-shopping-modal-global-styles";
+    const MODAL_ID = "myio-shopping-modal";
+
+    // remove se já existir
+    const old = SCOPE.getElementById(MODAL_ID);
+    if (old) old.remove();
+
+    // injeta css global uma única vez
+    if (!SCOPE.getElementById(STYLE_ID)) {
+      const style = SCOPE.createElement("style");
+      style.id = STYLE_ID;
+      style.textContent = `
+      /* overlay global, cobre a viewport toda */
+      .myio-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 999999; /* bem alto pra passar por cima de tudo */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .2s ease;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      }
+      .myio-modal.show { opacity: 1; pointer-events: auto; }
+      .myio-modal__overlay {
+        position: absolute; inset: 0;
+        background: rgba(0,0,0,.55);
+        backdrop-filter: blur(3px);
+      }
+      .myio-modal__window {
+        position: relative; z-index: 2;
+        background: #fff;
+        width: min(480px, 92vw);
+        border-radius: 18px;
+        box-shadow: 0 18px 60px rgba(0,0,0,.35);
+        overflow: hidden;
+        transform: translateY(12px) scale(.98);
+        transition: transform .25s ease;
+      }
+      .myio-modal.show .myio-modal__window {
+        transform: translateY(0) scale(1);
+      }
+      .myio-modal__header {
+        display:flex; align-items:center; justify-content:space-between;
+        padding: 14px 18px;
+        background: #5B3CC4; color: #fff;
+      }
+      .myio-modal__header h3 { margin: 0; font-size: 1.05rem; font-weight: 600; }
+      .myio-modal__close {
+        background: transparent; border: 0; color: #fff;
+        font-size: 22px; line-height: 1; cursor: pointer;
+      }
+      .myio-modal__body {
+        padding: 14px;
+        display: grid; gap: 10px;
+      }
+      .myio-shop {
+        display:flex; align-items:center; gap: 12px;
+        background: #fafafa; border: 1px solid #e6e6e6;
+        border-radius: 12px; padding: 12px 14px; cursor:pointer;
+        transition: background .15s, transform .15s, border-color .15s;
+      }
+      .myio-shop:hover { background:#f2ecff; border-color:#7b5dfb; transform: translateY(-1px); }
+      .myio-shop__icon { font-size: 26px; }
+      .myio-shop__title { margin:0; font-size: 1rem; color:#222; }
+      .myio-shop__sub { margin:0; font-size:.8rem; color:#666; }
+      @media (max-width: 480px){
+        .myio-modal__window{ width: 94vw; }
+      }
+    `;
+      SCOPE.head.appendChild(style);
     }
 
-    // Create modal
-    const modal = document.createElement('div');
-    modal.id = 'shopping-modal';
-    modal.className = 'shopping-modal';
+    // cria o modal no topo
+    const modal = SCOPE.createElement("div");
+    modal.id = MODAL_ID;
+    modal.className = "myio-modal";
     modal.innerHTML = `
-      <div class="shopping-modal-overlay"></div>
-      <div class="shopping-modal-content">
-        <div class="shopping-modal-header">
-          <h2>Selecione o Shopping</h2>
-          <button class="shopping-modal-close">&times;</button>
-        </div>
-        <div class="shopping-modal-body">
-          <div class="shopping-option" data-url="https://dashboard.myio-bas.com/dashboards/all/ed5a0dd0-a3b7-11f0-afe1-175479a33d89">
-            <div class="shopping-icon">🏢</div>
-            <div class="shopping-name">Mestre Álvaro</div>
+    <div class="myio-modal__overlay" role="presentation"></div>
+    <div class="myio-modal__window" role="dialog" aria-modal="true" aria-labelledby="myio-modal-title">
+      <div class="myio-modal__header">
+        <h3 id="myio-modal-title">Selecione o Shopping</h3>
+        <button class="myio-modal__close" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="myio-modal__body">
+        <div class="myio-shop" data-url="https://dashboard.myio-bas.com/dashboards/all/ed5a0dd0-a3b7-11f0-afe1-175479a33d89">
+          <div class="myio-shop__icon">🏢</div>
+          <div>
+            <p class="myio-shop__title">Mestre Álvaro</p>
+            <p class="myio-shop__sub">Vitória - ES</p>
           </div>
-          <div class="shopping-option" data-url="https://dashboard.myio-bas.com/dashboards/all/1e785950-af55-11f0-9722-210aa9448abc">
-            <div class="shopping-icon">🏢</div>
-            <div class="shopping-name">Mont Serrat</div>
+        </div>
+        <div class="myio-shop" data-url="https://dashboard.myio-bas.com/dashboards/all/1e785950-af55-11f0-9722-210aa9448abc">
+          <div class="myio-shop__icon">🏬</div>
+          <div>
+            <p class="myio-shop__title">Mont Serrat</p>
+            <p class="myio-shop__sub">Serra - ES</p>
           </div>
         </div>
       </div>
-    `;
+    </div>
+  `;
+    SCOPE.body.appendChild(modal);
 
-    // Add to body
-    document.body.appendChild(modal);
+    // bloqueia scroll do dashboard enquanto o modal está aberto
+    const prevOverflow = SCOPE.body.style.overflow;
+    SCOPE.body.style.overflow = "hidden";
 
-    // Add event listeners
-    const closeBtn = modal.querySelector('.shopping-modal-close');
-    const overlay = modal.querySelector('.shopping-modal-overlay');
-    const options = modal.querySelectorAll('.shopping-option');
+    const overlay = modal.querySelector(".myio-modal__overlay");
+    const btnClose = modal.querySelector(".myio-modal__close");
 
-    // Close handlers
-    const closeModal = () => {
-      modal.classList.add('closing');
-      setTimeout(() => modal.remove(), 300);
+    const close = () => {
+      modal.classList.remove("show");
+      setTimeout(() => {
+        modal.remove();
+        SCOPE.body.style.overflow = prevOverflow || "";
+      }, 220);
     };
 
-    closeBtn.addEventListener('click', closeModal);
-    overlay.addEventListener('click', closeModal);
+    overlay.addEventListener("click", close);
+    btnClose.addEventListener("click", close);
+    SCOPE.addEventListener("keydown", escCloseOnce, true);
+    function escCloseOnce(e) {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        close();
+        SCOPE.removeEventListener("keydown", escCloseOnce, true);
+      }
+    }
 
-    // Shopping selection handlers
-    options.forEach(option => {
-      option.addEventListener('click', () => {
-        const url = option.getAttribute('data-url');
-        const name = option.querySelector('.shopping-name').textContent;
-
-        LogHelper.log(`[MENU] Navigating to ${name}: ${url}`);
-        window.location.href = url;
+    modal.querySelectorAll(".myio-shop").forEach((el) => {
+      el.addEventListener("click", () => {
+        const url = el.getAttribute("data-url");
+        try {
+          LogHelper.log("[MENU] Trocar shopping:", url);
+        } catch {}
+        close();
+        setTimeout(() => {
+          topWin.location.href = url;
+        }, 240);
       });
     });
 
-    // Show modal with animation
-    setTimeout(() => modal.classList.add('show'), 10);
-
-    LogHelper.log("[MENU] Shopping modal displayed");
+    // anima
+    requestAnimationFrame(() => modal.classList.add("show"));
   }
 
   // RFC-0056 FIX: Emit initial dashboard-state to prevent race condition
@@ -393,10 +609,12 @@ self.onInit = function () {
   setTimeout(() => {
     const firstLink = scope.links && scope.links[0];
     if (firstLink && firstLink.enableLink !== false) {
-      const firstStateId = firstLink.stateId || 'telemetry_content';
-      const firstDomain = DOMAIN_BY_STATE[firstStateId] || 'energy';
+      const firstStateId = firstLink.stateId || "telemetry_content";
+      const firstDomain = DOMAIN_BY_STATE[firstStateId] || "energy";
 
-      LogHelper.log(`[MENU] RFC-0056 FIX: Emitting initial dashboard-state for domain: ${firstDomain}`);
+      LogHelper.log(
+        `[MENU] RFC-0056 FIX: Emitting initial dashboard-state for domain: ${firstDomain}`
+      );
 
       window.dispatchEvent(
         new CustomEvent("myio:dashboard-state", {
@@ -405,13 +623,52 @@ self.onInit = function () {
       );
     } else {
       // Fallback: emit energy as default
-      LogHelper.log(`[MENU] RFC-0056 FIX: No first link found, emitting default domain: energy`);
+      LogHelper.log(
+        `[MENU] RFC-0056 FIX: No first link found, emitting default domain: energy`
+      );
 
       window.dispatchEvent(
         new CustomEvent("myio:dashboard-state", {
-          detail: { tab: 'energy' },
+          detail: { tab: "energy" },
         })
       );
     }
-  }, 100); // Small delay to ensure HEADER is ready to listen
+  }, 100); //Small delay to ensure HEADER is ready to listen
+
+  // === Atalho global para abrir o modal (Ctrl+K / ⌘K) ===
+  (function attachGlobalHotkey() {
+    const topDoc = (window.top && window.top.document) || document;
+    const isEditable = (el) =>
+      el &&
+      (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+
+    function onKeyDown(e) {
+      // Mac = meta (⌘), Win/Linux = ctrl
+
+      const isMac = /mac/i.test(navigator.userAgent);
+      const meta = isMac ? e.metaKey : e.ctrlKey;
+
+      if (!meta) return;
+      // aceita 'k' min/maiúscula
+      if ((e.key && e.key.toLowerCase() === "k") || e.code === "KeyK") {
+        // não acione se o foco estiver digitando em um campo
+        if (isEditable(e.target)) return;
+        e.preventDefault();
+        try {
+          showShoppingModal();
+        } catch {}
+      }
+    }
+
+    topDoc.addEventListener("keydown", onKeyDown, true);
+
+    // garanta limpeza quando o widget sair
+    const oldDestroy = self.onDestroy;
+    self.onDestroy = function () {
+      try {
+        topDoc.removeEventListener("keydown", onKeyDown, true);
+      } catch {}
+      if (typeof oldDestroy === "function") oldDestroy();
+    };
+  })();
 };

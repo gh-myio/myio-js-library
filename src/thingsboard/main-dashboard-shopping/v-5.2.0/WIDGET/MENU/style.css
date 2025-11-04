@@ -1,3 +1,310 @@
+.shopping-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+  font-family: "Inter", sans-serif;
+}
+
+.shopping-modal.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.shopping-modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(3px);
+}
+
+.shopping-modal-window {
+  position: relative;
+  z-index: 2;
+  background: #fff;
+  width: 400px;
+  max-width: 90%;
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  overflow: hidden;
+  transform: translateY(-10px);
+  transition: transform .25s ease;
+}
+
+.shopping-modal.show .shopping-modal-window {
+  transform: translateY(0);
+}
+
+.shopping-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #5B3CC4;
+  color: #fff;
+  padding: 12px 18px;
+}
+
+.shopping-modal-header h3 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  transition: transform .2s;
+}
+
+.close-btn:hover {
+  transform: scale(1.1);
+}
+
+.shopping-modal-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shopping-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all .2s;
+  background: #fafafa;
+}
+
+.shopping-option:hover {
+  background: #f3ebff;
+  border-color: #7b5dfb;
+  transform: scale(1.02);
+}
+
+.shopping-icon {
+  font-size: 26px;
+}
+
+.shopping-info h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+.shopping-info p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #666;
+}
+/*fim do modal*/
+/* container do rodapé (onde ficam os botões) */
+.shops-menu-root .menu-footer {
+  display: grid;
+  gap: 10px;
+  padding: 10px 0px;
+}
+
+/* botão base */
+.shopping-selector-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #E6E6EF;
+  background: #FFFFFF;
+  color: #2F2A3B;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .06s ease, box-shadow .15s ease;
+  font: 500 14px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+/* conteúdo do botão */
+.shopping-selector-btn .menu-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: #F4F1FF;
+  color: #5B3CC4; /* roxo do seu topo */
+}
+
+.shopping-selector-btn .menu-label {
+  flex: 1 1 auto;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.shopping-selector-btn .menu-kicker {
+  font-size: 12px;
+  color: #7C7A8A;
+  background: #F7F7FB;
+  border: 1px solid #EDECF5;
+  padding: 3px 6px;
+  border-radius: 8px;
+}
+
+/* estados */
+.shopping-selector-btn:hover {
+  background: #F7F4FF;
+  border-color: #D8CEFF;
+  box-shadow: 0 4px 18px rgba(91, 60, 196, 0.12);
+}
+.shopping-selector-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 10px rgba(91, 60, 196, 0.10);
+}
+.shopping-selector-btn:focus-visible {
+  outline: 3px solid rgba(123, 93, 251, .4);
+  outline-offset: 2px;
+}
+
+/* desabilitado (se quiser usar em algum momento) */
+.shopping-selector-btn[disabled] {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+/* quando o menu estiver recolhido (classe .collapsed já existe no seu código) */
+.shops-menu-root.collapsed .shopping-selector-btn {
+  justify-content: center;
+  padding: 10px;
+}
+.shops-menu-root.collapsed .shopping-selector-btn .menu-label,
+.shops-menu-root.collapsed .shopping-selector-btn .menu-kicker {
+  display: none;
+}
+.shops-menu-root.collapsed .shopping-selector-btn .menu-icon-wrap {
+  width: 34px; height: 34px;
+  border-radius: 10px;
+}
+/*css do bortão trocar shopping fim */
+.shopping-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+  font-family: "Inter", sans-serif;
+}
+
+.shopping-modal.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.shopping-modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(3px);
+}
+
+.shopping-modal-window {
+  position: relative;
+  z-index: 2;
+  background: #fff;
+  width: 400px;
+  max-width: 90%;
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  overflow: hidden;
+  transform: translateY(-10px);
+  transition: transform .25s ease;
+}
+
+.shopping-modal.show .shopping-modal-window {
+  transform: translateY(0);
+}
+
+.shopping-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #5B3CC4;
+  color: #fff;
+  padding: 12px 18px;
+}
+
+.shopping-modal-header h3 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  transition: transform .2s;
+}
+
+.close-btn:hover {
+  transform: scale(1.1);
+}
+
+.shopping-modal-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shopping-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all .2s;
+  background: #fafafa;
+}
+
+.shopping-option:hover {
+  background: #f3ebff;
+  border-color: #7b5dfb;
+  transform: scale(1.02);
+}
+
+.shopping-icon {
+  font-size: 26px;
+}
+
+.shopping-info h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+.shopping-info p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+
 .shops-menu-root{
   --brand: #3E1A7D;        /* ativo */
   --ghost: ghostwhite;     /* texto no ativo */
@@ -30,6 +337,48 @@
   border-bottom: 1px solid var(--divider);
   margin-bottom: 8px;
 }
+
+/* Rodapé do menu: força 1 coluna cheia */
+.shops-menu-root .menu-footer {
+  display: grid;               /* pode ser flex, mas grid dá menos surpresas */
+  grid-template-columns: 1fr;  /* garante 1 coluna ocupando 100% */
+  gap: 10px;
+  padding: 10px 0px;          /* padding simétrico */
+  box-sizing: border-box;
+}
+
+/* O botão precisa esticar 100% da coluna e zerar margens */
+#shopping-selector-btn.shopping-selector-btn {
+  justify-self: stretch;       /* estica no grid */
+  align-self: center;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;                   /* evita “puxar” para a direita */
+}
+
+/* Conteúdo interno permanece como antes */
+.shopping-selector-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #E6E6EF;
+  background: #FFFFFF;
+  color: #2F2A3B;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .06s ease, box-shadow .15s ease;
+  font: 500 14px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+/* quando o menu estiver recolhido, continua centrado */
+.shops-menu-root.collapsed #shopping-selector-btn {
+  justify-self: center;        /* centraliza quando colapsado */
+  width: auto;                 /* deixa o botão “compacto” */
+}
+
 
 .user-name {
   color: var(--user-color);
@@ -193,8 +542,7 @@
 .shops-menu-root.collapsed .user-name,
 .shops-menu-root.collapsed .user-email,
 .shops-menu-root.collapsed .menu-item .label,
-.shops-menu-root.collapsed .logout-text,
-.shops-menu-root.collapsed .menu-label {
+.shops-menu-root.collapsed .logout-text {
   display: none;
 }
 
@@ -228,51 +576,17 @@
   margin: 0;
 }
 
-/* Center shopping selector button when collapsed */
-.shops-menu-root.collapsed .shopping-selector-btn {
-  padding: 12px 8px;
-  justify-content: center;
-}
-
 /* ============================================
    RFC-0055: SHOPPING SELECTOR MODAL
    ============================================ */
 
-/* Shopping selector button in menu footer */
-.shopping-selector-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 16px;
-  margin-bottom: 8px;
-  border: none;
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--brand);
-  font-size: 16px;
-  font-weight: 500;
+/* Shopping selector menu item */
+.menu-item.shopping-selector {
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
 }
 
-.shopping-selector-btn:hover {
+.menu-item.shopping-selector:hover {
   background: var(--hover-bg);
-  color: var(--brand);
-}
-
-.shopping-selector-btn:active {
-  background: #e0d5f7;
-}
-
-.shopping-selector-btn .menu-icon {
-  font-size: 20px;
-  display: inline-block;
-}
-
-.shopping-selector-btn .menu-label {
-  font-weight: 500;
 }
 
 /* Modal container */
@@ -412,6 +726,243 @@
   font-weight: 600;
   color: var(--text);
 }
+
+/* Layout do botão "Trocar Shopping" refinado */
+.shopping-selector-btn {
+  width: 100%;
+  display: flex;
+  flex-direction: column;        /* organiza em coluna */
+  align-items: flex-start;       /* alinha à esquerda */
+  justify-content: center;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid #E6E6EF;
+  background: #FFFFFF;
+  color: #2F2A3B;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
+  cursor: pointer;
+  transition: all .15s ease;
+  font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+/* primeira linha ("Trocar Shopping") */
+.shopping-selector-btn .menu-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* segunda linha (nome do shopping) */
+.shopping-selector-btn .current-shopping {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #5B3CC4;      /* roxo principal */
+  opacity: 0.9;
+  text-transform: none;
+  line-height: 1.2;
+  margin-left: 26px;   /* alinha com o ícone */
+}
+
+/* ícone visualmente equilibrado à esquerda */
+.shopping-selector-btn .menu-icon-wrap {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* mantém comportamento normal em modo colapsado */
+.shops-menu-root.collapsed .shopping-selector-btn {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+
+.shops-menu-root.collapsed .shopping-selector-btn .current-shopping {
+  display: none;
+}
+.shopping-selector-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #E6E6EF;
+  background: #FFFFFF;
+  box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
+  cursor: pointer;
+  transition: .15s;
+}
+
+.menu-btn-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.menu-icon-wrap {
+  background: #F4F1FF;
+  color: #5B3CC4;
+  padding: 6px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.menu-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.current-shopping {
+  font-size: 12px;
+  font-weight: 500;
+  color: #5B3CC4;
+  opacity: .9;
+}
+
+.menu-kicker {
+  font-size: 12px;
+  color: #7C7A8A;
+  background: #F7F7FB;
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+
+.shops-menu-root.collapsed .current-shopping,
+.shops-menu-root.collapsed .menu-kicker {
+  display: none;
+}
+
+/* container do rodapé */
+.shops-menu-root .menu-footer{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:10px;
+  padding:10px 12px;
+  box-sizing:border-box;
+}
+
+/* botão */
+#shopping-selector-btn.shopping-selector-btn{
+  width:100%;
+  margin:0;
+  box-sizing:border-box;
+  padding:12px;
+  border-radius:14px;
+  border:1px solid #E6E6EF;
+  background: #FFFFFF;
+  box-shadow: 0 2px 10px rgba(31,28,53,.06);
+  cursor:pointer;
+  transition: transform .06s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+}
+
+/* grade interna: ícone | texto (2 linhas) | atalho */
+#shopping-selector-btn .ssb-grid{
+  display:grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items:center;
+  column-gap:12px;
+}
+
+/* ícone “pílula” */
+#shopping-selector-btn .ssb-icon{
+  width:36px; height:36px;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:10px;
+  background:#F3EEFF;
+  color:#5B3CC4;
+  font-size:18px;
+}
+
+/* bloco de texto */
+#shopping-selector-btn .ssb-text{
+  display:flex; flex-direction:column; min-width:0; line-height:1.15;
+}
+#shopping-selector-btn .ssb-title{
+  font: 600 14px/1.1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color:#2F2A3B;
+}
+#shopping-selector-btn .ssb-sub{
+  margin-top:2px;
+  font: 500 12.5px/1.1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color:#5B3CC4;
+  opacity:.95;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+
+/* atalho (keycap) */
+#shopping-selector-btn .ssb-kbd{
+  font: 500 12px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color:#7C7A8A;
+  background:#F7F7FB;
+  border:1px solid #EDECF5;
+  padding:4px 6px;
+  border-radius:8px;
+  white-space:nowrap;
+}
+
+/* estados */
+#shopping-selector-btn:hover{
+  background:#F8F6FF;
+  border-color:#D8CEFF;
+  box-shadow:0 4px 18px rgba(91,60,196,.12);
+}
+#shopping-selector-btn:active{
+  transform:translateY(1px);
+  box-shadow:0 2px 10px rgba(91,60,196,.10);
+}
+#shopping-selector-btn:focus-visible{
+  outline:3px solid rgba(123,93,251,.45);
+  outline-offset:2px;
+}
+
+/* menu recolhido: versão compacta */
+.shops-menu-root.collapsed #shopping-selector-btn .ssb-sub,
+.shops-menu-root.collapsed #shopping-selector-btn .ssb-kbd{
+  display:none;
+}
+.shops-menu-root.collapsed #shopping-selector-btn .ssb-grid{
+  grid-template-columns: 36px auto;
+  justify-content:center;
+}
+
+/* Permitir que o nome do shopping quebre linha sem cortar */
+.ssb-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+/* Nome do shopping completo */
+#ssb-current-shopping {
+  font-size: 0.82rem;
+  color: #6A5ACD;
+  font-weight: 500;
+  white-space: normal;     /* ← remove o truncamento */
+  overflow: visible;
+  text-overflow: unset;
+  word-break: break-word;  /* ← quebra para caber bonito */
+  max-width: 140px;        /* ajuste fino para evitar empurrar o teclado */
+}
+
+/* Mantém o layout do botão organizado */
+.shopping-selector-btn .ssb-grid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
 
 /* Responsive adjustments */
 @media (max-width: 640px) {
