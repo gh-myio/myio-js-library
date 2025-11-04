@@ -608,16 +608,17 @@ function renderList(visible) {
   visible.forEach(it => {
     const valNum = Number(it.value || 0);
     const connectionStatus = valNum > 0 ? "power_on" : "power_off";
+    const deviceIdentifierToDisplay = it.identifier.includes('Sem Identificador identificado') ? (it.label.includes('Fancoil') ? 'FANCOIL' : 'CAG') : it.identifier;
 
     const entityObject = {
       entityId: it.tbId || it.id,            // preferir TB deviceId
       labelOrName: it.label,
-      deviceType: it.deviceType,
+      deviceType: (it.label.includes('dministra')) ? '3F_MEDIDOR' : it.deviceType,
       val: valNum, // TODO verificar ESSE MULTIPLICADOR PQ PRECISA DELE ?
       perc: it.perc ?? 0,
       deviceStatus: connectionStatus,        // "power_on" | "power_off"
       entityType: "DEVICE",
-      deviceIdentifier: it.identifier,
+      deviceIdentifier: deviceIdentifierToDisplay,
       slaveId: it.slaveId || "N/A",
       ingestionId: it.ingestionId || "N/A",
       centralId: it.centralId || "N/A",
@@ -1123,7 +1124,7 @@ function emitAreaComumBreakdown(periodKey) {
       const energia = item.value || 0;
 
       if (label.includes('climatizacao') || label.includes('hvac') || label.includes('ar condicionado') ||
-          label.includes('chiller') || label.includes('bomba cag') ||
+          label.includes('chiller') || label.includes('bomba cag') || label.includes('fancoil') ||
           label.includes('casa de máquina ar') || label.includes('bomba primaria') || label.includes('bomba secundaria') ||
           label.includes('bombas condensadoras') || label.includes('bombas condensadora') || label.includes('bomba condensadora') ||
           label.includes('bombas primarias') || label.includes('bombas secundarias')) {
