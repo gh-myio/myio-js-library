@@ -1123,7 +1123,8 @@ function emitAreaComumBreakdown(periodKey) {
       const energia = item.value || 0;
 
       if (label.includes('climatizacao') || label.includes('hvac') || label.includes('ar condicionado') ||
-          label.includes('chiller') || label.includes('bomba primaria') || label.includes('bomba secundaria') ||
+          label.includes('chiller') || label.includes('bomba cag') ||
+          label.includes('casa de máquina ar') || label.includes('bomba primaria') || label.includes('bomba secundaria') ||
           label.includes('bombas condensadoras') || label.includes('bombas condensadora') || label.includes('bomba condensadora') ||
           label.includes('bombas primarias') || label.includes('bombas secundarias')) {
         breakdown.climatizacao += energia;

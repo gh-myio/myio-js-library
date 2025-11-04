@@ -1,13 +1,68 @@
 /**
  * Demand Modal Component for MYIO JS Library
  * RFC 0015: Demand Modal Component (with Token Injection)
- * 
+ * RFC 0061: Telemetry Key Selection for Demand Modal
+ *
  * Displays a fully-styled modal with demand/consumption line chart over time.
  * Fetches telemetry data from ThingsBoard REST API using token-based authentication.
+ * Supports dynamic telemetry type switching (Power A/B/C, Current A/B/C, Voltage A/B/C, Total Power).
  */
 
+// Import telemetry utilities
+import { detectTelemetryType, getCacheKey, getCachedData, setCachedData } from '../utils/telemetryUtils';
+
 // Type definitions
-// Type definitions
+/**
+ * Telemetry type configuration
+ * Defines the structure for different telemetry measurements
+ */
+export interface TelemetryType {
+  id: string;                              // Unique identifier
+  label: string;                           // Display name (localized)
+  keys: string | string[];                 // ThingsBoard telemetry keys
+  defaultAggregation: 'AVG' | 'MAX' | 'MIN' | 'SUM'; // Default aggregation function
+  unit: string;                            // Measurement unit (kW, A, V)
+  color: string | string[];                // Chart color(s) - array for multi-phase
+}
+
+/**
+ * Available telemetry types for demand modal
+ */
+export const TELEMETRY_TYPES: Record<string, TelemetryType> = {
+  total_power: {
+    id: 'total_power',
+    label: 'Potência Total',
+    keys: 'consumption',
+    defaultAggregation: 'MAX',
+    unit: 'kW',
+    color: '#4A148C'
+  },
+  power_phases: {
+    id: 'power_phases',
+    label: 'Potência A, B, C',
+    keys: ['a', 'b', 'c'],
+    defaultAggregation: 'MAX',
+    unit: 'kW',
+    color: ['#FF5722', '#4CAF50', '#2196F3']
+  },
+  current_phases: {
+    id: 'current_phases',
+    label: 'Corrente A, B, C',
+    keys: ['current_a', 'current_b', 'current_c'],
+    defaultAggregation: 'AVG',
+    unit: 'A',
+    color: ['#FF5722', '#4CAF50', '#2196F3']
+  },
+  voltage_phases: {
+    id: 'voltage_phases',
+    label: 'Tensão A, B, C',
+    keys: ['voltage_a', 'voltage_b', 'voltage_c'],
+    defaultAggregation: 'AVG',
+    unit: 'V',
+    color: ['#FF5722', '#4CAF50', '#2196F3']
+  }
+};
+
 export interface DemandModalParams {
   // Required parameters
   token: string;                       // JWT token for ThingsBoard authentication
@@ -27,6 +82,10 @@ export interface DemandModalParams {
   yAxisLabel?: string;                 // Custom Y-axis label (default: "Demanda (kW)")
   correctionFactor?: number;           // Value multiplier (default: 1.0)
   timezoneOffset?: number;             // Timezone offset in hours (default: -3 for UTC-3/Brazil)
+
+  // RFC-0061: Telemetry selector configuration
+  allowTelemetrySwitch?: boolean;      // Enable telemetry type switching (default: true)
+  availableTelemetryTypes?: string[];  // Limit available types by ID (default: all types)
 }
 
 // ThingsBoard telemetry query parameters
@@ -184,7 +243,8 @@ const STRINGS = {
     endDate: 'Data Final',
     updatePeriod: 'Atualizar',
     invalidDateRange: 'Data final deve ser maior que data inicial',
-    maxRangeExceeded: 'Período máximo de 30 dias'
+    maxRangeExceeded: 'Período máximo de 30 dias',
+    telemetryType: 'Tipo de Telemetria'
   },
   'en-US': {
     title: 'Demand',
@@ -207,7 +267,8 @@ const STRINGS = {
     endDate: 'End Date',
     updatePeriod: 'Update',
     invalidDateRange: 'End date must be greater than start date',
-    maxRangeExceeded: 'Maximum range of 30 days'
+    maxRangeExceeded: 'Maximum range of 30 days',
+    telemetryType: 'Telemetry Type'
   }
 };
 
@@ -523,6 +584,36 @@ function injectCSS(styles: DemandModalStyles): void {
     .myio-demand-modal-date-input:focus {
       outline: 2px solid ${styles.primaryColor};
       outline-offset: 1px;
+    }
+
+    /* RFC-0061: Telemetry selector styles */
+    .myio-demand-modal-select {
+      padding-right: 32px;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="%23333"><path d="M4 6l4 4 4-4z"/></svg>');
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 16px;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+    }
+
+    .myio-demand-modal-select:hover {
+      border-color: ${styles.primaryColor};
+      background-color: #fafafa;
+    }
+
+    .myio-demand-modal-select:focus {
+      outline: 2px solid ${styles.primaryColor};
+      outline-offset: 1px;
+      box-shadow: 0 0 0 3px rgba(74, 20, 140, 0.1);
+    }
+
+    .myio-demand-modal-select:disabled {
+      background-color: #f5f5f5;
+      cursor: not-allowed;
+      opacity: 0.6;
     }
 
     .myio-demand-modal-btn-update {
@@ -1029,6 +1120,30 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
 
   const label = params.label || 'Dispositivo';
 
+  // RFC-0061: Setup telemetry selector configuration
+  const allowTelemetrySwitch = params.allowTelemetrySwitch !== false; // Default: true
+  const currentTelemetryType = detectTelemetryType(params.telemetryQuery?.keys);
+
+  // Filter available telemetry types based on configuration
+  const availableTypes = params.availableTelemetryTypes
+    ? Object.values(TELEMETRY_TYPES).filter(type => params.availableTelemetryTypes!.includes(type.id))
+    : Object.values(TELEMETRY_TYPES);
+
+  // Build telemetry selector options HTML
+  const telemetrySelectorOptions = availableTypes.map(type =>
+    `<option value="${type.id}" ${type.id === currentTelemetryType.id ? 'selected' : ''}>${type.label}</option>`
+  ).join('');
+
+  // Telemetry selector HTML (conditionally rendered)
+  const telemetrySelectorHTML = allowTelemetrySwitch ? `
+    <label>
+      ${strings.telemetryType}:
+      <select id="telemetry-type-select" class="myio-demand-modal-select myio-demand-modal-date-input" aria-label="${strings.telemetryType}">
+        ${telemetrySelectorOptions}
+      </select>
+    </label>
+  ` : '';
+
   overlay.innerHTML = `
     <div class="myio-demand-modal-card">
       <div class="myio-demand-modal-header">
@@ -1061,6 +1176,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
           ${strings.endDate}:
           <input type="date" class="myio-demand-modal-date-input myio-demand-modal-date-end" />
         </label>
+        ${telemetrySelectorHTML}
         <button class="myio-demand-modal-btn-update" type="button">
           ${strings.updatePeriod}
         </button>
@@ -1115,6 +1231,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   const dateEndInput = overlay.querySelector('.myio-demand-modal-date-end') as HTMLInputElement;
   const updateBtn = overlay.querySelector('.myio-demand-modal-btn-update') as HTMLButtonElement;
   const periodErrorEl = overlay.querySelector('.myio-demand-modal-period-error') as HTMLElement;
+  const telemetryTypeSelect = overlay.querySelector('#telemetry-type-select') as HTMLSelectElement | null;
 
   // State
   let chart: any = null;
@@ -1122,6 +1239,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   let isFullscreen = false;
   let currentStartDate = params.startDate;
   let currentEndDate = params.endDate;
+  let activeTelemetryType: TelemetryType = currentTelemetryType; // RFC-0061: Track active telemetry type
 
   // Prevent body scroll
   const originalOverflow = document.body.style.overflow;
@@ -1321,6 +1439,47 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
     dateEndInput.value = formatLocalDate(endDate);
   }
 
+  // RFC-0061: Debounce utility function
+  function debounce<T extends (...args: any[]) => any>(
+    func: T,
+    wait: number
+  ): (...args: Parameters<T>) => void {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    return function(this: any, ...args: Parameters<T>) {
+      const context = this;
+      if (timeout) clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(context, args), wait);
+    };
+  }
+
+  // RFC-0061: Handle telemetry type switching
+  async function switchTelemetryType(newTypeId: string) {
+    const newType = TELEMETRY_TYPES[newTypeId];
+    if (!newType || newType.id === activeTelemetryType.id) {
+      return; // No change needed
+    }
+
+    try {
+      // Show loading state
+      loadingEl.style.display = 'flex';
+      contentEl.style.display = 'none';
+      errorEl.style.display = 'none';
+      peakEl.style.display = 'none';
+
+      // Update active type
+      activeTelemetryType = newType;
+
+      // Reload data with new telemetry type
+      await loadData();
+
+    } catch (error) {
+      console.error('[DemandModal] Error switching telemetry type:', error);
+      errorEl.style.display = 'flex';
+      errorText.textContent = `${strings.error}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      loadingEl.style.display = 'none';
+    }
+  }
+
   // Validate and update period
   async function updatePeriod() {
     periodErrorEl.style.display = 'none';
@@ -1370,6 +1529,15 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   csvBtn.addEventListener('click', exportCsv);
   updateBtn.addEventListener('click', updatePeriod);
 
+  // RFC-0061: Telemetry type selector event listener (with debounce)
+  if (telemetryTypeSelect && allowTelemetrySwitch) {
+    const debouncedSwitch = debounce(switchTelemetryType, 300); // 300ms debounce
+    telemetryTypeSelect.addEventListener('change', (e) => {
+      const newTypeId = (e.target as HTMLSelectElement).value;
+      debouncedSwitch(newTypeId);
+    });
+  }
+
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) {
       closeModal();
@@ -1403,17 +1571,46 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
         return;
       }
 
-      // Use custom fetcher if provided, otherwise use default ThingsBoard fetcher
-      const rawData = params.fetcher
-        ? await params.fetcher({ token: params.token, deviceId: params.deviceId, startDate: currentStartDate, endDate: currentEndDate, telemetryQuery: params.telemetryQuery })
-        : await fetchTelemetryData(params.token, params.deviceId, currentStartDate, currentEndDate, params.telemetryQuery);
-      
+      // RFC-0061: Build telemetry query using active telemetry type
+      const keysStr = Array.isArray(activeTelemetryType.keys)
+        ? activeTelemetryType.keys.join(',')
+        : activeTelemetryType.keys;
+
+      // Build query parameters with active telemetry type
+      const telemetryQuery: TelemetryQueryParams = {
+        ...params.telemetryQuery,
+        keys: keysStr,
+        agg: activeTelemetryType.defaultAggregation
+      };
+
+      // RFC-0061: Check cache first
+      const cacheKey = getCacheKey({
+        deviceId: params.deviceId,
+        startDate: currentStartDate,
+        endDate: currentEndDate,
+        keys: keysStr,
+        agg: telemetryQuery.agg,
+        interval: telemetryQuery.interval || 86400000
+      });
+
+      let rawData = getCachedData<any>(cacheKey);
+
+      if (!rawData) {
+        // Cache miss - fetch from API
+        rawData = params.fetcher
+          ? await params.fetcher({ token: params.token, deviceId: params.deviceId, startDate: currentStartDate, endDate: currentEndDate, telemetryQuery })
+          : await fetchTelemetryData(params.token, params.deviceId, currentStartDate, currentEndDate, telemetryQuery);
+
+        // Store in cache
+        setCachedData(cacheKey, rawData);
+      }
+
       chartData = processMultiSeriesChartData(
         rawData,
-        params.telemetryQuery?.keys || 'consumption',
+        keysStr,
         params.correctionFactor || 1.0,
         locale,
-        params.telemetryQuery?.agg || 'MAX', // Pass aggregation type
+        telemetryQuery.agg || 'MAX',
         params.timezoneOffset // Pass timezone offset (default: -3)
       );
 
