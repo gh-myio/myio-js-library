@@ -1235,7 +1235,7 @@ async function openDashboardPopupWater(
         labels: labels,
         datasets: [
           {
-            label: "Nível de Água (m³)",
+            label: "Nível de Água (m.c.a)",
             data: values,
             backgroundColor: "rgba(33, 150, 243, 0.2)",
             borderColor: "#2196f3",
@@ -1251,7 +1251,7 @@ async function openDashboardPopupWater(
           y: {
             beginAtZero: true,
 
-            title: { display: true, text: "Nível de Água (m³)" },
+            title: { display: true, text: "Nível de Água (m.c.a)" },
           },
         },
         plugins: {
