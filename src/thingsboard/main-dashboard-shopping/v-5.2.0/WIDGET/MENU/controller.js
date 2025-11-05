@@ -163,9 +163,14 @@ async function fetchUserInfo() {
       userEmailEl.textContent = user.email;
     }
 
-    // Busca atributos do CUSTOMER (pode dar 400/404 quando não existem atributos)
+    // RFC-0064: Check if user is TENANT_ADMIN first (skip attributes fetch)
     let isUserAdmin = false;
-    try {
+    if (user.authority === 'TENANT_ADMIN') {
+      LogHelper.log("[MENU] User is TENANT_ADMIN - granting admin access without attributes check");
+      isUserAdmin = true;
+    } else {
+      // Busca atributos do CUSTOMER (pode dar 400/404 quando não existem atributos)
+      try {
       const attrRes = await fetch(
         `/api/plugins/telemetry/CUSTOMER/${user.customerId.id}/values/attributes/SERVER_SCOPE`,
         {
@@ -200,10 +205,11 @@ async function fetchUserInfo() {
       } else {
         LogHelper.warn("[MENU] Unexpected attributes status:", attrRes.status);
       }
-    } catch (attrErr) {
-      // Não quebre a exibição do usuário por causa dos atributos
-      LogHelper.warn("[MENU] Ignoring attributes error:", attrErr);
-    }
+      } catch (attrErr) {
+        // Não quebre a exibição do usuário por causa dos atributos
+        LogHelper.warn("[MENU] Ignoring attributes error:", attrErr);
+      }
+    } // End of else block (non-TENANT_ADMIN users)
 
     // Habilita botão de troca de shopping apenas para admin
     if (isUserAdmin) {
@@ -419,10 +425,10 @@ async function fetchUserInfo() {
     <div class="ssb-grid">
       <span class="ssb-icon" aria-hidden="true">🏬</span>
       <div class="ssb-text">
-        <span class="ssb-title">Trocar Shopping</span>
+        <span class="ssb-title" style="display: none;">Trocar Shopping</span>
         <span class="ssb-sub" id="ssb-current-shopping"></span>
       </div>
-      <span class="ssb-kbd" aria-hidden="true">${isMac ? "⌘K" : "Ctrl+K"}</span>
+      <span class="ssb-kbd" aria-hidden="true" style="display: none;">${isMac ? "⌘K" : "Ctrl+K"}</span>
     </div>
   `;
 
@@ -435,7 +441,7 @@ async function fetchUserInfo() {
     // clique
     shoppingSelectorBtn.addEventListener("click", () => {
       LogHelper.log("[MENU] Shopping selector clicked");
-      showShoppingModal();
+      //showShoppingModal();
     });
 
     LogHelper.log("[MENU] Shopping selector button added successfully");
@@ -655,7 +661,7 @@ async function fetchUserInfo() {
         if (isEditable(e.target)) return;
         e.preventDefault();
         try {
-          showShoppingModal();
+          //showShoppingModal();
         } catch {}
       }
     }

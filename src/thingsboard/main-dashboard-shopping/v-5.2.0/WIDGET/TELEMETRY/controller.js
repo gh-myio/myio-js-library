@@ -47,6 +47,10 @@ let busyTimeoutId = null; // Timeout ID for busy fallback
 // RFC-0042: Widget configuration (from settings)
 let WIDGET_DOMAIN = 'energy'; // Will be set in onInit
 
+// RFC-0063: Classification mode configuration
+let USE_IDENTIFIER_CLASSIFICATION = false; // Flag to enable identifier-based classification
+let USE_HYBRID_CLASSIFICATION = false; // Flag to enable hybrid mode (identifier + labels)
+
 /** ===================== STATE ===================== **/
 let CLIENT_ID       = "";
 let CLIENT_SECRET   = "";
@@ -608,7 +612,34 @@ function renderList(visible) {
   visible.forEach(it => {
     const valNum = Number(it.value || 0);
     const connectionStatus = valNum > 0 ? "power_on" : "power_off";
-    const deviceIdentifierToDisplay = it.identifier.includes('Sem Identificador identificado') ? (it.label.includes('Fancoil') ? 'FANCOIL' : 'CAG') : it.identifier;
+
+    // RFC-0063: Safe identifier handling with fallbacks
+    let deviceIdentifierToDisplay = 'N/A';
+    if (it.identifier) {
+      // Has identifier attribute
+      if (String(it.identifier).includes('Sem Identificador identificado')) {
+        // Identifier exists but is marked as "unknown" - infer from label
+        const label = String(it.label || '').toLowerCase();
+        deviceIdentifierToDisplay = label.includes('fancoil') ? 'FANCOIL' : 'CAG';
+      } else {
+        // Valid identifier
+        deviceIdentifierToDisplay = it.identifier;
+      }
+    } else {
+      // No identifier attribute - try to infer from label
+      const label = String(it.label || '').toLowerCase();
+      if (label.includes('fancoil')) {
+        deviceIdentifierToDisplay = 'FANCOIL';
+      } else if (label.includes('cag')) {
+        deviceIdentifierToDisplay = 'CAG';
+      } else if (label.includes('elevador') || label.includes('elv')) {
+        deviceIdentifierToDisplay = 'ELV';
+      } else if (label.includes('escada')) {
+        deviceIdentifierToDisplay = 'ESC';
+      } else {
+        deviceIdentifierToDisplay = 'N/A';
+      }
+    }
 
     const entityObject = {
       entityId: it.tbId || it.id,            // preferir TB deviceId
@@ -1011,17 +1042,22 @@ function detectWidgetType() {
       }
 
       // RFC-0002: Check for entrada (water domain)
-      if (alias.includes('entrada')) {
+      // Use word boundary matching to avoid false positives like "bomba entrada"
+      if (/\bentrada\b/.test(alias) || alias === 'entrada') {
         LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "entrada" (com base no alias "${alias}")`);
         return 'entrada';
       }
 
-      if (alias.includes('lojas')) {
+      // Match "lojas" as standalone word or at end of alias
+      // AVOID false positives like "Bomba Lojas", "Subestação Lojas"
+      // ACCEPT: "lojas", "widget-lojas", "telemetry-lojas", "consumidores lojas"
+      if (/\blojas\b/.test(alias) && !/bomba|subesta|entrada|chiller|elevador|escada/i.test(alias)) {
         LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "lojas" (com base no alias "${alias}")`);
         return 'lojas';
       }
 
-      if (alias.includes('areacomum') || alias.includes('area_comum')) {
+      // Match area comum with flexible separators
+      if (/\barea\s*comum\b/.test(alias) || alias.includes('areacomum') || alias.includes('area_comum')) {
         LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "areacomum" (com base no alias "${alias}")`);
         return 'areacomum';
       }
@@ -1106,11 +1142,130 @@ function emitLojasTotal(periodKey) {
 }
 
 /**
+ * RFC-0063: Classify device by identifier attribute
+ * @param {string} identifier - Device identifier (e.g., "CAG", "Fancoil", "ELV", etc.)
+ * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'|null}
+ */
+function classifyDeviceByIdentifier(identifier = "") {
+  // RFC-0063: Safe guard against null/undefined/empty
+  if (!identifier || identifier === 'N/A' || identifier === 'null' || identifier === 'undefined') {
+    return null;
+  }
+
+  const id = String(identifier).trim().toUpperCase();
+
+  // Ignore "Sem Identificador identificado" marker
+  if (id.includes('SEM IDENTIFICADOR')) {
+    return null;
+  }
+
+  // Climatização: CAG, Fancoil
+  if (id === 'CAG' || id === 'FANCOIL' || id.startsWith('CAG-') || id.startsWith('FANCOIL-')) {
+    return 'climatizacao';
+  }
+
+  // Elevadores: ELV, Elevador
+  if (id === 'ELV' || id === 'ELEVADOR' || id.startsWith('ELV-') || id.startsWith('ELEVADOR-')) {
+    return 'elevadores';
+  }
+
+  // Escadas Rolantes: ESC, Escada
+  if (id === 'ESC' || id === 'ESCADA' || id.startsWith('ESC-') || id.startsWith('ESCADA-')) {
+    return 'escadas_rolantes';
+  }
+
+  // Outros: qualquer outro identifier não reconhecido
+  return 'outros';
+}
+
+/**
+ * RFC-0063: Classify device by label (legacy method)
+ * @param {string} label - Device label/name
+ * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'}
+ */
+function classifyDeviceByLabel(label = "") {
+  // RFC-0063: Safe guard against null/undefined
+  if (!label) {
+    return 'outros';
+  }
+
+  const normalized = normalizeLabel(label);
+
+  // Climatização patterns
+  if (normalized.includes('climatizacao') || normalized.includes('hvac') || normalized.includes('ar condicionado') ||
+      normalized.includes('chiller') || normalized.includes('bomba cag') || normalized.includes('fancoil') ||
+      normalized.includes('casa de máquina ar') || normalized.includes('bomba primaria') || normalized.includes('bomba secundaria') ||
+      normalized.includes('bombas condensadoras') || normalized.includes('bombas condensadora') || normalized.includes('bomba condensadora') ||
+      normalized.includes('bombas primarias') || normalized.includes('bombas secundarias')) {
+    return 'climatizacao';
+  }
+
+  // Elevadores patterns
+  if (normalized.includes('elevador')) {
+    return 'elevadores';
+  }
+
+  // Escadas Rolantes patterns
+  if (normalized.includes('escada') && normalized.includes('rolante')) {
+    return 'escadas_rolantes';
+  }
+
+  // Default: outros
+  return 'outros';
+}
+
+/**
+ * RFC-0063: Classify device using configured mode
+ * @param {Object} item - Device item with identifier and label
+ * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'}
+ */
+function classifyDevice(item) {
+  // RFC-0063: Safe guard - ensure item exists
+  if (!item) {
+    LogHelper.warn('[RFC-0063] classifyDevice called with null/undefined item');
+    return 'outros';
+  }
+
+  // Mode 1: Identifier only (new method)
+  if (USE_IDENTIFIER_CLASSIFICATION && !USE_HYBRID_CLASSIFICATION) {
+    const category = classifyDeviceByIdentifier(item.identifier);
+    if (category) {
+      LogHelper.log(`[RFC-0063] Device classified by identifier: "${item.identifier}" → ${category}`);
+      return category;
+    }
+    // Fallback to 'outros' if identifier doesn't match any category
+    const reason = !item.identifier ? 'no identifier attribute' : `identifier "${item.identifier}" not recognized`;
+    LogHelper.log(`[RFC-0063] Device ${reason} → outros`);
+    return 'outros';
+  }
+
+  // Mode 2: Hybrid (identifier with label fallback)
+  if (USE_IDENTIFIER_CLASSIFICATION && USE_HYBRID_CLASSIFICATION) {
+    const categoryByIdentifier = classifyDeviceByIdentifier(item.identifier);
+    if (categoryByIdentifier && categoryByIdentifier !== 'outros') {
+      LogHelper.log(`[RFC-0063 Hybrid] Device classified by identifier: "${item.identifier}" → ${categoryByIdentifier}`);
+      return categoryByIdentifier;
+    }
+    // Fallback to label classification
+    const categoryByLabel = classifyDeviceByLabel(item.label || item.name);
+    const fallbackReason = !item.identifier ? 'no identifier' : `identifier "${item.identifier}" not recognized`;
+    LogHelper.log(`[RFC-0063 Hybrid] Device (${fallbackReason}) classified by label fallback: "${item.label}" → ${categoryByLabel}`);
+    return categoryByLabel;
+  }
+
+  // Mode 3: Legacy (label only - default)
+  return classifyDeviceByLabel(item.label || item.name);
+}
+
+/**
  * Emite evento areacomum_breakdown
  * RFC-0056 FIX v1.1: TELEMETRY (AreaComum) → TELEMETRY_INFO
+ * RFC-0063: Enhanced with identifier-based classification
  */
 function emitAreaComumBreakdown(periodKey) {
   try {
+    LogHelper.log(`[RFC-0063] emitAreaComumBreakdown: mode=${USE_IDENTIFIER_CLASSIFICATION ? (USE_HYBRID_CLASSIFICATION ? 'HYBRID' : 'IDENTIFIER') : 'LEGACY'}`);
+
     // Classificar dispositivos por categoria
     const breakdown = {
       climatizacao: 0,
@@ -1120,21 +1275,14 @@ function emitAreaComumBreakdown(periodKey) {
     };
 
     STATE.itemsEnriched.forEach(item => {
-      const label = normalizeLabel(item.label || item.name || '');
       const energia = item.value || 0;
+      const category = classifyDevice(item);
 
-      if (label.includes('climatizacao') || label.includes('hvac') || label.includes('ar condicionado') ||
-          label.includes('chiller') || label.includes('bomba cag') || label.includes('fancoil') ||
-          label.includes('casa de máquina ar') || label.includes('bomba primaria') || label.includes('bomba secundaria') ||
-          label.includes('bombas condensadoras') || label.includes('bombas condensadora') || label.includes('bomba condensadora') ||
-          label.includes('bombas primarias') || label.includes('bombas secundarias')) {
-        breakdown.climatizacao += energia;
-      } else if (label.includes('elevador')) {
-        breakdown.elevadores += energia;
-      } else if (label.includes('escada') && label.includes('rolante')) {
-        breakdown.escadas_rolantes += energia;
-      } else {
-        breakdown.outros += energia;
+      breakdown[category] += energia;
+
+      // Debug log for first 5 items
+      if (STATE.itemsEnriched.indexOf(item) < 5) {
+        LogHelper.log(`[RFC-0063] Item classified: id="${item.identifier}", label="${item.label}" → ${category} (${energia.toFixed(2)} kWh)`);
       }
     });
 
@@ -1328,6 +1476,11 @@ self.onInit = async function () {
   // RFC-0042: Set widget configuration from settings FIRST
   WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
   LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}`);
+
+  // RFC-0063: Load classification mode configuration
+  USE_IDENTIFIER_CLASSIFICATION = self.ctx.settings?.USE_IDENTIFIER_CLASSIFICATION || false;
+  USE_HYBRID_CLASSIFICATION = self.ctx.settings?.USE_HYBRID_CLASSIFICATION || false;
+  LogHelper.log(`[RFC-0063] Classification mode: ${USE_IDENTIFIER_CLASSIFICATION ? (USE_HYBRID_CLASSIFICATION ? 'HYBRID (identifier + label fallback)' : 'IDENTIFIER ONLY') : 'LEGACY (label only)'}`);
 
   // RFC-0042: Request data from orchestrator (defined early for use in handlers)
   function requestDataFromOrchestrator() {
