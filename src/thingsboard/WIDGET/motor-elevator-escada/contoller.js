@@ -81,6 +81,7 @@ self.onInit = function () {
         label: label,
         jwtToken: jwt,
         domain: "energy", // Domínio do widget
+        deviceType: type, // Passa o deviceType para renderização condicional
         ui: {
           title: "Configurações",
           width: 900
