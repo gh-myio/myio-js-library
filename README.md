@@ -1511,24 +1511,231 @@ MyIOLibrary.openDashboardPopupAllReport({
 <script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
 <script>
   const { openDashboardPopupReport } = MyIOLibrary;
-  
+
   const modal = openDashboardPopupReport({
     ingestionId: 'demo-ingestion-123',
     deviceId: 'demo-device-123',
     identifier: 'ENTRADA-001',
     label: 'Outback',
-    api: { 
+    api: {
       clientId: 'demo-client',
       clientSecret: 'demo-secret',
       dataApiBaseUrl: 'https://api.data.apps.myio-bas.com',
       ingestionToken: 'demo-ingestion-token'
     }
   });
-  
+
   modal.on('loaded', (data) => {
     console.log('Device report loaded with', data.count, 'days of data');
   });
 </script>
+```
+
+#### `openDashboardPopupWaterTank(params: OpenDashboardPopupWaterTankOptions): Promise<{ close: () => void }>`
+
+Opens a water tank telemetry modal that fetches data directly from ThingsBoard REST API (NOT Ingestion API). Displays real-time water level data with visual indicators, interactive charts, and CSV export functionality. Specifically designed for TANK and CAIXA_DAGUA device types.
+
+**Parameters:**
+- `deviceId: string` - ThingsBoard device UUID (required)
+- `tbJwtToken: string` - ThingsBoard JWT token for REST API authentication (required)
+- `startTs: number` - Start timestamp in milliseconds (required)
+- `endTs: number` - End timestamp in milliseconds (required)
+- `label?: string` - Display label for the device (default: deviceId)
+- `currentLevel?: number` - Current water level percentage 0-100 (optional)
+- `deviceType?: string` - Device type (TANK, CAIXA_DAGUA, etc.)
+- `slaveId?: string | number` - Slave device ID (optional)
+- `centralId?: string` - Central controller ID (optional)
+- `telemetryKeys?: string[]` - Telemetry keys to fetch (default: ['waterLevel', 'nivel', 'level'])
+- `aggregation?: string` - Aggregation method: NONE, MIN, MAX, AVG, SUM, COUNT (default: 'NONE')
+- `limit?: number` - Maximum data points to fetch (default: 1000, max: 10000)
+- `timezone?: string` - Timezone (default: 'America/Sao_Paulo')
+- `ui?: object` - UI configuration:
+  - `title?: string` - Modal title (default: "Water Tank - {label}")
+  - `width?: number` - Modal width in pixels (default: 900)
+  - `height?: number` - Modal height in pixels (default: 600)
+  - `showExport?: boolean` - Show CSV export button (default: true)
+  - `showLevelIndicator?: boolean` - Show visual level indicator (default: true)
+- `onOpen?: (context) => void` - Callback when modal opens
+- `onClose?: () => void` - Callback when modal closes
+- `onError?: (error) => void` - Callback on error
+- `onDataLoaded?: (data) => void` - Callback when telemetry data is loaded
+
+**Returns:** Promise resolving to an object with:
+- `close(): void` - Method to close the modal programmatically
+
+**Key Features:**
+- **ThingsBoard Telemetry API Integration**: Fetches data directly from `/api/plugins/telemetry/DEVICE/{deviceId}/values/timeseries`
+- **Real-time Level Visualization**: Interactive canvas chart showing water level trends
+- **Status-Based Color Coding**: Critical (<20%), Low (20-40%), Medium (40-70%), Good (70-90%), Full (>90%)
+- **Summary Statistics**: Current level, average, minimum, maximum values
+- **Device Metadata Display**: Shows device ID, label, type, slave ID, central ID
+- **CSV Export**: Download telemetry data with proper Brazilian formatting
+- **Responsive Design**: Adapts to different screen sizes with smooth animations
+- **Error Handling**: Graceful error display with user-friendly messages
+
+**Usage Example:**
+```javascript
+import { openDashboardPopupWaterTank } from 'myio-js-library';
+
+// Basic usage
+const modal = await openDashboardPopupWaterTank({
+  deviceId: 'water-tank-uuid-123',
+  tbJwtToken: localStorage.getItem('jwt_token'),
+  startTs: Date.now() - 86400000 * 7, // Last 7 days
+  endTs: Date.now(),
+  label: 'Water Tank - Building A',
+  currentLevel: 75.5
+});
+
+// Close programmatically
+modal.close();
+
+// Advanced usage with callbacks and customization
+const modal = await openDashboardPopupWaterTank({
+  deviceId: 'caixa-dagua-uuid-456',
+  tbJwtToken: myToken,
+  startTs: startTimestamp,
+  endTs: endTimestamp,
+  label: 'Caixa D\'Água Principal',
+  deviceType: 'CAIXA_DAGUA',
+  currentLevel: 82.3,
+  slaveId: 'SLAVE-001',
+  centralId: 'CENTRAL-A',
+  telemetryKeys: ['waterLevel', 'nivel_agua', 'level'],
+  aggregation: 'AVG',
+  limit: 500,
+  ui: {
+    title: 'Análise de Nível - Caixa Principal',
+    width: 1000,
+    height: 700,
+    showExport: true
+  },
+  onOpen: (context) => {
+    console.log('Modal opened for device:', context.device.label);
+    console.log('Time range:', new Date(context.timeRange.startTs), '-', new Date(context.timeRange.endTs));
+  },
+  onDataLoaded: (data) => {
+    console.log('Telemetry loaded:', data.telemetry.length, 'points');
+    console.log('Summary:', data.summary);
+  },
+  onClose: () => {
+    console.log('Modal closed');
+  },
+  onError: (error) => {
+    console.error('Error:', error.message);
+    alert(`Failed to load water tank data: ${error.message}`);
+  }
+});
+```
+
+**UMD Usage (ThingsBoard widgets):**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { openDashboardPopupWaterTank } = MyIOLibrary;
+
+  // In your widget action handler
+  async function handleDashboardAction() {
+    const jwtToken = localStorage.getItem('jwt_token');
+    const deviceId = entityId.id;
+    const startTs = ctx.timeWindow.minTime;
+    const endTs = ctx.timeWindow.maxTime;
+
+    try {
+      const modal = await openDashboardPopupWaterTank({
+        deviceId: deviceId,
+        tbJwtToken: jwtToken,
+        startTs: startTs,
+        endTs: endTs,
+        label: entityName,
+        deviceType: 'CAIXA_DAGUA',
+        currentLevel: currentLevelValue,
+        onOpen: (context) => {
+          console.log('Water tank modal opened');
+        },
+        onError: (error) => {
+          console.error('Modal error:', error);
+          showNotification(error.message, 'error');
+        }
+      });
+    } catch (error) {
+      console.error('Failed to open water tank modal:', error);
+    }
+  }
+</script>
+```
+
+**ThingsBoard API Integration:**
+```
+GET /api/plugins/telemetry/DEVICE/{deviceId}/values/timeseries
+  ?keys=waterLevel,nivel,level
+  &startTs={startMillis}
+  &endTs={endMillis}
+  &limit=1000
+
+Headers:
+  X-Authorization: Bearer {tbJwtToken}
+```
+
+**Level Status Color Coding:**
+- **Critical** (<20%): Red (#e74c3c) - Risk of running dry
+- **Low** (20-40%): Orange (#e67e22) - Needs attention
+- **Medium** (40-70%): Yellow (#f39c12) - Normal range
+- **Good** (70-90%): Green (#27ae60) - Optimal level
+- **Full** (>90%): Blue (#3498db) - Near capacity
+
+**Data Structure Returned:**
+```javascript
+{
+  deviceId: 'device-uuid',
+  telemetry: [
+    { ts: 1704067200000, value: 75.5, key: 'waterLevel' },
+    { ts: 1704153600000, value: 72.3, key: 'waterLevel' }
+  ],
+  summary: {
+    currentLevel: 75.5,      // Most recent reading
+    avgLevel: 73.8,          // Average over period
+    minLevel: 65.2,          // Minimum level
+    maxLevel: 82.1,          // Maximum level
+    totalReadings: 245,      // Number of data points
+    firstReadingTs: 1704067200000,
+    lastReadingTs: 1704672000000
+  },
+  metadata: {
+    keys: ['waterLevel', 'nivel', 'level'],
+    aggregation: 'NONE',
+    limit: 1000
+  }
+}
+```
+
+**Error Handling:**
+The modal includes comprehensive error handling with specific error codes:
+- `VALIDATION_ERROR` - Invalid parameters provided
+- `AUTH_ERROR` - Authentication failed (invalid or expired token)
+- `TOKEN_EXPIRED` - JWT token has expired
+- `NETWORK_ERROR` - Network request failed
+- `NO_DATA` - Device not found or no telemetry available
+- `UNKNOWN_ERROR` - Unexpected error occurred
+
+**Integration with TELEMETRY Widget:**
+The modal automatically integrates with the v5.2.0 TELEMETRY widget controller:
+```javascript
+// Automatic device type detection and routing
+if (deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA') {
+  // Opens water tank modal (uses TB telemetry API)
+  await MyIOLibrary.openDashboardPopupWaterTank({
+    deviceId: deviceId,
+    tbJwtToken: jwtToken,
+    startTs: startTimestamp,
+    endTs: endTimestamp,
+    label: deviceLabel,
+    currentLevel: levelPercentage
+  });
+} else {
+  // Opens energy/water modal (uses Ingestion API)
+  await MyIO.openDashboardPopupEnergy({...});
+}
 ```
 
 **Migration from Legacy API:**

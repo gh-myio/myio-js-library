@@ -115,7 +115,8 @@ export {
   openDashboardPopupEnergy,
   openDashboardPopupReport,
   openDashboardPopupAllReport,
-  openDashboardPopup
+  openDashboardPopup,
+  openDashboardPopupWaterTank
 } from './components/premium-modals';
 
 // Energy Modal Types
@@ -129,13 +130,24 @@ export type {
 
 // Settings Modal Component
 export { openDashboardPopupSettings } from './components/premium-modals/settings/openDashboardPopupSettings';
-export type { 
+export type {
   OpenDashboardPopupSettingsParams,
   PersistResult,
   SettingsError,
   SettingsEvent,
   TbScope
 } from './components/premium-modals/settings/types';
+
+// Water Tank Modal Types
+export type {
+  OpenDashboardPopupWaterTankOptions,
+  WaterTankModalContext,
+  WaterTankModalError,
+  WaterTankTelemetryData,
+  WaterTankDataPoint,
+  WaterTankModalI18n,
+  WaterTankModalStyleOverrides
+} from './components/premium-modals/water-tank/openDashboardPopupWaterTank';
 
 // DateRangePicker - Public API
 export { createDateRangePicker, type CreateDateRangePickerOptions, type DateRangeControl, type DateRangeResult } from './components/createDateRangePicker';

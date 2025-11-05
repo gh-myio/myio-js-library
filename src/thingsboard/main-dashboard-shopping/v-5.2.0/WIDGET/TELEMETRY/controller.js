@@ -677,36 +677,89 @@ function renderList(visible) {
       enableDragDrop: true,    // Habilitar drag and drop
 
       handleActionDashboard: async () => {
-       try {
-        const tokenIngestionDashBoard = await MyIOAuth.getToken();
-        const myTbTokenDashBoard = localStorage.getItem("jwt_token");
-        const modal = MyIO.openDashboardPopupEnergy({
-          deviceId: it.id, // Use actual device ID
-          readingType: WIDGET_DOMAIN, // 'energy', 'water', or 'tank'
-          startDate: self.ctx.scope.startDateISO,
-          endDate: self.ctx.scope.endDateISO,
-          tbJwtToken: myTbTokenDashBoard,
-          ingestionToken: tokenIngestionDashBoard,
-          clientId: CLIENT_ID,
-          clientSecret: CLIENT_SECRET,
-          onOpen: (context) => {
-            LogHelper.log('Modal opened:', context);
-            hideBusy(); // Hide loading when modal opens
-          },
-          onError: (error) => {
-            LogHelper.error('Modal error:', error);
-            hideBusy();
-            alert(`Erro: ${error.message}`);
-          },
-          onClose: () => {
-            LogHelper.log('Modal closed');
+        const jwtToken = localStorage.getItem("jwt_token");
+
+        if (!jwtToken) {
+          MyIOToast.show('Authentication required. Please login again.', 'error');
+          return;
+        }
+
+        const startTs = self.ctx?.scope?.startTs || Date.now() - 86400000;
+        const endTs = self.ctx?.scope?.endTs || Date.now();
+        const deviceType = it.deviceType || entityObject.deviceType;
+        const isWaterTank = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
+
+        const loadingToast = MyIOToast.show(
+          isWaterTank ? 'Loading water tank data...' : 'Loading energy data...',
+          'info'
+        );
+
+        try {
+          if (isWaterTank) {
+            // Water Tank Modal Path
+            if (typeof MyIOLibrary?.openDashboardPopupWaterTank !== 'function') {
+              throw new Error('Water tank modal not available. Please update MyIO library.');
+            }
+
+            await MyIOLibrary.openDashboardPopupWaterTank({
+              deviceId: it.id,
+              deviceType: deviceType,
+              tbJwtToken: jwtToken,
+              startTs: typeof startTs === 'number' ? startTs : new Date(startTs).getTime(),
+              endTs: typeof endTs === 'number' ? endTs : new Date(endTs).getTime(),
+              label: it.label || it.name || 'Water Tank',
+              currentLevel: it.perc || it.val || 0,
+              slaveId: it.slaveId,
+              centralId: it.centralId,
+              timezone: self.ctx?.timeWindow?.timezone || 'America/Sao_Paulo',
+              onOpen: (context) => {
+                LogHelper.log('[TELEMETRY v5] Water tank modal opened', context);
+                loadingToast.hide();
+                hideBusy();
+              },
+              onClose: () => {
+                LogHelper.log('[TELEMETRY v5] Water tank modal closed');
+              },
+              onError: (error) => {
+                LogHelper.error('[TELEMETRY v5] Water tank modal error', error);
+                loadingToast.hide();
+                hideBusy();
+                MyIOToast.show(`Error: ${error.message}`, 'error');
+              }
+            });
+          } else {
+            // Energy/Water/Temperature Modal Path (Ingestion API)
+            const tokenIngestionDashBoard = await MyIOAuth.getToken();
+            const modal = MyIO.openDashboardPopupEnergy({
+              deviceId: it.id,
+              readingType: WIDGET_DOMAIN, // 'energy', 'water', or 'tank'
+              startDate: self.ctx.scope.startDateISO,
+              endDate: self.ctx.scope.endDateISO,
+              tbJwtToken: jwtToken,
+              ingestionToken: tokenIngestionDashBoard,
+              clientId: CLIENT_ID,
+              clientSecret: CLIENT_SECRET,
+              onOpen: (context) => {
+                LogHelper.log('[TELEMETRY v5] Energy modal opened:', context);
+                loadingToast.hide();
+                hideBusy();
+              },
+              onError: (error) => {
+                LogHelper.error('[TELEMETRY v5] Energy modal error:', error);
+                loadingToast.hide();
+                hideBusy();
+                alert(`Erro: ${error.message}`);
+              },
+              onClose: () => {
+                LogHelper.log('[TELEMETRY v5] Energy modal closed');
+              }
+            });
           }
-        });
-       } catch (err) {
-          LogHelper.warn("[DeviceCards] Report open blocked:", err?.message || err);
-          alert("Credenciais ainda carregando. Tente novamente em instantes.");
-        } finally {
+        } catch (err) {
+          LogHelper.warn("[TELEMETRY v5] Dashboard action failed:", err?.message || err);
+          loadingToast.hide();
           hideBusy();
+          MyIOToast.show(err?.message || 'Failed to open dashboard', 'error');
         }
       },
 
