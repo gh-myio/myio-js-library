@@ -10,8 +10,86 @@ function getData(dataKeyName) {
 
 let img; // deixar global pro widget
 let MyIO = null; // Referência para MyIOLibrary
+let deviceType = null; // deviceType global para usar no modal
 
-self.onInit = function () {
+// Função para buscar e exibir informações do dispositivo
+async function fetchAndDisplayDeviceInfo(deviceId) {
+  const jwt = localStorage.getItem("jwt_token");
+
+  try {
+    // Buscar informações da entidade (label)
+    const entityResponse = await fetch(`/api/device/${deviceId}`, {
+      headers: {
+        "Content-Type": "application/json",
+        "X-Authorization": `Bearer ${jwt}`,
+      },
+    });
+
+    if (!entityResponse.ok) {
+      throw new Error("Erro ao buscar informações do dispositivo");
+    }
+
+    const entity = await entityResponse.json();
+    const deviceName = entity.label || entity.name || "Sem Nome";
+
+    // Buscar atributos SERVER_SCOPE para pegar o identifier
+    const attrResponse = await fetch(
+      `/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes?scope=SERVER_SCOPE`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Authorization": `Bearer ${jwt}`,
+        },
+      }
+    );
+
+    let identifier = "N/A";
+    if (attrResponse.ok) {
+      const attributes = await attrResponse.json();
+      const identifierAttr = attributes.find((attr) => attr.key === "identifier");
+
+      if (identifierAttr && identifierAttr.value) {
+        const identifierValue = identifierAttr.value.trim();
+        // Verifica se o identifier não é vazio, null ou textos inválidos
+        if (
+          identifierValue &&
+          identifierValue !== "null" &&
+          identifierValue !== "Sem identificador identificado" &&
+          identifierValue.toLowerCase() !== "sem identificador identificado"
+        ) {
+          identifier = identifierValue;
+        }
+      }
+    }
+
+    // Atualiza o DOM com as informações
+    const deviceNameEl = document.getElementById("device-name");
+    const deviceIdentifierEl = document.getElementById("device-identifier");
+
+    if (deviceNameEl) {
+      deviceNameEl.textContent = deviceName;
+    }
+
+    if (deviceIdentifierEl) {
+      deviceIdentifierEl.textContent = identifier;
+    }
+
+  } catch (error) {
+    console.error("[MOTOR-ELEVATOR-ESCADA] Erro ao buscar dados do dispositivo:", error);
+    // Mantém valores padrão em caso de erro
+    const deviceNameEl = document.getElementById("device-name");
+    const deviceIdentifierEl = document.getElementById("device-identifier");
+
+    if (deviceNameEl) {
+      deviceNameEl.textContent = "Dispositivo";
+    }
+    if (deviceIdentifierEl) {
+      deviceIdentifierEl.textContent = "N/A";
+    }
+  }
+}
+
+self.onInit = async function () {
   // Inicializa referência ao MyIOLibrary
   MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary)
     ? MyIOLibrary
@@ -21,10 +99,15 @@ self.onInit = function () {
     console.error("[MOTOR-ELEVATOR-ESCADA] MyIOLibrary não encontrada");
   }
 
-  const type = getData("deviceType");
+  // Armazena deviceType na variável global
+  deviceType = getData("deviceType");
+
   const container = document.getElementById("image-container");
   const entityId = self.ctx.datasources[0].entityId;
   const entityType = self.ctx.datasources[0].entityType;
+
+  // Buscar dados do dispositivo para exibir no header
+  await fetchAndDisplayDeviceInfo(entityId);
 
   img = document.createElement("img");
   img.alt = "Imagem Fullscreen";
@@ -46,7 +129,7 @@ self.onInit = function () {
   // Default image se o tipo não for encontrado
   const defaultImage = "/api/images/public/rHndQ3zHIaJHYBmHFhquFmSQtjg6at4o";
 
-  img.src = deviceImages[type] || defaultImage;
+  img.src = deviceImages[deviceType] || defaultImage;
 
   container.appendChild(img);
 
@@ -75,13 +158,25 @@ self.onInit = function () {
       const entity = await entityResponse.json();
       const label = entity.label || entity.name || "Sem etiqueta";
 
+      console.log("[MOTOR-ELEVATOR-ESCADA] Abrindo modal com deviceType:", deviceType);
+
+      // Determina o domain baseado no deviceType
+      let domain = "energy"; // default
+      if (deviceType === "TERMOSTATO") {
+        domain = "temperature";
+      } else if (deviceType === "HIDROMETRO" || deviceType === "CAIXA_DAGUA") {
+        domain = "water";
+      }
+
+      console.log("[MOTOR-ELEVATOR-ESCADA] Domain determinado:", domain);
+
       // Abre o popup de configurações usando MyIO
       await MyIO.openDashboardPopupSettings({
         deviceId: entityId, // TB deviceId
         label: label,
         jwtToken: jwt,
-        domain: "energy", // Domínio do widget
-        deviceType: type, // Passa o deviceType para renderização condicional
+        domain: domain, // Domínio baseado no deviceType
+        deviceType: deviceType, // Passa o deviceType para renderização condicional
         ui: {
           title: "Configurações",
           width: 900
@@ -103,6 +198,19 @@ self.onInit = function () {
 
 // sempre que o dado atualizar
 self.onDataUpdated = function () {
+  console.log("[onDataUpdated] Chamado");
+
+  // Se deviceType ainda não foi obtido, tenta pegar agora
+  if (!deviceType) {
+    deviceType = getData("deviceType");
+    console.log("[onDataUpdated] deviceType atualizado:", deviceType);
+  }
+
+  // Verifica se a imagem já foi inicializada
+  if (!img) {
+    return;
+  }
+
   const consumo = getData("consumption");
 
   if (consumo > 500) {
