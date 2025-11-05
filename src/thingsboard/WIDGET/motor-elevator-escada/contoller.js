@@ -158,8 +158,6 @@ self.onInit = async function () {
       const entity = await entityResponse.json();
       const label = entity.label || entity.name || "Sem etiqueta";
 
-      console.log("[MOTOR-ELEVATOR-ESCADA] Abrindo modal com deviceType:", deviceType);
-
       // Determina o domain baseado no deviceType
       let domain = "energy"; // default
       if (deviceType === "TERMOSTATO") {
@@ -167,8 +165,6 @@ self.onInit = async function () {
       } else if (deviceType === "HIDROMETRO" || deviceType === "CAIXA_DAGUA") {
         domain = "water";
       }
-
-      console.log("[MOTOR-ELEVATOR-ESCADA] Domain determinado:", domain);
 
       // Abre o popup de configurações usando MyIO
       await MyIO.openDashboardPopupSettings({
@@ -198,12 +194,9 @@ self.onInit = async function () {
 
 // sempre que o dado atualizar
 self.onDataUpdated = function () {
-  console.log("[onDataUpdated] Chamado");
-
   // Se deviceType ainda não foi obtido, tenta pegar agora
   if (!deviceType) {
     deviceType = getData("deviceType");
-    console.log("[onDataUpdated] deviceType atualizado:", deviceType);
   }
 
   // Verifica se a imagem já foi inicializada
