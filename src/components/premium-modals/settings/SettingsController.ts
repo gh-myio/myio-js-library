@@ -24,6 +24,7 @@ export class SettingsController {
       theme: 'light', // Default theme
       closeOnBackdrop: params.ui?.closeOnBackdrop !== false,
       domain: params.domain || 'energy',
+      deviceType: params.deviceType, // Pass deviceType for conditional rendering
       themeTokens: params.ui?.themeTokens,
       i18n: params.ui?.i18n,
       deviceLabel: params.label, // Pass the device label for dynamic section titles
@@ -292,13 +293,38 @@ export class SettingsController {
     }
 
     // Numeric validation
-    const numericFields = ['maxDailyKwh', 'maxNightKwh', 'maxBusinessKwh'];
+    const numericFields = ['maxDailyKwh', 'maxNightKwh', 'maxBusinessKwh', 'minTemperature', 'maxTemperature', 'minWaterLevel', 'maxWaterLevel'];
     for (const field of numericFields) {
       if (formData[field] !== undefined) {
         const num = Number(formData[field]);
-        if (isNaN(num) || num < 0) {
-          errors.push(`${field} must be a positive number`);
+        // Temperature fields can be negative, consumption fields must be >= 0
+        if (isNaN(num) || (field.includes('Kwh') && num < 0)) {
+          errors.push(`${field} must be a valid number`);
         }
+        // Water level fields must be between 0 and 100
+        if (field.includes('WaterLevel')) {
+          if (num < 0 || num > 100) {
+            errors.push(`${field} must be between 0 and 100`);
+          }
+        }
+      }
+    }
+
+    // Temperature range validation
+    if (formData.minTemperature !== undefined && formData.maxTemperature !== undefined) {
+      const minTemp = Number(formData.minTemperature);
+      const maxTemp = Number(formData.maxTemperature);
+      if (!isNaN(minTemp) && !isNaN(maxTemp) && minTemp >= maxTemp) {
+        errors.push('Minimum temperature must be less than maximum temperature');
+      }
+    }
+
+    // Water level range validation
+    if (formData.minWaterLevel !== undefined && formData.maxWaterLevel !== undefined) {
+      const minLevel = Number(formData.minWaterLevel);
+      const maxLevel = Number(formData.maxWaterLevel);
+      if (!isNaN(minLevel) && !isNaN(maxLevel) && minLevel >= maxLevel) {
+        errors.push('Minimum water level must be less than maximum water level');
       }
     }
 

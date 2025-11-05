@@ -94,10 +94,20 @@ export class SettingsModalView {
 
     for (const [key, value] of formData.entries()) {
       if (typeof value === 'string') {
-        // Handle numeric fields
-        if (['maxDailyKwh', 'maxNightKwh', 'maxBusinessKwh'].includes(key)) {
+        // Handle numeric fields (consumption, temperature, and water levels)
+        if (['maxDailyKwh', 'maxNightKwh', 'maxBusinessKwh', 'minTemperature', 'maxTemperature', 'minWaterLevel', 'maxWaterLevel'].includes(key)) {
           const num = parseFloat(value);
-          if (!isNaN(num) && num >= 0) {
+          if (!isNaN(num)) {
+            // For consumption fields, ensure they are >= 0
+            if (key.includes('Kwh') && num < 0) {
+              continue;
+            }
+            // For water level fields, ensure they are between 0 and 100
+            if (key.includes('WaterLevel')) {
+              if (num < 0 || num > 100) {
+                continue;
+              }
+            }
             data[key] = num;
           }
         } else if (value.trim()) {
@@ -144,8 +154,8 @@ export class SettingsModalView {
   }
 
   private getFormHTML(): string {
-    // Determine unit based on domain
-    const unit = this.config.domain === 'water' ? 'L' : 'kWh';
+    // Check deviceType for conditional rendering
+    const deviceType = this.config.deviceType;
 
     return `
       <div class="form-layout">
@@ -175,29 +185,85 @@ export class SettingsModalView {
 
           <!-- Right Column: Alarms -->
           <div class="form-column">
-            <div class="form-card">
-              <h4 class="section-title">Alarmes ${this.formatDomainLabel(this.config.domain)} - ${this.config.deviceLabel || 'Outback'}</h4>
-
-              <div class="form-group">
-                <label for="maxDailyKwh">Consumo Máximo Diário (${unit})</label>
-                <input type="number" id="maxDailyKwh" name="maxDailyKwh" min="0" step="0.1">
-              </div>
-
-              <div class="form-group">
-                <label for="maxNightKwh">Consumo Máximo na Madrugada (0h–06h)</label>
-                <input type="number" id="maxNightKwh" name="maxNightKwh" min="0" step="0.1">
-              </div>
-
-              <div class="form-group">
-                <label for="maxBusinessKwh">Consumo Máximo Horário Comercial (09h–22h)</label>
-                <input type="number" id="maxBusinessKwh" name="maxBusinessKwh" min="0" step="0.1">
-              </div>
-            </div>
+            ${this.getAlarmsHTML(deviceType)}
           </div>
         </div>
 
         <!-- Bottom Row: Connection Info spanning full width -->
         ${this.getConnectionInfoHTML()}
+      </div>
+    `;
+  }
+
+  private getAlarmsHTML(deviceType?: string): string {
+    switch (deviceType) {
+      case 'TERMOSTATO':
+        return this.getThermostatAlarmsHTML();
+      case 'CAIXA_DAGUA':
+        return this.getWaterTankAlarmsHTML();
+      default:
+        return this.getConsumptionAlarmsHTML();
+    }
+  }
+
+  private getConsumptionAlarmsHTML(): string {
+    // Determine unit based on domain
+    const unit = this.config.domain === 'water' ? 'L' : 'kWh';
+
+    return `
+      <div class="form-card">
+        <h4 class="section-title">Alarmes ${this.formatDomainLabel(this.config.domain)} - ${this.config.deviceLabel || 'SEM IDENTIFICADOR'}</h4>
+
+        <div class="form-group">
+          <label for="maxDailyKwh">Consumo Máximo Diário (${unit})</label>
+          <input type="number" id="maxDailyKwh" name="maxDailyKwh" min="0" step="0.1">
+        </div>
+
+        <div class="form-group">
+          <label for="maxNightKwh">Consumo Máximo na Madrugada (0h–06h)</label>
+          <input type="number" id="maxNightKwh" name="maxNightKwh" min="0" step="0.1">
+        </div>
+
+        <div class="form-group">
+          <label for="maxBusinessKwh">Consumo Máximo Horário Comercial (09h–22h)</label>
+          <input type="number" id="maxBusinessKwh" name="maxBusinessKwh" min="0" step="0.1">
+        </div>
+      </div>
+    `;
+  }
+
+  private getThermostatAlarmsHTML(): string {
+    return `
+      <div class="form-card">
+        <h4 class="section-title">Alarmes de Temperatura - ${this.config.deviceLabel || 'SEM IDENTIFICADOR'}</h4>
+
+        <div class="form-group">
+          <label for="minTemperature">Temperatura Mínima (°C)</label>
+          <input type="number" id="minTemperature" name="minTemperature" step="0.1">
+        </div>
+
+        <div class="form-group">
+          <label for="maxTemperature">Temperatura Máxima (°C)</label>
+          <input type="number" id="maxTemperature" name="maxTemperature" step="0.1">
+        </div>
+      </div>
+    `;
+  }
+
+  private getWaterTankAlarmsHTML(): string {
+    return `
+      <div class="form-card">
+        <h4 class="section-title">Alarmes de Nível - ${this.config.deviceLabel || 'SEM IDENTIFICADOR'}</h4>
+
+        <div class="form-group">
+          <label for="minWaterLevel">Nível Mínimo (%)</label>
+          <input type="number" id="minWaterLevel" name="minWaterLevel" min="0" max="100" step="0.1" placeholder="Risco de falta d'água">
+        </div>
+
+        <div class="form-group">
+          <label for="maxWaterLevel">Nível Máximo (%)</label>
+          <input type="number" id="maxWaterLevel" name="maxWaterLevel" min="0" max="100" step="0.1" placeholder="Risco de transbordar">
+        </div>
       </div>
     `;
   }

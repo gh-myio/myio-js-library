@@ -8,6 +8,7 @@ export interface OpenDashboardPopupSettingsParams {
   identifier?: string;
   label?: string;
   domain?: Domain; // Domain for the left column section
+  deviceType?: string; // Device type for conditional rendering (e.g., TERMOSTATO)
 
 
   // Connection information (from card v5 info panel)
@@ -68,6 +69,10 @@ export interface OpenDashboardPopupSettingsParams {
     maxDailyKwh?: number;
     maxNightKwh?: number;
     maxBusinessKwh?: number;
+    minTemperature?: number; // For TERMOSTATO deviceType
+    maxTemperature?: number; // For TERMOSTATO deviceType
+    minWaterLevel?: number; // For CAIXA_DAGUA deviceType (percentage)
+    maxWaterLevel?: number; // For CAIXA_DAGUA deviceType (percentage)
   };
 }
 
@@ -122,6 +127,7 @@ export interface ModalConfig {
   i18n?: { t: (key: string, def?: string) => string };
   deviceLabel?: string; // Dynamic label for the left column section
   domain: Domain; // Domain for the left column section
+  deviceType?: string; // Device type for conditional rendering (e.g., TERMOSTATO)
   connectionData?: { // Connection info from card v5
     centralName?: string;
     connectionStatusTime?: string;
