@@ -678,9 +678,14 @@ function renderList(visible) {
 
       handleActionDashboard: async () => {
         const jwtToken = localStorage.getItem("jwt_token");
+        const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
 
         if (!jwtToken) {
-          MyIOToast.show('Authentication required. Please login again.', 'error');
+          if (MyIOToast) {
+            MyIOToast.error('Authentication required. Please login again.');
+          } else {
+            alert('Authentication required. Please login again.');
+          }
           return;
         }
 
@@ -689,17 +694,33 @@ function renderList(visible) {
         const deviceType = it.deviceType || entityObject.deviceType;
         const isWaterTank = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
 
-        const loadingToast = MyIOToast.show(
-          isWaterTank ? 'Loading water tank data...' : 'Loading energy data...',
-          'info'
-        );
+        LogHelper.log('[TELEMETRY v5] Opening dashboard for deviceType:', deviceType, 'isWaterTank:', isWaterTank);
+
+        // Show loading toast
+        let loadingToast = null;
+        if (MyIOToast) {
+          loadingToast = MyIOToast.info(
+            isWaterTank ? 'Loading water tank data...' : 'Loading energy data...',
+            0 // No auto-hide
+          );
+        }
 
         try {
           if (isWaterTank) {
             // Water Tank Modal Path
+            LogHelper.log('[TELEMETRY v5] Checking for MyIOLibrary.openDashboardPopupWaterTank...');
+
             if (typeof MyIOLibrary?.openDashboardPopupWaterTank !== 'function') {
               throw new Error('Water tank modal not available. Please update MyIO library.');
             }
+
+            LogHelper.log('[TELEMETRY v5] Calling openDashboardPopupWaterTank with params:', {
+              deviceId: it.id,
+              deviceType: deviceType,
+              startTs: typeof startTs === 'number' ? startTs : new Date(startTs).getTime(),
+              endTs: typeof endTs === 'number' ? endTs : new Date(endTs).getTime(),
+              label: it.label || it.name || 'Water Tank'
+            });
 
             await MyIOLibrary.openDashboardPopupWaterTank({
               deviceId: it.id,
@@ -714,7 +735,7 @@ function renderList(visible) {
               timezone: self.ctx?.timeWindow?.timezone || 'America/Sao_Paulo',
               onOpen: (context) => {
                 LogHelper.log('[TELEMETRY v5] Water tank modal opened', context);
-                loadingToast.hide();
+                if (loadingToast) loadingToast.hide();
                 hideBusy();
               },
               onClose: () => {
@@ -722,13 +743,18 @@ function renderList(visible) {
               },
               onError: (error) => {
                 LogHelper.error('[TELEMETRY v5] Water tank modal error', error);
-                loadingToast.hide();
+                if (loadingToast) loadingToast.hide();
                 hideBusy();
-                MyIOToast.show(`Error: ${error.message}`, 'error');
+                if (MyIOToast) {
+                  MyIOToast.error(`Error: ${error.message}`);
+                } else {
+                  alert(`Error: ${error.message}`);
+                }
               }
             });
           } else {
             // Energy/Water/Temperature Modal Path (Ingestion API)
+            LogHelper.log('[TELEMETRY v5] Opening energy modal...');
             const tokenIngestionDashBoard = await MyIOAuth.getToken();
             const modal = MyIO.openDashboardPopupEnergy({
               deviceId: it.id,
@@ -741,14 +767,18 @@ function renderList(visible) {
               clientSecret: CLIENT_SECRET,
               onOpen: (context) => {
                 LogHelper.log('[TELEMETRY v5] Energy modal opened:', context);
-                loadingToast.hide();
+                if (loadingToast) loadingToast.hide();
                 hideBusy();
               },
               onError: (error) => {
                 LogHelper.error('[TELEMETRY v5] Energy modal error:', error);
-                loadingToast.hide();
+                if (loadingToast) loadingToast.hide();
                 hideBusy();
-                alert(`Erro: ${error.message}`);
+                if (MyIOToast) {
+                  MyIOToast.error(`Erro: ${error.message}`);
+                } else {
+                  alert(`Erro: ${error.message}`);
+                }
               },
               onClose: () => {
                 LogHelper.log('[TELEMETRY v5] Energy modal closed');
@@ -756,10 +786,14 @@ function renderList(visible) {
             });
           }
         } catch (err) {
-          LogHelper.warn("[TELEMETRY v5] Dashboard action failed:", err?.message || err);
-          loadingToast.hide();
+          LogHelper.error("[TELEMETRY v5] Dashboard action failed:", err?.message || err, err);
+          if (loadingToast) loadingToast.hide();
           hideBusy();
-          MyIOToast.show(err?.message || 'Failed to open dashboard', 'error');
+          if (MyIOToast) {
+            MyIOToast.error(err?.message || 'Failed to open dashboard');
+          } else {
+            alert(err?.message || 'Failed to open dashboard');
+          }
         }
       },
 
