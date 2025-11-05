@@ -1,0 +1,54 @@
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+#image-container {
+  width: 80%;
+  height: 80%;
+  display: flex;            /* ativa o flexbox */
+  justify-content: center;  /* centraliza horizontalmente */
+  align-items: center;      /* centraliza verticalmente */
+  margin: 0 auto;           /* garante centralização horizontal no container pai */
+}
+#svg-right {
+  display: flex;
+  justify-content: flex-end; /* empurra para a direita */
+  align-items: center;       /* centraliza verticalmente */
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  width: 100%;               /* ocupa toda a largura do pai */
+}
+
+#svg-right svg {
+  fill: black;               /* SVG preto */
+  height: 24px;
+  width: 24px;
+}
+
+
+
+
+.fullscreen-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* classe de piscar */
+.blinking {
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
