@@ -1059,7 +1059,12 @@ self.onInit = async function () {
         });
 
         const ingestionId = findValue(device.values, "ingestionId", null);
-        const customerId = findValue(device.values, "customerId", null);
+        let customerId = findValue(device.values, "customerId", null);
+
+        // Fallback: Try to get customerId from MAIN's energyCache (API has it, ctx.data doesn't)
+        if (!customerId && ingestionId && energyCacheFromMain && energyCacheFromMain.has(ingestionId)) {
+          customerId = energyCacheFromMain.get(ingestionId).customerId;
+        }
 
         // Populate global device-to-shopping map for filter fallback
         if (ingestionId && customerId) {
@@ -1157,6 +1162,12 @@ self.onInit = async function () {
     // Log device-to-shopping mapping stats
     if (window.myioDeviceToShoppingMap) {
       console.log(`[EQUIPMENTS] 🗺️ Device-to-shopping map populated: ${window.myioDeviceToShoppingMap.size} devices mapped`);
+
+      // Debug: show sample mappings
+      if (window.myioDeviceToShoppingMap.size > 0) {
+        const samples = Array.from(window.myioDeviceToShoppingMap.entries()).slice(0, 3);
+        console.log(`[EQUIPMENTS] 📋 Sample mappings:`, samples.map(([deviceId, shopId]) => `${deviceId.substring(0, 8)}... → ${shopId.substring(0, 8)}...`));
+      }
     }
 
     initializeCards(equipmentDevices);
