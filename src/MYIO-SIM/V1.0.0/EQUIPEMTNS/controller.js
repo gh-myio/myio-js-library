@@ -738,7 +738,13 @@ self.onInit = async function () {
           mappedConnectionStatus = "waiting";
         }
 
-        const deviceType = findValue(device.values, "deviceType", "").toUpperCase();
+        const deviceProfile = findValue(device.values, "deviceProfile", "").toUpperCase();
+        let deviceType = findValue(device.values, "deviceType", "").toUpperCase();
+
+        if (deviceType === "3F_MEDIDOR" && deviceProfile !== "N/D") {
+          deviceType = deviceProfile;
+        }
+
         let standbyLimit = 100;
         let alertLimit = 1000;
         let failureLimit = 2000;
