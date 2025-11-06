@@ -35,8 +35,8 @@
 
 /* Exceção apenas para o card da logo que precisa do roxo */
 .myio-card.v2.myio-card-logo {
-  background: #5E35B1 !important;
-  background-color: #5E35B1 !important;
+  background: #1F3A35 !important;
+  background-color: #1F3A35 !important;
   background-image: none !important;
 }
 
@@ -255,8 +255,8 @@
 
 /* ===== Card da Logo - Versão Única e Limpa ===== */
 .myio-card.v2.myio-card-logo {
-  background: #5E35B1 !important;
-  background-color: #5E35B1 !important;
+  background: #1F3A35 !important;
+  background-color: #1F3A35 !important;
   background-image: none !important;
   border: 0 !important;
   box-shadow: 0 4px 14px rgba(0,0,0,.20);
