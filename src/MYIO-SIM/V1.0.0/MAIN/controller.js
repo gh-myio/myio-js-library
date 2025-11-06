@@ -282,6 +282,7 @@ const MyIOOrchestrator = (() => {
   // ===== STATE para montar o resumo ENERGY =====
   let customerTotalConsumption = null; // total do cliente (vem do HEADER)
   let lojasIngestionIds = new Set(); // ingestionIds das lojas (3F_MEDIDOR) - vem do EQUIPMENTS
+  let selectedShoppingIds = []; // Shopping ingestionIds selecionados no filtro (vem do MENU)
 
   function haveEquipments() {
     return energyCache && energyCache.size > 0;
@@ -291,6 +292,26 @@ const MyIOOrchestrator = (() => {
       typeof customerTotalConsumption === "number" &&
       !Number.isNaN(customerTotalConsumption)
     );
+  }
+
+  /**
+   * Verifica se um device deve ser incluído no cálculo baseado no filtro de shoppings
+   * @param {Object} device - Device data from energyCache
+   * @returns {boolean} - True if device should be included
+   */
+  function shouldIncludeDevice(device) {
+    // Se nenhum shopping foi selecionado (filtro vazio), inclui todos
+    if (!selectedShoppingIds || selectedShoppingIds.length === 0) {
+      return true;
+    }
+
+    // Se o device não tem customerId, inclui (safety)
+    if (!device.customerId) {
+      return true;
+    }
+
+    // Verifica se o customerId do device está na lista de shoppings selecionados
+    return selectedShoppingIds.includes(device.customerId);
   }
 
   function dispatchEnergySummaryIfReady(reason = "unknown") {
@@ -430,6 +451,7 @@ const MyIOOrchestrator = (() => {
         if (device.id) {
           energyCache.set(device.id, {
             ingestionId: device.id,
+            customerId: device.customerId || device.customer_id || null, // Shopping ingestionId
             name: device.name,
             total_value: device.total_value || 0,
             timestamp: Date.now(),
@@ -486,55 +508,78 @@ const MyIOOrchestrator = (() => {
 
   /**
    * Calcula o total de consumo de EQUIPAMENTOS no cache (exclui lojas)
+   * Considera filtro de shoppings se aplicado
    * @returns {number} - Total em kWh
    */
   function getTotalEquipmentsConsumption() {
     let total = 0;
     let count = 0;
+    let filtered = 0;
     energyCache.forEach((device, ingestionId) => {
       // Skip lojas (3F_MEDIDOR)
       if (!lojasIngestionIds.has(ingestionId)) {
-        total += device.total_value || 0;
-        count++;
+        // Apply shopping filter
+        if (shouldIncludeDevice(device)) {
+          total += device.total_value || 0;
+          count++;
+        } else {
+          filtered++;
+        }
       }
     });
     console.log(
-      `[MAIN] [Orchestrator] Total EQUIPMENTS consumption (excluding lojas): ${total} kWh (${count} devices)`
+      `[MAIN] [Orchestrator] Total EQUIPMENTS consumption (excluding lojas): ${total} kWh (${count} devices, ${filtered} filtered out by shopping filter)`
     );
     return total;
   }
 
   /**
    * Calcula o total de consumo de LOJAS no cache (apenas 3F_MEDIDOR)
+   * Considera filtro de shoppings se aplicado
    * @returns {number} - Total em kWh
    */
   function getTotalLojasConsumption() {
     let total = 0;
     let count = 0;
+    let filtered = 0;
     energyCache.forEach((device, ingestionId) => {
       // Only lojas (3F_MEDIDOR)
       if (lojasIngestionIds.has(ingestionId)) {
-        total += device.total_value || 0;
-        count++;
+        // Apply shopping filter
+        if (shouldIncludeDevice(device)) {
+          total += device.total_value || 0;
+          count++;
+        } else {
+          filtered++;
+        }
       }
     });
     console.log(
-      `[MAIN] [Orchestrator] Total LOJAS consumption (3F_MEDIDOR only): ${total} kWh (${count} devices)`
+      `[MAIN] [Orchestrator] Total LOJAS consumption (3F_MEDIDOR only): ${total} kWh (${count} devices, ${filtered} filtered out by shopping filter)`
     );
     return total;
   }
 
   /**
    * Calcula o total GERAL de consumo (EQUIPAMENTOS + LOJAS)
+   * Considera filtro de shoppings se aplicado
    * @returns {number} - Total em kWh
    */
   function getTotalConsumption() {
     let total = 0;
+    let count = 0;
+    let filtered = 0;
     energyCache.forEach((device) => {
-      total += device.total_value || 0;
+      // Apply shopping filter
+      if (shouldIncludeDevice(device)) {
+        total += device.total_value || 0;
+        count++;
+      } else {
+        filtered++;
+      }
     });
     console.log(
-      `[MAIN] [Orchestrator] Total GERAL consumption (equipments + lojas): ${total} kWh (${energyCache.size} devices)`
+      `[MAIN] [Orchestrator] Total GERAL consumption (equipments + lojas): ${total} kWh (${count} devices, ${filtered} filtered out by shopping filter)`
     );
     return total;
   }
@@ -613,6 +658,22 @@ const MyIOOrchestrator = (() => {
     console.log("[MAIN] [Orchestrator] lojasIngestionIds set:", lojasIngestionIds.size, "lojas");
     // Recalculate and dispatch summary if ready
     dispatchEnergySummaryIfReady('setLojasIngestionIds');
+  },
+
+  /**
+   * Aplica filtro de shoppings selecionados
+   * @param {Array<string>} shoppingIds - Array de ingestionIds dos shoppings
+   */
+  setSelectedShoppings(shoppingIds) {
+    selectedShoppingIds = Array.isArray(shoppingIds) ? shoppingIds : [];
+    console.log("[MAIN] [Orchestrator] Shopping filter applied:",
+      selectedShoppingIds.length === 0 ? "ALL (no filter)" : `${selectedShoppingIds.length} shoppings selected`
+    );
+    if (selectedShoppingIds.length > 0) {
+      console.log("[MAIN] [Orchestrator] Selected shopping IDs:", selectedShoppingIds);
+    }
+    // Recalculate and dispatch summary with filter applied
+    dispatchEnergySummaryIfReady('setSelectedShoppings');
   }
   };
 })();
@@ -645,6 +706,22 @@ window.addEventListener('myio:customer-total-consumption', (ev) => {
   console.log("[MAIN] heard myio:customer-total-consumption:", ev.detail, "customerTotal=", n);
   if (typeof window.MyIOOrchestrator?.setCustomerTotal === 'function') {
     window.MyIOOrchestrator.setCustomerTotal(n);
+  }
+});
+
+// ✅ MENU emite myio:filter-applied com shoppings selecionados
+window.addEventListener('myio:filter-applied', (ev) => {
+  console.log("[MAIN] heard myio:filter-applied:", ev.detail);
+
+  // Extract shopping IDs from selection
+  // ev.detail.selection is an array of { name, value } where value is the ingestionId
+  const selection = ev.detail?.selection || [];
+  const shoppingIds = selection.map(s => s.value).filter(v => v);
+
+  console.log("[MAIN] Applying shopping filter:", shoppingIds.length === 0 ? "ALL" : shoppingIds);
+
+  if (typeof window.MyIOOrchestrator?.setSelectedShoppings === 'function') {
+    window.MyIOOrchestrator.setSelectedShoppings(shoppingIds);
   }
 });
 
