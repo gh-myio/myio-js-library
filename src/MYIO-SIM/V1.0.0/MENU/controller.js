@@ -414,6 +414,24 @@ function injectModalGlobal() {
     const elPresets = container.querySelector("#fltPresets");
     const elCount = container.querySelector("#fltCount");
 
+    // Debug: verify all elements were found
+    console.log("[MENU] 🔍 Modal DOM elements:", {
+        modal: !!modal,
+        elSearch: !!elSearch,
+        elList: !!elList,
+        elClear: !!elClear,
+        elSave: !!elSave,
+        elApply: !!elApply,
+        elChips: !!elChips,
+        elPresets: !!elPresets,
+        elCount: !!elCount
+    });
+
+    if (!modal || !elList || !elSearch) {
+        console.error("[MENU] ❌ Critical modal elements not found! Cannot open filter.");
+        return;
+    }
+
     if (!window.__customersReadyListenerBound) {
         window.__customersReadyListenerBound = true;
         window.addEventListener("myio:customers-ready", () => {
@@ -449,50 +467,37 @@ function injectModalGlobal() {
     }
 
     function renderCount() {
-        const c = countSelected(window.myioFilterSel);
+        // Count customers selected (shoppings), not malls/floors/places
+        const c = (window.custumersSelected || []).length;
         elCount.textContent = `${c} selecionado${c === 1 ? "" : "s"}`;
     }
 
     function updateClearButtonState() {
-        const count = countSelected(window.myioFilterSel);
         const hasCustomers = (window.custumersSelected || []).length > 0;
 
-        // Botão habilitado se houver algo selecionado (malls/floors/places OU customers)
+        // Botão habilitado se houver customers selecionados
         if (elClear) {
-            elClear.disabled = count === 0 && !hasCustomers;
+            elClear.disabled = !hasCustomers;
         }
     }
 
     function renderChips() {
         elChips.innerHTML = "";
-        const chips = [
-            ...window.myioFilterSel.malls.map((id) => ({
-                id,
-                label: flatMap.get(id),
-            })),
-            ...window.myioFilterSel.floors.map((id) => ({
-                id,
-                label: flatMap.get(id),
-            })),
-            ...window.myioFilterSel.places.map((id) => ({
-                id,
-                label: flatMap.get(id),
-            })),
-        ].filter((c) => !!c.label);
 
-        for (const c of chips) {
+        // Show chips for selected customers (shoppings)
+        const customers = window.custumersSelected || [];
+
+        for (const customer of customers) {
             const chip = document.createElement("span");
             chip.className = "chip";
             chip.innerHTML = `
-        <span>${c.label}</span>
+        <span>${customer.name}</span>
         <button class="rm" title="Remover" aria-label="Remover seleção">×</button>
       `;
             chip.querySelector(".rm").addEventListener("click", () => {
-                window.myioFilterSel = {
-                    malls: window.myioFilterSel.malls.filter((x) => x !== c.id),
-                    floors: window.myioFilterSel.floors.filter((x) => x !== c.id),
-                    places: window.myioFilterSel.places.filter((x) => x !== c.id),
-                };
+                // Remove this customer from selection
+                window.custumersSelected = window.custumersSelected.filter(c => c.value !== customer.value);
+                self.ctx.filterCustom = window.custumersSelected;
                 renderAll();
             });
             elChips.appendChild(chip);
@@ -503,6 +508,9 @@ function injectModalGlobal() {
         const q = (window.myioFilterQuery || "").toLowerCase();
         elList.innerHTML = "";
 
+        console.log("[MENU] 🎨 renderTree called");
+        console.log("[MENU] 📋 Total customers in scope:", (self.ctx.$scope.custumer || []).length);
+
         // pega somente customers válidos
         const customers = (self.ctx.$scope.custumer || [])
             .filter(({ name, value }) => name && value && name.trim() !== value.trim())
@@ -512,7 +520,10 @@ function injectModalGlobal() {
                 c.value.toLowerCase().includes(q)
             );
 
+        console.log("[MENU] 📋 Valid customers after filter:", customers.length);
+
         if (!customers.length) {
+            console.warn("[MENU] ⚠️ No customers to display!");
             const empty = document.createElement("div");
             empty.style.color = "#6b7280";
             empty.style.fontSize = "14px";
@@ -521,6 +532,8 @@ function injectModalGlobal() {
             elList.appendChild(empty);
             return;
         }
+
+        console.log("[MENU] ✅ Rendering", customers.length, "customers");
 
         // seleciona tudo na 1ª vez
         if (!window.custumersSelected || window.custumersSelected.length === 0) {
@@ -714,12 +727,21 @@ function injectModalGlobal() {
     }
 
     // ==== Abrir modal e sincronizar estado visual ============================
+    console.log("[MENU] 🎭 Opening modal (setting aria-hidden=false)");
     modal.setAttribute("aria-hidden", "false");
+
+    // Verify modal is actually visible
+    const modalVisible = modal.getAttribute("aria-hidden") === "false";
+    console.log("[MENU] 🎭 Modal visible:", modalVisible);
+
     // repõe valor de busca persistido em memória
     if (elSearch.value !== (window.myioFilterQuery || "")) {
         elSearch.value = window.myioFilterQuery || "";
     }
+
+    console.log("[MENU] 🎨 Calling renderAll()");
     renderAll();
+    console.log("[MENU] 🎨 renderAll() completed");
 
     // Foco no input de busca
     setTimeout(() => elSearch?.focus(), 0);
@@ -1255,12 +1277,22 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
     if (filterBtn) {
         filterBtn.addEventListener("click", () => {
+            console.log("[MENU] 🔘 Filter button clicked");
+            console.log("[MENU] 📋 Current customers in scope:", self.ctx.$scope.custumer?.length || 0);
+
             if (!Array.isArray(self.ctx.$scope.custumer) || self.ctx.$scope.custumer.length === 0) {
+                console.log("[MENU] ⚠️ No customers in scope, computing from ctx...");
                 computeCustomersFromCtx();
+                console.log("[MENU] 📋 Customers after compute:", self.ctx.$scope.custumer?.length || 0);
             }
+
+            console.log("[MENU] 🚀 Opening filter modal...");
             injectModalGlobal();
             bindFilter(document.body);
+            console.log("[MENU] ✅ Filter modal opened");
         });
+    } else {
+        console.error("[MENU] ❌ Filter button (filterBtn) not found in DOM!");
     }
 
 

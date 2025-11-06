@@ -10,6 +10,9 @@ let CLIENT_SECRET;
 let _dataRefreshCount = 0;
 const MAX_DATA_REFRESHES = 1;
 
+// ===== SHOPPING FILTER STATE =====
+let selectedShoppingIds = []; // Shopping ingestionIds selected in filter
+
 const MyIOAuth = (() => {
   // ==== CONFIG ====
   const AUTH_URL = new URL(`${DATA_API_HOST}/api/v1/auth`);
@@ -1013,7 +1016,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 function updateEquipmentCard() {
   // Count unique devices and their online status
   // Group by entityId to count each device only once
-  const deviceMap = new Map(); // entityId -> { hasConnectionStatus: bool, isOnline: bool }
+  const deviceMap = new Map(); // entityId -> { hasConnectionStatus: bool, isOnline: bool, customerId: string }
 
   self.ctx.data.forEach((data) => {
     const entityId = data.datasource?.entityId;
@@ -1023,29 +1026,55 @@ function updateEquipmentCard() {
 
     // Initialize device entry if doesn't exist
     if (!deviceMap.has(entityId)) {
-      deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false });
+      deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false, customerId: null });
     }
+
+    const deviceEntry = deviceMap.get(entityId);
 
     // Check if this is the connectionStatus dataKey
     if (dataKeyName === "connectionStatus") {
       const status = String(data.data?.[0]?.[1] || '').toLowerCase();
-      deviceMap.get(entityId).hasConnectionStatus = true;
-      deviceMap.get(entityId).isOnline = (status === "online");
+      deviceEntry.hasConnectionStatus = true;
+      deviceEntry.isOnline = (status === "online");
+    }
+
+    // Extract customerId for filtering
+    if (dataKeyName === "customerId") {
+      deviceEntry.customerId = data.data?.[0]?.[1];
     }
   });
 
   // Count total devices and online devices
   let totalDevices = 0;
   let onlineDevices = 0;
+  let filteredOut = 0;
 
   deviceMap.forEach((device) => {
     if (device.hasConnectionStatus) {
+      // Apply shopping filter if active
+      if (selectedShoppingIds.length > 0) {
+        // If device has customerId, check if it's in selected shoppings
+        if (device.customerId && !selectedShoppingIds.includes(device.customerId)) {
+          filteredOut++;
+          return; // Skip this device
+        }
+        // If device has no customerId, try fallback from global map
+        if (!device.customerId && window.myioDeviceToShoppingMap) {
+          // Need to find ingestionId for this device - try to match from energyCache
+          // For now, include devices without customerId (safety)
+        }
+      }
+
       totalDevices++;
       if (device.isOnline) {
         onlineDevices++;
       }
     }
   });
+
+  if (selectedShoppingIds.length > 0) {
+    console.log(`[HEADER] Shopping filter applied to equipment card: ${totalDevices} devices shown, ${filteredOut} filtered out`);
+  }
 
   const percentage = totalDevices > 0 ? Math.round((onlineDevices / totalDevices) * 100) : 0;
 
@@ -1214,6 +1243,28 @@ function updateEnergyCard(energyCache) {
 window.addEventListener('myio:energy-data-ready', (ev) => {
   console.log("[HEADER] Received energy data from orchestrator:", ev.detail);
   updateEnergyCard(ev.detail.cache);
+});
+
+// ===== HEADER: Listen for shopping filter =====
+window.addEventListener('myio:filter-applied', (ev) => {
+  console.log("[HEADER] 🔥 heard myio:filter-applied:", ev.detail);
+
+  const selection = ev.detail?.selection || [];
+  selectedShoppingIds = selection.map(s => s.value).filter(v => v);
+
+  console.log("[HEADER] Applying shopping filter:", selectedShoppingIds.length === 0 ? "ALL" : `${selectedShoppingIds.length} shoppings`);
+  if (selectedShoppingIds.length > 0) {
+    console.log("[HEADER] Selected shopping IDs:", selectedShoppingIds);
+  }
+
+  // Recompute equipment card with filter
+  updateEquipmentCard();
+
+  // Recompute energy card with filter (will get filtered data from orchestrator)
+  // This will also emit myio:customer-total-consumption with filtered total
+  if (window.MyIOOrchestrator?.getEnergyCache) {
+    updateEnergyCard(window.MyIOOrchestrator.getEnergyCache());
+  }
 });
 
 self.onDataUpdated = function () {
