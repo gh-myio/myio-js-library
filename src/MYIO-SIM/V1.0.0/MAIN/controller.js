@@ -597,6 +597,15 @@ window.addEventListener('myio:customer-total-ready', (ev) => {
   }
 });
 
+// ✅ HEADER emite myio:customer-total-consumption
+window.addEventListener('myio:customer-total-consumption', (ev) => {
+  const n = ev.detail?.customerTotal;
+  console.log("[MAIN] heard myio:customer-total-consumption:", ev.detail, "customerTotal=", n);
+  if (typeof window.MyIOOrchestrator?.setCustomerTotal === 'function') {
+    window.MyIOOrchestrator.setCustomerTotal(n);
+  }
+});
+
 // ENERGY → pode pedir o resumo explicitamente
 window.addEventListener('myio:request-energy-summary', () => {
   if (typeof window.MyIOOrchestrator?.requestSummary === 'function') {

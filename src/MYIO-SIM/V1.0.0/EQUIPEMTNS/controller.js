@@ -325,6 +325,48 @@ function showLoadingOverlay(show) {
   }
 }
 
+/**
+ * Update equipment statistics header
+ * @param {Array} devices - Array of device objects with consumption data
+ */
+function updateEquipmentStats(devices) {
+  const totalEl = document.getElementById("equipStatsTotal");
+  const consumptionEl = document.getElementById("equipStatsConsumption");
+  const zeroEl = document.getElementById("equipStatsZero");
+
+  if (!totalEl || !consumptionEl || !zeroEl) {
+    console.warn("[EQUIPMENTS] Stats header elements not found");
+    return;
+  }
+
+  // Calculate statistics
+  let totalConsumption = 0;
+  let zeroConsumptionCount = 0;
+
+  devices.forEach(device => {
+    // The formatted device object has 'val' property directly, not 'values' array
+    const consumption = Number(device.val) || Number(device.lastValue) || 0;
+
+    totalConsumption += consumption;
+
+    if (consumption === 0) {
+      zeroConsumptionCount++;
+    }
+  });
+
+  // Update UI
+  totalEl.textContent = devices.length.toString();
+  consumptionEl.textContent = MyIOLibrary.formatEnergy(totalConsumption);
+  zeroEl.textContent = zeroConsumptionCount.toString();
+
+  console.log("[EQUIPMENTS] Stats updated:", {
+    total: devices.length,
+    consumption: totalConsumption,
+    zeroCount: zeroConsumptionCount,
+    devices: devices.map(d => ({ id: d.entityId, val: d.val, lastValue: d.lastValue }))
+  });
+}
+
 // Initialize cards
 function initializeCards(devices) {
   const grid = document.getElementById("cards-grid");
@@ -706,7 +748,14 @@ self.onInit = async function () {
       });
 
     const devicesFormatadosParaCards = await Promise.all(promisesDeCards);
+
+    // ✅ Save devices to global STATE for filtering
+    STATE.allDevices = devicesFormatadosParaCards;
+
     initializeCards(devicesFormatadosParaCards);
+
+    // Update statistics header
+    updateEquipmentStats(devicesFormatadosParaCards);
 
     // Hide loading after rendering
     showLoadingOverlay(false);
@@ -855,7 +904,262 @@ if (orchestrator) {
     .getElementById("fontPlus")
     ?.addEventListener("click", () => setScale(getScale() + 0.06));
     }, 0)
+
+  // ====== FILTER & SEARCH LOGIC ======
+  bindFilterEvents();
 };
+
+// Global state for filters
+const STATE = {
+  allDevices: [],
+  searchActive: false,
+  searchTerm: "",
+  selectedIds: null,
+  sortMode: 'cons_desc'
+};
+
+/**
+ * Apply filters and sorting to devices
+ */
+function applyFilters(devices, searchTerm, selectedIds, sortMode) {
+  let filtered = devices.slice();
+
+  // Apply multiselect filter
+  if (selectedIds && selectedIds.size > 0) {
+    filtered = filtered.filter(d => selectedIds.has(d.entityId));
+  }
+
+  // Apply search filter
+  const query = (searchTerm || "").trim().toLowerCase();
+  if (query) {
+    filtered = filtered.filter(d =>
+      (d.labelOrName || "").toLowerCase().includes(query) ||
+      (d.deviceIdentifier || "").toLowerCase().includes(query) ||
+      (d.deviceType || "").toLowerCase().includes(query)
+    );
+  }
+
+  // Apply sorting
+  filtered.sort((a, b) => {
+    const valA = Number(a.val) || Number(a.lastValue) || 0;
+    const valB = Number(b.val) || Number(b.lastValue) || 0;
+    const nameA = (a.labelOrName || "").toLowerCase();
+    const nameB = (b.labelOrName || "").toLowerCase();
+
+    switch (sortMode) {
+      case 'cons_desc':
+        return valB !== valA ? valB - valA : nameA.localeCompare(nameB);
+      case 'cons_asc':
+        return valA !== valB ? valA - valB : nameA.localeCompare(nameB);
+      case 'alpha_asc':
+        return nameA.localeCompare(nameB);
+      case 'alpha_desc':
+        return nameB.localeCompare(nameA);
+      default:
+        return 0;
+    }
+  });
+
+  return filtered;
+}
+
+/**
+ * Re-render cards with current filters
+ */
+function reflowCards() {
+  const filtered = applyFilters(STATE.allDevices, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
+
+  console.log("[EQUIPMENTS] Reflow with filters:", {
+    total: STATE.allDevices.length,
+    filtered: filtered.length,
+    searchTerm: STATE.searchTerm,
+    selectedCount: STATE.selectedIds?.size || 0,
+    sortMode: STATE.sortMode
+  });
+
+  initializeCards(filtered);
+  updateEquipmentStats(filtered);
+}
+
+/**
+ * Open filter modal
+ */
+function openFilterModal() {
+  const modal = document.getElementById("filterModal");
+  if (!modal) return;
+
+  modal.classList.remove("hidden");
+
+  // Populate device checklist
+  const checklist = document.getElementById("deviceChecklist");
+  if (!checklist) return;
+
+  checklist.innerHTML = "";
+
+  STATE.allDevices.forEach(device => {
+    const isChecked = !STATE.selectedIds || STATE.selectedIds.has(device.entityId);
+
+    const item = document.createElement("div");
+    item.className = "check-item";
+    item.innerHTML = `
+      <input type="checkbox" id="check-${device.entityId}" ${isChecked ? 'checked' : ''} data-device-id="${device.entityId}">
+      <label for="check-${device.entityId}">${device.labelOrName || device.deviceIdentifier || device.entityId}</label>
+    `;
+
+    checklist.appendChild(item);
+  });
+
+  // Set current sort mode
+  const sortRadios = modal.querySelectorAll('input[name="sortMode"]');
+  sortRadios.forEach(radio => {
+    radio.checked = radio.value === STATE.sortMode;
+  });
+}
+
+/**
+ * Bind all filter-related events
+ */
+function bindFilterEvents() {
+  // Search button toggle
+  const btnSearch = document.getElementById("btnSearch");
+  const searchWrap = document.getElementById("searchWrap");
+  const searchInput = document.getElementById("equipSearch");
+
+  if (btnSearch && searchWrap && searchInput) {
+    btnSearch.addEventListener("click", () => {
+      STATE.searchActive = !STATE.searchActive;
+      searchWrap.classList.toggle("active", STATE.searchActive);
+      if (STATE.searchActive) {
+        setTimeout(() => searchInput.focus(), 100);
+      }
+    });
+
+    searchInput.addEventListener("input", (e) => {
+      STATE.searchTerm = e.target.value || "";
+      reflowCards();
+    });
+  }
+
+  // Filter button
+  const btnFilter = document.getElementById("btnFilter");
+  if (btnFilter) {
+    btnFilter.addEventListener("click", openFilterModal);
+  }
+
+  // Modal close button
+  const closeFilter = document.getElementById("closeFilter");
+  const modal = document.getElementById("filterModal");
+  if (closeFilter && modal) {
+    closeFilter.addEventListener("click", () => {
+      modal.classList.add("hidden");
+    });
+
+    // Close on backdrop click
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) {
+        modal.classList.add("hidden");
+      }
+    });
+  }
+
+  // Select all button
+  const selectAll = document.getElementById("selectAll");
+  if (selectAll) {
+    selectAll.addEventListener("click", () => {
+      const checkboxes = document.querySelectorAll("#deviceChecklist input[type='checkbox']");
+      checkboxes.forEach(cb => cb.checked = true);
+    });
+  }
+
+  // Clear all button
+  const clearAll = document.getElementById("clearAll");
+  if (clearAll) {
+    clearAll.addEventListener("click", () => {
+      const checkboxes = document.querySelectorAll("#deviceChecklist input[type='checkbox']");
+      checkboxes.forEach(cb => cb.checked = false);
+    });
+  }
+
+  // Filter device search inside modal
+  const filterDeviceSearch = document.getElementById("filterDeviceSearch");
+  if (filterDeviceSearch) {
+    filterDeviceSearch.addEventListener("input", (e) => {
+      const query = (e.target.value || "").trim().toLowerCase();
+      const checkItems = document.querySelectorAll("#deviceChecklist .check-item");
+
+      checkItems.forEach(item => {
+        const label = item.querySelector("label");
+        const text = (label?.textContent || "").toLowerCase();
+        item.style.display = text.includes(query) ? "flex" : "none";
+      });
+    });
+  }
+
+  // Clear filter search button
+  const filterDeviceClear = document.getElementById("filterDeviceClear");
+  if (filterDeviceClear && filterDeviceSearch) {
+    filterDeviceClear.addEventListener("click", () => {
+      filterDeviceSearch.value = "";
+      const checkItems = document.querySelectorAll("#deviceChecklist .check-item");
+      checkItems.forEach(item => item.style.display = "flex");
+      filterDeviceSearch.focus();
+    });
+  }
+
+  // Apply filters button
+  const applyFilters = document.getElementById("applyFilters");
+  if (applyFilters && modal) {
+    applyFilters.addEventListener("click", () => {
+      // Get selected devices
+      const checkboxes = document.querySelectorAll("#deviceChecklist input[type='checkbox']:checked");
+      const selectedSet = new Set();
+      checkboxes.forEach(cb => {
+        const deviceId = cb.getAttribute("data-device-id");
+        if (deviceId) selectedSet.add(deviceId);
+      });
+
+      // If all devices are selected, treat as "no filter"
+      STATE.selectedIds = selectedSet.size === STATE.allDevices.length ? null : selectedSet;
+
+      // Get sort mode
+      const sortRadio = document.querySelector('input[name="sortMode"]:checked');
+      if (sortRadio) {
+        STATE.sortMode = sortRadio.value;
+      }
+
+      // Apply filters and close modal
+      reflowCards();
+      modal.classList.add("hidden");
+
+      console.log("[EQUIPMENTS] Filters applied:", {
+        selectedCount: STATE.selectedIds?.size || STATE.allDevices.length,
+        sortMode: STATE.sortMode
+      });
+    });
+  }
+
+  // Reset filters button
+  const resetFilters = document.getElementById("resetFilters");
+  if (resetFilters && modal) {
+    resetFilters.addEventListener("click", () => {
+      // Reset state
+      STATE.selectedIds = null;
+      STATE.sortMode = 'cons_desc';
+      STATE.searchTerm = "";
+      STATE.searchActive = false;
+
+      // Reset UI
+      if (searchInput) searchInput.value = "";
+      if (searchWrap) searchWrap.classList.remove("active");
+
+      // Apply and close
+      reflowCards();
+      modal.classList.add("hidden");
+
+      console.log("[EQUIPMENTS] Filters reset");
+    });
+  }
+}
 
 self.onDestroy = function () {
   if (self._onDateParams) {

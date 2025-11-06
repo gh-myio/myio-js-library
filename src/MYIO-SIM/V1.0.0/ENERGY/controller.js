@@ -735,14 +735,21 @@ self.onInit = async function () {
   // -----------------------------------------------------------------
 
   // Primeiro, prepara o "ouvinte" que vai receber os dados quando o MAIN responder.
-  window.parent.addEventListener("myio:energy-summary-ready", (ev) => {
+  // ✅ Listen on both window and window.parent to support both iframe and non-iframe contexts
+  const handleEnergySummary = (ev) => {
     console.log(
       "[ENERGY] Resumo de energia recebido do orquestrador!",
       ev.detail
     );
     // Chama a função que atualiza o card na tela com os dados recebidos.
     updateTotalConsumptionCard(ev.detail);
-  });
+  };
+
+  window.addEventListener("myio:energy-summary-ready", handleEnergySummary);
+
+  if (window.parent !== window) {
+    window.parent.addEventListener("myio:energy-summary-ready", handleEnergySummary);
+  }
 
   // DEPOIS (NOVO CÓDIGO PARA O onInit DO WIDGET ENERGY)
 
