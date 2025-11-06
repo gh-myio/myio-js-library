@@ -11,142 +11,209 @@ let _dataRefreshCount = 0;
 const MAX_DATA_REFRESHES = 1;
 
 function publishSwitch(targetStateId) {
-  const detail = { targetStateId, source: "menu", ts: Date.now() };
-  window.dispatchEvent(new CustomEvent(EVT_SWITCH, { detail }));
-  // console.log("[menu] switch ->", detail);
+    const detail = { targetStateId, source: "menu", ts: Date.now() };
+    window.dispatchEvent(new CustomEvent(EVT_SWITCH, { detail }));
+    // console.log("[menu] switch ->", detail);
 }
 
 function setActiveTab(btn, root) {
-  root
-    .querySelectorAll(".tab.is-active")
-    .forEach((b) => b.classList.remove("is-active"));
-  btn.classList.add("is-active");
+    root
+        .querySelectorAll(".tab.is-active")
+        .forEach((b) => b.classList.remove("is-active"));
+    btn.classList.add("is-active");
 }
 
+function computeCustomersFromCtx() {
+    const map = new Map();
+    (self.ctx.data || []).forEach(d => {
+        if (d?.datasource?.aliasName === "Shopping") {
+            const name = (d.datasource.entityLabel || "").trim();
+            const value = d.data?.[0]?.[1];
+            if (name && value && name !== value && !map.has(value)) {
+                map.set(value, { name, value });
+            }
+        }
+    });
+    const arr = Array.from(map.values());
+    self.ctx.$scope.custumer = arr;
+    // marca pronto e notifica interessados
+    window.__customersReady = arr.length > 0;
+    window.dispatchEvent(new CustomEvent("myio:customers-ready", { detail: { count: arr.length } }));
+    return arr;
+}
+
+
 function bindTabs(root) {
-  if (root._tabsBound) return;
+    if (root._tabsBound) return;
 
-  root._tabsBound = true;
+    root._tabsBound = true;
 
-  root.addEventListener("click", (ev) => {
-    const tab = ev.target.closest?.(".tab");
+    root.addEventListener("click", (ev) => {
+        const tab = ev.target.closest?.(".tab");
 
-    if (tab && root.contains(tab)) {
-      const target = tab.getAttribute("data-target");
+        if (tab && root.contains(tab)) {
+            const target = tab.getAttribute("data-target");
 
-      if (target) {
-        setActiveTab(tab, root);
-        publishSwitch(target);
-      }
+            if (target) {
+                setActiveTab(tab, root);
+                publishSwitch(target);
+            }
+        }
+    });
+
+    const initial =
+        root.querySelector(".tab.is-active") || root.querySelector(".tab");
+
+    if (initial) {
+        publishSwitch(initial.getAttribute("data-target"));
     }
-  });
-
-  const initial =
-    root.querySelector(".tab.is-active") || root.querySelector(".tab");
-
-  if (initial) {
-    publishSwitch(initial.getAttribute("data-target"));
-  }
 }
 
 /* ====== mock ====== */
 const FILTER_DATA = [
-  { id: "A", name: "Shopping A", floors: 2 },
-  { id: "B", name: "Shopping B", floors: 1 },
-  { id: "C", name: "Shopping C", floors: 1 },
+    { id: "A", name: "Shopping A", floors: 2 },
+    { id: "B", name: "Shopping B", floors: 1 },
+    { id: "C", name: "Shopping C", floors: 1 },
 ];
 
 function injectModalGlobal() {
-  // ==== Config & helpers ====================================================
-  const PRESET_KEY = "myio_dashboard_filter_presets_v1";
-  // Estado global (compartilhado entre aberturas)
-  if (!window.myioFilterSel) {
-    window.myioFilterSel = { malls: [], floors: [], places: [] };
-  }
-  if (!window.myioFilterQuery) {
-    window.myioFilterQuery = "";
-  }
-  if (!window.myioFilterPresets) {
-    try {
-      window.myioFilterPresets = JSON.parse(
-        localStorage.getItem(PRESET_KEY) || "[]"
-      );
-    } catch {
-      window.myioFilterPresets = [];
+    // ==== Config & helpers ====================================================
+    const PRESET_KEY = "myio_dashboard_filter_presets_v1";
+    // Estado global (compartilhado entre aberturas)
+    if (!window.myioFilterSel) {
+        window.myioFilterSel = { malls: [], floors: [], places: [] };
     }
-  }
+    if (!window.myioFilterQuery) {
+        window.myioFilterQuery = "";
+    }
+    if (!window.myioFilterPresets) {
+        try {
+            window.myioFilterPresets = JSON.parse(
+                localStorage.getItem(PRESET_KEY) || "[]"
+            );
+        } catch {
+            window.myioFilterPresets = [];
+        }
+    }
 
-  // Fonte de dados: preferir window.mallsTree (formato do original)
-  // Se não existir, converte um FILTER_DATA simples em uma árvore mínima.
-  function getTree() {
-    if (Array.isArray(window.mallsTree) && window.mallsTree.length) {
-      return window.mallsTree;
+    // Fonte de dados: preferir window.mallsTree (formato do original)
+    // Se não existir, converte um FILTER_DATA simples em uma árvore mínima.
+    function getTree() {
+        if (Array.isArray(window.mallsTree) && window.mallsTree.length) {
+            return window.mallsTree;
+        }
+        // fallback a partir de FILTER_DATA = [{id,name,floors:n}]
+        if (Array.isArray(window.FILTER_DATA) && window.FILTER_DATA.length) {
+            return window.FILTER_DATA.map((m) => {
+                const mallId = m.id || crypto.randomUUID();
+                const floors = Array.from({ length: Number(m.floors || 1) }).map(
+                    (_, i) => {
+                        const floorId = `${mallId}-F${i + 1}`;
+                        // sem places reais, colocamos 0..2 mockados
+                        const places = Array.from({ length: 3 }).map((__, k) => ({
+                            id: `${floorId}-P${k + 1}`,
+                            name: `Loja ${k + 1}`,
+                        }));
+                        return { id: floorId, name: `Piso ${i + 1}`, children: places };
+                    }
+                );
+                return {
+                    id: mallId,
+                    name: m.name || `Shopping ${mallId}`,
+                    children: floors,
+                };
+            });
+        }
+        // último fallback vazio
+        return [];
     }
-    // fallback a partir de FILTER_DATA = [{id,name,floors:n}]
-    if (Array.isArray(window.FILTER_DATA) && window.FILTER_DATA.length) {
-      return window.FILTER_DATA.map((m) => {
-        const mallId = m.id || crypto.randomUUID();
-        const floors = Array.from({ length: Number(m.floors || 1) }).map(
-          (_, i) => {
-            const floorId = `${mallId}-F${i + 1}`;
-            // sem places reais, colocamos 0..2 mockados
-            const places = Array.from({ length: 3 }).map((__, k) => ({
-              id: `${floorId}-P${k + 1}`,
-              name: `Loja ${k + 1}`,
-            }));
-            return { id: floorId, name: `Piso ${i + 1}`, children: places };
-          }
+
+    // --- depois de getTree() ---
+    const mallsTreeRaw = getTree();
+
+    // ✅ Deduplicar mall/floor/place por id|name (normaliza e remove repetidos)
+    function dedupeTree(tree) {
+        const key = (x) => (x?.id || x?.name || "").toString().trim().toLowerCase();
+
+        const mallMap = new Map();
+        for (const m of tree || []) {
+            const mk = key(m);
+            if (!mallMap.has(mk)) {
+                // dedup floors
+                const floorMap = new Map();
+                const floors = (m.children || []).filter((f) => {
+                    const fk = key(f);
+                    if (floorMap.has(fk)) return false;
+                    // dedup places deste floor
+                    const placeMap = new Map();
+                    f.children = (f.children || []).filter((p) => {
+                        const pk = key(p);
+                        if (placeMap.has(pk)) return false;
+                        placeMap.set(pk, 1);
+                        return true;
+                    });
+                    floorMap.set(fk, 1);
+                    return true;
+                });
+                m.children = floors;
+                mallMap.set(mk, m);
+            }
+        }
+        return Array.from(mallMap.values());
+    }
+
+    const mallsTree = dedupeTree(mallsTreeRaw);
+
+    // ✅ Marcar tudo por padrão apenas na 1ª vez que abrir (evita reset em reaberturas)
+    if (!window.__myioFilterDefaulted && mallsTree.length) {
+        const malls = mallsTree.map((m) => m.id);
+        const floors = mallsTree.flatMap((m) =>
+            (m.children || []).map((f) => f.id)
         );
-        return {
-          id: mallId,
-          name: m.name || `Shopping ${mallId}`,
-          children: floors,
-        };
-      });
+        const places = mallsTree.flatMap((m) =>
+            (m.children || []).flatMap((f) => (f.children || []).map((p) => p.id))
+        );
+        window.myioFilterSel = { malls, floors, places };
+        window.__myioFilterDefaulted = true; // flag para não refazer
     }
-    // último fallback vazio
-    return [];
-  }
 
-  const mallsTree = getTree();
-
-  // Flatten para mapa id->nome (chips)
-  function flatten(tree) {
-    const list = [];
-    for (const mall of tree) {
-      list.push({ id: mall.id, name: mall.name });
-      for (const fl of mall.children || []) {
-        list.push({ id: fl.id, name: fl.name });
-        for (const pl of fl.children || [])
-          list.push({ id: pl.id, name: pl.name });
-      }
+    // Flatten para mapa id->nome (chips)
+    function flatten(tree) {
+        const list = [];
+        for (const mall of tree) {
+            list.push({ id: mall.id, name: mall.name });
+            for (const fl of mall.children || []) {
+                list.push({ id: fl.id, name: fl.name });
+                for (const pl of fl.children || [])
+                    list.push({ id: pl.id, name: pl.name });
+            }
+        }
+        return list;
     }
-    return list;
-  }
 
-  function nodeMatchesQuery(nodeName, q) {
-    if (!q) return true;
-    return nodeName.toLowerCase().includes(q.toLowerCase());
-  }
+    function nodeMatchesQuery(nodeName, q) {
+        if (!q) return true;
+        return nodeName.toLowerCase().includes(q.toLowerCase());
+    }
 
-  function toggle(arr, val) {
-    return arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
-  }
+    function toggle(arr, val) {
+        return arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
+    }
 
-  function countSelected(sel) {
-    return (
-      (sel.malls?.length || 0) +
-      (sel.floors?.length || 0) +
-      (sel.places?.length || 0)
-    );
-  }
+    function countSelected(sel) {
+        return (
+            (sel.malls?.length || 0) +
+            (sel.floors?.length || 0) +
+            (sel.places?.length || 0)
+        );
+    }
 
-  // ==== Construção do container (uma única vez) =============================
-  let container = document.getElementById("modalGlobal");
-  if (!container) {
-    container = document.createElement("div");
-    container.id = "modalGlobal";
-    container.innerHTML = `
+    // ==== Construção do container (uma única vez) =============================
+    let container = document.getElementById("modalGlobal");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "modalGlobal";
+        container.innerHTML = `
       <style>
         .myio-modal {
           position: fixed; inset: 0; display: flex; justify-content: center; align-items: center;
@@ -324,804 +391,714 @@ function injectModalGlobal() {
         </div>
       </div>
     `;
-    document.body.appendChild(container);
+        document.body.appendChild(container);
 
-    // listeners globais de fechar
-    container.querySelectorAll("[data-close]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        container
-          .querySelector(".myio-modal")
-          .setAttribute("aria-hidden", "true");
-      });
-    });
-  }
-
-  // ==== Referências do DOM ==================================================
-  const modal = container.querySelector(".myio-modal");
-  const elSearch = container.querySelector("#fltSearch");
-  const elList = container.querySelector("#fltList");
-  const elClear = container.querySelector("#fltClear");
-  const elSave = container.querySelector("#fltSave");
-  const elApply = container.querySelector("#fltApply");
-  const elChips = container.querySelector("#fltChips");
-  const elPresets = container.querySelector("#fltPresets");
-  const elCount = container.querySelector("#fltCount");
-
-  // ==== Render helpers ======================================================
-  const flatMap = new Map(flatten(mallsTree).map((n) => [n.id, n.name]));
-
-  function isMallChecked(sel, mallId) {
-    return sel.malls.includes(mallId);
-  }
-  function isFloorChecked(sel, floorId) {
-    return sel.floors.includes(floorId);
-  }
-  function isPlaceChecked(sel, placeId) {
-    return sel.places.includes(placeId);
-  }
-
-  function renderCount() {
-    const c = countSelected(window.myioFilterSel);
-    elCount.textContent = `${c} selecionado${c === 1 ? "" : "s"}`;
-  }
-
-  function updateClearButtonState() {
-    const count = countSelected(window.myioFilterSel);
-    const hasCustomers = (window.custumersSelected || []).length > 0;
-
-    // Botão habilitado se houver algo selecionado (malls/floors/places OU customers)
-    if (elClear) {
-      elClear.disabled = (count === 0 && !hasCustomers);
+        // listeners globais de fechar
+        container.querySelectorAll("[data-close]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                container
+                    .querySelector(".myio-modal")
+                    .setAttribute("aria-hidden", "true");
+            });
+        });
     }
-  }
 
-  function renderChips() {
-    elChips.innerHTML = "";
-    const chips = [
-      ...window.myioFilterSel.malls.map((id) => ({
-        id,
-        label: flatMap.get(id),
-      })),
-      ...window.myioFilterSel.floors.map((id) => ({
-        id,
-        label: flatMap.get(id),
-      })),
-      ...window.myioFilterSel.places.map((id) => ({
-        id,
-        label: flatMap.get(id),
-      })),
-    ].filter((c) => !!c.label);
+    // ==== Referências do DOM ==================================================
+    const modal = container.querySelector(".myio-modal");
+    const elSearch = container.querySelector("#fltSearch");
+    const elList = container.querySelector("#fltList");
+    const elClear = container.querySelector("#fltClear");
+    const elSave = container.querySelector("#fltSave");
+    const elApply = container.querySelector("#fltApply");
+    const elChips = container.querySelector("#fltChips");
+    const elPresets = container.querySelector("#fltPresets");
+    const elCount = container.querySelector("#fltCount");
 
-    for (const c of chips) {
-      const chip = document.createElement("span");
-      chip.className = "chip";
-      chip.innerHTML = `
+    if (!window.__customersReadyListenerBound) {
+        window.__customersReadyListenerBound = true;
+        window.addEventListener("myio:customers-ready", () => {
+            const modal = document.getElementById("filterModal");
+            if (modal && modal.getAttribute("aria-hidden") === "false") {
+                // re-renderiza a lista se o modal estiver aberto
+                renderTree();
+                updateClearButtonState();
+                renderCount();
+            }
+        });
+    }
+
+    // se já temos customers quando o modal abre, renderiza agora
+    if (Array.isArray(self.ctx.$scope.custumer) && self.ctx.$scope.custumer.length > 0) {
+        // abre e renderiza de cara
+        renderAll();
+    }
+
+
+
+    // ==== Render helpers ======================================================
+    const flatMap = new Map(flatten(mallsTree).map((n) => [n.id, n.name]));
+
+    function isMallChecked(sel, mallId) {
+        return sel.malls.includes(mallId);
+    }
+    function isFloorChecked(sel, floorId) {
+        return sel.floors.includes(floorId);
+    }
+    function isPlaceChecked(sel, placeId) {
+        return sel.places.includes(placeId);
+    }
+
+    function renderCount() {
+        const c = countSelected(window.myioFilterSel);
+        elCount.textContent = `${c} selecionado${c === 1 ? "" : "s"}`;
+    }
+
+    function updateClearButtonState() {
+        const count = countSelected(window.myioFilterSel);
+        const hasCustomers = (window.custumersSelected || []).length > 0;
+
+        // Botão habilitado se houver algo selecionado (malls/floors/places OU customers)
+        if (elClear) {
+            elClear.disabled = count === 0 && !hasCustomers;
+        }
+    }
+
+    function renderChips() {
+        elChips.innerHTML = "";
+        const chips = [
+            ...window.myioFilterSel.malls.map((id) => ({
+                id,
+                label: flatMap.get(id),
+            })),
+            ...window.myioFilterSel.floors.map((id) => ({
+                id,
+                label: flatMap.get(id),
+            })),
+            ...window.myioFilterSel.places.map((id) => ({
+                id,
+                label: flatMap.get(id),
+            })),
+        ].filter((c) => !!c.label);
+
+        for (const c of chips) {
+            const chip = document.createElement("span");
+            chip.className = "chip";
+            chip.innerHTML = `
         <span>${c.label}</span>
         <button class="rm" title="Remover" aria-label="Remover seleção">×</button>
       `;
-      chip.querySelector(".rm").addEventListener("click", () => {
-        window.myioFilterSel = {
-          malls: window.myioFilterSel.malls.filter((x) => x !== c.id),
-          floors: window.myioFilterSel.floors.filter((x) => x !== c.id),
-          places: window.myioFilterSel.places.filter((x) => x !== c.id),
-        };
-        renderAll();
-      });
-      elChips.appendChild(chip);
-    }
-  }
-
-  function renderTree() {
-    const q = window.myioFilterQuery || "";
-    elList.innerHTML = "";
-
-    mallsTree.forEach((mall) => {
-      // floor & place ids
-      const floorIds = (mall.children || []).map((f) => f.id);
-      const placeIds = (mall.children || []).flatMap((f) =>
-        (f.children || []).map((p) => p.id)
-      );
-
-      // decide se mall aparece pelos filtros
-      const mallMatch = nodeMatchesQuery(mall.name, q);
-      // container do mall
-      const mallCard = document.createElement("div");
-      mallCard.className = "mall-card";
-      mallCard.innerHTML = `
-        <label class="mall-head">
-          <input type="checkbox" ${
-            isMallChecked(window.myioFilterSel, mall.id) ? "checked" : ""
-          } />
-          <span class="font-medium">${mall.name}</span>
-          <span class="badge" style="margin-left:6px">${
-            (mall.children || []).length
-          } pisos</span>
-        </label>
-        <div class="sub"></div>
-      `;
-      const mallCheck = mallCard.querySelector("input");
-      const mallSub = mallCard.querySelector(".sub");
-
-      // click no mall: seleciona/deseleciona mall + floors + places
-      mallCheck.addEventListener("change", () => {
-        const checked = mallCheck.checked;
-        window.myioFilterSel = {
-          malls: checked
-            ? [...new Set([...window.myioFilterSel.malls, mall.id])]
-            : window.myioFilterSel.malls.filter((id) => id !== mall.id),
-          floors: checked
-            ? [...new Set([...window.myioFilterSel.floors, ...floorIds])]
-            : window.myioFilterSel.floors.filter(
-                (id) => !floorIds.includes(id)
-              ),
-          places: checked
-            ? [...new Set([...window.myioFilterSel.places, ...placeIds])]
-            : window.myioFilterSel.places.filter(
-                (id) => !placeIds.includes(id)
-              ),
-        };
-        renderAll();
-      });
-
-      // floors
-      (mall.children || [])
-        .filter((fl) => {
-          const floorMatch = nodeMatchesQuery(fl.name, q);
-          const hasPlaceMatch = (fl.children || []).some((p) =>
-            nodeMatchesQuery(p.name, q)
-          );
-          // Exibe o floor se: mall já bateu OU floor bate OR alguma loja bate
-          return mallMatch || floorMatch || hasPlaceMatch;
-        })
-        .forEach((fl) => {
-          const floorCard = document.createElement("div");
-          floorCard.className = "floor-card";
-          floorCard.innerHTML = `
-            <label class="floor-head">
-              <input type="checkbox" ${
-                isFloorChecked(window.myioFilterSel, fl.id) ? "checked" : ""
-              } />
-              <span>${fl.name}</span>
-              <span class="badge" style="margin-left:6px">${
-                (fl.children || []).length
-              } ambientes</span>
-            </label>
-            <div class="places"></div>
-          `;
-          const floorCheck = floorCard.querySelector("input");
-          const placesBox = floorCard.querySelector(".places");
-
-          floorCheck.addEventListener("change", () => {
-            const checked = floorCheck.checked;
-            const thisPlaceIds = (fl.children || []).map((p) => p.id);
-            window.myioFilterSel = {
-              malls: checked
-                ? [...new Set([...window.myioFilterSel.malls, mall.id])]
-                : window.myioFilterSel.malls, // não removemos o mall automaticamente (outros floors podem continuar)
-              floors: toggle(window.myioFilterSel.floors, fl.id),
-              places: checked
-                ? [
-                    ...new Set([
-                      ...window.myioFilterSel.places,
-                      ...thisPlaceIds,
-                    ]),
-                  ]
-                : window.myioFilterSel.places.filter(
-                    (id) => !thisPlaceIds.includes(id)
-                  ),
-            };
-            renderAll();
-          });
-
-          (fl.children || [])
-            .filter((p) => {
-              const pmatch = nodeMatchesQuery(p.name, q);
-              // Exibe place se qualquer nó ancestral/ele mesmo bate
-              return mallMatch || nodeMatchesQuery(fl.name, q) || pmatch;
-            })
-            .forEach((p) => {
-              const li = document.createElement("label");
-              li.className = "place-item";
-              li.innerHTML = `
-                <input type="checkbox" ${
-                  isPlaceChecked(window.myioFilterSel, p.id) ? "checked" : ""
-                } />
-                <span class="text-sm">${p.name}</span>
-              `;
-              const chk = li.querySelector("input");
-              chk.addEventListener("change", () => {
-                const checked = chk.checked;
+            chip.querySelector(".rm").addEventListener("click", () => {
                 window.myioFilterSel = {
-                  malls: checked
-                    ? [...new Set([...window.myioFilterSel.malls, mall.id])]
-                    : window.myioFilterSel.malls,
-                  floors: checked
-                    ? [...new Set([...window.myioFilterSel.floors, fl.id])]
-                    : window.myioFilterSel.floors,
-                  places: toggle(window.myioFilterSel.places, p.id),
+                    malls: window.myioFilterSel.malls.filter((x) => x !== c.id),
+                    floors: window.myioFilterSel.floors.filter((x) => x !== c.id),
+                    places: window.myioFilterSel.places.filter((x) => x !== c.id),
                 };
                 renderAll();
-              });
-              placesBox.appendChild(li);
+            });
+            elChips.appendChild(chip);
+        }
+    }
+
+    function renderTree() {
+        const q = (window.myioFilterQuery || "").toLowerCase();
+        elList.innerHTML = "";
+
+        // pega somente customers válidos
+        const customers = (self.ctx.$scope.custumer || [])
+            .filter(({ name, value }) => name && value && name.trim() !== value.trim())
+            .filter(c =>
+                !q ||
+                c.name.toLowerCase().includes(q) ||
+                c.value.toLowerCase().includes(q)
+            );
+
+        if (!customers.length) {
+            const empty = document.createElement("div");
+            empty.style.color = "#6b7280";
+            empty.style.fontSize = "14px";
+            empty.style.textAlign = "left";
+            empty.textContent = "Nenhum shopping disponível.";
+            elList.appendChild(empty);
+            return;
+        }
+
+        // seleciona tudo na 1ª vez
+        if (!window.custumersSelected || window.custumersSelected.length === 0) {
+            window.custumersSelected = customers.slice();
+            self.ctx.filterCustom = window.custumersSelected;
+        }
+
+        const selectedSet = new Set(window.custumersSelected.map(x => x.value));
+
+        customers.forEach(c => {
+            const item = document.createElement("button");
+            item.className = "custumers";
+            item.custumerData = c;
+
+            const box = document.createElement("div");
+            box.className = "checkbox";
+            item.appendChild(box);
+
+            const text = document.createElement("span");
+            text.textContent = c.name;
+            item.appendChild(text);
+
+            if (selectedSet.has(c.value)) item.classList.add("selected");
+
+            item.addEventListener("click", () => {
+                if (item.classList.toggle("selected")) {
+                    selectedSet.add(c.value);
+                } else {
+                    selectedSet.delete(c.value);
+                }
+                window.custumersSelected = customers.filter(x => selectedSet.has(x.value));
+                self.ctx.filterCustom = window.custumersSelected;
             });
 
-          mallSub.appendChild(floorCard);
+            elList.appendChild(item);
         });
+    }
 
-      // Só adiciona o mallCard se ele próprio ou seus filhos batem a busca
-      if (mallMatch || mallSub.children.length > 0) {
-        elList.appendChild(mallCard);
-      }
-    });
-    if (!window.custumersSelected) window.custumersSelected = [];
 
-    if (!elList.children.length) {
-      if (
-        Array.isArray(self.ctx.$scope.custumer) &&
-        self.ctx.$scope.custumer.length
-      ) {
-        elList.style.textAlign = "left";
+    function renderPresets() {
+        elPresets.innerHTML = "";
+        const presets = window.myioFilterPresets || [];
+        if (!presets.length) {
+            const empty = document.createElement("div");
+            empty.style.color = "#6b7280";
+            empty.style.fontSize = "12px";
+            empty.textContent = "Nenhum preset salvo ainda.";
+            elPresets.appendChild(empty);
+            return;
+        }
+        presets.slice(0, 12).forEach((p) => {
+            const row = document.createElement("div");
+            row.className = "preset-item";
+            const btnApply = document.createElement("button");
+            btnApply.textContent = p.name;
+            btnApply.title = "Aplicar preset";
+            btnApply.style.textDecoration = "underline";
 
-        self.ctx.$scope.custumer.forEach((c) => {
-          const item = document.createElement("button");
-          item.className = "custumers";
+            const btnDel = document.createElement("button");
+            btnDel.innerHTML = "🗑️";
+            btnDel.title = "Excluir preset";
 
-          // armazenar o dado no próprio botão
-          item.custumerData = c;
+            btnApply.addEventListener("click", () => {
+                // aplica seleção do preset
+                window.myioFilterSel = {
+                    malls: [...(p.selection?.malls || [])],
+                    floors: [...(p.selection?.floors || [])],
+                    places: [...(p.selection?.places || [])],
+                };
+                renderAll();
+            });
 
-          // quadrado à esquerda
-          const box = document.createElement("div");
-          box.className = "checkbox";
-          item.appendChild(box);
+            btnDel.addEventListener("click", () => {
+                window.myioFilterPresets = (window.myioFilterPresets || []).filter(
+                    (x) => x.id !== p.id
+                );
+                try {
+                    localStorage.setItem(
+                        PRESET_KEY,
+                        JSON.stringify(window.myioFilterPresets)
+                    );
+                } catch { }
+                renderPresets();
+            });
 
-          // texto do cliente
-          const text = document.createElement("span");
-          text.textContent = c.name;
-          item.appendChild(text);
-          window.custumersSelected = [];
-          // clique para selecionar/deselecionar
-          item.addEventListener("click", () => {
-            const isSelected = item.classList.toggle("selected");
-            if (isSelected) {
-              window.custumersSelected.push(c); // adiciona ao array
-            } else {
-              window.custumersSelected = window.custumersSelected.filter(
-                (x) => x !== c
-              );
-            }
-            // console.log("Selecionados:", window.custumersSelected);
-          });
-          self.ctx.filterCustom = window.custumersSelected;
-          elList.appendChild(item);
+            row.appendChild(btnApply);
+            row.appendChild(btnDel);
+            elPresets.appendChild(row);
         });
-      } else {
-        const empty = document.createElement("div");
-        empty.style.color = "#6b7280";
-        empty.style.fontSize = "14px";
-        empty.style.textAlign = "left";
-        empty.textContent = "Nenhum resultado encontrado para o filtro atual.";
-        elList.appendChild(empty);
-      }
     }
-  }
 
-  function renderPresets() {
-    elPresets.innerHTML = "";
-    const presets = window.myioFilterPresets || [];
-    if (!presets.length) {
-      const empty = document.createElement("div");
-      empty.style.color = "#6b7280";
-      empty.style.fontSize = "12px";
-      empty.textContent = "Nenhum preset salvo ainda.";
-      elPresets.appendChild(empty);
-      return;
-    }
-    presets.slice(0, 12).forEach((p) => {
-      const row = document.createElement("div");
-      row.className = "preset-item";
-      const btnApply = document.createElement("button");
-      btnApply.textContent = p.name;
-      btnApply.title = "Aplicar preset";
-      btnApply.style.textDecoration = "underline";
-
-      const btnDel = document.createElement("button");
-      btnDel.innerHTML = "🗑️";
-      btnDel.title = "Excluir preset";
-
-      btnApply.addEventListener("click", () => {
-        // aplica seleção do preset
-        window.myioFilterSel = {
-          malls: [...(p.selection?.malls || [])],
-          floors: [...(p.selection?.floors || [])],
-          places: [...(p.selection?.places || [])],
-        };
-        renderAll();
-      });
-
-      btnDel.addEventListener("click", () => {
-        window.myioFilterPresets = (window.myioFilterPresets || []).filter(
-          (x) => x.id !== p.id
-        );
-        try {
-          localStorage.setItem(
-            PRESET_KEY,
-            JSON.stringify(window.myioFilterPresets)
-          );
-        } catch {}
+    function renderAll() {
+        renderCount();
+        renderChips();
+        renderTree();
+        // não precisa re-render presets a cada clique, mas aqui é seguro:
         renderPresets();
-      });
+        updateClearButtonState();
+    }
 
-      row.appendChild(btnApply);
-      row.appendChild(btnDel);
-      elPresets.appendChild(row);
-    });
-  }
+    // ==== Bind de eventos de UI ==============================================
+    if (!elSearch._bound) {
+        elSearch._bound = true;
+        elSearch.addEventListener("input", (e) => {
+            window.myioFilterQuery = e.target.value || "";
+            renderTree();
+        });
+    }
 
-  function renderAll() {
-    renderCount();
-    renderChips();
-    renderTree();
-    // não precisa re-render presets a cada clique, mas aqui é seguro:
-    renderPresets();
-    updateClearButtonState();
-  }
+    if (!elClear._bound) {
+        elClear._bound = true;
+        elClear.addEventListener("click", () => {
+            // ✅ Limpa seleção de malls/floors/places
+            window.myioFilterSel = { malls: [], floors: [], places: [] };
+            window.myioFilterQuery = "";
+            elSearch.value = "";
 
-  // ==== Bind de eventos de UI ==============================================
-  if (!elSearch._bound) {
-    elSearch._bound = true;
-    elSearch.addEventListener("input", (e) => {
-      window.myioFilterQuery = e.target.value || "";
-      renderTree();
-    });
-  }
+            // ⭐ NOVO: Limpa customers selecionados
+            window.custumersSelected = [];
 
-  if (!elClear._bound) {
-    elClear._bound = true;
-    elClear.addEventListener("click", () => {
-      // ✅ Limpa seleção de malls/floors/places
-      window.myioFilterSel = { malls: [], floors: [], places: [] };
-      window.myioFilterQuery = "";
-      elSearch.value = "";
+            // ⭐ NOVO: Limpa seleção visual dos customers
+            document.querySelectorAll(".custumers.selected").forEach((item) => {
+                item.classList.remove("selected");
+            });
 
-      // ⭐ NOVO: Limpa customers selecionados
-      window.custumersSelected = [];
+            renderAll();
+            console.log("[MENU FILTER] Seleção limpa completamente");
+        });
+    }
 
-      // ⭐ NOVO: Limpa seleção visual dos customers
-      document.querySelectorAll('.custumers.selected').forEach(item => {
-        item.classList.remove('selected');
-      });
+    if (!elSave._bound) {
+        elSave._bound = true;
+        elSave.addEventListener("click", () => {
+            const name = prompt("Nome do preset:");
+            if (!name) return;
+            const preset = {
+                id: crypto.randomUUID(),
+                name,
+                selection: {
+                    malls: [...window.myioFilterSel.malls],
+                    floors: [...window.myioFilterSel.floors],
+                    places: [...window.myioFilterSel.places],
+                },
+                createdAt: Date.now(),
+            };
+            const next = [preset, ...(window.myioFilterPresets || [])].slice(0, 12);
+            window.myioFilterPresets = next;
+            try {
+                localStorage.setItem(PRESET_KEY, JSON.stringify(next));
+            } catch { }
+            renderPresets();
+        });
+    }
 
-      renderAll();
-      console.log('[MENU FILTER] Seleção limpa completamente');
-    });
-  }
+    if (!elApply._bound) {
+        elApply._bound = true;
+        elApply.addEventListener("click", async () => {
+            // Itens selecionados
+            //console.log("Itens selecionados:", window.custumersSelected);
+            // Desabilita botão enquanto carrega
+            elApply.disabled = true;
 
-  if (!elSave._bound) {
-    elSave._bound = true;
-    elSave.addEventListener("click", () => {
-      const name = prompt("Nome do preset:");
-      if (!name) return;
-      const preset = {
-        id: crypto.randomUUID(),
-        name,
-        selection: {
-          malls: [...window.myioFilterSel.malls],
-          floors: [...window.myioFilterSel.floors],
-          places: [...window.myioFilterSel.places],
-        },
-        createdAt: Date.now(),
-      };
-      const next = [preset, ...(window.myioFilterPresets || [])].slice(0, 12);
-      window.myioFilterPresets = next;
-      try {
-        localStorage.setItem(PRESET_KEY, JSON.stringify(next));
-      } catch {}
-      renderPresets();
-    });
-  }
+            // Chama a função que atualiza o consumo
 
-  if (!elApply._bound) {
-    elApply._bound = true;
-    elApply.addEventListener("click", async () => {
-      // Itens selecionados
-      //console.log("Itens selecionados:", window.custumersSelected);
-      // Desabilita botão enquanto carrega
-      elApply.disabled = true;
+            // Reabilita botão
+            elApply.disabled = false;
 
-      // Chama a função que atualiza o consumo
+            // Dispara evento com os custumers selecionados
+            window.dispatchEvent(
+                new CustomEvent("myio:filter-applied", {
+                    detail: {
+                        selection: window.custumersSelected,
+                        ts: Date.now(),
+                    },
+                })
+            );
 
-      // Reabilita botão
-      elApply.disabled = false;
+            // Fecha modal
+            modal.setAttribute("aria-hidden", "true");
+        });
+    }
 
-      // Dispara evento com os custumers selecionados
-      window.dispatchEvent(
-        new CustomEvent("myio:filter-applied", {
-          detail: {
-            selection: window.custumersSelected,
-            ts: Date.now(),
-          },
-        })
-      );
+    // ==== Abrir modal e sincronizar estado visual ============================
+    modal.setAttribute("aria-hidden", "false");
+    // repõe valor de busca persistido em memória
+    if (elSearch.value !== (window.myioFilterQuery || "")) {
+        elSearch.value = window.myioFilterQuery || "";
+    }
+    renderAll();
 
-      // Fecha modal
-      modal.setAttribute("aria-hidden", "true");
-    });
-  }
-
-  // ==== Abrir modal e sincronizar estado visual ============================
-  modal.setAttribute("aria-hidden", "false");
-  // repõe valor de busca persistido em memória
-  if (elSearch.value !== (window.myioFilterQuery || "")) {
-    elSearch.value = window.myioFilterQuery || "";
-  }
-  renderAll();
-
-  // Foco no input de busca
-  setTimeout(() => elSearch?.focus(), 0);
+    // Foco no input de busca
+    setTimeout(() => elSearch?.focus(), 0);
 }
 
 function bindFilter(root) {
-  if (root._filterBound) return;
-  root._filterBound = true;
-  const modal = document.getElementById("filterModal");
-  if (!modal) return; // se modal não existe, sai
+    if (root._filterBound) return;
+    root._filterBound = true;
+    const modal = document.getElementById("filterModal");
+    if (!modal) return; // se modal não existe, sai
 
-  const listEl = modal.querySelector("#fltList");
-  const inp = modal.querySelector("#fltSearch");
-  const btnClear = modal.querySelector("#fltClear");
-  const btnSave = modal.querySelector("#fltSave");
-  const btnApply = modal.querySelector("#fltApply");
+    const listEl = modal.querySelector("#fltList");
+    const inp = modal.querySelector("#fltSearch");
+    const btnClear = modal.querySelector("#fltClear");
+    const btnSave = modal.querySelector("#fltSave");
+    const btnApply = modal.querySelector("#fltApply");
 
-  // agora adiciona os listeners
-  btnSave?.addEventListener("click", () => {
-    const sel = listEl.dataset.selectedId || null;
-    //console.log("[filter] salvar preset (mock) selection=", sel);
-  });
+    // agora adiciona os listeners
+    btnSave?.addEventListener("click", () => {
+        const sel = listEl.dataset.selectedId || null;
+        //console.log("[filter] salvar preset (mock) selection=", sel);
+    });
 
-  btnApply?.addEventListener("click", () => {
-    const sel = listEl.dataset.selectedId || null;
-    // window.dispatchEvent(
-    //   new CustomEvent(EVT_FILTER_APPLIED, { detail: { selectedMallId: sel, ts: Date.now() } })
-    // );
-    //console.log("[filter] applied:", sel);
-    modal.setAttribute("aria-hidden", "true");
-  });
+    btnApply?.addEventListener("click", () => {
+        const sel = listEl.dataset.selectedId || null;
+        // window.dispatchEvent(
+        //   new CustomEvent(EVT_FILTER_APPLIED, { detail: { selectedMallId: sel, ts: Date.now() } })
+        // );
+        //console.log("[filter] applied:", sel);
+        modal.setAttribute("aria-hidden", "true");
+    });
 
-  modal.querySelectorAll("[data-close]").forEach((btn) => {
-    btn.addEventListener("click", () =>
-      modal.setAttribute("aria-hidden", "true")
-    );
-  });
+    modal.querySelectorAll("[data-close]").forEach((btn) => {
+        btn.addEventListener("click", () =>
+            modal.setAttribute("aria-hidden", "true")
+        );
+    });
 }
 
 /* ====== Cards summary (igual antes) ====== */
 function setBarPercent(elBarFill, pct, tail = 8) {
-  const track = elBarFill?.parentElement;
-  if (!elBarFill || !track) return;
-  // limita 0–100
-  const p = Math.max(0, Math.min(100, pct || 0));
-  track.style.setProperty("--pct", p);
-  track.style.setProperty("--tail", tail); // % do preenchido que será verde
-  elBarFill.style.width = p + "%";
+    const track = elBarFill?.parentElement;
+    if (!elBarFill || !track) return;
+    // limita 0–100
+    const p = Math.max(0, Math.min(100, pct || 0));
+    track.style.setProperty("--pct", p);
+    track.style.setProperty("--tail", tail); // % do preenchido que será verde
+    elBarFill.style.width = p + "%";
 }
 
 function formatDiaMes(date) {
-  const dia = String(date.getDate()).padStart(2, "0"); // garante 2 dígitos
-  const mes = String(date.getMonth() + 1).padStart(2, "0"); // meses começam em 0
-  return `${dia}/${mes}`;
+    const dia = String(date.getDate()).padStart(2, "0"); // garante 2 dígitos
+    const mes = String(date.getMonth() + 1).padStart(2, "0"); // meses começam em 0
+    return `${dia}/${mes}`;
 }
 
 /* ====== Lifecycle ====== */
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
-  // Extrai o segmento após 'all/' da URL
-  function getSegmentAfterAll() {
-    const match = window.location.href.match(/all\/([^\/?#]+)/i);
-    return match ? match[1] : null;
-  }
-
-  const dashboardId = getSegmentAfterAll();
-
-  // Mapeamento dos botões → estados
-  const dashboards = {
-    equipmentsButton: {
-      stateId: "content_equipments",
-      state: "W3siaWQiOiJjb250ZW50X2VxdWlwbWVudHMiLCJwYXJhbXMiOnt9fV0%253D",
-    },
-    energyButton: {
-      stateId: "content_energy",
-      state: "W3siaWQiOiJjb250ZW50X2VuZXJneSIsInBhcmFtcyI6e319XQ%253D%253D",
-    },
-    waterButton: {
-      stateId: "content_water",
-      state: "W3siaWQiOiJjb250ZW50X3dhdGVyIiwicGFyYW1zIjp7fX1d",
-    },
-    temperatureButton: {
-      stateId: "content_temperature",
-      state: "W3siaWQiOiJjb250ZW50X3RlbXBlcmF0dXJlIiwicGFyYW1zIjp7fX1d",
-    },
-  };
-
-  const mainView = document.querySelector("#mainView");
-
-  /**
-   * RFC-0057: Switch content states using show/hide (no innerHTML manipulation!)
-   * This prevents widgets from being destroyed/recreated on every navigation
-   * @param {string} stateId - ID do estado do dashboard
-   */
-  function switchContentState(stateId) {
-    try {
-      if (!mainView) {
-        console.error("[MENU] #mainView element not found in DOM");
-        return;
-      }
-
-      // Find all content containers with data-content-state attribute
-      const allContents = mainView.querySelectorAll('[data-content-state]');
-
-      if (allContents.length === 0) {
-        console.error('[MENU] No content containers found with data-content-state attribute');
-        return;
-      }
-
-      // Hide all content containers
-      allContents.forEach(content => {
-        content.style.display = 'none';
-      });
-
-      // Show target container
-      const targetContent = mainView.querySelector(`[data-content-state="${stateId}"]`);
-      if (targetContent) {
-        targetContent.style.display = 'block';
-        console.log(`[MENU] ✅ RFC-0057: Showing content state: ${stateId} (no dynamic rendering!)`);
-      } else {
-        console.warn(`[MENU] Content state not found: ${stateId}`);
-        console.log(`[MENU] Available states: ${Array.from(allContents).map(c => c.getAttribute('data-content-state')).join(', ')}`);
-      }
-    } catch (err) {
-      console.error("[MENU] RFC-0057: Failed to switch content state:", err);
+    // Extrai o segmento após 'all/' da URL
+    function getSegmentAfterAll() {
+        const match = window.location.href.match(/all\/([^\/?#]+)/i);
+        return match ? match[1] : null;
     }
-  }
 
-  // Automatiza a atribuição de eventos aos botões
-  // RFC-0057: Using switchContentState instead of renderDashboard
-  Object.entries(dashboards).forEach(([buttonId, { stateId }]) => {
-    const button = document.getElementById(buttonId);
-    if (button) {
-      button.addEventListener("click", () => switchContentState(stateId));
-    }
-  });
+    const dashboardId = getSegmentAfterAll();
 
-  // Inicializa o daterangepicker usando o componente MyIOLibrary
-  const TZ = "America/Sao_Paulo";
-  const hoje = new Date();
+    // Mapeamento dos botões → estados
+    const dashboards = {
+        equipmentsButton: {
+            stateId: "content_equipments",
+            state: "W3siaWQiOiJjb250ZW50X2VxdWlwbWVudHMiLCJwYXJhbXMiOnt9fV0%253D",
+        },
+        energyButton: {
+            stateId: "content_energy",
+            state: "W3siaWQiOiJjb250ZW50X2VuZXJneSIsInBhcmFtcyI6e319XQ%253D%253D",
+        },
+        waterButton: {
+            stateId: "content_water",
+            state: "W3siaWQiOiJjb250ZW50X3dhdGVyIiwicGFyYW1zIjp7fX1d",
+        },
+        temperatureButton: {
+            stateId: "content_temperature",
+            state: "W3siaWQiOiJjb250ZW50X3RlbXBlcmF0dXJlIiwicGFyYW1zIjp7fX1d",
+        },
+    };
 
-  // Define datas iniciais (início do mês até hoje)
-  const startDate = presetStart
-    ? new Date(presetStart)
-    : new Date(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0);
-  const endDate = presetEnd
-    ? new Date(presetEnd)
-    : new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59);
+    const mainView = document.querySelector("#mainView");
 
-  // Converte para ISO strings
-  const startISO = startDate.toISOString();
-  const endISO = endDate.toISOString();
+    /**
+     * RFC-0057: Switch content states using show/hide (no innerHTML manipulation!)
+     * This prevents widgets from being destroyed/recreated on every navigation
+     * @param {string} stateId - ID do estado do dashboard
+     */
+    function switchContentState(stateId) {
+        try {
+            if (!mainView) {
+                console.error("[MENU] #mainView element not found in DOM");
+                return;
+            }
 
-  let timeStart = startISO;
-  let timeEnd = endISO;
+            // Find all content containers with data-content-state attribute
+            const allContents = mainView.querySelectorAll("[data-content-state]");
 
-  // Encontra o input existente
-  const inputElement = document.querySelector('input[name="startDatetimes"]');
+            if (allContents.length === 0) {
+                console.error(
+                    "[MENU] No content containers found with data-content-state attribute"
+                );
+                return;
+            }
 
-  // Inicializa o date range picker do MyIOLibrary (sem container, apenas no input)
-  // Usando a biblioteca diretamente no input existente
-  if (
-    inputElement &&
-    typeof MyIOLibrary !== "undefined" &&
-    MyIOLibrary.createDateRangePicker
-  ) {
-    MyIOLibrary.createDateRangePicker(inputElement, {
-      presetStart: startISO,
-      presetEnd: endISO,
-      maxRangeDays: 365,
-      onApply: (result) => {
-        // ✅ FIX: ONLY store dates internally, don't dispatch event
-        timeStart = result.startISO;
-        timeEnd = result.endISO;
+            // Hide all content containers
+            allContents.forEach((content) => {
+                content.style.display = "none";
+            });
 
-        // Update scope for other components to read (if needed)
-        const startISOOffset = result.startISO.replace("Z", "-03:00");
-        const endISOOffset = result.endISO.replace("Z", "-03:00");
-
-        self.ctx.$scope.startDateISO = startISOOffset;
-        self.ctx.$scope.endDateISO = endISOOffset;
-
-        // Update UI display
-        const startDate = new Date(result.startISO);
-        const endDate = new Date(result.endISO);
-        const timeWindow = `Intervalo: ${formatDiaMes(startDate)} - ${formatDiaMes(endDate)}`;
-        const timeinterval = document.getElementById("energy-peak");
-        if (timeinterval) {
-          timeinterval.innerText = timeWindow;
+            // Show target container
+            const targetContent = mainView.querySelector(
+                `[data-content-state="${stateId}"]`
+            );
+            if (targetContent) {
+                targetContent.style.display = "block";
+                console.log(
+                    `[MENU] ✅ RFC-0057: Showing content state: ${stateId} (no dynamic rendering!)`
+                );
+            } else {
+                console.warn(`[MENU] Content state not found: ${stateId}`);
+                console.log(
+                    `[MENU] Available states: ${Array.from(allContents)
+                        .map((c) => c.getAttribute("data-content-state"))
+                        .join(", ")}`
+                );
+            }
+        } catch (err) {
+            console.error("[MENU] RFC-0057: Failed to switch content state:", err);
         }
+    }
 
-        console.log("[MENU] Date selection updated (no fetch):", {
-          start: result.startISO,
-          end: result.endISO
-        });
+    // Automatiza a atribuição de eventos aos botões
+    // RFC-0057: Using switchContentState instead of renderDashboard
+    Object.entries(dashboards).forEach(([buttonId, { stateId }]) => {
+        const button = document.getElementById(buttonId);
+        if (button) {
+            button.addEventListener("click", () => switchContentState(stateId));
+        }
+    });
 
-        // ✅ NO EVENT DISPATCHING - data will only be fetched when user clicks "Carregar" button
-      },
-    })
-      .then((picker) => {
-        console.log("[MENU] Date range picker inicializado com MyIOLibrary");
-      })
-      .catch((err) => {
-        console.error("[MENU] Erro ao inicializar date picker:", err);
-      });
-  } else {
-    console.warn("[MENU] MyIOLibrary.createDateRangePicker não disponível");
-  }
+    // Inicializa o daterangepicker usando o componente MyIOLibrary
+    const TZ = "America/Sao_Paulo";
+    const hoje = new Date();
 
-  // ===== CARREGAR BUTTON HANDLER =====
-  const btnCarregar = document.getElementById("load-button");
+    // Define datas iniciais (início do mês até hoje)
+    const startDate = presetStart
+        ? new Date(presetStart)
+        : new Date(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0);
+    const endDate = presetEnd
+        ? new Date(presetEnd)
+        : new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59);
 
-  if (btnCarregar) {
-    btnCarregar.addEventListener("click", async () => {
-      console.log("[MENU] Carregar button clicked - fetching data...");
+    // Converte para ISO strings
+    const startISO = startDate.toISOString();
+    const endISO = endDate.toISOString();
 
-      // Disable button during fetch
-      btnCarregar.disabled = true;
-      const originalHTML = btnCarregar.innerHTML;
-      btnCarregar.innerHTML = '<i class="material-icons">hourglass_empty</i> Carregando...';
+    let timeStart = startISO;
+    let timeEnd = endISO;
 
-      try {
-        // Prepare date range with timezone offset
-        const startISOOffset = timeStart.replace("Z", "-03:00");
-        const endISOOffset = timeEnd.replace("Z", "-03:00");
+    // Encontra o input existente
+    const inputElement = document.querySelector('input[name="startDatetimes"]');
 
-        const startMs = new Date(timeStart).getTime();
-        const endMs = new Date(timeEnd).getTime();
+    // Inicializa o date range picker do MyIOLibrary (sem container, apenas no input)
+    // Usando a biblioteca diretamente no input existente
+    if (
+        inputElement &&
+        typeof MyIOLibrary !== "undefined" &&
+        MyIOLibrary.createDateRangePicker
+    ) {
+        MyIOLibrary.createDateRangePicker(inputElement, {
+            presetStart: startISO,
+            presetEnd: endISO,
+            maxRangeDays: 365,
+            onApply: (result) => {
+                // ✅ FIX: ONLY store dates internally, don't dispatch event
+                timeStart = result.startISO;
+                timeEnd = result.endISO;
 
-        // Update scope
-        self.ctx.$scope.startDateISO = startISOOffset;
-        self.ctx.$scope.endDateISO = endISOOffset;
+                // Update scope for other components to read (if needed)
+                const startISOOffset = result.startISO.replace("Z", "-03:00");
+                const endISOOffset = result.endISO.replace("Z", "-03:00");
 
-        // ✅ Save dates globally for ENERGY widget to access
-        window.myioDateRange = {
-          startDate: startISOOffset,
-          endDate: endISOOffset,
-          startMs,
-          endMs
-        };
+                self.ctx.$scope.startDateISO = startISOOffset;
+                self.ctx.$scope.endDateISO = endISOOffset;
 
-        // ✅ Also save to localStorage as backup
-        localStorage.setItem('myio:date-range', JSON.stringify({
-          startDate: startISOOffset,
-          endDate: endISOOffset,
-          startMs,
-          endMs
-        }));
-
-        console.log("[MENU] Dispatching myio:update-date event:", {
-          startDate: startISOOffset,
-          endDate: endISOOffset
-        });
-
-        // ✅ NOW dispatch event to trigger data fetch
-        window.dispatchEvent(
-          new CustomEvent("myio:update-date", {
-            detail: {
-              startDate: startISOOffset,
-              endDate: endISOOffset,
-              startUtc: timeStart,
-              endUtc: timeEnd,
-              startMs,
-              endMs,
-              tz: TZ,
-            },
-          })
-        );
-
-        // Also update customer consumption if applicable
-        if (window.custumersSelected && window.custumersSelected.length > 0) {
-          const MyIOAuth = (() => {
-            const AUTH_URL = new URL(`${DATA_API_HOST}/api/v1/auth`);
-            const RENEW_SKEW_S = 60;
-            const RETRY_BASE_MS = 500;
-            const RETRY_MAX_ATTEMPTS = 3;
-
-            let _token = null;
-            let _expiresAt = 0;
-            let _inFlight = null;
-
-            function _now() {
-              return Date.now();
-            }
-
-            function _aboutToExpire() {
-              if (!_token) return true;
-              const skewMs = RENEW_SKEW_S * 1000;
-              return _now() >= _expiresAt - skewMs;
-            }
-
-            async function _sleep(ms) {
-              return new Promise((res) => setTimeout(res, ms));
-            }
-
-            async function _requestNewToken() {
-              const body = {
-                client_id: CLIENT_ID,
-                client_secret: CLIENT_SECRET,
-              };
-
-              let attempt = 0;
-              while (true) {
-                try {
-                  const resp = await fetch(AUTH_URL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(body),
-                  });
-
-                  if (!resp.ok) {
-                    const text = await resp.text().catch(() => "");
-                    throw new Error(
-                      `Auth falhou: HTTP ${resp.status} ${resp.statusText} ${text}`
-                    );
-                  }
-
-                  const json = await resp.json();
-                  if (!json || !json.access_token || !json.expires_in) {
-                    throw new Error("Resposta de auth não contem campos esperados.");
-                  }
-
-                  _token = json.access_token;
-                  _expiresAt = _now() + Number(json.expires_in) * 1000;
-
-                  console.log(
-                    "[MyIOAuth] Novo token obtido. Expira em ~",
-                    Math.round(Number(json.expires_in) / 60),
-                    "min"
-                  );
-
-                  return _token;
-                } catch (err) {
-                  attempt++;
-                  console.warn(
-                    `[MyIOAuth] Erro ao obter token (tentativa ${attempt}/${RETRY_MAX_ATTEMPTS}):`,
-                    err?.message || err
-                  );
-                  if (attempt >= RETRY_MAX_ATTEMPTS) {
-                    throw err;
-                  }
-                  const backoff = RETRY_BASE_MS * Math.pow(2, attempt - 1);
-                  await _sleep(backoff);
+                // Update UI display
+                const startDate = new Date(result.startISO);
+                const endDate = new Date(result.endISO);
+                const timeWindow = `Intervalo: ${formatDiaMes(
+                    startDate
+                )} - ${formatDiaMes(endDate)}`;
+                const timeinterval = document.getElementById("energy-peak");
+                if (timeinterval) {
+                    timeinterval.innerText = timeWindow;
                 }
-              }
-            }
 
-            async function getToken() {
-              if (_inFlight) {
-                return _inFlight;
-              }
-
-              if (_aboutToExpire()) {
-                _inFlight = _requestNewToken().finally(() => {
-                  _inFlight = null;
+                console.log("[MENU] Date selection updated (no fetch):", {
+                    start: result.startISO,
+                    end: result.endISO,
                 });
-                return _inFlight;
-              }
 
-              return _token;
-            }
+                // ✅ NO EVENT DISPATCHING - data will only be fetched when user clicks "Carregar" button
+            },
+        })
+            .then((picker) => {
+                console.log("[MENU] Date range picker inicializado com MyIOLibrary");
+            })
+            .catch((err) => {
+                console.error("[MENU] Erro ao inicializar date picker:", err);
+            });
+    } else {
+        console.warn("[MENU] MyIOLibrary.createDateRangePicker não disponível");
+    }
 
-            return { getToken };
-          })();
+    // ===== CARREGAR BUTTON HANDLER =====
+    const btnCarregar = document.getElementById("load-button");
 
-          async function updateTotalConsumption(customersArray, startDateISO, endDateISO) {
-            const energyTotal = document.getElementById("energy-kpi");
-            energyTotal.innerHTML = `
+    if (btnCarregar) {
+        btnCarregar.addEventListener("click", async () => {
+            console.log("[MENU] Carregar button clicked - fetching data...");
+
+            // Disable button during fetch
+            btnCarregar.disabled = true;
+            const originalHTML = btnCarregar.innerHTML;
+            btnCarregar.innerHTML =
+                '<i class="material-icons">hourglass_empty</i> Carregando...';
+
+            try {
+                // Prepare date range with timezone offset
+                const startISOOffset = timeStart.replace("Z", "-03:00");
+                const endISOOffset = timeEnd.replace("Z", "-03:00");
+
+                const startMs = new Date(timeStart).getTime();
+                const endMs = new Date(timeEnd).getTime();
+
+                // Update scope
+                self.ctx.$scope.startDateISO = startISOOffset;
+                self.ctx.$scope.endDateISO = endISOOffset;
+
+                // ✅ Save dates globally for ENERGY widget to access
+                window.myioDateRange = {
+                    startDate: startISOOffset,
+                    endDate: endISOOffset,
+                    startMs,
+                    endMs,
+                };
+
+                // ✅ Also save to localStorage as backup
+                localStorage.setItem(
+                    "myio:date-range",
+                    JSON.stringify({
+                        startDate: startISOOffset,
+                        endDate: endISOOffset,
+                        startMs,
+                        endMs,
+                    })
+                );
+
+                console.log("[MENU] Dispatching myio:update-date event:", {
+                    startDate: startISOOffset,
+                    endDate: endISOOffset,
+                });
+
+                // ✅ NOW dispatch event to trigger data fetch
+                window.dispatchEvent(
+                    new CustomEvent("myio:update-date", {
+                        detail: {
+                            startDate: startISOOffset,
+                            endDate: endISOOffset,
+                            startUtc: timeStart,
+                            endUtc: timeEnd,
+                            startMs,
+                            endMs,
+                            tz: TZ,
+                        },
+                    })
+                );
+
+                // Also update customer consumption if applicable
+                if (window.custumersSelected && window.custumersSelected.length > 0) {
+                    const MyIOAuth = (() => {
+                        const AUTH_URL = new URL(`${DATA_API_HOST}/api/v1/auth`);
+                        const RENEW_SKEW_S = 60;
+                        const RETRY_BASE_MS = 500;
+                        const RETRY_MAX_ATTEMPTS = 3;
+
+                        let _token = null;
+                        let _expiresAt = 0;
+                        let _inFlight = null;
+
+                        function _now() {
+                            return Date.now();
+                        }
+
+                        function _aboutToExpire() {
+                            if (!_token) return true;
+                            const skewMs = RENEW_SKEW_S * 1000;
+                            return _now() >= _expiresAt - skewMs;
+                        }
+
+                        async function _sleep(ms) {
+                            return new Promise((res) => setTimeout(res, ms));
+                        }
+
+                        async function _requestNewToken() {
+                            const body = {
+                                client_id: CLIENT_ID,
+                                client_secret: CLIENT_SECRET,
+                            };
+
+                            let attempt = 0;
+                            while (true) {
+                                try {
+                                    const resp = await fetch(AUTH_URL, {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify(body),
+                                    });
+
+                                    if (!resp.ok) {
+                                        const text = await resp.text().catch(() => "");
+                                        throw new Error(
+                                            `Auth falhou: HTTP ${resp.status} ${resp.statusText} ${text}`
+                                        );
+                                    }
+
+                                    const json = await resp.json();
+                                    if (!json || !json.access_token || !json.expires_in) {
+                                        throw new Error(
+                                            "Resposta de auth não contem campos esperados."
+                                        );
+                                    }
+
+                                    _token = json.access_token;
+                                    _expiresAt = _now() + Number(json.expires_in) * 1000;
+
+                                    console.log(
+                                        "[MyIOAuth] Novo token obtido. Expira em ~",
+                                        Math.round(Number(json.expires_in) / 60),
+                                        "min"
+                                    );
+
+                                    return _token;
+                                } catch (err) {
+                                    attempt++;
+                                    console.warn(
+                                        `[MyIOAuth] Erro ao obter token (tentativa ${attempt}/${RETRY_MAX_ATTEMPTS}):`,
+                                        err?.message || err
+                                    );
+                                    if (attempt >= RETRY_MAX_ATTEMPTS) {
+                                        throw err;
+                                    }
+                                    const backoff = RETRY_BASE_MS * Math.pow(2, attempt - 1);
+                                    await _sleep(backoff);
+                                }
+                            }
+                        }
+
+                        async function getToken() {
+                            if (_inFlight) {
+                                return _inFlight;
+                            }
+
+                            if (_aboutToExpire()) {
+                                _inFlight = _requestNewToken().finally(() => {
+                                    _inFlight = null;
+                                });
+                                return _inFlight;
+                            }
+
+                            return _token;
+                        }
+
+                        return { getToken };
+                    })();
+
+                    async function updateTotalConsumption(
+                        customersArray,
+                        startDateISO,
+                        endDateISO
+                    ) {
+                        const energyTotal = document.getElementById("energy-kpi");
+                        energyTotal.innerHTML = `
               <svg style="width:28px; height:28px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
                 <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
                         stroke-dasharray="90,150" stroke-dashoffset="0">
@@ -1129,203 +1106,222 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               </svg>
             `;
 
-            let totalConsumption = 0;
+                        let totalConsumption = 0;
 
-            for (const c of customersArray) {
-              if (!c.value) continue;
+                        for (const c of customersArray) {
+                            if (!c.value) continue;
 
-              try {
-                const TOKEN_INJESTION = await MyIOAuth.getToken();
+                            try {
+                                const TOKEN_INJESTION = await MyIOAuth.getToken();
 
-                const response = await fetch(
-                  `${DATA_API_HOST}/api/v1/telemetry/customers/${c.value}/energy/total?startTime=${encodeURIComponent(startDateISO)}&endTime=${encodeURIComponent(endDateISO)}`,
-                  {
-                    method: "GET",
-                    headers: {
-                      Authorization: `Bearer ${TOKEN_INJESTION}`,
-                      "Content-Type": "application/json",
-                    },
-                  }
-                );
+                                const response = await fetch(
+                                    `${DATA_API_HOST}/api/v1/telemetry/customers/${c.value
+                                    }/energy/total?startTime=${encodeURIComponent(
+                                        startDateISO
+                                    )}&endTime=${encodeURIComponent(endDateISO)}`,
+                                    {
+                                        method: "GET",
+                                        headers: {
+                                            Authorization: `Bearer ${TOKEN_INJESTION}`,
+                                            "Content-Type": "application/json",
+                                        },
+                                    }
+                                );
 
-                if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
-                const data = await response.json();
+                                if (!response.ok)
+                                    throw new Error(`Erro na API: ${response.status}`);
+                                const data = await response.json();
 
-                totalConsumption += data.total_value;
-              } catch (err) {
-                console.error(`Falha ao buscar dados do customer ${c.value}:`, err);
-              }
+                                totalConsumption += data.total_value;
+                            } catch (err) {
+                                console.error(
+                                    `Falha ao buscar dados do customer ${c.value}:`,
+                                    err
+                                );
+                            }
+                        }
+
+                        const percentDiference = document.getElementById("energy-trend");
+
+                        energyTotal.innerText = `${MyIOLibrary.formatEnergy(
+                            totalConsumption
+                        )}`;
+                        percentDiference.innerText = `↑ 100%`;
+                        percentDiference.style.color = "red";
+                    }
+
+                    await updateTotalConsumption(
+                        window.custumersSelected,
+                        startISOOffset,
+                        endISOOffset
+                    );
+                }
+            } catch (error) {
+                console.error("[MENU] Error loading data:", error);
+                alert("Erro ao carregar dados. Tente novamente.");
+            } finally {
+                // Re-enable button
+                btnCarregar.disabled = false;
+                btnCarregar.innerHTML = originalHTML;
             }
-
-            const percentDiference = document.getElementById("energy-trend");
-
-            energyTotal.innerText = `${MyIOLibrary.formatEnergy(totalConsumption)}`;
-            percentDiference.innerText = `↑ 100%`;
-            percentDiference.style.color = "red";
-          }
-
-          await updateTotalConsumption(
-            window.custumersSelected,
-            startISOOffset,
-            endISOOffset
-          );
-        }
-
-      } catch (error) {
-        console.error("[MENU] Error loading data:", error);
-        alert("Erro ao carregar dados. Tente novamente.");
-      } finally {
-        // Re-enable button
-        btnCarregar.disabled = false;
-        btnCarregar.innerHTML = originalHTML;
-      }
-    });
-
-    console.log("[MENU] Carregar button handler registered");
-  } else {
-    console.warn("[MENU] Carregar button (load-button) not found");
-  }
-
-  // ===== LIMPAR BUTTON HANDLER (Force Refresh) =====
-  const btnLimpar = document.getElementById("myio-clear-btn");
-
-  if (btnLimpar) {
-    btnLimpar.addEventListener("click", (event) => {
-      console.log("[MENU] 🔄 Limpar (Force Refresh) clicked");
-
-      // Confirmação do usuário
-      const confirmed = confirm("Isso vai limpar todo o cache e recarregar os dados. Continuar?");
-      if (!confirmed) {
-        console.log("[MENU] Force Refresh cancelado pelo usuário");
-        return;
-      }
-
-      try {
-        // RFC-0057: No longer using localStorage, only memory cache
-
-        // Invalida cache do orquestrador se disponível
-        if (window.MyIOOrchestrator && window.MyIOOrchestrator.invalidateCache) {
-          window.MyIOOrchestrator.invalidateCache('energy');
-          window.MyIOOrchestrator.invalidateCache('water');
-          console.log("[MENU] ✅ Cache do orquestrador invalidado");
-        }
-
-        // Limpa conteúdo visual dos widgets TELEMETRY
-        const clearEvent = new CustomEvent('myio:telemetry:clear', {
-          detail: { domain: 'energy' } // ou pegar do estado atual
         });
 
-        window.dispatchEvent(clearEvent);
-        console.log(`[MENU] ✅ Evento de limpeza emitido`);
+        console.log("[MENU] Carregar button handler registered");
+    } else {
+        console.warn("[MENU] Carregar button (load-button) not found");
+    }
 
-        // RFC-0057: Removed iframe event dispatch - no longer using iframes
+    // ===== LIMPAR BUTTON HANDLER (Force Refresh) =====
+    const btnLimpar = document.getElementById("myio-clear-btn");
 
-        console.log("[MENU] 🔄 Force Refresh concluído com sucesso");
+    if (btnLimpar) {
+        btnLimpar.addEventListener("click", (event) => {
+            console.log("[MENU] 🔄 Limpar (Force Refresh) clicked");
 
-        // Recarrega a página para limpar todos os widgets visuais
-        alert("Cache limpo com sucesso! A página será recarregada para aplicar as mudanças.");
-        setTimeout(() => {
-          window.location.reload();
-        }, 500);
-      } catch (err) {
-        console.error("[MENU] ❌ Erro durante Force Refresh:", err);
-        alert("Erro ao limpar cache. Consulte o console para detalhes.");
-      }
-    });
+            // Confirmação do usuário
+            const confirmed = confirm(
+                "Isso vai limpar todo o cache e recarregar os dados. Continuar?"
+            );
+            if (!confirmed) {
+                console.log("[MENU] Force Refresh cancelado pelo usuário");
+                return;
+            }
 
-    console.log("[MENU] Limpar button handler registered");
-  } else {
-    console.warn("[MENU] Limpar button (myio-clear-btn) not found");
-  }
+            try {
+                // RFC-0057: No longer using localStorage, only memory cache
 
-  const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
-  CLIENT_ID = self.ctx.settings.clientId;
-  CLIENT_SECRET = self.ctx.settings.clientSecret;
+                // Invalida cache do orquestrador se disponível
+                if (
+                    window.MyIOOrchestrator &&
+                    window.MyIOOrchestrator.invalidateCache
+                ) {
+                    window.MyIOOrchestrator.invalidateCache("energy");
+                    window.MyIOOrchestrator.invalidateCache("water");
+                    console.log("[MENU] ✅ Cache do orquestrador invalidado");
+                }
 
-  bindTabs(root);
-  bindFilter(root);
+                // Limpa conteúdo visual dos widgets TELEMETRY
+                const clearEvent = new CustomEvent("myio:telemetry:clear", {
+                    detail: { domain: "energy" }, // ou pegar do estado atual
+                });
 
-  // mocks (remova se alimentar via API/telemetria)
+                window.dispatchEvent(clearEvent);
+                console.log(`[MENU] ✅ Evento de limpeza emitido`);
 
-  const filterBtn = document.getElementById("filterBtn");
+                // RFC-0057: Removed iframe event dispatch - no longer using iframes
 
-  if (filterBtn) {
-    filterBtn.addEventListener("click", () => {
-      injectModalGlobal(); // cria o modal se ainda não existe
-      bindFilter(document.body); // agora os elementos existem
-    });
-  }
+                console.log("[MENU] 🔄 Force Refresh concluído com sucesso");
 
-  // Atualiza escopo com datas iniciais
-  self.ctx.$scope.startDateISO = timeStart;
-  self.ctx.$scope.endDateISO = timeEnd;
+                // Recarrega a página para limpar todos os widgets visuais
+                alert(
+                    "Cache limpo com sucesso! A página será recarregada para aplicar as mudanças."
+                );
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } catch (err) {
+                console.error("[MENU] ❌ Erro durante Force Refresh:", err);
+                alert("Erro ao limpar cache. Consulte o console para detalhes.");
+            }
+        });
 
-  // Dispara evento inicial com as datas preset
-  const startDateFormatted = timeStart.replace("Z", "-03:00");
-  const endDateFormatted = timeEnd.replace("Z", "-03:00");
+        console.log("[MENU] Limpar button handler registered");
+    } else {
+        console.warn("[MENU] Limpar button (myio-clear-btn) not found");
+    }
 
-  // ✅ Save initial dates globally for other widgets
-  window.myioDateRange = {
-    startDate: startDateFormatted,
-    endDate: endDateFormatted,
-    startMs: new Date(timeStart).getTime(),
-    endMs: new Date(timeEnd).getTime()
-  };
+    const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
+    CLIENT_ID = self.ctx.settings.clientId;
+    CLIENT_SECRET = self.ctx.settings.clientSecret;
+    computeCustomersFromCtx();
 
-  // ✅ Also save to localStorage
-  localStorage.setItem('myio:date-range', JSON.stringify(window.myioDateRange));
 
-  console.log("[MENU] Initial dates saved globally:", window.myioDateRange);
+    bindTabs(root);
+    bindFilter(root);
 
-  window.dispatchEvent(
-    new CustomEvent("myio:update-date", {
-      detail: {
+    // mocks (remova se alimentar via API/telemetria)
+
+    const filterBtn = document.getElementById("filterBtn");
+
+    if (filterBtn) {
+        filterBtn.addEventListener("click", () => {
+            if (!Array.isArray(self.ctx.$scope.custumer) || self.ctx.$scope.custumer.length === 0) {
+                computeCustomersFromCtx();
+            }
+            injectModalGlobal();
+            bindFilter(document.body);
+        });
+    }
+
+
+
+    // Atualiza escopo com datas iniciais
+    self.ctx.$scope.startDateISO = timeStart;
+    self.ctx.$scope.endDateISO = timeEnd;
+
+    // Dispara evento inicial com as datas preset
+    const startDateFormatted = timeStart.replace("Z", "-03:00");
+    const endDateFormatted = timeEnd.replace("Z", "-03:00");
+
+    // ✅ Save initial dates globally for other widgets
+    window.myioDateRange = {
         startDate: startDateFormatted,
         endDate: endDateFormatted,
-      },
-    })
-  );
+        startMs: new Date(timeStart).getTime(),
+        endMs: new Date(timeEnd).getTime(),
+    };
 
-  const custumer = [];
+    // ✅ Also save to localStorage
+    localStorage.setItem("myio:date-range", JSON.stringify(window.myioDateRange));
 
-  // não apagar!!
-  self.ctx.data.forEach((data) => {
-    if (data.datasource.aliasName === "Shopping") {
-      // adiciona no array custumes
-      custumer.push({
-        name: data.datasource.entityLabel, // ou outro campo que seja o "nome"
-        value: data.data[0][1], // ou o dado que você precisa salvar
-      });
-    }
-  });
+    console.log("[MENU] Initial dates saved globally:", window.myioDateRange);
 
-  self.ctx.$scope.custumer = custumer;
-  // console.log("custumer",custumer)
+    window.dispatchEvent(
+        new CustomEvent("myio:update-date", {
+            detail: {
+                startDate: startDateFormatted,
+                endDate: endDateFormatted,
+            },
+        })
+    );
+
+    const custumer = [];
+
+    // não apagar!!
+    const custumerMap = new Map();
+    self.ctx.data.forEach((data) => {
+        if (data.datasource.aliasName === "Shopping") {
+            const name = data.datasource.entityLabel;
+            const value = data.data?.[0]?.[1];
+            if (value != null && !custumerMap.has(value)) {
+                custumerMap.set(value, { name, value });
+            }
+        }
+    });
+    computeCustomersFromCtx();
+
+    // console.log("custumer",custumer)
 };
 
 self.onDataUpdated = function () {
-  if (_dataRefreshCount >= MAX_DATA_REFRESHES) {
-    return;
-  }
+    // 1) SEMPRE reconstrói customers a partir do self.ctx.data atual
+    computeCustomersFromCtx();
 
-  _dataRefreshCount++;
+    // 2) O restante do fluxo pode continuar limitado por MAX_DATA_REFRESHES
+    if (_dataRefreshCount >= MAX_DATA_REFRESHES) return;
+    _dataRefreshCount++;
 
-  const totalDevices = self.ctx.data.length;
-  let onlineDevices = 0;
-
-  self.ctx.data.forEach((device) => {
-    const status = device.data?.[0]?.[1];
-    if (status === "online") {
-      onlineDevices++;
-    }
-  });
-
-  // evitar divisão por zero
-  let percentage =
-    totalDevices > 0 ? ((onlineDevices / totalDevices) * 100).toFixed(1) : 0;
-  percentage = Number(percentage).toFixed(0);
+    const totalDevices = self.ctx.data.length;
+    let onlineDevices = 0;
+    self.ctx.data.forEach((device) => {
+        const status = device.data?.[0]?.[1];
+        if (status === "online") onlineDevices++;
+    });
+    let percentage = totalDevices > 0 ? ((onlineDevices / totalDevices) * 100).toFixed(1) : 0;
+    percentage = Number(percentage).toFixed(0);
 };
 
+
 self.onDestroy = function () {
-  /* nada a limpar */
+    /* nada a limpar */
 };
