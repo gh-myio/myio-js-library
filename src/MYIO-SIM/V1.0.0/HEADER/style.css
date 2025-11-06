@@ -26,21 +26,14 @@
   overflow: hidden;
 }
 
-/* Força transparência em todos os elementos internos */
-.myio-toolbar-root *,
-.myio-toolbar-root *::before,
-.myio-toolbar-root *::after {
+/* Força transparência em todos os elementos internos, EXCETO a logo */
+.myio-toolbar-root *:not(.myio-card-logo):not(.myio-card-logo *),
+.myio-toolbar-root *:not(.myio-card-logo):not(.myio-card-logo *)::before,
+.myio-toolbar-root *:not(.myio-card-logo):not(.myio-card-logo *)::after {
   background-color: transparent !important;
 }
 
-/* Exceção apenas para o card da logo que precisa do roxo */
-.myio-card.v2.myio-card-logo {
-  background: #1F3A35 !important;
-  background-color: #1F3A35 !important;
-  background-image: none !important;
-}
-
-/* E para os botões/tabs do menu que precisam de fundo */
+/* Exceção para tabs e botões que precisam de fundo branco */
 .tab,
 .myio-filter-btn {
   background: #fff !important;
@@ -254,31 +247,46 @@
 }
 
 /* ===== Card da Logo - Versão Única e Limpa ===== */
+.myio-toolbar-root .myio-cards .myio-card.v2.myio-card-logo,
 .myio-card.v2.myio-card-logo {
   background: #1F3A35 !important;
   background-color: #1F3A35 !important;
   background-image: none !important;
   border: 0 !important;
-  box-shadow: 0 4px 14px rgba(0,0,0,.20);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
+  box-shadow: 0 4px 14px rgba(0,0,0,.20) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
 }
 
+.myio-toolbar-root .myio-cards .myio-card.v2.myio-card-logo *,
+.myio-card.v2.myio-card-logo * {
+  background: none !important;
+  background-color: transparent !important;
+}
+
+.myio-toolbar-root .myio-cards .myio-card.v2.myio-card-logo .logo-box,
 .myio-card.v2.myio-card-logo .logo-box {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: none !important;
+  background-color: transparent !important;
 }
 
+.myio-toolbar-root .myio-cards .myio-card.v2.myio-card-logo .logo-box img,
 .myio-card.v2.myio-card-logo .logo-box img {
-  max-width: 240px;
-  max-height: 160px;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,.25));
+  max-width: 336px !important;  /* 240px * 1.4 = 336px */
+  max-height: 224px !important; /* 160px * 1.4 = 224px */
+  width: 140% !important;        /* Escala proporcional em 40% */
+  height: auto !important;       /* Mantém proporção */
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)) !important;
+  background: none !important;
+  background-color: transparent !important;
 }
 
 /* breakpoints responsivos - prioriza 5 colunas */
