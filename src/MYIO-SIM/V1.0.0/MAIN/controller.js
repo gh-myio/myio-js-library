@@ -281,6 +281,7 @@ const MyIOOrchestrator = (() => {
 
   // ===== STATE para montar o resumo ENERGY =====
   let customerTotalConsumption = null; // total do cliente (vem do HEADER)
+  let lojasIngestionIds = new Set(); // ingestionIds das lojas (3F_MEDIDOR) - vem do EQUIPMENTS
 
   function haveEquipments() {
     return energyCache && energyCache.size > 0;
@@ -501,44 +502,92 @@ const MyIOOrchestrator = (() => {
   // RFC-0057: invalidateCache already defined above (line 280), no duplicate needed
 
   /**
-   * Calcula o total de consumo de todos os equipamentos no cache
+   * Calcula o total de consumo de EQUIPAMENTOS no cache (exclui lojas)
    * @returns {number} - Total em kWh
    */
   function getTotalEquipmentsConsumption() {
+    let total = 0;
+    let count = 0;
+    energyCache.forEach((device, ingestionId) => {
+      // Skip lojas (3F_MEDIDOR)
+      if (!lojasIngestionIds.has(ingestionId)) {
+        total += device.total_value || 0;
+        count++;
+      }
+    });
+    console.log(
+      `[MAIN] [Orchestrator] Total EQUIPMENTS consumption (excluding lojas): ${total} kWh (${count} devices)`
+    );
+    return total;
+  }
+
+  /**
+   * Calcula o total de consumo de LOJAS no cache (apenas 3F_MEDIDOR)
+   * @returns {number} - Total em kWh
+   */
+  function getTotalLojasConsumption() {
+    let total = 0;
+    let count = 0;
+    energyCache.forEach((device, ingestionId) => {
+      // Only lojas (3F_MEDIDOR)
+      if (lojasIngestionIds.has(ingestionId)) {
+        total += device.total_value || 0;
+        count++;
+      }
+    });
+    console.log(
+      `[MAIN] [Orchestrator] Total LOJAS consumption (3F_MEDIDOR only): ${total} kWh (${count} devices)`
+    );
+    return total;
+  }
+
+  /**
+   * Calcula o total GERAL de consumo (EQUIPAMENTOS + LOJAS)
+   * @returns {number} - Total em kWh
+   */
+  function getTotalConsumption() {
     let total = 0;
     energyCache.forEach((device) => {
       total += device.total_value || 0;
     });
     console.log(
-      `[MAIN] [Orchestrator] Total equipments consumption: ${total} kWh (${energyCache.size} devices)`
+      `[MAIN] [Orchestrator] Total GERAL consumption (equipments + lojas): ${total} kWh (${energyCache.size} devices)`
     );
     return total;
   }
 
   /**
    * Obtém dados agregados para o widget ENERGY
-   * @param {number} customerTotalConsumption - Consumo total do customer (vindo do HEADER)
-   * @returns {object} - { customerTotal, equipmentsTotal, difference, percentage }
+   * @param {number} totalConsumption - Consumo TOTAL (Equipamentos + Lojas) vindo do HEADER
+   * @returns {object} - { customerTotal, equipmentsTotal, lojasTotal, percentage }
    */
-  function getEnergyWidgetData(customerTotalConsumption = 0) {
+  function getEnergyWidgetData(totalConsumption = 0) {
     const equipmentsTotal = getTotalEquipmentsConsumption();
-    const difference = customerTotalConsumption - equipmentsTotal;
+    const lojasTotal = getTotalLojasConsumption();
 
-    // ✅ Equipamentos como % do total do cliente
+    // Total deve ser a soma (verificação)
+    const calculatedTotal = equipmentsTotal + lojasTotal;
+
+    // ✅ Equipamentos como % do total
     const percentage =
-      customerTotalConsumption > 0
-        ? (equipmentsTotal / customerTotalConsumption) * 100
+      totalConsumption > 0
+        ? (equipmentsTotal / totalConsumption) * 100
         : 0;
 
     const result = {
-      customerTotal: Number(customerTotalConsumption) || 0,
+      customerTotal: Number(totalConsumption) || 0,
       equipmentsTotal: Number(equipmentsTotal) || 0,
-      difference: Number(difference) || 0,
+      lojasTotal: Number(lojasTotal) || 0,
+      difference: Number(lojasTotal) || 0, // Mantém compatibilidade (lojas = difference)
       percentage: Number(percentage) || 0,
       deviceCount: energyCache.size,
     };
 
-    console.log(`[MAIN] [Orchestrator] Energy widget data:`, result);
+    console.log(`[MAIN] [Orchestrator] Energy widget data:`, {
+      ...result,
+      calculatedTotal,
+      matches: Math.abs(calculatedTotal - totalConsumption) < 0.01
+    });
     return result;
   }
 
@@ -552,6 +601,8 @@ const MyIOOrchestrator = (() => {
     hideGlobalBusy,
     getBusyState: () => ({ ...globalBusyState }),
     getTotalEquipmentsConsumption,
+    getTotalLojasConsumption,
+    getTotalConsumption,
     getEnergyWidgetData,
       requestSummary() {
     // Responde imediatamente com o que tiver no momento
@@ -571,6 +622,13 @@ const MyIOOrchestrator = (() => {
     customerTotalConsumption = n;
     console.log("[MAIN] [Orchestrator] customerTotalConsumption set to", n);
     dispatchEnergySummaryIfReady('setCustomerTotal');
+  },
+
+  setLojasIngestionIds(ids) {
+    lojasIngestionIds = new Set(ids || []);
+    console.log("[MAIN] [Orchestrator] lojasIngestionIds set:", lojasIngestionIds.size, "lojas");
+    // Recalculate and dispatch summary if ready
+    dispatchEnergySummaryIfReady('setLojasIngestionIds');
   }
   };
 })();
@@ -613,6 +671,14 @@ window.addEventListener('myio:request-energy-summary', () => {
   }
 });
 
+// ✅ EQUIPMENTS → informa quais devices são lojas (3F_MEDIDOR)
+window.addEventListener('myio:lojas-identified', (ev) => {
+  const ids = ev.detail?.lojasIngestionIds || [];
+  console.log("[MAIN] heard myio:lojas-identified:", ev.detail);
+  if (typeof window.MyIOOrchestrator?.setLojasIngestionIds === 'function') {
+    window.MyIOOrchestrator.setLojasIngestionIds(ids);
+  }
+});
 
 LogHelper.log("[MyIOOrchestrator] Initialized");
 

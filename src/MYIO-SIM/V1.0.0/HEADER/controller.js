@@ -1011,15 +1011,37 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
 // ===== HEADER: Equipment Card Handler =====
 function updateEquipmentCard() {
-  // Find datasources[0] with aliasName="Equipamentos"
+  // Count unique devices and their online status
+  // Group by entityId to count each device only once
+  const deviceMap = new Map(); // entityId -> { hasConnectionStatus: bool, isOnline: bool }
+
+  self.ctx.data.forEach((data) => {
+    const entityId = data.datasource?.entityId;
+    const dataKeyName = data.dataKey?.name;
+
+    if (!entityId) return;
+
+    // Initialize device entry if doesn't exist
+    if (!deviceMap.has(entityId)) {
+      deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false });
+    }
+
+    // Check if this is the connectionStatus dataKey
+    if (dataKeyName === "connectionStatus") {
+      const status = String(data.data?.[0]?.[1] || '').toLowerCase();
+      deviceMap.get(entityId).hasConnectionStatus = true;
+      deviceMap.get(entityId).isOnline = (status === "online");
+    }
+  });
+
+  // Count total devices and online devices
   let totalDevices = 0;
   let onlineDevices = 0;
 
-  self.ctx.data.forEach((data) => {
-    if (data.datasource.aliasName === "Equipamentos") {
+  deviceMap.forEach((device) => {
+    if (device.hasConnectionStatus) {
       totalDevices++;
-      const status = String(data.data?.[0]?.[1] || '').toLowerCase();
-      if (status === "online") {
+      if (device.isOnline) {
         onlineDevices++;
       }
     }
@@ -1029,9 +1051,11 @@ function updateEquipmentCard() {
 
   const statusDevice = document.getElementById("equip-kpi");
   const percentDevice = document.getElementById("equip-sub");
+  const barEl = document.getElementById("equip-bar");
 
   if (statusDevice) statusDevice.innerText = `${onlineDevices}/${totalDevices}`;
   if (percentDevice) percentDevice.innerText = `${percentage}% operational`;
+  if (barEl) setBarPercent(barEl, percentage, 8);
 
   console.log("[HEADER] Equipment card updated:", { online: onlineDevices, total: totalDevices, percentage });
 }
@@ -1058,7 +1082,6 @@ function showEnergyCardLoading(isLoading) {
 }
 
 function updateEnergyCard(energyCache) {
-  const ingestionIds = [];
   const energyKpi = document.getElementById("energy-kpi");
   const energyTrend = document.getElementById("energy-trend");
 
@@ -1066,47 +1089,31 @@ function updateEnergyCard(energyCache) {
   console.log("[HEADER] energyKpi element found:", !!energyKpi);
   console.log("[HEADER] energyTrend element found:", !!energyTrend);
 
-  // RFC-0057: Check if ctx and ctx.data are available
-  if (!self.ctx || !self.ctx.data) {
-    console.warn("[HEADER] updateEnergyCard: ctx or ctx.data not available yet. Skipping update.");
-    return;
-  }
-
-  // RFC-0057: Enhanced safety check with try-catch
-  if (Array.isArray(self.ctx.data)) {
-    self.ctx.data.forEach((data, index) => {
-      try {
-        // Skip if data is undefined or null
-        if (!data || !data.datasource || !data.data) {
-          return;
-        }
-
-        //console.log('[HEADER] Processing data row:', data);
-
-        // Extract ingestionId from data
-        const ingestionId = data.data?.[0]?.[1]; // data[indexOfIngestionId][1] = value
-        if (ingestionId) {
-          ingestionIds.push(ingestionId);
-        }
-      } catch (err) {
-        console.warn(`[HEADER] Skipped data item ${index} due to error:`, err.message);
-      }
-    });
-  }
-
-  console.log("[HEADER] Energy card: Found ingestionIds:", ingestionIds.length);
-
-  // Sum consumption from cache for all ingestionIds
+  // ✅ Get TOTAL consumption from orchestrator (Equipamentos + Lojas)
   let totalConsumption = 0;
-  if (energyCache) {
-    ingestionIds.forEach(ingestionId => {
-      const cached = energyCache.get(ingestionId);
-      if (cached) {
-        totalConsumption += cached.total_value || 0;
-        //console.log(`[HEADER] Device ${cached.name}: ${cached.total_value} kWh`);
-      }
-    });
+  let deviceCount = 0;
+
+  if (typeof window.MyIOOrchestrator?.getTotalConsumption === 'function') {
+    totalConsumption = window.MyIOOrchestrator.getTotalConsumption();
+    console.log("[HEADER] Got TOTAL consumption from orchestrator (equipments + lojas):", totalConsumption, "kWh");
+  } else {
+    console.warn("[HEADER] MyIOOrchestrator.getTotalConsumption not available");
+    // Fallback: sum all from cache (old behavior)
+    if (energyCache) {
+      energyCache.forEach((cached, ingestionId) => {
+        if (cached && cached.total_value) {
+          totalConsumption += cached.total_value || 0;
+          deviceCount++;
+        }
+      });
+    }
   }
+
+  console.log("[HEADER] Energy card: TOTAL consumption (Equipamentos + Lojas):", {
+    deviceCount,
+    totalConsumption,
+    formatted: MyIOLibrary.formatEnergy ? MyIOLibrary.formatEnergy(totalConsumption) : `${totalConsumption.toFixed(2)} kWh`
+  });
 
   // ✅ ALWAYS update, even if value is same
   if (energyKpi) {
@@ -1122,12 +1129,12 @@ function updateEnergyCard(energyCache) {
     energyTrend.innerText = ""; // Clear for now
   }
 
-  console.log("[HEADER] Energy card update complete:", { totalConsumption, devices: ingestionIds.length });
+  console.log("[HEADER] Energy card update complete:", { totalConsumption, devices: deviceCount });
 
   // ✅ EMIT EVENT: Notify ENERGY widget of customer total consumption
   const customerTotalEvent = {
     customerTotal: totalConsumption,
-    deviceCount: ingestionIds.length,
+    deviceCount: deviceCount,
     timestamp: Date.now()
   };
 

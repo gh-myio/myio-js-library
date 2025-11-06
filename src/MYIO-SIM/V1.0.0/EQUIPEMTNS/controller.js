@@ -330,40 +330,89 @@ function showLoadingOverlay(show) {
  * @param {Array} devices - Array of device objects with consumption data
  */
 function updateEquipmentStats(devices) {
+  const connectivityEl = document.getElementById("equipStatsConnectivity");
   const totalEl = document.getElementById("equipStatsTotal");
   const consumptionEl = document.getElementById("equipStatsConsumption");
   const zeroEl = document.getElementById("equipStatsZero");
 
-  if (!totalEl || !consumptionEl || !zeroEl) {
+  if (!connectivityEl || !totalEl || !consumptionEl || !zeroEl) {
     console.warn("[EQUIPMENTS] Stats header elements not found");
     return;
   }
 
-  // Calculate statistics
-  let totalConsumption = 0;
-  let zeroConsumptionCount = 0;
+  // Calculate connectivity (online vs total) from ctx.data
+  // Group by entityId to count each device only once
+  const deviceMap = new Map(); // entityId -> { hasConnectionStatus: bool, isOnline: bool }
+
+  if (self.ctx && Array.isArray(self.ctx.data)) {
+    self.ctx.data.forEach((data) => {
+      const entityId = data.datasource?.entityId;
+      const dataKeyName = data.dataKey?.name;
+
+      if (!entityId) return;
+
+      // Initialize device entry if doesn't exist
+      if (!deviceMap.has(entityId)) {
+        deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false });
+      }
+
+      // Check if this is the connectionStatus dataKey
+      if (dataKeyName === "connectionStatus") {
+        const status = String(data.data?.[0]?.[1] || '').toLowerCase();
+        deviceMap.get(entityId).hasConnectionStatus = true;
+        deviceMap.get(entityId).isOnline = (status === "online");
+      }
+    });
+  }
+
+  // Count online devices (only EQUIPMENTS, exclude lojas)
+  let onlineCount = 0;
+  let totalWithStatus = 0;
 
   devices.forEach(device => {
-    // The formatted device object has 'val' property directly, not 'values' array
+    const deviceData = deviceMap.get(device.entityId);
+    if (deviceData && deviceData.hasConnectionStatus) {
+      totalWithStatus++;
+      if (deviceData.isOnline) {
+        onlineCount++;
+      }
+    }
+  });
+
+  // Get total consumption from MAIN orchestrator (same source as ENERGY widget)
+  let totalConsumption = 0;
+  if (typeof window.MyIOOrchestrator?.getTotalEquipmentsConsumption === 'function') {
+    totalConsumption = window.MyIOOrchestrator.getTotalEquipmentsConsumption();
+    console.log("[EQUIPMENTS] Got total from orchestrator:", totalConsumption, "kWh");
+  } else {
+    console.warn("[EQUIPMENTS] MyIOOrchestrator not available, calculating locally");
+    // Fallback: calculate locally
+    devices.forEach(device => {
+      const consumption = Number(device.val) || Number(device.lastValue) || 0;
+      totalConsumption += consumption;
+    });
+  }
+
+  // Calculate zero consumption count locally (not available in orchestrator)
+  let zeroConsumptionCount = 0;
+  devices.forEach(device => {
     const consumption = Number(device.val) || Number(device.lastValue) || 0;
-
-    totalConsumption += consumption;
-
     if (consumption === 0) {
       zeroConsumptionCount++;
     }
   });
 
   // Update UI
+  connectivityEl.textContent = `${onlineCount}/${totalWithStatus}`;
   totalEl.textContent = devices.length.toString();
   consumptionEl.textContent = MyIOLibrary.formatEnergy(totalConsumption);
   zeroEl.textContent = zeroConsumptionCount.toString();
 
   console.log("[EQUIPMENTS] Stats updated:", {
+    connectivity: `${onlineCount}/${totalWithStatus}`,
     total: devices.length,
-    consumption: totalConsumption,
-    zeroCount: zeroConsumptionCount,
-    devices: devices.map(d => ({ id: d.entityId, val: d.val, lastValue: d.lastValue }))
+    consumptionFromOrchestrator: totalConsumption,
+    zeroCount: zeroConsumptionCount
   });
 }
 
@@ -498,6 +547,7 @@ function initializeCards(devices) {
 }
 
 self.onInit = async function () {
+  console.log("[EQUIPMENTS] onInit - ctx:", self.ctx);
     // ⭐ CRITICAL FIX: Show loading IMMEDIATELY before setTimeout
     showLoadingOverlay(true);
 
@@ -749,13 +799,65 @@ self.onInit = async function () {
 
     const devicesFormatadosParaCards = await Promise.all(promisesDeCards);
 
-    // ✅ Save devices to global STATE for filtering
-    STATE.allDevices = devicesFormatadosParaCards;
+    /**
+     * TODO: TEMPORARY FIX - Remove when backend data is corrected
+     * Some devices have deviceType = 3F_MEDIDOR but are actually equipment.
+     * Check label for equipment keywords to properly classify them.
+     */
+    function isActuallyEquipment(device) {
+      if (device.deviceType !== "3F_MEDIDOR") {
+        return true; // Not 3F_MEDIDOR, definitely equipment
+      }
 
-    initializeCards(devicesFormatadosParaCards);
+      // Check if label contains equipment keywords
+      const label = String(device.labelOrName || "").toLowerCase();
+      const equipmentKeywords = ["elevador", "chiller", "bomba", "escada", "casa de m"];
 
-    // Update statistics header
-    updateEquipmentStats(devicesFormatadosParaCards);
+      return equipmentKeywords.some(keyword => label.includes(keyword));
+    }
+
+    // ✅ Separate lojas from equipments based on deviceType AND label validation
+    const lojasDevices = devicesFormatadosParaCards.filter(d => !isActuallyEquipment(d));
+    const equipmentDevices = devicesFormatadosParaCards.filter(d => isActuallyEquipment(d));
+
+    // Debug: Log 3F_MEDIDOR devices classified as equipment (TODO: temporary)
+    const medidorAsEquipment = equipmentDevices.filter(d => d.deviceType === "3F_MEDIDOR");
+    if (medidorAsEquipment.length > 0) {
+      console.warn("[EQUIPMENTS] ⚠️ Found", medidorAsEquipment.length, "3F_MEDIDOR devices classified as equipment (based on label):");
+      medidorAsEquipment.forEach(d => {
+        console.log("  -", d.labelOrName, "(deviceType:", d.deviceType, ")");
+      });
+    }
+
+    console.log("[EQUIPMENTS] Total devices:", devicesFormatadosParaCards.length);
+    console.log("[EQUIPMENTS] Equipment devices:", equipmentDevices.length);
+    console.log("[EQUIPMENTS] Lojas (actual 3F_MEDIDOR stores):", lojasDevices.length);
+
+    // ✅ Emit event to inform MAIN about lojas ingestionIds
+    const lojasIngestionIds = lojasDevices
+      .map(d => d.ingestionId)
+      .filter(id => id); // Remove nulls
+
+    window.dispatchEvent(new CustomEvent('myio:lojas-identified', {
+      detail: {
+        lojasIngestionIds,
+        lojasCount: lojasIngestionIds.length,
+        timestamp: Date.now()
+      }
+    }));
+
+    console.log("[EQUIPMENTS] ✅ Emitted myio:lojas-identified:", {
+      lojasCount: lojasIngestionIds.length,
+      lojasIngestionIds
+    });
+
+    // ✅ Save ONLY equipment devices to global STATE for filtering
+    STATE.allDevices = equipmentDevices;
+
+    initializeCards(equipmentDevices);
+
+    // Update statistics header (only equipments)
+    updateEquipmentStats(equipmentDevices);
 
     // Hide loading after rendering
     showLoadingOverlay(false);
@@ -933,9 +1035,9 @@ function applyFilters(devices, searchTerm, selectedIds, sortMode) {
   const query = (searchTerm || "").trim().toLowerCase();
   if (query) {
     filtered = filtered.filter(d =>
-      (d.labelOrName || "").toLowerCase().includes(query) ||
-      (d.deviceIdentifier || "").toLowerCase().includes(query) ||
-      (d.deviceType || "").toLowerCase().includes(query)
+      String(d.labelOrName || "").toLowerCase().includes(query) ||
+      String(d.deviceIdentifier || "").toLowerCase().includes(query) ||
+      String(d.deviceType || "").toLowerCase().includes(query)
     );
   }
 
@@ -943,8 +1045,8 @@ function applyFilters(devices, searchTerm, selectedIds, sortMode) {
   filtered.sort((a, b) => {
     const valA = Number(a.val) || Number(a.lastValue) || 0;
     const valB = Number(b.val) || Number(b.lastValue) || 0;
-    const nameA = (a.labelOrName || "").toLowerCase();
-    const nameB = (b.labelOrName || "").toLowerCase();
+    const nameA = String(a.labelOrName || "").toLowerCase();
+    const nameB = String(b.labelOrName || "").toLowerCase();
 
     switch (sortMode) {
       case 'cons_desc':
