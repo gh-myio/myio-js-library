@@ -1080,6 +1080,38 @@ function bindFilterEvents() {
     });
   }
 
+  // Select with consumption button
+  const selectWithConsumption = document.getElementById("selectWithConsumption");
+  if (selectWithConsumption) {
+    selectWithConsumption.addEventListener("click", () => {
+      const checkboxes = document.querySelectorAll("#deviceChecklist input[type='checkbox']");
+      checkboxes.forEach(cb => {
+        const deviceId = cb.getAttribute("data-device-id");
+        const device = STATE.allDevices.find(d => d.entityId === deviceId);
+        if (device) {
+          const consumption = Number(device.val) || Number(device.lastValue) || 0;
+          cb.checked = consumption > 0;
+        }
+      });
+    });
+  }
+
+  // Select without consumption button
+  const selectWithoutConsumption = document.getElementById("selectWithoutConsumption");
+  if (selectWithoutConsumption) {
+    selectWithoutConsumption.addEventListener("click", () => {
+      const checkboxes = document.querySelectorAll("#deviceChecklist input[type='checkbox']");
+      checkboxes.forEach(cb => {
+        const deviceId = cb.getAttribute("data-device-id");
+        const device = STATE.allDevices.find(d => d.entityId === deviceId);
+        if (device) {
+          const consumption = Number(device.val) || Number(device.lastValue) || 0;
+          cb.checked = consumption === 0;
+        }
+      });
+    });
+  }
+
   // Filter device search inside modal
   const filterDeviceSearch = document.getElementById("filterDeviceSearch");
   if (filterDeviceSearch) {
