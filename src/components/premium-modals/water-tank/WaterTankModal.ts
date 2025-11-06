@@ -302,7 +302,7 @@ export class WaterTankModal {
         data: this.data,
         onExport: () => this.handleExport(),
         onError: (error) => this.handleError(error),
-        onClose: () => this.handleClose()
+        onClose: () => this.close() // Call close() to destroy view and trigger user callback
       });
 
       this.view.render();

@@ -36,6 +36,31 @@ LogHelper.log("🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SU
 const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
 const MAX_FIRST_HYDRATES = 1;
 
+/**
+ * Get telemetry data by dataKey name from self.ctx.data
+ * @param {string} dataKeyName - The dataKey name to search for
+ * @returns {*} The value of the data point, or null if not found
+ */
+function getData(dataKeyName) {
+  if (!self?.ctx?.data) {
+    LogHelper.warn('[getData] No ctx.data available');
+    return null;
+  }
+
+  for (const device of self.ctx.data) {
+    if (device.dataKey && device.dataKey.name === dataKeyName) {
+      // Return the most recent value (last item in data array)
+      if (device.data && device.data.length > 0) {
+        const lastDataPoint = device.data[device.data.length - 1];
+        return lastDataPoint[1]; // [timestamp, value]
+      }
+    }
+  }
+
+  LogHelper.warn(`[getData] DataKey "${dataKeyName}" not found in ctx.data`);
+  return null;
+}
+
 let dateUpdateHandler = null;
 let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
 //let DEVICE_TYPE = "energy";
@@ -714,32 +739,45 @@ function renderList(visible) {
               throw new Error('Water tank modal not available. Please update MyIO library.');
             }
 
+            // For TANK/CAIXA_DAGUA: get water level from telemetry
+            const waterLevel = getData('water_level');
+            const waterPercentage = getData('water_percentage');
+            const currentLevel = waterPercentage || it.perc || it.val || 0;
+
+            LogHelper.log('[TELEMETRY v5] Water tank telemetry data:', {
+              water_level: waterLevel,
+              water_percentage: waterPercentage,
+              currentLevel: currentLevel
+            });
+
             LogHelper.log('[TELEMETRY v5] Calling openDashboardPopupWaterTank with params:', {
               deviceId: it.id,
               deviceType: deviceType,
               startTs: typeof startTs === 'number' ? startTs : new Date(startTs).getTime(),
               endTs: typeof endTs === 'number' ? endTs : new Date(endTs).getTime(),
-              label: it.label || it.name || 'Water Tank'
+              label: it.label || it.name || 'Water Tank',
+              currentLevel: currentLevel
             });
 
-            await MyIOLibrary.openDashboardPopupWaterTank({
+            const modalHandle = await MyIOLibrary.openDashboardPopupWaterTank({
               deviceId: it.id,
               deviceType: deviceType,
               tbJwtToken: jwtToken,
               startTs: typeof startTs === 'number' ? startTs : new Date(startTs).getTime(),
               endTs: typeof endTs === 'number' ? endTs : new Date(endTs).getTime(),
               label: it.label || it.name || 'Water Tank',
-              currentLevel: it.perc || it.val || 0,
+              currentLevel: currentLevel,
               slaveId: it.slaveId,
               centralId: it.centralId,
               timezone: self.ctx?.timeWindow?.timezone || 'America/Sao_Paulo',
+              telemetryKeys: ['water_level', 'water_percentage', 'waterLevel', 'nivel', 'level'],
               onOpen: (context) => {
                 LogHelper.log('[TELEMETRY v5] Water tank modal opened', context);
                 if (loadingToast) loadingToast.hide();
                 hideBusy();
               },
               onClose: () => {
-                LogHelper.log('[TELEMETRY v5] Water tank modal closed');
+                LogHelper.log('[TELEMETRY v5] Water tank modal onClose callback triggered');
               },
               onError: (error) => {
                 LogHelper.error('[TELEMETRY v5] Water tank modal error', error);
@@ -752,6 +790,8 @@ function renderList(visible) {
                 }
               }
             });
+
+            LogHelper.log('[TELEMETRY v5] Water tank modal handle received:', modalHandle);
           } else {
             // Energy/Water/Temperature Modal Path (Ingestion API)
             LogHelper.log('[TELEMETRY v5] Opening energy modal...');
