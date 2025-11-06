@@ -1016,7 +1016,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 function updateEquipmentCard() {
   // Count unique devices and their online status
   // Group by entityId to count each device only once
-  const deviceMap = new Map(); // entityId -> { hasConnectionStatus: bool, isOnline: bool, customerId: string }
+  const deviceMap = new Map(); // entityId -> { hasConnectionStatus: bool, isOnline: bool, customerId: string, ingestionId: string }
 
   self.ctx.data.forEach((data) => {
     const entityId = data.datasource?.entityId;
@@ -1026,7 +1026,7 @@ function updateEquipmentCard() {
 
     // Initialize device entry if doesn't exist
     if (!deviceMap.has(entityId)) {
-      deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false, customerId: null });
+      deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false, customerId: null, ingestionId: null });
     }
 
     const deviceEntry = deviceMap.get(entityId);
@@ -1042,6 +1042,11 @@ function updateEquipmentCard() {
     if (dataKeyName === "customerId") {
       deviceEntry.customerId = data.data?.[0]?.[1];
     }
+
+    // Extract ingestionId for fallback mapping
+    if (dataKeyName === "ingestionId") {
+      deviceEntry.ingestionId = data.data?.[0]?.[1];
+    }
   });
 
   // Count total devices and online devices
@@ -1049,20 +1054,24 @@ function updateEquipmentCard() {
   let onlineDevices = 0;
   let filteredOut = 0;
 
-  deviceMap.forEach((device) => {
+  deviceMap.forEach((device, entityId) => {
     if (device.hasConnectionStatus) {
       // Apply shopping filter if active
       if (selectedShoppingIds.length > 0) {
+        let customerId = device.customerId;
+
+        // Fallback: try to get customerId from global device-to-shopping map
+        if (!customerId && device.ingestionId && window.myioDeviceToShoppingMap) {
+          customerId = window.myioDeviceToShoppingMap.get(device.ingestionId);
+        }
+
         // If device has customerId, check if it's in selected shoppings
-        if (device.customerId && !selectedShoppingIds.includes(device.customerId)) {
+        if (customerId && !selectedShoppingIds.includes(customerId)) {
           filteredOut++;
           return; // Skip this device
         }
-        // If device has no customerId, try fallback from global map
-        if (!device.customerId && window.myioDeviceToShoppingMap) {
-          // Need to find ingestionId for this device - try to match from energyCache
-          // For now, include devices without customerId (safety)
-        }
+
+        // If device has no customerId even after fallback, include it (safety)
       }
 
       totalDevices++;

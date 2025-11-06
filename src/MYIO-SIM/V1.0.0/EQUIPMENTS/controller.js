@@ -906,9 +906,34 @@ self.onInit = async function () {
 
     // Update STATE and reflow cards
     STATE.selectedShoppingIds = shoppingIds;
+
+    // Render shopping filter chips
+    renderShoppingFilterChips(selection);
+
     reflowCards();
   };
   window.addEventListener("myio:filter-applied", self._onFilterApplied);
+
+  // Function to render shopping filter chips in toolbar
+  function renderShoppingFilterChips(selection) {
+    const chipsContainer = document.getElementById("shoppingFilterChips");
+    if (!chipsContainer) return;
+
+    chipsContainer.innerHTML = "";
+
+    if (!selection || selection.length === 0) {
+      return; // No filter applied, hide chips
+    }
+
+    selection.forEach(shopping => {
+      const chip = document.createElement("span");
+      chip.className = "filter-chip";
+      chip.innerHTML = `<span class="filter-chip-icon">🏬</span><span>${shopping.name}</span>`;
+      chipsContainer.appendChild(chip);
+    });
+
+    console.log("[EQUIPMENTS] 📍 Rendered", selection.length, "shopping filter chips");
+  }
 
   //  console.log("[equipaments] self.ctx:", self.ctx);
   CUSTOMER_ID = self.ctx.settings.customerId || " ";
