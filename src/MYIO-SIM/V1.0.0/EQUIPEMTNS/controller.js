@@ -402,14 +402,19 @@ function updateEquipmentStats(devices) {
     }
   });
 
+  // Calculate connectivity percentage
+  const connectivityPercentage = totalWithStatus > 0
+    ? ((onlineCount / totalWithStatus) * 100).toFixed(1)
+    : "0.0";
+
   // Update UI
-  connectivityEl.textContent = `${onlineCount}/${totalWithStatus}`;
+  connectivityEl.textContent = `${onlineCount}/${totalWithStatus} (${connectivityPercentage}%)`;
   totalEl.textContent = devices.length.toString();
   consumptionEl.textContent = MyIOLibrary.formatEnergy(totalConsumption);
   zeroEl.textContent = zeroConsumptionCount.toString();
 
   console.log("[EQUIPMENTS] Stats updated:", {
-    connectivity: `${onlineCount}/${totalWithStatus}`,
+    connectivity: `${onlineCount}/${totalWithStatus} (${connectivityPercentage}%)`,
     total: devices.length,
     consumptionFromOrchestrator: totalConsumption,
     zeroCount: zeroConsumptionCount
