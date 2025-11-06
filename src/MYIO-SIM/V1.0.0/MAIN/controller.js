@@ -284,6 +284,10 @@ const MyIOOrchestrator = (() => {
   let lojasIngestionIds = new Set(); // ingestionIds das lojas (3F_MEDIDOR) - vem do EQUIPMENTS
   let selectedShoppingIds = []; // Shopping ingestionIds selecionados no filtro (vem do MENU)
 
+  // ===== DEVICE-TO-SHOPPING MAPPING (Fallback for missing customerId) =====
+  // Map<deviceIngestionId, shoppingIngestionId> - populated from EQUIPMENTS ctx.data
+  window.myioDeviceToShoppingMap = window.myioDeviceToShoppingMap || new Map();
+
   function haveEquipments() {
     return energyCache && energyCache.size > 0;
   }
@@ -305,13 +309,21 @@ const MyIOOrchestrator = (() => {
       return true;
     }
 
-    // Se o device não tem customerId, inclui (safety)
-    if (!device.customerId) {
+    // Tenta obter customerId do device ou do mapa de fallback
+    let customerId = device.customerId;
+
+    // Fallback: se não tem customerId, tenta buscar no mapa global
+    if (!customerId && window.myioDeviceToShoppingMap) {
+      customerId = window.myioDeviceToShoppingMap.get(device.ingestionId);
+    }
+
+    // Se ainda não tem customerId, inclui (safety - não filtra dispositivos sem mapeamento)
+    if (!customerId) {
       return true;
     }
 
     // Verifica se o customerId do device está na lista de shoppings selecionados
-    return selectedShoppingIds.includes(device.customerId);
+    return selectedShoppingIds.includes(customerId);
   }
 
   function dispatchEnergySummaryIfReady(reason = "unknown") {
@@ -447,15 +459,26 @@ const MyIOOrchestrator = (() => {
 
       // Clear and repopulate cache
       energyCache.clear();
+      let count = 0;
       devicesList.forEach((device) => {
         if (device.id) {
+          // Debug: check all possible customerId fields
+          const customerId = device.customerId || device.customer_id || device.ownerId || null;
+
+          if (count === 0) {
+            // Log first device to see full structure
+            console.log("[MAIN] [Orchestrator] 🔍 Full first device structure:", JSON.stringify(device, null, 2));
+            console.log("[MAIN] [Orchestrator] 🔍 Extracted customerId:", customerId);
+          }
+
           energyCache.set(device.id, {
             ingestionId: device.id,
-            customerId: device.customerId || device.customer_id || null, // Shopping ingestionId
+            customerId: customerId, // Shopping ingestionId
             name: device.name,
             total_value: device.total_value || 0,
             timestamp: Date.now(),
           });
+          count++;
           //console.log(`[MAIN] [Orchestrator] Cached device: ${device.name} (${device.id}) = ${device.total_value} kWh`);
           // TODO Implementar uma função que
         }

@@ -894,6 +894,22 @@ self.onInit = async function () {
   };
   window.addEventListener("myio:date-params", self._onDateParams);
 
+  // ✅ Listen for shopping filter from MENU
+  self._onFilterApplied = (ev) => {
+    console.log("[EQUIPMENTS] heard myio:filter-applied:", ev.detail);
+
+    // Extract shopping IDs from selection
+    const selection = ev.detail?.selection || [];
+    const shoppingIds = selection.map(s => s.value).filter(v => v);
+
+    console.log("[EQUIPMENTS] Applying shopping filter:", shoppingIds.length === 0 ? "ALL" : `${shoppingIds.length} shoppings`);
+
+    // Update STATE and reflow cards
+    STATE.selectedShoppingIds = shoppingIds;
+    reflowCards();
+  };
+  window.addEventListener("myio:filter-applied", self._onFilterApplied);
+
   //  console.log("[equipaments] self.ctx:", self.ctx);
   CUSTOMER_ID = self.ctx.settings.customerId || " ";
   // console.log("[equipaments] CUSTOMER_ID:", CUSTOMER_ID);
@@ -1042,13 +1058,25 @@ self.onInit = async function () {
           limitOfPowerOnFailureWatts: failureLimit
         });
 
+        const ingestionId = findValue(device.values, "ingestionId", null);
+        const customerId = findValue(device.values, "customerId", null);
+
+        // Populate global device-to-shopping map for filter fallback
+        if (ingestionId && customerId) {
+          if (!window.myioDeviceToShoppingMap) {
+            window.myioDeviceToShoppingMap = new Map();
+          }
+          window.myioDeviceToShoppingMap.set(ingestionId, customerId);
+        }
+
         return {
           entityId: entityId,
           labelOrName: device.label,
           val: consumptionValue,
           deviceIdentifier: findValue(device.values, "identifier"),
           centralName: findValue(device.values, "centralName", null),
-          ingestionId: findValue(device.values, "ingestionId", null),
+          ingestionId: ingestionId,
+          customerId: customerId, // Shopping ingestionId for filtering
           deviceType: deviceType,
           deviceStatus: deviceStatus,
           valType: "power_kw",
@@ -1125,6 +1153,11 @@ self.onInit = async function () {
 
     // ✅ Save ONLY equipment devices to global STATE for filtering
     STATE.allDevices = equipmentDevices;
+
+    // Log device-to-shopping mapping stats
+    if (window.myioDeviceToShoppingMap) {
+      console.log(`[EQUIPMENTS] 🗺️ Device-to-shopping map populated: ${window.myioDeviceToShoppingMap.size} devices mapped`);
+    }
 
     initializeCards(equipmentDevices);
 
@@ -1289,7 +1322,8 @@ const STATE = {
   searchActive: false,
   searchTerm: "",
   selectedIds: null,
-  sortMode: 'cons_desc'
+  sortMode: 'cons_desc',
+  selectedShoppingIds: [] // Shopping filter from MENU
 };
 
 /**
@@ -1297,6 +1331,18 @@ const STATE = {
  */
 function applyFilters(devices, searchTerm, selectedIds, sortMode) {
   let filtered = devices.slice();
+
+  // Apply shopping filter (from MENU)
+  if (STATE.selectedShoppingIds && STATE.selectedShoppingIds.length > 0) {
+    const before = filtered.length;
+    filtered = filtered.filter(d => {
+      // If device has no customerId, include it (safety)
+      if (!d.customerId) return true;
+      // Check if device's customerId is in the selected shoppings
+      return STATE.selectedShoppingIds.includes(d.customerId);
+    });
+    console.log(`[EQUIPMENTS] Shopping filter applied: ${before} -> ${filtered.length} devices (${before - filtered.length} filtered out)`);
+  }
 
   // Apply multiselect filter
   if (selectedIds && selectedIds.size > 0) {
@@ -1570,5 +1616,8 @@ function bindFilterEvents() {
 self.onDestroy = function () {
   if (self._onDateParams) {
     window.removeEventListener("myio:date-params", self._onDateParams);
+  }
+  if (self._onFilterApplied) {
+    window.removeEventListener("myio:filter-applied", self._onFilterApplied);
   }
 };

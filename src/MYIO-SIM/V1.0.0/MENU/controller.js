@@ -679,7 +679,10 @@ function injectModalGlobal() {
         elApply._bound = true;
         elApply.addEventListener("click", async () => {
             // Itens selecionados
-            //console.log("Itens selecionados:", window.custumersSelected);
+            console.log("[MENU] 🔥 APPLY FILTER BUTTON CLICKED");
+            console.log("[MENU] 📋 Selected customers:", window.custumersSelected);
+            console.log("[MENU] 📋 Customer count:", (window.custumersSelected || []).length);
+
             // Desabilita botão enquanto carrega
             elApply.disabled = true;
 
@@ -688,15 +691,22 @@ function injectModalGlobal() {
             // Reabilita botão
             elApply.disabled = false;
 
+            // Prepara payload do evento
+            const eventDetail = {
+                selection: window.custumersSelected || [],
+                ts: Date.now(),
+            };
+
+            console.log("[MENU] 🚀 Dispatching myio:filter-applied event with detail:", eventDetail);
+
             // Dispara evento com os custumers selecionados
             window.dispatchEvent(
                 new CustomEvent("myio:filter-applied", {
-                    detail: {
-                        selection: window.custumersSelected,
-                        ts: Date.now(),
-                    },
+                    detail: eventDetail,
                 })
             );
+
+            console.log("[MENU] ✅ Event dispatched successfully");
 
             // Fecha modal
             modal.setAttribute("aria-hidden", "true");
