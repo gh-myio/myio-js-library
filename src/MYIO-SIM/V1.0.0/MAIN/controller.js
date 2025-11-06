@@ -321,18 +321,12 @@ const MyIOOrchestrator = (() => {
     lastFetchTimestamp = null;
   }
 
-  async function fetchEnergyData(
-    customerIngestionId,
-    startDateISO,
-    endDateISO
-  ) {
+  async function fetchEnergyData(customerIngestionId, startDateISO, endDateISO) {
     const key = cacheKey(customerIngestionId, startDateISO, endDateISO);
 
     // RFC-0057: Check for duplicate fetches
     if (isFetching && lastFetchParams === key) {
-      console.log(
-        "[MAIN] [Orchestrator] Fetch already in progress, skipping..."
-      );
+      console.log("[MAIN] [Orchestrator] Fetch already in progress, skipping...");
       return energyCache;
     }
 
@@ -400,14 +394,10 @@ const MyIOOrchestrator = (() => {
         },
       });
 
-      console.log(
-        `[MAIN] [Orchestrator] 📡 API Status: ${response.status} ${response.statusText}`
-      );
+      console.log(`[MAIN] [Orchestrator] 📡 API Status: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
-        console.warn(
-          `[MAIN] [Orchestrator] ❌ Failed to fetch energy: HTTP ${response.status}`
-        );
+        console.warn(`[MAIN] [Orchestrator] ❌ Failed to fetch energy: HTTP ${response.status}`);
         return energyCache;
       }
 
@@ -429,14 +419,9 @@ const MyIOOrchestrator = (() => {
 
       // Log first device if available for debugging
       if (devicesList.length > 0) {
-        console.log(
-          "[MAIN] [Orchestrator] 🔍 First device sample:",
-          devicesList[0]
-        );
+        console.log("[MAIN] [Orchestrator] 🔍 First device sample:", devicesList[0] );
       } else {
-        console.warn(
-          "[MAIN] [Orchestrator] ⚠️ API returned ZERO devices! Check if data exists for this period."
-        );
+        console.warn("[MAIN] [Orchestrator] ⚠️ API returned ZERO devices! Check if data exists for this period.");
       }
 
       // Clear and repopulate cache
@@ -450,12 +435,11 @@ const MyIOOrchestrator = (() => {
             timestamp: Date.now(),
           });
           //console.log(`[MAIN] [Orchestrator] Cached device: ${device.name} (${device.id}) = ${device.total_value} kWh`);
+          // TODO Implementar uma função que
         }
       });
 
-      console.log(
-        `[MAIN] [Orchestrator] Energy cache updated: ${energyCache.size} devices`
-      );
+      console.log(`[MAIN] [Orchestrator] Energy cache updated: ${energyCache.size} devices`);
 
       // RFC-0057: Update timestamp for memory cache
       lastFetchTimestamp = Date.now();
@@ -475,7 +459,6 @@ const MyIOOrchestrator = (() => {
       );
       // Se já temos o total do cliente, emita também o resumo para o ENERGY
       dispatchEnergySummaryIfReady('fetchEnergyData');
-
 
       return energyCache;
     } catch (err) {
@@ -594,6 +577,7 @@ const MyIOOrchestrator = (() => {
   return {
     fetchEnergyData,
     getCache,
+    getEnergyCache: getCache, // Alias for ENERGY widget compatibility
     getCachedDevice,
     invalidateCache,
     // RFC-0057: Removed clearStorageCache - no longer using localStorage
@@ -688,9 +672,7 @@ self.onInit = async function () {
   self.ctx.$scope.mainContentStateId = "content_equipments";
 
   if (!CUSTOMER_ID_TB) {
-    console.error(
-      "[MAIN] [Orchestrator] customerId não encontrado em settings"
-    );
+    console.error("[MAIN] [Orchestrator] customerId não encontrado em settings");
     return;
   }
 
@@ -699,18 +681,11 @@ self.onInit = async function () {
   // Fetch customer attributes from ThingsBoard
   const customerAttrs = await fetchCustomerServerScopeAttrs(CUSTOMER_ID_TB);
 
-  CUSTOMER_INGESTION_ID =
-    customerAttrs.customerIngestionId || customerAttrs.ingestionId;
-  CLIENT_ID_INGESTION =
-    customerAttrs.clientIdIngestion || customerAttrs.client_id;
-  CLIENT_SECRET_INGESTION =
-    customerAttrs.clientSecretIngestion || customerAttrs.client_secret;
+  CUSTOMER_INGESTION_ID = customerAttrs.customerIngestionId || customerAttrs.ingestionId;
+  CLIENT_ID_INGESTION = customerAttrs.clientIdIngestion || customerAttrs.client_id;
+  CLIENT_SECRET_INGESTION = customerAttrs.clientSecretIngestion || customerAttrs.client_secret;
 
-  if (
-    !CUSTOMER_INGESTION_ID ||
-    !CLIENT_ID_INGESTION ||
-    !CLIENT_SECRET_INGESTION
-  ) {
+  if (!CUSTOMER_INGESTION_ID || !CLIENT_ID_INGESTION || !CLIENT_SECRET_INGESTION) {
     console.error(
       "[MAIN] [Orchestrator] Credenciais de Ingestion não encontradas:",
       {
@@ -858,6 +833,7 @@ self.onInit = async function () {
     pollMs: 300,
     timeoutMs: 15000,
   });
+
   console.log("[EQUIPMENTS] date params ready:", datesFromParent);
 
   // agora já pode carregar dados / inicializar UI dependente de datas
@@ -873,6 +849,7 @@ self.onInit = async function () {
   // mantém sincronizado em updates futuros do pai/irmão A
   self._onDateParams = (ev) => {
     applyParams(ev.detail);
+
     if (typeof self.loadData === "function") {
       self.loadData(self.ctx.$scope.startDateISO, self.ctx.$scope.endDateISO);
     }
@@ -880,10 +857,7 @@ self.onInit = async function () {
   window.addEventListener("myio:date-params", self._onDateParams);
 
   // ===== ORCHESTRATOR: Initial energy data fetch =====
-  console.log(
-    "[MAIN] [Orchestrator] Initial setup with Ingestion Customer ID:",
-    CUSTOMER_INGESTION_ID
-  );
+  console.log("[MAIN] [Orchestrator] Initial setup with Ingestion Customer ID:", CUSTOMER_INGESTION_ID);
   console.log("[MAIN] [Orchestrator] Date range:", {
     start: datesFromParent.start,
     end: datesFromParent.end,

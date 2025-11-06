@@ -1060,6 +1060,71 @@ function updateEquipmentCard() {
   console.log("[HEADER] Equipment card updated:", { online: onlineDevices, total: totalDevices, percentage });
 }
 
+// ===== HEADER: Temperature Card Handler =====
+function updateTemperatureCard() {
+  const tempKpi = document.getElementById("temp-kpi");
+  const tempRange = document.getElementById("temp-range");
+  const tempChip = document.querySelector("#card-temp .chip");
+
+  // Faixa ideal de temperatura
+  const MIN_TEMP = 20;
+  const MAX_TEMP = 25;
+
+  // Busca todos os datasources com aliasName = "AllTemperatureDevices"
+  const temperatureData = [];
+
+  self.ctx.data.forEach((data) => {
+    if (data.datasource?.aliasName === "AllTemperatureDevices") {
+      // Pega a temperatura de data[0][1]
+      const temperature = data.data?.[0]?.[1];
+
+      if (temperature !== undefined && temperature !== null && !isNaN(temperature)) {
+        temperatureData.push(Number(temperature));
+        console.log("[HEADER] Temperature found:", temperature, "from", data.datasource.entityLabel);
+      }
+    }
+  });
+
+  // Calcula a média
+  if (temperatureData.length > 0) {
+    const averageTemp = temperatureData.reduce((sum, temp) => sum + temp, 0) / temperatureData.length;
+
+    if (tempKpi) {
+      tempKpi.innerText = `${averageTemp.toFixed(1)}°C`;
+      console.log(`[HEADER] Temperature card updated: ${averageTemp.toFixed(1)}°C (${temperatureData.length} devices)`);
+    }
+
+    // Verifica se está dentro da faixa ideal
+    const isInRange = averageTemp >= MIN_TEMP && averageTemp <= MAX_TEMP;
+
+    // Atualiza o chip de status
+    if (tempChip) {
+      if (isInRange) {
+        tempChip.textContent = "✔ Dentro da faixa ideal";
+        tempChip.className = "chip ok";
+      } else {
+        tempChip.textContent = "⚠ Fora da faixa ideal";
+        tempChip.className = "chip warn";
+      }
+    }
+
+    // Atualiza o texto de rodapé
+    if (tempRange) {
+      tempRange.textContent = `Faixa ideal: ${MIN_TEMP}°C – ${MAX_TEMP}°C`;
+    }
+
+  } else {
+    console.warn("[HEADER] No temperature data found for AllTemperatureDevices");
+    if (tempKpi) {
+      tempKpi.innerText = "--°C";
+    }
+    if (tempChip) {
+      tempChip.textContent = "-- Sem dados";
+      tempChip.className = "chip";
+    }
+  }
+}
+
 // ===== HEADER: Energy Card Handler =====
 function showEnergyCardLoading(isLoading) {
   const energyKpi = document.getElementById("energy-kpi");
@@ -1160,6 +1225,9 @@ self.onDataUpdated = function () {
 
   // Update Equipment card
   updateEquipmentCard();
+
+  // Update Temperature card
+  updateTemperatureCard();
 };
 
 self.onDestroy = function () {

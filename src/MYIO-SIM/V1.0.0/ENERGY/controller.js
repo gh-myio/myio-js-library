@@ -619,86 +619,328 @@ async function updatePeakDemandCard(startTs, endTs) {
 }
 
 // ============================================
-// CHART FUNCTIONS (Original)
+// CHART FUNCTIONS
 // ============================================
 
-function initializeCharts() {
-  // Mock data (pode substituir com telemetria real do ThingsBoard)
+// Global chart references for later updates
+let lineChartInstance = null;
+let pieChartInstance = null;
+
+/**
+ * Classifica o tipo de equipamento baseado no deviceType e label
+ * Similar à lógica em EQUIPMENTS
+ */
+function classifyEquipmentType(device) {
+  const deviceType = device.deviceType || "";
+  const label = String(device.labelOrName || device.label || "").toLowerCase();
+
+  console.log(`[ENERGY] Classifying device:`, { deviceType, label });
+
+  // Lojas: 3F_MEDIDOR que não são equipamentos
+  if (deviceType === "3F_MEDIDOR") {
+    const equipmentKeywords = ["elevador", "chiller", "bomba", "escada", "casa de m"];
+    const isEquipment = equipmentKeywords.some(keyword => label.includes(keyword));
+    if (!isEquipment) {
+      console.log(`[ENERGY] Classified as Lojas (3F_MEDIDOR without equipment keywords)`);
+      return "Lojas";
+    }
+  }
+
+  // Classificação por tipo de equipamento
+  if (label.includes("chiller")) {
+    console.log(`[ENERGY] Classified as Chiller`);
+    return "Chiller";
+  }
+  if (label.includes("fancoil") || label.includes("fan coil") || label.includes("fan-coil")) {
+    console.log(`[ENERGY] Classified as Fancoil`);
+    return "Fancoil";
+  }
+  if (label.includes("ar condicionado") || label.includes("ar-condicionado") || label.includes("split") || label.includes(" ar ")) {
+    console.log(`[ENERGY] Classified as AR`);
+    return "AR";
+  }
+  if (label.includes("bomba")) {
+    console.log(`[ENERGY] Classified as Bombas`);
+    return "Bombas";
+  }
+  if (label.includes("elevador") || label.includes("escada")) {
+    console.log(`[ENERGY] Classified as Elevadores`);
+    return "Elevadores";
+  }
+
+  // Outros equipamentos
+  console.log(`[ENERGY] Classified as Outros (no match found)`);
+  return "Outros";
+}
+
+/**
+ * Busca o consumo total de todos os devices para um dia específico
+ * @param {string} customerId - ID do customer
+ * @param {number} startTs - Início do dia em ms
+ * @param {number} endTs - Fim do dia em ms
+ * @returns {Promise<number>} - Total de consumo em kWh
+ */
+async function fetchDayTotalConsumption(customerId, startTs, endTs) {
+  const tbToken = localStorage.getItem("jwt_token");
+
+  if (!tbToken) {
+    console.error("[ENERGY] JWT token not found");
+    return 0;
+  }
+
+  try {
+    const url = `/api/v1/telemetry/customers/${customerId}/energy/devices/totals?startDate=${startTs}&endDate=${endTs}`;
+
+    const response = await fetch(url, {
+      headers: {
+        "X-Authorization": `Bearer ${tbToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      console.warn(`[ENERGY] Failed to fetch day total: ${response.status}`);
+      return 0;
+    }
+
+    const data = await response.json();
+
+    // Sum all device consumption
+    let total = 0;
+    if (Array.isArray(data)) {
+      data.forEach(device => {
+        total += Number(device.total_value) || 0;
+      });
+    }
+
+    console.log(`[ENERGY] Day total (${new Date(startTs).toLocaleDateString()}): ${total} kWh`);
+    return total;
+  } catch (error) {
+    console.error("[ENERGY] Error fetching day total:", error);
+    return 0;
+  }
+}
+
+/**
+ * Busca o consumo dos últimos 7 dias
+ * @param {string} customerId - ID do customer
+ * @returns {Promise<Array>} - Array com {date, consumption} para cada dia
+ */
+async function fetch7DaysConsumption(customerId) {
+  const results = [];
+  const now = new Date();
+
+  // Iterate through last 7 days
+  for (let i = 6; i >= 0; i--) {
+    const dayDate = new Date(now);
+    dayDate.setDate(now.getDate() - i);
+    dayDate.setHours(0, 0, 0, 0);
+
+    const startTs = dayDate.getTime();
+    const endDate = new Date(dayDate);
+    endDate.setHours(23, 59, 59, 999);
+    const endTs = endDate.getTime();
+
+    const consumption = await fetchDayTotalConsumption(customerId, startTs, endTs);
+
+    results.push({
+      date: dayDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+      consumption: consumption,
+    });
+  }
+
+  console.log("[ENERGY] 7 days consumption data:", results);
+  return results;
+}
+
+/**
+ * Calcula a distribuição de consumo por tipo de equipamento
+ * Usa o cache do orchestrador + classificação por tipo
+ */
+async function calculateEquipmentDistribution() {
+  try {
+    // Get energy cache from orchestrator
+    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+
+    if (!orchestrator || typeof orchestrator.getEnergyCache !== 'function') {
+      console.warn("[ENERGY] Orchestrator not available for distribution calculation");
+      return null;
+    }
+
+    const energyCache = orchestrator.getEnergyCache();
+
+    if (!energyCache || energyCache.size === 0) {
+      console.warn("[ENERGY] Energy cache is empty");
+      return null;
+    }
+
+    console.log(`[ENERGY] Energy cache has ${energyCache.size} devices`);
+    console.log("[ENERGY] ctx.data available:", !!self.ctx?.data, "entries:", self.ctx?.data?.length);
+
+    // Initialize counters
+    const distribution = {
+      Chiller: 0,
+      Fancoil: 0,
+      AR: 0,
+      Bombas: 0,
+      Lojas: 0,
+      Elevadores: 0,
+      Outros: 0,
+    };
+
+    let devicesProcessed = 0;
+    let devicesNotFound = 0;
+
+    // Classify each device and sum consumption
+    energyCache.forEach((deviceData, ingestionId) => {
+      devicesProcessed++;
+      const consumption = Number(deviceData.total_value) || 0;
+
+      console.log(`[ENERGY] Processing device ${devicesProcessed}/${energyCache.size}, ingestionId: ${ingestionId}, consumption: ${consumption}`);
+
+      // Get device info from ctx.data to classify
+      const device = findDeviceInCtx(ingestionId);
+
+      if (!device) {
+        devicesNotFound++;
+        console.warn(`[ENERGY] Device not found in ctx for ingestionId: ${ingestionId}, adding to Outros`);
+        distribution.Outros += consumption;
+        return;
+      }
+
+      const type = classifyEquipmentType(device);
+      distribution[type] = (distribution[type] || 0) + consumption;
+      console.log(`[ENERGY] Added ${consumption} kWh to ${type}, new total: ${distribution[type]}`);
+    });
+
+    console.log("[ENERGY] Distribution calculation complete:");
+    console.log(`[ENERGY] - Devices processed: ${devicesProcessed}`);
+    console.log(`[ENERGY] - Devices not found in ctx: ${devicesNotFound}`);
+    console.log("[ENERGY] Equipment distribution:", distribution);
+
+    return distribution;
+  } catch (error) {
+    console.error("[ENERGY] Error calculating equipment distribution:", error);
+    return null;
+  }
+}
+
+/**
+ * Encontra o device no ctx.data pelo ingestionId
+ */
+function findDeviceInCtx(ingestionId) {
+  if (!self.ctx || !Array.isArray(self.ctx.data)) {
+    console.warn("[ENERGY] ctx or ctx.data not available");
+    return null;
+  }
+
+  // Search in ctx.data for matching ingestionId
+  for (const data of self.ctx.data) {
+    const deviceIngestionId = data.datasource?.ingestionId;
+    const deviceType = data.datasource?.deviceType;
+    const entityLabel = data.datasource?.entityLabel;
+    const entityName = data.datasource?.entityName;
+    const name = data.datasource?.name;
+    const label = entityLabel || entityName || name || "";
+
+    if (deviceIngestionId === ingestionId) {
+      console.log(`[ENERGY] Found device for ingestionId ${ingestionId}:`, {
+        deviceType,
+        label,
+        entityLabel,
+        entityName,
+        name
+      });
+      return {
+        ingestionId: deviceIngestionId,
+        deviceType: deviceType,
+        labelOrName: label,
+        label: label,
+      };
+    }
+  }
+
+  console.warn(`[ENERGY] Device not found in ctx for ingestionId: ${ingestionId}`);
+  return null;
+}
+
+/**
+ * Inicializa os gráficos com dados reais
+ */
+async function initializeCharts() {
+  console.log("[ENERGY] Initializing charts with real data...");
+
+  // Get customer ID
+  const customerId = self.ctx?.settings?.customerId;
+
+  if (!customerId) {
+    console.error("[ENERGY] Customer ID not found, using mock data");
+    initializeMockCharts();
+    return;
+  }
+
+  console.log("[ENERGY] Customer ID:", customerId);
+
+  // Initialize line chart with 7 days data
   const lineCtx = document.getElementById("lineChart").getContext("2d");
-  new Chart(lineCtx, {
+
+  // Show loading state
+  lineChartInstance = new Chart(lineCtx, {
     type: "line",
     data: {
-      labels: [
-        "00:00",
-        "02:00",
-        "04:00",
-        "06:00",
-        "08:00",
-        "10:00",
-        "12:00",
-        "14:00",
-        "16:00",
-        "18:00",
-        "20:00",
-        "22:00",
-      ],
-      datasets: [
-        {
-          label: "Consumo Real",
-          data: [
-            900, 750, 650, 700, 1100, 1400, 1600, 1900, 1700, 1500, 1200, 1000,
-          ],
-          borderColor: "#2563eb",
-          backgroundColor: "transparent",
-          borderWidth: 2,
-          tension: 0.3,
-          pointRadius: 3,
-        },
-        {
-          label: "Meta",
-          data: [
-            850, 700, 600, 680, 1000, 1300, 1500, 1800, 1600, 1400, 1150, 950,
-          ],
-          borderColor: "#9fc131",
-          backgroundColor: "transparent",
-          borderWidth: 2,
-          borderDash: [5, 5],
-          tension: 0.3,
-          pointRadius: 3,
-        },
-      ],
+      labels: ["Carregando..."],
+      datasets: [{
+        label: "Consumo (kWh)",
+        data: [0],
+        borderColor: "#2563eb",
+        backgroundColor: "transparent",
+        borderWidth: 2,
+        tension: 0.3,
+        pointRadius: 3,
+      }],
     },
     options: {
       responsive: true,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: true },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const val = context.parsed.y || 0;
+              if (val >= 1000) {
+                return `Consumo: ${(val / 1000).toFixed(2)} MWh`;
+              }
+              return `Consumo: ${val.toFixed(2)} kWh`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: function(value) {
+              if (value >= 1000) {
+                return `${(value / 1000).toFixed(1)} MWh`;
+              }
+              return `${value.toFixed(0)} kWh`;
+            }
+          }
+        }
+      }
     },
   });
 
+  // Initialize pie chart with loading state
   const pieCtx = document.getElementById("pieChart").getContext("2d");
-  new Chart(pieCtx, {
+  pieChartInstance = new Chart(pieCtx, {
     type: "doughnut",
     data: {
-      labels: [
-        "HVAC 35%",
-        "Lojas 25%",
-        "Elevadores 15%",
-        "Equipamentos 10%",
-        "Iluminação 10%",
-        "Área Comum 5%",
-      ],
-      datasets: [
-        {
-          data: [35, 25, 15, 10, 10, 5],
-          backgroundColor: [
-            "#3b82f6",
-            "#8b5cf6",
-            "#f59e0b",
-            "#ef4444",
-            "#10b981",
-            "#a3e635",
-          ],
-        },
-      ],
+      labels: ["Carregando..."],
+      datasets: [{
+        data: [1],
+        backgroundColor: ["#e5e7eb"],
+      }],
     },
     options: {
       responsive: true,
@@ -707,6 +949,172 @@ function initializeCharts() {
           position: "right",
           labels: { usePointStyle: true },
         },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const label = context.label || '';
+              const value = context.parsed || 0;
+              if (value >= 1000) {
+                return `${label}: ${(value / 1000).toFixed(2)} MWh`;
+              }
+              return `${label}: ${value.toFixed(2)} kWh`;
+            }
+          }
+        }
+      },
+      cutout: "70%",
+    },
+  });
+
+  // Fetch real data and update charts
+  setTimeout(async () => {
+    console.log("[ENERGY] Starting chart updates...");
+    await updateLineChart(customerId);
+    await updatePieChart();
+  }, 2000); // Increased timeout to ensure orchestrator is ready
+}
+
+/**
+ * Atualiza o gráfico de linha com dados reais dos últimos 7 dias
+ */
+async function updateLineChart(customerId) {
+  try {
+    console.log("[ENERGY] Fetching 7 days consumption data...");
+    const sevenDaysData = await fetch7DaysConsumption(customerId);
+
+    if (!lineChartInstance) {
+      console.error("[ENERGY] Line chart instance not found");
+      return;
+    }
+
+    // Update chart data
+    lineChartInstance.data.labels = sevenDaysData.map(d => d.date);
+    lineChartInstance.data.datasets[0].data = sevenDaysData.map(d => d.consumption);
+    lineChartInstance.data.datasets[0].label = "Consumo Total";
+    lineChartInstance.update();
+
+    console.log("[ENERGY] Line chart updated with 7 days data");
+  } catch (error) {
+    console.error("[ENERGY] Error updating line chart:", error);
+  }
+}
+
+/**
+ * Atualiza o gráfico de pizza com distribuição por tipo de equipamento
+ */
+async function updatePieChart() {
+  try {
+    console.log("[ENERGY] Calculating equipment distribution...");
+
+    // Wait for orchestrator to be ready
+    let attempts = 0;
+    const maxAttempts = 20;
+
+    const waitForOrchestrator = () => {
+      return new Promise((resolve) => {
+        const intervalId = setInterval(() => {
+          attempts++;
+          const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+
+          if (orchestrator && typeof orchestrator.getEnergyCache === 'function') {
+            clearInterval(intervalId);
+            resolve(true);
+          } else if (attempts >= maxAttempts) {
+            clearInterval(intervalId);
+            resolve(false);
+          }
+        }, 200);
+      });
+    };
+
+    const ready = await waitForOrchestrator();
+
+    if (!ready) {
+      console.warn("[ENERGY] Orchestrator not ready, using mock distribution");
+      return;
+    }
+
+    const distribution = await calculateEquipmentDistribution();
+
+    if (!distribution || !pieChartInstance) {
+      console.error("[ENERGY] Unable to calculate distribution or chart not found");
+      return;
+    }
+
+    // Filter out zero values and prepare data
+    const labels = [];
+    const data = [];
+    const colors = {
+      Chiller: "#3b82f6",
+      Fancoil: "#8b5cf6",
+      AR: "#f59e0b",
+      Bombas: "#ef4444",
+      Lojas: "#10b981",
+      Elevadores: "#a3e635",
+      Outros: "#94a3b8",
+    };
+    const backgroundColors = [];
+
+    Object.entries(distribution).forEach(([type, value]) => {
+      if (value > 0) {
+        const formatted = MyIOLibrary.formatEnergy(value);
+        labels.push(`${type} (${formatted})`);
+        data.push(value);
+        backgroundColors.push(colors[type] || "#94a3b8");
+      }
+    });
+
+    // Update chart
+    pieChartInstance.data.labels = labels;
+    pieChartInstance.data.datasets[0].data = data;
+    pieChartInstance.data.datasets[0].backgroundColor = backgroundColors;
+    pieChartInstance.update();
+
+    console.log("[ENERGY] Pie chart updated with equipment distribution");
+  } catch (error) {
+    console.error("[ENERGY] Error updating pie chart:", error);
+  }
+}
+
+/**
+ * Inicializa gráficos com dados mock (fallback)
+ */
+function initializeMockCharts() {
+  const lineCtx = document.getElementById("lineChart").getContext("2d");
+  lineChartInstance = new Chart(lineCtx, {
+    type: "line",
+    data: {
+      labels: ["01/01", "02/01", "03/01", "04/01", "05/01", "06/01", "07/01"],
+      datasets: [{
+        label: "Consumo (kWh)",
+        data: [1200, 1150, 1300, 1250, 1400, 1350, 1300],
+        borderColor: "#2563eb",
+        backgroundColor: "transparent",
+        borderWidth: 2,
+        tension: 0.3,
+        pointRadius: 3,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: true } },
+    },
+  });
+
+  const pieCtx = document.getElementById("pieChart").getContext("2d");
+  pieChartInstance = new Chart(pieCtx, {
+    type: "doughnut",
+    data: {
+      labels: ["Chiller", "Fancoil", "AR", "Bombas", "Lojas", "Elevadores", "Outros"],
+      datasets: [{
+        data: [35, 20, 15, 10, 12, 5, 3],
+        backgroundColor: ["#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", "#10b981", "#a3e635", "#94a3b8"],
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: "right", labels: { usePointStyle: true } },
       },
       cutout: "70%",
     },
