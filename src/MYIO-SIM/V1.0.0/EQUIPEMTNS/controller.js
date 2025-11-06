@@ -12,6 +12,244 @@ let INGESTION_ID;
 let _dataRefreshCount = 0;
 const MAX_DATA_REFRESHES = 1;
 
+// RFC-0071: Device Profile Synchronization
+// Global flag to track if sync has been completed
+let __deviceProfileSyncComplete = false;
+
+// ============================================
+// RFC-0071: DEVICE PROFILE SYNCHRONIZATION
+// ============================================
+
+/**
+ * Fetches all active device profiles from ThingsBoard
+ * @returns {Promise<Map<string, string>>} Map of profileId -> profileName
+ */
+async function fetchDeviceProfiles() {
+  const token = localStorage.getItem("jwt_token");
+  if (!token) throw new Error("[RFC-0071] JWT token not found");
+
+  const url = "/api/deviceProfile/names?activeOnly=true";
+
+  console.log("[EQUIPMENTS] [RFC-0071] Fetching device profiles...");
+
+  const response = await fetch(url, {
+    headers: {
+      "X-Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`[RFC-0071] Failed to fetch device profiles: ${response.status}`);
+  }
+
+  const profiles = await response.json();
+
+  // Build Map: profileId -> profileName
+  const profileMap = new Map();
+  profiles.forEach(profile => {
+    const profileId = profile.id.id;
+    const profileName = profile.name;
+    profileMap.set(profileId, profileName);
+  });
+
+  console.log(`[EQUIPMENTS] [RFC-0071] Loaded ${profileMap.size} device profiles:`,
+    Array.from(profileMap.entries()).map(([id, name]) => name).join(", "));
+
+  return profileMap;
+}
+
+/**
+ * Fetches device details including deviceProfileId
+ * @param {string} deviceId - Device entity ID
+ * @returns {Promise<Object>}
+ */
+async function fetchDeviceDetails(deviceId) {
+  const token = localStorage.getItem("jwt_token");
+  if (!token) throw new Error("[RFC-0071] JWT token not found");
+
+  const url = `/api/device/${deviceId}`;
+
+  const response = await fetch(url, {
+    headers: {
+      "X-Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`[RFC-0071] Failed to fetch device ${deviceId}: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Saves deviceProfile as a server-scope attribute on the device
+ * @param {string} deviceId - Device entity ID
+ * @param {string} deviceProfile - Profile name (e.g., "MOTOR", "3F_MEDIDOR")
+ * @returns {Promise<{ok: boolean, status: number, data: any}>}
+ */
+async function addDeviceProfileAttribute(deviceId, deviceProfile) {
+  const t = Date.now();
+
+  try {
+    if (!deviceId) throw new Error("deviceId is required");
+    if (deviceProfile == null || deviceProfile === "") {
+      throw new Error("deviceProfile is required");
+    }
+
+    const token = localStorage.getItem("jwt_token");
+    if (!token) throw new Error("jwt_token not found in localStorage");
+
+    const url = `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`;
+    const headers = {
+      "Content-Type": "application/json",
+      "X-Authorization": `Bearer ${token}`,
+    };
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ deviceProfile }),
+    });
+
+    const bodyText = await res.text().catch(() => "");
+
+    if (!res.ok) {
+      throw new Error(
+        `[RFC-0071] HTTP ${res.status} ${res.statusText} - ${bodyText}`
+      );
+    }
+
+    let data = null;
+    try {
+      data = bodyText ? JSON.parse(bodyText) : null;
+    } catch {
+      // Response may not be JSON
+    }
+
+    const dt = Date.now() - t;
+    console.log(
+      `[EQUIPMENTS] [RFC-0071] ✅ Saved deviceProfile | device=${deviceId} | "${deviceProfile}" | ${dt}ms`
+    );
+
+    return { ok: true, status: res.status, data };
+  } catch (err) {
+    const dt = Date.now() - t;
+    console.error(
+      `[EQUIPMENTS] [RFC-0071] ❌ Failed to save deviceProfile | device=${deviceId} | "${deviceProfile}" | ${dt}ms | error: ${err?.message || err}`
+    );
+    throw err;
+  }
+}
+
+/**
+ * Main synchronization function
+ * Checks all devices and syncs missing deviceProfile attributes
+ * @returns {Promise<{synced: number, skipped: number, errors: number}>}
+ */
+async function syncDeviceProfileAttributes() {
+  console.log("[EQUIPMENTS] [RFC-0071] 🔄 Starting device profile synchronization...");
+
+  try {
+    // Step 1: Fetch all device profiles
+    const profileMap = await fetchDeviceProfiles();
+
+    let synced = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    // Step 2: Build a map of devices that need sync
+    const deviceMap = new Map();
+
+    self.ctx.data.forEach((data) => {
+      const entityId = data.datasource?.entity?.id?.id;
+      const existingProfile = data.datasource?.deviceProfile;
+
+      if (!entityId) return;
+
+      // Skip if already has deviceProfile attribute
+      if (existingProfile) {
+        skipped++;
+        return;
+      }
+
+      // Store for processing (deduplicate by entityId)
+      if (!deviceMap.has(entityId)) {
+        deviceMap.set(entityId, {
+          entityLabel: data.datasource?.entityLabel,
+          entityName: data.datasource?.entityName,
+          name: data.datasource?.name,
+        });
+      }
+    });
+
+    console.log(`[EQUIPMENTS] [RFC-0071] Found ${deviceMap.size} devices without deviceProfile attribute`);
+    console.log(`[EQUIPMENTS] [RFC-0071] Skipped ${skipped} devices that already have deviceProfile`);
+
+    if (deviceMap.size === 0) {
+      console.log("[EQUIPMENTS] [RFC-0071] ✅ All devices already synchronized!");
+      return { synced: 0, skipped, errors: 0 };
+    }
+
+    // Step 3: Fetch device details and sync attributes
+    let processed = 0;
+    for (const [entityId, deviceInfo] of deviceMap) {
+      processed++;
+      const deviceLabel = deviceInfo.entityLabel || deviceInfo.entityName || deviceInfo.name || entityId;
+
+      try {
+        console.log(`[EQUIPMENTS] [RFC-0071] Processing ${processed}/${deviceMap.size}: ${deviceLabel}`);
+
+        // Fetch device details to get deviceProfileId
+        const deviceDetails = await fetchDeviceDetails(entityId);
+        const deviceProfileId = deviceDetails.deviceProfileId?.id;
+
+        if (!deviceProfileId) {
+          console.warn(`[EQUIPMENTS] [RFC-0071] ⚠️ Device ${deviceLabel} has no deviceProfileId`);
+          errors++;
+          continue;
+        }
+
+        // Look up profile name from map
+        const profileName = profileMap.get(deviceProfileId);
+
+        if (!profileName) {
+          console.warn(`[EQUIPMENTS] [RFC-0071] ⚠️ Profile ID ${deviceProfileId} not found in map`);
+          errors++;
+          continue;
+        }
+
+        // Save attribute
+        await addDeviceProfileAttribute(entityId, profileName);
+        synced++;
+
+        console.log(`[EQUIPMENTS] [RFC-0071] ✅ Synced ${deviceLabel} -> ${profileName}`);
+
+        // Small delay to avoid overwhelming the API
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+      } catch (error) {
+        console.error(`[EQUIPMENTS] [RFC-0071] ❌ Failed to sync device ${deviceLabel}:`, error);
+        errors++;
+      }
+    }
+
+    console.log(`[EQUIPMENTS] [RFC-0071] 🎉 Sync complete: ${synced} synced, ${skipped} skipped, ${errors} errors`);
+
+    return { synced, skipped, errors };
+
+  } catch (error) {
+    console.error("[EQUIPMENTS] [RFC-0071] ❌ Fatal error during sync:", error);
+    throw error;
+  }
+}
+
+// ============================================
+// END RFC-0071
+// ============================================
+
 const MyIOAuth = (() => {
   // ==== CONFIG ====
   const AUTH_URL = new URL(`${DATA_API_HOST}/api/v1/auth`);
@@ -698,6 +936,25 @@ self.onInit = async function () {
     }
   });
 
+  const boolExecSync = false;
+
+  // RFC-0071: Trigger device profile synchronization (runs once)
+  if (!__deviceProfileSyncComplete && boolExecSync) {
+    try {
+      console.log("[EQUIPMENTS] [RFC-0071] Triggering device profile sync...");
+      const syncResult = await syncDeviceProfileAttributes();
+      __deviceProfileSyncComplete = true;
+
+      if (syncResult.synced > 0) {
+        console.log("[EQUIPMENTS] [RFC-0071] ⚠️ Widget reload recommended to load new deviceProfile attributes");
+        console.log("[EQUIPMENTS] [RFC-0071] You may need to refresh the dashboard to see deviceProfile in ctx.data");
+      }
+    } catch (error) {
+      console.error("[EQUIPMENTS] [RFC-0071] Sync failed, continuing without it:", error);
+      // Don't block widget initialization if sync fails
+    }
+  }
+
   const customerCredentials = await fetchCustomerServerScopeAttrs(CUSTOMER_ID);
 
   CLIENT_ID = customerCredentials.client_id || " ";
@@ -821,10 +1078,16 @@ self.onInit = async function () {
       }
 
       // Check if label contains equipment keywords
+      /*
       const label = String(device.labelOrName || "").toLowerCase();
       const equipmentKeywords = ["elevador", "chiller", "bomba", "escada", "casa de m"];
 
       return equipmentKeywords.some(keyword => label.includes(keyword));
+      */
+
+      const deviceTypeEquipmentKeywords = ["MOTOR", "ELEVADOR", "ESCADA_ROLANTE"];
+
+      return deviceTypeEquipmentKeywords.some(keyword => device.deviceType.toLowerCase().includes(keyword));      
     }
 
     // ✅ Separate lojas from equipments based on deviceType AND label validation
@@ -845,9 +1108,7 @@ self.onInit = async function () {
     console.log("[EQUIPMENTS] Lojas (actual 3F_MEDIDOR stores):", lojasDevices.length);
 
     // ✅ Emit event to inform MAIN about lojas ingestionIds
-    const lojasIngestionIds = lojasDevices
-      .map(d => d.ingestionId)
-      .filter(id => id); // Remove nulls
+    const lojasIngestionIds = lojasDevices.map(d => d.ingestionId).filter(id => id); // Remove nulls
 
     window.dispatchEvent(new CustomEvent('myio:lojas-identified', {
       detail: {
