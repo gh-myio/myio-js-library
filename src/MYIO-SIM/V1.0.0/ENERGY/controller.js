@@ -826,6 +826,151 @@ async function calculateEquipmentDistribution() {
 }
 
 /**
+ * Classifica equipamentos com mais detalhes (Elevadores vs Escadas Rolantes)
+ */
+function classifyEquipmentDetailed(device) {
+  const deviceType = device.deviceType || "";
+  const label = String(device.labelOrName || device.label || "").toLowerCase();
+
+  // Lojas: 3F_MEDIDOR que não são equipamentos
+  if (deviceType === "3F_MEDIDOR") {
+    const equipmentKeywords = ["elevador", "chiller", "bomba", "escada", "casa de m"];
+    const isEquipment = equipmentKeywords.some(keyword => label.includes(keyword));
+    if (!isEquipment) {
+      return "Lojas";
+    }
+  }
+
+  // Elevadores vs Escadas Rolantes
+  if (label.includes("elevador")) return "Elevadores";
+  if (label.includes("escada")) return "Escadas Rolantes";
+
+  // Climatização (HVAC)
+  if (label.includes("chiller") || label.includes("fancoil") || label.includes("fan coil") ||
+      label.includes("fan-coil") || label.includes("ar condicionado") ||
+      label.includes("ar-condicionado") || label.includes("split") || label.includes(" ar ")) {
+    return "Climatização";
+  }
+
+  // Outros Equipamentos (Bombas, etc)
+  if (label.includes("bomba") || label.includes("casa de m")) {
+    return "Outros Equipamentos";
+  }
+
+  return "Outros";
+}
+
+/**
+ * Calcula distribuição baseada no modo selecionado
+ * @param {string} mode - Modo de visualização (groups, elevators, escalators, hvac, others, stores)
+ * @returns {Object} - Distribuição {label: consumption}
+ */
+async function calculateDistributionByMode(mode) {
+  try {
+    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+
+    if (!orchestrator || typeof orchestrator.getEnergyCache !== 'function') {
+      console.warn("[ENERGY] Orchestrator not available");
+      return null;
+    }
+
+    const energyCache = orchestrator.getEnergyCache();
+
+    if (!energyCache || energyCache.size === 0) {
+      console.warn("[ENERGY] Energy cache is empty");
+      return null;
+    }
+
+    console.log(`[ENERGY] Calculating distribution for mode: ${mode}`);
+
+    const distribution = {};
+
+    if (mode === "groups") {
+      // Por grupos de equipamentos (padrão)
+      const groups = {
+        "Elevadores": 0,
+        "Escadas Rolantes": 0,
+        "Climatização": 0,
+        "Outros Equipamentos": 0,
+        "Lojas": 0
+      };
+
+      energyCache.forEach((deviceData, ingestionId) => {
+        const consumption = Number(deviceData.total_value) || 0;
+        const device = findDeviceInCtx(ingestionId);
+
+        if (device) {
+          const type = classifyEquipmentDetailed(device);
+          groups[type] = (groups[type] || 0) + consumption;
+        } else {
+          groups["Outros Equipamentos"] += consumption;
+        }
+      });
+
+      return groups;
+    } else {
+      // Por shopping para tipo específico
+      let equipmentType;
+      switch (mode) {
+        case "elevators": equipmentType = "Elevadores"; break;
+        case "escalators": equipmentType = "Escadas Rolantes"; break;
+        case "hvac": equipmentType = "Climatização"; break;
+        case "others": equipmentType = "Outros Equipamentos"; break;
+        case "stores": equipmentType = "Lojas"; break;
+        default: equipmentType = "Elevadores";
+      }
+
+      // Agrupar por shopping
+      const shoppingDistribution = {};
+
+      energyCache.forEach((deviceData, ingestionId) => {
+        const consumption = Number(deviceData.total_value) || 0;
+        const device = findDeviceInCtx(ingestionId);
+
+        if (!device) return;
+
+        const type = classifyEquipmentDetailed(device);
+
+        // Só incluir se for do tipo selecionado
+        if (type === equipmentType) {
+          const customerId = deviceData.customerId;
+          const shoppingName = getShoppingName(customerId);
+
+          shoppingDistribution[shoppingName] = (shoppingDistribution[shoppingName] || 0) + consumption;
+        }
+      });
+
+      return shoppingDistribution;
+    }
+  } catch (error) {
+    console.error("[ENERGY] Error calculating distribution by mode:", error);
+    return null;
+  }
+}
+
+/**
+ * Obtém o nome do shopping pelo customerId
+ */
+function getShoppingName(customerId) {
+  if (!customerId) return "Sem Shopping";
+
+  // Tentar buscar dos customers carregados
+  if (window.custumersSelected && Array.isArray(window.custumersSelected)) {
+    const shopping = window.custumersSelected.find(c => c.value === customerId);
+    if (shopping) return shopping.name;
+  }
+
+  // Tentar buscar do ctx
+  if (self.ctx.$scope?.custumer && Array.isArray(self.ctx.$scope.custumer)) {
+    const shopping = self.ctx.$scope.custumer.find(c => c.value === customerId);
+    if (shopping) return shopping.name;
+  }
+
+  // Fallback
+  return `Shopping ${customerId.substring(0, 8)}...`;
+}
+
+/**
  * Encontra o device no ctx.data pelo ingestionId
  */
 function findDeviceInCtx(ingestionId) {
@@ -970,7 +1115,10 @@ async function initializeCharts() {
   setTimeout(async () => {
     console.log("[ENERGY] Starting chart updates...");
     await updateLineChart(customerId);
-    await updatePieChart();
+    await updatePieChart("groups"); // Initialize with default mode
+
+    // Setup distribution mode selector
+    setupDistributionModeSelector();
   }, 2000); // Increased timeout to ensure orchestrator is ready
 }
 
@@ -1000,11 +1148,12 @@ async function updateLineChart(customerId) {
 }
 
 /**
- * Atualiza o gráfico de pizza com distribuição por tipo de equipamento
+ * Atualiza o gráfico de pizza com distribuição por tipo de equipamento ou por shopping
+ * @param {string} mode - Mode to display: "groups", "elevators", "escalators", "hvac", "others", "stores"
  */
-async function updatePieChart() {
+async function updatePieChart(mode = "groups") {
   try {
-    console.log("[ENERGY] Calculating equipment distribution...");
+    console.log(`[ENERGY] Calculating distribution for mode: ${mode}...`);
 
     // Wait for orchestrator to be ready
     let attempts = 0;
@@ -1034,7 +1183,8 @@ async function updatePieChart() {
       return;
     }
 
-    const distribution = await calculateEquipmentDistribution();
+    // Use new distribution calculation based on mode
+    const distribution = await calculateDistributionByMode(mode);
 
     if (!distribution || !pieChartInstance) {
       console.error("[ENERGY] Unable to calculate distribution or chart not found");
@@ -1044,23 +1194,38 @@ async function updatePieChart() {
     // Filter out zero values and prepare data
     const labels = [];
     const data = [];
-    const colors = {
-      Chiller: "#3b82f6",
-      Fancoil: "#8b5cf6",
-      AR: "#f59e0b",
-      Bombas: "#ef4444",
-      Lojas: "#10b981",
-      Elevadores: "#a3e635",
-      Outros: "#94a3b8",
+
+    // Color palette for equipment groups
+    const groupColors = {
+      "Elevadores": "#3b82f6",
+      "Escadas Rolantes": "#8b5cf6",
+      "Climatização": "#f59e0b",
+      "Outros Equipamentos": "#ef4444",
+      "Lojas": "#10b981",
     };
+
+    // Color palette for shoppings (rotating colors)
+    const shoppingColors = [
+      "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", "#10b981",
+      "#06b6d4", "#ec4899", "#14b8a6", "#f97316", "#a855f7"
+    ];
+
     const backgroundColors = [];
+    let colorIndex = 0;
 
     Object.entries(distribution).forEach(([type, value]) => {
       if (value > 0) {
         const formatted = MyIOLibrary.formatEnergy(value);
         labels.push(`${type} (${formatted})`);
         data.push(value);
-        backgroundColors.push(colors[type] || "#94a3b8");
+
+        // Use group colors for "groups" mode, shopping colors for other modes
+        if (mode === "groups") {
+          backgroundColors.push(groupColors[type] || "#94a3b8");
+        } else {
+          backgroundColors.push(shoppingColors[colorIndex % shoppingColors.length]);
+          colorIndex++;
+        }
       }
     });
 
@@ -1070,10 +1235,32 @@ async function updatePieChart() {
     pieChartInstance.data.datasets[0].backgroundColor = backgroundColors;
     pieChartInstance.update();
 
-    console.log("[ENERGY] Pie chart updated with equipment distribution");
+    console.log(`[ENERGY] Pie chart updated with ${mode} distribution`);
   } catch (error) {
     console.error("[ENERGY] Error updating pie chart:", error);
   }
+}
+
+/**
+ * Configura o seletor de modo de distribuição
+ */
+function setupDistributionModeSelector() {
+  const distributionModeSelect = document.getElementById("distributionMode");
+
+  if (!distributionModeSelect) {
+    console.warn("[ENERGY] Distribution mode selector not found");
+    return;
+  }
+
+  console.log("[ENERGY] Setting up distribution mode selector");
+
+  distributionModeSelect.addEventListener("change", async (e) => {
+    const mode = e.target.value;
+    console.log(`[ENERGY] Distribution mode changed to: ${mode}`);
+
+    // Update pie chart with new mode
+    await updatePieChart(mode);
+  });
 }
 
 /**

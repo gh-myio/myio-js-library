@@ -86,6 +86,54 @@
   padding: 16px;
 }
 
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.chart-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1c2743;
+}
+
+.chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-label {
+  font-size: 13px;
+  color: #6b7a90;
+  white-space: nowrap;
+}
+
+.chart-select {
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  color: #1c2743;
+  cursor: pointer;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.chart-select:hover {
+  border-color: #2563eb;
+}
+
+.chart-select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
 /* ====== CONTROLES DE ZOOM ====== */
 .toolbar-zoom{
   position: sticky; top: 6px; z-index: 2;

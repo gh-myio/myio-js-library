@@ -50,7 +50,20 @@
       <canvas id="lineChart"></canvas>
     </div>
     <div class="chart-box">
-      <h4>Distribuição de Energia</h4>
+      <div class="chart-header">
+        <h4>Distribuição de Energia</h4>
+        <div class="chart-controls">
+          <label for="distributionMode" class="control-label">Visualizar:</label>
+          <select id="distributionMode" class="chart-select">
+            <option value="groups">Por Grupos de Equipamentos</option>
+            <option value="elevators">Elevadores por Shopping</option>
+            <option value="escalators">Escadas Rolantes por Shopping</option>
+            <option value="hvac">Climatização por Shopping</option>
+            <option value="others">Outros Equipamentos por Shopping</option>
+            <option value="stores">Lojas por Shopping</option>
+          </select>
+        </div>
+      </div>
       <canvas id="pieChart"></canvas>
     </div>
   </div>
