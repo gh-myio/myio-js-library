@@ -1204,6 +1204,30 @@ self.onInit = async function () {
     showLoadingOverlay(false);
   }
 
+  // Function to render all available shoppings as chips (default: all selected)
+  function renderAllShoppingsChips(customers) {
+    if (!customers || !Array.isArray(customers) || customers.length === 0) {
+      console.warn("[EQUIPMENTS] ⚠️ No customers provided to render as chips");
+      return;
+    }
+
+    console.log(`[EQUIPMENTS] 🏬 Rendering ${customers.length} shoppings as pre-selected`);
+
+    // Render chips with all customers
+    renderShoppingFilterChips(customers);
+  }
+
+  // ✅ Listen for customers ready event from MENU
+  self._onCustomersReady = (ev) => {
+    console.log("[EQUIPMENTS] 🔔 heard myio:customers-ready:", ev.detail);
+
+    const customers = ev.detail?.customers || [];
+    if (customers.length > 0) {
+      renderAllShoppingsChips(customers);
+    }
+  };
+  window.addEventListener("myio:customers-ready", self._onCustomersReady);
+
     function enrichDevicesWithConsumption() {
     if (!energyCacheFromMain) {
       console.warn("[EQUIPMENTS] No energy from MAIN available yet");
@@ -1655,5 +1679,8 @@ self.onDestroy = function () {
   }
   if (self._onFilterApplied) {
     window.removeEventListener("myio:filter-applied", self._onFilterApplied);
+  }
+  if (self._onCustomersReady) {
+    window.removeEventListener("myio:customers-ready", self._onCustomersReady);
   }
 };

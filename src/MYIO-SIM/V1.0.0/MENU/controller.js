@@ -38,7 +38,13 @@ function computeCustomersFromCtx() {
     self.ctx.$scope.custumer = arr;
     // marca pronto e notifica interessados
     window.__customersReady = arr.length > 0;
-    window.dispatchEvent(new CustomEvent("myio:customers-ready", { detail: { count: arr.length } }));
+    window.dispatchEvent(new CustomEvent("myio:customers-ready", {
+        detail: {
+            count: arr.length,
+            customers: arr // Include full customer data
+        }
+    }));
+    console.log("[MENU] ✅ Dispatched myio:customers-ready with", arr.length, "customers");
     return arr;
 }
 
