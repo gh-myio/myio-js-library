@@ -689,7 +689,7 @@ async function fetchDayTotalConsumption(customerId, startTs, endTs) {
   }
 
   try {
-    const url = `/api/v1/telemetry/customers/${customerId}/energy/devices/totals?startDate=${startTs}&endDate=${endTs}`;
+    const url = `/api/v1/telemetry/customers/${customerId}/energy/devices/totals?startTime=${startTs}&endTime=${endTs}`;
 
     const response = await fetch(url, {
       headers: {
@@ -826,38 +826,41 @@ async function calculateEquipmentDistribution() {
 }
 
 /**
- * Classifica equipamentos com mais detalhes (Elevadores vs Escadas Rolantes)
+ * Classifica EQUIPAMENTOS (não lojas) em categorias
+ * IMPORTANTE: Lojas são identificadas pelo lojasIngestionIds do orchestrator
+ * Esta função APENAS classifica equipamentos
+ * REGRAS:
+ * - Elevadores: label contém "elevador" ou "elev "
+ * - Escadas Rolantes: label contém "escada"
+ * - Climatização: label contém "chiller", "fancoil", "cag", "ar condicionado", "split", etc
+ * - Outros Equipamentos: Tudo que não é Elevador, Escada ou Climatização
  */
 function classifyEquipmentDetailed(device) {
-  const deviceType = device.deviceType || "";
   const label = String(device.labelOrName || device.label || "").toLowerCase();
 
-  // Lojas: 3F_MEDIDOR que não são equipamentos
-  if (deviceType === "3F_MEDIDOR") {
-    const equipmentKeywords = ["elevador", "chiller", "bomba", "escada", "casa de m"];
-    const isEquipment = equipmentKeywords.some(keyword => label.includes(keyword));
-    if (!isEquipment) {
-      return "Lojas";
-    }
+  // Priority 1: Check if it's an ELEVATOR
+  if (label.includes("elevador") || label.includes("elev ")) {
+    return "Elevadores";
   }
 
-  // Elevadores vs Escadas Rolantes
-  if (label.includes("elevador")) return "Elevadores";
-  if (label.includes("escada")) return "Escadas Rolantes";
+  // Priority 2: Check if it's an ESCALATOR
+  if (label.includes("escada")) {
+    return "Escadas Rolantes";
+  }
 
-  // Climatização (HVAC)
-  if (label.includes("chiller") || label.includes("fancoil") || label.includes("fan coil") ||
-      label.includes("fan-coil") || label.includes("ar condicionado") ||
-      label.includes("ar-condicionado") || label.includes("split") || label.includes(" ar ")) {
+  // Priority 3: Check if it's CLIMATIZATION (HVAC)
+  const hvacKeywords = [
+    "chiller", "fancoil", "fan coil", "fan-coil",
+    "cag", "ar condicionado", "ar-condicionado",
+    "split", " ar ", "hvac", "climatização", "climatizacao"
+  ];
+  if (hvacKeywords.some(keyword => label.includes(keyword))) {
     return "Climatização";
   }
 
-  // Outros Equipamentos (Bombas, etc)
-  if (label.includes("bomba") || label.includes("casa de m")) {
-    return "Outros Equipamentos";
-  }
-
-  return "Outros";
+  // Default: Everything else is "Outros Equipamentos"
+  // This includes: Bombas, Casa de Máquinas, and any other equipment not classified above
+  return "Outros Equipamentos";
 }
 
 /**
@@ -895,18 +898,57 @@ async function calculateDistributionByMode(mode) {
         "Lojas": 0
       };
 
+      // Get lojas IDs from orchestrator (same logic as MAIN uses)
+      const lojasIngestionIds = orchestrator.getLojasIngestionIds?.() || new Set();
+      console.log(`[ENERGY] Using lojasIngestionIds from orchestrator: ${lojasIngestionIds.size} lojas`);
+
+      let sampleCount = 0;
       energyCache.forEach((deviceData, ingestionId) => {
         const consumption = Number(deviceData.total_value) || 0;
-        const device = findDeviceInCtx(ingestionId);
 
-        if (device) {
-          const type = classifyEquipmentDetailed(device);
-          groups[type] = (groups[type] || 0) + consumption;
-        } else {
-          groups["Outros Equipamentos"] += consumption;
+        // Priority 1: Check if it's a LOJA (using same logic as MAIN)
+        if (lojasIngestionIds.has(ingestionId)) {
+          groups["Lojas"] += consumption;
+
+          if (sampleCount < 10) {
+            console.log(`[ENERGY] 🔍 Device classification sample #${sampleCount + 1}:`, {
+              name: deviceData.name,
+              ingestionId: ingestionId,
+              classified: "Lojas (from lojasIngestionIds)",
+              consumption: consumption
+            });
+            sampleCount++;
+          }
+          return; // Skip further classification
+        }
+
+        // Priority 2: Classify EQUIPMENTS (everything that's not a loja)
+        const label = String(deviceData.label || deviceData.entityLabel || deviceData.entityName || "").toLowerCase();
+
+        // Create device object for classification
+        const device = {
+          deviceType: deviceData.deviceType || "",
+          labelOrName: label,
+          label: label
+        };
+
+        const type = classifyEquipmentDetailed(device);
+        groups[type] = (groups[type] || 0) + consumption;
+
+        // Log first 10 devices for debugging
+        if (sampleCount < 10) {
+          console.log(`[ENERGY] 🔍 Device classification sample #${sampleCount + 1}:`, {
+            name: deviceData.name,
+            ingestionId: ingestionId,
+            label: label,
+            classified: type,
+            consumption: consumption
+          });
+          sampleCount++;
         }
       });
 
+      console.log("[ENERGY] Distribution by groups:", groups);
       return groups;
     } else {
       // Por shopping para tipo específico
@@ -920,16 +962,29 @@ async function calculateDistributionByMode(mode) {
         default: equipmentType = "Elevadores";
       }
 
+      // Get lojas IDs from orchestrator (same logic as MAIN uses)
+      const lojasIngestionIds = orchestrator.getLojasIngestionIds?.() || new Set();
+
       // Agrupar por shopping
       const shoppingDistribution = {};
 
       energyCache.forEach((deviceData, ingestionId) => {
         const consumption = Number(deviceData.total_value) || 0;
-        const device = findDeviceInCtx(ingestionId);
+        let type;
 
-        if (!device) return;
-
-        const type = classifyEquipmentDetailed(device);
+        // Check if it's a loja first (using same logic as MAIN)
+        if (lojasIngestionIds.has(ingestionId)) {
+          type = "Lojas";
+        } else {
+          // Classify equipment
+          const label = String(deviceData.label || deviceData.entityLabel || deviceData.entityName || "").toLowerCase();
+          const device = {
+            deviceType: deviceData.deviceType || "",
+            labelOrName: label,
+            label: label
+          };
+          type = classifyEquipmentDetailed(device);
+        }
 
         // Só incluir se for do tipo selecionado
         if (type === equipmentType) {
@@ -940,6 +995,7 @@ async function calculateDistributionByMode(mode) {
         }
       });
 
+      console.log(`[ENERGY] Distribution by ${mode}:`, shoppingDistribution);
       return shoppingDistribution;
     }
   } catch (error) {
@@ -954,13 +1010,26 @@ async function calculateDistributionByMode(mode) {
 function getShoppingName(customerId) {
   if (!customerId) return "Sem Shopping";
 
-  // Tentar buscar dos customers carregados
+  // Priority 1: Try to get from energyCache (has customerName from API /totals)
+  const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+  if (orchestrator && typeof orchestrator.getEnergyCache === 'function') {
+    const energyCache = orchestrator.getEnergyCache();
+
+    // Find any device with this customerId and get customerName
+    for (const [ingestionId, deviceData] of energyCache) {
+      if (deviceData.customerId === customerId && deviceData.customerName) {
+        return deviceData.customerName;
+      }
+    }
+  }
+
+  // Priority 2: Tentar buscar dos customers carregados
   if (window.custumersSelected && Array.isArray(window.custumersSelected)) {
     const shopping = window.custumersSelected.find(c => c.value === customerId);
     if (shopping) return shopping.name;
   }
 
-  // Tentar buscar do ctx
+  // Priority 3: Tentar buscar do ctx
   if (self.ctx.$scope?.custumer && Array.isArray(self.ctx.$scope.custumer)) {
     const shopping = self.ctx.$scope.custumer.find(c => c.value === customerId);
     if (shopping) return shopping.name;
@@ -1099,10 +1168,21 @@ async function initializeCharts() {
             label: function(context) {
               const label = context.label || '';
               const value = context.parsed || 0;
+
+              // Calculate percentage
+              const dataset = context.dataset;
+              const total = dataset.data.reduce((sum, val) => sum + val, 0);
+              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+
+              // Format energy value
+              let energyStr;
               if (value >= 1000) {
-                return `${label}: ${(value / 1000).toFixed(2)} MWh`;
+                energyStr = `${(value / 1000).toFixed(2)} MWh`;
+              } else {
+                energyStr = `${value.toFixed(2)} kWh`;
               }
-              return `${label}: ${value.toFixed(2)} kWh`;
+
+              return `${label}: ${energyStr} (${percentage}%)`;
             }
           }
         }
@@ -1195,6 +1275,9 @@ async function updatePieChart(mode = "groups") {
     const labels = [];
     const data = [];
 
+    // Calculate total for percentage calculation
+    const total = Object.values(distribution).reduce((sum, val) => sum + val, 0);
+
     // Color palette for equipment groups
     const groupColors = {
       "Elevadores": "#3b82f6",
@@ -1216,7 +1299,8 @@ async function updatePieChart(mode = "groups") {
     Object.entries(distribution).forEach(([type, value]) => {
       if (value > 0) {
         const formatted = MyIOLibrary.formatEnergy(value);
-        labels.push(`${type} (${formatted})`);
+        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+        labels.push(`${type} (${formatted} - ${percentage}%)`);
         data.push(value);
 
         // Use group colors for "groups" mode, shopping colors for other modes

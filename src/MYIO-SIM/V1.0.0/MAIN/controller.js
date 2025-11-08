@@ -1,4 +1,4 @@
-/* global self, ctx */
+/* global self, ctx, window, document, localStorage, MyIOLibrary */
 
 // Debug configuration
 const DEBUG_ACTIVE = false;
@@ -471,14 +471,27 @@ const MyIOOrchestrator = (() => {
             console.log("[MAIN] [Orchestrator] 🔍 Extracted customerId:", customerId);
           }
 
-          energyCache.set(device.id, {
+          const cachedData = {
             ingestionId: device.id,
             customerId: customerId, // Shopping ingestionId
+            customerName: device.customerName || device.customer_name || null, // Shopping friendly name
             name: device.name,
+            deviceType: device.deviceType || device.device_type || "",
+            label: device.label || device.name || "",
+            entityLabel: device.entityLabel || device.entity_label || device.label || device.name || "",
+            entityName: device.entityName || device.entity_name || device.name || "",
             total_value: device.total_value || 0,
             timestamp: Date.now(),
-          });
+          };
+
+          energyCache.set(device.id, cachedData);
           count++;
+
+          // Log first cached device to verify data structure
+          if (count === 1) {
+            console.log("[MAIN] [Orchestrator] 🔍 First cached device data:", cachedData);
+            console.log("[MAIN] [Orchestrator] 🔍 customerName extracted:", cachedData.customerName);
+          }
           //console.log(`[MAIN] [Orchestrator] Cached device: ${device.name} (${device.id}) = ${device.total_value} kWh`);
           // TODO Implementar uma função que
         }
@@ -503,6 +516,7 @@ const MyIOOrchestrator = (() => {
         })
       );
       // Se já temos o total do cliente, emita também o resumo para o ENERGY
+      console.log("[MAIN] [Orchestrator] dispatchEnergySummaryIfReady >>> fetchEnergyData 001");
       dispatchEnergySummaryIfReady('fetchEnergyData');
 
       return energyCache;
@@ -681,6 +695,10 @@ const MyIOOrchestrator = (() => {
     console.log("[MAIN] [Orchestrator] lojasIngestionIds set:", lojasIngestionIds.size, "lojas");
     // Recalculate and dispatch summary if ready
     dispatchEnergySummaryIfReady('setLojasIngestionIds');
+  },
+
+  getLojasIngestionIds() {
+    return lojasIngestionIds;
   },
 
   /**
@@ -911,6 +929,8 @@ self.onInit = async function () {
 
       // Fetch and cache energy data using Ingestion Customer ID
       if (CUSTOMER_INGESTION_ID) {
+        //console.log("[MAIN] [Orchestrator] dispatchEnergySummaryIfReady >>> fetchEnergyData 001");
+        console.log("[MAIN] fetchEnergyData 002 >>> ", { startDate, endDate });
         await MyIOOrchestrator.fetchEnergyData(
           CUSTOMER_INGESTION_ID,
           startDate,
@@ -962,6 +982,8 @@ self.onInit = async function () {
     start: datesFromParent.start,
     end: datesFromParent.end,
   });
+
+  console.log("[MAIN] fetchEnergyData 003 >>> ", datesFromParent.start, datesFromParent.end);
 
   // Fetch energy data using orchestrator
   await MyIOOrchestrator.fetchEnergyData(
