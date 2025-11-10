@@ -829,37 +829,44 @@ async function calculateEquipmentDistribution() {
  * Classifica EQUIPAMENTOS (não lojas) em categorias
  * IMPORTANTE: Lojas são identificadas pelo lojasIngestionIds do orchestrator
  * Esta função APENAS classifica equipamentos
- * REGRAS:
- * - Elevadores: label contém "elevador" ou "elev "
- * - Escadas Rolantes: label contém "escada"
- * - Climatização: label contém "chiller", "fancoil", "cag", "ar condicionado", "split", etc
- * - Outros Equipamentos: Tudo que não é Elevador, Escada ou Climatização
+ *
+ * REGRAS (mesma lógica do EQUIPMENTS):
+ * 1. Se deviceType = "3F_MEDIDOR" E deviceProfile existe → usa deviceProfile como deviceType
+ * 2. Classifica baseado no deviceType (não no label):
+ *    - ELEVADOR/ELEVATOR → Elevadores
+ *    - ESCADA_ROLANTE → Escadas Rolantes
+ *    - CHILLER, AR_CONDICIONADO, AC → Climatização
+ *    - Resto → Outros Equipamentos
  */
 function classifyEquipmentDetailed(device) {
-  const label = String(device.labelOrName || device.label || "").toLowerCase();
+  let deviceType = (device.deviceType || "").toUpperCase();
+  const deviceProfile = (device.deviceProfile || "").toUpperCase();
 
-  // Priority 1: Check if it's an ELEVATOR
-  if (label.includes("elevador") || label.includes("elev ")) {
+  // REGRA: Se é 3F_MEDIDOR e tem deviceProfile válido, usa o deviceProfile como deviceType
+  if (deviceType === "3F_MEDIDOR" && deviceProfile && deviceProfile !== "N/D") {
+    deviceType = deviceProfile;
+  }
+
+  // Classify based on deviceType (same logic as EQUIPMENTS)
+
+  // Priority 1: ELEVATORS
+  if (deviceType === "ELEVADOR" || deviceType === "ELEVATOR") {
     return "Elevadores";
   }
 
-  // Priority 2: Check if it's an ESCALATOR
-  if (label.includes("escada")) {
+  // Priority 2: ESCALATORS
+  if (deviceType === "ESCADA_ROLANTE" || deviceType === "ESCALATOR") {
     return "Escadas Rolantes";
   }
 
-  // Priority 3: Check if it's CLIMATIZATION (HVAC)
-  const hvacKeywords = [
-    "chiller", "fancoil", "fan coil", "fan-coil",
-    "cag", "ar condicionado", "ar-condicionado",
-    "split", " ar ", "hvac", "climatização", "climatizacao"
-  ];
-  if (hvacKeywords.some(keyword => label.includes(keyword))) {
+  // Priority 3: CLIMATIZATION (HVAC)
+  const hvacTypes = ["CHILLER", "AR_CONDICIONADO", "AC", "HVAC", "FANCOIL", "CAG"];
+  if (hvacTypes.includes(deviceType)) {
     return "Climatização";
   }
 
   // Default: Everything else is "Outros Equipamentos"
-  // This includes: Bombas, Casa de Máquinas, and any other equipment not classified above
+  // This includes: MOTOR, BOMBA, and any other equipment type
   return "Outros Equipamentos";
 }
 
@@ -925,9 +932,10 @@ async function calculateDistributionByMode(mode) {
         // Priority 2: Classify EQUIPMENTS (everything that's not a loja)
         const label = String(deviceData.label || deviceData.entityLabel || deviceData.entityName || "").toLowerCase();
 
-        // Create device object for classification
+        // Create device object for classification (includes deviceProfile)
         const device = {
           deviceType: deviceData.deviceType || "",
+          deviceProfile: deviceData.deviceProfile || "",
           labelOrName: label,
           label: label
         };
@@ -940,6 +948,8 @@ async function calculateDistributionByMode(mode) {
           console.log(`[ENERGY] 🔍 Device classification sample #${sampleCount + 1}:`, {
             name: deviceData.name,
             ingestionId: ingestionId,
+            deviceType: deviceData.deviceType,
+            deviceProfile: deviceData.deviceProfile,
             label: label,
             classified: type,
             consumption: consumption
@@ -976,10 +986,11 @@ async function calculateDistributionByMode(mode) {
         if (lojasIngestionIds.has(ingestionId)) {
           type = "Lojas";
         } else {
-          // Classify equipment
+          // Classify equipment (includes deviceProfile)
           const label = String(deviceData.label || deviceData.entityLabel || deviceData.entityName || "").toLowerCase();
           const device = {
             deviceType: deviceData.deviceType || "",
+            deviceProfile: deviceData.deviceProfile || "",
             labelOrName: label,
             label: label
           };
@@ -1145,29 +1156,31 @@ async function initializeCharts() {
     },
   });
 
-  // Initialize pie chart with loading state
+  // Initialize bar chart with loading state
   const pieCtx = document.getElementById("pieChart").getContext("2d");
   pieChartInstance = new Chart(pieCtx, {
-    type: "doughnut",
+    type: "bar",
     data: {
       labels: ["Carregando..."],
       datasets: [{
+        label: "Consumo (kWh)",
         data: [1],
         backgroundColor: ["#e5e7eb"],
       }],
     },
     options: {
       responsive: true,
+      maintainAspectRatio: true,
+      indexAxis: 'y', // Horizontal bar chart
       plugins: {
         legend: {
-          position: "right",
-          labels: { usePointStyle: true },
+          display: false, // Hide legend for bar chart (not needed)
         },
         tooltip: {
           callbacks: {
             label: function(context) {
               const label = context.label || '';
-              const value = context.parsed || 0;
+              const value = context.parsed.x || 0;
 
               // Calculate percentage
               const dataset = context.dataset;
@@ -1182,12 +1195,31 @@ async function initializeCharts() {
                 energyStr = `${value.toFixed(2)} kWh`;
               }
 
-              return `${label}: ${energyStr} (${percentage}%)`;
+              return `${energyStr} (${percentage}%)`;
             }
           }
         }
       },
-      cutout: "70%",
+      scales: {
+        x: {
+          beginAtZero: true,
+          ticks: {
+            callback: function(value) {
+              if (value >= 1000) {
+                return `${(value / 1000).toFixed(1)} MWh`;
+              }
+              return `${value.toFixed(0)} kWh`;
+            }
+          }
+        },
+        y: {
+          ticks: {
+            font: {
+              size: 11
+            }
+          }
+        }
+      }
     },
   });
 
@@ -1317,9 +1349,10 @@ async function updatePieChart(mode = "groups") {
     pieChartInstance.data.labels = labels;
     pieChartInstance.data.datasets[0].data = data;
     pieChartInstance.data.datasets[0].backgroundColor = backgroundColors;
+    pieChartInstance.data.datasets[0].label = "Consumo"; // Bar chart label
     pieChartInstance.update();
 
-    console.log(`[ENERGY] Pie chart updated with ${mode} distribution`);
+    console.log(`[ENERGY] Bar chart updated with ${mode} distribution`);
   } catch (error) {
     console.error("[ENERGY] Error updating pie chart:", error);
   }

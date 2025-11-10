@@ -477,6 +477,7 @@ const MyIOOrchestrator = (() => {
             customerName: device.customerName || device.customer_name || null, // Shopping friendly name
             name: device.name,
             deviceType: device.deviceType || device.device_type || "",
+            deviceProfile: device.deviceProfile || device.device_profile || "",
             label: device.label || device.name || "",
             entityLabel: device.entityLabel || device.entity_label || device.label || device.name || "",
             entityName: device.entityName || device.entity_name || device.name || "",
