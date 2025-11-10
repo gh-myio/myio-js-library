@@ -659,6 +659,93 @@ function updateEquipmentStats(devices) {
   });
 }
 
+// ============================================
+// RFC-0072: MODAL MANAGEMENT UTILITIES
+// ============================================
+
+/**
+ * Creates a proper modal backdrop
+ * @returns {HTMLElement} The backdrop element
+ */
+function createModalBackdrop() {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'dashboard-modal-backdrop';
+  backdrop.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 9998;
+    animation: fadeIn 0.2s ease-in;
+  `;
+
+  // Close on backdrop click
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) {
+      closeExistingModals();
+    }
+  });
+
+  return backdrop;
+}
+
+/**
+ * Closes any existing modal instances to prevent conflicts
+ */
+function closeExistingModals() {
+  // Close any existing energy dashboards
+  const existingModals = document.querySelectorAll('.energy-dashboard-modal, .dashboard-popup, .myio-modal-overlay');
+  existingModals.forEach(modal => {
+    modal.remove();
+  });
+
+  // Remove backdrops
+  const backdrops = document.querySelectorAll('.dashboard-modal-backdrop, .modal-backdrop');
+  backdrops.forEach(backdrop => {
+    backdrop.remove();
+  });
+
+  console.log("[EQUIPMENTS] [RFC-0072] Cleaned up existing modals");
+}
+
+/**
+ * RFC-0072: Get shopping name for a device
+ * @param {Object} device - Device object
+ * @returns {string} Shopping name or fallback
+ */
+function getShoppingNameForDevice(device) {
+  // Priority 1: Check if customerId exists and look it up
+  if (device.customerId && window.custumersSelected && Array.isArray(window.custumersSelected)) {
+    const shopping = window.custumersSelected.find(c => c.value === device.customerId);
+    if (shopping) return shopping.name;
+  }
+
+  // Priority 2: Try to get from energyCache via ingestionId
+  if (device.ingestionId) {
+    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+    if (orchestrator && typeof orchestrator.getEnergyCache === 'function') {
+      const energyCache = orchestrator.getEnergyCache();
+      const cached = energyCache.get(device.ingestionId);
+      if (cached && cached.customerName) {
+        return cached.customerName;
+      }
+    }
+  }
+
+  // Priority 3: Fallback to customerId substring
+  if (device.customerId) {
+    return `Shopping ${device.customerId.substring(0, 8)}...`;
+  }
+
+  return 'N/A';
+}
+
+// ============================================
+// END RFC-0072 MODAL UTILITIES
+// ============================================
+
 // Initialize cards
 function initializeCards(devices) {
   const grid = document.getElementById("cards-grid");
@@ -670,17 +757,47 @@ function initializeCards(devices) {
     //console.log("[EQUIPMENTS] Rendering device:", device);
     grid.appendChild(container);
 
+    const valNum = Number(device.value || 0);
+    const connectionStatus = valNum > 0 ? "power_on" : "power_off";
+
     // Garantir que o deviceStatus existe (fallback para no_info se não existir)
     if (!device.deviceStatus) {
-      device.deviceStatus = 'no_info';
+      device.deviceStatus = device.connectionStatus;
     }
 
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
       handleActionDashboard: async () => {
+        // RFC-0072: Enhanced modal handling to prevent corruption
+        console.log("[EQUIPMENTS] [RFC-0072] Opening energy dashboard for:", device.entityId);
+
         try {
+          // 1. Ensure component is available
+          if (typeof MyIOLibrary.openDashboardPopupEnergy !== 'function') {
+            console.error("[EQUIPMENTS] [RFC-0072] openDashboardPopupEnergy component not loaded");
+            alert("Dashboard component não disponível");
+            return;
+          }
+
+          // 2. Clean up any existing modal state
+          closeExistingModals();
+
+          // 3. Get tokens
           const tokenIngestionDashBoard = await MyIOAuth.getToken();
           const myTbTokenDashBoard = localStorage.getItem("jwt_token");
+
+          if (!myTbTokenDashBoard) {
+            throw new Error("JWT token não encontrado");
+          }
+
+          // 4. Inject backdrop first
+          const backdrop = createModalBackdrop();
+          document.body.appendChild(backdrop);
+
+          // 5. Wait for next frame to ensure DOM is ready
+          await new Promise(resolve => requestAnimationFrame(resolve));
+
+          // 6. Open modal with proper error handling
           const modal = MyIOLibrary.openDashboardPopupEnergy({
             deviceId: device.entityId,
             readingType: "energy",
@@ -691,27 +808,37 @@ function initializeCards(devices) {
             clientId: CLIENT_ID,
             clientSecret: CLIENT_SECRET,
             onOpen: (context) => {
-              console.log("Modal opened:", context);
+              console.log("[EQUIPMENTS] [RFC-0072] Modal opened:", context);
             },
             onError: (error) => {
-              console.error("Modal error:", error);
+              console.error("[EQUIPMENTS] [RFC-0072] Modal error:", error);
+              backdrop.remove();
               alert(`Erro: ${error.message}`);
             },
             onClose: () => {
+              backdrop.remove();
               const overlay = document.querySelector(".myio-modal-overlay");
               if (overlay) {
                 overlay.remove();
-                console.log("Overlay removido com sucesso.");
               }
+              console.log("[EQUIPMENTS] [RFC-0072] Energy dashboard closed");
             },
           });
+
+          // 7. Verify modal was created
+          if (!modal) {
+            console.error("[EQUIPMENTS] [RFC-0072] Modal failed to initialize");
+            backdrop.remove();
+            alert("Erro ao abrir dashboard");
+            return;
+          }
+
+          console.log("[EQUIPMENTS] [RFC-0072] Energy dashboard opened successfully");
+
         } catch (err) {
-          console.warn(
-            "[DeviceCards] Report open blocked:",
-            err?.message || err
-          );
+          console.error("[EQUIPMENTS] [RFC-0072] Error opening energy dashboard:", err);
+          closeExistingModals();
           alert("Credenciais ainda carregando. Tente novamente em instantes.");
-        } finally {
         }
       },
 
@@ -744,15 +871,35 @@ function initializeCards(devices) {
       },
 
       handleActionSettings: async () => {
+        // RFC-0072: Standardized settings handler following TELEMETRY pattern
+        console.log("[EQUIPMENTS] [RFC-0072] Opening settings for device:", device.entityId);
+
         const jwt = localStorage.getItem("jwt_token");
+        if (!jwt) {
+          console.error("[EQUIPMENTS] [RFC-0072] JWT token not found");
+          alert("Token de autenticação não encontrado");
+          return;
+        }
+
+        //console.log("[EQUIPMENTS] ", device.deviceStatus);
+        console.log("[EQUIPMENTS] device.deviceStatus:", device.deviceStatus);
+
         try {
+          // RFC-0072: Following exact TELEMETRY pattern with domain and connectionData
           await MyIOLibrary.openDashboardPopupSettings({
             deviceId: device.entityId, // TB deviceId
             label: device.labelOrName,
             jwtToken: jwt,
+            domain: "energy", // Same as TELEMETRY WIDGET_DOMAIN
+            connectionData: {
+              centralName: device.centralName || getShoppingNameForDevice(device),
+              connectionStatusTime: Date.now(),
+              timeVal: Date.now(),
+              deviceStatus: device.deviceStatus || 'offline',
+            },
             ui: { title: "Configurações", width: 900 },
             onSaved: (payload) => {
-              console.log(payload);
+              console.log("[EQUIPMENTS] [RFC-0072] Settings saved:", payload);
               // Mostra modal global de sucesso com contador e reload
               showGlobalSuccessModal(6);
             },
@@ -761,11 +908,14 @@ function initializeCards(devices) {
               const overlay = document.querySelector(".myio-modal-overlay");
               if (overlay) {
                 overlay.remove();
-                console.log("Overlay removido com sucesso.");
               }
+              console.log("[EQUIPMENTS] [RFC-0072] Settings modal closed");
             },
           });
-        } catch (e) {}
+        } catch (e) {
+          console.error("[EQUIPMENTS] [RFC-0072] Error opening settings:", e);
+          alert("Erro ao abrir configurações");
+        }
       },
       handleSelect: (checked, entity) => {
         log(
@@ -780,6 +930,8 @@ function initializeCards(devices) {
       useNewComponents: true,
       enableSelection: true,
       enableDragDrop: true,
+      // RFC-0072: Disable "More Information" menu item (redundant with card click)
+      hideInfoMenuItem: true,
     });
 
     // O componente renderCardComponentHeadOffice agora gerencia o estilo baseado em deviceStatus
@@ -1350,7 +1502,9 @@ if (orchestrator) {
   // O erro do timeout já terá sido logado pela função 'waitForOrchestrator'
   showLoadingOverlay(false);
 }
-  // ZOOM de fontes — agora usando o WRAP como root das variáveis
+  // RFC-0072: Zoom controls removed - use browser native zoom instead
+  // Zoom functionality commented out to reduce complexity and rely on browser zoom
+  /*
   const wrap = document.getElementById("equipWrap");
   const key = `tb-font-scale:${ctx?.widget?.id || "equip"}`;
   const saved = +localStorage.getItem(key);
@@ -1370,6 +1524,7 @@ if (orchestrator) {
   document
     .getElementById("fontPlus")
     ?.addEventListener("click", () => setScale(getScale() + 0.06));
+  */
     }, 0)
 
   // ====== FILTER & SEARCH LOGIC ======
@@ -1462,13 +1617,396 @@ function reflowCards() {
 }
 
 /**
- * Open filter modal
+ * RFC-0072: Setup modal handlers (called once when modal is moved to document.body)
+ */
+function setupModalCloseHandlers(modal) {
+  // Close button
+  const closeBtn = modal.querySelector("#closeFilter");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", closeFilterModal);
+  }
+
+  // Backdrop click
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      closeFilterModal();
+    }
+  });
+
+  // Apply filters button
+  const applyBtn = modal.querySelector("#applyFilters");
+  if (applyBtn) {
+    applyBtn.addEventListener("click", () => {
+      // Get selected devices
+      const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']:checked");
+      const selectedSet = new Set();
+      checkboxes.forEach(cb => {
+        const deviceId = cb.getAttribute("data-device-id");
+        if (deviceId) selectedSet.add(deviceId);
+      });
+
+      // If all devices are selected, treat as "no filter"
+      STATE.selectedIds = selectedSet.size === STATE.allDevices.length ? null : selectedSet;
+
+      // Get sort mode
+      const sortRadio = modal.querySelector('input[name="sortMode"]:checked');
+      if (sortRadio) {
+        STATE.sortMode = sortRadio.value;
+      }
+
+      // Apply filters and close modal with cleanup
+      reflowCards();
+      closeFilterModal();
+
+      console.log("[EQUIPMENTS] [RFC-0072] Filters applied:", {
+        selectedCount: STATE.selectedIds?.size || STATE.allDevices.length,
+        sortMode: STATE.sortMode
+      });
+    });
+  }
+
+  // Reset filters button
+  const resetBtn = modal.querySelector("#resetFilters");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      // Reset state
+      STATE.selectedIds = null;
+      STATE.sortMode = 'cons_desc';
+      STATE.searchTerm = "";
+      STATE.searchActive = false;
+
+      // Reset UI
+      const searchInput = document.getElementById("equipSearch");
+      const searchWrap = document.getElementById("searchWrap");
+      if (searchInput) searchInput.value = "";
+      if (searchWrap) searchWrap.classList.remove("active");
+
+      // Apply and close with cleanup
+      reflowCards();
+      closeFilterModal();
+
+      console.log("[EQUIPMENTS] [RFC-0072] Filters reset");
+    });
+  }
+
+  console.log("[EQUIPMENTS] [RFC-0072] Modal handlers bound (close, apply, reset)");
+}
+
+/**
+ * RFC-0072: Open filter modal with full-screen support and ESC key handling
+ * Following MENU widget pattern: modal attached to document.body
  */
 function openFilterModal() {
-  const modal = document.getElementById("filterModal");
+  console.log("[EQUIPMENTS] [RFC-0072] Opening full-screen filter modal");
+
+  // RFC-0072: Get or create global modal container (like MENU widget)
+  let globalContainer = document.getElementById("equipmentsFilterModalGlobal");
+
+  if (!globalContainer) {
+    // Modal doesn't exist, move it from widget to document.body
+    const widgetModal = document.getElementById("filterModal");
+    if (widgetModal) {
+      // Extract modal from widget and wrap in global container
+      globalContainer = document.createElement("div");
+      globalContainer.id = "equipmentsFilterModalGlobal";
+
+      // RFC-0072: Inject styles inline (like MENU widget) so they work outside widget scope
+      globalContainer.innerHTML = `
+        <style>
+          /* RFC-0072: EQUIPMENTS Filter Modal Styles (injected for document.body scope) */
+          #equipmentsFilterModalGlobal .equip-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999;
+            backdrop-filter: blur(4px);
+            animation: fadeIn 0.2s ease-in;
+          }
+
+          #equipmentsFilterModalGlobal .equip-modal.hidden {
+            display: none;
+          }
+
+          #equipmentsFilterModalGlobal .equip-modal-card {
+            background: #fff;
+            border-radius: 0;
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            display: flex;
+            flex-direction: column;
+            box-shadow: none;
+            overflow: hidden;
+          }
+
+          @media (min-width: 768px) {
+            #equipmentsFilterModalGlobal .equip-modal-card {
+              border-radius: 16px;
+              width: 90%;
+              max-width: 900px;
+              height: auto;
+              max-height: 90vh;
+              box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            }
+          }
+
+          #equipmentsFilterModalGlobal .equip-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid #DDE7F1;
+          }
+
+          #equipmentsFilterModalGlobal .equip-modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            color: #1C2743;
+          }
+
+          #equipmentsFilterModalGlobal .equip-modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+          }
+
+          #equipmentsFilterModalGlobal .equip-modal-footer {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            padding: 16px 20px;
+            border-top: 1px solid #DDE7F1;
+          }
+
+          #equipmentsFilterModalGlobal .filter-block {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+
+          #equipmentsFilterModalGlobal .block-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1C2743;
+          }
+
+          #equipmentsFilterModalGlobal .inline-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+
+          #equipmentsFilterModalGlobal .tiny-btn {
+            border: 1px solid #DDE7F1;
+            background: #fff;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+
+          #equipmentsFilterModalGlobal .tiny-btn:hover {
+            background: #f8f9fa;
+            border-color: #1f6fb5;
+          }
+
+          #equipmentsFilterModalGlobal .filter-search {
+            position: relative;
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+          }
+
+          #equipmentsFilterModalGlobal .filter-search svg {
+            position: absolute;
+            left: 12px;
+            width: 18px;
+            height: 18px;
+            fill: #6b7a90;
+          }
+
+          #equipmentsFilterModalGlobal .filter-search input {
+            width: 100%;
+            padding: 10px 12px 10px 40px;
+            border: 2px solid #DDE7F1;
+            border-radius: 10px;
+            font-size: 14px;
+            outline: none;
+          }
+
+          #equipmentsFilterModalGlobal .filter-search input:focus {
+            border-color: #1f6fb5;
+          }
+
+          #equipmentsFilterModalGlobal .filter-search .clear-x {
+            position: absolute;
+            right: 12px;
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            padding: 4px;
+          }
+
+          #equipmentsFilterModalGlobal .checklist {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #DDE7F1;
+            border-radius: 10px;
+            padding: 8px;
+          }
+
+          #equipmentsFilterModalGlobal .check-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background 0.2s;
+          }
+
+          #equipmentsFilterModalGlobal .check-item:hover {
+            background: #f8f9fa;
+          }
+
+          #equipmentsFilterModalGlobal .check-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+          }
+
+          #equipmentsFilterModalGlobal .check-item label {
+            flex: 1;
+            cursor: pointer;
+            font-size: 14px;
+            color: #1C2743;
+          }
+
+          #equipmentsFilterModalGlobal .radio-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+          }
+
+          #equipmentsFilterModalGlobal .radio-grid label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            border: 1px solid #DDE7F1;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+
+          #equipmentsFilterModalGlobal .radio-grid label:hover {
+            background: #f8f9fa;
+            border-color: #1f6fb5;
+          }
+
+          #equipmentsFilterModalGlobal .radio-grid input[type="radio"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+          }
+
+          #equipmentsFilterModalGlobal .muted {
+            font-size: 12px;
+            color: #6b7a90;
+            margin-top: 4px;
+          }
+
+          #equipmentsFilterModalGlobal .btn {
+            padding: 10px 16px;
+            border: 1px solid #DDE7F1;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+
+          #equipmentsFilterModalGlobal .btn:hover {
+            background: #f8f9fa;
+          }
+
+          #equipmentsFilterModalGlobal .btn.primary {
+            background: #1f6fb5;
+            color: #fff;
+            border-color: #1f6fb5;
+          }
+
+          #equipmentsFilterModalGlobal .btn.primary:hover {
+            background: #1a5a8f;
+            border-color: #1a5a8f;
+          }
+
+          #equipmentsFilterModalGlobal .icon-btn {
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: background 0.2s;
+          }
+
+          #equipmentsFilterModalGlobal .icon-btn:hover {
+            background: #f0f0f0;
+          }
+
+          #equipmentsFilterModalGlobal .icon-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: #1C2743;
+          }
+
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+
+          body.modal-open {
+            overflow: hidden !important;
+          }
+        </style>
+      `;
+
+      // Move modal content to global container (after styles)
+      widgetModal.remove();
+      globalContainer.appendChild(widgetModal);
+
+      // Attach to document.body (like MENU widget)
+      document.body.appendChild(globalContainer);
+
+      // RFC-0072: Bind close handlers now that modal is in document.body
+      setupModalCloseHandlers(widgetModal);
+
+      console.log("[EQUIPMENTS] [RFC-0072] Modal moved to document.body with inline styles and handlers");
+    } else {
+      console.error("[EQUIPMENTS] [RFC-0072] Filter modal not found in template");
+      return;
+    }
+  }
+
+  const modal = globalContainer.querySelector("#filterModal");
   if (!modal) return;
 
   modal.classList.remove("hidden");
+
+  // RFC-0072: Add body class to prevent scrolling
+  document.body.classList.add('modal-open');
 
   // Populate device checklist
   const checklist = document.getElementById("deviceChecklist");
@@ -1494,6 +2032,41 @@ function openFilterModal() {
   sortRadios.forEach(radio => {
     radio.checked = radio.value === STATE.sortMode;
   });
+
+  // RFC-0072: Add ESC key handler
+  if (!modal._escHandler) {
+    modal._escHandler = (e) => {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+        closeFilterModal();
+      }
+    };
+    document.addEventListener('keydown', modal._escHandler);
+  }
+}
+
+/**
+ * RFC-0072: Close filter modal and cleanup
+ */
+function closeFilterModal() {
+  // RFC-0072: Modal is now in document.body, not in widget
+  const globalContainer = document.getElementById("equipmentsFilterModalGlobal");
+  if (!globalContainer) return;
+
+  const modal = globalContainer.querySelector("#filterModal");
+  if (!modal) return;
+
+  console.log("[EQUIPMENTS] [RFC-0072] Closing filter modal");
+
+  modal.classList.add("hidden");
+
+  // RFC-0072: Remove body class to restore scrolling
+  document.body.classList.remove('modal-open');
+
+  // RFC-0072: Remove ESC handler
+  if (modal._escHandler) {
+    document.removeEventListener('keydown', modal._escHandler);
+    modal._escHandler = null;
+  }
 }
 
 /**
@@ -1520,27 +2093,14 @@ function bindFilterEvents() {
     });
   }
 
-  // Filter button
+  // Filter button (opens modal which will be moved to document.body on first open)
   const btnFilter = document.getElementById("btnFilter");
   if (btnFilter) {
     btnFilter.addEventListener("click", openFilterModal);
   }
 
-  // Modal close button
-  const closeFilter = document.getElementById("closeFilter");
-  const modal = document.getElementById("filterModal");
-  if (closeFilter && modal) {
-    closeFilter.addEventListener("click", () => {
-      modal.classList.add("hidden");
-    });
-
-    // Close on backdrop click
-    modal.addEventListener("click", (e) => {
-      if (e.target === modal) {
-        modal.classList.add("hidden");
-      }
-    });
-  }
+  // RFC-0072: Close handlers are now set up in setupModalCloseHandlers()
+  // when modal is moved to document.body
 
   // Select all button
   const selectAll = document.getElementById("selectAll");
@@ -1618,59 +2178,8 @@ function bindFilterEvents() {
     });
   }
 
-  // Apply filters button
-  const applyFilters = document.getElementById("applyFilters");
-  if (applyFilters && modal) {
-    applyFilters.addEventListener("click", () => {
-      // Get selected devices
-      const checkboxes = document.querySelectorAll("#deviceChecklist input[type='checkbox']:checked");
-      const selectedSet = new Set();
-      checkboxes.forEach(cb => {
-        const deviceId = cb.getAttribute("data-device-id");
-        if (deviceId) selectedSet.add(deviceId);
-      });
-
-      // If all devices are selected, treat as "no filter"
-      STATE.selectedIds = selectedSet.size === STATE.allDevices.length ? null : selectedSet;
-
-      // Get sort mode
-      const sortRadio = document.querySelector('input[name="sortMode"]:checked');
-      if (sortRadio) {
-        STATE.sortMode = sortRadio.value;
-      }
-
-      // Apply filters and close modal
-      reflowCards();
-      modal.classList.add("hidden");
-
-      console.log("[EQUIPMENTS] Filters applied:", {
-        selectedCount: STATE.selectedIds?.size || STATE.allDevices.length,
-        sortMode: STATE.sortMode
-      });
-    });
-  }
-
-  // Reset filters button
-  const resetFilters = document.getElementById("resetFilters");
-  if (resetFilters && modal) {
-    resetFilters.addEventListener("click", () => {
-      // Reset state
-      STATE.selectedIds = null;
-      STATE.sortMode = 'cons_desc';
-      STATE.searchTerm = "";
-      STATE.searchActive = false;
-
-      // Reset UI
-      if (searchInput) searchInput.value = "";
-      if (searchWrap) searchWrap.classList.remove("active");
-
-      // Apply and close
-      reflowCards();
-      modal.classList.add("hidden");
-
-      console.log("[EQUIPMENTS] Filters reset");
-    });
-  }
+  // RFC-0072: Apply and Reset handlers are now in setupModalCloseHandlers()
+  // when modal is moved to document.body
 }
 
 self.onDestroy = function () {
@@ -1683,4 +2192,21 @@ self.onDestroy = function () {
   if (self._onCustomersReady) {
     window.removeEventListener("myio:customers-ready", self._onCustomersReady);
   }
+
+  // RFC-0072: Cleanup filter modal ESC handler
+  const globalContainer = document.getElementById("equipmentsFilterModalGlobal");
+  if (globalContainer) {
+    const modal = globalContainer.querySelector("#filterModal");
+    if (modal && modal._escHandler) {
+      document.removeEventListener('keydown', modal._escHandler);
+      modal._escHandler = null;
+    }
+
+    // RFC-0072: Remove global modal container from document.body
+    globalContainer.remove();
+    console.log("[EQUIPMENTS] [RFC-0072] Global modal container removed on destroy");
+  }
+
+  // RFC-0072: Remove modal-open class if widget is destroyed with modal open
+  document.body.classList.remove('modal-open');
 };

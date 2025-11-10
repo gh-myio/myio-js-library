@@ -626,11 +626,11 @@
     fill: var(--ink-1);
 }
 
-/* ====== FILTER MODAL ====== */
+/* ====== FILTER MODAL (RFC-0072: Full-Screen) ====== */
 .equip-modal {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.6);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -642,21 +642,37 @@
     bottom: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
+    animation: fadeIn 0.2s ease-in;
 }
 
 .equip-modal.hidden {
     display: none;
 }
 
+/* RFC-0072: Full-screen modal card following MENU widget pattern */
 .equip-modal-card {
     background: #fff;
-    border-radius: 16px;
-    width: 90%;
-    max-width: 800px;
-    max-height: 85vh;
+    border-radius: 0;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    box-shadow: none;
+    overflow: hidden;
+}
+
+/* Responsive: On larger screens, show as centered card */
+@media (min-width: 768px) {
+    .equip-modal-card {
+        border-radius: 16px;
+        width: 90%;
+        max-width: 900px;
+        height: auto;
+        max-height: 90vh;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
 }
 
 .equip-modal-header {
@@ -867,3 +883,49 @@
     background: #1a5a8f;
     border-color: #1a5a8f;
 }
+
+/* ====== RFC-0072: MODAL STYLING TO PREVENT CORRUPTION ====== */
+
+/* Ensure energy dashboard modal always renders correctly */
+.energy-dashboard-modal,
+.dashboard-popup {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 9999 !important;
+    background: #ffffff !important;
+    border-radius: 12px !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+    max-width: 90vw !important;
+    max-height: 90vh !important;
+    overflow: hidden !important;
+}
+
+.dashboard-modal-backdrop {
+    pointer-events: all !important;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Prevent body scroll when modal is open */
+body.modal-open {
+    overflow: hidden !important;
+}
+
+/* RFC-0072: Hide "More Information" menu item (redundant with card click) */
+.card-menu-item[data-action="info"],
+.card-menu-item[aria-label*="Informações"],
+.card-menu-item[aria-label*="Information"],
+.myio-card-action-info {
+    display: none !important;
+}
+
+/* ====== END RFC-0072 MODAL STYLING ======  */
