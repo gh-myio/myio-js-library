@@ -1747,7 +1747,7 @@ function openFilterModal() {
             #equipmentsFilterModalGlobal .equip-modal-card {
               border-radius: 16px;
               width: 90%;
-              max-width: 900px;
+              max-width: 1125px; /* 900px + 25% = 1125px */
               height: auto;
               max-height: 90vh;
               box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -1796,6 +1796,46 @@ function openFilterModal() {
             font-size: 14px;
             font-weight: 600;
             color: #1C2743;
+          }
+
+          /* RFC: Filter tabs header with counts */
+          #equipmentsFilterModalGlobal .filter-tabs {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #E6EEF5;
+          }
+
+          #equipmentsFilterModalGlobal .filter-tab {
+            border: 1px solid #DDE7F1;
+            background: #fff;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #6b7a90;
+            white-space: nowrap;
+          }
+
+          #equipmentsFilterModalGlobal .filter-tab:hover {
+            background: #f7fbff;
+            border-color: #2563eb;
+            color: #1C2743;
+          }
+
+          #equipmentsFilterModalGlobal .filter-tab.active {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: #fff;
+          }
+
+          #equipmentsFilterModalGlobal .filter-tab span {
+            font-weight: 700;
           }
 
           #equipmentsFilterModalGlobal .inline-actions {
@@ -2008,6 +2048,58 @@ function openFilterModal() {
   // RFC-0072: Add body class to prevent scrolling
   document.body.classList.add('modal-open');
 
+  // RFC: Calculate counts for filter tabs
+  const counts = {
+    all: STATE.allDevices.length,
+    withConsumption: 0,
+    noConsumption: 0,
+    elevators: 0,
+    escalators: 0,
+    hvac: 0,
+    others: 0
+  };
+
+  STATE.allDevices.forEach(device => {
+    const consumption = Number(device.val) || Number(device.lastValue) || 0;
+    const deviceType = (device.deviceType || '').toUpperCase();
+    const deviceProfile = (device.deviceProfile || '').toUpperCase();
+    const identifier = (device.deviceIdentifier || '').toUpperCase();
+    const labelOrName = (device.labelOrName || '').toUpperCase();
+
+    // Count consumption status
+    if (consumption > 0) {
+      counts.withConsumption++;
+    } else {
+      counts.noConsumption++;
+    }
+
+    // RFC: Check if device has CAG in identifier or labelOrName (climatização)
+    const hasCAG = identifier.includes('CAG') || labelOrName.includes('CAG');
+
+    // Count by type (using same classification logic as the rest of the widget)
+    if (deviceType === 'ELEVADOR' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR')) {
+      counts.elevators++;
+    } else if (deviceType === 'ESCADA_ROLANTE' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE')) {
+      counts.escalators++;
+    } else if (hasCAG || deviceType === 'CHILLER' || deviceType === 'FANCOIL' || deviceType === 'AR_CONDICIONADO' ||
+               deviceType === 'BOMBA' || deviceType === 'HVAC' ||
+               (deviceType === '3F_MEDIDOR' && (deviceProfile === 'CHILLER' || deviceProfile === 'FANCOIL' ||
+                deviceProfile === 'AR_CONDICIONADO' || deviceProfile === 'BOMBA' || deviceProfile === 'HVAC'))) {
+      counts.hvac++;
+    } else {
+      counts.others++;
+    }
+  });
+
+  // Update count displays
+  document.getElementById('countAll').textContent = counts.all;
+  document.getElementById('countWithConsumption').textContent = counts.withConsumption;
+  document.getElementById('countNoConsumption').textContent = counts.noConsumption;
+  document.getElementById('countElevators').textContent = counts.elevators;
+  document.getElementById('countEscalators').textContent = counts.escalators;
+  document.getElementById('countHvac').textContent = counts.hvac;
+  document.getElementById('countOthers').textContent = counts.others;
+
   // Populate device checklist
   const checklist = document.getElementById("deviceChecklist");
   if (!checklist) return;
@@ -2102,55 +2194,76 @@ function bindFilterEvents() {
   // RFC-0072: Close handlers are now set up in setupModalCloseHandlers()
   // when modal is moved to document.body
 
-  // Select all button
-  const selectAll = document.getElementById("selectAll");
-  if (selectAll) {
-    selectAll.addEventListener("click", () => {
-      const checkboxes = document.querySelectorAll("#deviceChecklist input[type='checkbox']");
-      checkboxes.forEach(cb => cb.checked = true);
-    });
-  }
+  // RFC: Filter tab click handlers
+  const filterTabs = document.querySelectorAll(".filter-tab");
+  filterTabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      const filterType = tab.getAttribute("data-filter");
 
-  // Clear all button
-  const clearAll = document.getElementById("clearAll");
-  if (clearAll) {
-    clearAll.addEventListener("click", () => {
-      const checkboxes = document.querySelectorAll("#deviceChecklist input[type='checkbox']");
-      checkboxes.forEach(cb => cb.checked = false);
-    });
-  }
+      // Update active state
+      filterTabs.forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
 
-  // Select with consumption button
-  const selectWithConsumption = document.getElementById("selectWithConsumption");
-  if (selectWithConsumption) {
-    selectWithConsumption.addEventListener("click", () => {
+      // Filter checkboxes based on selected tab
       const checkboxes = document.querySelectorAll("#deviceChecklist input[type='checkbox']");
       checkboxes.forEach(cb => {
         const deviceId = cb.getAttribute("data-device-id");
         const device = STATE.allDevices.find(d => d.entityId === deviceId);
-        if (device) {
-          const consumption = Number(device.val) || Number(device.lastValue) || 0;
-          cb.checked = consumption > 0;
-        }
-      });
-    });
-  }
 
-  // Select without consumption button
-  const selectWithoutConsumption = document.getElementById("selectWithoutConsumption");
-  if (selectWithoutConsumption) {
-    selectWithoutConsumption.addEventListener("click", () => {
-      const checkboxes = document.querySelectorAll("#deviceChecklist input[type='checkbox']");
-      checkboxes.forEach(cb => {
-        const deviceId = cb.getAttribute("data-device-id");
-        const device = STATE.allDevices.find(d => d.entityId === deviceId);
-        if (device) {
-          const consumption = Number(device.val) || Number(device.lastValue) || 0;
-          cb.checked = consumption === 0;
+        if (!device) return;
+
+        const consumption = Number(device.val) || Number(device.lastValue) || 0;
+        const deviceType = (device.deviceType || '').toUpperCase();
+        const deviceProfile = (device.deviceProfile || '').toUpperCase();
+        const identifier = (device.deviceIdentifier || '').toUpperCase();
+        const labelOrName = (device.labelOrName || '').toUpperCase();
+
+        // RFC: Check if device has CAG in identifier or labelOrName (climatização)
+        const hasCAG = identifier.includes('CAG') || labelOrName.includes('CAG');
+
+        let shouldCheck = false;
+
+        switch (filterType) {
+          case 'all':
+            shouldCheck = true;
+            break;
+          case 'with-consumption':
+            shouldCheck = consumption > 0;
+            break;
+          case 'no-consumption':
+            shouldCheck = consumption === 0;
+            break;
+          case 'elevators':
+            shouldCheck = deviceType === 'ELEVADOR' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR');
+            break;
+          case 'escalators':
+            shouldCheck = deviceType === 'ESCADA_ROLANTE' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE');
+            break;
+          case 'hvac':
+            shouldCheck = hasCAG || deviceType === 'CHILLER' || deviceType === 'FANCOIL' || deviceType === 'AR_CONDICIONADO' ||
+                         deviceType === 'BOMBA' || deviceType === 'HVAC' ||
+                         (deviceType === '3F_MEDIDOR' && (deviceProfile === 'CHILLER' || deviceProfile === 'FANCOIL' ||
+                          deviceProfile === 'AR_CONDICIONADO' || deviceProfile === 'BOMBA' || deviceProfile === 'HVAC'));
+            break;
+          case 'others':
+            shouldCheck = !(
+              hasCAG ||
+              deviceType === 'ELEVADOR' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR') ||
+              deviceType === 'ESCADA_ROLANTE' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE') ||
+              deviceType === 'CHILLER' || deviceType === 'FANCOIL' || deviceType === 'AR_CONDICIONADO' ||
+              deviceType === 'BOMBA' || deviceType === 'HVAC' ||
+              (deviceType === '3F_MEDIDOR' && (deviceProfile === 'CHILLER' || deviceProfile === 'FANCOIL' ||
+               deviceProfile === 'AR_CONDICIONADO' || deviceProfile === 'BOMBA' || deviceProfile === 'HVAC'))
+            );
+            break;
         }
+
+        cb.checked = shouldCheck;
       });
+
+      console.log(`[EQUIPMENTS] Filter tab selected: ${filterType}`);
     });
-  }
+  });
 
   // Filter device search inside modal
   const filterDeviceSearch = document.getElementById("filterDeviceSearch");

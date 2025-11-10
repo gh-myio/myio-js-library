@@ -73,17 +73,26 @@
   color: #6b7a90;
 }
 
+/* RFC-0073: Fixed layout at 100% zoom with proper proportions */
 .charts {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(400px, 1fr) minmax(350px, 1fr);
   gap: 16px;
 }
 
+/* Responsive: Stack vertically on smaller screens */
+@media (max-width: 1200px) {
+  .charts {
+    grid-template-columns: 1fr;
+  }
+}
+
 .chart-box {
-  flex: 1;
   background: #fff;
   border: 1px solid #E6EEF5;
   border-radius: 12px;
   padding: 16px;
+  min-width: 0; /* RFC-0073: Prevent overflow */
 }
 
 .chart-header {
@@ -130,6 +139,31 @@
 }
 
 .chart-select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* RFC-0073: Configuration button for 7-day chart */
+.config-btn {
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.config-btn:hover {
+  border-color: #2563eb;
+  background: #f3f8fc;
+}
+
+.config-btn:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }

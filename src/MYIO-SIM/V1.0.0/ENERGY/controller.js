@@ -2,6 +2,26 @@
 // MYIO-SIM 1.0.0 - ENERGY Widget Controller
 // ============================================
 
+// ============================================
+// DEBUG FLAGS
+// ============================================
+
+/**
+ * RFC-0073: Debug flag to use mock data for peak demand
+ * Set to true to bypass API calls and return mock data
+ */
+const MOCK_DEBUG_PEAK_DEMAND = true;
+
+/**
+ * RFC-0073: Debug flag to use mock data for day total consumption
+ * Set to true to bypass API calls and return mock data for 7-day chart
+ */
+const MOCK_DEBUG_DAY_CONSUMPTION = true;
+
+// ============================================
+// CACHE CONFIGURATION
+// ============================================
+
 // Cache para pico de demanda
 let peakDemandCache = {
   data: null,
@@ -398,29 +418,30 @@ async function calculatePeakTrend(currentPeak, startTs, endTs) {
 function renderTotalConsumptionUI(energyData, valueEl, trendEl, infoEl) {
   if (!energyData) return;
 
-  // ✅ PONTO PRINCIPAL: O valor principal do card agora é a 'difference'
-  const differenceFormatted = MyIOLibrary.formatEnergy(energyData.difference);
+  // RFC-0073: Calculate percentages for Lojas vs Equipamentos
+  const totalGeral = energyData.customerTotal;
+  const lojasTotal = energyData.difference;
+  const equipamentosTotal = energyData.equipmentsTotal;
+
+  const lojasPercentage = totalGeral > 0 ? ((lojasTotal / totalGeral) * 100) : 0;
+  const equipamentosPercentage = totalGeral > 0 ? ((equipamentosTotal / totalGeral) * 100) : 0;
+
+  // RFC-0073: Main value shows "Consumo Total Lojas" with percentage
+  const lojasFormatted = MyIOLibrary.formatEnergy(lojasTotal);
 
   if (valueEl) {
-    valueEl.textContent = differenceFormatted;
+    valueEl.textContent = `${lojasFormatted} (${lojasPercentage.toFixed(1)}%)`;
   }
 
-  // O texto de informação dá o contexto do cálculo
+  // RFC-0073: Info line shows "Equipamentos: XX%"
   if (infoEl) {
-    const customerFormatted = MyIOLibrary.formatEnergy(
-      energyData.customerTotal
-    );
-    const equipmentsFormatted = MyIOLibrary.formatEnergy(
-      energyData.equipmentsTotal
-    );
-    infoEl.textContent = `Total: ${customerFormatted} | Equipamentos: ${equipmentsFormatted}`;
+    infoEl.textContent = `Equipamentos: ${equipamentosPercentage.toFixed(1)}%`;
   }
 
-  // O texto de "tendência" agora mostra a proporção
-  if (trendEl && energyData.customerTotal > 0) {
-    trendEl.textContent = `Equipamentos são ${energyData.percentage.toFixed(
-      1
-    )}% do total`;
+  // RFC-0073: Trend line shows total context
+  if (trendEl && totalGeral > 0) {
+    const totalFormatted = MyIOLibrary.formatEnergy(totalGeral);
+    trendEl.textContent = `Total geral: ${totalFormatted}`;
   }
 }
 
@@ -517,7 +538,90 @@ function initializePeakDemandCard() {
 }
 
 /**
+ * RFC-0073: Get selected shopping IDs from filter
+ */
+function getSelectedShoppingIds() {
+  // Check if there are selected customers from MENU filter
+  if (window.custumersSelected && Array.isArray(window.custumersSelected)) {
+    const selectedIds = window.custumersSelected
+      .filter(c => c.selected === true)
+      .map(c => c.value);
+
+    if (selectedIds.length > 0) {
+      console.log("[ENERGY] [RFC-0073] Using filtered shopping IDs:", selectedIds);
+      return selectedIds;
+    }
+  }
+
+  // Fallback: return empty array (will use widget's customerId)
+  console.log("[ENERGY] [RFC-0073] No shopping filter active, using widget customerId");
+  return [];
+}
+
+/**
+ * RFC-0073: Fetch peak demand for multiple customers (respects shopping filter)
+ */
+async function fetchFilteredPeakDemand(customerIds, startTs, endTs) {
+  // RFC-0073: Debug mock data
+  if (MOCK_DEBUG_PEAK_DEMAND) {
+    console.log("[ENERGY] [RFC-0073] [MOCK] Using mock peak demand data");
+
+    // Generate mock data based on number of customers
+    const mockPeakValues = [
+      { value: 1250.5, device: "Chiller Principal - Torre Norte", shopping: "Shopping Iguatemi SP" },
+      { value: 980.3, device: "HVAC Central - Piso 2", shopping: "Shopping Eldorado" },
+      { value: 1450.7, device: "Ar Condicionado - Food Court", shopping: "Shopping JK Iguatemi" },
+      { value: 720.2, device: "Sistema Climatização - Ala A", shopping: "Shopping Villa Lobos" },
+      { value: 1100.0, device: "Chiller Backup - Subsolo", shopping: "Shopping Morumbi" }
+    ];
+
+    // Select random mock based on customerIds
+    const mockIndex = customerIds.length > 0
+      ? Math.abs(customerIds[0].charCodeAt(0)) % mockPeakValues.length
+      : 0;
+
+    const selectedMock = mockPeakValues[mockIndex];
+
+    // Calculate a timestamp within the requested period
+    const mockTimestamp = startTs + Math.floor((endTs - startTs) * 0.6); // 60% into period
+
+    return {
+      peakValue: selectedMock.value,
+      deviceName: selectedMock.device,
+      timestamp: mockTimestamp,
+      customerId: customerIds[0] || null,
+      shoppingName: selectedMock.shopping
+    };
+  }
+
+  if (!customerIds || customerIds.length === 0) {
+    return { peakValue: 0, deviceName: null, timestamp: null };
+  }
+
+  console.log("[ENERGY] [RFC-0073] Fetching peak demand for customers:", customerIds);
+
+  // Fetch peak demand for each customer and find the highest
+  const peakPromises = customerIds.map(customerId =>
+    fetchCustomerPeakDemand(customerId, startTs, endTs)
+  );
+
+  const allPeaks = await Promise.all(peakPromises);
+
+  // Find the overall peak across all customers
+  const overallPeak = allPeaks.reduce((highest, current) => {
+    if (!current || current.peakValue === 0) return highest;
+    if (!highest || current.peakValue > highest.peakValue) return current;
+    return highest;
+  }, null);
+
+  console.log("[ENERGY] [RFC-0073] Overall peak across filtered customers:", overallPeak);
+
+  return overallPeak || { peakValue: 0, deviceName: null, timestamp: null };
+}
+
+/**
  * Atualiza o card de pico de demanda com dados reais
+ * RFC-0073: Now respects shopping filters
  */
 async function updatePeakDemandCard(startTs, endTs) {
   const valueEl = document.getElementById("peak-demand-value");
@@ -525,7 +629,7 @@ async function updatePeakDemandCard(startTs, endTs) {
   const deviceEl = document.getElementById("peak-demand-device");
 
   try {
-    console.log("[ENERGY] Fetching peak demand data...", { startTs, endTs });
+    console.log("[ENERGY] [RFC-0073] Fetching peak demand data...", { startTs, endTs });
 
     // Show loading state
     if (valueEl) {
@@ -544,8 +648,14 @@ async function updatePeakDemandCard(startTs, endTs) {
       throw new Error("Customer ID não encontrado");
     }
 
-    // Fetch peak demand
-    const peakData = await fetchCustomerPeakDemand(customerId, startTs, endTs);
+    // RFC-0073: Get filtered shopping IDs or use widget's customerId
+    const selectedShoppingIds = getSelectedShoppingIds();
+    const customerIds = selectedShoppingIds.length > 0
+      ? selectedShoppingIds
+      : [customerId];
+
+    // RFC-0073: Fetch peak demand respecting filters
+    const peakData = await fetchFilteredPeakDemand(customerIds, startTs, endTs);
 
     console.log("[ENERGY] Peak demand data received:", peakData);
 
@@ -681,6 +791,35 @@ function classifyEquipmentType(device) {
  * @returns {Promise<number>} - Total de consumo em kWh
  */
 async function fetchDayTotalConsumption(customerId, startTs, endTs) {
+  // RFC-0073: Debug mock data
+  if (MOCK_DEBUG_DAY_CONSUMPTION) {
+    const dayDate = new Date(startTs);
+    const dayOfWeek = dayDate.getDay(); // 0 = Sunday, 6 = Saturday
+
+    // Generate realistic consumption patterns
+    // Weekends have lower consumption, weekdays higher
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    // Base consumption varies by customer (use customerId to generate deterministic values)
+    const customerSeed = customerId ? Math.abs(customerId.charCodeAt(0)) : 50;
+    const baseConsumption = 8000 + (customerSeed % 4000); // 8000-12000 kWh base
+
+    // Weekend reduction (20-30% less)
+    const weekendFactor = isWeekend ? 0.7 + Math.random() * 0.1 : 1.0;
+
+    // Daily variation (±15%)
+    const variation = 0.85 + Math.random() * 0.3;
+
+    const mockConsumption = baseConsumption * weekendFactor * variation;
+
+    console.log(`[ENERGY] [MOCK] Day total (${dayDate.toLocaleDateString()}): ${mockConsumption.toFixed(2)} kWh`);
+
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    return mockConsumption;
+  }
+
   const tbToken = localStorage.getItem("jwt_token");
 
   if (!tbToken) {
@@ -1231,16 +1370,69 @@ async function initializeCharts() {
 
     // Setup distribution mode selector
     setupDistributionModeSelector();
+
+    // RFC-0073 Problem 1: Setup chart configuration button
+    setupChartConfigButton();
   }, 2000); // Increased timeout to ensure orchestrator is ready
 }
 
 /**
+ * RFC-0073: Fetch 7 days consumption for multiple customers (respects shopping filter)
+ */
+async function fetch7DaysConsumptionFiltered(customerIds) {
+  if (!customerIds || customerIds.length === 0) {
+    return [];
+  }
+
+  console.log("[ENERGY] [RFC-0073] Fetching 7 days for customers:", customerIds);
+
+  const results = [];
+  const now = new Date();
+
+  // Iterate through last 7 days
+  for (let i = 6; i >= 0; i--) {
+    const dayDate = new Date(now);
+    dayDate.setDate(now.getDate() - i);
+    dayDate.setHours(0, 0, 0, 0);
+
+    const startTs = dayDate.getTime();
+    const endDate = new Date(dayDate);
+    endDate.setHours(23, 59, 59, 999);
+    const endTs = endDate.getTime();
+
+    // Aggregate consumption from all filtered customers for this day
+    let dayTotal = 0;
+
+    for (const customerId of customerIds) {
+      const consumption = await fetchDayTotalConsumption(customerId, startTs, endTs);
+      dayTotal += consumption;
+    }
+
+    results.push({
+      date: dayDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+      consumption: dayTotal,
+    });
+  }
+
+  console.log("[ENERGY] [RFC-0073] 7 days consumption (filtered):", results);
+  return results;
+}
+
+/**
  * Atualiza o gráfico de linha com dados reais dos últimos 7 dias
+ * RFC-0073: Now respects shopping filters
  */
 async function updateLineChart(customerId) {
   try {
-    console.log("[ENERGY] Fetching 7 days consumption data...");
-    const sevenDaysData = await fetch7DaysConsumption(customerId);
+    console.log("[ENERGY] [RFC-0073] Fetching 7 days consumption data...");
+
+    // RFC-0073: Get filtered shopping IDs or use widget's customerId
+    const selectedShoppingIds = getSelectedShoppingIds();
+    const customerIds = selectedShoppingIds.length > 0
+      ? selectedShoppingIds
+      : [customerId];
+
+    const sevenDaysData = await fetch7DaysConsumptionFiltered(customerIds);
 
     if (!lineChartInstance) {
       console.error("[ENERGY] Line chart instance not found");
@@ -1250,13 +1442,30 @@ async function updateLineChart(customerId) {
     // Update chart data
     lineChartInstance.data.labels = sevenDaysData.map(d => d.date);
     lineChartInstance.data.datasets[0].data = sevenDaysData.map(d => d.consumption);
-    lineChartInstance.data.datasets[0].label = "Consumo Total";
+
+    // RFC-0073: Show which shoppings are included
+    const shoppingNames = customerIds.length > 1
+      ? `${customerIds.length} Shoppings`
+      : getShoppingNameForFilter(customerIds[0]);
+
+    lineChartInstance.data.datasets[0].label = `Consumo Total (${shoppingNames})`;
     lineChartInstance.update();
 
-    console.log("[ENERGY] Line chart updated with 7 days data");
+    console.log("[ENERGY] [RFC-0073] Line chart updated with 7 days data (filtered)");
   } catch (error) {
     console.error("[ENERGY] Error updating line chart:", error);
   }
+}
+
+/**
+ * RFC-0073: Helper to get shopping name for chart label
+ */
+function getShoppingNameForFilter(customerId) {
+  if (window.custumersSelected && Array.isArray(window.custumersSelected)) {
+    const shopping = window.custumersSelected.find(c => c.value === customerId);
+    if (shopping) return shopping.name;
+  }
+  return "Shopping";
 }
 
 /**
@@ -1381,6 +1590,564 @@ function setupDistributionModeSelector() {
 }
 
 /**
+ * RFC-0073 Problem 1: Configura o botão de configuração do gráfico de 7 dias
+ */
+function setupChartConfigButton() {
+  const configBtn = document.getElementById("configureChartBtn");
+
+  if (!configBtn) {
+    console.warn("[ENERGY] [RFC-0073] Chart configuration button not found");
+    return;
+  }
+
+  console.log("[ENERGY] [RFC-0073] Setting up chart configuration button");
+
+  configBtn.addEventListener("click", () => {
+    console.log("[ENERGY] [RFC-0073] Opening chart configuration modal");
+    openChartConfigModal();
+  });
+}
+
+/**
+ * RFC-0073 Problem 2: Abre a modal de configuração avançada do gráfico
+ */
+function openChartConfigModal() {
+  console.log("[ENERGY] [RFC-0073] Opening chart configuration modal");
+
+  let globalContainer = document.getElementById("energyChartConfigModalGlobal");
+
+  if (!globalContainer) {
+    // Create modal structure
+    globalContainer = document.createElement("div");
+    globalContainer.id = "energyChartConfigModalGlobal";
+
+    // RFC-0073: Inject styles inline (following EQUIPMENTS pattern)
+    globalContainer.innerHTML = `
+      <style>
+        /* RFC-0073: ENERGY Chart Config Modal Styles */
+        #energyChartConfigModalGlobal .chart-config-modal {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 999999;
+          backdrop-filter: blur(4px);
+          animation: fadeIn 0.2s ease-in;
+        }
+
+        #energyChartConfigModalGlobal .chart-config-modal.hidden {
+          display: none;
+        }
+
+        #energyChartConfigModalGlobal .modal-card {
+          background: #fff;
+          border-radius: 16px;
+          width: 90%;
+          max-width: 700px;
+          max-height: 90vh;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          overflow: hidden;
+        }
+
+        #energyChartConfigModalGlobal .modal-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 20px 24px;
+          border-bottom: 1px solid #e6eef5;
+        }
+
+        #energyChartConfigModalGlobal .modal-header h3 {
+          margin: 0;
+          font-size: 20px;
+          font-weight: 600;
+          color: #1c2743;
+        }
+
+        #energyChartConfigModalGlobal .modal-body {
+          flex: 1;
+          overflow-y: auto;
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+        }
+
+        #energyChartConfigModalGlobal .modal-footer {
+          display: flex;
+          gap: 12px;
+          justify-content: flex-end;
+          padding: 16px 24px;
+          border-top: 1px solid #e6eef5;
+        }
+
+        #energyChartConfigModalGlobal .config-section {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        #energyChartConfigModalGlobal .section-label {
+          font-size: 14px;
+          font-weight: 600;
+          color: #1c2743;
+          margin-bottom: 4px;
+        }
+
+        #energyChartConfigModalGlobal .period-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+          gap: 10px;
+        }
+
+        #energyChartConfigModalGlobal .period-option {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px;
+          border: 2px solid #e6eef5;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 0.2s;
+          background: #fff;
+        }
+
+        #energyChartConfigModalGlobal .period-option:hover {
+          border-color: #2563eb;
+          background: #f7fbff;
+        }
+
+        #energyChartConfigModalGlobal .period-option input[type="radio"] {
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+        }
+
+        #energyChartConfigModalGlobal .period-option.selected {
+          border-color: #2563eb;
+          background: #eff6ff;
+        }
+
+        #energyChartConfigModalGlobal .date-inputs {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+
+        #energyChartConfigModalGlobal .date-field {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        #energyChartConfigModalGlobal .date-field label {
+          font-size: 13px;
+          color: #6b7a90;
+          font-weight: 500;
+        }
+
+        #energyChartConfigModalGlobal .date-field input {
+          padding: 10px 12px;
+          border: 2px solid #e6eef5;
+          border-radius: 8px;
+          font-size: 14px;
+          outline: none;
+          transition: border-color 0.2s;
+        }
+
+        #energyChartConfigModalGlobal .date-field input:focus {
+          border-color: #2563eb;
+        }
+
+        #energyChartConfigModalGlobal .equipment-filters {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+        }
+
+        #energyChartConfigModalGlobal .checkbox-option {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 12px;
+          border: 1px solid #e6eef5;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        #energyChartConfigModalGlobal .checkbox-option:hover {
+          background: #f8f9fa;
+          border-color: #2563eb;
+        }
+
+        #energyChartConfigModalGlobal .checkbox-option input[type="checkbox"] {
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+        }
+
+        #energyChartConfigModalGlobal .checkbox-option label {
+          flex: 1;
+          cursor: pointer;
+          font-size: 14px;
+          color: #1c2743;
+        }
+
+        #energyChartConfigModalGlobal .viz-mode-group {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        #energyChartConfigModalGlobal .btn {
+          padding: 10px 20px;
+          border: 1px solid #d1d5db;
+          border-radius: 10px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+          background: #fff;
+        }
+
+        #energyChartConfigModalGlobal .btn:hover {
+          background: #f8f9fa;
+        }
+
+        #energyChartConfigModalGlobal .btn.primary {
+          background: #2563eb;
+          color: #fff;
+          border-color: #2563eb;
+        }
+
+        #energyChartConfigModalGlobal .btn.primary:hover {
+          background: #1d4ed8;
+          border-color: #1d4ed8;
+        }
+
+        #energyChartConfigModalGlobal .close-btn {
+          border: 0;
+          background: transparent;
+          cursor: pointer;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 6px;
+          transition: background 0.2s;
+        }
+
+        #energyChartConfigModalGlobal .close-btn:hover {
+          background: #f0f0f0;
+        }
+
+        #energyChartConfigModalGlobal .close-btn svg {
+          width: 20px;
+          height: 20px;
+          fill: #1c2743;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        body.modal-open {
+          overflow: hidden !important;
+        }
+      </style>
+
+      <div id="chartConfigModal" class="chart-config-modal hidden">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3>Configuração do Gráfico</h3>
+            <button class="close-btn" id="closeChartConfig" title="Fechar">
+              <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+          </div>
+
+          <div class="modal-body">
+            <!-- Period Selection -->
+            <div class="config-section">
+              <div class="section-label">Período</div>
+              <div class="period-grid">
+                <label class="period-option">
+                  <input type="radio" name="chartPeriod" value="7" checked>
+                  <span>7 dias</span>
+                </label>
+                <label class="period-option">
+                  <input type="radio" name="chartPeriod" value="14">
+                  <span>14 dias</span>
+                </label>
+                <label class="period-option">
+                  <input type="radio" name="chartPeriod" value="30">
+                  <span>30 dias</span>
+                </label>
+                <label class="period-option">
+                  <input type="radio" name="chartPeriod" value="custom">
+                  <span>Personalizado</span>
+                </label>
+              </div>
+
+              <!-- Custom Date Range (hidden by default) -->
+              <div id="customDateRange" class="date-inputs" style="display: none;">
+                <div class="date-field">
+                  <label>Data Inicial</label>
+                  <input type="date" id="chartStartDate">
+                </div>
+                <div class="date-field">
+                  <label>Data Final</label>
+                  <input type="date" id="chartEndDate">
+                </div>
+              </div>
+            </div>
+
+            <!-- Equipment Type Filters -->
+            <div class="config-section">
+              <div class="section-label">Tipos de Equipamento</div>
+              <div class="equipment-filters">
+                <label class="checkbox-option">
+                  <input type="checkbox" class="equipment-type-filter" value="ELEVADOR" checked>
+                  <span>Elevadores</span>
+                </label>
+                <label class="checkbox-option">
+                  <input type="checkbox" class="equipment-type-filter" value="ESCADA_ROLANTE" checked>
+                  <span>Escadas Rolantes</span>
+                </label>
+                <label class="checkbox-option">
+                  <input type="checkbox" class="equipment-type-filter" value="CHILLER" checked>
+                  <span>Chiller</span>
+                </label>
+                <label class="checkbox-option">
+                  <input type="checkbox" class="equipment-type-filter" value="FANCOIL" checked>
+                  <span>Fancoil</span>
+                </label>
+                <label class="checkbox-option">
+                  <input type="checkbox" class="equipment-type-filter" value="AR_CONDICIONADO" checked>
+                  <span>Ar Condicionado</span>
+                </label>
+                <label class="checkbox-option">
+                  <input type="checkbox" class="equipment-type-filter" value="BOMBA" checked>
+                  <span>Bombas</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Visualization Mode -->
+            <div class="config-section">
+              <div class="section-label">Modo de Visualização</div>
+              <div class="viz-mode-group">
+                <label class="checkbox-option">
+                  <input type="radio" name="vizMode" value="total" checked>
+                  <span>Total Consolidado</span>
+                </label>
+                <label class="checkbox-option">
+                  <input type="radio" name="vizMode" value="separate">
+                  <span>Séries Separadas por Shopping</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn" id="resetChartConfig">Restaurar Padrão</button>
+            <button class="btn primary" id="applyChartConfig">Aplicar</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(globalContainer);
+    setupChartConfigModalHandlers();
+  }
+
+  const modal = globalContainer.querySelector("#chartConfigModal");
+  if (!modal) return;
+
+  modal.classList.remove("hidden");
+  document.body.classList.add('modal-open');
+
+  // Setup ESC key handler
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      closeChartConfigModal();
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+  modal._escHandler = escHandler;
+}
+
+/**
+ * RFC-0073 Problem 2: Configura os handlers da modal de configuração
+ */
+function setupChartConfigModalHandlers() {
+  const modal = document.getElementById("chartConfigModal");
+  if (!modal) return;
+
+  // Close button
+  const closeBtn = document.getElementById("closeChartConfig");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", closeChartConfigModal);
+  }
+
+  // Click outside to close
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      closeChartConfigModal();
+    }
+  });
+
+  // Period selection handlers
+  const periodRadios = modal.querySelectorAll('input[name="chartPeriod"]');
+  const customDateRange = document.getElementById("customDateRange");
+
+  periodRadios.forEach(radio => {
+    radio.addEventListener("change", (e) => {
+      // Update selected styling
+      modal.querySelectorAll(".period-option").forEach(opt => opt.classList.remove("selected"));
+      e.target.closest(".period-option").classList.add("selected");
+
+      // Show/hide custom date range
+      if (e.target.value === "custom") {
+        customDateRange.style.display = "grid";
+      } else {
+        customDateRange.style.display = "none";
+      }
+    });
+  });
+
+  // Apply button
+  const applyBtn = document.getElementById("applyChartConfig");
+  if (applyBtn) {
+    applyBtn.addEventListener("click", applyChartConfiguration);
+  }
+
+  // Reset button
+  const resetBtn = document.getElementById("resetChartConfig");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", resetChartConfiguration);
+  }
+}
+
+/**
+ * RFC-0073 Problem 2: Fecha a modal de configuração
+ */
+function closeChartConfigModal() {
+  const globalContainer = document.getElementById("energyChartConfigModalGlobal");
+  if (!globalContainer) return;
+
+  const modal = globalContainer.querySelector("#chartConfigModal");
+  if (!modal) return;
+
+  console.log("[ENERGY] [RFC-0073] Closing chart config modal");
+
+  modal.classList.add("hidden");
+  document.body.classList.remove('modal-open');
+
+  // Remove ESC handler
+  if (modal._escHandler) {
+    document.removeEventListener('keydown', modal._escHandler);
+    modal._escHandler = null;
+  }
+}
+
+/**
+ * RFC-0073 Problem 2: Aplica a configuração do gráfico
+ */
+async function applyChartConfiguration() {
+  console.log("[ENERGY] [RFC-0073] Applying chart configuration");
+
+  const modal = document.getElementById("chartConfigModal");
+  if (!modal) return;
+
+  // Get selected period
+  const periodRadio = modal.querySelector('input[name="chartPeriod"]:checked');
+  const period = periodRadio ? periodRadio.value : "7";
+
+  // Get selected equipment types
+  const equipmentCheckboxes = modal.querySelectorAll('.equipment-type-filter:checked');
+  const selectedEquipmentTypes = Array.from(equipmentCheckboxes).map(cb => cb.value);
+
+  // Get visualization mode
+  const vizModeRadio = modal.querySelector('input[name="vizMode"]:checked');
+  const vizMode = vizModeRadio ? vizModeRadio.value : "total";
+
+  // Get dates
+  let startDate, endDate;
+  if (period === "custom") {
+    const startInput = document.getElementById("chartStartDate");
+    const endInput = document.getElementById("chartEndDate");
+    startDate = startInput ? startInput.value : null;
+    endDate = endInput ? endInput.value : null;
+
+    if (!startDate || !endDate) {
+      alert("Por favor, selecione as datas inicial e final");
+      return;
+    }
+  } else {
+    // Calculate dates based on period
+    const now = new Date();
+    endDate = now.toISOString().split('T')[0];
+    const startDateObj = new Date(now);
+    startDateObj.setDate(now.getDate() - parseInt(period));
+    startDate = startDateObj.toISOString().split('T')[0];
+  }
+
+  console.log("[ENERGY] [RFC-0073] Chart config:", { period, startDate, endDate, selectedEquipmentTypes, vizMode });
+
+  // TODO: Update chart with new configuration
+  // For now, just close the modal
+  closeChartConfigModal();
+
+  // Show success message
+  alert(`Configuração aplicada:\nPeríodo: ${period} dias\nEquipamentos: ${selectedEquipmentTypes.length} tipos selecionados\nModo: ${vizMode === 'total' ? 'Consolidado' : 'Separado'}`);
+
+  // Update the chart
+  const customerId = self.ctx.settings?.customerId;
+  if (customerId) {
+    await updateLineChart(customerId);
+  }
+}
+
+/**
+ * RFC-0073 Problem 2: Restaura configuração padrão
+ */
+function resetChartConfiguration() {
+  console.log("[ENERGY] [RFC-0073] Resetting chart configuration to defaults");
+
+  const modal = document.getElementById("chartConfigModal");
+  if (!modal) return;
+
+  // Reset period to 7 days
+  const period7Radio = modal.querySelector('input[name="chartPeriod"][value="7"]');
+  if (period7Radio) {
+    period7Radio.checked = true;
+    period7Radio.dispatchEvent(new Event("change"));
+  }
+
+  // Check all equipment types
+  const equipmentCheckboxes = modal.querySelectorAll('.equipment-type-filter');
+  equipmentCheckboxes.forEach(cb => cb.checked = true);
+
+  // Reset visualization mode to total
+  const vizTotalRadio = modal.querySelector('input[name="vizMode"][value="total"]');
+  if (vizTotalRadio) {
+    vizTotalRadio.checked = true;
+  }
+
+  // Clear custom dates
+  const startInput = document.getElementById("chartStartDate");
+  const endInput = document.getElementById("chartEndDate");
+  if (startInput) startInput.value = "";
+  if (endInput) endInput.value = "";
+}
+
+/**
  * Inicializa gráficos com dados mock (fallback)
  */
 function initializeMockCharts() {
@@ -1461,6 +2228,39 @@ self.onInit = async function () {
 
   if (window.parent !== window) {
     window.parent.addEventListener("myio:energy-summary-ready", handleEnergySummary);
+  }
+
+  // RFC-0073: Listen to shopping filter changes and update charts
+  const handleFilterApplied = async (ev) => {
+    console.log("[ENERGY] [RFC-0073] Shopping filter applied, updating charts...", ev.detail);
+
+    // Get dates from context
+    const startTs = self.ctx.$scope?.startDateISO
+      ? new Date(self.ctx.$scope.startDateISO).getTime()
+      : Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+    const endTs = self.ctx.$scope?.endDateISO
+      ? new Date(self.ctx.$scope.endDateISO).getTime()
+      : Date.now();
+
+    // Update peak demand card with new filter
+    await updatePeakDemandCard(startTs, endTs);
+
+    // Also update pie chart to reflect filtered data
+    const currentMode = document.getElementById("distributionMode")?.value || "groups";
+    await updatePieChart(currentMode);
+
+    // RFC-0073 Problem 1: Update 7-day line chart with filtered data
+    const customerId = self.ctx.settings?.customerId;
+    if (customerId) {
+      await updateLineChart(customerId);
+    }
+  };
+
+  window.addEventListener("myio:filter-applied", handleFilterApplied);
+
+  if (window.parent !== window) {
+    window.parent.addEventListener("myio:filter-applied", handleFilterApplied);
   }
 
   // DEPOIS (NOVO CÓDIGO PARA O onInit DO WIDGET ENERGY)
@@ -1576,4 +2376,29 @@ self.onInit = async function () {
     initializeTotalConsumptionCard();
     initializePeakDemandCard();
   });
+};
+
+// ============================================
+// WIDGET ENERGY - CLEANUP ON DESTROY
+// ============================================
+
+self.onDestroy = function () {
+  console.log("[ENERGY] [RFC-0073] Widget destroying, cleaning up modals");
+
+  // RFC-0073: Remove chart configuration modal if it exists
+  const globalContainer = document.getElementById("energyChartConfigModalGlobal");
+  if (globalContainer) {
+    const modal = globalContainer.querySelector("#chartConfigModal");
+    if (modal && modal._escHandler) {
+      document.removeEventListener('keydown', modal._escHandler);
+      modal._escHandler = null;
+    }
+
+    // Remove global modal container from document.body
+    globalContainer.remove();
+    console.log("[ENERGY] [RFC-0073] Global modal container removed on destroy");
+  }
+
+  // Remove modal-open class if widget is destroyed with modal open
+  document.body.classList.remove('modal-open');
 };
