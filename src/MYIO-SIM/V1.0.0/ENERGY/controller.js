@@ -980,32 +980,35 @@ async function calculateEquipmentDistribution() {
 function classifyEquipmentDetailed(device) {
   let deviceType = (device.deviceType || "").toUpperCase();
   const deviceProfile = (device.deviceProfile || "").toUpperCase();
+  const identifier = (device.deviceIdentifier || "").toUpperCase();
+  const labelOrName = (device.labelOrName || device.label || "").toUpperCase();
 
-  // REGRA: Se é 3F_MEDIDOR e tem deviceProfile válido, usa o deviceProfile como deviceType
+  // RFC-0076: REGRA: Se é 3F_MEDIDOR e tem deviceProfile válido, usa o deviceProfile como deviceType
   if (deviceType === "3F_MEDIDOR" && deviceProfile && deviceProfile !== "N/D") {
     deviceType = deviceProfile;
   }
 
-  // Classify based on deviceType (same logic as EQUIPMENTS)
-
-  // Priority 1: ELEVATORS
+  // RFC-0076: Priority 1 - ELEVATORS
   if (deviceType === "ELEVADOR" || deviceType === "ELEVATOR") {
     return "Elevadores";
   }
 
-  // Priority 2: ESCALATORS
+  // RFC-0076: Priority 2 - ESCALATORS
   if (deviceType === "ESCADA_ROLANTE" || deviceType === "ESCALATOR") {
     return "Escadas Rolantes";
   }
 
-  // Priority 3: CLIMATIZATION (HVAC)
-  const hvacTypes = ["CHILLER", "AR_CONDICIONADO", "AC", "HVAC", "FANCOIL", "CAG"];
-  if (hvacTypes.includes(deviceType)) {
+  // RFC-0076: Priority 3 - CLIMATIZAÇÃO (HVAC)
+  // Check for CAG in identifier or labelOrName (same as EQUIPMENTS widget)
+  const hasCAG = identifier.includes('CAG') || labelOrName.includes('CAG');
+
+  const hvacTypes = ["CHILLER", "FANCOIL", "AR_CONDICIONADO", "AC", "HVAC", "BOMBA"];
+  if (hasCAG || hvacTypes.includes(deviceType)) {
     return "Climatização";
   }
 
-  // Default: Everything else is "Outros Equipamentos"
-  // This includes: MOTOR, BOMBA, and any other equipment type
+  // RFC-0076: Default - Everything else is "Outros Equipamentos"
+  // This includes: MOTOR and any other equipment type
   return "Outros Equipamentos";
 }
 
@@ -1068,13 +1071,14 @@ async function calculateDistributionByMode(mode) {
           return; // Skip further classification
         }
 
-        // Priority 2: Classify EQUIPMENTS (everything that's not a loja)
+        // RFC-0076: Priority 2: Classify EQUIPMENTS (everything that's not a loja)
         const label = String(deviceData.label || deviceData.entityLabel || deviceData.entityName || "").toLowerCase();
 
-        // Create device object for classification (includes deviceProfile)
+        // Create device object for classification (includes deviceProfile and deviceIdentifier)
         const device = {
           deviceType: deviceData.deviceType || "",
           deviceProfile: deviceData.deviceProfile || "",
+          deviceIdentifier: deviceData.deviceIdentifier || deviceData.name || "",
           labelOrName: label,
           label: label
         };
@@ -1097,7 +1101,14 @@ async function calculateDistributionByMode(mode) {
         }
       });
 
-      console.log("[ENERGY] Distribution by groups:", groups);
+      // RFC-0076: Enhanced logging for debugging
+      console.log("[ENERGY] ============================================");
+      console.log("[ENERGY] Distribution by groups (RFC-0076):");
+      console.log("[ENERGY] - Total devices processed:", energyCache.size);
+      console.log("[ENERGY] - Lojas count:", lojasIngestionIds.size);
+      console.log("[ENERGY] Distribution breakdown:", groups);
+      console.log("[ENERGY] ============================================");
+
       return groups;
     } else {
       // Por shopping para tipo específico
@@ -1121,15 +1132,16 @@ async function calculateDistributionByMode(mode) {
         const consumption = Number(deviceData.total_value) || 0;
         let type;
 
-        // Check if it's a loja first (using same logic as MAIN)
+        // RFC-0076: Check if it's a loja first (using same logic as MAIN)
         if (lojasIngestionIds.has(ingestionId)) {
           type = "Lojas";
         } else {
-          // Classify equipment (includes deviceProfile)
+          // Classify equipment (includes deviceProfile and deviceIdentifier)
           const label = String(deviceData.label || deviceData.entityLabel || deviceData.entityName || "").toLowerCase();
           const device = {
             deviceType: deviceData.deviceType || "",
             deviceProfile: deviceData.deviceProfile || "",
+            deviceIdentifier: deviceData.deviceIdentifier || deviceData.name || "",
             labelOrName: label,
             label: label
           };
