@@ -1,5 +1,4 @@
 #container {
-    overflow: auto;
     display: flex;
     height: 100%;
     flex-direction: column;

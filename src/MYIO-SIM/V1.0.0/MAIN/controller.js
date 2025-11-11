@@ -275,6 +275,7 @@ const MyIOOrchestrator = (() => {
 
   // RFC-0057: Simplified - memory-only cache (no localStorage)
   let energyCache = new Map(); // Map<ingestionId, energyData>
+  let waterCache = new Map();
   let isFetching = false;
   let lastFetchParams = null;
   let lastFetchTimestamp = null;
@@ -347,19 +348,33 @@ const MyIOOrchestrator = (() => {
     return `energy:${customerIngestionId}:${startDateISO}:${endDateISO}`;
   }
 
-  function invalidateCache(domain = "energy") {
+  function invalidateCache(domain = "all") {
     LogHelper.log(`[Orchestrator] Invalidating ${domain} cache`);
-    energyCache.clear();
+
+    if (domain === "energy" || domain === "all") {
+      energyCache.clear();
+    }
+    if (domain === "water" || domain === "all") {
+      waterCache.clear();
+    }
+
+    // Reseta o estado compartilhado
     lastFetchParams = null;
     lastFetchTimestamp = null;
   }
 
-  async function fetchEnergyData(customerIngestionId, startDateISO, endDateISO) {
+  async function fetchEnergyData(
+    customerIngestionId,
+    startDateISO,
+    endDateISO
+  ) {
     const key = cacheKey(customerIngestionId, startDateISO, endDateISO);
 
     // RFC-0057: Check for duplicate fetches
     if (isFetching && lastFetchParams === key) {
-      console.log("[MAIN] [Orchestrator] Fetch already in progress, skipping...");
+      console.log(
+        "[MAIN] [Orchestrator] Fetch already in progress, skipping..."
+      );
       return energyCache;
     }
 
@@ -427,10 +442,14 @@ const MyIOOrchestrator = (() => {
         },
       });
 
-      console.log(`[MAIN] [Orchestrator] 📡 API Status: ${response.status} ${response.statusText}`);
+      console.log(
+        `[MAIN] [Orchestrator] 📡 API Status: ${response.status} ${response.statusText}`
+      );
 
       if (!response.ok) {
-        console.warn(`[MAIN] [Orchestrator] ❌ Failed to fetch energy: HTTP ${response.status}`);
+        console.warn(
+          `[MAIN] [Orchestrator] ❌ Failed to fetch energy: HTTP ${response.status}`
+        );
         return energyCache;
       }
 
@@ -452,9 +471,14 @@ const MyIOOrchestrator = (() => {
 
       // Log first device if available for debugging
       if (devicesList.length > 0) {
-        console.log("[MAIN] [Orchestrator] 🔍 First device sample:", devicesList[0] );
+        console.log(
+          "[MAIN] [Orchestrator] 🔍 First device sample:",
+          devicesList[0]
+        );
       } else {
-        console.warn("[MAIN] [Orchestrator] ⚠️ API returned ZERO devices! Check if data exists for this period.");
+        console.warn(
+          "[MAIN] [Orchestrator] ⚠️ API returned ZERO devices! Check if data exists for this period."
+        );
       }
 
       // Clear and repopulate cache
@@ -463,12 +487,19 @@ const MyIOOrchestrator = (() => {
       devicesList.forEach((device) => {
         if (device.id) {
           // Debug: check all possible customerId fields
-          const customerId = device.customerId || device.customer_id || device.ownerId || null;
+          const customerId =
+            device.customerId || device.customer_id || device.ownerId || null;
 
           if (count === 0) {
             // Log first device to see full structure
-            console.log("[MAIN] [Orchestrator] 🔍 Full first device structure:", JSON.stringify(device, null, 2));
-            console.log("[MAIN] [Orchestrator] 🔍 Extracted customerId:", customerId);
+            console.log(
+              "[MAIN] [Orchestrator] 🔍 Full first device structure:",
+              JSON.stringify(device, null, 2)
+            );
+            console.log(
+              "[MAIN] [Orchestrator] 🔍 Extracted customerId:",
+              customerId
+            );
           }
 
           const cachedData = {
@@ -479,8 +510,14 @@ const MyIOOrchestrator = (() => {
             deviceType: device.deviceType || device.device_type || "",
             deviceProfile: device.deviceProfile || device.device_profile || "",
             label: device.label || device.name || "",
-            entityLabel: device.entityLabel || device.entity_label || device.label || device.name || "",
-            entityName: device.entityName || device.entity_name || device.name || "",
+            entityLabel:
+              device.entityLabel ||
+              device.entity_label ||
+              device.label ||
+              device.name ||
+              "",
+            entityName:
+              device.entityName || device.entity_name || device.name || "",
             total_value: device.total_value || 0,
             timestamp: Date.now(),
           };
@@ -490,15 +527,23 @@ const MyIOOrchestrator = (() => {
 
           // Log first cached device to verify data structure
           if (count === 1) {
-            console.log("[MAIN] [Orchestrator] 🔍 First cached device data:", cachedData);
-            console.log("[MAIN] [Orchestrator] 🔍 customerName extracted:", cachedData.customerName);
+            console.log(
+              "[MAIN] [Orchestrator] 🔍 First cached device data:",
+              cachedData
+            );
+            console.log(
+              "[MAIN] [Orchestrator] 🔍 customerName extracted:",
+              cachedData.customerName
+            );
           }
           //console.log(`[MAIN] [Orchestrator] Cached device: ${device.name} (${device.id}) = ${device.total_value} kWh`);
           // TODO Implementar uma função que
         }
       });
 
-      console.log(`[MAIN] [Orchestrator] Energy cache updated: ${energyCache.size} devices`);
+      console.log(
+        `[MAIN] [Orchestrator] Energy cache updated: ${energyCache.size} devices`
+      );
 
       // RFC-0057: Update timestamp for memory cache
       lastFetchTimestamp = Date.now();
@@ -517,8 +562,10 @@ const MyIOOrchestrator = (() => {
         })
       );
       // Se já temos o total do cliente, emita também o resumo para o ENERGY
-      console.log("[MAIN] [Orchestrator] dispatchEnergySummaryIfReady >>> fetchEnergyData 001");
-      dispatchEnergySummaryIfReady('fetchEnergyData');
+      console.log(
+        "[MAIN] [Orchestrator] dispatchEnergySummaryIfReady >>> fetchEnergyData 001"
+      );
+      dispatchEnergySummaryIfReady("fetchEnergyData");
 
       return energyCache;
     } catch (err) {
@@ -534,14 +581,144 @@ const MyIOOrchestrator = (() => {
     }
   }
 
-  function getCache() {
+  async function fetchWaterData(customerIngestionId, startDateISO, endDateISO) {
+    // 1. A key de cache para ÁGUA.
+    // (Note que estamos "re-implementando" a lógica da cacheKey aqui
+    // para não ter que alterar a função original)
+    const key = `water:${customerIngestionId}:${startDateISO}:${endDateISO}`;
+    const cache = waterCache; // Usa o cache de ÁGUA
+
+    // O resto é o "esqueleto" compartilhado
+    if (isFetching && lastFetchParams === key) {
+      console.log(
+        "[MAIN] [Orchestrator] Fetch (water) already in progress, skipping..."
+      );
+      return cache;
+    }
+
+    if (cache.size > 0 && lastFetchParams === key) {
+      const cacheAge = lastFetchTimestamp ? Date.now() - lastFetchTimestamp : 0;
+      const cacheTTL = 5 * 60 * 1000;
+
+      if (cacheAge < cacheTTL) {
+        console.log(
+          `[MAIN] [Orchestrator] Using cached (water) data (${
+            cache.size
+          } devices, age: ${Math.round(cacheAge / 1000)}s)`
+        );
+
+        window.dispatchEvent(
+          new CustomEvent("myio:water-data-ready", {
+            detail: {
+              cache: cache,
+              totalDevices: cache.size,
+              startDate: startDateISO,
+              endDate: endDateISO,
+              timestamp: lastFetchTimestamp,
+              fromCache: true,
+            },
+          })
+        );
+        return cache;
+      } else {
+        console.log(`[MAIN] [Orchestrator] Water cache expired, fetching...`);
+      }
+    }
+
+    isFetching = true;
+    lastFetchParams = key;
+    console.log("[MAIN] [Orchestrator] Fetching water data from API...");
+
+    showGlobalBusy("water", "Carregando dados de água...");
+
+    try {
+      const TOKEN_INGESTION = await myIOAuth.getToken();
+
+      // Endpoint da API de ÁGUA
+      const apiUrl = `${DATA_API_HOST}/api/v1/telemetry/customers/${customerIngestionId}/water/devices/totals?startTime=${encodeURIComponent(
+        startDateISO
+      )}&endTime=${encodeURIComponent(endDateISO)}&deep=1`;
+
+      console.log("[MAIN] [Orchestrator] 🌐 API URL (Water):", apiUrl);
+
+      const response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${TOKEN_INGESTION}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log(
+        `[MAIN] [Orchestrator] 📡 API Status (Water): ${response.status} ${response.statusText}`
+      );
+
+      if (!response.ok) {
+        console.warn(
+          `[MAIN] [Orchestrator] ❌ Failed to fetch water: HTTP ${response.status}`
+        );
+        return cache;
+      }
+
+      const data = await response.json();
+      const devicesList = Array.isArray(data) ? data : data.data || [];
+
+      cache.clear(); // Limpa e repopula o cache de ÁGUA
+      devicesList.forEach((device) => {
+        if (device.id) {
+          cache.set(device.id, {
+            ingestionId: device.id,
+            name: device.name,
+            total_value: device.total_value || 0,
+            timestamp: Date.now(),
+          });
+        }
+      });
+
+      console.log(
+        `[MAIN] [Orchestrator] Water cache updated: ${cache.size} devices`
+      );
+
+      lastFetchTimestamp = Date.now();
+
+      // Dispara o evento de ÁGUA
+      window.dispatchEvent(
+        new CustomEvent("myio:water-data-ready", {
+          detail: {
+            cache: cache,
+            totalDevices: cache.size,
+            startDate: startDateISO,
+            endDate: endDateISO,
+            timestamp: Date.now(),
+            fromCache: false,
+          },
+        })
+      );
+
+      return cache;
+    } catch (err) {
+      console.error(
+        "[MAIN] [Orchestrator] Fatal error fetching water data:",
+        err
+      );
+      return cache;
+    } finally {
+      isFetching = false;
+      hideGlobalBusy();
+    }
+  }
+
+  function getCache(domain = "energy") {
+    if (domain === "water") {
+      return waterCache;
+    }
     return energyCache;
   }
 
-  function getCachedDevice(ingestionId) {
-    return energyCache.get(ingestionId) || null;
+  function getCachedDevice(ingestionId, domain = "energy") {
+    const cache = domain === "water" ? waterCache : energyCache;
+    return cache.get(ingestionId) || null;
   }
-
   // RFC-0057: invalidateCache already defined above (line 280), no duplicate needed
 
   /**
@@ -636,9 +813,7 @@ const MyIOOrchestrator = (() => {
 
     // ✅ Equipamentos como % do total
     const percentage =
-      totalConsumption > 0
-        ? (equipmentsTotal / totalConsumption) * 100
-        : 0;
+      totalConsumption > 0 ? (equipmentsTotal / totalConsumption) * 100 : 0;
 
     const result = {
       customerTotal: Number(totalConsumption) || 0,
@@ -652,13 +827,14 @@ const MyIOOrchestrator = (() => {
     console.log(`[MAIN] [Orchestrator] Energy widget data:`, {
       ...result,
       calculatedTotal,
-      matches: Math.abs(calculatedTotal - totalConsumption) < 0.01
+      matches: Math.abs(calculatedTotal - totalConsumption) < 0.01,
     });
     return result;
   }
 
   return {
     fetchEnergyData,
+    fetchWaterData,
     getCache,
     getEnergyCache: getCache, // Alias for ENERGY widget compatibility
     getCachedDevice,
@@ -671,114 +847,146 @@ const MyIOOrchestrator = (() => {
     getTotalLojasConsumption,
     getTotalConsumption,
     getEnergyWidgetData,
-      requestSummary() {
-    // Responde imediatamente com o que tiver no momento
-    const total = haveCustomerTotal() ? customerTotalConsumption : 0;
-    const summary = getEnergyWidgetData(total);
-    window.dispatchEvent(new CustomEvent('myio:energy-summary-ready', { detail: summary }));
-    console.log("[MAIN] [Orchestrator] ▶ requestSummary() dispatched", summary);
-    return summary;
-  },
+    requestSummary() {
+      // Responde imediatamente com o que tiver no momento
+      const total = haveCustomerTotal() ? customerTotalConsumption : 0;
+      const summary = getEnergyWidgetData(total);
+      window.dispatchEvent(
+        new CustomEvent("myio:energy-summary-ready", { detail: summary })
+      );
+      console.log(
+        "[MAIN] [Orchestrator] ▶ requestSummary() dispatched",
+        summary
+      );
+      return summary;
+    },
 
-  setCustomerTotal(total) {
-    const n = Number(total);
-    if (!Number.isFinite(n)) {
-      console.warn("[MAIN] [Orchestrator] setCustomerTotal ignorado (valor inválido):", total);
-      return;
-    }
-    customerTotalConsumption = n;
-    console.log("[MAIN] [Orchestrator] customerTotalConsumption set to", n);
-    dispatchEnergySummaryIfReady('setCustomerTotal');
-  },
+    setCustomerTotal(total) {
+      const n = Number(total);
+      if (!Number.isFinite(n)) {
+        console.warn(
+          "[MAIN] [Orchestrator] setCustomerTotal ignorado (valor inválido):",
+          total
+        );
+        return;
+      }
+      customerTotalConsumption = n;
+      console.log("[MAIN] [Orchestrator] customerTotalConsumption set to", n);
+      dispatchEnergySummaryIfReady("setCustomerTotal");
+    },
 
-  setLojasIngestionIds(ids) {
-    lojasIngestionIds = new Set(ids || []);
-    console.log("[MAIN] [Orchestrator] lojasIngestionIds set:", lojasIngestionIds.size, "lojas");
-    // Recalculate and dispatch summary if ready
-    dispatchEnergySummaryIfReady('setLojasIngestionIds');
-  },
+    setLojasIngestionIds(ids) {
+      lojasIngestionIds = new Set(ids || []);
+      console.log(
+        "[MAIN] [Orchestrator] lojasIngestionIds set:",
+        lojasIngestionIds.size,
+        "lojas"
+      );
+      // Recalculate and dispatch summary if ready
+      dispatchEnergySummaryIfReady("setLojasIngestionIds");
+    },
 
-  getLojasIngestionIds() {
-    return lojasIngestionIds;
-  },
+    getLojasIngestionIds() {
+      return lojasIngestionIds;
+    },
 
-  /**
-   * Aplica filtro de shoppings selecionados
-   * @param {Array<string>} shoppingIds - Array de ingestionIds dos shoppings
-   */
-  setSelectedShoppings(shoppingIds) {
-    selectedShoppingIds = Array.isArray(shoppingIds) ? shoppingIds : [];
-    console.log("[MAIN] [Orchestrator] Shopping filter applied:",
-      selectedShoppingIds.length === 0 ? "ALL (no filter)" : `${selectedShoppingIds.length} shoppings selected`
-    );
-    if (selectedShoppingIds.length > 0) {
-      console.log("[MAIN] [Orchestrator] Selected shopping IDs:", selectedShoppingIds);
-    }
-    // Recalculate and dispatch summary with filter applied
-    dispatchEnergySummaryIfReady('setSelectedShoppings');
-  }
+    /**
+     * Aplica filtro de shoppings selecionados
+     * @param {Array<string>} shoppingIds - Array de ingestionIds dos shoppings
+     */
+    setSelectedShoppings(shoppingIds) {
+      selectedShoppingIds = Array.isArray(shoppingIds) ? shoppingIds : [];
+      console.log(
+        "[MAIN] [Orchestrator] Shopping filter applied:",
+        selectedShoppingIds.length === 0
+          ? "ALL (no filter)"
+          : `${selectedShoppingIds.length} shoppings selected`
+      );
+      if (selectedShoppingIds.length > 0) {
+        console.log(
+          "[MAIN] [Orchestrator] Selected shopping IDs:",
+          selectedShoppingIds
+        );
+      }
+      // Recalculate and dispatch summary with filter applied
+      dispatchEnergySummaryIfReady("setSelectedShoppings");
+    },
   };
 })();
 
 // Expose globally
 window.MyIOOrchestrator = MyIOOrchestrator;
 // HEADER → informa total do cliente (use o evento que seu HEADER emitir)
-window.addEventListener('myio:header-summary-ready', (ev) => {
+window.addEventListener("myio:header-summary-ready", (ev) => {
   // Tenta chaves comuns
   const d = ev.detail || {};
-  const candidate = d.customerTotal ?? d.total ?? d.totalConsumption ?? d.kwh ?? d.value;
-  console.log("[MAIN] heard myio:header-summary-ready:", d, "candidate=", candidate);
-  if (typeof window.MyIOOrchestrator?.setCustomerTotal === 'function') {
+  const candidate =
+    d.customerTotal ?? d.total ?? d.totalConsumption ?? d.kwh ?? d.value;
+  console.log(
+    "[MAIN] heard myio:header-summary-ready:",
+    d,
+    "candidate=",
+    candidate
+  );
+  if (typeof window.MyIOOrchestrator?.setCustomerTotal === "function") {
     window.MyIOOrchestrator.setCustomerTotal(candidate);
   }
 });
 
 // Alternativa caso o HEADER use outro nome de evento
-window.addEventListener('myio:customer-total-ready', (ev) => {
+window.addEventListener("myio:customer-total-ready", (ev) => {
   const n = ev.detail?.total;
   console.log("[MAIN] heard myio:customer-total-ready:", ev.detail);
-  if (typeof window.MyIOOrchestrator?.setCustomerTotal === 'function') {
+  if (typeof window.MyIOOrchestrator?.setCustomerTotal === "function") {
     window.MyIOOrchestrator.setCustomerTotal(n);
   }
 });
 
 // ✅ HEADER emite myio:customer-total-consumption
-window.addEventListener('myio:customer-total-consumption', (ev) => {
+window.addEventListener("myio:customer-total-consumption", (ev) => {
   const n = ev.detail?.customerTotal;
-  console.log("[MAIN] heard myio:customer-total-consumption:", ev.detail, "customerTotal=", n);
-  if (typeof window.MyIOOrchestrator?.setCustomerTotal === 'function') {
+  console.log(
+    "[MAIN] heard myio:customer-total-consumption:",
+    ev.detail,
+    "customerTotal=",
+    n
+  );
+  if (typeof window.MyIOOrchestrator?.setCustomerTotal === "function") {
     window.MyIOOrchestrator.setCustomerTotal(n);
   }
 });
 
 // ✅ MENU emite myio:filter-applied com shoppings selecionados
-window.addEventListener('myio:filter-applied', (ev) => {
+window.addEventListener("myio:filter-applied", (ev) => {
   console.log("[MAIN] heard myio:filter-applied:", ev.detail);
 
   // Extract shopping IDs from selection
   // ev.detail.selection is an array of { name, value } where value is the ingestionId
   const selection = ev.detail?.selection || [];
-  const shoppingIds = selection.map(s => s.value).filter(v => v);
+  const shoppingIds = selection.map((s) => s.value).filter((v) => v);
 
-  console.log("[MAIN] Applying shopping filter:", shoppingIds.length === 0 ? "ALL" : shoppingIds);
+  console.log(
+    "[MAIN] Applying shopping filter:",
+    shoppingIds.length === 0 ? "ALL" : shoppingIds
+  );
 
-  if (typeof window.MyIOOrchestrator?.setSelectedShoppings === 'function') {
+  if (typeof window.MyIOOrchestrator?.setSelectedShoppings === "function") {
     window.MyIOOrchestrator.setSelectedShoppings(shoppingIds);
   }
 });
 
 // ENERGY → pode pedir o resumo explicitamente
-window.addEventListener('myio:request-energy-summary', () => {
-  if (typeof window.MyIOOrchestrator?.requestSummary === 'function') {
+window.addEventListener("myio:request-energy-summary", () => {
+  if (typeof window.MyIOOrchestrator?.requestSummary === "function") {
     window.MyIOOrchestrator.requestSummary();
   }
 });
 
 // ✅ EQUIPMENTS → informa quais devices são lojas (3F_MEDIDOR)
-window.addEventListener('myio:lojas-identified', (ev) => {
+window.addEventListener("myio:lojas-identified", (ev) => {
   const ids = ev.detail?.lojasIngestionIds || [];
   console.log("[MAIN] heard myio:lojas-identified:", ev.detail);
-  if (typeof window.MyIOOrchestrator?.setLojasIngestionIds === 'function') {
+  if (typeof window.MyIOOrchestrator?.setLojasIngestionIds === "function") {
     window.MyIOOrchestrator.setLojasIngestionIds(ids);
   }
 });
@@ -791,7 +999,9 @@ self.onInit = async function () {
   self.ctx.$scope.mainContentStateId = "content_equipments";
 
   if (!CUSTOMER_ID_TB) {
-    console.error("[MAIN] [Orchestrator] customerId não encontrado em settings");
+    console.error(
+      "[MAIN] [Orchestrator] customerId não encontrado em settings"
+    );
     return;
   }
 
@@ -800,11 +1010,18 @@ self.onInit = async function () {
   // Fetch customer attributes from ThingsBoard
   const customerAttrs = await fetchCustomerServerScopeAttrs(CUSTOMER_ID_TB);
 
-  CUSTOMER_INGESTION_ID = customerAttrs.customerIngestionId || customerAttrs.ingestionId;
-  CLIENT_ID_INGESTION = customerAttrs.clientIdIngestion || customerAttrs.client_id;
-  CLIENT_SECRET_INGESTION = customerAttrs.clientSecretIngestion || customerAttrs.client_secret;
+  CUSTOMER_INGESTION_ID =
+    customerAttrs.customerIngestionId || customerAttrs.ingestionId;
+  CLIENT_ID_INGESTION =
+    customerAttrs.clientIdIngestion || customerAttrs.client_id;
+  CLIENT_SECRET_INGESTION =
+    customerAttrs.clientSecretIngestion || customerAttrs.client_secret;
 
-  if (!CUSTOMER_INGESTION_ID || !CLIENT_ID_INGESTION || !CLIENT_SECRET_INGESTION) {
+  if (
+    !CUSTOMER_INGESTION_ID ||
+    !CLIENT_ID_INGESTION ||
+    !CLIENT_SECRET_INGESTION
+  ) {
     console.error(
       "[MAIN] [Orchestrator] Credenciais de Ingestion não encontradas:",
       {
@@ -930,9 +1147,13 @@ self.onInit = async function () {
 
       // Fetch and cache energy data using Ingestion Customer ID
       if (CUSTOMER_INGESTION_ID) {
-        //console.log("[MAIN] [Orchestrator] dispatchEnergySummaryIfReady >>> fetchEnergyData 001");
-        console.log("[MAIN] fetchEnergyData 002 >>> ", { startDate, endDate });
+        // Chamadas em sequência
         await MyIOOrchestrator.fetchEnergyData(
+          CUSTOMER_INGESTION_ID,
+          startDate,
+          endDate
+        );
+        await MyIOOrchestrator.fetchWaterData(
           CUSTOMER_INGESTION_ID,
           startDate,
           endDate
@@ -978,16 +1199,29 @@ self.onInit = async function () {
   window.addEventListener("myio:date-params", self._onDateParams);
 
   // ===== ORCHESTRATOR: Initial energy data fetch =====
-  console.log("[MAIN] [Orchestrator] Initial setup with Ingestion Customer ID:", CUSTOMER_INGESTION_ID);
+  console.log(
+    "[MAIN] [Orchestrator] Initial setup with Ingestion Customer ID:",
+    CUSTOMER_INGESTION_ID
+  );
   console.log("[MAIN] [Orchestrator] Date range:", {
     start: datesFromParent.start,
     end: datesFromParent.end,
   });
 
-  console.log("[MAIN] fetchEnergyData 003 >>> ", datesFromParent.start, datesFromParent.end);
+  console.log(
+    "[MAIN] fetchEnergyData 003 >>> ",
+    datesFromParent.start,
+    datesFromParent.end
+  );
 
   // Fetch energy data using orchestrator
   await MyIOOrchestrator.fetchEnergyData(
+    CUSTOMER_INGESTION_ID,
+    datesFromParent.start,
+    datesFromParent.end
+  );
+
+  await MyIOOrchestrator.fetchWaterData(
     CUSTOMER_INGESTION_ID,
     datesFromParent.start,
     datesFromParent.end

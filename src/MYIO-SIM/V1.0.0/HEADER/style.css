@@ -22,7 +22,10 @@
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial;
   color: var(--ink-1);
   background: transparent !important;
-  overflow: visible;
+  overflow: none !important;
+}
+.widget-type-tenant-widget_head_office_main_v_1_0_0 #container {
+    overflow: hidden !important;
 }
 
 /* Força transparência em todos os elementos internos, EXCETO a logo */

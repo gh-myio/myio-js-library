@@ -14,130 +14,130 @@ const MAX_DATA_REFRESHES = 1;
 let selectedShoppingIds = []; // Shopping ingestionIds selected in filter
 
 const MyIOAuth = (() => {
-  // ==== CONFIG ====
-  const AUTH_URL = new URL(`${DATA_API_HOST}/api/v1/auth`);
+    // ==== CONFIG ====
+    const AUTH_URL = new URL(`${DATA_API_HOST}/api/v1/auth`);
 
-  // ⚠️ Substitua pelos seus valores:
+    // ⚠️ Substitua pelos seus valores:
 
-  // Margem para renovar o token antes de expirar (em segundos)
-  const RENEW_SKEW_S = 60; // 1 min
-  // Em caso de erro, re-tenta com backoff simples
-  const RETRY_BASE_MS = 500;
-  const RETRY_MAX_ATTEMPTS = 3;
+    // Margem para renovar o token antes de expirar (em segundos)
+    const RENEW_SKEW_S = 60; // 1 min
+    // Em caso de erro, re-tenta com backoff simples
+    const RETRY_BASE_MS = 500;
+    const RETRY_MAX_ATTEMPTS = 3;
 
-  // Cache em memória (por aba). Se quiser compartilhar entre widgets/abas,
-  // você pode trocar por localStorage (com os devidos cuidados de segurança).
-  let _token = null; // string
-  let _expiresAt = 0; // epoch em ms
-  let _inFlight = null; // Promise em andamento para evitar corridas
+    // Cache em memória (por aba). Se quiser compartilhar entre widgets/abas,
+    // você pode trocar por localStorage (com os devidos cuidados de segurança).
+    let _token = null; // string
+    let _expiresAt = 0; // epoch em ms
+    let _inFlight = null; // Promise em andamento para evitar corridas
 
-  function _now() {
-    return Date.now();
-  }
+    function _now() {
+        return Date.now();
+    }
 
-  function _aboutToExpire() {
-    // true se não temos token ou se falta pouco para expirar
-    if (!_token) return true;
-    const skewMs = RENEW_SKEW_S * 1000;
-    return _now() >= _expiresAt - skewMs;
-  }
+    function _aboutToExpire() {
+        // true se não temos token ou se falta pouco para expirar
+        if (!_token) return true;
+        const skewMs = RENEW_SKEW_S * 1000;
+        return _now() >= _expiresAt - skewMs;
+    }
 
-  async function _sleep(ms) {
-    return new Promise((res) => setTimeout(res, ms));
-  }
+    async function _sleep(ms) {
+        return new Promise((res) => setTimeout(res, ms));
+    }
 
-  async function _requestNewToken() {
-    const body = {
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-    };
+    async function _requestNewToken() {
+        const body = {
+            client_id: CLIENT_ID,
+            client_secret: CLIENT_SECRET,
+        };
 
-    let attempt = 0;
-    while (true) {
-      try {
-        const resp = await fetch(AUTH_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
+        let attempt = 0;
+        while (true) {
+            try {
+                const resp = await fetch(AUTH_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body),
+                });
 
-        if (!resp.ok) {
-          const text = await resp.text().catch(() => "");
-          throw new Error(
-            `Auth falhou: HTTP ${resp.status} ${resp.statusText} ${text}`
-          );
+                if (!resp.ok) {
+                    const text = await resp.text().catch(() => "");
+                    throw new Error(
+                        `Auth falhou: HTTP ${resp.status} ${resp.statusText} ${text}`
+                    );
+                }
+
+                const json = await resp.json();
+                // Espera formato:
+                // { access_token, token_type, expires_in, scope }
+                if (!json || !json.access_token || !json.expires_in) {
+                    throw new Error("Resposta de auth não contem campos esperados.");
+                }
+
+                _token = json.access_token;
+                // Define expiração absoluta (agora + expires_in)
+                _expiresAt = _now() + Number(json.expires_in) * 1000;
+
+                // Logs úteis para depuração (não imprimem o token)
+                console.log(
+                    "[MyIOAuth] Novo token obtido. Expira em ~",
+                    Math.round(Number(json.expires_in) / 60),
+                    "min"
+                );
+
+                return _token;
+            } catch (err) {
+                attempt++;
+                console.warn(
+                    `[MyIOAuth] Erro ao obter token (tentativa ${attempt}/${RETRY_MAX_ATTEMPTS}):`,
+                    err?.message || err
+                );
+                if (attempt >= RETRY_MAX_ATTEMPTS) {
+                    throw err;
+                }
+                const backoff = RETRY_BASE_MS * Math.pow(2, attempt - 1);
+                await _sleep(backoff);
+            }
+        }
+    }
+
+    async function getToken() {
+        // Evita múltiplas chamadas paralelas de renovação
+        if (_inFlight) {
+            return _inFlight;
         }
 
-        const json = await resp.json();
-        // Espera formato:
-        // { access_token, token_type, expires_in, scope }
-        if (!json || !json.access_token || !json.expires_in) {
-          throw new Error("Resposta de auth não contem campos esperados.");
+        if (_aboutToExpire()) {
+            _inFlight = _requestNewToken().finally(() => {
+                _inFlight = null;
+            });
+            return _inFlight;
         }
-
-        _token = json.access_token;
-        // Define expiração absoluta (agora + expires_in)
-        _expiresAt = _now() + Number(json.expires_in) * 1000;
-
-        // Logs úteis para depuração (não imprimem o token)
-        console.log(
-          "[MyIOAuth] Novo token obtido. Expira em ~",
-          Math.round(Number(json.expires_in) / 60),
-          "min"
-        );
 
         return _token;
-      } catch (err) {
-        attempt++;
-        console.warn(
-          `[MyIOAuth] Erro ao obter token (tentativa ${attempt}/${RETRY_MAX_ATTEMPTS}):`,
-          err?.message || err
-        );
-        if (attempt >= RETRY_MAX_ATTEMPTS) {
-          throw err;
-        }
-        const backoff = RETRY_BASE_MS * Math.pow(2, attempt - 1);
-        await _sleep(backoff);
-      }
-    }
-  }
-
-  async function getToken() {
-    // Evita múltiplas chamadas paralelas de renovação
-    if (_inFlight) {
-      return _inFlight;
     }
 
-    if (_aboutToExpire()) {
-      _inFlight = _requestNewToken().finally(() => {
+    // Helpers opcionais
+    function getExpiryInfo() {
+        return {
+            expiresAt: _expiresAt,
+            expiresInSeconds: Math.max(0, Math.floor((_expiresAt - _now()) / 1000)),
+        };
+    }
+
+    function clearCache() {
+        _token = null;
+        _expiresAt = 0;
         _inFlight = null;
-      });
-      return _inFlight;
     }
 
-    return _token;
-  }
-
-  // Helpers opcionais
-  function getExpiryInfo() {
-    return {
-      expiresAt: _expiresAt,
-      expiresInSeconds: Math.max(0, Math.floor((_expiresAt - _now()) / 1000)),
-    };
-  }
-
-  function clearCache() {
-    _token = null;
-    _expiresAt = 0;
-    _inFlight = null;
-  }
-
-  return { getToken, getExpiryInfo, clearCache };
+    return { getToken, getExpiryInfo, clearCache };
 })();
 
 async function updateTotalConsumption(customersArray, startDateISO, endDateISO) {
-     const energyTotal = document.getElementById("energy-kpi");
-     energyTotal.innerHTML = `
+    const energyTotal = document.getElementById("energy-kpi");
+    energyTotal.innerHTML = `
        <svg style="width:28px; height:28px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
          <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round" 
                  stroke-dasharray="90,150" stroke-dashoffset="0">
@@ -145,172 +145,225 @@ async function updateTotalConsumption(customersArray, startDateISO, endDateISO) 
        </svg>
      `;
 
-  let totalConsumption = 0;
+    let totalConsumption = 0;
 
-  for (const c of customersArray) {
-    // Pula se value estiver vazio
-    if (!c.value) continue;
+    for (const c of customersArray) {
+        // Pula se value estiver vazio
+        if (!c.value) continue;
 
-    try {
-      const TOKEN_INJESTION = await MyIOAuth.getToken();
+        try {
+            const TOKEN_INJESTION = await MyIOAuth.getToken();
 
-      const response = await fetch(
-        `${DATA_API_HOST}/api/v1/telemetry/customers/${c.value}/energy/total?startTime=${encodeURIComponent(startDateISO)}&endTime=${encodeURIComponent(endDateISO)}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${TOKEN_INJESTION}`,
-            "Content-Type": "application/json",
-          },
+            const response = await fetch(
+                `${DATA_API_HOST}/api/v1/telemetry/customers/${c.value}/energy/total?startTime=${encodeURIComponent(startDateISO)}&endTime=${encodeURIComponent(endDateISO)}`,
+                {
+                    method: "GET",
+                    headers: {
+                        Authorization: `Bearer ${TOKEN_INJESTION}`,
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+
+            console.log('response ==============================>', response);
+
+            if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
+            const data = await response.json();
+            console.log('data ==============================>', data);
+
+            totalConsumption += data.total_value;
+            //console.log("deu bom aiiii", totalConsumption)
+        } catch (err) {
+            console.error(`Falha ao buscar dados do customer ${c.value}:`, err);
         }
-      );
-
-      console.log('response ==============================>', response);
-
-      if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
-      const data = await response.json();
-      console.log('data ==============================>', data);      
-
-      totalConsumption += data.total_value;
-     //console.log("deu bom aiiii", totalConsumption)
-    } catch (err) {
-      console.error(`Falha ao buscar dados do customer ${c.value}:`, err);
     }
-  }
 
-  // Atualiza o HTML diretamente
+    // Atualiza o HTML diretamente
 
-  const percentDiference = document.getElementById("energy-trend");
+    const percentDiference = document.getElementById("energy-trend");
 
-  energyTotal.innerText = `${MyIOLibrary.formatEnergy(totalConsumption)}`;
-  percentDiference.innerText = `↑ 100%`; // Se quiser, pode calcular dif percentual de outro jeito
-  percentDiference.style.color = "red";  // Exemplo de cor
+    energyTotal.innerText = `${MyIOLibrary.formatEnergy(totalConsumption)}`;
+    percentDiference.innerText = `↑ 100%`; // Se quiser, pode calcular dif percentual de outro jeito
+    percentDiference.style.color = "red";  // Exemplo de cor
+}
+
+async function updateTotalWaterConsumption(customersArray, startDateISO, endDateISO) {
+    
+    const energyTotal = document.getElementById("water-kpi");
+    energyTotal.innerHTML = `
+       <svg style="width:28px; height:28px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
+         <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round" 
+                 stroke-dasharray="90,150" stroke-dashoffset="0">
+         </circle>
+       </svg>
+     `;
+
+    let totalConsumption = 0;
+
+    for (const c of customersArray) {
+        
+        // Pula se value estiver vazio
+        if (!c.value) continue;
+
+        try {
+            const TOKEN_INJESTION = await MyIOAuth.getToken();
+
+            const response = await fetch(
+                `${DATA_API_HOST}/api/v1/telemetry/customers/${c.value}/water/total?startTime=${encodeURIComponent(startDateISO)}&endTime=${encodeURIComponent(endDateISO)}`,
+                {
+                    method: "GET",
+                    headers: {
+                        Authorization: `Bearer ${TOKEN_INJESTION}`,
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+
+            console.log('response water ==============================>', response);
+
+            if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
+            const data = await response.json();
+            console.log('data ==============================>', data);
+
+            totalConsumption += data.total_value;
+        } catch (err) {
+            console.error(`Falha ao buscar dados do customer ${c.value}:`, err);
+        }
+    }
+
+    // Atualiza o HTML diretamente
+
+    const percentDiference = document.getElementById("energy-trend");
+
+    energyTotal.innerText = `${MyIOLibrary.formatWaterVolumeM3(totalConsumption)}`;
+    percentDiference.innerText = `↑ 100%`; // Se quiser, pode calcular dif percentual de outro jeito
+    percentDiference.style.color = "red";  // Exemplo de cor
 }
 
 function publishSwitch(targetStateId) {
-  const detail = { targetStateId, source: "menu_v_1_0_0", ts: Date.now() };
-  window.dispatchEvent(new CustomEvent(EVT_SWITCH, { detail }));
- // console.log("[menu] switch ->", detail);
+    const detail = { targetStateId, source: "menu_v_1_0_0", ts: Date.now() };
+    window.dispatchEvent(new CustomEvent(EVT_SWITCH, { detail }));
+    // console.log("[menu] switch ->", detail);
 }
 
 function setActiveTab(btn, root) {
-  root
-    .querySelectorAll(".tab.is-active")
-    .forEach((b) => b.classList.remove("is-active"));
-  btn.classList.add("is-active");
+    root
+        .querySelectorAll(".tab.is-active")
+        .forEach((b) => b.classList.remove("is-active"));
+    btn.classList.add("is-active");
 }
 
 function bindTabs(root) {
-  if (root._tabsBound) return;
+    if (root._tabsBound) return;
 
-  root._tabsBound = true;
+    root._tabsBound = true;
 
-  root.addEventListener("click", (ev) => {
-    const tab = ev.target.closest?.(".tab");
+    root.addEventListener("click", (ev) => {
+        const tab = ev.target.closest?.(".tab");
 
-    if (tab && root.contains(tab)) {
-      const target = tab.getAttribute("data-target");
+        if (tab && root.contains(tab)) {
+            const target = tab.getAttribute("data-target");
 
-      if (target) {
-        setActiveTab(tab, root);
-        publishSwitch(target);
-      }
+            if (target) {
+                setActiveTab(tab, root);
+                publishSwitch(target);
+            }
+        }
+    });
+
+    const initial =
+        root.querySelector(".tab.is-active") || root.querySelector(".tab");
+
+    if (initial) {
+        publishSwitch(initial.getAttribute("data-target"));
     }
-  });
-
-  const initial =
-    root.querySelector(".tab.is-active") || root.querySelector(".tab");
-
-  if (initial) {
-    publishSwitch(initial.getAttribute("data-target"));
-  }
 }
 
 /* ====== mock ====== */
 const FILTER_DATA = [
-  { id: "A", name: "Shopping A", floors: 2 },
-  { id: "B", name: "Shopping B", floors: 1 },
-  { id: "C", name: "Shopping C", floors: 1 },
+    { id: "A", name: "Shopping A", floors: 2 },
+    { id: "B", name: "Shopping B", floors: 1 },
+    { id: "C", name: "Shopping C", floors: 1 },
 ];
 
 function injectModalGlobal() {
-  // ==== Config & helpers ====================================================
-  const PRESET_KEY = "myio_dashboard_filter_presets_v1";
-  // Estado global (compartilhado entre aberturas)
-  if (!window.myioFilterSel) {
-    window.myioFilterSel = { malls: [], floors: [], places: [] };
-  }
-  if (!window.myioFilterQuery) {
-    window.myioFilterQuery = "";
-  }
-  if (!window.myioFilterPresets) {
-    try {
-      window.myioFilterPresets = JSON.parse(localStorage.getItem(PRESET_KEY) || "[]");
-    } catch {
-      window.myioFilterPresets = [];
+    // ==== Config & helpers ====================================================
+    const PRESET_KEY = "myio_dashboard_filter_presets_v1";
+    // Estado global (compartilhado entre aberturas)
+    if (!window.myioFilterSel) {
+        window.myioFilterSel = { malls: [], floors: [], places: [] };
     }
-  }
-
-  // Fonte de dados: preferir window.mallsTree (formato do original)
-  // Se não existir, converte um FILTER_DATA simples em uma árvore mínima.
-  function getTree() {
-    if (Array.isArray(window.mallsTree) && window.mallsTree.length) {
-      return window.mallsTree;
+    if (!window.myioFilterQuery) {
+        window.myioFilterQuery = "";
     }
-    // fallback a partir de FILTER_DATA = [{id,name,floors:n}]
-    if (Array.isArray(window.FILTER_DATA) && window.FILTER_DATA.length) {
-      return window.FILTER_DATA.map(m => {
-        const mallId = m.id || crypto.randomUUID();
-        const floors = Array.from({ length: Number(m.floors || 1) }).map((_, i) => {
-          const floorId = `${mallId}-F${i + 1}`;
-          // sem places reais, colocamos 0..2 mockados
-          const places = Array.from({ length: 3 }).map((__, k) => ({
-            id: `${floorId}-P${k + 1}`,
-            name: `Loja ${k + 1}`
-          }));
-          return { id: floorId, name: `Piso ${i + 1}`, children: places };
-        });
-        return { id: mallId, name: m.name || `Shopping ${mallId}`, children: floors };
-      });
+    if (!window.myioFilterPresets) {
+        try {
+            window.myioFilterPresets = JSON.parse(localStorage.getItem(PRESET_KEY) || "[]");
+        } catch {
+            window.myioFilterPresets = [];
+        }
     }
-    // último fallback vazio
-    return [];
-  }
 
-  const mallsTree = getTree();
-
-  // Flatten para mapa id->nome (chips)
-  function flatten(tree) {
-    const list = [];
-    for (const mall of tree) {
-      list.push({ id: mall.id, name: mall.name });
-      for (const fl of mall.children || []) {
-        list.push({ id: fl.id, name: fl.name });
-        for (const pl of fl.children || []) list.push({ id: pl.id, name: pl.name });
-      }
+    // Fonte de dados: preferir window.mallsTree (formato do original)
+    // Se não existir, converte um FILTER_DATA simples em uma árvore mínima.
+    function getTree() {
+        if (Array.isArray(window.mallsTree) && window.mallsTree.length) {
+            return window.mallsTree;
+        }
+        // fallback a partir de FILTER_DATA = [{id,name,floors:n}]
+        if (Array.isArray(window.FILTER_DATA) && window.FILTER_DATA.length) {
+            return window.FILTER_DATA.map(m => {
+                const mallId = m.id || crypto.randomUUID();
+                const floors = Array.from({ length: Number(m.floors || 1) }).map((_, i) => {
+                    const floorId = `${mallId}-F${i + 1}`;
+                    // sem places reais, colocamos 0..2 mockados
+                    const places = Array.from({ length: 3 }).map((__, k) => ({
+                        id: `${floorId}-P${k + 1}`,
+                        name: `Loja ${k + 1}`
+                    }));
+                    return { id: floorId, name: `Piso ${i + 1}`, children: places };
+                });
+                return { id: mallId, name: m.name || `Shopping ${mallId}`, children: floors };
+            });
+        }
+        // último fallback vazio
+        return [];
     }
-    return list;
-  }
 
-  function nodeMatchesQuery(nodeName, q) {
-    if (!q) return true;
-    return nodeName.toLowerCase().includes(q.toLowerCase());
-  }
+    const mallsTree = getTree();
 
-  function toggle(arr, val) {
-    return arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val];
-  }
+    // Flatten para mapa id->nome (chips)
+    function flatten(tree) {
+        const list = [];
+        for (const mall of tree) {
+            list.push({ id: mall.id, name: mall.name });
+            for (const fl of mall.children || []) {
+                list.push({ id: fl.id, name: fl.name });
+                for (const pl of fl.children || []) list.push({ id: pl.id, name: pl.name });
+            }
+        }
+        return list;
+    }
 
-  function countSelected(sel) {
-    return (sel.malls?.length || 0) + (sel.floors?.length || 0) + (sel.places?.length || 0);
-  }
+    function nodeMatchesQuery(nodeName, q) {
+        if (!q) return true;
+        return nodeName.toLowerCase().includes(q.toLowerCase());
+    }
 
-  // ==== Construção do container (uma única vez) =============================
-  let container = document.getElementById("modalGlobal");
-  if (!container) {
-    container = document.createElement("div");
-    container.id = "modalGlobal";
-    container.innerHTML = `
+    function toggle(arr, val) {
+        return arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val];
+    }
+
+    function countSelected(sel) {
+        return (sel.malls?.length || 0) + (sel.floors?.length || 0) + (sel.places?.length || 0);
+    }
+
+    // ==== Construção do container (uma única vez) =============================
+    let container = document.getElementById("modalGlobal");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "modalGlobal";
+        container.innerHTML = `
       <style>
         .myio-modal {
           position: fixed; inset: 0; display: flex; justify-content: center; align-items: center;
@@ -444,87 +497,87 @@ function injectModalGlobal() {
         </div>
       </div>
     `;
-    document.body.appendChild(container);
+        document.body.appendChild(container);
 
-    // listeners globais de fechar
-    container.querySelectorAll('[data-close]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        container.querySelector(".myio-modal").setAttribute("aria-hidden", "true");
-      });
-    });
-  }
+        // listeners globais de fechar
+        container.querySelectorAll('[data-close]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                container.querySelector(".myio-modal").setAttribute("aria-hidden", "true");
+            });
+        });
+    }
 
-  // ==== Referências do DOM ==================================================
-  const modal = container.querySelector(".myio-modal");
-  const elSearch = container.querySelector("#fltSearch");
-  const elList = container.querySelector("#fltList");
-  const elClear = container.querySelector("#fltClear");
-  const elSave = container.querySelector("#fltSave");
-  const elApply = container.querySelector("#fltApply");
-  const elChips = container.querySelector("#fltChips");
-  const elPresets = container.querySelector("#fltPresets");
-  const elCount = container.querySelector("#fltCount");
+    // ==== Referências do DOM ==================================================
+    const modal = container.querySelector(".myio-modal");
+    const elSearch = container.querySelector("#fltSearch");
+    const elList = container.querySelector("#fltList");
+    const elClear = container.querySelector("#fltClear");
+    const elSave = container.querySelector("#fltSave");
+    const elApply = container.querySelector("#fltApply");
+    const elChips = container.querySelector("#fltChips");
+    const elPresets = container.querySelector("#fltPresets");
+    const elCount = container.querySelector("#fltCount");
 
-  // ==== Render helpers ======================================================
-  const flatMap = new Map(flatten(mallsTree).map(n => [n.id, n.name]));
+    // ==== Render helpers ======================================================
+    const flatMap = new Map(flatten(mallsTree).map(n => [n.id, n.name]));
 
-  function isMallChecked(sel, mallId) {
-    return sel.malls.includes(mallId);
-  }
-  function isFloorChecked(sel, floorId) {
-    return sel.floors.includes(floorId);
-  }
-  function isPlaceChecked(sel, placeId) {
-    return sel.places.includes(placeId);
-  }
+    function isMallChecked(sel, mallId) {
+        return sel.malls.includes(mallId);
+    }
+    function isFloorChecked(sel, floorId) {
+        return sel.floors.includes(floorId);
+    }
+    function isPlaceChecked(sel, placeId) {
+        return sel.places.includes(placeId);
+    }
 
-  function renderCount() {
-    const c = countSelected(window.myioFilterSel);
-    elCount.textContent = `${c} selecionado${c === 1 ? "" : "s"}`;
-  }
+    function renderCount() {
+        const c = countSelected(window.myioFilterSel);
+        elCount.textContent = `${c} selecionado${c === 1 ? "" : "s"}`;
+    }
 
-  function renderChips() {
-    elChips.innerHTML = "";
-    const chips = [
-      ...window.myioFilterSel.malls.map(id => ({ id, label: flatMap.get(id) })),
-      ...window.myioFilterSel.floors.map(id => ({ id, label: flatMap.get(id) })),
-      ...window.myioFilterSel.places.map(id => ({ id, label: flatMap.get(id) })),
-    ].filter(c => !!c.label);
+    function renderChips() {
+        elChips.innerHTML = "";
+        const chips = [
+            ...window.myioFilterSel.malls.map(id => ({ id, label: flatMap.get(id) })),
+            ...window.myioFilterSel.floors.map(id => ({ id, label: flatMap.get(id) })),
+            ...window.myioFilterSel.places.map(id => ({ id, label: flatMap.get(id) })),
+        ].filter(c => !!c.label);
 
-    for (const c of chips) {
-      const chip = document.createElement("span");
-      chip.className = "chip";
-      chip.innerHTML = `
+        for (const c of chips) {
+            const chip = document.createElement("span");
+            chip.className = "chip";
+            chip.innerHTML = `
         <span>${c.label}</span>
         <button class="rm" title="Remover" aria-label="Remover seleção">×</button>
       `;
-      chip.querySelector(".rm").addEventListener("click", () => {
-        window.myioFilterSel = {
-          malls: window.myioFilterSel.malls.filter(x => x !== c.id),
-          floors: window.myioFilterSel.floors.filter(x => x !== c.id),
-          places: window.myioFilterSel.places.filter(x => x !== c.id),
-        };
-        renderAll();
-      });
-      elChips.appendChild(chip);
+            chip.querySelector(".rm").addEventListener("click", () => {
+                window.myioFilterSel = {
+                    malls: window.myioFilterSel.malls.filter(x => x !== c.id),
+                    floors: window.myioFilterSel.floors.filter(x => x !== c.id),
+                    places: window.myioFilterSel.places.filter(x => x !== c.id),
+                };
+                renderAll();
+            });
+            elChips.appendChild(chip);
+        }
     }
-  }
 
-  function renderTree() {
-    const q = window.myioFilterQuery || "";
-    elList.innerHTML = "";
+    function renderTree() {
+        const q = window.myioFilterQuery || "";
+        elList.innerHTML = "";
 
-    mallsTree.forEach(mall => {
-      // floor & place ids
-      const floorIds = (mall.children || []).map(f => f.id);
-      const placeIds = (mall.children || []).flatMap(f => (f.children || []).map(p => p.id));
+        mallsTree.forEach(mall => {
+            // floor & place ids
+            const floorIds = (mall.children || []).map(f => f.id);
+            const placeIds = (mall.children || []).flatMap(f => (f.children || []).map(p => p.id));
 
-      // decide se mall aparece pelos filtros
-      const mallMatch = nodeMatchesQuery(mall.name, q);
-      // container do mall
-      const mallCard = document.createElement("div");
-      mallCard.className = "mall-card";
-      mallCard.innerHTML = `
+            // decide se mall aparece pelos filtros
+            const mallMatch = nodeMatchesQuery(mall.name, q);
+            // container do mall
+            const mallCard = document.createElement("div");
+            mallCard.className = "mall-card";
+            mallCard.innerHTML = `
         <label class="mall-head">
           <input type="checkbox" ${isMallChecked(window.myioFilterSel, mall.id) ? "checked" : ""} />
           <span class="font-medium">${mall.name}</span>
@@ -532,38 +585,38 @@ function injectModalGlobal() {
         </label>
         <div class="sub"></div>
       `;
-      const mallCheck = mallCard.querySelector("input");
-      const mallSub = mallCard.querySelector(".sub");
+            const mallCheck = mallCard.querySelector("input");
+            const mallSub = mallCard.querySelector(".sub");
 
-      // click no mall: seleciona/deseleciona mall + floors + places
-      mallCheck.addEventListener("change", () => {
-        const checked = mallCheck.checked;
-        window.myioFilterSel = {
-          malls: checked
-            ? [...new Set([...window.myioFilterSel.malls, mall.id])]
-            : window.myioFilterSel.malls.filter(id => id !== mall.id),
-          floors: checked
-            ? [...new Set([...window.myioFilterSel.floors, ...floorIds])]
-            : window.myioFilterSel.floors.filter(id => !floorIds.includes(id)),
-          places: checked
-            ? [...new Set([...window.myioFilterSel.places, ...placeIds])]
-            : window.myioFilterSel.places.filter(id => !placeIds.includes(id)),
-        };
-        renderAll();
-      });
+            // click no mall: seleciona/deseleciona mall + floors + places
+            mallCheck.addEventListener("change", () => {
+                const checked = mallCheck.checked;
+                window.myioFilterSel = {
+                    malls: checked
+                        ? [...new Set([...window.myioFilterSel.malls, mall.id])]
+                        : window.myioFilterSel.malls.filter(id => id !== mall.id),
+                    floors: checked
+                        ? [...new Set([...window.myioFilterSel.floors, ...floorIds])]
+                        : window.myioFilterSel.floors.filter(id => !floorIds.includes(id)),
+                    places: checked
+                        ? [...new Set([...window.myioFilterSel.places, ...placeIds])]
+                        : window.myioFilterSel.places.filter(id => !placeIds.includes(id)),
+                };
+                renderAll();
+            });
 
-      // floors
-      (mall.children || [])
-        .filter(fl => {
-          const floorMatch = nodeMatchesQuery(fl.name, q);
-          const hasPlaceMatch = (fl.children || []).some(p => nodeMatchesQuery(p.name, q));
-          // Exibe o floor se: mall já bateu OU floor bate OR alguma loja bate
-          return mallMatch || floorMatch || hasPlaceMatch;
-        })
-        .forEach(fl => {
-          const floorCard = document.createElement("div");
-          floorCard.className = "floor-card";
-          floorCard.innerHTML = `
+            // floors
+            (mall.children || [])
+                .filter(fl => {
+                    const floorMatch = nodeMatchesQuery(fl.name, q);
+                    const hasPlaceMatch = (fl.children || []).some(p => nodeMatchesQuery(p.name, q));
+                    // Exibe o floor se: mall já bateu OU floor bate OR alguma loja bate
+                    return mallMatch || floorMatch || hasPlaceMatch;
+                })
+                .forEach(fl => {
+                    const floorCard = document.createElement("div");
+                    floorCard.className = "floor-card";
+                    floorCard.innerHTML = `
             <label class="floor-head">
               <input type="checkbox" ${isFloorChecked(window.myioFilterSel, fl.id) ? "checked" : ""} />
               <span>${fl.name}</span>
@@ -571,442 +624,457 @@ function injectModalGlobal() {
             </label>
             <div class="places"></div>
           `;
-          const floorCheck = floorCard.querySelector("input");
-          const placesBox = floorCard.querySelector(".places");
+                    const floorCheck = floorCard.querySelector("input");
+                    const placesBox = floorCard.querySelector(".places");
 
-          floorCheck.addEventListener("change", () => {
-            const checked = floorCheck.checked;
-            const thisPlaceIds = (fl.children || []).map(p => p.id);
-            window.myioFilterSel = {
-              malls: checked
-                ? [...new Set([...window.myioFilterSel.malls, mall.id])]
-                : window.myioFilterSel.malls, // não removemos o mall automaticamente (outros floors podem continuar)
-              floors: toggle(window.myioFilterSel.floors, fl.id),
-              places: checked
-                ? [...new Set([...window.myioFilterSel.places, ...thisPlaceIds])]
-                : window.myioFilterSel.places.filter(id => !thisPlaceIds.includes(id)),
-            };
-            renderAll();
-          });
+                    floorCheck.addEventListener("change", () => {
+                        const checked = floorCheck.checked;
+                        const thisPlaceIds = (fl.children || []).map(p => p.id);
+                        window.myioFilterSel = {
+                            malls: checked
+                                ? [...new Set([...window.myioFilterSel.malls, mall.id])]
+                                : window.myioFilterSel.malls, // não removemos o mall automaticamente (outros floors podem continuar)
+                            floors: toggle(window.myioFilterSel.floors, fl.id),
+                            places: checked
+                                ? [...new Set([...window.myioFilterSel.places, ...thisPlaceIds])]
+                                : window.myioFilterSel.places.filter(id => !thisPlaceIds.includes(id)),
+                        };
+                        renderAll();
+                    });
 
-          (fl.children || [])
-            .filter(p => {
-              const pmatch = nodeMatchesQuery(p.name, q);
-              // Exibe place se qualquer nó ancestral/ele mesmo bate
-              return mallMatch || nodeMatchesQuery(fl.name, q) || pmatch;
-            })
-            .forEach(p => {
-              const li = document.createElement("label");
-              li.className = "place-item";
-              li.innerHTML = `
+                    (fl.children || [])
+                        .filter(p => {
+                            const pmatch = nodeMatchesQuery(p.name, q);
+                            // Exibe place se qualquer nó ancestral/ele mesmo bate
+                            return mallMatch || nodeMatchesQuery(fl.name, q) || pmatch;
+                        })
+                        .forEach(p => {
+                            const li = document.createElement("label");
+                            li.className = "place-item";
+                            li.innerHTML = `
                 <input type="checkbox" ${isPlaceChecked(window.myioFilterSel, p.id) ? "checked" : ""} />
                 <span class="text-sm">${p.name}</span>
               `;
-              const chk = li.querySelector("input");
-              chk.addEventListener("change", () => {
-                const checked = chk.checked;
+                            const chk = li.querySelector("input");
+                            chk.addEventListener("change", () => {
+                                const checked = chk.checked;
+                                window.myioFilterSel = {
+                                    malls: checked
+                                        ? [...new Set([...window.myioFilterSel.malls, mall.id])]
+                                        : window.myioFilterSel.malls,
+                                    floors: checked
+                                        ? [...new Set([...window.myioFilterSel.floors, fl.id])]
+                                        : window.myioFilterSel.floors,
+                                    places: toggle(window.myioFilterSel.places, p.id),
+                                };
+                                renderAll();
+                            });
+                            placesBox.appendChild(li);
+                        });
+
+                    mallSub.appendChild(floorCard);
+                });
+
+            // Só adiciona o mallCard se ele próprio ou seus filhos batem a busca
+            if (
+                mallMatch ||
+                mallSub.children.length > 0
+            ) {
+                elList.appendChild(mallCard);
+            }
+        });
+        if (!window.custumersSelected) window.custumersSelected = [];
+
+        if (!elList.children.length) {
+            if (Array.isArray(self.ctx.$scope.custumer) && self.ctx.$scope.custumer.length) {
+                elList.style.textAlign = "left";
+
+                self.ctx.$scope.custumer.forEach(c => {
+                    const item = document.createElement("button");
+                    item.className = "custumers";
+
+                    // armazenar o dado no próprio botão
+                    item.custumerData = c;
+
+                    // quadrado à esquerda
+                    const box = document.createElement("div");
+                    box.className = "checkbox";
+                    item.appendChild(box);
+
+                    // texto do cliente
+                    const text = document.createElement("span");
+                    text.textContent = c.name;
+                    item.appendChild(text);
+                    window.custumersSelected = [];
+                    // clique para selecionar/deselecionar
+                    item.addEventListener("click", () => {
+                        const isSelected = item.classList.toggle("selected");
+                        if (isSelected) {
+                            window.custumersSelected.push(c); // adiciona ao array
+                        } else {
+                            window.custumersSelected = window.custumersSelected.filter(x => x !== c);
+                        }
+                        // console.log("Selecionados:", window.custumersSelected);
+                    });
+                    self.ctx.filterCustom = window.custumersSelected
+
+                    elList.appendChild(item);
+                });
+            } else {
+                const empty = document.createElement("div");
+                empty.style.color = "#6b7280";
+                empty.style.fontSize = "14px";
+                empty.style.textAlign = "left";
+                empty.textContent = "Nenhum resultado encontrado para o filtro atual.";
+                elList.appendChild(empty);
+            }
+        }
+
+    }
+
+    function renderPresets() {
+        elPresets.innerHTML = "";
+        const presets = window.myioFilterPresets || [];
+        if (!presets.length) {
+            const empty = document.createElement("div");
+            empty.style.color = "#6b7280";
+            empty.style.fontSize = "12px";
+            empty.textContent = "Nenhum preset salvo ainda.";
+            elPresets.appendChild(empty);
+            return;
+        }
+        presets.slice(0, 12).forEach(p => {
+            const row = document.createElement("div");
+            row.className = "preset-item";
+            const btnApply = document.createElement("button");
+            btnApply.textContent = p.name;
+            btnApply.title = "Aplicar preset";
+            btnApply.style.textDecoration = "underline";
+
+            const btnDel = document.createElement("button");
+            btnDel.innerHTML = "🗑️";
+            btnDel.title = "Excluir preset";
+
+            btnApply.addEventListener("click", () => {
+                // aplica seleção do preset
                 window.myioFilterSel = {
-                  malls: checked
-                    ? [...new Set([...window.myioFilterSel.malls, mall.id])]
-                    : window.myioFilterSel.malls,
-                  floors: checked
-                    ? [...new Set([...window.myioFilterSel.floors, fl.id])]
-                    : window.myioFilterSel.floors,
-                  places: toggle(window.myioFilterSel.places, p.id),
+                    malls: [...(p.selection?.malls || [])],
+                    floors: [...(p.selection?.floors || [])],
+                    places: [...(p.selection?.places || [])],
                 };
                 renderAll();
-              });
-              placesBox.appendChild(li);
             });
 
-          mallSub.appendChild(floorCard);
+            btnDel.addEventListener("click", () => {
+                window.myioFilterPresets = (window.myioFilterPresets || []).filter(x => x.id !== p.id);
+                try {
+                    localStorage.setItem(PRESET_KEY, JSON.stringify(window.myioFilterPresets));
+                } catch { }
+                renderPresets();
+            });
+
+            row.appendChild(btnApply);
+            row.appendChild(btnDel);
+            elPresets.appendChild(row);
         });
-
-      // Só adiciona o mallCard se ele próprio ou seus filhos batem a busca
-      if (
-        mallMatch ||
-        mallSub.children.length > 0
-      ) {
-        elList.appendChild(mallCard);
-      }
-    });
-    if (!window.custumersSelected) window.custumersSelected = [];
-
-    if (!elList.children.length) {
-      if (Array.isArray(self.ctx.$scope.custumer) && self.ctx.$scope.custumer.length) {
-        elList.style.textAlign = "left";
-
-        self.ctx.$scope.custumer.forEach(c => {
-          const item = document.createElement("button");
-          item.className = "custumers";
-
-          // armazenar o dado no próprio botão
-          item.custumerData = c;
-
-          // quadrado à esquerda
-          const box = document.createElement("div");
-          box.className = "checkbox";
-          item.appendChild(box);
-
-          // texto do cliente
-          const text = document.createElement("span");
-          text.textContent = c.name;
-          item.appendChild(text);
-          window.custumersSelected = []; 
-          // clique para selecionar/deselecionar
-          item.addEventListener("click", () => {
-            const isSelected = item.classList.toggle("selected");
-            if (isSelected) {
-              window.custumersSelected.push(c); // adiciona ao array
-            } else {
-              window.custumersSelected = window.custumersSelected.filter(x => x !== c);
-            }
-           // console.log("Selecionados:", window.custumersSelected);
-          });
-          self.ctx.filterCustom = window.custumersSelected
-          console.log('window.custumersSelected >>>>>>>>>>>>>', window.custumersSelected);
-          
-          elList.appendChild(item);
-        });
-      } else {
-        const empty = document.createElement("div");
-        empty.style.color = "#6b7280";
-        empty.style.fontSize = "14px";
-        empty.style.textAlign = "left";
-        empty.textContent = "Nenhum resultado encontrado para o filtro atual.";
-        elList.appendChild(empty);
-      }
     }
 
-  }
-
-  function renderPresets() {
-    elPresets.innerHTML = "";
-    const presets = window.myioFilterPresets || [];
-    if (!presets.length) {
-      const empty = document.createElement("div");
-      empty.style.color = "#6b7280";
-      empty.style.fontSize = "12px";
-      empty.textContent = "Nenhum preset salvo ainda.";
-      elPresets.appendChild(empty);
-      return;
-    }
-    presets.slice(0, 12).forEach(p => {
-      const row = document.createElement("div");
-      row.className = "preset-item";
-      const btnApply = document.createElement("button");
-      btnApply.textContent = p.name;
-      btnApply.title = "Aplicar preset";
-      btnApply.style.textDecoration = "underline";
-
-      const btnDel = document.createElement("button");
-      btnDel.innerHTML = "🗑️";
-      btnDel.title = "Excluir preset";
-
-      btnApply.addEventListener("click", () => {
-        // aplica seleção do preset
-        window.myioFilterSel = {
-          malls: [...(p.selection?.malls || [])],
-          floors: [...(p.selection?.floors || [])],
-          places: [...(p.selection?.places || [])],
-        };
-        renderAll();
-      });
-
-      btnDel.addEventListener("click", () => {
-        window.myioFilterPresets = (window.myioFilterPresets || []).filter(x => x.id !== p.id);
-        try {
-          localStorage.setItem(PRESET_KEY, JSON.stringify(window.myioFilterPresets));
-        } catch { }
+    function renderAll() {
+        renderCount();
+        renderChips();
+        renderTree();
+        // não precisa re-render presets a cada clique, mas aqui é seguro:
         renderPresets();
-      });
+    }
 
-      row.appendChild(btnApply);
-      row.appendChild(btnDel);
-      elPresets.appendChild(row);
-    });
-  }
+    // ==== Bind de eventos de UI ==============================================
+    if (!elSearch._bound) {
+        elSearch._bound = true;
+        elSearch.addEventListener("input", (e) => {
+            window.myioFilterQuery = e.target.value || "";
+            renderTree();
+        });
+    }
 
-  function renderAll() {
-    renderCount();
-    renderChips();
-    renderTree();
-    // não precisa re-render presets a cada clique, mas aqui é seguro:
-    renderPresets();
-  }
+    if (!elClear._bound) {
+        elClear._bound = true;
+        elClear.addEventListener("click", () => {
+            window.myioFilterSel = { malls: [], floors: [], places: [] };
+            window.myioFilterQuery = "";
+            elSearch.value = "";
+            renderAll();
+        });
+    }
 
-  // ==== Bind de eventos de UI ==============================================
-  if (!elSearch._bound) {
-    elSearch._bound = true;
-    elSearch.addEventListener("input", (e) => {
-      window.myioFilterQuery = e.target.value || "";
-      renderTree();
-    });
-  }
+    if (!elSave._bound) {
+        elSave._bound = true;
+        elSave.addEventListener("click", () => {
+            const name = prompt("Nome do preset:");
+            if (!name) return;
+            const preset = {
+                id: crypto.randomUUID(),
+                name,
+                selection: {
+                    malls: [...window.myioFilterSel.malls],
+                    floors: [...window.myioFilterSel.floors],
+                    places: [...window.myioFilterSel.places],
+                },
+                createdAt: Date.now(),
+            };
+            const next = [preset, ...(window.myioFilterPresets || [])].slice(0, 12);
+            window.myioFilterPresets = next;
+            try {
+                localStorage.setItem(PRESET_KEY, JSON.stringify(next));
+            } catch { }
+            renderPresets();
+        });
+    }
 
-  if (!elClear._bound) {
-    elClear._bound = true;
-    elClear.addEventListener("click", () => {
-      window.myioFilterSel = { malls: [], floors: [], places: [] };
-      window.myioFilterQuery = "";
-      elSearch.value = "";
-      renderAll();
-    });
-  }
+    if (!elApply._bound) {
+        elApply._bound = true;
+        elApply.addEventListener("click", async () => {
+            // Itens selecionados
+            //console.log("Itens selecionados:", window.custumersSelected);
 
-  if (!elSave._bound) {
-    elSave._bound = true;
-    elSave.addEventListener("click", () => {
-      const name = prompt("Nome do preset:");
-      if (!name) return;
-      const preset = {
-        id: crypto.randomUUID(),
-        name,
-        selection: {
-          malls: [...window.myioFilterSel.malls],
-          floors: [...window.myioFilterSel.floors],
-          places: [...window.myioFilterSel.places],
-        },
-        createdAt: Date.now(),
-      };
-      const next = [preset, ...(window.myioFilterPresets || [])].slice(0, 12);
-      window.myioFilterPresets = next;
-      try {
-        localStorage.setItem(PRESET_KEY, JSON.stringify(next));
-      } catch { }
-      renderPresets();
-    });
-  }
+            const percentDiference = document.getElementById("energy-trend");
 
-  if (!elApply._bound) {
-    elApply._bound = true;
-    elApply.addEventListener("click", async () => {
-      // Itens selecionados
-      //console.log("Itens selecionados:", window.custumersSelected);
+            percentDiference.innerText = "";
 
-      const percentDiference = document.getElementById("energy-trend");
+            // Desabilita botão enquanto carrega
+            elApply.disabled = true;
 
-      percentDiference.innerText = "";
+            // Chama a função que atualiza o consumo      
+            await updateTotalConsumption(
+                window.custumersSelected,
+                self.ctx.$scope.startDateISO,
+                self.ctx.$scope.endDateISO
+            );
 
-      // Desabilita botão enquanto carrega
-      elApply.disabled = true;
+            updateTotalWaterConsumption(window.custumersSelected,
+                self.ctx.$scope.startDateISO,
+                self.ctx.$scope.endDateISO)
 
-      // Chama a função que atualiza o consumo
-      console.log('>>>>>>>>>>>>>>>>>>>>>> pre consumo');
-      
-      await updateTotalConsumption(
-        window.custumersSelected,
-        self.ctx.$scope.startDateISO,
-        self.ctx.$scope.endDateISO
-      );
+            // Reabilita botão
+            elApply.disabled = false;
 
-      // Reabilita botão
-      elApply.disabled = false;
+            // Dispara evento com os custumers selecionados
+            window.dispatchEvent(
+                new CustomEvent("myio:filter-applied", {
+                    detail: {
+                        selection: window.custumersSelected,
+                        ts: Date.now(),
+                    }
+                })
+            );
 
-      // Dispara evento com os custumers selecionados
-      window.dispatchEvent(
-        new CustomEvent("myio:filter-applied", {
-          detail: {
-            selection: window.custumersSelected,
-            ts: Date.now(),
-          }
-        })
-      );
+            // Fecha modal
+            modal.setAttribute("aria-hidden", "true");
+        });
+    }
 
-      // Fecha modal
-      modal.setAttribute("aria-hidden", "true");
-    });
-  }
+    // ==== Abrir modal e sincronizar estado visual ============================
+    modal.setAttribute("aria-hidden", "false");
+    // repõe valor de busca persistido em memória
+    if (elSearch.value !== (window.myioFilterQuery || "")) {
+        elSearch.value = window.myioFilterQuery || "";
+    }
+    renderAll();
 
-  // ==== Abrir modal e sincronizar estado visual ============================
-  modal.setAttribute("aria-hidden", "false");
-  // repõe valor de busca persistido em memória
-  if (elSearch.value !== (window.myioFilterQuery || "")) {
-    elSearch.value = window.myioFilterQuery || "";
-  }
-  renderAll();
-
-  // Foco no input de busca
-  setTimeout(() => elSearch?.focus(), 0);
+    // Foco no input de busca
+    setTimeout(() => elSearch?.focus(), 0);
 }
 
 function bindFilter(root) {
-  if (root._filterBound) return;
-  root._filterBound = true;
-  const modal = document.getElementById("filterModal");
-  if (!modal) return; // se modal não existe, sai
+    if (root._filterBound) return;
+    root._filterBound = true;
+    const modal = document.getElementById("filterModal");
+    if (!modal) return; // se modal não existe, sai
 
-  const listEl = modal.querySelector("#fltList");
-  const inp = modal.querySelector("#fltSearch");
-  const btnClear = modal.querySelector("#fltClear");
-  const btnSave = modal.querySelector("#fltSave");
-  const btnApply = modal.querySelector("#fltApply");
+    const listEl = modal.querySelector("#fltList");
+    const inp = modal.querySelector("#fltSearch");
+    const btnClear = modal.querySelector("#fltClear");
+    const btnSave = modal.querySelector("#fltSave");
+    const btnApply = modal.querySelector("#fltApply");
 
-  // agora adiciona os listeners
-  btnSave?.addEventListener("click", () => {
-    const sel = listEl.dataset.selectedId || null;
-    //console.log("[filter] salvar preset (mock) selection=", sel);
-  });
+    // agora adiciona os listeners
+    btnSave?.addEventListener("click", () => {
+        const sel = listEl.dataset.selectedId || null;
+        //console.log("[filter] salvar preset (mock) selection=", sel);
+    });
 
-  btnApply?.addEventListener("click", () => {
-    const sel = listEl.dataset.selectedId || null;
-    // window.dispatchEvent(
-    //   new CustomEvent(EVT_FILTER_APPLIED, { detail: { selectedMallId: sel, ts: Date.now() } })
-    // );
-    //console.log("[filter] applied:", sel);
-    modal.setAttribute("aria-hidden", "true");
-  });
+    btnApply?.addEventListener("click", () => {
+        const sel = listEl.dataset.selectedId || null;
+        // window.dispatchEvent(
+        //   new CustomEvent(EVT_FILTER_APPLIED, { detail: { selectedMallId: sel, ts: Date.now() } })
+        // );
+        //console.log("[filter] applied:", sel);
+        modal.setAttribute("aria-hidden", "true");
+    });
 
-  modal.querySelectorAll("[data-close]").forEach(btn => {
-    btn.addEventListener("click", () => modal.setAttribute("aria-hidden", "true"));
-  });
+    modal.querySelectorAll("[data-close]").forEach(btn => {
+        btn.addEventListener("click", () => modal.setAttribute("aria-hidden", "true"));
+    });
 }
 
 /* ====== Cards summary (igual antes) ====== */
 function setBarPercent(elBarFill, pct, tail = 8) {
-  const track = elBarFill?.parentElement;
-  if (!elBarFill || !track) return;
-  // limita 0–100
-  const p = Math.max(0, Math.min(100, pct || 0));
-  track.style.setProperty("--pct", p);
-  track.style.setProperty("--tail", tail); // % do preenchido que será verde
-  elBarFill.style.width = p + "%";
+    const track = elBarFill?.parentElement;
+    if (!elBarFill || !track) return;
+    // limita 0–100
+    const p = Math.max(0, Math.min(100, pct || 0));
+    track.style.setProperty("--pct", p);
+    track.style.setProperty("--tail", tail); // % do preenchido que será verde
+    elBarFill.style.width = p + "%";
 }
 
 function setSummary(data = {}) {
-  // === Equipamentos ===
-  if (data.equip) {
-    const pct = Math.max(0, Math.min(100, data.equip.percent ?? 0));
-    document.getElementById("equip-kpi").textContent =
-      data.equip.totalStr ?? "0/0";
-    document.getElementById("equip-sub").textContent = `${pct}% operational`;
-    setBarPercent(document.getElementById("equip-bar"), pct, 8);
-  }
-
-  // === Energia ===
-  if (data.energy) {
-    const trendEl = document.getElementById("energy-trend");
-    document.getElementById("energy-kpi").textContent = data.energy.kpi ?? "--";
-    // trendEl.textContent = (data.energy.trendDir === 'up' ? '↑ ' : '// ') + (data.energy.trendText?.replace(/[↑↓]\s*/,'') || '');
-    trendEl.classList.toggle(
-      "down",
-      (data.energy.trendDir || "down") === "down"
-    );
-    trendEl.classList.toggle("up", (data.energy.trendDir || "down") === "up");
-    document.getElementById("energy-peak").textContent =
-      data.energy.peakText ?? "";
-  }
-
-  // === Temperatura ===
-  if (data.temp) {
-    document.getElementById("temp-kpi").textContent = data.temp.kpi ?? "--";
-    document.getElementById("temp-range").textContent =
-      data.temp.rangeText ?? "";
-  }
-
-  // === Água ===
-  if (data.water) {
-    const pct = Math.max(0, Math.min(100, data.water.percent ?? 0));
-    document.getElementById("water-kpi").textContent = `${pct}%`;
-    setBarPercent(document.getElementById("water-bar"), pct, 12); // cauda um pouco maior
-    if (data.water.alertText) {
-      const w = document.getElementById("water-alert");
-      w.textContent = data.water.alertText;
-      w.classList.add("warn");
+    // === Equipamentos ===
+    if (data.equip) {
+        const pct = Math.max(0, Math.min(100, data.equip.percent ?? 0));
+        document.getElementById("equip-kpi").textContent =
+            data.equip.totalStr ?? "0/0";
+        document.getElementById("equip-sub").textContent = `${pct}% operational`;
+        setBarPercent(document.getElementById("equip-bar"), pct, 8);
     }
-  }
+
+    // === Energia ===
+    if (data.energy) {
+        const trendEl = document.getElementById("energy-trend");
+        document.getElementById("energy-kpi").textContent = data.energy.kpi ?? "--";
+        // trendEl.textContent = (data.energy.trendDir === 'up' ? '↑ ' : '// ') + (data.energy.trendText?.replace(/[↑↓]\s*/,'') || '');
+        trendEl.classList.toggle(
+            "down",
+            (data.energy.trendDir || "down") === "down"
+        );
+        trendEl.classList.toggle("up", (data.energy.trendDir || "down") === "up");
+        document.getElementById("energy-peak").textContent =
+            data.energy.peakText ?? "";
+    }
+
+    // === Temperatura ===
+    if (data.temp) {
+        document.getElementById("temp-kpi").textContent = "--";
+        document.getElementById("temp-range").textContent =
+            data.temp.rangeText ?? "";
+    }
+
+    // === Água ===
+    if (data.water) {
+        const pct = Math.max(0, Math.min(100, data.water.percent ?? 0));
+        document.getElementById("water-kpi").textContent = `${pct}%`;
+        setBarPercent(document.getElementById("water-bar"), pct, 12); // cauda um pouco maior
+    }
 }
 
 window.myioSetMenuSummary = setSummary;
-function formatDiaMes(date) {
-  const dia = String(date.getDate()).padStart(2, "0");   // garante 2 dígitos
-  const mes = String(date.getMonth() + 1).padStart(2, "0"); // meses começam em 0
-  return `${dia}/${mes}`;
+function formatDiaMesAno(date) {
+    // Array com as abreviações dos meses em português (os meses em JavaScript vão de 0 a 11)
+    const abreviacoesMes = [
+        "jan", "fev", "mar", "abr", "mai", "jun",
+        "jul", "ago", "set", "out", "nov", "dez"
+    ];
+
+    // 1. Obtém o dia e garante 2 dígitos
+    const dia = String(date.getDate()).padStart(2, "0");
+
+    // 2. Obtém o mês (0-11) e usa como índice para pegar a abreviação
+    const mesAbreviado = abreviacoesMes[date.getMonth()];
+
+    // 3. Obtém o ano completo (YYYY)
+    const ano = date.getFullYear();
+
+    // 4. Retorna a string no formato 'dd/mmm/yyyy' (ex: '01/nov/2025')
+    return `${dia}/${mesAbreviado}/${ano}`;
 }
 
 /* ====== Lifecycle ====== */
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
-  // Global busy modal is managed by MAIN orchestrator
+    // Global busy modal is managed by MAIN orchestrator
 
-  // Define timezone e datas iniciais
-  const TZ = 'America/Sao_Paulo';
-  const hoje = new Date();
+    // Define timezone e datas iniciais
+    const TZ = 'America/Sao_Paulo';
+    const hoje = new Date();
 
-  // Define datas iniciais (início do mês até hoje)
-  const startDate = presetStart ? new Date(presetStart) : new Date(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0);
-  const endDate = presetEnd ? new Date(presetEnd) : new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59);
+    // Define datas iniciais (início do mês até hoje)
+    const startDate = presetStart ? new Date(presetStart) : new Date(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0);
+    const endDate = presetEnd ? new Date(presetEnd) : new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59);
 
-  // Converte para ISO strings
-  let timeStart = startDate.toISOString();
-  let timeEnd = endDate.toISOString();
+    // Converte para ISO strings
+    let timeStart = startDate.toISOString();
+    let timeEnd = endDate.toISOString();
 
-  const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
-  CLIENT_ID = self.ctx.settings.clientId;
-  CLIENT_SECRET = self.ctx.settings.clientSecret;
+    const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
+    CLIENT_ID = self.ctx.settings.clientId;
+    CLIENT_SECRET = self.ctx.settings.clientSecret;
 
-  bindTabs(root);
-  bindFilter(root);
+    bindTabs(root);
+    bindFilter(root);
 
-  // mocks (remova se alimentar via API/telemetria)
-  setSummary({
-    equip: { totalStr: "24/26", percent: 92 },
-    energy: { peakText: "Pico: 1.8 kW às 14:30" },
-    temp: { kpi: "22.5°C", rangeText: "Faixa: 20°C – 25°C" },
-    water: { percent: 87, alertText: "⚠ Cisterna Principal 2 com 68%" },
-  });
-
-  const filterBtn = document.getElementById("filterBtn");
-
-
-  if (filterBtn) {
-    filterBtn.addEventListener("click", () => {
-      injectModalGlobal(); // cria o modal se ainda não existe
-      bindFilter(document.body); // agora os elementos existem
+    // mocks (remova se alimentar via API/telemetria)
+    setSummary({
+        equip: { totalStr: "24/26", percent: 92 },
+        energy: { peakText: "Pico: 1.8 kW às 14:30" },
+        temp: { kpi: "22.5°C", rangeText: "Faixa: 20°C – 25°C" },
+        water: { percent: 87, alertText: "⚠ Cisterna Principal 2 com 68%" },
     });
-  }
 
-  // Atualiza escopo com datas iniciais
-  self.ctx.$scope.startDateISO = timeStart;
-  self.ctx.$scope.endDateISO = timeEnd;
+    const filterBtn = document.getElementById("filterBtn");
 
-  // Formata datas para timezone -03:00
-  const startDateISO = timeStart.replace('Z', '-03:00');
-  const endDateISO = timeEnd.replace('Z', '-03:00');
 
-  // Dispara evento inicial com as datas
-  window.dispatchEvent(new CustomEvent('myio:update-date', {
-    detail: {
-      startDate: startDateISO,
-      endDate: endDateISO,
+    if (filterBtn) {
+        filterBtn.addEventListener("click", () => {
+            injectModalGlobal(); // cria o modal se ainda não existe
+            bindFilter(document.body); // agora os elementos existem
+        });
     }
-  }));
 
-  // Atualiza intervalo de datas na UI
-  const timeWindow = `Intervalo: ${formatDiaMes(startDate)} - ${formatDiaMes(endDate)}`;
-  const timeinterval = document.getElementById("energy-peak");
-  if (timeinterval) {
-    timeinterval.innerText = timeWindow;
-  }
-  
-  const custumer = [];
+    // Atualiza escopo com datas iniciais
+    self.ctx.$scope.startDateISO = timeStart;
+    self.ctx.$scope.endDateISO = timeEnd;
 
-  // não apagar!!
-  self.ctx.data.forEach(data => {
-     if (data.datasource.aliasName === "Shopping") {
-      // adiciona no array custumes
-      custumer.push({
-         name: data.datasource.entityLabel, // ou outro campo que seja o "nome"
-         value: data.data[0][1]                  // ou o dado que você precisa salvar
-      });
-     }
-     
-     updateTotalConsumption(custumer, startDateISO, endDateISO)
-  });
+    // Formata datas para timezone -03:00
+    const startDateISO = timeStart.replace('Z', '-03:00');
+    const endDateISO = timeEnd.replace('Z', '-03:00');
+
+    // Dispara evento inicial com as datas
+    window.dispatchEvent(new CustomEvent('myio:update-date', {
+        detail: {
+            startDate: startDateISO,
+            endDate: endDateISO,
+        }
+    }));
+
+    // Atualiza intervalo de datas na UI
+    const timeWindow = `Intervalo: ${formatDiaMesAno(startDate)} - ${formatDiaMesAno(endDate)}`;
+    const timeinterval = document.getElementById("energy-peak");
+    if (timeinterval) {
+        timeinterval.innerText = timeWindow;
+    }
+    const waterInterval = document.getElementById("water-alert");
+    if (waterInterval) {
+        waterInterval.innerText = timeWindow;
+    }
+
+    const custumer = [];
+
+    // não apagar!!
+    self.ctx.data.forEach(data => {
+        if (data.datasource.aliasName === "Shopping") {
+            // adiciona no array custumes
+            custumer.push({
+                name: data.datasource.entityLabel, // ou outro campo que seja o "nome"
+                value: data.data[0][1]                  // ou o dado que você precisa salvar
+            });
+        }
+
+        updateTotalConsumption(custumer, startDateISO, endDateISO)
+        updateTotalWaterConsumption(custumer, startDateISO, endDateISO)
+    });
 
 
 
-  self.ctx.$scope.custumer = custumer
- // console.log("custumer",custumer)
+    self.ctx.$scope.custumer = custumer
+    // console.log("custumer",custumer)
 
 
 
@@ -1014,282 +1082,524 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
 // ===== HEADER: Equipment Card Handler =====
 function updateEquipmentCard() {
-  // Count unique devices and their online status
-  // Group by entityId to count each device only once
-  const deviceMap = new Map(); // entityId -> { hasConnectionStatus: bool, isOnline: bool, customerId: string, ingestionId: string }
+    // Count unique devices and their online status
+    // Group by entityId to count each device only once
+    const deviceMap = new Map(); // entityId -> { hasConnectionStatus: bool, isOnline: bool, customerId: string, ingestionId: string }
 
-  self.ctx.data.forEach((data) => {
-    const entityId = data.datasource?.entityId;
-    const dataKeyName = data.dataKey?.name;
+    self.ctx.data.forEach((data) => {
+        const entityId = data.datasource?.entityId;
+        const dataKeyName = data.dataKey?.name;
 
-    if (!entityId) return;
+        if (!entityId) return;
 
-    // Initialize device entry if doesn't exist
-    if (!deviceMap.has(entityId)) {
-      deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false, customerId: null, ingestionId: null });
-    }
-
-    const deviceEntry = deviceMap.get(entityId);
-
-    // Check if this is the connectionStatus dataKey
-    if (dataKeyName === "connectionStatus") {
-      const status = String(data.data?.[0]?.[1] || '').toLowerCase();
-      deviceEntry.hasConnectionStatus = true;
-      deviceEntry.isOnline = (status === "online");
-    }
-
-    // Extract customerId for filtering
-    if (dataKeyName === "customerId") {
-      deviceEntry.customerId = data.data?.[0]?.[1];
-    }
-
-    // Extract ingestionId for fallback mapping
-    if (dataKeyName === "ingestionId") {
-      deviceEntry.ingestionId = data.data?.[0]?.[1];
-    }
-  });
-
-  // Count total devices and online devices
-  let totalDevices = 0;
-  let onlineDevices = 0;
-  let filteredOut = 0;
-
-  deviceMap.forEach((device, entityId) => {
-    if (device.hasConnectionStatus) {
-      // Apply shopping filter if active
-      if (selectedShoppingIds.length > 0) {
-        let customerId = device.customerId;
-
-        // Fallback: try to get customerId from global device-to-shopping map
-        if (!customerId && device.ingestionId && window.myioDeviceToShoppingMap) {
-          customerId = window.myioDeviceToShoppingMap.get(device.ingestionId);
+        // Initialize device entry if doesn't exist
+        if (!deviceMap.has(entityId)) {
+            deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false, customerId: null, ingestionId: null });
         }
 
-        // If device has customerId, check if it's in selected shoppings
-        if (customerId && !selectedShoppingIds.includes(customerId)) {
-          filteredOut++;
-          return; // Skip this device
+        const deviceEntry = deviceMap.get(entityId);
+
+        // Check if this is the connectionStatus dataKey
+        if (dataKeyName === "connectionStatus") {
+            const status = String(data.data?.[0]?.[1] || '').toLowerCase();
+            deviceEntry.hasConnectionStatus = true;
+            deviceEntry.isOnline = (status === "online");
         }
 
-        // If device has no customerId even after fallback, include it (safety)
-      }
+        // Extract customerId for filtering
+        if (dataKeyName === "customerId") {
+            deviceEntry.customerId = data.data?.[0]?.[1];
+        }
 
-      totalDevices++;
-      if (device.isOnline) {
-        onlineDevices++;
-      }
+        // Extract ingestionId for fallback mapping
+        if (dataKeyName === "ingestionId") {
+            deviceEntry.ingestionId = data.data?.[0]?.[1];
+        }
+    });
+
+    // Count total devices and online devices
+    let totalDevices = 0;
+    let onlineDevices = 0;
+    let filteredOut = 0;
+
+    deviceMap.forEach((device, entityId) => {
+        if (device.hasConnectionStatus) {
+            // Apply shopping filter if active
+            if (selectedShoppingIds.length > 0) {
+                let customerId = device.customerId;
+
+                // Fallback: try to get customerId from global device-to-shopping map
+                if (!customerId && device.ingestionId && window.myioDeviceToShoppingMap) {
+                    customerId = window.myioDeviceToShoppingMap.get(device.ingestionId);
+                }
+
+                // If device has customerId, check if it's in selected shoppings
+                if (customerId && !selectedShoppingIds.includes(customerId)) {
+                    filteredOut++;
+                    return; // Skip this device
+                }
+
+                // If device has no customerId even after fallback, include it (safety)
+            }
+
+            totalDevices++;
+            if (device.isOnline) {
+                onlineDevices++;
+            }
+        }
+    });
+
+    if (selectedShoppingIds.length > 0) {
+        console.log(`[HEADER] Shopping filter applied to equipment card: ${totalDevices} devices shown, ${filteredOut} filtered out`);
     }
-  });
 
-  if (selectedShoppingIds.length > 0) {
-    console.log(`[HEADER] Shopping filter applied to equipment card: ${totalDevices} devices shown, ${filteredOut} filtered out`);
-  }
+    const percentage = totalDevices > 0 ? Math.round((onlineDevices / totalDevices) * 100) : 0;
 
-  const percentage = totalDevices > 0 ? Math.round((onlineDevices / totalDevices) * 100) : 0;
+    const statusDevice = document.getElementById("equip-kpi");
+    const percentDevice = document.getElementById("equip-sub");
+    const barEl = document.getElementById("equip-bar");
 
-  const statusDevice = document.getElementById("equip-kpi");
-  const percentDevice = document.getElementById("equip-sub");
-  const barEl = document.getElementById("equip-bar");
+    if (statusDevice) statusDevice.innerText = `${onlineDevices}/${totalDevices}`;
+    if (percentDevice) percentDevice.innerText = `${percentage}% operational`;
+    if (barEl) setBarPercent(barEl, percentage, 8);
 
-  if (statusDevice) statusDevice.innerText = `${onlineDevices}/${totalDevices}`;
-  if (percentDevice) percentDevice.innerText = `${percentage}% operational`;
-  if (barEl) setBarPercent(barEl, percentage, 8);
+    console.log("[HEADER] Equipment card updated:", { online: onlineDevices, total: totalDevices, percentage });
+}
 
-  console.log("[HEADER] Equipment card updated:", { online: onlineDevices, total: totalDevices, percentage });
+function extractDeviceIds(ctxData) {
+    const deviceIds = new Set();
+
+    if (!Array.isArray(ctxData)) {
+        console.warn("[ENERGY] ctxData is not an array");
+        return [];
+    }
+
+    ctxData.forEach((data) => {
+        // Skip customer/shopping entries
+        if (data.datasource?.aliasName !== "AllTemperatureDevices") {
+            return;
+        }
+
+        const entityId =
+            data.datasource?.entityId?.id || data.datasource?.entity?.id?.id;
+        if (entityId) {
+            deviceIds.add(entityId);
+        }
+    });
+
+    console.log(`[ENERGY] Extracted ${deviceIds.size} device IDs`);
+    return Array.from(deviceIds);
+}
+
+/**
+ * Calcula a média dos valores de temperatura em um array de objetos.
+ * Cada objeto deve ter uma propriedade 'value' contendo o valor numérico.
+ *
+ * @param {Array<Object>} dataArray O array de objetos de dados (ex: Array(104) na imagem).
+ * @returns {number} A média calculada dos valores.
+ */
+function calcularMedia(dataArray) {
+    if (!dataArray || dataArray.length === 0) {
+        return 0; // Retorna 0 se o array for nulo ou vazio
+    }
+
+    // 1. Usar reduce() para somar todos os valores.
+    // O valor precisa ser convertido para número, pois aparece como string na imagem.
+    const somaDosValores = dataArray.reduce((acumulador, elementoAtual) => {
+        // Usa parseFloat para garantir a precisão de ponto flutuante
+        const valorNumerico = parseFloat(elementoAtual.value);
+        // Verifica se é um número válido antes de somar
+        if (!isNaN(valorNumerico)) {
+            return acumulador + valorNumerico;
+        }
+        return acumulador; // Ignora valores não numéricos
+    }, 0); // O valor inicial do acumulador é 0
+
+    // 2. Dividir a soma pelo número de elementos para obter a média.
+    const media = somaDosValores / dataArray.length;
+
+    return media;
+}
+
+/**
+ * Calcula a média de um array de valores numéricos.
+ *
+ * @param {Array<number|string>} resultArray O array contendo os valores para a média.
+ * @returns {number} A média calculada.
+ */
+function calculateTotalAverageTemperature(resultArray) {
+    if (!resultArray || resultArray.length === 0) {
+        return 0; // Retorna 0 se o array for nulo ou vazio
+    }
+
+    // 1. Usar reduce() para somar todos os valores.
+    // Usamos parseFloat() para garantir que mesmo que os valores estejam como strings,
+    // eles sejam tratados como números de ponto flutuante na soma.
+    const somaTotal = resultArray.reduce((acumulador, valorAtual) => {
+        const valorNumerico = parseFloat(valorAtual);
+        if (!isNaN(valorNumerico)) {
+            return acumulador + valorNumerico;
+        }
+        return acumulador; // Ignora valores que não podem ser convertidos para números
+    }, 0); // Começa a soma em 0
+
+    // 2. Dividir a soma pelo número de elementos para obter a média.
+    const media = somaTotal / resultArray.length;
+
+    return media;
+}
+
+async function fetchCustomerAverageTemperarature(customerId, startTs, endTs) {
+    const tbToken = localStorage.getItem("jwt_token");
+
+    if (!tbToken) {
+        throw new Error("JWT do ThingsBoard não encontrado");
+    }
+
+    try {
+        // ✅ DEVICE-BY-DEVICE APPROACH
+        const devices = extractDeviceIds(self.ctx.data);
+
+        if (devices.length === 0) {
+            console.warn("[ENERGY] No devices found for peak demand calculation");
+        }
+
+        console.log(`[ENERGY] Fetching peak demand for ${devices.length} devices`);
+
+        const averageTempResults = [];
+
+        // Iterate through each device
+        for (const deviceId of devices) {
+            try {
+                // Build URL with power and demand keys
+                const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries` +
+                    `?keys=temperature` +
+                    `&startTs=${encodeURIComponent(startTs)}` +
+                    `&endTs=${encodeURIComponent(endTs)}` +
+                    `&limit=50000` +
+                    `&intervalType=MILLISECONDS` +
+                    `&interval=7200000 ` +
+                    `&agg=AVG`;
+
+                const response = await fetch(url, {
+                    headers: {
+                        "X-Authorization": `Bearer ${tbToken}`,
+                        "Content-Type": "application/json",
+                    },
+                });
+
+                if (!response.ok) {
+                    console.warn(
+                        `[ENERGY] Failed to fetch temperature for device ${deviceId}: ${response.status}`
+                    );
+                    continue;
+                }
+
+                const data = await response.json();
+                const temperatureData = data.temperature || [];
+                const averageTemperature = calcularMedia(temperatureData);
+                averageTempResults.push(averageTemperature);
+
+            } catch (err) {
+                console.error(
+                    `[ENERGY] Error fetching demand for device ${deviceId}:`,
+                    err
+                );
+                // Continue to next device
+            }
+        }
+
+
+        // Encontrar o maior pico entre todos os devices
+        if (averageTempResults.length === 0) {
+            console.log("[ENERGY] No average temperature found across all devices");
+            const result = {
+                peakValue: 0,
+                timestamp: Date.now(),
+                deviceId: null,
+                deviceName: "Sem dados",
+            };
+
+            return result;
+        }
+
+        const result = calculateTotalAverageTemperature(averageTempResults);
+
+        return result;
+    } catch (err) {
+        console.error(`[ENERGY] Error fetching customer peak demand:`, err);
+
+        // Return fallback result
+        const result = {
+            peakValue: 0,
+            timestamp: Date.now(),
+            deviceId: null,
+            deviceName: "Erro",
+        };
+        cachePeakDemand(result, startTs, endTs);
+        return result;
+    }
 }
 
 // ===== HEADER: Temperature Card Handler =====
-function updateTemperatureCard() {
-  const tempKpi = document.getElementById("temp-kpi");
-  const tempRange = document.getElementById("temp-range");
-  const tempChip = document.querySelector("#card-temp .chip");
+async function updateTemperatureCard() {
+    const tempKpi = document.getElementById("temp-kpi");
+    const tempRange = document.getElementById("temp-range");
+    const tempChip = document.querySelector("#card-temp .chip");
 
-  // Faixa ideal de temperatura
-  const MIN_TEMP = 20;
-  const MAX_TEMP = 25;
+    // Faixa ideal de temperatura
+    let MIN_TEMP;
+    let MAX_TEMP;
+    const customerId = self.ctx.settings?.customerId;
+    const startTs = self.ctx.$scope?.startDateISO
+        ? new Date(self.ctx.$scope.startDateISO).getTime()
+        : Date.now() - 7 * 24 * 60 * 60 * 1000;
 
-  // Busca todos os datasources com aliasName = "AllTemperatureDevices"
-  const temperatureData = [];
+    const endTs = self.ctx.$scope?.endDateISO
+        ? new Date(self.ctx.$scope.endDateISO).getTime()
+        : Date.now();
 
-  self.ctx.data.forEach((data) => {
-    if (data.datasource?.aliasName === "AllTemperatureDevices") {
-      // Pega a temperatura de data[0][1]
-      const temperature = data.data?.[0]?.[1];
 
-      if (temperature !== undefined && temperature !== null && !isNaN(temperature)) {
-        temperatureData.push(Number(temperature));
-        console.log("[HEADER] Temperature found:", temperature, "from", data.datasource.entityLabel);
-      }
+    const totalAverageTemperature = await fetchCustomerAverageTemperarature(customerId, startTs, endTs);
+
+
+
+    self.ctx.data.forEach((data) => {
+
+        if (data.dataKey.name === "maxTemperature") {
+            console.log("[HEADER] Max Temperature dataKey found:", data.data?.[0]?.[1], "from", data.datasource.entityLabel);
+            MAX_TEMP = Number(data.data?.[0]?.[1]);
+        }
+
+        if (data.dataKey.name === "minTemperature") {
+            console.log("[HEADER] Min Temperature dataKey found:", data.data?.[0]?.[1], "from", data.datasource.entityLabel);
+            MIN_TEMP = Number(data.data?.[0]?.[1]);
+        }
+    });
+
+
+    // Calcula a média
+    if (totalAverageTemperature) {
+
+        tempKpi.innerText = `${totalAverageTemperature.toFixed(1)}°C`;
+        console.log(`[HEADER] Temperature card updated: ${totalAverageTemperature.toFixed(1)}°C`);
+
+        // Verifica se está dentro da faixa ideal
+        const isInRange = totalAverageTemperature >= MIN_TEMP && totalAverageTemperature <= MAX_TEMP;
+
+        // Atualiza o chip de status
+        if (tempChip) {
+            if (isInRange) {
+                tempChip.textContent = "✔ Dentro da faixa ideal";
+                tempChip.className = "chip ok";
+            } else {
+                tempChip.textContent = "⚠ Fora da faixa ideal";
+                tempChip.className = "chip warn";
+            }
+        }
+
+        // // Atualiza o texto de rodapé
+        if (tempRange) {
+            tempRange.textContent = `Faixa ideal: ${MIN_TEMP}°C – ${MAX_TEMP}°C`;
+        }
+
+    } else {
+        console.warn("[HEADER] No temperature data found for AllTemperatureDevices");
+        if (tempKpi) {
+            tempKpi.innerText = "--°C";
+        }
+        if (tempChip) {
+            tempChip.textContent = "-- Sem dados";
+            tempChip.className = "chip";
+        }
     }
-  });
-
-  // Calcula a média
-  if (temperatureData.length > 0) {
-    const averageTemp = temperatureData.reduce((sum, temp) => sum + temp, 0) / temperatureData.length;
-
-    if (tempKpi) {
-      tempKpi.innerText = `${averageTemp.toFixed(1)}°C`;
-      console.log(`[HEADER] Temperature card updated: ${averageTemp.toFixed(1)}°C (${temperatureData.length} devices)`);
-    }
-
-    // Verifica se está dentro da faixa ideal
-    const isInRange = averageTemp >= MIN_TEMP && averageTemp <= MAX_TEMP;
-
-    // Atualiza o chip de status
-    if (tempChip) {
-      if (isInRange) {
-        tempChip.textContent = "✔ Dentro da faixa ideal";
-        tempChip.className = "chip ok";
-      } else {
-        tempChip.textContent = "⚠ Fora da faixa ideal";
-        tempChip.className = "chip warn";
-      }
-    }
-
-    // Atualiza o texto de rodapé
-    if (tempRange) {
-      tempRange.textContent = `Faixa ideal: ${MIN_TEMP}°C – ${MAX_TEMP}°C`;
-    }
-
-  } else {
-    console.warn("[HEADER] No temperature data found for AllTemperatureDevices");
-    if (tempKpi) {
-      tempKpi.innerText = "--°C";
-    }
-    if (tempChip) {
-      tempChip.textContent = "-- Sem dados";
-      tempChip.className = "chip";
-    }
-  }
 }
 
 // ===== HEADER: Energy Card Handler =====
 function showEnergyCardLoading(isLoading) {
-  const energyKpi = document.getElementById("energy-kpi");
-  const energyTrend = document.getElementById("energy-trend");
+    const energyKpi = document.getElementById("energy-kpi");
+    const energyTrend = document.getElementById("energy-trend");
 
-  if (isLoading) {
-    if (energyKpi) {
-      energyKpi.innerHTML = `
+    if (isLoading) {
+        if (energyKpi) {
+            energyKpi.innerHTML = `
         <svg style="width:28px; height:28px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
           <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
                   stroke-dasharray="90,150" stroke-dashoffset="0">
           </circle>
         </svg>
       `;
+        }
+        if (energyTrend) {
+            energyTrend.innerText = "Carregando...";
+        }
     }
-    if (energyTrend) {
-      energyTrend.innerText = "Carregando...";
-    }
-  }
 }
 
 function updateEnergyCard(energyCache) {
-  const energyKpi = document.getElementById("energy-kpi");
-  const energyTrend = document.getElementById("energy-trend");
+    const energyKpi = document.getElementById("energy-kpi");
+    const energyTrend = document.getElementById("energy-trend");
 
-  console.log("[HEADER] Updating energy card | cache devices:", energyCache?.size || 0);
-  console.log("[HEADER] energyKpi element found:", !!energyKpi);
-  console.log("[HEADER] energyTrend element found:", !!energyTrend);
+    console.log("[HEADER] Updating energy card | cache devices:", energyCache?.size || 0);
+    console.log("[HEADER] energyKpi element found:", !!energyKpi);
+    console.log("[HEADER] energyTrend element found:", !!energyTrend);
 
-  // ✅ Get TOTAL consumption from orchestrator (Equipamentos + Lojas)
+    // ✅ Get TOTAL consumption from orchestrator (Equipamentos + Lojas)
+    let totalConsumption = 0;
+    let deviceCount = 0;
+
+    if (typeof window.MyIOOrchestrator?.getTotalConsumption === 'function') {
+        totalConsumption = window.MyIOOrchestrator.getTotalConsumption();
+        console.log("[HEADER] Got TOTAL consumption from orchestrator (equipments + lojas):", totalConsumption, "kWh");
+    } else {
+        console.warn("[HEADER] MyIOOrchestrator.getTotalConsumption not available");
+        // Fallback: sum all from cache (old behavior)
+        if (energyCache) {
+            energyCache.forEach((cached, ingestionId) => {
+                if (cached && cached.total_value) {
+                    totalConsumption += cached.total_value || 0;
+                    deviceCount++;
+                }
+            });
+        }
+    }
+
+    console.log("[HEADER] Energy card: TOTAL consumption (Equipamentos + Lojas):", {
+        deviceCount,
+        totalConsumption,
+        formatted: MyIOLibrary.formatEnergy ? MyIOLibrary.formatEnergy(totalConsumption) : `${totalConsumption.toFixed(2)} kWh`
+    });
+
+    // ✅ ALWAYS update, even if value is same
+    if (energyKpi) {
+        const formatted = MyIOLibrary.formatEnergy ? MyIOLibrary.formatEnergy(totalConsumption) : `${totalConsumption.toFixed(2)} kWh`;
+        energyKpi.innerText = formatted;
+        console.log(`[HEADER] Energy card updated: ${formatted}`);
+    } else {
+        console.error("[HEADER] energyKpi element not found! Card may not be visible.");
+    }
+
+    // Optional: update trend (can be calculated later based on historical data)
+    if (energyTrend) {
+        energyTrend.innerText = ""; // Clear for now
+    }
+
+    console.log("[HEADER] Energy card update complete:", { totalConsumption, devices: deviceCount });
+
+    // ✅ EMIT EVENT: Notify ENERGY widget of customer total consumption
+    const customerTotalEvent = {
+        customerTotal: totalConsumption,
+        deviceCount: deviceCount,
+        timestamp: Date.now()
+    };
+
+    window.dispatchEvent(new CustomEvent('myio:customer-total-consumption', {
+        detail: customerTotalEvent
+    }));
+
+    console.log(`[HEADER] ✅ Emitted myio:customer-total-consumption:`, customerTotalEvent);
+}
+
+function updateWaterCard(waterCache) {
+  const waterKpi = document.getElementById("water-kpi");
+  // Certifique-se que o seu card de água tenha um ID para o 'trend'
+  const waterTrend = document.getElementById("water-trend"); 
+
+  console.log("[HEADER] Atualizando card de Água | devices no cache:", waterCache?.size || 0);
+
   let totalConsumption = 0;
   let deviceCount = 0;
 
-  if (typeof window.MyIOOrchestrator?.getTotalConsumption === 'function') {
-    totalConsumption = window.MyIOOrchestrator.getTotalConsumption();
-    console.log("[HEADER] Got TOTAL consumption from orchestrator (equipments + lojas):", totalConsumption, "kWh");
+  if (waterCache) {
+    waterCache.forEach((cached) => {
+      if (cached && cached.total_value) {
+        totalConsumption += cached.total_value || 0;
+        deviceCount++;
+      }
+    });
   } else {
-    console.warn("[HEADER] MyIOOrchestrator.getTotalConsumption not available");
-    // Fallback: sum all from cache (old behavior)
-    if (energyCache) {
-      energyCache.forEach((cached, ingestionId) => {
-        if (cached && cached.total_value) {
-          totalConsumption += cached.total_value || 0;
-          deviceCount++;
-        }
-      });
-    }
+     console.warn("[HEADER] Cache de Água vazio ou inválido.");
+  }
+  
+  // Usa a função da sua biblioteca
+  const formattedUnit = (typeof MyIOLibrary?.formatWaterVolumeM3 === 'function')
+    ? MyIOLibrary.formatWaterVolumeM3(totalConsumption)
+    : `${totalConsumption.toFixed(2)} M³`; // Fallback
+
+  // Atualiza o HTML
+  if (waterKpi) {
+    waterKpi.innerText = formattedUnit;
+  }
+  
+  if (waterTrend) {
+    waterTrend.innerText = ""; // Limpa o trend por enquanto
   }
 
-  console.log("[HEADER] Energy card: TOTAL consumption (Equipamentos + Lojas):", {
-    deviceCount,
-    totalConsumption,
-    formatted: MyIOLibrary.formatEnergy ? MyIOLibrary.formatEnergy(totalConsumption) : `${totalConsumption.toFixed(2)} kWh`
-  });
-
-  // ✅ ALWAYS update, even if value is same
-  if (energyKpi) {
-    const formatted = MyIOLibrary.formatEnergy ? MyIOLibrary.formatEnergy(totalConsumption) : `${totalConsumption.toFixed(2)} kWh`;
-    energyKpi.innerText = formatted;
-    console.log(`[HEADER] Energy card updated: ${formatted}`);
-  } else {
-    console.error("[HEADER] energyKpi element not found! Card may not be visible.");
-  }
-
-  // Optional: update trend (can be calculated later based on historical data)
-  if (energyTrend) {
-    energyTrend.innerText = ""; // Clear for now
-  }
-
-  console.log("[HEADER] Energy card update complete:", { totalConsumption, devices: deviceCount });
-
-  // ✅ EMIT EVENT: Notify ENERGY widget of customer total consumption
+  // EMITE O EVENTO (igual a energy)
   const customerTotalEvent = {
     customerTotal: totalConsumption,
     deviceCount: deviceCount,
     timestamp: Date.now()
   };
 
-  window.dispatchEvent(new CustomEvent('myio:customer-total-consumption', {
+  window.dispatchEvent(new CustomEvent('myio:customer-total-water-consumption', {
     detail: customerTotalEvent
   }));
 
-  console.log(`[HEADER] ✅ Emitted myio:customer-total-consumption:`, customerTotalEvent);
+  console.log(`[HEADER] ✅ Card de Água atualizado: ${formattedUnit}`);
 }
 
 // ===== HEADER: Listen for energy data from MAIN orchestrator =====
 window.addEventListener('myio:energy-data-ready', (ev) => {
-  console.log("[HEADER] Received energy data from orchestrator:", ev.detail);
-  updateEnergyCard(ev.detail.cache);
+    console.log("[HEADER] Received energy data from orchestrator:", ev.detail);
+    updateEnergyCard(ev.detail.cache);
+});
+
+window.addEventListener('myio:water-data-ready', (ev) => {
+  console.log("[HEADER] ✅ Dados de ÁGUA recebidos do Orchestrator:", ev.detail);
+  
+  // Se 'ev.detail.cache' existir, atualiza o card
+  if (ev.detail && ev.detail.cache) {
+    updateWaterCard(ev.detail.cache);
+  }
 });
 
 // ===== HEADER: Listen for shopping filter =====
 window.addEventListener('myio:filter-applied', (ev) => {
-  console.log("[HEADER] 🔥 heard myio:filter-applied:", ev.detail);
+    console.log("[HEADER] 🔥 heard myio:filter-applied:", ev.detail);
 
-  const selection = ev.detail?.selection || [];
-  selectedShoppingIds = selection.map(s => s.value).filter(v => v);
+    const selection = ev.detail?.selection || [];
+    selectedShoppingIds = selection.map(s => s.value).filter(v => v);
 
-  console.log("[HEADER] Applying shopping filter:", selectedShoppingIds.length === 0 ? "ALL" : `${selectedShoppingIds.length} shoppings`);
-  if (selectedShoppingIds.length > 0) {
-    console.log("[HEADER] Selected shopping IDs:", selectedShoppingIds);
-  }
+    console.log("[HEADER] Applying shopping filter:", selectedShoppingIds.length === 0 ? "ALL" : `${selectedShoppingIds.length} shoppings`);
+    if (selectedShoppingIds.length > 0) {
+        console.log("[HEADER] Selected shopping IDs:", selectedShoppingIds);
+    }
 
-  // Recompute equipment card with filter
-  updateEquipmentCard();
+    // Recompute equipment card with filter
+    updateEquipmentCard();
 
-  // Recompute energy card with filter (will get filtered data from orchestrator)
-  // This will also emit myio:customer-total-consumption with filtered total
-  if (window.MyIOOrchestrator?.getEnergyCache) {
-    updateEnergyCard(window.MyIOOrchestrator.getEnergyCache());
-  }
+    // Recompute energy card with filter (will get filtered data from orchestrator)
+    // This will also emit myio:customer-total-consumption with filtered total
+    if (window.MyIOOrchestrator?.getEnergyCache) {
+        updateEnergyCard(window.MyIOOrchestrator.getEnergyCache());
+    }
 });
 
 self.onDataUpdated = function () {
-  if (_dataRefreshCount >= MAX_DATA_REFRESHES) {
-    return;
-  }
+    if (_dataRefreshCount >= MAX_DATA_REFRESHES) {
+        return;
+    }
 
-  _dataRefreshCount++;
+    _dataRefreshCount++;
 
-  // Update Equipment card
-  updateEquipmentCard();
+    // Update Equipment card
+    updateEquipmentCard();
 
-  // Update Temperature card
-  updateTemperatureCard();
+    // Update Temperature card
+    updateTemperatureCard();
 };
 
 self.onDestroy = function () {
-  /* nada a limpar */
+    /* nada a limpar */
 };

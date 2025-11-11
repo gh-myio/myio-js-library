@@ -82,136 +82,35 @@ const FILTER_DATA = [
     { id: "C", name: "Shopping C", floors: 1 },
 ];
 
+/* Substitua a função injectModalGlobal existente (aprox. linha 110) */
 function injectModalGlobal() {
-    // ==== Config & helpers ====================================================
+    // ==== Config & helpers (Simplificado) =======================================
     const PRESET_KEY = "myio_dashboard_filter_presets_v1";
-    // Estado global (compartilhado entre aberturas)
-    if (!window.myioFilterSel) {
-        window.myioFilterSel = { malls: [], floors: [], places: [] };
+
+    // Fonte de dados simplificada: usa o escopo dos customers
+    function getCustomers() {
+        return self.ctx.$scope.custumer || [];
     }
-    if (!window.myioFilterQuery) {
-        window.myioFilterQuery = "";
+    
+    // As seleções agora focam apenas nos customers (shoppings)
+    // Inicializa a seleção se ainda não existir
+    if (!window.custumersSelected) {
+        window.custumersSelected = getCustomers().slice();
     }
-    if (!window.myioFilterPresets) {
-        try {
-            window.myioFilterPresets = JSON.parse(
-                localStorage.getItem(PRESET_KEY) || "[]"
-            );
-        } catch {
-            window.myioFilterPresets = [];
+    
+    // Funções de utilidade
+    function renderCount() {
+        const c = (window.custumersSelected || []).length;
+        // Atualiza o contexto (necessário para o filtro ser aplicado)
+        self.ctx.filterCustom = window.custumersSelected;
+        elCount.textContent = `${c} selecionado${c === 1 ? "" : "s"}`;
+    }
+
+    function updateClearButtonState() {
+        const hasCustomers = (window.custumersSelected || []).length > 0;
+        if (elClear) {
+            elClear.disabled = !hasCustomers;
         }
-    }
-
-    // Fonte de dados: preferir window.mallsTree (formato do original)
-    // Se não existir, converte um FILTER_DATA simples em uma árvore mínima.
-    function getTree() {
-        if (Array.isArray(window.mallsTree) && window.mallsTree.length) {
-            return window.mallsTree;
-        }
-        // fallback a partir de FILTER_DATA = [{id,name,floors:n}]
-        if (Array.isArray(window.FILTER_DATA) && window.FILTER_DATA.length) {
-            return window.FILTER_DATA.map((m) => {
-                const mallId = m.id || crypto.randomUUID();
-                const floors = Array.from({ length: Number(m.floors || 1) }).map(
-                    (_, i) => {
-                        const floorId = `${mallId}-F${i + 1}`;
-                        // sem places reais, colocamos 0..2 mockados
-                        const places = Array.from({ length: 3 }).map((__, k) => ({
-                            id: `${floorId}-P${k + 1}`,
-                            name: `Loja ${k + 1}`,
-                        }));
-                        return { id: floorId, name: `Piso ${i + 1}`, children: places };
-                    }
-                );
-                return {
-                    id: mallId,
-                    name: m.name || `Shopping ${mallId}`,
-                    children: floors,
-                };
-            });
-        }
-        // último fallback vazio
-        return [];
-    }
-
-    // --- depois de getTree() ---
-    const mallsTreeRaw = getTree();
-
-    // ✅ Deduplicar mall/floor/place por id|name (normaliza e remove repetidos)
-    function dedupeTree(tree) {
-        const key = (x) => (x?.id || x?.name || "").toString().trim().toLowerCase();
-
-        const mallMap = new Map();
-        for (const m of tree || []) {
-            const mk = key(m);
-            if (!mallMap.has(mk)) {
-                // dedup floors
-                const floorMap = new Map();
-                const floors = (m.children || []).filter((f) => {
-                    const fk = key(f);
-                    if (floorMap.has(fk)) return false;
-                    // dedup places deste floor
-                    const placeMap = new Map();
-                    f.children = (f.children || []).filter((p) => {
-                        const pk = key(p);
-                        if (placeMap.has(pk)) return false;
-                        placeMap.set(pk, 1);
-                        return true;
-                    });
-                    floorMap.set(fk, 1);
-                    return true;
-                });
-                m.children = floors;
-                mallMap.set(mk, m);
-            }
-        }
-        return Array.from(mallMap.values());
-    }
-
-    const mallsTree = dedupeTree(mallsTreeRaw);
-
-    // ✅ Marcar tudo por padrão apenas na 1ª vez que abrir (evita reset em reaberturas)
-    if (!window.__myioFilterDefaulted && mallsTree.length) {
-        const malls = mallsTree.map((m) => m.id);
-        const floors = mallsTree.flatMap((m) =>
-            (m.children || []).map((f) => f.id)
-        );
-        const places = mallsTree.flatMap((m) =>
-            (m.children || []).flatMap((f) => (f.children || []).map((p) => p.id))
-        );
-        window.myioFilterSel = { malls, floors, places };
-        window.__myioFilterDefaulted = true; // flag para não refazer
-    }
-
-    // Flatten para mapa id->nome (chips)
-    function flatten(tree) {
-        const list = [];
-        for (const mall of tree) {
-            list.push({ id: mall.id, name: mall.name });
-            for (const fl of mall.children || []) {
-                list.push({ id: fl.id, name: fl.name });
-                for (const pl of fl.children || [])
-                    list.push({ id: pl.id, name: pl.name });
-            }
-        }
-        return list;
-    }
-
-    function nodeMatchesQuery(nodeName, q) {
-        if (!q) return true;
-        return nodeName.toLowerCase().includes(q.toLowerCase());
-    }
-
-    function toggle(arr, val) {
-        return arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
-    }
-
-    function countSelected(sel) {
-        return (
-            (sel.malls?.length || 0) +
-            (sel.floors?.length || 0) +
-            (sel.places?.length || 0)
-        );
     }
 
     // ==== Construção do container (uma única vez) =============================
@@ -220,183 +119,107 @@ function injectModalGlobal() {
         container = document.createElement("div");
         container.id = "modalGlobal";
         container.innerHTML = `
-      <style>
-        .myio-modal {
-          position: fixed; inset: 0; display: flex; justify-content: center; align-items: center;
-          background: rgba(0,0,0,0.5); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity .2s;
-        }
-       .custumers {
-          display: flex;              /* horizontal: quadrado + texto */
-          align-items: center;
-          gap: 10px;                  /* espaço entre quadrado e texto */
-          border: 1px solid #d9d9d9;
-          border-radius: 8px;
-          padding: 6px 10px;
-          margin-bottom: 6px;
-          background: transparent;
-          font-weight: 600;
-          color: #344054;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-        
-        .custumers:hover {
-          background: #f2f2f2;
-        }
-        
-        .custumers .checkbox {
-          width: 16px;
-          height: 16px;
-          border: 1px solid #344054;
-          border-radius: 3px;
-          flex-shrink: 0;
-          background-color: transparent;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        
-        .custumers.selected .checkbox {
-          background-color: #1D4F91; /* quadrado preenchido quando selecionado */
-        }
+        <style>
+          .myio-modal {
+            position: fixed; inset: 0; display: flex; justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.5); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity .2s;
+          }
+          .custumers {
+            display: flex; align-items: center; gap: 10px; border: 1px solid #d9d9d9;
+            border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; background: transparent;
+            font-weight: 600; color: #344054; cursor: pointer; transition: background 0.2s; width: 100%;
+          }
+          .custumers:hover { background: #f2f2f2; }
+          .custumers .checkbox {
+            width: 16px; height: 16px; border: 1px solid #344054; border-radius: 3px;
+            flex-shrink: 0; background-color: transparent; display: flex; align-items: center;
+            justify-content: center;
+          }
+          .custumers.selected .checkbox { background-color: #1D4F91; }
+          .myio-modal[aria-hidden="false"] { opacity: 1; pointer-events: auto; }
+          .myio-modal-card {
+            background: #fff; border-radius: 12px; max-width: 600px; width: 92%;
+            max-height: 86vh; display:flex; flex-direction:column; box-shadow: 0 4px 16px rgba(0,0,0,.28);
+          }
+          .myio-modal-hd, .myio-modal-ft { padding: 14px 16px; display:flex; align-items:center; justify-content:space-between; }
+          .myio-modal-hd { border-bottom:1px solid #E6EEF5; }
+          .myio-modal-ft { border-top:1px solid #E6EEF5; gap: 8px; }
+          .myio-modal-body { padding: 14px 16px; display:flex; flex-direction:column; gap: 12px; overflow: hidden; }
 
-        .myio-modal[aria-hidden="false"] { opacity: 1; pointer-events: auto; }
-        .myio-modal-card {
-          background: #fff; border-radius: 12px; max-width: 980px; width: 92%;
-          max-height: 86vh; display:flex; flex-direction:column; box-shadow: 0 4px 16px rgba(0,0,0,.28);
-        }
-        .myio-modal-hd, .myio-modal-ft { padding: 14px 16px; display:flex; align-items:center; justify-content:space-between; }
-        .myio-modal-hd { border-bottom:1px solid #E6EEF5; }
-        .myio-modal-ft { border-top:1px solid #E6EEF5; gap: 8px; }
-        .myio-modal-body { padding: 14px 16px; display:flex; flex-direction:column; gap: 12px; overflow: hidden; }
+          .close-x { cursor:pointer; border:0; background:transparent; font-size:20px; line-height:1; }
+          .flt-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+          .flt-search{ position:relative; display:flex; align-items:center; gap:8px; flex:1; border:2px solid #BBD0E3; border-radius:12px; padding:6px 10px; }
+          .flt-search:focus-within{ border-color:#4F93CE; box-shadow: 0 0 0 3px rgba(79,147,206,.15); }
+          .flt-search input{ width:100%; border:0; outline:0; font-size:15px; padding-left:20px; }
+          .flt-search .search-ico{ position:absolute; left:10px; }
 
-        .close-x { cursor:pointer; border:0; background:transparent; font-size:20px; line-height:1; }
-        .flt-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-        .flt-search{ position:relative; display:flex; align-items:center; gap:8px; flex:1; border:2px solid #BBD0E3; border-radius:12px; padding:6px 10px; }
-        .flt-search:focus-within{ border-color:#4F93CE; box-shadow: 0 0 0 3px rgba(79,147,206,.15); }
-        .flt-search input{ width:100%; border:0; outline:0; font-size:15px; padding-left:20px; }
-        .flt-search .search-ico{ position:absolute; left:10px; }
+          .link-btn{ border:0; background:transparent; font-weight:600; cursor:pointer; color:#344054; }
+          .apply-btn{ border:0; background:#1D4F91; color:#fff; font-weight:700; padding:10px 16px; border-radius:10px; cursor:pointer; }
+          
+          .chips { display:flex; flex-wrap:wrap; gap:8px; }
+          .chip { display:inline-flex; align-items:center; gap:6px; border:1px solid #CFDCE8; border-radius:999px; padding:4px 10px; font-size:12px; }
+          .chip .rm { cursor:pointer; border:0; background:transparent; opacity:.7; }
 
-        .link-btn{ border:0; background:transparent; font-weight:600; cursor:pointer; color:#344054; }
-        .save-btn{ border:0; background:#B7D14B; color:#1C2743; font-weight:700; padding:8px 12px; border-radius:10px; cursor:pointer; }
-        .apply-btn{ border:0; background:#1D4F91; color:#fff; font-weight:700; padding:10px 16px; border-radius:10px; cursor:pointer; }
+          .flt-content { display:flex; gap:12px; overflow:hidden; }
+          .flt-list { flex: 1 1 auto; overflow-y:auto; max-height: 46vh; padding-right:4px; display:flex; flex-direction:column; gap:6px; }
 
-        .chips { display:flex; flex-wrap:wrap; gap:8px; }
-        .chip { display:inline-flex; align-items:center; gap:6px; border:1px solid #CFDCE8; border-radius:999px; padding:4px 10px; font-size:12px; }
-        .chip .rm { cursor:pointer; border:0; background:transparent; opacity:.7; }
+          .badge { border:1px solid #CFDCE8; border-radius:999px; padding:2px 8px; font-size:11px; color:#334155; }
 
-        .flt-content { display:flex; gap:12px; overflow:hidden; }
-        .flt-tree { flex: 1 1 auto; overflow:auto; max-height: 46vh; padding-right:4px; display:flex; flex-direction:column; gap:12px; }
-        .mall-card { border:1px solid #CFDCE8; border-radius:12px; padding:12px; }
-        .mall-head { display:flex; align-items:center; gap:8px; }
-        .sub { margin-top:10px; padding-left:22px; display:flex; flex-direction:column; gap:10px; }
-        .floor-card{ border:1px solid #E6EEF5; border-radius:10px; padding:10px; }
-        .floor-head{ display:flex; align-items:center; gap:8px; }
-        .places { margin-top:8px; padding-left:20px; display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:8px; }
-        .place-item{ display:flex; align-items:center; gap:8px; border:1px solid #E6EEF5; border-radius:8px; padding:6px 8px; font-size:13px; }
+          /* ===== Botão de recarregar CUSTOM ===== */
+          .myio-reload-btn {
+              background: #1D4F91;
+              color: #fff;
+              border: 0;
+              padding: 8px 16px;
+              border-radius: 8px;
+              cursor: pointer;
+              margin-top: 10px;
+              font-weight: 600;
+              display: inline-flex;
+              align-items: center;
+              gap: 8px;
+          }
+          .myio-reload-btn:hover { opacity: 0.9; }
+          /* ===== REMOVIDO: STYLES DE PRESETS E LIMPAR (myio-clear-btn) ===== */
 
-        .presets { flex: 0 0 auto; width: 260px; border-left:1px dashed #E6EEF5; padding-left:12px; }
-        .preset-title{ font-size:12px; color:#6b7280; display:flex; align-items:center; gap:6px; margin-bottom:6px; }
-        .preset-list{ display:flex; flex-direction:column; gap:6px; }
-        .preset-item{ display:flex; align-items:center; justify-content:space-between; border:1px solid #E6EEF5; border-radius:8px; padding:6px 8px; }
-        .preset-item button{ border:0; background:transparent; cursor:pointer; }
+        </style>
 
-        .kbd { background:#f5f7fa; border:1px solid #e6eef5; padding:2px 6px; border-radius:6px; font-size:11px; color:#475467; }
-        .badge { border:1px solid #CFDCE8; border-radius:999px; padding:2px 8px; font-size:11px; color:#334155; }
+        <div class="myio-modal" id="filterModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="fltTitle">
+          <div class="myio-modal-backdrop" data-close="true"></div>
+          <div class="myio-modal-card">
+            <header class="myio-modal-hd">
+              <h3 id="fltTitle">Filtro de Shoppings</h3>
+              <button class="close-x" data-close="true" aria-label="Fechar">×</button>
+            </header>
 
-        /* ===== LIMPAR BUTTON PREMIUM STYLE ===== */
-        .myio-clear-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 40px;
-          height: 40px;
-          background: linear-gradient(135deg, rgba(200, 200, 200, 0.2) 0%, rgba(200, 200, 200, 0.1) 100%);
-          border: 1px solid rgba(200, 200, 200, 0.3);
-          border-radius: 10px;
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          color: #cccccc;
-        }
-
-        .myio-clear-btn:hover {
-          background: linear-gradient(135deg, rgba(220, 53, 69, 0.15) 0%, rgba(220, 53, 69, 0.05) 100%);
-          border-color: rgba(220, 53, 69, 0.4);
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
-        }
-
-        .myio-clear-btn:active {
-          transform: translateY(0);
-          box-shadow: 0 2px 6px rgba(220, 53, 69, 0.15);
-        }
-
-        .myio-clear-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        .myio-clear-btn svg {
-          width: 20px;
-          height: 20px;
-          stroke-width: 2;
-        }
-      </style>
-
-      <div class="myio-modal" id="filterModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="fltTitle">
-        <div class="myio-modal-backdrop" data-close="true"></div>
-        <div class="myio-modal-card">
-          <header class="myio-modal-hd">
-            <h3 id="fltTitle">Filtro avançado</h3>
-            <button class="close-x" data-close="true" aria-label="Fechar">×</button>
-          </header>
-
-          <div class="myio-modal-body">
-            <!-- Barra de busca e ações -->
-            <div class="flt-row">
-              <div class="flt-search">
-                <span class="search-ico">🔎</span>
-                <input id="fltSearch" type="text" placeholder="Buscar shopping, piso, loja/ambiente…" autocomplete="off">
-              </div>
-              <button class="myio-clear-btn" id="fltClear" title="Limpar seleção">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-              </button>
-              <button class="save-btn" id="fltSave">💾 Salvar preset</button>
-              <span id="fltCount" class="badge" title="Total de seleções">0 selecionados</span>
-            </div>
-
-            <!-- Chips -->
-            <div id="fltChips" class="chips"></div>
-
-            <div class="flt-content">
-              <!-- Árvore -->
-              <div class="flt-tree" id="fltList" role="listbox" aria-label="Árvore de seleção"></div>
-
-              <!-- Presets -->
-              <aside class="presets">
-                <div class="preset-title">★ Presets salvos</div>
-                <div id="fltPresets" class="preset-list"></div>
-                <div style="margin-top:8px; font-size:12px; color:#6b7280;">
-                  Dica: salve até <span class="kbd">12</span> presets.
+            <div class="myio-modal-body">
+              <div class="flt-row">
+                <div class="flt-search">
+                  <span class="search-ico">🔎</span>
+                  <input id="fltSearch" type="text" placeholder="Buscar shopping…" autocomplete="off">
                 </div>
-              </aside>
-            </div>
-          </div>
+                <button class="link-btn" id="fltClear" title="Limpar seleção">Limpar</button>
+                <span id="fltCount" class="badge" title="Total de seleções">0 selecionados</span>
+              </div>
 
-          <footer class="myio-modal-ft">
-            <div style="flex:1; color:#6b7280; font-size:12px;">
-              Use <span class="kbd">Buscar</span> para filtrar nós rapidamente.
+              <div id="fltChips" class="chips"></div>
+
+              <div class="flt-content">
+                <div class="flt-list" id="fltList" role="listbox" aria-label="Lista de shoppings"></div>
+
+                </div>
             </div>
-            <button class="link-btn" data-close="true">Cancelar</button>
-            <button class="apply-btn" id="fltApply">Aplicar filtro</button>
-          </footer>
+
+            <footer class="myio-modal-ft">
+              <div style="flex:1; color:#6b7280; font-size:12px;">
+                Selecione os shoppings para aplicar o filtro.
+              </div>
+              <button class="link-btn" data-close="true">Cancelar</button>
+              <button class="apply-btn" id="fltApply">Aplicar filtro</button>
+            </footer>
+          </div>
         </div>
-      </div>
-    `;
+      `;
         document.body.appendChild(container);
 
         // listeners globais de fechar
@@ -414,83 +237,39 @@ function injectModalGlobal() {
     const elSearch = container.querySelector("#fltSearch");
     const elList = container.querySelector("#fltList");
     const elClear = container.querySelector("#fltClear");
-    const elSave = container.querySelector("#fltSave");
     const elApply = container.querySelector("#fltApply");
     const elChips = container.querySelector("#fltChips");
-    const elPresets = container.querySelector("#fltPresets");
     const elCount = container.querySelector("#fltCount");
 
-    // Debug: verify all elements were found
-    console.log("[MENU] 🔍 Modal DOM elements:", {
-        modal: !!modal,
-        elSearch: !!elSearch,
-        elList: !!elList,
-        elClear: !!elClear,
-        elSave: !!elSave,
-        elApply: !!elApply,
-        elChips: !!elChips,
-        elPresets: !!elPresets,
-        elCount: !!elCount
-    });
-
-    if (!modal || !elList || !elSearch) {
-        console.error("[MENU] ❌ Critical modal elements not found! Cannot open filter.");
-        return;
-    }
-
+    // O listener myio:customers-ready precisa ser global para reagir ao onDataUpdated
     if (!window.__customersReadyListenerBound) {
         window.__customersReadyListenerBound = true;
         window.addEventListener("myio:customers-ready", () => {
             const modal = document.getElementById("filterModal");
             if (modal && modal.getAttribute("aria-hidden") === "false") {
-                // re-renderiza a lista se o modal estiver aberto
-                renderTree();
-                updateClearButtonState();
-                renderCount();
+                // Se o modal estiver aberto, atualiza a lista
+                renderAll();
             }
         });
     }
 
-    // se já temos customers quando o modal abre, renderiza agora
+    // Sincroniza a seleção inicial com o filterCustom do contexto
     if (Array.isArray(self.ctx.$scope.custumer) && self.ctx.$scope.custumer.length > 0) {
-        // abre e renderiza de cara
+        if (Array.isArray(self.ctx.filterCustom)) {
+             // Se já houver filtro aplicado, usa ele como seleção inicial
+            window.custumersSelected = self.ctx.filterCustom.slice();
+        } else {
+             // Caso contrário, seleciona todos
+            window.custumersSelected = self.ctx.$scope.custumer.slice();
+        }
+        renderAll();
+    } else {
         renderAll();
     }
 
-
-
     // ==== Render helpers ======================================================
-    const flatMap = new Map(flatten(mallsTree).map((n) => [n.id, n.name]));
-
-    function isMallChecked(sel, mallId) {
-        return sel.malls.includes(mallId);
-    }
-    function isFloorChecked(sel, floorId) {
-        return sel.floors.includes(floorId);
-    }
-    function isPlaceChecked(sel, placeId) {
-        return sel.places.includes(placeId);
-    }
-
-    function renderCount() {
-        // Count customers selected (shoppings), not malls/floors/places
-        const c = (window.custumersSelected || []).length;
-        elCount.textContent = `${c} selecionado${c === 1 ? "" : "s"}`;
-    }
-
-    function updateClearButtonState() {
-        const hasCustomers = (window.custumersSelected || []).length > 0;
-
-        // Botão habilitado se houver customers selecionados
-        if (elClear) {
-            elClear.disabled = !hasCustomers;
-        }
-    }
-
     function renderChips() {
         elChips.innerHTML = "";
-
-        // Show chips for selected customers (shoppings)
         const customers = window.custumersSelected || [];
 
         for (const customer of customers) {
@@ -501,7 +280,7 @@ function injectModalGlobal() {
         <button class="rm" title="Remover" aria-label="Remover seleção">×</button>
       `;
             chip.querySelector(".rm").addEventListener("click", () => {
-                // Remove this customer from selection
+                // Remove este customer da seleção
                 window.custumersSelected = window.custumersSelected.filter(c => c.value !== customer.value);
                 self.ctx.filterCustom = window.custumersSelected;
                 renderAll();
@@ -513,12 +292,9 @@ function injectModalGlobal() {
     function renderTree() {
         const q = (window.myioFilterQuery || "").toLowerCase();
         elList.innerHTML = "";
-
-        console.log("[MENU] 🎨 renderTree called");
-        console.log("[MENU] 📋 Total customers in scope:", (self.ctx.$scope.custumer || []).length);
-
-        // pega somente customers válidos
-        const customers = (self.ctx.$scope.custumer || [])
+        
+        // Pega somente customers válidos e filtra pela busca
+        const customers = getCustomers()
             .filter(({ name, value }) => name && value && name.trim() !== value.trim())
             .filter(c =>
                 !q ||
@@ -526,27 +302,47 @@ function injectModalGlobal() {
                 c.value.toLowerCase().includes(q)
             );
 
-        console.log("[MENU] 📋 Valid customers after filter:", customers.length);
-
         if (!customers.length) {
             console.warn("[MENU] ⚠️ No customers to display!");
-            const empty = document.createElement("div");
-            empty.style.color = "#6b7280";
-            empty.style.fontSize = "14px";
-            empty.style.textAlign = "left";
-            empty.textContent = "Nenhum shopping disponível.";
-            elList.appendChild(empty);
+            
+            // Container para a mensagem e o botão
+            const emptyContainer = document.createElement("div");
+            emptyContainer.style.textAlign = "center";
+            emptyContainer.style.padding = "20px";
+            emptyContainer.innerHTML = `
+                <div style="color: #6b7280; font-size: 14px; margin-bottom: 15px;">
+                    Nenhum shopping disponível.
+                </div>
+                <button class="myio-reload-btn">
+                    <span style="font-size: 1.2em; line-height: 1;">🔄</span> Tentar Recarregar
+                </button>
+            `;
+            elList.appendChild(emptyContainer);
+
+            // Adiciona a lógica de clique no botão de recarregar
+            const reloadBtn = emptyContainer.querySelector(".myio-reload-btn");
+            reloadBtn.addEventListener("click", () => {
+                console.log("[MENU] 🔃 Tentando recarregar customers do context...");
+                
+                // 1. Tenta buscar os customers do context novamente
+                const reloadedCustomers = computeCustomersFromCtx();
+                
+                // 2. Tenta re-renderizar o modal com os novos dados
+                if (reloadedCustomers.length > 0) {
+                     // Seta a seleção inicial para todos os recarregados
+                    window.custumersSelected = reloadedCustomers.slice();
+                    renderAll(); 
+                    console.log("[MENU] ✅ Clientes recarregados e lista atualizada.");
+                } else {
+                    alert("Não foi possível carregar shoppings. Verifique a fonte de dados e tente novamente.");
+                    console.warn("[MENU] ❌ Tentativa de recarga não trouxe clientes.");
+                }
+            });
+
             return;
         }
-
-        console.log("[MENU] ✅ Rendering", customers.length, "customers");
-
-        // seleciona tudo na 1ª vez
-        if (!window.custumersSelected || window.custumersSelected.length === 0) {
-            window.custumersSelected = customers.slice();
-            self.ctx.filterCustom = window.custumersSelected;
-        }
-
+        
+        // Se houver shoppings, continua a renderização normal...
         const selectedSet = new Set(window.custumersSelected.map(x => x.value));
 
         customers.forEach(c => {
@@ -556,6 +352,7 @@ function injectModalGlobal() {
 
             const box = document.createElement("div");
             box.className = "checkbox";
+            box.innerHTML = selectedSet.has(c.value) ? '✓' : ''; // Exibe o checkmark
             item.appendChild(box);
 
             const text = document.createElement("span");
@@ -567,67 +364,17 @@ function injectModalGlobal() {
             item.addEventListener("click", () => {
                 if (item.classList.toggle("selected")) {
                     selectedSet.add(c.value);
+                    box.innerHTML = '✓'; // Adiciona o checkmark
                 } else {
                     selectedSet.delete(c.value);
+                    box.innerHTML = ''; // Remove o checkmark
                 }
                 window.custumersSelected = customers.filter(x => selectedSet.has(x.value));
                 self.ctx.filterCustom = window.custumersSelected;
+                renderAll(); // Re-renderiza tudo para atualizar contagem e chips
             });
 
             elList.appendChild(item);
-        });
-    }
-
-
-    function renderPresets() {
-        elPresets.innerHTML = "";
-        const presets = window.myioFilterPresets || [];
-        if (!presets.length) {
-            const empty = document.createElement("div");
-            empty.style.color = "#6b7280";
-            empty.style.fontSize = "12px";
-            empty.textContent = "Nenhum preset salvo ainda.";
-            elPresets.appendChild(empty);
-            return;
-        }
-        presets.slice(0, 12).forEach((p) => {
-            const row = document.createElement("div");
-            row.className = "preset-item";
-            const btnApply = document.createElement("button");
-            btnApply.textContent = p.name;
-            btnApply.title = "Aplicar preset";
-            btnApply.style.textDecoration = "underline";
-
-            const btnDel = document.createElement("button");
-            btnDel.innerHTML = "🗑️";
-            btnDel.title = "Excluir preset";
-
-            btnApply.addEventListener("click", () => {
-                // aplica seleção do preset
-                window.myioFilterSel = {
-                    malls: [...(p.selection?.malls || [])],
-                    floors: [...(p.selection?.floors || [])],
-                    places: [...(p.selection?.places || [])],
-                };
-                renderAll();
-            });
-
-            btnDel.addEventListener("click", () => {
-                window.myioFilterPresets = (window.myioFilterPresets || []).filter(
-                    (x) => x.id !== p.id
-                );
-                try {
-                    localStorage.setItem(
-                        PRESET_KEY,
-                        JSON.stringify(window.myioFilterPresets)
-                    );
-                } catch { }
-                renderPresets();
-            });
-
-            row.appendChild(btnApply);
-            row.appendChild(btnDel);
-            elPresets.appendChild(row);
         });
     }
 
@@ -635,8 +382,6 @@ function injectModalGlobal() {
         renderCount();
         renderChips();
         renderTree();
-        // não precisa re-render presets a cada clique, mas aqui é seguro:
-        renderPresets();
         updateClearButtonState();
     }
 
@@ -652,17 +397,15 @@ function injectModalGlobal() {
     if (!elClear._bound) {
         elClear._bound = true;
         elClear.addEventListener("click", () => {
-            // ✅ Limpa seleção de malls/floors/places
-            window.myioFilterSel = { malls: [], floors: [], places: [] };
+            // Limpa seleção e a query de busca
+            window.custumersSelected = [];
             window.myioFilterQuery = "";
             elSearch.value = "";
 
-            // ⭐ NOVO: Limpa customers selecionados
-            window.custumersSelected = [];
-
-            // ⭐ NOVO: Limpa seleção visual dos customers
+            // Limpa seleção visual dos customers
             document.querySelectorAll(".custumers.selected").forEach((item) => {
                 item.classList.remove("selected");
+                item.querySelector(".checkbox").innerHTML = '';
             });
 
             renderAll();
@@ -670,53 +413,19 @@ function injectModalGlobal() {
         });
     }
 
-    if (!elSave._bound) {
-        elSave._bound = true;
-        elSave.addEventListener("click", () => {
-            const name = prompt("Nome do preset:");
-            if (!name) return;
-            const preset = {
-                id: crypto.randomUUID(),
-                name,
-                selection: {
-                    malls: [...window.myioFilterSel.malls],
-                    floors: [...window.myioFilterSel.floors],
-                    places: [...window.myioFilterSel.places],
-                },
-                createdAt: Date.now(),
-            };
-            const next = [preset, ...(window.myioFilterPresets || [])].slice(0, 12);
-            window.myioFilterPresets = next;
-            try {
-                localStorage.setItem(PRESET_KEY, JSON.stringify(next));
-            } catch { }
-            renderPresets();
-        });
-    }
+    // Removido o bind para elSave (Salvar Preset)
 
     if (!elApply._bound) {
         elApply._bound = true;
         elApply.addEventListener("click", async () => {
-            // Itens selecionados
             console.log("[MENU] 🔥 APPLY FILTER BUTTON CLICKED");
-            console.log("[MENU] 📋 Selected customers:", window.custumersSelected);
-            console.log("[MENU] 📋 Customer count:", (window.custumersSelected || []).length);
-
-            // Desabilita botão enquanto carrega
             elApply.disabled = true;
-
-            // Chama a função que atualiza o consumo
-
-            // Reabilita botão
-            elApply.disabled = false;
 
             // Prepara payload do evento
             const eventDetail = {
                 selection: window.custumersSelected || [],
                 ts: Date.now(),
             };
-
-            console.log("[MENU] 🚀 Dispatching myio:filter-applied event with detail:", eventDetail);
 
             // Dispara evento com os custumers selecionados
             window.dispatchEvent(
@@ -725,31 +434,23 @@ function injectModalGlobal() {
                 })
             );
 
-            console.log("[MENU] ✅ Event dispatched successfully");
+            console.log("[MENU] ✅ Event dispatched successfully with", eventDetail.selection.length, "customers.");
 
-            // Fecha modal
+            // Reabilita botão e Fecha modal
+            elApply.disabled = false;
             modal.setAttribute("aria-hidden", "true");
         });
     }
 
     // ==== Abrir modal e sincronizar estado visual ============================
-    console.log("[MENU] 🎭 Opening modal (setting aria-hidden=false)");
     modal.setAttribute("aria-hidden", "false");
-
-    // Verify modal is actually visible
-    const modalVisible = modal.getAttribute("aria-hidden") === "false";
-    console.log("[MENU] 🎭 Modal visible:", modalVisible);
 
     // repõe valor de busca persistido em memória
     if (elSearch.value !== (window.myioFilterQuery || "")) {
         elSearch.value = window.myioFilterQuery || "";
     }
 
-    console.log("[MENU] 🎨 Calling renderAll()");
     renderAll();
-    console.log("[MENU] 🎨 renderAll() completed");
-
-    // Foco no input de busca
     setTimeout(() => elSearch?.focus(), 0);
 }
 
