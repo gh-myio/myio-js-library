@@ -1272,7 +1272,9 @@ self.onInit = async function () {
           ingestionId: ingestionId,
           customerId: customerId, // Shopping ingestionId for filtering
           deviceType: deviceType,
+          deviceProfile: deviceProfile,
           deviceStatus: deviceStatus,
+          connectionStatus: mappedConnectionStatus, // for online/offline filtering
           valType: "power_kw",
           perc: Math.floor(Math.random() * (95 - 70 + 1)) + 70,
           temperatureC: deviceTemperature[0].value,
@@ -2122,6 +2124,8 @@ function openFilterModal() {
   // RFC: Calculate counts for filter tabs
   const counts = {
     all: STATE.allDevices.length,
+    online: 0,
+    offline: 0,
     withConsumption: 0,
     noConsumption: 0,
     elevators: 0,
@@ -2136,6 +2140,14 @@ function openFilterModal() {
     const deviceProfile = (device.deviceProfile || '').toUpperCase();
     const identifier = (device.deviceIdentifier || '').toUpperCase();
     const labelOrName = (device.labelOrName || '').toUpperCase();
+    const connectionStatus = (device.connectionStatus || 'offline').toLowerCase();
+
+    // Count connection status
+    if (connectionStatus === 'online') {
+      counts.online++;
+    } else {
+      counts.offline++; // includes offline, waiting, and any other non-online status
+    }
 
     // Count consumption status
     if (consumption > 0) {
@@ -2164,6 +2176,8 @@ function openFilterModal() {
 
   // Update count displays
   document.getElementById('countAll').textContent = counts.all;
+  document.getElementById('countOnline').textContent = counts.online;
+  document.getElementById('countOffline').textContent = counts.offline;
   document.getElementById('countWithConsumption').textContent = counts.withConsumption;
   document.getElementById('countNoConsumption').textContent = counts.noConsumption;
   document.getElementById('countElevators').textContent = counts.elevators;
@@ -2292,11 +2306,20 @@ function bindFilterEvents() {
         // RFC: Check if device has CAG in identifier or labelOrName (climatização)
         const hasCAG = identifier.includes('CAG') || labelOrName.includes('CAG');
 
+        // Get connection status for online/offline filters
+        const connectionStatus = (device.connectionStatus || 'offline').toLowerCase();
+
         let shouldCheck = false;
 
         switch (filterType) {
           case 'all':
             shouldCheck = true;
+            break;
+          case 'online':
+            shouldCheck = connectionStatus === 'online';
+            break;
+          case 'offline':
+            shouldCheck = connectionStatus !== 'online'; // includes offline, waiting, and any other non-online status
             break;
           case 'with-consumption':
             shouldCheck = consumption > 0;
