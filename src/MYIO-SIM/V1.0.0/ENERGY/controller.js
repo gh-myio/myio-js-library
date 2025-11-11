@@ -47,6 +47,45 @@ const TOTAL_CONSUMPTION_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 let isUpdatingTotalConsumption = false;
 
 // ============================================
+// MOCK DATA GENERATORS (RFC-0073)
+// ============================================
+
+/**
+ * RFC-0073: Generate mock peak demand data for testing
+ * @param {string} customerId - Customer ID (used for deterministic mock selection)
+ * @returns {Object} Mock peak demand object
+ */
+function generateMockPeakDemand(customerId) {
+  const mockPeakValues = [
+    { value: 1250.5, device: "Chiller Principal - Torre Norte", shopping: "Shopping Iguatemi SP" },
+    { value: 980.3, device: "HVAC Central - Piso 2", shopping: "Shopping Eldorado" },
+    { value: 1450.7, device: "Ar Condicionado - Food Court", shopping: "Shopping JK Iguatemi" },
+    { value: 720.2, device: "Sistema Climatização - Ala A", shopping: "Shopping Villa Lobos" },
+    { value: 1100.0, device: "Chiller Backup - Subsolo", shopping: "Shopping Morumbi" }
+  ];
+
+  // Select mock based on customerId (deterministic)
+  const mockIndex = customerId
+    ? Math.abs(customerId.charCodeAt(0)) % mockPeakValues.length
+    : 0;
+
+  const selectedMock = mockPeakValues[mockIndex];
+
+  // Generate timestamp (recent, within last hour)
+  const now = Date.now();
+  const mockTimestamp = now - Math.floor(Math.random() * 3600000); // Random within last hour
+
+  return {
+    peakValue: selectedMock.value,
+    deviceName: selectedMock.device,
+    timestamp: mockTimestamp,
+    deviceId: `mock-device-${mockIndex}`,
+    customerId: customerId || null,
+    shoppingName: selectedMock.shopping
+  };
+}
+
+// ============================================
 // HELPER FUNCTIONS
 // ============================================
 
@@ -192,6 +231,12 @@ function getDeviceNameById(deviceId) {
  * @returns {Promise<{peakValue: number, timestamp: number, deviceId: string, deviceName: string}>}
  */
 async function fetchCustomerPeakDemand(customerId, startTs, endTs) {
+  // RFC-0073: Check mock flag first
+  if (MOCK_DEBUG_PEAK_DEMAND) {
+    console.log("[ENERGY] [RFC-0073] [MOCK] fetchCustomerPeakDemand bypassed - using mock");
+    return generateMockPeakDemand(customerId);
+  }
+
   // Try cache first
   const cached = getCachedPeakDemand(startTs, endTs);
   if (cached) {
@@ -980,21 +1025,39 @@ async function calculateEquipmentDistribution() {
 function classifyEquipmentDetailed(device) {
   let deviceType = (device.deviceType || "").toUpperCase();
   const deviceProfile = (device.deviceProfile || "").toUpperCase();
-  const identifier = (device.deviceIdentifier || "").toUpperCase();
-  const labelOrName = (device.labelOrName || device.label || "").toUpperCase();
+  const identifier = (device.deviceIdentifier || device.name || "").toUpperCase();
+  const labelOrName = (device.labelOrName || device.label || device.name || "").toUpperCase();
 
-  // RFC-0076: REGRA: Se é 3F_MEDIDOR e tem deviceProfile válido, usa o deviceProfile como deviceType
+  // RFC-0076: REGRA 1: Se é 3F_MEDIDOR e tem deviceProfile válido, usa o deviceProfile como deviceType
   if (deviceType === "3F_MEDIDOR" && deviceProfile && deviceProfile !== "N/D") {
     deviceType = deviceProfile;
   }
 
+  // RFC-0076: REGRA 2 (CRITICAL FIX): Se deviceType está vazio mas há deviceProfile, usa deviceProfile
+  if (!deviceType && deviceProfile && deviceProfile !== "N/D") {
+    deviceType = deviceProfile;
+  }
+
   // RFC-0076: Priority 1 - ELEVATORS
+  // Check deviceType first (now includes deviceProfile!), then fallback to name patterns
   if (deviceType === "ELEVADOR" || deviceType === "ELEVATOR") {
+    return "Elevadores";
+  }
+  // Fallback: Check name patterns for elevators
+  if (labelOrName.includes("ELEVADOR") || labelOrName.includes("ELEVATOR") ||
+      labelOrName.includes(" ELV") || labelOrName.includes("ELV ") ||
+      (labelOrName.includes("ELV.") && !labelOrName.includes("ESRL"))) {
     return "Elevadores";
   }
 
   // RFC-0076: Priority 2 - ESCALATORS
+  // Check deviceType first, then fallback to name patterns
   if (deviceType === "ESCADA_ROLANTE" || deviceType === "ESCALATOR") {
+    return "Escadas Rolantes";
+  }
+  // Fallback: Check name patterns for escalators
+  if (labelOrName.includes("ESCADA") || labelOrName.includes("ESCALATOR") ||
+      labelOrName.includes("ESRL") || labelOrName.includes("ESC.ROL")) {
     return "Escadas Rolantes";
   }
 
@@ -1003,7 +1066,12 @@ function classifyEquipmentDetailed(device) {
   const hasCAG = identifier.includes('CAG') || labelOrName.includes('CAG');
 
   const hvacTypes = ["CHILLER", "FANCOIL", "AR_CONDICIONADO", "AC", "HVAC", "BOMBA"];
-  if (hasCAG || hvacTypes.includes(deviceType)) {
+  const hvacNamePatterns = labelOrName.includes("FANCOIL") || labelOrName.includes("CHILLER") ||
+                           labelOrName.includes("CAG") || labelOrName.includes("HVAC") ||
+                           labelOrName.includes("BOMBA") || labelOrName.includes("AR COND") ||
+                           labelOrName.includes("MOTR");
+
+  if (hasCAG || hvacTypes.includes(deviceType) || hvacNamePatterns) {
     return "Climatização";
   }
 
@@ -1047,6 +1115,15 @@ async function calculateDistributionByMode(mode) {
         "Lojas": 0
       };
 
+      // RFC-0076: Device counters for debugging
+      const deviceCounters = {
+        "Elevadores": 0,
+        "Escadas Rolantes": 0,
+        "Climatização": 0,
+        "Outros Equipamentos": 0,
+        "Lojas": 0
+      };
+
       // Get lojas IDs from orchestrator (same logic as MAIN uses)
       const lojasIngestionIds = orchestrator.getLojasIngestionIds?.() || new Set();
       console.log(`[ENERGY] Using lojasIngestionIds from orchestrator: ${lojasIngestionIds.size} lojas`);
@@ -1058,6 +1135,7 @@ async function calculateDistributionByMode(mode) {
         // Priority 1: Check if it's a LOJA (using same logic as MAIN)
         if (lojasIngestionIds.has(ingestionId)) {
           groups["Lojas"] += consumption;
+          deviceCounters["Lojas"]++;
 
           if (sampleCount < 10) {
             console.log(`[ENERGY] 🔍 Device classification sample #${sampleCount + 1}:`, {
@@ -1072,32 +1150,64 @@ async function calculateDistributionByMode(mode) {
         }
 
         // RFC-0076: Priority 2: Classify EQUIPMENTS (everything that's not a loja)
-        const label = String(deviceData.label || deviceData.entityLabel || deviceData.entityName || "").toLowerCase();
+        const label = String(deviceData.label || deviceData.entityLabel || deviceData.entityName || deviceData.name || "").toLowerCase();
 
-        // Create device object for classification (includes deviceProfile and deviceIdentifier)
+        // RFC-0076: CRITICAL FIX - Get metadata from energyCache deviceData
+        // The energyCache should have all fields from ThingsBoard entity
         const device = {
-          deviceType: deviceData.deviceType || "",
-          deviceProfile: deviceData.deviceProfile || "",
-          deviceIdentifier: deviceData.deviceIdentifier || deviceData.name || "",
+          deviceType: deviceData.deviceType || deviceData.type || "",
+          deviceProfile: deviceData.deviceProfile || deviceData.additionalInfo?.deviceProfile || "",
+          deviceIdentifier: deviceData.deviceIdentifier || deviceData.additionalInfo?.deviceIdentifier || deviceData.name || "",
+          name: deviceData.name || deviceData.entityName || "",
           labelOrName: label,
           label: label
         };
 
         const type = classifyEquipmentDetailed(device);
         groups[type] = (groups[type] || 0) + consumption;
+        deviceCounters[type] = (deviceCounters[type] || 0) + 1;
 
-        // Log first 10 devices for debugging
-        if (sampleCount < 10) {
-          console.log(`[ENERGY] 🔍 Device classification sample #${sampleCount + 1}:`, {
+        // RFC-0076: Enhanced logging - Log ALL devices that could be elevators
+        const couldBeElevator = (deviceData.deviceType === "3F_MEDIDOR" || deviceData.type === "3F_MEDIDOR") ||
+                                (deviceData.deviceType === "ELEVADOR" || deviceData.type === "ELEVADOR") ||
+                                (deviceData.deviceProfile && deviceData.deviceProfile.toUpperCase() === "ELEVADOR") ||
+                                (deviceData.additionalInfo?.deviceProfile && deviceData.additionalInfo.deviceProfile.toUpperCase() === "ELEVADOR") ||
+                                (deviceData.name && deviceData.name.toUpperCase().includes("ELV"));
+
+        // RFC-0076: Log first 30 devices for debugging (increased from 10)
+        if (sampleCount < 30 || couldBeElevator) {
+          console.log(`[ENERGY] 🔍 Device classification ${couldBeElevator ? '⚡ ELEVATOR CANDIDATE' : 'sample'} #${sampleCount + 1}:`, {
             name: deviceData.name,
             ingestionId: ingestionId,
             deviceType: deviceData.deviceType,
             deviceProfile: deviceData.deviceProfile,
+            deviceIdentifier: deviceData.deviceIdentifier,
+            additionalInfo: deviceData.additionalInfo,
             label: label,
             classified: type,
-            consumption: consumption
+            consumption: consumption,
+            deviceObject: device,
+            namePattern: {
+              hasELV: label.toUpperCase().includes("ELV"),
+              hasELEVADOR: label.toUpperCase().includes("ELEVADOR"),
+              hasESRL: label.toUpperCase().includes("ESRL"),
+              hasESCADA: label.toUpperCase().includes("ESCADA"),
+              hasCAG: (deviceData.name || "").toUpperCase().includes('CAG') || label.toUpperCase().includes('CAG'),
+              hasMOTR: label.toUpperCase().includes("MOTR")
+            }
           });
-          sampleCount++;
+          if (!couldBeElevator) sampleCount++;
+        }
+
+        // RFC-0076: Log Elevadores and Escadas Rolantes specifically
+        if (type === "Elevadores" || type === "Escadas Rolantes") {
+          console.log(`[ENERGY] ✅ Found ${type}:`, {
+            name: deviceData.name,
+            deviceType: deviceData.deviceType,
+            deviceProfile: deviceData.deviceProfile,
+            consumption: consumption,
+            classifiedBy: "name-pattern"
+          });
         }
       });
 
@@ -1105,8 +1215,45 @@ async function calculateDistributionByMode(mode) {
       console.log("[ENERGY] ============================================");
       console.log("[ENERGY] Distribution by groups (RFC-0076):");
       console.log("[ENERGY] - Total devices processed:", energyCache.size);
-      console.log("[ENERGY] - Lojas count:", lojasIngestionIds.size);
-      console.log("[ENERGY] Distribution breakdown:", groups);
+      console.log("[ENERGY] - Lojas from orchestrator:", lojasIngestionIds.size);
+      console.log("[ENERGY] Device counts by category:");
+      Object.entries(deviceCounters).forEach(([cat, count]) => {
+        console.log(`[ENERGY]   - ${cat}: ${count} devices, ${groups[cat].toFixed(2)} kWh`);
+      });
+      console.log("[ENERGY] Distribution breakdown (consumption):", groups);
+
+      // RFC-0076: Warning and diagnostic info if no elevators found
+      if (deviceCounters["Elevadores"] === 0) {
+        console.warn("[ENERGY] ⚠️  No elevators detected in energyCache. Possible causes:");
+        console.warn("[ENERGY]     1. Elevators may not have energy measurement devices");
+        console.warn("[ENERGY]     2. Elevator devices may not be included in /energy/devices/totals API");
+        console.warn("[ENERGY]     3. deviceType/deviceProfile metadata may be missing from energyCache");
+        console.warn("[ENERGY]     4. Elevator naming convention may differ from expected patterns");
+        console.warn("[ENERGY]     Expected patterns: 'ELEVADOR', 'ELEVATOR', 'ELV' in device name/label");
+
+        // Print sample of "Outros Equipamentos" to help identify misclassified elevators
+        console.log("[ENERGY] 📋 Sample of 'Outros Equipamentos' (first 20 devices):");
+        let othersCount = 0;
+        energyCache.forEach((deviceData, ingestionId) => {
+          if (!lojasIngestionIds.has(ingestionId) && othersCount < 20) {
+            const label = String(deviceData.label || deviceData.entityLabel || deviceData.entityName || deviceData.name || "").toLowerCase();
+            const device = {
+              deviceType: deviceData.deviceType || "",
+              deviceProfile: deviceData.deviceProfile || "",
+              deviceIdentifier: deviceData.deviceIdentifier || "",
+              name: deviceData.name || "",
+              labelOrName: label,
+              label: label
+            };
+            const classification = classifyEquipmentDetailed(device);
+            if (classification === "Outros Equipamentos") {
+              console.log(`[ENERGY]    - "${deviceData.name || label}" (deviceType: ${device.deviceType}, profile: ${device.deviceProfile})`);
+              othersCount++;
+            }
+          }
+        });
+      }
+
       console.log("[ENERGY] ============================================");
 
       return groups;
@@ -1136,12 +1283,13 @@ async function calculateDistributionByMode(mode) {
         if (lojasIngestionIds.has(ingestionId)) {
           type = "Lojas";
         } else {
-          // Classify equipment (includes deviceProfile and deviceIdentifier)
-          const label = String(deviceData.label || deviceData.entityLabel || deviceData.entityName || "").toLowerCase();
+          // Classify equipment (includes deviceProfile, deviceIdentifier and name)
+          const label = String(deviceData.label || deviceData.entityLabel || deviceData.entityName || deviceData.name || "").toLowerCase();
           const device = {
             deviceType: deviceData.deviceType || "",
             deviceProfile: deviceData.deviceProfile || "",
-            deviceIdentifier: deviceData.deviceIdentifier || deviceData.name || "",
+            deviceIdentifier: deviceData.deviceIdentifier || "",
+            name: deviceData.name || "",
             labelOrName: label,
             label: label
           };
@@ -2273,6 +2421,24 @@ self.onInit = async function () {
 
   if (window.parent !== window) {
     window.parent.addEventListener("myio:filter-applied", handleFilterApplied);
+  }
+
+  // RFC-0076: Listen to equipment metadata enrichment from EQUIPMENTS widget
+  // This forces chart updates when EQUIPMENTS finishes enriching the cache with deviceType/deviceProfile
+  const handleEquipmentMetadataEnriched = async (ev) => {
+    console.log("[ENERGY] [RFC-0076] 🔧 Equipment metadata enriched! Forcing chart update...", ev.detail);
+
+    // Force immediate update of pie chart to pick up elevator classifications
+    const currentMode = document.getElementById("distributionMode")?.value || "groups";
+    await updatePieChart(currentMode);
+
+    console.log("[ENERGY] [RFC-0076] ✅ Charts updated with enriched metadata");
+  };
+
+  window.addEventListener("myio:equipment-metadata-enriched", handleEquipmentMetadataEnriched);
+
+  if (window.parent !== window) {
+    window.parent.addEventListener("myio:equipment-metadata-enriched", handleEquipmentMetadataEnriched);
   }
 
   // DEPOIS (NOVO CÓDIGO PARA O onInit DO WIDGET ENERGY)

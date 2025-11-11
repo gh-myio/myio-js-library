@@ -617,19 +617,31 @@ function updateEquipmentStats(devices) {
     }
   });
 
-  // Get total consumption from MAIN orchestrator (same source as ENERGY widget)
+  // RFC-0076: Calculate consumption from FILTERED devices array
+  // IMPORTANT: Always calculate locally to respect filter selections
   let totalConsumption = 0;
-  if (typeof window.MyIOOrchestrator?.getTotalEquipmentsConsumption === 'function') {
-    totalConsumption = window.MyIOOrchestrator.getTotalEquipmentsConsumption();
-    console.log("[EQUIPMENTS] Got total from orchestrator:", totalConsumption, "kWh");
-  } else {
-    console.warn("[EQUIPMENTS] MyIOOrchestrator not available, calculating locally");
-    // Fallback: calculate locally
-    devices.forEach(device => {
-      const consumption = Number(device.val) || Number(device.lastValue) || 0;
-      totalConsumption += consumption;
-    });
-  }
+  devices.forEach(device => {
+    // Try to get consumption from energyCache first (most reliable)
+    const ingestionIdItem = device.values?.find(v => v.dataType === "ingestionId");
+    const ingestionId = ingestionIdItem?.value || ingestionIdItem?.val;
+
+    let consumption = 0;
+    if (ingestionId && energyCacheFromMain) {
+      const cached = energyCacheFromMain.get(ingestionId);
+      if (cached) {
+        consumption = Number(cached.total_value) || 0;
+      }
+    }
+
+    // Fallback to device's own value if cache lookup failed
+    if (consumption === 0) {
+      consumption = Number(device.val) || Number(device.lastValue) || 0;
+    }
+
+    totalConsumption += consumption;
+  });
+
+  console.log("[EQUIPMENTS] Consumption calculated from", devices.length, "filtered devices:", totalConsumption, "kWh");
 
   // Calculate zero consumption count locally (not available in orchestrator)
   let zeroConsumptionCount = 0;
@@ -1415,6 +1427,65 @@ self.onInit = async function () {
         }
       }
     });
+
+    // RFC-0076: CRITICAL FIX - Enrich energyCache with full device metadata
+    // This ensures ENERGY widget can classify elevators correctly
+    console.log("[EQUIPMENTS] 🔧 Enriching energyCache with device metadata (deviceType, deviceProfile)...");
+
+    let enrichedCount = 0;
+    Object.entries(devices).forEach(([entityId, device]) => {
+      const ingestionIdItem = device.values.find(v => v.dataType === "ingestionId");
+      if (ingestionIdItem && ingestionIdItem.value) {
+        const ingestionId = ingestionIdItem.value;
+        const cached = energyCacheFromMain.get(ingestionId);
+
+        if (cached) {
+          // Get metadata from device.values
+          const deviceType = findValue(device.values, "type", "");
+          const deviceProfile = findValue(device.values, "deviceProfile", "");
+          const deviceIdentifier = findValue(device.values, "deviceIdentifier", "");
+          const deviceName = findValue(device.values, "name", "");
+
+          // RFC-0076: Enrich cache with full metadata
+          cached.deviceType = deviceType;
+          cached.deviceProfile = deviceProfile;
+          cached.deviceIdentifier = deviceIdentifier;
+          cached.name = cached.name || deviceName;
+
+          enrichedCount++;
+
+          // RFC-0076: Log elevators specifically (by deviceProfile OR deviceType OR name)
+          if (deviceType === "ELEVADOR" ||
+              deviceProfile === "ELEVADOR" ||  // ← FIXED: Check deviceProfile independently!
+              (deviceType === "3F_MEDIDOR" && deviceProfile === "ELEVADOR") ||
+              (deviceName && deviceName.toUpperCase().includes("ELV"))) {
+            console.log(`[EQUIPMENTS] ⚡ ELEVATOR enriched:`, {
+              ingestionId,
+              name: deviceName,
+              deviceType: deviceType || "(empty)",
+              deviceProfile,
+              deviceIdentifier,
+              consumption: cached.total_value
+            });
+          }
+        }
+      }
+    });
+
+    console.log(`[EQUIPMENTS] ✅ Enriched ${enrichedCount} devices in energyCache with metadata`);
+
+    // RFC-0076: Force update on ENERGY widget by re-emitting the cache
+    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+    if (orchestrator) {
+      console.log("[EQUIPMENTS] 🔄 Forcing ENERGY widget update...");
+      window.dispatchEvent(new CustomEvent('myio:equipment-metadata-enriched', {
+        detail: {
+          cache: energyCacheFromMain,
+          deviceCount: enrichedCount,
+          timestamp: Date.now()
+        }
+      }));
+    }
 
     // Re-render cards and hide loading
     renderDeviceCards().then(() => {
