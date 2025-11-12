@@ -736,7 +736,8 @@ function ensureOrchestratorBusyDOM() {
 }
 
 // PHASE 1: Centralized busy management with extended timeout
-function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...') {
+function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...', timeoutMs = 25000) {
+  
   // RFC-0054: cooldown - não reabrir modal se acabou de prover dados
   const lp = lastProvide.get(domain);
   if (lp && (Date.now() - lp.at) < 30000) {
@@ -809,7 +810,7 @@ function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...') {
     }
 
     globalBusyState.timeoutId = null;
-  }, 25000); // 25 seconds (Phase 1 requirement)
+  }, timeoutMs); // 25 seconds (Phase 1 requirement)
 
   if (totalBefore === 0) {
     LogHelper.log(`[Orchestrator] ✅ Global busy shown (domain=${domain})`);
@@ -2070,7 +2071,8 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       widgetBusyMonitor.stopAll();
 
       // RFC-0044: Clean up busy overlay on destroy
-      hideGlobalBusy(domain);
+      // hideGlobalBusy(domain);
+      hideGlobalBusy();
       const busyEl = document.getElementById(BUSY_OVERLAY_ID);
       if (busyEl && busyEl.parentNode) {
         busyEl.parentNode.removeChild(busyEl);
