@@ -599,15 +599,16 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     const TZ = "America/Sao_Paulo";
     const hoje = new Date();
 
-    // Define datas iniciais (início do mês até hoje)
+    // RFC: Define datas iniciais (início do mês até hoje) usando UTC para evitar conversão de timezone
+    // Fix: Usar Date.UTC ao invés de new Date local para garantir horário correto (00:00:00 UTC)
     const startDate = presetStart
         ? new Date(presetStart)
-        : new Date(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0);
+        : new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0));
     const endDate = presetEnd
         ? new Date(presetEnd)
-        : new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59);
+        : new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59, 999));
 
-    // Converte para ISO strings
+    // Converte para ISO strings (já em UTC, não adiciona offset)
     const startISO = startDate.toISOString();
     const endISO = endDate.toISOString();
 

@@ -1081,89 +1081,38 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 };
 
 // ===== HEADER: Equipment Card Handler =====
-function updateEquipmentCard() {
-    // Count unique devices and their online status
-    // Group by entityId to count each device only once
-    const deviceMap = new Map(); // entityId -> { hasConnectionStatus: bool, isOnline: bool, customerId: string, ingestionId: string }
+/**
+ * RFC: Update equipment card - now receives data from EQUIPMENTS widget via event
+ * Shows total equipment count (MOTOR, ELEVADOR, ESCADA_ROLANTE, etc)
+ * Format: "X / Total" when filtered, or just "Total" when all shoppings selected
+ */
+function updateEquipmentCard(eventData = null) {
+    const statusDevice = document.getElementById("equip-kpi");
+    const subtitleDevice = document.getElementById("equip-sub");
 
-    self.ctx.data.forEach((data) => {
-        const entityId = data.datasource?.entityId;
-        const dataKeyName = data.dataKey?.name;
-
-        if (!entityId) return;
-
-        // Initialize device entry if doesn't exist
-        if (!deviceMap.has(entityId)) {
-            deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false, customerId: null, ingestionId: null });
-        }
-
-        const deviceEntry = deviceMap.get(entityId);
-
-        // Check if this is the connectionStatus dataKey
-        if (dataKeyName === "connectionStatus") {
-            const status = String(data.data?.[0]?.[1] || '').toLowerCase();
-            deviceEntry.hasConnectionStatus = true;
-            deviceEntry.isOnline = (status === "online");
-        }
-
-        // Extract customerId for filtering
-        if (dataKeyName === "customerId") {
-            deviceEntry.customerId = data.data?.[0]?.[1];
-        }
-
-        // Extract ingestionId for fallback mapping
-        if (dataKeyName === "ingestionId") {
-            deviceEntry.ingestionId = data.data?.[0]?.[1];
-        }
-    });
-
-    // Count total devices and online devices
-    let totalDevices = 0;
-    let onlineDevices = 0;
-    let filteredOut = 0;
-
-    deviceMap.forEach((device, entityId) => {
-        if (device.hasConnectionStatus) {
-            // Apply shopping filter if active
-            if (selectedShoppingIds.length > 0) {
-                let customerId = device.customerId;
-
-                // Fallback: try to get customerId from global device-to-shopping map
-                if (!customerId && device.ingestionId && window.myioDeviceToShoppingMap) {
-                    customerId = window.myioDeviceToShoppingMap.get(device.ingestionId);
-                }
-
-                // If device has customerId, check if it's in selected shoppings
-                if (customerId && !selectedShoppingIds.includes(customerId)) {
-                    filteredOut++;
-                    return; // Skip this device
-                }
-
-                // If device has no customerId even after fallback, include it (safety)
-            }
-
-            totalDevices++;
-            if (device.isOnline) {
-                onlineDevices++;
-            }
-        }
-    });
-
-    if (selectedShoppingIds.length > 0) {
-        console.log(`[HEADER] Shopping filter applied to equipment card: ${totalDevices} devices shown, ${filteredOut} filtered out`);
+    if (!eventData) {
+        // Show loading state
+        if (statusDevice) statusDevice.innerText = "-";
+        if (subtitleDevice) subtitleDevice.innerText = "Aguardando dados...";
+        return;
     }
 
-    const percentage = totalDevices > 0 ? Math.round((onlineDevices / totalDevices) * 100) : 0;
+    const { totalEquipments, filteredEquipments, allShoppingsSelected } = eventData;
 
-    const statusDevice = document.getElementById("equip-kpi");
-    const percentDevice = document.getElementById("equip-sub");
-    const barEl = document.getElementById("equip-bar");
+    // RFC: Show "X / Total" when filtered, or just "Total" when all selected
+    if (allShoppingsSelected) {
+        if (statusDevice) statusDevice.innerText = `${totalEquipments}`;
+        if (subtitleDevice) subtitleDevice.innerText = "Total de equipamentos";
+    } else {
+        if (statusDevice) statusDevice.innerText = `${filteredEquipments} / ${totalEquipments}`;
+        if (subtitleDevice) subtitleDevice.innerText = "Equipamentos (filtrados / total)";
+    }
 
-    if (statusDevice) statusDevice.innerText = `${onlineDevices}/${totalDevices}`;
-    if (percentDevice) percentDevice.innerText = `${percentage}% operational`;
-    if (barEl) setBarPercent(barEl, percentage, 8);
-
-    console.log("[HEADER] Equipment card updated:", { online: onlineDevices, total: totalDevices, percentage });
+    console.log("[HEADER] Equipment card updated:", {
+        total: totalEquipments,
+        filtered: filteredEquipments,
+        allSelected: allShoppingsSelected
+    });
 }
 
 function extractDeviceIds(ctxData) {
@@ -1557,11 +1506,17 @@ window.addEventListener('myio:energy-data-ready', (ev) => {
 
 window.addEventListener('myio:water-data-ready', (ev) => {
   console.log("[HEADER] ✅ Dados de ÁGUA recebidos do Orchestrator:", ev.detail);
-  
+
   // Se 'ev.detail.cache' existir, atualiza o card
   if (ev.detail && ev.detail.cache) {
     updateWaterCard(ev.detail.cache);
   }
+});
+
+// ===== HEADER: Listen for equipment count updates from EQUIPMENTS widget =====
+window.addEventListener('myio:equipment-count-updated', (ev) => {
+    console.log("[HEADER] Received equipment count from EQUIPMENTS widget:", ev.detail);
+    updateEquipmentCard(ev.detail);
 });
 
 // ===== HEADER: Listen for shopping filter =====
@@ -1576,8 +1531,8 @@ window.addEventListener('myio:filter-applied', (ev) => {
         console.log("[HEADER] Selected shopping IDs:", selectedShoppingIds);
     }
 
-    // Recompute equipment card with filter
-    updateEquipmentCard();
+    // Equipment card will be updated via myio:equipment-count-updated event from EQUIPMENTS widget
+    // No need to call updateEquipmentCard() here anymore
 
     // Recompute energy card with filter (will get filtered data from orchestrator)
     // This will also emit myio:customer-total-consumption with filtered total
@@ -1593,8 +1548,8 @@ self.onDataUpdated = function () {
 
     _dataRefreshCount++;
 
-    // Update Equipment card
-    updateEquipmentCard();
+    // Equipment card will be updated via myio:equipment-count-updated event from EQUIPMENTS widget
+    // No need to call updateEquipmentCard() here anymore
 
     // Update Temperature card
     updateTemperatureCard();

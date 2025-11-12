@@ -776,6 +776,13 @@ function initializeCards(devices) {
     if (!device.deviceStatus) {
       device.deviceStatus = device.connectionStatus;
     }
+    
+    const shoppingName = getShoppingNameForDevice(device);
+    device.shoppingName = shoppingName;
+
+    if (device.labelOrName && device.labelOrName.includes("Chiller 1")) {
+      console.log("[EQUIPMENTS] Rendering card for Chiller 1 device:", device);
+    }
 
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
@@ -895,6 +902,7 @@ function initializeCards(devices) {
 
         //console.log("[EQUIPMENTS] ", device.deviceStatus);
         console.log("[EQUIPMENTS] device.deviceStatus:", device.deviceStatus);
+        
 
         try {
           // RFC-0072: Following exact TELEMETRY pattern with domain and connectionData
@@ -908,6 +916,7 @@ function initializeCards(devices) {
               connectionStatusTime: Date.now(),
               timeVal: Date.now(),
               deviceStatus: device.deviceStatus || 'offline',
+              lastDisconnectTime: device.lastDisconnectTime || 0,
             },
             ui: { title: "Configurações", width: 900 },
             onSaved: (payload) => {
@@ -1173,8 +1182,10 @@ self.onInit = async function () {
         device.values.some((valor) => valor.dataType === "total_consumption")
       )
       .map(async ([entityId, device]) => {
-        const tbToken = localStorage.getItem("jwt_token");       
+        const tbToken = localStorage.getItem("jwt_token");
+              
         const lastConnectTimestamp = findValue(device.values, "lastConnectTime", "");
+        const lastDisconnectTimestamp = findValue(device.values, "lastDisconnectTime", "");
 
         let operationHoursFormatted = "0s";
 
@@ -1272,14 +1283,13 @@ self.onInit = async function () {
           ingestionId: ingestionId,
           customerId: customerId, // Shopping ingestionId for filtering
           deviceType: deviceType,
-          deviceProfile: deviceProfile,
           deviceStatus: deviceStatus,
-          connectionStatus: mappedConnectionStatus, // for online/offline filtering
           valType: "power_kw",
           perc: Math.floor(Math.random() * (95 - 70 + 1)) + 70,
           temperatureC: deviceTemperature[0].value,
           operationHours: operationHoursFormatted || 0,
           updated: updatedFormatted,
+          lastDisconnectTime: lastDisconnectTimestamp,
           // RFC-0058: Add properties for MyIOSelectionStore (FOOTER)
           id: entityId,                    // Alias for entityId
           name: device.label,              // Alias for labelOrName
@@ -1366,6 +1376,9 @@ self.onInit = async function () {
     // Update statistics header (only equipments)
     updateEquipmentStats(equipmentDevices);
 
+    // RFC: Emit initial equipment count to HEADER
+    emitEquipmentCountEvent(equipmentDevices);
+
     // Hide loading after rendering
     showLoadingOverlay(false);
   }
@@ -1389,6 +1402,10 @@ self.onInit = async function () {
 
     const customers = ev.detail?.customers || [];
     if (customers.length > 0) {
+      // RFC: Save total shoppings count for HEADER card logic
+      STATE.totalShoppings = customers.length;
+      console.log(`[EQUIPMENTS] 📊 Total shoppings available: ${STATE.totalShoppings}`);
+
       renderAllShoppingsChips(customers);
     }
   };
@@ -1461,6 +1478,7 @@ self.onInit = async function () {
               deviceProfile === "ELEVADOR" ||  // ← FIXED: Check deviceProfile independently!
               (deviceType === "3F_MEDIDOR" && deviceProfile === "ELEVADOR") ||
               (deviceName && deviceName.toUpperCase().includes("ELV"))) {
+                /*
             console.log(`[EQUIPMENTS] ⚡ ELEVATOR enriched:`, {
               ingestionId,
               name: deviceName,
@@ -1469,6 +1487,7 @@ self.onInit = async function () {
               deviceIdentifier,
               consumption: cached.total_value
             });
+            */
           }
         }
       }
@@ -1611,8 +1630,35 @@ const STATE = {
   searchTerm: "",
   selectedIds: null,
   sortMode: 'cons_desc',
-  selectedShoppingIds: [] // Shopping filter from MENU
+  selectedShoppingIds: [], // Shopping filter from MENU
+  totalShoppings: 0 // Total number of shoppings available
 };
+
+/**
+ * RFC: Emit event to update HEADER equipment card
+ * Sends total equipment count and filtered count
+ */
+function emitEquipmentCountEvent(filteredDevices) {
+  const totalEquipments = STATE.allDevices.length;
+  const filteredEquipments = filteredDevices.length;
+
+  // Check if all shoppings are selected (no filter or all selected)
+  const allShoppingsSelected = STATE.selectedShoppingIds.length === 0 ||
+                                STATE.selectedShoppingIds.length === STATE.totalShoppings;
+
+  const eventData = {
+    totalEquipments,
+    filteredEquipments,
+    allShoppingsSelected,
+    timestamp: Date.now()
+  };
+
+  window.dispatchEvent(new CustomEvent('myio:equipment-count-updated', {
+    detail: eventData
+  }));
+
+  console.log("[EQUIPMENTS] ✅ Emitted myio:equipment-count-updated:", eventData);
+}
 
 /**
  * Apply filters and sorting to devices
@@ -1687,6 +1733,9 @@ function reflowCards() {
 
   initializeCards(filtered);
   updateEquipmentStats(filtered);
+
+  // RFC: Emit event to update HEADER card
+  emitEquipmentCountEvent(filtered);
 }
 
 /**
@@ -2124,8 +2173,6 @@ function openFilterModal() {
   // RFC: Calculate counts for filter tabs
   const counts = {
     all: STATE.allDevices.length,
-    online: 0,
-    offline: 0,
     withConsumption: 0,
     noConsumption: 0,
     elevators: 0,
@@ -2140,14 +2187,6 @@ function openFilterModal() {
     const deviceProfile = (device.deviceProfile || '').toUpperCase();
     const identifier = (device.deviceIdentifier || '').toUpperCase();
     const labelOrName = (device.labelOrName || '').toUpperCase();
-    const connectionStatus = (device.connectionStatus || 'offline').toLowerCase();
-
-    // Count connection status
-    if (connectionStatus === 'online') {
-      counts.online++;
-    } else {
-      counts.offline++; // includes offline, waiting, and any other non-online status
-    }
 
     // Count consumption status
     if (consumption > 0) {
@@ -2176,8 +2215,6 @@ function openFilterModal() {
 
   // Update count displays
   document.getElementById('countAll').textContent = counts.all;
-  document.getElementById('countOnline').textContent = counts.online;
-  document.getElementById('countOffline').textContent = counts.offline;
   document.getElementById('countWithConsumption').textContent = counts.withConsumption;
   document.getElementById('countNoConsumption').textContent = counts.noConsumption;
   document.getElementById('countElevators').textContent = counts.elevators;
@@ -2304,10 +2341,9 @@ function bindFilterEvents() {
         const labelOrName = (device.labelOrName || '').toUpperCase();
 
         // RFC: Check if device has CAG in identifier or labelOrName (climatização)
-        const hasCAG = identifier.includes('CAG') || labelOrName.includes('CAG');
-
-        // Get connection status for online/offline filters
+        const hasCAG = identifier.includes('CAG') || labelOrName.includes('CAG');        // Get connection status for online/offline filters
         const connectionStatus = (device.connectionStatus || 'offline').toLowerCase();
+
 
         let shouldCheck = false;
 
@@ -2315,7 +2351,7 @@ function bindFilterEvents() {
           case 'all':
             shouldCheck = true;
             break;
-          case 'online':
+                      case 'online':
             shouldCheck = connectionStatus === 'online';
             break;
           case 'offline':

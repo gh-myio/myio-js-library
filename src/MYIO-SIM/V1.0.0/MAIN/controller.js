@@ -502,6 +502,10 @@ const MyIOOrchestrator = (() => {
             );
           }
 
+          if (device.name === "3F SCMAL2ACCAGC") {
+            alert ("device total_value >>> " , device.total_value);
+          }
+
           const cachedData = {
             ingestionId: device.id,
             customerId: customerId, // Shopping ingestionId
@@ -847,6 +851,7 @@ const MyIOOrchestrator = (() => {
     getTotalLojasConsumption,
     getTotalConsumption,
     getEnergyWidgetData,
+    getLastFetchTimestamp: () => lastFetchTimestamp, // RFC: Expor timestamp para deduplicação
     requestSummary() {
       // Responde imediatamente com o que tiver no momento
       const total = haveCustomerTotal() ? customerTotalConsumption : 0;
@@ -1119,8 +1124,13 @@ self.onInit = async function () {
       timer = setTimeout(() => {
         if (!resolved) {
           cleanup();
+          // RFC: Fix - Usar início do dia (00:00:00) e fim do dia (23:59:59)
           const end = new Date();
+          end.setHours(23, 59, 59, 999);  // Fim do dia de hoje
+
           const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+          start.setHours(0, 0, 0, 0);  // Início do dia 7 dias atrás
+
           const startISO = start.toISOString();
           const endISO = end.toISOString();
           applyParams({
@@ -1145,19 +1155,29 @@ self.onInit = async function () {
         globalEndDateFilter: endDate,
       });
 
-      // Fetch and cache energy data using Ingestion Customer ID
+      // RFC: Deduplicação - só busca se não houver cache válido recente
+      // Evita chamadas duplicadas quando MENU dispara evento E MAIN já fez fetch inicial
       if (CUSTOMER_INGESTION_ID) {
-        // Chamadas em sequência
-        await MyIOOrchestrator.fetchEnergyData(
-          CUSTOMER_INGESTION_ID,
-          startDate,
-          endDate
-        );
-        await MyIOOrchestrator.fetchWaterData(
-          CUSTOMER_INGESTION_ID,
-          startDate,
-          endDate
-        );
+        const lastTimestamp = MyIOOrchestrator.getLastFetchTimestamp();
+        const cacheAge = lastTimestamp ? Date.now() - lastTimestamp : Infinity;
+        const CACHE_FRESHNESS_MS = 5000; // 5 segundos
+
+        if (cacheAge > CACHE_FRESHNESS_MS) {
+          console.log("[MAIN] [Orchestrator] Cache stale or missing, fetching data...");
+          // Chamadas em sequência
+          await MyIOOrchestrator.fetchEnergyData(
+            CUSTOMER_INGESTION_ID,
+            startDate,
+            endDate
+          );
+          await MyIOOrchestrator.fetchWaterData(
+            CUSTOMER_INGESTION_ID,
+            startDate,
+            endDate
+          );
+        } else {
+          console.log(`[MAIN] [Orchestrator] Skipping fetch - cache is fresh (age: ${cacheAge}ms)`);
+        }
       }
     }
   });
@@ -1198,7 +1218,7 @@ self.onInit = async function () {
   };
   window.addEventListener("myio:date-params", self._onDateParams);
 
-  // ===== ORCHESTRATOR: Initial energy data fetch =====
+  // ===== ORCHESTRATOR: Initial setup =====
   console.log(
     "[MAIN] [Orchestrator] Initial setup with Ingestion Customer ID:",
     CUSTOMER_INGESTION_ID
@@ -1208,27 +1228,12 @@ self.onInit = async function () {
     end: datesFromParent.end,
   });
 
-  console.log(
-    "[MAIN] fetchEnergyData 003 >>> ",
-    datesFromParent.start,
-    datesFromParent.end
-  );
-
-  // Fetch energy data using orchestrator
-  await MyIOOrchestrator.fetchEnergyData(
-    CUSTOMER_INGESTION_ID,
-    datesFromParent.start,
-    datesFromParent.end
-  );
-
-  await MyIOOrchestrator.fetchWaterData(
-    CUSTOMER_INGESTION_ID,
-    datesFromParent.start,
-    datesFromParent.end
-  );
+  // RFC: Removido fetch inicial - MENU sempre dispara myio:update-date no onInit
+  // Isso evita chamadas duplicadas (MENU dispara evento → MAIN listener faz fetch)
+  // Se precisar de dados imediatamente, o listener myio:update-date já cuidará disso
 
   console.log(
-    "[MAIN] [Orchestrator] Initialization complete - data available via cache"
+    "[MAIN] [Orchestrator] Waiting for myio:update-date event from MENU to fetch data..."
   );
 };
 
