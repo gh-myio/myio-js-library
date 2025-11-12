@@ -93,7 +93,7 @@ export const DEFAULT_I18N: I18NMap = {
   offline: 'Offline',
   efficiency: 'Eficiência',
   temperature: 'Temperatura',
-  operation_time: 'Tempo de operação',
+  operation_time: 'Tempo em operação',
   updated: 'Atualizado',
   current_suffix: 'Atual',
   menu_dashboard: 'Dashboard',
