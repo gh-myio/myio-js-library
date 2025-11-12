@@ -1,5 +1,5 @@
-import { ModalConfig } from './types';
-import {mapDeviceStatusToCardStatus} from '../../../utils/deviceStatus';
+import { ModalConfig } from "./types";
+import { mapDeviceStatusToCardStatus } from "../../../utils/deviceStatus";
 
 export class SettingsModalView {
   private container: HTMLElement;
@@ -17,7 +17,7 @@ export class SettingsModalView {
   render(initialData: Record<string, any>): void {
     // Store current focus to restore later
     this.originalActiveElement = document.activeElement;
-    
+
     // Portal to document.body to escape widget stacking contexts
     document.body.appendChild(this.container);
     this.populateForm(initialData);
@@ -29,61 +29,65 @@ export class SettingsModalView {
 
   close(): void {
     this.teardownFocusTrap();
-    
+
     // Restore focus to original element
-    if (this.originalActiveElement && 'focus' in this.originalActiveElement) {
+    if (this.originalActiveElement && "focus" in this.originalActiveElement) {
       (this.originalActiveElement as HTMLElement).focus();
     }
-    
+
     if (this.container.parentNode) {
       this.container.parentNode.removeChild(this.container);
     }
   }
 
   showError(message: string): void {
-    const errorEl = this.modal.querySelector('.error-message') as HTMLElement;
+    const errorEl = this.modal.querySelector(".error-message") as HTMLElement;
     if (errorEl) {
       errorEl.textContent = message;
-      errorEl.style.display = 'block';
-      errorEl.setAttribute('role', 'alert');
-      errorEl.setAttribute('aria-live', 'polite');
+      errorEl.style.display = "block";
+      errorEl.setAttribute("role", "alert");
+      errorEl.setAttribute("aria-live", "polite");
     }
   }
 
   hideError(): void {
-    const errorEl = this.modal.querySelector('.error-message') as HTMLElement;
+    const errorEl = this.modal.querySelector(".error-message") as HTMLElement;
     if (errorEl) {
-      errorEl.style.display = 'none';
-      errorEl.removeAttribute('role');
-      errorEl.removeAttribute('aria-live');
+      errorEl.style.display = "none";
+      errorEl.removeAttribute("role");
+      errorEl.removeAttribute("aria-live");
     }
   }
 
   showLoadingState(isLoading: boolean): void {
-    const saveBtn = this.modal.querySelector('.btn-save') as HTMLButtonElement;
-    const cancelBtn = this.modal.querySelector('.btn-cancel') as HTMLButtonElement;
-    const formInputs = this.modal.querySelectorAll('input, select, textarea') as NodeListOf<HTMLInputElement>;
-    
+    const saveBtn = this.modal.querySelector(".btn-save") as HTMLButtonElement;
+    const cancelBtn = this.modal.querySelector(
+      ".btn-cancel"
+    ) as HTMLButtonElement;
+    const formInputs = this.modal.querySelectorAll(
+      "input, select, textarea"
+    ) as NodeListOf<HTMLInputElement>;
+
     if (saveBtn) {
       saveBtn.disabled = isLoading;
-      saveBtn.textContent = isLoading ? 'Salvando...' : 'Salvar';
+      saveBtn.textContent = isLoading ? "Salvando..." : "Salvar";
     }
-    
+
     if (cancelBtn) {
       cancelBtn.disabled = isLoading;
     }
-    
+
     // Disable form inputs during save
-    formInputs.forEach(input => {
+    formInputs.forEach((input) => {
       input.disabled = isLoading;
     });
   }
 
-    private formatDomainLabel(domain: string): string {
+  private formatDomainLabel(domain: string): string {
     const MAP: Record<Domain, string> = {
-      energy: 'de energia',
-      water: 'de água',
-      temperature: 'de temperatura',
+      energy: "de energia",
+      water: "de água",
+      temperature: "de temperatura",
     };
     return MAP[domain];
   }
@@ -93,17 +97,27 @@ export class SettingsModalView {
     const data: Record<string, any> = {};
 
     for (const [key, value] of formData.entries()) {
-      if (typeof value === 'string') {
+      if (typeof value === "string") {
         // Handle numeric fields (consumption, temperature, and water levels)
-        if (['maxDailyKwh', 'maxNightKwh', 'maxBusinessKwh', 'minTemperature', 'maxTemperature', 'minWaterLevel', 'maxWaterLevel'].includes(key)) {
+        if (
+          [
+            "maxDailyKwh",
+            "maxNightKwh",
+            "maxBusinessKwh",
+            "minTemperature",
+            "maxTemperature",
+            "minWaterLevel",
+            "maxWaterLevel",
+          ].includes(key)
+        ) {
           const num = parseFloat(value);
           if (!isNaN(num)) {
             // For consumption fields, ensure they are >= 0
-            if (key.includes('Kwh') && num < 0) {
+            if (key.includes("Kwh") && num < 0) {
               continue;
             }
             // For water level fields, ensure they are between 0 and 100
-            if (key.includes('WaterLevel')) {
+            if (key.includes("WaterLevel")) {
               if (num < 0 || num > 100) {
                 continue;
               }
@@ -120,16 +134,21 @@ export class SettingsModalView {
   }
 
   private createModal(): void {
-    this.container = document.createElement('div');
-    this.container.className = 'myio-settings-modal-overlay';
+    this.container = document.createElement("div");
+    this.container.className = "myio-settings-modal-overlay";
     this.container.innerHTML = this.getModalHTML();
-    this.modal = this.container.querySelector('.myio-settings-modal') as HTMLElement;
-    this.form = this.modal.querySelector('form') as HTMLFormElement;
+    this.modal = this.container.querySelector(
+      ".myio-settings-modal"
+    ) as HTMLElement;
+    this.form = this.modal.querySelector("form") as HTMLFormElement;
   }
 
   private getModalHTML(): string {
-    const width = typeof this.config.width === 'number' ? `${this.config.width}px` : this.config.width;
-    
+    const width =
+      typeof this.config.width === "number"
+        ? `${this.config.width}px`
+        : this.config.width;
+
     return `
       <div class="myio-settings-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="myio-settings-modal" style="width: ${width}">
@@ -164,7 +183,9 @@ export class SettingsModalView {
           <!-- Left Column: Device Label -->
           <div class="form-column">
             <div class="form-card">
-              <h4 class="section-title">${this.config.deviceLabel || 'Outback'}</h4>
+              <h4 class="section-title">${
+                this.config.deviceLabel || "Outback"
+              }</h4>
 
               <div class="form-group">
                 <label for="label">Etiqueta</label>
@@ -197,9 +218,9 @@ export class SettingsModalView {
 
   private getAlarmsHTML(deviceType?: string): string {
     switch (deviceType) {
-      case 'TERMOSTATO':
+      case "TERMOSTATO":
         return this.getThermostatAlarmsHTML();
-      case 'CAIXA_DAGUA':
+      case "CAIXA_DAGUA":
         return this.getWaterTankAlarmsHTML();
       default:
         return this.getConsumptionAlarmsHTML();
@@ -208,11 +229,13 @@ export class SettingsModalView {
 
   private getConsumptionAlarmsHTML(): string {
     // Determine unit based on domain
-    const unit = this.config.domain === 'water' ? 'L' : 'kWh';
+    const unit = this.config.domain === "water" ? "L" : "kWh";
 
     return `
       <div class="form-card">
-        <h4 class="section-title">Alarmes ${this.formatDomainLabel(this.config.domain)} - ${this.config.deviceLabel || 'SEM IDENTIFICADOR'}</h4>
+        <h4 class="section-title">Alarmes ${this.formatDomainLabel(
+          this.config.domain
+        )} - ${this.config.deviceLabel || "SEM IDENTIFICADOR"}</h4>
 
         <div class="form-group">
           <label for="maxDailyKwh">Consumo Máximo Diário (${unit})</label>
@@ -235,7 +258,9 @@ export class SettingsModalView {
   private getThermostatAlarmsHTML(): string {
     return `
       <div class="form-card">
-        <h4 class="section-title">Alarmes de Temperatura - ${this.config.deviceLabel || 'SEM IDENTIFICADOR'}</h4>
+        <h4 class="section-title">Alarmes de Temperatura - ${
+          this.config.deviceLabel || "SEM IDENTIFICADOR"
+        }</h4>
 
         <div class="form-group">
           <label for="minTemperature">Temperatura Mínima (°C)</label>
@@ -253,7 +278,9 @@ export class SettingsModalView {
   private getWaterTankAlarmsHTML(): string {
     return `
       <div class="form-card">
-        <h4 class="section-title">Alarmes de Nível - ${this.config.deviceLabel || 'SEM IDENTIFICADOR'}</h4>
+        <h4 class="section-title">Alarmes de Nível - ${
+          this.config.deviceLabel || "SEM IDENTIFICADOR"
+        }</h4>
 
         <div class="form-group">
           <label for="minWaterLevel">Nível Mínimo (%)</label>
@@ -268,42 +295,103 @@ export class SettingsModalView {
     `;
   }
 
+  private calculateTimeBetweenDates(data1, data2) {
+  
+  // 1. Validação das entradas
+  if (!(data1 instanceof Date) || !(data2 instanceof Date)) {
+    console.error("Entradas inválidas. As duas entradas devem ser objetos Date.");
+    return "Datas inválidas";
+  }
+
+  // 2. Calcular a diferença absoluta em milissegundos
+  const diffMs = Math.abs(data1.getTime() - data2.getTime());
+
+  // 3. Definir constantes de conversão
+  const msPorMinuto = 1000 * 60;
+  const msPorHora = msPorMinuto * 60;
+  const msPorDia = msPorHora * 24;
+
+  // 4. Decidir o formato da saída
+  
+  // Se a diferença for de 1 dia ou mais
+  if (diffMs >= msPorDia) {
+    const dias = Math.floor(diffMs / msPorDia);
+    return `${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+  }
+  
+  // Se a diferença for de 1 hora ou mais (mas menos de 1 dia)
+  if (diffMs >= msPorHora) {
+    const horas = Math.floor(diffMs / msPorHora);
+    return `${horas} ${horas === 1 ? 'hora' : 'horas'}`;
+  }
+  
+  // Se a diferença for menor que 1 hora
+  const minutos = Math.round(diffMs / msPorMinuto);
+  return `${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`;
+}
+
   private getConnectionInfoHTML(): string {
     if (!this.config.connectionData) {
-      return '';
+      return "";
     }
 
-    const { centralName, connectionStatusTime, timeVal, deviceStatus } = this.config.connectionData;
+    const {
+      centralName,
+      connectionStatusTime,
+      timeVal,
+      deviceStatus,
+      lastDisconnectTime,
+    } = this.config.connectionData;
+
+    // Format disconnection time
+    let lastDisconnectTimeFormatted = "N/A";
+    let disconectTime = "";
+    if (lastDisconnectTime) {
+      disconectTime = this.calculateTimeBetweenDates(new Date(connectionStatusTime), new Date(lastDisconnectTime));
+      
+      try {
+        const date = new Date(lastDisconnectTime);
+        lastDisconnectTimeFormatted = date.toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      } catch (e) {
+        lastDisconnectTimeFormatted = "Formato inválido";
+      }
+    }
 
     // Format connection time
-    let connectionTimeFormatted = 'N/A';
+    let connectionTimeFormatted = "N/A";
     if (connectionStatusTime) {
       try {
         const date = new Date(connectionStatusTime);
-        connectionTimeFormatted = date.toLocaleString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
+        connectionTimeFormatted = date.toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
         });
       } catch (e) {
-        connectionTimeFormatted = 'Formato inválido';
+        connectionTimeFormatted = "Formato inválido";
       }
     }
 
     // Format telemetry time
-    let telemetryTimeFormatted = 'N/A';
-    let timeSinceLastTelemetry = '';
+    let telemetryTimeFormatted = "N/A";
+    let timeSinceLastTelemetry = "";
     if (timeVal) {
       try {
         const telemetryDate = new Date(timeVal);
-        telemetryTimeFormatted = telemetryDate.toLocaleString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
+        telemetryTimeFormatted = telemetryDate.toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
         });
 
         // Calculate time difference
@@ -320,25 +408,25 @@ export class SettingsModalView {
         } else if (diffMinutes > 0) {
           timeSinceLastTelemetry = `(${diffMinutes}min atrás)`;
         } else {
-          timeSinceLastTelemetry = '(agora)';
+          timeSinceLastTelemetry = "(agora)";
         }
       } catch (e) {
-        telemetryTimeFormatted = 'Formato inválido';
+        telemetryTimeFormatted = "Formato inválido";
       }
     }
 
-    
-  
     // Map device status to readable text
     const statusMap: Record<string, { text: string; color: string }> = {
-      ok: { text: 'Normal', color: '#22c55e' },
-      warning: { text: 'Atenção', color: '#f59e0b' },
-      danger: { text: 'Erro', color: '#ef4444' },
-      offline: { text: 'Offline', color: '#94a3b8' },
-      no_info: { text: 'Sem informação', color: '#94a3b8' }
+      ok: { text: "Normal", color: "#22c55e" },
+      warning: { text: "Atenção", color: "#f59e0b" },
+      danger: { text: "Erro", color: "#ef4444" },
+      offline: { text: "Offline", color: "#94a3b8" },
+      no_info: { text: "Sem informação", color: "#94a3b8" },
     };
 
-    const statusInfo = statusMap[mapDeviceStatusToCardStatus(deviceStatus) || ''] || { text: 'Desconhecido', color: '#6b7280' };
+    const statusInfo = statusMap[
+      mapDeviceStatusToCardStatus(deviceStatus) || ""
+    ] || { text: "Desconhecido", color: "#6b7280" };
 
     return `
       <div class="form-card info-card-wide">
@@ -353,12 +441,14 @@ export class SettingsModalView {
         <div class="info-grid">
           <div class="info-row">
             <span class="info-label">Central:</span>
-            <span class="info-value">${centralName || 'N/A'}</span>
+            <span class="info-value">${centralName || "N/A"}</span>
           </div>
 
           <div class="info-row">
             <span class="info-label">Status:</span>
-            <span class="info-value" style="color: ${statusInfo.color}; font-weight: 600;">
+            <span class="info-value" style="color: ${
+              statusInfo.color
+            }; font-weight: 600;">
               ${statusInfo.text}
             </span>
           </div>
@@ -372,7 +462,22 @@ export class SettingsModalView {
             <span class="info-label">Última Telemetria:</span>
             <span class="info-value">
               ${telemetryTimeFormatted}
-              ${timeSinceLastTelemetry ? `<span class="time-since">${timeSinceLastTelemetry}</span>` : ''}
+              ${
+                timeSinceLastTelemetry
+                  ? `<span class="time-since">${timeSinceLastTelemetry}</span>`
+                  : ""
+              }
+            </span>
+          </div>
+            <div class="info-row">
+            <span class="info-label">Último desconexão:</span>
+            <span class="info-value">
+              ${lastDisconnectTimeFormatted}
+              ${
+                disconectTime
+                  ? `<span class="time-since">${disconectTime}</span>`
+                  : ""
+              }
             </span>
           </div>
         </div>
@@ -703,7 +808,9 @@ export class SettingsModalView {
 
   private populateForm(data: Record<string, any>): void {
     for (const [key, value] of Object.entries(data)) {
-      const input = this.form.querySelector(`[name="${key}"]`) as HTMLInputElement;
+      const input = this.form.querySelector(
+        `[name="${key}"]`
+      ) as HTMLInputElement;
       if (input && value !== undefined && value !== null) {
         input.value = String(value);
       }
@@ -712,13 +819,13 @@ export class SettingsModalView {
 
   private setupAccessibility(): void {
     // Set initial focus to first input
-    const firstInput = this.modal.querySelector('input') as HTMLInputElement;
+    const firstInput = this.modal.querySelector("input") as HTMLInputElement;
     if (firstInput) {
       setTimeout(() => firstInput.focus(), 100);
     }
 
     // Setup ARIA relationships
-    this.modal.setAttribute('aria-labelledby', 'modal-title');
+    this.modal.setAttribute("aria-labelledby", "modal-title");
   }
 
   private setupFocusTrap(): void {
@@ -730,23 +837,24 @@ export class SettingsModalView {
     ) as HTMLElement[];
 
     // Handle Tab key for focus trap
-    this.modal.addEventListener('keydown', this.handleKeyDown.bind(this));
+    this.modal.addEventListener("keydown", this.handleKeyDown.bind(this));
   }
 
   private teardownFocusTrap(): void {
-    this.modal.removeEventListener('keydown', this.handleKeyDown.bind(this));
+    this.modal.removeEventListener("keydown", this.handleKeyDown.bind(this));
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && this.config.closeOnBackdrop !== false) {
+    if (event.key === "Escape" && this.config.closeOnBackdrop !== false) {
       event.preventDefault();
       this.config.onClose();
       return;
     }
 
-    if (event.key === 'Tab') {
+    if (event.key === "Tab") {
       const firstElement = this.focusTrapElements[0];
-      const lastElement = this.focusTrapElements[this.focusTrapElements.length - 1];
+      const lastElement =
+        this.focusTrapElements[this.focusTrapElements.length - 1];
 
       if (event.shiftKey) {
         if (document.activeElement === firstElement) {
@@ -764,18 +872,20 @@ export class SettingsModalView {
 
   private attachEventListeners(): void {
     // Handle form submission
-    this.form.addEventListener('submit', (event) => {
+    this.form.addEventListener("submit", (event) => {
       event.preventDefault();
       this.hideError();
-      
+
       const formData = this.getFormData();
       this.config.onSave(formData);
     });
 
     // Handle close button (X button)
-    const closeBtn = this.modal.querySelector('.close-btn') as HTMLButtonElement;
+    const closeBtn = this.modal.querySelector(
+      ".close-btn"
+    ) as HTMLButtonElement;
     if (closeBtn) {
-      closeBtn.addEventListener('click', (event) => {
+      closeBtn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.config.onClose();
@@ -783,9 +893,11 @@ export class SettingsModalView {
     }
 
     // Handle cancel button (Fechar button)
-    const cancelBtn = this.modal.querySelector('.btn-cancel') as HTMLButtonElement;
+    const cancelBtn = this.modal.querySelector(
+      ".btn-cancel"
+    ) as HTMLButtonElement;
     if (cancelBtn) {
-      cancelBtn.addEventListener('click', (event) => {
+      cancelBtn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.config.onClose();
@@ -793,69 +905,73 @@ export class SettingsModalView {
     }
 
     // Handle save button (Salvar button)
-    const saveBtn = this.modal.querySelector('.btn-save') as HTMLButtonElement;
+    const saveBtn = this.modal.querySelector(".btn-save") as HTMLButtonElement;
     if (saveBtn) {
-      saveBtn.addEventListener('click', (event) => {
+      saveBtn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.hideError();
-        
+
         const formData = this.getFormData();
         this.config.onSave(formData);
       });
     }
 
     // Handle backdrop click
-    this.container.addEventListener('click', (event) => {
+    this.container.addEventListener("click", (event) => {
       const target = event.target as HTMLElement;
-      
-      if (target.classList.contains('myio-settings-modal-overlay') && this.config.closeOnBackdrop !== false) {
+
+      if (
+        target.classList.contains("myio-settings-modal-overlay") &&
+        this.config.closeOnBackdrop !== false
+      ) {
         this.config.onClose();
       }
     });
 
     // Real-time validation
-    this.form.addEventListener('input', this.handleInputValidation.bind(this));
+    this.form.addEventListener("input", this.handleInputValidation.bind(this));
   }
 
   private handleInputValidation(event: Event): void {
     const input = event.target as HTMLInputElement;
-    
+
     // Clear previous validation state
-    input.classList.remove('is-invalid');
-    
+    input.classList.remove("is-invalid");
+
     // GUID validation
-    if (input.name === 'guid' && input.value) {
-      const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (input.name === "guid" && input.value) {
+      const guidPattern =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!guidPattern.test(input.value)) {
-        input.classList.add('is-invalid');
-        input.setCustomValidity('Invalid GUID format');
+        input.classList.add("is-invalid");
+        input.setCustomValidity("Invalid GUID format");
       } else {
-        input.setCustomValidity('');
+        input.setCustomValidity("");
       }
     }
-    
+
     // Numeric validation
-    if (input.type === 'number' && input.value) {
+    if (input.type === "number" && input.value) {
       const num = parseFloat(input.value);
       if (isNaN(num) || num < 0) {
-        input.classList.add('is-invalid');
-        input.setCustomValidity('Must be a positive number');
+        input.classList.add("is-invalid");
+        input.setCustomValidity("Must be a positive number");
       } else {
-        input.setCustomValidity('');
+        input.setCustomValidity("");
       }
     }
   }
 
   private applyTheme(): void {
     if (this.config.themeTokens) {
-      const style = document.createElement('style');
-      let css = '';
-      
+      const style = document.createElement("style");
+      let css = "";
+
       for (const [property, value] of Object.entries(this.config.themeTokens)) {
         css += `--myio-${property}: ${value};\n`;
       }
-      
+
       style.textContent = `.myio-settings-modal { ${css} }`;
       this.container.appendChild(style);
     }
