@@ -505,6 +505,20 @@ function formatDiaMes(date) {
     return `${dia}/${mes}`;
 }
 
+function sendFilterOpenEvent() {
+    const eventDetail = {
+      selection: window.custumersSelected || [],
+      ts: Date.now(),
+  };
+
+  // Dispara evento com os custumers selecionados
+  window.dispatchEvent(
+      new CustomEvent("myio:filter-applied", {
+          detail: eventDetail,
+      })
+  );
+}
+
 /* ====== Lifecycle ====== */
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // Extrai o segmento após 'all/' da URL
@@ -911,6 +925,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         console.warn("[MENU] Carregar button (load-button) not found");
     }
 
+
     // ===== LIMPAR BUTTON HANDLER (Force Refresh) =====
     const btnLimpar = document.getElementById("myio-clear-btn");
 
@@ -1122,8 +1137,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     } else {
         console.error("[MENU] ❌ Filter button (filterBtn) not found in DOM!");
     }
-
-
 
     // Atualiza escopo com datas iniciais
     self.ctx.$scope.startDateISO = timeStart;

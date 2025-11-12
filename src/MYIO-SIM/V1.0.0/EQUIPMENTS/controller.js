@@ -768,6 +768,7 @@ function initializeCards(devices) {
     const container = document.createElement("div");
     //console.log("[EQUIPMENTS] Rendering device:", device);
     grid.appendChild(container);
+    
 
     const valNum = Number(device.value || 0);
     const connectionStatus = valNum > 0 ? "power_on" : "power_off";
@@ -783,6 +784,7 @@ function initializeCards(devices) {
     if (device.labelOrName && device.labelOrName.includes("Chiller 1")) {
       console.log("[EQUIPMENTS] Rendering card for Chiller 1 device:", device);
     }
+    
 
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
@@ -913,8 +915,8 @@ function initializeCards(devices) {
             domain: "energy", // Same as TELEMETRY WIDGET_DOMAIN
             connectionData: {
               centralName: device.centralName || getShoppingNameForDevice(device),
-              connectionStatusTime: Date.now(),
-              timeVal: Date.now(),
+              connectionStatusTime: device.lastConnectTime,
+              timeVal: device.lastActivityTime || new Date('1970-01-01').getTime(),
               deviceStatus: device.deviceStatus || 'offline',
               lastDisconnectTime: device.lastDisconnectTime || 0,
             },
@@ -1290,6 +1292,8 @@ self.onInit = async function () {
           operationHours: operationHoursFormatted || 0,
           updated: updatedFormatted,
           lastDisconnectTime: lastDisconnectTimestamp,
+          lastConnectTime: lastConnectTimestamp,
+          lastActivityTime: findValue(device.values, "lastActivityTime", null),
           // RFC-0058: Add properties for MyIOSelectionStore (FOOTER)
           id: entityId,                    // Alias for entityId
           name: device.label,              // Alias for labelOrName
