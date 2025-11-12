@@ -502,10 +502,6 @@ const MyIOOrchestrator = (() => {
             );
           }
 
-          if (device.name === "3F SCMAL2ACCAGC") {
-            alert ("device total_value >>> " , device.total_value);
-          }
-
           const cachedData = {
             ingestionId: device.id,
             customerId: customerId, // Shopping ingestionId

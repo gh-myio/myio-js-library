@@ -1099,13 +1099,18 @@ function updateEquipmentCard(eventData = null) {
 
     const { totalEquipments, filteredEquipments, allShoppingsSelected } = eventData;
 
-    // RFC: Show "X / Total" when filtered, or just "Total" when all selected
+    // RFC: Show "Total" when all selected, or "Filtered / Total" with percentage when filtered
     if (allShoppingsSelected) {
         if (statusDevice) statusDevice.innerText = `${totalEquipments}`;
         if (subtitleDevice) subtitleDevice.innerText = "Total de equipamentos";
     } else {
+        // Calculate percentage
+        const percentage = totalEquipments > 0
+            ? Math.round((filteredEquipments / totalEquipments) * 100)
+            : 0;
+
         if (statusDevice) statusDevice.innerText = `${filteredEquipments} / ${totalEquipments}`;
-        if (subtitleDevice) subtitleDevice.innerText = "Equipamentos (filtrados / total)";
+        if (subtitleDevice) subtitleDevice.innerText = `${percentage}%`;
     }
 
     console.log("[HEADER] Equipment card updated:", {
