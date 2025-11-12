@@ -11,7 +11,7 @@ function convertToUTC(time) {
   const day = now.getDate().toString().padStart(2, '0');
   const month = (now.getMonth() + 1).toString().padStart(2, '0');
   const year = now.getFullYear();
-
+s
   return new Date(
     new Date(`${month}/${day}/${year} ${time}:00-03:00`).getTime()
   );
@@ -230,72 +230,6 @@ if (!device || !device.deviceName) {
     })
 }
 
-// ========== OBSERVABILIDADE: Prepara dados para persistência ==========
-const timestamp = Date.now();
-const deviceName = device.deviceName || 'unknown';
-const logKey = `automation_log_${deviceName.replace(/\s+/g, '')}_${timestamp}`;
-
-// Detecta se hoje é feriado
-const isoToday = currDate.toISOString().slice(0, 10);
-const isHolidayToday = (storedHolidaysDays || []).some(d => {
-  try {
-    const holidayDate = new Date(transformDate(d));
-    return holidayDate.toISOString().slice(0, 10) === isoToday;
-  } catch {
-    return false;
-  }
-});
-
-// Detecta o motivo da decisão
-let reason = 'weekday';
-if (excludedDays && excludedDays.length > 0) {
-  for (const excludedDay of excludedDays) {
-    try {
-      const excludedDate = new Date(transformDate(excludedDay));
-      if (currDate.getTime() === excludedDate.getTime()) {
-        reason = 'excluded';
-        break;
-      }
-    } catch {
-      // Ignora datas inválidas
-    }
-  }
-}
-if (reason === 'weekday' && isHolidayToday) {
-  reason = 'holiday';
-}
-
-// Pega a agenda aplicada (primeira do array)
-const appliedSchedule = schedules && schedules.length > 0 ? schedules[0] : null;
-
-const observability = {
-  logKey: logKey,
-  logData: {
-    device: deviceName,
-    deviceId: device.deviceId || currentKey,
-    action: shouldActivate ? 'ON' : 'OFF',
-    shouldActivate: shouldActivate,
-    shouldShutdown: shouldShutdown,
-    reason: reason,
-    schedule: appliedSchedule ? {
-      startHour: appliedSchedule.startHour,
-      endHour: appliedSchedule.endHour,
-      retain: appliedSchedule.retain,
-      holiday: appliedSchedule.holiday || false,
-      daysWeek: appliedSchedule.daysWeek
-    } : null,
-    context: {
-      isHolidayToday: isHolidayToday,
-      currentWeekDay: currentTimeSP.toLocaleString('en-US', { weekday: 'short' }).toLowerCase(),
-      holidayPolicy: flow.get('holiday_policy') || 'exclusive',
-      totalSchedules: schedules ? schedules.length : 0
-    },
-    timestamp: currentTimeSP.toISOString(),
-    timestampMs: timestamp
-  }
-};
-// ========== FIM OBSERVABILIDADE ==========
-
 return {
   deviceName: device.deviceName,
   payload: {
@@ -310,8 +244,5 @@ return {
     currentTimeSP,
     storedHolidaysDays,
     schedules,
-
-    // ========== NOVO: Campo de observabilidade ==========
-    _observability: observability
   }
 };
