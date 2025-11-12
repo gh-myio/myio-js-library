@@ -295,11 +295,11 @@ function buildDOM(state) {
   settingsBtn.innerHTML = `<img src="https://dashboard.myio-bas.com/api/images/public/5n9tze6vED2uwIs5VvJxGzNNZ9eV4yoz" width="16" height="16"/> <span>${i18n.menu_settings}</span>`;
   menu.appendChild(settingsBtn);
 
-  const infoDataBtn = document.createElement('button');
-  infoDataBtn.setAttribute('role', 'menuitem');
-  infoDataBtn.setAttribute('data-action', 'info');
-  infoDataBtn.innerHTML = `<img src="data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3ccircle cx='12' cy='12' r='10'%3e%3c/circle%3e%3cline x1='12' y1='16' x2='12' y2='12'%3e%3c/line%3e%3cline x1='12' y1='8' x2='12.01' y2='8'%3e%3c/line%3e%3c/svg%3e"/> <span>Mais informações</span>`;
-  menu.appendChild(infoDataBtn);
+  // const infoDataBtn = document.createElement('button');
+  // infoDataBtn.setAttribute('role', 'menuitem');
+  // infoDataBtn.setAttribute('data-action', 'info');
+  // infoDataBtn.innerHTML = `<img src="data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3ccircle cx='12' cy='12' r='10'%3e%3c/circle%3e%3cline x1='12' y1='16' x2='12' y2='12'%3e%3c/line%3e%3cline x1='12' y1='8' x2='12.01' y2='8'%3e%3c/line%3e%3c/svg%3e"/> <span>Mais informações</span>`;
+  // menu.appendChild(infoDataBtn);
 
   actionsSection.appendChild(menu);
 
@@ -392,24 +392,24 @@ function buildDOM(state) {
   footer.className = 'myio-ho-card__footer';
 
   // Temperature metric
-  const tempMetric = document.createElement('div');
-  tempMetric.className = 'metric';
+  // const tempMetric = document.createElement('div');
+  // tempMetric.className = 'metric';
 
-  const tempIcon = document.createElement('i');
-  tempIcon.className = 'ico ico-temp';
-  tempIcon.innerHTML = Icons.thermometer;
-  tempMetric.appendChild(tempIcon);
+  // const tempIcon = document.createElement('i');
+  // tempIcon.className = 'ico ico-temp';
+  // tempIcon.innerHTML = Icons.thermometer;
+  // tempMetric.appendChild(tempIcon);
 
-  const tempLabel = document.createElement('div');
-  tempLabel.className = 'label';
-  tempLabel.textContent = i18n.temperature;
-  tempMetric.appendChild(tempLabel);
+  // const tempLabel = document.createElement('div');
+  // tempLabel.className = 'label';
+  // tempLabel.textContent = i18n.temperature;
+  // tempMetric.appendChild(tempLabel);
 
-  const tempVal = document.createElement('div');
-  tempVal.className = 'val';
-  tempMetric.appendChild(tempVal);
+  // const tempVal = document.createElement('div');
+  // tempVal.className = 'val';
+  // tempMetric.appendChild(tempVal);
 
-  footer.appendChild(tempMetric);
+  // footer.appendChild(tempMetric);
 
   // Operation time metric
   const opTimeMetric = document.createElement('div');
@@ -512,13 +512,13 @@ function paint(root, state) {
   }
 
   // Update footer metrics
-  const tempVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(1) .val');
-  tempVal.textContent = formatTemperature(entityObject.temperatureC);
+  // const tempVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(1) .val');
+  // tempVal.textContent = formatTemperature(entityObject.temperatureC);
 
-  const opTimeVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(2) .val');
+  const opTimeVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(1) .val');
   opTimeVal.textContent = entityObject.operationHours;
 
-  const updatedVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(3) .val');
+  const updatedVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(2) .val');
   updatedVal.textContent = formatRelativeTime(entityObject.updated);
 }
 
@@ -567,7 +567,7 @@ function bindEvents(root, state, callbacks) {
   const dashboardBtn = menu.querySelector('[data-action="dashboard"]');
   const reportBtn = menu.querySelector('[data-action="report"]');
   const settingsBtn = menu.querySelector('[data-action="settings"]');
-  const infoBtn = menu.querySelector('[data-action="info"]');
+  // const infoBtn = menu.querySelector('[data-action="info"]');
 
   if (callbacks.handleActionDashboard) {
     dashboardBtn.addEventListener('click', (e) => {
@@ -593,68 +593,68 @@ function bindEvents(root, state, callbacks) {
     });
   }
   
-  infoBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeMenu();
+  // infoBtn.addEventListener('click', (e) => {
+  //   e.stopPropagation();
+  //   closeMenu();
 
-    const title = state.entityObject.labelOrName || 'Dispositivo sem nome';
-    let modalBodyContent = '<div class="info-section">'; // Inicia a primeira seção
+  //   const title = state.entityObject.labelOrName || 'Dispositivo sem nome';
+  //   let modalBodyContent = '<div class="info-section">'; // Inicia a primeira seção
 
-    // Informações básicas
-    modalBodyContent += `
-      <div class="info-row">
-        <span class="info-icon">${ModalIcons.centralName}</span>
-        <span class="info-label">Central: </span>
-        <span class="info-value">${entityObject.centralName || 'N/A'}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-icon">${ModalIcons.identifier}</span>
-        <span class="info-label">Identificador: </span>
-        <span class="info-value">${entityObject.deviceIdentifier || 'N/A'}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-icon">${ModalIcons.connection}</span>
-        <span class="info-label">Última Conexão: </span>
-        <span class="info-value">${entityObject.operationHours || 'N/A'}</span>
-      </div>
-    `;
+  //   // Informações básicas
+  //   modalBodyContent += `
+  //     <div class="info-row">
+  //       <span class="info-icon">${ModalIcons.centralName}</span>
+  //       <span class="info-label">Central: </span>
+  //       <span class="info-value">${entityObject.centralName || 'N/A'}</span>
+  //     </div>
+  //     <div class="info-row">
+  //       <span class="info-icon">${ModalIcons.identifier}</span>
+  //       <span class="info-label">Identificador: </span>
+  //       <span class="info-value">${entityObject.deviceIdentifier || 'N/A'}</span>
+  //     </div>
+  //     <div class="info-row">
+  //       <span class="info-icon">${ModalIcons.connection}</span>
+  //       <span class="info-label">Última Conexão: </span>
+  //       <span class="info-value">${entityObject.operationHours || 'N/A'}</span>
+  //     </div>
+  //   `;
 
-    modalBodyContent += '</div>'; // Fecha a primeira seção
+  //   modalBodyContent += '</div>'; // Fecha a primeira seção
 
-    // Tenta obter os dados de meta (que são opcionais)
-    const consumptionTargetValue = state.entityObject.consumptionTargetValue ? formatPrimaryValue(state.entityObject.consumptionTargetValue, 'power_kw') : null;
-    const consumptionToleranceValue = state.entityObject.consumptionToleranceValue ? formatPrimaryValue(state.entityObject.consumptionToleranceValue, 'power_kw') : null;
-    const consumptionExcessValue = state.entityObject.consumptionExcessValue != null ? formatPrimaryValue(state.entityObject.consumptionExcessValue, 'power_kw') : null;
+  //   // Tenta obter os dados de meta (que são opcionais)
+  //   const consumptionTargetValue = state.entityObject.consumptionTargetValue ? formatPrimaryValue(state.entityObject.consumptionTargetValue, 'power_kw') : null;
+  //   const consumptionToleranceValue = state.entityObject.consumptionToleranceValue ? formatPrimaryValue(state.entityObject.consumptionToleranceValue, 'power_kw') : null;
+  //   const consumptionExcessValue = state.entityObject.consumptionExcessValue != null ? formatPrimaryValue(state.entityObject.consumptionExcessValue, 'power_kw') : null;
 
-    // Se TODOS os dados de meta existirem, adiciona o bloco de HTML correspondente
-    if (consumptionTargetValue && consumptionToleranceValue && consumptionExcessValue) {
-        modalBodyContent += '<hr class="info-divider">';
-        modalBodyContent += '<div class="info-section">'; // Inicia a segunda seção
+  //   // Se TODOS os dados de meta existirem, adiciona o bloco de HTML correspondente
+  //   if (consumptionTargetValue && consumptionToleranceValue && consumptionExcessValue) {
+  //       modalBodyContent += '<hr class="info-divider">';
+  //       modalBodyContent += '<div class="info-section">'; // Inicia a segunda seção
 
-        modalBodyContent += `
-          <div class="info-row">
-            <span class="info-icon">${ModalIcons.target}</span>
-            <span class="info-label">Meta:</span>
-            <span class="info-value">${consumptionTargetValue.num} ${consumptionTargetValue.unit}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-icon">${ModalIcons.tolerance}</span>
-            <span class="info-label">Tolerância:</span>
-            <span class="info-value">${consumptionToleranceValue.num} ${consumptionToleranceValue.unit}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-icon">${ModalIcons.excess}</span>
-            <span class="info-label">Excedente PG/NPG:</span>
-            <span class="info-value">${consumptionExcessValue.num} ${consumptionExcessValue.unit}</span>
-          </div>
-        `;
+  //       modalBodyContent += `
+  //         <div class="info-row">
+  //           <span class="info-icon">${ModalIcons.target}</span>
+  //           <span class="info-label">Meta:</span>
+  //           <span class="info-value">${consumptionTargetValue.num} ${consumptionTargetValue.unit}</span>
+  //         </div>
+  //         <div class="info-row">
+  //           <span class="info-icon">${ModalIcons.tolerance}</span>
+  //           <span class="info-label">Tolerância:</span>
+  //           <span class="info-value">${consumptionToleranceValue.num} ${consumptionToleranceValue.unit}</span>
+  //         </div>
+  //         <div class="info-row">
+  //           <span class="info-icon">${ModalIcons.excess}</span>
+  //           <span class="info-label">Excedente PG/NPG:</span>
+  //           <span class="info-value">${consumptionExcessValue.num} ${consumptionExcessValue.unit}</span>
+  //         </div>
+  //       `;
 
-        modalBodyContent += '</div>'; // Fecha a segunda seção
-    }
+  //       modalBodyContent += '</div>'; // Fecha a segunda seção
+  //   }
 
-    // Chama a função para mostrar o modal
-    showInfoModal(title, modalBodyContent);
-  });
+  //   // Chama a função para mostrar o modal
+  //   showInfoModal(title, modalBodyContent);
+  // });
   // Selection checkbox
   const checkbox = root.querySelector('.myio-ho-card__select input[type="checkbox"]');
   if (checkbox && callbacks.handleSelect) {
