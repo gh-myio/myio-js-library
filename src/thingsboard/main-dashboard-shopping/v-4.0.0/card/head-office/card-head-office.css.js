@@ -1,4 +1,3 @@
-// src/thingsboard/main-dashboard-shopping/v-4.0.0/card/head-office/card-head-office.css.ts
 // Atomic CSS injection for Head Office cards
 
 export const CSS_STRING = `
@@ -133,7 +132,7 @@ export const CSS_STRING = `
 
 .myio-ho-card__name {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 13px;
   color: var(--myio-text-1);
   margin-bottom: 2px;
   word-wrap: break-word;
@@ -301,6 +300,58 @@ export const CSS_STRING = `
   cursor: pointer;
 }
 
+/* ======================================================== */
+/* === BLOCO AJUSTADO PARA ALINHAMENTO DE CHIPS === */
+/* ======================================================== */
+
+/* ====== CONTAINER DOS CHIPS DE SHOPPING E STATUS ====== */
+.myio-ho-card__chips-row {
+  display: flex; /* Usa Flexbox para alinhamento horizontal */
+  justify-content: space-between; /* Empurra os itens para as extremidades (esquerda e direita) */
+  align-items: center; /* Centraliza verticalmente os chips */
+  
+  /* Usa o mesmo padding lateral do card (14px) */
+  padding: 0 0px; 
+  
+  /* Espaçamento acima (para separar do header) e abaixo (para separar do valor) */
+  margin-top: 10px; 
+  margin-bottom: 12px;
+}
+
+/* ====== ESTILO DO CHIP DE SHOPPING (estilo "Mont Serrat") ====== */
+.myio-ho-card__shopping-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  
+  /* Cores baseadas na imagem "Mont Serrat" */
+  background-color: #EBF4FF; /* Fundo azul bem claro */
+  border: 1px solid #BEE3F8; /* Borda azul clara */
+  color: #2C5282; /* Texto azul escuro */
+  
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 13px; 
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  white-space: nowrap;
+}
+
+.myio-ho-card__shopping-chip .chip-icon {
+  /* Ajusta o ícone SVG */
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+  stroke: currentColor; /* Faz o SVG usar a cor do texto */
+}
+
+/* ====== CONTAINER ADICIONAL PARA O CHIP DE STATUS ====== */
+.myio-ho-card__status-chip-container {
+  /* Este seletor é um container para o chip de status, 
+     permitindo que o flexbox o alinhe à direita. */
+  /* O alinhamento é feito pelo justify-content: space-between no pai */
+}
+
 /* =============================================== */
 /* === ESTILOS PARA O MODAL DE INFORMAÇÕES === */
 /* =============================================== */
@@ -429,7 +480,8 @@ export const CSS_STRING = `
 
 /* Status chip */
 .myio-ho-card__status {
-  margin-bottom: 7px;
+  /* margin-bottom: 7px; <-- Esta linha foi removida */
+  /* O espaçamento agora é controlado por .myio-ho-card__chips-row */
 }
 
 .chip {

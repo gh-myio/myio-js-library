@@ -133,6 +133,7 @@ export interface ModalConfig {
     connectionStatusTime?: string;
     timeVal?: string;
     deviceStatus?: string;
+    lastDisconnectTime?: string;
   };
   onSave: (formData: Record<string, any>) => Promise<void>;
   onClose: () => void;
