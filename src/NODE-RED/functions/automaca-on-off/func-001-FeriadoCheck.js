@@ -1,43 +1,18 @@
-function getDateFromTime(now, time) {
-  const day = now.getDate().toString().padStart(2, '0');
-  const month = (now.getMonth() + 1).toString().padStart(2, '0');
-  const year = now.getFullYear();
-
-  return new Date(`${month}/${day}/${year} ${time}:00`);
+// ========== CORREÇÃO #1: Date handling sem string parsing ==========
+function atTimeLocal(base, hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m, 0, 0);
 }
 
-function convertToUTC(time) {
-  const now = new Date();
-  const day = now.getDate().toString().padStart(2, '0');
-  const month = (now.getMonth() + 1).toString().padStart(2, '0');
-  const year = now.getFullYear();
-
-  return new Date(
-    new Date(`${month}/${day}/${year} ${time}:00-03:00`).getTime()
-  );
+function startOfDayLocal(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
 }
 
-function convertToSaoPaulo(utcDate) {
-  const saoPauloOffset = -3 * 60; // Sao Paulo is UTC-3
-
-  utcDate.setMinutes(utcDate.getMinutes() + saoPauloOffset);
-
-  return utcDate;
-}
-
-
-function transformDate(dateString) {
-  const date = new Date(dateString);
-  date.setHours(0, 0, 0, 0);
-  return date.toISOString().split('T')[0];
-}
-
-function convertHoursMinutes(timestamp) {
-  const date = new Date(timestamp)
-  const hours = String(date.getUTCHours()).padStart(2, '0');
-  const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-
-  return (hours + ':' + minutes)
+function toISODate(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function subtractWeekDay(day) {
@@ -79,34 +54,37 @@ if (currentKey in storedExcludedDays) {
   excludedDays = storedExcludedDays[currentKey].map((item) => item.excludedDays) // Dias pra excluir
 }
 
-const currentTimeSP = convertToSaoPaulo(new Date());
-const currDate = getDateFromTime(currentTimeSP, '00:00');
+// ========== CORREÇÃO #3: decide() com comparação em ms e tolerância ==========
+function decide(retain, now, start, end, toleranceMs = 30000) {
+  const n = now.getTime(), a = start.getTime(), b = end.getTime();
+  if (!retain) {
+    if (Math.abs(n - a) <= toleranceMs) return [false, true];   // ligar
+    if (Math.abs(n - b) <= toleranceMs) return [true,  false];  // desligar
+    return [false, false];
+  } else {
+    if (n >= a && n < b) return [false, true];
+    return [true, false];
+  }
+}
+
+const nowLocal = new Date();
+const today0h = startOfDayLocal(nowLocal);
+const isoToday = toISODate(today0h);
 
 let shouldActivate = false;
 let shouldShutdown = false;
 
-function decide(retain, currentTimeSP, startTime, endTime) {
-  if (!retain) {
-    if (convertHoursMinutes(currentTimeSP.getTime()) == convertHoursMinutes(startTime.getTime())) {
-      return [false, true]; // shouldShutdown, shouldActivate
-    } else if (convertHoursMinutes(currentTimeSP.getTime()) == convertHoursMinutes(endTime.getTime())) {
-      return [true, false]; 
-    } else {
-      return [false, false];
-    }
-  } else {
-    if (currentTimeSP.getTime() > startTime.getTime()
-      && currentTimeSP.getTime() < endTime.getTime()) {
-      return [false, true];
-    } else {
-      return [true, false];
-    }
-  }
-}
-
 // msg.payload = schedules;
 
 // return msg;
+
+// ========== CORREÇÃO #2: Holiday exclusive filtering ==========
+// Detecta se hoje é feriado
+const isHolidayToday = (storedHolidaysDays || []).some(d => {
+  const dd = new Date(d);
+  dd.setHours(0, 0, 0, 0);
+  return toISODate(dd) === isoToday;
+});
 
 if (schedules) {
   schedules = [...schedules].sort((a, b) => {
@@ -116,100 +94,80 @@ if (schedules) {
   });
 }
 
+// Filtra schedules com base na política de feriado (ANTES do loop!)
+const holidayPolicy = flow.get('holiday_policy') || 'exclusive';
+if (holidayPolicy === 'exclusive') {
+  schedules = (schedules || []).filter(s => !!s.holiday === isHolidayToday);
+}
+
+// ========== CORREÇÃO #6: Rastreia a agenda realmente aplicada ==========
+let appliedSchedule = null;
+
+const currWeekDay = nowLocal.toLocaleString('en-US', { weekday: 'short' }).toLowerCase();
 
 for (const schedule of schedules) {
-
-  const startTime = getDateFromTime(currentTimeSP, schedule.startHour);
-  const endTime = getDateFromTime(currentTimeSP, schedule.endHour);
+  // ========== CORREÇÃO #4: Constrói horários em local time ==========
+  const startTime = atTimeLocal(nowLocal, schedule.startHour);
+  const endTime = atTimeLocal(nowLocal, schedule.endHour);
   const days = schedule.daysWeek;
   const retain = schedule.retain;
-  const holidayBool = schedule.holiday;
-  const currWeekDay = currentTimeSP.toLocaleString(
-    'en-US', {
-      weekday: 'short',
-    },
-  ).toLowerCase();
 
-  if (holidayBool) {
-    // This schedule is specific to holidays, we should check the list of
-    // holidays to see if today is a holiday:
-    if (storedHolidaysDays.length > 0) {
-      for (const holidayDay of storedHolidaysDays) {
-        const holidayDate = new Date(transformDate(holidayDay));
+  // ========== CORREÇÃO #4: Midnight crossing com local time ==========
+  const crossesMidnight = startTime.getTime() > endTime.getTime();
 
-        // This works because we set hours, minutes and seconds to 0
-        if (currDate.getTime() === holidayDate.getTime()) {
-          // This is a holiday, go ahead and decide whether to turn on
-          const [newShouldShutdown, newShouldActivate] = decide(retain, currentTimeSP, startTime, endTime);
+  if (crossesMidnight) {
+    const yesterday = subtractWeekDay(currWeekDay);
+    let acted = false;
 
-          shouldShutdown = newShouldShutdown;
-          shouldActivate = newShouldActivate;
-        }
+    if (days?.[yesterday]) {
+      const startYesterday = new Date(startTime.getTime() - 24 * 60 * 60 * 1000);
+      const [shut, act] = decide(retain, nowLocal, startYesterday, endTime);
+      shouldShutdown = shut;
+      shouldActivate = act;
+      acted = (act || shut);
+
+      if (shouldShutdown && nowLocal.getTime() > endTime.getTime() && !days?.[currWeekDay]) {
+        shouldShutdown = false;
+      }
+
+      if (acted) {
+        appliedSchedule = schedule; // Registra agenda aplicada
       }
     }
-  }
 
-  // Tests cases here:
-  // Current day of the week: mon
-  // Current time: 02:00
-  // Schedule: sun, 23h - 04h
-  // Expected: shouldActivate: true
-  
-  // 12:00 -> 11:59
- 
-  // If startTime > endTime, it means that the schedule ends in the next day
-  if (startTime > endTime) {
-    const yesterday = subtractWeekDay(currWeekDay);
-    let yesterdayActivate = false;
+    if (!acted && days?.[currWeekDay]) {
+      const endTomorrow = new Date(endTime.getTime() + 24 * 60 * 60 * 1000);
+      const [shut, act] = decide(retain, nowLocal, startTime, endTomorrow);
+      shouldShutdown = shut;
+      shouldActivate = act;
 
-    if (days[yesterday]) {
-        const newStartTime = new Date(startTime.getTime());
-        newStartTime.setDate(startTime.getDate() - 1);
-
-        const [newShouldShutdown, newShouldActivate] = decide(retain, currentTimeSP, newStartTime, endTime);
-
-        shouldShutdown = newShouldShutdown;
-        shouldActivate = newShouldActivate;
-        
-        yesterdayActivate = shouldActivate;
-        
-        // Here we should handle an edge case, if currentTime > endTime and days[currWeekDay] is false, we should not shutdown
-        if (shouldShutdown
-            && currentTimeSP.getTime() > endTime.getTime()
-            && !days[currWeekDay]) {
-                node.warn('edge case');
-                node.warn(currentTimeSP);
-                node.warn(endTime);
-                
-                shouldShutdown = false;
-        }
-    }
-    
-    if (days[currWeekDay] && !yesterdayActivate) {
-        const newEndTime = new Date(endTime.getTime());
-        newEndTime.setDate(endTime.getDate() + 1);
-
-        const [newShouldShutdown, newShouldActivate] = decide(retain, currentTimeSP, startTime, newEndTime);
-
-        shouldShutdown = newShouldShutdown;
-        shouldActivate = newShouldActivate;
+      if (act || shut) {
+        appliedSchedule = schedule; // Registra agenda aplicada
+      }
     }
   } else {
-      if (days[currWeekDay]) {
-        const [newShouldShutdown, newShouldActivate] = decide(retain, currentTimeSP, startTime, endTime);
-        shouldShutdown = newShouldShutdown;
-        shouldActivate = newShouldActivate;
+    if (days?.[currWeekDay]) {
+      const [shut, act] = decide(retain, nowLocal, startTime, endTime);
+      shouldShutdown = shut;
+      shouldActivate = act;
+
+      if (act || shut) {
+        appliedSchedule = schedule; // Registra agenda aplicada
       }
+    }
   }
 
-  // se tiver dias na lista
-  if (excludedDays.length > 0) {
-    for (const excludedDay of excludedDays) {
-      const excludedDate = new Date(transformDate(excludedDay));
-      if (currDate.getTime() === excludedDate.getTime()) {
-        shouldShutdown = true;
-        shouldActivate = false;
-      }
+}
+
+// ========== CORREÇÃO #5: excludedDays sempre sobrepõe (em YYYY-MM-DD) ==========
+if (Array.isArray(excludedDays) && excludedDays.length) {
+  for (const ex of excludedDays) {
+    const d = new Date(ex);
+    d.setHours(0, 0, 0, 0);
+    if (toISODate(d) === isoToday) {
+      shouldShutdown = true;
+      shouldActivate = false;
+      break;
     }
   }
 }
@@ -235,29 +193,15 @@ const timestamp = Date.now();
 const deviceName = device.deviceName || 'unknown';
 const logKey = `automation_log_${deviceName.replace(/\s+/g, '')}_${timestamp}`;
 
-// Detecta se hoje é feriado
-const isoToday = currDate.toISOString().slice(0, 10);
-const isHolidayToday = (storedHolidaysDays || []).some(d => {
-  try {
-    const holidayDate = new Date(transformDate(d));
-    return holidayDate.toISOString().slice(0, 10) === isoToday;
-  } catch {
-    return false;
-  }
-});
-
 // Detecta o motivo da decisão
 let reason = 'weekday';
-if (excludedDays && excludedDays.length > 0) {
-  for (const excludedDay of excludedDays) {
-    try {
-      const excludedDate = new Date(transformDate(excludedDay));
-      if (currDate.getTime() === excludedDate.getTime()) {
-        reason = 'excluded';
-        break;
-      }
-    } catch {
-      // Ignora datas inválidas
+if (Array.isArray(excludedDays) && excludedDays.length > 0) {
+  for (const ex of excludedDays) {
+    const d = new Date(ex);
+    d.setHours(0, 0, 0, 0);
+    if (toISODate(d) === isoToday) {
+      reason = 'excluded';
+      break;
     }
   }
 }
@@ -265,9 +209,7 @@ if (reason === 'weekday' && isHolidayToday) {
   reason = 'holiday';
 }
 
-// Pega a agenda aplicada (primeira do array)
-const appliedSchedule = schedules && schedules.length > 0 ? schedules[0] : null;
-
+// ========== CORREÇÃO #6: Usa a agenda REALMENTE aplicada ==========
 const observability = {
   logKey: logKey,
   logData: {
@@ -286,11 +228,11 @@ const observability = {
     } : null,
     context: {
       isHolidayToday: isHolidayToday,
-      currentWeekDay: currentTimeSP.toLocaleString('en-US', { weekday: 'short' }).toLowerCase(),
-      holidayPolicy: flow.get('holiday_policy') || 'exclusive',
+      currentWeekDay: currWeekDay,
+      holidayPolicy: holidayPolicy,
       totalSchedules: schedules ? schedules.length : 0
     },
-    timestamp: currentTimeSP.toISOString(),
+    timestamp: nowLocal.toISOString(),
     timestampMs: timestamp
   }
 };
@@ -306,8 +248,8 @@ return {
     device,
     deviceName: device.deviceName,
     excludedDays,
-    currDate,
-    currentTimeSP,
+    currDate: today0h,
+    currentTimeSP: nowLocal,
     storedHolidaysDays,
     schedules,
 
