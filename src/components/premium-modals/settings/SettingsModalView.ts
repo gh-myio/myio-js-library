@@ -348,7 +348,6 @@ export class SettingsModalView {
     let disconectTime = "";
     if (lastDisconnectTime) {
       disconectTime = this.calculateTimeBetweenDates(new Date(connectionStatusTime), new Date(lastDisconnectTime));
-      console.log('disconect', disconectTime);
       
       try {
         const date = new Date(lastDisconnectTime);
