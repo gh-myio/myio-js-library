@@ -510,8 +510,8 @@ export const CSS_STRING = `
 }
 
 .chip--offline {
-  background: #000000;
-  color: #ffffff;
+  background: #e37171 !important;
+  color: #ffffff !important;
 }
 
 /* Primary metric */

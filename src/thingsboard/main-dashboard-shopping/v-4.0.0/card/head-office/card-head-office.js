@@ -456,11 +456,44 @@ function buildDOM(state) {
   return root;
 }
 
+function verifyOfflineStatus(entityObject) {
+
+  const lastConnectionTime = new Date(entityObject.lastConnectTime || 0);
+  const lastDisconnectTime = new Date(entityObject.lastDisconnectTime || 0);
+
+  // 2. Regra 1: Se a última desconexão for mais recente que a última conexão, está offline.
+  if (lastDisconnectTime.getTime() > lastConnectionTime.getTime()) {
+    return false; // Offline
+  }
+
+  // 3. Regra 2: Se a conexão for mais recente, verificar o tempo desde a conexão.
+  const now = new Date();
+  const fifteenMinutesInMs = 15 * 60 * 1000;
+  
+  // Calcula a diferença em milissegundos desde a última conexão
+  const timeSinceConnection = now.getTime() - lastConnectionTime.getTime();
+
+  // Se o tempo de conexão for "maior" (que o de desconexão)
+  // "mas menor que 15 minutos" (ou seja, conectou-se nos últimos 15 min),
+  // deve retornar offline.
+  if (timeSinceConnection < fifteenMinutesInMs) {
+    return false; // Offline (Regra de "probation" ou conexão muito recente)
+  }
+
+  // 4. Caso contrário: Se conectou (e não desconectou depois) E
+  // a conexão ocorreu há 15 minutos ou mais, retorna true.
+  return true; // Online
+}
+
 /**
  * Paint/update DOM with current state
  */
 function paint(root, state) {
   const { entityObject, i18n } = state;
+
+  if(verifyOfflineStatus(entityObject) === false) {
+    entityObject.deviceStatus = DeviceStatusType.NO_INFO;
+  }
 
   // Update card state class using deviceStatus
   const stateClass = getCardStateClass(entityObject.deviceStatus);
