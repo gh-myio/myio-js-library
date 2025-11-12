@@ -970,6 +970,126 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         console.warn("[MENU] Limpar button (myio-clear-btn) not found");
     }
 
+    // ===== METAS BUTTON HANDLER (Goals Panel) =====
+    const btnMetas = document.getElementById("myio-goals-btn");
+
+    if (btnMetas) {
+        btnMetas.addEventListener("click", () => {
+            console.log("[MENU] 🎯 Metas (Goals Panel) clicked");
+
+            // Verifica se MyIOLibrary está disponível
+            if (typeof MyIOLibrary === "undefined" || !MyIOLibrary.openGoalsPanel) {
+                console.error("[MENU] ❌ MyIOLibrary.openGoalsPanel não está disponível");
+                alert("Componente de Metas não está disponível. Verifique a biblioteca MyIO.");
+                return;
+            }
+
+            try {
+                // ✅ Obtém o customerId pai (Holding) do settings
+                // Este é o Customer raiz no ThingsBoard que contém os shoppings filhos
+                const customerId = self.ctx?.settings?.customerId;
+
+                if (!customerId) {
+                    console.error("[MENU] ❌ customerId não encontrado em settings");
+                    alert("Configuração de Customer ID não encontrada. Verifique as configurações do widget.");
+                    return;
+                }
+
+                console.log("[MENU] 📋 Using Holding customerId from settings:", customerId);
+
+                // ✅ Obtém o token do localStorage (padrão do ThingsBoard)
+                const token = localStorage.getItem("jwt_token");
+
+                if (!token) {
+                    console.error("[MENU] ❌ Token JWT não encontrado no localStorage");
+                    alert("Token de autenticação não encontrado. Faça login novamente.");
+                    return;
+                }
+
+                console.log("[MENU] 🔑 Token JWT obtido do localStorage");
+
+                // ✅ Prepara a lista de shoppings filhos (já computada pelo MENU)
+                // Esta lista vem do modal de filtro e representa os Customers filhos
+                const shoppingList = (self.ctx.$scope.custumer || [])
+                    .filter(c => c.value && c.name && c.name.trim() !== c.value.trim())
+                    .map(c => ({
+                        value: c.value,  // UUID do Customer filho (Shopping)
+                        name: c.name     // Nome do Shopping
+                    }));
+
+                console.log("[MENU] 🏬 Shopping list prepared:", {
+                    count: shoppingList.length,
+                    shoppings: shoppingList.map(s => s.name)
+                });
+
+                // ✅ Determina qual shopping está selecionado no filtro (se algum)
+                let selectedShoppingId = null;
+                if (window.custumersSelected && window.custumersSelected.length > 0) {
+                    selectedShoppingId = window.custumersSelected[0].value;
+                    console.log("[MENU] 🎯 Current filter selection:", window.custumersSelected[0].name);
+                }
+
+                console.log("[MENU] 🚀 Opening Goals Panel with:", {
+                    holdingCustomerId: customerId,
+                    shoppingCount: shoppingList.length,
+                    selectedShopping: selectedShoppingId
+                });
+
+                // ✅ Abre o painel de metas usando MyIOLibrary
+                const panel = MyIOLibrary.openGoalsPanel({
+                    customerId: customerId,  // Customer pai (Holding)
+                    token: token,            // Token do localStorage
+                    api: {
+                        baseUrl: window.location.origin
+                    },
+                    shoppingList: shoppingList,  // Lista de shoppings filhos
+                    locale: 'pt-BR',
+                    onSave: async (goalsData) => {
+                        console.log("[MENU] ✅ Goals saved successfully:", {
+                            version: goalsData.version,
+                            yearsCount: Object.keys(goalsData.years || {}).length
+                        });
+
+                        // Dispara evento global para outros widgets reagirem
+                        window.dispatchEvent(new CustomEvent("myio:goals-updated", {
+                            detail: {
+                                goalsData,
+                                customerId,
+                                timestamp: Date.now()
+                            }
+                        }));
+
+                        console.log("[MENU] 📊 Event 'myio:goals-updated' dispatched");
+
+                        // Feedback visual opcional
+                        // alert("✅ Metas salvas com sucesso!");
+                    },
+                    onClose: () => {
+                        console.log("[MENU] 🚪 Goals Panel closed");
+                    },
+                    styles: {
+                        primaryColor: '#6a1b9a',  // Mesma cor do botão Metas (roxo MYIO)
+                        accentColor: '#FFC107',   // Amarelo de destaque
+                        successColor: '#28a745',  // Verde de sucesso
+                        errorColor: '#dc3545',    // Vermelho de erro
+                        borderRadius: '8px',
+                        zIndex: 10000
+                    }
+                });
+
+                console.log("[MENU] ✅ Goals Panel opened successfully");
+
+            } catch (error) {
+                console.error("[MENU] ❌ Error opening Goals Panel:", error);
+                alert(`Erro ao abrir o painel de metas:\n${error.message}\n\nConsulte o console para mais detalhes.`);
+            }
+        });
+
+        console.log("[MENU] Metas button handler registered");
+    } else {
+        console.warn("[MENU] Metas button (myio-goals-btn) not found");
+    }
+
     const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
     CLIENT_ID = self.ctx.settings.clientId;
     CLIENT_SECRET = self.ctx.settings.clientSecret;

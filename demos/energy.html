@@ -112,6 +112,47 @@
             </div>
         </div>
 
+        <h2>🆕 NEW: Goals Panel Component (RFC-0075)</h2>
+        <p style="color: #666; margin-bottom: 20px;">
+            <strong>openGoalsPanel</strong> - RFC 0075 implementation for Consumption Goals Setup with annual and monthly goal management per Customer and Asset.
+        </p>
+
+        <div style="background: #f0f8ff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #4A148C;">
+            <h3>🎯 Goals Panel Demo</h3>
+            <p style="margin-bottom: 16px; color: #555;">
+                Interactive consumption goals management panel with two-level setup (Shopping and Assets):
+            </p>
+
+            <div style="margin-top: 16px;">
+                <button class="demo-button" onclick="openGoalsPanelDemo()" style="background: #4A148C;">
+                    🎯 Open Goals Panel (Mock Data)
+                </button>
+                <button class="demo-button" onclick="openGoalsPanelEnglishDemo()" style="background: #17a2b8;">
+                    🌍 Goals Panel (English)
+                </button>
+                <button class="demo-button" onclick="openGoalsPanelEmptyDemo()" style="background: #6c757d;">
+                    📝 Empty Goals Panel
+                </button>
+            </div>
+
+            <div style="margin-top: 16px; padding: 12px; background: #e9ecef; border-radius: 4px;">
+                <strong>Features Demonstrated:</strong>
+                <ul style="margin: 8px 0; padding-left: 20px; color: #555;">
+                    <li>🎯 Two-level goal setup: Shopping (Customer) and Per Asset</li>
+                    <li>📅 Year selector with navigation</li>
+                    <li>⚡ Annual goal with unit selection (kWh/m³)</li>
+                    <li>📊 Monthly distribution with progress bar</li>
+                    <li>🔄 Auto-fill proportional distribution</li>
+                    <li>🏢 Asset-level goal refinement</li>
+                    <li>✅ Real-time validation (monthly sum ≤ annual goal)</li>
+                    <li>💾 Version control and history tracking</li>
+                    <li>🌐 Internationalization (Portuguese/English)</li>
+                    <li>📱 Responsive design and accessibility</li>
+                    <li>🎨 Custom styling support</li>
+                </ul>
+            </div>
+        </div>
+
         <h2>🆕 NEW: Demand Modal Component</h2>
         <p style="color: #666; margin-bottom: 20px;">
             <strong>openDemandModal</strong> - RFC 0015 implementation with Chart.js integration, PDF export, and ThingsBoard telemetry data.
@@ -1015,6 +1056,260 @@
             }
         }
         
+        // Goals Panel Component Demos
+        function openGoalsPanelDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+
+            if (!MyIOLibrary.openGoalsPanel) {
+                alert('❌ openGoalsPanel not available in this build.\\n\\nThis component is part of the latest MyIOLibrary implementation.');
+                return;
+            }
+
+            try {
+                // Mock goals data following RFC-0075 schema
+                const mockGoalsData = {
+                    version: 3,
+                    history: [
+                        {
+                            tag: '2025-11-10T13:05:20Z|rodrigo.pimentel',
+                            reason: 'Ajuste metas 2026',
+                            diff: { year: 2026, changed: ['annual.total', 'monthly[3]'] }
+                        },
+                        {
+                            tag: '2025-09-15T10:30:00Z|admin@myio',
+                            reason: 'Configuração inicial 2025',
+                            diff: { year: 2025, changed: ['annual', 'monthly', 'assets'] }
+                        }
+                    ],
+                    years: {
+                        '2025': {
+                            annual: {
+                                total: 1200000,
+                                unit: 'kWh'
+                            },
+                            monthly: {
+                                '01': 90000,
+                                '02': 88000,
+                                '03': 95000,
+                                '04': 98000,
+                                '05': 100000,
+                                '06': 105000,
+                                '07': 110000,
+                                '08': 115000,
+                                '09': 100000,
+                                '10': 95000,
+                                '11': 90000,
+                                '12': 92000
+                            },
+                            assets: {
+                                'asset-common-area-001': {
+                                    label: 'Área Comum',
+                                    annual: { total: 300000, unit: 'kWh' },
+                                    monthly: {
+                                        '01': 22000, '02': 21000, '03': 23000, '04': 24000,
+                                        '05': 25000, '06': 25500, '07': 26000, '08': 26500,
+                                        '09': 24500, '10': 23500, '11': 22500, '12': 23000
+                                    }
+                                },
+                                'asset-food-court-001': {
+                                    label: 'Praça de Alimentação',
+                                    annual: { total: 450000, unit: 'kWh' },
+                                    monthly: {
+                                        '01': 35000, '02': 34000, '03': 36000, '04': 37000,
+                                        '05': 38000, '06': 38500, '07': 39500, '08': 40500,
+                                        '09': 38000, '10': 36500, '11': 35000, '12': 35500
+                                    }
+                                }
+                            },
+                            metaTag: '2025-09-15T10:30:00Z|admin@myio'
+                        },
+                        '2026': {
+                            annual: { total: 1250000, unit: 'kWh' },
+                            monthly: {},
+                            assets: {},
+                            metaTag: '2025-11-10T13:05:20Z|rodrigo.pimentel'
+                        }
+                    }
+                };
+
+                // Mock shopping list
+                const mockShoppingList = [
+                    { value: 'shopping-abc-uuid-001', name: 'Shopping ABC - São Paulo' },
+                    { value: 'shopping-xyz-uuid-002', name: 'Shopping XYZ - Rio de Janeiro' },
+                    { value: 'shopping-def-uuid-003', name: 'Shopping DEF - Belo Horizonte' },
+                    { value: 'shopping-ghi-uuid-004', name: 'Shopping GHI - Brasília' },
+                    { value: 'shopping-jkl-uuid-005', name: 'Shopping JKL - Curitiba' }
+                ];
+
+                // Open Goals Panel with mock data
+                const panel = MyIOLibrary.openGoalsPanel({
+                    customerId: 'demo-customer-holding-123',
+                    token: 'demo-jwt-token-goals',
+                    api: {
+                        baseUrl: 'https://thingsboard.example.com'
+                    },
+                    data: mockGoalsData,
+                    shoppingList: mockShoppingList,
+                    onSave: (data) => {
+                        console.log('✅ Goals saved:', data);
+                        alert('✅ Metas salvas com sucesso!\\n\\nConfira o console para ver os dados salvos.');
+                    },
+                    onClose: () => {
+                        console.log('🔚 Goals Panel closed');
+                    }
+                });
+
+                console.log('🎯 Goals Panel opened:', panel);
+
+                setTimeout(() => {
+                    alert('🎯 Goals Panel Demo Opened Successfully!\\n\\n✨ Features Demonstrated:\\n• 🏢 Shopping Selector: 5 shopping centers available\\n• Two tabs: Shopping (Customer) and Per Asset\\n• Year selector (2025/2026)\\n• Annual goal: 1,200,000 kWh for 2025\\n• Monthly distribution with progress bar (1,178,000/1,200,000)\\n• 2 configured assets: Área Comum and Praça de Alimentação\\n• Auto-fill proportional distribution button\\n• Real-time validation\\n• Version control (version 3 with history)\\n• Last update info in footer\\n\\n🔧 Try These Features:\\n• 🔄 Select different shopping centers from dropdown\\n• Switch between Shopping and Assets tabs\\n• Navigate to 2026 (empty year)\\n• Edit annual or monthly values\\n• Click "Preencher Proporcionalmente" to auto-distribute\\n• Add new assets in Assets tab\\n• Expand assets to see monthly details\\n• Try to exceed annual goal to see validation\\n• Click Save to see success message\\n\\n📊 Mock Data Features:\\n• Full RFC-0075 schema compliance\\n• Realistic consumption values\\n• Multi-year support\\n• Multi-shopping support\\n• Asset-level granularity\\n• Version history tracking');
+                }, 500);
+
+            } catch (error) {
+                console.error('Error opening Goals Panel:', error);
+                alert(`❌ Error opening Goals Panel: ${error.message}`);
+            }
+        }
+
+        function openGoalsPanelEnglishDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+
+            if (!MyIOLibrary.openGoalsPanel) {
+                alert('❌ openGoalsPanel not available in this build.');
+                return;
+            }
+
+            try {
+                const mockGoalsData = {
+                    version: 1,
+                    history: [],
+                    years: {
+                        '2025': {
+                            annual: {
+                                total: 850000,
+                                unit: 'kWh'
+                            },
+                            monthly: {
+                                '01': 70000,
+                                '02': 68000,
+                                '03': 72000,
+                                '04': 71000,
+                                '05': 73000,
+                                '06': 75000,
+                                '07': 76000,
+                                '08': 77000,
+                                '09': 74000,
+                                '10': 72000,
+                                '11': 70000,
+                                '12': 69000
+                            },
+                            assets: {},
+                            metaTag: '2025-11-10T14:00:00Z|john.doe'
+                        }
+                    }
+                };
+
+                const mockShoppingListEN = [
+                    { value: 'shopping-en-001', name: 'Main Street Mall - New York' },
+                    { value: 'shopping-en-002', name: 'Central Plaza - Los Angeles' },
+                    { value: 'shopping-en-003', name: 'Downtown Center - Chicago' }
+                ];
+
+                const panel = MyIOLibrary.openGoalsPanel({
+                    customerId: 'demo-customer-en-456',
+                    token: 'demo-jwt-token-en',
+                    api: {
+                        baseUrl: 'https://thingsboard.example.com'
+                    },
+                    data: mockGoalsData,
+                    shoppingList: mockShoppingListEN,
+                    locale: 'en-US',
+                    onSave: (data) => {
+                        console.log('✅ Goals saved (English):', data);
+                        alert('✅ Goals saved successfully!\\n\\nCheck the console for saved data.');
+                    },
+                    onClose: () => {
+                        console.log('🔚 Goals Panel closed (English)');
+                    }
+                });
+
+                console.log('🌍 English Goals Panel opened:', panel);
+
+                setTimeout(() => {
+                    alert('🌍 English Goals Panel Demo!\\n\\n🇺🇸 English Interface Features:\\n• Modal Title: "Consumption Goals Setup"\\n• Tabs: "Shopping (Annual/Monthly)" and "By Asset"\\n• Button: "Auto Fill Proportionally"\\n• Months: Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec\\n• Footer buttons: "Cancel" and "Save"\\n• Validation messages in English\\n• US number formatting (comma as thousands separator)\\n\\n📊 Sample Data:\\n• Annual Goal: 850,000 kWh\\n• Monthly distribution already filled\\n• No assets configured (start from Shopping level)\\n\\n🎯 Try switching to Assets tab and adding a new asset in English!');
+                }, 500);
+
+            } catch (error) {
+                console.error('Error opening English Goals Panel:', error);
+                alert(`❌ Error opening Goals Panel: ${error.message}`);
+            }
+        }
+
+        function openGoalsPanelEmptyDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+
+            if (!MyIOLibrary.openGoalsPanel) {
+                alert('❌ openGoalsPanel not available in this build.');
+                return;
+            }
+
+            try {
+                // Empty goals data - fresh start
+                const emptyGoalsData = {
+                    version: 1,
+                    history: [],
+                    years: {
+                        '2025': {
+                            annual: { total: 0, unit: 'kWh' },
+                            monthly: {},
+                            assets: {},
+                            metaTag: `${new Date().toISOString()}|demo-user`
+                        }
+                    }
+                };
+
+                const mockShoppingListSingle = [
+                    { value: 'shopping-new-001', name: 'Novo Shopping - Primeiro Setup' }
+                ];
+
+                const panel = MyIOLibrary.openGoalsPanel({
+                    customerId: 'demo-customer-empty-789',
+                    token: 'demo-jwt-token-empty',
+                    api: {
+                        baseUrl: 'https://thingsboard.example.com'
+                    },
+                    data: emptyGoalsData,
+                    shoppingList: mockShoppingListSingle,
+                    onSave: (data) => {
+                        console.log('✅ Goals saved (Empty Start):', data);
+                        alert('✅ Metas configuradas com sucesso!\\n\\nVocê começou do zero e criou suas primeiras metas.\\n\\nConfira o console para ver a estrutura completa.');
+                    },
+                    onClose: () => {
+                        console.log('🔚 Empty Goals Panel closed');
+                    }
+                });
+
+                console.log('📝 Empty Goals Panel opened:', panel);
+
+                setTimeout(() => {
+                    alert('📝 Empty Goals Panel Demo!\\n\\n🆕 Fresh Start Scenario:\\n• No annual goal set (0 kWh)\\n• No monthly distribution\\n• No assets configured\\n• Perfect for first-time setup\\n\\n🎯 Try This Workflow:\\n1. Enter an annual goal (e.g., 1,000,000 kWh)\\n2. Click "Preencher Proporcionalmente" to auto-distribute\\n3. Adjust individual months as needed\\n4. Switch to Assets tab\\n5. Click "Adicionar Asset" to create asset goals\\n6. Enter asset name and configure its goals\\n7. Click Save to persist your configuration\\n\\n💡 This demonstrates the initial setup experience for a new customer with no existing goals data.');
+                }, 500);
+
+            } catch (error) {
+                console.error('Error opening Empty Goals Panel:', error);
+                alert(`❌ Error opening Goals Panel: ${error.message}`);
+            }
+        }
+
         // Mock data for demos
         function openEnergyDemo() {
             if (typeof MyIOLibrary === 'undefined') {

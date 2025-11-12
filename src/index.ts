@@ -165,7 +165,7 @@ export * as strings from './utils/strings';
 export * as numbers from './utils/numbers';
 
 // Demand Modal Component
-export { 
+export {
   openDemandModal,
   type DemandModalParams,
   type DemandModalPdfConfig,
@@ -173,3 +173,6 @@ export {
   type DemandModalInstance,
   type TelemetryFetcher
 } from './components/DemandModal';
+
+// Goals Panel Component (RFC-0075)
+export { openGoalsPanel } from './components/GoalsPanel.js';

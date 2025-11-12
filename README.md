@@ -20,6 +20,7 @@ Distributed as **ESM**, **CJS**, and **UMD** (with a pre-minified build for CDN 
 - 🏷️ **Classification** — energy entity classification utilities.
 - 🔍 **Data access** — nested object value retrieval with datakey paths.
 - 🔌 **Device status** — comprehensive status calculation and management with `calculateDeviceStatus`.
+- 🎯 **Goals Panel** — consumption goals setup with annual/monthly targets, versioning, and ThingsBoard integration.
 - ⚡ **Dual module support** — ESM and CJS.
 - 🌍 **Browser-ready** — UMD global + CDN link.
 
@@ -55,7 +56,8 @@ import {
   classifyWaterLabel,
   getValueByDatakey,
   calculateDeviceStatus,
-  DeviceStatusType
+  DeviceStatusType,
+  openGoalsPanel
 } from 'myio-js-library';
 
 // Decode with string key
@@ -86,6 +88,16 @@ const status = calculateDeviceStatus({
   limitOfPowerOnFailureWatts: 2000
 });
 console.log(status); // "power_on"
+
+// Open goals panel for consumption management
+const panel = openGoalsPanel({
+  customerId: 'customer-uuid',
+  token: 'jwt-token',
+  shoppingList: [
+    { value: 'shop-1', name: 'Shopping Centro' }
+  ],
+  onSave: (data) => console.log('Goals saved:', data)
+});
 ```
 
 ### Node.js (CJS)
@@ -2485,6 +2497,341 @@ const modal = await openDemandModal({
 - Efficient data processing pipeline
 
 For complete technical specifications, see: [RFC-0015-MyIO-DemandModal-Component](src/docs/rfcs/RFC-0015-MyIO-DemandModal-Component.md)
+
+---
+
+### Goals Panel Component
+
+#### `openGoalsPanel(params: GoalsPanelParams): GoalsPanelInstance`
+
+Opens a comprehensive Consumption Goals Setup Panel for managing annual and monthly energy/water consumption targets. This component implements RFC-0075 specifications with shopping-level and asset-level goal management, validation, versioning, and ThingsBoard Server Scope integration.
+
+**Parameters:**
+- `params: GoalsPanelParams` - Configuration object:
+  - `customerId: string` - ThingsBoard Customer ID (Holding) (required)
+  - `token: string` - JWT token for ThingsBoard API (required when not using mock data)
+  - `api?: { baseUrl: string }` - ThingsBoard API configuration
+  - `data?: object` - Initial goals data structure (for testing with mock data)
+  - `shoppingList?: Array<{value: string, name: string}>` - List of shopping centers
+  - `onSave?: (data: object) => void | Promise<void>` - Callback when goals are saved
+  - `onClose?: () => void` - Callback when modal is closed
+  - `styles?: Partial<GoalsPanelStyles>` - Custom styling overrides
+  - `locale?: 'pt-BR' | 'en-US'` - Locale for i18n (default: 'pt-BR')
+
+**Returns:** `GoalsPanelInstance` object with:
+- `close(): void` - Close the modal
+- `getState(): object` - Get current modal state
+- `setYear(year: number): void` - Change the current year
+- `refresh(): void` - Reload goals data from API
+
+**Key Features:**
+- **Two-Level Goal Management**: Shopping (Annual/Monthly) and Per Asset tabs
+- **Annual Goal Definition**: Set total annual consumption target with unit selection (kWh/m³)
+- **Monthly Distribution**: Distribute annual goal across 12 months with auto-fill option
+- **Asset-Level Goals**: Define specific goals per asset (e.g., Common Area, Food Court)
+- **Progress Visualization**: Real-time progress bar showing monthly sum vs annual goal
+- **Validation Rules**: Ensures monthly sum ≤ annual goal, non-negative values
+- **Year Navigation**: Switch between years with previous/next controls
+- **Shopping Selector**: Multi-shopping support with dropdown selector
+- **Versioning System**: MetaTag (ISO8601|author) tracking per year
+- **History Tracking**: Maintains version history with change reasons
+- **ThingsBoard Integration**: Persists to Customer Server Scope attributes
+- **Internationalization**: Portuguese/English localization
+- **Accessibility**: Focus trap, ARIA labels, keyboard navigation (ESC to close)
+- **Responsive Design**: Mobile-friendly grid layouts
+- **Customizable Styling**: Theme tokens for colors, fonts, and dimensions
+
+**Data Structure:**
+```javascript
+// Goals data structure (stored in ThingsBoard Server Scope)
+{
+  "version": 1,
+  "history": [
+    {
+      "tag": "2025-11-12T10:30:00Z|user@myio",
+      "reason": "Initial setup",
+      "diff": { "year": 2025, "changed": ["annual.total"] }
+    }
+  ],
+  "years": {
+    "2025": {
+      "annual": {
+        "total": 1200000,
+        "unit": "kWh"
+      },
+      "monthly": {
+        "01": 90000,
+        "02": 88000,
+        "03": 95000,
+        // ... months 04-12
+      },
+      "assets": {
+        "asset-uuid-1": {
+          "label": "Common Area",
+          "annual": { "total": 300000, "unit": "kWh" },
+          "monthly": {
+            "01": 22000,
+            "02": 21000,
+            // ... months 03-12
+          }
+        },
+        "asset-uuid-2": {
+          "label": "Food Court",
+          "annual": { "total": 450000, "unit": "kWh" },
+          "monthly": { /* ... */ }
+        }
+      },
+      "metaTag": "2025-11-12T10:30:00Z|user@myio"
+    }
+  }
+}
+```
+
+**Usage Example:**
+```javascript
+import { openGoalsPanel } from 'myio-js-library';
+
+// Basic usage with ThingsBoard integration
+const panel = openGoalsPanel({
+  customerId: 'customer-uuid-holding',
+  token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  api: {
+    baseUrl: 'https://thingsboard.myio.com.br'
+  },
+  shoppingList: [
+    { value: 'shopping-1-uuid', name: 'Shopping Centro' },
+    { value: 'shopping-2-uuid', name: 'Shopping Norte' }
+  ],
+  onSave: async (goalsData) => {
+    console.log('Goals saved:', goalsData);
+    // Refresh dashboard or trigger other actions
+    await refreshDashboard();
+  },
+  onClose: () => {
+    console.log('Goals panel closed');
+  }
+});
+
+// Advanced usage with mock data for testing
+const mockData = {
+  version: 1,
+  history: [],
+  years: {
+    "2025": {
+      annual: { total: 1200000, unit: 'kWh' },
+      monthly: {
+        "01": 95000, "02": 92000, "03": 98000,
+        "04": 100000, "05": 102000, "06": 105000,
+        "07": 108000, "08": 110000, "09": 103000,
+        "10": 98000, "11": 95000, "12": 94000
+      },
+      assets: {},
+      metaTag: '2025-11-12T10:00:00Z|admin@myio'
+    }
+  }
+};
+
+const panel = openGoalsPanel({
+  customerId: 'test-customer',
+  token: 'test-token',
+  data: mockData,
+  locale: 'en-US',
+  styles: {
+    primaryColor: '#2E7D32',
+    accentColor: '#FFA726',
+    borderRadius: '12px'
+  }
+});
+
+// Programmatic control
+panel.setYear(2026);           // Switch to year 2026
+console.log(panel.getState()); // Get current state
+panel.refresh();               // Reload data
+panel.close();                 // Close modal
+```
+
+**ThingsBoard Widget Integration:**
+```javascript
+// In your ThingsBoard widget HTML action button
+<script>
+  function openGoalsSetup() {
+    const customerId = ctx.custom?.customerId || ctx.defaultSubscription?.targetEntityId?.id;
+    const token = ctx.defaultSubscription?.subscriptionContext?.user?.token;
+
+    if (!customerId || !token) {
+      console.error('Missing required context');
+      return;
+    }
+
+    openGoalsPanel({
+      customerId: customerId,
+      token: token,
+      api: {
+        baseUrl: window.location.origin
+      },
+      onSave: async (goalsData) => {
+        // Update widget or trigger refresh
+        ctx.updateAliases();
+        console.log('Goals updated:', goalsData);
+      }
+    });
+  }
+</script>
+```
+
+**Shopping Tab Features:**
+- **Unit Selection**: Choose between kWh (energy) or m³ (water)
+- **Annual Goal Input**: Define total annual consumption target
+- **Shopping Selector**: Select specific shopping center (if multiple available)
+- **Monthly Grid**: 12-month input grid with individual values
+- **Auto-Fill Button**: Proportionally distribute annual goal across months
+- **Progress Indicator**: Visual bar showing monthly sum vs annual goal
+  - Green: Sum < 95% of annual
+  - Orange: Sum between 95-100% of annual
+  - Red: Sum > 100% of annual (validation error)
+
+**Assets Tab Features:**
+- **Asset List**: Expandable list of configured assets
+- **Search/Filter**: Search for specific assets
+- **Add Asset**: Create new asset goals with custom label
+- **Per-Asset Goals**: Define annual and monthly goals for each asset
+- **Delete Asset**: Remove asset goals with confirmation
+- **Expand/Collapse**: Click asset header to expand details
+
+**Validation Rules:**
+1. Annual goal must be ≥ 0
+2. All monthly values must be ≥ 0
+3. Sum of monthly values ≤ annual goal (Shopping and each Asset)
+4. Month keys must be valid: "01" through "12"
+5. Unit must be consistent within the same year
+6. If monthly is empty, only annual goal is validated
+
+**Error Handling:**
+- Clear inline validation errors with specific messages
+- Real-time progress bar color indication
+- Scroll to error section on validation failure
+- Confirm dialog for unsaved changes
+- User-friendly error messages in selected locale
+
+**Styling Customization:**
+```javascript
+const customStyles = {
+  // Color tokens
+  primaryColor: '#4A148C',      // Header, tabs, buttons
+  accentColor: '#FFC107',       // Highlights and accents
+  successColor: '#28a745',      // Success states, valid progress
+  errorColor: '#dc3545',        // Error states, invalid values
+  warningColor: '#fd7e14',      // Warning states, near-limit
+
+  // Layout tokens
+  borderRadius: '8px',          // Card border radius
+  fontFamily: "'Roboto', Arial, sans-serif",
+  zIndex: 10000                 // Modal z-index
+};
+
+const panel = openGoalsPanel({
+  // ... other params
+  styles: customStyles
+});
+```
+
+**Internationalization:**
+The component supports Portuguese (pt-BR) and English (en-US) locales:
+
+```javascript
+// Portuguese (default)
+openGoalsPanel({ locale: 'pt-BR' });
+
+// English
+openGoalsPanel({ locale: 'en-US' });
+```
+
+Translated strings include:
+- Modal title and labels
+- Button texts
+- Month names
+- Validation error messages
+- Confirmation dialogs
+- Success messages
+
+**Versioning and History:**
+Each save operation:
+1. Increments document version number
+2. Adds history entry with:
+   - `tag`: ISO8601 timestamp + author identifier
+   - `reason`: Description of changes
+   - `diff`: Summary of what changed
+3. Updates year `metaTag` with current timestamp and author
+4. Persists to ThingsBoard Customer Server Scope
+
+**ThingsBoard API Integration:**
+The component interacts with ThingsBoard REST API:
+
+```javascript
+// Read goals
+GET /api/plugins/telemetry/CUSTOMER/{customerId}/values/attributes/SERVER_SCOPE
+  ?keys=consumptionGoals
+
+// Write goals
+POST /api/plugins/telemetry/CUSTOMER/{customerId}/SERVER_SCOPE
+{
+  "consumptionGoals": {
+    // Full goals data structure
+  }
+}
+
+Headers:
+  X-Authorization: Bearer {token}
+```
+
+**Dashboard Integration:**
+Goals data can be consumed by dashboard widgets to show Goal vs Actual comparisons:
+
+```javascript
+// Read from Server Scope in widget
+const goalsAttr = ctx.data[0]?.latest?.SERVER_SCOPE?.consumptionGoals;
+const goalsData = JSON.parse(goalsAttr?.value || '{}');
+
+// Get current year and month goals
+const currentYear = new Date().getFullYear().toString();
+const currentMonth = (new Date().getMonth() + 1).toString().padStart(2, '0');
+const monthlyGoal = goalsData.years?.[currentYear]?.monthly?.[currentMonth];
+
+// Compare with actual consumption
+const actualConsumption = getActualConsumption(); // from telemetry
+const achievementPercent = (actualConsumption / monthlyGoal) * 100;
+
+// Display in widget
+displayGoalComparison(monthlyGoal, actualConsumption, achievementPercent);
+```
+
+**Performance Considerations:**
+- Minimal DOM manipulation with batch updates
+- Event delegation for dynamic content
+- Efficient monthly sum calculations
+- Lightweight CSS-in-JS injection
+- No external dependencies (vanilla JS)
+- Focus trap optimization
+- Smooth animations with CSS transitions
+
+**Accessibility Features:**
+- Semantic HTML structure with proper roles
+- ARIA labels and descriptions
+- Focus trap within modal
+- Keyboard navigation support
+- Screen reader friendly
+- High contrast error states
+- Tab order management
+
+**Browser Compatibility:**
+- Modern browsers (Chrome, Firefox, Safari, Edge)
+- Requires ES6+ support
+- Uses modern DOM APIs
+- Responsive design for mobile/tablet
+
+For complete technical specifications and implementation details, see: [RFC-0075-GoalsPanel](src/docs/rfcs/RFC-0075-GoalsPanel.md)
+
+---
 
 ## 🧪 Development
 
