@@ -15,6 +15,14 @@ function toISODate(d) {
   return `${year}-${month}-${day}`;
 }
 
+// ========== AJUSTE #3: Safe date parsing ==========
+function safeISO(d) {
+  const x = new Date(d);
+  if (isNaN(x.getTime())) return null;
+  x.setHours(0, 0, 0, 0);
+  return toISODate(x);
+}
+
 function subtractWeekDay(day) {
   // Define the days of the week in an array with 3-letter abbreviations
   const daysOfWeek = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -79,29 +87,38 @@ let shouldShutdown = false;
 // return msg;
 
 // ========== CORREÇÃO #2: Holiday exclusive filtering ==========
-// Detecta se hoje é feriado
+// Detecta se hoje é feriado (com safe parsing)
 const isHolidayToday = (storedHolidaysDays || []).some(d => {
-  const dd = new Date(d);
-  dd.setHours(0, 0, 0, 0);
-  return toISODate(dd) === isoToday;
+  const iso = safeISO(d);
+  return iso && iso === isoToday;
 });
 
+// ========== AJUSTE #4: Ordenação segura por minutos ==========
 if (schedules) {
-  schedules = [...schedules].sort((a, b) => {
-    const timeA = a.startHour.replace(':', '');
-    const timeB = b.startHour.replace(':', '');
-    return timeA - timeB;
-  });
+  const toHM = h => {
+    const [H, M] = h.split(':').map(Number);
+    return H * 60 + M;
+  };
+  schedules = [...schedules].sort((a, b) => toHM(a.startHour) - toHM(b.startHour));
 }
 
 // Filtra schedules com base na política de feriado (ANTES do loop!)
 const holidayPolicy = flow.get('holiday_policy') || 'exclusive';
 if (holidayPolicy === 'exclusive') {
   schedules = (schedules || []).filter(s => !!s.holiday === isHolidayToday);
+
+  // ========== AJUSTE #1: Feriado sem agenda ⇒ desliga ==========
+  if (isHolidayToday && (!schedules || schedules.length === 0)) {
+    shouldShutdown = true;
+    shouldActivate = false;
+  }
 }
 
 // ========== CORREÇÃO #6: Rastreia a agenda realmente aplicada ==========
 let appliedSchedule = null;
+
+// ========== AJUSTE #2: Acumula decisões para sobreposições ==========
+let anyAct = false, anyShut = false;
 
 const currWeekDay = nowLocal.toLocaleString('en-US', { weekday: 'short' }).toLowerCase();
 
@@ -122,12 +139,13 @@ for (const schedule of schedules) {
     if (days?.[yesterday]) {
       const startYesterday = new Date(startTime.getTime() - 24 * 60 * 60 * 1000);
       const [shut, act] = decide(retain, nowLocal, startYesterday, endTime);
-      shouldShutdown = shut;
-      shouldActivate = act;
+
+      anyAct = anyAct || act;
+      anyShut = anyShut || shut;
       acted = (act || shut);
 
-      if (shouldShutdown && nowLocal.getTime() > endTime.getTime() && !days?.[currWeekDay]) {
-        shouldShutdown = false;
+      if (shut && nowLocal.getTime() > endTime.getTime() && !days?.[currWeekDay]) {
+        anyShut = false; // edge case: não desliga se hoje não é habilitado
       }
 
       if (acted) {
@@ -138,8 +156,9 @@ for (const schedule of schedules) {
     if (!acted && days?.[currWeekDay]) {
       const endTomorrow = new Date(endTime.getTime() + 24 * 60 * 60 * 1000);
       const [shut, act] = decide(retain, nowLocal, startTime, endTomorrow);
-      shouldShutdown = shut;
-      shouldActivate = act;
+
+      anyAct = anyAct || act;
+      anyShut = anyShut || shut;
 
       if (act || shut) {
         appliedSchedule = schedule; // Registra agenda aplicada
@@ -148,8 +167,9 @@ for (const schedule of schedules) {
   } else {
     if (days?.[currWeekDay]) {
       const [shut, act] = decide(retain, nowLocal, startTime, endTime);
-      shouldShutdown = shut;
-      shouldActivate = act;
+
+      anyAct = anyAct || act;
+      anyShut = anyShut || shut;
 
       if (act || shut) {
         appliedSchedule = schedule; // Registra agenda aplicada
@@ -159,12 +179,24 @@ for (const schedule of schedules) {
 
 }
 
+// ========== AJUSTE #2: Resolve decisão consolidada ==========
+if (anyAct && !anyShut) {
+  shouldActivate = true;
+  shouldShutdown = false;
+} else if (!anyAct && anyShut) {
+  shouldActivate = false;
+  shouldShutdown = true;
+} else if (anyAct && anyShut) {
+  // Precedência: desligar vence
+  shouldActivate = false;
+  shouldShutdown = true;
+}
+
 // ========== CORREÇÃO #5: excludedDays sempre sobrepõe (em YYYY-MM-DD) ==========
 if (Array.isArray(excludedDays) && excludedDays.length) {
   for (const ex of excludedDays) {
-    const d = new Date(ex);
-    d.setHours(0, 0, 0, 0);
-    if (toISODate(d) === isoToday) {
+    const iso = safeISO(ex);
+    if (iso && iso === isoToday) {
       shouldShutdown = true;
       shouldActivate = false;
       break;
@@ -193,20 +225,16 @@ const timestamp = Date.now();
 const deviceName = device.deviceName || 'unknown';
 const logKey = `automation_log_${deviceName.replace(/\s+/g, '')}_${timestamp}`;
 
-// Detecta o motivo da decisão
+// ========== AJUSTE #5: Reason refinado com holiday_no_schedule ==========
 let reason = 'weekday';
-if (Array.isArray(excludedDays) && excludedDays.length > 0) {
-  for (const ex of excludedDays) {
-    const d = new Date(ex);
-    d.setHours(0, 0, 0, 0);
-    if (toISODate(d) === isoToday) {
-      reason = 'excluded';
-      break;
-    }
-  }
-}
-if (reason === 'weekday' && isHolidayToday) {
+if (isHolidayToday) {
   reason = 'holiday';
+}
+if (isHolidayToday && (!schedules || schedules.length === 0)) {
+  reason = 'holiday_no_schedule';
+}
+if (Array.isArray(excludedDays) && excludedDays.some(ex => safeISO(ex) === isoToday)) {
+  reason = 'excluded';
 }
 
 // ========== CORREÇÃO #6: Usa a agenda REALMENTE aplicada ==========
