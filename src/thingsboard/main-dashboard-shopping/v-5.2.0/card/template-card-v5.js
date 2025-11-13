@@ -58,6 +58,7 @@ export function renderCardComponentV5({
     centralName,
     connectionStatusTime,
     timeVal,
+    customerName
   } = entityObject;
 
   /*********************************************************
@@ -536,6 +537,16 @@ export function renderCardComponentV5({
 
               <img class="device-image" src="${deviceImageUrl}" alt="${deviceType}" />
 
+
+              ${customerName ? `
+                <div class="myio-v5-shopping-badge-row">
+                  <span class="myio-v5-shopping-badge" title="${customerName}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="chip-icon"><path d="M4 22h16"/><path d="M7 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/></svg>
+                    <span>${customerName}</span>
+                  </span>
+                </div>
+              ` : ''}
+
               <div class="device-data-row">
                 <div class="consumption-main">
                   <span class="flash-icon ${shouldFlashIcon ? "flash" : ""}">
@@ -549,7 +560,7 @@ export function renderCardComponentV5({
           </div>
         </div>
 
-        <div class="connection-status-icon" data-conn="${connectionStatus}" data-state="${deviceStatus}" aria-label="${connectionStatus}"></div>
+        <div style="display: none;" class="connection-status-icon" data-conn="${connectionStatus}" data-state="${deviceStatus}" aria-label="${connectionStatus}"></div>
 
       </div>
     `;
@@ -894,6 +905,44 @@ export function renderCardComponentV5({
         background: #0ea5e9;
       }
 
+    .myio-v5-shopping-badge-row {
+        width: 100%;
+        text-align: center;
+        margin-bottom: 8px; /* Espaço ANTES da imagem */
+      }
+      
+      /* Este é o estilo da badge, copiado do v1 */
+      .myio-v5-shopping-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        
+        /* Estilo do v1 (head-office) para replicar o visual */
+        background-color: #EBF4FF; /* Fundo azul bem claro */
+        border: 1px solid #BEE3F8; /* Borda azul clara */
+        color: #2C5282; /* Texto azul escuro */
+        
+        border-radius: 8px;
+        padding: 4px 10px;
+        font-size: 11px; /* Um pouco menor para caber no v5 */
+        font-weight: 500;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+        /* Garantir que não quebre o layout */
+        max-width: 90%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      .myio-v5-shopping-badge .chip-icon {
+        width: 12px;
+        height: 12px;
+        stroke: currentColor;
+        opacity: 0.7;
+        flex-shrink: 0;
+      }
+
       /* Responsive / Dark mode */
       @media (max-width: 768px) {
         .device-card-centered.clickable {
@@ -918,6 +967,12 @@ export function renderCardComponentV5({
           background: linear-gradient(145deg, #1e293b 0%, #334155 100%) !important;
           border-color: rgba(71, 85, 105, 0.8) !important;
           color: #f1f5f9 !important;
+        }
+
+        .myio-v5-shopping-badge {
+          background-color: #334155; /* Fundo mais escuro */
+          border-color: #475569;
+          color: #cbd5e1; /* Texto mais claro */
         }
 
         .device-card-centered .device-title {
