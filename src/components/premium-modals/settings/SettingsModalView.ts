@@ -426,13 +426,9 @@ export class SettingsModalView {
       unknown: { text: "Sem informação", color: "#94a3b8" },
     };
 
-    console.log("Device Status:", deviceStatus);
-
     const statusInfo = statusMap[
       mapDeviceStatusToCardStatus(deviceStatus) || ""
     ] || { text: "Desconhecido", color: "#6b7280" };
-
-    console.log("Status Info:", statusInfo);
 
     return `
       <div class="form-card info-card-wide">
