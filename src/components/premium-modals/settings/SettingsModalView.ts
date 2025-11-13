@@ -296,39 +296,40 @@ export class SettingsModalView {
   }
 
   private calculateTimeBetweenDates(data1, data2) {
-  
-  // 1. Validação das entradas
-  if (!(data1 instanceof Date) || !(data2 instanceof Date)) {
-    console.error("Entradas inválidas. As duas entradas devem ser objetos Date.");
-    return "Datas inválidas";
-  }
+    // 1. Validação das entradas
+    if (!(data1 instanceof Date) || !(data2 instanceof Date)) {
+      console.error(
+        "Entradas inválidas. As duas entradas devem ser objetos Date."
+      );
+      return "Datas inválidas";
+    }
 
-  // 2. Calcular a diferença absoluta em milissegundos
-  const diffMs = Math.abs(data1.getTime() - data2.getTime());
+    // 2. Calcular a diferença absoluta em milissegundos
+    const diffMs = Math.abs(data1.getTime() - data2.getTime());
 
-  // 3. Definir constantes de conversão
-  const msPorMinuto = 1000 * 60;
-  const msPorHora = msPorMinuto * 60;
-  const msPorDia = msPorHora * 24;
+    // 3. Definir constantes de conversão
+    const msPorMinuto = 1000 * 60;
+    const msPorHora = msPorMinuto * 60;
+    const msPorDia = msPorHora * 24;
 
-  // 4. Decidir o formato da saída
-  
-  // Se a diferença for de 1 dia ou mais
-  if (diffMs >= msPorDia) {
-    const dias = Math.floor(diffMs / msPorDia);
-    return `${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+    // 4. Decidir o formato da saída
+
+    // Se a diferença for de 1 dia ou mais
+    if (diffMs >= msPorDia) {
+      const dias = Math.floor(diffMs / msPorDia);
+      return `${dias} ${dias === 1 ? "dia" : "dias"}`;
+    }
+
+    // Se a diferença for de 1 hora ou mais (mas menos de 1 dia)
+    if (diffMs >= msPorHora) {
+      const horas = Math.floor(diffMs / msPorHora);
+      return `${horas} ${horas === 1 ? "hora" : "horas"}`;
+    }
+
+    // Se a diferença for menor que 1 hora
+    const minutos = Math.round(diffMs / msPorMinuto);
+    return `${minutos} ${minutos === 1 ? "minuto" : "minutos"}`;
   }
-  
-  // Se a diferença for de 1 hora ou mais (mas menos de 1 dia)
-  if (diffMs >= msPorHora) {
-    const horas = Math.floor(diffMs / msPorHora);
-    return `${horas} ${horas === 1 ? 'hora' : 'horas'}`;
-  }
-  
-  // Se a diferença for menor que 1 hora
-  const minutos = Math.round(diffMs / msPorMinuto);
-  return `${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`;
-}
 
   private getConnectionInfoHTML(): string {
     if (!this.config.connectionData) {
@@ -347,8 +348,11 @@ export class SettingsModalView {
     let lastDisconnectTimeFormatted = "N/A";
     let disconectTime = "";
     if (lastDisconnectTime) {
-      disconectTime = this.calculateTimeBetweenDates(new Date(connectionStatusTime), new Date(lastDisconnectTime));
-      
+      disconectTime = this.calculateTimeBetweenDates(
+        new Date(connectionStatusTime),
+        new Date(lastDisconnectTime)
+      );
+
       try {
         const date = new Date(lastDisconnectTime);
         lastDisconnectTimeFormatted = date.toLocaleString("pt-BR", {
@@ -415,13 +419,11 @@ export class SettingsModalView {
       }
     }
 
-    // Map device status to readable text
     const statusMap: Record<string, { text: string; color: string }> = {
       ok: { text: "Normal", color: "#22c55e" },
-      warning: { text: "Atenção", color: "#f59e0b" },
-      danger: { text: "Erro", color: "#ef4444" },
-      offline: { text: "Offline", color: "#94a3b8" },
-      no_info: { text: "Sem informação", color: "#94a3b8" },
+      alert: { text: "Atenção", color: "#f59e0b" },
+      fail: { text: "Erro", color: "#ef4444" },
+      unknown: { text: "Sem informação", color: "#94a3b8" },
     };
 
     const statusInfo = statusMap[
