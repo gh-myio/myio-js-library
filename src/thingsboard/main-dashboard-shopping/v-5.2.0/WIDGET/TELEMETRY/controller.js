@@ -1093,7 +1093,15 @@ function renderList(visible) {
           "[TELEMETRY v5] Opening dashboard for deviceType:",
           deviceType,
           "isWaterTank:",
-          isWaterTank
+          isWaterTank,
+          "deviceId:",
+          it.id,
+          "tbId:",
+          it.tbId,
+          "startTs:",
+          startTs,
+          "endTs:",
+          endTs
         );
 
         // Show loading toast
@@ -1111,15 +1119,22 @@ function renderList(visible) {
           if (isWaterTank) {
             // Water Tank Modal Path
             LogHelper.log(
-              "[TELEMETRY v5] Checking for MyIOLibrary.openDashboardPopupWaterTank..."
+              "[TELEMETRY v5] 🌊 Entering TANK device modal path..."
+            );
+
+            LogHelper.log(
+              "[TELEMETRY v5] MyIOLibrary available:",
+              typeof MyIOLibrary !== 'undefined',
+              "openDashboardPopupWaterTank exists:",
+              typeof MyIOLibrary?.openDashboardPopupWaterTank
             );
 
             if (
               typeof MyIOLibrary?.openDashboardPopupWaterTank !== "function"
             ) {
-              throw new Error(
-                "Water tank modal not available. Please update MyIO library."
-              );
+              const errorMsg = "Water tank modal not available. Please update MyIO library.";
+              LogHelper.error("[TELEMETRY v5] ❌", errorMsg);
+              throw new Error(errorMsg);
             }
 
             // For TANK/CAIXA_DAGUA: get water level from telemetry
@@ -1131,6 +1146,8 @@ function renderList(visible) {
               water_level: waterLevel,
               water_percentage: waterPercentage,
               currentLevel: currentLevel,
+              it_perc: it.perc,
+              it_val: it.val
             });
 
             LogHelper.log(
@@ -1148,6 +1165,8 @@ function renderList(visible) {
                 currentLevel: currentLevel,
               }
             );
+
+            LogHelper.log("[TELEMETRY v5] ⏳ About to call openDashboardPopupWaterTank...");
 
             const modalHandle = await MyIOLibrary.openDashboardPopupWaterTank({
               deviceId: it.id,
@@ -1173,7 +1192,7 @@ function renderList(visible) {
               ],
               onOpen: (context) => {
                 LogHelper.log(
-                  "[TELEMETRY v5] Water tank modal opened",
+                  "[TELEMETRY v5] ✅ Water tank modal opened successfully!",
                   context
                 );
                 if (loadingToast) loadingToast.hide();
@@ -1181,11 +1200,11 @@ function renderList(visible) {
               },
               onClose: () => {
                 LogHelper.log(
-                  "[TELEMETRY v5] Water tank modal onClose callback triggered"
+                  "[TELEMETRY v5] 🚪 Water tank modal onClose callback triggered"
                 );
               },
               onError: (error) => {
-                LogHelper.error("[TELEMETRY v5] Water tank modal error", error);
+                LogHelper.error("[TELEMETRY v5] ❌ Water tank modal error:", error);
                 if (loadingToast) loadingToast.hide();
                 hideBusy();
                 if (MyIOToast) {
@@ -1197,7 +1216,7 @@ function renderList(visible) {
             });
 
             LogHelper.log(
-              "[TELEMETRY v5] Water tank modal handle received:",
+              "[TELEMETRY v5] ✅ Water tank modal handle received:",
               modalHandle
             );
           } else {
