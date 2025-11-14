@@ -474,8 +474,8 @@ export function renderCardComponentV5({
     document.head.appendChild(style);
   }
 
-  // Get device image URL
-  const getDeviceImageUrl = (deviceType) => {
+  // Get device image URL with dynamic level support for TANK devices
+  const getDeviceImageUrl = (deviceType, percentage = 0) => {
     // Normalize device type
     function normalizeString(str) {
       if (typeof str !== 'string') {
@@ -487,7 +487,22 @@ export function renderCardComponentV5({
         .toUpperCase();
     }
 
-    // Device image mapping
+    const nameType = normalizeString(deviceType);
+
+    // TANK devices: Dynamic icon based on water level percentage
+    if (nameType === 'TANK') {
+      if (percentage >= 70) {
+        return "https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq"; // 70-100%
+      } else if (percentage >= 40) {
+        return "https://dashboard.myio-bas.com/api/images/public/4UBbShfXCVWR9wcw6IzVMNran4x1EW5n"; // 40-69%
+      } else if (percentage >= 20) {
+        return "https://dashboard.myio-bas.com/api/images/public/aB9nX28F54fBBQs1Ht8jKUdYAMcq9QSm"; // 20-39%
+      } else {
+        return "https://dashboard.myio-bas.com/api/images/public/qLdwhV4qw295poSCa7HinpnmXoN7dAPO"; // 0-19%
+      }
+    }
+
+    // Standard device image mapping (non-TANK devices)
     const deviceImages = {
       MOTOR: "https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT",
       "3F_MEDIDOR": "https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k",
@@ -500,12 +515,11 @@ export function renderCardComponentV5({
     };
 
     const defaultImage = "https://cdn-icons-png.flaticon.com/512/1178/1178428.png";
-    const nameType = normalizeString(deviceType);
     return deviceImages[nameType] || defaultImage;
   };
 
   // Create custom card HTML
-  const deviceImageUrl = getDeviceImageUrl(deviceType);
+  const deviceImageUrl = getDeviceImageUrl(deviceType, perc);
 
   // Create card HTML with optimized spacing
   const cardHTML = `
@@ -526,7 +540,7 @@ export function renderCardComponentV5({
 
               <div class="device-title-row" style="flex-direction: column; min-height: 38px; text-align: center; width: 100%;">
                 <span class="device-title" title="${cardEntity.name}">
-                  ${cardEntity.name.length > 15 ? cardEntity.name.slice(0, 15) + "…" : cardEntity.name}
+                  ${cardEntity.name.length > 18 ? cardEntity.name.slice(0, 18) + "…" : cardEntity.name}
                 </span>
                 ${deviceIdentifier ? `
                   <span class="device-subtitle" title="${deviceIdentifier}">
@@ -677,7 +691,7 @@ export function renderCardComponentV5({
 
       .device-card-centered .device-title {
         font-weight: 700 !important;
-        font-size: 0.85rem !important;
+        font-size: 0.80rem !important;
         color: #1e293b !important;
         margin: 0 0 4px 0 !important;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
