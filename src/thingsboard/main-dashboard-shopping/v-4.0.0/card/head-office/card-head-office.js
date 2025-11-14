@@ -335,7 +335,7 @@ function buildDOM(state) {
   const chipShopping = document.createElement('span');
   chipShopping.className = 'myio-ho-card__shopping-chip';
   const chipIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="chip-icon"><path d="M4 22h16"/><path d="M7 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M9 18h6"/><path d="M9 14h6"/><path d="M9 10h6"/><path d="M9 6h6"/></svg>`;
-  chipShopping.innerHTML = `${chipIcon}<span>${entityObject.shoppingName}</span>`;
+  chipShopping.innerHTML = `${chipIcon}<span>${entityObject.customerName}</span>`;
   chipsRow.appendChild(chipShopping); // Adiciona ao novo container
   
   root.appendChild(chipsRow); // Adiciona o novo container ao root

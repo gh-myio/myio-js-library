@@ -323,15 +323,15 @@ export const CSS_STRING = `
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  
+
   /* Cores baseadas na imagem "Mont Serrat" */
   background-color: #EBF4FF; /* Fundo azul bem claro */
   border: 1px solid #BEE3F8; /* Borda azul clara */
   color: #2C5282; /* Texto azul escuro */
-  
+
   border-radius: 8px;
   padding: 4px 10px;
-  font-size: 13px; 
+  font-size: 11px;
   font-weight: 500;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   white-space: nowrap;
