@@ -203,6 +203,7 @@
 .chip{
   display:inline-flex; align-items:center; gap:6px;
   font-weight: 700; font-size: .95rem; margin-top: 6px;
+  border: none !important;
 }
 .chip.ok{ color:#1f9d55; }
 .chip.warn{ color:#d97706; }

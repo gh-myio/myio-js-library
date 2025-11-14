@@ -709,6 +709,7 @@ const MyIOOrchestrator = (() => {
   }
 
   function getCache(domain = "energy") {
+    
     if (domain === "water") {
       return waterCache;
     }
@@ -837,6 +838,7 @@ const MyIOOrchestrator = (() => {
     fetchWaterData,
     getCache,
     getEnergyCache: getCache, // Alias for ENERGY widget compatibility
+    getWaterCache: () => getCache('water'), // Alias for WATER widget compatibility
     getCachedDevice,
     invalidateCache,
     // RFC-0057: Removed clearStorageCache - no longer using localStorage

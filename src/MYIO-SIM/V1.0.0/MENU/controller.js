@@ -547,6 +547,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             stateId: "content_temperature",
             state: "W3siaWQiOiJjb250ZW50X3RlbXBlcmF0dXJlIiwicGFyYW1zIjp7fX1d",
         },
+        lojasButton: {
+            stateId: "store_telemetry",
+            state: "W3siaWQiOiJzdG9yZV90ZWxlbWV0cnkiLCJwYXJhbXMiOnt9fV0%253D",
+        }
     };
 
     const mainView = document.querySelector("#mainView");

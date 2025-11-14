@@ -1544,6 +1544,9 @@ window.addEventListener('myio:filter-applied', (ev) => {
     if (window.MyIOOrchestrator?.getEnergyCache) {
         updateEnergyCard(window.MyIOOrchestrator.getEnergyCache());
     }
+    if (window.MyIOOrchestrator?.getWaterCache) {
+        updateWaterCard(window.MyIOOrchestrator.getWaterCache());
+    }
 });
 
 self.onDataUpdated = function () {

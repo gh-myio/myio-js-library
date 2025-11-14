@@ -1,81 +1,74 @@
 <section class="myio-toolbar-root">
-  <!-- ====== ABA / TABS + FILTRO ====== -->
-  <div class="myio-tabs-row">
-    <nav class="myio-tabs" role="tablist" aria-label="Seções">
-      <button
-        id="equipmentsButton"
-        class="tab is-active"
-        data-target="content_equipments"
-      >
-        <span class="ico">⚙️</span> Equipamentos
-      </button>
-      <button id="energyButton" class="tab" data-target="content_energy">
-        <span class="ico">⚡</span> Energia
-      </button>
-      <button id="waterButton" class="tab" data-target="content_water">
-        <span class="ico">💧</span> Água
-      </button>
-      <button
-        id="temperatureButton"
-        class="tab"
-        data-target="content_temperature"
-      >
-        <span class="ico">🌡️</span> Temperatura
-      </button>
-    </nav>
+    <!-- ====== ABA / TABS + FILTRO ====== -->
+    <div class="myio-tabs-row">
+        <nav class="myio-tabs" role="tablist"
+            aria-label="Seções">
+            <button id="equipmentsButton"
+                class="tab is-active"
+                data-target="content_equipments">
+                <span class="ico">⚙️</span> Equipamentos
+            </button>
+            <button id="lojasButton" class="tab"
+                data-target="store_telemetry">
+                <span class="ico">🏬</span> Lojas
+            </button>
+            <button id="energyButton" class="tab"
+                data-target="content_energy">
+                <span class="ico">⚡</span> Energia
+            </button>
+            <button id="waterButton" class="tab"
+                data-target="content_water">
+                <span class="ico">💧</span> Água
+            </button>
+            <button id="temperatureButton" class="tab"
+                data-target="content_temperature">
+                <span class="ico">🌡️</span> Temperatura
+            </button>
+        </nav>
 
-    <button class="myio-filter-btn" id="filterBtn" type="button" title="Filtro">
-      <span class="ico">⎇</span> Filtro
-    </button>
+        <button class="myio-filter-btn" id="filterBtn"
+            type="button" title="Filtro">
+            <span class="ico">⎇</span> Filtro
+        </button>
 
-    <!-- range -->
-    <button style="min-width: 350px" class="tab">
-      <span class="ico">📅</span>
-      <input
-        style="
+        <!-- range -->
+        <button style="min-width: 350px" class="tab">
+            <span class="ico">📅</span>
+            <input style="
           width: 100%;
           height: 100%;
           border: none;
           cursor: pointer;
           text-align: center;
-        "
-        type="text"
-        name="startDatetimes"
-        placeholder="Digite a data ou período"
-        readonly
-        title="Clique aqui para alterar o intervalo de datas"
-      />
-    </button>
+        " type="text" name="startDatetimes"
+                placeholder="Digite a data ou período"
+                readonly
+                title="Clique aqui para alterar o intervalo de datas" />
+        </button>
 
-    <button
-      id="load-button"
-      class="tab"
-      style="color: white !important; background-color: #6a1b9a !important;"
-    >
-      <i class="material-icons" style="color: white !important;">refresh</i>
-      Carregar
-    </button>
+        <button id="load-button" class="tab"
+            style="color: white !important; background-color: #6a1b9a !important;">
+            <i class="material-icons"
+                style="color: white !important;">refresh</i>
+            Carregar
+        </button>
 
-    <!-- Botão Limpar (Force Refresh) -->
-    <button
-      id="myio-clear-btn"
-      class="tab"
-      style="color: white !important; background-color: #d32f2f !important;"
-      title="Limpar cache e recarregar (use se os dados ficarem travados)"
-    >
-      <i class="material-icons" style="color: white !important;">delete_sweep</i>
-      Limpar
-    </button>
+        <!-- Botão Limpar (Force Refresh) -->
+        <button id="myio-clear-btn" class="tab"
+            style="color: white !important; background-color: #d32f2f !important;"
+            title="Limpar cache e recarregar (use se os dados ficarem travados)">
+            <i class="material-icons"
+                style="color: white !important;">delete_sweep</i>
+            Limpar
+        </button>
 
-    <!-- Botão Metas (Goals Panel) -->
-    <button
-      id="myio-goals-btn"
-      class="tab"
-      style="color: white !important; background-color: #6a1b9a !important;"
-      title="Configurar metas de consumo de energia e água"
-    >
-      <i class="material-icons" style="color: white !important;">flag</i>
-      Metas
-    </button>
-  </div>
+        <!-- Botão Metas (Goals Panel) -->
+        <button id="myio-goals-btn" class="tab"
+            style="color: white !important; background-color: #6a1b9a !important;"
+            title="Configurar metas de consumo de energia e água">
+            <i class="material-icons"
+                style="color: white !important;">flag</i>
+            Metas
+        </button>
+    </div>
 </section>

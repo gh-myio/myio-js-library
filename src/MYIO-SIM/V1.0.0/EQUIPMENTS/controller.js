@@ -904,6 +904,7 @@ function initializeCards(devices) {
 
         //console.log("[EQUIPMENTS] ", device.deviceStatus);
         console.log("[EQUIPMENTS] device.deviceStatus:", device.deviceStatus);
+        console.log('[EQUIPMENTS] device.lastConnectTime:', device.lastConnectTime);
         
 
         try {
