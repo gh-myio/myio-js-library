@@ -841,27 +841,34 @@ function buildAuthoritativeItems() {
       deviceTypeToDisplay = deviceProfile;
     }
 
-    // For TANK/CAIXA_DAGUA devices: extract telemetry data (water_level, water_percentage)
-    // These devices don't use /totals API, they use direct telemetry from ThingsBoard
+    // Extract telemetry data from ThingsBoard ctx.data
+    // - TANK/CAIXA_DAGUA: water_level, water_percentage
+    // - ENERGY devices: consumption (most recent value)
     let waterLevel = null;
     let waterPercentage = null;
+    let consumption = null;
     const isTankDevice = deviceTypeToDisplay === "TANK" || deviceTypeToDisplay === "CAIXA_DAGUA";
 
-    if (isTankDevice && tbId) {
-      // Search for water_level and water_percentage in ctx.data for this specific device
+    if (tbId) {
+      // Search for telemetry in ctx.data for this specific device
       const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
       for (const row of rows) {
         const rowTbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
         if (rowTbId === tbId) {
           const key = String(row?.dataKey?.name || "").toLowerCase();
-          const val = row?.data?.[0]?.[1];
+          const val = row?.data?.[0]?.[1]; // Most recent value
+
+          // TANK specific telemetry
           if (key === "water_level") waterLevel = Number(val) || 0;
           if (key === "water_percentage") waterPercentage = Number(val) || 0;
+
+          // ENERGY/WATER devices: consumption (most recent)
+          if (key === "consumption") consumption = Number(val) || 0;
         }
       }
     }
 
-    // Calculate deviceStatus based on connectionStatus and value
+    // Calculate deviceStatus based on connectionStatus and current telemetry value
     // connectionStatus comes from TB attribute: "online" or "offline"
     const tbConnectionStatus = attrs.connectionStatus; // "online" or "offline" from TB
     let deviceStatus = "no_info"; // default
@@ -869,8 +876,13 @@ function buildAuthoritativeItems() {
     if (tbConnectionStatus === "offline") {
       deviceStatus = "no_info"; // offline = no_info
     } else if (tbConnectionStatus === "online") {
-      // If online, check if device has value > 0 (power_on) or == 0 (power_off)
-      const currentValue = isTankDevice ? (waterLevel || 0) : 0;
+      // If online, check if device has recent consumption/level > 0
+      let currentValue = 0;
+      if (isTankDevice) {
+        currentValue = waterLevel || 0;
+      } else {
+        currentValue = consumption || 0;
+      }
       deviceStatus = currentValue > 0 ? "power_on" : "power_off";
     }
 
@@ -1025,7 +1037,8 @@ function renderList(visible) {
 
   visible.forEach((it) => {
     const valNum = Number(it.value || 0);
-    const connectionStatus = valNum > 0 ? "power_on" : "power_off";
+    // Note: deviceStatus comes from buildAuthoritativeItems (based on TB connectionStatus + telemetry)
+    // Don't recalculate here - it would be incorrect for ENERGY devices
 
     // RFC-0063: Safe identifier handling with fallbacks
     let deviceIdentifierToDisplay = "N/A";
@@ -1063,7 +1076,7 @@ function renderList(visible) {
       deviceType: it.label.includes("dministra") ? "3F_MEDIDOR" : it.deviceType,
       val: valNum, // TODO verificar ESSE MULTIPLICADOR PQ PRECISA DELE ?
       perc: it.perc ?? 0,
-      deviceStatus: it.deviceStatus || connectionStatus, // Use from buildAuthoritativeItems or fallback to calculated
+      deviceStatus: it.deviceStatus || "no_info", // Use from buildAuthoritativeItems (based on TB connectionStatus + telemetry)
       entityType: "DEVICE",
       deviceIdentifier: deviceIdentifierToDisplay,
       slaveId: it.slaveId || "N/A",
