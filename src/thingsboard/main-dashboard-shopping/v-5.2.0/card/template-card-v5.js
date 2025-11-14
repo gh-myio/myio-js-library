@@ -58,7 +58,9 @@ export function renderCardComponentV5({
     centralName,
     connectionStatusTime,
     timeVal,
-    customerName
+    customerName,
+    waterLevel,
+    waterPercentage
   } = entityObject;
 
   /*********************************************************
@@ -519,7 +521,11 @@ export function renderCardComponentV5({
   };
 
   // Create custom card HTML
-  const deviceImageUrl = getDeviceImageUrl(deviceType, perc);
+  // For TANK devices, waterPercentage is 0-1, so multiply by 100
+  // For other devices, perc is already 0-100
+  const isTankDevice = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
+  const percentageForDisplay = isTankDevice ? (waterPercentage || 0) * 100 : perc;
+  const deviceImageUrl = getDeviceImageUrl(deviceType, percentageForDisplay);
 
   // Create card HTML with optimized spacing
   const cardHTML = `
@@ -567,7 +573,7 @@ export function renderCardComponentV5({
                     ${icon}
                   </span>
                   <span class="consumption-value">${formatCardValue(cardEntity.lastValue, deviceType)}</span>
-                  <span class="device-title-percent">(${perc.toFixed(1)}%)</span>
+                  <span class="device-title-percent">(${percentageForDisplay.toFixed(1)}%)</span>
                 </div>
               </div>
             </div>
