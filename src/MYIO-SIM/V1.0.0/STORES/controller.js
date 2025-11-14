@@ -978,6 +978,38 @@ function recomputePercentages(visible) {
   return { visible: updated, groupSum };
 }
 
+/**
+ * Get shopping name for a device
+ * @param {Object} device - Device object
+ * @returns {string} Shopping name or fallback
+ */
+function getShoppingNameForDevice(device) {
+  // Priority 1: Check if customerId exists and look it up
+  if (device.customerId && window.custumersSelected && Array.isArray(window.custumersSelected)) {
+    const shopping = window.custumersSelected.find(c => c.value === device.customerId);
+    if (shopping) return shopping.name;
+  }
+
+  // Priority 2: Try to get from energyCache via ingestionId
+  if (device.ingestionId) {
+    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+    if (orchestrator && typeof orchestrator.getEnergyCache === 'function') {
+      const energyCache = orchestrator.getEnergyCache();
+      const cached = energyCache.get(device.ingestionId);
+      if (cached && cached.customerName) {
+        return cached.customerName;
+      }
+    }
+  }
+
+  // Priority 3: Fallback to customerId substring
+  if (device.customerId) {
+    return `Shopping ${device.customerId.substring(0, 8)}...`;
+  }
+
+  return 'N/A';
+}
+
 /** ===================== RENDER ===================== **/
 function renderHeader(count, groupSum) {
   $count().text(`(${count})`);
@@ -1032,6 +1064,9 @@ function renderList(visible) {
       }
     }
 
+    // Get shopping name for this device
+    const customerName = getShoppingNameForDevice(it);
+
     const entityObject = {
       entityId: it.tbId || it.id, // preferir TB deviceId
       labelOrName: it.label,
@@ -1045,6 +1080,7 @@ function renderList(visible) {
       ingestionId: it.ingestionId || "N/A",
       centralId: it.centralId || "N/A",
       centralName: it.centralName || "N/A",
+      customerName: customerName, // Shopping name
       updatedIdentifiers: it.updatedIdentifiers || {},
       connectionStatusTime: it.connectionStatusTime || Date.now(),
       timeVal: it.timeVal || Date.now(),

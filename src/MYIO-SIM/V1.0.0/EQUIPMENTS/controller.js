@@ -723,11 +723,11 @@ function closeExistingModals() {
 }
 
 /**
- * RFC-0072: Get shopping name for a device
+ * RFC-0072: Get customer name for a device
  * @param {Object} device - Device object
- * @returns {string} Shopping name or fallback
+ * @returns {string} Customer name or fallback
  */
-function getShoppingNameForDevice(device) {
+function getCustomerNameForDevice(device) {
   // Priority 1: Check if customerId exists and look it up
   if (device.customerId && window.custumersSelected && Array.isArray(window.custumersSelected)) {
     const shopping = window.custumersSelected.find(c => c.value === device.customerId);
@@ -778,8 +778,15 @@ function initializeCards(devices) {
       device.deviceStatus = device.connectionStatus;
     }
     
-    const shoppingName = getShoppingNameForDevice(device);
-    device.shoppingName = shoppingName;
+    const customerName = getCustomerNameForDevice(device);
+    device.customerName = customerName;
+
+    console.log("[EQUIPMENTS] Device customerName set:", {
+      labelOrName: device.labelOrName,
+      customerName: device.customerName,
+      customerId: device.customerId,
+      ingestionId: device.ingestionId
+    });
 
     if (device.labelOrName && device.labelOrName.includes("Chiller 1")) {
       console.log("[EQUIPMENTS] Rendering card for Chiller 1 device:", device);
@@ -915,7 +922,7 @@ function initializeCards(devices) {
             jwtToken: jwt,
             domain: "energy", // Same as TELEMETRY WIDGET_DOMAIN
             connectionData: {
-              centralName: device.centralName || getShoppingNameForDevice(device),
+              centralName: device.centralName || getCustomerNameForDevice(device),
               connectionStatusTime: device.lastConnectTime,
               timeVal: device.lastActivityTime || new Date('1970-01-01').getTime(),
               deviceStatus: device.deviceStatus || 'offline',
