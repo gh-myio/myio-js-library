@@ -849,14 +849,34 @@ function buildAuthoritativeItems() {
       tbId = tbFromIngestion;
     }
 
-    const attrs = tbId ? attrsByTb.get(tbId) || {} : {};    
-    const deviceProfile = attrs.deviceProfile || "N/D";    
+    const attrs = tbId ? attrsByTb.get(tbId) || {} : {};
+    const deviceProfile = attrs.deviceProfile || "N/D";
     let deviceTypeToDisplay = attrs.deviceType || "3F_MEDIDOR";
 
     if (deviceTypeToDisplay === "3F_MEDIDOR" && deviceProfile !== "N/D") {
       deviceTypeToDisplay = deviceProfile;
     }
-    
+
+    // For TANK/CAIXA_DAGUA devices: extract telemetry data (water_level, water_percentage)
+    // These devices don't use /totals API, they use direct telemetry from ThingsBoard
+    let waterLevel = null;
+    let waterPercentage = null;
+    const isTankDevice = deviceTypeToDisplay === "TANK" || deviceTypeToDisplay === "CAIXA_DAGUA";
+
+    if (isTankDevice && tbId) {
+      // Search for water_level and water_percentage in ctx.data for this specific device
+      const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+      for (const row of rows) {
+        const rowTbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
+        if (rowTbId === tbId) {
+          const key = String(row?.dataKey?.name || "").toLowerCase();
+          const val = row?.data?.[0]?.[1];
+          if (key === "water_level") waterLevel = Number(val) || 0;
+          if (key === "water_percentage") waterPercentage = Number(val) || 0;
+        }
+      }
+    }
+
     return {
       id: tbId || ingestionId, // para seleção/toggle
       tbId, // ThingsBoard deviceId (Settings)
@@ -870,6 +890,12 @@ function buildAuthoritativeItems() {
       updatedIdentifiers: {},
       connectionStatusTime: attrs.lastConnectTime ?? null,
       timeVal: attrs.lastActivityTime ?? null,
+      // TANK/CAIXA_DAGUA specific fields
+      waterLevel: waterLevel,
+      waterPercentage: waterPercentage,
+      // Use waterLevel as the value for TANK devices (instead of from /totals API)
+      value: isTankDevice ? (waterLevel || 0) : 0,
+      perc: isTankDevice ? (waterPercentage || 0) : 0,
     };
   });
 
@@ -2600,6 +2626,9 @@ self.onInit = async function () {
     STATE.itemsEnriched = STATE.itemsBase.map((tbItem) => {
       const orchestratorValue = orchestratorValues.get(tbItem.ingestionId);
 
+      // TANK/CAIXA_DAGUA devices: use telemetry data from TB, NOT from orchestrator API
+      const isTankDevice = tbItem.deviceType === "TANK" || tbItem.deviceType === "CAIXA_DAGUA";
+
       // DEBUG: Log matching process for all items
       if (orchestratorValue !== undefined && orchestratorValue > 0) {
         //LogHelper.log(`[TELEMETRY] ✅ MATCH FOUND: ${tbItem.label} (ingestionId: ${tbItem.ingestionId}) = ${orchestratorValue}`);
@@ -2607,6 +2636,17 @@ self.onInit = async function () {
         //LogHelper.warn(`[TELEMETRY] ❌ NO MATCH: ${tbItem.label} (ingestionId: ${tbItem.ingestionId}), orchestrator=${orchestratorValue}, TB=${tbItem.value}`);
       }
 
+      // For TANK devices, preserve the telemetry values (don't overwrite with API)
+      if (isTankDevice) {
+        return {
+          ...tbItem,
+          // Keep the values from buildAuthoritativeItems (waterLevel, waterPercentage)
+          value: tbItem.value || 0,
+          perc: tbItem.perc || 0,
+        };
+      }
+
+      // For other devices, use orchestrator API values
       return {
         ...tbItem,
         value:
