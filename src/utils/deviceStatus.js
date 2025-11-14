@@ -46,6 +46,21 @@ export const deviceStatusIcons = {
 };
 
 /**
+ * Water device status icons mapping (for TANK/CAIXA_DAGUA)
+ * @type {Object.<string, string>}
+ */
+export const waterDeviceStatusIcons = {
+  [DeviceStatusType.POWER_ON]: "💧",
+  [DeviceStatusType.STANDBY]: "🚰",
+  [DeviceStatusType.POWER_OFF]: "🔴",
+  [DeviceStatusType.WARNING]: "⚠️",
+  [DeviceStatusType.FAILURE]: "🚨",
+  [DeviceStatusType.MAINTENANCE]: "🛠️",
+  [DeviceStatusType.NO_INFO]: "❓️",
+  [DeviceStatusType.NOT_INSTALLED]: "📦",
+};
+
+/**
  * Connection status icons mapping
  * @type {Object.<string, string>}
  */
@@ -118,10 +133,15 @@ export function isDeviceOffline(deviceStatus) {
  * Gets the appropriate icon for a device status
  *
  * @param {string} deviceStatus - The device status
+ * @param {string} deviceType - The device type (optional, for water devices like TANK/CAIXA_DAGUA)
  * @returns {string} The icon emoji/character
  */
-export function getDeviceStatusIcon(deviceStatus) {
-  return deviceStatusIcons[deviceStatus] || deviceStatusIcons[DeviceStatusType.POWER_ON];
+export function getDeviceStatusIcon(deviceStatus, deviceType = null) {
+  // Use water icons for TANK/CAIXA_DAGUA devices
+  const isWaterDevice = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
+  const iconMap = isWaterDevice ? waterDeviceStatusIcons : deviceStatusIcons;
+
+  return iconMap[deviceStatus] || iconMap[DeviceStatusType.POWER_ON];
 }
 
 /**

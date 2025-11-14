@@ -764,7 +764,7 @@ async function ensureAuthReady(maxMs = 6000, stepMs = 150) {
 
 /** ===================== TB INDEXES ===================== **/
 function buildTbAttrIndex() {
-  const byTbId = new Map(); // tbId -> { slaveId, centralId, deviceType, centralName, lastConnectTime, lastActivityTime }
+  const byTbId = new Map(); // tbId -> { slaveId, centralId, deviceType, centralName, lastConnectTime, lastActivityTime, connectionStatus }
   const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
   for (const row of rows) {
     const key = String(row?.dataKey?.name || "").toLowerCase();
@@ -780,6 +780,7 @@ function buildTbAttrIndex() {
         centralName: null,
         lastConnectTime: null,
         lastActivityTime: null,
+        connectionStatus: null,
       });
     const slot = byTbId.get(tbId);
     if (key === "slaveid") slot.slaveId = val;
@@ -789,6 +790,7 @@ function buildTbAttrIndex() {
     if (key === "centralname") slot.centralName = val;
     if (key === "lastconnecttime") slot.lastConnectTime = val;
     if (key === "lastactivitytime") slot.lastActivityTime = val;
+    if (key === "connectionstatus") slot.connectionStatus = String(val).toLowerCase();
   }
   return byTbId;
 }
@@ -877,6 +879,19 @@ function buildAuthoritativeItems() {
       }
     }
 
+    // Calculate deviceStatus based on connectionStatus and value
+    // connectionStatus comes from TB attribute: "online" or "offline"
+    const tbConnectionStatus = attrs.connectionStatus; // "online" or "offline" from TB
+    let deviceStatus = "no_info"; // default
+
+    if (tbConnectionStatus === "offline") {
+      deviceStatus = "no_info"; // offline = no_info
+    } else if (tbConnectionStatus === "online") {
+      // If online, check if device has value > 0 (power_on) or == 0 (power_off)
+      const currentValue = isTankDevice ? (waterLevel || 0) : 0;
+      deviceStatus = currentValue > 0 ? "power_on" : "power_off";
+    }
+
     return {
       id: tbId || ingestionId, // para seleção/toggle
       tbId, // ThingsBoard deviceId (Settings)
@@ -890,6 +905,7 @@ function buildAuthoritativeItems() {
       updatedIdentifiers: {},
       connectionStatusTime: attrs.lastConnectTime ?? null,
       timeVal: attrs.lastActivityTime ?? null,
+      deviceStatus: deviceStatus, // Calculated based on connectionStatus + value
       // TANK/CAIXA_DAGUA specific fields
       waterLevel: waterLevel,
       waterPercentage: waterPercentage,
@@ -1064,7 +1080,7 @@ function renderList(visible) {
       deviceType: it.label.includes("dministra") ? "3F_MEDIDOR" : it.deviceType,
       val: valNum, // TODO verificar ESSE MULTIPLICADOR PQ PRECISA DELE ?
       perc: it.perc ?? 0,
-      deviceStatus: connectionStatus, // "power_on" | "power_off"
+      deviceStatus: it.deviceStatus || connectionStatus, // Use from buildAuthoritativeItems or fallback to calculated
       entityType: "DEVICE",
       deviceIdentifier: deviceIdentifierToDisplay,
       slaveId: it.slaveId || "N/A",
@@ -1074,6 +1090,9 @@ function renderList(visible) {
       updatedIdentifiers: it.updatedIdentifiers || {},
       connectionStatusTime: it.connectionStatusTime || Date.now(),
       timeVal: it.timeVal || Date.now(),
+      // TANK/CAIXA_DAGUA specific fields
+      waterLevel: it.waterLevel || null,
+      waterPercentage: it.waterPercentage || null,
     };
 
     if (it.label === "Allegria") {
@@ -2640,9 +2659,11 @@ self.onInit = async function () {
       if (isTankDevice) {
         return {
           ...tbItem,
-          // Keep the values from buildAuthoritativeItems (waterLevel, waterPercentage)
+          // Keep ALL values from buildAuthoritativeItems (waterLevel, waterPercentage, value, perc)
           value: tbItem.value || 0,
           perc: tbItem.perc || 0,
+          waterLevel: tbItem.waterLevel || 0,
+          waterPercentage: tbItem.waterPercentage || 0,
         };
       }
 

@@ -188,7 +188,7 @@ export function renderCardComponentV5({
   const connectionStatus = mapDeviceToConnectionStatus(deviceStatus);
   const isOffline = isDeviceOffline(deviceStatus);
   const shouldFlashIcon = shouldIconFlash(deviceStatus);
-  const icon = getDeviceStatusIcon(deviceStatus);
+  const icon = getDeviceStatusIcon(deviceStatus, deviceType); // Pass deviceType for water device icons
   const connectionIcon = getConnectionStatusIcon(connectionStatus);
 
   // Map device type to icon

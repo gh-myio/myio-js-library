@@ -51,6 +51,7 @@ export {
   DeviceStatusType,
   ConnectionStatusType,
   deviceStatusIcons,
+  waterDeviceStatusIcons,
   connectionStatusIcons,
   mapDeviceToConnectionStatus,
   mapDeviceStatusToCardStatus,
