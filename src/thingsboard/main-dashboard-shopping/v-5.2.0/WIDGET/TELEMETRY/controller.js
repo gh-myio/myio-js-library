@@ -756,7 +756,9 @@ function buildTbAttrIndex() {
         slaveId: null,
         centralId: null,
         deviceType: null,
+        deviceProfile: null,
         centralName: null,
+        customerName: null,
         lastConnectTime: null,
         lastActivityTime: null,
         connectionStatus: null,
@@ -767,6 +769,7 @@ function buildTbAttrIndex() {
     if (key === "devicetype") slot.deviceType = val;
     if (key === "deviceprofile") slot.deviceProfile = val;
     if (key === "centralname") slot.centralName = val;
+    if (key === "customername") slot.customerName = val;
     if (key === "lastconnecttime") slot.lastConnectTime = val;
     if (key === "lastactivitytime") slot.lastActivityTime = val;
     if (key === "connectionstatus") slot.connectionStatus = String(val).toLowerCase();
@@ -880,6 +883,7 @@ function buildAuthoritativeItems() {
       slaveId: attrs.slaveId ?? null,
       centralId: attrs.centralId ?? null,
       centralName: attrs.centralName ?? null,
+      customerName: attrs.customerName ?? null,
       deviceType: deviceTypeToDisplay,
       updatedIdentifiers: {},
       connectionStatusTime: attrs.lastConnectTime ?? null,
@@ -1065,7 +1069,8 @@ function renderList(visible) {
       slaveId: it.slaveId || "N/A",
       ingestionId: it.ingestionId || "N/A",
       centralId: it.centralId || "N/A",
-      centralName: it.centralName || "N/A",
+      centralName: it.centralName || "",
+      customerName: it.customerName || null,
       updatedIdentifiers: it.updatedIdentifiers || {},
       connectionStatusTime: it.connectionStatusTime || Date.now(),
       timeVal: it.timeVal || Date.now(),
