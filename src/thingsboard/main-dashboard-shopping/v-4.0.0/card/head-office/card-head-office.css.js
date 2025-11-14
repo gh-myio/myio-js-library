@@ -599,11 +599,12 @@ export const CSS_STRING = `
   text-align: right;
 }
 
-/* Footer metrics */
+/* Footer metrics - Now with 2 columns (removed temperature) */
 .myio-ho-card__footer {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 0 8px;
 }
 
 .myio-ho-card__footer .metric {
@@ -615,24 +616,26 @@ export const CSS_STRING = `
 }
 
 .myio-ho-card__footer .metric .ico {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   color: var(--myio-muted);
   flex-shrink: 0;
 }
 
 .myio-ho-card__footer .metric .label {
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--myio-muted);
   font-weight: 500;
   line-height: 1.2;
 }
 
 .myio-ho-card__footer .metric .val {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--myio-text-1);
-  line-height: 1;
+  line-height: 1.3;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 /* Drag and drop states */

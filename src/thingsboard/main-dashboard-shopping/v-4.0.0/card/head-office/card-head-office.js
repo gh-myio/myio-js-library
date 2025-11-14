@@ -132,21 +132,21 @@ function formatOperationHours(hours) {
 }
 
 /**
- * Format relative time
+ * Format timestamp to "HH:mm DD/MM/YYYY" format
+ * Always shows the actual datetime, never shows "agora"
  */
 function formatRelativeTime(timestamp) {
-  if (!timestamp) return '—';
-  
-  const now = Date.now();
-  const diff = now - timestamp;
-  const minutes = Math.floor(diff / (1000 * 60));
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
+  if (!timestamp || isNaN(timestamp)) return '—';
 
-  if (days > 0) return `${days}d`;
-  if (hours > 0) return `${hours}h`;
-  if (minutes > 0) return `${minutes}m`;
-  return 'agora';
+  const date = new Date(timestamp);
+
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+
+  return `${hours}:${minutes} ${day}/${month}/${year}`;
 }
 
 /**
