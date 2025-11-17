@@ -247,93 +247,83 @@ async function syncDeviceProfileAttributes() {
 }
 
 // ============================================
-// RFC-0077: DYNAMIC CONSUMPTION LIMITS
+// RFC-0078: UNIFIED JSON POWER LIMITS CONFIGURATION
 // ============================================
-
-/**
- * Device type to attribute suffix mapping
- * Used for customer-level attributes (TIER 2)
- */
-const DEVICE_TYPE_ATTRIBUTE_MAP = {
-  'ELEVADOR': 'Elevator',
-  'ELEVATOR': 'Elevator',
-  'ESCADA_ROLANTE': 'Escalator',
-  'ESCALATOR': 'Escalator',
-  'MOTOR': 'Motor',
-  'BOMBA': 'Motor',
-  'PUMP': 'Motor',
-  'CHILLER': 'Chiller',
-  'AR_CONDICIONADO': 'HVAC',
-  'AC': 'HVAC',
-  'HVAC': 'HVAC',
-  'FANCOIL': 'HVAC',
-};
 
 /**
  * Default consumption ranges for each device type (TIER 3 - fallback)
- * Used when no device or customer attributes are configured
+ * Used when no device or customer JSON configuration exists
  */
 const DEFAULT_CONSUMPTION_RANGES = {
-  'Elevator': {
+  'ELEVADOR': {
     standbyRange: { down: 0, up: 150 },
-    normalRange: { down: 150, up: 800 },
-    alertRange: { down: 800, up: 1200 },
-    failureRange: { down: 1200, up: 99999 }
+    normalRange: { down: 151, up: 800 },
+    alertRange: { down: 801, up: 1200 },
+    failureRange: { down: 1201, up: 99999 }
   },
-  'Escalator': {
+  'ESCADA_ROLANTE': {
     standbyRange: { down: 0, up: 200 },
-    normalRange: { down: 200, up: 1000 },
-    alertRange: { down: 1000, up: 1500 },
-    failureRange: { down: 1500, up: 99999 }
+    normalRange: { down: 201, up: 1000 },
+    alertRange: { down: 1001, up: 1500 },
+    failureRange: { down: 1501, up: 99999 }
   },
-  'Chiller': {
+  'CHILLER': {
     standbyRange: { down: 0, up: 1000 },
-    normalRange: { down: 1000, up: 6000 },
-    alertRange: { down: 6000, up: 8000 },
-    failureRange: { down: 8000, up: 99999 }
+    normalRange: { down: 1001, up: 6000 },
+    alertRange: { down: 6001, up: 8000 },
+    failureRange: { down: 8001, up: 99999 }
+  },
+  'AR_CONDICIONADO': {
+    standbyRange: { down: 0, up: 500 },
+    normalRange: { down: 501, up: 3000 },
+    alertRange: { down: 3001, up: 5000 },
+    failureRange: { down: 5001, up: 99999 }
   },
   'HVAC': {
     standbyRange: { down: 0, up: 500 },
-    normalRange: { down: 500, up: 3000 },
-    alertRange: { down: 3000, up: 5000 },
-    failureRange: { down: 5000, up: 99999 }
+    normalRange: { down: 501, up: 3000 },
+    alertRange: { down: 3001, up: 5000 },
+    failureRange: { down: 5001, up: 99999 }
   },
-  'Motor': {
+  'MOTOR': {
     standbyRange: { down: 0, up: 200 },
-    normalRange: { down: 200, up: 1000 },
-    alertRange: { down: 1000, up: 1500 },
-    failureRange: { down: 1500, up: 99999 }
+    normalRange: { down: 201, up: 1000 },
+    alertRange: { down: 1001, up: 1500 },
+    failureRange: { down: 1501, up: 99999 }
+  },
+  'BOMBA': {
+    standbyRange: { down: 0, up: 200 },
+    normalRange: { down: 201, up: 1000 },
+    alertRange: { down: 1001, up: 1500 },
+    failureRange: { down: 1501, up: 99999 }
   },
   'DEFAULT': {
     standbyRange: { down: 0, up: 100 },
-    normalRange: { down: 100, up: 1000 },
-    alertRange: { down: 1000, up: 2000 },
-    failureRange: { down: 2000, up: 99999 }
+    normalRange: { down: 101, up: 1000 },
+    alertRange: { down: 1001, up: 2000 },
+    failureRange: { down: 2001, up: 99999 }
   }
 };
 
-// Cache for consumption limits
-// Customer-level: Map<customerId, {limits: Object, timestamp: number}>
-// Device-level: Map<deviceId, {limits: Object, timestamp: number}>
-const consumptionLimitsCache = new Map();
-const deviceConsumptionLimitsCache = new Map();
+// Cache for JSON power limits configuration
+// Map<entityId, {json: Object, timestamp: number}>
+const powerLimitsJSONCache = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
- * Fetches device-level consumption limit attributes from ThingsBoard
- * These are device-specific overrides (TIER 1 - highest priority)
- *
- * @param {string} deviceId - Device entity ID
- * @returns {Promise<Object|null>} Device consumption limits or null
+ * RFC-0078: Fetch unified JSON power limits from ThingsBoard entity
+ * @param {string} entityId - Entity ID (device or customer)
+ * @param {string} entityType - 'DEVICE' or 'CUSTOMER'
+ * @returns {Promise<Object|null>} Parsed JSON configuration or null
  */
-async function fetchDeviceConsumptionLimits(deviceId) {
+async function fetchInstantaneousPowerLimits(entityId, entityType = 'CUSTOMER') {
   const token = localStorage.getItem("jwt_token");
   if (!token) {
-    console.warn("[RFC-0077] JWT token not found");
+    console.warn("[RFC-0078] JWT token not found");
     return null;
   }
 
-  const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/SERVER_SCOPE`;
+  const url = `/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
 
   try {
     const response = await fetch(url, {
@@ -344,302 +334,345 @@ async function fetchDeviceConsumptionLimits(deviceId) {
     });
 
     if (!response.ok) {
-      // 404 is expected if device doesn't have custom limits - not an error
       if (response.status === 404) {
-        console.log(`[RFC-0077] No device-level limits for ${deviceId}, will use customer defaults`);
+        console.log(`[RFC-0078] No attributes found for ${entityType} ${entityId}`);
         return null;
       }
-      console.warn(`[RFC-0077] Failed to fetch device attributes: ${response.status}`);
+      console.warn(`[RFC-0078] Failed to fetch ${entityType} attributes: ${response.status}`);
       return null;
     }
 
     const attributes = await response.json();
 
-    // Extract consumption limit attributes (no device-type suffix at device level)
-    const limits = {};
-    for (const attr of attributes) {
-      const key = attr.key;
-      if (key.includes("LimitDownConsumption") || key.includes("LimitUpConsumption")) {
-        limits[key] = Number(attr.value) || 0;
-      }
-    }
+    // Find mapInstantaneousPower attribute
+    const powerLimitsAttr = attributes.find(attr => attr.key === 'mapInstantaneousPower');
 
-    // Check if we have a complete set (8 attributes required)
-    const requiredKeys = [
-      'standbyLimitDownConsumption', 'standbyLimitUpConsumption',
-      'normalLimitDownConsumption', 'normalLimitUpConsumption',
-      'alertLimitDownConsumption', 'alertLimitUpConsumption',
-      'failureLimitDownConsumption', 'failureLimitUpConsumption'
-    ];
-
-    const hasAllKeys = requiredKeys.every(key => limits.hasOwnProperty(key));
-
-    if (!hasAllKeys) {
-      //console.warn(`[RFC-0077] Incomplete device-level limits for ${deviceId}, missing keys`);
+    if (!powerLimitsAttr) {
+      //console.log(`[RFC-0078] mapInstantaneousPower not found on ${entityType} ${entityId}`);
       return null;
     }
 
-    //console.log(`[RFC-0077] ✅ Loaded device-level limits for ${deviceId} (TIER 1)`);
-    return limits;
+    // Parse JSON value
+    let limits;
+    if (typeof powerLimitsAttr.value === 'string') {
+      try {
+        limits = JSON.parse(powerLimitsAttr.value);
+      } catch (parseError) {
+        console.error(`[RFC-0078] Failed to parse JSON for ${entityType} ${entityId}:`, parseError);
+        return null;
+      }
+    } else {
+      limits = powerLimitsAttr.value;
+    }
 
-  } catch (error) {
-    console.error("[RFC-0077] Error fetching device consumption limits:", error);
-    return null;
-  }
-}
-
-/**
- * Fetches consumption limit attributes from ThingsBoard customer entity
- * (TIER 2 - customer-wide defaults)
- *
- * @param {string} customerId - Customer entity ID
- * @returns {Promise<Object|null>} Map of attribute keys to values or null
- */
-async function fetchCustomerConsumptionLimits(customerId) {
-  const token = localStorage.getItem("jwt_token");
-  if (!token) {
-    console.warn("[RFC-0077] JWT token not found, using default limits");
-    return null;
-  }
-
-  const url = `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE`;
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        "X-Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+    console.log(`[RFC-0078] ✅ Loaded mapInstantaneousPower from ${entityType} ${entityId}:`, {
+      version: limits.version,
+      telemetryTypes: limits.limitsByInstantaneoustPowerType?.length || 0
     });
 
-    if (!response.ok) {
-      console.warn(`[RFC-0077] Failed to fetch customer attributes: ${response.status}`);
-      return null;
-    }
-
-    const attributes = await response.json();
-
-    // Filter only consumption limit attributes
-    const limits = {};
-    for (const attr of attributes) {
-      const key = attr.key;
-      if (key.includes("LimitDownConsumption") || key.includes("LimitUpConsumption")) {
-        limits[key] = Number(attr.value) || 0;
-      }
-    }
-
-    console.log(`[RFC-0077] Loaded ${Object.keys(limits).length} consumption limit attributes for customer ${customerId}`);
     return limits;
 
   } catch (error) {
-    console.error("[RFC-0077] Error fetching customer consumption limits:", error);
+    console.error(`[RFC-0078] Error fetching ${entityType} power limits:`, error);
     return null;
   }
 }
 
 /**
- * Gets consumption limits for a customer (with caching)
- * @param {string} customerId - Customer entity ID
- * @returns {Promise<Object|null>} Consumption limits or null
+ * RFC-0078: Extract consumption ranges from unified JSON structure
+ * @param {Object} powerLimitsJSON - The mapInstantaneousPower JSON object
+ * @param {string} deviceType - Device type (e.g., 'ELEVADOR')
+ * @param {string} telemetryType - Telemetry type (default: 'consumption')
+ * @returns {Object|null} Range configuration or null
  */
-async function getCachedConsumptionLimits(customerId) {
-  if (!customerId) return null;
+function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'consumption') {
+  if (!powerLimitsJSON || !powerLimitsJSON.limitsByInstantaneoustPowerType) {
+    return null;
+  }
 
-  // Check cache
-  const cached = consumptionLimitsCache.get(customerId);
+  // Find telemetry type configuration
+  const telemetryConfig = powerLimitsJSON.limitsByInstantaneoustPowerType.find(
+    config => config.telemetryType === telemetryType
+  );
+
+  if (!telemetryConfig) {
+    console.log(`[RFC-0078] Telemetry type ${telemetryType} not found in JSON`);
+    return null;
+  }
+
+  // Find device type configuration
+  const deviceConfig = telemetryConfig.itemsByDeviceType.find(
+    item => item.deviceType === deviceType || item.deviceType === deviceType.toUpperCase()
+  );
+
+  if (!deviceConfig) {
+    console.log(`[RFC-0078] Device type ${deviceType} not found for telemetry ${telemetryType}`);
+    return null;
+  }
+
+  // Extract ranges by status
+  const ranges = {
+    standbyRange: { down: 0, up: 0 },
+    normalRange: { down: 0, up: 0 },
+    alertRange: { down: 0, up: 0 },
+    failureRange: { down: 0, up: 0 }
+  };
+
+  deviceConfig.limitsByDeviceStatus.forEach(status => {
+    const baseValue = status.limitsValues?.baseValue ?? status.limitsVales?.baseValue ?? 0;
+    const topValue = status.limitsValues?.topValue ?? status.limitsVales?.topValue ?? 99999;
+
+    switch (status.deviceStatusName) {
+      case 'standBy':
+        ranges.standbyRange = { down: baseValue, up: topValue };
+        break;
+      case 'normal':
+        ranges.normalRange = { down: baseValue, up: topValue };
+        break;
+      case 'alert':
+        ranges.alertRange = { down: baseValue, up: topValue };
+        break;
+      case 'failure':
+        ranges.failureRange = { down: baseValue, up: topValue };
+        break;
+    }
+  });
+
+  return {
+    ...ranges,
+    source: 'json',
+    tier: 2, // Will be updated to 1 if from device
+    metadata: {
+      name: deviceConfig.name,
+      description: deviceConfig.description,
+      version: powerLimitsJSON.version,
+      telemetryType: telemetryType
+    }
+  };
+}
+
+/**
+ * RFC-0078: Gets default ranges for a device type (TIER 3)
+ * @param {string} deviceType - Device type
+ * @returns {Object} Default ranges
+ */
+function getDefaultRanges(deviceType) {
+  const upperDeviceType = deviceType.toUpperCase();
+  return DEFAULT_CONSUMPTION_RANGES[upperDeviceType] || DEFAULT_CONSUMPTION_RANGES['DEFAULT'];
+}
+
+/**
+ * RFC-0078: Gets cached or fetches power limits JSON
+ * For DEVICE: reads from ctx.data[] with dataKey = mapInstantaneousPower (no API call)
+ * For CUSTOMER: fetches via API
+ * @param {string} entityId - Entity ID
+ * @param {string} entityType - 'DEVICE' or 'CUSTOMER'
+ * @param {Object} ctxData - Optional ctx.data array from widget context (for DEVICE lookups)
+ * @returns {Promise<Object|null>} JSON configuration
+ */
+async function getCachedPowerLimitsJSON(entityId, entityType = 'CUSTOMER', ctxData = null) {
+  if (!entityId) return null;
+
+  const cacheKey = `${entityType}:${entityId}`;
+  const cached = powerLimitsJSONCache.get(cacheKey);
   const now = Date.now();
 
   if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
-    console.log(`[RFC-0077] Using cached customer limits for ${customerId}`);
-    return cached.limits;
+    //console.log(`[RFC-0078] Using cached JSON for ${entityType} ${entityId}`);
+    return cached.json;
   }
 
-  // Fetch fresh data
-  const limits = await fetchCustomerConsumptionLimits(customerId);
+  let json = null;
 
-  if (limits) {
-    consumptionLimitsCache.set(customerId, {
-      limits: limits,
-      timestamp: now
-    });
+  if (entityType === 'DEVICE' && ctxData) {
+    // RFC-0078: For DEVICE, read from ctx.data[] instead of API call
+    // Device mapInstantaneousPower is available as dataKey in widget context
+    const powerLimitsData = ctxData.find(d => d.dataKey && d.dataKey.name === 'mapInstantaneousPower');
+
+    if (powerLimitsData && powerLimitsData.data && powerLimitsData.data.length > 0) {
+      const latestValue = powerLimitsData.data[powerLimitsData.data.length - 1];
+      const rawValue = latestValue[1]; // [timestamp, value]
+
+      if (typeof rawValue === 'string') {
+        try {
+          json = JSON.parse(rawValue);
+          console.log(`[RFC-0078] ✅ Loaded mapInstantaneousPower from ctx.data for DEVICE ${entityId}:`, {
+            version: json.version,
+            telemetryTypes: json.limitsByInstantaneoustPowerType?.length || 0
+          });
+        } catch (parseError) {
+          console.warn(`[RFC-0078] Failed to parse DEVICE JSON from ctx.data:`, parseError);
+          // Fallback: return empty structure to indicate device has no config
+          json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
+        }
+      } else if (typeof rawValue === 'object') {
+        json = rawValue;
+        console.log(`[RFC-0078] ✅ Loaded mapInstantaneousPower (object) from ctx.data for DEVICE ${entityId}`);
+      }
+    } else {
+      // Device doesn't have mapInstantaneousPower - return empty structure
+      console.log(`[RFC-0078] mapInstantaneousPower not found in ctx.data for DEVICE ${entityId}, using empty fallback`);
+      json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
+    }
+  } else if (entityType === 'CUSTOMER') {
+    // For CUSTOMER, fetch via API
+    json = await fetchInstantaneousPowerLimits(entityId, entityType);
+  } else {
+    // Fallback: fetch via API (old behavior, commented for reference)
+    // json = await fetchInstantaneousPowerLimits(entityId, entityType);
+    console.warn(`[RFC-0078] DEVICE lookup without ctxData, returning empty structure`);
+    json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
   }
 
-  return limits;
+  // Cache even null/empty results to avoid repeated lookups
+  powerLimitsJSONCache.set(cacheKey, {
+    json: json,
+    timestamp: now
+  });
+
+  return json;
 }
 
 /**
- * Extracts ranges from device-level limits (no device-type suffix)
- */
-function extractDeviceLevelRanges(deviceLimits) {
-  const standbyRange = {
-    down: deviceLimits['standbyLimitDownConsumption'],
-    up: deviceLimits['standbyLimitUpConsumption']
-  };
-  const alertRange = {
-    down: deviceLimits['alertLimitDownConsumption'],
-    up: deviceLimits['alertLimitUpConsumption']
-  };
-  const normalRange = {
-    down: deviceLimits['normalLimitDownConsumption'],
-    up: deviceLimits['normalLimitUpConsumption']
-  };
-  const failureRange = {
-    down: deviceLimits['failureLimitDownConsumption'],
-    up: deviceLimits['failureLimitUpConsumption']
-  };
-
-  // Validate all ranges exist
-  if (
-    standbyRange.down !== undefined && standbyRange.up !== undefined &&
-    normalRange.down !== undefined && normalRange.up !== undefined &&
-    alertRange.down !== undefined && alertRange.up !== undefined &&
-    failureRange.down !== undefined && failureRange.up !== undefined
-  ) {
-    return { standbyRange, normalRange, alertRange, failureRange };
-  }
-
-  return null;
-}
-
-/**
- * Extracts range-based consumption limits for a device type from customer attributes
- * @param {Object} customerLimits - Customer attribute map
- * @param {string} deviceType - Device type (e.g., 'ELEVADOR')
- * @returns {Object} Range-based limits or null
- */
-function extractConsumptionRanges(customerLimits, deviceType) {
-  if (!customerLimits || !deviceType) return null;
-
-  const attributeSuffix = DEVICE_TYPE_ATTRIBUTE_MAP[deviceType.toUpperCase()];
-  if (!attributeSuffix) {
-    console.warn(`[RFC-0077] No attribute mapping for deviceType: ${deviceType}`);
-    return null;
-  }
-
-  // Build attribute keys
-  const standbyDown = `standbyLimitDownConsumption${attributeSuffix}`;
-  const standbyUp = `standbyLimitUpConsumption${attributeSuffix}`;
-  const alertDown = `alertLimitDownConsumption${attributeSuffix}`;
-  const alertUp = `alertLimitUpConsumption${attributeSuffix}`;
-  const normalDown = `normalLimitDownConsumption${attributeSuffix}`;
-  const normalUp = `normalLimitUpConsumption${attributeSuffix}`;
-  const failureDown = `failureLimitDownConsumption${attributeSuffix}`;
-  const failureUp = `failureLimitUpConsumption${attributeSuffix}`;
-
-  // Extract values
-  const standbyRange = {
-    down: customerLimits[standbyDown],
-    up: customerLimits[standbyUp]
-  };
-  const alertRange = {
-    down: customerLimits[alertDown],
-    up: customerLimits[alertUp]
-  };
-  const normalRange = {
-    down: customerLimits[normalDown],
-    up: customerLimits[normalUp]
-  };
-  const failureRange = {
-    down: customerLimits[failureDown],
-    up: customerLimits[failureUp]
-  };
-
-  // Validate all ranges exist
-  if (
-    standbyRange.down === undefined || standbyRange.up === undefined ||
-    alertRange.down === undefined || alertRange.up === undefined ||
-    normalRange.down === undefined || normalRange.up === undefined ||
-    failureRange.down === undefined || failureRange.up === undefined
-  ) {
-    console.warn(`[RFC-0077] Incomplete range data for ${deviceType} (${attributeSuffix})`);
-    return null;
-  }
-
-  return {
-    standbyRange,
-    alertRange,
-    normalRange,
-    failureRange
-  };
-}
-
-/**
- * Gets default ranges for a device type (TIER 3)
- */
-function getDefaultRanges(deviceType) {
-  const attributeSuffix = DEVICE_TYPE_ATTRIBUTE_MAP[deviceType.toUpperCase()];
-  return DEFAULT_CONSUMPTION_RANGES[attributeSuffix] || DEFAULT_CONSUMPTION_RANGES['DEFAULT'];
-}
-
-/**
- * Gets consumption limits with hierarchical resolution:
- * TIER 1: Device-level attributes (highest priority)
- * TIER 2: Customer-level attributes by device type
+ * RFC-0078: Gets consumption limits with hierarchical resolution using JSON structure
+ * TIER 1: Device-level mapInstantaneousPower (highest priority)
+ * TIER 2: Customer-level mapInstantaneousPower
  * TIER 3: Hardcoded defaults (fallback)
  *
  * @param {string} deviceId - Device entity ID
- * @param {string} deviceType - Device type (for customer-level lookup)
- * @param {Object} customerLimits - Pre-fetched customer limits (TIER 2)
+ * @param {string} deviceType - Device type (for config lookup)
+ * @param {Object} customerLimitsJSON - Pre-fetched customer JSON (TIER 2)
+ * @param {string} telemetryType - Telemetry type (default: 'consumption')
+ * @param {Object} ctxData - Optional ctx.data array from widget context (for DEVICE lookups)
  * @returns {Promise<Object>} Consumption ranges with source indicator
  */
-async function getConsumptionRangesHierarchical(deviceId, deviceType, customerLimits) {
-  // TIER 1: Try device-level attributes first (highest priority)
-  const cached = deviceConsumptionLimitsCache.get(deviceId);
-  const now = Date.now();
+async function getConsumptionRangesHierarchical(deviceId, deviceType, customerLimitsJSON, telemetryType = 'consumption', ctxData = null) {
+  //console.log(`[RFC-0078] Resolving limits for device ${deviceId}, type ${deviceType}, telemetry ${telemetryType}`);
 
-  let deviceLimits = null;
-
-  if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
-    deviceLimits = cached.limits;
-  } else {
-    // Fetch fresh device attributes
-    deviceLimits = await fetchDeviceConsumptionLimits(deviceId);
-    if (deviceLimits) {
-      deviceConsumptionLimitsCache.set(deviceId, {
-        limits: deviceLimits,
-        timestamp: now
-      });
+  // TIER 1: Try device-level JSON first (highest priority)
+  // Reads from ctx.data[] if available, no API call needed
+  const deviceLimitsJSON = await getCachedPowerLimitsJSON(deviceId, 'DEVICE', ctxData);
+  if (deviceLimitsJSON && deviceLimitsJSON.limitsByInstantaneoustPowerType && deviceLimitsJSON.limitsByInstantaneoustPowerType.length > 0) {
+    const deviceRanges = extractLimitsFromJSON(deviceLimitsJSON, deviceType, telemetryType);
+    if (deviceRanges) {
+      //console.log(`[RFC-0078] ✅ Using DEVICE-level JSON for ${deviceId} (TIER 1)`);
+      return { ...deviceRanges, source: 'device', tier: 1 };
     }
   }
 
-  // If device has custom limits, use them (TIER 1)
-  if (deviceLimits) {
-    const ranges = extractDeviceLevelRanges(deviceLimits);
-    if (ranges) {
-      console.log(`[RFC-0077] Using DEVICE-level limits for ${deviceId} (TIER 1)`);
-      return {
-        ...ranges,
-        source: 'device', // Indicator for UI
-        tier: 1
-      };
+  // TIER 2: Try customer-level JSON
+  if (customerLimitsJSON) {
+    const customerRanges = extractLimitsFromJSON(customerLimitsJSON, deviceType, telemetryType);
+    if (customerRanges) {
+      //console.log(`[RFC-0078] ✅ Using CUSTOMER-level JSON for ${deviceType} (TIER 2)`);
+      return { ...customerRanges, source: 'customer', tier: 2 };
     }
   }
 
-  // TIER 2: Fall back to customer-level attributes (by device type)
-  if (customerLimits) {
-    const ranges = extractConsumptionRanges(customerLimits, deviceType);
-    if (ranges) {
-      console.log(`[RFC-0077] Using CUSTOMER-level limits for ${deviceType} (TIER 2)`);
-      return {
-        ...ranges,
-        source: 'customer',
-        tier: 2
-      };
-    }
-  }
-
-  // TIER 3: Last resort - hardcoded defaults
-  const ranges = getDefaultRanges(deviceType);
-  console.log(`[RFC-0077] Using HARDCODED defaults for ${deviceType} (TIER 3)`);
+  // TIER 3: Hardcoded defaults
+  console.log(`[RFC-0078] Using HARDCODED defaults for ${deviceType} (TIER 3)`);
+  const defaultRanges = getDefaultRanges(deviceType);
   return {
-    ...ranges,
+    ...defaultRanges,
     source: 'hardcoded',
-    tier: 3
+    tier: 3,
+    metadata: {
+      name: `Default${deviceType}`,
+      description: `System default for ${deviceType}`,
+      version: '0.0.0',
+      telemetryType: telemetryType
+    }
   };
 }
 
+/**
+ * RFC-0078: Validate JSON structure before saving (for future UI integration)
+ * @param {Object} json - The JSON to validate
+ * @returns {Array<string>} Array of error messages (empty if valid)
+ */
+function validateInstantaneousPowerJSON(json) {
+  const errors = [];
+
+  // Check version
+  if (!json.version || typeof json.version !== 'string') {
+    errors.push('Missing or invalid version field');
+  }
+
+  // Check main array
+  if (!Array.isArray(json.limitsByInstantaneoustPowerType)) {
+    errors.push('Missing or invalid limitsByInstantaneoustPowerType array');
+    return errors;
+  }
+
+  // Validate each telemetry type
+  json.limitsByInstantaneoustPowerType.forEach((telemetryConfig, tIndex) => {
+    if (!telemetryConfig.telemetryType) {
+      errors.push(`Telemetry config at index ${tIndex} missing telemetryType`);
+    }
+
+    if (!Array.isArray(telemetryConfig.itemsByDeviceType)) {
+      errors.push(`Telemetry ${telemetryConfig.telemetryType} missing itemsByDeviceType array`);
+      return;
+    }
+
+    // Validate each device type
+    telemetryConfig.itemsByDeviceType.forEach((deviceConfig, dIndex) => {
+      if (!deviceConfig.deviceType) {
+        errors.push(`Device config at ${tIndex}/${dIndex} missing deviceType`);
+      }
+
+      if (!Array.isArray(deviceConfig.limitsByDeviceStatus)) {
+        errors.push(`Device ${deviceConfig.deviceType} missing limitsByDeviceStatus array`);
+        return;
+      }
+
+      // Validate status limits
+      const requiredStatuses = ['standBy', 'normal', 'alert', 'failure'];
+      const foundStatuses = deviceConfig.limitsByDeviceStatus.map(s => s.deviceStatusName);
+
+      requiredStatuses.forEach(status => {
+        if (!foundStatuses.includes(status)) {
+          errors.push(`Device ${deviceConfig.deviceType} missing ${status} configuration`);
+        }
+      });
+
+      // Validate value ranges
+      deviceConfig.limitsByDeviceStatus.forEach(status => {
+        const values = status.limitsValues || status.limitsVales;
+        if (!values) {
+          errors.push(`Status ${status.deviceStatusName} missing limitsValues`);
+          return;
+        }
+
+        const base = values.baseValue;
+        const top = values.topValue;
+
+        if (typeof base !== 'number' || typeof top !== 'number') {
+          errors.push(`Status ${status.deviceStatusName} has invalid numeric values`);
+        }
+
+        if (base > top) {
+          errors.push(`Status ${status.deviceStatusName} has baseValue > topValue`);
+        }
+      });
+    });
+  });
+
+  return errors;
+}
+
+// Store customer limits JSON globally for the widget session
+window.__customerPowerLimitsJSON = null;
+
+/**
+ * RFC-0078: Alias for backward compatibility with RFC-0077 calls
+ */
+async function getCachedConsumptionLimits(customerId) {
+  return getCachedPowerLimitsJSON(customerId, 'CUSTOMER');
+}
+
 // ============================================
-// END RFC-0071
+// END RFC-0078
 // ============================================
 
 const MyIOAuth = (() => {
@@ -1183,7 +1216,7 @@ function initializeCards(devices) {
     */
 
     if (device.labelOrName && device.labelOrName.toUpperCase().includes("ELEVADOR")) {
-      console.log("[EQUIPMENTS] Rendering card for Chiller 1 device:", device);
+      //console.log("[EQUIPMENTS] Rendering card for Chiller 1 device:", device);
     } 
 
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
@@ -1310,12 +1343,14 @@ function initializeCards(devices) {
         try {
           // RFC-0072: Following exact TELEMETRY pattern with domain and connectionData
           // RFC-0077: Added customerName and deviceType parameters
+          // RFC-0076: Added deviceProfile for 3F_MEDIDOR fallback rule
           await MyIOLibrary.openDashboardPopupSettings({
             deviceId: device.entityId, // TB deviceId
             label: device.labelOrName,
             jwtToken: jwt,
             domain: "energy", // Same as TELEMETRY WIDGET_DOMAIN
             deviceType: device.deviceType, // RFC-0077: Pass deviceType for Power Limits feature
+            deviceProfile: device.deviceProfile, // RFC-0076: Pass deviceProfile for 3F_MEDIDOR fallback
             customerName: device.customerName || getCustomerNameForDevice(device), // RFC-0077: Pass shopping name
             connectionData: {
               centralName: device.centralName || getCustomerNameForDevice(device),

@@ -23,7 +23,6 @@
     padding: 0 !important;
     margin: 0 !important;
     overflow: visible !important;
-    background: transparent !important;
 }
 
 /* RFC-0058: tb-dashboard-state child must fill parent completely */
@@ -39,6 +38,55 @@
 
 #mainView > div > .content {
     height: 100%;
+}
+
+#myio-root .myio-footer .tb-child {
+      /* Remove o padding padrão do Gridster */
+  padding: 0 !important;
+
+  /* Aplica todo o estilo visual que estava no #myio-root .myio-footer */
+  /*background: linear-gradient(90deg, #121a2b, #1c2743);*/
+  /*border-top: 2px solid #00e09e;*/
+  /*box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2);*/
+} 
+
+/* Garante que o container do footer tenha tamanho fixo e sem overflow */
+/* --- FORÇAR LAYOUT DO FOOTER NO THINGSBOARD --- */
+
+/* 1. Define o tamanho da section pai */
+#container > section:last-child {
+    height: 46px !important;
+    min-height: 46px !important;
+    max-height: 46px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important; /* Permite que menus/tooltips saiam do footer */
+    z-index: 1000;
+    position: relative;
+}
+
+#container > section:last-child .mat-card,
+#container > section:last-child .mat-mdc-card,
+#container > section:last-child .tb-widget,
+#container > section:last-child .tb-widget-content,
+#container > section:last-child tb-dashboard-state {
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* 2. Garante que o container ocupe 100% da altura de 46px */
+#container > section:last-child {
+    height: 46px !important;
+    min-height: 46px !important;
+    max-height: 46px !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    z-index: 1000;
+    background: transparent !important; /* Garante que a section pai não tenha cor */
 }
 
 
