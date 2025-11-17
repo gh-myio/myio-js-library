@@ -1,0 +1,159 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Welcome LV Widget Settings",
+    "description": "RFC-0057: Configuration for brand palette, user menu, and shopping shortcuts",
+    "properties": {
+      "enableDebugMode": {
+        "title": "Enable Debug Mode",
+        "type": "boolean",
+        "default": true,
+        "description": "Enable console logging for debugging"
+      },
+      "defaultBackgroundUrl": {
+        "title": "Default Background URL",
+        "type": "string",
+        "default": "https://dashboard.myio-bas.com/api/images/public/wntqPf1KcpLX2l182DY86Y4p8pa3bj6F",
+        "description": "Default background image URL for hero section"
+      },
+      "defaultLogoUrl": {
+        "title": "Default Logo URL",
+        "type": "string",
+        "default": "https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG",
+        "description": "Default MYIO logo URL"
+      },
+      "defaultPalette": {
+        "title": "Default Palette",
+        "type": "object",
+        "description": "Default MYIO color palette (overridden by Customer attributes)",
+        "properties": {
+          "primary": {
+            "title": "Primary Color",
+            "type": "string",
+            "default": "#7A2FF7",
+            "description": "Primary brand color (hex)"
+          },
+          "secondary": {
+            "title": "Secondary Color",
+            "type": "string",
+            "default": "#5A1FD1",
+            "description": "Secondary brand color (hex)"
+          },
+          "gradientStart": {
+            "title": "Gradient Start",
+            "type": "string",
+            "default": "rgba(10,18,44,0.55)",
+            "description": "Hero gradient start color (rgba)"
+          },
+          "gradientEnd": {
+            "title": "Gradient End",
+            "type": "string",
+            "default": "rgba(10,18,44,0.15)",
+            "description": "Hero gradient end color (rgba)"
+          },
+          "ink": {
+            "title": "Text Color",
+            "type": "string",
+            "default": "#F5F7FA",
+            "description": "Main text color (hex)"
+          },
+          "muted": {
+            "title": "Muted Text Color",
+            "type": "string",
+            "default": "#B8C2D8",
+            "description": "Secondary/muted text color (hex)"
+          }
+        }
+      },
+      "defaultHeroTitle": {
+        "title": "Default Hero Title",
+        "type": "string",
+        "default": "Bem-vindo ao MYIO Platform",
+        "description": "Default title for hero section (overridden by Customer attributes)"
+      },
+      "defaultHeroDescription": {
+        "title": "Default Hero Description",
+        "type": "string",
+        "default": "Gestão inteligente de energia, água e recursos para shoppings centers",
+        "description": "Default description for hero section (overridden by Customer attributes)"
+      },
+      "defaultPrimaryLabel": {
+        "title": "Default CTA Button Label",
+        "type": "string",
+        "default": "ACESSAR DASHBOARD",
+        "description": "Default label for primary CTA button (overridden by Customer attributes)"
+      },
+      "defaultPrimaryState": {
+        "title": "Default Primary State",
+        "type": "string",
+        "default": "main",
+        "description": "Default dashboard state for primary CTA button"
+      },
+      "showUserMenuByDefault": {
+        "title": "Show User Menu by Default",
+        "type": "boolean",
+        "default": true,
+        "description": "Show user menu by default (can be overridden by Customer attributes)"
+      },
+      "enableLazyLoading": {
+        "title": "Enable Lazy Loading",
+        "type": "boolean",
+        "default": true,
+        "description": "Enable lazy loading for shopping card background images"
+      },
+      "lazyLoadRootMargin": {
+        "title": "Lazy Load Root Margin",
+        "type": "string",
+        "default": "50px",
+        "description": "Root margin for IntersectionObserver (lazy loading)"
+      }
+    },
+    "required": []
+  },
+  "form": [
+    {
+      "key": "enableDebugMode",
+      "type": "checkbox",
+      "description": "Enable console logging for debugging"
+    },
+    {
+      "type": "fieldset",
+      "title": "Default Appearance",
+      "items": [
+        "defaultBackgroundUrl",
+        "defaultLogoUrl"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Default Palette (MYIO Purple)",
+      "items": [
+        "defaultPalette.primary",
+        "defaultPalette.secondary",
+        "defaultPalette.gradientStart",
+        "defaultPalette.gradientEnd",
+        "defaultPalette.ink",
+        "defaultPalette.muted"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Default Text (Portuguese)",
+      "items": [
+        "defaultHeroTitle",
+        "defaultHeroDescription",
+        "defaultPrimaryLabel"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Navigation & Features",
+      "items": [
+        "defaultPrimaryState",
+        "showUserMenuByDefault",
+        "enableLazyLoading",
+        "lazyLoadRootMargin"
+      ]
+    }
+  ]
+}
