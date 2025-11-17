@@ -176,15 +176,30 @@ export class SettingsModalView {
     // Check deviceType for conditional rendering
     const deviceType = this.config.deviceType;
 
+    // RFC-0077: Extract customerName for display
+    const customerName = this.config.customerName;
+    const hasCustomerName = customerName && customerName.trim() !== '';
+
     return `
       <div class="form-layout">
+        ${hasCustomerName ? `
+        <!-- RFC-0077: Shopping name display above device label -->
+        <div class="customer-name-container">
+          <div class="customer-name-label">Shopping</div>
+          <div class="customer-name-value">
+            <span class="customer-icon">🏢</span>
+            <span class="customer-name-text">${customerName}</span>
+          </div>
+        </div>
+        ` : ''}
+
         <!-- Top Row: Two cards side by side -->
         <div class="form-columns">
           <!-- Left Column: Device Label -->
           <div class="form-column">
             <div class="form-card">
-              <h4 class="section-title">${
-                this.config.deviceLabel || "Outback"
+              <h4 class="section-title device-label-title">${
+                this.config.deviceLabel || "NÃO INFORMADO"
               }</h4>
 
               <div class="form-group">
@@ -212,6 +227,9 @@ export class SettingsModalView {
 
         <!-- Bottom Row: Connection Info spanning full width -->
         ${this.getConnectionInfoHTML()}
+
+        <!-- RFC-0077: Power Limits Configuration (only for energy domain and when deviceType is available) -->
+        ${this.config.domain === 'energy' && this.config.deviceType ? this.getPowerLimitsHTML() : ''}
       </div>
     `;
   }
@@ -235,7 +253,7 @@ export class SettingsModalView {
       <div class="form-card">
         <h4 class="section-title">Alarmes ${this.formatDomainLabel(
           this.config.domain
-        )} - ${this.config.deviceLabel || "SEM IDENTIFICADOR"}</h4>
+        )}</h4>
 
         <div class="form-group">
           <label for="maxDailyKwh">Consumo Máximo Diário (${unit})</label>
@@ -258,9 +276,7 @@ export class SettingsModalView {
   private getThermostatAlarmsHTML(): string {
     return `
       <div class="form-card">
-        <h4 class="section-title">Alarmes de Temperatura - ${
-          this.config.deviceLabel || "SEM IDENTIFICADOR"
-        }</h4>
+        <h4 class="section-title">Alarmes de Temperatura</h4>
 
         <div class="form-group">
           <label for="minTemperature">Temperatura Mínima (°C)</label>
@@ -278,9 +294,7 @@ export class SettingsModalView {
   private getWaterTankAlarmsHTML(): string {
     return `
       <div class="form-card">
-        <h4 class="section-title">Alarmes de Nível - ${
-          this.config.deviceLabel || "SEM IDENTIFICADOR"
-        }</h4>
+        <h4 class="section-title">Alarmes de Nível</h4>
 
         <div class="form-group">
           <label for="minWaterLevel">Nível Mínimo (%)</label>
@@ -290,6 +304,173 @@ export class SettingsModalView {
         <div class="form-group">
           <label for="maxWaterLevel">Nível Máximo (%)</label>
           <input type="number" id="maxWaterLevel" name="maxWaterLevel" min="0" max="100" step="0.1" placeholder="Risco de transbordar">
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * RFC-0077: Power Limits Configuration UI
+   * Shows device-level and customer-level consumption limits
+   */
+  private getPowerLimitsHTML(): string {
+    return `
+      <div class="form-card power-limits-card">
+        <div class="power-limits-header">
+          <h4 class="section-title">Configuração de Limites de Potência</h4>
+          <div class="power-limits-subtitle">
+            Configure os limites de consumo para monitoramento do equipamento
+          </div>
+        </div>
+
+        <div class="power-limits-table-wrapper">
+          <table class="power-limits-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Mínimo (W)</th>
+                <th>Máximo (W)</th>
+                <th>Origem</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="limit-row standby-row">
+                <td class="status-label">
+                  <span class="status-icon">🔌</span>
+                  <span>StandBy</span>
+                </td>
+                <td>
+                  <input type="number"
+                         id="standbyLimitDownConsumption"
+                         name="standbyLimitDownConsumption"
+                         class="limit-input"
+                         min="0"
+                         step="1"
+                         placeholder="Min">
+                </td>
+                <td>
+                  <input type="number"
+                         id="standbyLimitUpConsumption"
+                         name="standbyLimitUpConsumption"
+                         class="limit-input"
+                         min="0"
+                         step="1"
+                         placeholder="Max">
+                </td>
+                <td class="source-cell">
+                  <span class="source-badge" id="standby-source">—</span>
+                </td>
+              </tr>
+
+              <tr class="limit-row normal-row">
+                <td class="status-label">
+                  <span class="status-icon">⚡</span>
+                  <span>Normal</span>
+                </td>
+                <td>
+                  <input type="number"
+                         id="normalLimitDownConsumption"
+                         name="normalLimitDownConsumption"
+                         class="limit-input"
+                         min="0"
+                         step="1"
+                         placeholder="Min">
+                </td>
+                <td>
+                  <input type="number"
+                         id="normalLimitUpConsumption"
+                         name="normalLimitUpConsumption"
+                         class="limit-input"
+                         min="0"
+                         step="1"
+                         placeholder="Max">
+                </td>
+                <td class="source-cell">
+                  <span class="source-badge" id="normal-source">—</span>
+                </td>
+              </tr>
+
+              <tr class="limit-row alert-row">
+                <td class="status-label">
+                  <span class="status-icon">⚠️</span>
+                  <span>Alerta</span>
+                </td>
+                <td>
+                  <input type="number"
+                         id="alertLimitDownConsumption"
+                         name="alertLimitDownConsumption"
+                         class="limit-input"
+                         min="0"
+                         step="1"
+                         placeholder="Min">
+                </td>
+                <td>
+                  <input type="number"
+                         id="alertLimitUpConsumption"
+                         name="alertLimitUpConsumption"
+                         class="limit-input"
+                         min="0"
+                         step="1"
+                         placeholder="Max">
+                </td>
+                <td class="source-cell">
+                  <span class="source-badge" id="alert-source">—</span>
+                </td>
+              </tr>
+
+              <tr class="limit-row failure-row">
+                <td class="status-label">
+                  <span class="status-icon">🚨</span>
+                  <span>Falha</span>
+                </td>
+                <td>
+                  <input type="number"
+                         id="failureLimitDownConsumption"
+                         name="failureLimitDownConsumption"
+                         class="limit-input"
+                         min="0"
+                         step="1"
+                         placeholder="Min">
+                </td>
+                <td>
+                  <input type="number"
+                         id="failureLimitUpConsumption"
+                         name="failureLimitUpConsumption"
+                         class="limit-input"
+                         min="0"
+                         step="1"
+                         placeholder="Max">
+                </td>
+                <td class="source-cell">
+                  <span class="source-badge" id="failure-source">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="power-limits-actions">
+          <button type="button" class="btn-copy-global" id="btnCopyFromGlobal">
+            🌐 Copiar do Global
+          </button>
+          <button type="button" class="btn-clear-overrides" id="btnClearOverrides">
+            🔵 Limpar Customizações
+          </button>
+        </div>
+
+        <div class="power-limits-legend">
+          <div class="legend-item">
+            <span class="source-badge source-device">🔵 Device</span>
+            <span class="legend-text">Configuração específica deste equipamento</span>
+          </div>
+          <div class="legend-item">
+            <span class="source-badge source-global">🌐 Global</span>
+            <span class="legend-text">Configuração padrão do shopping</span>
+          </div>
+          <div class="legend-item">
+            <span class="source-badge source-hardcoded">💾 Sistema</span>
+            <span class="legend-text">Valor padrão do sistema</span>
+          </div>
         </div>
       </div>
     `;
@@ -574,6 +755,48 @@ export class SettingsModalView {
           gap: 20px;
         }
 
+        /* RFC-0077: Customer name display styles */
+        .customer-name-container {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border-radius: 8px;
+          padding: 16px 20px;
+          box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .customer-name-label {
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: rgba(255, 255, 255, 0.8);
+          margin-bottom: 6px;
+        }
+
+        .customer-name-value {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .customer-icon {
+          font-size: 24px;
+          line-height: 1;
+        }
+
+        .customer-name-text {
+          font-size: 18px;
+          font-weight: 600;
+          color: white;
+          line-height: 1.2;
+        }
+
+        /* RFC-0077: Device label with monospace font */
+        .device-label-title {
+          font-family: 'Courier New', Courier, monospace;
+          font-size: 15px;
+          letter-spacing: 0.5px;
+        }
+
         .form-columns {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -584,7 +807,7 @@ export class SettingsModalView {
           display: flex;
           flex-direction: column;
         }
-        
+
         .form-card {
           background: white;
           border-radius: 8px;
@@ -592,7 +815,7 @@ export class SettingsModalView {
           padding: 20px;
           height: fit-content;
         }
-        
+
         .section-title {
           margin: 0 0 20px 0;
           font-size: 16px;
@@ -803,6 +1026,190 @@ export class SettingsModalView {
           color: #64748b;
           font-size: 12px;
           font-style: italic;
+        }
+
+        /* RFC-0077: Power Limits Configuration Styles */
+        .power-limits-card {
+          grid-column: 1 / -1; /* Span full width */
+          margin-top: 20px;
+        }
+
+        .power-limits-header {
+          margin-bottom: 20px;
+        }
+
+        .power-limits-subtitle {
+          font-size: 13px;
+          color: #6c757d;
+          margin-top: 8px;
+        }
+
+        .power-limits-table-wrapper {
+          overflow-x: auto;
+          margin-bottom: 16px;
+        }
+
+        .power-limits-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 14px;
+        }
+
+        .power-limits-table thead {
+          background: #f8f9fa;
+        }
+
+        .power-limits-table th {
+          padding: 12px;
+          text-align: left;
+          font-weight: 600;
+          color: #495057;
+          border-bottom: 2px solid #dee2e6;
+        }
+
+        .power-limits-table td {
+          padding: 10px 12px;
+          border-bottom: 1px solid #e9ecef;
+        }
+
+        .limit-row:hover {
+          background: #f8f9fa;
+        }
+
+        .status-label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: 500;
+        }
+
+        .status-icon {
+          font-size: 18px;
+        }
+
+        .limit-input {
+          width: 100%;
+          padding: 8px 10px;
+          border: 1px solid #ced4da;
+          border-radius: 4px;
+          font-size: 14px;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .limit-input:focus {
+          outline: none;
+          border-color: #3e1a7d;
+          box-shadow: 0 0 0 2px rgba(62, 26, 125, 0.15);
+        }
+
+        .source-cell {
+          text-align: center;
+        }
+
+        .source-badge {
+          display: inline-block;
+          padding: 4px 10px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 600;
+          background: #e9ecef;
+          color: #495057;
+        }
+
+        .source-badge.source-device {
+          background: #cfe2ff;
+          color: #084298;
+        }
+
+        .source-badge.source-global {
+          background: #d1e7dd;
+          color: #0f5132;
+        }
+
+        .source-badge.source-hardcoded {
+          background: #f8d7da;
+          color: #842029;
+        }
+
+        .power-limits-actions {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+
+        .btn-copy-global,
+        .btn-clear-overrides {
+          padding: 10px 16px;
+          border: none;
+          border-radius: 6px;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .btn-copy-global {
+          background: #198754;
+          color: white;
+        }
+
+        .btn-copy-global:hover {
+          background: #157347;
+        }
+
+        .btn-clear-overrides {
+          background: #0d6efd;
+          color: white;
+        }
+
+        .btn-clear-overrides:hover {
+          background: #0b5ed7;
+        }
+
+        .power-limits-legend {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 12px;
+          background: #f8f9fa;
+          border-radius: 6px;
+          border-left: 3px solid #3e1a7d;
+        }
+
+        .legend-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .legend-text {
+          font-size: 13px;
+          color: #495057;
+        }
+
+        @media (max-width: 768px) {
+          .power-limits-table {
+            font-size: 12px;
+          }
+
+          .power-limits-table th,
+          .power-limits-table td {
+            padding: 8px;
+          }
+
+          .limit-input {
+            padding: 6px 8px;
+            font-size: 12px;
+          }
+
+          .power-limits-actions {
+            flex-direction: column;
+          }
+
+          .btn-copy-global,
+          .btn-clear-overrides {
+            width: 100%;
+          }
         }
       </style>
     `;

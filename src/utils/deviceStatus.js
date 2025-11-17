@@ -337,3 +337,165 @@ export function calculateDeviceStatus({
   // Fallback
   return DeviceStatusType.MAINTENANCE;
 }
+
+/**
+ * RFC-0077: Calculates device status based on connection status and consumption ranges
+ * This function uses range-based thresholds instead of single limit values
+ *
+ * @param {Object} params - Configuration object
+ * @param {string} params.connectionStatus - Connection status: "waiting", "offline", or "online"
+ * @param {number|null} params.lastConsumptionValue - Last power consumption value in watts
+ * @param {Object} params.ranges - Consumption ranges object with standbyRange, normalRange, alertRange, failureRange
+ * @param {Object} params.ranges.standbyRange - Standby range: { down: number, up: number }
+ * @param {Object} params.ranges.normalRange - Normal range: { down: number, up: number }
+ * @param {Object} params.ranges.alertRange - Alert range: { down: number, up: number }
+ * @param {Object} params.ranges.failureRange - Failure range: { down: number, up: number }
+ * @param {string} [params.ranges.source] - Optional source indicator: "device", "customer", or "hardcoded"
+ * @param {number} [params.ranges.tier] - Optional tier number: 1 (device), 2 (customer), or 3 (hardcoded)
+ * @returns {string} Device status from DeviceStatusType enum
+ *
+ * @example
+ * // Device is waiting for installation
+ * calculateDeviceStatusWithRanges({
+ *   connectionStatus: "waiting",
+ *   lastConsumptionValue: null,
+ *   ranges: {
+ *     standbyRange: { down: 0, up: 150 },
+ *     normalRange: { down: 150, up: 800 },
+ *     alertRange: { down: 800, up: 1200 },
+ *     failureRange: { down: 1200, up: 99999 }
+ *   }
+ * }); // Returns "not_installed"
+ *
+ * @example
+ * // Device in standby mode
+ * calculateDeviceStatusWithRanges({
+ *   connectionStatus: "online",
+ *   lastConsumptionValue: 50,
+ *   ranges: {
+ *     standbyRange: { down: 0, up: 150 },
+ *     normalRange: { down: 150, up: 800 },
+ *     alertRange: { down: 800, up: 1200 },
+ *     failureRange: { down: 1200, up: 99999 }
+ *   }
+ * }); // Returns "standby"
+ *
+ * @example
+ * // Device with normal operation (power_on)
+ * calculateDeviceStatusWithRanges({
+ *   connectionStatus: "online",
+ *   lastConsumptionValue: 500,
+ *   ranges: {
+ *     standbyRange: { down: 0, up: 150 },
+ *     normalRange: { down: 150, up: 800 },
+ *     alertRange: { down: 800, up: 1200 },
+ *     failureRange: { down: 1200, up: 99999 }
+ *   }
+ * }); // Returns "power_on"
+ *
+ * @example
+ * // Device with warning consumption
+ * calculateDeviceStatusWithRanges({
+ *   connectionStatus: "online",
+ *   lastConsumptionValue: 1000,
+ *   ranges: {
+ *     standbyRange: { down: 0, up: 150 },
+ *     normalRange: { down: 150, up: 800 },
+ *     alertRange: { down: 800, up: 1200 },
+ *     failureRange: { down: 1200, up: 99999 }
+ *   }
+ * }); // Returns "warning"
+ *
+ * @example
+ * // Device with failure consumption
+ * calculateDeviceStatusWithRanges({
+ *   connectionStatus: "online",
+ *   lastConsumptionValue: 2500,
+ *   ranges: {
+ *     standbyRange: { down: 0, up: 150 },
+ *     normalRange: { down: 150, up: 800 },
+ *     alertRange: { down: 800, up: 1200 },
+ *     failureRange: { down: 1200, up: 99999 },
+ *     source: "device",
+ *     tier: 1
+ *   }
+ * }); // Returns "failure"
+ */
+export function calculateDeviceStatusWithRanges({
+  connectionStatus,
+  lastConsumptionValue,
+  ranges
+}) {
+  // Validate connectionStatus
+  const validConnectionStatuses = ["waiting", "offline", "online"];
+  if (!validConnectionStatuses.includes(connectionStatus)) {
+    return DeviceStatusType.MAINTENANCE;
+  }
+
+  // If waiting for installation
+  if (connectionStatus === "waiting") {
+    return DeviceStatusType.NOT_INSTALLED;
+  }
+
+  // If offline
+  if (connectionStatus === "offline") {
+    return DeviceStatusType.NO_INFO;
+  }
+
+  // If online but no consumption data
+  if (connectionStatus === "online" && (lastConsumptionValue === null || lastConsumptionValue === undefined)) {
+    return DeviceStatusType.POWER_ON;
+  }
+
+  // Validate ranges object
+  if (!ranges || !ranges.standbyRange || !ranges.normalRange || !ranges.alertRange || !ranges.failureRange) {
+    console.error('[RFC-0077] Invalid ranges object:', ranges);
+    return DeviceStatusType.MAINTENANCE;
+  }
+
+  // If online with consumption data
+  if (connectionStatus === "online" && lastConsumptionValue !== null && lastConsumptionValue !== undefined) {
+    const consumption = Number(lastConsumptionValue);
+
+    // Check if consumption is valid
+    if (isNaN(consumption)) {
+      return DeviceStatusType.MAINTENANCE;
+    }
+
+    // Extract ranges
+    const { standbyRange, normalRange, alertRange, failureRange } = ranges;
+
+    // Standby: consumption is within standbyRange
+    if (consumption >= standbyRange.down && consumption <= standbyRange.up) {
+      return DeviceStatusType.STANDBY;
+    }
+
+    // Power On (Normal): consumption is within normalRange
+    if (consumption >= normalRange.down && consumption <= normalRange.up) {
+      return DeviceStatusType.POWER_ON;
+    }
+
+    // Warning: consumption is within alertRange
+    if (consumption >= alertRange.down && consumption <= alertRange.up) {
+      return DeviceStatusType.WARNING;
+    }
+
+    // Failure: consumption is within failureRange
+    if (consumption >= failureRange.down && consumption <= failureRange.up) {
+      return DeviceStatusType.FAILURE;
+    }
+
+    // If consumption doesn't fit any range, check if it's above failure range
+    if (consumption > failureRange.up) {
+      return DeviceStatusType.FAILURE;
+    }
+
+    // If consumption is below standby range (negative or unexpected)
+    if (consumption < standbyRange.down) {
+      return DeviceStatusType.MAINTENANCE;
+    }
+  }
+
+  // Fallback
+  return DeviceStatusType.MAINTENANCE;
+}

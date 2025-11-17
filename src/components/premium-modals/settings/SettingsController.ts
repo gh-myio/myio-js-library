@@ -25,6 +25,9 @@ export class SettingsController {
       closeOnBackdrop: params.ui?.closeOnBackdrop !== false,
       domain: params.domain || 'energy',
       deviceType: params.deviceType, // Pass deviceType for conditional rendering
+      customerName: params.customerName, // RFC-0077: Pass customer/shopping name for display
+      deviceId: params.deviceId, // RFC-0077: Pass deviceId for Power Limits feature
+      jwtToken: params.jwtToken, // RFC-0077: Pass jwtToken for API calls
       themeTokens: params.ui?.themeTokens,
       i18n: params.ui?.i18n,
       deviceLabel: params.label, // Pass the device label for dynamic section titles

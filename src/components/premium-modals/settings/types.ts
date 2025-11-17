@@ -9,6 +9,7 @@ export interface OpenDashboardPopupSettingsParams {
   label?: string;
   domain?: Domain; // Domain for the left column section
   deviceType?: string; // Device type for conditional rendering (e.g., TERMOSTATO)
+  customerName?: string; // RFC-0077: Shopping center name to display above device label
 
 
   // Connection information (from card v5 info panel)
@@ -128,6 +129,10 @@ export interface ModalConfig {
   deviceLabel?: string; // Dynamic label for the left column section
   domain: Domain; // Domain for the left column section
   deviceType?: string; // Device type for conditional rendering (e.g., TERMOSTATO)
+  // RFC-0077: Add customer name, device ID, and JWT token for Power Limits feature
+  customerName?: string; // Shopping center name to display above device label
+  deviceId?: string; // ThingsBoard device ID for fetching device-level attributes
+  jwtToken?: string; // JWT token for API calls
   connectionData?: { // Connection info from card v5
     centralName?: string;
     connectionStatusTime?: string;
