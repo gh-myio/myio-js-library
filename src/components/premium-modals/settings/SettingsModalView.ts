@@ -25,6 +25,9 @@ export class SettingsModalView {
     this.setupAccessibility();
     this.setupFocusTrap();
     this.applyTheme();
+
+    // Fetch latest consumption telemetry on-demand
+    this.fetchLatestConsumptionTelemetry();
   }
 
   close(): void {
@@ -183,12 +186,19 @@ export class SettingsModalView {
     return `
       <div class="form-layout">
         ${hasCustomerName ? `
-        <!-- RFC-0077: Shopping name display above device label -->
+        <!-- RFC-0077/0078: Shopping name display with device type icon -->
         <div class="customer-name-container">
-          <div class="customer-name-label">Shopping</div>
-          <div class="customer-name-value">
-            <span class="customer-icon">🏢</span>
-            <span class="customer-name-text">${customerName}</span>
+          <div class="customer-info-row">
+            <div class="device-type-icon-wrapper">
+              ${this.getDeviceTypeIcon(deviceType)}
+            </div>
+            <div class="customer-info-content">
+              <div class="customer-name-label">Shopping</div>
+              <div class="customer-name-value">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shopping-icon"><path d="M4 22h16"/><path d="M7 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/></svg>
+                <span class="customer-name-text">${customerName}</span>
+              </div>
+            </div>
           </div>
         </div>
         ` : ''}
@@ -213,7 +223,7 @@ export class SettingsModalView {
               </div>
 
               <div class="form-group">
-                <label for="identifier">Número da Loja</label>
+                <label for="identifier">Identificador / LUC / SUC</label>
                 <input type="text" id="identifier" name="identifier" maxlength="20" readonly>
               </div>
             </div>
@@ -310,17 +320,104 @@ export class SettingsModalView {
   }
 
   /**
-   * RFC-0077: Power Limits Configuration UI
-   * Shows device-level and customer-level consumption limits
+   * RFC-0078: Get device type icon SVG based on deviceType
+   * Replicates the icon logic from template-card-v5.js
+   * Note: Applies 3F_MEDIDOR → deviceProfile fallback rule
+   */
+  private getDeviceTypeIcon(deviceType: string): string {
+    let normalizedType = (deviceType || '').toUpperCase();
+
+    // RFC-0076: If deviceType is 3F_MEDIDOR, check for deviceProfile fallback
+    if (normalizedType === '3F_MEDIDOR') {
+      const deviceProfile = (this.config as any).deviceProfile;
+      if (deviceProfile && deviceProfile !== 'N/D' && deviceProfile.trim() !== '') {
+        normalizedType = deviceProfile.toUpperCase();
+      }
+    }
+
+    // Energy device types
+    const energyDevices = [
+      'COMPRESSOR', 'VENTILADOR', 'ESCADA_ROLANTE', 'ELEVADOR',
+      'MOTOR', '3F_MEDIDOR', 'RELOGIO', 'ENTRADA', 'SUBESTACAO',
+      'BOMBA', 'CHILLER', 'AR_CONDICIONADO', 'HVAC', 'FANCOIL'
+    ];
+
+    // Water device types
+    const waterDevices = ['HIDROMETRO', 'CAIXA_DAGUA', 'TANK'];
+
+    if (energyDevices.includes(normalizedType)) {
+      // Energy icon - bolt/lightning
+      return `
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="device-type-icon energy-icon">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+        </svg>
+      `;
+    } else if (waterDevices.includes(normalizedType)) {
+      // Water icon - droplet
+      return `
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="device-type-icon water-icon">
+          <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+        </svg>
+      `;
+    } else {
+      // Generic icon - device/cpu
+      return `
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="device-type-icon generic-icon">
+          <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/>
+          <rect x="9" y="9" width="6" height="6"/>
+          <line x1="9" y1="1" x2="9" y2="4"/>
+          <line x1="15" y1="1" x2="15" y2="4"/>
+          <line x1="9" y1="20" x2="9" y2="23"/>
+          <line x1="15" y1="20" x2="15" y2="23"/>
+          <line x1="20" y1="9" x2="23" y2="9"/>
+          <line x1="20" y1="14" x2="23" y2="14"/>
+          <line x1="1" y1="9" x2="4" y2="9"/>
+          <line x1="1" y1="14" x2="4" y2="14"/>
+        </svg>
+      `;
+    }
+  }
+
+  /**
+   * RFC-0078: Power Limits Configuration UI
+   * Shows device-level and customer-level consumption limits with telemetry type selector
    */
   private getPowerLimitsHTML(): string {
     return `
       <div class="form-card power-limits-card">
         <div class="power-limits-header">
-          <h4 class="section-title">Configuração de Limites de Potência</h4>
+          <h4 class="section-title">Configuração de Limites de Telemetrias Instantâneas</h4>
           <div class="power-limits-subtitle">
-            Configure os limites de consumo para monitoramento do equipamento
+            Configure os limites por tipo de telemetria para monitoramento do equipamento
           </div>
+        </div>
+
+        <!-- RFC-0078: Telemetry Type Selector -->
+        <div class="telemetry-selector">
+          <label for="telemetryType">Tipo de Telemetria</label>
+          <select id="telemetryType" name="telemetryType" class="form-select">
+            <option value="consumption" selected>Potência (W)</option>
+            <!-- Future options (RFC-0078 supports multiple telemetry types):
+            <option value="a">Fase A - Potência (W)</option>
+            <option value="b">Fase B - Potência (W)</option>
+            <option value="c">Fase C - Potência (W)</option>
+            <option value="total_current">Corrente Total (A)</option>
+            <option value="current_a">Fase A - Corrente (A)</option>
+            <option value="current_b">Fase B - Corrente (A)</option>
+            <option value="current_c">Fase C - Corrente (A)</option>
+            <option value="voltage_a">Fase A - Tensão (V)</option>
+            <option value="voltage_b">Fase B - Tensão (V)</option>
+            <option value="voltage_c">Fase C - Tensão (V)</option>
+            <option value="fp_a">Fase A - Fator de Potência</option>
+            <option value="fp_b">Fase B - Fator de Potência</option>
+            <option value="fp_c">Fase C - Fator de Potência</option>
+            -->
+          </select>
+        </div>
+
+        <div class="power-limits-source-info">
+          <span class="source-label">Referência Global:</span>
+          <span class="source-badge global-source" id="global-source">—</span>
         </div>
 
         <div class="power-limits-table-wrapper">
@@ -328,9 +425,8 @@ export class SettingsModalView {
             <thead>
               <tr>
                 <th>Status</th>
-                <th>Mínimo (W)</th>
-                <th>Máximo (W)</th>
-                <th>Origem</th>
+                <th>Mínimo</th>
+                <th>Máximo</th>
               </tr>
             </thead>
             <tbody>
@@ -357,9 +453,6 @@ export class SettingsModalView {
                          step="1"
                          placeholder="Max">
                 </td>
-                <td class="source-cell">
-                  <span class="source-badge" id="standby-source">—</span>
-                </td>
               </tr>
 
               <tr class="limit-row normal-row">
@@ -384,9 +477,6 @@ export class SettingsModalView {
                          min="0"
                          step="1"
                          placeholder="Max">
-                </td>
-                <td class="source-cell">
-                  <span class="source-badge" id="normal-source">—</span>
                 </td>
               </tr>
 
@@ -413,9 +503,6 @@ export class SettingsModalView {
                          step="1"
                          placeholder="Max">
                 </td>
-                <td class="source-cell">
-                  <span class="source-badge" id="alert-source">—</span>
-                </td>
               </tr>
 
               <tr class="limit-row failure-row">
@@ -441,9 +528,6 @@ export class SettingsModalView {
                          step="1"
                          placeholder="Max">
                 </td>
-                <td class="source-cell">
-                  <span class="source-badge" id="failure-source">—</span>
-                </td>
               </tr>
             </tbody>
           </table>
@@ -456,6 +540,28 @@ export class SettingsModalView {
           <button type="button" class="btn-clear-overrides" id="btnClearOverrides">
             🔵 Limpar Customizações
           </button>
+          <button type="button" class="btn-view-json" id="btnViewJSON">
+            📋 Ver JSON
+          </button>
+        </div>
+
+        <!-- RFC-0078: JSON Preview Panel -->
+        <div class="json-preview-panel" id="jsonPreviewPanel" style="display: none;">
+          <div class="json-preview-header">
+            <h5>Estrutura JSON (mapInstantaneousPower)</h5>
+            <button type="button" class="btn-close-json" id="btnCloseJSON">✕</button>
+          </div>
+          <pre class="json-content" id="jsonContent">
+{
+  "version": "1.0.0",
+  "limitsByInstantaneoustPowerType": [
+    {
+      "telemetryType": "consumption",
+      "itemsByDeviceType": [...]
+    }
+  ]
+}
+          </pre>
         </div>
 
         <div class="power-limits-legend">
@@ -525,43 +631,101 @@ export class SettingsModalView {
       lastDisconnectTime,
     } = this.config.connectionData;
 
-    // Format disconnection time
-    let lastDisconnectTimeFormatted = "N/A";
-    let disconectTime = "";
-    if (lastDisconnectTime) {
-      disconectTime = this.calculateTimeBetweenDates(
-        new Date(connectionStatusTime),
-        new Date(lastDisconnectTime)
-      );
-
+    // Format disconnection interval (from disconnect to reconnect)
+    let disconnectionIntervalFormatted = "N/A";
+    if (lastDisconnectTime && connectionStatusTime) {
       try {
-        const date = new Date(lastDisconnectTime);
-        lastDisconnectTimeFormatted = date.toLocaleString("pt-BR", {
+        const disconnectDate = new Date(lastDisconnectTime);
+        const reconnectDate = new Date(connectionStatusTime);
+
+        // Format both dates with seconds
+        const disconnectFormatted = disconnectDate.toLocaleString("pt-BR", {
           day: "2-digit",
           month: "2-digit",
           year: "numeric",
           hour: "2-digit",
           minute: "2-digit",
+          second: "2-digit",
         });
+
+        const reconnectFormatted = reconnectDate.toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+
+        // Calculate duration of disconnection
+        const diffMs = reconnectDate.getTime() - disconnectDate.getTime();
+        const diffSeconds = Math.floor(diffMs / 1000);
+        const diffMinutes = Math.floor(diffSeconds / 60);
+        const diffHours = Math.floor(diffMinutes / 60);
+        const diffDays = Math.floor(diffHours / 24);
+
+        let durationText = "";
+        if (diffDays > 0) {
+          const remainingHours = diffHours % 24;
+          durationText = `${diffDays} dia${diffDays > 1 ? 's' : ''}${remainingHours > 0 ? ` e ${remainingHours} hora${remainingHours > 1 ? 's' : ''}` : ''}`;
+        } else if (diffHours > 0) {
+          const remainingMinutes = diffMinutes % 60;
+          durationText = `${diffHours} hora${diffHours > 1 ? 's' : ''}${remainingMinutes > 0 ? ` e ${remainingMinutes} minuto${remainingMinutes > 1 ? 's' : ''}` : ''}`;
+        } else if (diffMinutes > 0) {
+          const remainingSeconds = diffSeconds % 60;
+          durationText = `${diffMinutes} minuto${diffMinutes > 1 ? 's' : ''}${remainingSeconds > 0 ? ` e ${remainingSeconds} segundo${remainingSeconds > 1 ? 's' : ''}` : ''}`;
+        } else {
+          durationText = `${diffSeconds} segundo${diffSeconds !== 1 ? 's' : ''}`;
+        }
+
+        disconnectionIntervalFormatted = `${disconnectFormatted} até ${reconnectFormatted} (${durationText})`;
       } catch (e) {
-        lastDisconnectTimeFormatted = "Formato inválido";
+        disconnectionIntervalFormatted = "Formato inválido";
       }
     }
 
-    // Format connection time
-    let connectionTimeFormatted = "N/A";
+    // Format connection time - only show if lastConnectTime > lastDisconnectTime (device is connected)
+    let connectionTimeFormatted = "—";
+    let timeSinceLastConnection = "";
+    let isCurrentlyConnected = false;
+
     if (connectionStatusTime) {
       try {
-        const date = new Date(connectionStatusTime);
-        connectionTimeFormatted = date.toLocaleString("pt-BR", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+        const connectDate = new Date(connectionStatusTime);
+        const disconnectDate = lastDisconnectTime ? new Date(lastDisconnectTime) : null;
+
+        // Only show "Conectado desde" if lastConnectTime > lastDisconnectTime
+        if (!disconnectDate || connectDate.getTime() > disconnectDate.getTime()) {
+          isCurrentlyConnected = true;
+          connectionTimeFormatted = connectDate.toLocaleString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+
+          // Calculate time since last connection
+          const now = new Date();
+          const diffMs = now.getTime() - connectDate.getTime();
+          const diffMinutes = Math.floor(diffMs / (1000 * 60));
+          const diffHours = Math.floor(diffMinutes / 60);
+          const diffDays = Math.floor(diffHours / 24);
+          const remainingMinutes = diffMinutes % 60;
+
+          if (diffDays > 0) {
+            const remainingHours = diffHours % 24;
+            timeSinceLastConnection = `(${diffDays}d:${remainingHours.toString().padStart(2, '0')}hs:${remainingMinutes.toString().padStart(2, '0')}mins atrás)`;
+          } else if (diffHours > 0) {
+            timeSinceLastConnection = `(${diffHours}hs:${remainingMinutes.toString().padStart(2, '0')}mins atrás)`;
+          } else if (diffMinutes > 0) {
+            timeSinceLastConnection = `(${diffMinutes}mins atrás)`;
+          } else {
+            timeSinceLastConnection = "(agora)";
+          }
+        }
       } catch (e) {
-        connectionTimeFormatted = "Formato inválido";
+        connectionTimeFormatted = "—";
       }
     }
 
@@ -601,7 +765,7 @@ export class SettingsModalView {
     }
 
     const statusMap: Record<string, { text: string; color: string }> = {
-      ok: { text: "Normal", color: "#22c55e" },
+      ok: { text: "ONLINE", color: "#22c55e" },
       alert: { text: "Atenção", color: "#f59e0b" },
       fail: { text: "Erro", color: "#ef4444" },
       unknown: { text: "Sem informação", color: "#94a3b8" },
@@ -624,7 +788,7 @@ export class SettingsModalView {
         <div class="info-grid">
           <div class="info-row">
             <span class="info-label">Central:</span>
-            <span class="info-value">${centralName || "N/A"}</span>
+            <span class="info-value">${centralName || "N/A"}${this.config.customerName ? ` (${this.config.customerName})` : ''}</span>
           </div>
 
           <div class="info-row">
@@ -637,12 +801,19 @@ export class SettingsModalView {
           </div>
 
           <div class="info-row">
-            <span class="info-label">Última Conexão:</span>
-            <span class="info-value">${connectionTimeFormatted}</span>
+            <span class="info-label">Conectado desde:</span>
+            <span class="info-value">
+              ${connectionTimeFormatted}
+              ${
+                timeSinceLastConnection
+                  ? `<span class="time-since">${timeSinceLastConnection}</span>`
+                  : ""
+              }
+            </span>
           </div>
 
           <div class="info-row">
-            <span class="info-label">Última Telemetria:</span>
+            <span class="info-label">Último check status:</span>
             <span class="info-value">
               ${telemetryTimeFormatted}
               ${
@@ -652,15 +823,16 @@ export class SettingsModalView {
               }
             </span>
           </div>
-            <div class="info-row">
-            <span class="info-label">Último desconexão:</span>
-            <span class="info-value">
-              ${lastDisconnectTimeFormatted}
-              ${
-                disconectTime
-                  ? `<span class="time-since">${disconectTime}</span>`
-                  : ""
-              }
+            <div class="info-row full-width">
+            <span class="info-label">Último intervalo desconectado:</span>
+            <span class="info-value disconnect-interval">
+              ${disconnectionIntervalFormatted}
+            </span>
+          </div>
+          <div class="info-row full-width">
+            <span class="info-label">Última Telemetria de Consumo:</span>
+            <span class="info-value" id="lastConsumptionTelemetry">
+              <span class="loading-text">Carregando...</span>
             </span>
           </div>
         </div>
@@ -755,7 +927,7 @@ export class SettingsModalView {
           gap: 20px;
         }
 
-        /* RFC-0077: Customer name display styles */
+        /* RFC-0077/0078: Customer name display styles with device type icon */
         .customer-name-container {
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           border-radius: 8px;
@@ -763,31 +935,74 @@ export class SettingsModalView {
           box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
 
+        .customer-info-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .device-type-icon-wrapper {
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 48px;
+          height: 48px;
+          background: rgba(255, 255, 255, 0.15);
+          border-radius: 12px;
+          backdrop-filter: blur(4px);
+        }
+
+        .device-type-icon {
+          stroke: white;
+          opacity: 0.95;
+        }
+
+        .device-type-icon.energy-icon {
+          stroke: #ffd700;
+        }
+
+        .device-type-icon.water-icon {
+          stroke: #00bfff;
+        }
+
+        .device-type-icon.generic-icon {
+          stroke: white;
+        }
+
+        .customer-info-content {
+          flex: 1;
+          min-width: 0;
+        }
+
         .customer-name-label {
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          color: rgba(255, 255, 255, 0.8);
-          margin-bottom: 6px;
+          color: rgba(255, 255, 255, 0.75);
+          margin-bottom: 4px;
         }
 
         .customer-name-value {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
         }
 
-        .customer-icon {
-          font-size: 24px;
-          line-height: 1;
+        .shopping-icon {
+          stroke: rgba(255, 255, 255, 0.9);
+          flex-shrink: 0;
         }
 
         .customer-name-text {
-          font-size: 18px;
+          font-size: 16px;
           font-weight: 600;
           color: white;
           line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         /* RFC-0077: Device label with monospace font */
@@ -1028,7 +1243,40 @@ export class SettingsModalView {
           font-style: italic;
         }
 
-        /* RFC-0077: Power Limits Configuration Styles */
+        .disconnect-interval {
+          font-size: 12px;
+          line-height: 1.4;
+        }
+
+        .info-row.full-width {
+          grid-column: 1 / -1; /* Span all columns */
+        }
+
+        .loading-text {
+          color: #64748b;
+          font-style: italic;
+        }
+
+        .consumption-value-display {
+          font-weight: 600;
+          color: #3e1a7d;
+        }
+
+        .consumption-date {
+          color: #475569;
+        }
+
+        .telemetry-error {
+          color: #dc2626;
+          font-style: italic;
+        }
+
+        .telemetry-no-data {
+          color: #94a3b8;
+          font-style: italic;
+        }
+
+        /* RFC-0078: Power Limits Configuration Styles */
         .power-limits-card {
           grid-column: 1 / -1; /* Span full width */
           margin-top: 20px;
@@ -1042,6 +1290,40 @@ export class SettingsModalView {
           font-size: 13px;
           color: #6c757d;
           margin-top: 8px;
+        }
+
+        /* RFC-0078: Telemetry Type Selector Styles */
+        .telemetry-selector {
+          margin-bottom: 16px;
+        }
+
+        .telemetry-selector label {
+          display: block;
+          font-weight: 500;
+          margin-bottom: 6px;
+          color: #333;
+          font-size: 14px;
+        }
+
+        .form-select {
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid #ddd;
+          border-radius: 6px;
+          font-size: 14px;
+          background-color: white;
+          cursor: pointer;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-select:focus {
+          outline: none;
+          border-color: #3e1a7d;
+          box-shadow: 0 0 0 2px rgba(62, 26, 125, 0.25);
+        }
+
+        .form-select:hover {
+          border-color: #3e1a7d;
         }
 
         .power-limits-table-wrapper {
@@ -1102,8 +1384,21 @@ export class SettingsModalView {
           box-shadow: 0 0 0 2px rgba(62, 26, 125, 0.15);
         }
 
-        .source-cell {
-          text-align: center;
+        .power-limits-source-info {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 16px;
+          padding: 12px 16px;
+          background: #f8f9fa;
+          border-radius: 8px;
+          border: 1px solid #dee2e6;
+        }
+
+        .source-label {
+          font-weight: 600;
+          color: #495057;
+          font-size: 14px;
         }
 
         .source-badge {
@@ -1114,6 +1409,13 @@ export class SettingsModalView {
           font-weight: 600;
           background: #e9ecef;
           color: #495057;
+        }
+
+        .source-badge.global-source {
+          background: #3e1a7d;
+          color: #fff;
+          padding: 6px 14px;
+          font-size: 13px;
         }
 
         .source-badge.source-device {
@@ -1164,6 +1466,65 @@ export class SettingsModalView {
 
         .btn-clear-overrides:hover {
           background: #0b5ed7;
+        }
+
+        .btn-view-json {
+          background: #6c757d;
+          color: white;
+        }
+
+        .btn-view-json:hover {
+          background: #5a6268;
+        }
+
+        /* RFC-0078: JSON Preview Panel Styles */
+        .json-preview-panel {
+          background: #1e1e1e;
+          border-radius: 6px;
+          margin-bottom: 16px;
+          overflow: hidden;
+        }
+
+        .json-preview-header {
+          background: #2d2d2d;
+          padding: 10px 16px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .json-preview-header h5 {
+          margin: 0;
+          color: #e0e0e0;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .btn-close-json {
+          background: none;
+          border: none;
+          color: #999;
+          cursor: pointer;
+          font-size: 16px;
+          padding: 4px 8px;
+          border-radius: 4px;
+        }
+
+        .btn-close-json:hover {
+          background: rgba(255, 255, 255, 0.1);
+          color: #fff;
+        }
+
+        .json-content {
+          margin: 0;
+          padding: 16px;
+          color: #d4d4d4;
+          font-family: 'Courier New', Courier, monospace;
+          font-size: 12px;
+          line-height: 1.5;
+          overflow-x: auto;
+          max-height: 300px;
+          overflow-y: auto;
         }
 
         .power-limits-legend {
@@ -1389,4 +1750,89 @@ export class SettingsModalView {
   private getI18nText(key: string, defaultText: string): string {
     return this.config.i18n?.t(key, defaultText) || defaultText;
   }
+
+  /**
+   * Fetch the latest consumption telemetry from ThingsBoard
+   * Shows the most recent consumption value with timestamp
+   */
+  private async fetchLatestConsumptionTelemetry(): Promise<void> {
+    const telemetryElement = this.modal.querySelector('#lastConsumptionTelemetry');
+    if (!telemetryElement) return;
+
+    const deviceId = this.config.deviceId;
+    const jwtToken = this.config.jwtToken;
+
+    if (!deviceId || !jwtToken) {
+      telemetryElement.innerHTML = '<span class="telemetry-error">N/A</span>';
+      return;
+    }
+
+    try {
+      // Fetch the latest single consumption telemetry point
+      const endTs = Date.now();
+      const startTs = endTs - (24 * 60 * 60 * 1000); // Last 24 hours
+      const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=consumption&startTs=${startTs}&endTs=${endTs}&limit=1&orderBy=DESC`;
+
+      const response = await fetch(url, {
+        headers: {
+          'X-Authorization': `Bearer ${jwtToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.consumption && data.consumption.length > 0) {
+        const latestPoint = data.consumption[0];
+        const valueWatts = parseFloat(latestPoint.value);
+        const timestamp = latestPoint.ts;
+
+        // Format value to kW
+        const valueKW = (valueWatts / 1000).toFixed(2);
+
+        // Format timestamp with seconds
+        const date = new Date(timestamp);
+        const formattedDate = date.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+
+        // Calculate time since
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        const diffHours = Math.floor(diffMinutes / 60);
+        const remainingMinutes = diffMinutes % 60;
+
+        let timeSince = '';
+        if (diffHours > 0) {
+          timeSince = `(${diffHours}hs:${remainingMinutes.toString().padStart(2, '0')}mins atrás)`;
+        } else if (diffMinutes > 0) {
+          timeSince = `(${diffMinutes}mins atrás)`;
+        } else {
+          timeSince = '(agora)';
+        }
+
+        telemetryElement.innerHTML = `
+          <span class="consumption-value-display">${valueKW} kW</span>
+          <span class="consumption-date">- ${formattedDate}</span>
+          <span class="time-since">${timeSince}</span>
+        `;
+      } else {
+        telemetryElement.innerHTML = '<span class="telemetry-no-data">Sem dados</span>';
+      }
+    } catch (error) {
+      console.error('[SettingsModal] Failed to fetch consumption telemetry:', error);
+      telemetryElement.innerHTML = '<span class="telemetry-error">Erro ao carregar</span>';
+    }
+  }
 }
+

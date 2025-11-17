@@ -25,6 +25,7 @@ export class SettingsController {
       closeOnBackdrop: params.ui?.closeOnBackdrop !== false,
       domain: params.domain || 'energy',
       deviceType: params.deviceType, // Pass deviceType for conditional rendering
+      deviceProfile: params.deviceProfile, // RFC-0076: Pass deviceProfile for 3F_MEDIDOR fallback
       customerName: params.customerName, // RFC-0077: Pass customer/shopping name for display
       deviceId: params.deviceId, // RFC-0077: Pass deviceId for Power Limits feature
       jwtToken: params.jwtToken, // RFC-0077: Pass jwtToken for API calls
@@ -40,7 +41,8 @@ export class SettingsController {
   async show(): Promise<void> {
     console.info('[SettingsModal] Opening modal', {
       deviceId: this.params.deviceId,
-      ingestionId: this.params.ingestionId
+      deviceType: this.params.deviceType,
+      deviceProfile: this.params.deviceProfile
     });
 
     this.emitEvent('modal_opened');
@@ -84,11 +86,6 @@ export class SettingsController {
 
     if (!this.params.deviceId) {
       throw new Error('deviceId is required');
-    }
-
-    // ingestionId is optional but recommended for UI display
-    if (!this.params.ingestionId) {
-      console.warn('[SettingsModal] ingestionId not provided - using deviceId for display');
     }
   }
 

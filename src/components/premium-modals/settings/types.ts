@@ -9,6 +9,7 @@ export interface OpenDashboardPopupSettingsParams {
   label?: string;
   domain?: Domain; // Domain for the left column section
   deviceType?: string; // Device type for conditional rendering (e.g., TERMOSTATO)
+  deviceProfile?: string; // RFC-0076: Device profile for 3F_MEDIDOR fallback (e.g., ELEVADOR, MOTOR)
   customerName?: string; // RFC-0077: Shopping center name to display above device label
 
 
@@ -129,6 +130,8 @@ export interface ModalConfig {
   deviceLabel?: string; // Dynamic label for the left column section
   domain: Domain; // Domain for the left column section
   deviceType?: string; // Device type for conditional rendering (e.g., TERMOSTATO)
+  // RFC-0076/0077: deviceProfile fallback when deviceType is 3F_MEDIDOR
+  deviceProfile?: string; // Device profile for 3F_MEDIDOR fallback (e.g., ELEVADOR, MOTOR)
   // RFC-0077: Add customer name, device ID, and JWT token for Power Limits feature
   customerName?: string; // Shopping center name to display above device label
   deviceId?: string; // ThingsBoard device ID for fetching device-level attributes

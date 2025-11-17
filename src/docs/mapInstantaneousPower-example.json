@@ -1,0 +1,1020 @@
+{
+  "version": "1.0.0",
+  "limitsByInstantaneoustPowerType": [
+    {
+      "telemetryType": "consumption",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevator",
+          "description": "Setup de Limites de Potência instantânea para Elevador",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 150
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 151,
+                "topValue": 800
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 801,
+                "topValue": 1200
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 1201,
+                "topValue": 99999
+              }
+            }
+          ]
+        },
+        {
+          "deviceType": "ESCADA_ROLANTE",
+          "name": "mapInstantaneousPowerEscalator",
+          "description": "Setup de Limites de Potência instantânea para Escada Rolante",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 200
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 201,
+                "topValue": 1000
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 1001,
+                "topValue": 1500
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 1501,
+                "topValue": 99999
+              }
+            }
+          ]
+        },
+        {
+          "deviceType": "MOTOR",
+          "name": "mapInstantaneousPowerMotor",
+          "description": "Setup de Limites de Potência instantânea para Motor/Bomba",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 200
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 201,
+                "topValue": 1000
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 1001,
+                "topValue": 1500
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 1501,
+                "topValue": 99999
+              }
+            }
+          ]
+        },
+        {
+          "deviceType": "BOMBA",
+          "name": "mapInstantaneousPowerBomba",
+          "description": "Setup de Limites de Potência instantânea para Bomba",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 200
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 201,
+                "topValue": 1000
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 1001,
+                "topValue": 1500
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 1501,
+                "topValue": 99999
+              }
+            }
+          ]
+        },
+        {
+          "deviceType": "CHILLER",
+          "name": "mapInstantaneousPowerChiller",
+          "description": "Setup de Limites de Potência instantânea para Chiller",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 1000
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 1001,
+                "topValue": 6000
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 6001,
+                "topValue": 8000
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 8001,
+                "topValue": 99999
+              }
+            }
+          ]
+        },
+        {
+          "deviceType": "AR_CONDICIONADO",
+          "name": "mapInstantaneousPowerAC",
+          "description": "Setup de Limites de Potência instantânea para Ar Condicionado",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 500
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 501,
+                "topValue": 3000
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 3001,
+                "topValue": 5000
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 5001,
+                "topValue": 99999
+              }
+            }
+          ]
+        },
+        {
+          "deviceType": "HVAC",
+          "name": "mapInstantaneousPowerHVAC",
+          "description": "Setup de Limites de Potência instantânea para HVAC",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 500
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 501,
+                "topValue": 3000
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 3001,
+                "topValue": 5000
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 5001,
+                "topValue": 99999
+              }
+            }
+          ]
+        },
+        {
+          "deviceType": "FANCOIL",
+          "name": "mapInstantaneousPowerFancoil",
+          "description": "Setup de Limites de Potência instantânea para Fancoil",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 100
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 101,
+                "topValue": 500
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 501,
+                "topValue": 800
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 801,
+                "topValue": 99999
+              }
+            }
+          ]
+        },
+        {
+          "deviceType": "3F_MEDIDOR",
+          "name": "mapInstantaneousPower3FMedidor",
+          "description": "Setup de Limites de Potência instantânea para Medidor Trifásico Genérico",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 100
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 101,
+                "topValue": 1000
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 1001,
+                "topValue": 2000
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 2001,
+                "topValue": 99999
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "telemetryType": "voltage_a",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevatorVoltageA",
+          "description": "Limites de Tensão Fase A para Elevador",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 0
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 200,
+                "topValue": 240
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 180,
+                "topValue": 199
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 179
+              }
+            }
+          ]
+        },
+        {
+          "deviceType": "ESCADA_ROLANTE",
+          "name": "mapInstantaneousPowerEscalatorVoltageA",
+          "description": "Limites de Tensão Fase A para Escada Rolante",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 0
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 200,
+                "topValue": 240
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 180,
+                "topValue": 199
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 179
+              }
+            }
+          ]
+        },
+        {
+          "deviceType": "MOTOR",
+          "name": "mapInstantaneousPowerMotorVoltageA",
+          "description": "Limites de Tensão Fase A para Motor",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 0
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 200,
+                "topValue": 240
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 180,
+                "topValue": 199
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 179
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "telemetryType": "voltage_b",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevatorVoltageB",
+          "description": "Limites de Tensão Fase B para Elevador",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 0
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 200,
+                "topValue": 240
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 180,
+                "topValue": 199
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 179
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "telemetryType": "voltage_c",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevatorVoltageC",
+          "description": "Limites de Tensão Fase C para Elevador",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 0
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 200,
+                "topValue": 240
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 180,
+                "topValue": 199
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 179
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "telemetryType": "current_a",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevatorCurrentA",
+          "description": "Limites de Corrente Fase A para Elevador",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 1
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 2,
+                "topValue": 10
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 11,
+                "topValue": 15
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 16,
+                "topValue": 99999
+              }
+            }
+          ]
+        },
+        {
+          "deviceType": "MOTOR",
+          "name": "mapInstantaneousPowerMotorCurrentA",
+          "description": "Limites de Corrente Fase A para Motor",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 2
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 3,
+                "topValue": 12
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 13,
+                "topValue": 18
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 19,
+                "topValue": 99999
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "telemetryType": "current_b",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevatorCurrentB",
+          "description": "Limites de Corrente Fase B para Elevador",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 1
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 2,
+                "topValue": 10
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 11,
+                "topValue": 15
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 16,
+                "topValue": 99999
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "telemetryType": "current_c",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevatorCurrentC",
+          "description": "Limites de Corrente Fase C para Elevador",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 1
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 2,
+                "topValue": 10
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 11,
+                "topValue": 15
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 16,
+                "topValue": 99999
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "telemetryType": "total_current",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevatorTotalCurrent",
+          "description": "Limites de Corrente Total para Elevador",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 3
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 4,
+                "topValue": 30
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 31,
+                "topValue": 45
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 46,
+                "topValue": 99999
+              }
+            }
+          ]
+        },
+        {
+          "deviceType": "MOTOR",
+          "name": "mapInstantaneousPowerMotorTotalCurrent",
+          "description": "Limites de Corrente Total para Motor",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 6
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 7,
+                "topValue": 36
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 37,
+                "topValue": 54
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 55,
+                "topValue": 99999
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "telemetryType": "fp_a",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevatorFpA",
+          "description": "Limites de Fator de Potência Fase A para Elevador",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 0
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 0.85,
+                "topValue": 1
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 0.7,
+                "topValue": 0.84
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 0.69
+              }
+            }
+          ]
+        },
+        {
+          "deviceType": "MOTOR",
+          "name": "mapInstantaneousPowerMotorFpA",
+          "description": "Limites de Fator de Potência Fase A para Motor",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 0
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 0.85,
+                "topValue": 1
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 0.7,
+                "topValue": 0.84
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 0.69
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "telemetryType": "fp_b",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevatorFpB",
+          "description": "Limites de Fator de Potência Fase B para Elevador",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 0
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 0.85,
+                "topValue": 1
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 0.7,
+                "topValue": 0.84
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 0.69
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "telemetryType": "fp_c",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevatorFpC",
+          "description": "Limites de Fator de Potência Fase C para Elevador",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 0
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 0.85,
+                "topValue": 1
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 0.7,
+                "topValue": 0.84
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 0.69
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "telemetryType": "a",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevatorPhaseA",
+          "description": "Limites de Potência Fase A para Elevador",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 50
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 51,
+                "topValue": 270
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 271,
+                "topValue": 400
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 401,
+                "topValue": 99999
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "telemetryType": "b",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevatorPhaseB",
+          "description": "Limites de Potência Fase B para Elevador",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 50
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 51,
+                "topValue": 270
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 271,
+                "topValue": 400
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 401,
+                "topValue": 99999
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "telemetryType": "c",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevatorPhaseC",
+          "description": "Limites de Potência Fase C para Elevador",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 0,
+                "topValue": 50
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 51,
+                "topValue": 270
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 271,
+                "topValue": 400
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 401,
+                "topValue": 99999
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
