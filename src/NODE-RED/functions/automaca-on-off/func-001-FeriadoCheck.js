@@ -267,21 +267,37 @@ const observability = {
 // ========== FIM OBSERVABILIDADE ==========
 
 return {
+  // atalhos de conveniência no topo (para quem usar direto)
   deviceName: device.deviceName,
+  shouldActivate,
+  shouldShutdown,
+
+  // contrato oficial via payload
   payload: {
     currentIndex: currIndex,
     length: keys.length,
+
+    // flags principais (contrato que Mesquita já usa)
     shouldActivate,
     shouldShutdown,
+
+    // contexto do device
     device,
     deviceName: device.deviceName,
+
+    // calendários
     excludedDays,
-    currDate: today0h,
-    currentTimeSP: nowLocal,
     storedHolidaysDays,
+
+    // datas de referência
+    currDate,       // hoje 00:00
+    currentTimeSP,  // “agora” local
+
+    // schedules já filtrados/aplicáveis
     schedules,
 
-    // ========== NOVO: Campo de observabilidade ==========
-    _observability: observability
-  }
+    // bloco novo de observabilidade (quando já estiver implantado)
+    _observability, // opcional: motivo, schedule aplicada, policy, etc.
+  },
 };
+
