@@ -375,11 +375,11 @@ async function fetchDeviceConsumptionLimits(deviceId) {
     const hasAllKeys = requiredKeys.every(key => limits.hasOwnProperty(key));
 
     if (!hasAllKeys) {
-      console.warn(`[RFC-0077] Incomplete device-level limits for ${deviceId}, missing keys`);
+      //console.warn(`[RFC-0077] Incomplete device-level limits for ${deviceId}, missing keys`);
       return null;
     }
 
-    console.log(`[RFC-0077] ✅ Loaded device-level limits for ${deviceId} (TIER 1)`);
+    //console.log(`[RFC-0077] ✅ Loaded device-level limits for ${deviceId} (TIER 1)`);
     return limits;
 
   } catch (error) {
@@ -1173,17 +1173,18 @@ function initializeCards(devices) {
     const customerName = getCustomerNameForDevice(device);
     device.customerName = customerName;
 
+    /*
     console.log("[EQUIPMENTS] Device customerName set:", {
       labelOrName: device.labelOrName,
       customerName: device.customerName,
       customerId: device.customerId,
       ingestionId: device.ingestionId
     });
+    */
 
-    if (device.labelOrName && device.labelOrName.includes("Chiller 1")) {
+    if (device.labelOrName && device.labelOrName.toUpperCase().includes("ELEVADOR")) {
       console.log("[EQUIPMENTS] Rendering card for Chiller 1 device:", device);
-    }
-    
+    } 
 
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
