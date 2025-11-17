@@ -405,7 +405,7 @@ export class SettingsModalView {
     // 1. Garante que o objeto base existe
     const mapPower: any = this.config.mapInstantaneousPower || {};
 
-    // 2. Acessa o array de tipos (usando a chave exata do seu JSON)
+    // 2. Acessa o array de tipos
     const limitsByType = mapPower.limitsByInstantaneoustPowerType || [];
 
     // 3. Filtra pelo tipo 'consumption'
@@ -413,17 +413,17 @@ export class SettingsModalView {
       (group: any) => group.telemetryType === "consumption"
     );
 
-    // 4. Filtra pelo Device Type configurado no widget (Ex: ELEVADOR)
+    // 4. Filtra pelo Device Type configurado no widget
     const targetDeviceType = this.config.deviceType;
     const itemsByDevice = consumptionGroup?.itemsByDeviceType || [];
     const deviceSettings = itemsByDevice.find(
       (item: any) => item.deviceType === targetDeviceType
     );
 
-    // 5. Extrai a lista de status ou array vazio
+    // 5. Extrai a lista de status
     const limitsList = deviceSettings?.limitsByDeviceStatus || [];
 
-    // Helper para extrair valores de forma segura (retorna string vazia se não existir para não mostrar "undefined" no input)
+    // Helper para extrair valores (Retorna string vazia se não existir)
     const getValues = (statusName: string) => {
       const statusObj = limitsList.find(
         (l: any) => l.deviceStatusName === statusName
@@ -432,13 +432,9 @@ export class SettingsModalView {
     };
 
     return {
-      // Metadados para a UI
       hasConfig: !!deviceSettings,
-      description:
-        deviceSettings?.description ||
-        "Configuração não encontrada para este tipo de dispositivo",
-
-      // Valores por status
+      description: deviceSettings?.description || "Padrão do Sistema",
+      // Valores Globais (JSON)
       standby: getValues("standBy"),
       normal: getValues("normal"),
       alert: getValues("alert"),
@@ -451,11 +447,14 @@ export class SettingsModalView {
    * Shows device-level and customer-level consumption limits with telemetry type selector
    */
   private getPowerLimitsHTML(): string {
-    const data = this.getConsumptionLimits();
-    const fmtRange = (val: any) =>
-      val.baseValue === "" || val.baseValue === undefined
-        ? "—"
-        : `${val.baseValue} a ${val.topValue} W`;
+    // Busca dados do JSON GLOBAL (this.config)
+    const globalData = this.getConsumptionLimits();
+
+    // Helper visual para formatar a referência (Ex: "0 a 150 W")
+    const fmtRange = (val: any) => {
+      if (val.baseValue === "" || val.baseValue === undefined) return "—";
+      return `${val.baseValue} a ${val.topValue} W`;
+    };
 
     return `
       <div class="form-card power-limits-card">
@@ -478,20 +477,26 @@ export class SettingsModalView {
         </div>
 
         <div class="global-reference-container">
-          <div class="global-ref-header"><span>🌐 Referência Global (Padrão)</span></div>
+          <div class="global-ref-header">
+            <span>🌐 Referência Global (${globalData.description})</span>
+          </div>
           <div class="global-values-grid">
-            <div class="global-value-item"><span class="g-status">StandBy 🔌</span><span class="g-range">${fmtRange(
-              data.standby
-            )}</span></div>
-            <div class="global-value-item"><span class="g-status">Normal ⚡</span><span class="g-range">${fmtRange(
-              data.normal
-            )}</span></div>
-            <div class="global-value-item"><span class="g-status">Alerta ⚠️</span><span class="g-range">${fmtRange(
-              data.alert
-            )}</span></div>
-            <div class="global-value-item"><span class="g-status">Falha 🚨</span><span class="g-range">${fmtRange(
-              data.failure
-            )}</span></div>
+            <div class="global-value-item">
+                <span class="g-status">StandBy 🔌</span>
+                <span class="g-range">${fmtRange(globalData.standby)}</span>
+            </div>
+            <div class="global-value-item">
+                <span class="g-status">Normal ⚡</span>
+                <span class="g-range">${fmtRange(globalData.normal)}</span>
+            </div>
+            <div class="global-value-item">
+                <span class="g-status">Alerta ⚠️</span>
+                <span class="g-range">${fmtRange(globalData.alert)}</span>
+            </div>
+            <div class="global-value-item">
+                <span class="g-status">Falha 🚨</span>
+                <span class="g-range">${fmtRange(globalData.failure)}</span>
+            </div>
           </div>
         </div>
 
@@ -507,47 +512,95 @@ export class SettingsModalView {
             <tbody>
               <tr class="limit-row">
                 <td class="status-label"><span class="status-icon">🔌</span> StandBy</td>
-                <td><input type="number" name="standbyLimitDownConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
-                  data.standby.baseValue
-                }"></td>
-                <td><input type="number" name="standbyLimitUpConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
-                  data.standby.topValue
-                }"></td>
+                <td>
+                    <input type="number" 
+                           name="standbyLimitDownConsumption" 
+                           class="limit-input js-limit-input" 
+                           min="0" step="1" 
+                           placeholder="Vazio" 
+                           data-global-value="${globalData.standby.baseValue}">
+                </td>
+                <td>
+                    <input type="number" 
+                           name="standbyLimitUpConsumption" 
+                           class="limit-input js-limit-input" 
+                           min="0" step="1" 
+                           placeholder="Vazio" 
+                           data-global-value="${globalData.standby.topValue}">
+                </td>
               </tr>
+              
               <tr class="limit-row">
                 <td class="status-label"><span class="status-icon">⚡</span> Normal</td>
-                <td><input type="number" name="normalLimitDownConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
-                  data.normal.baseValue
-                }"></td>
-                <td><input type="number" name="normalLimitUpConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
-                  data.normal.topValue
-                }"></td>
+                <td>
+                    <input type="number" 
+                           name="normalLimitDownConsumption" 
+                           class="limit-input js-limit-input" 
+                           min="0" step="1" 
+                           placeholder="Vazio" 
+                           data-global-value="${globalData.normal.baseValue}">
+                </td>
+                <td>
+                    <input type="number" 
+                           name="normalLimitUpConsumption" 
+                           class="limit-input js-limit-input" 
+                           min="0" step="1" 
+                           placeholder="Vazio" 
+                           data-global-value="${globalData.normal.topValue}">
+                </td>
               </tr>
+
               <tr class="limit-row">
                 <td class="status-label"><span class="status-icon">⚠️</span> Alerta</td>
-                <td><input type="number" name="alertLimitDownConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
-                  data.alert.baseValue
-                }"></td>
-                <td><input type="number" name="alertLimitUpConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
-                  data.alert.topValue
-                }"></td>
+                <td>
+                    <input type="number" 
+                           name="alertLimitDownConsumption" 
+                           class="limit-input js-limit-input" 
+                           min="0" step="1" 
+                           placeholder="Vazio" 
+                           data-global-value="${globalData.alert.baseValue}">
+                </td>
+                <td>
+                    <input type="number" 
+                           name="alertLimitUpConsumption" 
+                           class="limit-input js-limit-input" 
+                           min="0" step="1" 
+                           placeholder="Vazio" 
+                           data-global-value="${globalData.alert.topValue}">
+                </td>
               </tr>
+
               <tr class="limit-row">
                 <td class="status-label"><span class="status-icon">🚨</span> Falha</td>
-                <td><input type="number" name="failureLimitDownConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
-                  data.failure.baseValue
-                }"></td>
-                <td><input type="number" name="failureLimitUpConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
-                  data.failure.topValue
-                }"></td>
+                <td>
+                    <input type="number" 
+                           name="failureLimitDownConsumption" 
+                           class="limit-input js-limit-input" 
+                           min="0" step="1" 
+                           placeholder="Vazio" 
+                           data-global-value="${globalData.failure.baseValue}">
+                </td>
+                <td>
+                    <input type="number" 
+                           name="failureLimitUpConsumption" 
+                           class="limit-input js-limit-input" 
+                           min="0" step="1" 
+                           placeholder="Vazio" 
+                           data-global-value="${globalData.failure.topValue}">
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <div class="power-limits-actions">
-          <button type="button" class="btn-copy-global" id="btnCopyFromGlobal">⬇️ Copiar do Global</button>
-          <button type="button" class="btn-clear-overrides" id="btnClearInputs">🗑️ Limpar</button>
+          <button type="button" class="btn-copy-global" id="btnCopyFromGlobal">
+            ⬇️ Copiar valores da Referência Global
+          </button>
+          
+          <button type="button" class="btn-clear-overrides" id="btnClearInputs">
+            🗑️ Limpar Campos
+          </button>
         </div>
       </div>
     `;
@@ -1749,7 +1802,9 @@ export class SettingsModalView {
       });
     }
 
-    const btnCopy = this.modal.querySelector("#btnCopyFromGlobal") as HTMLButtonElement;
+    const btnCopy = this.modal.querySelector(
+      "#btnCopyFromGlobal"
+    ) as HTMLButtonElement;
     if (btnCopy) {
       btnCopy.addEventListener("click", (e) => {
         e.preventDefault(); // Previne submissão do form
@@ -1757,35 +1812,41 @@ export class SettingsModalView {
 
         // Busca todos os inputs que tem a classe marcadora
         const inputs = this.modal.querySelectorAll(".js-limit-input");
-        
+
         inputs.forEach((el) => {
           const input = el as HTMLInputElement;
           const globalVal = input.getAttribute("data-global-value");
 
           // Só copia se existir um valor global válido
-          if (globalVal !== null && globalVal !== "" && globalVal !== "undefined") {
+          if (
+            globalVal !== null &&
+            globalVal !== "" &&
+            globalVal !== "undefined"
+          ) {
             input.value = globalVal;
-            
+
             // Dispara evento 'input' para notificar validações ou frameworks reativos se houver
-            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event("input", { bubbles: true }));
           }
         });
       });
     }
 
     // 2. Botão Limpar Campos
-    const btnClear = this.modal.querySelector("#btnClearInputs") as HTMLButtonElement;
+    const btnClear = this.modal.querySelector(
+      "#btnClearInputs"
+    ) as HTMLButtonElement;
     if (btnClear) {
       btnClear.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
 
         const inputs = this.modal.querySelectorAll(".js-limit-input");
-        
+
         inputs.forEach((el) => {
           const input = el as HTMLInputElement;
           input.value = ""; // Limpa o valor visualmente
-          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event("input", { bubbles: true }));
         });
       });
     }
