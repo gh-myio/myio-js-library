@@ -99,7 +99,8 @@ export function mapDeviceStatusToCardStatus(deviceStatus) {
     [DeviceStatusType.WARNING]: 'alert',
     [DeviceStatusType.FAILURE]: 'fail',
     [DeviceStatusType.MAINTENANCE]: 'alert',
-    [DeviceStatusType.NO_INFO]: 'unknown'
+    [DeviceStatusType.NO_INFO]: 'unknown',
+    [DeviceStatusType.NOT_INSTALLED]: 'not_installed'
   };
   return statusMap[deviceStatus] || 'unknown';
 }

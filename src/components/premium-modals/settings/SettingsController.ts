@@ -34,7 +34,8 @@ export class SettingsController {
       deviceLabel: params.label, // Pass the device label for dynamic section titles
       connectionData: params.connectionData, // Pass connection info for display
       onSave: this.handleSave.bind(this),
-      onClose: this.handleClose.bind(this)
+      onClose: this.handleClose.bind(this),
+      mapInstantaneousPower: params.mapInstantaneousPower // RFC-0077: Pass instantaneous power map for Power Limits feature
     });
   }
 

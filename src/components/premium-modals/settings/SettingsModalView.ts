@@ -181,11 +181,13 @@ export class SettingsModalView {
 
     // RFC-0077: Extract customerName for display
     const customerName = this.config.customerName;
-    const hasCustomerName = customerName && customerName.trim() !== '';
+    const hasCustomerName = customerName && customerName.trim() !== "";
 
     return `
       <div class="form-layout">
-        ${hasCustomerName ? `
+        ${
+          hasCustomerName
+            ? `
         <!-- RFC-0077/0078: Shopping name display with device type icon -->
         <div class="customer-name-container">
           <div class="customer-info-row">
@@ -201,7 +203,9 @@ export class SettingsModalView {
             </div>
           </div>
         </div>
-        ` : ''}
+        `
+            : ""
+        }
 
         <!-- Top Row: Two cards side by side -->
         <div class="form-columns">
@@ -239,7 +243,11 @@ export class SettingsModalView {
         ${this.getConnectionInfoHTML()}
 
         <!-- RFC-0077: Power Limits Configuration (only for energy domain and when deviceType is available) -->
-        ${this.config.domain === 'energy' && this.config.deviceType ? this.getPowerLimitsHTML() : ''}
+        ${
+          this.config.domain === "energy" && this.config.deviceType
+            ? this.getPowerLimitsHTML()
+            : ""
+        }
       </div>
     `;
   }
@@ -325,25 +333,40 @@ export class SettingsModalView {
    * Note: Applies 3F_MEDIDOR → deviceProfile fallback rule
    */
   private getDeviceTypeIcon(deviceType: string): string {
-    let normalizedType = (deviceType || '').toUpperCase();
+    let normalizedType = (deviceType || "").toUpperCase();
 
     // RFC-0076: If deviceType is 3F_MEDIDOR, check for deviceProfile fallback
-    if (normalizedType === '3F_MEDIDOR') {
+    if (normalizedType === "3F_MEDIDOR") {
       const deviceProfile = (this.config as any).deviceProfile;
-      if (deviceProfile && deviceProfile !== 'N/D' && deviceProfile.trim() !== '') {
+      if (
+        deviceProfile &&
+        deviceProfile !== "N/D" &&
+        deviceProfile.trim() !== ""
+      ) {
         normalizedType = deviceProfile.toUpperCase();
       }
     }
 
     // Energy device types
     const energyDevices = [
-      'COMPRESSOR', 'VENTILADOR', 'ESCADA_ROLANTE', 'ELEVADOR',
-      'MOTOR', '3F_MEDIDOR', 'RELOGIO', 'ENTRADA', 'SUBESTACAO',
-      'BOMBA', 'CHILLER', 'AR_CONDICIONADO', 'HVAC', 'FANCOIL'
+      "COMPRESSOR",
+      "VENTILADOR",
+      "ESCADA_ROLANTE",
+      "ELEVADOR",
+      "MOTOR",
+      "3F_MEDIDOR",
+      "RELOGIO",
+      "ENTRADA",
+      "SUBESTACAO",
+      "BOMBA",
+      "CHILLER",
+      "AR_CONDICIONADO",
+      "HVAC",
+      "FANCOIL",
     ];
 
     // Water device types
-    const waterDevices = ['HIDROMETRO', 'CAIXA_DAGUA', 'TANK'];
+    const waterDevices = ["HIDROMETRO", "CAIXA_DAGUA", "TANK"];
 
     if (energyDevices.includes(normalizedType)) {
       // Energy icon - bolt/lightning
@@ -378,205 +401,153 @@ export class SettingsModalView {
     }
   }
 
+  private getConsumptionLimits() {
+    // 1. Garante que o objeto base existe
+    const mapPower: any = this.config.mapInstantaneousPower || {};
+
+    // 2. Acessa o array de tipos (usando a chave exata do seu JSON)
+    const limitsByType = mapPower.limitsByInstantaneoustPowerType || [];
+
+    // 3. Filtra pelo tipo 'consumption'
+    const consumptionGroup = limitsByType.find(
+      (group: any) => group.telemetryType === "consumption"
+    );
+
+    // 4. Filtra pelo Device Type configurado no widget (Ex: ELEVADOR)
+    const targetDeviceType = this.config.deviceType;
+    const itemsByDevice = consumptionGroup?.itemsByDeviceType || [];
+    const deviceSettings = itemsByDevice.find(
+      (item: any) => item.deviceType === targetDeviceType
+    );
+
+    // 5. Extrai a lista de status ou array vazio
+    const limitsList = deviceSettings?.limitsByDeviceStatus || [];
+
+    // Helper para extrair valores de forma segura (retorna string vazia se não existir para não mostrar "undefined" no input)
+    const getValues = (statusName: string) => {
+      const statusObj = limitsList.find(
+        (l: any) => l.deviceStatusName === statusName
+      );
+      return statusObj?.limitsValues || { baseValue: "", topValue: "" };
+    };
+
+    return {
+      // Metadados para a UI
+      hasConfig: !!deviceSettings,
+      description:
+        deviceSettings?.description ||
+        "Configuração não encontrada para este tipo de dispositivo",
+
+      // Valores por status
+      standby: getValues("standBy"),
+      normal: getValues("normal"),
+      alert: getValues("alert"),
+      failure: getValues("failure"),
+    };
+  }
+
   /**
    * RFC-0078: Power Limits Configuration UI
    * Shows device-level and customer-level consumption limits with telemetry type selector
    */
   private getPowerLimitsHTML(): string {
+    const data = this.getConsumptionLimits();
+    const fmtRange = (val: any) =>
+      val.baseValue === "" || val.baseValue === undefined
+        ? "—"
+        : `${val.baseValue} a ${val.topValue} W`;
+
     return `
       <div class="form-card power-limits-card">
         <div class="power-limits-header">
           <h4 class="section-title">Configuração de Limites de Telemetrias Instantâneas</h4>
           <div class="power-limits-subtitle">
-            Configure os limites por tipo de telemetria para monitoramento do equipamento
+            Monitoramento de Consumo (W) para: <strong>${
+              this.config.deviceType || "N/D"
+            }</strong>
           </div>
         </div>
 
-        <!-- RFC-0078: Telemetry Type Selector -->
-        <div class="telemetry-selector">
-          <label for="telemetryType">Tipo de Telemetria</label>
-          <select id="telemetryType" name="telemetryType" class="form-select">
-            <option value="consumption" selected>Potência (W)</option>
-            <!-- Future options (RFC-0078 supports multiple telemetry types):
-            <option value="a">Fase A - Potência (W)</option>
-            <option value="b">Fase B - Potência (W)</option>
-            <option value="c">Fase C - Potência (W)</option>
-            <option value="total_current">Corrente Total (A)</option>
-            <option value="current_a">Fase A - Corrente (A)</option>
-            <option value="current_b">Fase B - Corrente (A)</option>
-            <option value="current_c">Fase C - Corrente (A)</option>
-            <option value="voltage_a">Fase A - Tensão (V)</option>
-            <option value="voltage_b">Fase B - Tensão (V)</option>
-            <option value="voltage_c">Fase C - Tensão (V)</option>
-            <option value="fp_a">Fase A - Fator de Potência</option>
-            <option value="fp_b">Fase B - Fator de Potência</option>
-            <option value="fp_c">Fase C - Fator de Potência</option>
-            -->
-          </select>
+        <div class="power-limits-controls-row" style="display:flex; gap:20px; align-items: flex-end; margin-bottom: 15px;">
+           <div class="telemetry-selector-group" style="flex:1">
+            <label for="telemetryType" style="display:block; margin-bottom:5px; font-weight:500;">Tipo de Telemetria</label>
+            <select id="telemetryType" name="telemetryType" class="form-select">
+                <option value="consumption" selected>Potência Ativa (W)</option>
+            </select>
+           </div>
         </div>
 
-        <div class="power-limits-source-info">
-          <span class="source-label">Referência Global:</span>
-          <span class="source-badge global-source" id="global-source">—</span>
+        <div class="global-reference-container">
+          <div class="global-ref-header"><span>🌐 Referência Global (Padrão)</span></div>
+          <div class="global-values-grid">
+            <div class="global-value-item"><span class="g-status">StandBy 🔌</span><span class="g-range">${fmtRange(
+              data.standby
+            )}</span></div>
+            <div class="global-value-item"><span class="g-status">Normal ⚡</span><span class="g-range">${fmtRange(
+              data.normal
+            )}</span></div>
+            <div class="global-value-item"><span class="g-status">Alerta ⚠️</span><span class="g-range">${fmtRange(
+              data.alert
+            )}</span></div>
+            <div class="global-value-item"><span class="g-status">Falha 🚨</span><span class="g-range">${fmtRange(
+              data.failure
+            )}</span></div>
+          </div>
         </div>
 
         <div class="power-limits-table-wrapper">
           <table class="power-limits-table">
             <thead>
               <tr>
-                <th>Status</th>
-                <th>Mínimo</th>
-                <th>Máximo</th>
+                <th style="width: 30%">Status</th>
+                <th style="width: 35%">Mínimo (W)</th>
+                <th style="width: 35%">Máximo (W)</th>
               </tr>
             </thead>
             <tbody>
-              <tr class="limit-row standby-row">
-                <td class="status-label">
-                  <span class="status-icon">🔌</span>
-                  <span>StandBy</span>
-                </td>
-                <td>
-                  <input type="number"
-                         id="standbyLimitDownConsumption"
-                         name="standbyLimitDownConsumption"
-                         class="limit-input"
-                         min="0"
-                         step="1"
-                         placeholder="Min">
-                </td>
-                <td>
-                  <input type="number"
-                         id="standbyLimitUpConsumption"
-                         name="standbyLimitUpConsumption"
-                         class="limit-input"
-                         min="0"
-                         step="1"
-                         placeholder="Max">
-                </td>
+              <tr class="limit-row">
+                <td class="status-label"><span class="status-icon">🔌</span> StandBy</td>
+                <td><input type="number" name="standbyLimitDownConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
+                  data.standby.baseValue
+                }"></td>
+                <td><input type="number" name="standbyLimitUpConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
+                  data.standby.topValue
+                }"></td>
               </tr>
-
-              <tr class="limit-row normal-row">
-                <td class="status-label">
-                  <span class="status-icon">⚡</span>
-                  <span>Normal</span>
-                </td>
-                <td>
-                  <input type="number"
-                         id="normalLimitDownConsumption"
-                         name="normalLimitDownConsumption"
-                         class="limit-input"
-                         min="0"
-                         step="1"
-                         placeholder="Min">
-                </td>
-                <td>
-                  <input type="number"
-                         id="normalLimitUpConsumption"
-                         name="normalLimitUpConsumption"
-                         class="limit-input"
-                         min="0"
-                         step="1"
-                         placeholder="Max">
-                </td>
+              <tr class="limit-row">
+                <td class="status-label"><span class="status-icon">⚡</span> Normal</td>
+                <td><input type="number" name="normalLimitDownConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
+                  data.normal.baseValue
+                }"></td>
+                <td><input type="number" name="normalLimitUpConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
+                  data.normal.topValue
+                }"></td>
               </tr>
-
-              <tr class="limit-row alert-row">
-                <td class="status-label">
-                  <span class="status-icon">⚠️</span>
-                  <span>Alerta</span>
-                </td>
-                <td>
-                  <input type="number"
-                         id="alertLimitDownConsumption"
-                         name="alertLimitDownConsumption"
-                         class="limit-input"
-                         min="0"
-                         step="1"
-                         placeholder="Min">
-                </td>
-                <td>
-                  <input type="number"
-                         id="alertLimitUpConsumption"
-                         name="alertLimitUpConsumption"
-                         class="limit-input"
-                         min="0"
-                         step="1"
-                         placeholder="Max">
-                </td>
+              <tr class="limit-row">
+                <td class="status-label"><span class="status-icon">⚠️</span> Alerta</td>
+                <td><input type="number" name="alertLimitDownConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
+                  data.alert.baseValue
+                }"></td>
+                <td><input type="number" name="alertLimitUpConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
+                  data.alert.topValue
+                }"></td>
               </tr>
-
-              <tr class="limit-row failure-row">
-                <td class="status-label">
-                  <span class="status-icon">🚨</span>
-                  <span>Falha</span>
-                </td>
-                <td>
-                  <input type="number"
-                         id="failureLimitDownConsumption"
-                         name="failureLimitDownConsumption"
-                         class="limit-input"
-                         min="0"
-                         step="1"
-                         placeholder="Min">
-                </td>
-                <td>
-                  <input type="number"
-                         id="failureLimitUpConsumption"
-                         name="failureLimitUpConsumption"
-                         class="limit-input"
-                         min="0"
-                         step="1"
-                         placeholder="Max">
-                </td>
+              <tr class="limit-row">
+                <td class="status-label"><span class="status-icon">🚨</span> Falha</td>
+                <td><input type="number" name="failureLimitDownConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
+                  data.failure.baseValue
+                }"></td>
+                <td><input type="number" name="failureLimitUpConsumption" class="limit-input js-limit-input" min="0" step="1" placeholder="Padrão" data-global-value="${
+                  data.failure.topValue
+                }"></td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <div class="power-limits-actions">
-          <button type="button" class="btn-copy-global" id="btnCopyFromGlobal">
-            🌐 Copiar do Global
-          </button>
-          <button type="button" class="btn-clear-overrides" id="btnClearOverrides">
-            🔵 Limpar Customizações
-          </button>
-          <button type="button" class="btn-view-json" id="btnViewJSON">
-            📋 Ver JSON
-          </button>
-        </div>
-
-        <!-- RFC-0078: JSON Preview Panel -->
-        <div class="json-preview-panel" id="jsonPreviewPanel" style="display: none;">
-          <div class="json-preview-header">
-            <h5>Estrutura JSON (mapInstantaneousPower)</h5>
-            <button type="button" class="btn-close-json" id="btnCloseJSON">✕</button>
-          </div>
-          <pre class="json-content" id="jsonContent">
-{
-  "version": "1.0.0",
-  "limitsByInstantaneoustPowerType": [
-    {
-      "telemetryType": "consumption",
-      "itemsByDeviceType": [...]
-    }
-  ]
-}
-          </pre>
-        </div>
-
-        <div class="power-limits-legend">
-          <div class="legend-item">
-            <span class="source-badge source-device">🔵 Device</span>
-            <span class="legend-text">Configuração específica deste equipamento</span>
-          </div>
-          <div class="legend-item">
-            <span class="source-badge source-global">🌐 Global</span>
-            <span class="legend-text">Configuração padrão do shopping</span>
-          </div>
-          <div class="legend-item">
-            <span class="source-badge source-hardcoded">💾 Sistema</span>
-            <span class="legend-text">Valor padrão do sistema</span>
-          </div>
+          <button type="button" class="btn-copy-global" id="btnCopyFromGlobal">⬇️ Copiar do Global</button>
+          <button type="button" class="btn-clear-overrides" id="btnClearInputs">🗑️ Limpar</button>
         </div>
       </div>
     `;
@@ -667,15 +638,33 @@ export class SettingsModalView {
         let durationText = "";
         if (diffDays > 0) {
           const remainingHours = diffHours % 24;
-          durationText = `${diffDays} dia${diffDays > 1 ? 's' : ''}${remainingHours > 0 ? ` e ${remainingHours} hora${remainingHours > 1 ? 's' : ''}` : ''}`;
+          durationText = `${diffDays} dia${diffDays > 1 ? "s" : ""}${
+            remainingHours > 0
+              ? ` e ${remainingHours} hora${remainingHours > 1 ? "s" : ""}`
+              : ""
+          }`;
         } else if (diffHours > 0) {
           const remainingMinutes = diffMinutes % 60;
-          durationText = `${diffHours} hora${diffHours > 1 ? 's' : ''}${remainingMinutes > 0 ? ` e ${remainingMinutes} minuto${remainingMinutes > 1 ? 's' : ''}` : ''}`;
+          durationText = `${diffHours} hora${diffHours > 1 ? "s" : ""}${
+            remainingMinutes > 0
+              ? ` e ${remainingMinutes} minuto${
+                  remainingMinutes > 1 ? "s" : ""
+                }`
+              : ""
+          }`;
         } else if (diffMinutes > 0) {
           const remainingSeconds = diffSeconds % 60;
-          durationText = `${diffMinutes} minuto${diffMinutes > 1 ? 's' : ''}${remainingSeconds > 0 ? ` e ${remainingSeconds} segundo${remainingSeconds > 1 ? 's' : ''}` : ''}`;
+          durationText = `${diffMinutes} minuto${diffMinutes > 1 ? "s" : ""}${
+            remainingSeconds > 0
+              ? ` e ${remainingSeconds} segundo${
+                  remainingSeconds > 1 ? "s" : ""
+                }`
+              : ""
+          }`;
         } else {
-          durationText = `${diffSeconds} segundo${diffSeconds !== 1 ? 's' : ''}`;
+          durationText = `${diffSeconds} segundo${
+            diffSeconds !== 1 ? "s" : ""
+          }`;
         }
 
         disconnectionIntervalFormatted = `${disconnectFormatted} até ${reconnectFormatted} (${durationText})`;
@@ -692,10 +681,15 @@ export class SettingsModalView {
     if (connectionStatusTime) {
       try {
         const connectDate = new Date(connectionStatusTime);
-        const disconnectDate = lastDisconnectTime ? new Date(lastDisconnectTime) : null;
+        const disconnectDate = lastDisconnectTime
+          ? new Date(lastDisconnectTime)
+          : null;
 
         // Only show "Conectado desde" if lastConnectTime > lastDisconnectTime
-        if (!disconnectDate || connectDate.getTime() > disconnectDate.getTime()) {
+        if (
+          !disconnectDate ||
+          connectDate.getTime() > disconnectDate.getTime()
+        ) {
           isCurrentlyConnected = true;
           connectionTimeFormatted = connectDate.toLocaleString("pt-BR", {
             day: "2-digit",
@@ -715,9 +709,15 @@ export class SettingsModalView {
 
           if (diffDays > 0) {
             const remainingHours = diffHours % 24;
-            timeSinceLastConnection = `(${diffDays}d:${remainingHours.toString().padStart(2, '0')}hs:${remainingMinutes.toString().padStart(2, '0')}mins atrás)`;
+            timeSinceLastConnection = `(${diffDays}d:${remainingHours
+              .toString()
+              .padStart(2, "0")}hs:${remainingMinutes
+              .toString()
+              .padStart(2, "0")}mins atrás)`;
           } else if (diffHours > 0) {
-            timeSinceLastConnection = `(${diffHours}hs:${remainingMinutes.toString().padStart(2, '0')}mins atrás)`;
+            timeSinceLastConnection = `(${diffHours}hs:${remainingMinutes
+              .toString()
+              .padStart(2, "0")}mins atrás)`;
           } else if (diffMinutes > 0) {
             timeSinceLastConnection = `(${diffMinutes}mins atrás)`;
           } else {
@@ -767,7 +767,8 @@ export class SettingsModalView {
     const statusMap: Record<string, { text: string; color: string }> = {
       ok: { text: "ONLINE", color: "#22c55e" },
       alert: { text: "Atenção", color: "#f59e0b" },
-      fail: { text: "Erro", color: "#ef4444" },
+      fail: { text: "OFFLINE", color: "#ef4444" },
+      not_installed: { text: "Não instalado", color: "#94a3b8" },
       unknown: { text: "Sem informação", color: "#94a3b8" },
     };
 
@@ -788,7 +789,9 @@ export class SettingsModalView {
         <div class="info-grid">
           <div class="info-row">
             <span class="info-label">Central:</span>
-            <span class="info-value">${centralName || "N/A"}${this.config.customerName ? ` (${this.config.customerName})` : ''}</span>
+            <span class="info-value">${centralName || "N/A"}${
+      this.config.customerName ? ` (${this.config.customerName})` : ""
+    }</span>
           </div>
 
           <div class="info-row">
@@ -1122,6 +1125,65 @@ export class SettingsModalView {
           opacity: 0.6;
           cursor: not-allowed;
         }
+
+      .global-reference-container {
+        background-color: #f8f9fa;
+        border: 1px dashed #cbd5e1;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-top: 8px;
+        margin-bottom: 16px;
+      }
+
+      .global-ref-header {
+        font-size: 12px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .global-values-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr); /* 4 Colunas para os 4 status */
+        gap: 12px;
+      }
+
+      .global-value-item {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 4px;
+        padding: 6px 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
+      .g-status {
+        font-size: 11px;
+        font-weight: 600;
+        color: #475569;
+        margin-bottom: 2px;
+      }
+
+      .g-range {
+        font-family: 'Courier New', monospace;
+        font-size: 13px;
+        font-weight: 700;
+        color: #3e1a7d;
+      }
+
+      /* Responsividade para telas pequenas */
+      @media (max-width: 768px) {
+        .global-values-grid {
+          grid-template-columns: 1fr 1fr; /* 2 colunas em mobile */
+        }
+      }
         
         /* Responsive design */
         @media (max-width: 1700px) {
@@ -1687,6 +1749,47 @@ export class SettingsModalView {
       });
     }
 
+    const btnCopy = this.modal.querySelector("#btnCopyFromGlobal") as HTMLButtonElement;
+    if (btnCopy) {
+      btnCopy.addEventListener("click", (e) => {
+        e.preventDefault(); // Previne submissão do form
+        e.stopPropagation();
+
+        // Busca todos os inputs que tem a classe marcadora
+        const inputs = this.modal.querySelectorAll(".js-limit-input");
+        
+        inputs.forEach((el) => {
+          const input = el as HTMLInputElement;
+          const globalVal = input.getAttribute("data-global-value");
+
+          // Só copia se existir um valor global válido
+          if (globalVal !== null && globalVal !== "" && globalVal !== "undefined") {
+            input.value = globalVal;
+            
+            // Dispara evento 'input' para notificar validações ou frameworks reativos se houver
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        });
+      });
+    }
+
+    // 2. Botão Limpar Campos
+    const btnClear = this.modal.querySelector("#btnClearInputs") as HTMLButtonElement;
+    if (btnClear) {
+      btnClear.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const inputs = this.modal.querySelectorAll(".js-limit-input");
+        
+        inputs.forEach((el) => {
+          const input = el as HTMLInputElement;
+          input.value = ""; // Limpa o valor visualmente
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+      });
+    }
+
     // Handle backdrop click
     this.container.addEventListener("click", (event) => {
       const target = event.target as HTMLElement;
@@ -1756,7 +1859,9 @@ export class SettingsModalView {
    * Shows the most recent consumption value with timestamp
    */
   private async fetchLatestConsumptionTelemetry(): Promise<void> {
-    const telemetryElement = this.modal.querySelector('#lastConsumptionTelemetry');
+    const telemetryElement = this.modal.querySelector(
+      "#lastConsumptionTelemetry"
+    );
     if (!telemetryElement) return;
 
     const deviceId = this.config.deviceId;
@@ -1770,14 +1875,14 @@ export class SettingsModalView {
     try {
       // Fetch the latest single consumption telemetry point
       const endTs = Date.now();
-      const startTs = endTs - (24 * 60 * 60 * 1000); // Last 24 hours
+      const startTs = endTs - 24 * 60 * 60 * 1000; // Last 24 hours
       const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=consumption&startTs=${startTs}&endTs=${endTs}&limit=1&orderBy=DESC`;
 
       const response = await fetch(url, {
         headers: {
-          'X-Authorization': `Bearer ${jwtToken}`,
-          'Content-Type': 'application/json'
-        }
+          "X-Authorization": `Bearer ${jwtToken}`,
+          "Content-Type": "application/json",
+        },
       });
 
       if (!response.ok) {
@@ -1796,13 +1901,13 @@ export class SettingsModalView {
 
         // Format timestamp with seconds
         const date = new Date(timestamp);
-        const formattedDate = date.toLocaleString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
+        const formattedDate = date.toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
         });
 
         // Calculate time since
@@ -1812,13 +1917,15 @@ export class SettingsModalView {
         const diffHours = Math.floor(diffMinutes / 60);
         const remainingMinutes = diffMinutes % 60;
 
-        let timeSince = '';
+        let timeSince = "";
         if (diffHours > 0) {
-          timeSince = `(${diffHours}hs:${remainingMinutes.toString().padStart(2, '0')}mins atrás)`;
+          timeSince = `(${diffHours}hs:${remainingMinutes
+            .toString()
+            .padStart(2, "0")}mins atrás)`;
         } else if (diffMinutes > 0) {
           timeSince = `(${diffMinutes}mins atrás)`;
         } else {
-          timeSince = '(agora)';
+          timeSince = "(agora)";
         }
 
         telemetryElement.innerHTML = `
@@ -1827,12 +1934,16 @@ export class SettingsModalView {
           <span class="time-since">${timeSince}</span>
         `;
       } else {
-        telemetryElement.innerHTML = '<span class="telemetry-no-data">Sem dados</span>';
+        telemetryElement.innerHTML =
+          '<span class="telemetry-no-data">Sem dados</span>';
       }
     } catch (error) {
-      console.error('[SettingsModal] Failed to fetch consumption telemetry:', error);
-      telemetryElement.innerHTML = '<span class="telemetry-error">Erro ao carregar</span>';
+      console.error(
+        "[SettingsModal] Failed to fetch consumption telemetry:",
+        error
+      );
+      telemetryElement.innerHTML =
+        '<span class="telemetry-error">Erro ao carregar</span>';
     }
   }
 }
-
