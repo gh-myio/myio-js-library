@@ -22,48 +22,65 @@
         "default": "https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG",
         "description": "Default MYIO logo URL"
       },
-      "defaultPalette": {
-        "title": "Default Palette",
-        "type": "object",
-        "description": "Default MYIO color palette (overridden by Customer attributes)",
-        "properties": {
-          "primary": {
-            "title": "Primary Color",
-            "type": "string",
-            "default": "#7A2FF7",
-            "description": "Primary brand color (hex)"
-          },
-          "secondary": {
-            "title": "Secondary Color",
-            "type": "string",
-            "default": "#5A1FD1",
-            "description": "Secondary brand color (hex)"
-          },
-          "gradientStart": {
-            "title": "Gradient Start",
-            "type": "string",
-            "default": "rgba(10,18,44,0.55)",
-            "description": "Hero gradient start color (rgba)"
-          },
-          "gradientEnd": {
-            "title": "Gradient End",
-            "type": "string",
-            "default": "rgba(10,18,44,0.15)",
-            "description": "Hero gradient end color (rgba)"
-          },
-          "ink": {
-            "title": "Text Color",
-            "type": "string",
-            "default": "#F5F7FA",
-            "description": "Main text color (hex)"
-          },
-          "muted": {
-            "title": "Muted Text Color",
-            "type": "string",
-            "default": "#B8C2D8",
-            "description": "Secondary/muted text color (hex)"
-          }
-        }
+      "primaryColor": {
+        "title": "Primary Color",
+        "type": "string",
+        "default": "#7A2FF7"
+      },
+      "secondaryColor": {
+        "title": "Secondary Color",
+        "type": "string",
+        "default": "#5A1FD1"
+      },
+      "textColor": {
+        "title": "Main Text Color",
+        "type": "string",
+        "default": "#F5F7FA"
+      },
+      "mutedTextColor": {
+        "title": "Muted Text Color",
+        "type": "string",
+        "default": "#B8C2D8"
+      },
+      "gradientStartColor": {
+        "title": "Background Gradient Start",
+        "type": "string",
+        "default": "rgba(10,18,44,0.55)"
+      },
+      "gradientEndColor": {
+        "title": "Background Gradient End",
+        "type": "string",
+        "default": "rgba(10,18,44,0.15)"
+      },
+      "userMenuBackgroundColor": {
+        "title": "User Menu - Background Color",
+        "type": "string",
+        "default": "rgba(255, 255, 255, 0.15)"
+      },
+      "userMenuBorderColor": {
+        "title": "User Menu - Border Color",
+        "type": "string",
+        "default": "rgba(255, 255, 255, 0.3)"
+      },
+      "logoutButtonBackgroundColor": {
+        "title": "Logout Button - Background Color",
+        "type": "string",
+        "default": "rgba(255, 255, 255, 0.2)"
+      },
+      "logoutButtonBorderColor": {
+        "title": "Logout Button - Border Color",
+        "type": "string",
+        "default": "rgba(255, 255, 255, 0.4)"
+      },
+      "shoppingCardBackgroundColor": {
+        "title": "Shopping Card - Background Color",
+        "type": "string",
+        "default": "rgba(255, 255, 255, 0.1)"
+      },
+      "shoppingCardBorderColor": {
+        "title": "Shopping Card - Border Color",
+        "type": "string",
+        "default": "rgba(255, 255, 255, 0.2)"
       },
       "defaultHeroTitle": {
         "title": "Default Hero Title",
@@ -113,12 +130,11 @@
   "form": [
     {
       "key": "enableDebugMode",
-      "type": "checkbox",
-      "description": "Enable console logging for debugging"
+      "type": "checkbox"
     },
     {
       "type": "fieldset",
-      "title": "Default Appearance",
+      "title": "Background & Logo",
       "items": [
         "defaultBackgroundUrl",
         "defaultLogoUrl"
@@ -126,19 +142,79 @@
     },
     {
       "type": "fieldset",
-      "title": "Default Palette (MYIO Purple)",
+      "title": "Brand Colors",
       "items": [
-        "defaultPalette.primary",
-        "defaultPalette.secondary",
-        "defaultPalette.gradientStart",
-        "defaultPalette.gradientEnd",
-        "defaultPalette.ink",
-        "defaultPalette.muted"
+        {
+          "key": "primaryColor",
+          "type": "color"
+        },
+        {
+          "key": "secondaryColor",
+          "type": "color"
+        },
+        {
+          "key": "textColor",
+          "type": "color"
+        },
+        {
+          "key": "mutedTextColor",
+          "type": "color"
+        }
       ]
     },
     {
       "type": "fieldset",
-      "title": "Default Text (Portuguese)",
+      "title": "Background Gradient (Hero Section)",
+      "items": [
+        {
+          "key": "gradientStartColor",
+          "type": "color"
+        },
+        {
+          "key": "gradientEndColor",
+          "type": "color"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "User Menu Colors",
+      "items": [
+        {
+          "key": "userMenuBackgroundColor",
+          "type": "color"
+        },
+        {
+          "key": "userMenuBorderColor",
+          "type": "color"
+        },
+        {
+          "key": "logoutButtonBackgroundColor",
+          "type": "color"
+        },
+        {
+          "key": "logoutButtonBorderColor",
+          "type": "color"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Shopping Cards Colors",
+      "items": [
+        {
+          "key": "shoppingCardBackgroundColor",
+          "type": "color"
+        },
+        {
+          "key": "shoppingCardBorderColor",
+          "type": "color"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Hero Text Content",
       "items": [
         "defaultHeroTitle",
         "defaultHeroDescription",

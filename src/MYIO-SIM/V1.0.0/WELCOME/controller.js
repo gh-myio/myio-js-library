@@ -179,16 +179,21 @@ function resolvePalette(attrs) {
 
   // Build palette with priority: settings > attrs > defaults
   const palette = {
-    primary: settings.defaultPalette?.primary || attrs['home.brand.palette']?.primary || DEFAULT_PALETTE.primary,
-    secondary: settings.defaultPalette?.secondary || attrs['home.brand.palette']?.secondary || DEFAULT_PALETTE.secondary,
-    gradientStart: settings.defaultPalette?.gradientStart || attrs['home.brand.palette']?.gradientStart || DEFAULT_PALETTE.gradientStart,
-    gradientEnd: settings.defaultPalette?.gradientEnd || attrs['home.brand.palette']?.gradientEnd || DEFAULT_PALETTE.gradientEnd,
-    ink: settings.defaultPalette?.ink || attrs['home.brand.palette']?.ink || DEFAULT_PALETTE.ink,
-    muted: settings.defaultPalette?.muted || attrs['home.brand.palette']?.muted || DEFAULT_PALETTE.muted
+    primary: settings.primaryColor || attrs['home.brand.palette']?.primary || DEFAULT_PALETTE.primary,
+    secondary: settings.secondaryColor || attrs['home.brand.palette']?.secondary || DEFAULT_PALETTE.secondary,
+    gradientStart: settings.gradientStartColor || attrs['home.brand.palette']?.gradientStart || DEFAULT_PALETTE.gradientStart,
+    gradientEnd: settings.gradientEndColor || attrs['home.brand.palette']?.gradientEnd || DEFAULT_PALETTE.gradientEnd,
+    ink: settings.textColor || attrs['home.brand.palette']?.ink || DEFAULT_PALETTE.ink,
+    muted: settings.mutedTextColor || attrs['home.brand.palette']?.muted || DEFAULT_PALETTE.muted,
+    userMenuBg: settings.userMenuBackgroundColor || "rgba(255, 255, 255, 0.15)",
+    userMenuBorder: settings.userMenuBorderColor || "rgba(255, 255, 255, 0.3)",
+    logoutBtnBg: settings.logoutButtonBackgroundColor || "rgba(255, 255, 255, 0.2)",
+    logoutBtnBorder: settings.logoutButtonBorderColor || "rgba(255, 255, 255, 0.4)",
+    shoppingCardBg: settings.shoppingCardBackgroundColor || "rgba(255, 255, 255, 0.1)",
+    shoppingCardBorder: settings.shoppingCardBorderColor || "rgba(255, 255, 255, 0.2)"
   };
 
   LogHelper.log('Palette resolved:', palette);
-  LogHelper.log('Palette sources - Settings:', settings.defaultPalette, 'Attrs:', attrs['home.brand.palette']);
   return palette;
 }
 
@@ -223,7 +228,13 @@ function applyPalette(palette) {
     '--welcome-grad-start': palette.gradientStart,
     '--welcome-grad-end': palette.gradientEnd,
     '--welcome-ink': palette.ink,
-    '--welcome-muted': palette.muted
+    '--welcome-muted': palette.muted,
+    '--welcome-user-menu-bg': palette.userMenuBg,
+    '--welcome-user-menu-border': palette.userMenuBorder,
+    '--welcome-logout-btn-bg': palette.logoutBtnBg,
+    '--welcome-logout-btn-border': palette.logoutBtnBorder,
+    '--welcome-shopping-card-bg': palette.shoppingCardBg,
+    '--welcome-shopping-card-border': palette.shoppingCardBorder
   };
 
   Object.entries(colorMap).forEach(([cssVar, color]) => {

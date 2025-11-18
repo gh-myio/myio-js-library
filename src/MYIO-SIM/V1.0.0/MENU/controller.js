@@ -88,24 +88,39 @@ function setupEnergyContextDropdown() {
         return;
     }
 
+    /**
+     * Position dropdown relative to energy button (fixed positioning)
+     */
+    function positionDropdown() {
+        const rect = energyButton.getBoundingClientRect();
+        dropdown.style.top = `${rect.bottom + 4}px`;
+        dropdown.style.left = `${rect.left}px`;
+    }
+
     // Toggle dropdown on context arrow click only (not the entire button)
     const contextArrow = energyButton.querySelector('.context-arrow');
     const contextLabelEl = energyButton.querySelector('.context-label');
     const contextDivider = energyButton.querySelector('.context-divider');
 
-    [contextArrow, contextLabelEl, contextDivider].forEach(el => {
+    [contextArrow, contextLabelEl, contextDivider].forEach((el, index) => {
         if (el) {
+            const elName = ['arrow', 'label', 'divider'][index];
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
                 e.preventDefault();
                 const isOpen = dropdown.style.display === 'block';
 
+                console.log(`[RFC-0079] 🖱️ Context ${elName} clicked, dropdown is ${isOpen ? 'open' : 'closed'}`);
+
                 if (isOpen) {
                     dropdown.style.display = 'none';
                     wrapper.classList.remove('dropdown-open');
+                    console.log('[RFC-0079] ▲ Dropdown closed');
                 } else {
+                    positionDropdown(); // Calculate position before showing
                     dropdown.style.display = 'block';
                     wrapper.classList.add('dropdown-open');
+                    console.log('[RFC-0079] ▼ Dropdown opened');
                 }
             });
         }
@@ -134,6 +149,19 @@ function setupEnergyContextDropdown() {
         }
     });
 
+    // Reposition on window resize/scroll
+    window.addEventListener('resize', () => {
+        if (dropdown.style.display === 'block') {
+            positionDropdown();
+        }
+    });
+
+    window.addEventListener('scroll', () => {
+        if (dropdown.style.display === 'block') {
+            positionDropdown();
+        }
+    }, true);
+
     console.log('[RFC-0079] Energy context dropdown initialized');
 }
 
@@ -141,41 +169,54 @@ function setupEnergyContextDropdown() {
  * RFC-0079: Switch energy context
  */
 function switchEnergyContext(context, targetStateId) {
-    console.log(`[RFC-0079] Switching energy context: ${currentEnergyContext} → ${context}`);
+    console.log(`[RFC-0079] 🔄 Switching energy context: ${currentEnergyContext} → ${context}`);
+    console.log(`[RFC-0079] 🎯 Target state: ${targetStateId}`);
 
     if (!ENERGY_CONTEXT_MAP[context]) {
-        console.error(`[RFC-0079] Invalid context: ${context}`);
+        console.error(`[RFC-0079] ❌ Invalid context: ${context}`);
         return;
     }
 
     // Update current context
+    const previousContext = currentEnergyContext;
     currentEnergyContext = context;
+    console.log(`[RFC-0079] ✅ Context updated: ${previousContext} → ${currentEnergyContext}`);
 
     // Update context label in button
     const contextLabel = document.getElementById('energyContextLabel');
     if (contextLabel) {
-        contextLabel.textContent = ENERGY_CONTEXT_MAP[context].label;
+        const newLabel = ENERGY_CONTEXT_MAP[context].label;
+        contextLabel.textContent = newLabel;
+        console.log(`[RFC-0079] 📝 Context label updated: "${newLabel}"`);
+    } else {
+        console.warn('[RFC-0079] ⚠️ Context label element not found');
     }
 
     // Update active state in dropdown options
+    let activeOptionFound = false;
     document.querySelectorAll('.context-option').forEach(option => {
         const optionContext = option.getAttribute('data-context');
         if (optionContext === context) {
             option.classList.add('is-active');
+            activeOptionFound = true;
         } else {
             option.classList.remove('is-active');
         }
     });
+    console.log(`[RFC-0079] ${activeOptionFound ? '✅' : '❌'} Active option ${activeOptionFound ? 'found and marked' : 'NOT FOUND'}`);
 
     // Dispatch event to MAIN to switch state
     const detail = { targetStateId, source: 'menu-context', context, ts: Date.now() };
     window.dispatchEvent(new CustomEvent('myio:switch-main-state', { detail }));
-    console.log(`[RFC-0079] Dispatched myio:switch-main-state:`, detail);
+    console.log(`[RFC-0079] 📡 Event dispatched: myio:switch-main-state`, detail);
 
     // Update energy button data-target
     const energyButton = document.getElementById('energyButton');
     if (energyButton) {
         energyButton.setAttribute('data-target', targetStateId);
+        console.log(`[RFC-0079] ✅ Energy button data-target updated: "${targetStateId}"`);
+    } else {
+        console.warn('[RFC-0079] ⚠️ Energy button element not found');
     }
 }
 
