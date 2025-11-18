@@ -84,34 +84,8 @@
     outline-offset: 2px;
 }
 
-/* View containers */
-.submenu-content {
-    width: 100%;
-}
-
-.submenu-view {
-    width: 100%;
-    animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* RFC-0079: Store and General views render ThingsBoard states directly */
-/* No additional container styling needed - states handle their own layout */
-.submenu-view[data-view="stores"],
-.submenu-view[data-view="general"] {
-    width: 100%;
-    height: 100%;
-}
+/* RFC-0079: Sub-menu controls MAIN widget states */
+/* No view containers needed in EQUIPMENTS - all controlled via MAIN */
 
 /* Responsive: Stack tabs vertically on mobile */
 @media (max-width: 768px) {

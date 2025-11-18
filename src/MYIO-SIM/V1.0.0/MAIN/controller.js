@@ -1184,6 +1184,47 @@ self.onInit = async function () {
     console.log("[EQUIPAMENTS]filtro", ev.detail);
   });
 
+  // RFC-0079: Listen for state switch requests from widgets (MENU, EQUIPMENTS sub-menu, etc.)
+  window.addEventListener("myio:switch-main-state", (ev) => {
+    const targetStateId = ev.detail?.targetStateId;
+    const source = ev.detail?.source || 'unknown';
+
+    console.log(`[MAIN] [RFC-0079] State switch requested: ${targetStateId} (source: ${source})`);
+
+    if (!targetStateId) {
+      console.warn('[MAIN] [RFC-0079] No targetStateId provided in switch event');
+      return;
+    }
+
+    const mainView = document.getElementById('mainView');
+    if (!mainView) {
+      console.warn('[MAIN] [RFC-0079] mainView element not found');
+      return;
+    }
+
+    // Hide all states
+    mainView.querySelectorAll('[data-content-state]').forEach(stateDiv => {
+      stateDiv.style.display = 'none';
+    });
+
+    // Show target state
+    const targetState = mainView.querySelector(`[data-content-state="${targetStateId}"]`);
+    if (targetState) {
+      targetState.style.display = 'block';
+      console.log(`[MAIN] [RFC-0079] ✅ Switched to state: ${targetStateId}`);
+
+      // Update scope if needed
+      if (self.ctx?.$scope) {
+        self.ctx.$scope.mainContentStateId = targetStateId;
+        if (self.ctx.$scope.$applyAsync) {
+          self.ctx.$scope.$applyAsync();
+        }
+      }
+    } else {
+      console.warn(`[MAIN] [RFC-0079] Target state "${targetStateId}" not found in DOM`);
+    }
+  });
+
   // ====== fluxo do widget ======
   // tenta aplicar o que já existir (não bloqueia)
   applyParams(window.myioStateParams || {});

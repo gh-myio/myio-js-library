@@ -83,16 +83,6 @@
     </div>
   </div>
 
-  <!-- RFC-0079: View Containers -->
-  <div class="submenu-content">
-    <!-- Equipamentos View (default visible) -->
-    <div id="equipments-view"
-         class="submenu-view"
-         role="tabpanel"
-         data-view="equipments"
-         aria-labelledby="equipments-tab"
-         aria-hidden="false">
-
   <section class="equip-grid" id="equipGrid">
       <div id="cards-grid" class="cards-grid"></div>
   </section>
@@ -155,36 +145,4 @@
       </footer>
     </div>
   </div>
-
-    </div>
-    <!-- End Equipamentos View -->
-
-    <!-- Lojas View (hidden by default) -->
-    <!-- RFC-0079: Renders store_telemetry state from ThingsBoard dashboard -->
-    <div id="stores-view"
-         class="submenu-view"
-         role="tabpanel"
-         data-view="stores"
-         aria-labelledby="stores-tab"
-         aria-hidden="true"
-         style="display: none;">
-      <tb-dashboard-state class="content" [ctx]="ctx" stateId="store_telemetry"></tb-dashboard-state>
-    </div>
-    <!-- End Lojas View -->
-
-    <!-- Geral (Energia) View (hidden by default) -->
-    <!-- RFC-0079: Renders content_energy state from ThingsBoard dashboard -->
-    <div id="general-view"
-         class="submenu-view"
-         role="tabpanel"
-         data-view="general"
-         aria-labelledby="general-tab"
-         aria-hidden="true"
-         style="display: none;">
-      <tb-dashboard-state class="content" [ctx]="ctx" stateId="content_energy"></tb-dashboard-state>
-    </div>
-    <!-- End Geral View -->
-
-  </div>
-  <!-- End submenu-content -->
 </div>

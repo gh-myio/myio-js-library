@@ -78,17 +78,24 @@ function switchSubmenuView(viewName) {
         tab.setAttribute('aria-selected', isActive);
     });
 
-    // Hide all views
-    root.querySelectorAll('.submenu-view').forEach(view => {
-        view.style.display = 'none';
-        view.setAttribute('aria-hidden', 'true');
-    });
+    // RFC-0079: Request MAIN widget to switch state via event (no direct DOM manipulation)
+    let targetStateId = '';
+    switch (viewName) {
+        case 'equipments':
+            targetStateId = 'content_equipments';
+            break;
+        case 'stores':
+            targetStateId = 'store_telemetry';
+            break;
+        case 'general':
+            targetStateId = 'content_energy';
+            break;
+    }
 
-    // Show target view
-    const targetView = root.querySelector(`[data-view="${viewName}"]`);
-    if (targetView) {
-        targetView.style.display = 'block';
-        targetView.setAttribute('aria-hidden', 'false');
+    if (targetStateId) {
+        const detail = { targetStateId, source: 'equipments-submenu', ts: Date.now() };
+        window.dispatchEvent(new CustomEvent('myio:switch-main-state', { detail }));
+        console.log(`[RFC-0079] Requested MAIN switch to: ${targetStateId}`);
     }
 
     // Update current state
