@@ -947,15 +947,17 @@ function setSummary(data = {}) {
             (data.energy.trendDir || "down") === "down"
         );
         trendEl.classList.toggle("up", (data.energy.trendDir || "down") === "up");
-        document.getElementById("energy-peak").textContent =
-            data.energy.peakText ?? "";
+        // Removido: não mostramos mais textos no rodapé dos cards
+        // document.getElementById("energy-peak").textContent =
+        //     data.energy.peakText ?? "";
     }
 
     // === Temperatura ===
     if (data.temp) {
         document.getElementById("temp-kpi").textContent = "--";
-        document.getElementById("temp-range").textContent =
-            data.temp.rangeText ?? "";
+        // Removido: faixa ideal agora é mostrada apenas no tooltip
+        // document.getElementById("temp-range").textContent =
+        //     data.temp.rangeText ?? "";
     }
 
     // === Água ===
@@ -1013,9 +1015,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // mocks (remova se alimentar via API/telemetria)
     setSummary({
         equip: { totalStr: "24/26", percent: 92 },
-        energy: { peakText: "Pico: 1.8 kW às 14:30" },
-        temp: { kpi: "22.5°C", rangeText: "Faixa: 20°C – 25°C" },
-        water: { percent: 87, alertText: "⚠ Cisterna Principal 2 com 68%" },
+        energy: { }, // Removido peakText - não mostramos mais no rodapé
+        temp: { kpi: "22.5°C" }, // Removido rangeText - agora está apenas no tooltip
+        water: { percent: 87 }, // Removido alertText - não mostramos mais no rodapé
     });
 
     const filterBtn = document.getElementById("filterBtn");
@@ -1046,14 +1048,15 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
     // Atualiza intervalo de datas na UI
     const timeWindow = `${formatDiaMesAno(startDate)} - ${formatDiaMesAno(endDate)}`;
-    const timeinterval = document.getElementById("energy-peak");
-    if (timeinterval) {
-        timeinterval.innerText = timeWindow;
-    }
-    const waterInterval = document.getElementById("water-alert");
-    if (waterInterval) {
-        waterInterval.innerText = timeWindow;
-    }
+    // Removido: não mostramos mais o intervalo nos cards
+    // const timeinterval = document.getElementById("energy-peak");
+    // if (timeinterval) {
+    //     timeinterval.innerText = timeWindow;
+    // }
+    // const waterInterval = document.getElementById("water-alert");
+    // if (waterInterval) {
+    //     waterInterval.innerText = timeWindow;
+    // }
 
     const custumer = [];
 
@@ -1343,19 +1346,32 @@ async function updateTemperatureCard() {
 
         // Atualiza o chip de status
         if (tempChip) {
+            const tempInfoIcon = document.getElementById("temp-info-icon");
             if (isInRange) {
-                tempChip.textContent = "✔ Dentro da faixa ideal";
+                tempChip.innerHTML = `✔ Dentro da faixa ideal
+                  <span class="info-icon" id="temp-info-icon" title="Faixa ideal: ${MIN_TEMP}°C – ${MAX_TEMP}°C">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                      <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                  </span>`;
                 tempChip.className = "chip ok";
             } else {
-                tempChip.textContent = "⚠ Fora da faixa ideal";
+                tempChip.innerHTML = `⚠ Fora da faixa ideal
+                  <span class="info-icon" id="temp-info-icon" title="Faixa ideal: ${MIN_TEMP}°C – ${MAX_TEMP}°C">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                      <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                  </span>`;
                 tempChip.className = "chip warn";
             }
         }
 
-        // // Atualiza o texto de rodapé
-        if (tempRange) {
-            tempRange.textContent = `Faixa ideal: ${MIN_TEMP}°C – ${MAX_TEMP}°C`;
-        }
+        // Removido: faixa ideal agora é mostrada apenas no tooltip do ícone (i)
+        // if (tempRange) {
+        //     tempRange.textContent = `Faixa ideal: ${MIN_TEMP}°C – ${MAX_TEMP}°C`;
+        // }
 
     } else {
         console.warn("[HEADER] No temperature data found for AllTemperatureDevices");
@@ -1363,7 +1379,13 @@ async function updateTemperatureCard() {
             tempKpi.innerText = "--°C";
         }
         if (tempChip) {
-            tempChip.textContent = "-- Sem dados";
+            tempChip.innerHTML = `-- Sem dados
+              <span class="info-icon" id="temp-info-icon" title="Aguardando dados de temperatura">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                  <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </span>`;
             tempChip.className = "chip";
         }
     }

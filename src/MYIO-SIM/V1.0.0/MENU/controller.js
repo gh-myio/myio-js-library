@@ -788,13 +788,14 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
                 // Update UI display
                 const startDate = new Date(result.startISO);
                 const endDate = new Date(result.endISO);
-                const timeWindow = `Intervalo: ${formatDiaMes(
+                const timeWindow = `${formatDiaMes(
                     startDate
                 )} - ${formatDiaMes(endDate)}`;
-                const timeinterval = document.getElementById("energy-peak");
-                if (timeinterval) {
-                    timeinterval.innerText = timeWindow;
-                }
+                // Removido: não mostramos mais o intervalo nos cards
+                // const timeinterval = document.getElementById("energy-peak");
+                // if (timeinterval) {
+                //     timeinterval.innerText = timeWindow;
+                // }
 
                 console.log("[MENU] Date selection updated (no fetch):", {
                     start: result.startISO,

@@ -247,10 +247,44 @@
 
 .myio-card.v2 .hd-title {
   margin-bottom: 2px; /* aproxima do KPI */
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .myio-card.v2 .myio-card-hd {
   padding-bottom: 0;  /* remove espaçamento desnecessário */
+}
+
+/* ===== Info Icon with Tooltip ===== */
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+  position: relative;
+  margin-left: 2px;
+}
+
+.info-icon:hover {
+  opacity: 1;
+}
+
+.info-icon svg {
+  vertical-align: middle;
+}
+
+/* Chip com info icon */
+.chip .info-icon {
+  margin-left: 4px;
+}
+
+/* Ocultar textos do rodapé dos cards - informações agora estão nos tooltips */
+#temp-range,
+#energy-peak,
+#water-alert {
+  display: none !important;
 }
 
 /* ===== Card da Logo - Versão Única e Limpa ===== */
