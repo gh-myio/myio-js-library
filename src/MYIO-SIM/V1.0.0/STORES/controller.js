@@ -124,7 +124,7 @@ function switchSubmenuView(viewName) {
             targetStateId = 'content_equipments';
             break;
         case 'stores':
-            targetStateId = 'store_telemetry';
+            targetStateId = 'content_store';
             break;
         case 'general':
             targetStateId = 'content_energy';

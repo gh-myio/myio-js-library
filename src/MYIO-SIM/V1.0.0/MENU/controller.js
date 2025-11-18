@@ -66,7 +66,7 @@ const ENERGY_CONTEXT_MAP = {
     },
     stores: {
         label: 'Lojas',
-        target: 'store_telemetry'
+        target: 'content_store'
     },
     general: {
         label: 'Geral (Energia)',
@@ -84,17 +84,48 @@ function setupEnergyContextDropdown() {
     const contextLabel = document.getElementById('energyContextLabel');
 
     if (!energyButton || !dropdown || !wrapper) {
-        console.warn('[RFC-0079] Energy context elements not found');
+        console.error('[RFC-0079] ❌ Energy context elements not found:', {
+            energyButton: !!energyButton,
+            dropdown: !!dropdown,
+            wrapper: !!wrapper
+        });
         return;
     }
 
+    console.log('[RFC-0079] ✅ All elements found successfully');
+    console.log('[RFC-0079] 📋 Dropdown element:', dropdown);
+    console.log('[RFC-0079] 📋 Dropdown initial styles:', {
+        display: dropdown.style.display,
+        position: getComputedStyle(dropdown).position,
+        zIndex: getComputedStyle(dropdown).zIndex
+    });
+
     /**
      * Position dropdown relative to energy button (fixed positioning)
+     * RFC-0079: Opens horizontally to the right
      */
     function positionDropdown() {
         const rect = energyButton.getBoundingClientRect();
-        dropdown.style.top = `${rect.bottom + 4}px`;
-        dropdown.style.left = `${rect.left}px`;
+
+        // Position to the right of the button, vertically centered
+        const topPosition = rect.top;
+        const leftPosition = rect.right + 8;
+
+        dropdown.style.top = `${topPosition}px`;
+        dropdown.style.left = `${leftPosition}px`;
+
+        console.log(`[RFC-0079] 📍 Dropdown positioned at:`, {
+            top: topPosition,
+            left: leftPosition,
+            buttonRect: {
+                top: rect.top,
+                right: rect.right,
+                bottom: rect.bottom,
+                left: rect.left,
+                width: rect.width,
+                height: rect.height
+            }
+        });
     }
 
     // Toggle dropdown on context arrow click only (not the entire button)
@@ -102,27 +133,48 @@ function setupEnergyContextDropdown() {
     const contextLabelEl = energyButton.querySelector('.context-label');
     const contextDivider = energyButton.querySelector('.context-divider');
 
+    console.log('[RFC-0079] 🔍 Found elements:', {
+        arrow: !!contextArrow,
+        label: !!contextLabelEl,
+        divider: !!contextDivider
+    });
+
     [contextArrow, contextLabelEl, contextDivider].forEach((el, index) => {
         if (el) {
             const elName = ['arrow', 'label', 'divider'][index];
+            console.log(`[RFC-0079] ✅ Adding click listener to ${elName}`);
+
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                const isOpen = dropdown.style.display === 'block';
 
-                console.log(`[RFC-0079] 🖱️ Context ${elName} clicked, dropdown is ${isOpen ? 'open' : 'closed'}`);
+                console.log(`[RFC-0079] 🖱️ Context ${elName} clicked!`);
+                console.log(`[RFC-0079] Dropdown current display:`, dropdown.style.display);
+
+                const isOpen = dropdown.style.display === 'block';
 
                 if (isOpen) {
                     dropdown.style.display = 'none';
                     wrapper.classList.remove('dropdown-open');
                     console.log('[RFC-0079] ▲ Dropdown closed');
                 } else {
+                    console.log('[RFC-0079] 📐 Calculating position...');
                     positionDropdown(); // Calculate position before showing
+
                     dropdown.style.display = 'block';
+                    dropdown.style.visibility = 'visible'; // Ensure visibility
                     wrapper.classList.add('dropdown-open');
-                    console.log('[RFC-0079] ▼ Dropdown opened');
+
+                    console.log('[RFC-0079] ▼ Dropdown opened at:', {
+                        display: dropdown.style.display,
+                        top: dropdown.style.top,
+                        left: dropdown.style.left,
+                        visibility: dropdown.style.visibility
+                    });
                 }
             });
+        } else {
+            console.warn(`[RFC-0079] ⚠️ Element ${['arrow', 'label', 'divider'][index]} not found!`);
         }
     });
 
@@ -166,7 +218,8 @@ function setupEnergyContextDropdown() {
 }
 
 /**
- * RFC-0079: Switch energy context
+ * RFC-0079: Switch energy context (DEPRECATED - kept for reference)
+ * This was used with dropdown approach. Now using inline buttons.
  */
 function switchEnergyContext(context, targetStateId) {
     console.log(`[RFC-0079] 🔄 Switching energy context: ${currentEnergyContext} → ${context}`);
@@ -220,6 +273,313 @@ function switchEnergyContext(context, targetStateId) {
     }
 }
 
+/**
+ * RFC-0079: Setup energy modal dropdown (MODAL approach)
+ * Following EQUIPMENTS pattern: modal moved to document.body for full-screen overlay
+ */
+function setupEnergyModal() {
+    const energyButton = document.getElementById('energyButton');
+
+    if (!energyButton) {
+        console.error('[RFC-0079] ❌ Energy button not found');
+        return;
+    }
+
+    // Energy button click - opens modal
+    energyButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        openEnergyModal();
+    });
+
+    console.log('[RFC-0079] ✅ Energy modal trigger initialized');
+}
+
+/**
+ * RFC-0079: Open energy modal (moved to document.body on first open)
+ */
+function openEnergyModal() {
+    console.log('[RFC-0079] Opening energy context modal');
+
+    const energyButton = document.getElementById('energyButton');
+    let globalContainer = document.getElementById('menuEnergyModalGlobal');
+
+    if (!globalContainer) {
+        // Modal doesn't exist in document.body yet, move it from widget
+        const widgetModal = document.getElementById('energyContextModal');
+        if (!widgetModal) {
+            console.error('[RFC-0079] ❌ Widget modal not found');
+            return;
+        }
+
+        // Create global container
+        globalContainer = document.createElement('div');
+        globalContainer.id = 'menuEnergyModalGlobal';
+
+        // Inject inline styles for full-screen modal
+        globalContainer.innerHTML = `
+            <style>
+                #menuEnergyModalGlobal {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    z-index: 999999 !important;
+                    pointer-events: none;
+                }
+
+                #menuEnergyModalGlobal .energy-modal {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    z-index: 999999 !important;
+                    background: rgba(0, 0, 0, 0.4);
+                    backdrop-filter: blur(2px);
+                    opacity: 0;
+                    pointer-events: none;
+                    transition: opacity 0.2s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                #menuEnergyModalGlobal .energy-modal.show {
+                    opacity: 1;
+                    pointer-events: auto;
+                }
+
+                #menuEnergyModalGlobal .energy-modal-content {
+                    position: relative;
+                    z-index: 1000000 !important;
+                    background: #ffffff;
+                    border-radius: 16px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+                    min-width: 320px;
+                    max-width: 400px;
+                    transform: translateY(-10px);
+                    transition: transform 0.2s ease;
+                }
+
+                #menuEnergyModalGlobal .energy-modal.show .energy-modal-content {
+                    transform: translateY(0);
+                }
+
+                #menuEnergyModalGlobal .energy-modal-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 16px 20px;
+                    border-bottom: 1px solid #E6EEF5;
+                    font-weight: 700;
+                    font-size: 15px;
+                    color: #1C2743;
+                }
+
+                #menuEnergyModalGlobal .energy-modal-header .ico {
+                    font-size: 20px;
+                }
+
+                #menuEnergyModalGlobal .energy-modal-options {
+                    padding: 8px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                }
+
+                #menuEnergyModalGlobal .energy-modal-option {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    padding: 12px 16px;
+                    border: 2px solid transparent;
+                    border-radius: 12px;
+                    background: transparent;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    text-align: left;
+                }
+
+                #menuEnergyModalGlobal .energy-modal-option:hover {
+                    background: #f8fafc;
+                    border-color: #cbd5e1;
+                }
+
+                #menuEnergyModalGlobal .energy-modal-option.is-active {
+                    background: #eff6ff;
+                    border-color: #1D4F91;
+                }
+
+                #menuEnergyModalGlobal .energy-modal-option .option-ico {
+                    font-size: 24px;
+                    flex-shrink: 0;
+                }
+
+                #menuEnergyModalGlobal .energy-modal-option .option-info {
+                    flex: 1;
+                }
+
+                #menuEnergyModalGlobal .energy-modal-option .option-title {
+                    font-weight: 600;
+                    font-size: 14px;
+                    color: #1C2743;
+                    margin-bottom: 2px;
+                }
+
+                #menuEnergyModalGlobal .energy-modal-option .option-desc {
+                    font-size: 12px;
+                    color: #64748b;
+                }
+
+                #menuEnergyModalGlobal .energy-modal-option .option-check {
+                    font-size: 18px;
+                    color: #1D4F91;
+                    opacity: 0;
+                    transition: opacity 0.2s ease;
+                }
+
+                #menuEnergyModalGlobal .energy-modal-option.is-active .option-check {
+                    opacity: 1;
+                }
+            </style>
+        `;
+
+        // Move modal to global container
+        widgetModal.remove();
+        globalContainer.appendChild(widgetModal);
+
+        // Attach to document.body
+        document.body.appendChild(globalContainer);
+
+        // Setup event handlers
+        setupEnergyModalHandlers(widgetModal, energyButton);
+
+        console.log('[RFC-0079] ✅ Modal moved to document.body');
+    }
+
+    const modal = globalContainer.querySelector('#energyContextModal');
+    if (!modal) {
+        console.error('[RFC-0079] ❌ Modal not found in global container');
+        return;
+    }
+
+    // Show modal
+    modal.style.display = 'flex';
+    setTimeout(() => modal.classList.add('show'), 10);
+    if (energyButton) {
+        energyButton.classList.add('modal-open');
+    }
+
+    console.log('[RFC-0079] ✅ Modal opened');
+}
+
+/**
+ * RFC-0079: Close energy modal
+ */
+function closeEnergyModal() {
+    const globalContainer = document.getElementById('menuEnergyModalGlobal');
+    if (!globalContainer) return;
+
+    const modal = globalContainer.querySelector('#energyContextModal');
+    if (!modal) return;
+
+    const energyButton = document.getElementById('energyButton');
+
+    modal.classList.remove('show');
+    setTimeout(() => modal.style.display = 'none', 200);
+    if (energyButton) {
+        energyButton.classList.remove('modal-open');
+    }
+
+    console.log('[RFC-0079] ✅ Modal closed');
+}
+
+/**
+ * RFC-0079: Setup modal event handlers (called once when moved to document.body)
+ */
+function setupEnergyModalHandlers(modal, energyButton) {
+    const options = modal.querySelectorAll('.energy-modal-option');
+
+    // Modal option clicks
+    options.forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            const context = option.getAttribute('data-context');
+            const targetStateId = option.getAttribute('data-target');
+
+            if (!context || !targetStateId) {
+                console.error('[RFC-0079] ❌ Option missing data attributes');
+                return;
+            }
+
+            console.log(`[RFC-0079] 🖱️ Modal option clicked:`, { context, targetStateId });
+
+            // Update active state
+            options.forEach(opt => opt.classList.remove('is-active'));
+            option.classList.add('is-active');
+
+            // Update context
+            const previousContext = currentEnergyContext;
+            currentEnergyContext = context;
+
+            // Update button label
+            const labelMap = {
+                equipments: 'Energia: Equipamentos',
+                stores: 'Energia: Lojas',
+                general: 'Energia: Geral'
+            };
+            const label = document.getElementById('energyContextLabel');
+            if (label) {
+                label.textContent = labelMap[context] || 'Energia';
+            }
+
+            // Update button data-target
+            energyButton.setAttribute('data-target', targetStateId);
+
+            console.log(`[RFC-0079] ✅ Context updated: ${previousContext} → ${currentEnergyContext}`);
+
+            // Dispatch event to MAIN
+            const detail = {
+                targetStateId,
+                source: 'menu-energy-modal',
+                context,
+                ts: Date.now()
+            };
+
+            window.dispatchEvent(new CustomEvent('myio:switch-main-state', { detail }));
+            console.log(`[RFC-0079] 📡 Event dispatched: myio:switch-main-state`, detail);
+
+            // Close modal
+            closeEnergyModal();
+        });
+    });
+
+    // Click outside to close
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeEnergyModal();
+        }
+    });
+
+    // ESC key to close
+    const escHandler = (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('show')) {
+            closeEnergyModal();
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+    modal._escHandler = escHandler; // Store for cleanup
+
+    console.log('[RFC-0079] ✅ Modal handlers setup complete');
+}
+
 function bindTabs(root) {
     if (root._tabsBound) return;
 
@@ -228,10 +588,8 @@ function bindTabs(root) {
     root.addEventListener("click", (ev) => {
         const tab = ev.target.closest?.(".tab");
 
-        // RFC-0079: Don't handle clicks on context arrow/label/divider
-        if (ev.target.closest('.context-arrow') ||
-            ev.target.closest('.context-label') ||
-            ev.target.closest('.context-divider')) {
+        // RFC-0079: Ignore clicks on energy button (handled by setupEnergyModal)
+        if (tab && tab.id === 'energyButton') {
             return;
         }
 
@@ -245,15 +603,31 @@ function bindTabs(root) {
         }
     });
 
-    const initial =
-        root.querySelector(".tab.is-active") || root.querySelector(".tab");
+    // RFC-0079: Setup energy modal with delay to ensure DOM is ready
+    setTimeout(() => {
+        setupEnergyModal();
 
-    if (initial) {
-        publishSwitch(initial.getAttribute("data-target"));
-    }
+        // RFC-0079: Initialize with energy button's current target
+        const energyBtn = document.getElementById('energyButton');
+        if (energyBtn) {
+            const targetState = energyBtn.getAttribute("data-target");
+            if (targetState) {
+                console.log('[RFC-0079] ✅ Initializing with energy button target:', targetState);
+                publishSwitch(targetState);
+            }
+        } else {
+            console.warn('[RFC-0079] ⚠️ Energy button not found, using fallback');
+            // Fallback to regular tabs
+            const initial =
+                root.querySelector(".tab.is-active") || root.querySelector(".tab");
 
-    // RFC-0079: Setup energy context dropdown
-    setupEnergyContextDropdown();
+            if (initial) {
+                const target = initial.getAttribute("data-target");
+                console.log('[RFC-0079] Fallback initialization with:', target);
+                publishSwitch(target);
+            }
+        }
+    }, 100);
 }
 
 /* ====== mock ====== */
@@ -1460,5 +1834,17 @@ self.onDataUpdated = function () {
 
 
 self.onDestroy = function () {
-    /* nada a limpar */
+    // RFC-0079: Cleanup energy modal ESC handler and remove from document.body
+    const globalContainer = document.getElementById('menuEnergyModalGlobal');
+    if (globalContainer) {
+        const modal = globalContainer.querySelector('#energyContextModal');
+        if (modal && modal._escHandler) {
+            document.removeEventListener('keydown', modal._escHandler);
+            modal._escHandler = null;
+        }
+
+        // Remove global modal container from document.body
+        globalContainer.remove();
+        console.log('[RFC-0079] Global modal container removed on destroy');
+    }
 };

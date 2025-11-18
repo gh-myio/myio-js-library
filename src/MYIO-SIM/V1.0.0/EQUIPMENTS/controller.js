@@ -674,7 +674,7 @@ async function getCachedPowerLimitsJSON(entityId, entityType = 'CUSTOMER', ctxDa
   } else {
     // Fallback: fetch via API (old behavior, commented for reference)
     // json = await fetchInstantaneousPowerLimits(entityId, entityType);
-    console.warn(`[RFC-0078] DEVICE lookup without ctxData, returning empty structure`);
+    //console.warn(`[RFC-0078] DEVICE lookup without ctxData, returning empty structure`);
     json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
   }
 

@@ -3,29 +3,12 @@
     <div class="myio-tabs-row">
         <nav class="myio-tabs" role="tablist"
             aria-label="Seções">
-            <!-- RFC-0079: Energia button with context dropdown -->
-            <div class="energy-context-wrapper">
-                <button id="energyButton" class="tab is-active tab-with-context"
-                    data-target="content_equipments">
-                    <span class="ico">⚡</span>
-                    <span class="main-label">Energia</span>
-                    <span class="context-divider">|</span>
-                    <span class="context-label" id="energyContextLabel">Equipamentos</span>
-                    <span class="context-arrow">▼</span>
-                </button>
-                <!-- Context dropdown -->
-                <div class="context-dropdown" id="energyContextDropdown" style="display: none;">
-                    <button class="context-option is-active" data-context="equipments" data-target="content_equipments">
-                        <span class="ico">⚙️</span> Equipamentos
-                    </button>
-                    <button class="context-option" data-context="stores" data-target="store_telemetry">
-                        <span class="ico">🏬</span> Lojas
-                    </button>
-                    <button class="context-option" data-context="general" data-target="content_energy">
-                        <span class="ico">⚡</span> Geral (Energia)
-                    </button>
-                </div>
-            </div>
+            <!-- RFC-0079: Energia button with modal dropdown -->
+            <button id="energyButton" class="tab is-active" data-target="content_equipments">
+                <span class="ico">⚡</span>
+                <span id="energyContextLabel">Energia: Equipamentos</span>
+                <span class="dropdown-arrow">▼</span>
+            </button>
             <button id="waterButton" class="tab"
                 data-target="content_water">
                 <span class="ico">💧</span> Água
@@ -78,5 +61,47 @@
                 style="color: white !important;">delete_sweep</i>
             Limpar
         </button>
+    </div>
+
+    <!-- RFC-0079: Energy context modal dropdown -->
+    <div id="energyContextModal" class="energy-modal" style="display: none;">
+        <div class="energy-modal-content">
+            <div class="energy-modal-header">
+                <span class="ico">⚡</span>
+                <span>Selecione o contexto de Energia</span>
+            </div>
+            <div class="energy-modal-options">
+                <button class="energy-modal-option is-active"
+                    data-context="equipments"
+                    data-target="content_equipments">
+                    <span class="option-ico">⚙️</span>
+                    <div class="option-info">
+                        <div class="option-title">Equipamentos</div>
+                        <div class="option-desc">Telemetria de equipamentos</div>
+                    </div>
+                    <span class="option-check">✓</span>
+                </button>
+                <button class="energy-modal-option"
+                    data-context="stores"
+                    data-target="content_store">
+                    <span class="option-ico">🏬</span>
+                    <div class="option-info">
+                        <div class="option-title">Lojas</div>
+                        <div class="option-desc">Telemetria de lojas</div>
+                    </div>
+                    <span class="option-check">✓</span>
+                </button>
+                <button class="energy-modal-option"
+                    data-context="general"
+                    data-target="content_energy">
+                    <span class="option-ico">⚡</span>
+                    <div class="option-info">
+                        <div class="option-title">Geral (Energia)</div>
+                        <div class="option-desc">Visão geral de energia</div>
+                    </div>
+                    <span class="option-check">✓</span>
+                </button>
+            </div>
+        </div>
     </div>
 </section>
