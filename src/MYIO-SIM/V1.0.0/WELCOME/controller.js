@@ -434,6 +434,39 @@ function extractShoppingCardsFromCtxData() {
 }
 
 /**
+ * Navigate to shopping dashboard
+ */
+function navigateToShoppingDashboard(card) {
+  try {
+    LogHelper.log('Navigating to shopping:', card.title, '→', card.dashboardId);
+
+    const state = [
+      {
+        id: "default",
+        params: {
+          entityId: {
+            id: card.entityId,
+            entityType: card.entityType
+          }
+        }
+      }
+    ];
+
+    const stateBase64 = encodeURIComponent(btoa(JSON.stringify(state)));
+    const url = `/dashboards/${card.dashboardId}?state=${stateBase64}`;
+
+    if (self.ctx && self.ctx.router) {
+      self.ctx.router.navigateByUrl(url);
+      LogHelper.log('Navigation successful:', url);
+    } else {
+      LogHelper.error('ctx.router not available');
+    }
+  } catch (error) {
+    LogHelper.error('Navigation error:', error);
+  }
+}
+
+/**
  * Lazy load card background images (rev001)
  */
 function setupLazyLoading() {
@@ -460,7 +493,7 @@ function setupLazyLoading() {
 
 /**
  * Render shopping cards
- * Always use DEFAULT_SHOPPING_CARDS with fixed button IDs for ThingsBoard Actions
+ * Always use DEFAULT_SHOPPING_CARDS with navigation onclick
  */
 function renderShortcuts(attrs) {
   // Always use default hardcoded shopping cards with specific button IDs
@@ -481,6 +514,7 @@ function renderShortcuts(attrs) {
     <button class="shopping-card"
             id="${card.buttonId || 'Shopping' + index}"
             type="button"
+            data-card-index="${index}"
             aria-label="${card.title || 'Shopping'} - ${card.subtitle || ''}">
       ${card.bgImageUrl ? `<div class="card-bg" data-bg-url="${card.bgImageUrl}"></div>` : ''}
       <h3>${card.title || 'Shopping'}</h3>
@@ -491,15 +525,24 @@ function renderShortcuts(attrs) {
   // Setup lazy loading for background images
   setupLazyLoading();
 
-  LogHelper.log('Shopping cards rendered with button IDs:', cards.map(c => c.buttonId || c.title).join(', '));
-}
+  // Wire click handlers for navigation
+  cards.forEach((card, index) => {
+    const button = document.querySelector(`[data-card-index="${index}"]`);
+    if (button) {
+      button.addEventListener('click', () => navigateToShoppingDashboard(card));
 
-// Shopping card navigation is now handled via ThingsBoard Widget Actions
-// Configure actions in widget settings for button IDs:
-// - ShoppingMestreAlvaro
-// - ShoppingMontSerrat
-// - ShoppingMoxuara
-// - ShoppingDaIlha
+      // Keyboard navigation
+      button.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          navigateToShoppingDashboard(card);
+        }
+      });
+    }
+  });
+
+  LogHelper.log('Shopping cards rendered with navigation:', cards.map(c => c.buttonId || c.title).join(', '));
+}
 
 /**
  * Handle primary CTA click

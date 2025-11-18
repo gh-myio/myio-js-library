@@ -22,7 +22,7 @@ tb-widget-actions,
 
 .welcome-lv {
   width: 100% !important;
-  min-height: 600px !important;
+  min-height: 800px !important;
   background: linear-gradient(120deg, var(--welcome-grad-start), var(--welcome-grad-end)),
               url('https://dashboard.myio-bas.com/api/images/public/wntqPf1KcpLX2l182DY86Y4p8pa3bj6F') !important;
   background-size: cover !important;
@@ -35,39 +35,45 @@ tb-widget-actions,
   position: relative !important;
 }
 
-/* Hero Layout - Grid simples */
+/* Hero Layout - Relative container */
 .welcome-lv .hero-container {
   width: 100% !important;
-  display: grid !important;
-  grid-template-columns: 1fr auto !important;
-  grid-template-rows: auto 1fr !important;
-  gap: 20px !important;
-  min-height: 500px !important;
+  position: relative !important;
+  min-height: 700px !important;
   margin-bottom: 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
 }
 
-/* Logo - canto superior esquerdo */
+/* Logo - flutuante canto superior esquerdo */
 .welcome-lv .brand-logo {
-  grid-column: 1 !important;
-  grid-row: 1 !important;
-  justify-self: start !important;
-  align-self: start !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  z-index: 10 !important;
+  width: auto !important;
+  max-width: 1600px !important;
 }
 
 .welcome-lv .brand-logo img {
-  height: 500px !important;
+  height: auto !important;
   width: auto !important;
-  max-width: 1000px !important;
+  max-width: 1600px !important;
+  max-height: 800px !important;
+  min-width: 500px !important;
   object-fit: contain !important;
+  object-position: left top !important;
   display: block !important;
 }
 
-/* User Menu - canto superior direito */
+/* User Menu - flutuante canto superior direito */
 .welcome-lv .user-menu {
-  grid-column: 2 !important;
-  grid-row: 1 !important;
-  justify-self: end !important;
-  align-self: start !important;
+  position: absolute !important;
+  top: 20px !important;
+  right: 20px !important;
+  z-index: 10 !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: flex-end !important;
@@ -165,8 +171,8 @@ tb-widget-actions,
 
 /* Hero Content - centralizado */
 .welcome-lv .hero-content {
-  grid-column: 1 / -1 !important;
-  grid-row: 2 !important;
+  position: relative !important;
+  z-index: 5 !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: center !important;
@@ -176,6 +182,7 @@ tb-widget-actions,
   width: 100% !important;
   max-width: 800px !important;
   margin: 0 auto !important;
+  padding-top: 200px !important;
 }
 
 .welcome-lv .hero-title {
@@ -337,78 +344,90 @@ tb-widget-actions,
 
 /* Responsive */
 @media (max-width: 1024px) {
-  .hero-container {
-    padding-top: 80px;
+  .welcome-lv .hero-container {
+    min-height: 600px !important;
   }
 
-  .brand-logo img {
-    max-height: 100px;
-    max-width: 340px;
+  .welcome-lv .brand-logo {
+    max-width: 800px !important;
   }
 
-  .user-menu {
-    min-width: 180px;
-    padding: 14px 18px;
+  .welcome-lv .brand-logo img {
+    max-width: 800px !important;
+    max-height: 400px !important;
+    min-width: 300px !important;
   }
 
-  .hero-title {
-    font-size: 36px;
+  .welcome-lv .user-menu {
+    min-width: 180px !important;
+    padding: 14px 18px !important;
+    top: 15px !important;
+    right: 15px !important;
+  }
+
+  .welcome-lv .hero-content {
+    padding-top: 150px !important;
+  }
+
+  .welcome-lv .hero-title {
+    font-size: 36px !important;
   }
 }
 
 @media (max-width: 768px) {
   .welcome-lv {
-    padding: 20px;
-    min-height: 350px;
+    padding: 20px !important;
+    min-height: 600px !important;
   }
 
-  .hero-container {
-    padding-top: 140px;
-    min-height: 250px;
+  .welcome-lv .hero-container {
+    min-height: 500px !important;
   }
 
-  .brand-logo {
-    position: static;
-    margin-bottom: 16px;
-    text-align: center;
-    width: 100%;
+  .welcome-lv .brand-logo {
+    max-width: 500px !important;
+    left: 10px !important;
   }
 
-  .brand-logo img {
-    max-height: 80px;
-    max-width: 280px;
+  .welcome-lv .brand-logo img {
+    max-width: 500px !important;
+    max-height: 250px !important;
+    min-width: 250px !important;
   }
 
-  .user-menu {
-    position: static;
-    align-items: center;
-    min-width: auto;
-    width: 100%;
-    max-width: 300px;
-    margin: 0 auto 20px;
-    padding: 12px 16px;
+  .welcome-lv .user-menu {
+    top: 10px !important;
+    right: 10px !important;
+    min-width: auto !important;
+    max-width: 280px !important;
+    padding: 12px 16px !important;
   }
 
-  .user-info {
-    text-align: center;
+  .welcome-lv .user-info {
+    align-items: flex-end !important;
+    text-align: right !important;
   }
 
-  .btn-logout {
-    padding: 6px 12px;
-    font-size: 12px;
+  .welcome-lv .hero-content {
+    padding-top: 180px !important;
   }
 
-  .hero-title {
-    font-size: 32px;
+  .welcome-lv .btn-logout {
+    padding: 6px 12px !important;
+    font-size: 12px !important;
   }
 
-  .hero-description {
-    font-size: 16px;
+  .welcome-lv .hero-title {
+    font-size: 32px !important;
   }
 
-  .btn-primary {
-    padding: 14px 40px;
-    font-size: 15px;
+  .welcome-lv .hero-description {
+    font-size: 16px !important;
+  }
+
+  .welcome-lv .btn-primary {
+    padding: 14px 40px !important;
+    font-size: 15px !important;
   }
 
   .welcome-lv .shortcuts-container .shopping-card {
@@ -419,54 +438,57 @@ tb-widget-actions,
 
 @media (max-width: 560px) {
   .welcome-lv {
-    padding: 16px;
-    min-height: 300px;
+    padding: 16px !important;
+    min-height: 500px !important;
   }
 
-  .hero-container {
-    padding-top: 120px;
-    min-height: 220px;
+  .welcome-lv .hero-container {
+    min-height: 450px !important;
   }
 
-  .brand-logo img {
-    max-height: 70px;
-    max-width: 240px;
+  .welcome-lv .brand-logo {
+    max-width: 400px !important;
   }
 
-  .user-menu {
-    gap: 8px;
-    padding: 10px 14px;
-    max-width: 260px;
+  .welcome-lv .brand-logo img {
+    max-width: 400px !important;
+    max-height: 200px !important;
   }
 
-  .user-name {
-    font-size: 14px;
+  .welcome-lv .user-menu {
+    gap: 8px !important;
+    padding: 10px 14px !important;
+    max-width: 260px !important;
   }
 
-  .user-email {
-    font-size: 11px;
+  .welcome-lv .user-name {
+    font-size: 14px !important;
   }
 
-  .btn-logout {
-    padding: 6px 10px;
-    font-size: 11px;
+  .welcome-lv .user-email {
+    font-size: 11px !important;
   }
 
-  .btn-logout .logout-icon {
-    font-size: 14px;
+  .welcome-lv .btn-logout {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
   }
 
-  .hero-title {
-    font-size: 24px;
+  .welcome-lv .btn-logout .logout-icon {
+    font-size: 14px !important;
   }
 
-  .hero-description {
-    font-size: 14px;
+  .welcome-lv .hero-title {
+    font-size: 24px !important;
   }
 
-  .btn-primary {
-    padding: 12px 28px;
-    font-size: 13px;
+  .welcome-lv .hero-description {
+    font-size: 14px !important;
+  }
+
+  .welcome-lv .btn-primary {
+    padding: 12px 28px !important;
+    font-size: 13px !important;
   }
 
   .welcome-lv .shortcuts-container .shopping-card {
@@ -483,9 +505,9 @@ tb-widget-actions,
     font-size: 13px !important;
   }
 
-  .shortcuts-container {
-    margin-top: 20px;
-    gap: 12px;
+  .welcome-lv .shortcuts-container {
+    margin-top: 20px !important;
+    gap: 12px !important;
   }
 }
 
