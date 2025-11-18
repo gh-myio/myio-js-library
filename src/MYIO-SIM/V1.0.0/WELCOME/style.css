@@ -1,5 +1,15 @@
 /* RFC-0057: Welcome LV Widget Styles */
 
+/* Hide ThingsBoard Actions UI element */
+tb-widget-actions,
+.tb-widget-actions,
+.tb-widget-actions-absolute {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 /* CSS Variables (overridable via Customer attributes) */
 .welcome-lv {
   --welcome-ink: #F5F7FA;
@@ -248,7 +258,8 @@
   background: var(--welcome-secondary) !important;
 }
 
-.welcome-lv .shopping-card {
+/* Shopping Cards - botões clicáveis na parte inferior */
+.welcome-lv .shortcuts-container .shopping-card {
   flex: 0 0 280px !important;
   height: 160px !important;
   background: rgba(255, 255, 255, 0.1) !important;
@@ -262,25 +273,31 @@
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
   transition: all 0.3s !important;
   box-sizing: border-box !important;
+  text-align: center !important;
+  font-family: inherit !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
-.welcome-lv .shopping-card:hover {
+.welcome-lv .shortcuts-container .shopping-card:hover {
   transform: translateY(-8px) !important;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3) !important;
   border-color: var(--welcome-primary) !important;
 }
 
-.welcome-lv .shopping-card:focus {
+.welcome-lv .shortcuts-container .shopping-card:focus {
   outline: 2px solid var(--welcome-primary) !important;
   outline-offset: 2px !important;
   transform: translateY(-4px) !important;
 }
 
-.welcome-lv .shopping-card:active {
+.welcome-lv .shortcuts-container .shopping-card:active {
   transform: translateY(-2px) !important;
 }
 
-.welcome-lv .shopping-card .card-bg {
+.welcome-lv .shortcuts-container .shopping-card .card-bg {
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
@@ -293,11 +310,11 @@
   transition: opacity 0.3s !important;
 }
 
-.welcome-lv .shopping-card:hover .card-bg {
+.welcome-lv .shortcuts-container .shopping-card:hover .card-bg {
   opacity: 0.4 !important;
 }
 
-.welcome-lv .shopping-card h3 {
+.welcome-lv .shortcuts-container .shopping-card h3 {
   position: relative !important;
   z-index: 1 !important;
   margin: 0 0 8px 0 !important;
@@ -308,7 +325,7 @@
   line-height: 1.3 !important;
 }
 
-.welcome-lv .shopping-card p {
+.welcome-lv .shortcuts-container .shopping-card p {
   position: relative !important;
   z-index: 1 !important;
   margin: 0 !important;
@@ -394,9 +411,9 @@
     font-size: 15px;
   }
 
-  .shopping-card {
-    flex: 0 0 260px;
-    height: 150px;
+  .welcome-lv .shortcuts-container .shopping-card {
+    flex: 0 0 260px !important;
+    height: 150px !important;
   }
 }
 
@@ -452,18 +469,18 @@
     font-size: 13px;
   }
 
-  .shopping-card {
-    flex: 0 0 240px;
-    height: 140px;
-    padding: 16px;
+  .welcome-lv .shortcuts-container .shopping-card {
+    flex: 0 0 240px !important;
+    height: 140px !important;
+    padding: 16px !important;
   }
 
-  .shopping-card h3 {
-    font-size: 18px;
+  .welcome-lv .shortcuts-container .shopping-card h3 {
+    font-size: 18px !important;
   }
 
-  .shopping-card p {
-    font-size: 13px;
+  .welcome-lv .shortcuts-container .shopping-card p {
+    font-size: 13px !important;
   }
 
   .shortcuts-container {
@@ -474,31 +491,31 @@
 
 /* Accessibility: High contrast mode support */
 @media (prefers-contrast: high) {
-  .shopping-card {
-    border-width: 2px;
+  .welcome-lv .shortcuts-container .shopping-card {
+    border-width: 2px !important;
   }
 
-  .btn-primary {
-    border: 2px solid var(--welcome-ink);
+  .welcome-lv .btn-primary {
+    border: 2px solid var(--welcome-ink) !important;
   }
 
-  .btn-logout {
-    border-width: 2px;
+  .welcome-lv .btn-logout {
+    border-width: 2px !important;
   }
 }
 
 /* Accessibility: Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-  .btn-primary,
-  .btn-logout,
-  .shopping-card,
-  .shopping-card .card-bg {
-    transition: none;
+  .welcome-lv .btn-primary,
+  .welcome-lv .btn-logout,
+  .welcome-lv .shortcuts-container .shopping-card,
+  .welcome-lv .shortcuts-container .shopping-card .card-bg {
+    transition: none !important;
   }
 
-  .btn-primary:hover,
-  .btn-logout:hover,
-  .shopping-card:hover {
-    transform: none;
+  .welcome-lv .btn-primary:hover,
+  .welcome-lv .btn-logout:hover,
+  .welcome-lv .shortcuts-container .shopping-card:hover {
+    transform: none !important;
   }
 }

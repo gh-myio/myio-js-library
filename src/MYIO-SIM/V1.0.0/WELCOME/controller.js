@@ -61,39 +61,39 @@ const DEFAULT_PALETTE = {
 
 const DEFAULT_LOGO_URL = 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG';
 
-// Hardcoded shopping cards
+// Hardcoded shopping cards with dashboard navigation
 const DEFAULT_SHOPPING_CARDS = [
   {
     title: 'Mestre Álvaro',
     subtitle: 'Dashboard Principal',
+    buttonId: 'ShoppingMestreAlvaro',
     dashboardId: '6c188a90-b0cc-11f0-9722-210aa9448abc',
-    bgImageUrl: null,
-    state: '',
-    openInNewTab: false
+    entityId: '6c188a90-b0cc-11f0-9722-210aa9448abc',
+    entityType: 'ASSET'
   },
   {
     title: 'Mont Serrat',
     subtitle: 'Dashboard Principal',
+    buttonId: 'ShoppingMontSerrat',
     dashboardId: '39e4ca30-b503-11f0-be7f-e760d1498268',
-    bgImageUrl: null,
-    state: '',
-    openInNewTab: false
+    entityId: '39e4ca30-b503-11f0-be7f-e760d1498268',
+    entityType: 'ASSET'
   },
   {
     title: 'Moxuara',
     subtitle: 'Dashboard Principal',
+    buttonId: 'ShoppingMoxuara',
     dashboardId: '4b53bbb0-b5a7-11f0-be7f-e760d1498268',
-    bgImageUrl: null,
-    state: '',
-    openInNewTab: false
+    entityId: '4b53bbb0-b5a7-11f0-be7f-e760d1498268',
+    entityType: 'ASSET'
   },
   {
     title: 'Shopping da Ilha',
     subtitle: 'Dashboard Principal',
+    buttonId: 'ShoppingDaIlha',
     dashboardId: 'd2754480-b668-11f0-be7f-e760d1498268',
-    bgImageUrl: null,
-    state: '',
-    openInNewTab: false
+    entityId: 'd2754480-b668-11f0-be7f-e760d1498268',
+    entityType: 'ASSET'
   }
 ];
 
@@ -460,26 +460,12 @@ function setupLazyLoading() {
 
 /**
  * Render shopping cards
- * Priority:
- * 1. Cards from ctx.data[] (if available)
- * 2. Cards from home.cards attribute (if configured)
- * 3. Default hardcoded shopping cards
+ * Always use DEFAULT_SHOPPING_CARDS with fixed button IDs for ThingsBoard Actions
  */
 function renderShortcuts(attrs) {
-  // Priority 1: Extract cards from ctx.data[]
-  let cards = extractShoppingCardsFromCtxData();
-
-  // Priority 2: Fallback to configured cards in attributes
-  if (cards.length === 0 && attrs['home.cards']) {
-    cards = attrs['home.cards'];
-    LogHelper.log('Using cards from attributes:', cards.length);
-  }
-
-  // Priority 3: Use default hardcoded shopping cards
-  if (cards.length === 0) {
-    cards = DEFAULT_SHOPPING_CARDS;
-    LogHelper.log('Using default hardcoded shopping cards:', cards.length);
-  }
+  // Always use default hardcoded shopping cards with specific button IDs
+  const cards = DEFAULT_SHOPPING_CARDS;
+  LogHelper.log('Using default hardcoded shopping cards with button IDs:', cards.length);
 
   const container = document.getElementById('welcomeShortcuts');
 
@@ -492,88 +478,28 @@ function renderShortcuts(attrs) {
   }
 
   container.innerHTML = cards.map((card, index) => `
-    <div class="shopping-card"
-         data-dashboard-id="${card.dashboardId || card.entityId || ''}"
-         data-entity-id="${card.entityId || ''}"
-         data-state="${card.state || ''}"
-         data-open-new-tab="${card.openInNewTab || false}"
-         tabindex="0"
-         role="button"
-         aria-label="${card.title || 'Shopping'} - ${card.subtitle || ''}"
-         data-card-index="${index}">
+    <button class="shopping-card"
+            id="${card.buttonId || 'Shopping' + index}"
+            type="button"
+            aria-label="${card.title || 'Shopping'} - ${card.subtitle || ''}">
       ${card.bgImageUrl ? `<div class="card-bg" data-bg-url="${card.bgImageUrl}"></div>` : ''}
       <h3>${card.title || 'Shopping'}</h3>
       <p>${card.subtitle || ''}</p>
-    </div>
+    </button>
   `).join('');
 
-  // Wire card clicks (rev001)
-  container.querySelectorAll('.shopping-card').forEach(cardEl => {
-    const dashboardId = cardEl.getAttribute('data-dashboard-id');
-    const state = cardEl.getAttribute('data-state');
-    const openNewTab = cardEl.getAttribute('data-open-new-tab') === 'true';
-    const title = cardEl.querySelector('h3')?.textContent;
-
-    const handleClick = () => handleCardClick(dashboardId, state, openNewTab, title);
-
-    // Mouse click
-    cardEl.addEventListener('click', handleClick);
-
-    // Keyboard navigation (rev001)
-    cardEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        handleClick();
-      }
-    });
-  });
-
-  // Setup lazy loading for background images (rev001)
+  // Setup lazy loading for background images
   setupLazyLoading();
 
-  LogHelper.log('Shortcuts rendered:', cards.length, 'cards from ctx.data[]');
+  LogHelper.log('Shopping cards rendered with button IDs:', cards.map(c => c.buttonId || c.title).join(', '));
 }
 
-/**
- * Handle shopping card click
- * rev001: Added support for state and openInNewTab
- */
-function handleCardClick(dashboardId, state, openNewTab, title) {
-  LogHelper.log('[rev001] Card clicked:', title, '→', {dashboardId, state, openNewTab});
-
-  try {
-    if (openNewTab) {
-      // Open in new tab (rev001)
-      const url = `/dashboard/${dashboardId}${state ? `?state=${state}` : ''}`;
-      window.open(url, '_blank');
-      LogHelper.log('[rev001] Opened in new tab:', url);
-    } else if (state) {
-      // Navigate to dashboard with state (rev001)
-      ctx.actionsApi.navigateToDashboard(dashboardId, {
-        openInSeparateDialog: false,
-        openInPopover: false,
-        targetState: state
-      });
-      LogHelper.log('[rev001] Navigated to dashboard with state:', state);
-    } else {
-      // Default navigation
-      ctx.actionsApi.navigateToDashboard(dashboardId, {
-        openInSeparateDialog: false,
-        openInPopover: false
-      });
-    }
-  } catch (error) {
-    LogHelper.error('Navigation error:', error);
-
-    // Fallback navigation
-    const url = `/dashboard/${dashboardId}${state ? `?state=${state}` : ''}`;
-    if (openNewTab) {
-      window.open(url, '_blank');
-    } else {
-      window.location.href = url;
-    }
-  }
-}
+// Shopping card navigation is now handled via ThingsBoard Widget Actions
+// Configure actions in widget settings for button IDs:
+// - ShoppingMestreAlvaro
+// - ShoppingMontSerrat
+// - ShoppingMoxuara
+// - ShoppingDaIlha
 
 /**
  * Handle primary CTA click
