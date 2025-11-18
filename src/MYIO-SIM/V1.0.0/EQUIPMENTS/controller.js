@@ -2372,14 +2372,16 @@ function setupModalCloseHandlers(modal) {
         STATE.sortMode = sortRadio.value;
       }
 
+      console.log("[EQUIPMENTS] [RFC-0072] Filters applied:", {
+        selectedCount: STATE.selectedIds?.size || STATE.allDevices.length,
+        totalDevices: STATE.allDevices.length,
+        sortMode: STATE.sortMode,
+        selectedIds: STATE.selectedIds ? Array.from(STATE.selectedIds).slice(0, 5) : 'all' // Show first 5 IDs
+      });
+
       // Apply filters and close modal with cleanup
       reflowCards();
       closeFilterModal();
-
-      console.log("[EQUIPMENTS] [RFC-0072] Filters applied:", {
-        selectedCount: STATE.selectedIds?.size || STATE.allDevices.length,
-        sortMode: STATE.sortMode
-      });
     });
   }
 
@@ -2416,6 +2418,13 @@ function setupModalCloseHandlers(modal) {
  */
 function openFilterModal() {
   console.log("[EQUIPMENTS] [RFC-0072] Opening full-screen filter modal");
+  console.log("[EQUIPMENTS] STATE.allDevices count:", STATE.allDevices.length);
+
+  if (STATE.allDevices.length === 0) {
+    console.error("[EQUIPMENTS] ❌ No devices in STATE.allDevices! Modal will be empty.");
+    alert("Nenhum equipamento encontrado. Por favor, aguarde o carregamento dos dados.");
+    return;
+  }
 
   // RFC-0072: Get or create global modal container (like MENU widget)
   let globalContainer = document.getElementById("equipmentsFilterModalGlobal");
@@ -2769,6 +2778,8 @@ function openFilterModal() {
   // RFC: Calculate counts for filter tabs
   const counts = {
     all: STATE.allDevices.length,
+    online: 0,
+    offline: 0,
     withConsumption: 0,
     noConsumption: 0,
     elevators: 0,
@@ -2783,6 +2794,14 @@ function openFilterModal() {
     const deviceProfile = (device.deviceProfile || '').toUpperCase();
     const identifier = (device.deviceIdentifier || '').toUpperCase();
     const labelOrName = (device.labelOrName || '').toUpperCase();
+
+    // Count online/offline status (using connectionStatus like filter tabs)
+    const connectionStatus = (device.connectionStatus || 'offline').toLowerCase();
+    if (connectionStatus === 'online') {
+      counts.online++;
+    } else {
+      counts.offline++;
+    }
 
     // Count consumption status
     if (consumption > 0) {
@@ -2811,6 +2830,8 @@ function openFilterModal() {
 
   // Update count displays
   document.getElementById('countAll').textContent = counts.all;
+  document.getElementById('countOnline').textContent = counts.online;
+  document.getElementById('countOffline').textContent = counts.offline;
   document.getElementById('countWithConsumption').textContent = counts.withConsumption;
   document.getElementById('countNoConsumption').textContent = counts.noConsumption;
   document.getElementById('countElevators').textContent = counts.elevators;
@@ -2818,9 +2839,19 @@ function openFilterModal() {
   document.getElementById('countHvac').textContent = counts.hvac;
   document.getElementById('countOthers').textContent = counts.others;
 
+  console.log('[EQUIPMENTS] Filter counts:', counts);
+
+  // Debug: Log sample device to check connectionStatus field
+  if (STATE.allDevices.length > 0) {
+    console.log('[EQUIPMENTS] Sample device for debugging:', STATE.allDevices[0]);
+  }
+
   // Populate device checklist
   const checklist = document.getElementById("deviceChecklist");
-  if (!checklist) return;
+  if (!checklist) {
+    console.error("[EQUIPMENTS] ❌ deviceChecklist element not found!");
+    return;
+  }
 
   checklist.innerHTML = "";
 
@@ -2987,7 +3018,9 @@ function bindFilterEvents() {
         cb.checked = shouldCheck;
       });
 
-      console.log(`[EQUIPMENTS] Filter tab selected: ${filterType}`);
+      // Count how many checkboxes are now checked
+      const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+      console.log(`[EQUIPMENTS] Filter tab selected: ${filterType}, checked: ${checkedCount}/${checkboxes.length}`);
     });
   });
 
