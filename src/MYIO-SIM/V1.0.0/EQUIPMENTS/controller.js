@@ -5,6 +5,7 @@ let CUSTOMER_ID;
 let CLIENT_ID;
 let CLIENT_SECRET;
 let INGESTION_ID;
+let MAP_INSTANTANEOUS_POWER;
 
 // RFC-0057: Removed unused utility functions: d(), clamp(), formatNumber(), formatHours(), escapeHtml(), isDanger()
 
@@ -1360,10 +1361,11 @@ function initializeCards(devices) {
               lastDisconnectTime: device.lastDisconnectTime || 0,
             },
             ui: { title: "Configurações", width: 900 },
+            mapInstantaneousPower: device.mapInstantaneousPower, // RFC-0078: Pass existing map if available
             onSaved: (payload) => {
               console.log("[EQUIPMENTS] [RFC-0072] Settings saved:", payload);
               // Mostra modal global de sucesso com contador e reload
-              showGlobalSuccessModal(6);
+              //showGlobalSuccessModal(6);
             },
             onClose: () => {
               $(".myio-settings-modal-overlay").remove();
@@ -1611,10 +1613,13 @@ self.onInit = async function () {
   }
 
   const customerCredentials = await fetchCustomerServerScopeAttrs(CUSTOMER_ID);
+  console.log('customerCredentials', customerCredentials);
+  
 
   CLIENT_ID = customerCredentials.client_id || " ";
   CLIENT_SECRET = customerCredentials.client_secret || " ";
   INGESTION_ID = customerCredentials.ingestionId || " ";
+  MAP_INSTANTANEOUS_POWER = customerCredentials.mapInstantaneousPower;
 
   // 🚨 RFC-0077: Fetch customer consumption limits ONCE before processing devices
   // This will be used by getConsumptionRangesHierarchical as TIER 2 fallback
@@ -1724,6 +1729,7 @@ self.onInit = async function () {
           lastDisconnectTime: lastDisconnectTimestamp,
           lastConnectTime: lastConnectTimestamp,
           lastActivityTime: findValue(device.values, "lastActivityTime", null),
+          mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
           // RFC-0058: Add properties for MyIOSelectionStore (FOOTER)
           id: entityId,                    // Alias for entityId
           name: device.label,              // Alias for labelOrName
