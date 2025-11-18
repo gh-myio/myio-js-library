@@ -28,10 +28,10 @@
     overflow: hidden !important;
 }
 
-/* Força transparência em todos os elementos internos, EXCETO a logo */
-.myio-toolbar-root *:not(.myio-card-logo):not(.myio-card-logo *),
-.myio-toolbar-root *:not(.myio-card-logo):not(.myio-card-logo *)::before,
-.myio-toolbar-root *:not(.myio-card-logo):not(.myio-card-logo *)::after {
+/* Força transparência em todos os elementos internos, EXCETO a logo e cards principais */
+.myio-toolbar-root *:not(.myio-card-logo):not(.myio-card-logo *):not(#card-equip):not(#card-energy):not(#card-temp):not(#card-water),
+.myio-toolbar-root *:not(.myio-card-logo):not(.myio-card-logo *):not(#card-equip):not(#card-energy):not(#card-temp):not(#card-water)::before,
+.myio-toolbar-root *:not(.myio-card-logo):not(.myio-card-logo *):not(#card-equip):not(#card-energy):not(#card-temp):not(#card-water)::after {
   background-color: transparent !important;
 }
 
@@ -50,8 +50,8 @@
   background: transparent !important;
 }
 .myio-card{
-  background: transparent !important;
-  background-color: transparent !important;
+  background: transparent;
+  background-color: transparent;
   background-image: none !important;
   border:1px solid var(--card-bd);
   border-radius: 14px;
@@ -157,8 +157,8 @@
 /* ===== v2 – acabamento premium ===== */
 .myio-card.v2{
   position: relative;
-  background: transparent !important;
-  background-color: transparent !important;
+  background: transparent;
+  background-color: transparent;
   background-image: none !important;
   border: 1px solid #E6EEF5;
   border-radius: 14px;
@@ -170,6 +170,7 @@
   min-height: 119px;
   max-height: 119px;
 }
+
 .myio-card.v2:hover{ transform: translateY(-1px); box-shadow:
   0 2px 2px rgba(16,24,40,.05),
   0 10px 26px rgba(31,116,164,.12);
@@ -285,6 +286,31 @@
 #energy-peak,
 #water-alert {
   display: none !important;
+}
+
+/* Cards personalizáveis - elementos internos herdam a cor do card */
+#card-equip *:not(svg):not(path):not(circle),
+#card-energy *:not(svg):not(path):not(circle),
+#card-temp *:not(svg):not(path):not(circle),
+#card-water *:not(svg):not(path):not(circle) {
+  color: inherit !important;
+}
+
+/* Títulos dos cards personalizáveis */
+#card-equip .hd-title,
+#card-energy .hd-title,
+#card-temp .hd-title,
+#card-water .hd-title {
+  color: inherit !important;
+  opacity: 0.85;
+}
+
+/* KPIs dos cards personalizáveis */
+#card-equip .myio-kpi,
+#card-energy .myio-kpi,
+#card-temp .myio-kpi,
+#card-water .myio-kpi {
+  color: inherit !important;
 }
 
 /* ===== Card da Logo - Versão Única e Limpa ===== */

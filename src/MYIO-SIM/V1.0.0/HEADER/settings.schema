@@ -6,6 +6,46 @@
       "customerId": {
         "type": "string",
         "title": "customerId"
+      },
+      "cardEquipamentosBackgroundColor": {
+        "type": "string",
+        "title": "Card Equipamentos - Background Color",
+        "default": "#1F3A35"
+      },
+      "cardEquipamentosFontColor": {
+        "type": "string",
+        "title": "Card Equipamentos - Font Color",
+        "default": "#F2F2F2"
+      },
+      "cardEnergiaBackgroundColor": {
+        "type": "string",
+        "title": "Card Consumo de Energia - Background Color",
+        "default": "#1F3A35"
+      },
+      "cardEnergiaFontColor": {
+        "type": "string",
+        "title": "Card Consumo de Energia - Font Color",
+        "default": "#F2F2F2"
+      },
+      "cardTemperaturaBackgroundColor": {
+        "type": "string",
+        "title": "Card Média de Temperatura - Background Color",
+        "default": "#1F3A35"
+      },
+      "cardTemperaturaFontColor": {
+        "type": "string",
+        "title": "Card Média de Temperatura - Font Color",
+        "default": "#F2F2F2"
+      },
+      "cardAguaBackgroundColor": {
+        "type": "string",
+        "title": "Card Água - Background Color",
+        "default": "#1F3A35"
+      },
+      "cardAguaFontColor": {
+        "type": "string",
+        "title": "Card Água - Font Color",
+        "default": "#F2F2F2"
       }
     },
     "required": ["customerId"]

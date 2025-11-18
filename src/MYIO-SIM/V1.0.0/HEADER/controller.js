@@ -989,6 +989,53 @@ function formatDiaMesAno(date) {
     return `${dia}/${mesAbreviado}/${ano}`;
 }
 
+/* ====== Apply Card Custom Colors ====== */
+function applyCardColors() {
+    const settings = self.ctx.settings;
+
+    // Card Equipamentos
+    const cardEquip = document.getElementById("card-equip");
+    if (cardEquip) {
+        const bgColor = settings.cardEquipamentosBackgroundColor || "#1F3A35";
+        const fontColor = settings.cardEquipamentosFontColor || "#F2F2F2";
+        cardEquip.style.setProperty('background', bgColor, 'important');
+        cardEquip.style.setProperty('background-color', bgColor, 'important');
+        cardEquip.style.setProperty('color', fontColor, 'important');
+    }
+
+    // Card Energia
+    const cardEnergy = document.getElementById("card-energy");
+    if (cardEnergy) {
+        const bgColor = settings.cardEnergiaBackgroundColor || "#1F3A35";
+        const fontColor = settings.cardEnergiaFontColor || "#F2F2F2";
+        cardEnergy.style.setProperty('background', bgColor, 'important');
+        cardEnergy.style.setProperty('background-color', bgColor, 'important');
+        cardEnergy.style.setProperty('color', fontColor, 'important');
+    }
+
+    // Card Temperatura
+    const cardTemp = document.getElementById("card-temp");
+    if (cardTemp) {
+        const bgColor = settings.cardTemperaturaBackgroundColor || "#1F3A35";
+        const fontColor = settings.cardTemperaturaFontColor || "#F2F2F2";
+        cardTemp.style.setProperty('background', bgColor, 'important');
+        cardTemp.style.setProperty('background-color', bgColor, 'important');
+        cardTemp.style.setProperty('color', fontColor, 'important');
+    }
+
+    // Card Água
+    const cardWater = document.getElementById("card-water");
+    if (cardWater) {
+        const bgColor = settings.cardAguaBackgroundColor || "#1F3A35";
+        const fontColor = settings.cardAguaFontColor || "#F2F2F2";
+        cardWater.style.setProperty('background', bgColor, 'important');
+        cardWater.style.setProperty('background-color', bgColor, 'important');
+        cardWater.style.setProperty('color', fontColor, 'important');
+    }
+
+    console.log("[HEADER] Card colors applied from settings");
+}
+
 /* ====== Lifecycle ====== */
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // Global busy modal is managed by MAIN orchestrator
@@ -1011,6 +1058,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
     bindTabs(root);
     bindFilter(root);
+
+    // Aplicar cores personalizadas dos cards (após o DOM estar pronto)
+    setTimeout(() => {
+        applyCardColors();
+    }, 100);
 
     // mocks (remova se alimentar via API/telemetria)
     setSummary({
