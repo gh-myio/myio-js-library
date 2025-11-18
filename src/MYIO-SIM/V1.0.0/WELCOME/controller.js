@@ -121,6 +121,12 @@ async function fetchCustomerAttributes() {
       customerId = ctx.currentUser.customerId;
     }
 
+    // Force specific customer ID if default customer is detected
+    if (customerId === '13814000-1dd2-11b2-8080-808080808080') {
+      customerId = '56614a70-326f-11ef-ad2c-53aeabe7d3fa';
+      LogHelper.log('Forced customerId to:', customerId);
+    }
+
     if (!customerId) {
       LogHelper.warn('[rev001] No customer ID found via any method, using defaults');
       return {};
@@ -237,28 +243,9 @@ function renderLogo(attrs) {
 }
 
 /**
- * Get current user info
+ * Fetch user info from API (same approach as MENU widget)
  */
-function getUserInfo() {
-  const user = ctx.currentUser;
-  if (!user) {
-    LogHelper.warn('No user found in context');
-    return { name: 'User', email: '' };
-  }
-
-  const firstName = user.firstName || '';
-  const lastName = user.lastName || '';
-  const name = `${firstName} ${lastName}`.trim() || 'User';
-  const email = user.email || '';
-
-  LogHelper.log('User info:', { name, email });
-  return { name, email };
-}
-
-/**
- * Render user menu
- */
-function renderUserMenu(attrs) {
+async function fetchAndRenderUserMenu(attrs) {
   const showUserMenu = attrs['home.showUserMenu'] !== false;
   const userMenuEl = document.getElementById('welcomeUserMenu');
 
@@ -270,12 +257,88 @@ function renderUserMenu(attrs) {
     return;
   }
 
-  const userInfo = getUserInfo();
+  try {
+    const tbToken = localStorage.getItem('jwt_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (tbToken) {
+      headers['X-Authorization'] = `Bearer ${tbToken}`;
+    }
+
+    const response = await fetch('/api/auth/user', {
+      method: 'GET',
+      headers: headers,
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      LogHelper.warn('Failed to fetch user info from API:', response.status);
+      // Fallback to ctx.currentUser
+      renderUserMenuFallback(attrs);
+      return;
+    }
+
+    const user = await response.json();
+    LogHelper.log('User data from API:', user);
+
+    const userNameEl = document.getElementById('welcomeUserName');
+    const userEmailEl = document.getElementById('welcomeUserEmail');
+
+    // Update user name
+    if (userNameEl) {
+      const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || 'Usuário';
+      userNameEl.textContent = fullName;
+      LogHelper.log('User name set:', fullName);
+    }
+
+    // Update user email
+    if (userEmailEl && user?.email) {
+      userEmailEl.textContent = user.email;
+      userEmailEl.style.display = 'block';
+      userEmailEl.style.visibility = 'visible';
+      LogHelper.log('User email set:', user.email);
+    } else {
+      LogHelper.warn('No email found in user object');
+    }
+
+    // Wire logout button
+    const logoutBtn = document.getElementById('welcomeLogout');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', handleLogout);
+    }
+
+    LogHelper.log('User menu rendered with API data');
+  } catch (error) {
+    LogHelper.error('Error fetching user info:', error);
+    // Fallback to ctx.currentUser
+    renderUserMenuFallback(attrs);
+  }
+}
+
+/**
+ * Fallback: Get user info from ctx.currentUser
+ */
+function renderUserMenuFallback(attrs) {
+  const user = ctx.currentUser;
+  if (!user) {
+    LogHelper.warn('No user found in context');
+    return;
+  }
+
   const userNameEl = document.getElementById('welcomeUserName');
   const userEmailEl = document.getElementById('welcomeUserEmail');
 
-  if (userNameEl) userNameEl.textContent = userInfo.name;
-  if (userEmailEl) userEmailEl.textContent = userInfo.email;
+  if (userNameEl) {
+    const firstName = user.firstName || '';
+    const lastName = user.lastName || '';
+    const name = `${firstName} ${lastName}`.trim() || 'User';
+    userNameEl.textContent = name;
+  }
+
+  if (userEmailEl && user.email) {
+    userEmailEl.textContent = user.email;
+    userEmailEl.style.display = 'block';
+    userEmailEl.style.visibility = 'visible';
+  }
 
   // Wire logout button
   const logoutBtn = document.getElementById('welcomeLogout');
@@ -283,7 +346,7 @@ function renderUserMenu(attrs) {
     logoutBtn.addEventListener('click', handleLogout);
   }
 
-  LogHelper.log('User menu rendered');
+  LogHelper.log('User menu rendered with fallback data');
 }
 
 /**
@@ -530,29 +593,41 @@ function handleCTAClick(attrs) {
  * Render hero content with text overrides (rev001)
  */
 function renderHeroContent(attrs) {
+  // Get widget settings
+  const settings = ctx.settings || {};
+
   // Default texts
   const defaultTitle = 'Bem-vindo ao MYIO Platform';
   const defaultDescription = 'Gestão inteligente de energia, água e recursos para shoppings centers';
-  const defaultPrimaryLabel = 'ACESSAR DASHBOARD';
+  const defaultPrimaryLabel = 'ACESSAR PAINEL';
 
-  // Apply text overrides (rev001)
-  const title = attrs['home.hero.title'] || defaultTitle;
-  const description = attrs['home.hero.description'] || defaultDescription;
-  const primaryLabel = attrs['home.actions.primaryLabel'] || defaultPrimaryLabel;
+  // Priority: Widget Settings > Customer Attributes > Defaults
+  const title = settings.defaultHeroTitle || attrs['home.hero.title'] || defaultTitle;
+  const description = settings.defaultHeroDescription || attrs['home.hero.description'] || defaultDescription;
+  const primaryLabel = settings.defaultPrimaryLabel || attrs['home.actions.primaryLabel'] || defaultPrimaryLabel;
+
+  LogHelper.log('Hero settings:', { title, description, primaryLabel });
 
   // Update DOM
   const titleEl = document.getElementById('welcomeHeroTitle');
   const descEl = document.getElementById('welcomeHeroDescription');
   const ctaBtn = document.getElementById('welcomeCTA');
 
-  if (titleEl) titleEl.textContent = title;
-  if (descEl) descEl.textContent = description;
+  if (titleEl) {
+    titleEl.textContent = title;
+    LogHelper.log('Hero title set to:', title);
+  }
+
+  if (descEl) {
+    descEl.textContent = description;
+  }
+
   if (ctaBtn) {
     ctaBtn.textContent = primaryLabel;
     ctaBtn.setAttribute('aria-label', primaryLabel);
   }
 
-  LogHelper.log('[rev001] Hero content rendered with text overrides');
+  LogHelper.log('Hero content rendered with text overrides');
 }
 
 /**
@@ -593,11 +668,11 @@ async function init() {
     // Render components
     renderLogo(customerAttrs);
     renderHeroContent(customerAttrs);  // rev001: Text overrides
-    renderUserMenu(customerAttrs);
+    await fetchAndRenderUserMenu(customerAttrs); // Fetch user from API
     renderShortcuts(customerAttrs);
     wireCTA(customerAttrs);
 
-    LogHelper.log('Initialization complete');
+    LogHelper.log('✅ Initialization complete');
   } catch (error) {
     LogHelper.error('Initialization error:', error);
   }

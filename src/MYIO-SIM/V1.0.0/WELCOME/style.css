@@ -1,7 +1,7 @@
 /* RFC-0057: Welcome LV Widget Styles */
 
 /* CSS Variables (overridable via Customer attributes) */
-:root {
+.welcome-lv {
   --welcome-ink: #F5F7FA;
   --welcome-muted: #B8C2D8;
   --welcome-primary: #7A2FF7;
@@ -11,259 +11,327 @@
 }
 
 .welcome-lv {
-  width: 100%;
-  min-height: 400px;
+  width: 100% !important;
+  min-height: 600px !important;
   background: linear-gradient(120deg, var(--welcome-grad-start), var(--welcome-grad-end)),
-              url('https://dashboard.myio-bas.com/api/images/public/wntqPf1KcpLX2l182DY86Y4p8pa3bj6F');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  color: var(--welcome-ink);
-  padding: 32px;
-  border-radius: 12px;
+              url('https://dashboard.myio-bas.com/api/images/public/wntqPf1KcpLX2l182DY86Y4p8pa3bj6F') !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  color: var(--welcome-ink) !important;
+  padding: 40px !important;
+  border-radius: 12px !important;
+  box-sizing: border-box !important;
+  position: relative !important;
 }
 
-/* Hero Layout */
-.hero-container {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-rows: auto 1fr;
-  gap: 24px;
-  min-height: 300px;
+/* Hero Layout - Grid simples */
+.welcome-lv .hero-container {
+  width: 100% !important;
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  grid-template-rows: auto 1fr !important;
+  gap: 20px !important;
+  min-height: 500px !important;
+  margin-bottom: 20px !important;
 }
 
-.brand-logo {
-  grid-column: 1;
-  grid-row: 1;
+/* Logo - canto superior esquerdo */
+.welcome-lv .brand-logo {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  justify-self: start !important;
+  align-self: start !important;
 }
 
-.brand-logo img {
-  max-height: 60px;
-  max-width: 200px;
-  object-fit: contain;
+.welcome-lv .brand-logo img {
+  height: 500px !important;
+  width: auto !important;
+  max-width: 1000px !important;
+  object-fit: contain !important;
+  display: block !important;
 }
 
-.user-menu {
-  grid-column: 2;
-  grid-row: 1;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 12px 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  backdrop-filter: blur(10px);
+/* User Menu - canto superior direito */
+.welcome-lv .user-menu {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  justify-self: end !important;
+  align-self: start !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 12px !important;
+  padding: 18px 24px !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-radius: 12px !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  min-width: 240px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
 }
 
-.user-info {
-  display: flex;
-  flex-direction: column;
-  text-align: right;
+.welcome-lv .user-info {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  text-align: right !important;
+  width: 100% !important;
 }
 
-.user-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--welcome-ink);
+.welcome-lv .user-name {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: var(--welcome-ink) !important;
+  margin: 0 0 6px 0 !important;
+  padding: 0 !important;
+  word-wrap: break-word !important;
+  white-space: normal !important;
+  line-height: 1.3 !important;
 }
 
-.user-email {
-  font-size: 12px;
-  color: var(--welcome-muted);
+.welcome-lv .user-email {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: var(--welcome-ink) !important;
+  opacity: 0.9 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  word-wrap: break-word !important;
+  white-space: normal !important;
+  line-height: 1.3 !important;
+  display: block !important;
+  visibility: visible !important;
+  height: auto !important;
+  min-height: 16px !important;
 }
 
-.btn-logout {
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
-  color: var(--welcome-ink);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
+/* Garantir que o email seja exibido mesmo vazio */
+.welcome-lv #welcomeUserEmail {
+  display: block !important;
+  visibility: visible !important;
 }
 
-.btn-logout:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: translateY(-2px);
+.welcome-lv .btn-logout {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 10px 18px !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  border-radius: 8px !important;
+  color: var(--welcome-ink) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
 }
 
-.btn-logout:focus {
-  outline: 2px solid var(--welcome-primary);
-  outline-offset: 2px;
+.welcome-lv .btn-logout .logout-icon {
+  font-size: 16px !important;
+  line-height: 1 !important;
 }
 
-/* Hero Content */
-.hero-content {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  gap: 24px;
+.welcome-lv .btn-logout .logout-text {
+  line-height: 1 !important;
 }
 
-.hero-title {
-  font-size: 48px;
-  font-weight: 700;
-  margin: 0;
-  color: var(--welcome-ink);
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+.welcome-lv .btn-logout:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
 }
 
-.hero-description {
-  font-size: 18px;
-  font-weight: 400;
-  margin: 0;
-  color: var(--welcome-muted);
-  max-width: 600px;
+.welcome-lv .btn-logout:focus {
+  outline: 2px solid var(--welcome-primary) !important;
+  outline-offset: 2px !important;
 }
 
-.btn-primary {
-  padding: 16px 48px;
-  background: linear-gradient(135deg, var(--welcome-primary), var(--welcome-secondary));
-  border: none;
-  border-radius: 8px;
-  color: var(--welcome-ink);
-  font-size: 16px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(122, 47, 247, 0.4);
-  transition: all 0.3s;
+.welcome-lv .btn-logout:active {
+  transform: translateY(0) !important;
 }
 
-.btn-primary:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(122, 47, 247, 0.6);
+/* Hero Content - centralizado */
+.welcome-lv .hero-content {
+  grid-column: 1 / -1 !important;
+  grid-row: 2 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center !important;
+  gap: 24px !important;
+  width: 100% !important;
+  max-width: 800px !important;
+  margin: 0 auto !important;
 }
 
-.btn-primary:focus {
-  outline: 2px solid var(--welcome-ink);
-  outline-offset: 2px;
+.welcome-lv .hero-title {
+  font-size: 48px !important;
+  font-weight: 700 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: var(--welcome-ink) !important;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  line-height: 1.2 !important;
 }
 
-.btn-primary:active {
-  transform: translateY(-2px);
+.welcome-lv .hero-description {
+  font-size: 18px !important;
+  font-weight: 400 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: var(--welcome-muted) !important;
+  max-width: 600px !important;
+  line-height: 1.5 !important;
+}
+
+.welcome-lv .btn-primary {
+  padding: 16px 48px !important;
+  background: linear-gradient(135deg, var(--welcome-primary), var(--welcome-secondary)) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  color: var(--welcome-ink) !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 16px rgba(122, 47, 247, 0.4) !important;
+  transition: all 0.3s !important;
+}
+
+.welcome-lv .btn-primary:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 8px 24px rgba(122, 47, 247, 0.6) !important;
+}
+
+.welcome-lv .btn-primary:focus {
+  outline: 2px solid var(--welcome-ink) !important;
+  outline-offset: 2px !important;
+}
+
+.welcome-lv .btn-primary:active {
+  transform: translateY(-2px) !important;
 }
 
 /* Shopping Shortcuts */
-.shortcuts-container {
-  margin-top: 32px;
-  display: flex;
-  gap: 16px;
-  overflow-x: auto;
-  padding: 16px 0;
-  scroll-behavior: smooth;
+.welcome-lv .shortcuts-container {
+  margin-top: 16px !important;
+  display: flex !important;
+  justify-content: center !important;
+  gap: 16px !important;
+  overflow-x: auto !important;
+  padding: 16px 0 !important;
+  scroll-behavior: smooth !important;
+  flex-wrap: wrap !important;
+  width: 100% !important;
 }
 
-.shortcuts-container::-webkit-scrollbar {
-  height: 8px;
+.welcome-lv .shortcuts-container::-webkit-scrollbar {
+  height: 8px !important;
 }
 
-.shortcuts-container::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+.welcome-lv .shortcuts-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 4px !important;
 }
 
-.shortcuts-container::-webkit-scrollbar-thumb {
-  background: var(--welcome-primary);
-  border-radius: 4px;
+.welcome-lv .shortcuts-container::-webkit-scrollbar-thumb {
+  background: var(--welcome-primary) !important;
+  border-radius: 4px !important;
 }
 
-.shortcuts-container::-webkit-scrollbar-thumb:hover {
-  background: var(--welcome-secondary);
+.welcome-lv .shortcuts-container::-webkit-scrollbar-thumb:hover {
+  background: var(--welcome-secondary) !important;
 }
 
-.shopping-card {
-  flex: 0 0 280px;
-  height: 160px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 20px;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.3s;
+.welcome-lv .shopping-card {
+  flex: 0 0 280px !important;
+  height: 160px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+  cursor: pointer !important;
+  position: relative !important;
+  overflow: hidden !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  transition: all 0.3s !important;
+  box-sizing: border-box !important;
 }
 
-.shopping-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
-  border-color: var(--welcome-primary);
+.welcome-lv .shopping-card:hover {
+  transform: translateY(-8px) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3) !important;
+  border-color: var(--welcome-primary) !important;
 }
 
-.shopping-card:focus {
-  outline: 2px solid var(--welcome-primary);
-  outline-offset: 2px;
-  transform: translateY(-4px);
+.welcome-lv .shopping-card:focus {
+  outline: 2px solid var(--welcome-primary) !important;
+  outline-offset: 2px !important;
+  transform: translateY(-4px) !important;
 }
 
-.shopping-card:active {
-  transform: translateY(-2px);
+.welcome-lv .shopping-card:active {
+  transform: translateY(-2px) !important;
 }
 
-.shopping-card .card-bg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-  opacity: 0.3;
-  z-index: 0;
-  transition: opacity 0.3s;
+.welcome-lv .shopping-card .card-bg {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background-size: cover !important;
+  background-position: center !important;
+  opacity: 0.3 !important;
+  z-index: 0 !important;
+  transition: opacity 0.3s !important;
 }
 
-.shopping-card:hover .card-bg {
-  opacity: 0.4;
+.welcome-lv .shopping-card:hover .card-bg {
+  opacity: 0.4 !important;
 }
 
-.shopping-card h3 {
-  position: relative;
-  z-index: 1;
-  margin: 0 0 8px 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--welcome-ink);
+.welcome-lv .shopping-card h3 {
+  position: relative !important;
+  z-index: 1 !important;
+  margin: 0 0 8px 0 !important;
+  padding: 0 !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: var(--welcome-ink) !important;
+  line-height: 1.3 !important;
 }
 
-.shopping-card p {
-  position: relative;
-  z-index: 1;
-  margin: 0;
-  font-size: 14px;
-  color: var(--welcome-muted);
+.welcome-lv .shopping-card p {
+  position: relative !important;
+  z-index: 1 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 14px !important;
+  color: var(--welcome-muted) !important;
+  line-height: 1.3 !important;
 }
 
 /* Responsive */
 @media (max-width: 1024px) {
   .hero-container {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto 1fr;
+    padding-top: 80px;
   }
 
-  .brand-logo {
-    grid-column: 1;
-    grid-row: 1;
-    text-align: center;
+  .brand-logo img {
+    max-height: 100px;
+    max-width: 340px;
   }
 
   .user-menu {
-    grid-column: 1;
-    grid-row: 2;
-    justify-content: center;
-  }
-
-  .hero-content {
-    grid-row: 3;
+    min-width: 180px;
+    padding: 14px 18px;
   }
 
   .hero-title {
@@ -273,17 +341,39 @@
 
 @media (max-width: 768px) {
   .welcome-lv {
-    padding: 24px;
+    padding: 20px;
     min-height: 350px;
   }
 
   .hero-container {
-    gap: 16px;
+    padding-top: 140px;
     min-height: 250px;
   }
 
+  .brand-logo {
+    position: static;
+    margin-bottom: 16px;
+    text-align: center;
+    width: 100%;
+  }
+
+  .brand-logo img {
+    max-height: 80px;
+    max-width: 280px;
+  }
+
   .user-menu {
-    padding: 10px 16px;
+    position: static;
+    align-items: center;
+    min-width: auto;
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto 20px;
+    padding: 12px 16px;
+  }
+
+  .user-info {
+    text-align: center;
   }
 
   .btn-logout {
@@ -312,32 +402,45 @@
 
 @media (max-width: 560px) {
   .welcome-lv {
-    padding: 20px;
+    padding: 16px;
     min-height: 300px;
   }
 
   .hero-container {
-    gap: 12px;
+    padding-top: 120px;
     min-height: 220px;
   }
 
   .brand-logo img {
-    max-height: 50px;
-    max-width: 160px;
+    max-height: 70px;
+    max-width: 240px;
   }
 
   .user-menu {
-    flex-direction: column;
     gap: 8px;
-    padding: 12px;
+    padding: 10px 14px;
+    max-width: 260px;
   }
 
-  .user-info {
-    text-align: center;
+  .user-name {
+    font-size: 14px;
+  }
+
+  .user-email {
+    font-size: 11px;
+  }
+
+  .btn-logout {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  .btn-logout .logout-icon {
+    font-size: 14px;
   }
 
   .hero-title {
-    font-size: 28px;
+    font-size: 24px;
   }
 
   .hero-description {
@@ -345,8 +448,8 @@
   }
 
   .btn-primary {
-    padding: 12px 32px;
-    font-size: 14px;
+    padding: 12px 28px;
+    font-size: 13px;
   }
 
   .shopping-card {
@@ -364,7 +467,7 @@
   }
 
   .shortcuts-container {
-    margin-top: 24px;
+    margin-top: 20px;
     gap: 12px;
   }
 }

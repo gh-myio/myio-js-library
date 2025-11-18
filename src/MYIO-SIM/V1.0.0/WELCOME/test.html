@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome LV Widget - Test</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #1a1a2e;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    /* CSS Variables (overridable via Customer attributes) */
+    :root {
+      --welcome-ink: #F5F7FA;
+      --welcome-muted: #B8C2D8;
+      --welcome-primary: #7A2FF7;
+      --welcome-secondary: #5A1FD1;
+      --welcome-grad-start: rgba(10,18,44,0.55);
+      --welcome-grad-end: rgba(10,18,44,0.15);
+    }
+
+    .welcome-lv {
+      width: 100%;
+      min-height: 600px;
+      background: linear-gradient(120deg, var(--welcome-grad-start), var(--welcome-grad-end)),
+                  url('https://dashboard.myio-bas.com/api/images/public/wntqPf1KcpLX2l182DY86Y4p8pa3bj6F');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      color: var(--welcome-ink);
+      padding: 40px;
+      border-radius: 12px;
+    }
+
+    /* Hero Layout */
+    .hero-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 500px;
+      padding-top: 280px;
+    }
+
+    .brand-logo {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    .brand-logo img {
+      height: 300px;
+      width: auto;
+      max-width: 800px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .user-menu {
+      position: absolute;
+      top: 20px;
+      right: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+      padding: 16px 20px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      min-width: 220px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .user-info {
+      display: flex;
+      flex-direction: column;
+      text-align: right;
+    }
+
+    .user-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--welcome-ink);
+      margin-bottom: 4px;
+      word-wrap: break-word;
+    }
+
+    .user-email {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--welcome-ink);
+      opacity: 0.85;
+      word-wrap: break-word;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .btn-logout {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      color: var(--welcome-ink);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-logout .logout-icon {
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .btn-logout .logout-text {
+      line-height: 1;
+    }
+
+    .btn-logout:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Hero Content */
+    .hero-content {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      gap: 24px;
+      width: 100%;
+      max-width: 800px;
+    }
+
+    .hero-title {
+      font-size: 48px;
+      font-weight: 700;
+      margin: 0;
+      color: var(--welcome-ink);
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .hero-description {
+      font-size: 18px;
+      font-weight: 400;
+      margin: 0;
+      color: var(--welcome-muted);
+      max-width: 600px;
+    }
+
+    .btn-primary {
+      padding: 16px 48px;
+      background: linear-gradient(135deg, var(--welcome-primary), var(--welcome-secondary));
+      border: none;
+      border-radius: 8px;
+      color: var(--welcome-ink);
+      font-size: 16px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(122, 47, 247, 0.4);
+      transition: all 0.3s;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(122, 47, 247, 0.6);
+    }
+
+    /* Shopping Shortcuts */
+    .shortcuts-container {
+      margin-top: 16px;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      overflow-x: auto;
+      padding: 16px 0;
+      scroll-behavior: smooth;
+      flex-wrap: wrap;
+    }
+
+    .shopping-card {
+      flex: 0 0 280px;
+      height: 160px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: all 0.3s;
+    }
+
+    .shopping-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+      border-color: var(--welcome-primary);
+    }
+
+    .shopping-card h3 {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--welcome-ink);
+    }
+
+    .shopping-card p {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      font-size: 14px;
+      color: var(--welcome-muted);
+    }
+  </style>
+</head>
+<body>
+  <section class="welcome-lv">
+    <!-- Hero Section -->
+    <div class="hero-container">
+      <!-- Logo -->
+      <div class="brand-logo">
+        <img id="welcomeBrandLogo" src="https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG" alt="Logo" />
+      </div>
+
+      <!-- User Menu -->
+      <div class="user-menu" id="welcomeUserMenu">
+        <div class="user-info">
+          <div class="user-name" id="welcomeUserName">João da Silva</div>
+          <div class="user-email" id="welcomeUserEmail">joao.silva@exemplo.com</div>
+        </div>
+        <button class="btn-logout" id="welcomeLogout">
+          <span class="logout-icon">🚪</span>
+          <span class="logout-text">Sair</span>
+        </button>
+      </div>
+
+      <!-- Hero Content -->
+      <div class="hero-content">
+        <h1 class="hero-title" id="welcomeHeroTitle">Bem-vindo ao MYIO Platform</h1>
+        <p class="hero-description" id="welcomeHeroDescription">
+          Gestão inteligente de energia, água e recursos para shoppings centers
+        </p>
+        <button class="btn-primary" id="welcomeCTA">
+          ACESSAR PAINEL
+        </button>
+      </div>
+    </div>
+
+    <!-- Shopping Shortcuts -->
+    <div class="shortcuts-container" id="welcomeShortcuts">
+      <div class="shopping-card">
+        <h3>Mestre Álvaro</h3>
+        <p>Dashboard Principal</p>
+      </div>
+      <div class="shopping-card">
+        <h3>Mont Serrat</h3>
+        <p>Dashboard Principal</p>
+      </div>
+      <div class="shopping-card">
+        <h3>Moxuara</h3>
+        <p>Dashboard Principal</p>
+      </div>
+      <div class="shopping-card">
+        <h3>Shopping da Ilha</h3>
+        <p>Dashboard Principal</p>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    console.log('Welcome LV Widget Test Page Loaded');
+
+    document.getElementById('welcomeLogout').addEventListener('click', () => {
+      alert('Logout clicked!');
+    });
+
+    document.getElementById('welcomeCTA').addEventListener('click', () => {
+      alert('CTA clicked!');
+    });
+
+    document.querySelectorAll('.shopping-card').forEach((card, index) => {
+      card.addEventListener('click', () => {
+        alert(`Shopping card ${index + 1} clicked: ${card.querySelector('h3').textContent}`);
+      });
+    });
+  </script>
+</body>
+</html>

@@ -80,7 +80,7 @@
       "defaultPrimaryLabel": {
         "title": "Default CTA Button Label",
         "type": "string",
-        "default": "ACESSAR DASHBOARD",
+        "default": "ACESSAR PAINEL",
         "description": "Default label for primary CTA button (overridden by Customer attributes)"
       },
       "defaultPrimaryState": {
