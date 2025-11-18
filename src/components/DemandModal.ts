@@ -469,7 +469,7 @@ function injectCSS(styles: DemandModalStyles): void {
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
       max-width: 90vw;
       max-height: 90vh;
-      width: 800px;
+      width: 1040px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -1177,6 +1177,21 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
           <input type="date" class="myio-demand-modal-date-input myio-demand-modal-date-end" />
         </label>
         ${telemetrySelectorHTML}
+        <label>
+          Intervalo:
+          <select id="demand-interval-select" class="myio-demand-modal-select myio-demand-modal-date-input" aria-label="Intervalo">
+            <option value="86400000">24 horas</option>
+            <option value="3600000">1 hora</option>
+            <option value="60000">1 minuto (60s)</option>
+          </select>
+        </label>
+        <label>
+          Agregador:
+          <select id="demand-agg-select" class="myio-demand-modal-select myio-demand-modal-date-input" aria-label="Agregador">
+            <option value="MAX">Máximo</option>
+            <option value="AVG">Média</option>
+          </select>
+        </label>
         <button class="myio-demand-modal-btn-update" type="button">
           ${strings.updatePeriod}
         </button>
@@ -1232,6 +1247,8 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   const updateBtn = overlay.querySelector('.myio-demand-modal-btn-update') as HTMLButtonElement;
   const periodErrorEl = overlay.querySelector('.myio-demand-modal-period-error') as HTMLElement;
   const telemetryTypeSelect = overlay.querySelector('#telemetry-type-select') as HTMLSelectElement | null;
+  const intervalSelect = overlay.querySelector('#demand-interval-select') as HTMLSelectElement;
+  const aggSelect = overlay.querySelector('#demand-agg-select') as HTMLSelectElement;
 
   // State
   let chart: any = null;
@@ -1439,6 +1456,16 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
     dateEndInput.value = formatLocalDate(endDate);
   }
 
+  // Initialize interval and aggregation selects with initial values
+  function initializeQuerySelects() {
+    if (intervalSelect && params.telemetryQuery?.interval) {
+      intervalSelect.value = params.telemetryQuery.interval.toString();
+    }
+    if (aggSelect && params.telemetryQuery?.agg) {
+      aggSelect.value = params.telemetryQuery.agg;
+    }
+  }
+
   // RFC-0061: Debounce utility function
   function debounce<T extends (...args: any[]) => any>(
     func: T,
@@ -1538,6 +1565,21 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
     });
   }
 
+  // Interval and Aggregation selector event listeners
+  if (intervalSelect) {
+    intervalSelect.addEventListener('change', () => {
+      // Automatically reload data when interval changes
+      loadData();
+    });
+  }
+
+  if (aggSelect) {
+    aggSelect.addEventListener('change', () => {
+      // Automatically reload data when aggregation changes
+      loadData();
+    });
+  }
+
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) {
       closeModal();
@@ -1576,11 +1618,24 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
         ? activeTelemetryType.keys.join(',')
         : activeTelemetryType.keys;
 
+      // Get selected interval and aggregation from selects
+      const selectedInterval = intervalSelect ? parseInt(intervalSelect.value) : 86400000;
+      const selectedAgg = aggSelect ? aggSelect.value : 'MAX';
+
+      // Calculate limit based on interval for 60s (1 minute)
+      // For 60s interval, limit to 24 hours worth of data (1440 points)
+      let queryLimit = params.telemetryQuery?.limit || 10000;
+      if (selectedInterval === 60000) {
+        queryLimit = 1440; // 24 hours * 60 minutes = 1440 points
+      }
+
       // Build query parameters with active telemetry type
       const telemetryQuery: TelemetryQueryParams = {
         ...params.telemetryQuery,
         keys: keysStr,
-        agg: activeTelemetryType.defaultAggregation
+        interval: selectedInterval,
+        agg: selectedAgg,
+        limit: queryLimit
       };
 
       // RFC-0061: Check cache first
@@ -1672,14 +1727,16 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
       } else {
         // Create new chart
         chart = new Chart(chartCanvas, {
-        type: 'bar',
+        type: 'line',
         data: {
           datasets: chartData.series.map(series => ({
             label: series.label,
             data: series.points,
             borderColor: series.color,
-            backgroundColor: series.color + 'CC', // More opaque for bars
-            borderWidth: 1,
+            backgroundColor: series.color + '33', // More transparent for line fill
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4, // Smooth line curve
           }))
         },
         options: {
@@ -1771,6 +1828,9 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
 
   // Initialize date inputs
   initializeDateInputs();
+
+  // Initialize query selects (interval and aggregation)
+  initializeQuerySelects();
 
   // Start loading data
   loadData();

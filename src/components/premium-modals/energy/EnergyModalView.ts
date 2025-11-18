@@ -727,8 +727,8 @@ export class EnergyModalView {
             telemetryQuery: {
               keys: 'consumption',
               intervalType: 'MILLISECONDS',
-              interval: 86400000, // 24 hours
-              agg: 'MAX',
+              interval: 86400000, // 24 hours - default, can be changed inside modal
+              agg: 'MAX', // default, can be changed inside modal
               limit: 10000
             }
           });
