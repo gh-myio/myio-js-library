@@ -58,8 +58,8 @@
   box-shadow: var(--shadow);
   padding:10px 12px;
   display:flex; flex-direction:column; gap:4px;
-  min-height: 140px;
-  max-height: 140px;
+  min-height: 119px;
+  max-height: 119px;
 }
 .myio-card-hd{
   display:flex; align-items:center; justify-content:space-between;
@@ -167,8 +167,8 @@
     0 8px 22px rgba(31,116,164,.08);
   padding: 10px 12px 12px;
   transition: box-shadow .2s ease, transform .08s ease;
-  min-height: 140px;
-  max-height: 140px;
+  min-height: 119px;
+  max-height: 119px;
 }
 .myio-card.v2:hover{ transform: translateY(-1px); box-shadow:
   0 2px 2px rgba(16,24,40,.05),

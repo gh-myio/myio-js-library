@@ -3,11 +3,29 @@
     <div class="myio-tabs-row">
         <nav class="myio-tabs" role="tablist"
             aria-label="Seções">
-            <!-- RFC-0079: Energia now points to EQUIPMENTS (content_equipments), which has sub-menu for Equipamentos/Lojas/Geral -->
-            <button id="energyButton" class="tab is-active"
-                data-target="content_equipments">
-                <span class="ico">⚡</span> Energia
-            </button>
+            <!-- RFC-0079: Energia button with context dropdown -->
+            <div class="energy-context-wrapper">
+                <button id="energyButton" class="tab is-active tab-with-context"
+                    data-target="content_equipments">
+                    <span class="ico">⚡</span>
+                    <span class="main-label">Energia</span>
+                    <span class="context-divider">|</span>
+                    <span class="context-label" id="energyContextLabel">Equipamentos</span>
+                    <span class="context-arrow">▼</span>
+                </button>
+                <!-- Context dropdown -->
+                <div class="context-dropdown" id="energyContextDropdown" style="display: none;">
+                    <button class="context-option is-active" data-context="equipments" data-target="content_equipments">
+                        <span class="ico">⚙️</span> Equipamentos
+                    </button>
+                    <button class="context-option" data-context="stores" data-target="store_telemetry">
+                        <span class="ico">🏬</span> Lojas
+                    </button>
+                    <button class="context-option" data-context="general" data-target="content_energy">
+                        <span class="ico">⚡</span> Geral (Energia)
+                    </button>
+                </div>
+            </div>
             <button id="waterButton" class="tab"
                 data-target="content_water">
                 <span class="ico">💧</span> Água

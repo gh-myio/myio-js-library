@@ -49,6 +49,129 @@ function computeCustomersFromCtx() {
 }
 
 
+// RFC-0079: Energy context state management
+let currentEnergyContext = 'equipments'; // 'equipments' | 'stores' | 'general'
+
+const ENERGY_CONTEXT_MAP = {
+    equipments: {
+        label: 'Equipamentos',
+        target: 'content_equipments'
+    },
+    stores: {
+        label: 'Lojas',
+        target: 'store_telemetry'
+    },
+    general: {
+        label: 'Geral (Energia)',
+        target: 'content_energy'
+    }
+};
+
+/**
+ * RFC-0079: Setup energy context dropdown
+ */
+function setupEnergyContextDropdown() {
+    const energyButton = document.getElementById('energyButton');
+    const dropdown = document.getElementById('energyContextDropdown');
+    const wrapper = document.querySelector('.energy-context-wrapper');
+    const contextLabel = document.getElementById('energyContextLabel');
+
+    if (!energyButton || !dropdown || !wrapper) {
+        console.warn('[RFC-0079] Energy context elements not found');
+        return;
+    }
+
+    // Toggle dropdown on context arrow click only (not the entire button)
+    const contextArrow = energyButton.querySelector('.context-arrow');
+    const contextLabelEl = energyButton.querySelector('.context-label');
+    const contextDivider = energyButton.querySelector('.context-divider');
+
+    [contextArrow, contextLabelEl, contextDivider].forEach(el => {
+        if (el) {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                const isOpen = dropdown.style.display === 'block';
+
+                if (isOpen) {
+                    dropdown.style.display = 'none';
+                    wrapper.classList.remove('dropdown-open');
+                } else {
+                    dropdown.style.display = 'block';
+                    wrapper.classList.add('dropdown-open');
+                }
+            });
+        }
+    });
+
+    // Handle context option clicks
+    dropdown.querySelectorAll('.context-option').forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const context = option.getAttribute('data-context');
+            const targetState = option.getAttribute('data-target');
+
+            switchEnergyContext(context, targetState);
+
+            // Close dropdown
+            dropdown.style.display = 'none';
+            wrapper.classList.remove('dropdown-open');
+        });
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!wrapper.contains(e.target)) {
+            dropdown.style.display = 'none';
+            wrapper.classList.remove('dropdown-open');
+        }
+    });
+
+    console.log('[RFC-0079] Energy context dropdown initialized');
+}
+
+/**
+ * RFC-0079: Switch energy context
+ */
+function switchEnergyContext(context, targetStateId) {
+    console.log(`[RFC-0079] Switching energy context: ${currentEnergyContext} → ${context}`);
+
+    if (!ENERGY_CONTEXT_MAP[context]) {
+        console.error(`[RFC-0079] Invalid context: ${context}`);
+        return;
+    }
+
+    // Update current context
+    currentEnergyContext = context;
+
+    // Update context label in button
+    const contextLabel = document.getElementById('energyContextLabel');
+    if (contextLabel) {
+        contextLabel.textContent = ENERGY_CONTEXT_MAP[context].label;
+    }
+
+    // Update active state in dropdown options
+    document.querySelectorAll('.context-option').forEach(option => {
+        const optionContext = option.getAttribute('data-context');
+        if (optionContext === context) {
+            option.classList.add('is-active');
+        } else {
+            option.classList.remove('is-active');
+        }
+    });
+
+    // Dispatch event to MAIN to switch state
+    const detail = { targetStateId, source: 'menu-context', context, ts: Date.now() };
+    window.dispatchEvent(new CustomEvent('myio:switch-main-state', { detail }));
+    console.log(`[RFC-0079] Dispatched myio:switch-main-state:`, detail);
+
+    // Update energy button data-target
+    const energyButton = document.getElementById('energyButton');
+    if (energyButton) {
+        energyButton.setAttribute('data-target', targetStateId);
+    }
+}
+
 function bindTabs(root) {
     if (root._tabsBound) return;
 
@@ -56,6 +179,13 @@ function bindTabs(root) {
 
     root.addEventListener("click", (ev) => {
         const tab = ev.target.closest?.(".tab");
+
+        // RFC-0079: Don't handle clicks on context arrow/label/divider
+        if (ev.target.closest('.context-arrow') ||
+            ev.target.closest('.context-label') ||
+            ev.target.closest('.context-divider')) {
+            return;
+        }
 
         if (tab && root.contains(tab)) {
             const target = tab.getAttribute("data-target");
@@ -73,6 +203,9 @@ function bindTabs(root) {
     if (initial) {
         publishSwitch(initial.getAttribute("data-target"));
     }
+
+    // RFC-0079: Setup energy context dropdown
+    setupEnergyContextDropdown();
 }
 
 /* ====== mock ====== */

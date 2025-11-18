@@ -1045,7 +1045,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     }));
 
     // Atualiza intervalo de datas na UI
-    const timeWindow = `Intervalo: ${formatDiaMesAno(startDate)} - ${formatDiaMesAno(endDate)}`;
+    const timeWindow = `${formatDiaMesAno(startDate)} - ${formatDiaMesAno(endDate)}`;
     const timeinterval = document.getElementById("energy-peak");
     if (timeinterval) {
         timeinterval.innerText = timeWindow;

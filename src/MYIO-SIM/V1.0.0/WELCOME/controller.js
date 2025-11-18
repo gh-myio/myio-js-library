@@ -28,8 +28,8 @@
  * - Additional metadata from entity attributes
  */
 
-// Debug configuration
-const DEBUG_ACTIVE = true;
+// Debug configuration (can be overridden by widget settings)
+let DEBUG_ACTIVE = true;
 
 const LogHelper = {
   log: function(...args) {
@@ -43,9 +43,8 @@ const LogHelper = {
     }
   },
   error: function(...args) {
-    if (DEBUG_ACTIVE) {
-      console.error('[WelcomeLV]', ...args);
-    }
+    // Always log errors regardless of debug mode
+    console.error('[WelcomeLV]', ...args);
   }
 };
 
@@ -172,11 +171,24 @@ async function fetchCustomerAttributes() {
 }
 
 /**
- * Resolve brand palette from attributes or use defaults
+ * Resolve brand palette from widget settings, attributes, or defaults
+ * Priority: Widget Settings > Customer Attributes > Defaults
  */
 function resolvePalette(attrs) {
-  const palette = attrs['home.brand.palette'] || DEFAULT_PALETTE;
+  const settings = ctx.settings || {};
+
+  // Build palette with priority: settings > attrs > defaults
+  const palette = {
+    primary: settings.defaultPalette?.primary || attrs['home.brand.palette']?.primary || DEFAULT_PALETTE.primary,
+    secondary: settings.defaultPalette?.secondary || attrs['home.brand.palette']?.secondary || DEFAULT_PALETTE.secondary,
+    gradientStart: settings.defaultPalette?.gradientStart || attrs['home.brand.palette']?.gradientStart || DEFAULT_PALETTE.gradientStart,
+    gradientEnd: settings.defaultPalette?.gradientEnd || attrs['home.brand.palette']?.gradientEnd || DEFAULT_PALETTE.gradientEnd,
+    ink: settings.defaultPalette?.ink || attrs['home.brand.palette']?.ink || DEFAULT_PALETTE.ink,
+    muted: settings.defaultPalette?.muted || attrs['home.brand.palette']?.muted || DEFAULT_PALETTE.muted
+  };
+
   LogHelper.log('Palette resolved:', palette);
+  LogHelper.log('Palette sources - Settings:', settings.defaultPalette, 'Attrs:', attrs['home.brand.palette']);
   return palette;
 }
 
@@ -227,9 +239,11 @@ function applyPalette(palette) {
 
 /**
  * Render brand logo
+ * Priority: Widget Settings > Customer Attributes > Default
  */
 function renderLogo(attrs) {
-  const logoUrl = attrs['home.brand.logoUrl'] || DEFAULT_LOGO_URL;
+  const settings = ctx.settings || {};
+  const logoUrl = settings.defaultLogoUrl || attrs['home.brand.logoUrl'] || DEFAULT_LOGO_URL;
   const logoImg = document.getElementById('welcomeBrandLogo');
 
   if (logoImg) {
@@ -238,22 +252,49 @@ function renderLogo(attrs) {
       LogHelper.warn('Logo failed to load, using fallback');
       logoImg.src = DEFAULT_LOGO_URL;
     };
-    LogHelper.log('Logo set:', logoUrl);
+    LogHelper.log('Logo set:', logoUrl, '(source: settings)', settings.defaultLogoUrl ? 'YES' : 'NO');
+  }
+}
+
+/**
+ * Apply hero background image
+ * Priority: Widget Settings > Customer Attributes
+ */
+function applyHeroBackground(attrs) {
+  const settings = ctx.settings || {};
+  const backgroundUrl = settings.defaultBackgroundUrl || attrs['home.hero.backgroundUrl'];
+
+  if (!backgroundUrl) {
+    LogHelper.log('No hero background URL configured');
+    return;
+  }
+
+  const heroContainer = document.querySelector('.hero-container');
+  if (heroContainer) {
+    heroContainer.style.backgroundImage = `url(${backgroundUrl})`;
+    heroContainer.style.backgroundSize = 'cover';
+    heroContainer.style.backgroundPosition = 'center';
+    heroContainer.style.backgroundRepeat = 'no-repeat';
+    LogHelper.log('Hero background set:', backgroundUrl, '(source: settings)', settings.defaultBackgroundUrl ? 'YES' : 'NO');
   }
 }
 
 /**
  * Fetch user info from API (same approach as MENU widget)
+ * Priority: Widget Settings > Customer Attributes > Default
  */
 async function fetchAndRenderUserMenu(attrs) {
-  const showUserMenu = attrs['home.showUserMenu'] !== false;
+  const settings = ctx.settings || {};
+  const showUserMenu = settings.showUserMenuByDefault !== undefined
+    ? settings.showUserMenuByDefault
+    : (attrs['home.showUserMenu'] !== false);
   const userMenuEl = document.getElementById('welcomeUserMenu');
 
   if (!userMenuEl) return;
 
   if (!showUserMenu) {
     userMenuEl.style.display = 'none';
-    LogHelper.log('User menu hidden by config');
+    LogHelper.log('User menu hidden by config (settings:', settings.showUserMenuByDefault, 'attrs:', attrs['home.showUserMenu'], ')');
     return;
   }
 
@@ -468,8 +509,26 @@ function navigateToShoppingDashboard(card) {
 
 /**
  * Lazy load card background images (rev001)
+ * Uses widget settings for lazy loading config
  */
 function setupLazyLoading() {
+  const settings = ctx.settings || {};
+  const enableLazyLoading = settings.enableLazyLoading !== false; // Default: true
+  const rootMargin = settings.lazyLoadRootMargin || '50px';
+
+  if (!enableLazyLoading) {
+    // Load all images immediately if lazy loading is disabled
+    document.querySelectorAll('.card-bg[data-bg-url]').forEach(bg => {
+      const imageUrl = bg.getAttribute('data-bg-url');
+      if (imageUrl) {
+        bg.style.backgroundImage = `url(${imageUrl})`;
+        bg.removeAttribute('data-bg-url');
+      }
+    });
+    LogHelper.log('Lazy loading disabled, loaded all images immediately');
+    return;
+  }
+
   const imageObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
@@ -482,13 +541,13 @@ function setupLazyLoading() {
         }
       }
     });
-  }, { rootMargin: '50px' });
+  }, { rootMargin: rootMargin });
 
   document.querySelectorAll('.card-bg[data-bg-url]').forEach(bg => {
     imageObserver.observe(bg);
   });
 
-  LogHelper.log('[rev001] Lazy loading observer set up for', document.querySelectorAll('.card-bg[data-bg-url]').length, 'images');
+  LogHelper.log('[rev001] Lazy loading observer set up for', document.querySelectorAll('.card-bg[data-bg-url]').length, 'images (rootMargin:', rootMargin, ')');
 }
 
 /**
@@ -546,10 +605,12 @@ function renderShortcuts(attrs) {
 
 /**
  * Handle primary CTA click
+ * Priority: Widget Settings > Customer Attributes > Default
  */
 function handleCTAClick(attrs) {
-  const primaryState = attrs['home.actions.primaryState'] || 'main';
-  LogHelper.log('CTA clicked → state:', primaryState);
+  const settings = ctx.settings || {};
+  const primaryState = settings.defaultPrimaryState || attrs['home.actions.primaryState'] || 'main';
+  LogHelper.log('CTA clicked → state:', primaryState, '(source: settings)', settings.defaultPrimaryState ? 'YES' : 'NO');
 
   try {
     ctx.stateController.openState(primaryState, {}, false);
@@ -622,19 +683,29 @@ function wireCTA(attrs) {
 /**
  * Initialize widget
  * rev001: Added text overrides rendering
+ * rev002: Added settings.schema.json support for all configurations
  */
 async function init() {
+  // Apply debug mode from settings
+  const settings = ctx.settings || {};
+  if (settings.enableDebugMode !== undefined) {
+    DEBUG_ACTIVE = settings.enableDebugMode;
+  }
+
   LogHelper.log('init() called');
+  LogHelper.log('Debug mode:', DEBUG_ACTIVE, '(from settings)');
+  LogHelper.log('Widget settings:', ctx.settings);
 
   try {
     // Fetch customer attributes
     customerAttrs = await fetchCustomerAttributes();
 
-    // Resolve and apply palette
+    // Resolve and apply palette (Widget Settings > Customer Attrs > Defaults)
     currentPalette = resolvePalette(customerAttrs);
     applyPalette(currentPalette);
 
     // Render components
+    applyHeroBackground(customerAttrs); // Apply hero background image
     renderLogo(customerAttrs);
     renderHeroContent(customerAttrs);  // rev001: Text overrides
     await fetchAndRenderUserMenu(customerAttrs); // Fetch user from API

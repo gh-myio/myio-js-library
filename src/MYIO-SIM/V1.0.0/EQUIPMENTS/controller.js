@@ -1972,8 +1972,8 @@ self.onInit = async function () {
     // RFC: Emit initial equipment count to HEADER
     emitEquipmentCountEvent(equipmentDevices);
 
-    // RFC-0079: Initialize sub-menu navigation after cards are rendered
-    initSubmenuNavigation();
+    // RFC-0079: Sub-menu navigation removed - now controlled by MENU widget
+    // initSubmenuNavigation();
 
     // Hide loading after rendering
     showLoadingOverlay(false);

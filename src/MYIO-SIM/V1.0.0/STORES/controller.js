@@ -40,6 +40,117 @@ const MAX_FIRST_HYDRATES = 1;
 
 let __deviceProfileSyncComplete = false;
 
+// ============================================
+// RFC-0079: SUB-MENU NAVIGATION SYSTEM
+// ============================================
+
+// RFC-0079: Current sub-menu view state (default: 'stores' since this is STORES widget)
+let currentSubmenuView = 'stores'; // 'equipments' | 'stores' | 'general'
+
+/**
+ * RFC-0079: Initialize sub-menu navigation
+ */
+function initSubmenuNavigation() {
+    console.log('[RFC-0079] [STORES] 🚀 Initializing sub-menu navigation...');
+
+    const root = document.getElementById('storesWrap');
+    if (!root) {
+        console.error('[RFC-0079] [STORES] ❌ storesWrap not found, cannot initialize sub-menu');
+        return;
+    }
+
+    console.log('[RFC-0079] [STORES] ✅ Found storesWrap element:', root);
+
+    const submenuTabs = root.querySelectorAll('.submenu-tab');
+    console.log(`[RFC-0079] [STORES] 🔍 Found ${submenuTabs.length} sub-menu tabs`);
+
+    submenuTabs.forEach((tab, index) => {
+        const viewName = tab.getAttribute('data-submenu-view');
+        console.log(`[RFC-0079] [STORES] 📌 Tab ${index + 1}: data-submenu-view="${viewName}"`);
+
+        // Click handler
+        tab.addEventListener('click', (e) => {
+            console.log(`[RFC-0079] [STORES] 🖱️ Tab clicked: ${viewName}`);
+            const targetView = tab.getAttribute('data-submenu-view');
+            switchSubmenuView(targetView);
+        });
+
+        // Keyboard navigation support (WCAG 2.1 compliance)
+        tab.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                console.log(`[RFC-0079] [STORES] ⌨️ Tab keyboard activated: ${viewName}`);
+                const targetView = tab.getAttribute('data-submenu-view');
+                switchSubmenuView(targetView);
+            }
+        });
+    });
+
+    console.log('[RFC-0079] [STORES] ✅ Sub-menu navigation initialized successfully');
+}
+
+/**
+ * RFC-0079: Switch between sub-menu views
+ * @param {string} viewName - 'equipments' | 'stores' | 'general'
+ */
+function switchSubmenuView(viewName) {
+    console.log(`[RFC-0079] [STORES] 🔵 switchSubmenuView called with: ${viewName}`);
+    console.log(`[RFC-0079] [STORES] 🔵 currentSubmenuView: ${currentSubmenuView}`);
+
+    if (currentSubmenuView === viewName) {
+        console.log(`[RFC-0079] [STORES] Already on ${viewName} view, skipping`);
+        return;
+    }
+
+    console.log(`[RFC-0079] [STORES] Switching from ${currentSubmenuView} → ${viewName}`);
+
+    const root = document.getElementById('storesWrap');
+    if (!root) {
+        console.error('[RFC-0079] [STORES] ❌ storesWrap not found!');
+        return;
+    }
+
+    // Update tab active states
+    root.querySelectorAll('.submenu-tab').forEach(tab => {
+        const isActive = tab.getAttribute('data-submenu-view') === viewName;
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', isActive);
+    });
+
+    // RFC-0079: Request MAIN widget to switch state via event (no direct DOM manipulation)
+    let targetStateId = '';
+    switch (viewName) {
+        case 'equipments':
+            targetStateId = 'content_equipments';
+            break;
+        case 'stores':
+            targetStateId = 'store_telemetry';
+            break;
+        case 'general':
+            targetStateId = 'content_energy';
+            break;
+    }
+
+    console.log(`[RFC-0079] [STORES] 🎯 Mapped viewName "${viewName}" → targetStateId "${targetStateId}"`);
+
+    if (targetStateId) {
+        const detail = { targetStateId, source: 'stores-submenu', ts: Date.now() };
+        console.log(`[RFC-0079] [STORES] 📡 Dispatching myio:switch-main-state event:`, detail);
+        window.dispatchEvent(new CustomEvent('myio:switch-main-state', { detail }));
+        console.log(`[RFC-0079] [STORES] ✅ Event dispatched successfully`);
+    } else {
+        console.error(`[RFC-0079] [STORES] ❌ No targetStateId mapped for viewName: ${viewName}`);
+    }
+
+    // Update current state
+    currentSubmenuView = viewName;
+
+    // Dispatch custom event for analytics/tracking
+    window.dispatchEvent(new CustomEvent('myio:submenu-switch', {
+        detail: { view: viewName, source: 'stores', timestamp: Date.now() }
+    }));
+}
+
 async function fetchDeviceProfiles() {
   const token = localStorage.getItem("jwt_token");
   if (!token) throw new Error("[RFC-0071] JWT token not found");
@@ -2991,6 +3102,9 @@ self.onInit = async function () {
       }
     }, 200);
   }
+
+  // RFC-0079: Sub-menu navigation removed - now controlled by MENU widget
+  // initSubmenuNavigation();
 };
 
 // onDataUpdated removido (no-op por ora)
