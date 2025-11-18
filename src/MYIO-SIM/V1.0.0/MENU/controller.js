@@ -530,14 +530,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     const dashboardId = getSegmentAfterAll();
 
     // Mapeamento dos botões → estados
+    // RFC-0079: energyButton now maps to content_equipments (which has sub-menu for Equipamentos/Lojas/Geral)
     const dashboards = {
-        equipmentsButton: {
+        energyButton: {
             stateId: "content_equipments",
             state: "W3siaWQiOiJjb250ZW50X2VxdWlwbWVudHMiLCJwYXJhbXMiOnt9fV0%253D",
-        },
-        energyButton: {
-            stateId: "content_energy",
-            state: "W3siaWQiOiJjb250ZW50X2VuZXJneSIsInBhcmFtcyI6e319XQ%253D%253D",
         },
         waterButton: {
             stateId: "content_water",
@@ -546,10 +543,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         temperatureButton: {
             stateId: "content_temperature",
             state: "W3siaWQiOiJjb250ZW50X3RlbXBlcmF0dXJlIiwicGFyYW1zIjp7fX1d",
-        },
-        lojasButton: {
-            stateId: "store_telemetry",
-            state: "W3siaWQiOiJzdG9yZV90ZWxlbWV0cnkiLCJwYXJhbXMiOnt9fV0%253D",
         }
     };
 
