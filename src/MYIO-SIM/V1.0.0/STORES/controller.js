@@ -1099,8 +1099,6 @@ function renderList(visible) {
       })
       .catch((err) => LogHelper.warn("Token cache failed:", err));
 
-    console.log("entityObject", entityObject);
-
     const $card = MyIO.renderCardComponentV5({
       entityObject,
       useNewComponents: true, // Habilitar novos componentes

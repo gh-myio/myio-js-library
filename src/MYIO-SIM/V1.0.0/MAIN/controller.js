@@ -1186,32 +1186,44 @@ self.onInit = async function () {
 
   // RFC-0079: Listen for state switch requests from widgets (MENU, EQUIPMENTS sub-menu, etc.)
   window.addEventListener("myio:switch-main-state", (ev) => {
+    console.log(`[MAIN] [RFC-0079] 🔔 Received myio:switch-main-state event:`, ev.detail);
+
     const targetStateId = ev.detail?.targetStateId;
     const source = ev.detail?.source || 'unknown';
 
     console.log(`[MAIN] [RFC-0079] State switch requested: ${targetStateId} (source: ${source})`);
 
     if (!targetStateId) {
-      console.warn('[MAIN] [RFC-0079] No targetStateId provided in switch event');
+      console.warn('[MAIN] [RFC-0079] ❌ No targetStateId provided in switch event');
       return;
     }
 
     const mainView = document.getElementById('mainView');
     if (!mainView) {
-      console.warn('[MAIN] [RFC-0079] mainView element not found');
+      console.error('[MAIN] [RFC-0079] ❌ mainView element not found');
       return;
     }
 
+    console.log(`[MAIN] [RFC-0079] 📋 Found mainView element:`, mainView);
+
     // Hide all states
-    mainView.querySelectorAll('[data-content-state]').forEach(stateDiv => {
+    const allStates = mainView.querySelectorAll('[data-content-state]');
+    console.log(`[MAIN] [RFC-0079] 🔍 Found ${allStates.length} content states:`,
+      Array.from(allStates).map(s => s.getAttribute('data-content-state')));
+
+    allStates.forEach(stateDiv => {
+      const stateName = stateDiv.getAttribute('data-content-state');
       stateDiv.style.display = 'none';
+      console.log(`[MAIN] [RFC-0079] 👁️ Hiding state: ${stateName}`);
     });
 
     // Show target state
     const targetState = mainView.querySelector(`[data-content-state="${targetStateId}"]`);
+    console.log(`[MAIN] [RFC-0079] 🎯 Looking for state: ${targetStateId}`, targetState ? 'FOUND' : 'NOT FOUND');
+
     if (targetState) {
       targetState.style.display = 'block';
-      console.log(`[MAIN] [RFC-0079] ✅ Switched to state: ${targetStateId}`);
+      console.log(`[MAIN] [RFC-0079] ✅ Switched to state: ${targetStateId} (display: ${targetState.style.display})`);
 
       // Update scope if needed
       if (self.ctx?.$scope) {
@@ -1219,9 +1231,12 @@ self.onInit = async function () {
         if (self.ctx.$scope.$applyAsync) {
           self.ctx.$scope.$applyAsync();
         }
+        console.log(`[MAIN] [RFC-0079] 📝 Updated scope.mainContentStateId to: ${targetStateId}`);
       }
     } else {
-      console.warn(`[MAIN] [RFC-0079] Target state "${targetStateId}" not found in DOM`);
+      console.error(`[MAIN] [RFC-0079] ❌ Target state "${targetStateId}" not found in DOM`);
+      console.log(`[MAIN] [RFC-0079] Available states:`,
+        Array.from(allStates).map(s => s.getAttribute('data-content-state')));
     }
   });
 

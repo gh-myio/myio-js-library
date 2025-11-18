@@ -1,32 +1,40 @@
 <section class="shops-root">
-  <header class="shops-header">
-    <div class="shops-header-left">
-      <h2 class="shops-title" id="labelWidgetId"></h2>
-      <span class="shops-count" id="shopsCount">(0)</span>
+  <!-- Store Statistics Header (matching EQUIPMENTS style) -->
+  <div class="equip-stats-header" id="storesStatsHeader" style="display: flex !important; flex-direction: row !important;">
+    <div class="stat-item">
+      <span class="stat-label">Conectividade</span>
+      <span class="stat-value" id="storesStatsConnectivity">-</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Total de Lojas</span>
+      <span class="stat-value" id="storesStatsTotal">-</span>
+    </div>
+    <div class="stat-item highlight">
+      <span class="stat-label">Consumo Total de Todas Lojas</span>
+      <span class="stat-value" id="storesStatsConsumption">-</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Sem Consumo</span>
+      <span class="stat-value" id="storesStatsZero">-</span>
     </div>
 
-    <div class="shops-header-actions">
+    <!-- Filter Actions -->
+    <div class="filter-actions">
       <div class="search-wrap" id="searchWrap">
         <input type="text" id="shopsSearch" placeholder="Buscar..." autocomplete="off">
       </div>
-
       <button class="icon-btn" id="btnSearch" title="Buscar" aria-label="Buscar">
-        <!-- Lupa -->
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
           <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM4 9.5C4 6.46 6.46 4 9.5 4S15 6.46 15 9.5 12.54 15 9.5 15 4 12.54 4 9.5z"/>
         </svg>
       </button>
-
       <button class="icon-btn" id="btnFilter" title="Filtros" aria-label="Filtros">
-        <!-- Funil -->
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
           <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z"/>
         </svg>
       </button>
-
-      <a class="shops-total" id="shopsTotal">0,00</a>
     </div>
-  </header>
+  </div>
 
   <section id="shopsList" class="shops-list"></section>
 

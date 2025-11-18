@@ -20,6 +20,120 @@
     text-rendering: optimizeLegibility;
 }
 
+/* ============ Statistics Header (matching EQUIPMENTS) ============ */
+.shops-root > .equip-stats-header,
+#storesStatsHeader {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 16px;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px 16px;
+    margin: 8px 10px 10px;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 3px solid #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    width: 100%;
+}
+
+.shops-root > .equip-stats-header .stat-item,
+#storesStatsHeader .stat-item {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+}
+
+.equip-stats-header .stat-item.highlight {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    border-radius: 8px;
+    padding: 6px 12px;
+    border: 1px solid #93c5fd;
+}
+
+.equip-stats-header .stat-label {
+    font-size: 11px;
+    color: var(--ink-2);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.equip-stats-header .stat-value {
+    font-size: 18px;
+    color: var(--ink-1);
+    font-weight: 700;
+}
+
+.equip-stats-header .stat-item.highlight .stat-value {
+    color: #1d4ed8;
+    font-size: 20px;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: auto;
+}
+
+.search-wrap {
+    position: relative;
+    width: 0;
+    overflow: hidden;
+    transition: width 0.3s ease;
+}
+
+.search-wrap.active {
+    width: 200px;
+}
+
+.search-wrap input {
+    width: 100%;
+    padding: 6px 12px;
+    border: 1px solid var(--bd);
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+}
+
+.search-wrap input:focus {
+    border-color: var(--accent);
+}
+
+.icon-btn {
+    background: transparent;
+    border: 1px solid var(--bd-2);
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+    background: var(--bg-soft);
+    border-color: var(--accent);
+}
+
+.icon-btn svg {
+    fill: var(--ink-2);
+}
+
+.icon-btn:hover svg {
+    fill: var(--accent);
+}
+
 /* ============ Widget layout ============ */
 .shops-root {
     position: absolute;

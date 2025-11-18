@@ -28,17 +28,26 @@ let currentSubmenuView = 'equipments'; // default: 'equipments' | 'stores' | 'ge
  * RFC-0079: Initialize sub-menu navigation
  */
 function initSubmenuNavigation() {
+    console.log('[RFC-0079] 🚀 Initializing sub-menu navigation...');
+
     const root = document.getElementById('equipWrap');
     if (!root) {
-        console.warn('[RFC-0079] equipWrap not found, cannot initialize sub-menu');
+        console.error('[RFC-0079] ❌ equipWrap not found, cannot initialize sub-menu');
         return;
     }
 
-    const submenuTabs = root.querySelectorAll('.submenu-tab');
+    console.log('[RFC-0079] ✅ Found equipWrap element:', root);
 
-    submenuTabs.forEach(tab => {
+    const submenuTabs = root.querySelectorAll('.submenu-tab');
+    console.log(`[RFC-0079] 🔍 Found ${submenuTabs.length} sub-menu tabs`);
+
+    submenuTabs.forEach((tab, index) => {
+        const viewName = tab.getAttribute('data-submenu-view');
+        console.log(`[RFC-0079] 📌 Tab ${index + 1}: data-submenu-view="${viewName}"`);
+
         // Click handler
         tab.addEventListener('click', (e) => {
+            console.log(`[RFC-0079] 🖱️ Tab clicked: ${viewName}`);
             const targetView = tab.getAttribute('data-submenu-view');
             switchSubmenuView(targetView);
         });
@@ -47,13 +56,14 @@ function initSubmenuNavigation() {
         tab.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
+                console.log(`[RFC-0079] ⌨️ Tab keyboard activated: ${viewName}`);
                 const targetView = tab.getAttribute('data-submenu-view');
                 switchSubmenuView(targetView);
             }
         });
     });
 
-    console.log('[RFC-0079] Sub-menu navigation initialized');
+    console.log('[RFC-0079] ✅ Sub-menu navigation initialized successfully');
 }
 
 /**
@@ -61,6 +71,9 @@ function initSubmenuNavigation() {
  * @param {string} viewName - 'equipments' | 'stores' | 'general'
  */
 function switchSubmenuView(viewName) {
+    console.log(`[RFC-0079] 🔵 switchSubmenuView called with: ${viewName}`);
+    console.log(`[RFC-0079] 🔵 currentSubmenuView: ${currentSubmenuView}`);
+
     if (currentSubmenuView === viewName) {
         console.log(`[RFC-0079] Already on ${viewName} view, skipping`);
         return;
@@ -69,7 +82,10 @@ function switchSubmenuView(viewName) {
     console.log(`[RFC-0079] Switching from ${currentSubmenuView} → ${viewName}`);
 
     const root = document.getElementById('equipWrap');
-    if (!root) return;
+    if (!root) {
+        console.error('[RFC-0079] ❌ equipWrap not found!');
+        return;
+    }
 
     // Update tab active states
     root.querySelectorAll('.submenu-tab').forEach(tab => {
@@ -85,17 +101,22 @@ function switchSubmenuView(viewName) {
             targetStateId = 'content_equipments';
             break;
         case 'stores':
-            targetStateId = 'store_telemetry';
+            targetStateId = 'content_store';
             break;
         case 'general':
             targetStateId = 'content_energy';
             break;
     }
 
+    console.log(`[RFC-0079] 🎯 Mapped viewName "${viewName}" → targetStateId "${targetStateId}"`);
+
     if (targetStateId) {
         const detail = { targetStateId, source: 'equipments-submenu', ts: Date.now() };
+        console.log(`[RFC-0079] 📡 Dispatching myio:switch-main-state event:`, detail);
         window.dispatchEvent(new CustomEvent('myio:switch-main-state', { detail }));
-        console.log(`[RFC-0079] Requested MAIN switch to: ${targetStateId}`);
+        console.log(`[RFC-0079] ✅ Event dispatched successfully`);
+    } else {
+        console.error(`[RFC-0079] ❌ No targetStateId mapped for viewName: ${viewName}`);
     }
 
     // Update current state
@@ -131,10 +152,10 @@ function renderEquipmentsView() {
 
 /**
  * RFC-0079: Render Lojas view (store telemetry)
- * The actual content is rendered by ThingsBoard state: store_telemetry
+ * The actual content is rendered by ThingsBoard state: content_store
  */
 function renderStoresView() {
-    console.log('[RFC-0079] Lojas view activated - store_telemetry state is now visible');
+    console.log('[RFC-0079] Lojas view activated - content_store state is now visible');
     // ThingsBoard <tb-dashboard-state> handles rendering automatically
     // No manual rendering needed - the state is already in the template
 }
