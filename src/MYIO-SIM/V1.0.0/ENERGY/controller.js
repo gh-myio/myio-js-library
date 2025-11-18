@@ -457,7 +457,65 @@ async function calculatePeakTrend(currentPeak, startTs, endTs) {
 // NOVO CÓDIGO PARA O WIDGET ENERGY
 
 /**
- * Renderiza a UI do card de consumo usando os dados do pacote de resumo.
+ * Renderiza a UI do card de consumo de LOJAS (sem equipamentos)
+ * @param {object} energyData - O objeto de resumo completo vindo do MAIN.
+ */
+function renderTotalConsumptionStoresUI(energyData, valueEl, trendEl, infoEl) {
+  if (!energyData) return;
+
+  const totalGeral = energyData.customerTotal;
+  const lojasTotal = energyData.difference; // Lojas = customerTotal - equipmentsTotal
+
+  const lojasPercentage = totalGeral > 0 ? ((lojasTotal / totalGeral) * 100) : 0;
+  const lojasFormatted = MyIOLibrary.formatEnergy(lojasTotal);
+
+  if (valueEl) {
+    valueEl.textContent = lojasFormatted;
+  }
+
+  if (trendEl) {
+    trendEl.textContent = `${lojasPercentage.toFixed(1)}% do total`;
+    trendEl.className = "trend neutral";
+  }
+
+  if (infoEl) {
+    infoEl.textContent = "Apenas lojas";
+  }
+
+  console.log("[ENERGY] Card de Lojas atualizado:", { lojasTotal, lojasFormatted, lojasPercentage });
+}
+
+/**
+ * Renderiza a UI do card de consumo de EQUIPAMENTOS
+ * @param {object} energyData - O objeto de resumo completo vindo do MAIN.
+ */
+function renderTotalConsumptionEquipmentsUI(energyData, valueEl, trendEl, infoEl) {
+  if (!energyData) return;
+
+  const totalGeral = energyData.customerTotal;
+  const equipamentosTotal = energyData.equipmentsTotal;
+
+  const equipamentosPercentage = totalGeral > 0 ? ((equipamentosTotal / totalGeral) * 100) : 0;
+  const equipamentosFormatted = MyIOLibrary.formatEnergy(equipamentosTotal);
+
+  if (valueEl) {
+    valueEl.textContent = equipamentosFormatted;
+  }
+
+  if (trendEl) {
+    trendEl.textContent = `${equipamentosPercentage.toFixed(1)}% do total`;
+    trendEl.className = "trend neutral";
+  }
+
+  if (infoEl) {
+    infoEl.textContent = "Elevadores, escadas, HVAC, etc.";
+  }
+
+  console.log("[ENERGY] Card de Equipamentos atualizado:", { equipamentosTotal, equipamentosFormatted, equipamentosPercentage });
+}
+
+/**
+ * DEPRECATED: Renderiza a UI do card de consumo usando os dados do pacote de resumo.
  * @param {object} energyData - O objeto de resumo completo vindo do MAIN.
  */
 function renderTotalConsumptionUI(energyData, valueEl, trendEl, infoEl) {
@@ -491,7 +549,111 @@ function renderTotalConsumptionUI(energyData, valueEl, trendEl, infoEl) {
 }
 
 /**
- * Inicializa o card de consumo total com estado de loading
+ * Inicializa o card de consumo total de LOJAS com estado de loading
+ */
+function initializeTotalConsumptionStoresCard() {
+  const valueEl = document.getElementById("total-consumption-stores-value");
+  const trendEl = document.getElementById("total-consumption-stores-trend");
+  const infoEl = document.getElementById("total-consumption-stores-info");
+
+  // ✅ Try to use cache first
+  const cached = getCachedTotalConsumption();
+
+  if (cached) {
+    console.log("[ENERGY] Initializing STORES card with cached data");
+    renderTotalConsumptionStoresUI(cached, valueEl, trendEl, infoEl);
+    return;
+  }
+
+  // Show loading state
+  if (valueEl) {
+    valueEl.innerHTML = `
+      <svg class="loading-spinner" style="width:24px; height:24px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
+        <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
+                stroke-dasharray="90,150" stroke-dashoffset="0">
+        </circle>
+      </svg>
+    `;
+  }
+
+  if (trendEl) {
+    trendEl.textContent = "Aguardando dados...";
+    trendEl.className = "trend neutral";
+  }
+
+  console.log("[ENERGY] Stores consumption card initialized with loading state");
+}
+
+/**
+ * Inicializa o card de consumo total de EQUIPAMENTOS com estado de loading
+ */
+function initializeTotalConsumptionEquipmentsCard() {
+  const valueEl = document.getElementById("total-consumption-equipments-value");
+  const trendEl = document.getElementById("total-consumption-equipments-trend");
+  const infoEl = document.getElementById("total-consumption-equipments-info");
+
+  // ✅ Try to use cache first
+  const cached = getCachedTotalConsumption();
+
+  if (cached) {
+    console.log("[ENERGY] Initializing EQUIPMENTS card with cached data");
+    renderTotalConsumptionEquipmentsUI(cached, valueEl, trendEl, infoEl);
+    return;
+  }
+
+  // Show loading state
+  if (valueEl) {
+    valueEl.innerHTML = `
+      <svg class="loading-spinner" style="width:24px; height:24px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
+        <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
+                stroke-dasharray="90,150" stroke-dashoffset="0">
+        </circle>
+      </svg>
+    `;
+  }
+
+  if (trendEl) {
+    trendEl.textContent = "Aguardando dados...";
+    trendEl.className = "trend neutral";
+  }
+
+  console.log("[ENERGY] Equipments consumption card initialized with loading state");
+}
+
+/**
+ * Atualiza o card de consumo total de LOJAS
+ * @param {object} summary - O objeto de resumo calculado pelo widget MAIN.
+ */
+function updateTotalConsumptionStoresCard(summary) {
+  console.log("[ENERGY] Atualizando card de consumo de LOJAS:", summary);
+
+  if (!summary) return;
+
+  const valueEl = document.getElementById("total-consumption-stores-value");
+  const trendEl = document.getElementById("total-consumption-stores-trend");
+  const infoEl = document.getElementById("total-consumption-stores-info");
+
+  renderTotalConsumptionStoresUI(summary, valueEl, trendEl, infoEl);
+}
+
+/**
+ * Atualiza o card de consumo total de EQUIPAMENTOS
+ * @param {object} summary - O objeto de resumo calculado pelo widget MAIN.
+ */
+function updateTotalConsumptionEquipmentsCard(summary) {
+  console.log("[ENERGY] Atualizando card de consumo de EQUIPAMENTOS:", summary);
+
+  if (!summary) return;
+
+  const valueEl = document.getElementById("total-consumption-equipments-value");
+  const trendEl = document.getElementById("total-consumption-equipments-trend");
+  const infoEl = document.getElementById("total-consumption-equipments-info");
+
+  renderTotalConsumptionEquipmentsUI(summary, valueEl, trendEl, infoEl);
+}
+
+/**
+ * DEPRECATED: Inicializa o card de consumo total com estado de loading
  */
 function initializeTotalConsumptionCard() {
   const valueEl = document.getElementById("total-consumption-value");
@@ -531,7 +693,7 @@ function initializeTotalConsumptionCard() {
 }
 
 /**
- * Apenas chama a função que desenha o card na tela.
+ * DEPRECATED: Apenas chama a função que desenha o card na tela.
  * @param {object} summary - O objeto de resumo calculado pelo widget MAIN.
  */
 function updateTotalConsumptionCard(summary) {
@@ -553,8 +715,9 @@ function updateTotalConsumptionCard(summary) {
 }
 
 /**
- * Inicializa o card de pico de demanda com estado de loading
+ * DESABILITADO TEMPORARIAMENTE: Inicializa o card de pico de demanda com estado de loading
  */
+/*
 function initializePeakDemandCard() {
   const valueEl = document.getElementById("peak-demand-value");
   const trendEl = document.getElementById("peak-demand-trend");
@@ -581,6 +744,7 @@ function initializePeakDemandCard() {
 
   console.log("[ENERGY] Peak demand card initialized with loading state");
 }
+*/
 
 /**
  * RFC-0073: Get selected shopping IDs from filter
@@ -665,9 +829,10 @@ async function fetchFilteredPeakDemand(customerIds, startTs, endTs) {
 }
 
 /**
- * Atualiza o card de pico de demanda com dados reais
+ * DESABILITADO TEMPORARIAMENTE: Atualiza o card de pico de demanda com dados reais
  * RFC-0073: Now respects shopping filters
  */
+/*
 async function updatePeakDemandCard(startTs, endTs) {
   const valueEl = document.getElementById("peak-demand-value");
   const trendEl = document.getElementById("peak-demand-trend");
@@ -772,6 +937,7 @@ async function updatePeakDemandCard(startTs, endTs) {
     }
   }
 }
+*/
 
 // ============================================
 // CHART FUNCTIONS
@@ -2366,8 +2532,9 @@ self.onInit = async function () {
   // 1. INICIALIZA A UI: Mostra os spinners de "loading" para o usuário.
   // -----------------------------------------------------------------
   initializeCharts();
-  initializeTotalConsumptionCard();
-  initializePeakDemandCard();
+  initializeTotalConsumptionStoresCard(); // Novo: card de lojas
+  initializeTotalConsumptionEquipmentsCard(); // Novo: card de equipamentos
+  // initializePeakDemandCard(); // DESABILITADO TEMPORARIAMENTE
 
   // 2. LÓGICA DO CARD "CONSUMO TOTAL": Pede os dados ao MAIN.
   //    Este é o novo fluxo corrigido que resolve o problema do loading.
@@ -2380,8 +2547,9 @@ self.onInit = async function () {
       "[ENERGY] Resumo de energia recebido do orquestrador!",
       ev.detail
     );
-    // Chama a função que atualiza o card na tela com os dados recebidos.
-    updateTotalConsumptionCard(ev.detail);
+    // Chama as funções que atualizam os cards na tela com os dados recebidos.
+    updateTotalConsumptionStoresCard(ev.detail); // Novo: card de lojas
+    updateTotalConsumptionEquipmentsCard(ev.detail); // Novo: card de equipamentos
   };
 
   window.addEventListener("myio:energy-summary-ready", handleEnergySummary);
@@ -2403,8 +2571,8 @@ self.onInit = async function () {
       ? new Date(self.ctx.$scope.endDateISO).getTime()
       : Date.now();
 
-    // Update peak demand card with new filter
-    await updatePeakDemandCard(startTs, endTs);
+    // DESABILITADO TEMPORARIAMENTE: Update peak demand card with new filter
+    // await updatePeakDemandCard(startTs, endTs);
 
     // Also update pie chart to reflect filtered data
     const currentMode = document.getElementById("distributionMode")?.value || "groups";
@@ -2505,7 +2673,8 @@ self.onInit = async function () {
       }
     }
 
-    // Se encontrou datas válidas, busca os dados de pico de demanda
+    // DESABILITADO TEMPORARIAMENTE: Se encontrou datas válidas, busca os dados de pico de demanda
+    /*
     if (startDateISO && endDateISO) {
       const startMs = new Date(startDateISO).getTime();
       const endMs = new Date(endDateISO).getTime();
@@ -2514,9 +2683,11 @@ self.onInit = async function () {
         await updatePeakDemandCard(startMs, endMs);
       }
     }
+    */
   }, 1000);
 
-  // Ouve por futuras mudanças de data para atualizar o Pico de Demanda.
+  // DESABILITADO TEMPORARIAMENTE: Ouve por futuras mudanças de data para atualizar o Pico de Demanda.
+  /*
   window.addEventListener("myio:update-date", async (ev) => {
     console.log(
       "[ENERGY] Período de data atualizado para Pico de Demanda:",
@@ -2529,6 +2700,7 @@ self.onInit = async function () {
       await updatePeakDemandCard(startMs, endMs);
     }
   });
+  */
 
   // 4. OUTROS LISTENERS (Bônus): Mantém a robustez do widget.
   // -----------------------------------------------------------------
