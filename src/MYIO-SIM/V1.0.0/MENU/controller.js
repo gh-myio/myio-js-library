@@ -21,6 +21,13 @@ function setActiveTab(btn, root) {
         .querySelectorAll(".tab.is-active")
         .forEach((b) => b.classList.remove("is-active"));
     btn.classList.add("is-active");
+
+    // Reaplicar cores após mudança de tab ativa
+    if (typeof applyMenuColors === 'function') {
+        setTimeout(() => {
+            applyMenuColors();
+        }, 50);
+    }
 }
 
 function computeCustomersFromCtx() {
@@ -650,6 +657,76 @@ function sendFilterOpenEvent() {
           detail: eventDetail,
       })
   );
+}
+
+/* ====== Apply Menu Custom Colors ====== */
+function applyMenuColors() {
+    const settings = self.ctx.settings;
+
+    // Aplicar cores nas tabs (excluindo botões especiais que têm suas próprias configurações)
+    const allTabs = document.querySelectorAll('.tab:not(#load-button):not(#myio-clear-btn):not(#myio-goals-btn):not([style*="min-width"])');
+    allTabs.forEach(tab => {
+        const isActive = tab.classList.contains('is-active');
+
+        if (isActive) {
+            const bgColor = settings.tabSelecionadoBackgroundColor || "#2F5848";
+            const fontColor = settings.tabSelecionadoFontColor || "#F2F2F2";
+            tab.style.setProperty('background-color', bgColor, 'important');
+            tab.style.setProperty('color', fontColor, 'important');
+        } else {
+            const bgColor = settings.tabNaoSelecionadoBackgroundColor || "#FFFFFF";
+            const fontColor = settings.tabNaoSelecionadoFontColor || "#1C2743";
+            tab.style.setProperty('background-color', bgColor, 'important');
+            tab.style.setProperty('color', fontColor, 'important');
+        }
+    });
+
+    // Aplicar cores no botão Carregar
+    const loadButton = document.getElementById('load-button');
+    if (loadButton) {
+        const bgColor = settings.botaoCarregarBackgroundColor || "#2F5848";
+        const fontColor = settings.botaoCarregarFontColor || "#F2F2F2";
+        loadButton.style.setProperty('background-color', bgColor, 'important');
+        loadButton.style.setProperty('color', fontColor, 'important');
+
+        // Também aplicar nas icons/elementos internos
+        const icon = loadButton.querySelector('i');
+        if (icon) {
+            icon.style.setProperty('color', fontColor, 'important');
+        }
+    }
+
+    // Aplicar cores no botão Limpar
+    const clearButton = document.getElementById('myio-clear-btn');
+    if (clearButton) {
+        const bgColor = settings.botaoLimparBackgroundColor || "#FFFFFF";
+        const fontColor = settings.botaoLimparFontColor || "#1C2743";
+        clearButton.style.setProperty('background-color', bgColor, 'important');
+        clearButton.style.setProperty('color', fontColor, 'important');
+
+        // Também aplicar nas icons/elementos internos
+        const icon = clearButton.querySelector('i');
+        if (icon) {
+            icon.style.setProperty('color', fontColor, 'important');
+        }
+    }
+
+    // Aplicar cores no botão Metas
+    const goalsButton = document.getElementById('myio-goals-btn');
+    if (goalsButton) {
+        const bgColor = settings.botaoMetasBackgroundColor || "#6a1b9a";
+        const fontColor = settings.botaoMetasFontColor || "#F2F2F2";
+        goalsButton.style.setProperty('background-color', bgColor, 'important');
+        goalsButton.style.setProperty('color', fontColor, 'important');
+
+        // Também aplicar nas icons/elementos internos
+        const icon = goalsButton.querySelector('i');
+        if (icon) {
+            icon.style.setProperty('color', fontColor, 'important');
+        }
+    }
+
+    console.log("[MENU] Custom colors applied from settings");
 }
 
 /* ====== Lifecycle ====== */
@@ -1313,6 +1390,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         }
     });
     computeCustomersFromCtx();
+
+    // Aplicar cores personalizadas (após o DOM estar pronto)
+    setTimeout(() => {
+        applyMenuColors();
+    }, 100);
 
     // console.log("custumer",custumer)
 };
