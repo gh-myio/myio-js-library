@@ -18,6 +18,131 @@ const MAX_DATA_REFRESHES = 1;
 let __deviceProfileSyncComplete = false;
 
 // ============================================
+// RFC-0079: SUB-MENU NAVIGATION SYSTEM
+// ============================================
+
+// RFC-0079: Current sub-menu view state
+let currentSubmenuView = 'equipments'; // default: 'equipments' | 'stores' | 'general'
+
+/**
+ * RFC-0079: Initialize sub-menu navigation
+ */
+function initSubmenuNavigation() {
+    const root = document.getElementById('equipWrap');
+    if (!root) {
+        console.warn('[RFC-0079] equipWrap not found, cannot initialize sub-menu');
+        return;
+    }
+
+    const submenuTabs = root.querySelectorAll('.submenu-tab');
+
+    submenuTabs.forEach(tab => {
+        // Click handler
+        tab.addEventListener('click', (e) => {
+            const targetView = tab.getAttribute('data-submenu-view');
+            switchSubmenuView(targetView);
+        });
+
+        // Keyboard navigation support (WCAG 2.1 compliance)
+        tab.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                const targetView = tab.getAttribute('data-submenu-view');
+                switchSubmenuView(targetView);
+            }
+        });
+    });
+
+    console.log('[RFC-0079] Sub-menu navigation initialized');
+}
+
+/**
+ * RFC-0079: Switch between sub-menu views
+ * @param {string} viewName - 'equipments' | 'stores' | 'general'
+ */
+function switchSubmenuView(viewName) {
+    if (currentSubmenuView === viewName) {
+        console.log(`[RFC-0079] Already on ${viewName} view, skipping`);
+        return;
+    }
+
+    console.log(`[RFC-0079] Switching from ${currentSubmenuView} → ${viewName}`);
+
+    const root = document.getElementById('equipWrap');
+    if (!root) return;
+
+    // Update tab active states
+    root.querySelectorAll('.submenu-tab').forEach(tab => {
+        const isActive = tab.getAttribute('data-submenu-view') === viewName;
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', isActive);
+    });
+
+    // Hide all views
+    root.querySelectorAll('.submenu-view').forEach(view => {
+        view.style.display = 'none';
+        view.setAttribute('aria-hidden', 'true');
+    });
+
+    // Show target view
+    const targetView = root.querySelector(`[data-view="${viewName}"]`);
+    if (targetView) {
+        targetView.style.display = 'block';
+        targetView.setAttribute('aria-hidden', 'false');
+    }
+
+    // Update current state
+    currentSubmenuView = viewName;
+
+    // Render content based on view
+    switch (viewName) {
+        case 'equipments':
+            renderEquipmentsView();
+            break;
+        case 'stores':
+            renderStoresView();
+            break;
+        case 'general':
+            renderGeneralView();
+            break;
+    }
+
+    // Dispatch custom event for analytics/tracking
+    window.dispatchEvent(new CustomEvent('myio:submenu-switch', {
+        detail: { view: viewName, timestamp: Date.now() }
+    }));
+}
+
+/**
+ * RFC-0079: Render Equipamentos view (uses existing renderCards logic)
+ */
+function renderEquipmentsView() {
+    console.log('[RFC-0079] Equipamentos view activated');
+    // The existing renderCards() function already handles this
+    // No additional action needed - equipment grid is already rendered
+}
+
+/**
+ * RFC-0079: Render Lojas view (store telemetry)
+ * The actual content is rendered by ThingsBoard state: store_telemetry
+ */
+function renderStoresView() {
+    console.log('[RFC-0079] Lojas view activated - store_telemetry state is now visible');
+    // ThingsBoard <tb-dashboard-state> handles rendering automatically
+    // No manual rendering needed - the state is already in the template
+}
+
+/**
+ * RFC-0079: Render Geral view (general overview - energy dashboard)
+ * The actual content is rendered by ThingsBoard state: content_energy
+ */
+function renderGeneralView() {
+    console.log('[RFC-0079] Geral (Energia) view activated - content_energy state is now visible');
+    // ThingsBoard <tb-dashboard-state> handles rendering automatically
+    // No manual rendering needed - the state is already in the template
+}
+
+// ============================================
 // RFC-0071: DEVICE PROFILE SYNCHRONIZATION
 // ============================================
 
@@ -1818,6 +1943,9 @@ self.onInit = async function () {
 
     // RFC: Emit initial equipment count to HEADER
     emitEquipmentCountEvent(equipmentDevices);
+
+    // RFC-0079: Initialize sub-menu navigation after cards are rendered
+    initSubmenuNavigation();
 
     // Hide loading after rendering
     showLoadingOverlay(false);

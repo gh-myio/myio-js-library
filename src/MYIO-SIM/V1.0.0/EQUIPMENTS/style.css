@@ -34,9 +34,106 @@
     background: transparent;
 }
 
-/* ====== EQUIPMENT STATISTICS HEADER ====== */
-.equip-stats-header {
+/* ====== RFC-0079: SUB-MENU NAVIGATION ====== */
+.equipments-submenu {
     display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    background: linear-gradient(to bottom, #f8f9fa, #ffffff);
+    border-bottom: 2px solid #e0e0e0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    margin: -12px -12px 16px -12px; /* Negative margin to extend to widget edges */
+}
+
+.submenu-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: #ffffff;
+    border: 1px solid #d0d0d0;
+    border-radius: 6px;
+    color: #424242;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.submenu-tab:hover {
+    background: #f5f5f5;
+    border-color: #7A2FF7;
+    color: #7A2FF7;
+}
+
+.submenu-tab.is-active {
+    background: linear-gradient(135deg, #7A2FF7, #5A1FD1);
+    color: #ffffff;
+    border-color: #7A2FF7;
+    box-shadow: 0 2px 8px rgba(122, 47, 247, 0.3);
+}
+
+.submenu-tab .ico {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.submenu-tab:focus-visible {
+    outline: 2px solid #7A2FF7;
+    outline-offset: 2px;
+}
+
+/* View containers */
+.submenu-content {
+    width: 100%;
+}
+
+.submenu-view {
+    width: 100%;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* RFC-0079: Store and General views render ThingsBoard states directly */
+/* No additional container styling needed - states handle their own layout */
+.submenu-view[data-view="stores"],
+.submenu-view[data-view="general"] {
+    width: 100%;
+    height: 100%;
+}
+
+/* Responsive: Stack tabs vertically on mobile */
+@media (max-width: 768px) {
+    .equipments-submenu {
+        flex-direction: column;
+        gap: 6px;
+        padding: 10px 12px;
+    }
+
+    .submenu-tab {
+        width: 100%;
+        justify-content: flex-start;
+        padding: 12px 16px;
+    }
+}
+
+/* ====== EQUIPMENT STATISTICS HEADER ====== */
+.equip-wrap > .equip-stats-header,
+#equipStatsHeader {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
     gap: 16px;
     justify-content: space-between;
     align-items: center;
@@ -44,15 +141,20 @@
     border: 1px solid #e2e8f0;
     border-radius: 12px;
     padding: 10px 16px;
-    margin-bottom: 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 3px solid #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    width: 100%;
 }
 
-.equip-stats-header .stat-item {
-    display: flex;
-    flex-direction: column;
+.equip-wrap > .equip-stats-header .stat-item,
+#equipStatsHeader .stat-item {
+    display: flex !important;
+    flex-direction: column !important;
     gap: 2px;
     flex: 1;
+    min-width: 0;
     text-align: center;
 }
 
@@ -145,6 +247,8 @@
     /* responsivo: 4 a 6 cards por linha */
     gap: 16px;
     /* espaço entre os cards */
+    margin-top: 24px;
+    /* RFC-0079: espaço adicional entre cabeçalho e grid */
 }
 
 .cards-grid>* {

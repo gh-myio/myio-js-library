@@ -1,4 +1,32 @@
 <div class="equip-wrap" id="equipWrap">
+  <!-- RFC-0079: Internal Sub-Menu Navigation -->
+  <nav class="equipments-submenu" role="tablist" aria-label="Equipment View Selector">
+    <button class="submenu-tab is-active"
+            role="tab"
+            data-submenu-view="equipments"
+            aria-selected="true"
+            aria-controls="equipments-view">
+      <span class="ico" aria-hidden="true">⚙️</span>
+      <span>Equipamentos</span>
+    </button>
+    <button class="submenu-tab"
+            role="tab"
+            data-submenu-view="stores"
+            aria-selected="false"
+            aria-controls="stores-view">
+      <span class="ico" aria-hidden="true">🏬</span>
+      <span>Lojas</span>
+    </button>
+    <button class="submenu-tab"
+            role="tab"
+            data-submenu-view="general"
+            aria-selected="false"
+            aria-controls="general-view">
+      <span class="ico" aria-hidden="true">⚡</span>
+      <span>Geral (Energia)</span>
+    </button>
+  </nav>
+
   <div class="toolbar-zoom">
     <!-- RFC-0072: Zoom controls removed - use browser native zoom instead -->
     <!-- <button id="fontMinus" aria-label="Diminuir fonte">−</button>
@@ -6,8 +34,8 @@
     <div class="shopping-filter-chips" id="shoppingFilterChips"></div>
   </div>
 
-  <!-- Equipment Statistics Header -->
-  <div class="equip-stats-header" id="equipStatsHeader">
+  <!-- Equipment Statistics Header (outside view containers - always visible) -->
+  <div class="equip-stats-header" id="equipStatsHeader" style="display: flex !important; flex-direction: row !important;">
     <div class="stat-item">
       <span class="stat-label">Conectividade</span>
       <span class="stat-value" id="equipStatsConnectivity">-</span>
@@ -55,6 +83,16 @@
     </div>
   </div>
 
+  <!-- RFC-0079: View Containers -->
+  <div class="submenu-content">
+    <!-- Equipamentos View (default visible) -->
+    <div id="equipments-view"
+         class="submenu-view"
+         role="tabpanel"
+         data-view="equipments"
+         aria-labelledby="equipments-tab"
+         aria-hidden="false">
+
   <section class="equip-grid" id="equipGrid">
       <div id="cards-grid" class="cards-grid"></div>
   </section>
@@ -74,7 +112,7 @@
       <section class="equip-modal-body">
         <div class="filter-block">
           <div class="filter-tabs" id="filterTabs">
-            <button class="filter-tab active" data-filter="all">TODOS (<span id="countAll">0</span>)</button>            
+            <button class="filter-tab active" data-filter="all">TODOS (<span id="countAll">0</span>)</button>
             <button class="filter-tab" data-filter="online">ONLINE (<span id="countOnline">0</span>)</button>
             <button class="filter-tab" data-filter="offline">OFFLINE (<span id="countOffline">0</span>)</button>
             <button class="filter-tab" data-filter="with-consumption">COM CONSUMO (<span id="countWithConsumption">0</span>)</button>
@@ -117,4 +155,36 @@
       </footer>
     </div>
   </div>
+
+    </div>
+    <!-- End Equipamentos View -->
+
+    <!-- Lojas View (hidden by default) -->
+    <!-- RFC-0079: Renders store_telemetry state from ThingsBoard dashboard -->
+    <div id="stores-view"
+         class="submenu-view"
+         role="tabpanel"
+         data-view="stores"
+         aria-labelledby="stores-tab"
+         aria-hidden="true"
+         style="display: none;">
+      <tb-dashboard-state class="content" [ctx]="ctx" stateId="store_telemetry"></tb-dashboard-state>
+    </div>
+    <!-- End Lojas View -->
+
+    <!-- Geral (Energia) View (hidden by default) -->
+    <!-- RFC-0079: Renders content_energy state from ThingsBoard dashboard -->
+    <div id="general-view"
+         class="submenu-view"
+         role="tabpanel"
+         data-view="general"
+         aria-labelledby="general-tab"
+         aria-hidden="true"
+         style="display: none;">
+      <tb-dashboard-state class="content" [ctx]="ctx" stateId="content_energy"></tb-dashboard-state>
+    </div>
+    <!-- End Geral View -->
+
+  </div>
+  <!-- End submenu-content -->
 </div>
