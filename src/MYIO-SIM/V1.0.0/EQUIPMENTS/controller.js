@@ -2409,7 +2409,112 @@ function setupModalCloseHandlers(modal) {
     });
   }
 
-  console.log("[EQUIPMENTS] [RFC-0072] Modal handlers bound (close, apply, reset)");
+  // Bind filter tab click handlers (must be done after modal is moved to document.body)
+  const filterTabs = modal.querySelectorAll(".filter-tab");
+  filterTabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      const filterType = tab.getAttribute("data-filter");
+
+      // Update active state
+      filterTabs.forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+
+      // Filter checkboxes based on selected tab
+      const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']");
+      checkboxes.forEach(cb => {
+        const deviceId = cb.getAttribute("data-device-id");
+        const device = STATE.allDevices.find(d => d.entityId === deviceId);
+
+        if (!device) return;
+
+        const consumption = Number(device.val) || Number(device.lastValue) || 0;
+        const deviceType = (device.deviceType || '').toUpperCase();
+        const deviceProfile = (device.deviceProfile || '').toUpperCase();
+        const identifier = (device.deviceIdentifier || '').toUpperCase();
+        const labelOrName = (device.labelOrName || '').toUpperCase();
+
+        // RFC: Check if device has CAG in identifier or labelOrName (climatização)
+        const hasCAG = identifier.includes('CAG') || labelOrName.includes('CAG');
+
+        let shouldCheck = false;
+
+        switch (filterType) {
+          case 'all':
+            shouldCheck = true;
+            break;
+          case 'online':
+            shouldCheck = consumption > 0;
+            break;
+          case 'offline':
+            shouldCheck = consumption === 0;
+            break;
+          case 'with-consumption':
+            shouldCheck = consumption > 0;
+            break;
+          case 'no-consumption':
+            shouldCheck = consumption === 0;
+            break;
+          case 'elevators':
+            shouldCheck = deviceType === 'ELEVADOR' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR');
+            break;
+          case 'escalators':
+            shouldCheck = deviceType === 'ESCADA_ROLANTE' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE');
+            break;
+          case 'hvac':
+            shouldCheck = hasCAG || deviceType === 'CHILLER' || deviceType === 'FANCOIL' || deviceType === 'AR_CONDICIONADO' ||
+                         deviceType === 'BOMBA' || deviceType === 'HVAC' ||
+                         (deviceType === '3F_MEDIDOR' && (deviceProfile === 'CHILLER' || deviceProfile === 'FANCOIL' ||
+                          deviceProfile === 'AR_CONDICIONADO' || deviceProfile === 'BOMBA' || deviceProfile === 'HVAC'));
+            break;
+          case 'others':
+            shouldCheck = !(
+              hasCAG ||
+              deviceType === 'ELEVADOR' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR') ||
+              deviceType === 'ESCADA_ROLANTE' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE') ||
+              deviceType === 'CHILLER' || deviceType === 'FANCOIL' || deviceType === 'AR_CONDICIONADO' ||
+              deviceType === 'BOMBA' || deviceType === 'HVAC' ||
+              (deviceType === '3F_MEDIDOR' && (deviceProfile === 'CHILLER' || deviceProfile === 'FANCOIL' ||
+               deviceProfile === 'AR_CONDICIONADO' || deviceProfile === 'BOMBA' || deviceProfile === 'HVAC'))
+            );
+            break;
+        }
+
+        cb.checked = shouldCheck;
+      });
+
+      // Count how many checkboxes are now checked
+      const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+      console.log(`[EQUIPMENTS] Filter tab selected: ${filterType}, checked: ${checkedCount}/${checkboxes.length}`);
+    });
+  });
+
+  // Bind filter device search inside modal
+  const filterDeviceSearch = modal.querySelector("#filterDeviceSearch");
+  if (filterDeviceSearch) {
+    filterDeviceSearch.addEventListener("input", (e) => {
+      const query = (e.target.value || "").trim().toLowerCase();
+      const checkItems = modal.querySelectorAll("#deviceChecklist .check-item");
+
+      checkItems.forEach(item => {
+        const label = item.querySelector("label");
+        const text = (label?.textContent || "").toLowerCase();
+        item.style.display = text.includes(query) ? "flex" : "none";
+      });
+    });
+  }
+
+  // Bind clear filter search button
+  const filterDeviceClear = modal.querySelector("#filterDeviceClear");
+  if (filterDeviceClear && filterDeviceSearch) {
+    filterDeviceClear.addEventListener("click", () => {
+      filterDeviceSearch.value = "";
+      const checkItems = modal.querySelectorAll("#deviceChecklist .check-item");
+      checkItems.forEach(item => item.style.display = "flex");
+      filterDeviceSearch.focus();
+    });
+  }
+
+  console.log("[EQUIPMENTS] [RFC-0072] Modal handlers bound (close, apply, reset, filter tabs, search)");
 }
 
 /**
@@ -2795,9 +2900,11 @@ function openFilterModal() {
     const identifier = (device.deviceIdentifier || '').toUpperCase();
     const labelOrName = (device.labelOrName || '').toUpperCase();
 
-    // Count online/offline status (using connectionStatus like filter tabs)
-    const connectionStatus = (device.connectionStatus || 'offline').toLowerCase();
-    if (connectionStatus === 'online') {
+    // Count online/offline status
+    // Note: connectionStatus may not be available from API, using consumption as proxy
+    // Devices with consumption > 0 are considered "online" (actively reporting)
+    const hasConsumption = consumption > 0;
+    if (hasConsumption) {
       counts.online++;
     } else {
       counts.offline++;
@@ -2846,12 +2953,18 @@ function openFilterModal() {
     console.log('[EQUIPMENTS] Sample device for debugging:', STATE.allDevices[0]);
   }
 
-  // Populate device checklist
-  const checklist = document.getElementById("deviceChecklist");
+  // Populate device checklist - need to find it within the global container
+  let checklist = globalContainer.querySelector("#deviceChecklist");
+  if (!checklist) {
+    // Fallback to document search
+    checklist = document.getElementById("deviceChecklist");
+  }
   if (!checklist) {
     console.error("[EQUIPMENTS] ❌ deviceChecklist element not found!");
     return;
   }
+
+  console.log('[EQUIPMENTS] deviceChecklist found, populating with', STATE.allDevices.length, 'devices');
 
   checklist.innerHTML = "";
 
@@ -2940,118 +3053,8 @@ function bindFilterEvents() {
     btnFilter.addEventListener("click", openFilterModal);
   }
 
-  // RFC-0072: Close handlers are now set up in setupModalCloseHandlers()
-  // when modal is moved to document.body
-
-  // RFC: Filter tab click handlers
-  const filterTabs = document.querySelectorAll(".filter-tab");
-  filterTabs.forEach(tab => {
-    tab.addEventListener("click", () => {
-      const filterType = tab.getAttribute("data-filter");
-
-      // Update active state
-      filterTabs.forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-
-      // Filter checkboxes based on selected tab
-      const checkboxes = document.querySelectorAll("#deviceChecklist input[type='checkbox']");
-      checkboxes.forEach(cb => {
-        const deviceId = cb.getAttribute("data-device-id");
-        const device = STATE.allDevices.find(d => d.entityId === deviceId);
-
-        if (!device) return;
-
-        const consumption = Number(device.val) || Number(device.lastValue) || 0;
-        const deviceType = (device.deviceType || '').toUpperCase();
-        const deviceProfile = (device.deviceProfile || '').toUpperCase();
-        const identifier = (device.deviceIdentifier || '').toUpperCase();
-        const labelOrName = (device.labelOrName || '').toUpperCase();
-
-        // RFC: Check if device has CAG in identifier or labelOrName (climatização)
-        const hasCAG = identifier.includes('CAG') || labelOrName.includes('CAG');        // Get connection status for online/offline filters
-        const connectionStatus = (device.connectionStatus || 'offline').toLowerCase();
-
-
-        let shouldCheck = false;
-
-        switch (filterType) {
-          case 'all':
-            shouldCheck = true;
-            break;
-                      case 'online':
-            shouldCheck = connectionStatus === 'online';
-            break;
-          case 'offline':
-            shouldCheck = connectionStatus !== 'online'; // includes offline, waiting, and any other non-online status
-            break;
-          case 'with-consumption':
-            shouldCheck = consumption > 0;
-            break;
-          case 'no-consumption':
-            shouldCheck = consumption === 0;
-            break;
-          case 'elevators':
-            shouldCheck = deviceType === 'ELEVADOR' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR');
-            break;
-          case 'escalators':
-            shouldCheck = deviceType === 'ESCADA_ROLANTE' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE');
-            break;
-          case 'hvac':
-            shouldCheck = hasCAG || deviceType === 'CHILLER' || deviceType === 'FANCOIL' || deviceType === 'AR_CONDICIONADO' ||
-                         deviceType === 'BOMBA' || deviceType === 'HVAC' ||
-                         (deviceType === '3F_MEDIDOR' && (deviceProfile === 'CHILLER' || deviceProfile === 'FANCOIL' ||
-                          deviceProfile === 'AR_CONDICIONADO' || deviceProfile === 'BOMBA' || deviceProfile === 'HVAC'));
-            break;
-          case 'others':
-            shouldCheck = !(
-              hasCAG ||
-              deviceType === 'ELEVADOR' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR') ||
-              deviceType === 'ESCADA_ROLANTE' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE') ||
-              deviceType === 'CHILLER' || deviceType === 'FANCOIL' || deviceType === 'AR_CONDICIONADO' ||
-              deviceType === 'BOMBA' || deviceType === 'HVAC' ||
-              (deviceType === '3F_MEDIDOR' && (deviceProfile === 'CHILLER' || deviceProfile === 'FANCOIL' ||
-               deviceProfile === 'AR_CONDICIONADO' || deviceProfile === 'BOMBA' || deviceProfile === 'HVAC'))
-            );
-            break;
-        }
-
-        cb.checked = shouldCheck;
-      });
-
-      // Count how many checkboxes are now checked
-      const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
-      console.log(`[EQUIPMENTS] Filter tab selected: ${filterType}, checked: ${checkedCount}/${checkboxes.length}`);
-    });
-  });
-
-  // Filter device search inside modal
-  const filterDeviceSearch = document.getElementById("filterDeviceSearch");
-  if (filterDeviceSearch) {
-    filterDeviceSearch.addEventListener("input", (e) => {
-      const query = (e.target.value || "").trim().toLowerCase();
-      const checkItems = document.querySelectorAll("#deviceChecklist .check-item");
-
-      checkItems.forEach(item => {
-        const label = item.querySelector("label");
-        const text = (label?.textContent || "").toLowerCase();
-        item.style.display = text.includes(query) ? "flex" : "none";
-      });
-    });
-  }
-
-  // Clear filter search button
-  const filterDeviceClear = document.getElementById("filterDeviceClear");
-  if (filterDeviceClear && filterDeviceSearch) {
-    filterDeviceClear.addEventListener("click", () => {
-      filterDeviceSearch.value = "";
-      const checkItems = document.querySelectorAll("#deviceChecklist .check-item");
-      checkItems.forEach(item => item.style.display = "flex");
-      filterDeviceSearch.focus();
-    });
-  }
-
-  // RFC-0072: Apply and Reset handlers are now in setupModalCloseHandlers()
-  // when modal is moved to document.body
+  // RFC-0072: All filter-related handlers (filter tabs, search, apply, reset)
+  // are now set up in setupModalCloseHandlers() when modal is moved to document.body
 }
 
 self.onDestroy = function () {
