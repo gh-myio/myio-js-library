@@ -988,47 +988,90 @@ function buildAuthoritativeItems() {
   return mapped;
 }
 
-async function fetchApiTotals(startISO, endISO) {
-  if (!isAuthReady()) throw new Error("Auth not ready");
-  const token = await MyIOAuth.getToken();
-  if (!token) throw new Error("No ingestion token");
+// RFC-0072: fetchApiTotals REMOVED - data now comes from MAIN orchestrator
+// STORES receives data via myio:energy-data-ready event like EQUIPMENTS
 
-  const url = new URL(
-    `${DATA_API_HOST}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/energy/devices/totals`
-  );
-  url.searchParams.set("startTime", toSpOffsetNoMs(startISO));
-  url.searchParams.set("endTime", toSpOffsetNoMs(endISO, true));
-  url.searchParams.set("deep", "1");
+// Energy cache from MAIN orchestrator
+let energyCacheFromMain = null;
 
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${token}` },
+/**
+ * Wait for MAIN orchestrator to be available
+ */
+async function waitForOrchestrator(timeoutMs = 15000) {
+  return new Promise((resolve) => {
+    let interval;
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      console.error("[STORES] Timeout: MyIOOrchestrator não foi encontrado.");
+      resolve(null);
+    }, timeoutMs);
+
+    interval = setInterval(() => {
+      const orchestrator = window.MyIOOrchestrator;
+      if (orchestrator) {
+        clearTimeout(timeout);
+        clearInterval(interval);
+        console.log("[STORES] MyIOOrchestrator encontrado!");
+        resolve(orchestrator);
+      }
+    }, 100);
   });
-  if (!res.ok) {
-    LogHelper.warn("[DeviceCards] API fetch failed:", res.status);
-    return new Map();
-  }
-
-  const json = await res.json();
-  const rows = Array.isArray(json) ? json : json?.data ?? [];
-  const map = new Map();
-  for (const r of rows) if (r && r.id) map.set(String(r.id), r);
-  //LogHelper.log(`[DeviceCards] API rows: ${rows.length}, map keys: ${map.size}`);
-  return map;
 }
 
-function enrichItemsWithTotals(items, apiMap) {
+/**
+ * Enrich items with consumption from orchestrator cache
+ */
+function enrichItemsWithTotals(items, cache) {
+  if (!cache || cache.size === 0) {
+    console.warn("[STORES] Cache is empty, items will have zero consumption");
+    return items.map((it) => ({ ...it, value: 0, consumption: 0, perc: 0 }));
+  }
+
   return items.map((it) => {
     let raw = 0;
 
     if (it.ingestionId && isValidUUID(it.ingestionId)) {
-      const row = apiMap.get(String(it.ingestionId));
-      raw = Number(row?.total_value ?? 0);
+      const cached = cache.get(String(it.ingestionId));
+      raw = Number(cached?.total_value ?? 0);
     }
 
-    const value = Number(raw || 0); // toTargetUnit(raw); TODO verificar se ainda precisa dessa chamada
+    const value = Number(raw || 0);
 
-    return { ...it, value, perc: 0 };
+    return { ...it, value, consumption: value, perc: 0 };
   });
+}
+
+/**
+ * Process energy cache and render stores
+ */
+async function processAndRenderFromCache(cache) {
+  if (!cache || cache.size === 0) {
+    console.warn("[STORES] Cache is empty, no stores to render");
+    hideBusy();
+    return;
+  }
+
+  console.log(`[STORES] Processing cache with ${cache.size} devices`);
+  energyCacheFromMain = cache;
+
+  // Build items from TB datasource
+  STATE.itemsBase = buildAuthoritativeItems();
+  console.log(`[STORES] Built ${STATE.itemsBase.length} stores from TB datasource`);
+
+  // Enrich with consumption from cache
+  STATE.itemsEnriched = enrichItemsWithTotals(STATE.itemsBase, cache);
+
+  // Sanitize selection
+  if (STATE.selectedIds && STATE.selectedIds.size) {
+    const valid = new Set(STATE.itemsBase.map((x) => x.id));
+    const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
+    STATE.selectedIds = next.size ? next : null;
+  }
+
+  reflowFromState();
+  hideBusy();
+
+  console.log(`[STORES] Rendered ${STATE.itemsEnriched.length} stores from MAIN cache`);
 }
 
 /** ===================== FILTERS / SORT / PERC ===================== **/
@@ -1139,28 +1182,31 @@ function renderHeader(count, groupSum) {
 }
 
 function renderList(visible) {
-  const $ul = $list().empty();
+  const listElement = document.getElementById("shopsList");
+  if (!listElement) {
+    console.error("[STORES] shopsList element not found");
+    return;
+  }
+
+  listElement.innerHTML = "";
 
   visible.forEach((it) => {
+    const container = document.createElement("div");
+    listElement.appendChild(container);
+
     const valNum = Number(it.value || 0);
     const connectionStatus = valNum > 0 ? "power_on" : "power_off";
 
     // RFC-0063: Safe identifier handling with fallbacks
     let deviceIdentifierToDisplay = "N/A";
     if (it.identifier) {
-      // Has identifier attribute
       if (String(it.identifier).includes("Sem Identificador identificado")) {
-        // Identifier exists but is marked as "unknown" - infer from label
         const label = String(it.label || "").toLowerCase();
-        deviceIdentifierToDisplay = label.includes("fancoil")
-          ? "FANCOIL"
-          : "CAG";
+        deviceIdentifierToDisplay = label.includes("fancoil") ? "FANCOIL" : "CAG";
       } else {
-        // Valid identifier
         deviceIdentifierToDisplay = it.identifier;
       }
     } else {
-      // No identifier attribute - try to infer from label
       const label = String(it.label || "").toLowerCase();
       if (label.includes("fancoil")) {
         deviceIdentifierToDisplay = "FANCOIL";
@@ -1179,237 +1225,96 @@ function renderList(visible) {
     const customerName = getShoppingNameForDevice(it);
 
     const entityObject = {
-      entityId: it.tbId || it.id, // preferir TB deviceId
+      entityId: it.tbId || it.id,
       labelOrName: it.label,
       deviceType: it.label.includes("dministra") ? "3F_MEDIDOR" : it.deviceType,
-      val: valNum, // TODO verificar ESSE MULTIPLICADOR PQ PRECISA DELE ?
+      val: valNum,
+      value: valNum,
       perc: it.perc ?? 0,
-      deviceStatus: connectionStatus, // "power_on" | "power_off"
+      deviceStatus: connectionStatus,
       entityType: "DEVICE",
       deviceIdentifier: deviceIdentifierToDisplay,
       slaveId: it.slaveId || "N/A",
       ingestionId: it.ingestionId || "N/A",
       centralId: it.centralId || "N/A",
       centralName: it.centralName || "N/A",
-      customerName: customerName, // Shopping name
+      customerName: customerName,
       updatedIdentifiers: it.updatedIdentifiers || {},
       connectionStatusTime: it.connectionStatusTime || Date.now(),
       timeVal: it.timeVal || Date.now(),
     };
 
-    if (it.label === "Allegria") {
-      //LogHelper.log("RENDER CARD ALLEGRIA >>> it.value: " , it.value);
-    }
-
-    const myTbToken = localStorage.getItem("jwt_token");
-    let cachedIngestionToken = null;
-
-    MyIOAuth.getToken()
-      .then((token) => {
-        cachedIngestionToken = token;
-      })
-      .catch((err) => LogHelper.warn("Token cache failed:", err));
-
-    const $card = MyIO.renderCardComponentV5({
-      entityObject,
-      useNewComponents: true, // Habilitar novos componentes
-      enableSelection: true, // Habilitar seleção
-      enableDragDrop: true, // Habilitar drag and drop
+    // Use renderCardComponentHeadOffice like EQUIPMENTS
+    const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
+      entityObject: entityObject,
 
       handleActionDashboard: async () => {
-        const jwtToken = localStorage.getItem("jwt_token");
-        const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
-
-        if (!jwtToken) {
-          if (MyIOToast) {
-            MyIOToast.error("Authentication required. Please login again.");
-          } else {
-            alert("Authentication required. Please login again.");
-          }
-          return;
-        }
-
-        const startTs = self.ctx?.scope?.startTs || Date.now() - 86400000;
-        const endTs = self.ctx?.scope?.endTs || Date.now();
-        const deviceType = it.deviceType || entityObject.deviceType;
-        const isWaterTank =
-          deviceType === "TANK" || deviceType === "CAIXA_DAGUA";
-
-        LogHelper.log(
-          "[TELEMETRY v5] Opening dashboard for deviceType:",
-          deviceType,
-          "isWaterTank:",
-          isWaterTank
-        );
-
-        // Show loading toast
-        let loadingToast = null;
-        if (MyIOToast) {
-          loadingToast = MyIOToast.info(
-            isWaterTank
-              ? "Loading water tank data..."
-              : "Loading energy data...",
-            0 // No auto-hide
-          );
-        }
+        console.log("[STORES] [RFC-0072] Opening energy dashboard for:", entityObject.entityId);
 
         try {
-          if (isWaterTank) {
-            // Water Tank Modal Path
-            LogHelper.log(
-              "[TELEMETRY v5] Checking for MyIOLibrary.openDashboardPopupWaterTank..."
-            );
+          if (typeof MyIOLibrary.openDashboardPopupEnergy !== 'function') {
+            console.error("[STORES] [RFC-0072] openDashboardPopupEnergy component not loaded");
+            alert("Dashboard component não disponível");
+            return;
+          }
 
-            if (
-              typeof MyIOLibrary?.openDashboardPopupWaterTank !== "function"
-            ) {
-              throw new Error(
-                "Water tank modal not available. Please update MyIO library."
-              );
-            }
+          const tokenIngestionDashBoard = await MyIOAuth.getToken();
+          const myTbTokenDashBoard = localStorage.getItem("jwt_token");
 
-            // For TANK/CAIXA_DAGUA: get water level from telemetry
-            const waterLevel = getData("water_level");
-            const waterPercentage = getData("water_percentage");
-            const currentLevel = waterPercentage || it.perc || it.val || 0;
+          if (!myTbTokenDashBoard) {
+            throw new Error("JWT token não encontrado");
+          }
 
-            LogHelper.log("[TELEMETRY v5] Water tank telemetry data:", {
-              water_level: waterLevel,
-              water_percentage: waterPercentage,
-              currentLevel: currentLevel,
-            });
-
-            LogHelper.log(
-              "[TELEMETRY v5] Calling openDashboardPopupWaterTank with params:",
-              {
-                deviceId: it.id,
-                deviceType: deviceType,
-                startTs:
-                  typeof startTs === "number"
-                    ? startTs
-                    : new Date(startTs).getTime(),
-                endTs:
-                  typeof endTs === "number" ? endTs : new Date(endTs).getTime(),
-                label: it.label || it.name || "Water Tank",
-                currentLevel: currentLevel,
+          const modal = MyIOLibrary.openDashboardPopupEnergy({
+            deviceId: entityObject.entityId,
+            readingType: "energy",
+            startDate: self.ctx.$scope.startDateISO,
+            endDate: self.ctx.$scope.endDateISO,
+            tbJwtToken: myTbTokenDashBoard,
+            ingestionToken: tokenIngestionDashBoard,
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            onOpen: (context) => {
+              console.log("[STORES] [RFC-0072] Modal opened:", context);
+            },
+            onError: (error) => {
+              console.error("[STORES] [RFC-0072] Modal error:", error);
+              alert(`Erro: ${error.message}`);
+            },
+            onClose: () => {
+              const overlay = document.querySelector(".myio-modal-overlay");
+              if (overlay) {
+                overlay.remove();
               }
-            );
+              console.log("[STORES] [RFC-0072] Energy dashboard closed");
+            },
+          });
 
-            const modalHandle = await MyIOLibrary.openDashboardPopupWaterTank({
-              deviceId: it.id,
-              deviceType: deviceType,
-              tbJwtToken: jwtToken,
-              startTs:
-                typeof startTs === "number"
-                  ? startTs
-                  : new Date(startTs).getTime(),
-              endTs:
-                typeof endTs === "number" ? endTs : new Date(endTs).getTime(),
-              label: it.label || it.name || "Water Tank",
-              currentLevel: currentLevel,
-              slaveId: it.slaveId,
-              centralId: it.centralId,
-              timezone: self.ctx?.timeWindow?.timezone || "America/Sao_Paulo",
-              telemetryKeys: [
-                "water_level",
-                "water_percentage",
-                "waterLevel",
-                "nivel",
-                "level",
-              ],
-              onOpen: (context) => {
-                LogHelper.log(
-                  "[TELEMETRY v5] Water tank modal opened",
-                  context
-                );
-                if (loadingToast) loadingToast.hide();
-                hideBusy();
-              },
-              onClose: () => {
-                LogHelper.log(
-                  "[TELEMETRY v5] Water tank modal onClose callback triggered"
-                );
-              },
-              onError: (error) => {
-                LogHelper.error("[TELEMETRY v5] Water tank modal error", error);
-                if (loadingToast) loadingToast.hide();
-                hideBusy();
-                if (MyIOToast) {
-                  MyIOToast.error(`Error: ${error.message}`);
-                } else {
-                  alert(`Error: ${error.message}`);
-                }
-              },
-            });
-
-            LogHelper.log(
-              "[TELEMETRY v5] Water tank modal handle received:",
-              modalHandle
-            );
-          } else {
-            // Energy/Water/Temperature Modal Path (Ingestion API)
-            LogHelper.log("[TELEMETRY v5] Opening energy modal...");
-            const tokenIngestionDashBoard = await MyIOAuth.getToken();
-            const modal = MyIO.openDashboardPopupEnergy({
-              deviceId: it.id,
-              readingType: WIDGET_DOMAIN, // 'energy', 'water', or 'tank'
-              startDate: self.ctx.scope.startDateISO,
-              endDate: self.ctx.scope.endDateISO,
-              tbJwtToken: jwtToken,
-              ingestionToken: tokenIngestionDashBoard,
-              clientId: CLIENT_ID,
-              clientSecret: CLIENT_SECRET,
-              onOpen: (context) => {
-                LogHelper.log("[TELEMETRY v5] Energy modal opened:", context);
-                if (loadingToast) loadingToast.hide();
-                hideBusy();
-              },
-              onError: (error) => {
-                LogHelper.error("[TELEMETRY v5] Energy modal error:", error);
-                if (loadingToast) loadingToast.hide();
-                hideBusy();
-                if (MyIOToast) {
-                  MyIOToast.error(`Erro: ${error.message}`);
-                } else {
-                  alert(`Erro: ${error.message}`);
-                }
-              },
-              onClose: () => {
-                LogHelper.log("[TELEMETRY v5] Energy modal closed");
-              },
-            });
+          if (!modal) {
+            console.error("[STORES] [RFC-0072] Modal failed to initialize");
+            alert("Erro ao abrir dashboard");
+            return;
           }
+
+          console.log("[STORES] [RFC-0072] Energy dashboard opened successfully");
+
         } catch (err) {
-          LogHelper.error(
-            "[TELEMETRY v5] Dashboard action failed:",
-            err?.message || err,
-            err
-          );
-          if (loadingToast) loadingToast.hide();
-          hideBusy();
-          if (MyIOToast) {
-            MyIOToast.error(err?.message || "Failed to open dashboard");
-          } else {
-            alert(err?.message || "Failed to open dashboard");
-          }
+          console.error("[STORES] [RFC-0072] Error opening energy dashboard:", err);
+          alert("Credenciais ainda carregando. Tente novamente em instantes.");
         }
       },
 
       handleActionReport: async () => {
         try {
-          showBusy(); // mensagem fixa
-
-          if (!isAuthReady()) throw new Error("Auth not ready");
-
           const ingestionToken = await MyIOAuth.getToken();
 
           if (!ingestionToken) throw new Error("No ingestion token");
 
-          await MyIO.openDashboardPopupReport({
-            ingestionId: it.ingestionId, // sempre ingestionId
+          await MyIOLibrary.openDashboardPopupReport({
+            ingestionId: it.ingestionId,
             identifier: it.identifier,
             label: it.label,
-            domain: WIDGET_DOMAIN, // 'energy', 'water', or 'temperature'
+            domain: "energy",
             api: {
               dataApiBaseUrl: DATA_API_HOST,
               clientId: CLIENT_ID,
@@ -1418,19 +1323,22 @@ function renderList(visible) {
             },
           });
         } catch (err) {
-          LogHelper.warn(
-            "[DeviceCards] Report open blocked:",
-            err?.message || err
-          );
+          console.warn("[STORES] Report open blocked:", err?.message || err);
           alert("Credenciais ainda carregando. Tente novamente em instantes.");
-        } finally {
-          hideBusy();
         }
       },
 
       handleActionSettings: async () => {
-        showBusy(null, 3000); // mensagem fixa
-        // resolve TB id “fresh”
+        console.log("[STORES] [RFC-0072] Opening settings for store:", entityObject.entityId);
+
+        const jwt = localStorage.getItem("jwt_token");
+        if (!jwt) {
+          console.error("[STORES] [RFC-0072] JWT token not found");
+          alert("Token de autenticação não encontrado");
+          return;
+        }
+
+        // Resolve TB id
         let tbId = it.tbId;
         if (!tbId || !isValidUUID(tbId)) {
           const idx = buildTbIdIndexes();
@@ -1439,26 +1347,21 @@ function renderList(visible) {
             (it.identifier && idx.byIdentifier.get(it.identifier)) ||
             null;
         }
+
         if (!tbId || tbId === it.ingestionId) {
-          LogHelper.warn("[DeviceCards] Missing/ambiguous TB id for Settings", {
+          LogHelper.warn("[STORES] Missing/ambiguous TB id for Settings", {
             label: it.label,
             identifier: it.identifier,
             ingestionId: it.ingestionId,
             tbId,
           });
-          hideBusy();
-          alert(
-            "Não foi possível identificar o deviceId do ThingsBoard para este card."
-          );
+          alert("Não foi possível identificar o deviceId do ThingsBoard para este card.");
           return;
         }
-        const jwt = localStorage.getItem("jwt_token");
-        try {
-          console.log("it", it);
-          console.log("connectionStatus", connectionStatus);
 
-          await MyIO.openDashboardPopupSettings({
-            deviceId: tbId, // TB deviceId
+        try {
+          await MyIOLibrary.openDashboardPopupSettings({
+            deviceId: tbId,
             label: it.label,
             jwtToken: jwt,
             domain: WIDGET_DOMAIN,
@@ -1470,38 +1373,23 @@ function renderList(visible) {
             },
             ui: { title: "Configurações", width: 900 },
             onSaved: (payload) => {
-              LogHelper.log("[Settings Saved]", payload);
-              //hideBusy();
-              // Mostra modal global de sucesso com contador e reload
+              LogHelper.log("[STORES] Settings Saved:", payload);
               showGlobalSuccessModal(6);
             },
             onClose: () => {
-              $(".myio-settings-modal-overlay").remove();
-              hideBusy();
+              const overlay = document.querySelector(".myio-settings-modal-overlay");
+              if (overlay) overlay.remove();
+              console.log("[STORES] [RFC-0072] Settings closed");
             },
           });
         } catch (e) {
-          hideBusy();
+          console.error("[STORES] [RFC-0072] Error opening settings:", e);
         }
       },
-
-      handleClickCard: () => {
-        //LogHelper.log("Card clicado:", entityObject);
-      },
-
-      handleSelect: (entityObj) => {
-        // NOTE: This callback is called during card rendering, NOT during user selection
-        // Entity registration is handled by the 'myio:device-params' event listener instead
-        // which is only triggered when the user actually clicks the checkbox
-        LogHelper.log(
-          "[TELEMETRY] handleSelect called (no-op):",
-          entityObj.labelOrName
-        );
-      },
     });
-
-    $ul.append($card);
   });
+
+  console.log(`[STORES] Rendered ${visible.length} store cards using renderCardComponentHeadOffice`);
 }
 
 /** ===================== UI BINDINGS ===================== **/
@@ -1521,58 +1409,497 @@ function bindHeader() {
   $root().on("click", "#btnFilter", () => openFilterModal());
 }
 
+/**
+ * RFC-0072: Setup modal close handlers (called after modal is moved to document.body)
+ */
+function setupModalCloseHandlers(modal) {
+  // Close button
+  const closeBtn = modal.querySelector("#closeFilter");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", closeFilterModal);
+  }
+
+  // Backdrop click
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      closeFilterModal();
+    }
+  });
+
+  // Apply filters button
+  const applyBtn = modal.querySelector("#applyFilters");
+  if (applyBtn) {
+    applyBtn.addEventListener("click", () => {
+      // Get selected stores
+      const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']:checked");
+      const selectedSet = new Set();
+      checkboxes.forEach(cb => {
+        const entityId = cb.getAttribute("data-entity");
+        if (entityId) selectedSet.add(entityId);
+      });
+
+      // If all stores are selected, treat as "no filter"
+      STATE.selectedIds = selectedSet.size === STATE.itemsBase.length ? null : selectedSet;
+
+      // Get sort mode
+      const sortRadio = modal.querySelector('input[name="sortMode"]:checked');
+      if (sortRadio) {
+        STATE.sortMode = sortRadio.value;
+      }
+
+      console.log("[STORES] [RFC-0072] Filters applied:", {
+        selectedCount: STATE.selectedIds?.size || STATE.itemsBase.length,
+        totalStores: STATE.itemsBase.length,
+        sortMode: STATE.sortMode
+      });
+
+      // Apply filters and close modal
+      reflowFromState();
+      closeFilterModal();
+    });
+  }
+
+  // Reset filters button
+  const resetBtn = modal.querySelector("#resetFilters");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      // Reset state
+      STATE.selectedIds = null;
+      STATE.sortMode = 'cons_desc';
+      STATE.searchTerm = "";
+      STATE.searchActive = false;
+
+      // Reset UI
+      const searchInput = document.getElementById("shopsSearch");
+      const searchWrap = document.getElementById("searchWrap");
+      if (searchInput) searchInput.value = "";
+      if (searchWrap) searchWrap.classList.remove("active");
+
+      // Apply and close
+      reflowFromState();
+      closeFilterModal();
+
+      console.log("[STORES] [RFC-0072] Filters reset");
+    });
+  }
+
+  // Bind filter tab click handlers
+  const filterTabs = modal.querySelectorAll(".filter-tab");
+  filterTabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      const filterType = tab.getAttribute("data-filter");
+
+      // Update active state
+      filterTabs.forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+
+      // Filter checkboxes based on selected tab
+      const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']");
+      checkboxes.forEach(cb => {
+        const entityId = cb.getAttribute("data-entity");
+        const store = STATE.itemsBase.find(s => s.id === entityId);
+
+        if (!store) return;
+
+        const consumption = Number(store.consumption) || Number(store.val) || 0;
+        let shouldCheck = false;
+
+        switch (filterType) {
+          case 'all':
+            shouldCheck = true;
+            break;
+          case 'online':
+            shouldCheck = consumption > 0;
+            break;
+          case 'offline':
+            shouldCheck = consumption === 0;
+            break;
+          case 'with-consumption':
+            shouldCheck = consumption > 0;
+            break;
+          case 'no-consumption':
+            shouldCheck = consumption === 0;
+            break;
+        }
+
+        cb.checked = shouldCheck;
+      });
+
+      // Count how many checkboxes are now checked
+      const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+      console.log(`[STORES] Filter tab selected: ${filterType}, checked: ${checkedCount}/${checkboxes.length}`);
+    });
+  });
+
+  // Bind filter device search inside modal
+  const filterDeviceSearch = modal.querySelector("#filterDeviceSearch");
+  if (filterDeviceSearch) {
+    filterDeviceSearch.addEventListener("input", (e) => {
+      const query = (e.target.value || "").trim().toLowerCase();
+      const checkItems = modal.querySelectorAll("#deviceChecklist .check-item");
+
+      checkItems.forEach(item => {
+        const span = item.querySelector("span");
+        const text = (span?.textContent || "").toLowerCase();
+        item.style.display = text.includes(query) ? "flex" : "none";
+      });
+    });
+  }
+
+  // Bind clear filter search button
+  const filterDeviceClear = modal.querySelector("#filterDeviceClear");
+  if (filterDeviceClear && filterDeviceSearch) {
+    filterDeviceClear.addEventListener("click", () => {
+      filterDeviceSearch.value = "";
+      const checkItems = modal.querySelectorAll("#deviceChecklist .check-item");
+      checkItems.forEach(item => item.style.display = "flex");
+      filterDeviceSearch.focus();
+    });
+  }
+
+  console.log("[STORES] [RFC-0072] Modal handlers bound (close, apply, reset, filter tabs, search)");
+}
+
 function openFilterModal() {
-  const $m = $modal();
-  const $cl = $m.find("#deviceChecklist").empty();
+  console.log("[STORES] [RFC-0072] Opening filter modal...");
 
-  const list = (STATE.itemsBase || []).slice().sort((a, b) =>
-    (a.label || "").localeCompare(b.label || "", "pt-BR", {
-      sensitivity: "base",
-    })
-  );
+  // RFC-0072: Move modal to document.body for full-screen overlay
+  let globalContainer = document.getElementById('storesFilterModalGlobal');
 
-  if (!list.length) {
-    $cl.html('<div class="muted">Nenhuma loja carregada.</div>');
-    $m.removeClass("hidden");
+  if (!globalContainer) {
+    globalContainer = document.createElement('div');
+    globalContainer.id = 'storesFilterModalGlobal';
+
+    // Get the modal from the widget
+    const widgetModal = $root().find("#filterModal")[0];
+    if (widgetModal) {
+      // Add inline styles for the global container
+      globalContainer.innerHTML = `
+        <style>
+          #storesFilterModalGlobal .shops-modal {
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 999999 !important;
+            background: rgba(0, 0, 0, 0.6) !important;
+            backdrop-filter: blur(4px) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            animation: fadeIn 0.2s ease-in;
+          }
+
+          #storesFilterModalGlobal .shops-modal.hidden {
+            display: none !important;
+          }
+
+          #storesFilterModalGlobal .shops-modal-card {
+            background: #fff;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+          }
+
+          #storesFilterModalGlobal .shops-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid #E8EEF4;
+          }
+
+          #storesFilterModalGlobal .shops-modal-header h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            color: #3E1A7D;
+          }
+
+          #storesFilterModalGlobal .shops-modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+          }
+
+          #storesFilterModalGlobal .shops-modal-footer {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            padding: 16px 20px;
+            border-top: 1px solid #E8EEF4;
+          }
+
+          #storesFilterModalGlobal .filter-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+          }
+
+          #storesFilterModalGlobal .filter-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 12px;
+            background: #fff;
+            border: 1px solid #D6E1EC;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            color: #6b7a90;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+
+          #storesFilterModalGlobal .filter-tab:hover {
+            background: #f7fbff;
+            border-color: #1f6fb5;
+            color: #1f6fb5;
+          }
+
+          #storesFilterModalGlobal .filter-tab.active {
+            background: linear-gradient(135deg, rgba(62, 26, 125, 0.08) 0%, rgba(62, 26, 125, 0.12) 100%);
+            border-color: #3E1A7D;
+            color: #3E1A7D;
+            font-weight: 700;
+          }
+
+          #storesFilterModalGlobal .filter-search {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #D6E1EC;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+          }
+
+          #storesFilterModalGlobal .filter-search input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 13px;
+          }
+
+          #storesFilterModalGlobal .filter-search svg {
+            width: 18px;
+            height: 18px;
+            fill: #6b7a90;
+          }
+
+          #storesFilterModalGlobal .filter-search .clear-x {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+          }
+
+          #storesFilterModalGlobal .checklist {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #D6E1EC;
+            border-radius: 8px;
+            padding: 8px;
+          }
+
+          #storesFilterModalGlobal .check-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+          }
+
+          #storesFilterModalGlobal .check-item:hover {
+            background: #f8f9fa;
+          }
+
+          #storesFilterModalGlobal .check-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+          }
+
+          #storesFilterModalGlobal .check-item span {
+            font-size: 13px;
+            color: #1C2743;
+          }
+
+          #storesFilterModalGlobal .btn {
+            padding: 10px 16px;
+            border: 1px solid #D6E1EC;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+          }
+
+          #storesFilterModalGlobal .btn.primary {
+            background: #3E1A7D;
+            color: #fff;
+            border-color: #3E1A7D;
+          }
+
+          #storesFilterModalGlobal .btn.primary:hover {
+            background: #2F1460;
+          }
+
+          #storesFilterModalGlobal .block-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1C2743;
+            margin-bottom: 8px;
+          }
+
+          #storesFilterModalGlobal .radio-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+          }
+
+          #storesFilterModalGlobal .radio-grid label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border: 1px solid #D6E1EC;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+          }
+
+          #storesFilterModalGlobal .radio-grid label:hover {
+            background: #f8f9fa;
+          }
+
+          #storesFilterModalGlobal .muted {
+            font-size: 12px;
+            color: #6b7a90;
+            margin-top: 4px;
+          }
+
+          #storesFilterModalGlobal .icon-btn {
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            padding: 4px;
+          }
+
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+        </style>
+      `;
+
+      // Move modal content to global container
+      widgetModal.remove();
+      globalContainer.appendChild(widgetModal);
+
+      // Attach to document.body
+      document.body.appendChild(globalContainer);
+
+      // Bind close handlers now that modal is in document.body
+      setupModalCloseHandlers(widgetModal);
+
+      console.log("[STORES] [RFC-0072] Modal moved to document.body with inline styles and handlers");
+    } else {
+      console.error("[STORES] [RFC-0072] Filter modal not found in template");
+      return;
+    }
+  }
+
+  const modal = globalContainer.querySelector("#filterModal");
+  if (!modal) return;
+
+  modal.classList.remove("hidden");
+
+  // Calculate counts for filter tabs
+  const list = STATE.itemsBase || [];
+  const counts = {
+    all: list.length,
+    online: 0,
+    offline: 0,
+    withConsumption: 0,
+    noConsumption: 0
+  };
+
+  list.forEach(store => {
+    const consumption = Number(store.consumption) || Number(store.val) || 0;
+
+    // Use consumption as proxy for online/offline status
+    if (consumption > 0) {
+      counts.online++;
+      counts.withConsumption++;
+    } else {
+      counts.offline++;
+      counts.noConsumption++;
+    }
+  });
+
+  // Update count displays
+  const countAll = document.getElementById('countAll');
+  const countOnline = document.getElementById('countOnline');
+  const countOffline = document.getElementById('countOffline');
+  const countWithConsumption = document.getElementById('countWithConsumption');
+  const countNoConsumption = document.getElementById('countNoConsumption');
+
+  if (countAll) countAll.textContent = counts.all;
+  if (countOnline) countOnline.textContent = counts.online;
+  if (countOffline) countOffline.textContent = counts.offline;
+  if (countWithConsumption) countWithConsumption.textContent = counts.withConsumption;
+  if (countNoConsumption) countNoConsumption.textContent = counts.noConsumption;
+
+  console.log('[STORES] Filter counts:', counts);
+
+  // Populate device checklist
+  const checklist = globalContainer.querySelector("#deviceChecklist");
+  if (!checklist) {
+    console.error("[STORES] ❌ deviceChecklist element not found!");
     return;
   }
 
-  const selected = STATE.selectedIds;
-  const frag = document.createDocumentFragment();
+  checklist.innerHTML = "";
 
-  for (const it of list) {
-    const safeId =
-      String(it.id || "")
-        .replace(/[^a-zA-Z0-9_-]/g, "")
-        .slice(0, 60) || "id" + Math.random().toString(36).slice(2);
-    const checked = !selected || !selected.size || selected.has(it.id);
-
-    const label = document.createElement("label");
-    label.className = "check-item";
-    label.setAttribute("role", "option");
-    label.innerHTML = `
-      <input type="checkbox" id="chk-${safeId}" data-entity="${escapeHtml(
-      it.id
-    )}" ${checked ? "checked" : ""}>
-      <span>${escapeHtml(it.label || it.identifier || it.id)}</span>
-    `;
-    frag.appendChild(label);
-  }
-
-  $cl[0].appendChild(frag);
-  $m.find(`input[name="sortMode"][value="${STATE.sortMode}"]`).prop(
-    "checked",
-    true
+  const sortedList = list.slice().sort((a, b) =>
+    (a.label || "").localeCompare(b.label || "", "pt-BR", { sensitivity: "base" })
   );
 
-  const $footer = $m.find(".shops-modal-footer");
-  if ($footer.length)
-    $footer.show().find("#applyFilters, #resetFilters").show();
+  sortedList.forEach(store => {
+    const isChecked = !STATE.selectedIds || STATE.selectedIds.has(store.id);
 
-  syncChecklistSelectionVisual();
-  $m.removeClass("hidden");
+    const item = document.createElement("div");
+    item.className = "check-item";
+    item.innerHTML = `
+      <input type="checkbox" id="check-${store.id}" ${isChecked ? 'checked' : ''} data-entity="${store.id}">
+      <span>${escapeHtml(store.label || store.identifier || store.id)}</span>
+    `;
+    checklist.appendChild(item);
+  });
+
+  // Set sort mode
+  const sortRadio = modal.querySelector(`input[name="sortMode"][value="${STATE.sortMode}"]`);
+  if (sortRadio) sortRadio.checked = true;
+
+  console.log(`[STORES] Filter modal opened with ${list.length} stores`);
 }
 function closeFilterModal() {
+  // Try to find modal in global container first
+  const globalContainer = document.getElementById('storesFilterModalGlobal');
+  if (globalContainer) {
+    const modal = globalContainer.querySelector("#filterModal");
+    if (modal) {
+      modal.classList.add("hidden");
+      console.log("[STORES] [RFC-0072] Filter modal closed");
+      return;
+    }
+  }
+  // Fallback to original method
   $modal().addClass("hidden");
 }
 
@@ -2252,53 +2579,36 @@ function reflowFromState() {
 }
 
 /** ===================== HYDRATE (end-to-end) ===================== **/
+// RFC-0072: hydrateAndRender now uses orchestrator cache instead of API call
 async function hydrateAndRender() {
   if (hydrating) return;
   hydrating = true;
 
-  // Mostra modal durante todo o processo (mensagem fixa)
   showBusy();
 
   try {
-    // 0) Datas: obrigatórias
-    let range;
-    try {
-      range = mustGetDateRange();
-    } catch (_e) {
-      LogHelper.warn(
-        "[DeviceCards] Aguardando intervalo de datas (startDateISO/endDateISO)."
-      );
-      return;
-    }
-
-    // 1) Auth
-    const okAuth = await ensureAuthReady(6000, 150);
-    if (!okAuth) {
-      LogHelper.warn("[DeviceCards] Auth not ready; adiando hidratação.");
-      return;
-    }
-
-    // 2) Lista autoritativa
+    // Build items from TB datasource
     STATE.itemsBase = buildAuthoritativeItems();
+    console.log(`[STORES] Built ${STATE.itemsBase.length} stores from TB datasource`);
 
-    // 3) Totais na API
-    let apiMap = new Map();
-    try {
-      apiMap = await fetchApiTotals(range.startISO, range.endISO);
-    } catch (err) {
-      LogHelper.error("[DeviceCards] API error:", err);
-      apiMap = new Map();
+    // Use existing cache if available
+    if (energyCacheFromMain && energyCacheFromMain.size > 0) {
+      STATE.itemsEnriched = enrichItemsWithTotals(STATE.itemsBase, energyCacheFromMain);
+    } else {
+      // No cache yet - render with zero values
+      STATE.itemsEnriched = STATE.itemsBase.map((item) => ({
+        ...item,
+        value: 0,
+        consumption: 0,
+        perc: 0,
+      }));
+      console.warn("[STORES] No cache available yet, rendering with zero values");
     }
 
-    // 4) Enrich + render
-    STATE.itemsEnriched = enrichItemsWithTotals(STATE.itemsBase, apiMap);
-
-    // 5) Sanitiza seleção
+    // Sanitize selection
     if (STATE.selectedIds && STATE.selectedIds.size) {
       const valid = new Set(STATE.itemsBase.map((x) => x.id));
-      const next = new Set(
-        [...STATE.selectedIds].filter((id) => valid.has(id))
-      );
+      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
       STATE.selectedIds = next.size ? next : null;
     }
 
@@ -3086,21 +3396,40 @@ self.onInit = async function () {
     );
   }
 
-  // RFC-0042: OLD CODE - Direct API fetch (now handled by orchestrator)
-  if (hasData) {
-    STATE.firstHydrates++;
-    if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) {
-      await hydrateAndRender();
+  // RFC-0072: Wait for orchestrator and listen for energy cache (like EQUIPMENTS)
+  const orchestrator = await waitForOrchestrator();
+
+  if (orchestrator) {
+    const existingCache = orchestrator.getCache();
+
+    if (existingCache && existingCache.size > 0) {
+      // CAMINHO 1: Cache já existe (navegação de volta)
+      console.log("[STORES] Cache do Orquestrador já existe. Usando-o diretamente.");
+      await processAndRenderFromCache(existingCache);
+    } else {
+      // CAMINHO 2: Primeiro carregamento - aguardar evento
+      console.log("[STORES] Cache vazio. Aguardando evento 'myio:energy-data-ready'...");
+      const waitForEnergyCache = new Promise((resolve) => {
+        const handlerTimeout = setTimeout(() => {
+          console.warn("[STORES] Timeout esperando pelo evento de cache.");
+          resolve(null);
+        }, 15000);
+
+        const handler = (ev) => {
+          clearTimeout(handlerTimeout);
+          window.removeEventListener('myio:energy-data-ready', handler);
+          resolve(ev.detail.cache);
+        };
+        window.addEventListener('myio:energy-data-ready', handler);
+      });
+
+      const initialCache = await waitForEnergyCache;
+      await processAndRenderFromCache(initialCache);
     }
   } else {
-    // Aguardar datasource chegar
-    const waiter = setInterval(async () => {
-      if (Array.isArray(self.ctx.data) && self.ctx.data.length > 0) {
-        clearInterval(waiter);
-        STATE.firstHydrates++;
-        if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) await hydrateAndRender();
-      }
-    }, 200);
+    // Timeout - orchestrator não encontrado
+    console.error("[STORES] Orchestrator não encontrado!");
+    hideBusy();
   }
 
   // RFC-0079: Sub-menu navigation removed - now controlled by MENU widget
@@ -3134,6 +3463,14 @@ self.onDestroy = function () {
       "[RFC-0056] Event listener 'myio:telemetry:update' removido."
     );
   }
+
+  // RFC-0072: Clean up global filter modal container
+  const globalContainer = document.getElementById('storesFilterModalGlobal');
+  if (globalContainer) {
+    globalContainer.remove();
+    console.log('[STORES] [RFC-0072] Global modal container removed on destroy');
+  }
+
   try {
     $root().off();
   } catch (_e) {}

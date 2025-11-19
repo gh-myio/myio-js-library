@@ -57,6 +57,26 @@ if (!device) {
     device = devices[currentKey.trim()];
 }
 
+// ========== FIX: Device não encontrado - skip para próximo ==========
+if (!device) {
+    node.warn({
+        message: 'Device not found in devices list, skipping',
+        currIndex,
+        currentKey,
+        availableDevices: Object.keys(devices)
+    });
+
+    // Avança para o próximo índice
+    if (currIndex >= (keys.length - 1)) {
+        this.currIndex = 0;
+    } else {
+        this.currIndex = currIndex + 1;
+    }
+
+    // Retorna null para ignorar este ciclo
+    return null;
+}
+
 let excludedDays = [];
 if (currentKey in storedExcludedDays) {
   excludedDays = storedExcludedDays[currentKey].map((item) => item.excludedDays) // Dias pra excluir
@@ -211,14 +231,6 @@ if (currIndex >= (keys.length -1)) {
 }
 
 this.currIndex = currIndex;
-
-if (!device || !device.deviceName) {
-    node.warn({
-        currIndex,
-        device,
-        currentKey
-    })
-}
 
 // ========== OBSERVABILIDADE: Prepara dados para persistência ==========
 const timestamp = Date.now();
