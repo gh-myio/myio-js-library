@@ -1,315 +1,75 @@
-// ========== CORREÇÃO #1: Date handling sem string parsing ==========
-function atTimeLocal(base, hhmm) {
-  const [h, m] = hhmm.split(':').map(Number);
-  return new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m, 0, 0);
+// ARQUIVO: src/NODE-RED/functions/automaca-on-off/func-001-FeriadoCheck.js
+
+// ============================================================================
+// UTILITIES (Versão Corrigida V21 - Alinhada com o Engine)
+// ============================================================================
+
+function safeISO(d) {
+    if (!d) return null;
+    
+    // 1. Blindagem: Se for string YYYY-MM-DD, retorna intacta (Evita o bug do dia 24)
+    const s = String(d);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const match = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) return match[1];
+
+    // 2. Fallback: Se for Date, usa getters LOCAIS para manter o dia do sistema
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return null;
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
+
+function toISODate(d) { return safeISO(d); }
 
 function startOfDayLocal(d) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-}
-
-function toISODate(d) {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-// ========== AJUSTE #3: Safe date parsing ==========
-function safeISO(d) {
-  const x = new Date(d);
-  if (isNaN(x.getTime())) return null;
-  x.setHours(0, 0, 0, 0);
-  return toISODate(x);
+    const newD = new Date(d);
+    newD.setHours(0, 0, 0, 0);
+    return newD;
 }
 
 function subtractWeekDay(day) {
-  // Define the days of the week in an array with 3-letter abbreviations
-  const daysOfWeek = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-
-  const currentDayIndex = daysOfWeek.indexOf(day.toLowerCase());
-
-  const previousDayIndex = (currentDayIndex - 1 + daysOfWeek.length) % daysOfWeek.length;
-
-  return daysOfWeek[previousDayIndex];
+    const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const idx = days.indexOf(day.toLowerCase());
+    return days[(idx - 1 + days.length) % days.length];
 }
 
-
-let currIndex = this.currIndex || 0;
-
-const devices = flow.get('devices') || {};
-const storedSchedules = flow.get('stored_schedules') || {};
-const storedExcludedDays = flow.get('stored_excludedDays') || {}; // pegar do flow dias para excluir
-const storedHolidaysDays = flow.get('stored_holidays') || []; // pegar do flow feriados
-
-const keys = Object.keys(storedSchedules);
-
-if (keys.length === 0) {
-    node.warn('No schedules, ignoring');
-  // No stored schedules, ignoring...
-    return null;
+function atTimeLocal(base, hhmm) {
+    if (!hhmm) return null;
+    const [h, m] = hhmm.split(':').map(Number);
+    const d = new Date(base);
+    d.setHours(h, m, 0, 0);
+    return d;
 }
 
-const currentKey = keys[currIndex];
-let schedules = storedSchedules[currentKey];
-let device = devices[currentKey];
-if (!device) {
-    device = devices[currentKey.trim()];
-}
+// Função decide (Lógica Local + Precisão de 30s)
+function decide(retain, now, start, end) {
+    const n = now.getTime();
+    const s = start.getTime();
+    const e = end.getTime();
+    const tolerance = 30000; // 30s
 
-// ========== FIX: Device não encontrado - skip para próximo ==========
-if (!device) {
-    node.warn({
-        message: 'Device not found in devices list, skipping',
-        currIndex,
-        currentKey,
-        availableDevices: Object.keys(devices)
-    });
-
-    // Avança para o próximo índice
-    if (currIndex >= (keys.length - 1)) {
-        this.currIndex = 0;
+    if (!retain) {
+        // Pulso
+        if (Math.abs(n - s) <= tolerance) return [false, true];
+        if (Math.abs(n - e) <= tolerance) return [true, false];
+        return [false, false];
     } else {
-        this.currIndex = currIndex + 1;
+        // Retain
+        if (n >= s && n < e) return [false, true];
+        return [true, false];
     }
-
-    // Retorna null para ignorar este ciclo
-    return null;
 }
 
-let excludedDays = [];
-if (currentKey in storedExcludedDays) {
-  excludedDays = storedExcludedDays[currentKey].map((item) => item.excludedDays) // Dias pra excluir
-}
-
-// ========== CORREÇÃO #3: decide() com comparação em ms e tolerância ==========
-function decide(retain, now, start, end, toleranceMs = 30000) {
-  const n = now.getTime(), a = start.getTime(), b = end.getTime();
-  if (!retain) {
-    if (Math.abs(n - a) <= toleranceMs) return [false, true];   // ligar
-    if (Math.abs(n - b) <= toleranceMs) return [true,  false];  // desligar
-    return [false, false];
-  } else {
-    if (n >= a && n < b) return [false, true];
-    return [true, false];
-  }
-}
-
-const nowLocal = new Date();
-const today0h = startOfDayLocal(nowLocal);
-const isoToday = toISODate(today0h);
-
-let shouldActivate = false;
-let shouldShutdown = false;
-
-// msg.payload = schedules;
-
-// return msg;
-
-// ========== CORREÇÃO #2: Holiday exclusive filtering ==========
-// Detecta se hoje é feriado (com safe parsing)
-const isHolidayToday = (storedHolidaysDays || []).some(d => {
-  const iso = safeISO(d);
-  return iso && iso === isoToday;
-});
-
-// ========== AJUSTE #4: Ordenação segura por minutos ==========
-if (schedules) {
-  const toHM = h => {
-    const [H, M] = h.split(':').map(Number);
-    return H * 60 + M;
-  };
-  schedules = [...schedules].sort((a, b) => toHM(a.startHour) - toHM(b.startHour));
-}
-
-// Filtra schedules com base na política de feriado (ANTES do loop!)
-const holidayPolicy = flow.get('holiday_policy') || 'exclusive';
-if (holidayPolicy === 'exclusive') {
-  schedules = (schedules || []).filter(s => !!s.holiday === isHolidayToday);
-
-  // ========== AJUSTE #1: Feriado sem agenda ⇒ desliga ==========
-  if (isHolidayToday && (!schedules || schedules.length === 0)) {
-    shouldShutdown = true;
-    shouldActivate = false;
-  }
-}
-
-// ========== CORREÇÃO #6: Rastreia a agenda realmente aplicada ==========
-let appliedSchedule = null;
-
-// ========== AJUSTE #2: Acumula decisões para sobreposições ==========
-let anyAct = false, anyShut = false;
-
-const currWeekDay = nowLocal.toLocaleString('en-US', { weekday: 'short' }).toLowerCase();
-
-for (const schedule of schedules) {
-  // ========== CORREÇÃO #4: Constrói horários em local time ==========
-  const startTime = atTimeLocal(nowLocal, schedule.startHour);
-  const endTime = atTimeLocal(nowLocal, schedule.endHour);
-  const days = schedule.daysWeek;
-  const retain = schedule.retain;
-
-  // ========== CORREÇÃO #4: Midnight crossing com local time ==========
-  const crossesMidnight = startTime.getTime() > endTime.getTime();
-
-  if (crossesMidnight) {
-    const yesterday = subtractWeekDay(currWeekDay);
-    let acted = false;
-
-    if (days?.[yesterday]) {
-      const startYesterday = new Date(startTime.getTime() - 24 * 60 * 60 * 1000);
-      const [shut, act] = decide(retain, nowLocal, startYesterday, endTime);
-
-      anyAct = anyAct || act;
-      anyShut = anyShut || shut;
-      acted = (act || shut);
-
-      if (shut && nowLocal.getTime() > endTime.getTime() && !days?.[currWeekDay]) {
-        anyShut = false; // edge case: não desliga se hoje não é habilitado
-      }
-
-      if (acted) {
-        appliedSchedule = schedule; // Registra agenda aplicada
-      }
-    }
-
-    if (!acted && days?.[currWeekDay]) {
-      const endTomorrow = new Date(endTime.getTime() + 24 * 60 * 60 * 1000);
-      const [shut, act] = decide(retain, nowLocal, startTime, endTomorrow);
-
-      anyAct = anyAct || act;
-      anyShut = anyShut || shut;
-
-      if (act || shut) {
-        appliedSchedule = schedule; // Registra agenda aplicada
-      }
-    }
-  } else {
-    if (days?.[currWeekDay]) {
-      const [shut, act] = decide(retain, nowLocal, startTime, endTime);
-
-      anyAct = anyAct || act;
-      anyShut = anyShut || shut;
-
-      if (act || shut) {
-        appliedSchedule = schedule; // Registra agenda aplicada
-      }
-    }
-  }
-
-}
-
-// ========== AJUSTE #2: Resolve decisão consolidada ==========
-if (anyAct && !anyShut) {
-  shouldActivate = true;
-  shouldShutdown = false;
-} else if (!anyAct && anyShut) {
-  shouldActivate = false;
-  shouldShutdown = true;
-} else if (anyAct && anyShut) {
-  // Precedência: desligar vence
-  shouldActivate = false;
-  shouldShutdown = true;
-}
-
-// ========== CORREÇÃO #5: excludedDays sempre sobrepõe (em YYYY-MM-DD) ==========
-if (Array.isArray(excludedDays) && excludedDays.length) {
-  for (const ex of excludedDays) {
-    const iso = safeISO(ex);
-    if (iso && iso === isoToday) {
-      shouldShutdown = true;
-      shouldActivate = false;
-      break;
-    }
-  }
-}
-
-if (currIndex >= (keys.length -1)) {
-  currIndex = 0;
-} else {
-  currIndex += 1;
-}
-
-this.currIndex = currIndex;
-
-// ========== OBSERVABILIDADE: Prepara dados para persistência ==========
-const timestamp = Date.now();
-const deviceName = device.deviceName || 'unknown';
-const logKey = `automation_log_${deviceName.replace(/\s+/g, '')}_${timestamp}`;
-
-// ========== AJUSTE #5: Reason refinado com holiday_no_schedule ==========
-let reason = 'weekday';
-if (isHolidayToday) {
-  reason = 'holiday';
-}
-if (isHolidayToday && (!schedules || schedules.length === 0)) {
-  reason = 'holiday_no_schedule';
-}
-if (Array.isArray(excludedDays) && excludedDays.some(ex => safeISO(ex) === isoToday)) {
-  reason = 'excluded';
-}
-
-// ========== CORREÇÃO #6: Usa a agenda REALMENTE aplicada ==========
-const observability = {
-  logKey: logKey,
-  logData: {
-    device: deviceName,
-    deviceId: device.deviceId || currentKey,
-    action: shouldActivate ? 'ON' : 'OFF',
-    shouldActivate: shouldActivate,
-    shouldShutdown: shouldShutdown,
-    reason: reason,
-    schedule: appliedSchedule ? {
-      startHour: appliedSchedule.startHour,
-      endHour: appliedSchedule.endHour,
-      retain: appliedSchedule.retain,
-      holiday: appliedSchedule.holiday || false,
-      daysWeek: appliedSchedule.daysWeek
-    } : null,
-    context: {
-      isHolidayToday: isHolidayToday,
-      currentWeekDay: currWeekDay,
-      holidayPolicy: holidayPolicy,
-      totalSchedules: schedules ? schedules.length : 0
-    },
-    timestamp: nowLocal.toISOString(),
-    timestampMs: timestamp
-  }
+// Exportação
+module.exports = {
+    safeISO,
+    toISODate,
+    startOfDayLocal,
+    subtractWeekDay,
+    atTimeLocal,
+    decide
 };
-// ========== FIM OBSERVABILIDADE ==========
-
-return {
-  // atalhos de conveniência no topo (para quem usar direto)
-  deviceName: device.deviceName,
-  shouldActivate,
-  shouldShutdown,
-
-  // contrato oficial via payload
-  payload: {
-    currentIndex: currIndex,
-    length: keys.length,
-
-    // flags principais (contrato que Mesquita já usa)
-    shouldActivate,
-    shouldShutdown,
-
-    // contexto do device
-    device,
-    deviceName: device.deviceName,
-
-    // calendários
-    excludedDays,
-    storedHolidaysDays,
-
-    // datas de referência
-    currDate,       // hoje 00:00
-    currentTimeSP,  // “agora” local
-
-    // schedules já filtrados/aplicáveis
-    schedules,
-
-    // bloco novo de observabilidade (quando já estiver implantado)
-    _observability, // opcional: motivo, schedule aplicada, policy, etc.
-  },
-};
-
