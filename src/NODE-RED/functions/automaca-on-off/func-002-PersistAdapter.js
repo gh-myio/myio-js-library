@@ -17,7 +17,7 @@ try {
 
     // Se não tem dados de observabilidade, ignora este fluxo
     if (!payload || !payload._observability) {
-        node.warn('No observability data found, skipping persistence');
+        //node.warn('No observability data found, skipping persistence');
         return null;
     }
 
