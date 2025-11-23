@@ -595,4 +595,331 @@ describe('func-001-FeriadoCheck - Testes de Feriado Mandatório', () => {
       expect(result.totalSchedules).toBe(0);
     });
   });
+
+  describe('Categoria 9: Midnight Crossing Avançado 🌙🎯', () => {
+    test('✅ Feriado com agenda 22h-06h (midnight crossing)', () => {
+      const device = { deviceName: 'Test Device', deviceId: 'dev-1' };
+
+      // Schedule de feriado que cruza meia-noite
+      const schedules = [{
+        startHour: '22:00',
+        endHour: '06:00',
+        retain: true,
+        holiday: true,
+        daysWeek: {
+          sun: false, mon: false, tue: false, wed: false,
+          thu: false, fri: false, sat: false
+        }
+      }];
+
+      // Feriado quinta 02:00 (meio da janela 22h-06h)
+      const nowLocal = new Date(2025, 10, 20, 2, 0);
+
+      const result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: ['2025-11-20'],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+
+      // 22:00 < 02:00 < 06:00 (mas cruza meia-noite)
+      // Como é feriado e tem schedule de feriado, deve ativar
+      expect(result.shouldActivate).toBe(true);
+      expect(result.shouldShutdown).toBe(false);
+      expect(result.reason).toBe('holiday');
+      expect(result.isHolidayToday).toBe(true);
+    });
+
+    test('✅ Excluded day sobrepõe midnight crossing', () => {
+      const device = { deviceName: 'Test Device', deviceId: 'dev-2' };
+
+      const schedules = [{
+        startHour: '20:00',
+        endHour: '08:00',
+        retain: true,
+        holiday: false,
+        daysWeek: { sun: true, mon: false, tue: false, wed: false, thu: false, fri: false, sat: false }
+      }];
+
+      // Segunda 02:00 (dentro da janela domingo 20h até segunda 08h)
+      // Mas segunda está excluída
+      const nowLocal = new Date(2025, 5, 16, 2, 0); // 16/06/2025 segunda 02:00
+
+      const result = processDevice({
+        device,
+        schedules,
+        excludedDays: ['2025-06-16'],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+
+      // Excluded day prevalece sobre midnight crossing
+      expect(result.shouldActivate).toBe(false);
+      expect(result.shouldShutdown).toBe(true);
+      expect(result.reason).toBe('excluded');
+    });
+
+    test('✅ Múltiplas agendas midnight crossing com overlap', () => {
+      const device = { deviceName: 'Test Device', deviceId: 'dev-3' };
+
+      // Duas agendas que cruzam meia-noite com overlap
+      const schedules = [
+        {
+          startHour: '22:00',
+          endHour: '02:00',
+          retain: true,
+          holiday: false,
+          daysWeek: { sun: true, mon: false, tue: false, wed: false, thu: false, fri: false, sat: false }
+        },
+        {
+          startHour: '01:00',
+          endHour: '05:00',
+          retain: true,
+          holiday: false,
+          daysWeek: { sun: false, mon: true, tue: false, wed: false, thu: false, fri: false, sat: false }
+        }
+      ];
+
+      // Segunda 01:30 (overlap de ambas as agendas)
+      // Agenda 1: domingo 22h-02h (segunda) → dentro
+      // Agenda 2: segunda 01h-05h → dentro
+      const nowLocal = new Date(2025, 5, 16, 1, 30); // 16/06/2025 segunda 01:30
+
+      const result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+
+      // Ambas as agendas dizem ativar → acumula
+      expect(result.shouldActivate).toBe(true);
+      expect(result.shouldShutdown).toBe(false);
+      expect(result.appliedSchedule).toBeDefined();
+    });
+
+    test('✅ Midnight crossing fora do horário (antes de começar)', () => {
+      const device = { deviceName: 'Test Device', deviceId: 'dev-4' };
+
+      const schedules = [{
+        startHour: '23:00',
+        endHour: '06:00',
+        retain: true,
+        holiday: false,
+        daysWeek: { sun: true, mon: false, tue: false, wed: false, thu: false, sat: false }
+      }];
+
+      // Segunda 10:00 (fora da janela domingo 23h-06h)
+      // Segunda não está habilitada, então não faz nada
+      const nowLocal = new Date(2025, 5, 16, 10, 0);
+
+      const result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+
+      // 10:00 está fora da janela E segunda não está nos daysWeek
+      // Comportamento: não ativa, não desliga (dia não habilitado)
+      expect(result.shouldActivate).toBe(false);
+      expect(result.shouldShutdown).toBe(false);
+    });
+
+    test('✅ Midnight crossing edge: exatamente no startTime', () => {
+      const device = { deviceName: 'Test Device', deviceId: 'dev-5' };
+
+      const schedules = [{
+        startHour: '22:00',
+        endHour: '06:00',
+        retain: false, // Modo pulse (só ativa no horário exato)
+        holiday: false,
+        daysWeek: { mon: true, tue: false, wed: false, thu: false, fri: false, sat: false, sun: false }
+      }];
+
+      // Segunda 22:00 (exatamente no startTime)
+      const nowLocal = new Date(2025, 5, 16, 22, 0);
+
+      const result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+
+      // retain=false → só ativa no horário exato
+      expect(result.shouldActivate).toBe(true);
+      expect(result.shouldShutdown).toBe(false);
+    });
+
+    test('✅ Midnight crossing edge: exatamente no endTime', () => {
+      const device = { deviceName: 'Test Device', deviceId: 'dev-6' };
+
+      const schedules = [{
+        startHour: '22:00',
+        endHour: '06:00',
+        retain: false, // Modo pulse
+        holiday: false,
+        daysWeek: { sun: true, mon: false, tue: false, wed: false, thu: false, fri: false, sat: false }
+      }];
+
+      // Segunda 06:00 (exatamente no endTime)
+      const nowLocal = new Date(2025, 5, 16, 6, 0);
+
+      const result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+
+      // retain=false → desliga no horário exato
+      expect(result.shouldActivate).toBe(false);
+      expect(result.shouldShutdown).toBe(true);
+    });
+
+    test('🐛 BUG: Sábado 18:14 com schedule 17:45-05:30 (todos dias ativos)', () => {
+      const device = { deviceName: 'Totem Publicidade', deviceId: 'totem-1' };
+
+      const schedules = [{
+        startHour: '17:45',
+        endHour: '05:30',
+        retain: true,
+        holiday: false,
+        daysWeek: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: true, sun: true }
+      }];
+
+      // Sábado 18:14 (após início 17:45, antes do fim 05:30 de domingo)
+      const nowLocal = new Date(2025, 10, 22, 18, 14, 38);
+
+      const result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+
+      // 17:45 < 18:14 < 05:30 (amanhã) → DENTRO da janela
+      expect(result.shouldActivate).toBe(true);
+      expect(result.shouldShutdown).toBe(false);
+      expect(result.currWeekDay).toBe('sat');
+    });
+
+    test('Schedule 17:30-05:30 (todos dias) - múltiplos horários', () => {
+      const device = { deviceName: 'Test Device', deviceId: 'test-1' };
+
+      const schedules = [{
+        startHour: '17:30',
+        endHour: '05:30',
+        retain: true,
+        holiday: false,
+        daysWeek: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: true, sun: true }
+      }];
+
+      // Caso 1: Antes do início (17:00) → Deve desativar
+      let nowLocal = new Date(2025, 10, 22, 17, 0, 0); // Sábado 17:00
+      let result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+      expect(result.shouldActivate).toBe(false);
+      expect(result.shouldShutdown).toBe(true);
+
+      // Caso 2: Exatamente no início (17:30) → Deve ativar
+      nowLocal = new Date(2025, 10, 22, 17, 30, 0); // Sábado 17:30
+      result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+      expect(result.shouldActivate).toBe(true);
+      expect(result.shouldShutdown).toBe(false);
+
+      // Caso 3: Durante período noturno (22:00) → Deve ativar
+      nowLocal = new Date(2025, 10, 22, 22, 0, 0); // Sábado 22:00
+      result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+      expect(result.shouldActivate).toBe(true);
+      expect(result.shouldShutdown).toBe(false);
+
+      // Caso 4: Após meia-noite (02:00) → Deve ativar
+      nowLocal = new Date(2025, 10, 23, 2, 0, 0); // Domingo 02:00
+      result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+      expect(result.shouldActivate).toBe(true);
+      expect(result.shouldShutdown).toBe(false);
+
+      // Caso 5: No horário de fim (05:30) → Deve desativar (endTime não está incluído com retain)
+      // Com retain: true, a condição é n >= a && n < b, então 05:30 não está incluído
+      nowLocal = new Date(2025, 10, 23, 5, 30, 0); // Domingo 05:30
+      result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+      expect(result.shouldActivate).toBe(false);
+      expect(result.shouldShutdown).toBe(true);
+
+      // Caso 6: Após o fim (06:00) → Deve desativar
+      nowLocal = new Date(2025, 10, 23, 6, 0, 0); // Domingo 06:00
+      result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+      expect(result.shouldActivate).toBe(false);
+      expect(result.shouldShutdown).toBe(true);
+
+      // Caso 7: Durante manhã/tarde (12:00) → Deve desativar
+      nowLocal = new Date(2025, 10, 23, 12, 0, 0); // Domingo 12:00
+      result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+      expect(result.shouldActivate).toBe(false);
+      expect(result.shouldShutdown).toBe(true);
+    });
+  });
 });

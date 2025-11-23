@@ -166,31 +166,31 @@ for (const schedule of schedules) {
 
   if (crossesMidnight) {
     const yesterday = subtractWeekDay(currWeekDay);
-    let acted = false;
 
     // Para schedules de feriado, ignora daysWeek se hoje é feriado
     const shouldCheckYesterday = (isHolidaySchedule && isHolidayToday) || (days && days[yesterday]);
+    const shouldCheckToday = (isHolidaySchedule && isHolidayToday) || (days && days[currWeekDay]);
 
+    // Verifica período que iniciou ontem e termina hoje
     if (shouldCheckYesterday) {
       const startYesterday = new Date(startTime.getTime() - 24 * 60 * 60 * 1000);
       const [shut, act] = decide(retain, nowLocal, startYesterday, endTime);
 
       anyAct = anyAct || act;
       anyShut = anyShut || shut;
-      acted = (act || shut);
 
       if (shut && nowLocal.getTime() > endTime.getTime() && (!days || !days[currWeekDay])) {
         anyShut = false; // edge case: não desliga se hoje não é habilitado
       }
 
-      if (acted) {
+      if (act || shut) {
         appliedSchedule = schedule; // Registra agenda aplicada
       }
     }
 
-    const shouldCheckToday = (isHolidaySchedule && isHolidayToday) || (days && days[currWeekDay]);
-
-    if (!acted && shouldCheckToday) {
+    // Verifica período que inicia hoje e termina amanhã
+    // IMPORTANTE: Sempre verifica se hoje está habilitado, independente de "ontem"
+    if (shouldCheckToday) {
       const endTomorrow = new Date(endTime.getTime() + 24 * 60 * 60 * 1000);
       const [shut, act] = decide(retain, nowLocal, startTime, endTomorrow);
 
@@ -227,9 +227,10 @@ if (anyAct && !anyShut) {
   shouldActivate = false;
   shouldShutdown = true;
 } else if (anyAct && anyShut) {
-  // Precedência: desligar vence
-  shouldActivate = false;
-  shouldShutdown = true;
+  // Precedência: ATIVAR vence (mudança para suportar midnight crossing com todos dias ativos)
+  // Se há pelo menos um período ativo, mantém ativo
+  shouldActivate = true;
+  shouldShutdown = false;
 }
 
 // ========== CORREÇÃO #5: excludedDays sempre sobrepõe (em YYYY-MM-DD) ==========
