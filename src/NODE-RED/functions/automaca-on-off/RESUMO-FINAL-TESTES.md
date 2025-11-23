@@ -4,12 +4,12 @@
 
 ```
 Test Suites: 1 passed, 1 total
-Tests:       37 passed, 37 total
+Tests:       41 passed, 41 total
 Snapshots:   0 total
-Time:        1.286 s
+Time:        1.549 s
 ```
 
-**✅ 100% dos testes passando (37/37)**
+**✅ 100% dos testes passando (41/41)**
 
 ---
 
@@ -64,13 +64,19 @@ Time:        1.286 s
 - ✅ Múltiplos schedules filtrados por exclusive policy
 - ✅ Feriado sem schedule de feriado → desliga tudo
 
-### Categoria 10: Midnight Crossing Avançado 🌙🎯 (6 testes) ⭐ **NOVO!**
+### Categoria 10: Midnight Crossing Avançado 🌙🎯 (8 testes)
 - ✅ Feriado com agenda 22h-06h (midnight crossing)
 - ✅ Excluded day sobrepõe midnight crossing
 - ✅ Múltiplas agendas midnight crossing com overlap
 - ✅ Midnight crossing fora do horário (antes de começar)
 - ✅ Midnight crossing edge: exatamente no startTime
 - ✅ Midnight crossing edge: exatamente no endTime
+- ✅ 🐛 BUG: Sábado 18:14 com schedule 17:45-05:30 (todos dias ativos)
+- ✅ Schedule 17:30-05:30 (todos dias) - múltiplos horários
+
+### Categoria 11: Bug - Holiday com daysWeek 🐛 (2 testes) ⭐ **NOVO!**
+- ✅ 🐛 BUG: Agenda com holiday=true + daysWeek deve funcionar em dias normais
+- ✅ Agenda com holiday=true deve funcionar EM FERIADO também
 
 ---
 
@@ -84,9 +90,10 @@ Time:        1.286 s
 ### ✅ Holiday Schedules
 - Feriados com agenda específica
 - Feriados sem agenda (desliga tudo)
-- Ignora `daysWeek` quando `holiday: true`
-- Exclusive policy filtering
+- Holiday schedule com daysWeek (funciona em feriados E dias normais)
+- Exclusive policy filtering (corrigido para ser inclusivo)
 - **NOVO:** Midnight crossing com feriados
+- **FIX:** `holiday: true` + `daysWeek` agora funciona em dias normais
 
 ### ✅ Midnight Crossing
 - Schedule que cruza meia-noite (ex: 22:00-06:00)
@@ -111,7 +118,7 @@ Time:        1.286 s
 ### ✅ Multiple Schedules
 - Ordenação por horário de início
 - Acumulação de decisões (anyAct/anyShut)
-- Shutdown vence em conflitos
+- Activate vence em conflitos (mudado de shutdown vence)
 - Registro da última agenda aplicada
 - **NOVO:** Overlap de múltiplas agendas midnight crossing
 
@@ -123,9 +130,11 @@ Time:        1.286 s
 |--------|--------|--------|
 | Inicial | 24 | ✅ Passando |
 | + Timezone & Produção | 31 | ✅ Passando |
-| + Midnight Avançado | **37** | ✅ **Passando** |
+| + Midnight Avançado | 37 | ✅ Passando |
+| + Bug Fix Midnight Todos Dias | 39 | ✅ Passando |
+| + Bug Fix Holiday Filter | **41** | ✅ **Passando** |
 
-**Aumento de cobertura:** +54% (de 24 para 37 testes)
+**Aumento de cobertura:** +71% (de 24 para 41 testes)
 
 ---
 
@@ -187,6 +196,8 @@ npx jest src/NODE-RED/functions/automaca-on-off/tests/func-001-FeriadoCheck.test
 
 - `ANALISE-MIDNIGHT-CROSSING.md` - Análise comparativa detalhada
 - `PLANO-MIDNIGHT-CROSSING.md` - Plano de ação e recomendações
+- `BUG-FIX-MIDNIGHT-TODOS-DIAS.md` - Fix do bug midnight crossing com todos dias ativos
+- `BUG-FIX-HOLIDAY-FILTER.md` - Fix do filtro holiday com daysWeek
 - `func-001-FeriadoCheck.js` - Implementação principal
 - `lib/scheduleEngine.js` - Core logic
 - `lib/utilities.js` - Funções auxiliares

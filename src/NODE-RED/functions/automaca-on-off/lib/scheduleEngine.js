@@ -61,19 +61,25 @@ function processDevice(options) {
 
   // Filtra schedules com base na política de feriado
   if (holidayPolicy === 'exclusive') {
-    sortedSchedules = sortedSchedules.filter(s => !!s.holiday === isHolidayToday);
+    if (isHolidayToday) {
+      // Em FERIADO: mantém APENAS schedules com holiday=true
+      sortedSchedules = sortedSchedules.filter(s => s.holiday === true);
 
-    // Feriado sem agenda ⇒ desliga
-    if (isHolidayToday && sortedSchedules.length === 0) {
-      return {
-        shouldActivate: false,
-        shouldShutdown: true,
-        appliedSchedule: null,
-        reason: 'holiday_no_schedule',
-        isHolidayToday,
-        totalSchedules: 0
-      };
+      // Feriado sem agenda de feriado ⇒ desliga
+      if (sortedSchedules.length === 0) {
+        return {
+          shouldActivate: false,
+          shouldShutdown: true,
+          appliedSchedule: null,
+          reason: 'holiday_no_schedule',
+          isHolidayToday,
+          totalSchedules: 0
+        };
+      }
     }
+    // Em DIA NORMAL: mantém TODOS os schedules
+    // - schedules com holiday=false usarão daysWeek normalmente
+    // - schedules com holiday=true TAMBÉM podem usar daysWeek em dias normais
   }
 
   // Acumula decisões para sobreposições

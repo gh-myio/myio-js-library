@@ -136,13 +136,19 @@ if (schedules) {
 // Filtra schedules com base na política de feriado (ANTES do loop!)
 const holidayPolicy = flow.get('holiday_policy') || 'exclusive';
 if (holidayPolicy === 'exclusive') {
-  schedules = (schedules || []).filter(s => !!s.holiday === isHolidayToday);
+  if (isHolidayToday) {
+    // Em FERIADO: mantém APENAS schedules com holiday=true
+    schedules = (schedules || []).filter(s => s.holiday === true);
 
-  // ========== AJUSTE #1: Feriado sem agenda ⇒ desliga ==========
-  if (isHolidayToday && (!schedules || schedules.length === 0)) {
-    shouldShutdown = true;
-    shouldActivate = false;
+    // Feriado sem agenda de feriado ⇒ desliga
+    if (!schedules || schedules.length === 0) {
+      shouldShutdown = true;
+      shouldActivate = false;
+    }
   }
+  // Em DIA NORMAL: mantém TODOS os schedules
+  // - schedules com holiday=false usarão daysWeek normalmente
+  // - schedules com holiday=true TAMBÉM podem usar daysWeek em dias normais
 }
 
 // ========== CORREÇÃO #6: Rastreia a agenda realmente aplicada ==========

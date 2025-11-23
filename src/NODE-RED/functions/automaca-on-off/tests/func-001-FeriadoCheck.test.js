@@ -922,4 +922,65 @@ describe('func-001-FeriadoCheck - Testes de Feriado Mandatório', () => {
       expect(result.shouldShutdown).toBe(true);
     });
   });
+
+  // Categoria 10: Bug - Holiday com daysWeek 🐛
+  describe('Categoria 10: Bug - Holiday com daysWeek 🐛', () => {
+    test('🐛 BUG: Agenda com holiday=true + daysWeek deve funcionar em dias normais', () => {
+      const device = { deviceName: 'Test Device', deviceId: 'test-1' };
+
+      // Agenda com holiday=true E daysWeek configurado
+      const schedules = [{
+        startHour: '17:30',
+        endHour: '05:30',
+        retain: true,
+        holiday: true,  // ← Marcado como holiday
+        daysWeek: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: true, sun: true }
+      }];
+
+      // Sábado normal (NÃO é feriado) às 18:00
+      const nowLocal = new Date(2025, 10, 22, 18, 0, 0);
+
+      const result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [], // ← Lista vazia = não é feriado
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+
+      // ✅ ESPERADO: Deveria usar daysWeek e ativar (sábado está marcado)
+      // Com o fix aplicado, schedules com holiday=true TAMBÉM funcionam em dias normais
+      expect(result.shouldActivate).toBe(true);
+      expect(result.shouldShutdown).toBe(false);
+    });
+
+    test('✅ Agenda com holiday=true deve funcionar EM FERIADO também', () => {
+      const device = { deviceName: 'Test Device', deviceId: 'test-1' };
+
+      const schedules = [{
+        startHour: '17:30',
+        endHour: '05:30',
+        retain: true,
+        holiday: true,
+        daysWeek: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: true, sun: true }
+      }];
+
+      // Feriado às 18:00
+      const nowLocal = new Date(2025, 10, 22, 18, 0, 0);
+
+      const result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: ['2025-11-22'], // ← É feriado
+        nowLocal,
+        holidayPolicy: 'exclusive'
+      });
+
+      // ✅ Esse caso JÁ funciona corretamente
+      expect(result.shouldActivate).toBe(true);
+      expect(result.shouldShutdown).toBe(false);
+    });
+  });
 });
