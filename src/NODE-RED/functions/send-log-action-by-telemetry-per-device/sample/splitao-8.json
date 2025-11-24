@@ -1,0 +1,21 @@
+{
+  "action": "ON",
+  "shouldActivate": true,
+  "shouldShutdown": false,
+  "reason": "weekday",
+  "schedule": {
+    "startHour": "06:30",
+    "endHour": "20:40",
+    "retain": true,
+    "holiday": false,
+    "daysWeek": {
+      "mon": true,
+      "tue": true,
+      "wed": true,
+      "thu": true,
+      "fri": true,
+      "sat": true,
+      "sun": false
+    }
+  }
+}

@@ -117,7 +117,8 @@ npm run test:watch
 | **persister-schedule** | 25 | >85% | ✅ |
 | **log-cleanup** | 18 | >85% | ✅ |
 | **telemetry-adapter** | 34 | >85% | ✅ |
-| **Total** | **122** | ~85% | ✅ |
+| **daily-summary** | 30 | >80% | ✅ |
+| **Total** | **152** | ~85% | ✅ |
 
 ### automacao-on-off (45 tests)
 - func-001-FeriadoCheck.test.js: 45 tests (includes 4 global AutoON tests)
@@ -128,8 +129,11 @@ npm run test:watch
 ### log-cleanup (18 tests)
 - func-003-LogCleanup.test.js: 18 tests
 
-### telemetry-adapter (40 tests)
-- func-004-TelemetryAdapter.test.js: 40 tests
+### telemetry-adapter (34 tests)
+- func-004-TelemetryAdapter.test.js: 34 tests
+
+### daily-summary (30 tests)
+- func-005-DailySummary.test.js: 30 tests
 
 ## 🔧 Configuration Files
 
@@ -352,5 +356,5 @@ jobs:
 ---
 
 **Last Updated:** 2025-11-24
-**Total Tests:** 122 (45 + 25 + 18 + 34)
+**Total Tests:** 152 (45 + 25 + 18 + 34 + 30)
 **Status:** ✅ All Passing
