@@ -37,6 +37,7 @@ LogHelper.log(
 
 const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
 const MAX_FIRST_HYDRATES = 1;
+let MAP_INSTANTANEOUS_POWER;
 
 let __deviceProfileSyncComplete = false;
 
@@ -871,19 +872,28 @@ function buildAuthoritativeItems() {
     // Calculate deviceStatus based on connectionStatus and current telemetry value
     // connectionStatus comes from TB attribute: "online" or "offline"
     const tbConnectionStatus = attrs.connectionStatus; // "online" or "offline" from TB
+
+    console.log('tbConnectionStatus', tbConnectionStatus);
+    
+    
     let deviceStatus = "no_info"; // default
 
     if (tbConnectionStatus === "offline") {
       deviceStatus = "no_info"; // offline = no_info
     } else if (tbConnectionStatus === "online") {
       // If online, check if device has recent consumption/level > 0
-      let currentValue = 0;
-      if (isTankDevice) {
-        currentValue = waterLevel || 0;
-      } else {
-        currentValue = consumption || 0;
-      }
-      deviceStatus = currentValue > 0 ? "power_on" : "power_off";
+      // let currentValue = 0;
+      // if (isTankDevice) {
+      //   currentValue = waterLevel || 0;
+      // } else {
+      //   currentValue = consumption || 0;
+      // }
+      // console.log('consumption', consumption);
+      
+      // console.log('currentValue', currentValue);
+      
+      //deviceStatus = currentValue > 0 ? "power_on" : "power_off";
+      deviceStatus = "power_on"; // Simplified logic: if online, consider power_on
     }
 
     return {
@@ -904,6 +914,7 @@ function buildAuthoritativeItems() {
       // TANK/CAIXA_DAGUA specific fields
       waterLevel: waterLevel,
       waterPercentage: waterPercentage,
+      mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
       // Use waterLevel as the value for TANK devices (instead of from /totals API)
       value: isTankDevice ? (waterLevel || 0) : 0,
       perc: isTankDevice ? (waterPercentage || 0) : 0,
@@ -1037,6 +1048,7 @@ function renderList(visible) {
 
   visible.forEach((it) => {
     const valNum = Number(it.value || 0);
+    
     // Note: deviceStatus comes from buildAuthoritativeItems (based on TB connectionStatus + telemetry)
     // Don't recalculate here - it would be incorrect for ENERGY devices
 
@@ -1069,10 +1081,11 @@ function renderList(visible) {
         deviceIdentifierToDisplay = "N/A";
       }
     }
+    
 
     const entityObject = {
       entityId: it.tbId || it.id, // preferir TB deviceId
-      labelOrName: it.label,
+      labelOrName: it.label.toUpperCase(),
       deviceType: it.label.includes("dministra") ? "3F_MEDIDOR" : it.deviceType,
       val: valNum, // TODO verificar ESSE MULTIPLICADOR PQ PRECISA DELE ?
       perc: it.perc ?? 0,
@@ -1345,26 +1358,26 @@ function renderList(visible) {
         }
         const jwt = localStorage.getItem("jwt_token");
         try {
-          console.log("it", it);
-          console.log("connectionStatus", connectionStatus);
 
           await MyIO.openDashboardPopupSettings({
             deviceId: tbId, // TB deviceId
             label: it.label,
             jwtToken: jwt,
             domain: WIDGET_DOMAIN,
+            deviceType: it.deviceType,
             connectionData: {
               centralName: it.centralName,
               connectionStatusTime: it.connectionStatusTime || Date.now(),
               timeVal: it.timeVal || Date.now(),
-              deviceStatus: connectionStatus,
+              deviceStatus: it.deviceStatus || "no_info",
             },
             ui: { title: "Configurações", width: 900 },
+            mapInstantaneousPower: it.mapInstantaneousPower, // RFC-0078: Pass existing map if available
             onSaved: (payload) => {
               LogHelper.log("[Settings Saved]", payload);
               //hideBusy();
               // Mostra modal global de sucesso com contador e reload
-              showGlobalSuccessModal(6);
+              // showGlobalSuccessModal(6);
             },
             onClose: () => {
               $(".myio-settings-modal-overlay").remove();
@@ -2756,6 +2769,9 @@ self.onInit = async function () {
     CLIENT_ID = attrs?.client_id || "";
     CLIENT_SECRET = attrs?.client_secret || "";
     CUSTOMER_ING_ID = attrs?.ingestionId || "";
+    MAP_INSTANTANEOUS_POWER = attrs?.mapInstantaneousPower ? JSON.parse(attrs?.mapInstantaneousPower) : null;
+    
+    
 
     // Expõe credenciais globalmente para uso no FOOTER (modal de comparação)
     window.__MYIO_CLIENT_ID__ = CLIENT_ID;
