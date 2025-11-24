@@ -2989,16 +2989,35 @@ function openFilterModal() {
     }
   });
 
-  // Update count displays
-  document.getElementById('countAll').textContent = counts.all;
-  document.getElementById('countOnline').textContent = counts.online;
-  document.getElementById('countOffline').textContent = counts.offline;
-  document.getElementById('countWithConsumption').textContent = counts.withConsumption;
-  document.getElementById('countNoConsumption').textContent = counts.noConsumption;
-  document.getElementById('countElevators').textContent = counts.elevators;
-  document.getElementById('countEscalators').textContent = counts.escalators;
-  document.getElementById('countHvac').textContent = counts.hvac;
-  document.getElementById('countOthers').textContent = counts.others;
+  // Update count displays - use globalContainer.querySelector to avoid duplicate ID issues
+  const countAll = globalContainer.querySelector('#countAll');
+  const countOnline = globalContainer.querySelector('#countOnline');
+  const countOffline = globalContainer.querySelector('#countOffline');
+  const countWithConsumption = globalContainer.querySelector('#countWithConsumption');
+  const countNoConsumption = globalContainer.querySelector('#countNoConsumption');
+  const countElevators = globalContainer.querySelector('#countElevators');
+  const countEscalators = globalContainer.querySelector('#countEscalators');
+  const countHvac = globalContainer.querySelector('#countHvac');
+  const countOthers = globalContainer.querySelector('#countOthers');
+
+  // Debug: check if elements were found
+  LogHelper.log('[EQUIPMENTS] Count elements found:', {
+    countAll: !!countAll,
+    countOnline: !!countOnline,
+    countOffline: !!countOffline,
+    countWithConsumption: !!countWithConsumption,
+    countNoConsumption: !!countNoConsumption
+  });
+
+  if (countAll) countAll.textContent = counts.all;
+  if (countOnline) countOnline.textContent = counts.online;
+  if (countOffline) countOffline.textContent = counts.offline;
+  if (countWithConsumption) countWithConsumption.textContent = counts.withConsumption;
+  if (countNoConsumption) countNoConsumption.textContent = counts.noConsumption;
+  if (countElevators) countElevators.textContent = counts.elevators;
+  if (countEscalators) countEscalators.textContent = counts.escalators;
+  if (countHvac) countHvac.textContent = counts.hvac;
+  if (countOthers) countOthers.textContent = counts.others;
 
   LogHelper.log('[EQUIPMENTS] Filter counts:', counts);
 
