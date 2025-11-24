@@ -12,12 +12,15 @@ src/NODE-RED/
 │   ├── automacao-on-off/
 │   │   └── tests/
 │   │       ├── jest.config.js
-│   │       ├── func-001-FeriadoCheck.test.js (41 tests)
-│   │       └── func-003-LogCleanup.test.js (18 tests)
-│   └── persister-schedule/
+│   │       └── func-001-FeriadoCheck.test.js (41 tests)
+│   ├── persister-schedule/
+│   │   └── tests/
+│   │       ├── jest.config.js
+│   │       └── func-002-PersistAdapter.test.js (25 tests)
+│   └── log-cleanup/
 │       └── tests/
 │           ├── jest.config.js
-│           └── func-002-PersistAdapter.test.js (28 tests)
+│           └── func-003-LogCleanup.test.js (18 tests)
 ```
 
 ## 🎯 Benefits of Centralized Dependencies

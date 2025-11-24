@@ -11,7 +11,8 @@
     "test:edge": "jest --testNamePattern='Edge Cases'",
     "test:automacao": "jest --config=functions/automacao-on-off/tests/jest.config.js",
     "test:persister": "jest --config=functions/persister-schedule/tests/jest.config.js",
-    "test:all-modules": "npm run test:automacao && npm run test:persister"
+    "test:log-cleanup": "jest --config=functions/log-cleanup/tests/jest.config.js",
+    "test:all-modules": "npm run test:automacao && npm run test:persister && npm run test:log-cleanup"
   },
   "jest": {
     "testEnvironment": "node",
