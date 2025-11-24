@@ -181,8 +181,8 @@ function resolvePalette(attrs) {
   const palette = {
     primary: settings.primaryColor || attrs['home.brand.palette']?.primary || DEFAULT_PALETTE.primary,
     secondary: settings.secondaryColor || attrs['home.brand.palette']?.secondary || DEFAULT_PALETTE.secondary,
-    gradientStart: settings.gradientStartColor || attrs['home.brand.palette']?.gradientStart || DEFAULT_PALETTE.gradientStart,
-    gradientEnd: settings.gradientEndColor || attrs['home.brand.palette']?.gradientEnd || DEFAULT_PALETTE.gradientEnd,
+    gradientStart: attrs['home.brand.palette']?.gradientStart || DEFAULT_PALETTE.gradientStart,
+    gradientEnd: attrs['home.brand.palette']?.gradientEnd || DEFAULT_PALETTE.gradientEnd,
     ink: settings.textColor || attrs['home.brand.palette']?.ink || DEFAULT_PALETTE.ink,
     muted: settings.mutedTextColor || attrs['home.brand.palette']?.muted || DEFAULT_PALETTE.muted,
     userMenuBg: settings.userMenuBackgroundColor || "rgba(255, 255, 255, 0.15)",

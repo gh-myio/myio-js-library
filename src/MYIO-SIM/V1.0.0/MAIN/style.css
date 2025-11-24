@@ -22,7 +22,10 @@
     max-height: 46px !important;
     padding: 0 !important;
     margin: 0 !important;
-    overflow: visible !important;
+    overflow: visible !important; /* Permite que menus/tooltips saiam do footer */
+    z-index: 1000;
+    position: relative;
+    background: transparent !important;
 }
 
 /* RFC-0058: tb-dashboard-state child must fill parent completely */
@@ -65,17 +68,27 @@
     position: relative;
 }
 
-#container > section:last-child .mat-card,
-#container > section:last-child .mat-mdc-card,
+#container > section:last-child tb-dashboard-state,
+#container > section:last-child .content, /* Seu seletor original */
+#container > section:last-child .tb-widget-container,
 #container > section:last-child .tb-widget,
 #container > section:last-child .tb-widget-content,
-#container > section:last-child tb-dashboard-state {
+#container > section:last-child .tb-absolute-container,
+#container > section:last-child .mat-card,
+#container > section:last-child .tb-dashboard-state-component,
+#container > section:last-child tb-dynamic-component,
+#container > section:last-child tb-dynamic-component > div
+#container > section:last-child .mat-mdc-card {
+    height: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background: transparent !important;
     background-color: transparent !important;
     box-shadow: none !important;
     border: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    overflow: visible !important;
+    display: block !important;
 }
 
 /* 2. Garante que o container ocupe 100% da altura de 46px */

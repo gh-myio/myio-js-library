@@ -42,16 +42,6 @@
         "type": "string",
         "default": "#B8C2D8"
       },
-      "gradientStartColor": {
-        "title": "Background Gradient Start",
-        "type": "string",
-        "default": "rgba(10,18,44,0.55)"
-      },
-      "gradientEndColor": {
-        "title": "Background Gradient End",
-        "type": "string",
-        "default": "rgba(10,18,44,0.15)"
-      },
       "userMenuBackgroundColor": {
         "title": "User Menu - Background Color",
         "type": "string",
@@ -158,20 +148,6 @@
         },
         {
           "key": "mutedTextColor",
-          "type": "color"
-        }
-      ]
-    },
-    {
-      "type": "fieldset",
-      "title": "Background Gradient (Hero Section)",
-      "items": [
-        {
-          "key": "gradientStartColor",
-          "type": "color"
-        },
-        {
-          "key": "gradientEndColor",
           "type": "color"
         }
       ]

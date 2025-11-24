@@ -988,90 +988,47 @@ function buildAuthoritativeItems() {
   return mapped;
 }
 
-// RFC-0072: fetchApiTotals REMOVED - data now comes from MAIN orchestrator
-// STORES receives data via myio:energy-data-ready event like EQUIPMENTS
+async function fetchApiTotals(startISO, endISO) {
+  if (!isAuthReady()) throw new Error("Auth not ready");
+  const token = await MyIOAuth.getToken();
+  if (!token) throw new Error("No ingestion token");
 
-// Energy cache from MAIN orchestrator
-let energyCacheFromMain = null;
+  const url = new URL(
+    `${DATA_API_HOST}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/energy/devices/totals`
+  );
+  url.searchParams.set("startTime", toSpOffsetNoMs(startISO));
+  url.searchParams.set("endTime", toSpOffsetNoMs(endISO, true));
+  url.searchParams.set("deep", "1");
 
-/**
- * Wait for MAIN orchestrator to be available
- */
-async function waitForOrchestrator(timeoutMs = 15000) {
-  return new Promise((resolve) => {
-    let interval;
-    const timeout = setTimeout(() => {
-      clearInterval(interval);
-      console.error("[STORES] Timeout: MyIOOrchestrator não foi encontrado.");
-      resolve(null);
-    }, timeoutMs);
-
-    interval = setInterval(() => {
-      const orchestrator = window.MyIOOrchestrator;
-      if (orchestrator) {
-        clearTimeout(timeout);
-        clearInterval(interval);
-        console.log("[STORES] MyIOOrchestrator encontrado!");
-        resolve(orchestrator);
-      }
-    }, 100);
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
   });
-}
-
-/**
- * Enrich items with consumption from orchestrator cache
- */
-function enrichItemsWithTotals(items, cache) {
-  if (!cache || cache.size === 0) {
-    console.warn("[STORES] Cache is empty, items will have zero consumption");
-    return items.map((it) => ({ ...it, value: 0, consumption: 0, perc: 0 }));
+  if (!res.ok) {
+    LogHelper.warn("[DeviceCards] API fetch failed:", res.status);
+    return new Map();
   }
 
+  const json = await res.json();
+  const rows = Array.isArray(json) ? json : json?.data ?? [];
+  const map = new Map();
+  for (const r of rows) if (r && r.id) map.set(String(r.id), r);
+  //LogHelper.log(`[DeviceCards] API rows: ${rows.length}, map keys: ${map.size}`);
+  return map;
+}
+
+function enrichItemsWithTotals(items, apiMap) {
   return items.map((it) => {
     let raw = 0;
 
     if (it.ingestionId && isValidUUID(it.ingestionId)) {
-      const cached = cache.get(String(it.ingestionId));
-      raw = Number(cached?.total_value ?? 0);
+      const row = apiMap.get(String(it.ingestionId));
+      raw = Number(row?.total_value ?? 0);
     }
 
-    const value = Number(raw || 0);
+    const value = Number(raw || 0); // toTargetUnit(raw); TODO verificar se ainda precisa dessa chamada
 
-    return { ...it, value, consumption: value, perc: 0 };
+    return { ...it, value, perc: 0 };
   });
-}
-
-/**
- * Process energy cache and render stores
- */
-async function processAndRenderFromCache(cache) {
-  if (!cache || cache.size === 0) {
-    console.warn("[STORES] Cache is empty, no stores to render");
-    hideBusy();
-    return;
-  }
-
-  console.log(`[STORES] Processing cache with ${cache.size} devices`);
-  energyCacheFromMain = cache;
-
-  // Build items from TB datasource
-  STATE.itemsBase = buildAuthoritativeItems();
-  console.log(`[STORES] Built ${STATE.itemsBase.length} stores from TB datasource`);
-
-  // Enrich with consumption from cache
-  STATE.itemsEnriched = enrichItemsWithTotals(STATE.itemsBase, cache);
-
-  // Sanitize selection
-  if (STATE.selectedIds && STATE.selectedIds.size) {
-    const valid = new Set(STATE.itemsBase.map((x) => x.id));
-    const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
-    STATE.selectedIds = next.size ? next : null;
-  }
-
-  reflowFromState();
-  hideBusy();
-
-  console.log(`[STORES] Rendered ${STATE.itemsEnriched.length} stores from MAIN cache`);
 }
 
 /** ===================== FILTERS / SORT / PERC ===================== **/
@@ -2579,36 +2536,53 @@ function reflowFromState() {
 }
 
 /** ===================== HYDRATE (end-to-end) ===================== **/
-// RFC-0072: hydrateAndRender now uses orchestrator cache instead of API call
 async function hydrateAndRender() {
   if (hydrating) return;
   hydrating = true;
 
+  // Mostra modal durante todo o processo (mensagem fixa)
   showBusy();
 
   try {
-    // Build items from TB datasource
-    STATE.itemsBase = buildAuthoritativeItems();
-    console.log(`[STORES] Built ${STATE.itemsBase.length} stores from TB datasource`);
-
-    // Use existing cache if available
-    if (energyCacheFromMain && energyCacheFromMain.size > 0) {
-      STATE.itemsEnriched = enrichItemsWithTotals(STATE.itemsBase, energyCacheFromMain);
-    } else {
-      // No cache yet - render with zero values
-      STATE.itemsEnriched = STATE.itemsBase.map((item) => ({
-        ...item,
-        value: 0,
-        consumption: 0,
-        perc: 0,
-      }));
-      console.warn("[STORES] No cache available yet, rendering with zero values");
+    // 0) Datas: obrigatórias
+    let range;
+    try {
+      range = mustGetDateRange();
+    } catch (_e) {
+      LogHelper.warn(
+        "[DeviceCards] Aguardando intervalo de datas (startDateISO/endDateISO)."
+      );
+      return;
     }
 
-    // Sanitize selection
+    // 1) Auth
+    const okAuth = await ensureAuthReady(6000, 150);
+    if (!okAuth) {
+      LogHelper.warn("[DeviceCards] Auth not ready; adiando hidratação.");
+      return;
+    }
+
+    // 2) Lista autoritativa
+    STATE.itemsBase = buildAuthoritativeItems();
+
+    // 3) Totais na API
+    let apiMap = new Map();
+    try {
+      apiMap = await fetchApiTotals(range.startISO, range.endISO);
+    } catch (err) {
+      LogHelper.error("[DeviceCards] API error:", err);
+      apiMap = new Map();
+    }
+
+    // 4) Enrich + render
+    STATE.itemsEnriched = enrichItemsWithTotals(STATE.itemsBase, apiMap);
+
+    // 5) Sanitiza seleção
     if (STATE.selectedIds && STATE.selectedIds.size) {
       const valid = new Set(STATE.itemsBase.map((x) => x.id));
-      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
+      const next = new Set(
+        [...STATE.selectedIds].filter((id) => valid.has(id))
+      );
       STATE.selectedIds = next.size ? next : null;
     }
 
@@ -3396,40 +3370,21 @@ self.onInit = async function () {
     );
   }
 
-  // RFC-0072: Wait for orchestrator and listen for energy cache (like EQUIPMENTS)
-  const orchestrator = await waitForOrchestrator();
-
-  if (orchestrator) {
-    const existingCache = orchestrator.getCache();
-
-    if (existingCache && existingCache.size > 0) {
-      // CAMINHO 1: Cache já existe (navegação de volta)
-      console.log("[STORES] Cache do Orquestrador já existe. Usando-o diretamente.");
-      await processAndRenderFromCache(existingCache);
-    } else {
-      // CAMINHO 2: Primeiro carregamento - aguardar evento
-      console.log("[STORES] Cache vazio. Aguardando evento 'myio:energy-data-ready'...");
-      const waitForEnergyCache = new Promise((resolve) => {
-        const handlerTimeout = setTimeout(() => {
-          console.warn("[STORES] Timeout esperando pelo evento de cache.");
-          resolve(null);
-        }, 15000);
-
-        const handler = (ev) => {
-          clearTimeout(handlerTimeout);
-          window.removeEventListener('myio:energy-data-ready', handler);
-          resolve(ev.detail.cache);
-        };
-        window.addEventListener('myio:energy-data-ready', handler);
-      });
-
-      const initialCache = await waitForEnergyCache;
-      await processAndRenderFromCache(initialCache);
+  // RFC-0042: OLD CODE - Direct API fetch (now handled by orchestrator)
+  if (hasData) {
+    STATE.firstHydrates++;
+    if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) {
+      await hydrateAndRender();
     }
   } else {
-    // Timeout - orchestrator não encontrado
-    console.error("[STORES] Orchestrator não encontrado!");
-    hideBusy();
+    // Aguardar datasource chegar
+    const waiter = setInterval(async () => {
+      if (Array.isArray(self.ctx.data) && self.ctx.data.length > 0) {
+        clearInterval(waiter);
+        STATE.firstHydrates++;
+        if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) await hydrateAndRender();
+      }
+    }, 200);
   }
 
   // RFC-0079: Sub-menu navigation removed - now controlled by MENU widget
