@@ -8,7 +8,10 @@
     "test:watch": "jest --watch",
     "test:no-feriado": "jest --testNamePattern='SEM FERIADO'",
     "test:feriado": "jest --testNamePattern='COM FERIADO'",
-    "test:edge": "jest --testNamePattern='Edge Cases'"
+    "test:edge": "jest --testNamePattern='Edge Cases'",
+    "test:automacao": "jest --config=functions/automacao-on-off/tests/jest.config.js",
+    "test:persister": "jest --config=functions/persister-schedule/tests/jest.config.js",
+    "test:all-modules": "npm run test:automacao && npm run test:persister"
   },
   "jest": {
     "testEnvironment": "node",
