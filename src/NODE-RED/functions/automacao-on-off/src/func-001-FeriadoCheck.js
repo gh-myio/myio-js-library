@@ -281,6 +281,10 @@ if (shouldActivate || shouldShutdown) {
   }
 
   // ========== CORREÇÃO #6: Usa a agenda REALMENTE aplicada ==========
+  // Get global AutoON state (1 = ON, 0 = OFF, undefined = not set)
+  const checkGlobalAutoOn = global.get('AutoON');
+  const globalAutoOnState = checkGlobalAutoOn !== undefined ? checkGlobalAutoOn : 'undefined';
+
   observability = {
     logKey: logKey,
     logData: {
@@ -301,7 +305,8 @@ if (shouldActivate || shouldShutdown) {
         isHolidayToday: isHolidayToday,
         currentWeekDay: currWeekDay,
         holidayPolicy: holidayPolicy,
-        totalSchedules: schedules ? schedules.length : 0
+        totalSchedules: schedules ? schedules.length : 0,
+        globalAutoOn: globalAutoOnState
       },
       timestamp: nowLocal.toISOString(),
       timestampMs: timestamp

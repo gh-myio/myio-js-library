@@ -24,7 +24,8 @@ function processDevice(options) {
     excludedDays = [],
     storedHolidaysDays = [],
     nowLocal = new Date(),
-    holidayPolicy = 'exclusive'
+    holidayPolicy = 'exclusive',
+    globalAutoOn = undefined
   } = options;
 
   if (!device || !schedules) {
@@ -201,7 +202,8 @@ function processDevice(options) {
     isHolidayToday,
     currWeekDay,
     holidayPolicy,
-    totalSchedules: sortedSchedules.length
+    totalSchedules: sortedSchedules.length,
+    globalAutoOn: globalAutoOn !== undefined ? globalAutoOn : 'undefined'
   };
 }
 

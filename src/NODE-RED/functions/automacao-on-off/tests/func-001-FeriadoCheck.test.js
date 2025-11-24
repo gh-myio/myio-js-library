@@ -983,4 +983,110 @@ describe('func-001-FeriadoCheck - Testes de Feriado Mandatório', () => {
       expect(result.shouldShutdown).toBe(false);
     });
   });
+
+  describe('Categoria 11: Global AutoON State 🌐', () => {
+    const device = { deviceName: 'Ar Condicionado', deviceId: 'device-1' };
+
+    test('✅ globalAutoOn = 1 (ON) - Should include in result', () => {
+      const schedules = [{
+        startHour: '08:00',
+        endHour: '18:00',
+        retain: true,
+        holiday: false,
+        daysWeek: { mon: true, tue: true, wed: true, thu: true, fri: true }
+      }];
+
+      const nowLocal = new Date(2025, 10, 24, 10, 0, 0); // Monday 10:00
+
+      const result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive',
+        globalAutoOn: 1  // AutoON is ON
+      });
+
+      expect(result.shouldActivate).toBe(true);
+      expect(result.globalAutoOn).toBe(1);
+    });
+
+    test('✅ globalAutoOn = 0 (OFF) - Should include in result', () => {
+      const schedules = [{
+        startHour: '08:00',
+        endHour: '18:00',
+        retain: true,
+        holiday: false,
+        daysWeek: { mon: true, tue: true, wed: true, thu: true, fri: true }
+      }];
+
+      const nowLocal = new Date(2025, 10, 24, 10, 0, 0); // Monday 10:00
+
+      const result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive',
+        globalAutoOn: 0  // AutoON is OFF
+      });
+
+      expect(result.shouldActivate).toBe(true);
+      expect(result.globalAutoOn).toBe(0);
+    });
+
+    test('✅ globalAutoOn = undefined - Should not interrupt flow', () => {
+      const schedules = [{
+        startHour: '08:00',
+        endHour: '18:00',
+        retain: true,
+        holiday: false,
+        daysWeek: { mon: true, tue: true, wed: true, thu: true, fri: true }
+      }];
+
+      const nowLocal = new Date(2025, 10, 24, 10, 0, 0); // Monday 10:00
+
+      const result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive'
+        // globalAutoOn not provided (undefined)
+      });
+
+      // Flow should continue normally
+      expect(result.shouldActivate).toBe(true);
+      expect(result.globalAutoOn).toBe('undefined');
+    });
+
+    test('✅ globalAutoOn = undefined (explicit) - Should return "undefined" string', () => {
+      const schedules = [{
+        startHour: '08:00',
+        endHour: '18:00',
+        retain: true,
+        holiday: false,
+        daysWeek: { mon: true, tue: true, wed: true, thu: true, fri: true }
+      }];
+
+      const nowLocal = new Date(2025, 10, 24, 10, 0, 0); // Monday 10:00
+
+      const result = processDevice({
+        device,
+        schedules,
+        excludedDays: [],
+        storedHolidaysDays: [],
+        nowLocal,
+        holidayPolicy: 'exclusive',
+        globalAutoOn: undefined  // Explicitly undefined
+      });
+
+      // Should not break the flow
+      expect(result.shouldActivate).toBe(true);
+      expect(result.globalAutoOn).toBe('undefined');
+    });
+  });
 });

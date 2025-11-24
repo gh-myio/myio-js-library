@@ -113,14 +113,14 @@ npm run test:watch
 
 | Module | Tests | Coverage | Status |
 |--------|-------|----------|--------|
-| **automacao-on-off** | 41 | >85% | ✅ |
+| **automacao-on-off** | 45 | >85% | ✅ |
 | **persister-schedule** | 25 | >85% | ✅ |
 | **log-cleanup** | 18 | >85% | ✅ |
-| **telemetry-adapter** | 40 | >85% | ✅ |
-| **Total** | **124** | ~85% | ✅ |
+| **telemetry-adapter** | 34 | >85% | ✅ |
+| **Total** | **122** | ~85% | ✅ |
 
-### automacao-on-off (41 tests)
-- func-001-FeriadoCheck.test.js: 41 tests
+### automacao-on-off (45 tests)
+- func-001-FeriadoCheck.test.js: 45 tests (includes 4 global AutoON tests)
 
 ### persister-schedule (25 tests)
 - func-002-PersistAdapter.test.js: 25 tests
@@ -352,5 +352,5 @@ jobs:
 ---
 
 **Last Updated:** 2025-11-24
-**Total Tests:** 124 (41 + 25 + 18 + 40)
+**Total Tests:** 122 (45 + 25 + 18 + 34)
 **Status:** ✅ All Passing

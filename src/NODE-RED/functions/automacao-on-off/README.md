@@ -156,6 +156,37 @@ excludedDays: ["2025-12-25", "2025-01-01"]
 // Equipment will be OFF on these dates regardless of schedules
 ```
 
+### Global AutoON State
+
+The module tracks the **global AutoON state** for observability and monitoring purposes:
+
+```javascript
+global.get('AutoON')  // Returns: 1 (ON), 0 (OFF), or undefined (not set)
+```
+
+**States:**
+- `1` - Global AutoON is **enabled** (system actively managing devices)
+- `0` - Global AutoON is **disabled** (system paused/manual mode)
+- `undefined` - State not configured (default behavior)
+
+**Observability Log:**
+```javascript
+{
+  context: {
+    isHolidayToday: false,
+    currentWeekDay: "mon",
+    holidayPolicy: "exclusive",
+    totalSchedules: 2,
+    globalAutoOn: 1  // ← Included in all logs
+  }
+}
+```
+
+**Important:**
+- ✅ The `undefined` state **does not interrupt** the automation flow
+- ✅ All three states (1, 0, undefined) are **safe** and logged correctly
+- ✅ Used for **monitoring** and **troubleshooting** (not for control logic)
+
 ## 🧪 Testing
 
 ### Run All Tests
@@ -168,13 +199,13 @@ npm test
 **Expected Output:**
 ```
 Test Suites: 2 passed, 2 total
-Tests:       59 passed, 59 total (41 + 18)
+Tests:       63 passed, 63 total (45 + 18)
 Time:        ~8s
 ```
 
 ### Test Coverage
 
-**func-001-FeriadoCheck.test.js (41 tests):**
+**func-001-FeriadoCheck.test.js (45 tests):**
 - Holiday mandatory filtering
 - Time comparisons
 - Midnight crossing
@@ -184,6 +215,7 @@ Time:        ~8s
 - Edge cases
 - Real production scenarios
 - Bug fixes validation
+- **Global AutoON state** (1, 0, undefined)
 
 **func-003-LogCleanup.test.js (18 tests):**
 - Log retention (D0 to D-30)
