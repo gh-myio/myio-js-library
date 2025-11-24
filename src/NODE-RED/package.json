@@ -12,7 +12,8 @@
     "test:automacao": "jest --config=functions/automacao-on-off/tests/jest.config.js",
     "test:persister": "jest --config=functions/persister-schedule/tests/jest.config.js",
     "test:log-cleanup": "jest --config=functions/log-cleanup/tests/jest.config.js",
-    "test:all-modules": "npm run test:automacao && npm run test:persister && npm run test:log-cleanup"
+    "test:telemetry": "jest --config=functions/send-log-action-by-telemetry-per-device/tests/jest.config.js",
+    "test:all-modules": "npm run test:automacao && npm run test:persister && npm run test:log-cleanup && npm run test:telemetry"
   },
   "jest": {
     "testEnvironment": "node",

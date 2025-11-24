@@ -17,10 +17,14 @@ src/NODE-RED/
 │   │   └── tests/
 │   │       ├── jest.config.js
 │   │       └── func-002-PersistAdapter.test.js (25 tests)
-│   └── log-cleanup/
+│   ├── log-cleanup/
+│   │   └── tests/
+│   │       ├── jest.config.js
+│   │       └── func-003-LogCleanup.test.js (18 tests)
+│   └── send-log-action-by-telemetry-per-device/
 │       └── tests/
 │           ├── jest.config.js
-│           └── func-003-LogCleanup.test.js (18 tests)
+│           └── func-004-TelemetryAdapter.test.js (40 tests)
 ```
 
 ## 🎯 Benefits of Centralized Dependencies
@@ -78,11 +82,17 @@ npm run test:all-modules
 ### Run Specific Module Tests
 
 ```bash
-# Test automacao-on-off module (59 tests)
+# Test automacao-on-off module (41 tests)
 npm run test:automacao
 
-# Test persister-schedule module (28 tests)
+# Test persister-schedule module (25 tests)
 npm run test:persister
+
+# Test log-cleanup module (18 tests)
+npm run test:log-cleanup
+
+# Test telemetry adapter module (40 tests)
+npm run test:telemetry
 ```
 
 ### Run Individual Test Files
@@ -103,16 +113,23 @@ npm run test:watch
 
 | Module | Tests | Coverage | Status |
 |--------|-------|----------|--------|
-| **automacao-on-off** | 59 | >85% | ✅ |
-| **persister-schedule** | 28 | >80% | ✅ |
-| **Total** | **87** | ~85% | ✅ |
+| **automacao-on-off** | 41 | >85% | ✅ |
+| **persister-schedule** | 25 | >85% | ✅ |
+| **log-cleanup** | 18 | >85% | ✅ |
+| **telemetry-adapter** | 40 | >85% | ✅ |
+| **Total** | **124** | ~85% | ✅ |
 
-### automacao-on-off (59 tests)
+### automacao-on-off (41 tests)
 - func-001-FeriadoCheck.test.js: 41 tests
+
+### persister-schedule (25 tests)
+- func-002-PersistAdapter.test.js: 25 tests
+
+### log-cleanup (18 tests)
 - func-003-LogCleanup.test.js: 18 tests
 
-### persister-schedule (28 tests)
-- func-002-PersistAdapter.test.js: 28 tests
+### telemetry-adapter (40 tests)
+- func-004-TelemetryAdapter.test.js: 40 tests
 
 ## 🔧 Configuration Files
 
@@ -126,7 +143,9 @@ Located at: `src/NODE-RED/package.json`
     "test": "jest --verbose --coverage",
     "test:automacao": "jest --config=functions/automacao-on-off/tests/jest.config.js",
     "test:persister": "jest --config=functions/persister-schedule/tests/jest.config.js",
-    "test:all-modules": "npm run test:automacao && npm run test:persister"
+    "test:log-cleanup": "jest --config=functions/log-cleanup/tests/jest.config.js",
+    "test:telemetry": "jest --config=functions/send-log-action-by-telemetry-per-device/tests/jest.config.js",
+    "test:all-modules": "npm run test:automacao && npm run test:persister && npm run test:log-cleanup && npm run test:telemetry"
   },
   "devDependencies": {
     "jest": "^29.7.0"
@@ -326,10 +345,12 @@ jobs:
 
 - `functions/automacao-on-off/README.md` - Automation module docs
 - `functions/persister-schedule/README.md` - Persistence module docs
-- `functions/automacao-on-off/tests/README.md` - Test-specific docs
+- `functions/log-cleanup/README.md` - Log cleanup module docs
+- `functions/send-log-action-by-telemetry-per-device/README.md` - Telemetry adapter docs
+- `functions/send-log-action-by-telemetry-per-device/docs/RFC-0001-telemetry-automation-logs.md` - Telemetry RFC
 
 ---
 
 **Last Updated:** 2025-11-24
-**Total Tests:** 87 (59 + 28)
+**Total Tests:** 124 (41 + 25 + 18 + 40)
 **Status:** ✅ All Passing
