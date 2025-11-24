@@ -962,6 +962,17 @@
     border-color: #1a5a8f;
 }
 
+.btn.secondary {
+    background: #f8f9fa;
+    color: #666;
+    border-color: #ddd;
+}
+
+.btn.secondary:hover {
+    background: #e9ecef;
+    border-color: #ccc;
+}
+
 /* ====== RFC-0072: MODAL STYLING TO PREVENT CORRUPTION ====== */
 
 /* Ensure energy dashboard modal always renders correctly */

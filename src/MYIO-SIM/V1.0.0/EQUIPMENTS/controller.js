@@ -2434,6 +2434,18 @@ function setupModalCloseHandlers(modal) {
     });
   }
 
+  // Clear selection button - uncheck all devices
+  const clearSelectionBtn = modal.querySelector("#clearSelection");
+  if (clearSelectionBtn) {
+    clearSelectionBtn.addEventListener("click", () => {
+      const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']");
+      checkboxes.forEach(cb => {
+        cb.checked = false;
+      });
+      LogHelper.log("[EQUIPMENTS] [RFC-0072] All selections cleared");
+    });
+  }
+
   // Bind filter tab click handlers (must be done after modal is moved to document.body)
   const filterTabs = modal.querySelectorAll(".filter-tab");
   filterTabs.forEach(tab => {
@@ -2458,6 +2470,16 @@ function setupModalCloseHandlers(modal) {
         const identifier = (device.deviceIdentifier || '').toUpperCase();
         const labelOrName = (device.labelOrName || '').toUpperCase();
 
+        // Determine online/offline status from deviceStatus
+        const status = device.deviceStatus;
+        const connectionStatus = typeof status === 'object'
+          ? (status?.connectionStatus || status?.status || 'offline')
+          : String(status || 'offline');
+        const isOnline = connectionStatus.toLowerCase() === 'online' ||
+                         connectionStatus.toLowerCase() === 'ok' ||
+                         connectionStatus.toLowerCase() === 'running' ||
+                         connectionStatus.toLowerCase() === 'power_on';
+
         // RFC: Check if device has CAG in identifier or labelOrName (climatização)
         const hasCAG = identifier.includes('CAG') || labelOrName.includes('CAG');
 
@@ -2468,10 +2490,10 @@ function setupModalCloseHandlers(modal) {
             shouldCheck = true;
             break;
           case 'online':
-            shouldCheck = consumption > 0;
+            shouldCheck = isOnline;
             break;
           case 'offline':
-            shouldCheck = consumption === 0;
+            shouldCheck = !isOnline;
             break;
           case 'with-consumption':
             shouldCheck = consumption > 0;
@@ -2925,17 +2947,24 @@ function openFilterModal() {
     const identifier = (device.deviceIdentifier || '').toUpperCase();
     const labelOrName = (device.labelOrName || '').toUpperCase();
 
-    // Count online/offline status
-    // Note: connectionStatus may not be available from API, using consumption as proxy
-    // Devices with consumption > 0 are considered "online" (actively reporting)
-    const hasConsumption = consumption > 0;
-    if (hasConsumption) {
+    // Count online/offline status using deviceStatus
+    // deviceStatus is an object with connectionStatus property or a string
+    const status = device.deviceStatus;
+    const connectionStatus = typeof status === 'object'
+      ? (status?.connectionStatus || status?.status || 'offline')
+      : String(status || 'offline');
+    const isOnline = connectionStatus.toLowerCase() === 'online' ||
+                     connectionStatus.toLowerCase() === 'ok' ||
+                     connectionStatus.toLowerCase() === 'running' ||
+                     connectionStatus.toLowerCase() === 'power_on';
+
+    if (isOnline) {
       counts.online++;
     } else {
       counts.offline++;
     }
 
-    // Count consumption status
+    // Count consumption status (based on actual consumption value)
     if (consumption > 0) {
       counts.withConsumption++;
     } else {
