@@ -86,6 +86,11 @@ export interface DemandModalParams {
   // RFC-0061: Telemetry selector configuration
   allowTelemetrySwitch?: boolean;      // Enable telemetry type switching (default: true)
   availableTelemetryTypes?: string[];  // Limit available types by ID (default: all types)
+
+  // RFC-0082: Real-time mode configuration
+  enableRealTimeMode?: boolean;        // Allow real-time toggle (default: true)
+  realTimeInterval?: number;           // Update interval in ms (default: 8000)
+  realTimeAutoScroll?: boolean;        // Auto-scroll to latest data (default: true)
 }
 
 // ThingsBoard telemetry query parameters
@@ -637,6 +642,72 @@ function injectCSS(styles: DemandModalStyles): void {
     .myio-demand-modal-btn-update:disabled {
       background: #ccc;
       cursor: not-allowed;
+    }
+
+    /* RFC-0082: Real-time button styles */
+    .myio-demand-modal-btn-realtime {
+      background: transparent;
+      border: 2px solid #666;
+      color: #666;
+      padding: ${styles.spacingSm} ${styles.spacingMd};
+      border-radius: ${styles.buttonRadius};
+      cursor: pointer;
+      font-size: ${styles.fontSizeSm};
+      font-family: inherit;
+      font-weight: ${styles.fontWeightBold};
+      align-self: flex-end;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .myio-demand-modal-btn-realtime:hover {
+      border-color: #999;
+      color: #999;
+    }
+
+    .myio-demand-modal-btn-realtime.active {
+      background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%);
+      border-color: #d32f2f;
+      color: white;
+      box-shadow: 0 0 12px rgba(244, 67, 54, 0.5);
+    }
+
+    .myio-demand-modal-btn-realtime.active:hover {
+      background: linear-gradient(135deg, #c62828 0%, #e53935 100%);
+    }
+
+    .realtime-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #666;
+      transition: all 0.3s ease;
+    }
+
+    .myio-demand-modal-btn-realtime.active .realtime-indicator {
+      background: white;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.2); }
+    }
+
+    .myio-demand-modal-btn-realtime.active .realtime-text::before {
+      content: "AO VIVO";
+    }
+
+    .myio-demand-modal-btn-realtime:not(.active) .realtime-text::before {
+      content: "REAL TIME";
+    }
+
+    .realtime-text {
+      font-size: 0; /* Hide original text, use ::before pseudo-element */
     }
 
     .myio-demand-modal-period-error {
@@ -1195,6 +1266,10 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
         <button class="myio-demand-modal-btn-update" type="button">
           ${strings.updatePeriod}
         </button>
+        <button id="realtime-toggle-btn" class="myio-demand-modal-btn-realtime" type="button" title="Ativar modo tempo real (atualização a cada 8 segundos)">
+          <span class="realtime-indicator"></span>
+          <span class="realtime-text">REAL TIME</span>
+        </button>
         <div class="myio-demand-modal-period-error" style="display: none;"></div>
       </div>
 
@@ -1245,6 +1320,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   const dateStartInput = overlay.querySelector('.myio-demand-modal-date-start') as HTMLInputElement;
   const dateEndInput = overlay.querySelector('.myio-demand-modal-date-end') as HTMLInputElement;
   const updateBtn = overlay.querySelector('.myio-demand-modal-btn-update') as HTMLButtonElement;
+  const realTimeToggleBtn = overlay.querySelector('#realtime-toggle-btn') as HTMLButtonElement; // RFC-0082
   const periodErrorEl = overlay.querySelector('.myio-demand-modal-period-error') as HTMLElement;
   const telemetryTypeSelect = overlay.querySelector('#telemetry-type-select') as HTMLSelectElement | null;
   const intervalSelect = overlay.querySelector('#demand-interval-select') as HTMLSelectElement;
@@ -1258,6 +1334,12 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   let currentEndDate = params.endDate;
   let activeTelemetryType: TelemetryType = currentTelemetryType; // RFC-0061: Track active telemetry type
 
+  // RFC-0082: Real-time mode state
+  let isRealTimeMode = false;                    // Current mode flag
+  let realTimeIntervalId: number | null = null;  // Interval timer ID
+  let lastFetchedTimestamp: number | null = null; // Last successful fetch timestamp
+  let realTimeDataBuffer: any[] = [];            // Accumulated data for today
+
   // Prevent body scroll
   const originalOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
@@ -1267,6 +1349,11 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
 
   // Event handlers
   function closeModal() {
+    // RFC-0082: Stop real-time mode if active
+    if (isRealTimeMode && realTimeIntervalId) {
+      window.clearInterval(realTimeIntervalId);
+    }
+
     if (chart) {
       chart.destroy();
     }
@@ -1439,6 +1526,189 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
     }
   }
 
+  // RFC-0082: Real-time mode functions
+  function getTodayStart(): string {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today.toISOString();
+  }
+
+  function getTodayEnd(): string {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    return today.toISOString();
+  }
+
+  async function enableRealTimeMode(): Promise<void> {
+    try {
+      // 1. Lock dates to today
+      currentStartDate = getTodayStart();
+      currentEndDate = getTodayEnd();
+
+      // 2. Update date inputs and disable them
+      initializeDateInputs();
+      dateStartInput.disabled = true;
+      dateEndInput.disabled = true;
+      dateStartInput.style.opacity = '0.5';
+      dateEndInput.style.opacity = '0.5';
+
+      // 3. Disable interval and aggregation selectors
+      if (intervalSelect) {
+        intervalSelect.disabled = true;
+        intervalSelect.style.opacity = '0.5';
+      }
+      if (aggSelect) {
+        aggSelect.disabled = true;
+        aggSelect.style.opacity = '0.5';
+      }
+
+      // 4. Fix query parameters for real-time mode
+      if (intervalSelect) intervalSelect.value = '8000';
+      if (aggSelect) aggSelect.value = 'AVG';
+
+      // 5. Initial full fetch from 00:00 to now
+      await loadData();
+
+      // 6. Update last fetched timestamp
+      lastFetchedTimestamp = Date.now();
+
+      // 7. Start auto-update loop
+      const intervalMs = params.realTimeInterval || 8000;
+      realTimeIntervalId = window.setInterval(async () => {
+        try {
+          await fetchIncrementalData();
+        } catch (error) {
+          console.error('[DemandModal] Real-time update failed:', error);
+          // Continue loop even on error (retry next interval)
+        }
+      }, intervalMs);
+
+      // 8. Update button UI
+      realTimeToggleBtn.classList.add('active');
+      isRealTimeMode = true;
+
+      console.log(`[DemandModal] Real-time mode started (${intervalMs}ms interval)`);
+    } catch (error) {
+      console.error('[DemandModal] Failed to enable real-time mode:', error);
+      // Rollback state
+      await disableRealTimeMode();
+      alert('Erro ao ativar modo tempo real. Tente novamente.');
+    }
+  }
+
+  async function fetchIncrementalData(): Promise<void> {
+    if (!lastFetchedTimestamp) {
+      throw new Error('No last fetched timestamp available');
+    }
+
+    const startTs = lastFetchedTimestamp;
+    const endTs = Date.now();
+
+    // Convert timestamps to ISO strings for the API
+    const startDate = new Date(startTs).toISOString();
+    const endDate = new Date(endTs).toISOString();
+
+    // Build telemetry query for incremental fetch
+    const keysStr = Array.isArray(activeTelemetryType.keys)
+      ? activeTelemetryType.keys.join(',')
+      : activeTelemetryType.keys;
+
+    const telemetryQuery: TelemetryQueryParams = {
+      keys: keysStr,
+      interval: 8000,  // 8 seconds (fixed for real-time mode)
+      agg: 'AVG',      // Average (fixed for real-time mode)
+      intervalType: 'MILLISECONDS',
+      orderBy: 'ASC'
+    };
+
+    // Fetch only new data (8 seconds window)
+    const newRawData = params.fetcher
+      ? await params.fetcher({ token: params.token, deviceId: params.deviceId, startDate, endDate, telemetryQuery })
+      : await fetchTelemetryData(params.token, params.deviceId, startDate, endDate, telemetryQuery);
+
+    // Process new data
+    const newChartData = processMultiSeriesChartData(
+      newRawData,
+      keysStr,
+      params.correctionFactor || 1.0,
+      locale,
+      'AVG',
+      params.timezoneOffset
+    );
+
+    // Append new data points to existing chart (if any new data)
+    if (!newChartData.isEmpty && chart && chartData) {
+      const Chart = (window as any).Chart;
+
+      newChartData.series.forEach((newSeries, seriesIndex) => {
+        if (newSeries.points.length > 0 && chart.data.datasets[seriesIndex]) {
+          // Append new points to existing dataset
+          newSeries.points.forEach(point => {
+            chart.data.datasets[seriesIndex].data.push({
+              x: point.x,
+              y: point.y
+            });
+            chart.data.labels.push(point.x);
+          });
+        }
+      });
+
+      // Update chart with new data
+      chart.update('none'); // 'none' mode = no animation for better performance
+
+      // Optional: Auto-scroll to latest data
+      if (params.realTimeAutoScroll !== false) {
+        // Pan to show latest data point
+        const latestTimestamp = newChartData.series[0]?.points[newChartData.series[0].points.length - 1]?.x;
+        if (latestTimestamp && chart.options.scales?.x) {
+          const visibleRange = 300000; // Show last 5 minutes (300000ms)
+          chart.options.scales.x.min = latestTimestamp - visibleRange;
+          chart.options.scales.x.max = latestTimestamp;
+          chart.update('none');
+        }
+      }
+    }
+
+    // Update last fetched timestamp
+    lastFetchedTimestamp = endTs;
+
+    console.log(`[DemandModal] Incremental fetch completed (${newChartData.series.reduce((sum, s) => sum + s.points.length, 0)} new points)`);
+  }
+
+  async function disableRealTimeMode(): Promise<void> {
+    // 1. Stop interval timer
+    if (realTimeIntervalId) {
+      window.clearInterval(realTimeIntervalId);
+      realTimeIntervalId = null;
+    }
+
+    // 2. Re-enable date inputs
+    dateStartInput.disabled = false;
+    dateEndInput.disabled = false;
+    dateStartInput.style.opacity = '1';
+    dateEndInput.style.opacity = '1';
+
+    // 3. Re-enable interval and aggregation selectors
+    if (intervalSelect) {
+      intervalSelect.disabled = false;
+      intervalSelect.style.opacity = '1';
+    }
+    if (aggSelect) {
+      aggSelect.disabled = false;
+      aggSelect.style.opacity = '1';
+    }
+
+    // 4. Clear real-time state
+    isRealTimeMode = false;
+    lastFetchedTimestamp = null;
+    realTimeDataBuffer = [];
+
+    // 5. Update button UI
+    realTimeToggleBtn.classList.remove('active');
+
+    console.log('[DemandModal] Real-time mode stopped');
+  }
+
   // Initialize date inputs with current values
   function initializeDateInputs() {
     const startDate = new Date(currentStartDate);
@@ -1555,6 +1825,17 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   pdfBtn.addEventListener('click', exportPdf);
   csvBtn.addEventListener('click', exportCsv);
   updateBtn.addEventListener('click', updatePeriod);
+
+  // RFC-0082: Real-time mode toggle button event listener
+  realTimeToggleBtn.addEventListener('click', async () => {
+    if (isRealTimeMode) {
+      // Disable real-time mode
+      await disableRealTimeMode();
+    } else {
+      // Enable real-time mode
+      await enableRealTimeMode();
+    }
+  });
 
   // RFC-0061: Telemetry type selector event listener (with debounce)
   if (telemetryTypeSelect && allowTelemetrySwitch) {
