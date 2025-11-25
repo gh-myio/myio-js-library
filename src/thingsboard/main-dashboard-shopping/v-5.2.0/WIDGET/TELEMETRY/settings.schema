@@ -22,7 +22,7 @@
         "waterContext": {
             "type": "string",
             "title": "Water Context Override",
-            "enum": ["auto", "entrada", "lojas", "areaComum", "banheiros"],
+            "enum": ["auto", "entrada", "lojas", "areaComum"],
             "default": "auto",
             "description": "Override auto-detected context for water domain. Use 'auto' to detect from alias name."
         }

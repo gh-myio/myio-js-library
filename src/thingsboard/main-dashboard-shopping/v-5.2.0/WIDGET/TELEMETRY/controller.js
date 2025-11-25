@@ -2856,6 +2856,46 @@ function emitWaterTelemetry(widgetType, periodKey) {
       deviceType: item.deviceType || "HIDROMETRO",
     }));
 
+    // RFC-0002: For areaComum context, classify devices into banheiros vs outros
+    // Banheiros are identified by "banheiro" in label or identifier (case-insensitive)
+    let banheirosBreakdown = null;
+    if (context === "areaComum") {
+      const banheirosDevices = [];
+      const outrosDevices = [];
+
+      devices.forEach((device) => {
+        const labelLower = (device.label || "").toLowerCase();
+        const idLower = (device.id || "").toLowerCase();
+        const isBanheiro = labelLower.includes("banheiro") || idLower.includes("banheiro");
+
+        if (isBanheiro) {
+          banheirosDevices.push(device);
+        } else {
+          outrosDevices.push(device);
+        }
+      });
+
+      const banheirosTotal = banheirosDevices.reduce((sum, d) => sum + (d.value || 0), 0);
+      const outrosTotal = outrosDevices.reduce((sum, d) => sum + (d.value || 0), 0);
+
+      banheirosBreakdown = {
+        banheiros: {
+          total: banheirosTotal,
+          devices: banheirosDevices,
+          count: banheirosDevices.length,
+        },
+        outros: {
+          total: outrosTotal,
+          devices: outrosDevices,
+          count: outrosDevices.length,
+        },
+      };
+
+      LogHelper.log(
+        `[RFC-0002 Water] areaComum breakdown: banheiros=${banheirosTotal.toFixed(2)} m³ (${banheirosDevices.length} devices), outros=${outrosTotal.toFixed(2)} m³ (${outrosDevices.length} devices)`
+      );
+    }
+
     const payload = {
       context: context,
       domain: "water",
@@ -2863,6 +2903,8 @@ function emitWaterTelemetry(widgetType, periodKey) {
       devices: devices,
       periodKey: periodKey,
       timestamp: new Date().toISOString(),
+      // RFC-0002: Include banheiros breakdown for areaComum context
+      banheirosBreakdown: banheirosBreakdown,
     };
 
     // Dispatch water event

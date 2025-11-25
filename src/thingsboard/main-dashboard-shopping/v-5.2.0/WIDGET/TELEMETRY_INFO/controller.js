@@ -108,7 +108,7 @@ const STATE = {
 // Chart instance
 let pieChartInstance = null;
 
-// RFC-0002: STATE for water domain (5 contexts with banheiros)
+// RFC-0002: STATE for water domain (5 contexts with banheiros extracted from areaComum)
 const STATE_WATER = {
   domain: 'water',
   entrada: {
@@ -130,14 +130,14 @@ const STATE_WATER = {
     devices: [],
     total: 0,
     perc: 0,
-    source: 'widget-telemetry-banheiros'
+    source: 'widget-telemetry-area-comum (banheiros breakdown)' // Extracted from areaComum by label/identifier
   },
   areaComum: {
     context: 'areaComum',
     devices: [],
     total: 0,
     perc: 0,
-    source: 'widget-telemetry-area-comum'
+    source: 'widget-telemetry-area-comum (outros)'
   },
   pontosNaoMapeados: {
     context: 'pontosNaoMapeados',
@@ -1210,10 +1210,10 @@ function recalculateWithReceivedData() {
 
 /**
  * RFC-0002: Process water telemetry data from TELEMETRY widgets
- * @param {Object} eventDetail - Event detail with context, total, devices, periodKey
+ * @param {Object} eventDetail - Event detail with context, total, devices, periodKey, banheirosBreakdown
  */
 function processWaterTelemetryData(eventDetail) {
-  const { context, total, devices, periodKey } = eventDetail;
+  const { context, total, devices, periodKey, banheirosBreakdown } = eventDetail;
 
   LogHelper.log(`[RFC-0002 Water] Received data: context=${context}, total=${total} m³, devices=${devices?.length || 0}`);
 
@@ -1241,15 +1241,23 @@ function processWaterTelemetryData(eventDetail) {
       STATE_WATER.lojas.devices = devices || [];
       break;
 
-    case 'banheiros':
-      STATE_WATER.banheiros.total = total || 0;
-      STATE_WATER.banheiros.devices = devices || [];
-      LogHelper.log(`[RFC-0002 Water] Banheiros data received: ${total} m³`);
-      break;
-
     case 'areaComum':
-      STATE_WATER.areaComum.total = total || 0;
-      STATE_WATER.areaComum.devices = devices || [];
+      // RFC-0002: Extract banheiros from areaComum breakdown (devices classified by label/identifier)
+      if (banheirosBreakdown && STATE_WATER.includeBathrooms) {
+        // Banheiros data from areaComum widget (devices with "banheiro" in label/identifier)
+        STATE_WATER.banheiros.total = banheirosBreakdown.banheiros?.total || 0;
+        STATE_WATER.banheiros.devices = banheirosBreakdown.banheiros?.devices || [];
+        LogHelper.log(`[RFC-0002 Water] Banheiros extracted from areaComum: ${STATE_WATER.banheiros.total.toFixed(2)} m³ (${STATE_WATER.banheiros.devices.length} devices)`);
+
+        // Área Comum = only outros (non-bathroom devices)
+        STATE_WATER.areaComum.total = banheirosBreakdown.outros?.total || 0;
+        STATE_WATER.areaComum.devices = banheirosBreakdown.outros?.devices || [];
+        LogHelper.log(`[RFC-0002 Water] Área Comum (outros): ${STATE_WATER.areaComum.total.toFixed(2)} m³ (${STATE_WATER.areaComum.devices.length} devices)`);
+      } else {
+        // No breakdown or banheiros disabled - use full areaComum
+        STATE_WATER.areaComum.total = total || 0;
+        STATE_WATER.areaComum.devices = devices || [];
+      }
       break;
 
     default:
@@ -1738,8 +1746,8 @@ self.onInit = async function() {
       // Clear water state
       STATE_WATER.entrada = { context: 'entrada', devices: [], total: 0, perc: 100, source: 'widget-telemetry-entrada' };
       STATE_WATER.lojas = { context: 'lojas', devices: [], total: 0, perc: 0, source: 'widget-telemetry-lojas' };
-      STATE_WATER.banheiros = { context: 'banheiros', devices: [], total: 0, perc: 0, source: 'widget-telemetry-banheiros' };
-      STATE_WATER.areaComum = { context: 'areaComum', devices: [], total: 0, perc: 0, source: 'widget-telemetry-area-comum' };
+      STATE_WATER.banheiros = { context: 'banheiros', devices: [], total: 0, perc: 0, source: 'widget-telemetry-area-comum (banheiros breakdown)' };
+      STATE_WATER.areaComum = { context: 'areaComum', devices: [], total: 0, perc: 0, source: 'widget-telemetry-area-comum (outros)' };
       STATE_WATER.pontosNaoMapeados = { context: 'pontosNaoMapeados', devices: [], total: 0, perc: 0, isCalculated: true, hasInconsistency: false };
       STATE_WATER.grandTotal = 0;
       STATE_WATER.periodKey = null;
