@@ -1462,6 +1462,16 @@ function renderWaterStats() {
   $$('#areaComumTotal').text(formatValue(STATE_WATER.areaComum.total, 'water'));
   $$('#areaComumPerc').text(`(${STATE_WATER.areaComum.perc.toFixed(1)}%)`);
 
+  // RFC-0056: Hide Área Comum card when bathrooms are included
+  // Consolidate área comum into "Pontos não mapeados" instead
+  if (STATE_WATER.includeBathrooms) {
+    $$('.area-comum-card').hide();
+    LogHelper.log('[RFC-0056] Hiding Área Comum card (water domain with bathrooms)');
+  } else {
+    $$('.area-comum-card').show();
+    LogHelper.log('[RFC-0056] Showing Área Comum card (water domain without bathrooms)');
+  }
+
   // Reuse "total consumidores" card for "pontos não mapeados"
   const $totalCard = $$('.total-card .card-title');
   if ($totalCard.length > 0) {

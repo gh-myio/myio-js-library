@@ -352,7 +352,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     });
 
     // Initial controls state (disabled by default in HTML, will be enabled when domain is set)
-    updateControlsState(currentDomain.value);
+    // Note: Don't call updateControlsState here - controls start disabled and will be enabled
+    // when myio:dashboard-state event fires with the actual domain
 
     // RFC-0045 FIX: Track last emission to prevent duplicates
     let lastEmission = {};
