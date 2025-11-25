@@ -264,6 +264,16 @@ export class EnergyModalView {
               Exportar CSV
             </button>
             ${this.config.params.readingType === 'energy' && this.config.params.mode !== 'comparison' ? `
+            <button id="view-demand-btn" class="myio-btn myio-btn-secondary" style="
+              background: linear-gradient(135deg, #1976D2 0%, #2196F3 100%);
+              color: white;
+              border: none;
+              transition: all 0.3s ease;
+              box-shadow: 0 2px 8px rgba(25, 118, 210, 0.3);
+            ">
+              <span style="font-size: 16px; margin-right: 4px;">📊</span>
+              Pico de Demanda
+            </button>
             <button id="view-telemetry-btn" class="myio-btn myio-btn-secondary" style="
               background: linear-gradient(135deg, #4A148C 0%, #6A1B9A 100%);
               color: white;
@@ -1010,6 +1020,55 @@ export class EnergyModalView {
       loadBtn.addEventListener('click', () => this.loadData());
     }
 
+    // RFC-0084: "Pico de Demanda" button - Opens DemandModal with historical aggregated data
+    const viewDemandBtn = document.getElementById('view-demand-btn');
+    if (viewDemandBtn) {
+      viewDemandBtn.addEventListener('click', async () => {
+        try {
+          console.log('[EnergyModalView] Opening demand modal (Pico de Demanda)');
+
+          const jwtToken = localStorage.getItem('jwt_token');
+          if (!jwtToken) {
+            throw new Error('Token de autenticação não encontrado');
+          }
+
+          // Get date range from picker or fallback to params
+          let startDate: string;
+          let endDate: string;
+
+          if (this.dateRangePicker) {
+            const dates = this.dateRangePicker.getRange();
+            startDate = dates.startISO;
+            endDate = dates.endISO;
+          } else {
+            startDate = this.config.params.startDate instanceof Date
+              ? this.config.params.startDate.toISOString()
+              : this.config.params.startDate;
+            endDate = this.config.params.endDate instanceof Date
+              ? this.config.params.endDate.toISOString()
+              : this.config.params.endDate;
+          }
+
+          await openDemandModal({
+            token: jwtToken,
+            deviceId: this.config.params.deviceId,
+            startDate: startDate,
+            endDate: endDate,
+            label: this.config.params.deviceLabel || 'Dispositivo',
+            locale: 'pt-BR',
+            readingType: this.config.params.readingType || 'energy',
+            enableRealTimeMode: true,
+            realTimeInterval: 8000,
+            realTimeAutoScroll: true
+          });
+        } catch (error) {
+          console.error('[EnergyModalView] Error opening demand modal:', error);
+          this.showError('Erro ao abrir pico de demanda: ' + (error as Error).message);
+        }
+      });
+    }
+
+    // RFC-0084: "Telemetrias Instantâneas" button - Opens RealTimeTelemetryModal
     const viewTelemetryBtn = document.getElementById('view-telemetry-btn');
     if (viewTelemetryBtn) {
       viewTelemetryBtn.addEventListener('click', async () => {
@@ -1021,11 +1080,11 @@ export class EnergyModalView {
             throw new Error('Token de autenticação não encontrado');
           }
 
-          // RFC-0084: Open Real-Time Telemetry Modal instead of Demand Modal
+          // RFC-0084: Open Real-Time Telemetry Modal for instantaneous values
           await openRealTimeTelemetryModal({
             token: jwtToken,
             deviceId: this.config.params.deviceId,
-            deviceLabel: (this.data[0]?.entityLabel || this.config.params.deviceLabel || 'Dispositivo') as string,
+            deviceLabel: this.config.params.deviceLabel || 'Dispositivo',
             telemetryKeys: ['voltage', 'current', 'power', 'energy'],
             refreshInterval: 8000, // 8 seconds
             historyPoints: 50,

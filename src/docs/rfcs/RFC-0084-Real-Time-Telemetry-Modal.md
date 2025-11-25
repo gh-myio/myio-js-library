@@ -254,10 +254,59 @@ GET /api/plugins/telemetry/DEVICE/{deviceId}/values/timeseries?
 - [x] TypeScript compilation succeeds
 - [x] Build completes without errors
 
+## Post-Implementation Fix (v0.1.134)
+
+### Issue Found
+After initial implementation (v0.1.133), a critical bug was discovered:
+1. **Missing "Pico de Demanda" button** - The button was replaced instead of adding a second button
+2. **Error in "Telemetrias Instantâneas"**: `Cannot read properties of undefined (reading '0')` - accessing `this.data[0]` which doesn't exist
+
+### Root Cause
+Misunderstood requirements - should have ADDED a new button for real-time telemetry while KEEPING the existing demand button, but instead REPLACED the functionality.
+
+### Fix Applied (v0.1.134)
+
+#### 1. Added "Pico de Demanda" Button
+**File**: `EnergyModalView.ts` lines 267-276
+- New button ID: `view-demand-btn`
+- Blue gradient styling (different from purple telemetry button)
+- Icon: 📊
+
+#### 2. Added Event Listener for Demand Modal
+**File**: `EnergyModalView.ts` lines 1023-1069
+- Opens `openDemandModal` with correct parameters
+- Uses date range from picker or fallback to params
+- Passes `readingType`, `enableRealTimeMode`, etc.
+
+#### 3. Fixed Telemetry Button Error
+**File**: `EnergyModalView.ts` line 1087
+- **Before**: `deviceLabel: (this.data[0]?.entityLabel || this.config.params.deviceLabel || 'Dispositivo')`
+- **After**: `deviceLabel: this.config.params.deviceLabel || 'Dispositivo'`
+- Removed reference to non-existent `this.data` property
+
+### Current Button Layout (CORRECT)
+```html
+<!-- Button 1: Historical Demand (ADDED in v0.1.134) -->
+<button id="view-demand-btn">
+  📊 Pico de Demanda
+</button>
+
+<!-- Button 2: Real-Time Telemetry (FIXED in v0.1.134) -->
+<button id="view-telemetry-btn">
+  ⚡ Telemetrias Instantâneas
+</button>
+```
+
+### Build Status
+- **Version**: v0.1.134
+- **Status**: ✅ Success
+- **Size**: ESM 624.37 KB, CJS 628.89 KB
+
 ## References
 
 - RFC-0082: Real-Time Mode (implementado na DemandModal)
-- EnergyModalView.ts linha 274: Botão "Telemetrias Instantâneas"
-- EnergyModalView.ts linha 1017-1036: Implementação correta
+- EnergyModalView.ts linha 267-286: Ambos os botões (Pico de Demanda + Telemetrias Instantâneas)
+- EnergyModalView.ts linha 1023-1069: Event listener para Pico de Demanda
+- EnergyModalView.ts linha 1071-1098: Event listener para Telemetrias Instantâneas (corrigido)
 - RealTimeTelemetryModal.ts: Nova modal (691 linhas)
 - index.ts linha 116-118: Exports
