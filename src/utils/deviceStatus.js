@@ -61,6 +61,21 @@ export const waterDeviceStatusIcons = {
 };
 
 /**
+ * Temperature device status icons mapping (for TERMOSTATO)
+ * @type {Object.<string, string>}
+ */
+export const temperatureDeviceStatusIcons = {
+  [DeviceStatusType.POWER_ON]: "🌡️",
+  [DeviceStatusType.STANDBY]: "🌡️",
+  [DeviceStatusType.POWER_OFF]: "🔴",
+  [DeviceStatusType.WARNING]: "⚠️",
+  [DeviceStatusType.FAILURE]: "🚨",
+  [DeviceStatusType.MAINTENANCE]: "🛠️",
+  [DeviceStatusType.NO_INFO]: "❓️",
+  [DeviceStatusType.NOT_INSTALLED]: "📦",
+};
+
+/**
  * Connection status icons mapping
  * @type {Object.<string, string>}
  */
@@ -134,13 +149,27 @@ export function isDeviceOffline(deviceStatus) {
  * Gets the appropriate icon for a device status
  *
  * @param {string} deviceStatus - The device status
- * @param {string} deviceType - The device type (optional, for water devices like TANK/CAIXA_DAGUA)
+ * @param {string} deviceType - The device type (optional, for water/temperature devices)
  * @returns {string} The icon emoji/character
  */
 export function getDeviceStatusIcon(deviceStatus, deviceType = null) {
+  // Normalize device type for comparison
+  const normalizedType = deviceType?.toUpperCase() || '';
+
   // Use water icons for TANK/CAIXA_DAGUA devices
-  const isWaterDevice = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
-  const iconMap = isWaterDevice ? waterDeviceStatusIcons : deviceStatusIcons;
+  const isWaterDevice = normalizedType === 'TANK' || normalizedType === 'CAIXA_DAGUA';
+
+  // Use temperature icons for TERMOSTATO devices
+  const isTemperatureDevice = normalizedType === 'TERMOSTATO';
+
+  let iconMap;
+  if (isWaterDevice) {
+    iconMap = waterDeviceStatusIcons;
+  } else if (isTemperatureDevice) {
+    iconMap = temperatureDeviceStatusIcons;
+  } else {
+    iconMap = deviceStatusIcons;
+  }
 
   return iconMap[deviceStatus] || iconMap[DeviceStatusType.POWER_ON];
 }

@@ -60,7 +60,12 @@ export function renderCardComponentV5({
     timeVal,
     customerName,
     waterLevel,
-    waterPercentage
+    waterPercentage,
+    // Temperature-specific fields (for TERMOSTATO devices)
+    temperature,
+    temperatureMin,
+    temperatureMax,
+    temperatureStatus // 'ok' | 'above' | 'below' | undefined
   } = entityObject;
 
   /*********************************************************
@@ -206,6 +211,7 @@ export function renderCardComponentV5({
       'HIDROMETRO': 'water',
       'CAIXA_DAGUA': 'water',
       'TANK': 'water',
+      'TERMOSTATO': 'temperature',
     };
 
     const normalizedType = deviceType?.toUpperCase() || '';
@@ -226,7 +232,8 @@ export function renderCardComponentV5({
       'SUBESTACAO': 'ENERGY',
       'HIDROMETRO': 'WATER',
       'CAIXA_DAGUA': 'WATER',
-      'TANK': 'TANK'
+      'TANK': 'TANK',
+      'TERMOSTATO': 'TEMPERATURE'
     };
     const normalizedType = deviceType?.toUpperCase() || '';
     return typeMap[normalizedType] || 'ENERGY';
@@ -239,6 +246,13 @@ export function renderCardComponentV5({
     return energyDeviceTypes.includes(normalizedType);
   };
 
+  // Check if device is temperature-related
+  const isTemperatureDevice = (deviceType) => {
+    const temperatureDeviceTypes = ['TERMOSTATO'];
+    const normalizedType = deviceType?.toUpperCase() || '';
+    return temperatureDeviceTypes.includes(normalizedType);
+  };
+
   // Smart formatting function that uses formatEnergy for energy devices
   const formatCardValue = (value, deviceType) => {
     const numValue = Number(value) || 0;
@@ -246,6 +260,13 @@ export function renderCardComponentV5({
     if (isEnergyDevice(deviceType)) {
       // Use formatEnergy for intelligent unit conversion (Wh → kWh → MWh → GWh)
       return formatEnergy(numValue);
+    } else if (isTemperatureDevice(deviceType)) {
+      // Format temperature with 1 decimal place and °C unit
+      const formattedTemp = numValue.toLocaleString('pt-BR', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+      });
+      return `${formattedTemp} °C`;
     } else {
       // Use existing formatting for non-energy devices
       const unit = determineUnit(deviceType);
@@ -268,6 +289,8 @@ export function renderCardComponentV5({
         return 'm³';
       case 'TANK':
         return 'm.c.a';
+      case 'TEMPERATURE':
+        return '°C';
       default:
         return '';
     }
@@ -476,8 +499,10 @@ export function renderCardComponentV5({
     document.head.appendChild(style);
   }
 
-  // Get device image URL with dynamic level support for TANK devices
-  const getDeviceImageUrl = (deviceType, percentage = 0) => {
+  // Get device image URL with dynamic level support for TANK and TERMOSTATO devices
+  const getDeviceImageUrl = (deviceType, percentage = 0, options = {}) => {
+    const { tempStatus, isOffline } = options;
+
     // Normalize device type
     function normalizeString(str) {
       if (typeof str !== 'string') {
@@ -490,6 +515,23 @@ export function renderCardComponentV5({
     }
 
     const nameType = normalizeString(deviceType);
+
+    // TERMOSTATO devices: Dynamic icon based on temperature status
+    if (nameType === 'TERMOSTATO') {
+      // If offline, return offline icon (gray/neutral)
+      if (isOffline) {
+        return "https://dashboard.myio-bas.com/api/images/public/Q4bE6zWz4pL3u5M3rjmMt2uSis6Xe52F"; // offline/online base
+      }
+      // Determine status: 'ok' = within range, 'above' = above max, 'below' = below min
+      if (tempStatus === 'above') {
+        return "https://dashboard.myio-bas.com/api/images/public/S3IvpZRJvskqFrhoypKBCKKsLaKiqzJI"; // above range (hot)
+      } else if (tempStatus === 'below') {
+        return "https://dashboard.myio-bas.com/api/images/public/ctfORoxVGP2bB7VKeprJfIvNgmNjpaO4"; // below range (cold)
+      } else {
+        // Default: within range or status not specified
+        return "https://dashboard.myio-bas.com/api/images/public/rtCcq6kZZVCD7wgJywxEurRZwR8LA7Q7"; // within range (ok)
+      }
+    }
 
     // TANK devices: Dynamic icon based on water level percentage
     if (nameType === 'TANK') {
@@ -524,8 +566,31 @@ export function renderCardComponentV5({
   // For TANK devices, waterPercentage is 0-1, so multiply by 100
   // For other devices, perc is already 0-100
   const isTankDevice = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
+  const isTermostatoDevice = deviceType?.toUpperCase() === 'TERMOSTATO';
   const percentageForDisplay = isTankDevice ? (waterPercentage || 0) * 100 : perc;
-  const deviceImageUrl = getDeviceImageUrl(deviceType, percentageForDisplay);
+
+  // Calculate temperature status for TERMOSTATO devices
+  const calculateTempStatus = () => {
+    // If status is explicitly provided, use it
+    if (temperatureStatus) return temperatureStatus;
+
+    // If min/max are provided, calculate based on current value
+    const currentTemp = Number(val) || 0;
+    if (temperatureMin !== undefined && temperatureMax !== undefined) {
+      if (currentTemp > temperatureMax) return 'above';
+      if (currentTemp < temperatureMin) return 'below';
+      return 'ok';
+    }
+
+    // Default to 'ok' if no range info available
+    return 'ok';
+  };
+
+  const tempStatus = isTermostatoDevice ? calculateTempStatus() : null;
+  const deviceImageUrl = getDeviceImageUrl(deviceType, percentageForDisplay, {
+    tempStatus,
+    isOffline
+  });
 
   // Create card HTML with optimized spacing
   const cardHTML = `
@@ -573,7 +638,7 @@ export function renderCardComponentV5({
                     ${icon}
                   </span>
                   <span class="consumption-value">${formatCardValue(cardEntity.lastValue, deviceType)}</span>
-                  <span class="device-title-percent">(${percentageForDisplay.toFixed(1)}%)</span>
+                  ${!isTermostatoDevice ? `<span class="device-title-percent">(${percentageForDisplay.toFixed(1)}%)</span>` : ''}
                 </div>
               </div>
             </div>

@@ -744,7 +744,7 @@ async function ensureAuthReady(maxMs = 6000, stepMs = 150) {
 
 /** ===================== TB INDEXES ===================== **/
 function buildTbAttrIndex() {
-  const byTbId = new Map(); // tbId -> { slaveId, centralId, deviceType, centralName, lastConnectTime, lastActivityTime, connectionStatus }
+  const byTbId = new Map(); // tbId -> { slaveId, centralId, deviceType, centralName, lastConnectTime, lastDisconnectTime, lastActivityTime, connectionStatus }
   const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
   for (const row of rows) {
     const key = String(row?.dataKey?.name || "").toLowerCase();
@@ -761,6 +761,7 @@ function buildTbAttrIndex() {
         centralName: null,
         customerName: null,
         lastConnectTime: null,
+        lastDisconnectTime: null,
         lastActivityTime: null,
         connectionStatus: null,
       });
@@ -772,6 +773,7 @@ function buildTbAttrIndex() {
     if (key === "centralname") slot.centralName = val;
     if (key === "customername") slot.customerName = val;
     if (key === "lastconnecttime") slot.lastConnectTime = val;
+    if (key === "lastdisconnecttime") slot.lastDisconnectTime = val;
     if (key === "lastactivitytime") slot.lastActivityTime = val;
     if (key === "connectionstatus") slot.connectionStatus = String(val).toLowerCase();
   }
@@ -809,6 +811,21 @@ function buildAuthoritativeItems() {
   const tbIdIdx = buildTbIdIndexes(); // { byIdentifier, byIngestion }
   const attrsByTb = buildTbAttrIndex(); // tbId -> { slaveId, centralId, deviceType }
 
+  // Extract global minTemperature and maxTemperature from ctx.data (dataKey.name)
+  let globalTempMin = null;
+  let globalTempMax = null;
+  const ctxDataRows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+  ctxDataRows.forEach((data) => {
+    if (data?.dataKey?.name === "maxTemperature") {
+      globalTempMax = Number(data.data?.[0]?.[1]) || null;
+      LogHelper.log(`[DeviceCards] Found global maxTemperature: ${globalTempMax} from ${data.datasource?.entityLabel}`);
+    }
+    if (data?.dataKey?.name === "minTemperature") {
+      globalTempMin = Number(data.data?.[0]?.[1]) || null;
+      LogHelper.log(`[DeviceCards] Found global minTemperature: ${globalTempMin} from ${data.datasource?.entityLabel}`);
+    }
+  });
+
   const mapped = ok.map((r) => {
     //LogHelper.log("[TELEMETRY][buildAuthoritativeItems] ok.map: ", r);
 
@@ -845,14 +862,29 @@ function buildAuthoritativeItems() {
     // Extract telemetry data from ThingsBoard ctx.data
     // - TANK/CAIXA_DAGUA: water_level, water_percentage
     // - ENERGY devices: consumption (most recent value)
+    // - TERMOSTATO: temperature (min/max come from global dataKeys)
     let waterLevel = null;
     let waterPercentage = null;
     let consumption = null;
+    let temperature = null;
     const isTankDevice = deviceTypeToDisplay === "TANK" || deviceTypeToDisplay === "CAIXA_DAGUA";
+    const isTermostatoDevice = deviceTypeToDisplay === "TERMOSTATO";
+
+    // Debug log for device type detection
+    //LogHelper.log(`[DeviceCards] Device ${r.label}: deviceType=${deviceTypeToDisplay}, isTermostato=${isTermostatoDevice}`);
 
     if (tbId) {
       // Search for telemetry in ctx.data for this specific device
       const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+
+      // Debug: log all available telemetry keys for this device
+      if (isTermostatoDevice) {
+        const deviceKeys = rows
+          .filter(row => (row?.datasource?.entityId?.id || row?.datasource?.entityId) === tbId)
+          .map(row => row?.dataKey?.name);
+        LogHelper.log(`[DeviceCards] TERMOSTATO tbId=${tbId}, available telemetry keys:`, deviceKeys);
+      }
+
       for (const row of rows) {
         const rowTbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
         if (rowTbId === tbId) {
@@ -865,16 +897,26 @@ function buildAuthoritativeItems() {
 
           // ENERGY/WATER devices: consumption (most recent)
           if (key === "consumption") consumption = Number(val) || 0;
+
+          // TERMOSTATO specific telemetry
+          if (key === "temperature") {
+            temperature = Number(val) || 0;
+            LogHelper.log(`[DeviceCards] Found temperature telemetry: key=${key}, val=${val}, parsed=${temperature}`);
+          }
         }
       }
+    }
+
+    // Debug log for final values
+    if (isTermostatoDevice) {
+      LogHelper.log(`[DeviceCards] TERMOSTATO device final values: temperature=${temperature}, deviceValue will be=${temperature || 0}`);
     }
 
     // Calculate deviceStatus based on connectionStatus and current telemetry value
     // connectionStatus comes from TB attribute: "online" or "offline"
     const tbConnectionStatus = attrs.connectionStatus; // "online" or "offline" from TB
 
-    console.log('tbConnectionStatus', tbConnectionStatus);
-    
+    //console.log('tbConnectionStatus', tbConnectionStatus);
     
     let deviceStatus = "no_info"; // default
 
@@ -896,6 +938,28 @@ function buildAuthoritativeItems() {
       deviceStatus = "power_on"; // Simplified logic: if online, consider power_on
     }
 
+    // Determine value based on device type
+    let deviceValue = 0;
+    if (isTankDevice) {
+      deviceValue = waterLevel || 0;
+    } else if (isTermostatoDevice) {
+      deviceValue = temperature || 0;
+    }
+
+    // Calculate temperatureStatus: 'ok', 'above', 'below', or null
+    // Uses global min/max from dataKeys (not per-device)
+    let temperatureStatus = null;
+    if (isTermostatoDevice && temperature !== null) {
+      if (globalTempMax !== null && temperature > globalTempMax) {
+        temperatureStatus = 'above';
+      } else if (globalTempMin !== null && temperature < globalTempMin) {
+        temperatureStatus = 'below';
+      } else {
+        temperatureStatus = 'ok';
+      }
+      LogHelper.log(`[DeviceCards] TERMOSTATO status: temp=${temperature}, min=${globalTempMin}, max=${globalTempMax}, status=${temperatureStatus}`);
+    }
+
     return {
       id: tbId || ingestionId, // para seleção/toggle
       tbId, // ThingsBoard deviceId (Settings)
@@ -909,14 +973,20 @@ function buildAuthoritativeItems() {
       deviceType: deviceTypeToDisplay,
       updatedIdentifiers: {},
       connectionStatusTime: attrs.lastConnectTime ?? null,
+      lastDisconnectTime: attrs.lastDisconnectTime ?? null,
       timeVal: attrs.lastActivityTime ?? null,
       deviceStatus: deviceStatus, // Calculated based on connectionStatus + value
       // TANK/CAIXA_DAGUA specific fields
       waterLevel: waterLevel,
       waterPercentage: waterPercentage,
+      // TERMOSTATO specific fields (min/max are global from dataKeys)
+      temperature: temperature,
+      temperatureMin: globalTempMin,
+      temperatureMax: globalTempMax,
+      temperatureStatus: temperatureStatus,
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
-      // Use waterLevel as the value for TANK devices (instead of from /totals API)
-      value: isTankDevice ? (waterLevel || 0) : 0,
+      // Use appropriate value based on device type
+      value: deviceValue,
       perc: isTankDevice ? (waterPercentage || 0) : 0,
     };
   });
@@ -955,6 +1025,11 @@ async function fetchApiTotals(startISO, endISO) {
 
 function enrichItemsWithTotals(items, apiMap) {
   return items.map((it) => {
+    // For temperature domain, preserve the value from ctx.data (buildAuthoritativeItems)
+    if (WIDGET_DOMAIN === "temperature") {
+      return { ...it, perc: 0 };
+    }
+
     let raw = 0;
 
     if (it.ingestionId && isValidUUID(it.ingestionId)) {
@@ -1038,6 +1113,9 @@ function renderHeader(count, groupSum) {
     formattedTotal = MyIO.formatWaterVolumeM3(groupSum);
   } else if (WIDGET_DOMAIN === "tank") {
     formattedTotal = MyIO.formatTankHeadFromCm(groupSum);
+  } else if (WIDGET_DOMAIN === "temperature") {
+    // For temperature, show count instead of sum (summing temperatures doesn't make sense)
+    formattedTotal = `${count} sensor${count !== 1 ? 'es' : ''}`;
   }
 
   $total().text(formattedTotal);
@@ -1047,8 +1125,13 @@ function renderList(visible) {
   const $ul = $list().empty();
 
   visible.forEach((it) => {
+    // For temperature domain, only render TERMOSTATO devices
+    if (WIDGET_DOMAIN === "temperature" && it.deviceType !== "TERMOSTATO") {
+      return; // Skip non-TERMOSTATO devices in temperature domain
+    }
+
     const valNum = Number(it.value || 0);
-    
+
     // Note: deviceStatus comes from buildAuthoritativeItems (based on TB connectionStatus + telemetry)
     // Don't recalculate here - it would be incorrect for ENERGY devices
 
@@ -1103,6 +1186,11 @@ function renderList(visible) {
       // TANK/CAIXA_DAGUA specific fields
       waterLevel: it.waterLevel || null,
       waterPercentage: it.waterPercentage || null,
+      // TERMOSTATO specific fields
+      temperature: it.temperature || null,
+      temperatureMin: it.temperatureMin || null,
+      temperatureMax: it.temperatureMax || null,
+      temperatureStatus: it.temperatureStatus || null,
     };
 
     if (it.label === "Allegria") {
@@ -1137,20 +1225,30 @@ function renderList(visible) {
           return;
         }
 
-        const startTs = self.ctx?.scope?.startTs || Date.now() - 86400000;
-        const endTs = self.ctx?.scope?.endTs || Date.now();
+        // Get dates from MENU (startDateISO/endDateISO) and convert to timestamps
+        const startDateISO = self.ctx?.scope?.startDateISO;
+        const endDateISO = self.ctx?.scope?.endDateISO;
+        const startTs = startDateISO ? new Date(startDateISO).getTime() : (Date.now() - 86400000);
+        const endTs = endDateISO ? new Date(endDateISO).getTime() : Date.now();
         const deviceType = it.deviceType || entityObject.deviceType;
         const isWaterTank = deviceType === "TANK" || deviceType === "CAIXA_DAGUA";
+        const isTermostato = deviceType === "TERMOSTATO";
 
         LogHelper.log(
           "[TELEMETRY v5] Opening dashboard for deviceType:",
           deviceType,
           "isWaterTank:",
           isWaterTank,
+          "isTermostato:",
+          isTermostato,
           "deviceId:",
           it.id,
           "tbId:",
           it.tbId,
+          "startDateISO:",
+          startDateISO,
+          "endDateISO:",
+          endDateISO,
           "startTs:",
           startTs,
           "endTs:",
@@ -1160,18 +1258,537 @@ function renderList(visible) {
         // Show loading toast
         let loadingToast = null;
         if (MyIOToast) {
-          loadingToast = MyIOToast.info(
-            isWaterTank
+          const loadingMsg = isTermostato
+            ? "Carregando dados de temperatura..."
+            : isWaterTank
               ? "Loading water tank data..."
-              : "Loading energy data...",
-            0 // No auto-hide
-          );
+              : "Loading energy data...";
+          loadingToast = MyIOToast.info(loadingMsg, 0);
         }
 
         try {
-          if (isWaterTank) {
+          if (isTermostato) {
+            // Temperature/TERMOSTATO Modal Path (ThingsBoard API)
+            LogHelper.log("[TELEMETRY v5] Entering TERMOSTATO device modal path...");
+
+            // Fetch temperature timeseries from ThingsBoard API
+            const tbToken = jwtToken;
+            const deviceId = it.tbId || it.id;
+            const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries` +
+              `?keys=temperature` +
+              `&startTs=${encodeURIComponent(startTs)}` +
+              `&endTs=${encodeURIComponent(endTs)}` +
+              `&limit=50000` +
+              `&agg=NONE`;
+
+            LogHelper.log("[TELEMETRY v5] Fetching temperature data from:", url);
+
+            const response = await fetch(url, {
+              headers: {
+                "X-Authorization": `Bearer ${tbToken}`,
+                "Content-Type": "application/json",
+              },
+            });
+
+            if (!response.ok) {
+              throw new Error(`Failed to fetch temperature data: ${response.status}`);
+            }
+
+            const data = await response.json();
+            LogHelper.log("[TELEMETRY v5] Temperature data received:", data);
+
+            // Helper function to clamp temperature values (avoid outliers)
+            // Values below 15°C are clamped to 15, values above 40°C are clamped to 40
+            const clampTemperature = (value) => {
+              const num = Number(value || 0);
+              if (num < 15) return 15;
+              if (num > 40) return 40;
+              return num;
+            };
+
+            // Calculate statistics from the data (with outlier clamping)
+            const tempValues = data?.temperature || [];
+            let avgTemp = 0;
+            let minTemp = null;
+            let maxTemp = null;
+            if (tempValues.length > 0) {
+              const values = tempValues.map(item => clampTemperature(item.value));
+              const sum = values.reduce((acc, v) => acc + v, 0);
+              avgTemp = sum / values.length;
+              minTemp = Math.min(...values);
+              maxTemp = Math.max(...values);
+            }
+
+            // Get current temperature from entity (with clamping)
+            const rawCurrentTemp = it.temperature || entityObject.temperature || (tempValues.length > 0 ? Number(tempValues[tempValues.length - 1].value) : 0);
+            const currentTemp = clampTemperature(rawCurrentTemp);
+            const tempMinRange = it.temperatureMin || entityObject.temperatureMin;
+            const tempMaxRange = it.temperatureMax || entityObject.temperatureMax;
+            const tempStatus = it.temperatureStatus || entityObject.temperatureStatus;
+
+            if (loadingToast) loadingToast.hide();
+            hideBusy();
+
+            // Create modal HTML
+            const statusText = tempStatus === 'ok' ? 'Dentro da faixa' :
+                               tempStatus === 'above' ? 'Acima do limite' :
+                               tempStatus === 'below' ? 'Abaixo do limite' : 'N/A';
+            const statusColor = tempStatus === 'ok' ? '#4CAF50' :
+                                tempStatus === 'above' ? '#f44336' :
+                                tempStatus === 'below' ? '#2196F3' : '#757575';
+            const rangeText = (tempMinRange !== null && tempMaxRange !== null)
+              ? `${tempMinRange}°C - ${tempMaxRange}°C`
+              : 'Nao definida';
+
+            // Format dates for display
+            const startDate = new Date(startTs).toLocaleDateString('pt-BR');
+            const endDate = new Date(endTs).toLocaleDateString('pt-BR');
+
+            // Create and show modal
+            const modalId = `temp-modal-${Date.now()}`;
+
+            // Format dates for input fields (YYYY-MM-DD)
+            const startDateInput = new Date(startTs).toISOString().split('T')[0];
+            const endDateInput = new Date(endTs).toISOString().split('T')[0];
+
+            const modalHTML = `
+              <div id="${modalId}" style="
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.6); z-index: 10000;
+                display: flex; justify-content: center; align-items: center;
+              ">
+                <div style="
+                  background: white; border-radius: 12px; padding: 24px;
+                  max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto;
+                  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                ">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h2 style="margin: 0; font-size: 20px; color: #333;">
+                      ${it.label || 'Sensor de Temperatura'}
+                    </h2>
+                    <button id="${modalId}-close" style="
+                      background: none; border: none; font-size: 24px;
+                      cursor: pointer; color: #666; padding: 4px 8px;
+                    ">&times;</button>
+                  </div>
+
+                  <!-- Date Picker Section -->
+                  <div style="margin-bottom: 16px; padding: 12px; background: #e3f2fd; border-radius: 8px; border: 1px solid #90caf9;">
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+                      <div>
+                        <label style="color: #1565c0; font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px;">Data Inicio</label>
+                        <input type="date" id="${modalId}-start-date" value="${startDateInput}" style="
+                          padding: 8px 12px; border: 1px solid #90caf9; border-radius: 4px;
+                          font-size: 14px; color: #333; background: white;
+                        "/>
+                      </div>
+                      <div>
+                        <label style="color: #1565c0; font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px;">Data Fim</label>
+                        <input type="date" id="${modalId}-end-date" value="${endDateInput}" style="
+                          padding: 8px 12px; border: 1px solid #90caf9; border-radius: 4px;
+                          font-size: 14px; color: #333; background: white;
+                        "/>
+                      </div>
+                      <button id="${modalId}-query" style="
+                        background: #1976d2; color: white; border: none;
+                        padding: 8px 20px; border-radius: 4px; cursor: pointer;
+                        font-size: 14px; font-weight: 500; height: 38px;
+                      ">Consultar</button>
+                      <div id="${modalId}-loading" style="display: none; color: #1976d2; font-size: 14px; align-items: center; gap: 8px;">
+                        <span style="animation: spin 1s linear infinite; display: inline-block;">&#8635;</span> Carregando...
+                      </div>
+                    </div>
+                  </div>
+
+                  <div id="${modalId}-stats" style="margin-bottom: 16px; padding: 12px; background: #f5f5f5; border-radius: 8px;">
+                    <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+                      <div>
+                        <span style="color: #666; font-size: 12px;">Periodo</span>
+                        <div id="${modalId}-period" style="font-weight: 500;">${startDate} - ${endDate}</div>
+                      </div>
+                      <div>
+                        <span style="color: #666; font-size: 12px;">Temperatura Atual</span>
+                        <div id="${modalId}-current" style="font-weight: 600; font-size: 18px; color: ${statusColor};">${currentTemp?.toFixed(1) || 'N/A'}°C</div>
+                      </div>
+                      <div>
+                        <span style="color: #666; font-size: 12px;">Media do Periodo</span>
+                        <div id="${modalId}-avg" style="font-weight: 500;">${avgTemp?.toFixed(1) || 'N/A'}°C</div>
+                      </div>
+                      <div>
+                        <span style="color: #666; font-size: 12px;">Min / Max</span>
+                        <div id="${modalId}-minmax" style="font-weight: 500;">${minTemp?.toFixed(1) || 'N/A'}°C / ${maxTemp?.toFixed(1) || 'N/A'}°C</div>
+                      </div>
+                      <div>
+                        <span style="color: #666; font-size: 12px;">Faixa Ideal</span>
+                        <div style="font-weight: 500;">${rangeText}</div>
+                      </div>
+                      <div>
+                        <span style="color: #666; font-size: 12px;">Status</span>
+                        <div id="${modalId}-status" style="font-weight: 600; color: ${statusColor};">${statusText}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="margin-bottom: 16px;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 14px; color: #666;">Historico de Temperatura</h3>
+                    <div id="${modalId}-chart" style="height: 300px; background: #fafafa; border-radius: 8px; display: flex; justify-content: center; align-items: center;">
+                      ${tempValues.length > 0
+                        ? '<canvas id="' + modalId + '-canvas" style="width: 100%; height: 100%;"></canvas>'
+                        : '<span style="color: #999;">Sem dados para o periodo selecionado</span>'}
+                    </div>
+                  </div>
+
+                  <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                    <button id="${modalId}-export" style="
+                      background: #1976d2; color: white; border: none;
+                      padding: 8px 16px; border-radius: 4px; cursor: pointer;
+                      font-size: 14px;
+                    ">Exportar CSV</button>
+                    <button id="${modalId}-close-btn" style="
+                      background: #f5f5f5; color: #333; border: none;
+                      padding: 8px 16px; border-radius: 4px; cursor: pointer;
+                      font-size: 14px;
+                    ">Fechar</button>
+                  </div>
+                </div>
+              </div>
+              <style>
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+              </style>
+            `;
+
+            // Add modal to DOM
+            const modalContainer = document.createElement('div');
+            modalContainer.innerHTML = modalHTML;
+            document.body.appendChild(modalContainer);
+
+            // Close handlers
+            const closeModal = () => {
+              modalContainer.remove();
+              LogHelper.log("[TELEMETRY v5] Temperature modal closed");
+            };
+
+            document.getElementById(`${modalId}`)?.addEventListener('click', (e) => {
+              if (e.target === e.currentTarget) closeModal();
+            });
+            document.getElementById(`${modalId}-close`)?.addEventListener('click', closeModal);
+            document.getElementById(`${modalId}-close-btn`)?.addEventListener('click', closeModal);
+
+            // Store current data for export (mutable)
+            let currentTempValues = [...tempValues];
+            let currentStartDate = startDate;
+            let currentEndDate = endDate;
+
+            // Function to draw chart
+            const drawChart = (chartTempValues) => {
+              const chartContainer = document.getElementById(`${modalId}-chart`);
+              if (!chartContainer) return;
+
+              if (chartTempValues.length === 0) {
+                chartContainer.innerHTML = '<span style="color: #999;">Sem dados para o periodo selecionado</span>';
+                return;
+              }
+
+              // Create canvas if not exists
+              let canvas = document.getElementById(`${modalId}-canvas`);
+              if (!canvas) {
+                chartContainer.innerHTML = `<canvas id="${modalId}-canvas" style="width: 100%; height: 100%;"></canvas>`;
+                canvas = document.getElementById(`${modalId}-canvas`);
+              }
+
+              if (canvas) {
+                const ctx = canvas.getContext('2d');
+                // Clamp temperature values to avoid outliers (15-40°C range)
+                const chartData = chartTempValues.map(item => {
+                  let y = Number(item.value);
+                  if (y < 15) y = 15;
+                  if (y > 40) y = 40;
+                  return { x: item.ts, y };
+                }).sort((a, b) => a.x - b.x);
+
+                // Simple line chart
+                const width = canvas.parentElement.clientWidth;
+                const height = 300;
+                canvas.width = width;
+                canvas.height = height;
+                const paddingLeft = 50;
+                const paddingRight = 20;
+                const paddingTop = 20;
+                const paddingBottom = 50; // More space for X-axis labels
+
+                // Clear canvas
+                ctx.clearRect(0, 0, width, height);
+
+                const minY = Math.min(...chartData.map(d => d.y)) - 1;
+                const maxY = Math.max(...chartData.map(d => d.y)) + 1;
+                const minX = chartData[0].x;
+                const maxX = chartData[chartData.length - 1].x;
+                const timeRange = maxX - minX;
+
+                const chartWidth = width - paddingLeft - paddingRight;
+                const chartHeight = height - paddingTop - paddingBottom;
+                const scaleX = chartWidth / (timeRange || 1);
+                const scaleY = chartHeight / (maxY - minY || 1);
+
+                // Draw horizontal grid lines
+                ctx.strokeStyle = '#e0e0e0';
+                ctx.lineWidth = 1;
+                for (let i = 0; i <= 4; i++) {
+                  const y = paddingTop + chartHeight * i / 4;
+                  ctx.beginPath();
+                  ctx.moveTo(paddingLeft, y);
+                  ctx.lineTo(width - paddingRight, y);
+                  ctx.stroke();
+                }
+
+                // Draw min/max range if defined
+                if (tempMinRange !== null && tempMaxRange !== null) {
+                  const rangeMinY = height - paddingBottom - (tempMinRange - minY) * scaleY;
+                  const rangeMaxY = height - paddingBottom - (tempMaxRange - minY) * scaleY;
+                  ctx.fillStyle = 'rgba(76, 175, 80, 0.1)';
+                  ctx.fillRect(paddingLeft, rangeMaxY, chartWidth, rangeMinY - rangeMaxY);
+                  ctx.strokeStyle = '#4CAF50';
+                  ctx.setLineDash([5, 5]);
+                  ctx.beginPath();
+                  ctx.moveTo(paddingLeft, rangeMinY);
+                  ctx.lineTo(width - paddingRight, rangeMinY);
+                  ctx.moveTo(paddingLeft, rangeMaxY);
+                  ctx.lineTo(width - paddingRight, rangeMaxY);
+                  ctx.stroke();
+                  ctx.setLineDash([]);
+                }
+
+                // Draw temperature line
+                ctx.strokeStyle = '#1976d2';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                chartData.forEach((point, i) => {
+                  const x = paddingLeft + (point.x - minX) * scaleX;
+                  const y = height - paddingBottom - (point.y - minY) * scaleY;
+                  if (i === 0) ctx.moveTo(x, y);
+                  else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+
+                // Draw Y axis labels (temperature)
+                ctx.fillStyle = '#666';
+                ctx.font = '11px sans-serif';
+                ctx.textAlign = 'right';
+                for (let i = 0; i <= 4; i++) {
+                  const val = minY + (maxY - minY) * (4 - i) / 4;
+                  const y = paddingTop + chartHeight * i / 4;
+                  ctx.fillText(val.toFixed(1) + '°C', paddingLeft - 5, y + 4);
+                }
+
+                // Draw X axis labels (dates/times)
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#666';
+                ctx.font = '10px sans-serif';
+
+                // Determine time range to decide label format
+                const ONE_HOUR = 60 * 60 * 1000;
+                const ONE_DAY = 24 * ONE_HOUR;
+                const numLabels = Math.min(6, chartData.length); // Max 6 labels
+                const labelInterval = Math.floor(chartData.length / numLabels);
+
+                // Decide format based on time range
+                const showTime = timeRange <= 2 * ONE_DAY; // Show time if range <= 2 days
+                const showDate = timeRange > 6 * ONE_HOUR; // Show date if range > 6 hours
+
+                for (let i = 0; i < chartData.length; i += Math.max(1, labelInterval)) {
+                  const point = chartData[i];
+                  const x = paddingLeft + (point.x - minX) * scaleX;
+                  const date = new Date(point.x);
+
+                  let label = '';
+                  if (showDate && showTime) {
+                    // Show both date and time (e.g., "15/01 14:00")
+                    label = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) +
+                            ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                  } else if (showTime) {
+                    // Show only time (e.g., "14:30")
+                    label = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                  } else if (showDate) {
+                    // Show only date (e.g., "15/01")
+                    label = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                  }
+
+                  // Draw vertical grid line
+                  ctx.strokeStyle = '#f0f0f0';
+                  ctx.lineWidth = 1;
+                  ctx.beginPath();
+                  ctx.moveTo(x, paddingTop);
+                  ctx.lineTo(x, height - paddingBottom);
+                  ctx.stroke();
+
+                  // Draw label
+                  ctx.fillStyle = '#666';
+                  ctx.save();
+                  ctx.translate(x, height - paddingBottom + 12);
+                  ctx.rotate(-Math.PI / 6); // Rotate 30 degrees for better fit
+                  ctx.fillText(label, 0, 0);
+                  ctx.restore();
+                }
+
+                // Draw axis lines
+                ctx.strokeStyle = '#ccc';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                // Y axis
+                ctx.moveTo(paddingLeft, paddingTop);
+                ctx.lineTo(paddingLeft, height - paddingBottom);
+                // X axis
+                ctx.lineTo(width - paddingRight, height - paddingBottom);
+                ctx.stroke();
+              }
+            };
+
+            // Function to update statistics display
+            const updateStats = (newTempValues, newStartTs, newEndTs) => {
+              let newAvgTemp = 0;
+              let newMinTemp = null;
+              let newMaxTemp = null;
+              if (newTempValues.length > 0) {
+                // Clamp temperature values to avoid outliers (15-40°C range)
+                const values = newTempValues.map(item => {
+                  let v = Number(item.value || 0);
+                  if (v < 15) v = 15;
+                  if (v > 40) v = 40;
+                  return v;
+                });
+                const sum = values.reduce((acc, v) => acc + v, 0);
+                newAvgTemp = sum / values.length;
+                newMinTemp = Math.min(...values);
+                newMaxTemp = Math.max(...values);
+              }
+
+              const newStartDate = new Date(newStartTs).toLocaleDateString('pt-BR');
+              const newEndDate = new Date(newEndTs).toLocaleDateString('pt-BR');
+
+              // Update period
+              const periodEl = document.getElementById(`${modalId}-period`);
+              if (periodEl) periodEl.textContent = `${newStartDate} - ${newEndDate}`;
+
+              // Update average
+              const avgEl = document.getElementById(`${modalId}-avg`);
+              if (avgEl) avgEl.textContent = newTempValues.length > 0 ? `${newAvgTemp.toFixed(1)}°C` : 'N/A';
+
+              // Update min/max
+              const minmaxEl = document.getElementById(`${modalId}-minmax`);
+              if (minmaxEl) minmaxEl.textContent = newTempValues.length > 0
+                ? `${newMinTemp.toFixed(1)}°C / ${newMaxTemp.toFixed(1)}°C`
+                : 'N/A / N/A';
+
+              // Store for export
+              currentStartDate = newStartDate;
+              currentEndDate = newEndDate;
+            };
+
+            // Query button handler (date picker)
+            document.getElementById(`${modalId}-query`)?.addEventListener('click', async () => {
+              const startInput = document.getElementById(`${modalId}-start-date`);
+              const endInput = document.getElementById(`${modalId}-end-date`);
+              const loadingEl = document.getElementById(`${modalId}-loading`);
+              const queryBtn = document.getElementById(`${modalId}-query`);
+
+              if (!startInput || !endInput) return;
+
+              const newStartTs = new Date(startInput.value).getTime();
+              const newEndTs = new Date(endInput.value).getTime() + (24 * 60 * 60 * 1000 - 1); // End of day
+
+              // Validate dates
+              if (isNaN(newStartTs) || isNaN(newEndTs)) {
+                if (MyIOToast) MyIOToast.warning("Por favor, selecione datas validas");
+                return;
+              }
+
+              if (newStartTs >= newEndTs) {
+                if (MyIOToast) MyIOToast.warning("A data de inicio deve ser anterior a data de fim");
+                return;
+              }
+
+              // Show loading
+              if (loadingEl) loadingEl.style.display = 'flex';
+              if (queryBtn) queryBtn.disabled = true;
+
+              try {
+                LogHelper.log("[TELEMETRY v5] Fetching new temperature data for dates:", {
+                  start: new Date(newStartTs).toISOString(),
+                  end: new Date(newEndTs).toISOString()
+                });
+
+                const newUrl = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries` +
+                  `?keys=temperature` +
+                  `&startTs=${encodeURIComponent(newStartTs)}` +
+                  `&endTs=${encodeURIComponent(newEndTs)}` +
+                  `&limit=50000` +
+                  `&agg=NONE`;
+
+                const newResponse = await fetch(newUrl, {
+                  headers: {
+                    "X-Authorization": `Bearer ${tbToken}`,
+                    "Content-Type": "application/json",
+                  },
+                });
+
+                if (!newResponse.ok) {
+                  throw new Error(`Failed to fetch temperature data: ${newResponse.status}`);
+                }
+
+                const newData = await newResponse.json();
+                LogHelper.log("[TELEMETRY v5] New temperature data received:", newData);
+
+                // Update current data
+                currentTempValues = newData?.temperature || [];
+
+                // Update statistics
+                updateStats(currentTempValues, newStartTs, newEndTs);
+
+                // Redraw chart
+                drawChart(currentTempValues);
+
+                if (MyIOToast) MyIOToast.success("Dados atualizados com sucesso!");
+
+              } catch (error) {
+                LogHelper.error("[TELEMETRY v5] Error fetching new temperature data:", error);
+                if (MyIOToast) MyIOToast.error(`Erro ao buscar dados: ${error.message}`);
+              } finally {
+                // Hide loading
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (queryBtn) queryBtn.disabled = false;
+              }
+            });
+
+            // Export CSV handler
+            document.getElementById(`${modalId}-export`)?.addEventListener('click', () => {
+              if (currentTempValues.length === 0) {
+                if (MyIOToast) MyIOToast.warning("Sem dados para exportar");
+                return;
+              }
+              const csvContent = "data:text/csv;charset=utf-8," +
+                "Data/Hora,Temperatura (°C)\n" +
+                currentTempValues.map(item => {
+                  const date = new Date(item.ts).toLocaleString('pt-BR');
+                  return `"${date}",${Number(item.value).toFixed(2)}`;
+                }).join("\n");
+              const encodedUri = encodeURI(csvContent);
+              const link = document.createElement("a");
+              link.setAttribute("href", encodedUri);
+              link.setAttribute("download", `temperatura_${it.label || 'sensor'}_${currentStartDate}_${currentEndDate}.csv`);
+              document.body.appendChild(link);
+              link.click();
+              link.remove();
+              if (MyIOToast) MyIOToast.success("CSV exportado com sucesso!");
+            });
+
+            // Draw initial chart
+            drawChart(currentTempValues);
+
+            LogHelper.log("[TELEMETRY v5] Temperature modal shown for device:", it.label);
+
+          } else if (isWaterTank) {
             // Water Tank Modal Path
-            LogHelper.log("[TELEMETRY v5] 🌊 Entering TANK device modal path...");
+            LogHelper.log("[TELEMETRY v5] Entering TANK device modal path...");
 
             LogHelper.log(
               "[TELEMETRY v5] MyIOLibrary available:",
@@ -1311,6 +1928,146 @@ function renderList(visible) {
         try {
           showBusy(); // mensagem fixa
 
+          const deviceType = it.deviceType || entityObject.deviceType;
+          const isTermostatoDevice = deviceType === "TERMOSTATO";
+
+          // For TERMOSTATO devices, reports use ThingsBoard API (no ingestion)
+          if (isTermostatoDevice || WIDGET_DOMAIN === "temperature") {
+            LogHelper.log("[TELEMETRY v5] Temperature report - using ThingsBoard API");
+
+            const jwtToken = localStorage.getItem("jwt_token");
+            if (!jwtToken) {
+              throw new Error("No JWT token available");
+            }
+
+            // Get device TB ID
+            let tbId = it.tbId;
+            if (!tbId || !isValidUUID(tbId)) {
+              const idx = buildTbIdIndexes();
+              tbId = (it.ingestionId && idx.byIngestion.get(it.ingestionId)) ||
+                     (it.identifier && idx.byIdentifier.get(it.identifier)) || null;
+            }
+
+            if (!tbId) {
+              LogHelper.warn("[TELEMETRY v5] No TB device ID for temperature report");
+              const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
+              if (MyIOToast) {
+                MyIOToast.error("Nao foi possivel identificar o dispositivo.");
+              }
+              return;
+            }
+
+            LogHelper.log("[TELEMETRY v5] Opening temperature report for device:", {
+              tbId,
+              label: it.label,
+              identifier: it.identifier
+            });
+
+            // Create custom fetcher for ThingsBoard temperature data
+            const temperatureFetcher = async ({ startISO, endISO }) => {
+              const startTs = new Date(startISO).getTime();
+              const endTs = new Date(endISO).getTime();
+
+              LogHelper.log("[TELEMETRY v5] Fetching temperature data for report:", {
+                startISO,
+                endISO,
+                startTs,
+                endTs,
+                tbId
+              });
+
+              // Fetch temperature data from ThingsBoard with daily aggregation
+              const url = `/api/plugins/telemetry/DEVICE/${tbId}/values/timeseries` +
+                `?keys=temperature` +
+                `&startTs=${encodeURIComponent(startTs)}` +
+                `&endTs=${encodeURIComponent(endTs)}` +
+                `&limit=50000` +
+                `&intervalType=MILLISECONDS` +
+                `&interval=86400000` + // 24 hours in ms (daily aggregation)
+                `&agg=AVG`;
+
+              const response = await fetch(url, {
+                headers: {
+                  "X-Authorization": `Bearer ${jwtToken}`,
+                  "Content-Type": "application/json",
+                },
+              });
+
+              if (!response.ok) {
+                throw new Error(`ThingsBoard API error: ${response.status}`);
+              }
+
+              const data = await response.json();
+              LogHelper.log("[TELEMETRY v5] ThingsBoard temperature response:", data);
+
+              // Transform ThingsBoard response to match expected format for report modal
+              const tempValues = data?.temperature || [];
+
+              if (tempValues.length === 0) {
+                LogHelper.warn("[TELEMETRY v5] No temperature data returned from ThingsBoard");
+                return [];
+              }
+
+              // Helper function to clamp temperature values (avoid outliers)
+              // Values below 15°C are clamped to 15, values above 40°C are clamped to 40
+              const clampTemp = (v) => {
+                const num = Number(v || 0);
+                if (num < 15) return 15;
+                if (num > 40) return 40;
+                return num;
+              };
+
+              // Group by day and calculate average (ThingsBoard may return multiple points per day)
+              const dailyMap = {};
+              tempValues.forEach(item => {
+                const date = new Date(item.ts);
+                const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+                if (!dailyMap[dateKey]) {
+                  dailyMap[dateKey] = { sum: 0, count: 0 };
+                }
+                // Clamp each value before aggregating
+                dailyMap[dateKey].sum += clampTemp(item.value);
+                dailyMap[dateKey].count += 1;
+              });
+
+              // Convert to array format expected by DeviceReportModal
+              const consumption = Object.entries(dailyMap).map(([date, stats]) => ({
+                timestamp: date + "T00:00:00.000Z",
+                value: stats.sum / stats.count // Average temperature for the day (already clamped)
+              }));
+
+              LogHelper.log("[TELEMETRY v5] Processed temperature data for report:", {
+                daysCount: consumption.length,
+                consumption
+              });
+
+              // Return in the format expected by DeviceReportModal.processApiResponse
+              return [{
+                deviceId: tbId,
+                consumption: consumption
+              }];
+            };
+
+            // Open the report modal with custom temperature fetcher
+            await MyIO.openDashboardPopupReport({
+              ingestionId: it.ingestionId || tbId, // Use tbId as fallback
+              deviceId: tbId,
+              identifier: it.identifier,
+              label: it.label,
+              domain: "temperature",
+              fetcher: temperatureFetcher, // Custom fetcher for ThingsBoard data
+              api: {
+                // These are not used when custom fetcher is provided, but required by interface
+                dataApiBaseUrl: "",
+                clientId: "",
+                clientSecret: "",
+                ingestionToken: jwtToken,
+              },
+            });
+
+            return;
+          }
+
           if (!isAuthReady()) throw new Error("Auth not ready");
 
           const ingestionToken = await MyIOAuth.getToken();
@@ -1367,8 +2124,9 @@ function renderList(visible) {
             deviceType: it.deviceType,
             connectionData: {
               centralName: it.centralName,
-              connectionStatusTime: it.connectionStatusTime || Date.now(),
-              timeVal: it.timeVal || Date.now(),
+              connectionStatusTime: it.connectionStatusTime || null,
+              lastDisconnectTime: it.lastDisconnectTime || null,
+              timeVal: it.timeVal || null,
               deviceStatus: it.deviceStatus || "no_info",
             },
             ui: { title: "Configurações", width: 900 },
@@ -2146,23 +2904,31 @@ async function hydrateAndRender() {
       return;
     }
 
-    // 1) Auth
-    const okAuth = await ensureAuthReady(6000, 150);
-    if (!okAuth) {
-      LogHelper.warn("[DeviceCards] Auth not ready; adiando hidratação.");
-      return;
+    // 1) Auth (skip for temperature domain - no API calls needed)
+    if (WIDGET_DOMAIN !== "temperature") {
+      const okAuth = await ensureAuthReady(6000, 150);
+      if (!okAuth) {
+        LogHelper.warn("[DeviceCards] Auth not ready; adiando hidratação.");
+        return;
+      }
+    } else {
+      LogHelper.log("[DeviceCards] Skipping auth check for temperature domain");
     }
 
     // 2) Lista autoritativa
     STATE.itemsBase = buildAuthoritativeItems();
 
-    // 3) Totais na API
+    // 3) Totais na API (skip for temperature domain - uses only ctx.data telemetry)
     let apiMap = new Map();
-    try {
-      apiMap = await fetchApiTotals(range.startISO, range.endISO);
-    } catch (err) {
-      LogHelper.error("[DeviceCards] API error:", err);
-      apiMap = new Map();
+    if (WIDGET_DOMAIN !== "temperature") {
+      try {
+        apiMap = await fetchApiTotals(range.startISO, range.endISO);
+      } catch (err) {
+        LogHelper.error("[DeviceCards] API error:", err);
+        apiMap = new Map();
+      }
+    } else {
+      LogHelper.log("[DeviceCards] Skipping API fetch for temperature domain - using ctx.data only");
     }
 
     // 4) Enrich + render
@@ -2308,25 +3074,37 @@ self.onInit = async function () {
         return; // Don't request data again, we already have it
       }
 
-      // RFC-0053: Direct access to orchestrator (single window context)
-      const orchestrator = window.MyIOOrchestrator;
-
-      if (orchestrator) {
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Requesting data from orchestrator (single window)`);
-
-        // IMPORTANT: Mark as requested BEFORE calling requestDataFromOrchestrator
-        // This prevents the setTimeout(500ms) from making a duplicate request
+      // For temperature domain, use hydrateAndRender directly (no API needed, uses ctx.data only)
+      if (WIDGET_DOMAIN === "temperature") {
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Temperature domain - using hydrateAndRender directly (no orchestrator)`);
         hasRequestedInitialData = true;
-
-        requestDataFromOrchestrator();
-      } else {
-        // Fallback to old behavior
-        LogHelper.warn(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Orchestrator not available, using legacy fetch`);
 
         if (typeof hydrateAndRender === "function") {
           hydrateAndRender();
         } else {
           LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] hydrateAndRender não encontrada.`);
+        }
+      } else {
+        // RFC-0053: Direct access to orchestrator (single window context)
+        const orchestrator = window.MyIOOrchestrator;
+
+        if (orchestrator) {
+          LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Requesting data from orchestrator (single window)`);
+
+          // IMPORTANT: Mark as requested BEFORE calling requestDataFromOrchestrator
+          // This prevents the setTimeout(500ms) from making a duplicate request
+          hasRequestedInitialData = true;
+
+          requestDataFromOrchestrator();
+        } else {
+          // Fallback to old behavior
+          LogHelper.warn(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Orchestrator not available, using legacy fetch`);
+
+          if (typeof hydrateAndRender === "function") {
+            hydrateAndRender();
+          } else {
+            LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] hydrateAndRender não encontrada.`);
+          }
         }
       }
     } catch (err) {
@@ -2730,8 +3508,15 @@ self.onInit = async function () {
 
     // If no stored data AND we haven't requested yet, request fresh data
     if (!hasRequestedInitialData) {
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Requesting fresh data from orchestrator...`);
-      requestDataFromOrchestrator();
+      // For temperature domain, use hydrateAndRender directly (no orchestrator needed)
+      if (WIDGET_DOMAIN === "temperature") {
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Temperature domain - calling hydrateAndRender directly...`);
+        hasRequestedInitialData = true;
+        hydrateAndRender();
+      } else {
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Requesting fresh data from orchestrator...`);
+        requestDataFromOrchestrator();
+      }
     } else {
       LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⏭️ Skipping duplicate request (already requested via event)`);
     }

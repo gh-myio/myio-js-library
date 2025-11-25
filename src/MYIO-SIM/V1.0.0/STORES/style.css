@@ -184,15 +184,15 @@
 
 /* ============ Widget layout ============ */
 .shops-root {
-    position: absolute;
-    /* Fixa no container pai */
-    inset: 0;
-    /* Estica para 100% (top/bottom/left/right: 0) */
+    /* RFC-0081: Match EQUIPMENTS layout approach for proper state visibility */
+    position: relative;
     box-sizing: border-box;
+    width: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    /* O container não rola */
+    /* O container não rola - apenas a lista interna */
 }
 
 .shops-root .shops-header {

@@ -95,6 +95,16 @@ export class SettingsModalView {
     return MAP[domain];
   }
 
+  private getTelemetryLabelByDomain(): string {
+    const domain = this.config.domain || "energy";
+    const MAP: Record<string, string> = {
+      energy: "de Consumo",
+      water: "de Água",
+      temperature: "de Temperatura",
+    };
+    return MAP[domain] || "de Consumo";
+  }
+
   getFormData(): Record<string, any> {
     const formData = new FormData(this.form);
     const data: Record<string, any> = {};
@@ -886,7 +896,7 @@ export class SettingsModalView {
             </span>
           </div>
           <div class="info-row full-width">
-            <span class="info-label">Última Telemetria de Consumo:</span>
+            <span class="info-label">Última Telemetria ${this.getTelemetryLabelByDomain()}:</span>
             <span class="info-value" id="lastConsumptionTelemetry">
               <span class="loading-text">Carregando...</span>
             </span>
@@ -1916,8 +1926,9 @@ export class SettingsModalView {
   }
 
   /**
-   * Fetch the latest consumption telemetry from ThingsBoard
-   * Shows the most recent consumption value with timestamp
+   * Fetch the latest telemetry from ThingsBoard
+   * Shows the most recent value with timestamp
+   * Uses different keys based on domain: consumption (energy), temperature, pulses (water)
    */
   private async fetchLatestConsumptionTelemetry(): Promise<void> {
     const telemetryElement = this.modal.querySelector(
@@ -1927,17 +1938,49 @@ export class SettingsModalView {
 
     const deviceId = this.config.deviceId;
     const jwtToken = this.config.jwtToken;
+    const domain = this.config.domain || "energy";
 
     if (!deviceId || !jwtToken) {
       telemetryElement.innerHTML = '<span class="telemetry-error">N/A</span>';
       return;
     }
 
+    // Determine telemetry key and display config based on domain
+    type TelemetryConfig = {
+      key: string;
+      unit: string;
+      label: string;
+      formatter: (value: number) => string;
+    };
+
+    const telemetryConfigByDomain: Record<string, TelemetryConfig> = {
+      energy: {
+        key: "consumption",
+        unit: "kW",
+        label: "Consumo",
+        formatter: (v) => (v / 1000).toFixed(2), // W to kW
+      },
+      temperature: {
+        key: "temperature",
+        unit: "°C",
+        label: "Temperatura",
+        formatter: (v) => v.toFixed(1),
+      },
+      water: {
+        key: "pulses",
+        unit: "L",
+        label: "Pulsos",
+        formatter: (v) => v.toFixed(0),
+      },
+    };
+
+    const telemetryConfig = telemetryConfigByDomain[domain] || telemetryConfigByDomain.energy;
+
     try {
-      // Fetch the latest single consumption telemetry point
+      // Fetch the latest single telemetry point
       const endTs = Date.now();
       const startTs = endTs - 24 * 60 * 60 * 1000; // Last 24 hours
-      const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=consumption&startTs=${startTs}&endTs=${endTs}&limit=1&orderBy=DESC`;
+      const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=${telemetryConfig.key}&startTs=${startTs}&endTs=${endTs}&limit=1&orderBy=DESC`;
 
       const response = await fetch(url, {
         headers: {
@@ -1951,14 +1994,15 @@ export class SettingsModalView {
       }
 
       const data = await response.json();
+      const telemetryData = data[telemetryConfig.key];
 
-      if (data.consumption && data.consumption.length > 0) {
-        const latestPoint = data.consumption[0];
-        const valueWatts = parseFloat(latestPoint.value);
+      if (telemetryData && telemetryData.length > 0) {
+        const latestPoint = telemetryData[0];
+        const rawValue = parseFloat(latestPoint.value);
         const timestamp = latestPoint.ts;
 
-        // Format value to kW
-        const valueKW = (valueWatts / 1000).toFixed(2);
+        // Format value using domain-specific formatter
+        const formattedValue = telemetryConfig.formatter(rawValue);
 
         // Format timestamp with seconds
         const date = new Date(timestamp);
@@ -1990,7 +2034,7 @@ export class SettingsModalView {
         }
 
         telemetryElement.innerHTML = `
-          <span class="consumption-value-display">${valueKW} kW</span>
+          <span class="consumption-value-display">${formattedValue} ${telemetryConfig.unit}</span>
           <span class="consumption-date">- ${formattedDate}</span>
           <span class="time-since">${timeSince}</span>
         `;
@@ -2000,7 +2044,7 @@ export class SettingsModalView {
       }
     } catch (error) {
       console.error(
-        "[SettingsModal] Failed to fetch consumption telemetry:",
+        "[SettingsModal] Failed to fetch telemetry:",
         error
       );
       telemetryElement.innerHTML =
@@ -2008,3 +2052,5 @@ export class SettingsModalView {
     }
   }
 }
+
+type Domain = "energy" | "water" | "temperature";

@@ -15,6 +15,8 @@ interface DomainConfig {
   unit: string;         // Display unit (kWh, m³, °C)
   label: string;        // Column label
   formatter: (value: number) => string; // Value formatter
+  summaryType: 'total' | 'average'; // How to summarize the data
+  summaryLabel: string; // Label for the summary (e.g., "Total", "Média")
 }
 
 const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
@@ -22,19 +24,25 @@ const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
     endpoint: 'energy',
     unit: 'kWh',
     label: 'Consumo (kWh)',
-    formatter: (v) => fmtPt(v)
+    formatter: (v) => fmtPt(v),
+    summaryType: 'total',
+    summaryLabel: 'Total'
   },
   water: {
     endpoint: 'water',
     unit: 'm³',
     label: 'Consumo (m³)',
-    formatter: (v) => fmtPt(v)
+    formatter: (v) => fmtPt(v),
+    summaryType: 'total',
+    summaryLabel: 'Total'
   },
   temperature: {
     endpoint: 'temperature',
     unit: '°C',
     label: 'Temperatura (°C)',
-    formatter: (v) => fmtPt(v)
+    formatter: (v) => fmtPt(v),
+    summaryType: 'average',
+    summaryLabel: 'Média'
   }
 };
 
@@ -293,8 +301,12 @@ export class DeviceReportModal {
     const container = document.getElementById('table-container');
     if (!container) return;
 
+    // Calculate summary value based on domain type
     const total = this.calculateTotal();
-    
+    const summaryValue = this.domainConfig.summaryType === 'average'
+      ? (this.data.length > 0 ? total / this.data.length : 0)
+      : total;
+
     // Helper function to get sort indicator
     const getSortIndicator = (columnKey: string) => {
       if (this.sortState.key === columnKey) {
@@ -302,10 +314,10 @@ export class DeviceReportModal {
       }
       return '↕';
     };
-    
+
     container.innerHTML = `
       <div style="margin-bottom: 16px; padding: 12px; background: var(--myio-bg); border-radius: 6px;">
-        <strong>Total: ${this.domainConfig.formatter(total)} ${this.domainConfig.unit}</strong>
+        <strong>${this.domainConfig.summaryLabel}: ${this.domainConfig.formatter(summaryValue)} ${this.domainConfig.unit}</strong>
       </div>
 
       <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--myio-border); border-radius: 6px;">
@@ -385,13 +397,16 @@ export class DeviceReportModal {
 
   private exportCSV(): void {
     const total = this.calculateTotal();
+    const summaryValue = this.domainConfig.summaryType === 'average'
+      ? (this.data.length > 0 ? total / this.data.length : 0)
+      : total;
     const now = new Date();
     const timestamp = now.toLocaleDateString('pt-BR') + ' - ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
     const csvData = [
       ['Dispositivo/Loja', this.params.identifier || 'N/A', this.params.label || ''],
       ['DATA EMISSÃO', timestamp, ''],
-      ['Total', this.domainConfig.formatter(total), this.domainConfig.unit],
+      [this.domainConfig.summaryLabel, this.domainConfig.formatter(summaryValue), this.domainConfig.unit],
       ['Data', this.domainConfig.label, ''],
       ...this.data.map(row => [this.formatDate(row.date), this.domainConfig.formatter(row.consumption)])
     ];
