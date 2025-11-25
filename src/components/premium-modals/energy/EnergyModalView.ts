@@ -1037,7 +1037,7 @@ export class EnergyModalView {
           let endDate: string;
 
           if (this.dateRangePicker) {
-            const dates = this.dateRangePicker.getRange();
+            const dates = this.dateRangePicker.getDates();
             startDate = dates.startISO;
             endDate = dates.endISO;
           } else {
@@ -1085,7 +1085,7 @@ export class EnergyModalView {
             token: jwtToken,
             deviceId: this.config.params.deviceId,
             deviceLabel: this.config.params.deviceLabel || 'Dispositivo',
-            telemetryKeys: ['voltage', 'current', 'power', 'energy'],
+            telemetryKeys: ['voltage_a', 'voltage_b', 'voltage_c', 'total_current', 'consumption'],
             refreshInterval: 8000, // 8 seconds
             historyPoints: 50,
             locale: 'pt-BR'

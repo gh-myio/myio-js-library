@@ -11,7 +11,7 @@ export interface RealTimeTelemetryParams {
   token: string;                    // JWT token for ThingsBoard authentication
   deviceId: string;                 // ThingsBoard device UUID
   deviceLabel?: string;             // Device name/label (default: "Dispositivo")
-  telemetryKeys?: string[];         // Keys to monitor (default: ['voltage', 'current', 'power', 'energy'])
+  telemetryKeys?: string[];         // Keys to monitor (default: ['voltage_a', 'voltage_b', 'voltage_c', 'total_current', 'consumption'])
   refreshInterval?: number;         // Update interval in ms (default: 8000)
   historyPoints?: number;           // Number of points in mini-chart (default: 50)
   onClose?: () => void;             // Callback when modal closes
@@ -34,15 +34,26 @@ export interface RealTimeTelemetryInstance {
 }
 
 const TELEMETRY_CONFIG: Record<string, { label: string; unit: string; icon: string; decimals: number }> = {
-  voltage: { label: 'Tensão', unit: 'V', icon: '⚡', decimals: 1 },
+  // Voltage phases
+  voltage_a: { label: 'Tensão Fase A', unit: 'V', icon: '⚡', decimals: 1 },
+  voltage_b: { label: 'Tensão Fase B', unit: 'V', icon: '⚡', decimals: 1 },
+  voltage_c: { label: 'Tensão Fase C', unit: 'V', icon: '⚡', decimals: 1 },
+
+  // Current
+  total_current: { label: 'Corrente Total', unit: 'A', icon: '🔌', decimals: 2 },
   current: { label: 'Corrente', unit: 'A', icon: '🔌', decimals: 2 },
+
+  // Power and Energy
+  consumption: { label: 'Consumo', unit: 'kW', icon: '⚙️', decimals: 2 },
   power: { label: 'Potência', unit: 'kW', icon: '⚙️', decimals: 2 },
   energy: { label: 'Energia', unit: 'kWh', icon: '📊', decimals: 1 },
-  temperature: { label: 'Temperatura', unit: '°C', icon: '🌡️', decimals: 1 },
   activePower: { label: 'Potência Ativa', unit: 'kW', icon: '⚙️', decimals: 2 },
   reactivePower: { label: 'Potência Reativa', unit: 'kVAr', icon: '🔄', decimals: 2 },
   apparentPower: { label: 'Potência Aparente', unit: 'kVA', icon: '📈', decimals: 2 },
-  powerFactor: { label: 'Fator de Potência', unit: '', icon: '📐', decimals: 3 }
+  powerFactor: { label: 'Fator de Potência', unit: '', icon: '📐', decimals: 3 },
+
+  // Temperature
+  temperature: { label: 'Temperatura', unit: '°C', icon: '🌡️', decimals: 1 }
 };
 
 const STRINGS = {
@@ -86,7 +97,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
     token,
     deviceId,
     deviceLabel = 'Dispositivo',
-    telemetryKeys = ['voltage', 'current', 'power', 'energy'],
+    telemetryKeys = ['voltage_a', 'voltage_b', 'voltage_c', 'total_current', 'consumption'],
     refreshInterval = 8000,
     historyPoints = 50,
     onClose,
