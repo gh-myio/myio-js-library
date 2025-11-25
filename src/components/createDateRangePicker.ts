@@ -18,6 +18,14 @@ export interface CreateDateRangePickerOptions {
   parentEl?: HTMLElement;
   /** Callback when date range is applied */
   onApply?: (result: DateRangeResult) => void;
+
+  // RFC-0086: DateTime picker options
+  /** Enable time selection (default: false) */
+  includeTime?: boolean;
+  /** Time precision: 'minute' or 'hour' (default: 'minute') */
+  timePrecision?: 'minute' | 'hour';
+  /** Locale for formatting (default: 'pt-BR') */
+  locale?: 'pt-BR' | 'en-US';
 }
 
 /**

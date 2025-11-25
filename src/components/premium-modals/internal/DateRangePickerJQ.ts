@@ -18,6 +18,11 @@ export interface AttachOptions {
   maxRangeDays?: number; // default 31
   parentEl?: HTMLElement; // modal root for proper z-index
   onApply?: (result: DateRangeResult) => void;
+
+  // RFC-0086: DateTime picker options
+  includeTime?: boolean;  // Enable time selection (default: false)
+  timePrecision?: 'minute' | 'hour'; // Time precision (default: 'minute')
+  locale?: 'pt-BR' | 'en-US'; // Locale (default: 'pt-BR')
 }
 
 export interface DateRangeResult {
@@ -69,19 +74,21 @@ const FALLBACK_PATHS = [
   '/assets/vendor/daterangepicker.min.js'
 ];
 
-// pt-BR locale configuration
-const PT_BR_LOCALE = {
-  format: 'DD/MM/YY HH:mm',
-  separator: ' até ',
-  applyLabel: 'Aplicar',
-  cancelLabel: 'Cancelar',
-  fromLabel: 'De',
-  toLabel: 'Até',
-  customRangeLabel: 'Personalizado',
-  daysOfWeek: ['Do','Se','Te','Qa','Qi','Se','Sa'],
-  monthNames: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
-  firstDay: 1
-};
+// RFC-0086: Generate locale configuration based on includeTime option
+function getLocaleConfig(includeTime: boolean = false): any {
+  return {
+    format: includeTime ? 'DD/MM/YY HH:mm' : 'DD/MM/YYYY',
+    separator: ' até ',
+    applyLabel: 'Aplicar',
+    cancelLabel: 'Cancelar',
+    fromLabel: 'De',
+    toLabel: 'Até',
+    customRangeLabel: 'Personalizado',
+    daysOfWeek: ['Do','Se','Te','Qa','Qi','Se','Sa'],
+    monthNames: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+    firstDay: 1
+  };
+}
 
 class CDNLoader {
   private static jQueryInstance: any = null;
@@ -323,21 +330,67 @@ function createDateRangePicker($: any, input: HTMLInputElement, opts: AttachOpti
   helpText.style.alignItems = 'center';
   input.parentNode?.appendChild(helpText);
   
+  // RFC-0086: Determine if we need time precision
+  const includeTime = opts.includeTime === true;
+  const timePrecision = opts.timePrecision || 'minute';
+
+  // RFC-0086: Get locale configuration based on includeTime
+  const localeConfig = getLocaleConfig(includeTime);
+
   // Normalize preset dates
   const moment = window.moment;
-  const startDate = opts.presetStart 
-    ? moment(opts.presetStart).startOf('day')
-    : moment().startOf('month');
-  const endDate = opts.presetEnd 
-    ? moment(opts.presetEnd).endOf('day')
-    : moment().endOf('day');
-  
+  let startDate, endDate;
+
+  if (includeTime) {
+    // For datetime: preserve exact time or use now/start-of-day
+    startDate = opts.presetStart
+      ? moment(opts.presetStart)
+      : moment().startOf('day');
+    endDate = opts.presetEnd
+      ? moment(opts.presetEnd)
+      : moment(); // Use current time
+  } else {
+    // For date-only: use start/end of day
+    startDate = opts.presetStart
+      ? moment(opts.presetStart).startOf('day')
+      : moment().startOf('month');
+    endDate = opts.presetEnd
+      ? moment(opts.presetEnd).endOf('day')
+      : moment().endOf('day');
+  }
+
+  // RFC-0086: Build ranges based on includeTime option
+  let ranges: Record<string, [any, any]>;
+
+  if (includeTime) {
+    // Time-based presets (última hora, últimas 6h, etc.)
+    const now = moment();
+    ranges = {
+      'Última hora': [moment().subtract(1, 'hours'), now.clone()],
+      'Últimas 6 horas': [moment().subtract(6, 'hours'), now.clone()],
+      'Últimas 12 horas': [moment().subtract(12, 'hours'), now.clone()],
+      'Últimas 24 horas': [moment().subtract(24, 'hours'), now.clone()],
+      'Hoje': [moment().startOf('day'), now.clone()],
+      'Ontem': [moment().subtract(1, 'day').startOf('day'), moment().subtract(1, 'day').endOf('day')],
+      'Últimos 7 dias': [moment().subtract(6,'days').startOf('day'), now.clone()],
+      'Este mês': [moment().startOf('month'), now.clone()]
+    };
+  } else {
+    // Date-only presets (existing behavior)
+    ranges = {
+      'Hoje': [moment().startOf('day'), moment().endOf('day')],
+      'Últimos 7 dias': [moment().subtract(6,'days').startOf('day'), moment().endOf('day')],
+      'Últimos 30 dias': [moment().subtract(29,'days').startOf('day'), moment().endOf('day')],
+      'Mês Anterior': [moment().subtract(1,'month').startOf('month'), moment().subtract(1,'month').endOf('month')]
+    };
+  }
+
   // Setup DateRangePicker
   $input.daterangepicker({
     parentEl: opts.parentEl || document.body,
-    timePicker: true,
+    timePicker: includeTime, // RFC-0086: Conditional time picker
     timePicker24Hour: true,
-    timePickerIncrement: 1,
+    timePickerIncrement: timePrecision === 'hour' ? 60 : 1, // RFC-0086: Hour vs minute precision
     autoApply: true,
     autoUpdateInput: true,
     linkedCalendars: true,
@@ -348,15 +401,10 @@ function createDateRangePicker($: any, input: HTMLInputElement, opts: AttachOpti
     endDate: endDate,
     opens: 'right',
     drops: 'down',
-    locale: PT_BR_LOCALE,
+    locale: localeConfig, // RFC-0086: Dynamic locale format
     applyButtonClasses: 'btn btn-primary',
     cancelClass: 'btn btn-muted',
-    ranges: {
-      'Hoje': [moment().startOf('day'), moment().endOf('day')],
-      'Últimos 7 dias': [moment().subtract(6,'days').startOf('day'), moment().endOf('day')],
-      'Últimos 30 dias': [moment().subtract(29,'days').startOf('day'), moment().endOf('day')],
-      'Mês Anterior': [moment().subtract(1,'month').startOf('month'), moment().subtract(1,'month').endOf('month')]
-    }
+    ranges: ranges // RFC-0086: Dynamic ranges
   });
   
   // Set initial display
@@ -381,20 +429,20 @@ function createDateRangePicker($: any, input: HTMLInputElement, opts: AttachOpti
   function updateInputDisplay(): void {
     const picker = $input.data('daterangepicker');
     if (picker) {
-      const formatted = `${picker.startDate.format(PT_BR_LOCALE.format)}${PT_BR_LOCALE.separator}${picker.endDate.format(PT_BR_LOCALE.format)}`;
+      const formatted = `${picker.startDate.format(localeConfig.format)}${localeConfig.separator}${picker.endDate.format(localeConfig.format)}`;
       $input.val(formatted);
     }
   }
-  
+
   function getDates(): DateRangeResult {
     const picker = $input.data('daterangepicker');
-    
-    // Use moment.format() to preserve timezone offset
+
+    // RFC-0086: Use moment.format() to preserve timezone offset
     const startISO = picker.startDate.format('YYYY-MM-DD[T]HH:mm:ssZ');
     const endISO = picker.endDate.format('YYYY-MM-DD[T]HH:mm:ssZ');
-    const startLabel = picker.startDate.format(PT_BR_LOCALE.format);
-    const endLabel = picker.endDate.format(PT_BR_LOCALE.format);
-    
+    const startLabel = picker.startDate.format(localeConfig.format);
+    const endLabel = picker.endDate.format(localeConfig.format);
+
     return { startISO, endISO, startLabel, endLabel };
   }
   

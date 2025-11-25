@@ -264,6 +264,8 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         padding: 20px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         margin-bottom: 20px;
+        max-height: 520px;
+        overflow: hidden;
       }
 
       .myio-telemetry-chart-title {
@@ -274,7 +276,9 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       }
 
       .myio-telemetry-chart {
-        height: 250px;
+        height: 300px;
+        max-height: 450px;
+        width: 100%;
       }
 
       .myio-telemetry-selector {
@@ -446,22 +450,22 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
   document.body.appendChild(overlay);
 
-  // Get DOM elements
-  const closeBtn = document.getElementById('close-btn') as HTMLButtonElement;
-  const pauseBtn = document.getElementById('pause-btn') as HTMLButtonElement;
-  const pauseBtnIcon = document.getElementById('pause-btn-icon') as HTMLSpanElement;
-  const pauseBtnText = document.getElementById('pause-btn-text') as HTMLSpanElement;
-  const exportBtn = document.getElementById('export-btn') as HTMLButtonElement;
-  const loadingState = document.getElementById('loading-state') as HTMLDivElement;
-  const telemetryContent = document.getElementById('telemetry-content') as HTMLDivElement;
-  const errorState = document.getElementById('error-state') as HTMLDivElement;
-  const telemetryCards = document.getElementById('telemetry-cards') as HTMLDivElement;
-  const chartContainer = document.getElementById('chart-container') as HTMLDivElement;
-  const chartCanvas = document.getElementById('telemetry-chart') as HTMLCanvasElement;
-  const chartKeySelector = document.getElementById('chart-key-selector') as HTMLSelectElement;
-  const statusIndicator = document.getElementById('status-indicator') as HTMLSpanElement;
-  const statusText = document.getElementById('status-text') as HTMLSpanElement;
-  const lastUpdateText = document.getElementById('last-update-text') as HTMLSpanElement;
+  // Get DOM elements (use querySelector within overlay to avoid conflicts)
+  const closeBtn = overlay.querySelector('#close-btn') as HTMLButtonElement;
+  const pauseBtn = overlay.querySelector('#pause-btn') as HTMLButtonElement;
+  const pauseBtnIcon = overlay.querySelector('#pause-btn-icon') as HTMLSpanElement;
+  const pauseBtnText = overlay.querySelector('#pause-btn-text') as HTMLSpanElement;
+  const exportBtn = overlay.querySelector('#export-btn') as HTMLButtonElement;
+  const loadingState = overlay.querySelector('#loading-state') as HTMLDivElement;
+  const telemetryContent = overlay.querySelector('#telemetry-content') as HTMLDivElement;
+  const errorState = overlay.querySelector('#error-state') as HTMLDivElement;
+  const telemetryCards = overlay.querySelector('#telemetry-cards') as HTMLDivElement;
+  const chartContainer = overlay.querySelector('#chart-container') as HTMLDivElement;
+  const chartCanvas = overlay.querySelector('#telemetry-chart') as HTMLCanvasElement;
+  const chartKeySelector = overlay.querySelector('#chart-key-selector') as HTMLSelectElement;
+  const statusIndicator = overlay.querySelector('#status-indicator') as HTMLSpanElement;
+  const statusText = overlay.querySelector('#status-text') as HTMLSpanElement;
+  const lastUpdateText = overlay.querySelector('#last-update-text') as HTMLSpanElement;
 
   /**
    * Close modal

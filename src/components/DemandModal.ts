@@ -1310,10 +1310,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
         <button class="myio-demand-modal-btn-update" type="button">
           ${strings.updatePeriod}
         </button>
-        <button id="realtime-toggle-btn" class="myio-demand-modal-btn-realtime" type="button" title="Ativar modo tempo real (atualização a cada 8 segundos)">
-          <span class="realtime-indicator"></span>
-          <span class="realtime-text">REAL TIME</span>
-        </button>
+        <!-- RFC-0084: REAL TIME button removed - use RealTimeTelemetryModal instead -->
         <div class="myio-demand-modal-period-error" style="display: none;"></div>
       </div>
 
@@ -1364,7 +1361,8 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   const dateStartInput = overlay.querySelector('.myio-demand-modal-date-start') as HTMLInputElement;
   const dateEndInput = overlay.querySelector('.myio-demand-modal-date-end') as HTMLInputElement;
   const updateBtn = overlay.querySelector('.myio-demand-modal-btn-update') as HTMLButtonElement;
-  const realTimeToggleBtn = overlay.querySelector('#realtime-toggle-btn') as HTMLButtonElement; // RFC-0082
+  // RFC-0084: Real-time toggle button removed - use RealTimeTelemetryModal instead
+  // const realTimeToggleBtn = overlay.querySelector('#realtime-toggle-btn') as HTMLButtonElement;
   const periodErrorEl = overlay.querySelector('.myio-demand-modal-period-error') as HTMLElement;
   const telemetryTypeSelect = overlay.querySelector('#telemetry-type-select') as HTMLSelectElement | null;
   const intervalSelect = overlay.querySelector('#demand-interval-select') as HTMLSelectElement;
@@ -1628,7 +1626,8 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
       }, intervalMs);
 
       // 8. Update button UI
-      realTimeToggleBtn.classList.add('active');
+      // RFC-0084: Real-time button removed
+      // realTimeToggleBtn.classList.add('active');
       isRealTimeMode = true;
 
       console.log(`[DemandModal] Real-time mode started (${intervalMs}ms interval)`);
@@ -1748,7 +1747,8 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
     realTimeDataBuffer = [];
 
     // 5. Update button UI
-    realTimeToggleBtn.classList.remove('active');
+    // RFC-0084: Real-time button removed
+    // realTimeToggleBtn.classList.remove('active');
 
     console.log('[DemandModal] Real-time mode stopped');
   }
@@ -1870,16 +1870,16 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
   csvBtn.addEventListener('click', exportCsv);
   updateBtn.addEventListener('click', updatePeriod);
 
-  // RFC-0082: Real-time mode toggle button event listener
-  realTimeToggleBtn.addEventListener('click', async () => {
-    if (isRealTimeMode) {
-      // Disable real-time mode
-      await disableRealTimeMode();
-    } else {
-      // Enable real-time mode
-      await enableRealTimeMode();
-    }
-  });
+  // RFC-0084: Real-time mode toggle button removed - use RealTimeTelemetryModal instead
+  // realTimeToggleBtn.addEventListener('click', async () => {
+  //   if (isRealTimeMode) {
+  //     // Disable real-time mode
+  //     await disableRealTimeMode();
+  //   } else {
+  //     // Enable real-time mode
+  //     await enableRealTimeMode();
+  //   }
+  // });
 
   // RFC-0061: Telemetry type selector event listener (with debounce)
   if (telemetryTypeSelect && allowTelemetrySwitch) {
