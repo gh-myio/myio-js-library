@@ -683,16 +683,25 @@ const footerController = {
     // Atualiza o tipo atual
     this.currentUnitType = detectedType;
 
-    // Calcula os totais manualmente a partir dos lastValue das entidades
+    // Calcula os totais/média manualmente a partir dos lastValue das entidades
     let totalValue = 0;
+    let validValuesCount = 0;
+
     selected.forEach((entity) => {
       if (entity && typeof entity.lastValue === 'number') {
         totalValue += entity.lastValue;
+        validValuesCount++;
       }
     });
 
-    // Formata o total usando formatação brasileira
-    const totals = this._formatValue(totalValue);
+    // Para temperatura, calcula média ao invés de soma
+    let displayValue = totalValue;
+    if (detectedType === 'temperature' && validValuesCount > 0) {
+      displayValue = totalValue / validValuesCount;
+    }
+
+    // Formata o valor usando formatação brasileira
+    const totals = this._formatValue(displayValue);
 
     LogHelper.log('[MyIO Footer] Rendering dock:', {
       count,
@@ -809,8 +818,9 @@ const footerController = {
     if (count === 0) {
       newTotalsText = '0 itens';
     } else {
-      // Mostra a contagem e os totais formatados
-      newTotalsText = `${count} ${itemText} (${totals})`;
+      // Para temperatura, indica que é média
+      const prefix = detectedType === 'temperature' ? 'Média: ' : '';
+      newTotalsText = `${count} ${itemText} (${prefix}${totals})`;
     }
 
     LogHelper.log(`[MyIO Footer] Updating totals text to: "${newTotalsText}"`);

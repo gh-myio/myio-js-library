@@ -556,9 +556,17 @@ export class EnergyModalView {
 
   /**
    * ⭐ NEW METHOD: Renders comparison chart with multiple devices
-   * Uses renderTelemetryStackedChart from SDK
+   * Uses renderTelemetryStackedChart from SDK (or temperature line chart for temperature domain)
    */
   private renderComparisonChart(): boolean {
+    const readingType = this.config.params.readingType || 'energy';
+
+    // For temperature, render special line chart
+    if (readingType === 'temperature') {
+      return this.renderTemperatureComparisonChart();
+    }
+
+    // For energy/water/tank, use stacked chart
     try {
       // Destroy previous instance if it exists
       if ((this as any).chartInstance && typeof (this as any).chartInstance.destroy === 'function') {
@@ -641,6 +649,94 @@ export class EnergyModalView {
     }
 
     return false;
+  }
+
+  /**
+   * ⭐ NEW METHOD: Renders temperature comparison chart (line chart for multiple sensors)
+   * Inspired by TELEMETRY widget termostato chart
+   */
+  private renderTemperatureComparisonChart(): boolean {
+    try {
+      // Destroy previous instance if it exists
+      if ((this as any).chartInstance && typeof (this as any).chartInstance.destroy === 'function') {
+        (this as any).chartInstance.destroy();
+        (this as any).chartInstance = null;
+      }
+
+      // Ensure container is clean
+      if (this.chartContainer) {
+        this.chartContainer.innerHTML = '';
+      }
+
+      // Check if renderTelemetryLineChart is available
+      let renderTelemetryLineChart;
+      if (typeof window !== 'undefined' && (window as any).EnergyChartSDK && typeof (window as any).EnergyChartSDK.renderTelemetryLineChart === 'function') {
+        renderTelemetryLineChart = (window as any).EnergyChartSDK.renderTelemetryLineChart;
+      } else {
+        console.error('[EnergyModalView] renderTelemetryLineChart not available in SDK');
+        if (this.chartContainer) {
+          this.chartContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">EnergyChartSDK renderTelemetryLineChart not loaded. Check SDK version.</div>';
+        }
+        return false;
+      }
+
+      // Get current dates
+      let startDateStr: string, endDateStr: string;
+
+      if (this.dateRangePicker) {
+        const dates = this.dateRangePicker.getDates();
+        startDateStr = dates.startISO.split('T')[0];
+        endDateStr = dates.endISO.split('T')[0];
+      } else {
+        const startDate = new Date(this.config.params.startDate);
+        const endDate = new Date(this.config.params.endDate);
+        startDateStr = startDate.toISOString().split('T')[0];
+        endDateStr = endDate.toISOString().split('T')[0];
+      }
+
+      const tzIdentifier = this.config.params.timezone || 'America/Sao_Paulo';
+
+      const chartConfig = {
+        version: 'v2',
+        clientId: this.config.params.clientId || 'ADMIN_DASHBOARD_CLIENT',
+        clientSecret: this.config.params.clientSecret || 'admin_dashboard_secret_2025',
+        dataSources: this.config.params.dataSources!,
+        readingType: 'temperature',
+        startDate: startDateStr,
+        endDate: endDateStr,
+        granularity: this.config.params.granularity!,
+        theme: this.currentTheme,
+        timezone: tzIdentifier,
+        iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
+        apiBaseUrl: this.config.params.dataApiHost || 'https://api.data.apps.myio-bas.com',
+        deep: this.config.params.deep || false,
+        // Temperature specific options
+        showMinMax: false,  // Don't show min/max lines for comparison
+        yAxisTitle: 'Temperatura (°C)',
+      };
+
+      console.log('[EnergyModalView] Rendering temperature comparison chart with SDK:', chartConfig);
+
+      (this as any).chartInstance = renderTelemetryLineChart(this.chartContainer, chartConfig);
+
+      // Attach event listeners if SDK supports it
+      if ((this as any).chartInstance && typeof (this as any).chartInstance.on === 'function') {
+        (this as any).chartInstance.on('error', (errorData: any) => {
+          console.error('[EnergyModalView] Temperature chart error:', errorData);
+          if (this.chartContainer) {
+            this.chartContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">Temperature Chart Error: ${errorData.message || 'Unknown error'}</div>`;
+          }
+        });
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[EnergyModalView] Error rendering temperature comparison chart:', error);
+      if (this.chartContainer) {
+        this.chartContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">Error: ${(error as Error).message}</div>`;
+      }
+      return false;
+    }
   }
 
   /**
