@@ -44,8 +44,8 @@ const TELEMETRY_CONFIG: Record<string, { label: string; unit: string; icon: stri
   current: { label: 'Corrente', unit: 'A', icon: '🔌', decimals: 2 },
 
   // Power and Energy
-  consumption: { label: 'Consumo', unit: 'kW', icon: '⚙️', decimals: 2 },
-  power: { label: 'Potência', unit: 'kW', icon: '⚙️', decimals: 2 },
+  consumption: { label: 'Potência', unit: 'W', icon: '⚙️', decimals: 0 },
+  power: { label: 'Potência', unit: 'W', icon: '⚙️', decimals: 0 },
   energy: { label: 'Energia', unit: 'kWh', icon: '📊', decimals: 1 },
   activePower: { label: 'Potência Ativa', unit: 'kW', icon: '⚙️', decimals: 2 },
   reactivePower: { label: 'Potência Reativa', unit: 'kVAr', icon: '🔄', decimals: 2 },
@@ -109,7 +109,9 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   let refreshIntervalId: number | null = null;
   let isPaused = false;
   let telemetryHistory: Map<string, Array<{ x: number; y: number }>> = new Map();
+  let lastKnownValues: Map<string, number> = new Map(); // Store last known value for each key
   let chart: any = null;
+  let selectedChartKey: string = 'consumption'; // Default chart key
 
   // Create modal container
   const overlay = document.createElement('div');
@@ -272,7 +274,27 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       }
 
       .myio-telemetry-chart {
-        height: 200px;
+        height: 250px;
+      }
+
+      .myio-telemetry-selector {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        background: white;
+        cursor: pointer;
+        transition: border-color 0.2s;
+      }
+
+      .myio-telemetry-selector:hover {
+        border-color: #667eea;
+      }
+
+      .myio-telemetry-selector:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
       }
 
       .myio-realtime-telemetry-footer {
@@ -382,7 +404,16 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
           <div class="myio-telemetry-cards-grid" id="telemetry-cards"></div>
 
           <div class="myio-telemetry-chart-container" id="chart-container" style="display: none;">
-            <h3 class="myio-telemetry-chart-title" id="chart-title">Potência (últimos 5 min)</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h3 class="myio-telemetry-chart-title" id="chart-title" style="margin: 0;">Histórico de Telemetria</h3>
+              <select id="chart-key-selector" class="myio-telemetry-selector">
+                <option value="consumption">Potência</option>
+                <option value="total_current">Corrente Total</option>
+                <option value="voltage_a">Tensão Fase A</option>
+                <option value="voltage_b">Tensão Fase B</option>
+                <option value="voltage_c">Tensão Fase C</option>
+              </select>
+            </div>
             <canvas class="myio-telemetry-chart" id="telemetry-chart"></canvas>
           </div>
         </div>
@@ -427,6 +458,7 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   const telemetryCards = document.getElementById('telemetry-cards') as HTMLDivElement;
   const chartContainer = document.getElementById('chart-container') as HTMLDivElement;
   const chartCanvas = document.getElementById('telemetry-chart') as HTMLCanvasElement;
+  const chartKeySelector = document.getElementById('chart-key-selector') as HTMLSelectElement;
   const statusIndicator = document.getElementById('status-indicator') as HTMLSpanElement;
   const statusText = document.getElementById('status-text') as HTMLSpanElement;
   const lastUpdateText = document.getElementById('last-update-text') as HTMLSpanElement;
@@ -546,10 +578,12 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
   /**
    * Update history and chart
+   * If a telemetry value is missing, repeat the last known value
    */
   function updateHistory(values: TelemetryValue[]) {
     const now = Date.now();
 
+    // Update values that we received
     for (const tel of values) {
       if (!telemetryHistory.has(tel.key)) {
         telemetryHistory.set(tel.key, []);
@@ -558,22 +592,64 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       const history = telemetryHistory.get(tel.key)!;
       history.push({ x: now, y: tel.value });
 
+      // Store last known value
+      lastKnownValues.set(tel.key, tel.value);
+
       // Keep only last N points
       if (history.length > historyPoints) {
         history.shift();
       }
     }
 
-    // Update chart for 'power' key if available
-    if (telemetryHistory.has('power') && chart) {
-      const powerHistory = telemetryHistory.get('power')!;
-      chart.data.datasets[0].data = powerHistory;
+    // For telemetries that didn't get updated, repeat last known value
+    for (const key of telemetryKeys) {
+      const receivedKeys = values.map(v => v.key);
+
+      if (!receivedKeys.includes(key) && lastKnownValues.has(key)) {
+        if (!telemetryHistory.has(key)) {
+          telemetryHistory.set(key, []);
+        }
+
+        const history = telemetryHistory.get(key)!;
+        const lastValue = lastKnownValues.get(key)!;
+
+        history.push({ x: now, y: lastValue });
+
+        // Keep only last N points
+        if (history.length > historyPoints) {
+          history.shift();
+        }
+      }
+    }
+
+    // Update chart for selected key if available
+    if (telemetryHistory.has(selectedChartKey) && chart) {
+      const selectedHistory = telemetryHistory.get(selectedChartKey)!;
+      chart.data.datasets[0].data = selectedHistory;
       chart.update('none');
     }
   }
 
   /**
-   * Initialize mini-chart for power
+   * Get formatted value with appropriate unit
+   */
+  function getFormattedValue(key: string, value: number): string {
+    const config = TELEMETRY_CONFIG[key];
+    if (!config) return value.toFixed(2);
+
+    // Special formatting for consumption/power (show in W, format to kW if > 1000)
+    if (key === 'consumption' || key === 'power') {
+      if (value >= 1000) {
+        return `${(value / 1000).toFixed(2)} kW`;
+      }
+      return `${value.toFixed(0)} W`;
+    }
+
+    return `${value.toFixed(config.decimals)} ${config.unit}`;
+  }
+
+  /**
+   * Initialize chart for selected telemetry key
    */
   function initializeChart() {
     const Chart = (window as any).Chart;
@@ -584,23 +660,27 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
 
     chartContainer.style.display = 'block';
 
+    const config = TELEMETRY_CONFIG[selectedChartKey] || { label: selectedChartKey, unit: '' };
+
     chart = new Chart(chartCanvas, {
       type: 'line',
       data: {
         datasets: [{
-          label: 'Potência',
+          label: config.label,
           data: [],
           borderColor: '#667eea',
           backgroundColor: 'rgba(102, 126, 234, 0.1)',
           borderWidth: 2,
           fill: true,
           tension: 0.4,
-          pointRadius: 0
+          pointRadius: 3,
+          pointHoverRadius: 5
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false,
         plugins: {
           legend: { display: false },
           tooltip: {
@@ -608,10 +688,18 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
               title: function(context: any) {
                 const timestamp = context[0].parsed.x;
                 const date = new Date(timestamp);
-                return date.toLocaleTimeString(locale);
+                return date.toLocaleString(locale, {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit'
+                });
               },
               label: function(context: any) {
-                return `${context.parsed.y.toFixed(2)} kW`;
+                const value = context.parsed.y;
+                return getFormattedValue(selectedChartKey, value);
               }
             }
           }
@@ -620,22 +708,65 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
           x: {
             type: 'linear',
             ticks: {
+              maxRotation: 45,
+              minRotation: 0,
               callback: function(value: any) {
                 const date = new Date(value);
-                return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+                return date.toLocaleTimeString(locale, {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit'
+                });
               }
+            },
+            title: {
+              display: true,
+              text: 'Hora'
             }
           },
           y: {
             beginAtZero: true,
+            ticks: {
+              callback: function(value: any) {
+                // Format Y-axis based on selected key
+                if (selectedChartKey === 'consumption' || selectedChartKey === 'power') {
+                  if (value >= 1000) {
+                    return `${(value / 1000).toFixed(1)} kW`;
+                  }
+                  return `${value} W`;
+                }
+                return `${value} ${config.unit}`;
+              }
+            },
             title: {
               display: true,
-              text: 'kW'
+              text: selectedChartKey === 'consumption' || selectedChartKey === 'power' ? 'W' : config.unit
             }
           }
         }
       }
     });
+  }
+
+  /**
+   * Update chart with new selected key
+   */
+  function updateChartKey(newKey: string) {
+    selectedChartKey = newKey;
+
+    if (chart) {
+      chart.destroy();
+      chart = null;
+    }
+
+    initializeChart();
+
+    // Update chart data if history exists
+    if (telemetryHistory.has(selectedChartKey)) {
+      const selectedHistory = telemetryHistory.get(selectedChartKey)!;
+      chart.data.datasets[0].data = selectedHistory;
+      chart.update('none');
+    }
   }
 
   /**
@@ -658,10 +789,8 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
         loadingState.style.display = 'none';
         telemetryContent.style.display = 'block';
 
-        // Initialize chart after first successful fetch
-        if (telemetryKeys.includes('power')) {
-          initializeChart();
-        }
+        // Initialize chart after first successful fetch (always show chart)
+        initializeChart();
       }
 
     } catch (error) {
@@ -748,6 +877,10 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
   closeBtn.addEventListener('click', closeModal);
   pauseBtn.addEventListener('click', togglePause);
   exportBtn.addEventListener('click', exportToCSV);
+  chartKeySelector.addEventListener('change', (e) => {
+    const newKey = (e.target as HTMLSelectElement).value;
+    updateChartKey(newKey);
+  });
 
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) {
