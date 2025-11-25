@@ -49,7 +49,7 @@ function normalizeParams(params) {
     console.warn('renderCardCompenteHeadOffice: entityId is missing, generating temporary ID');
     entityObject.entityId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
-  
+
 
   return {
     entityObject,
@@ -129,6 +129,43 @@ function formatOperationHours(hours) {
     return '—';
   }
   return `${hours.toFixed(3)}h`;
+}
+
+function formatUpdateDate(timeVal) {
+  let telemetryTimeFormatted = "N/A";
+  let timeSinceLastTelemetry = "";
+  if (timeVal) {
+    try {
+      const telemetryDate = new Date(timeVal);
+      telemetryTimeFormatted = telemetryDate.toLocaleString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      // Calculate time difference
+      const now = new Date();
+      const diffMs = now.getTime() - telemetryDate.getTime();
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMinutes / 60);
+      const diffDays = Math.floor(diffHours / 24);
+
+      if (diffDays > 0) {
+        timeSinceLastTelemetry = `(${diffDays}d atrás)`;
+      } else if (diffHours > 0) {
+        timeSinceLastTelemetry = `(${diffHours}h atrás)`;
+      } else if (diffMinutes > 0) {
+        timeSinceLastTelemetry = `(${diffMinutes}min atrás)`;
+      } else {
+        timeSinceLastTelemetry = "(agora)";
+      }
+      return timeSinceLastTelemetry;
+    } catch (e) {
+      telemetryTimeFormatted = "Formato inválido";
+    }
+  }
 }
 
 /**
@@ -220,13 +257,13 @@ function getCardStateClass(deviceStatus) {
  */
 function buildDOM(state) {
   const { entityObject, i18n, enableSelection, enableDragDrop } = state;
-  
+
   // Root container
   const root = document.createElement('div');
   root.className = 'myio-ho-card';
   root.setAttribute('role', 'group');
   root.setAttribute('data-entity-id', entityObject.entityId);
-  
+
   if (enableDragDrop) {
     root.setAttribute('draggable', 'true');
   }
@@ -307,11 +344,11 @@ function buildDOM(state) {
   if (enableSelection) {
     const selectLabel = document.createElement('label');
     selectLabel.className = 'myio-ho-card__select';
-    
+
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     selectLabel.appendChild(checkbox);
-    
+
     actionsSection.appendChild(selectLabel);
   }
 
@@ -319,25 +356,25 @@ function buildDOM(state) {
   root.appendChild(header);
 
 
- const chipsRow = document.createElement('div');
+  const chipsRow = document.createElement('div');
   chipsRow.className = 'myio-ho-card__chips-row'; // Novo container para ambos os chips
-  
+
   // Status chip (PRIMEIRO, para ficar à esquerda)
-  const statusChipContainer = document.createElement('div'); 
+  const statusChipContainer = document.createElement('div');
   statusChipContainer.className = 'myio-ho-card__status-chip-container';
 
   const chip = document.createElement('span'); // Este é o SPAN do chip de status
   chip.className = 'chip'; // A classe existente 'chip'
   statusChipContainer.appendChild(chip);
   chipsRow.appendChild(statusChipContainer); // Adiciona ao novo container
-  
+
   // Chip Mockado de Shopping (SEGUNDO, para ficar à direita)
   const chipShopping = document.createElement('span');
   chipShopping.className = 'myio-ho-card__shopping-chip';
   const chipIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="chip-icon"><path d="M4 22h16"/><path d="M7 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M9 18h6"/><path d="M9 14h6"/><path d="M9 10h6"/><path d="M9 6h6"/></svg>`;
   chipShopping.innerHTML = `${chipIcon}<span>${entityObject.customerName}</span>`;
   chipsRow.appendChild(chipShopping); // Adiciona ao novo container
-  
+
   root.appendChild(chipsRow); // Adiciona o novo container ao root
 
   // Primary metric
@@ -469,7 +506,7 @@ function verifyOfflineStatus(entityObject) {
   // 3. Regra 2: Se a conexão for mais recente, verificar o tempo desde a conexão.
   const now = new Date();
   const fifteenMinutesInMs = 15 * 60 * 1000;
-  
+
   // Calcula a diferença em milissegundos desde a última conexão
   const timeSinceConnection = now.getTime() - lastConnectionTime.getTime();
 
@@ -509,7 +546,7 @@ function paint(root, state) {
   const primaryValue = formatEnergy(entityObject.val);
   const numSpan = root.querySelector('.myio-ho-card__value .num');
   const unitSpan = root.querySelector('.myio-ho-card__value .unit');
-  
+
   numSpan.textContent = primaryValue;
   //unitSpan.textContent = primaryValue.unit;
 
@@ -530,10 +567,10 @@ function paint(root, state) {
     // Pega os elementos internos da barra
     const barFill = root.querySelector('.bar__fill');
     const percSpan = root.querySelector('.myio-ho-card__eff .perc');
-    
+
     // Calcula e atualiza a barra
     const perc = calculateConsumptionPercentage(targetValue, entityObject.val);
-    
+
     barFill.style.width = `${Math.max(0, Math.min(100, perc))}%`;
     percSpan.textContent = `${Math.round(perc)}%`;
     barContainer.setAttribute('aria-valuenow', Math.round(perc).toString());
@@ -552,7 +589,7 @@ function paint(root, state) {
   opTimeVal.textContent = entityObject.operationHours;
 
   const updatedVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(2) .val');
-  updatedVal.textContent = formatRelativeTime(entityObject.updated);
+  updatedVal.textContent = formatUpdateDate(entityObject.lastActivityTime);
 }
 
 /**
@@ -625,7 +662,7 @@ function bindEvents(root, state, callbacks) {
       callbacks.handleActionSettings(e, entityObject);
     });
   }
-  
+
   // infoBtn.addEventListener('click', (e) => {
   //   e.stopPropagation();
   //   closeMenu();
@@ -694,10 +731,10 @@ function bindEvents(root, state, callbacks) {
     checkbox.addEventListener('change', (e) => {
       e.stopPropagation();
       const isSelected = checkbox.checked;
-      
+
       // Toggle selected visual state
       root.classList.toggle('is-selected', isSelected);
-      
+
       callbacks.handleSelect(isSelected, entityObject);
     });
   }
@@ -712,7 +749,7 @@ function bindEvents(root, state, callbacks) {
     }
 
     root.addEventListener('click', handleCardClick);
-    
+
     // Keyboard support
     primarySection.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -727,7 +764,7 @@ function bindEvents(root, state, callbacks) {
     root.addEventListener('dragstart', (e) => {
       root.classList.add('is-dragging');
       e.dataTransfer.setData('text/plain', entityObject.entityId);
-      
+
       // Custom event
       const customEvent = new CustomEvent('myio:dragstart', {
         detail: { entityObject },
@@ -743,7 +780,7 @@ function bindEvents(root, state, callbacks) {
     root.addEventListener('drop', (e) => {
       e.preventDefault();
       const draggedId = e.dataTransfer.getData('text/plain');
-      
+
       // Custom event
       const customEvent = new CustomEvent('myio:drop', {
         detail: { draggedId, targetEntity: entityObject },
@@ -795,7 +832,7 @@ function createInfoModal() {
   closeButton.className = 'myio-modal-close';
   closeButton.innerHTML = '&times;';
   closeButton.setAttribute('aria-label', 'Fechar modal');
-  
+
   // +++ ADICIONADO O TÍTULO +++
   const modalTitle = document.createElement('h3');
   modalTitle.className = 'myio-modal-title';
@@ -829,16 +866,16 @@ function createInfoModal() {
  * @param {object} data - Objeto com os dados a serem exibidos. Ex: { title: 'Nome do Device', meta: '120kWh', ... }
  */
 function showInfoModal(title, bodyHtml) {
-    createInfoModal();
+  createInfoModal();
 
-    const modalOverlay = document.getElementById('myio-info-modal');
-    const modalTitle = document.getElementById('myio-info-modal-title');
-    const modalBody = document.getElementById('myio-info-modal-body');
+  const modalOverlay = document.getElementById('myio-info-modal');
+  const modalTitle = document.getElementById('myio-info-modal-title');
+  const modalBody = document.getElementById('myio-info-modal-body');
 
-    modalTitle.textContent = title || 'Informações';
-    modalBody.innerHTML = bodyHtml; // Define o HTML diretamente
+  modalTitle.textContent = title || 'Informações';
+  modalBody.innerHTML = bodyHtml; // Define o HTML diretamente
 
-    modalOverlay.classList.add('visible');
+  modalOverlay.classList.add('visible');
 }
 /**
  * Main render function
@@ -851,7 +888,7 @@ export function renderCardComponentHeadOffice(containerEl, params) {
   ensureCss();
   const state = normalizeParams(params);
   const root = buildDOM(state);
-  
+
   containerEl.appendChild(root);
   bindEvents(root, state, state.callbacks);
   paint(root, state);
@@ -863,14 +900,14 @@ export function renderCardComponentHeadOffice(containerEl, params) {
         paint(root, state);
       }
     },
-    
+
     destroy() {
       unbindEvents(root);
       if (root.parentNode) {
         root.parentNode.removeChild(root);
       }
     },
-    
+
     getRoot() {
       return root;
     }
