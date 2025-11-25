@@ -73,6 +73,38 @@
         "type": "boolean",
         "default": false,
         "description": "Show detailed console logs for debugging"
+      },
+      "waterIncludeBathrooms": {
+        "title": "Water: Include Bathrooms Card",
+        "type": "boolean",
+        "default": false,
+        "description": "When enabled for water domain, shows a separate card for Banheiros (bathrooms) consumption"
+      },
+      "waterChartColors": {
+        "title": "Water Chart Colors",
+        "type": "object",
+        "properties": {
+          "lojas": {
+            "title": "Lojas Color",
+            "type": "string",
+            "default": "#FFC107"
+          },
+          "banheiros": {
+            "title": "Banheiros Color",
+            "type": "string",
+            "default": "#2196F3"
+          },
+          "areaComum": {
+            "title": "Área Comum Color",
+            "type": "string",
+            "default": "#4CAF50"
+          },
+          "pontosNaoMapeados": {
+            "title": "Pontos Não Mapeados Color",
+            "type": "string",
+            "default": "#9E9E9E"
+          }
+        }
       }
     },
     "required": ["customerTB_ID", "DOMAIN"]
@@ -88,6 +120,11 @@
     "chartColors.lojas",
     "chartColors.outros",
     "chartColors.areaComum",
+    "waterIncludeBathrooms",
+    "waterChartColors.lojas",
+    "waterChartColors.banheiros",
+    "waterChartColors.areaComum",
+    "waterChartColors.pontosNaoMapeados",
     "DEBUG_ACTIVE"
   ]
 }

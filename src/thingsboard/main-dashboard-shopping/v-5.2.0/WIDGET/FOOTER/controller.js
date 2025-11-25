@@ -1,52 +1,57 @@
-  /**
-   * NOTA: Este script depende da biblioteca MyIOLibrary.
-   *
-   * IMPORTANTE: Adicione a biblioteca como Resource no widget do ThingsBoard:
-   * Widget Settings > Resources > Add Resource > External Resource:
-   * https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js
-   *
-   * Para os ícones, idealmente, você carregaria uma biblioteca como Font Awesome ou Material Icons.
-   * Por simplicidade no exemplo, os ícones '•' e '×' são mantidos, mas estilizaremos para parecerem melhores.
-   */
+/**
+ * NOTA: Este script depende das seguintes bibliotecas:
+ *
+ * IMPORTANTE: Adicione as bibliotecas como External Resources no widget do ThingsBoard:
+ * Widget Settings > Resources > Add Resource > External Resource:
+ *
+ * 1. MyIO Library (obrigatório):
+ *    https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js
+ *
+ * 2. Energy Chart SDK (obrigatório para comparação):
+ *    https://graphs.apps.myio-bas.com/sdk/energy-chart-sdk.umd.js
+ *
+ * Para os ícones, idealmente, você carregaria uma biblioteca como Font Awesome ou Material Icons.
+ * Por simplicidade no exemplo, os ícones '•' e '×' são mantidos, mas estilizaremos para parecerem melhores.
+ */
 
-  const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
+const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
 
-  // Debug configuration
-  const DEBUG_ACTIVE = false;
+// Debug configuration
+const DEBUG_ACTIVE = false;
 
-  // LogHelper utility
-  const LogHelper = {
-    log: function(...args) {
-      if (DEBUG_ACTIVE) {
-        console.log(...args);
-      }
-    },
-    warn: function(...args) {
-      if (DEBUG_ACTIVE) {
-        console.warn(...args);
-      }
-    },
-    error: function(...args) {
-      if (DEBUG_ACTIVE) {
-        console.error(...args);
-      }
+// LogHelper utility
+const LogHelper = {
+  log: function (...args) {
+    if (DEBUG_ACTIVE) {
+      console.log(...args);
     }
-  };
-
-  // --- 2. Injeção de CSS (executada uma vez) ---
-  let cssInjected = false;
-  function injectCSS() {
-    if (cssInjected) return;
-
-    const styleId = 'myio-footer-premium-styles';
-    if (document.getElementById(styleId)) {
-      cssInjected = true;
-      return;
+  },
+  warn: function (...args) {
+    if (DEBUG_ACTIVE) {
+      console.warn(...args);
     }
+  },
+  error: function (...args) {
+    if (DEBUG_ACTIVE) {
+      console.error(...args);
+    }
+  },
+};
 
-    const style = document.createElement('style');
-    style.id = styleId;
-    style.textContent = `
+// --- 2. Injeção de CSS (executada uma vez) ---
+let cssInjected = false;
+function injectCSS() {
+  if (cssInjected) return;
+
+  const styleId = 'myio-footer-premium-styles';
+  if (document.getElementById(styleId)) {
+    cssInjected = true;
+    return;
+  }
+
+  const style = document.createElement('style');
+  style.id = styleId;
+  style.textContent = `
 /* ==========================================
    MYIO Footer - Premium Design System
    ========================================== */
@@ -470,102 +475,104 @@
 }
     `;
 
-    document.head.appendChild(style);
-    cssInjected = true;
-    LogHelper.log("[MyIO Footer] ✅ CSS injected successfully");
-  }
+  document.head.appendChild(style);
+  cssInjected = true;
+  LogHelper.log('[MyIO Footer] ✅ CSS injected successfully');
+}
 
-  // --- 3. Controlador do Footer (Objeto encapsulado) ---
-  const footerController = {
-    $root: null,
-    $footerEl: null,
-    $dock: null,
-    $totals: null,
-    $compareBtn: null,
-    $clearBtn: null,
-    $alertOverlay: null,
-    initialized: false,
-    currentUnitType: null, // Tracks current unit type (energy, water, tank, etc)
+// --- 3. Controlador do Footer (Objeto encapsulado) ---
+const footerController = {
+  $root: null,
+  $footerEl: null,
+  $dock: null,
+  $totals: null,
+  $compareBtn: null,
+  $clearBtn: null,
+  $alertOverlay: null,
+  initialized: false,
+  currentUnitType: null, // Tracks current unit type (energy, water, tank, etc)
 
-    // Armazena referências às funções com 'this' vinculado para remoção segura
-    boundRenderDock: null,
-    boundCompareClick: null,
-    boundClearClick: null,
-    boundDragOver: null,
-    boundDrop: null,
-    boundChipClick: null,
-    boundLimitReached: null,
-    boundDashboardStateChange: null,
+  // Armazena referências às funções com 'this' vinculado para remoção segura
+  boundRenderDock: null,
+  boundCompareClick: null,
+  boundClearClick: null,
+  boundDragOver: null,
+  boundDrop: null,
+  boundChipClick: null,
+  boundLimitReached: null,
+  boundDashboardStateChange: null,
 
-    /**
-     * Inicializa o controlador
-     */
-    init(ctx) {
-      LogHelper.log("[MyIO Footer] init() called");
+  /**
+   * Inicializa o controlador
+   */
+  init(ctx) {
+    LogHelper.log('[MyIO Footer] init() called');
 
-      if (this.initialized) {
-        LogHelper.log("[MyIO Footer] Already initialized, skipping");
-        return;
-      }
+    if (this.initialized) {
+      LogHelper.log('[MyIO Footer] Already initialized, skipping');
+      return;
+    }
 
-      // Injeta o CSS primeiro
-      injectCSS();
+    // Injeta o CSS primeiro
+    injectCSS();
 
-      this.$root = ctx?.$container?.[0];
-      this.ctx = ctx;
-      if (!this.$root) {
-        LogHelper.error("[MyIO Footer] Root container not found.");
-        return;
-      }
-      LogHelper.log("[MyIO Footer] Root container found");
+    this.$root = ctx?.$container?.[0];
+    this.ctx = ctx;
+    if (!this.$root) {
+      LogHelper.error('[MyIO Footer] Root container not found.');
+      return;
+    }
+    LogHelper.log('[MyIO Footer] Root container found');
 
-      // Verifica se a biblioteca MyIOLibrary está carregada via Resources
-      if (!window.MyIOLibrary) {
-        LogHelper.error(
-          "[MyIO Footer] MyIOLibrary not found. " +
-          "Please add the library as a Resource in ThingsBoard widget settings:\n" +
-          "https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"
-        );
-        return;
-      }
-      LogHelper.log("[MyIO Footer] MyIOLibrary found");
+    // Verifica se a biblioteca MyIOLibrary está carregada via Resources
+    if (!window.MyIOLibrary) {
+      LogHelper.error(
+        '[MyIO Footer] MyIOLibrary not found. ' +
+          'Please add the library as a Resource in ThingsBoard widget settings:\n' +
+          'https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js'
+      );
+      return;
+    }
+    LogHelper.log('[MyIO Footer] MyIOLibrary found');
 
-      // IMPORTANTE: NÃO chamamos mountTemplate() porque o ThingsBoard já renderizou template.html!
-      // this.mountTemplate(); // ← REMOVIDO
-      LogHelper.log("[MyIO Footer] Using ThingsBoard template.html (not mounting manually)");
+    // IMPORTANTE: NÃO chamamos mountTemplate() porque o ThingsBoard já renderizou template.html!
+    // this.mountTemplate(); // ← REMOVIDO
+    LogHelper.log('[MyIO Footer] Using ThingsBoard template.html (not mounting manually)');
 
-      this.queryDOMElements(); // Consultar elementos do template.html
-      LogHelper.log("[MyIO Footer] DOM elements queried:", {
-        dock: !!this.$dock,
-        totals: !!this.$totals,
-        compareBtn: !!this.$compareBtn
-      });
+    this.queryDOMElements(); // Consultar elementos do template.html
+    LogHelper.log('[MyIO Footer] DOM elements queried:', {
+      dock: !!this.$dock,
+      totals: !!this.$totals,
+      compareBtn: !!this.$compareBtn,
+    });
 
-      this.bindEvents();
-      LogHelper.log("[MyIO Footer] Events bound");
+    this.bindEvents();
+    LogHelper.log('[MyIO Footer] Events bound');
 
-      this.renderDock(); // Renderização inicial
-      LogHelper.log("[MyIO Footer] Initial render complete");
+    this.renderDock(); // Renderização inicial
+    LogHelper.log('[MyIO Footer] Initial render complete');
 
-      this.initialized = true;
-    },
+    this.initialized = true;
+  },
 
-    /**
-     * Monta o template do footer no DOM
-     */
-    mountTemplate() {
-      // Cria o elemento principal do footer
-      const footerSection = document.createElement("section");
-      footerSection.className = "myio-footer";
+  /**
+   * Monta o template do footer no DOM
+   */
+  mountTemplate() {
+    // Cria o elemento principal do footer
+    const footerSection = document.createElement('section');
+    footerSection.className = 'myio-footer';
 
-      // Habilita modo fixo opcional via settings do widget (ctx.settings.fixedFooter)
-      try {
-        const fixed = !!(this.ctx && this.ctx.settings && this.ctx.settings.fixedFooter);
-        if (fixed) footerSection.classList.add('is-fixed');
-      } catch (_) { /* noop */ }
+    // Habilita modo fixo opcional via settings do widget (ctx.settings.fixedFooter)
+    try {
+      const fixed = !!(this.ctx && this.ctx.settings && this.ctx.settings.fixedFooter);
+      if (fixed) footerSection.classList.add('is-fixed');
+    } catch (_) {
+      /* noop */
+    }
 
-      // Insere o conteúdo do template explicitamente
-      footerSection.innerHTML = `
+    // Insere o conteúdo do template explicitamente
+    footerSection.innerHTML = `
         <div class="myio-dock" id="myioDock" aria-live="polite"></div>
         <div class="myio-right">
           <div class="myio-meta" id="myioTotals">0 selecionados</div>
@@ -573,140 +580,145 @@
         </div>
       `;
 
-      this.$root.appendChild(footerSection);
-      this.$footerEl = footerSection; // Armazena a referência ao footer
-    },
+    this.$root.appendChild(footerSection);
+    this.$footerEl = footerSection; // Armazena a referência ao footer
+  },
 
-    /**
-     * Consulta os elementos do DOM *uma vez* e armazena as referências
-     * IMPORTANTE: Como não montamos o template manualmente, buscamos direto do $root
-     */
-    queryDOMElements() {
-      // Busca a section do footer (renderizada pelo template.html do ThingsBoard)
-      this.$footerEl = this.$root.querySelector(".myio-footer");
+  /**
+   * Consulta os elementos do DOM *uma vez* e armazena as referências
+   * IMPORTANTE: Como não montamos o template manualmente, buscamos direto do $root
+   */
+  queryDOMElements() {
+    // Busca a section do footer (renderizada pelo template.html do ThingsBoard)
+    this.$footerEl = this.$root.querySelector('.myio-footer');
 
-      if (!this.$footerEl) {
-        LogHelper.error("[MyIO Footer] .myio-footer section not found in template!");
-        return;
+    if (!this.$footerEl) {
+      LogHelper.error('[MyIO Footer] .myio-footer section not found in template!');
+      return;
+    }
+
+    // Busca os elementos dentro da section
+    this.$dock = this.$footerEl.querySelector('#myioDock');
+    this.$totals = this.$footerEl.querySelector('#myioTotals');
+    this.$clearBtn = this.$footerEl.querySelector('#myioClear');
+    this.$compareBtn = this.$footerEl.querySelector('#myioCompare');
+
+    LogHelper.log('[MyIO Footer] Found elements from ThingsBoard template:', {
+      $footerEl: this.$footerEl,
+      $dock: this.$dock,
+      $totals: this.$totals,
+      $clearBtn: this.$clearBtn,
+      $compareBtn: this.$compareBtn,
+    });
+  },
+
+  /**
+   * Detecta o tipo de unidade (icon) das entidades selecionadas
+   * Retorna: 'energy', 'water', 'tank', 'mixed', ou null
+   */
+  _detectUnitType(entities) {
+    if (!entities || entities.length === 0) return null;
+
+    const types = new Set();
+    entities.forEach((entity) => {
+      if (entity && entity.icon) {
+        types.add(entity.icon);
       }
+    });
 
-      // Busca os elementos dentro da section
-      this.$dock = this.$footerEl.querySelector("#myioDock");
-      this.$totals = this.$footerEl.querySelector("#myioTotals");
-      this.$clearBtn = this.$footerEl.querySelector("#myioClear");
-      this.$compareBtn = this.$footerEl.querySelector("#myioCompare");
+    if (types.size === 0) return null;
+    if (types.size > 1) return 'mixed'; // Tipos misturados!
+    return Array.from(types)[0]; // Um único tipo
+  },
 
-      LogHelper.log("[MyIO Footer] Found elements from ThingsBoard template:", {
-        $footerEl: this.$footerEl,
-        $dock: this.$dock,
-        $totals: this.$totals,
-        $clearBtn: this.$clearBtn,
-        $compareBtn: this.$compareBtn
+  /**
+   * Renderiza o conteúdo do "dock" (chips ou mensagem de vazio)
+   */
+  renderDock() {
+    LogHelper.log('[MyIO Footer] renderDock() called');
+
+    if (!this.$dock || !this.$totals || !this.$compareBtn) {
+      LogHelper.warn('[MyIO Footer] DOM elements not ready:', {
+        dock: !!this.$dock,
+        totals: !!this.$totals,
+        compareBtn: !!this.$compareBtn,
       });
-    },
+      return;
+    }
 
-    /**
-     * Detecta o tipo de unidade (icon) das entidades selecionadas
-     * Retorna: 'energy', 'water', 'tank', 'mixed', ou null
-     */
-    _detectUnitType(entities) {
-      if (!entities || entities.length === 0) return null;
+    // Try both window.MyIOLibrary.MyIOSelectionStore and window.MyIOSelectionStore
+    const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
 
-      const types = new Set();
-      entities.forEach(entity => {
-        if (entity && entity.icon) {
-          types.add(entity.icon);
-        }
-      });
+    if (!MyIOSelectionStore) {
+      LogHelper.error('[MyIO Footer] MyIOSelectionStore not found.');
+      return;
+    }
 
-      if (types.size === 0) return null;
-      if (types.size > 1) return 'mixed'; // Tipos misturados!
-      return Array.from(types)[0]; // Um único tipo
-    },
+    const selected = MyIOSelectionStore.getSelectedEntities();
+    const count = selected.length;
 
-    /**
-     * Renderiza o conteúdo do "dock" (chips ou mensagem de vazio)
-     */
-    renderDock() {
-      LogHelper.log("[MyIO Footer] renderDock() called");
+    // INTELIGÊNCIA: Detecta tipo de unidade e reseta se houver mudança
+    const detectedType = this._detectUnitType(selected);
 
-      if (!this.$dock || !this.$totals || !this.$compareBtn) {
-        LogHelper.warn("[MyIO Footer] DOM elements not ready:", {
-          dock: !!this.$dock,
-          totals: !!this.$totals,
-          compareBtn: !!this.$compareBtn
-        });
-        return;
-      }
+    // Se detectou tipos misturados, limpa a seleção automaticamente
+    if (detectedType === 'mixed') {
+      LogHelper.warn(
+        '[MyIO Footer] ⚠️ Mixed unit types detected! Clearing selection to prevent invalid comparison.'
+      );
+      this.showMixedUnitsAlert();
+      MyIOSelectionStore.clear();
+      return; // renderDock será chamado novamente após o clear
+    }
 
-      // Try both window.MyIOLibrary.MyIOSelectionStore and window.MyIOSelectionStore
-      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-
-      if (!MyIOSelectionStore) {
-        LogHelper.error("[MyIO Footer] MyIOSelectionStore not found.");
-        return;
-      }
-
-      const selected = MyIOSelectionStore.getSelectedEntities();
-      const count = selected.length;
-
-      // INTELIGÊNCIA: Detecta tipo de unidade e reseta se houver mudança
-      const detectedType = this._detectUnitType(selected);
-
-      // Se detectou tipos misturados, limpa a seleção automaticamente
-      if (detectedType === 'mixed') {
-        LogHelper.warn("[MyIO Footer] ⚠️ Mixed unit types detected! Clearing selection to prevent invalid comparison.");
-        this.showMixedUnitsAlert();
-        MyIOSelectionStore.clear();
-        return; // renderDock será chamado novamente após o clear
-      }
-
-      // Se mudou o tipo de unidade (ex: de 'energy' para 'water'), limpa a seleção
-      if (detectedType && this.currentUnitType && detectedType !== this.currentUnitType) {
-        LogHelper.warn(`[MyIO Footer] ⚠️ Unit type changed from '${this.currentUnitType}' to '${detectedType}'! Clearing selection.`);
-        this.currentUnitType = detectedType;
-        MyIOSelectionStore.clear();
-        return; // renderDock será chamado novamente após o clear
-      }
-
-      // Atualiza o tipo atual
+    // Se mudou o tipo de unidade (ex: de 'energy' para 'water'), limpa a seleção
+    if (detectedType && this.currentUnitType && detectedType !== this.currentUnitType) {
+      LogHelper.warn(
+        `[MyIO Footer] ⚠️ Unit type changed from '${this.currentUnitType}' to '${detectedType}'! Clearing selection.`
+      );
       this.currentUnitType = detectedType;
+      MyIOSelectionStore.clear();
+      return; // renderDock será chamado novamente após o clear
+    }
 
-      // Calcula os totais manualmente a partir dos lastValue das entidades
-      let totalValue = 0;
-      selected.forEach(entity => {
-        if (entity && typeof entity.lastValue === 'number') {
-          totalValue += entity.lastValue;
-        }
-      });
+    // Atualiza o tipo atual
+    this.currentUnitType = detectedType;
 
-      // Formata o total usando formatação brasileira
-      const totals = this._formatValue(totalValue);
+    // Calcula os totais manualmente a partir dos lastValue das entidades
+    let totalValue = 0;
+    selected.forEach((entity) => {
+      if (entity && typeof entity.lastValue === 'number') {
+        totalValue += entity.lastValue;
+      }
+    });
 
-      LogHelper.log("[MyIO Footer] Rendering dock:", {
-        count,
-        selected,
-        totalValue,
-        totalsFormatted: totals
-      });
+    // Formata o total usando formatação brasileira
+    const totals = this._formatValue(totalValue);
 
-      // DEBUG: Log each entity
-      LogHelper.log("[MyIO Footer] Selected entities details:");
-      selected.forEach((ent, idx) => {
-        LogHelper.log(`[MyIO Footer]   Entity ${idx}:`, ent);
-      });
+    LogHelper.log('[MyIO Footer] Rendering dock:', {
+      count,
+      selected,
+      totalValue,
+      totalsFormatted: totals,
+    });
 
-      if (count === 0) {
-        LogHelper.log("[MyIO Footer] Count is 0, rendering empty message");
-        const emptyEl = document.createElement("span");
-        emptyEl.className = "myio-empty";
-        emptyEl.textContent = "Arraste itens para cá ou selecione no card";
-        this.$dock.replaceChildren(emptyEl); // Mais seguro e performático
-        LogHelper.log("[MyIO Footer] Empty message rendered");
-      } else {
-        LogHelper.log(`[MyIO Footer] Count is ${count}, creating chips...`);
-        // Cria chips de forma eficiente e segura
-        const chips = selected.map((ent, idx) => {
+    // DEBUG: Log each entity
+    LogHelper.log('[MyIO Footer] Selected entities details:');
+    selected.forEach((ent, idx) => {
+      LogHelper.log(`[MyIO Footer]   Entity ${idx}:`, ent);
+    });
+
+    if (count === 0) {
+      LogHelper.log('[MyIO Footer] Count is 0, rendering empty message');
+      const emptyEl = document.createElement('span');
+      emptyEl.className = 'myio-empty';
+      emptyEl.textContent = 'Arraste itens para cá ou selecione no card';
+      this.$dock.replaceChildren(emptyEl); // Mais seguro e performático
+      LogHelper.log('[MyIO Footer] Empty message rendered');
+    } else {
+      LogHelper.log(`[MyIO Footer] Count is ${count}, creating chips...`);
+      // Cria chips de forma eficiente e segura
+      const chips = selected
+        .map((ent, idx) => {
           LogHelper.log(`[MyIO Footer]   Creating chip ${idx} for entity:`, ent);
 
           if (!ent || !ent.name) {
@@ -714,19 +726,19 @@
             return null;
           }
 
-          const chip = document.createElement("div");
-          chip.className = "myio-chip";
+          const chip = document.createElement('div');
+          chip.className = 'myio-chip';
 
           // Conteúdo do chip (nome + valor)
-          const content = document.createElement("div");
-          content.className = "myio-chip-content";
+          const content = document.createElement('div');
+          content.className = 'myio-chip-content';
 
-          const name = document.createElement("span");
-          name.className = "myio-chip-name";
+          const name = document.createElement('span');
+          name.className = 'myio-chip-name';
           name.textContent = ent.name;
 
-          const value = document.createElement("span");
-          value.className = "myio-chip-value";
+          const value = document.createElement('span');
+          value.className = 'myio-chip-value';
           // Formata o valor com unidade
           const formattedValue = ent.lastValue
             ? `${this._formatValue(ent.lastValue)} ${ent.unit || ''}`.trim()
@@ -736,10 +748,10 @@
           content.append(name, value);
 
           // Botão de remover
-          const removeBtn = document.createElement("button");
-          removeBtn.className = "myio-chip-remove";
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'myio-chip-remove';
           removeBtn.title = `Remover ${ent.name}`;
-          removeBtn.setAttribute("aria-label", `Remover ${ent.name}`);
+          removeBtn.setAttribute('aria-label', `Remover ${ent.name}`);
           removeBtn.dataset.entityId = ent.id;
           removeBtn.innerHTML = `
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -751,98 +763,99 @@
           chip.append(content, removeBtn);
           LogHelper.log(`[MyIO Footer]   Chip ${idx} created successfully`);
           return chip;
-        }).filter(chip => chip !== null); // Remove null chips
+        })
+        .filter((chip) => chip !== null); // Remove null chips
 
-        LogHelper.log(`[MyIO Footer] Total chips created: ${chips.length}`);
-        LogHelper.log("[MyIO Footer] About to call replaceChildren with chips:", chips);
+      LogHelper.log(`[MyIO Footer] Total chips created: ${chips.length}`);
+      LogHelper.log('[MyIO Footer] About to call replaceChildren with chips:', chips);
 
-        this.$dock.replaceChildren(...chips); // Renderiza todos de uma vez
+      this.$dock.replaceChildren(...chips); // Renderiza todos de uma vez
 
-        LogHelper.log("[MyIO Footer] replaceChildren completed");
-        LogHelper.log("[MyIO Footer] $dock.children.length:", this.$dock.children.length);
-        LogHelper.log("[MyIO Footer] $dock.innerHTML:", this.$dock.innerHTML);
+      LogHelper.log('[MyIO Footer] replaceChildren completed');
+      LogHelper.log('[MyIO Footer] $dock.children.length:', this.$dock.children.length);
+      LogHelper.log('[MyIO Footer] $dock.innerHTML:', this.$dock.innerHTML);
 
-        // DEBUG: Check if CSS is being applied
-        if (this.$dock.children.length > 0) {
-          const dockStyles = window.getComputedStyle(this.$dock);
-          const firstChip = this.$dock.children[0];
-          const chipStyles = window.getComputedStyle(firstChip);
+      // DEBUG: Check if CSS is being applied
+      if (this.$dock.children.length > 0) {
+        const dockStyles = window.getComputedStyle(this.$dock);
+        const firstChip = this.$dock.children[0];
+        const chipStyles = window.getComputedStyle(firstChip);
 
-          LogHelper.log("[MyIO Footer] 🎨 CSS DIAGNOSTICS:");
-          LogHelper.log("  $dock display:", dockStyles.display);
-          LogHelper.log("  $dock flexDirection:", dockStyles.flexDirection);
-          LogHelper.log("  $dock gap:", dockStyles.gap);
-          LogHelper.log("  firstChip display:", chipStyles.display);
-          LogHelper.log("  firstChip className:", firstChip.className);
-          LogHelper.log("  firstChip background:", chipStyles.background);
-          LogHelper.log("  firstChip border:", chipStyles.border);
+        LogHelper.log('[MyIO Footer] 🎨 CSS DIAGNOSTICS:');
+        LogHelper.log('  $dock display:', dockStyles.display);
+        LogHelper.log('  $dock flexDirection:', dockStyles.flexDirection);
+        LogHelper.log('  $dock gap:', dockStyles.gap);
+        LogHelper.log('  firstChip display:', chipStyles.display);
+        LogHelper.log('  firstChip className:', firstChip.className);
+        LogHelper.log('  firstChip background:', chipStyles.background);
+        LogHelper.log('  firstChip border:', chipStyles.border);
 
-          const removeBtn = firstChip.querySelector('.myio-chip-remove');
-          if (removeBtn) {
-            const btnStyles = window.getComputedStyle(removeBtn);
-            LogHelper.log("  removeBtn background:", btnStyles.background);
-            LogHelper.log("  removeBtn border:", btnStyles.border);
-            LogHelper.log("  removeBtn width:", btnStyles.width);
-            LogHelper.log("  removeBtn height:", btnStyles.height);
-          }
+        const removeBtn = firstChip.querySelector('.myio-chip-remove');
+        if (removeBtn) {
+          const btnStyles = window.getComputedStyle(removeBtn);
+          LogHelper.log('  removeBtn background:', btnStyles.background);
+          LogHelper.log('  removeBtn border:', btnStyles.border);
+          LogHelper.log('  removeBtn width:', btnStyles.width);
+          LogHelper.log('  removeBtn height:', btnStyles.height);
         }
       }
+    }
 
-      // Atualiza totais e botão
-      const itemText = count === 1 ? 'item' : 'itens';
+    // Atualiza totais e botão
+    const itemText = count === 1 ? 'item' : 'itens';
 
-      // Se não houver seleção, mostra mensagem padrão
-      let newTotalsText;
-      if (count === 0) {
-        newTotalsText = '0 itens';
-      } else {
-        // Mostra a contagem e os totais formatados
-        newTotalsText = `${count} ${itemText} (${totals})`;
-      }
+    // Se não houver seleção, mostra mensagem padrão
+    let newTotalsText;
+    if (count === 0) {
+      newTotalsText = '0 itens';
+    } else {
+      // Mostra a contagem e os totais formatados
+      newTotalsText = `${count} ${itemText} (${totals})`;
+    }
 
-      LogHelper.log(`[MyIO Footer] Updating totals text to: "${newTotalsText}"`);
-      this.$totals.textContent = newTotalsText;
-      LogHelper.log("[MyIO Footer] Totals updated. Current text:", this.$totals.textContent);
+    LogHelper.log(`[MyIO Footer] Updating totals text to: "${newTotalsText}"`);
+    this.$totals.textContent = newTotalsText;
+    LogHelper.log('[MyIO Footer] Totals updated. Current text:', this.$totals.textContent);
 
-      this.$compareBtn.disabled = count < 2;
-      this.$clearBtn.disabled = count === 0;
-      LogHelper.log("[MyIO Footer] renderDock() completed");
-    },
+    this.$compareBtn.disabled = count < 2;
+    this.$clearBtn.disabled = count === 0;
+    LogHelper.log('[MyIO Footer] renderDock() completed');
+  },
 
-    /**
-     * Formata valores numéricos para exibição
-     */
-    _formatValue(value) {
-      if (typeof value !== 'number' || isNaN(value)) return '0';
+  /**
+   * Formata valores numéricos para exibição
+   */
+  _formatValue(value) {
+    if (typeof value !== 'number' || isNaN(value)) return '0';
 
-      // Para valores grandes (>= 1000), usa notação com separadores
-      if (Math.abs(value) >= 1000) {
-        return new Intl.NumberFormat('pt-BR', {
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 2
-        }).format(value);
-      }
+    // Para valores grandes (>= 1000), usa notação com separadores
+    if (Math.abs(value) >= 1000) {
+      return new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }).format(value);
+    }
 
-      // Para valores pequenos, mostra até 2 casas decimais
-      return value.toFixed(2).replace(/\.?0+$/, '');
-    },
+    // Para valores pequenos, mostra até 2 casas decimais
+    return value.toFixed(2).replace(/\.?0+$/, '');
+  },
 
-    /**
-     * Mostra o alerta premium quando tipos de unidades são misturados
-     */
-    showMixedUnitsAlert() {
-      LogHelper.log("[MyIO Footer] Showing mixed units alert");
+  /**
+   * Mostra o alerta premium quando tipos de unidades são misturados
+   */
+  showMixedUnitsAlert() {
+    LogHelper.log('[MyIO Footer] Showing mixed units alert');
 
-      // Remove qualquer alerta existente
-      if (this.$alertOverlay) {
-        this.hideAlert();
-      }
+    // Remove qualquer alerta existente
+    if (this.$alertOverlay) {
+      this.hideAlert();
+    }
 
-      // Cria o overlay do alerta
-      const overlay = document.createElement("div");
-      overlay.className = "myio-alert-overlay";
+    // Cria o overlay do alerta
+    const overlay = document.createElement('div');
+    overlay.className = 'myio-alert-overlay';
 
-      overlay.innerHTML = `
+    overlay.innerHTML = `
         <div class="myio-alert-box">
           <div class="myio-alert-icon">⚠</div>
           <h2 class="myio-alert-title">Tipos Incompatíveis</h2>
@@ -856,40 +869,40 @@
         </div>
       `;
 
-      // Adiciona ao body para que fique acima de tudo
-      document.body.appendChild(overlay);
-      this.$alertOverlay = overlay;
+    // Adiciona ao body para que fique acima de tudo
+    document.body.appendChild(overlay);
+    this.$alertOverlay = overlay;
 
-      // Adiciona listener no botão e no overlay (clique fora)
-      const closeBtn = overlay.querySelector(".myio-alert-button");
-      const closeAlert = () => this.hideAlert();
+    // Adiciona listener no botão e no overlay (clique fora)
+    const closeBtn = overlay.querySelector('.myio-alert-button');
+    const closeAlert = () => this.hideAlert();
 
-      closeBtn.addEventListener("click", closeAlert);
-      overlay.addEventListener("click", (e) => {
-        if (e.target === overlay) {
-          closeAlert();
-        }
-      });
-
-      LogHelper.log("[MyIO Footer] Mixed units alert displayed");
-    },
-
-    /**
-     * Mostra o alerta premium quando o limite de seleção é atingido
-     */
-    showLimitAlert() {
-      LogHelper.log("[MyIO Footer] Showing limit alert");
-
-      // Remove qualquer alerta existente
-      if (this.$alertOverlay) {
-        this.hideAlert();
+    closeBtn.addEventListener('click', closeAlert);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        closeAlert();
       }
+    });
 
-      // Cria o overlay do alerta
-      const overlay = document.createElement("div");
-      overlay.className = "myio-alert-overlay";
+    LogHelper.log('[MyIO Footer] Mixed units alert displayed');
+  },
 
-      overlay.innerHTML = `
+  /**
+   * Mostra o alerta premium quando o limite de seleção é atingido
+   */
+  showLimitAlert() {
+    LogHelper.log('[MyIO Footer] Showing limit alert');
+
+    // Remove qualquer alerta existente
+    if (this.$alertOverlay) {
+      this.hideAlert();
+    }
+
+    // Cria o overlay do alerta
+    const overlay = document.createElement('div');
+    overlay.className = 'myio-alert-overlay';
+
+    overlay.innerHTML = `
         <div class="myio-alert-box">
           <div class="myio-alert-icon">⚠</div>
           <h2 class="myio-alert-title">Limite Atingido</h2>
@@ -901,356 +914,369 @@
         </div>
       `;
 
-      // Adiciona ao body para que fique acima de tudo
-      document.body.appendChild(overlay);
-      this.$alertOverlay = overlay;
+    // Adiciona ao body para que fique acima de tudo
+    document.body.appendChild(overlay);
+    this.$alertOverlay = overlay;
 
-      // Adiciona listener no botão e no overlay (clique fora)
-      const closeBtn = overlay.querySelector(".myio-alert-button");
-      const closeAlert = () => this.hideAlert();
+    // Adiciona listener no botão e no overlay (clique fora)
+    const closeBtn = overlay.querySelector('.myio-alert-button');
+    const closeAlert = () => this.hideAlert();
 
-      closeBtn.addEventListener("click", closeAlert);
-      overlay.addEventListener("click", (e) => {
-        if (e.target === overlay) {
-          closeAlert();
-        }
-      });
-
-      LogHelper.log("[MyIO Footer] Limit alert displayed");
-    },
-
-    /**
-     * Esconde o alerta premium (genérico)
-     */
-    hideAlert() {
-      if (this.$alertOverlay && this.$alertOverlay.parentNode) {
-        this.$alertOverlay.remove();
-        this.$alertOverlay = null;
-        LogHelper.log("[MyIO Footer] Alert hidden");
+    closeBtn.addEventListener('click', closeAlert);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        closeAlert();
       }
-    },
+    });
 
-    /**
-     * Alias para compatibilidade com código antigo
-     */
-    hideLimitAlert() {
-      this.hideAlert();
-    },
+    LogHelper.log('[MyIO Footer] Limit alert displayed');
+  },
 
-    /**
-     * Handler para evento de limite atingido
-     */
-    onLimitReached(data) {
-      LogHelper.log("[MyIO Footer] Limit reached event received:", data);
-      this.showLimitAlert();
-    },
+  /**
+   * Esconde o alerta premium (genérico)
+   */
+  hideAlert() {
+    if (this.$alertOverlay && this.$alertOverlay.parentNode) {
+      this.$alertOverlay.remove();
+      this.$alertOverlay = null;
+      LogHelper.log('[MyIO Footer] Alert hidden');
+    }
+  },
 
-    /**
-     * Handler para evento de mudança de dashboard (troca de aba no MENU)
-     * Limpa a seleção do FOOTER quando o usuário troca entre energy/water/tank
-     */
-    onDashboardStateChange(event) {
-      const newTab = event.detail?.tab;
+  /**
+   * Alias para compatibilidade com código antigo
+   */
+  hideLimitAlert() {
+    this.hideAlert();
+  },
 
-      LogHelper.log(`[MyIO Footer] Dashboard state changed to: ${newTab}`);
+  /**
+   * Handler para evento de limite atingido
+   */
+  onLimitReached(data) {
+    LogHelper.log('[MyIO Footer] Limit reached event received:', data);
+    this.showLimitAlert();
+  },
 
-      // Se mudou para uma aba válida (energy, water, temperature)
-      // Limpa a seleção para evitar comparações inválidas
-      if (newTab && (newTab === 'energy' || newTab === 'water' || newTab === 'temperature' || newTab === 'tank')) {
-        const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+  /**
+   * Handler para evento de mudança de dashboard (troca de aba no MENU)
+   * Limpa a seleção do FOOTER quando o usuário troca entre energy/water/tank
+   */
+  onDashboardStateChange(event) {
+    const newTab = event.detail?.tab;
 
-        if (MyIOSelectionStore) {
-          const count = MyIOSelectionStore.getSelectionCount();
+    LogHelper.log(`[MyIO Footer] Dashboard state changed to: ${newTab}`);
 
-          // Só limpa se houver algo selecionado
-          if (count > 0) {
-            LogHelper.log(`[MyIO Footer] Clearing ${count} selected items due to tab change`);
-            MyIOSelectionStore.clear();
-
-            // Reseta o tipo atual
-            this.currentUnitType = null;
-          }
-        }
-      }
-    },
-
-    /**
-     * Vincula todos os ouvintes de eventos
-     */
-    bindEvents() {
-      LogHelper.log("[MyIO Footer] bindEvents() called");
-
-      // DEBUG: Check which SelectionStore instance we're using
-      LogHelper.log("[MyIO Footer] window.MyIOLibrary:", !!window.MyIOLibrary);
-      LogHelper.log("[MyIO Footer] window.MyIOLibrary.MyIOSelectionStore:", !!window.MyIOLibrary?.MyIOSelectionStore);
-      LogHelper.log("[MyIO Footer] window.MyIOSelectionStore:", !!window.MyIOSelectionStore);
-
-      // Try both window.MyIOLibrary.MyIOSelectionStore and window.MyIOSelectionStore
-      const fromMyIOLibrary = window.MyIOLibrary?.MyIOSelectionStore;
-      const fromWindow = window.MyIOSelectionStore;
-      const MyIOSelectionStore = fromMyIOLibrary || fromWindow;
-
-      // DEBUG: Check which reference we're using
-      LogHelper.log("[MyIO Footer] Using reference from:", fromMyIOLibrary ? "window.MyIOLibrary.MyIOSelectionStore" : "window.MyIOSelectionStore");
-      LogHelper.log("[MyIO Footer] Are they the same instance?", fromMyIOLibrary === fromWindow);
-
-      if (!MyIOSelectionStore) {
-        LogHelper.error("[MyIO Footer] MyIOSelectionStore not available for binding events.");
-        return;
-      }
-
-      // DEBUG: Verify we have the correct instance
-      LogHelper.log("[MyIO Footer] Using SelectionStore instance:", MyIOSelectionStore.constructor.name);
-      LogHelper.log("[MyIO Footer] SelectionStore has .on method:", typeof MyIOSelectionStore.on);
-
-      // DEBUG: Check hidden global instance
-      try {
-        const topWindowInstance = window.top.__MyIOSelectionStore_INSTANCE__;
-        LogHelper.log("[MyIO Footer] window.top.__MyIOSelectionStore_INSTANCE__ exists:", !!topWindowInstance);
-        LogHelper.log("[MyIO Footer] Using same instance as window.top?", MyIOSelectionStore === topWindowInstance);
-      } catch (e) {
-        LogHelper.warn("[MyIO Footer] Cannot access window.top:", e.message);
-      }
-
-      LogHelper.log("[MyIO Footer] Current listeners count before registration:", {
-        'selection:change': MyIOSelectionStore.eventListeners?.get('selection:change')?.length || 0,
-        'selection:totals': MyIOSelectionStore.eventListeners?.get('selection:totals')?.length || 0
-      });
-
-      // 1. Armazena funções vinculadas (para remoção correta)
-      this.boundRenderDock = this.renderDock.bind(this);
-      this.boundCompareClick = this.onCompareClick.bind(this);
-      this.boundClearClick = this.onClearClick.bind(this);
-      this.boundDragOver = (e) => e.preventDefault();
-      this.boundDrop = this.onDrop.bind(this);
-      this.boundChipClick = this.onChipClick.bind(this);
-      this.boundLimitReached = this.onLimitReached.bind(this);
-      this.boundDashboardStateChange = this.onDashboardStateChange.bind(this);
-
-      // 2. Ouve a store externa
-      LogHelper.log("[MyIO Footer] About to register selection:change listener...");
-      LogHelper.log("[MyIO Footer] MyIOSelectionStore.on function:", MyIOSelectionStore.on);
-      LogHelper.log("[MyIO Footer] Calling MyIOSelectionStore.on('selection:change', boundRenderDock)...");
-      const result1 = MyIOSelectionStore.on("selection:change", this.boundRenderDock);
-      LogHelper.log("[MyIO Footer] Result from .on() call:", result1);
-
-      LogHelper.log("[MyIO Footer] About to register selection:totals listener...");
-      const result2 = MyIOSelectionStore.on("selection:totals", this.boundRenderDock);
-      LogHelper.log("[MyIO Footer] Result from .on() call:", result2);
-
-      LogHelper.log("[MyIO Footer] About to register selection:limit-reached listener...");
-      const result3 = MyIOSelectionStore.on("selection:limit-reached", this.boundLimitReached);
-      LogHelper.log("[MyIO Footer] Result from .on() call:", result3);
-
-      // DEBUG: Verify registration worked
-      LogHelper.log("[MyIO Footer] Current listeners count after registration:", {
-        'selection:change': MyIOSelectionStore.eventListeners?.get('selection:change')?.length || 0,
-        'selection:totals': MyIOSelectionStore.eventListeners?.get('selection:totals')?.length || 0,
-        'selection:limit-reached': MyIOSelectionStore.eventListeners?.get('selection:limit-reached')?.length || 0
-      });
-
-      LogHelper.log("[MyIO Footer] Registered listeners on SelectionStore");
-
-      // 3. Ouve elementos do DOM interno
-      if (this.$compareBtn) {
-        this.$compareBtn.addEventListener("click", this.boundCompareClick);
-      }
-
-      if (this.$clearBtn) {
-        this.$clearBtn.addEventListener("click", this.boundClearClick);
-      }
-
-      // 4. Delegação de evento para cliques nos chips
-      if (this.$dock) {
-        this.$dock.addEventListener("click", this.boundChipClick);
-      }
-
-      // 5. Eventos de Drag and Drop no footer
-      if (this.$footerEl) {
-        this.$footerEl.addEventListener("dragover", this.boundDragOver);
-        this.$footerEl.addEventListener("drop", this.boundDrop);
-      }
-
-      // 6. Evento de mudança de aba no MENU (limpa seleção ao trocar entre energy/water/tank)
-      window.addEventListener("myio:dashboard-state", this.boundDashboardStateChange);
-      LogHelper.log("[MyIO Footer] Registered listener for myio:dashboard-state (tab change from MENU)");
-    },
-
-    /**
-     * Manipulador de clique para o "dock" (delegação)
-     */
-    onChipClick(e) {
-      // Verifica se o clique foi em um botão de remover
-      const removeBtn = e.target.closest("button[data-entity-id]");
-      if (removeBtn) {
-        const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-        if (MyIOSelectionStore) {
-          const id = removeBtn.dataset.entityId;
-          MyIOSelectionStore.remove(id);
-        }
-      }
-    },
-
-    /**
-     * Abre a modal de comparação premium usando openDashboardPopupEnergy
-     * NOVO: Usa o modo 'comparison' do EnergyModalView
-     */
-    async openComparisonModal() {
-      LogHelper.log("[MyIO Footer] Opening comparison modal...");
-
+    // Se mudou para uma aba válida (energy, water, temperature)
+    // Limpa a seleção para evitar comparações inválidas
+    if (
+      newTab &&
+      (newTab === 'energy' || newTab === 'water' || newTab === 'temperature' || newTab === 'tank')
+    ) {
       const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-      if (!MyIOSelectionStore) {
-        LogHelper.error("[MyIO Footer] SelectionStore not found");
+
+      if (MyIOSelectionStore) {
+        const count = MyIOSelectionStore.getSelectionCount();
+
+        // Só limpa se houver algo selecionado
+        if (count > 0) {
+          LogHelper.log(`[MyIO Footer] Clearing ${count} selected items due to tab change`);
+          MyIOSelectionStore.clear();
+
+          // Reseta o tipo atual
+          this.currentUnitType = null;
+        }
+      }
+    }
+  },
+
+  /**
+   * Vincula todos os ouvintes de eventos
+   */
+  bindEvents() {
+    LogHelper.log('[MyIO Footer] bindEvents() called');
+
+    // DEBUG: Check which SelectionStore instance we're using
+    LogHelper.log('[MyIO Footer] window.MyIOLibrary:', !!window.MyIOLibrary);
+    LogHelper.log(
+      '[MyIO Footer] window.MyIOLibrary.MyIOSelectionStore:',
+      !!window.MyIOLibrary?.MyIOSelectionStore
+    );
+    LogHelper.log('[MyIO Footer] window.MyIOSelectionStore:', !!window.MyIOSelectionStore);
+
+    // Try both window.MyIOLibrary.MyIOSelectionStore and window.MyIOSelectionStore
+    const fromMyIOLibrary = window.MyIOLibrary?.MyIOSelectionStore;
+    const fromWindow = window.MyIOSelectionStore;
+    const MyIOSelectionStore = fromMyIOLibrary || fromWindow;
+
+    // DEBUG: Check which reference we're using
+    LogHelper.log(
+      '[MyIO Footer] Using reference from:',
+      fromMyIOLibrary ? 'window.MyIOLibrary.MyIOSelectionStore' : 'window.MyIOSelectionStore'
+    );
+    LogHelper.log('[MyIO Footer] Are they the same instance?', fromMyIOLibrary === fromWindow);
+
+    if (!MyIOSelectionStore) {
+      LogHelper.error('[MyIO Footer] MyIOSelectionStore not available for binding events.');
+      return;
+    }
+
+    // DEBUG: Verify we have the correct instance
+    LogHelper.log('[MyIO Footer] Using SelectionStore instance:', MyIOSelectionStore.constructor.name);
+    LogHelper.log('[MyIO Footer] SelectionStore has .on method:', typeof MyIOSelectionStore.on);
+
+    // DEBUG: Check hidden global instance
+    try {
+      const topWindowInstance = window.top.__MyIOSelectionStore_INSTANCE__;
+      LogHelper.log('[MyIO Footer] window.top.__MyIOSelectionStore_INSTANCE__ exists:', !!topWindowInstance);
+      LogHelper.log(
+        '[MyIO Footer] Using same instance as window.top?',
+        MyIOSelectionStore === topWindowInstance
+      );
+    } catch (e) {
+      LogHelper.warn('[MyIO Footer] Cannot access window.top:', e.message);
+    }
+
+    LogHelper.log('[MyIO Footer] Current listeners count before registration:', {
+      'selection:change': MyIOSelectionStore.eventListeners?.get('selection:change')?.length || 0,
+      'selection:totals': MyIOSelectionStore.eventListeners?.get('selection:totals')?.length || 0,
+    });
+
+    // 1. Armazena funções vinculadas (para remoção correta)
+    this.boundRenderDock = this.renderDock.bind(this);
+    this.boundCompareClick = this.onCompareClick.bind(this);
+    this.boundClearClick = this.onClearClick.bind(this);
+    this.boundDragOver = (e) => e.preventDefault();
+    this.boundDrop = this.onDrop.bind(this);
+    this.boundChipClick = this.onChipClick.bind(this);
+    this.boundLimitReached = this.onLimitReached.bind(this);
+    this.boundDashboardStateChange = this.onDashboardStateChange.bind(this);
+
+    // 2. Ouve a store externa
+    LogHelper.log('[MyIO Footer] About to register selection:change listener...');
+    LogHelper.log('[MyIO Footer] MyIOSelectionStore.on function:', MyIOSelectionStore.on);
+    LogHelper.log("[MyIO Footer] Calling MyIOSelectionStore.on('selection:change', boundRenderDock)...");
+    const result1 = MyIOSelectionStore.on('selection:change', this.boundRenderDock);
+    LogHelper.log('[MyIO Footer] Result from .on() call:', result1);
+
+    LogHelper.log('[MyIO Footer] About to register selection:totals listener...');
+    const result2 = MyIOSelectionStore.on('selection:totals', this.boundRenderDock);
+    LogHelper.log('[MyIO Footer] Result from .on() call:', result2);
+
+    LogHelper.log('[MyIO Footer] About to register selection:limit-reached listener...');
+    const result3 = MyIOSelectionStore.on('selection:limit-reached', this.boundLimitReached);
+    LogHelper.log('[MyIO Footer] Result from .on() call:', result3);
+
+    // DEBUG: Verify registration worked
+    LogHelper.log('[MyIO Footer] Current listeners count after registration:', {
+      'selection:change': MyIOSelectionStore.eventListeners?.get('selection:change')?.length || 0,
+      'selection:totals': MyIOSelectionStore.eventListeners?.get('selection:totals')?.length || 0,
+      'selection:limit-reached':
+        MyIOSelectionStore.eventListeners?.get('selection:limit-reached')?.length || 0,
+    });
+
+    LogHelper.log('[MyIO Footer] Registered listeners on SelectionStore');
+
+    // 3. Ouve elementos do DOM interno
+    if (this.$compareBtn) {
+      this.$compareBtn.addEventListener('click', this.boundCompareClick);
+    }
+
+    if (this.$clearBtn) {
+      this.$clearBtn.addEventListener('click', this.boundClearClick);
+    }
+
+    // 4. Delegação de evento para cliques nos chips
+    if (this.$dock) {
+      this.$dock.addEventListener('click', this.boundChipClick);
+    }
+
+    // 5. Eventos de Drag and Drop no footer
+    if (this.$footerEl) {
+      this.$footerEl.addEventListener('dragover', this.boundDragOver);
+      this.$footerEl.addEventListener('drop', this.boundDrop);
+    }
+
+    // 6. Evento de mudança de aba no MENU (limpa seleção ao trocar entre energy/water/tank)
+    window.addEventListener('myio:dashboard-state', this.boundDashboardStateChange);
+    LogHelper.log('[MyIO Footer] Registered listener for myio:dashboard-state (tab change from MENU)');
+  },
+
+  /**
+   * Manipulador de clique para o "dock" (delegação)
+   */
+  onChipClick(e) {
+    // Verifica se o clique foi em um botão de remover
+    const removeBtn = e.target.closest('button[data-entity-id]');
+    if (removeBtn) {
+      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+      if (MyIOSelectionStore) {
+        const id = removeBtn.dataset.entityId;
+        MyIOSelectionStore.remove(id);
+      }
+    }
+  },
+
+  /**
+   * Abre a modal de comparação premium usando openDashboardPopupEnergy
+   * NOVO: Usa o modo 'comparison' do EnergyModalView
+   */
+  async openComparisonModal() {
+    LogHelper.log('[MyIO Footer] Opening comparison modal...');
+
+    const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+    if (!MyIOSelectionStore) {
+      LogHelper.error('[MyIO Footer] SelectionStore not found');
+      return;
+    }
+
+    const selected = MyIOSelectionStore.getSelectedEntities();
+    const count = selected.length;
+
+    if (count < 2) {
+      LogHelper.warn('[MyIO Footer] Need at least 2 devices for comparison');
+      alert('Selecione pelo menos 2 dispositivos para comparar.');
+      return;
+    }
+
+    try {
+      // Detecta o tipo de unidade e o readingType
+      const unitType = this.currentUnitType || this._detectUnitType(selected);
+      const readingType = this._mapUnitTypeToReadingType(unitType);
+
+      LogHelper.log(`[MyIO Footer] Comparison readingType: ${readingType}`);
+
+      // ⭐ NOVO: Prepara dataSources com ingestionId
+      // IMPORTANTE: Usa ingestionId, não o ID do ThingsBoard
+      const dataSources = selected.map((entity) => ({
+        type: 'device',
+        id: entity.ingestionId || entity.id, // Prioriza ingestionId
+        label: entity.name || entity.id,
+      }));
+
+      // Obtém credenciais e período
+      const ctx = self.ctx || {};
+      const startDate = ctx.scope?.startDateISO || new Date(new Date().setDate(1)).toISOString();
+      const endDate = ctx.scope?.endDateISO || new Date().toISOString();
+
+      // Calcula granularidade baseada no período
+      const granularity = this._calculateGranularity(startDate, endDate);
+
+      // ⭐ Obtém credenciais de autenticação com fallback
+      const clientId = window.__MYIO_CLIENT_ID__ || 'mestreal_mfh4e642_4flnuh';
+      const clientSecret =
+        window.__MYIO_CLIENT_SECRET__ || 'gv0zfmdekNxYA296OcqFrnBAVU4PhbUBhBwNlMCamk2oXDHeXJqu1K6YtpVOZ5da';
+
+      // Log se estiver usando fallback
+      if (!window.__MYIO_CLIENT_ID__) {
+        LogHelper.warn('[MyIO Footer] Using fallback clientId');
+      }
+      if (!window.__MYIO_CLIENT_SECRET__) {
+        LogHelper.warn('[MyIO Footer] Using fallback clientSecret');
+      }
+
+      LogHelper.log('[MyIO Footer] Opening modal with config:', {
+        dataSources: dataSources.length,
+        readingType,
+        startDate,
+        endDate,
+        granularity,
+        clientId,
+      });
+
+      // ⭐ NOVO: Usa openDashboardPopupEnergy em modo comparison
+      // Substitui a modal customizada (_createComparisonModalOverlay)
+      if (!window.MyIOLibrary?.openDashboardPopupEnergy) {
+        LogHelper.error('[MyIO Footer] openDashboardPopupEnergy not available');
+        alert('Biblioteca MyIO não está carregada. Recarregue a página.');
         return;
       }
 
-      const selected = MyIOSelectionStore.getSelectedEntities();
-      const count = selected.length;
+      // ⭐ Usa as variáveis com fallback (já definidas acima)
+      const MyIOAuthFooter = MyIOLibrary.buildMyioIngestionAuth({
+        dataApiHost: DATA_API_HOST,
+        clientId: clientId, // ← Usa a variável com fallback
+        clientSecret: clientSecret, // ← Usa a variável com fallback
+      });
 
-      if (count < 2) {
-        LogHelper.warn("[MyIO Footer] Need at least 2 devices for comparison");
-        alert("Selecione pelo menos 2 dispositivos para comparar.");
-        return;
-      }
+      const myTbTokenDashBoardFooter = localStorage.getItem('jwt_token');
+      const tokenIngestionDashBoardComparison = await MyIOAuthFooter.getToken();
 
-      try {
-        // Detecta o tipo de unidade e o readingType
-        const unitType = this.currentUnitType || this._detectUnitType(selected);
-        const readingType = this._mapUnitTypeToReadingType(unitType);
+      const modal = window.MyIOLibrary.openDashboardPopupEnergy({
+        mode: 'comparison', // ← MODO COMPARISON
+        tbJwtToken: myTbTokenDashBoardFooter,
+        ingestionToken: tokenIngestionDashBoardComparison,
+        dataSources: dataSources,
+        readingType: readingType,
+        startDate: startDate,
+        endDate: endDate,
+        granularity: granularity, // ← OBRIGATÓRIO para comparison
+        clientId: clientId,
+        clientSecret: clientSecret,
+        dataApiHost: 'https://api.data.apps.myio-bas.com',
+        theme: 'dark', // ← Tema inicial (toggle disponível na modal)
+        deep: false,
+        onOpen: (context) => {
+          LogHelper.log('[FOOTER] Comparison modal opened:', context);
+        },
+        onClose: () => {
+          LogHelper.log('[FOOTER] Comparison modal closed');
+        },
+        onError: (error) => {
+          LogHelper.error('[FOOTER] Comparison modal error:', error);
+          alert(`Erro: ${error.message}`);
+        },
+      });
 
-        LogHelper.log(`[MyIO Footer] Comparison readingType: ${readingType}`);
+      LogHelper.log('[MyIO Footer] Modal opened successfully:', modal);
+    } catch (error) {
+      LogHelper.error('[MyIO Footer] Error opening comparison modal:', error);
+      alert('Erro ao abrir modal de comparação. Verifique o console.');
+    }
+  },
 
-        // ⭐ NOVO: Prepara dataSources com ingestionId
-        // IMPORTANTE: Usa ingestionId, não o ID do ThingsBoard
-        const dataSources = selected.map(entity => ({
-          type: 'device',
-          id: entity.ingestionId || entity.id,  // Prioriza ingestionId
-          label: entity.name || entity.id
-        }));
+  /**
+   * Mapeia unitType (icon) para readingType do SDK
+   */
+  _mapUnitTypeToReadingType(unitType) {
+    const mapping = {
+      energy: 'energy',
+      water: 'water',
+      tank: 'tank',
+      temperature: 'temperature',
+    };
+    return mapping[unitType] || 'energy';
+  },
 
-        // Obtém credenciais e período
-        const ctx = self.ctx || {};
-        const startDate = ctx.scope?.startDateISO || new Date(new Date().setDate(1)).toISOString();
-        const endDate = ctx.scope?.endDateISO || new Date().toISOString();
+  /**
+   * Calcula a granularidade ideal baseada no período
+   */
+  _calculateGranularity(startISO, endISO) {
+    const start = new Date(startISO);
+    const end = new Date(endISO);
+    const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
 
-        // Calcula granularidade baseada no período
-        const granularity = this._calculateGranularity(startDate, endDate);
+    if (diffDays <= 1) return '1h'; // 1 dia: granularidade horária
+    if (diffDays <= 7) return '1d'; // 1 semana: diária
+    if (diffDays <= 31) return '1d'; // 1 mês: diária
+    if (diffDays <= 90) return '1w'; // 3 meses: semanal
+    return '1M'; // Mais de 3 meses: mensal
+  },
 
-        // ⭐ Obtém credenciais de autenticação com fallback
-        const clientId = window.__MYIO_CLIENT_ID__ || 'mestreal_mfh4e642_4flnuh';
-        const clientSecret = window.__MYIO_CLIENT_SECRET__ || 'gv0zfmdekNxYA296OcqFrnBAVU4PhbUBhBwNlMCamk2oXDHeXJqu1K6YtpVOZ5da';
+  /**
+   * Cria o overlay da modal de comparação com chart SDK
+   */
+  _createComparisonModalOverlay(config) {
+    // Remove modal existente se houver
+    const existingModal = document.getElementById('myio-comparison-modal');
+    if (existingModal) {
+      existingModal.remove();
+    }
 
-        // Log se estiver usando fallback
-        if (!window.__MYIO_CLIENT_ID__) {
-          LogHelper.warn("[MyIO Footer] Using fallback clientId");
-        }
-        if (!window.__MYIO_CLIENT_SECRET__) {
-          LogHelper.warn("[MyIO Footer] Using fallback clientSecret");
-        }
-
-        LogHelper.log("[MyIO Footer] Opening modal with config:", {
-          dataSources: dataSources.length,
-          readingType,
-          startDate,
-          endDate,
-          granularity,
-          clientId
-        });
-
-        // ⭐ NOVO: Usa openDashboardPopupEnergy em modo comparison
-        // Substitui a modal customizada (_createComparisonModalOverlay)
-        if (!window.MyIOLibrary?.openDashboardPopupEnergy) {
-          LogHelper.error("[MyIO Footer] openDashboardPopupEnergy not available");
-          alert("Biblioteca MyIO não está carregada. Recarregue a página.");
-          return;
-        }
-
-        // ⭐ Usa as variáveis com fallback (já definidas acima)
-        const MyIOAuthFooter = MyIOLibrary.buildMyioIngestionAuth({
-          dataApiHost: DATA_API_HOST,
-          clientId: clientId,          // ← Usa a variável com fallback
-          clientSecret: clientSecret   // ← Usa a variável com fallback
-        });        
-
-        const myTbTokenDashBoardFooter = localStorage.getItem("jwt_token");
-        const tokenIngestionDashBoardComparison = await MyIOAuthFooter.getToken();
-
-        const modal = window.MyIOLibrary.openDashboardPopupEnergy({
-          mode: 'comparison',  // ← MODO COMPARISON
-          tbJwtToken: myTbTokenDashBoardFooter,
-          ingestionToken: tokenIngestionDashBoardComparison,
-          dataSources: dataSources,
-          readingType: readingType,
-          startDate: startDate,
-          endDate: endDate,
-          granularity: granularity,  // ← OBRIGATÓRIO para comparison
-          clientId: clientId,
-          clientSecret: clientSecret,
-          dataApiHost: 'https://api.data.apps.myio-bas.com',
-          theme: 'dark',  // Combina com o tema do footer
-          deep: false,
-          onOpen: (context) => {
-            LogHelper.log('[FOOTER] Comparison modal opened:', context);
-          },
-          onClose: () => {
-            LogHelper.log('[FOOTER] Comparison modal closed');
-          },
-          onError: (error) => {
-            LogHelper.error('[FOOTER] Comparison modal error:', error);
-            alert(`Erro: ${error.message}`);
-          }
-        });
-
-        LogHelper.log("[MyIO Footer] Modal opened successfully:", modal);
-
-      } catch (error) {
-        LogHelper.error("[MyIO Footer] Error opening comparison modal:", error);
-        alert("Erro ao abrir modal de comparação. Verifique o console.");
-      }
-    },
-
-    /**
-     * Mapeia unitType (icon) para readingType do SDK
-     */
-    _mapUnitTypeToReadingType(unitType) {
-      const mapping = {
-        'energy': 'energy',
-        'water': 'water',
-        'tank': 'tank',
-        'temperature': 'temperature'
-      };
-      return mapping[unitType] || 'energy';
-    },
-
-    /**
-     * Calcula a granularidade ideal baseada no período
-     */
-    _calculateGranularity(startISO, endISO) {
-      const start = new Date(startISO);
-      const end = new Date(endISO);
-      const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-
-      if (diffDays <= 1) return '1h';   // 1 dia: granularidade horária
-      if (diffDays <= 7) return '1d';   // 1 semana: diária
-      if (diffDays <= 31) return '1d';  // 1 mês: diária
-      if (diffDays <= 90) return '1w';  // 3 meses: semanal
-      return '1M';                       // Mais de 3 meses: mensal
-    },
-
-    /**
-     * Cria o overlay da modal de comparação com chart SDK
-     */
-    _createComparisonModalOverlay(config) {
-      // Remove modal existente se houver
-      const existingModal = document.getElementById('myio-comparison-modal');
-      if (existingModal) {
-        existingModal.remove();
-      }
-
-      // Cria overlay
-      const overlay = document.createElement('div');
-      overlay.id = 'myio-comparison-modal';
-      overlay.style.cssText = `
+    // Cria overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'myio-comparison-modal';
+    overlay.style.cssText = `
         position: fixed;
         top: 0;
         left: 0;
@@ -1265,9 +1291,9 @@
         animation: fadeIn 0.2s ease-out;
       `;
 
-      // Cria container da modal
-      const modalBox = document.createElement('div');
-      modalBox.style.cssText = `
+    // Cria container da modal
+    const modalBox = document.createElement('div');
+    modalBox.style.cssText = `
         position: relative;
         width: 95%;
         max-width: 1400px;
@@ -1282,9 +1308,9 @@
         animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       `;
 
-      // Header da modal
-      const header = document.createElement('div');
-      header.style.cssText = `
+    // Header da modal
+    const header = document.createElement('div');
+    header.style.cssText = `
         padding: 24px 32px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         display: flex;
@@ -1292,7 +1318,7 @@
         justify-content: space-between;
         background: rgba(0, 0, 0, 0.2);
       `;
-      header.innerHTML = `
+    header.innerHTML = `
         <div style="display: flex; align-items: center; gap: 16px;">
           <div style="
             width: 48px;
@@ -1335,18 +1361,18 @@
         ">×</button>
       `;
 
-      // Container do chart
-      const chartContainer = document.createElement('div');
-      chartContainer.id = 'myio-comparison-chart';
-      chartContainer.style.cssText = `
+    // Container do chart
+    const chartContainer = document.createElement('div');
+    chartContainer.id = 'myio-comparison-chart';
+    chartContainer.style.cssText = `
         flex: 1;
         padding: 32px;
         overflow: hidden;
         position: relative;
       `;
 
-      // Loading state
-      chartContainer.innerHTML = `
+    // Loading state
+    chartContainer.innerHTML = `
         <div style="
           position: absolute;
           top: 50%;
@@ -1368,15 +1394,15 @@
         </div>
       `;
 
-      // Monta modal
-      modalBox.appendChild(header);
-      modalBox.appendChild(chartContainer);
-      overlay.appendChild(modalBox);
-      document.body.appendChild(overlay);
+    // Monta modal
+    modalBox.appendChild(header);
+    modalBox.appendChild(chartContainer);
+    overlay.appendChild(modalBox);
+    document.body.appendChild(overlay);
 
-      // Adiciona CSS para animações
-      const style = document.createElement('style');
-      style.textContent = `
+    // Adiciona CSS para animações
+    const style = document.createElement('style');
+    style.textContent = `
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
@@ -1395,63 +1421,63 @@
           transform: scale(1.1);
         }
       `;
-      document.head.appendChild(style);
+    document.head.appendChild(style);
 
-      // Event listeners
-      const closeBtn = header.querySelector('#myio-comparison-close');
-      const closeModal = () => {
-        overlay.remove();
-        style.remove();
-      };
+    // Event listeners
+    const closeBtn = header.querySelector('#myio-comparison-close');
+    const closeModal = () => {
+      overlay.remove();
+      style.remove();
+    };
 
-      closeBtn.addEventListener('click', closeModal);
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) closeModal();
+    closeBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeModal();
+    });
+
+    // Renderiza o chart usando SDK
+    this._renderComparisonChart(chartContainer, config);
+  },
+
+  /**
+   * Renderiza o chart de comparação usando energy-chart-sdk
+   */
+  async _renderComparisonChart(container, config) {
+    try {
+      // Carrega o SDK dinamicamente se ainda não estiver disponível
+      if (!window.MyIOEnergyChartSDK?.renderTelemetryStackedChart) {
+        LogHelper.log('[MyIO Footer] Loading energy-chart-sdk...');
+        await this._loadEnergyChartSDK();
+      }
+
+      const { renderTelemetryStackedChart } = window.MyIOEnergyChartSDK;
+
+      LogHelper.log('[MyIO Footer] Rendering stacked chart with config:', config);
+
+      // Limpa loading
+      container.innerHTML = '';
+
+      // Renderiza o chart
+      const chartInstance = renderTelemetryStackedChart(container, {
+        version: 'v2',
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
+        dataSources: config.dataSources,
+        readingType: config.readingType,
+        startDate: config.startDate.split('T')[0], // Converte ISO para YYYY-MM-DD
+        endDate: config.endDate.split('T')[0],
+        granularity: config.granularity,
+        theme: 'light', // Combina com o tema do footer
+        bar_mode: 'grouped',
+        timezone: 'America/Sao_Paulo',
+        apiBaseUrl: 'https://api.data.apps.myio-bas.com',
+        deep: false,
       });
 
-      // Renderiza o chart usando SDK
-      this._renderComparisonChart(chartContainer, config);
-    },
-
-    /**
-     * Renderiza o chart de comparação usando energy-chart-sdk
-     */
-    async _renderComparisonChart(container, config) {
-      try {
-        // Carrega o SDK dinamicamente se ainda não estiver disponível
-        if (!window.MyIOEnergyChartSDK?.renderTelemetryStackedChart) {
-          LogHelper.log("[MyIO Footer] Loading energy-chart-sdk...");
-          await this._loadEnergyChartSDK();
-        }
-
-        const { renderTelemetryStackedChart } = window.MyIOEnergyChartSDK;
-
-        LogHelper.log("[MyIO Footer] Rendering stacked chart with config:", config);
-
-        // Limpa loading
-        container.innerHTML = '';
-
-        // Renderiza o chart
-        const chartInstance = renderTelemetryStackedChart(container, {
-          version: 'v2',
-          clientId: config.clientId,
-          clientSecret: config.clientSecret,
-          dataSources: config.dataSources,
-          readingType: config.readingType,
-          startDate: config.startDate.split('T')[0], // Converte ISO para YYYY-MM-DD
-          endDate: config.endDate.split('T')[0],
-          granularity: config.granularity,
-          theme: 'dark', // Combina com o tema do footer
-          timezone: 'America/Sao_Paulo',
-          apiBaseUrl: 'https://api.data.apps.myio-bas.com',
-          deep: false
-        });
-
-        LogHelper.log("[MyIO Footer] Chart rendered successfully:", chartInstance);
-
-      } catch (error) {
-        LogHelper.error("[MyIO Footer] Error rendering chart:", error);
-        container.innerHTML = `
+      LogHelper.log('[MyIO Footer] Chart rendered successfully:', chartInstance);
+    } catch (error) {
+      LogHelper.error('[MyIO Footer] Error rendering chart:', error);
+      container.innerHTML = `
           <div style="
             text-align: center;
             color: #ffffff;
@@ -1464,148 +1490,149 @@
             </p>
           </div>
         `;
-      }
-    },
-
-    /**
-     * Carrega o SDK de charts dinamicamente
-     */
-    async _loadEnergyChartSDK() {
-      return new Promise((resolve, reject) => {
-        if (window.MyIOEnergyChartSDK) {
-          resolve();
-          return;
-        }
-
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/@myio/energy-chart-sdk@latest/dist/energy-chart-sdk.umd.min.js';
-        script.onload = () => {
-          LogHelper.log("[MyIO Footer] Energy chart SDK loaded successfully");
-          resolve();
-        };
-        script.onerror = () => {
-          reject(new Error('Failed to load energy-chart-sdk'));
-        };
-        document.head.appendChild(script);
-      });
-    },
-
-    /**
-     * Manipulador de clique para o botão "Compare"
-     */
-    onCompareClick() {
-      this.openComparisonModal();
-    },
-
-    /**
-     * Manipulador de clique para o botão "Clear" (limpar tudo)
-     */
-    onClearClick() {
-      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-      if (MyIOSelectionStore) {
-        LogHelper.log("[MyIO Footer] Clearing all selections");
-        MyIOSelectionStore.clear();
-      }
-    },
-
-    /**
-     * Manipulador de evento 'drop'
-     */
-    onDrop(e) {
-      e.preventDefault();
-      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-      if (MyIOSelectionStore) {
-        const id =
-          e.dataTransfer?.getData("text/myio-id") ||
-          e.dataTransfer?.getData("text/plain");
-        if (id) {
-          MyIOSelectionStore.add(id);
-        }
-      }
-    },
-
-    /**
-     * Limpa o widget, removendo listeners e elementos do DOM
-     */
-    destroy() {
-      if (!this.initialized) return;
-
-      // 1. Remove listeners da store externa
-      try {
-        const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-        if (MyIOSelectionStore) {
-          MyIOSelectionStore.off("selection:change", this.boundRenderDock);
-          MyIOSelectionStore.off("selection:totals", this.boundRenderDock);
-          MyIOSelectionStore.off("selection:limit-reached", this.boundLimitReached);
-        }
-      } catch (e) {
-        LogHelper.warn("MyIO Footer: Error during listener cleanup.", e);
-      }
-
-      // Remove o alerta se estiver visível
-      this.hideLimitAlert();
-
-      // 2. Remove listeners do DOM interno
-      if (this.$compareBtn) {
-        this.$compareBtn.removeEventListener("click", this.boundCompareClick);
-      }
-      if (this.$clearBtn) {
-        this.$clearBtn.removeEventListener("click", this.boundClearClick);
-      }
-      if (this.$dock) {
-        this.$dock.removeEventListener("click", this.boundChipClick);
-      }
-      if (this.$footerEl) {
-        this.$footerEl.removeEventListener("dragover", this.boundDragOver);
-        this.$footerEl.removeEventListener("drop", this.boundDrop);
-      }
-
-      // 3. Remove listener do evento de mudança de aba do MENU
-      if (this.boundDashboardStateChange) {
-        window.removeEventListener("myio:dashboard-state", this.boundDashboardStateChange);
-      }
-
-      // 3. Limpa conteúdo (mas não remove elementos, pois são do template.html do ThingsBoard)
-      if (this.$dock) this.$dock.innerHTML = '';
-      if (this.$totals) this.$totals.textContent = '0 selecionados';
-
-      // 4. Reseta o estado interno
-      this.initialized = false;
-      this.$root = null;
-      this.$footerEl = null;
-      this.$dock = null;
-      this.$totals = null;
-      this.$clearBtn = null;
-      this.$compareBtn = null;
-    },
-  };
-
-  // CRITICAL DEBUG: Log immediately to confirm script is loaded
-  LogHelper.log('[FOOTER] 🔵 Script carregado em:', new Date().toISOString());
-  LogHelper.log('[FOOTER] self object:', typeof self);
-  LogHelper.log('[FOOTER] self.ctx:', !!self?.ctx);
-
-  // --- 4. Hooks do Ciclo de Vida do Widget ---
-
-  self.onInit = function () {
-    LogHelper.log('[FOOTER] 🟢 onInit chamado!');
-    LogHelper.log('[FOOTER] self.ctx:', self.ctx);
-    LogHelper.log('[FOOTER] self.ctx.$container:', self.ctx?.$container);
-    LogHelper.log('[FOOTER] self.ctx.$container[0]:', self.ctx?.$container?.[0]);
-    LogHelper.log('[FOOTER] MyIOLibrary disponível:', !!window.MyIOLibrary);
-    LogHelper.log('[FOOTER] SelectionStore disponível:', !!(window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore));
-
-    // Passa o contexto do widget (self.ctx) para o controlador
-    try {
-      footerController.init(self.ctx);
-      LogHelper.log('[FOOTER] ✅ Inicialização completa!');
-    } catch (error) {
-      console.error('[FOOTER] ❌ Erro durante inicialização:', error);
-      console.error('[FOOTER] Stack trace:', error.stack);
     }
-  };
+  },
 
-  self.onDestroy = function () {
-    footerController.destroy();
-  };
-  
+  /**
+   * Verifica se o SDK de charts está disponível
+   * IMPORTANTE: O SDK deve ser adicionado como External Resource no widget:
+   * https://graphs.apps.myio-bas.com/sdk/energy-chart-sdk.umd.js
+   */
+  async _loadEnergyChartSDK() {
+    return new Promise((resolve, reject) => {
+      if (window.MyIOEnergyChartSDK) {
+        LogHelper.log('[MyIO Footer] Energy chart SDK already loaded');
+        resolve();
+        return;
+      }
+
+      // SDK não encontrado - deve estar nos External Resources do ThingsBoard
+      const errorMsg =
+        'MyIOEnergyChartSDK not found. ' +
+        'Please add the SDK as an External Resource in ThingsBoard widget settings:\n' +
+        'https://graphs.apps.myio-bas.com/sdk/energy-chart-sdk.umd.js';
+
+      LogHelper.error('[MyIO Footer]', errorMsg);
+      reject(new Error(errorMsg));
+    });
+  },
+
+  /**
+   * Manipulador de clique para o botão "Compare"
+   */
+  onCompareClick() {
+    this.openComparisonModal();
+  },
+
+  /**
+   * Manipulador de clique para o botão "Clear" (limpar tudo)
+   */
+  onClearClick() {
+    const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+    if (MyIOSelectionStore) {
+      LogHelper.log('[MyIO Footer] Clearing all selections');
+      MyIOSelectionStore.clear();
+    }
+  },
+
+  /**
+   * Manipulador de evento 'drop'
+   */
+  onDrop(e) {
+    e.preventDefault();
+    const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+    if (MyIOSelectionStore) {
+      const id = e.dataTransfer?.getData('text/myio-id') || e.dataTransfer?.getData('text/plain');
+      if (id) {
+        MyIOSelectionStore.add(id);
+      }
+    }
+  },
+
+  /**
+   * Limpa o widget, removendo listeners e elementos do DOM
+   */
+  destroy() {
+    if (!this.initialized) return;
+
+    // 1. Remove listeners da store externa
+    try {
+      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+      if (MyIOSelectionStore) {
+        MyIOSelectionStore.off('selection:change', this.boundRenderDock);
+        MyIOSelectionStore.off('selection:totals', this.boundRenderDock);
+        MyIOSelectionStore.off('selection:limit-reached', this.boundLimitReached);
+      }
+    } catch (e) {
+      LogHelper.warn('MyIO Footer: Error during listener cleanup.', e);
+    }
+
+    // Remove o alerta se estiver visível
+    this.hideLimitAlert();
+
+    // 2. Remove listeners do DOM interno
+    if (this.$compareBtn) {
+      this.$compareBtn.removeEventListener('click', this.boundCompareClick);
+    }
+    if (this.$clearBtn) {
+      this.$clearBtn.removeEventListener('click', this.boundClearClick);
+    }
+    if (this.$dock) {
+      this.$dock.removeEventListener('click', this.boundChipClick);
+    }
+    if (this.$footerEl) {
+      this.$footerEl.removeEventListener('dragover', this.boundDragOver);
+      this.$footerEl.removeEventListener('drop', this.boundDrop);
+    }
+
+    // 3. Remove listener do evento de mudança de aba do MENU
+    if (this.boundDashboardStateChange) {
+      window.removeEventListener('myio:dashboard-state', this.boundDashboardStateChange);
+    }
+
+    // 3. Limpa conteúdo (mas não remove elementos, pois são do template.html do ThingsBoard)
+    if (this.$dock) this.$dock.innerHTML = '';
+    if (this.$totals) this.$totals.textContent = '0 selecionados';
+
+    // 4. Reseta o estado interno
+    this.initialized = false;
+    this.$root = null;
+    this.$footerEl = null;
+    this.$dock = null;
+    this.$totals = null;
+    this.$clearBtn = null;
+    this.$compareBtn = null;
+  },
+};
+
+// CRITICAL DEBUG: Log immediately to confirm script is loaded
+LogHelper.log('[FOOTER] 🔵 Script carregado em:', new Date().toISOString());
+LogHelper.log('[FOOTER] self object:', typeof self);
+LogHelper.log('[FOOTER] self.ctx:', !!self?.ctx);
+
+// --- 4. Hooks do Ciclo de Vida do Widget ---
+
+self.onInit = function () {
+  LogHelper.log('[FOOTER] 🟢 onInit chamado!');
+  LogHelper.log('[FOOTER] self.ctx:', self.ctx);
+  LogHelper.log('[FOOTER] self.ctx.$container:', self.ctx?.$container);
+  LogHelper.log('[FOOTER] self.ctx.$container[0]:', self.ctx?.$container?.[0]);
+  LogHelper.log('[FOOTER] MyIOLibrary disponível:', !!window.MyIOLibrary);
+  LogHelper.log(
+    '[FOOTER] SelectionStore disponível:',
+    !!(window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore)
+  );
+
+  // Passa o contexto do widget (self.ctx) para o controlador
+  try {
+    footerController.init(self.ctx);
+    LogHelper.log('[FOOTER] ✅ Inicialização completa!');
+  } catch (error) {
+    console.error('[FOOTER] ❌ Erro durante inicialização:', error);
+    console.error('[FOOTER] Stack trace:', error.stack);
+  }
+};
+
+self.onDestroy = function () {
+  footerController.destroy();
+};

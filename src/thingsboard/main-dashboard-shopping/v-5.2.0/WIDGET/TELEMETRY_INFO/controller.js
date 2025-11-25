@@ -108,7 +108,7 @@ const STATE = {
 // Chart instance
 let pieChartInstance = null;
 
-// RFC-0002: STATE for water domain (4 contexts)
+// RFC-0002: STATE for water domain (5 contexts with banheiros)
 const STATE_WATER = {
   domain: 'water',
   entrada: {
@@ -118,19 +118,26 @@ const STATE_WATER = {
     perc: 100,
     source: 'widget-telemetry-entrada'
   },
-  areaComum: {
-    context: 'areaComum',
-    devices: [],
-    total: 0,
-    perc: 0,
-    source: 'widget-telemetry-area-comum'
-  },
   lojas: {
     context: 'lojas',
     devices: [],
     total: 0,
     perc: 0,
     source: 'widget-telemetry-lojas'
+  },
+  banheiros: {
+    context: 'banheiros',
+    devices: [],
+    total: 0,
+    perc: 0,
+    source: 'widget-telemetry-banheiros'
+  },
+  areaComum: {
+    context: 'areaComum',
+    devices: [],
+    total: 0,
+    perc: 0,
+    source: 'widget-telemetry-area-comum'
   },
   pontosNaoMapeados: {
     context: 'pontosNaoMapeados',
@@ -142,7 +149,8 @@ const STATE_WATER = {
   },
   grandTotal: 0,
   periodKey: null,
-  lastUpdate: null
+  lastUpdate: null,
+  includeBathrooms: false // Setting from widget config
 };
 
 // Event handlers
@@ -1228,14 +1236,20 @@ function processWaterTelemetryData(eventDetail) {
       STATE_WATER.entrada.perc = 100; // Always 100% of itself
       break;
 
-    case 'areaComum':
-      STATE_WATER.areaComum.total = total || 0;
-      STATE_WATER.areaComum.devices = devices || [];
-      break;
-
     case 'lojas':
       STATE_WATER.lojas.total = total || 0;
       STATE_WATER.lojas.devices = devices || [];
+      break;
+
+    case 'banheiros':
+      STATE_WATER.banheiros.total = total || 0;
+      STATE_WATER.banheiros.devices = devices || [];
+      LogHelper.log(`[RFC-0002 Water] Banheiros data received: ${total} m³`);
+      break;
+
+    case 'areaComum':
+      STATE_WATER.areaComum.total = total || 0;
+      STATE_WATER.areaComum.devices = devices || [];
       break;
 
     default:
@@ -1255,23 +1269,26 @@ function processWaterTelemetryData(eventDetail) {
 
   LogHelper.log(`[RFC-0002 Water] State updated:`, {
     entrada: STATE_WATER.entrada.total,
-    areaComum: STATE_WATER.areaComum.total,
     lojas: STATE_WATER.lojas.total,
+    banheiros: STATE_WATER.banheiros.total,
+    areaComum: STATE_WATER.areaComum.total,
     pontosNaoMapeados: STATE_WATER.pontosNaoMapeados.total
   });
 }
 
 /**
  * RFC-0002: Calculate "Pontos Não Mapeados" as residual
- * Formula: entrada - (areaComum + lojas)
+ * Formula: entrada - (lojas + banheiros + areaComum) when includeBathrooms is true
+ * Formula: entrada - (lojas + areaComum) when includeBathrooms is false
  */
 function calculateWaterPontosNaoMapeados() {
   const entrada = STATE_WATER.entrada.total;
-  const areaComum = STATE_WATER.areaComum.total;
   const lojas = STATE_WATER.lojas.total;
+  const banheiros = STATE_WATER.includeBathrooms ? STATE_WATER.banheiros.total : 0;
+  const areaComum = STATE_WATER.areaComum.total;
 
-  // Sum of measured points
-  const medidosTotal = areaComum + lojas;
+  // Sum of measured points (includes banheiros only if enabled)
+  const medidosTotal = lojas + banheiros + areaComum;
 
   // Residual (difference)
   const naoMapeados = entrada - medidosTotal;
@@ -1300,27 +1317,31 @@ function calculateWaterPercentages() {
 
   if (entrada === 0) {
     // No entrada, all percentages are 0
-    STATE_WATER.areaComum.perc = 0;
     STATE_WATER.lojas.perc = 0;
+    STATE_WATER.banheiros.perc = 0;
+    STATE_WATER.areaComum.perc = 0;
     STATE_WATER.pontosNaoMapeados.perc = 0;
     return;
   }
 
   // Percentage relative to entrada
-  STATE_WATER.areaComum.perc = (STATE_WATER.areaComum.total / entrada) * 100;
   STATE_WATER.lojas.perc = (STATE_WATER.lojas.total / entrada) * 100;
+  STATE_WATER.banheiros.perc = (STATE_WATER.banheiros.total / entrada) * 100;
+  STATE_WATER.areaComum.perc = (STATE_WATER.areaComum.total / entrada) * 100;
   STATE_WATER.pontosNaoMapeados.perc = (STATE_WATER.pontosNaoMapeados.total / entrada) * 100;
 
   LogHelper.log(`[RFC-0002 Water] Percentages:`, {
-    areaComum: STATE_WATER.areaComum.perc.toFixed(1) + '%',
     lojas: STATE_WATER.lojas.perc.toFixed(1) + '%',
+    banheiros: STATE_WATER.banheiros.perc.toFixed(1) + '%',
+    areaComum: STATE_WATER.areaComum.perc.toFixed(1) + '%',
     naoMapeados: STATE_WATER.pontosNaoMapeados.perc.toFixed(1) + '%'
   });
 }
 
 /**
- * RFC-0002: Render water stats (4 cards MVP)
+ * RFC-0002: Render water stats (5 cards with banheiros)
  * Reuses existing HTML structure but hides energy-only cards
+ * Order: Entrada - Lojas - Banheiros - Área Comum - Pontos Não Mapeados
  */
 function renderWaterStats() {
   LogHelper.log('[RFC-0002 Water] Rendering stats...');
@@ -1331,12 +1352,25 @@ function renderWaterStats() {
   $$('.escadas-card').hide();
   $$('.outros-card').hide();
 
+  // Show/hide banheiros card based on setting
+  if (STATE_WATER.includeBathrooms) {
+    $$('.banheiros-card').show();
+  } else {
+    $$('.banheiros-card').hide();
+  }
+
   // Update Entrada card
   $$('#entradaTotal').text(formatValue(STATE_WATER.entrada.total, 'water'));
 
   // Update Lojas card
   $$('#lojasTotal').text(formatValue(STATE_WATER.lojas.total, 'water'));
   $$('#lojasPerc').text(`(${STATE_WATER.lojas.perc.toFixed(1)}%)`);
+
+  // Update Banheiros card (only if enabled)
+  if (STATE_WATER.includeBathrooms) {
+    $$('#banheirosTotal').text(formatValue(STATE_WATER.banheiros.total, 'water'));
+    $$('#banheirosPerc').text(`(${STATE_WATER.banheiros.perc.toFixed(1)}%)`);
+  }
 
   // Reuse "área comum" card for water área comum
   $$('#areaComumTotal').text(formatValue(STATE_WATER.areaComum.total, 'water'));
@@ -1364,16 +1398,34 @@ function renderWaterStats() {
 }
 
 /**
- * RFC-0002: Render water pie chart (4 contexts MVP)
+ * RFC-0002: Render water pie chart (5 contexts with banheiros)
  */
 function renderWaterPieChart() {
   LogHelper.log('[RFC-0002 Water] Rendering pie chart...');
 
+  // Get colors from settings or use defaults
+  const colors = {
+    lojas: self.ctx.settings?.waterChartColors?.lojas || '#FFC107',
+    banheiros: self.ctx.settings?.waterChartColors?.banheiros || '#2196F3',
+    areaComum: self.ctx.settings?.waterChartColors?.areaComum || '#4CAF50',
+    pontosNaoMapeados: self.ctx.settings?.waterChartColors?.pontosNaoMapeados || '#9E9E9E'
+  };
+
+  // Build chart data based on includeBathrooms setting
   const chartData = [
-    { label: 'Área Comum', color: '#4CAF50', value: STATE_WATER.areaComum.total, perc: STATE_WATER.areaComum.perc },
-    { label: 'Lojas', color: '#FFC107', value: STATE_WATER.lojas.total, perc: STATE_WATER.lojas.perc },
-    { label: 'Pontos Não Mapeados', color: '#2196F3', value: STATE_WATER.pontosNaoMapeados.total, perc: STATE_WATER.pontosNaoMapeados.perc }
+    { label: 'Lojas', color: colors.lojas, value: STATE_WATER.lojas.total, perc: STATE_WATER.lojas.perc }
   ];
+
+  // Add banheiros if enabled
+  if (STATE_WATER.includeBathrooms) {
+    chartData.push({ label: 'Banheiros', color: colors.banheiros, value: STATE_WATER.banheiros.total, perc: STATE_WATER.banheiros.perc });
+  }
+
+  // Add remaining contexts
+  chartData.push(
+    { label: 'Área Comum', color: colors.areaComum, value: STATE_WATER.areaComum.total, perc: STATE_WATER.areaComum.perc },
+    { label: 'Pontos Não Mapeados', color: colors.pontosNaoMapeados, value: STATE_WATER.pontosNaoMapeados.total, perc: STATE_WATER.pontosNaoMapeados.perc }
+  );
 
   // Filter out zero values
   const validData = chartData.filter(item => item.value > 0);
@@ -1574,6 +1626,10 @@ self.onInit = async function() {
   WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
   SHOW_DEVICES_LIST = self.ctx.settings?.showDevicesList || false;
 
+  // RFC-0002: Water domain - load banheiros setting
+  STATE_WATER.includeBathrooms = self.ctx.settings?.waterIncludeBathrooms || false;
+  LogHelper.log(`[RFC-0002 Water] includeBathrooms setting: ${STATE_WATER.includeBathrooms}`);
+
   // RFC-0056: Load chart colors (with defaults) - 6 categories
   CHART_COLORS = {
     climatizacao: self.ctx.settings?.chartColors?.climatizacao || '#00C896',
@@ -1681,12 +1737,14 @@ self.onInit = async function() {
     if (domain === 'water') {
       // Clear water state
       STATE_WATER.entrada = { context: 'entrada', devices: [], total: 0, perc: 100, source: 'widget-telemetry-entrada' };
-      STATE_WATER.areaComum = { context: 'areaComum', devices: [], total: 0, perc: 0, source: 'widget-telemetry-area-comum' };
       STATE_WATER.lojas = { context: 'lojas', devices: [], total: 0, perc: 0, source: 'widget-telemetry-lojas' };
+      STATE_WATER.banheiros = { context: 'banheiros', devices: [], total: 0, perc: 0, source: 'widget-telemetry-banheiros' };
+      STATE_WATER.areaComum = { context: 'areaComum', devices: [], total: 0, perc: 0, source: 'widget-telemetry-area-comum' };
       STATE_WATER.pontosNaoMapeados = { context: 'pontosNaoMapeados', devices: [], total: 0, perc: 0, isCalculated: true, hasInconsistency: false };
       STATE_WATER.grandTotal = 0;
       STATE_WATER.periodKey = null;
       STATE_WATER.lastUpdate = null;
+      // Note: includeBathrooms is preserved from settings, not cleared
       LogHelper.log("[CLEAR] Water state cleared");
     } else {
       // Clear energy state (default)

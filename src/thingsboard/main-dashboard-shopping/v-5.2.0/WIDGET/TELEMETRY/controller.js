@@ -2818,14 +2818,23 @@ function emitAreaComumBreakdown(periodKey) {
  */
 function emitWaterTelemetry(widgetType, periodKey) {
   try {
-    // Map widgetType to water context (direct mapping)
+    // Check for waterContext override in settings
+    const waterContextOverride = self.ctx.settings?.waterContext;
     let context = null;
-    if (widgetType === "entrada") {
-      context = "entrada";
-    } else if (widgetType === "lojas") {
-      context = "lojas";
-    } else if (widgetType === "areacomum") {
-      context = "areaComum";
+
+    // Use override if set and not 'auto'
+    if (waterContextOverride && waterContextOverride !== "auto") {
+      context = waterContextOverride;
+      LogHelper.log(`[RFC-0002 Water] Using waterContext override: ${context}`);
+    } else {
+      // Map widgetType to water context (auto-detection from alias)
+      if (widgetType === "entrada") {
+        context = "entrada";
+      } else if (widgetType === "lojas") {
+        context = "lojas";
+      } else if (widgetType === "areacomum") {
+        context = "areaComum";
+      }
     }
 
     if (!context) {

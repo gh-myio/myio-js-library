@@ -24,15 +24,139 @@ export class EnergyModalView {
   private currentEnergyData: EnergyData | null = null;
   private dateRangePicker: DateRangeControl | null = null;
   private isLoading = false;
+  private currentTheme: 'dark' | 'light' = 'dark';
+  private currentBarMode: 'stacked' | 'grouped' = 'stacked';
 
   constructor(modal: any, config: EnergyViewConfig) {
     this.modal = modal;
     this.config = config;
 
+    // ⭐ Initialize theme from localStorage
+    this.initializeTheme();
+
+    // ⭐ Initialize bar mode from localStorage
+    this.initializeBarMode();
+
     // ⭐ VALIDATE MODE CONFIGURATION
     this.validateConfiguration();
 
     this.render();
+  }
+
+  /**
+   * Initializes theme from localStorage
+   */
+  private initializeTheme(): void {
+    const savedTheme = localStorage.getItem('myio-modal-theme') as 'dark' | 'light' | null;
+    this.currentTheme = savedTheme || this.config.params.theme || 'dark';
+  }
+
+  /**
+   * Initializes bar mode from localStorage
+   */
+  private initializeBarMode(): void {
+    const savedBarMode = localStorage.getItem('myio-modal-bar-mode') as 'stacked' | 'grouped' | null;
+    this.currentBarMode = savedBarMode || 'stacked';
+  }
+
+  /**
+   * Toggles between dark and light theme
+   */
+  private toggleTheme(): void {
+    this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('myio-modal-theme', this.currentTheme);
+    this.applyTheme();
+    console.log('[EnergyModalView] Theme toggled to:', this.currentTheme);
+  }
+
+  /**
+   * Toggles between stacked and grouped bar mode
+   */
+  private toggleBarMode(): void {
+    this.currentBarMode = this.currentBarMode === 'stacked' ? 'grouped' : 'stacked';
+    localStorage.setItem('myio-modal-bar-mode', this.currentBarMode);
+    this.applyBarMode();
+    console.log('[EnergyModalView] Bar mode toggled to:', this.currentBarMode);
+  }
+
+  /**
+   * Applies the current theme to the modal and charts
+   */
+  private applyTheme(): void {
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    const modalContent = document.querySelector('.myio-energy-modal-scope') as HTMLElement;
+
+    if (themeToggleBtn) {
+      const sunIcon = themeToggleBtn.querySelector('.myio-theme-icon-sun') as HTMLElement;
+      const moonIcon = themeToggleBtn.querySelector('.myio-theme-icon-moon') as HTMLElement;
+
+      if (this.currentTheme === 'light') {
+        // Show sun icon (light mode)
+        if (sunIcon) {
+          sunIcon.style.opacity = '1';
+          sunIcon.style.transform = 'translate(-50%, -50%) rotate(0deg) scale(1)';
+        }
+        if (moonIcon) {
+          moonIcon.style.opacity = '0';
+          moonIcon.style.transform = 'translate(-50%, -50%) rotate(90deg) scale(0)';
+        }
+      } else {
+        // Show moon icon (dark mode)
+        if (sunIcon) {
+          sunIcon.style.opacity = '0';
+          sunIcon.style.transform = 'translate(-50%, -50%) rotate(-90deg) scale(0)';
+        }
+        if (moonIcon) {
+          moonIcon.style.opacity = '1';
+          moonIcon.style.transform = 'translate(-50%, -50%) rotate(0deg) scale(1)';
+        }
+      }
+    }
+
+    // Apply theme to modal container
+    if (modalContent) {
+      modalContent.setAttribute('data-theme', this.currentTheme);
+    }
+
+    // Re-render chart with new theme
+    this.renderChart();
+  }
+
+  /**
+   * Applies the current bar mode to the chart
+   */
+  private applyBarMode(): void {
+    const barModeToggleBtn = document.getElementById('bar-mode-toggle-btn');
+
+    if (barModeToggleBtn) {
+      const stackedIcon = barModeToggleBtn.querySelector('.myio-bar-mode-icon-stacked') as HTMLElement;
+      const groupedIcon = barModeToggleBtn.querySelector('.myio-bar-mode-icon-grouped') as HTMLElement;
+
+      if (this.currentBarMode === 'grouped') {
+        // Show grouped icon
+        if (groupedIcon) {
+          groupedIcon.style.opacity = '1';
+          groupedIcon.style.transform = 'translate(-50%, -50%) scale(1)';
+        }
+        if (stackedIcon) {
+          stackedIcon.style.opacity = '0';
+          stackedIcon.style.transform = 'translate(-50%, -50%) scale(0)';
+        }
+      } else {
+        // Show stacked icon
+        if (stackedIcon) {
+          stackedIcon.style.opacity = '1';
+          stackedIcon.style.transform = 'translate(-50%, -50%) scale(1)';
+        }
+        if (groupedIcon) {
+          groupedIcon.style.opacity = '0';
+          groupedIcon.style.transform = 'translate(-50%, -50%) scale(0)';
+        }
+      }
+    }
+
+    // Re-render chart with new bar mode
+    this.renderChart();
   }
 
   /**
@@ -121,7 +245,7 @@ export class EnergyModalView {
             <button id="export-csv-btn" class="myio-btn myio-btn-secondary" disabled>
               Exportar CSV
             </button>
-            ${this.config.params.readingType === 'energy' ? `
+            ${this.config.params.readingType === 'energy' && this.config.params.mode !== 'comparison' ? `
             <button id="view-telemetry-btn" class="myio-btn myio-btn-secondary" style="
               background: linear-gradient(135deg, #4A148C 0%, #6A1B9A 100%);
               color: white;
@@ -131,6 +255,82 @@ export class EnergyModalView {
             ">
               <span style="font-size: 16px; margin-right: 4px;">⚡</span>
               Telemetrias Instantâneas
+            </button>
+            ` : ''}
+            <button id="theme-toggle-btn" class="myio-btn myio-btn-secondary" title="Alternar tema (claro/escuro)" style="
+              position: relative;
+              width: 40px;
+              padding: 0;
+              overflow: hidden;
+            ">
+              <svg class="myio-theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-90deg) scale(0);
+                width: 18px;
+                height: 18px;
+                opacity: 0;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+              ">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+              <svg class="myio-theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(0deg) scale(1);
+                width: 18px;
+                height: 18px;
+                opacity: 1;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+              ">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            </button>
+            ${this.config.params.mode === 'comparison' ? `
+            <button id="bar-mode-toggle-btn" class="myio-btn myio-btn-secondary" title="Alternar modo (empilhado/agrupado)" style="
+              position: relative;
+              width: 40px;
+              padding: 0;
+              overflow: hidden;
+            ">
+              <svg class="myio-bar-mode-icon-stacked" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) scale(1);
+                width: 18px;
+                height: 18px;
+                opacity: 1;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+              ">
+                <rect x="3" y="13" width="18" height="8"></rect>
+                <rect x="3" y="7" width="18" height="5"></rect>
+                <rect x="3" y="3" width="18" height="3"></rect>
+              </svg>
+              <svg class="myio-bar-mode-icon-grouped" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) scale(0);
+                width: 18px;
+                height: 18px;
+                opacity: 0;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+              ">
+                <rect x="2" y="10" width="5" height="11"></rect>
+                <rect x="9.5" y="5" width="5" height="16"></rect>
+                <rect x="17" y="8" width="5" height="13"></rect>
+              </svg>
             </button>
             ` : ''}
             <button id="close-btn" class="myio-btn myio-btn-secondary">
@@ -310,10 +510,9 @@ export class EnergyModalView {
 
       const tzIdentifier = this.config.params.timezone || 'America/Sao_Paulo';
       const granularity = this.config.params.granularity || '1d';
-      const theme = this.config.params.theme || 'light';
       const ingestionId = this.config.context.resolved.ingestionId;
 
-      console.log(`[EnergyModalView] Initializing v2 chart with: deviceId=${ingestionId}, startDate=${startISO}, endDate=${endISO}, granularity=${granularity}, theme=${theme}, timezone=${tzIdentifier}`);
+      console.log(`[EnergyModalView] Initializing v2 chart with: deviceId=${ingestionId}, startDate=${startISO}, endDate=${endISO}, granularity=${granularity}, theme=${this.currentTheme}, timezone=${tzIdentifier}`);
 
       const chartConfig = {
         version: 'v2',
@@ -324,7 +523,7 @@ export class EnergyModalView {
         startDate: startISO,
         endDate: endISO,
         granularity: granularity,
-        theme: theme,
+        theme: this.currentTheme,  // ← Use current theme (dynamic)
         timezone: tzIdentifier,
         iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
         apiBaseUrl: this.config.params.dataApiHost || 'https://api.data.apps.myio-bas.com'
@@ -401,7 +600,6 @@ export class EnergyModalView {
       }
 
       const tzIdentifier = this.config.params.timezone || 'America/Sao_Paulo';
-      const theme = this.config.params.theme || 'light';
 
       const chartConfig = {
         version: 'v2',
@@ -412,7 +610,8 @@ export class EnergyModalView {
         startDate: startDateStr,  // ← NO TIME (YYYY-MM-DD)
         endDate: endDateStr,      // ← NO TIME (YYYY-MM-DD)
         granularity: this.config.params.granularity!,  // ← REQUIRED
-        theme: theme,
+        theme: this.currentTheme,  // ← Use current theme (dynamic)
+        bar_mode: this.currentBarMode,  // ← Use current bar mode (stacked | grouped)
         timezone: tzIdentifier,
         iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
         apiBaseUrl: this.config.params.dataApiHost || 'https://api.data.apps.myio-bas.com',
@@ -744,6 +943,28 @@ export class EnergyModalView {
         // TODO: Open KPI modal here
         console.log('[EnergyModalView] Show KPIs modal clicked');
         alert('KPI modal functionality to be implemented');
+      });
+    }
+
+    // Theme toggle button
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    if (themeToggleBtn) {
+      // Apply initial theme
+      this.applyTheme();
+
+      themeToggleBtn.addEventListener('click', () => {
+        this.toggleTheme();
+      });
+    }
+
+    // Bar mode toggle button (only in comparison mode)
+    const barModeToggleBtn = document.getElementById('bar-mode-toggle-btn');
+    if (barModeToggleBtn) {
+      // Apply initial bar mode
+      this.applyBarMode();
+
+      barModeToggleBtn.addEventListener('click', () => {
+        this.toggleBarMode();
       });
     }
 
