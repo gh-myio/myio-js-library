@@ -14,7 +14,13 @@ export class SettingsController {
     this.validateParams();
     
     // Initialize dependencies with injection support
-    this.persister = params.persister as DefaultSettingsPersister || new DefaultSettingsPersister(params.jwtToken, params.api);
+    // RFC-0080: Pass deviceType and mapInstantaneousPower to persister for JSON structure
+    const apiConfigWithDeviceInfo = {
+      ...params.api,
+      deviceType: params.deviceType,
+      mapInstantaneousPower: params.mapInstantaneousPower
+    };
+    this.persister = params.persister as DefaultSettingsPersister || new DefaultSettingsPersister(params.jwtToken, apiConfigWithDeviceInfo);
     this.fetcher = params.fetcher as DefaultSettingsFetcher || new DefaultSettingsFetcher(params.jwtToken, params.api);
     
     // Initialize view
@@ -27,6 +33,7 @@ export class SettingsController {
       deviceType: params.deviceType, // Pass deviceType for conditional rendering
       deviceProfile: params.deviceProfile, // RFC-0076: Pass deviceProfile for 3F_MEDIDOR fallback
       customerName: params.customerName, // RFC-0077: Pass customer/shopping name for display
+      customerId: params.customerId, // RFC-0080: Pass customerId for fetching GLOBAL mapInstantaneousPower
       deviceId: params.deviceId, // RFC-0077: Pass deviceId for Power Limits feature
       jwtToken: params.jwtToken, // RFC-0077: Pass jwtToken for API calls
       themeTokens: params.ui?.themeTokens,
@@ -48,6 +55,29 @@ export class SettingsController {
 
     this.emitEvent('modal_opened');
 
+    // RFC-0080: Fetch GLOBAL mapInstantaneousPower from CUSTOMER if not provided
+    if (!this.params.mapInstantaneousPower && this.params.customerId) {
+      try {
+        const globalMap = await this.fetchGlobalMapInstantaneousPower();
+        if (globalMap) {
+          this.params.mapInstantaneousPower = globalMap;
+          console.log('[SettingsModal] RFC-0080: Loaded GLOBAL mapInstantaneousPower from CUSTOMER');
+
+          // RFC-0080: Update persister with GLOBAL mapInstantaneousPower
+          this.persister = new DefaultSettingsPersister(this.params.jwtToken, {
+            ...this.params.api,
+            deviceType: this.params.deviceType,
+            mapInstantaneousPower: globalMap
+          });
+
+          // RFC-0080: Update view config with GLOBAL mapInstantaneousPower
+          this.view.updateMapInstantaneousPower(globalMap);
+        }
+      } catch (error) {
+        console.warn('[SettingsModal] RFC-0080: Failed to fetch GLOBAL mapInstantaneousPower:', error);
+      }
+    }
+
     // Load current settings if no seed provided
     let initialData = this.params.seed || {};
     if (!this.params.seed) {
@@ -57,13 +87,13 @@ export class SettingsController {
           this.params.jwtToken,
           this.params.scope || 'SERVER_SCOPE'
         );
-        
+
         // Merge fetched data with any seed data
         initialData = DefaultSettingsFetcher.mergeWithSeed(fetchedData, this.params.seed);
-        
+
         // Sanitize the data
         initialData = DefaultSettingsFetcher.sanitizeFetchedData(initialData);
-        
+
       } catch (error) {
         console.warn('[SettingsModal] Failed to fetch current settings:', error);
         // Continue with empty form or seed data
@@ -78,6 +108,55 @@ export class SettingsController {
     }
 
     this.view.render(initialData);
+  }
+
+  /**
+   * RFC-0080: Fetch GLOBAL mapInstantaneousPower from CUSTOMER SERVER_SCOPE
+   */
+  private async fetchGlobalMapInstantaneousPower(): Promise<object | null> {
+    const customerId = this.params.customerId;
+    const jwtToken = this.params.jwtToken;
+
+    if (!customerId || !jwtToken) {
+      console.warn('[SettingsModal] RFC-0080: Cannot fetch GLOBAL - missing customerId or token');
+      return null;
+    }
+
+    try {
+      const tbBaseUrl = this.params.api?.tbBaseUrl || window.location.origin;
+      const url = `${tbBaseUrl}/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE?keys=mapInstantaneousPower`;
+
+      console.log('[SettingsModal] RFC-0080: Fetching GLOBAL from:', url);
+
+      const response = await fetch(url, {
+        headers: {
+          'X-Authorization': `Bearer ${jwtToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const attrs = await response.json();
+      const powerLimitsAttr = attrs.find((a: any) => a.key === 'mapInstantaneousPower');
+
+      if (!powerLimitsAttr) {
+        console.log('[SettingsModal] RFC-0080: No GLOBAL mapInstantaneousPower found on CUSTOMER');
+        return null;
+      }
+
+      const value = typeof powerLimitsAttr.value === 'string'
+        ? JSON.parse(powerLimitsAttr.value)
+        : powerLimitsAttr.value;
+
+      console.log('[SettingsModal] RFC-0080: Loaded GLOBAL mapInstantaneousPower:', value);
+      return value;
+    } catch (error) {
+      console.error('[SettingsModal] RFC-0080: Failed to fetch GLOBAL mapInstantaneousPower:', error);
+      return null;
+    }
   }
 
   private validateParams(): void {

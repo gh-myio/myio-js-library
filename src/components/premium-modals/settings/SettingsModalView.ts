@@ -43,6 +43,16 @@ export class SettingsModalView {
     }
   }
 
+  /**
+   * RFC-0080: Update mapInstantaneousPower configuration
+   * Called from SettingsController after fetching GLOBAL from CUSTOMER
+   * This must be called BEFORE render() so the power limits display correctly
+   */
+  updateMapInstantaneousPower(mapInstantaneousPower: object): void {
+    this.config.mapInstantaneousPower = mapInstantaneousPower;
+    console.log('[SettingsModalView] RFC-0080: Updated mapInstantaneousPower config');
+  }
+
   showError(message: string): void {
     const errorEl = this.modal.querySelector(".error-message") as HTMLElement;
     if (errorEl) {

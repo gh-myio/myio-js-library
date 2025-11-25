@@ -11,6 +11,7 @@ export interface OpenDashboardPopupSettingsParams {
   deviceType?: string; // Device type for conditional rendering (e.g., TERMOSTATO)
   deviceProfile?: string; // RFC-0076: Device profile for 3F_MEDIDOR fallback (e.g., ELEVADOR, MOTOR)
   customerName?: string; // RFC-0077: Shopping center name to display above device label
+  customerId?: string; // RFC-0080: Customer/Shopping ID for fetching GLOBAL mapInstantaneousPower
   mapInstantaneousPower?: object
 
 
@@ -135,6 +136,7 @@ export interface ModalConfig {
   deviceProfile?: string; // Device profile for 3F_MEDIDOR fallback (e.g., ELEVADOR, MOTOR)
   // RFC-0077: Add customer name, device ID, and JWT token for Power Limits feature
   customerName?: string; // Shopping center name to display above device label
+  customerId?: string; // RFC-0080: Customer/Shopping ID for fetching GLOBAL mapInstantaneousPower
   mapInstantaneousPower: object; // Map of instantaneous power limits
   deviceId?: string; // ThingsBoard device ID for fetching device-level attributes
   jwtToken?: string; // JWT token for API calls

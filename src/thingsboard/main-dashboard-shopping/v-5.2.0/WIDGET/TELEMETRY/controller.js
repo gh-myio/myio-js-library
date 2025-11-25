@@ -2116,12 +2116,16 @@ function renderList(visible) {
         const jwt = localStorage.getItem("jwt_token");
         try {
 
+          // RFC-0080: Get customerId from widget settings for GLOBAL mapInstantaneousPower fetch
+          const customerTbId = self.ctx.settings?.customerTB_ID || null;
+
           await MyIO.openDashboardPopupSettings({
             deviceId: tbId, // TB deviceId
             label: it.label,
             jwtToken: jwt,
             domain: WIDGET_DOMAIN,
             deviceType: it.deviceType,
+            customerId: customerTbId, // RFC-0080: Pass customerId for GLOBAL fetch
             connectionData: {
               centralName: it.centralName,
               connectionStatusTime: it.connectionStatusTime || null,

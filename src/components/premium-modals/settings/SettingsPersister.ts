@@ -1,12 +1,42 @@
 import { SettingsError, SettingsPersister } from './types';
 
+// RFC-0078: JSON Schema Types
+interface InstantaneousPowerLimits {
+  version: string;
+  limitsByInstantaneoustPowerType: TelemetryTypeLimits[];
+}
+
+interface TelemetryTypeLimits {
+  telemetryType: string;
+  itemsByDeviceType: DeviceTypeLimits[];
+}
+
+interface DeviceTypeLimits {
+  deviceType: string;
+  name: string;
+  description: string;
+  limitsByDeviceStatus: StatusLimits[];
+}
+
+interface StatusLimits {
+  deviceStatusName: string;
+  limitsValues: {
+    baseValue: number;
+    topValue: number;
+  };
+}
+
 export class DefaultSettingsPersister implements SettingsPersister {
   private jwtToken: string;
   private tbBaseUrl: string;
+  private deviceType: string;
+  private existingMapInstantaneousPower: InstantaneousPowerLimits | null;
 
   constructor(jwtToken: string, apiConfig?: any) {
     this.jwtToken = jwtToken;
     this.tbBaseUrl = apiConfig?.tbBaseUrl || window.location.origin;
+    this.deviceType = apiConfig?.deviceType || 'ELEVADOR';
+    this.existingMapInstantaneousPower = apiConfig?.mapInstantaneousPower || null;
   }
 
   async saveEntityLabel(deviceId: string, label: string): Promise<{ ok: boolean; error?: SettingsError }> {
@@ -45,12 +75,19 @@ export class DefaultSettingsPersister implements SettingsPersister {
   }
 
   async saveServerScopeAttributes(
-    deviceId: string, 
+    deviceId: string,
     attributes: Record<string, unknown>
   ): Promise<{ ok: boolean; updatedKeys?: string[]; error?: SettingsError }> {
     try {
-      // Add namespace and version to attributes
-      const namespacedAttrs = this.addNamespaceAndVersion(attributes);
+      // RFC-0080: Build JSON structure for mapInstantaneousPower
+      const mapInstantaneousPower = this.buildMapInstantaneousPower(attributes);
+
+      // Save as single JSON attribute (RFC-0078 compliant)
+      const payload = {
+        mapInstantaneousPower: mapInstantaneousPower
+      };
+
+      console.log('[SettingsPersister] RFC-0080: Saving mapInstantaneousPower as JSON:', payload);
 
       const res = await fetch(
         `${this.tbBaseUrl}/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`,
@@ -60,7 +97,7 @@ export class DefaultSettingsPersister implements SettingsPersister {
             'X-Authorization': `Bearer ${this.jwtToken}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(namespacedAttrs)
+          body: JSON.stringify(payload)
         }
       );
 
@@ -68,9 +105,9 @@ export class DefaultSettingsPersister implements SettingsPersister {
         throw this.createHttpError(res.status, await res.text().catch(() => ''));
       }
 
-      return { 
-        ok: true, 
-        updatedKeys: Object.keys(namespacedAttrs) 
+      return {
+        ok: true,
+        updatedKeys: ['mapInstantaneousPower']
       };
 
     } catch (error) {
@@ -79,18 +116,108 @@ export class DefaultSettingsPersister implements SettingsPersister {
     }
   }
 
-  private addNamespaceAndVersion(attributes: Record<string, unknown>): Record<string, unknown> {
-    const namespaced: Record<string, unknown> = {
-      'myio.settings.energy.__version': 1
-    };
+  /**
+   * RFC-0080: Build mapInstantaneousPower JSON structure from form data
+   * Preserves existing structure and updates only the current device type
+   */
+  private buildMapInstantaneousPower(formData: Record<string, unknown>): InstantaneousPowerLimits {
+    // Start with existing or create new structure
+    const result: InstantaneousPowerLimits = this.existingMapInstantaneousPower
+      ? JSON.parse(JSON.stringify(this.existingMapInstantaneousPower)) // Deep clone
+      : {
+          version: '1.0.0',
+          limitsByInstantaneoustPowerType: []
+        };
 
-    for (const [key, value] of Object.entries(attributes)) {
-      if (key !== 'label') { // Label goes to entity, not attributes
-        namespaced[`myio.settings.energy.${key}`] = value;
-      }
+    // Find or create telemetry type entry
+    const telemetryType = String(formData.telemetryType || 'consumption');
+    let telemetryConfig = result.limitsByInstantaneoustPowerType.find(
+      t => t.telemetryType === telemetryType
+    );
+
+    if (!telemetryConfig) {
+      telemetryConfig = {
+        telemetryType,
+        itemsByDeviceType: []
+      };
+      result.limitsByInstantaneoustPowerType.push(telemetryConfig);
     }
 
-    return namespaced;
+    // Find or create device type entry
+    const deviceType = this.deviceType.toUpperCase();
+    let deviceConfig = telemetryConfig.itemsByDeviceType.find(
+      d => d.deviceType === deviceType
+    );
+
+    if (!deviceConfig) {
+      deviceConfig = {
+        deviceType,
+        name: `mapInstantaneousPower${this.formatDeviceTypeName(deviceType)}`,
+        description: `Limites de potência customizados para ${deviceType}`,
+        limitsByDeviceStatus: []
+      };
+      telemetryConfig.itemsByDeviceType.push(deviceConfig);
+    }
+
+    // Update limits from form data
+    deviceConfig.limitsByDeviceStatus = [
+      {
+        deviceStatusName: 'standBy',
+        limitsValues: {
+          baseValue: Number(formData.standbyLimitDownConsumption) || 0,
+          topValue: Number(formData.standbyLimitUpConsumption) || 0
+        }
+      },
+      {
+        deviceStatusName: 'normal',
+        limitsValues: {
+          baseValue: Number(formData.normalLimitDownConsumption) || 0,
+          topValue: Number(formData.normalLimitUpConsumption) || 0
+        }
+      },
+      {
+        deviceStatusName: 'alert',
+        limitsValues: {
+          baseValue: Number(formData.alertLimitDownConsumption) || 0,
+          topValue: Number(formData.alertLimitUpConsumption) || 0
+        }
+      },
+      {
+        deviceStatusName: 'failure',
+        limitsValues: {
+          baseValue: Number(formData.failureLimitDownConsumption) || 0,
+          topValue: Number(formData.failureLimitUpConsumption) || 0
+        }
+      }
+    ];
+
+    // Update description with identifier if provided
+    if (formData.identifier) {
+      deviceConfig.description = `Limites customizados para ${formData.identifier}`;
+    }
+
+    console.log('[SettingsPersister] RFC-0080: Built mapInstantaneousPower:', result);
+    return result;
+  }
+
+  /**
+   * Format device type name for display (e.g., ELEVADOR -> Elevador)
+   */
+  private formatDeviceTypeName(deviceType: string): string {
+    const map: Record<string, string> = {
+      'ELEVADOR': 'Elevator',
+      'ESCADA_ROLANTE': 'Escalator',
+      'MOTOR': 'Motor',
+      'BOMBA': 'Pump',
+      '3F_MEDIDOR': '3FMedidor',
+      'CHILLER': 'Chiller',
+      'FANCOIL': 'Fancoil',
+      'AR_CONDICIONADO': 'AirConditioner',
+      'HVAC': 'HVAC',
+      'HIDROMETRO': 'Hidrometro',
+      'TERMOSTATO': 'Termostato'
+    };
+    return map[deviceType] || deviceType;
   }
 
   private sanitizeLabel(label: string): string {
