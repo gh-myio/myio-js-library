@@ -277,6 +277,7 @@ export class EnergyModalView {
             <button id="theme-toggle-btn" class="myio-btn myio-btn-secondary" title="Alternar tema (claro/escuro)" style="
               position: relative;
               width: 40px;
+              height: 40px;
               padding: 0;
               overflow: hidden;
             ">
@@ -317,6 +318,7 @@ export class EnergyModalView {
             <button id="bar-mode-toggle-btn" class="myio-btn myio-btn-secondary" title="Alternar modo (empilhado/agrupado)" style="
               position: relative;
               width: 40px;
+              height: 40px;
               padding: 0;
               overflow: hidden;
             ">
