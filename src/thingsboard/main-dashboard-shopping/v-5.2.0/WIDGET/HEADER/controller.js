@@ -352,7 +352,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     });
 
     // Initial controls state (disabled by default in HTML, will be enabled when domain is set)
-    updateControlsState(currentDomain);
+    updateControlsState(currentDomain.value);
 
     // RFC-0045 FIX: Track last emission to prevent duplicates
     let lastEmission = {};

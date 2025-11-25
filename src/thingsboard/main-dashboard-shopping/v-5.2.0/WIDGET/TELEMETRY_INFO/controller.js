@@ -482,6 +482,14 @@ function renderStats() {
   $$('#areaComumTotal').text(formatEnergy(STATE.consumidores.areaComum.total));
   $$('#areaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(1)}%)`);
 
+  // RFC-0056: Hide Área Comum card when water domain has bathrooms enabled
+  // Consolidate área comum into "Pontos não mapeados" instead
+  if (WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms) {
+    $$('.area-comum-card').hide();
+  } else {
+    $$('.area-comum-card').show();
+  }
+
   // ========== TOTAL ==========
   $$('#consumidoresTotal').text(formatEnergy(STATE.consumidores.totalGeral));
   $$('#consumidoresPerc').text('(100%)');
@@ -534,26 +542,49 @@ function renderPieChart() {
 
   const ctx = canvas.getContext('2d');
 
-  // ========== CHART DATA (6 slices) ==========
+  // ========== CHART DATA (6 slices or 5 if hiding Área Comum) ==========
+  // RFC-0056: Hide Área Comum when water domain has bathrooms enabled
+  const hideAreaComum = WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms;
+
+  const labels = hideAreaComum
+    ? ['Climatização','Elevadores','Esc. Rolantes','Lojas','Outros']
+    : ['Climatização','Elevadores','Esc. Rolantes','Lojas','Outros','Área Comum'];
+
   const data = {
-    labels: ['Climatização','Elevadores','Esc. Rolantes','Lojas','Outros','Área Comum'],
+    labels: labels,
     datasets: [{
-      data: [
-        STATE.consumidores.climatizacao.total,
-        STATE.consumidores.elevadores.total,
-        STATE.consumidores.escadasRolantes.total,
-        STATE.consumidores.lojas.total,
-        STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
-        STATE.consumidores.areaComum.total
-      ],
-      backgroundColor: [
-        CHART_COLORS.climatizacao,    // #00C896 (Teal)
-        CHART_COLORS.elevadores,      // #5B2EBC (Purple)
-        CHART_COLORS.escadasRolantes, // #FF6B6B (Red)
-        CHART_COLORS.lojas,           // #FFC107 (Yellow)
-        CHART_COLORS.outros,          // #9C27B0 (Deep Purple)
-        CHART_COLORS.areaComum        // #4CAF50 (Green)
-      ],
+      data: hideAreaComum
+        ? [
+            STATE.consumidores.climatizacao.total,
+            STATE.consumidores.elevadores.total,
+            STATE.consumidores.escadasRolantes.total,
+            STATE.consumidores.lojas.total,
+            STATE.consumidores.outros ? STATE.consumidores.outros.total : 0
+          ]
+        : [
+            STATE.consumidores.climatizacao.total,
+            STATE.consumidores.elevadores.total,
+            STATE.consumidores.escadasRolantes.total,
+            STATE.consumidores.lojas.total,
+            STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
+            STATE.consumidores.areaComum.total
+          ],
+      backgroundColor: hideAreaComum
+        ? [
+            CHART_COLORS.climatizacao,    // #00C896 (Teal)
+            CHART_COLORS.elevadores,      // #5B2EBC (Purple)
+            CHART_COLORS.escadasRolantes, // #FF6B6B (Red)
+            CHART_COLORS.lojas,           // #FFC107 (Yellow)
+            CHART_COLORS.outros           // #9C27B0 (Deep Purple)
+          ]
+        : [
+            CHART_COLORS.climatizacao,    // #00C896 (Teal)
+            CHART_COLORS.elevadores,      // #5B2EBC (Purple)
+            CHART_COLORS.escadasRolantes, // #FF6B6B (Red)
+            CHART_COLORS.lojas,           // #FFC107 (Yellow)
+            CHART_COLORS.outros,          // #9C27B0 (Deep Purple)
+            CHART_COLORS.areaComum        // #4CAF50 (Green)
+          ],
       borderColor: '#FFFFFF',  // â† Light border
       borderWidth: 2,
       hoverBorderWidth: 3,
@@ -607,18 +638,24 @@ function renderPieChart() {
 }
 
 /**
- * RFC-0056: Render custom chart legend with 5 categories
+ * RFC-0056: Render custom chart legend with 5 or 6 categories (hide Área Comum when water + bathrooms)
  */
 function renderChartLegend() {
   const $legend = $$('#chartLegend').empty();
+
+  const hideAreaComum = WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms;
 
   const items = [
     { label: 'Climatização', color: CHART_COLORS.climatizacao, value: STATE.consumidores.climatizacao.total, perc: STATE.consumidores.climatizacao.perc },
     { label: 'Elevadores', color: CHART_COLORS.elevadores, value: STATE.consumidores.elevadores.total, perc: STATE.consumidores.elevadores.perc },
     { label: 'Esc. Rolantes', color: CHART_COLORS.escadasRolantes, value: STATE.consumidores.escadasRolantes.total, perc: STATE.consumidores.escadasRolantes.perc },
-    { label: 'Lojas', color: CHART_COLORS.lojas, value: STATE.consumidores.lojas.total, perc: STATE.consumidores.lojas.perc },
-    { label: 'Área Comum', color: CHART_COLORS.areaComum, value: STATE.consumidores.areaComum.total, perc: STATE.consumidores.areaComum.perc }
+    { label: 'Lojas', color: CHART_COLORS.lojas, value: STATE.consumidores.lojas.total, perc: STATE.consumidores.lojas.perc }
   ];
+
+  // Only add Área Comum if not hidden
+  if (!hideAreaComum) {
+    items.push({ label: 'Área Comum', color: CHART_COLORS.areaComum, value: STATE.consumidores.areaComum.total, perc: STATE.consumidores.areaComum.perc });
+  }
 
   items.forEach(item => {
     const html = `
@@ -801,28 +838,46 @@ function renderModalChart() {
     modalPieChartInstance.destroy();
   }
 
-  // RFC-0056: 5 categories for pie chart (sem Entrada)
-  const data = [
-    STATE.consumidores.climatizacao.total,
-    STATE.consumidores.elevadores.total,
-    STATE.consumidores.escadasRolantes.total,
-    STATE.consumidores.lojas.total,
-    STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
-    STATE.consumidores.areaComum.total
-  ];
+  // RFC-0056: 5 or 6 categories for pie chart (hide Área Comum when water + bathrooms)
+  const hideAreaComum = WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms;
 
-  
+  const data = hideAreaComum
+    ? [
+        STATE.consumidores.climatizacao.total,
+        STATE.consumidores.elevadores.total,
+        STATE.consumidores.escadasRolantes.total,
+        STATE.consumidores.lojas.total,
+        STATE.consumidores.outros ? STATE.consumidores.outros.total : 0
+      ]
+    : [
+        STATE.consumidores.climatizacao.total,
+        STATE.consumidores.elevadores.total,
+        STATE.consumidores.escadasRolantes.total,
+        STATE.consumidores.lojas.total,
+        STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
+        STATE.consumidores.areaComum.total
+      ];
 
-  const colors = [
-    CHART_COLORS.climatizacao,
-    CHART_COLORS.elevadores,
-    CHART_COLORS.escadasRolantes,
-    CHART_COLORS.lojas,
-    CHART_COLORS.outros,
-    CHART_COLORS.areaComum
-  ];
+  const colors = hideAreaComum
+    ? [
+        CHART_COLORS.climatizacao,
+        CHART_COLORS.elevadores,
+        CHART_COLORS.escadasRolantes,
+        CHART_COLORS.lojas,
+        CHART_COLORS.outros
+      ]
+    : [
+        CHART_COLORS.climatizacao,
+        CHART_COLORS.elevadores,
+        CHART_COLORS.escadasRolantes,
+        CHART_COLORS.lojas,
+        CHART_COLORS.outros,
+        CHART_COLORS.areaComum
+      ];
 
-  const labels = ['Climatização','Elevadores','Esc. Rolantes','Lojas','Outros','Área Comum'];
+  const labels = hideAreaComum
+    ? ['Climatização','Elevadores','Esc. Rolantes','Lojas','Outros']
+    : ['Climatização','Elevadores','Esc. Rolantes','Lojas','Outros','Área Comum'];
 
   modalPieChartInstance = new Chart(ctx, {
     type: 'pie',
@@ -881,19 +936,25 @@ function renderModalChart() {
 }
 
 /**
- * Render modal chart legend
+ * Render modal chart legend (hide Área Comum when water + bathrooms)
  */
 function renderModalChartLegend() {
   const $legend = $J('#modalChartLegend').empty();
+
+  const hideAreaComum = WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms;
 
   const items = [
     { label: 'Climatização', color: CHART_COLORS.climatizacao, value: STATE.consumidores.climatizacao.total, perc: STATE.consumidores.climatizacao.perc },
     { label: 'Elevadores', color: CHART_COLORS.elevadores, value: STATE.consumidores.elevadores.total, perc: STATE.consumidores.elevadores.perc },
     { label: 'Esc. Rolantes', color: CHART_COLORS.escadasRolantes, value: STATE.consumidores.escadasRolantes.total, perc: STATE.consumidores.escadasRolantes.perc },
     { label: 'Lojas', color: CHART_COLORS.lojas, value: STATE.consumidores.lojas.total, perc: STATE.consumidores.lojas.perc },
-    { label: 'Outros', color: CHART_COLORS.outros, value: STATE.consumidores.outros ? STATE.consumidores.outros.total : 0, perc: STATE.consumidores.outros ? STATE.consumidores.outros.perc : 0 },
-    { label: 'Área Comum', color: CHART_COLORS.areaComum, value: STATE.consumidores.areaComum.total, perc: STATE.consumidores.areaComum.perc }
+    { label: 'Outros', color: CHART_COLORS.outros, value: STATE.consumidores.outros ? STATE.consumidores.outros.total : 0, perc: STATE.consumidores.outros ? STATE.consumidores.outros.perc : 0 }
   ];
+
+  // Only add Área Comum if not hidden
+  if (!hideAreaComum) {
+    items.push({ label: 'Área Comum', color: CHART_COLORS.areaComum, value: STATE.consumidores.areaComum.total, perc: STATE.consumidores.areaComum.perc });
+  }
 
   items.forEach(item => {
     const html = `<div class="legend-item"><div class="legend-color" style="background: ${item.color}"></div><span class="legend-label">${item.label}:</span><span class="legend-value">${formatEnergy(item.value)}</span></div>`;
@@ -1164,8 +1225,25 @@ function recalculateWithReceivedData() {
   if (!STATE.consumidores.areaComum) STATE.consumidores.areaComum = { total: 0, perc: 0 };
   STATE.consumidores.areaComum.total = Math.max(0, STATE.entrada.total - somaConsumidores);
 
+  // RFC-0056: When water domain has bathrooms, consolidate área comum into "outros"
+  if (WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms && STATE.consumidores.areaComum.total > 0) {
+    LogHelper.log(`[RFC-0056] Consolidating área comum (${STATE.consumidores.areaComum.total.toFixed(2)}) into outros`);
+    STATE.consumidores.outros.total += STATE.consumidores.areaComum.total;
+    LogHelper.log(`[RFC-0056] New outros total: ${STATE.consumidores.outros.total.toFixed(2)}`);
+    // Set areaComum to 0 since it's now consolidated into outros
+    STATE.consumidores.areaComum.total = 0;
+  }
+
   // Recalcular total geral (SEM incluir entrada)
-  STATE.consumidores.totalGeral = somaConsumidores + STATE.consumidores.areaComum.total;
+  // Note: Must recalculate if we consolidated área comum into outros
+  const finalSomaConsumidores =
+    (STATE.consumidores.lojas?.total || 0) +
+    (STATE.consumidores.climatizacao?.total || 0) +
+    (STATE.consumidores.elevadores?.total || 0) +
+    (STATE.consumidores.escadasRolantes?.total || 0) +
+    (STATE.consumidores.outros?.total || 0);
+
+  STATE.consumidores.totalGeral = finalSomaConsumidores + STATE.consumidores.areaComum.total;
 
   // Recalcular percentuais (RFC-0056: Baseados em Total Consumidores, nÃ£o em Entrada)
   const totalConsumidores = STATE.consumidores.totalGeral;

@@ -1470,11 +1470,11 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       }
 
       // Validate customer ID exists
-      if (!CUSTOMER_ING_ID) {
+      if (!latestCreds.CUSTOMER_ING_ID) {
         throw new Error('Missing CUSTOMER_ING_ID - customer not configured');
       }
 
-      const customerId = CUSTOMER_ING_ID;
+      const customerId = latestCreds.CUSTOMER_ING_ID;
 
       // Build API URL based on domain
       const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/${domain}/devices/totals`);
@@ -2146,7 +2146,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       return {
         CUSTOMER_ING_ID,
         CLIENT_ID,
-        CLIENT_SECRET_length: CLIENT_SECRET?.length || 0
+        CLIENT_SECRET
       };
     },
 
