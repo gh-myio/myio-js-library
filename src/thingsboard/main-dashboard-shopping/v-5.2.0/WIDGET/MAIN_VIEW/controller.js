@@ -125,7 +125,7 @@ function cleanupExpiredCache() {
       if (rootEl) {
         rootEl.style.display = 'grid';
 
-        // Garante que os tb-child elementos do MENU n„o tenham overflow issues
+        // Garante que os tb-child elementos do MENU nÔøΩo tenham overflow issues
         const menu = $('.myio-menu', rootEl);
         if (menu) {
           const menuChildren = $$('.tb-child', menu);
@@ -136,7 +136,7 @@ function cleanupExpiredCache() {
           });
         }
 
-        // Especial tratamento para o conte˙do principal - permite scroll nos widgets
+        // Especial tratamento para o conteÔøΩdo principal - permite scroll nos widgets
         const content = $('.myio-content', rootEl);
         if (content) {
           // Primeiro: container direto do content deve ter overflow auto para controlar scroll
@@ -147,7 +147,7 @@ function cleanupExpiredCache() {
             contentChild.style.width = '100%';
           }
 
-          // Segundo: dentro dos states, os widgets individuais tambÈm precisam de scroll
+          // Segundo: dentro dos states, os widgets individuais tambÔøΩm precisam de scroll
           const stateContainers = $$('[data-content-state]', content);
           LogHelper.log(`[MAIN_VIEW] Found ${stateContainers.length} state containers`);
           stateContainers.forEach((stateContainer, idx) => {
@@ -722,7 +722,7 @@ let globalBusyState = {
   requestCount: 0
 };
 
-// RFC-0054: contador por domÌnio e cooldown pÛs-provide
+// RFC-0054: contador por domÔøΩnio e cooldown pÔøΩs-provide
 const activeRequests = new Map(); // domain -> count
 const lastProvide = new Map();    // domain -> { periodKey, at }
 
@@ -807,7 +807,7 @@ function ensureOrchestratorBusyDOM() {
 // PHASE 1: Centralized busy management with extended timeout
 function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...', timeoutMs = 25000) {
   
-  // RFC-0054: cooldown - n„o reabrir modal se acabou de prover dados
+  // RFC-0054: cooldown - nÔøΩo reabrir modal se acabou de prover dados
   const lp = lastProvide.get(domain);
   if (lp && (Date.now() - lp.at) < 30000) {
     LogHelper.log(`[Orchestrator] ?? Cooldown active for ${domain}, skipping showGlobalBusy()`);
@@ -822,7 +822,7 @@ function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...', tim
   const messageEl = el.querySelector(`#${BUSY_OVERLAY_ID}-message`);
 
   if (messageEl) {
-    // Mensagem genÈrica para evitar rÛtulo incorreto ao alternar abas
+    // Mensagem genÔøΩrica para evitar rÔøΩtulo incorreto ao alternar abas
     messageEl.textContent = 'Carregando dados...';
   }
 
@@ -889,13 +889,13 @@ function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...', tim
 }
 
 function hideGlobalBusy(domain = null) {
-  // RFC-0054: decremento por domÌnio; se domain for nulo, forÁa limpeza
+  // RFC-0054: decremento por domÔøΩnio; se domain for nulo, forÔøΩa limpeza
   if (domain) {
     const prev = activeRequests.get(domain) || 0;
     const next = Math.max(0, prev - 1);
     activeRequests.set(domain, next);
     LogHelper.log(`[Orchestrator] ? hideGlobalBusy(${domain}) -> ${prev}?${next}, total=${getActiveTotal()}`);
-    if (getActiveTotal() > 0) return; // mantÈm overlay enquanto houver ativas
+    if (getActiveTotal() > 0) return; // mantÔøΩm overlay enquanto houver ativas
   } else {
     activeRequests.clear();
   }
@@ -1069,7 +1069,7 @@ let sharedWidgetState = {
   activePeriod: null,
   lastProcessedPeriodKey: null,
   busyWidgets: new Set(),
-  mutexMap: new Map() // RFC-0054 FIX: Mutex por domÌnio (n„o global)
+  mutexMap: new Map() // RFC-0054 FIX: Mutex por domÔøΩnio (nÔøΩo global)
 };
 
 // PHASE 3: Enhanced event emission with debounce
@@ -1376,8 +1376,8 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         return []; // Return empty array - TELEMETRY widget will use ctx.data directly
       }
 
-      // RFC-0054 SoluÁ„o 4: Early return se h· dados recentes disponÌveis
-      // Verifica ANTES de aguardar credentials para evitar timeout desnecess·rio
+      // RFC-0054 SoluÔøΩÔøΩo 4: Early return se hÔøΩ dados recentes disponÔøΩveis
+      // Verifica ANTES de aguardar credentials para evitar timeout desnecessÔøΩrio
       const key = cacheKey(domain, period);
       const recent = OrchestratorState.cache[domain];
 
@@ -1402,15 +1402,12 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         }
       }
 
-      // Check if credentials are already available (skip waiting if so)
-      // Use the global flag AND local variables for reliability
-      const credentialsAlreadySet = window.MyIOOrchestrator?.credentialsSet === true && CLIENT_ID && CLIENT_SECRET;
+      // RFC-0082 FIX: Always wait for credentials promise and refresh from global state
+      // Don't trust local scope variables - they may be stale
+      LogHelper.log(`[Orchestrator] Credentials check: flag=${window.MyIOOrchestrator?.credentialsSet}`);
 
-      if (credentialsAlreadySet) {
-        LogHelper.log(`[Orchestrator] Credentials already available, skipping wait`);
-      } else {
-        LogHelper.log(`[Orchestrator] Credentials check: flag=${window.MyIOOrchestrator?.credentialsSet}, CLIENT_ID=${!!CLIENT_ID}, CLIENT_SECRET=${!!CLIENT_SECRET}`);
-        // Wait for credentials to be set (with timeout to prevent infinite wait)
+      // If credentials flag is not set, wait for them with timeout
+      if (!window.MyIOOrchestrator?.credentialsSet) {
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Credentials timeout after 10s')), 10000)
         );
@@ -1418,32 +1415,38 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         try {
           LogHelper.log(`[Orchestrator] ‚è≥ Waiting for credentials to be set...`);
           await Promise.race([credentialsPromise, timeoutPromise]);
-          LogHelper.log(`[Orchestrator] ‚úÖ Credentials available, proceeding with fetch`);
+          LogHelper.log(`[Orchestrator] ‚úÖ Credentials promise resolved`);
         } catch (err) {
           LogHelper.error(`[Orchestrator] ‚ö†Ô∏è Credentials timeout - ${err.message}`);
           throw new Error('Credentials not available - initialization timeout');
         }
+      } else {
+        LogHelper.log(`[Orchestrator] ‚úÖ Credentials flag already set`);
       }
 
-      // Log current credential state after waiting
-      LogHelper.log(`[Orchestrator] üîç Current credentials state:`, {
-        CLIENT_ID: CLIENT_ID || "‚ùå EMPTY",
-        CLIENT_SECRET_length: CLIENT_SECRET?.length || 0,
-        CUSTOMER_ING_ID: CUSTOMER_ING_ID || "‚ùå EMPTY"
-      });
+      // RFC-0082 FIX: Always refresh credentials from global state after waiting
+      // This ensures we have the latest values, not stale closure variables
+      const latestCreds = window.MyIOOrchestrator?.getCredentials?.();
 
-      // Validate credentials exist
-      if (!CLIENT_ID || !CLIENT_SECRET) {
-        LogHelper.error(`[Orchestrator] ‚ùå Credentials validation failed:`, {
-          CLIENT_ID: CLIENT_ID || "MISSING",
-          CLIENT_SECRET_exists: !!CLIENT_SECRET,
-          CUSTOMER_ING_ID: CUSTOMER_ING_ID || "MISSING"
+      if (!latestCreds || !latestCreds.CLIENT_ID || !latestCreds.CLIENT_SECRET) {
+        LogHelper.error(`[Orchestrator] ‚ùå Credentials validation failed after wait:`, {
+          hasGetCredentials: !!window.MyIOOrchestrator?.getCredentials,
+          credentialsReturned: !!latestCreds,
+          CLIENT_ID: latestCreds?.CLIENT_ID || "MISSING",
+          CLIENT_SECRET_exists: !!latestCreds?.CLIENT_SECRET,
+          CUSTOMER_ING_ID: latestCreds?.CUSTOMER_ING_ID || "MISSING"
         });
-        throw new Error('Missing CLIENT_ID or CLIENT_SECRET - credentials not configured');
+        throw new Error('Missing CLIENT_ID or CLIENT_SECRET - credentials not properly set');
       }
 
-      const clientId = CLIENT_ID;
-      const clientSecret = CLIENT_SECRET;
+      const clientId = latestCreds.CLIENT_ID;
+      const clientSecret = latestCreds.CLIENT_SECRET;
+
+      LogHelper.log(`[Orchestrator] üîç Using credentials:`, {
+        CLIENT_ID: clientId?.substring(0, 10) + "...",
+        CLIENT_SECRET_length: clientSecret?.length || 0,
+        CUSTOMER_ING_ID: latestCreds.CUSTOMER_ING_ID
+      });
 
       // Create fresh MyIOAuth instance every time (like TELEMETRY widget)
       const MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary)
@@ -1532,7 +1535,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   }
 
   /**
-   * RFC-0054 SoluÁ„o 1: Extrai perÌodo da cache key, ignorando customerTB_ID
+   * RFC-0054 SoluÔøΩÔøΩo 1: Extrai perÔøΩodo da cache key, ignorando customerTB_ID
    * @param {string} cacheKey - Ex: 'null:energy:2025-10-01...:day' ou '20b93da0:energy:2025-10-01...:day'
    * @returns {string} Ex: 'energy:2025-10-01...:day'
    */
@@ -1550,7 +1553,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, { key, inFlight: inFlight.has(key) });
 
 
-    // RFC-0054 FIX 2: Early return ANTES do mutex - verifica se h· dados recentes disponÌveis
+    // RFC-0054 FIX 2: Early return ANTES do mutex - verifica se hÔøΩ dados recentes disponÔøΩveis
     const recent = OrchestratorState.cache[domain];
     if (recent && (Date.now() - recent.timestamp) < 30000) {
       const recentPeriod = extractPeriod(recent.periodKey);
@@ -1567,7 +1570,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       } else {
         LogHelper.log(`[Orchestrator] ?? Different period - proceeding: recent=${recentPeriod}, current=${currentPeriod}`);
 
-        // RFC-0054 FIX 3: Liberar mutex quando perÌodo muda para evitar deadlock
+        // RFC-0054 FIX 3: Liberar mutex quando perÔøΩodo muda para evitar deadlock
         if (sharedWidgetState.mutexMap.get(domain)) {
           LogHelper.log(`[Orchestrator] ?? Releasing mutex for ${domain} - period changed`);
           sharedWidgetState.mutexMap.set(domain, false);
@@ -1630,7 +1633,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         return cached.data;
       }
   
-    // RFC-0054: No-busy refresh ó se j· emitimos dados recentemente para o mesmo perÌodo,
+    // RFC-0054: No-busy refresh ÔøΩ se jÔøΩ emitimos dados recentemente para o mesmo perÔøΩodo,
     // reemitir sem abrir modal e retornar imediatamente
     try {
       const recent = OrchestratorState.cache[domain];
@@ -1657,7 +1660,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     showGlobalBusy(domain, 'Carregando dados...');
     
     // PHASE 2: Set mutex for coordination
-    // RFC-0054 FIX: Lock mutex POR DOMÕNIO
+    // RFC-0054 FIX: Lock mutex POR DOMÔøΩNIO
 
     sharedWidgetState.mutexMap.set(domain, true);
     sharedWidgetState.activePeriod = period;
@@ -1675,12 +1678,12 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         emitProvide(domain, key, items);
         LogHelper.log(`[Orchestrator] ?? Emitted provide-data for ${domain} with ${items.length} items`);
 
-        // RFC-0054 SoluÁ„o 3: Cancelar requisiÁıes pendentes para o mesmo perÌodo
+        // RFC-0054 SoluÔøΩÔøΩo 3: Cancelar requisiÔøΩÔøΩes pendentes para o mesmo perÔøΩodo
         const currentPeriod = extractPeriod(key);
         let canceledCount = 0;
 
         inFlight.forEach((promise, pendingKey) => {
-          if (pendingKey !== key) { // N„o cancelar a prÛpria requisiÁ„o
+          if (pendingKey !== key) { // NÔøΩo cancelar a prÔøΩpria requisiÔøΩÔøΩo
             const pendingPeriod = extractPeriod(pendingKey);
 
             if (pendingPeriod === currentPeriod) {
@@ -1710,7 +1713,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         LogHelper.log(`[Orchestrator] ?? Finally block - hiding busy for ${domain}`);
         hideGlobalBusy(domain);
 
-        // RFC-0054 SoluÁ„o 2: Mutex Condicional - n„o liberar se h· dados recentes v·lidos
+        // RFC-0054 SoluÔøΩÔøΩo 2: Mutex Condicional - nÔøΩo liberar se hÔøΩ dados recentes vÔøΩlidos
         const hasRecentData = OrchestratorState.cache[domain] &&
                               (Date.now() - OrchestratorState.cache[domain].timestamp) < 30000;
 
@@ -1721,7 +1724,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
           if (recentPeriod === currentPeriod) {
             LogHelper.log(`[Orchestrator] ?? Keeping mutex locked - recent data available for ${domain}`);
             LogHelper.log(`[Orchestrator] ?? Cache: ${OrchestratorState.cache[domain].periodKey}, Request: ${key}`);
-            // N√O libera mutex - previne requisiÁıes duplicadas
+            // NÔøΩO libera mutex - previne requisiÔøΩÔøΩes duplicadas
           } else {
             sharedWidgetState.mutexMap.set(domain, false);
             LogHelper.log(`[Orchestrator] ?? Mutex released for ${domain} - different period`);

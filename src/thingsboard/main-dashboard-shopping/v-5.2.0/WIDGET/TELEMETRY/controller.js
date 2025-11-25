@@ -1200,11 +1200,16 @@ function renderList(visible) {
     const myTbToken = localStorage.getItem("jwt_token");
     let cachedIngestionToken = null;
 
-    MyIOAuth.getToken()
-      .then((token) => {
-        cachedIngestionToken = token;
-      })
-      .catch((err) => LogHelper.warn("Token cache failed:", err));
+    // RFC-0082 FIX: Check if MyIOAuth is initialized before calling getToken()
+    if (MyIOAuth && typeof MyIOAuth.getToken === 'function') {
+      MyIOAuth.getToken()
+        .then((token) => {
+          cachedIngestionToken = token;
+        })
+        .catch((err) => LogHelper.warn("Token cache failed:", err));
+    } else {
+      LogHelper.warn("[TELEMETRY] MyIOAuth not initialized yet, skipping token cache");
+    }
 
     const $card = MyIO.renderCardComponentV5({
       entityObject,

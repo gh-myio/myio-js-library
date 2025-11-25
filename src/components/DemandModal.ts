@@ -1541,9 +1541,9 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
 
   async function enableRealTimeMode(): Promise<void> {
     try {
-      // 1. Lock dates to today
+      // 1. Lock dates to today - IMPORTANT: End date must be NOW, not end of day
       currentStartDate = getTodayStart();
-      currentEndDate = getTodayEnd();
+      currentEndDate = new Date().toISOString(); // Use current time, not 23:59:59
 
       // 2. Update date inputs and disable them
       initializeDateInputs();
@@ -1566,7 +1566,7 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
       if (intervalSelect) intervalSelect.value = '8000';
       if (aggSelect) aggSelect.value = 'AVG';
 
-      // 5. Initial full fetch from 00:00 to now
+      // 5. Initial full fetch from 00:00 to NOW (not end of day)
       await loadData();
 
       // 6. Update last fetched timestamp
