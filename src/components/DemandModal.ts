@@ -82,6 +82,7 @@ export interface DemandModalParams {
   yAxisLabel?: string;                 // Custom Y-axis label (default: "Demanda (kW)")
   correctionFactor?: number;           // Value multiplier (default: 1.0)
   timezoneOffset?: number;             // Timezone offset in hours (default: -3 for UTC-3/Brazil)
+  readingType?: 'energy' | 'water' | 'temperature'; // RFC-0083: Reading type for formatting (default: 'energy')
 
   // RFC-0061: Telemetry selector configuration
   allowTelemetrySwitch?: boolean;      // Enable telemetry type switching (default: true)
@@ -869,6 +870,49 @@ function formatDateTime(date: Date, locale: string): string {
     month: '2-digit',
     year: 'numeric'
   });
+}
+
+/**
+ * RFC-0083: Interpolate temperature data to have points every 30 minutes
+ * Uses last known value (step interpolation)
+ */
+function interpolateTemperatureData(rawPoints: MultiSeriesDataPoint[]): MultiSeriesDataPoint[] {
+  if (rawPoints.length === 0) return [];
+
+  const interpolated: MultiSeriesDataPoint[] = [];
+  const interval = 30 * 60 * 1000; // 30 minutes in milliseconds
+
+  // Sort by timestamp
+  const sorted = [...rawPoints].sort((a, b) => a.x - b.x);
+
+  // Get time range
+  const startTime = sorted[0].x;
+  const endTime = sorted[sorted.length - 1].x;
+
+  let lastKnownValue = sorted[0].y;
+  let dataIndex = 0;
+
+  // Generate points every 30 minutes
+  for (let time = startTime; time <= endTime; time += interval) {
+    // Find if we have actual data at this time (±5 min tolerance)
+    const actualPoint = sorted.find((p, idx) => {
+      if (idx >= dataIndex && Math.abs(p.x - time) < 5 * 60 * 1000) {
+        dataIndex = idx + 1;
+        return true;
+      }
+      return false;
+    });
+
+    if (actualPoint) {
+      lastKnownValue = actualPoint.y;
+      interpolated.push({ x: time, y: lastKnownValue });
+    } else {
+      // Use last known value (step interpolation)
+      interpolated.push({ x: time, y: lastKnownValue });
+    }
+  }
+
+  return interpolated;
 }
 
 /**
@@ -1950,6 +1994,14 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
         params.timezoneOffset // Pass timezone offset (default: -3)
       );
 
+      // RFC-0083: Apply 30-minute interpolation for temperature domain
+      if (params.readingType === 'temperature' && !chartData.isEmpty) {
+        chartData.series = chartData.series.map(series => ({
+          ...series,
+          points: interpolateTemperatureData(series.points)
+        }));
+      }
+
       if (chartData.isEmpty) {
         errorEl.style.display = 'flex';
         errorText.textContent = strings.noData;
@@ -1990,17 +2042,45 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
           title: function(context: any) {
             const timestamp = context[0].parsed.x;
             const date = new Date(timestamp);
-            // Show only date for daily aggregation (no time)
-            return date.toLocaleDateString(locale, {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric'
-            });
+
+            // RFC-0083: Show date + time for temperature, date only for energy/water
+            if (params.readingType === 'temperature') {
+              return date.toLocaleString(locale, {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+            } else {
+              return date.toLocaleDateString(locale, {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+              });
+            }
           },
           label: function(context: any) {
             const seriesLabel = context.dataset.label || '';
             const value = context.parsed.y;
             return `${seriesLabel}: ${value.toFixed(2)} kW`;
+          }
+        };
+
+        // RFC-0083: Update X-axis ticks for temperature
+        chart.options.scales.x.ticks.callback = function(value: any) {
+          const date = new Date(value);
+
+          if (params.readingType === 'temperature') {
+            return date.toLocaleTimeString(locale, {
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+          } else {
+            return date.toLocaleDateString(locale, {
+              day: '2-digit',
+              month: '2-digit'
+            });
           }
         };
 
@@ -2031,14 +2111,25 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
             tooltip: {
               callbacks: {
                 title: function(context: any) {
-                  // Format the timestamp to readable date (without time for daily aggregation)
                   const timestamp = context[0].parsed.x;
                   const date = new Date(timestamp);
-                  return date.toLocaleDateString(locale, {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric'
-                  });
+
+                  // RFC-0083: Show date + time for temperature, date only for energy/water
+                  if (params.readingType === 'temperature') {
+                    return date.toLocaleString(locale, {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    });
+                  } else {
+                    return date.toLocaleDateString(locale, {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
+                    });
+                  }
                 },
                 label: function(context: any) {
                   const seriesLabel = context.dataset.label || '';
@@ -2072,11 +2163,19 @@ export async function openDemandModal(params: DemandModalParams): Promise<Demand
               ticks: {
                 callback: function(value: any) {
                   const date = new Date(value);
-                  // Show only date for daily aggregation (no time)
-                  return date.toLocaleDateString(locale, {
-                    day: '2-digit',
-                    month: '2-digit'
-                  });
+
+                  // RFC-0083: Show time (HH:mm) for temperature, date for energy/water
+                  if (params.readingType === 'temperature') {
+                    return date.toLocaleTimeString(locale, {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    });
+                  } else {
+                    return date.toLocaleDateString(locale, {
+                      day: '2-digit',
+                      month: '2-digit'
+                    });
+                  }
                 }
               }
             },

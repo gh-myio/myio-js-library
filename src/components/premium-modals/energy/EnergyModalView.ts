@@ -4,6 +4,7 @@ import { toCsv } from '../internal/engines/CsvExporter';
 import { fmtPt } from '../internal/engines/NumberFmt';
 import { attach as attachDateRangePicker, DateRangeControl } from '../internal/DateRangePickerJQ';
 import { openDemandModal } from '../../DemandModal';
+import { openRealTimeTelemetryModal } from '../../RealTimeTelemetryModal';
 import {
   EnergyViewConfig,
   EnergyData,
@@ -1013,41 +1014,25 @@ export class EnergyModalView {
     if (viewTelemetryBtn) {
       viewTelemetryBtn.addEventListener('click', async () => {
         try {
-          console.log('[EnergyModalView] Opening demand modal');
+          console.log('[EnergyModalView] Opening real-time telemetry modal');
 
           const jwtToken = localStorage.getItem('jwt_token');
           if (!jwtToken) {
             throw new Error('Token de autenticação não encontrado');
           }
 
-          // Get current date range from DateRangePicker
-          let startDate = this.config.params.startDate;
-          let endDate = this.config.params.endDate;
-
-          if (this.dateRangePicker) {
-            const dates = this.dateRangePicker.getDates();
-            if (dates.startISO && dates.endISO) {
-              startDate = dates.startISO.split('T')[0]; // Extract YYYY-MM-DD
-              endDate = dates.endISO.split('T')[0];
-            }
-          }
-
-          await openDemandModal({
+          // RFC-0084: Open Real-Time Telemetry Modal instead of Demand Modal
+          await openRealTimeTelemetryModal({
             token: jwtToken,
             deviceId: this.config.params.deviceId,
-            startDate: startDate instanceof Date ? startDate.toISOString().split('T')[0] : startDate,
-            endDate: endDate instanceof Date ? endDate.toISOString().split('T')[0] : endDate,
-            label: this.config.params.label || 'Dispositivo',
-            telemetryQuery: {
-              keys: 'consumption',
-              intervalType: 'MILLISECONDS',
-              interval: 86400000, // 24 hours - default, can be changed inside modal
-              agg: 'MAX', // default, can be changed inside modal
-              limit: 10000
-            }
+            deviceLabel: (this.data[0]?.entityLabel || this.config.params.deviceLabel || 'Dispositivo') as string,
+            telemetryKeys: ['voltage', 'current', 'power', 'energy'],
+            refreshInterval: 8000, // 8 seconds
+            historyPoints: 50,
+            locale: 'pt-BR'
           });
         } catch (error) {
-          console.error('[EnergyModalView] Error opening demand modal:', error);
+          console.error('[EnergyModalView] Error opening real-time telemetry modal:', error);
           this.showError('Erro ao abrir telemetrias: ' + (error as Error).message);
         }
       });
