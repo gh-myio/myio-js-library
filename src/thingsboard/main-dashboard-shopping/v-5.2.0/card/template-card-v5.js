@@ -592,6 +592,35 @@ export function renderCardComponentV5({
     isOffline
   });
 
+  // Generate temperature tooltip text for TERMOSTATO devices
+  const getTemperatureTooltip = () => {
+    if (!isTermostatoDevice) return '';
+
+    const currentTemp = Number(val) || 0;
+    const hasRange = temperatureMin !== undefined && temperatureMax !== undefined &&
+                     temperatureMin !== null && temperatureMax !== null;
+
+    if (isOffline) {
+      return 'Dispositivo offline';
+    }
+
+    if (!hasRange) {
+      return `Temperatura atual: ${currentTemp.toFixed(1)}°C\nFaixa não configurada`;
+    }
+
+    const rangeText = `Faixa ideal: ${temperatureMin}°C a ${temperatureMax}°C`;
+
+    if (tempStatus === 'above') {
+      return `ACIMA da faixa ideal\nTemperatura atual: ${currentTemp.toFixed(1)}°C\n${rangeText}`;
+    } else if (tempStatus === 'below') {
+      return `ABAIXO da faixa ideal\nTemperatura atual: ${currentTemp.toFixed(1)}°C\n${rangeText}`;
+    } else {
+      return `DENTRO da faixa ideal\nTemperatura atual: ${currentTemp.toFixed(1)}°C\n${rangeText}`;
+    }
+  };
+
+  const temperatureTooltip = getTemperatureTooltip();
+
   // Create card HTML with optimized spacing
   const cardHTML = `
       <div class="device-card-centered clickable ${cardEntity.status === 'offline' ? 'offline' : ''}"
@@ -620,7 +649,7 @@ export function renderCardComponentV5({
                 ` : ''}
               </div>
 
-              <img class="device-image" src="${deviceImageUrl}" alt="${deviceType}" />
+              <img class="device-image" src="${deviceImageUrl}" alt="${deviceType}" ${isTermostatoDevice && temperatureTooltip ? `title="${temperatureTooltip}"` : ''} style="${isTermostatoDevice ? 'cursor: help;' : ''}" />
 
 
               ${(customerName && String(customerName).trim() !== '') ? `

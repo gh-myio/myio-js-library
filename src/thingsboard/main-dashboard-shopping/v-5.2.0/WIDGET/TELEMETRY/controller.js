@@ -2893,34 +2893,46 @@ async function hydrateAndRender() {
   showBusy();
 
   try {
-    // 0) Datas: obrigatórias
-    let range;
+    // 0) Datas: verificar se existem (não obrigatórias para energy/water - só para API call)
+    let range = null;
+    let hasDateRange = false;
     try {
       range = mustGetDateRange();
+      hasDateRange = true;
     } catch (_e) {
-      LogHelper.warn(
-        "[DeviceCards] Aguardando intervalo de datas (startDateISO/endDateISO)."
-      );
-      return;
+      // For energy/water domains, continue rendering UI even without dates
+      // Just skip the API call for totals
+      if (WIDGET_DOMAIN === "energy" || WIDGET_DOMAIN === "water") {
+        LogHelper.warn(
+          "[DeviceCards] No date range set, but continuing for energy/water domain - buttons will be enabled"
+        );
+      } else {
+        LogHelper.warn(
+          "[DeviceCards] Aguardando intervalo de datas (startDateISO/endDateISO)."
+        );
+        return;
+      }
     }
 
     // 1) Auth (skip for temperature domain - no API calls needed)
-    if (WIDGET_DOMAIN !== "temperature") {
+    // Also skip if no date range (no API call will be made anyway)
+    if (WIDGET_DOMAIN !== "temperature" && hasDateRange) {
       const okAuth = await ensureAuthReady(6000, 150);
       if (!okAuth) {
         LogHelper.warn("[DeviceCards] Auth not ready; adiando hidratação.");
         return;
       }
     } else {
-      LogHelper.log("[DeviceCards] Skipping auth check for temperature domain");
+      LogHelper.log("[DeviceCards] Skipping auth check - temperature domain or no date range");
     }
 
     // 2) Lista autoritativa
     STATE.itemsBase = buildAuthoritativeItems();
 
     // 3) Totais na API (skip for temperature domain - uses only ctx.data telemetry)
+    // Also skip if no date range
     let apiMap = new Map();
-    if (WIDGET_DOMAIN !== "temperature") {
+    if (WIDGET_DOMAIN !== "temperature" && hasDateRange && range) {
       try {
         apiMap = await fetchApiTotals(range.startISO, range.endISO);
       } catch (err) {
@@ -2928,7 +2940,7 @@ async function hydrateAndRender() {
         apiMap = new Map();
       }
     } else {
-      LogHelper.log("[DeviceCards] Skipping API fetch for temperature domain - using ctx.data only");
+      LogHelper.log("[DeviceCards] Skipping API fetch - temperature domain or no date range - using ctx.data only");
     }
 
     // 4) Enrich + render
@@ -2988,8 +3000,18 @@ self.onInit = async function () {
 
   // RFC-0042: Request data from orchestrator (defined early for use in handlers)
   function requestDataFromOrchestrator() {
-    if (!self.ctx.scope?.startDateISO || !self.ctx.scope?.endDateISO) {
-      LogHelper.warn("[TELEMETRY] No date range set, cannot request data");
+    const hasDateRange = self.ctx.scope?.startDateISO && self.ctx.scope?.endDateISO;
+
+    if (!hasDateRange) {
+      LogHelper.warn("[TELEMETRY] No date range set");
+
+      // For energy/water domains, still render UI to enable buttons (skip API call)
+      if (WIDGET_DOMAIN === "energy" || WIDGET_DOMAIN === "water") {
+        LogHelper.log("[TELEMETRY] Energy/Water domain - rendering UI without data fetch");
+        if (typeof hydrateAndRender === "function") {
+          hydrateAndRender();
+        }
+      }
       return;
     }
 
