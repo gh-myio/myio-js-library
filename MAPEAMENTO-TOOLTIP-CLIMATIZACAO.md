@@ -455,12 +455,12 @@ for (device of devices_area_comum) {
 - [x] Propor texto do tooltip
 - [x] Identificar local de implementação
 
-### ⏳ Implementação (NÃO FAZER AGORA)
-- [ ] Localizar template.html do widget TELEMETRY
-- [ ] Encontrar card de Climatização no HTML
-- [ ] Adicionar `<span class="info-tooltip">` com texto apropriado
+### ✅ Implementação (CONCLUÍDA 2025-01-25)
+- [x] Localizar template.html do widget TELEMETRY_INFO
+- [x] Encontrar card de Climatização no HTML (linha 59)
+- [x] Adicionar `<span class="info-tooltip">` com texto apropriado
+- [x] Verificar se CSS já existe ou precisa ser adicionado (já existia em style.css:131)
 - [ ] Testar tooltip no browser
-- [ ] Verificar se CSS já existe ou precisa ser adicionado
 - [ ] Validar com usuário
 
 ### 🔮 Melhorias Futuras (RFC-0063)
@@ -543,6 +543,7 @@ O objetivo deste documento é:
 ---
 
 **Documento criado em:** 2025-01-24
-**Versão:** 1.0
-**Widget:** TELEMETRY v-5.2.0
-**Status:** Mapeamento Completo ✅ | Implementação Pendente ⏳
+**Implementado em:** 2025-01-25
+**Versão:** 1.1
+**Widget:** TELEMETRY_INFO v-5.2.0
+**Status:** Mapeamento Completo ✅ | Implementação Concluída ✅
