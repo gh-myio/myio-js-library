@@ -119,7 +119,7 @@ export class EnergyModalView {
     }
 
     // Re-render chart with new theme
-    this.renderChart();
+    this.reRenderChart();
   }
 
   /**
@@ -156,7 +156,24 @@ export class EnergyModalView {
     }
 
     // Re-render chart with new bar mode
-    this.renderChart();
+    this.reRenderChart();
+  }
+
+  /**
+   * Re-renders chart based on mode
+   */
+  private reRenderChart(): void {
+    const mode = this.config.params.mode || 'single';
+
+    if (mode === 'comparison') {
+      // For comparison mode, re-render comparison chart
+      this.renderComparisonChart();
+    } else {
+      // For single mode, re-render with current energy data
+      if (this.currentEnergyData) {
+        this.renderChart(this.currentEnergyData);
+      }
+    }
   }
 
   /**
@@ -296,7 +313,7 @@ export class EnergyModalView {
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
               </svg>
             </button>
-            ${this.config.params.mode === 'comparison' ? `
+            ${this.config.params.mode === 'comparison' && this.config.params.readingType !== 'temperature' ? `
             <button id="bar-mode-toggle-btn" class="myio-btn myio-btn-secondary" title="Alternar modo (empilhado/agrupado)" style="
               position: relative;
               width: 40px;
