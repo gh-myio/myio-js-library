@@ -23,21 +23,21 @@ export async function getAverageTemperatureFromDevices(deviceList, startIso, end
         
         if (!entityId) return null;
 
-        // Monta URL usando agregação do servidor (MUITO mais leve)
+
         const url = `${baseUrl}/api/plugins/telemetry/DEVICE/${entityId}/values/timeseries` +
                     `?keys=temperature` +
                     `&startTs=${startTs}` +
                     `&endTs=${endTs}` +
                     `&interval=${interval}` +
                     `&limit=1` +
-                    `&agg=AVG`; // <--- O PULO DO GATO: O servidor calcula a média
+                    `&agg=AVG`; 
 
         try {
             const resp = await fetch(url, {
                 method: "GET",
                 headers: { 
                     "Content-Type": "application/json",
-                    "X-Authorization": `Bearer ${token}` // Header padrão TB (ou Authorization dependendo do seu proxy)
+                    "X-Authorization": `Bearer ${token}`
                 }
             });
 
