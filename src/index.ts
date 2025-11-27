@@ -81,6 +81,9 @@ export {
   extractMyIOCredentials,
   type ThingsboardCustomerAttrsConfig
 } from './thingsboard/api/fetchThingsboardCustomerServerScopeAttrs';
+
+export { getTemperatureReportByCustomer } from './thingsboard/api/getAverageTemperatureFromDevices';
+
 // export {
 //   getEntityInfoAndAttributesTB,
 //   type TBFetchOptions,
