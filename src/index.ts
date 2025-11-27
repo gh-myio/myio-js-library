@@ -82,7 +82,7 @@ export {
   type ThingsboardCustomerAttrsConfig
 } from './thingsboard/api/fetchThingsboardCustomerServerScopeAttrs';
 
-export { getAverageTemperatureFromDevices } from './thingsboard/api/getAverageTemperatureFromDevices';
+export { getTemperatureReportByCustomer } from './thingsboard/api/getAverageTemperatureFromDevices';
 
 // export {
 //   getEntityInfoAndAttributesTB,

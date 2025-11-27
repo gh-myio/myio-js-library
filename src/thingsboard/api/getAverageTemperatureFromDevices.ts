@@ -1,50 +1,111 @@
 /**
- * Service para busca de temperatura com suporte a Cache, Timeout e 
- * Agrupamento explícito por lista de Customers.
+ * Tipos de Entrada (Input)
+ */
+
+// Formato de um item da lista de customers que você forneceu
+export interface CustomerInput {
+    name: string;
+    value: string;       // Este é o INGESTION ID
+    customerId: string;  // Este é o ID do ThingsBoard
+}
+
+// Formato simplificado do objeto de device vindo do self.ctx.data
+export interface TbDeviceInput {
+    id: {
+        id: string;
+        entityType: string;
+    };
+    customerId?: {
+        id: string;
+    };
+    ownerId?: { // Fallback caso customerId não esteja populado
+        id: string;
+    };
+    name?: string;
+    label?: string;
+    [key: string]: any; // Outras props
+}
+
+/**
+ * Tipos de Saída (Output / Relatório)
+ */
+export interface DeviceTempData {
+    name: string;
+    id: string;      // ID do Device
+    avgTemp: number | null;
+}
+
+export interface CustomerTempData {
+    customerName: string;
+    customerId: string;   // UUID do TB
+    ingestionId: string;  // UUID customizado (value do input)
+    avgTempCustomer: number;
+    deviceList: DeviceTempData[];
+    // Propriedades internas para cálculo (removidas no final se quiser, mas úteis na tipagem)
+    _sum?: number;
+    _count?: number;
+}
+
+export interface TemperatureReport {
+    avgTotal: number;
+    mapDeviceByCustomer: CustomerTempData[];
+}
+
+/**
+ * Configuração da Requisição
+ */
+export interface AverageTempConfig {
+    deviceList: Array<TbDeviceInput>;
+    customerList: Array<CustomerInput>;
+    startIso: string;
+    endIso: string;
+    baseUrl: string;
+    token: string;
+    timeoutMs?: number;
+    cacheTtlMs?: number;
+}
+
+interface CacheEntry {
+    data: TemperatureReport;
+    timestamp: number;
+}
+
+/**
+ * Service Principal
  */
 export class DeviceTemperatureService {
     
     // Cache em memória
-    static cache = new Map();
+    private static cache = new Map<string, CacheEntry>();
     
     // Intervalo do TB (30 min) para garantir média global
-    static TB_INTERVAL = "1800000"; 
+    private static readonly TB_INTERVAL = "1800000"; 
 
     /**
      * Gera chave de cache única baseada nos devices, customers e datas
-     * @param {Object} config 
      */
-    static generateCacheKey(config) {
+    private static generateCacheKey(config: AverageTempConfig): string {
         const { deviceList, customerList, startIso, endIso, baseUrl } = config;
         
         // IDs dos devices ordenados
         const devIds = deviceList
-            .map(d => d.id?.id || d.id?.entityType)
+            .map(d => d.id?.id)
             .sort()
             .join(',');
             
-        // IDs dos customers ordenados (para invalidar cache se a lista de shoppings mudar)
+        // IDs dos customers ordenados (para invalidar cache se a seleção de shoppings mudar)
         const custIds = customerList
             .map(c => c.customerId)
             .sort()
             .join(',');
             
-        return `${baseUrl}|${startIso}|${endIso}|${devIds}|${custIds}|v4-js-explicit`;
+        return `${baseUrl}|${startIso}|${endIso}|${devIds}|${custIds}|v4-ts`;
     }
 
     /**
      * Método Principal
-     * @param {Object} config
-     * @param {Array} config.deviceList Lista de dispositivos vindo do TB
-     * @param {Array} config.customerList Lista customizada {name, value, customerId}
-     * @param {string} config.startIso
-     * @param {string} config.endIso
-     * @param {string} config.baseUrl
-     * @param {string} config.token
-     * @param {number} [config.timeoutMs]
-     * @param {number} [config.cacheTtlMs]
      */
-    static async getTemperatureReport(config) {
+    public static async getTemperatureReport(config: AverageTempConfig): Promise<TemperatureReport> {
         const { deviceList, customerList, cacheTtlMs = 60000 } = config;
 
         // Validação básica
@@ -83,7 +144,7 @@ export class DeviceTemperatureService {
     /**
      * Realiza as requisições HTTP em paralelo com Timeout
      */
-    static async fetchAllTemperatures(config) {
+    private static async fetchAllTemperatures(config: AverageTempConfig): Promise<Array<{ device: TbDeviceInput, temp: number | null }>> {
         const { deviceList, startIso, endIso, baseUrl, token, timeoutMs = 10000 } = config;
         
         const startTs = new Date(startIso).getTime();
@@ -121,7 +182,7 @@ export class DeviceTemperatureService {
 
                 const json = await resp.json();
                 
-                let val = null;
+                let val: number | null = null;
                 if (json.temperature && json.temperature[0]) {
                     val = parseFloat(json.temperature[0].value);
                 }
@@ -141,19 +202,22 @@ export class DeviceTemperatureService {
     /**
      * Lógica de Agrupamento: Usa o CustomerList como base
      */
-    static processResultsIntoReport(results, customerList) {
+    private static processResultsIntoReport(
+        results: Array<{ device: TbDeviceInput, temp: number | null }>, 
+        customerList: Array<CustomerInput>
+    ): TemperatureReport {
         
         // 1. Inicializa o Mapa de Grupos usando o Customer ID do TB como chave
         // Isso garante que mesmo customers sem devices apareçam na lista final (com média 0)
-        const groupsMap = new Map();
+        const groupsMap = new Map<string, CustomerTempData>();
 
         customerList.forEach(c => {
-            // A chave do Map é o ID do Thingsboard (customerId), pois é o elo de ligação
+            // A chave do Map é o ID do Thingsboard, pois é isso que o Device tem para vincular
             if (c.customerId) {
                 groupsMap.set(c.customerId, {
                     customerName: c.name,
                     customerId: c.customerId, // ID real do TB
-                    ingestionId: c.value,     // O Value informado vira o Ingestion ID (Moxuara, etc)
+                    ingestionId: c.value,     // O Value informado vira o Ingestion ID
                     avgTempCustomer: 0,
                     deviceList: [],
                     _sum: 0,
@@ -163,7 +227,7 @@ export class DeviceTemperatureService {
         });
 
         // Grupo para dispositivos que não deram match com nenhum customer da lista
-        const orphans = {
+        const orphans: CustomerTempData = {
             customerName: "Outros / Não Identificado",
             customerId: "unknown",
             ingestionId: "",
@@ -178,10 +242,10 @@ export class DeviceTemperatureService {
         let globalCount = 0;
 
         results.forEach(({ device, temp }) => {
-            // Tenta pegar o ID do customer do dispositivo (estrutura padrão TB)
+            // Tenta pegar o ID do customer do dispositivo
             const devCustId = device.customerId?.id || device.ownerId?.id;
 
-            let targetGroup;
+            let targetGroup: CustomerTempData | undefined;
 
             if (devCustId) {
                 targetGroup = groupsMap.get(devCustId);
@@ -194,14 +258,16 @@ export class DeviceTemperatureService {
 
             // Adiciona na lista do grupo
             targetGroup.deviceList.push({
-                name: device.name || device.label || 'Sem Nome',
+                name: device.name || device.label || 'Unnamed Device',
                 id: device.id?.id,
                 avgTemp: temp
             });
 
             // Se tiver temperatura válida, soma
             if (temp !== null && !isNaN(temp)) {
+                // @ts-ignore (Propriedades internas _sum e _count existem no runtime)
                 targetGroup._sum += temp;
+                // @ts-ignore
                 targetGroup._count += 1;
 
                 globalSum += temp;
@@ -210,17 +276,17 @@ export class DeviceTemperatureService {
         });
 
         // 3. Finaliza os cálculos de média
-        const mapDeviceByCustomer = [];
+        const mapDeviceByCustomer: CustomerTempData[] = [];
 
         groupsMap.forEach(group => {
             // Calcula média do cliente
-            if (group._count > 0) {
+            if (group._count && group._sum !== undefined && group._count > 0) {
                 group.avgTempCustomer = parseFloat((group._sum / group._count).toFixed(2));
             } else {
                 group.avgTempCustomer = 0;
             }
 
-            // Limpeza de props internas
+            // Limpeza de props internas (opcional, para limpar o JSON final)
             delete group._sum;
             delete group._count;
 
@@ -229,7 +295,7 @@ export class DeviceTemperatureService {
 
         // Adiciona órfãos apenas se houver algum
         if (orphans.deviceList.length > 0) {
-             if (orphans._count > 0) {
+             if (orphans._count && orphans._sum !== undefined && orphans._count > 0) {
                 orphans.avgTempCustomer = parseFloat((orphans._sum / orphans._count).toFixed(2));
             }
             delete orphans._sum;
@@ -249,14 +315,15 @@ export class DeviceTemperatureService {
 /**
  * Função Wrapper Exportada
  * Mantém a facilidade de uso mas agora exige a lista de customers
- * * @param {Array} deviceList - Array de devices do TB (self.ctx.data)
- * @param {Array} customerList - Array de customers {name, value, customerId}
- * @param {string} startIso - Data Inicio ISO
- * @param {string} endIso - Data Fim ISO
- * @param {string} baseUrl - URL Base
- * @param {string} token - Token JWT
  */
-export async function getTemperatureReportByCustomer(deviceList, customerList, startIso, endIso, baseUrl, token) {
+export async function getTemperatureReportByCustomer(
+    deviceList: Array<TbDeviceInput>, 
+    customerList: Array<CustomerInput>,
+    startIso: string, 
+    endIso: string, 
+    baseUrl: string, 
+    token: string
+): Promise<TemperatureReport> {
     return DeviceTemperatureService.getTemperatureReport({
         deviceList,
         customerList,
