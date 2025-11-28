@@ -14,8 +14,18 @@
  * Por simplicidade no exemplo, os ícones '•' e '×' são mantidos, mas estilizaremos para parecerem melhores.
  */
 
-// RFC-0086: Get DATA_API_HOST from WELCOME widget (via window global)
-const DATA_API_HOST = window.__MYIO_DATA_API_HOST__;
+// RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
+function getDataApiHost() {
+  return localStorage.getItem('__MYIO_DATA_API_HOST__');
+}
+
+// RFC-0086: Get shopping label from localStorage (set by WELCOME widget)
+function getShoppingLabel() {
+  try {
+    const stored = localStorage.getItem('__MYIO_SHOPPING_LABEL__');
+    return stored ? JSON.parse(stored) : null;
+  } catch { return null; }
+}
 
 // Debug configuration
 const DEBUG_ACTIVE = true;
@@ -1223,7 +1233,7 @@ const footerController = {
 
       // ⭐ Usa as variáveis com fallback (já definidas acima)
       const MyIOAuthFooter = MyIOLibrary.buildMyioIngestionAuth({
-        dataApiHost: DATA_API_HOST,
+        dataApiHost: getDataApiHost(),
         clientId: clientId, // ← Usa a variável com fallback
         clientSecret: clientSecret, // ← Usa a variável com fallback
       });

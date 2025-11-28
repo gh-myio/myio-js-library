@@ -1,0 +1,45 @@
+{
+  "version": "1.0.0",
+  "limitsByInstantaneoustPowerType": [
+    {
+      "telemetryType": "consumption",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "MOTOR",
+          "name": "mapInstantaneousPowerMotor",
+          "description": "Limites customizados para CAG",
+          "limitsByDeviceStatus": [
+            {
+              "deviceStatusName": "standBy",
+              "limitsValues": {
+                "baseValue": 1,
+                "topValue": 30
+              }
+            },
+            {
+              "deviceStatusName": "normal",
+              "limitsValues": {
+                "baseValue": 31,
+                "topValue": 15000
+              }
+            },
+            {
+              "deviceStatusName": "alert",
+              "limitsValues": {
+                "baseValue": 15001,
+                "topValue": 50000
+              }
+            },
+            {
+              "deviceStatusName": "failure",
+              "limitsValues": {
+                "baseValue": 50001,
+                "topValue": 999999
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

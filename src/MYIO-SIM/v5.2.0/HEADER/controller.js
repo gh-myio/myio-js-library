@@ -4,10 +4,19 @@
 const EVT_SWITCH = 'myio:switch-main-state';
 const EVT_FILTER_OPEN = 'myio:open-filter';
 const EVT_FILTER_APPLIED = 'myio:filter-applied';
-// RFC-0086: Get DATA_API_HOST from WELCOME widget (via window global)
-const DATA_API_HOST = window.__MYIO_DATA_API_HOST__;
-let CLIENT_ID;
-let CLIENT_SECRET;
+// RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
+function getDataApiHost() {
+  return localStorage.getItem('__MYIO_DATA_API_HOST__');
+}
+
+// RFC-0086: Get shopping label from localStorage (set by WELCOME widget)
+function getShoppingLabel() {
+  try {
+    const stored = localStorage.getItem('__MYIO_SHOPPING_LABEL__');
+    return stored ? JSON.parse(stored) : null;
+  } catch { return null; }
+}
+
 let _dataRefreshCount = 0;
 const MAX_DATA_REFRESHES = 1;
 
@@ -36,115 +45,8 @@ const LogHelper = {
 // ===== SHOPPING FILTER STATE =====
 let selectedShoppingIds = []; // Shopping ingestionIds selected in filter
 
-// MyIOAuth - initialized in onInit using MyIOLibrary.buildMyioIngestionAuth
-let MyIOAuth = null;
-
-async function updateTotalConsumption(customersArray, startDateISO, endDateISO) {
-  const energyTotal = document.getElementById('energy-kpi');
-  energyTotal.innerHTML = `
-       <svg style="width:28px; height:28px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
-         <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round" 
-                 stroke-dasharray="90,150" stroke-dashoffset="0">
-         </circle>
-       </svg>
-     `;
-
-  let totalConsumption = 0;
-
-  for (const c of customersArray) {
-    // Pula se value estiver vazio
-    if (!c.value) continue;
-
-    try {
-      const TOKEN_INJESTION = await MyIOAuth.getToken();
-
-      const response = await fetch(
-        `${DATA_API_HOST}/api/v1/telemetry/customers/${c.value}/energy/total?startTime=${encodeURIComponent(
-          startDateISO
-        )}&endTime=${encodeURIComponent(endDateISO)}`,
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${TOKEN_INJESTION}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      console.log('response ==============================>', response);
-
-      if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
-      const data = await response.json();
-      console.log('data ==============================>', data);
-
-      totalConsumption += data.total_value;
-      //console.log("deu bom aiiii", totalConsumption)
-    } catch (err) {
-      console.error(`Falha ao buscar dados do customer ${c.value}:`, err);
-    }
-  }
-
-  // Atualiza o HTML diretamente
-
-  const percentDiference = document.getElementById('energy-trend');
-
-  energyTotal.innerText = `${MyIOLibrary.formatEnergy(totalConsumption)}`;
-  percentDiference.innerText = `↑ 100%`; // Se quiser, pode calcular dif percentual de outro jeito
-  percentDiference.style.color = 'red'; // Exemplo de cor
-}
-
-async function updateTotalWaterConsumption(customersArray, startDateISO, endDateISO) {
-  const energyTotal = document.getElementById('water-kpi');
-  energyTotal.innerHTML = `
-       <svg style="width:28px; height:28px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
-         <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round" 
-                 stroke-dasharray="90,150" stroke-dashoffset="0">
-         </circle>
-       </svg>
-     `;
-
-  let totalConsumption = 0;
-
-  for (const c of customersArray) {
-    // Pula se value estiver vazio
-    if (!c.value) continue;
-
-    try {
-      const TOKEN_INJESTION = await MyIOAuth.getToken();
-
-      const response = await fetch(
-        `${DATA_API_HOST}/api/v1/telemetry/customers/${c.value}/water/total?startTime=${encodeURIComponent(
-          startDateISO
-        )}&endTime=${encodeURIComponent(endDateISO)}`,
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${TOKEN_INJESTION}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      console.log('response water ==============================>', response);
-
-      if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
-      const data = await response.json();
-      console.log('data ==============================>', data);
-
-      totalConsumption += data.total_value;
-    } catch (err) {
-      console.error(`Falha ao buscar dados do customer ${c.value}:`, err);
-    }
-  }
-
-  // Atualiza o HTML diretamente
-
-  const percentDiference = document.getElementById('energy-trend');
-
-  energyTotal.innerText = `${MyIOLibrary.formatWaterVolumeM3(totalConsumption)}`;
-  percentDiference.innerText = `↑ 100%`; // Se quiser, pode calcular dif percentual de outro jeito
-  percentDiference.style.color = 'red'; // Exemplo de cor
-}
+// RFC: updateTotalConsumption moved to MAIN - use myio:request-total-consumption event
+// RFC: updateTotalWaterConsumption moved to MAIN - use myio:request-total-water-consumption event
 
 function publishSwitch(targetStateId) {
   const detail = { targetStateId, source: 'menu_v_1_0_0', ts: Date.now() };
@@ -742,17 +644,26 @@ function injectModalGlobal() {
       // Desabilita botão enquanto carrega
       elApply.disabled = true;
 
-      // Chama a função que atualiza o consumo
-      await updateTotalConsumption(
-        window.custumersSelected,
-        self.ctx.$scope.startDateISO,
-        self.ctx.$scope.endDateISO
+      // RFC: Request MAIN to update total consumption via CustomEvent
+      window.dispatchEvent(
+        new CustomEvent('myio:request-total-consumption', {
+          detail: {
+            customersArray: window.custumersSelected,
+            startDateISO: self.ctx.$scope.startDateISO,
+            endDateISO: self.ctx.$scope.endDateISO,
+          },
+        })
       );
 
-      updateTotalWaterConsumption(
-        window.custumersSelected,
-        self.ctx.$scope.startDateISO,
-        self.ctx.$scope.endDateISO
+      // RFC: Request MAIN to update water consumption via CustomEvent
+      window.dispatchEvent(
+        new CustomEvent('myio:request-total-water-consumption', {
+          detail: {
+            customersArray: window.custumersSelected,
+            startDateISO: self.ctx.$scope.startDateISO,
+            endDateISO: self.ctx.$scope.endDateISO,
+          },
+        })
       );
 
       await updateTemperatureCard();
@@ -953,16 +864,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   let timeEnd = endDate.toISOString();
 
   const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
-  CLIENT_ID = self.ctx.settings.clientId;
-  CLIENT_SECRET = self.ctx.settings.clientSecret;
-
-  // Initialize MyIOAuth using MyIOLibrary
-  MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-    dataApiHost: DATA_API_HOST,
-    clientId: CLIENT_ID,
-    clientSecret: CLIENT_SECRET,
-  });
-  LogHelper.log('[HEADER] MyIOAuth initialized using MyIOLibrary');
 
   LogHelper.log('[HEADER] self.ctx', self.ctx);
 
@@ -1033,8 +934,26 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       });
     }
 
-    updateTotalConsumption(custumer, startDateISO, endDateISO);
-    updateTotalWaterConsumption(custumer, startDateISO, endDateISO);
+    // RFC: Request MAIN to update total consumption via CustomEvent
+    window.dispatchEvent(
+      new CustomEvent('myio:request-total-consumption', {
+        detail: {
+          customersArray: custumer,
+          startDateISO: startDateISO,
+          endDateISO: endDateISO,
+        },
+      })
+    );
+    // RFC: Request MAIN to update water consumption via CustomEvent
+    window.dispatchEvent(
+      new CustomEvent('myio:request-total-water-consumption', {
+        detail: {
+          customersArray: custumer,
+          startDateISO: startDateISO,
+          endDateISO: endDateISO,
+        },
+      })
+    );
   });
 
   self.ctx.$scope.custumer = custumer;

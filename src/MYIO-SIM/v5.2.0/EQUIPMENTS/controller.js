@@ -1,7 +1,17 @@
 /* global self, ctx */
 
-// RFC-0086: Get DATA_API_HOST from WELCOME widget (via window global)
-const DATA_API_HOST = window.__MYIO_DATA_API_HOST__;
+// RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
+function getDataApiHost() {
+  return localStorage.getItem('__MYIO_DATA_API_HOST__');
+}
+
+// RFC-0086: Get shopping label from localStorage (set by WELCOME widget)
+function getShoppingLabel() {
+  try {
+    const stored = localStorage.getItem('__MYIO_SHOPPING_LABEL__');
+    return stored ? JSON.parse(stored) : null;
+  } catch { return null; }
+}
 let CUSTOMER_ID;
 let CLIENT_ID;
 let CLIENT_SECRET;
@@ -1379,7 +1389,7 @@ function initializeCards(devices) {
             label: device.labelOrName,
             domain: "energy",
             api: {
-              dataApiBaseUrl: DATA_API_HOST,
+              dataApiBaseUrl: getDataApiHost(),
               clientId: CLIENT_ID,
               clientSecret: CLIENT_SECRET,
               ingestionToken,
@@ -1715,7 +1725,7 @@ self.onInit = async function () {
 
   // Initialize MyIOAuth using MyIOLibrary
   MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-    dataApiHost: DATA_API_HOST,
+    dataApiHost: getDataApiHost(),
     clientId: CLIENT_ID,
     clientSecret: CLIENT_SECRET,
   });

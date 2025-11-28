@@ -31,6 +31,9 @@
 // Debug configuration (can be overridden by widget settings)
 let DEBUG_ACTIVE = true;
 
+// RFC-0086: Shopping label storage key
+const MYIO_SHOPPING_LABEL_KEY = '__MYIO_SHOPPING_LABEL__';
+
 const LogHelper = {
   log: function (...args) {
     if (DEBUG_ACTIVE) {
@@ -725,10 +728,67 @@ function wireCTA(attrs) {
 }
 
 /**
+ * RFC-0086: Get current dashboard title from ThingsBoard context
+ */
+function getCurrentDashboardTitle() {
+  try {
+    // Try multiple sources for dashboard title
+    const title = ctx.stateController?.dashboardCtx?.name ||
+                  ctx.stateController?.dashboardCtx?.dashboard?.title ||
+                  ctx.dashboard?.title ||
+                  null;
+    return title;
+  } catch (error) {
+    LogHelper.warn('Error getting dashboard title:', error);
+    return null;
+  }
+}
+
+/**
+ * RFC-0086: Set shopping label in window global (for other widgets)
+ */
+function setShoppingButtonLabel(label) {
+  window[MYIO_SHOPPING_LABEL_KEY] = label;
+  LogHelper.log('RFC-0086: Shopping label set to:', label);
+}
+
+/**
+ * RFC-0086: Get shopping label (for other widgets to use)
+ */
+function getShoppingLabel() {
+  // Try window first, then localStorage
+  if (window[MYIO_SHOPPING_LABEL_KEY]) {
+    return window[MYIO_SHOPPING_LABEL_KEY];
+  }
+  try {
+    const stored = localStorage.getItem(MYIO_SHOPPING_LABEL_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * RFC-0086: Update and persist shopping label from current dashboard
+ */
+function updateShoppingLabelFromDashboard() {
+  const title = getCurrentDashboardTitle();
+  if (title) {
+    setShoppingButtonLabel(title);
+    try {
+      localStorage.setItem(MYIO_SHOPPING_LABEL_KEY, JSON.stringify(title));
+    } catch {}
+  } else {
+    setShoppingButtonLabel(null);
+  }
+}
+
+/**
  * Initialize widget
  * rev001: Added text overrides rendering
  * rev002: Added settings.schema.json support for all configurations
  * rev003: RFC-0086 - Share DATA_API_HOST globally
+ * rev004: RFC-0086 - Share shopping label globally
  */
 async function init() {
   // Apply debug mode from settings
@@ -737,9 +797,16 @@ async function init() {
     DEBUG_ACTIVE = settings.enableDebugMode;
   }
 
-  // RFC-0086: Share DATA_API_HOST globally for all widgets
-  window.__MYIO_DATA_API_HOST__ = settings.dataApiHost;
-  LogHelper.log('RFC-0086: DATA_API_HOST set to:', window.__MYIO_DATA_API_HOST__);
+  // RFC-0086: Save DATA_API_HOST to localStorage for all widgets
+  try {
+    localStorage.setItem('__MYIO_DATA_API_HOST__', settings.dataApiHost);
+    LogHelper.log('RFC-0086: DATA_API_HOST saved to localStorage:', settings.dataApiHost);
+  } catch (e) {
+    LogHelper.warn('RFC-0086: Failed to save DATA_API_HOST to localStorage:', e);
+  }
+
+  // RFC-0086: Update and persist shopping label
+  updateShoppingLabelFromDashboard();
 
   LogHelper.log('init() called');
   LogHelper.log('Debug mode:', DEBUG_ACTIVE, '(from settings)');

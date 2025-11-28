@@ -125,6 +125,11 @@
   },
   "form": [
     {
+      "type": "fieldset",
+      "title": "API Configuration",
+      "items": ["dataApiHost"]
+    },
+    {
       "key": "enableDebugMode",
       "type": "checkbox"
     },

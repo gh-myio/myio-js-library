@@ -33,8 +33,18 @@ const LogHelper = {
 
 LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
 
-// RFC-0086: Get DATA_API_HOST from WELCOME widget (via window global)
-const DATA_API_HOST = window.__MYIO_DATA_API_HOST__;
+// RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
+function getDataApiHost() {
+  return localStorage.getItem('__MYIO_DATA_API_HOST__');
+}
+
+// RFC-0086: Get shopping label from localStorage (set by WELCOME widget)
+function getShoppingLabel() {
+  try {
+    const stored = localStorage.getItem('__MYIO_SHOPPING_LABEL__');
+    return stored ? JSON.parse(stored) : null;
+  } catch { return null; }
+}
 const MAX_FIRST_HYDRATES = 1;
 
 let __deviceProfileSyncComplete = false;
@@ -916,7 +926,7 @@ async function fetchApiTotals(startISO, endISO) {
   const token = await MyIOAuth.getToken();
   if (!token) throw new Error('No ingestion token');
 
-  const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/energy/devices/totals`);
+  const url = new URL(`${getDataApiHost()}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/energy/devices/totals`);
   url.searchParams.set('startTime', toSpOffsetNoMs(startISO));
   url.searchParams.set('endTime', toSpOffsetNoMs(endISO, true));
   url.searchParams.set('deep', '1');
@@ -1193,7 +1203,7 @@ function renderList(visible) {
             label: it.label,
             domain: 'energy',
             api: {
-              dataApiBaseUrl: DATA_API_HOST,
+              dataApiBaseUrl: getDataApiHost(),
               clientId: CLIENT_ID,
               clientSecret: CLIENT_SECRET,
               ingestionToken,
@@ -3059,7 +3069,7 @@ self.onInit = async function () {
     window.__MYIO_CUSTOMER_ING_ID__ = CUSTOMER_ING_ID;
 
     MyIOAuth = MyIO.buildMyioIngestionAuth({
-      dataApiHost: DATA_API_HOST,
+      dataApiHost: getDataApiHost(),
       clientId: CLIENT_ID,
       clientSecret: CLIENT_SECRET,
     });

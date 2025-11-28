@@ -22,8 +22,20 @@ const LogHelper = {
   },
 };
 
-// RFC-0086: DATA_API_HOST comes from WELCOME widget (window.__MYIO_DATA_API_HOST__)
-const DATA_API_HOST = window.__MYIO_DATA_API_HOST__;
+// RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
+function getDataApiHost() {
+  return localStorage.getItem('__MYIO_DATA_API_HOST__');
+}
+
+// RFC-0086: Get shopping label from localStorage (set by WELCOME widget)
+function getShoppingLabel() {
+  try {
+    const stored = localStorage.getItem('__MYIO_SHOPPING_LABEL__');
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
 let CUSTOMER_ID_TB; // ThingsBoard Customer ID
 let CUSTOMER_INGESTION_ID; // Ingestion API Customer ID
 let CLIENT_ID_INGESTION;
@@ -714,7 +726,7 @@ const MyIOOrchestrator = (() => {
       // Get token from MyIO auth component
       const TOKEN_INGESTION = await myIOAuth.getToken();
 
-      const apiUrl = `${DATA_API_HOST}/api/v1/telemetry/customers/${customerIngestionId}/energy/devices/totals?startTime=${encodeURIComponent(
+      const apiUrl = `${getDataApiHost()}/api/v1/telemetry/customers/${customerIngestionId}/energy/devices/totals?startTime=${encodeURIComponent(
         startDateISO
       )}&endTime=${encodeURIComponent(endDateISO)}&deep=1`;
       console.log('[MAIN] [Orchestrator] 🌐 API URL:', apiUrl);
@@ -884,7 +896,7 @@ const MyIOOrchestrator = (() => {
       const TOKEN_INGESTION = await myIOAuth.getToken();
 
       // Endpoint da API de ÁGUA
-      const apiUrl = `${DATA_API_HOST}/api/v1/telemetry/customers/${customerIngestionId}/water/devices/totals?startTime=${encodeURIComponent(
+      const apiUrl = `${getDataApiHost()}/api/v1/telemetry/customers/${customerIngestionId}/water/devices/totals?startTime=${encodeURIComponent(
         startDateISO
       )}&endTime=${encodeURIComponent(endDateISO)}&deep=1`;
 
@@ -1215,6 +1227,156 @@ window.addEventListener('myio:customers-ready', async (ev) => {
 
 LogHelper.log('[MyIOOrchestrator] Initialized');
 
+// ===== RFC: updateTotalConsumption moved from MENU =====
+/**
+ * Atualiza o card de energia total com consumo dos customers selecionados
+ * @param {Array} customersArray - Array de customers {name, value}
+ * @param {string} startDateISO - Data início ISO
+ * @param {string} endDateISO - Data fim ISO
+ */
+async function updateTotalConsumption(customersArray, startDateISO, endDateISO) {
+  const energyTotal = document.getElementById('energy-kpi');
+  if (!energyTotal) {
+    LogHelper.warn('[MAIN] energy-kpi element not found');
+    return;
+  }
+
+  energyTotal.innerHTML = `
+    <svg style="width:28px; height:28px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
+      <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
+              stroke-dasharray="90,150" stroke-dashoffset="0">
+      </circle>
+    </svg>
+  `;
+
+  let totalConsumption = 0;
+
+  for (const c of customersArray) {
+    if (!c.value) continue;
+
+    try {
+      const TOKEN_INGESTION = await myIOAuth.getToken();
+
+      const response = await fetch(
+        `${getDataApiHost()}/api/v1/telemetry/customers/${
+          c.value
+        }/energy/total?startTime=${encodeURIComponent(startDateISO)}&endTime=${encodeURIComponent(
+          endDateISO
+        )}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${TOKEN_INGESTION}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
+      const data = await response.json();
+
+      totalConsumption += data.total_value;
+    } catch (err) {
+      console.error(`Falha ao buscar dados do customer ${c.value}:`, err);
+    }
+  }
+
+  const percentDiference = document.getElementById('energy-trend');
+
+  energyTotal.innerText = `${MyIOLibrary.formatEnergy(totalConsumption)}`;
+  if (percentDiference) {
+    percentDiference.innerText = `↑ 100%`;
+    percentDiference.style.color = 'red';
+  }
+
+  //LogHelper.log('[MAIN] updateTotalConsumption completed:', totalConsumption);
+}
+
+// ===== RFC: Listen for request to update total consumption from MENU =====
+window.addEventListener('myio:request-total-consumption', async (ev) => {
+  //LogHelper.log('[MAIN] Received myio:request-total-consumption:', ev.detail);
+
+  const { customersArray, startDateISO, endDateISO } = ev.detail || {};
+
+  if (!customersArray || !startDateISO || !endDateISO) {
+    LogHelper.warn('[MAIN] Invalid parameters for updateTotalConsumption');
+    return;
+  }
+
+  await updateTotalConsumption(customersArray, startDateISO, endDateISO);
+});
+
+// ===== RFC: updateTotalWaterConsumption moved from HEADER =====
+/**
+ * Atualiza o card de água total com consumo dos customers selecionados
+ * @param {Array} customersArray - Array de customers {name, value}
+ * @param {string} startDateISO - Data início ISO
+ * @param {string} endDateISO - Data fim ISO
+ */
+async function updateTotalWaterConsumption(customersArray, startDateISO, endDateISO) {
+  const waterTotal = document.getElementById('water-kpi');
+  if (!waterTotal) {
+    LogHelper.warn('[MAIN] water-kpi element not found');
+    return;
+  }
+
+  waterTotal.innerHTML = `
+    <svg style="width:28px; height:28px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
+      <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
+              stroke-dasharray="90,150" stroke-dashoffset="0">
+      </circle>
+    </svg>
+  `;
+
+  let totalConsumption = 0;
+
+  for (const c of customersArray) {
+    if (!c.value) continue;
+
+    try {
+      const TOKEN_INGESTION = await myIOAuth.getToken();
+
+      const response = await fetch(
+        `${getDataApiHost()}/api/v1/telemetry/customers/${c.value}/water/total?startTime=${encodeURIComponent(
+          startDateISO
+        )}&endTime=${encodeURIComponent(endDateISO)}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${TOKEN_INGESTION}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
+      const data = await response.json();
+
+      totalConsumption += data.total_value;
+    } catch (err) {
+      console.error(`Falha ao buscar dados de água do customer ${c.value}:`, err);
+    }
+  }
+
+  waterTotal.innerText = `${MyIOLibrary.formatWaterVolumeM3(totalConsumption)}`;
+
+  //LogHelper.log('[MAIN] updateTotalWaterConsumption completed:', totalConsumption);
+}
+
+// ===== RFC: Listen for request to update water consumption =====
+window.addEventListener('myio:request-total-water-consumption', async (ev) => {
+  //LogHelper.log('[MAIN] Received myio:request-total-water-consumption:', ev.detail);
+
+  const { customersArray, startDateISO, endDateISO } = ev.detail || {};
+
+  if (!customersArray || !startDateISO || !endDateISO) {
+    LogHelper.warn('[MAIN] Invalid parameters for updateTotalWaterConsumption');
+    return;
+  }
+
+  await updateTotalWaterConsumption(customersArray, startDateISO, endDateISO);
+});
+
 self.onInit = async function () {
   // ===== STEP 1: Get ThingsBoard Customer ID and fetch credentials =====
   CUSTOMER_ID_TB = self.ctx.settings.customerId;
@@ -1264,7 +1426,7 @@ self.onInit = async function () {
   }
 
   myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-    dataApiHost: DATA_API_HOST,
+    dataApiHost: getDataApiHost(),
     clientId: CLIENT_ID_INGESTION,
     clientSecret: CLIENT_SECRET_INGESTION,
   });

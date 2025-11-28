@@ -4,10 +4,19 @@
 const EVT_SWITCH = 'myio:switch-main-state';
 const EVT_FILTER_OPEN = 'myio:open-filter';
 const EVT_FILTER_APPLIED = 'myio:filter-applied';
-// RFC-0086: Get DATA_API_HOST from WELCOME widget (via window global)
-const DATA_API_HOST = window.__MYIO_DATA_API_HOST__;
-let CLIENT_ID;
-let CLIENT_SECRET;
+// RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
+function getDataApiHost() {
+  return localStorage.getItem('__MYIO_DATA_API_HOST__');
+}
+
+// RFC-0086: Get shopping label from localStorage (set by WELCOME widget)
+function getShoppingLabel() {
+  try {
+    const stored = localStorage.getItem('__MYIO_SHOPPING_LABEL__');
+    return stored ? JSON.parse(stored) : null;
+  } catch { return null; }
+}
+
 let _dataRefreshCount = 0;
 const MAX_DATA_REFRESHES = 1;
 
@@ -32,9 +41,6 @@ const LogHelper = {
     }
   },
 };
-
-// MyIOAuth - initialized in onInit using MyIOLibrary.buildMyioIngestionAuth
-let MyIOAuth = null;
 
 function publishSwitch(targetStateId) {
   const detail = { targetStateId, source: 'menu', ts: Date.now() };
@@ -931,59 +937,18 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           })
         );
 
-        // Also update customer consumption if applicable (uses global MyIOAuth from MyIOLibrary)
+        // RFC: Request MAIN to update total consumption via CustomEvent
         if (window.custumersSelected && window.custumersSelected.length > 0) {
-
-          async function updateTotalConsumption(customersArray, startDateISO, endDateISO) {
-            const energyTotal = document.getElementById('energy-kpi');
-            energyTotal.innerHTML = `
-              <svg style="width:28px; height:28px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
-                <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
-                        stroke-dasharray="90,150" stroke-dashoffset="0">
-                </circle>
-              </svg>
-            `;
-
-            let totalConsumption = 0;
-
-            for (const c of customersArray) {
-              if (!c.value) continue;
-
-              try {
-                const TOKEN_INJESTION = await MyIOAuth.getToken();
-
-                const response = await fetch(
-                  `${DATA_API_HOST}/api/v1/telemetry/customers/${
-                    c.value
-                  }/energy/total?startTime=${encodeURIComponent(startDateISO)}&endTime=${encodeURIComponent(
-                    endDateISO
-                  )}`,
-                  {
-                    method: 'GET',
-                    headers: {
-                      Authorization: `Bearer ${TOKEN_INJESTION}`,
-                      'Content-Type': 'application/json',
-                    },
-                  }
-                );
-
-                if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
-                const data = await response.json();
-
-                totalConsumption += data.total_value;
-              } catch (err) {
-                console.error(`Falha ao buscar dados do customer ${c.value}:`, err);
-              }
-            }
-
-            const percentDiference = document.getElementById('energy-trend');
-
-            energyTotal.innerText = `${MyIOLibrary.formatEnergy(totalConsumption)}`;
-            percentDiference.innerText = `↑ 100%`;
-            percentDiference.style.color = 'red';
-          }
-
-          await updateTotalConsumption(window.custumersSelected, startISOOffset, endISOOffset);
+          window.dispatchEvent(
+            new CustomEvent('myio:request-total-consumption', {
+              detail: {
+                customersArray: window.custumersSelected,
+                startDateISO: startISOOffset,
+                endDateISO: endISOOffset,
+              },
+            })
+          );
+          console.log('[MENU] Dispatched myio:request-total-consumption to MAIN');
         }
       } catch (error) {
         console.error('[MENU] Error loading data:', error);
@@ -1174,16 +1139,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   }
 
   const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
-  CLIENT_ID = self.ctx.settings.clientId;
-  CLIENT_SECRET = self.ctx.settings.clientSecret;
-
-  // Initialize MyIOAuth using MyIOLibrary
-  MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-    dataApiHost: DATA_API_HOST,
-    clientId: CLIENT_ID,
-    clientSecret: CLIENT_SECRET,
-  });
-  LogHelper.log('[MENU] MyIOAuth initialized using MyIOLibrary');
 
   computeCustomersFromCtx();
 
