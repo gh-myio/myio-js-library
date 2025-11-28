@@ -1,10 +1,11 @@
 # Bug Report: `bar_mode` Parameter Not Working in `renderTelemetryStackedChart`
 
-**Data:** 2025-11-27
+**Data:** 2025-11-28 (atualizado)
 **Reportado por:** Equipe MyIO Dashboard
 **Componente:** Energy Chart SDK (`energy-chart-sdk.umd.js`)
 **Severidade:** Alta
-**Ambiente:** Produção e Staging
+**Ambiente:** Staging (`https://graphs.staging.apps.myio-bas.com`)
+**Status:** Bug confirmado com evidências de debug
 
 ---
 
@@ -137,6 +138,49 @@ https://graphs.apps.myio-bas.com/embed/telemetry-stacked
 
 ---
 
+## Evidências de Debug (2025-11-28)
+
+Adicionamos logs de debug detalhados para rastrear o fluxo completo. Os logs confirmam que **nosso código está funcionando corretamente** e o bug está no SDK.
+
+### Fluxo Completo de Logs (Toggle grouped → stacked)
+
+```
+Linha 1020: [EnergyModalView] reRenderChart called, mode: comparison barMode: grouped theme: dark
+Linha 1021: [EnergyModalView] Calling renderComparisonChart...
+Linha 1022: [EnergyModalView] Rendering comparison chart with SDK: {version: 'v2', clientId: '...', dataSources: Array(2), readingType: 'energy', ...}
+Linha 1023: [EnergyModalView] renderComparisonChart result: true
+           ↓
+      [Usuário clica no botão toggle]
+           ↓
+Linha 1034: [EnergyModalView] reRenderChart called, mode: comparison barMode: stacked theme: dark
+Linha 1035: [EnergyModalView] Calling renderComparisonChart...
+Linha 1036: [EnergyModalView] Rendering comparison chart with SDK: {version: 'v2', clientId: '...', dataSources: Array(2), readingType: 'energy', ...}
+Linha 1037: [EnergyModalView] renderComparisonChart result: true
+Linha 1038: [EnergyModalView] Bar mode toggled to: stacked
+```
+
+### Análise dos Logs
+
+| Componente | Status | Evidência |
+|------------|--------|-----------|
+| `toggleBarMode()` | ✅ OK | `barMode: stacked` aparece no log |
+| `applyBarMode()` | ✅ OK | `reRenderChart called` é disparado |
+| `reRenderChart()` | ✅ OK | `Calling renderComparisonChart...` aparece |
+| `renderComparisonChart()` | ✅ OK | `result: true` confirma execução sem erros |
+| **SDK interno** | ❌ BUG | Gráfico não muda visualmente |
+
+### Conclusão do Debug
+
+1. ✅ O valor `bar_mode` é alterado corretamente no estado interno
+2. ✅ O chart é destruído e recriado com nova configuração
+3. ✅ O SDK recebe o parâmetro `bar_mode: 'stacked'`
+4. ✅ O SDK retorna sucesso (não há erro)
+5. ❌ **O gráfico visual NÃO muda** - permanece no modo anterior
+
+**O bug está confirmado dentro do SDK**, não no código consumidor.
+
+---
+
 ## Passos para Reproduzir
 
 1. Abrir o dashboard principal do MyIO
@@ -158,6 +202,10 @@ https://graphs.apps.myio-bas.com/embed/telemetry-stacked
 | Re-render é chamado ao trocar modo | ✅ OK | Nova instância é criada |
 | Cache do navegador | ✅ Limpo | Testado em aba anônima |
 | Versão do SDK | ✅ Atualizada | `energy-chart-sdk.umd.js` mais recente |
+| Ambiente Staging | ✅ Testado | SDK e iframe apontando para staging |
+| `iframeBaseUrl` correto | ✅ OK | `https://graphs.staging.apps.myio-bas.com` |
+| Fluxo de re-render completo | ✅ OK | Logs de debug confirmam execução |
+| Chart destruído antes de recriar | ✅ OK | `chartInstance.destroy()` chamado |
 
 ---
 
@@ -169,11 +217,14 @@ O SDK pode estar ignorando o parâmetro na construção do gráfico Plotly/Chart
 ### 2. Parâmetro com nome diferente internamente
 A documentação menciona `bar_mode`, mas internamente o SDK pode esperar outro nome (ex: `barMode`, `mode`, `chartMode`).
 
-### 3. Bug no build de produção
-O parâmetro pode funcionar em desenvolvimento mas não no build minificado.
+### 3. Bug no build de produção E staging
+O parâmetro não funciona nem em staging nem em produção.
 
 ### 4. Falta de re-fetch dos dados
 Ao trocar o `bar_mode`, o SDK pode precisar refazer a requisição de dados, mas está usando cache.
+
+### 5. ⭐ MAIS PROVÁVEL: iframe não está sendo recriado corretamente
+O SDK pode estar reutilizando o iframe existente ao invés de criar um novo com os parâmetros atualizados. Mesmo chamando `destroy()`, o iframe pode persistir ou o SDK pode estar usando um cache interno.
 
 ---
 
@@ -242,6 +293,12 @@ Atualmente não há workaround disponível. O botão de toggle foi mantido na UI
 - [x] Código fonte: `EnergyModalView.ts` (linhas 591-682)
 - [x] Documentação: `INGESTION-SDK-GRAPHS-COMPARISON_CHARTS.md`
 - [x] Screenshots: (solicitar se necessário)
+- [x] **Log de debug completo:** `dashboard.myio-bas.com-1764340062625-CLEAN.log`
+- [x] **Configuração de ambiente testada:**
+  ```javascript
+  const CHARTS_BASE_URL = 'https://graphs.staging.apps.myio-bas.com';
+  const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+  ```
 
 ---
 

@@ -22,7 +22,7 @@ const CHARTS_BASE_URL = 'https://graphs.staging.apps.myio-bas.com'; // staging p
 // const CHARTS_BASE_URL = 'https://graphs.apps.myio-bas.com'; // produção
 
 // Debug configuration
-const DEBUG_ACTIVE = false;
+const DEBUG_ACTIVE = true;
 
 // LogHelper utility
 const LogHelper = {
