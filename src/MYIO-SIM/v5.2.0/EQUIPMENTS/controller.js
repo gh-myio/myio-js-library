@@ -1,6 +1,7 @@
 /* global self, ctx */
 
-const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
+// RFC-0086: Get DATA_API_HOST from WELCOME widget (via window global)
+const DATA_API_HOST = window.__MYIO_DATA_API_HOST__;
 let CUSTOMER_ID;
 let CLIENT_ID;
 let CLIENT_SECRET;

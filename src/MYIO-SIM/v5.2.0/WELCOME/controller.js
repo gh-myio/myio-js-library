@@ -728,6 +728,7 @@ function wireCTA(attrs) {
  * Initialize widget
  * rev001: Added text overrides rendering
  * rev002: Added settings.schema.json support for all configurations
+ * rev003: RFC-0086 - Share DATA_API_HOST globally
  */
 async function init() {
   // Apply debug mode from settings
@@ -735,6 +736,10 @@ async function init() {
   if (settings.enableDebugMode !== undefined) {
     DEBUG_ACTIVE = settings.enableDebugMode;
   }
+
+  // RFC-0086: Share DATA_API_HOST globally for all widgets
+  window.__MYIO_DATA_API_HOST__ = settings.dataApiHost;
+  LogHelper.log('RFC-0086: DATA_API_HOST set to:', window.__MYIO_DATA_API_HOST__);
 
   LogHelper.log('init() called');
   LogHelper.log('Debug mode:', DEBUG_ACTIVE, '(from settings)');

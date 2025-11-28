@@ -4,7 +4,8 @@
 const EVT_SWITCH = 'myio:switch-main-state';
 const EVT_FILTER_OPEN = 'myio:open-filter';
 const EVT_FILTER_APPLIED = 'myio:filter-applied';
-const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+// RFC-0086: Get DATA_API_HOST from WELCOME widget (via window global)
+const DATA_API_HOST = window.__MYIO_DATA_API_HOST__;
 let CLIENT_ID;
 let CLIENT_SECRET;
 let _dataRefreshCount = 0;
@@ -1182,7 +1183,7 @@ function calculateTotalAverageTemperature(resultArray) {
   return media;
 }
 
-async function fetchCustomerAverageTemperarature(customerId, startTs, endTs) {
+async function fetchCustomerAverageTemperarature(startTs, endTs) {
   const tbToken = localStorage.getItem('jwt_token');
 
   if (!tbToken) {
@@ -1265,7 +1266,9 @@ async function fetchCustomerAverageTemperarature(customerId, startTs, endTs) {
       deviceId: null,
       deviceName: 'Erro',
     };
+
     cachePeakDemand(result, startTs, endTs);
+
     return result;
   }
 }
@@ -1279,14 +1282,13 @@ async function updateTemperatureCard() {
   // Faixa ideal de temperatura
   let MIN_TEMP;
   let MAX_TEMP;
-  const customerId = self.ctx?.settings?.customerId;
   const startTs = self.ctx?.$scope?.startDateISO
     ? new Date(self.ctx?.$scope.startDateISO).getTime()
     : Date.now() - 7 * 24 * 60 * 60 * 1000;
 
   const endTs = self.ctx.$scope?.endDateISO ? new Date(self.ctx.$scope.endDateISO).getTime() : Date.now();
 
-  const totalAverageTemperature = await fetchCustomerAverageTemperarature(customerId, startTs, endTs);
+  const totalAverageTemperature = await fetchCustomerAverageTemperarature(startTs, endTs);
 
   self.ctx.data.forEach((data) => {
     if (data.dataKey.name === 'maxTemperature') {

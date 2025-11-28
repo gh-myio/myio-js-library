@@ -14,7 +14,8 @@
  * Por simplicidade no exemplo, os ícones '•' e '×' são mantidos, mas estilizaremos para parecerem melhores.
  */
 
-const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+// RFC-0086: Get DATA_API_HOST from WELCOME widget (via window global)
+const DATA_API_HOST = window.__MYIO_DATA_API_HOST__;
 
 // Debug configuration
 const DEBUG_ACTIVE = true;

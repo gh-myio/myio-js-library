@@ -4,7 +4,8 @@
 const EVT_SWITCH = 'myio:switch-main-state';
 const EVT_FILTER_OPEN = 'myio:open-filter';
 const EVT_FILTER_APPLIED = 'myio:filter-applied';
-const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+// RFC-0086: Get DATA_API_HOST from WELCOME widget (via window global)
+const DATA_API_HOST = window.__MYIO_DATA_API_HOST__;
 let CLIENT_ID;
 let CLIENT_SECRET;
 let _dataRefreshCount = 0;

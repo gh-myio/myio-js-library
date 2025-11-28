@@ -33,7 +33,8 @@ const LogHelper = {
 
 LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
 
-const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+// RFC-0086: Get DATA_API_HOST from WELCOME widget (via window global)
+const DATA_API_HOST = window.__MYIO_DATA_API_HOST__;
 const MAX_FIRST_HYDRATES = 1;
 
 let __deviceProfileSyncComplete = false;

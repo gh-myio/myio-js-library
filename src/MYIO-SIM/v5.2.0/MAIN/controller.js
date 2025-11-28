@@ -1,7 +1,7 @@
 /* global self, ctx, window, document, localStorage, MyIOLibrary */
 
 // Debug configuration
-const DEBUG_ACTIVE = false;
+const DEBUG_ACTIVE = true;
 
 // LogHelper utility
 const LogHelper = {
@@ -22,7 +22,8 @@ const LogHelper = {
   },
 };
 
-const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+// RFC-0086: DATA_API_HOST comes from WELCOME widget (window.__MYIO_DATA_API_HOST__)
+const DATA_API_HOST = window.__MYIO_DATA_API_HOST__;
 let CUSTOMER_ID_TB; // ThingsBoard Customer ID
 let CUSTOMER_INGESTION_ID; // Ingestion API Customer ID
 let CLIENT_ID_INGESTION;
@@ -1251,6 +1252,7 @@ self.onInit = async function () {
   window.__MYIO_CLIENT_ID__ = CLIENT_ID_INGESTION;
   window.__MYIO_CLIENT_SECRET__ = CLIENT_SECRET_INGESTION;
   window.__MYIO_CUSTOMER_INGESTION_ID__ = CUSTOMER_INGESTION_ID;
+  // RFC-0086: DATA_API_HOST now comes from WELCOME widget
 
   // ===== STEP 2: Initialize MyIO Auth Component =====
   // Check if MyIOLibrary is available
