@@ -247,6 +247,75 @@
             </div>
         </div>
 
+        <h2>🆕 NEW: Temperature Modal Components (RFC-0085)</h2>
+        <p style="color: #666; margin-bottom: 20px;">
+            <strong>openTemperatureModal</strong> and <strong>openTemperatureComparisonModal</strong> - RFC 0085 implementation for temperature telemetry visualization with granularity control, theme toggle, and statistics.
+        </p>
+
+        <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #1976d2;">
+            <h3>🌡️ Single Device Temperature Modal</h3>
+            <p style="margin-bottom: 16px; color: #555;">
+                Temperature visualization for a single device with statistics, chart, and date range selection:
+            </p>
+
+            <div style="margin-top: 16px;">
+                <button class="demo-button" onclick="openTemperatureModalDemo()" style="background: #1976d2;">
+                    🌡️ Temperature Modal (Light Theme)
+                </button>
+                <button class="demo-button" onclick="openTemperatureModalDarkDemo()" style="background: #424242;">
+                    🌙 Temperature Modal (Dark Theme)
+                </button>
+                <button class="demo-button" onclick="openTemperatureModalDayDemo()" style="background: #00796b;">
+                    📅 Temperature Modal (Day Granularity)
+                </button>
+            </div>
+
+            <div style="margin-top: 16px; padding: 12px; background: #e9ecef; border-radius: 4px;">
+                <strong>Features Demonstrated:</strong>
+                <ul style="margin: 8px 0; padding-left: 20px; color: #555;">
+                    <li>🌡️ Single device temperature chart</li>
+                    <li>📊 Statistics cards (current, avg, min, max)</li>
+                    <li>📅 Granularity control (Hour/Day)</li>
+                    <li>🌙 Theme toggle (Dark/Light)</li>
+                    <li>📈 30-minute interval interpolation</li>
+                    <li>📥 CSV export with statistics</li>
+                    <li>🎯 Ideal temperature range visualization</li>
+                </ul>
+            </div>
+        </div>
+
+        <div style="background: #f3e5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #9C27B0;">
+            <h3>📊 Multi-Device Temperature Comparison</h3>
+            <p style="margin-bottom: 16px; color: #555;">
+                Compare temperature data from multiple devices with color-coded lines and legend:
+            </p>
+
+            <div style="margin-top: 16px;">
+                <button class="demo-button" onclick="openTemperatureComparisonDemo()" style="background: #9C27B0;">
+                    📊 Comparison (3 Devices)
+                </button>
+                <button class="demo-button" onclick="openTemperatureComparisonLightDemo()" style="background: #7B1FA2;">
+                    ☀️ Comparison (Light Theme)
+                </button>
+                <button class="demo-button" onclick="openTemperatureComparisonManyDemo()" style="background: #6A1B9A;">
+                    📈 Comparison (6 Devices)
+                </button>
+            </div>
+
+            <div style="margin-top: 16px; padding: 12px; background: #e9ecef; border-radius: 4px;">
+                <strong>Features Demonstrated:</strong>
+                <ul style="margin: 8px 0; padding-left: 20px; color: #555;">
+                    <li>📊 Multi-line chart with distinct colors</li>
+                    <li>🏷️ Color-coded legend with device labels</li>
+                    <li>📈 Statistics per device (avg, min, max)</li>
+                    <li>📅 Granularity control (Hour/Day)</li>
+                    <li>🌙 Theme toggle (Dark/Light)</li>
+                    <li>📥 CSV export for all devices</li>
+                    <li>⚡ Parallel data fetching</li>
+                </ul>
+            </div>
+        </div>
+
         <h2>🔮 Future Modals (Coming Soon)</h2>
         <button class="demo-button" onclick="openEnergyDemo()" style="opacity: 0.6;">
             ⚡ Energy Modal (Coming Soon)
@@ -1709,11 +1778,441 @@ Open the Customer Totals All Report Modal?`);
         
         function clearUtilityResults() {
             utilityTestResults = null;
-            
+
             const output = document.getElementById('utility-output');
             output.style.display = 'none';
-            
+
             alert('🗑️ Utility test results cleared successfully!\\n\\nYou can run the test again to generate new results.');
+        }
+
+        // ============================================================================
+        // Temperature Modal Demos (RFC-0085)
+        // ============================================================================
+
+        /**
+         * Generates mock temperature telemetry data
+         */
+        function generateMockTemperatureData(options = {}) {
+            const {
+                startTs = Date.now() - 7 * 24 * 60 * 60 * 1000, // 7 days ago
+                endTs = Date.now(),
+                baseTemp = 24,
+                variation = 3,
+                intervalMinutes = 15
+            } = options;
+
+            const data = [];
+            const intervalMs = intervalMinutes * 60 * 1000;
+
+            for (let ts = startTs; ts <= endTs; ts += intervalMs) {
+                const date = new Date(ts);
+                const hour = date.getHours();
+
+                // Simulate daily temperature pattern
+                let temp = baseTemp;
+
+                // Cooler at night (0-6), warmer during day (10-18)
+                if (hour >= 0 && hour < 6) {
+                    temp -= variation * 0.5;
+                } else if (hour >= 10 && hour < 18) {
+                    temp += variation * 0.3;
+                }
+
+                // Add random noise
+                temp += (Math.random() - 0.5) * variation;
+
+                // Clamp to reasonable range
+                temp = Math.max(15, Math.min(40, temp));
+
+                data.push({
+                    ts,
+                    value: temp.toFixed(1)
+                });
+            }
+
+            return data;
+        }
+
+        /**
+         * Mock fetcher that returns generated temperature data
+         */
+        function createMockTemperatureFetcher(options = {}) {
+            return async (token, deviceId, startTs, endTs) => {
+                console.log('[MOCK] Generating temperature data for device:', deviceId);
+
+                // Simulate API delay
+                await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500));
+
+                return generateMockTemperatureData({
+                    startTs,
+                    endTs,
+                    ...options
+                });
+            };
+        }
+
+        // Single Device Temperature Modal Demos
+        function openTemperatureModalDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+
+            if (!MyIOLibrary.openTemperatureModal) {
+                alert('❌ openTemperatureModal not available in this build.\\n\\nThis component is part of RFC-0085 implementation.');
+                return;
+            }
+
+            try {
+                // Generate mock data
+                const now = new Date();
+                const startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                const mockData = generateMockTemperatureData({
+                    startTs: startDate.getTime(),
+                    endTs: now.getTime(),
+                    baseTemp: 24,
+                    variation: 3
+                });
+
+                // Temporarily override fetch for demo
+                const originalFetch = window.fetch;
+                window.fetch = async (url, options) => {
+                    if (url.includes('/api/plugins/telemetry/')) {
+                        console.log('[DEMO] Intercepting ThingsBoard API call, returning mock data');
+                        await new Promise(resolve => setTimeout(resolve, 800));
+                        return {
+                            ok: true,
+                            json: async () => ({ temperature: mockData })
+                        };
+                    }
+                    return originalFetch(url, options);
+                };
+
+                const modal = MyIOLibrary.openTemperatureModal({
+                    token: 'demo-jwt-token-temperature',
+                    deviceId: 'demo-device-temp-001',
+                    startDate: startDate.toISOString(),
+                    endDate: now.toISOString(),
+                    label: 'Câmara Fria - Loja 001',
+                    currentTemperature: 23.5,
+                    temperatureMin: 18,
+                    temperatureMax: 26,
+                    temperatureStatus: 'ok',
+                    granularity: 'hour',
+                    theme: 'light',
+                    onClose: () => {
+                        console.log('🌡️ Temperature Modal closed');
+                        window.fetch = originalFetch; // Restore original fetch
+                    }
+                });
+
+                console.log('🌡️ Temperature Modal opened:', modal);
+
+                setTimeout(() => {
+                    alert('🌡️ Temperature Modal Demo (Light Theme)!\\n\\n✨ Features Demonstrated:\\n• Single device temperature chart\\n• Statistics: Current (23.5°C), Avg, Min/Max\\n• Ideal range: 18°C - 26°C (green band)\\n• Granularity: Hour (30-min intervals)\\n• Theme: Light mode\\n• Mock data with realistic daily pattern\\n\\n🔧 Try These Features:\\n• Switch granularity to "Dia (média)"\\n• Toggle theme to dark mode\\n• Change date range and click "Consultar"\\n• Export data to CSV\\n\\n📊 Mock Data Pattern:\\n• Base temperature: 24°C\\n• Cooler at night, warmer during day\\n• Random variation for realism');
+                }, 500);
+
+            } catch (error) {
+                console.error('Error opening temperature modal:', error);
+                alert(`❌ Error: ${error.message}`);
+            }
+        }
+
+        function openTemperatureModalDarkDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+
+            if (!MyIOLibrary.openTemperatureModal) {
+                alert('❌ openTemperatureModal not available in this build.');
+                return;
+            }
+
+            try {
+                const now = new Date();
+                const startDate = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000); // 3 days
+                const mockData = generateMockTemperatureData({
+                    startTs: startDate.getTime(),
+                    endTs: now.getTime(),
+                    baseTemp: 5, // Freezer temperature
+                    variation: 2
+                });
+
+                const originalFetch = window.fetch;
+                window.fetch = async (url) => {
+                    if (url.includes('/api/plugins/telemetry/')) {
+                        await new Promise(resolve => setTimeout(resolve, 600));
+                        return { ok: true, json: async () => ({ temperature: mockData }) };
+                    }
+                    return originalFetch(url);
+                };
+
+                MyIOLibrary.openTemperatureModal({
+                    token: 'demo-jwt-token-dark',
+                    deviceId: 'demo-device-freezer-001',
+                    startDate: startDate.toISOString(),
+                    endDate: now.toISOString(),
+                    label: 'Freezer Principal',
+                    currentTemperature: 4.8,
+                    temperatureMin: 2,
+                    temperatureMax: 8,
+                    temperatureStatus: 'ok',
+                    granularity: 'hour',
+                    theme: 'dark',
+                    clampRange: { min: -5, max: 20 },
+                    onClose: () => {
+                        window.fetch = originalFetch;
+                    }
+                });
+
+                setTimeout(() => {
+                    alert('🌙 Temperature Modal Demo (Dark Theme)!\\n\\n✨ Freezer Simulation:\\n• Base temperature: ~5°C\\n• Ideal range: 2°C - 8°C\\n• Dark theme for monitoring displays\\n• Custom clamp range: -5°C to 20°C\\n\\nPerfect for cold storage monitoring!');
+                }, 500);
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert(`❌ Error: ${error.message}`);
+            }
+        }
+
+        function openTemperatureModalDayDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+
+            if (!MyIOLibrary.openTemperatureModal) {
+                alert('❌ openTemperatureModal not available in this build.');
+                return;
+            }
+
+            try {
+                const now = new Date();
+                const startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days
+                const mockData = generateMockTemperatureData({
+                    startTs: startDate.getTime(),
+                    endTs: now.getTime(),
+                    baseTemp: 22,
+                    variation: 4
+                });
+
+                const originalFetch = window.fetch;
+                window.fetch = async (url) => {
+                    if (url.includes('/api/plugins/telemetry/')) {
+                        await new Promise(resolve => setTimeout(resolve, 700));
+                        return { ok: true, json: async () => ({ temperature: mockData }) };
+                    }
+                    return originalFetch(url);
+                };
+
+                MyIOLibrary.openTemperatureModal({
+                    token: 'demo-jwt-token-day',
+                    deviceId: 'demo-device-ambiente-001',
+                    startDate: startDate.toISOString(),
+                    endDate: now.toISOString(),
+                    label: 'Ambiente Loja - Piso 1',
+                    currentTemperature: 23.2,
+                    temperatureMin: 20,
+                    temperatureMax: 25,
+                    temperatureStatus: 'ok',
+                    granularity: 'day', // Start with day granularity
+                    theme: 'light',
+                    onClose: () => {
+                        window.fetch = originalFetch;
+                    }
+                });
+
+                setTimeout(() => {
+                    alert('📅 Temperature Modal Demo (Day Granularity)!\\n\\n✨ Monthly View:\\n• 30 days of data\\n• Granularity: Day (daily averages)\\n• Shows avg temperature per day\\n• Better for long-term trends\\n\\n🔧 Try switching to "Hora (30 min)" to see detailed hourly data!');
+                }, 500);
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert(`❌ Error: ${error.message}`);
+            }
+        }
+
+        // Multi-Device Temperature Comparison Demos
+        function openTemperatureComparisonDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+
+            if (!MyIOLibrary.openTemperatureComparisonModal) {
+                alert('❌ openTemperatureComparisonModal not available in this build.\\n\\nThis component is part of RFC-0085 implementation.');
+                return;
+            }
+
+            try {
+                const now = new Date();
+                const startDate = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000); // 5 days
+
+                // Generate different mock data for each device
+                const mockDataByDevice = {
+                    'device-001': generateMockTemperatureData({ startTs: startDate.getTime(), endTs: now.getTime(), baseTemp: 24, variation: 2 }),
+                    'device-002': generateMockTemperatureData({ startTs: startDate.getTime(), endTs: now.getTime(), baseTemp: 22, variation: 3 }),
+                    'device-003': generateMockTemperatureData({ startTs: startDate.getTime(), endTs: now.getTime(), baseTemp: 26, variation: 2.5 })
+                };
+
+                const originalFetch = window.fetch;
+                window.fetch = async (url) => {
+                    if (url.includes('/api/plugins/telemetry/')) {
+                        const deviceId = url.match(/DEVICE\/([^/]+)/)?.[1] || 'device-001';
+                        await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 400));
+                        return { ok: true, json: async () => ({ temperature: mockDataByDevice[deviceId] || mockDataByDevice['device-001'] }) };
+                    }
+                    return originalFetch(url);
+                };
+
+                MyIOLibrary.openTemperatureComparisonModal({
+                    token: 'demo-jwt-token-comparison',
+                    devices: [
+                        { id: 'device-001', label: 'Câmara Fria 1' },
+                        { id: 'device-002', label: 'Câmara Fria 2' },
+                        { id: 'device-003', label: 'Área de Estoque' }
+                    ],
+                    startDate: startDate.toISOString(),
+                    endDate: now.toISOString(),
+                    granularity: 'hour',
+                    theme: 'dark',
+                    onClose: () => {
+                        window.fetch = originalFetch;
+                    }
+                });
+
+                setTimeout(() => {
+                    alert('📊 Temperature Comparison Demo (3 Devices)!\\n\\n✨ Features Demonstrated:\\n• 3 devices with different colors\\n• Color-coded legend\\n• Statistics per device\\n• Dark theme\\n• Parallel data fetching\\n\\n📊 Mock Data:\\n• Câmara Fria 1: ~24°C (blue)\\n• Câmara Fria 2: ~22°C (red)\\n• Área de Estoque: ~26°C (green)\\n\\n🔧 Try These Features:\\n• Switch to day granularity\\n• Toggle to light theme\\n• Export all data to CSV');
+                }, 500);
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert(`❌ Error: ${error.message}`);
+            }
+        }
+
+        function openTemperatureComparisonLightDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+
+            if (!MyIOLibrary.openTemperatureComparisonModal) {
+                alert('❌ openTemperatureComparisonModal not available in this build.');
+                return;
+            }
+
+            try {
+                const now = new Date();
+                const startDate = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000); // 2 days
+
+                const mockDataByDevice = {
+                    'freezer-a': generateMockTemperatureData({ startTs: startDate.getTime(), endTs: now.getTime(), baseTemp: 4, variation: 1.5 }),
+                    'freezer-b': generateMockTemperatureData({ startTs: startDate.getTime(), endTs: now.getTime(), baseTemp: 5, variation: 2 })
+                };
+
+                const originalFetch = window.fetch;
+                window.fetch = async (url) => {
+                    if (url.includes('/api/plugins/telemetry/')) {
+                        const deviceId = url.match(/DEVICE\/([^/]+)/)?.[1];
+                        await new Promise(resolve => setTimeout(resolve, 400));
+                        return { ok: true, json: async () => ({ temperature: mockDataByDevice[deviceId] || mockDataByDevice['freezer-a'] }) };
+                    }
+                    return originalFetch(url);
+                };
+
+                MyIOLibrary.openTemperatureComparisonModal({
+                    token: 'demo-jwt-token-light',
+                    devices: [
+                        { id: 'freezer-a', label: 'Freezer A' },
+                        { id: 'freezer-b', label: 'Freezer B' }
+                    ],
+                    startDate: startDate.toISOString(),
+                    endDate: now.toISOString(),
+                    granularity: 'hour',
+                    theme: 'light',
+                    clampRange: { min: -5, max: 15 },
+                    onClose: () => {
+                        window.fetch = originalFetch;
+                    }
+                });
+
+                setTimeout(() => {
+                    alert('☀️ Temperature Comparison Demo (Light Theme)!\\n\\n✨ Freezer Comparison:\\n• 2 freezers side-by-side\\n• Light theme for reports\\n• Custom clamp range: -5°C to 15°C\\n\\nIdeal for print-ready monitoring!');
+                }, 500);
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert(`❌ Error: ${error.message}`);
+            }
+        }
+
+        function openTemperatureComparisonManyDemo() {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('MyIOLibrary not loaded. Build the project first.');
+                return;
+            }
+
+            if (!MyIOLibrary.openTemperatureComparisonModal) {
+                alert('❌ openTemperatureComparisonModal not available in this build.');
+                return;
+            }
+
+            try {
+                const now = new Date();
+                const startDate = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000); // 3 days
+
+                // 6 different devices with varying temperatures
+                const devices = [
+                    { id: 'sensor-1', label: 'Setor A - Piso 1', baseTemp: 23 },
+                    { id: 'sensor-2', label: 'Setor B - Piso 1', baseTemp: 24 },
+                    { id: 'sensor-3', label: 'Setor C - Piso 1', baseTemp: 22 },
+                    { id: 'sensor-4', label: 'Setor A - Piso 2', baseTemp: 25 },
+                    { id: 'sensor-5', label: 'Setor B - Piso 2', baseTemp: 23.5 },
+                    { id: 'sensor-6', label: 'Área Externa', baseTemp: 28 }
+                ];
+
+                const mockDataByDevice = {};
+                devices.forEach(d => {
+                    mockDataByDevice[d.id] = generateMockTemperatureData({
+                        startTs: startDate.getTime(),
+                        endTs: now.getTime(),
+                        baseTemp: d.baseTemp,
+                        variation: 2
+                    });
+                });
+
+                const originalFetch = window.fetch;
+                window.fetch = async (url) => {
+                    if (url.includes('/api/plugins/telemetry/')) {
+                        const deviceId = url.match(/DEVICE\/([^/]+)/)?.[1];
+                        await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300));
+                        return { ok: true, json: async () => ({ temperature: mockDataByDevice[deviceId] || mockDataByDevice['sensor-1'] }) };
+                    }
+                    return originalFetch(url);
+                };
+
+                MyIOLibrary.openTemperatureComparisonModal({
+                    token: 'demo-jwt-token-many',
+                    devices: devices.map(d => ({ id: d.id, label: d.label })),
+                    startDate: startDate.toISOString(),
+                    endDate: now.toISOString(),
+                    granularity: 'hour',
+                    theme: 'dark',
+                    onClose: () => {
+                        window.fetch = originalFetch;
+                    }
+                });
+
+                setTimeout(() => {
+                    alert('📈 Temperature Comparison Demo (6 Devices)!\\n\\n✨ Multi-Zone Monitoring:\\n• 6 sensors across different areas\\n• Full color palette demonstrated\\n• Statistics for each zone\\n\\n📊 Zones:\\n• Setor A - Piso 1: ~23°C\\n• Setor B - Piso 1: ~24°C\\n• Setor C - Piso 1: ~22°C\\n• Setor A - Piso 2: ~25°C\\n• Setor B - Piso 2: ~23.5°C\\n• Área Externa: ~28°C\\n\\nPerfect for facility-wide temperature monitoring!');
+                }, 500);
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert(`❌ Error: ${error.message}`);
+            }
         }
     </script>
 </body>

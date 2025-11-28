@@ -2500,6 +2500,186 @@ For complete technical specifications, see: [RFC-0015-MyIO-DemandModal-Component
 
 ---
 
+### Temperature Modal Components (RFC-0085)
+
+Two specialized components for temperature telemetry visualization from ThingsBoard devices.
+
+#### `openTemperatureModal(params: TemperatureModalParams): Promise<TemperatureModalInstance>`
+
+Opens a temperature modal for a **single device** with historical data visualization, statistics, and granularity control.
+
+**Parameters:**
+- `params: TemperatureModalParams` - Configuration object:
+  - `token: string` - JWT token for ThingsBoard API (required)
+  - `deviceId: string` - ThingsBoard device UUID (required)
+  - `startDate: string` - ISO datetime string (required)
+  - `endDate: string` - ISO datetime string (required)
+  - `label?: string` - Device label (default: "Sensor de Temperatura")
+  - `currentTemperature?: number` - Current temperature value
+  - `temperatureMin?: number` - Minimum threshold for visual range
+  - `temperatureMax?: number` - Maximum threshold for visual range
+  - `temperatureStatus?: 'ok' | 'above' | 'below'` - Status indicator
+  - `granularity?: 'hour' | 'day'` - Initial granularity (default: 'hour')
+  - `theme?: 'dark' | 'light'` - Initial theme (default: 'light')
+  - `clampRange?: { min: number; max: number }` - Outlier clamping (default: 15-40°C)
+  - `locale?: 'pt-BR' | 'en-US'` - Locale for formatting
+  - `onClose?: () => void` - Callback when modal closes
+
+**Returns:** Promise resolving to `TemperatureModalInstance`:
+- `destroy(): void` - Close and clean up modal
+- `updateData(startDate, endDate, granularity?): Promise<void>` - Refresh data
+
+**Key Features:**
+- **Granularity Control**: Hour (30-min intervals) or Day (daily averages)
+- **Theme Toggle**: Dark/Light mode with localStorage persistence
+- **Interpolation**: Fills 30-minute gaps using repeat-last strategy
+- **Statistics Cards**: Current, Average, Min/Max, Ideal Range
+- **Canvas Chart**: Timeline visualization with threshold lines
+- **CSV Export**: Full data with statistics summary
+- **DateTime Picker**: Start/end datetime selection
+
+**Usage Example:**
+```javascript
+import { openTemperatureModal } from 'myio-js-library';
+
+const modal = await openTemperatureModal({
+  token: 'eyJhbGciOiJIUzI1NiJ9...',
+  deviceId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  startDate: '2025-01-01T00:00:00',
+  endDate: '2025-01-31T23:59:59',
+  label: 'Câmara Fria - Loja 001',
+  temperatureMin: 2,
+  temperatureMax: 8,
+  granularity: 'hour',
+  theme: 'dark',
+  onClose: () => console.log('Modal closed')
+});
+
+// Update data with new date range
+await modal.updateData('2025-02-01T00:00:00', '2025-02-28T23:59:59', 'day');
+
+// Clean up
+modal.destroy();
+```
+
+---
+
+#### `openTemperatureComparisonModal(params: TemperatureComparisonModalParams): Promise<TemperatureComparisonModalInstance>`
+
+Opens a temperature comparison modal for **multiple devices** with multi-line chart visualization.
+
+**Parameters:**
+- `params: TemperatureComparisonModalParams` - Configuration object:
+  - `token: string` - JWT token for ThingsBoard API (required)
+  - `devices: TemperatureDevice[]` - Array of devices to compare (required)
+    - `id: string` - Device UUID
+    - `label: string` - Device label for legend
+    - `tbId?: string` - Alternative ThingsBoard ID
+  - `startDate: string` - ISO datetime string (required)
+  - `endDate: string` - ISO datetime string (required)
+  - `granularity?: 'hour' | 'day'` - Initial granularity (default: 'hour')
+  - `theme?: 'dark' | 'light'` - Initial theme (default: 'dark')
+  - `clampRange?: { min: number; max: number }` - Outlier clamping
+  - `locale?: 'pt-BR' | 'en-US'` - Locale for formatting
+  - `onClose?: () => void` - Callback when modal closes
+
+**Returns:** Promise resolving to `TemperatureComparisonModalInstance`:
+- `destroy(): void` - Close and clean up modal
+- `updateData(startDate, endDate, granularity?): Promise<void>` - Refresh data
+
+**Key Features:**
+- **Multi-Device Comparison**: Up to 8 devices with distinct colors
+- **Color-Coded Legend**: Automatic color assignment with labels
+- **Statistics Per Device**: Avg, Min, Max, Count for each sensor
+- **Granularity Control**: Hour (30-min intervals) or Day (daily averages)
+- **Theme Toggle**: Dark/Light mode with persistence
+- **Parallel Data Fetching**: Promise.all for efficient loading
+- **CSV Export**: All devices data with statistics summary
+
+**Usage Example:**
+```javascript
+import { openTemperatureComparisonModal } from 'myio-js-library';
+
+const modal = await openTemperatureComparisonModal({
+  token: 'eyJhbGciOiJIUzI1NiJ9...',
+  devices: [
+    { id: 'device-uuid-1', label: 'Câmara Fria 1' },
+    { id: 'device-uuid-2', label: 'Câmara Fria 2' },
+    { id: 'device-uuid-3', label: 'Freezer Principal' }
+  ],
+  startDate: '2025-01-01T00:00:00',
+  endDate: '2025-01-31T23:59:59',
+  granularity: 'hour',
+  theme: 'dark',
+  onClose: () => console.log('Comparison modal closed')
+});
+```
+
+**UMD Usage (ThingsBoard widgets):**
+```html
+<script src="https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js"></script>
+<script>
+  const { openTemperatureModal, openTemperatureComparisonModal } = MyIOLibrary;
+
+  // Single device
+  await openTemperatureModal({
+    token: jwtToken,
+    deviceId: selectedDevice.id,
+    startDate: startISO,
+    endDate: endISO,
+    label: selectedDevice.label
+  });
+
+  // Multiple devices comparison
+  await openTemperatureComparisonModal({
+    token: jwtToken,
+    devices: selectedDevices.map(d => ({ id: d.id, label: d.label })),
+    startDate: startISO,
+    endDate: endISO
+  });
+</script>
+```
+
+**Utility Functions:**
+```javascript
+import {
+  fetchTemperatureData,
+  clampTemperature,
+  calculateStats,
+  interpolateTemperature,
+  aggregateByDay,
+  formatTemperature,
+  exportTemperatureCSV,
+  DEFAULT_CLAMP_RANGE,
+  CHART_COLORS
+} from 'myio-js-library';
+
+// Fetch raw temperature data
+const data = await fetchTemperatureData(token, deviceId, startTs, endTs);
+
+// Clamp outliers
+const clamped = clampTemperature(35.5, { min: 15, max: 40 }); // 35.5
+
+// Calculate statistics
+const stats = calculateStats(data, DEFAULT_CLAMP_RANGE);
+// { avg: 23.5, min: 18.2, max: 28.7, count: 1440 }
+
+// Interpolate to 30-minute intervals
+const interpolated = interpolateTemperature(data, {
+  intervalMinutes: 30,
+  startTs: startTimestamp,
+  endTs: endTimestamp
+});
+
+// Aggregate by day
+const daily = aggregateByDay(data);
+// [{ date: '2025-01-25', avg: 23.5, min: 18.2, max: 28.7, count: 48 }, ...]
+```
+
+For complete technical specifications, see: [RFC-0085-Temperature-Modal-Component](src/docs/rfcs/RFC-0085-Temperature-Modal-Component.md)
+
+---
+
 ### Goals Panel Component
 
 #### `openGoalsPanel(params: GoalsPanelParams): GoalsPanelInstance`

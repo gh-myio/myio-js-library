@@ -182,3 +182,33 @@ export {
 
 // Goals Panel Component (RFC-0075)
 export { openGoalsPanel } from './components/GoalsPanel.js';
+
+// RFC-0085: Temperature Modal Components
+export {
+  openTemperatureModal,
+  openTemperatureComparisonModal,
+  // Utility functions
+  fetchTemperatureData,
+  clampTemperature,
+  calculateStats,
+  interpolateTemperature,
+  aggregateByDay,
+  formatTemperature,
+  exportTemperatureCSV,
+  // Constants
+  DEFAULT_CLAMP_RANGE,
+  CHART_COLORS
+} from './components/temperature';
+
+// RFC-0085: Temperature Modal Types
+export type {
+  TemperatureModalParams,
+  TemperatureModalInstance,
+  TemperatureComparisonModalParams,
+  TemperatureComparisonModalInstance,
+  TemperatureDevice,
+  TemperatureTelemetry,
+  TemperatureStats,
+  TemperatureGranularity,
+  ClampRange
+} from './components/temperature';
