@@ -36,6 +36,23 @@ export interface ClampRange {
 
 export type TemperatureGranularity = 'hour' | 'day';
 
+// Day period types for filtering
+export type DayPeriod = 'madrugada' | 'manha' | 'tarde' | 'noite';
+
+export interface DayPeriodConfig {
+  id: DayPeriod;
+  label: string;
+  startHour: number;
+  endHour: number;
+}
+
+export const DAY_PERIODS: DayPeriodConfig[] = [
+  { id: 'madrugada', label: 'Madrugada (00h-06h)', startHour: 0, endHour: 6 },
+  { id: 'manha', label: 'Manhã (06h-12h)', startHour: 6, endHour: 12 },
+  { id: 'tarde', label: 'Tarde (12h-18h)', startHour: 12, endHour: 18 },
+  { id: 'noite', label: 'Noite (18h-24h)', startHour: 18, endHour: 24 }
+];
+
 // ============================================================================
 // Constants
 // ============================================================================
@@ -236,6 +253,51 @@ export function aggregateByDay(
 
   // Sort by date
   return result.sort((a, b) => a.dateTs - b.dateTs);
+}
+
+// ============================================================================
+// Period Filtering
+// ============================================================================
+
+/**
+ * Filters temperature data by selected day periods
+ * If all periods are selected or none are selected, returns all data
+ */
+export function filterByDayPeriods(
+  data: TemperatureTelemetry[],
+  selectedPeriods: DayPeriod[]
+): TemperatureTelemetry[] {
+  // If all periods selected or none selected, return all data
+  if (selectedPeriods.length === 0 || selectedPeriods.length === DAY_PERIODS.length) {
+    return data;
+  }
+
+  return data.filter(item => {
+    const date = new Date(item.ts);
+    const hour = date.getHours();
+
+    return selectedPeriods.some(periodId => {
+      const period = DAY_PERIODS.find(p => p.id === periodId);
+      if (!period) return false;
+      return hour >= period.startHour && hour < period.endHour;
+    });
+  });
+}
+
+/**
+ * Gets the label for selected periods (for display)
+ */
+export function getSelectedPeriodsLabel(selectedPeriods: DayPeriod[]): string {
+  if (selectedPeriods.length === 0 || selectedPeriods.length === DAY_PERIODS.length) {
+    return 'Todos os períodos';
+  }
+
+  if (selectedPeriods.length === 1) {
+    const period = DAY_PERIODS.find(p => p.id === selectedPeriods[0]);
+    return period?.label || '';
+  }
+
+  return `${selectedPeriods.length} períodos selecionados`;
 }
 
 // ============================================================================

@@ -17,13 +17,17 @@ import {
   exportTemperatureCSV,
   getThemeColors,
   getTodaySoFar,
+  filterByDayPeriods,
+  getSelectedPeriodsLabel,
   DEFAULT_CLAMP_RANGE,
+  DAY_PERIODS,
   type TemperatureTelemetry,
   type TemperatureStats,
   type DailyTemperatureStats,
   type ClampRange,
   type TemperatureGranularity,
-  type ThemeColors
+  type ThemeColors,
+  type DayPeriod
 } from './utils';
 
 import { createDateRangePicker, type DateRangeControl } from '../createDateRangePicker';
@@ -94,6 +98,7 @@ interface ModalState {
   stats: TemperatureStats;
   isLoading: boolean;
   dateRangePicker: DateRangeControl | null;
+  selectedPeriods: DayPeriod[];
 }
 
 // ============================================================================
@@ -131,7 +136,8 @@ export async function openTemperatureModal(
     data: [],
     stats: { avg: 0, min: 0, max: 0, count: 0 },
     isLoading: true,
-    dateRangePicker: null
+    dateRangePicker: null,
+    selectedPeriods: ['madrugada', 'manha', 'tarde', 'noite'] // All periods selected by default
   };
 
   // Load saved preferences
@@ -223,59 +229,66 @@ function renderModal(
   const startDateInput = new Date(state.startTs).toISOString().slice(0, 16);
   const endDateInput = new Date(state.endTs).toISOString().slice(0, 16);
 
+  // Track maximized state
+  const isMaximized = (container as any).__isMaximized || false;
+  const contentMaxWidth = isMaximized ? '100%' : '900px';
+  const contentMaxHeight = isMaximized ? '100vh' : '95vh';
+  const contentBorderRadius = isMaximized ? '0' : '10px';
+
   container.innerHTML = `
     <div class="myio-temp-modal-overlay" style="
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: ${colors.background}; z-index: 10000;
+      background: rgba(0, 0, 0, 0.5); z-index: 9998;
       display: flex; justify-content: center; align-items: center;
-      backdrop-filter: blur(4px);
+      backdrop-filter: blur(2px);
     ">
       <div class="myio-temp-modal-content" style="
-        background: ${colors.surface}; border-radius: 16px; padding: 24px;
-        max-width: 900px; width: 95%; max-height: 95vh; overflow-y: auto;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        border: 1px solid ${colors.border};
+        background: ${colors.surface}; border-radius: ${contentBorderRadius};
+        max-width: ${contentMaxWidth}; width: ${isMaximized ? '100%' : '95%'};
+        max-height: ${contentMaxHeight}; height: ${isMaximized ? '100%' : 'auto'};
+        overflow: hidden; display: flex; flex-direction: column;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        font-family: 'Roboto', Arial, sans-serif;
       ">
-        <!-- Header -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="
-              width: 44px; height: 44px; background: linear-gradient(135deg, #1976d2, #1565c0);
-              border-radius: 12px; display: flex; align-items: center; justify-content: center;
-              font-size: 22px;
-            ">🌡️</div>
-            <div>
-              <h2 style="margin: 0; font-size: 20px; color: ${colors.text}; font-weight: 600;">
-                ${state.label}
-              </h2>
-              <p style="margin: 2px 0 0; font-size: 13px; color: ${colors.textMuted};">
-                Histórico de Temperatura
-              </p>
-            </div>
-          </div>
-          <div style="display: flex; gap: 8px; align-items: center;">
+        <!-- Header - MyIO Premium Style -->
+        <div style="
+          padding: 4px 8px; display: flex; align-items: center; justify-content: space-between;
+          background: #3e1a7d; color: white; border-radius: ${isMaximized ? '0' : '10px 10px 0 0'};
+          min-height: 20px;
+        ">
+          <h2 style="margin: 6px; font-size: 18px; font-weight: 600; color: white; line-height: 2;">
+            🌡️ ${state.label} - Histórico de Temperatura
+          </h2>
+          <div style="display: flex; gap: 4px; align-items: center;">
             <!-- Theme Toggle -->
             <button id="${modalId}-theme-toggle" title="Alternar tema" style="
-              width: 40px; height: 40px; border-radius: 10px;
-              background: ${colors.border}; border: none;
-              cursor: pointer; font-size: 18px; display: flex;
-              align-items: center; justify-content: center;
+              background: none; border: none; font-size: 16px; cursor: pointer;
+              padding: 4px 8px; border-radius: 6px; color: rgba(255,255,255,0.8);
+              transition: background-color 0.2s;
             ">${state.theme === 'dark' ? '☀️' : '🌙'}</button>
+            <!-- Maximize Button -->
+            <button id="${modalId}-maximize" title="${isMaximized ? 'Restaurar' : 'Maximizar'}" style="
+              background: none; border: none; font-size: 16px; cursor: pointer;
+              padding: 4px 8px; border-radius: 6px; color: rgba(255,255,255,0.8);
+              transition: background-color 0.2s;
+            ">${isMaximized ? '🗗' : '🗖'}</button>
             <!-- Close Button -->
-            <button id="${modalId}-close" style="
-              width: 40px; height: 40px; border-radius: 10px;
-              background: ${colors.border}; border: none;
-              cursor: pointer; font-size: 20px; color: ${colors.text};
-              display: flex; align-items: center; justify-content: center;
+            <button id="${modalId}-close" title="Fechar" style="
+              background: none; border: none; font-size: 20px; cursor: pointer;
+              padding: 4px 8px; border-radius: 6px; color: rgba(255,255,255,0.8);
+              transition: background-color 0.2s;
             ">×</button>
           </div>
         </div>
 
+        <!-- Body -->
+        <div style="flex: 1; overflow-y: auto; padding: 16px;">
+
         <!-- Controls Row -->
         <div style="
           display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;
-          margin-bottom: 20px; padding: 16px; background: ${state.theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#f5f5f5'};
-          border-radius: 12px; border: 1px solid ${colors.border};
+          margin-bottom: 16px; padding: 16px; background: ${state.theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#f7f7f7'};
+          border-radius: 6px; border: 1px solid ${colors.border};
         ">
           <!-- Granularity Select -->
           <div>
@@ -283,40 +296,91 @@ function renderModal(
               Granularidade
             </label>
             <select id="${modalId}-granularity" style="
-              padding: 10px 14px; border: 1px solid ${colors.border}; border-radius: 8px;
+              padding: 8px 12px; border: 1px solid ${colors.border}; border-radius: 6px;
               font-size: 14px; color: ${colors.text}; background: ${colors.surface};
-              cursor: pointer; min-width: 140px;
+              cursor: pointer; min-width: 130px;
             ">
               <option value="hour" ${state.granularity === 'hour' ? 'selected' : ''}>Hora (30 min)</option>
               <option value="day" ${state.granularity === 'day' ? 'selected' : ''}>Dia (média)</option>
             </select>
           </div>
+          <!-- Day Period Filter (Multiselect) -->
+          <div style="position: relative;">
+            <label style="color: ${colors.textMuted}; font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px;">
+              Períodos do Dia
+            </label>
+            <button id="${modalId}-period-btn" type="button" style="
+              padding: 8px 12px; border: 1px solid ${colors.border}; border-radius: 6px;
+              font-size: 14px; color: ${colors.text}; background: ${colors.surface};
+              cursor: pointer; min-width: 180px; text-align: left;
+              display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            ">
+              <span>${getSelectedPeriodsLabel(state.selectedPeriods)}</span>
+              <span style="font-size: 10px;">▼</span>
+            </button>
+            <div id="${modalId}-period-dropdown" style="
+              display: none; position: absolute; top: 100%; left: 0; z-index: 1000;
+              background: ${colors.surface}; border: 1px solid ${colors.border};
+              border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+              min-width: 200px; margin-top: 4px; padding: 8px 0;
+            ">
+              ${DAY_PERIODS.map(period => `
+                <label style="
+                  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+                  cursor: pointer; font-size: 13px; color: ${colors.text};
+                " onmouseover="this.style.background='${state.theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#f0f0f0'}'"
+                   onmouseout="this.style.background='transparent'">
+                  <input type="checkbox"
+                    name="${modalId}-period"
+                    value="${period.id}"
+                    ${state.selectedPeriods.includes(period.id) ? 'checked' : ''}
+                    style="width: 16px; height: 16px; cursor: pointer; accent-color: #3e1a7d;">
+                  ${period.label}
+                </label>
+              `).join('')}
+              <div style="border-top: 1px solid ${colors.border}; margin-top: 8px; padding-top: 8px;">
+                <button id="${modalId}-period-select-all" type="button" style="
+                  width: calc(100% - 16px); margin: 0 8px 4px; padding: 6px;
+                  background: ${state.theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#f0f0f0'};
+                  border: none; border-radius: 4px; cursor: pointer;
+                  font-size: 12px; color: ${colors.text};
+                ">Selecionar Todos</button>
+                <button id="${modalId}-period-clear" type="button" style="
+                  width: calc(100% - 16px); margin: 0 8px; padding: 6px;
+                  background: ${state.theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#f0f0f0'};
+                  border: none; border-radius: 4px; cursor: pointer;
+                  font-size: 12px; color: ${colors.text};
+                ">Limpar Seleção</button>
+              </div>
+            </div>
+          </div>
           <!-- Date Range Picker -->
-          <div style="flex: 1; min-width: 280px;">
+          <div style="flex: 1; min-width: 220px;">
             <label style="color: ${colors.textMuted}; font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px;">
               Período
             </label>
             <input type="text" id="${modalId}-date-range" readonly placeholder="Selecione o período..." style="
-              padding: 10px 14px; border: 1px solid ${colors.border}; border-radius: 8px;
+              padding: 8px 12px; border: 1px solid ${colors.border}; border-radius: 6px;
               font-size: 14px; color: ${colors.text}; background: ${colors.surface};
               width: 100%; cursor: pointer; box-sizing: border-box;
             "/>
           </div>
           <!-- Query Button -->
           <button id="${modalId}-query" style="
-            background: ${colors.primary}; color: white; border: none;
-            padding: 10px 24px; border-radius: 8px; cursor: pointer;
-            font-size: 14px; font-weight: 500; height: 42px;
+            background: #3e1a7d; color: white; border: none;
+            padding: 8px 16px; border-radius: 6px; cursor: pointer;
+            font-size: 14px; font-weight: 500; height: 38px;
             display: flex; align-items: center; gap: 8px;
+            font-family: 'Roboto', Arial, sans-serif;
           " ${state.isLoading ? 'disabled' : ''}>
-            ${state.isLoading ? '<span style="animation: spin 1s linear infinite; display: inline-block;">↻</span> Carregando...' : '🔍 Consultar'}
+            ${state.isLoading ? '<span style="animation: spin 1s linear infinite; display: inline-block;">↻</span> Carregando...' : 'Carregar'}
           </button>
         </div>
 
         <!-- Stats Cards -->
         <div style="
           display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-          gap: 12px; margin-bottom: 20px;
+          gap: 12px; margin-bottom: 16px;
         ">
           <!-- Current Temperature -->
           <div style="
@@ -397,36 +461,42 @@ function renderModal(
         <!-- Actions -->
         <div style="display: flex; justify-content: flex-end; gap: 12px;">
           <button id="${modalId}-export" style="
-            background: ${state.theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#e0e0e0'};
-            color: ${colors.text}; border: none;
-            padding: 10px 20px; border-radius: 8px; cursor: pointer;
+            background: ${state.theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#f7f7f7'};
+            color: ${colors.text}; border: 1px solid ${colors.border};
+            padding: 8px 16px; border-radius: 6px; cursor: pointer;
             font-size: 14px; display: flex; align-items: center; gap: 8px;
+            font-family: 'Roboto', Arial, sans-serif;
           " ${state.data.length === 0 ? 'disabled' : ''}>
             📥 Exportar CSV
           </button>
           <button id="${modalId}-close-btn" style="
-            background: ${colors.primary}; color: white; border: none;
-            padding: 10px 20px; border-radius: 8px; cursor: pointer;
+            background: #3e1a7d; color: white; border: none;
+            padding: 8px 16px; border-radius: 6px; cursor: pointer;
             font-size: 14px; font-weight: 500;
+            font-family: 'Roboto', Arial, sans-serif;
           ">
             Fechar
           </button>
         </div>
+        </div><!-- End Body -->
       </div>
     </div>
     <style>
       @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       #${modalId} select:focus, #${modalId} input:focus {
-        outline: 2px solid ${colors.primary};
+        outline: 2px solid #3e1a7d;
         outline-offset: 2px;
       }
       #${modalId} button:hover:not(:disabled) {
         opacity: 0.9;
-        transform: translateY(-1px);
       }
       #${modalId} button:disabled {
         opacity: 0.5;
         cursor: not-allowed;
+      }
+      #${modalId} .myio-temp-modal-content > div:first-child button:hover {
+        background: rgba(255, 255, 255, 0.1) !important;
+        color: white !important;
       }
     </style>
   `;
@@ -454,18 +524,34 @@ function drawChart(modalId: string, state: ModalState): void {
 
   const colors = getThemeColors(state.theme);
 
+  // Filter data by selected day periods
+  const filteredData = filterByDayPeriods(state.data, state.selectedPeriods);
+
+  if (filteredData.length === 0) {
+    // No data after filtering, show message
+    canvas.width = chartContainer.clientWidth;
+    canvas.height = chartContainer.clientHeight;
+    ctx.fillStyle = colors.textMuted;
+    ctx.font = '14px Roboto, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Nenhum dado para os períodos selecionados', canvas.width / 2, canvas.height / 2);
+    return;
+  }
+
   // Process data based on granularity
   let chartData: ChartPoint[];
 
   if (state.granularity === 'hour') {
     // Interpolate to 30-minute intervals
-    const interpolated = interpolateTemperature(state.data, {
+    const interpolated = interpolateTemperature(filteredData, {
       intervalMinutes: 30,
       startTs: state.startTs,
       endTs: state.endTs,
       clampRange: state.clampRange
     });
-    chartData = interpolated.map(item => ({
+    // Filter interpolated data by periods again (since interpolation may add points)
+    const filteredInterpolated = filterByDayPeriods(interpolated, state.selectedPeriods);
+    chartData = filteredInterpolated.map(item => ({
       x: item.ts,
       y: Number(item.value),
       screenX: 0,
@@ -473,7 +559,7 @@ function drawChart(modalId: string, state: ModalState): void {
     }));
   } else {
     // Aggregate by day
-    const daily = aggregateByDay(state.data, state.clampRange);
+    const daily = aggregateByDay(filteredData, state.clampRange);
     chartData = daily.map(item => ({
       x: item.dateTs,
       y: item.avg,
@@ -496,24 +582,38 @@ function drawChart(modalId: string, state: ModalState): void {
   const paddingTop = 20;
   const paddingBottom = 55;
 
+  // Check if periods are filtered (not all selected)
+  const isPeriodsFiltered = state.selectedPeriods.length < 4 && state.selectedPeriods.length > 0;
+
   // Calculate scales
   const values = chartData.map(d => d.y);
   const minY = Math.min(...values) - 1;
   const maxY = Math.max(...values) + 1;
-  const minX = chartData[0].x;
-  const maxX = chartData[chartData.length - 1].x;
-  const timeRange = maxX - minX || 1;
 
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
-  const scaleX = chartWidth / timeRange;
   const scaleY = chartHeight / (maxY - minY || 1);
 
   // Calculate screen coordinates for each point
-  chartData.forEach(point => {
-    point.screenX = paddingLeft + (point.x - minX) * scaleX;
-    point.screenY = height - paddingBottom - (point.y - minY) * scaleY;
-  });
+  // Use index-based positioning when periods are filtered to avoid gaps
+  if (isPeriodsFiltered) {
+    // Sequential positioning by index (no gaps)
+    const pointSpacing = chartWidth / Math.max(1, chartData.length - 1);
+    chartData.forEach((point, index) => {
+      point.screenX = paddingLeft + index * pointSpacing;
+      point.screenY = height - paddingBottom - (point.y - minY) * scaleY;
+    });
+  } else {
+    // Time-based positioning (original behavior)
+    const minX = chartData[0].x;
+    const maxX = chartData[chartData.length - 1].x;
+    const timeRange = maxX - minX || 1;
+    const scaleX = chartWidth / timeRange;
+    chartData.forEach(point => {
+      point.screenX = paddingLeft + (point.x - minX) * scaleX;
+      point.screenY = height - paddingBottom - (point.y - minY) * scaleY;
+    });
+  }
 
   // Clear canvas
   ctx.clearRect(0, 0, width, height);
@@ -793,6 +893,77 @@ async function setupEventListeners(
     renderModal(container, state, modalId);
     if (state.data.length > 0) drawChart(modalId, state);
     await setupEventListeners(container, state, modalId, onClose);
+  });
+
+  // Maximize toggle
+  document.getElementById(`${modalId}-maximize`)?.addEventListener('click', async () => {
+    (container as any).__isMaximized = !(container as any).__isMaximized;
+    state.dateRangePicker = null; // Reset picker for re-init
+    renderModal(container, state, modalId);
+    if (state.data.length > 0) drawChart(modalId, state);
+    await setupEventListeners(container, state, modalId, onClose);
+  });
+
+  // Period filter dropdown toggle
+  const periodBtn = document.getElementById(`${modalId}-period-btn`);
+  const periodDropdown = document.getElementById(`${modalId}-period-dropdown`);
+
+  periodBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (periodDropdown) {
+      periodDropdown.style.display = periodDropdown.style.display === 'none' ? 'block' : 'none';
+    }
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (periodDropdown && !periodDropdown.contains(e.target as Node) && e.target !== periodBtn) {
+      periodDropdown.style.display = 'none';
+    }
+  });
+
+  // Period checkbox changes
+  const periodCheckboxes = document.querySelectorAll(`input[name="${modalId}-period"]`);
+  periodCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', () => {
+      const checked = Array.from(periodCheckboxes)
+        .filter((cb: Element) => (cb as HTMLInputElement).checked)
+        .map((cb: Element) => (cb as HTMLInputElement).value as DayPeriod);
+      state.selectedPeriods = checked;
+      // Update button label
+      const btnLabel = periodBtn?.querySelector('span:first-child');
+      if (btnLabel) {
+        btnLabel.textContent = getSelectedPeriodsLabel(state.selectedPeriods);
+      }
+      // Redraw chart with filtered data
+      if (state.data.length > 0) drawChart(modalId, state);
+    });
+  });
+
+  // Select All button
+  document.getElementById(`${modalId}-period-select-all`)?.addEventListener('click', () => {
+    periodCheckboxes.forEach((cb: Element) => {
+      (cb as HTMLInputElement).checked = true;
+    });
+    state.selectedPeriods = ['madrugada', 'manha', 'tarde', 'noite'];
+    const btnLabel = periodBtn?.querySelector('span:first-child');
+    if (btnLabel) {
+      btnLabel.textContent = getSelectedPeriodsLabel(state.selectedPeriods);
+    }
+    if (state.data.length > 0) drawChart(modalId, state);
+  });
+
+  // Clear Selection button
+  document.getElementById(`${modalId}-period-clear`)?.addEventListener('click', () => {
+    periodCheckboxes.forEach((cb: Element) => {
+      (cb as HTMLInputElement).checked = false;
+    });
+    state.selectedPeriods = [];
+    const btnLabel = periodBtn?.querySelector('span:first-child');
+    if (btnLabel) {
+      btnLabel.textContent = getSelectedPeriodsLabel(state.selectedPeriods);
+    }
+    if (state.data.length > 0) drawChart(modalId, state);
   });
 
   // Granularity change
