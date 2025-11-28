@@ -8,6 +8,13 @@
 // Main components
 export { openTemperatureModal } from './TemperatureModal';
 export { openTemperatureComparisonModal } from './TemperatureComparisonModal';
+export { openTemperatureSettingsModal } from './TemperatureSettingsModal';
+
+// Types from TemperatureSettingsModal
+export type {
+  TemperatureSettingsParams,
+  TemperatureSettingsInstance
+} from './TemperatureSettingsModal';
 
 // Types from TemperatureModal
 export type {

@@ -213,8 +213,9 @@ async function fetchUserInfo() {
 
     // Habilita botão de troca de shopping apenas para admin
     if (isUserAdmin) {
-      LogHelper.log("[MENU] User admin detected - enabling shopping selector");
+      LogHelper.log("[MENU] User admin detected - enabling shopping selector and temperature settings");
       addShoppingSelectorButton();
+      addTemperatureSettingsButton(user);
       updateShoppingLabel();
     }
   } catch (err) {
@@ -445,6 +446,110 @@ async function fetchUserInfo() {
     });
 
     LogHelper.log("[MENU] Shopping selector button added successfully");
+  }
+
+  // RFC-0085: Add temperature settings button for admin users
+  function addTemperatureSettingsButton(user) {
+    if (document.getElementById("temp-settings-btn")) {
+      LogHelper.log("[MENU] Temperature settings button already exists");
+      return;
+    }
+
+    const menuFooter = document.querySelector(".shops-menu-root .menu-footer");
+    const logoutBtn = document.getElementById("logout-btn");
+    if (!menuFooter) {
+      LogHelper.error("[MENU] Menu footer not found - cannot add temperature settings");
+      return;
+    }
+
+    const tempSettingsBtn = document.createElement("button");
+    tempSettingsBtn.id = "temp-settings-btn";
+    tempSettingsBtn.className = "temp-settings-btn";
+    tempSettingsBtn.type = "button";
+    tempSettingsBtn.setAttribute("aria-label", "Configurar Temperatura");
+    tempSettingsBtn.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 8px;
+    `;
+
+    tempSettingsBtn.innerHTML = `
+      <span style="font-size: 18px;">🌡️</span>
+      <span>Config. Temperatura</span>
+    `;
+
+    // Hover effects
+    tempSettingsBtn.addEventListener("mouseenter", () => {
+      tempSettingsBtn.style.background = "rgba(62, 26, 125, 0.3)";
+      tempSettingsBtn.style.borderColor = "rgba(62, 26, 125, 0.5)";
+    });
+    tempSettingsBtn.addEventListener("mouseleave", () => {
+      tempSettingsBtn.style.background = "rgba(255, 255, 255, 0.05)";
+      tempSettingsBtn.style.borderColor = "rgba(255, 255, 255, 0.1)";
+    });
+
+    // Insert before logout button
+    if (logoutBtn) menuFooter.insertBefore(tempSettingsBtn, logoutBtn);
+    else menuFooter.appendChild(tempSettingsBtn);
+
+    // Click handler
+    tempSettingsBtn.addEventListener("click", () => {
+      LogHelper.log("[MENU] Temperature settings clicked");
+
+      const MyIOLibrary = window.MyIOLibrary;
+      if (!MyIOLibrary?.openTemperatureSettingsModal) {
+        LogHelper.error("[MENU] openTemperatureSettingsModal not available");
+        alert("Componente de configuração de temperatura não disponível.");
+        return;
+      }
+
+      const jwtToken = localStorage.getItem("jwt_token");
+      if (!jwtToken) {
+        alert("Token de autenticação não encontrado. Faça login novamente.");
+        return;
+      }
+
+      // Get customer info from user object
+      const customerId = user?.customerId?.id;
+      const customerName = user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || "Cliente";
+
+      if (!customerId) {
+        LogHelper.error("[MENU] Customer ID not found");
+        alert("ID do cliente não encontrado.");
+        return;
+      }
+
+      LogHelper.log("[MENU] Opening temperature settings for customer:", { customerId, customerName });
+
+      MyIOLibrary.openTemperatureSettingsModal({
+        token: jwtToken,
+        customerId: customerId,
+        customerName: customerName,
+        theme: "dark",
+        onSave: (settings) => {
+          LogHelper.log("[MENU] Temperature settings saved:", settings);
+          // Dispatch event to notify other widgets
+          window.dispatchEvent(new CustomEvent("myio:temperature-settings-updated", {
+            detail: settings
+          }));
+        },
+        onClose: () => {
+          LogHelper.log("[MENU] Temperature settings modal closed");
+        }
+      });
+    });
+
+    LogHelper.log("[MENU] Temperature settings button added successfully");
   }
 
   // RFC-0055: Show modal with shopping options

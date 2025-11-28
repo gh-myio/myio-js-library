@@ -187,6 +187,7 @@ export { openGoalsPanel } from './components/GoalsPanel.js';
 export {
   openTemperatureModal,
   openTemperatureComparisonModal,
+  openTemperatureSettingsModal,
   // Utility functions
   fetchTemperatureData,
   clampTemperature,
@@ -206,6 +207,8 @@ export type {
   TemperatureModalInstance,
   TemperatureComparisonModalParams,
   TemperatureComparisonModalInstance,
+  TemperatureSettingsParams,
+  TemperatureSettingsInstance,
   TemperatureDevice,
   TemperatureTelemetry,
   TemperatureStats,

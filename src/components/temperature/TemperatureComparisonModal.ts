@@ -41,6 +41,12 @@ export interface TemperatureDevice {
   label: string;
   /** Alternative ThingsBoard ID */
   tbId?: string;
+  /** Customer name (for grouping/display) */
+  customerName?: string;
+  /** Minimum threshold for this device's ideal range */
+  temperatureMin?: number;
+  /** Maximum threshold for this device's ideal range */
+  temperatureMax?: number;
 }
 
 export interface TemperatureComparisonModalParams {
@@ -64,6 +70,10 @@ export interface TemperatureComparisonModalParams {
   granularity?: TemperatureGranularity;
   /** Initial theme */
   theme?: 'dark' | 'light';
+  /** Minimum threshold for ideal range (Y-axis will include this) */
+  temperatureMin?: number;
+  /** Maximum threshold for ideal range (Y-axis will include this) */
+  temperatureMax?: number;
 }
 
 export interface TemperatureComparisonModalInstance {
@@ -97,6 +107,8 @@ interface ModalState {
   isLoading: boolean;
   dateRangePicker: DateRangeControl | null;
   selectedPeriods: DayPeriod[];
+  temperatureMin: number | null;
+  temperatureMax: number | null;
 }
 
 // ============================================================================
@@ -129,7 +141,9 @@ export async function openTemperatureComparisonModal(
     deviceData: [],
     isLoading: true,
     dateRangePicker: null,
-    selectedPeriods: ['madrugada', 'manha', 'tarde', 'noite'] // All periods selected by default
+    selectedPeriods: ['madrugada', 'manha', 'tarde', 'noite'], // All periods selected by default
+    temperatureMin: params.temperatureMin ?? null,
+    temperatureMax: params.temperatureMax ?? null
   };
 
   // Load saved preferences
@@ -606,20 +620,76 @@ function drawComparisonChart(modalId: string, state: ModalState): void {
   // Check if periods are filtered (not all selected)
   const isPeriodsFiltered = state.selectedPeriods.length < 4 && state.selectedPeriods.length > 0;
 
-  // Calculate global min/max for Y axis
-  let globalMinY = Infinity;
-  let globalMaxY = -Infinity;
+  // Calculate global min/max for Y axis from data
+  let dataMinY = Infinity;
+  let dataMaxY = -Infinity;
 
   processedData.forEach(({ points }) => {
     points.forEach(point => {
-      if (point.y < globalMinY) globalMinY = point.y;
-      if (point.y > globalMaxY) globalMaxY = point.y;
+      if (point.y < dataMinY) dataMinY = point.y;
+      if (point.y > dataMaxY) dataMaxY = point.y;
     });
   });
 
-  // Add padding to Y range
-  globalMinY = Math.floor(globalMinY) - 1;
-  globalMaxY = Math.ceil(globalMaxY) + 1;
+  // Collect all unique temperature ranges from devices
+  // Each device may have its own range from its customer's configuration
+  interface TempRange {
+    min: number;
+    max: number;
+    customerName: string;
+    color: string;
+    deviceLabels: string[];
+  }
+
+  const rangeMap = new Map<string, TempRange>();
+
+  // First, collect per-device ranges
+  state.deviceData.forEach((dd, index) => {
+    const device = dd.device;
+    const min = device.temperatureMin;
+    const max = device.temperatureMax;
+
+    if (min !== undefined && min !== null && max !== undefined && max !== null) {
+      const key = `${min}-${max}`;
+      if (!rangeMap.has(key)) {
+        rangeMap.set(key, {
+          min: min,
+          max: max,
+          customerName: device.customerName || '',
+          color: CHART_COLORS[index % CHART_COLORS.length],
+          deviceLabels: [device.label]
+        });
+      } else {
+        rangeMap.get(key)!.deviceLabels.push(device.label);
+      }
+    }
+  });
+
+  // Fallback to global state thresholds if no per-device ranges
+  if (rangeMap.size === 0 && state.temperatureMin !== null && state.temperatureMax !== null) {
+    rangeMap.set('global', {
+      min: state.temperatureMin,
+      max: state.temperatureMax,
+      customerName: 'Global',
+      color: colors.success,
+      deviceLabels: []
+    });
+  }
+
+  const temperatureRanges = Array.from(rangeMap.values());
+
+  // Include all range thresholds in Y-axis calculation
+  let thresholdMinY = dataMinY;
+  let thresholdMaxY = dataMaxY;
+
+  temperatureRanges.forEach(range => {
+    if (range.min < thresholdMinY) thresholdMinY = range.min;
+    if (range.max > thresholdMaxY) thresholdMaxY = range.max;
+  });
+
+  // Final Y range: minimum of (data, thresholds) - 1 and maximum of (data, thresholds) + 1
+  const globalMinY = Math.floor(Math.min(dataMinY, thresholdMinY)) - 1;
+  const globalMaxY = Math.ceil(Math.max(dataMaxY, thresholdMaxY)) + 1;
 
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
@@ -671,6 +741,47 @@ function drawComparisonChart(modalId: string, state: ModalState): void {
     ctx.lineTo(width - paddingRight, y);
     ctx.stroke();
   }
+
+  // Draw ideal temperature ranges (one per unique range)
+  // Different customers may have different ideal ranges
+  const rangeColors = [
+    { fill: 'rgba(76, 175, 80, 0.12)', stroke: '#4CAF50' },   // Green
+    { fill: 'rgba(33, 150, 243, 0.12)', stroke: '#2196F3' },  // Blue
+    { fill: 'rgba(255, 152, 0, 0.12)', stroke: '#FF9800' },   // Orange
+    { fill: 'rgba(156, 39, 176, 0.12)', stroke: '#9C27B0' }   // Purple
+  ];
+
+  temperatureRanges.forEach((range, index) => {
+    const rangeMinY = height - paddingBottom - (range.min - globalMinY) * scaleY;
+    const rangeMaxY = height - paddingBottom - (range.max - globalMinY) * scaleY;
+    const colorSet = rangeColors[index % rangeColors.length];
+
+    // Shaded area for ideal range
+    ctx.fillStyle = colorSet.fill;
+    ctx.fillRect(paddingLeft, rangeMaxY, chartWidth, rangeMinY - rangeMaxY);
+
+    // Dashed lines for thresholds
+    ctx.strokeStyle = colorSet.stroke;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(paddingLeft, rangeMinY);
+    ctx.lineTo(width - paddingRight, rangeMinY);
+    ctx.moveTo(paddingLeft, rangeMaxY);
+    ctx.lineTo(width - paddingRight, rangeMaxY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Draw range label on the right side
+    if (temperatureRanges.length > 1 || range.customerName) {
+      ctx.fillStyle = colorSet.stroke;
+      ctx.font = '10px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      const labelY = (rangeMinY + rangeMaxY) / 2;
+      const labelText = range.customerName || `${range.min}°-${range.max}°C`;
+      ctx.fillText(labelText, width - paddingRight + 5, labelY + 3);
+    }
+  });
 
   // Draw temperature lines for each device
   processedData.forEach(({ device, points }) => {

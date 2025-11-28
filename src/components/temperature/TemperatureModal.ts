@@ -586,9 +586,19 @@ function drawChart(modalId: string, state: ModalState): void {
   const isPeriodsFiltered = state.selectedPeriods.length < 4 && state.selectedPeriods.length > 0;
 
   // Calculate scales
+  // Y-axis must always include the ideal range thresholds (temperatureMin/temperatureMax)
+  // This ensures the visual range always shows the configured thresholds
   const values = chartData.map(d => d.y);
-  const minY = Math.min(...values) - 1;
-  const maxY = Math.max(...values) + 1;
+  const dataMin = Math.min(...values);
+  const dataMax = Math.max(...values);
+
+  // Include ideal range thresholds if defined
+  const thresholdMin = state.temperatureMin !== null ? state.temperatureMin : dataMin;
+  const thresholdMax = state.temperatureMax !== null ? state.temperatureMax : dataMax;
+
+  // Final Y range: minimum of (data, threshold) - 1 and maximum of (data, threshold) + 1
+  const minY = Math.min(dataMin, thresholdMin) - 1;
+  const maxY = Math.max(dataMax, thresholdMax) + 1;
 
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;

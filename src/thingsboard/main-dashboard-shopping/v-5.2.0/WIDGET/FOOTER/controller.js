@@ -1288,8 +1288,8 @@ const footerController = {
   },
 
   /**
-   * Opens temperature comparison modal with multi-line chart
-   * Uses ThingsBoard API directly (not Ingestion API)
+   * Opens temperature comparison modal using MyIOLibrary
+   * RFC-0085: Uses the library component instead of inline implementation
    * @param {Array} selectedEntities - Array of selected entity objects
    */
   async _openTemperatureComparisonModal(selectedEntities) {
@@ -1299,7 +1299,6 @@ const footerController = {
       'devices'
     );
 
-    const modalId = 'myio-temp-comparison-modal';
     const jwtToken = localStorage.getItem('jwt_token');
 
     if (!jwtToken) {
@@ -1312,395 +1311,80 @@ const footerController = {
     const startDateISO =
       ctx.scope?.startDateISO || new Date(new Date().setDate(new Date().getDate() - 7)).toISOString();
     const endDateISO = ctx.scope?.endDateISO || new Date().toISOString();
-    const startTs = new Date(startDateISO).getTime();
-    const endTs = new Date(endDateISO).getTime();
 
-    // Colors for different sensors
-    const CHART_COLORS = [
-      '#1976d2', // Blue
-      '#FF6B6B', // Red
-      '#4CAF50', // Green
-      '#FF9800', // Orange
-      '#9C27B0', // Purple
-      '#00BCD4', // Cyan
-      '#E91E63', // Pink
-      '#795548', // Brown
-    ];
+    // Map entities to the expected device format with per-device temperature ranges
+    // Each device can have its own ideal range from its customer's SERVER_SCOPE attributes
+    const devices = selectedEntities.map((entity) => {
+      // Get temperature range for this specific device/customer
+      const min = entity.minTemperature ?? entity.temperatureMin ?? entity.tempMin;
+      const max = entity.maxTemperature ?? entity.temperatureMax ?? entity.tempMax;
 
-    // Create modal HTML
-    const modalHtml = `
-      <div id="${modalId}" style="
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.85);
-        z-index: 10000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        animation: fadeIn 0.2s ease-out;
-      ">
-        <div style="
-          background: linear-gradient(180deg, #1a1f28 0%, #0f1419 100%);
-          border-radius: 16px;
-          width: 90%;
-          max-width: 1200px;
-          max-height: 90vh;
-          overflow: hidden;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          display: flex;
-          flex-direction: column;
-        ">
-          <!-- Header -->
-          <div style="
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 20px 24px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-          ">
-            <div>
-              <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #fff;">
-                🌡️ Comparação de Temperatura
-              </h2>
-              <p style="margin: 4px 0 0; font-size: 13px; color: rgba(255,255,255,0.6);">
-                ${selectedEntities.length} sensores selecionados
-              </p>
-            </div>
-            <button id="${modalId}-close" style="
-              width: 36px;
-              height: 36px;
-              background: rgba(255, 255, 255, 0.1);
-              border: 1px solid rgba(255, 255, 255, 0.2);
-              border-radius: 8px;
-              cursor: pointer;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              transition: all 0.2s;
-            ">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
-
-          <!-- Chart Container -->
-          <div id="${modalId}-chart" style="
-            flex: 1;
-            padding: 24px;
-            min-height: 400px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          ">
-            <div style="text-align: center; color: rgba(255,255,255,0.7);">
-              <div style="
-                width: 40px;
-                height: 40px;
-                border: 3px solid rgba(255,255,255,0.2);
-                border-top-color: #9E8CBE;
-                border-radius: 50%;
-                animation: spin 1s linear infinite;
-                margin: 0 auto 16px;
-              "></div>
-              Carregando dados de temperatura...
-            </div>
-          </div>
-
-          <!-- Legend -->
-          <div id="${modalId}-legend" style="
-            padding: 16px 24px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            justify-content: center;
-          ">
-          </div>
-        </div>
-      </div>
-      <style>
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        #${modalId}-close:hover { background: rgba(255, 68, 68, 0.25); border-color: rgba(255, 68, 68, 0.5); }
-      </style>
-    `;
-
-    // Remove existing modal if any
-    document.getElementById(modalId)?.remove();
-
-    // Insert modal into DOM
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-    // Close handlers
-    const closeModal = () => {
-      document.getElementById(modalId)?.remove();
-    };
-
-    document.getElementById(`${modalId}-close`)?.addEventListener('click', closeModal);
-    document.getElementById(modalId)?.addEventListener('click', (e) => {
-      if (e.target.id === modalId) closeModal();
+      return {
+        id: entity.id || entity.entityId,
+        label: entity.name || entity.label || entity.id,
+        tbId: entity.tbId || entity.entityId,
+        customerName: entity.customerTitle || entity.customerName || entity.customer || null,
+        temperatureMin: (min !== undefined && min !== null) ? Number(min) : undefined,
+        temperatureMax: (max !== undefined && max !== null) ? Number(max) : undefined
+      };
     });
 
-    // Fetch temperature data for all devices
-    const fetchTemperatureData = async (entity) => {
-      try {
-        const deviceId = entity.id || entity.entityId;
-        const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=temperature&startTs=${startTs}&endTs=${endTs}`;
+    // Check if devices have different temperature ranges (different customers)
+    const uniqueRanges = new Set(
+      devices
+        .filter(d => d.temperatureMin !== undefined && d.temperatureMax !== undefined)
+        .map(d => `${d.temperatureMin}-${d.temperatureMax}`)
+    );
 
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Authorization': `Bearer ${jwtToken}`,
-          },
-        });
+    if (uniqueRanges.size > 1) {
+      LogHelper.log('[MyIO Footer] Devices have different temperature ranges (multiple customers):',
+        devices.map(d => ({ label: d.label, customer: d.customerName, range: `${d.temperatureMin}-${d.temperatureMax}` }))
+      );
+    }
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+    // Fallback global range from ctx.scope (if no per-device ranges)
+    let globalTemperatureMin = null;
+    let globalTemperatureMax = null;
 
-        const data = await response.json();
-        const tempValues = data?.temperature || [];
+    if (ctx.scope?.minTemperature !== undefined) {
+      globalTemperatureMin = Number(ctx.scope.minTemperature);
+    }
+    if (ctx.scope?.maxTemperature !== undefined) {
+      globalTemperatureMax = Number(ctx.scope.maxTemperature);
+    }
 
-        return {
-          entity,
-          label: entity.name || entity.label || deviceId,
-          data: tempValues
-            .map((item) => ({
-              ts: item.ts,
-              value: Math.max(15, Math.min(40, Number(item.value) || 0)), // Clamp 15-40°C
-            }))
-            .sort((a, b) => a.ts - b.ts),
-        };
-      } catch (error) {
-        LogHelper.error(`[MyIO Footer] Error fetching temperature for ${entity.name || entity.id}:`, error);
-        return {
-          entity,
-          label: entity.name || entity.label || entity.id,
-          data: [],
-          error: error.message,
-        };
-      }
-    };
+    LogHelper.log('[MyIO Footer] Temperature ranges:', {
+      perDevice: devices.map(d => ({ label: d.label, min: d.temperatureMin, max: d.temperatureMax })),
+      global: { min: globalTemperatureMin, max: globalTemperatureMax }
+    });
+
+    // Use MyIOLibrary.openTemperatureComparisonModal
+    const MyIOLibrary = window.MyIOLibrary;
+    if (!MyIOLibrary?.openTemperatureComparisonModal) {
+      LogHelper.error('[MyIO Footer] MyIOLibrary.openTemperatureComparisonModal not available');
+      alert('Componente de comparação de temperatura não disponível.');
+      return;
+    }
 
     try {
-      // Fetch data for all devices in parallel
-      const results = await Promise.all(selectedEntities.map(fetchTemperatureData));
-      LogHelper.log('[MyIO Footer] Temperature data fetched:', results);
+      MyIOLibrary.openTemperatureComparisonModal({
+        token: jwtToken,
+        devices: devices,
+        startDate: startDateISO,
+        endDate: endDateISO,
+        theme: 'dark',
+        locale: 'pt-BR',
+        granularity: 'hour',
+        // Global fallback range (used only if devices don't have individual ranges)
+        temperatureMin: globalTemperatureMin,
+        temperatureMax: globalTemperatureMax
+      });
 
-      // Check if we have any data
-      const hasData = results.some((r) => r.data.length > 0);
-      if (!hasData) {
-        const chartContainer = document.getElementById(`${modalId}-chart`);
-        if (chartContainer) {
-          chartContainer.innerHTML = `
-            <div style="text-align: center; color: rgba(255,255,255,0.7);">
-              <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
-              <h3 style="margin: 0 0 8px; font-size: 18px; color: #fff;">Sem Dados</h3>
-              <p style="margin: 0; font-size: 14px;">Nenhum dado de temperatura encontrado para o período selecionado.</p>
-            </div>
-          `;
-        }
-        return;
-      }
-
-      // Draw comparison chart
-      this._drawTemperatureComparisonChart(modalId, results, CHART_COLORS);
+      LogHelper.log('[MyIO Footer] Temperature comparison modal opened via MyIOLibrary');
     } catch (error) {
-      LogHelper.error('[MyIO Footer] Error in temperature comparison:', error);
-      const chartContainer = document.getElementById(`${modalId}-chart`);
-      if (chartContainer) {
-        chartContainer.innerHTML = `
-          <div style="text-align: center; color: rgba(255,255,255,0.7);">
-            <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-            <h3 style="margin: 0 0 8px; font-size: 18px; color: #fff;">Erro ao Carregar Dados</h3>
-            <p style="margin: 0; font-size: 14px;">${error.message}</p>
-          </div>
-        `;
-      }
+      LogHelper.error('[MyIO Footer] Error opening temperature comparison modal:', error);
+      alert('Erro ao abrir modal de comparação de temperatura: ' + error.message);
     }
-  },
-
-  /**
-   * Draws the temperature comparison chart using Canvas API
-   * @param {string} modalId - Modal element ID
-   * @param {Array} results - Array of {entity, label, data} objects
-   * @param {Array} colors - Array of color strings
-   */
-  _drawTemperatureComparisonChart(modalId, results, colors) {
-    const chartContainer = document.getElementById(`${modalId}-chart`);
-    const legendContainer = document.getElementById(`${modalId}-legend`);
-
-    if (!chartContainer) return;
-
-    // Create canvas
-    chartContainer.innerHTML = `<canvas id="${modalId}-canvas" style="width: 100%; height: 100%;"></canvas>`;
-    const canvas = document.getElementById(`${modalId}-canvas`);
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    const width = chartContainer.clientWidth - 48;
-    const height = 400;
-    canvas.width = width;
-    canvas.height = height;
-
-    const paddingLeft = 60;
-    const paddingRight = 20;
-    const paddingTop = 20;
-    const paddingBottom = 50;
-
-    // Calculate global min/max
-    let globalMinY = Infinity;
-    let globalMaxY = -Infinity;
-    let globalMinX = Infinity;
-    let globalMaxX = -Infinity;
-
-    results.forEach((result) => {
-      result.data.forEach((point) => {
-        if (point.value < globalMinY) globalMinY = point.value;
-        if (point.value > globalMaxY) globalMaxY = point.value;
-        if (point.ts < globalMinX) globalMinX = point.ts;
-        if (point.ts > globalMaxX) globalMaxX = point.ts;
-      });
-    });
-
-    // Add padding to Y range
-    globalMinY = Math.floor(globalMinY) - 1;
-    globalMaxY = Math.ceil(globalMaxY) + 1;
-
-    const chartWidth = width - paddingLeft - paddingRight;
-    const chartHeight = height - paddingTop - paddingBottom;
-    const timeRange = globalMaxX - globalMinX || 1;
-    const tempRange = globalMaxY - globalMinY || 1;
-    const scaleX = chartWidth / timeRange;
-    const scaleY = chartHeight / tempRange;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
-
-    // Draw horizontal grid lines
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= 5; i++) {
-      const y = paddingTop + (chartHeight * i) / 5;
-      ctx.beginPath();
-      ctx.moveTo(paddingLeft, y);
-      ctx.lineTo(width - paddingRight, y);
-      ctx.stroke();
-    }
-
-    // Draw vertical grid lines
-    for (let i = 0; i <= 6; i++) {
-      const x = paddingLeft + (chartWidth * i) / 6;
-      ctx.beginPath();
-      ctx.moveTo(x, paddingTop);
-      ctx.lineTo(x, height - paddingBottom);
-      ctx.stroke();
-    }
-
-    // Draw temperature lines for each sensor
-    results.forEach((result, index) => {
-      if (result.data.length === 0) return;
-
-      const color = colors[index % colors.length];
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-
-      result.data.forEach((point, i) => {
-        const x = paddingLeft + (point.ts - globalMinX) * scaleX;
-        const y = height - paddingBottom - (point.value - globalMinY) * scaleY;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-
-      ctx.stroke();
-    });
-
-    // Draw Y axis labels (temperature)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.font = '11px Inter, sans-serif';
-    ctx.textAlign = 'right';
-    for (let i = 0; i <= 5; i++) {
-      const val = globalMinY + tempRange * ((5 - i) / 5);
-      const y = paddingTop + (chartHeight * i) / 5;
-      ctx.fillText(val.toFixed(1) + '°C', paddingLeft - 8, y + 4);
-    }
-
-    // Draw X axis labels (dates)
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.font = '10px Inter, sans-serif';
-
-    const ONE_DAY = 24 * 60 * 60 * 1000;
-    const showTime = timeRange <= 2 * ONE_DAY;
-
-    for (let i = 0; i <= 6; i++) {
-      const ts = globalMinX + (timeRange * i) / 6;
-      const x = paddingLeft + (chartWidth * i) / 6;
-      const date = new Date(ts);
-
-      let label;
-      if (showTime) {
-        label = date.toLocaleString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-      } else {
-        label = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-      }
-
-      ctx.fillText(label, x, height - paddingBottom + 20);
-    }
-
-    // Draw legend
-    if (legendContainer) {
-      legendContainer.innerHTML = results
-        .map((result, index) => {
-          const color = colors[index % colors.length];
-          const avgTemp =
-            result.data.length > 0
-              ? (result.data.reduce((sum, p) => sum + p.value, 0) / result.data.length).toFixed(1)
-              : '--';
-          const hasError = result.error ? ' (erro)' : '';
-
-          return `
-            <div style="
-              display: flex;
-              align-items: center;
-              gap: 8px;
-              padding: 8px 12px;
-              background: rgba(255, 255, 255, 0.05);
-              border-radius: 8px;
-              border: 1px solid rgba(255, 255, 255, 0.1);
-            ">
-              <div style="
-                width: 12px;
-                height: 12px;
-                background: ${color};
-                border-radius: 3px;
-              "></div>
-              <span style="color: #fff; font-size: 13px; font-weight: 500;">
-                ${result.label}${hasError}
-              </span>
-              <span style="color: rgba(255,255,255,0.6); font-size: 12px;">
-                (média: ${avgTemp}°C)
-              </span>
-            </div>
-          `;
-        })
-        .join('');
-    }
-
-    LogHelper.log('[MyIO Footer] Temperature comparison chart rendered successfully');
   },
 
   /**
