@@ -1891,10 +1891,13 @@ self.onInit = async function () {
         const deviceId = entityId;
 
         // Get consumption ranges using hierarchical resolution
+        // RFC-0086: Pass self.ctx.data to enable TIER 1 (device-level) mapInstantaneousPower lookup
         const rangesWithSource = await getConsumptionRangesHierarchical(
           deviceId,
           deviceType,
-          window.__customerConsumptionLimits // Will be set below
+          window.__customerConsumptionLimits,
+          'consumption',
+          self.ctx.data // Enable device-level JSON lookup from ctx.data
         );
 
         // Calculate device status using range-based calculation

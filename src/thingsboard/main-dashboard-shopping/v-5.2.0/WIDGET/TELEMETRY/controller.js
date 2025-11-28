@@ -39,6 +39,78 @@ const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
 const MAX_FIRST_HYDRATES = 1;
 let MAP_INSTANTANEOUS_POWER;
 
+/**
+ * RFC-0078: Extract consumption ranges from unified JSON structure
+ * @param {Object} powerLimitsJSON - The mapInstantaneousPower JSON object
+ * @param {string} deviceType - Device type (e.g., 'ELEVADOR')
+ * @param {string} telemetryType - Telemetry type (default: 'consumption')
+ * @returns {Object|null} Range configuration or null
+ */
+function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'consumption') {
+  if (!powerLimitsJSON || !powerLimitsJSON.limitsByInstantaneoustPowerType) {
+    return null;
+  }
+
+  // Find telemetry type configuration
+  const telemetryConfig = powerLimitsJSON.limitsByInstantaneoustPowerType.find(
+    config => config.telemetryType === telemetryType
+  );
+
+  if (!telemetryConfig) {
+    LogHelper.log(`[RFC-0078] Telemetry type ${telemetryType} not found in JSON`);
+    return null;
+  }
+
+  // Find device type configuration
+  const deviceConfig = telemetryConfig.itemsByDeviceType.find(
+    item => item.deviceType === deviceType || item.deviceType === deviceType.toUpperCase()
+  );
+
+  if (!deviceConfig) {
+    LogHelper.log(`[RFC-0078] Device type ${deviceType} not found for telemetry ${telemetryType}`);
+    return null;
+  }
+
+  // Extract ranges by status
+  const ranges = {
+    standbyRange: { down: 0, up: 0 },
+    normalRange: { down: 0, up: 0 },
+    alertRange: { down: 0, up: 0 },
+    failureRange: { down: 0, up: 0 }
+  };
+
+  deviceConfig.limitsByDeviceStatus.forEach(status => {
+    const baseValue = status.limitsValues?.baseValue ?? status.limitsVales?.baseValue ?? 0;
+    const topValue = status.limitsValues?.topValue ?? status.limitsVales?.topValue ?? 99999;
+
+    switch (status.deviceStatusName) {
+      case 'standBy':
+        ranges.standbyRange = { down: baseValue, up: topValue };
+        break;
+      case 'normal':
+        ranges.normalRange = { down: baseValue, up: topValue };
+        break;
+      case 'alert':
+        ranges.alertRange = { down: baseValue, up: topValue };
+        break;
+      case 'failure':
+        ranges.failureRange = { down: baseValue, up: topValue };
+        break;
+    }
+  });
+
+  return {
+    ...ranges,
+    source: 'json',
+    metadata: {
+      name: deviceConfig.name,
+      description: deviceConfig.description,
+      version: powerLimitsJSON.version,
+      telemetryType: telemetryType
+    }
+  };
+}
+
 let __deviceProfileSyncComplete = false;
 
 async function fetchDeviceProfiles() {
@@ -916,26 +988,33 @@ function buildAuthoritativeItems() {
     // connectionStatus comes from TB attribute: "online" or "offline"
     const tbConnectionStatus = attrs.connectionStatus; // "online" or "offline" from TB
 
-    //console.log('tbConnectionStatus', tbConnectionStatus);
-    
     let deviceStatus = "no_info"; // default
 
     if (tbConnectionStatus === "offline") {
       deviceStatus = "no_info"; // offline = no_info
     } else if (tbConnectionStatus === "online") {
-      // If online, check if device has recent consumption/level > 0
-      // let currentValue = 0;
-      // if (isTankDevice) {
-      //   currentValue = waterLevel || 0;
-      // } else {
-      //   currentValue = consumption || 0;
-      // }
-      // console.log('consumption', consumption);
-      
-      // console.log('currentValue', currentValue);
-      
-      //deviceStatus = currentValue > 0 ? "power_on" : "power_off";
-      deviceStatus = "power_on"; // Simplified logic: if online, consider power_on
+      // RFC-0078: For energy devices, calculate status using ranges from mapInstantaneousPower
+      const isEnergyDevice = !isTankDevice && !isTermostatoDevice;
+
+      if (isEnergyDevice && MAP_INSTANTANEOUS_POWER) {
+        // Extract ranges for this device type from customer-level JSON
+        const ranges = extractLimitsFromJSON(MAP_INSTANTANEOUS_POWER, deviceTypeToDisplay, 'consumption');
+
+        if (ranges && typeof MyIOLibrary?.calculateDeviceStatusWithRanges === 'function') {
+          deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
+            connectionStatus: tbConnectionStatus,
+            lastConsumptionValue: consumption,
+            ranges: ranges
+          });
+          LogHelper.log(`[RFC-0078] Device ${r.label}: calculated status=${deviceStatus} using ranges from mapInstantaneousPower`);
+        } else {
+          // Fallback if no ranges found or MyIOLibrary not available
+          deviceStatus = "power_on";
+        }
+      } else {
+        // TANK, TERMOSTATO, or no mapInstantaneousPower available
+        deviceStatus = "power_on";
+      }
     }
 
     // Determine value based on device type
