@@ -9,11 +9,7 @@
   </div>
 
   <!-- Equipment Statistics Header (outside view containers - always visible) -->
-  <div
-    class="equip-stats-header"
-    id="equipStatsHeader"
-    style="display: flex !important; flex-direction: row !important"
-  >
+  <div class="equip-stats-header" id="equipStatsHeader" style="display: flex !important; flex-direction: row !important;">
     <div class="stat-item">
       <span class="stat-label">Conectividade</span>
       <span class="stat-value" id="equipStatsConnectivity">-</span>
@@ -34,63 +30,45 @@
     <!-- Filter Actions -->
     <div class="filter-actions">
       <div class="search-wrap" id="searchWrap">
-        <input type="text" id="equipSearch" placeholder="Buscar..." autocomplete="off" />
+        <input type="text" id="equipSearch" placeholder="Buscar..." autocomplete="off">
       </div>
       <button class="icon-btn" id="btnSearch" title="Buscar" aria-label="Buscar">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-          <path
-            d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM4 9.5C4 6.46 6.46 4 9.5 4S15 6.46 15 9.5 12.54 15 9.5 15 4 12.54 4 9.5z"
-          />
+          <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM4 9.5C4 6.46 6.46 4 9.5 4S15 6.46 15 9.5 12.54 15 9.5 15 4 12.54 4 9.5z"/>
         </svg>
       </button>
       <button class="icon-btn" id="btnFilter" title="Filtros" aria-label="Filtros">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-          <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z" />
+          <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z"/>
         </svg>
       </button>
     </div>
   </div>
 
   <!-- Loading overlay -->
-  <div id="equipments-loading-overlay" class="equipments-loading-overlay" style="display: none">
+  <div id="equipments-loading-overlay" class="equipments-loading-overlay" style="display: none;">
     <div class="loading-spinner">
-      <svg style="width: 48px; height: 48px; animation: spin 1s linear infinite" viewBox="0 0 50 50">
-        <circle
-          cx="25"
-          cy="25"
-          r="20"
-          fill="none"
-          stroke="#6c2fbf"
-          stroke-width="5"
-          stroke-linecap="round"
-          stroke-dasharray="90,150"
-          stroke-dashoffset="0"
-        ></circle>
+      <svg style="width:48px; height:48px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
+        <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
+                stroke-dasharray="90,150" stroke-dashoffset="0">
+        </circle>
       </svg>
       <p>Carregando dados de consumo...</p>
     </div>
   </div>
 
   <section class="equip-grid" id="equipGrid">
-    <div id="cards-grid" class="cards-grid"></div>
+      <div id="cards-grid" class="cards-grid"></div>
   </section>
 
   <!-- Filter Modal -->
-  <div
-    id="filterModal"
-    class="equip-modal hidden"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="filterTitle"
-  >
+  <div id="filterModal" class="equip-modal hidden" role="dialog" aria-modal="true" aria-labelledby="filterTitle">
     <div class="equip-modal-card">
       <header class="equip-modal-header">
         <h3 id="filterTitle">Selecionar Equipamentos</h3>
         <button class="icon-btn" id="closeFilter" aria-label="Fechar">
           <svg viewBox="0 0 24 24" width="18" height="18">
-            <path
-              d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.3l6.3 6.29 6.29-6.3z"
-            />
+            <path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.3l6.3 6.29 6.29-6.3z"/>
           </svg>
         </button>
       </header>
@@ -100,46 +78,23 @@
           <div class="filter-tabs" id="filterTabs">
             <button class="filter-tab active" data-filter="all">TODOS (<span id="countAll">0</span>)</button>
             <button class="filter-tab" data-filter="online">ONLINE (<span id="countOnline">0</span>)</button>
-            <button class="filter-tab" data-filter="offline">
-              OFFLINE (<span id="countOffline">0</span>)
-            </button>
-            <button class="filter-tab" data-filter="with-consumption">
-              COM CONSUMO (<span id="countWithConsumption">0</span>)
-            </button>
-            <button class="filter-tab" data-filter="no-consumption">
-              SEM CONSUMO (<span id="countNoConsumption">0</span>)
-            </button>
-            <button class="filter-tab" data-filter="elevators">
-              ELEVADORES (<span id="countElevators">0</span>)
-            </button>
-            <button class="filter-tab" data-filter="escalators">
-              ESC. ROLANTE (<span id="countEscalators">0</span>)
-            </button>
-            <button class="filter-tab" data-filter="hvac">
-              CLIMATIZAÇÃO (<span id="countHvac">0</span>)
-            </button>
-            <button class="filter-tab" data-filter="others">
-              OUTROS EQUIP. (<span id="countOthers">0</span>)
-            </button>
+            <button class="filter-tab" data-filter="offline">OFFLINE (<span id="countOffline">0</span>)</button>
+            <button class="filter-tab" data-filter="with-consumption">COM CONSUMO (<span id="countWithConsumption">0</span>)</button>
+            <button class="filter-tab" data-filter="no-consumption">SEM CONSUMO (<span id="countNoConsumption">0</span>)</button>
+            <button class="filter-tab" data-filter="elevators">ELEVADORES (<span id="countElevators">0</span>)</button>
+            <button class="filter-tab" data-filter="escalators">ESC. ROLANTE (<span id="countEscalators">0</span>)</button>
+            <button class="filter-tab" data-filter="hvac">CLIMATIZAÇÃO (<span id="countHvac">0</span>)</button>
+            <button class="filter-tab" data-filter="others">OUTROS EQUIP. (<span id="countOthers">0</span>)</button>
           </div>
 
           <div class="filter-search">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM4 9.5C4 6.46 6.46 4 9.5 4S15 6.46 15 9.5 12.54 15 9.5 15 4 12.54 4 9.5z"
-              />
+              <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM4 9.5C4 6.46 6.46 4 9.5 4S15 6.46 15 9.5 12.54 15 9.5 15 4 12.54 4 9.5z"/>
             </svg>
-            <input
-              id="filterDeviceSearch"
-              type="text"
-              placeholder="Buscar equipamentos..."
-              autocomplete="off"
-            />
+            <input id="filterDeviceSearch" type="text" placeholder="Buscar equipamentos..." autocomplete="off">
             <button class="clear-x" id="filterDeviceClear" title="Limpar" aria-label="Limpar">
               <svg viewBox="0 0 24 24" width="14" height="14">
-                <path
-                  d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.3l6.3 6.29 6.29-6.3z"
-                />
+                <path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.3l6.3 6.29 6.29-6.3z"/>
               </svg>
             </button>
           </div>
@@ -149,10 +104,10 @@
         <div class="filter-block">
           <label class="block-label">Ordenação</label>
           <div class="radio-grid">
-            <label><input type="radio" name="sortMode" value="cons_desc" checked /> Consumo ↓ (padrão)</label>
-            <label><input type="radio" name="sortMode" value="cons_asc" /> Consumo ↑</label>
-            <label><input type="radio" name="sortMode" value="alpha_asc" /> A → Z</label>
-            <label><input type="radio" name="sortMode" value="alpha_desc" /> Z → A</label>
+            <label><input type="radio" name="sortMode" value="cons_desc" checked> Consumo ↓ (padrão)</label>
+            <label><input type="radio" name="sortMode" value="cons_asc"> Consumo ↑</label>
+            <label><input type="radio" name="sortMode" value="alpha_asc"> A → Z</label>
+            <label><input type="radio" name="sortMode" value="alpha_desc"> Z → A</label>
           </div>
           <p class="muted">Caso o consumo seja o mesmo é considerada a ordem alfabética.</p>
         </div>

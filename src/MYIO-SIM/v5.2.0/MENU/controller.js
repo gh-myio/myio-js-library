@@ -541,6 +541,108 @@ function sendFilterOpenEvent() {
 
 /* ====== Lifecycle ====== */
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
+  // ==============================================================
+  // INJETAR CSS GLOBAL PARA O MODAL (Restaura a beleza)
+  // Coloque isso no topo do self.onInit
+  // ==============================================================
+  if (!document.getElementById('myio-energy-modal-styles')) {
+    const style = document.createElement('style');
+    style.id = 'myio-energy-modal-styles';
+    style.innerHTML = `
+            /* Container Fundo Escuro */
+            #energyContextModal {
+                font-family: 'Roboto', 'Segoe UI', sans-serif;
+                backdrop-filter: blur(4px);
+            }
+
+            /* O Cartão Branco */
+            #energyContextModal .energy-modal-content {
+                background: #ffffff !important;
+                border-radius: 16px !important;
+                box-shadow: 0 20px 50px rgba(0,0,0,0.3) !important;
+                width: 320px !important;
+                max-width: 90vw !important;
+                overflow: hidden !important;
+                border: none !important;
+                padding: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+
+            /* Cabeçalho */
+            .energy-modal-header {
+                padding: 16px 20px !important;
+                background: #f8fafc;
+                border-bottom: 1px solid #e2e8f0;
+                font-weight: 700;
+                color: #1e293b;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-size: 16px;
+            }
+
+            /* Lista de Opções (Isso corrige o layout horizontal quebrado) */
+            .energy-modal-options {
+                padding: 10px !important;
+                display: flex !important;
+                flex-direction: column !important; /* Força lista vertical */
+                gap: 8px !important;
+            }
+
+            /* Cada Botão de Opção */
+            .energy-modal-option {
+                display: flex !important;
+                align-items: center !important;
+                gap: 12px !important;
+                padding: 12px 16px !important;
+                border: 1px solid transparent !important;
+                border-radius: 12px !important;
+                background: transparent !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                text-align: left !important;
+                color: #334155 !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+            }
+
+            /* Hover (Passar o mouse) */
+            .energy-modal-option:hover {
+                background: #f1f5f9 !important;
+                border-color: #cbd5e1 !important;
+            }
+
+            /* Ativo (Selecionado) */
+            .energy-modal-option.is-active {
+                background: #eff6ff !important;
+                border-color: #3b82f6 !important;
+                color: #1d4ed8 !important;
+            }
+
+            /* Ícones e Textos Internos */
+            .option-ico { font-size: 20px; }
+            .option-info { flex: 1; display: flex; flex-direction: column; }
+            .option-title { font-weight: 600; font-size: 14px; line-height: 1.2; }
+            .option-desc { font-size: 12px; color: #64748b; margin-top: 2px; font-weight: 400; }
+            
+            /* Checkmark */
+            .option-check { 
+                font-weight: bold; 
+                opacity: 0; 
+                transform: scale(0.5); 
+                transition: all 0.2s; 
+                color: #3b82f6;
+            }
+            .energy-modal-option.is-active .option-check { 
+                opacity: 1; 
+                transform: scale(1); 
+            }
+        `;
+    document.head.appendChild(style);
+    console.log('[SETUP] CSS Global do Modal injetado com sucesso.');
+  }
+
   // Extrai o segmento após 'all/' da URL
   function getSegmentAfterAll() {
     const match = window.location.href.match(/all\/([^\/?#]+)/i);
@@ -555,10 +657,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       stateId: 'content_equipments',
       state: 'W3siaWQiOiJjb250ZW50X2VxdWlwbWVudHMiLCJwYXJhbXMiOnt9fV0%253D',
     },
-    energyButton: {
-      stateId: 'content_energy',
-      state: 'W3siaWQiOiJjb250ZW50X2VuZXJneSIsInBhcmFtcyI6e319XQ%253D%253D',
-    },
+    // energyButton: {
+    //   stateId: "content_energy",
+    //   state: "W3siaWQiOiJjb250ZW50X2VuZXJneSIsInBhcmFtcyI6e319XQ%253D%253D",
+    // },
     waterButton: {
       stateId: 'content_water',
       state: 'W3siaWQiOiJjb250ZW50X3dhdGVyIiwicGFyYW1zIjp7fX1d',
@@ -622,6 +724,54 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       button.addEventListener('click', () => switchContentState(stateId));
     }
   });
+
+  // ==============================================================
+  // FIX: LISTENER DE TROCA DE ESTADO (Versão Híbrida)
+  // ==============================================================
+  self._onSwitchState = (ev) => {
+    console.log(`[MAIN] [RFC-0079] 🔔 Received myio:switch-main-state event:`, ev.detail);
+
+    const targetStateId = ev.detail?.targetStateId;
+    if (!targetStateId) return;
+
+    // VOLTAMOS PARA O SELETOR GLOBAL (Pois o log provou que ele funciona)
+    const mainView = document.getElementById('mainView');
+
+    if (!mainView) {
+      console.error('[MAIN] ❌ mainView element not found (Global search failed)');
+      return;
+    }
+
+    // Oculta todos (FORÇA BRUTA)
+    const allStates = mainView.querySelectorAll('[data-content-state]');
+    allStates.forEach((stateDiv) => {
+      // Remove qualquer style inline antigo
+      stateDiv.style.display = '';
+      // Aplica o none com prioridade máxima
+      stateDiv.style.setProperty('display', 'none', 'important');
+    });
+
+    // Mostra o alvo (FORÇA BRUTA)
+    const targetState = mainView.querySelector(`[data-content-state="${targetStateId}"]`);
+    if (targetState) {
+      // Aplica o block com prioridade máxima
+      targetState.style.setProperty('display', 'block', 'important');
+
+      console.log(`[MAIN] ✅ Switched VISUALLY to: ${targetStateId}`);
+
+      // Atualiza escopo angular se necessário
+      if (self.ctx?.$scope) {
+        self.ctx.$scope.mainContentStateId = targetStateId;
+        if (self.ctx.$scope.$applyAsync) self.ctx.$scope.$applyAsync();
+      }
+    } else {
+      console.error(`[MAIN] ❌ Target state ${targetStateId} not found`);
+    }
+  };
+
+  // Adiciona o listener na janela
+  window.addEventListener('myio:switch-main-state', self._onSwitchState);
+  // ==============================================================
 
   // Inicializa o daterangepicker usando o componente MyIOLibrary
   const TZ = 'America/Sao_Paulo';
@@ -1170,6 +1320,192 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   computeCustomersFromCtx();
 
   // console.log("custumer",custumer)
+
+  // ==============================================================
+  // MODAL + LIMPEZA DE ABAS + SINCRONIZAÇÃO DE CHECK
+  // ==============================================================
+  setTimeout(() => {
+    console.log('[SETUP] Iniciando fix do Modal V3...');
+
+    const btn = document.getElementById('energyButton');
+    let modal = document.getElementById('energyContextModal');
+    const mainView = document.querySelector('#mainView') || document.getElementById('mainView');
+
+    if (!btn || !modal) return;
+
+    // 1. CLONAR BOTÃO (Limpar listeners antigos)
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+
+    // 2. MOVER O MODAL PARA A RAIZ (evita cortes visuais)
+    if (modal.parentNode !== document.body) {
+      modal.parentNode.removeChild(modal);
+      document.body.appendChild(modal);
+    }
+
+    // 3. AÇÃO DE CLIQUE DO BOTÃO ENERGIA
+    newBtn.onclick = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      console.log('[CLICK] Botão Energia Clicado');
+
+      // --- LIMPEZA DE ABAS ---
+      const allTabs = document.querySelectorAll('.myio-tabs .tab');
+      allTabs.forEach((t) => t.classList.remove('is-active'));
+      newBtn.classList.add('is-active');
+
+      // Verifica se vai abrir ou fechar
+      const isVisible = modal.style.display === 'flex';
+
+      if (!isVisible) {
+        // [NOVO] --- SINCRONIZAÇÃO VISUAL DO MODAL ---
+        // Verifica qual tela está ativa no momento (salva no escopo ou padrão)
+        const currentState = self.ctx?.$scope?.mainContentStateId || 'content_equipments';
+
+        const modalOptions = modal.querySelectorAll('.energy-modal-option');
+        modalOptions.forEach((opt) => {
+          // Se o data-target da opção for igual à tela atual, marca como ativo
+          if (opt.getAttribute('data-target') === currentState) {
+            opt.classList.add('is-active');
+          } else {
+            opt.classList.remove('is-active');
+          }
+        });
+        // --------------------------------------------
+
+        console.log('[ACTION] Abrindo modal sincronizado...');
+
+        // Abre o modal com CSS forçado
+        modal.style.cssText = `
+                    display: flex !important;
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    background-color: rgba(0,0,0,0.6) !important;
+                    z-index: 2147483647 !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                `;
+
+        // Estiliza conteúdo interno se necessário
+        const content = modal.querySelector('.energy-modal-content');
+        if (content) {
+          content.style.cssText = `
+                        display: flex !important;
+                        flex-direction: column !important;
+                        background: white !important;
+                        padding: 0 !important;
+                        border-radius: 16px !important;
+                        min-width: 320px !important;
+                        z-index: 2147483647 !important;
+                        opacity: 1 !important;
+                        border: none !important;
+                        overflow: hidden !important;
+                    `;
+        }
+      } else {
+        modal.style.display = 'none';
+      }
+    };
+
+    // 4. AÇÃO DAS OPÇÕES (DENTRO DO MODAL)
+    const options = modal.querySelectorAll('.energy-modal-option');
+    options.forEach((opt) => {
+      opt.onclick = function (ev) {
+        ev.stopPropagation();
+        const targetStateId = this.getAttribute('data-target');
+        const contextName = this.querySelector('.option-title')?.innerText;
+
+        // Atualiza label visual
+        const label = document.getElementById('energyContextLabel');
+        if (label && contextName) label.innerText = `Energia: ${contextName.replace(' (Energia)', '')}`;
+
+        // Fecha modal
+        modal.style.display = 'none';
+
+        // Troca de tela
+        if (targetStateId && mainView) {
+          const allStates = mainView.querySelectorAll('[data-content-state]');
+          allStates.forEach((d) => d.style.setProperty('display', 'none', 'important'));
+
+          const targetDiv = mainView.querySelector(`[data-content-state="${targetStateId}"]`);
+          if (targetDiv) {
+            targetDiv.style.setProperty('display', 'block', 'important');
+
+            // Mantém botão ativo
+            newBtn.classList.add('is-active');
+
+            // Atualiza escopo angular (CRUCIAL para a sincronização funcionar na próxima vez)
+            if (self.ctx?.$scope) {
+              self.ctx.$scope.mainContentStateId = targetStateId;
+              if (self.ctx.$scope.$applyAsync) self.ctx.$scope.$applyAsync();
+            }
+          }
+        }
+      };
+    });
+
+    // 5. FECHAR AO CLICAR NO FUNDO
+    modal.onclick = function (e) {
+      if (e.target === modal) {
+        modal.style.display = 'none';
+      }
+    };
+  }, 1000);
+
+  const originalDestroy = self.onDestroy;
+  self.onDestroy = function () {
+    if (originalDestroy) originalDestroy();
+
+    // Remove o modal do body se ele existir lá
+    const modal = document.getElementById('energyContextModal');
+    if (modal && modal.parentNode === document.body) {
+      document.body.removeChild(modal);
+    }
+  };
+
+  // ==============================================================
+  // FIX VISUAL FINAL: GERENTE DE ABAS (Versão Agressiva)
+  // Garante limpeza total antes de selecionar
+  // Coloque no FINAL do self.onInit
+  // ==============================================================
+
+  const energyStates = ['content_equipments', 'content_energy', 'content_store'];
+
+  window.addEventListener('myio:switch-main-state', (ev) => {
+    const targetId = ev.detail?.targetStateId;
+    if (!targetId) return;
+
+    console.log(`[TABS] Atualizando abas para: ${targetId}`);
+
+    // 1. LIMPEZA TOTAL (Tática Agressiva)
+    // Busca TODOS os elementos com a classe .tab dentro da barra de navegação
+    const allTabs = document.querySelectorAll('.myio-tabs .tab');
+
+    // Remove a classe 'is-active' de TODOS eles sem exceção
+    allTabs.forEach((tab) => {
+      tab.classList.remove('is-active');
+    });
+
+    // 2. SELECIONA OS BOTÕES ESPECÍFICOS
+    const btnEnergy = document.getElementById('energyButton');
+    const btnWater = document.getElementById('waterButton');
+    const btnTemp = document.getElementById('temperatureButton');
+
+    // 3. ACENDE APENAS O CORRETO
+    if (energyStates.includes(targetId)) {
+      if (btnEnergy) btnEnergy.classList.add('is-active');
+    } else if (targetId === 'content_water') {
+      if (btnWater) btnWater.classList.add('is-active');
+    } else if (targetId === 'content_temperature') {
+      if (btnTemp) btnTemp.classList.add('is-active');
+    }
+  });
 };
 
 self.onDataUpdated = function () {
@@ -1192,4 +1528,12 @@ self.onDataUpdated = function () {
 
 self.onDestroy = function () {
   /* nada a limpar */
+  if (self._onDateParams) {
+    window.removeEventListener('myio:date-params', self._onDateParams);
+  }
+
+  // FIX 3: Remove listener de troca de estado
+  if (self._onSwitchState) {
+    window.removeEventListener('myio:switch-main-state', self._onSwitchState);
+  }
 };
