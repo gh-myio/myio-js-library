@@ -521,7 +521,13 @@ export async function openRealTimeTelemetryModal(params: RealTimeTelemetryParams
       const latest = telemetryData[0];
       const config = TELEMETRY_CONFIG[key] || { label: key, unit: '', icon: '📊', decimals: 2 };
 
-      const numValue = Number(latest.value) || 0;
+      let numValue = Number(latest.value) || 0;
+
+      // RFC-0086: Convert mA to A for current values (API returns milliamps)
+      if (key === 'total_current' || key === 'current') {
+        numValue = numValue / 1000;
+      }
+
       const formatted = numValue.toFixed(config.decimals);
 
       values.push({
