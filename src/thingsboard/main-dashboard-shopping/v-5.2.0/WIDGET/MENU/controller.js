@@ -467,36 +467,12 @@ async function fetchUserInfo() {
     tempSettingsBtn.className = "temp-settings-btn";
     tempSettingsBtn.type = "button";
     tempSettingsBtn.setAttribute("aria-label", "Configurar Temperatura");
-    tempSettingsBtn.style.cssText = `
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      padding: 12px 16px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 8px;
-      color: rgba(255, 255, 255, 0.8);
-      font-size: 14px;
-      cursor: pointer;
-      transition: all 0.2s;
-      margin-bottom: 8px;
-    `;
+    // Styling handled by CSS in style.css (#temp-settings-btn.temp-settings-btn)
 
     tempSettingsBtn.innerHTML = `
-      <span style="font-size: 18px;">🌡️</span>
-      <span>Config. Temperatura</span>
+      <span class="temp-icon">🌡️</span>
+      <span class="temp-text">Config. Temperatura</span>
     `;
-
-    // Hover effects
-    tempSettingsBtn.addEventListener("mouseenter", () => {
-      tempSettingsBtn.style.background = "rgba(62, 26, 125, 0.3)";
-      tempSettingsBtn.style.borderColor = "rgba(62, 26, 125, 0.5)";
-    });
-    tempSettingsBtn.addEventListener("mouseleave", () => {
-      tempSettingsBtn.style.background = "rgba(255, 255, 255, 0.05)";
-      tempSettingsBtn.style.borderColor = "rgba(255, 255, 255, 0.1)";
-    });
 
     // Insert before logout button
     if (logoutBtn) menuFooter.insertBefore(tempSettingsBtn, logoutBtn);
@@ -519,13 +495,13 @@ async function fetchUserInfo() {
         return;
       }
 
-      // Get customer info from user object
-      const customerId = user?.customerId?.id;
+      // RFC-0085: Get customerTB_ID from MAIN_VIEW orchestrator (single source of truth)
+      const customerId = window.MyIOOrchestrator?.customerTB_ID;
       const customerName = user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || "Cliente";
 
       if (!customerId) {
-        LogHelper.error("[MENU] Customer ID not found");
-        alert("ID do cliente não encontrado.");
+        LogHelper.error("[MENU] customerTB_ID not found in MyIOOrchestrator - ensure MAIN_VIEW is configured");
+        alert("ID do cliente não encontrado. Verifique configuração do dashboard.");
         return;
       }
 

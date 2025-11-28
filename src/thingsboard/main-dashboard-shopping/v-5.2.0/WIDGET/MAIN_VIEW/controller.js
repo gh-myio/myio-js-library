@@ -317,6 +317,12 @@ function cleanupExpiredCache() {
     }
 
     widgetSettings.customerTB_ID = customerTB_ID;
+
+    // RFC-0085: Expose customerTB_ID globally for MENU and other widgets
+    if (window.MyIOOrchestrator) {
+      window.MyIOOrchestrator.customerTB_ID = customerTB_ID;
+    }
+
     widgetSettings.enableCache = self.ctx.settings?.enableCache ?? true;  // RFC-0052: New
     widgetSettings.cacheTtlMinutes = self.ctx.settings?.cacheTtlMinutes ?? 30;
     widgetSettings.enableStaleWhileRevalidate = self.ctx.settings?.enableStaleWhileRevalidate ?? true;
@@ -363,6 +369,9 @@ function cleanupExpiredCache() {
         // Status flags
         isReady: false,
         credentialsSet: false,
+
+        // RFC-0085: Customer ID from settings (for MENU and other widgets)
+        customerTB_ID: null,
 
         // Data access methods (will be populated later)
         getCurrentPeriod: () => null,
