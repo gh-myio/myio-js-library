@@ -862,126 +862,8 @@ async function getCachedConsumptionLimits(customerId) {
 // END RFC-0078
 // ============================================
 
-const MyIOAuth = (() => {
-  // ==== CONFIG ====
-  const AUTH_URL = new URL(`${DATA_API_HOST}/api/v1/auth`);
-
-  // ⚠️ Substitua pelos seus valores:
-
-  // Margem para renovar o token antes de expirar (em segundos)
-  const RENEW_SKEW_S = 60; // 1 min
-  // Em caso de erro, re-tenta com backoff simples
-  const RETRY_BASE_MS = 500;
-  const RETRY_MAX_ATTEMPTS = 3;
-
-  // Cache em memória (por aba). Se quiser compartilhar entre widgets/abas,
-  // você pode trocar por localStorage (com os devidos cuidados de segurança).
-  let _token = null; // string
-  let _expiresAt = 0; // epoch em ms
-  let _inFlight = null; // Promise em andamento para evitar corridas
-
-  function _now() {
-    return Date.now();
-  }
-
-  function _aboutToExpire() {
-    // true se não temos token ou se falta pouco para expirar
-    if (!_token) return true;
-    const skewMs = RENEW_SKEW_S * 1000;
-    return _now() >= _expiresAt - skewMs;
-  }
-
-  async function _sleep(ms) {
-    return new Promise((res) => setTimeout(res, ms));
-  }
-
-  async function _requestNewToken() {
-    const body = {
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-    };
-
-    let attempt = 0;
-    while (true) {
-      try {
-        const resp = await fetch(AUTH_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
-        });
-
-        if (!resp.ok) {
-          const text = await resp.text().catch(() => "");
-          throw new Error(
-            `Auth falhou: HTTP ${resp.status} ${resp.statusText} ${text}`
-          );
-        }
-
-        const json = await resp.json();
-        // Espera formato:
-        // { access_token, token_type, expires_in, scope }
-        if (!json || !json.access_token || !json.expires_in) {
-          throw new Error("Resposta de auth não contem campos esperados.");
-        }
-
-        _token = json.access_token;
-        // Define expiração absoluta (agora + expires_in)
-        _expiresAt = _now() + Number(json.expires_in) * 1000;
-
-        // Logs úteis para depuração (não imprimem o token)
-        LogHelper.log(
-          "[equipaments] [MyIOAuth] Novo token obtido. Expira em ~",
-          Math.round(Number(json.expires_in) / 60),
-          "min"
-        );
-
-        return _token;
-      } catch (err) {
-        attempt++;
-        LogHelper.warn(
-          `[equipaments] [MyIOAuth] Erro ao obter token (tentativa ${attempt}/${RETRY_MAX_ATTEMPTS}):`,
-          err?.message || err
-        );
-        if (attempt >= RETRY_MAX_ATTEMPTS) {
-          throw err;
-        }
-        const backoff = RETRY_BASE_MS * Math.pow(2, attempt - 1);
-        await _sleep(backoff);
-      }
-    }
-  }
-
-  async function getToken() {
-    // Evita múltiplas chamadas paralelas de renovação
-    if (_inFlight) {
-      return _inFlight;
-    }
-
-    if (_aboutToExpire()) {
-      _inFlight = _requestNewToken().finally(() => {
-        _inFlight = null;
-      });
-      return _inFlight;
-    }
-
-    return _token;
-  }
-
-  function clearCache() {
-    _token = null;
-    _expiresAt = 0;
-    _inFlight = null;
-  }
-
-  // RFC-0057: Removed unused getExpiryInfo()
-
-  return {
-    getToken,
-    clearCache,
-  };
-})();
+// MyIOAuth - initialized in onInit using MyIOLibrary.buildMyioIngestionAuth
+let MyIOAuth = null;
 
 async function fetchCustomerServerScopeAttrs(customerTbId) {
   if (!customerTbId) return {};
@@ -1829,6 +1711,14 @@ self.onInit = async function () {
   CLIENT_SECRET = customerCredentials.client_secret || " ";
   INGESTION_ID = customerCredentials.ingestionId || " ";
   MAP_INSTANTANEOUS_POWER = customerCredentials.mapInstantaneousPower;
+
+  // Initialize MyIOAuth using MyIOLibrary
+  MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+    dataApiHost: DATA_API_HOST,
+    clientId: CLIENT_ID,
+    clientSecret: CLIENT_SECRET,
+  });
+  LogHelper.log('[EQUIPMENTS] MyIOAuth initialized using MyIOLibrary');
 
   // 🚨 RFC-0077: Fetch customer consumption limits ONCE before processing devices
   // This will be used by getConsumptionRangesHierarchical as TIER 2 fallback

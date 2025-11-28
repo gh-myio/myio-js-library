@@ -10,6 +10,31 @@ let CLIENT_SECRET;
 let _dataRefreshCount = 0;
 const MAX_DATA_REFRESHES = 1;
 
+// Debug configuration
+const DEBUG_ACTIVE = true;
+
+// LogHelper utility
+const LogHelper = {
+  log: function (...args) {
+    if (DEBUG_ACTIVE) {
+      console.log(...args);
+    }
+  },
+  warn: function (...args) {
+    if (DEBUG_ACTIVE) {
+      console.warn(...args);
+    }
+  },
+  error: function (...args) {
+    if (DEBUG_ACTIVE) {
+      console.error(...args);
+    }
+  },
+};
+
+// MyIOAuth - initialized in onInit using MyIOLibrary.buildMyioIngestionAuth
+let MyIOAuth = null;
+
 function publishSwitch(targetStateId) {
   const detail = { targetStateId, source: 'menu', ts: Date.now() };
   window.dispatchEvent(new CustomEvent(EVT_SWITCH, { detail }));
@@ -905,99 +930,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           })
         );
 
-        // Also update customer consumption if applicable
+        // Also update customer consumption if applicable (uses global MyIOAuth from MyIOLibrary)
         if (window.custumersSelected && window.custumersSelected.length > 0) {
-          const MyIOAuth = (() => {
-            const AUTH_URL = new URL(`${DATA_API_HOST}/api/v1/auth`);
-            const RENEW_SKEW_S = 60;
-            const RETRY_BASE_MS = 500;
-            const RETRY_MAX_ATTEMPTS = 3;
-
-            let _token = null;
-            let _expiresAt = 0;
-            let _inFlight = null;
-
-            function _now() {
-              return Date.now();
-            }
-
-            function _aboutToExpire() {
-              if (!_token) return true;
-              const skewMs = RENEW_SKEW_S * 1000;
-              return _now() >= _expiresAt - skewMs;
-            }
-
-            async function _sleep(ms) {
-              return new Promise((res) => setTimeout(res, ms));
-            }
-
-            async function _requestNewToken() {
-              const body = {
-                client_id: CLIENT_ID,
-                client_secret: CLIENT_SECRET,
-              };
-
-              let attempt = 0;
-              while (true) {
-                try {
-                  const resp = await fetch(AUTH_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
-                  });
-
-                  if (!resp.ok) {
-                    const text = await resp.text().catch(() => '');
-                    throw new Error(`Auth falhou: HTTP ${resp.status} ${resp.statusText} ${text}`);
-                  }
-
-                  const json = await resp.json();
-                  if (!json || !json.access_token || !json.expires_in) {
-                    throw new Error('Resposta de auth não contem campos esperados.');
-                  }
-
-                  _token = json.access_token;
-                  _expiresAt = _now() + Number(json.expires_in) * 1000;
-
-                  console.log(
-                    '[MyIOAuth] Novo token obtido. Expira em ~',
-                    Math.round(Number(json.expires_in) / 60),
-                    'min'
-                  );
-
-                  return _token;
-                } catch (err) {
-                  attempt++;
-                  console.warn(
-                    `[MyIOAuth] Erro ao obter token (tentativa ${attempt}/${RETRY_MAX_ATTEMPTS}):`,
-                    err?.message || err
-                  );
-                  if (attempt >= RETRY_MAX_ATTEMPTS) {
-                    throw err;
-                  }
-                  const backoff = RETRY_BASE_MS * Math.pow(2, attempt - 1);
-                  await _sleep(backoff);
-                }
-              }
-            }
-
-            async function getToken() {
-              if (_inFlight) {
-                return _inFlight;
-              }
-
-              if (_aboutToExpire()) {
-                _inFlight = _requestNewToken().finally(() => {
-                  _inFlight = null;
-                });
-                return _inFlight;
-              }
-
-              return _token;
-            }
-
-            return { getToken };
-          })();
 
           async function updateTotalConsumption(customersArray, startDateISO, endDateISO) {
             const energyTotal = document.getElementById('energy-kpi');
@@ -1241,6 +1175,15 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
   CLIENT_ID = self.ctx.settings.clientId;
   CLIENT_SECRET = self.ctx.settings.clientSecret;
+
+  // Initialize MyIOAuth using MyIOLibrary
+  MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+    dataApiHost: DATA_API_HOST,
+    clientId: CLIENT_ID,
+    clientSecret: CLIENT_SECRET,
+  });
+  LogHelper.log('[MENU] MyIOAuth initialized using MyIOLibrary');
+
   computeCustomersFromCtx();
 
   bindTabs(root);
