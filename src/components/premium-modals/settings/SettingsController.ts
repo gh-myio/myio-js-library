@@ -14,10 +14,11 @@ export class SettingsController {
     this.validateParams();
     
     // Initialize dependencies with injection support
-    // RFC-0080: Pass deviceType and mapInstantaneousPower to persister for JSON structure
+    // RFC-0086: Pass deviceType, deviceProfile, and mapInstantaneousPower to persister for JSON structure
     const apiConfigWithDeviceInfo = {
       ...params.api,
       deviceType: params.deviceType,
+      deviceProfile: params.deviceProfile, // RFC-0086: For 3F_MEDIDOR → deviceProfile resolution
       mapInstantaneousPower: params.mapInstantaneousPower
     };
     this.persister = params.persister as DefaultSettingsPersister || new DefaultSettingsPersister(params.jwtToken, apiConfigWithDeviceInfo);
@@ -63,10 +64,11 @@ export class SettingsController {
           this.params.mapInstantaneousPower = globalMap;
           console.log('[SettingsModal] RFC-0080: Loaded GLOBAL mapInstantaneousPower from CUSTOMER');
 
-          // RFC-0080: Update persister with GLOBAL mapInstantaneousPower
+          // RFC-0086: Update persister with GLOBAL mapInstantaneousPower and deviceProfile
           this.persister = new DefaultSettingsPersister(this.params.jwtToken, {
             ...this.params.api,
             deviceType: this.params.deviceType,
+            deviceProfile: this.params.deviceProfile, // RFC-0086: For 3F_MEDIDOR → deviceProfile resolution
             mapInstantaneousPower: globalMap
           });
 

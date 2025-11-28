@@ -1,0 +1,24 @@
+{
+  "_comment": "RFC-0086: Exemplo de mapInstantaneousPower salvo em um DEVICE (SERVER_SCOPE)",
+  "_note": "Quando salvamos em um DEVICE, o JSON deve conter APENAS o deviceType do dispositivo",
+  "_example_scenario": "Device com deviceType=3F_MEDIDOR e deviceProfile=ESCADA_ROLANTE",
+  "version": "1.0.0",
+  "limitsByInstantaneoustPowerType": [
+    {
+      "telemetryType": "consumption",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ESCADA_ROLANTE",
+          "name": "mapInstantaneousPowerEscalator",
+          "description": "Limites customizados para LUC-001",
+          "limitsByDeviceStatus": [
+            { "deviceStatusName": "standBy", "limitsValues": { "baseValue": 0, "topValue": 200 } },
+            { "deviceStatusName": "normal", "limitsValues": { "baseValue": 201, "topValue": 1000 } },
+            { "deviceStatusName": "alert", "limitsValues": { "baseValue": 1001, "topValue": 1500 } },
+            { "deviceStatusName": "failure", "limitsValues": { "baseValue": 1501, "topValue": 99999 } }
+          ]
+        }
+      ]
+    }
+  ]
+}

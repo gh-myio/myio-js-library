@@ -30,13 +30,33 @@ export class DefaultSettingsPersister implements SettingsPersister {
   private jwtToken: string;
   private tbBaseUrl: string;
   private deviceType: string;
+  private deviceProfile: string | null;
   private existingMapInstantaneousPower: InstantaneousPowerLimits | null;
 
   constructor(jwtToken: string, apiConfig?: any) {
     this.jwtToken = jwtToken;
     this.tbBaseUrl = apiConfig?.tbBaseUrl || window.location.origin;
     this.deviceType = apiConfig?.deviceType || 'ELEVADOR';
+    this.deviceProfile = apiConfig?.deviceProfile || null;
     this.existingMapInstantaneousPower = apiConfig?.mapInstantaneousPower || null;
+  }
+
+  /**
+   * RFC-0086: Resolve effective device type
+   * When deviceType is 3F_MEDIDOR, use deviceProfile as the actual type
+   */
+  private getEffectiveDeviceType(): string {
+    const normalizedType = (this.deviceType || '').toUpperCase();
+
+    if (normalizedType === '3F_MEDIDOR') {
+      const profile = (this.deviceProfile || '').toUpperCase();
+      if (profile && profile !== 'N/D' && profile.trim() !== '') {
+        console.log(`[SettingsPersister] RFC-0086: Resolved 3F_MEDIDOR → ${profile}`);
+        return profile;
+      }
+    }
+
+    return normalizedType || 'ELEVADOR';
   }
 
   async saveEntityLabel(deviceId: string, label: string): Promise<{ ok: boolean; error?: SettingsError }> {
@@ -117,86 +137,69 @@ export class DefaultSettingsPersister implements SettingsPersister {
   }
 
   /**
-   * RFC-0080: Build mapInstantaneousPower JSON structure from form data
-   * Preserves existing structure and updates only the current device type
+   * RFC-0086: Build mapInstantaneousPower JSON structure from form data
+   * IMPORTANT: When saving to a DEVICE, only include entries for the specific deviceType
+   * Uses getEffectiveDeviceType() to resolve 3F_MEDIDOR → deviceProfile
    */
   private buildMapInstantaneousPower(formData: Record<string, unknown>): InstantaneousPowerLimits {
-    // Start with existing or create new structure
-    const result: InstantaneousPowerLimits = this.existingMapInstantaneousPower
-      ? JSON.parse(JSON.stringify(this.existingMapInstantaneousPower)) // Deep clone
-      : {
-          version: '1.0.0',
-          limitsByInstantaneoustPowerType: []
-        };
+    // RFC-0086: Get effective device type (resolves 3F_MEDIDOR → deviceProfile)
+    const effectiveDeviceType = this.getEffectiveDeviceType();
 
     // Find or create telemetry type entry
     const telemetryType = String(formData.telemetryType || 'consumption');
-    let telemetryConfig = result.limitsByInstantaneoustPowerType.find(
-      t => t.telemetryType === telemetryType
-    );
 
-    if (!telemetryConfig) {
-      telemetryConfig = {
-        telemetryType,
-        itemsByDeviceType: []
-      };
-      result.limitsByInstantaneoustPowerType.push(telemetryConfig);
-    }
-
-    // Find or create device type entry
-    const deviceType = this.deviceType.toUpperCase();
-    let deviceConfig = telemetryConfig.itemsByDeviceType.find(
-      d => d.deviceType === deviceType
-    );
-
-    if (!deviceConfig) {
-      deviceConfig = {
-        deviceType,
-        name: `mapInstantaneousPower${this.formatDeviceTypeName(deviceType)}`,
-        description: `Limites de potência customizados para ${deviceType}`,
-        limitsByDeviceStatus: []
-      };
-      telemetryConfig.itemsByDeviceType.push(deviceConfig);
-    }
-
-    // Update limits from form data
-    deviceConfig.limitsByDeviceStatus = [
-      {
-        deviceStatusName: 'standBy',
-        limitsValues: {
-          baseValue: Number(formData.standbyLimitDownConsumption) || 0,
-          topValue: Number(formData.standbyLimitUpConsumption) || 0
+    // RFC-0086: Build a NEW filtered structure containing ONLY the current device type
+    // This ensures we don't save entries for other device types (ELEVADOR, MOTOR, etc.)
+    // when saving to a specific DEVICE
+    const result: InstantaneousPowerLimits = {
+      version: '1.0.0',
+      limitsByInstantaneoustPowerType: [
+        {
+          telemetryType,
+          itemsByDeviceType: [
+            {
+              deviceType: effectiveDeviceType,
+              name: `mapInstantaneousPower${this.formatDeviceTypeName(effectiveDeviceType)}`,
+              description: formData.identifier
+                ? `Limites customizados para ${formData.identifier}`
+                : `Limites de potência customizados para ${effectiveDeviceType}`,
+              limitsByDeviceStatus: [
+                {
+                  deviceStatusName: 'standBy',
+                  limitsValues: {
+                    baseValue: Number(formData.standbyLimitDownConsumption) || 0,
+                    topValue: Number(formData.standbyLimitUpConsumption) || 0
+                  }
+                },
+                {
+                  deviceStatusName: 'normal',
+                  limitsValues: {
+                    baseValue: Number(formData.normalLimitDownConsumption) || 0,
+                    topValue: Number(formData.normalLimitUpConsumption) || 0
+                  }
+                },
+                {
+                  deviceStatusName: 'alert',
+                  limitsValues: {
+                    baseValue: Number(formData.alertLimitDownConsumption) || 0,
+                    topValue: Number(formData.alertLimitUpConsumption) || 0
+                  }
+                },
+                {
+                  deviceStatusName: 'failure',
+                  limitsValues: {
+                    baseValue: Number(formData.failureLimitDownConsumption) || 0,
+                    topValue: Number(formData.failureLimitUpConsumption) || 0
+                  }
+                }
+              ]
+            }
+          ]
         }
-      },
-      {
-        deviceStatusName: 'normal',
-        limitsValues: {
-          baseValue: Number(formData.normalLimitDownConsumption) || 0,
-          topValue: Number(formData.normalLimitUpConsumption) || 0
-        }
-      },
-      {
-        deviceStatusName: 'alert',
-        limitsValues: {
-          baseValue: Number(formData.alertLimitDownConsumption) || 0,
-          topValue: Number(formData.alertLimitUpConsumption) || 0
-        }
-      },
-      {
-        deviceStatusName: 'failure',
-        limitsValues: {
-          baseValue: Number(formData.failureLimitDownConsumption) || 0,
-          topValue: Number(formData.failureLimitUpConsumption) || 0
-        }
-      }
-    ];
+      ]
+    };
 
-    // Update description with identifier if provided
-    if (formData.identifier) {
-      deviceConfig.description = `Limites customizados para ${formData.identifier}`;
-    }
-
-    console.log('[SettingsPersister] RFC-0080: Built mapInstantaneousPower:', result);
+    console.log(`[SettingsPersister] RFC-0086: Built mapInstantaneousPower for deviceType=${effectiveDeviceType}:`, result);
     return result;
   }
 
