@@ -8,13 +8,18 @@
  *    https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js
  *
  * 2. Energy Chart SDK (obrigatório para comparação):
- *    https://graphs.apps.myio-bas.com/sdk/energy-chart-sdk.umd.js
+ *    Use a mesma base URL definida em CHARTS_BASE_URL abaixo + /sdk/energy-chart-sdk.umd.js
  *
  * Para os ícones, idealmente, você carregaria uma biblioteca como Font Awesome ou Material Icons.
  * Por simplicidade no exemplo, os ícones '•' e '×' são mantidos, mas estilizaremos para parecerem melhores.
  */
 
+// ============================================================================
+// CONFIGURAÇÃO DE AMBIENTE - Altere aqui para trocar entre staging e produção
+// ============================================================================
 const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+const CHARTS_BASE_URL = 'https://graphs.staging.apps.myio-bas.com'; // staging para testes
+// const CHARTS_BASE_URL = 'https://graphs.apps.myio-bas.com'; // produção
 
 // Debug configuration
 const DEBUG_ACTIVE = false;
@@ -1231,7 +1236,8 @@ const footerController = {
         granularity: granularity, // ← OBRIGATÓRIO para comparison
         clientId: clientId,
         clientSecret: clientSecret,
-        dataApiHost: 'https://api.data.apps.myio-bas.com',
+        dataApiHost: DATA_API_HOST,
+        chartsBaseUrl: CHARTS_BASE_URL, // ← URL base para iframes do SDK
         theme: 'dark', // ← Tema inicial (toggle disponível na modal)
         deep: false,
         onOpen: (context) => {
@@ -1282,266 +1288,16 @@ const footerController = {
   },
 
   /**
-   * Cria o overlay da modal de comparação com chart SDK
-   */
-  _createComparisonModalOverlay(config) {
-    // Remove modal existente se houver
-    const existingModal = document.getElementById('myio-comparison-modal');
-    if (existingModal) {
-      existingModal.remove();
-    }
-
-    // Cria overlay
-    const overlay = document.createElement('div');
-    overlay.id = 'myio-comparison-modal';
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 100000;
-        background: rgba(0, 0, 0, 0.85);
-        backdrop-filter: blur(8px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        animation: fadeIn 0.2s ease-out;
-      `;
-
-    // Cria container da modal
-    const modalBox = document.createElement('div');
-    modalBox.style.cssText = `
-        position: relative;
-        width: 95%;
-        max-width: 1400px;
-        height: 90vh;
-        background: linear-gradient(135deg, #242b36 0%, #1a1f28 100%);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 20px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      `;
-
-    // Header da modal
-    const header = document.createElement('div');
-    header.style.cssText = `
-        padding: 24px 32px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: rgba(0, 0, 0, 0.2);
-      `;
-    header.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 16px;">
-          <div style="
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, #9E8CBE 0%, #8472A8 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-          ">📊</div>
-          <div>
-            <h2 style="
-              margin: 0;
-              font-size: 24px;
-              font-weight: 700;
-              color: #ffffff;
-              letter-spacing: -0.02em;
-            ">Comparação de Dispositivos</h2>
-            <p style="
-              margin: 4px 0 0;
-              font-size: 14px;
-              color: rgba(255, 255, 255, 0.7);
-            ">${config.dataSources.length} dispositivos selecionados</p>
-          </div>
-        </div>
-        <button id="myio-comparison-close" style="
-          width: 40px;
-          height: 40px;
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 10px;
-          color: #ffffff;
-          font-size: 24px;
-          cursor: pointer;
-          transition: all 0.2s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        ">×</button>
-      `;
-
-    // Container do chart
-    const chartContainer = document.createElement('div');
-    chartContainer.id = 'myio-comparison-chart';
-    chartContainer.style.cssText = `
-        flex: 1;
-        padding: 32px;
-        overflow: hidden;
-        position: relative;
-      `;
-
-    // Loading state
-    chartContainer.innerHTML = `
-        <div style="
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          text-align: center;
-          color: #ffffff;
-        ">
-          <div style="
-            width: 60px;
-            height: 60px;
-            border: 4px solid rgba(158, 140, 190, 0.3);
-            border-top-color: #9E8CBE;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 16px;
-          "></div>
-          <p style="font-size: 16px; font-weight: 600;">Carregando comparação...</p>
-        </div>
-      `;
-
-    // Monta modal
-    modalBox.appendChild(header);
-    modalBox.appendChild(chartContainer);
-    overlay.appendChild(modalBox);
-    document.body.appendChild(overlay);
-
-    // Adiciona CSS para animações
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(40px) scale(0.95); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        #myio-comparison-close:hover {
-          background: rgba(255, 68, 68, 0.25);
-          border-color: rgba(255, 68, 68, 0.5);
-          transform: scale(1.1);
-        }
-      `;
-    document.head.appendChild(style);
-
-    // Event listeners
-    const closeBtn = header.querySelector('#myio-comparison-close');
-    const closeModal = () => {
-      overlay.remove();
-      style.remove();
-    };
-
-    closeBtn.addEventListener('click', closeModal);
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) closeModal();
-    });
-
-    // Renderiza o chart usando SDK
-    this._renderComparisonChart(chartContainer, config);
-  },
-
-  /**
-   * Renderiza o chart de comparação usando energy-chart-sdk
-   */
-  async _renderComparisonChart(container, config) {
-    try {
-      // Carrega o SDK dinamicamente se ainda não estiver disponível
-      if (!window.MyIOEnergyChartSDK?.renderTelemetryStackedChart) {
-        LogHelper.log('[MyIO Footer] Loading energy-chart-sdk...');
-        await this._loadEnergyChartSDK();
-      }
-
-      const { renderTelemetryStackedChart } = window.MyIOEnergyChartSDK;
-
-      LogHelper.log('[MyIO Footer] Rendering stacked chart with config:', config);
-
-      // Limpa loading
-      container.innerHTML = '';
-
-      // Renderiza o chart
-      const chartInstance = renderTelemetryStackedChart(container, {
-        version: 'v2',
-        clientId: config.clientId,
-        clientSecret: config.clientSecret,
-        dataSources: config.dataSources,
-        readingType: config.readingType,
-        startDate: config.startDate.split('T')[0], // Converte ISO para YYYY-MM-DD
-        endDate: config.endDate.split('T')[0],
-        granularity: config.granularity,
-        theme: 'light', // Combina com o tema do footer
-        bar_mode: 'grouped',
-        timezone: 'America/Sao_Paulo',
-        apiBaseUrl: 'https://api.data.apps.myio-bas.com',
-        deep: false,
-      });
-
-      LogHelper.log('[MyIO Footer] Chart rendered successfully:', chartInstance);
-    } catch (error) {
-      LogHelper.error('[MyIO Footer] Error rendering chart:', error);
-      container.innerHTML = `
-          <div style="
-            text-align: center;
-            color: #ffffff;
-            padding: 40px;
-          ">
-            <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-            <h3 style="margin: 0 0 8px; font-size: 20px; font-weight: 600;">Erro ao Carregar Gráfico</h3>
-            <p style="margin: 0; font-size: 14px; color: rgba(255, 255, 255, 0.7);">
-              ${error.message || 'Erro desconhecido. Verifique o console.'}
-            </p>
-          </div>
-        `;
-    }
-  },
-
-  /**
-   * Verifica se o SDK de charts está disponível
-   * IMPORTANTE: O SDK deve ser adicionado como External Resource no widget:
-   * https://graphs.apps.myio-bas.com/sdk/energy-chart-sdk.umd.js
-   */
-  async _loadEnergyChartSDK() {
-    return new Promise((resolve, reject) => {
-      if (window.MyIOEnergyChartSDK) {
-        LogHelper.log('[MyIO Footer] Energy chart SDK already loaded');
-        resolve();
-        return;
-      }
-
-      // SDK não encontrado - deve estar nos External Resources do ThingsBoard
-      const errorMsg =
-        'MyIOEnergyChartSDK not found. ' +
-        'Please add the SDK as an External Resource in ThingsBoard widget settings:\n' +
-        'https://graphs.apps.myio-bas.com/sdk/energy-chart-sdk.umd.js';
-
-      LogHelper.error('[MyIO Footer]', errorMsg);
-      reject(new Error(errorMsg));
-    });
-  },
-
-  /**
    * Opens temperature comparison modal with multi-line chart
    * Uses ThingsBoard API directly (not Ingestion API)
    * @param {Array} selectedEntities - Array of selected entity objects
    */
   async _openTemperatureComparisonModal(selectedEntities) {
-    LogHelper.log('[MyIO Footer] Opening temperature comparison modal for', selectedEntities.length, 'devices');
+    LogHelper.log(
+      '[MyIO Footer] Opening temperature comparison modal for',
+      selectedEntities.length,
+      'devices'
+    );
 
     const modalId = 'myio-temp-comparison-modal';
     const jwtToken = localStorage.getItem('jwt_token');
@@ -1553,7 +1309,8 @@ const footerController = {
 
     // Get date range from context
     const ctx = self.ctx || {};
-    const startDateISO = ctx.scope?.startDateISO || new Date(new Date().setDate(new Date().getDate() - 7)).toISOString();
+    const startDateISO =
+      ctx.scope?.startDateISO || new Date(new Date().setDate(new Date().getDate() - 7)).toISOString();
     const endDateISO = ctx.scope?.endDateISO || new Date().toISOString();
     const startTs = new Date(startDateISO).getTime();
     const endTs = new Date(endDateISO).getTime();
@@ -1714,10 +1471,12 @@ const footerController = {
         return {
           entity,
           label: entity.name || entity.label || deviceId,
-          data: tempValues.map((item) => ({
-            ts: item.ts,
-            value: Math.max(15, Math.min(40, Number(item.value) || 0)), // Clamp 15-40°C
-          })).sort((a, b) => a.ts - b.ts),
+          data: tempValues
+            .map((item) => ({
+              ts: item.ts,
+              value: Math.max(15, Math.min(40, Number(item.value) || 0)), // Clamp 15-40°C
+            }))
+            .sort((a, b) => a.ts - b.ts),
         };
       } catch (error) {
         LogHelper.error(`[MyIO Footer] Error fetching temperature for ${entity.name || entity.id}:`, error);
@@ -1889,7 +1648,12 @@ const footerController = {
 
       let label;
       if (showTime) {
-        label = date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        label = date.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
       } else {
         label = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
       }
@@ -1902,7 +1666,10 @@ const footerController = {
       legendContainer.innerHTML = results
         .map((result, index) => {
           const color = colors[index % colors.length];
-          const avgTemp = result.data.length > 0 ? (result.data.reduce((sum, p) => sum + p.value, 0) / result.data.length).toFixed(1) : '--';
+          const avgTemp =
+            result.data.length > 0
+              ? (result.data.reduce((sum, p) => sum + p.value, 0) / result.data.length).toFixed(1)
+              : '--';
           const hasError = result.error ? ' (erro)' : '';
 
           return `

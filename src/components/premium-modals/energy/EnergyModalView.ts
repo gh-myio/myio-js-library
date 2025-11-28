@@ -165,10 +165,13 @@ export class EnergyModalView {
    */
   private reRenderChart(): void {
     const mode = this.config.params.mode || 'single';
+    console.log('[EnergyModalView] reRenderChart called, mode:', mode, 'barMode:', this.currentBarMode, 'theme:', this.currentTheme);
 
     if (mode === 'comparison') {
       // For comparison mode, re-render comparison chart
-      this.renderComparisonChart();
+      console.log('[EnergyModalView] Calling renderComparisonChart...');
+      const result = this.renderComparisonChart();
+      console.log('[EnergyModalView] renderComparisonChart result:', result);
     } else {
       // For single mode, re-render with current energy data
       if (this.currentEnergyData) {
