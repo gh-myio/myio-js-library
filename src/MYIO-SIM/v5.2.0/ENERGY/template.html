@@ -1,0 +1,123 @@
+<div class="energy-dashboard">
+  <div class="toolbar-zoom">
+    <button id="fontMinus" aria-label="Diminuir fonte">−</button>
+    <button id="fontPlus" aria-label="Aumentar fonte">＋</button>
+  </div>
+  <!-- Header -->
+  <h2 class="title">Gestão de Energia</h2>
+  <p class="subtitle">Monitoramento de consumo e métricas de eficiência</p>
+
+  <!-- Cards -->
+  <div class="cards">
+    <!-- Consumo Total de Lojas (sem equipamentos) -->
+    <div class="card" id="total-consumption-stores-card">
+      <p class="label">Consumo Total Lojas</p>
+      <h3 class="value" id="total-consumption-stores-value">
+        <svg
+          class="loading-spinner"
+          style="width: 24px; height: 24px; animation: spin 1s linear infinite"
+          viewBox="0 0 50 50"
+        >
+          <circle
+            cx="25"
+            cy="25"
+            r="20"
+            fill="none"
+            stroke="#6c2fbf"
+            stroke-width="5"
+            stroke-linecap="round"
+            stroke-dasharray="90,150"
+            stroke-dashoffset="0"
+          ></circle>
+        </svg>
+      </h3>
+      <span class="trend neutral" id="total-consumption-stores-trend">Aguardando dados...</span>
+      <span class="device-info" id="total-consumption-stores-info">Apenas lojas</span>
+    </div>
+
+    <!-- Consumo Total de Equipamentos (NOVO) -->
+    <div class="card" id="total-consumption-equipments-card">
+      <p class="label">Consumo Total Equipamentos</p>
+      <h3 class="value" id="total-consumption-equipments-value">
+        <svg
+          class="loading-spinner"
+          style="width: 24px; height: 24px; animation: spin 1s linear infinite"
+          viewBox="0 0 50 50"
+        >
+          <circle
+            cx="25"
+            cy="25"
+            r="20"
+            fill="none"
+            stroke="#6c2fbf"
+            stroke-width="5"
+            stroke-linecap="round"
+            stroke-dasharray="90,150"
+            stroke-dashoffset="0"
+          ></circle>
+        </svg>
+      </h3>
+      <span class="trend neutral" id="total-consumption-equipments-trend">Aguardando dados...</span>
+      <span class="device-info" id="total-consumption-equipments-info">Elevadores, escadas, HVAC, etc.</span>
+    </div>
+
+    <!-- DESABILITADO TEMPORARIAMENTE: Pico de Demanda -->
+    <!--
+    <div class="card" id="peak-demand-card">
+      <p class="label">Pico de Demanda</p>
+      <h3 class="value" id="peak-demand-value">
+        <svg class="loading-spinner" style="width:24px; height:24px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
+          <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
+                  stroke-dasharray="90,150" stroke-dashoffset="0">
+          </circle>
+        </svg>
+      </h3>
+      <span class="trend neutral" id="peak-demand-trend">Aguardando dados...</span>
+      <span class="device-info" id="peak-demand-device"></span>
+    </div>
+    -->
+
+    <!-- DESABILITADO TEMPORARIAMENTE: Meta x Consumo Real -->
+    <!--
+    <div class="card">
+      <p class="label">Meta x Consumo Real</p>
+      <h3 class="value">87%</h3>
+      <div class="progress-bar">
+        <div class="progress" style="width:87%"></div>
+      </div>
+      <span class="meta">Acima da meta de 85%</span>
+    </div>
+    -->
+  </div>
+
+  <!-- Charts -->
+  <div class="charts">
+    <div class="chart-box">
+      <div class="chart-header">
+        <h4>Consumo dos últimos 7 dias</h4>
+        <div class="chart-controls">
+          <button id="configureChartBtn" class="config-btn" title="Configurar gráfico">⚙️</button>
+        </div>
+      </div>
+      <canvas id="lineChart"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-header">
+        <h4>Distribuição de Energia</h4>
+        <div class="chart-controls">
+          <label for="distributionMode" class="control-label">Visualizar:</label>
+          <select id="distributionMode" class="chart-select">
+            <option value="groups">Por Grupos de Equipamentos</option>
+            <option value="elevators">Elevadores por Shopping</option>
+            <option value="escalators">Escadas Rolantes por Shopping</option>
+            <option value="hvac">Climatização por Shopping</option>
+            <option value="others">Outros Equipamentos por Shopping</option>
+            <option value="stores">Lojas por Shopping</option>
+          </select>
+        </div>
+      </div>
+      <canvas id="pieChart"></canvas>
+    </div>
+  </div>
+  <br />
+</div>

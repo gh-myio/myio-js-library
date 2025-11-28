@@ -1,0 +1,42 @@
+<section class="welcome-lv">
+  <!-- Hero Section -->
+  <div class="hero-container">
+    <!-- Logo -->
+    <div class="brand-logo">
+      <img id="welcomeBrandLogo" src="" alt="Logo" />
+    </div>
+
+    <!-- User Menu -->
+    <div class="user-menu" id="welcomeUserMenu">
+      <div class="user-info">
+        <div class="user-name" id="welcomeUserName">Carregando...</div>
+        <div class="user-email" id="welcomeUserEmail"></div>
+      </div>
+      <button class="btn-logout" id="welcomeLogout">
+        <span class="logout-icon">🚪</span>
+        <span class="logout-text">Sair</span>
+      </button>
+    </div>
+
+    <!-- Hero Content (rev001: Added IDs for text overrides) -->
+    <div class="hero-content">
+      <h1 class="hero-title" id="welcomeHeroTitle">Bem-vindo ao MYIO SIM - HEAD OFFICE</h1>
+      <p class="hero-description" id="welcomeHeroDescription">
+        Gestão inteligente de energia, água e recursos para shoppings centers
+      </p>
+      <button class="btn-primary" id="welcomeCTA" tabindex="0" aria-label="ACESSAR PAINEL">
+        ACESSAR PAINEL
+      </button>
+    </div>
+  </div>
+
+  <!-- Shopping Shortcuts (rev001: Cards have tabindex and aria-labels in JS) -->
+  <div
+    class="shortcuts-container"
+    id="welcomeShortcuts"
+    role="navigation"
+    aria-label="Shopping dashboard shortcuts"
+  >
+    <!-- Cards will be rendered here with accessibility attributes -->
+  </div>
+</section>

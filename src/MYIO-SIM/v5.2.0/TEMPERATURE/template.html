@@ -1,0 +1,60 @@
+<section class="tb-temp-root">
+  <div class="toolbar-zoom">
+    <button id="fontMinus" aria-label="Diminuir fonte">−</button>
+    <button id="fontPlus" aria-label="Aumentar fonte">＋</button>
+  </div>
+  <header class="header">
+    <div class="kpi-card">
+      <div class="kpi-head">
+        <span class="kpi-title">Temperatura Média</span>
+        <i class="kpi-ico"></i>
+      </div>
+      <div class="kpi-value" id="avgTemp">--</div>
+      <div class="kpi-sub">
+        <span id="avgTempTarget">Meta: 23°C ± 2°C</span>
+      </div>
+      <div class="kpi-progress">
+        <div class="bar" id="avgTempBar" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-head">
+        <span class="kpi-title">Consumo de Energia HVAC</span>
+        <i class="kpi-ico">⚡</i>
+      </div>
+      <div class="kpi-value" id="hvacKw">--</div>
+      <div class="kpi-sub">HVAC Total</div>
+      <div class="kpi-progress">
+        <div class="bar" id="hvacBar" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-head">
+        <span class="kpi-title">Em Operação</span>
+        <i class="kpi-ico">🕒</i>
+      </div>
+      <div class="kpi-value" id="opTime">--</div>
+      <div class="kpi-sub">
+        <span class="badge badge-on" id="opBadge">● Ativo</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="chart-card">
+    <h3 class="chart-title">Temperatura nos Ambientes</h3>
+    <p class="chart-sub">Monitoramento de temperatura em tempo real em todas as áreas</p>
+    <canvas id="tempChart"></canvas>
+  </section>
+
+  <section class="list-card">
+    <h3 class="list-title">Sensores de ambientes</h3>
+    <p class="list-sub">Status em tempo real de todos os sensores</p>
+
+    <div class="sensor-list" id="sensorList">
+      <!-- linhas geradas via JS -->
+    </div>
+  </section>
+  <br />
+</section>

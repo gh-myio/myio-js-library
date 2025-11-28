@@ -1,0 +1,150 @@
+<section class="water-root">
+  <div class="toolbar-zoom">
+    <button id="fontMinus" aria-label="Diminuir fonte">−</button>
+    <button id="fontPlus" aria-label="Aumentar fonte">＋</button>
+  </div>
+
+  <header class="page-head">
+    <div class="title">
+      <span class="icon">💧</span>
+      <div>
+        <h1>Sistema de Água</h1>
+        <p>Níveis de tanques, monitoramento de fluxo e hidrômetros</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="cards">
+    <!-- TANQUE PRINCIPAL -->
+    <article class="card tank" data-id="TANK_1">
+      <header class="card-head">
+        <div class="left">
+          <span class="dot ok"></span>
+          <div class="id">
+            <strong class="name">Cisterna Principal</strong>
+            <small class="code">TANK-001</small>
+          </div>
+        </div>
+        <span class="badge state-normal">Normal</span>
+      </header>
+
+      <div class="kv">
+        <span>Nível</span>
+        <strong class="pct" data-bind="tank1.levelPercent">--%</strong>
+      </div>
+
+      <div class="levelbar">
+        <div class="bar">
+          <div class="fill" style="--pct: 0%"></div>
+          <div class="tag" data-bind="tank1.levelCm">--cm</div>
+        </div>
+        <div class="scale"><span>0cm</span><span>400cm</span></div>
+      </div>
+
+      <footer class="foot">
+        <div class="hint">↗ Vazão</div>
+        <div class="value" data-bind="tank1.flow">-- L/min</div>
+      </footer>
+    </article>
+
+    <!-- CAIXA D'ÁGUA SUPERIOR -->
+    <article class="card tank" data-id="TANK_2">
+      <header class="card-head">
+        <div class="left">
+          <span class="dot warn"></span>
+          <div class="id">
+            <strong class="name">Caixa d’água Superior</strong>
+            <small class="code">TANK-002</small>
+          </div>
+        </div>
+        <span class="badge state-attn">Atenção</span>
+      </header>
+
+      <div class="kv">
+        <span>Nível</span>
+        <strong class="pct" data-bind="tank2.levelPercent">--%</strong>
+      </div>
+
+      <div class="levelbar">
+        <div class="bar">
+          <div class="fill" style="--pct: 0%"></div>
+          <div class="tag" data-bind="tank2.levelCm">--cm</div>
+        </div>
+        <div class="scale"><span>0cm</span><span>400cm</span></div>
+      </div>
+
+      <footer class="foot">
+        <div class="hint">↘ Vazão</div>
+        <div class="value" data-bind="tank2.flow">-- L/min</div>
+      </footer>
+    </article>
+
+    <!-- HIDRÔMETRO ENTRADA -->
+    <article class="card meter" data-id="HYD_IN">
+      <header class="card-head">
+        <div class="left">
+          <span class="dot ok"></span>
+          <div class="id">
+            <strong class="name">Hidrômetro Entrada</strong>
+            <small class="code">HYD-001</small>
+          </div>
+        </div>
+        <span class="badge state-normal">Normal</span>
+      </header>
+
+      <div class="kv">
+        <span>Vazão Atual</span>
+        <strong class="big" data-bind="hydIn.flow">-- L/min</strong>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="total">
+        <span>Total Acumulado</span>
+        <strong data-bind="hydIn.total">-- L</strong>
+      </div>
+    </article>
+
+    <!-- HIDRÔMETRO SUBSOLO -->
+    <article class="card meter" data-id="HYD_SUB">
+      <header class="card-head">
+        <div class="left">
+          <span class="dot ok"></span>
+          <div class="id">
+            <strong class="name">Hidrômetro Subsolo</strong>
+            <small class="code">HYD-002</small>
+          </div>
+        </div>
+        <span class="badge state-normal">Normal</span>
+      </header>
+
+      <div class="kv">
+        <span>Vazão Atual</span>
+        <strong class="big" data-bind="hydSub.flow">-- L/min</strong>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="total">
+        <span>Total Acumulado</span>
+        <strong data-bind="hydSub.total">-- L</strong>
+      </div>
+    </article>
+  </div>
+
+  <!-- TENDÊNCIAS -->
+  <section class="panel trends">
+    <header class="panel-head">
+      <h2>Tendências do Sistema Hídrico</h2>
+      <p>Níveis do tanque e padrões de consumo</p>
+    </header>
+    <div class="chart-wrap">
+      <canvas id="trendChart" height="180"></canvas>
+      <div class="xaxis">
+        <span>06:00</span><span>09:00</span><span>12:00</span><span>15:00</span><span>18:00</span
+        ><span>21:00</span>
+      </div>
+    </div>
+  </section>
+  <br />
+</section>

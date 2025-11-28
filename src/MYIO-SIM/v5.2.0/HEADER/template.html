@@ -1,0 +1,92 @@
+<section class="myio-toolbar-root">
+  <!-- ⬇️ Wrapper que coloca os cards lado a lado em grid -->
+  <div class="myio-cards">
+    <!-- 🆕 Card de logo MYIO -->
+    <article class="myio-card v2 myio-card-logo">
+      <div class="logo-box">
+        <img src="/api/images/public/Gi9qaUMi2Z7G2wrdReKzMCZu5epG17lX" alt="MYIO Logo" />
+      </div>
+    </article>
+    <article class="myio-card v2" id="card-equip">
+      <header class="myio-card-hd">
+        <span class="hd-title">Equipamentos</span>
+        <span class="hd-ico" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M4 4h16v16H4z" stroke="#9BB4C9" stroke-width="1.6" />
+            <path d="M8 8h8v8H8z" stroke="#9BB4C9" stroke-width="1.6" />
+          </svg>
+        </span>
+      </header>
+      <div class="myio-card-main">
+        <div class="myio-kpi"><span id="equip-kpi">-</span></div>
+        <div class="myio-subrow">
+          <span id="equip-sub">-</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="myio-card v2" id="card-energy">
+      <header class="myio-card-hd">
+        <span class="hd-title">
+          Consumo de Energia
+          <span class="info-icon" title="Equipamentos + Lojas">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="#6b7a90" stroke-width="2" />
+              <path d="M12 16v-4M12 8h.01" stroke="#6b7a90" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </span>
+        </span>
+        <span class="hd-ico" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" fill="#B7D14B" />
+          </svg>
+        </span>
+      </header>
+      <div class="myio-card-main">
+        <div class="myio-kpi"><span id="energy-kpi">-</span></div>
+        <div class="chip trend down" id="energy-trend"></div>
+        <div class="myio-foot" id="energy-peak"></div>
+      </div>
+    </article>
+
+    <article class="myio-card v2" id="card-temp">
+      <header class="myio-card-hd">
+        <span class="hd-title">Média de Temperatura</span>
+        <span class="hd-ico" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M10 3v10a4 4 0 104 0V3" stroke="#9BB4C9" stroke-width="1.6" />
+          </svg>
+        </span>
+      </header>
+      <div class="myio-card-main">
+        <div class="myio-kpi"><span id="temp-kpi">-</span></div>
+        <div class="chip" id="temp-chip">
+          - Aguardando dados
+          <span class="info-icon" id="temp-info-icon" title="Aguardando dados de temperatura">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+              <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </span>
+        </div>
+        <div class="myio-foot" id="temp-range"></div>
+      </div>
+    </article>
+
+    <article class="myio-card v2 has-bar" id="card-water" data-pct="87">
+      <header class="myio-card-hd">
+        <span class="hd-title">Água</span>
+        <span class="hd-ico" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3c-4 5-6 8-6 11a6 6 0 0012 0c0-3-2-6-6-11z" stroke="#7FB8E6" stroke-width="1.6" />
+          </svg>
+        </span>
+      </header>
+      <div class="myio-card-main">
+        <div class="myio-kpi"><span id="water-kpi">-</span></div>
+        <div class="chip trend down"></div>
+        <div class="myio-foot" id="water-alert"></div>
+      </div>
+    </article>
+  </div>
+</section>
