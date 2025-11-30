@@ -62,13 +62,13 @@ let currentSubmenuView = 'stores'; // 'equipments' | 'stores' | 'general'
 function initSubmenuNavigation() {
   console.log('[RFC-0079] [STORES] 🚀 Initializing sub-menu navigation...');
 
-  const root = document.getElementById('storesWrap');
+  const root = $root()[0];
   if (!root) {
-    console.error('[RFC-0079] [STORES] ❌ storesWrap not found, cannot initialize sub-menu');
+    console.error('[RFC-0079] [STORES] ❌ Widget root not found, cannot initialize sub-menu');
     return;
   }
 
-  console.log('[RFC-0079] [STORES] ✅ Found storesWrap element:', root);
+  console.log('[RFC-0079] [STORES] ✅ Found widget root element:', root);
 
   const submenuTabs = root.querySelectorAll('.submenu-tab');
   console.log(`[RFC-0079] [STORES] 🔍 Found ${submenuTabs.length} sub-menu tabs`);
@@ -113,9 +113,9 @@ function switchSubmenuView(viewName) {
 
   console.log(`[RFC-0079] [STORES] Switching from ${currentSubmenuView} → ${viewName}`);
 
-  const root = document.getElementById('storesWrap');
+  const root = $root()[0];
   if (!root) {
-    console.error('[RFC-0079] [STORES] ❌ storesWrap not found!');
+    console.error('[RFC-0079] [STORES] ❌ Widget root not found!');
     return;
   }
 
@@ -1070,9 +1070,9 @@ function renderHeader(count, groupSum) {
 }
 
 function renderList(visible) {
-  const listElement = document.getElementById('shopsList');
+  const listElement = $list()[0];
   if (!listElement) {
-    console.error('[STORES] shopsList element not found');
+    console.error('[STORES] shopsList element not found via $list()');
     return;
   }
 
@@ -1356,8 +1356,8 @@ function setupModalCloseHandlers(modal) {
       STATE.searchActive = false;
 
       // Reset UI
-      const searchInput = document.getElementById('shopsSearch');
-      const searchWrap = document.getElementById('searchWrap');
+      const searchInput = $root().find('#shopsSearch')[0];
+      const searchWrap = $root().find('#searchWrap')[0];
       if (searchInput) searchInput.value = '';
       if (searchWrap) searchWrap.classList.remove('active');
 
@@ -1730,12 +1730,12 @@ function openFilterModal() {
     }
   });
 
-  // Update count displays
-  const countAll = document.getElementById('countAll');
-  const countOnline = document.getElementById('countOnline');
-  const countOffline = document.getElementById('countOffline');
-  const countWithConsumption = document.getElementById('countWithConsumption');
-  const countNoConsumption = document.getElementById('countNoConsumption');
+  // Update count displays (use globalContainer since modal is moved to document.body)
+  const countAll = globalContainer.querySelector('#countAll');
+  const countOnline = globalContainer.querySelector('#countOnline');
+  const countOffline = globalContainer.querySelector('#countOffline');
+  const countWithConsumption = globalContainer.querySelector('#countWithConsumption');
+  const countNoConsumption = globalContainer.querySelector('#countNoConsumption');
 
   if (countAll) countAll.textContent = counts.all;
   if (countOnline) countOnline.textContent = counts.online;

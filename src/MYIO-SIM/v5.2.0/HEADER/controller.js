@@ -14,7 +14,9 @@ function getShoppingLabel() {
   try {
     const stored = localStorage.getItem('__MYIO_SHOPPING_LABEL__');
     return stored ? JSON.parse(stored) : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 let _dataRefreshCount = 0;
@@ -1385,7 +1387,7 @@ function updateWaterCard(waterCache) {
   // Certifique-se que o seu card de água tenha um ID para o 'trend'
   const waterTrend = document.getElementById('water-trend');
 
-  console.log('[HEADER] Atualizando card de Água | devices no cache:', waterCache?.size || 0);
+  //console.log('[HEADER] Atualizando card de Água | devices no cache:', waterCache?.size || 0);
 
   let totalConsumption = 0;
   let deviceCount = 0;

@@ -1344,6 +1344,21 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               self.ctx.$scope.mainContentStateId = targetStateId;
               if (self.ctx.$scope.$applyAsync) self.ctx.$scope.$applyAsync();
             }
+
+            // RFC: Dispatch myio:update-date to trigger data refresh in target widget (STORES, etc)
+            const startDateISO = self.ctx.$scope?.startDateISO;
+            const endDateISO = self.ctx.$scope?.endDateISO;
+            if (startDateISO && endDateISO) {
+              console.log(`[MENU] Dispatching myio:update-date for ${targetStateId}`);
+              window.dispatchEvent(
+                new CustomEvent('myio:update-date', {
+                  detail: {
+                    startDate: startDateISO,
+                    endDate: endDateISO,
+                  },
+                })
+              );
+            }
           }
         }
       };
