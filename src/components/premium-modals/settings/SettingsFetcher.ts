@@ -99,7 +99,6 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
 
     // Convert array format to object and map API fields to form fields
     const attributes: Record<string, unknown> = {};
-    const settingsNamespace = "myio.settings.energy.";
 
     for (const attr of attributesArray) {
       if (
@@ -108,18 +107,14 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
         attr.value !== null &&
         attr.value !== ""
       ) {
-        // Handle namespaced settings
-        if (attr.key.startsWith(settingsNamespace)) {
-          const key = attr.key.replace(settingsNamespace, "");
-          if (key !== "__version") {
-            attributes[key] = attr.value;
-          }
-        }
-        // Handle direct API fields mapping to form fields
-        else if (attr.key === "floor") {
+        if (attr.key === "floor") {
           attributes.floor = attr.value; // floor -> Andar
         } else if (attr.key === "identifier") {
           attributes.identifier = attr.value; // identifier -> Número da Loja (read-only)
+        } else if (attr.key === "mapInstantaneousPower") {
+          attributes.mapInstantaneousPower = attr.value;
+        } else if ((attr.key === "deviceMapInstaneousPower")) {
+          attributes.deviceMapInstaneousPower = attr.value;
         }
       }
     }
@@ -157,25 +152,14 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
     return merged;
   }
 
-  /**
-   * Utility method to validate and sanitize fetched data
-   */
-  static sanitizeFetchedData(data: Record<string, any>): Record<string, any> {
+static sanitizeFetchedData(data: Record<string, any>): Record<string, any> {
     const sanitized: Record<string, any> = {};
 
-    // String fields (updated to match new form structure)
+    // 1. Campos de Texto Simples
     const stringFields = [
       "label",
       "floor",
-      "identifier",
-      "alertLimitDownConsumption",
-      "alertLimitUpConsumption",
-      "failureLimitDownConsumption",
-      "failureLimitUpConsumption",
-      "normalLimitDownConsumption",
-      "normalLimitUpConsumption",
-      "standbyLimitDownConsumption",
-      "standbyLimitUpConsumption",
+      "identifier"
     ];
     for (const field of stringFields) {
       if (data[field] && typeof data[field] === "string") {
@@ -183,7 +167,7 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
       }
     }
 
-    // Numeric fields
+    // 2. Campos Numéricos
     const numericFields = ["maxDailyKwh", "maxNightKwh", "maxBusinessKwh"];
     for (const field of numericFields) {
       if (data[field] !== undefined && data[field] !== null) {
@@ -191,6 +175,16 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
         if (!isNaN(num) && num >= 0) {
           sanitized[field] = num;
         }
+      }
+    }
+
+    // 3. Campos de Objeto / JSON (ESSENCIAL PARA SUA ESTRATÉGIA)
+    // Sem isso, o Fetcher joga fora os seus mapas de potência
+    const objectFields = ["mapInstantaneousPower", "deviceMapInstaneousPower"];
+    for (const field of objectFields) {
+      // Verifica se existe e se é um objeto (não string)
+      if (data[field] && typeof data[field] === "object") {
+        sanitized[field] = data[field];
       }
     }
 

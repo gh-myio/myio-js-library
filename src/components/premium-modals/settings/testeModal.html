@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Final: Sistema Completo (Corrigido)</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #eef2f6; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); text-align: center; max-width: 400px; }
+        h2 { color: #3e1a7d; margin-top: 0; }
+        p { color: #666; font-size: 14px; line-height: 1.5; }
+        .trigger-btn { padding: 12px 24px; font-size: 16px; font-weight: 600; background-color: #3e1a7d; color: white; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s; margin-top: 20px; }
+        .trigger-btn:hover { background-color: #2d1458; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(62, 26, 125, 0.3); }
+        .reset-btn { background: none; border: none; color: #dc3545; text-decoration: underline; cursor: pointer; margin-top: 15px; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>Simulação ThingsBoard</h2>
+        <p>Este teste usa <strong>LocalStorage</strong> para simular o banco de dados.</p>
+        <p>1. Abra o modal e edite os valores.<br>
+           2. Salve.<br>
+           3. Recarregue a página (F5).<br>
+           4. Abra novamente: seus dados estarão lá.</p>
+        
+        <button id="openModalBtn" class="trigger-btn">Configurar Dispositivo</button>
+        <br>
+        <button id="resetStorageBtn" class="reset-btn">Resetar "Banco de Dados"</button>
+    </div>
+
+<script>
+    // =========================================================================
+    // 1. MOCK INFRASTRUCTURE (Simulando API e Banco de Dados)
+    // =========================================================================
+    
+    const DB_KEY = 'tb_mock_attributes_motor_01';
+    
+    // Configuração Global (Hardcoded no Widget/Sistema)
+    const MOCK_GLOBAL_CONFIG = {
+        "version": "1.0.0",
+        "limitsByInstantaneoustPowerType": [{
+            "telemetryType": "consumption",
+            "itemsByDeviceType": [{
+                "deviceType": "MOTOR",
+                "description": "Padrão Sistema (Global)",
+                "limitsByDeviceStatus": [
+                    { "deviceStatusName": "standBy", "limitsValues": { "baseValue": 0, "topValue": 100 } },
+                    { "deviceStatusName": "normal", "limitsValues": { "baseValue": 101, "topValue": 1000 } },
+                    { "deviceStatusName": "alert", "limitsValues": { "baseValue": 1001, "topValue": 1500 } },
+                    { "deviceStatusName": "failure", "limitsValues": { "baseValue": 1501, "topValue": 99999 } }
+                ]
+            }]
+        }]
+    };
+
+    // Helper Utils
+    function mapDeviceStatusToCardStatus(status) { return 'ok'; }
+
+    // Intercepta fetch para simular Backend
+    const originalFetch = window.fetch;
+    window.fetch = async (url, options) => {
+        await new Promise(r => setTimeout(r, 300)); // Delay fake de rede
+
+        // 1. GET Attributes (Fetcher)
+        if (url.includes('/values/attributes/SERVER_SCOPE') && (!options || options.method === 'GET')) {
+            const stored = localStorage.getItem(DB_KEY);
+            const attributes = stored ? JSON.parse(stored) : [];
+            console.log("[MOCK API] GET Attributes retornando:", attributes);
+            return { ok: true, json: async () => attributes };
+        }
+
+        // 2. POST Attributes (Persister)
+        if (url.includes('/attributes/SERVER_SCOPE') && options && options.method === 'POST') {
+            const payload = JSON.parse(options.body);
+            console.log("[MOCK API] POST recebido (Salvando no DB):", payload);
+            
+            // Converte objeto payload em array KV para simular formato TB
+            const currentStored = localStorage.getItem(DB_KEY);
+            let dbData = currentStored ? JSON.parse(currentStored) : [];
+            
+            // Merge simples
+            Object.keys(payload).forEach(key => {
+                // Remove se existir e adiciona novo
+                dbData = dbData.filter(item => item.key !== key);
+                dbData.push({ key: key, value: payload[key] });
+            });
+
+            localStorage.setItem(DB_KEY, JSON.stringify(dbData));
+            return { ok: true, text: async () => "OK" };
+        }
+
+        // 3. GET Device Info
+        if (url.includes('/api/device/') && (!options || options.method === 'GET')) {
+            return { ok: true, json: async () => ({ label: "Motor de Teste 01", name: "MOTOR-01" }) };
+        }
+
+        // 4. POST Device Info (Save Label)
+        if (url.includes('/api/device') && options && options.method === 'POST') {
+            console.log("[MOCK API] POST Device Label recebido:", JSON.parse(options.body));
+            return { ok: true };
+        }
+
+        // 5. Telemetria
+        if (url.includes('/timeseries')) {
+            return { ok: true, json: async () => ({ consumption: [{ value: "12500", ts: Date.now() }] }) };
+        }
+
+        return { ok: false, status: 404, statusText: "Mock route not found" };
+    };
+
+    // =========================================================================
+    // 2. CLASSES DO SISTEMA (Transpiladas de TS para JS ES6)
+    // =========================================================================
+
+    class DefaultSettingsFetcher {
+        constructor(jwtToken) {
+            this.jwtToken = jwtToken;
+            this.tbBaseUrl = "";
+        }
+
+        async fetchCurrentSettings(deviceId, jwtToken, scope = "SERVER_SCOPE") {
+            try {
+                const [entityResult, attributesResult] = await Promise.allSettled([
+                    this.fetchDeviceEntity(deviceId),
+                    this.fetchDeviceAttributes(deviceId, scope),
+                ]);
+
+                const result = {};
+                if (entityResult.status === "fulfilled") result.entity = entityResult.value;
+                if (attributesResult.status === "fulfilled") result.attributes = attributesResult.value;
+                
+                if (result.attributes) {
+                    result.attributes = DefaultSettingsFetcher.sanitizeFetchedData(result.attributes);
+                }
+
+                return result;
+            } catch (error) {
+                console.error("Fetcher Error", error);
+                return {};
+            }
+        }
+
+        async fetchDeviceEntity(deviceId) {
+            const res = await fetch(`/api/device/${deviceId}`);
+            const data = await res.json();
+            return { label: data.label || data.name };
+        }
+
+        async fetchDeviceAttributes(deviceId, scope) {
+            const res = await fetch(`/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/${scope}`);
+            const arr = await res.json();
+            const attrs = {};
+            arr.forEach(item => attrs[item.key] = item.value);
+            return attrs;
+        }
+
+        static sanitizeFetchedData(data) {
+            const sanitized = {};
+            const stringFields = ["label", "floor", "identifier"];
+            const numericFields = ["maxDailyKwh", "maxNightKwh", "maxBusinessKwh"];
+            const objectFields = ["mapInstantaneousPower", "deviceMapInstaneousPower"];
+
+            stringFields.forEach(f => { if (typeof data[f] === 'string') sanitized[f] = data[f].trim(); });
+            numericFields.forEach(f => { if (data[f] != null) sanitized[f] = Number(data[f]); });
+            objectFields.forEach(f => { if (typeof data[f] === 'object') sanitized[f] = data[f]; });
+
+            return sanitized;
+        }
+    }
+
+    class DefaultSettingsPersister {
+        constructor(jwtToken, config) {
+            this.jwtToken = jwtToken;
+            this.deviceType = config?.deviceType || 'ELEVADOR';
+            this.tbBaseUrl = "";
+        }
+
+        /**
+         * CORREÇÃO: Adicionado método saveEntityLabel que faltava
+         */
+        async saveEntityLabel(deviceId, label) {
+            try {
+                // Mock: Em produção busca o device e faz update. Aqui só manda POST.
+                const mockDevice = { id: { id: deviceId, entityType: 'DEVICE' } }; 
+                await fetch(`/api/device`, {
+                    method: 'POST',
+                    body: JSON.stringify({ ...mockDevice, label: label })
+                });
+                return { ok: true };
+            } catch (e) {
+                console.error("Save Label Error", e);
+                return { ok: false, error: e };
+            }
+        }
+
+        async saveServerScopeAttributes(deviceId, attributes) {
+            try {
+                const payload = { ...attributes };
+                
+                const deviceJson = this.buildDevicePowerJson(payload, this.deviceType);
+                if (deviceJson) {
+                    payload.deviceMapInstaneousPower = deviceJson;
+                }
+
+                const keysToRemove = [
+                    'telemetryType',
+                    'standbyLimitDownConsumption', 'standbyLimitUpConsumption',
+                    'normalLimitDownConsumption', 'normalLimitUpConsumption',
+                    'alertLimitDownConsumption', 'alertLimitUpConsumption',
+                    'failureLimitDownConsumption', 'failureLimitUpConsumption'
+                ];
+                keysToRemove.forEach(k => delete payload[k]);
+
+                await fetch(`/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+
+                return { ok: true };
+            } catch (e) {
+                console.error("Persister Error", e);
+                return { ok: false, error: e };
+            }
+        }
+
+        buildDevicePowerJson(formData, deviceType) {
+            const statuses = ['standby', 'normal', 'alert', 'failure'];
+            const hasData = statuses.some(s => formData[`${s}LimitDownConsumption`] || formData[`${s}LimitUpConsumption`]);
+            
+            if (!hasData) return null;
+
+            const mapStatus = { 'standby': 'standBy', 'normal': 'normal', 'alert': 'alert', 'failure': 'failure' };
+            const limitsList = [];
+
+            statuses.forEach(s => {
+                const down = formData[`${s}LimitDownConsumption`];
+                const up = formData[`${s}LimitUpConsumption`];
+                if ((down !== undefined && down !== "") || (up !== undefined && up !== "")) {
+                    limitsList.push({
+                        deviceStatusName: mapStatus[s],
+                        limitsValues: {
+                            baseValue: (down !== "" && down !== undefined) ? Number(down) : null,
+                            topValue: (up !== "" && up !== undefined) ? Number(up) : null
+                        }
+                    });
+                }
+            });
+
+            return {
+                version: "1.0.0",
+                limitsByInstantaneoustPowerType: [{
+                    telemetryType: "consumption",
+                    itemsByDeviceType: [{
+                        deviceType: deviceType,
+                        name: "deviceMapOverride",
+                        description: "Override Dashboard",
+                        limitsByDeviceStatus: limitsList
+                    }]
+                }]
+            };
+        }
+    }
+
+    class SettingsModalView {
+        constructor(config) {
+            this.config = config;
+            this.createModal();
+        }
+
+        render(initialData) {
+            document.body.appendChild(this.container);
+            
+            let formData = { ...initialData };
+            
+            if (initialData.deviceMapInstaneousPower && typeof initialData.deviceMapInstaneousPower === 'object') {
+                console.log("[View] JSON Device encontrado. Aplicando override...");
+                const flatLimits = this.parseDeviceSavedLimits(initialData.deviceMapInstaneousPower);
+                formData = { ...formData, ...flatLimits };
+            }
+
+            this.populateForm(formData);
+            this.attachEventListeners();
+            this.fetchLatestConsumptionTelemetry();
+        }
+
+        parseDeviceSavedLimits(deviceJson) {
+            const extracted = {};
+            try {
+                if (!deviceJson?.limitsByInstantaneoustPowerType?.length) return extracted;
+                const group = deviceJson.limitsByInstantaneoustPowerType.find(g => g.telemetryType === 'consumption');
+                const deviceItem = group?.itemsByDeviceType?.[0];
+                if (!deviceItem?.limitsByDeviceStatus) return extracted;
+
+                const mapPrefix = { 'standBy': 'standby', 'normal': 'normal', 'alert': 'alert', 'failure': 'failure' };
+
+                deviceItem.limitsByDeviceStatus.forEach(status => {
+                    const prefix = mapPrefix[status.deviceStatusName];
+                    if (prefix && status.limitsValues) {
+                        const { baseValue, topValue } = status.limitsValues;
+                        if (baseValue != null) extracted[`${prefix}LimitDownConsumption`] = baseValue;
+                        if (topValue != null) extracted[`${prefix}LimitUpConsumption`] = topValue;
+                    }
+                });
+            } catch (e) { console.warn("Erro parse JSON", e); }
+            return extracted;
+        }
+
+        populateForm(data) {
+            for (const [key, value] of Object.entries(data)) {
+                const input = this.form.querySelector(`[name="${key}"]`);
+                if (input && value !== undefined && value !== null && value !== "" && typeof value !== 'object') {
+                    input.value = value;
+                }
+            }
+        }
+
+        getFormData() {
+            const formData = new FormData(this.form);
+            const data = {};
+            for (const [key, value] of formData.entries()) {
+                if (typeof value === 'string' && value.trim() !== "") {
+                    const num = parseFloat(value);
+                    if(["label", "floor"].includes(key)) data[key] = value.trim();
+                    else data[key] = !isNaN(num) ? num : value.trim();
+                }
+            }
+            return data;
+        }
+
+        createModal() {
+            this.container = document.createElement("div");
+            this.container.className = "myio-settings-modal-overlay";
+            this.container.innerHTML = this.getModalHTML();
+            this.modal = this.container.querySelector(".myio-settings-modal");
+            this.form = this.modal.querySelector("form");
+        }
+
+        getModalHTML() {
+            return `
+              <div class="myio-settings-modal-overlay">
+                <div class="myio-settings-modal" style="width: 900px">
+                  <div class="modal-header">
+                    <h3>Configurações: ${this.config.deviceLabel}</h3>
+                    <button type="button" class="close-btn">&times;</button>
+                  </div>
+                  <div class="modal-body">
+                    <form novalidate>
+                        <div class="form-card header-card">
+                            <span class="device-type-badge">${this.config.deviceType}</span>
+                            <div class="client-info">
+                                <label>Shopping</label>
+                                <strong>${this.config.customerName}</strong>
+                            </div>
+                        </div>
+                        <div class="form-columns">
+                            <div class="form-card">
+                                <h4 class="section-title">Dados Básicos</h4>
+                                <div class="form-group"><label>Etiqueta</label><input type="text" name="label"></div>
+                                <div class="form-group"><label>Andar</label><input type="text" name="floor"></div>
+                            </div>
+                            ${this.getPowerLimitsHTML()}
+                        </div>
+                    </form>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn-cancel">Cancelar</button>
+                    <button type="button" class="btn-save">Salvar</button>
+                  </div>
+                </div>
+              </div>
+              ${this.getModalCSS()}
+            `;
+        }
+
+        getConsumptionLimits() {
+            const mapPower = this.config.mapInstantaneousPower || {};
+            const group = mapPower.limitsByInstantaneoustPowerType?.[0];
+            const deviceItem = group?.itemsByDeviceType?.[0];
+            const limits = deviceItem?.limitsByDeviceStatus || [];
+            const getVal = (name) => {
+                const f = limits.find(l => l.deviceStatusName === name);
+                return f?.limitsValues || { baseValue: "", topValue: "" };
+            }
+            return {
+                description: deviceItem?.description || "Global Mock",
+                standby: getVal("standBy"),
+                normal: getVal("normal"),
+                alert: getVal("alert"),
+                failure: getVal("failure")
+            };
+        }
+
+        getPowerLimitsHTML() {
+            const globalData = this.getConsumptionLimits();
+            const fmt = (v) => (v.baseValue === "" || v.baseValue === undefined) ? "—" : `${v.baseValue} a ${v.topValue} W`;
+
+            return `
+              <div class="form-card power-limits-card">
+                <div class="power-limits-header"><h4 class="section-title">Limites de Potência (W)</h4></div>
+                <div class="global-reference-container">
+                  <div class="global-ref-label">Referência Global: ${globalData.description}</div>
+                  <div class="global-values-grid">
+                    <div class="global-item"><small>StandBy</small><strong>${fmt(globalData.standby)}</strong></div>
+                    <div class="global-item"><small>Normal</small><strong>${fmt(globalData.normal)}</strong></div>
+                    <div class="global-item"><small>Alerta</small><strong>${fmt(globalData.alert)}</strong></div>
+                    <div class="global-item"><small>Falha</small><strong>${fmt(globalData.failure)}</strong></div>
+                  </div>
+                </div>
+                <table class="power-limits-table">
+                  <thead><tr><th>Status</th><th>Mínimo (W)</th><th>Máximo (W)</th></tr></thead>
+                  <tbody>
+                    ${this.renderLimitRow("StandBy", "standby", globalData.standby)}
+                    ${this.renderLimitRow("Normal", "normal", globalData.normal)}
+                    ${this.renderLimitRow("Alerta", "alert", globalData.alert)}
+                    ${this.renderLimitRow("Falha", "failure", globalData.failure)}
+                  </tbody>
+                </table>
+                <div class="actions-row">
+                    <button id="btnCopyFromGlobal" class="action-link">⬇️ Copiar Global</button>
+                    <button id="btnClearInputs" class="action-link text-danger">🗑️ Limpar</button>
+                </div>
+              </div>
+            `;
+        }
+
+        renderLimitRow(label, key, globalVal) {
+            return `
+            <tr>
+                <td class="status-label">${label}</td>
+                <td><input type="number" name="${key}LimitDownConsumption" class="limit-input js-limit-input" placeholder="Vazio" data-global-value="${globalVal.baseValue}"></td>
+                <td><input type="number" name="${key}LimitUpConsumption" class="limit-input js-limit-input" placeholder="Vazio" data-global-value="${globalVal.topValue}"></td>
+            </tr>`;
+        }
+
+        getModalCSS() {
+            return `<style>
+                .myio-settings-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+                .myio-settings-modal { background: #fff; border-radius: 8px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column; font-family: sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+                .modal-header { background: #3e1a7d; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-radius: 8px 8px 0 0; }
+                .modal-body { padding: 20px; overflow-y: auto; background: #f8f9fa; flex: 1; }
+                .form-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+                .form-card { background: white; padding: 15px; border-radius: 6px; border: 1px solid #e0e0e0; margin-bottom: 15px; }
+                .header-card { display: flex; align-items: center; gap: 15px; background: linear-gradient(to right, #fff, #f3f0ff); border-left: 4px solid #3e1a7d; }
+                .device-type-badge { background: #3e1a7d; color: white; padding: 5px 10px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+                .section-title { margin: 0 0 10px 0; color: #3e1a7d; font-size: 14px; text-transform: uppercase; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+                .form-group { margin-bottom: 10px; }
+                .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #555; }
+                .form-group input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+                
+                .power-limits-card { grid-column: span 2; }
+                .global-reference-container { background: #eef2ff; border: 1px dashed #6366f1; border-radius: 6px; padding: 10px; margin-bottom: 15px; }
+                .global-values-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center; }
+                .global-item { background: white; padding: 5px; border-radius: 4px; border: 1px solid #c7d2fe; display: flex; flex-direction: column; }
+                .global-item small { font-size: 10px; color: #666; }
+                .global-item strong { color: #3e1a7d; font-size: 13px; }
+                
+                .power-limits-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+                .power-limits-table th { text-align: left; padding: 8px; border-bottom: 2px solid #eee; color: #555; }
+                .power-limits-table td { padding: 6px; border-bottom: 1px solid #f0f0f0; }
+                .limit-input { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+                .limit-input:not(:placeholder-shown) { border-color: #3e1a7d; background-color: #fbfaff; font-weight: 600; }
+                
+                .actions-row { margin-top: 10px; display: flex; gap: 15px; font-size: 13px; }
+                .action-link { background: none; border: none; color: #3e1a7d; cursor: pointer; text-decoration: underline; padding: 0; }
+                .text-danger { color: #dc3545; }
+                .modal-footer { padding: 15px; border-top: 1px solid #eee; text-align: right; background: white; border-radius: 0 0 8px 8px; }
+                .btn-save { background: #3e1a7d; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+                .close-btn, .btn-cancel { background: none; border: none; cursor: pointer; font-size: 16px; margin-right: 10px; }
+                .close-btn { font-size: 24px; color: white; }
+            </style>`;
+        }
+
+        close() { if(this.container) this.container.remove(); }
+        attachEventListeners() {
+            this.modal.querySelectorAll(".close-btn, .btn-cancel").forEach(b => b.addEventListener("click", (e) => { e.preventDefault(); this.config.onClose(); }));
+            this.modal.querySelector(".btn-save").addEventListener("click", (e) => { e.preventDefault(); this.config.onSave(this.getFormData()); });
+            const copy = this.modal.querySelector("#btnCopyFromGlobal");
+            if(copy) copy.addEventListener("click", (e) => { e.preventDefault(); this.modal.querySelectorAll(".js-limit-input").forEach(el => { const g = el.getAttribute("data-global-value"); if(g) el.value = g; }); });
+            const clr = this.modal.querySelector("#btnClearInputs");
+            if(clr) clr.addEventListener("click", (e) => { e.preventDefault(); this.modal.querySelectorAll(".js-limit-input").forEach(el => el.value = ""); });
+        }
+        async fetchLatestConsumptionTelemetry() {}
+    }
+
+    // =========================================================================
+    // 3. EXECUÇÃO PRINCIPAL
+    // =========================================================================
+
+    document.getElementById('resetStorageBtn').addEventListener('click', () => {
+        localStorage.removeItem(DB_KEY);
+        alert("Dados resetados.");
+    });
+
+    document.getElementById('openModalBtn').addEventListener('click', async () => {
+        const DEVICE_ID = "mock-uuid-12345";
+        const TOKEN = "mock-jwt";
+
+        // Instancia Fetcher e Persister
+        const fetcher = new DefaultSettingsFetcher(TOKEN);
+        const persister = new DefaultSettingsPersister(TOKEN, { deviceType: 'MOTOR' });
+
+        console.log("--> Fetching Settings...");
+        const currentData = await fetcher.fetchCurrentSettings(DEVICE_ID, TOKEN);
+        
+        // Mescla com dados globais do sistema
+        const initialData = {
+            ...currentData.attributes,
+            ...currentData.entity,
+            mapInstantaneousPower: MOCK_GLOBAL_CONFIG
+        };
+
+        console.log("--> Dados para render:", initialData);
+
+        const view = new SettingsModalView({
+            deviceLabel: initialData.label,
+            deviceType: "MOTOR",
+            domain: "energy",
+            customerName: "Shopping Mock Center",
+            mapInstantaneousPower: MOCK_GLOBAL_CONFIG,
+            onClose: () => view.close(),
+            onSave: async (formData) => {
+                console.log("--> Salvando...", formData);
+                if (formData.label) await persister.saveEntityLabel(DEVICE_ID, formData.label);
+                const result = await persister.saveServerScopeAttributes(DEVICE_ID, formData);
+                
+                if (result.ok) {
+                    alert("Salvo! Recarregue a página para testar a persistência.");
+                    view.close();
+                } else {
+                    alert("Erro ao salvar.");
+                }
+            }
+        });
+
+        view.render(initialData);
+    });
+
+</script>
+</body>
+</html>
