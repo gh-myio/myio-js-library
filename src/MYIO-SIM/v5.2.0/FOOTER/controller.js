@@ -8,23 +8,21 @@
  *    https://unpkg.com/myio-js-library@latest/dist/myio-js-library.umd.min.js
  *
  * 2. Energy Chart SDK (obrigatório para comparação):
- *    https://graphs.apps.myio-bas.com/sdk/energy-chart-sdk.umd.js
+ *    Use a mesma base URL definida em CHARTS_BASE_URL abaixo + /sdk/energy-chart-sdk.umd.js
  *
  * Para os ícones, idealmente, você carregaria uma biblioteca como Font Awesome ou Material Icons.
  * Por simplicidade no exemplo, os ícones '•' e '×' são mantidos, mas estilizaremos para parecerem melhores.
  */
 
+// ============================================================================
+// CONFIGURAÇÃO DE AMBIENTE - Altere aqui para trocar entre staging e produção
+// ============================================================================
+const CHARTS_BASE_URL = 'https://graphs.staging.apps.myio-bas.com'; // staging para testes
+// const CHARTS_BASE_URL = 'https://graphs.apps.myio-bas.com'; // produção
+
 // RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
 function getDataApiHost() {
-  return localStorage.getItem('__MYIO_DATA_API_HOST__');
-}
-
-// RFC-0086: Get shopping label from localStorage (set by WELCOME widget)
-function getShoppingLabel() {
-  try {
-    const stored = localStorage.getItem('__MYIO_SHOPPING_LABEL__');
-    return stored ? JSON.parse(stored) : null;
-  } catch { return null; }
+  return localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com';
 }
 
 // Debug configuration
@@ -982,18 +980,19 @@ const footerController = {
 
   /**
    * Handler para evento de mudança de dashboard (troca de aba no MENU)
-   * Limpa a seleção do FOOTER quando o usuário troca entre energy/water/tank
+   * Limpa a seleção do FOOTER quando o usuário troca entre energy/water/temperature
    */
   onDashboardStateChange(event) {
-    const newTab = event.detail?.tab;
+    const newDomain = event.detail?.domain || event.detail?.tab;
+    const stateId = event.detail?.stateId;
 
-    LogHelper.log(`[MyIO Footer] Dashboard state changed to: ${newTab}`);
+    LogHelper.log(`[MyIO Footer] Dashboard state changed to domain: ${newDomain}, stateId: ${stateId}`);
 
-    // Se mudou para uma aba válida (energy, water, temperature)
-    // Limpa a seleção para evitar comparações inválidas
+    // Se mudou para um domínio válido (energy, water, temperature)
+    // Limpa a seleção para evitar comparações inválidas entre domínios diferentes
     if (
-      newTab &&
-      (newTab === 'energy' || newTab === 'water' || newTab === 'temperature' || newTab === 'tank')
+      newDomain &&
+      (newDomain === 'energy' || newDomain === 'water' || newDomain === 'temperature' || newDomain === 'tank')
     ) {
       const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
 
@@ -1002,11 +1001,14 @@ const footerController = {
 
         // Só limpa se houver algo selecionado
         if (count > 0) {
-          LogHelper.log(`[MyIO Footer] Clearing ${count} selected items due to tab change`);
+          LogHelper.log(`[MyIO Footer] Clearing ${count} selected items due to domain change to: ${newDomain}`);
           MyIOSelectionStore.clear();
 
           // Reseta o tipo atual
           this.currentUnitType = null;
+
+          // Força re-renderização do dock para mostrar estado vazio
+          this.renderDock();
         }
       }
     }
@@ -1068,15 +1070,7 @@ const footerController = {
     this.boundRenderDock = this.renderDock.bind(this);
     this.boundCompareClick = this.onCompareClick.bind(this);
     this.boundClearClick = this.onClearClick.bind(this);
-    this.boundDragStart = this.onDragStart.bind(this);
-    this.boundDragOver = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      // ESTA LINHA É A SOLUÇÃO:
-      // Ela diz ao navegador "Sim, permito que dados sejam copiados para cá"
-      // Isso habilita a leitura do dataTransfer no evento drop
-      e.dataTransfer.dropEffect = 'copy';
-    };
+    this.boundDragOver = (e) => e.preventDefault();
     this.boundDrop = this.onDrop.bind(this);
     this.boundChipClick = this.onChipClick.bind(this);
     this.boundLimitReached = this.onLimitReached.bind(this);
@@ -1129,7 +1123,6 @@ const footerController = {
 
     // 6. Evento de mudança de aba no MENU (limpa seleção ao trocar entre energy/water/tank)
     window.addEventListener('myio:dashboard-state', this.boundDashboardStateChange);
-    window.addEventListener('myio:dragstart', this.boundDragStart);
     LogHelper.log('[MyIO Footer] Registered listener for myio:dashboard-state (tab change from MENU)');
   },
 
@@ -1232,8 +1225,9 @@ const footerController = {
       }
 
       // ⭐ Usa as variáveis com fallback (já definidas acima)
+      const dataApiHost = getDataApiHost();
       const MyIOAuthFooter = MyIOLibrary.buildMyioIngestionAuth({
-        dataApiHost: getDataApiHost(),
+        dataApiHost: dataApiHost,
         clientId: clientId, // ← Usa a variável com fallback
         clientSecret: clientSecret, // ← Usa a variável com fallback
       });
@@ -1252,7 +1246,8 @@ const footerController = {
         granularity: granularity, // ← OBRIGATÓRIO para comparison
         clientId: clientId,
         clientSecret: clientSecret,
-        dataApiHost: 'https://api.data.apps.myio-bas.com',
+        dataApiHost: dataApiHost,
+        chartsBaseUrl: CHARTS_BASE_URL, // ← URL base para iframes do SDK (staging)
         theme: 'dark', // ← Tema inicial (toggle disponível na modal)
         deep: false,
         onOpen: (context) => {
@@ -1303,262 +1298,8 @@ const footerController = {
   },
 
   /**
-   * Cria o overlay da modal de comparação com chart SDK
-   */
-  _createComparisonModalOverlay(config) {
-    // Remove modal existente se houver
-    const existingModal = document.getElementById('myio-comparison-modal');
-    if (existingModal) {
-      existingModal.remove();
-    }
-
-    // Cria overlay
-    const overlay = document.createElement('div');
-    overlay.id = 'myio-comparison-modal';
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 100000;
-        background: rgba(0, 0, 0, 0.85);
-        backdrop-filter: blur(8px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        animation: fadeIn 0.2s ease-out;
-      `;
-
-    // Cria container da modal
-    const modalBox = document.createElement('div');
-    modalBox.style.cssText = `
-        position: relative;
-        width: 95%;
-        max-width: 1400px;
-        height: 90vh;
-        background: linear-gradient(135deg, #242b36 0%, #1a1f28 100%);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 20px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      `;
-
-    // Header da modal
-    const header = document.createElement('div');
-    header.style.cssText = `
-        padding: 24px 32px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: rgba(0, 0, 0, 0.2);
-      `;
-    header.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 16px;">
-          <div style="
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, #9E8CBE 0%, #8472A8 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-          ">📊</div>
-          <div>
-            <h2 style="
-              margin: 0;
-              font-size: 24px;
-              font-weight: 700;
-              color: #ffffff;
-              letter-spacing: -0.02em;
-            ">Comparação de Dispositivos</h2>
-            <p style="
-              margin: 4px 0 0;
-              font-size: 14px;
-              color: rgba(255, 255, 255, 0.7);
-            ">${config.dataSources.length} dispositivos selecionados</p>
-          </div>
-        </div>
-        <button id="myio-comparison-close" style="
-          width: 40px;
-          height: 40px;
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 10px;
-          color: #ffffff;
-          font-size: 24px;
-          cursor: pointer;
-          transition: all 0.2s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        ">×</button>
-      `;
-
-    // Container do chart
-    const chartContainer = document.createElement('div');
-    chartContainer.id = 'myio-comparison-chart';
-    chartContainer.style.cssText = `
-        flex: 1;
-        padding: 32px;
-        overflow: hidden;
-        position: relative;
-      `;
-
-    // Loading state
-    chartContainer.innerHTML = `
-        <div style="
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          text-align: center;
-          color: #ffffff;
-        ">
-          <div style="
-            width: 60px;
-            height: 60px;
-            border: 4px solid rgba(158, 140, 190, 0.3);
-            border-top-color: #9E8CBE;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 16px;
-          "></div>
-          <p style="font-size: 16px; font-weight: 600;">Carregando comparação...</p>
-        </div>
-      `;
-
-    // Monta modal
-    modalBox.appendChild(header);
-    modalBox.appendChild(chartContainer);
-    overlay.appendChild(modalBox);
-    document.body.appendChild(overlay);
-
-    // Adiciona CSS para animações
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(40px) scale(0.95); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        #myio-comparison-close:hover {
-          background: rgba(255, 68, 68, 0.25);
-          border-color: rgba(255, 68, 68, 0.5);
-          transform: scale(1.1);
-        }
-      `;
-    document.head.appendChild(style);
-
-    // Event listeners
-    const closeBtn = header.querySelector('#myio-comparison-close');
-    const closeModal = () => {
-      overlay.remove();
-      style.remove();
-    };
-
-    closeBtn.addEventListener('click', closeModal);
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) closeModal();
-    });
-
-    // Renderiza o chart usando SDK
-    this._renderComparisonChart(chartContainer, config);
-  },
-
-  /**
-   * Renderiza o chart de comparação usando energy-chart-sdk
-   */
-  async _renderComparisonChart(container, config) {
-    try {
-      // Carrega o SDK dinamicamente se ainda não estiver disponível
-      if (!window.MyIOEnergyChartSDK?.renderTelemetryStackedChart) {
-        LogHelper.log('[MyIO Footer] Loading energy-chart-sdk...');
-        await this._loadEnergyChartSDK();
-      }
-
-      const { renderTelemetryStackedChart } = window.MyIOEnergyChartSDK;
-
-      LogHelper.log('[MyIO Footer] Rendering stacked chart with config:', config);
-
-      // Limpa loading
-      container.innerHTML = '';
-
-      // Renderiza o chart
-      const chartInstance = renderTelemetryStackedChart(container, {
-        version: 'v2',
-        clientId: config.clientId,
-        clientSecret: config.clientSecret,
-        dataSources: config.dataSources,
-        readingType: config.readingType,
-        startDate: config.startDate.split('T')[0], // Converte ISO para YYYY-MM-DD
-        endDate: config.endDate.split('T')[0],
-        granularity: config.granularity,
-        theme: 'light', // Combina com o tema do footer
-        bar_mode: 'grouped',
-        timezone: 'America/Sao_Paulo',
-        apiBaseUrl: 'https://api.data.apps.myio-bas.com',
-        deep: false,
-      });
-
-      LogHelper.log('[MyIO Footer] Chart rendered successfully:', chartInstance);
-    } catch (error) {
-      LogHelper.error('[MyIO Footer] Error rendering chart:', error);
-      container.innerHTML = `
-          <div style="
-            text-align: center;
-            color: #ffffff;
-            padding: 40px;
-          ">
-            <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-            <h3 style="margin: 0 0 8px; font-size: 20px; font-weight: 600;">Erro ao Carregar Gráfico</h3>
-            <p style="margin: 0; font-size: 14px; color: rgba(255, 255, 255, 0.7);">
-              ${error.message || 'Erro desconhecido. Verifique o console.'}
-            </p>
-          </div>
-        `;
-    }
-  },
-
-  /**
-   * Verifica se o SDK de charts está disponível
-   * IMPORTANTE: O SDK deve ser adicionado como External Resource no widget:
-   * https://graphs.apps.myio-bas.com/sdk/energy-chart-sdk.umd.js
-   */
-  async _loadEnergyChartSDK() {
-    return new Promise((resolve, reject) => {
-      if (window.MyIOEnergyChartSDK) {
-        LogHelper.log('[MyIO Footer] Energy chart SDK already loaded');
-        resolve();
-        return;
-      }
-
-      // SDK não encontrado - deve estar nos External Resources do ThingsBoard
-      const errorMsg =
-        'MyIOEnergyChartSDK not found. ' +
-        'Please add the SDK as an External Resource in ThingsBoard widget settings:\n' +
-        'https://graphs.apps.myio-bas.com/sdk/energy-chart-sdk.umd.js';
-
-      LogHelper.error('[MyIO Footer]', errorMsg);
-      reject(new Error(errorMsg));
-    });
-  },
-
-  /**
-   * Opens temperature comparison modal with multi-line chart
-   * Uses ThingsBoard API directly (not Ingestion API)
+   * Opens temperature comparison modal using MyIOLibrary
+   * RFC-0085: Uses the library component instead of inline implementation
    * @param {Array} selectedEntities - Array of selected entity objects
    */
   async _openTemperatureComparisonModal(selectedEntities) {
@@ -1568,7 +1309,6 @@ const footerController = {
       'devices'
     );
 
-    const modalId = 'myio-temp-comparison-modal';
     const jwtToken = localStorage.getItem('jwt_token');
 
     if (!jwtToken) {
@@ -1581,398 +1321,80 @@ const footerController = {
     const startDateISO =
       ctx.scope?.startDateISO || new Date(new Date().setDate(new Date().getDate() - 7)).toISOString();
     const endDateISO = ctx.scope?.endDateISO || new Date().toISOString();
-    const startTs = new Date(startDateISO).getTime();
-    const endTs = new Date(endDateISO).getTime();
 
-    // Colors for different sensors
-    const CHART_COLORS = [
-      '#1976d2', // Blue
-      '#FF6B6B', // Red
-      '#4CAF50', // Green
-      '#FF9800', // Orange
-      '#9C27B0', // Purple
-      '#00BCD4', // Cyan
-      '#E91E63', // Pink
-      '#795548', // Brown
-    ];
+    // Map entities to the expected device format with per-device temperature ranges
+    // Each device can have its own ideal range from its customer's SERVER_SCOPE attributes
+    const devices = selectedEntities.map((entity) => {
+      // Get temperature range for this specific device/customer
+      const min = entity.minTemperature ?? entity.temperatureMin ?? entity.tempMin;
+      const max = entity.maxTemperature ?? entity.temperatureMax ?? entity.tempMax;
 
-    // Create modal HTML
-    const modalHtml = `
-      <div id="${modalId}" style="
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.85);
-        z-index: 10000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        animation: fadeIn 0.2s ease-out;
-      ">
-        <div style="
-          background: linear-gradient(180deg, #1a1f28 0%, #0f1419 100%);
-          border-radius: 16px;
-          width: 90%;
-          max-width: 1200px;
-          max-height: 90vh;
-          overflow: hidden;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          display: flex;
-          flex-direction: column;
-        ">
-          <!-- Header -->
-          <div style="
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 20px 24px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-          ">
-            <div>
-              <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #fff;">
-                🌡️ Comparação de Temperatura
-              </h2>
-              <p style="margin: 4px 0 0; font-size: 13px; color: rgba(255,255,255,0.6);">
-                ${selectedEntities.length} sensores selecionados
-              </p>
-            </div>
-            <button id="${modalId}-close" style="
-              width: 36px;
-              height: 36px;
-              background: rgba(255, 255, 255, 0.1);
-              border: 1px solid rgba(255, 255, 255, 0.2);
-              border-radius: 8px;
-              cursor: pointer;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              transition: all 0.2s;
-            ">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
-
-          <!-- Chart Container -->
-          <div id="${modalId}-chart" style="
-            flex: 1;
-            padding: 24px;
-            min-height: 400px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          ">
-            <div style="text-align: center; color: rgba(255,255,255,0.7);">
-              <div style="
-                width: 40px;
-                height: 40px;
-                border: 3px solid rgba(255,255,255,0.2);
-                border-top-color: #9E8CBE;
-                border-radius: 50%;
-                animation: spin 1s linear infinite;
-                margin: 0 auto 16px;
-              "></div>
-              Carregando dados de temperatura...
-            </div>
-          </div>
-
-          <!-- Legend -->
-          <div id="${modalId}-legend" style="
-            padding: 16px 24px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            justify-content: center;
-          ">
-          </div>
-        </div>
-      </div>
-      <style>
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        #${modalId}-close:hover { background: rgba(255, 68, 68, 0.25); border-color: rgba(255, 68, 68, 0.5); }
-      </style>
-    `;
-
-    // Remove existing modal if any
-    document.getElementById(modalId)?.remove();
-
-    // Insert modal into DOM
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-    // Close handlers
-    const closeModal = () => {
-      document.getElementById(modalId)?.remove();
-    };
-
-    document.getElementById(`${modalId}-close`)?.addEventListener('click', closeModal);
-    document.getElementById(modalId)?.addEventListener('click', (e) => {
-      if (e.target.id === modalId) closeModal();
+      return {
+        id: entity.id || entity.entityId,
+        label: entity.name || entity.label || entity.id,
+        tbId: entity.tbId || entity.entityId,
+        customerName: entity.customerTitle || entity.customerName || entity.customer || null,
+        temperatureMin: (min !== undefined && min !== null) ? Number(min) : undefined,
+        temperatureMax: (max !== undefined && max !== null) ? Number(max) : undefined
+      };
     });
 
-    // Fetch temperature data for all devices
-    const fetchTemperatureData = async (entity) => {
-      try {
-        const deviceId = entity.id || entity.entityId;
-        const url = `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=temperature&startTs=${startTs}&endTs=${endTs}`;
+    // Check if devices have different temperature ranges (different customers)
+    const uniqueRanges = new Set(
+      devices
+        .filter(d => d.temperatureMin !== undefined && d.temperatureMax !== undefined)
+        .map(d => `${d.temperatureMin}-${d.temperatureMax}`)
+    );
 
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Authorization': `Bearer ${jwtToken}`,
-          },
-        });
+    if (uniqueRanges.size > 1) {
+      LogHelper.log('[MyIO Footer] Devices have different temperature ranges (multiple customers):',
+        devices.map(d => ({ label: d.label, customer: d.customerName, range: `${d.temperatureMin}-${d.temperatureMax}` }))
+      );
+    }
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+    // Fallback global range from ctx.scope (if no per-device ranges)
+    let globalTemperatureMin = null;
+    let globalTemperatureMax = null;
 
-        const data = await response.json();
-        const tempValues = data?.temperature || [];
+    if (ctx.scope?.minTemperature !== undefined) {
+      globalTemperatureMin = Number(ctx.scope.minTemperature);
+    }
+    if (ctx.scope?.maxTemperature !== undefined) {
+      globalTemperatureMax = Number(ctx.scope.maxTemperature);
+    }
 
-        return {
-          entity,
-          label: entity.name || entity.label || deviceId,
-          data: tempValues
-            .map((item) => ({
-              ts: item.ts,
-              value: Math.max(15, Math.min(40, Number(item.value) || 0)), // Clamp 15-40°C
-            }))
-            .sort((a, b) => a.ts - b.ts),
-        };
-      } catch (error) {
-        LogHelper.error(`[MyIO Footer] Error fetching temperature for ${entity.name || entity.id}:`, error);
-        return {
-          entity,
-          label: entity.name || entity.label || entity.id,
-          data: [],
-          error: error.message,
-        };
-      }
-    };
+    LogHelper.log('[MyIO Footer] Temperature ranges:', {
+      perDevice: devices.map(d => ({ label: d.label, min: d.temperatureMin, max: d.temperatureMax })),
+      global: { min: globalTemperatureMin, max: globalTemperatureMax }
+    });
+
+    // Use MyIOLibrary.openTemperatureComparisonModal
+    const MyIOLibrary = window.MyIOLibrary;
+    if (!MyIOLibrary?.openTemperatureComparisonModal) {
+      LogHelper.error('[MyIO Footer] MyIOLibrary.openTemperatureComparisonModal not available');
+      alert('Componente de comparação de temperatura não disponível.');
+      return;
+    }
 
     try {
-      // Fetch data for all devices in parallel
-      const results = await Promise.all(selectedEntities.map(fetchTemperatureData));
-      LogHelper.log('[MyIO Footer] Temperature data fetched:', results);
+      MyIOLibrary.openTemperatureComparisonModal({
+        token: jwtToken,
+        devices: devices,
+        startDate: startDateISO,
+        endDate: endDateISO,
+        theme: 'dark',
+        locale: 'pt-BR',
+        granularity: 'hour',
+        // Global fallback range (used only if devices don't have individual ranges)
+        temperatureMin: globalTemperatureMin,
+        temperatureMax: globalTemperatureMax
+      });
 
-      // Check if we have any data
-      const hasData = results.some((r) => r.data.length > 0);
-      if (!hasData) {
-        const chartContainer = document.getElementById(`${modalId}-chart`);
-        if (chartContainer) {
-          chartContainer.innerHTML = `
-            <div style="text-align: center; color: rgba(255,255,255,0.7);">
-              <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
-              <h3 style="margin: 0 0 8px; font-size: 18px; color: #fff;">Sem Dados</h3>
-              <p style="margin: 0; font-size: 14px;">Nenhum dado de temperatura encontrado para o período selecionado.</p>
-            </div>
-          `;
-        }
-        return;
-      }
-
-      // Draw comparison chart
-      this._drawTemperatureComparisonChart(modalId, results, CHART_COLORS);
+      LogHelper.log('[MyIO Footer] Temperature comparison modal opened via MyIOLibrary');
     } catch (error) {
-      LogHelper.error('[MyIO Footer] Error in temperature comparison:', error);
-      const chartContainer = document.getElementById(`${modalId}-chart`);
-      if (chartContainer) {
-        chartContainer.innerHTML = `
-          <div style="text-align: center; color: rgba(255,255,255,0.7);">
-            <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-            <h3 style="margin: 0 0 8px; font-size: 18px; color: #fff;">Erro ao Carregar Dados</h3>
-            <p style="margin: 0; font-size: 14px;">${error.message}</p>
-          </div>
-        `;
-      }
+      LogHelper.error('[MyIO Footer] Error opening temperature comparison modal:', error);
+      alert('Erro ao abrir modal de comparação de temperatura: ' + error.message);
     }
-  },
-
-  /**
-   * Draws the temperature comparison chart using Canvas API
-   * @param {string} modalId - Modal element ID
-   * @param {Array} results - Array of {entity, label, data} objects
-   * @param {Array} colors - Array of color strings
-   */
-  _drawTemperatureComparisonChart(modalId, results, colors) {
-    const chartContainer = document.getElementById(`${modalId}-chart`);
-    const legendContainer = document.getElementById(`${modalId}-legend`);
-
-    if (!chartContainer) return;
-
-    // Create canvas
-    chartContainer.innerHTML = `<canvas id="${modalId}-canvas" style="width: 100%; height: 100%;"></canvas>`;
-    const canvas = document.getElementById(`${modalId}-canvas`);
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    const width = chartContainer.clientWidth - 48;
-    const height = 400;
-    canvas.width = width;
-    canvas.height = height;
-
-    const paddingLeft = 60;
-    const paddingRight = 20;
-    const paddingTop = 20;
-    const paddingBottom = 50;
-
-    // Calculate global min/max
-    let globalMinY = Infinity;
-    let globalMaxY = -Infinity;
-    let globalMinX = Infinity;
-    let globalMaxX = -Infinity;
-
-    results.forEach((result) => {
-      result.data.forEach((point) => {
-        if (point.value < globalMinY) globalMinY = point.value;
-        if (point.value > globalMaxY) globalMaxY = point.value;
-        if (point.ts < globalMinX) globalMinX = point.ts;
-        if (point.ts > globalMaxX) globalMaxX = point.ts;
-      });
-    });
-
-    // Add padding to Y range
-    globalMinY = Math.floor(globalMinY) - 1;
-    globalMaxY = Math.ceil(globalMaxY) + 1;
-
-    const chartWidth = width - paddingLeft - paddingRight;
-    const chartHeight = height - paddingTop - paddingBottom;
-    const timeRange = globalMaxX - globalMinX || 1;
-    const tempRange = globalMaxY - globalMinY || 1;
-    const scaleX = chartWidth / timeRange;
-    const scaleY = chartHeight / tempRange;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
-
-    // Draw horizontal grid lines
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= 5; i++) {
-      const y = paddingTop + (chartHeight * i) / 5;
-      ctx.beginPath();
-      ctx.moveTo(paddingLeft, y);
-      ctx.lineTo(width - paddingRight, y);
-      ctx.stroke();
-    }
-
-    // Draw vertical grid lines
-    for (let i = 0; i <= 6; i++) {
-      const x = paddingLeft + (chartWidth * i) / 6;
-      ctx.beginPath();
-      ctx.moveTo(x, paddingTop);
-      ctx.lineTo(x, height - paddingBottom);
-      ctx.stroke();
-    }
-
-    // Draw temperature lines for each sensor
-    results.forEach((result, index) => {
-      if (result.data.length === 0) return;
-
-      const color = colors[index % colors.length];
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-
-      result.data.forEach((point, i) => {
-        const x = paddingLeft + (point.ts - globalMinX) * scaleX;
-        const y = height - paddingBottom - (point.value - globalMinY) * scaleY;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-
-      ctx.stroke();
-    });
-
-    // Draw Y axis labels (temperature)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.font = '11px Inter, sans-serif';
-    ctx.textAlign = 'right';
-    for (let i = 0; i <= 5; i++) {
-      const val = globalMinY + tempRange * ((5 - i) / 5);
-      const y = paddingTop + (chartHeight * i) / 5;
-      ctx.fillText(val.toFixed(1) + '°C', paddingLeft - 8, y + 4);
-    }
-
-    // Draw X axis labels (dates)
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.font = '10px Inter, sans-serif';
-
-    const ONE_DAY = 24 * 60 * 60 * 1000;
-    const showTime = timeRange <= 2 * ONE_DAY;
-
-    for (let i = 0; i <= 6; i++) {
-      const ts = globalMinX + (timeRange * i) / 6;
-      const x = paddingLeft + (chartWidth * i) / 6;
-      const date = new Date(ts);
-
-      let label;
-      if (showTime) {
-        label = date.toLocaleString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-      } else {
-        label = date.toLocaleDateString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-        });
-      }
-
-      ctx.fillText(label, x, height - paddingBottom + 20);
-    }
-
-    // Draw legend
-    if (legendContainer) {
-      legendContainer.innerHTML = results
-        .map((result, index) => {
-          const color = colors[index % colors.length];
-          const avgTemp =
-            result.data.length > 0
-              ? (result.data.reduce((sum, p) => sum + p.value, 0) / result.data.length).toFixed(1)
-              : '--';
-          const hasError = result.error ? ' (erro)' : '';
-
-          return `
-            <div style="
-              display: flex;
-              align-items: center;
-              gap: 8px;
-              padding: 8px 12px;
-              background: rgba(255, 255, 255, 0.05);
-              border-radius: 8px;
-              border: 1px solid rgba(255, 255, 255, 0.1);
-            ">
-              <div style="
-                width: 12px;
-                height: 12px;
-                background: ${color};
-                border-radius: 3px;
-              "></div>
-              <span style="color: #fff; font-size: 13px; font-weight: 500;">
-                ${result.label}${hasError}
-              </span>
-              <span style="color: rgba(255,255,255,0.6); font-size: 12px;">
-                (média: ${avgTemp}°C)
-              </span>
-            </div>
-          `;
-        })
-        .join('');
-    }
-
-    LogHelper.log('[MyIO Footer] Temperature comparison chart rendered successfully');
   },
 
   /**
@@ -1996,40 +1418,13 @@ const footerController = {
   /**
    * Manipulador de evento 'drop'
    */
-
   onDrop(e) {
-    e.preventDefault(); // Impede o comportamento padrão do navegador
-    e.stopPropagation(); // Impede que o evento suba para elementos pai
-
-    LogHelper.log('[MyIO Footer] 📥 Drop event received');
-
+    e.preventDefault();
     const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-
     if (MyIOSelectionStore) {
-      // Tenta pegar o ID. Como a Lib envia 'text/plain', precisamos garantir que lemos isso.
-      // O log mostrou types: [], mas com o fix do dragOver, os types devem aparecer.
-      const id = e.dataTransfer.getData('text/myio-id') || e.dataTransfer.getData('text/plain');
-
-      LogHelper.log('[MyIO Footer] 📦 Dropped Data ID:', id);
-
+      const id = e.dataTransfer?.getData('text/myio-id') || e.dataTransfer?.getData('text/plain');
       if (id) {
         MyIOSelectionStore.add(id);
-        // Força atualização visual imediata
-        this.renderDock();
-        LogHelper.log('[MyIO Footer] ✅ Item added via Drop');
-      } else {
-        LogHelper.warn('[MyIO Footer] ⚠️ Drop received but no ID found in dataTransfer');
-      }
-    }
-  },
-  onDragStart(e) {
-    if (e.detail && e.detail.entityObject) {
-      const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-
-      if (MyIOSelectionStore && MyIOSelectionStore.registerEntity) {
-        // Registra o dispositivo "just-in-time"
-        MyIOSelectionStore.registerEntity(e.detail.entityObject);
-        LogHelper.log('[MyIO Footer] 💾 Device registered via DragStart:', e.detail.entityObject.name);
       }
     }
   },
@@ -2073,9 +1468,6 @@ const footerController = {
     // 3. Remove listener do evento de mudança de aba do MENU
     if (this.boundDashboardStateChange) {
       window.removeEventListener('myio:dashboard-state', this.boundDashboardStateChange);
-    }
-    if (this.boundDragStart) {
-      window.removeEventListener('myio:dragstart', this.boundDragStart);
     }
 
     // 3. Limpa conteúdo (mas não remove elementos, pois são do template.html do ThingsBoard)

@@ -813,6 +813,27 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       if (targetContent) {
         targetContent.style.display = 'block';
         console.log(`[MENU] ✅ RFC-0057: Showing content state: ${stateId} (no dynamic rendering!)`);
+
+        // RFC: Determine domain from stateId and dispatch myio:dashboard-state to notify FOOTER
+        let domain = 'unknown';
+        if (stateId.includes('energy') || stateId.includes('equipments') || stateId.includes('store')) {
+          domain = 'energy';
+        } else if (stateId.includes('water')) {
+          domain = 'water';
+        } else if (stateId.includes('temperature')) {
+          domain = 'temperature';
+        }
+
+        console.log(`[MENU] Dispatching myio:dashboard-state for domain: ${domain}`);
+        window.dispatchEvent(
+          new CustomEvent('myio:dashboard-state', {
+            detail: {
+              domain: domain,
+              stateId: stateId,
+              ts: Date.now(),
+            },
+          })
+        );
       } else {
         console.warn(`[MENU] Content state not found: ${stateId}`);
         console.log(
@@ -1423,20 +1444,19 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               if (self.ctx.$scope.$applyAsync) self.ctx.$scope.$applyAsync();
             }
 
-            // RFC: Dispatch myio:update-date to trigger data refresh in target widget (STORES, etc)
-            const startDateISO = self.ctx.$scope?.startDateISO;
-            const endDateISO = self.ctx.$scope?.endDateISO;
-            if (startDateISO && endDateISO) {
-              console.log(`[MENU] Dispatching myio:update-date for ${targetStateId}`);
-              window.dispatchEvent(
-                new CustomEvent('myio:update-date', {
-                  detail: {
-                    startDate: startDateISO,
-                    endDate: endDateISO,
-                  },
-                })
-              );
-            }
+            // RFC: Dispatch myio:dashboard-state to notify FOOTER of domain change (clear selection)
+            // NOTE: Does NOT dispatch myio:update-date - data should already be loaded by orchestrator
+            // User must click "Carregar" button to refresh data
+            console.log(`[MENU] Dispatching myio:dashboard-state for domain: energy`);
+            window.dispatchEvent(
+              new CustomEvent('myio:dashboard-state', {
+                detail: {
+                  domain: 'energy',
+                  stateId: targetStateId,
+                  ts: Date.now(),
+                },
+              })
+            );
           }
         }
       };
@@ -1580,20 +1600,19 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               if (self.ctx.$scope.$applyAsync) self.ctx.$scope.$applyAsync();
             }
 
-            // Dispatch myio:update-date to trigger data refresh
-            const startDateISO = self.ctx.$scope?.startDateISO;
-            const endDateISO = self.ctx.$scope?.endDateISO;
-            if (startDateISO && endDateISO) {
-              console.log(`[MENU] Dispatching myio:update-date for ${targetStateId}`);
-              window.dispatchEvent(
-                new CustomEvent('myio:update-date', {
-                  detail: {
-                    startDate: startDateISO,
-                    endDate: endDateISO,
-                  },
-                })
-              );
-            }
+            // RFC: Dispatch myio:dashboard-state to notify FOOTER of domain change (clear selection)
+            // NOTE: Does NOT dispatch myio:update-date - data should already be loaded by orchestrator
+            // User must click "Carregar" button to refresh data
+            console.log(`[MENU] Dispatching myio:dashboard-state for domain: water`);
+            window.dispatchEvent(
+              new CustomEvent('myio:dashboard-state', {
+                detail: {
+                  domain: 'water',
+                  stateId: targetStateId,
+                  ts: Date.now(),
+                },
+              })
+            );
 
             console.log(`[MENU] RFC-0087: Switched to water state: ${targetStateId}`);
           }

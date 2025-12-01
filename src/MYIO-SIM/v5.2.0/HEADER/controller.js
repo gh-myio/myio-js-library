@@ -49,7 +49,7 @@ let selectedShoppingIds = []; // Shopping ingestionIds selected in filter
 
 // ✅ Check if filter was already applied before HEADER initialized
 if (window.custumersSelected && Array.isArray(window.custumersSelected) && window.custumersSelected.length > 0) {
-  console.log('[HEADER] 🔄 Applying pre-existing filter:', window.custumersSelected.length, 'shoppings');
+  LogHelper.log('[HEADER] 🔄 Applying pre-existing filter:', window.custumersSelected.length, 'shoppings');
   selectedShoppingIds = window.custumersSelected.map((s) => s.value).filter((v) => v);
 }
 
@@ -848,7 +848,7 @@ function applyCardColors() {
     cardWater.style.setProperty('color', fontColor, 'important');
   }
 
-  console.log('[HEADER] Card colors applied from settings');
+  LogHelper.log('[HEADER] Card colors applied from settings');
 }
 
 /* ====== Lifecycle ====== */
@@ -999,7 +999,7 @@ function updateEquipmentCard(eventData = null) {
     if (subtitleDevice) subtitleDevice.innerText = `${percentage}%`;
   }
 
-  console.log('[HEADER] Equipment card updated:', {
+  LogHelper.log('[HEADER] Equipment card updated:', {
     total: totalEquipments,
     filtered: filteredEquipments,
     allSelected: allShoppingsSelected,
@@ -1047,7 +1047,7 @@ function extractDevicesWithDetails(ctxData) {
     deviceMap.set(entityId, deviceObject);
   });
 
-  console.log(`[ENERGY] Extracted ${deviceMap.size} unique device entries`);
+  LogHelper.log(`[HEADER] Extracted ${deviceMap.size} unique device entries`);
   // Retornar um array com os valores do Map (os objetos de dispositivo)
   return Array.from(deviceMap.values());
 }
@@ -1121,13 +1121,13 @@ async function fetchCustomerAverageTemperarature(startTs, endTs) {
     // ✅ DEVICE-BY-DEVICE APPROACH
     const devices = extractDevicesWithDetails(self.ctx.data);
 
-    console.log('devices >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>', devices);
+    LogHelper.log('[HEADER] devices', devices);
 
     if (devices.length === 0) {
-      console.warn('[ENERGY] No devices found for peak demand calculation');
+      LogHelper.warn('[HEADER] No devices found for peak demand calculation');
     }
 
-    console.log(`[ENERGY] Fetching peak demand for ${devices.length} devices`);
+    LogHelper.log(`[HEADER] Fetching peak demand for ${devices.length} devices`);
 
     const averageTempResults = [];
 
@@ -1153,7 +1153,7 @@ async function fetchCustomerAverageTemperarature(startTs, endTs) {
         });
 
         if (!response.ok) {
-          console.warn(`[ENERGY] Failed to fetch temperature for device ${device.id}: ${response.status}`);
+          LogHelper.warn(`[HEADER] Failed to fetch temperature for device ${device.id}: ${response.status}`);
           continue;
         }
 
@@ -1162,14 +1162,14 @@ async function fetchCustomerAverageTemperarature(startTs, endTs) {
         const averageTemperature = calcularMedia(temperatureData);
         averageTempResults.push(averageTemperature);
       } catch (err) {
-        console.error(`[ENERGY] Error fetching demand for device ${device.id}:`, err);
+        LogHelper.error(`[HEADER] Error fetching demand for device ${device.id}:`, err);
         // Continue to next device
       }
     }
 
     // Encontrar o maior pico entre todos os devices
     if (averageTempResults.length === 0) {
-      console.log('[ENERGY] No average temperature found across all devices');
+      LogHelper.log('[HEADER] No average temperature found across all devices');
       const result = {
         peakValue: 0,
         timestamp: Date.now(),
@@ -1184,7 +1184,7 @@ async function fetchCustomerAverageTemperarature(startTs, endTs) {
 
     return result;
   } catch (err) {
-    console.error(`[ENERGY] Error fetching customer peak demand:`, err);
+    LogHelper.error(`[HEADER] Error fetching customer peak demand:`, err);
 
     // Return fallback result
     const result = {
@@ -1234,7 +1234,7 @@ function extractTemperatureRangesByShopping() {
     }
   });
 
-  console.log('[HEADER] Temperature ranges by shopping:', Object.fromEntries(validRanges));
+  LogHelper.log('[HEADER] Temperature ranges by shopping:', Object.fromEntries(validRanges));
   return validRanges;
 }
 
@@ -1247,7 +1247,7 @@ function extractTemperatureRangesByShopping() {
 async function fetchTemperatureAveragesByShopping(startTs, endTs) {
   const tbToken = localStorage.getItem('jwt_token');
   if (!tbToken) {
-    console.warn('[HEADER] JWT not found');
+    LogHelper.warn('[HEADER] JWT not found');
     return new Map();
   }
 
@@ -1287,7 +1287,7 @@ async function fetchTemperatureAveragesByShopping(startTs, endTs) {
         shoppingTemps.get(ownerName).temps.push(avgTemp);
       }
     } catch (err) {
-      console.error(`[HEADER] Error fetching temperature for device ${device.id}:`, err);
+      LogHelper.error(`[HEADER] Error fetching temperature for device ${device.id}:`, err);
     }
   }
 
@@ -1299,7 +1299,7 @@ async function fetchTemperatureAveragesByShopping(startTs, endTs) {
     result.set(key, { avg, ownerName: value.ownerName });
   });
 
-  console.log('[HEADER] Temperature averages by shopping:', Object.fromEntries(result));
+  LogHelper.log('[HEADER] Temperature averages by shopping:', Object.fromEntries(result));
   return result;
 }
 
@@ -1356,7 +1356,7 @@ async function updateTemperatureCard() {
     // Se não encontrou por nome, usa a faixa default (primeira disponível)
     if (!matchedRange && rangesByShopping.size > 0) {
       matchedRange = rangesByShopping.values().next().value;
-      console.log(`[HEADER] Using default range for ${ownerName}:`, matchedRange);
+      LogHelper.log(`[HEADER] Using default range for ${ownerName}:`, matchedRange);
     }
 
     const shoppingInfo = {
@@ -1375,7 +1375,7 @@ async function updateTemperatureCard() {
 
   const totalAvg = totalCount > 0 ? totalSum / totalCount : null;
 
-  console.log('[HEADER] Temperature analysis:', {
+  LogHelper.log('[HEADER] Temperature analysis:', {
     totalAvg,
     shoppingsInRange: shoppingsInRange.length,
     shoppingsOutOfRange: shoppingsOutOfRange.length,
@@ -1476,7 +1476,7 @@ function updateEnergyCard(energyCache) {
   const energyKpi = document.getElementById('energy-kpi');
   const energyTrend = document.getElementById('energy-trend');
 
-  console.log('[HEADER] Updating energy card | cache devices:', energyCache?.size || 0);
+  LogHelper.log('[HEADER] Updating energy card | cache devices:', energyCache?.size || 0);
 
   // ✅ Get filtered and unfiltered consumption from orchestrator
   let filteredConsumption = 0;
@@ -1488,9 +1488,9 @@ function updateEnergyCard(energyCache) {
     filteredConsumption = window.MyIOOrchestrator.getTotalConsumption();
     unfilteredConsumption = window.MyIOOrchestrator.getUnfilteredTotalConsumption?.() || filteredConsumption;
     isFiltered = window.MyIOOrchestrator.isFilterActive?.() || false;
-    console.log('[HEADER] Energy consumption:', { filteredConsumption, unfilteredConsumption, isFiltered });
+    LogHelper.log('[HEADER] Energy consumption:', { filteredConsumption, unfilteredConsumption, isFiltered });
   } else {
-    console.warn('[HEADER] MyIOOrchestrator.getTotalConsumption not available');
+    LogHelper.warn('[HEADER] MyIOOrchestrator.getTotalConsumption not available');
     // Fallback: sum all from cache (old behavior)
     if (energyCache) {
       energyCache.forEach((cached) => {
@@ -1529,7 +1529,7 @@ function updateEnergyCard(energyCache) {
         energyTrend.className = 'chip trend';
         energyTrend.style.display = '';
       }
-      console.log(`[HEADER] Energy card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`);
+      LogHelper.log(`[HEADER] Energy card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`);
     } else {
       // Show only total when no filter or values are the same
       const formatted = formatEnergy(filteredConsumption);
@@ -1540,10 +1540,10 @@ function updateEnergyCard(energyCache) {
         energyTrend.innerText = '';
         energyTrend.style.display = 'none';
       }
-      console.log(`[HEADER] Energy card updated: ${formatted}`);
+      LogHelper.log(`[HEADER] Energy card updated: ${formatted}`);
     }
   } else {
-    console.error('[HEADER] energyKpi element not found!');
+    LogHelper.error('[HEADER] energyKpi element not found!');
   }
 
   // ✅ EMIT EVENT: Notify ENERGY widget of customer total consumption
@@ -1561,14 +1561,14 @@ function updateEnergyCard(energyCache) {
     })
   );
 
-  console.log(`[HEADER] ✅ Emitted myio:customer-total-consumption:`, customerTotalEvent);
+  LogHelper.log(`[HEADER] ✅ Emitted myio:customer-total-consumption:`, customerTotalEvent);
 }
 
 function updateWaterCard(waterCache) {
   const waterKpi = document.getElementById('water-kpi');
   const waterTrend = document.getElementById('water-trend');
 
-  console.log('[HEADER] Updating water card | cache devices:', waterCache?.size || 0);
+  LogHelper.log('[HEADER] Updating water card | cache devices:', waterCache?.size || 0);
 
   // ✅ Get filtered and unfiltered water consumption from orchestrator
   let filteredConsumption = 0;
@@ -1580,9 +1580,9 @@ function updateWaterCard(waterCache) {
     filteredConsumption = window.MyIOOrchestrator.getTotalWaterConsumption();
     unfilteredConsumption = window.MyIOOrchestrator.getUnfilteredTotalWaterConsumption?.() || filteredConsumption;
     isFiltered = window.MyIOOrchestrator.isFilterActive?.() || false;
-    console.log('[HEADER] Water consumption:', { filteredConsumption, unfilteredConsumption, isFiltered });
+    LogHelper.log('[HEADER] Water consumption:', { filteredConsumption, unfilteredConsumption, isFiltered });
   } else {
-    console.warn('[HEADER] MyIOOrchestrator.getTotalWaterConsumption not available');
+    LogHelper.warn('[HEADER] MyIOOrchestrator.getTotalWaterConsumption not available');
     // Fallback: sum all from cache (old behavior)
     if (waterCache) {
       waterCache.forEach((cached) => {
@@ -1621,7 +1621,7 @@ function updateWaterCard(waterCache) {
         waterTrend.className = 'chip trend';
         waterTrend.style.display = '';
       }
-      console.log(`[HEADER] Water card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`);
+      LogHelper.log(`[HEADER] Water card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`);
     } else {
       // Show only total when no filter or values are the same
       const formatted = formatWater(filteredConsumption);
@@ -1632,10 +1632,10 @@ function updateWaterCard(waterCache) {
         waterTrend.innerText = '';
         waterTrend.style.display = 'none';
       }
-      console.log(`[HEADER] Water card updated: ${formatted}`);
+      LogHelper.log(`[HEADER] Water card updated: ${formatted}`);
     }
   } else {
-    console.error('[HEADER] waterKpi element not found!');
+    LogHelper.error('[HEADER] waterKpi element not found!');
   }
 
   // ✅ EMIT EVENT
@@ -1653,17 +1653,17 @@ function updateWaterCard(waterCache) {
     })
   );
 
-  console.log(`[HEADER] ✅ Emitted myio:customer-total-water-consumption:`, customerTotalEvent);
+  LogHelper.log(`[HEADER] ✅ Emitted myio:customer-total-water-consumption:`, customerTotalEvent);
 }
 
 // ===== HEADER: Listen for energy data from MAIN orchestrator =====
 window.addEventListener('myio:energy-data-ready', (ev) => {
-  console.log('[HEADER] Received energy data from orchestrator:', ev.detail);
+  LogHelper.log('[HEADER] Received energy data from orchestrator:', ev.detail);
   updateEnergyCard(ev.detail.cache);
 });
 
 window.addEventListener('myio:water-data-ready', (ev) => {
-  console.log('[HEADER] ✅ Dados de ÁGUA recebidos do Orchestrator:', ev.detail);
+  LogHelper.log('[HEADER] ✅ Dados de ÁGUA recebidos do Orchestrator:', ev.detail);
 
   // Se 'ev.detail.cache' existir, atualiza o card
   if (ev.detail && ev.detail.cache) {
@@ -1679,17 +1679,17 @@ window.addEventListener('myio:equipment-count-updated', (ev) => {
 
 // ===== HEADER: Listen for shopping filter =====
 window.addEventListener('myio:filter-applied', (ev) => {
-  console.log('[HEADER] 🔥 heard myio:filter-applied:', ev.detail);
+  LogHelper.log('[HEADER] 🔥 heard myio:filter-applied:', ev.detail);
 
   const selection = ev.detail?.selection || [];
   selectedShoppingIds = selection.map((s) => s.value).filter((v) => v);
 
-  console.log(
+  LogHelper.log(
     '[HEADER] Applying shopping filter:',
     selectedShoppingIds.length === 0 ? 'ALL' : `${selectedShoppingIds.length} shoppings`
   );
   if (selectedShoppingIds.length > 0) {
-    console.log('[HEADER] Selected shopping IDs:', selectedShoppingIds);
+    LogHelper.log('[HEADER] Selected shopping IDs:', selectedShoppingIds);
   }
 
   // Equipment card will be updated via myio:equipment-count-updated event from EQUIPMENTS widget
@@ -1701,7 +1701,7 @@ window.addEventListener('myio:filter-applied', (ev) => {
 
 // ===== HEADER: Listen for orchestrator filter update (after MAIN processes the filter) =====
 window.addEventListener('myio:orchestrator-filter-updated', (ev) => {
-  console.log('[HEADER] 🔄 heard myio:orchestrator-filter-updated:', ev.detail);
+  LogHelper.log('[HEADER] 🔄 heard myio:orchestrator-filter-updated:', ev.detail);
 
   // Now orchestrator has the updated filter, safe to update cards
   if (window.MyIOOrchestrator?.getEnergyCache) {

@@ -506,7 +506,7 @@ async function fetchInstantaneousPowerLimits(entityId, entityType = 'CUSTOMER') 
     return null;
   }
 
-  console.log('entityId', entityId);
+  LogHelper.log('[RFC-0078] entityId', entityId);
 
   const url = `/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
 
@@ -529,7 +529,7 @@ async function fetchInstantaneousPowerLimits(entityId, entityType = 'CUSTOMER') 
 
     const attributes = await response.json();
 
-    console.log('attributes >>>>>>>>>>>>', attributes);
+    LogHelper.log('[RFC-0078] attributes', attributes);
 
     // Find mapInstantaneousPower attribute
     const powerLimitsAttr = attributes.find((attr) => attr.key === 'mapInstantaneousPower');
@@ -705,7 +705,7 @@ async function getCachedPowerLimitsJSON(entityId, entityType = 'CUSTOMER', ctxDa
       json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
     }
   } else if (entityType === 'CUSTOMER') {
-    console.log('entityId getCachedPowerLimitsJSON', entityId);
+    LogHelper.log('[RFC-0078] entityId getCachedPowerLimitsJSON', entityId);
 
     // For CUSTOMER, fetch via API
     json = await fetchInstantaneousPowerLimits(entityId, entityType);
@@ -749,7 +749,7 @@ async function getConsumptionRangesHierarchical(
 
   // TIER 1: Try device-level JSON first (highest priority)
   // Reads from ctx.data[] if available, no API call needed
-  console.log('deviceId getConsumptionRangesHierarchical', deviceId);
+  LogHelper.log('[RFC-0078] deviceId getConsumptionRangesHierarchical', deviceId);
 
   const deviceLimitsJSON = await getCachedPowerLimitsJSON(deviceId, 'DEVICE', ctxData);
   if (
@@ -872,7 +872,7 @@ window.__customerPowerLimitsJSON = null;
  * RFC-0078: Alias for backward compatibility with RFC-0077 calls
  */
 async function getCachedConsumptionLimits(customerId) {
-  console.log(`[RFC-0078] getCachedConsumptionLimits called for customer ${customerId}`);
+  LogHelper.log(`[RFC-0078] getCachedConsumptionLimits called for customer ${customerId}`);
   return getCachedPowerLimitsJSON(customerId, 'CUSTOMER');
 }
 
@@ -1758,7 +1758,7 @@ self.onInit = async function () {
 
       chipsContainer.innerHTML = '';
 
-      console.log('STATE.selectedShoppingIds :>>>>>>>>>>>>', STATE.selectedShoppingIds);
+      LogHelper.log('[EQUIPMENTS] STATE.selectedShoppingIds', STATE.selectedShoppingIds);
 
       if (!selection || selection.length === 0) {
         return; // No filter applied, hide chips
@@ -1928,7 +1928,7 @@ self.onInit = async function () {
             ranges: rangesWithSource,
           });
 
-          console.log('deviceStatus', deviceStatus);
+          LogHelper.log('[EQUIPMENTS] deviceStatus', deviceStatus);
 
           const ingestionId = findValue(device.values, 'ingestionId', null);
           let customerId = findValue(device.values, 'customerId', null);
@@ -1946,7 +1946,7 @@ self.onInit = async function () {
             window.myioDeviceToShoppingMap.set(ingestionId, customerId);
           }
 
-          console.log('mapInstantaneousPower', MAP_INSTANTANEOUS_POWER);
+          LogHelper.log('[EQUIPMENTS] mapInstantaneousPower', MAP_INSTANTANEOUS_POWER);
 
           return {
             entityId: entityId,
