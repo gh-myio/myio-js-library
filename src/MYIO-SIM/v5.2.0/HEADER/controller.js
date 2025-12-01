@@ -47,6 +47,12 @@ const LogHelper = {
 // ===== SHOPPING FILTER STATE =====
 let selectedShoppingIds = []; // Shopping ingestionIds selected in filter
 
+// ✅ Check if filter was already applied before HEADER initialized
+if (window.custumersSelected && Array.isArray(window.custumersSelected) && window.custumersSelected.length > 0) {
+  console.log('[HEADER] 🔄 Applying pre-existing filter:', window.custumersSelected.length, 'shoppings');
+  selectedShoppingIds = window.custumersSelected.map((s) => s.value).filter((v) => v);
+}
+
 // RFC: updateTotalConsumption moved to MAIN - use myio:request-total-consumption event
 // RFC: updateTotalWaterConsumption moved to MAIN - use myio:request-total-water-consumption event
 
@@ -1195,95 +1201,265 @@ async function fetchCustomerAverageTemperarature(startTs, endTs) {
 }
 
 // ===== HEADER: Temperature Card Handler =====
-async function updateTemperatureCard() {
-  const tempKpi = document.getElementById('temp-kpi');
-  const tempRange = document.getElementById('temp-range');
-  const tempChip = document.querySelector('#card-temp .chip');
-
-  // Faixa ideal de temperatura
-  let MIN_TEMP;
-  let MAX_TEMP;
-  const startTs = self.ctx?.$scope?.startDateISO
-    ? new Date(self.ctx?.$scope.startDateISO).getTime()
-    : Date.now() - 7 * 24 * 60 * 60 * 1000;
-
-  const endTs = self.ctx.$scope?.endDateISO ? new Date(self.ctx.$scope.endDateISO).getTime() : Date.now();
-
-  const totalAverageTemperature = await fetchCustomerAverageTemperarature(startTs, endTs);
+/**
+ * Extrai faixas de temperatura (min/max) por shopping do ctx.data
+ * @returns {Map<string, {min: number, max: number, entityLabel: string}>}
+ */
+function extractTemperatureRangesByShopping() {
+  const rangesMap = new Map();
 
   self.ctx.data.forEach((data) => {
-    if (data.dataKey.name === 'maxTemperature') {
-      console.log(
-        '[HEADER] Max Temperature dataKey found:',
-        data.data?.[0]?.[1],
-        'from',
-        data.datasource.entityLabel
-      );
-      MAX_TEMP = Number(data.data?.[0]?.[1]);
+    const entityLabel = data.datasource?.entityLabel || 'Unknown';
+    const entityId = data.datasource?.entityId || entityLabel;
+
+    if (!rangesMap.has(entityId)) {
+      rangesMap.set(entityId, { min: null, max: null, entityLabel });
     }
 
-    if (data.dataKey.name === 'minTemperature') {
-      console.log(
-        '[HEADER] Min Temperature dataKey found:',
-        data.data?.[0]?.[1],
-        'from',
-        data.datasource.entityLabel
-      );
-      MIN_TEMP = Number(data.data?.[0]?.[1]);
+    const entry = rangesMap.get(entityId);
+
+    if (data.dataKey?.name === 'maxTemperature' && data.data?.[0]?.[1] != null) {
+      entry.max = Number(data.data[0][1]);
+    }
+    if (data.dataKey?.name === 'minTemperature' && data.data?.[0]?.[1] != null) {
+      entry.min = Number(data.data[0][1]);
     }
   });
 
-  // Calcula a média
-  if (totalAverageTemperature) {
-    tempKpi.innerText = `${totalAverageTemperature.toFixed(1)}°C`;
-    console.log(`[HEADER] Temperature card updated: ${totalAverageTemperature.toFixed(1)}°C`);
+  // Filtra apenas shoppings com faixas válidas
+  const validRanges = new Map();
+  rangesMap.forEach((value, key) => {
+    if (value.min != null && value.max != null) {
+      validRanges.set(key, value);
+    }
+  });
 
-    // Verifica se está dentro da faixa ideal
-    const isInRange = totalAverageTemperature >= MIN_TEMP && totalAverageTemperature <= MAX_TEMP;
+  console.log('[HEADER] Temperature ranges by shopping:', Object.fromEntries(validRanges));
+  return validRanges;
+}
 
-    // Atualiza o chip de status
-    if (tempChip) {
-      const tempInfoIcon = document.getElementById('temp-info-icon');
-      if (isInRange) {
-        tempChip.innerHTML = `✔ Dentro da faixa ideal
-                  <span class="info-icon" id="temp-info-icon" title="Faixa ideal: ${MIN_TEMP}°C – ${MAX_TEMP}°C">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                      <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                  </span>`;
-        tempChip.className = 'chip ok';
-      } else {
-        tempChip.innerHTML = `⚠ Fora da faixa ideal
-                  <span class="info-icon" id="temp-info-icon" title="Faixa ideal: ${MIN_TEMP}°C – ${MAX_TEMP}°C">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                      <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                  </span>`;
-        tempChip.className = 'chip warn';
+/**
+ * Calcula média de temperatura por shopping
+ * @param {number} startTs
+ * @param {number} endTs
+ * @returns {Promise<Map<string, {avg: number, ownerName: string}>>}
+ */
+async function fetchTemperatureAveragesByShopping(startTs, endTs) {
+  const tbToken = localStorage.getItem('jwt_token');
+  if (!tbToken) {
+    console.warn('[HEADER] JWT not found');
+    return new Map();
+  }
+
+  const devices = extractDevicesWithDetails(self.ctx.data);
+  const shoppingTemps = new Map(); // ownerName -> { temps: [], ownerName }
+
+  for (const device of devices) {
+    try {
+      const url =
+        `/api/plugins/telemetry/DEVICE/${device.id}/values/timeseries` +
+        `?keys=temperature` +
+        `&startTs=${encodeURIComponent(startTs)}` +
+        `&endTs=${encodeURIComponent(endTs)}` +
+        `&limit=50000` +
+        `&intervalType=MILLISECONDS` +
+        `&interval=7200000` +
+        `&agg=AVG`;
+
+      const response = await fetch(url, {
+        headers: {
+          'X-Authorization': `Bearer ${tbToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) continue;
+
+      const data = await response.json();
+      const temperatureData = data.temperature || [];
+      const avgTemp = calcularMedia(temperatureData);
+
+      if (avgTemp != null && !isNaN(avgTemp)) {
+        const ownerName = device.ownerName || 'Unknown';
+        if (!shoppingTemps.has(ownerName)) {
+          shoppingTemps.set(ownerName, { temps: [], ownerName });
+        }
+        shoppingTemps.get(ownerName).temps.push(avgTemp);
       }
+    } catch (err) {
+      console.error(`[HEADER] Error fetching temperature for device ${device.id}:`, err);
+    }
+  }
+
+  // Calcula média por shopping
+  const result = new Map();
+  shoppingTemps.forEach((value, key) => {
+    const sum = value.temps.reduce((a, b) => a + b, 0);
+    const avg = value.temps.length > 0 ? sum / value.temps.length : null;
+    result.set(key, { avg, ownerName: value.ownerName });
+  });
+
+  console.log('[HEADER] Temperature averages by shopping:', Object.fromEntries(result));
+  return result;
+}
+
+async function updateTemperatureCard() {
+  const tempKpi = document.getElementById('temp-kpi');
+  const tempChip = document.querySelector('#card-temp .chip');
+
+  const startTs = self.ctx?.$scope?.startDateISO
+    ? new Date(self.ctx.$scope.startDateISO).getTime()
+    : Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const endTs = self.ctx.$scope?.endDateISO ? new Date(self.ctx.$scope.endDateISO).getTime() : Date.now();
+
+  // 1. Extrair faixas de temperatura por shopping
+  const rangesByShopping = extractTemperatureRangesByShopping();
+
+  // 2. Calcular médias de temperatura por shopping
+  const avgsByShopping = await fetchTemperatureAveragesByShopping(startTs, endTs);
+
+  // 3. Comparar cada shopping com sua própria faixa
+  const shoppingsInRange = [];
+  const shoppingsOutOfRange = [];
+  let totalSum = 0;
+  let totalCount = 0;
+
+  avgsByShopping.forEach((avgData, ownerName) => {
+    if (avgData.avg == null) return;
+
+    totalSum += avgData.avg;
+    totalCount++;
+
+    // Normaliza para matching (lowercase, sem acentos)
+    const normalize = (str) =>
+      (str || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+    const normalizedOwnerName = normalize(ownerName);
+
+    // Encontra a faixa correspondente a este shopping
+    let matchedRange = null;
+    rangesByShopping.forEach((range) => {
+      const normalizedLabel = normalize(range.entityLabel);
+      // Match exato ou parcial (normalizado)
+      if (
+        normalizedLabel === normalizedOwnerName ||
+        normalizedLabel.includes(normalizedOwnerName) ||
+        normalizedOwnerName.includes(normalizedLabel)
+      ) {
+        matchedRange = range;
+      }
+    });
+
+    console.log('[HEADER] Temperature matching:', {
+      ownerName,
+      normalizedOwnerName,
+      ranges: Array.from(rangesByShopping.entries()).map(([k, v]) => ({
+        key: k,
+        label: v.entityLabel,
+        normalized: normalize(v.entityLabel),
+        min: v.min,
+        max: v.max,
+      })),
+      matchedRange,
+    });
+
+    // Se não encontrou por nome, NÃO usa fallback (cada shopping deve ter sua própria faixa)
+    if (!matchedRange) {
+      console.warn(`[HEADER] No temperature range found for shopping: ${ownerName}`);
     }
 
-    // Removido: faixa ideal agora é mostrada apenas no tooltip do ícone (i)
-    // if (tempRange) {
-    //     tempRange.textContent = `Faixa ideal: ${MIN_TEMP}°C – ${MAX_TEMP}°C`;
-    // }
+    const shoppingInfo = {
+      name: ownerName,
+      avg: avgData.avg,
+      min: matchedRange?.min,
+      max: matchedRange?.max,
+    };
+
+    if (matchedRange && avgData.avg >= matchedRange.min && avgData.avg <= matchedRange.max) {
+      shoppingsInRange.push(shoppingInfo);
+    } else {
+      shoppingsOutOfRange.push(shoppingInfo);
+    }
+  });
+
+  const totalAvg = totalCount > 0 ? totalSum / totalCount : null;
+
+  console.log('[HEADER] Temperature analysis:', {
+    totalAvg,
+    shoppingsInRange: shoppingsInRange.length,
+    shoppingsOutOfRange: shoppingsOutOfRange.length,
+  });
+
+  // 4. Atualizar KPI (média geral)
+  if (totalAvg != null) {
+    tempKpi.innerText = `${totalAvg.toFixed(1)}°C`;
   } else {
-    console.warn('[HEADER] No temperature data found for AllTemperatureDevices');
-    if (tempKpi) {
-      tempKpi.innerText = '--°C';
-    }
-    if (tempChip) {
-      tempChip.innerHTML = `-- Sem dados
-              <span class="info-icon" id="temp-info-icon" title="Aguardando dados de temperatura">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                  <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-              </span>`;
-      tempChip.className = 'chip';
-    }
+    tempKpi.innerText = '--°C';
+  }
+
+  // 5. Atualizar chip de status baseado na análise por shopping
+  if (!tempChip) return;
+
+  const totalShoppings = shoppingsInRange.length + shoppingsOutOfRange.length;
+
+  // Estilo inline para reduzir tamanho da fonte
+  const chipStyle = 'font-size: 10px; display: flex; align-items: center; gap: 4px;';
+
+  if (totalShoppings === 0) {
+    // Sem dados
+    tempChip.innerHTML = `<span style="${chipStyle}">-- Sem dados
+      <span class="info-icon" id="temp-info-icon" title="Aguardando dados de temperatura">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </span></span>`;
+    tempChip.className = 'chip';
+  } else if (shoppingsOutOfRange.length === 0) {
+    // Todos dentro da faixa
+    const tooltipDetails = shoppingsInRange
+      .map((s) => `✔ ${s.name}: ${s.avg?.toFixed(1)}°C (${s.min}–${s.max}°C)`)
+      .join('\n');
+    tempChip.innerHTML = `<span style="${chipStyle}">✔ Todos na faixa
+      <span class="info-icon" id="temp-info-icon" title="${tooltipDetails}">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </span></span>`;
+    tempChip.className = 'chip ok';
+  } else if (shoppingsInRange.length === 0) {
+    // Todos fora da faixa
+    const tooltipDetails = shoppingsOutOfRange
+      .map((s) => `⚠ ${s.name}: ${s.avg?.toFixed(1)}°C (faixa: ${s.min}–${s.max}°C)`)
+      .join('\n');
+    tempChip.innerHTML = `<span style="${chipStyle}">⚠ Todos fora da faixa
+      <span class="info-icon" id="temp-info-icon" title="${tooltipDetails}">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </span></span>`;
+    tempChip.className = 'chip warn';
+  } else {
+    // Alguns dentro, outros fora
+    const inRangeDetails = shoppingsInRange.map((s) => `✔ ${s.name}: ${s.avg?.toFixed(1)}°C`).join('\n');
+    const outOfRangeDetails = shoppingsOutOfRange
+      .map((s) => `⚠ ${s.name}: ${s.avg?.toFixed(1)}°C (faixa: ${s.min}–${s.max}°C)`)
+      .join('\n');
+    const tooltipDetails = `DENTRO DA FAIXA:\n${inRangeDetails}\n\nFORA DA FAIXA:\n${outOfRangeDetails}`;
+
+    tempChip.innerHTML = `<span style="${chipStyle}">⚠ Alguns fora da faixa
+      <span class="info-icon" id="temp-info-icon" title="${tooltipDetails}">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </span></span>`;
+    tempChip.className = 'chip warn';
   }
 }
 
@@ -1313,63 +1489,81 @@ function updateEnergyCard(energyCache) {
   const energyTrend = document.getElementById('energy-trend');
 
   console.log('[HEADER] Updating energy card | cache devices:', energyCache?.size || 0);
-  console.log('[HEADER] energyKpi element found:', !!energyKpi);
-  console.log('[HEADER] energyTrend element found:', !!energyTrend);
 
-  // ✅ Get TOTAL consumption from orchestrator (Equipamentos + Lojas)
-  let totalConsumption = 0;
+  // ✅ Get filtered and unfiltered consumption from orchestrator
+  let filteredConsumption = 0;
+  let unfilteredConsumption = 0;
+  let isFiltered = false;
   let deviceCount = 0;
 
   if (typeof window.MyIOOrchestrator?.getTotalConsumption === 'function') {
-    totalConsumption = window.MyIOOrchestrator.getTotalConsumption();
-    console.log(
-      '[HEADER] Got TOTAL consumption from orchestrator (equipments + lojas):',
-      totalConsumption,
-      'kWh'
-    );
+    filteredConsumption = window.MyIOOrchestrator.getTotalConsumption();
+    unfilteredConsumption = window.MyIOOrchestrator.getUnfilteredTotalConsumption?.() || filteredConsumption;
+    isFiltered = window.MyIOOrchestrator.isFilterActive?.() || false;
+    console.log('[HEADER] Energy consumption:', { filteredConsumption, unfilteredConsumption, isFiltered });
   } else {
     console.warn('[HEADER] MyIOOrchestrator.getTotalConsumption not available');
     // Fallback: sum all from cache (old behavior)
     if (energyCache) {
-      energyCache.forEach((cached, ingestionId) => {
+      energyCache.forEach((cached) => {
         if (cached && cached.total_value) {
-          totalConsumption += cached.total_value || 0;
+          filteredConsumption += cached.total_value || 0;
           deviceCount++;
         }
       });
+      unfilteredConsumption = filteredConsumption;
     }
   }
 
-  console.log('[HEADER] Energy card: TOTAL consumption (Equipamentos + Lojas):', {
-    deviceCount,
-    totalConsumption,
-    formatted: MyIOLibrary.formatEnergy
-      ? MyIOLibrary.formatEnergy(totalConsumption)
-      : `${totalConsumption.toFixed(2)} kWh`,
-  });
-
-  // ✅ ALWAYS update, even if value is same
+  // ✅ Format and display
   if (energyKpi) {
-    const formatted = MyIOLibrary.formatEnergy
-      ? MyIOLibrary.formatEnergy(totalConsumption)
-      : `${totalConsumption.toFixed(2)} kWh`;
-    energyKpi.innerText = formatted;
-    console.log(`[HEADER] Energy card updated: ${formatted}`);
+    const formatEnergy = (val) =>
+      typeof MyIOLibrary?.formatEnergy === 'function'
+        ? MyIOLibrary.formatEnergy(val)
+        : `${val.toFixed(2)} kWh`;
+
+    // Reduce font size for the KPI
+    energyKpi.style.fontSize = '0.9em';
+
+    // Show "filtered / total" only when filter is active AND values are different
+    const showComparative = isFiltered && unfilteredConsumption > 0 && Math.abs(filteredConsumption - unfilteredConsumption) > 0.01;
+
+    if (showComparative) {
+      const formattedFiltered = formatEnergy(filteredConsumption);
+      const formattedTotal = formatEnergy(unfilteredConsumption);
+      const percentage = Math.round((filteredConsumption / unfilteredConsumption) * 100);
+
+      energyKpi.innerHTML = `${formattedFiltered} <span style="font-size: 0.7em; color: #666;">/ ${formattedTotal}</span>`;
+
+      // Show percentage in trend element
+      if (energyTrend) {
+        energyTrend.innerText = `${percentage}%`;
+        energyTrend.className = 'chip trend';
+        energyTrend.style.display = '';
+      }
+      console.log(`[HEADER] Energy card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`);
+    } else {
+      // Show only total when no filter or values are the same
+      const formatted = formatEnergy(filteredConsumption);
+      energyKpi.innerText = formatted;
+
+      // Hide percentage when not filtered
+      if (energyTrend) {
+        energyTrend.innerText = '';
+        energyTrend.style.display = 'none';
+      }
+      console.log(`[HEADER] Energy card updated: ${formatted}`);
+    }
   } else {
-    console.error('[HEADER] energyKpi element not found! Card may not be visible.');
+    console.error('[HEADER] energyKpi element not found!');
   }
-
-  // Optional: update trend (can be calculated later based on historical data)
-  if (energyTrend) {
-    energyTrend.innerText = ''; // Clear for now
-  }
-
-  console.log('[HEADER] Energy card update complete:', { totalConsumption, devices: deviceCount });
 
   // ✅ EMIT EVENT: Notify ENERGY widget of customer total consumption
   const customerTotalEvent = {
-    customerTotal: totalConsumption,
-    deviceCount: deviceCount,
+    customerTotal: filteredConsumption,
+    unfilteredTotal: unfilteredConsumption,
+    isFiltered,
+    deviceCount,
     timestamp: Date.now(),
   };
 
@@ -1384,44 +1578,84 @@ function updateEnergyCard(energyCache) {
 
 function updateWaterCard(waterCache) {
   const waterKpi = document.getElementById('water-kpi');
-  // Certifique-se que o seu card de água tenha um ID para o 'trend'
   const waterTrend = document.getElementById('water-trend');
 
-  //console.log('[HEADER] Atualizando card de Água | devices no cache:', waterCache?.size || 0);
+  console.log('[HEADER] Updating water card | cache devices:', waterCache?.size || 0);
 
-  let totalConsumption = 0;
+  // ✅ Get filtered and unfiltered water consumption from orchestrator
+  let filteredConsumption = 0;
+  let unfilteredConsumption = 0;
+  let isFiltered = false;
   let deviceCount = 0;
 
-  if (waterCache) {
-    waterCache.forEach((cached) => {
-      if (cached && cached.total_value) {
-        totalConsumption += cached.total_value || 0;
-        deviceCount++;
-      }
-    });
+  if (typeof window.MyIOOrchestrator?.getTotalWaterConsumption === 'function') {
+    filteredConsumption = window.MyIOOrchestrator.getTotalWaterConsumption();
+    unfilteredConsumption = window.MyIOOrchestrator.getUnfilteredTotalWaterConsumption?.() || filteredConsumption;
+    isFiltered = window.MyIOOrchestrator.isFilterActive?.() || false;
+    console.log('[HEADER] Water consumption:', { filteredConsumption, unfilteredConsumption, isFiltered });
   } else {
-    console.warn('[HEADER] Cache de Água vazio ou inválido.');
+    console.warn('[HEADER] MyIOOrchestrator.getTotalWaterConsumption not available');
+    // Fallback: sum all from cache (old behavior)
+    if (waterCache) {
+      waterCache.forEach((cached) => {
+        if (cached && cached.total_value) {
+          filteredConsumption += cached.total_value || 0;
+          deviceCount++;
+        }
+      });
+      unfilteredConsumption = filteredConsumption;
+    }
   }
 
-  // Usa a função da sua biblioteca
-  const formattedUnit =
-    typeof MyIOLibrary?.formatWaterVolumeM3 === 'function'
-      ? MyIOLibrary.formatWaterVolumeM3(totalConsumption)
-      : `${totalConsumption.toFixed(2)} M³`; // Fallback
-
-  // Atualiza o HTML
+  // ✅ Format and display
   if (waterKpi) {
-    waterKpi.innerText = formattedUnit;
+    const formatWater = (val) =>
+      typeof MyIOLibrary?.formatWaterVolumeM3 === 'function'
+        ? MyIOLibrary.formatWaterVolumeM3(val)
+        : `${val.toFixed(2)} m³`;
+
+    // Reduce font size for the KPI
+    waterKpi.style.fontSize = '0.9em';
+
+    // Show "filtered / total" only when filter is active AND values are different
+    const showComparative = isFiltered && unfilteredConsumption > 0 && Math.abs(filteredConsumption - unfilteredConsumption) > 0.01;
+
+    if (showComparative) {
+      const formattedFiltered = formatWater(filteredConsumption);
+      const formattedTotal = formatWater(unfilteredConsumption);
+      const percentage = Math.round((filteredConsumption / unfilteredConsumption) * 100);
+
+      waterKpi.innerHTML = `${formattedFiltered} <span style="font-size: 0.7em; color: #666;">/ ${formattedTotal}</span>`;
+
+      // Show percentage in trend element
+      if (waterTrend) {
+        waterTrend.innerText = `${percentage}%`;
+        waterTrend.className = 'chip trend';
+        waterTrend.style.display = '';
+      }
+      console.log(`[HEADER] Water card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`);
+    } else {
+      // Show only total when no filter or values are the same
+      const formatted = formatWater(filteredConsumption);
+      waterKpi.innerText = formatted;
+
+      // Hide percentage when not filtered
+      if (waterTrend) {
+        waterTrend.innerText = '';
+        waterTrend.style.display = 'none';
+      }
+      console.log(`[HEADER] Water card updated: ${formatted}`);
+    }
+  } else {
+    console.error('[HEADER] waterKpi element not found!');
   }
 
-  if (waterTrend) {
-    waterTrend.innerText = ''; // Limpa o trend por enquanto
-  }
-
-  // EMITE O EVENTO (igual a energy)
+  // ✅ EMIT EVENT
   const customerTotalEvent = {
-    customerTotal: totalConsumption,
-    deviceCount: deviceCount,
+    customerTotal: filteredConsumption,
+    unfilteredTotal: unfilteredConsumption,
+    isFiltered,
+    deviceCount,
     timestamp: Date.now(),
   };
 
@@ -1431,7 +1665,7 @@ function updateWaterCard(waterCache) {
     })
   );
 
-  console.log(`[HEADER] ✅ Card de Água atualizado: ${formattedUnit}`);
+  console.log(`[HEADER] ✅ Emitted myio:customer-total-water-consumption:`, customerTotalEvent);
 }
 
 // ===== HEADER: Listen for energy data from MAIN orchestrator =====
@@ -1451,7 +1685,7 @@ window.addEventListener('myio:water-data-ready', (ev) => {
 
 // ===== HEADER: Listen for equipment count updates from EQUIPMENTS widget =====
 window.addEventListener('myio:equipment-count-updated', (ev) => {
-  console.log('[HEADER] Received equipment count from EQUIPMENTS widget:', ev.detail);
+  //console.log('[HEADER] Received equipment count from EQUIPMENTS widget:', ev.detail);
   updateEquipmentCard(ev.detail);
 });
 
@@ -1471,18 +1705,23 @@ window.addEventListener('myio:filter-applied', (ev) => {
   }
 
   // Equipment card will be updated via myio:equipment-count-updated event from EQUIPMENTS widget
-  // No need to call updateEquipmentCard() here anymore
+  // Energy/Water cards will be updated via myio:orchestrator-filter-updated event
+  // This ensures the orchestrator has already processed the filter
 
-  // Recompute energy card with filter (will get filtered data from orchestrator)
-  // This will also emit myio:customer-total-consumption with filtered total
+  updateTemperatureCard();
+});
+
+// ===== HEADER: Listen for orchestrator filter update (after MAIN processes the filter) =====
+window.addEventListener('myio:orchestrator-filter-updated', (ev) => {
+  console.log('[HEADER] 🔄 heard myio:orchestrator-filter-updated:', ev.detail);
+
+  // Now orchestrator has the updated filter, safe to update cards
   if (window.MyIOOrchestrator?.getEnergyCache) {
     updateEnergyCard(window.MyIOOrchestrator.getEnergyCache());
   }
   if (window.MyIOOrchestrator?.getWaterCache) {
     updateWaterCard(window.MyIOOrchestrator.getWaterCache());
   }
-
-  updateTemperatureCard();
 });
 
 self.onDataUpdated = function () {

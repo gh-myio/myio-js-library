@@ -994,9 +994,11 @@ const MyIOOrchestrator = (() => {
         }
       }
     });
+    /*
     console.log(
       `[MAIN] [Orchestrator] Total EQUIPMENTS consumption (excluding lojas): ${total} kWh (${count} devices, ${filtered} filtered out by shopping filter)`
     );
+    */
     return total;
   }
 
@@ -1021,9 +1023,11 @@ const MyIOOrchestrator = (() => {
         }
       }
     });
+    /*
     console.log(
       `[MAIN] [Orchestrator] Total LOJAS consumption (3F_MEDIDOR only): ${total} kWh (${count} devices, ${filtered} filtered out by shopping filter)`
     );
+    */
     return total;
   }
 
@@ -1045,10 +1049,58 @@ const MyIOOrchestrator = (() => {
         filtered++;
       }
     });
+    /*
     console.log(
       `[MAIN] [Orchestrator] Total GERAL consumption (equipments + lojas): ${total} kWh (${count} devices, ${filtered} filtered out by shopping filter)`
     );
+    */
     return total;
+  }
+
+  /**
+   * Calcula o total GERAL de consumo de ENERGIA SEM FILTRO (todos os devices)
+   * @returns {number} - Total em kWh
+   */
+  function getUnfilteredTotalConsumption() {
+    let total = 0;
+    energyCache.forEach((device) => {
+      total += device.total_value || 0;
+    });
+    return total;
+  }
+
+  /**
+   * Calcula o total GERAL de consumo de ÁGUA COM FILTRO aplicado
+   * @returns {number} - Total em m³
+   */
+  function getTotalWaterConsumption() {
+    let total = 0;
+    waterCache.forEach((device) => {
+      if (shouldIncludeDevice(device)) {
+        total += device.total_value || 0;
+      }
+    });
+    return total;
+  }
+
+  /**
+   * Calcula o total GERAL de consumo de ÁGUA SEM FILTRO (todos os devices)
+   * @returns {number} - Total em m³
+   */
+  function getUnfilteredTotalWaterConsumption() {
+    let total = 0;
+    waterCache.forEach((device) => {
+      total += device.total_value || 0;
+    });
+    return total;
+  }
+
+  /**
+   * Verifica se há filtro de shoppings ativo
+   * @returns {boolean} - True se há filtro aplicado
+   */
+  function isFilterActive() {
+    return selectedShoppingIds && selectedShoppingIds.length > 0;
   }
 
   /**
@@ -1098,6 +1150,10 @@ const MyIOOrchestrator = (() => {
     getTotalEquipmentsConsumption,
     getTotalLojasConsumption,
     getTotalConsumption,
+    getTotalWaterConsumption,
+    getUnfilteredTotalConsumption,
+    getUnfilteredTotalWaterConsumption,
+    isFilterActive,
     getEnergyWidgetData,
     getLastFetchTimestamp: () => lastFetchTimestamp, // RFC: Expor timestamp para deduplicação
     requestSummary() {
@@ -1148,6 +1204,17 @@ const MyIOOrchestrator = (() => {
       }
       // Recalculate and dispatch summary with filter applied
       dispatchEnergySummaryIfReady('setSelectedShoppings');
+
+      // Notify HEADER and other widgets that filter was updated in orchestrator
+      window.dispatchEvent(
+        new CustomEvent('myio:orchestrator-filter-updated', {
+          detail: {
+            selectedShoppingIds,
+            isFiltered: selectedShoppingIds.length > 0,
+          },
+        })
+      );
+      console.log('[MAIN] [Orchestrator] ✅ Dispatched myio:orchestrator-filter-updated');
     },
   };
 })();
@@ -1226,6 +1293,15 @@ window.addEventListener('myio:customers-ready', async (ev) => {
 });
 
 LogHelper.log('[MyIOOrchestrator] Initialized');
+
+// ✅ Check if filter was already applied before MAIN initialized
+if (window.custumersSelected && Array.isArray(window.custumersSelected) && window.custumersSelected.length > 0) {
+  console.log('[MAIN] 🔄 Applying pre-existing filter:', window.custumersSelected.length, 'shoppings');
+  const shoppingIds = window.custumersSelected.map((s) => s.value).filter((v) => v);
+  if (typeof window.MyIOOrchestrator?.setSelectedShoppings === 'function') {
+    window.MyIOOrchestrator.setSelectedShoppings(shoppingIds);
+  }
+}
 
 // ===== RFC: updateTotalConsumption moved from MENU =====
 /**
