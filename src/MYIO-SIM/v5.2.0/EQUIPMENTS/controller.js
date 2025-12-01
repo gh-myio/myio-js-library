@@ -1512,7 +1512,7 @@ function initializeCards(devices) {
 }
 
 self.onInit = async function () {
-  LogHelper.log('[EQUIPMENTS] onInit - ctx:', self.ctx);
+  console.log('[EQUIPMENTS] onInit - ctx:', self.ctx);
   // ⭐ CRITICAL FIX: Show loading IMMEDIATELY before setTimeout
   showLoadingOverlay(true);
 
@@ -1684,8 +1684,10 @@ self.onInit = async function () {
         }
 
         // Adiciona o valor atual ao array
+        // RFC: Rename 'consumption' to 'consumption_power' to avoid confusion with API consumption (kWh)
+        const dataType = data.dataKey.name === 'consumption' ? 'consumption_power' : data.dataKey.name;
         devices[entityId].values.push({
-          dataType: data.dataKey.name,
+          dataType: dataType,
           value: data.data[0][1],
           ts: data.data[0][0],
         });
@@ -1767,11 +1769,11 @@ self.onInit = async function () {
     // ✅ Loading overlay already shown at start of onInit (moved up for better UX)
     async function renderDeviceCards() {
       const promisesDeCards = Object.entries(devices)
-        .filter(([entityId, device]) => device.values.some((valor) => valor.dataType === 'total_consumption'))
+        .filter(([entityId, device]) => device.values.some((valor) => valor.dataType === 'consumption'))
         .map(async ([entityId, device]) => {
           const tbToken = localStorage.getItem('jwt_token');
 
-          console.log('device', device);
+          //console.log('device', device);
 
           const lastConnectTimestamp = findValue(device.values, 'lastConnectTime', '');
           const lastDisconnectTimestamp = findValue(device.values, 'lastDisconnectTime', '');
@@ -1788,9 +1790,8 @@ self.onInit = async function () {
           const deviceTemperature = await getDeviceTemperature(entityId, tbToken);
           const latestTimestamp = Math.max(...device.values.map((v) => v.ts || 0));
           const updatedFormatted = formatRelativeTime(latestTimestamp);
-
           const rawConnectionStatus = findValue(device.values, 'connectionStatus', 'offline');
-          const consumptionValue = findValue(device.values, 'total_consumption', 0);
+          const consumptionValue = findValue(device.values, 'consumption', 0);
 
           let mappedConnectionStatus = 'offline';
           const statusLower = String(rawConnectionStatus).toLowerCase();
@@ -1809,22 +1810,67 @@ self.onInit = async function () {
           }
 
           // 🚨 RFC-0077: HARDCODED SWITCH ELIMINATED!
-          // Now using hierarchical resolution: Device → Customer → Hardcoded defaults
+          // Now using hierarchical resolution: DeviceMap (ctx.data) → Device → Customer → Hardcoded defaults
 
           // Get deviceId for TIER 1 lookup
           const deviceId = entityId;
 
+          // RFC: Parse deviceMapInstaneousPower from ctx.data (TIER 0 - highest priority)
+          let deviceMapLimits = null;
+          if (deviceMapInstaneousPower && typeof deviceMapInstaneousPower === 'string') {
+            try {
+              deviceMapLimits = JSON.parse(deviceMapInstaneousPower);
+              LogHelper.log(`[RFC-0078] ✅ Found deviceMapInstaneousPower in ctx.data for ${deviceId}`);
+            } catch (e) {
+              LogHelper.warn(
+                `[RFC-0078] Failed to parse deviceMapInstaneousPower for ${deviceId}:`,
+                e.message
+              );
+            }
+          }
+
           // Get consumption ranges using hierarchical resolution
+          // If deviceMapLimits exists, use it instead of customerLimits (higher priority)
           const rangesWithSource = await getConsumptionRangesHierarchical(
             deviceId,
             deviceType,
-            window.__customerConsumptionLimits // Will be set below
+            deviceMapLimits || window.__customerConsumptionLimits, // TIER 0 (deviceMap) > TIER 2 (customer)
+            'consumption',
+            null
           );
+
+          // If deviceMapLimits was used, update the source to reflect it
+          if (deviceMapLimits && rangesWithSource.source === 'customer') {
+            rangesWithSource.source = 'deviceMap';
+            rangesWithSource.tier = 0;
+            LogHelper.log(`[RFC-0078] Using deviceMapInstaneousPower (TIER 0) for ${deviceId}`);
+          }
+
+          // DEBUG LOG for ER 14 device
+          // Get instantaneous power from ctx.data (renamed to consumption_power to avoid confusion)
+          const instantaneousPower = findValue(device.values, 'consumption_power', 0);
+          if (String(device.label || '').toLowerCase() === 'chiller 1') {
+            console.log('[DEBUG ER 14] ========================================');
+            console.log('[DEBUG ER 14] deviceId:', deviceId);
+            console.log('[DEBUG ER 14] deviceType:', deviceType);
+            console.log('[DEBUG ER 14] label:', device.label);
+            console.log('[DEBUG ER 14] consumptionValue (API total kWh):', consumptionValue);
+            console.log('[DEBUG ER 14] instantaneousPower (consumption_power kW):', instantaneousPower);
+            console.log('[DEBUG ER 14] device.values:', device.values);
+            console.log('[DEBUG ER 14] deviceMapInstaneousPower (raw):', deviceMapInstaneousPower);
+            console.log('[DEBUG ER 14] deviceMapLimits (parsed):', deviceMapLimits);
+            console.log(
+              '[DEBUG ER 14] window.__customerConsumptionLimits:',
+              window.__customerConsumptionLimits
+            );
+            console.log('[DEBUG ER 14] rangesWithSource:', JSON.stringify(rangesWithSource, null, 2));
+            console.log('[DEBUG ER 14] ========================================');
+          }
 
           // Calculate device status using range-based calculation
           const deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
             connectionStatus: mappedConnectionStatus,
-            lastConsumptionValue: Number(consumptionValue) || null,
+            lastConsumptionValue: Number(instantaneousPower) || null,
             ranges: rangesWithSource,
           });
 
@@ -1847,6 +1893,31 @@ self.onInit = async function () {
           }
 
           LogHelper.log('[EQUIPMENTS] mapInstantaneousPower', MAP_INSTANTANEOUS_POWER);
+
+          // DEBUG LOG for Chiller 1 device
+          if (String(device.label || '').toLowerCase() === 'chiller 1') {
+            console.log('[DEBUG CHILLER 1] ========================================');
+            console.log('[DEBUG CHILLER 1] deviceId:', deviceId);
+            console.log('[DEBUG CHILLER 1] deviceType:', deviceType);
+            console.log('[DEBUG CHILLER 1] label:', device.label);
+            console.log('[DEBUG CHILLER 1] connectionStatus (raw):', rawConnectionStatus);
+            console.log('[DEBUG CHILLER 1] connectionStatus (mapped):', mappedConnectionStatus);
+            console.log('[DEBUG CHILLER 1] consumptionValue (API kWh):', consumptionValue);
+            console.log('[DEBUG CHILLER 1] instantaneousPower (consumption_power kW):', instantaneousPower);
+            console.log('[DEBUG CHILLER 1] --- calculateDeviceStatusWithRanges INPUT ---');
+            console.log('[DEBUG CHILLER 1] input.connectionStatus:', mappedConnectionStatus);
+            console.log('[DEBUG CHILLER 1] input.lastConsumptionValue:', Number(instantaneousPower) || null);
+            console.log('[DEBUG CHILLER 1] input.ranges:', JSON.stringify(rangesWithSource, null, 2));
+            console.log('[DEBUG CHILLER 1] --- calculateDeviceStatusWithRanges OUTPUT ---');
+            console.log('[DEBUG CHILLER 1] deviceStatus:', deviceStatus);
+            console.log('[DEBUG CHILLER 1] deviceMapInstaneousPower (raw):', deviceMapInstaneousPower);
+            console.log('[DEBUG CHILLER 1] deviceMapLimits (parsed):', deviceMapLimits);
+            console.log(
+              '[DEBUG CHILLER 1] window.__customerConsumptionLimits:',
+              window.__customerConsumptionLimits
+            );
+            console.log('[DEBUG CHILLER 1] ========================================');
+          }
 
           return {
             entityId: entityId,
@@ -2026,18 +2097,18 @@ self.onInit = async function () {
 
           if (cached) {
             // Remove old consumption data if exists
-            const consumptionIndex = device.values.findIndex((v) => v.dataType === 'total_consumption');
+            const consumptionIndex = device.values.findIndex((v) => v.dataType === 'consumption');
             if (consumptionIndex >= 0) {
               device.values[consumptionIndex] = {
                 val: cached.total_value,
                 ts: cached.timestamp,
-                dataType: 'total_consumption',
+                dataType: 'consumption',
               };
             } else {
               device.values.push({
                 val: cached.total_value,
                 ts: cached.timestamp,
-                dataType: 'total_consumption',
+                dataType: 'consumption',
               });
             }
           }

@@ -1098,9 +1098,8 @@ function updateStoresStats(stores) {
   // Update UI
   connectivityEl.textContent = `${onlineCount}/${totalStores} (${connectivityPercentage}%)`;
   totalEl.textContent = totalStores.toString();
-  consumptionEl.textContent = WIDGET_DOMAIN === 'energy'
-    ? MyIO.formatEnergy(totalConsumption)
-    : totalConsumption.toFixed(2);
+  consumptionEl.textContent =
+    WIDGET_DOMAIN === 'energy' ? MyIO.formatEnergy(totalConsumption) : totalConsumption.toFixed(2);
   zeroEl.textContent = zeroConsumptionCount.toString();
 
   LogHelper.log('[STORES] Stats updated:', {
@@ -1348,28 +1347,25 @@ function renderList(visible) {
         }
       },
 
-      // RFC: Selection and drag support (like EQUIPMENTS)
-      handleSelectionChange: (isSelected, entity) => {
-        console.log(`[STORES] Selection changed: ${entity.labelOrName} -> ${isSelected}`);
-        // Get MyIOSelectionStore from window (same pattern as FOOTER)
-        const SelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-        if (SelectionStore) {
-          if (isSelected) {
-            // Register entity data for FOOTER display
-            if (SelectionStore.registerEntity) {
-              SelectionStore.registerEntity(entity);
+      handleSelect: (checked, entity) => {
+        // Busca a Store global
+        const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+        if (MyIOSelectionStore) {
+          if (checked) {
+            // 1. IMPORTANTE: Registra os dados (Nome, Valor, Unidade) na Store
+            // Se pularmos isso, o Footer vai mostrar um chip vazio ou com erro
+            if (MyIOSelectionStore.registerEntity) {
+              MyIOSelectionStore.registerEntity(entity);
             }
-            SelectionStore.add(entity.entityId || entity.id);
+            // 2. Adiciona o ID na lista de selecionados
+            MyIOSelectionStore.add(entity.entityId || entity.id);
           } else {
-            SelectionStore.remove(entity.entityId || entity.id);
+            // 3. Remove o ID da lista
+            MyIOSelectionStore.remove(entity.entityId || entity.id);
           }
         } else {
-          console.warn('[STORES] MyIOSelectionStore não encontrada! Verifique se a biblioteca foi carregada.');
+          console.warn('[Main Widget] MyIOSelectionStore não encontrada!');
         }
-      },
-
-      handleClickCard: (ev, entity) => {
-        console.log(`[STORES] Card clicked: ${entity.labelOrName} - Value: ${entity.val}kWh`);
       },
 
       useNewComponents: true,
@@ -1483,9 +1479,8 @@ function setupModalCloseHandlers(modal) {
       tab.classList.add('active');
 
       // Use itemsEnriched (has consumption values) with fallback to itemsBase
-      const sourceList = STATE.itemsEnriched && STATE.itemsEnriched.length > 0
-        ? STATE.itemsEnriched
-        : STATE.itemsBase || [];
+      const sourceList =
+        STATE.itemsEnriched && STATE.itemsEnriched.length > 0 ? STATE.itemsEnriched : STATE.itemsBase || [];
 
       // Filter checkboxes based on selected tab
       const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']");
@@ -1561,8 +1556,10 @@ function openFilterModal() {
   console.log('[STORES] [RFC-0072] Opening filter modal...');
 
   // Check if data has been loaded (itemsEnriched has real values, not all zeros)
-  const hasRealData = STATE.itemsEnriched && STATE.itemsEnriched.length > 0 &&
-    STATE.itemsEnriched.some(item => Number(item.value) > 0);
+  const hasRealData =
+    STATE.itemsEnriched &&
+    STATE.itemsEnriched.length > 0 &&
+    STATE.itemsEnriched.some((item) => Number(item.value) > 0);
 
   if (!hasRealData && STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
     console.warn('[STORES] ⚠️ Filter modal opened before data loaded - values may be zero');

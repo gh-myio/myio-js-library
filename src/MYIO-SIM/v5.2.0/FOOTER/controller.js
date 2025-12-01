@@ -26,7 +26,7 @@ function getDataApiHost() {
 }
 
 // Debug configuration
-const DEBUG_ACTIVE = true;
+const DEBUG_ACTIVE = false;
 
 // LogHelper utility
 const LogHelper = {
@@ -1001,7 +1001,9 @@ const footerController = {
 
         // Só limpa se houver algo selecionado
         if (count > 0) {
-          LogHelper.log(`[MyIO Footer] Clearing ${count} selected items due to domain change to: ${newDomain}`);
+          LogHelper.log(
+            `[MyIO Footer] Clearing ${count} selected items due to domain change to: ${newDomain}`
+          );
           MyIOSelectionStore.clear();
 
           // Reseta o tipo atual
@@ -1334,21 +1336,26 @@ const footerController = {
         label: entity.name || entity.label || entity.id,
         tbId: entity.tbId || entity.entityId,
         customerName: entity.customerTitle || entity.customerName || entity.customer || null,
-        temperatureMin: (min !== undefined && min !== null) ? Number(min) : undefined,
-        temperatureMax: (max !== undefined && max !== null) ? Number(max) : undefined
+        temperatureMin: min !== undefined && min !== null ? Number(min) : undefined,
+        temperatureMax: max !== undefined && max !== null ? Number(max) : undefined,
       };
     });
 
     // Check if devices have different temperature ranges (different customers)
     const uniqueRanges = new Set(
       devices
-        .filter(d => d.temperatureMin !== undefined && d.temperatureMax !== undefined)
-        .map(d => `${d.temperatureMin}-${d.temperatureMax}`)
+        .filter((d) => d.temperatureMin !== undefined && d.temperatureMax !== undefined)
+        .map((d) => `${d.temperatureMin}-${d.temperatureMax}`)
     );
 
     if (uniqueRanges.size > 1) {
-      LogHelper.log('[MyIO Footer] Devices have different temperature ranges (multiple customers):',
-        devices.map(d => ({ label: d.label, customer: d.customerName, range: `${d.temperatureMin}-${d.temperatureMax}` }))
+      LogHelper.log(
+        '[MyIO Footer] Devices have different temperature ranges (multiple customers):',
+        devices.map((d) => ({
+          label: d.label,
+          customer: d.customerName,
+          range: `${d.temperatureMin}-${d.temperatureMax}`,
+        }))
       );
     }
 
@@ -1364,8 +1371,8 @@ const footerController = {
     }
 
     LogHelper.log('[MyIO Footer] Temperature ranges:', {
-      perDevice: devices.map(d => ({ label: d.label, min: d.temperatureMin, max: d.temperatureMax })),
-      global: { min: globalTemperatureMin, max: globalTemperatureMax }
+      perDevice: devices.map((d) => ({ label: d.label, min: d.temperatureMin, max: d.temperatureMax })),
+      global: { min: globalTemperatureMin, max: globalTemperatureMax },
     });
 
     // Use MyIOLibrary.openTemperatureComparisonModal
@@ -1387,7 +1394,7 @@ const footerController = {
         granularity: 'hour',
         // Global fallback range (used only if devices don't have individual ranges)
         temperatureMin: globalTemperatureMin,
-        temperatureMax: globalTemperatureMax
+        temperatureMax: globalTemperatureMax,
       });
 
       LogHelper.log('[MyIO Footer] Temperature comparison modal opened via MyIOLibrary');
