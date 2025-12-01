@@ -6,6 +6,7 @@ let CLIENT_ID;
 let CLIENT_SECRET;
 let INGESTION_ID;
 let MAP_INSTANTANEOUS_POWER;
+let myIOAuth; // Instance of MyIO auth component from MyIOLibrary
 
 // Debug configuration
 const DEBUG_ACTIVE = false;
@@ -880,124 +881,8 @@ async function getCachedConsumptionLimits(customerId) {
 // END RFC-0078
 // ============================================
 
-const MyIOAuth = (() => {
-  // ==== CONFIG ====
-  const AUTH_URL = new URL(`${DATA_API_HOST}/api/v1/auth`);
-
-  // ⚠️ Substitua pelos seus valores:
-
-  // Margem para renovar o token antes de expirar (em segundos)
-  const RENEW_SKEW_S = 60; // 1 min
-  // Em caso de erro, re-tenta com backoff simples
-  const RETRY_BASE_MS = 500;
-  const RETRY_MAX_ATTEMPTS = 3;
-
-  // Cache em memória (por aba). Se quiser compartilhar entre widgets/abas,
-  // você pode trocar por localStorage (com os devidos cuidados de segurança).
-  let _token = null; // string
-  let _expiresAt = 0; // epoch em ms
-  let _inFlight = null; // Promise em andamento para evitar corridas
-
-  function _now() {
-    return Date.now();
-  }
-
-  function _aboutToExpire() {
-    // true se não temos token ou se falta pouco para expirar
-    if (!_token) return true;
-    const skewMs = RENEW_SKEW_S * 1000;
-    return _now() >= _expiresAt - skewMs;
-  }
-
-  async function _sleep(ms) {
-    return new Promise((res) => setTimeout(res, ms));
-  }
-
-  async function _requestNewToken() {
-    const body = {
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-    };
-
-    let attempt = 0;
-    while (true) {
-      try {
-        const resp = await fetch(AUTH_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        });
-
-        if (!resp.ok) {
-          const text = await resp.text().catch(() => '');
-          throw new Error(`Auth falhou: HTTP ${resp.status} ${resp.statusText} ${text}`);
-        }
-
-        const json = await resp.json();
-        // Espera formato:
-        // { access_token, token_type, expires_in, scope }
-        if (!json || !json.access_token || !json.expires_in) {
-          throw new Error('Resposta de auth não contem campos esperados.');
-        }
-
-        _token = json.access_token;
-        // Define expiração absoluta (agora + expires_in)
-        _expiresAt = _now() + Number(json.expires_in) * 1000;
-
-        // Logs úteis para depuração (não imprimem o token)
-        LogHelper.log(
-          '[equipaments] [MyIOAuth] Novo token obtido. Expira em ~',
-          Math.round(Number(json.expires_in) / 60),
-          'min'
-        );
-
-        return _token;
-      } catch (err) {
-        attempt++;
-        LogHelper.warn(
-          `[equipaments] [MyIOAuth] Erro ao obter token (tentativa ${attempt}/${RETRY_MAX_ATTEMPTS}):`,
-          err?.message || err
-        );
-        if (attempt >= RETRY_MAX_ATTEMPTS) {
-          throw err;
-        }
-        const backoff = RETRY_BASE_MS * Math.pow(2, attempt - 1);
-        await _sleep(backoff);
-      }
-    }
-  }
-
-  async function getToken() {
-    // Evita múltiplas chamadas paralelas de renovação
-    if (_inFlight) {
-      return _inFlight;
-    }
-
-    if (_aboutToExpire()) {
-      _inFlight = _requestNewToken().finally(() => {
-        _inFlight = null;
-      });
-      return _inFlight;
-    }
-
-    return _token;
-  }
-
-  function clearCache() {
-    _token = null;
-    _expiresAt = 0;
-    _inFlight = null;
-  }
-
-  // RFC-0057: Removed unused getExpiryInfo()
-
-  return {
-    getToken,
-    clearCache,
-  };
-})();
+// RFC: MyIOAuth now uses MyIOLibrary.buildMyioIngestionAuth() instead of duplicated code
+// Initialization happens in onInit after credentials are loaded
 
 async function fetchCustomerServerScopeAttrs(customerTbId) {
   if (!customerTbId) return {};
@@ -1445,7 +1330,7 @@ function initializeCards(devices) {
           closeExistingModals();
 
           // 3. Get tokens
-          const tokenIngestionDashBoard = await MyIOAuth.getToken();
+          const tokenIngestionDashBoard = await myIOAuth.getToken();
           const myTbTokenDashBoard = localStorage.getItem('jwt_token');
 
           if (!myTbTokenDashBoard) {
@@ -1505,7 +1390,7 @@ function initializeCards(devices) {
 
       handleActionReport: async () => {
         try {
-          const ingestionToken = await MyIOAuth.getToken();
+          const ingestionToken = await myIOAuth.getToken();
 
           if (!ingestionToken) throw new Error('No ingestion token');
 
@@ -1846,6 +1731,18 @@ self.onInit = async function () {
     CLIENT_SECRET = customerCredentials.client_secret || ' ';
     INGESTION_ID = customerCredentials.ingestionId || ' ';
     MAP_INSTANTANEOUS_POWER = customerCredentials.mapInstantaneousPower;
+
+    // Initialize MyIO Auth using MyIOLibrary (like MAIN widget)
+    if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.buildMyioIngestionAuth) {
+      myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
+        dataApiHost: DATA_API_HOST,
+        clientId: CLIENT_ID,
+        clientSecret: CLIENT_SECRET,
+      });
+      LogHelper.log('[EQUIPMENTS] MyIO Auth initialized using MyIOLibrary');
+    } else {
+      console.error('[EQUIPMENTS] MyIOLibrary não está disponível. Verifique se a biblioteca foi carregada.');
+    }
 
     // 🚨 RFC-0077: Fetch customer consumption limits ONCE before processing devices
     // This will be used by getConsumptionRangesHierarchical as TIER 2 fallback
@@ -3133,22 +3030,16 @@ function openFilterModal() {
 
     // Get shopping name and consumption value
     const shoppingName = device.customerName || getCustomerNameForDevice(device);
-    const consumption = Number(device.val) || Number(device.lastValue) || 0;
+    const consumption = Number(device.value) || 0;
     const formattedConsumption = MyIO?.formatEnergy ? MyIO.formatEnergy(consumption) : consumption.toFixed(2);
 
     const item = document.createElement('div');
     item.className = 'check-item';
     item.innerHTML = `
-      <input type="checkbox" id="check-${device.entityId}" ${isChecked ? 'checked' : ''} data-device-id="${
-      device.entityId
-    }">
-      <label for="check-${device.entityId}" style="flex: 1;">${
-      device.labelOrName || device.deviceIdentifier || device.entityId
-    }</label>
+      <input type="checkbox" id="check-${device.entityId}" ${isChecked ? 'checked' : ''} data-device-id="${device.entityId}">
+      <label for="check-${device.entityId}" style="flex: 1;">${device.labelOrName || device.deviceIdentifier || device.entityId}</label>
       <span style="color: #64748b; font-size: 11px; margin-right: 8px;">${shoppingName}</span>
-      <span style="color: ${
-        consumption > 0 ? '#16a34a' : '#94a3b8'
-      }; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedConsumption}</span>
+      <span style="color: ${consumption > 0 ? '#16a34a' : '#94a3b8'}; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedConsumption}</span>
     `;
 
     checklist.appendChild(item);
