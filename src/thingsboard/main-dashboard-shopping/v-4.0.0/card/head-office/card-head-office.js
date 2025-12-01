@@ -7,6 +7,7 @@ import { CSS_STRING } from './card-head-office.css.js';
 import { Icons, ICON_MAP } from '../../head-office/card-head-office.icons';
 import { DEFAULT_I18N } from '../../head-office/card-head-office.types';
 import { formatEnergy } from '../../../../../format/energy.ts';
+import { formatWaterVolumeM3 } from '../../../../../format/water.ts';
 import {
   DeviceStatusType,
   mapDeviceToConnectionStatus,
@@ -109,6 +110,20 @@ function formatPrimaryValue(val, valType) {
         suffix: ''
       };
   }
+}
+
+/**
+ * Format value based on domain (energy or water)
+ * @param {number} value - The value to format
+ * @param {string} domain - The domain type ('energy' or 'water')
+ * @returns {string} Formatted value with appropriate unit
+ */
+function formatValueByDomain(value, domain) {
+  if (domain === 'water') {
+    return formatWaterVolumeM3(value);
+  }
+  // Default to energy formatting
+  return formatEnergy(value);
 }
 
 /**
@@ -542,8 +557,8 @@ function paint(root, state) {
   chip.className = `chip ${statusInfo.chipClass}`;
   chip.textContent = statusInfo.label;
 
-  // Update primary value
-  const primaryValue = formatEnergy(entityObject.val);
+  // Update primary value - use domain-specific formatting (energy or water)
+  const primaryValue = formatValueByDomain(entityObject.val, entityObject.domain);
   const numSpan = root.querySelector('.myio-ho-card__value .num');
   const unitSpan = root.querySelector('.myio-ho-card__value .unit');
 
