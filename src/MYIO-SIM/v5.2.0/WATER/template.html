@@ -1,158 +1,118 @@
-<section class="water-summary-root" id="waterSummaryWrap">
-  <!-- RFC-0087: WATER widget - Aggregated water consumption view -->
-
-  <!-- Water Summary Statistics Header -->
-  <div
-    class="water-summary-header"
-    id="waterSummaryHeader"
-    style="display: flex !important; flex-direction: row !important"
-  >
-    <div class="stat-item">
-      <span class="stat-label">Dispositivos Ativos</span>
-      <span class="stat-value" id="waterTotalDevices">-</span>
-    </div>
-    <div class="stat-item highlight">
-      <span class="stat-label">Consumo Total de Água</span>
-      <span class="stat-value" id="waterTotalConsumption">- m³</span>
-    </div>
-    <div class="stat-item">
-      <span class="stat-label">Período</span>
-      <span class="stat-value" id="waterPeriod">-</span>
-    </div>
+<div class="water-dashboard">
+  <div class="toolbar-zoom">
+    <button id="fontMinus" aria-label="Diminuir fonte">−</button>
+    <button id="fontPlus" aria-label="Aumentar fonte">＋</button>
   </div>
+  <!-- Header -->
+  <h2 class="title">Gestão de Água</h2>
+  <p class="subtitle">Monitoramento de consumo e métricas de eficiência hídrica</p>
 
-  <!-- Summary Cards Grid -->
-  <div class="water-summary-cards" id="waterSummaryCards">
-
-    <!-- Common Area Card -->
-    <article class="summary-card common-area" id="cardCommonArea">
-      <header class="card-header">
-        <div class="card-icon">
-          <svg viewBox="0 0 24 24" width="32" height="32">
-            <path fill="#0288d1" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-          </svg>
-        </div>
-        <div class="card-title">
-          <h3>Área Comum</h3>
-          <p class="card-subtitle">Hidrômetros de áreas comuns</p>
-        </div>
-      </header>
-
-      <div class="card-body">
-        <div class="consumption-value">
-          <span class="value" id="commonAreaValue">-</span>
-          <span class="unit">m³</span>
-        </div>
-        <div class="consumption-percentage">
-          <span class="pct" id="commonAreaPct">-%</span>
-          <span class="label">do total</span>
-        </div>
-      </div>
-
-      <div class="progress-bar">
-        <div class="progress-fill" id="commonAreaBar" style="width: 0%"></div>
-      </div>
-
-      <footer class="card-footer">
-        <div class="device-count">
-          <span class="count" id="commonAreaDevices">-</span>
-          <span class="label">dispositivos</span>
-        </div>
-        <button class="view-details-btn" data-target="WATER_COMMON_AREA">
-          Ver detalhes
-          <svg viewBox="0 0 24 24" width="16" height="16">
-            <path fill="currentColor" d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
-          </svg>
-        </button>
-      </footer>
-    </article>
-
-    <!-- Stores Card -->
-    <article class="summary-card stores" id="cardStores">
-      <header class="card-header">
-        <div class="card-icon">
-          <svg viewBox="0 0 24 24" width="32" height="32">
-            <path fill="#0288d1" d="M20 4H4v2h16V4zm1 10v-2l-1-5H4l-1 5v2h1v6h10v-6h4v6h2v-6h1zm-9 4H6v-4h6v4z"/>
-          </svg>
-        </div>
-        <div class="card-title">
-          <h3>Lojas</h3>
-          <p class="card-subtitle">Hidrômetros de lojas/lojistas</p>
-        </div>
-      </header>
-
-      <div class="card-body">
-        <div class="consumption-value">
-          <span class="value" id="storesValue">-</span>
-          <span class="unit">m³</span>
-        </div>
-        <div class="consumption-percentage">
-          <span class="pct" id="storesPct">-%</span>
-          <span class="label">do total</span>
-        </div>
-      </div>
-
-      <div class="progress-bar">
-        <div class="progress-fill stores-fill" id="storesBar" style="width: 0%"></div>
-      </div>
-
-      <footer class="card-footer">
-        <div class="device-count">
-          <span class="count" id="storesDevices">-</span>
-          <span class="label">dispositivos</span>
-        </div>
-        <button class="view-details-btn" data-target="WATER_STORES">
-          Ver detalhes
-          <svg viewBox="0 0 24 24" width="16" height="16">
-            <path fill="currentColor" d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
-          </svg>
-        </button>
-      </footer>
-    </article>
-  </div>
-
-  <!-- Breakdown Chart Section -->
-  <section class="water-breakdown-section" id="waterBreakdownSection">
-    <header class="section-header">
-      <h2>Distribuição do Consumo</h2>
-      <p>Comparativo entre áreas comuns e lojas</p>
-    </header>
-    <div class="breakdown-chart-wrap">
-      <div class="pie-chart" id="breakdownPieChart">
-        <svg viewBox="0 0 100 100" class="pie">
-          <circle class="pie-segment common-area" cx="50" cy="50" r="40" />
-          <circle class="pie-segment stores" cx="50" cy="50" r="40" />
+  <!-- Cards -->
+  <div class="cards">
+    <!-- Consumo Total de Lojas -->
+    <div class="card" id="total-consumption-stores-card">
+      <p class="label">Consumo Total Lojas</p>
+      <h3 class="value" id="total-consumption-stores-value">
+        <svg
+          class="loading-spinner"
+          style="width: 24px; height: 24px; animation: spin 1s linear infinite"
+          viewBox="0 0 50 50"
+        >
+          <circle
+            cx="25"
+            cy="25"
+            r="20"
+            fill="none"
+            stroke="#0288d1"
+            stroke-width="5"
+            stroke-linecap="round"
+            stroke-dasharray="90,150"
+            stroke-dashoffset="0"
+          ></circle>
         </svg>
-        <div class="pie-center">
-          <span class="total-label">Total</span>
-          <span class="total-value" id="pieTotal">-</span>
-          <span class="total-unit">m³</span>
-        </div>
-      </div>
-      <div class="breakdown-legend">
-        <div class="legend-item">
-          <span class="legend-color common-area"></span>
-          <span class="legend-label">Área Comum</span>
-          <span class="legend-value" id="legendCommonArea">- m³</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-color stores"></span>
-          <span class="legend-label">Lojas</span>
-          <span class="legend-value" id="legendStores">- m³</span>
-        </div>
-      </div>
+      </h3>
+      <span class="trend neutral" id="total-consumption-stores-trend">Aguardando dados...</span>
+      <span class="device-info" id="total-consumption-stores-info">Hidrômetros de lojas</span>
     </div>
-  </section>
 
-  <!-- Loading overlay -->
-  <div id="water-summary-loading" class="water-loading-overlay" style="display: none;">
-    <div class="loading-spinner">
-      <svg style="width:48px; height:48px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
-        <circle cx="25" cy="25" r="20" fill="none" stroke="#0288d1" stroke-width="5" stroke-linecap="round"
-                stroke-dasharray="90,150" stroke-dashoffset="0">
-        </circle>
-      </svg>
-      <p>Carregando dados de consumo de água...</p>
+    <!-- Consumo Total de Área Comum -->
+    <div class="card" id="total-consumption-common-area-card">
+      <p class="label">Consumo Total Área Comum</p>
+      <h3 class="value" id="total-consumption-common-area-value">
+        <svg
+          class="loading-spinner"
+          style="width: 24px; height: 24px; animation: spin 1s linear infinite"
+          viewBox="0 0 50 50"
+        >
+          <circle
+            cx="25"
+            cy="25"
+            r="20"
+            fill="none"
+            stroke="#0288d1"
+            stroke-width="5"
+            stroke-linecap="round"
+            stroke-dasharray="90,150"
+            stroke-dashoffset="0"
+          ></circle>
+        </svg>
+      </h3>
+      <span class="trend neutral" id="total-consumption-common-area-trend">Aguardando dados...</span>
+      <span class="device-info" id="total-consumption-common-area-info">Hidrômetros de áreas comuns</span>
+    </div>
+
+    <!-- Consumo Total Geral -->
+    <div class="card highlight" id="total-consumption-card">
+      <p class="label">Consumo Total</p>
+      <h3 class="value" id="total-consumption-value">
+        <svg
+          class="loading-spinner"
+          style="width: 24px; height: 24px; animation: spin 1s linear infinite"
+          viewBox="0 0 50 50"
+        >
+          <circle
+            cx="25"
+            cy="25"
+            r="20"
+            fill="none"
+            stroke="#0288d1"
+            stroke-width="5"
+            stroke-linecap="round"
+            stroke-dasharray="90,150"
+            stroke-dashoffset="0"
+          ></circle>
+        </svg>
+      </h3>
+      <span class="trend neutral" id="total-consumption-trend">Aguardando dados...</span>
+      <span class="device-info" id="total-consumption-info">Lojas + Área Comum</span>
     </div>
   </div>
-</section>
+
+  <!-- Charts -->
+  <div class="charts">
+    <div class="chart-box">
+      <div class="chart-header">
+        <h4>Consumo dos últimos 7 dias</h4>
+        <div class="chart-controls">
+          <button id="configureChartBtn" class="config-btn" title="Configurar gráfico">⚙️</button>
+        </div>
+      </div>
+      <canvas id="lineChart"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-header">
+        <h4>Distribuição de Consumo de Água</h4>
+        <div class="chart-controls">
+          <label for="distributionMode" class="control-label">Visualizar:</label>
+          <select id="distributionMode" class="chart-select">
+            <option value="groups">Lojas vs Área Comum</option>
+            <option value="stores">Lojas por Shopping</option>
+            <option value="common">Área Comum por Shopping</option>
+          </select>
+        </div>
+      </div>
+      <canvas id="pieChart"></canvas>
+    </div>
+  </div>
+  <br />
+</div>
