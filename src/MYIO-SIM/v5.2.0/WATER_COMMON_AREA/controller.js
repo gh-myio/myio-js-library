@@ -1159,6 +1159,7 @@ function initializeCards(devices) {
     
     const customerName = getCustomerNameForDevice(device);
     device.customerName = customerName;
+    device.domain = 'water'; // RFC-0087: Water domain for M³ formatting
 
     /*
     LogHelper.log("[WATER_COMMON_AREA] Device customerName set:", {
@@ -1172,7 +1173,7 @@ function initializeCards(devices) {
     if (device.labelOrName && device.labelOrName.toUpperCase().includes("ELEVADOR")) {
       //LogHelper.log("[WATER_COMMON_AREA] Rendering card for Chiller 1 device:", device);
     }
-    
+
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
       handleActionDashboard: async () => {

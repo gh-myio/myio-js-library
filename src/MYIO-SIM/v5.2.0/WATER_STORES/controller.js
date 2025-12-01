@@ -1022,6 +1022,7 @@ function renderList(visible) {
       updatedIdentifiers: it.updatedIdentifiers || {},
       connectionStatusTime: it.connectionStatusTime || Date.now(),
       timeVal: it.timeVal || Date.now(),
+      domain: 'water', // RFC-0087: Water domain for M³ formatting
     };
 
     // Use renderCardComponentHeadOffice like EQUIPMENTS
