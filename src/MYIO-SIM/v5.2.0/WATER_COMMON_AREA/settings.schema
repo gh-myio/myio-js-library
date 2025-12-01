@@ -1,12 +1,12 @@
 {
   "schema": {
     "type": "object",
-    "title": "Water Summary Widget Settings",
+    "title": "Water Common Area Widget Settings",
     "properties": {
         "labelWidget":{
             "type":"string",
             "title": "Widget Label",
-            "default": "Resumo de �gua"
+            "default": "Hidrômetros de Áreas Comuns"
         }
     }
   },

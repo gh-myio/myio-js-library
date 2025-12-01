@@ -8,8 +8,11 @@
         <span id="energyContextLabel">Energia: Equipamentos</span>
         <span class="dropdown-arrow">▼</span>
       </button>
-      <button id="waterButton" class="tab" data-target="content_water">
-        <span class="ico">💧</span> Água
+      <!-- RFC-0087: Water button with modal dropdown -->
+      <button id="waterButton" class="tab">
+        <span class="ico">💧</span>
+        <span id="waterContextLabel">Água: Resumo</span>
+        <span class="dropdown-arrow">▼</span>
       </button>
       <button id="temperatureButton" class="tab" data-target="content_temperature">
         <span class="ico">🌡️</span> Temperatura
@@ -93,6 +96,46 @@
           <div class="option-info">
             <div class="option-title">Geral (Energia)</div>
             <div class="option-desc">Visão geral de energia</div>
+          </div>
+          <span class="option-check">✓</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RFC-0087: Water context modal dropdown -->
+  <div id="waterContextModal" class="water-modal" style="display: none">
+    <div class="water-modal-content">
+      <div class="water-modal-header">
+        <span class="ico">💧</span>
+        <span>Selecione o contexto de Água</span>
+      </div>
+      <div class="water-modal-options">
+        <button
+          class="water-modal-option is-active"
+          data-context="water_summary"
+          data-target="content_water"
+        >
+          <span class="option-ico">📊</span>
+          <div class="option-info">
+            <div class="option-title">Resumo</div>
+            <div class="option-desc">Visão geral de consumo de água</div>
+          </div>
+          <span class="option-check">✓</span>
+        </button>
+        <button class="water-modal-option" data-context="water_common_area" data-target="content_water_common_area">
+          <span class="option-ico">🏢</span>
+          <div class="option-info">
+            <div class="option-title">Área Comum</div>
+            <div class="option-desc">Hidrômetros de áreas comuns</div>
+          </div>
+          <span class="option-check">✓</span>
+        </button>
+        <button class="water-modal-option" data-context="water_stores" data-target="content_water_stores">
+          <span class="option-ico">🏬</span>
+          <div class="option-info">
+            <div class="option-title">Lojas</div>
+            <div class="option-desc">Hidrômetros de lojas/lojistas</div>
           </div>
           <span class="option-check">✓</span>
         </button>

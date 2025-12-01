@@ -659,16 +659,85 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             .option-desc { font-size: 12px; color: #64748b; margin-top: 2px; font-weight: 400; }
             
             /* Checkmark */
-            .option-check { 
-                font-weight: bold; 
-                opacity: 0; 
-                transform: scale(0.5); 
-                transition: all 0.2s; 
+            .option-check {
+                font-weight: bold;
+                opacity: 0;
+                transform: scale(0.5);
+                transition: all 0.2s;
                 color: #3b82f6;
             }
-            .energy-modal-option.is-active .option-check { 
-                opacity: 1; 
-                transform: scale(1); 
+            .energy-modal-option.is-active .option-check {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            /* RFC-0087: Water Modal Styles */
+            #waterContextModal {
+                font-family: 'Roboto', 'Segoe UI', sans-serif;
+                backdrop-filter: blur(4px);
+            }
+
+            #waterContextModal .water-modal-content {
+                background: #ffffff !important;
+                border-radius: 16px !important;
+                box-shadow: 0 20px 50px rgba(0,0,0,0.3) !important;
+                width: 320px !important;
+                max-width: 90vw !important;
+                overflow: hidden !important;
+                border: none !important;
+                padding: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+
+            .water-modal-header {
+                padding: 16px 20px !important;
+                background: #f0f9ff;
+                border-bottom: 1px solid #bae6fd;
+                font-weight: 700;
+                color: #0c4a6e;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-size: 16px;
+            }
+
+            .water-modal-options {
+                padding: 10px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 8px !important;
+            }
+
+            .water-modal-option {
+                display: flex !important;
+                align-items: center !important;
+                gap: 12px !important;
+                padding: 12px 16px !important;
+                border: 1px solid transparent !important;
+                border-radius: 12px !important;
+                background: transparent !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                text-align: left !important;
+                color: #334155 !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+            }
+
+            .water-modal-option:hover {
+                background: #f0f9ff !important;
+                border-color: #7dd3fc !important;
+            }
+
+            .water-modal-option.is-active {
+                background: #e0f2fe !important;
+                border-color: #0288d1 !important;
+                color: #0369a1 !important;
+            }
+
+            .water-modal-option .option-check {
+                color: #0288d1;
             }
         `;
     document.head.appendChild(style);
@@ -693,9 +762,18 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     //   stateId: "content_energy",
     //   state: "W3siaWQiOiJjb250ZW50X2VuZXJneSIsInBhcmFtcyI6e319XQ%253D%253D",
     // },
+    // RFC-0087: Water states (summary, common area, stores)
     waterButton: {
       stateId: 'content_water',
       state: 'W3siaWQiOiJjb250ZW50X3dhdGVyIiwicGFyYW1zIjp7fX1d',
+    },
+    waterCommonAreaButton: {
+      stateId: 'content_water_common_area',
+      state: 'W3siaWQiOiJjb250ZW50X3dhdGVyX2NvbW1vbl9hcmVhIiwicGFyYW1zIjp7fX1d',
+    },
+    waterStoresButton: {
+      stateId: 'content_water_stores',
+      state: 'W3siaWQiOiJjb250ZW50X3dhdGVyX3N0b3JlcyIsInBhcmFtcyI6e319XQ==',
     },
     temperatureButton: {
       stateId: 'content_temperature',
@@ -1372,6 +1450,167 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     };
   }, 1000);
 
+  // ==============================================================
+  // RFC-0087: WATER MODAL SETUP (Similar to Energy Modal)
+  // ==============================================================
+  setTimeout(() => {
+    console.log('[SETUP] RFC-0087: Iniciando fix do Water Modal...');
+
+    const waterBtn = document.getElementById('waterButton');
+    let waterModal = document.getElementById('waterContextModal');
+    const mainView = document.querySelector('#mainView') || document.getElementById('mainView');
+
+    if (!waterBtn || !waterModal) {
+      console.warn('[SETUP] Water button or modal not found');
+      return;
+    }
+
+    // 1. CLONAR BOTÃO (Limpar listeners antigos)
+    const newWaterBtn = waterBtn.cloneNode(true);
+    waterBtn.parentNode.replaceChild(newWaterBtn, waterBtn);
+
+    // 2. MOVER O MODAL PARA A RAIZ (evita cortes visuais)
+    if (waterModal.parentNode !== document.body) {
+      waterModal.parentNode.removeChild(waterModal);
+      document.body.appendChild(waterModal);
+    }
+
+    // 3. AÇÃO DE CLIQUE DO BOTÃO ÁGUA
+    newWaterBtn.onclick = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      console.log('[CLICK] Botão Água Clicado');
+
+      // --- LIMPEZA DE ABAS ---
+      const allTabs = document.querySelectorAll('.myio-tabs .tab');
+      allTabs.forEach((t) => t.classList.remove('is-active'));
+      newWaterBtn.classList.add('is-active');
+
+      // Verifica se vai abrir ou fechar
+      const isVisible = waterModal.style.display === 'flex';
+
+      if (!isVisible) {
+        // --- SINCRONIZAÇÃO VISUAL DO MODAL ---
+        const waterStates = ['content_water', 'content_water_common_area', 'content_water_stores'];
+        const currentState = self.ctx?.$scope?.mainContentStateId || 'content_water';
+
+        const modalOptions = waterModal.querySelectorAll('.water-modal-option');
+        modalOptions.forEach((opt) => {
+          if (opt.getAttribute('data-target') === currentState) {
+            opt.classList.add('is-active');
+          } else {
+            opt.classList.remove('is-active');
+          }
+        });
+
+        console.log('[ACTION] Abrindo water modal sincronizado...');
+
+        // Abre o modal com CSS forçado
+        waterModal.style.cssText = `
+          display: flex !important;
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          background-color: rgba(0,0,0,0.6) !important;
+          z-index: 2147483647 !important;
+          align-items: center !important;
+          justify-content: center !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        `;
+
+        // Estiliza conteúdo interno
+        const content = waterModal.querySelector('.water-modal-content');
+        if (content) {
+          content.style.cssText = `
+            display: flex !important;
+            flex-direction: column !important;
+            background: white !important;
+            padding: 0 !important;
+            border-radius: 16px !important;
+            min-width: 320px !important;
+            z-index: 2147483647 !important;
+            opacity: 1 !important;
+            border: none !important;
+            overflow: hidden !important;
+          `;
+        }
+      } else {
+        waterModal.style.display = 'none';
+      }
+    };
+
+    // 4. AÇÃO DAS OPÇÕES (DENTRO DO MODAL)
+    const waterOptions = waterModal.querySelectorAll('.water-modal-option');
+    waterOptions.forEach((opt) => {
+      opt.onclick = function (ev) {
+        ev.stopPropagation();
+        const targetStateId = this.getAttribute('data-target');
+        const contextName = this.querySelector('.option-title')?.innerText;
+
+        // Atualiza label visual
+        const label = document.getElementById('waterContextLabel');
+        if (label && contextName) label.innerText = `Água: ${contextName}`;
+
+        // Atualiza opção ativa
+        waterOptions.forEach((o) => o.classList.remove('is-active'));
+        this.classList.add('is-active');
+
+        // Fecha modal
+        waterModal.style.display = 'none';
+
+        // Troca de tela
+        if (targetStateId && mainView) {
+          const allStates = mainView.querySelectorAll('[data-content-state]');
+          allStates.forEach((d) => d.style.setProperty('display', 'none', 'important'));
+
+          const targetDiv = mainView.querySelector(`[data-content-state="${targetStateId}"]`);
+          if (targetDiv) {
+            targetDiv.style.setProperty('display', 'block', 'important');
+
+            // Mantém botão ativo
+            newWaterBtn.classList.add('is-active');
+
+            // Atualiza escopo angular
+            if (self.ctx?.$scope) {
+              self.ctx.$scope.mainContentStateId = targetStateId;
+              if (self.ctx.$scope.$applyAsync) self.ctx.$scope.$applyAsync();
+            }
+
+            // Dispatch myio:update-date to trigger data refresh
+            const startDateISO = self.ctx.$scope?.startDateISO;
+            const endDateISO = self.ctx.$scope?.endDateISO;
+            if (startDateISO && endDateISO) {
+              console.log(`[MENU] Dispatching myio:update-date for ${targetStateId}`);
+              window.dispatchEvent(
+                new CustomEvent('myio:update-date', {
+                  detail: {
+                    startDate: startDateISO,
+                    endDate: endDateISO,
+                  },
+                })
+              );
+            }
+
+            console.log(`[MENU] RFC-0087: Switched to water state: ${targetStateId}`);
+          }
+        }
+      };
+    });
+
+    // 5. FECHAR AO CLICAR NO FUNDO
+    waterModal.onclick = function (e) {
+      if (e.target === waterModal) {
+        waterModal.style.display = 'none';
+      }
+    };
+
+    console.log('[SETUP] RFC-0087: Water Modal setup complete');
+  }, 1100);
+
   const originalDestroy = self.onDestroy;
   self.onDestroy = function () {
     if (originalDestroy) originalDestroy();
@@ -1380,6 +1619,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     const modal = document.getElementById('energyContextModal');
     if (modal && modal.parentNode === document.body) {
       document.body.removeChild(modal);
+    }
+
+    // RFC-0087: Remove water modal from body
+    const waterModal = document.getElementById('waterContextModal');
+    if (waterModal && waterModal.parentNode === document.body) {
+      document.body.removeChild(waterModal);
     }
   };
 
@@ -1390,6 +1635,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // ==============================================================
 
   const energyStates = ['content_equipments', 'content_energy', 'content_store'];
+  // RFC-0087: Water states for tab highlighting
+  const waterStates = ['content_water', 'content_water_common_area', 'content_water_stores'];
 
   window.addEventListener('myio:switch-main-state', (ev) => {
     const targetId = ev.detail?.targetStateId;
@@ -1414,7 +1661,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     // 3. ACENDE APENAS O CORRETO
     if (energyStates.includes(targetId)) {
       if (btnEnergy) btnEnergy.classList.add('is-active');
-    } else if (targetId === 'content_water') {
+    } else if (waterStates.includes(targetId)) {
+      // RFC-0087: Highlight water button for any water state
       if (btnWater) btnWater.classList.add('is-active');
     } else if (targetId === 'content_temperature') {
       if (btnTemp) btnTemp.classList.add('is-active');

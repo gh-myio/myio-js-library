@@ -1437,7 +1437,37 @@ async function updateTotalWaterConsumption(customersArray, startDateISO, endDate
 
   waterTotal.innerText = `${MyIOLibrary.formatWaterVolumeM3(totalConsumption)}`;
 
-  //LogHelper.log('[MAIN] updateTotalWaterConsumption completed:', totalConsumption);
+  // RFC-0087: Dispatch water data to water widgets
+  // Note: In the future, this should be split by common area vs stores
+  window.dispatchEvent(
+    new CustomEvent('myio:water-data-ready', {
+      detail: {
+        source: 'WATER_COMMON_AREA',
+        data: {
+          totalDevices: customersArray.length,
+          totalConsumption: totalConsumption * 0.4, // Placeholder split - adjust based on actual API
+          onlineDevices: customersArray.length,
+          offlineDevices: 0,
+        },
+      },
+    })
+  );
+
+  window.dispatchEvent(
+    new CustomEvent('myio:water-data-ready', {
+      detail: {
+        source: 'WATER_STORES',
+        data: {
+          totalDevices: customersArray.length,
+          totalConsumption: totalConsumption * 0.6, // Placeholder split - adjust based on actual API
+          onlineDevices: customersArray.length,
+          offlineDevices: 0,
+        },
+      },
+    })
+  );
+
+  LogHelper.log('[MAIN] RFC-0087: Water data dispatched to widgets, total:', totalConsumption);
 }
 
 // ===== RFC: Listen for request to update water consumption =====
