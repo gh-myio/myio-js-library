@@ -512,28 +512,55 @@ function verifyOfflineStatus(entityObject) {
 
   const lastConnectionTime = new Date(entityObject.lastConnectTime || 0);
   const lastDisconnectTime = new Date(entityObject.lastDisconnectTime || 0);
+  const now = new Date();
+  const fifteenMinutesInMs = 15 * 60 * 1000;
+  const timeSinceConnection = now.getTime() - lastConnectionTime.getTime();
+
+  // DEBUG for Chiller 1
+  if (String(entityObject.labelOrName || '').toLowerCase().includes('chiller 1')) {
+    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] ========================================');
+    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] label:', entityObject.labelOrName);
+    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] deviceStatus (before):', entityObject.deviceStatus);
+    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] lastConnectTime (raw):', entityObject.lastConnectTime);
+    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] lastDisconnectTime (raw):', entityObject.lastDisconnectTime);
+    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] lastConnectionTime (Date):', lastConnectionTime.toISOString());
+    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] lastDisconnectTime (Date):', lastDisconnectTime.toISOString());
+    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] now:', now.toISOString());
+    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] timeSinceConnection (ms):', timeSinceConnection);
+    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] timeSinceConnection (min):', (timeSinceConnection / 60000).toFixed(2));
+    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] disconnect > connect?', lastDisconnectTime.getTime() > lastConnectionTime.getTime());
+    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] timeSinceConnection < 15min?', timeSinceConnection < fifteenMinutesInMs);
+  }
 
   // 2. Regra 1: Se a última desconexão for mais recente que a última conexão, está offline.
   if (lastDisconnectTime.getTime() > lastConnectionTime.getTime()) {
+    if (String(entityObject.labelOrName || '').toLowerCase().includes('chiller 1')) {
+      console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] RESULT: false (disconnect > connect)');
+      console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] ========================================');
+    }
     return false; // Offline
   }
 
   // 3. Regra 2: Se a conexão for mais recente, verificar o tempo desde a conexão.
-  const now = new Date();
-  const fifteenMinutesInMs = 15 * 60 * 1000;
-
   // Calcula a diferença em milissegundos desde a última conexão
-  const timeSinceConnection = now.getTime() - lastConnectionTime.getTime();
 
   // Se o tempo de conexão for "maior" (que o de desconexão)
   // "mas menor que 15 minutos" (ou seja, conectou-se nos últimos 15 min),
   // deve retornar offline.
   if (timeSinceConnection < fifteenMinutesInMs) {
+    if (String(entityObject.labelOrName || '').toLowerCase().includes('chiller 1')) {
+      console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] RESULT: false (connection < 15min ago)');
+      console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] ========================================');
+    }
     return false; // Offline (Regra de "probation" ou conexão muito recente)
   }
 
   // 4. Caso contrário: Se conectou (e não desconectou depois) E
   // a conexão ocorreu há 15 minutos ou mais, retorna true.
+  if (String(entityObject.labelOrName || '').toLowerCase().includes('chiller 1')) {
+    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] RESULT: true (online)');
+    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] ========================================');
+  }
   return true; // Online
 }
 
