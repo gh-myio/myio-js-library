@@ -18,15 +18,32 @@ export class SettingsModalView {
     // Store current focus to restore later
     this.originalActiveElement = document.activeElement;
 
-    // Portal to document.body to escape widget stacking contexts
+    // Portal to document.body
     document.body.appendChild(this.container);
-    this.populateForm(initialData);
-    this.attachEventListeners(); // Attach event listeners after DOM is ready
+
+    // --- LÓGICA DE PRIORIZAÇÃO DOS DADOS SALVOS ---
+    let formData = { ...initialData };
+
+    // Verifica se veio o JSON específico do dispositivo (deviceMapInstaneousPower)
+    // Nota: O nome da chave deve bater com o que vem do Fetcher
+    if (initialData.deviceMapInstaneousPower && typeof initialData.deviceMapInstaneousPower === 'object') {
+      console.log('[SettingsModalView] Configuração salva encontrada (Device Scope). Processando...');
+
+      // 1. Extrai os valores do JSON para o formato do formulário
+      const flatLimits = this.parseDeviceSavedLimits(initialData.deviceMapInstaneousPower);
+
+      // 2. Mescla: Os valores do JSON sobrescrevem qualquer outro valor conflitante
+      formData = { ...formData, ...flatLimits };
+    }
+
+    // Preenche o formulário com os dados processados
+    this.populateForm(formData);
+
+    // --- Resto do método render continua igual ---
+    this.attachEventListeners();
     this.setupAccessibility();
     this.setupFocusTrap();
     this.applyTheme();
-
-    // Fetch latest consumption telemetry on-demand
     this.fetchLatestConsumptionTelemetry();
   }
 
@@ -205,9 +222,8 @@ export class SettingsModalView {
 
     return `
       <div class="form-layout">
-        ${
-          hasCustomerName
-            ? `
+        ${hasCustomerName
+        ? `
         <!-- RFC-0077/0078: Shopping name display with device type icon -->
         <div class="customer-name-container">
           <div class="customer-info-row">
@@ -224,17 +240,16 @@ export class SettingsModalView {
           </div>
         </div>
         `
-            : ""
-        }
+        : ""
+      }
 
         <!-- Top Row: Two cards side by side -->
         <div class="form-columns">
           <!-- Left Column: Device Label -->
           <div class="form-column">
             <div class="form-card">
-              <h4 class="section-title device-label-title">${
-                this.config.deviceLabel || "NÃO INFORMADO"
-              }</h4>
+              <h4 class="section-title device-label-title">${this.config.deviceLabel || "NÃO INFORMADO"
+      }</h4>
 
               <div class="form-group">
                 <label for="label">Etiqueta</label>
@@ -263,11 +278,10 @@ export class SettingsModalView {
         ${this.getConnectionInfoHTML()}
 
         <!-- RFC-0077: Power Limits Configuration (only for energy domain and when deviceType is available) -->
-        ${
-          this.config.domain === "energy" && this.config.deviceType
-            ? this.getPowerLimitsHTML()
-            : ""
-        }
+        ${this.config.domain === "energy" && this.config.deviceType
+        ? this.getPowerLimitsHTML()
+        : ""
+      }
       </div>
     `;
   }
@@ -290,8 +304,8 @@ export class SettingsModalView {
     return `
       <div class="form-card">
         <h4 class="section-title">Alarmes ${this.formatDomainLabel(
-          this.config.domain
-        )}</h4>
+      this.config.domain
+    )}</h4>
 
         <div class="form-group">
           <label for="maxDailyKwh">Consumo Máximo Diário (${unit})</label>
@@ -481,9 +495,8 @@ export class SettingsModalView {
         <div class="power-limits-header">
           <h4 class="section-title">Configuração de Limites de Telemetrias Instantâneas</h4>
           <div class="power-limits-subtitle">
-            Monitoramento de Consumo (W) para: <strong>${
-              this.config.deviceType || "N/D"
-            }</strong>
+            Monitoramento de Consumo (W) para: <strong>${this.config.deviceType || "N/D"
+      }</strong>
           </div>
         </div>
 
@@ -711,33 +724,27 @@ export class SettingsModalView {
         let durationText = "";
         if (diffDays > 0) {
           const remainingHours = diffHours % 24;
-          durationText = `${diffDays} dia${diffDays > 1 ? "s" : ""}${
-            remainingHours > 0
+          durationText = `${diffDays} dia${diffDays > 1 ? "s" : ""}${remainingHours > 0
               ? ` e ${remainingHours} hora${remainingHours > 1 ? "s" : ""}`
               : ""
-          }`;
+            }`;
         } else if (diffHours > 0) {
           const remainingMinutes = diffMinutes % 60;
-          durationText = `${diffHours} hora${diffHours > 1 ? "s" : ""}${
-            remainingMinutes > 0
-              ? ` e ${remainingMinutes} minuto${
-                  remainingMinutes > 1 ? "s" : ""
-                }`
+          durationText = `${diffHours} hora${diffHours > 1 ? "s" : ""}${remainingMinutes > 0
+              ? ` e ${remainingMinutes} minuto${remainingMinutes > 1 ? "s" : ""
+              }`
               : ""
-          }`;
+            }`;
         } else if (diffMinutes > 0) {
           const remainingSeconds = diffSeconds % 60;
-          durationText = `${diffMinutes} minuto${diffMinutes > 1 ? "s" : ""}${
-            remainingSeconds > 0
-              ? ` e ${remainingSeconds} segundo${
-                  remainingSeconds > 1 ? "s" : ""
-                }`
+          durationText = `${diffMinutes} minuto${diffMinutes > 1 ? "s" : ""}${remainingSeconds > 0
+              ? ` e ${remainingSeconds} segundo${remainingSeconds > 1 ? "s" : ""
+              }`
               : ""
-          }`;
+            }`;
         } else {
-          durationText = `${diffSeconds} segundo${
-            diffSeconds !== 1 ? "s" : ""
-          }`;
+          durationText = `${diffSeconds} segundo${diffSeconds !== 1 ? "s" : ""
+            }`;
         }
 
         disconnectionIntervalFormatted = `${disconnectFormatted} até ${reconnectFormatted} (${durationText})`;
@@ -785,8 +792,8 @@ export class SettingsModalView {
             timeSinceLastConnection = `(${diffDays}d:${remainingHours
               .toString()
               .padStart(2, "0")}hs:${remainingMinutes
-              .toString()
-              .padStart(2, "0")}mins atrás)`;
+                .toString()
+                .padStart(2, "0")}mins atrás)`;
           } else if (diffHours > 0) {
             timeSinceLastConnection = `(${diffHours}hs:${remainingMinutes
               .toString()
@@ -862,16 +869,14 @@ export class SettingsModalView {
         <div class="info-grid">
           <div class="info-row">
             <span class="info-label">Central:</span>
-            <span class="info-value">${centralName || "N/A"}${
-      this.config.customerName ? ` (${this.config.customerName})` : ""
-    }</span>
+            <span class="info-value">${centralName || "N/A"}${this.config.customerName ? ` (${this.config.customerName})` : ""
+      }</span>
           </div>
 
           <div class="info-row">
             <span class="info-label">Status:</span>
-            <span class="info-value" style="color: ${
-              statusInfo.color
-            }; font-weight: 600;">
+            <span class="info-value" style="color: ${statusInfo.color
+      }; font-weight: 600;">
               ${statusInfo.text}
             </span>
           </div>
@@ -880,11 +885,10 @@ export class SettingsModalView {
             <span class="info-label">Conectado desde:</span>
             <span class="info-value">
               ${connectionTimeFormatted}
-              ${
-                timeSinceLastConnection
-                  ? `<span class="time-since">${timeSinceLastConnection}</span>`
-                  : ""
-              }
+              ${timeSinceLastConnection
+        ? `<span class="time-since">${timeSinceLastConnection}</span>`
+        : ""
+      }
             </span>
           </div>
 
@@ -892,11 +896,10 @@ export class SettingsModalView {
             <span class="info-label">Último check status:</span>
             <span class="info-value">
               ${telemetryTimeFormatted}
-              ${
-                timeSinceLastTelemetry
-                  ? `<span class="time-since">${timeSinceLastTelemetry}</span>`
-                  : ""
-              }
+              ${timeSinceLastTelemetry
+        ? `<span class="time-since">${timeSinceLastTelemetry}</span>`
+        : ""
+      }
             </span>
           </div>
             <div class="info-row full-width">
@@ -1773,6 +1776,58 @@ export class SettingsModalView {
         }
       }
     }
+  }
+
+  /**
+   * Helper: Traduz o JSON RFC-0086 (deviceMapInstaneousPower) 
+   * para os campos planos do formulário (ex: standbyLimitUpConsumption)
+   */
+  private parseDeviceSavedLimits(deviceJson: any): Record<string, any> {
+    const extracted: Record<string, any> = {};
+
+    try {
+      // Validação básica da estrutura
+      if (!deviceJson || !deviceJson.limitsByInstantaneoustPowerType) return extracted;
+
+      // Pega o grupo de consumo (consumption)
+      const consumptionGroup = deviceJson.limitsByInstantaneoustPowerType.find(
+        (g: any) => g.telemetryType === 'consumption'
+      );
+
+      // Pega o primeiro item de dispositivo (no Device Scope só deve haver um)
+      const deviceItem = consumptionGroup?.itemsByDeviceType?.[0];
+
+      if (!deviceItem?.limitsByDeviceStatus) return extracted;
+
+      // Mapeia o nome do status no JSON para o prefixo do input HTML
+      // JSON: "standBy" -> Input: "standby..."
+      const mapPrefix: Record<string, string> = {
+        'standBy': 'standby',
+        'normal': 'normal',
+        'alert': 'alert',
+        'failure': 'failure'
+      };
+
+      deviceItem.limitsByDeviceStatus.forEach((status: any) => {
+        const prefix = mapPrefix[status.deviceStatusName];
+
+        if (prefix && status.limitsValues) {
+          const { baseValue, topValue } = status.limitsValues;
+
+          // Extrai valores apenas se existirem (não forem null ou undefined)
+          if (baseValue !== null && baseValue !== undefined) {
+            extracted[`${prefix}LimitDownConsumption`] = baseValue;
+          }
+          if (topValue !== null && topValue !== undefined) {
+            extracted[`${prefix}LimitUpConsumption`] = topValue;
+          }
+        }
+      });
+    } catch (e) {
+      console.warn('[SettingsModalView] Erro ao processar deviceMapInstaneousPower:', e);
+    }
+
+    return extracted;
   }
 
   private attachEventListeners(): void {

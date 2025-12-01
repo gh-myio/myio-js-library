@@ -99,15 +99,35 @@ export class DefaultSettingsPersister implements SettingsPersister {
     attributes: Record<string, unknown>
   ): Promise<{ ok: boolean; updatedKeys?: string[]; error?: SettingsError }> {
     try {
-      // RFC-0080: Build JSON structure for mapInstantaneousPower
-      const mapInstantaneousPower = this.buildMapInstantaneousPower(attributes);
+      // 1. Cria uma cópia dos atributos para manipular o payload sem alterar o original
+      const payload: Record<string, any> = { ...attributes };
 
-      // Save as single JSON attribute (RFC-0078 compliant)
-      const payload = {
-        mapInstantaneousPower: mapInstantaneousPower
-      };
+      // 2. Resolve o tipo de dispositivo efetivo (ex: trata o caso 3F_MEDIDOR -> ELEVADOR)
+      const effectiveDeviceType = this.getEffectiveDeviceType();
 
-      console.log('[SettingsPersister] RFC-0080: Saving mapInstantaneousPower as JSON:', payload);
+      // 3. Constrói o JSON de Override específico para este dispositivo
+      // Usa os dados "planos" do formulário para montar a estrutura RFC-0086
+      const deviceJson = this.buildDevicePowerJson(payload, effectiveDeviceType);
+
+      // 4. Se houver JSON gerado (algum valor foi editado), adiciona ao payload na chave correta
+      if (deviceJson) {
+        payload.deviceMapInstaneousPower = deviceJson;
+      }
+
+      // 5. LIMPEZA CRÍTICA: Remove os campos "planos" do formulário do payload.
+      // Se não removermos, o ThingsBoard salvará atributos soltos como "standbyLimitDownConsumption",
+      // sujando o banco de dados e confundindo a leitura futura.
+      const flatKeysToRemove = [
+        'telemetryType',
+        'standbyLimitDownConsumption', 'standbyLimitUpConsumption',
+        'normalLimitDownConsumption', 'normalLimitUpConsumption',
+        'alertLimitDownConsumption', 'alertLimitUpConsumption',
+        'failureLimitDownConsumption', 'failureLimitUpConsumption'
+      ];
+
+      flatKeysToRemove.forEach(key => delete payload[key]);
+
+      console.log('[SettingsPersister] Saving Server Scope Attributes:', payload);
 
       const res = await fetch(
         `${this.tbBaseUrl}/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`,
@@ -127,13 +147,86 @@ export class DefaultSettingsPersister implements SettingsPersister {
 
       return {
         ok: true,
-        updatedKeys: ['mapInstantaneousPower']
+        updatedKeys: Object.keys(payload)
       };
 
     } catch (error) {
       console.error('[SettingsPersister] Attributes save failed:', error);
       return { ok: false, error: this.mapError(error) };
     }
+  }
+
+  /**
+   * Constrói o JSON Reduzido (apenas o deviceType atual) para salvar no Device.
+   * Retorna null se nenhum campo de potência estiver presente.
+   */
+  private buildDevicePowerJson(formData: Record<string, any>, deviceType: string): object | null {
+    const statuses = ['standby', 'normal', 'alert', 'failure'];
+
+    // Verifica se existe algum dado de limite no formulário
+    const hasPowerData = statuses.some(status =>
+      (formData[`${status}LimitDownConsumption`] !== undefined && formData[`${status}LimitDownConsumption`] !== "") ||
+      (formData[`${status}LimitUpConsumption`] !== undefined && formData[`${status}LimitUpConsumption`] !== "")
+    );
+
+    // Se não houver dados de potência, não gera o JSON (mantém o anterior ou não salva nada)
+    if (!hasPowerData) return null;
+
+    const statusMap: Record<string, string> = {
+      'standby': 'standBy',
+      'normal': 'normal',
+      'alert': 'alert',
+      'failure': 'failure'
+    };
+
+    const limitsList: any[] = [];
+
+    statuses.forEach(statusKey => {
+      const down = formData[`${statusKey}LimitDownConsumption`];
+      const up = formData[`${statusKey}LimitUpConsumption`];
+
+      // Só adiciona o bloco do status se houver pelo menos um valor válido
+      if ((down !== undefined && down !== "") || (up !== undefined && up !== "")) {
+        limitsList.push({
+          deviceStatusName: statusMap[statusKey],
+          limitsValues: {
+            // Converte para Number ou null
+            baseValue: (down !== "" && down !== undefined) ? Number(down) : null,
+            topValue: (up !== "" && up !== undefined) ? Number(up) : null
+          }
+        });
+      }
+    });
+
+    if (limitsList.length === 0) return null;
+
+    // Estrutura RFC-0086
+    return {
+      version: "1.0.0",
+      limitsByInstantaneoustPowerType: [
+        {
+          telemetryType: "consumption",
+          itemsByDeviceType: [
+            {
+              deviceType: deviceType,
+              // Gera um nome descritivo interno
+              name: `deviceMapInstaneousPower${this.formatDeviceTypeName(deviceType)}`,
+              description: "Override manual configurado via Dashboard",
+              limitsByDeviceStatus: limitsList
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  /**
+   * Helper para formatar o nome do tipo (PascalCase) para uso no campo "name" do JSON
+   */
+  private formatDeviceTypeName(deviceType: string): string {
+    if (!deviceType) return '';
+    // Ex: ELEVADOR -> Elevador (Simples Capitalização)
+    return deviceType.charAt(0).toUpperCase() + deviceType.slice(1).toLowerCase();
   }
 
   /**
@@ -201,26 +294,6 @@ export class DefaultSettingsPersister implements SettingsPersister {
 
     console.log(`[SettingsPersister] RFC-0086: Built mapInstantaneousPower for deviceType=${effectiveDeviceType}:`, result);
     return result;
-  }
-
-  /**
-   * Format device type name for display (e.g., ELEVADOR -> Elevador)
-   */
-  private formatDeviceTypeName(deviceType: string): string {
-    const map: Record<string, string> = {
-      'ELEVADOR': 'Elevator',
-      'ESCADA_ROLANTE': 'Escalator',
-      'MOTOR': 'Motor',
-      'BOMBA': 'Pump',
-      '3F_MEDIDOR': '3FMedidor',
-      'CHILLER': 'Chiller',
-      'FANCOIL': 'Fancoil',
-      'AR_CONDICIONADO': 'AirConditioner',
-      'HVAC': 'HVAC',
-      'HIDROMETRO': 'Hidrometro',
-      'TERMOSTATO': 'Termostato'
-    };
-    return map[deviceType] || deviceType;
   }
 
   private sanitizeLabel(label: string): string {

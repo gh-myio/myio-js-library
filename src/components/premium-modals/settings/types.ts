@@ -13,6 +13,7 @@ export interface OpenDashboardPopupSettingsParams {
   customerName?: string; // RFC-0077: Shopping center name to display above device label
   customerId?: string; // RFC-0080: Customer/Shopping ID for fetching GLOBAL mapInstantaneousPower
   mapInstantaneousPower?: object
+  deviceMapInstaneousPower?: object
 
 
   // Connection information (from card v5 info panel)
@@ -138,6 +139,7 @@ export interface ModalConfig {
   customerName?: string; // Shopping center name to display above device label
   customerId?: string; // RFC-0080: Customer/Shopping ID for fetching GLOBAL mapInstantaneousPower
   mapInstantaneousPower: object; // Map of instantaneous power limits
+  deviceMapInstaneousPower: object;
   deviceId?: string; // ThingsBoard device ID for fetching device-level attributes
   jwtToken?: string; // JWT token for API calls
   connectionData?: { // Connection info from card v5
