@@ -1130,6 +1130,7 @@ function renderList(visible) {
       updatedIdentifiers: it.updatedIdentifiers || {},
       connectionStatusTime: it.connectionStatusTime || Date.now(),
       timeVal: it.timeVal || Date.now(),
+      domain: 'energy', // RFC-0087: Energy domain for kWh/MWh/GWh formatting
     };
 
     // Use renderCardComponentHeadOffice like EQUIPMENTS
@@ -1146,6 +1147,15 @@ function renderList(visible) {
             return;
           }
 
+          // Validate date range is available
+          const startDate = self.ctx.scope?.startDateISO;
+          const endDate = self.ctx.scope?.endDateISO;
+          if (!startDate || !endDate) {
+            console.error('[STORES] [RFC-0072] Date range not available');
+            alert('Período de datas não definido. Aguarde o carregamento.');
+            return;
+          }
+
           const tokenIngestionDashBoard = await MyIOAuth.getToken();
           const myTbTokenDashBoard = localStorage.getItem('jwt_token');
 
@@ -1156,8 +1166,8 @@ function renderList(visible) {
           const modal = MyIOLibrary.openDashboardPopupEnergy({
             deviceId: entityObject.entityId,
             readingType: 'energy',
-            startDate: self.ctx.$scope.startDateISO,
-            endDate: self.ctx.$scope.endDateISO,
+            startDate: startDate,
+            endDate: endDate,
             tbJwtToken: myTbTokenDashBoard,
             ingestionToken: tokenIngestionDashBoard,
             clientId: CLIENT_ID,
@@ -1761,11 +1771,20 @@ function openFilterModal() {
   sortedList.forEach((store) => {
     const isChecked = !STATE.selectedIds || STATE.selectedIds.has(store.id);
 
+    // Get shopping name and consumption value
+    const shoppingName = getShoppingNameForDevice(store);
+    const consumption = Number(store.value) || Number(store.consumption) || Number(store.val) || 0;
+    const formattedConsumption = WIDGET_DOMAIN === 'energy'
+      ? MyIO.formatEnergy(consumption)
+      : consumption.toFixed(2);
+
     const item = document.createElement('div');
     item.className = 'check-item';
     item.innerHTML = `
       <input type="checkbox" id="check-${store.id}" ${isChecked ? 'checked' : ''} data-entity="${store.id}">
-      <span>${escapeHtml(store.label || store.identifier || store.id)}</span>
+      <span style="flex: 1;">${escapeHtml(store.label || store.identifier || store.id)}</span>
+      <span style="color: #64748b; font-size: 11px; margin-right: 8px;">${escapeHtml(shoppingName)}</span>
+      <span style="color: ${consumption > 0 ? '#16a34a' : '#94a3b8'}; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedConsumption}</span>
     `;
     checklist.appendChild(item);
   });

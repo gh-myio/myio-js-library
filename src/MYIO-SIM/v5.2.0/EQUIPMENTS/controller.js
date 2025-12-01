@@ -1588,7 +1588,24 @@ function initializeCards(devices) {
       },
 
       handleSelect: (checked, entity) => {
-        log(`Selection ${checked ? 'checked' : 'unchecked'}: ${entity.labelOrName}`);
+        // Busca a Store global
+        const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+        if (MyIOSelectionStore) {
+          if (checked) {
+            // 1. IMPORTANTE: Registra os dados (Nome, Valor, Unidade) na Store
+            // Se pularmos isso, o Footer vai mostrar um chip vazio ou com erro
+            if (MyIOSelectionStore.registerEntity) {
+              MyIOSelectionStore.registerEntity(entity);
+            }
+            // 2. Adiciona o ID na lista de selecionados
+            MyIOSelectionStore.add(entity.entityId || entity.id);
+          } else {
+            // 3. Remove o ID da lista
+            MyIOSelectionStore.remove(entity.entityId || entity.id);
+          }
+        } else {
+          console.warn('[Main Widget] MyIOSelectionStore não encontrada!');
+        }
       },
 
       handleClickCard: (ev, entity) => {
@@ -3114,15 +3131,18 @@ function openFilterModal() {
   STATE.allDevices.forEach((device) => {
     const isChecked = !STATE.selectedIds || STATE.selectedIds.has(device.entityId);
 
+    // Get shopping name and consumption value
+    const shoppingName = device.customerName || getCustomerNameForDevice(device);
+    const consumption = Number(device.value) || 0;
+    const formattedConsumption = MyIO?.formatEnergy ? MyIO.formatEnergy(consumption) : consumption.toFixed(2);
+
     const item = document.createElement('div');
     item.className = 'check-item';
     item.innerHTML = `
-      <input type="checkbox" id="check-${device.entityId}" ${isChecked ? 'checked' : ''} data-device-id="${
-      device.entityId
-    }">
-      <label for="check-${device.entityId}">${
-      device.labelOrName || device.deviceIdentifier || device.entityId
-    }</label>
+      <input type="checkbox" id="check-${device.entityId}" ${isChecked ? 'checked' : ''} data-device-id="${device.entityId}">
+      <label for="check-${device.entityId}" style="flex: 1;">${device.labelOrName || device.deviceIdentifier || device.entityId}</label>
+      <span style="color: #64748b; font-size: 11px; margin-right: 8px;">${shoppingName}</span>
+      <span style="color: ${consumption > 0 ? '#16a34a' : '#94a3b8'}; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedConsumption}</span>
     `;
 
     checklist.appendChild(item);

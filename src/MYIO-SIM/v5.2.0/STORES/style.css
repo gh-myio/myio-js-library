@@ -306,41 +306,59 @@
   /* APENAS a lista rola */
   overflow-x: hidden;
 
-  /* Suas regras de grid: */
+  /* Grid layout matching EQUIPMENTS */
   padding: 16px 10px 360px 10px;
   scroll-padding-bottom: 48px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   align-content: start;
-  justify-items: center;
 }
 
-.shops-root .card-wrapper,
+/* Card container styles - matching EQUIPMENTS .cards-grid > * */
 .shops-root .shops-list > * {
-  background: none;
-  border: none;
-  box-shadow: none;
-
-  border-radius: 14px;
-  width: 100%;
-  min-height: 120px;
-  min-width: 120px;
-  display: flex;
+  min-width: 0;
+  width: auto;
   box-sizing: border-box;
-  justify-content: center;
 }
 
-/* Ensure MyIOLibrary cards fit properly */
-.shops-root .shops-list .card-component,
-.shops-root .shops-list .myio-card,
-.shops-root .shops-list [class*='card'] {
-  max-width: none !important;
-  height: max-content !important;
-  box-sizing: border-box !important;
-  margin: 0 !important;
+/* Responsive grid - matching EQUIPMENTS */
+@media (min-width: 1920px) {
+  .shops-root .shops-list {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (min-width: 1600px) and (max-width: 1919px) {
+  .shops-root .shops-list {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 15px;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1599px) {
+  .shops-root .shops-list {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .shops-root .shops-list {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .shops-root .shops-list {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+  }
 }
 
 /* ============ Modal (fixed sizing - matching EQUIPMENTS) ============ */
@@ -756,8 +774,4 @@
   /* era 13px → 11px (-15%) */
 }
 
-/* Cards grid */
-.shops-root .shops-list {
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
-  /* era 260px → 220px */
-}
+/* Cards grid - RFC-0056 reduction removed, using EQUIPMENTS-style responsive grid */
