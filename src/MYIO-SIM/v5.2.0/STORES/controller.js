@@ -1063,13 +1063,15 @@ function getShoppingNameForDevice(device) {
  * @param {Array} stores - Array of store items to calculate stats from
  */
 function updateStoresStats(stores) {
-  const connectivityEl = document.getElementById('storesStatsConnectivity');
-  const totalEl = document.getElementById('storesStatsTotal');
-  const consumptionEl = document.getElementById('storesStatsConsumption');
-  const zeroEl = document.getElementById('storesStatsZero');
+  // Use $root() to find elements within widget scope (not document.getElementById)
+  const $widget = $root();
+  const connectivityEl = $widget.find('#storesStatsConnectivity')[0];
+  const totalEl = $widget.find('#storesStatsTotal')[0];
+  const consumptionEl = $widget.find('#storesStatsConsumption')[0];
+  const zeroEl = $widget.find('#storesStatsZero')[0];
 
   if (!connectivityEl || !totalEl || !consumptionEl || !zeroEl) {
-    LogHelper.warn('[STORES] Stats header elements not found');
+    LogHelper.warn('[STORES] Stats header elements not found in widget scope');
     return;
   }
 
@@ -1345,6 +1347,35 @@ function renderList(visible) {
           console.error('[STORES] [RFC-0072] Error opening settings:', e);
         }
       },
+
+      // RFC: Selection and drag support (like EQUIPMENTS)
+      handleSelectionChange: (isSelected, entity) => {
+        console.log(`[STORES] Selection changed: ${entity.labelOrName} -> ${isSelected}`);
+        // Get MyIOSelectionStore from window (same pattern as FOOTER)
+        const SelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+        if (SelectionStore) {
+          if (isSelected) {
+            // Register entity data for FOOTER display
+            if (SelectionStore.registerEntity) {
+              SelectionStore.registerEntity(entity);
+            }
+            SelectionStore.add(entity.entityId || entity.id);
+          } else {
+            SelectionStore.remove(entity.entityId || entity.id);
+          }
+        } else {
+          console.warn('[STORES] MyIOSelectionStore não encontrada! Verifique se a biblioteca foi carregada.');
+        }
+      },
+
+      handleClickCard: (ev, entity) => {
+        console.log(`[STORES] Card clicked: ${entity.labelOrName} - Value: ${entity.val}kWh`);
+      },
+
+      useNewComponents: true,
+      enableSelection: true,
+      enableDragDrop: true,
+      hideInfoMenuItem: true,
     });
   });
 
@@ -1451,15 +1482,21 @@ function setupModalCloseHandlers(modal) {
       filterTabs.forEach((t) => t.classList.remove('active'));
       tab.classList.add('active');
 
+      // Use itemsEnriched (has consumption values) with fallback to itemsBase
+      const sourceList = STATE.itemsEnriched && STATE.itemsEnriched.length > 0
+        ? STATE.itemsEnriched
+        : STATE.itemsBase || [];
+
       // Filter checkboxes based on selected tab
       const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']");
       checkboxes.forEach((cb) => {
         const entityId = cb.getAttribute('data-entity');
-        const store = STATE.itemsBase.find((s) => s.id === entityId);
+        const store = sourceList.find((s) => s.id === entityId);
 
         if (!store) return;
 
-        const consumption = Number(store.consumption) || Number(store.val) || 0;
+        // Use store.value first (set by enrichItemsWithTotals), then fallbacks
+        const consumption = Number(store.value) || Number(store.consumption) || Number(store.val) || 0;
         let shouldCheck = false;
 
         switch (filterType) {
@@ -1522,6 +1559,14 @@ function setupModalCloseHandlers(modal) {
 
 function openFilterModal() {
   console.log('[STORES] [RFC-0072] Opening filter modal...');
+
+  // Check if data has been loaded (itemsEnriched has real values, not all zeros)
+  const hasRealData = STATE.itemsEnriched && STATE.itemsEnriched.length > 0 &&
+    STATE.itemsEnriched.some(item => Number(item.value) > 0);
+
+  if (!hasRealData && STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
+    console.warn('[STORES] ⚠️ Filter modal opened before data loaded - values may be zero');
+  }
 
   // RFC-0072: Move modal to document.body for full-screen overlay
   let globalContainer = document.getElementById('storesFilterModalGlobal');
@@ -2467,6 +2512,12 @@ function reflowFromState() {
   const { visible: withPerc, groupSum } = recomputePercentages(visible);
   renderHeader(withPerc.length, groupSum);
   renderList(withPerc);
+
+  // Update stats header (Conectividade, Total de Lojas, Consumo, Sem Consumo)
+  // Use all enriched items for stats, not just visible/filtered ones
+  if (STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
+    updateStoresStats(STATE.itemsEnriched);
+  }
 }
 
 /** ===================== HYDRATE (end-to-end) ===================== **/
