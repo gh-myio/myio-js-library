@@ -1771,8 +1771,11 @@ self.onInit = async function () {
         .map(async ([entityId, device]) => {
           const tbToken = localStorage.getItem('jwt_token');
 
+          console.log('device', device);
+
           const lastConnectTimestamp = findValue(device.values, 'lastConnectTime', '');
           const lastDisconnectTimestamp = findValue(device.values, 'lastDisconnectTime', '');
+          const deviceMapInstaneousPower = findValue(device.values, 'deviceMapInstaneousPower', '');
 
           let operationHoursFormatted = '0s';
 
@@ -1864,6 +1867,7 @@ self.onInit = async function () {
             lastConnectTime: lastConnectTimestamp,
             lastActivityTime: findValue(device.values, 'lastActivityTime', null),
             mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
+            deviceMapInstaneousPower: deviceMapInstaneousPower,
             // RFC-0058: Add properties for MyIOSelectionStore (FOOTER)
             id: entityId, // Alias for entityId
             name: device.label, // Alias for labelOrName
@@ -3036,10 +3040,16 @@ function openFilterModal() {
     const item = document.createElement('div');
     item.className = 'check-item';
     item.innerHTML = `
-      <input type="checkbox" id="check-${device.entityId}" ${isChecked ? 'checked' : ''} data-device-id="${device.entityId}">
-      <label for="check-${device.entityId}" style="flex: 1;">${device.labelOrName || device.deviceIdentifier || device.entityId}</label>
+      <input type="checkbox" id="check-${device.entityId}" ${isChecked ? 'checked' : ''} data-device-id="${
+      device.entityId
+    }">
+      <label for="check-${device.entityId}" style="flex: 1;">${
+      device.labelOrName || device.deviceIdentifier || device.entityId
+    }</label>
       <span style="color: #64748b; font-size: 11px; margin-right: 8px;">${shoppingName}</span>
-      <span style="color: ${consumption > 0 ? '#16a34a' : '#94a3b8'}; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedConsumption}</span>
+      <span style="color: ${
+        consumption > 0 ? '#16a34a' : '#94a3b8'
+      }; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedConsumption}</span>
     `;
 
     checklist.appendChild(item);
