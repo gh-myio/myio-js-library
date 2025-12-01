@@ -1632,15 +1632,6 @@ self.onInit = async function () {
   };
   window.addEventListener("myio:filter-applied", self._onFilterApplied);
 
-  // ✅ Check if filter was already applied before EQUIPMENTS initialized
-  if (window.custumersSelected && Array.isArray(window.custumersSelected) && window.custumersSelected.length > 0) {
-    LogHelper.log("[EQUIPMENTS] 🔄 Applying pre-existing filter:", window.custumersSelected.length, "shoppings");
-    const shoppingIds = window.custumersSelected.map(s => s.value).filter(v => v);
-    STATE.selectedShoppingIds = shoppingIds;
-    renderShoppingFilterChips(window.custumersSelected);
-    // reflowCards will be called after loadData completes
-  }
-
   // Function to render shopping filter chips in toolbar
   function renderShoppingFilterChips(selection) {
     const chipsContainer = document.getElementById("shoppingFilterChips");
@@ -1660,6 +1651,16 @@ self.onInit = async function () {
     });
 
     LogHelper.log("[EQUIPMENTS] 📍 Rendered", selection.length, "shopping filter chips");
+  }
+
+  // ✅ Check if filter was already applied before EQUIPMENTS initialized
+  // Must be AFTER renderShoppingFilterChips definition
+  if (window.custumersSelected && Array.isArray(window.custumersSelected) && window.custumersSelected.length > 0) {
+    LogHelper.log("[EQUIPMENTS] 🔄 Applying pre-existing filter:", window.custumersSelected.length, "shoppings");
+    const shoppingIds = window.custumersSelected.map(s => s.value).filter(v => v);
+    STATE.selectedShoppingIds = shoppingIds;
+    renderShoppingFilterChips(window.custumersSelected);
+    // reflowCards will be called after loadData completes
   }
 
   //  console.log("[equipaments] self.ctx:", self.ctx);

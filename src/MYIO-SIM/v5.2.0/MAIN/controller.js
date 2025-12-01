@@ -927,6 +927,7 @@ const MyIOOrchestrator = (() => {
             ingestionId: device.id,
             name: device.name,
             total_value: device.total_value || 0,
+            customerId: device.customerId || device.customer_id || null, // For filtering by shopping
             timestamp: Date.now(),
           });
         }

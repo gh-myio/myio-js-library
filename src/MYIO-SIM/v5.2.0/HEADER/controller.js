@@ -1353,22 +1353,10 @@ async function updateTemperatureCard() {
       }
     });
 
-    console.log('[HEADER] Temperature matching:', {
-      ownerName,
-      normalizedOwnerName,
-      ranges: Array.from(rangesByShopping.entries()).map(([k, v]) => ({
-        key: k,
-        label: v.entityLabel,
-        normalized: normalize(v.entityLabel),
-        min: v.min,
-        max: v.max,
-      })),
-      matchedRange,
-    });
-
-    // Se não encontrou por nome, NÃO usa fallback (cada shopping deve ter sua própria faixa)
-    if (!matchedRange) {
-      console.warn(`[HEADER] No temperature range found for shopping: ${ownerName}`);
+    // Se não encontrou por nome, usa a faixa default (primeira disponível)
+    if (!matchedRange && rangesByShopping.size > 0) {
+      matchedRange = rangesByShopping.values().next().value;
+      console.log(`[HEADER] Using default range for ${ownerName}:`, matchedRange);
     }
 
     const shoppingInfo = {
