@@ -10,7 +10,7 @@
 
 /* eslint-disable no-undef, no-unused-vars */
 // Debug configuration
-const DEBUG_ACTIVE = true; // Set to false to disable debug logs
+const DEBUG_ACTIVE = false; // Set to false to disable debug logs
 
 // LogHelper utility
 const LogHelper = {
@@ -43,7 +43,9 @@ function getShoppingLabel() {
   try {
     const stored = localStorage.getItem('__MYIO_SHOPPING_LABEL__');
     return stored ? JSON.parse(stored) : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 const MAX_FIRST_HYDRATES = 1;
 
@@ -926,7 +928,9 @@ async function fetchApiTotals(startISO, endISO) {
   const token = await MyIOAuth.getToken();
   if (!token) throw new Error('No ingestion token');
 
-  const url = new URL(`${getDataApiHost()}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/energy/devices/totals`);
+  const url = new URL(
+    `${getDataApiHost()}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/energy/devices/totals`
+  );
   url.searchParams.set('startTime', toSpOffsetNoMs(startISO));
   url.searchParams.set('endTime', toSpOffsetNoMs(endISO, true));
   url.searchParams.set('deep', '1');
@@ -1053,6 +1057,58 @@ function getShoppingNameForDevice(device) {
 }
 
 /** ===================== RENDER ===================== **/
+
+/**
+ * Update stores statistics header (Conectividade, Total de Lojas, etc)
+ * @param {Array} stores - Array of store items to calculate stats from
+ */
+function updateStoresStats(stores) {
+  const connectivityEl = document.getElementById('storesStatsConnectivity');
+  const totalEl = document.getElementById('storesStatsTotal');
+  const consumptionEl = document.getElementById('storesStatsConsumption');
+  const zeroEl = document.getElementById('storesStatsZero');
+
+  if (!connectivityEl || !totalEl || !consumptionEl || !zeroEl) {
+    LogHelper.warn('[STORES] Stats header elements not found');
+    return;
+  }
+
+  // Calculate stats from stores array
+  let onlineCount = 0;
+  let totalConsumption = 0;
+  let zeroConsumptionCount = 0;
+
+  stores.forEach((store) => {
+    const consumption = Number(store.value) || Number(store.val) || 0;
+    totalConsumption += consumption;
+
+    if (consumption > 0) {
+      onlineCount++;
+    } else {
+      zeroConsumptionCount++;
+    }
+  });
+
+  // Calculate connectivity percentage
+  const totalStores = stores.length;
+  const connectivityPercentage = totalStores > 0 ? ((onlineCount / totalStores) * 100).toFixed(1) : '0.0';
+
+  // Update UI
+  connectivityEl.textContent = `${onlineCount}/${totalStores} (${connectivityPercentage}%)`;
+  totalEl.textContent = totalStores.toString();
+  consumptionEl.textContent = WIDGET_DOMAIN === 'energy'
+    ? MyIO.formatEnergy(totalConsumption)
+    : totalConsumption.toFixed(2);
+  zeroEl.textContent = zeroConsumptionCount.toString();
+
+  LogHelper.log('[STORES] Stats updated:', {
+    connectivity: `${onlineCount}/${totalStores} (${connectivityPercentage}%)`,
+    total: totalStores,
+    consumption: totalConsumption,
+    zeroCount: zeroConsumptionCount,
+  });
+}
+
 function renderHeader(count, groupSum) {
   $count().text(`(${count})`);
 
@@ -1131,6 +1187,12 @@ function renderList(visible) {
       connectionStatusTime: it.connectionStatusTime || Date.now(),
       timeVal: it.timeVal || Date.now(),
       domain: 'energy', // RFC-0087: Energy domain for kWh/MWh/GWh formatting
+      // RFC-0058: Add properties for MyIOSelectionStore (FOOTER) - draggable/selectable support
+      id: it.tbId || it.id, // Alias for entityId
+      name: it.label, // Alias for labelOrName
+      lastValue: valNum, // Alias for val
+      unit: 'kWh', // Energy unit
+      icon: 'energy', // Domain identifier for SelectionStore
     };
 
     // Use renderCardComponentHeadOffice like EQUIPMENTS
@@ -1718,7 +1780,9 @@ function openFilterModal() {
   modal.classList.remove('hidden');
 
   // Calculate counts for filter tabs
-  const list = STATE.itemsBase || [];
+  // Use itemsEnriched (has consumption values) with fallback to itemsBase
+  const list =
+    STATE.itemsEnriched && STATE.itemsEnriched.length > 0 ? STATE.itemsEnriched : STATE.itemsBase || [];
   const counts = {
     all: list.length,
     online: 0,
@@ -1728,7 +1792,7 @@ function openFilterModal() {
   };
 
   list.forEach((store) => {
-    const consumption = Number(store.consumption) || Number(store.val) || 0;
+    const consumption = Number(store.value) || Number(store.consumption) || Number(store.val) || 0;
 
     // Use consumption as proxy for online/offline status
     if (consumption > 0) {
@@ -1774,9 +1838,8 @@ function openFilterModal() {
     // Get shopping name and consumption value
     const shoppingName = getShoppingNameForDevice(store);
     const consumption = Number(store.value) || Number(store.consumption) || Number(store.val) || 0;
-    const formattedConsumption = WIDGET_DOMAIN === 'energy'
-      ? MyIO.formatEnergy(consumption)
-      : consumption.toFixed(2);
+    const formattedConsumption =
+      WIDGET_DOMAIN === 'energy' ? MyIO.formatEnergy(consumption) : consumption.toFixed(2);
 
     const item = document.createElement('div');
     item.className = 'check-item';
@@ -1784,7 +1847,9 @@ function openFilterModal() {
       <input type="checkbox" id="check-${store.id}" ${isChecked ? 'checked' : ''} data-entity="${store.id}">
       <span style="flex: 1;">${escapeHtml(store.label || store.identifier || store.id)}</span>
       <span style="color: #64748b; font-size: 11px; margin-right: 8px;">${escapeHtml(shoppingName)}</span>
-      <span style="color: ${consumption > 0 ? '#16a34a' : '#94a3b8'}; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedConsumption}</span>
+      <span style="color: ${
+        consumption > 0 ? '#16a34a' : '#94a3b8'
+      }; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedConsumption}</span>
     `;
     checklist.appendChild(item);
   });

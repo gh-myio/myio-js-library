@@ -8,7 +8,7 @@ let INGESTION_ID;
 let MAP_INSTANTANEOUS_POWER;
 
 // Debug configuration
-const DEBUG_ACTIVE = true;
+const DEBUG_ACTIVE = false;
 console.log('[MYIO EQUIPMENTS] Script loaded, DEBUG_ACTIVE=' + DEBUG_ACTIVE);
 
 // LogHelper utility
@@ -3133,16 +3133,22 @@ function openFilterModal() {
 
     // Get shopping name and consumption value
     const shoppingName = device.customerName || getCustomerNameForDevice(device);
-    const consumption = Number(device.value) || 0;
+    const consumption = Number(device.val) || Number(device.lastValue) || 0;
     const formattedConsumption = MyIO?.formatEnergy ? MyIO.formatEnergy(consumption) : consumption.toFixed(2);
 
     const item = document.createElement('div');
     item.className = 'check-item';
     item.innerHTML = `
-      <input type="checkbox" id="check-${device.entityId}" ${isChecked ? 'checked' : ''} data-device-id="${device.entityId}">
-      <label for="check-${device.entityId}" style="flex: 1;">${device.labelOrName || device.deviceIdentifier || device.entityId}</label>
+      <input type="checkbox" id="check-${device.entityId}" ${isChecked ? 'checked' : ''} data-device-id="${
+      device.entityId
+    }">
+      <label for="check-${device.entityId}" style="flex: 1;">${
+      device.labelOrName || device.deviceIdentifier || device.entityId
+    }</label>
       <span style="color: #64748b; font-size: 11px; margin-right: 8px;">${shoppingName}</span>
-      <span style="color: ${consumption > 0 ? '#16a34a' : '#94a3b8'}; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedConsumption}</span>
+      <span style="color: ${
+        consumption > 0 ? '#16a34a' : '#94a3b8'
+      }; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedConsumption}</span>
     `;
 
     checklist.appendChild(item);
