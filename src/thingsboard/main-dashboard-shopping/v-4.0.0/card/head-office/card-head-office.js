@@ -76,6 +76,29 @@ function getIconSvg(deviceType) {
 }
 
 /**
+ * Format power value (W to kW conversion)
+ * If value >= 1000W, convert to kW with 2 decimal places rounded up
+ * @param {number} valueInWatts - Power value in Watts
+ * @returns {{ num: string, unit: string }}
+ */
+function formatPower(valueInWatts) {
+  if (valueInWatts === null || valueInWatts === undefined || isNaN(valueInWatts)) {
+    return { num: '-', unit: '' };
+  }
+
+  const val = Number(valueInWatts);
+  if (val >= 1000) {
+    // Convert to kW, round up to 2 decimal places
+    const kw = Math.ceil((val / 1000) * 100) / 100;
+    return { num: kw.toFixed(2), unit: 'kW' };
+  } else {
+    // Keep in W, round up
+    const w = Math.ceil(val);
+    return { num: w.toString(), unit: 'W' };
+  }
+}
+
+/**
  * Format primary value based on type
  */
 function formatPrimaryValue(val, valType) {
@@ -85,9 +108,18 @@ function formatPrimaryValue(val, valType) {
 
   switch (valType) {
     case 'power_kw':
+      // val is already in kWh (consumption)
       return {
         num: val.toFixed(1),
         unit: 'kWh',
+        suffix: '',
+      };
+    case 'power_w':
+      // val is in Watts, convert if >= 1000
+      const formatted = formatPower(val);
+      return {
+        num: formatted.num,
+        unit: formatted.unit,
         suffix: '',
       };
     case 'flow_m3h':
@@ -622,11 +654,12 @@ function paint(root, state) {
     opTimeVal.textContent = entityObject.operationHours ?? '-';
   }
 
-  // Instantaneous Power (kW)
+  // Instantaneous Power (W/kW) - value comes in Watts
   const powerVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(2) .val');
   if (powerVal) {
     const instantPower = entityObject.instantaneousPower ?? entityObject.consumption_power ?? null;
-    powerVal.textContent = instantPower !== null ? `${Number(instantPower).toFixed(2)} kW` : '-';
+    const powerFormatted = formatPower(instantPower);
+    powerVal.textContent = instantPower !== null ? `${powerFormatted.num} ${powerFormatted.unit}` : '-';
   }
 }
 
