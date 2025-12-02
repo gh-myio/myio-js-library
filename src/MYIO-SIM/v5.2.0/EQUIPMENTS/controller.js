@@ -45,6 +45,7 @@ let CUSTOMER_ID;
 let CLIENT_ID;
 let CLIENT_SECRET;
 let MAP_INSTANTANEOUS_POWER;
+let DELAY_TIME_CONNECTION_MINS;
 let myIOAuth; // Instance of MyIO auth component from MyIOLibrary
 
 // RFC-0093: Centralized header controller
@@ -633,6 +634,7 @@ self.onInit = async function () {
       // Still need to fetch mapInstantaneousPower (not in MAIN)
       const customerCredentials = await fetchCustomerServerScopeAttrs(CUSTOMER_ID);
       MAP_INSTANTANEOUS_POWER = customerCredentials.mapInstantaneousPower;
+      DELAY_TIME_CONNECTION_MINS = window.MyIOUtils?.getDelayTimeConnectionInMins();
     } else {
       // Fallback: fetch all credentials directly
       LogHelper.log('[EQUIPMENTS] MAIN credentials not available, fetching directly...');
@@ -642,6 +644,7 @@ self.onInit = async function () {
       CLIENT_ID = customerCredentials.client_id || ' ';
       CLIENT_SECRET = customerCredentials.client_secret || ' ';
       MAP_INSTANTANEOUS_POWER = customerCredentials.mapInstantaneousPower;
+      DELAY_TIME_CONNECTION_MINS = window.MyIOUtils?.getDelayTimeConnectionInMins();
     }
 
     // Initialize MyIO Auth using MyIOLibrary (like MAIN widget)
