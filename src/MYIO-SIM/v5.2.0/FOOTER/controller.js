@@ -25,26 +25,13 @@ function getDataApiHost() {
   return localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com';
 }
 
-// Debug configuration
-const DEBUG_ACTIVE = false;
-
-// LogHelper utility
-const LogHelper = {
-  log: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.log(...args);
-    }
-  },
-  warn: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.warn(...args);
-    }
-  },
-  error: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.error(...args);
-    }
-  },
+// ============================================
+// SHARED UTILITIES (from MAIN via window.MyIOUtils)
+// ============================================
+const LogHelper = window.MyIOUtils?.LogHelper || {
+  log: (...args) => console.log(...args),
+  warn: (...args) => console.warn(...args),
+  error: (...args) => console.error(...args),
 };
 
 // --- 2. Injeção de CSS (executada uma vez) ---

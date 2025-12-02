@@ -452,7 +452,11 @@ function injectModalGlobal() {
         })
       );
 
-      LogHelper.log('[MENU] ✅ Event dispatched successfully with', eventDetail.selection.length, 'customers.');
+      LogHelper.log(
+        '[MENU] ✅ Event dispatched successfully with',
+        eventDetail.selection.length,
+        'customers.'
+      );
 
       // Reabilita botão e Fecha modal
       elApply.disabled = false;
@@ -662,14 +666,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     LogHelper.log('[SETUP] CSS Global do Modal injetado com sucesso.');
   }
 
-  // Extrai o segmento após 'all/' da URL
-  function getSegmentAfterAll() {
-    const match = window.location.href.match(/all\/([^\/?#]+)/i);
-    return match ? match[1] : null;
-  }
-
-  const dashboardId = getSegmentAfterAll();
-
   // Mapeamento dos botões → estados
   const dashboards = {
     equipmentsButton: {
@@ -693,7 +689,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       stateId: 'content_water_stores',
       state: 'W3siaWQiOiJjb250ZW50X3dhdGVyX3N0b3JlcyIsInBhcmFtcyI6e319XQ==',
     },
+    // RFC-0092: Temperature states (sensors, comparison)
     temperatureButton: {
+      stateId: 'content_temperature_sensors',
+      state: 'W3siaWQiOiJjb250ZW50X3RlbXBlcmF0dXJlX3NlbnNvcnMiLCJwYXJhbXMiOnt9fV0=',
+    },
+    temperatureComparisonButton: {
       stateId: 'content_temperature',
       state: 'W3siaWQiOiJjb250ZW50X3RlbXBlcmF0dXJlIiwicGFyYW1zIjp7fX1d',
     },
@@ -1111,7 +1112,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         });
 
         // ✅ Abre o painel de metas usando MyIOLibrary
-        const panel = MyIOLibrary.openGoalsPanel({
+        MyIOLibrary.openGoalsPanel({
           customerId: customerId, // Customer pai (Holding)
           token: token, // Token do localStorage
           api: {
@@ -1439,7 +1440,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
       if (!isVisible) {
         // --- SINCRONIZAÇÃO VISUAL DO MODAL ---
-        const waterStates = ['content_water', 'content_water_common_area', 'content_water_stores'];
         const currentState = self.ctx?.$scope?.mainContentStateId || 'content_water';
 
         const modalOptions = waterModal.querySelectorAll('.water-modal-option');
@@ -1557,6 +1557,163 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     LogHelper.log('[SETUP] RFC-0087: Water Modal setup complete');
   }, 1100);
 
+  // ==============================================================
+  // RFC-0092: TEMPERATURE MODAL SETUP (Similar to Water Modal)
+  // ==============================================================
+  setTimeout(() => {
+    LogHelper.log('[SETUP] RFC-0092: Iniciando fix do Temperature Modal...');
+
+    const tempBtn = document.getElementById('temperatureButton');
+    let tempModal = document.getElementById('temperatureContextModal');
+    const mainView = document.querySelector('#mainView') || document.getElementById('mainView');
+
+    if (!tempBtn || !tempModal) {
+      LogHelper.warn('[SETUP] Temperature button or modal not found');
+      return;
+    }
+
+    // 1. CLONAR BOTÃO (Limpar listeners antigos)
+    const newTempBtn = tempBtn.cloneNode(true);
+    tempBtn.parentNode.replaceChild(newTempBtn, tempBtn);
+
+    // 2. MOVER O MODAL PARA A RAIZ (evita cortes visuais)
+    if (tempModal.parentNode !== document.body) {
+      tempModal.parentNode.removeChild(tempModal);
+      document.body.appendChild(tempModal);
+    }
+
+    // 3. AÇÃO DE CLIQUE DO BOTÃO TEMPERATURA
+    newTempBtn.onclick = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      LogHelper.log('[CLICK] Botão Temperatura Clicado');
+
+      // --- LIMPEZA DE ABAS ---
+      const allTabs = document.querySelectorAll('.myio-tabs .tab');
+      allTabs.forEach((t) => t.classList.remove('is-active'));
+      newTempBtn.classList.add('is-active');
+
+      // Verifica se vai abrir ou fechar
+      const isVisible = tempModal.style.display === 'flex';
+
+      if (!isVisible) {
+        // --- SINCRONIZAÇÃO VISUAL DO MODAL ---
+        const currentState = self.ctx?.$scope?.mainContentStateId || 'content_temperature_sensors';
+
+        const modalOptions = tempModal.querySelectorAll('.temperature-modal-option');
+        modalOptions.forEach((opt) => {
+          if (opt.getAttribute('data-target') === currentState) {
+            opt.classList.add('is-active');
+          } else {
+            opt.classList.remove('is-active');
+          }
+        });
+
+        LogHelper.log('[ACTION] Abrindo temperature modal sincronizado...');
+
+        // Abre o modal com CSS forçado
+        tempModal.style.cssText = `
+          display: flex !important;
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          background-color: rgba(0,0,0,0.6) !important;
+          z-index: 2147483647 !important;
+          align-items: center !important;
+          justify-content: center !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        `;
+
+        // Estiliza conteúdo interno
+        const content = tempModal.querySelector('.temperature-modal-content');
+        if (content) {
+          content.style.cssText = `
+            display: flex !important;
+            flex-direction: column !important;
+            background: white !important;
+            padding: 0 !important;
+            border-radius: 16px !important;
+            min-width: 320px !important;
+            z-index: 2147483647 !important;
+            opacity: 1 !important;
+            border: none !important;
+            overflow: hidden !important;
+          `;
+        }
+      } else {
+        tempModal.style.display = 'none';
+      }
+    };
+
+    // 4. AÇÃO DAS OPÇÕES (DENTRO DO MODAL)
+    const tempOptions = tempModal.querySelectorAll('.temperature-modal-option');
+    tempOptions.forEach((opt) => {
+      opt.onclick = function (ev) {
+        ev.stopPropagation();
+        const targetStateId = this.getAttribute('data-target');
+        const contextName = this.querySelector('.option-title')?.innerText;
+
+        // Atualiza label visual
+        const label = document.getElementById('temperatureContextLabel');
+        if (label && contextName) label.innerText = `Temperatura: ${contextName}`;
+
+        // Atualiza opção ativa
+        tempOptions.forEach((o) => o.classList.remove('is-active'));
+        this.classList.add('is-active');
+
+        // Fecha modal
+        tempModal.style.display = 'none';
+
+        // Troca de tela
+        if (targetStateId && mainView) {
+          const allStates = mainView.querySelectorAll('[data-content-state]');
+          allStates.forEach((d) => d.style.setProperty('display', 'none', 'important'));
+
+          const targetDiv = mainView.querySelector(`[data-content-state="${targetStateId}"]`);
+          if (targetDiv) {
+            targetDiv.style.setProperty('display', 'block', 'important');
+
+            // Mantém botão ativo
+            newTempBtn.classList.add('is-active');
+
+            // Atualiza escopo angular
+            if (self.ctx?.$scope) {
+              self.ctx.$scope.mainContentStateId = targetStateId;
+              if (self.ctx.$scope.$applyAsync) self.ctx.$scope.$applyAsync();
+            }
+
+            // RFC-0092: Dispatch myio:dashboard-state to notify FOOTER of domain change (clear selection)
+            LogHelper.log(`[MENU] Dispatching myio:dashboard-state for domain: temperature`);
+            window.dispatchEvent(
+              new CustomEvent('myio:dashboard-state', {
+                detail: {
+                  domain: 'temperature',
+                  stateId: targetStateId,
+                  ts: Date.now(),
+                },
+              })
+            );
+
+            LogHelper.log(`[MENU] RFC-0092: Switched to temperature state: ${targetStateId}`);
+          }
+        }
+      };
+    });
+
+    // 5. FECHAR AO CLICAR NO FUNDO
+    tempModal.onclick = function (e) {
+      if (e.target === tempModal) {
+        tempModal.style.display = 'none';
+      }
+    };
+
+    LogHelper.log('[SETUP] RFC-0092: Temperature Modal setup complete');
+  }, 1200);
+
   const originalDestroy = self.onDestroy;
   self.onDestroy = function () {
     if (originalDestroy) originalDestroy();
@@ -1572,6 +1729,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     if (waterModal && waterModal.parentNode === document.body) {
       document.body.removeChild(waterModal);
     }
+
+    // RFC-0092: Remove temperature modal from body
+    const tempModal = document.getElementById('temperatureContextModal');
+    if (tempModal && tempModal.parentNode === document.body) {
+      document.body.removeChild(tempModal);
+    }
   };
 
   // ==============================================================
@@ -1583,6 +1746,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const energyStates = ['content_equipments', 'content_energy', 'content_store'];
   // RFC-0087: Water states for tab highlighting
   const waterStates = ['content_water', 'content_water_common_area', 'content_water_stores'];
+  // RFC-0092: Temperature states for tab highlighting
+  const temperatureStates = ['content_temperature', 'content_temperature_sensors'];
 
   window.addEventListener('myio:switch-main-state', (ev) => {
     const targetId = ev.detail?.targetStateId;
@@ -1610,7 +1775,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     } else if (waterStates.includes(targetId)) {
       // RFC-0087: Highlight water button for any water state
       if (btnWater) btnWater.classList.add('is-active');
-    } else if (targetId === 'content_temperature') {
+    } else if (temperatureStates.includes(targetId)) {
+      // RFC-0092: Highlight temperature button for any temperature state
       if (btnTemp) btnTemp.classList.add('is-active');
     }
   });
@@ -1623,15 +1789,6 @@ self.onDataUpdated = function () {
   // 2) O restante do fluxo pode continuar limitado por MAX_DATA_REFRESHES
   if (_dataRefreshCount >= MAX_DATA_REFRESHES) return;
   _dataRefreshCount++;
-
-  const totalDevices = self.ctx.data.length;
-  let onlineDevices = 0;
-  self.ctx.data.forEach((device) => {
-    const status = device.data?.[0]?.[1];
-    if (status === 'online') onlineDevices++;
-  });
-  let percentage = totalDevices > 0 ? ((onlineDevices / totalDevices) * 100).toFixed(1) : 0;
-  percentage = Number(percentage).toFixed(0);
 };
 
 self.onDestroy = function () {

@@ -9,29 +9,17 @@
  * =========================================================================*/
 
 /* eslint-disable no-undef, no-unused-vars */
-// Debug configuration
-const DEBUG_ACTIVE = true; // Set to false to disable debug logs
 
-// LogHelper utility
-const LogHelper = {
-  log: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.log(...args);
-    }
-  },
-  warn: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.warn(...args);
-    }
-  },
-  error: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.error(...args);
-    }
-  },
+// ============================================
+// SHARED UTILITIES (from MAIN via window.MyIOUtils)
+// ============================================
+const LogHelper = window.MyIOUtils?.LogHelper || {
+  log: (...args) => console.log(...args),
+  warn: (...args) => console.warn(...args),
+  error: (...args) => console.error(...args),
 };
 
-LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
+LogHelper.log('🚀 [WATER_STORES] Controller loaded');
 
 // RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
 function getDataApiHost() {
@@ -1026,8 +1014,10 @@ function renderList(visible) {
     };
 
     // Use renderCardComponentHeadOffice like EQUIPMENTS
+    // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (default 60 minutes)
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: entityObject,
+      delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
 
       handleActionDashboard: async () => {
         console.log('[WATER_STORES] [RFC-0072] Opening energy dashboard for:', entityObject.entityId);

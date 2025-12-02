@@ -56,12 +56,13 @@ let __deviceProfileSyncComplete = false;
 window.__customerPowerLimitsJSON = null;
 
 // findValue helper function (from MAIN via MyIOUtils)
+// RFC-0091: Fallback supports both { key, value } and { dataType, value } formats
 const findValue =
   window.MyIOUtils?.findValue ||
   ((values, key, defaultValue = null) => {
     console.error('[EQUIPMENTS] findValue not available - MAIN widget not loaded');
     if (!Array.isArray(values)) return defaultValue;
-    const found = values.find((v) => v.key === key);
+    const found = values.find((v) => v.key === key || v.dataType === key);
     return found ? found.value : defaultValue;
   });
 
@@ -149,8 +150,10 @@ function initializeCards(devices) {
     device.customerName = customerName;
     device.domain = 'energy'; // RFC-0087: Energy domain for kWh/MWh/GWh formatting
 
+    // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (default 60 minutes)
     MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
+      delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
       handleActionDashboard: async () => {
         // RFC-0072: Enhanced modal handling to prevent corruption
         LogHelper.log('[EQUIPMENTS] [RFC-0072] Opening energy dashboard for:', device.entityId);
@@ -728,7 +731,7 @@ self.onInit = async function () {
             deviceStatus: deviceStatus,
             valType: 'power_w',
             perc: Math.floor(Math.random() * (95 - 70 + 1)) + 70,
-            temperatureC: deviceTemperature[0].value,
+            temperatureC: deviceTemperature || 0, // RFC-0091: Fixed - deviceTemperature is a number, not array
             operationHours: operationHoursFormatted || 0,
             updated: updatedFormatted,
             instantaneousPower: instantaneousPower, // Potência instantânea (kW) from ctx.data
@@ -886,16 +889,17 @@ self.onInit = async function () {
 
           if (cached) {
             // Remove old consumption data if exists
+            // RFC-0091: Use 'value' property to match findValue expected format
             const consumptionIndex = device.values.findIndex((v) => v.dataType === 'consumption');
             if (consumptionIndex >= 0) {
               device.values[consumptionIndex] = {
-                val: cached.total_value,
+                value: cached.total_value,
                 ts: cached.timestamp,
                 dataType: 'consumption',
               };
             } else {
               device.values.push({
-                val: cached.total_value,
+                value: cached.total_value,
                 ts: cached.timestamp,
                 dataType: 'consumption',
               });

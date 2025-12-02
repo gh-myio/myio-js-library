@@ -43,7 +43,6 @@
         "title": "Card Água - Font Color",
         "default": "#F2F2F2"
       }
-    },
-    "required": ["customerId"]
+    }
   }
 }

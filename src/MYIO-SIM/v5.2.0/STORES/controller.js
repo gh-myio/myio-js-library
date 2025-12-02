@@ -816,8 +816,10 @@ async function renderList(visible) {
       deviceMapInstaneousPower: it.deviceMapInstaneousPower || null, // Device-specific map
     };
 
+    // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (default 60 minutes)
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: entityObject,
+      delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
 
       // --- DIFERENÇA 2: Callback de clique (mesmo que apenas logue) ---
       // Isso muitas vezes ativa o wrapper interativo do card
@@ -2132,58 +2134,51 @@ self.onInit = async function () {
 
   window.addEventListener('myio:telemetry:update', requestRefreshHandler);
 
-  // Auth do cliente/ingestion
-  const customerTB_ID = self.ctx.settings?.customerTB_ID || '';
-  //DEVICE_TYPE = self.ctx.settings?.DEVICE_TYPE || "energy";
+  // RFC-0091: Use credentials from MAIN via MyIOUtils (already fetched by MAIN)
   const jwt = localStorage.getItem('jwt_token');
-  const boolExecSync = false;
 
-  // RFC-0071: Trigger device profile synchronization (runs once)
-  if (!__deviceProfileSyncComplete && boolExecSync) {
+  // Try to get credentials from MAIN first
+  const mainCredentials = window.MyIOUtils?.getCredentials?.();
+  if (mainCredentials?.clientId && mainCredentials?.clientSecret) {
+    CLIENT_ID = mainCredentials.clientId;
+    CLIENT_SECRET = mainCredentials.clientSecret;
+    CUSTOMER_ING_ID = mainCredentials.customerIngestionId || '';
+    LogHelper.log('[STORES] Using credentials from MAIN (MyIOUtils)');
+  } else {
+    // Fallback: fetch credentials directly if MAIN not ready
+    LogHelper.log('[STORES] MAIN credentials not available, fetching directly...');
+    const customerTB_ID = window.MyIOUtils?.getCustomerId?.() || self.ctx.settings?.customerTB_ID || '';
+
     try {
-      console.log('[EQUIPMENTS] [RFC-0071] Triggering device profile sync...');
-      const syncResult = await syncDeviceProfileAttributes();
-      __deviceProfileSyncComplete = true;
-
-      if (syncResult.synced > 0) {
-        console.log(
-          '[EQUIPMENTS] [RFC-0071] ⚠️ Widget reload recommended to load new deviceProfile attributes'
-        );
-        console.log(
-          '[EQUIPMENTS] [RFC-0071] You may need to refresh the dashboard to see deviceProfile in ctx.data'
-        );
-      }
-    } catch (error) {
-      console.error('[EQUIPMENTS] [RFC-0071] Sync failed, continuing without it:', error);
-      // Don't block widget initialization if sync fails
+      const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
+      CLIENT_ID = attrs?.client_id || '';
+      CLIENT_SECRET = attrs?.client_secret || '';
+      CUSTOMER_ING_ID = attrs?.ingestionId || '';
+    } catch (err) {
+      LogHelper.error('[STORES] Failed to fetch credentials:', err);
     }
   }
 
-  try {
-    const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
-    CLIENT_ID = attrs?.client_id || '';
-    CLIENT_SECRET = attrs?.client_secret || '';
-    CUSTOMER_ING_ID = attrs?.ingestionId || '';
-
-    // Expõe credenciais globalmente para uso no FOOTER (modal de comparação)
-    window.__MYIO_CLIENT_ID__ = CLIENT_ID;
-    window.__MYIO_CLIENT_SECRET__ = CLIENT_SECRET;
-    window.__MYIO_CUSTOMER_ING_ID__ = CUSTOMER_ING_ID;
-
-    MyIOAuth = MyIO.buildMyioIngestionAuth({
-      dataApiHost: getDataApiHost(),
-      clientId: CLIENT_ID,
-      clientSecret: CLIENT_SECRET,
-    });
-
-    LogHelper.log('[DeviceCards] Auth init OK');
+  // Initialize auth if we have credentials
+  if (CLIENT_ID && CLIENT_SECRET) {
     try {
-      await MyIOAuth.getToken();
-    } catch (_e) {
-      /* ignore token errors */
+      MyIOAuth = MyIO.buildMyioIngestionAuth({
+        dataApiHost: getDataApiHost(),
+        clientId: CLIENT_ID,
+        clientSecret: CLIENT_SECRET,
+      });
+
+      LogHelper.log('[STORES] Auth init OK');
+      try {
+        await MyIOAuth.getToken();
+      } catch (_e) {
+        /* ignore token errors */
+      }
+    } catch (err) {
+      LogHelper.error('[STORES] Auth init FAIL', err);
     }
-  } catch (err) {
-    LogHelper.error('[DeviceCards] Auth init FAIL', err);
+  } else {
+    LogHelper.warn('[STORES] No credentials available for auth initialization');
   }
 
   // Bind UI

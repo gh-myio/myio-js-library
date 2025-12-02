@@ -6,6 +6,12 @@
       "customerId": {
         "type": "string",
         "title": "customerId"
+      },
+      "delayTimeConnectionInMins": {
+        "type": "number",
+        "title": "Delay Time Connection (minutes)",
+        "default": 60,
+        "description": "RFC-0091: Delay time in minutes for connection status probation period. Devices connected for less than this time are considered offline."
       }
     },
     "required": ["customerId"]

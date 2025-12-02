@@ -57,6 +57,8 @@ function normalizeParams(params) {
     enableSelection: Boolean(params.enableSelection),
     enableDragDrop: Boolean(params.enableDragDrop),
     useNewComponents: Boolean(params.useNewComponents),
+    // RFC-0091: Configurable delay time for connection status check (default 15 minutes)
+    delayTimeConnectionInMins: params.delayTimeConnectionInMins ?? 15,
     callbacks: {
       handleActionDashboard: params.handleActionDashboard,
       handleActionReport: params.handleActionReport,
@@ -619,13 +621,15 @@ function buildDOM(state) {
 /**
  * Verify if device is online based on connection timestamps
  * @param {Object} entityObject - Entity with lastConnectTime and lastDisconnectTime
+ * @param {number} delayTimeInMins - Delay time in minutes for connection probation period (default 15)
  * @returns {boolean} true if online, false if offline
  */
-function verifyOfflineStatus(entityObject) {
+function verifyOfflineStatus(entityObject, delayTimeInMins = 15) {
   const lastConnectionTime = new Date(entityObject.lastConnectTime || 0);
   const lastDisconnectTime = new Date(entityObject.lastDisconnectTime || 0);
   const now = new Date();
-  const fifteenMinutesInMs = 15 * 60 * 1000;
+  // RFC-0091: Use configurable delay time (in minutes) instead of hardcoded 15 minutes
+  const delayTimeInMs = delayTimeInMins * 60 * 1000;
   const timeSinceConnection = now.getTime() - lastConnectionTime.getTime();
 
   // Rule 1: If last disconnect is more recent than last connect, device is offline
@@ -633,12 +637,12 @@ function verifyOfflineStatus(entityObject) {
     return false;
   }
 
-  // Rule 2: If connection is recent (< 15 min), consider offline (probation period)
-  if (timeSinceConnection < fifteenMinutesInMs) {
+  // Rule 2: If connection is recent (< configured delay), consider offline (probation period)
+  if (timeSinceConnection < delayTimeInMs) {
     return false;
   }
 
-  // Otherwise: Connected for more than 15 minutes, device is online
+  // Otherwise: Connected for more than configured delay, device is online
   return true;
 }
 
@@ -646,9 +650,10 @@ function verifyOfflineStatus(entityObject) {
  * Paint/update DOM with current state
  */
 function paint(root, state) {
-  const { entityObject, i18n } = state;
+  const { entityObject, i18n, delayTimeConnectionInMins } = state;
 
-  if (verifyOfflineStatus(entityObject) === false) {
+  // RFC-0091: Use configurable delay time for connection status verification
+  if (verifyOfflineStatus(entityObject, delayTimeConnectionInMins) === false) {
     entityObject.deviceStatus = DeviceStatusType.NO_INFO;
   }
 

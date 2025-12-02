@@ -9,26 +9,13 @@
  * =========================================================================*/
 
 /* eslint-disable no-undef, no-unused-vars */
-// Debug configuration
-const DEBUG_ACTIVE = false; // Set to false to disable debug logs
 
-// LogHelper utility
-const LogHelper = {
-  log: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.log(...args);
-    }
-  },
-  warn: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.warn(...args);
-    }
-  },
-  error: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.error(...args);
-    }
-  },
+// RFC-0091: Use LogHelper from MAIN via MyIOUtils (centralized logging)
+const LogHelper = window.MyIOUtils?.LogHelper || {
+  // Fallback if MAIN not loaded yet
+  log: (...args) => console.log(...args),
+  warn: (...args) => console.warn(...args),
+  error: (...args) => console.error(...args),
 };
 
 LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
@@ -769,7 +756,8 @@ async function ensureAuthReady(maxMs = 6000, stepMs = 150) {
 
 /** ===================== TB INDEXES ===================== **/
 function buildTbAttrIndex() {
-  const byTbId = new Map(); // tbId -> { slaveId, centralId, deviceType, centralName, lastConnectTime, lastDisconnectTime, lastActivityTime, connectionStatus }
+  // RFC-0091: Added deviceMapInstaneousPower for TIER 0 hierarchical resolution
+  const byTbId = new Map(); // tbId -> { slaveId, centralId, deviceType, centralName, lastConnectTime, lastDisconnectTime, lastActivityTime, connectionStatus, deviceMapInstaneousPower }
   const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
   for (const row of rows) {
     const key = String(row?.dataKey?.name || '').toLowerCase();
@@ -788,6 +776,8 @@ function buildTbAttrIndex() {
         lastDisconnectTime: null,
         lastActivityTime: null,
         connectionStatus: null,
+        consumption_power: null,
+        deviceMapInstaneousPower: null, // RFC-0091: Device-specific power limits (TIER 0)
       });
     const slot = byTbId.get(tbId);
     if (key === 'slaveid') slot.slaveId = val;
@@ -800,6 +790,9 @@ function buildTbAttrIndex() {
     if (key === 'lastdisconnecttime') slot.lastDisconnectTime = val;
     if (key === 'lastactivitytime') slot.lastActivityTime = val;
     if (key === 'connectionstatus') slot.connectionStatus = String(val).toLowerCase();
+    // RFC-0091: Extract device-specific power limits JSON
+    if (key === 'devicemapinstaneouspower') slot.deviceMapInstaneousPower = val;
+    if (key === 'consumption') slot.consumption_power = val;
   }
   return byTbId;
 }
@@ -881,6 +874,7 @@ function buildAuthoritativeItems() {
     let waterLevel = null;
     let waterPercentage = null;
     let consumption = null;
+    let instantaneousPower = null;
     let temperature = null;
     const isTankDevice = deviceTypeToDisplay === 'TANK' || deviceTypeToDisplay === 'CAIXA_DAGUA';
     const isTermostatoDevice = deviceTypeToDisplay === 'TERMOSTATO';
@@ -912,6 +906,7 @@ function buildAuthoritativeItems() {
 
           // ENERGY/WATER devices: consumption (most recent)
           if (key === 'consumption') consumption = Number(val) || 0;
+          if (key === 'consumption_power') instantaneousPower = Number(val) || 0;
 
           // TERMOSTATO specific telemetry
           if (key === 'temperature') {
@@ -924,20 +919,20 @@ function buildAuthoritativeItems() {
       }
     }
 
-    // Debug log for final values
-    if (isTermostatoDevice) {
-      LogHelper.log(
-        `[DeviceCards] TERMOSTATO device final values: temperature=${temperature}, deviceValue will be=${
-          temperature || 0
-        }`
-      );
-    }
-
     // Calculate deviceStatus based on connectionStatus and current telemetry value
     // connectionStatus comes from TB attribute: "online" or "offline"
     const tbConnectionStatus = attrs.connectionStatus; // "online" or "offline" from TB
-
     let deviceStatus = 'no_info'; // default
+
+    // RFC-0091: Parse deviceMapInstaneousPower from ctx.data (TIER 0 - highest priority)
+    let deviceMapLimits = null;
+    if (attrs.deviceMapInstaneousPower && typeof attrs.deviceMapInstaneousPower === 'string') {
+      try {
+        deviceMapLimits = JSON.parse(attrs.deviceMapInstaneousPower);
+      } catch (e) {
+        LogHelper.warn(`[RFC-0091] Failed to parse deviceMapInstaneousPower for ${tbId}:`, e.message);
+      }
+    }
 
     if (tbConnectionStatus === 'offline') {
       deviceStatus = 'no_info'; // offline = no_info
@@ -945,25 +940,30 @@ function buildAuthoritativeItems() {
       // RFC-0078: For energy devices, calculate status using ranges from mapInstantaneousPower
       const isEnergyDevice = !isTankDevice && !isTermostatoDevice;
 
-      if (isEnergyDevice && MAP_INSTANTANEOUS_POWER) {
-        // Extract ranges for this device type from customer-level JSON
-        const ranges = extractLimitsFromJSON(MAP_INSTANTANEOUS_POWER, deviceTypeToDisplay, 'consumption');
+      if (isEnergyDevice) {
+        // RFC-0091: Use hierarchical resolution - TIER 0 (deviceMap) > TIER 2 (customer/MAP_INSTANTANEOUS_POWER)
+        // First try device-specific limits, then fall back to customer-level
+        const limitsToUse = deviceMapLimits || MAP_INSTANTANEOUS_POWER;
+        const ranges = limitsToUse
+          ? extractLimitsFromJSON(limitsToUse, deviceTypeToDisplay, 'consumption')
+          : null;
 
         if (ranges && typeof MyIOLibrary?.calculateDeviceStatusWithRanges === 'function') {
           deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
             connectionStatus: tbConnectionStatus,
-            lastConsumptionValue: consumption,
+            lastConsumptionValue: instantaneousPower,
             ranges: ranges,
           });
-          LogHelper.log(
-            `[RFC-0078] Device ${r.label}: calculated status=${deviceStatus} using ranges from mapInstantaneousPower`
-          );
+
+          const source = deviceMapLimits
+            ? 'deviceMapInstaneousPower (TIER 0)'
+            : 'mapInstantaneousPower (TIER 2)';
         } else {
           // Fallback if no ranges found or MyIOLibrary not available
           deviceStatus = 'power_on';
         }
       } else {
-        // TANK, TERMOSTATO, or no mapInstantaneousPower available
+        // TANK, TERMOSTATO - use simple power_on
         deviceStatus = 'power_on';
       }
     }
@@ -1017,6 +1017,8 @@ function buildAuthoritativeItems() {
       temperatureMax: globalTempMax,
       temperatureStatus: temperatureStatus,
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
+      // RFC-0091: Include device-specific power limits for Settings modal
+      deviceMapInstaneousPower: attrs.deviceMapInstaneousPower || null,
       // Use appropriate value based on device type
       value: deviceValue,
       perc: isTankDevice ? waterPercentage || 0 : 0,
@@ -1724,6 +1726,8 @@ function renderList(visible) {
             },
             ui: { title: 'Configurações', width: 900 },
             mapInstantaneousPower: it.mapInstantaneousPower, // RFC-0078: Pass existing map if available
+            // RFC-0091: Pass device-specific power limits (TIER 0 - highest priority)
+            deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
             onSaved: (payload) => {
               LogHelper.log('[Settings Saved]', payload);
               //hideBusy();

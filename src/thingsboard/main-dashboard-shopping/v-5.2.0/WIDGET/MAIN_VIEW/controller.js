@@ -6,10 +6,10 @@
  * dashboards configurados no próprio ThingsBoard.
  *********************************************************/
 
-// Debug configuration
-const DEBUG_ACTIVE = true; // TEMPORARY - for debugging orchestrator issue
+// Debug configuration - can be toggled at runtime via window.MyIOUtils.setDebug(true/false)
+let DEBUG_ACTIVE = true;
 
-// LogHelper utility
+// LogHelper utility - shared across all widgets in this context
 const LogHelper = {
   log: function (...args) {
     if (DEBUG_ACTIVE) {
@@ -22,11 +22,21 @@ const LogHelper = {
     }
   },
   error: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.error(...args);
-    }
+    // Errors always logged regardless of DEBUG_ACTIVE
+    console.error(...args);
   },
 };
+
+// RFC-0091: Expose shared utilities globally for child widgets (TELEMETRY, etc.)
+window.MyIOUtils = window.MyIOUtils || {};
+Object.assign(window.MyIOUtils, {
+  LogHelper,
+  isDebugActive: () => DEBUG_ACTIVE,
+  setDebug: (active) => {
+    DEBUG_ACTIVE = !!active;
+    console.log(`[MyIOUtils] Debug mode ${DEBUG_ACTIVE ? 'enabled' : 'disabled'}`);
+  },
+});
 
 let globalStartDateFilter = null; // ISO ex.: '2025-09-01T00:00:00-03:00'
 let globalEndDateFilter = null; // ISO ex.: '2025-09-30T23:59:59-03:00'

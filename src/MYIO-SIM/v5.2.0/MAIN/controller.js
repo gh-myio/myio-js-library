@@ -57,7 +57,9 @@ function formatWater(value) {
  * @returns {'online' | 'waiting' | 'offline'} - Normalized status
  */
 function mapConnectionStatus(rawStatus) {
-  const statusLower = String(rawStatus || '').toLowerCase().trim();
+  const statusLower = String(rawStatus || '')
+    .toLowerCase()
+    .trim();
 
   // Online states
   if (statusLower === 'online' || statusLower === 'ok' || statusLower === 'running') {
@@ -539,6 +541,11 @@ function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'con
     return null;
   }
 
+  // RFC-0091: Skip extraction if deviceType is empty/invalid (avoids log spam)
+  if (!deviceType || typeof deviceType !== 'string' || deviceType.trim() === '') {
+    return null;
+  }
+
   const telemetryConfig = powerLimitsJSON.limitsByInstantaneoustPowerType.find(
     (config) => config.telemetryType === telemetryType
   );
@@ -548,12 +555,18 @@ function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'con
     return null;
   }
 
+  const deviceTypeUpper = deviceType.toUpperCase();
   const deviceConfig = telemetryConfig.itemsByDeviceType.find(
-    (item) => item.deviceType === deviceType || item.deviceType === deviceType.toUpperCase()
+    (item) => item.deviceType === deviceType || item.deviceType === deviceTypeUpper
   );
 
   if (!deviceConfig) {
-    LogHelper.log(`[RFC-0078] Device type ${deviceType} not found for telemetry ${telemetryType}`);
+    // RFC-0091: Only log once per deviceType to avoid spam (use warn level for visibility)
+    if (!extractLimitsFromJSON._warnedTypes) extractLimitsFromJSON._warnedTypes = new Set();
+    if (!extractLimitsFromJSON._warnedTypes.has(deviceTypeUpper)) {
+      extractLimitsFromJSON._warnedTypes.add(deviceTypeUpper);
+      LogHelper.warn(`[RFC-0078] Device type "${deviceType}" not found for telemetry ${telemetryType}`);
+    }
     return null;
   }
 
@@ -714,7 +727,7 @@ async function getConsumptionRangesHierarchical(
   }
 
   // TIER 3: Hardcoded defaults
-  LogHelper.log(`[RFC-0078] Using HARDCODED defaults for ${deviceType} (TIER 3)`);
+  //LogHelper.log(`[RFC-0078] Using HARDCODED defaults for ${deviceType} (TIER 3)`);
   const defaultRanges = getDefaultRanges(deviceType);
   return {
     ...defaultRanges,
@@ -873,7 +886,10 @@ function updateEquipmentStats(devices, energyCache = null, ctxData = null) {
   // Update UI
   connectivityEl.textContent = `${onlineCount}/${totalWithStatus} (${connectivityPercentage}%)`;
   totalEl.textContent = devices.length.toString();
-  consumptionEl.textContent = typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatEnergy(totalConsumption) : formatEnergy(totalConsumption);
+  consumptionEl.textContent =
+    typeof MyIOLibrary !== 'undefined'
+      ? MyIOLibrary.formatEnergy(totalConsumption)
+      : formatEnergy(totalConsumption);
   zeroEl.textContent = zeroConsumptionCount.toString();
 
   LogHelper.log('[MAIN] Stats updated:', {
@@ -885,15 +901,17 @@ function updateEquipmentStats(devices, energyCache = null, ctxData = null) {
 }
 
 /**
- * Find a value in an array of {key, value} objects
- * @param {Array} values - Array of objects with key/value properties
- * @param {string} key - Key to search for
+ * Find a value in an array of objects by key/dataType
+ * RFC-0091: Supports both ThingsBoard format {dataType, value} and generic {key, value}
+ * @param {Array} values - Array of objects with key/value or dataType/value properties
+ * @param {string} key - Key or dataType to search for
  * @param {*} defaultValue - Default value if not found
  * @returns {*} The found value or defaultValue
  */
 function findValue(values, key, defaultValue = null) {
   if (!Array.isArray(values)) return defaultValue;
-  const found = values.find((v) => v.key === key);
+  // RFC-0091: Support both { key, value } and { dataType, value } formats
+  const found = values.find((v) => v.key === key || v.dataType === key);
   return found ? found.value : defaultValue;
 }
 
@@ -1270,7 +1288,9 @@ function createFilterModal(config) {
       .map(
         (tab) => `
         <button class="filter-tab${tab.id === 'all' ? ' active' : ''}" data-filter="${tab.id}">
-          ${tab.label} (<span id="count${tab.id.charAt(0).toUpperCase() + tab.id.slice(1)}">${counts[tab.id] || 0}</span>)
+          ${tab.label} (<span id="count${tab.id.charAt(0).toUpperCase() + tab.id.slice(1)}">${
+          counts[tab.id] || 0
+        }</span>)
         </button>
       `
       )
@@ -1404,7 +1424,9 @@ function createFilterModal(config) {
         });
 
         const checkedCount = Array.from(checkboxes).filter((cb) => cb.checked).length;
-        LogHelper.log(`[${widgetName}] Filter tab: ${filterType}, checked: ${checkedCount}/${checkboxes.length}`);
+        LogHelper.log(
+          `[${widgetName}] Filter tab: ${filterType}, checked: ${checkedCount}/${checkboxes.length}`
+        );
       });
     });
 
@@ -1462,9 +1484,11 @@ function createFilterModal(config) {
     checklist.innerHTML = '';
 
     // Sort items alphabetically
-    const sortedItems = items.slice().sort((a, b) =>
-      (getItemLabel(a) || '').localeCompare(getItemLabel(b) || '', 'pt-BR', { sensitivity: 'base' })
-    );
+    const sortedItems = items
+      .slice()
+      .sort((a, b) =>
+        (getItemLabel(a) || '').localeCompare(getItemLabel(b) || '', 'pt-BR', { sensitivity: 'base' })
+      );
 
     sortedItems.forEach((item) => {
       const itemId = getItemId(item);
@@ -1478,8 +1502,14 @@ function createFilterModal(config) {
       div.innerHTML = `
         <input type="checkbox" id="check-${itemId}" ${isChecked ? 'checked' : ''} ${itemIdAttr}="${itemId}">
         <label for="check-${itemId}" style="flex: 1;">${getItemLabel(item)}</label>
-        ${subLabel ? `<span style="color: #64748b; font-size: 11px; margin-right: 8px;">${subLabel}</span>` : ''}
-        <span style="color: ${value > 0 ? '#16a34a' : '#94a3b8'}; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedValue}</span>
+        ${
+          subLabel
+            ? `<span style="color: #64748b; font-size: 11px; margin-right: 8px;">${subLabel}</span>`
+            : ''
+        }
+        <span style="color: ${
+          value > 0 ? '#16a34a' : '#94a3b8'
+        }; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedValue}</span>
       `;
       checklist.appendChild(div);
     });
@@ -1618,6 +1648,9 @@ window.MyIOUtils = {
   getClientSecret: () => window.__MYIO_CLIENT_SECRET__,
   getCustomerIngestionId: () => window.__MYIO_CUSTOMER_INGESTION_ID__,
 
+  // RFC-0091: Connection delay time getter (default 60 minutes)
+  getDelayTimeConnectionInMins: () => window.__MYIO_DELAY_TIME_CONNECTION_MINS__ ?? 60,
+
   // Convenience: get all credentials at once
   getCredentials: () => ({
     customerId: window.myioHoldingCustomerId,
@@ -1652,6 +1685,18 @@ window.MyIOUtils = {
 
   // RFC-0090: Shared Filter Modal Factory
   createFilterModal,
+
+  // RFC-0092: Temperature Utilities
+  formatTemperature: (value) => {
+    if (value === null || value === undefined || isNaN(value)) return '--';
+    return `${Number(value).toFixed(1)}°C`;
+  },
+  getTemperatureStatus: (temp, min = 18, max = 26) => {
+    if (temp === null || temp === undefined || isNaN(temp)) return 'no_info';
+    if (temp < min) return 'cold';
+    if (temp > max) return 'hot';
+    return 'normal';
+  },
 };
 
 console.log('[MAIN] MyIOUtils exposed globally:', Object.keys(window.MyIOUtils));
@@ -2207,9 +2252,10 @@ const MyIOOrchestrator = (() => {
     energyCache.forEach((device, ingestionId) => {
       // Se temos a lista de equipamentos, usa ela (mais preciso)
       // Senão, usa o fallback de excluir lojas
-      const isEquipment = equipmentsIngestionIds.size > 0
-        ? equipmentsIngestionIds.has(ingestionId)
-        : !lojasIngestionIds.has(ingestionId);
+      const isEquipment =
+        equipmentsIngestionIds.size > 0
+          ? equipmentsIngestionIds.has(ingestionId)
+          : !lojasIngestionIds.has(ingestionId);
 
       if (isEquipment) {
         // Apply shopping filter
@@ -2360,7 +2406,7 @@ const MyIOOrchestrator = (() => {
     // Se temos listas de IDs identificadas, usar o total calculado
     // Senão, usar o total vindo do HEADER (API completa)
     const hasIdentifiedDevices = equipmentsIngestionIds.size > 0 || lojasIngestionIds.size > 0;
-    const effectiveTotal = hasIdentifiedDevices ? calculatedTotal : (totalConsumption || calculatedTotal);
+    const effectiveTotal = hasIdentifiedDevices ? calculatedTotal : totalConsumption || calculatedTotal;
 
     // ✅ Equipamentos como % do total
     const percentage = effectiveTotal > 0 ? (equipmentsTotal / effectiveTotal) * 100 : 0;
@@ -2437,7 +2483,11 @@ const MyIOOrchestrator = (() => {
 
     setEquipmentsIngestionIds(ids) {
       equipmentsIngestionIds = new Set(ids || []);
-      LogHelper.log('[MAIN] [Orchestrator] equipmentsIngestionIds set:', equipmentsIngestionIds.size, 'equipments');
+      LogHelper.log(
+        '[MAIN] [Orchestrator] equipmentsIngestionIds set:',
+        equipmentsIngestionIds.size,
+        'equipments'
+      );
       // Recalculate and dispatch summary if ready
       dispatchEnergySummaryIfReady('setEquipmentsIngestionIds');
     },
@@ -2759,6 +2809,11 @@ self.onInit = async function () {
   // ===== STEP 1: Get ThingsBoard Customer ID and fetch credentials =====
   CUSTOMER_ID_TB = self.ctx.settings.customerId;
   self.ctx.$scope.mainContentStateId = 'content_equipments';
+
+  // RFC-0091: Get delayTimeConnectionInMins from settings (default 60 minutes)
+  const delayTimeConnectionInMins = self.ctx.settings.delayTimeConnectionInMins ?? 60;
+  window.__MYIO_DELAY_TIME_CONNECTION_MINS__ = delayTimeConnectionInMins;
+  LogHelper.log('[MAIN] [RFC-0091] delayTimeConnectionInMins:', delayTimeConnectionInMins);
 
   if (!CUSTOMER_ID_TB) {
     console.error('[MAIN] [Orchestrator] customerId não encontrado em settings');

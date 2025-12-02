@@ -18,28 +18,16 @@ let CLIENT_SECRET;
 let INGESTION_ID;
 let MAP_INSTANTANEOUS_POWER;
 
-// Debug configuration
-const DEBUG_ACTIVE = true;
-console.log("[MYIO WATER_COMMON_AREA] Script loaded, DEBUG_ACTIVE=" + DEBUG_ACTIVE);
-
-// LogHelper utility
-const LogHelper = {
-    log: function(...args) {
-        if (DEBUG_ACTIVE) {
-            console.log(...args);
-        }
-    },
-    warn: function(...args) {
-        if (DEBUG_ACTIVE) {
-            console.warn(...args);
-        }
-    },
-    error: function(...args) {
-        if (DEBUG_ACTIVE) {
-            console.error(...args);
-        }
-    }
+// ============================================
+// SHARED UTILITIES (from MAIN via window.MyIOUtils)
+// ============================================
+const LogHelper = window.MyIOUtils?.LogHelper || {
+  log: (...args) => console.log(...args),
+  warn: (...args) => console.warn(...args),
+  error: (...args) => console.error(...args),
 };
+
+LogHelper.log('[MYIO WATER_COMMON_AREA] Script loaded');
 
 // RFC-0057: Removed unused utility functions: d(), clamp(), formatNumber(), formatHours(), escapeHtml(), isDanger()
 
@@ -1174,8 +1162,10 @@ function initializeCards(devices) {
       //LogHelper.log("[WATER_COMMON_AREA] Rendering card for Chiller 1 device:", device);
     }
 
+    // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (default 60 minutes)
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
+      delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
       handleActionDashboard: async () => {
         // RFC-0072: Enhanced modal handling to prevent corruption
         LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Opening energy dashboard for:", device.entityId);

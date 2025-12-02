@@ -14,8 +14,11 @@
         <span id="waterContextLabel">Água: Resumo</span>
         <span class="dropdown-arrow">▼</span>
       </button>
-      <button id="temperatureButton" class="tab" data-target="content_temperature">
-        <span class="ico">🌡️</span> Temperatura
+      <!-- RFC-0092: Temperature button with modal dropdown -->
+      <button id="temperatureButton" class="tab">
+        <span class="ico">🌡️</span>
+        <span id="temperatureContextLabel">Temperatura: Sensores</span>
+        <span class="dropdown-arrow">▼</span>
       </button>
     </nav>
 
@@ -136,6 +139,38 @@
           <div class="option-info">
             <div class="option-title">Lojas</div>
             <div class="option-desc">Hidrômetros de lojas/lojistas</div>
+          </div>
+          <span class="option-check">✓</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RFC-0092: Temperature context modal dropdown -->
+  <div id="temperatureContextModal" class="temperature-modal" style="display: none">
+    <div class="temperature-modal-content">
+      <div class="temperature-modal-header">
+        <span class="ico">🌡️</span>
+        <span>Selecione o contexto de Temperatura</span>
+      </div>
+      <div class="temperature-modal-options">
+        <button
+          class="temperature-modal-option is-active"
+          data-context="temperature_sensors"
+          data-target="content_temperature_sensors"
+        >
+          <span class="option-ico">📡</span>
+          <div class="option-info">
+            <div class="option-title">Sensores</div>
+            <div class="option-desc">Cards de sensores de temperatura</div>
+          </div>
+          <span class="option-check">✓</span>
+        </button>
+        <button class="temperature-modal-option" data-context="temperature_comparison" data-target="content_temperature">
+          <span class="option-ico">📊</span>
+          <div class="option-info">
+            <div class="option-title">Comparativo</div>
+            <div class="option-desc">Comparação entre shoppings</div>
           </div>
           <span class="option-check">✓</span>
         </button>

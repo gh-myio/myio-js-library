@@ -2,53 +2,29 @@
  *  MENU PREMIUM + FILTRO MODAL    *
  ***********************************/
 const EVT_SWITCH = 'myio:switch-main-state';
-const EVT_FILTER_OPEN = 'myio:open-filter';
-const EVT_FILTER_APPLIED = 'myio:filter-applied';
-// RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
-function getDataApiHost() {
-  return localStorage.getItem('__MYIO_DATA_API_HOST__');
-}
-
-// RFC-0086: Get shopping label from localStorage (set by WELCOME widget)
-function getShoppingLabel() {
-  try {
-    const stored = localStorage.getItem('__MYIO_SHOPPING_LABEL__');
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
-}
 
 let _dataRefreshCount = 0;
 const MAX_DATA_REFRESHES = 1;
 
-// Debug configuration
-const DEBUG_ACTIVE = true;
-
-// LogHelper utility
-const LogHelper = {
-  log: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.log(...args);
-    }
-  },
-  warn: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.warn(...args);
-    }
-  },
-  error: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.error(...args);
-    }
-  },
+// ============================================
+// SHARED UTILITIES (from MAIN via window.MyIOUtils)
+// ============================================
+// Use shared utilities from MAIN, with fallback to local implementation
+const LogHelper = window.MyIOUtils?.LogHelper || {
+  log: (...args) => console.log(...args),
+  warn: (...args) => console.warn(...args),
+  error: (...args) => console.error(...args),
 };
 
 // ===== SHOPPING FILTER STATE =====
 let selectedShoppingIds = []; // Shopping ingestionIds selected in filter
 
 // ✅ Check if filter was already applied before HEADER initialized
-if (window.custumersSelected && Array.isArray(window.custumersSelected) && window.custumersSelected.length > 0) {
+if (
+  window.custumersSelected &&
+  Array.isArray(window.custumersSelected) &&
+  window.custumersSelected.length > 0
+) {
   LogHelper.log('[HEADER] 🔄 Applying pre-existing filter:', window.custumersSelected.length, 'shoppings');
   selectedShoppingIds = window.custumersSelected.map((s) => s.value).filter((v) => v);
 }
@@ -91,13 +67,6 @@ function bindTabs(root) {
     publishSwitch(initial.getAttribute('data-target'));
   }
 }
-
-/* ====== mock ====== */
-const FILTER_DATA = [
-  { id: 'A', name: 'Shopping A', floors: 2 },
-  { id: 'B', name: 'Shopping B', floors: 1 },
-  { id: 'C', name: 'Shopping C', floors: 1 },
-];
 
 function injectModalGlobal() {
   // ==== Config & helpers ====================================================
@@ -712,24 +681,9 @@ function bindFilter(root) {
   const modal = document.getElementById('filterModal');
   if (!modal) return; // se modal não existe, sai
 
-  const listEl = modal.querySelector('#fltList');
-  const inp = modal.querySelector('#fltSearch');
-  const btnClear = modal.querySelector('#fltClear');
-  const btnSave = modal.querySelector('#fltSave');
   const btnApply = modal.querySelector('#fltApply');
 
-  // agora adiciona os listeners
-  btnSave?.addEventListener('click', () => {
-    const sel = listEl.dataset.selectedId || null;
-    //console.log("[filter] salvar preset (mock) selection=", sel);
-  });
-
   btnApply?.addEventListener('click', () => {
-    const sel = listEl.dataset.selectedId || null;
-    // window.dispatchEvent(
-    //   new CustomEvent(EVT_FILTER_APPLIED, { detail: { selectedMallId: sel, ts: Date.now() } })
-    // );
-    //console.log("[filter] applied:", sel);
     modal.setAttribute('aria-hidden', 'true');
   });
 
@@ -787,22 +741,6 @@ function setSummary(data = {}) {
 }
 
 window.myioSetMenuSummary = setSummary;
-function formatDiaMesAno(date) {
-  // Array com as abreviações dos meses em português (os meses em JavaScript vão de 0 a 11)
-  const abreviacoesMes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-
-  // 1. Obtém o dia e garante 2 dígitos
-  const dia = String(date.getDate()).padStart(2, '0');
-
-  // 2. Obtém o mês (0-11) e usa como índice para pegar a abreviação
-  const mesAbreviado = abreviacoesMes[date.getMonth()];
-
-  // 3. Obtém o ano completo (YYYY)
-  const ano = date.getFullYear();
-
-  // 4. Retorna a string no formato 'dd/mmm/yyyy' (ex: '01/nov/2025')
-  return `${dia}/${mesAbreviado}/${ano}`;
-}
 
 /* ====== Apply Card Custom Colors ====== */
 function applyCardColors() {
@@ -853,10 +791,7 @@ function applyCardColors() {
 
 /* ====== Lifecycle ====== */
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
-  // Global busy modal is managed by MAIN orchestrator
-
   // Define timezone e datas iniciais
-  const TZ = 'America/Sao_Paulo';
   const hoje = new Date();
 
   // Define datas iniciais (início do mês até hoje)
@@ -917,18 +852,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       },
     })
   );
-
-  // Atualiza intervalo de datas na UI
-  const timeWindow = `${formatDiaMesAno(startDate)} - ${formatDiaMesAno(endDate)}`;
-  // Removido: não mostramos mais o intervalo nos cards
-  // const timeinterval = document.getElementById("energy-peak");
-  // if (timeinterval) {
-  //     timeinterval.innerText = timeWindow;
-  // }
-  // const waterInterval = document.getElementById("water-alert");
-  // if (waterInterval) {
-  //     waterInterval.innerText = timeWindow;
-  // }
 
   const custumer = [];
 
@@ -1080,124 +1003,6 @@ function calcularMedia(dataArray) {
   const media = somaDosValores / dataArray.length;
 
   return media;
-}
-
-/**
- * Calcula a média de um array de valores numéricos.
- *
- * @param {Array<number|string>} resultArray O array contendo os valores para a média.
- * @returns {number} A média calculada.
- */
-function calculateTotalAverageTemperature(resultArray) {
-  if (!resultArray || resultArray.length === 0) {
-    return 0; // Retorna 0 se o array for nulo ou vazio
-  }
-
-  // 1. Usar reduce() para somar todos os valores.
-  // Usamos parseFloat() para garantir que mesmo que os valores estejam como strings,
-  // eles sejam tratados como números de ponto flutuante na soma.
-  const somaTotal = resultArray.reduce((acumulador, valorAtual) => {
-    const valorNumerico = parseFloat(valorAtual);
-    if (!isNaN(valorNumerico)) {
-      return acumulador + valorNumerico;
-    }
-    return acumulador; // Ignora valores que não podem ser convertidos para números
-  }, 0); // Começa a soma em 0
-
-  // 2. Dividir a soma pelo número de elementos para obter a média.
-  const media = somaTotal / resultArray.length;
-
-  return media;
-}
-
-async function fetchCustomerAverageTemperarature(startTs, endTs) {
-  const tbToken = localStorage.getItem('jwt_token');
-
-  if (!tbToken) {
-    throw new Error('JWT do ThingsBoard não encontrado');
-  }
-
-  try {
-    // ✅ DEVICE-BY-DEVICE APPROACH
-    const devices = extractDevicesWithDetails(self.ctx.data);
-
-    LogHelper.log('[HEADER] devices', devices);
-
-    if (devices.length === 0) {
-      LogHelper.warn('[HEADER] No devices found for peak demand calculation');
-    }
-
-    LogHelper.log(`[HEADER] Fetching peak demand for ${devices.length} devices`);
-
-    const averageTempResults = [];
-
-    // Iterate through each device
-    for (const device of devices) {
-      try {
-        // Build URL with power and demand keys
-        const url =
-          `/api/plugins/telemetry/DEVICE/${device.id}/values/timeseries` +
-          `?keys=temperature` +
-          `&startTs=${encodeURIComponent(startTs)}` +
-          `&endTs=${encodeURIComponent(endTs)}` +
-          `&limit=50000` +
-          `&intervalType=MILLISECONDS` +
-          `&interval=7200000 ` +
-          `&agg=AVG`;
-
-        const response = await fetch(url, {
-          headers: {
-            'X-Authorization': `Bearer ${tbToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          LogHelper.warn(`[HEADER] Failed to fetch temperature for device ${device.id}: ${response.status}`);
-          continue;
-        }
-
-        const data = await response.json();
-        const temperatureData = data.temperature || [];
-        const averageTemperature = calcularMedia(temperatureData);
-        averageTempResults.push(averageTemperature);
-      } catch (err) {
-        LogHelper.error(`[HEADER] Error fetching demand for device ${device.id}:`, err);
-        // Continue to next device
-      }
-    }
-
-    // Encontrar o maior pico entre todos os devices
-    if (averageTempResults.length === 0) {
-      LogHelper.log('[HEADER] No average temperature found across all devices');
-      const result = {
-        peakValue: 0,
-        timestamp: Date.now(),
-        deviceId: null,
-        deviceName: 'Sem dados',
-      };
-
-      return result;
-    }
-
-    const result = calculateTotalAverageTemperature(averageTempResults);
-
-    return result;
-  } catch (err) {
-    LogHelper.error(`[HEADER] Error fetching customer peak demand:`, err);
-
-    // Return fallback result
-    const result = {
-      peakValue: 0,
-      timestamp: Date.now(),
-      deviceId: null,
-      deviceName: 'Erro',
-    };
-
-    cachePeakDemand(result, startTs, endTs);
-
-    return result;
-  }
 }
 
 // ===== HEADER: Temperature Card Handler =====
@@ -1451,27 +1256,6 @@ async function updateTemperatureCard() {
   }
 }
 
-// ===== HEADER: Energy Card Handler =====
-function showEnergyCardLoading(isLoading) {
-  const energyKpi = document.getElementById('energy-kpi');
-  const energyTrend = document.getElementById('energy-trend');
-
-  if (isLoading) {
-    if (energyKpi) {
-      energyKpi.innerHTML = `
-        <svg style="width:28px; height:28px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
-          <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
-                  stroke-dasharray="90,150" stroke-dashoffset="0">
-          </circle>
-        </svg>
-      `;
-    }
-    if (energyTrend) {
-      energyTrend.innerText = 'Carregando...';
-    }
-  }
-}
-
 function updateEnergyCard(energyCache) {
   const energyKpi = document.getElementById('energy-kpi');
   const energyTrend = document.getElementById('energy-trend');
@@ -1514,7 +1298,8 @@ function updateEnergyCard(energyCache) {
     energyKpi.style.fontSize = '0.9em';
 
     // Show "filtered / total" only when filter is active AND values are different
-    const showComparative = isFiltered && unfilteredConsumption > 0 && Math.abs(filteredConsumption - unfilteredConsumption) > 0.01;
+    const showComparative =
+      isFiltered && unfilteredConsumption > 0 && Math.abs(filteredConsumption - unfilteredConsumption) > 0.01;
 
     if (showComparative) {
       const formattedFiltered = formatEnergy(filteredConsumption);
@@ -1529,7 +1314,9 @@ function updateEnergyCard(energyCache) {
         energyTrend.className = 'chip trend';
         energyTrend.style.display = '';
       }
-      LogHelper.log(`[HEADER] Energy card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`);
+      LogHelper.log(
+        `[HEADER] Energy card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`
+      );
     } else {
       // Show only total when no filter or values are the same
       const formatted = formatEnergy(filteredConsumption);
@@ -1578,7 +1365,8 @@ function updateWaterCard(waterCache) {
 
   if (typeof window.MyIOOrchestrator?.getTotalWaterConsumption === 'function') {
     filteredConsumption = window.MyIOOrchestrator.getTotalWaterConsumption();
-    unfilteredConsumption = window.MyIOOrchestrator.getUnfilteredTotalWaterConsumption?.() || filteredConsumption;
+    unfilteredConsumption =
+      window.MyIOOrchestrator.getUnfilteredTotalWaterConsumption?.() || filteredConsumption;
     isFiltered = window.MyIOOrchestrator.isFilterActive?.() || false;
     LogHelper.log('[HEADER] Water consumption:', { filteredConsumption, unfilteredConsumption, isFiltered });
   } else {
@@ -1606,7 +1394,8 @@ function updateWaterCard(waterCache) {
     waterKpi.style.fontSize = '0.9em';
 
     // Show "filtered / total" only when filter is active AND values are different
-    const showComparative = isFiltered && unfilteredConsumption > 0 && Math.abs(filteredConsumption - unfilteredConsumption) > 0.01;
+    const showComparative =
+      isFiltered && unfilteredConsumption > 0 && Math.abs(filteredConsumption - unfilteredConsumption) > 0.01;
 
     if (showComparative) {
       const formattedFiltered = formatWater(filteredConsumption);
@@ -1621,7 +1410,9 @@ function updateWaterCard(waterCache) {
         waterTrend.className = 'chip trend';
         waterTrend.style.display = '';
       }
-      LogHelper.log(`[HEADER] Water card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`);
+      LogHelper.log(
+        `[HEADER] Water card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`
+      );
     } else {
       // Show only total when no filter or values are the same
       const formatted = formatWater(filteredConsumption);
