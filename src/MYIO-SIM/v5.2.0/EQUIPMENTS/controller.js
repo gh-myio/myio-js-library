@@ -755,20 +755,34 @@ self.onInit = async function () {
             ranges: rangesWithSource,
           });
 
-          /*
-
+          // DEBUG ER 14
           if (device.label && device.label.toLowerCase().includes('er 14')) {
-            console.log('=== DEBUG ER 14 ===');
-            console.log('rawConnectionStatus:', rawConnectionStatus);
-            console.log('mappedConnectionStatus:', mappedConnectionStatus);
-            console.log('instantaneousPower:', instantaneousPower);
-            console.log('rangesWithSource:', rangesWithSource);
-            console.log('deviceStatus:', deviceStatus);
-            console.log('device.values:', device.values);
-            console.log('===================');
+            console.log('╔══════════════════════════════════════════════════════════════╗');
+            console.log('║                    DEBUG ER 14 - EQUIPMENTS                  ║');
+            console.log('╚══════════════════════════════════════════════════════════════╝');
+            console.log('📋 device.label:', device.label);
+            console.log('📋 device.entityId:', device.entityId?.id);
+            console.log('');
+            console.log('🔌 CONNECTION STATUS:');
+            console.log('   rawConnectionStatus:', rawConnectionStatus);
+            console.log('   mappedConnectionStatus:', mappedConnectionStatus);
+            console.log('');
+            console.log('⚡ POWER:');
+            console.log('   instantaneousPower:', instantaneousPower);
+            console.log('   consumptionValue:', consumptionValue);
+            console.log('');
+            console.log('📊 RANGES:');
+            console.log('   rangesWithSource:', JSON.stringify(rangesWithSource, null, 2));
+            console.log('');
+            console.log('🎯 CALCULATED STATUS:');
+            console.log('   deviceStatus:', deviceStatus);
+            console.log('');
+            console.log('📦 RAW device.values:');
+            device.values?.forEach((v, i) => {
+              console.log(`   [${i}] ${v.dataKey?.name}: ${v.data?.[0]?.[1]}`);
+            });
+            console.log('════════════════════════════════════════════════════════════════');
           }
-
-          */
 
           const ingestionId = findValue(device.values, 'ingestionId', null);
           let customerId = findValue(device.values, 'customerId', null);

@@ -841,19 +841,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   self.ctx.$scope.startDateISO = timeStart;
   self.ctx.$scope.endDateISO = timeEnd;
 
-  // Formata datas para timezone -03:00
-  const startDateISO = timeStart.replace('Z', '-03:00');
-  const endDateISO = timeEnd.replace('Z', '-03:00');
-
-  // Dispara evento inicial com as datas
-  window.dispatchEvent(
-    new CustomEvent('myio:update-date', {
-      detail: {
-        startDate: startDateISO,
-        endDate: endDateISO,
-      },
-    })
-  );
+  // RFC-0093: Removed myio:update-date dispatch - MENU is the single source of truth for dates
+  // The HEADER should NOT dispatch date events, only MENU controls the date range
 
   const custumer = [];
 
@@ -1258,6 +1247,42 @@ async function updateTemperatureCard() {
   }
 }
 
+// RFC-0093: Update energy card with total from energy-summary-ready event
+function updateEnergyCardWithTotal(customerTotal) {
+  const energyKpi = document.getElementById('energy-kpi');
+  const energyTrend = document.getElementById('energy-trend');
+
+  if (!energyKpi) return;
+
+  const formatEnergy = (val) =>
+    typeof MyIOLibrary?.formatEnergy === 'function'
+      ? MyIOLibrary.formatEnergy(val)
+      : `${val.toFixed(2)} kWh`;
+
+  const formatted = formatEnergy(customerTotal);
+  energyKpi.innerText = formatted;
+  energyKpi.style.fontSize = '0.9em';
+
+  // Hide trend when using summary total
+  if (energyTrend) {
+    energyTrend.innerText = '';
+    energyTrend.style.display = 'none';
+  }
+
+  LogHelper.log(`[HEADER] Energy card updated from summary: ${formatted}`);
+
+  // Emit event for other widgets
+  const customerTotalEvent = {
+    customerTotal: customerTotal,
+    unfilteredTotal: customerTotal,
+    isFiltered: window.MyIOOrchestrator?.isFilterActive?.() || false,
+    deviceCount: 0,
+    timestamp: Date.now(),
+  };
+  window.dispatchEvent(new CustomEvent('myio:customer-total-consumption', { detail: customerTotalEvent }));
+  LogHelper.log('[HEADER] ✅ Emitted myio:customer-total-consumption:', customerTotalEvent);
+}
+
 function updateEnergyCard(energyCache) {
   const energyKpi = document.getElementById('energy-kpi');
   const energyTrend = document.getElementById('energy-trend');
@@ -1450,9 +1475,28 @@ function updateWaterCard(waterCache) {
 }
 
 // ===== HEADER: Listen for energy data from MAIN orchestrator =====
+// RFC-0093: Listen for energy-summary-ready for the correct total (equipments + lojas)
+window.addEventListener('myio:energy-summary-ready', (ev) => {
+  LogHelper.log('[HEADER] 📊 heard myio:energy-summary-ready:', ev.detail);
+  const { customerTotal } = ev.detail || {};
+  if (typeof customerTotal === 'number') {
+    // Update energy card with the correct total from orchestrator
+    updateEnergyCardWithTotal(customerTotal);
+  }
+});
+
+// RFC-0093: Also listen for energy-data-ready as initial fallback (shows loading/partial data)
 window.addEventListener('myio:energy-data-ready', (ev) => {
-  //LogHelper.log('[HEADER] Received energy data from orchestrator:', ev.detail);
-  updateEnergyCard(ev.detail.cache);
+  // Only use this if we haven't received a summary yet
+  // The summary will have the correct total after EQUIPMENTS identifies devices
+  if (ev.detail && ev.detail.cache) {
+    // Show a loading indicator or partial data
+    const energyKpi = document.getElementById('energy-kpi');
+    if (energyKpi && energyKpi.innerText === '0,00 kWh') {
+      // Only update if still showing zero (summary not received yet)
+      updateEnergyCard(ev.detail.cache);
+    }
+  }
 });
 
 window.addEventListener('myio:water-data-ready', (ev) => {
@@ -1496,7 +1540,7 @@ window.addEventListener('myio:filter-applied', (ev) => {
 window.addEventListener('myio:orchestrator-filter-updated', (ev) => {
   LogHelper.log('[HEADER] 🔄 heard myio:orchestrator-filter-updated:', ev.detail);
 
-  // Now orchestrator has the updated filter, safe to update cards
+  // Update cards with current cache - energy-summary-ready will correct the total later
   if (window.MyIOOrchestrator?.getEnergyCache) {
     updateEnergyCard(window.MyIOOrchestrator.getEnergyCache());
   }
