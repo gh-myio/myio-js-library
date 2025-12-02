@@ -700,8 +700,7 @@ self.onInit = async function () {
           const updatedFormatted = formatRelativeTime(latestTimestamp);
           const rawConnectionStatus = findValue(device.values, 'connectionStatus', 'offline');
           const consumptionValue = findValue(device.values, 'consumption', 0);
-          const mappedConnectionStatus =
-            window.MyIOUtils?.mapConnectionStatus?.(rawConnectionStatus) || 'offline';
+          const mappedConnectionStatus = window.MyIOUtils?.mapConnectionStatus?.(rawConnectionStatus);
           const deviceProfile = findValue(device.values, 'deviceProfile', '').toUpperCase();
           let deviceType = findValue(device.values, 'deviceType', '').toUpperCase();
 
