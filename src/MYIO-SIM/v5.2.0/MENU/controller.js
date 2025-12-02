@@ -1351,6 +1351,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         const label = document.getElementById('energyContextLabel');
         if (label && contextName) label.innerText = `Energia: ${contextName.replace(' (Energia)', '')}`;
 
+        // Atualiza opção ativa (RFC-0095: Fix visual consistency with Water/Temperature modals)
+        options.forEach((o) => o.classList.remove('is-active'));
+        this.classList.add('is-active');
+
         // Fecha modal
         modal.style.display = 'none';
 

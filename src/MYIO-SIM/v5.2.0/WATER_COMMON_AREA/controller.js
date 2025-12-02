@@ -113,6 +113,7 @@ const STATE = {
   selectedIds: /** @type {Set<string> | null} */ (null),
   sortMode: /** @type {'cons_desc'|'cons_asc'|'alpha_asc'|'alpha_desc'|'status_asc'|'status_desc'|'shopping_asc'|'shopping_desc'} */ ('cons_desc'),
   firstHydrates: 0,
+  selectedShoppingIds: [], // RFC-0093: Shopping filter from MENU
 };
 
 let hydrating = false;
@@ -454,6 +455,20 @@ function enrichItemsWithTotals(items, apiMap) {
 /** ===================== FILTERS / SORT / PERC ===================== **/
 function applyFilters(enriched, searchTerm, selectedIds, sortMode) {
   let v = enriched.slice();
+
+  // RFC-0093: Apply shopping filter (from MENU) - same logic as EQUIPMENTS/STORES
+  if (STATE.selectedShoppingIds && STATE.selectedShoppingIds.length > 0) {
+    const before = v.length;
+    v = v.filter((x) => {
+      // If device has no customerId, include it (safety)
+      if (!x.customerId) return true;
+      // Check if device's customerId is in the selected shoppings
+      return STATE.selectedShoppingIds.includes(x.customerId);
+    });
+    LogHelper.log(
+      `[WATER_COMMON_AREA] Shopping filter applied: ${before} -> ${v.length} devices (${before - v.length} filtered out)`
+    );
+  }
 
   if (selectedIds && selectedIds.size) {
     v = v.filter((x) => selectedIds.has(x.id));
@@ -1243,6 +1258,62 @@ self.onInit = async function () {
       LogHelper.error(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] ❌ Error during clear:`, err);
     }
   });
+
+  // RFC-0093: Function to render shopping filter chips in toolbar (same as EQUIPMENTS/STORES)
+  function renderShoppingFilterChips(selection) {
+    const chipsContainer = document.getElementById('waterCommonAreaShoppingFilterChips');
+    if (!chipsContainer) return;
+
+    chipsContainer.innerHTML = '';
+
+    if (!selection || selection.length === 0) {
+      return; // No filter applied, hide chips
+    }
+
+    selection.forEach((shopping) => {
+      const chip = document.createElement('span');
+      chip.className = 'filter-chip';
+      chip.innerHTML = `<span class="filter-chip-icon">💧</span><span>${shopping.name}</span>`;
+      chipsContainer.appendChild(chip);
+    });
+
+    LogHelper.log('[WATER_COMMON_AREA] 📍 Rendered', selection.length, 'shopping filter chips');
+  }
+
+  // RFC-0093: Listen for shopping filter changes
+  window.addEventListener('myio:filter-applied', (ev) => {
+    const selection = ev.detail?.selection || [];
+    LogHelper.log('[WATER_COMMON_AREA] 🔥 heard myio:filter-applied:', selection.length, 'shoppings');
+
+    // Extract shopping IDs (ingestionIds) from selection
+    const shoppingIds = selection.map((s) => s.value).filter((v) => v);
+
+    LogHelper.log(
+      '[WATER_COMMON_AREA] Applying shopping filter:',
+      shoppingIds.length === 0 ? 'ALL' : `${shoppingIds.length} shoppings`
+    );
+
+    // Update STATE and reflow cards
+    STATE.selectedShoppingIds = shoppingIds;
+
+    // Render shopping filter chips
+    renderShoppingFilterChips(selection);
+
+    // Reflow to apply filter
+    reflowFromState();
+  });
+
+  // RFC-0093: Check for pre-existing filter when WATER_COMMON_AREA initializes
+  if (
+    window.custumersSelected &&
+    Array.isArray(window.custumersSelected) &&
+    window.custumersSelected.length > 0
+  ) {
+    LogHelper.log('[WATER_COMMON_AREA] 🔄 Applying pre-existing filter:', window.custumersSelected.length, 'shoppings');
+    const shoppingIds = window.custumersSelected.map((s) => s.value).filter((v) => v);
+    STATE.selectedShoppingIds = shoppingIds;
+    renderShoppingFilterChips(window.custumersSelected);
+  }
 
   // Test if listener is working
   setTimeout(() => {

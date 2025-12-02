@@ -493,12 +493,50 @@ function handleDateUpdate(event) {
 // INITIALIZATION
 // ============================================
 
+// RFC-0093: Function to render shopping filter chips in toolbar
+function renderShoppingFilterChips(selection) {
+  const chipsContainer = document.getElementById('waterShoppingFilterChips');
+  if (!chipsContainer) return;
+
+  chipsContainer.innerHTML = '';
+
+  if (!selection || selection.length === 0) {
+    return; // No filter applied, hide chips
+  }
+
+  selection.forEach((shopping) => {
+    const chip = document.createElement('span');
+    chip.className = 'filter-chip';
+    chip.innerHTML = `<span class="filter-chip-icon">💧</span><span>${shopping.name}</span>`;
+    chipsContainer.appendChild(chip);
+  });
+
+  console.log('[WATER] 📍 Rendered', selection.length, 'shopping filter chips');
+}
+
 function setupEventListeners() {
   // Listen for water data from MAIN
   window.addEventListener('myio:water-data-ready', handleWaterDataReady);
 
   // Listen for date/filter updates
   window.addEventListener('myio:update-date', handleDateUpdate);
+
+  // RFC-0093: Listen for shopping filter changes
+  window.addEventListener('myio:filter-applied', (ev) => {
+    const selection = ev.detail?.selection || [];
+    console.log('[WATER] 🔥 heard myio:filter-applied:', selection.length, 'shoppings');
+    renderShoppingFilterChips(selection);
+  });
+
+  // RFC-0093: Check for pre-existing filter when WATER initializes
+  if (
+    window.custumersSelected &&
+    Array.isArray(window.custumersSelected) &&
+    window.custumersSelected.length > 0
+  ) {
+    console.log('[WATER] 🔄 Applying pre-existing filter:', window.custumersSelected.length, 'shoppings');
+    renderShoppingFilterChips(window.custumersSelected);
+  }
 
   // Distribution mode selector
   const distributionSelect = document.getElementById('distributionMode');
