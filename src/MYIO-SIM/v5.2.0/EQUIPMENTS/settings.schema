@@ -2,11 +2,6 @@
   "schema": {
     "type": "object",
     "title": "Equipments Widget Settings",
-    "properties": {
-        "customerId":{
-            "type":"string",
-            "title": "ThingsBoard Customer ID"
-        }
-    }
+    "properties": {}
   }
 }

@@ -2,20 +2,6 @@
  *  MENU PREMIUM + FILTRO MODAL    *
  ***********************************/
 const EVT_SWITCH = 'myio:switch-main-state';
-const EVT_FILTER_OPEN = 'myio:open-filter';
-const EVT_FILTER_APPLIED = 'myio:filter-applied';
-// RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
-function getDataApiHost() {
-  return localStorage.getItem('__MYIO_DATA_API_HOST__');
-}
-
-// RFC-0086: Get shopping label from localStorage (set by WELCOME widget)
-function getShoppingLabel() {
-  try {
-    const stored = localStorage.getItem('__MYIO_SHOPPING_LABEL__');
-    return stored ? JSON.parse(stored) : null;
-  } catch { return null; }
-}
 
 let _dataRefreshCount = 0;
 const MAX_DATA_REFRESHES = 1;
@@ -45,7 +31,7 @@ const LogHelper = {
 function publishSwitch(targetStateId) {
   const detail = { targetStateId, source: 'menu', ts: Date.now() };
   window.dispatchEvent(new CustomEvent(EVT_SWITCH, { detail }));
-  // console.log("[menu] switch ->", detail);
+  // LogHelper.log("[menu] switch ->", detail);
 }
 
 function setActiveTab(btn, root) {
@@ -71,7 +57,7 @@ function computeCustomersFromCtx() {
   // --- LÓGICA NOVA: SELECIONAR TODOS AO INICIAR ---
   // Verifica se 'window.custumersSelected' é undefined (significa que é a primeira carga do sistema)
   if (typeof window.custumersSelected === 'undefined' && arr.length > 0) {
-    console.log('[MENU] 🚀 Inicializando sistema: Selecionando TODOS os shoppings por padrão.');
+    LogHelper.log('[MENU] 🚀 Inicializando sistema: Selecionando TODOS os shoppings por padrão.');
 
     // 1. Define a seleção global como o array completo (arr)
     window.custumersSelected = arr.slice();
@@ -91,7 +77,7 @@ function computeCustomersFromCtx() {
           detail: eventDetail,
         })
       );
-      console.log('[MENU] 📡 Evento inicial de filtro (Todos) disparado.');
+      LogHelper.log('[MENU] 📡 Evento inicial de filtro (Todos) disparado.');
     }, 500);
   }
   // -------------------------------------------------
@@ -106,7 +92,7 @@ function computeCustomersFromCtx() {
       },
     })
   );
-  // console.log("[MENU] ✅ Dispatched myio:customers-ready with", arr.length, "customers");
+  // LogHelper.log("[MENU] ✅ Dispatched myio:customers-ready with", arr.length, "customers");
   return arr;
 }
 
@@ -135,18 +121,8 @@ function bindTabs(root) {
   }
 }
 
-/* ====== mock ====== */
-const FILTER_DATA = [
-  { id: 'A', name: 'Shopping A', floors: 2 },
-  { id: 'B', name: 'Shopping B', floors: 1 },
-  { id: 'C', name: 'Shopping C', floors: 1 },
-];
-
 /* Substitua a função injectModalGlobal existente (aprox. linha 110) */
 function injectModalGlobal() {
-  // ==== Config & helpers (Simplificado) =======================================
-  const PRESET_KEY = 'myio_dashboard_filter_presets_v1';
-
   // Fonte de dados simplificada: usa o escopo dos customers
   function getCustomers() {
     return self.ctx.$scope.custumer || [];
@@ -357,7 +333,7 @@ function injectModalGlobal() {
       .filter((c) => !q || c.name.toLowerCase().includes(q) || c.value.toLowerCase().includes(q));
 
     if (!customers.length) {
-      console.warn('[MENU] ⚠️ No customers to display!');
+      LogHelper.warn('[MENU] ⚠️ No customers to display!');
 
       // Container para a mensagem e o botão
       const emptyContainer = document.createElement('div');
@@ -376,7 +352,7 @@ function injectModalGlobal() {
       // Adiciona a lógica de clique no botão de recarregar
       const reloadBtn = emptyContainer.querySelector('.myio-reload-btn');
       reloadBtn.addEventListener('click', () => {
-        console.log('[MENU] 🔃 Tentando recarregar customers do context...');
+        LogHelper.log('[MENU] 🔃 Tentando recarregar customers do context...');
 
         // 1. Tenta buscar os customers do context novamente
         const reloadedCustomers = computeCustomersFromCtx();
@@ -386,10 +362,10 @@ function injectModalGlobal() {
           // Seta a seleção inicial para todos os recarregados
           window.custumersSelected = reloadedCustomers.slice();
           renderAll();
-          console.log('[MENU] ✅ Clientes recarregados e lista atualizada.');
+          LogHelper.log('[MENU] ✅ Clientes recarregados e lista atualizada.');
         } else {
           alert('Não foi possível carregar shoppings. Verifique a fonte de dados e tente novamente.');
-          console.warn('[MENU] ❌ Tentativa de recarga não trouxe clientes.');
+          LogHelper.warn('[MENU] ❌ Tentativa de recarga não trouxe clientes.');
         }
       });
 
@@ -463,7 +439,7 @@ function injectModalGlobal() {
       });
 
       renderAll();
-      console.log('[MENU FILTER] Seleção limpa completamente');
+      LogHelper.log('[MENU FILTER] Seleção limpa completamente');
     });
   }
 
@@ -472,7 +448,7 @@ function injectModalGlobal() {
   if (!elApply._bound) {
     elApply._bound = true;
     elApply.addEventListener('click', async () => {
-      console.log('[MENU] 🔥 APPLY FILTER BUTTON CLICKED');
+      LogHelper.log('[MENU] 🔥 APPLY FILTER BUTTON CLICKED');
       elApply.disabled = true;
 
       // Prepara payload do evento
@@ -488,7 +464,7 @@ function injectModalGlobal() {
         })
       );
 
-      console.log('[MENU] ✅ Event dispatched successfully with', eventDetail.selection.length, 'customers.');
+      LogHelper.log('[MENU] ✅ Event dispatched successfully with', eventDetail.selection.length, 'customers.');
 
       // Reabilita botão e Fecha modal
       elApply.disabled = false;
@@ -512,63 +488,17 @@ function bindFilter(root) {
   if (root._filterBound) return;
   root._filterBound = true;
   const modal = document.getElementById('filterModal');
-  if (!modal) return; // se modal não existe, sai
-
-  const listEl = modal.querySelector('#fltList');
-  const inp = modal.querySelector('#fltSearch');
-  const btnClear = modal.querySelector('#fltClear');
-  const btnSave = modal.querySelector('#fltSave');
-  const btnApply = modal.querySelector('#fltApply');
-
-  // agora adiciona os listeners
-  btnSave?.addEventListener('click', () => {
-    const sel = listEl.dataset.selectedId || null;
-    //console.log("[filter] salvar preset (mock) selection=", sel);
-  });
-
-  btnApply?.addEventListener('click', () => {
-    const sel = listEl.dataset.selectedId || null;
-    // window.dispatchEvent(
-    //   new CustomEvent(EVT_FILTER_APPLIED, { detail: { selectedMallId: sel, ts: Date.now() } })
-    // );
-    //console.log("[filter] applied:", sel);
-    modal.setAttribute('aria-hidden', 'true');
-  });
+  if (!modal) return;
 
   modal.querySelectorAll('[data-close]').forEach((btn) => {
     btn.addEventListener('click', () => modal.setAttribute('aria-hidden', 'true'));
   });
 }
 
-/* ====== Cards summary (igual antes) ====== */
-function setBarPercent(elBarFill, pct, tail = 8) {
-  const track = elBarFill?.parentElement;
-  if (!elBarFill || !track) return;
-  // limita 0–100
-  const p = Math.max(0, Math.min(100, pct || 0));
-  track.style.setProperty('--pct', p);
-  track.style.setProperty('--tail', tail); // % do preenchido que será verde
-  elBarFill.style.width = p + '%';
-}
-
 function formatDiaMes(date) {
   const dia = String(date.getDate()).padStart(2, '0'); // garante 2 dígitos
   const mes = String(date.getMonth() + 1).padStart(2, '0'); // meses começam em 0
   return `${dia}/${mes}`;
-}
-
-function sendFilterOpenEvent() {
-  const eventDetail = {
-    selection: window.custumersSelected || [],
-    ts: Date.now(),
-  };
-
-  // Dispara evento com os custumers selecionados
-  window.dispatchEvent(
-    new CustomEvent('myio:filter-applied', {
-      detail: eventDetail,
-    })
-  );
 }
 
 /* ====== Lifecycle ====== */
@@ -741,7 +671,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             }
         `;
     document.head.appendChild(style);
-    console.log('[SETUP] CSS Global do Modal injetado com sucesso.');
+    LogHelper.log('[SETUP] CSS Global do Modal injetado com sucesso.');
   }
 
   // Extrai o segmento após 'all/' da URL
@@ -791,7 +721,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   function switchContentState(stateId) {
     try {
       if (!mainView) {
-        console.error('[MENU] #mainView element not found in DOM');
+        LogHelper.error('[MENU] #mainView element not found in DOM');
         return;
       }
 
@@ -799,7 +729,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       const allContents = mainView.querySelectorAll('[data-content-state]');
 
       if (allContents.length === 0) {
-        console.error('[MENU] No content containers found with data-content-state attribute');
+        LogHelper.error('[MENU] No content containers found with data-content-state attribute');
         return;
       }
 
@@ -812,7 +742,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       const targetContent = mainView.querySelector(`[data-content-state="${stateId}"]`);
       if (targetContent) {
         targetContent.style.display = 'block';
-        console.log(`[MENU] ✅ RFC-0057: Showing content state: ${stateId} (no dynamic rendering!)`);
+        LogHelper.log(`[MENU] ✅ RFC-0057: Showing content state: ${stateId} (no dynamic rendering!)`);
 
         // RFC: Determine domain from stateId and dispatch myio:dashboard-state to notify FOOTER
         let domain = 'unknown';
@@ -824,7 +754,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           domain = 'temperature';
         }
 
-        console.log(`[MENU] Dispatching myio:dashboard-state for domain: ${domain}`);
+        LogHelper.log(`[MENU] Dispatching myio:dashboard-state for domain: ${domain}`);
         window.dispatchEvent(
           new CustomEvent('myio:dashboard-state', {
             detail: {
@@ -835,15 +765,15 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           })
         );
       } else {
-        console.warn(`[MENU] Content state not found: ${stateId}`);
-        console.log(
+        LogHelper.warn(`[MENU] Content state not found: ${stateId}`);
+        LogHelper.log(
           `[MENU] Available states: ${Array.from(allContents)
             .map((c) => c.getAttribute('data-content-state'))
             .join(', ')}`
         );
       }
     } catch (err) {
-      console.error('[MENU] RFC-0057: Failed to switch content state:', err);
+      LogHelper.error('[MENU] RFC-0057: Failed to switch content state:', err);
     }
   }
 
@@ -860,7 +790,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // FIX: LISTENER DE TROCA DE ESTADO (Versão Híbrida)
   // ==============================================================
   self._onSwitchState = (ev) => {
-    console.log(`[MAIN] [RFC-0079] 🔔 Received myio:switch-main-state event:`, ev.detail);
+    LogHelper.log(`[MAIN] [RFC-0079] 🔔 Received myio:switch-main-state event:`, ev.detail);
 
     const targetStateId = ev.detail?.targetStateId;
     if (!targetStateId) return;
@@ -869,7 +799,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     const mainView = document.getElementById('mainView');
 
     if (!mainView) {
-      console.error('[MAIN] ❌ mainView element not found (Global search failed)');
+      LogHelper.error('[MAIN] ❌ mainView element not found (Global search failed)');
       return;
     }
 
@@ -888,7 +818,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // Aplica o block com prioridade máxima
       targetState.style.setProperty('display', 'block', 'important');
 
-      console.log(`[MAIN] ✅ Switched VISUALLY to: ${targetStateId}`);
+      LogHelper.log(`[MAIN] ✅ Switched VISUALLY to: ${targetStateId}`);
 
       // Atualiza escopo angular se necessário
       if (self.ctx?.$scope) {
@@ -896,7 +826,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         if (self.ctx.$scope.$applyAsync) self.ctx.$scope.$applyAsync();
       }
     } else {
-      console.error(`[MAIN] ❌ Target state ${targetStateId} not found`);
+      LogHelper.error(`[MAIN] ❌ Target state ${targetStateId} not found`);
     }
   };
 
@@ -908,18 +838,29 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   const TZ = 'America/Sao_Paulo';
   const hoje = new Date();
 
-  // RFC: Define datas iniciais (início do mês até hoje) usando UTC para evitar conversão de timezone
-  // Fix: Usar Date.UTC ao invés de new Date local para garantir horário correto (00:00:00 UTC)
+  // RFC: Define datas iniciais (início do mês até hoje) no timezone local (America/Sao_Paulo)
+  // Usa horário local para garantir que dia 01/12 em SP seja 01/12 (não 30/11 UTC)
   const startDate = presetStart
     ? new Date(presetStart)
-    : new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0));
+    : new Date(hoje.getFullYear(), hoje.getMonth(), 1, 0, 0, 0, 0);
   const endDate = presetEnd
     ? new Date(presetEnd)
-    : new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59, 999));
+    : new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59, 999);
 
-  // Converte para ISO strings (já em UTC, não adiciona offset)
-  const startISO = startDate.toISOString();
-  const endISO = endDate.toISOString();
+  // Converte para ISO strings com offset de São Paulo (-03:00)
+  const toISOWithOffset = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const ms = String(date.getMilliseconds()).padStart(3, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}-03:00`;
+  };
+
+  const startISO = toISOWithOffset(startDate);
+  const endISO = toISOWithOffset(endDate);
 
   let timeStart = startISO;
   let timeEnd = endISO;
@@ -955,7 +896,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           timeinterval.innerText = timeWindow;
         }
 
-        console.log('[MENU] Date selection updated (no fetch):', {
+        LogHelper.log('[MENU] Date selection updated (no fetch):', {
           start: result.startISO,
           end: result.endISO,
         });
@@ -964,13 +905,13 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       },
     })
       .then((picker) => {
-        console.log('[MENU] Date range picker inicializado com MyIOLibrary');
+        LogHelper.log('[MENU] Date range picker inicializado com MyIOLibrary');
       })
       .catch((err) => {
-        console.error('[MENU] Erro ao inicializar date picker:', err);
+        LogHelper.error('[MENU] Erro ao inicializar date picker:', err);
       });
   } else {
-    console.warn('[MENU] MyIOLibrary.createDateRangePicker não disponível');
+    LogHelper.warn('[MENU] MyIOLibrary.createDateRangePicker não disponível');
   }
 
   // ===== CARREGAR BUTTON HANDLER =====
@@ -978,7 +919,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
   if (btnCarregar) {
     btnCarregar.addEventListener('click', async () => {
-      console.log('[MENU] Carregar button clicked - fetching data...');
+      LogHelper.log('[MENU] Carregar button clicked - fetching data...');
 
       // Disable button during fetch
       btnCarregar.disabled = true;
@@ -1016,7 +957,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           })
         );
 
-        console.log('[MENU] Dispatching myio:update-date event:', {
+        LogHelper.log('[MENU] Dispatching myio:update-date event:', {
           startDate: startISOOffset,
           endDate: endISOOffset,
         });
@@ -1047,10 +988,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               },
             })
           );
-          console.log('[MENU] Dispatched myio:request-total-consumption to MAIN');
+          LogHelper.log('[MENU] Dispatched myio:request-total-consumption to MAIN');
         }
       } catch (error) {
-        console.error('[MENU] Error loading data:', error);
+        LogHelper.error('[MENU] Error loading data:', error);
         alert('Erro ao carregar dados. Tente novamente.');
       } finally {
         // Re-enable button
@@ -1059,9 +1000,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
     });
 
-    console.log('[MENU] Carregar button handler registered');
+    LogHelper.log('[MENU] Carregar button handler registered');
   } else {
-    console.warn('[MENU] Carregar button (load-button) not found');
+    LogHelper.warn('[MENU] Carregar button (load-button) not found');
   }
 
   // ===== LIMPAR BUTTON HANDLER (Force Refresh) =====
@@ -1069,12 +1010,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
   if (btnLimpar) {
     btnLimpar.addEventListener('click', (event) => {
-      console.log('[MENU] 🔄 Limpar (Force Refresh) clicked');
+      LogHelper.log('[MENU] 🔄 Limpar (Force Refresh) clicked');
 
       // Confirmação do usuário
       const confirmed = confirm('Isso vai limpar todo o cache e recarregar os dados. Continuar?');
       if (!confirmed) {
-        console.log('[MENU] Force Refresh cancelado pelo usuário');
+        LogHelper.log('[MENU] Force Refresh cancelado pelo usuário');
         return;
       }
 
@@ -1085,7 +1026,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         if (window.MyIOOrchestrator && window.MyIOOrchestrator.invalidateCache) {
           window.MyIOOrchestrator.invalidateCache('energy');
           window.MyIOOrchestrator.invalidateCache('water');
-          console.log('[MENU] ✅ Cache do orquestrador invalidado');
+          LogHelper.log('[MENU] ✅ Cache do orquestrador invalidado');
         }
 
         // Limpa conteúdo visual dos widgets TELEMETRY
@@ -1094,11 +1035,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         });
 
         window.dispatchEvent(clearEvent);
-        console.log(`[MENU] ✅ Evento de limpeza emitido`);
+        LogHelper.log(`[MENU] ✅ Evento de limpeza emitido`);
 
         // RFC-0057: Removed iframe event dispatch - no longer using iframes
 
-        console.log('[MENU] 🔄 Force Refresh concluído com sucesso');
+        LogHelper.log('[MENU] 🔄 Force Refresh concluído com sucesso');
 
         // Recarrega a página para limpar todos os widgets visuais
         alert('Cache limpo com sucesso! A página será recarregada para aplicar as mudanças.');
@@ -1106,14 +1047,14 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           window.location.reload();
         }, 500);
       } catch (err) {
-        console.error('[MENU] ❌ Erro durante Force Refresh:', err);
+        LogHelper.error('[MENU] ❌ Erro durante Force Refresh:', err);
         alert('Erro ao limpar cache. Consulte o console para detalhes.');
       }
     });
 
-    console.log('[MENU] Limpar button handler registered');
+    LogHelper.log('[MENU] Limpar button handler registered');
   } else {
-    console.warn('[MENU] Limpar button (myio-clear-btn) not found');
+    LogHelper.warn('[MENU] Limpar button (myio-clear-btn) not found');
   }
 
   // ===== METAS BUTTON HANDLER (Goals Panel) =====
@@ -1121,38 +1062,38 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
   if (btnMetas) {
     btnMetas.addEventListener('click', () => {
-      console.log('[MENU] 🎯 Metas (Goals Panel) clicked');
+      LogHelper.log('[MENU] 🎯 Metas (Goals Panel) clicked');
 
       // Verifica se MyIOLibrary está disponível
       if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.openGoalsPanel) {
-        console.error('[MENU] ❌ MyIOLibrary.openGoalsPanel não está disponível');
+        LogHelper.error('[MENU] ❌ MyIOLibrary.openGoalsPanel não está disponível');
         alert('Componente de Metas não está disponível. Verifique a biblioteca MyIO.');
         return;
       }
 
       try {
-        // ✅ Obtém o customerId pai (Holding) do settings
+        // ✅ Obtém o customerId pai (Holding) do MAIN (exposto via window)
         // Este é o Customer raiz no ThingsBoard que contém os shoppings filhos
-        const customerId = self.ctx?.settings?.customerId;
+        const customerId = window.myioHoldingCustomerId;
 
         if (!customerId) {
-          console.error('[MENU] ❌ customerId não encontrado em settings');
-          alert('Configuração de Customer ID não encontrada. Verifique as configurações do widget.');
+          LogHelper.error('[MENU] ❌ customerId não encontrado (MAIN ainda não inicializou?)');
+          alert('Customer ID não disponível. Aguarde o carregamento completo do dashboard.');
           return;
         }
 
-        console.log('[MENU] 📋 Using Holding customerId from settings:', customerId);
+        LogHelper.log('[MENU] 📋 Using Holding customerId from MAIN:', customerId);
 
         // ✅ Obtém o token do localStorage (padrão do ThingsBoard)
         const token = localStorage.getItem('jwt_token');
 
         if (!token) {
-          console.error('[MENU] ❌ Token JWT não encontrado no localStorage');
+          LogHelper.error('[MENU] ❌ Token JWT não encontrado no localStorage');
           alert('Token de autenticação não encontrado. Faça login novamente.');
           return;
         }
 
-        console.log('[MENU] 🔑 Token JWT obtido do localStorage');
+        LogHelper.log('[MENU] 🔑 Token JWT obtido do localStorage');
 
         // ✅ Prepara a lista de shoppings filhos (já computada pelo MENU)
         // Esta lista vem do modal de filtro e representa os Customers filhos
@@ -1163,7 +1104,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             name: c.name, // Nome do Shopping
           }));
 
-        console.log('[MENU] 🏬 Shopping list prepared:', {
+        LogHelper.log('[MENU] 🏬 Shopping list prepared:', {
           count: shoppingList.length,
           shoppings: shoppingList.map((s) => s.name),
         });
@@ -1172,10 +1113,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         let selectedShoppingId = null;
         if (window.custumersSelected && window.custumersSelected.length > 0) {
           selectedShoppingId = window.custumersSelected[0].value;
-          console.log('[MENU] 🎯 Current filter selection:', window.custumersSelected[0].name);
+          LogHelper.log('[MENU] 🎯 Current filter selection:', window.custumersSelected[0].name);
         }
 
-        console.log('[MENU] 🚀 Opening Goals Panel with:', {
+        LogHelper.log('[MENU] 🚀 Opening Goals Panel with:', {
           holdingCustomerId: customerId,
           shoppingCount: shoppingList.length,
           selectedShopping: selectedShoppingId,
@@ -1191,7 +1132,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           shoppingList: shoppingList, // Lista de shoppings filhos
           locale: 'pt-BR',
           onSave: async (goalsData) => {
-            console.log('[MENU] ✅ Goals saved successfully:', {
+            LogHelper.log('[MENU] ✅ Goals saved successfully:', {
               version: goalsData.version,
               yearsCount: Object.keys(goalsData.years || {}).length,
             });
@@ -1207,13 +1148,13 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               })
             );
 
-            console.log("[MENU] 📊 Event 'myio:goals-updated' dispatched");
+            LogHelper.log("[MENU] 📊 Event 'myio:goals-updated' dispatched");
 
             // Feedback visual opcional
             // alert("✅ Metas salvas com sucesso!");
           },
           onClose: () => {
-            console.log('[MENU] 🚪 Goals Panel closed');
+            LogHelper.log('[MENU] 🚪 Goals Panel closed');
           },
           styles: {
             primaryColor: '#6a1b9a', // Mesma cor do botão Metas (roxo MYIO)
@@ -1225,16 +1166,16 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           },
         });
 
-        console.log('[MENU] ✅ Goals Panel opened successfully');
+        LogHelper.log('[MENU] ✅ Goals Panel opened successfully');
       } catch (error) {
-        console.error('[MENU] ❌ Error opening Goals Panel:', error);
+        LogHelper.error('[MENU] ❌ Error opening Goals Panel:', error);
         alert(`Erro ao abrir o painel de metas:\n${error.message}\n\nConsulte o console para mais detalhes.`);
       }
     });
 
-    console.log('[MENU] Metas button handler registered');
+    LogHelper.log('[MENU] Metas button handler registered');
   } else {
-    console.warn('[MENU] Metas button (myio-goals-btn) not found');
+    LogHelper.warn('[MENU] Metas button (myio-goals-btn) not found');
   }
 
   const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
@@ -1250,22 +1191,22 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
   if (filterBtn) {
     filterBtn.addEventListener('click', () => {
-      console.log('[MENU] 🔘 Filter button clicked');
-      console.log('[MENU] 📋 Current customers in scope:', self.ctx.$scope.custumer?.length || 0);
+      LogHelper.log('[MENU] 🔘 Filter button clicked');
+      LogHelper.log('[MENU] 📋 Current customers in scope:', self.ctx.$scope.custumer?.length || 0);
 
       if (!Array.isArray(self.ctx.$scope.custumer) || self.ctx.$scope.custumer.length === 0) {
-        console.log('[MENU] ⚠️ No customers in scope, computing from ctx...');
+        LogHelper.log('[MENU] ⚠️ No customers in scope, computing from ctx...');
         computeCustomersFromCtx();
-        console.log('[MENU] 📋 Customers after compute:', self.ctx.$scope.custumer?.length || 0);
+        LogHelper.log('[MENU] 📋 Customers after compute:', self.ctx.$scope.custumer?.length || 0);
       }
 
-      console.log('[MENU] 🚀 Opening filter modal...');
+      LogHelper.log('[MENU] 🚀 Opening filter modal...');
       injectModalGlobal();
       bindFilter(document.body);
-      console.log('[MENU] ✅ Filter modal opened');
+      LogHelper.log('[MENU] ✅ Filter modal opened');
     });
   } else {
-    console.error('[MENU] ❌ Filter button (filterBtn) not found in DOM!');
+    LogHelper.error('[MENU] ❌ Filter button (filterBtn) not found in DOM!');
   }
 
   // Atualiza escopo com datas iniciais
@@ -1287,7 +1228,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // ✅ Also save to localStorage
   localStorage.setItem('myio:date-range', JSON.stringify(window.myioDateRange));
 
-  console.log('[MENU] Initial dates saved globally:', window.myioDateRange);
+  LogHelper.log('[MENU] Initial dates saved globally:', window.myioDateRange);
 
   window.addEventListener('myio:equipment-count-updated', (ev) => {
     computeCustomersFromCtx();
@@ -1302,8 +1243,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     })
   );
 
-  const custumer = [];
-
   // não apagar!!
   const custumerMap = new Map();
   self.ctx.data.forEach((data) => {
@@ -1317,13 +1256,13 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   });
   computeCustomersFromCtx();
 
-  // console.log("custumer",custumer)
+  // LogHelper.log("custumer",custumer)
 
   // ==============================================================
   // MODAL + LIMPEZA DE ABAS + SINCRONIZAÇÃO DE CHECK
   // ==============================================================
   setTimeout(() => {
-    console.log('[SETUP] Iniciando fix do Modal V3...');
+    LogHelper.log('[SETUP] Iniciando fix do Modal V3...');
 
     const btn = document.getElementById('energyButton');
     let modal = document.getElementById('energyContextModal');
@@ -1346,7 +1285,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       e.preventDefault();
       e.stopPropagation();
 
-      console.log('[CLICK] Botão Energia Clicado');
+      LogHelper.log('[CLICK] Botão Energia Clicado');
 
       // --- LIMPEZA DE ABAS ---
       const allTabs = document.querySelectorAll('.myio-tabs .tab');
@@ -1372,7 +1311,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         });
         // --------------------------------------------
 
-        console.log('[ACTION] Abrindo modal sincronizado...');
+        LogHelper.log('[ACTION] Abrindo modal sincronizado...');
 
         // Abre o modal com CSS forçado
         modal.style.cssText = `
@@ -1447,7 +1386,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             // RFC: Dispatch myio:dashboard-state to notify FOOTER of domain change (clear selection)
             // NOTE: Does NOT dispatch myio:update-date - data should already be loaded by orchestrator
             // User must click "Carregar" button to refresh data
-            console.log(`[MENU] Dispatching myio:dashboard-state for domain: energy`);
+            LogHelper.log(`[MENU] Dispatching myio:dashboard-state for domain: energy`);
             window.dispatchEvent(
               new CustomEvent('myio:dashboard-state', {
                 detail: {
@@ -1474,14 +1413,14 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // RFC-0087: WATER MODAL SETUP (Similar to Energy Modal)
   // ==============================================================
   setTimeout(() => {
-    console.log('[SETUP] RFC-0087: Iniciando fix do Water Modal...');
+    LogHelper.log('[SETUP] RFC-0087: Iniciando fix do Water Modal...');
 
     const waterBtn = document.getElementById('waterButton');
     let waterModal = document.getElementById('waterContextModal');
     const mainView = document.querySelector('#mainView') || document.getElementById('mainView');
 
     if (!waterBtn || !waterModal) {
-      console.warn('[SETUP] Water button or modal not found');
+      LogHelper.warn('[SETUP] Water button or modal not found');
       return;
     }
 
@@ -1500,7 +1439,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       e.preventDefault();
       e.stopPropagation();
 
-      console.log('[CLICK] Botão Água Clicado');
+      LogHelper.log('[CLICK] Botão Água Clicado');
 
       // --- LIMPEZA DE ABAS ---
       const allTabs = document.querySelectorAll('.myio-tabs .tab');
@@ -1524,7 +1463,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           }
         });
 
-        console.log('[ACTION] Abrindo water modal sincronizado...');
+        LogHelper.log('[ACTION] Abrindo water modal sincronizado...');
 
         // Abre o modal com CSS forçado
         waterModal.style.cssText = `
@@ -1603,7 +1542,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             // RFC: Dispatch myio:dashboard-state to notify FOOTER of domain change (clear selection)
             // NOTE: Does NOT dispatch myio:update-date - data should already be loaded by orchestrator
             // User must click "Carregar" button to refresh data
-            console.log(`[MENU] Dispatching myio:dashboard-state for domain: water`);
+            LogHelper.log(`[MENU] Dispatching myio:dashboard-state for domain: water`);
             window.dispatchEvent(
               new CustomEvent('myio:dashboard-state', {
                 detail: {
@@ -1614,7 +1553,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
               })
             );
 
-            console.log(`[MENU] RFC-0087: Switched to water state: ${targetStateId}`);
+            LogHelper.log(`[MENU] RFC-0087: Switched to water state: ${targetStateId}`);
           }
         }
       };
@@ -1627,7 +1566,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
     };
 
-    console.log('[SETUP] RFC-0087: Water Modal setup complete');
+    LogHelper.log('[SETUP] RFC-0087: Water Modal setup complete');
   }, 1100);
 
   const originalDestroy = self.onDestroy;
@@ -1661,7 +1600,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     const targetId = ev.detail?.targetStateId;
     if (!targetId) return;
 
-    console.log(`[TABS] Atualizando abas para: ${targetId}`);
+    LogHelper.log(`[TABS] Atualizando abas para: ${targetId}`);
 
     // 1. LIMPEZA TOTAL (Tática Agressiva)
     // Busca TODOS os elementos com a classe .tab dentro da barra de navegação

@@ -1498,6 +1498,9 @@ self.onInit = async function () {
     return;
   }
 
+  // Expor customerId globalmente para outros widgets (ex: MENU)
+  window.myioHoldingCustomerId = CUSTOMER_ID_TB;
+
   console.log('[MAIN] [Orchestrator] ThingsBoard Customer ID:', CUSTOMER_ID_TB);
 
   // Fetch customer attributes from ThingsBoard

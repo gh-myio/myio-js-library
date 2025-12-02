@@ -3,10 +3,6 @@
     "type": "object",
     "title": "Settings",
     "properties": {
-      "customerId": {
-        "type": "string",
-        "title": "Customer ID"
-      },
       "tabSelecionadoBackgroundColor": {
         "type": "string",
         "title": "Tab Ativo - Background Color",
@@ -58,10 +54,9 @@
         "default": "#F2F2F2"
       }
     },
-    "required": ["customerId"]
+    "required": []
   },
   "form": [
-    "customerId",
     {
       "key": "tabSelecionadoBackgroundColor",
       "type": "color"

@@ -1,15 +1,17 @@
 /* global self, ctx */
 
-const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+function getDataApiHost() {
+  return localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com';
+}
+
 let CUSTOMER_ID;
 let CLIENT_ID;
 let CLIENT_SECRET;
-let INGESTION_ID;
 let MAP_INSTANTANEOUS_POWER;
 let myIOAuth; // Instance of MyIO auth component from MyIOLibrary
 
 // Debug configuration
-const DEBUG_ACTIVE = false;
+const DEBUG_ACTIVE = true;
 console.log('[MYIO EQUIPMENTS] Script loaded, DEBUG_ACTIVE=' + DEBUG_ACTIVE);
 
 // LogHelper utility
@@ -31,170 +33,8 @@ const LogHelper = {
   },
 };
 
-// RFC-0057: Removed unused utility functions: d(), clamp(), formatNumber(), formatHours(), escapeHtml(), isDanger()
-
-// RFC: Global refresh counter to limit data updates to 3 times maximum
-let _dataRefreshCount = 0;
-const MAX_DATA_REFRESHES = 1;
-
-// RFC-0071: Device Profile Synchronization
-// Global flag to track if sync has been completed
+// RFC-0071: Device Profile Synchronization - Global flag to track if sync has been completed
 let __deviceProfileSyncComplete = false;
-
-// ============================================
-// RFC-0079: SUB-MENU NAVIGATION SYSTEM
-// ============================================
-
-// RFC-0079: Current sub-menu view state
-let currentSubmenuView = 'equipments'; // default: 'equipments' | 'stores' | 'general'
-
-/**
- * RFC-0079: Initialize sub-menu navigation
- */
-function initSubmenuNavigation() {
-  LogHelper.log('[RFC-0079] 🚀 Initializing sub-menu navigation...');
-
-  const root = document.getElementById('equipWrap');
-  if (!root) {
-    LogHelper.error('[RFC-0079] ❌ equipWrap not found, cannot initialize sub-menu');
-    return;
-  }
-
-  LogHelper.log('[RFC-0079] ✅ Found equipWrap element:', root);
-
-  const submenuTabs = root.querySelectorAll('.submenu-tab');
-  LogHelper.log(`[RFC-0079] 🔍 Found ${submenuTabs.length} sub-menu tabs`);
-
-  submenuTabs.forEach((tab, index) => {
-    const viewName = tab.getAttribute('data-submenu-view');
-    LogHelper.log(`[RFC-0079] 📌 Tab ${index + 1}: data-submenu-view="${viewName}"`);
-
-    // Click handler
-    tab.addEventListener('click', (e) => {
-      LogHelper.log(`[RFC-0079] 🖱️ Tab clicked: ${viewName}`);
-      const targetView = tab.getAttribute('data-submenu-view');
-      switchSubmenuView(targetView);
-    });
-
-    // Keyboard navigation support (WCAG 2.1 compliance)
-    tab.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        LogHelper.log(`[RFC-0079] ⌨️ Tab keyboard activated: ${viewName}`);
-        const targetView = tab.getAttribute('data-submenu-view');
-        switchSubmenuView(targetView);
-      }
-    });
-  });
-
-  LogHelper.log('[RFC-0079] ✅ Sub-menu navigation initialized successfully');
-}
-
-/**
- * RFC-0079: Switch between sub-menu views
- * @param {string} viewName - 'equipments' | 'stores' | 'general'
- */
-function switchSubmenuView(viewName) {
-  LogHelper.log(`[RFC-0079] 🔵 switchSubmenuView called with: ${viewName}`);
-  LogHelper.log(`[RFC-0079] 🔵 currentSubmenuView: ${currentSubmenuView}`);
-
-  if (currentSubmenuView === viewName) {
-    LogHelper.log(`[RFC-0079] Already on ${viewName} view, skipping`);
-    return;
-  }
-
-  LogHelper.log(`[RFC-0079] Switching from ${currentSubmenuView} → ${viewName}`);
-
-  const root = document.getElementById('equipWrap');
-  if (!root) {
-    LogHelper.error('[RFC-0079] ❌ equipWrap not found!');
-    return;
-  }
-
-  // Update tab active states
-  root.querySelectorAll('.submenu-tab').forEach((tab) => {
-    const isActive = tab.getAttribute('data-submenu-view') === viewName;
-    tab.classList.toggle('is-active', isActive);
-    tab.setAttribute('aria-selected', isActive);
-  });
-
-  // RFC-0079: Request MAIN widget to switch state via event (no direct DOM manipulation)
-  let targetStateId = '';
-  switch (viewName) {
-    case 'equipments':
-      targetStateId = 'content_equipments';
-      break;
-    case 'stores':
-      targetStateId = 'content_store';
-      break;
-    case 'general':
-      targetStateId = 'content_energy';
-      break;
-  }
-
-  LogHelper.log(`[RFC-0079] 🎯 Mapped viewName "${viewName}" → targetStateId "${targetStateId}"`);
-
-  if (targetStateId) {
-    const detail = { targetStateId, source: 'equipments-submenu', ts: Date.now() };
-    LogHelper.log(`[RFC-0079] 📡 Dispatching myio:switch-main-state event:`, detail);
-    window.dispatchEvent(new CustomEvent('myio:switch-main-state', { detail }));
-    LogHelper.log(`[RFC-0079] ✅ Event dispatched successfully`);
-  } else {
-    LogHelper.error(`[RFC-0079] ❌ No targetStateId mapped for viewName: ${viewName}`);
-  }
-
-  // Update current state
-  currentSubmenuView = viewName;
-
-  // Render content based on view
-  switch (viewName) {
-    case 'equipments':
-      renderEquipmentsView();
-      break;
-    case 'stores':
-      renderStoresView();
-      break;
-    case 'general':
-      renderGeneralView();
-      break;
-  }
-
-  // Dispatch custom event for analytics/tracking
-  window.dispatchEvent(
-    new CustomEvent('myio:submenu-switch', {
-      detail: { view: viewName, timestamp: Date.now() },
-    })
-  );
-}
-
-/**
- * RFC-0079: Render Equipamentos view (uses existing renderCards logic)
- */
-function renderEquipmentsView() {
-  LogHelper.log('[RFC-0079] Equipamentos view activated');
-  // The existing renderCards() function already handles this
-  // No additional action needed - equipment grid is already rendered
-}
-
-/**
- * RFC-0079: Render Lojas view (store telemetry)
- * The actual content is rendered by ThingsBoard state: content_store
- */
-function renderStoresView() {
-  LogHelper.log('[RFC-0079] Lojas view activated - content_store state is now visible');
-  // ThingsBoard <tb-dashboard-state> handles rendering automatically
-  // No manual rendering needed - the state is already in the template
-}
-
-/**
- * RFC-0079: Render Geral view (general overview - energy dashboard)
- * The actual content is rendered by ThingsBoard state: content_energy
- */
-function renderGeneralView() {
-  LogHelper.log('[RFC-0079] Geral (Energia) view activated - content_energy state is now visible');
-  // ThingsBoard <tb-dashboard-state> handles rendering automatically
-  // No manual rendering needed - the state is already in the template
-}
 
 // ============================================
 // RFC-0071: DEVICE PROFILE SYNCHRONIZATION
@@ -536,7 +376,6 @@ async function fetchInstantaneousPowerLimits(entityId, entityType = 'CUSTOMER') 
     const powerLimitsAttr = attributes.find((attr) => attr.key === 'mapInstantaneousPower');
 
     if (!powerLimitsAttr) {
-      //LogHelper.log(`[RFC-0078] mapInstantaneousPower not found on ${entityType} ${entityId}`);
       return null;
     }
 
@@ -665,7 +504,6 @@ async function getCachedPowerLimitsJSON(entityId, entityType = 'CUSTOMER', ctxDa
   const now = Date.now();
 
   if (cached && now - cached.timestamp < CACHE_TTL_MS) {
-    //LogHelper.log(`[RFC-0078] Using cached JSON for ${entityType} ${entityId}`);
     return cached.json;
   }
 
@@ -711,9 +549,6 @@ async function getCachedPowerLimitsJSON(entityId, entityType = 'CUSTOMER', ctxDa
     // For CUSTOMER, fetch via API
     json = await fetchInstantaneousPowerLimits(entityId, entityType);
   } else {
-    // Fallback: fetch via API (old behavior, commented for reference)
-    // json = await fetchInstantaneousPowerLimits(entityId, entityType);
-    //LogHelper.warn(`[RFC-0078] DEVICE lookup without ctxData, returning empty structure`);
     json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
   }
 
@@ -746,12 +581,9 @@ async function getConsumptionRangesHierarchical(
   telemetryType = 'consumption',
   ctxData = null
 ) {
-  //LogHelper.log(`[RFC-0078] Resolving limits for device ${deviceId}, type ${deviceType}, telemetry ${telemetryType}`);
-
-  // TIER 1: Try device-level JSON first (highest priority)
-  // Reads from ctx.data[] if available, no API call needed
   LogHelper.log('[RFC-0078] deviceId getConsumptionRangesHierarchical', deviceId);
 
+  // TIER 1: Try device-level JSON first (highest priority)
   const deviceLimitsJSON = await getCachedPowerLimitsJSON(deviceId, 'DEVICE', ctxData);
   if (
     deviceLimitsJSON &&
@@ -760,7 +592,6 @@ async function getConsumptionRangesHierarchical(
   ) {
     const deviceRanges = extractLimitsFromJSON(deviceLimitsJSON, deviceType, telemetryType);
     if (deviceRanges) {
-      //LogHelper.log(`[RFC-0078] ✅ Using DEVICE-level JSON for ${deviceId} (TIER 1)`);
       return { ...deviceRanges, source: 'device', tier: 1 };
     }
   }
@@ -769,7 +600,6 @@ async function getConsumptionRangesHierarchical(
   if (customerLimitsJSON) {
     const customerRanges = extractLimitsFromJSON(customerLimitsJSON, deviceType, telemetryType);
     if (customerRanges) {
-      //LogHelper.log(`[RFC-0078] ✅ Using CUSTOMER-level JSON for ${deviceType} (TIER 2)`);
       return { ...customerRanges, source: 'customer', tier: 2 };
     }
   }
@@ -1299,19 +1129,6 @@ function initializeCards(devices) {
     device.customerName = customerName;
     device.domain = 'energy'; // RFC-0087: Energy domain for kWh/MWh/GWh formatting
 
-    /*
-    LogHelper.log("[EQUIPMENTS] Device customerName set:", {
-      labelOrName: device.labelOrName,
-      customerName: device.customerName,
-      customerId: device.customerId,
-      ingestionId: device.ingestionId
-    });
-    */
-
-    if (device.labelOrName && device.labelOrName.toUpperCase().includes('ELEVADOR')) {
-      //LogHelper.log("[EQUIPMENTS] Rendering card for Chiller 1 device:", device);
-    }
-
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
       handleActionDashboard: async () => {
@@ -1400,7 +1217,7 @@ function initializeCards(devices) {
             label: device.labelOrName,
             domain: 'energy',
             api: {
-              dataApiBaseUrl: DATA_API_HOST,
+              dataApiBaseUrl: getDataApiHost(),
               clientId: CLIENT_ID,
               clientSecret: CLIENT_SECRET,
               ingestionToken,
@@ -1424,7 +1241,6 @@ function initializeCards(devices) {
           return;
         }
 
-        //LogHelper.log("[EQUIPMENTS] ", device.deviceStatus);
         LogHelper.log('[EQUIPMENTS] device.deviceStatus:', device.deviceStatus);
         LogHelper.log('[EQUIPMENTS] device.lastConnectTime:', device.lastConnectTime);
 
@@ -1602,8 +1418,6 @@ self.onInit = async function () {
       await self.loadData(self.ctx.$scope.startDateISO, self.ctx.$scope.endDateISO);
     }
 
-    //console.log("[EQUIPAMENTS] scope", scope.ctx)
-
     // mantém sincronizado em updates futuros do pai/irmão A
     self._onDateParams = (ev) => {
       applyParams(ev.detail);
@@ -1659,9 +1473,8 @@ self.onInit = async function () {
       LogHelper.log('[EQUIPMENTS] 📍 Rendered', selection.length, 'shopping filter chips');
     }
 
-    //  console.log("[equipaments] self.ctx:", self.ctx);
-    CUSTOMER_ID = self.ctx.settings.customerId || ' ';
-    // console.log("[equipaments] CUSTOMER_ID:", CUSTOMER_ID);
+    // Obtém customerId do MAIN (exposto via window.myioHoldingCustomerId)
+    CUSTOMER_ID = window.myioHoldingCustomerId || ' ';
 
     // Objeto principal para armazenar os dados dos dispositivos
     const devices = {};
@@ -1691,9 +1504,6 @@ self.onInit = async function () {
           value: data.data[0][1],
           ts: data.data[0][0],
         });
-
-        //LogHelper.log(`[EQUIPMENTS] Device ${entityId} - Added dataKey: ${data.dataKey.name} with value: ${data.data[0][1]}`);
-        //LogHelper.log(`[EQUIPMENTS] Current device values:`, devices[entityId].values);
 
         // ✅ LÓGICA DO MAPA: Se o dado for o ingestionId, guardamos a relação
         if (data.dataKey.name === 'ingestionId' && data.data[0][1]) {
@@ -1737,7 +1547,7 @@ self.onInit = async function () {
     // Initialize MyIO Auth using MyIOLibrary (like MAIN widget)
     if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.buildMyioIngestionAuth) {
       myIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-        dataApiHost: DATA_API_HOST,
+        dataApiHost: getDataApiHost(),
         clientId: CLIENT_ID,
         clientSecret: CLIENT_SECRET,
       });
@@ -1772,9 +1582,6 @@ self.onInit = async function () {
         .filter(([entityId, device]) => device.values.some((valor) => valor.dataType === 'consumption'))
         .map(async ([entityId, device]) => {
           const tbToken = localStorage.getItem('jwt_token');
-
-          //console.log('device', device);
-
           const lastConnectTimestamp = findValue(device.values, 'lastConnectTime', '');
           const lastDisconnectTimestamp = findValue(device.values, 'lastDisconnectTime', '');
           const deviceMapInstaneousPower = findValue(device.values, 'deviceMapInstaneousPower', '');
@@ -1874,8 +1681,6 @@ self.onInit = async function () {
             window.myioDeviceToShoppingMap.set(ingestionId, customerId);
           }
 
-          LogHelper.log('[EQUIPMENTS] mapInstantaneousPower', MAP_INSTANTANEOUS_POWER);
-
           // Get identifier and normalize - if empty or contains "sem identificador", show "Sem identificador"
           const rawIdentifier = String(findValue(device.values, 'identifier') || '').trim();
           const deviceIdentifier = !rawIdentifier
@@ -1916,47 +1721,24 @@ self.onInit = async function () {
 
       const devicesFormatadosParaCards = await Promise.all(promisesDeCards);
 
-      /**
-       * TODO: TEMPORARY FIX - Remove when backend data is corrected
-       * Some devices have deviceType = 3F_MEDIDOR but are actually equipment.
-       * Check label for equipment keywords to properly classify them.
-       */
       function isActuallyEquipment(device) {
+        // Non-3F_MEDIDOR devices are always equipment
         if (device.deviceType !== '3F_MEDIDOR') {
-          return true; // Not 3F_MEDIDOR, definitely equipment
+          return true;
         }
+        // For 3F_MEDIDOR, check deviceProfile and labelOrName to determine if it's actually equipment
+        const equipmentKeywords = ['MOTOR', 'ELEVADOR', 'ESCADA_ROLANTE', 'CHILLER', 'BOMBA', 'FANCOIL'];
+        const profileUpper = (device.deviceProfile || '').toUpperCase();
+        const labelUpper = (device.labelOrName || '').toUpperCase();
 
-        // Check if label contains equipment keywords
-        /*
-      const label = String(device.labelOrName || "").toLowerCase();
-      const equipmentKeywords = ["elevador", "chiller", "bomba", "escada", "casa de m"];
-
-      return equipmentKeywords.some(keyword => label.includes(keyword));
-      */
-
-        const deviceTypeEquipmentKeywords = ['MOTOR', 'ELEVADOR', 'ESCADA_ROLANTE'];
-
-        return deviceTypeEquipmentKeywords.some((keyword) =>
-          device.deviceType.toLowerCase().includes(keyword)
+        return equipmentKeywords.some(
+          (keyword) => profileUpper.includes(keyword) || labelUpper.includes(keyword)
         );
       }
 
-      // ✅ Separate lojas from equipments based on deviceType AND label validation
+      // Separate lojas from equipments based on deviceType
       const lojasDevices = devicesFormatadosParaCards.filter((d) => !isActuallyEquipment(d));
       const equipmentDevices = devicesFormatadosParaCards.filter((d) => isActuallyEquipment(d));
-
-      // Debug: Log 3F_MEDIDOR devices classified as equipment (TODO: temporary)
-      const medidorAsEquipment = equipmentDevices.filter((d) => d.deviceType === '3F_MEDIDOR');
-      if (medidorAsEquipment.length > 0) {
-        LogHelper.warn(
-          '[EQUIPMENTS] ⚠️ Found',
-          medidorAsEquipment.length,
-          '3F_MEDIDOR devices classified as equipment (based on label):'
-        );
-        medidorAsEquipment.forEach((d) => {
-          LogHelper.log('  -', d.labelOrName, '(deviceType:', d.deviceType, ')');
-        });
-      }
 
       LogHelper.log('[EQUIPMENTS] Total devices:', devicesFormatadosParaCards.length);
       LogHelper.log('[EQUIPMENTS] Equipment devices:', equipmentDevices.length);
@@ -2008,9 +1790,6 @@ self.onInit = async function () {
 
       // RFC: Emit initial equipment count to HEADER
       emitEquipmentCountEvent(equipmentDevices);
-
-      // RFC-0079: Sub-menu navigation removed - now controlled by MENU widget
-      // initSubmenuNavigation();
 
       // Hide loading after rendering
       showLoadingOverlay(false);
@@ -2534,7 +2313,10 @@ function setupModalCloseHandlers(modal) {
             shouldCheck = deviceStatusValue === 'standby';
             break;
           case 'alert':
-            shouldCheck = deviceStatusValue === 'warning' || deviceStatusValue === 'alert' || deviceStatusValue === 'maintenance';
+            shouldCheck =
+              deviceStatusValue === 'warning' ||
+              deviceStatusValue === 'alert' ||
+              deviceStatusValue === 'maintenance';
             break;
           case 'failure':
             shouldCheck = deviceStatusValue === 'failure' || deviceStatusValue === 'power_off';
@@ -2636,21 +2418,27 @@ function setupModalCloseHandlers(modal) {
  * Following MENU widget pattern: modal attached to document.body
  */
 function openFilterModal() {
-  LogHelper.log('[EQUIPMENTS] [RFC-0072] Opening full-screen filter modal');
-  LogHelper.log('[EQUIPMENTS] STATE.allDevices count:', STATE.allDevices.length);
+  // DEBUG: Always log to console (not LogHelper which may be disabled)
+  console.log('[EQUIPMENTS] [RFC-0072] 🔍 Opening filter modal...');
+  console.log('[EQUIPMENTS] [RFC-0072] STATE.allDevices:', STATE.allDevices);
+  console.log('[EQUIPMENTS] [RFC-0072] STATE.allDevices.length:', STATE.allDevices?.length || 0);
 
-  if (STATE.allDevices.length === 0) {
-    LogHelper.error('[EQUIPMENTS] ❌ No devices in STATE.allDevices! Modal will be empty.');
+  if (!STATE.allDevices || STATE.allDevices.length === 0) {
+    console.error('[EQUIPMENTS] ❌ No devices in STATE.allDevices! Modal will be empty.');
+    console.log('[EQUIPMENTS] STATE object:', STATE);
     alert('Nenhum equipamento encontrado. Por favor, aguarde o carregamento dos dados.');
     return;
   }
 
   // RFC-0072: Get or create global modal container (like MENU widget)
   let globalContainer = document.getElementById('equipmentsFilterModalGlobal');
+  console.log('[EQUIPMENTS] globalContainer exists:', !!globalContainer);
 
   if (!globalContainer) {
     // Modal doesn't exist, move it from widget to document.body
+    console.log('[EQUIPMENTS] 🔄 Creating global container, looking for filterModal in widget...');
     const widgetModal = document.getElementById('filterModal');
+    console.log('[EQUIPMENTS] widgetModal found:', !!widgetModal, widgetModal);
     if (widgetModal) {
       // Extract modal from widget and wrap in global container
       globalContainer = document.createElement('div');
@@ -2974,26 +2762,33 @@ function openFilterModal() {
       `;
 
       // Move modal content to global container (after styles)
+      console.log('[EQUIPMENTS] 📦 Moving widgetModal to globalContainer...');
       widgetModal.remove();
       globalContainer.appendChild(widgetModal);
 
       // Attach to document.body (like MENU widget)
       document.body.appendChild(globalContainer);
+      console.log('[EQUIPMENTS] ✅ Global container attached to document.body');
 
       // RFC-0072: Bind close handlers now that modal is in document.body
       setupModalCloseHandlers(widgetModal);
 
-      LogHelper.log('[EQUIPMENTS] [RFC-0072] Modal moved to document.body with inline styles and handlers');
+      console.log('[EQUIPMENTS] [RFC-0072] Modal moved to document.body with inline styles and handlers');
     } else {
-      LogHelper.error('[EQUIPMENTS] [RFC-0072] Filter modal not found in template');
+      console.error('[EQUIPMENTS] [RFC-0072] ❌ Filter modal not found in template!');
       return;
     }
   }
 
   const modal = globalContainer.querySelector('#filterModal');
-  if (!modal) return;
+  console.log('[EQUIPMENTS] modal from globalContainer:', !!modal, modal);
+  if (!modal) {
+    console.error('[EQUIPMENTS] ❌ modal not found in globalContainer!');
+    return;
+  }
 
   modal.classList.remove('hidden');
+  console.log('[EQUIPMENTS] ✅ Modal visible (hidden class removed)');
 
   // RFC-0072: Add body class to prevent scrolling
   document.body.classList.add('modal-open');
@@ -3103,35 +2898,62 @@ function openFilterModal() {
   updateCount('countHvac', counts.hvac);
   updateCount('countOthers', counts.others);
 
-  LogHelper.log('[EQUIPMENTS] Filter counts:', counts);
+  console.log('[EQUIPMENTS] 📊 Filter counts:', counts);
 
   // Debug: Log sample device to check connectionStatus field
   if (STATE.allDevices.length > 0) {
-    LogHelper.log('[EQUIPMENTS] Sample device for debugging:', STATE.allDevices[0]);
+    console.log('[EQUIPMENTS] 📄 Sample device for debugging:', STATE.allDevices[0]);
   }
 
   // Populate device checklist - need to find it within the global container
+  console.log('[EQUIPMENTS] 🔍 Looking for deviceChecklist in globalContainer...');
   let checklist = globalContainer.querySelector('#deviceChecklist');
+  console.log('[EQUIPMENTS] checklist from globalContainer:', checklist);
+
   if (!checklist) {
     // Fallback to document search
+    console.log('[EQUIPMENTS] ⚠️ Not found in globalContainer, trying document.getElementById...');
     checklist = document.getElementById('deviceChecklist');
+    console.log('[EQUIPMENTS] checklist from document:', checklist);
   }
   if (!checklist) {
-    LogHelper.error('[EQUIPMENTS] ❌ deviceChecklist element not found!');
+    console.error('[EQUIPMENTS] ❌ deviceChecklist element not found anywhere!');
     return;
   }
 
-  LogHelper.log('[EQUIPMENTS] deviceChecklist found, populating with', STATE.allDevices.length, 'devices');
+  console.log('[EQUIPMENTS] ✅ deviceChecklist found, populating with', STATE.allDevices.length, 'devices');
 
   checklist.innerHTML = '';
 
-  STATE.allDevices.forEach((device) => {
+  // Sort devices alphabetically by label
+  const sortedDevices = STATE.allDevices
+    .slice()
+    .sort((a, b) =>
+      (a.labelOrName || '').localeCompare(b.labelOrName || '', 'pt-BR', { sensitivity: 'base' })
+    );
+
+  console.log('[EQUIPMENTS] 📋 Sorted devices count:', sortedDevices.length);
+
+  sortedDevices.forEach((device, index) => {
     const isChecked = !STATE.selectedIds || STATE.selectedIds.has(device.entityId);
 
     // Get shopping name and consumption value
     const shoppingName = device.customerName || getCustomerNameForDevice(device);
     const consumption = Number(device.val) || Number(device.lastValue) || 0;
-    const formattedConsumption = MyIO?.formatEnergy ? MyIO.formatEnergy(consumption) : consumption.toFixed(2);
+    const formattedConsumption = MyIOLibrary?.formatEnergy
+      ? MyIOLibrary.formatEnergy(consumption)
+      : consumption.toFixed(2);
+
+    // Debug first 3 devices
+    if (index < 3) {
+      console.log(`[EQUIPMENTS] Device ${index + 1}:`, {
+        entityId: device.entityId,
+        labelOrName: device.labelOrName,
+        consumption,
+        formattedConsumption,
+        shoppingName,
+      });
+    }
 
     const item = document.createElement('div');
     item.className = 'check-item';
@@ -3150,6 +2972,8 @@ function openFilterModal() {
 
     checklist.appendChild(item);
   });
+
+  console.log('[EQUIPMENTS] ✅ Checklist populated. Total items:', checklist.children.length);
 
   // Set current sort mode
   const sortRadios = modal.querySelectorAll('input[name="sortMode"]');
