@@ -69,33 +69,50 @@ export interface EntityObject {
  * Internationalization labels map
  */
 export interface I18NMap {
+  // Status labels (with icons)
   in_operation: string;
+  standby: string;
   alert: string;
   failure: string;
+  maintenance: string;
+  not_installed: string;
   offline: string;
+
+  // Metric labels
   efficiency: string;
   temperature: string;
   operation_time: string;
   updated: string;
   current_suffix: string;
+
+  // Menu labels
   menu_dashboard: string;
   menu_report: string;
   menu_settings: string;
 }
 
 /**
- * Default i18n labels (Portuguese)
+ * Default i18n labels (Portuguese) with icons
+ * Icons are prefixed to labels for visual clarity
  */
 export const DEFAULT_I18N: I18NMap = {
-  in_operation: 'Em operação',
-  alert: 'Alerta',
-  failure: 'Falha',
-  offline: 'Offline',
+  // Status labels with icons
+  in_operation: '⚡ Em funcionamento',
+  standby: '💤 Em standby',
+  alert: '⚠️ Alerta',
+  failure: '🚨 Falha',
+  maintenance: '🔧 Manutenção',
+  not_installed: '📦 Não instalado',
+  offline: '📡 Offline',
+
+  // Metric labels
   efficiency: 'Eficiência',
   temperature: 'Temperatura',
   operation_time: 'Tempo em operação',
   updated: 'Atualizado',
   current_suffix: 'Atual',
+
+  // Menu labels
   menu_dashboard: 'Dashboard',
   menu_report: 'Relatório',
   menu_settings: 'Configurações'

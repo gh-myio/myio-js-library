@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modal Components - MYIO JS Library Showcase</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ec4899, #be185d);
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-desc {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .modal-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .modal-trigger {
+            background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+            border: 2px dashed var(--gray-300);
+            border-radius: 12px;
+            padding: 32px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-trigger:hover {
+            border-color: #ec4899;
+            background: linear-gradient(135deg, #fdf2f8, #fce7f3);
+            transform: translateY(-2px);
+        }
+
+        .modal-trigger-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+
+        .modal-trigger-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--gray-800);
+            margin-bottom: 4px;
+        }
+
+        .modal-trigger-desc {
+            font-size: 13px;
+            color: var(--gray-600);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #ec4899;
+            color: white;
+        }
+
+        .btn-primary:hover { background: #be185d; }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-800);
+        }
+
+        .code-example {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .code-example .comment { color: #6b7280; }
+        .code-example .keyword { color: #c084fc; }
+        .code-example .string { color: #86efac; }
+        .code-example .function { color: #60a5fa; }
+        .code-example .number { color: #fbbf24; }
+
+        .props-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .props-table th, .props-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .props-table th {
+            background: var(--gray-50);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--gray-600);
+        }
+
+        .props-table code {
+            background: var(--gray-100);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: var(--gray-50);
+            border-radius: 8px;
+        }
+
+        .feature-icon {
+            font-size: 1.25rem;
+        }
+
+        .feature-text {
+            font-size: 14px;
+            color: var(--gray-700);
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            transform: scale(0.9);
+            transition: transform 0.3s;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--gray-500);
+            padding: 4px;
+            line-height: 1;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+    </style>
+    <script src="../dist/myio-js-library.umd.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / Modal Components
+            </div>
+            <h1>🪟 Modal Components</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Modal Types -->
+        <section class="section">
+            <h2>📋 Tipos de Modal Disponíveis</h2>
+            <p class="section-desc">
+                Clique em cada card para abrir uma demonstração do modal correspondente.
+            </p>
+
+            <div class="modal-grid">
+                <div class="modal-trigger" onclick="openModal('settings')">
+                    <div class="modal-trigger-icon">⚙️</div>
+                    <div class="modal-trigger-title">Settings Modal</div>
+                    <div class="modal-trigger-desc">Configurações de dispositivos e preferências</div>
+                </div>
+
+                <div class="modal-trigger" onclick="openModal('filter')">
+                    <div class="modal-trigger-icon">🔍</div>
+                    <div class="modal-trigger-title">Filter Modal</div>
+                    <div class="modal-trigger-desc">Filtros avançados para listagem de dispositivos</div>
+                </div>
+
+                <div class="modal-trigger" onclick="openModal('comparison')">
+                    <div class="modal-trigger-icon">📊</div>
+                    <div class="modal-trigger-title">Comparison Modal</div>
+                    <div class="modal-trigger-desc">Comparação de múltiplos dispositivos</div>
+                </div>
+
+                <div class="modal-trigger" onclick="openModal('report')">
+                    <div class="modal-trigger-icon">📄</div>
+                    <div class="modal-trigger-title">Report Modal</div>
+                    <div class="modal-trigger-desc">Geração e download de relatórios</div>
+                </div>
+
+                <div class="modal-trigger" onclick="openModal('alert')">
+                    <div class="modal-trigger-icon">🔔</div>
+                    <div class="modal-trigger-title">Alert Modal</div>
+                    <div class="modal-trigger-desc">Configuração de alertas e notificações</div>
+                </div>
+
+                <div class="modal-trigger" onclick="openModal('details')">
+                    <div class="modal-trigger-icon">📋</div>
+                    <div class="modal-trigger-title">Details Modal</div>
+                    <div class="modal-trigger-desc">Informações detalhadas de um dispositivo</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SettingsPersister -->
+        <section class="section">
+            <h2>💾 SettingsPersister</h2>
+            <p class="section-desc">
+                Classe para persistência de configurações de modais no localStorage com sincronização.
+            </p>
+
+            <div class="feature-list">
+                <div class="feature-item">
+                    <span class="feature-icon">💾</span>
+                    <span class="feature-text">Persistência automática no localStorage</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🔄</span>
+                    <span class="feature-text">Sincronização entre abas do navegador</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📦</span>
+                    <span class="feature-text">Suporte a múltiplos customers/tenants</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🧹</span>
+                    <span class="feature-text">Limpeza automática de dados antigos</span>
+                </div>
+            </div>
+
+            <div class="code-example" style="margin-top: 20px;">
+<span class="keyword">import</span> { <span class="function">SettingsPersister</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="comment">// Criar instância</span>
+<span class="keyword">const</span> persister = <span class="keyword">new</span> <span class="function">SettingsPersister</span>({
+    customerId: <span class="string">'customer-123'</span>,
+    storageKey: <span class="string">'myio-settings'</span>
+});
+
+<span class="comment">// Salvar configurações</span>
+persister.<span class="function">save</span>({
+    theme: <span class="string">'dark'</span>,
+    refreshInterval: <span class="number">30000</span>,
+    filters: { status: <span class="string">'active'</span> }
+});
+
+<span class="comment">// Carregar configurações</span>
+<span class="keyword">const</span> settings = persister.<span class="function">load</span>();
+
+<span class="comment">// Limpar configurações</span>
+persister.<span class="function">clear</span>();
+            </div>
+        </section>
+
+        <!-- SettingsController -->
+        <section class="section">
+            <h2>🎮 SettingsController</h2>
+            <p class="section-desc">
+                Controller para gerenciar estado e lógica de modais de configuração.
+            </p>
+
+            <table class="props-table">
+                <thead>
+                    <tr>
+                        <th>Método</th>
+                        <th>Descrição</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>init(options)</code></td>
+                        <td>Inicializa o controller com opções de configuração</td>
+                    </tr>
+                    <tr>
+                        <td><code>open()</code></td>
+                        <td>Abre o modal de configurações</td>
+                    </tr>
+                    <tr>
+                        <td><code>close()</code></td>
+                        <td>Fecha o modal</td>
+                    </tr>
+                    <tr>
+                        <td><code>save()</code></td>
+                        <td>Salva as configurações atuais</td>
+                    </tr>
+                    <tr>
+                        <td><code>reset()</code></td>
+                        <td>Restaura configurações padrão</td>
+                    </tr>
+                    <tr>
+                        <td><code>getState()</code></td>
+                        <td>Retorna o estado atual do controller</td>
+                    </tr>
+                    <tr>
+                        <td><code>subscribe(callback)</code></td>
+                        <td>Registra callback para mudanças de estado</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="code-example" style="margin-top: 20px;">
+<span class="keyword">import</span> { <span class="function">SettingsController</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="comment">// Criar controller</span>
+<span class="keyword">const</span> controller = <span class="keyword">new</span> <span class="function">SettingsController</span>();
+
+<span class="comment">// Inicializar</span>
+controller.<span class="function">init</span>({
+    container: document.getElementById(<span class="string">'modal-root'</span>),
+    persister: settingsPersister,
+    onSave: (settings) => console.log(<span class="string">'Saved:'</span>, settings),
+    onClose: () => console.log(<span class="string">'Modal closed'</span>)
+});
+
+<span class="comment">// Abrir modal</span>
+controller.<span class="function">open</span>();
+
+<span class="comment">// Ouvir mudanças</span>
+controller.<span class="function">subscribe</span>((state) => {
+    console.log(<span class="string">'State changed:'</span>, state);
+});
+            </div>
+        </section>
+
+        <!-- Modal Integration Example -->
+        <section class="section">
+            <h2>🔗 Integração Completa</h2>
+            <p class="section-desc">
+                Exemplo de como integrar modais com cards e widgets.
+            </p>
+
+            <div class="code-example">
+<span class="keyword">import</span> {
+    <span class="function">renderCardComponentHeadOffice</span>,
+    <span class="function">SettingsPersister</span>,
+    <span class="function">SettingsController</span>
+} <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="comment">// Setup persister</span>
+<span class="keyword">const</span> persister = <span class="keyword">new</span> <span class="function">SettingsPersister</span>({
+    customerId: <span class="string">'customer-123'</span>
+});
+
+<span class="comment">// Setup controller</span>
+<span class="keyword">const</span> settingsController = <span class="keyword">new</span> <span class="function">SettingsController</span>();
+settingsController.<span class="function">init</span>({ persister });
+
+<span class="comment">// Render card with settings action</span>
+<span class="keyword">const</span> card = <span class="function">renderCardComponentHeadOffice</span>(container, {
+    entityObject: device,
+    handleActionSettings: (event, entity) => {
+        <span class="comment">// Abre modal de configurações para o dispositivo</span>
+        settingsController.<span class="function">open</span>({
+            deviceId: entity.entityId,
+            deviceType: entity.deviceType
+        });
+    }
+});
+            </div>
+        </section>
+
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="index.html" class="btn btn-primary">← Voltar ao Portal</a>
+        </div>
+    </div>
+
+    <!-- Modal Demo -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="modalTitle">Modal Title</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                Modal content goes here...
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="closeModal()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const modalContent = {
+            settings: {
+                title: '⚙️ Configurações do Dispositivo',
+                body: `
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <div>
+                            <label style="display: block; font-size: 13px; color: #6b7280; margin-bottom: 4px;">Nome do Dispositivo</label>
+                            <input type="text" value="Elevador Social Norte 01" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; color: #6b7280; margin-bottom: 4px;">Intervalo de Atualização</label>
+                            <select style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                                <option>5 segundos</option>
+                                <option selected>30 segundos</option>
+                                <option>1 minuto</option>
+                                <option>5 minutos</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" checked> Habilitar alertas
+                            </label>
+                        </div>
+                    </div>
+                `
+            },
+            filter: {
+                title: '🔍 Filtros',
+                body: `
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <div>
+                            <label style="display: block; font-size: 13px; color: #6b7280; margin-bottom: 8px;">Status</label>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                <label style="display: flex; align-items: center; gap: 4px; padding: 6px 12px; background: #dcfce7; border-radius: 20px; cursor: pointer;">
+                                    <input type="checkbox" checked> Em Operação
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 4px; padding: 6px 12px; background: #fef3c7; border-radius: 20px; cursor: pointer;">
+                                    <input type="checkbox" checked> Alerta
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 4px; padding: 6px 12px; background: #fee2e2; border-radius: 20px; cursor: pointer;">
+                                    <input type="checkbox"> Falha
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; color: #6b7280; margin-bottom: 4px;">Tipo de Dispositivo</label>
+                            <select style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                                <option>Todos</option>
+                                <option>Elevador</option>
+                                <option>Escada Rolante</option>
+                                <option>Chiller</option>
+                            </select>
+                        </div>
+                    </div>
+                `
+            },
+            comparison: {
+                title: '📊 Comparação de Dispositivos',
+                body: `
+                    <div style="text-align: center; padding: 20px;">
+                        <p style="color: #6b7280; margin-bottom: 16px;">Selecione 2 ou mais dispositivos para comparar</p>
+                        <div style="display: flex; justify-content: center; gap: 16px;">
+                            <div style="padding: 16px; background: #f3f4f6; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; margin-bottom: 8px;">📈</div>
+                                <div style="font-size: 13px; color: #6b7280;">Consumo</div>
+                            </div>
+                            <div style="padding: 16px; background: #f3f4f6; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; margin-bottom: 8px;">🌡️</div>
+                                <div style="font-size: 13px; color: #6b7280;">Temperatura</div>
+                            </div>
+                            <div style="padding: 16px; background: #f3f4f6; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; margin-bottom: 8px;">⏱️</div>
+                                <div style="font-size: 13px; color: #6b7280;">Uptime</div>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            report: {
+                title: '📄 Gerar Relatório',
+                body: `
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <div>
+                            <label style="display: block; font-size: 13px; color: #6b7280; margin-bottom: 4px;">Período</label>
+                            <div style="display: flex; gap: 12px;">
+                                <input type="date" style="flex: 1; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                                <input type="date" style="flex: 1; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                            </div>
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; color: #6b7280; margin-bottom: 4px;">Formato</label>
+                            <select style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                                <option>PDF</option>
+                                <option>Excel (XLSX)</option>
+                                <option>CSV</option>
+                            </select>
+                        </div>
+                    </div>
+                `
+            },
+            alert: {
+                title: '🔔 Configurar Alertas',
+                body: `
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <div>
+                            <label style="display: block; font-size: 13px; color: #6b7280; margin-bottom: 4px;">Limite de Consumo (kW)</label>
+                            <input type="number" value="50" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; color: #6b7280; margin-bottom: 4px;">Limite de Temperatura (°C)</label>
+                            <input type="number" value="35" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                        </div>
+                        <div>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" checked> Enviar email
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 8px;">
+                                <input type="checkbox"> Enviar SMS
+                            </label>
+                        </div>
+                    </div>
+                `
+            },
+            details: {
+                title: '📋 Detalhes do Dispositivo',
+                body: `
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; padding: 12px; background: #f9fafb; border-radius: 6px;">
+                            <span style="color: #6b7280;">ID</span>
+                            <span style="font-family: monospace;">ELV-001</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 12px; background: #f9fafb; border-radius: 6px;">
+                            <span style="color: #6b7280;">Tipo</span>
+                            <span>Elevador</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 12px; background: #f9fafb; border-radius: 6px;">
+                            <span style="color: #6b7280;">Consumo Atual</span>
+                            <span style="color: #22c55e; font-weight: 600;">22.8 kW</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 12px; background: #f9fafb; border-radius: 6px;">
+                            <span style="color: #6b7280;">Última Atualização</span>
+                            <span>há 2 minutos</span>
+                        </div>
+                    </div>
+                `
+            }
+        };
+
+        window.openModal = function(type) {
+            const modal = modalContent[type];
+            if (!modal) return;
+
+            document.getElementById('modalTitle').textContent = modal.title;
+            document.getElementById('modalBody').innerHTML = modal.body;
+            document.getElementById('modalOverlay').classList.add('active');
+        };
+
+        window.closeModal = function(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('modalOverlay').classList.remove('active');
+        };
+
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+</body>
+</html>

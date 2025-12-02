@@ -189,7 +189,7 @@
                 val: 8.3,
                 valType: 'flow_m3h',
                 perc: 67,
-                deviceStatus: 'danger',
+                deviceStatus: 'failure',  // RFC: Fixed - was 'danger' which doesn't exist in DeviceStatusType
                 temperatureC: 35,
                 operationHours: 18.234,
                 timaVal: Date.now() - 45 * 60 * 1000 // 45 minutes ago
@@ -330,9 +330,9 @@
         window.simulateFailure = function() {
             const randomIndex = Math.floor(Math.random() * cardInstances.length);
             cardInstances[randomIndex].update({
-                deviceStatus: 'danger'
+                deviceStatus: 'failure'  // RFC: Fixed - was 'danger' which doesn't exist in DeviceStatusType
             });
-            log(`Simulated DANGER status for card ${randomIndex + 1}`);
+            log(`Simulated FAILURE status for card ${randomIndex + 1}`);
         };
 
         window.resetStatus = function() {

@@ -222,20 +222,23 @@ function calculateConsumptionPercentage(target, consumption) {
 
 /**
  * Get status chip class and label based on deviceStatus
+ * Labels include icons from DEFAULT_I18N (e.g., "⚡ Em funcionamento")
  */
 function getStatusInfo(deviceStatus, i18n) {
   switch (deviceStatus) {
     case DeviceStatusType.POWER_ON:
       return { chipClass: 'chip--ok', label: i18n.in_operation };
+    case DeviceStatusType.STANDBY:
+      return { chipClass: 'chip--standby', label: i18n.standby };
     case DeviceStatusType.WARNING:
       return { chipClass: 'chip--alert', label: i18n.alert };
-    case DeviceStatusType.DANGER:
+    case DeviceStatusType.FAILURE:
     case DeviceStatusType.POWER_OFF:
       return { chipClass: 'chip--failure', label: i18n.failure };
-    case DeviceStatusType.STANDBY:
-      return { chipClass: 'chip--alert', label: i18n.alert };
     case DeviceStatusType.MAINTENANCE:
-      return { chipClass: 'chip--alert', label: i18n.alert };
+      return { chipClass: 'chip--alert', label: i18n.maintenance };
+    case DeviceStatusType.NOT_INSTALLED:
+      return { chipClass: 'chip--offline', label: i18n.not_installed };
     case DeviceStatusType.NO_INFO:
     default:
       return { chipClass: 'chip--offline', label: i18n.offline };
@@ -258,9 +261,12 @@ function getCardStateClass(deviceStatus) {
     case DeviceStatusType.MAINTENANCE:
       return 'is-alert';
 
-    case DeviceStatusType.DANGER:
+    case DeviceStatusType.FAILURE:
     case DeviceStatusType.POWER_OFF:
       return 'is-failure';
+
+    case DeviceStatusType.NOT_INSTALLED:
+      return 'is-offline';
 
     default:
       return '';
@@ -508,60 +514,30 @@ function buildDOM(state) {
   return root;
 }
 
+/**
+ * Verify if device is online based on connection timestamps
+ * @param {Object} entityObject - Entity with lastConnectTime and lastDisconnectTime
+ * @returns {boolean} true if online, false if offline
+ */
 function verifyOfflineStatus(entityObject) {
-
   const lastConnectionTime = new Date(entityObject.lastConnectTime || 0);
   const lastDisconnectTime = new Date(entityObject.lastDisconnectTime || 0);
   const now = new Date();
   const fifteenMinutesInMs = 15 * 60 * 1000;
   const timeSinceConnection = now.getTime() - lastConnectionTime.getTime();
 
-  // DEBUG for Chiller 1
-  if (String(entityObject.labelOrName || '').toLowerCase().includes('chiller 1')) {
-    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] ========================================');
-    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] label:', entityObject.labelOrName);
-    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] deviceStatus (before):', entityObject.deviceStatus);
-    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] lastConnectTime (raw):', entityObject.lastConnectTime);
-    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] lastDisconnectTime (raw):', entityObject.lastDisconnectTime);
-    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] lastConnectionTime (Date):', lastConnectionTime.toISOString());
-    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] lastDisconnectTime (Date):', lastDisconnectTime.toISOString());
-    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] now:', now.toISOString());
-    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] timeSinceConnection (ms):', timeSinceConnection);
-    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] timeSinceConnection (min):', (timeSinceConnection / 60000).toFixed(2));
-    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] disconnect > connect?', lastDisconnectTime.getTime() > lastConnectionTime.getTime());
-    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] timeSinceConnection < 15min?', timeSinceConnection < fifteenMinutesInMs);
-  }
-
-  // 2. Regra 1: Se a última desconexão for mais recente que a última conexão, está offline.
+  // Rule 1: If last disconnect is more recent than last connect, device is offline
   if (lastDisconnectTime.getTime() > lastConnectionTime.getTime()) {
-    if (String(entityObject.labelOrName || '').toLowerCase().includes('chiller 1')) {
-      console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] RESULT: false (disconnect > connect)');
-      console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] ========================================');
-    }
-    return false; // Offline
+    return false;
   }
 
-  // 3. Regra 2: Se a conexão for mais recente, verificar o tempo desde a conexão.
-  // Calcula a diferença em milissegundos desde a última conexão
-
-  // Se o tempo de conexão for "maior" (que o de desconexão)
-  // "mas menor que 15 minutos" (ou seja, conectou-se nos últimos 15 min),
-  // deve retornar offline.
+  // Rule 2: If connection is recent (< 15 min), consider offline (probation period)
   if (timeSinceConnection < fifteenMinutesInMs) {
-    if (String(entityObject.labelOrName || '').toLowerCase().includes('chiller 1')) {
-      console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] RESULT: false (connection < 15min ago)');
-      console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] ========================================');
-    }
-    return false; // Offline (Regra de "probation" ou conexão muito recente)
+    return false;
   }
 
-  // 4. Caso contrário: Se conectou (e não desconectou depois) E
-  // a conexão ocorreu há 15 minutos ou mais, retorna true.
-  if (String(entityObject.labelOrName || '').toLowerCase().includes('chiller 1')) {
-    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] RESULT: true (online)');
-    console.log('[DEBUG CHILLER 1 - verifyOfflineStatus] ========================================');
-  }
-  return true; // Online
+  // Otherwise: Connected for more than 15 minutes, device is online
+  return true;
 }
 
 /**

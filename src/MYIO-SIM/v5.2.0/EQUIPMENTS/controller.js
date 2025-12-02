@@ -1846,26 +1846,8 @@ self.onInit = async function () {
             LogHelper.log(`[RFC-0078] Using deviceMapInstaneousPower (TIER 0) for ${deviceId}`);
           }
 
-          // DEBUG LOG for ER 14 device
           // Get instantaneous power from ctx.data (renamed to consumption_power to avoid confusion)
           const instantaneousPower = findValue(device.values, 'consumption_power', 0);
-          if (String(device.label || '').toLowerCase() === 'chiller 1') {
-            console.log('[DEBUG ER 14] ========================================');
-            console.log('[DEBUG ER 14] deviceId:', deviceId);
-            console.log('[DEBUG ER 14] deviceType:', deviceType);
-            console.log('[DEBUG ER 14] label:', device.label);
-            console.log('[DEBUG ER 14] consumptionValue (API total kWh):', consumptionValue);
-            console.log('[DEBUG ER 14] instantaneousPower (consumption_power kW):', instantaneousPower);
-            console.log('[DEBUG ER 14] device.values:', device.values);
-            console.log('[DEBUG ER 14] deviceMapInstaneousPower (raw):', deviceMapInstaneousPower);
-            console.log('[DEBUG ER 14] deviceMapLimits (parsed):', deviceMapLimits);
-            console.log(
-              '[DEBUG ER 14] window.__customerConsumptionLimits:',
-              window.__customerConsumptionLimits
-            );
-            console.log('[DEBUG ER 14] rangesWithSource:', JSON.stringify(rangesWithSource, null, 2));
-            console.log('[DEBUG ER 14] ========================================');
-          }
 
           // Calculate device status using range-based calculation
           const deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
@@ -1893,31 +1875,6 @@ self.onInit = async function () {
           }
 
           LogHelper.log('[EQUIPMENTS] mapInstantaneousPower', MAP_INSTANTANEOUS_POWER);
-
-          // DEBUG LOG for Chiller 1 device
-          if (String(device.label || '').toLowerCase() === 'chiller 1') {
-            console.log('[DEBUG CHILLER 1] ========================================');
-            console.log('[DEBUG CHILLER 1] deviceId:', deviceId);
-            console.log('[DEBUG CHILLER 1] deviceType:', deviceType);
-            console.log('[DEBUG CHILLER 1] label:', device.label);
-            console.log('[DEBUG CHILLER 1] connectionStatus (raw):', rawConnectionStatus);
-            console.log('[DEBUG CHILLER 1] connectionStatus (mapped):', mappedConnectionStatus);
-            console.log('[DEBUG CHILLER 1] consumptionValue (API kWh):', consumptionValue);
-            console.log('[DEBUG CHILLER 1] instantaneousPower (consumption_power kW):', instantaneousPower);
-            console.log('[DEBUG CHILLER 1] --- calculateDeviceStatusWithRanges INPUT ---');
-            console.log('[DEBUG CHILLER 1] input.connectionStatus:', mappedConnectionStatus);
-            console.log('[DEBUG CHILLER 1] input.lastConsumptionValue:', Number(instantaneousPower) || null);
-            console.log('[DEBUG CHILLER 1] input.ranges:', JSON.stringify(rangesWithSource, null, 2));
-            console.log('[DEBUG CHILLER 1] --- calculateDeviceStatusWithRanges OUTPUT ---');
-            console.log('[DEBUG CHILLER 1] deviceStatus:', deviceStatus);
-            console.log('[DEBUG CHILLER 1] deviceMapInstaneousPower (raw):', deviceMapInstaneousPower);
-            console.log('[DEBUG CHILLER 1] deviceMapLimits (parsed):', deviceMapLimits);
-            console.log(
-              '[DEBUG CHILLER 1] window.__customerConsumptionLimits:',
-              window.__customerConsumptionLimits
-            );
-            console.log('[DEBUG CHILLER 1] ========================================');
-          }
 
           return {
             entityId: entityId,

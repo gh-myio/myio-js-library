@@ -1,8 +1,24 @@
 # myio-js-library
 
-A clean, standalone JavaScript SDK for **MYIO** projects.  
-Works in **Node.js (>=18)** and modern browsers.  
+A clean, standalone JavaScript SDK for **MYIO** projects.
+Works in **Node.js (>=18)** and modern browsers.
 Distributed as **ESM**, **CJS**, and **UMD** (with a pre-minified build for CDN usage).
+
+---
+
+## 🎨 Interactive Showcase
+
+Explore all library features with interactive demos and live examples:
+
+**[Open Showcase Portal →](showcase/index.html)**
+
+The showcase includes:
+- 📊 Format Utilities - Energy, water, percentages, and numbers
+- 📅 Date Utilities - Date formatting, intervals, timezone handling
+- 🚦 Device Status - Status types, ranges, and calculations
+- 🎴 Card Components - Head Office device cards with full interactivity
+- 🪟 Modal Components - Settings, filters, and reports
+- 🔧 MYIO Components - Selection store, authentication, CSV export
 
 ---
 

@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Components - MYIO JS Library Showcase</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-desc {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .cards-demo {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .control-panel {
+            background: var(--gray-100);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .control-panel h3 {
+            font-size: 14px;
+            color: var(--gray-600);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .control-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .control-group label {
+            font-size: 12px;
+            color: var(--gray-600);
+        }
+
+        .control-group select, .control-group input {
+            padding: 8px 12px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 150px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        .btn-primary {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-primary:hover { background: #d97706; }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-800);
+        }
+
+        .btn-secondary:hover { background: var(--gray-300); }
+
+        .code-example {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .code-example .comment { color: #6b7280; }
+        .code-example .keyword { color: #c084fc; }
+        .code-example .string { color: #86efac; }
+        .code-example .function { color: #60a5fa; }
+        .code-example .number { color: #fbbf24; }
+
+        .event-log {
+            background: var(--gray-900);
+            color: #86efac;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .event-log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .props-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .props-table th, .props-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .props-table th {
+            background: var(--gray-50);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--gray-600);
+        }
+
+        .props-table code {
+            background: var(--gray-100);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .type-string { background: #dcfce7; color: #166534; }
+        .type-number { background: #fef3c7; color: #92400e; }
+        .type-boolean { background: #dbeafe; color: #1e40af; }
+        .type-function { background: #f3e8ff; color: #6b21a8; }
+        .type-object { background: #fce7f3; color: #9d174d; }
+    </style>
+    <script src="../dist/myio-js-library.umd.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / Card Components
+            </div>
+            <h1>🎴 Card Components</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- renderCardComponentHeadOffice -->
+        <section class="section">
+            <h2>🏢 renderCardComponentHeadOffice</h2>
+            <p class="section-desc">
+                Componente de card para visualização de dispositivos em dashboards de Head Office.
+                Suporta seleção, drag & drop, e múltiplos estados de dispositivo.
+            </p>
+
+            <div class="control-panel">
+                <h3>Controles</h3>
+                <div class="control-row">
+                    <div class="control-group">
+                        <label>Status</label>
+                        <select id="statusSelect">
+                            <option value="power_on">Power On</option>
+                            <option value="standby">Standby</option>
+                            <option value="warning">Warning</option>
+                            <option value="failure">Failure</option>
+                            <option value="no_info">No Info</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Valor (kW)</label>
+                        <input type="number" id="valueInput" value="22.8" step="0.1">
+                    </div>
+                    <div class="control-group">
+                        <label>Percentual</label>
+                        <input type="number" id="percInput" value="89" min="0" max="100">
+                    </div>
+                    <div class="control-group">
+                        <label>Temperatura</label>
+                        <input type="number" id="tempInput" value="26">
+                    </div>
+                    <button class="btn btn-primary" onclick="updateCard()">Atualizar</button>
+                    <button class="btn btn-secondary" onclick="randomUpdate()">Valores Aleatórios</button>
+                </div>
+            </div>
+
+            <div class="cards-demo" id="cardsDemo"></div>
+
+            <div class="event-log-header">
+                <h3 style="margin: 0; font-size: 14px; color: var(--gray-600);">Event Log</h3>
+                <button class="btn btn-sm btn-secondary" onclick="clearLog()">Limpar</button>
+            </div>
+            <div class="event-log" id="eventLog">Aguardando eventos...\n</div>
+        </section>
+
+        <!-- Props Reference -->
+        <section class="section">
+            <h2>📋 Props Reference</h2>
+            <p class="section-desc">
+                Propriedades aceitas pelo componente renderCardComponentHeadOffice.
+            </p>
+
+            <table class="props-table">
+                <thead>
+                    <tr>
+                        <th>Prop</th>
+                        <th>Tipo</th>
+                        <th>Descrição</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>entityObject</code></td>
+                        <td><span class="type-badge type-object">object</span></td>
+                        <td>Objeto com dados do dispositivo (entityId, labelOrName, val, etc.)</td>
+                    </tr>
+                    <tr>
+                        <td><code>handleActionDashboard</code></td>
+                        <td><span class="type-badge type-function">function</span></td>
+                        <td>Callback quando clica no botão de dashboard</td>
+                    </tr>
+                    <tr>
+                        <td><code>handleActionReport</code></td>
+                        <td><span class="type-badge type-function">function</span></td>
+                        <td>Callback quando clica no botão de relatório</td>
+                    </tr>
+                    <tr>
+                        <td><code>handleActionSettings</code></td>
+                        <td><span class="type-badge type-function">function</span></td>
+                        <td>Callback quando clica no botão de configurações</td>
+                    </tr>
+                    <tr>
+                        <td><code>handleSelect</code></td>
+                        <td><span class="type-badge type-function">function</span></td>
+                        <td>Callback quando seleciona/deseleciona o card</td>
+                    </tr>
+                    <tr>
+                        <td><code>handleClickCard</code></td>
+                        <td><span class="type-badge type-function">function</span></td>
+                        <td>Callback quando clica no card</td>
+                    </tr>
+                    <tr>
+                        <td><code>enableSelection</code></td>
+                        <td><span class="type-badge type-boolean">boolean</span></td>
+                        <td>Habilita checkbox de seleção</td>
+                    </tr>
+                    <tr>
+                        <td><code>enableDragDrop</code></td>
+                        <td><span class="type-badge type-boolean">boolean</span></td>
+                        <td>Habilita funcionalidade de drag & drop</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Entity Object Structure -->
+        <section class="section">
+            <h2>📦 Entity Object Structure</h2>
+            <p class="section-desc">
+                Estrutura esperada do objeto entityObject.
+            </p>
+
+            <div class="code-example">
+<span class="keyword">const</span> entityObject = {
+    entityId: <span class="string">'ELV-001'</span>,
+    labelOrName: <span class="string">'Elevador Social Norte 01'</span>,
+    deviceIdentifier: <span class="string">'ELV-001'</span>,
+    deviceType: <span class="string">'ELEVADOR'</span>,
+    val: <span class="number">22.8</span>,                  <span class="comment">// Valor principal</span>
+    valType: <span class="string">'power_kw'</span>,         <span class="comment">// Tipo do valor</span>
+    perc: <span class="number">89</span>,                    <span class="comment">// Percentual (0-100)</span>
+    deviceStatus: <span class="string">'power_on'</span>,    <span class="comment">// Status do dispositivo</span>
+    temperatureC: <span class="number">26</span>,            <span class="comment">// Temperatura em Celsius</span>
+    operationHours: <span class="number">8.934</span>,       <span class="comment">// Horas de operação</span>
+    timaVal: Date.now()          <span class="comment">// Timestamp do último update</span>
+};
+            </div>
+        </section>
+
+        <!-- Usage Example -->
+        <section class="section">
+            <h2>💻 Exemplo de Uso</h2>
+            <p class="section-desc">
+                Como usar o componente em seu código.
+            </p>
+
+            <div class="code-example">
+<span class="keyword">import</span> { <span class="function">renderCardComponentHeadOffice</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="comment">// Criar container</span>
+<span class="keyword">const</span> container = document.getElementById(<span class="string">'card-container'</span>);
+
+<span class="comment">// Renderizar card</span>
+<span class="keyword">const</span> card = <span class="function">renderCardComponentHeadOffice</span>(container, {
+    entityObject: {
+        entityId: <span class="string">'ELV-001'</span>,
+        labelOrName: <span class="string">'Elevador Social'</span>,
+        val: <span class="number">22.8</span>,
+        perc: <span class="number">89</span>,
+        deviceStatus: <span class="string">'power_on'</span>
+    },
+    handleActionDashboard: (event, entity) => {
+        console.log(<span class="string">'Dashboard clicked'</span>, entity);
+    },
+    handleSelect: (checked, entity) => {
+        console.log(<span class="string">'Selected:'</span>, checked);
+    },
+    enableSelection: <span class="keyword">true</span>,
+    enableDragDrop: <span class="keyword">true</span>
+});
+
+<span class="comment">// Atualizar card</span>
+card.<span class="function">update</span>({
+    val: <span class="number">25.5</span>,
+    deviceStatus: <span class="string">'warning'</span>
+});
+
+<span class="comment">// Destruir card</span>
+card.<span class="function">destroy</span>();
+            </div>
+        </section>
+
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="index.html" class="btn btn-primary">← Voltar ao Portal</a>
+        </div>
+    </div>
+
+    <script>
+        const { renderCardComponentHeadOffice } = MyIOLibrary;
+
+        let cardInstance = null;
+        const eventLog = document.getElementById('eventLog');
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            eventLog.textContent += `[${timestamp}] ${message}\n`;
+            eventLog.scrollTop = eventLog.scrollHeight;
+        }
+
+        window.clearLog = function() {
+            eventLog.textContent = '';
+        };
+
+        // Sample device data
+        const sampleDevice = {
+            entityId: 'ELV-001',
+            labelOrName: 'Elevador Social Norte 01',
+            deviceIdentifier: 'ELV-001',
+            deviceType: 'ELEVADOR',
+            val: 22.8,
+            valType: 'power_kw',
+            perc: 89,
+            deviceStatus: 'power_on',
+            temperatureC: 26,
+            operationHours: 8.934,
+            timaVal: Date.now() - 15 * 60 * 1000
+        };
+
+        // Initialize card
+        function initCard() {
+            const container = document.getElementById('cardsDemo');
+            container.innerHTML = '';
+
+            const cardContainer = document.createElement('div');
+            container.appendChild(cardContainer);
+
+            cardInstance = renderCardComponentHeadOffice(cardContainer, {
+                entityObject: sampleDevice,
+                handleActionDashboard: (event, entity) => {
+                    log(`Dashboard: ${entity.labelOrName}`);
+                },
+                handleActionReport: (event, entity) => {
+                    log(`Report: ${entity.labelOrName}`);
+                },
+                handleActionSettings: (event, entity) => {
+                    log(`Settings: ${entity.labelOrName}`);
+                },
+                handleSelect: (checked, entity) => {
+                    log(`Select ${checked ? 'ON' : 'OFF'}: ${entity.labelOrName}`);
+                },
+                handleClickCard: (event, entity) => {
+                    log(`Card clicked: ${entity.labelOrName}`);
+                },
+                enableSelection: true,
+                enableDragDrop: true,
+                useNewComponents: true
+            });
+
+            log('Card initialized');
+        }
+
+        window.updateCard = function() {
+            if (!cardInstance) return;
+
+            cardInstance.update({
+                val: parseFloat(document.getElementById('valueInput').value) || 0,
+                perc: parseInt(document.getElementById('percInput').value) || 0,
+                temperatureC: parseInt(document.getElementById('tempInput').value) || 0,
+                deviceStatus: document.getElementById('statusSelect').value,
+                timaVal: Date.now()
+            });
+
+            log('Card updated manually');
+        };
+
+        window.randomUpdate = function() {
+            if (!cardInstance) return;
+
+            const statuses = ['power_on', 'standby', 'warning', 'failure'];
+            const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+            const randomVal = (Math.random() * 50 + 10).toFixed(1);
+            const randomPerc = Math.floor(Math.random() * 40 + 60);
+            const randomTemp = Math.floor(Math.random() * 15 + 20);
+
+            document.getElementById('statusSelect').value = randomStatus;
+            document.getElementById('valueInput').value = randomVal;
+            document.getElementById('percInput').value = randomPerc;
+            document.getElementById('tempInput').value = randomTemp;
+
+            cardInstance.update({
+                val: parseFloat(randomVal),
+                perc: randomPerc,
+                temperatureC: randomTemp,
+                deviceStatus: randomStatus,
+                timaVal: Date.now()
+            });
+
+            log(`Random update: ${randomVal}kW, ${randomPerc}%, ${randomTemp}°C, ${randomStatus}`);
+        };
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initCard);
+    </script>
+</body>
+</html>

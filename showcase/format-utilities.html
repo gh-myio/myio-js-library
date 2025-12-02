@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Format Utilities - MYIO JS Library Showcase</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-desc {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .demo-card {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .demo-card label {
+            display: block;
+            font-size: 12px;
+            color: var(--gray-600);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .demo-card input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+
+        .demo-card input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .result {
+            background: var(--gray-900);
+            color: #86efac;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+        }
+
+        .code-example {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .code-example .comment { color: #6b7280; }
+        .code-example .keyword { color: #c084fc; }
+        .code-example .string { color: #86efac; }
+        .code-example .function { color: #60a5fa; }
+        .code-example .number { color: #fbbf24; }
+
+        .table-demo {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        .table-demo th, .table-demo td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .table-demo th {
+            background: var(--gray-50);
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            color: var(--gray-600);
+        }
+
+        .table-demo td {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+        }
+
+        .table-demo .input-val { color: var(--gray-600); }
+        .table-demo .output-val { color: var(--primary); font-weight: 500; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover { background: var(--primary-dark); }
+    </style>
+    <script src="../dist/myio-js-library.umd.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / Format Utilities
+            </div>
+            <h1>📊 Format Utilities</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- formatEnergy -->
+        <section class="section">
+            <h2>⚡ formatEnergy(value)</h2>
+            <p class="section-desc">
+                Formata valores de energia automaticamente para kWh, MWh ou GWh baseado na magnitude.
+            </p>
+
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <label>Valor em kWh</label>
+                    <input type="number" id="energyInput" value="1500" placeholder="Digite um valor">
+                    <div class="result" id="energyResult">1.50 kWh</div>
+                </div>
+            </div>
+
+            <table class="table-demo">
+                <thead>
+                    <tr>
+                        <th>Input (kWh)</th>
+                        <th>Output</th>
+                    </tr>
+                </thead>
+                <tbody id="energyExamples">
+                </tbody>
+            </table>
+
+            <div class="code-example" style="margin-top: 20px;">
+<span class="keyword">import</span> { <span class="function">formatEnergy</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="function">formatEnergy</span>(<span class="number">500</span>);        <span class="comment">// "500.00 kWh"</span>
+<span class="function">formatEnergy</span>(<span class="number">1500</span>);       <span class="comment">// "1.50 MWh"</span>
+<span class="function">formatEnergy</span>(<span class="number">2500000</span>);    <span class="comment">// "2.50 GWh"</span>
+            </div>
+        </section>
+
+        <!-- formatAllInSameUnit -->
+        <section class="section">
+            <h2>📏 formatAllInSameUnit(values)</h2>
+            <p class="section-desc">
+                Formata um array de valores na mesma unidade (a maior necessária), útil para comparações.
+            </p>
+
+            <div class="code-example">
+<span class="keyword">import</span> { <span class="function">formatAllInSameUnit</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="keyword">const</span> values = [<span class="number">500</span>, <span class="number">1500</span>, <span class="number">2500</span>];
+<span class="keyword">const</span> formatted = <span class="function">formatAllInSameUnit</span>(values);
+<span class="comment">// ["0.50 MWh", "1.50 MWh", "2.50 MWh"]</span>
+            </div>
+
+            <div id="sameUnitResult" style="margin-top: 16px;"></div>
+        </section>
+
+        <!-- fmtPerc -->
+        <section class="section">
+            <h2>📊 fmtPerc(value, decimals)</h2>
+            <p class="section-desc">
+                Formata valores como porcentagem com controle de casas decimais.
+            </p>
+
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <label>Valor decimal</label>
+                    <input type="number" id="percInput" value="0.8567" step="0.01" placeholder="Ex: 0.85">
+                    <div class="result" id="percResult">85.67%</div>
+                </div>
+            </div>
+
+            <div class="code-example" style="margin-top: 20px;">
+<span class="keyword">import</span> { <span class="function">fmtPerc</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="function">fmtPerc</span>(<span class="number">0.8567</span>);       <span class="comment">// "85.67%"</span>
+<span class="function">fmtPerc</span>(<span class="number">0.8567</span>, <span class="number">0</span>);    <span class="comment">// "86%"</span>
+<span class="function">fmtPerc</span>(<span class="number">0.8567</span>, <span class="number">1</span>);    <span class="comment">// "85.7%"</span>
+            </div>
+        </section>
+
+        <!-- formatWaterVolumeM3 -->
+        <section class="section">
+            <h2>💧 formatWaterVolumeM3(value)</h2>
+            <p class="section-desc">
+                Formata volumes de água em m³ ou litros conforme a magnitude.
+            </p>
+
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <label>Valor em m³</label>
+                    <input type="number" id="waterInput" value="0.5" step="0.1" placeholder="Ex: 0.5">
+                    <div class="result" id="waterResult">500 L</div>
+                </div>
+            </div>
+
+            <table class="table-demo">
+                <thead>
+                    <tr>
+                        <th>Input (m³)</th>
+                        <th>Output</th>
+                    </tr>
+                </thead>
+                <tbody id="waterExamples">
+                </tbody>
+            </table>
+        </section>
+
+        <!-- formatNumberReadable -->
+        <section class="section">
+            <h2>🔢 formatNumberReadable(value)</h2>
+            <p class="section-desc">
+                Formata números grandes de forma legível (K, M, B).
+            </p>
+
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <label>Valor numérico</label>
+                    <input type="number" id="readableInput" value="1500000" placeholder="Ex: 1500000">
+                    <div class="result" id="readableResult">1.5M</div>
+                </div>
+            </div>
+
+            <table class="table-demo">
+                <thead>
+                    <tr>
+                        <th>Input</th>
+                        <th>Output</th>
+                    </tr>
+                </thead>
+                <tbody id="readableExamples">
+                </tbody>
+            </table>
+        </section>
+
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="index.html" class="btn btn-primary">← Voltar ao Portal</a>
+        </div>
+    </div>
+
+    <script>
+        const {
+            formatEnergy,
+            formatAllInSameUnit,
+            fmtPerc,
+            formatWaterVolumeM3,
+            formatNumberReadable
+        } = MyIOLibrary;
+
+        // Energy Demo
+        const energyInput = document.getElementById('energyInput');
+        const energyResult = document.getElementById('energyResult');
+
+        energyInput.addEventListener('input', () => {
+            const val = parseFloat(energyInput.value) || 0;
+            energyResult.textContent = formatEnergy(val);
+        });
+
+        // Energy Examples Table
+        const energyExamples = [
+            100, 500, 999, 1000, 1500, 5000,
+            10000, 100000, 500000, 1000000, 2500000
+        ];
+        const energyTbody = document.getElementById('energyExamples');
+        energyExamples.forEach(val => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="input-val">${val.toLocaleString()}</td>
+                <td class="output-val">${formatEnergy(val)}</td>
+            `;
+            energyTbody.appendChild(tr);
+        });
+
+        // formatAllInSameUnit Demo
+        const sameUnitValues = [500, 1500, 2500, 5000];
+        const sameUnitResult = document.getElementById('sameUnitResult');
+        try {
+            const formatted = formatAllInSameUnit(sameUnitValues);
+            sameUnitResult.innerHTML = `
+                <table class="table-demo">
+                    <thead><tr><th>Input</th><th>Output (mesma unidade)</th></tr></thead>
+                    <tbody>
+                        ${sameUnitValues.map((v, i) => `
+                            <tr>
+                                <td class="input-val">${v.toLocaleString()} kWh</td>
+                                <td class="output-val">${formatted[i]}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } catch (e) {
+            sameUnitResult.innerHTML = `<p style="color: #ef4444;">Erro: ${e.message}</p>`;
+        }
+
+        // Percentage Demo
+        const percInput = document.getElementById('percInput');
+        const percResult = document.getElementById('percResult');
+
+        percInput.addEventListener('input', () => {
+            const val = parseFloat(percInput.value) || 0;
+            percResult.textContent = fmtPerc(val);
+        });
+
+        // Water Demo
+        const waterInput = document.getElementById('waterInput');
+        const waterResult = document.getElementById('waterResult');
+
+        waterInput.addEventListener('input', () => {
+            const val = parseFloat(waterInput.value) || 0;
+            waterResult.textContent = formatWaterVolumeM3(val);
+        });
+
+        // Water Examples Table
+        const waterExamples = [0.1, 0.5, 1, 5, 10, 50, 100, 500, 1000];
+        const waterTbody = document.getElementById('waterExamples');
+        waterExamples.forEach(val => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="input-val">${val}</td>
+                <td class="output-val">${formatWaterVolumeM3(val)}</td>
+            `;
+            waterTbody.appendChild(tr);
+        });
+
+        // Readable Number Demo
+        const readableInput = document.getElementById('readableInput');
+        const readableResult = document.getElementById('readableResult');
+
+        readableInput.addEventListener('input', () => {
+            const val = parseFloat(readableInput.value) || 0;
+            readableResult.textContent = formatNumberReadable(val);
+        });
+
+        // Readable Examples Table
+        const readableExamples = [100, 1000, 5000, 10000, 100000, 500000, 1000000, 1500000000];
+        const readableTbody = document.getElementById('readableExamples');
+        readableExamples.forEach(val => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="input-val">${val.toLocaleString()}</td>
+                <td class="output-val">${formatNumberReadable(val)}</td>
+            `;
+            readableTbody.appendChild(tr);
+        });
+    </script>
+</body>
+</html>

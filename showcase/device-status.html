@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Status - MYIO JS Library Showcase</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-desc {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .status-card {
+            background: var(--gray-50);
+            border: 2px solid var(--gray-200);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .status-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .status-card.selected {
+            border-color: var(--primary);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .status-icon {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+        }
+
+        .status-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--gray-800);
+            margin-bottom: 4px;
+        }
+
+        .status-value {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            color: var(--gray-600);
+            background: var(--gray-200);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            margin: 4px;
+        }
+
+        .chip-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .chip--ok { background: #dcfce7; color: #166534; }
+        .chip--ok .chip-dot { background: #22c55e; }
+
+        .chip--alert { background: #fef3c7; color: #92400e; }
+        .chip--alert .chip-dot { background: #f59e0b; }
+
+        .chip--failure { background: #fee2e2; color: #991b1b; }
+        .chip--failure .chip-dot { background: #ef4444; }
+
+        .chip--standby { background: #e0e7ff; color: #3730a3; }
+        .chip--standby .chip-dot { background: #6366f1; }
+
+        .chip--offline { background: #f3f4f6; color: #374151; }
+        .chip--offline .chip-dot { background: #9ca3af; }
+
+        .chip--maintenance { background: #fae8ff; color: #86198f; }
+        .chip--maintenance .chip-dot { background: #d946ef; }
+
+        .demo-card {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .demo-card label {
+            display: block;
+            font-size: 12px;
+            color: var(--gray-600);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .demo-card select, .demo-card input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+
+        .result {
+            background: var(--gray-900);
+            color: #86efac;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+
+        .code-example {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .code-example .comment { color: #6b7280; }
+        .code-example .keyword { color: #c084fc; }
+        .code-example .string { color: #86efac; }
+        .code-example .function { color: #60a5fa; }
+        .code-example .number { color: #fbbf24; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #22c55e;
+            color: white;
+        }
+
+        .btn-primary:hover { background: #16a34a; }
+
+        .range-visual {
+            display: flex;
+            height: 40px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 16px 0;
+        }
+
+        .range-segment {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 0 8px;
+        }
+
+        .range-standby { background: #6366f1; }
+        .range-ok { background: #22c55e; }
+        .range-warning { background: #f59e0b; }
+        .range-failure { background: #ef4444; }
+    </style>
+    <script src="../dist/myio-js-library.umd.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / Device Status
+            </div>
+            <h1>🚦 Device Status</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- DeviceStatusType -->
+        <section class="section">
+            <h2>📋 DeviceStatusType Enum</h2>
+            <p class="section-desc">
+                Enum com todos os estados possíveis de um dispositivo. Clique em um status para ver os detalhes.
+            </p>
+
+            <div class="status-grid" id="statusGrid"></div>
+
+            <div class="demo-card">
+                <label>Detalhes do Status Selecionado</label>
+                <div class="result" id="statusDetails">Clique em um status acima</div>
+            </div>
+
+            <div class="code-example">
+<span class="keyword">import</span> { <span class="function">DeviceStatusType</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="comment">// Valores disponíveis:</span>
+DeviceStatusType.POWER_ON      <span class="comment">// "power_on"</span>
+DeviceStatusType.STANDBY       <span class="comment">// "standby"</span>
+DeviceStatusType.POWER_OFF     <span class="comment">// "power_off"</span>
+DeviceStatusType.WARNING       <span class="comment">// "warning"</span>
+DeviceStatusType.FAILURE       <span class="comment">// "failure"</span>
+DeviceStatusType.MAINTENANCE   <span class="comment">// "maintenance"</span>
+DeviceStatusType.NO_INFO       <span class="comment">// "no_info"</span>
+DeviceStatusType.NOT_INSTALLED <span class="comment">// "not_installed"</span>
+            </div>
+        </section>
+
+        <!-- Status Chips -->
+        <section class="section">
+            <h2>🏷️ Status Chips</h2>
+            <p class="section-desc">
+                Visual de cada status quando renderizado como chip no card.
+            </p>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px;">
+                <span class="status-chip chip--ok">
+                    <span class="chip-dot"></span>
+                    Em Operação
+                </span>
+                <span class="status-chip chip--alert">
+                    <span class="chip-dot"></span>
+                    Alerta
+                </span>
+                <span class="status-chip chip--failure">
+                    <span class="chip-dot"></span>
+                    Falha
+                </span>
+                <span class="status-chip chip--standby">
+                    <span class="chip-dot"></span>
+                    Standby
+                </span>
+                <span class="status-chip chip--offline">
+                    <span class="chip-dot"></span>
+                    Offline
+                </span>
+                <span class="status-chip chip--maintenance">
+                    <span class="chip-dot"></span>
+                    Manutenção
+                </span>
+            </div>
+        </section>
+
+        <!-- getConsumptionRangesHierarchical -->
+        <section class="section">
+            <h2>📊 getConsumptionRangesHierarchical</h2>
+            <p class="section-desc">
+                Obtém os ranges de consumo de forma hierárquica (Device > Customer > Defaults).
+            </p>
+
+            <div class="demo-card">
+                <label>Configuração de Ranges (JSON)</label>
+                <textarea id="rangesInput" style="width: 100%; height: 150px; font-family: monospace; padding: 12px; border: 1px solid var(--gray-200); border-radius: 6px; margin-bottom: 12px;"></textarea>
+            </div>
+
+            <div class="demo-card">
+                <label>Visualização dos Ranges</label>
+                <div class="range-visual" id="rangeVisual">
+                    <div class="range-segment range-standby" style="flex: 1;">Standby<br>0-5</div>
+                    <div class="range-segment range-ok" style="flex: 2;">OK<br>5-50</div>
+                    <div class="range-segment range-warning" style="flex: 1;">Warning<br>50-80</div>
+                    <div class="range-segment range-failure" style="flex: 1;">Failure<br>80+</div>
+                </div>
+            </div>
+
+            <div class="code-example">
+<span class="keyword">import</span> { <span class="function">getConsumptionRangesHierarchical</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="comment">// Hierarquia de prioridade:</span>
+<span class="comment">// TIER 0: deviceMapInstaneousPower (ctx.data)</span>
+<span class="comment">// TIER 1: window.__customerConsumptionLimits</span>
+<span class="comment">// TIER 2: Configuração do dispositivo</span>
+<span class="comment">// TIER 3: Defaults da biblioteca</span>
+
+<span class="keyword">const</span> ranges = <span class="keyword">await</span> <span class="function">getConsumptionRangesHierarchical</span>(
+    <span class="string">'device-123'</span>,
+    <span class="string">'CHILLER'</span>,
+    customerLimits,
+    <span class="string">'consumption'</span>,
+    deviceMapLimits
+);
+            </div>
+        </section>
+
+        <!-- calculateDeviceStatus -->
+        <section class="section">
+            <h2>🔄 calculateDeviceStatus</h2>
+            <p class="section-desc">
+                Calcula o status do dispositivo baseado no valor de consumo e nos ranges configurados.
+            </p>
+
+            <div class="demo-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
+                <div class="demo-card">
+                    <label>Valor de Consumo (kW)</label>
+                    <input type="number" id="consumptionValue" value="25" step="0.1">
+                </div>
+                <div class="demo-card">
+                    <label>Status Calculado</label>
+                    <div id="calculatedStatus" style="margin-top: 8px;"></div>
+                </div>
+            </div>
+
+            <div class="demo-card">
+                <label>Lógica de Cálculo</label>
+                <div class="result" id="calcResult">-</div>
+            </div>
+
+            <div class="code-example" style="margin-top: 20px;">
+<span class="keyword">import</span> { <span class="function">calculateDeviceStatus</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="keyword">const</span> status = <span class="function">calculateDeviceStatus</span>({
+    value: <span class="number">25</span>,
+    ranges: {
+        standby: { min: <span class="number">0</span>, max: <span class="number">5</span> },
+        ok: { min: <span class="number">5</span>, max: <span class="number">50</span> },
+        warning: { min: <span class="number">50</span>, max: <span class="number">80</span> },
+        failure: { min: <span class="number">80</span>, max: <span class="number">Infinity</span> }
+    }
+});
+<span class="comment">// "power_on"</span>
+            </div>
+        </section>
+
+        <!-- verifyOfflineStatus -->
+        <section class="section">
+            <h2>📡 verifyOfflineStatus</h2>
+            <p class="section-desc">
+                Verifica se o dispositivo está online baseado nos timestamps de conexão.
+            </p>
+
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <label>Última Conexão</label>
+                    <input type="datetime-local" id="lastConnect">
+                </div>
+                <div class="demo-card">
+                    <label>Última Desconexão</label>
+                    <input type="datetime-local" id="lastDisconnect">
+                </div>
+            </div>
+
+            <div class="demo-card">
+                <label>Resultado</label>
+                <div class="result" id="offlineResult">-</div>
+            </div>
+
+            <div class="code-example" style="margin-top: 20px;">
+<span class="keyword">import</span> { <span class="function">verifyOfflineStatus</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="keyword">const</span> isOnline = <span class="function">verifyOfflineStatus</span>({
+    lastConnectTime: <span class="number">1705312800000</span>,
+    lastDisconnectTime: <span class="number">1705309200000</span>
+});
+<span class="comment">// true (conectado, pois lastConnect > lastDisconnect)</span>
+            </div>
+        </section>
+
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="index.html" class="btn btn-primary">← Voltar ao Portal</a>
+        </div>
+    </div>
+
+    <script>
+        const {
+            DeviceStatusType,
+            getConsumptionRangesHierarchical,
+            calculateDeviceStatus
+        } = MyIOLibrary;
+
+        // Status data
+        const statusData = {
+            POWER_ON: { icon: '✅', name: 'Em Operação', value: 'power_on', desc: 'Dispositivo funcionando normalmente dentro dos parâmetros esperados.' },
+            STANDBY: { icon: '💤', name: 'Standby', value: 'standby', desc: 'Dispositivo em modo de espera, consumo muito baixo.' },
+            POWER_OFF: { icon: '⭕', name: 'Desligado', value: 'power_off', desc: 'Dispositivo desligado intencionalmente.' },
+            WARNING: { icon: '⚠️', name: 'Alerta', value: 'warning', desc: 'Consumo acima do normal, requer atenção.' },
+            FAILURE: { icon: '❌', name: 'Falha', value: 'failure', desc: 'Consumo crítico ou dispositivo em falha.' },
+            MAINTENANCE: { icon: '🔧', name: 'Manutenção', value: 'maintenance', desc: 'Dispositivo em manutenção programada.' },
+            NO_INFO: { icon: '❓', name: 'Sem Info', value: 'no_info', desc: 'Sem informações disponíveis do dispositivo.' },
+            NOT_INSTALLED: { icon: '📦', name: 'Não Instalado', value: 'not_installed', desc: 'Dispositivo não foi instalado ainda.' }
+        };
+
+        // Render status grid
+        const statusGrid = document.getElementById('statusGrid');
+        const statusDetails = document.getElementById('statusDetails');
+
+        Object.entries(statusData).forEach(([key, data]) => {
+            const card = document.createElement('div');
+            card.className = 'status-card';
+            card.innerHTML = `
+                <div class="status-icon">${data.icon}</div>
+                <div class="status-name">${data.name}</div>
+                <div class="status-value">${data.value}</div>
+            `;
+            card.onclick = () => {
+                document.querySelectorAll('.status-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                statusDetails.textContent = `DeviceStatusType.${key}\n\nValor: "${data.value}"\n\n${data.desc}`;
+            };
+            statusGrid.appendChild(card);
+        });
+
+        // Ranges demo
+        const defaultRanges = {
+            standby: { min: 0, max: 5 },
+            ok: { min: 5, max: 50 },
+            warning: { min: 50, max: 80 },
+            failure: { min: 80, max: null }
+        };
+        document.getElementById('rangesInput').value = JSON.stringify(defaultRanges, null, 2);
+
+        // Calculate status demo
+        const consumptionInput = document.getElementById('consumptionValue');
+        const calculatedStatus = document.getElementById('calculatedStatus');
+        const calcResult = document.getElementById('calcResult');
+
+        function updateCalculatedStatus() {
+            const value = parseFloat(consumptionInput.value) || 0;
+            let status, chipClass;
+
+            if (value <= 5) {
+                status = 'standby';
+                chipClass = 'chip--standby';
+            } else if (value <= 50) {
+                status = 'power_on';
+                chipClass = 'chip--ok';
+            } else if (value <= 80) {
+                status = 'warning';
+                chipClass = 'chip--alert';
+            } else {
+                status = 'failure';
+                chipClass = 'chip--failure';
+            }
+
+            const statusInfo = Object.values(statusData).find(s => s.value === status);
+            calculatedStatus.innerHTML = `
+                <span class="status-chip ${chipClass}">
+                    <span class="chip-dot"></span>
+                    ${statusInfo.name}
+                </span>
+            `;
+
+            calcResult.textContent = `Valor: ${value} kW\n\nRanges aplicados:\n- Standby: 0-5 kW\n- OK: 5-50 kW\n- Warning: 50-80 kW\n- Failure: 80+ kW\n\nStatus resultante: ${status}`;
+        }
+
+        consumptionInput.addEventListener('input', updateCalculatedStatus);
+        updateCalculatedStatus();
+
+        // Offline status demo
+        const lastConnect = document.getElementById('lastConnect');
+        const lastDisconnect = document.getElementById('lastDisconnect');
+        const offlineResult = document.getElementById('offlineResult');
+
+        // Set default values
+        const now = new Date();
+        const hourAgo = new Date(now - 3600000);
+        lastConnect.value = now.toISOString().slice(0, 16);
+        lastDisconnect.value = hourAgo.toISOString().slice(0, 16);
+
+        function updateOfflineStatus() {
+            const connectTime = new Date(lastConnect.value).getTime();
+            const disconnectTime = new Date(lastDisconnect.value).getTime();
+
+            const isOnline = connectTime > disconnectTime;
+
+            offlineResult.textContent = `lastConnectTime: ${connectTime}\nlastDisconnectTime: ${disconnectTime}\n\n${isOnline ? '✅ ONLINE' : '❌ OFFLINE'}\n\nMotivo: lastConnectTime ${isOnline ? '>' : '<='} lastDisconnectTime`;
+        }
+
+        lastConnect.addEventListener('input', updateOfflineStatus);
+        lastDisconnect.addEventListener('input', updateOfflineStatus);
+        updateOfflineStatus();
+    </script>
+</body>
+</html>

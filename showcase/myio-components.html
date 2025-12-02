@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYIO Components - MYIO JS Library Showcase</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #06b6d4, #0891b2);
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-desc {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .demo-card {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .demo-card label {
+            display: block;
+            font-size: 12px;
+            color: var(--gray-600);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .demo-card select, .demo-card input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+
+        .result {
+            background: var(--gray-900);
+            color: #67e8f9;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #06b6d4;
+            color: white;
+        }
+
+        .btn-primary:hover { background: #0891b2; }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-800);
+        }
+
+        .code-example {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .code-example .comment { color: #6b7280; }
+        .code-example .keyword { color: #c084fc; }
+        .code-example .string { color: #86efac; }
+        .code-example .function { color: #60a5fa; }
+        .code-example .number { color: #fbbf24; }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .feature-card {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .feature-card-icon {
+            font-size: 2rem;
+            margin-bottom: 12px;
+        }
+
+        .feature-card-title {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: var(--gray-800);
+        }
+
+        .feature-card-desc {
+            font-size: 14px;
+            color: var(--gray-600);
+        }
+
+        .props-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .props-table th, .props-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .props-table th {
+            background: var(--gray-50);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--gray-600);
+        }
+
+        .props-table code {
+            background: var(--gray-100);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .selection-demo {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .selection-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: var(--gray-100);
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .selection-item:hover {
+            border-color: #06b6d4;
+        }
+
+        .selection-item.selected {
+            background: #ecfeff;
+            border-color: #06b6d4;
+        }
+
+        .selection-item input {
+            width: 18px;
+            height: 18px;
+            accent-color: #06b6d4;
+        }
+    </style>
+    <script src="../dist/myio-js-library.umd.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / MYIO Components
+            </div>
+            <h1>🔧 MYIO Components</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- MyIOSelectionStore -->
+        <section class="section">
+            <h2>✅ MyIOSelectionStore</h2>
+            <p class="section-desc">
+                Store singleton para gerenciar seleção de dispositivos entre múltiplos widgets.
+                Permite comparação e ações em lote.
+            </p>
+
+            <div class="selection-demo" id="selectionDemo"></div>
+
+            <div class="demo-card">
+                <label>Dispositivos Selecionados</label>
+                <div class="result" id="selectionResult">Nenhum dispositivo selecionado</div>
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                <button class="btn btn-primary" onclick="selectAll()">Selecionar Todos</button>
+                <button class="btn btn-secondary" onclick="clearSelection()">Limpar Seleção</button>
+                <button class="btn btn-secondary" onclick="compareSelected()">Comparar</button>
+            </div>
+
+            <div class="code-example">
+<span class="keyword">import</span> { <span class="function">MyIOSelectionStore</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="comment">// Obter instância singleton</span>
+<span class="keyword">const</span> store = <span class="function">MyIOSelectionStore</span>.getInstance();
+
+<span class="comment">// Adicionar dispositivo à seleção</span>
+store.<span class="function">add</span>(<span class="string">'device-001'</span>, { name: <span class="string">'Elevador 1'</span> });
+
+<span class="comment">// Remover da seleção</span>
+store.<span class="function">remove</span>(<span class="string">'device-001'</span>);
+
+<span class="comment">// Verificar se está selecionado</span>
+<span class="keyword">const</span> isSelected = store.<span class="function">has</span>(<span class="string">'device-001'</span>);
+
+<span class="comment">// Obter todos selecionados</span>
+<span class="keyword">const</span> selected = store.<span class="function">getAll</span>();
+
+<span class="comment">// Limpar seleção</span>
+store.<span class="function">clear</span>();
+
+<span class="comment">// Ouvir mudanças</span>
+store.<span class="function">subscribe</span>((items) => {
+    console.log(<span class="string">'Selection changed:'</span>, items);
+});
+            </div>
+        </section>
+
+        <!-- buildMyioIngestionAuth -->
+        <section class="section">
+            <h2>🔐 buildMyioIngestionAuth</h2>
+            <p class="section-desc">
+                Construtor de autenticação para API de ingestão MYIO.
+                Gerencia tokens e renovação automática.
+            </p>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-card-icon">🔑</div>
+                    <div class="feature-card-title">Token Management</div>
+                    <div class="feature-card-desc">Gerenciamento automático de tokens JWT</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-card-icon">🔄</div>
+                    <div class="feature-card-title">Auto Refresh</div>
+                    <div class="feature-card-desc">Renovação automática antes da expiração</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-card-icon">💾</div>
+                    <div class="feature-card-title">Cache</div>
+                    <div class="feature-card-desc">Cache de tokens para evitar requisições extras</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-card-icon">🛡️</div>
+                    <div class="feature-card-title">Secure</div>
+                    <div class="feature-card-desc">Headers de segurança configurados</div>
+                </div>
+            </div>
+
+            <div class="code-example" style="margin-top: 20px;">
+<span class="keyword">import</span> { <span class="function">buildMyioIngestionAuth</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="comment">// Criar instância de autenticação</span>
+<span class="keyword">const</span> auth = <span class="function">buildMyioIngestionAuth</span>({
+    baseUrl: <span class="string">'https://api.myio.com.br'</span>,
+    customerId: <span class="string">'customer-123'</span>,
+    apiKey: <span class="string">'your-api-key'</span>
+});
+
+<span class="comment">// Obter token</span>
+<span class="keyword">const</span> token = <span class="keyword">await</span> auth.<span class="function">getToken</span>();
+
+<span class="comment">// Fazer requisição autenticada</span>
+<span class="keyword">const</span> response = <span class="keyword">await</span> auth.<span class="function">fetch</span>(<span class="string">'/devices'</span>, {
+    method: <span class="string">'GET'</span>
+});
+            </div>
+        </section>
+
+        <!-- CSV Utilities -->
+        <section class="section">
+            <h2>📄 CSV Utilities</h2>
+            <p class="section-desc">
+                Utilitários para exportação de dados em formato CSV.
+            </p>
+
+            <div class="demo-card">
+                <label>Dados de Exemplo</label>
+                <textarea id="csvData" style="width: 100%; height: 100px; font-family: monospace; padding: 12px; border: 1px solid var(--gray-200); border-radius: 6px; margin-bottom: 12px;"></textarea>
+                <button class="btn btn-primary" onclick="generateCSV()">Gerar CSV</button>
+                <button class="btn btn-secondary" onclick="downloadCSV()">Download CSV</button>
+            </div>
+
+            <div class="demo-card">
+                <label>Resultado CSV</label>
+                <div class="result" id="csvResult">-</div>
+            </div>
+
+            <div class="code-example" style="margin-top: 20px;">
+<span class="keyword">import</span> {
+    <span class="function">arrayToCSV</span>,
+    <span class="function">downloadCSV</span>,
+    <span class="function">generateCSVBlob</span>
+} <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="comment">// Converter array para CSV</span>
+<span class="keyword">const</span> data = [
+    { name: <span class="string">'Device 1'</span>, value: <span class="number">100</span>, status: <span class="string">'active'</span> },
+    { name: <span class="string">'Device 2'</span>, value: <span class="number">200</span>, status: <span class="string">'inactive'</span> }
+];
+<span class="keyword">const</span> csv = <span class="function">arrayToCSV</span>(data);
+
+<span class="comment">// Download direto</span>
+<span class="function">downloadCSV</span>(data, <span class="string">'devices.csv'</span>);
+
+<span class="comment">// Gerar Blob para uso customizado</span>
+<span class="keyword">const</span> blob = <span class="function">generateCSVBlob</span>(data);
+            </div>
+        </section>
+
+        <!-- ThingsBoard Auth -->
+        <section class="section">
+            <h2>🔒 ThingsBoard Auth</h2>
+            <p class="section-desc">
+                Integração com autenticação do ThingsBoard para widgets.
+            </p>
+
+            <table class="props-table">
+                <thead>
+                    <tr>
+                        <th>Função</th>
+                        <th>Descrição</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>getThingsboardToken()</code></td>
+                        <td>Obtém o token JWT do ThingsBoard atual</td>
+                    </tr>
+                    <tr>
+                        <td><code>getThingsboardCustomerId()</code></td>
+                        <td>Retorna o ID do customer logado</td>
+                    </tr>
+                    <tr>
+                        <td><code>getThingsboardTenantId()</code></td>
+                        <td>Retorna o ID do tenant</td>
+                    </tr>
+                    <tr>
+                        <td><code>buildThingsboardHeaders()</code></td>
+                        <td>Constrói headers para requisições à API</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="code-example" style="margin-top: 20px;">
+<span class="keyword">import</span> {
+    <span class="function">getThingsboardToken</span>,
+    <span class="function">buildThingsboardHeaders</span>
+} <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="comment">// Obter token do contexto do widget</span>
+<span class="keyword">const</span> token = <span class="function">getThingsboardToken</span>(self.ctx);
+
+<span class="comment">// Construir headers para API call</span>
+<span class="keyword">const</span> headers = <span class="function">buildThingsboardHeaders</span>(self.ctx);
+
+<span class="comment">// Fazer requisição</span>
+fetch(<span class="string">'/api/devices'</span>, {
+    headers: headers
+});
+            </div>
+        </section>
+
+        <!-- Exports Overview -->
+        <section class="section">
+            <h2>📦 Todos os Exports</h2>
+            <p class="section-desc">
+                Lista completa de todas as funções e classes exportadas pela biblioteca.
+            </p>
+
+            <div class="code-example">
+<span class="keyword">export</span> {
+    <span class="comment">// Format Utilities</span>
+    formatEnergy,
+    formatAllInSameUnit,
+    fmtPerc,
+    formatWaterVolumeM3,
+    formatNumberReadable,
+
+    <span class="comment">// Date Utilities</span>
+    formatDateToYMD,
+    getSaoPauloISOString,
+    determineInterval,
+    getDateRangeArray,
+    averageByDay,
+    groupByDay,
+
+    <span class="comment">// Device Status</span>
+    DeviceStatusType,
+    getConsumptionRangesHierarchical,
+    calculateDeviceStatus,
+    verifyOfflineStatus,
+
+    <span class="comment">// Card Components</span>
+    renderCardComponentHeadOffice,
+
+    <span class="comment">// Modal Components</span>
+    SettingsPersister,
+    SettingsController,
+
+    <span class="comment">// MYIO Components</span>
+    MyIOSelectionStore,
+    buildMyioIngestionAuth,
+
+    <span class="comment">// CSV Utilities</span>
+    arrayToCSV,
+    downloadCSV,
+    generateCSVBlob,
+
+    <span class="comment">// ThingsBoard Auth</span>
+    getThingsboardToken,
+    getThingsboardCustomerId,
+    getThingsboardTenantId,
+    buildThingsboardHeaders
+};
+            </div>
+        </section>
+
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="index.html" class="btn btn-primary">← Voltar ao Portal</a>
+        </div>
+    </div>
+
+    <script>
+        // Mock MyIOSelectionStore
+        const selectionStore = {
+            items: new Map(),
+            listeners: [],
+            add(id, data) {
+                this.items.set(id, data);
+                this.notify();
+            },
+            remove(id) {
+                this.items.delete(id);
+                this.notify();
+            },
+            has(id) {
+                return this.items.has(id);
+            },
+            getAll() {
+                return Array.from(this.items.entries());
+            },
+            clear() {
+                this.items.clear();
+                this.notify();
+            },
+            subscribe(fn) {
+                this.listeners.push(fn);
+            },
+            notify() {
+                this.listeners.forEach(fn => fn(this.getAll()));
+            }
+        };
+
+        // Sample devices
+        const sampleDevices = [
+            { id: 'ELV-001', name: 'Elevador 1' },
+            { id: 'ELV-002', name: 'Elevador 2' },
+            { id: 'ESC-001', name: 'Escada Rolante 1' },
+            { id: 'CHL-001', name: 'Chiller 1' },
+            { id: 'FAN-001', name: 'Ventilador 1' }
+        ];
+
+        // Render selection demo
+        const selectionDemo = document.getElementById('selectionDemo');
+        const selectionResult = document.getElementById('selectionResult');
+
+        sampleDevices.forEach(device => {
+            const item = document.createElement('label');
+            item.className = 'selection-item';
+            item.innerHTML = `
+                <input type="checkbox" data-id="${device.id}">
+                <span>${device.name}</span>
+            `;
+            item.querySelector('input').addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    selectionStore.add(device.id, device);
+                    item.classList.add('selected');
+                } else {
+                    selectionStore.remove(device.id);
+                    item.classList.remove('selected');
+                }
+            });
+            selectionDemo.appendChild(item);
+        });
+
+        selectionStore.subscribe((items) => {
+            if (items.length === 0) {
+                selectionResult.textContent = 'Nenhum dispositivo selecionado';
+            } else {
+                selectionResult.textContent = items.map(([id, data]) =>
+                    `${data.name} (${id})`
+                ).join('\n');
+            }
+        });
+
+        window.selectAll = function() {
+            document.querySelectorAll('.selection-item input').forEach((input, i) => {
+                input.checked = true;
+                input.closest('.selection-item').classList.add('selected');
+                selectionStore.add(sampleDevices[i].id, sampleDevices[i]);
+            });
+        };
+
+        window.clearSelection = function() {
+            document.querySelectorAll('.selection-item input').forEach(input => {
+                input.checked = false;
+                input.closest('.selection-item').classList.remove('selected');
+            });
+            selectionStore.clear();
+        };
+
+        window.compareSelected = function() {
+            const selected = selectionStore.getAll();
+            if (selected.length < 2) {
+                alert('Selecione pelo menos 2 dispositivos para comparar');
+                return;
+            }
+            alert(`Comparando ${selected.length} dispositivos:\n${selected.map(([id]) => id).join(', ')}`);
+        };
+
+        // CSV Demo
+        const csvDataInput = document.getElementById('csvData');
+        const csvResult = document.getElementById('csvResult');
+
+        const sampleCSVData = [
+            { device: 'Elevador 1', consumption: 22.8, status: 'power_on' },
+            { device: 'Escada 1', consumption: 15.2, status: 'power_on' },
+            { device: 'Chiller 1', consumption: 45.6, status: 'warning' }
+        ];
+        csvDataInput.value = JSON.stringify(sampleCSVData, null, 2);
+
+        window.generateCSV = function() {
+            try {
+                const data = JSON.parse(csvDataInput.value);
+                if (!Array.isArray(data) || data.length === 0) {
+                    csvResult.textContent = 'Erro: Array vazio ou inválido';
+                    return;
+                }
+                const headers = Object.keys(data[0]);
+                let csv = headers.join(',') + '\n';
+                data.forEach(row => {
+                    csv += headers.map(h => `"${row[h]}"`).join(',') + '\n';
+                });
+                csvResult.textContent = csv;
+            } catch (e) {
+                csvResult.textContent = `Erro: ${e.message}`;
+            }
+        };
+
+        window.downloadCSV = function() {
+            try {
+                const data = JSON.parse(csvDataInput.value);
+                const headers = Object.keys(data[0]);
+                let csv = headers.join(',') + '\n';
+                data.forEach(row => {
+                    csv += headers.map(h => `"${row[h]}"`).join(',') + '\n';
+                });
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'export.csv';
+                link.click();
+            } catch (e) {
+                alert(`Erro: ${e.message}`);
+            }
+        };
+    </script>
+</body>
+</html>

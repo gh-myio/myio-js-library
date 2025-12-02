@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYIO JS Library - Showcase Portal</title>
+    <style>
+        :root {
+            --primary: #007ecc;
+            --primary-dark: #005a99;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--gray-800);
+        }
+
+        .hero {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto 24px;
+        }
+
+        .hero-badges {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px 60px;
+        }
+
+        .categories {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 24px;
+        }
+
+        .category-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .category-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .category-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .category-icon.format { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+        .category-icon.date { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+        .category-icon.device { background: linear-gradient(135deg, #22c55e, #16a34a); }
+        .category-icon.card { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .category-icon.modal { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .category-icon.myio { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+        .category-icon.csv { background: linear-gradient(135deg, #10b981, #059669); }
+        .category-icon.auth { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+
+        .category-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .category-description {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        .exports-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+
+        .export-tag {
+            background: var(--gray-100);
+            color: var(--gray-600);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+
+        .category-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background: var(--gray-100);
+            color: var(--gray-800);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-200);
+        }
+
+        .quick-start {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 32px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        .quick-start h2 {
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+            color: var(--gray-900);
+        }
+
+        .code-block {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin-bottom: 12px;
+        }
+
+        .code-block .comment { color: #6b7280; }
+        .code-block .keyword { color: #c084fc; }
+        .code-block .string { color: #86efac; }
+        .code-block .function { color: #60a5fa; }
+
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: rgba(255,255,255,0.8);
+        }
+
+        footer a {
+            color: white;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2rem; }
+            .categories { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header class="hero">
+        <h1>MYIO JS Library</h1>
+        <p>Biblioteca JavaScript para integração com ThingsBoard e componentes de dashboards de energia, água e temperatura.</p>
+        <div class="hero-badges">
+            <span class="badge">v0.1.x</span>
+            <span class="badge">TypeScript</span>
+            <span class="badge">UMD + ESM</span>
+            <span class="badge">ThingsBoard Ready</span>
+        </div>
+    </header>
+
+    <div class="container">
+        <section class="quick-start">
+            <h2>Quick Start</h2>
+            <div class="code-block">
+<span class="comment">// Via CDN (UMD)</span>
+&lt;script src="<span class="string">dist/myio-js-library.umd.min.js</span>"&gt;&lt;/script&gt;
+&lt;script&gt;
+  <span class="keyword">const</span> { <span class="function">formatEnergy</span>, <span class="function">DeviceStatusType</span> } = MyIOLibrary;
+  console.log(<span class="function">formatEnergy</span>(<span class="string">1500</span>)); <span class="comment">// "1.50 kWh"</span>
+&lt;/script&gt;
+            </div>
+            <div class="code-block">
+<span class="comment">// Via ES Modules</span>
+<span class="keyword">import</span> { <span class="function">formatEnergy</span>, <span class="function">calculateDeviceStatus</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+            </div>
+        </section>
+
+        <div class="categories">
+            <!-- Format Utilities -->
+            <article class="category-card">
+                <div class="category-header">
+                    <div class="category-icon format">📊</div>
+                    <h3 class="category-title">Format Utilities</h3>
+                </div>
+                <p class="category-description">
+                    Funções para formatação de energia (kWh, MWh, GWh), água (m³, L), percentuais e números.
+                </p>
+                <div class="exports-list">
+                    <span class="export-tag">formatEnergy</span>
+                    <span class="export-tag">formatAllInSameUnit</span>
+                    <span class="export-tag">fmtPerc</span>
+                    <span class="export-tag">formatNumberReadable</span>
+                    <span class="export-tag">formatWaterVolumeM3</span>
+                    <span class="export-tag">formatTankHeadFromCm</span>
+                </div>
+                <div class="category-actions">
+                    <a href="format-utilities.html" class="btn btn-primary">Ver Demo</a>
+                    <a href="../docs/format.md" class="btn btn-secondary">Docs</a>
+                </div>
+            </article>
+
+            <!-- Date Utilities -->
+            <article class="category-card">
+                <div class="category-header">
+                    <div class="category-icon date">📅</div>
+                    <h3 class="category-title">Date Utilities</h3>
+                </div>
+                <p class="category-description">
+                    Manipulação de datas, timezone São Paulo, intervalos e agregação por dia.
+                </p>
+                <div class="exports-list">
+                    <span class="export-tag">formatDateToYMD</span>
+                    <span class="export-tag">determineInterval</span>
+                    <span class="export-tag">getSaoPauloISOString</span>
+                    <span class="export-tag">getDateRangeArray</span>
+                    <span class="export-tag">averageByDay</span>
+                    <span class="export-tag">groupByDay</span>
+                </div>
+                <div class="category-actions">
+                    <a href="date-utilities.html" class="btn btn-primary">Ver Demo</a>
+                    <a href="../docs/date.md" class="btn btn-secondary">Docs</a>
+                </div>
+            </article>
+
+            <!-- Device Status -->
+            <article class="category-card">
+                <div class="category-header">
+                    <div class="category-icon device">🔌</div>
+                    <h3 class="category-title">Device Status</h3>
+                </div>
+                <p class="category-description">
+                    Cálculo e gerenciamento de status de dispositivos com ranges configuráveis.
+                </p>
+                <div class="exports-list">
+                    <span class="export-tag">DeviceStatusType</span>
+                    <span class="export-tag">calculateDeviceStatus</span>
+                    <span class="export-tag">calculateDeviceStatusWithRanges</span>
+                    <span class="export-tag">getDeviceStatusInfo</span>
+                    <span class="export-tag">deviceStatusIcons</span>
+                </div>
+                <div class="category-actions">
+                    <a href="device-status.html" class="btn btn-primary">Ver Demo</a>
+                    <a href="../docs/calculateDeviceStatus.md" class="btn btn-secondary">Docs</a>
+                </div>
+            </article>
+
+            <!-- Card Components -->
+            <article class="category-card">
+                <div class="category-header">
+                    <div class="category-icon card">🎴</div>
+                    <h3 class="category-title">Card Components</h3>
+                </div>
+                <p class="category-description">
+                    Componentes de cards para dashboards: Head Office, Template Card v5, com seleção e drag-drop.
+                </p>
+                <div class="exports-list">
+                    <span class="export-tag">renderCardComponentHeadOffice</span>
+                    <span class="export-tag">renderCardComponentV5</span>
+                    <span class="export-tag">renderCardComponent</span>
+                    <span class="export-tag">renderCardComponentV2</span>
+                </div>
+                <div class="category-actions">
+                    <a href="card-components.html" class="btn btn-primary">Ver Demo</a>
+                    <a href="../docs/cards.md" class="btn btn-secondary">Docs</a>
+                </div>
+            </article>
+
+            <!-- Modal Components -->
+            <article class="category-card">
+                <div class="category-header">
+                    <div class="category-icon modal">🪟</div>
+                    <h3 class="category-title">Modal Components</h3>
+                </div>
+                <p class="category-description">
+                    Modais premium: energia, água, temperatura, relatórios, configurações e metas.
+                </p>
+                <div class="exports-list">
+                    <span class="export-tag">openDashboardPopupEnergy</span>
+                    <span class="export-tag">openDashboardPopupWaterTank</span>
+                    <span class="export-tag">openTemperatureModal</span>
+                    <span class="export-tag">openDemandModal</span>
+                    <span class="export-tag">openGoalsPanel</span>
+                    <span class="export-tag">openDashboardPopupSettings</span>
+                </div>
+                <div class="category-actions">
+                    <a href="modal-components.html" class="btn btn-primary">Ver Demo</a>
+                    <a href="../docs/modals.md" class="btn btn-secondary">Docs</a>
+                </div>
+            </article>
+
+            <!-- MYIO Components -->
+            <article class="category-card">
+                <div class="category-header">
+                    <div class="category-icon myio">⚡</div>
+                    <h3 class="category-title">MYIO Components</h3>
+                </div>
+                <p class="category-description">
+                    Componentes do sistema MYIO: SelectionStore, DraggableCard, ChartModal, Toast.
+                </p>
+                <div class="exports-list">
+                    <span class="export-tag">MyIOSelectionStore</span>
+                    <span class="export-tag">MyIODraggableCard</span>
+                    <span class="export-tag">MyIOChartModal</span>
+                    <span class="export-tag">MyIOToast</span>
+                    <span class="export-tag">createDateRangePicker</span>
+                </div>
+                <div class="category-actions">
+                    <a href="myio-components.html" class="btn btn-primary">Ver Demo</a>
+                    <a href="../docs/components.md" class="btn btn-secondary">Docs</a>
+                </div>
+            </article>
+
+            <!-- CSV Utilities -->
+            <article class="category-card">
+                <div class="category-header">
+                    <div class="category-icon csv">📁</div>
+                    <h3 class="category-title">CSV Utilities</h3>
+                </div>
+                <p class="category-description">
+                    Exportação de relatórios para CSV: energia, água, lojas e relatórios gerais.
+                </p>
+                <div class="exports-list">
+                    <span class="export-tag">exportToCSV</span>
+                    <span class="export-tag">exportToCSVAll</span>
+                    <span class="export-tag">buildWaterReportCSV</span>
+                    <span class="export-tag">buildWaterStoresCSV</span>
+                    <span class="export-tag">toCSV</span>
+                </div>
+                <div class="category-actions">
+                    <a href="csv-utilities.html" class="btn btn-primary">Ver Demo</a>
+                    <a href="../docs/csv.md" class="btn btn-secondary">Docs</a>
+                </div>
+            </article>
+
+            <!-- Auth & ThingsBoard -->
+            <article class="category-card">
+                <div class="category-header">
+                    <div class="category-icon auth">🔐</div>
+                    <h3 class="category-title">Auth & ThingsBoard</h3>
+                </div>
+                <p class="category-description">
+                    Autenticação MYIO, integração ThingsBoard e utilitários de API.
+                </p>
+                <div class="exports-list">
+                    <span class="export-tag">buildMyioIngestionAuth</span>
+                    <span class="export-tag">fetchThingsboardCustomerAttrs</span>
+                    <span class="export-tag">extractMyIOCredentials</span>
+                    <span class="export-tag">buildListItemsThingsboard</span>
+                </div>
+                <div class="category-actions">
+                    <a href="auth-thingsboard.html" class="btn btn-primary">Ver Demo</a>
+                    <a href="../docs/auth.md" class="btn btn-secondary">Docs</a>
+                </div>
+            </article>
+        </div>
+    </div>
+
+    <footer>
+        <p>
+            <a href="https://github.com/myio/myio-js-library" target="_blank">GitHub</a> ·
+            <a href="../README.md">README</a> ·
+            <a href="../docs/">Documentation</a>
+        </p>
+        <p style="margin-top: 12px; font-size: 14px;">
+            MYIO JS Library &copy; 2024-2025
+        </p>
+    </footer>
+</body>
+</html>

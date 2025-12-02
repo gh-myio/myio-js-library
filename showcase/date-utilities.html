@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Date Utilities - MYIO JS Library Showcase</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-desc {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .demo-card {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .demo-card label {
+            display: block;
+            font-size: 12px;
+            color: var(--gray-600);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .demo-card input, .demo-card select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+
+        .demo-card input:focus, .demo-card select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .result {
+            background: var(--gray-900);
+            color: #c4b5fd;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .code-example {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .code-example .comment { color: #6b7280; }
+        .code-example .keyword { color: #c084fc; }
+        .code-example .string { color: #86efac; }
+        .code-example .function { color: #60a5fa; }
+        .code-example .number { color: #fbbf24; }
+
+        .table-demo {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        .table-demo th, .table-demo td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .table-demo th {
+            background: var(--gray-50);
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            color: var(--gray-600);
+        }
+
+        .table-demo td {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+        }
+
+        .table-demo .input-val { color: var(--gray-600); }
+        .table-demo .output-val { color: #8b5cf6; font-weight: 500; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .btn-primary:hover { background: #6d28d9; }
+
+        .timeline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .timeline-item {
+            background: var(--gray-100);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+
+        .timeline-item.highlight {
+            background: #8b5cf6;
+            color: white;
+        }
+    </style>
+    <script src="../dist/myio-js-library.umd.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / Date Utilities
+            </div>
+            <h1>📅 Date Utilities</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- formatDateToYMD -->
+        <section class="section">
+            <h2>📆 formatDateToYMD(date)</h2>
+            <p class="section-desc">
+                Formata uma data para o formato YYYY-MM-DD, ideal para APIs e banco de dados.
+            </p>
+
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <label>Data de Entrada</label>
+                    <input type="datetime-local" id="ymdInput">
+                    <div class="result" id="ymdResult">-</div>
+                </div>
+            </div>
+
+            <div class="code-example">
+<span class="keyword">import</span> { <span class="function">formatDateToYMD</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="keyword">const</span> date = <span class="keyword">new</span> Date();
+<span class="function">formatDateToYMD</span>(date);  <span class="comment">// "2024-01-15"</span>
+            </div>
+        </section>
+
+        <!-- getSaoPauloISOString -->
+        <section class="section">
+            <h2>🌎 getSaoPauloISOString(date)</h2>
+            <p class="section-desc">
+                Retorna a data no formato ISO ajustada para o fuso horário de São Paulo (America/Sao_Paulo).
+            </p>
+
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <label>Data UTC</label>
+                    <input type="datetime-local" id="spInput">
+                    <div class="result" id="spResult">-</div>
+                </div>
+            </div>
+
+            <div class="code-example">
+<span class="keyword">import</span> { <span class="function">getSaoPauloISOString</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="keyword">const</span> date = <span class="keyword">new</span> Date(<span class="string">'2024-01-15T12:00:00Z'</span>);
+<span class="function">getSaoPauloISOString</span>(date);
+<span class="comment">// "2024-01-15T09:00:00.000-03:00"</span>
+            </div>
+        </section>
+
+        <!-- determineInterval -->
+        <section class="section">
+            <h2>⏱️ determineInterval(startDate, endDate)</h2>
+            <p class="section-desc">
+                Determina automaticamente o melhor intervalo de agregação baseado no range de datas.
+            </p>
+
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <label>Data Inicial</label>
+                    <input type="date" id="intervalStart">
+                </div>
+                <div class="demo-card">
+                    <label>Data Final</label>
+                    <input type="date" id="intervalEnd">
+                </div>
+            </div>
+            <div class="demo-card" style="margin-top: 16px;">
+                <label>Intervalo Recomendado</label>
+                <div class="result" id="intervalResult">Selecione as datas</div>
+            </div>
+
+            <table class="table-demo">
+                <thead>
+                    <tr>
+                        <th>Range</th>
+                        <th>Intervalo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="input-val">Até 2 dias</td>
+                        <td class="output-val">HOUR</td>
+                    </tr>
+                    <tr>
+                        <td class="input-val">2-30 dias</td>
+                        <td class="output-val">DAY</td>
+                    </tr>
+                    <tr>
+                        <td class="input-val">30-90 dias</td>
+                        <td class="output-val">WEEK</td>
+                    </tr>
+                    <tr>
+                        <td class="input-val">Mais de 90 dias</td>
+                        <td class="output-val">MONTH</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- getDateRangeArray -->
+        <section class="section">
+            <h2>📊 getDateRangeArray(startDate, endDate)</h2>
+            <p class="section-desc">
+                Gera um array com todas as datas entre o início e fim, útil para preencher gráficos.
+            </p>
+
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <label>Data Inicial</label>
+                    <input type="date" id="rangeStart">
+                </div>
+                <div class="demo-card">
+                    <label>Data Final</label>
+                    <input type="date" id="rangeEnd">
+                </div>
+            </div>
+            <div class="demo-card" style="margin-top: 16px;">
+                <label>Array de Datas</label>
+                <div class="timeline" id="rangeResult">
+                    <span class="timeline-item">Selecione as datas</span>
+                </div>
+            </div>
+
+            <div class="code-example" style="margin-top: 20px;">
+<span class="keyword">import</span> { <span class="function">getDateRangeArray</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="keyword">const</span> dates = <span class="function">getDateRangeArray</span>(
+    <span class="keyword">new</span> Date(<span class="string">'2024-01-01'</span>),
+    <span class="keyword">new</span> Date(<span class="string">'2024-01-05'</span>)
+);
+<span class="comment">// ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"]</span>
+            </div>
+        </section>
+
+        <!-- averageByDay -->
+        <section class="section">
+            <h2>📈 averageByDay(data)</h2>
+            <p class="section-desc">
+                Calcula a média diária de valores a partir de um array de dados com timestamps.
+            </p>
+
+            <div class="demo-card">
+                <label>Dados de Exemplo (JSON)</label>
+                <textarea id="avgInput" style="width: 100%; height: 120px; font-family: monospace; padding: 12px; border: 1px solid var(--gray-200); border-radius: 6px; margin-bottom: 12px;"></textarea>
+                <button class="btn btn-primary" onclick="calculateAverage()">Calcular Média</button>
+                <div class="result" id="avgResult" style="margin-top: 12px;">-</div>
+            </div>
+
+            <div class="code-example" style="margin-top: 20px;">
+<span class="keyword">import</span> { <span class="function">averageByDay</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="keyword">const</span> data = [
+    { ts: <span class="number">1705312800000</span>, value: <span class="number">100</span> },
+    { ts: <span class="number">1705316400000</span>, value: <span class="number">150</span> },
+    { ts: <span class="number">1705399200000</span>, value: <span class="number">200</span> }
+];
+<span class="keyword">const</span> averages = <span class="function">averageByDay</span>(data);
+<span class="comment">// { "2024-01-15": 125, "2024-01-16": 200 }</span>
+            </div>
+        </section>
+
+        <!-- groupByDay -->
+        <section class="section">
+            <h2>📋 groupByDay(data)</h2>
+            <p class="section-desc">
+                Agrupa dados por dia, mantendo todos os valores de cada dia em arrays separados.
+            </p>
+
+            <div class="demo-card">
+                <label>Resultado do Agrupamento</label>
+                <div class="result" id="groupResult">-</div>
+            </div>
+
+            <div class="code-example" style="margin-top: 20px;">
+<span class="keyword">import</span> { <span class="function">groupByDay</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="keyword">const</span> data = [
+    { ts: <span class="number">1705312800000</span>, value: <span class="number">100</span> },
+    { ts: <span class="number">1705316400000</span>, value: <span class="number">150</span> },
+    { ts: <span class="number">1705399200000</span>, value: <span class="number">200</span> }
+];
+<span class="keyword">const</span> grouped = <span class="function">groupByDay</span>(data);
+<span class="comment">// {
+//   "2024-01-15": [{ ts: ..., value: 100 }, { ts: ..., value: 150 }],
+//   "2024-01-16": [{ ts: ..., value: 200 }]
+// }</span>
+            </div>
+        </section>
+
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="index.html" class="btn btn-primary">← Voltar ao Portal</a>
+        </div>
+    </div>
+
+    <script>
+        const {
+            formatDateToYMD,
+            getSaoPauloISOString,
+            determineInterval,
+            getDateRangeArray,
+            averageByDay,
+            groupByDay
+        } = MyIOLibrary;
+
+        // Initialize date inputs with today
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+
+        document.getElementById('ymdInput').value = today.toISOString().slice(0, 16);
+        document.getElementById('spInput').value = today.toISOString().slice(0, 16);
+        document.getElementById('intervalStart').value = weekAgo.toISOString().slice(0, 10);
+        document.getElementById('intervalEnd').value = today.toISOString().slice(0, 10);
+        document.getElementById('rangeStart').value = weekAgo.toISOString().slice(0, 10);
+        document.getElementById('rangeEnd').value = today.toISOString().slice(0, 10);
+
+        // formatDateToYMD Demo
+        const ymdInput = document.getElementById('ymdInput');
+        const ymdResult = document.getElementById('ymdResult');
+
+        function updateYMD() {
+            const date = new Date(ymdInput.value);
+            if (!isNaN(date)) {
+                ymdResult.textContent = formatDateToYMD(date);
+            }
+        }
+        ymdInput.addEventListener('input', updateYMD);
+        updateYMD();
+
+        // getSaoPauloISOString Demo
+        const spInput = document.getElementById('spInput');
+        const spResult = document.getElementById('spResult');
+
+        function updateSP() {
+            const date = new Date(spInput.value);
+            if (!isNaN(date)) {
+                try {
+                    spResult.textContent = getSaoPauloISOString(date);
+                } catch (e) {
+                    spResult.textContent = `Erro: ${e.message}`;
+                }
+            }
+        }
+        spInput.addEventListener('input', updateSP);
+        updateSP();
+
+        // determineInterval Demo
+        const intervalStart = document.getElementById('intervalStart');
+        const intervalEnd = document.getElementById('intervalEnd');
+        const intervalResult = document.getElementById('intervalResult');
+
+        function updateInterval() {
+            const start = new Date(intervalStart.value);
+            const end = new Date(intervalEnd.value);
+            if (!isNaN(start) && !isNaN(end)) {
+                try {
+                    const interval = determineInterval(start, end);
+                    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                    intervalResult.textContent = `${interval}\n(${days} dias de diferença)`;
+                } catch (e) {
+                    intervalResult.textContent = `Erro: ${e.message}`;
+                }
+            }
+        }
+        intervalStart.addEventListener('input', updateInterval);
+        intervalEnd.addEventListener('input', updateInterval);
+        updateInterval();
+
+        // getDateRangeArray Demo
+        const rangeStart = document.getElementById('rangeStart');
+        const rangeEnd = document.getElementById('rangeEnd');
+        const rangeResult = document.getElementById('rangeResult');
+
+        function updateRange() {
+            const start = new Date(rangeStart.value);
+            const end = new Date(rangeEnd.value);
+            if (!isNaN(start) && !isNaN(end)) {
+                try {
+                    const dates = getDateRangeArray(start, end);
+                    rangeResult.innerHTML = dates.slice(0, 15).map((d, i) =>
+                        `<span class="timeline-item ${i === 0 || i === dates.length - 1 ? 'highlight' : ''}">${d}</span>`
+                    ).join('') + (dates.length > 15 ? `<span class="timeline-item">+${dates.length - 15} mais...</span>` : '');
+                } catch (e) {
+                    rangeResult.innerHTML = `<span class="timeline-item">Erro: ${e.message}</span>`;
+                }
+            }
+        }
+        rangeStart.addEventListener('input', updateRange);
+        rangeEnd.addEventListener('input', updateRange);
+        updateRange();
+
+        // averageByDay Demo
+        const avgInput = document.getElementById('avgInput');
+        const avgResult = document.getElementById('avgResult');
+
+        // Sample data
+        const sampleData = [
+            { ts: Date.now() - 3600000 * 2, value: 100 },
+            { ts: Date.now() - 3600000 * 1, value: 150 },
+            { ts: Date.now(), value: 200 },
+            { ts: Date.now() - 86400000 - 3600000, value: 80 },
+            { ts: Date.now() - 86400000, value: 120 }
+        ];
+        avgInput.value = JSON.stringify(sampleData, null, 2);
+
+        window.calculateAverage = function() {
+            try {
+                const data = JSON.parse(avgInput.value);
+                const averages = averageByDay(data);
+                avgResult.textContent = JSON.stringify(averages, null, 2);
+            } catch (e) {
+                avgResult.textContent = `Erro: ${e.message}`;
+            }
+        };
+
+        // groupByDay Demo
+        const groupResult = document.getElementById('groupResult');
+        try {
+            const grouped = groupByDay(sampleData);
+            const summary = {};
+            for (const [date, items] of Object.entries(grouped)) {
+                summary[date] = `${items.length} registros, valores: [${items.map(i => i.value).join(', ')}]`;
+            }
+            groupResult.textContent = JSON.stringify(summary, null, 2);
+        } catch (e) {
+            groupResult.textContent = `Erro: ${e.message}`;
+        }
+    </script>
+</body>
+</html>
