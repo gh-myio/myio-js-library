@@ -1,6 +1,6 @@
 {
   "name": "myio-js-library",
-  "version": "0.1.146",
+  "version": "0.1.147",
   "description": "A clean, standalone JS SDK for MYIO projects",
   "license": "MIT",
   "repository": "github:gh-myio/myio-js-library",
