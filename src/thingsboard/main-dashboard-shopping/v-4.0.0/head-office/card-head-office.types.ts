@@ -97,7 +97,7 @@ export interface I18NMap {
  */
 export const DEFAULT_I18N: I18NMap = {
   // Status labels with icons
-  in_operation: '⚡ Em funcionamento',
+  in_operation: '⚡ Normal',
   standby: '💤 Em standby',
   alert: '⚠️ Alerta',
   failure: '🚨 Falha',
