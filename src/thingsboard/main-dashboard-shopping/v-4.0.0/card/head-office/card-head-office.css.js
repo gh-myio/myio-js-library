@@ -8,14 +8,30 @@ export const CSS_STRING = `
   --myio-card-bg: #fff;
   --myio-card-border: #e9eef5;
 
-  --myio-chip-ok-bg: #e8f7ff;
-  --myio-chip-ok-fg: #007ecc;
-  --myio-chip-alert-bg: #fff4e5;
-  --myio-chip-alert-fg: #b96b00;
-  --myio-chip-failure-bg: #ffeaea;
-  --myio-chip-failure-fg: #b71c1c;
+  /* Status colors - Normal/Power On (blue) */
+  --myio-chip-ok-bg: #dbeafe;
+  --myio-chip-ok-fg: #1d4ed8;
+  --myio-border-ok: rgba(59, 130, 246, 0.4);
+
+  /* Status colors - Standby (green) */
+  --myio-chip-standby-bg: #dcfce7;
+  --myio-chip-standby-fg: #15803d;
+  --myio-border-standby: rgba(34, 197, 94, 0.4);
+
+  /* Status colors - Alert/Warning (yellow) */
+  --myio-chip-alert-bg: #fef3c7;
+  --myio-chip-alert-fg: #b45309;
+  --myio-border-alert: rgba(245, 158, 11, 0.5);
+
+  /* Status colors - Failure (red) */
+  --myio-chip-failure-bg: #fee2e2;
+  --myio-chip-failure-fg: #b91c1c;
+  --myio-border-failure: rgba(239, 68, 68, 0.5);
+
+  /* Status colors - Offline (gray) */
   --myio-chip-offline-bg: #f1f5f9;
   --myio-chip-offline-fg: #64748b;
+  --myio-border-offline: rgba(100, 116, 139, 0.4);
 
   --myio-text-1: #0f172a;
   --myio-text-2: #4b5563;
@@ -70,15 +86,25 @@ export const CSS_STRING = `
   box-shadow: 0 16px 48px rgba(0, 224, 158, 0.3), 0 8px 16px rgba(0, 224, 158, 0.2);
 }
 
-/* Alert and failure states */
+/* Card border states based on device status */
+.myio-ho-card.is-ok {
+  border-color: var(--myio-border-ok);
+  box-shadow: 0 0 0 2px var(--myio-border-ok), var(--myio-card-shadow);
+}
+
+.myio-ho-card.is-standby {
+  border-color: var(--myio-border-standby);
+  box-shadow: 0 0 0 2px var(--myio-border-standby), var(--myio-card-shadow);
+}
+
 .myio-ho-card.is-alert {
-  border-color: var(--myio-badge-border);
-  box-shadow: 0 0 0 1px var(--myio-badge-border), var(--myio-card-shadow);
+  border-color: var(--myio-border-alert);
+  box-shadow: 0 0 0 2px var(--myio-border-alert), var(--myio-card-shadow);
 }
 
 .myio-ho-card.is-failure {
-  border-color: var(--myio-badge-border-failure);
-  box-shadow: 0 0 0 1px var(--myio-badge-border-failure), var(--myio-card-shadow);
+  border-color: var(--myio-border-failure);
+  box-shadow: 0 0 0 2px var(--myio-border-failure), var(--myio-card-shadow);
 }
 
 /* Header section */
@@ -113,21 +139,10 @@ export const CSS_STRING = `
 
 /* Adicione estas duas novas regras ao seu CSS_STRING */
 
-/* Estado Offline - Apenas borda do card */
+/* Estado Offline - borda cinza */
 .myio-ho-card.is-offline {
-  border-color: rgba(100, 116, 139, 0.4);
-  box-shadow: 0 0 0 1px rgba(100, 116, 139, 0.4), var(--myio-card-shadow);
-}
-
-/* Regras que já existem (mantenha-as) */
-.myio-ho-card.is-alert {
-  border-color: var(--myio-badge-border);
-  box-shadow: 0 0 0 1px var(--myio-badge-border), var(--myio-card-shadow);
-}
-
-.myio-ho-card.is-failure {
-  border-color: var(--myio-badge-border-failure);
-  box-shadow: 0 0 0 1px var(--myio-badge-border-failure), var(--myio-card-shadow);
+  border-color: var(--myio-border-offline);
+  box-shadow: 0 0 0 2px var(--myio-border-offline), var(--myio-card-shadow);
 }
 
 .myio-ho-card__name {
@@ -499,6 +514,11 @@ export const CSS_STRING = `
   color: var(--myio-chip-ok-fg);
 }
 
+.chip--standby {
+  background: var(--myio-chip-standby-bg);
+  color: var(--myio-chip-standby-fg);
+}
+
 .chip--alert {
   background: var(--myio-chip-alert-bg);
   color: var(--myio-chip-alert-fg);
@@ -510,8 +530,37 @@ export const CSS_STRING = `
 }
 
 .chip--offline {
-  background: #e37171 !important;
-  color: #ffffff !important;
+  background: var(--myio-chip-offline-bg);
+  color: var(--myio-chip-offline-fg);
+}
+
+/* Status indicator dot for power metric */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--myio-chip-offline-fg);
+}
+
+.status-dot.dot--ok {
+  background: var(--myio-chip-ok-fg);
+}
+
+.status-dot.dot--standby {
+  background: var(--myio-chip-standby-fg);
+}
+
+.status-dot.dot--alert {
+  background: var(--myio-chip-alert-fg);
+}
+
+.status-dot.dot--failure {
+  background: var(--myio-chip-failure-fg);
+}
+
+.status-dot.dot--offline {
+  background: var(--myio-chip-offline-fg);
 }
 
 /* Primary metric */

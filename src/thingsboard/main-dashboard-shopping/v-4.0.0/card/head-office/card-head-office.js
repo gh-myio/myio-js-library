@@ -309,29 +309,50 @@ function getStatusInfo(deviceStatus, i18n) {
 
 /**
  * Get card state class for status border based on deviceStatus
+ * Colors: Normal=blue, Standby=green, Alert=yellow, Failure=red, Offline=gray
  */
 function getCardStateClass(deviceStatus) {
   switch (deviceStatus) {
     case DeviceStatusType.POWER_ON:
-      return '';
+      return 'is-ok'; // Blue border
 
-    case DeviceStatusType.NO_INFO:
-      return 'is-offline';
+    case DeviceStatusType.STANDBY:
+      return 'is-standby'; // Green border
 
     case DeviceStatusType.WARNING:
-    case DeviceStatusType.STANDBY:
     case DeviceStatusType.MAINTENANCE:
-      return 'is-alert';
+      return 'is-alert'; // Yellow border
 
     case DeviceStatusType.FAILURE:
     case DeviceStatusType.POWER_OFF:
-      return 'is-failure';
+      return 'is-failure'; // Red border
 
+    case DeviceStatusType.NO_INFO:
     case DeviceStatusType.NOT_INSTALLED:
-      return 'is-offline';
+      return 'is-offline'; // Gray border
 
     default:
       return '';
+  }
+}
+
+/**
+ * Get status dot class for power metric indicator
+ */
+function getStatusDotClass(deviceStatus) {
+  switch (deviceStatus) {
+    case DeviceStatusType.POWER_ON:
+      return 'dot--ok';
+    case DeviceStatusType.STANDBY:
+      return 'dot--standby';
+    case DeviceStatusType.WARNING:
+    case DeviceStatusType.MAINTENANCE:
+      return 'dot--alert';
+    case DeviceStatusType.FAILURE:
+    case DeviceStatusType.POWER_OFF:
+      return 'dot--failure';
+    default:
+      return 'dot--offline';
   }
 }
 
@@ -550,14 +571,14 @@ function buildDOM(state) {
 
   footer.appendChild(opTimeMetric);
 
-  // Instantaneous Power metric
+  // Instantaneous Power metric with status indicator
   const powerMetric = document.createElement('div');
   powerMetric.className = 'metric';
 
-  const powerIcon = document.createElement('i');
-  powerIcon.className = 'ico ico-power';
-  powerIcon.innerHTML = Icons.dot; // Using dot as power placeholder
-  powerMetric.appendChild(powerIcon);
+  // Status indicator dot (colored based on device status)
+  const statusDot = document.createElement('span');
+  statusDot.className = 'status-dot';
+  powerMetric.appendChild(statusDot);
 
   const powerLabel = document.createElement('div');
   powerLabel.className = 'label';
@@ -691,6 +712,13 @@ function paint(root, state) {
     const instantPower = entityObject.instantaneousPower ?? entityObject.consumption_power ?? null;
     const powerFormatted = formatPower(instantPower);
     powerVal.textContent = instantPower !== null ? `${powerFormatted.num} ${powerFormatted.unit}` : '-';
+  }
+
+  // Update status dot color based on device status
+  const statusDot = root.querySelector('.myio-ho-card__footer .metric:nth-child(2) .status-dot');
+  if (statusDot) {
+    const dotClass = getStatusDotClass(entityObject.deviceStatus);
+    statusDot.className = `status-dot ${dotClass}`;
   }
 }
 
