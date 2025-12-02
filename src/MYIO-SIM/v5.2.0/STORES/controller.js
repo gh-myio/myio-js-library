@@ -873,6 +873,12 @@ async function renderList(visible) {
             alert('Período de datas não definido.');
             return;
           }
+          // RFC-0093: Guard against undefined MyIOAuth
+          if (!MyIOAuth || typeof MyIOAuth.getToken !== 'function') {
+            LogHelper.error('[STORES] MyIOAuth not available');
+            alert('Autenticação não disponível. Recarregue a página.');
+            return;
+          }
           const tokenIngestionDashBoard = await MyIOAuth.getToken();
           const myTbTokenDashBoard = localStorage.getItem('jwt_token');
 
@@ -899,6 +905,12 @@ async function renderList(visible) {
       handleActionReport: async () => {
         // ... (seu código existente do report mantido igual)
         try {
+          // RFC-0093: Guard against undefined MyIOAuth
+          if (!MyIOAuth || typeof MyIOAuth.getToken !== 'function') {
+            LogHelper.error('[STORES] MyIOAuth not available for report');
+            alert('Autenticação não disponível. Recarregue a página.');
+            return;
+          }
           const ingestionToken = await MyIOAuth.getToken();
           await MyIOLibrary.openDashboardPopupReport({
             ingestionId: it.ingestionId,
@@ -1771,6 +1783,15 @@ async function hydrateAndRender() {
         LogHelper.log(`[STORES] Using ${apiMap.size} items from Orchestrator cache`);
       } else {
         LogHelper.warn('[STORES] Orchestrator cache is empty, waiting for data...');
+        // RFC-0093: Show toast to reload page after a delay if still no data
+        setTimeout(() => {
+          if (apiMap.size === 0) {
+            const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
+            if (MyIOToast) {
+              MyIOToast.warning('Dados não carregados. Por favor, recarregue a página.', { duration: 8000 });
+            }
+          }
+        }, 5000); // Wait 5 seconds before showing toast
       }
     } else {
       LogHelper.warn('[STORES] Orchestrator not available, data will come via provide-data event');

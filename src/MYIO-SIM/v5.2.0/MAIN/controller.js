@@ -2708,6 +2708,12 @@ const MyIOOrchestrator = (() => {
   }
 
   async function fetchEnergyData(customerIngestionId, startDateISO, endDateISO) {
+    // RFC-0093: Guard against undefined myIOAuth (widget destroyed or not initialized)
+    if (!myIOAuth || typeof myIOAuth.getToken !== 'function') {
+      LogHelper.warn('[MAIN] fetchEnergyData: myIOAuth not available, skipping');
+      return energyCache;
+    }
+
     const key = cacheKey(customerIngestionId, startDateISO, endDateISO);
 
     // RFC-0057: Check for duplicate fetches
@@ -2884,6 +2890,12 @@ const MyIOOrchestrator = (() => {
   }
 
   async function fetchWaterData(customerIngestionId, startDateISO, endDateISO) {
+    // RFC-0093: Guard against undefined myIOAuth (widget destroyed or not initialized)
+    if (!myIOAuth || typeof myIOAuth.getToken !== 'function') {
+      LogHelper.warn('[MAIN] fetchWaterData: myIOAuth not available, skipping');
+      return waterCache;
+    }
+
     // 1. A key de cache para ÁGUA.
     // (Note que estamos "re-implementando" a lógica da cacheKey aqui
     // para não ter que alterar a função original)
@@ -3405,6 +3417,12 @@ if (
  * @param {string} endDateISO - Data fim ISO
  */
 async function updateTotalConsumption(customersArray, startDateISO, endDateISO) {
+  // RFC-0093: Guard against undefined myIOAuth (widget destroyed or not initialized)
+  if (!myIOAuth || typeof myIOAuth.getToken !== 'function') {
+    //LogHelper.warn('[MAIN] updateTotalConsumption: myIOAuth not available, skipping');
+    return;
+  }
+
   const energyTotal = document.getElementById('energy-kpi');
   if (!energyTotal) {
     LogHelper.warn('[MAIN] energy-kpi element not found');
@@ -3484,6 +3502,12 @@ window.addEventListener('myio:request-total-consumption', async (ev) => {
  * @param {string} endDateISO - Data fim ISO
  */
 async function updateTotalWaterConsumption(customersArray, startDateISO, endDateISO) {
+  // RFC-0093: Guard against undefined myIOAuth (widget destroyed or not initialized)
+  if (!myIOAuth || typeof myIOAuth.getToken !== 'function') {
+    //LogHelper.warn('[MAIN] updateTotalWaterConsumption: myIOAuth not available, skipping');
+    return;
+  }
+
   const waterTotal = document.getElementById('water-kpi');
   if (!waterTotal) {
     LogHelper.warn('[MAIN] water-kpi element not found');

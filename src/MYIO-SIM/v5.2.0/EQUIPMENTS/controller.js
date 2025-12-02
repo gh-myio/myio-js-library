@@ -172,7 +172,12 @@ function initializeCards(devices) {
           // 2. Clean up any existing modal state
           closeExistingModals();
 
-          // 3. Get tokens
+          // 3. Get tokens (RFC-0093: Guard against undefined myIOAuth)
+          if (!myIOAuth || typeof myIOAuth.getToken !== 'function') {
+            LogHelper.error('[EQUIPMENTS] myIOAuth not available');
+            window.alert('Autenticação não disponível. Recarregue a página.');
+            return;
+          }
           const tokenIngestionDashBoard = await myIOAuth.getToken();
           const myTbTokenDashBoard = localStorage.getItem('jwt_token');
 
@@ -233,6 +238,12 @@ function initializeCards(devices) {
 
       handleActionReport: async () => {
         try {
+          // RFC-0093: Guard against undefined myIOAuth
+          if (!myIOAuth || typeof myIOAuth.getToken !== 'function') {
+            LogHelper.error('[EQUIPMENTS] myIOAuth not available for report');
+            window.alert('Autenticação não disponível. Recarregue a página.');
+            return;
+          }
           const ingestionToken = await myIOAuth.getToken();
 
           if (!ingestionToken) throw new Error('No ingestion token');
@@ -1046,6 +1057,12 @@ self.onInit = async function () {
       if (!cache || cache.size === 0) {
         LogHelper.warn('[EQUIPMENTS] Cache de energia está vazio. Nenhum card será renderizado.');
         showLoadingOverlay(false);
+
+        // RFC-0093: Show toast to reload page
+        const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
+        if (MyIOToast) {
+          MyIOToast.warning('Dados não carregados. Por favor, recarregue a página.', { duration: 8000 });
+        }
         return;
       }
 
