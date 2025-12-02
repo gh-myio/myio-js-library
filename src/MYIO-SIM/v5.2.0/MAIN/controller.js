@@ -1927,6 +1927,35 @@ function createFilterModal(config) {
         padding: 4px;
       }
 
+      /* RFC-0093: Inline actions (Select All / Clear) */
+      #${containerId} .inline-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      #${containerId} .tiny-btn {
+        padding: 6px 12px;
+        border: 1px solid #DDE7F1;
+        border-radius: 6px;
+        background: #fff;
+        font-size: 12px;
+        font-weight: 500;
+        color: #1C2743;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      #${containerId} .tiny-btn:hover {
+        background: #f0f4f8;
+        border-color: ${primaryColor};
+        color: ${primaryColor};
+      }
+
+      #${containerId} .tiny-btn:active {
+        background: #e0e8f0;
+      }
+
       #${containerId} .checklist {
         min-height: 150px;
         max-height: 400px;

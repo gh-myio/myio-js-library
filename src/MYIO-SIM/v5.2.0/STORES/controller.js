@@ -491,6 +491,30 @@ function buildAuthoritativeItems() {
       deviceTypeToDisplay = deviceProfile;
     }
 
+    // RFC-0093: Get customerId with fallback to global map or Orchestrator cache
+    let customerId = attrs.customerId ?? null;
+
+    // Fallback 1: Try global device-to-shopping map (populated by EQUIPMENTS)
+    if (!customerId && ingestionId && window.myioDeviceToShoppingMap) {
+      customerId = window.myioDeviceToShoppingMap.get(ingestionId) || null;
+    }
+
+    // Fallback 2: Try Orchestrator energy cache
+    if (!customerId && ingestionId && window.MyIOOrchestrator?.getEnergyCache) {
+      const energyCache = window.MyIOOrchestrator.getEnergyCache();
+      if (energyCache && energyCache.has(ingestionId)) {
+        customerId = energyCache.get(ingestionId).customerId || null;
+      }
+    }
+
+    // Populate global map for other widgets to use
+    if (ingestionId && customerId) {
+      if (!window.myioDeviceToShoppingMap) {
+        window.myioDeviceToShoppingMap = new Map();
+      }
+      window.myioDeviceToShoppingMap.set(ingestionId, customerId);
+    }
+
     return {
       id: tbId || ingestionId, // para seleção/toggle
       tbId, // ThingsBoard deviceId (Settings)
@@ -509,7 +533,7 @@ function buildAuthoritativeItems() {
       lastDisconnectTime: attrs.lastDisconnectTime ?? null,
       lastConnectTime: attrs.lastConnectTime ?? null,
       deviceMapInstaneousPower: attrs.deviceMapInstaneousPower ?? null,
-      customerId: attrs.customerId ?? null,
+      customerId: customerId, // RFC-0093: With fallback from global map or Orchestrator
       connectionStatus: attrs.connectionStatus ?? 'offline',
       consumption_power: attrs.consumption_power ?? null, // Instantaneous power
     };
@@ -2057,6 +2081,20 @@ self.onInit = async function () {
     // Reflow to apply filter
     reflowFromState();
   });
+
+  // RFC-0093: Check for pre-existing filter when STORES initializes
+  // This handles the case where user filtered in MENU, then navigated to STORES
+  if (
+    window.custumersSelected &&
+    Array.isArray(window.custumersSelected) &&
+    window.custumersSelected.length > 0
+  ) {
+    LogHelper.log('[STORES] 🔄 Applying pre-existing filter:', window.custumersSelected.length, 'shoppings');
+    const shoppingIds = window.custumersSelected.map((s) => s.value).filter((v) => v);
+    STATE.selectedShoppingIds = shoppingIds;
+    renderShoppingFilterChips(window.custumersSelected);
+    // Note: reflowFromState will be called later when data is loaded
+  }
 
   // Test if listener is working
   setTimeout(() => {
