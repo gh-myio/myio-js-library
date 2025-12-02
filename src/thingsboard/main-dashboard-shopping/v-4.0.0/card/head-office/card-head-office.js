@@ -618,16 +618,16 @@ function paint(root, state) {
 
   // Update footer metrics
   const opTimeVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(1) .val');
-  opTimeVal.textContent = entityObject.operationHours;
+  if (opTimeVal) {
+    opTimeVal.textContent = entityObject.operationHours ?? '-';
+  }
 
   // Instantaneous Power (kW)
   const powerVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(2) .val');
-  const instantPower = entityObject.instantaneousPower ?? entityObject.consumption_power ?? null;
-  powerVal.textContent = instantPower !== null ? `${Number(instantPower).toFixed(2)} kW` : '-';
-
-  // Last Telemetry
-  const telemetryVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(3) .val');
-  telemetryVal.textContent = formatUpdateDate(entityObject.lastActivityTime);
+  if (powerVal) {
+    const instantPower = entityObject.instantaneousPower ?? entityObject.consumption_power ?? null;
+    powerVal.textContent = instantPower !== null ? `${Number(instantPower).toFixed(2)} kW` : '-';
+  }
 }
 
 /**
