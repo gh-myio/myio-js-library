@@ -1270,17 +1270,9 @@ function updateEnergyCardWithTotal(customerTotal) {
   }
 
   LogHelper.log(`[HEADER] Energy card updated from summary: ${formatted}`);
-
-  // Emit event for other widgets
-  const customerTotalEvent = {
-    customerTotal: customerTotal,
-    unfilteredTotal: customerTotal,
-    isFiltered: window.MyIOOrchestrator?.isFilterActive?.() || false,
-    deviceCount: 0,
-    timestamp: Date.now(),
-  };
-  window.dispatchEvent(new CustomEvent('myio:customer-total-consumption', { detail: customerTotalEvent }));
-  LogHelper.log('[HEADER] ✅ Emitted myio:customer-total-consumption:', customerTotalEvent);
+  // RFC-0093: Removed dispatch of myio:customer-total-consumption to prevent infinite loop
+  // MAIN dispatches energy-summary-ready → HEADER receives → HEADER was dispatching customer-total-consumption
+  // → MAIN receives and calls setCustomerTotal → dispatches energy-summary-ready → LOOP
 }
 
 function updateEnergyCard(energyCache) {
