@@ -2465,6 +2465,26 @@ function setupModalCloseHandlers(modal) {
     });
   }
 
+  // Clear selection button - unchecks all checkboxes without closing modal
+  const clearSelectionBtn = modal.querySelector('#clearSelection');
+  if (clearSelectionBtn) {
+    clearSelectionBtn.addEventListener('click', () => {
+      // Uncheck all checkboxes in the checklist
+      const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']");
+      checkboxes.forEach((cb) => {
+        cb.checked = false;
+      });
+
+      // Reset filter tabs to "all" active state
+      const filterTabs = modal.querySelectorAll('.filter-tab');
+      filterTabs.forEach((t) => t.classList.remove('active'));
+      const allTab = modal.querySelector('.filter-tab[data-filter="all"]');
+      if (allTab) allTab.classList.add('active');
+
+      LogHelper.log('[EQUIPMENTS] [RFC-0072] Selection cleared - all checkboxes unchecked');
+    });
+  }
+
   // Bind filter tab click handlers (must be done after modal is moved to document.body)
   const filterTabs = modal.querySelectorAll('.filter-tab');
   filterTabs.forEach((tab) => {
@@ -2494,6 +2514,9 @@ function setupModalCloseHandlers(modal) {
 
         let shouldCheck = false;
 
+        // Get device status for filtering
+        const deviceStatusValue = (device.deviceStatus || '').toLowerCase();
+
         switch (filterType) {
           case 'all':
             shouldCheck = true;
@@ -2503,6 +2526,18 @@ function setupModalCloseHandlers(modal) {
             break;
           case 'offline':
             shouldCheck = consumption === 0;
+            break;
+          case 'normal':
+            shouldCheck = deviceStatusValue === 'power_on' || deviceStatusValue === 'normal';
+            break;
+          case 'standby':
+            shouldCheck = deviceStatusValue === 'standby';
+            break;
+          case 'alert':
+            shouldCheck = deviceStatusValue === 'warning' || deviceStatusValue === 'alert' || deviceStatusValue === 'maintenance';
+            break;
+          case 'failure':
+            shouldCheck = deviceStatusValue === 'failure' || deviceStatusValue === 'power_off';
             break;
           case 'with-consumption':
             shouldCheck = consumption > 0;
@@ -2809,11 +2844,15 @@ function openFilterModal() {
           }
 
           #equipmentsFilterModalGlobal .checklist {
-            max-height: 300px;
+            min-height: 150px;
+            max-height: 400px;
             overflow-y: auto;
             border: 1px solid #DDE7F1;
             border-radius: 10px;
             padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
           }
 
           #equipmentsFilterModalGlobal .check-item {
@@ -2964,6 +3003,10 @@ function openFilterModal() {
     all: STATE.allDevices.length,
     online: 0,
     offline: 0,
+    normal: 0,
+    standby: 0,
+    alert: 0,
+    failure: 0,
     withConsumption: 0,
     noConsumption: 0,
     elevators: 0,
@@ -2988,6 +3031,18 @@ function openFilterModal() {
       counts.online++;
     } else {
       counts.offline++;
+    }
+
+    // Count by deviceStatus (Normal, Stand By, Alerta, Falha)
+    const deviceStatus = (device.deviceStatus || '').toLowerCase();
+    if (deviceStatus === 'power_on' || deviceStatus === 'normal') {
+      counts.normal++;
+    } else if (deviceStatus === 'standby') {
+      counts.standby++;
+    } else if (deviceStatus === 'warning' || deviceStatus === 'alert' || deviceStatus === 'maintenance') {
+      counts.alert++;
+    } else if (deviceStatus === 'failure' || deviceStatus === 'power_off') {
+      counts.failure++;
     }
 
     // Count consumption status
@@ -3037,6 +3092,10 @@ function openFilterModal() {
   updateCount('countAll', counts.all);
   updateCount('countOnline', counts.online);
   updateCount('countOffline', counts.offline);
+  updateCount('countNormal', counts.normal);
+  updateCount('countStandby', counts.standby);
+  updateCount('countAlert', counts.alert);
+  updateCount('countFailure', counts.failure);
   updateCount('countWithConsumption', counts.withConsumption);
   updateCount('countNoConsumption', counts.noConsumption);
   updateCount('countElevators', counts.elevators);
@@ -3071,7 +3130,7 @@ function openFilterModal() {
 
     // Get shopping name and consumption value
     const shoppingName = device.customerName || getCustomerNameForDevice(device);
-    const consumption = Number(device.value) || 0;
+    const consumption = Number(device.val) || Number(device.lastValue) || 0;
     const formattedConsumption = MyIO?.formatEnergy ? MyIO.formatEnergy(consumption) : consumption.toFixed(2);
 
     const item = document.createElement('div');
