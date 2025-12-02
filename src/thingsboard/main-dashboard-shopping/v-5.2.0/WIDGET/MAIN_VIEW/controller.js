@@ -11,36 +11,36 @@ const DEBUG_ACTIVE = true; // TEMPORARY - for debugging orchestrator issue
 
 // LogHelper utility
 const LogHelper = {
-  log: function(...args) {
+  log: function (...args) {
     if (DEBUG_ACTIVE) {
       console.log(...args);
     }
   },
-  warn: function(...args) {
+  warn: function (...args) {
     if (DEBUG_ACTIVE) {
       console.warn(...args);
     }
   },
-  error: function(...args) {
+  error: function (...args) {
     if (DEBUG_ACTIVE) {
       console.error(...args);
     }
-  }
+  },
 };
 
 let globalStartDateFilter = null; // ISO ex.: '2025-09-01T00:00:00-03:00'
-let globalEndDateFilter   = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
+let globalEndDateFilter = null; // ISO ex.: '2025-09-30T23:59:59-03:00'
 
 // RFC-0051.1 + RFC-0052: Global widget settings (will be populated in onInit)
 // IMPORTANT: customerTB_ID must NEVER be 'default' - it must always be a valid ThingsBoard ID
 let widgetSettings = {
-  customerTB_ID: null,  // RFC-0052: Changed from 'default' to null - MUST be set in onInit
-  enableCache: true,    // RFC-0052: New - enable/disable cache globally
+  customerTB_ID: null, // RFC-0052: Changed from 'default' to null - MUST be set in onInit
+  enableCache: true, // RFC-0052: New - enable/disable cache globally
   cacheTtlMinutes: 30,
   enableStaleWhileRevalidate: true,
   maxCacheSize: 50,
   debugMode: false,
-  domainsEnabled: { energy: true, water: true, temperature: true }
+  domainsEnabled: { energy: true, water: true, temperature: true },
 };
 
 // RFC-0047: Clean up expired cache from localStorage (global scope for access from orchestrator)
@@ -97,7 +97,7 @@ function cleanupExpiredCache() {
       }
     }
 
-    keysToRemove.forEach(key => {
+    keysToRemove.forEach((key) => {
       localStorage.removeItem(key);
       removedCount++;
     });
@@ -129,7 +129,7 @@ function cleanupExpiredCache() {
         const menu = $('.myio-menu', rootEl);
         if (menu) {
           const menuChildren = $$('.tb-child', menu);
-          menuChildren.forEach(child => {
+          menuChildren.forEach((child) => {
             child.style.overflow = 'hidden';
             child.style.width = '100%';
             child.style.height = '100%';
@@ -142,7 +142,7 @@ function cleanupExpiredCache() {
           // Primeiro: container direto do content deve ter overflow auto para controlar scroll
           const contentChild = $('.tb-child', content);
           if (contentChild) {
-            contentChild.style.overflow = 'auto';  // Mudado de 'visible' para 'auto'
+            contentChild.style.overflow = 'auto'; // Mudado de 'visible' para 'auto'
             contentChild.style.height = '100%';
             contentChild.style.width = '100%';
           }
@@ -154,7 +154,7 @@ function cleanupExpiredCache() {
             const widgetsInState = $$('.tb-child', stateContainer);
             LogHelper.log(`[MAIN_VIEW] State ${idx}: ${widgetsInState.length} widgets found`, {
               state: stateContainer.getAttribute('data-content-state'),
-              display: stateContainer.style.display
+              display: stateContainer.style.display,
             });
             widgetsInState.forEach((widget, widgetIdx) => {
               const before = widget.style.overflow;
@@ -166,13 +166,18 @@ function cleanupExpiredCache() {
           });
 
           // Diagnóstico: logar dimensões do container visível
-          const visible = Array.from(content.querySelectorAll('[data-content-state]'))
-            .find(div => (div.style.display !== 'none'));
+          const visible = Array.from(content.querySelectorAll('[data-content-state]')).find(
+            (div) => div.style.display !== 'none'
+          );
           if (visible) {
             const r1 = content.getBoundingClientRect();
             const r2 = visible.getBoundingClientRect();
             const r3 = contentChild ? contentChild.getBoundingClientRect() : null;
-            LogHelper.log('[MAIN_VIEW] sizing content dims', { content: { w: r1.width, h: r1.height }, visible: { w: r2.width, h: r2.height }, child: r3 ? { w: r3.width, h: r3.height } : null });
+            LogHelper.log('[MAIN_VIEW] sizing content dims', {
+              content: { w: r1.width, h: r1.height },
+              visible: { w: r2.width, h: r2.height },
+              child: r3 ? { w: r3.width, h: r3.height } : null,
+            });
           }
         }
       }
@@ -276,7 +281,9 @@ function cleanupExpiredCache() {
 
           if (expired) {
             const ageMinutes = Math.round(age / 60_000);
-            LogHelper.log(`[Orchestrator] ⏰ Removing expired cache: ${storageKey} (age: ${ageMinutes} minutes)`);
+            LogHelper.log(
+              `[Orchestrator] ⏰ Removing expired cache: ${storageKey} (age: ${ageMinutes} minutes)`
+            );
             keysToRemove.push(storageKey);
           }
         } catch (parseErr) {
@@ -286,12 +293,14 @@ function cleanupExpiredCache() {
       }
 
       // Remove expired keys
-      keysToRemove.forEach(key => {
+      keysToRemove.forEach((key) => {
         localStorage.removeItem(key);
         removedCount++;
       });
 
-      LogHelper.log(`[Orchestrator] ✅ Cache cleanup complete: ${removedCount}/${totalCount} entries removed`);
+      LogHelper.log(
+        `[Orchestrator] ✅ Cache cleanup complete: ${removedCount}/${totalCount} entries removed`
+      );
     } catch (err) {
       LogHelper.error('[Orchestrator] Error during cache cleanup:', err);
     }
@@ -302,7 +311,6 @@ function cleanupExpiredCache() {
 
   // ThingsBoard lifecycle
   self.onInit = async function () {
-
     rootEl = $('#myio-root');
 
     // RFC-0051.1 + RFC-0052: Populate global widget settings early to avoid undefined errors
@@ -312,7 +320,9 @@ function cleanupExpiredCache() {
     const customerTB_ID = self.ctx.settings?.customerTB_ID;
     if (!customerTB_ID) {
       LogHelper.error('[Orchestrator] ❌ CRITICAL: customerTB_ID is missing from widget settings!');
-      LogHelper.error('[Orchestrator] Widget cannot function without customerTB_ID. Please configure it in widget settings.');
+      LogHelper.error(
+        '[Orchestrator] Widget cannot function without customerTB_ID. Please configure it in widget settings.'
+      );
       throw new Error('customerTB_ID is required but not found in widget settings');
     }
 
@@ -323,7 +333,7 @@ function cleanupExpiredCache() {
       window.MyIOOrchestrator.customerTB_ID = customerTB_ID;
     }
 
-    widgetSettings.enableCache = self.ctx.settings?.enableCache ?? true;  // RFC-0052: New
+    widgetSettings.enableCache = self.ctx.settings?.enableCache ?? true; // RFC-0052: New
     widgetSettings.cacheTtlMinutes = self.ctx.settings?.cacheTtlMinutes ?? 30;
     widgetSettings.enableStaleWhileRevalidate = self.ctx.settings?.enableStaleWhileRevalidate ?? true;
     widgetSettings.maxCacheSize = self.ctx.settings?.maxCacheSize ?? 50;
@@ -331,14 +341,14 @@ function cleanupExpiredCache() {
     widgetSettings.domainsEnabled = self.ctx.settings?.domainsEnabled ?? {
       energy: true,
       water: true,
-      temperature: true
+      temperature: true,
     };
 
     LogHelper.log('[Orchestrator] 📋 Widget settings captured:', {
       customerTB_ID: widgetSettings.customerTB_ID,
-      enableCache: widgetSettings.enableCache,  // RFC-0052
+      enableCache: widgetSettings.enableCache, // RFC-0052
       cacheTtlMinutes: widgetSettings.cacheTtlMinutes,
-      debugMode: widgetSettings.debugMode
+      debugMode: widgetSettings.debugMode,
     });
 
     // RFC-0052: Initialize config AFTER widgetSettings are populated
@@ -348,7 +358,7 @@ function cleanupExpiredCache() {
       enableStaleWhileRevalidate: widgetSettings.enableStaleWhileRevalidate,
       maxCacheSize: widgetSettings.maxCacheSize,
       debugMode: widgetSettings.debugMode,
-      domainsEnabled: widgetSettings.domainsEnabled
+      domainsEnabled: widgetSettings.domainsEnabled,
     };
 
     LogHelper.log('[Orchestrator] 🔧 Config initialized from settings:', config);
@@ -390,12 +400,12 @@ function cleanupExpiredCache() {
         tokenManager: {
           setToken: (key, token) => {
             LogHelper.warn('[Orchestrator] ⚠️ tokenManager.setToken called before orchestrator is ready');
-          }
+          },
         },
 
         // Internal state (will be populated later)
         memCache: null,
-        inFlight: {}
+        inFlight: {},
       };
 
       LogHelper.log('[Orchestrator] ⚡ Exposed to window.MyIOOrchestrator EARLY (stub mode)');
@@ -408,142 +418,168 @@ function cleanupExpiredCache() {
     cleanupExpiredCache();
 
     // Initialize MyIO Library and Authentication
-    const MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary)
-         || (typeof window !== "undefined" && window.MyIOLibrary)
-         || null;
+    const MyIO =
+      (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
+      (typeof window !== 'undefined' && window.MyIOLibrary) ||
+      null;
 
     if (MyIO) {
       try {
         // RFC-0051.1: Use widgetSettings from closure
-        const customerTB_ID = widgetSettings.customerTB_ID !== 'default' ? widgetSettings.customerTB_ID : "";
-        const jwt = localStorage.getItem("jwt_token");
+        const customerTB_ID = widgetSettings.customerTB_ID !== 'default' ? widgetSettings.customerTB_ID : '';
+        const jwt = localStorage.getItem('jwt_token');
 
-        LogHelper.log("[MAIN_VIEW] 🔍 Credentials fetch starting...");
-        LogHelper.log("[MAIN_VIEW] customerTB_ID:", customerTB_ID ? customerTB_ID : "❌ NOT FOUND IN SETTINGS");
-        LogHelper.log("[MAIN_VIEW] jwt token:", jwt ? "✅ FOUND" : "❌ NOT FOUND IN localStorage");
+        LogHelper.log('[MAIN_VIEW] 🔍 Credentials fetch starting...');
+        LogHelper.log(
+          '[MAIN_VIEW] customerTB_ID:',
+          customerTB_ID ? customerTB_ID : '❌ NOT FOUND IN SETTINGS'
+        );
+        LogHelper.log('[MAIN_VIEW] jwt token:', jwt ? '✅ FOUND' : '❌ NOT FOUND IN localStorage');
 
-        let CLIENT_ID = "";
-        let CLIENT_SECRET = "";
-        let CUSTOMER_ING_ID = "";
+        let CLIENT_ID = '';
+        let CLIENT_SECRET = '';
+        let CUSTOMER_ING_ID = '';
 
         if (customerTB_ID && jwt) {
           try {
-            LogHelper.log("[MAIN_VIEW] 📡 Fetching customer attributes from ThingsBoard...");
+            LogHelper.log('[MAIN_VIEW] 📡 Fetching customer attributes from ThingsBoard...');
             // Fetch customer attributes
             const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
 
-            LogHelper.log("[MAIN_VIEW] 📦 Received attrs:", attrs);
+            LogHelper.log('[MAIN_VIEW] 📦 Received attrs:', attrs);
 
-            CLIENT_ID = attrs?.client_id || "";
-            CLIENT_SECRET = attrs?.client_secret || "";
-            CUSTOMER_ING_ID = attrs?.ingestionId || "";
+            CLIENT_ID = attrs?.client_id || '';
+            CLIENT_SECRET = attrs?.client_secret || '';
+            CUSTOMER_ING_ID = attrs?.ingestionId || '';
 
-            LogHelper.log("[MAIN_VIEW] 🔑 Parsed credentials:");
-            LogHelper.log("[MAIN_VIEW]   CLIENT_ID:", CLIENT_ID ? "✅ " + CLIENT_ID : "❌ EMPTY");
-            LogHelper.log("[MAIN_VIEW]   CLIENT_SECRET:", CLIENT_SECRET ? "✅ " + CLIENT_SECRET.substring(0, 10) + "..." : "❌ EMPTY");
-            LogHelper.log("[MAIN_VIEW]   CUSTOMER_ING_ID:", CUSTOMER_ING_ID ? "✅ " + CUSTOMER_ING_ID : "❌ EMPTY");
+            LogHelper.log('[MAIN_VIEW] 🔑 Parsed credentials:');
+            LogHelper.log('[MAIN_VIEW]   CLIENT_ID:', CLIENT_ID ? '✅ ' + CLIENT_ID : '❌ EMPTY');
+            LogHelper.log(
+              '[MAIN_VIEW]   CLIENT_SECRET:',
+              CLIENT_SECRET ? '✅ ' + CLIENT_SECRET.substring(0, 10) + '...' : '❌ EMPTY'
+            );
+            LogHelper.log(
+              '[MAIN_VIEW]   CUSTOMER_ING_ID:',
+              CUSTOMER_ING_ID ? '✅ ' + CUSTOMER_ING_ID : '❌ EMPTY'
+            );
           } catch (err) {
-            LogHelper.error("[MAIN_VIEW] ❌ Failed to fetch customer attributes:", err);
-            LogHelper.error("[MAIN_VIEW] Error details:", {
+            LogHelper.error('[MAIN_VIEW] ❌ Failed to fetch customer attributes:', err);
+            LogHelper.error('[MAIN_VIEW] Error details:', {
               message: err.message,
               stack: err.stack,
-              name: err.name
+              name: err.name,
             });
           }
         } else {
-          LogHelper.warn("[MAIN_VIEW] ⚠️ Cannot fetch credentials - missing required data:");
-          if (!customerTB_ID) LogHelper.warn("[MAIN_VIEW]   - customerTB_ID is missing from settings");
-          if (!jwt) LogHelper.warn("[MAIN_VIEW]   - JWT token is missing from localStorage");
+          LogHelper.warn('[MAIN_VIEW] ⚠️ Cannot fetch credentials - missing required data:');
+          if (!customerTB_ID) LogHelper.warn('[MAIN_VIEW]   - customerTB_ID is missing from settings');
+          if (!jwt) LogHelper.warn('[MAIN_VIEW]   - JWT token is missing from localStorage');
         }
 
         // Check if credentials are present
         if (!CLIENT_ID || !CLIENT_SECRET || !CUSTOMER_ING_ID) {
-          LogHelper.warn("[MAIN_VIEW] Missing credentials - CLIENT_ID, CLIENT_SECRET, or CUSTOMER_ING_ID not found");
-          LogHelper.warn("[MAIN_VIEW] Orchestrator will be available but won't be able to fetch data without credentials");
+          LogHelper.warn(
+            '[MAIN_VIEW] Missing credentials - CLIENT_ID, CLIENT_SECRET, or CUSTOMER_ING_ID not found'
+          );
+          LogHelper.warn(
+            "[MAIN_VIEW] Orchestrator will be available but won't be able to fetch data without credentials"
+          );
 
           // RFC-0054 FIX: Dispatch initial tab event even without credentials (with delay)
           // This enables HEADER controls, even though data fetch will fail
-          LogHelper.log('[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...');
+          LogHelper.log(
+            '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+          );
           setTimeout(() => {
-            LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (no credentials)');
+            LogHelper.log(
+              '[MAIN_VIEW] Dispatching initial tab event for default state: energy (no credentials)'
+            );
             window.dispatchEvent(
               new CustomEvent('myio:dashboard-state', {
-                detail: { tab: 'energy' }
+                detail: { tab: 'energy' },
               })
             );
           }, 100);
         } else {
           // Set credentials in orchestrator (only if present)
-          LogHelper.log("[MAIN_VIEW] 🔐 Calling MyIOOrchestrator.setCredentials...");
-          LogHelper.log("[MAIN_VIEW] 🔐 Arguments:", {
+          LogHelper.log('[MAIN_VIEW] 🔐 Calling MyIOOrchestrator.setCredentials...');
+          LogHelper.log('[MAIN_VIEW] 🔐 Arguments:', {
             customerId: CUSTOMER_ING_ID,
             clientId: CLIENT_ID,
-            clientSecret: CLIENT_SECRET.substring(0, 10) + "..."
+            clientSecret: CLIENT_SECRET.substring(0, 10) + '...',
           });
 
           MyIOOrchestrator.setCredentials(CUSTOMER_ING_ID, CLIENT_ID, CLIENT_SECRET);
 
-          LogHelper.log("[MAIN_VIEW] 🔐 setCredentials completed, verifying...");
+          LogHelper.log('[MAIN_VIEW] 🔐 setCredentials completed, verifying...');
           // Verify credentials were set
           const currentCreds = MyIOOrchestrator.getCredentials?.();
           if (currentCreds) {
-            LogHelper.log("[MAIN_VIEW] ✅ Credentials verified in orchestrator:", currentCreds);
+            LogHelper.log('[MAIN_VIEW] ✅ Credentials verified in orchestrator:', currentCreds);
           } else {
-            LogHelper.warn("[MAIN_VIEW] ⚠️ Orchestrator does not have getCredentials method");
+            LogHelper.warn('[MAIN_VIEW] ⚠️ Orchestrator does not have getCredentials method');
           }
 
           // Build auth and get token
           const myIOAuth = MyIO.buildMyioIngestionAuth({
-            dataApiHost: "https://api.data.apps.myio-bas.com",
+            dataApiHost: 'https://api.data.apps.myio-bas.com',
             clientId: CLIENT_ID,
-            clientSecret: CLIENT_SECRET
+            clientSecret: CLIENT_SECRET,
           });
 
           // Get token and set it in token manager
           const ingestionToken = await myIOAuth.getToken();
           MyIOOrchestrator.tokenManager.setToken('ingestionToken', ingestionToken);
 
-          LogHelper.log("[MAIN_VIEW] Auth initialized successfully with CLIENT_ID:", CLIENT_ID);
+          LogHelper.log('[MAIN_VIEW] Auth initialized successfully with CLIENT_ID:', CLIENT_ID);
 
           // RFC-0054 FIX: Dispatch initial tab event AFTER credentials AND with delay
           // Delay ensures HEADER has time to register its listener
           // This ensures customerTB_ID is available for cache key generation
-          LogHelper.log('[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...');
+          LogHelper.log(
+            '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+          );
           setTimeout(() => {
-            LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (after credentials + delay)');
+            LogHelper.log(
+              '[MAIN_VIEW] Dispatching initial tab event for default state: energy (after credentials + delay)'
+            );
             window.dispatchEvent(
               new CustomEvent('myio:dashboard-state', {
-                detail: { tab: 'energy' }
+                detail: { tab: 'energy' },
               })
             );
           }, 100);
         }
       } catch (err) {
-        LogHelper.error("[MAIN_VIEW] Auth initialization failed:", err);
+        LogHelper.error('[MAIN_VIEW] Auth initialization failed:', err);
 
         // RFC-0054 FIX: Dispatch initial tab event even on error (with delay)
         // This enables HEADER controls, even though data fetch will fail
-        LogHelper.log('[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...');
+        LogHelper.log(
+          '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+        );
         setTimeout(() => {
           LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (after error)');
           window.dispatchEvent(
             new CustomEvent('myio:dashboard-state', {
-              detail: { tab: 'energy' }
+              detail: { tab: 'energy' },
             })
           );
         }, 100);
       }
     } else {
-      LogHelper.warn("[MAIN_VIEW] MyIOLibrary not available");
+      LogHelper.warn('[MAIN_VIEW] MyIOLibrary not available');
 
       // RFC-0054 FIX: Dispatch initial tab event even without MyIOLibrary (with delay)
       // This enables HEADER controls, even though data fetch will fail
-      LogHelper.log('[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...');
+      LogHelper.log(
+        '[MAIN_VIEW] Will dispatch initial tab event for default state: energy after 100ms delay...'
+      );
       setTimeout(() => {
         LogHelper.log('[MAIN_VIEW] Dispatching initial tab event for default state: energy (no MyIOLibrary)');
         window.dispatchEvent(
           new CustomEvent('myio:dashboard-state', {
-            detail: { tab: 'energy' }
+            detail: { tab: 'energy' },
           })
         );
       }, 100);
@@ -551,8 +587,8 @@ function cleanupExpiredCache() {
 
     // Log útil para conferir se os states existem
     try {
-      const states = (ctx?.dashboard?.configuration?.states) || {};
-     // LogHelper.log('[myio-container] states disponíveis:', Object.keys(states));
+      const states = ctx?.dashboard?.configuration?.states || {};
+      // LogHelper.log('[myio-container] states disponíveis:', Object.keys(states));
       // Esperados: "menu", "telemetry_content", "water_content", "temperature_content", "alarm_content", "footer"
     } catch (e) {
       LogHelper.warn('[myio-container] não foi possível listar states:', e);
@@ -610,7 +646,7 @@ if (!window.MyIOOrchestratorState) {
     lastEmission: {},
 
     // Lock to prevent concurrent requests
-    locks: {}
+    locks: {},
   };
 
   LogHelper.log('[Orchestrator] 🌍 Global state initialized:', window.MyIOOrchestratorState);
@@ -652,9 +688,7 @@ const OrchestratorState = window.MyIOOrchestratorState;
  * Handles DST transitions (BRT = -03:00, BRST = -02:00).
  */
 function toISO(dt, tz = 'America/Sao_Paulo') {
-  const d = (typeof dt === 'number') ? new Date(dt)
-          : (dt instanceof Date) ? dt
-          : new Date(String(dt));
+  const d = typeof dt === 'number' ? new Date(dt) : dt instanceof Date ? dt : new Date(String(dt));
 
   if (Number.isNaN(d.getTime())) throw new Error('Invalid date');
 
@@ -662,7 +696,9 @@ function toISO(dt, tz = 'America/Sao_Paulo') {
   const offset = -d.getTimezoneOffset();
   const offsetHours = Math.floor(Math.abs(offset) / 60);
   const offsetMins = Math.abs(offset) % 60;
-  const offsetStr = `${offset >= 0 ? '+' : '-'}${String(offsetHours).padStart(2, '0')}:${String(offsetMins).padStart(2, '0')}`;
+  const offsetStr = `${offset >= 0 ? '+' : '-'}${String(offsetHours).padStart(2, '0')}:${String(
+    offsetMins
+  ).padStart(2, '0')}`;
 
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -704,7 +740,7 @@ function cacheKey(domain, period) {
 function normalizeIngestionRow(row) {
   return {
     id: row.id || row.tbId || row.deviceId,
-    total_value: Number(row.total_value ?? row.totalValue ?? 0)
+    total_value: Number(row.total_value ?? row.totalValue ?? 0),
   };
 }
 
@@ -718,36 +754,38 @@ function isValidUUID(v) {
 
 // ========== ORCHESTRATOR SINGLETON ==========
 
-const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
+const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
 
 const MyIOOrchestrator = (() => {
-// ========== PHASE 1: BUSY OVERLAY MANAGEMENT (RFC-0044/RFC-0054) ==========
-const BUSY_OVERLAY_ID = 'myio-orchestrator-busy-overlay';
-let globalBusyState = {
-  isVisible: false,
-  timeoutId: null,
-  startTime: null,
-  currentDomain: null,
-  requestCount: 0
-};
+  // ========== PHASE 1: BUSY OVERLAY MANAGEMENT (RFC-0044/RFC-0054) ==========
+  const BUSY_OVERLAY_ID = 'myio-orchestrator-busy-overlay';
+  let globalBusyState = {
+    isVisible: false,
+    timeoutId: null,
+    startTime: null,
+    currentDomain: null,
+    requestCount: 0,
+  };
 
-// RFC-0054: contador por dom�nio e cooldown p�s-provide
-const activeRequests = new Map(); // domain -> count
-const lastProvide = new Map();    // domain -> { periodKey, at }
+  // RFC-0054: contador por dom�nio e cooldown p�s-provide
+  const activeRequests = new Map(); // domain -> count
+  const lastProvide = new Map(); // domain -> { periodKey, at }
 
-function getActiveTotal() {
-  let total = 0;
-  activeRequests.forEach((v) => { total += (v || 0); });
-  return total;
-}
+  function getActiveTotal() {
+    let total = 0;
+    activeRequests.forEach((v) => {
+      total += v || 0;
+    });
+    return total;
+  }
 
-function ensureOrchestratorBusyDOM() {
-  let el = document.getElementById(BUSY_OVERLAY_ID);
-  if (el) return el;
-  
-  el = document.createElement('div');
-  el.id = BUSY_OVERLAY_ID;
-  el.style.cssText = `
+  function ensureOrchestratorBusyDOM() {
+    let el = document.getElementById(BUSY_OVERLAY_ID);
+    if (el) return el;
+
+    el = document.createElement('div');
+    el.id = BUSY_OVERLAY_ID;
+    el.style.cssText = `
     position: fixed;
     inset: 0;
     background: rgba(45, 20, 88, 0.6);
@@ -758,9 +796,9 @@ function ensureOrchestratorBusyDOM() {
     z-index: 99999;
     font-family: Inter, system-ui, sans-serif;
   `;
-  
-  const container = document.createElement('div');
-  container.style.cssText = `
+
+    const container = document.createElement('div');
+    container.style.cssText = `
     background: #2d1458;
     color: #fff;
     border-radius: 18px;
@@ -772,9 +810,9 @@ function ensureOrchestratorBusyDOM() {
     gap: 16px;
     min-width: 320px;
   `;
-  
-  const spinner = document.createElement('div');
-  spinner.style.cssText = `
+
+    const spinner = document.createElement('div');
+    spinner.style.cssText = `
     width: 24px;
     height: 24px;
     border: 3px solid rgba(255,255,255,0.25);
@@ -782,161 +820,165 @@ function ensureOrchestratorBusyDOM() {
     border-radius: 50%;
     animation: spin 0.9s linear infinite;
   `;
-  
-  const message = document.createElement('div');
-  message.id = `${BUSY_OVERLAY_ID}-message`;
-  message.style.cssText = `
+
+    const message = document.createElement('div');
+    message.id = `${BUSY_OVERLAY_ID}-message`;
+    message.style.cssText = `
     font-weight: 600;
     font-size: 14px;
     letter-spacing: 0.2px;
   `;
-  message.textContent = 'Carregando dados...';
-  
-  container.appendChild(spinner);
-  container.appendChild(message);
-  el.appendChild(container);
-  document.body.appendChild(el);
-  
-  // Add CSS animation
-  if (!document.querySelector('#myio-busy-styles')) {
-    const styleEl = document.createElement('style');
-    styleEl.id = 'myio-busy-styles';
-    styleEl.textContent = `
+    message.textContent = 'Carregando dados...';
+
+    container.appendChild(spinner);
+    container.appendChild(message);
+    el.appendChild(container);
+    document.body.appendChild(el);
+
+    // Add CSS animation
+    if (!document.querySelector('#myio-busy-styles')) {
+      const styleEl = document.createElement('style');
+      styleEl.id = 'myio-busy-styles';
+      styleEl.textContent = `
       @keyframes spin {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
       }
     `;
-    document.head.appendChild(styleEl);
-  }
-  
-  return el;
-}
-
-// PHASE 1: Centralized busy management with extended timeout
-function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...', timeoutMs = 25000) {
-  
-  // RFC-0054: cooldown - n�o reabrir modal se acabou de prover dados
-  const lp = lastProvide.get(domain);
-  if (lp && (Date.now() - lp.at) < 30000) {
-    LogHelper.log(`[Orchestrator] ?? Cooldown active for ${domain}, skipping showGlobalBusy()`);
-    return;
-  }
-  const totalBefore = getActiveTotal();
-  const prev = activeRequests.get(domain) || 0;
-  activeRequests.set(domain, prev + 1);
-  LogHelper.log(`[Orchestrator] ?? Active requests for ${domain}: ${prev + 1} (totalBefore=${totalBefore})`);
-
-  const el = ensureOrchestratorBusyDOM();
-  const messageEl = el.querySelector(`#${BUSY_OVERLAY_ID}-message`);
-
-  if (messageEl) {
-    // Mensagem gen�rica para evitar r�tulo incorreto ao alternar abas
-    messageEl.textContent = 'Carregando dados...';
-  }
-
-  // Clear existing timeout
-  if (globalBusyState.timeoutId) {
-    clearTimeout(globalBusyState.timeoutId);
-    globalBusyState.timeoutId = null;
-  }
-
-  // Mostrar overlay apenas quando saiu de 0 ? 1
-  if (totalBefore === 0) {
-    globalBusyState.isVisible = true;
-    globalBusyState.currentDomain = domain;
-    globalBusyState.startTime = Date.now();
-    globalBusyState.requestCount++;
-    el.style.display = 'flex';
-  }
-
-  // RFC-0048: Start widget monitoring (will be stopped by hideGlobalBusy)
-  // This is defined later in the orchestrator initialization
-  if (window.MyIOOrchestrator?.widgetBusyMonitor) {
-    window.MyIOOrchestrator.widgetBusyMonitor.startMonitoring(domain);
-  }
-
-  // PHASE 1: Extended timeout (25s instead of 10s)
-  globalBusyState.timeoutId = setTimeout(() => {
-    LogHelper.warn(`[Orchestrator] ?? BUSY TIMEOUT (25s) for domain ${domain} - implementing recovery`);
-
-    // Check if still actually busy
-    if (globalBusyState.isVisible && el.style.display !== 'none') {
-      // PHASE 3: Circuit breaker pattern - try graceful recovery
-      try {
-        // Emit recovery event
-        window.dispatchEvent(new CustomEvent('myio:busy-timeout-recovery', {
-          detail: { domain, duration: Date.now() - globalBusyState.startTime }
-        }));
-
-        // Try to invalidate cache for the specific domain
-        if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.invalidateCache === 'function') {
-          window.MyIOOrchestrator.invalidateCache(domain);
-          LogHelper.log(`[Orchestrator] ?? Cache invalidated for domain ${domain}`);
-        }
-
-        // Hide busy and show user-friendly message
-        hideGlobalBusy(domain);
-
-        // PHASE 4: Non-intrusive notification instead of alert
-        showRecoveryNotification();
-
-      } catch (err) {
-        LogHelper.error(`[Orchestrator] ❌ Error in timeout recovery:`, err);
-        hideGlobalBusy(domain);
-      }
+      document.head.appendChild(styleEl);
     }
 
-    globalBusyState.timeoutId = null;
-  }, timeoutMs); // 25 seconds (Phase 1 requirement)
-
-  if (totalBefore === 0) {
-    LogHelper.log(`[Orchestrator] ? Global busy shown (domain=${domain})`);
-  } else {
-    LogHelper.log(`[Orchestrator] ?? Busy already visible (domain=${domain})`);
+    return el;
   }
-}
 
-function hideGlobalBusy(domain = null) {
-  // RFC-0054: decremento por dom�nio; se domain for nulo, for�a limpeza
-  if (domain) {
+  // PHASE 1: Centralized busy management with extended timeout
+  function showGlobalBusy(domain = 'unknown', message = 'Carregando dados...', timeoutMs = 25000) {
+    // RFC-0054: cooldown - n�o reabrir modal se acabou de prover dados
+    const lp = lastProvide.get(domain);
+    if (lp && Date.now() - lp.at < 30000) {
+      LogHelper.log(`[Orchestrator] ?? Cooldown active for ${domain}, skipping showGlobalBusy()`);
+      return;
+    }
+    const totalBefore = getActiveTotal();
     const prev = activeRequests.get(domain) || 0;
-    const next = Math.max(0, prev - 1);
-    activeRequests.set(domain, next);
-    LogHelper.log(`[Orchestrator] ? hideGlobalBusy(${domain}) -> ${prev}?${next}, total=${getActiveTotal()}`);
-    if (getActiveTotal() > 0) return; // mant�m overlay enquanto houver ativas
-  } else {
-    activeRequests.clear();
+    activeRequests.set(domain, prev + 1);
+    LogHelper.log(
+      `[Orchestrator] ?? Active requests for ${domain}: ${prev + 1} (totalBefore=${totalBefore})`
+    );
+
+    const el = ensureOrchestratorBusyDOM();
+    const messageEl = el.querySelector(`#${BUSY_OVERLAY_ID}-message`);
+
+    if (messageEl) {
+      // Mensagem gen�rica para evitar r�tulo incorreto ao alternar abas
+      messageEl.textContent = 'Carregando dados...';
+    }
+
+    // Clear existing timeout
+    if (globalBusyState.timeoutId) {
+      clearTimeout(globalBusyState.timeoutId);
+      globalBusyState.timeoutId = null;
+    }
+
+    // Mostrar overlay apenas quando saiu de 0 ? 1
+    if (totalBefore === 0) {
+      globalBusyState.isVisible = true;
+      globalBusyState.currentDomain = domain;
+      globalBusyState.startTime = Date.now();
+      globalBusyState.requestCount++;
+      el.style.display = 'flex';
+    }
+
+    // RFC-0048: Start widget monitoring (will be stopped by hideGlobalBusy)
+    // This is defined later in the orchestrator initialization
+    if (window.MyIOOrchestrator?.widgetBusyMonitor) {
+      window.MyIOOrchestrator.widgetBusyMonitor.startMonitoring(domain);
+    }
+
+    // PHASE 1: Extended timeout (25s instead of 10s)
+    globalBusyState.timeoutId = setTimeout(() => {
+      LogHelper.warn(`[Orchestrator] ?? BUSY TIMEOUT (25s) for domain ${domain} - implementing recovery`);
+
+      // Check if still actually busy
+      if (globalBusyState.isVisible && el.style.display !== 'none') {
+        // PHASE 3: Circuit breaker pattern - try graceful recovery
+        try {
+          // Emit recovery event
+          window.dispatchEvent(
+            new CustomEvent('myio:busy-timeout-recovery', {
+              detail: { domain, duration: Date.now() - globalBusyState.startTime },
+            })
+          );
+
+          // Try to invalidate cache for the specific domain
+          if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.invalidateCache === 'function') {
+            window.MyIOOrchestrator.invalidateCache(domain);
+            LogHelper.log(`[Orchestrator] ?? Cache invalidated for domain ${domain}`);
+          }
+
+          // Hide busy and show user-friendly message
+          hideGlobalBusy(domain);
+
+          // PHASE 4: Non-intrusive notification instead of alert
+          showRecoveryNotification();
+        } catch (err) {
+          LogHelper.error(`[Orchestrator] ❌ Error in timeout recovery:`, err);
+          hideGlobalBusy(domain);
+        }
+      }
+
+      globalBusyState.timeoutId = null;
+    }, timeoutMs); // 25 seconds (Phase 1 requirement)
+
+    if (totalBefore === 0) {
+      LogHelper.log(`[Orchestrator] ? Global busy shown (domain=${domain})`);
+    } else {
+      LogHelper.log(`[Orchestrator] ?? Busy already visible (domain=${domain})`);
+    }
   }
 
-  // RFC-0048: Stop widget monitoring for current domain
-  if (window.MyIOOrchestrator?.widgetBusyMonitor) {
-    window.MyIOOrchestrator.widgetBusyMonitor.stopAll();
+  function hideGlobalBusy(domain = null) {
+    // RFC-0054: decremento por dom�nio; se domain for nulo, for�a limpeza
+    if (domain) {
+      const prev = activeRequests.get(domain) || 0;
+      const next = Math.max(0, prev - 1);
+      activeRequests.set(domain, next);
+      LogHelper.log(
+        `[Orchestrator] ? hideGlobalBusy(${domain}) -> ${prev}?${next}, total=${getActiveTotal()}`
+      );
+      if (getActiveTotal() > 0) return; // mant�m overlay enquanto houver ativas
+    } else {
+      activeRequests.clear();
+    }
+
+    // RFC-0048: Stop widget monitoring for current domain
+    if (window.MyIOOrchestrator?.widgetBusyMonitor) {
+      window.MyIOOrchestrator.widgetBusyMonitor.stopAll();
+    }
+
+    const el = document.getElementById(BUSY_OVERLAY_ID);
+    if (el) {
+      el.style.display = 'none';
+    }
+
+    // Clear timeout
+    if (globalBusyState.timeoutId) {
+      clearTimeout(globalBusyState.timeoutId);
+      globalBusyState.timeoutId = null;
+    }
+
+    // Update state
+    globalBusyState.isVisible = false;
+    globalBusyState.currentDomain = null;
+    globalBusyState.startTime = null;
+
+    LogHelper.log(`[Orchestrator] ? Global busy hidden`);
   }
 
-  const el = document.getElementById(BUSY_OVERLAY_ID);
-  if (el) {
-    el.style.display = 'none';
-  }
-
-  // Clear timeout
-  if (globalBusyState.timeoutId) {
-    clearTimeout(globalBusyState.timeoutId);
-    globalBusyState.timeoutId = null;
-  }
-
-  // Update state
-  globalBusyState.isVisible = false;
-  globalBusyState.currentDomain = null;
-  globalBusyState.startTime = null;
-
-  LogHelper.log(`[Orchestrator] ? Global busy hidden`);
-}
-
-// PHASE 4: Non-intrusive recovery notification
-function showRecoveryNotification() {
-  const notification = document.createElement('div');
-  notification.style.cssText = `
+  // PHASE 4: Non-intrusive recovery notification
+  function showRecoveryNotification() {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
     position: fixed;
     top: 20px;
     right: 20px;
@@ -950,21 +992,21 @@ function showRecoveryNotification() {
     z-index: 999999;
     font-family: Inter, system-ui, sans-serif;
   `;
-  notification.textContent = 'Dados recarregados automaticamente';
-  document.body.appendChild(notification);
+    notification.textContent = 'Dados recarregados automaticamente';
+    document.body.appendChild(notification);
 
-  setTimeout(() => {
-    if (notification.parentNode) {
-      notification.parentNode.removeChild(notification);
-    }
-  }, 4000);
-}
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 4000);
+  }
 
-// Premium alert for missing credentials
-function showCredentialsAlert() {
-  const overlay = document.createElement('div');
-  overlay.id = 'myio-credentials-alert';
-  overlay.style.cssText = `
+  // Premium alert for missing credentials
+  function showCredentialsAlert() {
+    const overlay = document.createElement('div');
+    overlay.id = 'myio-credentials-alert';
+    overlay.style.cssText = `
     position: fixed;
     inset: 0;
     background: rgba(45, 20, 88, 0.75);
@@ -976,8 +1018,8 @@ function showCredentialsAlert() {
     font-family: Inter, system-ui, sans-serif;
   `;
 
-  const alertBox = document.createElement('div');
-  alertBox.style.cssText = `
+    const alertBox = document.createElement('div');
+    alertBox.style.cssText = `
     background: linear-gradient(135deg, #2d1458 0%, #1a0b33 100%);
     color: #fff;
     border-radius: 20px;
@@ -989,7 +1031,7 @@ function showCredentialsAlert() {
     animation: slideIn 0.3s ease-out;
   `;
 
-  alertBox.innerHTML = `
+    alertBox.innerHTML = `
     <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
     <h2 style="
       font-size: 24px;
@@ -1029,14 +1071,14 @@ function showCredentialsAlert() {
     ">Fechar</button>
   `;
 
-  overlay.appendChild(alertBox);
-  document.body.appendChild(overlay);
+    overlay.appendChild(alertBox);
+    document.body.appendChild(overlay);
 
-  // Add CSS animation
-  if (!document.querySelector('#myio-credentials-alert-styles')) {
-    const styleEl = document.createElement('style');
-    styleEl.id = 'myio-credentials-alert-styles';
-    styleEl.textContent = `
+    // Add CSS animation
+    if (!document.querySelector('#myio-credentials-alert-styles')) {
+      const styleEl = document.createElement('style');
+      styleEl.id = 'myio-credentials-alert-styles';
+      styleEl.textContent = `
       @keyframes slideIn {
         from {
           opacity: 0;
@@ -1057,47 +1099,47 @@ function showCredentialsAlert() {
         transform: translateY(0);
       }
     `;
-    document.head.appendChild(styleEl);
+      document.head.appendChild(styleEl);
+    }
+
+    // Close button handler
+    const closeBtn = document.getElementById('credentials-alert-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        if (overlay.parentNode) {
+          overlay.parentNode.removeChild(overlay);
+        }
+      });
+    }
+
+    LogHelper.error('[MAIN_VIEW] Credentials alert displayed - system halted');
   }
 
-  // Close button handler
-  const closeBtn = document.getElementById('credentials-alert-close');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', () => {
-      if (overlay.parentNode) {
-        overlay.parentNode.removeChild(overlay);
-      }
-    });
+  // PHASE 2: Shared state management for widgets coordination
+  let sharedWidgetState = {
+    activePeriod: null,
+    lastProcessedPeriodKey: null,
+    busyWidgets: new Set(),
+    mutexMap: new Map(), // RFC-0054 FIX: Mutex por dom�nio (n�o global)
+  };
+
+  // PHASE 3: Enhanced event emission with debounce
+  let eventEmissionDebounce = new Map();
+
+  function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
+    const key = `${domain}:${periodKey}`;
+
+    if (eventEmissionDebounce.has(key)) {
+      clearTimeout(eventEmissionDebounce.get(key));
+    }
+
+    const timeoutId = setTimeout(() => {
+      emitProvide(domain, periodKey, items);
+      eventEmissionDebounce.delete(key);
+    }, delay);
+
+    eventEmissionDebounce.set(key, timeoutId);
   }
-
-  LogHelper.error('[MAIN_VIEW] Credentials alert displayed - system halted');
-}
-
-// PHASE 2: Shared state management for widgets coordination
-let sharedWidgetState = {
-  activePeriod: null,
-  lastProcessedPeriodKey: null,
-  busyWidgets: new Set(),
-  mutexMap: new Map() // RFC-0054 FIX: Mutex por dom�nio (n�o global)
-};
-
-// PHASE 3: Enhanced event emission with debounce
-let eventEmissionDebounce = new Map();
-
-function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
-  const key = `${domain}:${periodKey}`;
-  
-  if (eventEmissionDebounce.has(key)) {
-    clearTimeout(eventEmissionDebounce.get(key));
-  }
-  
-  const timeoutId = setTimeout(() => {
-    emitProvide(domain, periodKey, items);
-    eventEmissionDebounce.delete(key);
-  }, delay);
-  
-  eventEmissionDebounce.set(key, timeoutId);
-}
 
   // State
   const memCache = new Map();
@@ -1115,7 +1157,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
   // Credentials promise resolver for async wait
   let credentialsResolver = null;
-  let credentialsPromise = new Promise(resolve => {
+  let credentialsPromise = new Promise((resolve) => {
     credentialsResolver = resolve;
   });
 
@@ -1153,9 +1195,9 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         orchestrator_cache_hits: this.cacheHits,
         orchestrator_avg_hydration_ms: avg,
         orchestrator_errors_total: Object.values(this.errorCounts).reduce((a, b) => a + b, 0),
-        orchestrator_memory_mb: (memCache.size * 2) / 1024
+        orchestrator_memory_mb: (memCache.size * 2) / 1024,
       };
-    }
+    },
   };
 
   // Cache operations
@@ -1224,13 +1266,17 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       cachedAt: now, // Timestamp when cache was created
       hydratedAt: now, // Backward compatibility
       ttlMinutes: config?.ttlMinutes ?? 30, // TTL in minutes (30)
-      expiresAt: now + ((config?.ttlMinutes ?? 30) * 60_000) // Explicit expiration timestamp
+      expiresAt: now + (config?.ttlMinutes ?? 30) * 60_000, // Explicit expiration timestamp
     };
 
     memCache.set(key, cacheEntry);
 
     // Log cache write
-    LogHelper.log(`[Orchestrator] 💾 Cache written for ${key}: ${data.length} items, TTL: ${config?.ttlMinutes ?? 30} min, expires: ${new Date(cacheEntry.expiresAt).toLocaleTimeString()}`);
+    LogHelper.log(
+      `[Orchestrator] 💾 Cache written for ${key}: ${data.length} items, TTL: ${
+        config?.ttlMinutes ?? 30
+      } min, expires: ${new Date(cacheEntry.expiresAt).toLocaleTimeString()}`
+    );
 
     while (memCache.size > (config?.maxCacheSize ?? 50)) {
       const oldestKey = memCache.keys().next().value;
@@ -1300,9 +1346,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
     // RFC-0047: Updated prefix format to include TB_ID
     // Format: myio:cache:TB_ID:domain: or myio:cache:TB_ID: (all domains for customer)
-    const prefix = domain
-      ? `myio:cache:${customerTbId}:${domain}:`
-      : `myio:cache:${customerTbId}:`;
+    const prefix = domain ? `myio:cache:${customerTbId}:${domain}:` : `myio:cache:${customerTbId}:`;
 
     LogHelper.log(`[Orchestrator] 🧹 Clearing localStorage cache with prefix: ${prefix}`);
 
@@ -1314,7 +1358,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       }
     }
 
-    keysToRemove.forEach(key => {
+    keysToRemove.forEach((key) => {
       localStorage.removeItem(key);
       LogHelper.log(`[Orchestrator] 🗑️ Removed cache key: ${key}`);
     });
@@ -1335,14 +1379,16 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       const token = await tokenManager.getToken('ingestionToken');
       if (!token) throw new Error('No ingestion token');
 
-      const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/${domain}/devices/totals`);
+      const url = new URL(
+        `${DATA_API_HOST}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/${domain}/devices/totals`
+      );
       url.searchParams.set('startTime', period.startISO);
       url.searchParams.set('endTime', period.endISO);
       url.searchParams.set('deep', '1');
 
       const res = await fetch(url.toString(), {
         signal: ac.signal,
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!res.ok) {
@@ -1353,7 +1399,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       }
 
       const json = await res.json();
-      const rows = Array.isArray(json) ? json : (json?.data ?? []);
+      const rows = Array.isArray(json) ? json : json?.data ?? [];
 
       const map = new Map();
       for (const r of rows) {
@@ -1380,7 +1426,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       LogHelper.log(`[Orchestrator] 🔍 fetchAndEnrich called for ${domain}`);
 
       // Skip API fetch for temperature domain - uses only ctx.data telemetry from ThingsBoard
-      if (domain === "temperature") {
+      if (domain === 'temperature') {
         LogHelper.log(`[Orchestrator] Skipping API fetch for temperature domain - using ctx.data only`);
         return []; // Return empty array - TELEMETRY widget will use ctx.data directly
       }
@@ -1390,13 +1436,15 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       const key = cacheKey(domain, period);
       const recent = OrchestratorState.cache[domain];
 
-      if (recent && (Date.now() - recent.timestamp) < 30000) {
+      if (recent && Date.now() - recent.timestamp < 30000) {
         const recentPeriod = extractPeriod(recent.periodKey);
         const currentPeriod = extractPeriod(key);
 
         if (recentPeriod === currentPeriod) {
           LogHelper.log(`[Orchestrator] ?? Early return - recent data already available for ${domain}`);
-          LogHelper.log(`[Orchestrator] ?? Using cached data: ${recent.periodKey} (${recent.items.length} items)`);
+          LogHelper.log(
+            `[Orchestrator] ?? Using cached data: ${recent.periodKey} (${recent.items.length} items)`
+          );
           return recent.items; // ? Retorna dados recentes SEM fazer fetch
         } else {
           LogHelper.log(`[Orchestrator] ?? Period mismatch - proceeding with fetch`);
@@ -1441,9 +1489,9 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         LogHelper.error(`[Orchestrator] ❌ Credentials validation failed after wait:`, {
           hasGetCredentials: !!window.MyIOOrchestrator?.getCredentials,
           credentialsReturned: !!latestCreds,
-          CLIENT_ID: latestCreds?.CLIENT_ID || "MISSING",
+          CLIENT_ID: latestCreds?.CLIENT_ID || 'MISSING',
           CLIENT_SECRET_exists: !!latestCreds?.CLIENT_SECRET,
-          CUSTOMER_ING_ID: latestCreds?.CUSTOMER_ING_ID || "MISSING"
+          CUSTOMER_ING_ID: latestCreds?.CUSTOMER_ING_ID || 'MISSING',
         });
         throw new Error('Missing CLIENT_ID or CLIENT_SECRET - credentials not properly set');
       }
@@ -1452,15 +1500,16 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       const clientSecret = latestCreds.CLIENT_SECRET;
 
       LogHelper.log(`[Orchestrator] 🔍 Using credentials:`, {
-        CLIENT_ID: clientId?.substring(0, 10) + "...",
+        CLIENT_ID: clientId?.substring(0, 10) + '...',
         CLIENT_SECRET_length: clientSecret?.length || 0,
-        CUSTOMER_ING_ID: latestCreds.CUSTOMER_ING_ID
+        CUSTOMER_ING_ID: latestCreds.CUSTOMER_ING_ID,
       });
 
       // Create fresh MyIOAuth instance every time (like TELEMETRY widget)
-      const MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary)
-           || (typeof window !== "undefined" && window.MyIOLibrary)
-           || null;
+      const MyIO =
+        (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
+        (typeof window !== 'undefined' && window.MyIOLibrary) ||
+        null;
 
       if (!MyIO) {
         throw new Error('MyIOLibrary not available');
@@ -1469,7 +1518,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       const myIOAuth = MyIO.buildMyioIngestionAuth({
         dataApiHost: DATA_API_HOST,
         clientId: clientId,
-        clientSecret: clientSecret
+        clientSecret: clientSecret,
       });
 
       // Get fresh token
@@ -1486,7 +1535,9 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       const customerId = latestCreds.CUSTOMER_ING_ID;
 
       // Build API URL based on domain
-      const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/${domain}/devices/totals`);
+      const url = new URL(
+        `${DATA_API_HOST}/api/v1/telemetry/customers/${customerId}/${domain}/devices/totals`
+      );
       url.searchParams.set('startTime', period.startISO);
       url.searchParams.set('endTime', period.endISO);
       url.searchParams.set('deep', '1');
@@ -1494,7 +1545,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       LogHelper.log(`[Orchestrator] Fetching from: ${url.toString()}`);
 
       const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!res.ok) {
@@ -1505,7 +1556,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       }
 
       const json = await res.json();
-      const rows = Array.isArray(json) ? json : (json?.data ?? []);
+      const rows = Array.isArray(json) ? json : json?.data ?? [];
 
       // RFC-0042: Debug first row to see available fields
       if (rows.length > 0) {
@@ -1514,24 +1565,29 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       }
 
       // Convert API response to enriched items format
-      const items = rows.map(row => ({
+      const items = rows.map((row) => ({
         id: row.id,
         tbId: row.id,
         ingestionId: row.id,
         identifier: row.identifier || row.id,
-        label: row.name || row.label || row.identifier || row.id,  // ← API usa "name", não "label"
+        label: row.name || row.label || row.identifier || row.id, // ← API usa "name", não "label"
         value: Number(row.total_value || 0),
         perc: 0,
         deviceType: row.deviceType || 'energy',
         slaveId: row.slaveId || null,
-        centralId: row.centralId || null
+        centralId: row.centralId || null,
       }));
 
       // DEBUG: Log sample item with value
       if (items.length > 0 && items[0].value > 0) {
         LogHelper.log(`[Orchestrator] 🔍 Sample API row → item:`, {
           api_row: { id: rows[0].id, total_value: rows[0].total_value, name: rows[0].name },
-          mapped_item: { id: items[0].id, ingestionId: items[0].ingestionId, value: items[0].value, label: items[0].label }
+          mapped_item: {
+            id: items[0].id,
+            ingestionId: items[0].ingestionId,
+            value: items[0].value,
+            label: items[0].label,
+          },
         });
       }
 
@@ -1561,15 +1617,16 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
     LogHelper.log(`[Orchestrator] hydrateDomain called for ${domain}:`, { key, inFlight: inFlight.has(key) });
 
-
     // RFC-0054 FIX 2: Early return ANTES do mutex - verifica se h� dados recentes dispon�veis
     const recent = OrchestratorState.cache[domain];
-    if (recent && (Date.now() - recent.timestamp) < 30000) {
+    if (recent && Date.now() - recent.timestamp < 30000) {
       const recentPeriod = extractPeriod(recent.periodKey);
       const currentPeriod = extractPeriod(key);
 
       if (recentPeriod === currentPeriod) {
-        LogHelper.log(`[Orchestrator] ?? Early return in hydrateDomain - recent data available for ${domain}`);
+        LogHelper.log(
+          `[Orchestrator] ?? Early return in hydrateDomain - recent data available for ${domain}`
+        );
         LogHelper.log(`[Orchestrator] ?? Using cached: ${recent.periodKey}, Requested: ${key}`);
 
         // Emitir dados imediatamente sem aguardar mutex
@@ -1577,7 +1634,9 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
         return recent.items;
       } else {
-        LogHelper.log(`[Orchestrator] ?? Different period - proceeding: recent=${recentPeriod}, current=${currentPeriod}`);
+        LogHelper.log(
+          `[Orchestrator] ?? Different period - proceeding: recent=${recentPeriod}, current=${currentPeriod}`
+        );
 
         // RFC-0054 FIX 3: Liberar mutex quando per�odo muda para evitar deadlock
         if (sharedWidgetState.mutexMap.get(domain)) {
@@ -1609,7 +1668,9 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
             LogHelper.log(`[Orchestrator] Mutex released after ${waitTime}ms`);
             resolve();
           } else if (waitTime >= mutexTimeout) {
-            LogHelper.error(`[Orchestrator] Mutex timeout after ${mutexTimeout}ms - forcing release to prevent deadlock`);
+            LogHelper.error(
+              `[Orchestrator] Mutex timeout after ${mutexTimeout}ms - forcing release to prevent deadlock`
+            );
             LogHelper.error(`[Orchestrator] Force releasing mutex for domain: ${domain}`);
             sharedWidgetState.mutexMap.set(domain, false);
             resolve();
@@ -1641,33 +1702,33 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         setTimeout(() => hideGlobalBusy(domain), 100); // Small delay to ensure UI update
         return cached.data;
       }
-  
-    // RFC-0054: No-busy refresh � se j� emitimos dados recentemente para o mesmo per�odo,
-    // reemitir sem abrir modal e retornar imediatamente
-    try {
-      const recent = OrchestratorState.cache[domain];
 
-      if (recent && (Date.now() - recent.timestamp) < 30000) {
-        const recentPeriod = extractPeriod(recent.periodKey);
-        const currentPeriod = extractPeriod(key);
+      // RFC-0054: No-busy refresh � se j� emitimos dados recentemente para o mesmo per�odo,
+      // reemitir sem abrir modal e retornar imediatamente
+      try {
+        const recent = OrchestratorState.cache[domain];
 
-        if (recentPeriod === currentPeriod) {
-          LogHelper.log(`[Orchestrator] ?? No-busy refresh for ${domain} (recent data, period match)`);
-          if (recent.periodKey !== key) {
-            LogHelper.log(`[Orchestrator] ?? Cache key mismatch ignored: ${key} vs ${recent.periodKey}`);
+        if (recent && Date.now() - recent.timestamp < 30000) {
+          const recentPeriod = extractPeriod(recent.periodKey);
+          const currentPeriod = extractPeriod(key);
+
+          if (recentPeriod === currentPeriod) {
+            LogHelper.log(`[Orchestrator] ?? No-busy refresh for ${domain} (recent data, period match)`);
+            if (recent.periodKey !== key) {
+              LogHelper.log(`[Orchestrator] ?? Cache key mismatch ignored: ${key} vs ${recent.periodKey}`);
+            }
+            emitProvide(domain, recent.periodKey, recent.items);
+            return recent.items; // ? Retorna dados recentes mesmo com customerTB_ID diferente
           }
-          emitProvide(domain, recent.periodKey, recent.items);
-          return recent.items; // ? Retorna dados recentes mesmo com customerTB_ID diferente
         }
+      } catch (e) {
+        LogHelper.warn(`[Orchestrator] ?? Cache check failed:`, e);
       }
-    } catch (e) {
-      LogHelper.warn(`[Orchestrator] ?? Cache check failed:`, e);
     }
-  }
 
     // PHASE 1: Show centralized busy overlay
     showGlobalBusy(domain, 'Carregando dados...');
-    
+
     // PHASE 2: Set mutex for coordination
     // RFC-0054 FIX: Lock mutex POR DOM�NIO
 
@@ -1692,7 +1753,8 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         let canceledCount = 0;
 
         inFlight.forEach((promise, pendingKey) => {
-          if (pendingKey !== key) { // N�o cancelar a pr�pria requisi��o
+          if (pendingKey !== key) {
+            // N�o cancelar a pr�pria requisi��o
             const pendingPeriod = extractPeriod(pendingKey);
 
             if (pendingPeriod === currentPeriod) {
@@ -1723,8 +1785,8 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         hideGlobalBusy(domain);
 
         // RFC-0054 Solu��o 2: Mutex Condicional - n�o liberar se h� dados recentes v�lidos
-        const hasRecentData = OrchestratorState.cache[domain] &&
-                              (Date.now() - OrchestratorState.cache[domain].timestamp) < 30000;
+        const hasRecentData =
+          OrchestratorState.cache[domain] && Date.now() - OrchestratorState.cache[domain].timestamp < 30000;
 
         if (hasRecentData) {
           const recentPeriod = extractPeriod(OrchestratorState.cache[domain].periodKey);
@@ -1732,7 +1794,9 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
           if (recentPeriod === currentPeriod) {
             LogHelper.log(`[Orchestrator] ?? Keeping mutex locked - recent data available for ${domain}`);
-            LogHelper.log(`[Orchestrator] ?? Cache: ${OrchestratorState.cache[domain].periodKey}, Request: ${key}`);
+            LogHelper.log(
+              `[Orchestrator] ?? Cache: ${OrchestratorState.cache[domain].periodKey}, Request: ${key}`
+            );
             // N�O libera mutex - previne requisi��es duplicadas
           } else {
             sharedWidgetState.mutexMap.set(domain, false);
@@ -1743,11 +1807,10 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
           LogHelper.log(`[Orchestrator] ?? Mutex released for ${domain} - no recent data`);
         }
       }
-    })()
-      .finally(() => {
-        inFlight.delete(key);
-        LogHelper.log(`[Orchestrator] 🧹 Cleaned up inFlight for ${key}`);
-      });
+    })().finally(() => {
+      inFlight.delete(key);
+      LogHelper.log(`[Orchestrator] 🧹 Cleaned up inFlight for ${key}`);
+    });
 
     inFlight.set(key, fetchPromise);
     return fetchPromise;
@@ -1780,7 +1843,9 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     if (OrchestratorState.lastEmission[key]) {
       const timeSinceLastEmit = now - OrchestratorState.lastEmission[key];
       if (timeSinceLastEmit < 100) {
-        LogHelper.log(`[Orchestrator] ⏭️ Skipping duplicate emission for ${domain} (${timeSinceLastEmit}ms ago)`);
+        LogHelper.log(
+          `[Orchestrator] ⏭️ Skipping duplicate emission for ${domain} (${timeSinceLastEmit}ms ago)`
+        );
         return;
       }
     }
@@ -1798,14 +1863,14 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       periodKey,
       items,
       timestamp: now,
-      version: version
+      version: version,
     };
 
     OrchestratorState.cache[domain] = {
       periodKey,
       items,
       timestamp: now,
-      version: version
+      version: version,
     };
 
     LogHelper.log(`[Orchestrator] 📦 Cache updated for ${domain}: ${items.length} items (v${version})`);
@@ -1816,7 +1881,10 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
     // 3a. Emit to current window
     window.dispatchEvent(new CustomEvent('myio:telemetry:provide-data', { detail: eventDetail }));
 
-    try { lastProvide.set(domain, { periodKey, at: Date.now() }); hideGlobalBusy(domain); } catch (e) {}
+    try {
+      lastProvide.set(domain, { periodKey, at: Date.now() });
+      hideGlobalBusy(domain);
+    } catch (e) {}
     // RFC-0053: Contexto único — sem emissão para parent/iframes
     // Todos os widgets recebem via window.dispatchEvent acima
 
@@ -1825,9 +1893,11 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
     // 5. PROCESS PENDING LISTENERS (widgets that arrived late)
     if (OrchestratorState.pendingListeners[domain]) {
-      LogHelper.log(`[Orchestrator] 🔔 Processing ${OrchestratorState.pendingListeners[domain].length} pending listeners for ${domain}`);
+      LogHelper.log(
+        `[Orchestrator] 🔔 Processing ${OrchestratorState.pendingListeners[domain].length} pending listeners for ${domain}`
+      );
 
-      OrchestratorState.pendingListeners[domain].forEach(callback => {
+      OrchestratorState.pendingListeners[domain].forEach((callback) => {
         try {
           callback({ detail: eventDetail });
         } catch (err) {
@@ -1842,19 +1912,23 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   }
 
   function emitHydrated(domain, periodKey, count) {
-    window.dispatchEvent(new CustomEvent('myio:orchestrator:cache-hydrated', {
-      detail: { domain, periodKey, count }
-    }));
+    window.dispatchEvent(
+      new CustomEvent('myio:orchestrator:cache-hydrated', {
+        detail: { domain, periodKey, count },
+      })
+    );
   }
 
   function emitError(domain, error) {
-    window.dispatchEvent(new CustomEvent('myio:orchestrator:error', {
-      detail: {
-        domain,
-        error: error.message || String(error),
-        code: error.status || 500
-      }
-    }));
+    window.dispatchEvent(
+      new CustomEvent('myio:orchestrator:error', {
+        detail: {
+          domain,
+          error: error.message || String(error),
+          code: error.status || 500,
+        },
+      })
+    );
   }
 
   let tokenExpiredDebounce = 0;
@@ -1886,7 +1960,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
     setToken(type, value) {
       this.tokens[type] = value;
-    }
+    },
   };
 
   // RFC-0045: Widget registration system for priority management
@@ -1903,10 +1977,12 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       OrchestratorState.widgetRegistry.set(widgetId, {
         domain,
         registeredAt: Date.now(),
-        priority
+        priority,
       });
 
-      LogHelper.log(`[Orchestrator] 📝 Widget registered: ${widgetId} (domain: ${domain}, priority: ${priority})`);
+      LogHelper.log(
+        `[Orchestrator] 📝 Widget registered: ${widgetId} (domain: ${domain}, priority: ${priority})`
+      );
     }
   }
 
@@ -1933,13 +2009,17 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   });
 
   window.addEventListener('myio:dashboard-state', (ev) => {
-    try { hideGlobalBusy(domain); } catch (e) {}
+    try {
+      hideGlobalBusy(domain);
+    } catch (e) {}
     visibleTab = ev.detail.tab;
     if (visibleTab && currentPeriod) {
       LogHelper.log(`[Orchestrator] ?? myio:dashboard-state ? hydrateDomain(${visibleTab})`);
       hydrateDomain(visibleTab, currentPeriod);
     } else {
-      LogHelper.log(`[Orchestrator] ?? myio:dashboard-state skipped (visibleTab=${visibleTab}, currentPeriod=${!!currentPeriod})`);
+      LogHelper.log(
+        `[Orchestrator] ?? myio:dashboard-state skipped (visibleTab=${visibleTab}, currentPeriod=${!!currentPeriod})`
+      );
     }
   });
 
@@ -1947,12 +2027,16 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
   window.addEventListener('myio:telemetry:request-data', async (ev) => {
     const { domain, period, widgetId, priority } = ev.detail;
 
-    LogHelper.log(`[Orchestrator] 📨 Received data request from widget ${widgetId} (domain: ${domain}, priority: ${priority})`);
+    LogHelper.log(
+      `[Orchestrator] 📨 Received data request from widget ${widgetId} (domain: ${domain}, priority: ${priority})`
+    );
 
     // Verificar se já temos dados frescos no cache
     const cached = OrchestratorState.cache[domain];
-    if (cached && (Date.now() - cached.timestamp < 30000)) {
-      LogHelper.log(`[Orchestrator] ✅ Serving from cache for ${domain} (age: ${Date.now() - cached.timestamp}ms)`);
+    if (cached && Date.now() - cached.timestamp < 30000) {
+      LogHelper.log(
+        `[Orchestrator] ✅ Serving from cache for ${domain} (age: ${Date.now() - cached.timestamp}ms)`
+      );
       emitProvide(domain, cached.periodKey, cached.items);
       return;
     }
@@ -1969,7 +2053,10 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       OrchestratorState.pendingListeners[domain].push((data) => {
         // Emitir diretamente para o widget solicitante
         window.dispatchEvent(new CustomEvent('myio:telemetry:provide-data', { detail: data.detail }));
-    try { lastProvide.set(domain, { periodKey, at: Date.now() }); hideGlobalBusy(domain); } catch (e) {}
+        try {
+          lastProvide.set(domain, { periodKey, at: Date.now() });
+          hideGlobalBusy(domain);
+        } catch (e) {}
       });
 
       return;
@@ -2044,7 +2131,11 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       this.stopMonitoring(domain);
 
       const timerId = setTimeout(() => {
-        LogHelper.error(`[WidgetMonitor] ⚠️ Widget ${domain} has been showing busy for more than ${this.TIMEOUT_MS/1000}s!`);
+        LogHelper.error(
+          `[WidgetMonitor] ⚠️ Widget ${domain} has been showing busy for more than ${
+            this.TIMEOUT_MS / 1000
+          }s!`
+        );
         LogHelper.error(`[WidgetMonitor] Possible issues:`);
         LogHelper.error(`[WidgetMonitor] 1. Widget não recebeu dados do orchestrator`);
         LogHelper.error(`[WidgetMonitor] 2. Widget recebeu dados vazios mas não chamou hideBusy()`);
@@ -2055,12 +2146,14 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         LogHelper.error(`[WidgetMonitor] Current busy state:`, busyState);
 
         // Log cache state for this domain
-        const cacheKey = `${domain}:${currentPeriod?.startISO || 'unknown'}:${currentPeriod?.endISO || 'unknown'}`;
+        const cacheKey = `${domain}:${currentPeriod?.startISO || 'unknown'}:${
+          currentPeriod?.endISO || 'unknown'
+        }`;
         const cached = memCache.get(cacheKey);
         LogHelper.error(`[WidgetMonitor] Cache state for ${domain}:`, {
           hasCachedData: !!cached,
           itemCount: cached?.items?.length || 0,
-          cachedAt: cached?.cachedAt ? new Date(cached.cachedAt).toISOString() : 'never'
+          cachedAt: cached?.cachedAt ? new Date(cached.cachedAt).toISOString() : 'never',
         });
 
         // Attempt auto-recovery: force hide busy for stuck widget
@@ -2069,7 +2162,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       }, this.TIMEOUT_MS);
 
       this.timers.set(domain, timerId);
-      LogHelper.log(`[WidgetMonitor] ✅ Started monitoring ${domain} (timeout: ${this.TIMEOUT_MS/1000}s)`);
+      LogHelper.log(`[WidgetMonitor] ✅ Started monitoring ${domain} (timeout: ${this.TIMEOUT_MS / 1000}s)`);
     },
 
     stopMonitoring(domain) {
@@ -2087,13 +2180,15 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
         LogHelper.log(`[WidgetMonitor] ✅ Stopped monitoring ${domain}`);
       }
       this.timers.clear();
-    }
+    },
   };
 
   // Public API
   return {
     hydrateDomain,
-    setVisibleTab: (tab) => { visibleTab = tab; },
+    setVisibleTab: (tab) => {
+      visibleTab = tab;
+    },
     getVisibleTab: () => visibleTab,
     getCurrentPeriod: () => currentPeriod,
     invalidateCache,
@@ -2101,7 +2196,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       hitRate: metrics.cacheHitRatio,
       totalRequests: metrics.totalRequests,
       cacheSize: memCache.size,
-      inFlightCount: inFlight.size
+      inFlightCount: inFlight.size,
     }),
     tokenManager,
     metrics,
@@ -2114,7 +2209,9 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
 
     // RFC-0044: PHASE 2 - Expose shared state
     getSharedWidgetState: () => sharedWidgetState,
-    setSharedPeriod: (period) => { sharedWidgetState.activePeriod = period; },
+    setSharedPeriod: (period) => {
+      sharedWidgetState.activePeriod = period;
+    },
 
     // RFC-0044: PHASE 4 - Expose busy state for debugging
     getBusyState: () => ({ ...globalBusyState }),
@@ -2126,7 +2223,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       LogHelper.log(`[Orchestrator] 🔐 setCredentials called with:`, {
         customerId,
         clientId,
-        clientSecretLength: clientSecret?.length || 0
+        clientSecretLength: clientSecret?.length || 0,
       });
 
       CUSTOMER_ING_ID = customerId;
@@ -2136,7 +2233,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       LogHelper.log(`[Orchestrator] ✅ Credentials set successfully:`, {
         CUSTOMER_ING_ID,
         CLIENT_ID,
-        CLIENT_SECRET_length: CLIENT_SECRET?.length || 0
+        CLIENT_SECRET_length: CLIENT_SECRET?.length || 0,
       });
 
       // RFC-0051.2: Mark credentials as set
@@ -2155,7 +2252,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       return {
         CUSTOMER_ING_ID,
         CLIENT_ID,
-        CLIENT_SECRET
+        CLIENT_SECRET,
       };
     },
 
@@ -2173,7 +2270,7 @@ function debouncedEmitProvide(domain, periodKey, items, delay = 300) {
       if (busyEl && busyEl.parentNode) {
         busyEl.parentNode.removeChild(busyEl);
       }
-    }
+    },
   };
 })();
 
@@ -2189,9 +2286,11 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
   LogHelper.log('[Orchestrator] ✅ Orchestrator fully initialized and ready');
 
   // Emit ready event for widgets that are waiting
-  window.dispatchEvent(new CustomEvent('myio:orchestrator:ready', {
-    detail: { timestamp: Date.now() }
-  }));
+  window.dispatchEvent(
+    new CustomEvent('myio:orchestrator:ready', {
+      detail: { timestamp: Date.now() },
+    })
+  );
 
   LogHelper.log('[Orchestrator] 📢 Emitted myio:orchestrator:ready event');
 } else {

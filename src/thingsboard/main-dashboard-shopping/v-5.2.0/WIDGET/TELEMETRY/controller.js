@@ -3040,37 +3040,6 @@ self.onInit = async function () {
 
   window.addEventListener('myio:telemetry:update', requestRefreshHandler);
 
-  // RFC: REMOVED - Fix selection integration with FOOTER
-  //
-  // PROBLEMA ENCONTRADO: Este listener estava causando logs triplicados porque os 3 widgets TELEMETRY
-  // (energy, water, temperature) estavam todos escutando o evento global 'myio:device-params' emitido
-  // quando qualquer checkbox era marcado (veja template-card-v5.js).
-  //
-  // SOLUÇÃO: O registro da entidade já é feito no template-card-v5.js via:
-  //   MyIOSelectionStore.registerEntity(cardEntity);
-  // E a adição/remoção já é feita no template-card-v5.js via checkbox event handler:
-  //   MyIOSelectionStore.add(entityId) / MyIOSelectionStore.remove(entityId);
-  //
-  // Portanto, NÃO precisamos deste listener aqui - ele estava causando registros e logs duplicados!
-  //
-  // Se precisar reagir a mudanças de seleção, use:
-  //   MyIOSelectionStore.on('selection:change', handler);
-  //
-  /*
-  window.addEventListener('myio:device-params', (ev) => {
-    try {
-      LogHelper.log("[TELEMETRY] Card selected:", ev.detail);
-      // ... código removido ...
-    }
-  });
-
-  window.addEventListener('myio:device-params-remove', (ev) => {
-    try {
-      LogHelper.log("[TELEMETRY] Card deselected:", ev.detail);
-      // ... código removido ...
-    }
-  });
-  */
   // Check for stored data from orchestrator (in case we missed the event)
   setTimeout(() => {
     // RFC-0053: Direct access to orchestrator data (single window context)
