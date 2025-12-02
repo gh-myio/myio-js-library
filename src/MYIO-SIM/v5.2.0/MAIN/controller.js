@@ -900,6 +900,771 @@ function updateEquipmentStats(devices, energyCache = null, ctxData = null) {
   });
 }
 
+// ============================================
+// RFC-0093: CENTRALIZED HEADER DEVICES GRID
+// Reusable header component for EQUIPMENTS, STORES, WATER, TEMPERATURE widgets
+// ============================================
+
+/**
+ * RFC-0093: Centralized CSS for header and filter modal
+ * Injected once into document head
+ */
+const HEADER_AND_MODAL_CSS = `
+/* ====== RFC-0093: CENTRALIZED HEADER STYLES ====== */
+.equip-stats-header {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  border-bottom: 3px solid #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  width: 100%;
+}
+
+.equip-stats-header .stat-item {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.equip-stats-header .stat-item.highlight {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border-radius: 8px;
+  padding: 6px 12px;
+  border: 1px solid #93c5fd;
+}
+
+.equip-stats-header .stat-label {
+  font-size: 12px;
+  color: #6b7a90;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.equip-stats-header .stat-value {
+  font-size: 16px;
+  color: #1c2743;
+  font-weight: 700;
+}
+
+.equip-stats-header .stat-item.highlight .stat-value {
+  color: #1d4ed8;
+  font-size: 20px;
+}
+
+/* ====== FILTER ACTIONS ====== */
+.equip-stats-header .filter-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.equip-stats-header .search-wrap {
+  position: relative;
+  width: 0;
+  overflow: hidden;
+  transition: width 0.3s ease;
+}
+
+.equip-stats-header .search-wrap.active {
+  width: 200px;
+}
+
+.equip-stats-header .search-wrap input {
+  width: 100%;
+  padding: 6px 12px;
+  border: 1px solid #dde7f1;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+}
+
+.equip-stats-header .search-wrap input:focus {
+  border-color: #1f6fb5;
+  box-shadow: 0 0 0 2px rgba(31, 111, 181, 0.1);
+}
+
+.equip-stats-header .icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #dde7f1;
+  background: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.equip-stats-header .icon-btn:hover {
+  background: #f8f9fa;
+  border-color: #1f6fb5;
+}
+
+.equip-stats-header .icon-btn svg {
+  fill: #1c2743;
+}
+
+/* ====== RFC-0090: CENTRALIZED FILTER MODAL STYLES ====== */
+.myio-filter-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  backdrop-filter: blur(4px);
+  left: 0 !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  animation: myioFadeIn 0.2s ease-in;
+}
+
+.myio-filter-modal.hidden {
+  display: none;
+}
+
+.myio-filter-modal-card {
+  background: #fff;
+  border-radius: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .myio-filter-modal-card {
+    border-radius: 16px;
+    width: 90%;
+    max-width: 900px;
+    height: auto;
+    max-height: 90vh;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  }
+}
+
+.myio-filter-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #dde7f1;
+}
+
+.myio-filter-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1c2743;
+}
+
+.myio-filter-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.myio-filter-modal-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 16px 20px;
+  border-top: 1px solid #dde7f1;
+}
+
+/* Filter Blocks */
+.myio-filter-modal .filter-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.myio-filter-modal .block-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1c2743;
+}
+
+.myio-filter-modal .filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.myio-filter-modal .filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #dde7f1;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #6b7a90;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.myio-filter-modal .filter-tab:hover {
+  background: #f8f9fa;
+  border-color: #1f6fb5;
+  color: #1f6fb5;
+}
+
+.myio-filter-modal .filter-tab.active {
+  background: rgba(31, 111, 181, 0.1);
+  border-color: #1f6fb5;
+  color: #1f6fb5;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(31, 111, 181, 0.15);
+}
+
+.myio-filter-modal .filter-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #dde7f1;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.myio-filter-modal .filter-search svg {
+  width: 18px;
+  height: 18px;
+  fill: #6b7a90;
+}
+
+.myio-filter-modal .filter-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 13px;
+}
+
+.myio-filter-modal .filter-search .clear-x {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.myio-filter-modal .filter-search .clear-x:hover {
+  opacity: 1;
+}
+
+/* Checklist */
+.myio-filter-modal .checklist {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #dde7f1;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.myio-filter-modal .check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.myio-filter-modal .check-item:hover {
+  background: #f8f9fa;
+}
+
+.myio-filter-modal .check-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.myio-filter-modal .check-item label,
+.myio-filter-modal .check-item span {
+  flex: 1;
+  cursor: pointer;
+  font-size: 13px;
+  color: #1c2743;
+}
+
+/* Radio Grid */
+.myio-filter-modal .radio-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.myio-filter-modal .radio-grid label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #dde7f1;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+}
+
+.myio-filter-modal .radio-grid label:hover {
+  background: #f8f9fa;
+  border-color: #1f6fb5;
+}
+
+.myio-filter-modal .radio-grid input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.myio-filter-modal .muted {
+  font-size: 12px;
+  color: #6b7a90;
+  margin: 0;
+}
+
+/* Buttons */
+.myio-filter-modal .btn {
+  padding: 10px 20px;
+  border: 1px solid #dde7f1;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.myio-filter-modal .btn:hover {
+  background: #f8f9fa;
+}
+
+.myio-filter-modal .btn.primary {
+  background: #1f6fb5;
+  color: #fff;
+  border-color: #1f6fb5;
+}
+
+.myio-filter-modal .btn.primary:hover {
+  background: #1a5a8f;
+  border-color: #1a5a8f;
+}
+
+.myio-filter-modal .icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #dde7f1;
+  background: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.myio-filter-modal .icon-btn:hover {
+  background: #f8f9fa;
+  border-color: #1f6fb5;
+}
+
+.myio-filter-modal .icon-btn svg {
+  fill: #1c2743;
+}
+
+@keyframes myioFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Prevent body scroll when modal is open */
+body.filter-modal-open {
+  overflow: hidden !important;
+}
+`;
+
+let headerAndModalCssInjected = false;
+
+/**
+ * Inject centralized CSS for header and modal (once)
+ */
+function injectHeaderAndModalCSS() {
+  if (headerAndModalCssInjected) return;
+
+  const styleEl = document.createElement('style');
+  styleEl.id = 'myio-header-modal-css';
+  styleEl.textContent = HEADER_AND_MODAL_CSS;
+  document.head.appendChild(styleEl);
+
+  headerAndModalCssInjected = true;
+  LogHelper.log('[MAIN] RFC-0093: Centralized header and modal CSS injected');
+}
+
+/**
+ * Configuration for header labels per domain
+ */
+const HEADER_DOMAIN_CONFIG = {
+  energy: {
+    totalLabel: 'Total de Equipamentos',
+    consumptionLabel: 'Consumo Total',
+    zeroLabel: 'Sem Consumo',
+    formatValue: (val) =>
+      typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatEnergy(val) : `${val.toFixed(2)} kWh`,
+  },
+  stores: {
+    totalLabel: 'Total de Lojas',
+    consumptionLabel: 'Consumo Total',
+    zeroLabel: 'Sem Consumo',
+    formatValue: (val) =>
+      typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatEnergy(val) : `${val.toFixed(2)} kWh`,
+  },
+  water: {
+    totalLabel: 'Total de Hidrômetros',
+    consumptionLabel: 'Consumo Total',
+    zeroLabel: 'Sem Consumo',
+    formatValue: (val) =>
+      typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatWaterVolumeM3(val) : `${val.toFixed(2)} m³`,
+  },
+  temperature: {
+    totalLabel: 'Total de Sensores',
+    consumptionLabel: 'Média de Temperatura',
+    zeroLabel: 'Sem Leitura',
+    formatValue: (val) =>
+      typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatTemperature(val) : `${val.toFixed(1)}°C`,
+  },
+};
+
+/**
+ * Build and inject a centralized header for device grids
+ * @param {Object} config - Configuration object
+ * @param {HTMLElement|string} config.container - Container element or selector to inject header
+ * @param {string} config.domain - Domain type: 'energy', 'stores', 'water', 'temperature'
+ * @param {string} config.idPrefix - ID prefix for elements (e.g., 'equip', 'stores', 'water', 'temp')
+ * @param {Object} [config.labels] - Optional custom labels override
+ * @param {string} [config.labels.connectivity] - Custom connectivity label (default: 'Conectividade')
+ * @param {string} [config.labels.total] - Custom total label
+ * @param {string} [config.labels.consumption] - Custom consumption label
+ * @param {string} [config.labels.zero] - Custom zero/no-data label
+ * @param {boolean} [config.includeSearch=true] - Include search button
+ * @param {boolean} [config.includeFilter=true] - Include filter button
+ * @param {Function} [config.onSearchClick] - Callback for search button click
+ * @param {Function} [config.onFilterClick] - Callback for filter button click
+ * @returns {Object} Controller object with update methods
+ */
+function buildHeaderDevicesGrid(config) {
+  // RFC-0093: Inject CSS once
+  injectHeaderAndModalCSS();
+
+  const {
+    container,
+    domain = 'energy',
+    idPrefix = 'devices',
+    labels = {},
+    includeSearch = true,
+    includeFilter = true,
+    onSearchClick,
+    onFilterClick,
+  } = config;
+
+  // Get container element
+  const containerEl = typeof container === 'string' ? document.querySelector(container) : container;
+  if (!containerEl) {
+    LogHelper.error('[MAIN] buildHeaderDevicesGrid: Container not found');
+    return null;
+  }
+
+  // Get domain config with fallback
+  const domainConfig = HEADER_DOMAIN_CONFIG[domain] || HEADER_DOMAIN_CONFIG.energy;
+
+  // Merge labels with domain defaults
+  const finalLabels = {
+    connectivity: labels.connectivity || 'Conectividade',
+    total: labels.total || domainConfig.totalLabel,
+    consumption: labels.consumption || domainConfig.consumptionLabel,
+    zero: labels.zero || domainConfig.zeroLabel,
+  };
+
+  // Generate unique IDs
+  const ids = {
+    header: `${idPrefix}StatsHeader`,
+    connectivity: `${idPrefix}StatsConnectivity`,
+    total: `${idPrefix}StatsTotal`,
+    consumption: `${idPrefix}StatsConsumption`,
+    zero: `${idPrefix}StatsZero`,
+    searchWrap: `${idPrefix}SearchWrap`,
+    searchInput: `${idPrefix}Search`,
+    btnSearch: `${idPrefix}BtnSearch`,
+    btnFilter: `${idPrefix}BtnFilter`,
+  };
+
+  // Build HTML
+  const searchButtonHTML = includeSearch
+    ? `
+    <button class="icon-btn" id="${ids.btnSearch}" title="Buscar" aria-label="Buscar">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM4 9.5C4 6.46 6.46 4 9.5 4S15 6.46 15 9.5 12.54 15 9.5 15 4 12.54 4 9.5z"/>
+      </svg>
+    </button>`
+    : '';
+
+  const filterButtonHTML = includeFilter
+    ? `
+    <button class="icon-btn" id="${ids.btnFilter}" title="Filtros" aria-label="Filtros">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z"/>
+      </svg>
+    </button>`
+    : '';
+
+  const headerHTML = `
+    <div class="equip-stats-header" id="${ids.header}" style="display: flex !important; flex-direction: row !important;">
+      <div class="stat-item">
+        <span class="stat-label">${finalLabels.connectivity}</span>
+        <span class="stat-value" id="${ids.connectivity}">-</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">${finalLabels.total}</span>
+        <span class="stat-value" id="${ids.total}">-</span>
+      </div>
+      <div class="stat-item highlight">
+        <span class="stat-label">${finalLabels.consumption}</span>
+        <span class="stat-value" id="${ids.consumption}">-</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">${finalLabels.zero}</span>
+        <span class="stat-value" id="${ids.zero}">-</span>
+      </div>
+      <div class="filter-actions">
+        <div class="search-wrap" id="${ids.searchWrap}">
+          <input type="text" id="${ids.searchInput}" placeholder="Buscar..." autocomplete="off">
+        </div>
+        ${searchButtonHTML}
+        ${filterButtonHTML}
+      </div>
+    </div>
+  `;
+
+  // Inject HTML
+  containerEl.insertAdjacentHTML('afterbegin', headerHTML);
+
+  // Setup event listeners
+  if (includeSearch && onSearchClick) {
+    const btnSearch = document.getElementById(ids.btnSearch);
+    const searchWrap = document.getElementById(ids.searchWrap);
+    if (btnSearch) {
+      btnSearch.addEventListener('click', () => {
+        if (searchWrap) {
+          searchWrap.classList.toggle('active');
+          if (searchWrap.classList.contains('active')) {
+            const input = document.getElementById(ids.searchInput);
+            if (input) input.focus();
+          }
+        }
+        onSearchClick();
+      });
+    }
+  }
+
+  if (includeFilter && onFilterClick) {
+    const btnFilter = document.getElementById(ids.btnFilter);
+    if (btnFilter) {
+      btnFilter.addEventListener('click', onFilterClick);
+    }
+  }
+
+  // Return controller object
+  const controller = {
+    ids,
+    domain,
+    domainConfig,
+
+    /**
+     * Update header statistics
+     * @param {Object} stats - Statistics object
+     * @param {number} stats.online - Number of online devices
+     * @param {number} stats.total - Total number of devices
+     * @param {number} stats.consumption - Total consumption value
+     * @param {number} stats.zeroCount - Number of devices with zero consumption
+     */
+    updateStats(stats) {
+      const { online = 0, total = 0, consumption = 0, zeroCount = 0 } = stats;
+
+      const connectivityEl = document.getElementById(ids.connectivity);
+      const totalEl = document.getElementById(ids.total);
+      const consumptionEl = document.getElementById(ids.consumption);
+      const zeroEl = document.getElementById(ids.zero);
+
+      if (!connectivityEl || !totalEl || !consumptionEl || !zeroEl) {
+        LogHelper.warn(`[MAIN] buildHeaderDevicesGrid: Stats elements not found for ${idPrefix}`);
+        return;
+      }
+
+      const percentage = total > 0 ? ((online / total) * 100).toFixed(1) : '0.0';
+
+      connectivityEl.textContent = `${online}/${total} (${percentage}%)`;
+      totalEl.textContent = total.toString();
+      consumptionEl.textContent = domainConfig.formatValue(consumption);
+      zeroEl.textContent = zeroCount.toString();
+
+      LogHelper.log(`[MAIN] Header stats updated for ${idPrefix}:`, stats);
+    },
+
+    /**
+     * Calculate and update stats from devices array
+     * @param {Array} devices - Array of device objects
+     * @param {Object} [options] - Options
+     * @param {Map} [options.cache] - Energy/consumption cache
+     * @param {Array} [options.ctxData] - ThingsBoard ctx.data for connection status
+     */
+    updateFromDevices(devices, options = {}) {
+      const { cache, ctxData } = options;
+
+      // Calculate online count from ctxData if available
+      let online = 0;
+      let totalWithStatus = 0;
+
+      if (ctxData && Array.isArray(ctxData)) {
+        const deviceMap = new Map();
+        ctxData.forEach((data) => {
+          const entityId = data.datasource?.entityId;
+          const dataKeyName = data.dataKey?.name;
+          if (!entityId) return;
+          if (!deviceMap.has(entityId)) {
+            deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false });
+          }
+          if (dataKeyName === 'connectionStatus') {
+            const status = String(data.data?.[0]?.[1] || '').toLowerCase();
+            deviceMap.get(entityId).hasConnectionStatus = true;
+            deviceMap.get(entityId).isOnline = status === 'online';
+          }
+        });
+
+        devices.forEach((device) => {
+          const deviceData = deviceMap.get(device.entityId);
+          if (deviceData && deviceData.hasConnectionStatus) {
+            totalWithStatus++;
+            if (deviceData.isOnline) online++;
+          }
+        });
+      } else {
+        // Fallback: count based on device status or consumption
+        devices.forEach((device) => {
+          const status = (device.connectionStatus || device.deviceStatus || '').toLowerCase();
+          if (status === 'online' || status === 'power_on' || status === 'normal') {
+            online++;
+          }
+        });
+        totalWithStatus = devices.length;
+      }
+
+      // Calculate consumption
+      let totalConsumption = 0;
+      let zeroCount = 0;
+
+      devices.forEach((device) => {
+        let consumption = 0;
+
+        // Try cache first
+        if (cache && device.ingestionId) {
+          const cached = cache.get(device.ingestionId);
+          if (cached) {
+            consumption = Number(cached.total_value) || 0;
+          }
+        }
+
+        // Fallback to device value
+        if (consumption === 0) {
+          consumption = Number(device.val) || Number(device.value) || Number(device.lastValue) || 0;
+        }
+
+        totalConsumption += consumption;
+        if (consumption === 0) zeroCount++;
+      });
+
+      this.updateStats({
+        online,
+        total: devices.length,
+        consumption: totalConsumption,
+        zeroCount,
+      });
+    },
+
+    /**
+     * Get search input element
+     * @returns {HTMLInputElement|null}
+     */
+    getSearchInput() {
+      return document.getElementById(ids.searchInput);
+    },
+
+    /**
+     * Toggle search wrap visibility
+     * @param {boolean} [active] - Force state
+     */
+    toggleSearch(active) {
+      const searchWrap = document.getElementById(ids.searchWrap);
+      if (searchWrap) {
+        if (active !== undefined) {
+          searchWrap.classList.toggle('active', active);
+        } else {
+          searchWrap.classList.toggle('active');
+        }
+      }
+    },
+
+    /**
+     * Destroy the header (remove from DOM)
+     */
+    destroy() {
+      const header = document.getElementById(ids.header);
+      if (header) header.remove();
+    },
+  };
+
+  LogHelper.log(`[MAIN] Header built for domain '${domain}' with prefix '${idPrefix}'`);
+
+  return controller;
+}
+
 /**
  * Find a value in an array of objects by key/dataType
  * RFC-0091: Supports both ThingsBoard format {dataType, value} and generic {key, value}
@@ -975,6 +1740,9 @@ async function fetchCustomerServerScopeAttrs(customerTbId) {
  * @returns {Object} Modal controller with open, close, and destroy methods
  */
 function createFilterModal(config) {
+  // RFC-0093: Inject centralized header and modal CSS
+  injectHeaderAndModalCSS();
+
   const {
     widgetName = 'WIDGET',
     containerId,
@@ -1679,6 +2447,10 @@ window.MyIOUtils = {
   showLoadingOverlay,
   updateEquipmentStats,
   getCustomerNameForDevice,
+
+  // RFC-0093: Centralized Header Builder
+  buildHeaderDevicesGrid,
+  HEADER_DOMAIN_CONFIG,
 
   // ThingsBoard API
   fetchCustomerServerScopeAttrs,

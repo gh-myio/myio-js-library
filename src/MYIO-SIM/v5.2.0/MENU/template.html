@@ -115,18 +115,10 @@
       </div>
       <div class="water-modal-options">
         <button
-          class="water-modal-option is-active"
-          data-context="water_summary"
-          data-target="content_water"
+          class="water-modal-option"
+          data-context="water_common_area"
+          data-target="content_water_common_area"
         >
-          <span class="option-ico">📊</span>
-          <div class="option-info">
-            <div class="option-title">Resumo</div>
-            <div class="option-desc">Visão geral de consumo de água</div>
-          </div>
-          <span class="option-check">✓</span>
-        </button>
-        <button class="water-modal-option" data-context="water_common_area" data-target="content_water_common_area">
           <span class="option-ico">🏢</span>
           <div class="option-info">
             <div class="option-title">Área Comum</div>
@@ -139,6 +131,14 @@
           <div class="option-info">
             <div class="option-title">Lojas</div>
             <div class="option-desc">Hidrômetros de lojas/lojistas</div>
+          </div>
+          <span class="option-check">✓</span>
+        </button>
+        <button class="water-modal-option is-active" data-context="water_summary" data-target="content_water">
+          <span class="option-ico">📊</span>
+          <div class="option-info">
+            <div class="option-title">Resumo</div>
+            <div class="option-desc">Visão geral de consumo de água</div>
           </div>
           <span class="option-check">✓</span>
         </button>
@@ -166,7 +166,11 @@
           </div>
           <span class="option-check">✓</span>
         </button>
-        <button class="temperature-modal-option" data-context="temperature_comparison" data-target="content_temperature">
+        <button
+          class="temperature-modal-option"
+          data-context="temperature_comparison"
+          data-target="content_temperature"
+        >
           <span class="option-ico">📊</span>
           <div class="option-info">
             <div class="option-title">Comparativo</div>

@@ -67,6 +67,9 @@ const getCustomerNameForDevice =
 const getConsumptionRangesHierarchical = window.MyIOUtils?.getConsumptionRangesHierarchical;
 const mapConnectionStatus = window.MyIOUtils?.mapConnectionStatus || ((status) => status || 'offline');
 
+// RFC-0091: formatarDuracao for operationHours calculation (from MAIN)
+const formatarDuracao = window.MyIOUtils?.formatarDuracao || ((ms) => `${Math.round(ms / 1000)}s`);
+
 // RFC-0091: Global MAP_INSTANTANEOUS_POWER (will be loaded from settings if available)
 let MAP_INSTANTANEOUS_POWER = null;
 
@@ -75,6 +78,9 @@ LogHelper.log('🚀 [STORES] Controller loaded - VERSION WITH ORCHESTRATOR SUPPO
 const MAX_FIRST_HYDRATES = 1;
 
 let __deviceProfileSyncComplete = false;
+
+// RFC-0093: Centralized header controller
+let storesHeaderController = null;
 
 // RFC-0090: getData REMOVED - was defined but never used in STORES
 
@@ -594,6 +600,7 @@ function recomputePercentages(visible) {
 
 /**
  * Update stores statistics header (Conectividade, Total de Lojas, etc)
+ * RFC-0093: Aligned with EQUIPMENTS/MAIN logic for consistent stats
  * @param {Array} stores - Array of store items to calculate stats from
  */
 function updateStoresStats(stores) {
@@ -609,36 +616,50 @@ function updateStoresStats(stores) {
     return;
   }
 
-  // Calculate stats from stores array
+  // RFC-0093: Calculate connectivity from connectionStatus (same as EQUIPMENTS)
   let onlineCount = 0;
+  let totalWithStatus = 0;
   let totalConsumption = 0;
   let zeroConsumptionCount = 0;
 
   stores.forEach((store) => {
+    // Connectivity: based on connectionStatus, not consumption
+    const status = (store.connectionStatus || '').toLowerCase();
+    if (status) {
+      totalWithStatus++;
+      if (status === 'online') {
+        onlineCount++;
+      }
+    }
+
+    // Consumption calculation
     const consumption = Number(store.value) || Number(store.val) || 0;
     totalConsumption += consumption;
 
-    if (consumption > 0) {
-      onlineCount++;
-    } else {
+    if (consumption === 0) {
       zeroConsumptionCount++;
     }
   });
 
+  // If no connectionStatus available, fallback to total count
+  if (totalWithStatus === 0) {
+    totalWithStatus = stores.length;
+  }
+
   // Calculate connectivity percentage
-  const totalStores = stores.length;
-  const connectivityPercentage = totalStores > 0 ? ((onlineCount / totalStores) * 100).toFixed(1) : '0.0';
+  const connectivityPercentage =
+    totalWithStatus > 0 ? ((onlineCount / totalWithStatus) * 100).toFixed(1) : '0.0';
 
   // Update UI
-  connectivityEl.textContent = `${onlineCount}/${totalStores} (${connectivityPercentage}%)`;
-  totalEl.textContent = totalStores.toString();
+  connectivityEl.textContent = `${onlineCount}/${totalWithStatus} (${connectivityPercentage}%)`;
+  totalEl.textContent = stores.length.toString();
   consumptionEl.textContent =
     WIDGET_DOMAIN === 'energy' ? MyIO.formatEnergy(totalConsumption) : totalConsumption.toFixed(2);
   zeroEl.textContent = zeroConsumptionCount.toString();
 
   LogHelper.log('[STORES] Stats updated:', {
-    connectivity: `${onlineCount}/${totalStores} (${connectivityPercentage}%)`,
-    total: totalStores,
+    connectivity: `${onlineCount}/${totalWithStatus} (${connectivityPercentage}%)`,
+    total: stores.length,
     consumption: totalConsumption,
     zeroCount: zeroConsumptionCount,
   });
@@ -737,6 +758,15 @@ async function renderList(visible) {
     // Get instantaneous power from item data
     const instantaneousPower = Number(it.consumption_power) || null;
 
+    // RFC-0091: Calculate operationHours (same as EQUIPMENTS)
+    let operationHoursFormatted = '0s';
+    const lastConnectTimestamp = it.lastConnectTime ? Number(it.lastConnectTime) : null;
+    if (lastConnectTimestamp) {
+      const nowMs = Date.now();
+      const durationMs = nowMs - lastConnectTimestamp;
+      operationHoursFormatted = formatarDuracao(durationMs > 0 ? durationMs : 0);
+    }
+
     // Calculate deviceStatus using ranges if available
     if (
       getConsumptionRangesHierarchical &&
@@ -807,11 +837,13 @@ async function renderList(visible) {
       connectionStatusTime: it.connectionStatusTime || Date.now(),
       timeVal: it.timeVal || Date.now(),
 
-      // RFC-0091: Additional data for Settings modal
+      // RFC-0091: Additional data for Settings modal and card display
       lastDisconnectTime: it.lastDisconnectTime || 0,
       lastConnectTime: it.lastConnectTime || 0,
       lastActivityTime: it.timeVal || null,
       instantaneousPower: instantaneousPower, // Potência instantânea (kW)
+      operationHours: operationHoursFormatted, // Tempo em operação (formatado)
+      temperatureC: 0, // Temperatura (não disponível para lojas)
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER, // Global map from settings
       deviceMapInstaneousPower: it.deviceMapInstaneousPower || null, // Device-specific map
     };
@@ -965,19 +997,13 @@ async function renderList(visible) {
 }
 
 /** ===================== UI BINDINGS ===================== **/
+/**
+ * RFC-0093: Search and filter button events are now handled by buildHeaderDevicesGrid
+ * This function is kept for backwards compatibility but the main logic is in the header controller
+ */
 function bindHeader() {
-  $root().on('click', '#btnSearch', () => {
-    STATE.searchActive = !STATE.searchActive;
-    $root().find('#searchWrap').toggleClass('active', STATE.searchActive);
-    if (STATE.searchActive) setTimeout(() => $root().find('#shopsSearch').trigger('focus'), 30);
-  });
-
-  $root().on('input', '#shopsSearch', (ev) => {
-    STATE.searchTerm = ev.target.value || '';
-    reflowFromState();
-  });
-
-  $root().on('click', '#btnFilter', () => openFilterModal());
+  // RFC-0093: Events are now managed by storesHeaderController in onInit
+  LogHelper.log('[STORES] bindHeader - events managed by header controller');
 }
 
 // ============================================
@@ -1040,11 +1066,12 @@ function initFilterModal() {
       STATE.searchTerm = '';
       STATE.searchActive = false;
 
-      // Reset UI
-      const searchInput = $root().find('#shopsSearch')[0];
-      const searchWrap = $root().find('#searchWrap')[0];
-      if (searchInput) searchInput.value = '';
-      if (searchWrap) searchWrap.classList.remove('active');
+      // RFC-0093: Reset UI via header controller
+      if (storesHeaderController) {
+        const searchInput = storesHeaderController.getSearchInput();
+        if (searchInput) searchInput.value = '';
+        storesHeaderController.toggleSearch(false);
+      }
 
       reflowFromState();
       LogHelper.log('[STORES] [RFC-0090] Filters reset via shared modal');
@@ -1685,10 +1712,15 @@ async function reflowFromState() {
   renderHeader(withPerc.length, groupSum);
   await renderList(withPerc); // RFC-0091: renderList is now async
 
-  // Update stats header (Conectividade, Total de Lojas, Consumo, Sem Consumo)
+  // RFC-0093: Update stats header via centralized controller
   // Use all enriched items for stats, not just visible/filtered ones
   if (STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
-    updateStoresStats(STATE.itemsEnriched);
+    if (storesHeaderController) {
+      storesHeaderController.updateFromDevices(STATE.itemsEnriched, {});
+    } else {
+      // Fallback to old function if header controller not available
+      updateStoresStats(STATE.itemsEnriched);
+    }
   }
 }
 
@@ -1783,6 +1815,45 @@ self.onInit = async function () {
   // RFC-0042: Set widget configuration from settings FIRST
   WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
   LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}`);
+
+  // RFC-0093: Build centralized header via buildHeaderDevicesGrid
+  const buildHeaderDevicesGrid = window.MyIOUtils?.buildHeaderDevicesGrid;
+  if (buildHeaderDevicesGrid) {
+    storesHeaderController = buildHeaderDevicesGrid({
+      container: '#storesHeaderContainer',
+      domain: 'stores',
+      idPrefix: 'stores',
+      labels: {
+        total: 'Total de Lojas',
+        consumption: 'Consumo Total de Todas Lojas',
+      },
+      includeSearch: true,
+      includeFilter: true,
+      onSearchClick: () => {
+        STATE.searchActive = !STATE.searchActive;
+        if (STATE.searchActive) {
+          const input = storesHeaderController?.getSearchInput();
+          if (input) setTimeout(() => input.focus(), 100);
+        }
+      },
+      onFilterClick: () => {
+        openFilterModal();
+      },
+    });
+
+    // Setup search input listener
+    const searchInput = storesHeaderController?.getSearchInput();
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        STATE.searchTerm = e.target.value || '';
+        filterAndRender();
+      });
+    }
+
+    LogHelper.log('[STORES] RFC-0093: Header built via buildHeaderDevicesGrid');
+  } else {
+    LogHelper.warn('[STORES] RFC-0093: buildHeaderDevicesGrid not available');
+  }
 
   // RFC-0063: Load classification mode configuration
   USE_IDENTIFIER_CLASSIFICATION = self.ctx.settings?.USE_IDENTIFIER_CLASSIFICATION || false;
@@ -2260,6 +2331,13 @@ self.onDestroy = function () {
   if (requestRefreshHandler) {
     window.removeEventListener('myio:telemetry:update', requestRefreshHandler);
     LogHelper.log("[RFC-0056] Event listener 'myio:telemetry:update' removido.");
+  }
+
+  // RFC-0093: Cleanup header controller
+  if (storesHeaderController) {
+    storesHeaderController.destroy();
+    storesHeaderController = null;
+    LogHelper.log('[STORES] [RFC-0093] Header controller destroyed');
   }
 
   // RFC-0090: Cleanup filter modal using shared factory

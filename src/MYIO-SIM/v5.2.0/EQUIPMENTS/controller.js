@@ -47,6 +47,9 @@ let CLIENT_SECRET;
 let MAP_INSTANTANEOUS_POWER;
 let myIOAuth; // Instance of MyIO auth component from MyIOLibrary
 
+// RFC-0093: Centralized header controller
+let equipHeaderController = null;
+
 LogHelper.log('[MYIO EQUIPMENTS] Script loaded, using shared utilities:', !!window.MyIOUtils);
 
 // RFC-0071: Device Profile Synchronization - Global flag to track if sync has been completed
@@ -354,6 +357,46 @@ self.onInit = async function () {
   window.__EQUIPMENTS_INITIALIZED__ = true;
 
   LogHelper.log('[EQUIPMENTS] onInit - ctx:', self.ctx);
+
+  // RFC-0093: Build centralized header via buildHeaderDevicesGrid
+  const buildHeaderDevicesGrid = window.MyIOUtils?.buildHeaderDevicesGrid;
+  if (buildHeaderDevicesGrid) {
+    equipHeaderController = buildHeaderDevicesGrid({
+      container: '#equipHeaderContainer',
+      domain: 'energy',
+      idPrefix: 'equip',
+      labels: {
+        total: 'Total de Equipamentos',
+        consumption: 'Consumo Total de Todos Equipamentos',
+      },
+      includeSearch: true,
+      includeFilter: true,
+      onSearchClick: () => {
+        STATE.searchActive = !STATE.searchActive;
+        if (STATE.searchActive) {
+          const input = equipHeaderController?.getSearchInput();
+          if (input) setTimeout(() => input.focus(), 100);
+        }
+      },
+      onFilterClick: () => {
+        openFilterModal();
+      },
+    });
+
+    // Setup search input listener
+    const searchInput = equipHeaderController?.getSearchInput();
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        STATE.searchTerm = e.target.value || '';
+        reflowCards();
+      });
+    }
+
+    LogHelper.log('[EQUIPMENTS] RFC-0093: Header built via buildHeaderDevicesGrid');
+  } else {
+    LogHelper.warn('[EQUIPMENTS] RFC-0093: buildHeaderDevicesGrid not available');
+  }
+
   // ⭐ CRITICAL FIX: Show loading IMMEDIATELY before setTimeout
   showLoadingOverlay(true);
 
@@ -839,8 +882,16 @@ self.onInit = async function () {
 
       initializeCards(equipmentDevices);
 
-      // Update statistics header (only equipments)
-      updateEquipmentStats(equipmentDevices, energyCacheFromMain, self.ctx.data);
+      // RFC-0093: Update statistics header via centralized controller
+      if (equipHeaderController) {
+        equipHeaderController.updateFromDevices(equipmentDevices, {
+          cache: energyCacheFromMain,
+          ctxData: self.ctx.data,
+        });
+      } else {
+        // Fallback to old function if header controller not available
+        updateEquipmentStats(equipmentDevices, energyCacheFromMain, self.ctx.data);
+      }
 
       // RFC: Emit initial equipment count to HEADER
       emitEquipmentCountEvent(equipmentDevices);
@@ -1166,9 +1217,17 @@ function reflowCards() {
 
   initializeCards(filtered);
 
-  // Get energy cache from orchestrator for consumption calculation
+  // RFC-0093: Update statistics header via centralized controller
   const energyCache = window.MyIOOrchestrator?.getCache?.() || null;
-  updateEquipmentStats(filtered, energyCache, self.ctx.data);
+  if (equipHeaderController) {
+    equipHeaderController.updateFromDevices(filtered, {
+      cache: energyCache,
+      ctxData: self.ctx.data,
+    });
+  } else {
+    // Fallback to old function if header controller not available
+    updateEquipmentStats(filtered, energyCache, self.ctx.data);
+  }
 
   // RFC: Emit event to update HEADER card
   emitEquipmentCountEvent(filtered);
@@ -1292,11 +1351,12 @@ function initFilterModal() {
       STATE.searchTerm = '';
       STATE.searchActive = false;
 
-      // Reset UI
-      const searchInput = document.getElementById('equipSearch');
-      const searchWrap = document.getElementById('searchWrap');
-      if (searchInput) searchInput.value = '';
-      if (searchWrap) searchWrap.classList.remove('active');
+      // RFC-0093: Reset UI via header controller
+      if (equipHeaderController) {
+        const searchInput = equipHeaderController.getSearchInput();
+        if (searchInput) searchInput.value = '';
+        equipHeaderController.toggleSearch(false);
+      }
 
       reflowCards();
       LogHelper.log('[EQUIPMENTS] [RFC-0090] Filters reset via shared modal');
@@ -1332,36 +1392,15 @@ function openFilterModal() {
 
 /**
  * Bind all filter-related events
+ * RFC-0093: Search and filter button events are now handled by buildHeaderDevicesGrid
  */
 function bindFilterEvents() {
-  // Search button toggle
-  const btnSearch = document.getElementById('btnSearch');
-  const searchWrap = document.getElementById('searchWrap');
-  const searchInput = document.getElementById('equipSearch');
-
-  if (btnSearch && searchWrap && searchInput) {
-    btnSearch.addEventListener('click', () => {
-      STATE.searchActive = !STATE.searchActive;
-      searchWrap.classList.toggle('active', STATE.searchActive);
-      if (STATE.searchActive) {
-        setTimeout(() => searchInput.focus(), 100);
-      }
-    });
-
-    searchInput.addEventListener('input', (e) => {
-      STATE.searchTerm = e.target.value || '';
-      reflowCards();
-    });
-  }
-
-  // Filter button (opens modal which will be moved to document.body on first open)
-  const btnFilter = document.getElementById('btnFilter');
-  if (btnFilter) {
-    btnFilter.addEventListener('click', openFilterModal);
-  }
+  // RFC-0093: Search and filter buttons are now configured in onInit via buildHeaderDevicesGrid
+  // This function is kept for backwards compatibility but the main logic is in the header controller
 
   // RFC-0072: All filter-related handlers (filter tabs, search, apply, reset)
   // are now set up in setupModalCloseHandlers() when modal is moved to document.body
+  LogHelper.log('[EQUIPMENTS] bindFilterEvents - events managed by header controller');
 }
 
 self.onDestroy = function () {
@@ -1373,6 +1412,13 @@ self.onDestroy = function () {
   }
   if (self._onCustomersReady) {
     window.removeEventListener('myio:customers-ready', self._onCustomersReady);
+  }
+
+  // RFC-0093: Cleanup header controller
+  if (equipHeaderController) {
+    equipHeaderController.destroy();
+    equipHeaderController = null;
+    LogHelper.log('[EQUIPMENTS] [RFC-0093] Header controller destroyed');
   }
 
   // RFC-0090: Cleanup filter modal using shared factory
