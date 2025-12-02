@@ -299,7 +299,7 @@ function getStatusInfo(deviceStatus, i18n) {
     case DeviceStatusType.STANDBY:
       return { chipClass: 'chip--standby', label: i18n.standby };
     case DeviceStatusType.WARNING:
-      return { chipClass: 'chip--alert', label: i18n.alert };
+      return { chipClass: 'chip--alert', label: i18n.warning };
     case DeviceStatusType.FAILURE:
     case DeviceStatusType.POWER_OFF:
       return { chipClass: 'chip--failure', label: i18n.failure };

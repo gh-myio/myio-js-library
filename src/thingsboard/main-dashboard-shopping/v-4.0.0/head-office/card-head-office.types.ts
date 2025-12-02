@@ -48,7 +48,7 @@ export interface EntityObject {
 
   // Status
   /** Connection/operational status */
-  connectionStatus?: 'ONLINE' | 'OFFLINE' | 'ALERT' | 'FAILURE' | 'RUNNING' | 'PAUSED';
+  connectionStatus?: 'ONLINE' | 'OFFLINE' | 'WARNING' | 'FAILURE' | 'RUNNING' | 'PAUSED';
   
   /** Timestamp of status change (milliseconds since epoch) */
   connectionStatusTime?: number;
@@ -72,7 +72,7 @@ export interface I18NMap {
   // Status labels (with icons)
   in_operation: string;
   standby: string;
-  alert: string;
+  warning: string;
   failure: string;
   maintenance: string;
   not_installed: string;
@@ -100,7 +100,7 @@ export const DEFAULT_I18N: I18NMap = {
   // Status labels with icons
   in_operation: '⚡ Normal',
   standby: '💤 Em standby',
-  alert: '⚠️ Alerta',
+  warning: '⚠️ Alerta',
   failure: '🚨 Falha',
   maintenance: '🔧 Manutenção',
   not_installed: '📦 Não instalado',

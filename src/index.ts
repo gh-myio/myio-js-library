@@ -63,7 +63,8 @@ export {
   isValidConnectionStatus,
   getDeviceStatusInfo,
   calculateDeviceStatus,
-  calculateDeviceStatusWithRanges // RFC-0077: Range-based device status calculation
+  calculateDeviceStatusWithRanges, // RFC-0077: Range-based device status calculation
+  getDeviceStatusDisplay // RFC-0093: Get device status display info (color and label)
 } from './utils/deviceStatus.js';
 
 // ThingsBoard utilities

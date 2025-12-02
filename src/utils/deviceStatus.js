@@ -529,3 +529,41 @@ export function calculateDeviceStatusWithRanges({
   // Fallback
   return DeviceStatusType.MAINTENANCE;
 }
+
+/**
+ * RFC-0093: Get device status display info (color and label)
+ * Used for UI components that need to show device status with colored text/badges
+ *
+ * @param {string} deviceStatus - Device status from DeviceStatusType enum
+ * @returns {{ color: string, label: string }} Display info with hex color and localized label
+ *
+ * @example
+ * // Device is online and running normally
+ * getDeviceStatusDisplay(DeviceStatusType.POWER_ON);
+ * // Returns: { color: '#22c55e', label: 'ONLINE' }
+ *
+ * @example
+ * // Device is in warning state
+ * getDeviceStatusDisplay(DeviceStatusType.WARNING);
+ * // Returns: { color: '#f59e0b', label: 'Atenção' }
+ *
+ * @example
+ * // Device is offline
+ * getDeviceStatusDisplay(DeviceStatusType.NO_INFO);
+ * // Returns: { color: '#ef4444', label: 'OFFLINE' }
+ */
+export function getDeviceStatusDisplay(deviceStatus) {
+  // Map deviceStatus to cardStatus first
+  const cardStatus = mapDeviceStatusToCardStatus(deviceStatus);
+
+  // Status display configuration
+  const statusDisplayMap = {
+    ok: { color: '#22c55e', label: 'ONLINE' },
+    alert: { color: '#f59e0b', label: 'Atenção' },
+    fail: { color: '#ef4444', label: 'OFFLINE' },
+    not_installed: { color: '#94a3b8', label: 'Não instalado' },
+    unknown: { color: '#94a3b8', label: 'Sem informação' },
+  };
+
+  return statusDisplayMap[cardStatus] || { color: '#6b7280', label: 'Desconhecido' };
+}

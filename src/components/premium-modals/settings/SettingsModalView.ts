@@ -1,5 +1,4 @@
 import { ModalConfig } from "./types";
-import { mapDeviceStatusToCardStatus } from "../../../utils/deviceStatus";
 
 export class SettingsModalView {
   private container: HTMLElement;
@@ -844,17 +843,11 @@ export class SettingsModalView {
       }
     }
 
-    const statusMap: Record<string, { text: string; color: string }> = {
-      ok: { text: "ONLINE", color: "#22c55e" },
-      alert: { text: "Atenção", color: "#f59e0b" },
-      fail: { text: "OFFLINE", color: "#ef4444" },
-      not_installed: { text: "Não instalado", color: "#94a3b8" },
-      unknown: { text: "Sem informação", color: "#94a3b8" },
-    };
-
-    const statusInfo = statusMap[
-      mapDeviceStatusToCardStatus(deviceStatus) || ""
-    ] || { text: "Desconhecido", color: "#6b7280" };
+    // RFC-0093: Use pre-computed statusDisplay if available, otherwise use fallback
+    const statusDisplay = this.config.connectionData?.statusDisplay;
+    const statusInfo = statusDisplay
+      ? { text: statusDisplay.label, color: statusDisplay.color }
+      : { text: "Desconhecido", color: "#6b7280" };
 
     return `
       <div class="form-card info-card-wide">

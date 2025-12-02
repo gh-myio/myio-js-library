@@ -179,7 +179,7 @@ type EntityObject = {
   perc?: number;
 
   // Status
-  connectionStatus?: 'ONLINE' | 'OFFLINE' | 'ALERT' | 'FAILURE' | 'RUNNING' | 'PAUSED';
+  connectionStatus?: 'ONLINE' | 'OFFLINE' | 'WARNING' | 'FAILURE' | 'RUNNING' | 'PAUSED';
   connectionStatusTime?: number; // ms epoch
 
   // Secondary metrics

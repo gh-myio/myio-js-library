@@ -175,7 +175,7 @@
                 val: 45.3,
                 valType: 'power_kw',
                 perc: 78,
-                connectionStatus: 'ALERT',
+                connectionStatus: 'WARNING',
                 temperatureC: 32,
                 operationHours: 156.234,
                 consumptionTargetValue: 45.3,
@@ -279,7 +279,7 @@
         
         // Toggle status between different states
         let statusIndex = 0;
-        const statuses = ['RUNNING', 'ALERT', 'FAILURE', 'OFFLINE'];
+        const statuses = ['RUNNING', 'WARNING', 'FAILURE', 'OFFLINE'];
         
         function toggleStatus() {
             statusIndex = (statusIndex + 1) % statuses.length;

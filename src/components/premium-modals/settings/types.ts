@@ -22,6 +22,9 @@ export interface OpenDashboardPopupSettingsParams {
     connectionStatusTime?: string;
     timeVal?: string;
     deviceStatus?: string;
+    // RFC-0093: Pre-computed status display info (color and label)
+    // If provided, avoids calling mapDeviceStatusToCardStatus inside SettingsModalView
+    statusDisplay?: { color: string; label: string };
   };
 
   // Authentication (REQUIRED)
@@ -148,6 +151,8 @@ export interface ModalConfig {
     timeVal?: string;
     deviceStatus?: string;
     lastDisconnectTime?: string;
+    // RFC-0093: Pre-computed status display info (color and label)
+    statusDisplay?: { color: string; label: string };
   };
   onSave: (formData: Record<string, any>) => Promise<void>;
   onClose: () => void;

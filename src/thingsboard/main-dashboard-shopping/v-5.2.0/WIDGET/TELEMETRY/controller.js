@@ -905,8 +905,10 @@ function buildAuthoritativeItems() {
           if (key === 'water_percentage') waterPercentage = Number(val) || 0;
 
           // ENERGY/WATER devices: consumption (most recent)
-          if (key === 'consumption') consumption = Number(val) || 0;
-          if (key === 'consumption_power') instantaneousPower = Number(val) || 0;
+          if (key === 'consumption') {
+            consumption = Number(val) || 0;
+            instantaneousPower = Number(val) || 0;
+          }
 
           // TERMOSTATO specific telemetry
           if (key === 'temperature') {
@@ -934,38 +936,77 @@ function buildAuthoritativeItems() {
       }
     }
 
-    if (tbConnectionStatus === 'offline') {
-      deviceStatus = 'no_info'; // offline = no_info
-    } else if (tbConnectionStatus === 'online') {
-      // RFC-0078: For energy devices, calculate status using ranges from mapInstantaneousPower
-      const isEnergyDevice = !isTankDevice && !isTermostatoDevice;
+    // -------------------------------------------------------------------------
+    // NOVA LÓGICA DE STATUS (Baseada em Equipments)
+    // -------------------------------------------------------------------------
 
-      if (isEnergyDevice) {
-        // RFC-0091: Use hierarchical resolution - TIER 0 (deviceMap) > TIER 2 (customer/MAP_INSTANTANEOUS_POWER)
-        // First try device-specific limits, then fall back to customer-level
-        const limitsToUse = deviceMapLimits || MAP_INSTANTANEOUS_POWER;
-        const ranges = limitsToUse
-          ? extractLimitsFromJSON(limitsToUse, deviceTypeToDisplay, 'consumption')
-          : null;
+    // 1. Normalizar o Connection Status (mapeia 'active'/'true' para 'online')
+    // Usa o utilitário do MAIN se disponível, igual ao Equipments
+    const rawConnectionStatus = attrs.connectionStatus || 'offline';
+    const mappedConnectionStatus = window.MyIOUtils?.mapConnectionStatus
+      ? window.MyIOUtils.mapConnectionStatus(rawConnectionStatus)
+      : rawConnectionStatus.toLowerCase();
 
-        if (ranges && typeof MyIOLibrary?.calculateDeviceStatusWithRanges === 'function') {
-          deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
-            connectionStatus: tbConnectionStatus,
-            lastConsumptionValue: instantaneousPower,
-            ranges: ranges,
-          });
+    // 2. Definir Prioridade de Limites (Hierarquia Tier 0 > Tier 2)
+    // deviceMapLimits: veio do atributo do dispositivo (Tier 0)
+    // MAP_INSTANTANEOUS_POWER: veio do atributo do cliente (Tier 2)
+    const limitsToUse = deviceMapLimits || MAP_INSTANTANEOUS_POWER;
 
-          const source = deviceMapLimits
-            ? 'deviceMapInstaneousPower (TIER 0)'
-            : 'mapInstantaneousPower (TIER 2)';
-        } else {
-          // Fallback if no ranges found or MyIOLibrary not available
-          deviceStatus = 'power_on';
-        }
-      } else {
-        // TANK, TERMOSTATO - use simple power_on
-        deviceStatus = 'power_on';
+    // 3. Extrair Ranges do JSON selecionado
+    let rangesWithSource = null;
+    if (limitsToUse) {
+      rangesWithSource = extractLimitsFromJSON(limitsToUse, deviceTypeToDisplay, 'consumption');
+    }
+
+    /*
+    if ((instantaneousPower === null && instantaneousPower === undefined) && (attrs.consumption_power === null && attrs.consumption_power === undefined) )  {
+      instantaneousPower = attrs.consumption_power;
+    }
+    */
+
+    // 4. Calcular o Status Final (O Snippet Solicitado)
+    if (rangesWithSource && typeof MyIOLibrary?.calculateDeviceStatusWithRanges === 'function') {
+      // [IMPLEMENTAÇÃO EXATA DO EQUIPMENTS]
+      deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
+        connectionStatus: mappedConnectionStatus,
+        // Garante que é número e trata null/undefined como 0 ou null conforme lógica da lib
+        lastConsumptionValue:
+          instantaneousPower !== null && instantaneousPower !== undefined ? Number(instantaneousPower) : null,
+        ranges: rangesWithSource,
+      });
+
+      // DEBUG ER 14
+      /*
+      if (r.label && r.label.toLowerCase().includes('er 14')) {
+        console.log('╔══════════════════════════════════════════════════════════════╗');
+        console.log('║                    DEBUG ER 14 - TELEMETRY                   ║');
+        console.log('╚══════════════════════════════════════════════════════════════╝');
+        console.log('📋 r.label:', r.label);
+        console.log('📋 r.tbId:', r.tbId);
+        console.log('');
+        console.log('🔌 CONNECTION STATUS:');
+        console.log('   tbConnectionStatus:', tbConnectionStatus);
+        console.log('   mappedConnectionStatus:', mappedConnectionStatus);
+        console.log('');
+        console.log('⚡ POWER:');
+        console.log('   instantaneousPower:', instantaneousPower);
+        console.log('   attrs.consumption_power:', attrs.consumption_power);
+        console.log('');
+        console.log('📊 RANGES:');
+        console.log('   rangesWithSource:', JSON.stringify(rangesWithSource, null, 2));
+        console.log('');
+        console.log('🎯 CALCULATED STATUS:');
+        console.log('   deviceStatus:', deviceStatus);
+        console.log('');
+        console.log('📦 RAW attrs:', JSON.stringify(attrs, null, 2));
+        console.log('════════════════════════════════════════════════════════════════');
       }
+        */
+    } else {
+      // Fallback de segurança se não houver JSON de limites
+      // Se estiver online, mostra 'power_on', senão 'no_info'
+      const isOnline = mappedConnectionStatus === 'online' || mappedConnectionStatus === 'active';
+      deviceStatus = isOnline ? 'power_on' : 'no_info';
     }
 
     // Determine value based on device type
@@ -1725,7 +1766,7 @@ function renderList(visible) {
               deviceStatus: it.deviceStatus || 'no_info',
             },
             ui: { title: 'Configurações', width: 900 },
-            mapInstantaneousPower: it.mapInstantaneousPower, // RFC-0078: Pass existing map if available
+            mapInstantaneousPower: MAP_INSTANTANEOUS_POWER, // RFC-0078: Pass existing map if available
             // RFC-0091: Pass device-specific power limits (TIER 0 - highest priority)
             deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
             onSaved: (payload) => {
@@ -3132,10 +3173,13 @@ self.onInit = async function () {
 
   try {
     const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
+    console.log('attrs >>>>>>>>>>', attrs);
+
     CLIENT_ID = attrs?.client_id || '';
     CLIENT_SECRET = attrs?.client_secret || '';
     CUSTOMER_ING_ID = attrs?.ingestionId || '';
     MAP_INSTANTANEOUS_POWER = attrs?.mapInstantaneousPower ? JSON.parse(attrs?.mapInstantaneousPower) : null;
+    console.log('MAP_INSTANTANEOUS_POWER >>>>>>>>>', MAP_INSTANTANEOUS_POWER);
 
     // Expõe credenciais globalmente para uso no FOOTER (modal de comparação)
     window.__MYIO_CLIENT_ID__ = CLIENT_ID;
