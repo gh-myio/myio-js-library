@@ -444,7 +444,8 @@ function buildTbAttrIndex() {
     if (key === 'devicemapinstaneouspower') slot.deviceMapInstaneousPower = val;
     if (key === 'customerid') slot.customerId = val;
     if (key === 'connectionstatus') slot.connectionStatus = val;
-    if (key === 'consumption_power') slot.consumption_power = val;
+    // RFC-0093: 'consumption' from ThingsBoard is renamed to 'consumption_power' (same as EQUIPMENTS)
+    if (key === 'consumption_power' || key === 'consumption') slot.consumption_power = val;
   }
   return byTbId;
 }
