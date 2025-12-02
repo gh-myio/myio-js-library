@@ -99,6 +99,29 @@ function formatPower(valueInWatts) {
 }
 
 /**
+ * Format volume value (L to m³ conversion)
+ * If value >= 1000L, convert to m³ with 2 decimal places rounded up
+ * @param {number} valueInLiters - Volume value in Liters
+ * @returns {{ num: string, unit: string }}
+ */
+function formatVolume(valueInLiters) {
+  if (valueInLiters === null || valueInLiters === undefined || isNaN(valueInLiters)) {
+    return { num: '-', unit: '' };
+  }
+
+  const val = Number(valueInLiters);
+  if (val >= 1000) {
+    // Convert to m³, round up to 2 decimal places
+    const m3 = Math.ceil((val / 1000) * 100) / 100;
+    return { num: m3.toFixed(2), unit: 'm³' };
+  } else {
+    // Keep in L, round up
+    const l = Math.ceil(val);
+    return { num: l.toString(), unit: 'L' };
+  }
+}
+
+/**
  * Format primary value based on type
  */
 function formatPrimaryValue(val, valType) {
@@ -116,10 +139,18 @@ function formatPrimaryValue(val, valType) {
       };
     case 'power_w':
       // val is in Watts, convert if >= 1000
-      const formatted = formatPower(val);
+      const formattedPower = formatPower(val);
       return {
-        num: formatted.num,
-        unit: formatted.unit,
+        num: formattedPower.num,
+        unit: formattedPower.unit,
+        suffix: '',
+      };
+    case 'volume_l':
+      // val is in Liters, convert to m³ if >= 1000
+      const formattedVolume = formatVolume(val);
+      return {
+        num: formattedVolume.num,
+        unit: formattedVolume.unit,
         suffix: '',
       };
     case 'flow_m3h':
