@@ -661,6 +661,75 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             .water-modal-option .option-check {
                 color: #0288d1;
             }
+
+            /* RFC-0092: Temperature Modal Styles */
+            #temperatureContextModal {
+                font-family: 'Roboto', 'Segoe UI', sans-serif;
+                backdrop-filter: blur(4px);
+            }
+
+            #temperatureContextModal .temperature-modal-content {
+                background: #ffffff !important;
+                border-radius: 16px !important;
+                box-shadow: 0 20px 50px rgba(0,0,0,0.3) !important;
+                width: 320px !important;
+                max-width: 90vw !important;
+                overflow: hidden !important;
+                border: none !important;
+                padding: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+
+            .temperature-modal-header {
+                padding: 16px 20px !important;
+                background: #fff7ed;
+                border-bottom: 1px solid #fed7aa;
+                font-weight: 700;
+                color: #9a3412;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-size: 16px;
+            }
+
+            .temperature-modal-options {
+                padding: 10px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 8px !important;
+            }
+
+            .temperature-modal-option {
+                display: flex !important;
+                align-items: center !important;
+                gap: 12px !important;
+                padding: 12px 16px !important;
+                border: 1px solid transparent !important;
+                border-radius: 12px !important;
+                background: transparent !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                text-align: left !important;
+                color: #334155 !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+            }
+
+            .temperature-modal-option:hover {
+                background: #fff7ed !important;
+                border-color: #fdba74 !important;
+            }
+
+            .temperature-modal-option.is-active {
+                background: #ffedd5 !important;
+                border-color: #ea580c !important;
+                color: #c2410c !important;
+            }
+
+            .temperature-modal-option .option-check {
+                color: #ea580c;
+            }
         `;
     document.head.appendChild(style);
     LogHelper.log('[SETUP] CSS Global do Modal injetado com sucesso.');

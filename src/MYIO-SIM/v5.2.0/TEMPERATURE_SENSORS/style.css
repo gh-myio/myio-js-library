@@ -487,3 +487,64 @@
 .icon-btn svg {
     fill: var(--ink-1);
 }
+
+/* ====== RFC-0096: SHOPS LIST (following STORES pattern) ====== */
+.temp-sensors-wrap .shops-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+    padding-bottom: 100px;
+}
+
+.temp-sensors-wrap .shops-list > * {
+    min-width: 0;
+    width: auto;
+    box-sizing: border-box;
+}
+
+/* Responsive grid - matching STORES */
+@media (min-width: 1920px) {
+    .temp-sensors-wrap .shops-list {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 14px;
+    }
+}
+
+@media (min-width: 1600px) and (max-width: 1919px) {
+    .temp-sensors-wrap .shops-list {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 15px;
+    }
+}
+
+@media (min-width: 1280px) and (max-width: 1599px) {
+    .temp-sensors-wrap .shops-list {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 14px;
+    }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+    .temp-sensors-wrap .shops-list {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+    }
+}
+
+@media (max-width: 1023px) {
+    .temp-sensors-wrap .shops-list {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 12px;
+    }
+}
+
+/* ====== SCROLLBAR ====== */
+.temp-sensors-wrap .shops-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.temp-sensors-wrap .shops-list::-webkit-scrollbar-thumb {
+    background: #c9d4e2;
+    border-radius: 6px;
+}

@@ -495,6 +495,95 @@ function updateSensorStats(sensors) {
 // EVENT HANDLERS
 // ============================================
 
+// RFC-0096: Filter modal instance (lazy initialized)
+let temperatureFilterModal = null;
+
+/**
+ * RFC-0096: Initialize filter modal using shared factory from MAIN
+ */
+function initFilterModal() {
+  const createFilterModal = window.MyIOUtils?.createFilterModal;
+
+  if (!createFilterModal) {
+    LogHelper.error('[TEMPERATURE_SENSORS] createFilterModal not available from MAIN');
+    return null;
+  }
+
+  return createFilterModal({
+    widgetName: 'TEMPERATURE_SENSORS',
+    containerId: 'temperatureSensorsFilterModalGlobal',
+    modalClass: 'temperature-sensors-modal',
+    primaryColor: '#e65100', // Orange for temperature
+    itemIdAttr: 'data-entity',
+
+    // Filter tabs configuration - specific for TEMPERATURE_SENSORS
+    filterTabs: [
+      { id: 'all', label: 'Todos', filter: () => true },
+      { id: 'online', label: 'Online', filter: (s) => s.status !== 'no_info' && s.status !== 'offline' },
+      { id: 'offline', label: 'Offline', filter: (s) => s.status === 'no_info' || s.status === 'offline' },
+      { id: 'normal', label: 'Normal', filter: (s) => s.status === 'normal' },
+      { id: 'alert', label: 'Alerta', filter: (s) => s.status === 'hot' || s.status === 'cold' },
+    ],
+
+    // Data accessors
+    getItemId: (item) => item.id,
+    getItemLabel: (item) => item.label || item.name || item.id,
+    getItemValue: (item) => item.temperature,
+    getItemSubLabel: (item) => getCustomerNameForDevice(item),
+    formatValue: (val) => formatTemperature(val),
+
+    // Callbacks
+    onApply: ({ selectedIds, sortMode }) => {
+      STATE.selectedIds = selectedIds;
+      STATE.sortMode = sortMode;
+      reflowCards();
+      LogHelper.log('[TEMPERATURE_SENSORS] [RFC-0096] Filters applied via shared modal');
+    },
+
+    onReset: () => {
+      STATE.selectedIds = null;
+      STATE.sortMode = 'temp_desc';
+      STATE.searchTerm = '';
+      STATE.searchActive = false;
+
+      // Reset search UI
+      const searchWrap = document.getElementById('tempSearchWrap');
+      const searchInput = document.getElementById('tempSensorSearch');
+      if (searchWrap) searchWrap.classList.remove('active');
+      if (searchInput) searchInput.value = '';
+
+      reflowCards();
+      LogHelper.log('[TEMPERATURE_SENSORS] [RFC-0096] Filters reset via shared modal');
+    },
+
+    onClose: () => {
+      LogHelper.log('[TEMPERATURE_SENSORS] [RFC-0096] Filter modal closed');
+    },
+  });
+}
+
+/**
+ * RFC-0096: Open filter modal
+ */
+function openFilterModal() {
+  // Lazy initialize modal
+  if (!temperatureFilterModal) {
+    temperatureFilterModal = initFilterModal();
+  }
+
+  if (!temperatureFilterModal) {
+    LogHelper.error('[TEMPERATURE_SENSORS] Failed to initialize filter modal');
+    window.alert('Erro ao inicializar modal de filtros. Verifique se o widget MAIN foi carregado.');
+    return;
+  }
+
+  // Open with current sensors and state
+  temperatureFilterModal.open(STATE.allSensors, {
+    selectedIds: STATE.selectedIds,
+    sortMode: STATE.sortMode,
+  });
+}
+
 function bindFilterEvents() {
   // Search button toggle
   const btnSearch = document.getElementById('btnTempSearch');
@@ -516,12 +605,12 @@ function bindFilterEvents() {
     });
   }
 
-  // Filter button
+  // Filter button - RFC-0096: Now opens filter modal
   const btnFilter = document.getElementById('btnTempFilter');
   if (btnFilter) {
     btnFilter.addEventListener('click', () => {
-      // TODO: Implement filter modal similar to EQUIPMENTS
-      LogHelper.log('[TEMPERATURE_SENSORS] Filter button clicked');
+      LogHelper.log('[TEMPERATURE_SENSORS] Filter button clicked - opening modal');
+      openFilterModal();
     });
   }
 }
@@ -652,5 +741,13 @@ self.onDestroy = function () {
   if (self._onCustomersReady) {
     window.removeEventListener('myio:customers-ready', self._onCustomersReady);
   }
+
+  // RFC-0096: Cleanup filter modal
+  if (temperatureFilterModal) {
+    temperatureFilterModal.destroy();
+    temperatureFilterModal = null;
+    LogHelper.log('[TEMPERATURE_SENSORS] [RFC-0096] Filter modal destroyed');
+  }
+
   LogHelper.log('[TEMPERATURE_SENSORS] Widget destroyed');
 };
