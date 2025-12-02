@@ -3207,7 +3207,7 @@ const MyIOOrchestrator = (() => {
   /**
    * Obtém dados agregados para o widget ENERGY
    * @param {number} totalConsumption - Consumo TOTAL (Equipamentos + Lojas) vindo do HEADER (fallback)
-   * @returns {object} - { customerTotal, equipmentsTotal, lojasTotal, percentage }
+   * @returns {object} - { customerTotal, unfilteredTotal, equipmentsTotal, lojasTotal, percentage, isFiltered }
    */
   function getEnergyWidgetData(totalConsumption = 0) {
     const equipmentsTotal = getTotalEquipmentsConsumption();
@@ -3221,16 +3221,22 @@ const MyIOOrchestrator = (() => {
     const hasIdentifiedDevices = equipmentsIngestionIds.size > 0 || lojasIngestionIds.size > 0;
     const effectiveTotal = hasIdentifiedDevices ? calculatedTotal : totalConsumption || calculatedTotal;
 
+    // RFC-0093: Get unfiltered total for comparison display
+    const unfilteredTotal = getUnfilteredTotalConsumption();
+    const filtered = isFilterActive();
+
     // ✅ Equipamentos como % do total
     const percentage = effectiveTotal > 0 ? (equipmentsTotal / effectiveTotal) * 100 : 0;
 
     const result = {
       customerTotal: Number(effectiveTotal) || 0,
+      unfilteredTotal: Number(unfilteredTotal) || 0, // RFC-0093: Total without filter for comparison
       equipmentsTotal: Number(equipmentsTotal) || 0,
       lojasTotal: Number(lojasTotal) || 0,
       difference: Number(lojasTotal) || 0, // Mantém compatibilidade (lojas = difference)
       percentage: Number(percentage) || 0,
       deviceCount: energyCache.size,
+      isFiltered: filtered, // RFC-0093: Flag indicating filter is active
     };
 
     LogHelper.log(`[MAIN] [Orchestrator] Energy widget data:`, {

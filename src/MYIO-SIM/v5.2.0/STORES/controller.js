@@ -113,6 +113,7 @@ const STATE = {
   selectedIds: /** @type {Set<string> | null} */ (null),
   sortMode: /** @type {'cons_desc'|'cons_asc'|'alpha_asc'|'alpha_desc'} */ ('cons_desc'),
   firstHydrates: 0,
+  selectedShoppingIds: [], // RFC-0093: Shopping filter from MENU
 };
 
 let hydrating = false;
@@ -539,6 +540,20 @@ function enrichItemsWithTotals(items, apiMap) {
 /** ===================== FILTERS / SORT / PERC ===================== **/
 function applyFilters(enriched, searchTerm, selectedIds, sortMode) {
   let v = enriched.slice();
+
+  // RFC-0093: Apply shopping filter (from MENU) - same logic as EQUIPMENTS
+  if (STATE.selectedShoppingIds && STATE.selectedShoppingIds.length > 0) {
+    const before = v.length;
+    v = v.filter((x) => {
+      // If device has no customerId, include it (safety)
+      if (!x.customerId) return true;
+      // Check if device's customerId is in the selected shoppings
+      return STATE.selectedShoppingIds.includes(x.customerId);
+    });
+    LogHelper.log(
+      `[STORES] Shopping filter applied: ${before} -> ${v.length} stores (${before - v.length} filtered out)`
+    );
+  }
 
   if (selectedIds && selectedIds.size) {
     v = v.filter((x) => selectedIds.has(x.id));
@@ -1997,6 +2012,50 @@ self.onInit = async function () {
     } catch (err) {
       LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ Error during clear:`, err);
     }
+  });
+
+  // RFC-0093: Function to render shopping filter chips in toolbar (same as EQUIPMENTS)
+  function renderShoppingFilterChips(selection) {
+    const chipsContainer = document.getElementById('storesShoppingFilterChips');
+    if (!chipsContainer) return;
+
+    chipsContainer.innerHTML = '';
+
+    if (!selection || selection.length === 0) {
+      return; // No filter applied, hide chips
+    }
+
+    selection.forEach((shopping) => {
+      const chip = document.createElement('span');
+      chip.className = 'filter-chip';
+      chip.innerHTML = `<span class="filter-chip-icon">🏬</span><span>${shopping.name}</span>`;
+      chipsContainer.appendChild(chip);
+    });
+
+    LogHelper.log('[STORES] 📍 Rendered', selection.length, 'shopping filter chips');
+  }
+
+  // RFC-0093: Listen for shopping filter changes
+  window.addEventListener('myio:filter-applied', (ev) => {
+    const selection = ev.detail?.selection || [];
+    LogHelper.log('[STORES] 🔥 heard myio:filter-applied:', selection.length, 'shoppings');
+
+    // Extract shopping IDs (ingestionIds) from selection
+    const shoppingIds = selection.map((s) => s.value).filter((v) => v);
+
+    LogHelper.log(
+      '[STORES] Applying shopping filter:',
+      shoppingIds.length === 0 ? 'ALL' : `${shoppingIds.length} shoppings`
+    );
+
+    // Update STATE and reflow cards
+    STATE.selectedShoppingIds = shoppingIds;
+
+    // Render shopping filter chips
+    renderShoppingFilterChips(selection);
+
+    // Reflow to apply filter
+    reflowFromState();
   });
 
   // Test if listener is working

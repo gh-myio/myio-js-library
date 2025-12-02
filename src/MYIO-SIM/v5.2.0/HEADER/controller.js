@@ -1248,31 +1248,60 @@ async function updateTemperatureCard() {
 }
 
 // RFC-0093: Update energy card with total from energy-summary-ready event
-function updateEnergyCardWithTotal(customerTotal) {
+// Now accepts full summary object with customerTotal, unfilteredTotal, isFiltered
+function updateEnergyCardWithTotal(summary) {
   const energyKpi = document.getElementById('energy-kpi');
   const energyTrend = document.getElementById('energy-trend');
 
   if (!energyKpi) return;
+
+  // Handle both old format (just number) and new format (object)
+  const customerTotal = typeof summary === 'object' ? summary.customerTotal : summary;
+  const unfilteredTotal = typeof summary === 'object' ? summary.unfilteredTotal : customerTotal;
+  const isFiltered = typeof summary === 'object' ? summary.isFiltered : false;
 
   const formatEnergy = (val) =>
     typeof MyIOLibrary?.formatEnergy === 'function'
       ? MyIOLibrary.formatEnergy(val)
       : `${val.toFixed(2)} kWh`;
 
-  const formatted = formatEnergy(customerTotal);
-  energyKpi.innerText = formatted;
-  energyKpi.style.fontSize = '0.9em';
+  // RFC-0093: Use same pattern as Equipment card - show "filtered / total" with percentage
+  const showComparative =
+    isFiltered && unfilteredTotal > 0 && Math.abs(customerTotal - unfilteredTotal) > 0.01;
 
-  // Hide trend when using summary total
-  if (energyTrend) {
-    energyTrend.innerText = '';
-    energyTrend.style.display = 'none';
+  if (showComparative) {
+    const formattedFiltered = formatEnergy(customerTotal);
+    const formattedTotal = formatEnergy(unfilteredTotal);
+    const percentage = Math.round((customerTotal / unfilteredTotal) * 100);
+
+    energyKpi.innerHTML = `${formattedFiltered} <span style="font-size: 0.7em; color: #666;">/ ${formattedTotal}</span>`;
+    energyKpi.style.fontSize = '0.9em';
+
+    // Show percentage in trend element (same style as Equipment card)
+    if (energyTrend) {
+      energyTrend.innerText = `${percentage}%`;
+      energyTrend.className = 'chip trend';
+      energyTrend.style.display = '';
+    }
+
+    LogHelper.log(
+      `[HEADER] Energy card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`
+    );
+  } else {
+    // Show only total when no filter or values are the same
+    const formatted = formatEnergy(customerTotal);
+    energyKpi.innerText = formatted;
+    energyKpi.style.fontSize = '0.9em';
+
+    // Hide percentage when not filtered
+    if (energyTrend) {
+      energyTrend.innerText = '';
+      energyTrend.style.display = 'none';
+    }
+
+    LogHelper.log(`[HEADER] Energy card updated from summary: ${formatted}`);
   }
-
-  LogHelper.log(`[HEADER] Energy card updated from summary: ${formatted}`);
   // RFC-0093: Removed dispatch of myio:customer-total-consumption to prevent infinite loop
-  // MAIN dispatches energy-summary-ready → HEADER receives → HEADER was dispatching customer-total-consumption
-  // → MAIN receives and calls setCustomerTotal → dispatches energy-summary-ready → LOOP
 }
 
 function updateEnergyCard(energyCache) {
@@ -1402,7 +1431,7 @@ function updateWaterCard(waterCache) {
     }
   }
 
-  // ✅ Format and display
+  // ✅ Format and display - RFC-0093: Use same pattern as Equipment card
   if (waterKpi) {
     const formatWater = (val) =>
       typeof MyIOLibrary?.formatWaterVolumeM3 === 'function'
@@ -1412,7 +1441,7 @@ function updateWaterCard(waterCache) {
     // Reduce font size for the KPI
     waterKpi.style.fontSize = '0.9em';
 
-    // Show "filtered / total" only when filter is active AND values are different
+    // RFC-0093: Show "filtered / total" only when filter is active AND values are different
     const showComparative =
       isFiltered && unfilteredConsumption > 0 && Math.abs(filteredConsumption - unfilteredConsumption) > 0.01;
 
@@ -1423,7 +1452,7 @@ function updateWaterCard(waterCache) {
 
       waterKpi.innerHTML = `${formattedFiltered} <span style="font-size: 0.7em; color: #666;">/ ${formattedTotal}</span>`;
 
-      // Show percentage in trend element
+      // Show percentage in trend element (same style as Equipment card)
       if (waterTrend) {
         waterTrend.innerText = `${percentage}%`;
         waterTrend.className = 'chip trend';
@@ -1447,33 +1476,16 @@ function updateWaterCard(waterCache) {
   } else {
     LogHelper.error('[HEADER] waterKpi element not found!');
   }
-
-  // ✅ EMIT EVENT
-  const customerTotalEvent = {
-    customerTotal: filteredConsumption,
-    unfilteredTotal: unfilteredConsumption,
-    isFiltered,
-    deviceCount,
-    timestamp: Date.now(),
-  };
-
-  window.dispatchEvent(
-    new CustomEvent('myio:customer-total-water-consumption', {
-      detail: customerTotalEvent,
-    })
-  );
-
-  LogHelper.log(`[HEADER] ✅ Emitted myio:customer-total-water-consumption:`, customerTotalEvent);
 }
 
 // ===== HEADER: Listen for energy data from MAIN orchestrator =====
 // RFC-0093: Listen for energy-summary-ready for the correct total (equipments + lojas)
 window.addEventListener('myio:energy-summary-ready', (ev) => {
   LogHelper.log('[HEADER] 📊 heard myio:energy-summary-ready:', ev.detail);
-  const { customerTotal } = ev.detail || {};
-  if (typeof customerTotal === 'number') {
-    // Update energy card with the correct total from orchestrator
-    updateEnergyCardWithTotal(customerTotal);
+  const summary = ev.detail || {};
+  if (typeof summary.customerTotal === 'number') {
+    // RFC-0093: Pass full summary object to show comparative (filtered/total) like Equipment card
+    updateEnergyCardWithTotal(summary);
   }
 });
 

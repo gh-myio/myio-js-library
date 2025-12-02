@@ -135,6 +135,11 @@
   white-space: nowrap;
 }
 
+.shops-root .shopping-filter-chips .filter-chip-icon {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
 /* ====== CARDS GRID (matching EQUIPMENTS) ====== */
 .shops-root .shops-list {
   display: grid;
