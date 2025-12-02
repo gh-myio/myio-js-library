@@ -1855,19 +1855,19 @@ function createFilterModal(config) {
         display: flex;
         gap: 6px;
         flex-wrap: wrap;
-        margin-bottom: 16px;
-        padding-bottom: 12px;
+        margin-bottom: 12px;
+        padding-bottom: 10px;
         border-bottom: 2px solid #E6EEF5;
       }
 
       #${containerId} .filter-tab {
         border: 1px solid #DDE7F1;
         background: #fff;
-        padding: 8px 14px;
-        border-radius: 8px;
-        font-size: 11px;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 10px;
         font-weight: 700;
-        letter-spacing: 0.3px;
+        letter-spacing: 0.2px;
         cursor: pointer;
         transition: all 0.2s;
         color: #6b7a90;
@@ -1875,14 +1875,63 @@ function createFilterModal(config) {
       }
 
       #${containerId} .filter-tab:hover {
-        background: #f7fbff;
-        border-color: ${primaryColor};
-        color: #1C2743;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
       }
 
-      #${containerId} .filter-tab.active {
-        background: ${primaryColor};
-        border-color: ${primaryColor};
+      /* RFC-0095: Color-coded filter tabs */
+      #${containerId} .filter-tab[data-filter="all"] {
+        border-color: #9ca3af;
+        color: #4b5563;
+      }
+      #${containerId} .filter-tab[data-filter="all"]:hover,
+      #${containerId} .filter-tab[data-filter="all"].active {
+        background: #6b7280;
+        border-color: #6b7280;
+        color: #fff;
+      }
+
+      #${containerId} .filter-tab[data-filter="online"] {
+        border-color: #3b82f6;
+        color: #2563eb;
+      }
+      #${containerId} .filter-tab[data-filter="online"]:hover,
+      #${containerId} .filter-tab[data-filter="online"].active {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        color: #fff;
+      }
+
+      #${containerId} .filter-tab[data-filter="offline"] {
+        border-color: #ef4444;
+        color: #dc2626;
+      }
+      #${containerId} .filter-tab[data-filter="offline"]:hover,
+      #${containerId} .filter-tab[data-filter="offline"].active {
+        background: #ef4444;
+        border-color: #ef4444;
+        color: #fff;
+      }
+
+      #${containerId} .filter-tab[data-filter="withConsumption"] {
+        border-color: #22c55e;
+        color: #16a34a;
+      }
+      #${containerId} .filter-tab[data-filter="withConsumption"]:hover,
+      #${containerId} .filter-tab[data-filter="withConsumption"].active {
+        background: #22c55e;
+        border-color: #22c55e;
+        color: #fff;
+      }
+
+      #${containerId} .filter-tab[data-filter="noConsumption"] {
+        border-color: #9ca3af;
+        color: #6b7280;
+      }
+      #${containerId} .filter-tab[data-filter="noConsumption"]:hover,
+      #${containerId} .filter-tab[data-filter="noConsumption"].active {
+        background: #9ca3af;
+        border-color: #9ca3af;
         color: #fff;
       }
 
@@ -1894,37 +1943,58 @@ function createFilterModal(config) {
         position: relative;
         display: flex;
         align-items: center;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
       }
 
       #${containerId} .filter-search svg {
         position: absolute;
-        left: 12px;
-        width: 18px;
-        height: 18px;
+        left: 10px;
+        width: 14px;
+        height: 14px;
         fill: #6b7a90;
+        pointer-events: none;
       }
 
       #${containerId} .filter-search input {
         width: 100%;
-        padding: 10px 12px 10px 40px;
-        border: 2px solid #DDE7F1;
-        border-radius: 10px;
-        font-size: 14px;
+        padding: 8px 32px 8px 32px;
+        border: 1px solid #DDE7F1;
+        border-radius: 8px;
+        font-size: 12px;
         outline: none;
+        box-sizing: border-box;
       }
 
       #${containerId} .filter-search input:focus {
         border-color: ${primaryColor};
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
       }
 
       #${containerId} .filter-search .clear-x {
         position: absolute;
-        right: 12px;
+        right: 6px;
+        top: 50%;
+        transform: translateY(-50%);
         border: 0;
-        background: transparent;
+        background: #f3f4f6;
         cursor: pointer;
         padding: 4px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+      }
+
+      #${containerId} .filter-search .clear-x:hover {
+        background: #e5e7eb;
+      }
+
+      #${containerId} .filter-search .clear-x svg {
+        position: static;
+        width: 12px;
+        height: 12px;
+        fill: #6b7280;
       }
 
       /* RFC-0093: Inline actions (Select All / Clear) */
@@ -1957,23 +2027,23 @@ function createFilterModal(config) {
       }
 
       #${containerId} .checklist {
-        min-height: 150px;
-        max-height: 400px;
+        min-height: 120px;
+        max-height: 340px;
         overflow-y: auto;
         border: 1px solid #DDE7F1;
-        border-radius: 10px;
-        padding: 8px;
+        border-radius: 8px;
+        padding: 4px;
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 2px;
       }
 
       #${containerId} .check-item {
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 8px;
-        border-radius: 6px;
+        gap: 6px;
+        padding: 5px 6px;
+        border-radius: 4px;
         transition: background 0.2s;
       }
 
@@ -1982,33 +2052,44 @@ function createFilterModal(config) {
       }
 
       #${containerId} .check-item input[type="checkbox"] {
-        width: 18px;
-        height: 18px;
+        width: 14px;
+        height: 14px;
         cursor: pointer;
+        flex-shrink: 0;
       }
 
       #${containerId} .check-item label {
         flex: 1;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 11px;
         color: #1C2743;
+        line-height: 1.3;
+      }
+
+      #${containerId} .check-item .item-sublabel {
+        font-size: 9px;
+        color: #6b7a90;
+        margin-left: auto;
+        flex-shrink: 0;
       }
 
       #${containerId} .radio-grid {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
       }
 
       #${containerId} .radio-grid label {
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 10px;
+        gap: 6px;
+        padding: 6px 8px;
         border: 1px solid #DDE7F1;
-        border-radius: 8px;
+        border-radius: 6px;
         cursor: pointer;
         transition: all 0.2s;
+        font-size: 11px;
+        color: #1C2743;
       }
 
       #${containerId} .radio-grid label:hover {
@@ -2017,9 +2098,18 @@ function createFilterModal(config) {
       }
 
       #${containerId} .radio-grid input[type="radio"] {
-        width: 16px;
-        height: 16px;
+        width: 12px;
+        height: 12px;
         cursor: pointer;
+        flex-shrink: 0;
+      }
+
+      #${containerId} .radio-grid input[type="radio"]:checked + span,
+      #${containerId} .radio-grid label:has(input:checked) {
+        background: rgba(37, 99, 235, 0.08);
+        border-color: ${primaryColor};
+        color: ${primaryColor};
+        font-weight: 600;
       }
 
       #${containerId} .btn {
@@ -2134,14 +2224,18 @@ function createFilterModal(config) {
               <div class="radio-grid">
                 <label><input type="radio" name="sortMode" value="cons_desc" checked> Maior consumo</label>
                 <label><input type="radio" name="sortMode" value="cons_asc"> Menor consumo</label>
-                <label><input type="radio" name="sortMode" value="alpha_asc"> A → Z</label>
-                <label><input type="radio" name="sortMode" value="alpha_desc"> Z → A</label>
+                <label><input type="radio" name="sortMode" value="alpha_asc"> Nome A → Z</label>
+                <label><input type="radio" name="sortMode" value="alpha_desc"> Nome Z → A</label>
+                <label><input type="radio" name="sortMode" value="status_asc"> Status A → Z</label>
+                <label><input type="radio" name="sortMode" value="status_desc"> Status Z → A</label>
+                <label><input type="radio" name="sortMode" value="shopping_asc"> Shopping A → Z</label>
+                <label><input type="radio" name="sortMode" value="shopping_desc"> Shopping Z → A</label>
               </div>
             </div>
           </div>
           <div class="${modalClass}-footer">
-            <button class="btn" id="resetFilters">Limpar Filtros</button>
-            <button class="btn primary" id="applyFilters">Aplicar</button>
+            <button class="btn" id="resetFilters">Fechar</button>
+            <button class="btn primary" id="applyFilters">Ordenar</button>
           </div>
         </div>
       </div>
@@ -2192,12 +2286,11 @@ function createFilterModal(config) {
       });
     }
 
-    // Reset filters
+    // RFC-0095: Close button (renamed from Reset Filters)
     const resetBtn = modal.querySelector('#resetFilters');
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
-        LogHelper.log(`[${widgetName}] Filters reset`);
-        onReset();
+        LogHelper.log(`[${widgetName}] Modal closed`);
         close();
       });
     }

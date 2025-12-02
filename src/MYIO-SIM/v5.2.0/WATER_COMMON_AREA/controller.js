@@ -1,22 +1,17 @@
-/* global self, ctx */
+/* =========================================================================
+ * ThingsBoard Widget: Water Common Area - Device Cards for Water Meters (MyIO)
+ * RFC-0094: Aligned with WATER_STORES pattern using buildHeaderDevicesGrid and createFilterModal
+ * - Filters devices by aliasName = 'Todos Hidrometros Areas Comuns'
+ * - Uses domain='water' for M³ formatting
+ * - Datas obrigatórias: startDateISO / endDateISO
+ * - Se ausentes no onInit: usa "current month so far" (1º dia 00:00 → hoje 23:59)
+ * - Modal premium (busy) no widget durante carregamentos
+ * - Modal premium global (fora do widget) para sucesso, com contador e reload
+ * - onDataUpdated: no-op
+ * - Evento (myio:update-date): mostra modal + atualiza
+ * =========================================================================*/
 
-// RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
-function getDataApiHost() {
-  return localStorage.getItem('__MYIO_DATA_API_HOST__');
-}
-
-// RFC-0086: Get shopping label from localStorage (set by WELCOME widget)
-function getShoppingLabel() {
-  try {
-    const stored = localStorage.getItem('__MYIO_SHOPPING_LABEL__');
-    return stored ? JSON.parse(stored) : null;
-  } catch { return null; }
-}
-let CUSTOMER_ID;
-let CLIENT_ID;
-let CLIENT_SECRET;
-let INGESTION_ID;
-let MAP_INSTANTANEOUS_POWER;
+/* eslint-disable no-undef, no-unused-vars */
 
 // ============================================
 // SHARED UTILITIES (from MAIN via window.MyIOUtils)
@@ -27,1231 +22,751 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error(...args),
 };
 
-LogHelper.log('[MYIO WATER_COMMON_AREA] Script loaded');
+const getDataApiHost =
+  window.MyIOUtils?.getDataApiHost ||
+  (() => {
+    console.error('[WATER_COMMON_AREA] getDataApiHost not available - MAIN widget not loaded');
+    return localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com';
+  });
 
-// RFC-0057: Removed unused utility functions: d(), clamp(), formatNumber(), formatHours(), escapeHtml(), isDanger()
+// RFC-0071: Device Profile functions (from MAIN)
+const fetchDeviceProfiles =
+  window.MyIOUtils?.fetchDeviceProfiles ||
+  (() => {
+    console.error('[WATER_COMMON_AREA] fetchDeviceProfiles not available - MAIN widget not loaded');
+    return Promise.resolve(new Map());
+  });
 
-// RFC: Global refresh counter to limit data updates to 3 times maximum
-let _dataRefreshCount = 0;
-const MAX_DATA_REFRESHES = 1;
+const fetchDeviceDetails =
+  window.MyIOUtils?.fetchDeviceDetails ||
+  (() => {
+    console.error('[WATER_COMMON_AREA] fetchDeviceDetails not available - MAIN widget not loaded');
+    return Promise.resolve({});
+  });
 
-// RFC-0071: Device Profile Synchronization
-// Global flag to track if sync has been completed
+const addDeviceProfileAttribute =
+  window.MyIOUtils?.addDeviceProfileAttribute ||
+  (() => {
+    console.error('[WATER_COMMON_AREA] addDeviceProfileAttribute not available - MAIN widget not loaded');
+    return Promise.resolve({ ok: false, status: 0, data: null });
+  });
+
+const syncDeviceProfileAttributes =
+  window.MyIOUtils?.syncDeviceProfileAttributes ||
+  (() => {
+    console.error('[WATER_COMMON_AREA] syncDeviceProfileAttributes not available - MAIN widget not loaded');
+    return Promise.resolve({ synced: 0, skipped: 0, errors: 0 });
+  });
+
+// RFC-0094: UI Helper from MAIN (replaces local getCustomerNameForDevice)
+const getCustomerNameForDevice =
+  window.MyIOUtils?.getCustomerNameForDevice ||
+  ((device) => {
+    console.error('[WATER_COMMON_AREA] getCustomerNameForDevice not available - MAIN widget not loaded');
+    return device?.customerId ? `ID: ${device.customerId.substring(0, 8)}...` : 'N/A';
+  });
+
+// RFC-0094: Device status calculation functions from MAIN
+const getConsumptionRangesHierarchical = window.MyIOUtils?.getConsumptionRangesHierarchical;
+const mapConnectionStatus = window.MyIOUtils?.mapConnectionStatus || ((status) => status || 'offline');
+
+// RFC-0094: formatarDuracao for operationHours calculation (from MAIN)
+const formatarDuracao = window.MyIOUtils?.formatarDuracao || ((ms) => `${Math.round(ms / 1000)}s`);
+
+// RFC-0094: Global MAP_INSTANTANEOUS_POWER (will be loaded from settings if available)
+let MAP_INSTANTANEOUS_POWER = null;
+
+LogHelper.log('🚀 [WATER_COMMON_AREA] Controller loaded - VERSION WITH RFC-0094 PATTERN');
+
+const MAX_FIRST_HYDRATES = 1;
+
 let __deviceProfileSyncComplete = false;
 
-// ============================================
-// RFC-0087: WATER_COMMON_AREA - No submenu needed
-// This widget is specific for water common area hydrometers
-// Navigation between water views is handled by MENU modal
-// ============================================
-
-/**
- * RFC-0079: Render Lojas view (store telemetry)
- * The actual content is rendered by ThingsBoard state: content_store
- */
-function renderStoresView() {
-    LogHelper.log('[RFC-0079] Lojas view activated - content_store state is now visible');
-    // ThingsBoard <tb-dashboard-state> handles rendering automatically
-    // No manual rendering needed - the state is already in the template
-}
-
-/**
- * RFC-0079: Render Geral view (general overview - energy dashboard)
- * The actual content is rendered by ThingsBoard state: content_energy
- */
-function renderGeneralView() {
-    LogHelper.log('[RFC-0079] Geral (Energia) view activated - content_energy state is now visible');
-    // ThingsBoard <tb-dashboard-state> handles rendering automatically
-    // No manual rendering needed - the state is already in the template
-}
-
-// ============================================
-// RFC-0071: DEVICE PROFILE SYNCHRONIZATION
-// ============================================
-
-/**
- * Fetches all active device profiles from ThingsBoard
- * @returns {Promise<Map<string, string>>} Map of profileId -> profileName
- */
-async function fetchDeviceProfiles() {
-  const token = localStorage.getItem("jwt_token");
-  if (!token) throw new Error("[RFC-0071] JWT token not found");
-
-  const url = "/api/deviceProfile/names?activeOnly=true";
-
-  LogHelper.log("[WATER_COMMON_AREA] [RFC-0071] Fetching device profiles...");
-
-  const response = await fetch(url, {
-    headers: {
-      "X-Authorization": `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`[RFC-0071] Failed to fetch device profiles: ${response.status}`);
-  }
-
-  const profiles = await response.json();
-
-  // Build Map: profileId -> profileName
-  const profileMap = new Map();
-  profiles.forEach(profile => {
-    const profileId = profile.id.id;
-    const profileName = profile.name;
-    profileMap.set(profileId, profileName);
-  });
-
-  LogHelper.log(`[WATER_COMMON_AREA] [RFC-0071] Loaded ${profileMap.size} device profiles:`,
-    Array.from(profileMap.entries()).map(([id, name]) => name).join(", "));
-
-  return profileMap;
-}
-
-/**
- * Fetches device details including deviceProfileId
- * @param {string} deviceId - Device entity ID
- * @returns {Promise<Object>}
- */
-async function fetchDeviceDetails(deviceId) {
-  const token = localStorage.getItem("jwt_token");
-  if (!token) throw new Error("[RFC-0071] JWT token not found");
-
-  const url = `/api/device/${deviceId}`;
-
-  const response = await fetch(url, {
-    headers: {
-      "X-Authorization": `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`[RFC-0071] Failed to fetch device ${deviceId}: ${response.status}`);
-  }
-
-  return await response.json();
-}
-
-/**
- * Saves deviceProfile as a server-scope attribute on the device
- * @param {string} deviceId - Device entity ID
- * @param {string} deviceProfile - Profile name (e.g., "MOTOR", "3F_MEDIDOR")
- * @returns {Promise<{ok: boolean, status: number, data: any}>}
- */
-async function addDeviceProfileAttribute(deviceId, deviceProfile) {
-  const t = Date.now();
-
-  try {
-    if (!deviceId) throw new Error("deviceId is required");
-    if (deviceProfile == null || deviceProfile === "") {
-      throw new Error("deviceProfile is required");
-    }
-
-    const token = localStorage.getItem("jwt_token");
-    if (!token) throw new Error("jwt_token not found in localStorage");
-
-    const url = `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`;
-    const headers = {
-      "Content-Type": "application/json",
-      "X-Authorization": `Bearer ${token}`,
-    };
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ deviceProfile }),
-    });
-
-    const bodyText = await res.text().catch(() => "");
-
-    if (!res.ok) {
-      throw new Error(
-        `[RFC-0071] HTTP ${res.status} ${res.statusText} - ${bodyText}`
-      );
-    }
-
-    let data = null;
-    try {
-      data = bodyText ? JSON.parse(bodyText) : null;
-    } catch {
-      // Response may not be JSON
-    }
-
-    const dt = Date.now() - t;
-    LogHelper.log(
-      `[WATER_COMMON_AREA] [RFC-0071] ✅ Saved deviceProfile | device=${deviceId} | "${deviceProfile}" | ${dt}ms`
-    );
-
-    return { ok: true, status: res.status, data };
-  } catch (err) {
-    const dt = Date.now() - t;
-    LogHelper.error(
-      `[WATER_COMMON_AREA] [RFC-0071] ❌ Failed to save deviceProfile | device=${deviceId} | "${deviceProfile}" | ${dt}ms | error: ${err?.message || err}`
-    );
-    throw err;
-  }
-}
-
-/**
- * Main synchronization function
- * Checks all devices and syncs missing deviceProfile attributes
- * @returns {Promise<{synced: number, skipped: number, errors: number}>}
- */
-async function syncDeviceProfileAttributes() {
-  LogHelper.log("[WATER_COMMON_AREA] [RFC-0071] 🔄 Starting device profile synchronization...");
-
-  try {
-    // Step 1: Fetch all device profiles
-    const profileMap = await fetchDeviceProfiles();
-
-    let synced = 0;
-    let skipped = 0;
-    let errors = 0;
-
-    // Step 2: Build a map of devices that need sync
-    const deviceMap = new Map();
-
-    self.ctx.data.forEach((data) => {
-      const entityId = data.datasource?.entity?.id?.id;
-      const existingProfile = data.datasource?.deviceProfile;
-
-      if (!entityId) return;
-
-      // Skip if already has deviceProfile attribute
-      if (existingProfile) {
-        skipped++;
-        return;
-      }
-
-      // Store for processing (deduplicate by entityId)
-      if (!deviceMap.has(entityId)) {
-        deviceMap.set(entityId, {
-          entityLabel: data.datasource?.entityLabel,
-          entityName: data.datasource?.entityName,
-          name: data.datasource?.name,
-        });
-      }
-    });
-
-    LogHelper.log(`[WATER_COMMON_AREA] [RFC-0071] Found ${deviceMap.size} devices without deviceProfile attribute`);
-    LogHelper.log(`[WATER_COMMON_AREA] [RFC-0071] Skipped ${skipped} devices that already have deviceProfile`);
-
-    if (deviceMap.size === 0) {
-      LogHelper.log("[WATER_COMMON_AREA] [RFC-0071] ✅ All devices already synchronized!");
-      return { synced: 0, skipped, errors: 0 };
-    }
-
-    // Step 3: Fetch device details and sync attributes
-    let processed = 0;
-    for (const [entityId, deviceInfo] of deviceMap) {
-      processed++;
-      const deviceLabel = deviceInfo.entityLabel || deviceInfo.entityName || deviceInfo.name || entityId;
-
-      try {
-        LogHelper.log(`[WATER_COMMON_AREA] [RFC-0071] Processing ${processed}/${deviceMap.size}: ${deviceLabel}`);
-
-        // Fetch device details to get deviceProfileId
-        const deviceDetails = await fetchDeviceDetails(entityId);
-        const deviceProfileId = deviceDetails.deviceProfileId?.id;
-
-        if (!deviceProfileId) {
-          LogHelper.warn(`[WATER_COMMON_AREA] [RFC-0071] ⚠️ Device ${deviceLabel} has no deviceProfileId`);
-          errors++;
-          continue;
-        }
-
-        // Look up profile name from map
-        const profileName = profileMap.get(deviceProfileId);
-
-        if (!profileName) {
-          LogHelper.warn(`[WATER_COMMON_AREA] [RFC-0071] ⚠️ Profile ID ${deviceProfileId} not found in map`);
-          errors++;
-          continue;
-        }
-
-        // Save attribute
-        await addDeviceProfileAttribute(entityId, profileName);
-        synced++;
-
-        LogHelper.log(`[WATER_COMMON_AREA] [RFC-0071] ✅ Synced ${deviceLabel} -> ${profileName}`);
-
-        // Small delay to avoid overwhelming the API
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-      } catch (error) {
-        LogHelper.error(`[WATER_COMMON_AREA] [RFC-0071] ❌ Failed to sync device ${deviceLabel}:`, error);
-        errors++;
-      }
-    }
-
-    LogHelper.log(`[WATER_COMMON_AREA] [RFC-0071] 🎉 Sync complete: ${synced} synced, ${skipped} skipped, ${errors} errors`);
-
-    return { synced, skipped, errors };
-
-  } catch (error) {
-    LogHelper.error("[WATER_COMMON_AREA] [RFC-0071] ❌ Fatal error during sync:", error);
-    throw error;
-  }
-}
-
-// ============================================
-// RFC-0078: UNIFIED JSON POWER LIMITS CONFIGURATION
-// ============================================
-
-/**
- * Default consumption ranges for each device type (TIER 3 - fallback)
- * Used when no device or customer JSON configuration exists
- */
-const DEFAULT_CONSUMPTION_RANGES = {
-  'ELEVADOR': {
-    standbyRange: { down: 0, up: 150 },
-    normalRange: { down: 151, up: 800 },
-    alertRange: { down: 801, up: 1200 },
-    failureRange: { down: 1201, up: 99999 }
-  },
-  'ESCADA_ROLANTE': {
-    standbyRange: { down: 0, up: 200 },
-    normalRange: { down: 201, up: 1000 },
-    alertRange: { down: 1001, up: 1500 },
-    failureRange: { down: 1501, up: 99999 }
-  },
-  'CHILLER': {
-    standbyRange: { down: 0, up: 1000 },
-    normalRange: { down: 1001, up: 6000 },
-    alertRange: { down: 6001, up: 8000 },
-    failureRange: { down: 8001, up: 99999 }
-  },
-  'AR_CONDICIONADO': {
-    standbyRange: { down: 0, up: 500 },
-    normalRange: { down: 501, up: 3000 },
-    alertRange: { down: 3001, up: 5000 },
-    failureRange: { down: 5001, up: 99999 }
-  },
-  'HVAC': {
-    standbyRange: { down: 0, up: 500 },
-    normalRange: { down: 501, up: 3000 },
-    alertRange: { down: 3001, up: 5000 },
-    failureRange: { down: 5001, up: 99999 }
-  },
-  'MOTOR': {
-    standbyRange: { down: 0, up: 200 },
-    normalRange: { down: 201, up: 1000 },
-    alertRange: { down: 1001, up: 1500 },
-    failureRange: { down: 1501, up: 99999 }
-  },
-  'BOMBA': {
-    standbyRange: { down: 0, up: 200 },
-    normalRange: { down: 201, up: 1000 },
-    alertRange: { down: 1001, up: 1500 },
-    failureRange: { down: 1501, up: 99999 }
-  },
-  'DEFAULT': {
-    standbyRange: { down: 0, up: 100 },
-    normalRange: { down: 101, up: 1000 },
-    alertRange: { down: 1001, up: 2000 },
-    failureRange: { down: 2001, up: 99999 }
-  }
-};
-
-// Cache for JSON power limits configuration
-// Map<entityId, {json: Object, timestamp: number}>
-const powerLimitsJSONCache = new Map();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-/**
- * RFC-0078: Fetch unified JSON power limits from ThingsBoard entity
- * @param {string} entityId - Entity ID (device or customer)
- * @param {string} entityType - 'DEVICE' or 'CUSTOMER'
- * @returns {Promise<Object|null>} Parsed JSON configuration or null
- */
-async function fetchInstantaneousPowerLimits(entityId, entityType = 'CUSTOMER') {
-  const token = localStorage.getItem("jwt_token");
-  if (!token) {
-    LogHelper.warn("[RFC-0078] JWT token not found");
-    return null;
-  }
-
-  console.log('entityId', entityId);
-  
-
-  const url = `/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        "X-Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        LogHelper.log(`[RFC-0078] No attributes found for ${entityType} ${entityId}`);
-        return null;
-      }
-      LogHelper.warn(`[RFC-0078] Failed to fetch ${entityType} attributes: ${response.status}`);
-      return null;
-    }
-
-    const attributes = await response.json();
-
-    console.log('attributes >>>>>>>>>>>>', attributes);
-    
-
-    // Find mapInstantaneousPower attribute
-    const powerLimitsAttr = attributes.find(attr => attr.key === 'mapInstantaneousPower');
-
-    if (!powerLimitsAttr) {
-      //LogHelper.log(`[RFC-0078] mapInstantaneousPower not found on ${entityType} ${entityId}`);
-      return null;
-    }
-
-    // Parse JSON value
-    let limits;
-    if (typeof powerLimitsAttr.value === 'string') {
-      try {
-        limits = JSON.parse(powerLimitsAttr.value);
-      } catch (parseError) {
-        LogHelper.error(`[RFC-0078] Failed to parse JSON for ${entityType} ${entityId}:`, parseError);
-        return null;
-      }
-    } else {
-      limits = powerLimitsAttr.value;
-    }
-
-    LogHelper.log(`[RFC-0078] ✅ Loaded mapInstantaneousPower from ${entityType} ${entityId}:`, {
-      version: limits.version,
-      telemetryTypes: limits.limitsByInstantaneoustPowerType?.length || 0
-    });
-
-    return limits;
-
-  } catch (error) {
-    LogHelper.error(`[RFC-0078] Error fetching ${entityType} power limits:`, error);
-    return null;
-  }
-}
-
-/**
- * RFC-0078: Extract consumption ranges from unified JSON structure
- * @param {Object} powerLimitsJSON - The mapInstantaneousPower JSON object
- * @param {string} deviceType - Device type (e.g., 'ELEVADOR')
- * @param {string} telemetryType - Telemetry type (default: 'consumption')
- * @returns {Object|null} Range configuration or null
- */
-function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'consumption') {
-  if (!powerLimitsJSON || !powerLimitsJSON.limitsByInstantaneoustPowerType) {
-    return null;
-  }
-
-  // Find telemetry type configuration
-  const telemetryConfig = powerLimitsJSON.limitsByInstantaneoustPowerType.find(
-    config => config.telemetryType === telemetryType
-  );
-
-  if (!telemetryConfig) {
-    LogHelper.log(`[RFC-0078] Telemetry type ${telemetryType} not found in JSON`);
-    return null;
-  }
-
-  // Find device type configuration
-  const deviceConfig = telemetryConfig.itemsByDeviceType.find(
-    item => item.deviceType === deviceType || item.deviceType === deviceType.toUpperCase()
-  );
-
-  if (!deviceConfig) {
-    LogHelper.log(`[RFC-0078] Device type ${deviceType} not found for telemetry ${telemetryType}`);
-    return null;
-  }
-
-  // Extract ranges by status
-  const ranges = {
-    standbyRange: { down: 0, up: 0 },
-    normalRange: { down: 0, up: 0 },
-    alertRange: { down: 0, up: 0 },
-    failureRange: { down: 0, up: 0 }
-  };
-
-  deviceConfig.limitsByDeviceStatus.forEach(status => {
-    const baseValue = status.limitsValues?.baseValue ?? status.limitsVales?.baseValue ?? 0;
-    const topValue = status.limitsValues?.topValue ?? status.limitsVales?.topValue ?? 99999;
-
-    switch (status.deviceStatusName) {
-      case 'standBy':
-        ranges.standbyRange = { down: baseValue, up: topValue };
-        break;
-      case 'normal':
-        ranges.normalRange = { down: baseValue, up: topValue };
-        break;
-      case 'alert':
-        ranges.alertRange = { down: baseValue, up: topValue };
-        break;
-      case 'failure':
-        ranges.failureRange = { down: baseValue, up: topValue };
-        break;
-    }
-  });
-
-  return {
-    ...ranges,
-    source: 'json',
-    tier: 2, // Will be updated to 1 if from device
-    metadata: {
-      name: deviceConfig.name,
-      description: deviceConfig.description,
-      version: powerLimitsJSON.version,
-      telemetryType: telemetryType
-    }
-  };
-}
-
-/**
- * RFC-0078: Gets default ranges for a device type (TIER 3)
- * @param {string} deviceType - Device type
- * @returns {Object} Default ranges
- */
-function getDefaultRanges(deviceType) {
-  const upperDeviceType = deviceType.toUpperCase();
-  return DEFAULT_CONSUMPTION_RANGES[upperDeviceType] || DEFAULT_CONSUMPTION_RANGES['DEFAULT'];
-}
-
-/**
- * RFC-0078: Gets cached or fetches power limits JSON
- * For DEVICE: reads from ctx.data[] with dataKey = mapInstantaneousPower (no API call)
- * For CUSTOMER: fetches via API
- * @param {string} entityId - Entity ID
- * @param {string} entityType - 'DEVICE' or 'CUSTOMER'
- * @param {Object} ctxData - Optional ctx.data array from widget context (for DEVICE lookups)
- * @returns {Promise<Object|null>} JSON configuration
- */
-async function getCachedPowerLimitsJSON(entityId, entityType = 'CUSTOMER', ctxData = null) {
-  if (!entityId) return null;
-
-  const cacheKey = `${entityType}:${entityId}`;
-  const cached = powerLimitsJSONCache.get(cacheKey);
-  const now = Date.now();
-
-  if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
-    //LogHelper.log(`[RFC-0078] Using cached JSON for ${entityType} ${entityId}`);
-    return cached.json;
-  }
-
-  let json = null;
-
-  if (entityType === 'DEVICE' && ctxData) {
-    // RFC-0078: For DEVICE, read from ctx.data[] instead of API call
-    // Device mapInstantaneousPower is available as dataKey in widget context
-    const powerLimitsData = ctxData.find(d => d.dataKey && d.dataKey.name === 'mapInstantaneousPower');
-
-    if (powerLimitsData && powerLimitsData.data && powerLimitsData.data.length > 0) {
-      const latestValue = powerLimitsData.data[powerLimitsData.data.length - 1];
-      const rawValue = latestValue[1]; // [timestamp, value]
-
-      if (typeof rawValue === 'string') {
-        try {
-          json = JSON.parse(rawValue);
-          LogHelper.log(`[RFC-0078] ✅ Loaded mapInstantaneousPower from ctx.data for DEVICE ${entityId}:`, {
-            version: json.version,
-            telemetryTypes: json.limitsByInstantaneoustPowerType?.length || 0
-          });
-        } catch (parseError) {
-          LogHelper.warn(`[RFC-0078] Failed to parse DEVICE JSON from ctx.data:`, parseError);
-          // Fallback: return empty structure to indicate device has no config
-          json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
-        }
-      } else if (typeof rawValue === 'object') {
-        json = rawValue;
-        LogHelper.log(`[RFC-0078] ✅ Loaded mapInstantaneousPower (object) from ctx.data for DEVICE ${entityId}`);
-      }
-    } else {
-      // Device doesn't have mapInstantaneousPower - return empty structure
-      LogHelper.log(`[RFC-0078] mapInstantaneousPower not found in ctx.data for DEVICE ${entityId}, using empty fallback`);
-      json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
-    }
-  } else if (entityType === 'CUSTOMER') {
-    console.log('entityId getCachedPowerLimitsJSON', entityId);
-    
-    // For CUSTOMER, fetch via API
-    json = await fetchInstantaneousPowerLimits(entityId, entityType);
-  } else {
-    // Fallback: fetch via API (old behavior, commented for reference)
-    // json = await fetchInstantaneousPowerLimits(entityId, entityType);
-    //LogHelper.warn(`[RFC-0078] DEVICE lookup without ctxData, returning empty structure`);
-    json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
-  }
-
-  // Cache even null/empty results to avoid repeated lookups
-  powerLimitsJSONCache.set(cacheKey, {
-    json: json,
-    timestamp: now
-  });
-
-  return json;
-}
-
-/**
- * RFC-0078: Gets consumption limits with hierarchical resolution using JSON structure
- * TIER 1: Device-level mapInstantaneousPower (highest priority)
- * TIER 2: Customer-level mapInstantaneousPower
- * TIER 3: Hardcoded defaults (fallback)
- *
- * @param {string} deviceId - Device entity ID
- * @param {string} deviceType - Device type (for config lookup)
- * @param {Object} customerLimitsJSON - Pre-fetched customer JSON (TIER 2)
- * @param {string} telemetryType - Telemetry type (default: 'consumption')
- * @param {Object} ctxData - Optional ctx.data array from widget context (for DEVICE lookups)
- * @returns {Promise<Object>} Consumption ranges with source indicator
- */
-async function getConsumptionRangesHierarchical(deviceId, deviceType, customerLimitsJSON, telemetryType = 'consumption', ctxData = null) {
-  //LogHelper.log(`[RFC-0078] Resolving limits for device ${deviceId}, type ${deviceType}, telemetry ${telemetryType}`);
-
-  // TIER 1: Try device-level JSON first (highest priority)
-  // Reads from ctx.data[] if available, no API call needed
-  
-  const deviceLimitsJSON = await getCachedPowerLimitsJSON(deviceId, 'DEVICE', ctxData);
-  if (deviceLimitsJSON && deviceLimitsJSON.limitsByInstantaneoustPowerType && deviceLimitsJSON.limitsByInstantaneoustPowerType.length > 0) {
-    const deviceRanges = extractLimitsFromJSON(deviceLimitsJSON, deviceType, telemetryType);
-    if (deviceRanges) {
-      //LogHelper.log(`[RFC-0078] ✅ Using DEVICE-level JSON for ${deviceId} (TIER 1)`);
-      return { ...deviceRanges, source: 'device', tier: 1 };
-    }
-  }
-
-  // TIER 2: Try customer-level JSON
-  if (customerLimitsJSON) {
-    const customerRanges = extractLimitsFromJSON(customerLimitsJSON, deviceType, telemetryType);
-    if (customerRanges) {
-      //LogHelper.log(`[RFC-0078] ✅ Using CUSTOMER-level JSON for ${deviceType} (TIER 2)`);
-      return { ...customerRanges, source: 'customer', tier: 2 };
-    }
-  }
-
-  // TIER 3: Hardcoded defaults
-  LogHelper.log(`[RFC-0078] Using HARDCODED defaults for ${deviceType} (TIER 3)`);
-  const defaultRanges = getDefaultRanges(deviceType);
-  return {
-    ...defaultRanges,
-    source: 'hardcoded',
-    tier: 3,
-    metadata: {
-      name: `Default${deviceType}`,
-      description: `System default for ${deviceType}`,
-      version: '0.0.0',
-      telemetryType: telemetryType
-    }
-  };
-}
-
-/**
- * RFC-0078: Validate JSON structure before saving (for future UI integration)
- * @param {Object} json - The JSON to validate
- * @returns {Array<string>} Array of error messages (empty if valid)
- */
-function validateInstantaneousPowerJSON(json) {
-  const errors = [];
-
-  // Check version
-  if (!json.version || typeof json.version !== 'string') {
-    errors.push('Missing or invalid version field');
-  }
-
-  // Check main array
-  if (!Array.isArray(json.limitsByInstantaneoustPowerType)) {
-    errors.push('Missing or invalid limitsByInstantaneoustPowerType array');
-    return errors;
-  }
-
-  // Validate each telemetry type
-  json.limitsByInstantaneoustPowerType.forEach((telemetryConfig, tIndex) => {
-    if (!telemetryConfig.telemetryType) {
-      errors.push(`Telemetry config at index ${tIndex} missing telemetryType`);
-    }
-
-    if (!Array.isArray(telemetryConfig.itemsByDeviceType)) {
-      errors.push(`Telemetry ${telemetryConfig.telemetryType} missing itemsByDeviceType array`);
-      return;
-    }
-
-    // Validate each device type
-    telemetryConfig.itemsByDeviceType.forEach((deviceConfig, dIndex) => {
-      if (!deviceConfig.deviceType) {
-        errors.push(`Device config at ${tIndex}/${dIndex} missing deviceType`);
-      }
-
-      if (!Array.isArray(deviceConfig.limitsByDeviceStatus)) {
-        errors.push(`Device ${deviceConfig.deviceType} missing limitsByDeviceStatus array`);
-        return;
-      }
-
-      // Validate status limits
-      const requiredStatuses = ['standBy', 'normal', 'alert', 'failure'];
-      const foundStatuses = deviceConfig.limitsByDeviceStatus.map(s => s.deviceStatusName);
-
-      requiredStatuses.forEach(status => {
-        if (!foundStatuses.includes(status)) {
-          errors.push(`Device ${deviceConfig.deviceType} missing ${status} configuration`);
-        }
-      });
-
-      // Validate value ranges
-      deviceConfig.limitsByDeviceStatus.forEach(status => {
-        const values = status.limitsValues || status.limitsVales;
-        if (!values) {
-          errors.push(`Status ${status.deviceStatusName} missing limitsValues`);
-          return;
-        }
-
-        const base = values.baseValue;
-        const top = values.topValue;
-
-        if (typeof base !== 'number' || typeof top !== 'number') {
-          errors.push(`Status ${status.deviceStatusName} has invalid numeric values`);
-        }
-
-        if (base > top) {
-          errors.push(`Status ${status.deviceStatusName} has baseValue > topValue`);
-        }
-      });
-    });
-  });
-
-  return errors;
-}
-
-// Store customer limits JSON globally for the widget session
-window.__customerPowerLimitsJSON = null;
-
-/**
- * RFC-0078: Alias for backward compatibility with RFC-0077 calls
- */
-async function getCachedConsumptionLimits(customerId) {
-  console.log(`[RFC-0078] getCachedConsumptionLimits called for customer ${customerId}`);
-  return getCachedPowerLimitsJSON(customerId, 'CUSTOMER');
-}
-
-// ============================================
-// END RFC-0078
-// ============================================
-
-// MyIOAuth - initialized in onInit using MyIOLibrary.buildMyioIngestionAuth
+// RFC-0094: Centralized header controller
+let waterCommonAreaHeaderController = null;
+
+let dateUpdateHandler = null;
+let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
+let MyIO = null;
+let hasRequestedInitialData = false; // Flag to prevent duplicate initial requests
+let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent duplicate processing
+let busyTimeoutId = null; // Timeout ID for busy fallback
+
+// RFC-0094: Widget configuration (from settings) - WATER DOMAIN
+let WIDGET_DOMAIN = 'water';
+
+// RFC-0063: Classification mode configuration
+let USE_IDENTIFIER_CLASSIFICATION = false; // Flag to enable identifier-based classification
+let USE_HYBRID_CLASSIFICATION = false; // Flag to enable hybrid mode (identifier + labels)
+
+/** ===================== STATE ===================== **/
+let CLIENT_ID = '';
+let CLIENT_SECRET = '';
+let CUSTOMER_ING_ID = '';
 let MyIOAuth = null;
 
-async function fetchCustomerServerScopeAttrs(customerTbId) {
-  if (!customerTbId) return {};
-  const tbToken = localStorage.getItem("jwt_token");
-  if (!tbToken)
-    throw new Error(
-      "JWT do ThingsBoard não encontrado (localStorage.jwt_token)."
-    );
+const STATE = {
+  itemsBase: [], // lista autoritativa (TB)
+  itemsEnriched: [], // lista com totals + perc
+  searchActive: false,
+  searchTerm: '',
+  selectedIds: /** @type {Set<string> | null} */ (null),
+  sortMode: /** @type {'cons_desc'|'cons_asc'|'alpha_asc'|'alpha_desc'|'status_asc'|'status_desc'|'shopping_asc'|'shopping_desc'} */ ('cons_desc'),
+  firstHydrates: 0,
+};
 
-  const url = `/api/plugins/telemetry/CUSTOMER/${customerTbId}/values/attributes/SERVER_SCOPE`;
-  const res = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      "X-Authorization": `Bearer ${tbToken}`,
-    },
-  });
-  if (!res.ok) {
-    LogHelper.warn(`[equipaments] [customer attrs] HTTP ${res.status}`);
-    return {};
-  }
-  const payload = await res.json();
+let hydrating = false;
 
-  // Pode vir como array [{key,value}] OU como objeto { key: [{value}] }
-  const map = {};
-  if (Array.isArray(payload)) {
-    for (const it of payload) map[it.key] = it.value;
-  } else if (payload && typeof payload === "object") {
-    for (const k of Object.keys(payload)) {
-      const v = payload[k];
-      if (Array.isArray(v) && v.length) map[k] = v[0]?.value ?? v[0];
-    }
-  }
-  return map;
+/** ===================== HELPERS (DOM) ===================== **/
+const $root = () => $(self.ctx.$container[0]);
+const $list = () => $root().find('#waterCommonAreaList');
+const $count = () => $root().find('#waterCommonAreaCount');
+const $total = () => $root().find('#waterCommonAreaTotal');
+const $modal = () => $root().find('#filterModal');
+
+/** ===================== BUSY MODAL (no widget) ===================== **/
+const BUSY_ID = 'myio-busy-modal';
+function ensureBusyModalDOM() {
+  let $m = $root().find(`#${BUSY_ID}`);
+  if ($m.length) return $m;
+
+  const html = `
+  <div id="${BUSY_ID}" style="
+      position:absolute; inset:0; display:none;
+      background: rgba(150,132,181,0.45); /* #9684B5 com transparência */
+      backdrop-filter: blur(5px);
+      z-index:9999; align-items:center; justify-content:center;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;">
+    <div style="
+        background:#2d1458; color:#fff;
+        border:1px solid rgba(255,255,255,0.10);
+        box-shadow:0 12px 40px rgba(0,0,0,.35);
+        border-radius:18px; padding:22px 26px; min-width:320px;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div class="spinner" style="
+            width:22px;height:22px;border-radius:50%;
+            border:3px solid rgba(255,255,255,.25);
+            border-top-color:#ffffff; animation:spin .9s linear infinite;"></div>
+        <div id="${BUSY_ID}-msg" style="font-weight:600; font-size:14px; letter-spacing:.2px;">
+          aguarde.. carregando os dados...
+        </div>
+      </div>
+    </div>
+  </div>
+  <style>
+    @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+  </style>`;
+  $root().css('position', 'relative'); // garante overlay correto
+  $root().append(html);
+  return $root().find(`#${BUSY_ID}`);
 }
 
-// RFC-0057: Removed unused functions: toSpOffsetNoMs(), getTimeWindowRange()
+// RFC-0044: Use centralized busy management
+function showBusy(message, timeoutMs = 35000) {
+  LogHelper.log(`[WATER_COMMON_AREA] 🔄 showBusy() called with message: "${message || 'default'}"`);
 
-/**
- * Converte um timestamp em uma string de tempo relativo (ex: "há 5 minutos").
- * @param {number} timestamp - O timestamp em milissegundos.
- * @returns {string} A string formatada.
- */
-function formatRelativeTime(timestamp) {
-  if (!timestamp || timestamp <= 0) {
-    return "—"; // Retorna um traço se não houver timestamp válido
-  }
-
-  const now = Date.now();
-  const diffSeconds = Math.round((now - timestamp) / 1000);
-
-  if (diffSeconds < 10) {
-    return "agora";
-  }
-  if (diffSeconds < 60) {
-    return `há ${diffSeconds}s`;
-  }
-
-  const diffMinutes = Math.round(diffSeconds / 60);
-  if (diffMinutes === 1) {
-    return "há 1 min";
-  }
-  if (diffMinutes < 60) {
-    return `há ${diffMinutes} mins`;
-  }
-
-  const diffHours = Math.round(diffMinutes / 60);
-  if (diffHours === 1) {
-    return "há 1 hora";
-  }
-  if (diffHours < 24) {
-    return `há ${diffHours} horas`;
-  }
-
-  const diffDays = Math.round(diffHours / 24);
-  if (diffDays === 1) {
-    return "ontem";
-  }
-  if (diffDays <= 30) {
-    return `há ${diffDays} dias`;
-  }
-
-  // Se for mais antigo, mostra a data
-  return new Date(timestamp).toLocaleDateString("pt-BR");
-}
-
-/**
- * Função MOCK para simular a busca do último valor de temperatura de um dispositivo no ThingsBoard.
- * Ela imita uma chamada de API assíncrona, retornando uma Promise.
- *
- * @param {string} deviceId - O ID do dispositivo que você quer consultar.
- * @returns {Promise<Array<{ts: number, value: number}>>} Uma promise que resolve com um array contendo
- * o dado de telemetria mais recente (timestamp e valor).
- */
-async function getDeviceTemperature(deviceId, token) {
-  // 1. Validação básica da entrada
-  if (!deviceId) {
-    return Promise.reject(new Error("O ID do dispositivo não pode ser nulo."));
-  }
-
-  // 2. Simula um atraso de rede (entre 300ms e 1000ms)
-  const networkDelay = Math.random() * 700 + 300;
-
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      // 3. Simula uma chance de sucesso
-      const isSuccess = true;
-
-      if (isSuccess) {
-        // Gera um valor de temperatura aleatório entre 18.0 e 32.0
-        const mockTemperature = (Math.random() * 14 + 18).toFixed(2);
-        const mockTimestamp = Date.now();
-
-        // 4. Monta a resposta em um formato similar ao da API do ThingsBoard
-        // A API geralmente retorna um array de objetos, mesmo para o valor mais recente.
-        const responseData = [
-          {
-            ts: mockTimestamp,
-            value: parseFloat(mockTemperature), // A API retorna um número
-          },
-        ];
-
-        resolve(responseData);
-      } else {
-        // 5. Simula um erro de API
-        const errorMessage = `[MOCK] Erro: Não foi possível encontrar o dispositivo com ID ${deviceId}.`;
-        LogHelper.error(errorMessage);
-        reject(new Error(errorMessage));
-      }
-    }, networkDelay);
-  });
-}
-
-// RFC-0057: Removed unused functions: isValidUUID(), updateTotalConsumption(), fetchWithAuth(), latestNumber(), resolveEntityValue(), getKeyByValue()
-
-// Log function
-function log(message, type = "info") {
-  const logOutput = document.getElementById("log-output");
-  const time = new Date().toLocaleTimeString("pt-BR");
-  const entry = document.createElement("div");
-  entry.className = "log-entry";
-  entry.innerHTML = `<span class="log-time">${time}</span>${message}`;
-}
-
-function formatarDuracao(ms) {
-  // 1. Lida com casos de entrada inválida ou zero.
-  if (typeof ms !== "number" || ms < 0 || !isFinite(ms)) {
-    return "0s";
-  }
-  if (ms === 0) {
-    return "0s";
-  }
-
-  // 2. Calcula cada componente da duração.
-  const segundos = Math.floor((ms / 1000) % 60);
-  const minutos = Math.floor((ms / (1000 * 60)) % 60);
-  const horas = Math.floor((ms / (1000 * 60 * 60)) % 24);
-  const dias = Math.floor(ms / (1000 * 60 * 60 * 24));
-
-  // 3. Monta a string de resultado de forma inteligente.
-  const parts = [];
-  if (dias > 0) {
-    parts.push(`${dias}d`);
-    if (horas > 0) {
-      parts.push(`${horas}h`);
-    }
-  } else if (horas > 0) {
-    parts.push(`${horas}h`);
-    if (minutos > 0) {
-      parts.push(`${minutos}m`);
-    }
-  } else if (minutos > 0) {
-    parts.push(`${minutos}m`);
-    if (segundos > 0) {
-      parts.push(`${segundos}s`);
-    }
-  } else {
-    parts.push(`${segundos}s`);
-  }
-
-  // 4. Retorna a string final, ou "0s" se for muito pequena.
-  return parts.length > 0 ? parts.join(" ") : "0s";
-}
-
-// RFC-0057: Removed unused function: fetchLastConnectTime() (was commented out in usage anyway)
-
-// Show/hide loading overlay
-function showLoadingOverlay(show) {
-  const overlay = document.getElementById("water-loading-overlay");
-  if (overlay) {
-    overlay.style.display = show ? "flex" : "none";
-  }
-}
-
-/**
- * Update equipment statistics header
- * @param {Array} devices - Array of device objects with consumption data
- */
-function updateEquipmentStats(devices) {
-  const connectivityEl = document.getElementById("waterStatsConnectivity");
-  const totalEl = document.getElementById("waterStatsTotal");
-  const consumptionEl = document.getElementById("waterStatsConsumption");
-  const zeroEl = document.getElementById("waterStatsZero");
-
-  if (!connectivityEl || !totalEl || !consumptionEl || !zeroEl) {
-    LogHelper.warn("[WATER_COMMON_AREA] Stats header elements not found");
+  // Prevent multiple simultaneous busy calls
+  if (window.busyInProgress) {
+    LogHelper.log(`[WATER_COMMON_AREA] ⏭️ Skipping duplicate showBusy() call`);
     return;
   }
 
-  // Calculate connectivity (online vs total) from ctx.data
-  // Group by entityId to count each device only once
-  const deviceMap = new Map(); // entityId -> { hasConnectionStatus: bool, isOnline: bool }
+  window.busyInProgress = true;
 
-  if (self.ctx && Array.isArray(self.ctx.data)) {
-    self.ctx.data.forEach((data) => {
-      const entityId = data.datasource?.entityId;
-      const dataKeyName = data.dataKey?.name;
-
-      if (!entityId) return;
-
-      // Initialize device entry if doesn't exist
-      if (!deviceMap.has(entityId)) {
-        deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false });
+  // Centralized busy with enhanced synchronization
+  const safeShowBusy = () => {
+    try {
+      if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.showGlobalBusy === 'function') {
+        const text = (message && String(message).trim()) || 'Carregando dados...';
+        window.MyIOOrchestrator.showGlobalBusy(WIDGET_DOMAIN, text, timeoutMs);
+        LogHelper.log(`[WATER_COMMON_AREA] ✅ Using centralized busy for domain: ${WIDGET_DOMAIN}`);
+      } else {
+        LogHelper.warn(`[WATER_COMMON_AREA] ⚠️ Orchestrator not available, using fallback busy`);
+        const $m = ensureBusyModalDOM();
+        const text = (message && String(message).trim()) || 'aguarde.. carregando os dados...';
+        $m.find(`#${BUSY_ID}-msg`).text(text);
+        $m.css('display', 'flex');
       }
+    } catch (err) {
+      LogHelper.error(`[WATER_COMMON_AREA] ❌ Error in showBusy:`, err);
+    } finally {
+      // Always reset busy flag after a short delay
+      setTimeout(() => {
+        window.busyInProgress = false;
+      }, 500);
+    }
+  };
 
-      // Check if this is the connectionStatus dataKey
-      if (dataKeyName === "connectionStatus") {
-        const status = String(data.data?.[0]?.[1] || '').toLowerCase();
-        deviceMap.get(entityId).hasConnectionStatus = true;
-        deviceMap.get(entityId).isOnline = (status === "online");
-      }
-    });
+  safeShowBusy();
+}
+
+function hideBusy() {
+  LogHelper.log(`[WATER_COMMON_AREA] ✅ hideBusy() called`);
+
+  // RFC-0044: Use centralized busy management
+  if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.hideGlobalBusy === 'function') {
+    window.MyIOOrchestrator.hideGlobalBusy(WIDGET_DOMAIN);
   }
 
-  // Count online devices (only water hydrometers, exclude lojas)
+  // Also hide local fallback
+  const $m = $root().find(`#${BUSY_ID}`);
+  if ($m.length) $m.css('display', 'none');
+}
+
+/** ===================== GLOBAL SUCCESS MODAL ===================== **/
+const SUCCESS_MODAL_ID = 'myio-global-success-modal';
+function showGlobalSuccessModal(countdown = 5) {
+  LogHelper.log('[WATER_COMMON_AREA] showGlobalSuccessModal');
+  let $m = $(document.body).find(`#${SUCCESS_MODAL_ID}`);
+  if (!$m.length) {
+    const html = `
+    <div id="${SUCCESS_MODAL_ID}" style="
+        position:fixed; inset:0; display:flex;
+        background:rgba(0,0,0,.5); backdrop-filter:blur(6px);
+        z-index:999999; align-items:center; justify-content:center;
+        font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif;">
+      <div style="background:#fff;border-radius:18px;padding:28px 36px;
+          min-width:420px;box-shadow:0 15px 50px rgba(0,0,0,.3);text-align:center;">
+        <div style="font-size:48px; margin-bottom:14px;">✅</div>
+        <div style="font-weight:700;font-size:20px;color:#1C2743;margin-bottom:8px;">Tudo certo!</div>
+        <div style="font-size:14px;color:#555;margin-bottom:22px;">
+          Configurações salvas com sucesso.<br>
+          Recarregando em <span id="${SUCCESS_MODAL_ID}-counter">${countdown}</span>s...
+        </div>
+        <button id="${SUCCESS_MODAL_ID}-btn" style="
+            padding:10px 28px; font-size:15px; font-weight:600;
+            border-radius:10px; border:none; cursor:pointer;
+            background:#3E1A7D; color:#fff;">
+          Recarregar agora
+        </button>
+      </div>
+    </div>`;
+    $(document.body).append(html);
+    $m = $(document.body).find(`#${SUCCESS_MODAL_ID}`);
+    $m.find(`#${SUCCESS_MODAL_ID}-btn`).on('click', () => {
+      location.reload();
+    });
+  }
+  $m.css('display', 'flex');
+
+  let sec = countdown;
+  const $c = $m.find(`#${SUCCESS_MODAL_ID}-counter`);
+  const iv = setInterval(() => {
+    sec--;
+    $c.text(sec);
+    if (sec <= 0) {
+      clearInterval(iv);
+      location.reload();
+    }
+  }, 1000);
+}
+
+function hideGlobalSuccessModal() {
+  const $m = $(document.body).find(`#${SUCCESS_MODAL_ID}`);
+  if ($m.length) $m.remove();
+}
+
+/** ===================== ESCAPE HTML ===================== **/
+function escapeHtml(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** ===================== HELPERS ===================== **/
+function isValidUUID(s) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s));
+}
+
+function toSpOffsetNoMs(iso, isEndDate = false) {
+  const d = new Date(iso);
+  if (isNaN(d)) return null;
+  const tzOffsetMs = -3 * 60 * 60 * 1000;
+  const localMs = d.getTime() + tzOffsetMs;
+  const localDate = new Date(localMs);
+  const YYYY = localDate.getUTCFullYear();
+  const MM = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+  const DD = String(localDate.getUTCDate()).padStart(2, '0');
+  let HH, mm, ss;
+  if (isEndDate) {
+    HH = '23';
+    mm = '59';
+    ss = '59';
+  } else {
+    HH = String(localDate.getUTCHours()).padStart(2, '0');
+    mm = String(localDate.getUTCMinutes()).padStart(2, '0');
+    ss = String(localDate.getUTCSeconds()).padStart(2, '0');
+  }
+  return `${YYYY}-${MM}-${DD}T${HH}:${mm}:${ss}-03:00`;
+}
+
+function mustGetDateRange() {
+  const startISO = self.ctx.$scope?.startDateISO || self.ctx?.scope?.startDateISO;
+  const endISO = self.ctx.$scope?.endDateISO || self.ctx?.scope?.endDateISO;
+  if (!startISO || !endISO) {
+    throw new Error('Missing start/end date');
+  }
+  return { startISO, endISO };
+}
+
+/** ===================== TB INDEXES ===================== **/
+function buildTbAttrIndex() {
+  const byTbId = new Map();
+  const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+  for (const row of rows) {
+    // RFC-0094: Filter by aliasName = 'Todos Hidrometros Areas Comuns'
+    const aliasName = row?.datasource?.aliasName || '';
+    if (aliasName !== 'Todos Hidrometros Areas Comuns') continue;
+
+    const key = String(row?.dataKey?.name || '').toLowerCase();
+    const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
+    const val = row?.data?.[0]?.[1];
+    if (!tbId || val == null) continue;
+    if (!byTbId.has(tbId))
+      byTbId.set(tbId, {
+        slaveId: null,
+        centralId: null,
+        deviceType: null,
+        centralName: null,
+        lastConnectTime: null,
+        lastActivityTime: null,
+        lastDisconnectTime: null,
+        deviceMapInstaneousPower: null,
+        customerId: null,
+        connectionStatus: null,
+        consumption_power: null,
+        deviceProfile: null,
+      });
+    const slot = byTbId.get(tbId);
+    if (key === 'slaveid') slot.slaveId = val;
+    if (key === 'centralid') slot.centralId = val;
+    if (key === 'devicetype') slot.deviceType = val;
+    if (key === 'deviceprofile') slot.deviceProfile = val;
+    if (key === 'centralname') slot.centralName = val;
+    if (key === 'lastconnecttime') slot.lastConnectTime = val;
+    if (key === 'lastactivitytime') slot.lastActivityTime = val;
+    if (key === 'lastdisconnecttime') slot.lastDisconnectTime = val;
+    if (key === 'devicemapinstaneouspower') slot.deviceMapInstaneousPower = val;
+    if (key === 'customerid') slot.customerId = val;
+    if (key === 'connectionstatus') slot.connectionStatus = val;
+    if (key === 'consumption_power') slot.consumption_power = val;
+  }
+  return byTbId;
+}
+
+function buildTbIdIndexes() {
+  const byIdentifier = new Map(); // identifier -> tbId
+  const byIngestion = new Map(); // ingestionId -> tbId
+  const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+  for (const row of rows) {
+    // RFC-0094: Filter by aliasName = 'Todos Hidrometros Areas Comuns'
+    const aliasName = row?.datasource?.aliasName || '';
+    if (aliasName !== 'Todos Hidrometros Areas Comuns') continue;
+
+    const key = String(row?.dataKey?.name || '').toLowerCase();
+    const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
+    const val = row?.data?.[0]?.[1];
+    if (!tbId || val == null) continue;
+    if (key === 'identifier') byIdentifier.set(String(val), tbId);
+    if (key === 'ingestionid') byIngestion.set(String(val), tbId);
+  }
+  return { byIdentifier, byIngestion };
+}
+
+/** ===================== CORE: DATA PIPELINE ===================== **/
+function buildAuthoritativeItems() {
+  // RFC-0094: Filter datasources by aliasName = 'Todos Hidrometros Areas Comuns'
+  const filteredDatasources = (self.ctx.datasources || []).filter(
+    (ds) => ds.aliasName === 'Todos Hidrometros Areas Comuns'
+  );
+  const filteredData = (self.ctx.data || []).filter(
+    (d) => d?.datasource?.aliasName === 'Todos Hidrometros Areas Comuns'
+  );
+
+  LogHelper.log(`[WATER_COMMON_AREA] buildAuthoritativeItems: Filtered ${filteredDatasources.length} datasources, ${filteredData.length} data rows for 'Todos Hidrometros Areas Comuns'`);
+
+  // items da LIB: [{ id: ingestionId, identifier, label }, ...]
+  const base = MyIO.buildListItemsThingsboardByUniqueDatasource(filteredDatasources, filteredData) || [];
+  const ok = Array.isArray(base) ? base.filter((x) => x && x.id) : [];
+
+  const tbIdIdx = buildTbIdIndexes(); // { byIdentifier, byIngestion }
+  const attrsByTb = buildTbAttrIndex(); // tbId -> { slaveId, centralId, deviceType }
+
+  const mapped = ok.map((r) => {
+    const ingestionId = r.id;
+    const tbFromIngestion = ingestionId ? tbIdIdx.byIngestion.get(ingestionId) : null;
+    const tbFromIdentifier = r.identifier ? tbIdIdx.byIdentifier.get(r.identifier) : null;
+
+    let tbId = tbFromIngestion || tbFromIdentifier || null;
+    if (tbFromIngestion && tbFromIdentifier && tbFromIngestion !== tbFromIdentifier) {
+      tbId = tbFromIngestion;
+    }
+
+    const attrs = tbId ? attrsByTb.get(tbId) || {} : {};
+    const deviceProfile = attrs.deviceProfile || 'HIDROMETRO';
+    let deviceTypeToDisplay = attrs.deviceType || 'HIDROMETRO';
+
+    if (deviceTypeToDisplay === '3F_MEDIDOR' && deviceProfile !== 'N/D') {
+      deviceTypeToDisplay = deviceProfile;
+    }
+
+    return {
+      id: tbId || ingestionId, // para seleção/toggle
+      tbId, // ThingsBoard deviceId (Settings)
+      ingestionId, // join key API (totals/Report)
+      identifier: r.identifier,
+      label: r.label,
+      slaveId: attrs.slaveId ?? null,
+      centralId: attrs.centralId ?? null,
+      centralName: attrs.centralName ?? null,
+      deviceType: deviceTypeToDisplay,
+      deviceProfile: deviceProfile,
+      updatedIdentifiers: {},
+      connectionStatusTime: attrs.lastConnectTime ?? null,
+      timeVal: attrs.lastActivityTime ?? null,
+      lastDisconnectTime: attrs.lastDisconnectTime ?? null,
+      lastConnectTime: attrs.lastConnectTime ?? null,
+      deviceMapInstaneousPower: attrs.deviceMapInstaneousPower ?? null,
+      customerId: attrs.customerId ?? null,
+      connectionStatus: attrs.connectionStatus ?? 'offline',
+      consumption_power: attrs.consumption_power ?? null,
+    };
+  });
+
+  LogHelper.log(`[WATER_COMMON_AREA] buildAuthoritativeItems: Built ${mapped.length} water meter items`);
+  return mapped;
+}
+
+function enrichItemsWithTotals(items, apiMap) {
+  return items.map((it) => {
+    let raw = 0;
+
+    if (it.ingestionId && isValidUUID(it.ingestionId)) {
+      const row = apiMap.get(String(it.ingestionId));
+      raw = Number(row?.total_value ?? 0);
+    }
+
+    const value = Number(raw || 0);
+
+    return { ...it, value, perc: 0 };
+  });
+}
+
+/** ===================== FILTERS / SORT / PERC ===================== **/
+function applyFilters(enriched, searchTerm, selectedIds, sortMode) {
+  let v = enriched.slice();
+
+  if (selectedIds && selectedIds.size) {
+    v = v.filter((x) => selectedIds.has(x.id));
+  }
+
+  const q = (searchTerm || '').trim().toLowerCase();
+  if (q) {
+    v = v.filter(
+      (x) =>
+        (x.label || '').toLowerCase().includes(q) ||
+        String(x.identifier || '')
+          .toLowerCase()
+          .includes(q)
+    );
+  }
+
+  v.sort((a, b) => {
+    if (sortMode === 'cons_desc') {
+      if (a.value !== b.value) return b.value - a.value;
+      return (a.label || '').localeCompare(b.label || '', 'pt-BR', {
+        sensitivity: 'base',
+      });
+    }
+    if (sortMode === 'cons_asc') {
+      if (a.value !== b.value) return a.value - b.value;
+      return (a.label || '').localeCompare(b.label || '', 'pt-BR', {
+        sensitivity: 'base',
+      });
+    }
+    if (sortMode === 'alpha_desc') {
+      return (
+        (b.label || '').localeCompare(a.label || '', 'pt-BR', {
+          sensitivity: 'base',
+        }) || b.value - a.value
+      );
+    }
+    // RFC-0095: Status sorting
+    if (sortMode === 'status_asc') {
+      const statusA = (a.connectionStatus || 'offline').toLowerCase();
+      const statusB = (b.connectionStatus || 'offline').toLowerCase();
+      const cmp = statusA.localeCompare(statusB, 'pt-BR', { sensitivity: 'base' });
+      return cmp !== 0 ? cmp : (a.label || '').localeCompare(b.label || '', 'pt-BR', { sensitivity: 'base' });
+    }
+    if (sortMode === 'status_desc') {
+      const statusA = (a.connectionStatus || 'offline').toLowerCase();
+      const statusB = (b.connectionStatus || 'offline').toLowerCase();
+      const cmp = statusB.localeCompare(statusA, 'pt-BR', { sensitivity: 'base' });
+      return cmp !== 0 ? cmp : (a.label || '').localeCompare(b.label || '', 'pt-BR', { sensitivity: 'base' });
+    }
+    // RFC-0095: Shopping sorting
+    if (sortMode === 'shopping_asc') {
+      const shopA = getCustomerNameForDevice(a) || '';
+      const shopB = getCustomerNameForDevice(b) || '';
+      const cmp = shopA.localeCompare(shopB, 'pt-BR', { sensitivity: 'base' });
+      return cmp !== 0 ? cmp : (a.label || '').localeCompare(b.label || '', 'pt-BR', { sensitivity: 'base' });
+    }
+    if (sortMode === 'shopping_desc') {
+      const shopA = getCustomerNameForDevice(a) || '';
+      const shopB = getCustomerNameForDevice(b) || '';
+      const cmp = shopB.localeCompare(shopA, 'pt-BR', { sensitivity: 'base' });
+      return cmp !== 0 ? cmp : (a.label || '').localeCompare(b.label || '', 'pt-BR', { sensitivity: 'base' });
+    }
+    // Default: alpha_asc
+    return (
+      (a.label || '').localeCompare(b.label || '', 'pt-BR', {
+        sensitivity: 'base',
+      }) || a.value - b.value
+    );
+  });
+
+  return v;
+}
+
+function recomputePercentages(visible) {
+  const groupSum = visible.reduce((acc, x) => acc + (x.value || 0), 0);
+  const updated = visible.map((x) => ({
+    ...x,
+    perc: groupSum > 0 ? (x.value / groupSum) * 100 : 0,
+  }));
+  return { visible: updated, groupSum };
+}
+
+/** ===================== RENDER ===================== **/
+
+/**
+ * Update water common area statistics header (Conectividade, Total, etc)
+ * RFC-0094: Aligned with WATER_STORES logic for consistent stats
+ * @param {Array} items - Array of water meter items to calculate stats from
+ */
+function updateWaterCommonAreaStats(items) {
+  // Use $root() to find elements within widget scope (not document.getElementById)
+  const $widget = $root();
+  const connectivityEl = $widget.find('#waterCommonAreaStatsConnectivity')[0];
+  const totalEl = $widget.find('#waterCommonAreaStatsTotal')[0];
+  const consumptionEl = $widget.find('#waterCommonAreaStatsConsumption')[0];
+  const zeroEl = $widget.find('#waterCommonAreaStatsZero')[0];
+
+  if (!connectivityEl || !totalEl || !consumptionEl || !zeroEl) {
+    LogHelper.warn('[WATER_COMMON_AREA] Stats header elements not found in widget scope');
+    return;
+  }
+
+  // RFC-0094: Calculate connectivity from connectionStatus (same as WATER_STORES)
   let onlineCount = 0;
   let totalWithStatus = 0;
+  let totalConsumption = 0;
+  let zeroConsumptionCount = 0;
 
-  devices.forEach(device => {
-    const deviceData = deviceMap.get(device.entityId);
-    if (deviceData && deviceData.hasConnectionStatus) {
+  items.forEach((item) => {
+    // Connectivity: based on connectionStatus, not consumption
+    const status = (item.connectionStatus || '').toLowerCase();
+    if (status) {
       totalWithStatus++;
-      if (deviceData.isOnline) {
+      if (status === 'online') {
         onlineCount++;
       }
     }
-  });
 
-  // RFC-0076: Calculate consumption from FILTERED devices array
-  // IMPORTANT: Always calculate locally to respect filter selections
-  let totalConsumption = 0;
-  devices.forEach(device => {
-    // Try to get consumption from waterCache first (most reliable)
-    const ingestionIdItem = device.values?.find(v => v.dataType === "ingestionId");
-    const ingestionId = ingestionIdItem?.value || ingestionIdItem?.val;
-
-    let consumption = 0;
-    if (ingestionId && waterCacheFromMain) {
-      const cached = waterCacheFromMain.get(ingestionId);
-      if (cached) {
-        consumption = Number(cached.total_value) || 0;
-      }
-    }
-
-    // Fallback to device's own value if cache lookup failed
-    if (consumption === 0) {
-      consumption = Number(device.val) || Number(device.lastValue) || 0;
-    }
-
+    // Consumption calculation
+    const consumption = Number(item.value) || Number(item.val) || 0;
     totalConsumption += consumption;
-  });
 
-  LogHelper.log("[WATER_COMMON_AREA] Consumption calculated from", devices.length, "filtered devices:", totalConsumption, "m³");
-
-  // Calculate zero consumption count locally (not available in orchestrator)
-  let zeroConsumptionCount = 0;
-  devices.forEach(device => {
-    const consumption = Number(device.val) || Number(device.lastValue) || 0;
     if (consumption === 0) {
       zeroConsumptionCount++;
     }
   });
 
-  // Calculate connectivity percentage
-  const connectivityPercentage = totalWithStatus > 0
-    ? ((onlineCount / totalWithStatus) * 100).toFixed(1)
-    : "0.0";
+  // If no connectionStatus available, fallback to total count
+  if (totalWithStatus === 0) {
+    totalWithStatus = items.length;
+  }
 
-  // Update UI
+  // Calculate connectivity percentage
+  const connectivityPercentage =
+    totalWithStatus > 0 ? ((onlineCount / totalWithStatus) * 100).toFixed(1) : '0.0';
+
+  // Update UI - RFC-0094: Use M³ formatting for water domain
   connectivityEl.textContent = `${onlineCount}/${totalWithStatus} (${connectivityPercentage}%)`;
-  totalEl.textContent = devices.length.toString();
-  consumptionEl.textContent = MyIOLibrary.formatEnergy(totalConsumption);
+  totalEl.textContent = items.length.toString();
+  consumptionEl.textContent = MyIO.formatWaterVolumeM3(totalConsumption);
   zeroEl.textContent = zeroConsumptionCount.toString();
 
-  LogHelper.log("[WATER_COMMON_AREA] Stats updated:", {
+  LogHelper.log('[WATER_COMMON_AREA] Stats updated:', {
     connectivity: `${onlineCount}/${totalWithStatus} (${connectivityPercentage}%)`,
-    total: devices.length,
-    consumptionFromOrchestrator: totalConsumption,
-    zeroCount: zeroConsumptionCount
+    total: items.length,
+    consumption: totalConsumption,
+    zeroCount: zeroConsumptionCount,
   });
 }
 
-// ============================================
-// RFC-0072: MODAL MANAGEMENT UTILITIES
-// ============================================
-
 /**
- * Creates a proper modal backdrop
- * @returns {HTMLElement} The backdrop element
+ * RFC-0094: Render list of water meter cards
+ * Follows WATER_STORES pattern with renderCardComponentHeadOffice
  */
-function createModalBackdrop() {
-  const backdrop = document.createElement('div');
-  backdrop.className = 'dashboard-modal-backdrop';
-  backdrop.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 9998;
-    animation: fadeIn 0.2s ease-in;
-  `;
-
-  // Close on backdrop click
-  backdrop.addEventListener('click', (e) => {
-    if (e.target === backdrop) {
-      closeExistingModals();
-    }
-  });
-
-  return backdrop;
-}
-
-/**
- * Closes any existing modal instances to prevent conflicts
- */
-function closeExistingModals() {
-  // Close any existing energy dashboards
-  const existingModals = document.querySelectorAll('.energy-dashboard-modal, .dashboard-popup, .myio-modal-overlay');
-  existingModals.forEach(modal => {
-    modal.remove();
-  });
-
-  // Remove backdrops
-  const backdrops = document.querySelectorAll('.dashboard-modal-backdrop, .modal-backdrop');
-  backdrops.forEach(backdrop => {
-    backdrop.remove();
-  });
-
-  LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Cleaned up existing modals");
-}
-
-/**
- * RFC-0072: Get customer name for a device
- * @param {Object} device - Device object
- * @returns {string} Customer name or fallback
- */
-function getCustomerNameForDevice(device) {
-  // Priority 1: Check if customerId exists and look it up
-  if (device.customerId && window.custumersSelected && Array.isArray(window.custumersSelected)) {
-    const shopping = window.custumersSelected.find(c => c.value === device.customerId);
-    if (shopping) return shopping.name;
+async function renderList(visible) {
+  const listElement = $list()[0];
+  if (!listElement) {
+    console.error('[WATER_COMMON_AREA] waterCommonAreaList element not found via $list()');
+    return;
   }
 
-  // Priority 2: Try to get from waterCache via ingestionId
-  if (device.ingestionId) {
-    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
-    if (orchestrator && typeof orchestrator.getWaterCache === 'function') {
-      const waterCache = orchestrator.getWaterCache();
-      const cached = waterCache.get(device.ingestionId);
-      if (cached && cached.customerName) {
-        return cached.customerName;
+  listElement.innerHTML = '';
+
+  for (const it of visible) {
+    const container = document.createElement('div');
+    listElement.appendChild(container);
+
+    const valNum = Number(it.value || 0);
+
+    // RFC-0094: Calculate device status using WATER_STORES pattern
+    let deviceStatus = 'power_off';
+    if (it.connectionStatus) {
+      const status = mapConnectionStatus(it.connectionStatus);
+      deviceStatus = status === 'online' ? 'power_on' : 'power_off';
+    } else if (valNum > 0) {
+      deviceStatus = 'power_on';
+    }
+
+    // RFC-0094: Resolve TB id
+    let resolvedTbId = it.tbId;
+    if (!resolvedTbId || !isValidUUID(resolvedTbId)) {
+      const idx = buildTbIdIndexes();
+      resolvedTbId =
+        (it.ingestionId && idx.byIngestion.get(it.ingestionId)) ||
+        (it.identifier && idx.byIdentifier.get(it.identifier)) ||
+        null;
+    }
+
+    // RFC-0094: Safe identifier handling
+    let deviceIdentifierToDisplay = 'HIDROMETRO';
+    if (it.identifier) {
+      if (String(it.identifier).includes('Sem Identificador')) {
+        deviceIdentifierToDisplay = 'HIDROMETRO';
+      } else {
+        deviceIdentifierToDisplay = it.identifier;
       }
     }
-  }
 
-  // Priority 3: Fallback to customerId substring
-  if (device.customerId) {
-    return `Shopping ${device.customerId.substring(0, 8)}...`;
-  }
+    // Get customer name for this device
+    const customerName = getCustomerNameForDevice(it);
 
-  return 'N/A';
-}
+    // RFC-0094: Build entity object following WATER_STORES pattern
+    const entityObject = {
+      // Identificadores
+      entityId: resolvedTbId,
+      id: resolvedTbId,
 
-// ============================================
-// END RFC-0072 MODAL UTILITIES
-// ============================================
+      // Labels e Nomes
+      labelOrName: it.label,
+      name: it.label,
+      customerName: customerName,
+      centralName: it.centralName || 'N/A',
+      deviceIdentifier: deviceIdentifierToDisplay,
 
-// Initialize cards
-function initializeCards(devices) {
-  const grid = document.getElementById("cards-grid");
+      // Valores e Tipos - RFC-0094: Water domain uses M³
+      val: valNum,
+      value: valNum,
+      lastValue: valNum,
+      valType: 'volume_m3',
+      unit: 'm³',
+      icon: 'water',
+      domain: 'water',
 
-  grid.innerHTML = "";
+      // Metadados
+      deviceType: it.deviceType || 'HIDROMETRO',
+      deviceProfile: it.deviceProfile || 'HIDROMETRO',
+      deviceStatus: deviceStatus,
+      perc: it.perc ?? 0,
 
-  devices.forEach((device, index) => {
-    const container = document.createElement("div");
-    //LogHelper.log("[WATER_COMMON_AREA] Rendering device:", device);
-    grid.appendChild(container);
-    
+      // IDs secundários
+      slaveId: it.slaveId || 'N/A',
+      ingestionId: it.ingestionId || 'N/A',
+      centralId: it.centralId || 'N/A',
+      customerId: it.customerId || null,
 
-    const valNum = Number(device.value || 0);
-    const connectionStatus = valNum > 0 ? "power_on" : "power_off";
+      updatedIdentifiers: it.updatedIdentifiers || {},
+      connectionStatusTime: it.connectionStatusTime || Date.now(),
+      timeVal: it.timeVal || Date.now(),
 
-    // Garantir que o deviceStatus existe (fallback para no_info se não existir)
-    if (!device.deviceStatus) {
-      LogHelper.log("[WATER_COMMON_AREA] Rendering device:", device);
-      device.deviceStatus = device.connectionStatus;
-    }
-    
-    const customerName = getCustomerNameForDevice(device);
-    device.customerName = customerName;
-    device.domain = 'water'; // RFC-0087: Water domain for M³ formatting
+      // Additional data for Settings modal and card display
+      lastDisconnectTime: it.lastDisconnectTime || 0,
+      lastConnectTime: it.lastConnectTime || 0,
+      lastActivityTime: it.timeVal || null,
+      instantaneousPower: 0, // Not applicable for water meters
+      operationHours: '0h 0min', // Not applicable for water meters
+      temperatureC: 0,
+      mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
+      deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
+    };
 
-    /*
-    LogHelper.log("[WATER_COMMON_AREA] Device customerName set:", {
-      labelOrName: device.labelOrName,
-      customerName: device.customerName,
-      customerId: device.customerId,
-      ingestionId: device.ingestionId
-    });
-    */
-
-    if (device.labelOrName && device.labelOrName.toUpperCase().includes("ELEVADOR")) {
-      //LogHelper.log("[WATER_COMMON_AREA] Rendering card for Chiller 1 device:", device);
-    }
-
-    // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (default 60 minutes)
+    // RFC-0094: Use renderCardComponentHeadOffice like WATER_STORES
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
-      entityObject: device,
+      entityObject: entityObject,
       delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
-      handleActionDashboard: async () => {
-        // RFC-0072: Enhanced modal handling to prevent corruption
-        LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Opening energy dashboard for:", device.entityId);
 
+      handleClickCard: (ev, entity) => {
+        console.log(`[WATER_COMMON_AREA] Card clicked: ${entity.name}`);
+      },
+
+      handleActionDashboard: async () => {
+        console.log('[WATER_COMMON_AREA] [RFC-0094] Opening water dashboard for:', entityObject.entityId);
         try {
-          // 1. Ensure component is available
           if (typeof MyIOLibrary.openDashboardPopupEnergy !== 'function') {
-            LogHelper.error("[WATER_COMMON_AREA] [RFC-0072] openDashboardPopupEnergy component not loaded");
-            alert("Dashboard component não disponível");
+            alert('Dashboard component não disponível');
             return;
           }
-
-          // 2. Clean up any existing modal state
-          closeExistingModals();
-
-          // 3. Get tokens
-          const tokenIngestionDashBoard = await MyIOAuth.getToken();
-          const myTbTokenDashBoard = localStorage.getItem("jwt_token");
-
-          if (!myTbTokenDashBoard) {
-            throw new Error("JWT token não encontrado");
+          const startDate = self.ctx.scope?.startDateISO;
+          const endDate = self.ctx.scope?.endDateISO;
+          if (!startDate || !endDate) {
+            alert('Período de datas não definido.');
+            return;
           }
+          if (!MyIOAuth || typeof MyIOAuth.getToken !== 'function') {
+            LogHelper.error('[WATER_COMMON_AREA] MyIOAuth not available');
+            alert('Autenticação não disponível. Recarregue a página.');
+            return;
+          }
+          const tokenIngestionDashBoard = await MyIOAuth.getToken();
+          const myTbTokenDashBoard = localStorage.getItem('jwt_token');
 
-          // 4. Inject backdrop first
-          const backdrop = createModalBackdrop();
-          document.body.appendChild(backdrop);
-
-          // 5. Wait for next frame to ensure DOM is ready
-          await new Promise(resolve => requestAnimationFrame(resolve));
-
-          // 6. Open modal with proper error handling
-          const modal = MyIOLibrary.openDashboardPopupEnergy({
-            deviceId: device.entityId,
-            readingType: "energy",
-            startDate: self.ctx.$scope.startDateISO,
-            endDate: self.ctx.$scope.endDateISO,
+          MyIOLibrary.openDashboardPopupEnergy({
+            deviceId: entityObject.entityId,
+            readingType: 'water', // RFC-0094: Water reading type
+            startDate,
+            endDate,
             tbJwtToken: myTbTokenDashBoard,
             ingestionToken: tokenIngestionDashBoard,
             clientId: CLIENT_ID,
             clientSecret: CLIENT_SECRET,
-            onOpen: (context) => {
-              LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Modal opened:", context);
-            },
-            onError: (error) => {
-              LogHelper.error("[WATER_COMMON_AREA] [RFC-0072] Modal error:", error);
-              backdrop.remove();
-              alert(`Erro: ${error.message}`);
-            },
             onClose: () => {
-              backdrop.remove();
-              const overlay = document.querySelector(".myio-modal-overlay");
-              if (overlay) {
-                overlay.remove();
-              }
-              LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Energy dashboard closed");
+              const o = document.querySelector('.myio-modal-overlay');
+              if (o) o.remove();
             },
           });
-
-          // 7. Verify modal was created
-          if (!modal) {
-            LogHelper.error("[WATER_COMMON_AREA] [RFC-0072] Modal failed to initialize");
-            backdrop.remove();
-            alert("Erro ao abrir dashboard");
-            return;
-          }
-
-          LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Energy dashboard opened successfully");
-
         } catch (err) {
-          LogHelper.error("[WATER_COMMON_AREA] [RFC-0072] Error opening energy dashboard:", err);
-          closeExistingModals();
-          alert("Credenciais ainda carregando. Tente novamente em instantes.");
+          console.error(err);
+          alert('Erro ao abrir dashboard');
         }
       },
 
       handleActionReport: async () => {
         try {
+          if (!MyIOAuth || typeof MyIOAuth.getToken !== 'function') {
+            LogHelper.error('[WATER_COMMON_AREA] MyIOAuth not available for report');
+            alert('Autenticação não disponível. Recarregue a página.');
+            return;
+          }
           const ingestionToken = await MyIOAuth.getToken();
-
-          if (!ingestionToken) throw new Error("No ingestion token");
-
           await MyIOLibrary.openDashboardPopupReport({
-            ingestionId: device.ingestionId,
-            identifier: device.deviceIdentifier,
-            label: device.labelOrName,
-            domain: "energy",
+            ingestionId: it.ingestionId,
+            identifier: it.identifier,
+            label: it.label,
+            domain: 'water', // RFC-0094: Water domain
             api: {
               dataApiBaseUrl: getDataApiHost(),
               clientId: CLIENT_ID,
@@ -1260,1670 +775,764 @@ function initializeCards(devices) {
             },
           });
         } catch (err) {
-          LogHelper.warn(
-            "[DeviceCards] Report open blocked:",
-            err?.message || err
-          );
-          alert("Credenciais ainda carregando. Tente novamente em instantes.");
-        } finally {
+          alert('Erro ao abrir relatório');
         }
       },
 
       handleActionSettings: async () => {
-        // RFC-0072: Standardized settings handler following TELEMETRY pattern
-        LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Opening settings for device:", device.entityId);
+        const jwt = localStorage.getItem('jwt_token');
 
-        const jwt = localStorage.getItem("jwt_token");
         if (!jwt) {
-          LogHelper.error("[WATER_COMMON_AREA] [RFC-0072] JWT token not found");
-          alert("Token de autenticação não encontrado");
+          LogHelper.error('[WATER_COMMON_AREA] [RFC-0094] JWT token not found');
+          window.alert('Token de autenticação não encontrado');
           return;
         }
 
-        //LogHelper.log("[WATER_COMMON_AREA] ", device.deviceStatus);
-        LogHelper.log("[WATER_COMMON_AREA] device.deviceStatus:", device.deviceStatus);
-        LogHelper.log('[WATER_COMMON_AREA] device.lastConnectTime:', device.lastConnectTime);
+        const tbId = entityObject.entityId;
+        if (!tbId || tbId === it.ingestionId) {
+          alert('ID inválido');
+          return;
+        }
 
         try {
-          // RFC-0072: Following exact TELEMETRY pattern with domain and connectionData
-          // RFC-0077: Added customerName and deviceType parameters
-          // RFC-0076: Added deviceProfile for 3F_MEDIDOR fallback rule
           await MyIOLibrary.openDashboardPopupSettings({
-            deviceId: device.entityId, // TB deviceId
-            label: device.labelOrName,
+            deviceId: tbId,
+            label: it.label,
             jwtToken: jwt,
-            domain: "energy", // Same as TELEMETRY WIDGET_DOMAIN
-            deviceType: device.deviceType, // RFC-0077: Pass deviceType for Power Limits feature
-            deviceProfile: device.deviceProfile, // RFC-0076: Pass deviceProfile for 3F_MEDIDOR fallback
-            customerName: device.customerName || getCustomerNameForDevice(device), // RFC-0077: Pass shopping name
+            domain: WIDGET_DOMAIN,
+            deviceType: entityObject.deviceType,
+            deviceProfile: entityObject.deviceProfile,
+            customerName: entityObject.customerName,
             connectionData: {
-              centralName: device.centralName || getCustomerNameForDevice(device),
-              connectionStatusTime: device.lastConnectTime,
-              timeVal: device.lastActivityTime || new Date('1970-01-01').getTime(),
-              deviceStatus: device.deviceStatus !== 'power_off' && device.deviceStatus !== 'not_installed' ? 'power_on' : 'power_off',
-              lastDisconnectTime: device.lastDisconnectTime || 0,
+              centralName: entityObject.centralName,
+              connectionStatusTime: entityObject.connectionStatusTime,
+              timeVal: entityObject.timeVal || new Date('1970-01-01').getTime(),
+              deviceStatus:
+                entityObject.deviceStatus !== 'power_off' && entityObject.deviceStatus !== 'not_installed'
+                  ? 'power_on'
+                  : 'power_off',
+              lastDisconnectTime: entityObject.lastDisconnectTime || 0,
             },
-            ui: { title: "Configurações", width: 900 },
-            mapInstantaneousPower: device.mapInstantaneousPower, // RFC-0078: Pass existing map if available
+            ui: { title: 'Configurações', width: 900 },
+            mapInstantaneousPower: entityObject.mapInstantaneousPower,
             onSaved: (payload) => {
-              LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Settings saved:", payload);
-              // Mostra modal global de sucesso com contador e reload
-              //showGlobalSuccessModal(6);
+              LogHelper.log('[WATER_COMMON_AREA] [RFC-0094] Settings saved:', payload);
+              showGlobalSuccessModal(6);
             },
             onClose: () => {
-              $(".myio-settings-modal-overlay").remove();
-              const overlay = document.querySelector(".myio-modal-overlay");
+              $('.myio-settings-modal-overlay').remove();
+              const overlay = document.querySelector('.myio-modal-overlay');
               if (overlay) {
                 overlay.remove();
               }
-              LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Settings modal closed");
+              LogHelper.log('[WATER_COMMON_AREA] [RFC-0094] Settings modal closed');
             },
           });
         } catch (e) {
-          LogHelper.error("[WATER_COMMON_AREA] [RFC-0072] Error opening settings:", e);
-          alert("Erro ao abrir configurações");
+          LogHelper.error('[WATER_COMMON_AREA] [RFC-0094] Error opening settings:', e);
+          window.alert('Erro ao abrir configurações');
         }
       },
 
       handleSelect: (checked, entity) => {
-        log(
-          `Selection ${checked ? "checked" : "unchecked"}: ${
-            entity.labelOrName
-          }`
-        );
-      },
-
-handleSelect: (checked, entity) => {
-        // Busca a Store global
         const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-
         if (MyIOSelectionStore) {
-            if (checked) {
-                // 1. IMPORTANTE: Registra os dados (Nome, Valor, Unidade) na Store
-                // Se pularmos isso, o Footer vai mostrar um chip vazio ou com erro
-                if (MyIOSelectionStore.registerEntity) {
-                    MyIOSelectionStore.registerEntity(entity);
-                }
-
-                // 2. Adiciona o ID na lista de selecionados
-                MyIOSelectionStore.add(entity.entityId || entity.id);
-                
-            } else {
-                // 3. Remove o ID da lista
-                MyIOSelectionStore.remove(entity.entityId || entity.id);
-            }
-        } else {
-            console.warn('[Main Widget] MyIOSelectionStore não encontrada!');
+          if (checked) {
+            if (MyIOSelectionStore.registerEntity) MyIOSelectionStore.registerEntity(entity);
+            MyIOSelectionStore.add(entity.entityId || entity.id);
+          } else {
+            MyIOSelectionStore.remove(entity.entityId || entity.id);
+          }
         }
       },
 
       useNewComponents: true,
       enableSelection: true,
       enableDragDrop: true,
-      // RFC-0072: Disable "More Information" menu item (redundant with card click)
       hideInfoMenuItem: true,
     });
+  }
 
-    // O componente renderCardComponentHeadOffice agora gerencia o estilo baseado em deviceStatus
-    // Não é mais necessário aplicar classes manualmente
-  });
-
-  log("Cards initialized successfully");
+  console.log(`[WATER_COMMON_AREA] Rendered ${visible.length} water meter cards`);
 }
 
-self.onInit = async function () {
-  LogHelper.log("[WATER_COMMON_AREA] onInit - ctx:", self.ctx);
-    // ⭐ CRITICAL FIX: Show loading IMMEDIATELY before setTimeout
-    showLoadingOverlay(true);
-
-    setTimeout(async () => {
- // -- util: aplica no $scope e roda digest
- function applyParams(p) {
-    self.ctx.$scope.startDateISO = p?.globalStartDateFilter || null;
-    self.ctx.$scope.endDateISO = p?.globalEndDateFilter || null;
-    if (self.ctx?.$scope?.$applyAsync) self.ctx.$scope.$applyAsync();
-  }
-
-  // -- util: espera até ter datas (evento + polling), sem bloquear
-  function waitForDateParams({ pollMs = 300, timeoutMs = 15000 } = {}) {
-    return new Promise((resolve) => {
-      let resolved = false;
-      let poller = null;
-      let timer = null;
-
-      const tryResolve = (p) => {
-        const s = p?.globalStartDateFilter || null;
-        const e = p?.globalEndDateFilter || null;
-        if (s && e) {
-          resolved = true;
-          cleanup();
-          applyParams(p);
-          resolve({ start: s, end: e, from: "state/event" });
-          return true;
-        }
-        return false;
-      };
-
-      const onEvt = (ev) => {
-        tryResolve(ev.detail);
-      };
-
-      const cleanup = () => {
-        window.removeEventListener("myio:date-params", onEvt);
-        if (poller) clearInterval(poller);
-        if (timer) clearTimeout(timer);
-      };
-
-      // 1) escuta evento do pai
-      window.addEventListener("myio:date-params", onEvt);
-
-      // 2) tenta estado atual imediatamente
-      if (tryResolve(window.myioStateParams || {})) return;
-
-      // 3) solicita explicitamente ao pai
-      window.dispatchEvent(new CustomEvent("myio:request-date-params"));
-
-      // 4) polling leve a cada 300ms
-      poller = setInterval(() => {
-        tryResolve(window.myioStateParams || {});
-      }, pollMs);
-
-      // 5) timeout de segurança -> usa fallback (últimos 7 dias)
-      timer = setTimeout(() => {
-        if (!resolved) {
-          cleanup();
-          const end = new Date();
-          const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
-          const startISO = start.toISOString();
-          const endISO = end.toISOString();
-          applyParams({
-            globalStartDateFilter: startISO,
-            globalEndDateFilter: endISO,
-          });
-          resolve({ start: startISO, end: endISO, from: "fallback-7d" });
-        }
-      }, timeoutMs);
-    });
-  }
-
-  // ====== fluxo do widget ======
-  // tenta aplicar o que já existir (não bloqueia)
-  applyParams(window.myioStateParams || {});
-
-  // garante sincronização inicial antes de continuar
-  const datesFromParent = await waitForDateParams({
-    pollMs: 300,
-    timeoutMs: 15000,
-  });
-  LogHelper.log("[WATER_COMMON_AREA] date params ready:", datesFromParent);
-
-  // agora já pode carregar dados / inicializar UI dependente de datas
-  if (typeof self.loadData === "function") {
-    await self.loadData(
-      self.ctx.$scope.startDateISO,
-      self.ctx.$scope.endDateISO
-    );
-  }
-
-  //console.log("[EQUIPAMENTS] scope", scope.ctx)
-
-  // mantém sincronizado em updates futuros do pai/irmão A
-  self._onDateParams = (ev) => {
-    applyParams(ev.detail);
-    if (typeof self.loadData === "function") {
-      self.loadData(self.ctx.$scope.startDateISO, self.ctx.$scope.endDateISO);
-    }
-  };
-  window.addEventListener("myio:date-params", self._onDateParams);
-
-  // ✅ Listen for shopping filter from MENU
-  self._onFilterApplied = (ev) => {
-    LogHelper.log("[WATER_COMMON_AREA] heard myio:filter-applied:", ev.detail);
-
-    // Extract shopping IDs from selection
-    const selection = ev.detail?.selection || [];
-    const shoppingIds = selection.map(s => s.value).filter(v => v);
-
-    LogHelper.log("[WATER_COMMON_AREA] Applying shopping filter:", shoppingIds.length === 0 ? "ALL" : `${shoppingIds.length} shoppings`);
-
-    // Update STATE and reflow cards
-    STATE.selectedShoppingIds = shoppingIds;
-
-    // Render shopping filter chips
-    renderShoppingFilterChips(selection);
-
-    reflowCards();
-  };
-  window.addEventListener("myio:filter-applied", self._onFilterApplied);
-
-  // Function to render shopping filter chips in toolbar
-  function renderShoppingFilterChips(selection) {
-    const chipsContainer = document.getElementById("shoppingFilterChips");
-    if (!chipsContainer) return;
-
-    chipsContainer.innerHTML = "";
-
-    if (!selection || selection.length === 0) {
-      return; // No filter applied, hide chips
-    }
-
-    selection.forEach(shopping => {
-      const chip = document.createElement("span");
-      chip.className = "filter-chip";
-      chip.innerHTML = `<span class="filter-chip-icon">🏬</span><span>${shopping.name}</span>`;
-      chipsContainer.appendChild(chip);
-    });
-
-    LogHelper.log("[WATER_COMMON_AREA] 📍 Rendered", selection.length, "shopping filter chips");
-  }
-
-  // ✅ Check if filter was already applied before WATER_COMMON_AREA initialized
-  // Must be AFTER renderShoppingFilterChips definition
-  if (window.custumersSelected && Array.isArray(window.custumersSelected) && window.custumersSelected.length > 0) {
-    LogHelper.log("[WATER_COMMON_AREA] 🔄 Applying pre-existing filter:", window.custumersSelected.length, "shoppings");
-    const shoppingIds = window.custumersSelected.map(s => s.value).filter(v => v);
-    STATE.selectedShoppingIds = shoppingIds;
-    renderShoppingFilterChips(window.custumersSelected);
-    // reflowCards will be called after loadData completes
-  }
-
-  //  console.log("[equipaments] self.ctx:", self.ctx);
-  CUSTOMER_ID = self.ctx.settings.customerId || " ";
-  // console.log("[equipaments] CUSTOMER_ID:", CUSTOMER_ID);
-
-  // Objeto principal para armazenar os dados dos dispositivos
-  const devices = {};
-
-  // 🗺️ NOVO: Mapa para conectar o ingestionId ao ID da entidade do ThingsBoard
-  const ingestionIdToEntityIdMap = new Map();
-
-  // --- FASE 1: Monta o objeto inicial e o mapa de IDs ---
-  self.ctx.data.forEach((data) => {
-    if (data.datasource.aliasName !== "Shopping") {
-      const entityId = data.datasource.entity.id.id;
-
-      // Cria o objeto do dispositivo se for a primeira vez
-      if (!devices[entityId]) {
-        devices[entityId] = {
-          name: data.datasource.name,
-          label: data.datasource.entityLabel,
-          values: [],
-        };
-      }
-
-      // Adiciona o valor atual ao array
-      devices[entityId].values.push({
-        dataType: data.dataKey.name,
-        value: data.data[0][1],
-        ts: data.data[0][0],
-      });
-
-      //LogHelper.log(`[WATER_COMMON_AREA] Device ${entityId} - Added dataKey: ${data.dataKey.name} with value: ${data.data[0][1]}`);
-      //LogHelper.log(`[WATER_COMMON_AREA] Current device values:`, devices[entityId].values);
-
-      // ✅ LÓGICA DO MAPA: Se o dado for o ingestionId, guardamos a relação
-      if (data.dataKey.name === "ingestionId" && data.data[0][1]) {
-        const ingestionId = data.data[0][1];
-        ingestionIdToEntityIdMap.set(ingestionId, entityId);
-      }
-    }
-  });
-
-  const boolExecSync = false;
-
-  // RFC-0071: Trigger device profile synchronization (runs once)
-  if (!__deviceProfileSyncComplete && boolExecSync) {
-    try {
-      LogHelper.log("[WATER_COMMON_AREA] [RFC-0071] Triggering device profile sync...");
-      const syncResult = await syncDeviceProfileAttributes();
-      __deviceProfileSyncComplete = true;
-
-      if (syncResult.synced > 0) {
-        LogHelper.log("[WATER_COMMON_AREA] [RFC-0071] ⚠️ Widget reload recommended to load new deviceProfile attributes");
-        LogHelper.log("[WATER_COMMON_AREA] [RFC-0071] You may need to refresh the dashboard to see deviceProfile in ctx.data");
-      }
-    } catch (error) {
-      LogHelper.error("[WATER_COMMON_AREA] [RFC-0071] Sync failed, continuing without it:", error);
-      // Don't block widget initialization if sync fails
-    }
-  }
-
-  const customerCredentials = await fetchCustomerServerScopeAttrs(CUSTOMER_ID);
-  LogHelper.log('customerCredentials', customerCredentials);
-  
-
-  CLIENT_ID = customerCredentials.client_id || " ";
-  CLIENT_SECRET = customerCredentials.client_secret || " ";
-  INGESTION_ID = customerCredentials.ingestionId || " ";
-  MAP_INSTANTANEOUS_POWER = customerCredentials.mapInstantaneousPower;
-
-  // Initialize MyIOAuth using MyIOLibrary
-  MyIOAuth = MyIOLibrary.buildMyioIngestionAuth({
-    dataApiHost: getDataApiHost(),
-    clientId: CLIENT_ID,
-    clientSecret: CLIENT_SECRET,
-  });
-  LogHelper.log('[WATER_COMMON_AREA] MyIOAuth initialized using MyIOLibrary');
-
-  // 🚨 RFC-0077: Fetch customer consumption limits ONCE before processing devices
-  // This will be used by getConsumptionRangesHierarchical as TIER 2 fallback
-  LogHelper.log("[WATER_COMMON_AREA] [RFC-0077] Fetching customer consumption limits for CUSTOMER_ID:", CUSTOMER_ID);
-  try {
-    window.__customerConsumptionLimits = await getCachedConsumptionLimits(CUSTOMER_ID);
-    LogHelper.log("[WATER_COMMON_AREA] [RFC-0077] Customer consumption limits loaded:", window.__customerConsumptionLimits);
-  } catch (error) {
-    LogHelper.error("[WATER_COMMON_AREA] [RFC-0077] Failed to fetch customer consumption limits, will use hardcoded defaults:", error);
-    window.__customerConsumptionLimits = null;
-  }
-
-  // ✅ Loading overlay already shown at start of onInit (moved up for better UX)
-   async function renderDeviceCards() {
-    const promisesDeCards = Object.entries(devices)
-      .filter(([entityId, device]) =>
-        device.values.some((valor) => valor.dataType === "total_consumption")
-      )
-      .map(async ([entityId, device]) => {
-        const tbToken = localStorage.getItem("jwt_token");
-              
-        const lastConnectTimestamp = findValue(device.values, "lastConnectTime", "");
-        const lastDisconnectTimestamp = findValue(device.values, "lastDisconnectTime", "");
-
-        let operationHoursFormatted = "0s";
-
-        if (lastConnectTimestamp) {
-          const nowMs = new Date().getTime();
-          const durationMs = nowMs - lastConnectTimestamp;
-          operationHoursFormatted = formatarDuracao(durationMs > 0 ? durationMs : 0);
-        }
-
-        const deviceTemperature = await getDeviceTemperature(entityId, tbToken);
-        const latestTimestamp = Math.max(...device.values.map((v) => v.ts || 0));
-        const updatedFormatted = formatRelativeTime(latestTimestamp);
-
-        const rawConnectionStatus = findValue(device.values, "connectionStatus", "offline");
-        const consumptionValue = findValue(device.values, "total_consumption", 0);
-
-        let mappedConnectionStatus = "offline";
-        const statusLower = String(rawConnectionStatus).toLowerCase();
-        
-        if (statusLower === "online" || statusLower === "ok" || statusLower === "running") {
-          mappedConnectionStatus = "online";
-        } else if (statusLower === "waiting") {
-          mappedConnectionStatus = "waiting";
-        }
-
-        const deviceProfile = findValue(device.values, "deviceProfile", "").toUpperCase();
-        let deviceType = findValue(device.values, "deviceType", "").toUpperCase();
-
-        if (deviceType === "3F_MEDIDOR" && deviceProfile !== "N/D") {
-          deviceType = deviceProfile;
-        }
-
-        // 🚨 RFC-0077: HARDCODED SWITCH ELIMINATED!
-        // Now using hierarchical resolution: Device → Customer → Hardcoded defaults
-
-        // Get deviceId for TIER 1 lookup
-        const deviceId = entityId;
-
-        // Get consumption ranges using hierarchical resolution
-        // RFC-0086: Pass self.ctx.data to enable TIER 1 (device-level) mapInstantaneousPower lookup
-        const rangesWithSource = await getConsumptionRangesHierarchical(
-          deviceId,
-          deviceType,
-          window.__customerConsumptionLimits,
-          'consumption',
-          self.ctx.data // Enable device-level JSON lookup from ctx.data
-        );
-
-        // Calculate device status using range-based calculation
-        const deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
-          connectionStatus: mappedConnectionStatus,
-          lastConsumptionValue: Number(consumptionValue) || null,
-          ranges: rangesWithSource
-        });
-        
-
-        const ingestionId = findValue(device.values, "ingestionId", null);
-        let customerId = findValue(device.values, "customerId", null);
-
-        // Fallback: Try to get customerId from MAIN's waterCache (API has it, ctx.data doesn't)
-        if (!customerId && ingestionId && waterCacheFromMain && waterCacheFromMain.has(ingestionId)) {
-          customerId = waterCacheFromMain.get(ingestionId).customerId;
-        }
-
-        // Populate global device-to-shopping map for filter fallback
-        if (ingestionId && customerId) {
-          if (!window.myioDeviceToShoppingMap) {
-            window.myioDeviceToShoppingMap = new Map();
-          }
-          window.myioDeviceToShoppingMap.set(ingestionId, customerId);
-        }
-
-
-        return {
-          entityId: entityId,
-          labelOrName: device.label,
-          val: consumptionValue,
-          deviceIdentifier: findValue(device.values, "identifier"),
-          centralName: findValue(device.values, "centralName", null),
-          ingestionId: ingestionId,
-          customerId: customerId, // Shopping ingestionId for filtering
-          deviceType: deviceType,
-          deviceStatus: deviceStatus,
-          valType: "power_kw",
-          perc: Math.floor(Math.random() * (95 - 70 + 1)) + 70,
-          temperatureC: deviceTemperature[0].value,
-          operationHours: operationHoursFormatted || 0,
-          updated: updatedFormatted,
-          lastDisconnectTime: lastDisconnectTimestamp,
-          lastConnectTime: lastConnectTimestamp,
-          lastActivityTime: findValue(device.values, "lastActivityTime", null),
-          mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
-          // RFC-0058: Add properties for MyIOSelectionStore (FOOTER)
-          id: entityId,                    // Alias for entityId
-          name: device.label,              // Alias for labelOrName
-          lastValue: consumptionValue,     // Alias for val
-          unit: 'm³',                     // Energy unit
-          icon: 'energy'                   // Domain identifier for SelectionStore
-        };
-      });
-
-    const devicesFormatadosParaCards = await Promise.all(promisesDeCards);
-
-    /**
-     * TODO: TEMPORARY FIX - Remove when backend data is corrected
-     * Some devices have deviceType = 3F_MEDIDOR but are actually equipment.
-     * Check label for equipment keywords to properly classify them.
-     */
-    function isActuallyEquipment(device) {
-      if (device.deviceType !== "3F_MEDIDOR") {
-        return true; // Not 3F_MEDIDOR, definitely equipment
-      }
-
-      // Check if label contains equipment keywords
-      /*
-      const label = String(device.labelOrName || "").toLowerCase();
-      const equipmentKeywords = ["elevador", "chiller", "bomba", "escada", "casa de m"];
-
-      return equipmentKeywords.some(keyword => label.includes(keyword));
-      */
-
-      const deviceTypeEquipmentKeywords = ["MOTOR", "ELEVADOR", "ESCADA_ROLANTE"];
-
-      return deviceTypeEquipmentKeywords.some(keyword => device.deviceType.toLowerCase().includes(keyword));      
-    }
-
-    // ✅ Separate lojas from equipments based on deviceType AND label validation
-    const lojasDevices = devicesFormatadosParaCards.filter(d => !isActuallyEquipment(d));
-    const equipmentDevices = devicesFormatadosParaCards.filter(d => isActuallyEquipment(d));
-
-    // Debug: Log 3F_MEDIDOR devices classified as equipment (TODO: temporary)
-    const medidorAsEquipment = equipmentDevices.filter(d => d.deviceType === "3F_MEDIDOR");
-    if (medidorAsEquipment.length > 0) {
-      LogHelper.warn("[WATER_COMMON_AREA] ⚠️ Found", medidorAsEquipment.length, "3F_MEDIDOR devices classified as equipment (based on label):");
-      medidorAsEquipment.forEach(d => {
-        LogHelper.log("  -", d.labelOrName, "(deviceType:", d.deviceType, ")");
-      });
-    }
-
-    LogHelper.log("[WATER_COMMON_AREA] Total devices:", devicesFormatadosParaCards.length);
-    LogHelper.log("[WATER_COMMON_AREA] Equipment devices:", equipmentDevices.length);
-    LogHelper.log("[WATER_COMMON_AREA] Lojas (actual 3F_MEDIDOR stores):", lojasDevices.length);
-
-    // ✅ Emit event to inform MAIN about lojas ingestionIds
-    const lojasIngestionIds = lojasDevices.map(d => d.ingestionId).filter(id => id); // Remove nulls
-
-    window.dispatchEvent(new CustomEvent('myio:lojas-identified', {
-      detail: {
-        lojasIngestionIds,
-        lojasCount: lojasIngestionIds.length,
-        timestamp: Date.now()
-      }
-    }));
-
-    LogHelper.log("[WATER_COMMON_AREA] ✅ Emitted myio:lojas-identified:", {
-      lojasCount: lojasIngestionIds.length,
-      lojasIngestionIds
-    });
-
-    // ✅ Save ONLY equipment devices to global STATE for filtering
-    STATE.allDevices = equipmentDevices;
-
-    // Log device-to-shopping mapping stats
-    if (window.myioDeviceToShoppingMap) {
-      LogHelper.log(`[WATER_COMMON_AREA] 🗺️ Device-to-shopping map populated: ${window.myioDeviceToShoppingMap.size} devices mapped`);
-
-      // Debug: show sample mappings
-      if (window.myioDeviceToShoppingMap.size > 0) {
-        const samples = Array.from(window.myioDeviceToShoppingMap.entries()).slice(0, 3);
-        LogHelper.log(`[WATER_COMMON_AREA] 📋 Sample mappings:`, samples.map(([deviceId, shopId]) => `${deviceId.substring(0, 8)}... → ${shopId.substring(0, 8)}...`));
-      }
-    }
-
-    initializeCards(equipmentDevices);
-
-    // Update statistics header (only equipments)
-    updateEquipmentStats(equipmentDevices);
-
-    // RFC: Emit initial equipment count to HEADER
-    emitEquipmentCountEvent(equipmentDevices);
-
-    // RFC-0079: Sub-menu navigation removed - now controlled by MENU widget
-    // initSubmenuNavigation();
-
-    // Hide loading after rendering
-    showLoadingOverlay(false);
-  }
-
-  // Function to render all available shoppings as chips (default: all selected)
-  function renderAllShoppingsChips(customers) {
-    if (!customers || !Array.isArray(customers) || customers.length === 0) {
-      LogHelper.warn("[WATER_COMMON_AREA] ⚠️ No customers provided to render as chips");
-      return;
-    }
-
-    LogHelper.log(`[WATER_COMMON_AREA] 🏬 Rendering ${customers.length} shoppings as pre-selected`);
-
-    // Render chips with all customers
-    renderShoppingFilterChips(customers);
-  }
-
-  // ✅ Listen for customers ready event from MENU
-  self._onCustomersReady = (ev) => {
-    LogHelper.log("[WATER_COMMON_AREA] 🔔 heard myio:customers-ready:", ev.detail);
-
-    const customers = ev.detail?.customers || [];
-    if (customers.length > 0) {
-      // RFC: Save total shoppings count for HEADER card logic
-      STATE.totalShoppings = customers.length;
-      LogHelper.log(`[WATER_COMMON_AREA] 📊 Total shoppings available: ${STATE.totalShoppings}`);
-
-      renderAllShoppingsChips(customers);
-    }
-  };
-  window.addEventListener("myio:customers-ready", self._onCustomersReady);
-
-    function enrichDevicesWithConsumption() {
-    if (!waterCacheFromMain) {
-      LogHelper.warn("[WATER_COMMON_AREA] No energy from MAIN available yet");
-      return;
-    }
-
-    LogHelper.log("[WATER_COMMON_AREA] Enriching devices with consumption from MAIN...");
-
-    // Iterate through devices and add consumption from cache
-    Object.entries(devices).forEach(([entityId, device]) => {
-      // Find ingestionId for this device
-      const ingestionIdItem = device.values.find(v => v.dataType === "ingestionId");
-      if (ingestionIdItem && ingestionIdItem.value) {
-        const ingestionId = ingestionIdItem.value;
-        const cached = waterCacheFromMain.get(ingestionId);
-
-        if (cached) {
-          // Remove old consumption data if exists
-          const consumptionIndex = device.values.findIndex(v => v.dataType === "total_consumption");
-          if (consumptionIndex >= 0) {
-            device.values[consumptionIndex] = {
-              val: cached.total_value,
-              ts: cached.timestamp,
-              dataType: "total_consumption",
-            };
-          } else {
-            device.values.push({
-              val: cached.total_value,
-              ts: cached.timestamp,
-              dataType: "total_consumption",
-            });
-          }
-        }
-      }
-    });
-
-    // RFC-0076: CRITICAL FIX - Enrich waterCache with full device metadata
-    // This ensures ENERGY widget can classify elevators correctly
-    LogHelper.log("[WATER_COMMON_AREA] 🔧 Enriching waterCache with device metadata (deviceType, deviceProfile)...");
-
-    let enrichedCount = 0;
-    Object.entries(devices).forEach(([entityId, device]) => {
-      const ingestionIdItem = device.values.find(v => v.dataType === "ingestionId");
-      if (ingestionIdItem && ingestionIdItem.value) {
-        const ingestionId = ingestionIdItem.value;
-        const cached = waterCacheFromMain.get(ingestionId);
-
-        if (cached) {
-          // Get metadata from device.values
-          const deviceType = findValue(device.values, "type", "");
-          const deviceProfile = findValue(device.values, "deviceProfile", "");
-          const deviceIdentifier = findValue(device.values, "deviceIdentifier", "");
-          const deviceName = findValue(device.values, "name", "");
-
-          // RFC-0076: Enrich cache with full metadata
-          cached.deviceType = deviceType;
-          cached.deviceProfile = deviceProfile;
-          cached.deviceIdentifier = deviceIdentifier;
-          cached.name = cached.name || deviceName;
-
-          enrichedCount++;
-
-          // RFC-0076: Log elevators specifically (by deviceProfile OR deviceType OR name)
-          if (deviceType === "ELEVADOR" ||
-              deviceProfile === "ELEVADOR" ||  // ← FIXED: Check deviceProfile independently!
-              (deviceType === "3F_MEDIDOR" && deviceProfile === "ELEVADOR") ||
-              (deviceName && deviceName.toUpperCase().includes("ELV"))) {
-                /*
-            LogHelper.log(`[WATER_COMMON_AREA] ⚡ ELEVATOR enriched:`, {
-              ingestionId,
-              name: deviceName,
-              deviceType: deviceType || "(empty)",
-              deviceProfile,
-              deviceIdentifier,
-              consumption: cached.total_value
-            });
-            */
-          }
-        }
-      }
-    });
-
-    LogHelper.log(`[WATER_COMMON_AREA] ✅ Enriched ${enrichedCount} devices in waterCache with metadata`);
-
-    // RFC-0076: Force update on ENERGY widget by re-emitting the cache
-    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
-    if (orchestrator) {
-      LogHelper.log("[WATER_COMMON_AREA] 🔄 Forcing ENERGY widget update...");
-      window.dispatchEvent(new CustomEvent('myio:equipment-metadata-enriched', {
-        detail: {
-          cache: waterCacheFromMain,
-          deviceCount: enrichedCount,
-          timestamp: Date.now()
-        }
-      }));
-    }
-
-    // Re-render cards and hide loading
-    renderDeviceCards().then(() => {
-      showLoadingOverlay(false);
-    });
-  }
-
-    const findValue = (values, dataType, defaultValue = "N/D") => {
-    const item = values.find((v) => v.dataType === dataType);
-    if (!item) return defaultValue;
-    // Retorna a propriedade 'val' (da nossa API) ou 'value' (do ThingsBoard)
-    return item.val !== undefined ? item.val : item.value;
-  };
-
-  async function waitForOrchestrator(timeoutMs = 15000) {
-  return new Promise((resolve) => {
-    let interval;
-    const timeout = setTimeout(() => {
-      clearInterval(interval);
-      LogHelper.error("[WATER_COMMON_AREA] Timeout: MyIOOrchestrator não foi encontrado na window.");
-      resolve(null);
-    }, timeoutMs);
-
-    interval = setInterval(() => {
-      // RFC-0057: No longer checking window.parent - not using iframes
-      const orchestrator = window.MyIOOrchestrator;
-      if (orchestrator) {
-        clearTimeout(timeout);
-        clearInterval(interval);
-        LogHelper.log("[WATER_COMMON_AREA] MyIOOrchestrator encontrado!");
-        resolve(orchestrator);
-      }
-    }, 100); // Verifica a cada 100ms
-  });
+/** ===================== UI BINDINGS ===================== **/
+/**
+ * RFC-0094: Search and filter button events are now handled by buildHeaderDevicesGrid
+ * This function is kept for backwards compatibility but the main logic is in the header controller
+ */
+function bindHeader() {
+  // RFC-0094: Events are now managed by waterCommonAreaHeaderController in onInit
+  LogHelper.log('[WATER_COMMON_AREA] bindHeader - events managed by header controller');
 }
 
+// ============================================
+// RFC-0094: WATER_COMMON_AREA FILTER MODAL (using shared factory from MAIN)
+// ============================================
 
-  // ===== WATER_COMMON_AREA: Listen for water cache from MAIN orchestrator =====
-     let waterCacheFromMain = null;
-
-    // Função para processar os dados recebidos e renderizar
-    async function processAndRender(cache) {
-      if (!cache || cache.size === 0) {
-        LogHelper.warn("[WATER_COMMON_AREA] Cache de energia está vazio. Nenhum card será renderizado.");
-        showLoadingOverlay(false);
-        return;
-      }
-      
-      waterCacheFromMain = cache;
-      enrichDevicesWithConsumption(); // A sua função original é chamada aqui
-      await renderDeviceCards();      // E a sua outra função original é chamada aqui
-    }
-
-    // Lógica principal: "verificar-depois-ouvir"
-const orchestrator = await waitForOrchestrator();
-
-if (orchestrator) {
-  const existingCache = orchestrator.getCache();
-
-  if (existingCache && existingCache.size > 0) {
-    // CAMINHO 1: (Navegação de volta)
-    LogHelper.log("[WATER_COMMON_AREA] Cache do Orquestrador já existe. Usando-o diretamente.");
-    await processAndRender(existingCache);
-  } else {
-    // CAMINHO 2: (Primeiro carregamento)
-    LogHelper.log("[WATER_COMMON_AREA] Cache vazio. Aguardando evento 'myio:water-data-ready'...");
-    const waitForEnergyCache = new Promise((resolve) => {
-      const handlerTimeout = setTimeout(() => {
-        LogHelper.warn("[WATER_COMMON_AREA] Timeout esperando pelo evento de cache.");
-        resolve(null);
-      }, 15000);
-
-      const handler = (ev) => {
-        clearTimeout(handlerTimeout);
-        window.removeEventListener('myio:water-data-ready', handler);
-        resolve(ev.detail.cache);
-      };
-      window.addEventListener('myio:water-data-ready', handler);
-    });
-    
-    const initialCache = await waitForEnergyCache;
-    await processAndRender(initialCache);
-  }
-} else {
-  // O erro do timeout já terá sido logado pela função 'waitForOrchestrator'
-  showLoadingOverlay(false);
+// Helper function to get item consumption value
+function getItemConsumption(item) {
+  return Number(item.value) || Number(item.consumption) || Number(item.val) || 0;
 }
-  // RFC-0072: Zoom controls removed - use browser native zoom instead
-  // Zoom functionality commented out to reduce complexity and rely on browser zoom
-  /*
-  const wrap = document.getElementById("waterCommonAreaWrap");
-  const key = `tb-font-scale:${ctx?.widget?.id || "equip"}`;
-  const saved = +localStorage.getItem(key);
-  if (saved && saved >= 0.8 && saved <= 1.4)
-    wrap.style.setProperty("--fs", saved);
 
-  const getScale = () => +getComputedStyle(wrap).getPropertyValue("--fs") || 1;
-  const setScale = (v) => {
-    const s = Math.min(1.3, Math.max(0.8, +v.toFixed(2)));
-    wrap.style.setProperty("--fs", s);
-    localStorage.setItem(key, s);
-  };
-
-  document
-    .getElementById("fontMinus")
-    ?.addEventListener("click", () => setScale(getScale() - 0.06));
-  document
-    .getElementById("fontPlus")
-    ?.addEventListener("click", () => setScale(getScale() + 0.06));
-  */
-    }, 0)
-
-  // ====== FILTER & SEARCH LOGIC ======
-  bindFilterEvents();
-};
-
-// Global state for filters
-const STATE = {
-  allDevices: [],
-  searchActive: false,
-  searchTerm: "",
-  selectedIds: null,
-  sortMode: 'cons_desc',
-  selectedShoppingIds: [], // Shopping filter from MENU
-  totalShoppings: 0 // Total number of shoppings available
-};
+// Filter modal instance (lazy initialized)
+let waterCommonAreaFilterModal = null;
 
 /**
- * RFC: Emit event to update HEADER equipment card
- * Sends total equipment count and filtered count
+ * RFC-0094: Initialize filter modal using shared factory from MAIN
  */
-function emitEquipmentCountEvent(filteredDevices) {
-  const totalEquipments = STATE.allDevices.length;
-  const filteredEquipments = filteredDevices.length;
+function initFilterModal() {
+  const createFilterModal = window.MyIOUtils?.createFilterModal;
 
-  // Check if all shoppings are selected (no filter or all selected)
-  const allShoppingsSelected = STATE.selectedShoppingIds.length === 0 ||
-                                STATE.selectedShoppingIds.length === STATE.totalShoppings;
-
-  const eventData = {
-    totalEquipments,
-    filteredEquipments,
-    allShoppingsSelected,
-    timestamp: Date.now()
-  };
-
-  window.dispatchEvent(new CustomEvent('myio:equipment-count-updated', {
-    detail: eventData
-  }));
-
-  LogHelper.log("[WATER_COMMON_AREA] ✅ Emitted myio:equipment-count-updated:", eventData);
-}
-
-/**
- * Apply filters and sorting to devices
- */
-function applyFilters(devices, searchTerm, selectedIds, sortMode) {
-  let filtered = devices.slice();
-
-  // Apply shopping filter (from MENU)
-  if (STATE.selectedShoppingIds && STATE.selectedShoppingIds.length > 0) {
-    const before = filtered.length;
-    filtered = filtered.filter(d => {
-      // If device has no customerId, include it (safety)
-      if (!d.customerId) return true;
-      // Check if device's customerId is in the selected shoppings
-      return STATE.selectedShoppingIds.includes(d.customerId);
-    });
-    LogHelper.log(`[WATER_COMMON_AREA] Shopping filter applied: ${before} -> ${filtered.length} devices (${before - filtered.length} filtered out)`);
+  if (!createFilterModal) {
+    LogHelper.error('[WATER_COMMON_AREA] createFilterModal not available from MAIN');
+    return null;
   }
 
-  // Apply multiselect filter
-  if (selectedIds && selectedIds.size > 0) {
-    filtered = filtered.filter(d => selectedIds.has(d.entityId));
-  }
+  return createFilterModal({
+    widgetName: 'WATER_COMMON_AREA',
+    containerId: 'waterCommonAreaFilterModalGlobal',
+    modalClass: 'water-common-area-modal',
+    primaryColor: '#0288D1', // Blue for water
+    itemIdAttr: 'data-entity',
 
-  // Apply search filter
-  const query = (searchTerm || "").trim().toLowerCase();
-  if (query) {
-    filtered = filtered.filter(d =>
-      String(d.labelOrName || "").toLowerCase().includes(query) ||
-      String(d.deviceIdentifier || "").toLowerCase().includes(query) ||
-      String(d.deviceType || "").toLowerCase().includes(query)
-    );
-  }
+    // Filter tabs configuration - specific for WATER_COMMON_AREA
+    filterTabs: [
+      { id: 'all', label: 'Todos', filter: () => true },
+      { id: 'online', label: 'Online', filter: (s) => getItemConsumption(s) > 0 },
+      { id: 'offline', label: 'Offline', filter: (s) => getItemConsumption(s) === 0 },
+      { id: 'withConsumption', label: 'Com Consumo', filter: (s) => getItemConsumption(s) > 0 },
+      { id: 'noConsumption', label: 'Sem Consumo', filter: (s) => getItemConsumption(s) === 0 },
+    ],
 
-  // Apply sorting
-  filtered.sort((a, b) => {
-    const valA = Number(a.val) || Number(a.lastValue) || 0;
-    const valB = Number(b.val) || Number(b.lastValue) || 0;
-    const nameA = String(a.labelOrName || "").toLowerCase();
-    const nameB = String(b.labelOrName || "").toLowerCase();
+    // Data accessors
+    getItemId: (item) => item.id,
+    getItemLabel: (item) => item.label || item.identifier || item.id,
+    getItemValue: getItemConsumption,
+    getItemSubLabel: (item) => getCustomerNameForDevice(item),
+    formatValue: (val) => MyIO.formatWaterVolumeM3(val), // RFC-0094: M³ formatting
 
-    switch (sortMode) {
-      case 'cons_desc':
-        return valB !== valA ? valB - valA : nameA.localeCompare(nameB);
-      case 'cons_asc':
-        return valA !== valB ? valA - valB : nameA.localeCompare(nameB);
-      case 'alpha_asc':
-        return nameA.localeCompare(nameB);
-      case 'alpha_desc':
-        return nameB.localeCompare(nameA);
-      default:
-        return 0;
-    }
-  });
+    // Callbacks
+    onApply: ({ selectedIds, sortMode }) => {
+      STATE.selectedIds = selectedIds;
+      STATE.sortMode = sortMode;
+      reflowFromState();
+      LogHelper.log('[WATER_COMMON_AREA] [RFC-0094] Filters applied via shared modal');
+    },
 
-  return filtered;
-}
-
-/**
- * Re-render cards with current filters
- */
-function reflowCards() {
-  const filtered = applyFilters(STATE.allDevices, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
-
-  LogHelper.log("[WATER_COMMON_AREA] Reflow with filters:", {
-    total: STATE.allDevices.length,
-    filtered: filtered.length,
-    searchTerm: STATE.searchTerm,
-    selectedCount: STATE.selectedIds?.size || 0,
-    sortMode: STATE.sortMode
-  });
-
-  initializeCards(filtered);
-  updateEquipmentStats(filtered);
-
-  // RFC: Emit event to update HEADER card
-  emitEquipmentCountEvent(filtered);
-}
-
-/**
- * RFC-0072: Setup modal handlers (called once when modal is moved to document.body)
- */
-function setupModalCloseHandlers(modal) {
-  // Close button
-  const closeBtn = modal.querySelector("#closeFilter");
-  if (closeBtn) {
-    closeBtn.addEventListener("click", closeFilterModal);
-  }
-
-  // Backdrop click
-  modal.addEventListener("click", (e) => {
-    if (e.target === modal) {
-      closeFilterModal();
-    }
-  });
-
-  // Apply filters button
-  const applyBtn = modal.querySelector("#applyFilters");
-  if (applyBtn) {
-    applyBtn.addEventListener("click", () => {
-      // Get selected devices
-      const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']:checked");
-      const selectedSet = new Set();
-      checkboxes.forEach(cb => {
-        const deviceId = cb.getAttribute("data-device-id");
-        if (deviceId) selectedSet.add(deviceId);
-      });
-
-      // If all devices are selected, treat as "no filter"
-      STATE.selectedIds = selectedSet.size === STATE.allDevices.length ? null : selectedSet;
-
-      // Get sort mode
-      const sortRadio = modal.querySelector('input[name="sortMode"]:checked');
-      if (sortRadio) {
-        STATE.sortMode = sortRadio.value;
-      }
-
-      LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Filters applied:", {
-        selectedCount: STATE.selectedIds?.size || STATE.allDevices.length,
-        totalDevices: STATE.allDevices.length,
-        sortMode: STATE.sortMode,
-        selectedIds: STATE.selectedIds ? Array.from(STATE.selectedIds).slice(0, 5) : 'all' // Show first 5 IDs
-      });
-
-      // Apply filters and close modal with cleanup
-      reflowCards();
-      closeFilterModal();
-    });
-  }
-
-  // Reset filters button
-  const resetBtn = modal.querySelector("#resetFilters");
-  if (resetBtn) {
-    resetBtn.addEventListener("click", () => {
-      // Reset state
+    onReset: () => {
       STATE.selectedIds = null;
       STATE.sortMode = 'cons_desc';
-      STATE.searchTerm = "";
+      STATE.searchTerm = '';
       STATE.searchActive = false;
 
-      // Reset UI
-      const searchInput = document.getElementById("waterSearch");
-      const searchWrap = document.getElementById("searchWrap");
-      if (searchInput) searchInput.value = "";
-      if (searchWrap) searchWrap.classList.remove("active");
+      // RFC-0094: Reset UI via header controller
+      if (waterCommonAreaHeaderController) {
+        const searchInput = waterCommonAreaHeaderController.getSearchInput();
+        if (searchInput) searchInput.value = '';
+        waterCommonAreaHeaderController.toggleSearch(false);
+      }
 
-      // Apply and close with cleanup
-      reflowCards();
-      closeFilterModal();
+      reflowFromState();
+      LogHelper.log('[WATER_COMMON_AREA] [RFC-0094] Filters reset via shared modal');
+    },
 
-      LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Filters reset");
-    });
-  }
-
-  // Bind filter tab click handlers (must be done after modal is moved to document.body)
-  const filterTabs = modal.querySelectorAll(".filter-tab");
-  filterTabs.forEach(tab => {
-    tab.addEventListener("click", () => {
-      const filterType = tab.getAttribute("data-filter");
-
-      // Update active state
-      filterTabs.forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-
-      // Filter checkboxes based on selected tab
-      const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']");
-      checkboxes.forEach(cb => {
-        const deviceId = cb.getAttribute("data-device-id");
-        const device = STATE.allDevices.find(d => d.entityId === deviceId);
-
-        if (!device) return;
-
-        const consumption = Number(device.val) || Number(device.lastValue) || 0;
-        const deviceType = (device.deviceType || '').toUpperCase();
-        const deviceProfile = (device.deviceProfile || '').toUpperCase();
-        const identifier = (device.deviceIdentifier || '').toUpperCase();
-        const labelOrName = (device.labelOrName || '').toUpperCase();
-
-        // RFC: Check if device has CAG in identifier or labelOrName (climatização)
-        const hasCAG = identifier.includes('CAG') || labelOrName.includes('CAG');
-
-        let shouldCheck = false;
-
-        switch (filterType) {
-          case 'all':
-            shouldCheck = true;
-            break;
-          case 'online':
-            shouldCheck = consumption > 0;
-            break;
-          case 'offline':
-            shouldCheck = consumption === 0;
-            break;
-          case 'with-consumption':
-            shouldCheck = consumption > 0;
-            break;
-          case 'no-consumption':
-            shouldCheck = consumption === 0;
-            break;
-          case 'elevators':
-            shouldCheck = deviceType === 'ELEVADOR' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR');
-            break;
-          case 'escalators':
-            shouldCheck = deviceType === 'ESCADA_ROLANTE' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE');
-            break;
-          case 'hvac':
-            shouldCheck = hasCAG || deviceType === 'CHILLER' || deviceType === 'FANCOIL' || deviceType === 'AR_CONDICIONADO' ||
-                         deviceType === 'BOMBA' || deviceType === 'HVAC' ||
-                         (deviceType === '3F_MEDIDOR' && (deviceProfile === 'CHILLER' || deviceProfile === 'FANCOIL' ||
-                          deviceProfile === 'AR_CONDICIONADO' || deviceProfile === 'BOMBA' || deviceProfile === 'HVAC'));
-            break;
-          case 'others':
-            shouldCheck = !(
-              hasCAG ||
-              deviceType === 'ELEVADOR' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR') ||
-              deviceType === 'ESCADA_ROLANTE' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE') ||
-              deviceType === 'CHILLER' || deviceType === 'FANCOIL' || deviceType === 'AR_CONDICIONADO' ||
-              deviceType === 'BOMBA' || deviceType === 'HVAC' ||
-              (deviceType === '3F_MEDIDOR' && (deviceProfile === 'CHILLER' || deviceProfile === 'FANCOIL' ||
-               deviceProfile === 'AR_CONDICIONADO' || deviceProfile === 'BOMBA' || deviceProfile === 'HVAC'))
-            );
-            break;
-        }
-
-        cb.checked = shouldCheck;
-      });
-
-      // Count how many checkboxes are now checked
-      const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
-      LogHelper.log(`[WATER_COMMON_AREA] Filter tab selected: ${filterType}, checked: ${checkedCount}/${checkboxes.length}`);
-    });
+    onClose: () => {
+      LogHelper.log('[WATER_COMMON_AREA] [RFC-0094] Filter modal closed');
+    },
   });
-
-  // Bind filter device search inside modal
-  const filterDeviceSearch = modal.querySelector("#filterDeviceSearch");
-  if (filterDeviceSearch) {
-    filterDeviceSearch.addEventListener("input", (e) => {
-      const query = (e.target.value || "").trim().toLowerCase();
-      const checkItems = modal.querySelectorAll("#deviceChecklist .check-item");
-
-      checkItems.forEach(item => {
-        const label = item.querySelector("label");
-        const text = (label?.textContent || "").toLowerCase();
-        item.style.display = text.includes(query) ? "flex" : "none";
-      });
-    });
-  }
-
-  // Bind clear filter search button
-  const filterDeviceClear = modal.querySelector("#filterDeviceClear");
-  if (filterDeviceClear && filterDeviceSearch) {
-    filterDeviceClear.addEventListener("click", () => {
-      filterDeviceSearch.value = "";
-      const checkItems = modal.querySelectorAll("#deviceChecklist .check-item");
-      checkItems.forEach(item => item.style.display = "flex");
-      filterDeviceSearch.focus();
-    });
-  }
-
-  LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Modal handlers bound (close, apply, reset, filter tabs, search)");
 }
 
 /**
- * RFC-0072: Open filter modal with full-screen support and ESC key handling
- * Following MENU widget pattern: modal attached to document.body
+ * RFC-0094: Open filter modal
  */
 function openFilterModal() {
-  LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Opening full-screen filter modal");
-  LogHelper.log("[WATER_COMMON_AREA] STATE.allDevices count:", STATE.allDevices.length);
+  // Lazy initialize modal
+  if (!waterCommonAreaFilterModal) {
+    waterCommonAreaFilterModal = initFilterModal();
+  }
 
-  if (STATE.allDevices.length === 0) {
-    LogHelper.error("[WATER_COMMON_AREA] ❌ No devices in STATE.allDevices! Modal will be empty.");
-    alert("Nenhum equipamento encontrado. Por favor, aguarde o carregamento dos dados.");
+  if (!waterCommonAreaFilterModal) {
+    LogHelper.error('[WATER_COMMON_AREA] Failed to initialize filter modal');
+    window.alert('Erro ao inicializar modal de filtros. Verifique se o widget MAIN foi carregado.');
     return;
   }
 
-  // RFC-0072: Get or create global modal container (like MENU widget)
-  let globalContainer = document.getElementById("waterFilterModalGlobal");
+  // Use itemsEnriched if available (has consumption values), otherwise itemsBase
+  const items =
+    STATE.itemsEnriched && STATE.itemsEnriched.length > 0 ? STATE.itemsEnriched : STATE.itemsBase || [];
 
-  if (!globalContainer) {
-    // Modal doesn't exist, move it from widget to document.body
-    const widgetModal = document.getElementById("filterModal");
-    if (widgetModal) {
-      // Extract modal from widget and wrap in global container
-      globalContainer = document.createElement("div");
-      globalContainer.id = "waterFilterModalGlobal";
-
-      // RFC-0072: Inject styles inline (like MENU widget) so they work outside widget scope
-      globalContainer.innerHTML = `
-        <style>
-          /* RFC-0087: WATER_COMMON_AREA Filter Modal Styles (injected for document.body scope) */
-          #waterFilterModalGlobal .water-modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.6);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 999999;
-            backdrop-filter: blur(4px);
-            animation: fadeIn 0.2s ease-in;
-          }
-
-          #waterFilterModalGlobal .water-modal.hidden {
-            display: none;
-          }
-
-          #waterFilterModalGlobal .water-modal-card {
-            background: #fff;
-            border-radius: 0;
-            width: 100%;
-            height: 100%;
-            max-width: 100%;
-            max-height: 100%;
-            display: flex;
-            flex-direction: column;
-            box-shadow: none;
-            overflow: hidden;
-          }
-
-          @media (min-width: 768px) {
-            #waterFilterModalGlobal .water-modal-card {
-              border-radius: 16px;
-              width: 90%;
-              max-width: 1125px; /* 900px + 25% = 1125px */
-              height: auto;
-              max-height: 90vh;
-              box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            }
-          }
-
-          #waterFilterModalGlobal .water-modal-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 20px;
-            border-bottom: 1px solid #DDE7F1;
-          }
-
-          #waterFilterModalGlobal .water-modal-header h3 {
-            margin: 0;
-            font-size: 18px;
-            font-weight: 700;
-            color: #1C2743;
-          }
-
-          #waterFilterModalGlobal .water-modal-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-          }
-
-          #waterFilterModalGlobal .water-modal-footer {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-            padding: 16px 20px;
-            border-top: 1px solid #DDE7F1;
-          }
-
-          #waterFilterModalGlobal .filter-block {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-          }
-
-          #waterFilterModalGlobal .block-label {
-            font-size: 14px;
-            font-weight: 600;
-            color: #1C2743;
-          }
-
-          /* RFC: Filter tabs header with counts */
-          #waterFilterModalGlobal .filter-tabs {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-            padding-bottom: 12px;
-            border-bottom: 2px solid #E6EEF5;
-          }
-
-          #waterFilterModalGlobal .filter-tab {
-            border: 1px solid #DDE7F1;
-            background: #fff;
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-            cursor: pointer;
-            transition: all 0.2s;
-            color: #6b7a90;
-            white-space: nowrap;
-          }
-
-          #waterFilterModalGlobal .filter-tab:hover {
-            background: #f7fbff;
-            border-color: #2563eb;
-            color: #1C2743;
-          }
-
-          #waterFilterModalGlobal .filter-tab.active {
-            background: #2563eb;
-            border-color: #2563eb;
-            color: #fff;
-          }
-
-          #waterFilterModalGlobal .filter-tab span {
-            font-weight: 700;
-          }
-
-          #waterFilterModalGlobal .inline-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-          }
-
-          #waterFilterModalGlobal .tiny-btn {
-            border: 1px solid #DDE7F1;
-            background: #fff;
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-          }
-
-          #waterFilterModalGlobal .tiny-btn:hover {
-            background: #f8f9fa;
-            border-color: #1f6fb5;
-          }
-
-          #waterFilterModalGlobal .filter-search {
-            position: relative;
-            display: flex;
-            align-items: center;
-            margin-bottom: 12px;
-          }
-
-          #waterFilterModalGlobal .filter-search svg {
-            position: absolute;
-            left: 12px;
-            width: 18px;
-            height: 18px;
-            fill: #6b7a90;
-          }
-
-          #waterFilterModalGlobal .filter-search input {
-            width: 100%;
-            padding: 10px 12px 10px 40px;
-            border: 2px solid #DDE7F1;
-            border-radius: 10px;
-            font-size: 14px;
-            outline: none;
-          }
-
-          #waterFilterModalGlobal .filter-search input:focus {
-            border-color: #1f6fb5;
-          }
-
-          #waterFilterModalGlobal .filter-search .clear-x {
-            position: absolute;
-            right: 12px;
-            border: 0;
-            background: transparent;
-            cursor: pointer;
-            padding: 4px;
-          }
-
-          #waterFilterModalGlobal .checklist {
-            max-height: 300px;
-            overflow-y: auto;
-            border: 1px solid #DDE7F1;
-            border-radius: 10px;
-            padding: 8px;
-          }
-
-          #waterFilterModalGlobal .check-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px;
-            border-radius: 6px;
-            transition: background 0.2s;
-          }
-
-          #waterFilterModalGlobal .check-item:hover {
-            background: #f8f9fa;
-          }
-
-          #waterFilterModalGlobal .check-item input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-          }
-
-          #waterFilterModalGlobal .check-item label {
-            flex: 1;
-            cursor: pointer;
-            font-size: 14px;
-            color: #1C2743;
-          }
-
-          #waterFilterModalGlobal .radio-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-          }
-
-          #waterFilterModalGlobal .radio-grid label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px;
-            border: 1px solid #DDE7F1;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-          }
-
-          #waterFilterModalGlobal .radio-grid label:hover {
-            background: #f8f9fa;
-            border-color: #1f6fb5;
-          }
-
-          #waterFilterModalGlobal .radio-grid input[type="radio"] {
-            width: 16px;
-            height: 16px;
-            cursor: pointer;
-          }
-
-          #waterFilterModalGlobal .muted {
-            font-size: 12px;
-            color: #6b7a90;
-            margin-top: 4px;
-          }
-
-          #waterFilterModalGlobal .btn {
-            padding: 10px 16px;
-            border: 1px solid #DDE7F1;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-          }
-
-          #waterFilterModalGlobal .btn:hover {
-            background: #f8f9fa;
-          }
-
-          #waterFilterModalGlobal .btn.primary {
-            background: #1f6fb5;
-            color: #fff;
-            border-color: #1f6fb5;
-          }
-
-          #waterFilterModalGlobal .btn.primary:hover {
-            background: #1a5a8f;
-            border-color: #1a5a8f;
-          }
-
-          #waterFilterModalGlobal .icon-btn {
-            border: 0;
-            background: transparent;
-            cursor: pointer;
-            padding: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 6px;
-            transition: background 0.2s;
-          }
-
-          #waterFilterModalGlobal .icon-btn:hover {
-            background: #f0f0f0;
-          }
-
-          #waterFilterModalGlobal .icon-btn svg {
-            width: 18px;
-            height: 18px;
-            fill: #1C2743;
-          }
-
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
-
-          body.modal-open {
-            overflow: hidden !important;
-          }
-        </style>
-      `;
-
-      // Move modal content to global container (after styles)
-      widgetModal.remove();
-      globalContainer.appendChild(widgetModal);
-
-      // Attach to document.body (like MENU widget)
-      document.body.appendChild(globalContainer);
-
-      // RFC-0072: Bind close handlers now that modal is in document.body
-      setupModalCloseHandlers(widgetModal);
-
-      LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Modal moved to document.body with inline styles and handlers");
-    } else {
-      LogHelper.error("[WATER_COMMON_AREA] [RFC-0072] Filter modal not found in template");
-      return;
-    }
-  }
-
-  const modal = globalContainer.querySelector("#filterModal");
-  if (!modal) return;
-
-  modal.classList.remove("hidden");
-
-  // RFC-0072: Add body class to prevent scrolling
-  document.body.classList.add('modal-open');
-
-  // RFC: Calculate counts for filter tabs
-  const counts = {
-    all: STATE.allDevices.length,
-    online: 0,
-    offline: 0,
-    withConsumption: 0,
-    noConsumption: 0,
-    elevators: 0,
-    escalators: 0,
-    hvac: 0,
-    others: 0
-  };
-
-  STATE.allDevices.forEach(device => {
-    const consumption = Number(device.val) || Number(device.lastValue) || 0;
-    const deviceType = (device.deviceType || '').toUpperCase();
-    const deviceProfile = (device.deviceProfile || '').toUpperCase();
-    const identifier = (device.deviceIdentifier || '').toUpperCase();
-    const labelOrName = (device.labelOrName || '').toUpperCase();
-
-    // Count online/offline status
-    // Note: connectionStatus may not be available from API, using consumption as proxy
-    // Devices with consumption > 0 are considered "online" (actively reporting)
-    const hasConsumption = consumption > 0;
-    
-    if (hasConsumption) {
-      counts.online++;
-    } else {
-      counts.offline++;
-    }
-
-    // Count consumption status
-    if (consumption > 0) {
-      counts.withConsumption++;
-    } else {
-      counts.noConsumption++;
-    }
-
-    // RFC: Check if device has CAG in identifier or labelOrName (climatização)
-    const hasCAG = identifier.includes('CAG') || labelOrName.includes('CAG');
-
-    // Count by type (using same classification logic as the rest of the widget)
-    if (deviceType === 'ELEVADOR' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR')) {
-      counts.elevators++;
-    } else if (deviceType === 'ESCADA_ROLANTE' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE')) {
-      counts.escalators++;
-    } else if (hasCAG || deviceType === 'CHILLER' || deviceType === 'FANCOIL' || deviceType === 'AR_CONDICIONADO' ||
-               deviceType === 'BOMBA' || deviceType === 'HVAC' ||
-               (deviceType === '3F_MEDIDOR' && (deviceProfile === 'CHILLER' || deviceProfile === 'FANCOIL' ||
-                deviceProfile === 'AR_CONDICIONADO' || deviceProfile === 'BOMBA' || deviceProfile === 'HVAC'))) {
-      counts.hvac++;
-    } else {
-      counts.others++;
-    }
+  // Open with current items and state
+  waterCommonAreaFilterModal.open(items, {
+    selectedIds: STATE.selectedIds,
+    sortMode: STATE.sortMode,
   });
-  
-  // Update count displays
-  const updateCount = (id, value) => {
-    const el = modal.querySelector(`#${id}`);
-    if (el) el.innerHTML = value;
-  };
-
-  updateCount('countAll', counts.all);
-  updateCount('countOnline', counts.online);
-  updateCount('countOffline', counts.offline);
-  updateCount('countWithConsumption', counts.withConsumption);
-  updateCount('countNoConsumption', counts.noConsumption);
-  updateCount('countElevators', counts.elevators);
-  updateCount('countEscalators', counts.escalators);
-  updateCount('countHvac', counts.hvac);
-  updateCount('countOthers', counts.others);
-
-  LogHelper.log('[WATER_COMMON_AREA] Filter counts:', counts);
-
-  // Debug: Log sample device to check connectionStatus field
-  if (STATE.allDevices.length > 0) {
-    LogHelper.log('[WATER_COMMON_AREA] Sample device for debugging:', STATE.allDevices[0]);
-  }
-
-  // Populate device checklist - need to find it within the global container
-  let checklist = globalContainer.querySelector("#deviceChecklist");
-  if (!checklist) {
-    // Fallback to document search
-    checklist = document.getElementById("deviceChecklist");
-  }
-  if (!checklist) {
-    LogHelper.error("[WATER_COMMON_AREA] ❌ deviceChecklist element not found!");
-    return;
-  }
-
-  LogHelper.log('[WATER_COMMON_AREA] deviceChecklist found, populating with', STATE.allDevices.length, 'devices');
-
-  checklist.innerHTML = "";
-
-  STATE.allDevices.forEach(device => {
-    const isChecked = !STATE.selectedIds || STATE.selectedIds.has(device.entityId);
-
-    const item = document.createElement("div");
-    item.className = "check-item";
-    item.innerHTML = `
-      <input type="checkbox" id="check-${device.entityId}" ${isChecked ? 'checked' : ''} data-device-id="${device.entityId}">
-      <label for="check-${device.entityId}">${device.labelOrName || device.deviceIdentifier || device.entityId}</label>
-    `;
-
-    checklist.appendChild(item);
-  });
-
-  // Set current sort mode
-  const sortRadios = modal.querySelectorAll('input[name="sortMode"]');
-  sortRadios.forEach(radio => {
-    radio.checked = radio.value === STATE.sortMode;
-  });
-
-  // RFC-0072: Add ESC key handler
-  if (!modal._escHandler) {
-    modal._escHandler = (e) => {
-      if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-        closeFilterModal();
-      }
-    };
-    document.addEventListener('keydown', modal._escHandler);
-  }
 }
 
 /**
- * RFC-0072: Close filter modal and cleanup
+ * RFC-0094: Close filter modal (for backward compatibility)
  */
 function closeFilterModal() {
-  // RFC-0072: Modal is now in document.body, not in widget
-  const globalContainer = document.getElementById("waterFilterModalGlobal");
-  if (!globalContainer) return;
-
-  const modal = globalContainer.querySelector("#filterModal");
-  if (!modal) return;
-
-  LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Closing filter modal");
-
-  modal.classList.add("hidden");
-
-  // RFC-0072: Remove body class to restore scrolling
-  document.body.classList.remove('modal-open');
-
-  // RFC-0072: Remove ESC handler
-  if (modal._escHandler) {
-    document.removeEventListener('keydown', modal._escHandler);
-    modal._escHandler = null;
+  if (waterCommonAreaFilterModal) {
+    waterCommonAreaFilterModal.close();
   }
 }
 
-/**
- * Bind all filter-related events
- */
-function bindFilterEvents() {
-  // Search button toggle
-  const btnSearch = document.getElementById("btnSearch");
-  const searchWrap = document.getElementById("searchWrap");
-  const searchInput = document.getElementById("waterSearch");
-
-  if (btnSearch && searchWrap && searchInput) {
-    btnSearch.addEventListener("click", () => {
-      STATE.searchActive = !STATE.searchActive;
-      searchWrap.classList.toggle("active", STATE.searchActive);
-      if (STATE.searchActive) {
-        setTimeout(() => searchInput.focus(), 100);
-      }
-    });
-
-    searchInput.addEventListener("input", (e) => {
-      STATE.searchTerm = e.target.value || "";
-      reflowCards();
-    });
-  }
-
-  // Filter button (opens modal which will be moved to document.body on first open)
-  const btnFilter = document.getElementById("btnFilter");
-  if (btnFilter) {
-    btnFilter.addEventListener("click", openFilterModal);
-  }
-
-  // RFC-0072: All filter-related handlers (filter tabs, search, apply, reset)
-  // are now set up in setupModalCloseHandlers() when modal is moved to document.body
+function bindModal() {
+  // RFC-0094: Modal is now handled by shared factory, but keep legacy bindings for fallback
+  $root().on('click', '#closeFilter', closeFilterModal);
 }
 
-self.onDestroy = function () {
-  if (self._onDateParams) {
-    window.removeEventListener("myio:date-params", self._onDateParams);
+/** ===================== RECOMPUTE (local only) ===================== **/
+async function filterAndRender() {
+  const visible = applyFilters(STATE.itemsEnriched, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
+  const { visible: withPerc, groupSum } = recomputePercentages(visible);
+  await renderList(withPerc);
+
+  // RFC-0094: Update stats header via centralized controller
+  if (STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
+    if (waterCommonAreaHeaderController) {
+      waterCommonAreaHeaderController.updateFromDevices(STATE.itemsEnriched, {});
+    } else {
+      updateWaterCommonAreaStats(STATE.itemsEnriched);
+    }
   }
-  if (self._onFilterApplied) {
-    window.removeEventListener("myio:filter-applied", self._onFilterApplied);
+}
+
+function reflowFromState() {
+  filterAndRender();
+}
+
+/** ===================== AUTH ===================== **/
+function isAuthReady() {
+  return !!CLIENT_ID && !!CLIENT_SECRET && !!MyIOAuth;
+}
+
+async function ensureAuthReady(timeout = 5000, interval = 100) {
+  const start = Date.now();
+  while (!isAuthReady()) {
+    if (Date.now() - start > timeout) {
+      LogHelper.warn('[WATER_COMMON_AREA] Auth timeout waiting for credentials');
+      return false;
+    }
+    await new Promise((r) => setTimeout(r, interval));
   }
-  if (self._onCustomersReady) {
-    window.removeEventListener("myio:customers-ready", self._onCustomersReady);
+  return true;
+}
+
+/** ===================== HYDRATE (end-to-end) ===================== **/
+async function fetchApiTotals(startISO, endISO) {
+  if (!isAuthReady()) throw new Error('Auth not ready');
+  const token = await MyIOAuth.getToken();
+  if (!token) throw new Error('No ingestion token');
+
+  // RFC-0094: Use water endpoint
+  const url = new URL(`${getDataApiHost()}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/water/devices/totals`);
+  url.searchParams.set('startTime', toSpOffsetNoMs(startISO));
+  url.searchParams.set('endTime', toSpOffsetNoMs(endISO, true));
+  url.searchParams.set('deep', '1');
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    LogHelper.warn('[WATER_COMMON_AREA] API fetch failed:', res.status);
+    return new Map();
   }
 
-  // RFC-0072: Cleanup filter modal ESC handler
-  const globalContainer = document.getElementById("waterFilterModalGlobal");
-  if (globalContainer) {
-    const modal = globalContainer.querySelector("#filterModal");
-    if (modal && modal._escHandler) {
-      document.removeEventListener('keydown', modal._escHandler);
-      modal._escHandler = null;
+  const json = await res.json();
+  const rows = Array.isArray(json) ? json : json?.data ?? [];
+  const map = new Map();
+  for (const r of rows) if (r && r.id) map.set(String(r.id), r);
+  return map;
+}
+
+async function hydrateAndRender() {
+  if (hydrating) return;
+  hydrating = true;
+
+  showBusy();
+
+  try {
+    // 0) Datas: obrigatórias
+    let range;
+    try {
+      range = mustGetDateRange();
+    } catch (_e) {
+      LogHelper.warn('[WATER_COMMON_AREA] Aguardando intervalo de datas (startDateISO/endDateISO).');
+      return;
     }
 
-    // RFC-0072: Remove global modal container from document.body
-    globalContainer.remove();
-    LogHelper.log("[WATER_COMMON_AREA] [RFC-0072] Global modal container removed on destroy");
+    // 1) Auth
+    const okAuth = await ensureAuthReady(6000, 150);
+    if (!okAuth) {
+      LogHelper.warn('[WATER_COMMON_AREA] Auth not ready; adiando hidratação.');
+      return;
+    }
+
+    // 2) Lista autoritativa
+    STATE.itemsBase = buildAuthoritativeItems();
+
+    // 3) Totais na API
+    let apiMap = new Map();
+    try {
+      apiMap = await fetchApiTotals(range.startISO, range.endISO);
+    } catch (err) {
+      LogHelper.error('[WATER_COMMON_AREA] API error:', err);
+      apiMap = new Map();
+    }
+
+    // 4) Enrich + render
+    STATE.itemsEnriched = enrichItemsWithTotals(STATE.itemsBase, apiMap);
+
+    // 5) Sanitiza seleção
+    if (STATE.selectedIds && STATE.selectedIds.size) {
+      const valid = new Set(STATE.itemsBase.map((x) => x.id));
+      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
+      STATE.selectedIds = next.size ? next : null;
+    }
+
+    reflowFromState();
+  } finally {
+    hydrating = false;
+    hideBusy();
+  }
+}
+
+/** ===================== TB LIFE CYCLE ===================== **/
+self.onInit = async function () {
+  $(self.ctx.$container).css({
+    height: '100%',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    position: 'relative',
+  });
+
+  MyIO = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
+    (typeof window !== 'undefined' && window.MyIOLibrary) || {
+      showAlert: function () {
+        alert('A Biblioteca Myio não foi carregada corretamente!');
+      },
+    };
+
+  // RFC-0094: Set widget configuration from settings FIRST - WATER DOMAIN
+  WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'water';
+  LogHelper.log(`[WATER_COMMON_AREA] Configured EARLY: domain=${WIDGET_DOMAIN}`);
+
+  // RFC-0094: Build centralized header via buildHeaderDevicesGrid
+  const buildHeaderDevicesGrid = window.MyIOUtils?.buildHeaderDevicesGrid;
+  if (buildHeaderDevicesGrid) {
+    waterCommonAreaHeaderController = buildHeaderDevicesGrid({
+      container: '#waterCommonAreaHeaderContainer',
+      domain: 'water',
+      idPrefix: 'waterCommonArea',
+      labels: {
+        total: 'Total de Hidrômetros',
+        consumption: 'Consumo Total (m³)',
+      },
+      includeSearch: true,
+      includeFilter: true,
+      onSearchClick: () => {
+        STATE.searchActive = !STATE.searchActive;
+        if (STATE.searchActive) {
+          const input = waterCommonAreaHeaderController?.getSearchInput();
+          if (input) setTimeout(() => input.focus(), 100);
+        }
+      },
+      onFilterClick: () => {
+        openFilterModal();
+      },
+    });
+
+    // Setup search input listener
+    const searchInput = waterCommonAreaHeaderController?.getSearchInput();
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        STATE.searchTerm = e.target.value || '';
+        filterAndRender();
+      });
+    }
+
+    LogHelper.log('[WATER_COMMON_AREA] [RFC-0094] Header controller initialized');
+  } else {
+    LogHelper.warn('[WATER_COMMON_AREA] buildHeaderDevicesGrid not available - using fallback');
   }
 
-  // RFC-0072: Remove modal-open class if widget is destroyed with modal open
-  document.body.classList.remove('modal-open');
+  // RFC-0042: Request data from orchestrator (defined early for use in handlers)
+  function requestDataFromOrchestrator() {
+    if (!self.ctx.scope?.startDateISO || !self.ctx.scope?.endDateISO) {
+      LogHelper.warn('[WATER_COMMON_AREA] No date range set, cannot request data');
+      return;
+    }
+
+    const period = {
+      startISO: self.ctx.scope.startDateISO,
+      endISO: self.ctx.scope.endDateISO,
+      granularity: window.calcGranularity
+        ? window.calcGranularity(self.ctx.scope.startDateISO, self.ctx.scope.endDateISO)
+        : 'day',
+      tz: 'America/Sao_Paulo',
+    };
+
+    LogHelper.log(`[WATER_COMMON_AREA] Requesting data for domain=${WIDGET_DOMAIN}, period:`, period);
+
+    window.dispatchEvent(
+      new CustomEvent('myio:telemetry:request-data', {
+        detail: { domain: WIDGET_DOMAIN, period },
+      })
+    );
+  }
+
+  dateUpdateHandler = function (ev) {
+    LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] ✅ DATE UPDATE EVENT RECEIVED!`, ev.detail);
+
+    try {
+      let startISO, endISO;
+      if (ev.detail?.period) {
+        startISO = ev.detail.period.startISO;
+        endISO = ev.detail.period.endISO;
+      } else {
+        const { startDate, endDate } = ev.detail || {};
+        startISO = new Date(startDate).toISOString();
+        endISO = new Date(endDate).toISOString();
+      }
+
+      LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] Date range updated:`, startISO, endISO);
+
+      self.ctx.scope = self.ctx.scope || {};
+      self.ctx.scope.startDateISO = startISO;
+      self.ctx.scope.endDateISO = endISO;
+
+      hydrateAndRender();
+    } catch (err) {
+      LogHelper.error(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] dateUpdateHandler error:`, err);
+      hideBusy();
+    }
+  };
+
+  LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] 📡 Registering myio:update-date listener...`);
+  window.addEventListener('myio:update-date', dateUpdateHandler);
+  LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] ✅ myio:update-date listener registered!`);
+
+  // RFC-0042: Listen for clear event from HEADER (when user clicks "Limpar" button)
+  window.addEventListener('myio:telemetry:clear', (ev) => {
+    const { domain } = ev.detail;
+
+    if (domain !== WIDGET_DOMAIN) {
+      LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] Ignoring clear event for domain: ${domain}`);
+      return;
+    }
+
+    LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] 🧹 Received clear event - clearing visual content`);
+
+    try {
+      STATE.itemsBase = [];
+      STATE.itemsEnriched = [];
+      STATE.selectedIds = null;
+
+      const $widget = $root();
+      const $waterCommonAreaList = $widget.find('#waterCommonAreaList');
+      if ($waterCommonAreaList.length > 0) {
+        $waterCommonAreaList.empty();
+        LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] ✅ waterCommonAreaList cleared`);
+      }
+
+      LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] 🧹 Clear completed successfully`);
+    } catch (err) {
+      LogHelper.error(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] ❌ Error during clear:`, err);
+    }
+  });
+
+  // Test if listener is working
+  setTimeout(() => {
+    LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] 🧪 Testing listener registration...`);
+    if (typeof dateUpdateHandler === 'function') {
+      LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] ✅ dateUpdateHandler is defined and ready`);
+    } else {
+      LogHelper.error(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] ❌ dateUpdateHandler is NOT defined!`);
+    }
+  }, 100);
+
+  let pendingProvideData = null;
+
+  dataProvideHandler = function (ev) {
+    LogHelper.log(
+      `[WATER_COMMON_AREA ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${
+        ev.detail.domain
+      }, periodKey: ${ev.detail.periodKey}, items: ${ev.detail.items?.length || 0}`
+    );
+    const { domain, periodKey, items } = ev.detail;
+
+    if (domain !== WIDGET_DOMAIN) {
+      LogHelper.log(
+        `[WATER_COMMON_AREA ${WIDGET_DOMAIN}] ⏭️ Ignoring event for domain ${domain}, my domain is ${WIDGET_DOMAIN}`
+      );
+      return;
+    }
+
+    if (lastProcessedPeriodKey === periodKey) {
+      LogHelper.log(`[WATER_COMMON_AREA] ⏭️ Skipping duplicate provide-data for periodKey: ${periodKey}`);
+      return;
+    }
+
+    const myPeriod = {
+      startISO: self.ctx.scope?.startDateISO,
+      endISO: self.ctx.scope?.endDateISO,
+    };
+
+    if (!myPeriod.startISO || !myPeriod.endISO) {
+      LogHelper.warn(`[WATER_COMMON_AREA] ⏸️ Period not set yet, storing provide-data event for later processing`);
+      pendingProvideData = { domain, periodKey, items };
+      return;
+    }
+
+    lastProcessedPeriodKey = periodKey;
+
+    LogHelper.log(`[WATER_COMMON_AREA] 🔄 Processing data from orchestrator...`);
+    LogHelper.log(`[WATER_COMMON_AREA] Received ${items.length} items from orchestrator for domain ${domain}`);
+
+    const myDatasourceIds = extractDatasourceIds(self.ctx.datasources);
+    const datasourceIdSet = new Set(myDatasourceIds);
+    let filtered = items.filter((item) => {
+      return datasourceIdSet.has(item.id) || datasourceIdSet.has(item.tbId);
+    });
+
+    LogHelper.log(
+      `[WATER_COMMON_AREA] Filtered ${items.length} items down to ${filtered.length} items matching datasources`
+    );
+
+    if (filtered.length === 0) {
+      LogHelper.warn(`[WATER_COMMON_AREA] No items match datasource IDs! Using all items as fallback.`);
+      filtered = items;
+    }
+
+    filtered = filtered.map((item) => ({
+      id: item.tbId || item.id,
+      tbId: item.tbId || item.id,
+      ingestionId: item.ingestionId || item.id,
+      identifier: item.identifier || item.id,
+      label: item.label || item.identifier || item.id,
+      value: Number(item.value || 0),
+      perc: 0,
+      deviceType: item.deviceType || 'HIDROMETRO',
+      slaveId: item.slaveId || null,
+      centralId: item.centralId || null,
+      updatedIdentifiers: {},
+    }));
+
+    LogHelper.log(`[WATER_COMMON_AREA] Using ${filtered.length} items after processing`);
+
+    if (!STATE.itemsBase || STATE.itemsBase.length === 0) {
+      LogHelper.log(`[WATER_COMMON_AREA] Building itemsBase from TB data...`);
+      STATE.itemsBase = buildAuthoritativeItems();
+      LogHelper.log(`[WATER_COMMON_AREA] Built ${STATE.itemsBase.length} items from TB`);
+    }
+
+    const orchestratorValues = new Map();
+    filtered.forEach((item) => {
+      if (item.ingestionId) {
+        const value = Number(item.value || 0);
+        orchestratorValues.set(item.ingestionId, value);
+      }
+    });
+    LogHelper.log(`[WATER_COMMON_AREA] Orchestrator values map size: ${orchestratorValues.size}`);
+
+    STATE.itemsEnriched = STATE.itemsBase.map((tbItem) => {
+      const orchestratorValue = orchestratorValues.get(tbItem.ingestionId);
+
+      return {
+        ...tbItem,
+        value: orchestratorValue !== undefined ? orchestratorValue : tbItem.value || 0,
+        perc: 0,
+      };
+    });
+
+    LogHelper.log(`[WATER_COMMON_AREA] Enriched ${STATE.itemsEnriched.length} items with orchestrator values`);
+
+    if (STATE.selectedIds && STATE.selectedIds.size) {
+      const valid = new Set(STATE.itemsBase.map((x) => x.id));
+      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
+      STATE.selectedIds = next.size ? next : null;
+    }
+
+    reflowFromState();
+
+    LogHelper.log(`[WATER_COMMON_AREA] 🏁 Data processed successfully - ensuring busy is hidden`);
+
+    setTimeout(() => {
+      hideBusy();
+      if (window.MyIOOrchestrator && window.MyIOOrchestrator.getBusyState) {
+        const busyState = window.MyIOOrchestrator.getBusyState();
+        if (busyState.isVisible) {
+          LogHelper.warn(
+            `[WATER_COMMON_AREA] ⚠️ Orchestrator busy still visible after data processing - force hiding`
+          );
+          window.MyIOOrchestrator.hideGlobalBusy();
+        }
+      }
+    }, 100);
+  };
+
+  /**
+   * Extracts ingestionIds from ThingsBoard ctx.data
+   * RFC-0094: Only extracts from 'Todos Hidrometros Areas Comuns' alias
+   */
+  function extractDatasourceIds(datasources) {
+    const ingestionIds = new Set();
+    const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+
+    for (const row of rows) {
+      // RFC-0094: Filter by aliasName = 'Todos Hidrometros Areas Comuns'
+      const aliasName = row?.datasource?.aliasName || '';
+      if (aliasName !== 'Todos Hidrometros Areas Comuns') continue;
+
+      const key = String(row?.dataKey?.name || '').toLowerCase();
+      const val = row?.data?.[0]?.[1];
+
+      if (key === 'ingestionid' && val && isValidUUID(String(val))) {
+        ingestionIds.add(String(val));
+      }
+    }
+
+    return Array.from(ingestionIds);
+  }
+
+  window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
+
+  // RFC-0094: Use credentials from MAIN via MyIOUtils (already fetched by MAIN)
+  const jwt = localStorage.getItem('jwt_token');
+
+  const mainCredentials = window.MyIOUtils?.getCredentials?.();
+  if (mainCredentials?.clientId && mainCredentials?.clientSecret) {
+    CLIENT_ID = mainCredentials.clientId;
+    CLIENT_SECRET = mainCredentials.clientSecret;
+    CUSTOMER_ING_ID = mainCredentials.customerIngestionId || '';
+    LogHelper.log('[WATER_COMMON_AREA] Using credentials from MAIN (MyIOUtils)');
+  } else {
+    LogHelper.log('[WATER_COMMON_AREA] MAIN credentials not available, fetching directly...');
+    const customerTB_ID = window.MyIOUtils?.getCustomerId?.() || self.ctx.settings?.customerTB_ID || '';
+
+    try {
+      const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
+      CLIENT_ID = attrs?.client_id || '';
+      CLIENT_SECRET = attrs?.client_secret || '';
+      CUSTOMER_ING_ID = attrs?.ingestionId || '';
+    } catch (err) {
+      LogHelper.error('[WATER_COMMON_AREA] Failed to fetch credentials:', err);
+    }
+  }
+
+  // Initialize auth if we have credentials
+  if (CLIENT_ID && CLIENT_SECRET) {
+    try {
+      MyIOAuth = MyIO.buildMyioIngestionAuth({
+        dataApiHost: getDataApiHost(),
+        clientId: CLIENT_ID,
+        clientSecret: CLIENT_SECRET,
+      });
+
+      LogHelper.log('[WATER_COMMON_AREA] Auth init OK');
+      try {
+        await MyIOAuth.getToken();
+      } catch (_e) {
+        /* ignore token errors */
+      }
+    } catch (err) {
+      LogHelper.error('[WATER_COMMON_AREA] Auth init FAIL', err);
+    }
+  } else {
+    LogHelper.warn('[WATER_COMMON_AREA] No credentials available for auth initialization');
+  }
+
+  // Bind UI
+  bindHeader();
+  bindModal();
+
+  // ---------- Datas iniciais: "Current Month So Far" ----------
+  if (!self.ctx?.scope?.startDateISO || !self.ctx?.scope?.endDateISO) {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 0);
+    self.ctx.scope = self.ctx.scope || {};
+    self.ctx.scope.startDateISO = start.toISOString();
+    self.ctx.scope.endDateISO = end.toISOString();
+  }
+
+  const hasData = Array.isArray(self.ctx.data) && self.ctx.data.length > 0;
+  LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] onInit - Waiting for orchestrator data...`);
+
+  if (hasData && (!STATE.itemsBase || STATE.itemsBase.length === 0)) {
+    LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] Building itemsBase from TB data in onInit...`);
+    STATE.itemsBase = buildAuthoritativeItems();
+    LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] Built ${STATE.itemsBase.length} items from TB`);
+
+    STATE.itemsEnriched = STATE.itemsBase.map((item) => ({
+      ...item,
+      value: 0,
+      perc: 0,
+    }));
+    reflowFromState();
+  }
+
+  if (self.ctx?.scope?.startDateISO && self.ctx?.scope?.endDateISO) {
+    LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] Initial period defined, showing busy...`);
+    showBusy();
+  } else {
+    LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] No initial period, waiting for myio:update-date event...`);
+  }
+
+  if (hasData) {
+    STATE.firstHydrates++;
+    if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) {
+      await hydrateAndRender();
+    }
+  } else {
+    const waiter = setInterval(async () => {
+      if (Array.isArray(self.ctx.data) && self.ctx.data.length > 0) {
+        clearInterval(waiter);
+        STATE.firstHydrates++;
+        if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) await hydrateAndRender();
+      }
+    }, 200);
+  }
+};
+
+self.onDataUpdated = function () {
+  /* no-op */
+};
+
+self.onResize = function () {};
+
+self.onDestroy = function () {
+  if (dateUpdateHandler) {
+    window.removeEventListener('myio:update-date', dateUpdateHandler);
+    LogHelper.log("[WATER_COMMON_AREA] Event listener 'myio:update-date' removido.");
+  }
+  if (dataProvideHandler) {
+    window.removeEventListener('myio:telemetry:provide-data', dataProvideHandler);
+    LogHelper.log("[WATER_COMMON_AREA] Event listener 'myio:telemetry:provide-data' removido.");
+  }
+
+  // RFC-0094: Cleanup header controller
+  if (waterCommonAreaHeaderController) {
+    waterCommonAreaHeaderController.destroy();
+    waterCommonAreaHeaderController = null;
+    LogHelper.log('[WATER_COMMON_AREA] [RFC-0094] Header controller destroyed');
+  }
+
+  // RFC-0094: Cleanup filter modal using shared factory
+  if (waterCommonAreaFilterModal) {
+    waterCommonAreaFilterModal.destroy();
+    waterCommonAreaFilterModal = null;
+    LogHelper.log('[WATER_COMMON_AREA] [RFC-0094] Filter modal destroyed');
+  }
+
+  try {
+    $root().off();
+  } catch (_e) {
+    /* ignore cleanup errors */
+  }
+  hideBusy();
+  hideGlobalSuccessModal();
 };

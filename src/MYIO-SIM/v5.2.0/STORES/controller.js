@@ -614,6 +614,33 @@ function applyFilters(enriched, searchTerm, selectedIds, sortMode) {
         }) || b.value - a.value
       );
     }
+    // RFC-0095: Status sorting
+    if (sortMode === 'status_asc') {
+      const statusA = (a.connectionStatus || 'offline').toLowerCase();
+      const statusB = (b.connectionStatus || 'offline').toLowerCase();
+      const cmp = statusA.localeCompare(statusB, 'pt-BR', { sensitivity: 'base' });
+      return cmp !== 0 ? cmp : (a.label || '').localeCompare(b.label || '', 'pt-BR', { sensitivity: 'base' });
+    }
+    if (sortMode === 'status_desc') {
+      const statusA = (a.connectionStatus || 'offline').toLowerCase();
+      const statusB = (b.connectionStatus || 'offline').toLowerCase();
+      const cmp = statusB.localeCompare(statusA, 'pt-BR', { sensitivity: 'base' });
+      return cmp !== 0 ? cmp : (a.label || '').localeCompare(b.label || '', 'pt-BR', { sensitivity: 'base' });
+    }
+    // RFC-0095: Shopping sorting
+    if (sortMode === 'shopping_asc') {
+      const shopA = getCustomerNameForDevice(a) || '';
+      const shopB = getCustomerNameForDevice(b) || '';
+      const cmp = shopA.localeCompare(shopB, 'pt-BR', { sensitivity: 'base' });
+      return cmp !== 0 ? cmp : (a.label || '').localeCompare(b.label || '', 'pt-BR', { sensitivity: 'base' });
+    }
+    if (sortMode === 'shopping_desc') {
+      const shopA = getCustomerNameForDevice(a) || '';
+      const shopB = getCustomerNameForDevice(b) || '';
+      const cmp = shopB.localeCompare(shopA, 'pt-BR', { sensitivity: 'base' });
+      return cmp !== 0 ? cmp : (a.label || '').localeCompare(b.label || '', 'pt-BR', { sensitivity: 'base' });
+    }
+    // Default: alpha_asc
     return (
       (a.label || '').localeCompare(b.label || '', 'pt-BR', {
         sensitivity: 'base',

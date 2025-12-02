@@ -1239,6 +1239,32 @@ function applyFilters(devices, searchTerm, selectedIds, sortMode) {
         return nameA.localeCompare(nameB);
       case 'alpha_desc':
         return nameB.localeCompare(nameA);
+      // RFC-0095: Status sorting
+      case 'status_asc': {
+        const statusA = (a.deviceStatus || a.connectionStatus || 'offline').toLowerCase();
+        const statusB = (b.deviceStatus || b.connectionStatus || 'offline').toLowerCase();
+        const cmp = statusA.localeCompare(statusB, 'pt-BR', { sensitivity: 'base' });
+        return cmp !== 0 ? cmp : nameA.localeCompare(nameB);
+      }
+      case 'status_desc': {
+        const statusA = (a.deviceStatus || a.connectionStatus || 'offline').toLowerCase();
+        const statusB = (b.deviceStatus || b.connectionStatus || 'offline').toLowerCase();
+        const cmp = statusB.localeCompare(statusA, 'pt-BR', { sensitivity: 'base' });
+        return cmp !== 0 ? cmp : nameA.localeCompare(nameB);
+      }
+      // RFC-0095: Shopping sorting
+      case 'shopping_asc': {
+        const shopA = (a.customerName || getCustomerNameForDevice(a) || '').toLowerCase();
+        const shopB = (b.customerName || getCustomerNameForDevice(b) || '').toLowerCase();
+        const cmp = shopA.localeCompare(shopB, 'pt-BR', { sensitivity: 'base' });
+        return cmp !== 0 ? cmp : nameA.localeCompare(nameB);
+      }
+      case 'shopping_desc': {
+        const shopA = (a.customerName || getCustomerNameForDevice(a) || '').toLowerCase();
+        const shopB = (b.customerName || getCustomerNameForDevice(b) || '').toLowerCase();
+        const cmp = shopB.localeCompare(shopA, 'pt-BR', { sensitivity: 'base' });
+        return cmp !== 0 ? cmp : nameA.localeCompare(nameB);
+      }
       default:
         return 0;
     }
