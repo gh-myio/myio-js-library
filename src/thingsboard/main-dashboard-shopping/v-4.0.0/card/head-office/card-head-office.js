@@ -489,25 +489,45 @@ function buildDOM(state) {
 
   footer.appendChild(opTimeMetric);
 
-  // Updated metric
-  const updatedMetric = document.createElement('div');
-  updatedMetric.className = 'metric';
+  // Instantaneous Power metric
+  const powerMetric = document.createElement('div');
+  powerMetric.className = 'metric';
 
-  const updatedIcon = document.createElement('i');
-  updatedIcon.className = 'ico ico-sync';
-  updatedIcon.innerHTML = Icons.dot; // Using dot as sync placeholder
-  updatedMetric.appendChild(updatedIcon);
+  const powerIcon = document.createElement('i');
+  powerIcon.className = 'ico ico-power';
+  powerIcon.innerHTML = Icons.dot; // Using dot as power placeholder
+  powerMetric.appendChild(powerIcon);
 
-  const updatedLabel = document.createElement('div');
-  updatedLabel.className = 'label';
-  updatedLabel.textContent = i18n.updated;
-  updatedMetric.appendChild(updatedLabel);
+  const powerLabel = document.createElement('div');
+  powerLabel.className = 'label';
+  powerLabel.textContent = i18n.instantaneous_power || 'Potência';
+  powerMetric.appendChild(powerLabel);
 
-  const updatedVal = document.createElement('div');
-  updatedVal.className = 'val';
-  updatedMetric.appendChild(updatedVal);
+  const powerVal = document.createElement('div');
+  powerVal.className = 'val';
+  powerMetric.appendChild(powerVal);
 
-  footer.appendChild(updatedMetric);
+  footer.appendChild(powerMetric);
+
+  // Last Telemetry metric
+  const telemetryMetric = document.createElement('div');
+  telemetryMetric.className = 'metric';
+
+  const telemetryIcon = document.createElement('i');
+  telemetryIcon.className = 'ico ico-sync';
+  telemetryIcon.innerHTML = Icons.dot; // Using dot as sync placeholder
+  telemetryMetric.appendChild(telemetryIcon);
+
+  const telemetryLabel = document.createElement('div');
+  telemetryLabel.className = 'label';
+  telemetryLabel.textContent = i18n.last_telemetry || 'Últ. Telemetria';
+  telemetryMetric.appendChild(telemetryLabel);
+
+  const telemetryVal = document.createElement('div');
+  telemetryVal.className = 'val';
+  telemetryMetric.appendChild(telemetryVal);
+
+  footer.appendChild(telemetryMetric);
 
   root.appendChild(footer);
 
@@ -600,14 +620,17 @@ function paint(root, state) {
   }
 
   // Update footer metrics
-  // const tempVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(1) .val');
-  // tempVal.textContent = formatTemperature(entityObject.temperatureC);
-
   const opTimeVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(1) .val');
   opTimeVal.textContent = entityObject.operationHours;
 
-  const updatedVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(2) .val');
-  updatedVal.textContent = formatUpdateDate(entityObject.lastActivityTime);
+  // Instantaneous Power (kW)
+  const powerVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(2) .val');
+  const instantPower = entityObject.instantaneousPower ?? entityObject.consumption_power ?? null;
+  powerVal.textContent = instantPower !== null ? `${Number(instantPower).toFixed(2)} kW` : '-';
+
+  // Last Telemetry
+  const telemetryVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(3) .val');
+  telemetryVal.textContent = formatUpdateDate(entityObject.lastActivityTime);
 }
 
 /**

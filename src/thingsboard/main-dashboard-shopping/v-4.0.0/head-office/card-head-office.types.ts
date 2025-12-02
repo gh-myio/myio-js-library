@@ -82,7 +82,8 @@ export interface I18NMap {
   efficiency: string;
   temperature: string;
   operation_time: string;
-  updated: string;
+  last_telemetry: string;
+  instantaneous_power: string;
   current_suffix: string;
 
   // Menu labels
@@ -109,7 +110,8 @@ export const DEFAULT_I18N: I18NMap = {
   efficiency: 'Eficiência',
   temperature: 'Temperatura',
   operation_time: 'Tempo em operação',
-  updated: 'Atualizado',
+  last_telemetry: 'Últ. Telemetria',
+  instantaneous_power: 'Potência',
   current_suffix: 'Atual',
 
   // Menu labels

@@ -1876,11 +1876,17 @@ self.onInit = async function () {
 
           LogHelper.log('[EQUIPMENTS] mapInstantaneousPower', MAP_INSTANTANEOUS_POWER);
 
+          // Get identifier and normalize - if empty or lowercase, show "Sem Identificador"
+          let rawIdentifier = findValue(device.values, 'identifier') || '';
+          const deviceIdentifier = (!rawIdentifier || rawIdentifier === rawIdentifier.toLowerCase())
+            ? 'Sem Identificador'
+            : rawIdentifier;
+
           return {
             entityId: entityId,
             labelOrName: device.label,
             val: consumptionValue,
-            deviceIdentifier: findValue(device.values, 'identifier'),
+            deviceIdentifier: deviceIdentifier,
             centralName: findValue(device.values, 'centralName', null),
             ingestionId: ingestionId,
             customerId: customerId, // Shopping ingestionId for filtering
@@ -1891,6 +1897,7 @@ self.onInit = async function () {
             temperatureC: deviceTemperature[0].value,
             operationHours: operationHoursFormatted || 0,
             updated: updatedFormatted,
+            instantaneousPower: instantaneousPower, // Potência instantânea (kW) from ctx.data
             lastDisconnectTime: lastDisconnectTimestamp,
             lastConnectTime: lastConnectTimestamp,
             lastActivityTime: findValue(device.values, 'lastActivityTime', null),
