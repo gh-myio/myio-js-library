@@ -581,8 +581,6 @@ async function getConsumptionRangesHierarchical(
   telemetryType = 'consumption',
   ctxData = null
 ) {
-  LogHelper.log('[RFC-0078] deviceId getConsumptionRangesHierarchical', deviceId);
-
   // TIER 1: Try device-level JSON first (highest priority)
   const deviceLimitsJSON = await getCachedPowerLimitsJSON(deviceId, 'DEVICE', ctxData);
   if (
@@ -618,82 +616,6 @@ async function getConsumptionRangesHierarchical(
       telemetryType: telemetryType,
     },
   };
-}
-
-/**
- * RFC-0078: Validate JSON structure before saving (for future UI integration)
- * @param {Object} json - The JSON to validate
- * @returns {Array<string>} Array of error messages (empty if valid)
- */
-function validateInstantaneousPowerJSON(json) {
-  const errors = [];
-
-  // Check version
-  if (!json.version || typeof json.version !== 'string') {
-    errors.push('Missing or invalid version field');
-  }
-
-  // Check main array
-  if (!Array.isArray(json.limitsByInstantaneoustPowerType)) {
-    errors.push('Missing or invalid limitsByInstantaneoustPowerType array');
-    return errors;
-  }
-
-  // Validate each telemetry type
-  json.limitsByInstantaneoustPowerType.forEach((telemetryConfig, tIndex) => {
-    if (!telemetryConfig.telemetryType) {
-      errors.push(`Telemetry config at index ${tIndex} missing telemetryType`);
-    }
-
-    if (!Array.isArray(telemetryConfig.itemsByDeviceType)) {
-      errors.push(`Telemetry ${telemetryConfig.telemetryType} missing itemsByDeviceType array`);
-      return;
-    }
-
-    // Validate each device type
-    telemetryConfig.itemsByDeviceType.forEach((deviceConfig, dIndex) => {
-      if (!deviceConfig.deviceType) {
-        errors.push(`Device config at ${tIndex}/${dIndex} missing deviceType`);
-      }
-
-      if (!Array.isArray(deviceConfig.limitsByDeviceStatus)) {
-        errors.push(`Device ${deviceConfig.deviceType} missing limitsByDeviceStatus array`);
-        return;
-      }
-
-      // Validate status limits
-      const requiredStatuses = ['standBy', 'normal', 'alert', 'failure'];
-      const foundStatuses = deviceConfig.limitsByDeviceStatus.map((s) => s.deviceStatusName);
-
-      requiredStatuses.forEach((status) => {
-        if (!foundStatuses.includes(status)) {
-          errors.push(`Device ${deviceConfig.deviceType} missing ${status} configuration`);
-        }
-      });
-
-      // Validate value ranges
-      deviceConfig.limitsByDeviceStatus.forEach((status) => {
-        const values = status.limitsValues || status.limitsVales;
-        if (!values) {
-          errors.push(`Status ${status.deviceStatusName} missing limitsValues`);
-          return;
-        }
-
-        const base = values.baseValue;
-        const top = values.topValue;
-
-        if (typeof base !== 'number' || typeof top !== 'number') {
-          errors.push(`Status ${status.deviceStatusName} has invalid numeric values`);
-        }
-
-        if (base > top) {
-          errors.push(`Status ${status.deviceStatusName} has baseValue > topValue`);
-        }
-      });
-    });
-  });
-
-  return errors;
 }
 
 // Store customer limits JSON globally for the widget session
@@ -846,7 +768,6 @@ async function getDeviceTemperature(deviceId, token) {
 
 // Log function
 function log(message, type = 'info') {
-  const logOutput = document.getElementById('log-output');
   const time = new Date().toLocaleTimeString('pt-BR');
   const entry = document.createElement('div');
   entry.className = 'log-entry';
@@ -906,8 +827,9 @@ function showLoadingOverlay(show) {
 /**
  * Update equipment statistics header
  * @param {Array} devices - Array of device objects with consumption data
+ * @param {Map} energyCache - Energy cache from MAIN orchestrator (optional)
  */
-function updateEquipmentStats(devices) {
+function updateEquipmentStats(devices, energyCache = null) {
   const connectivityEl = document.getElementById('equipStatsConnectivity');
   const totalEl = document.getElementById('equipStatsTotal');
   const consumptionEl = document.getElementById('equipStatsConsumption');
@@ -961,13 +883,12 @@ function updateEquipmentStats(devices) {
   // IMPORTANT: Always calculate locally to respect filter selections
   let totalConsumption = 0;
   devices.forEach((device) => {
-    // Try to get consumption from energyCache first (most reliable)
-    const ingestionIdItem = device.values?.find((v) => v.dataType === 'ingestionId');
-    const ingestionId = ingestionIdItem?.value || ingestionIdItem?.val;
+    // Get ingestionId directly from device object (set during card formatting)
+    const ingestionId = device.ingestionId;
 
     let consumption = 0;
-    if (ingestionId && energyCacheFromMain) {
-      const cached = energyCacheFromMain.get(ingestionId);
+    if (ingestionId && energyCache) {
+      const cached = energyCache.get(ingestionId);
       if (cached) {
         consumption = Number(cached.total_value) || 0;
       }
@@ -1115,9 +1036,6 @@ function initializeCards(devices) {
     const container = document.createElement('div');
     //LogHelper.log("[EQUIPMENTS] Rendering device:", device);
     grid.appendChild(container);
-
-    const valNum = Number(device.value || 0);
-    const connectionStatus = valNum > 0 ? 'power_on' : 'power_off';
 
     // Garantir que o deviceStatus existe (fallback para no_info se não existir)
     if (!device.deviceStatus) {
@@ -1663,8 +1581,6 @@ self.onInit = async function () {
             ranges: rangesWithSource,
           });
 
-          LogHelper.log('[EQUIPMENTS] deviceStatus', deviceStatus);
-
           const ingestionId = findValue(device.values, 'ingestionId', null);
           let customerId = findValue(device.values, 'customerId', null);
 
@@ -1786,7 +1702,7 @@ self.onInit = async function () {
       initializeCards(equipmentDevices);
 
       // Update statistics header (only equipments)
-      updateEquipmentStats(equipmentDevices);
+      updateEquipmentStats(equipmentDevices, energyCacheFromMain);
 
       // RFC: Emit initial equipment count to HEADER
       emitEquipmentCountEvent(equipmentDevices);
@@ -2163,7 +2079,10 @@ function reflowCards() {
   });
 
   initializeCards(filtered);
-  updateEquipmentStats(filtered);
+
+  // Get energy cache from orchestrator for consumption calculation
+  const energyCache = window.MyIOOrchestrator?.getCache?.() || null;
+  updateEquipmentStats(filtered, energyCache);
 
   // RFC: Emit event to update HEADER card
   emitEquipmentCountEvent(filtered);
