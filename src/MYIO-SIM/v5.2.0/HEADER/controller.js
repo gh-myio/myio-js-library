@@ -1,3 +1,5 @@
+/* global self, window, document, localStorage, MyIOLibrary */
+
 /***********************************
  *  MENU PREMIUM + FILTRO MODAL    *
  ***********************************/
