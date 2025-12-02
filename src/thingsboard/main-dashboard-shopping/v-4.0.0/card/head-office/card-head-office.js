@@ -177,14 +177,18 @@ function formatPrimaryValue(val, valType) {
 }
 
 /**
- * Format value based on domain (energy or water)
+ * Format value based on domain (energy, water, or temperature)
  * @param {number} value - The value to format
- * @param {string} domain - The domain type ('energy' or 'water')
+ * @param {string} domain - The domain type ('energy', 'water', or 'temperature')
  * @returns {string} Formatted value with appropriate unit
  */
 function formatValueByDomain(value, domain) {
   if (domain === 'water') {
     return formatWaterVolumeM3(value);
+  }
+  // RFC-0092: Add temperature domain support
+  if (domain === 'temperature') {
+    return formatTemperature(value);
   }
   // Default to energy formatting
   return formatEnergy(value);
