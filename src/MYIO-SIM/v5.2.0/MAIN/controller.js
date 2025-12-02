@@ -2091,6 +2091,11 @@ function createFilterModal(config) {
                   <svg width="14" height="14" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="#6b7a90"/></svg>
                 </button>
               </div>
+              <!-- RFC-0093: Select All / Clear Selection buttons -->
+              <div class="inline-actions" style="margin-bottom: 8px;">
+                <button class="tiny-btn" id="selectAllItems">Selecionar Todos</button>
+                <button class="tiny-btn" id="clearAllItems">Limpar Seleção</button>
+              </div>
               <div class="checklist" id="deviceChecklist"></div>
             </div>
 
@@ -2165,6 +2170,30 @@ function createFilterModal(config) {
         LogHelper.log(`[${widgetName}] Filters reset`);
         onReset();
         close();
+      });
+    }
+
+    // RFC-0093: Select All button
+    const selectAllBtn = modal.querySelector('#selectAllItems');
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', () => {
+        const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
+        checkboxes.forEach((cb) => {
+          cb.checked = true;
+        });
+        LogHelper.log(`[${widgetName}] All items selected: ${checkboxes.length}`);
+      });
+    }
+
+    // RFC-0093: Clear Selection button
+    const clearAllBtn = modal.querySelector('#clearAllItems');
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener('click', () => {
+        const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
+        checkboxes.forEach((cb) => {
+          cb.checked = false;
+        });
+        LogHelper.log(`[${widgetName}] All items cleared`);
       });
     }
 
