@@ -756,6 +756,21 @@ self.onInit = async function () {
             ranges: rangesWithSource,
           });
 
+          /*
+
+          if (device.label && device.label.toLowerCase().includes('er 14')) {
+            console.log('=== DEBUG ER 14 ===');
+            console.log('rawConnectionStatus:', rawConnectionStatus);
+            console.log('mappedConnectionStatus:', mappedConnectionStatus);
+            console.log('instantaneousPower:', instantaneousPower);
+            console.log('rangesWithSource:', rangesWithSource);
+            console.log('deviceStatus:', deviceStatus);
+            console.log('device.values:', device.values);
+            console.log('===================');
+          }
+
+          */
+
           const ingestionId = findValue(device.values, 'ingestionId', null);
           let customerId = findValue(device.values, 'customerId', null);
 
@@ -790,6 +805,7 @@ self.onInit = async function () {
             customerId: customerId, // Shopping ingestionId for filtering
             deviceType: deviceType,
             deviceStatus: deviceStatus,
+            connectionStatus: mappedConnectionStatus, // RFC-0093: Add connectionStatus for online/offline display
             valType: 'power_w',
             perc: Math.floor(Math.random() * (95 - 70 + 1)) + 70,
             temperatureC: deviceTemperature || 0, // RFC-0091: Fixed - deviceTemperature is a number, not array

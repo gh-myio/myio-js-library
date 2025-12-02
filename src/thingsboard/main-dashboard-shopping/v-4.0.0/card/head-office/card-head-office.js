@@ -656,9 +656,19 @@ function verifyOfflineStatus(entityObject, delayTimeInMins = 15) {
 function paint(root, state) {
   const { entityObject, i18n, delayTimeConnectionInMins } = state;
 
-  // RFC-0091: Use configurable delay time for connection status verification
-  if (verifyOfflineStatus(entityObject, delayTimeConnectionInMins) === false) {
-    entityObject.deviceStatus = DeviceStatusType.NO_INFO;
+  // RFC-0093: Use connectionStatus if available (from ThingsBoard real-time data)
+  // Only fallback to timestamp verification if connectionStatus is not provided
+  if (entityObject.connectionStatus) {
+    // connectionStatus is already mapped ('online', 'waiting', 'offline')
+    if (entityObject.connectionStatus === 'offline') {
+      entityObject.deviceStatus = DeviceStatusType.NO_INFO;
+    }
+    // If online/waiting, keep the existing deviceStatus (which reflects power status)
+  } else {
+    // RFC-0091: Fallback to timestamp-based verification when connectionStatus not available
+    if (verifyOfflineStatus(entityObject, delayTimeConnectionInMins) === false) {
+      entityObject.deviceStatus = DeviceStatusType.NO_INFO;
+    }
   }
 
   // Update card state class using deviceStatus
