@@ -1296,7 +1296,11 @@ window.addEventListener('myio:customers-ready', async (ev) => {
 LogHelper.log('[MyIOOrchestrator] Initialized');
 
 // ✅ Check if filter was already applied before MAIN initialized
-if (window.custumersSelected && Array.isArray(window.custumersSelected) && window.custumersSelected.length > 0) {
+if (
+  window.custumersSelected &&
+  Array.isArray(window.custumersSelected) &&
+  window.custumersSelected.length > 0
+) {
   console.log('[MAIN] 🔄 Applying pre-existing filter:', window.custumersSelected.length, 'shoppings');
   const shoppingIds = window.custumersSelected.map((s) => s.value).filter((v) => v);
   if (typeof window.MyIOOrchestrator?.setSelectedShoppings === 'function') {
@@ -1467,7 +1471,7 @@ async function updateTotalWaterConsumption(customersArray, startDateISO, endDate
     })
   );
 
-  LogHelper.log('[MAIN] RFC-0087: Water data dispatched to widgets, total:', totalConsumption);
+  //LogHelper.log('[MAIN] RFC-0087: Water data dispatched to widgets, total:', totalConsumption);
 }
 
 // ===== RFC: Listen for request to update water consumption =====

@@ -11,7 +11,7 @@ import { formatWaterVolumeM3 } from '../../../../../format/water.ts';
 import {
   DeviceStatusType,
   mapDeviceToConnectionStatus,
-  getDeviceStatusInfo
+  getDeviceStatusInfo,
 } from '../../../../../utils/deviceStatus.js';
 
 const CSS_TAG = 'head-office-card-v1';
@@ -34,7 +34,7 @@ const ModalIcons = {
   connection: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 6v6l4 2"/></svg>`,
   target: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,
   tolerance: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
-  excess: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`
+  excess: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
 };
 
 /**
@@ -51,7 +51,6 @@ function normalizeParams(params) {
     entityObject.entityId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
-
   return {
     entityObject,
     i18n: { ...DEFAULT_I18N, ...(params.i18n || {}) },
@@ -64,8 +63,8 @@ function normalizeParams(params) {
       handleActionSettings: params.handleActionSettings,
       handleSelect: params.handleSelect,
       handInfo: params.handInfo,
-      handleClickCard: params.handleClickCard
-    }
+      handleClickCard: params.handleClickCard,
+    },
   };
 }
 
@@ -89,25 +88,25 @@ function formatPrimaryValue(val, valType) {
       return {
         num: val.toFixed(1),
         unit: 'kWh',
-        suffix: ''
+        suffix: '',
       };
     case 'flow_m3h':
       return {
         num: val.toFixed(1),
         unit: 'm³/h',
-        suffix: ''
+        suffix: '',
       };
     case 'temp_c':
       return {
         num: val.toFixed(1),
         unit: '°C',
-        suffix: ''
+        suffix: '',
       };
     default:
       return {
         num: val.toFixed(1),
         unit: '',
-        suffix: ''
+        suffix: '',
       };
   }
 }
@@ -147,17 +146,17 @@ function formatOperationHours(hours) {
 }
 
 function formatUpdateDate(timeVal) {
-  let telemetryTimeFormatted = "N/A";
-  let timeSinceLastTelemetry = "";
+  let telemetryTimeFormatted = 'N/A';
+  let timeSinceLastTelemetry = '';
   if (timeVal) {
     try {
       const telemetryDate = new Date(timeVal);
-      telemetryTimeFormatted = telemetryDate.toLocaleString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+      telemetryTimeFormatted = telemetryDate.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
       });
 
       // Calculate time difference
@@ -174,11 +173,11 @@ function formatUpdateDate(timeVal) {
       } else if (diffMinutes > 0) {
         timeSinceLastTelemetry = `(${diffMinutes}min atrás)`;
       } else {
-        timeSinceLastTelemetry = "(agora)";
+        timeSinceLastTelemetry = '(agora)';
       }
       return timeSinceLastTelemetry;
     } catch (e) {
-      telemetryTimeFormatted = "Formato inválido";
+      telemetryTimeFormatted = 'Formato inválido';
     }
   }
 }
@@ -376,7 +375,6 @@ function buildDOM(state) {
   header.appendChild(actionsSection);
   root.appendChild(header);
 
-
   const chipsRow = document.createElement('div');
   chipsRow.className = 'myio-ho-card__chips-row'; // Novo container para ambos os chips
 
@@ -509,25 +507,25 @@ function buildDOM(state) {
 
   footer.appendChild(powerMetric);
 
-  // Last Telemetry metric
-  const telemetryMetric = document.createElement('div');
-  telemetryMetric.className = 'metric';
+  // // Last Telemetry metric
+  // const telemetryMetric = document.createElement('div');
+  // telemetryMetric.className = 'metric';
 
-  const telemetryIcon = document.createElement('i');
-  telemetryIcon.className = 'ico ico-sync';
-  telemetryIcon.innerHTML = Icons.dot; // Using dot as sync placeholder
-  telemetryMetric.appendChild(telemetryIcon);
+  // const telemetryIcon = document.createElement('i');
+  // telemetryIcon.className = 'ico ico-sync';
+  // telemetryIcon.innerHTML = Icons.dot; // Using dot as sync placeholder
+  // telemetryMetric.appendChild(telemetryIcon);
 
-  const telemetryLabel = document.createElement('div');
-  telemetryLabel.className = 'label';
-  telemetryLabel.textContent = i18n.last_telemetry || 'Últ. Telemetria';
-  telemetryMetric.appendChild(telemetryLabel);
+  // const telemetryLabel = document.createElement('div');
+  // telemetryLabel.className = 'label';
+  // telemetryLabel.textContent = i18n.last_telemetry || 'Últ. Telemetria';
+  // telemetryMetric.appendChild(telemetryLabel);
 
-  const telemetryVal = document.createElement('div');
-  telemetryVal.className = 'val';
-  telemetryMetric.appendChild(telemetryVal);
+  // const telemetryVal = document.createElement('div');
+  // telemetryVal.className = 'val';
+  // telemetryMetric.appendChild(telemetryVal);
 
-  footer.appendChild(telemetryMetric);
+  // footer.appendChild(telemetryMetric);
 
   root.appendChild(footer);
 
@@ -566,7 +564,7 @@ function verifyOfflineStatus(entityObject) {
 function paint(root, state) {
   const { entityObject, i18n } = state;
 
-  if(verifyOfflineStatus(entityObject) === false) {
+  if (verifyOfflineStatus(entityObject) === false) {
     entityObject.deviceStatus = DeviceStatusType.NO_INFO;
   }
 
@@ -613,7 +611,6 @@ function paint(root, state) {
     percSpan.textContent = `${Math.round(perc)}%`;
     barContainer.setAttribute('aria-valuenow', Math.round(perc).toString());
     barContainer.setAttribute('aria-label', `${i18n.efficiency} ${Math.round(perc)}%`);
-
   } else {
     barContainer.style.display = 'none';
     effContainer.style.display = 'none';
@@ -809,7 +806,7 @@ function bindEvents(root, state, callbacks) {
       // Custom event
       const customEvent = new CustomEvent('myio:dragstart', {
         detail: { entityObject },
-        bubbles: true
+        bubbles: true,
       });
       root.dispatchEvent(customEvent);
     });
@@ -825,7 +822,7 @@ function bindEvents(root, state, callbacks) {
       // Custom event
       const customEvent = new CustomEvent('myio:drop', {
         detail: { draggedId, targetEntity: entityObject },
-        bubbles: true
+        bubbles: true,
       });
       root.dispatchEvent(customEvent);
     });
@@ -951,6 +948,6 @@ export function renderCardComponentHeadOffice(containerEl, params) {
 
     getRoot() {
       return root;
-    }
+    },
   };
 }
