@@ -1876,10 +1876,12 @@ self.onInit = async function () {
 
           LogHelper.log('[EQUIPMENTS] mapInstantaneousPower', MAP_INSTANTANEOUS_POWER);
 
-          // Get identifier and normalize - if empty or lowercase, show "Sem Identificador"
+          // Get identifier and normalize - if empty or all uppercase, show "Sem identificador"
           let rawIdentifier = findValue(device.values, 'identifier') || '';
-          const deviceIdentifier = (!rawIdentifier || rawIdentifier === rawIdentifier.toLowerCase())
-            ? 'Sem Identificador'
+          const deviceIdentifier = !rawIdentifier
+            ? 'Sem identificador'
+            : rawIdentifier.toUpperCase().includes('SEM IDENTIFICADOR')
+            ? 'Sem identificador'
             : rawIdentifier;
 
           return {
