@@ -728,7 +728,7 @@ async function renderList(visible) {
     if (it.deviceMapInstaneousPower && typeof it.deviceMapInstaneousPower === 'string') {
       try {
         deviceMapLimits = JSON.parse(it.deviceMapInstaneousPower);
-        LogHelper.log(`[RFC-0091] ✅ Found deviceMapInstaneousPower in ctx.data for ${resolvedTbId}`);
+        //LogHelper.log(`[RFC-0091] ✅ Found deviceMapInstaneousPower in ctx.data for ${resolvedTbId}`);
       } catch (e) {
         LogHelper.warn(`[RFC-0091] Failed to parse deviceMapInstaneousPower for ${resolvedTbId}:`, e.message);
       }

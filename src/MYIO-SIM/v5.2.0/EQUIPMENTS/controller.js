@@ -345,7 +345,17 @@ function initializeCards(devices) {
   LogHelper.log('[EQUIPMENTS] Cards initialized successfully');
 }
 
+// RFC-0091: Protection against duplicate onInit calls
+let __equipmentsInitialized = false;
+
 self.onInit = async function () {
+  // RFC-0091: Prevent duplicate initialization that clears rendered cards
+  if (__equipmentsInitialized) {
+    LogHelper.log('[EQUIPMENTS] onInit - already initialized, skipping duplicate call');
+    return;
+  }
+  __equipmentsInitialized = true;
+
   LogHelper.log('[EQUIPMENTS] onInit - ctx:', self.ctx);
   // ⭐ CRITICAL FIX: Show loading IMMEDIATELY before setTimeout
   showLoadingOverlay(true);
@@ -659,7 +669,7 @@ self.onInit = async function () {
           if (deviceMapInstaneousPower && typeof deviceMapInstaneousPower === 'string') {
             try {
               deviceMapLimits = JSON.parse(deviceMapInstaneousPower);
-              LogHelper.log(`[RFC-0078] ✅ Found deviceMapInstaneousPower in ctx.data for ${deviceId}`);
+              //LogHelper.log(`[RFC-0078] ✅ Found deviceMapInstaneousPower in ctx.data for ${deviceId}`);
             } catch (e) {
               LogHelper.warn(
                 `[RFC-0078] Failed to parse deviceMapInstaneousPower for ${deviceId}:`,

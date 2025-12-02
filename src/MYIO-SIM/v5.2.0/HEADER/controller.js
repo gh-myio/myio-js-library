@@ -1449,12 +1449,12 @@ function updateWaterCard(waterCache) {
 
 // ===== HEADER: Listen for energy data from MAIN orchestrator =====
 window.addEventListener('myio:energy-data-ready', (ev) => {
-  LogHelper.log('[HEADER] Received energy data from orchestrator:', ev.detail);
+  //LogHelper.log('[HEADER] Received energy data from orchestrator:', ev.detail);
   updateEnergyCard(ev.detail.cache);
 });
 
 window.addEventListener('myio:water-data-ready', (ev) => {
-  LogHelper.log('[HEADER] ✅ Dados de ÁGUA recebidos do Orchestrator:', ev.detail);
+  //LogHelper.log('[HEADER] ✅ Dados de ÁGUA recebidos do Orchestrator:', ev.detail);
 
   // Se 'ev.detail.cache' existir, atualiza o card
   if (ev.detail && ev.detail.cache) {
