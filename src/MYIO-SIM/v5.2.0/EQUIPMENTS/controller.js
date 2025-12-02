@@ -345,16 +345,13 @@ function initializeCards(devices) {
   LogHelper.log('[EQUIPMENTS] Cards initialized successfully');
 }
 
-// RFC-0091: Protection against duplicate onInit calls
-let __equipmentsInitialized = false;
-
 self.onInit = async function () {
-  // RFC-0091: Prevent duplicate initialization that clears rendered cards
-  if (__equipmentsInitialized) {
+  // RFC-0091: Protection against duplicate onInit calls (use global scope for multiple widget instances)
+  if (window.__EQUIPMENTS_INITIALIZED__) {
     LogHelper.log('[EQUIPMENTS] onInit - already initialized, skipping duplicate call');
     return;
   }
-  __equipmentsInitialized = true;
+  window.__EQUIPMENTS_INITIALIZED__ = true;
 
   LogHelper.log('[EQUIPMENTS] onInit - ctx:', self.ctx);
   // ⭐ CRITICAL FIX: Show loading IMMEDIATELY before setTimeout
