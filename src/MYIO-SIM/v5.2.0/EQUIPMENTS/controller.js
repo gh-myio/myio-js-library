@@ -1,37 +1,29 @@
 /* global self, ctx */
 
-function getDataApiHost() {
-  return localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com';
-}
+// ============================================
+// SHARED UTILITIES (from MAIN via window.MyIOUtils)
+// ============================================
+// Use shared utilities from MAIN, with fallback to local implementation
+const LogHelper = window.MyIOUtils?.LogHelper || {
+  log: (...args) => console.log(...args),
+  warn: (...args) => console.warn(...args),
+  error: (...args) => console.error(...args),
+};
 
+const getDataApiHost = window.MyIOUtils?.getDataApiHost || (() =>
+  localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com'
+);
+
+// ============================================
+// EQUIPMENTS WIDGET STATE
+// ============================================
 let CUSTOMER_ID;
 let CLIENT_ID;
 let CLIENT_SECRET;
 let MAP_INSTANTANEOUS_POWER;
 let myIOAuth; // Instance of MyIO auth component from MyIOLibrary
 
-// Debug configuration
-const DEBUG_ACTIVE = true;
-console.log('[MYIO EQUIPMENTS] Script loaded, DEBUG_ACTIVE=' + DEBUG_ACTIVE);
-
-// LogHelper utility
-const LogHelper = {
-  log: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.log(...args);
-    }
-  },
-  warn: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.warn(...args);
-    }
-  },
-  error: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.error(...args);
-    }
-  },
-};
+console.log('[MYIO EQUIPMENTS] Script loaded, using shared utilities:', !!window.MyIOUtils);
 
 // RFC-0071: Device Profile Synchronization - Global flag to track if sync has been completed
 let __deviceProfileSyncComplete = false;
@@ -1676,6 +1668,23 @@ self.onInit = async function () {
       LogHelper.log('[EQUIPMENTS] ✅ Emitted myio:lojas-identified:', {
         lojasCount: lojasIngestionIds.length,
         lojasIngestionIds,
+      });
+
+      // ✅ Emit event to inform MAIN about equipment ingestionIds
+      const equipmentsIngestionIds = equipmentDevices.map((d) => d.ingestionId).filter((id) => id);
+
+      window.dispatchEvent(
+        new CustomEvent('myio:equipments-identified', {
+          detail: {
+            equipmentsIngestionIds,
+            equipmentsCount: equipmentsIngestionIds.length,
+            timestamp: Date.now(),
+          },
+        })
+      );
+
+      LogHelper.log('[EQUIPMENTS] ✅ Emitted myio:equipments-identified:', {
+        equipmentsCount: equipmentsIngestionIds.length,
       });
 
       // ✅ Save ONLY equipment devices to global STATE for filtering

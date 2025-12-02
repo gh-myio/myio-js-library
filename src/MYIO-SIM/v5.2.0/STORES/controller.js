@@ -9,34 +9,21 @@
  * =========================================================================*/
 
 /* eslint-disable no-undef, no-unused-vars */
-// Debug configuration
-const DEBUG_ACTIVE = false; // Set to false to disable debug logs
 
-// LogHelper utility
-const LogHelper = {
-  log: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.log(...args);
-    }
-  },
-  warn: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.warn(...args);
-    }
-  },
-  error: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.error(...args);
-    }
-  },
+// ============================================
+// SHARED UTILITIES (from MAIN via window.MyIOUtils)
+// ============================================
+const LogHelper = window.MyIOUtils?.LogHelper || {
+  log: (...args) => console.log(...args),
+  warn: (...args) => console.warn(...args),
+  error: (...args) => console.error(...args),
 };
 
-LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
+const getDataApiHost = window.MyIOUtils?.getDataApiHost || (() =>
+  localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com'
+);
 
-// RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
-function getDataApiHost() {
-  return localStorage.getItem('__MYIO_DATA_API_HOST__');
-}
+LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
 
 // RFC-0086: Get shopping label from localStorage (set by WELCOME widget)
 function getShoppingLabel() {

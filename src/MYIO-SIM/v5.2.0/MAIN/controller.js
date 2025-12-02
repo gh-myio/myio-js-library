@@ -1,9 +1,13 @@
 /* global self, ctx, window, document, localStorage, MyIOLibrary */
 
-// Debug configuration
-const DEBUG_ACTIVE = true;
+// ============================================
+// MYIO SHARED UTILITIES (exposed globally)
+// ============================================
 
-// LogHelper utility
+// Debug configuration - can be toggled at runtime via window.MyIOUtils.setDebug(true/false)
+let DEBUG_ACTIVE = true;
+
+// LogHelper utility - shared across all widgets
 const LogHelper = {
   log: function (...args) {
     if (DEBUG_ACTIVE) {
@@ -16,16 +20,51 @@ const LogHelper = {
     }
   },
   error: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.error(...args);
-    }
+    // Errors always logged regardless of DEBUG_ACTIVE
+    console.error(...args);
   },
 };
 
 // RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
 function getDataApiHost() {
-  return localStorage.getItem('__MYIO_DATA_API_HOST__');
+  return localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com';
 }
+
+// Format energy value using MyIOLibrary or fallback
+function formatEnergy(value) {
+  if (typeof MyIOLibrary?.formatEnergy === 'function') {
+    return MyIOLibrary.formatEnergy(value);
+  }
+  // Fallback formatting
+  const num = Number(value) || 0;
+  if (num >= 1000000) return `${(num / 1000000).toFixed(2)} GWh`;
+  if (num >= 1000) return `${(num / 1000).toFixed(2)} MWh`;
+  return `${num.toFixed(2)} kWh`;
+}
+
+// Format water value using MyIOLibrary or fallback
+function formatWater(value) {
+  if (typeof MyIOLibrary?.formatWater === 'function') {
+    return MyIOLibrary.formatWater(value);
+  }
+  const num = Number(value) || 0;
+  return `${num.toFixed(2)} m³`;
+}
+
+// ✅ Expose shared utilities globally for child widgets
+window.MyIOUtils = {
+  LogHelper,
+  getDataApiHost,
+  formatEnergy,
+  formatWater,
+  isDebugActive: () => DEBUG_ACTIVE,
+  setDebug: (active) => {
+    DEBUG_ACTIVE = !!active;
+    console.log(`[MyIOUtils] Debug mode ${DEBUG_ACTIVE ? 'enabled' : 'disabled'}`);
+  },
+};
+
+console.log('[MAIN] MyIOUtils exposed globally:', Object.keys(window.MyIOUtils));
 
 let CUSTOMER_ID_TB; // ThingsBoard Customer ID
 let CUSTOMER_INGESTION_ID; // Ingestion API Customer ID
@@ -217,6 +256,7 @@ const MyIOOrchestrator = (() => {
   // ===== STATE para montar o resumo ENERGY =====
   let customerTotalConsumption = null; // total do cliente (vem do HEADER)
   let lojasIngestionIds = new Set(); // ingestionIds das lojas (3F_MEDIDOR) - vem do EQUIPMENTS
+  let equipmentsIngestionIds = new Set(); // ingestionIds dos equipamentos - vem do EQUIPMENTS
   let selectedShoppingIds = []; // Shopping ingestionIds selecionados no filtro (vem do MENU)
 
   // ===== DEVICE-TO-SHOPPING MAPPING (Fallback for missing customerId) =====
@@ -596,15 +636,21 @@ const MyIOOrchestrator = (() => {
   // RFC-0057: invalidateCache already defined above (line 280), no duplicate needed
 
   /**
-   * Calcula o total de consumo de EQUIPAMENTOS no cache (exclui lojas)
+   * Calcula o total de consumo de EQUIPAMENTOS no cache
+   * Usa equipmentsIngestionIds (do EQUIPMENTS) se disponível, senão exclui lojas
    * Considera filtro de shoppings se aplicado
    * @returns {number} - Total em kWh
    */
   function getTotalEquipmentsConsumption() {
     let total = 0;
     energyCache.forEach((device, ingestionId) => {
-      // Skip lojas (3F_MEDIDOR)
-      if (!lojasIngestionIds.has(ingestionId)) {
+      // Se temos a lista de equipamentos, usa ela (mais preciso)
+      // Senão, usa o fallback de excluir lojas
+      const isEquipment = equipmentsIngestionIds.size > 0
+        ? equipmentsIngestionIds.has(ingestionId)
+        : !lojasIngestionIds.has(ingestionId);
+
+      if (isEquipment) {
         // Apply shopping filter
         if (shouldIncludeDevice(device)) {
           total += device.total_value || 0;
@@ -613,7 +659,7 @@ const MyIOOrchestrator = (() => {
     });
     /*
     LogHelper.log(
-      `[MAIN] [Orchestrator] Total EQUIPMENTS consumption (excluding lojas): ${total} kWh (${count} devices, ${filtered} filtered out by shopping filter)`
+      `[MAIN] [Orchestrator] Total EQUIPMENTS consumption: ${total} kWh`
     );
     */
     return total;
@@ -646,31 +692,57 @@ const MyIOOrchestrator = (() => {
 
   /**
    * Calcula o total GERAL de consumo (EQUIPAMENTOS + LOJAS)
+   * Se temos IDs identificados, soma apenas esses dispositivos
+   * Senão, soma todos os dispositivos da API
    * Considera filtro de shoppings se aplicado
    * @returns {number} - Total em kWh
    */
   function getTotalConsumption() {
-    let total = 0;
+    // Se temos dispositivos identificados, usar soma precisa
+    const hasIdentifiedDevices = equipmentsIngestionIds.size > 0 || lojasIngestionIds.size > 0;
 
+    if (hasIdentifiedDevices) {
+      // Soma apenas equipamentos + lojas identificados
+      return getTotalEquipmentsConsumption() + getTotalLojasConsumption();
+    }
+
+    // Fallback: soma todos da API (comportamento antigo)
+    let total = 0;
     energyCache.forEach((device) => {
-      // Apply shopping filter
       if (shouldIncludeDevice(device)) {
         total += device.total_value || 0;
       }
     });
-    /*
-    LogHelper.log(
-      `[MAIN] [Orchestrator] Total GERAL consumption (equipments + lojas): ${total} kWh (${count} devices, ${filtered} filtered out by shopping filter)`
-    );
-    */
     return total;
   }
 
   /**
-   * Calcula o total GERAL de consumo de ENERGIA SEM FILTRO (todos os devices)
+   * Calcula o total GERAL de consumo de ENERGIA SEM FILTRO de shopping
+   * Se temos IDs identificados, soma apenas esses dispositivos (sem filtro de shopping)
    * @returns {number} - Total em kWh
    */
   function getUnfilteredTotalConsumption() {
+    // Se temos dispositivos identificados, somar apenas eles (mas sem filtro de shopping)
+    const hasIdentifiedDevices = equipmentsIngestionIds.size > 0 || lojasIngestionIds.size > 0;
+
+    if (hasIdentifiedDevices) {
+      let total = 0;
+      // Equipamentos identificados (sem filtro de shopping)
+      energyCache.forEach((device, ingestionId) => {
+        if (equipmentsIngestionIds.has(ingestionId)) {
+          total += device.total_value || 0;
+        }
+      });
+      // Lojas identificadas (sem filtro de shopping)
+      energyCache.forEach((device, ingestionId) => {
+        if (lojasIngestionIds.has(ingestionId)) {
+          total += device.total_value || 0;
+        }
+      });
+      return total;
+    }
+
+    // Fallback: soma todos da API
     let total = 0;
     energyCache.forEach((device) => {
       total += device.total_value || 0;
@@ -714,21 +786,26 @@ const MyIOOrchestrator = (() => {
 
   /**
    * Obtém dados agregados para o widget ENERGY
-   * @param {number} totalConsumption - Consumo TOTAL (Equipamentos + Lojas) vindo do HEADER
+   * @param {number} totalConsumption - Consumo TOTAL (Equipamentos + Lojas) vindo do HEADER (fallback)
    * @returns {object} - { customerTotal, equipmentsTotal, lojasTotal, percentage }
    */
   function getEnergyWidgetData(totalConsumption = 0) {
     const equipmentsTotal = getTotalEquipmentsConsumption();
     const lojasTotal = getTotalLojasConsumption();
 
-    // Total deve ser a soma (verificação)
+    // Total calculado = soma de equipamentos + lojas (dispositivos conhecidos)
     const calculatedTotal = equipmentsTotal + lojasTotal;
 
+    // Se temos listas de IDs identificadas, usar o total calculado
+    // Senão, usar o total vindo do HEADER (API completa)
+    const hasIdentifiedDevices = equipmentsIngestionIds.size > 0 || lojasIngestionIds.size > 0;
+    const effectiveTotal = hasIdentifiedDevices ? calculatedTotal : (totalConsumption || calculatedTotal);
+
     // ✅ Equipamentos como % do total
-    const percentage = totalConsumption > 0 ? (equipmentsTotal / totalConsumption) * 100 : 0;
+    const percentage = effectiveTotal > 0 ? (equipmentsTotal / effectiveTotal) * 100 : 0;
 
     const result = {
-      customerTotal: Number(totalConsumption) || 0,
+      customerTotal: Number(effectiveTotal) || 0,
       equipmentsTotal: Number(equipmentsTotal) || 0,
       lojasTotal: Number(lojasTotal) || 0,
       difference: Number(lojasTotal) || 0, // Mantém compatibilidade (lojas = difference)
@@ -739,7 +816,8 @@ const MyIOOrchestrator = (() => {
     LogHelper.log(`[MAIN] [Orchestrator] Energy widget data:`, {
       ...result,
       calculatedTotal,
-      matches: Math.abs(calculatedTotal - totalConsumption) < 0.01,
+      hasIdentifiedDevices,
+      apiTotal: totalConsumption,
     });
     return result;
   }
@@ -794,6 +872,17 @@ const MyIOOrchestrator = (() => {
 
     getLojasIngestionIds() {
       return lojasIngestionIds;
+    },
+
+    setEquipmentsIngestionIds(ids) {
+      equipmentsIngestionIds = new Set(ids || []);
+      LogHelper.log('[MAIN] [Orchestrator] equipmentsIngestionIds set:', equipmentsIngestionIds.size, 'equipments');
+      // Recalculate and dispatch summary if ready
+      dispatchEnergySummaryIfReady('setEquipmentsIngestionIds');
+    },
+
+    getEquipmentsIngestionIds() {
+      return equipmentsIngestionIds;
     },
 
     /**
@@ -890,6 +979,15 @@ window.addEventListener('myio:lojas-identified', (ev) => {
   LogHelper.log('[MAIN] heard myio:lojas-identified:', ev.detail);
   if (typeof window.MyIOOrchestrator?.setLojasIngestionIds === 'function') {
     window.MyIOOrchestrator.setLojasIngestionIds(ids);
+  }
+});
+
+// ✅ EQUIPMENTS → informa quais devices são equipamentos
+window.addEventListener('myio:equipments-identified', (ev) => {
+  const ids = ev.detail?.equipmentsIngestionIds || [];
+  LogHelper.log('[MAIN] heard myio:equipments-identified:', ev.detail);
+  if (typeof window.MyIOOrchestrator?.setEquipmentsIngestionIds === 'function') {
+    window.MyIOOrchestrator.setEquipmentsIngestionIds(ids);
   }
 });
 

@@ -1,32 +1,20 @@
 /***********************************
  *  MENU PREMIUM + FILTRO MODAL    *
  ***********************************/
+
+// ============================================
+// SHARED UTILITIES (from MAIN via window.MyIOUtils)
+// ============================================
+const LogHelper = window.MyIOUtils?.LogHelper || {
+  log: (...args) => console.log(...args),
+  warn: (...args) => console.warn(...args),
+  error: (...args) => console.error(...args),
+};
+
 const EVT_SWITCH = 'myio:switch-main-state';
 
 let _dataRefreshCount = 0;
 const MAX_DATA_REFRESHES = 1;
-
-// Debug configuration
-const DEBUG_ACTIVE = true;
-
-// LogHelper utility
-const LogHelper = {
-  log: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.log(...args);
-    }
-  },
-  warn: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.warn(...args);
-    }
-  },
-  error: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.error(...args);
-    }
-  },
-};
 
 function publishSwitch(targetStateId) {
   const detail = { targetStateId, source: 'menu', ts: Date.now() };
