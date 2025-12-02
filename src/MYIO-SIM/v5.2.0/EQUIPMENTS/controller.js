@@ -1,4 +1,4 @@
-/* global self, ctx */
+/* global self, window, document, localStorage, MyIOLibrary, requestAnimationFrame, $ */
 
 // ============================================
 // SHARED UTILITIES (from MAIN via window.MyIOUtils)
@@ -10,9 +10,33 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error(...args),
 };
 
-const getDataApiHost = window.MyIOUtils?.getDataApiHost || (() =>
-  localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com'
-);
+const getDataApiHost =
+  window.MyIOUtils?.getDataApiHost ||
+  (() => {
+    console.error('[EQUIPMENTS] getDataApiHost not available - MAIN widget not loaded');
+    return localStorage.getItem('__MYIO_DATA_API_HOST__') || '';
+  });
+
+// RFC-0071: Device Profile functions (from MAIN)
+const syncDeviceProfileAttributes = window.MyIOUtils?.syncDeviceProfileAttributes;
+
+// RFC-0078: Power Limits functions (from MAIN)
+const getConsumptionRangesHierarchical = window.MyIOUtils?.getConsumptionRangesHierarchical;
+const getCachedConsumptionLimits = window.MyIOUtils?.getCachedConsumptionLimits;
+
+// UI Helpers (from MAIN)
+const formatRelativeTime =
+  window.MyIOUtils?.formatRelativeTime || ((ts) => (ts ? new Date(ts).toLocaleString() : '—'));
+const formatarDuracao = window.MyIOUtils?.formatarDuracao || ((ms) => `${Math.round(ms / 1000)}s`);
+const showLoadingOverlay =
+  window.MyIOUtils?.showLoadingOverlay ||
+  ((show) => {
+    const overlay = document.getElementById('equipments-loading-overlay');
+    if (overlay) overlay.style.display = show ? 'flex' : 'none';
+  });
+const updateEquipmentStats = window.MyIOUtils?.updateEquipmentStats;
+const getCustomerNameForDevice =
+  window.MyIOUtils?.getCustomerNameForDevice || ((device) => device.customerId || 'N/A');
 
 // ============================================
 // EQUIPMENTS WIDGET STATE
@@ -23,915 +47,38 @@ let CLIENT_SECRET;
 let MAP_INSTANTANEOUS_POWER;
 let myIOAuth; // Instance of MyIO auth component from MyIOLibrary
 
-console.log('[MYIO EQUIPMENTS] Script loaded, using shared utilities:', !!window.MyIOUtils);
+LogHelper.log('[MYIO EQUIPMENTS] Script loaded, using shared utilities:', !!window.MyIOUtils);
 
 // RFC-0071: Device Profile Synchronization - Global flag to track if sync has been completed
 let __deviceProfileSyncComplete = false;
 
-// ============================================
-// RFC-0071: DEVICE PROFILE SYNCHRONIZATION
-// ============================================
-
-/**
- * Fetches all active device profiles from ThingsBoard
- * @returns {Promise<Map<string, string>>} Map of profileId -> profileName
- */
-async function fetchDeviceProfiles() {
-  const token = localStorage.getItem('jwt_token');
-  if (!token) throw new Error('[RFC-0071] JWT token not found');
-
-  const url = '/api/deviceProfile/names?activeOnly=true';
-
-  LogHelper.log('[EQUIPMENTS] [RFC-0071] Fetching device profiles...');
-
-  const response = await fetch(url, {
-    headers: {
-      'X-Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`[RFC-0071] Failed to fetch device profiles: ${response.status}`);
-  }
-
-  const profiles = await response.json();
-
-  // Build Map: profileId -> profileName
-  const profileMap = new Map();
-  profiles.forEach((profile) => {
-    const profileId = profile.id.id;
-    const profileName = profile.name;
-    profileMap.set(profileId, profileName);
-  });
-
-  LogHelper.log(
-    `[EQUIPMENTS] [RFC-0071] Loaded ${profileMap.size} device profiles:`,
-    Array.from(profileMap.entries())
-      .map(([id, name]) => name)
-      .join(', ')
-  );
-
-  return profileMap;
-}
-
-/**
- * Fetches device details including deviceProfileId
- * @param {string} deviceId - Device entity ID
- * @returns {Promise<Object>}
- */
-async function fetchDeviceDetails(deviceId) {
-  const token = localStorage.getItem('jwt_token');
-  if (!token) throw new Error('[RFC-0071] JWT token not found');
-
-  const url = `/api/device/${deviceId}`;
-
-  const response = await fetch(url, {
-    headers: {
-      'X-Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`[RFC-0071] Failed to fetch device ${deviceId}: ${response.status}`);
-  }
-
-  return await response.json();
-}
-
-/**
- * Saves deviceProfile as a server-scope attribute on the device
- * @param {string} deviceId - Device entity ID
- * @param {string} deviceProfile - Profile name (e.g., "MOTOR", "3F_MEDIDOR")
- * @returns {Promise<{ok: boolean, status: number, data: any}>}
- */
-async function addDeviceProfileAttribute(deviceId, deviceProfile) {
-  const t = Date.now();
-
-  try {
-    if (!deviceId) throw new Error('deviceId is required');
-    if (deviceProfile == null || deviceProfile === '') {
-      throw new Error('deviceProfile is required');
-    }
-
-    const token = localStorage.getItem('jwt_token');
-    if (!token) throw new Error('jwt_token not found in localStorage');
-
-    const url = `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`;
-    const headers = {
-      'Content-Type': 'application/json',
-      'X-Authorization': `Bearer ${token}`,
-    };
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ deviceProfile }),
-    });
-
-    const bodyText = await res.text().catch(() => '');
-
-    if (!res.ok) {
-      throw new Error(`[RFC-0071] HTTP ${res.status} ${res.statusText} - ${bodyText}`);
-    }
-
-    let data = null;
-    try {
-      data = bodyText ? JSON.parse(bodyText) : null;
-    } catch {
-      // Response may not be JSON
-    }
-
-    const dt = Date.now() - t;
-    LogHelper.log(
-      `[EQUIPMENTS] [RFC-0071] ✅ Saved deviceProfile | device=${deviceId} | "${deviceProfile}" | ${dt}ms`
-    );
-
-    return { ok: true, status: res.status, data };
-  } catch (err) {
-    const dt = Date.now() - t;
-    LogHelper.error(
-      `[EQUIPMENTS] [RFC-0071] ❌ Failed to save deviceProfile | device=${deviceId} | "${deviceProfile}" | ${dt}ms | error: ${
-        err?.message || err
-      }`
-    );
-    throw err;
-  }
-}
-
-/**
- * Main synchronization function
- * Checks all devices and syncs missing deviceProfile attributes
- * @returns {Promise<{synced: number, skipped: number, errors: number}>}
- */
-async function syncDeviceProfileAttributes() {
-  LogHelper.log('[EQUIPMENTS] [RFC-0071] 🔄 Starting device profile synchronization...');
-
-  try {
-    // Step 1: Fetch all device profiles
-    const profileMap = await fetchDeviceProfiles();
-
-    let synced = 0;
-    let skipped = 0;
-    let errors = 0;
-
-    // Step 2: Build a map of devices that need sync
-    const deviceMap = new Map();
-
-    self.ctx.data.forEach((data) => {
-      const entityId = data.datasource?.entity?.id?.id;
-      const existingProfile = data.datasource?.deviceProfile;
-
-      if (!entityId) return;
-
-      // Skip if already has deviceProfile attribute
-      if (existingProfile) {
-        skipped++;
-        return;
-      }
-
-      // Store for processing (deduplicate by entityId)
-      if (!deviceMap.has(entityId)) {
-        deviceMap.set(entityId, {
-          entityLabel: data.datasource?.entityLabel,
-          entityName: data.datasource?.entityName,
-          name: data.datasource?.name,
-        });
-      }
-    });
-
-    LogHelper.log(`[EQUIPMENTS] [RFC-0071] Found ${deviceMap.size} devices without deviceProfile attribute`);
-    LogHelper.log(`[EQUIPMENTS] [RFC-0071] Skipped ${skipped} devices that already have deviceProfile`);
-
-    if (deviceMap.size === 0) {
-      LogHelper.log('[EQUIPMENTS] [RFC-0071] ✅ All devices already synchronized!');
-      return { synced: 0, skipped, errors: 0 };
-    }
-
-    // Step 3: Fetch device details and sync attributes
-    let processed = 0;
-    for (const [entityId, deviceInfo] of deviceMap) {
-      processed++;
-      const deviceLabel = deviceInfo.entityLabel || deviceInfo.entityName || deviceInfo.name || entityId;
-
-      try {
-        LogHelper.log(`[EQUIPMENTS] [RFC-0071] Processing ${processed}/${deviceMap.size}: ${deviceLabel}`);
-
-        // Fetch device details to get deviceProfileId
-        const deviceDetails = await fetchDeviceDetails(entityId);
-        const deviceProfileId = deviceDetails.deviceProfileId?.id;
-
-        if (!deviceProfileId) {
-          LogHelper.warn(`[EQUIPMENTS] [RFC-0071] ⚠️ Device ${deviceLabel} has no deviceProfileId`);
-          errors++;
-          continue;
-        }
-
-        // Look up profile name from map
-        const profileName = profileMap.get(deviceProfileId);
-
-        if (!profileName) {
-          LogHelper.warn(`[EQUIPMENTS] [RFC-0071] ⚠️ Profile ID ${deviceProfileId} not found in map`);
-          errors++;
-          continue;
-        }
-
-        // Save attribute
-        await addDeviceProfileAttribute(entityId, profileName);
-        synced++;
-
-        LogHelper.log(`[EQUIPMENTS] [RFC-0071] ✅ Synced ${deviceLabel} -> ${profileName}`);
-
-        // Small delay to avoid overwhelming the API
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      } catch (error) {
-        LogHelper.error(`[EQUIPMENTS] [RFC-0071] ❌ Failed to sync device ${deviceLabel}:`, error);
-        errors++;
-      }
-    }
-
-    LogHelper.log(
-      `[EQUIPMENTS] [RFC-0071] 🎉 Sync complete: ${synced} synced, ${skipped} skipped, ${errors} errors`
-    );
-
-    return { synced, skipped, errors };
-  } catch (error) {
-    LogHelper.error('[EQUIPMENTS] [RFC-0071] ❌ Fatal error during sync:', error);
-    throw error;
-  }
-}
-
-// ============================================
-// RFC-0078: UNIFIED JSON POWER LIMITS CONFIGURATION
-// ============================================
-
-/**
- * Default consumption ranges for each device type (TIER 3 - fallback)
- * Used when no device or customer JSON configuration exists
- */
-const DEFAULT_CONSUMPTION_RANGES = {
-  ELEVADOR: {
-    standbyRange: { down: 0, up: 150 },
-    normalRange: { down: 151, up: 800 },
-    alertRange: { down: 801, up: 1200 },
-    failureRange: { down: 1201, up: 99999 },
-  },
-  ESCADA_ROLANTE: {
-    standbyRange: { down: 0, up: 200 },
-    normalRange: { down: 201, up: 1000 },
-    alertRange: { down: 1001, up: 1500 },
-    failureRange: { down: 1501, up: 99999 },
-  },
-  CHILLER: {
-    standbyRange: { down: 0, up: 1000 },
-    normalRange: { down: 1001, up: 6000 },
-    alertRange: { down: 6001, up: 8000 },
-    failureRange: { down: 8001, up: 99999 },
-  },
-  AR_CONDICIONADO: {
-    standbyRange: { down: 0, up: 500 },
-    normalRange: { down: 501, up: 3000 },
-    alertRange: { down: 3001, up: 5000 },
-    failureRange: { down: 5001, up: 99999 },
-  },
-  HVAC: {
-    standbyRange: { down: 0, up: 500 },
-    normalRange: { down: 501, up: 3000 },
-    alertRange: { down: 3001, up: 5000 },
-    failureRange: { down: 5001, up: 99999 },
-  },
-  MOTOR: {
-    standbyRange: { down: 0, up: 200 },
-    normalRange: { down: 201, up: 1000 },
-    alertRange: { down: 1001, up: 1500 },
-    failureRange: { down: 1501, up: 99999 },
-  },
-  BOMBA: {
-    standbyRange: { down: 0, up: 200 },
-    normalRange: { down: 201, up: 1000 },
-    alertRange: { down: 1001, up: 1500 },
-    failureRange: { down: 1501, up: 99999 },
-  },
-  DEFAULT: {
-    standbyRange: { down: 0, up: 100 },
-    normalRange: { down: 101, up: 1000 },
-    alertRange: { down: 1001, up: 2000 },
-    failureRange: { down: 2001, up: 99999 },
-  },
-};
-
-// Cache for JSON power limits configuration
-// Map<entityId, {json: Object, timestamp: number}>
-const powerLimitsJSONCache = new Map();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-/**
- * RFC-0078: Fetch unified JSON power limits from ThingsBoard entity
- * @param {string} entityId - Entity ID (device or customer)
- * @param {string} entityType - 'DEVICE' or 'CUSTOMER'
- * @returns {Promise<Object|null>} Parsed JSON configuration or null
- */
-async function fetchInstantaneousPowerLimits(entityId, entityType = 'CUSTOMER') {
-  const token = localStorage.getItem('jwt_token');
-  if (!token) {
-    LogHelper.warn('[RFC-0078] JWT token not found');
-    return null;
-  }
-
-  LogHelper.log('[RFC-0078] entityId', entityId);
-
-  const url = `/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'X-Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        LogHelper.log(`[RFC-0078] No attributes found for ${entityType} ${entityId}`);
-        return null;
-      }
-      LogHelper.warn(`[RFC-0078] Failed to fetch ${entityType} attributes: ${response.status}`);
-      return null;
-    }
-
-    const attributes = await response.json();
-
-    LogHelper.log('[RFC-0078] attributes', attributes);
-
-    // Find mapInstantaneousPower attribute
-    const powerLimitsAttr = attributes.find((attr) => attr.key === 'mapInstantaneousPower');
-
-    if (!powerLimitsAttr) {
-      return null;
-    }
-
-    // Parse JSON value
-    let limits;
-    if (typeof powerLimitsAttr.value === 'string') {
-      try {
-        limits = JSON.parse(powerLimitsAttr.value);
-      } catch (parseError) {
-        LogHelper.error(`[RFC-0078] Failed to parse JSON for ${entityType} ${entityId}:`, parseError);
-        return null;
-      }
-    } else {
-      limits = powerLimitsAttr.value;
-    }
-
-    LogHelper.log(`[RFC-0078] ✅ Loaded mapInstantaneousPower from ${entityType} ${entityId}:`, {
-      version: limits.version,
-      telemetryTypes: limits.limitsByInstantaneoustPowerType?.length || 0,
-    });
-
-    return limits;
-  } catch (error) {
-    LogHelper.error(`[RFC-0078] Error fetching ${entityType} power limits:`, error);
-    return null;
-  }
-}
-
-/**
- * RFC-0078: Extract consumption ranges from unified JSON structure
- * @param {Object} powerLimitsJSON - The mapInstantaneousPower JSON object
- * @param {string} deviceType - Device type (e.g., 'ELEVADOR')
- * @param {string} telemetryType - Telemetry type (default: 'consumption')
- * @returns {Object|null} Range configuration or null
- */
-function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'consumption') {
-  if (!powerLimitsJSON || !powerLimitsJSON.limitsByInstantaneoustPowerType) {
-    return null;
-  }
-
-  // Find telemetry type configuration
-  const telemetryConfig = powerLimitsJSON.limitsByInstantaneoustPowerType.find(
-    (config) => config.telemetryType === telemetryType
-  );
-
-  if (!telemetryConfig) {
-    LogHelper.log(`[RFC-0078] Telemetry type ${telemetryType} not found in JSON`);
-    return null;
-  }
-
-  // Find device type configuration
-  const deviceConfig = telemetryConfig.itemsByDeviceType.find(
-    (item) => item.deviceType === deviceType || item.deviceType === deviceType.toUpperCase()
-  );
-
-  if (!deviceConfig) {
-    LogHelper.log(`[RFC-0078] Device type ${deviceType} not found for telemetry ${telemetryType}`);
-    return null;
-  }
-
-  // Extract ranges by status
-  const ranges = {
-    standbyRange: { down: 0, up: 0 },
-    normalRange: { down: 0, up: 0 },
-    alertRange: { down: 0, up: 0 },
-    failureRange: { down: 0, up: 0 },
-  };
-
-  deviceConfig.limitsByDeviceStatus.forEach((status) => {
-    const baseValue = status.limitsValues?.baseValue ?? status.limitsVales?.baseValue ?? 0;
-    const topValue = status.limitsValues?.topValue ?? status.limitsVales?.topValue ?? 99999;
-
-    switch (status.deviceStatusName) {
-      case 'standBy':
-        ranges.standbyRange = { down: baseValue, up: topValue };
-        break;
-      case 'normal':
-        ranges.normalRange = { down: baseValue, up: topValue };
-        break;
-      case 'alert':
-        ranges.alertRange = { down: baseValue, up: topValue };
-        break;
-      case 'failure':
-        ranges.failureRange = { down: baseValue, up: topValue };
-        break;
-    }
-  });
-
-  return {
-    ...ranges,
-    source: 'json',
-    tier: 2, // Will be updated to 1 if from device
-    metadata: {
-      name: deviceConfig.name,
-      description: deviceConfig.description,
-      version: powerLimitsJSON.version,
-      telemetryType: telemetryType,
-    },
-  };
-}
-
-/**
- * RFC-0078: Gets default ranges for a device type (TIER 3)
- * @param {string} deviceType - Device type
- * @returns {Object} Default ranges
- */
-function getDefaultRanges(deviceType) {
-  const upperDeviceType = deviceType.toUpperCase();
-  return DEFAULT_CONSUMPTION_RANGES[upperDeviceType] || DEFAULT_CONSUMPTION_RANGES['DEFAULT'];
-}
-
-/**
- * RFC-0078: Gets cached or fetches power limits JSON
- * For DEVICE: reads from ctx.data[] with dataKey = mapInstantaneousPower (no API call)
- * For CUSTOMER: fetches via API
- * @param {string} entityId - Entity ID
- * @param {string} entityType - 'DEVICE' or 'CUSTOMER'
- * @param {Object} ctxData - Optional ctx.data array from widget context (for DEVICE lookups)
- * @returns {Promise<Object|null>} JSON configuration
- */
-async function getCachedPowerLimitsJSON(entityId, entityType = 'CUSTOMER', ctxData = null) {
-  if (!entityId) return null;
-
-  const cacheKey = `${entityType}:${entityId}`;
-  const cached = powerLimitsJSONCache.get(cacheKey);
-  const now = Date.now();
-
-  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
-    return cached.json;
-  }
-
-  let json = null;
-
-  if (entityType === 'DEVICE' && ctxData) {
-    // RFC-0078: For DEVICE, read from ctx.data[] instead of API call
-    // Device mapInstantaneousPower is available as dataKey in widget context
-    const powerLimitsData = ctxData.find((d) => d.dataKey && d.dataKey.name === 'mapInstantaneousPower');
-
-    if (powerLimitsData && powerLimitsData.data && powerLimitsData.data.length > 0) {
-      const latestValue = powerLimitsData.data[powerLimitsData.data.length - 1];
-      const rawValue = latestValue[1]; // [timestamp, value]
-
-      if (typeof rawValue === 'string') {
-        try {
-          json = JSON.parse(rawValue);
-          LogHelper.log(`[RFC-0078] ✅ Loaded mapInstantaneousPower from ctx.data for DEVICE ${entityId}:`, {
-            version: json.version,
-            telemetryTypes: json.limitsByInstantaneoustPowerType?.length || 0,
-          });
-        } catch (parseError) {
-          LogHelper.warn(`[RFC-0078] Failed to parse DEVICE JSON from ctx.data:`, parseError);
-          // Fallback: return empty structure to indicate device has no config
-          json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
-        }
-      } else if (typeof rawValue === 'object') {
-        json = rawValue;
-        LogHelper.log(
-          `[RFC-0078] ✅ Loaded mapInstantaneousPower (object) from ctx.data for DEVICE ${entityId}`
-        );
-      }
-    } else {
-      // Device doesn't have mapInstantaneousPower - return empty structure
-      LogHelper.log(
-        `[RFC-0078] mapInstantaneousPower not found in ctx.data for DEVICE ${entityId}, using empty fallback`
-      );
-      json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
-    }
-  } else if (entityType === 'CUSTOMER') {
-    LogHelper.log('[RFC-0078] entityId getCachedPowerLimitsJSON', entityId);
-
-    // For CUSTOMER, fetch via API
-    json = await fetchInstantaneousPowerLimits(entityId, entityType);
-  } else {
-    json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
-  }
-
-  // Cache even null/empty results to avoid repeated lookups
-  powerLimitsJSONCache.set(cacheKey, {
-    json: json,
-    timestamp: now,
-  });
-
-  return json;
-}
-
-/**
- * RFC-0078: Gets consumption limits with hierarchical resolution using JSON structure
- * TIER 1: Device-level mapInstantaneousPower (highest priority)
- * TIER 2: Customer-level mapInstantaneousPower
- * TIER 3: Hardcoded defaults (fallback)
- *
- * @param {string} deviceId - Device entity ID
- * @param {string} deviceType - Device type (for config lookup)
- * @param {Object} customerLimitsJSON - Pre-fetched customer JSON (TIER 2)
- * @param {string} telemetryType - Telemetry type (default: 'consumption')
- * @param {Object} ctxData - Optional ctx.data array from widget context (for DEVICE lookups)
- * @returns {Promise<Object>} Consumption ranges with source indicator
- */
-async function getConsumptionRangesHierarchical(
-  deviceId,
-  deviceType,
-  customerLimitsJSON,
-  telemetryType = 'consumption',
-  ctxData = null
-) {
-  // TIER 1: Try device-level JSON first (highest priority)
-  const deviceLimitsJSON = await getCachedPowerLimitsJSON(deviceId, 'DEVICE', ctxData);
-  if (
-    deviceLimitsJSON &&
-    deviceLimitsJSON.limitsByInstantaneoustPowerType &&
-    deviceLimitsJSON.limitsByInstantaneoustPowerType.length > 0
-  ) {
-    const deviceRanges = extractLimitsFromJSON(deviceLimitsJSON, deviceType, telemetryType);
-    if (deviceRanges) {
-      return { ...deviceRanges, source: 'device', tier: 1 };
-    }
-  }
-
-  // TIER 2: Try customer-level JSON
-  if (customerLimitsJSON) {
-    const customerRanges = extractLimitsFromJSON(customerLimitsJSON, deviceType, telemetryType);
-    if (customerRanges) {
-      return { ...customerRanges, source: 'customer', tier: 2 };
-    }
-  }
-
-  // TIER 3: Hardcoded defaults
-  LogHelper.log(`[RFC-0078] Using HARDCODED defaults for ${deviceType} (TIER 3)`);
-  const defaultRanges = getDefaultRanges(deviceType);
-  return {
-    ...defaultRanges,
-    source: 'hardcoded',
-    tier: 3,
-    metadata: {
-      name: `Default${deviceType}`,
-      description: `System default for ${deviceType}`,
-      version: '0.0.0',
-      telemetryType: telemetryType,
-    },
-  };
-}
-
 // Store customer limits JSON globally for the widget session
 window.__customerPowerLimitsJSON = null;
 
-/**
- * RFC-0078: Alias for backward compatibility with RFC-0077 calls
- */
-async function getCachedConsumptionLimits(customerId) {
-  LogHelper.log(`[RFC-0078] getCachedConsumptionLimits called for customer ${customerId}`);
-  return getCachedPowerLimitsJSON(customerId, 'CUSTOMER');
-}
-
-// ============================================
-// END RFC-0078
-// ============================================
-
-// RFC: MyIOAuth now uses MyIOLibrary.buildMyioIngestionAuth() instead of duplicated code
-// Initialization happens in onInit after credentials are loaded
-
-async function fetchCustomerServerScopeAttrs(customerTbId) {
-  if (!customerTbId) return {};
-  const tbToken = localStorage.getItem('jwt_token');
-  if (!tbToken) throw new Error('JWT do ThingsBoard não encontrado (localStorage.jwt_token).');
-
-  const url = `/api/plugins/telemetry/CUSTOMER/${customerTbId}/values/attributes/SERVER_SCOPE`;
-  const res = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Authorization': `Bearer ${tbToken}`,
-    },
+// findValue helper function (from MAIN via MyIOUtils)
+const findValue =
+  window.MyIOUtils?.findValue ||
+  ((values, key, defaultValue = null) => {
+    console.error('[EQUIPMENTS] findValue not available - MAIN widget not loaded');
+    if (!Array.isArray(values)) return defaultValue;
+    const found = values.find((v) => v.key === key);
+    return found ? found.value : defaultValue;
   });
-  if (!res.ok) {
-    LogHelper.warn(`[equipaments] [customer attrs] HTTP ${res.status}`);
+
+// NOTE: RFC-0071 functions (fetchDeviceProfiles, fetchDeviceDetails, addDeviceProfileAttribute, syncDeviceProfileAttributes)
+// are now provided by MAIN via window.MyIOUtils
+
+// NOTE: RFC-0078 functions (DEFAULT_CONSUMPTION_RANGES, fetchInstantaneousPowerLimits, extractLimitsFromJSON,
+// getDefaultRanges, getCachedPowerLimitsJSON, getConsumptionRangesHierarchical, getCachedConsumptionLimits)
+// are now provided by MAIN via window.MyIOUtils
+
+// NOTE: fetchCustomerServerScopeAttrs is provided by MAIN via window.MyIOUtils
+const fetchCustomerServerScopeAttrs =
+  window.MyIOUtils?.fetchCustomerServerScopeAttrs ||
+  (() => {
+    console.error('[EQUIPMENTS] fetchCustomerServerScopeAttrs not available - MAIN widget not loaded');
     return {};
-  }
-  const payload = await res.json();
-
-  // Pode vir como array [{key,value}] OU como objeto { key: [{value}] }
-  const map = {};
-  if (Array.isArray(payload)) {
-    for (const it of payload) map[it.key] = it.value;
-  } else if (payload && typeof payload === 'object') {
-    for (const k of Object.keys(payload)) {
-      const v = payload[k];
-      if (Array.isArray(v) && v.length) map[k] = v[0]?.value ?? v[0];
-    }
-  }
-  return map;
-}
-
-// RFC-0057: Removed unused functions: toSpOffsetNoMs(), getTimeWindowRange()
-
-/**
- * Converte um timestamp em uma string de tempo relativo (ex: "há 5 minutos").
- * @param {number} timestamp - O timestamp em milissegundos.
- * @returns {string} A string formatada.
- */
-function formatRelativeTime(timestamp) {
-  if (!timestamp || timestamp <= 0) {
-    return '—'; // Retorna um traço se não houver timestamp válido
-  }
-
-  const now = Date.now();
-  const diffSeconds = Math.round((now - timestamp) / 1000);
-
-  if (diffSeconds < 10) {
-    return 'agora';
-  }
-  if (diffSeconds < 60) {
-    return `há ${diffSeconds}s`;
-  }
-
-  const diffMinutes = Math.round(diffSeconds / 60);
-  if (diffMinutes === 1) {
-    return 'há 1 min';
-  }
-  if (diffMinutes < 60) {
-    return `há ${diffMinutes} mins`;
-  }
-
-  const diffHours = Math.round(diffMinutes / 60);
-  if (diffHours === 1) {
-    return 'há 1 hora';
-  }
-  if (diffHours < 24) {
-    return `há ${diffHours} horas`;
-  }
-
-  const diffDays = Math.round(diffHours / 24);
-  if (diffDays === 1) {
-    return 'ontem';
-  }
-  if (diffDays <= 30) {
-    return `há ${diffDays} dias`;
-  }
-
-  // Se for mais antigo, mostra a data
-  return new Date(timestamp).toLocaleDateString('pt-BR');
-}
-
-/**
- * Função MOCK para simular a busca do último valor de temperatura de um dispositivo no ThingsBoard.
- * Ela imita uma chamada de API assíncrona, retornando uma Promise.
- *
- * @param {string} deviceId - O ID do dispositivo que você quer consultar.
- * @returns {Promise<Array<{ts: number, value: number}>>} Uma promise que resolve com um array contendo
- * o dado de telemetria mais recente (timestamp e valor).
- */
-async function getDeviceTemperature(deviceId, token) {
-  // 1. Validação básica da entrada
-  if (!deviceId) {
-    return Promise.reject(new Error('O ID do dispositivo não pode ser nulo.'));
-  }
-
-  // 2. Simula um atraso de rede (entre 300ms e 1000ms)
-  const networkDelay = Math.random() * 700 + 300;
-
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      // 3. Simula uma chance de sucesso
-      const isSuccess = true;
-
-      if (isSuccess) {
-        // Gera um valor de temperatura aleatório entre 18.0 e 32.0
-        const mockTemperature = (Math.random() * 14 + 18).toFixed(2);
-        const mockTimestamp = Date.now();
-
-        // 4. Monta a resposta em um formato similar ao da API do ThingsBoard
-        // A API geralmente retorna um array de objetos, mesmo para o valor mais recente.
-        const responseData = [
-          {
-            ts: mockTimestamp,
-            value: parseFloat(mockTemperature), // A API retorna um número
-          },
-        ];
-
-        resolve(responseData);
-      } else {
-        // 5. Simula um erro de API
-        const errorMessage = `[MOCK] Erro: Não foi possível encontrar o dispositivo com ID ${deviceId}.`;
-        LogHelper.error(errorMessage);
-        reject(new Error(errorMessage));
-      }
-    }, networkDelay);
   });
-}
-
-// RFC-0057: Removed unused functions: isValidUUID(), updateTotalConsumption(), fetchWithAuth(), latestNumber(), resolveEntityValue(), getKeyByValue()
-
-// Log function
-function log(message, type = 'info') {
-  const time = new Date().toLocaleTimeString('pt-BR');
-  const entry = document.createElement('div');
-  entry.className = 'log-entry';
-  entry.innerHTML = `<span class="log-time">${time}</span>${message}`;
-}
-
-function formatarDuracao(ms) {
-  // 1. Lida com casos de entrada inválida ou zero.
-  if (typeof ms !== 'number' || ms < 0 || !isFinite(ms)) {
-    return '0s';
-  }
-  if (ms === 0) {
-    return '0s';
-  }
-
-  // 2. Calcula cada componente da duração.
-  const segundos = Math.floor((ms / 1000) % 60);
-  const minutos = Math.floor((ms / (1000 * 60)) % 60);
-  const horas = Math.floor((ms / (1000 * 60 * 60)) % 24);
-  const dias = Math.floor(ms / (1000 * 60 * 60 * 24));
-
-  // 3. Monta a string de resultado de forma inteligente.
-  const parts = [];
-  if (dias > 0) {
-    parts.push(`${dias}d`);
-    if (horas > 0) {
-      parts.push(`${horas}h`);
-    }
-  } else if (horas > 0) {
-    parts.push(`${horas}h`);
-    if (minutos > 0) {
-      parts.push(`${minutos}m`);
-    }
-  } else if (minutos > 0) {
-    parts.push(`${minutos}m`);
-    if (segundos > 0) {
-      parts.push(`${segundos}s`);
-    }
-  } else {
-    parts.push(`${segundos}s`);
-  }
-
-  // 4. Retorna a string final, ou "0s" se for muito pequena.
-  return parts.length > 0 ? parts.join(' ') : '0s';
-}
-
-// RFC-0057: Removed unused function: fetchLastConnectTime() (was commented out in usage anyway)
-
-// Show/hide loading overlay
-function showLoadingOverlay(show) {
-  const overlay = document.getElementById('equipments-loading-overlay');
-  if (overlay) {
-    overlay.style.display = show ? 'flex' : 'none';
-  }
-}
-
-/**
- * Update equipment statistics header
- * @param {Array} devices - Array of device objects with consumption data
- * @param {Map} energyCache - Energy cache from MAIN orchestrator (optional)
- */
-function updateEquipmentStats(devices, energyCache = null) {
-  const connectivityEl = document.getElementById('equipStatsConnectivity');
-  const totalEl = document.getElementById('equipStatsTotal');
-  const consumptionEl = document.getElementById('equipStatsConsumption');
-  const zeroEl = document.getElementById('equipStatsZero');
-
-  if (!connectivityEl || !totalEl || !consumptionEl || !zeroEl) {
-    LogHelper.warn('[EQUIPMENTS] Stats header elements not found');
-    return;
-  }
-
-  // Calculate connectivity (online vs total) from ctx.data
-  // Group by entityId to count each device only once
-  const deviceMap = new Map(); // entityId -> { hasConnectionStatus: bool, isOnline: bool }
-
-  if (self.ctx && Array.isArray(self.ctx.data)) {
-    self.ctx.data.forEach((data) => {
-      const entityId = data.datasource?.entityId;
-      const dataKeyName = data.dataKey?.name;
-
-      if (!entityId) return;
-
-      // Initialize device entry if doesn't exist
-      if (!deviceMap.has(entityId)) {
-        deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false });
-      }
-
-      // Check if this is the connectionStatus dataKey
-      if (dataKeyName === 'connectionStatus') {
-        const status = String(data.data?.[0]?.[1] || '').toLowerCase();
-        deviceMap.get(entityId).hasConnectionStatus = true;
-        deviceMap.get(entityId).isOnline = status === 'online';
-      }
-    });
-  }
-
-  // Count online devices (only EQUIPMENTS, exclude lojas)
-  let onlineCount = 0;
-  let totalWithStatus = 0;
-
-  devices.forEach((device) => {
-    const deviceData = deviceMap.get(device.entityId);
-    if (deviceData && deviceData.hasConnectionStatus) {
-      totalWithStatus++;
-      if (deviceData.isOnline) {
-        onlineCount++;
-      }
-    }
-  });
-
-  // RFC-0076: Calculate consumption from FILTERED devices array
-  // IMPORTANT: Always calculate locally to respect filter selections
-  let totalConsumption = 0;
-  devices.forEach((device) => {
-    // Get ingestionId directly from device object (set during card formatting)
-    const ingestionId = device.ingestionId;
-
-    let consumption = 0;
-    if (ingestionId && energyCache) {
-      const cached = energyCache.get(ingestionId);
-      if (cached) {
-        consumption = Number(cached.total_value) || 0;
-      }
-    }
-
-    // Fallback to device's own value if cache lookup failed
-    if (consumption === 0) {
-      consumption = Number(device.val) || Number(device.lastValue) || 0;
-    }
-
-    totalConsumption += consumption;
-  });
-
-  LogHelper.log(
-    '[EQUIPMENTS] Consumption calculated from',
-    devices.length,
-    'filtered devices:',
-    totalConsumption,
-    'kWh'
-  );
-
-  // Calculate zero consumption count locally (not available in orchestrator)
-  let zeroConsumptionCount = 0;
-  devices.forEach((device) => {
-    const consumption = Number(device.val) || Number(device.lastValue) || 0;
-    if (consumption === 0) {
-      zeroConsumptionCount++;
-    }
-  });
-
-  // Calculate connectivity percentage
-  const connectivityPercentage =
-    totalWithStatus > 0 ? ((onlineCount / totalWithStatus) * 100).toFixed(1) : '0.0';
-
-  // Update UI
-  connectivityEl.textContent = `${onlineCount}/${totalWithStatus} (${connectivityPercentage}%)`;
-  totalEl.textContent = devices.length.toString();
-  consumptionEl.textContent = MyIOLibrary.formatEnergy(totalConsumption);
-  zeroEl.textContent = zeroConsumptionCount.toString();
-
-  LogHelper.log('[EQUIPMENTS] Stats updated:', {
-    connectivity: `${onlineCount}/${totalWithStatus} (${connectivityPercentage}%)`,
-    total: devices.length,
-    consumptionFromOrchestrator: totalConsumption,
-    zeroCount: zeroConsumptionCount,
-  });
-}
-
-// ============================================
-// RFC-0072: MODAL MANAGEMENT UTILITIES
-// ============================================
 
 /**
  * Creates a proper modal backdrop
@@ -982,37 +129,7 @@ function closeExistingModals() {
   LogHelper.log('[EQUIPMENTS] [RFC-0072] Cleaned up existing modals');
 }
 
-/**
- * RFC-0072: Get customer name for a device
- * @param {Object} device - Device object
- * @returns {string} Customer name or fallback
- */
-function getCustomerNameForDevice(device) {
-  // Priority 1: Check if customerId exists and look it up
-  if (device.customerId && window.custumersSelected && Array.isArray(window.custumersSelected)) {
-    const shopping = window.custumersSelected.find((c) => c.value === device.customerId);
-    if (shopping) return shopping.name;
-  }
-
-  // Priority 2: Try to get from energyCache via ingestionId
-  if (device.ingestionId) {
-    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
-    if (orchestrator && typeof orchestrator.getEnergyCache === 'function') {
-      const energyCache = orchestrator.getEnergyCache();
-      const cached = energyCache.get(device.ingestionId);
-      if (cached && cached.customerName) {
-        return cached.customerName;
-      }
-    }
-  }
-
-  // Priority 3: Fallback to customerId substring
-  if (device.customerId) {
-    return `Shopping ${device.customerId.substring(0, 8)}...`;
-  }
-
-  return 'N/A';
-}
+// NOTE: getCustomerNameForDevice is now provided by MAIN via window.MyIOUtils (see const declaration at top of file)
 
 // ============================================
 // END RFC-0072 MODAL UTILITIES
@@ -1024,7 +141,7 @@ function initializeCards(devices) {
 
   grid.innerHTML = '';
 
-  devices.forEach((device, index) => {
+  devices.forEach((device, _index) => {
     const container = document.createElement('div');
     //LogHelper.log("[EQUIPMENTS] Rendering device:", device);
     grid.appendChild(container);
@@ -1039,7 +156,7 @@ function initializeCards(devices) {
     device.customerName = customerName;
     device.domain = 'energy'; // RFC-0087: Energy domain for kWh/MWh/GWh formatting
 
-    const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
+    MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
       handleActionDashboard: async () => {
         // RFC-0072: Enhanced modal handling to prevent corruption
@@ -1049,7 +166,7 @@ function initializeCards(devices) {
           // 1. Ensure component is available
           if (typeof MyIOLibrary.openDashboardPopupEnergy !== 'function') {
             LogHelper.error('[EQUIPMENTS] [RFC-0072] openDashboardPopupEnergy component not loaded');
-            alert('Dashboard component não disponível');
+            window.window.alert('Dashboard component não disponível');
             return;
           }
 
@@ -1087,7 +204,7 @@ function initializeCards(devices) {
             onError: (error) => {
               LogHelper.error('[EQUIPMENTS] [RFC-0072] Modal error:', error);
               backdrop.remove();
-              alert(`Erro: ${error.message}`);
+              window.alert(`Erro: ${error.message}`);
             },
             onClose: () => {
               backdrop.remove();
@@ -1103,7 +220,7 @@ function initializeCards(devices) {
           if (!modal) {
             LogHelper.error('[EQUIPMENTS] [RFC-0072] Modal failed to initialize');
             backdrop.remove();
-            alert('Erro ao abrir dashboard');
+            window.alert('Erro ao abrir dashboard');
             return;
           }
 
@@ -1111,7 +228,7 @@ function initializeCards(devices) {
         } catch (err) {
           LogHelper.error('[EQUIPMENTS] [RFC-0072] Error opening energy dashboard:', err);
           closeExistingModals();
-          alert('Credenciais ainda carregando. Tente novamente em instantes.');
+          window.alert('Credenciais ainda carregando. Tente novamente em instantes.');
         }
       },
 
@@ -1134,9 +251,8 @@ function initializeCards(devices) {
             },
           });
         } catch (err) {
-          LogHelper.warn('[DeviceCards] Report open blocked:', err?.message || err);
-          alert('Credenciais ainda carregando. Tente novamente em instantes.');
-        } finally {
+          LogHelper.warn('[EQUIPMENTS] Report open blocked:', err?.message || err);
+          window.alert('Credenciais ainda carregando. Tente novamente em instantes.');
         }
       },
 
@@ -1147,7 +263,7 @@ function initializeCards(devices) {
         const jwt = localStorage.getItem('jwt_token');
         if (!jwt) {
           LogHelper.error('[EQUIPMENTS] [RFC-0072] JWT token not found');
-          alert('Token de autenticação não encontrado');
+          window.alert('Token de autenticação não encontrado');
           return;
         }
 
@@ -1194,7 +310,7 @@ function initializeCards(devices) {
           });
         } catch (e) {
           LogHelper.error('[EQUIPMENTS] [RFC-0072] Error opening settings:', e);
-          alert('Erro ao abrir configurações');
+          window.alert('Erro ao abrir configurações');
         }
       },
 
@@ -1220,7 +336,7 @@ function initializeCards(devices) {
       },
 
       handleClickCard: (ev, entity) => {
-        log(`Card clicked: ${entity.labelOrName} - Power: ${entity.val}kWh`);
+        LogHelper.log(`Card clicked: ${entity.labelOrName} - Power: ${entity.val}kWh`);
       },
 
       useNewComponents: true,
@@ -1234,11 +350,11 @@ function initializeCards(devices) {
     // Não é mais necessário aplicar classes manualmente
   });
 
-  log('Cards initialized successfully');
+  LogHelper.log('[EQUIPMENTS] Cards initialized successfully');
 }
 
 self.onInit = async function () {
-  console.log('[EQUIPMENTS] onInit - ctx:', self.ctx);
+  LogHelper.log('[EQUIPMENTS] onInit - ctx:', self.ctx);
   // ⭐ CRITICAL FIX: Show loading IMMEDIATELY before setTimeout
   showLoadingOverlay(true);
 
@@ -1383,8 +499,14 @@ self.onInit = async function () {
       LogHelper.log('[EQUIPMENTS] 📍 Rendered', selection.length, 'shopping filter chips');
     }
 
-    // Obtém customerId do MAIN (exposto via window.myioHoldingCustomerId)
-    CUSTOMER_ID = window.myioHoldingCustomerId || ' ';
+    // ============================================
+    // CREDENTIALS: Use MAIN's credentials via MyIOUtils
+    // ============================================
+    // Hierarchy:
+    // 1. window.MyIOUtils.getCredentials() - from MAIN (preferred)
+    // 2. fetchCustomerServerScopeAttrs() - direct fetch (fallback)
+    const mainCredentials = window.MyIOUtils?.getCredentials?.() || {};
+    CUSTOMER_ID = mainCredentials.customerId || window.myioHoldingCustomerId || ' ';
 
     // Objeto principal para armazenar os dados dos dispositivos
     const devices = {};
@@ -1429,7 +551,7 @@ self.onInit = async function () {
     if (!__deviceProfileSyncComplete && boolExecSync) {
       try {
         LogHelper.log('[EQUIPMENTS] [RFC-0071] Triggering device profile sync...');
-        const syncResult = await syncDeviceProfileAttributes();
+        const syncResult = await syncDeviceProfileAttributes(self.ctx.data);
         __deviceProfileSyncComplete = true;
 
         if (syncResult.synced > 0) {
@@ -1446,13 +568,28 @@ self.onInit = async function () {
       }
     }
 
-    const customerCredentials = await fetchCustomerServerScopeAttrs(CUSTOMER_ID);
-    LogHelper.log('customerCredentials', customerCredentials);
+    // ============================================
+    // CREDENTIALS: Prefer MAIN's, fallback to direct fetch
+    // ============================================
+    // MAIN already fetched credentials, reuse them if available
+    if (mainCredentials.clientId && mainCredentials.clientSecret) {
+      CLIENT_ID = mainCredentials.clientId;
+      CLIENT_SECRET = mainCredentials.clientSecret;
+      LogHelper.log('[EQUIPMENTS] Using credentials from MAIN (MyIOUtils)');
 
-    CLIENT_ID = customerCredentials.client_id || ' ';
-    CLIENT_SECRET = customerCredentials.client_secret || ' ';
-    INGESTION_ID = customerCredentials.ingestionId || ' ';
-    MAP_INSTANTANEOUS_POWER = customerCredentials.mapInstantaneousPower;
+      // Still need to fetch mapInstantaneousPower (not in MAIN)
+      const customerCredentials = await fetchCustomerServerScopeAttrs(CUSTOMER_ID);
+      MAP_INSTANTANEOUS_POWER = customerCredentials.mapInstantaneousPower;
+    } else {
+      // Fallback: fetch all credentials directly
+      LogHelper.log('[EQUIPMENTS] MAIN credentials not available, fetching directly...');
+      const customerCredentials = await fetchCustomerServerScopeAttrs(CUSTOMER_ID);
+      LogHelper.log('customerCredentials', customerCredentials);
+
+      CLIENT_ID = customerCredentials.client_id || ' ';
+      CLIENT_SECRET = customerCredentials.client_secret || ' ';
+      MAP_INSTANTANEOUS_POWER = customerCredentials.mapInstantaneousPower;
+    }
 
     // Initialize MyIO Auth using MyIOLibrary (like MAIN widget)
     if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.buildMyioIngestionAuth) {
@@ -1463,7 +600,9 @@ self.onInit = async function () {
       });
       LogHelper.log('[EQUIPMENTS] MyIO Auth initialized using MyIOLibrary');
     } else {
-      console.error('[EQUIPMENTS] MyIOLibrary não está disponível. Verifique se a biblioteca foi carregada.');
+      LogHelper.error(
+        '[EQUIPMENTS] MyIOLibrary não está disponível. Verifique se a biblioteca foi carregada.'
+      );
     }
 
     // 🚨 RFC-0077: Fetch customer consumption limits ONCE before processing devices
@@ -1489,9 +628,8 @@ self.onInit = async function () {
     // ✅ Loading overlay already shown at start of onInit (moved up for better UX)
     async function renderDeviceCards() {
       const promisesDeCards = Object.entries(devices)
-        .filter(([entityId, device]) => device.values.some((valor) => valor.dataType === 'consumption'))
+        .filter(([_entityId, device]) => device.values.some((valor) => valor.dataType === 'consumption'))
         .map(async ([entityId, device]) => {
-          const tbToken = localStorage.getItem('jwt_token');
           const lastConnectTimestamp = findValue(device.values, 'lastConnectTime', '');
           const lastDisconnectTimestamp = findValue(device.values, 'lastDisconnectTime', '');
           const deviceMapInstaneousPower = findValue(device.values, 'deviceMapInstaneousPower', '');
@@ -1504,21 +642,13 @@ self.onInit = async function () {
             operationHoursFormatted = formatarDuracao(durationMs > 0 ? durationMs : 0);
           }
 
-          const deviceTemperature = await getDeviceTemperature(entityId, tbToken);
+          const deviceTemperature = 0;
           const latestTimestamp = Math.max(...device.values.map((v) => v.ts || 0));
           const updatedFormatted = formatRelativeTime(latestTimestamp);
           const rawConnectionStatus = findValue(device.values, 'connectionStatus', 'offline');
           const consumptionValue = findValue(device.values, 'consumption', 0);
-
-          let mappedConnectionStatus = 'offline';
-          const statusLower = String(rawConnectionStatus).toLowerCase();
-
-          if (statusLower === 'online' || statusLower === 'ok' || statusLower === 'running') {
-            mappedConnectionStatus = 'online';
-          } else if (statusLower === 'waiting') {
-            mappedConnectionStatus = 'waiting';
-          }
-
+          const mappedConnectionStatus =
+            window.MyIOUtils?.mapConnectionStatus?.(rawConnectionStatus) || 'offline';
           const deviceProfile = findValue(device.values, 'deviceProfile', '').toUpperCase();
           let deviceType = findValue(device.values, 'deviceType', '').toUpperCase();
 
@@ -1711,7 +841,7 @@ self.onInit = async function () {
       initializeCards(equipmentDevices);
 
       // Update statistics header (only equipments)
-      updateEquipmentStats(equipmentDevices, energyCacheFromMain);
+      updateEquipmentStats(equipmentDevices, energyCacheFromMain, self.ctx.data);
 
       // RFC: Emit initial equipment count to HEADER
       emitEquipmentCountEvent(equipmentDevices);
@@ -1758,7 +888,7 @@ self.onInit = async function () {
       LogHelper.log('[EQUIPMENTS] Enriching devices with consumption from MAIN...');
 
       // Iterate through devices and add consumption from cache
-      Object.entries(devices).forEach(([entityId, device]) => {
+      Object.entries(devices).forEach(([_entityId, device]) => {
         // Find ingestionId for this device
         const ingestionIdItem = device.values.find((v) => v.dataType === 'ingestionId');
         if (ingestionIdItem && ingestionIdItem.value) {
@@ -1792,7 +922,7 @@ self.onInit = async function () {
       );
 
       let enrichedCount = 0;
-      Object.entries(devices).forEach(([entityId, device]) => {
+      Object.entries(devices).forEach(([_entityId2, device]) => {
         const ingestionIdItem = device.values.find((v) => v.dataType === 'ingestionId');
         if (ingestionIdItem && ingestionIdItem.value) {
           const ingestionId = ingestionIdItem.value;
@@ -1857,13 +987,6 @@ self.onInit = async function () {
         showLoadingOverlay(false);
       });
     }
-
-    const findValue = (values, dataType, defaultValue = 'N/D') => {
-      const item = values.find((v) => v.dataType === dataType);
-      if (!item) return defaultValue;
-      // Retorna a propriedade 'val' (da nossa API) ou 'value' (do ThingsBoard)
-      return item.val !== undefined ? item.val : item.value;
-    };
 
     async function waitForOrchestrator(timeoutMs = 15000) {
       return new Promise((resolve) => {
@@ -2091,7 +1214,7 @@ function reflowCards() {
 
   // Get energy cache from orchestrator for consumption calculation
   const energyCache = window.MyIOOrchestrator?.getCache?.() || null;
-  updateEquipmentStats(filtered, energyCache);
+  updateEquipmentStats(filtered, energyCache, self.ctx.data);
 
   // RFC: Emit event to update HEADER card
   emitEquipmentCountEvent(filtered);
@@ -2347,26 +1470,26 @@ function setupModalCloseHandlers(modal) {
  */
 function openFilterModal() {
   // DEBUG: Always log to console (not LogHelper which may be disabled)
-  console.log('[EQUIPMENTS] [RFC-0072] 🔍 Opening filter modal...');
-  console.log('[EQUIPMENTS] [RFC-0072] STATE.allDevices:', STATE.allDevices);
-  console.log('[EQUIPMENTS] [RFC-0072] STATE.allDevices.length:', STATE.allDevices?.length || 0);
+  LogHelper.log('[EQUIPMENTS] [RFC-0072] 🔍 Opening filter modal...');
+  LogHelper.log('[EQUIPMENTS] [RFC-0072] STATE.allDevices:', STATE.allDevices);
+  LogHelper.log('[EQUIPMENTS] [RFC-0072] STATE.allDevices.length:', STATE.allDevices?.length || 0);
 
   if (!STATE.allDevices || STATE.allDevices.length === 0) {
     console.error('[EQUIPMENTS] ❌ No devices in STATE.allDevices! Modal will be empty.');
-    console.log('[EQUIPMENTS] STATE object:', STATE);
-    alert('Nenhum equipamento encontrado. Por favor, aguarde o carregamento dos dados.');
+    LogHelper.log('[EQUIPMENTS] STATE object:', STATE);
+    window.alert('Nenhum equipamento encontrado. Por favor, aguarde o carregamento dos dados.');
     return;
   }
 
   // RFC-0072: Get or create global modal container (like MENU widget)
   let globalContainer = document.getElementById('equipmentsFilterModalGlobal');
-  console.log('[EQUIPMENTS] globalContainer exists:', !!globalContainer);
+  LogHelper.log('[EQUIPMENTS] globalContainer exists:', !!globalContainer);
 
   if (!globalContainer) {
     // Modal doesn't exist, move it from widget to document.body
-    console.log('[EQUIPMENTS] 🔄 Creating global container, looking for filterModal in widget...');
+    LogHelper.log('[EQUIPMENTS] 🔄 Creating global container, looking for filterModal in widget...');
     const widgetModal = document.getElementById('filterModal');
-    console.log('[EQUIPMENTS] widgetModal found:', !!widgetModal, widgetModal);
+    LogHelper.log('[EQUIPMENTS] widgetModal found:', !!widgetModal, widgetModal);
     if (widgetModal) {
       // Extract modal from widget and wrap in global container
       globalContainer = document.createElement('div');
@@ -2690,18 +1813,18 @@ function openFilterModal() {
       `;
 
       // Move modal content to global container (after styles)
-      console.log('[EQUIPMENTS] 📦 Moving widgetModal to globalContainer...');
+      LogHelper.log('[EQUIPMENTS] 📦 Moving widgetModal to globalContainer...');
       widgetModal.remove();
       globalContainer.appendChild(widgetModal);
 
       // Attach to document.body (like MENU widget)
       document.body.appendChild(globalContainer);
-      console.log('[EQUIPMENTS] ✅ Global container attached to document.body');
+      LogHelper.log('[EQUIPMENTS] ✅ Global container attached to document.body');
 
       // RFC-0072: Bind close handlers now that modal is in document.body
       setupModalCloseHandlers(widgetModal);
 
-      console.log('[EQUIPMENTS] [RFC-0072] Modal moved to document.body with inline styles and handlers');
+      LogHelper.log('[EQUIPMENTS] [RFC-0072] Modal moved to document.body with inline styles and handlers');
     } else {
       console.error('[EQUIPMENTS] [RFC-0072] ❌ Filter modal not found in template!');
       return;
@@ -2709,14 +1832,14 @@ function openFilterModal() {
   }
 
   const modal = globalContainer.querySelector('#filterModal');
-  console.log('[EQUIPMENTS] modal from globalContainer:', !!modal, modal);
+  LogHelper.log('[EQUIPMENTS] modal from globalContainer:', !!modal, modal);
   if (!modal) {
     console.error('[EQUIPMENTS] ❌ modal not found in globalContainer!');
     return;
   }
 
   modal.classList.remove('hidden');
-  console.log('[EQUIPMENTS] ✅ Modal visible (hidden class removed)');
+  LogHelper.log('[EQUIPMENTS] ✅ Modal visible (hidden class removed)');
 
   // RFC-0072: Add body class to prevent scrolling
   document.body.classList.add('modal-open');
@@ -2826,30 +1949,30 @@ function openFilterModal() {
   updateCount('countHvac', counts.hvac);
   updateCount('countOthers', counts.others);
 
-  console.log('[EQUIPMENTS] 📊 Filter counts:', counts);
+  LogHelper.log('[EQUIPMENTS] 📊 Filter counts:', counts);
 
   // Debug: Log sample device to check connectionStatus field
   if (STATE.allDevices.length > 0) {
-    console.log('[EQUIPMENTS] 📄 Sample device for debugging:', STATE.allDevices[0]);
+    LogHelper.log('[EQUIPMENTS] 📄 Sample device for debugging:', STATE.allDevices[0]);
   }
 
   // Populate device checklist - need to find it within the global container
-  console.log('[EQUIPMENTS] 🔍 Looking for deviceChecklist in globalContainer...');
+  LogHelper.log('[EQUIPMENTS] 🔍 Looking for deviceChecklist in globalContainer...');
   let checklist = globalContainer.querySelector('#deviceChecklist');
-  console.log('[EQUIPMENTS] checklist from globalContainer:', checklist);
+  LogHelper.log('[EQUIPMENTS] checklist from globalContainer:', checklist);
 
   if (!checklist) {
     // Fallback to document search
-    console.log('[EQUIPMENTS] ⚠️ Not found in globalContainer, trying document.getElementById...');
+    LogHelper.log('[EQUIPMENTS] ⚠️ Not found in globalContainer, trying document.getElementById...');
     checklist = document.getElementById('deviceChecklist');
-    console.log('[EQUIPMENTS] checklist from document:', checklist);
+    LogHelper.log('[EQUIPMENTS] checklist from document:', checklist);
   }
   if (!checklist) {
     console.error('[EQUIPMENTS] ❌ deviceChecklist element not found anywhere!');
     return;
   }
 
-  console.log('[EQUIPMENTS] ✅ deviceChecklist found, populating with', STATE.allDevices.length, 'devices');
+  LogHelper.log('[EQUIPMENTS] ✅ deviceChecklist found, populating with', STATE.allDevices.length, 'devices');
 
   checklist.innerHTML = '';
 
@@ -2860,7 +1983,7 @@ function openFilterModal() {
       (a.labelOrName || '').localeCompare(b.labelOrName || '', 'pt-BR', { sensitivity: 'base' })
     );
 
-  console.log('[EQUIPMENTS] 📋 Sorted devices count:', sortedDevices.length);
+  LogHelper.log('[EQUIPMENTS] 📋 Sorted devices count:', sortedDevices.length);
 
   sortedDevices.forEach((device, index) => {
     const isChecked = !STATE.selectedIds || STATE.selectedIds.has(device.entityId);
@@ -2874,7 +1997,7 @@ function openFilterModal() {
 
     // Debug first 3 devices
     if (index < 3) {
-      console.log(`[EQUIPMENTS] Device ${index + 1}:`, {
+      LogHelper.log(`[EQUIPMENTS] Device ${index + 1}:`, {
         entityId: device.entityId,
         labelOrName: device.labelOrName,
         consumption,
@@ -2901,7 +2024,7 @@ function openFilterModal() {
     checklist.appendChild(item);
   });
 
-  console.log('[EQUIPMENTS] ✅ Checklist populated. Total items:', checklist.children.length);
+  LogHelper.log('[EQUIPMENTS] ✅ Checklist populated. Total items:', checklist.children.length);
 
   // Set current sort mode
   const sortRadios = modal.querySelectorAll('input[name="sortMode"]');

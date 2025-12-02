@@ -51,27 +51,857 @@ function formatWater(value) {
   return `${num.toFixed(2)} m³`;
 }
 
-// ✅ Expose shared utilities globally for child widgets
-window.MyIOUtils = {
-  LogHelper,
-  getDataApiHost,
-  formatEnergy,
-  formatWater,
-  isDebugActive: () => DEBUG_ACTIVE,
-  setDebug: (active) => {
-    DEBUG_ACTIVE = !!active;
-    console.log(`[MyIOUtils] Debug mode ${DEBUG_ACTIVE ? 'enabled' : 'disabled'}`);
+/**
+ * Maps raw connection status to normalized status
+ * @param {string} rawStatus - Raw status from ThingsBoard (e.g., 'ONLINE', 'ok', 'running', 'waiting', 'offline')
+ * @returns {'online' | 'waiting' | 'offline'} - Normalized status
+ */
+function mapConnectionStatus(rawStatus) {
+  const statusLower = String(rawStatus || '').toLowerCase().trim();
+
+  // Online states
+  if (statusLower === 'online' || statusLower === 'ok' || statusLower === 'running') {
+    return 'online';
+  }
+
+  // Waiting/transitional states
+  if (statusLower === 'waiting' || statusLower === 'connecting' || statusLower === 'pending') {
+    return 'waiting';
+  }
+
+  // Default to offline
+  return 'offline';
+}
+
+/**
+ * Converte um timestamp em uma string de tempo relativo (ex: "há 5 minutos").
+ * @param {number} timestamp - O timestamp em milissegundos.
+ * @returns {string} A string formatada.
+ */
+function formatRelativeTime(timestamp) {
+  if (!timestamp || timestamp <= 0) {
+    return '—';
+  }
+
+  const now = Date.now();
+  const diffSeconds = Math.round((now - timestamp) / 1000);
+
+  if (diffSeconds < 10) {
+    return 'agora';
+  }
+  if (diffSeconds < 60) {
+    return `há ${diffSeconds}s`;
+  }
+
+  const diffMinutes = Math.round(diffSeconds / 60);
+  if (diffMinutes === 1) {
+    return 'há 1 min';
+  }
+  if (diffMinutes < 60) {
+    return `há ${diffMinutes} mins`;
+  }
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours === 1) {
+    return 'há 1 hora';
+  }
+  if (diffHours < 24) {
+    return `há ${diffHours} horas`;
+  }
+
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays === 1) {
+    return 'ontem';
+  }
+  if (diffDays <= 30) {
+    return `há ${diffDays} dias`;
+  }
+
+  return new Date(timestamp).toLocaleDateString('pt-BR');
+}
+
+/**
+ * Formata duração em milissegundos para string legível (ex: "2d 5h", "3h 20m", "45s")
+ * @param {number} ms - Duração em milissegundos
+ * @returns {string} Duração formatada
+ */
+function formatarDuracao(ms) {
+  if (typeof ms !== 'number' || ms < 0 || !isFinite(ms)) {
+    return '0s';
+  }
+  if (ms === 0) {
+    return '0s';
+  }
+
+  const segundos = Math.floor((ms / 1000) % 60);
+  const minutos = Math.floor((ms / (1000 * 60)) % 60);
+  const horas = Math.floor((ms / (1000 * 60 * 60)) % 24);
+  const dias = Math.floor(ms / (1000 * 60 * 60 * 24));
+
+  const parts = [];
+  if (dias > 0) {
+    parts.push(`${dias}d`);
+    if (horas > 0) {
+      parts.push(`${horas}h`);
+    }
+  } else if (horas > 0) {
+    parts.push(`${horas}h`);
+    if (minutos > 0) {
+      parts.push(`${minutos}m`);
+    }
+  } else if (minutos > 0) {
+    parts.push(`${minutos}m`);
+    if (segundos > 0) {
+      parts.push(`${segundos}s`);
+    }
+  } else {
+    parts.push(`${segundos}s`);
+  }
+
+  return parts.length > 0 ? parts.join(' ') : '0s';
+}
+
+/**
+ * Shows/hides loading overlay for equipments widget
+ * @param {boolean} show - Whether to show or hide the overlay
+ */
+function showLoadingOverlay(show) {
+  const overlay = document.getElementById('equipments-loading-overlay');
+  if (overlay) {
+    overlay.style.display = show ? 'flex' : 'none';
+  }
+}
+
+// ============================================
+// RFC-0071: DEVICE PROFILE SYNCHRONIZATION
+// ============================================
+
+/**
+ * Fetches all active device profiles from ThingsBoard
+ * @returns {Promise<Map<string, string>>} Map of profileId -> profileName
+ */
+async function fetchDeviceProfiles() {
+  const token = localStorage.getItem('jwt_token');
+  if (!token) throw new Error('[RFC-0071] JWT token not found');
+
+  const url = '/api/deviceProfile/names?activeOnly=true';
+
+  LogHelper.log('[MAIN] [RFC-0071] Fetching device profiles...');
+
+  const response = await fetch(url, {
+    headers: {
+      'X-Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`[RFC-0071] Failed to fetch device profiles: ${response.status}`);
+  }
+
+  const profiles = await response.json();
+
+  const profileMap = new Map();
+  profiles.forEach((profile) => {
+    const profileId = profile.id.id;
+    const profileName = profile.name;
+    profileMap.set(profileId, profileName);
+  });
+
+  LogHelper.log(
+    `[MAIN] [RFC-0071] Loaded ${profileMap.size} device profiles:`,
+    Array.from(profileMap.entries())
+      .map(([id, name]) => name)
+      .join(', ')
+  );
+
+  return profileMap;
+}
+
+/**
+ * Fetches device details including deviceProfileId
+ * @param {string} deviceId - Device entity ID
+ * @returns {Promise<Object>}
+ */
+async function fetchDeviceDetails(deviceId) {
+  const token = localStorage.getItem('jwt_token');
+  if (!token) throw new Error('[RFC-0071] JWT token not found');
+
+  const url = `/api/device/${deviceId}`;
+
+  const response = await fetch(url, {
+    headers: {
+      'X-Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`[RFC-0071] Failed to fetch device ${deviceId}: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Saves deviceProfile as a server-scope attribute on the device
+ * @param {string} deviceId - Device entity ID
+ * @param {string} deviceProfile - Profile name (e.g., "MOTOR", "3F_MEDIDOR")
+ * @returns {Promise<{ok: boolean, status: number, data: any}>}
+ */
+async function addDeviceProfileAttribute(deviceId, deviceProfile) {
+  const t = Date.now();
+
+  try {
+    if (!deviceId) throw new Error('deviceId is required');
+    if (deviceProfile == null || deviceProfile === '') {
+      throw new Error('deviceProfile is required');
+    }
+
+    const token = localStorage.getItem('jwt_token');
+    if (!token) throw new Error('jwt_token not found in localStorage');
+
+    const url = `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`;
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Authorization': `Bearer ${token}`,
+    };
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ deviceProfile }),
+    });
+
+    const bodyText = await res.text().catch(() => '');
+
+    if (!res.ok) {
+      throw new Error(`[RFC-0071] HTTP ${res.status} ${res.statusText} - ${bodyText}`);
+    }
+
+    let data = null;
+    try {
+      data = bodyText ? JSON.parse(bodyText) : null;
+    } catch {
+      // Response may not be JSON
+    }
+
+    const dt = Date.now() - t;
+    LogHelper.log(
+      `[MAIN] [RFC-0071] ✅ Saved deviceProfile | device=${deviceId} | "${deviceProfile}" | ${dt}ms`
+    );
+
+    return { ok: true, status: res.status, data };
+  } catch (err) {
+    const dt = Date.now() - t;
+    LogHelper.error(
+      `[MAIN] [RFC-0071] ❌ Failed to save deviceProfile | device=${deviceId} | "${deviceProfile}" | ${dt}ms | error: ${
+        err?.message || err
+      }`
+    );
+    throw err;
+  }
+}
+
+/**
+ * Main synchronization function - syncs missing deviceProfile attributes
+ * NOTE: Requires ctx.data to be available (call from widget context)
+ * @param {Array} ctxData - The ctx.data array from widget context
+ * @returns {Promise<{synced: number, skipped: number, errors: number}>}
+ */
+async function syncDeviceProfileAttributes(ctxData) {
+  LogHelper.log('[MAIN] [RFC-0071] 🔄 Starting device profile synchronization...');
+
+  try {
+    const profileMap = await fetchDeviceProfiles();
+
+    let synced = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    const deviceMap = new Map();
+
+    ctxData.forEach((data) => {
+      const entityId = data.datasource?.entity?.id?.id;
+      const existingProfile = data.datasource?.deviceProfile;
+
+      if (!entityId) return;
+
+      if (existingProfile) {
+        skipped++;
+        return;
+      }
+
+      if (!deviceMap.has(entityId)) {
+        deviceMap.set(entityId, {
+          entityLabel: data.datasource?.entityLabel,
+          entityName: data.datasource?.entityName,
+          name: data.datasource?.name,
+        });
+      }
+    });
+
+    LogHelper.log(`[MAIN] [RFC-0071] Found ${deviceMap.size} devices without deviceProfile attribute`);
+    LogHelper.log(`[MAIN] [RFC-0071] Skipped ${skipped} devices that already have deviceProfile`);
+
+    if (deviceMap.size === 0) {
+      LogHelper.log('[MAIN] [RFC-0071] ✅ All devices already synchronized!');
+      return { synced: 0, skipped, errors: 0 };
+    }
+
+    let processed = 0;
+    for (const [entityId, deviceInfo] of deviceMap) {
+      processed++;
+      const deviceLabel = deviceInfo.entityLabel || deviceInfo.entityName || deviceInfo.name || entityId;
+
+      try {
+        LogHelper.log(`[MAIN] [RFC-0071] Processing ${processed}/${deviceMap.size}: ${deviceLabel}`);
+
+        const deviceDetails = await fetchDeviceDetails(entityId);
+        const deviceProfileId = deviceDetails.deviceProfileId?.id;
+
+        if (!deviceProfileId) {
+          LogHelper.warn(`[MAIN] [RFC-0071] ⚠️ Device ${deviceLabel} has no deviceProfileId`);
+          errors++;
+          continue;
+        }
+
+        const profileName = profileMap.get(deviceProfileId);
+
+        if (!profileName) {
+          LogHelper.warn(`[MAIN] [RFC-0071] ⚠️ Profile ID ${deviceProfileId} not found in map`);
+          errors++;
+          continue;
+        }
+
+        await addDeviceProfileAttribute(entityId, profileName);
+        synced++;
+
+        LogHelper.log(`[MAIN] [RFC-0071] ✅ Synced ${deviceLabel} -> ${profileName}`);
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      } catch (error) {
+        LogHelper.error(`[MAIN] [RFC-0071] ❌ Failed to sync device ${deviceLabel}:`, error);
+        errors++;
+      }
+    }
+
+    LogHelper.log(
+      `[MAIN] [RFC-0071] 🎉 Sync complete: ${synced} synced, ${skipped} skipped, ${errors} errors`
+    );
+
+    return { synced, skipped, errors };
+  } catch (error) {
+    LogHelper.error('[MAIN] [RFC-0071] ❌ Fatal error during sync:', error);
+    throw error;
+  }
+}
+
+// ============================================
+// RFC-0078: UNIFIED JSON POWER LIMITS CONFIGURATION
+// ============================================
+
+/**
+ * Default consumption ranges for each device type (TIER 3 - fallback)
+ */
+const DEFAULT_CONSUMPTION_RANGES = {
+  ELEVADOR: {
+    standbyRange: { down: 0, up: 150 },
+    normalRange: { down: 151, up: 800 },
+    alertRange: { down: 801, up: 1200 },
+    failureRange: { down: 1201, up: 99999 },
+  },
+  ESCADA_ROLANTE: {
+    standbyRange: { down: 0, up: 200 },
+    normalRange: { down: 201, up: 1000 },
+    alertRange: { down: 1001, up: 1500 },
+    failureRange: { down: 1501, up: 99999 },
+  },
+  CHILLER: {
+    standbyRange: { down: 0, up: 1000 },
+    normalRange: { down: 1001, up: 6000 },
+    alertRange: { down: 6001, up: 8000 },
+    failureRange: { down: 8001, up: 99999 },
+  },
+  AR_CONDICIONADO: {
+    standbyRange: { down: 0, up: 500 },
+    normalRange: { down: 501, up: 3000 },
+    alertRange: { down: 3001, up: 5000 },
+    failureRange: { down: 5001, up: 99999 },
+  },
+  HVAC: {
+    standbyRange: { down: 0, up: 500 },
+    normalRange: { down: 501, up: 3000 },
+    alertRange: { down: 3001, up: 5000 },
+    failureRange: { down: 5001, up: 99999 },
+  },
+  MOTOR: {
+    standbyRange: { down: 0, up: 200 },
+    normalRange: { down: 201, up: 1000 },
+    alertRange: { down: 1001, up: 1500 },
+    failureRange: { down: 1501, up: 99999 },
+  },
+  BOMBA: {
+    standbyRange: { down: 0, up: 200 },
+    normalRange: { down: 201, up: 1000 },
+    alertRange: { down: 1001, up: 1500 },
+    failureRange: { down: 1501, up: 99999 },
+  },
+  DEFAULT: {
+    standbyRange: { down: 0, up: 100 },
+    normalRange: { down: 101, up: 1000 },
+    alertRange: { down: 1001, up: 2000 },
+    failureRange: { down: 2001, up: 99999 },
   },
 };
 
-console.log('[MAIN] MyIOUtils exposed globally:', Object.keys(window.MyIOUtils));
+// Cache for JSON power limits configuration
+const powerLimitsJSONCache = new Map();
+const POWER_LIMITS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-let CUSTOMER_ID_TB; // ThingsBoard Customer ID
-let CUSTOMER_INGESTION_ID; // Ingestion API Customer ID
-let CLIENT_ID_INGESTION;
-let CLIENT_SECRET_INGESTION;
-let myIOAuth; // Instance of MyIO auth component
+/**
+ * RFC-0078: Fetch unified JSON power limits from ThingsBoard entity
+ * @param {string} entityId - Entity ID (device or customer)
+ * @param {string} entityType - 'DEVICE' or 'CUSTOMER'
+ * @returns {Promise<Object|null>} Parsed JSON configuration or null
+ */
+async function fetchInstantaneousPowerLimits(entityId, entityType = 'CUSTOMER') {
+  const token = localStorage.getItem('jwt_token');
+  if (!token) {
+    LogHelper.warn('[RFC-0078] JWT token not found');
+    return null;
+  }
 
+  LogHelper.log('[RFC-0078] entityId', entityId);
+
+  const url = `/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'X-Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        LogHelper.log(`[RFC-0078] No attributes found for ${entityType} ${entityId}`);
+        return null;
+      }
+      LogHelper.warn(`[RFC-0078] Failed to fetch ${entityType} attributes: ${response.status}`);
+      return null;
+    }
+
+    const attributes = await response.json();
+
+    LogHelper.log('[RFC-0078] attributes', attributes);
+
+    const powerLimitsAttr = attributes.find((attr) => attr.key === 'mapInstantaneousPower');
+
+    if (!powerLimitsAttr) {
+      return null;
+    }
+
+    let limits;
+    if (typeof powerLimitsAttr.value === 'string') {
+      try {
+        limits = JSON.parse(powerLimitsAttr.value);
+      } catch (parseError) {
+        LogHelper.error(`[RFC-0078] Failed to parse JSON for ${entityType} ${entityId}:`, parseError);
+        return null;
+      }
+    } else {
+      limits = powerLimitsAttr.value;
+    }
+
+    LogHelper.log(`[RFC-0078] ✅ Loaded mapInstantaneousPower from ${entityType} ${entityId}:`, {
+      version: limits.version,
+      telemetryTypes: limits.limitsByInstantaneoustPowerType?.length || 0,
+    });
+
+    return limits;
+  } catch (error) {
+    LogHelper.error(`[RFC-0078] Error fetching ${entityType} power limits:`, error);
+    return null;
+  }
+}
+
+/**
+ * RFC-0078: Extract consumption ranges from unified JSON structure
+ * @param {Object} powerLimitsJSON - The mapInstantaneousPower JSON object
+ * @param {string} deviceType - Device type (e.g., 'ELEVADOR')
+ * @param {string} telemetryType - Telemetry type (default: 'consumption')
+ * @returns {Object|null} Range configuration or null
+ */
+function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'consumption') {
+  if (!powerLimitsJSON || !powerLimitsJSON.limitsByInstantaneoustPowerType) {
+    return null;
+  }
+
+  const telemetryConfig = powerLimitsJSON.limitsByInstantaneoustPowerType.find(
+    (config) => config.telemetryType === telemetryType
+  );
+
+  if (!telemetryConfig) {
+    LogHelper.log(`[RFC-0078] Telemetry type ${telemetryType} not found in JSON`);
+    return null;
+  }
+
+  const deviceConfig = telemetryConfig.itemsByDeviceType.find(
+    (item) => item.deviceType === deviceType || item.deviceType === deviceType.toUpperCase()
+  );
+
+  if (!deviceConfig) {
+    LogHelper.log(`[RFC-0078] Device type ${deviceType} not found for telemetry ${telemetryType}`);
+    return null;
+  }
+
+  const ranges = {
+    standbyRange: { down: 0, up: 0 },
+    normalRange: { down: 0, up: 0 },
+    alertRange: { down: 0, up: 0 },
+    failureRange: { down: 0, up: 0 },
+  };
+
+  deviceConfig.limitsByDeviceStatus.forEach((status) => {
+    const baseValue = status.limitsValues?.baseValue ?? status.limitsVales?.baseValue ?? 0;
+    const topValue = status.limitsValues?.topValue ?? status.limitsVales?.topValue ?? 99999;
+
+    switch (status.deviceStatusName) {
+      case 'standBy':
+        ranges.standbyRange = { down: baseValue, up: topValue };
+        break;
+      case 'normal':
+        ranges.normalRange = { down: baseValue, up: topValue };
+        break;
+      case 'alert':
+        ranges.alertRange = { down: baseValue, up: topValue };
+        break;
+      case 'failure':
+        ranges.failureRange = { down: baseValue, up: topValue };
+        break;
+    }
+  });
+
+  return {
+    ...ranges,
+    source: 'json',
+    tier: 2,
+    metadata: {
+      name: deviceConfig.name,
+      description: deviceConfig.description,
+      version: powerLimitsJSON.version,
+      telemetryType: telemetryType,
+    },
+  };
+}
+
+/**
+ * RFC-0078: Gets default ranges for a device type (TIER 3)
+ * @param {string} deviceType - Device type
+ * @returns {Object} Default ranges
+ */
+function getDefaultRanges(deviceType) {
+  const upperDeviceType = deviceType.toUpperCase();
+  return DEFAULT_CONSUMPTION_RANGES[upperDeviceType] || DEFAULT_CONSUMPTION_RANGES['DEFAULT'];
+}
+
+/**
+ * RFC-0078: Gets cached or fetches power limits JSON
+ * @param {string} entityId - Entity ID
+ * @param {string} entityType - 'DEVICE' or 'CUSTOMER'
+ * @param {Object} ctxData - Optional ctx.data array from widget context
+ * @returns {Promise<Object|null>} JSON configuration
+ */
+async function getCachedPowerLimitsJSON(entityId, entityType = 'CUSTOMER', ctxData = null) {
+  if (!entityId) return null;
+
+  const cacheKey = `${entityType}:${entityId}`;
+  const cached = powerLimitsJSONCache.get(cacheKey);
+  const now = Date.now();
+
+  if (cached && now - cached.timestamp < POWER_LIMITS_CACHE_TTL_MS) {
+    return cached.json;
+  }
+
+  let json = null;
+
+  if (entityType === 'DEVICE' && ctxData) {
+    const powerLimitsData = ctxData.find((d) => d.dataKey && d.dataKey.name === 'mapInstantaneousPower');
+
+    if (powerLimitsData && powerLimitsData.data && powerLimitsData.data.length > 0) {
+      const latestValue = powerLimitsData.data[powerLimitsData.data.length - 1];
+      const rawValue = latestValue[1];
+
+      if (typeof rawValue === 'string') {
+        try {
+          json = JSON.parse(rawValue);
+          LogHelper.log(`[RFC-0078] ✅ Loaded mapInstantaneousPower from ctx.data for DEVICE ${entityId}:`, {
+            version: json.version,
+            telemetryTypes: json.limitsByInstantaneoustPowerType?.length || 0,
+          });
+        } catch (parseError) {
+          LogHelper.warn(`[RFC-0078] Failed to parse DEVICE JSON from ctx.data:`, parseError);
+          json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
+        }
+      } else if (typeof rawValue === 'object') {
+        json = rawValue;
+        LogHelper.log(
+          `[RFC-0078] ✅ Loaded mapInstantaneousPower (object) from ctx.data for DEVICE ${entityId}`
+        );
+      }
+    } else {
+      LogHelper.log(
+        `[RFC-0078] mapInstantaneousPower not found in ctx.data for DEVICE ${entityId}, using empty fallback`
+      );
+      json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
+    }
+  } else if (entityType === 'CUSTOMER') {
+    LogHelper.log('[RFC-0078] entityId getCachedPowerLimitsJSON', entityId);
+    json = await fetchInstantaneousPowerLimits(entityId, entityType);
+  } else {
+    json = { version: '1.0.0', limitsByInstantaneoustPowerType: [] };
+  }
+
+  powerLimitsJSONCache.set(cacheKey, {
+    json: json,
+    timestamp: now,
+  });
+
+  return json;
+}
+
+/**
+ * RFC-0078: Gets consumption limits with hierarchical resolution
+ * TIER 1: Device-level (highest priority)
+ * TIER 2: Customer-level
+ * TIER 3: Hardcoded defaults (fallback)
+ *
+ * @param {string} deviceId - Device entity ID
+ * @param {string} deviceType - Device type
+ * @param {Object} customerLimitsJSON - Pre-fetched customer JSON (TIER 2)
+ * @param {string} telemetryType - Telemetry type (default: 'consumption')
+ * @param {Object} ctxData - Optional ctx.data array
+ * @returns {Promise<Object>} Consumption ranges with source indicator
+ */
+async function getConsumptionRangesHierarchical(
+  deviceId,
+  deviceType,
+  customerLimitsJSON,
+  telemetryType = 'consumption',
+  ctxData = null
+) {
+  // TIER 1: Try device-level JSON first
+  const deviceLimitsJSON = await getCachedPowerLimitsJSON(deviceId, 'DEVICE', ctxData);
+  if (
+    deviceLimitsJSON &&
+    deviceLimitsJSON.limitsByInstantaneoustPowerType &&
+    deviceLimitsJSON.limitsByInstantaneoustPowerType.length > 0
+  ) {
+    const deviceRanges = extractLimitsFromJSON(deviceLimitsJSON, deviceType, telemetryType);
+    if (deviceRanges) {
+      return { ...deviceRanges, source: 'device', tier: 1 };
+    }
+  }
+
+  // TIER 2: Try customer-level JSON
+  if (customerLimitsJSON) {
+    const customerRanges = extractLimitsFromJSON(customerLimitsJSON, deviceType, telemetryType);
+    if (customerRanges) {
+      return { ...customerRanges, source: 'customer', tier: 2 };
+    }
+  }
+
+  // TIER 3: Hardcoded defaults
+  LogHelper.log(`[RFC-0078] Using HARDCODED defaults for ${deviceType} (TIER 3)`);
+  const defaultRanges = getDefaultRanges(deviceType);
+  return {
+    ...defaultRanges,
+    source: 'hardcoded',
+    tier: 3,
+    metadata: {
+      name: `Default${deviceType}`,
+      description: `System default for ${deviceType}`,
+      version: '0.0.0',
+      telemetryType: telemetryType,
+    },
+  };
+}
+
+/**
+ * RFC-0078: Alias for backward compatibility
+ * @param {string} customerId - Customer ID
+ * @returns {Promise<Object|null>} Customer power limits JSON
+ */
+async function getCachedConsumptionLimits(customerId) {
+  LogHelper.log(`[RFC-0078] getCachedConsumptionLimits called for customer ${customerId}`);
+  return getCachedPowerLimitsJSON(customerId, 'CUSTOMER');
+}
+
+// ============================================
+// END RFC-0078
+// ============================================
+
+/**
+ * RFC-0072: Get customer name for a device
+ * @param {Object} device - Device object with customerId and ingestionId
+ * @returns {string} Customer name or fallback
+ */
+function getCustomerNameForDevice(device) {
+  // Priority 1: Check if customerId exists and look it up
+  if (device.customerId && window.custumersSelected && Array.isArray(window.custumersSelected)) {
+    const shopping = window.custumersSelected.find((c) => c.value === device.customerId);
+    if (shopping) return shopping.name;
+  }
+
+  // Priority 2: Try to get from energyCache via ingestionId
+  if (device.ingestionId) {
+    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+    if (orchestrator && typeof orchestrator.getEnergyCache === 'function') {
+      const energyCache = orchestrator.getEnergyCache();
+      const cached = energyCache.get(device.ingestionId);
+      if (cached && cached.customerName) {
+        return cached.customerName;
+      }
+    }
+  }
+
+  // Priority 3: Fallback to customerId substring
+  if (device.customerId) {
+    return `Shopping ${device.customerId.substring(0, 8)}...`;
+  }
+
+  return 'N/A';
+}
+
+/**
+ * Update equipment statistics header
+ * NOTE: This function expects DOM elements from EQUIPMENTS widget
+ * @param {Array} devices - Array of device objects with consumption data
+ * @param {Map} energyCache - Energy cache from MAIN orchestrator (optional)
+ * @param {Array} ctxData - The ctx.data array from widget context
+ */
+function updateEquipmentStats(devices, energyCache = null, ctxData = null) {
+  const connectivityEl = document.getElementById('equipStatsConnectivity');
+  const totalEl = document.getElementById('equipStatsTotal');
+  const consumptionEl = document.getElementById('equipStatsConsumption');
+  const zeroEl = document.getElementById('equipStatsZero');
+
+  if (!connectivityEl || !totalEl || !consumptionEl || !zeroEl) {
+    LogHelper.warn('[MAIN] Stats header elements not found');
+    return;
+  }
+
+  // Calculate connectivity (online vs total) from ctx.data
+  const deviceMap = new Map();
+
+  if (ctxData && Array.isArray(ctxData)) {
+    ctxData.forEach((data) => {
+      const entityId = data.datasource?.entityId;
+      const dataKeyName = data.dataKey?.name;
+
+      if (!entityId) return;
+
+      if (!deviceMap.has(entityId)) {
+        deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false });
+      }
+
+      if (dataKeyName === 'connectionStatus') {
+        const status = String(data.data?.[0]?.[1] || '').toLowerCase();
+        deviceMap.get(entityId).hasConnectionStatus = true;
+        deviceMap.get(entityId).isOnline = status === 'online';
+      }
+    });
+  }
+
+  // Count online devices
+  let onlineCount = 0;
+  let totalWithStatus = 0;
+
+  devices.forEach((device) => {
+    const deviceData = deviceMap.get(device.entityId);
+    if (deviceData && deviceData.hasConnectionStatus) {
+      totalWithStatus++;
+      if (deviceData.isOnline) {
+        onlineCount++;
+      }
+    }
+  });
+
+  // Calculate consumption from FILTERED devices array
+  let totalConsumption = 0;
+  devices.forEach((device) => {
+    const ingestionId = device.ingestionId;
+
+    let consumption = 0;
+    if (ingestionId && energyCache) {
+      const cached = energyCache.get(ingestionId);
+      if (cached) {
+        consumption = Number(cached.total_value) || 0;
+      }
+    }
+
+    if (consumption === 0) {
+      consumption = Number(device.val) || Number(device.lastValue) || 0;
+    }
+
+    totalConsumption += consumption;
+  });
+
+  LogHelper.log(
+    '[MAIN] Consumption calculated from',
+    devices.length,
+    'filtered devices:',
+    totalConsumption,
+    'kWh'
+  );
+
+  // Calculate zero consumption count
+  let zeroConsumptionCount = 0;
+  devices.forEach((device) => {
+    const consumption = Number(device.val) || Number(device.lastValue) || 0;
+    if (consumption === 0) {
+      zeroConsumptionCount++;
+    }
+  });
+
+  // Calculate connectivity percentage
+  const connectivityPercentage =
+    totalWithStatus > 0 ? ((onlineCount / totalWithStatus) * 100).toFixed(1) : '0.0';
+
+  // Update UI
+  connectivityEl.textContent = `${onlineCount}/${totalWithStatus} (${connectivityPercentage}%)`;
+  totalEl.textContent = devices.length.toString();
+  consumptionEl.textContent = typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatEnergy(totalConsumption) : formatEnergy(totalConsumption);
+  zeroEl.textContent = zeroConsumptionCount.toString();
+
+  LogHelper.log('[MAIN] Stats updated:', {
+    connectivity: `${onlineCount}/${totalWithStatus} (${connectivityPercentage}%)`,
+    total: devices.length,
+    consumptionFromOrchestrator: totalConsumption,
+    zeroCount: zeroConsumptionCount,
+  });
+}
+
+/**
+ * Find a value in an array of {key, value} objects
+ * @param {Array} values - Array of objects with key/value properties
+ * @param {string} key - Key to search for
+ * @param {*} defaultValue - Default value if not found
+ * @returns {*} The found value or defaultValue
+ */
+function findValue(values, key, defaultValue = null) {
+  if (!Array.isArray(values)) return defaultValue;
+  const found = values.find((v) => v.key === key);
+  return found ? found.value : defaultValue;
+}
+
+/**
+ * Fetch customer server-scope attributes from ThingsBoard
+ * @param {string} customerTbId - ThingsBoard customer ID
+ * @returns {Promise<Object>} Map of attribute key -> value
+ */
 async function fetchCustomerServerScopeAttrs(customerTbId) {
   if (!customerTbId) return {};
   const tbToken = localStorage.getItem('jwt_token');
@@ -85,12 +915,11 @@ async function fetchCustomerServerScopeAttrs(customerTbId) {
     },
   });
   if (!res.ok) {
-    console.warn(`[equipaments] [customer attrs] HTTP ${res.status}`);
+    LogHelper.warn(`[MAIN] [customer attrs] HTTP ${res.status}`);
     return {};
   }
   const payload = await res.json();
 
-  // Pode vir como array [{key,value}] OU como objeto { key: [{value}] }
   const map = {};
   if (Array.isArray(payload)) {
     for (const it of payload) map[it.key] = it.value;
@@ -102,6 +931,74 @@ async function fetchCustomerServerScopeAttrs(customerTbId) {
   }
   return map;
 }
+
+// ✅ Expose shared utilities globally for child widgets
+window.MyIOUtils = {
+  // Logging
+  LogHelper,
+  isDebugActive: () => DEBUG_ACTIVE,
+  setDebug: (active) => {
+    DEBUG_ACTIVE = !!active;
+    console.log(`[MyIOUtils] Debug mode ${DEBUG_ACTIVE ? 'enabled' : 'disabled'}`);
+  },
+
+  // API & Formatting
+  getDataApiHost,
+  formatEnergy,
+  formatWater,
+  mapConnectionStatus,
+  formatRelativeTime,
+  formatarDuracao,
+  findValue,
+
+  // Credentials (getters - populated after onInit)
+  getCustomerId: () => window.myioHoldingCustomerId,
+  getClientId: () => window.__MYIO_CLIENT_ID__,
+  getClientSecret: () => window.__MYIO_CLIENT_SECRET__,
+  getCustomerIngestionId: () => window.__MYIO_CUSTOMER_INGESTION_ID__,
+
+  // Convenience: get all credentials at once
+  getCredentials: () => ({
+    customerId: window.myioHoldingCustomerId,
+    customerIngestionId: window.__MYIO_CUSTOMER_INGESTION_ID__,
+    clientId: window.__MYIO_CLIENT_ID__,
+    clientSecret: window.__MYIO_CLIENT_SECRET__,
+    dataApiHost: getDataApiHost(),
+  }),
+
+  // RFC-0071: Device Profile Sync
+  fetchDeviceProfiles,
+  fetchDeviceDetails,
+  addDeviceProfileAttribute,
+  syncDeviceProfileAttributes,
+
+  // RFC-0078: Power Limits
+  DEFAULT_CONSUMPTION_RANGES,
+  fetchInstantaneousPowerLimits,
+  extractLimitsFromJSON,
+  getDefaultRanges,
+  getCachedPowerLimitsJSON,
+  getConsumptionRangesHierarchical,
+  getCachedConsumptionLimits,
+
+  // UI Helpers
+  showLoadingOverlay,
+  updateEquipmentStats,
+  getCustomerNameForDevice,
+
+  // ThingsBoard API
+  fetchCustomerServerScopeAttrs,
+};
+
+console.log('[MAIN] MyIOUtils exposed globally:', Object.keys(window.MyIOUtils));
+
+let CUSTOMER_ID_TB; // ThingsBoard Customer ID
+let CUSTOMER_INGESTION_ID; // Ingestion API Customer ID
+let CLIENT_ID_INGESTION;
+let CLIENT_SECRET_INGESTION;
+let myIOAuth; // Instance of MyIO auth component
+
+// NOTE: fetchCustomerServerScopeAttrs is defined above and exposed via MyIOUtils
 
 // NOTE: Funções de rendering e device data removidas
 // Essas responsabilidades agora pertencem aos widgets HEADER e EQUIPMENTS
