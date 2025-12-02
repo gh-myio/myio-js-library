@@ -555,10 +555,10 @@ function buildDOM(state) {
   const opTimeMetric = document.createElement('div');
   opTimeMetric.className = 'metric';
 
-  const opTimeIcon = document.createElement('i');
-  opTimeIcon.className = 'ico ico-clock';
-  opTimeIcon.innerHTML = Icons.dot; // Using dot as clock placeholder
-  opTimeMetric.appendChild(opTimeIcon);
+  // Status indicator dot for operation time (neutral gray)
+  const opTimeDot = document.createElement('span');
+  opTimeDot.className = 'status-dot dot--neutral';
+  opTimeMetric.appendChild(opTimeDot);
 
   const opTimeLabel = document.createElement('div');
   opTimeLabel.className = 'label';

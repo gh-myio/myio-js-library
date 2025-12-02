@@ -563,6 +563,10 @@ export const CSS_STRING = `
   background: var(--myio-chip-offline-fg);
 }
 
+.status-dot.dot--neutral {
+  background: var(--myio-muted);
+}
+
 /* Primary metric */
 .myio-ho-card__primary {
   margin-bottom: 14px;
@@ -661,7 +665,11 @@ export const CSS_STRING = `
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 4px;
+  gap: 2px;
+}
+
+.myio-ho-card__footer .metric .status-dot {
+  margin-bottom: 2px;
 }
 
 .myio-ho-card__footer .metric .ico {
