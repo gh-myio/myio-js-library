@@ -10,7 +10,7 @@
 
 /* eslint-disable no-undef, no-unused-vars */
 // Debug configuration
-const DEBUG_ACTIVE = true; // Set to false to disable debug logs
+const DEBUG_ACTIVE = false; // Set to false to disable debug logs
 
 // LogHelper utility
 const LogHelper = {
@@ -31,11 +31,9 @@ const LogHelper = {
   },
 };
 
-LogHelper.log(
-  "🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT"
-);
+LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
 
-const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
+const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
 const MAX_FIRST_HYDRATES = 1;
 let MAP_INSTANTANEOUS_POWER;
 
@@ -53,7 +51,7 @@ function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'con
 
   // Find telemetry type configuration
   const telemetryConfig = powerLimitsJSON.limitsByInstantaneoustPowerType.find(
-    config => config.telemetryType === telemetryType
+    (config) => config.telemetryType === telemetryType
   );
 
   if (!telemetryConfig) {
@@ -63,7 +61,7 @@ function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'con
 
   // Find device type configuration
   const deviceConfig = telemetryConfig.itemsByDeviceType.find(
-    item => item.deviceType === deviceType || item.deviceType === deviceType.toUpperCase()
+    (item) => item.deviceType === deviceType || item.deviceType === deviceType.toUpperCase()
   );
 
   if (!deviceConfig) {
@@ -76,10 +74,10 @@ function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'con
     standbyRange: { down: 0, up: 0 },
     normalRange: { down: 0, up: 0 },
     alertRange: { down: 0, up: 0 },
-    failureRange: { down: 0, up: 0 }
+    failureRange: { down: 0, up: 0 },
   };
 
-  deviceConfig.limitsByDeviceStatus.forEach(status => {
+  deviceConfig.limitsByDeviceStatus.forEach((status) => {
     const baseValue = status.limitsValues?.baseValue ?? status.limitsVales?.baseValue ?? 0;
     const topValue = status.limitsValues?.topValue ?? status.limitsVales?.topValue ?? 99999;
 
@@ -106,32 +104,30 @@ function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'con
       name: deviceConfig.name,
       description: deviceConfig.description,
       version: powerLimitsJSON.version,
-      telemetryType: telemetryType
-    }
+      telemetryType: telemetryType,
+    },
   };
 }
 
 let __deviceProfileSyncComplete = false;
 
 async function fetchDeviceProfiles() {
-  const token = localStorage.getItem("jwt_token");
-  if (!token) throw new Error("[RFC-0071] JWT token not found");
+  const token = localStorage.getItem('jwt_token');
+  if (!token) throw new Error('[RFC-0071] JWT token not found');
 
-  const url = "/api/deviceProfile/names?activeOnly=true";
+  const url = '/api/deviceProfile/names?activeOnly=true';
 
-  console.log("[EQUIPMENTS] [RFC-0071] Fetching device profiles...");
+  console.log('[EQUIPMENTS] [RFC-0071] Fetching device profiles...');
 
   const response = await fetch(url, {
     headers: {
-      "X-Authorization": `Bearer ${token}`,
-      "Content-Type": "application/json",
+      'X-Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
   });
 
   if (!response.ok) {
-    throw new Error(
-      `[RFC-0071] Failed to fetch device profiles: ${response.status}`
-    );
+    throw new Error(`[RFC-0071] Failed to fetch device profiles: ${response.status}`);
   }
 
   const profiles = await response.json();
@@ -148,7 +144,7 @@ async function fetchDeviceProfiles() {
     `[EQUIPMENTS] [RFC-0071] Loaded ${profileMap.size} device profiles:`,
     Array.from(profileMap.entries())
       .map(([id, name]) => name)
-      .join(", ")
+      .join(', ')
   );
 
   return profileMap;
@@ -160,22 +156,20 @@ async function fetchDeviceProfiles() {
  * @returns {Promise<Object>}
  */
 async function fetchDeviceDetails(deviceId) {
-  const token = localStorage.getItem("jwt_token");
-  if (!token) throw new Error("[RFC-0071] JWT token not found");
+  const token = localStorage.getItem('jwt_token');
+  if (!token) throw new Error('[RFC-0071] JWT token not found');
 
   const url = `/api/device/${deviceId}`;
 
   const response = await fetch(url, {
     headers: {
-      "X-Authorization": `Bearer ${token}`,
-      "Content-Type": "application/json",
+      'X-Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
   });
 
   if (!response.ok) {
-    throw new Error(
-      `[RFC-0071] Failed to fetch device ${deviceId}: ${response.status}`
-    );
+    throw new Error(`[RFC-0071] Failed to fetch device ${deviceId}: ${response.status}`);
   }
 
   return await response.json();
@@ -191,32 +185,30 @@ async function addDeviceProfileAttribute(deviceId, deviceProfile) {
   const t = Date.now();
 
   try {
-    if (!deviceId) throw new Error("deviceId is required");
-    if (deviceProfile == null || deviceProfile === "") {
-      throw new Error("deviceProfile is required");
+    if (!deviceId) throw new Error('deviceId is required');
+    if (deviceProfile == null || deviceProfile === '') {
+      throw new Error('deviceProfile is required');
     }
 
-    const token = localStorage.getItem("jwt_token");
-    if (!token) throw new Error("jwt_token not found in localStorage");
+    const token = localStorage.getItem('jwt_token');
+    if (!token) throw new Error('jwt_token not found in localStorage');
 
     const url = `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`;
     const headers = {
-      "Content-Type": "application/json",
-      "X-Authorization": `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Authorization': `Bearer ${token}`,
     };
 
     const res = await fetch(url, {
-      method: "POST",
+      method: 'POST',
       headers,
       body: JSON.stringify({ deviceProfile }),
     });
 
-    const bodyText = await res.text().catch(() => "");
+    const bodyText = await res.text().catch(() => '');
 
     if (!res.ok) {
-      throw new Error(
-        `[RFC-0071] HTTP ${res.status} ${res.statusText} - ${bodyText}`
-      );
+      throw new Error(`[RFC-0071] HTTP ${res.status} ${res.statusText} - ${bodyText}`);
     }
 
     let data = null;
@@ -249,9 +241,7 @@ async function addDeviceProfileAttribute(deviceId, deviceProfile) {
  * @returns {Promise<{synced: number, skipped: number, errors: number}>}
  */
 async function syncDeviceProfileAttributes() {
-  console.log(
-    "[EQUIPMENTS] [RFC-0071] 🔄 Starting device profile synchronization..."
-  );
+  console.log('[EQUIPMENTS] [RFC-0071] 🔄 Starting device profile synchronization...');
 
   try {
     // Step 1: Fetch all device profiles
@@ -286,17 +276,11 @@ async function syncDeviceProfileAttributes() {
       }
     });
 
-    console.log(
-      `[EQUIPMENTS] [RFC-0071] Found ${deviceMap.size} devices without deviceProfile attribute`
-    );
-    console.log(
-      `[EQUIPMENTS] [RFC-0071] Skipped ${skipped} devices that already have deviceProfile`
-    );
+    console.log(`[EQUIPMENTS] [RFC-0071] Found ${deviceMap.size} devices without deviceProfile attribute`);
+    console.log(`[EQUIPMENTS] [RFC-0071] Skipped ${skipped} devices that already have deviceProfile`);
 
     if (deviceMap.size === 0) {
-      console.log(
-        "[EQUIPMENTS] [RFC-0071] ✅ All devices already synchronized!"
-      );
+      console.log('[EQUIPMENTS] [RFC-0071] ✅ All devices already synchronized!');
       return { synced: 0, skipped, errors: 0 };
     }
 
@@ -304,25 +288,17 @@ async function syncDeviceProfileAttributes() {
     let processed = 0;
     for (const [entityId, deviceInfo] of deviceMap) {
       processed++;
-      const deviceLabel =
-        deviceInfo.entityLabel ||
-        deviceInfo.entityName ||
-        deviceInfo.name ||
-        entityId;
+      const deviceLabel = deviceInfo.entityLabel || deviceInfo.entityName || deviceInfo.name || entityId;
 
       try {
-        console.log(
-          `[EQUIPMENTS] [RFC-0071] Processing ${processed}/${deviceMap.size}: ${deviceLabel}`
-        );
+        console.log(`[EQUIPMENTS] [RFC-0071] Processing ${processed}/${deviceMap.size}: ${deviceLabel}`);
 
         // Fetch device details to get deviceProfileId
         const deviceDetails = await fetchDeviceDetails(entityId);
         const deviceProfileId = deviceDetails.deviceProfileId?.id;
 
         if (!deviceProfileId) {
-          console.warn(
-            `[EQUIPMENTS] [RFC-0071] ⚠️ Device ${deviceLabel} has no deviceProfileId`
-          );
+          console.warn(`[EQUIPMENTS] [RFC-0071] ⚠️ Device ${deviceLabel} has no deviceProfileId`);
           errors++;
           continue;
         }
@@ -350,11 +326,13 @@ async function syncDeviceProfileAttributes() {
       }
     }
 
-    console.log(`[EQUIPMENTS] [RFC-0071] 🎉 Sync complete: ${synced} synced, ${skipped} skipped, ${errors} errors`);
+    console.log(
+      `[EQUIPMENTS] [RFC-0071] 🎉 Sync complete: ${synced} synced, ${skipped} skipped, ${errors} errors`
+    );
 
     return { synced, skipped, errors };
   } catch (error) {
-    console.error("[EQUIPMENTS] [RFC-0071] ❌ Fatal error during sync:", error);
+    console.error('[EQUIPMENTS] [RFC-0071] ❌ Fatal error during sync:', error);
     throw error;
   }
 }
@@ -366,7 +344,7 @@ async function syncDeviceProfileAttributes() {
  */
 function getData(dataKeyName) {
   if (!self?.ctx?.data) {
-    LogHelper.warn("[getData] No ctx.data available");
+    LogHelper.warn('[getData] No ctx.data available');
     return null;
   }
 
@@ -393,27 +371,25 @@ let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent 
 let busyTimeoutId = null; // Timeout ID for busy fallback
 
 // RFC-0042: Widget configuration (from settings)
-let WIDGET_DOMAIN = "energy"; // Will be set in onInit
+let WIDGET_DOMAIN = 'energy'; // Will be set in onInit
 
 // RFC-0063: Classification mode configuration
 let USE_IDENTIFIER_CLASSIFICATION = false; // Flag to enable identifier-based classification
 let USE_HYBRID_CLASSIFICATION = false; // Flag to enable hybrid mode (identifier + labels)
 
 /** ===================== STATE ===================== **/
-let CLIENT_ID = "";
-let CLIENT_SECRET = "";
-let CUSTOMER_ING_ID = "";
+let CLIENT_ID = '';
+let CLIENT_SECRET = '';
+let CUSTOMER_ING_ID = '';
 let MyIOAuth = null;
 
 const STATE = {
   itemsBase: [], // lista autoritativa (TB)
   itemsEnriched: [], // lista com totals + perc
   searchActive: false,
-  searchTerm: "",
+  searchTerm: '',
   selectedIds: /** @type {Set<string> | null} */ (null),
-  sortMode: /** @type {'cons_desc'|'cons_asc'|'alpha_asc'|'alpha_desc'} */ (
-    "cons_desc"
-  ),
+  sortMode: /** @type {'cons_desc'|'cons_asc'|'alpha_asc'|'alpha_desc'} */ ('cons_desc'),
   firstHydrates: 0,
 };
 
@@ -421,13 +397,13 @@ let hydrating = false;
 
 /** ===================== HELPERS (DOM) ===================== **/
 const $root = () => $(self.ctx.$container[0]);
-const $list = () => $root().find("#shopsList");
-const $count = () => $root().find("#shopsCount");
-const $total = () => $root().find("#shopsTotal");
-const $modal = () => $root().find("#filterModal");
+const $list = () => $root().find('#shopsList');
+const $count = () => $root().find('#shopsCount');
+const $total = () => $root().find('#shopsTotal');
+const $modal = () => $root().find('#filterModal');
 
 /** ===================== BUSY MODAL (no widget) ===================== **/
-const BUSY_ID = "myio-busy-modal";
+const BUSY_ID = 'myio-busy-modal';
 function ensureBusyModalDOM() {
   let $m = $root().find(`#${BUSY_ID}`);
   if ($m.length) return $m;
@@ -458,15 +434,13 @@ function ensureBusyModalDOM() {
   <style>
     @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
   </style>`;
-  $root().css("position", "relative"); // garante overlay correto
+  $root().css('position', 'relative'); // garante overlay correto
   $root().append(html);
   return $root().find(`#${BUSY_ID}`);
 }
 // RFC-0044: Use centralized busy management
 function showBusy(message, timeoutMs = 35000) {
-  LogHelper.log(
-    `[TELEMETRY] 🔄 showBusy() called with message: "${message || "default"}"`
-  );
+  LogHelper.log(`[TELEMETRY] 🔄 showBusy() called with message: "${message || 'default'}"`);
 
   // Prevent multiple simultaneous busy calls
   if (window.busyInProgress) {
@@ -479,20 +453,16 @@ function showBusy(message, timeoutMs = 35000) {
   // Centralized busy with enhanced synchronization
   const safeShowBusy = () => {
     try {
-      if (
-        window.MyIOOrchestrator &&
-        typeof window.MyIOOrchestrator.showGlobalBusy === "function"
-      ) {
-        const text =
-          (message && String(message).trim()) || "Carregando dados...";
+      if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.showGlobalBusy === 'function') {
+        const text = (message && String(message).trim()) || 'Carregando dados...';
         window.MyIOOrchestrator.showGlobalBusy(WIDGET_DOMAIN, text, timeoutMs);
         LogHelper.log(`[TELEMETRY] ✅ Using centralized busy for domain: ${WIDGET_DOMAIN}`);
       } else {
         LogHelper.warn(`[TELEMETRY] ⚠️ Orchestrator not available, using fallback busy`);
         const $m = ensureBusyModalDOM();
-        const text = (message && String(message).trim()) || "aguarde.. carregando os dados...";
+        const text = (message && String(message).trim()) || 'aguarde.. carregando os dados...';
         $m.find(`#${BUSY_ID}-msg`).text(text);
-        $m.css("display", "flex");
+        $m.css('display', 'flex');
       }
     } catch (err) {
       LogHelper.error(`[TELEMETRY] ❌ Error in showBusy:`, err);
@@ -521,17 +491,17 @@ function showBusy(message, timeoutMs = 35000) {
       const handler = () => {
         clearTimeout(timeout);
         clearInterval(interval);
-        window.removeEventListener("myio:orchestrator:ready", handler);
+        window.removeEventListener('myio:orchestrator:ready', handler);
         resolve(true);
       };
 
-      window.addEventListener("myio:orchestrator:ready", handler);
+      window.addEventListener('myio:orchestrator:ready', handler);
 
       // Timeout after 5 seconds
       timeout = setTimeout(() => {
         clearInterval(interval);
-        window.removeEventListener("myio:orchestrator:ready", handler);
-        LogHelper.warn("[TELEMETRY] ⚠️ Orchestrator ready timeout after 5s, using fallback");
+        window.removeEventListener('myio:orchestrator:ready', handler);
+        LogHelper.warn('[TELEMETRY] ⚠️ Orchestrator ready timeout after 5s, using fallback');
         resolve(false);
       }, 5000);
 
@@ -540,7 +510,7 @@ function showBusy(message, timeoutMs = 35000) {
         if (window.MyIOOrchestrator?.isReady) {
           clearInterval(interval);
           clearTimeout(timeout);
-          window.removeEventListener("myio:orchestrator:ready", handler);
+          window.removeEventListener('myio:orchestrator:ready', handler);
           resolve(true);
         }
       }, 100);
@@ -557,15 +527,12 @@ function hideBusy() {
 
   const safeHideBusy = () => {
     try {
-      if (
-        window.MyIOOrchestrator &&
-        typeof window.MyIOOrchestrator.hideGlobalBusy === "function"
-      ) {
+      if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.hideGlobalBusy === 'function') {
         window.MyIOOrchestrator.hideGlobalBusy();
         LogHelper.log(`[TELEMETRY] ✅ Using centralized hideBusy`);
       } else {
         LogHelper.warn(`[TELEMETRY] ⚠️ Orchestrator not available, using fallback hideBusy`);
-        $root().find(`#${BUSY_ID}`).css("display", "none");
+        $root().find(`#${BUSY_ID}`).css('display', 'none');
       }
     } catch (err) {
       LogHelper.error(`[TELEMETRY] ❌ Error in hideBusy:`, err);
@@ -591,17 +558,17 @@ function hideBusy() {
       const handler = () => {
         clearTimeout(timeout);
         clearInterval(interval);
-        window.removeEventListener("myio:orchestrator:ready", handler);
+        window.removeEventListener('myio:orchestrator:ready', handler);
         resolve(true);
       };
 
-      window.addEventListener("myio:orchestrator:ready", handler);
+      window.addEventListener('myio:orchestrator:ready', handler);
 
       // Timeout after 5 seconds
       timeout = setTimeout(() => {
         clearInterval(interval);
-        window.removeEventListener("myio:orchestrator:ready", handler);
-        LogHelper.warn("[TELEMETRY] ⚠️ Orchestrator ready timeout after 5s, using fallback");
+        window.removeEventListener('myio:orchestrator:ready', handler);
+        LogHelper.warn('[TELEMETRY] ⚠️ Orchestrator ready timeout after 5s, using fallback');
         resolve(false);
       }, 5000);
 
@@ -610,7 +577,7 @@ function hideBusy() {
         if (window.MyIOOrchestrator?.isReady) {
           clearInterval(interval);
           clearTimeout(timeout);
-          window.removeEventListener("myio:orchestrator:ready", handler);
+          window.removeEventListener('myio:orchestrator:ready', handler);
           resolve(true);
         }
       }, 100);
@@ -622,7 +589,7 @@ function hideBusy() {
   checkOrchestratorReady();
 }
 
-const findValue = (values, dataType, defaultValue = "N/D") => {
+const findValue = (values, dataType, defaultValue = 'N/D') => {
   const item = values.find((v) => v.dataType === dataType);
   if (!item) return defaultValue;
   // Retorna a propriedade 'val' (da nossa API) ou 'value' (do ThingsBoard)
@@ -630,17 +597,17 @@ const findValue = (values, dataType, defaultValue = "N/D") => {
 };
 
 /** ===================== GLOBAL SUCCESS MODAL (fora do widget) ===================== **/
-const G_SUCCESS_ID = "myio-global-success-modal";
+const G_SUCCESS_ID = 'myio-global-success-modal';
 let gSuccessTimer = null;
 
 function ensureGlobalSuccessModalDOM() {
   let el = document.getElementById(G_SUCCESS_ID);
   if (el) return el;
 
-  const wrapper = document.createElement("div");
+  const wrapper = document.createElement('div');
   wrapper.id = G_SUCCESS_ID;
   wrapper.setAttribute(
-    "style",
+    'style',
     `
     position: fixed; inset: 0; display: none;
     z-index: 999999; 
@@ -651,9 +618,9 @@ function ensureGlobalSuccessModalDOM() {
   );
 
   // container central
-  const center = document.createElement("div");
+  const center = document.createElement('div');
   center.setAttribute(
-    "style",
+    'style',
     `
     position: absolute; top: 50%; left: 50%;
     transform: translate(-50%, -50%);
@@ -666,7 +633,7 @@ function ensureGlobalSuccessModalDOM() {
   `
   );
 
-  const icon = document.createElement("div");
+  const icon = document.createElement('div');
   icon.innerHTML = `
     <div style="
       width:56px;height:56px;margin:0 auto 10px auto;border-radius:50%;
@@ -678,18 +645,15 @@ function ensureGlobalSuccessModalDOM() {
     </div>
   `;
 
-  const title = document.createElement("div");
+  const title = document.createElement('div');
   title.id = `${G_SUCCESS_ID}-title`;
-  title.textContent = "os dados foram salvos com sucesso";
-  title.setAttribute(
-    "style",
-    `font-size:16px;font-weight:700;letter-spacing:.2px;margin-bottom:6px;`
-  );
+  title.textContent = 'os dados foram salvos com sucesso';
+  title.setAttribute('style', `font-size:16px;font-weight:700;letter-spacing:.2px;margin-bottom:6px;`);
 
-  const sub = document.createElement("div");
+  const sub = document.createElement('div');
   sub.id = `${G_SUCCESS_ID}-sub`;
   sub.innerHTML = `recarregando em <b id="${G_SUCCESS_ID}-count">6</b>s...`;
-  sub.setAttribute("style", `opacity:.9;font-size:13px;`);
+  sub.setAttribute('style', `opacity:.9;font-size:13px;`);
 
   center.appendChild(icon);
   center.appendChild(title);
@@ -705,7 +669,7 @@ function showGlobalSuccessModal(seconds = 6) {
   const countEl = el.querySelector(`#${G_SUCCESS_ID}-count`);
   if (countEl) countEl.textContent = String(seconds);
 
-  el.style.display = "block";
+  el.style.display = 'block';
 
   if (gSuccessTimer) {
     clearInterval(gSuccessTimer);
@@ -728,7 +692,7 @@ function showGlobalSuccessModal(seconds = 6) {
 
 function hideGlobalSuccessModal() {
   const el = document.getElementById(G_SUCCESS_ID);
-  if (el) el.style.display = "none";
+  if (el) el.style.display = 'none';
   if (gSuccessTimer) {
     clearInterval(gSuccessTimer);
     gSuccessTimer = null;
@@ -737,39 +701,29 @@ function hideGlobalSuccessModal() {
 
 /** ===================== UTILS ===================== **/
 function escapeHtml(s) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function isValidUUID(v) {
-  if (!v || typeof v !== "string") return false;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    v
-  );
+  if (!v || typeof v !== 'string') return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 }
 
 function toSpOffsetNoMs(dt, endOfDay = false) {
-  const d =
-    typeof dt === "number"
-      ? new Date(dt)
-      : dt instanceof Date
-      ? dt
-      : new Date(String(dt));
-  if (Number.isNaN(d.getTime())) throw new Error("Invalid date");
+  const d = typeof dt === 'number' ? new Date(dt) : dt instanceof Date ? dt : new Date(String(dt));
+  if (Number.isNaN(d.getTime())) throw new Error('Invalid date');
   if (endOfDay) d.setHours(23, 59, 59, 999);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(
     2,
-    "0"
-  )}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(
-    2,
-    "0"
-  )}:${String(d.getMinutes()).padStart(2, "0")}:${String(
+    '0'
+  )}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(
     d.getSeconds()
-  ).padStart(2, "0")}-03:00`;
+  ).padStart(2, '0')}-03:00`;
 }
 
 // converts raw API value to the UI target unit
@@ -800,11 +754,10 @@ function mustGetDateRange() {
   const s = self.ctx?.scope?.startDateISO;
   const e = self.ctx?.scope?.endDateISO;
   if (s && e) return { startISO: s, endISO: e };
-  throw new Error("DATE_RANGE_REQUIRED");
+  throw new Error('DATE_RANGE_REQUIRED');
 }
 
-const isAuthReady = () =>
-  !!(MyIOAuth && typeof MyIOAuth.getToken === "function");
+const isAuthReady = () => !!(MyIOAuth && typeof MyIOAuth.getToken === 'function');
 async function ensureAuthReady(maxMs = 6000, stepMs = 150) {
   const start = Date.now();
   while (!isAuthReady()) {
@@ -819,9 +772,8 @@ function buildTbAttrIndex() {
   const byTbId = new Map(); // tbId -> { slaveId, centralId, deviceType, centralName, lastConnectTime, lastDisconnectTime, lastActivityTime, connectionStatus }
   const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
   for (const row of rows) {
-    const key = String(row?.dataKey?.name || "").toLowerCase();
-    const tbId =
-      row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
+    const key = String(row?.dataKey?.name || '').toLowerCase();
+    const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
     const val = row?.data?.[0]?.[1];
     if (!tbId || val == null) continue;
     if (!byTbId.has(tbId))
@@ -838,16 +790,16 @@ function buildTbAttrIndex() {
         connectionStatus: null,
       });
     const slot = byTbId.get(tbId);
-    if (key === "slaveid") slot.slaveId = val;
-    if (key === "centralid") slot.centralId = val;
-    if (key === "devicetype") slot.deviceType = val;
-    if (key === "deviceprofile") slot.deviceProfile = val;
-    if (key === "centralname") slot.centralName = val;
-    if (key === "customername") slot.customerName = val;
-    if (key === "lastconnecttime") slot.lastConnectTime = val;
-    if (key === "lastdisconnecttime") slot.lastDisconnectTime = val;
-    if (key === "lastactivitytime") slot.lastActivityTime = val;
-    if (key === "connectionstatus") slot.connectionStatus = String(val).toLowerCase();
+    if (key === 'slaveid') slot.slaveId = val;
+    if (key === 'centralid') slot.centralId = val;
+    if (key === 'devicetype') slot.deviceType = val;
+    if (key === 'deviceprofile') slot.deviceProfile = val;
+    if (key === 'centralname') slot.centralName = val;
+    if (key === 'customername') slot.customerName = val;
+    if (key === 'lastconnecttime') slot.lastConnectTime = val;
+    if (key === 'lastdisconnecttime') slot.lastDisconnectTime = val;
+    if (key === 'lastactivitytime') slot.lastActivityTime = val;
+    if (key === 'connectionstatus') slot.connectionStatus = String(val).toLowerCase();
   }
   return byTbId;
 }
@@ -856,13 +808,12 @@ function buildTbIdIndexes() {
   const byIngestion = new Map(); // ingestionId -> tbId
   const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
   for (const row of rows) {
-    const key = String(row?.dataKey?.name || "").toLowerCase();
-    const tbId =
-      row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
+    const key = String(row?.dataKey?.name || '').toLowerCase();
+    const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
     const val = row?.data?.[0]?.[1];
     if (!tbId || val == null) continue;
-    if (key === "identifier") byIdentifier.set(String(val), tbId);
-    if (key === "ingestionid") byIngestion.set(String(val), tbId);
+    if (key === 'identifier') byIdentifier.set(String(val), tbId);
+    if (key === 'ingestionid') byIngestion.set(String(val), tbId);
   }
   return { byIdentifier, byIngestion };
 }
@@ -870,11 +821,7 @@ function buildTbIdIndexes() {
 /** ===================== CORE: DATA PIPELINE ===================== **/
 function buildAuthoritativeItems() {
   // items da LIB: [{ id: ingestionId, identifier, label }, ...]
-  const base =
-    MyIO.buildListItemsThingsboardByUniqueDatasource(
-      self.ctx.datasources,
-      self.ctx.data
-    ) || [];
+  const base = MyIO.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data) || [];
 
   //LogHelper.log("[TELEMETRY][buildAuthoritativeItems] base: ", base);
 
@@ -888,13 +835,17 @@ function buildAuthoritativeItems() {
   let globalTempMax = null;
   const ctxDataRows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
   ctxDataRows.forEach((data) => {
-    if (data?.dataKey?.name === "maxTemperature") {
+    if (data?.dataKey?.name === 'maxTemperature') {
       globalTempMax = Number(data.data?.[0]?.[1]) || null;
-      LogHelper.log(`[DeviceCards] Found global maxTemperature: ${globalTempMax} from ${data.datasource?.entityLabel}`);
+      LogHelper.log(
+        `[DeviceCards] Found global maxTemperature: ${globalTempMax} from ${data.datasource?.entityLabel}`
+      );
     }
-    if (data?.dataKey?.name === "minTemperature") {
+    if (data?.dataKey?.name === 'minTemperature') {
       globalTempMin = Number(data.data?.[0]?.[1]) || null;
-      LogHelper.log(`[DeviceCards] Found global minTemperature: ${globalTempMin} from ${data.datasource?.entityLabel}`);
+      LogHelper.log(
+        `[DeviceCards] Found global minTemperature: ${globalTempMin} from ${data.datasource?.entityLabel}`
+      );
     }
   });
 
@@ -902,19 +853,11 @@ function buildAuthoritativeItems() {
     //LogHelper.log("[TELEMETRY][buildAuthoritativeItems] ok.map: ", r);
 
     const ingestionId = r.id;
-    const tbFromIngestion = ingestionId
-      ? tbIdIdx.byIngestion.get(ingestionId)
-      : null;
-    const tbFromIdentifier = r.identifier
-      ? tbIdIdx.byIdentifier.get(r.identifier)
-      : null;
+    const tbFromIngestion = ingestionId ? tbIdIdx.byIngestion.get(ingestionId) : null;
+    const tbFromIdentifier = r.identifier ? tbIdIdx.byIdentifier.get(r.identifier) : null;
 
     let tbId = tbFromIngestion || tbFromIdentifier || null;
-    if (
-      tbFromIngestion &&
-      tbFromIdentifier &&
-      tbFromIngestion !== tbFromIdentifier
-    ) {
+    if (tbFromIngestion && tbFromIdentifier && tbFromIngestion !== tbFromIdentifier) {
       /*
       LogHelper.warn("[DeviceCards] TB id mismatch for item", {
         label: r.label, identifier: r.identifier, ingestionId, tbFromIngestion, tbFromIdentifier
@@ -924,10 +867,10 @@ function buildAuthoritativeItems() {
     }
 
     const attrs = tbId ? attrsByTb.get(tbId) || {} : {};
-    const deviceProfile = attrs.deviceProfile || "N/D";
-    let deviceTypeToDisplay = attrs.deviceType || "3F_MEDIDOR";
+    const deviceProfile = attrs.deviceProfile || 'N/D';
+    let deviceTypeToDisplay = attrs.deviceType || '3F_MEDIDOR';
 
-    if (deviceTypeToDisplay === "3F_MEDIDOR" && deviceProfile !== "N/D") {
+    if (deviceTypeToDisplay === '3F_MEDIDOR' && deviceProfile !== 'N/D') {
       deviceTypeToDisplay = deviceProfile;
     }
 
@@ -939,8 +882,8 @@ function buildAuthoritativeItems() {
     let waterPercentage = null;
     let consumption = null;
     let temperature = null;
-    const isTankDevice = deviceTypeToDisplay === "TANK" || deviceTypeToDisplay === "CAIXA_DAGUA";
-    const isTermostatoDevice = deviceTypeToDisplay === "TERMOSTATO";
+    const isTankDevice = deviceTypeToDisplay === 'TANK' || deviceTypeToDisplay === 'CAIXA_DAGUA';
+    const isTermostatoDevice = deviceTypeToDisplay === 'TERMOSTATO';
 
     // Debug log for device type detection
     //LogHelper.log(`[DeviceCards] Device ${r.label}: deviceType=${deviceTypeToDisplay}, isTermostato=${isTermostatoDevice}`);
@@ -952,28 +895,30 @@ function buildAuthoritativeItems() {
       // Debug: log all available telemetry keys for this device
       if (isTermostatoDevice) {
         const deviceKeys = rows
-          .filter(row => (row?.datasource?.entityId?.id || row?.datasource?.entityId) === tbId)
-          .map(row => row?.dataKey?.name);
+          .filter((row) => (row?.datasource?.entityId?.id || row?.datasource?.entityId) === tbId)
+          .map((row) => row?.dataKey?.name);
         LogHelper.log(`[DeviceCards] TERMOSTATO tbId=${tbId}, available telemetry keys:`, deviceKeys);
       }
 
       for (const row of rows) {
         const rowTbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
         if (rowTbId === tbId) {
-          const key = String(row?.dataKey?.name || "").toLowerCase();
+          const key = String(row?.dataKey?.name || '').toLowerCase();
           const val = row?.data?.[0]?.[1]; // Most recent value
 
           // TANK specific telemetry
-          if (key === "water_level") waterLevel = Number(val) || 0;
-          if (key === "water_percentage") waterPercentage = Number(val) || 0;
+          if (key === 'water_level') waterLevel = Number(val) || 0;
+          if (key === 'water_percentage') waterPercentage = Number(val) || 0;
 
           // ENERGY/WATER devices: consumption (most recent)
-          if (key === "consumption") consumption = Number(val) || 0;
+          if (key === 'consumption') consumption = Number(val) || 0;
 
           // TERMOSTATO specific telemetry
-          if (key === "temperature") {
+          if (key === 'temperature') {
             temperature = Number(val) || 0;
-            LogHelper.log(`[DeviceCards] Found temperature telemetry: key=${key}, val=${val}, parsed=${temperature}`);
+            LogHelper.log(
+              `[DeviceCards] Found temperature telemetry: key=${key}, val=${val}, parsed=${temperature}`
+            );
           }
         }
       }
@@ -981,18 +926,22 @@ function buildAuthoritativeItems() {
 
     // Debug log for final values
     if (isTermostatoDevice) {
-      LogHelper.log(`[DeviceCards] TERMOSTATO device final values: temperature=${temperature}, deviceValue will be=${temperature || 0}`);
+      LogHelper.log(
+        `[DeviceCards] TERMOSTATO device final values: temperature=${temperature}, deviceValue will be=${
+          temperature || 0
+        }`
+      );
     }
 
     // Calculate deviceStatus based on connectionStatus and current telemetry value
     // connectionStatus comes from TB attribute: "online" or "offline"
     const tbConnectionStatus = attrs.connectionStatus; // "online" or "offline" from TB
 
-    let deviceStatus = "no_info"; // default
+    let deviceStatus = 'no_info'; // default
 
-    if (tbConnectionStatus === "offline") {
-      deviceStatus = "no_info"; // offline = no_info
-    } else if (tbConnectionStatus === "online") {
+    if (tbConnectionStatus === 'offline') {
+      deviceStatus = 'no_info'; // offline = no_info
+    } else if (tbConnectionStatus === 'online') {
       // RFC-0078: For energy devices, calculate status using ranges from mapInstantaneousPower
       const isEnergyDevice = !isTankDevice && !isTermostatoDevice;
 
@@ -1004,16 +953,18 @@ function buildAuthoritativeItems() {
           deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
             connectionStatus: tbConnectionStatus,
             lastConsumptionValue: consumption,
-            ranges: ranges
+            ranges: ranges,
           });
-          LogHelper.log(`[RFC-0078] Device ${r.label}: calculated status=${deviceStatus} using ranges from mapInstantaneousPower`);
+          LogHelper.log(
+            `[RFC-0078] Device ${r.label}: calculated status=${deviceStatus} using ranges from mapInstantaneousPower`
+          );
         } else {
           // Fallback if no ranges found or MyIOLibrary not available
-          deviceStatus = "power_on";
+          deviceStatus = 'power_on';
         }
       } else {
         // TANK, TERMOSTATO, or no mapInstantaneousPower available
-        deviceStatus = "power_on";
+        deviceStatus = 'power_on';
       }
     }
 
@@ -1036,7 +987,9 @@ function buildAuthoritativeItems() {
       } else {
         temperatureStatus = 'ok';
       }
-      LogHelper.log(`[DeviceCards] TERMOSTATO status: temp=${temperature}, min=${globalTempMin}, max=${globalTempMax}, status=${temperatureStatus}`);
+      LogHelper.log(
+        `[DeviceCards] TERMOSTATO status: temp=${temperature}, min=${globalTempMin}, max=${globalTempMax}, status=${temperatureStatus}`
+      );
     }
 
     return {
@@ -1066,7 +1019,7 @@ function buildAuthoritativeItems() {
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
       // Use appropriate value based on device type
       value: deviceValue,
-      perc: isTankDevice ? (waterPercentage || 0) : 0,
+      perc: isTankDevice ? waterPercentage || 0 : 0,
     };
   });
 
@@ -1075,22 +1028,20 @@ function buildAuthoritativeItems() {
 }
 
 async function fetchApiTotals(startISO, endISO) {
-  if (!isAuthReady()) throw new Error("Auth not ready");
+  if (!isAuthReady()) throw new Error('Auth not ready');
   const token = await MyIOAuth.getToken();
-  if (!token) throw new Error("No ingestion token");
+  if (!token) throw new Error('No ingestion token');
 
-  const url = new URL(
-    `${DATA_API_HOST}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/energy/devices/totals`
-  );
-  url.searchParams.set("startTime", toSpOffsetNoMs(startISO));
-  url.searchParams.set("endTime", toSpOffsetNoMs(endISO, true));
-  url.searchParams.set("deep", "1");
+  const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/energy/devices/totals`);
+  url.searchParams.set('startTime', toSpOffsetNoMs(startISO));
+  url.searchParams.set('endTime', toSpOffsetNoMs(endISO, true));
+  url.searchParams.set('deep', '1');
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
-    LogHelper.warn("[DeviceCards] API fetch failed:", res.status);
+    LogHelper.warn('[DeviceCards] API fetch failed:', res.status);
     return new Map();
   }
 
@@ -1105,7 +1056,7 @@ async function fetchApiTotals(startISO, endISO) {
 function enrichItemsWithTotals(items, apiMap) {
   return items.map((it) => {
     // For temperature domain, preserve the value from ctx.data (buildAuthoritativeItems)
-    if (WIDGET_DOMAIN === "temperature") {
+    if (WIDGET_DOMAIN === 'temperature') {
       return { ...it, perc: 0 };
     }
 
@@ -1130,40 +1081,40 @@ function applyFilters(enriched, searchTerm, selectedIds, sortMode) {
     v = v.filter((x) => selectedIds.has(x.id));
   }
 
-  const q = (searchTerm || "").trim().toLowerCase();
+  const q = (searchTerm || '').trim().toLowerCase();
   if (q) {
     v = v.filter(
       (x) =>
-        (x.label || "").toLowerCase().includes(q) ||
-        String(x.identifier || "")
+        (x.label || '').toLowerCase().includes(q) ||
+        String(x.identifier || '')
           .toLowerCase()
           .includes(q)
     );
   }
 
   v.sort((a, b) => {
-    if (sortMode === "cons_desc") {
+    if (sortMode === 'cons_desc') {
       if (a.value !== b.value) return b.value - a.value;
-      return (a.label || "").localeCompare(b.label || "", "pt-BR", {
-        sensitivity: "base",
+      return (a.label || '').localeCompare(b.label || '', 'pt-BR', {
+        sensitivity: 'base',
       });
     }
-    if (sortMode === "cons_asc") {
+    if (sortMode === 'cons_asc') {
       if (a.value !== b.value) return a.value - b.value;
-      return (a.label || "").localeCompare(b.label || "", "pt-BR", {
-        sensitivity: "base",
+      return (a.label || '').localeCompare(b.label || '', 'pt-BR', {
+        sensitivity: 'base',
       });
     }
-    if (sortMode === "alpha_desc") {
+    if (sortMode === 'alpha_desc') {
       return (
-        (b.label || "").localeCompare(a.label || "", "pt-BR", {
-          sensitivity: "base",
+        (b.label || '').localeCompare(a.label || '', 'pt-BR', {
+          sensitivity: 'base',
         }) || b.value - a.value
       );
     }
     return (
-      (a.label || "").localeCompare(b.label || "", "pt-BR", {
-        sensitivity: "base",
+      (a.label || '').localeCompare(b.label || '', 'pt-BR', {
+        sensitivity: 'base',
       }) || a.value - b.value
     );
   });
@@ -1186,13 +1137,13 @@ function renderHeader(count, groupSum) {
 
   // Format based on widget domain
   let formattedTotal = groupSum.toFixed(2);
-  if (WIDGET_DOMAIN === "energy") {
+  if (WIDGET_DOMAIN === 'energy') {
     formattedTotal = MyIO.formatEnergy(groupSum);
-  } else if (WIDGET_DOMAIN === "water") {
+  } else if (WIDGET_DOMAIN === 'water') {
     formattedTotal = MyIO.formatWaterVolumeM3(groupSum);
-  } else if (WIDGET_DOMAIN === "tank") {
+  } else if (WIDGET_DOMAIN === 'tank') {
     formattedTotal = MyIO.formatTankHeadFromCm(groupSum);
-  } else if (WIDGET_DOMAIN === "temperature") {
+  } else if (WIDGET_DOMAIN === 'temperature') {
     // For temperature, show count instead of sum (summing temperatures doesn't make sense)
     formattedTotal = `${count} sensor${count !== 1 ? 'es' : ''}`;
   }
@@ -1205,7 +1156,7 @@ function renderList(visible) {
 
   visible.forEach((it) => {
     // For temperature domain, only render TERMOSTATO devices
-    if (WIDGET_DOMAIN === "temperature" && it.deviceType !== "TERMOSTATO") {
+    if (WIDGET_DOMAIN === 'temperature' && it.deviceType !== 'TERMOSTATO') {
       return; // Skip non-TERMOSTATO devices in temperature domain
     }
 
@@ -1215,49 +1166,46 @@ function renderList(visible) {
     // Don't recalculate here - it would be incorrect for ENERGY devices
 
     // RFC-0063: Safe identifier handling with fallbacks
-    let deviceIdentifierToDisplay = "N/A";
+    let deviceIdentifierToDisplay = 'N/A';
     if (it.identifier) {
       // Has identifier attribute
-      if (String(it.identifier).includes("Sem Identificador identificado")) {
+      if (String(it.identifier).includes('Sem Identificador identificado')) {
         // Identifier exists but is marked as "unknown" - infer from label
-        const label = String(it.label || "").toLowerCase();
-        deviceIdentifierToDisplay = label.includes("fancoil")
-          ? "FANCOIL"
-          : "CAG";
+        const label = String(it.label || '').toLowerCase();
+        deviceIdentifierToDisplay = label.includes('fancoil') ? 'FANCOIL' : 'CAG';
       } else {
         // Valid identifier
         deviceIdentifierToDisplay = it.identifier;
       }
     } else {
       // No identifier attribute - try to infer from label
-      const label = String(it.label || "").toLowerCase();
-      if (label.includes("fancoil")) {
-        deviceIdentifierToDisplay = "FANCOIL";
-      } else if (label.includes("cag")) {
-        deviceIdentifierToDisplay = "CAG";
-      } else if (label.includes("elevador") || label.includes("elv")) {
-        deviceIdentifierToDisplay = "ELV";
-      } else if (label.includes("escada")) {
-        deviceIdentifierToDisplay = "ESC";
+      const label = String(it.label || '').toLowerCase();
+      if (label.includes('fancoil')) {
+        deviceIdentifierToDisplay = 'FANCOIL';
+      } else if (label.includes('cag')) {
+        deviceIdentifierToDisplay = 'CAG';
+      } else if (label.includes('elevador') || label.includes('elv')) {
+        deviceIdentifierToDisplay = 'ELV';
+      } else if (label.includes('escada')) {
+        deviceIdentifierToDisplay = 'ESC';
       } else {
-        deviceIdentifierToDisplay = "N/A";
+        deviceIdentifierToDisplay = 'N/A';
       }
     }
-    
 
     const entityObject = {
       entityId: it.tbId || it.id, // preferir TB deviceId
       labelOrName: it.label.toUpperCase(),
-      deviceType: it.label.includes("dministra") ? "3F_MEDIDOR" : it.deviceType,
+      deviceType: it.label.includes('dministra') ? '3F_MEDIDOR' : it.deviceType,
       val: valNum, // TODO verificar ESSE MULTIPLICADOR PQ PRECISA DELE ?
       perc: it.perc ?? 0,
-      deviceStatus: it.deviceStatus || "no_info", // Use from buildAuthoritativeItems (based on TB connectionStatus + telemetry)
-      entityType: "DEVICE",
+      deviceStatus: it.deviceStatus || 'no_info', // Use from buildAuthoritativeItems (based on TB connectionStatus + telemetry)
+      entityType: 'DEVICE',
       deviceIdentifier: deviceIdentifierToDisplay,
-      slaveId: it.slaveId || "N/A",
-      ingestionId: it.ingestionId || "N/A",
-      centralId: it.centralId || "N/A",
-      centralName: it.centralName || "",
+      slaveId: it.slaveId || 'N/A',
+      ingestionId: it.ingestionId || 'N/A',
+      centralId: it.centralId || 'N/A',
+      centralName: it.centralName || '',
       customerName: it.customerName || null,
       updatedIdentifiers: it.updatedIdentifiers || {},
       connectionStatusTime: it.connectionStatusTime || Date.now(),
@@ -1272,11 +1220,11 @@ function renderList(visible) {
       temperatureStatus: it.temperatureStatus || null,
     };
 
-    if (it.label === "Allegria") {
+    if (it.label === 'Allegria') {
       //LogHelper.log("RENDER CARD ALLEGRIA >>> it.value: " , it.value);
     }
 
-    const myTbToken = localStorage.getItem("jwt_token");
+    const myTbToken = localStorage.getItem('jwt_token');
     let cachedIngestionToken = null;
 
     // RFC-0082 FIX: Check if MyIOAuth is initialized before calling getToken()
@@ -1285,9 +1233,9 @@ function renderList(visible) {
         .then((token) => {
           cachedIngestionToken = token;
         })
-        .catch((err) => LogHelper.warn("Token cache failed:", err));
+        .catch((err) => LogHelper.warn('Token cache failed:', err));
     } else {
-      LogHelper.warn("[TELEMETRY] MyIOAuth not initialized yet, skipping token cache");
+      LogHelper.warn('[TELEMETRY] MyIOAuth not initialized yet, skipping token cache');
     }
 
     const $card = MyIO.renderCardComponentV5({
@@ -1297,14 +1245,14 @@ function renderList(visible) {
       enableDragDrop: true, // Habilitar drag and drop
 
       handleActionDashboard: async () => {
-        const jwtToken = localStorage.getItem("jwt_token");
+        const jwtToken = localStorage.getItem('jwt_token');
         const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
 
         if (!jwtToken) {
           if (MyIOToast) {
-            MyIOToast.error("Authentication required. Please login again.");
+            MyIOToast.error('Authentication required. Please login again.');
           } else {
-            alert("Authentication required. Please login again.");
+            alert('Authentication required. Please login again.');
           }
           return;
         }
@@ -1312,30 +1260,30 @@ function renderList(visible) {
         // Get dates from MENU (startDateISO/endDateISO) and convert to timestamps
         const startDateISO = self.ctx?.scope?.startDateISO;
         const endDateISO = self.ctx?.scope?.endDateISO;
-        const startTs = startDateISO ? new Date(startDateISO).getTime() : (Date.now() - 86400000);
+        const startTs = startDateISO ? new Date(startDateISO).getTime() : Date.now() - 86400000;
         const endTs = endDateISO ? new Date(endDateISO).getTime() : Date.now();
         const deviceType = it.deviceType || entityObject.deviceType;
-        const isWaterTank = deviceType === "TANK" || deviceType === "CAIXA_DAGUA";
-        const isTermostato = deviceType === "TERMOSTATO";
+        const isWaterTank = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
+        const isTermostato = deviceType === 'TERMOSTATO';
 
         LogHelper.log(
-          "[TELEMETRY v5] Opening dashboard for deviceType:",
+          '[TELEMETRY v5] Opening dashboard for deviceType:',
           deviceType,
-          "isWaterTank:",
+          'isWaterTank:',
           isWaterTank,
-          "isTermostato:",
+          'isTermostato:',
           isTermostato,
-          "deviceId:",
+          'deviceId:',
           it.id,
-          "tbId:",
+          'tbId:',
           it.tbId,
-          "startDateISO:",
+          'startDateISO:',
           startDateISO,
-          "endDateISO:",
+          'endDateISO:',
           endDateISO,
-          "startTs:",
+          'startTs:',
           startTs,
-          "endTs:",
+          'endTs:',
           endTs
         );
 
@@ -1343,10 +1291,10 @@ function renderList(visible) {
         let loadingToast = null;
         if (MyIOToast) {
           const loadingMsg = isTermostato
-            ? "Carregando dados de temperatura..."
+            ? 'Carregando dados de temperatura...'
             : isWaterTank
-              ? "Loading water tank data..."
-              : "Loading energy data...";
+            ? 'Loading water tank data...'
+            : 'Loading energy data...';
           loadingToast = MyIOToast.info(loadingMsg, 0);
         }
 
@@ -1354,27 +1302,42 @@ function renderList(visible) {
           if (isTermostato) {
             // Temperature/TERMOSTATO Modal Path - RFC-0085
             // Uses MyIOLibrary.openTemperatureModal instead of inline implementation
-            LogHelper.log("[TELEMETRY v5] Entering TERMOSTATO device modal path (MyIOLibrary)...");
+            LogHelper.log('[TELEMETRY v5] Entering TERMOSTATO device modal path (MyIOLibrary)...');
 
             const deviceId = it.tbId || it.id;
 
             // Get temperature-related properties from entity
             // Check for various attribute names: temperatureMin, minTemperature, tempMin (SERVER_SCOPE)
             const currentTemp = it.temperature || entityObject.temperature;
-            const tempMinRange = it.temperatureMin ?? it.minTemperature ?? it.tempMin ??
-                                 entityObject.temperatureMin ?? entityObject.minTemperature ?? entityObject.tempMin ??
-                                 self.ctx?.scope?.minTemperature ?? null;
-            const tempMaxRange = it.temperatureMax ?? it.maxTemperature ?? it.tempMax ??
-                                 entityObject.temperatureMax ?? entityObject.maxTemperature ?? entityObject.tempMax ??
-                                 self.ctx?.scope?.maxTemperature ?? null;
+            const tempMinRange =
+              it.temperatureMin ??
+              it.minTemperature ??
+              it.tempMin ??
+              entityObject.temperatureMin ??
+              entityObject.minTemperature ??
+              entityObject.tempMin ??
+              self.ctx?.scope?.minTemperature ??
+              null;
+            const tempMaxRange =
+              it.temperatureMax ??
+              it.maxTemperature ??
+              it.tempMax ??
+              entityObject.temperatureMax ??
+              entityObject.maxTemperature ??
+              entityObject.tempMax ??
+              self.ctx?.scope?.maxTemperature ??
+              null;
             const tempStatus = it.temperatureStatus || entityObject.temperatureStatus;
 
-            LogHelper.log("[TELEMETRY v5] Temperature range from entity/scope:", { tempMinRange, tempMaxRange });
+            LogHelper.log('[TELEMETRY v5] Temperature range from entity/scope:', {
+              tempMinRange,
+              tempMaxRange,
+            });
 
             // Check if MyIOLibrary.openTemperatureModal is available
-            if (typeof MyIOLibrary?.openTemperatureModal !== "function") {
-              const errorMsg = "Temperature modal not available. Please update MyIO library.";
-              LogHelper.error("[TELEMETRY v5] ❌", errorMsg);
+            if (typeof MyIOLibrary?.openTemperatureModal !== 'function') {
+              const errorMsg = 'Temperature modal not available. Please update MyIO library.';
+              LogHelper.error('[TELEMETRY v5] ❌', errorMsg);
               throw new Error(errorMsg);
             }
 
@@ -1382,7 +1345,7 @@ function renderList(visible) {
             const startDateISO = new Date(startTs).toISOString();
             const endDateISO = new Date(endTs).toISOString();
 
-            LogHelper.log("[TELEMETRY v5] Calling openTemperatureModal with params:", {
+            LogHelper.log('[TELEMETRY v5] Calling openTemperatureModal with params:', {
               deviceId: deviceId,
               startDate: startDateISO,
               endDate: endDateISO,
@@ -1390,7 +1353,7 @@ function renderList(visible) {
               currentTemperature: currentTemp,
               temperatureMin: tempMinRange,
               temperatureMax: tempMaxRange,
-              temperatureStatus: tempStatus
+              temperatureStatus: tempStatus,
             });
 
             const modalHandle = MyIOLibrary.openTemperatureModal({
@@ -1407,8 +1370,8 @@ function renderList(visible) {
               locale: 'pt-BR',
               granularity: 'hour',
               onClose: () => {
-                LogHelper.log("[TELEMETRY v5] Temperature modal closed via MyIOLibrary");
-              }
+                LogHelper.log('[TELEMETRY v5] Temperature modal closed via MyIOLibrary');
+              },
             });
 
             // Hide loading toast and busy indicator AFTER modal is opened
@@ -1420,85 +1383,71 @@ function renderList(visible) {
             }, 50);
             hideBusy();
 
-            LogHelper.log("[TELEMETRY v5] ✅ Temperature modal opened via MyIOLibrary:", modalHandle);
+            LogHelper.log('[TELEMETRY v5] ✅ Temperature modal opened via MyIOLibrary:', modalHandle);
             return; // Exit early - modal is now handling everything
-
           } else if (isWaterTank) {
             // Water Tank Modal Path
-            LogHelper.log("[TELEMETRY v5] Entering TANK device modal path...");
+            LogHelper.log('[TELEMETRY v5] Entering TANK device modal path...');
 
             LogHelper.log(
-              "[TELEMETRY v5] MyIOLibrary available:",
+              '[TELEMETRY v5] MyIOLibrary available:',
               typeof MyIOLibrary !== 'undefined',
-              "openDashboardPopupWaterTank exists:",
+              'openDashboardPopupWaterTank exists:',
               typeof MyIOLibrary?.openDashboardPopupWaterTank
             );
 
-            if (typeof MyIOLibrary?.openDashboardPopupWaterTank !== "function") {
-              const errorMsg = "Water tank modal not available. Please update MyIO library.";
-              LogHelper.error("[TELEMETRY v5] ❌", errorMsg);
+            if (typeof MyIOLibrary?.openDashboardPopupWaterTank !== 'function') {
+              const errorMsg = 'Water tank modal not available. Please update MyIO library.';
+              LogHelper.error('[TELEMETRY v5] ❌', errorMsg);
               throw new Error(errorMsg);
             }
 
             // For TANK/CAIXA_DAGUA: get water level from telemetry
-            const waterLevel = getData("water_level");
-            const waterPercentage = getData("water_percentage");
+            const waterLevel = getData('water_level');
+            const waterPercentage = getData('water_percentage');
             const currentLevel = waterPercentage || it.perc || it.val || 0;
 
-            LogHelper.log("[TELEMETRY v5] Water tank telemetry data:", {
+            LogHelper.log('[TELEMETRY v5] Water tank telemetry data:', {
               water_level: waterLevel,
               water_percentage: waterPercentage,
               currentLevel: currentLevel,
               it_perc: it.perc,
-              it_val: it.val
+              it_val: it.val,
             });
 
-            LogHelper.log(
-              "[TELEMETRY v5] Calling openDashboardPopupWaterTank with params:",
-              {
-                deviceId: it.id,
-                deviceType: deviceType,
-                startTs:
-                  typeof startTs === "number"
-                    ? startTs
-                    : new Date(startTs).getTime(),
-                endTs:
-                  typeof endTs === "number" ? endTs : new Date(endTs).getTime(),
-                label: it.label || it.name || "Water Tank",
-                currentLevel: currentLevel,
-              }
-            );
+            LogHelper.log('[TELEMETRY v5] Calling openDashboardPopupWaterTank with params:', {
+              deviceId: it.id,
+              deviceType: deviceType,
+              startTs: typeof startTs === 'number' ? startTs : new Date(startTs).getTime(),
+              endTs: typeof endTs === 'number' ? endTs : new Date(endTs).getTime(),
+              label: it.label || it.name || 'Water Tank',
+              currentLevel: currentLevel,
+            });
 
-            LogHelper.log("[TELEMETRY v5] ⏳ About to call openDashboardPopupWaterTank...");
+            LogHelper.log('[TELEMETRY v5] ⏳ About to call openDashboardPopupWaterTank...');
 
             const modalHandle = await MyIOLibrary.openDashboardPopupWaterTank({
               deviceId: it.id,
               deviceType: deviceType,
               tbJwtToken: jwtToken,
-              startTs: typeof startTs === "number" ? startTs : new Date(startTs).getTime(),
-              endTs: typeof endTs === "number" ? endTs : new Date(endTs).getTime(),
-              label: it.label || it.name || "Water Tank",
+              startTs: typeof startTs === 'number' ? startTs : new Date(startTs).getTime(),
+              endTs: typeof endTs === 'number' ? endTs : new Date(endTs).getTime(),
+              label: it.label || it.name || 'Water Tank',
               currentLevel: currentLevel,
               slaveId: it.slaveId,
               centralId: it.centralId,
-              timezone: self.ctx?.timeWindow?.timezone || "America/Sao_Paulo",
-              telemetryKeys: [
-                "water_level",
-                "water_percentage",
-                "waterLevel",
-                "nivel",
-                "level",
-              ],
+              timezone: self.ctx?.timeWindow?.timezone || 'America/Sao_Paulo',
+              telemetryKeys: ['water_level', 'water_percentage', 'waterLevel', 'nivel', 'level'],
               onOpen: (context) => {
-                LogHelper.log( "[TELEMETRY v5] ✅ Water tank modal opened successfully!", context);
+                LogHelper.log('[TELEMETRY v5] ✅ Water tank modal opened successfully!', context);
                 if (loadingToast) loadingToast.hide();
                 hideBusy();
               },
               onClose: () => {
-                LogHelper.log("[TELEMETRY v5] 🚪 Water tank modal onClose callback triggered");
+                LogHelper.log('[TELEMETRY v5] 🚪 Water tank modal onClose callback triggered');
               },
               onError: (error) => {
-                LogHelper.error("[TELEMETRY v5] ❌ Water tank modal error:", error);
+                LogHelper.error('[TELEMETRY v5] ❌ Water tank modal error:', error);
                 if (loadingToast) loadingToast.hide();
                 hideBusy();
                 if (MyIOToast) {
@@ -1509,10 +1458,10 @@ function renderList(visible) {
               },
             });
 
-            LogHelper.log("[TELEMETRY v5] ✅ Water tank modal handle received:", modalHandle);
+            LogHelper.log('[TELEMETRY v5] ✅ Water tank modal handle received:', modalHandle);
           } else {
             // Energy/Water/Temperature Modal Path (Ingestion API)
-            LogHelper.log("[TELEMETRY v5] Opening energy modal...");
+            LogHelper.log('[TELEMETRY v5] Opening energy modal...');
             const tokenIngestionDashBoard = await MyIOAuth.getToken();
             const modal = MyIO.openDashboardPopupEnergy({
               deviceId: it.id,
@@ -1524,12 +1473,12 @@ function renderList(visible) {
               clientId: CLIENT_ID,
               clientSecret: CLIENT_SECRET,
               onOpen: (context) => {
-                LogHelper.log("[TELEMETRY v5] Energy modal opened:", context);
+                LogHelper.log('[TELEMETRY v5] Energy modal opened:', context);
                 if (loadingToast) loadingToast.hide();
                 hideBusy();
               },
               onError: (error) => {
-                LogHelper.error("[TELEMETRY v5] Energy modal error:", error);
+                LogHelper.error('[TELEMETRY v5] Energy modal error:', error);
                 if (loadingToast) loadingToast.hide();
                 hideBusy();
                 if (MyIOToast) {
@@ -1539,24 +1488,20 @@ function renderList(visible) {
                 }
               },
               onClose: () => {
-                LogHelper.log("[TELEMETRY v5] Energy modal closed");
+                LogHelper.log('[TELEMETRY v5] Energy modal closed');
               },
             });
           }
         } catch (err) {
-          LogHelper.error(
-            "[TELEMETRY v5] Dashboard action failed:",
-            err?.message || err,
-            err
-          );
+          LogHelper.error('[TELEMETRY v5] Dashboard action failed:', err?.message || err, err);
 
           if (loadingToast) loadingToast.hide();
           hideBusy();
 
           if (MyIOToast) {
-            MyIOToast.error(err?.message || "Failed to open dashboard");
+            MyIOToast.error(err?.message || 'Failed to open dashboard');
           } else {
-            alert(err?.message || "Failed to open dashboard");
+            alert(err?.message || 'Failed to open dashboard');
           }
         }
       },
@@ -1566,38 +1511,40 @@ function renderList(visible) {
           showBusy(); // mensagem fixa
 
           const deviceType = it.deviceType || entityObject.deviceType;
-          const isTermostatoDevice = deviceType === "TERMOSTATO";
+          const isTermostatoDevice = deviceType === 'TERMOSTATO';
 
           // For TERMOSTATO devices, reports use ThingsBoard API (no ingestion)
-          if (isTermostatoDevice || WIDGET_DOMAIN === "temperature") {
-            LogHelper.log("[TELEMETRY v5] Temperature report - using ThingsBoard API");
+          if (isTermostatoDevice || WIDGET_DOMAIN === 'temperature') {
+            LogHelper.log('[TELEMETRY v5] Temperature report - using ThingsBoard API');
 
-            const jwtToken = localStorage.getItem("jwt_token");
+            const jwtToken = localStorage.getItem('jwt_token');
             if (!jwtToken) {
-              throw new Error("No JWT token available");
+              throw new Error('No JWT token available');
             }
 
             // Get device TB ID
             let tbId = it.tbId;
             if (!tbId || !isValidUUID(tbId)) {
               const idx = buildTbIdIndexes();
-              tbId = (it.ingestionId && idx.byIngestion.get(it.ingestionId)) ||
-                     (it.identifier && idx.byIdentifier.get(it.identifier)) || null;
+              tbId =
+                (it.ingestionId && idx.byIngestion.get(it.ingestionId)) ||
+                (it.identifier && idx.byIdentifier.get(it.identifier)) ||
+                null;
             }
 
             if (!tbId) {
-              LogHelper.warn("[TELEMETRY v5] No TB device ID for temperature report");
+              LogHelper.warn('[TELEMETRY v5] No TB device ID for temperature report');
               const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
               if (MyIOToast) {
-                MyIOToast.error("Nao foi possivel identificar o dispositivo.");
+                MyIOToast.error('Nao foi possivel identificar o dispositivo.');
               }
               return;
             }
 
-            LogHelper.log("[TELEMETRY v5] Opening temperature report for device:", {
+            LogHelper.log('[TELEMETRY v5] Opening temperature report for device:', {
               tbId,
               label: it.label,
-              identifier: it.identifier
+              identifier: it.identifier,
             });
 
             // Create custom fetcher for ThingsBoard temperature data
@@ -1605,16 +1552,17 @@ function renderList(visible) {
               const startTs = new Date(startISO).getTime();
               const endTs = new Date(endISO).getTime();
 
-              LogHelper.log("[TELEMETRY v5] Fetching temperature data for report:", {
+              LogHelper.log('[TELEMETRY v5] Fetching temperature data for report:', {
                 startISO,
                 endISO,
                 startTs,
                 endTs,
-                tbId
+                tbId,
               });
 
               // Fetch temperature data from ThingsBoard with daily aggregation
-              const url = `/api/plugins/telemetry/DEVICE/${tbId}/values/timeseries` +
+              const url =
+                `/api/plugins/telemetry/DEVICE/${tbId}/values/timeseries` +
                 `?keys=temperature` +
                 `&startTs=${encodeURIComponent(startTs)}` +
                 `&endTs=${encodeURIComponent(endTs)}` +
@@ -1625,8 +1573,8 @@ function renderList(visible) {
 
               const response = await fetch(url, {
                 headers: {
-                  "X-Authorization": `Bearer ${jwtToken}`,
-                  "Content-Type": "application/json",
+                  'X-Authorization': `Bearer ${jwtToken}`,
+                  'Content-Type': 'application/json',
                 },
               });
 
@@ -1635,13 +1583,13 @@ function renderList(visible) {
               }
 
               const data = await response.json();
-              LogHelper.log("[TELEMETRY v5] ThingsBoard temperature response:", data);
+              LogHelper.log('[TELEMETRY v5] ThingsBoard temperature response:', data);
 
               // Transform ThingsBoard response to match expected format for report modal
               const tempValues = data?.temperature || [];
 
               if (tempValues.length === 0) {
-                LogHelper.warn("[TELEMETRY v5] No temperature data returned from ThingsBoard");
+                LogHelper.warn('[TELEMETRY v5] No temperature data returned from ThingsBoard');
                 return [];
               }
 
@@ -1656,7 +1604,7 @@ function renderList(visible) {
 
               // Group by day and calculate average (ThingsBoard may return multiple points per day)
               const dailyMap = {};
-              tempValues.forEach(item => {
+              tempValues.forEach((item) => {
                 const date = new Date(item.ts);
                 const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
                 if (!dailyMap[dateKey]) {
@@ -1669,20 +1617,22 @@ function renderList(visible) {
 
               // Convert to array format expected by DeviceReportModal
               const consumption = Object.entries(dailyMap).map(([date, stats]) => ({
-                timestamp: date + "T00:00:00.000Z",
-                value: stats.sum / stats.count // Average temperature for the day (already clamped)
+                timestamp: date + 'T00:00:00.000Z',
+                value: stats.sum / stats.count, // Average temperature for the day (already clamped)
               }));
 
-              LogHelper.log("[TELEMETRY v5] Processed temperature data for report:", {
+              LogHelper.log('[TELEMETRY v5] Processed temperature data for report:', {
                 daysCount: consumption.length,
-                consumption
+                consumption,
               });
 
               // Return in the format expected by DeviceReportModal.processApiResponse
-              return [{
-                deviceId: tbId,
-                consumption: consumption
-              }];
+              return [
+                {
+                  deviceId: tbId,
+                  consumption: consumption,
+                },
+              ];
             };
 
             // Open the report modal with custom temperature fetcher
@@ -1691,13 +1641,13 @@ function renderList(visible) {
               deviceId: tbId,
               identifier: it.identifier,
               label: it.label,
-              domain: "temperature",
+              domain: 'temperature',
               fetcher: temperatureFetcher, // Custom fetcher for ThingsBoard data
               api: {
                 // These are not used when custom fetcher is provided, but required by interface
-                dataApiBaseUrl: "",
-                clientId: "",
-                clientSecret: "",
+                dataApiBaseUrl: '',
+                clientId: '',
+                clientSecret: '',
                 ingestionToken: jwtToken,
               },
             });
@@ -1705,11 +1655,11 @@ function renderList(visible) {
             return;
           }
 
-          if (!isAuthReady()) throw new Error("Auth not ready");
+          if (!isAuthReady()) throw new Error('Auth not ready');
 
           const ingestionToken = await MyIOAuth.getToken();
 
-          if (!ingestionToken) throw new Error("No ingestion token");
+          if (!ingestionToken) throw new Error('No ingestion token');
 
           await MyIO.openDashboardPopupReport({
             ingestionId: it.ingestionId, // sempre ingestionId
@@ -1724,8 +1674,8 @@ function renderList(visible) {
             },
           });
         } catch (err) {
-          LogHelper.warn("[DeviceCards] Report open blocked:", err?.message || err);
-          alert("Credenciais ainda carregando. Tente novamente em instantes.");
+          LogHelper.warn('[DeviceCards] Report open blocked:', err?.message || err);
+          alert('Credenciais ainda carregando. Tente novamente em instantes.');
         } finally {
           hideBusy();
         }
@@ -1737,22 +1687,24 @@ function renderList(visible) {
         let tbId = it.tbId;
         if (!tbId || !isValidUUID(tbId)) {
           const idx = buildTbIdIndexes();
-          tbId = (it.ingestionId && idx.byIngestion.get(it.ingestionId)) || (it.identifier && idx.byIdentifier.get(it.identifier)) || null;
+          tbId =
+            (it.ingestionId && idx.byIngestion.get(it.ingestionId)) ||
+            (it.identifier && idx.byIdentifier.get(it.identifier)) ||
+            null;
         }
         if (!tbId || tbId === it.ingestionId) {
-          LogHelper.warn("[DeviceCards] Missing/ambiguous TB id for Settings", {
+          LogHelper.warn('[DeviceCards] Missing/ambiguous TB id for Settings', {
             label: it.label,
             identifier: it.identifier,
             ingestionId: it.ingestionId,
             tbId,
           });
           hideBusy();
-          alert("Não foi possível identificar o deviceId do ThingsBoard para este card.");
+          alert('Não foi possível identificar o deviceId do ThingsBoard para este card.');
           return;
         }
-        const jwt = localStorage.getItem("jwt_token");
+        const jwt = localStorage.getItem('jwt_token');
         try {
-
           // RFC-0080: Get customerId from widget settings for GLOBAL mapInstantaneousPower fetch
           const customerTbId = self.ctx.settings?.customerTB_ID || null;
 
@@ -1768,18 +1720,18 @@ function renderList(visible) {
               connectionStatusTime: it.connectionStatusTime || null,
               lastDisconnectTime: it.lastDisconnectTime || null,
               timeVal: it.timeVal || null,
-              deviceStatus: it.deviceStatus || "no_info",
+              deviceStatus: it.deviceStatus || 'no_info',
             },
-            ui: { title: "Configurações", width: 900 },
+            ui: { title: 'Configurações', width: 900 },
             mapInstantaneousPower: it.mapInstantaneousPower, // RFC-0078: Pass existing map if available
             onSaved: (payload) => {
-              LogHelper.log("[Settings Saved]", payload);
+              LogHelper.log('[Settings Saved]', payload);
               //hideBusy();
               // Mostra modal global de sucesso com contador e reload
               // showGlobalSuccessModal(6);
             },
             onClose: () => {
-              $(".myio-settings-modal-overlay").remove();
+              $('.myio-settings-modal-overlay').remove();
               hideBusy();
             },
           });
@@ -1796,7 +1748,7 @@ function renderList(visible) {
         // NOTE: This callback is called during card rendering, NOT during user selection
         // Entity registration is handled by the 'myio:device-params' event listener instead
         // which is only triggered when the user actually clicks the checkbox
-        LogHelper.log("[TELEMETRY] handleSelect called (no-op):", entityObj.labelOrName);
+        LogHelper.log('[TELEMETRY] handleSelect called (no-op):', entityObj.labelOrName);
       },
     });
 
@@ -1806,35 +1758,34 @@ function renderList(visible) {
 
 /** ===================== UI BINDINGS ===================== **/
 function bindHeader() {
-  $root().on("click", "#btnSearch", () => {
+  $root().on('click', '#btnSearch', () => {
     STATE.searchActive = !STATE.searchActive;
-    $root().find("#searchWrap").toggleClass("active", STATE.searchActive);
+    $root().find('#searchWrap').toggleClass('active', STATE.searchActive);
 
-    if (STATE.searchActive)
-      setTimeout(() => $root().find("#shopsSearch").trigger("focus"), 30);
+    if (STATE.searchActive) setTimeout(() => $root().find('#shopsSearch').trigger('focus'), 30);
   });
 
-  $root().on("input", "#shopsSearch", (ev) => {
-    STATE.searchTerm = ev.target.value || "";
+  $root().on('input', '#shopsSearch', (ev) => {
+    STATE.searchTerm = ev.target.value || '';
     reflowFromState();
   });
 
-  $root().on("click", "#btnFilter", () => openFilterModal());
+  $root().on('click', '#btnFilter', () => openFilterModal());
 }
 
 function openFilterModal() {
   const $m = $modal();
-  const $cl = $m.find("#deviceChecklist").empty();
+  const $cl = $m.find('#deviceChecklist').empty();
 
   const list = (STATE.itemsBase || []).slice().sort((a, b) =>
-    (a.label || "").localeCompare(b.label || "", "pt-BR", {
-      sensitivity: "base",
+    (a.label || '').localeCompare(b.label || '', 'pt-BR', {
+      sensitivity: 'base',
     })
   );
 
   if (!list.length) {
     $cl.html('<div class="muted">Nenhuma loja carregada.</div>');
-    $m.removeClass("hidden");
+    $m.removeClass('hidden');
     return;
   }
 
@@ -1843,135 +1794,119 @@ function openFilterModal() {
 
   for (const it of list) {
     const safeId =
-      String(it.id || "")
-        .replace(/[^a-zA-Z0-9_-]/g, "")
-        .slice(0, 60) || "id" + Math.random().toString(36).slice(2);
+      String(it.id || '')
+        .replace(/[^a-zA-Z0-9_-]/g, '')
+        .slice(0, 60) || 'id' + Math.random().toString(36).slice(2);
     const checked = !selected || !selected.size || selected.has(it.id);
 
-    const label = document.createElement("label");
-    label.className = "check-item";
-    label.setAttribute("role", "option");
+    const label = document.createElement('label');
+    label.className = 'check-item';
+    label.setAttribute('role', 'option');
     label.innerHTML = `
-      <input type="checkbox" id="chk-${safeId}" data-entity="${escapeHtml(
-      it.id
-    )}" ${checked ? "checked" : ""}>
+      <input type="checkbox" id="chk-${safeId}" data-entity="${escapeHtml(it.id)}" ${
+      checked ? 'checked' : ''
+    }>
       <span>${escapeHtml(it.label || it.identifier || it.id)}</span>
     `;
     frag.appendChild(label);
   }
 
   $cl[0].appendChild(frag);
-  $m.find(`input[name="sortMode"][value="${STATE.sortMode}"]`).prop(
-    "checked",
-    true
-  );
+  $m.find(`input[name="sortMode"][value="${STATE.sortMode}"]`).prop('checked', true);
 
-  const $footer = $m.find(".shops-modal-footer");
-  if ($footer.length)
-    $footer.show().find("#applyFilters, #resetFilters").show();
+  const $footer = $m.find('.shops-modal-footer');
+  if ($footer.length) $footer.show().find('#applyFilters, #resetFilters').show();
 
   syncChecklistSelectionVisual();
-  $m.removeClass("hidden");
+  $m.removeClass('hidden');
 }
 function closeFilterModal() {
-  $modal().addClass("hidden");
+  $modal().addClass('hidden');
 }
 
 function bindModal() {
-  $root().on("click", "#closeFilter", closeFilterModal);
+  $root().on('click', '#closeFilter', closeFilterModal);
 
-  $root().on("click", "#selectAll", (ev) => {
+  $root().on('click', '#selectAll', (ev) => {
     ev.preventDefault();
-    $modal().find('.check-item input[type="checkbox"]').prop("checked", true);
+    $modal().find('.check-item input[type="checkbox"]').prop('checked', true);
     syncChecklistSelectionVisual();
   });
 
-  $root().on("click", "#clearAll", (ev) => {
+  $root().on('click', '#clearAll', (ev) => {
     ev.preventDefault();
-    $modal().find('.check-item input[type="checkbox"]').prop("checked", false);
+    $modal().find('.check-item input[type="checkbox"]').prop('checked', false);
     syncChecklistSelectionVisual();
   });
 
-  $root().on("click", "#resetFilters", (ev) => {
+  $root().on('click', '#resetFilters', (ev) => {
     ev.preventDefault();
     STATE.selectedIds = null;
-    STATE.sortMode = "cons_desc";
-    $modal().find('.check-item input[type="checkbox"]').prop("checked", true);
-    $modal()
-      .find('input[name="sortMode"][value="cons_desc"]')
-      .prop("checked", true);
+    STATE.sortMode = 'cons_desc';
+    $modal().find('.check-item input[type="checkbox"]').prop('checked', true);
+    $modal().find('input[name="sortMode"][value="cons_desc"]').prop('checked', true);
     syncChecklistSelectionVisual();
     reflowFromState();
   });
 
-  $root().on("click", "#applyFilters", (ev) => {
+  $root().on('click', '#applyFilters', (ev) => {
     ev.preventDefault();
     const set = new Set();
     $modal()
       .find('.check-item input[type="checkbox"]:checked')
       .each((_, el) => {
-        const id = $(el).data("entity");
+        const id = $(el).data('entity');
         if (id) set.add(id);
       });
 
-    STATE.selectedIds =
-      set.size === 0 || set.size === STATE.itemsBase.length ? null : set;
-    STATE.sortMode = String(
-      $modal().find('input[name="sortMode"]:checked').val() || "cons_desc"
-    );
+    STATE.selectedIds = set.size === 0 || set.size === STATE.itemsBase.length ? null : set;
+    STATE.sortMode = String($modal().find('input[name="sortMode"]:checked').val() || 'cons_desc');
 
     reflowFromState();
     closeFilterModal();
   });
 
-  $root().on("input", "#filterDeviceSearch", (ev) => {
-    const q = (ev.target.value || "").trim().toLowerCase();
+  $root().on('input', '#filterDeviceSearch', (ev) => {
+    const q = (ev.target.value || '').trim().toLowerCase();
     $modal()
-      .find(".check-item")
+      .find('.check-item')
       .each((_, node) => {
         const txt = $(node).text().trim().toLowerCase();
         $(node).toggle(txt.includes(q));
       });
   });
 
-  $root().on("click", "#filterDeviceClear", (ev) => {
+  $root().on('click', '#filterDeviceClear', (ev) => {
     ev.preventDefault();
-    const $inp = $modal().find("#filterDeviceSearch");
-    $inp.val("");
-    $modal().find(".check-item").show();
-    $inp.trigger("focus");
+    const $inp = $modal().find('#filterDeviceSearch');
+    $inp.val('');
+    $modal().find('.check-item').show();
+    $inp.trigger('focus');
   });
 
-  $root().on("click", "#deviceChecklist .check-item", function (ev) {
-    if (
-      ev.target &&
-      ev.target.tagName &&
-      ev.target.tagName.toLowerCase() === "input"
-    )
-      return;
+  $root().on('click', '#deviceChecklist .check-item', function (ev) {
+    if (ev.target && ev.target.tagName && ev.target.tagName.toLowerCase() === 'input') return;
     ev.preventDefault();
     ev.stopPropagation();
     const $chk = $(this).find('input[type="checkbox"]');
-    $chk.prop("checked", !$chk.prop("checked")).trigger("change");
+    $chk.prop('checked', !$chk.prop('checked')).trigger('change');
   });
 
-  $root().on("change", '#deviceChecklist input[type="checkbox"]', function () {
-    const $wrap = $(this).closest(".check-item");
+  $root().on('change', '#deviceChecklist input[type="checkbox"]', function () {
+    const $wrap = $(this).closest('.check-item');
     const on = this.checked;
-    $wrap
-      .toggleClass("selected", on)
-      .attr("data-checked", on ? "true" : "false");
+    $wrap.toggleClass('selected', on).attr('data-checked', on ? 'true' : 'false');
     $wrap.css(
       on
         ? {
-            background: "rgba(62,26,125,.08)",
-            borderColor: "#3E1A7D",
-            boxShadow: "0 8px 18px rgba(62,26,125,.15)",
+            background: 'rgba(62,26,125,.08)',
+            borderColor: '#3E1A7D',
+            boxShadow: '0 8px 18px rgba(62,26,125,.15)',
           }
         : {
-            background: "#fff",
-            borderColor: "#D6E1EC",
-            boxShadow: "0 6px 14px rgba(0,0,0,.05)",
+            background: '#fff',
+            borderColor: '#D6E1EC',
+            boxShadow: '0 6px 14px rgba(0,0,0,.05)',
           }
     );
   });
@@ -1979,24 +1914,22 @@ function bindModal() {
 
 function syncChecklistSelectionVisual() {
   $modal()
-    .find(".check-item")
+    .find('.check-item')
     .each(function () {
       const $el = $(this);
-      const on = $el.find('input[type="checkbox"]').prop("checked");
-      $el
-        .toggleClass("selected", on)
-        .attr("data-checked", on ? "true" : "false");
+      const on = $el.find('input[type="checkbox"]').prop('checked');
+      $el.toggleClass('selected', on).attr('data-checked', on ? 'true' : 'false');
       $el.css(
         on
           ? {
-              background: "rgba(62,26,125,.08)",
-              borderColor: "#3E1A7D",
-              boxShadow: "0 8px 18px rgba(62,26,125,.15)",
+              background: 'rgba(62,26,125,.08)',
+              borderColor: '#3E1A7D',
+              boxShadow: '0 8px 18px rgba(62,26,125,.15)',
             }
           : {
-              background: "#fff",
-              borderColor: "#D6E1EC",
-              boxShadow: "0 6px 14px rgba(0,0,0,.05)",
+              background: '#fff',
+              borderColor: '#D6E1EC',
+              boxShadow: '0 6px 14px rgba(0,0,0,.05)',
             }
       );
     });
@@ -2010,7 +1943,7 @@ function syncChecklistSelectionVisual() {
  * @returns {number} valor em MWh arredondado
  */
 function normalizeToMWh(kWhValue) {
-  if (typeof kWhValue !== "number" || isNaN(kWhValue)) return 0;
+  if (typeof kWhValue !== 'number' || isNaN(kWhValue)) return 0;
   return Math.round((kWhValue / 1000) * 100) / 100;
 }
 
@@ -2020,12 +1953,12 @@ function normalizeToMWh(kWhValue) {
  * @returns {string} label normalizado
  */
 function normalizeLabel(str) {
-  if (!str) return "";
+  if (!str) return '';
   return str
     .toLowerCase()
     .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
 /**
@@ -2038,7 +1971,7 @@ function emitTelemetryUpdate() {
     const widgetType = detectWidgetType();
 
     if (!widgetType) {
-      LogHelper.log("[RFC-0056] Widget type not detected - skipping emission");
+      LogHelper.log('[RFC-0056] Widget type not detected - skipping emission');
       return;
     }
 
@@ -2046,18 +1979,18 @@ function emitTelemetryUpdate() {
     const periodKey = buildPeriodKey();
 
     // RFC-0002: Domain-specific emission
-    if (WIDGET_DOMAIN === "water") {
+    if (WIDGET_DOMAIN === 'water') {
       emitWaterTelemetry(widgetType, periodKey);
     } else {
       // Default: energy domain
-      if (widgetType === "lojas") {
+      if (widgetType === 'lojas') {
         emitLojasTotal(periodKey);
-      } else if (widgetType === "areacomum") {
+      } else if (widgetType === 'areacomum') {
         emitAreaComumBreakdown(periodKey);
       }
     }
   } catch (err) {
-    LogHelper.error("[RFC-0056] Error in emitTelemetryUpdate:", err);
+    LogHelper.error('[RFC-0056] Error in emitTelemetryUpdate:', err);
   }
 }
 
@@ -2068,26 +2001,24 @@ function emitTelemetryUpdate() {
  */
 function detectWidgetType() {
   try {
-    LogHelper.log(
-      "🔍 [detectWidgetType] Iniciando detecção de tipo de widget..."
-    );
+    LogHelper.log('🔍 [detectWidgetType] Iniciando detecção de tipo de widget...');
 
     const datasources = ctx.datasources || [];
     LogHelper.log(`[detectWidgetType] Total de datasources detectados: ${datasources.length}`);
 
     if (!datasources.length) {
-      LogHelper.warn("[detectWidgetType] Nenhum datasource encontrado em ctx.datasources!");
+      LogHelper.warn('[detectWidgetType] Nenhum datasource encontrado em ctx.datasources!');
       return null;
     }
 
     // Percorrer todos os datasources
     for (let i = 0; i < datasources.length; i++) {
       const ds = datasources[i];
-      const alias = (ds.aliasName || "").toString().toLowerCase().trim();
+      const alias = (ds.aliasName || '').toString().toLowerCase().trim();
 
       LogHelper.log(`🔸 [detectWidgetType] Verificando datasource[${i}]`);
-      LogHelper.log(`    ↳ aliasName:     ${ds.aliasName || "(vazio)"}`);
-      LogHelper.log(`    ↳ entityName:    ${ds.entityName || "(vazio)"}`);
+      LogHelper.log(`    ↳ aliasName:     ${ds.aliasName || '(vazio)'}`);
+      LogHelper.log(`    ↳ entityName:    ${ds.entityName || '(vazio)'}`);
       LogHelper.log(`    ↳ alias normalizado: "${alias}"`);
 
       if (!alias) {
@@ -2097,37 +2028,30 @@ function detectWidgetType() {
 
       // RFC-0002: Check for entrada (water domain)
       // Use word boundary matching to avoid false positives like "bomba entrada"
-      if (/\bentrada\b/.test(alias) || alias === "entrada" || alias.includes("entrada")) {
+      if (/\bentrada\b/.test(alias) || alias === 'entrada' || alias.includes('entrada')) {
         LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "entrada" (com base no alias "${alias}")`);
-        return "entrada";
+        return 'entrada';
       }
 
       // Match "lojas" as standalone word or at end of alias
       // AVOID false positives like "Bomba Lojas", "Subestação Lojas"
       // ACCEPT: "lojas", "widget-lojas", "telemetry-lojas", "consumidores lojas"
-      if (
-        /\blojas\b/.test(alias) &&
-        !/bomba|subesta|entrada|chiller|elevador|escada/i.test(alias)
-      ) {
+      if (/\blojas\b/.test(alias) && !/bomba|subesta|entrada|chiller|elevador|escada/i.test(alias)) {
         LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "lojas" (com base no alias "${alias}")`);
-        return "lojas";
+        return 'lojas';
       }
 
       // Match area comum with flexible separators
-      if (
-        /\barea\s*comum\b/.test(alias) ||
-        alias.includes("areacomum") ||
-        alias.includes("area_comum")
-      ) {
+      if (/\barea\s*comum\b/.test(alias) || alias.includes('areacomum') || alias.includes('area_comum')) {
         LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "areacomum" (com base no alias "${alias}")`);
-        return "areacomum";
+        return 'areacomum';
       }
     }
 
-    LogHelper.warn("[detectWidgetType] ⚠️ Nenhum tipo de widget correspondente encontrado.");
+    LogHelper.warn('[detectWidgetType] ⚠️ Nenhum tipo de widget correspondente encontrado.');
     return null;
   } catch (err) {
-    LogHelper.error("[detectWidgetType] ❌ Erro durante detecção de tipo de widget:", err);
+    LogHelper.error('[detectWidgetType] ❌ Erro durante detecção de tipo de widget:', err);
     return null;
   }
 }
@@ -2140,14 +2064,14 @@ function buildPeriodKey() {
   const timewindow = ctx.defaultSubscription?.subscriptionTimewindow;
 
   if (!timewindow || timewindow.realtimeWindowMs) {
-    return "realtime";
+    return 'realtime';
   }
 
   const startMs = timewindow.fixedWindow?.startTimeMs || Date.now() - 86400000;
   const endMs = timewindow.fixedWindow?.endTimeMs || Date.now();
 
-  const startDate = new Date(startMs).toISOString().split("T")[0];
-  const endDate = new Date(endMs).toISOString().split("T")[0];
+  const startDate = new Date(startMs).toISOString().split('T')[0];
+  const endDate = new Date(endMs).toISOString().split('T')[0];
 
   return `${startDate}_${endDate}`;
 }
@@ -2166,11 +2090,11 @@ function emitLojasTotal(periodKey) {
     const totalMWh = normalizeToMWh(lojasTotal);
 
     const payload = {
-      type: "lojas_total",
-      domain: "energy",
+      type: 'lojas_total',
+      domain: 'energy',
       periodKey: periodKey,
       timestamp: Date.now(),
-      source: "TELEMETRY_Lojas",
+      source: 'TELEMETRY_Lojas',
       data: {
         total_kWh: lojasTotal,
         total_MWh: totalMWh,
@@ -2183,20 +2107,22 @@ function emitLojasTotal(periodKey) {
     try {
       sessionStorage.setItem(cacheKey, JSON.stringify(payload));
     } catch (e) {
-      LogHelper.warn("[RFC-0056] sessionStorage write failed:", e);
+      LogHelper.warn('[RFC-0056] sessionStorage write failed:', e);
     }
 
     // Dispatch consolidated event
-    const event = new CustomEvent("myio:telemetry:update", {
+    const event = new CustomEvent('myio:telemetry:update', {
       detail: payload,
       bubbles: true,
       cancelable: false,
     });
 
     window.dispatchEvent(event);
-    LogHelper.log(`[RFC-0056] ✅ Emitted lojas_total: ${totalMWh} MWh (${STATE.itemsEnriched.length} devices)`);
+    LogHelper.log(
+      `[RFC-0056] ✅ Emitted lojas_total: ${totalMWh} MWh (${STATE.itemsEnriched.length} devices)`
+    );
   } catch (err) {
-    LogHelper.error("[RFC-0056] Error in emitLojasTotal:", err);
+    LogHelper.error('[RFC-0056] Error in emitLojasTotal:', err);
   }
 }
 
@@ -2205,56 +2131,36 @@ function emitLojasTotal(periodKey) {
  * @param {string} identifier - Device identifier (e.g., "CAG", "Fancoil", "ELV", etc.)
  * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'|null}
  */
-function classifyDeviceByIdentifier(identifier = "") {
+function classifyDeviceByIdentifier(identifier = '') {
   // RFC-0063: Safe guard against null/undefined/empty
-  if (
-    !identifier ||
-    identifier === "N/A" ||
-    identifier === "null" ||
-    identifier === "undefined"
-  ) {
+  if (!identifier || identifier === 'N/A' || identifier === 'null' || identifier === 'undefined') {
     return null;
   }
 
   const id = String(identifier).trim().toUpperCase();
 
   // Ignore "Sem Identificador identificado" marker
-  if (id.includes("SEM IDENTIFICADOR")) {
+  if (id.includes('SEM IDENTIFICADOR')) {
     return null;
   }
 
   // Climatização: CAG, Fancoil
-  if (
-    id === "CAG" ||
-    id === "FANCOIL" ||
-    id.startsWith("CAG-") ||
-    id.startsWith("FANCOIL-")
-  ) {
-    return "climatizacao";
+  if (id === 'CAG' || id === 'FANCOIL' || id.startsWith('CAG-') || id.startsWith('FANCOIL-')) {
+    return 'climatizacao';
   }
 
   // Elevadores: ELV, Elevador
-  if (
-    id === "ELV" ||
-    id === "ELEVADOR" ||
-    id.startsWith("ELV-") ||
-    id.startsWith("ELEVADOR-")
-  ) {
-    return "elevadores";
+  if (id === 'ELV' || id === 'ELEVADOR' || id.startsWith('ELV-') || id.startsWith('ELEVADOR-')) {
+    return 'elevadores';
   }
 
   // Escadas Rolantes: ESC, Escada
-  if (
-    id === "ESC" ||
-    id === "ESCADA" ||
-    id.startsWith("ESC-") ||
-    id.startsWith("ESCADA")
-  ) {
-    return "escadas_rolantes";
+  if (id === 'ESC' || id === 'ESCADA' || id.startsWith('ESC-') || id.startsWith('ESCADA')) {
+    return 'escadas_rolantes';
   }
 
   // Outros: qualquer outro identifier não reconhecido
-  return "outros";
+  return 'outros';
 }
 
 /**
@@ -2262,46 +2168,46 @@ function classifyDeviceByIdentifier(identifier = "") {
  * @param {string} label - Device label/name
  * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'}
  */
-function classifyDeviceByLabel(label = "") {
+function classifyDeviceByLabel(label = '') {
   // RFC-0063: Safe guard against null/undefined
   if (!label) {
-    return "outros";
+    return 'outros';
   }
 
   const normalized = normalizeLabel(label);
 
   // Climatização patterns
   if (
-    normalized.includes("climatizacao") ||
-    normalized.includes("hvac") ||
-    normalized.includes("ar condicionado") ||
-    normalized.includes("chiller") ||
-    normalized.includes("bomba cag") ||
-    normalized.includes("fancoil") ||
-    normalized.includes("casa de máquina ar") ||
-    normalized.includes("bomba primaria") ||
-    normalized.includes("bomba secundaria") ||
-    normalized.includes("bombas condensadoras") ||
-    normalized.includes("bombas condensadora") ||
-    normalized.includes("bomba condensadora") ||
-    normalized.includes("bombas primarias") ||
-    normalized.includes("bombas secundarias")
+    normalized.includes('climatizacao') ||
+    normalized.includes('hvac') ||
+    normalized.includes('ar condicionado') ||
+    normalized.includes('chiller') ||
+    normalized.includes('bomba cag') ||
+    normalized.includes('fancoil') ||
+    normalized.includes('casa de máquina ar') ||
+    normalized.includes('bomba primaria') ||
+    normalized.includes('bomba secundaria') ||
+    normalized.includes('bombas condensadoras') ||
+    normalized.includes('bombas condensadora') ||
+    normalized.includes('bomba condensadora') ||
+    normalized.includes('bombas primarias') ||
+    normalized.includes('bombas secundarias')
   ) {
-    return "climatizacao";
+    return 'climatizacao';
   }
 
   // Elevadores patterns
-  if (normalized.includes("elevador")) {
-    return "elevadores";
+  if (normalized.includes('elevador')) {
+    return 'elevadores';
   }
 
   // Escadas Rolantes patterns
-  if (normalized.includes("escada") && normalized.includes("rolante")) {
-    return "escadas_rolantes";
+  if (normalized.includes('escada') && normalized.includes('rolante')) {
+    return 'escadas_rolantes';
   }
 
   // Default: outros
-  return "outros";
+  return 'outros';
 }
 
 /**
@@ -2312,41 +2218,48 @@ function classifyDeviceByLabel(label = "") {
 function classifyDevice(item) {
   // RFC-0063: Safe guard - ensure item exists
   if (!item) {
-    LogHelper.warn("[RFC-0063] classifyDevice called with null/undefined item");
-    return "outros";
+    LogHelper.warn('[RFC-0063] classifyDevice called with null/undefined item');
+    return 'outros';
   }
 
   // Mode 1: Identifier only (new method)
-  if (USE_IDENTIFIER_CLASSIFICATION && !USE_HYBRID_CLASSIFICATION || item.identifier === "ESCADASROLANTES") {
+  if (
+    (USE_IDENTIFIER_CLASSIFICATION && !USE_HYBRID_CLASSIFICATION) ||
+    item.identifier === 'ESCADASROLANTES'
+  ) {
     const category = classifyDeviceByIdentifier(item.identifier);
     if (category) {
-      LogHelper.log(
-        `[RFC-0063] Device classified by identifier: "${item.identifier}" → ${category}`
-      );
+      LogHelper.log(`[RFC-0063] Device classified by identifier: "${item.identifier}" → ${category}`);
       return category;
     }
     // Fallback to 'outros' if identifier doesn't match any category
     const reason = !item.identifier
-      ? "no identifier attribute"
+      ? 'no identifier attribute'
       : `identifier "${item.identifier}" not recognized`;
     LogHelper.log(`[RFC-0063] Device ${reason} → outros`);
-    return "outros";
+    return 'outros';
   }
 
   // Mode 2: Hybrid (identifier with label fallback)
   if (USE_IDENTIFIER_CLASSIFICATION && USE_HYBRID_CLASSIFICATION) {
     const categoryByIdentifier = classifyDeviceByIdentifier(item.identifier);
-    
-    if (categoryByIdentifier && categoryByIdentifier !== "outros") {
-      LogHelper.log(`[RFC-0063 Hybrid] Device classified by identifier: "${item.identifier}" → ${categoryByIdentifier}`);
+
+    if (categoryByIdentifier && categoryByIdentifier !== 'outros') {
+      LogHelper.log(
+        `[RFC-0063 Hybrid] Device classified by identifier: "${item.identifier}" → ${categoryByIdentifier}`
+      );
       return categoryByIdentifier;
     }
 
     // Fallback to label classification
     const categoryByLabel = classifyDeviceByLabel(item.label || item.name);
-    const fallbackReason = !item.identifier ? "no identifier" : `identifier "${item.identifier}" not recognized`;
+    const fallbackReason = !item.identifier
+      ? 'no identifier'
+      : `identifier "${item.identifier}" not recognized`;
 
-    LogHelper.log(`[RFC-0063 Hybrid] Device (${fallbackReason}) classified by label fallback: "${item.label}" → ${categoryByLabel}`);
+    LogHelper.log(
+      `[RFC-0063 Hybrid] Device (${fallbackReason}) classified by label fallback: "${item.label}" → ${categoryByLabel}`
+    );
 
     return categoryByLabel;
   }
@@ -2364,11 +2277,7 @@ function emitAreaComumBreakdown(periodKey) {
   try {
     LogHelper.log(
       `[RFC-0063] emitAreaComumBreakdown: mode=${
-        USE_IDENTIFIER_CLASSIFICATION
-          ? USE_HYBRID_CLASSIFICATION
-            ? "HYBRID"
-            : "IDENTIFIER"
-          : "LEGACY"
+        USE_IDENTIFIER_CLASSIFICATION ? (USE_HYBRID_CLASSIFICATION ? 'HYBRID' : 'IDENTIFIER') : 'LEGACY'
       }`
     );
 
@@ -2379,7 +2288,6 @@ function emitAreaComumBreakdown(periodKey) {
       escadas_rolantes: 0,
       outros: 0,
     };
-
 
     STATE.itemsEnriched.forEach((item) => {
       const energia = item.value || 0;
@@ -2398,11 +2306,11 @@ function emitAreaComumBreakdown(periodKey) {
     });
 
     const payload = {
-      type: "areacomum_breakdown",
-      domain: "energy",
+      type: 'areacomum_breakdown',
+      domain: 'energy',
       periodKey: periodKey,
       timestamp: Date.now(),
-      source: "TELEMETRY_AreaComum",
+      source: 'TELEMETRY_AreaComum',
       data: {
         climatizacao_kWh: breakdown.climatizacao,
         climatizacao_MWh: normalizeToMWh(breakdown.climatizacao),
@@ -2421,11 +2329,11 @@ function emitAreaComumBreakdown(periodKey) {
     try {
       sessionStorage.setItem(cacheKey, JSON.stringify(payload));
     } catch (e) {
-      LogHelper.warn("[RFC-0056] sessionStorage write failed:", e);
+      LogHelper.warn('[RFC-0056] sessionStorage write failed:', e);
     }
 
     // Dispatch consolidated event
-    const event = new CustomEvent("myio:telemetry:update", {
+    const event = new CustomEvent('myio:telemetry:update', {
       detail: payload,
       bubbles: true,
       cancelable: false,
@@ -2434,16 +2342,13 @@ function emitAreaComumBreakdown(periodKey) {
     window.dispatchEvent(event);
 
     const totalMWh = normalizeToMWh(
-      breakdown.climatizacao +
-        breakdown.elevadores +
-        breakdown.escadas_rolantes +
-        breakdown.outros
+      breakdown.climatizacao + breakdown.elevadores + breakdown.escadas_rolantes + breakdown.outros
     );
     LogHelper.log(
       `[RFC-0056] ✅ Emitted areacomum_breakdown: ${totalMWh} MWh (${STATE.itemsEnriched.length} devices)`
     );
   } catch (err) {
-    LogHelper.error("[RFC-0056] Error in emitAreaComumBreakdown:", err);
+    LogHelper.error('[RFC-0056] Error in emitAreaComumBreakdown:', err);
   }
 }
 
@@ -2460,17 +2365,17 @@ function emitWaterTelemetry(widgetType, periodKey) {
     let context = null;
 
     // Use override if set and not 'auto'
-    if (waterContextOverride && waterContextOverride !== "auto") {
+    if (waterContextOverride && waterContextOverride !== 'auto') {
       context = waterContextOverride;
       LogHelper.log(`[RFC-0002 Water] Using waterContext override: ${context}`);
     } else {
       // Map widgetType to water context (auto-detection from alias)
-      if (widgetType === "entrada") {
-        context = "entrada";
-      } else if (widgetType === "lojas") {
-        context = "lojas";
-      } else if (widgetType === "areacomum") {
-        context = "areaComum";
+      if (widgetType === 'entrada') {
+        context = 'entrada';
+      } else if (widgetType === 'lojas') {
+        context = 'lojas';
+      } else if (widgetType === 'areacomum') {
+        context = 'areaComum';
       }
     }
 
@@ -2480,30 +2385,27 @@ function emitWaterTelemetry(widgetType, periodKey) {
     }
 
     // Calculate total in m³
-    const totalM3 = STATE.itemsEnriched.reduce(
-      (sum, item) => sum + (item.value || 0),
-      0
-    );
+    const totalM3 = STATE.itemsEnriched.reduce((sum, item) => sum + (item.value || 0), 0);
 
     // Build device list
     const devices = STATE.itemsEnriched.map((item) => ({
-      id: item.id || item.entityId || "",
-      label: item.label || item.name || "",
+      id: item.id || item.entityId || '',
+      label: item.label || item.name || '',
       value: item.value || 0,
-      deviceType: item.deviceType || "HIDROMETRO",
+      deviceType: item.deviceType || 'HIDROMETRO',
     }));
 
     // RFC-0002: For areaComum context, classify devices into banheiros vs outros
     // Banheiros are identified by "banheiro" in label or identifier (case-insensitive)
     let banheirosBreakdown = null;
-    if (context === "areaComum") {
+    if (context === 'areaComum') {
       const banheirosDevices = [];
       const outrosDevices = [];
 
       devices.forEach((device) => {
-        const labelLower = (device.label || "").toLowerCase();
-        const idLower = (device.id || "").toLowerCase();
-        const isBanheiro = labelLower.includes("banheiro") || idLower.includes("banheiro");
+        const labelLower = (device.label || '').toLowerCase();
+        const idLower = (device.id || '').toLowerCase();
+        const isBanheiro = labelLower.includes('banheiro') || idLower.includes('banheiro');
 
         if (isBanheiro) {
           banheirosDevices.push(device);
@@ -2529,13 +2431,15 @@ function emitWaterTelemetry(widgetType, periodKey) {
       };
 
       LogHelper.log(
-        `[RFC-0002 Water] areaComum breakdown: banheiros=${banheirosTotal.toFixed(2)} m³ (${banheirosDevices.length} devices), outros=${outrosTotal.toFixed(2)} m³ (${outrosDevices.length} devices)`
+        `[RFC-0002 Water] areaComum breakdown: banheiros=${banheirosTotal.toFixed(2)} m³ (${
+          banheirosDevices.length
+        } devices), outros=${outrosTotal.toFixed(2)} m³ (${outrosDevices.length} devices)`
       );
     }
 
     const payload = {
       context: context,
-      domain: "water",
+      domain: 'water',
       total: totalM3,
       devices: devices,
       periodKey: periodKey,
@@ -2545,7 +2449,7 @@ function emitWaterTelemetry(widgetType, periodKey) {
     };
 
     // Dispatch water event
-    const event = new CustomEvent("myio:telemetry:provide-water", {
+    const event = new CustomEvent('myio:telemetry:provide-water', {
       detail: payload,
       bubbles: true,
       cancelable: false,
@@ -2559,18 +2463,13 @@ function emitWaterTelemetry(widgetType, periodKey) {
       )} m³, devices=${devices.length}`
     );
   } catch (err) {
-    LogHelper.error("[RFC-0002 Water] Error in emitWaterTelemetry:", err);
+    LogHelper.error('[RFC-0002 Water] Error in emitWaterTelemetry:', err);
   }
 }
 
 /** ===================== RECOMPUTE (local only) ===================== **/
 function reflowFromState() {
-  const visible = applyFilters(
-    STATE.itemsEnriched,
-    STATE.searchTerm,
-    STATE.selectedIds,
-    STATE.sortMode
-  );
+  const visible = applyFilters(STATE.itemsEnriched, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
   const { visible: withPerc, groupSum } = recomputePercentages(visible);
   renderHeader(withPerc.length, groupSum);
   renderList(withPerc);
@@ -2594,28 +2493,26 @@ async function hydrateAndRender() {
     } catch (_e) {
       // For energy/water domains, continue rendering UI even without dates
       // Just skip the API call for totals
-      if (WIDGET_DOMAIN === "energy" || WIDGET_DOMAIN === "water") {
+      if (WIDGET_DOMAIN === 'energy' || WIDGET_DOMAIN === 'water') {
         LogHelper.warn(
-          "[DeviceCards] No date range set, but continuing for energy/water domain - buttons will be enabled"
+          '[DeviceCards] No date range set, but continuing for energy/water domain - buttons will be enabled'
         );
       } else {
-        LogHelper.warn(
-          "[DeviceCards] Aguardando intervalo de datas (startDateISO/endDateISO)."
-        );
+        LogHelper.warn('[DeviceCards] Aguardando intervalo de datas (startDateISO/endDateISO).');
         return;
       }
     }
 
     // 1) Auth (skip for temperature domain - no API calls needed)
     // Also skip if no date range (no API call will be made anyway)
-    if (WIDGET_DOMAIN !== "temperature" && hasDateRange) {
+    if (WIDGET_DOMAIN !== 'temperature' && hasDateRange) {
       const okAuth = await ensureAuthReady(6000, 150);
       if (!okAuth) {
-        LogHelper.warn("[DeviceCards] Auth not ready; adiando hidratação.");
+        LogHelper.warn('[DeviceCards] Auth not ready; adiando hidratação.');
         return;
       }
     } else {
-      LogHelper.log("[DeviceCards] Skipping auth check - temperature domain or no date range");
+      LogHelper.log('[DeviceCards] Skipping auth check - temperature domain or no date range');
     }
 
     // 2) Lista autoritativa
@@ -2624,15 +2521,17 @@ async function hydrateAndRender() {
     // 3) Totais na API (skip for temperature domain - uses only ctx.data telemetry)
     // Also skip if no date range
     let apiMap = new Map();
-    if (WIDGET_DOMAIN !== "temperature" && hasDateRange && range) {
+    if (WIDGET_DOMAIN !== 'temperature' && hasDateRange && range) {
       try {
         apiMap = await fetchApiTotals(range.startISO, range.endISO);
       } catch (err) {
-        LogHelper.error("[DeviceCards] API error:", err);
+        LogHelper.error('[DeviceCards] API error:', err);
         apiMap = new Map();
       }
     } else {
-      LogHelper.log("[DeviceCards] Skipping API fetch - temperature domain or no date range - using ctx.data only");
+      LogHelper.log(
+        '[DeviceCards] Skipping API fetch - temperature domain or no date range - using ctx.data only'
+      );
     }
 
     // 4) Enrich + render
@@ -2641,9 +2540,7 @@ async function hydrateAndRender() {
     // 5) Sanitiza seleção
     if (STATE.selectedIds && STATE.selectedIds.size) {
       const valid = new Set(STATE.itemsBase.map((x) => x.id));
-      const next = new Set(
-        [...STATE.selectedIds].filter((id) => valid.has(id))
-      );
+      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
       STATE.selectedIds = next.size ? next : null;
     }
 
@@ -2657,24 +2554,24 @@ async function hydrateAndRender() {
 /** ===================== TB LIFE CYCLE ===================== **/
 self.onInit = async function () {
   $(self.ctx.$container).css({
-    height: "100%",
-    overflow: "hidden",
-    display: "flex",
-    flexDirection: "column",
-    position: "relative",
+    height: '100%',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    position: 'relative',
   });
 
-  MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary) ||
-    (typeof window !== "undefined" && window.MyIOLibrary) || {
+  MyIO = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
+    (typeof window !== 'undefined' && window.MyIOLibrary) || {
       showAlert: function () {
-        alert("A Bliblioteca Myio não foi carregada corretamente!");
+        alert('A Bliblioteca Myio não foi carregada corretamente!');
       },
     };
 
-  $root().find("#labelWidgetId").text(self.ctx.settings?.labelWidget);
+  $root().find('#labelWidgetId').text(self.ctx.settings?.labelWidget);
 
   // RFC-0042: Set widget configuration from settings FIRST
-  WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || "energy";
+  WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
   LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}`);
 
   // RFC-0063: Load classification mode configuration
@@ -2684,9 +2581,9 @@ self.onInit = async function () {
     `[RFC-0063] Classification mode: ${
       USE_IDENTIFIER_CLASSIFICATION
         ? USE_HYBRID_CLASSIFICATION
-          ? "HYBRID (identifier + label fallback)"
-          : "IDENTIFIER ONLY"
-        : "LEGACY (label only)"
+          ? 'HYBRID (identifier + label fallback)'
+          : 'IDENTIFIER ONLY'
+        : 'LEGACY (label only)'
     }`
   );
 
@@ -2695,12 +2592,12 @@ self.onInit = async function () {
     const hasDateRange = self.ctx.scope?.startDateISO && self.ctx.scope?.endDateISO;
 
     if (!hasDateRange) {
-      LogHelper.warn("[TELEMETRY] No date range set");
+      LogHelper.warn('[TELEMETRY] No date range set');
 
       // For energy/water domains, still render UI to enable buttons (skip API call)
-      if (WIDGET_DOMAIN === "energy" || WIDGET_DOMAIN === "water") {
-        LogHelper.log("[TELEMETRY] Energy/Water domain - rendering UI without data fetch");
-        if (typeof hydrateAndRender === "function") {
+      if (WIDGET_DOMAIN === 'energy' || WIDGET_DOMAIN === 'water') {
+        LogHelper.log('[TELEMETRY] Energy/Water domain - rendering UI without data fetch');
+        if (typeof hydrateAndRender === 'function') {
           hydrateAndRender();
         }
       }
@@ -2711,19 +2608,16 @@ self.onInit = async function () {
       startISO: self.ctx.scope.startDateISO,
       endISO: self.ctx.scope.endDateISO,
       granularity: window.calcGranularity
-        ? window.calcGranularity(
-            self.ctx.scope.startDateISO,
-            self.ctx.scope.endDateISO
-          )
-        : "day",
-      tz: "America/Sao_Paulo",
+        ? window.calcGranularity(self.ctx.scope.startDateISO, self.ctx.scope.endDateISO)
+        : 'day',
+      tz: 'America/Sao_Paulo',
     };
 
     LogHelper.log(`[TELEMETRY] Requesting data for domain=${WIDGET_DOMAIN}, period:`, period);
 
     // RFC-0053: Single window context - emit to current window only
     window.dispatchEvent(
-      new CustomEvent("myio:telemetry:request-data", {
+      new CustomEvent('myio:telemetry:request-data', {
         detail: { domain: WIDGET_DOMAIN, period },
       })
     );
@@ -2741,24 +2635,16 @@ self.onInit = async function () {
         // New format from HEADER
         startISO = ev.detail.period.startISO;
         endISO = ev.detail.period.endISO;
-        LogHelper.log(
-          `[TELEMETRY ${WIDGET_DOMAIN}] Using NEW format (period object)`
-        );
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Using NEW format (period object)`);
       } else {
         // Old format (backward compatibility)
         const { startDate, endDate } = ev.detail || {};
         startISO = new Date(startDate).toISOString();
         endISO = new Date(endDate).toISOString();
-        LogHelper.log(
-          `[TELEMETRY ${WIDGET_DOMAIN}] Using OLD format (startDate/endDate)`
-        );
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Using OLD format (startDate/endDate)`);
       }
 
-      LogHelper.log(
-        `[TELEMETRY ${WIDGET_DOMAIN}] Date range updated:`,
-        startISO,
-        endISO
-      );
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Date range updated:`, startISO, endISO);
 
       // Datas mandatórias salvas no scope
       self.ctx.scope = self.ctx.scope || {};
@@ -2768,9 +2654,7 @@ self.onInit = async function () {
       // IMPORTANT: Reset lastProcessedPeriodKey when new date range is selected
       // This allows processing fresh data for the new period
       lastProcessedPeriodKey = null;
-      LogHelper.log(
-        `[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Reset lastProcessedPeriodKey for new date range`
-      );
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Reset lastProcessedPeriodKey for new date range`);
 
       // Exibe modal
       LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Calling showBusy()...`);
@@ -2789,11 +2673,13 @@ self.onInit = async function () {
       }
 
       // For temperature domain, use hydrateAndRender directly (no API needed, uses ctx.data only)
-      if (WIDGET_DOMAIN === "temperature") {
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Temperature domain - using hydrateAndRender directly (no orchestrator)`);
+      if (WIDGET_DOMAIN === 'temperature') {
+        LogHelper.log(
+          `[TELEMETRY ${WIDGET_DOMAIN}] ✅ Temperature domain - using hydrateAndRender directly (no orchestrator)`
+        );
         hasRequestedInitialData = true;
 
-        if (typeof hydrateAndRender === "function") {
+        if (typeof hydrateAndRender === 'function') {
           hydrateAndRender();
         } else {
           LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] hydrateAndRender não encontrada.`);
@@ -2803,7 +2689,9 @@ self.onInit = async function () {
         const orchestrator = window.MyIOOrchestrator;
 
         if (orchestrator) {
-          LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Requesting data from orchestrator (single window)`);
+          LogHelper.log(
+            `[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Requesting data from orchestrator (single window)`
+          );
 
           // IMPORTANT: Mark as requested BEFORE calling requestDataFromOrchestrator
           // This prevents the setTimeout(500ms) from making a duplicate request
@@ -2814,7 +2702,7 @@ self.onInit = async function () {
           // Fallback to old behavior
           LogHelper.warn(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Orchestrator not available, using legacy fetch`);
 
-          if (typeof hydrateAndRender === "function") {
+          if (typeof hydrateAndRender === 'function') {
             hydrateAndRender();
           } else {
             LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] hydrateAndRender não encontrada.`);
@@ -2828,11 +2716,11 @@ self.onInit = async function () {
   };
 
   LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Registering myio:update-date listener...`);
-  window.addEventListener("myio:update-date", dateUpdateHandler);
+  window.addEventListener('myio:update-date', dateUpdateHandler);
   LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ myio:update-date listener registered!`);
 
   // RFC-0042: Listen for clear event from HEADER (when user clicks "Limpar" button)
-  window.addEventListener("myio:telemetry:clear", (ev) => {
+  window.addEventListener('myio:telemetry:clear', (ev) => {
     const { domain } = ev.detail;
 
     // Only clear if it's for my domain
@@ -2853,23 +2741,23 @@ self.onInit = async function () {
       const $widget = $root();
 
       // Clear the visual list
-      const $shopsList = $widget.find("#shopsList");
+      const $shopsList = $widget.find('#shopsList');
       if ($shopsList.length > 0) {
         $shopsList.empty();
         LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ shopsList cleared`);
       }
 
       // Reset counts to 0
-      const $shopsCount = $widget.find("#shopsCount");
-      const $shopsTotal = $widget.find("#shopsTotal");
+      const $shopsCount = $widget.find('#shopsCount');
+      const $shopsTotal = $widget.find('#shopsTotal');
 
       if ($shopsCount.length > 0) {
-        $shopsCount.text("(0)");
+        $shopsCount.text('(0)');
         LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ shopsCount reset to 0`);
       }
 
       if ($shopsTotal.length > 0) {
-        $shopsTotal.text("0,00");
+        $shopsTotal.text('0,00');
         LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ shopsTotal reset to 0,00`);
       }
 
@@ -2882,18 +2770,18 @@ self.onInit = async function () {
   // Test if listener is working
   setTimeout(() => {
     LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧪 Testing listener registration...`);
-    const testEvent = new CustomEvent("myio:update-date", {
+    const testEvent = new CustomEvent('myio:update-date', {
       detail: {
         period: {
-          startISO: "2025-09-26T00:00:00-03:00",
-          endISO: "2025-10-02T23:59:59-03:00",
-          granularity: "day",
-          tz: "America/Sao_Paulo",
+          startISO: '2025-09-26T00:00:00-03:00',
+          endISO: '2025-10-02T23:59:59-03:00',
+          granularity: 'day',
+          tz: 'America/Sao_Paulo',
         },
       },
     });
     // Don't dispatch, just check if handler exists
-    if (typeof dateUpdateHandler === "function") {
+    if (typeof dateUpdateHandler === 'function') {
       LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ dateUpdateHandler is defined and ready`);
     } else {
       LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ dateUpdateHandler is NOT defined!`);
@@ -2908,15 +2796,15 @@ self.onInit = async function () {
     LogHelper.log(
       `[TELEMETRY ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${
         ev.detail.domain
-      }, periodKey: ${ev.detail.periodKey}, items: ${
-        ev.detail.items?.length || 0
-      }`
+      }, periodKey: ${ev.detail.periodKey}, items: ${ev.detail.items?.length || 0}`
     );
     const { domain, periodKey, items } = ev.detail;
 
     // Only process if it's for my domain
     if (domain !== WIDGET_DOMAIN) {
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⏭️ Ignoring event for domain ${domain}, my domain is ${WIDGET_DOMAIN}`);
+      LogHelper.log(
+        `[TELEMETRY ${WIDGET_DOMAIN}] ⏭️ Ignoring event for domain ${domain}, my domain is ${WIDGET_DOMAIN}`
+      );
       return;
     }
 
@@ -2978,7 +2866,9 @@ self.onInit = async function () {
       return datasourceIdSet.has(item.id) || datasourceIdSet.has(item.tbId);
     });
 
-    LogHelper.log(`[TELEMETRY] Filtered ${items.length} items down to ${filtered.length} items matching datasources`);
+    LogHelper.log(
+      `[TELEMETRY] Filtered ${items.length} items down to ${filtered.length} items matching datasources`
+    );
 
     // If no matches, log warning and use all items (temporary fallback)
     if (filtered.length === 0) {
@@ -2997,7 +2887,7 @@ self.onInit = async function () {
       label: item.label || item.identifier || item.id,
       value: Number(item.value || 0),
       perc: 0,
-      deviceType: item.deviceType || "energy",
+      deviceType: item.deviceType || 'energy',
       slaveId: item.slaveId || null,
       centralId: item.centralId || null,
       updatedIdentifiers: {},
@@ -3043,7 +2933,7 @@ self.onInit = async function () {
       const orchestratorValue = orchestratorValues.get(tbItem.ingestionId);
 
       // TANK/CAIXA_DAGUA devices: use telemetry data from TB, NOT from orchestrator API
-      const isTankDevice = tbItem.deviceType === "TANK" || tbItem.deviceType === "CAIXA_DAGUA";
+      const isTankDevice = tbItem.deviceType === 'TANK' || tbItem.deviceType === 'CAIXA_DAGUA';
 
       // DEBUG: Log matching process for all items
       if (orchestratorValue !== undefined && orchestratorValue > 0) {
@@ -3067,10 +2957,7 @@ self.onInit = async function () {
       // For other devices, use orchestrator API values
       return {
         ...tbItem,
-        value:
-          orchestratorValue !== undefined
-            ? orchestratorValue
-            : tbItem.value || 0,
+        value: orchestratorValue !== undefined ? orchestratorValue : tbItem.value || 0,
         perc: 0,
       };
     });
@@ -3083,9 +2970,7 @@ self.onInit = async function () {
     // Sanitize selection
     if (STATE.selectedIds && STATE.selectedIds.size) {
       const valid = new Set(STATE.itemsBase.map((x) => x.id));
-      const next = new Set(
-        [...STATE.selectedIds].filter((id) => valid.has(id))
-      );
+      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
       STATE.selectedIds = next.size ? next : null;
     }
 
@@ -3101,7 +2986,9 @@ self.onInit = async function () {
       if (window.MyIOOrchestrator && window.MyIOOrchestrator.getBusyState) {
         const busyState = window.MyIOOrchestrator.getBusyState();
         if (busyState.isVisible) {
-          LogHelper.warn(`[TELEMETRY] ⚠️ Orchestrator busy still visible after data processing - force hiding`);
+          LogHelper.warn(
+            `[TELEMETRY] ⚠️ Orchestrator busy still visible after data processing - force hiding`
+          );
           window.MyIOOrchestrator.hideGlobalBusy();
         }
       }
@@ -3119,10 +3006,10 @@ self.onInit = async function () {
     const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
 
     for (const row of rows) {
-      const key = String(row?.dataKey?.name || "").toLowerCase();
+      const key = String(row?.dataKey?.name || '').toLowerCase();
       const val = row?.data?.[0]?.[1];
 
-      if (key === "ingestionid" && val && isValidUUID(String(val))) {
+      if (key === 'ingestionid' && val && isValidUUID(String(val))) {
         ingestionIds.add(String(val));
       }
     }
@@ -3130,13 +3017,13 @@ self.onInit = async function () {
     return Array.from(ingestionIds);
   }
 
-  window.addEventListener("myio:telemetry:provide-data", dataProvideHandler);
+  window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
 
   // RFC-0056 FIX v1.1: Listen for request_refresh from TELEMETRY_INFO
   let requestRefreshHandler = function (ev) {
     const { type, domain, periodKey } = ev.detail || {};
 
-    if (type !== "request_refresh") return;
+    if (type !== 'request_refresh') return;
     if (domain !== WIDGET_DOMAIN) return;
 
     LogHelper.log(`[RFC-0056] Received request_refresh for domain ${domain}, periodKey ${periodKey}`);
@@ -3151,7 +3038,7 @@ self.onInit = async function () {
     }
   };
 
-  window.addEventListener("myio:telemetry:update", requestRefreshHandler);
+  window.addEventListener('myio:telemetry:update', requestRefreshHandler);
 
   // RFC: REMOVED - Fix selection integration with FOOTER
   //
@@ -3204,7 +3091,9 @@ self.onInit = async function () {
 
       // Use stored data if it's less than 30 seconds old AND has items
       if (age < 30000 && storedData.items && storedData.items.length > 0) {
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Using stored orchestrator data (single window)`);
+        LogHelper.log(
+          `[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Using stored orchestrator data (single window)`
+        );
         dataProvideHandler({
           detail: {
             domain: WIDGET_DOMAIN,
@@ -3223,8 +3112,10 @@ self.onInit = async function () {
     // If no stored data AND we haven't requested yet, request fresh data
     if (!hasRequestedInitialData) {
       // For temperature domain, use hydrateAndRender directly (no orchestrator needed)
-      if (WIDGET_DOMAIN === "temperature") {
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Temperature domain - calling hydrateAndRender directly...`);
+      if (WIDGET_DOMAIN === 'temperature') {
+        LogHelper.log(
+          `[TELEMETRY ${WIDGET_DOMAIN}] 📡 Temperature domain - calling hydrateAndRender directly...`
+        );
         hasRequestedInitialData = true;
         hydrateAndRender();
       } else {
@@ -3232,45 +3123,46 @@ self.onInit = async function () {
         requestDataFromOrchestrator();
       }
     } else {
-      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⏭️ Skipping duplicate request (already requested via event)`);
+      LogHelper.log(
+        `[TELEMETRY ${WIDGET_DOMAIN}] ⏭️ Skipping duplicate request (already requested via event)`
+      );
     }
   }, 500); // Wait 500ms for widget to fully initialize
 
   // Auth do cliente/ingestion
-  const customerTB_ID = self.ctx.settings?.customerTB_ID || "";
+  const customerTB_ID = self.ctx.settings?.customerTB_ID || '';
   //DEVICE_TYPE = self.ctx.settings?.DEVICE_TYPE || "energy";
-  const jwt = localStorage.getItem("jwt_token");
+  const jwt = localStorage.getItem('jwt_token');
 
   const boolExecSync = false;
 
   // RFC-0071: Trigger device profile synchronization (runs once)
   if (!__deviceProfileSyncComplete && boolExecSync) {
     try {
-      console.log("[EQUIPMENTS] [RFC-0071] Triggering device profile sync...");
+      console.log('[EQUIPMENTS] [RFC-0071] Triggering device profile sync...');
       const syncResult = await syncDeviceProfileAttributes();
       __deviceProfileSyncComplete = true;
 
       if (syncResult.synced > 0) {
-        console.log("[EQUIPMENTS] [RFC-0071] ⚠️ Widget reload recommended to load new deviceProfile attributes");
-        console.log("[EQUIPMENTS] [RFC-0071] You may need to refresh the dashboard to see deviceProfile in ctx.data");
+        console.log(
+          '[EQUIPMENTS] [RFC-0071] ⚠️ Widget reload recommended to load new deviceProfile attributes'
+        );
+        console.log(
+          '[EQUIPMENTS] [RFC-0071] You may need to refresh the dashboard to see deviceProfile in ctx.data'
+        );
       }
     } catch (error) {
-      console.error("[EQUIPMENTS] [RFC-0071] Sync failed, continuing without it:", error);
+      console.error('[EQUIPMENTS] [RFC-0071] Sync failed, continuing without it:', error);
       // Don't block widget initialization if sync fails
     }
   }
 
   try {
-    const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(
-      customerTB_ID,
-      jwt
-    );
-    CLIENT_ID = attrs?.client_id || "";
-    CLIENT_SECRET = attrs?.client_secret || "";
-    CUSTOMER_ING_ID = attrs?.ingestionId || "";
+    const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
+    CLIENT_ID = attrs?.client_id || '';
+    CLIENT_SECRET = attrs?.client_secret || '';
+    CUSTOMER_ING_ID = attrs?.ingestionId || '';
     MAP_INSTANTANEOUS_POWER = attrs?.mapInstantaneousPower ? JSON.parse(attrs?.mapInstantaneousPower) : null;
-    
-    
 
     // Expõe credenciais globalmente para uso no FOOTER (modal de comparação)
     window.__MYIO_CLIENT_ID__ = CLIENT_ID;
@@ -3283,12 +3175,12 @@ self.onInit = async function () {
       clientSecret: CLIENT_SECRET,
     });
 
-    LogHelper.log("[DeviceCards] Auth init OK");
+    LogHelper.log('[DeviceCards] Auth init OK');
     try {
       await MyIOAuth.getToken();
     } catch (_) {}
   } catch (err) {
-    LogHelper.error("[DeviceCards] Auth init FAIL", err);
+    LogHelper.error('[DeviceCards] Auth init FAIL', err);
   }
 
   // Bind UI
@@ -3299,15 +3191,7 @@ self.onInit = async function () {
   if (!self.ctx?.scope?.startDateISO || !self.ctx?.scope?.endDateISO) {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0); // 1º dia 00:00
-    const end = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      23,
-      59,
-      59,
-      0
-    ); // hoje 23:59:59
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 0); // hoje 23:59:59
     self.ctx.scope = self.ctx.scope || {};
     self.ctx.scope.startDateISO = start.toISOString();
     self.ctx.scope.endDateISO = end.toISOString();
@@ -3369,19 +3253,16 @@ self.onDataUpdated = function () {
 self.onResize = function () {};
 self.onDestroy = function () {
   if (dateUpdateHandler) {
-    window.removeEventListener("myio:update-date", dateUpdateHandler);
+    window.removeEventListener('myio:update-date', dateUpdateHandler);
     LogHelper.log("[DeviceCards] Event listener 'myio:update-date' removido.");
   }
   if (dataProvideHandler) {
-    window.removeEventListener(
-      "myio:telemetry:provide-data",
-      dataProvideHandler
-    );
+    window.removeEventListener('myio:telemetry:provide-data', dataProvideHandler);
     LogHelper.log("[DeviceCards] Event listener 'myio:telemetry:provide-data' removido.");
   }
   // RFC-0056 FIX v1.1: Remove request_refresh listener
   if (requestRefreshHandler) {
-    window.removeEventListener("myio:telemetry:update", requestRefreshHandler);
+    window.removeEventListener('myio:telemetry:update', requestRefreshHandler);
     LogHelper.log("[RFC-0056] Event listener 'myio:telemetry:update' removido.");
   }
   try {
