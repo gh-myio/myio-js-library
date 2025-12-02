@@ -1,3 +1,15 @@
+/* RFC-0096: Force transparency on ThingsBoard widget containers */
+.tb-widget,
+.tb-widget-container,
+.mat-card,
+.mat-mdc-card,
+.tb-widget-content,
+.tb-absolute-container {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
 .myio-toolbar-root {
   display: flex;
   justify-content: center;
@@ -9,6 +21,7 @@
   padding: 18px;
   box-sizing: border-box;
   background: transparent !important;
+  background-color: transparent !important;
 }
 
 .myio-tabs-row {

@@ -16,7 +16,7 @@ const MOCK_DEBUG_PEAK_DEMAND = true;
  * RFC-0073: Debug flag to use mock data for day total consumption
  * Set to true to bypass API calls and return mock data for 7-day chart
  */
-const MOCK_DEBUG_DAY_CONSUMPTION = true;
+const MOCK_DEBUG_DAY_CONSUMPTION = false;
 
 // ============================================
 // CACHE CONFIGURATION
@@ -45,6 +45,15 @@ const TOTAL_CONSUMPTION_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
 // ✅ DEBOUNCE: Prevent infinite loops
 let isUpdatingTotalConsumption = false;
+
+// RFC-0073: Chart configuration state
+const chartConfig = {
+  period: 7, // days
+  startDate: null,
+  endDate: null,
+  equipmentTypes: ['ELEVADOR', 'ESCADA_ROLANTE', 'CHILLER', 'FANCOIL', 'AR_CONDICIONADO', 'BOMBA', 'LOJA'],
+  vizMode: 'total', // 'total' or 'separate'
+};
 
 // ============================================
 // MOCK DATA GENERATORS (RFC-0073)
@@ -1738,20 +1747,23 @@ async function initializeCharts() {
 }
 
 /**
- * RFC-0073: Fetch 7 days consumption for multiple customers (respects shopping filter)
+ * RFC-0073: Fetch consumption for configured period (respects shopping filter and chart config)
  */
 async function fetch7DaysConsumptionFiltered(customerIds) {
   if (!customerIds || customerIds.length === 0) {
     return [];
   }
 
-  console.log('[ENERGY] [RFC-0073] Fetching 7 days for customers:', customerIds);
+  // RFC-0073: Use configured period or default to 7 days
+  const period = chartConfig.period || 7;
+
+  console.log('[ENERGY] [RFC-0073] Fetching', period, 'days for customers:', customerIds);
 
   const results = [];
   const now = new Date();
 
-  // Iterate through last 7 days
-  for (let i = 6; i >= 0; i--) {
+  // Iterate through configured period days
+  for (let i = period - 1; i >= 0; i--) {
     const dayDate = new Date(now);
     dayDate.setDate(now.getDate() - i);
     dayDate.setHours(0, 0, 0, 0);
@@ -1775,41 +1787,95 @@ async function fetch7DaysConsumptionFiltered(customerIds) {
     });
   }
 
-  console.log('[ENERGY] [RFC-0073] 7 days consumption (filtered):', results);
+  console.log('[ENERGY] [RFC-0073]', period, 'days consumption (filtered):', results);
   return results;
 }
 
 /**
- * Atualiza o gráfico de linha com dados reais dos últimos 7 dias
- * RFC-0073: Now respects shopping filters
+ * Atualiza o gráfico de linha com dados reais
+ * RFC-0073: Now respects shopping filters, equipment types, and visualization mode
  */
 async function updateLineChart(customerId) {
   try {
-    console.log('[ENERGY] [RFC-0073] Fetching 7 days consumption data...');
+    console.log('[ENERGY] [RFC-0073] Fetching consumption data with config:', chartConfig);
 
     // RFC-0073: Get filtered shopping IDs or use widget's customerId
     const selectedShoppingIds = getSelectedShoppingIds();
     const customerIds = selectedShoppingIds.length > 0 ? selectedShoppingIds : [customerId];
-
-    const sevenDaysData = await fetch7DaysConsumptionFiltered(customerIds);
 
     if (!lineChartInstance) {
       console.error('[ENERGY] Line chart instance not found');
       return;
     }
 
-    // Update chart data
-    lineChartInstance.data.labels = sevenDaysData.map((d) => d.date);
-    lineChartInstance.data.datasets[0].data = sevenDaysData.map((d) => d.consumption);
+    // RFC-0073: Update chart title based on period
+    const period = chartConfig.period || 7;
+    const titleElement = document.getElementById('lineChartTitle');
+    if (titleElement) {
+      titleElement.textContent = `Consumo dos últimos ${period} dias`;
+    }
 
-    // RFC-0073: Show which shoppings are included
-    const shoppingNames =
-      customerIds.length > 1 ? `${customerIds.length} Shoppings` : getShoppingNameForFilter(customerIds[0]);
+    // RFC-0073: Color palette for multiple shopping lines
+    const lineColors = [
+      '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
+      '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'
+    ];
 
-    lineChartInstance.data.datasets[0].label = `Consumo Total (${shoppingNames})`;
-    lineChartInstance.update();
+    // RFC-0073: Check visualization mode
+    if (chartConfig.vizMode === 'separate' && customerIds.length > 1) {
+      // Separate lines for each shopping
+      console.log('[ENERGY] [RFC-0073] Rendering separate lines for', customerIds.length, 'shoppings');
 
-    console.log('[ENERGY] [RFC-0073] Line chart updated with 7 days data (filtered)');
+      const datasets = [];
+      const allDates = new Set();
+
+      for (let i = 0; i < customerIds.length; i++) {
+        const cid = customerIds[i];
+        const shoppingName = getShoppingNameForFilter(cid);
+        const data = await fetch7DaysConsumptionFiltered([cid]);
+
+        data.forEach(d => allDates.add(d.date));
+
+        datasets.push({
+          label: shoppingName,
+          data: data.map(d => d.consumption),
+          borderColor: lineColors[i % lineColors.length],
+          backgroundColor: lineColors[i % lineColors.length] + '20',
+          fill: false,
+          tension: 0.3,
+          borderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+        });
+      }
+
+      // Update chart with multiple datasets
+      lineChartInstance.data.labels = Array.from(allDates).sort();
+      lineChartInstance.data.datasets = datasets;
+      lineChartInstance.update();
+
+      console.log('[ENERGY] [RFC-0073] Line chart updated with', datasets.length, 'separate lines');
+    } else {
+      // Total consolidated (single line)
+      const sevenDaysData = await fetch7DaysConsumptionFiltered(customerIds);
+
+      // Update chart data (single dataset)
+      lineChartInstance.data.labels = sevenDaysData.map((d) => d.date);
+      lineChartInstance.data.datasets = [{
+        label: customerIds.length > 1 ? `Consumo Total (${customerIds.length} Shoppings)` : `Consumo Total (${getShoppingNameForFilter(customerIds[0])})`,
+        data: sevenDaysData.map((d) => d.consumption),
+        borderColor: '#6c2fbf',
+        backgroundColor: 'rgba(108, 47, 191, 0.1)',
+        fill: true,
+        tension: 0.3,
+        borderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      }];
+      lineChartInstance.update();
+
+      console.log('[ENERGY] [RFC-0073] Line chart updated with consolidated total');
+    }
   } catch (error) {
     console.error('[ENERGY] Error updating line chart:', error);
   }
@@ -2275,7 +2341,7 @@ function openChartConfigModal() {
 
             <!-- Equipment Type Filters -->
             <div class="config-section">
-              <div class="section-label">Tipos de Equipamento</div>
+              <div class="section-label">Tipo</div>
               <div class="equipment-filters">
                 <label class="checkbox-option">
                   <input type="checkbox" class="equipment-type-filter" value="ELEVADOR" checked>
@@ -2300,6 +2366,10 @@ function openChartConfigModal() {
                 <label class="checkbox-option">
                   <input type="checkbox" class="equipment-type-filter" value="BOMBA" checked>
                   <span>Bombas</span>
+                </label>
+                <label class="checkbox-option">
+                  <input type="checkbox" class="equipment-type-filter" value="LOJA" checked>
+                  <span>Lojas</span>
                 </label>
               </div>
             </div>
@@ -2464,26 +2534,19 @@ async function applyChartConfiguration() {
     startDate = startDateObj.toISOString().split('T')[0];
   }
 
-  console.log('[ENERGY] [RFC-0073] Chart config:', {
-    period,
-    startDate,
-    endDate,
-    selectedEquipmentTypes,
-    vizMode,
-  });
+  // RFC-0073: Save configuration to global state
+  chartConfig.period = period === 'custom' ? 0 : parseInt(period);
+  chartConfig.startDate = startDate;
+  chartConfig.endDate = endDate;
+  chartConfig.equipmentTypes = selectedEquipmentTypes;
+  chartConfig.vizMode = vizMode;
 
-  // TODO: Update chart with new configuration
-  // For now, just close the modal
+  console.log('[ENERGY] [RFC-0073] Chart config saved:', chartConfig);
+
+  // Close the modal
   closeChartConfigModal();
 
-  // Show success message
-  alert(
-    `Configuração aplicada:\nPeríodo: ${period} dias\nEquipamentos: ${
-      selectedEquipmentTypes.length
-    } tipos selecionados\nModo: ${vizMode === 'total' ? 'Consolidado' : 'Separado'}`
-  );
-
-  // Update the chart
+  // Update the chart with new configuration
   const customerId = self.ctx.settings?.customerId;
   if (customerId) {
     await updateLineChart(customerId);

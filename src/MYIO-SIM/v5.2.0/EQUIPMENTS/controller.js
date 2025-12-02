@@ -758,8 +758,8 @@ self.onInit = async function () {
             ranges: rangesWithSource,
           });
 
-          // DEBUG ER 14
-          if (device.label && device.label.toLowerCase().includes('er 14')) {
+          // DEBUG ER 14  // TODO REMOVER DEPOIS
+          if (device.label && device.label.toLowerCase().includes('er 14') && 1 > 2) {
             console.log('╔══════════════════════════════════════════════════════════════╗');
             console.log('║                    DEBUG ER 14 - EQUIPMENTS                  ║');
             console.log('╚══════════════════════════════════════════════════════════════╝');
