@@ -1857,7 +1857,7 @@ async function hydrateAndRender() {
 self.onInit = async function () {
   $(self.ctx.$container).css({
     height: '100%',
-    overflow: 'hidden',
+    overflow: 'auto', // RFC-0093: Changed from 'hidden' to allow vertical scroll
     display: 'flex',
     flexDirection: 'column',
     position: 'relative',
