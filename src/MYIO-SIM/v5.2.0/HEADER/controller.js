@@ -1274,14 +1274,13 @@ function updateEnergyCardWithTotal(summary) {
     const formattedTotal = formatEnergy(unfilteredTotal);
     const percentage = Math.round((customerTotal / unfilteredTotal) * 100);
 
-    energyKpi.innerHTML = `${formattedFiltered} <span style="font-size: 0.7em; color: #666;">/ ${formattedTotal}</span>`;
-    energyKpi.style.fontSize = '0.9em';
+    // RFC-0093: Reduced font size and show filtered/total format
+    energyKpi.innerHTML = `${formattedFiltered} <span style="font-size: 0.65em; color: #666;">/ ${formattedTotal}</span>`;
+    energyKpi.style.fontSize = '0.85em';
 
-    // Show percentage in trend element (same style as Equipment card)
+    // Show percentage in subrow (same style as Equipment card)
     if (energyTrend) {
       energyTrend.innerText = `${percentage}%`;
-      energyTrend.className = 'chip trend';
-      energyTrend.style.display = '';
     }
 
     LogHelper.log(
@@ -1291,12 +1290,11 @@ function updateEnergyCardWithTotal(summary) {
     // Show only total when no filter or values are the same
     const formatted = formatEnergy(customerTotal);
     energyKpi.innerText = formatted;
-    energyKpi.style.fontSize = '0.9em';
+    energyKpi.style.fontSize = '0.85em';
 
-    // Hide percentage when not filtered
+    // Clear subrow when not filtered
     if (energyTrend) {
       energyTrend.innerText = '';
-      energyTrend.style.display = 'none';
     }
 
     LogHelper.log(`[HEADER] Energy card updated from summary: ${formatted}`);
@@ -1342,8 +1340,8 @@ function updateEnergyCard(energyCache) {
         ? MyIOLibrary.formatEnergy(val)
         : `${val.toFixed(2)} kWh`;
 
-    // Reduce font size for the KPI
-    energyKpi.style.fontSize = '0.9em';
+    // RFC-0093: Reduced font size for the KPI
+    energyKpi.style.fontSize = '0.85em';
 
     // Show "filtered / total" only when filter is active AND values are different
     const showComparative =
@@ -1354,13 +1352,11 @@ function updateEnergyCard(energyCache) {
       const formattedTotal = formatEnergy(unfilteredConsumption);
       const percentage = Math.round((filteredConsumption / unfilteredConsumption) * 100);
 
-      energyKpi.innerHTML = `${formattedFiltered} <span style="font-size: 0.7em; color: #666;">/ ${formattedTotal}</span>`;
+      energyKpi.innerHTML = `${formattedFiltered} <span style="font-size: 0.65em; color: #666;">/ ${formattedTotal}</span>`;
 
-      // Show percentage in trend element
+      // Show percentage in subrow (same style as Equipment card)
       if (energyTrend) {
         energyTrend.innerText = `${percentage}%`;
-        energyTrend.className = 'chip trend';
-        energyTrend.style.display = '';
       }
       LogHelper.log(
         `[HEADER] Energy card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`
@@ -1370,10 +1366,9 @@ function updateEnergyCard(energyCache) {
       const formatted = formatEnergy(filteredConsumption);
       energyKpi.innerText = formatted;
 
-      // Hide percentage when not filtered
+      // Clear subrow when not filtered
       if (energyTrend) {
         energyTrend.innerText = '';
-        energyTrend.style.display = 'none';
       }
       LogHelper.log(`[HEADER] Energy card updated: ${formatted}`);
     }
@@ -1438,8 +1433,8 @@ function updateWaterCard(waterCache) {
         ? MyIOLibrary.formatWaterVolumeM3(val)
         : `${val.toFixed(2)} m³`;
 
-    // Reduce font size for the KPI
-    waterKpi.style.fontSize = '0.9em';
+    // RFC-0093: Reduced font size for the KPI (matching energy card)
+    waterKpi.style.fontSize = '0.85em';
 
     // RFC-0093: Show "filtered / total" only when filter is active AND values are different
     const showComparative =
@@ -1450,13 +1445,12 @@ function updateWaterCard(waterCache) {
       const formattedTotal = formatWater(unfilteredConsumption);
       const percentage = Math.round((filteredConsumption / unfilteredConsumption) * 100);
 
-      waterKpi.innerHTML = `${formattedFiltered} <span style="font-size: 0.7em; color: #666;">/ ${formattedTotal}</span>`;
+      // RFC-0093: Use same font sizes as energy card (0.65em for comparison)
+      waterKpi.innerHTML = `${formattedFiltered} <span style="font-size: 0.65em; color: #666;">/ ${formattedTotal}</span>`;
 
-      // Show percentage in trend element (same style as Equipment card)
+      // Show percentage in subrow (same style as Equipment card)
       if (waterTrend) {
         waterTrend.innerText = `${percentage}%`;
-        waterTrend.className = 'chip trend';
-        waterTrend.style.display = '';
       }
       LogHelper.log(
         `[HEADER] Water card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`
@@ -1466,10 +1460,9 @@ function updateWaterCard(waterCache) {
       const formatted = formatWater(filteredConsumption);
       waterKpi.innerText = formatted;
 
-      // Hide percentage when not filtered
+      // Clear subrow when not filtered
       if (waterTrend) {
         waterTrend.innerText = '';
-        waterTrend.style.display = 'none';
       }
       LogHelper.log(`[HEADER] Water card updated: ${formatted}`);
     }
