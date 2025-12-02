@@ -19,388 +19,64 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error(...args),
 };
 
-const getDataApiHost = window.MyIOUtils?.getDataApiHost || (() =>
-  localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com'
-);
+const getDataApiHost =
+  window.MyIOUtils?.getDataApiHost ||
+  (() => {
+    console.error('[STORES] getDataApiHost not available - MAIN widget not loaded');
+    return localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com';
+  });
 
-LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
+// RFC-0071: Device Profile functions (from MAIN)
+const fetchDeviceProfiles =
+  window.MyIOUtils?.fetchDeviceProfiles ||
+  (() => {
+    console.error('[STORES] fetchDeviceProfiles not available - MAIN widget not loaded');
+    return Promise.resolve(new Map());
+  });
 
-// RFC-0086: Get shopping label from localStorage (set by WELCOME widget)
-function getShoppingLabel() {
-  try {
-    const stored = localStorage.getItem('__MYIO_SHOPPING_LABEL__');
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
-}
+const fetchDeviceDetails =
+  window.MyIOUtils?.fetchDeviceDetails ||
+  (() => {
+    console.error('[STORES] fetchDeviceDetails not available - MAIN widget not loaded');
+    return Promise.resolve({});
+  });
+
+const addDeviceProfileAttribute =
+  window.MyIOUtils?.addDeviceProfileAttribute ||
+  (() => {
+    console.error('[STORES] addDeviceProfileAttribute not available - MAIN widget not loaded');
+    return Promise.resolve({ ok: false, status: 0, data: null });
+  });
+
+const syncDeviceProfileAttributes =
+  window.MyIOUtils?.syncDeviceProfileAttributes ||
+  (() => {
+    console.error('[STORES] syncDeviceProfileAttributes not available - MAIN widget not loaded');
+    return Promise.resolve({ synced: 0, skipped: 0, errors: 0 });
+  });
+
+// RFC-0090: UI Helper from MAIN (replaces local getCustomerNameForDevice)
+const getCustomerNameForDevice =
+  window.MyIOUtils?.getCustomerNameForDevice ||
+  ((device) => {
+    console.error('[STORES] getCustomerNameForDevice not available - MAIN widget not loaded');
+    return device?.customerId ? `ID: ${device.customerId.substring(0, 8)}...` : 'N/A';
+  });
+
+// RFC-0091: Device status calculation functions from MAIN
+const getConsumptionRangesHierarchical = window.MyIOUtils?.getConsumptionRangesHierarchical;
+const mapConnectionStatus = window.MyIOUtils?.mapConnectionStatus || ((status) => status || 'offline');
+
+// RFC-0091: Global MAP_INSTANTANEOUS_POWER (will be loaded from settings if available)
+let MAP_INSTANTANEOUS_POWER = null;
+
+LogHelper.log('🚀 [STORES] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
+
 const MAX_FIRST_HYDRATES = 1;
 
 let __deviceProfileSyncComplete = false;
 
-// ============================================
-// RFC-0079: SUB-MENU NAVIGATION SYSTEM
-// ============================================
-
-// RFC-0079: Current sub-menu view state (default: 'stores' since this is STORES widget)
-let currentSubmenuView = 'stores'; // 'equipments' | 'stores' | 'general'
-
-/**
- * RFC-0079: Initialize sub-menu navigation
- */
-function initSubmenuNavigation() {
-  console.log('[RFC-0079] [STORES] 🚀 Initializing sub-menu navigation...');
-
-  const root = $root()[0];
-  if (!root) {
-    console.error('[RFC-0079] [STORES] ❌ Widget root not found, cannot initialize sub-menu');
-    return;
-  }
-
-  console.log('[RFC-0079] [STORES] ✅ Found widget root element:', root);
-
-  const submenuTabs = root.querySelectorAll('.submenu-tab');
-  console.log(`[RFC-0079] [STORES] 🔍 Found ${submenuTabs.length} sub-menu tabs`);
-
-  submenuTabs.forEach((tab, index) => {
-    const viewName = tab.getAttribute('data-submenu-view');
-    console.log(`[RFC-0079] [STORES] 📌 Tab ${index + 1}: data-submenu-view="${viewName}"`);
-
-    // Click handler
-    tab.addEventListener('click', (e) => {
-      console.log(`[RFC-0079] [STORES] 🖱️ Tab clicked: ${viewName}`);
-      const targetView = tab.getAttribute('data-submenu-view');
-      switchSubmenuView(targetView);
-    });
-
-    // Keyboard navigation support (WCAG 2.1 compliance)
-    tab.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        console.log(`[RFC-0079] [STORES] ⌨️ Tab keyboard activated: ${viewName}`);
-        const targetView = tab.getAttribute('data-submenu-view');
-        switchSubmenuView(targetView);
-      }
-    });
-  });
-
-  console.log('[RFC-0079] [STORES] ✅ Sub-menu navigation initialized successfully');
-}
-
-/**
- * RFC-0079: Switch between sub-menu views
- * @param {string} viewName - 'equipments' | 'stores' | 'general'
- */
-function switchSubmenuView(viewName) {
-  console.log(`[RFC-0079] [STORES] 🔵 switchSubmenuView called with: ${viewName}`);
-  console.log(`[RFC-0079] [STORES] 🔵 currentSubmenuView: ${currentSubmenuView}`);
-
-  if (currentSubmenuView === viewName) {
-    console.log(`[RFC-0079] [STORES] Already on ${viewName} view, skipping`);
-    return;
-  }
-
-  console.log(`[RFC-0079] [STORES] Switching from ${currentSubmenuView} → ${viewName}`);
-
-  const root = $root()[0];
-  if (!root) {
-    console.error('[RFC-0079] [STORES] ❌ Widget root not found!');
-    return;
-  }
-
-  // Update tab active states
-  root.querySelectorAll('.submenu-tab').forEach((tab) => {
-    const isActive = tab.getAttribute('data-submenu-view') === viewName;
-    tab.classList.toggle('is-active', isActive);
-    tab.setAttribute('aria-selected', isActive);
-  });
-
-  // RFC-0079: Request MAIN widget to switch state via event (no direct DOM manipulation)
-  let targetStateId = '';
-  switch (viewName) {
-    case 'equipments':
-      targetStateId = 'content_equipments';
-      break;
-    case 'stores':
-      targetStateId = 'content_store';
-      break;
-    case 'general':
-      targetStateId = 'content_energy';
-      break;
-  }
-
-  console.log(`[RFC-0079] [STORES] 🎯 Mapped viewName "${viewName}" → targetStateId "${targetStateId}"`);
-
-  if (targetStateId) {
-    const detail = { targetStateId, source: 'stores-submenu', ts: Date.now() };
-    console.log(`[RFC-0079] [STORES] 📡 Dispatching myio:switch-main-state event:`, detail);
-    window.dispatchEvent(new CustomEvent('myio:switch-main-state', { detail }));
-    console.log(`[RFC-0079] [STORES] ✅ Event dispatched successfully`);
-  } else {
-    console.error(`[RFC-0079] [STORES] ❌ No targetStateId mapped for viewName: ${viewName}`);
-  }
-
-  // Update current state
-  currentSubmenuView = viewName;
-
-  // Dispatch custom event for analytics/tracking
-  window.dispatchEvent(
-    new CustomEvent('myio:submenu-switch', {
-      detail: { view: viewName, source: 'stores', timestamp: Date.now() },
-    })
-  );
-}
-
-async function fetchDeviceProfiles() {
-  const token = localStorage.getItem('jwt_token');
-  if (!token) throw new Error('[RFC-0071] JWT token not found');
-
-  const url = '/api/deviceProfile/names?activeOnly=true';
-
-  console.log('[EQUIPMENTS] [RFC-0071] Fetching device profiles...');
-
-  const response = await fetch(url, {
-    headers: {
-      'X-Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`[RFC-0071] Failed to fetch device profiles: ${response.status}`);
-  }
-
-  const profiles = await response.json();
-
-  // Build Map: profileId -> profileName
-  const profileMap = new Map();
-  profiles.forEach((profile) => {
-    const profileId = profile.id.id;
-    const profileName = profile.name;
-    profileMap.set(profileId, profileName);
-  });
-
-  console.log(
-    `[EQUIPMENTS] [RFC-0071] Loaded ${profileMap.size} device profiles:`,
-    Array.from(profileMap.entries())
-      .map(([id, name]) => name)
-      .join(', ')
-  );
-
-  return profileMap;
-}
-
-/**
- * Fetches device details including deviceProfileId
- * @param {string} deviceId - Device entity ID
- * @returns {Promise<Object>}
- */
-async function fetchDeviceDetails(deviceId) {
-  const token = localStorage.getItem('jwt_token');
-  if (!token) throw new Error('[RFC-0071] JWT token not found');
-
-  const url = `/api/device/${deviceId}`;
-
-  const response = await fetch(url, {
-    headers: {
-      'X-Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`[RFC-0071] Failed to fetch device ${deviceId}: ${response.status}`);
-  }
-
-  return await response.json();
-}
-
-/**
- * Saves deviceProfile as a server-scope attribute on the device
- * @param {string} deviceId - Device entity ID
- * @param {string} deviceProfile - Profile name (e.g., "MOTOR", "3F_MEDIDOR")
- * @returns {Promise<{ok: boolean, status: number, data: any}>}
- */
-async function addDeviceProfileAttribute(deviceId, deviceProfile) {
-  const t = Date.now();
-
-  try {
-    if (!deviceId) throw new Error('deviceId is required');
-    if (deviceProfile == null || deviceProfile === '') {
-      throw new Error('deviceProfile is required');
-    }
-
-    const token = localStorage.getItem('jwt_token');
-    if (!token) throw new Error('jwt_token not found in localStorage');
-
-    const url = `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`;
-    const headers = {
-      'Content-Type': 'application/json',
-      'X-Authorization': `Bearer ${token}`,
-    };
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ deviceProfile }),
-    });
-
-    const bodyText = await res.text().catch(() => '');
-
-    if (!res.ok) {
-      throw new Error(`[RFC-0071] HTTP ${res.status} ${res.statusText} - ${bodyText}`);
-    }
-
-    let data = null;
-    try {
-      data = bodyText ? JSON.parse(bodyText) : null;
-    } catch {
-      // Response may not be JSON
-    }
-
-    const dt = Date.now() - t;
-    console.log(
-      `[EQUIPMENTS] [RFC-0071] ✅ Saved deviceProfile | device=${deviceId} | "${deviceProfile}" | ${dt}ms`
-    );
-
-    return { ok: true, status: res.status, data };
-  } catch (err) {
-    const dt = Date.now() - t;
-    console.error(
-      `[EQUIPMENTS] [RFC-0071] ❌ Failed to save deviceProfile | device=${deviceId} | "${deviceProfile}" | ${dt}ms | error: ${
-        err?.message || err
-      }`
-    );
-    throw err;
-  }
-}
-
-/**
- * Main synchronization function
- * Checks all devices and syncs missing deviceProfile attributes
- * @returns {Promise<{synced: number, skipped: number, errors: number}>}
- */
-async function syncDeviceProfileAttributes() {
-  console.log('[EQUIPMENTS] [RFC-0071] 🔄 Starting device profile synchronization...');
-
-  try {
-    // Step 1: Fetch all device profiles
-    const profileMap = await fetchDeviceProfiles();
-
-    let synced = 0;
-    let skipped = 0;
-    let errors = 0;
-
-    // Step 2: Build a map of devices that need sync
-    const deviceMap = new Map();
-
-    self.ctx.data.forEach((data) => {
-      const entityId = data.datasource?.entity?.id?.id;
-      const existingProfile = data.datasource?.deviceProfile;
-
-      if (!entityId) return;
-
-      // Skip if already has deviceProfile attribute
-      if (existingProfile) {
-        skipped++;
-        return;
-      }
-
-      // Store for processing (deduplicate by entityId)
-      if (!deviceMap.has(entityId)) {
-        deviceMap.set(entityId, {
-          entityLabel: data.datasource?.entityLabel,
-          entityName: data.datasource?.entityName,
-          name: data.datasource?.name,
-        });
-      }
-    });
-
-    console.log(`[EQUIPMENTS] [RFC-0071] Found ${deviceMap.size} devices without deviceProfile attribute`);
-    console.log(`[EQUIPMENTS] [RFC-0071] Skipped ${skipped} devices that already have deviceProfile`);
-
-    if (deviceMap.size === 0) {
-      console.log('[EQUIPMENTS] [RFC-0071] ✅ All devices already synchronized!');
-      return { synced: 0, skipped, errors: 0 };
-    }
-
-    // Step 3: Fetch device details and sync attributes
-    let processed = 0;
-    for (const [entityId, deviceInfo] of deviceMap) {
-      processed++;
-      const deviceLabel = deviceInfo.entityLabel || deviceInfo.entityName || deviceInfo.name || entityId;
-
-      try {
-        console.log(`[EQUIPMENTS] [RFC-0071] Processing ${processed}/${deviceMap.size}: ${deviceLabel}`);
-
-        // Fetch device details to get deviceProfileId
-        const deviceDetails = await fetchDeviceDetails(entityId);
-        const deviceProfileId = deviceDetails.deviceProfileId?.id;
-
-        if (!deviceProfileId) {
-          console.warn(`[EQUIPMENTS] [RFC-0071] ⚠️ Device ${deviceLabel} has no deviceProfileId`);
-          errors++;
-          continue;
-        }
-
-        // Look up profile name from map
-        const profileName = profileMap.get(deviceProfileId);
-
-        if (!profileName) {
-          console.warn(`[EQUIPMENTS] [RFC-0071] ⚠️ Profile ID ${deviceProfileId} not found in map`);
-          errors++;
-          continue;
-        }
-
-        // Save attribute
-        await addDeviceProfileAttribute(entityId, profileName);
-        synced++;
-
-        console.log(`[EQUIPMENTS] [RFC-0071] ✅ Synced ${deviceLabel} -> ${profileName}`);
-
-        // Small delay to avoid overwhelming the API
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      } catch (error) {
-        console.error(`[EQUIPMENTS] [RFC-0071] ❌ Failed to sync device ${deviceLabel}:`, error);
-        errors++;
-      }
-    }
-
-    console.log(
-      `[EQUIPMENTS] [RFC-0071] 🎉 Sync complete: ${synced} synced, ${skipped} skipped, ${errors} errors`
-    );
-
-    return { synced, skipped, errors };
-  } catch (error) {
-    console.error('[EQUIPMENTS] [RFC-0071] ❌ Fatal error during sync:', error);
-    throw error;
-  }
-}
-
-/**
- * Get telemetry data by dataKey name from self.ctx.data
- * @param {string} dataKeyName - The dataKey name to search for
- * @returns {*} The value of the data point, or null if not found
- */
-function getData(dataKeyName) {
-  if (!self?.ctx?.data) {
-    LogHelper.warn('[getData] No ctx.data available');
-    return null;
-  }
-
-  for (const device of self.ctx.data) {
-    if (device.dataKey && device.dataKey.name === dataKeyName) {
-      // Return the most recent value (last item in data array)
-      if (device.data && device.data.length > 0) {
-        const lastDataPoint = device.data[device.data.length - 1];
-        return lastDataPoint[1]; // [timestamp, value]
-      }
-    }
-  }
-
-  LogHelper.warn(`[getData] DataKey "${dataKeyName}" not found in ctx.data`);
-  return null;
-}
+// RFC-0090: getData REMOVED - was defined but never used in STORES
 
 let dateUpdateHandler = null;
 let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
@@ -513,55 +189,6 @@ function showBusy(message, timeoutMs = 35000) {
       }, 500);
     }
   };
-
-  // RFC-0051.3: Check if orchestrator exists and is ready
-  //   const checkOrchestratorReady = async () => {
-  //     // First, check if orchestrator exists and is ready
-  //     if (window.MyIOOrchestrator?.isReady) {
-  //       safeShowBusy();
-  //       return;
-  //     }
-
-  //     // Wait for orchestrator ready event (with timeout)
-  //     const ready = await new Promise((resolve) => {
-  //       let timeout;
-  //       let interval;
-
-  //       // Listen for ready event
-  //       const handler = () => {
-  //         clearTimeout(timeout);
-  //         clearInterval(interval);
-  //         window.removeEventListener("myio:orchestrator:ready", handler);
-  //         resolve(true);
-  //       };
-
-  //       window.addEventListener("myio:orchestrator:ready", handler);
-
-  //       // Timeout after 5 seconds
-  //       timeout = setTimeout(() => {
-  //         clearInterval(interval);
-  //         window.removeEventListener("myio:orchestrator:ready", handler);
-  //         LogHelper.warn(
-  //           "[TELEMETRY] ⚠️ Orchestrator ready timeout after 5s, using fallback"
-  //         );
-  //         resolve(false);
-  //       }, 5000);
-
-  //       // Also poll isReady flag (fallback if event is missed)
-  //       interval = setInterval(() => {
-  //         if (window.MyIOOrchestrator?.isReady) {
-  //           clearInterval(interval);
-  //           clearTimeout(timeout);
-  //           window.removeEventListener("myio:orchestrator:ready", handler);
-  //           resolve(true);
-  //         }
-  //       }, 100);
-  //     });
-
-  //     safeShowBusy();
-  //   };
-
-  //   checkOrchestratorReady();
 }
 
 function hideBusy() {
@@ -631,12 +258,7 @@ function hideBusy() {
   checkOrchestratorReady();
 }
 
-const findValue = (values, dataType, defaultValue = 'N/D') => {
-  const item = values.find((v) => v.dataType === dataType);
-  if (!item) return defaultValue;
-  // Retorna a propriedade 'val' (da nossa API) ou 'value' (do ThingsBoard)
-  return item.val !== undefined ? item.val : item.value;
-};
+// RFC-0090: findValue REMOVED - was defined but never used in STORES
 
 /** ===================== GLOBAL SUCCESS MODAL (fora do widget) ===================== **/
 const G_SUCCESS_ID = 'myio-global-success-modal';
@@ -727,7 +349,9 @@ function showGlobalSuccessModal(seconds = 6) {
       gSuccessTimer = null;
       try {
         window.location.reload();
-      } catch (_) {}
+      } catch (_e) {
+        /* ignore reload errors */
+      }
     }
   }, 1000);
 }
@@ -742,59 +366,18 @@ function hideGlobalSuccessModal() {
 }
 
 /** ===================== UTILS ===================== **/
-function escapeHtml(s) {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+// RFC-0090: escapeHtml REMOVED - was defined but never used in STORES
+// RFC-0090: toSpOffsetNoMs REMOVED - was defined but never used in STORES (no longer calling fetchApiTotals)
 
 function isValidUUID(v) {
   if (!v || typeof v !== 'string') return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 }
 
-function toSpOffsetNoMs(dt, endOfDay = false) {
-  const d = typeof dt === 'number' ? new Date(dt) : dt instanceof Date ? dt : new Date(String(dt));
-  if (Number.isNaN(d.getTime())) throw new Error('Invalid date');
-  if (endOfDay) d.setHours(23, 59, 59, 999);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(
-    2,
-    '0'
-  )}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(
-    d.getSeconds()
-  ).padStart(2, '0')}-03:00`;
-}
-
-// converts raw API value to the UI target unit
-function toTargetUnit(raw) {
-  /*
-  const x = Number(raw || 0);
-
-  if (DEVICE_TYPE === "energy") {
-    return MyIO.formatEnergy(x);
-  }
-
-  if (DEVICE_TYPE === "water") {
-    return MyIO.formatWaterVolumeM3(x);
-  }
-
-  if (DEVICE_TYPE === "tank") {
-    return MyIO.formatTankHeadFromCm(x);
-  }
-
-  // Default fallback for temperature or unknown types
-  return x;
-  */
-  // TODO Trecho comentado, pois já faz o tratamento no componente
-
-  return Number(raw || 0);
-}
 function mustGetDateRange() {
   const s = self.ctx?.scope?.startDateISO;
   const e = self.ctx?.scope?.endDateISO;
+
   if (s && e) return { startISO: s, endISO: e };
   throw new Error('DATE_RANGE_REQUIRED');
 }
@@ -802,32 +385,46 @@ function mustGetDateRange() {
 const isAuthReady = () => !!(MyIOAuth && typeof MyIOAuth.getToken === 'function');
 async function ensureAuthReady(maxMs = 6000, stepMs = 150) {
   const start = Date.now();
+
   while (!isAuthReady()) {
     if (Date.now() - start > maxMs) return false;
     await new Promise((r) => setTimeout(r, stepMs));
   }
+
   return true;
 }
 
 /** ===================== TB INDEXES ===================== **/
 function buildTbAttrIndex() {
-  const byTbId = new Map(); // tbId -> { slaveId, centralId, deviceType, centralName, lastConnectTime, lastActivityTime }
+  // RFC-0091: Extended to include deviceMapInstaneousPower, lastDisconnectTime, customerId, connectionStatus
+  const byTbId = new Map(); // tbId -> { slaveId, centralId, deviceType, centralName, lastConnectTime, lastActivityTime, ... }
   const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+
   for (const row of rows) {
     const key = String(row?.dataKey?.name || '').toLowerCase();
     const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
     const val = row?.data?.[0]?.[1];
+
     if (!tbId || val == null) continue;
     if (!byTbId.has(tbId))
       byTbId.set(tbId, {
         slaveId: null,
         centralId: null,
         deviceType: null,
+        deviceProfile: null,
         centralName: null,
         lastConnectTime: null,
         lastActivityTime: null,
+        // RFC-0091: Added for proper deviceStatus calculation
+        lastDisconnectTime: null,
+        deviceMapInstaneousPower: null,
+        customerId: null,
+        connectionStatus: null,
+        consumption_power: null, // Instantaneous power
       });
+
     const slot = byTbId.get(tbId);
+
     if (key === 'slaveid') slot.slaveId = val;
     if (key === 'centralid') slot.centralId = val;
     if (key === 'devicetype') slot.deviceType = val;
@@ -835,17 +432,25 @@ function buildTbAttrIndex() {
     if (key === 'centralname') slot.centralName = val;
     if (key === 'lastconnecttime') slot.lastConnectTime = val;
     if (key === 'lastactivitytime') slot.lastActivityTime = val;
+    // RFC-0091: New attributes for proper deviceStatus calculation
+    if (key === 'lastdisconnecttime') slot.lastDisconnectTime = val;
+    if (key === 'devicemapinstaneouspower') slot.deviceMapInstaneousPower = val;
+    if (key === 'customerid') slot.customerId = val;
+    if (key === 'connectionstatus') slot.connectionStatus = val;
+    if (key === 'consumption_power') slot.consumption_power = val;
   }
   return byTbId;
 }
 function buildTbIdIndexes() {
   const byIdentifier = new Map(); // identifier -> tbId
   const byIngestion = new Map(); // ingestionId -> tbId
+
   const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
   for (const row of rows) {
     const key = String(row?.dataKey?.name || '').toLowerCase();
     const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
     const val = row?.data?.[0]?.[1];
+
     if (!tbId || val == null) continue;
     if (key === 'identifier') byIdentifier.set(String(val), tbId);
     if (key === 'ingestionid') byIngestion.set(String(val), tbId);
@@ -857,28 +462,17 @@ function buildTbIdIndexes() {
 function buildAuthoritativeItems() {
   // items da LIB: [{ id: ingestionId, identifier, label }, ...]
   const base = MyIO.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data) || [];
-
-  //LogHelper.log("[TELEMETRY][buildAuthoritativeItems] base: ", base);
-
   const ok = Array.isArray(base) ? base.filter((x) => x && x.id) : [];
-
   const tbIdIdx = buildTbIdIndexes(); // { byIdentifier, byIngestion }
   const attrsByTb = buildTbAttrIndex(); // tbId -> { slaveId, centralId, deviceType }
 
   const mapped = ok.map((r) => {
-    //LogHelper.log("[TELEMETRY][buildAuthoritativeItems] ok.map: ", r);
-
     const ingestionId = r.id;
     const tbFromIngestion = ingestionId ? tbIdIdx.byIngestion.get(ingestionId) : null;
     const tbFromIdentifier = r.identifier ? tbIdIdx.byIdentifier.get(r.identifier) : null;
 
     let tbId = tbFromIngestion || tbFromIdentifier || null;
     if (tbFromIngestion && tbFromIdentifier && tbFromIngestion !== tbFromIdentifier) {
-      /*
-      LogHelper.warn("[DeviceCards] TB id mismatch for item", {
-        label: r.label, identifier: r.identifier, ingestionId, tbFromIngestion, tbFromIdentifier
-      });
-      */
       tbId = tbFromIngestion;
     }
 
@@ -900,43 +494,26 @@ function buildAuthoritativeItems() {
       centralId: attrs.centralId ?? null,
       centralName: attrs.centralName ?? null,
       deviceType: deviceTypeToDisplay,
+      deviceProfile: deviceProfile, // RFC-0091: Added for Settings
       updatedIdentifiers: {},
       connectionStatusTime: attrs.lastConnectTime ?? null,
       timeVal: attrs.lastActivityTime ?? null,
+      // RFC-0091: Added for proper deviceStatus calculation and Settings
+      lastDisconnectTime: attrs.lastDisconnectTime ?? null,
+      lastConnectTime: attrs.lastConnectTime ?? null,
+      deviceMapInstaneousPower: attrs.deviceMapInstaneousPower ?? null,
+      customerId: attrs.customerId ?? null,
+      connectionStatus: attrs.connectionStatus ?? 'offline',
+      consumption_power: attrs.consumption_power ?? null, // Instantaneous power
     };
   });
 
-  //LogHelper.log(`[DeviceCards] TB items: ${mapped.length}`);
   return mapped;
 }
 
-async function fetchApiTotals(startISO, endISO) {
-  if (!isAuthReady()) throw new Error('Auth not ready');
-  const token = await MyIOAuth.getToken();
-  if (!token) throw new Error('No ingestion token');
-
-  const url = new URL(
-    `${getDataApiHost()}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/energy/devices/totals`
-  );
-  url.searchParams.set('startTime', toSpOffsetNoMs(startISO));
-  url.searchParams.set('endTime', toSpOffsetNoMs(endISO, true));
-  url.searchParams.set('deep', '1');
-
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    LogHelper.warn('[DeviceCards] API fetch failed:', res.status);
-    return new Map();
-  }
-
-  const json = await res.json();
-  const rows = Array.isArray(json) ? json : json?.data ?? [];
-  const map = new Map();
-  for (const r of rows) if (r && r.id) map.set(String(r.id), r);
-  //LogHelper.log(`[DeviceCards] API rows: ${rows.length}, map keys: ${map.size}`);
-  return map;
-}
+// RFC-0090: fetchApiTotals REMOVED - now using Orchestrator cache
+// The Orchestrator already fetches data once for all widgets,
+// so STORES just uses the cached data instead of making redundant API calls
 
 function enrichItemsWithTotals(items, apiMap) {
   return items.map((it) => {
@@ -947,7 +524,7 @@ function enrichItemsWithTotals(items, apiMap) {
       raw = Number(row?.total_value ?? 0);
     }
 
-    const value = Number(raw || 0); // toTargetUnit(raw); TODO verificar se ainda precisa dessa chamada
+    const value = Number(raw || 0);
 
     return { ...it, value, perc: 0 };
   });
@@ -1011,37 +588,7 @@ function recomputePercentages(visible) {
   return { visible: updated, groupSum };
 }
 
-/**
- * Get shopping name for a device
- * @param {Object} device - Device object
- * @returns {string} Shopping name or fallback
- */
-function getShoppingNameForDevice(device) {
-  // Priority 1: Check if customerId exists and look it up
-  if (device.customerId && window.custumersSelected && Array.isArray(window.custumersSelected)) {
-    const shopping = window.custumersSelected.find((c) => c.value === device.customerId);
-    if (shopping) return shopping.name;
-  }
-
-  // Priority 2: Try to get from energyCache via ingestionId
-  if (device.ingestionId) {
-    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
-    if (orchestrator && typeof orchestrator.getEnergyCache === 'function') {
-      const energyCache = orchestrator.getEnergyCache();
-      const cached = energyCache.get(device.ingestionId);
-      if (cached && cached.customerName) {
-        return cached.customerName;
-      }
-    }
-  }
-
-  // Priority 3: Fallback to customerId substring
-  if (device.customerId) {
-    return `Shopping ${device.customerId.substring(0, 8)}...`;
-  }
-
-  return 'N/A';
-}
+// RFC-0090: getCustomerNameForDevice REMOVED - now using getCustomerNameForDevice from MAIN
 
 /** ===================== RENDER ===================== **/
 
@@ -1113,7 +660,7 @@ function renderHeader(count, groupSum) {
   $total().text(formattedTotal);
 }
 
-function renderList(visible) {
+async function renderList(visible) {
   const listElement = $list()[0];
   if (!listElement) {
     console.error('[STORES] shopsList element not found via $list()');
@@ -1125,12 +672,16 @@ function renderList(visible) {
   // 1. Carrega índices para garantir UUID do ThingsBoard
   const idx = buildTbIdIndexes();
 
-  visible.forEach((it) => {
+  // RFC-0091: Process items with async deviceStatus calculation
+  for (const it of visible) {
     const container = document.createElement('div');
     listElement.appendChild(container);
 
     const valNum = Number(it.value || 0);
-    const connectionStatus = valNum > 0 ? 'power_on' : 'power_off';
+
+    // RFC-0091: Proper connectionStatus mapping using MAIN utility
+    const rawConnectionStatus = it.connectionStatus || 'offline';
+    const mappedConnectionStatus = mapConnectionStatus(rawConnectionStatus);
 
     // ... (lógica de identifier mantida igual) ...
     let deviceIdentifierToDisplay = 'N/A';
@@ -1156,7 +707,7 @@ function renderList(visible) {
       }
     }
 
-    const customerName = getShoppingNameForDevice(it);
+    const customerName = getCustomerNameForDevice(it);
 
     // 2. Resolução Robusta do UUID (TB ID)
     let resolvedTbId = it.tbId;
@@ -1165,6 +716,57 @@ function renderList(visible) {
         (it.ingestionId && idx.byIngestion.get(it.ingestionId)) ||
         (it.identifier && idx.byIdentifier.get(it.identifier)) ||
         it.id;
+    }
+
+    const deviceType = it.label.includes('dministra') ? '3F_MEDIDOR' : it.deviceType;
+
+    // RFC-0091: Calculate deviceStatus using hierarchical ranges (same as EQUIPMENTS)
+    let deviceStatus = mappedConnectionStatus === 'online' ? 'power_on' : 'power_off';
+
+    // Parse deviceMapInstaneousPower if available (TIER 0 - highest priority)
+    let deviceMapLimits = null;
+    if (it.deviceMapInstaneousPower && typeof it.deviceMapInstaneousPower === 'string') {
+      try {
+        deviceMapLimits = JSON.parse(it.deviceMapInstaneousPower);
+        LogHelper.log(`[RFC-0091] ✅ Found deviceMapInstaneousPower in ctx.data for ${resolvedTbId}`);
+      } catch (e) {
+        LogHelper.warn(`[RFC-0091] Failed to parse deviceMapInstaneousPower for ${resolvedTbId}:`, e.message);
+      }
+    }
+
+    // Get instantaneous power from item data
+    const instantaneousPower = Number(it.consumption_power) || null;
+
+    // Calculate deviceStatus using ranges if available
+    if (
+      getConsumptionRangesHierarchical &&
+      typeof MyIOLibrary.calculateDeviceStatusWithRanges === 'function'
+    ) {
+      try {
+        const rangesWithSource = await getConsumptionRangesHierarchical(
+          resolvedTbId,
+          deviceType,
+          deviceMapLimits || window.__customerConsumptionLimits, // TIER 0 (deviceMap) > TIER 2 (customer)
+          'consumption',
+          null
+        );
+
+        // If deviceMapLimits was used, update the source to reflect it
+        if (deviceMapLimits && rangesWithSource.source === 'customer') {
+          rangesWithSource.source = 'deviceMap';
+          rangesWithSource.tier = 0;
+          LogHelper.log(`[RFC-0091] Using deviceMapInstaneousPower (TIER 0) for ${resolvedTbId}`);
+        }
+
+        // Calculate device status using range-based calculation
+        deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
+          connectionStatus: mappedConnectionStatus,
+          lastConsumptionValue: instantaneousPower,
+          ranges: rangesWithSource,
+        });
+      } catch (e) {
+        LogHelper.warn(`[RFC-0091] Failed to calculate deviceStatus for ${resolvedTbId}:`, e.message);
+      }
     }
 
     // 3. Montagem do Objeto idêntico ao widget de Equipamentos
@@ -1190,18 +792,28 @@ function renderList(visible) {
       domain: 'energy',
 
       // Metadados
-      deviceType: it.label.includes('dministra') ? '3F_MEDIDOR' : it.deviceType,
-      deviceStatus: connectionStatus,
+      deviceType: deviceType,
+      deviceProfile: it.deviceProfile || 'N/D', // RFC-0091: Added for Settings
+      deviceStatus: deviceStatus, // RFC-0091: Now properly calculated
       perc: it.perc ?? 0,
 
       // IDs secundários
       slaveId: it.slaveId || 'N/A',
       ingestionId: it.ingestionId || 'N/A',
       centralId: it.centralId || 'N/A',
+      customerId: it.customerId || null, // RFC-0091: Added for Settings
 
       updatedIdentifiers: it.updatedIdentifiers || {},
       connectionStatusTime: it.connectionStatusTime || Date.now(),
       timeVal: it.timeVal || Date.now(),
+
+      // RFC-0091: Additional data for Settings modal
+      lastDisconnectTime: it.lastDisconnectTime || 0,
+      lastConnectTime: it.lastConnectTime || 0,
+      lastActivityTime: it.timeVal || null,
+      instantaneousPower: instantaneousPower, // Potência instantânea (kW)
+      mapInstantaneousPower: MAP_INSTANTANEOUS_POWER, // Global map from settings
+      deviceMapInstaneousPower: it.deviceMapInstaneousPower || null, // Device-specific map
     };
 
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
@@ -1272,35 +884,59 @@ function renderList(visible) {
       },
 
       handleActionSettings: async () => {
-        // ... (seu código existente de settings mantido igual)
+        // RFC-0091: Standardized settings handler following EQUIPMENTS pattern
         const jwt = localStorage.getItem('jwt_token');
-        let tbId = entityObject.entityId;
+
+        if (!jwt) {
+          LogHelper.error('[STORES] [RFC-0091] JWT token not found');
+          window.alert('Token de autenticação não encontrado');
+          return;
+        }
+
+        const tbId = entityObject.entityId;
         if (!tbId || tbId === it.ingestionId) {
           alert('ID inválido');
           return;
         }
 
         try {
+          // RFC-0091: Following exact EQUIPMENTS pattern with all parameters
           await MyIOLibrary.openDashboardPopupSettings({
-            deviceId: tbId,
+            deviceId: tbId, // TB deviceId
             label: it.label,
             jwtToken: jwt,
-            domain: WIDGET_DOMAIN,
+            domain: WIDGET_DOMAIN, // Same as EQUIPMENTS
+            deviceType: entityObject.deviceType, // RFC-0091: Pass deviceType for Power Limits feature
+            deviceProfile: entityObject.deviceProfile, // RFC-0091: Pass deviceProfile for 3F_MEDIDOR fallback
+            customerName: entityObject.customerName, // RFC-0091: Pass shopping name
             connectionData: {
-              centralName: it.centralName,
-              connectionStatusTime: it.connectionStatusTime || Date.now(),
-              timeVal: it.timeVal || Date.now(),
-              deviceStatus: connectionStatus,
+              centralName: entityObject.centralName,
+              connectionStatusTime: entityObject.connectionStatusTime,
+              timeVal: entityObject.timeVal || new Date('1970-01-01').getTime(),
+              deviceStatus:
+                entityObject.deviceStatus !== 'power_off' && entityObject.deviceStatus !== 'not_installed'
+                  ? 'power_on'
+                  : 'power_off',
+              lastDisconnectTime: entityObject.lastDisconnectTime || 0,
             },
             ui: { title: 'Configurações', width: 900 },
-            onSaved: () => showGlobalSuccessModal(6),
+            mapInstantaneousPower: entityObject.mapInstantaneousPower, // RFC-0091: Pass global map if available
+            onSaved: (payload) => {
+              LogHelper.log('[STORES] [RFC-0091] Settings saved:', payload);
+              showGlobalSuccessModal(6);
+            },
             onClose: () => {
-              const o = document.querySelector('.myio-settings-modal-overlay');
-              if (o) o.remove();
+              $('.myio-settings-modal-overlay').remove();
+              const overlay = document.querySelector('.myio-modal-overlay');
+              if (overlay) {
+                overlay.remove();
+              }
+              LogHelper.log('[STORES] [RFC-0091] Settings modal closed');
             },
           });
         } catch (e) {
-          console.error(e);
+          LogHelper.error('[STORES] [RFC-0091] Error opening settings:', e);
+          window.alert('Erro ao abrir configurações');
         }
       },
 
@@ -1321,7 +957,7 @@ function renderList(visible) {
       enableDragDrop: true,
       hideInfoMenuItem: true,
     });
-  });
+  }
 
   console.log(`[STORES] Rendered ${visible.length} store cards`);
 }
@@ -1342,61 +978,61 @@ function bindHeader() {
   $root().on('click', '#btnFilter', () => openFilterModal());
 }
 
+// ============================================
+// RFC-0090: STORES FILTER MODAL (using shared factory from MAIN)
+// ============================================
+
+// Helper function to get store consumption value
+function getStoreConsumption(store) {
+  return Number(store.value) || Number(store.consumption) || Number(store.val) || 0;
+}
+
+// Filter modal instance (lazy initialized)
+let storesFilterModal = null;
+
 /**
- * RFC-0072: Setup modal close handlers (called after modal is moved to document.body)
+ * RFC-0090: Initialize filter modal using shared factory from MAIN
  */
-function setupModalCloseHandlers(modal) {
-  // Close button
-  const closeBtn = modal.querySelector('#closeFilter');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', closeFilterModal);
+function initFilterModal() {
+  const createFilterModal = window.MyIOUtils?.createFilterModal;
+
+  if (!createFilterModal) {
+    LogHelper.error('[STORES] createFilterModal not available from MAIN');
+    return null;
   }
 
-  // Backdrop click
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      closeFilterModal();
-    }
-  });
+  return createFilterModal({
+    widgetName: 'STORES',
+    containerId: 'storesFilterModalGlobal',
+    modalClass: 'shops-modal',
+    primaryColor: '#3E1A7D',
+    itemIdAttr: 'data-entity',
 
-  // Apply filters button
-  const applyBtn = modal.querySelector('#applyFilters');
-  if (applyBtn) {
-    applyBtn.addEventListener('click', () => {
-      // Get selected stores
-      const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']:checked");
-      const selectedSet = new Set();
-      checkboxes.forEach((cb) => {
-        const entityId = cb.getAttribute('data-entity');
-        if (entityId) selectedSet.add(entityId);
-      });
+    // Filter tabs configuration - specific for STORES (simpler than EQUIPMENTS)
+    filterTabs: [
+      { id: 'all', label: 'Todos', filter: () => true },
+      { id: 'online', label: 'Online', filter: (s) => getStoreConsumption(s) > 0 },
+      { id: 'offline', label: 'Offline', filter: (s) => getStoreConsumption(s) === 0 },
+      { id: 'withConsumption', label: 'Com Consumo', filter: (s) => getStoreConsumption(s) > 0 },
+      { id: 'noConsumption', label: 'Sem Consumo', filter: (s) => getStoreConsumption(s) === 0 },
+    ],
 
-      // If all stores are selected, treat as "no filter"
-      STATE.selectedIds = selectedSet.size === STATE.itemsBase.length ? null : selectedSet;
+    // Data accessors
+    getItemId: (store) => store.id,
+    getItemLabel: (store) => store.label || store.identifier || store.id,
+    getItemValue: getStoreConsumption,
+    getItemSubLabel: (store) => getCustomerNameForDevice(store),
+    formatValue: (val) => (WIDGET_DOMAIN === 'energy' ? MyIO.formatEnergy(val) : val.toFixed(2)),
 
-      // Get sort mode
-      const sortRadio = modal.querySelector('input[name="sortMode"]:checked');
-      if (sortRadio) {
-        STATE.sortMode = sortRadio.value;
-      }
-
-      console.log('[STORES] [RFC-0072] Filters applied:', {
-        selectedCount: STATE.selectedIds?.size || STATE.itemsBase.length,
-        totalStores: STATE.itemsBase.length,
-        sortMode: STATE.sortMode,
-      });
-
-      // Apply filters and close modal
+    // Callbacks
+    onApply: ({ selectedIds, sortMode }) => {
+      STATE.selectedIds = selectedIds;
+      STATE.sortMode = sortMode;
       reflowFromState();
-      closeFilterModal();
-    });
-  }
+      LogHelper.log('[STORES] [RFC-0090] Filters applied via shared modal');
+    },
 
-  // Reset filters button
-  const resetBtn = modal.querySelector('#resetFilters');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
-      // Reset state
+    onReset: () => {
       STATE.selectedIds = null;
       STATE.sortMode = 'cons_desc';
       STATE.searchTerm = '';
@@ -1408,464 +1044,53 @@ function setupModalCloseHandlers(modal) {
       if (searchInput) searchInput.value = '';
       if (searchWrap) searchWrap.classList.remove('active');
 
-      // Apply and close
       reflowFromState();
-      closeFilterModal();
+      LogHelper.log('[STORES] [RFC-0090] Filters reset via shared modal');
+    },
 
-      console.log('[STORES] [RFC-0072] Filters reset');
-    });
-  }
-
-  // Bind filter tab click handlers
-  const filterTabs = modal.querySelectorAll('.filter-tab');
-  filterTabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
-      const filterType = tab.getAttribute('data-filter');
-
-      // Update active state
-      filterTabs.forEach((t) => t.classList.remove('active'));
-      tab.classList.add('active');
-
-      // Use itemsEnriched (has consumption values) with fallback to itemsBase
-      const sourceList =
-        STATE.itemsEnriched && STATE.itemsEnriched.length > 0 ? STATE.itemsEnriched : STATE.itemsBase || [];
-
-      // Filter checkboxes based on selected tab
-      const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']");
-      checkboxes.forEach((cb) => {
-        const entityId = cb.getAttribute('data-entity');
-        const store = sourceList.find((s) => s.id === entityId);
-
-        if (!store) return;
-
-        // Use store.value first (set by enrichItemsWithTotals), then fallbacks
-        const consumption = Number(store.value) || Number(store.consumption) || Number(store.val) || 0;
-        let shouldCheck = false;
-
-        switch (filterType) {
-          case 'all':
-            shouldCheck = true;
-            break;
-          case 'online':
-            shouldCheck = consumption > 0;
-            break;
-          case 'offline':
-            shouldCheck = consumption === 0;
-            break;
-          case 'with-consumption':
-            shouldCheck = consumption > 0;
-            break;
-          case 'no-consumption':
-            shouldCheck = consumption === 0;
-            break;
-        }
-
-        cb.checked = shouldCheck;
-      });
-
-      // Count how many checkboxes are now checked
-      const checkedCount = Array.from(checkboxes).filter((cb) => cb.checked).length;
-      console.log(
-        `[STORES] Filter tab selected: ${filterType}, checked: ${checkedCount}/${checkboxes.length}`
-      );
-    });
+    onClose: () => {
+      LogHelper.log('[STORES] [RFC-0090] Filter modal closed');
+    },
   });
-
-  // Bind filter device search inside modal
-  const filterDeviceSearch = modal.querySelector('#filterDeviceSearch');
-  if (filterDeviceSearch) {
-    filterDeviceSearch.addEventListener('input', (e) => {
-      const query = (e.target.value || '').trim().toLowerCase();
-      const checkItems = modal.querySelectorAll('#deviceChecklist .check-item');
-
-      checkItems.forEach((item) => {
-        const span = item.querySelector('span');
-        const text = (span?.textContent || '').toLowerCase();
-        item.style.display = text.includes(query) ? 'flex' : 'none';
-      });
-    });
-  }
-
-  // Bind clear filter search button
-  const filterDeviceClear = modal.querySelector('#filterDeviceClear');
-  if (filterDeviceClear && filterDeviceSearch) {
-    filterDeviceClear.addEventListener('click', () => {
-      filterDeviceSearch.value = '';
-      const checkItems = modal.querySelectorAll('#deviceChecklist .check-item');
-      checkItems.forEach((item) => (item.style.display = 'flex'));
-      filterDeviceSearch.focus();
-    });
-  }
-
-  console.log('[STORES] [RFC-0072] Modal handlers bound (close, apply, reset, filter tabs, search)');
 }
 
+/**
+ * RFC-0090: Open filter modal
+ */
 function openFilterModal() {
-  console.log('[STORES] [RFC-0072] Opening filter modal...');
-
-  // Check if data has been loaded (itemsEnriched has real values, not all zeros)
-  const hasRealData =
-    STATE.itemsEnriched &&
-    STATE.itemsEnriched.length > 0 &&
-    STATE.itemsEnriched.some((item) => Number(item.value) > 0);
-
-  if (!hasRealData && STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
-    console.warn('[STORES] ⚠️ Filter modal opened before data loaded - values may be zero');
+  // Lazy initialize modal
+  if (!storesFilterModal) {
+    storesFilterModal = initFilterModal();
   }
 
-  // RFC-0072: Move modal to document.body for full-screen overlay
-  let globalContainer = document.getElementById('storesFilterModalGlobal');
-
-  if (!globalContainer) {
-    globalContainer = document.createElement('div');
-    globalContainer.id = 'storesFilterModalGlobal';
-
-    // Get the modal from the widget
-    const widgetModal = $root().find('#filterModal')[0];
-    if (widgetModal) {
-      // Add inline styles for the global container
-      globalContainer.innerHTML = `
-        <style>
-          #storesFilterModalGlobal .shops-modal {
-            position: fixed !important;
-            inset: 0 !important;
-            z-index: 999999 !important;
-            background: rgba(0, 0, 0, 0.6) !important;
-            backdrop-filter: blur(4px) !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            animation: fadeIn 0.2s ease-in;
-          }
-
-          #storesFilterModalGlobal .shops-modal.hidden {
-            display: none !important;
-          }
-
-          #storesFilterModalGlobal .shops-modal-card {
-            background: #fff;
-            border-radius: 16px;
-            width: 90%;
-            max-width: 900px;
-            max-height: 90vh;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-          }
-
-          #storesFilterModalGlobal .shops-modal-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 20px;
-            border-bottom: 1px solid #E8EEF4;
-          }
-
-          #storesFilterModalGlobal .shops-modal-header h3 {
-            margin: 0;
-            font-size: 16px;
-            font-weight: 700;
-            color: #3E1A7D;
-          }
-
-          #storesFilterModalGlobal .shops-modal-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-          }
-
-          #storesFilterModalGlobal .shops-modal-footer {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-            padding: 16px 20px;
-            border-top: 1px solid #E8EEF4;
-          }
-
-          #storesFilterModalGlobal .filter-tabs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 16px;
-          }
-
-          #storesFilterModalGlobal .filter-tab {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 8px 12px;
-            background: #fff;
-            border: 1px solid #D6E1EC;
-            border-radius: 8px;
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.3px;
-            color: #6b7a90;
-            cursor: pointer;
-            transition: all 0.2s;
-          }
-
-          #storesFilterModalGlobal .filter-tab:hover {
-            background: #f7fbff;
-            border-color: #1f6fb5;
-            color: #1f6fb5;
-          }
-
-          #storesFilterModalGlobal .filter-tab.active {
-            background: linear-gradient(135deg, rgba(62, 26, 125, 0.08) 0%, rgba(62, 26, 125, 0.12) 100%);
-            border-color: #3E1A7D;
-            color: #3E1A7D;
-            font-weight: 700;
-          }
-
-          #storesFilterModalGlobal .filter-search {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border: 1px solid #D6E1EC;
-            border-radius: 8px;
-            padding: 8px 12px;
-            margin-bottom: 12px;
-          }
-
-          #storesFilterModalGlobal .filter-search input {
-            flex: 1;
-            border: none;
-            outline: none;
-            font-size: 13px;
-          }
-
-          #storesFilterModalGlobal .filter-search svg {
-            width: 18px;
-            height: 18px;
-            fill: #6b7a90;
-          }
-
-          #storesFilterModalGlobal .filter-search .clear-x {
-            border: none;
-            background: transparent;
-            cursor: pointer;
-            padding: 0;
-          }
-
-          #storesFilterModalGlobal .checklist {
-            max-height: 300px;
-            overflow-y: auto;
-            border: 1px solid #D6E1EC;
-            border-radius: 8px;
-            padding: 8px;
-          }
-
-          #storesFilterModalGlobal .check-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px;
-            border-radius: 6px;
-            cursor: pointer;
-          }
-
-          #storesFilterModalGlobal .check-item:hover {
-            background: #f8f9fa;
-          }
-
-          #storesFilterModalGlobal .check-item input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-          }
-
-          #storesFilterModalGlobal .check-item span {
-            font-size: 13px;
-            color: #1C2743;
-          }
-
-          #storesFilterModalGlobal .btn {
-            padding: 10px 16px;
-            border: 1px solid #D6E1EC;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-          }
-
-          #storesFilterModalGlobal .btn.primary {
-            background: #3E1A7D;
-            color: #fff;
-            border-color: #3E1A7D;
-          }
-
-          #storesFilterModalGlobal .btn.primary:hover {
-            background: #2F1460;
-          }
-
-          #storesFilterModalGlobal .block-label {
-            font-size: 14px;
-            font-weight: 600;
-            color: #1C2743;
-            margin-bottom: 8px;
-          }
-
-          #storesFilterModalGlobal .radio-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-          }
-
-          #storesFilterModalGlobal .radio-grid label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px;
-            border: 1px solid #D6E1EC;
-            border-radius: 8px;
-            font-size: 13px;
-            cursor: pointer;
-          }
-
-          #storesFilterModalGlobal .radio-grid label:hover {
-            background: #f8f9fa;
-          }
-
-          #storesFilterModalGlobal .muted {
-            font-size: 12px;
-            color: #6b7a90;
-            margin-top: 4px;
-          }
-
-          #storesFilterModalGlobal .icon-btn {
-            border: 0;
-            background: transparent;
-            cursor: pointer;
-            padding: 4px;
-          }
-
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
-        </style>
-      `;
-
-      // Move modal content to global container
-      widgetModal.remove();
-      globalContainer.appendChild(widgetModal);
-
-      // Attach to document.body
-      document.body.appendChild(globalContainer);
-
-      // Bind close handlers now that modal is in document.body
-      setupModalCloseHandlers(widgetModal);
-
-      console.log('[STORES] [RFC-0072] Modal moved to document.body with inline styles and handlers');
-    } else {
-      console.error('[STORES] [RFC-0072] Filter modal not found in template');
-      return;
-    }
-  }
-
-  const modal = globalContainer.querySelector('#filterModal');
-  if (!modal) return;
-
-  modal.classList.remove('hidden');
-
-  // Calculate counts for filter tabs
-  // Use itemsEnriched (has consumption values) with fallback to itemsBase
-  const list =
-    STATE.itemsEnriched && STATE.itemsEnriched.length > 0 ? STATE.itemsEnriched : STATE.itemsBase || [];
-  const counts = {
-    all: list.length,
-    online: 0,
-    offline: 0,
-    withConsumption: 0,
-    noConsumption: 0,
-  };
-
-  list.forEach((store) => {
-    const consumption = Number(store.value) || Number(store.consumption) || Number(store.val) || 0;
-
-    // Use consumption as proxy for online/offline status
-    if (consumption > 0) {
-      counts.online++;
-      counts.withConsumption++;
-    } else {
-      counts.offline++;
-      counts.noConsumption++;
-    }
-  });
-
-  // Update count displays (use globalContainer since modal is moved to document.body)
-  const countAll = globalContainer.querySelector('#countAll');
-  const countOnline = globalContainer.querySelector('#countOnline');
-  const countOffline = globalContainer.querySelector('#countOffline');
-  const countWithConsumption = globalContainer.querySelector('#countWithConsumption');
-  const countNoConsumption = globalContainer.querySelector('#countNoConsumption');
-
-  if (countAll) countAll.textContent = counts.all;
-  if (countOnline) countOnline.textContent = counts.online;
-  if (countOffline) countOffline.textContent = counts.offline;
-  if (countWithConsumption) countWithConsumption.textContent = counts.withConsumption;
-  if (countNoConsumption) countNoConsumption.textContent = counts.noConsumption;
-
-  console.log('[STORES] Filter counts:', counts);
-
-  // Populate device checklist
-  const checklist = globalContainer.querySelector('#deviceChecklist');
-  if (!checklist) {
-    console.error('[STORES] ❌ deviceChecklist element not found!');
+  if (!storesFilterModal) {
+    LogHelper.error('[STORES] Failed to initialize filter modal');
+    window.alert('Erro ao inicializar modal de filtros. Verifique se o widget MAIN foi carregado.');
     return;
   }
 
-  checklist.innerHTML = '';
+  // Use itemsEnriched if available (has consumption values), otherwise itemsBase
+  const items =
+    STATE.itemsEnriched && STATE.itemsEnriched.length > 0 ? STATE.itemsEnriched : STATE.itemsBase || [];
 
-  const sortedList = list
-    .slice()
-    .sort((a, b) => (a.label || '').localeCompare(b.label || '', 'pt-BR', { sensitivity: 'base' }));
-
-  sortedList.forEach((store) => {
-    const isChecked = !STATE.selectedIds || STATE.selectedIds.has(store.id);
-
-    // Get shopping name and consumption value
-    const shoppingName = getShoppingNameForDevice(store);
-    const consumption = Number(store.value) || Number(store.consumption) || Number(store.val) || 0;
-    const formattedConsumption =
-      WIDGET_DOMAIN === 'energy' ? MyIO.formatEnergy(consumption) : consumption.toFixed(2);
-
-    const item = document.createElement('div');
-    item.className = 'check-item';
-    item.innerHTML = `
-      <input type="checkbox" id="check-${store.id}" ${isChecked ? 'checked' : ''} data-entity="${store.id}">
-      <span style="flex: 1;">${escapeHtml(store.label || store.identifier || store.id)}</span>
-      <span style="color: #64748b; font-size: 11px; margin-right: 8px;">${escapeHtml(shoppingName)}</span>
-      <span style="color: ${
-        consumption > 0 ? '#16a34a' : '#94a3b8'
-      }; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedConsumption}</span>
-    `;
-    checklist.appendChild(item);
+  // Open with current stores and state
+  storesFilterModal.open(items, {
+    selectedIds: STATE.selectedIds,
+    sortMode: STATE.sortMode,
   });
-
-  // Set sort mode
-  const sortRadio = modal.querySelector(`input[name="sortMode"][value="${STATE.sortMode}"]`);
-  if (sortRadio) sortRadio.checked = true;
-
-  console.log(`[STORES] Filter modal opened with ${list.length} stores`);
 }
+
+/**
+ * RFC-0090: Close filter modal (for backward compatibility)
+ */
 function closeFilterModal() {
-  // Try to find modal in global container first
-  const globalContainer = document.getElementById('storesFilterModalGlobal');
-  if (globalContainer) {
-    const modal = globalContainer.querySelector('#filterModal');
-    if (modal) {
-      modal.classList.add('hidden');
-      console.log('[STORES] [RFC-0072] Filter modal closed');
-      return;
-    }
+  if (storesFilterModal) {
+    storesFilterModal.close();
   }
-  // Fallback to original method
-  $modal().addClass('hidden');
 }
 
 function bindModal() {
+  // RFC-0090: Modal is now handled by shared factory, but keep legacy bindings for fallback
   $root().on('click', '#closeFilter', closeFilterModal);
 
   $root().on('click', '#selectAll', (ev) => {
@@ -2452,11 +1677,11 @@ function emitWaterTelemetry(widgetType, periodKey) {
 }
 
 /** ===================== RECOMPUTE (local only) ===================== **/
-function reflowFromState() {
+async function reflowFromState() {
   const visible = applyFilters(STATE.itemsEnriched, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
   const { visible: withPerc, groupSum } = recomputePercentages(visible);
   renderHeader(withPerc.length, groupSum);
-  renderList(withPerc);
+  await renderList(withPerc); // RFC-0091: renderList is now async
 
   // Update stats header (Conectividade, Total de Lojas, Consumo, Sem Consumo)
   // Use all enriched items for stats, not just visible/filtered ones
@@ -2479,27 +1704,42 @@ async function hydrateAndRender() {
     try {
       range = mustGetDateRange();
     } catch (_e) {
-      LogHelper.warn('[DeviceCards] Aguardando intervalo de datas (startDateISO/endDateISO).');
+      LogHelper.warn('[STORES] Aguardando intervalo de datas (startDateISO/endDateISO).');
       return;
     }
 
     // 1) Auth
     const okAuth = await ensureAuthReady(6000, 150);
     if (!okAuth) {
-      LogHelper.warn('[DeviceCards] Auth not ready; adiando hidratação.');
+      LogHelper.warn('[STORES] Auth not ready; adiando hidratação.');
       return;
     }
 
     // 2) Lista autoritativa
     STATE.itemsBase = buildAuthoritativeItems();
 
-    // 3) Totais na API
+    // 3) RFC-0090: Use Orchestrator cache instead of direct API fetch
+    // The Orchestrator already fetches data for all widgets, so we just use its cache
     let apiMap = new Map();
-    try {
-      apiMap = await fetchApiTotals(range.startISO, range.endISO);
-    } catch (err) {
-      LogHelper.error('[DeviceCards] API error:', err);
-      apiMap = new Map();
+    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+
+    if (orchestrator && typeof orchestrator.getCache === 'function') {
+      const energyCache = orchestrator.getCache(WIDGET_DOMAIN);
+      if (energyCache && energyCache.size > 0) {
+        // Convert cache to apiMap format expected by enrichItemsWithTotals
+        energyCache.forEach((item, ingestionId) => {
+          apiMap.set(ingestionId, {
+            id: ingestionId,
+            total_value: item.total_value || item.value || 0,
+            ...item,
+          });
+        });
+        LogHelper.log(`[STORES] Using ${apiMap.size} items from Orchestrator cache`);
+      } else {
+        LogHelper.warn('[STORES] Orchestrator cache is empty, waiting for data...');
+      }
+    } else {
+      LogHelper.warn('[STORES] Orchestrator not available, data will come via provide-data event');
     }
 
     // 4) Enrich + render
@@ -2581,104 +1821,6 @@ self.onInit = async function () {
     );
   }
 
-  // Listener com modal: evento externo de mudança de data
-  //   dateUpdateHandler = function (ev) {
-  //     LogHelper.log(
-  //       `[TELEMETRY ${WIDGET_DOMAIN}] ✅ DATE UPDATE EVENT RECEIVED!`,
-  //       ev.detail
-  //     );
-
-  //     try {
-  //       // RFC-0042: Handle both old and new format
-  //       let startISO, endISO;
-
-  //       if (ev.detail?.period) {
-  //         // New format from HEADER
-  //         startISO = ev.detail.period.startISO;
-  //         endISO = ev.detail.period.endISO;
-  //         LogHelper.log(
-  //           `[TELEMETRY ${WIDGET_DOMAIN}] Using NEW format (period object)`
-  //         );
-  //       } else {
-  //         // Old format (backward compatibility)
-  //         const { startDate, endDate } = ev.detail || {};
-  //         startISO = new Date(startDate).toISOString();
-  //         endISO = new Date(endDate).toISOString();
-  //         LogHelper.log(
-  //           `[TELEMETRY ${WIDGET_DOMAIN}] Using OLD format (startDate/endDate)`
-  //         );
-  //       }
-
-  //       LogHelper.log(
-  //         `[TELEMETRY ${WIDGET_DOMAIN}] Date range updated:`,
-  //         startISO,
-  //         endISO
-  //       );
-
-  //       // Datas mandatórias salvas no scope
-  //       self.ctx.scope = self.ctx.scope || {};
-  //       self.ctx.scope.startDateISO = startISO;
-  //       self.ctx.scope.endDateISO = endISO;
-
-  //       // IMPORTANT: Reset lastProcessedPeriodKey when new date range is selected
-  //       // This allows processing fresh data for the new period
-  //       lastProcessedPeriodKey = null;
-  //       LogHelper.log(
-  //         `[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Reset lastProcessedPeriodKey for new date range`
-  //       );
-
-  //       // Exibe modal
-  //       LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Calling showBusy()...`);
-  //       showBusy();
-  //       LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ showBusy() called`);
-
-  //       // RFC-0045 FIX: Check if there's a pending provide-data event waiting for this period
-  //       if (pendingProvideData) {
-  //         LogHelper.log(
-  //           `[TELEMETRY ${WIDGET_DOMAIN}] ✅ Found pending provide-data event, processing now...`
-  //         );
-  //         const pending = pendingProvideData;
-  //         pendingProvideData = null; // Clear pending event
-
-  //         // Process the pending event immediately
-  //         dataProvideHandler({ detail: pending });
-  //         return; // Don't request data again, we already have it
-  //       }
-
-  //       // RFC-0053: Direct access to orchestrator (single window context)
-  //       const orchestrator = window.MyIOOrchestrator;
-
-  //       if (orchestrator) {
-  //         LogHelper.log(
-  //           `[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Requesting data from orchestrator (single window)`
-  //         );
-
-  //         // IMPORTANT: Mark as requested BEFORE calling requestDataFromOrchestrator
-  //         // This prevents the setTimeout(500ms) from making a duplicate request
-  //         hasRequestedInitialData = true;
-
-  //         requestDataFromOrchestrator();
-  //       } else {
-  //         // Fallback to old behavior
-  //         LogHelper.warn(
-  //           `[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Orchestrator not available, using legacy fetch`
-  //         );
-  //         if (typeof hydrateAndRender === "function") {
-  //           hydrateAndRender();
-  //         } else {
-  //           LogHelper.error(
-  //             `[TELEMETRY ${WIDGET_DOMAIN}] hydrateAndRender não encontrada.`
-  //           );
-  //         }
-  //       }
-  //     } catch (err) {
-  //       LogHelper.error(
-  //         `[TELEMETRY ${WIDGET_DOMAIN}] dateUpdateHandler error:`,
-  //         err
-  //       );
-  //       hideBusy();
-  //     }
-  //   };
   dateUpdateHandler = function (ev) {
     LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ DATE UPDATE EVENT RECEIVED!`, ev.detail);
 
@@ -2831,29 +1973,10 @@ self.onInit = async function () {
     // IMPORTANT: Do NOT call showBusy() here - it was already called in dateUpdateHandler
     // Calling it again creates a NEW timeout that won't be properly cancelled
     LogHelper.log(`[TELEMETRY] 🔄 Processing data from orchestrator...`);
-
     LogHelper.log(`[TELEMETRY] Received ${items.length} items from orchestrator for domain ${domain}`);
 
     // Extract my datasource IDs
     const myDatasourceIds = extractDatasourceIds(self.ctx.datasources);
-    //LogHelper.log(`[TELEMETRY] My datasource IDs:`, myDatasourceIds);
-    //LogHelper.log(`[TELEMETRY] Sample orchestrator items:`, items.slice(0, 3));
-
-    // RFC-0042: Debug datasources structure to understand the mapping
-    /*
-    if (self.ctx.datasources && self.ctx.datasources.length > 0) {
-      LogHelper.log(`[TELEMETRY] Datasource[0] keys:`, Object.keys(self.ctx.datasources[0]));
-      LogHelper.log(`[TELEMETRY] Datasource[0] entityId:`, self.ctx.datasources[0].entityId);
-      LogHelper.log(`[TELEMETRY] Datasource[0] entityName:`, self.ctx.datasources[0].entityName);
-      LogHelper.log(`[TELEMETRY] Datasource[0] full:`, JSON.stringify(self.ctx.datasources[0], null, 2));
-    }
-    if (self.ctx.data && self.ctx.data.length > 0) {
-      LogHelper.log(`[TELEMETRY] Data[0] keys:`, Object.keys(self.ctx.data[0]));
-      LogHelper.log(`[TELEMETRY] Data[0] full:`, JSON.stringify(self.ctx.data[0], null, 2));
-    }
-      */
-
-    // Data filtering is done by datasource IDs (ThingsBoard handles grouping)
 
     // RFC-0042: Filter items by datasource IDs
     // ThingsBoard datasource entityId should match API item id (ingestionId)
@@ -2916,11 +2039,6 @@ self.onInit = async function () {
       if (item.ingestionId) {
         const value = Number(item.value || 0);
         orchestratorValues.set(item.ingestionId, value);
-
-        // Debug: log non-zero values from API
-        if (value > 0) {
-          //LogHelper.log(`[TELEMETRY] ✅ Orchestrator has data: ${item.label} (${item.ingestionId}) = ${value}`);
-        }
       }
     });
     LogHelper.log(`[TELEMETRY] Orchestrator values map size: ${orchestratorValues.size}`);
@@ -2928,13 +2046,6 @@ self.onInit = async function () {
     // Update values in existing items
     STATE.itemsEnriched = STATE.itemsBase.map((tbItem) => {
       const orchestratorValue = orchestratorValues.get(tbItem.ingestionId);
-
-      // DEBUG: Log matching process for all items
-      if (orchestratorValue !== undefined && orchestratorValue > 0) {
-        //LogHelper.log(`[TELEMETRY] ✅ MATCH FOUND: ${tbItem.label} (ingestionId: ${tbItem.ingestionId}) = ${orchestratorValue}`);
-      } else {
-        //LogHelper.warn(`[TELEMETRY] ❌ NO MATCH: ${tbItem.label} (ingestionId: ${tbItem.ingestionId}), orchestrator=${orchestratorValue}, TB=${tbItem.value}`);
-      }
 
       return {
         ...tbItem,
@@ -3021,99 +2132,10 @@ self.onInit = async function () {
 
   window.addEventListener('myio:telemetry:update', requestRefreshHandler);
 
-  // RFC: REMOVED - Fix selection integration with FOOTER
-  //
-  // PROBLEMA ENCONTRADO: Este listener estava causando logs triplicados porque os 3 widgets TELEMETRY
-  // (energy, water, temperature) estavam todos escutando o evento global 'myio:device-params' emitido
-  // quando qualquer checkbox era marcado (veja template-card-v5.js).
-  //
-  // SOLUÇÃO: O registro da entidade já é feito no template-card-v5.js via:
-  //   MyIOSelectionStore.registerEntity(cardEntity);
-  // E a adição/remoção já é feita no template-card-v5.js via checkbox event handler:
-  //   MyIOSelectionStore.add(entityId) / MyIOSelectionStore.remove(entityId);
-  //
-  // Portanto, NÃO precisamos deste listener aqui - ele estava causando registros e logs duplicados!
-  //
-  // Se precisar reagir a mudanças de seleção, use:
-  //   MyIOSelectionStore.on('selection:change', handler);
-  //
-  /*
-  window.addEventListener('myio:device-params', (ev) => {
-    try {
-      LogHelper.log("[TELEMETRY] Card selected:", ev.detail);
-      // ... código removido ...
-    }
-  });
-
-  window.addEventListener('myio:device-params-remove', (ev) => {
-    try {
-      LogHelper.log("[TELEMETRY] Card deselected:", ev.detail);
-      // ... código removido ...
-    }
-  });
-  */
-  // Check for stored data from orchestrator (in case we missed the event)
-  //   setTimeout(() => {
-  //     // RFC-0053: Direct access to orchestrator data (single window context)
-  //     const orchestratorData = window.MyIOOrchestratorData;
-
-  //     LogHelper.log(
-  //       `[TELEMETRY ${WIDGET_DOMAIN}] 🔍 Checking for stored orchestrator data...`
-  //     );
-
-  //     // First, try stored data
-  //     if (orchestratorData && orchestratorData[WIDGET_DOMAIN]) {
-  //       const storedData = orchestratorData[WIDGET_DOMAIN];
-  //       const age = Date.now() - storedData.timestamp;
-
-  //       LogHelper.log(
-  //         `[TELEMETRY ${WIDGET_DOMAIN}] Found stored data: ${
-  //           storedData.items?.length || 0
-  //         } items, age: ${age}ms`
-  //       );
-
-  //       // Use stored data if it's less than 30 seconds old AND has items
-  //       if (age < 30000 && storedData.items && storedData.items.length > 0) {
-  //         LogHelper.log(
-  //           `[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Using stored orchestrator data (single window)`
-  //         );
-  //         dataProvideHandler({
-  //           detail: {
-  //             domain: WIDGET_DOMAIN,
-  //             periodKey: storedData.periodKey,
-  //             items: storedData.items,
-  //           },
-  //         });
-  //         return;
-  //       } else {
-  //         LogHelper.log(
-  //           `[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Stored data is too old or empty, ignoring`
-  //         );
-  //       }
-  //     } else {
-  //       LogHelper.log(
-  //         `[TELEMETRY ${WIDGET_DOMAIN}] ℹ️ No stored data found for domain ${WIDGET_DOMAIN}`
-  //       );
-  //     }
-
-  //     // If no stored data AND we haven't requested yet, request fresh data
-  //     if (!hasRequestedInitialData) {
-  //       LogHelper.log(
-  //         `[TELEMETRY ${WIDGET_DOMAIN}] 📡 Requesting fresh data from orchestrator...`
-  //       );
-  //       requestDataFromOrchestrator();
-  //     } else {
-  //       LogHelper.log(
-  //         `[TELEMETRY ${WIDGET_DOMAIN}] ⏭️ Skipping duplicate request (already requested via event)`
-  //       );
-  //     }
-  //   }, 500); // Wait 500ms for widget to fully initialize
-
   // Auth do cliente/ingestion
   const customerTB_ID = self.ctx.settings?.customerTB_ID || '';
   //DEVICE_TYPE = self.ctx.settings?.DEVICE_TYPE || "energy";
   const jwt = localStorage.getItem('jwt_token');
-
   const boolExecSync = false;
 
   // RFC-0071: Trigger device profile synchronization (runs once)
@@ -3157,7 +2179,9 @@ self.onInit = async function () {
     LogHelper.log('[DeviceCards] Auth init OK');
     try {
       await MyIOAuth.getToken();
-    } catch (_) {}
+    } catch (_e) {
+      /* ignore token errors */
+    }
   } catch (err) {
     LogHelper.error('[DeviceCards] Auth init FAIL', err);
   }
@@ -3220,9 +2244,6 @@ self.onInit = async function () {
       }
     }, 200);
   }
-
-  // RFC-0079: Sub-menu navigation removed - now controlled by MENU widget
-  // initSubmenuNavigation();
 };
 
 // onDataUpdated removido (no-op por ora)
@@ -3246,16 +2267,18 @@ self.onDestroy = function () {
     LogHelper.log("[RFC-0056] Event listener 'myio:telemetry:update' removido.");
   }
 
-  // RFC-0072: Clean up global filter modal container
-  const globalContainer = document.getElementById('storesFilterModalGlobal');
-  if (globalContainer) {
-    globalContainer.remove();
-    console.log('[STORES] [RFC-0072] Global modal container removed on destroy');
+  // RFC-0090: Cleanup filter modal using shared factory
+  if (storesFilterModal) {
+    storesFilterModal.destroy();
+    storesFilterModal = null;
+    LogHelper.log('[STORES] [RFC-0090] Filter modal destroyed');
   }
 
   try {
     $root().off();
-  } catch (_e) {}
+  } catch (_e) {
+    /* ignore cleanup errors */
+  }
   hideBusy();
   hideGlobalSuccessModal();
 };

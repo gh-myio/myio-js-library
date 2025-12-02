@@ -1,4 +1,4 @@
-/* global self, ctx, window, document, localStorage, MyIOLibrary */
+/* global self, window, document, localStorage, MyIOLibrary */
 
 // ============================================
 // MYIO SHARED UTILITIES (exposed globally)
@@ -211,7 +211,7 @@ async function fetchDeviceProfiles() {
   LogHelper.log(
     `[MAIN] [RFC-0071] Loaded ${profileMap.size} device profiles:`,
     Array.from(profileMap.entries())
-      .map(([id, name]) => name)
+      .map(([_id, name]) => name)
       .join(', ')
   );
 
@@ -932,6 +932,667 @@ async function fetchCustomerServerScopeAttrs(customerTbId) {
   return map;
 }
 
+// ============================================
+// RFC-0090: SHARED FILTER MODAL FACTORY
+// Creates reusable filter modal for EQUIPMENTS and STORES widgets
+// ============================================
+
+/**
+ * Factory function to create a filter modal with customizable filter tabs
+ * @param {Object} config - Modal configuration
+ * @param {string} config.widgetName - Widget identifier (e.g., 'EQUIPMENTS', 'STORES')
+ * @param {string} config.containerId - Global container ID (e.g., 'equipmentsFilterModalGlobal')
+ * @param {string} config.modalClass - CSS class for modal (e.g., 'equip-modal', 'shops-modal')
+ * @param {string} config.primaryColor - Primary theme color (e.g., '#2563eb', '#3E1A7D')
+ * @param {string} config.itemIdAttr - Data attribute for item ID (e.g., 'data-device-id', 'data-entity')
+ * @param {Array} config.filterTabs - Array of filter tab configurations
+ * @param {Function} config.getItemId - Function to get item ID from item object
+ * @param {Function} config.getItemLabel - Function to get item label from item object
+ * @param {Function} config.getItemValue - Function to get item consumption value
+ * @param {Function} config.getItemSubLabel - Function to get secondary label (shopping name)
+ * @param {Function} config.formatValue - Function to format consumption value
+ * @param {Function} config.onApply - Callback when filters are applied
+ * @param {Function} config.onReset - Callback when filters are reset
+ * @param {Function} config.onClose - Callback when modal is closed
+ * @returns {Object} Modal controller with open, close, and destroy methods
+ */
+function createFilterModal(config) {
+  const {
+    widgetName = 'WIDGET',
+    containerId,
+    modalClass = 'filter-modal',
+    primaryColor = '#2563eb',
+    itemIdAttr = 'data-item-id',
+    filterTabs = [],
+    getItemId = (item) => item.id,
+    getItemLabel = (item) => item.label || item.name,
+    getItemValue = (item) => Number(item.value) || 0,
+    getItemSubLabel = () => '',
+    formatValue = (val) => val.toFixed(2),
+    onApply = () => {},
+    onReset = () => {},
+    onClose = () => {},
+  } = config;
+
+  let globalContainer = null;
+  let escHandler = null;
+
+  // Generate CSS styles with customizable primary color
+  function generateStyles() {
+    return `
+      /* RFC-0090: Shared Filter Modal Styles for ${widgetName} */
+      #${containerId} .${modalClass} {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 999999;
+        backdrop-filter: blur(4px);
+        animation: filterModalFadeIn 0.2s ease-in;
+      }
+
+      #${containerId} .${modalClass}.hidden {
+        display: none;
+      }
+
+      #${containerId} .${modalClass}-card {
+        background: #fff;
+        border-radius: 0;
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        display: flex;
+        flex-direction: column;
+        box-shadow: none;
+        overflow: hidden;
+      }
+
+      @media (min-width: 768px) {
+        #${containerId} .${modalClass}-card {
+          border-radius: 16px;
+          width: 90%;
+          max-width: 1000px;
+          height: auto;
+          max-height: 90vh;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+      }
+
+      #${containerId} .${modalClass}-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid #DDE7F1;
+      }
+
+      #${containerId} .${modalClass}-header h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        color: #1C2743;
+      }
+
+      #${containerId} .${modalClass}-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      #${containerId} .${modalClass}-footer {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        padding: 16px 20px;
+        border-top: 1px solid #DDE7F1;
+      }
+
+      #${containerId} .filter-block {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      #${containerId} .block-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1C2743;
+      }
+
+      #${containerId} .filter-tabs {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #E6EEF5;
+      }
+
+      #${containerId} .filter-tab {
+        border: 1px solid #DDE7F1;
+        background: #fff;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #6b7a90;
+        white-space: nowrap;
+      }
+
+      #${containerId} .filter-tab:hover {
+        background: #f7fbff;
+        border-color: ${primaryColor};
+        color: #1C2743;
+      }
+
+      #${containerId} .filter-tab.active {
+        background: ${primaryColor};
+        border-color: ${primaryColor};
+        color: #fff;
+      }
+
+      #${containerId} .filter-tab span {
+        font-weight: 700;
+      }
+
+      #${containerId} .filter-search {
+        position: relative;
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      #${containerId} .filter-search svg {
+        position: absolute;
+        left: 12px;
+        width: 18px;
+        height: 18px;
+        fill: #6b7a90;
+      }
+
+      #${containerId} .filter-search input {
+        width: 100%;
+        padding: 10px 12px 10px 40px;
+        border: 2px solid #DDE7F1;
+        border-radius: 10px;
+        font-size: 14px;
+        outline: none;
+      }
+
+      #${containerId} .filter-search input:focus {
+        border-color: ${primaryColor};
+      }
+
+      #${containerId} .filter-search .clear-x {
+        position: absolute;
+        right: 12px;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        padding: 4px;
+      }
+
+      #${containerId} .checklist {
+        min-height: 150px;
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #DDE7F1;
+        border-radius: 10px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      #${containerId} .check-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 6px;
+        transition: background 0.2s;
+      }
+
+      #${containerId} .check-item:hover {
+        background: #f8f9fa;
+      }
+
+      #${containerId} .check-item input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+      }
+
+      #${containerId} .check-item label {
+        flex: 1;
+        cursor: pointer;
+        font-size: 14px;
+        color: #1C2743;
+      }
+
+      #${containerId} .radio-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+
+      #${containerId} .radio-grid label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid #DDE7F1;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      #${containerId} .radio-grid label:hover {
+        background: #f8f9fa;
+        border-color: ${primaryColor};
+      }
+
+      #${containerId} .radio-grid input[type="radio"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+      }
+
+      #${containerId} .btn {
+        padding: 10px 16px;
+        border: 1px solid #DDE7F1;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      #${containerId} .btn:hover {
+        background: #f8f9fa;
+      }
+
+      #${containerId} .btn.primary {
+        background: ${primaryColor};
+        color: #fff;
+        border-color: ${primaryColor};
+      }
+
+      #${containerId} .btn.primary:hover {
+        filter: brightness(0.9);
+      }
+
+      #${containerId} .icon-btn {
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: background 0.2s;
+      }
+
+      #${containerId} .icon-btn:hover {
+        background: #f0f0f0;
+      }
+
+      #${containerId} .icon-btn svg {
+        width: 18px;
+        height: 18px;
+        fill: #1C2743;
+      }
+
+      @keyframes filterModalFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      body.filter-modal-open {
+        overflow: hidden !important;
+      }
+    `;
+  }
+
+  // Generate filter tabs HTML
+  function generateFilterTabsHTML(counts) {
+    return filterTabs
+      .map(
+        (tab) => `
+        <button class="filter-tab${tab.id === 'all' ? ' active' : ''}" data-filter="${tab.id}">
+          ${tab.label} (<span id="count${tab.id.charAt(0).toUpperCase() + tab.id.slice(1)}">${counts[tab.id] || 0}</span>)
+        </button>
+      `
+      )
+      .join('');
+  }
+
+  // Generate modal HTML
+  function generateModalHTML() {
+    return `
+      <div id="filterModal" class="${modalClass} hidden">
+        <div class="${modalClass}-card">
+          <div class="${modalClass}-header">
+            <h3>Filtrar e Ordenar</h3>
+            <button class="icon-btn" id="closeFilter">
+              <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+          </div>
+          <div class="${modalClass}-body">
+            <!-- Filter Tabs -->
+            <div class="filter-block">
+              <div class="filter-tabs" id="filterTabsContainer"></div>
+            </div>
+
+            <!-- Search -->
+            <div class="filter-block">
+              <div class="filter-search">
+                <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                <input type="text" id="filterDeviceSearch" placeholder="Buscar...">
+                <button class="clear-x" id="filterDeviceClear">
+                  <svg width="14" height="14" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="#6b7a90"/></svg>
+                </button>
+              </div>
+              <div class="checklist" id="deviceChecklist"></div>
+            </div>
+
+            <!-- Sort Options -->
+            <div class="filter-block">
+              <span class="block-label">Ordenar por</span>
+              <div class="radio-grid">
+                <label><input type="radio" name="sortMode" value="cons_desc" checked> Maior consumo</label>
+                <label><input type="radio" name="sortMode" value="cons_asc"> Menor consumo</label>
+                <label><input type="radio" name="sortMode" value="alpha_asc"> A → Z</label>
+                <label><input type="radio" name="sortMode" value="alpha_desc"> Z → A</label>
+              </div>
+            </div>
+          </div>
+          <div class="${modalClass}-footer">
+            <button class="btn" id="resetFilters">Limpar Filtros</button>
+            <button class="btn primary" id="applyFilters">Aplicar</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Setup event handlers
+  function setupHandlers(modal, items, _state) {
+    // Close button
+    const closeBtn = modal.querySelector('#closeFilter');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', close);
+    }
+
+    // Backdrop click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        close();
+      }
+    });
+
+    // Apply filters
+    const applyBtn = modal.querySelector('#applyFilters');
+    if (applyBtn) {
+      applyBtn.addEventListener('click', () => {
+        const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']:checked`);
+        const selectedSet = new Set();
+        checkboxes.forEach((cb) => {
+          const itemId = cb.getAttribute(itemIdAttr);
+          if (itemId) selectedSet.add(itemId);
+        });
+
+        const sortRadio = modal.querySelector('input[name="sortMode"]:checked');
+        const sortMode = sortRadio ? sortRadio.value : 'cons_desc';
+
+        LogHelper.log(`[${widgetName}] Filters applied:`, {
+          selectedCount: selectedSet.size,
+          totalItems: items.length,
+          sortMode,
+        });
+
+        onApply({
+          selectedIds: selectedSet.size === items.length ? null : selectedSet,
+          sortMode,
+        });
+
+        close();
+      });
+    }
+
+    // Reset filters
+    const resetBtn = modal.querySelector('#resetFilters');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        LogHelper.log(`[${widgetName}] Filters reset`);
+        onReset();
+        close();
+      });
+    }
+
+    // Filter tabs
+    const filterTabsEl = modal.querySelectorAll('.filter-tab');
+    filterTabsEl.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const filterType = tab.getAttribute('data-filter');
+
+        // Update active state
+        filterTabsEl.forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        // Apply filter to checkboxes
+        const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
+        checkboxes.forEach((cb) => {
+          const itemId = cb.getAttribute(itemIdAttr);
+          const item = items.find((i) => getItemId(i) === itemId);
+
+          if (!item) return;
+
+          // Find the filter function for this tab
+          const tabConfig = filterTabs.find((t) => t.id === filterType);
+          cb.checked = tabConfig ? tabConfig.filter(item) : true;
+        });
+
+        const checkedCount = Array.from(checkboxes).filter((cb) => cb.checked).length;
+        LogHelper.log(`[${widgetName}] Filter tab: ${filterType}, checked: ${checkedCount}/${checkboxes.length}`);
+      });
+    });
+
+    // Search inside modal
+    const searchInput = modal.querySelector('#filterDeviceSearch');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        const query = (e.target.value || '').trim().toLowerCase();
+        const checkItems = modal.querySelectorAll('#deviceChecklist .check-item');
+
+        checkItems.forEach((item) => {
+          const label = item.querySelector('label');
+          const text = (label?.textContent || '').toLowerCase();
+          item.style.display = text.includes(query) ? 'flex' : 'none';
+        });
+      });
+    }
+
+    // Clear search
+    const clearBtn = modal.querySelector('#filterDeviceClear');
+    if (clearBtn && searchInput) {
+      clearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        const checkItems = modal.querySelectorAll('#deviceChecklist .check-item');
+        checkItems.forEach((item) => (item.style.display = 'flex'));
+        searchInput.focus();
+      });
+    }
+
+    // ESC key handler
+    escHandler = (e) => {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+        close();
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    LogHelper.log(`[${widgetName}] Modal handlers bound`);
+  }
+
+  // Calculate counts for each filter tab
+  function calculateCounts(items) {
+    const counts = {};
+    filterTabs.forEach((tab) => {
+      counts[tab.id] = items.filter(tab.filter).length;
+    });
+    return counts;
+  }
+
+  // Populate checklist with items
+  function populateChecklist(modal, items, selectedIds) {
+    const checklist = modal.querySelector('#deviceChecklist');
+    if (!checklist) return;
+
+    checklist.innerHTML = '';
+
+    // Sort items alphabetically
+    const sortedItems = items.slice().sort((a, b) =>
+      (getItemLabel(a) || '').localeCompare(getItemLabel(b) || '', 'pt-BR', { sensitivity: 'base' })
+    );
+
+    sortedItems.forEach((item) => {
+      const itemId = getItemId(item);
+      const isChecked = !selectedIds || selectedIds.has(itemId);
+      const subLabel = getItemSubLabel(item);
+      const value = getItemValue(item);
+      const formattedValue = formatValue(value);
+
+      const div = document.createElement('div');
+      div.className = 'check-item';
+      div.innerHTML = `
+        <input type="checkbox" id="check-${itemId}" ${isChecked ? 'checked' : ''} ${itemIdAttr}="${itemId}">
+        <label for="check-${itemId}" style="flex: 1;">${getItemLabel(item)}</label>
+        ${subLabel ? `<span style="color: #64748b; font-size: 11px; margin-right: 8px;">${subLabel}</span>` : ''}
+        <span style="color: ${value > 0 ? '#16a34a' : '#94a3b8'}; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedValue}</span>
+      `;
+      checklist.appendChild(div);
+    });
+  }
+
+  // Open the modal
+  function open(items, state = {}) {
+    if (!items || items.length === 0) {
+      LogHelper.warn(`[${widgetName}] No items to display in filter modal`);
+      window.alert('Nenhum item encontrado. Por favor, aguarde o carregamento dos dados.');
+      return;
+    }
+
+    LogHelper.log(`[${widgetName}] Opening filter modal with ${items.length} items`);
+
+    // Create global container if needed
+    if (!globalContainer) {
+      globalContainer = document.getElementById(containerId);
+
+      if (!globalContainer) {
+        globalContainer = document.createElement('div');
+        globalContainer.id = containerId;
+        globalContainer.innerHTML = `<style>${generateStyles()}</style>${generateModalHTML()}`;
+        document.body.appendChild(globalContainer);
+
+        const modal = globalContainer.querySelector('#filterModal');
+        if (modal) {
+          setupHandlers(modal, items, state);
+        }
+
+        LogHelper.log(`[${widgetName}] Modal created and attached to document.body`);
+      }
+    }
+
+    const modal = globalContainer.querySelector('#filterModal');
+    if (!modal) return;
+
+    // Calculate and update counts
+    const counts = calculateCounts(items);
+    const tabsContainer = modal.querySelector('#filterTabsContainer');
+    if (tabsContainer) {
+      tabsContainer.innerHTML = generateFilterTabsHTML(counts);
+
+      // Re-bind tab click handlers after updating HTML
+      const filterTabsEl = tabsContainer.querySelectorAll('.filter-tab');
+      filterTabsEl.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          const filterType = tab.getAttribute('data-filter');
+          filterTabsEl.forEach((t) => t.classList.remove('active'));
+          tab.classList.add('active');
+
+          const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
+          checkboxes.forEach((cb) => {
+            const itemId = cb.getAttribute(itemIdAttr);
+            const item = items.find((i) => getItemId(i) === itemId);
+            if (!item) return;
+
+            const tabConfig = filterTabs.find((t) => t.id === filterType);
+            cb.checked = tabConfig ? tabConfig.filter(item) : true;
+          });
+        });
+      });
+    }
+
+    // Populate checklist
+    populateChecklist(modal, items, state.selectedIds);
+
+    // Set sort mode
+    const sortRadio = modal.querySelector(`input[name="sortMode"][value="${state.sortMode || 'cons_desc'}"]`);
+    if (sortRadio) sortRadio.checked = true;
+
+    // Show modal
+    modal.classList.remove('hidden');
+    document.body.classList.add('filter-modal-open');
+
+    LogHelper.log(`[${widgetName}] Filter modal opened`);
+  }
+
+  // Close the modal
+  function close() {
+    if (!globalContainer) return;
+
+    const modal = globalContainer.querySelector('#filterModal');
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+
+    document.body.classList.remove('filter-modal-open');
+    onClose();
+
+    LogHelper.log(`[${widgetName}] Filter modal closed`);
+  }
+
+  // Destroy the modal
+  function destroy() {
+    if (escHandler) {
+      document.removeEventListener('keydown', escHandler);
+      escHandler = null;
+    }
+
+    if (globalContainer) {
+      globalContainer.remove();
+      globalContainer = null;
+    }
+
+    document.body.classList.remove('filter-modal-open');
+
+    LogHelper.log(`[${widgetName}] Filter modal destroyed`);
+  }
+
+  return { open, close, destroy };
+}
+
 // ✅ Expose shared utilities globally for child widgets
 window.MyIOUtils = {
   // Logging
@@ -988,6 +1649,9 @@ window.MyIOUtils = {
 
   // ThingsBoard API
   fetchCustomerServerScopeAttrs,
+
+  // RFC-0090: Shared Filter Modal Factory
+  createFilterModal,
 };
 
 console.log('[MAIN] MyIOUtils exposed globally:', Object.keys(window.MyIOUtils));
@@ -1888,7 +2552,7 @@ window.addEventListener('myio:equipments-identified', (ev) => {
   }
 });
 
-window.addEventListener('myio:customers-ready', async (ev) => {
+window.addEventListener('myio:customers-ready', async (_ev) => {
   // TODO: implementar Cálculo de temperatura por customer
   // LogHelper.log("[MAIN] heard myio:customers-ready<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<:", ev.detail);
   // const devicesList = extractDevicesWithDetails(ctx.data);

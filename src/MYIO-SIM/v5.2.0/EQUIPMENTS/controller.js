@@ -65,13 +65,6 @@ const findValue =
     return found ? found.value : defaultValue;
   });
 
-// NOTE: RFC-0071 functions (fetchDeviceProfiles, fetchDeviceDetails, addDeviceProfileAttribute, syncDeviceProfileAttributes)
-// are now provided by MAIN via window.MyIOUtils
-
-// NOTE: RFC-0078 functions (DEFAULT_CONSUMPTION_RANGES, fetchInstantaneousPowerLimits, extractLimitsFromJSON,
-// getDefaultRanges, getCachedPowerLimitsJSON, getConsumptionRangesHierarchical, getCachedConsumptionLimits)
-// are now provided by MAIN via window.MyIOUtils
-
 // NOTE: fetchCustomerServerScopeAttrs is provided by MAIN via window.MyIOUtils
 const fetchCustomerServerScopeAttrs =
   window.MyIOUtils?.fetchCustomerServerScopeAttrs ||
@@ -258,17 +251,13 @@ function initializeCards(devices) {
 
       handleActionSettings: async () => {
         // RFC-0072: Standardized settings handler following TELEMETRY pattern
-        LogHelper.log('[EQUIPMENTS] [RFC-0072] Opening settings for device:', device.entityId);
-
         const jwt = localStorage.getItem('jwt_token');
+
         if (!jwt) {
           LogHelper.error('[EQUIPMENTS] [RFC-0072] JWT token not found');
           window.alert('Token de autenticação não encontrado');
           return;
         }
-
-        LogHelper.log('[EQUIPMENTS] device.deviceStatus:', device.deviceStatus);
-        LogHelper.log('[EQUIPMENTS] device.lastConnectTime:', device.lastConnectTime);
 
         try {
           // RFC-0072: Following exact TELEMETRY pattern with domain and connectionData
@@ -917,10 +906,6 @@ self.onInit = async function () {
 
       // RFC-0076: CRITICAL FIX - Enrich energyCache with full device metadata
       // This ensures ENERGY widget can classify elevators correctly
-      LogHelper.log(
-        '[EQUIPMENTS] 🔧 Enriching energyCache with device metadata (deviceType, deviceProfile)...'
-      );
-
       let enrichedCount = 0;
       Object.entries(devices).forEach(([_entityId2, device]) => {
         const ingestionIdItem = device.values.find((v) => v.dataType === 'ingestionId');
@@ -942,25 +927,6 @@ self.onInit = async function () {
             cached.name = cached.name || deviceName;
 
             enrichedCount++;
-
-            // RFC-0076: Log elevators specifically (by deviceProfile OR deviceType OR name)
-            if (
-              deviceType === 'ELEVADOR' ||
-              deviceProfile === 'ELEVADOR' || // ← FIXED: Check deviceProfile independently!
-              (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR') ||
-              (deviceName && deviceName.toUpperCase().includes('ELV'))
-            ) {
-              /*
-            LogHelper.log(`[EQUIPMENTS] ⚡ ELEVATOR enriched:`, {
-              ingestionId,
-              name: deviceName,
-              deviceType: deviceType || "(empty)",
-              deviceProfile,
-              deviceIdentifier,
-              consumption: cached.total_value
-            });
-            */
-            }
           }
         }
       });
@@ -1060,29 +1026,6 @@ self.onInit = async function () {
       // O erro do timeout já terá sido logado pela função 'waitForOrchestrator'
       showLoadingOverlay(false);
     }
-    // RFC-0072: Zoom controls removed - use browser native zoom instead
-    // Zoom functionality commented out to reduce complexity and rely on browser zoom
-    /*
-  const wrap = document.getElementById("equipWrap");
-  const key = `tb-font-scale:${ctx?.widget?.id || "equip"}`;
-  const saved = +localStorage.getItem(key);
-  if (saved && saved >= 0.8 && saved <= 1.4)
-    wrap.style.setProperty("--fs", saved);
-
-  const getScale = () => +getComputedStyle(wrap).getPropertyValue("--fs") || 1;
-  const setScale = (v) => {
-    const s = Math.min(1.3, Math.max(0.8, +v.toFixed(2)));
-    wrap.style.setProperty("--fs", s);
-    localStorage.setItem(key, s);
-  };
-
-  document
-    .getElementById("fontMinus")
-    ?.addEventListener("click", () => setScale(getScale() - 0.06));
-  document
-    .getElementById("fontPlus")
-    ?.addEventListener("click", () => setScale(getScale() + 0.06));
-  */
   }, 0);
 
   // ====== FILTER & SEARCH LOGIC ======
@@ -1220,62 +1163,119 @@ function reflowCards() {
   emitEquipmentCountEvent(filtered);
 }
 
+// ============================================
+// RFC-0090: EQUIPMENTS FILTER MODAL (using shared factory from MAIN)
+// ============================================
+
+// Helper functions for equipment classification
+function isElevator(device) {
+  const deviceType = (device.deviceType || '').toUpperCase();
+  const deviceProfile = (device.deviceProfile || '').toUpperCase();
+  return deviceType === 'ELEVADOR' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR');
+}
+
+function isEscalator(device) {
+  const deviceType = (device.deviceType || '').toUpperCase();
+  const deviceProfile = (device.deviceProfile || '').toUpperCase();
+  return (
+    deviceType === 'ESCADA_ROLANTE' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE')
+  );
+}
+
+function isHVAC(device) {
+  const deviceType = (device.deviceType || '').toUpperCase();
+  const deviceProfile = (device.deviceProfile || '').toUpperCase();
+  const identifier = (device.deviceIdentifier || '').toUpperCase();
+  const hasCAG = identifier.includes('CAG');
+
+  return (
+    hasCAG ||
+    deviceType === 'CHILLER' ||
+    deviceType === 'FANCOIL' ||
+    deviceType === 'AR_CONDICIONADO' ||
+    deviceType === 'BOMBA' ||
+    deviceType === 'HVAC' ||
+    (deviceType === '3F_MEDIDOR' &&
+      (deviceProfile === 'CHILLER' ||
+        deviceProfile === 'FANCOIL' ||
+        deviceProfile === 'AR_CONDICIONADO' ||
+        deviceProfile === 'BOMBA' ||
+        deviceProfile === 'HVAC'))
+  );
+}
+
+function getDeviceConsumption(device) {
+  return Number(device.val) || Number(device.lastValue) || 0;
+}
+
+function getDeviceStatus(device) {
+  return (device.deviceStatus || '').toLowerCase();
+}
+
+// Filter modal instance (lazy initialized)
+let equipmentsFilterModal = null;
+
 /**
- * RFC-0072: Setup modal handlers (called once when modal is moved to document.body)
+ * RFC-0090: Initialize filter modal using shared factory from MAIN
  */
-function setupModalCloseHandlers(modal) {
-  // Close button
-  const closeBtn = modal.querySelector('#closeFilter');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', closeFilterModal);
+function initFilterModal() {
+  const createFilterModal = window.MyIOUtils?.createFilterModal;
+
+  if (!createFilterModal) {
+    LogHelper.error('[EQUIPMENTS] createFilterModal not available from MAIN');
+    return null;
   }
 
-  // Backdrop click
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      closeFilterModal();
-    }
-  });
+  return createFilterModal({
+    widgetName: 'EQUIPMENTS',
+    containerId: 'equipmentsFilterModalGlobal',
+    modalClass: 'equip-modal',
+    primaryColor: '#2563eb',
+    itemIdAttr: 'data-device-id',
 
-  // Apply filters button
-  const applyBtn = modal.querySelector('#applyFilters');
-  if (applyBtn) {
-    applyBtn.addEventListener('click', () => {
-      // Get selected devices
-      const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']:checked");
-      const selectedSet = new Set();
-      checkboxes.forEach((cb) => {
-        const deviceId = cb.getAttribute('data-device-id');
-        if (deviceId) selectedSet.add(deviceId);
-      });
+    // Filter tabs configuration - specific for EQUIPMENTS
+    filterTabs: [
+      { id: 'all', label: 'Todos', filter: () => true },
+      { id: 'online', label: 'Online', filter: (d) => getDeviceConsumption(d) > 0 },
+      { id: 'offline', label: 'Offline', filter: (d) => getDeviceConsumption(d) === 0 },
+      {
+        id: 'normal',
+        label: 'Normal',
+        filter: (d) => getDeviceStatus(d) === 'power_on' || getDeviceStatus(d) === 'normal',
+      },
+      { id: 'standby', label: 'Stand By', filter: (d) => getDeviceStatus(d) === 'standby' },
+      {
+        id: 'alert',
+        label: 'Alerta',
+        filter: (d) => ['warning', 'alert', 'maintenance'].includes(getDeviceStatus(d)),
+      },
+      {
+        id: 'failure',
+        label: 'Falha',
+        filter: (d) => getDeviceStatus(d) === 'failure' || getDeviceStatus(d) === 'power_off',
+      },
+      { id: 'elevators', label: 'Elevadores', filter: isElevator },
+      { id: 'escalators', label: 'Escadas', filter: isEscalator },
+      { id: 'hvac', label: 'Climatização', filter: isHVAC },
+      { id: 'others', label: 'Outros', filter: (d) => !isElevator(d) && !isEscalator(d) && !isHVAC(d) },
+    ],
 
-      // If all devices are selected, treat as "no filter"
-      STATE.selectedIds = selectedSet.size === STATE.allDevices.length ? null : selectedSet;
+    // Data accessors
+    getItemId: (device) => device.entityId,
+    getItemLabel: (device) => device.labelOrName || device.deviceIdentifier || device.entityId,
+    getItemValue: getDeviceConsumption,
+    getItemSubLabel: (device) => device.customerName || getCustomerNameForDevice(device),
+    formatValue: (val) => (MyIOLibrary?.formatEnergy ? MyIOLibrary.formatEnergy(val) : val.toFixed(2)),
 
-      // Get sort mode
-      const sortRadio = modal.querySelector('input[name="sortMode"]:checked');
-      if (sortRadio) {
-        STATE.sortMode = sortRadio.value;
-      }
-
-      LogHelper.log('[EQUIPMENTS] [RFC-0072] Filters applied:', {
-        selectedCount: STATE.selectedIds?.size || STATE.allDevices.length,
-        totalDevices: STATE.allDevices.length,
-        sortMode: STATE.sortMode,
-        selectedIds: STATE.selectedIds ? Array.from(STATE.selectedIds).slice(0, 5) : 'all', // Show first 5 IDs
-      });
-
-      // Apply filters and close modal with cleanup
+    // Callbacks
+    onApply: ({ selectedIds, sortMode }) => {
+      STATE.selectedIds = selectedIds;
+      STATE.sortMode = sortMode;
       reflowCards();
-      closeFilterModal();
-    });
-  }
+      LogHelper.log('[EQUIPMENTS] [RFC-0090] Filters applied via shared modal');
+    },
 
-  // Reset filters button
-  const resetBtn = modal.querySelector('#resetFilters');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
-      // Reset state
+    onReset: () => {
       STATE.selectedIds = null;
       STATE.sortMode = 'cons_desc';
       STATE.searchTerm = '';
@@ -1287,785 +1287,36 @@ function setupModalCloseHandlers(modal) {
       if (searchInput) searchInput.value = '';
       if (searchWrap) searchWrap.classList.remove('active');
 
-      // Apply and close with cleanup
       reflowCards();
-      closeFilterModal();
+      LogHelper.log('[EQUIPMENTS] [RFC-0090] Filters reset via shared modal');
+    },
 
-      LogHelper.log('[EQUIPMENTS] [RFC-0072] Filters reset');
-    });
-  }
-
-  // Clear selection button - unchecks all checkboxes without closing modal
-  const clearSelectionBtn = modal.querySelector('#clearSelection');
-  if (clearSelectionBtn) {
-    clearSelectionBtn.addEventListener('click', () => {
-      // Uncheck all checkboxes in the checklist
-      const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']");
-      checkboxes.forEach((cb) => {
-        cb.checked = false;
-      });
-
-      // Reset filter tabs to "all" active state
-      const filterTabs = modal.querySelectorAll('.filter-tab');
-      filterTabs.forEach((t) => t.classList.remove('active'));
-      const allTab = modal.querySelector('.filter-tab[data-filter="all"]');
-      if (allTab) allTab.classList.add('active');
-
-      LogHelper.log('[EQUIPMENTS] [RFC-0072] Selection cleared - all checkboxes unchecked');
-    });
-  }
-
-  // Bind filter tab click handlers (must be done after modal is moved to document.body)
-  const filterTabs = modal.querySelectorAll('.filter-tab');
-  filterTabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
-      const filterType = tab.getAttribute('data-filter');
-
-      // Update active state
-      filterTabs.forEach((t) => t.classList.remove('active'));
-      tab.classList.add('active');
-
-      // Filter checkboxes based on selected tab
-      const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']");
-      checkboxes.forEach((cb) => {
-        const deviceId = cb.getAttribute('data-device-id');
-        const device = STATE.allDevices.find((d) => d.entityId === deviceId);
-
-        if (!device) return;
-
-        const consumption = Number(device.val) || Number(device.lastValue) || 0;
-        const deviceType = (device.deviceType || '').toUpperCase();
-        const deviceProfile = (device.deviceProfile || '').toUpperCase();
-        const identifier = (device.deviceIdentifier || '').toUpperCase();
-        const labelOrName = (device.labelOrName || '').toUpperCase();
-
-        // RFC: Check if device has CAG in identifier or labelOrName (climatização)
-        const hasCAG = identifier.includes('CAG') || labelOrName.includes('CAG');
-
-        let shouldCheck = false;
-
-        // Get device status for filtering
-        const deviceStatusValue = (device.deviceStatus || '').toLowerCase();
-
-        switch (filterType) {
-          case 'all':
-            shouldCheck = true;
-            break;
-          case 'online':
-            shouldCheck = consumption > 0;
-            break;
-          case 'offline':
-            shouldCheck = consumption === 0;
-            break;
-          case 'normal':
-            shouldCheck = deviceStatusValue === 'power_on' || deviceStatusValue === 'normal';
-            break;
-          case 'standby':
-            shouldCheck = deviceStatusValue === 'standby';
-            break;
-          case 'alert':
-            shouldCheck =
-              deviceStatusValue === 'warning' ||
-              deviceStatusValue === 'alert' ||
-              deviceStatusValue === 'maintenance';
-            break;
-          case 'failure':
-            shouldCheck = deviceStatusValue === 'failure' || deviceStatusValue === 'power_off';
-            break;
-          case 'with-consumption':
-            shouldCheck = consumption > 0;
-            break;
-          case 'no-consumption':
-            shouldCheck = consumption === 0;
-            break;
-          case 'elevators':
-            shouldCheck =
-              deviceType === 'ELEVADOR' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR');
-            break;
-          case 'escalators':
-            shouldCheck =
-              deviceType === 'ESCADA_ROLANTE' ||
-              (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE');
-            break;
-          case 'hvac':
-            shouldCheck =
-              hasCAG ||
-              deviceType === 'CHILLER' ||
-              deviceType === 'FANCOIL' ||
-              deviceType === 'AR_CONDICIONADO' ||
-              deviceType === 'BOMBA' ||
-              deviceType === 'HVAC' ||
-              (deviceType === '3F_MEDIDOR' &&
-                (deviceProfile === 'CHILLER' ||
-                  deviceProfile === 'FANCOIL' ||
-                  deviceProfile === 'AR_CONDICIONADO' ||
-                  deviceProfile === 'BOMBA' ||
-                  deviceProfile === 'HVAC'));
-            break;
-          case 'others':
-            shouldCheck = !(
-              hasCAG ||
-              deviceType === 'ELEVADOR' ||
-              (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR') ||
-              deviceType === 'ESCADA_ROLANTE' ||
-              (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE') ||
-              deviceType === 'CHILLER' ||
-              deviceType === 'FANCOIL' ||
-              deviceType === 'AR_CONDICIONADO' ||
-              deviceType === 'BOMBA' ||
-              deviceType === 'HVAC' ||
-              (deviceType === '3F_MEDIDOR' &&
-                (deviceProfile === 'CHILLER' ||
-                  deviceProfile === 'FANCOIL' ||
-                  deviceProfile === 'AR_CONDICIONADO' ||
-                  deviceProfile === 'BOMBA' ||
-                  deviceProfile === 'HVAC'))
-            );
-            break;
-        }
-
-        cb.checked = shouldCheck;
-      });
-
-      // Count how many checkboxes are now checked
-      const checkedCount = Array.from(checkboxes).filter((cb) => cb.checked).length;
-      LogHelper.log(
-        `[EQUIPMENTS] Filter tab selected: ${filterType}, checked: ${checkedCount}/${checkboxes.length}`
-      );
-    });
+    onClose: () => {
+      LogHelper.log('[EQUIPMENTS] [RFC-0090] Filter modal closed');
+    },
   });
-
-  // Bind filter device search inside modal
-  const filterDeviceSearch = modal.querySelector('#filterDeviceSearch');
-  if (filterDeviceSearch) {
-    filterDeviceSearch.addEventListener('input', (e) => {
-      const query = (e.target.value || '').trim().toLowerCase();
-      const checkItems = modal.querySelectorAll('#deviceChecklist .check-item');
-
-      checkItems.forEach((item) => {
-        const label = item.querySelector('label');
-        const text = (label?.textContent || '').toLowerCase();
-        item.style.display = text.includes(query) ? 'flex' : 'none';
-      });
-    });
-  }
-
-  // Bind clear filter search button
-  const filterDeviceClear = modal.querySelector('#filterDeviceClear');
-  if (filterDeviceClear && filterDeviceSearch) {
-    filterDeviceClear.addEventListener('click', () => {
-      filterDeviceSearch.value = '';
-      const checkItems = modal.querySelectorAll('#deviceChecklist .check-item');
-      checkItems.forEach((item) => (item.style.display = 'flex'));
-      filterDeviceSearch.focus();
-    });
-  }
-
-  LogHelper.log('[EQUIPMENTS] [RFC-0072] Modal handlers bound (close, apply, reset, filter tabs, search)');
 }
 
 /**
- * RFC-0072: Open filter modal with full-screen support and ESC key handling
- * Following MENU widget pattern: modal attached to document.body
+ * RFC-0090: Open filter modal
  */
 function openFilterModal() {
-  // DEBUG: Always log to console (not LogHelper which may be disabled)
-  LogHelper.log('[EQUIPMENTS] [RFC-0072] 🔍 Opening filter modal...');
-  LogHelper.log('[EQUIPMENTS] [RFC-0072] STATE.allDevices:', STATE.allDevices);
-  LogHelper.log('[EQUIPMENTS] [RFC-0072] STATE.allDevices.length:', STATE.allDevices?.length || 0);
+  // Lazy initialize modal
+  if (!equipmentsFilterModal) {
+    equipmentsFilterModal = initFilterModal();
+  }
 
-  if (!STATE.allDevices || STATE.allDevices.length === 0) {
-    console.error('[EQUIPMENTS] ❌ No devices in STATE.allDevices! Modal will be empty.');
-    LogHelper.log('[EQUIPMENTS] STATE object:', STATE);
-    window.alert('Nenhum equipamento encontrado. Por favor, aguarde o carregamento dos dados.');
+  if (!equipmentsFilterModal) {
+    LogHelper.error('[EQUIPMENTS] Failed to initialize filter modal');
+    window.alert('Erro ao inicializar modal de filtros. Verifique se o widget MAIN foi carregado.');
     return;
   }
 
-  // RFC-0072: Get or create global modal container (like MENU widget)
-  let globalContainer = document.getElementById('equipmentsFilterModalGlobal');
-  LogHelper.log('[EQUIPMENTS] globalContainer exists:', !!globalContainer);
-
-  if (!globalContainer) {
-    // Modal doesn't exist, move it from widget to document.body
-    LogHelper.log('[EQUIPMENTS] 🔄 Creating global container, looking for filterModal in widget...');
-    const widgetModal = document.getElementById('filterModal');
-    LogHelper.log('[EQUIPMENTS] widgetModal found:', !!widgetModal, widgetModal);
-    if (widgetModal) {
-      // Extract modal from widget and wrap in global container
-      globalContainer = document.createElement('div');
-      globalContainer.id = 'equipmentsFilterModalGlobal';
-
-      // RFC-0072: Inject styles inline (like MENU widget) so they work outside widget scope
-      globalContainer.innerHTML = `
-        <style>
-          /* RFC-0072: EQUIPMENTS Filter Modal Styles (injected for document.body scope) */
-          #equipmentsFilterModalGlobal .equip-modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.6);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 999999;
-            backdrop-filter: blur(4px);
-            animation: fadeIn 0.2s ease-in;
-          }
-
-          #equipmentsFilterModalGlobal .equip-modal.hidden {
-            display: none;
-          }
-
-          #equipmentsFilterModalGlobal .equip-modal-card {
-            background: #fff;
-            border-radius: 0;
-            width: 100%;
-            height: 100%;
-            max-width: 100%;
-            max-height: 100%;
-            display: flex;
-            flex-direction: column;
-            box-shadow: none;
-            overflow: hidden;
-          }
-
-          @media (min-width: 768px) {
-            #equipmentsFilterModalGlobal .equip-modal-card {
-              border-radius: 16px;
-              width: 90%;
-              max-width: 1125px; /* 900px + 25% = 1125px */
-              height: auto;
-              max-height: 90vh;
-              box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            }
-          }
-
-          #equipmentsFilterModalGlobal .equip-modal-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 20px;
-            border-bottom: 1px solid #DDE7F1;
-          }
-
-          #equipmentsFilterModalGlobal .equip-modal-header h3 {
-            margin: 0;
-            font-size: 18px;
-            font-weight: 700;
-            color: #1C2743;
-          }
-
-          #equipmentsFilterModalGlobal .equip-modal-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-          }
-
-          #equipmentsFilterModalGlobal .equip-modal-footer {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-            padding: 16px 20px;
-            border-top: 1px solid #DDE7F1;
-          }
-
-          #equipmentsFilterModalGlobal .filter-block {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-          }
-
-          #equipmentsFilterModalGlobal .block-label {
-            font-size: 14px;
-            font-weight: 600;
-            color: #1C2743;
-          }
-
-          /* RFC: Filter tabs header with counts */
-          #equipmentsFilterModalGlobal .filter-tabs {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-            padding-bottom: 12px;
-            border-bottom: 2px solid #E6EEF5;
-          }
-
-          #equipmentsFilterModalGlobal .filter-tab {
-            border: 1px solid #DDE7F1;
-            background: #fff;
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-            cursor: pointer;
-            transition: all 0.2s;
-            color: #6b7a90;
-            white-space: nowrap;
-          }
-
-          #equipmentsFilterModalGlobal .filter-tab:hover {
-            background: #f7fbff;
-            border-color: #2563eb;
-            color: #1C2743;
-          }
-
-          #equipmentsFilterModalGlobal .filter-tab.active {
-            background: #2563eb;
-            border-color: #2563eb;
-            color: #fff;
-          }
-
-          #equipmentsFilterModalGlobal .filter-tab span {
-            font-weight: 700;
-          }
-
-          #equipmentsFilterModalGlobal .inline-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-          }
-
-          #equipmentsFilterModalGlobal .tiny-btn {
-            border: 1px solid #DDE7F1;
-            background: #fff;
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-          }
-
-          #equipmentsFilterModalGlobal .tiny-btn:hover {
-            background: #f8f9fa;
-            border-color: #1f6fb5;
-          }
-
-          #equipmentsFilterModalGlobal .filter-search {
-            position: relative;
-            display: flex;
-            align-items: center;
-            margin-bottom: 12px;
-          }
-
-          #equipmentsFilterModalGlobal .filter-search svg {
-            position: absolute;
-            left: 12px;
-            width: 18px;
-            height: 18px;
-            fill: #6b7a90;
-          }
-
-          #equipmentsFilterModalGlobal .filter-search input {
-            width: 100%;
-            padding: 10px 12px 10px 40px;
-            border: 2px solid #DDE7F1;
-            border-radius: 10px;
-            font-size: 14px;
-            outline: none;
-          }
-
-          #equipmentsFilterModalGlobal .filter-search input:focus {
-            border-color: #1f6fb5;
-          }
-
-          #equipmentsFilterModalGlobal .filter-search .clear-x {
-            position: absolute;
-            right: 12px;
-            border: 0;
-            background: transparent;
-            cursor: pointer;
-            padding: 4px;
-          }
-
-          #equipmentsFilterModalGlobal .checklist {
-            min-height: 150px;
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid #DDE7F1;
-            border-radius: 10px;
-            padding: 8px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-          }
-
-          #equipmentsFilterModalGlobal .check-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px;
-            border-radius: 6px;
-            transition: background 0.2s;
-          }
-
-          #equipmentsFilterModalGlobal .check-item:hover {
-            background: #f8f9fa;
-          }
-
-          #equipmentsFilterModalGlobal .check-item input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-          }
-
-          #equipmentsFilterModalGlobal .check-item label {
-            flex: 1;
-            cursor: pointer;
-            font-size: 14px;
-            color: #1C2743;
-          }
-
-          #equipmentsFilterModalGlobal .radio-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-          }
-
-          #equipmentsFilterModalGlobal .radio-grid label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px;
-            border: 1px solid #DDE7F1;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-          }
-
-          #equipmentsFilterModalGlobal .radio-grid label:hover {
-            background: #f8f9fa;
-            border-color: #1f6fb5;
-          }
-
-          #equipmentsFilterModalGlobal .radio-grid input[type="radio"] {
-            width: 16px;
-            height: 16px;
-            cursor: pointer;
-          }
-
-          #equipmentsFilterModalGlobal .muted {
-            font-size: 12px;
-            color: #6b7a90;
-            margin-top: 4px;
-          }
-
-          #equipmentsFilterModalGlobal .btn {
-            padding: 10px 16px;
-            border: 1px solid #DDE7F1;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-          }
-
-          #equipmentsFilterModalGlobal .btn:hover {
-            background: #f8f9fa;
-          }
-
-          #equipmentsFilterModalGlobal .btn.primary {
-            background: #1f6fb5;
-            color: #fff;
-            border-color: #1f6fb5;
-          }
-
-          #equipmentsFilterModalGlobal .btn.primary:hover {
-            background: #1a5a8f;
-            border-color: #1a5a8f;
-          }
-
-          #equipmentsFilterModalGlobal .icon-btn {
-            border: 0;
-            background: transparent;
-            cursor: pointer;
-            padding: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 6px;
-            transition: background 0.2s;
-          }
-
-          #equipmentsFilterModalGlobal .icon-btn:hover {
-            background: #f0f0f0;
-          }
-
-          #equipmentsFilterModalGlobal .icon-btn svg {
-            width: 18px;
-            height: 18px;
-            fill: #1C2743;
-          }
-
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
-
-          body.modal-open {
-            overflow: hidden !important;
-          }
-        </style>
-      `;
-
-      // Move modal content to global container (after styles)
-      LogHelper.log('[EQUIPMENTS] 📦 Moving widgetModal to globalContainer...');
-      widgetModal.remove();
-      globalContainer.appendChild(widgetModal);
-
-      // Attach to document.body (like MENU widget)
-      document.body.appendChild(globalContainer);
-      LogHelper.log('[EQUIPMENTS] ✅ Global container attached to document.body');
-
-      // RFC-0072: Bind close handlers now that modal is in document.body
-      setupModalCloseHandlers(widgetModal);
-
-      LogHelper.log('[EQUIPMENTS] [RFC-0072] Modal moved to document.body with inline styles and handlers');
-    } else {
-      console.error('[EQUIPMENTS] [RFC-0072] ❌ Filter modal not found in template!');
-      return;
-    }
-  }
-
-  const modal = globalContainer.querySelector('#filterModal');
-  LogHelper.log('[EQUIPMENTS] modal from globalContainer:', !!modal, modal);
-  if (!modal) {
-    console.error('[EQUIPMENTS] ❌ modal not found in globalContainer!');
-    return;
-  }
-
-  modal.classList.remove('hidden');
-  LogHelper.log('[EQUIPMENTS] ✅ Modal visible (hidden class removed)');
-
-  // RFC-0072: Add body class to prevent scrolling
-  document.body.classList.add('modal-open');
-
-  // RFC: Calculate counts for filter tabs
-  const counts = {
-    all: STATE.allDevices.length,
-    online: 0,
-    offline: 0,
-    normal: 0,
-    standby: 0,
-    alert: 0,
-    failure: 0,
-    withConsumption: 0,
-    noConsumption: 0,
-    elevators: 0,
-    escalators: 0,
-    hvac: 0,
-    others: 0,
-  };
-
-  STATE.allDevices.forEach((device) => {
-    const consumption = Number(device.val) || Number(device.lastValue) || 0;
-    const deviceType = (device.deviceType || '').toUpperCase();
-    const deviceProfile = (device.deviceProfile || '').toUpperCase();
-    const identifier = (device.deviceIdentifier || '').toUpperCase();
-    const labelOrName = (device.labelOrName || '').toUpperCase();
-
-    // Count online/offline status
-    // Note: connectionStatus may not be available from API, using consumption as proxy
-    // Devices with consumption > 0 are considered "online" (actively reporting)
-    const hasConsumption = consumption > 0;
-
-    if (hasConsumption) {
-      counts.online++;
-    } else {
-      counts.offline++;
-    }
-
-    // Count by deviceStatus (Normal, Stand By, Alerta, Falha)
-    const deviceStatus = (device.deviceStatus || '').toLowerCase();
-    if (deviceStatus === 'power_on' || deviceStatus === 'normal') {
-      counts.normal++;
-    } else if (deviceStatus === 'standby') {
-      counts.standby++;
-    } else if (deviceStatus === 'warning' || deviceStatus === 'alert' || deviceStatus === 'maintenance') {
-      counts.alert++;
-    } else if (deviceStatus === 'failure' || deviceStatus === 'power_off') {
-      counts.failure++;
-    }
-
-    // Count consumption status
-    if (consumption > 0) {
-      counts.withConsumption++;
-    } else {
-      counts.noConsumption++;
-    }
-
-    // RFC: Check if device has CAG in identifier or labelOrName (climatização)
-    const hasCAG = identifier.includes('CAG') || labelOrName.includes('CAG');
-
-    // Count by type (using same classification logic as the rest of the widget)
-    if (deviceType === 'ELEVADOR' || (deviceType === '3F_MEDIDOR' && deviceProfile === 'ELEVADOR')) {
-      counts.elevators++;
-    } else if (
-      deviceType === 'ESCADA_ROLANTE' ||
-      (deviceType === '3F_MEDIDOR' && deviceProfile === 'ESCADA_ROLANTE')
-    ) {
-      counts.escalators++;
-    } else if (
-      hasCAG ||
-      deviceType === 'CHILLER' ||
-      deviceType === 'FANCOIL' ||
-      deviceType === 'AR_CONDICIONADO' ||
-      deviceType === 'BOMBA' ||
-      deviceType === 'HVAC' ||
-      (deviceType === '3F_MEDIDOR' &&
-        (deviceProfile === 'CHILLER' ||
-          deviceProfile === 'FANCOIL' ||
-          deviceProfile === 'AR_CONDICIONADO' ||
-          deviceProfile === 'BOMBA' ||
-          deviceProfile === 'HVAC'))
-    ) {
-      counts.hvac++;
-    } else {
-      counts.others++;
-    }
+  // Open with current devices and state
+  equipmentsFilterModal.open(STATE.allDevices, {
+    selectedIds: STATE.selectedIds,
+    sortMode: STATE.sortMode,
   });
-
-  // Update count displays
-  const updateCount = (id, value) => {
-    const el = modal.querySelector(`#${id}`);
-    if (el) el.innerHTML = value;
-  };
-
-  updateCount('countAll', counts.all);
-  updateCount('countOnline', counts.online);
-  updateCount('countOffline', counts.offline);
-  updateCount('countNormal', counts.normal);
-  updateCount('countStandby', counts.standby);
-  updateCount('countAlert', counts.alert);
-  updateCount('countFailure', counts.failure);
-  updateCount('countWithConsumption', counts.withConsumption);
-  updateCount('countNoConsumption', counts.noConsumption);
-  updateCount('countElevators', counts.elevators);
-  updateCount('countEscalators', counts.escalators);
-  updateCount('countHvac', counts.hvac);
-  updateCount('countOthers', counts.others);
-
-  LogHelper.log('[EQUIPMENTS] 📊 Filter counts:', counts);
-
-  // Debug: Log sample device to check connectionStatus field
-  if (STATE.allDevices.length > 0) {
-    LogHelper.log('[EQUIPMENTS] 📄 Sample device for debugging:', STATE.allDevices[0]);
-  }
-
-  // Populate device checklist - need to find it within the global container
-  LogHelper.log('[EQUIPMENTS] 🔍 Looking for deviceChecklist in globalContainer...');
-  let checklist = globalContainer.querySelector('#deviceChecklist');
-  LogHelper.log('[EQUIPMENTS] checklist from globalContainer:', checklist);
-
-  if (!checklist) {
-    // Fallback to document search
-    LogHelper.log('[EQUIPMENTS] ⚠️ Not found in globalContainer, trying document.getElementById...');
-    checklist = document.getElementById('deviceChecklist');
-    LogHelper.log('[EQUIPMENTS] checklist from document:', checklist);
-  }
-  if (!checklist) {
-    console.error('[EQUIPMENTS] ❌ deviceChecklist element not found anywhere!');
-    return;
-  }
-
-  LogHelper.log('[EQUIPMENTS] ✅ deviceChecklist found, populating with', STATE.allDevices.length, 'devices');
-
-  checklist.innerHTML = '';
-
-  // Sort devices alphabetically by label
-  const sortedDevices = STATE.allDevices
-    .slice()
-    .sort((a, b) =>
-      (a.labelOrName || '').localeCompare(b.labelOrName || '', 'pt-BR', { sensitivity: 'base' })
-    );
-
-  LogHelper.log('[EQUIPMENTS] 📋 Sorted devices count:', sortedDevices.length);
-
-  sortedDevices.forEach((device, index) => {
-    const isChecked = !STATE.selectedIds || STATE.selectedIds.has(device.entityId);
-
-    // Get shopping name and consumption value
-    const shoppingName = device.customerName || getCustomerNameForDevice(device);
-    const consumption = Number(device.val) || Number(device.lastValue) || 0;
-    const formattedConsumption = MyIOLibrary?.formatEnergy
-      ? MyIOLibrary.formatEnergy(consumption)
-      : consumption.toFixed(2);
-
-    // Debug first 3 devices
-    if (index < 3) {
-      LogHelper.log(`[EQUIPMENTS] Device ${index + 1}:`, {
-        entityId: device.entityId,
-        labelOrName: device.labelOrName,
-        consumption,
-        formattedConsumption,
-        shoppingName,
-      });
-    }
-
-    const item = document.createElement('div');
-    item.className = 'check-item';
-    item.innerHTML = `
-      <input type="checkbox" id="check-${device.entityId}" ${isChecked ? 'checked' : ''} data-device-id="${
-      device.entityId
-    }">
-      <label for="check-${device.entityId}" style="flex: 1;">${
-      device.labelOrName || device.deviceIdentifier || device.entityId
-    }</label>
-      <span style="color: #64748b; font-size: 11px; margin-right: 8px;">${shoppingName}</span>
-      <span style="color: ${
-        consumption > 0 ? '#16a34a' : '#94a3b8'
-      }; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedConsumption}</span>
-    `;
-
-    checklist.appendChild(item);
-  });
-
-  LogHelper.log('[EQUIPMENTS] ✅ Checklist populated. Total items:', checklist.children.length);
-
-  // Set current sort mode
-  const sortRadios = modal.querySelectorAll('input[name="sortMode"]');
-  sortRadios.forEach((radio) => {
-    radio.checked = radio.value === STATE.sortMode;
-  });
-
-  // RFC-0072: Add ESC key handler
-  if (!modal._escHandler) {
-    modal._escHandler = (e) => {
-      if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-        closeFilterModal();
-      }
-    };
-    document.addEventListener('keydown', modal._escHandler);
-  }
-}
-
-/**
- * RFC-0072: Close filter modal and cleanup
- */
-function closeFilterModal() {
-  // RFC-0072: Modal is now in document.body, not in widget
-  const globalContainer = document.getElementById('equipmentsFilterModalGlobal');
-  if (!globalContainer) return;
-
-  const modal = globalContainer.querySelector('#filterModal');
-  if (!modal) return;
-
-  LogHelper.log('[EQUIPMENTS] [RFC-0072] Closing filter modal');
-
-  modal.classList.add('hidden');
-
-  // RFC-0072: Remove body class to restore scrolling
-  document.body.classList.remove('modal-open');
-
-  // RFC-0072: Remove ESC handler
-  if (modal._escHandler) {
-    document.removeEventListener('keydown', modal._escHandler);
-    modal._escHandler = null;
-  }
 }
 
 /**
@@ -2113,20 +1364,10 @@ self.onDestroy = function () {
     window.removeEventListener('myio:customers-ready', self._onCustomersReady);
   }
 
-  // RFC-0072: Cleanup filter modal ESC handler
-  const globalContainer = document.getElementById('equipmentsFilterModalGlobal');
-  if (globalContainer) {
-    const modal = globalContainer.querySelector('#filterModal');
-    if (modal && modal._escHandler) {
-      document.removeEventListener('keydown', modal._escHandler);
-      modal._escHandler = null;
-    }
-
-    // RFC-0072: Remove global modal container from document.body
-    globalContainer.remove();
-    LogHelper.log('[EQUIPMENTS] [RFC-0072] Global modal container removed on destroy');
+  // RFC-0090: Cleanup filter modal using shared factory
+  if (equipmentsFilterModal) {
+    equipmentsFilterModal.destroy();
+    equipmentsFilterModal = null;
+    LogHelper.log('[EQUIPMENTS] [RFC-0090] Filter modal destroyed');
   }
-
-  // RFC-0072: Remove modal-open class if widget is destroyed with modal open
-  document.body.classList.remove('modal-open');
 };
