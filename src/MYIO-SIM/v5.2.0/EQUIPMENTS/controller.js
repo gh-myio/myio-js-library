@@ -1894,7 +1894,7 @@ self.onInit = async function () {
             customerId: customerId, // Shopping ingestionId for filtering
             deviceType: deviceType,
             deviceStatus: deviceStatus,
-            valType: 'power_kw',
+            valType: 'power_w',
             perc: Math.floor(Math.random() * (95 - 70 + 1)) + 70,
             temperatureC: deviceTemperature[0].value,
             operationHours: operationHoursFormatted || 0,
