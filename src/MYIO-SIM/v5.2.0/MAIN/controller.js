@@ -4103,11 +4103,22 @@ self.onInit = async function () {
     end: datesFromParent.end,
   });
 
-  // RFC: Removido fetch inicial - MENU sempre dispara myio:update-date no onInit
-  // Isso evita chamadas duplicadas (MENU dispara evento → MAIN listener faz fetch)
-  // Se precisar de dados imediatamente, o listener myio:update-date já cuidará disso
-
-  LogHelper.log('[MAIN] [Orchestrator] Waiting for myio:update-date event from MENU to fetch data...');
+  // RFC: Check if MENU already dispatched myio:update-date before we were ready
+  // This handles the race condition where MENU fires the event before MAIN registers the listener
+  if (window.myioDateRange && window.myioDateRange.startDate && window.myioDateRange.endDate) {
+    LogHelper.log('[MAIN] [Orchestrator] Found existing date range from MENU, triggering initial fetch:', window.myioDateRange);
+    // Dispatch internal event to trigger fetch via existing listener
+    window.dispatchEvent(
+      new CustomEvent('myio:update-date', {
+        detail: {
+          startDate: window.myioDateRange.startDate,
+          endDate: window.myioDateRange.endDate,
+        },
+      })
+    );
+  } else {
+    LogHelper.log('[MAIN] [Orchestrator] Waiting for myio:update-date event from MENU to fetch data...');
+  }
 };
 
 self.onDestroy = function () {
