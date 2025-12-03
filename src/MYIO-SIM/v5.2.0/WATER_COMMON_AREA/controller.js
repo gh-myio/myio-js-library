@@ -1,7 +1,7 @@
 /* =========================================================================
  * ThingsBoard Widget: Water Common Area - Device Cards for Water Meters (MyIO)
  * RFC-0094: Aligned with WATER_STORES pattern using buildHeaderDevicesGrid and createFilterModal
- * - Filters devices by aliasName = 'Todos Hidrometros Areas Comuns'
+ * - Filters devices by aliasName = 'HidrometrosAreaComum'
  * - Uses domain='water' for M³ formatting
  * - Datas obrigatórias: startDateISO / endDateISO
  * - Se ausentes no onInit: usa "current month so far" (1º dia 00:00 → hoje 23:59)
@@ -315,9 +315,9 @@ function buildTbAttrIndex() {
   const byTbId = new Map();
   const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
   for (const row of rows) {
-    // RFC-0094: Filter by aliasName = 'Todos Hidrometros Areas Comuns'
+    // RFC-0094: Filter by aliasName = 'HidrometrosAreaComum'
     const aliasName = row?.datasource?.aliasName || '';
-    if (aliasName !== 'Todos Hidrometros Areas Comuns') continue;
+    if (aliasName !== 'HidrometrosAreaComum') continue;
 
     const key = String(row?.dataKey?.name || '').toLowerCase();
     const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
@@ -366,9 +366,9 @@ function buildTbIdIndexes() {
   const byIngestion = new Map(); // ingestionId -> tbId
   const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
   for (const row of rows) {
-    // RFC-0094: Filter by aliasName = 'Todos Hidrometros Areas Comuns'
+    // RFC-0094: Filter by aliasName = 'HidrometrosAreaComum'
     const aliasName = row?.datasource?.aliasName || '';
-    if (aliasName !== 'Todos Hidrometros Areas Comuns') continue;
+    if (aliasName !== 'HidrometrosAreaComum') continue;
 
     const key = String(row?.dataKey?.name || '').toLowerCase();
     const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
@@ -382,15 +382,21 @@ function buildTbIdIndexes() {
 
 /** ===================== CORE: DATA PIPELINE ===================== **/
 function buildAuthoritativeItems() {
-  // RFC-0094: Filter datasources by aliasName = 'Todos Hidrometros Areas Comuns'
+  // DEBUG: Log all available aliases to help identify the correct one
+  const allDatasources = self.ctx.datasources || [];
+  const allAliases = [...new Set(allDatasources.map(ds => ds.aliasName))];
+  LogHelper.log(`[WATER_COMMON_AREA] DEBUG: Available aliases in widget: ${JSON.stringify(allAliases)}`);
+  LogHelper.log(`[WATER_COMMON_AREA] DEBUG: Total datasources: ${allDatasources.length}, Total data rows: ${(self.ctx.data || []).length}`);
+
+  // RFC-0094: Filter datasources by aliasName = 'HidrometrosAreaComum'
   const filteredDatasources = (self.ctx.datasources || []).filter(
-    (ds) => ds.aliasName === 'Todos Hidrometros Areas Comuns'
+    (ds) => ds.aliasName === 'HidrometrosAreaComum'
   );
   const filteredData = (self.ctx.data || []).filter(
-    (d) => d?.datasource?.aliasName === 'Todos Hidrometros Areas Comuns'
+    (d) => d?.datasource?.aliasName === 'HidrometrosAreaComum'
   );
 
-  LogHelper.log(`[WATER_COMMON_AREA] buildAuthoritativeItems: Filtered ${filteredDatasources.length} datasources, ${filteredData.length} data rows for 'Todos Hidrometros Areas Comuns'`);
+  LogHelper.log(`[WATER_COMMON_AREA] buildAuthoritativeItems: Filtered ${filteredDatasources.length} datasources, ${filteredData.length} data rows for 'HidrometrosAreaComum'`);
 
   // items da LIB: [{ id: ingestionId, identifier, label }, ...]
   const base = MyIO.buildListItemsThingsboardByUniqueDatasource(filteredDatasources, filteredData) || [];
@@ -1460,16 +1466,16 @@ self.onInit = async function () {
 
   /**
    * Extracts ingestionIds from ThingsBoard ctx.data
-   * RFC-0094: Only extracts from 'Todos Hidrometros Areas Comuns' alias
+   * RFC-0094: Only extracts from 'HidrometrosAreaComum' alias
    */
   function extractDatasourceIds(datasources) {
     const ingestionIds = new Set();
     const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
 
     for (const row of rows) {
-      // RFC-0094: Filter by aliasName = 'Todos Hidrometros Areas Comuns'
+      // RFC-0094: Filter by aliasName = 'HidrometrosAreaComum'
       const aliasName = row?.datasource?.aliasName || '';
-      if (aliasName !== 'Todos Hidrometros Areas Comuns') continue;
+      if (aliasName !== 'HidrometrosAreaComum') continue;
 
       const key = String(row?.dataKey?.name || '').toLowerCase();
       const val = row?.data?.[0]?.[1];
