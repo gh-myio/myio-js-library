@@ -249,6 +249,447 @@ function getSelectedShoppingIds() {
 let lineChartInstance = null;
 let pieChartInstance = null;
 
+// RFC-0097: Fullscreen state
+let isChartFullscreen = false;
+
+/**
+ * RFC-0097: Show loading overlay on energy chart
+ */
+function showChartLoading() {
+  const overlay = document.getElementById('lineChartLoading');
+  if (overlay) {
+    overlay.style.display = 'flex';
+  }
+}
+
+/**
+ * RFC-0097: Hide loading overlay on energy chart
+ */
+function hideChartLoading() {
+  const overlay = document.getElementById('lineChartLoading');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
+
+/**
+ * RFC-0097: Toggle fullscreen mode for energy chart
+ * Uses the same pattern as filter modal - injects into parent document for true fullscreen
+ */
+function toggleChartFullscreen() {
+  const maximizeBtn = document.getElementById('maximizeChartBtn');
+
+  isChartFullscreen = !isChartFullscreen;
+
+  if (isChartFullscreen) {
+    openFullscreenChart();
+    if (maximizeBtn) {
+      maximizeBtn.innerHTML = '✕';
+      maximizeBtn.title = 'Sair da tela cheia';
+    }
+  } else {
+    closeFullscreenChart();
+    if (maximizeBtn) {
+      maximizeBtn.innerHTML = '⛶';
+      maximizeBtn.title = 'Maximizar para tela toda';
+    }
+  }
+
+  console.log('[ENERGY] [RFC-0097] Chart fullscreen:', isChartFullscreen);
+}
+
+/**
+ * RFC-0097: Opens fullscreen chart overlay in parent document (like filter modal)
+ */
+function openFullscreenChart() {
+  // Get target document (parent if in iframe, otherwise current)
+  const targetDoc = window.parent?.document || document;
+  const targetBody = targetDoc.body;
+
+  // Check if already exists
+  let container = targetDoc.getElementById('energyChartFullscreenGlobal');
+  if (container) {
+    container.style.display = 'flex';
+    rebuildFullscreenChart(container);
+    return;
+  }
+
+  // Create fullscreen container with injected styles
+  container = targetDoc.createElement('div');
+  container.id = 'energyChartFullscreenGlobal';
+  container.innerHTML = `
+    <style>
+      #energyChartFullscreenGlobal {
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        z-index: 999999;
+        display: flex;
+        flex-direction: column;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      #energyChartFullscreenGlobal .fullscreen-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      #energyChartFullscreenGlobal .fullscreen-header h3 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 600;
+        color: #166534;
+        font-family: 'Inter', sans-serif;
+      }
+      #energyChartFullscreenGlobal .fullscreen-close-btn {
+        background: #fff;
+        border: 1px solid #86efac;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #166534;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      #energyChartFullscreenGlobal .fullscreen-close-btn:hover {
+        background: #dcfce7;
+        border-color: #22c55e;
+      }
+      #energyChartFullscreenGlobal .fullscreen-chart-container {
+        flex: 1;
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      #energyChartFullscreenGlobal .fullscreen-controls {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+      }
+      #energyChartFullscreenGlobal .fullscreen-tabs {
+        display: inline-flex;
+        gap: 2px;
+        background: #f1f5f9;
+        border-radius: 8px;
+        padding: 2px;
+      }
+      #energyChartFullscreenGlobal .fullscreen-tab {
+        padding: 8px 16px;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      #energyChartFullscreenGlobal .fullscreen-tab:hover {
+        color: #1e293b;
+      }
+      #energyChartFullscreenGlobal .fullscreen-tab.active {
+        background: #fff;
+        color: #166534;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      #energyChartFullscreenGlobal .fullscreen-canvas-wrap {
+        flex: 1;
+        position: relative;
+        min-height: 0;
+      }
+      #energyChartFullscreenGlobal canvas {
+        width: 100% !important;
+        height: 100% !important;
+      }
+    </style>
+    <div class="fullscreen-header">
+      <h3 id="fullscreenChartTitle">Consumo dos últimos 7 dias</h3>
+      <button class="fullscreen-close-btn" id="closeFullscreenChart">
+        <span>✕</span> Fechar
+      </button>
+    </div>
+    <div class="fullscreen-chart-container">
+      <div class="fullscreen-controls">
+        <div class="fullscreen-tabs" id="fullscreenVizTabs">
+          <button class="fullscreen-tab active" data-viz="total">Consolidado</button>
+          <button class="fullscreen-tab" data-viz="separate">Por Shopping</button>
+        </div>
+        <div class="fullscreen-tabs" id="fullscreenTypeTabs">
+          <button class="fullscreen-tab active" data-type="line">Linhas</button>
+          <button class="fullscreen-tab" data-type="bar">Barras</button>
+        </div>
+      </div>
+      <div class="fullscreen-canvas-wrap">
+        <canvas id="fullscreenLineChart"></canvas>
+      </div>
+    </div>
+  `;
+
+  targetBody.appendChild(container);
+  targetBody.style.overflow = 'hidden';
+
+  // Setup event handlers
+  setupFullscreenHandlers(container, targetDoc);
+
+  // Render chart in fullscreen
+  rebuildFullscreenChart(container);
+
+  // ESC key handler
+  targetDoc.addEventListener('keydown', handleFullscreenEsc);
+}
+
+/**
+ * RFC-0097: Setup fullscreen chart event handlers
+ */
+function setupFullscreenHandlers(container, targetDoc) {
+  // Close button
+  const closeBtn = container.querySelector('#closeFullscreenChart');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      isChartFullscreen = false;
+      closeFullscreenChart();
+      const maximizeBtn = document.getElementById('maximizeChartBtn');
+      if (maximizeBtn) {
+        maximizeBtn.innerHTML = '⛶';
+        maximizeBtn.title = 'Maximizar para tela toda';
+      }
+    });
+  }
+
+  // Viz mode tabs
+  const vizTabs = container.querySelectorAll('#fullscreenVizTabs .fullscreen-tab');
+  vizTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      vizTabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      chartConfig.vizMode = tab.dataset.viz;
+
+      // Sync with main widget tabs
+      const mainVizTabs = document.querySelectorAll('.viz-mode-tabs .chart-tab');
+      mainVizTabs.forEach((t) => t.classList.toggle('active', t.dataset.viz === chartConfig.vizMode));
+
+      rebuildFullscreenChart(container);
+    });
+  });
+
+  // Chart type tabs
+  const typeTabs = container.querySelectorAll('#fullscreenTypeTabs .fullscreen-tab');
+  typeTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      typeTabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      chartConfig.chartType = tab.dataset.type;
+
+      // Sync with main widget tabs
+      const mainTypeTabs = document.querySelectorAll('.chart-type-tabs .chart-tab');
+      mainTypeTabs.forEach((t) => t.classList.toggle('active', t.dataset.type === chartConfig.chartType));
+
+      rebuildFullscreenChart(container);
+    });
+  });
+
+  // Sync initial tab states
+  vizTabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.viz === chartConfig.vizMode));
+  typeTabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.type === chartConfig.chartType));
+}
+
+// Reference to fullscreen chart instance
+let fullscreenChartInstance = null;
+
+/**
+ * RFC-0097: Rebuild chart in fullscreen container
+ */
+function rebuildFullscreenChart(container) {
+  if (!cachedChartData) {
+    console.warn('[ENERGY] [RFC-0097] No cached data for fullscreen chart');
+    return;
+  }
+
+  // Update title
+  const titleEl = container.querySelector('#fullscreenChartTitle');
+  if (titleEl) {
+    const mainTitle = document.getElementById('lineChartTitle');
+    titleEl.textContent = mainTitle?.textContent || 'Consumo de Energia';
+  }
+
+  // Get canvas
+  const canvas = container.querySelector('#fullscreenLineChart');
+  if (!canvas) return;
+
+  // Destroy previous instance
+  if (fullscreenChartInstance) {
+    fullscreenChartInstance.destroy();
+    fullscreenChartInstance = null;
+  }
+
+  const { labels, dailyTotals, shoppingData, shoppingNames } = cachedChartData;
+
+  // Calculate max Y value
+  let maxValue = 0;
+  if (dailyTotals && dailyTotals.length > 0) {
+    maxValue = Math.max(...dailyTotals);
+  }
+  if (shoppingData) {
+    Object.values(shoppingData).forEach((values) => {
+      if (Array.isArray(values)) {
+        const shoppingMax = Math.max(...values);
+        if (shoppingMax > maxValue) maxValue = shoppingMax;
+      }
+    });
+  }
+  const yAxisMax = maxValue > 0 ? Math.ceil(maxValue * 1.1 / 1000) * 1000 : 10000;
+
+  let datasets = [];
+  const colors = ['#166534', '#2563eb', '#16a34a', '#ea580c', '#dc2626', '#8b5cf6', '#0891b2', '#65a30d'];
+
+  if (chartConfig.vizMode === 'separate' && shoppingData && Object.keys(shoppingData).length > 1) {
+    let colorIndex = 0;
+    for (const [shoppingId, values] of Object.entries(shoppingData)) {
+      const shoppingName = shoppingNames?.[shoppingId] || `Shopping ${shoppingId.slice(0, 8)}`;
+      const color = colors[colorIndex % colors.length];
+      datasets.push({
+        label: shoppingName,
+        data: values,
+        borderColor: color,
+        backgroundColor: chartConfig.chartType === 'bar' ? color + '80' : color + '20',
+        fill: chartConfig.chartType === 'line',
+        tension: 0.3,
+        pointRadius: chartConfig.chartType === 'line' ? 5 : 0,
+        pointBackgroundColor: color,
+        borderWidth: 2,
+      });
+      colorIndex++;
+    }
+  } else {
+    datasets.push({
+      label: 'Consumo Total (kWh)',
+      data: dailyTotals,
+      borderColor: '#166534',
+      backgroundColor: chartConfig.chartType === 'bar' ? '#16653480' : 'rgba(22, 101, 52, 0.1)',
+      fill: chartConfig.chartType === 'line',
+      tension: 0.3,
+      pointRadius: chartConfig.chartType === 'line' ? 5 : 0,
+      pointBackgroundColor: '#166534',
+      borderWidth: 3,
+    });
+  }
+
+  fullscreenChartInstance = new Chart(canvas, {
+    type: chartConfig.chartType,
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: {
+          display: chartConfig.vizMode === 'separate',
+          position: 'top',
+          labels: { font: { size: 13 } },
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const value = context.parsed.y || 0;
+              if (value >= 1000) {
+                return `${context.dataset.label}: ${(value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} MWh`;
+              }
+              return `${context.dataset.label}: ${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kWh`;
+            },
+          },
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: yAxisMax,
+          title: {
+            display: true,
+            text: yAxisMax >= 1000 ? 'Consumo (MWh)' : 'Consumo (kWh)',
+            font: { size: 14 },
+          },
+          ticks: {
+            font: { size: 12 },
+            callback: function (value) {
+              if (yAxisMax >= 1000) return (value / 1000).toFixed(1);
+              return value.toFixed(0);
+            },
+          },
+        },
+        x: {
+          title: {
+            display: true,
+            text: chartConfig.granularity === '1h' ? 'Hora' : 'Data',
+            font: { size: 14 },
+          },
+          ticks: { font: { size: 12 } },
+        },
+      },
+    },
+  });
+
+  console.log('[ENERGY] [RFC-0097] Fullscreen chart rebuilt');
+}
+
+/**
+ * RFC-0097: Close fullscreen chart overlay
+ */
+function closeFullscreenChart() {
+  const targetDoc = window.parent?.document || document;
+  const container = targetDoc.getElementById('energyChartFullscreenGlobal');
+
+  if (container) {
+    container.style.display = 'none';
+  }
+
+  targetDoc.body.style.overflow = '';
+  targetDoc.removeEventListener('keydown', handleFullscreenEsc);
+
+  // Destroy fullscreen chart instance
+  if (fullscreenChartInstance) {
+    fullscreenChartInstance.destroy();
+    fullscreenChartInstance = null;
+  }
+
+  // Sync main chart with any changes made in fullscreen
+  rerenderLineChart();
+
+  console.log('[ENERGY] [RFC-0097] Fullscreen closed');
+}
+
+/**
+ * RFC-0097: ESC key handler for fullscreen mode
+ */
+function handleFullscreenEsc(e) {
+  if (e.key === 'Escape' && isChartFullscreen) {
+    toggleChartFullscreen();
+  }
+}
+
+/**
+ * RFC-0097: Setup maximize button handler
+ */
+function setupMaximizeButton() {
+  const maximizeBtn = document.getElementById('maximizeChartBtn');
+  if (!maximizeBtn) {
+    console.warn('[ENERGY] [RFC-0097] Maximize button not found');
+    return;
+  }
+
+  maximizeBtn.addEventListener('click', toggleChartFullscreen);
+  console.log('[ENERGY] [RFC-0097] Maximize button handler setup complete');
+}
+
 /**
  * RFC-0097: Fetches consumption for a period and groups by day
  * Makes ONE API call per shopping and returns array of daily totals
@@ -925,6 +1366,9 @@ async function initializeCharts() {
 
     // RFC-0097: Setup chart tab handlers (vizMode and chartType)
     setupChartTabHandlers();
+
+    // RFC-0097: Setup maximize button for fullscreen
+    setupMaximizeButton();
   }, 2000); // Increased timeout to ensure orchestrator is ready
 }
 
@@ -1066,6 +1510,9 @@ async function updateLineChart(customerId) {
 
   isUpdatingLineChart = true;
 
+  // RFC-0097: Show loading overlay
+  showChartLoading();
+
   try {
     console.log('[ENERGY] [RFC-0097] Fetching consumption data with config:', chartConfig);
 
@@ -1087,6 +1534,9 @@ async function updateLineChart(customerId) {
   } catch (error) {
     console.error('[ENERGY] Error updating line chart:', error);
   } finally {
+    // RFC-0097: Hide loading overlay
+    hideChartLoading();
+
     isUpdatingLineChart = false;
 
     // Process any pending update request
@@ -2297,6 +2747,20 @@ self.onDestroy = function () {
 
   // Remove modal-open class if widget is destroyed with modal open
   document.body.classList.remove('modal-open');
+
+  // RFC-0097: Cleanup fullscreen mode if active
+  if (isChartFullscreen) {
+    closeFullscreenChart();
+    isChartFullscreen = false;
+  }
+
+  // RFC-0097: Remove fullscreen container from parent document
+  const targetDoc = window.parent?.document || document;
+  const fullscreenContainer = targetDoc.getElementById('energyChartFullscreenGlobal');
+  if (fullscreenContainer) {
+    fullscreenContainer.remove();
+    console.log('[ENERGY] [RFC-0097] Fullscreen container removed on destroy');
+  }
 
   // RFC-0097: Cleanup event listeners and reset initialization flag
   cleanupEventListeners();
