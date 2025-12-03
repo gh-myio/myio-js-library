@@ -65,17 +65,26 @@ async function fetchEnergyDayConsumption(customerId, startTs, endTs) {
     return { devices: [], total: 0 };
   }
 
-  // Convert timestamps to ISO 8601 format (API requirement)
-  const startTimeISO = new Date(startTs).toISOString();
-  const endTimeISO = new Date(endTs).toISOString();
+  // Convert timestamps to ISO 8601 format with .000Z milliseconds (API requirement)
+  const formatDateISO = (ts) => {
+    const d = new Date(ts);
+    d.setMilliseconds(0); // Zero out milliseconds for API compatibility
+    return d.toISOString();
+  };
 
-  const url = `${getDataApiHost()}/api/v1/telemetry/customers/${customerId}/energy/?deep=1&granularity=1d&startTime=${encodeURIComponent(startTimeISO)}&endTime=${encodeURIComponent(endTimeISO)}`;
+  const startTimeISO = formatDateISO(startTs);
+  const endTimeISO = formatDateISO(endTs);
+
+  const url = `${getDataApiHost()}/api/v1/telemetry/customers/${customerId}/energy/?deep=1&granularity=1d&startTime=${encodeURIComponent(
+    startTimeISO
+  )}&endTime=${encodeURIComponent(endTimeISO)}`;
 
   try {
     const TOKEN_INGESTION_EnergyDayConsumption = await myIOAuth.getToken();
     const response = await fetch(url, {
+      method: 'GET',
       headers: {
-        'X-Authorization': `Bearer ${TOKEN_INGESTION_EnergyDayConsumption}`,
+        Authorization: `Bearer ${TOKEN_INGESTION_EnergyDayConsumption}`,
         'Content-Type': 'application/json',
       },
     });
@@ -3254,11 +3263,7 @@ const MyIOOrchestrator = (() => {
         }
       }
     });
-    /*
-    LogHelper.log(
-      `[MAIN] [Orchestrator] Total EQUIPMENTS consumption: ${total} kWh`
-    );
-    */
+
     return total;
   }
 
