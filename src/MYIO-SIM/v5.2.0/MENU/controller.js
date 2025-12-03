@@ -1,3 +1,4 @@
+/* global self, window, document, localStorage, MyIOLibrary */
 /***********************************
  *  MENU PREMIUM + FILTRO MODAL    *
  ***********************************/
@@ -32,10 +33,11 @@ function computeCustomersFromCtx() {
   (self.ctx.data || []).forEach((d) => {
     if (d?.datasource?.aliasName === 'Shopping') {
       const name = (d.datasource.entityLabel || '').trim();
-      const value = d.data?.[0]?.[1];
+      const value = d.data?.[0]?.[1]; // This is the ingestionId
       const customerId = d.datasource.entityId;
+      // RFC-0096: Add ingestionId explicitly for clarity (same as value)
       if (name && value && name !== value && !map.has(value)) {
-        map.set(value, { name, value, customerId });
+        map.set(value, { name, value, customerId, ingestionId: value });
       }
     }
   });
@@ -352,7 +354,7 @@ function injectModalGlobal() {
           renderAll();
           LogHelper.log('[MENU] ✅ Clientes recarregados e lista atualizada.');
         } else {
-          alert('Não foi possível carregar shoppings. Verifique a fonte de dados e tente novamente.');
+          window.alert('Não foi possível carregar shoppings. Verifique a fonte de dados e tente novamente.');
           LogHelper.warn('[MENU] ❌ Tentativa de recarga não trouxe clientes.');
         }
       });
@@ -1050,7 +1052,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         }
       } catch (error) {
         LogHelper.error('[MENU] Error loading data:', error);
-        alert('Erro ao carregar dados. Tente novamente.');
+        window.alert('Erro ao carregar dados. Tente novamente.');
       } finally {
         // Re-enable button
         btnCarregar.disabled = false;
@@ -1071,7 +1073,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       LogHelper.log('[MENU] 🔄 Limpar (Force Refresh) clicked');
 
       // Confirmação do usuário
-      const confirmed = confirm('Isso vai limpar todo o cache e recarregar os dados. Continuar?');
+      const confirmed = window.confirm('Isso vai limpar todo o cache e recarregar os dados. Continuar?');
       if (!confirmed) {
         LogHelper.log('[MENU] Force Refresh cancelado pelo usuário');
         return;
@@ -1100,13 +1102,13 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         LogHelper.log('[MENU] 🔄 Force Refresh concluído com sucesso');
 
         // Recarrega a página para limpar todos os widgets visuais
-        alert('Cache limpo com sucesso! A página será recarregada para aplicar as mudanças.');
+        window.alert('Cache limpo com sucesso! A página será recarregada para aplicar as mudanças.');
         setTimeout(() => {
           window.location.reload();
         }, 500);
       } catch (err) {
         LogHelper.error('[MENU] ❌ Erro durante Force Refresh:', err);
-        alert('Erro ao limpar cache. Consulte o console para detalhes.');
+        window.alert('Erro ao limpar cache. Consulte o console para detalhes.');
       }
     });
 
@@ -1125,7 +1127,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // Verifica se MyIOLibrary está disponível
       if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.openGoalsPanel) {
         LogHelper.error('[MENU] ❌ MyIOLibrary.openGoalsPanel não está disponível');
-        alert('Componente de Metas não está disponível. Verifique a biblioteca MyIO.');
+        window.alert('Componente de Metas não está disponível. Verifique a biblioteca MyIO.');
         return;
       }
 
@@ -1136,7 +1138,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
         if (!customerId) {
           LogHelper.error('[MENU] ❌ customerId não encontrado (MAIN ainda não inicializou?)');
-          alert('Customer ID não disponível. Aguarde o carregamento completo do dashboard.');
+          window.alert('Customer ID não disponível. Aguarde o carregamento completo do dashboard.');
           return;
         }
 
@@ -1147,7 +1149,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
         if (!token) {
           LogHelper.error('[MENU] ❌ Token JWT não encontrado no localStorage');
-          alert('Token de autenticação não encontrado. Faça login novamente.');
+          window.alert('Token de autenticação não encontrado. Faça login novamente.');
           return;
         }
 
@@ -1227,7 +1229,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         LogHelper.log('[MENU] ✅ Goals Panel opened successfully');
       } catch (error) {
         LogHelper.error('[MENU] ❌ Error opening Goals Panel:', error);
-        alert(`Erro ao abrir o painel de metas:\n${error.message}\n\nConsulte o console para mais detalhes.`);
+        window.alert(
+          `Erro ao abrir o painel de metas:\n${error.message}\n\nConsulte o console para mais detalhes.`
+        );
       }
     });
 

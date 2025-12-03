@@ -1,3 +1,5 @@
+/* global self, window, document, MyIOLibrary, Chart */
+
 // ============================================
 // MYIO-SIM 1.0.0 - ENERGY Widget Controller
 // ============================================
@@ -5,12 +7,6 @@
 // ============================================
 // DEBUG FLAGS
 // ============================================
-
-/**
- * RFC-0073: Debug flag to use mock data for peak demand
- * Set to true to bypass API calls and return mock data
- */
-const MOCK_DEBUG_PEAK_DEMAND = true;
 
 /**
  * RFC-0073: Debug flag to use mock data for day total consumption
@@ -22,30 +18,6 @@ const MOCK_DEBUG_DAY_CONSUMPTION = false;
 // CACHE CONFIGURATION
 // ============================================
 
-// Cache para pico de demanda
-let peakDemandCache = {
-  data: null,
-  startTs: null,
-  endTs: null,
-  timestamp: null,
-};
-
-const PEAK_DEMAND_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
-
-// Cache para consumo total
-let totalConsumptionCache = {
-  data: null,
-  customerTotal: 0,
-  equipmentsTotal: 0,
-  difference: 0,
-  timestamp: null,
-};
-
-const TOTAL_CONSUMPTION_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
-
-// ✅ DEBOUNCE: Prevent infinite loops
-let isUpdatingTotalConsumption = false;
-
 // RFC-0073: Chart configuration state
 const chartConfig = {
   period: 7, // days
@@ -54,386 +26,6 @@ const chartConfig = {
   equipmentTypes: ['ELEVADOR', 'ESCADA_ROLANTE', 'CHILLER', 'FANCOIL', 'AR_CONDICIONADO', 'BOMBA', 'LOJA'],
   vizMode: 'total', // 'total' or 'separate'
 };
-
-// ============================================
-// MOCK DATA GENERATORS (RFC-0073)
-// ============================================
-
-/**
- * RFC-0073: Generate mock peak demand data for testing
- * @param {string} customerId - Customer ID (used for deterministic mock selection)
- * @returns {Object} Mock peak demand object
- */
-function generateMockPeakDemand(customerId) {
-  const mockPeakValues = [
-    { value: 1250.5, device: 'Chiller Principal - Torre Norte', shopping: 'Shopping Iguatemi SP' },
-    { value: 980.3, device: 'HVAC Central - Piso 2', shopping: 'Shopping Eldorado' },
-    { value: 1450.7, device: 'Ar Condicionado - Food Court', shopping: 'Shopping JK Iguatemi' },
-    { value: 720.2, device: 'Sistema Climatização - Ala A', shopping: 'Shopping Villa Lobos' },
-    { value: 1100.0, device: 'Chiller Backup - Subsolo', shopping: 'Shopping Morumbi' },
-  ];
-
-  // Select mock based on customerId (deterministic)
-  const mockIndex = customerId ? Math.abs(customerId.charCodeAt(0)) % mockPeakValues.length : 0;
-
-  const selectedMock = mockPeakValues[mockIndex];
-
-  // Generate timestamp (recent, within last hour)
-  const now = Date.now();
-  const mockTimestamp = now - Math.floor(Math.random() * 3600000); // Random within last hour
-
-  return {
-    peakValue: selectedMock.value,
-    deviceName: selectedMock.device,
-    timestamp: mockTimestamp,
-    deviceId: `mock-device-${mockIndex}`,
-    customerId: customerId || null,
-    shoppingName: selectedMock.shopping,
-  };
-}
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-/**
- * Verifica cache de pico de demanda
- */
-function getCachedPeakDemand(startTs, endTs) {
-  if (!peakDemandCache.data) return null;
-
-  // Check if cache is for same period
-  if (peakDemandCache.startTs !== startTs || peakDemandCache.endTs !== endTs) {
-    return null;
-  }
-
-  // Check if cache is fresh
-  const age = Date.now() - peakDemandCache.timestamp;
-  if (age > PEAK_DEMAND_CACHE_TTL) {
-    console.log('[ENERGY] Peak demand cache expired');
-    return null;
-  }
-
-  console.log('[ENERGY] Using cached peak demand data');
-  return peakDemandCache.data;
-}
-
-/**
- * Armazena dados no cache
- */
-function cachePeakDemand(data, startTs, endTs) {
-  peakDemandCache = {
-    data,
-    startTs,
-    endTs,
-    timestamp: Date.now(),
-  };
-  console.log('[ENERGY] Peak demand data cached');
-}
-
-/**
- * Verifica cache de consumo total
- */
-function getCachedTotalConsumption() {
-  if (!totalConsumptionCache.data) return null;
-
-  // Check if cache is fresh (5 minutos)
-  const age = Date.now() - totalConsumptionCache.timestamp;
-  if (age > TOTAL_CONSUMPTION_CACHE_TTL) {
-    console.log('[ENERGY] Total consumption cache expired');
-    return null;
-  }
-
-  console.log('[ENERGY] Using cached total consumption data');
-  return totalConsumptionCache.data;
-}
-
-/**
- * Armazena dados de consumo total no cache
- */
-function cacheTotalConsumption(customerTotal, equipmentsTotal, difference, percentage, deviceCount) {
-  totalConsumptionCache = {
-    data: {
-      customerTotal,
-      equipmentsTotal,
-      difference,
-      percentage,
-      deviceCount,
-    },
-    customerTotal,
-    equipmentsTotal,
-    difference,
-    timestamp: Date.now(),
-  };
-  console.log('[ENERGY] Total consumption data cached:', totalConsumptionCache.data);
-}
-
-/**
- * Extrai IDs dos devices do ctx.data
- */
-function extractDeviceIds(ctxData) {
-  const deviceIds = new Set();
-
-  if (!Array.isArray(ctxData)) {
-    console.warn('[ENERGY] ctxData is not an array');
-    return [];
-  }
-
-  ctxData.forEach((data) => {
-    // Skip customer/shopping entries
-    if (data.datasource?.aliasName === 'Shopping') {
-      return;
-    }
-
-    const entityId = data.datasource?.entityId?.id || data.datasource?.entity?.id?.id;
-    if (entityId) {
-      deviceIds.add(entityId);
-    }
-  });
-
-  console.log(`[ENERGY] Extracted ${deviceIds.size} device IDs`);
-  return Array.from(deviceIds);
-}
-
-/**
- * Busca nome do device por ID
- */
-function getDeviceNameById(deviceId) {
-  if (!self.ctx?.data) {
-    return null;
-  }
-
-  const deviceData = self.ctx.data.find((d) => {
-    const id = d.datasource?.entityId?.id || d.datasource?.entity?.id?.id;
-    return id === deviceId;
-  });
-
-  return (
-    deviceData?.datasource?.entityLabel ||
-    deviceData?.datasource?.entityName ||
-    deviceData?.datasource?.name ||
-    null
-  );
-}
-
-// ============================================
-// API FUNCTIONS
-// ============================================
-
-/**
- * Busca o pico de demanda iterando por todos os devices do customer
- * @param {string} customerId - ID do customer no ThingsBoard
- * @param {number} startTs - Timestamp início em ms
- * @param {number} endTs - Timestamp fim em ms
- * @returns {Promise<{peakValue: number, timestamp: number, deviceId: string, deviceName: string}>}
- */
-async function fetchCustomerPeakDemand(customerId, startTs, endTs) {
-  // RFC-0073: Check mock flag first
-  if (MOCK_DEBUG_PEAK_DEMAND) {
-    console.log('[ENERGY] [RFC-0073] [MOCK] fetchCustomerPeakDemand bypassed - using mock');
-    return generateMockPeakDemand(customerId);
-  }
-
-  // Try cache first
-  const cached = getCachedPeakDemand(startTs, endTs);
-  if (cached) {
-    return cached;
-  }
-
-  const tbToken = localStorage.getItem('jwt_token');
-
-  if (!tbToken) {
-    throw new Error('JWT do ThingsBoard não encontrado');
-  }
-
-  try {
-    // ✅ DEVICE-BY-DEVICE APPROACH
-    const devices = extractDeviceIds(self.ctx.data);
-
-    if (devices.length === 0) {
-      console.warn('[ENERGY] No devices found for peak demand calculation');
-      const result = {
-        peakValue: 0,
-        timestamp: Date.now(),
-        deviceId: null,
-        deviceName: 'Sem devices',
-      };
-      cachePeakDemand(result, startTs, endTs);
-      return result;
-    }
-
-    console.log(`[ENERGY] Fetching peak demand for ${devices.length} devices`);
-
-    const peakResults = [];
-
-    // Iterate through each device
-    for (const deviceId of devices) {
-      try {
-        // Build URL with power and demand keys
-        const url =
-          `/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?` +
-          `keys=power,demand,consumption&startTs=${startTs}&endTs=${endTs}&agg=MAX&limit=1`;
-
-        const response = await fetch(url, {
-          headers: {
-            'X-Authorization': `Bearer ${tbToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          console.warn(`[ENERGY] Failed to fetch demand for device ${deviceId}: ${response.status}`);
-          continue;
-        }
-
-        const data = await response.json();
-
-        // Data format: { "power": [{ts: 123, value: 456}], "demand": [...], "consumption": [...] }
-        const powerData = data.power || [];
-        const demandData = data.demand || [];
-        const consumptionData = data.consumption || [];
-
-        // Collect all peak values from different keys
-        if (powerData.length > 0) {
-          peakResults.push({
-            deviceId,
-            value: Number(powerData[0].value) || 0, // ✅ Convert to number
-            timestamp: powerData[0].ts,
-            key: 'power',
-          });
-        }
-
-        if (demandData.length > 0) {
-          peakResults.push({
-            deviceId,
-            value: Number(demandData[0].value) || 0, // ✅ Convert to number
-            timestamp: demandData[0].ts,
-            key: 'demand',
-          });
-        }
-
-        if (consumptionData.length > 0) {
-          peakResults.push({
-            deviceId,
-            value: Number(consumptionData[0].value) || 0, // ✅ Convert to number
-            timestamp: consumptionData[0].ts,
-            key: 'consumption',
-          });
-        }
-      } catch (err) {
-        console.error(`[ENERGY] Error fetching demand for device ${deviceId}:`, err);
-        // Continue to next device
-      }
-    }
-
-    // Encontrar o maior pico entre todos os devices
-    if (peakResults.length === 0) {
-      console.log('[ENERGY] No peak data found across all devices');
-      const result = {
-        peakValue: 0,
-        timestamp: Date.now(),
-        deviceId: null,
-        deviceName: 'Sem dados',
-      };
-      cachePeakDemand(result, startTs, endTs);
-      return result;
-    }
-
-    // Find maximum peak
-    const maxPeak = peakResults.reduce((max, current) => (current.value > max.value ? current : max));
-
-    console.log('[ENERGY] Maximum peak found:', maxPeak);
-
-    // Buscar nome do device
-    const deviceName = getDeviceNameById(maxPeak.deviceId);
-
-    const result = {
-      peakValue: Number(maxPeak.value) || 0, // ✅ Convert to number
-      timestamp: maxPeak.timestamp,
-      deviceId: maxPeak.deviceId,
-      deviceName: deviceName || 'Desconhecido',
-    };
-
-    console.log('[ENERGY] Peak demand result:', result);
-
-    // Cache the result
-    cachePeakDemand(result, startTs, endTs);
-
-    return result;
-  } catch (err) {
-    console.error(`[ENERGY] Error fetching customer peak demand:`, err);
-
-    // Return fallback result
-    const result = {
-      peakValue: 0,
-      timestamp: Date.now(),
-      deviceId: null,
-      deviceName: 'Erro',
-    };
-    cachePeakDemand(result, startTs, endTs);
-    return result;
-  }
-}
-
-/**
- * Calcula a tendência de pico comparando com período anterior
- * @param {number} currentPeak - Pico atual
- * @param {number} startTs - Início do período atual
- * @param {number} endTs - Fim do período atual
- */
-async function calculatePeakTrend(currentPeak, startTs, endTs) {
-  try {
-    // Calcular período anterior (mesmo intervalo)
-    const periodDuration = endTs - startTs;
-    const previousStartTs = startTs - periodDuration;
-    const previousEndTs = startTs;
-
-    const customerId = self.ctx.settings?.customerId;
-
-    if (!customerId) {
-      console.warn('[ENERGY] Customer ID not available for trend calculation');
-      return {
-        direction: 'neutral',
-        percentChange: 0,
-        label: '—',
-      };
-    }
-
-    const previousPeak = await fetchCustomerPeakDemand(customerId, previousStartTs, previousEndTs);
-
-    if (!previousPeak || previousPeak.peakValue === 0) {
-      return {
-        direction: 'neutral',
-        percentChange: 0,
-        label: '— sem dados anteriores',
-      };
-    }
-
-    const percentChange = ((currentPeak - previousPeak.peakValue) / previousPeak.peakValue) * 100;
-
-    return {
-      direction: percentChange > 0 ? 'up' : percentChange < 0 ? 'down' : 'neutral',
-      percentChange: Math.abs(percentChange),
-      label:
-        percentChange > 0
-          ? `▲ +${percentChange.toFixed(1)}% vs período anterior`
-          : percentChange < 0
-          ? `▼ ${percentChange.toFixed(1)}% vs período anterior`
-          : '— sem alteração',
-    };
-  } catch (error) {
-    console.error('[ENERGY] Error calculating peak trend:', error);
-    return {
-      direction: 'neutral',
-      percentChange: 0,
-      label: '— erro no cálculo',
-    };
-  }
-}
-
-// ============================================
-// UI UPDATE FUNCTIONS
-// ============================================
 
 /**
  * Renderiza a UI do card de consumo total com dados
@@ -503,55 +95,11 @@ function renderTotalConsumptionEquipmentsUI(energyData, valueEl, trendEl, infoEl
 }
 
 /**
- * DEPRECATED: Renderiza a UI do card de consumo usando os dados do pacote de resumo.
- * @param {object} energyData - O objeto de resumo completo vindo do MAIN.
- */
-function renderTotalConsumptionUI(energyData, valueEl, trendEl, infoEl) {
-  if (!energyData) return;
-
-  // RFC-0073: Calculate percentages for Lojas vs Equipamentos
-  const totalGeral = energyData.customerTotal;
-  const lojasTotal = energyData.difference;
-  const equipamentosTotal = energyData.equipmentsTotal;
-
-  const lojasPercentage = totalGeral > 0 ? (lojasTotal / totalGeral) * 100 : 0;
-  const equipamentosPercentage = totalGeral > 0 ? (equipamentosTotal / totalGeral) * 100 : 0;
-
-  // RFC-0073: Main value shows "Consumo Total Lojas" with percentage
-  const lojasFormatted = MyIOLibrary.formatEnergy(lojasTotal);
-
-  if (valueEl) {
-    valueEl.textContent = `${lojasFormatted} (${lojasPercentage.toFixed(1)}%)`;
-  }
-
-  // RFC-0073: Info line shows "Equipamentos: XX%"
-  if (infoEl) {
-    infoEl.textContent = `Equipamentos: ${equipamentosPercentage.toFixed(1)}%`;
-  }
-
-  // RFC-0073: Trend line shows total context
-  if (trendEl && totalGeral > 0) {
-    const totalFormatted = MyIOLibrary.formatEnergy(totalGeral);
-    trendEl.textContent = `Total geral: ${totalFormatted}`;
-  }
-}
-
-/**
  * Inicializa o card de consumo total de LOJAS com estado de loading
  */
 function initializeTotalConsumptionStoresCard() {
   const valueEl = document.getElementById('total-consumption-stores-value');
   const trendEl = document.getElementById('total-consumption-stores-trend');
-  const infoEl = document.getElementById('total-consumption-stores-info');
-
-  // ✅ Try to use cache first
-  const cached = getCachedTotalConsumption();
-
-  if (cached) {
-    console.log('[ENERGY] Initializing STORES card with cached data');
-    renderTotalConsumptionStoresUI(cached, valueEl, trendEl, infoEl);
-    return;
-  }
 
   // Show loading state
   if (valueEl) {
@@ -578,16 +126,6 @@ function initializeTotalConsumptionStoresCard() {
 function initializeTotalConsumptionEquipmentsCard() {
   const valueEl = document.getElementById('total-consumption-equipments-value');
   const trendEl = document.getElementById('total-consumption-equipments-trend');
-  const infoEl = document.getElementById('total-consumption-equipments-info');
-
-  // ✅ Try to use cache first
-  const cached = getCachedTotalConsumption();
-
-  if (cached) {
-    console.log('[ENERGY] Initializing EQUIPMENTS card with cached data');
-    renderTotalConsumptionEquipmentsUI(cached, valueEl, trendEl, infoEl);
-    return;
-  }
 
   // Show loading state
   if (valueEl) {
@@ -648,15 +186,6 @@ function initializeTotalConsumptionCard() {
   const trendEl = document.getElementById('total-consumption-trend');
   const infoEl = document.getElementById('total-consumption-info');
 
-  // ✅ Try to use cache first
-  const cached = getCachedTotalConsumption();
-
-  if (cached) {
-    console.log('[ENERGY] Initializing with cached total consumption data');
-    renderTotalConsumptionUI(cached, valueEl, trendEl, infoEl);
-    return;
-  }
-
   // Show loading state
   if (valueEl) {
     valueEl.innerHTML = `
@@ -681,246 +210,31 @@ function initializeTotalConsumptionCard() {
 }
 
 /**
- * DEPRECATED: Apenas chama a função que desenha o card na tela.
- * @param {object} summary - O objeto de resumo calculado pelo widget MAIN.
- */
-function updateTotalConsumptionCard(summary) {
-  console.log(
-    '[ENERGY] Atualizando card de consumo total com dados recebidos: >>>>>>>>>>>>>>>>>>>>>>>',
-    summary
-  );
-
-  if (!summary) {
-    return; // Não faz nada se não houver dados
-  }
-
-  const valueEl = document.getElementById('total-consumption-value');
-  const trendEl = document.getElementById('total-consumption-trend');
-  const infoEl = document.getElementById('total-consumption-info');
-
-  // A única responsabilidade desta função é chamar a que renderiza a UI.
-  renderTotalConsumptionUI(summary, valueEl, trendEl, infoEl);
-}
-
-/**
- * DESABILITADO TEMPORARIAMENTE: Inicializa o card de pico de demanda com estado de loading
- */
-/*
-function initializePeakDemandCard() {
-  const valueEl = document.getElementById("peak-demand-value");
-  const trendEl = document.getElementById("peak-demand-trend");
-  const deviceEl = document.getElementById("peak-demand-device");
-
-  if (valueEl) {
-    valueEl.innerHTML = `
-      <svg class="loading-spinner" style="width:24px; height:24px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
-        <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
-                stroke-dasharray="90,150" stroke-dashoffset="0">
-        </circle>
-      </svg>
-    `;
-  }
-
-  if (trendEl) {
-    trendEl.textContent = "Aguardando dados...";
-    trendEl.className = "trend neutral";
-  }
-
-  if (deviceEl) {
-    deviceEl.textContent = "";
-  }
-
-  console.log("[ENERGY] Peak demand card initialized with loading state");
-}
-*/
-
-/**
- * RFC-0073: Get selected shopping IDs from filter
+ * RFC-0073: Get selected shopping IDs (ingestionIds) from filter
+ * RFC-0096: Fixed - window.custumersSelected already contains only selected items
+ *           Each item has: { name, value (ingestionId), customerId, ingestionId }
  */
 function getSelectedShoppingIds() {
   // Check if there are selected customers from MENU filter
-  if (window.custumersSelected && Array.isArray(window.custumersSelected)) {
-    const selectedIds = window.custumersSelected.filter((c) => c.selected === true).map((c) => c.value);
+  if (
+    window.custumersSelected &&
+    Array.isArray(window.custumersSelected) &&
+    window.custumersSelected.length > 0
+  ) {
+    // RFC-0096: All items in custumersSelected are already selected, no need to filter by .selected
+    // Use ingestionId if available, fallback to value (which is also ingestionId)
+    const selectedIds = window.custumersSelected.map((c) => c.ingestionId || c.value).filter(Boolean);
 
     if (selectedIds.length > 0) {
-      console.log('[ENERGY] [RFC-0073] Using filtered shopping IDs:', selectedIds);
+      console.log('[ENERGY] [RFC-0096] Using filtered shopping ingestionIds:', selectedIds);
       return selectedIds;
     }
   }
 
   // Fallback: return empty array (will use widget's customerId)
-  console.log('[ENERGY] [RFC-0073] No shopping filter active, using widget customerId');
+  console.log('[ENERGY] [RFC-0096] No shopping filter active, using widget customerId');
   return [];
 }
-
-/**
- * RFC-0073: Fetch peak demand for multiple customers (respects shopping filter)
- */
-async function fetchFilteredPeakDemand(customerIds, startTs, endTs) {
-  // RFC-0073: Debug mock data
-  if (MOCK_DEBUG_PEAK_DEMAND) {
-    console.log('[ENERGY] [RFC-0073] [MOCK] Using mock peak demand data');
-
-    // Generate mock data based on number of customers
-    const mockPeakValues = [
-      { value: 1250.5, device: 'Chiller Principal - Torre Norte', shopping: 'Shopping Iguatemi SP' },
-      { value: 980.3, device: 'HVAC Central - Piso 2', shopping: 'Shopping Eldorado' },
-      { value: 1450.7, device: 'Ar Condicionado - Food Court', shopping: 'Shopping JK Iguatemi' },
-      { value: 720.2, device: 'Sistema Climatização - Ala A', shopping: 'Shopping Villa Lobos' },
-      { value: 1100.0, device: 'Chiller Backup - Subsolo', shopping: 'Shopping Morumbi' },
-    ];
-
-    // Select random mock based on customerIds
-    const mockIndex =
-      customerIds.length > 0 ? Math.abs(customerIds[0].charCodeAt(0)) % mockPeakValues.length : 0;
-
-    const selectedMock = mockPeakValues[mockIndex];
-
-    // Calculate a timestamp within the requested period
-    const mockTimestamp = startTs + Math.floor((endTs - startTs) * 0.6); // 60% into period
-
-    return {
-      peakValue: selectedMock.value,
-      deviceName: selectedMock.device,
-      timestamp: mockTimestamp,
-      customerId: customerIds[0] || null,
-      shoppingName: selectedMock.shopping,
-    };
-  }
-
-  if (!customerIds || customerIds.length === 0) {
-    return { peakValue: 0, deviceName: null, timestamp: null };
-  }
-
-  console.log('[ENERGY] [RFC-0073] Fetching peak demand for customers:', customerIds);
-
-  // Fetch peak demand for each customer and find the highest
-  const peakPromises = customerIds.map((customerId) => fetchCustomerPeakDemand(customerId, startTs, endTs));
-
-  const allPeaks = await Promise.all(peakPromises);
-
-  // Find the overall peak across all customers
-  const overallPeak = allPeaks.reduce((highest, current) => {
-    if (!current || current.peakValue === 0) return highest;
-    if (!highest || current.peakValue > highest.peakValue) return current;
-    return highest;
-  }, null);
-
-  console.log('[ENERGY] [RFC-0073] Overall peak across filtered customers:', overallPeak);
-
-  return overallPeak || { peakValue: 0, deviceName: null, timestamp: null };
-}
-
-/**
- * DESABILITADO TEMPORARIAMENTE: Atualiza o card de pico de demanda com dados reais
- * RFC-0073: Now respects shopping filters
- */
-/*
-async function updatePeakDemandCard(startTs, endTs) {
-  const valueEl = document.getElementById("peak-demand-value");
-  const trendEl = document.getElementById("peak-demand-trend");
-  const deviceEl = document.getElementById("peak-demand-device");
-
-  try {
-    console.log("[ENERGY] [RFC-0073] Fetching peak demand data...", { startTs, endTs });
-
-    // Show loading state
-    if (valueEl) {
-      valueEl.innerHTML = `
-        <svg class="loading-spinner" style="width:24px; height:24px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
-          <circle cx="25" cy="25" r="20" fill="none" stroke="#6c2fbf" stroke-width="5" stroke-linecap="round"
-                  stroke-dasharray="90,150" stroke-dashoffset="0">
-          </circle>
-        </svg>
-      `;
-    }
-
-    const customerId = self.ctx.settings?.customerId;
-
-    if (!customerId) {
-      throw new Error("Customer ID não encontrado");
-    }
-
-    // RFC-0073: Get filtered shopping IDs or use widget's customerId
-    const selectedShoppingIds = getSelectedShoppingIds();
-    const customerIds = selectedShoppingIds.length > 0
-      ? selectedShoppingIds
-      : [customerId];
-
-    // RFC-0073: Fetch peak demand respecting filters
-    const peakData = await fetchFilteredPeakDemand(customerIds, startTs, endTs);
-
-    console.log("[ENERGY] Peak demand data received:", peakData);
-
-    // Handle no data case
-    if (!peakData || peakData.peakValue === 0) {
-      if (valueEl) {
-        valueEl.textContent = "— kW";
-      }
-      if (trendEl) {
-        trendEl.textContent = "Sem dados disponíveis";
-        trendEl.className = "trend neutral";
-      }
-      if (deviceEl) {
-        deviceEl.textContent = "";
-      }
-      return;
-    }
-
-    // Format peak value
-    const peakValueFormatted =
-      peakData.peakValue >= 1000
-        ? `${(peakData.peakValue / 1000).toFixed(3)} MW`
-        : `${peakData.peakValue.toFixed(0)} kW`;
-
-    // Update value
-    if (valueEl) {
-      valueEl.textContent = peakValueFormatted;
-    }
-
-    // Calculate and update trend
-    const trendData = await calculatePeakTrend(
-      peakData.peakValue,
-      startTs,
-      endTs
-    );
-
-    if (trendEl) {
-      trendEl.textContent = trendData.label;
-      trendEl.className = `trend ${trendData.direction}`;
-    }
-
-    // Update device info
-    if (deviceEl && peakData.deviceName) {
-      const peakDate = new Date(peakData.timestamp);
-      const peakTime = peakDate.toLocaleString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-
-      deviceEl.textContent = `${peakData.deviceName} às ${peakTime}`;
-    }
-
-    console.log("[ENERGY] Peak demand card updated successfully");
-  } catch (error) {
-    console.error("[ENERGY] Error updating peak demand card:", error);
-
-    // Show error state
-    if (valueEl) {
-      valueEl.textContent = "Erro";
-    }
-    if (trendEl) {
-      trendEl.textContent = "Falha ao carregar dados";
-      trendEl.className = "trend neutral";
-    }
-    if (deviceEl) {
-      deviceEl.textContent = "";
-    }
-  }
-}
-*/
 
 // ============================================
 // CHART FUNCTIONS
@@ -929,58 +243,6 @@ async function updatePeakDemandCard(startTs, endTs) {
 // Global chart references for later updates
 let lineChartInstance = null;
 let pieChartInstance = null;
-
-/**
- * Classifica o tipo de equipamento baseado no deviceType e label
- * Similar à lógica em EQUIPMENTS
- */
-function classifyEquipmentType(device) {
-  const deviceType = device.deviceType || '';
-  const label = String(device.labelOrName || device.label || '').toLowerCase();
-
-  console.log(`[ENERGY] Classifying device:`, { deviceType, label });
-
-  // Lojas: 3F_MEDIDOR que não são equipamentos
-  if (deviceType === '3F_MEDIDOR') {
-    const equipmentKeywords = ['elevador', 'chiller', 'bomba', 'escada', 'casa de m'];
-    const isEquipment = equipmentKeywords.some((keyword) => label.includes(keyword));
-    if (!isEquipment) {
-      console.log(`[ENERGY] Classified as Lojas (3F_MEDIDOR without equipment keywords)`);
-      return 'Lojas';
-    }
-  }
-
-  // Classificação por tipo de equipamento
-  if (label.includes('chiller')) {
-    console.log(`[ENERGY] Classified as Chiller`);
-    return 'Chiller';
-  }
-  if (label.includes('fancoil') || label.includes('fan coil') || label.includes('fan-coil')) {
-    console.log(`[ENERGY] Classified as Fancoil`);
-    return 'Fancoil';
-  }
-  if (
-    label.includes('ar condicionado') ||
-    label.includes('ar-condicionado') ||
-    label.includes('split') ||
-    label.includes(' ar ')
-  ) {
-    console.log(`[ENERGY] Classified as AR`);
-    return 'AR';
-  }
-  if (label.includes('bomba')) {
-    console.log(`[ENERGY] Classified as Bombas`);
-    return 'Bombas';
-  }
-  if (label.includes('elevador') || label.includes('escada')) {
-    console.log(`[ENERGY] Classified as Elevadores`);
-    return 'Elevadores';
-  }
-
-  // Outros equipamentos
-  console.log(`[ENERGY] Classified as Outros (no match found)`);
-  return 'Outros';
-}
 
 /**
  * Busca o consumo total de todos os devices para um dia específico
@@ -1021,149 +283,38 @@ async function fetchDayTotalConsumption(customerId, startTs, endTs) {
     return mockConsumption;
   }
 
-  const tbToken = localStorage.getItem('jwt_token');
-
-  if (!tbToken) {
-    console.error('[ENERGY] JWT token not found');
-    return 0;
-  }
-
   try {
-    const url = `/api/v1/telemetry/customers/${customerId}/energy/devices/totals?startTime=${startTs}&endTime=${endTs}`;
+    const result = await window.MyIOUtils.fetchEnergyDayConsumption(customerId, startTs, endTs);
 
-    const response = await fetch(url, {
-      headers: {
-        'X-Authorization': `Bearer ${tbToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      console.warn(`[ENERGY] Failed to fetch day total: ${response.status}`);
-      return 0;
-    }
-
-    const data = await response.json();
-
-    // Sum all device consumption
+    // RFC-0096: Process the devices array to get accurate total
+    // API may return: [{ id, name, type, consumption: [{ timestamp, value }] }]
     let total = 0;
-    if (Array.isArray(data)) {
-      data.forEach((device) => {
-        total += Number(device.total_value) || 0;
+    const devices = result.devices || [];
+
+    if (Array.isArray(devices)) {
+      devices.forEach((device) => {
+        // Check for new API format with consumption array
+        if (Array.isArray(device.consumption)) {
+          device.consumption.forEach((entry) => {
+            total += Number(entry.value) || 0;
+          });
+        } else {
+          // Fallback for old format with total_value
+          total += Number(device.total_value) || Number(device.value) || 0;
+        }
       });
     }
 
-    console.log(`[ENERGY] Day total (${new Date(startTs).toLocaleDateString()}): ${total} kWh`);
+    // If no devices processed, use the pre-calculated total
+    if (total === 0 && result.total > 0) {
+      total = result.total;
+    }
+
+    console.log(`[ENERGY] Day total (${new Date(startTs).toLocaleDateString()}): ${total.toFixed(2)} kWh`);
     return total;
   } catch (error) {
     console.error('[ENERGY] Error fetching day total:', error);
     return 0;
-  }
-}
-
-/**
- * Busca o consumo dos últimos 7 dias
- * @param {string} customerId - ID do customer
- * @returns {Promise<Array>} - Array com {date, consumption} para cada dia
- */
-async function fetch7DaysConsumption(customerId) {
-  const results = [];
-  const now = new Date();
-
-  // Iterate through last 7 days
-  for (let i = 6; i >= 0; i--) {
-    const dayDate = new Date(now);
-    dayDate.setDate(now.getDate() - i);
-    dayDate.setHours(0, 0, 0, 0);
-
-    const startTs = dayDate.getTime();
-    const endDate = new Date(dayDate);
-    endDate.setHours(23, 59, 59, 999);
-    const endTs = endDate.getTime();
-
-    const consumption = await fetchDayTotalConsumption(customerId, startTs, endTs);
-
-    results.push({
-      date: dayDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-      consumption: consumption,
-    });
-  }
-
-  console.log('[ENERGY] 7 days consumption data:', results);
-  return results;
-}
-
-/**
- * Calcula a distribuição de consumo por tipo de equipamento
- * Usa o cache do orchestrador + classificação por tipo
- */
-async function calculateEquipmentDistribution() {
-  try {
-    // Get energy cache from orchestrator
-    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
-
-    if (!orchestrator || typeof orchestrator.getEnergyCache !== 'function') {
-      console.warn('[ENERGY] Orchestrator not available for distribution calculation');
-      return null;
-    }
-
-    const energyCache = orchestrator.getEnergyCache();
-
-    if (!energyCache || energyCache.size === 0) {
-      console.warn('[ENERGY] Energy cache is empty');
-      return null;
-    }
-
-    console.log(`[ENERGY] Energy cache has ${energyCache.size} devices`);
-    console.log('[ENERGY] ctx.data available:', !!self.ctx?.data, 'entries:', self.ctx?.data?.length);
-
-    // Initialize counters
-    const distribution = {
-      Chiller: 0,
-      Fancoil: 0,
-      AR: 0,
-      Bombas: 0,
-      Lojas: 0,
-      Elevadores: 0,
-      Outros: 0,
-    };
-
-    let devicesProcessed = 0;
-    let devicesNotFound = 0;
-
-    // Classify each device and sum consumption
-    energyCache.forEach((deviceData, ingestionId) => {
-      devicesProcessed++;
-      const consumption = Number(deviceData.total_value) || 0;
-
-      console.log(
-        `[ENERGY] Processing device ${devicesProcessed}/${energyCache.size}, ingestionId: ${ingestionId}, consumption: ${consumption}`
-      );
-
-      // Get device info from ctx.data to classify
-      const device = findDeviceInCtx(ingestionId);
-
-      if (!device) {
-        devicesNotFound++;
-        console.warn(`[ENERGY] Device not found in ctx for ingestionId: ${ingestionId}, adding to Outros`);
-        distribution.Outros += consumption;
-        return;
-      }
-
-      const type = classifyEquipmentType(device);
-      distribution[type] = (distribution[type] || 0) + consumption;
-      console.log(`[ENERGY] Added ${consumption} kWh to ${type}, new total: ${distribution[type]}`);
-    });
-
-    console.log('[ENERGY] Distribution calculation complete:');
-    console.log(`[ENERGY] - Devices processed: ${devicesProcessed}`);
-    console.log(`[ENERGY] - Devices not found in ctx: ${devicesNotFound}`);
-    console.log('[ENERGY] Equipment distribution:', distribution);
-
-    return distribution;
-  } catch (error) {
-    console.error('[ENERGY] Error calculating equipment distribution:', error);
-    return null;
   }
 }
 
@@ -1272,8 +423,6 @@ async function calculateDistributionByMode(mode) {
     }
 
     console.log(`[ENERGY] Calculating distribution for mode: ${mode}`);
-
-    const distribution = {};
 
     if (mode === 'groups') {
       // Por grupos de equipamentos (padrão)
@@ -1556,45 +705,6 @@ function getShoppingName(customerId) {
 }
 
 /**
- * Encontra o device no ctx.data pelo ingestionId
- */
-function findDeviceInCtx(ingestionId) {
-  if (!self.ctx || !Array.isArray(self.ctx.data)) {
-    console.warn('[ENERGY] ctx or ctx.data not available');
-    return null;
-  }
-
-  // Search in ctx.data for matching ingestionId
-  for (const data of self.ctx.data) {
-    const deviceIngestionId = data.datasource?.ingestionId;
-    const deviceType = data.datasource?.deviceType;
-    const entityLabel = data.datasource?.entityLabel;
-    const entityName = data.datasource?.entityName;
-    const name = data.datasource?.name;
-    const label = entityLabel || entityName || name || '';
-
-    if (deviceIngestionId === ingestionId) {
-      console.log(`[ENERGY] Found device for ingestionId ${ingestionId}:`, {
-        deviceType,
-        label,
-        entityLabel,
-        entityName,
-        name,
-      });
-      return {
-        ingestionId: deviceIngestionId,
-        deviceType: deviceType,
-        labelOrName: label,
-        label: label,
-      };
-    }
-  }
-
-  console.warn(`[ENERGY] Device not found in ctx for ingestionId: ${ingestionId}`);
-  return null;
-}
-
-/**
  * Inicializa os gráficos com dados reais
  */
 async function initializeCharts() {
@@ -1688,7 +798,6 @@ async function initializeCharts() {
         tooltip: {
           callbacks: {
             label: function (context) {
-              const label = context.label || '';
               const value = context.parsed.x || 0;
 
               // Calculate percentage
@@ -1817,8 +926,16 @@ async function updateLineChart(customerId) {
 
     // RFC-0073: Color palette for multiple shopping lines
     const lineColors = [
-      '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
-      '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'
+      '#3b82f6',
+      '#ef4444',
+      '#10b981',
+      '#f59e0b',
+      '#8b5cf6',
+      '#ec4899',
+      '#06b6d4',
+      '#84cc16',
+      '#f97316',
+      '#6366f1',
     ];
 
     // RFC-0073: Check visualization mode
@@ -1834,11 +951,11 @@ async function updateLineChart(customerId) {
         const shoppingName = getShoppingNameForFilter(cid);
         const data = await fetch7DaysConsumptionFiltered([cid]);
 
-        data.forEach(d => allDates.add(d.date));
+        data.forEach((d) => allDates.add(d.date));
 
         datasets.push({
           label: shoppingName,
-          data: data.map(d => d.consumption),
+          data: data.map((d) => d.consumption),
           borderColor: lineColors[i % lineColors.length],
           backgroundColor: lineColors[i % lineColors.length] + '20',
           fill: false,
@@ -1861,17 +978,22 @@ async function updateLineChart(customerId) {
 
       // Update chart data (single dataset)
       lineChartInstance.data.labels = sevenDaysData.map((d) => d.date);
-      lineChartInstance.data.datasets = [{
-        label: customerIds.length > 1 ? `Consumo Total (${customerIds.length} Shoppings)` : `Consumo Total (${getShoppingNameForFilter(customerIds[0])})`,
-        data: sevenDaysData.map((d) => d.consumption),
-        borderColor: '#6c2fbf',
-        backgroundColor: 'rgba(108, 47, 191, 0.1)',
-        fill: true,
-        tension: 0.3,
-        borderWidth: 2,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-      }];
+      lineChartInstance.data.datasets = [
+        {
+          label:
+            customerIds.length > 1
+              ? `Consumo Total (${customerIds.length} Shoppings)`
+              : `Consumo Total (${getShoppingNameForFilter(customerIds[0])})`,
+          data: sevenDaysData.map((d) => d.consumption),
+          borderColor: '#6c2fbf',
+          backgroundColor: 'rgba(108, 47, 191, 0.1)',
+          fill: true,
+          tension: 0.3,
+          borderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+        },
+      ];
       lineChartInstance.update();
 
       console.log('[ENERGY] [RFC-0073] Line chart updated with consolidated total');
@@ -2522,7 +1644,7 @@ async function applyChartConfiguration() {
     endDate = endInput ? endInput.value : null;
 
     if (!startDate || !endDate) {
-      alert('Por favor, selecione as datas inicial e final');
+      window.alert('Por favor, selecione as datas inicial e final');
       return;
     }
   } else {
@@ -2642,7 +1764,6 @@ function initializeMockCharts() {
 // ============================================
 // WIDGET ENERGY - FUNÇÃO DE INICIALIZAÇÃO COMPLETA
 // ============================================
-
 self.onInit = async function () {
   console.log('[ENERGY] Initializing energy charts and consumption cards...');
 
@@ -2675,16 +1796,6 @@ self.onInit = async function () {
   // RFC-0073: Listen to shopping filter changes and update charts
   const handleFilterApplied = async (ev) => {
     console.log('[ENERGY] [RFC-0073] Shopping filter applied, updating charts...', ev.detail);
-
-    // Get dates from context
-    const startTs = self.ctx.$scope?.startDateISO
-      ? new Date(self.ctx.$scope.startDateISO).getTime()
-      : Date.now() - 7 * 24 * 60 * 60 * 1000;
-
-    const endTs = self.ctx.$scope?.endDateISO ? new Date(self.ctx.$scope.endDateISO).getTime() : Date.now();
-
-    // DESABILITADO TEMPORARIAMENTE: Update peak demand card with new filter
-    // await updatePeakDemandCard(startTs, endTs);
 
     // Also update pie chart to reflect filtered data
     const currentMode = document.getElementById('distributionMode')?.value || 'groups';
@@ -2755,85 +1866,16 @@ self.onInit = async function () {
   // Inicia o "vigia"
   waitForOrchestratorAndRequestSummary();
 
-  // 3. LÓGICA DO CARD "PICO DE DEMANDA": Busca as datas para fazer sua própria busca.
-  //    Esta parte é independente do consumo total e continua como antes.
-  // -----------------------------------------------------------------
-
-  // Tenta buscar as datas iniciais após um pequeno atraso para dar tempo ao MENU de carregar.
-  setTimeout(async () => {
-    let startDateISO, endDateISO;
-
-    // Tenta pegar as datas da variável global primeiro
-    if (window.myioDateRange?.startDate && window.myioDateRange?.endDate) {
-      startDateISO = window.myioDateRange.startDate;
-      endDateISO = window.myioDateRange.endDate;
-    }
-    // Se não encontrar, tenta pegar do localStorage
-    else {
-      const storedRange = localStorage.getItem('myio:date-range');
-      if (storedRange) {
-        try {
-          const parsed = JSON.parse(storedRange);
-          startDateISO = parsed.startDate;
-          endDateISO = parsed.endDate;
-        } catch (e) {
-          /* ignora erro de parsing */
-        }
-      }
-    }
-
-    // DESABILITADO TEMPORARIAMENTE: Se encontrou datas válidas, busca os dados de pico de demanda
-    /*
-    if (startDateISO && endDateISO) {
-      const startMs = new Date(startDateISO).getTime();
-      const endMs = new Date(endDateISO).getTime();
-      if (!isNaN(startMs) && !isNaN(endMs)) {
-        console.log("[ENERGY] Buscando dados iniciais de Pico de Demanda.");
-        await updatePeakDemandCard(startMs, endMs);
-      }
-    }
-    */
-  }, 1000);
-
-  // DESABILITADO TEMPORARIAMENTE: Ouve por futuras mudanças de data para atualizar o Pico de Demanda.
-  /*
-  window.addEventListener("myio:update-date", async (ev) => {
-    console.log(
-      "[ENERGY] Período de data atualizado para Pico de Demanda:",
-      ev.detail
-    );
-    let startMs = ev.detail.startMs || new Date(ev.detail.startDate).getTime();
-    let endMs = ev.detail.endMs || new Date(ev.detail.endDate).getTime();
-
-    if (!isNaN(startMs) && !isNaN(endMs)) {
-      await updatePeakDemandCard(startMs, endMs);
-    }
-  });
-  */
-
   // 4. OUTROS LISTENERS (Bônus): Mantém a robustez do widget.
   // -----------------------------------------------------------------
 
   // Limpa os caches se um evento global de limpeza for disparado.
   window.addEventListener('myio:telemetry:clear', (ev) => {
     console.log('[ENERGY] Evento de limpeza de cache recebido.', ev.detail);
-    peakDemandCache = {
-      data: null,
-      startTs: null,
-      endTs: null,
-      timestamp: null,
-    };
-    totalConsumptionCache = {
-      data: null,
-      customerTotal: 0,
-      equipmentsTotal: 0,
-      difference: 0,
-      timestamp: null,
-    };
 
     // Reinicializa os cards para o estado de loading
     initializeTotalConsumptionCard();
-    initializePeakDemandCard();
+    //initializePeakDemandCard();
   });
 };
 

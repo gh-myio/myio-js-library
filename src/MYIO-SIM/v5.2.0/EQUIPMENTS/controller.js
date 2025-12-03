@@ -179,6 +179,7 @@ function initializeCards(devices) {
             window.alert('Autenticação não disponível. Recarregue a página.');
             return;
           }
+
           const tokenIngestionDashBoard = await myIOAuth.getToken();
           const myTbTokenDashBoard = localStorage.getItem('jwt_token');
 

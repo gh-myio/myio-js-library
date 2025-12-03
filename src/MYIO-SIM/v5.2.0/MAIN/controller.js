@@ -52,6 +52,60 @@ function formatWater(value) {
 }
 
 /**
+ * RFC-0094: Fetch energy consumption for a customer within a time range
+ * Used by ENERGY widget for 7-day chart and other consumption queries
+ * @param {string} customerId - Customer ID for ingestion API
+ * @param {number} startTs - Start timestamp in milliseconds
+ * @param {number} endTs - End timestamp in milliseconds
+ * @returns {Promise<{devices: Array, total: number}>} - Devices list and total consumption
+ */
+async function fetchEnergyDayConsumption(customerId, startTs, endTs) {
+  if (!customerId) {
+    LogHelper.warn('[MAIN] fetchEnergyDayConsumption: Missing customerId');
+    return { devices: [], total: 0 };
+  }
+
+  // Convert timestamps to ISO 8601 format (API requirement)
+  const startTimeISO = new Date(startTs).toISOString();
+  const endTimeISO = new Date(endTs).toISOString();
+
+  const url = `${getDataApiHost()}/api/v1/telemetry/customers/${customerId}/energy/?deep=1&granularity=1d&startTime=${encodeURIComponent(startTimeISO)}&endTime=${encodeURIComponent(endTimeISO)}`;
+
+  try {
+    const TOKEN_INGESTION_EnergyDayConsumption = await myIOAuth.getToken();
+    const response = await fetch(url, {
+      headers: {
+        'X-Authorization': `Bearer ${TOKEN_INGESTION_EnergyDayConsumption}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      LogHelper.warn(`[MAIN] fetchEnergyDayConsumption: Failed with status ${response.status}`);
+      return { devices: [], total: 0 };
+    }
+
+    const data = await response.json();
+
+    // Extract devices and calculate total
+    const devices = data?.devices || data?.data || [];
+    let total = 0;
+
+    if (Array.isArray(devices)) {
+      devices.forEach((device) => {
+        const value = device.total_value || device.value || device.consumption || 0;
+        total += Number(value) || 0;
+      });
+    }
+
+    return { devices, total };
+  } catch (error) {
+    LogHelper.error('[MAIN] fetchEnergyDayConsumption: Error', error);
+    return { devices: [], total: 0 };
+  }
+}
+
+/**
  * Maps raw connection status to normalized status
  * @param {string} rawStatus - Raw status from ThingsBoard (e.g., 'ONLINE', 'ok', 'running', 'waiting', 'offline')
  * @returns {'online' | 'waiting' | 'offline'} - Normalized status
@@ -2556,6 +2610,7 @@ window.MyIOUtils = {
   getDataApiHost,
   formatEnergy,
   formatWater,
+  fetchEnergyDayConsumption,
   mapConnectionStatus,
   formatRelativeTime,
   formatarDuracao,
