@@ -727,11 +727,13 @@ self.onInit = async function () {
 };
 
 self.onDataUpdated = function () {
+  /*
   LogHelper.log('[TEMPERATURE_SENSORS] onDataUpdated');
   fetchTemperatureSensors().then((sensors) => {
     STATE.allSensors = sensors;
     reflowCards();
   });
+  */
 };
 
 self.onDestroy = function () {

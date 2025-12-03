@@ -1397,6 +1397,26 @@ body.filter-modal-open {
 
 let headerAndModalCssInjected = false;
 
+// RFC: Accumulator for water widget consumption totals
+// The HEADER should show the sum of actual widgets (WATER_COMMON_AREA + WATER_STORES),
+// NOT all devices from the API cache (which may include devices not in any widget)
+const waterWidgetConsumption = {
+  waterCommonArea: 0,
+  waterStores: 0,
+};
+
+/**
+ * Get total water consumption from widgets (not from API cache)
+ * @returns {number} Total water consumption from WATER_COMMON_AREA + WATER_STORES
+ */
+function getTotalWaterConsumptionFromWidgets() {
+  return waterWidgetConsumption.waterCommonArea + waterWidgetConsumption.waterStores;
+}
+
+// Expose globally for HEADER to use
+window.MyIOUtils = window.MyIOUtils || {};
+window.MyIOUtils.getTotalWaterConsumptionFromWidgets = getTotalWaterConsumptionFromWidgets;
+
 /**
  * Inject centralized CSS for header and modal (once)
  */
@@ -1617,6 +1637,12 @@ function buildHeaderDevicesGrid(config) {
       totalEl.textContent = total.toString();
       consumptionEl.textContent = domainConfig.formatValue(consumption);
       zeroEl.textContent = zeroCount.toString();
+
+      // RFC: Update water widget consumption accumulator for HEADER
+      if (domain === 'water' && idPrefix in waterWidgetConsumption) {
+        waterWidgetConsumption[idPrefix] = consumption;
+        LogHelper.log(`[MAIN] Water widget consumption updated: ${idPrefix} = ${consumption}, total = ${getTotalWaterConsumptionFromWidgets()}`);
+      }
 
       LogHelper.log(`[MAIN] Header stats updated for ${idPrefix}:`, stats);
     },

@@ -1400,20 +1400,33 @@ function updateWaterCard(waterCache) {
 
   LogHelper.log('[HEADER] Updating water card | cache devices:', waterCache?.size || 0);
 
-  // ✅ Get filtered and unfiltered water consumption from orchestrator
+  // ✅ Get water consumption from WIDGETS (not from API cache)
+  // RFC: The API may return devices not configured in any widget (e.g., 333 vs 313 devices)
+  // We should show only the sum of WATER_COMMON_AREA + WATER_STORES, not all API devices
   let filteredConsumption = 0;
   let unfilteredConsumption = 0;
   let isFiltered = false;
   let deviceCount = 0;
 
-  if (typeof window.MyIOOrchestrator?.getTotalWaterConsumption === 'function') {
+  // First try to get consumption from widget accumulator (accurate sum of visible widgets)
+  // Only use if value > 0 (widgets have been visited and reported their consumption)
+  const widgetTotal = window.MyIOUtils?.getTotalWaterConsumptionFromWidgets?.() || 0;
+  if (widgetTotal > 0) {
+    filteredConsumption = widgetTotal;
+    // For unfiltered, we still use the orchestrator's value (all API devices)
+    unfilteredConsumption =
+      window.MyIOOrchestrator?.getUnfilteredTotalWaterConsumption?.() || filteredConsumption;
+    isFiltered = window.MyIOOrchestrator?.isFilterActive?.() || false;
+    LogHelper.log('[HEADER] Water consumption (from widgets):', { filteredConsumption, unfilteredConsumption, isFiltered });
+  } else if (typeof window.MyIOOrchestrator?.getTotalWaterConsumption === 'function') {
+    // Fallback to orchestrator (old behavior - may include devices not in widgets)
     filteredConsumption = window.MyIOOrchestrator.getTotalWaterConsumption();
     unfilteredConsumption =
       window.MyIOOrchestrator.getUnfilteredTotalWaterConsumption?.() || filteredConsumption;
     isFiltered = window.MyIOOrchestrator.isFilterActive?.() || false;
-    LogHelper.log('[HEADER] Water consumption:', { filteredConsumption, unfilteredConsumption, isFiltered });
+    LogHelper.log('[HEADER] Water consumption (from orchestrator):', { filteredConsumption, unfilteredConsumption, isFiltered });
   } else {
-    LogHelper.warn('[HEADER] MyIOOrchestrator.getTotalWaterConsumption not available');
+    LogHelper.warn('[HEADER] No water consumption source available');
     // Fallback: sum all from cache (old behavior)
     if (waterCache) {
       waterCache.forEach((cached) => {

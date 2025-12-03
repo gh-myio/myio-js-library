@@ -683,6 +683,15 @@ async function renderList(visible) {
     // Get customer name for this device
     const customerName = getCustomerNameForDevice(it);
 
+    // RFC-0094: Calculate operationHours based on lastConnectTime (like EQUIPMENTS)
+    let operationHoursFormatted = '-';
+    const lastConnectTimestamp = it.lastConnectTime || 0;
+    if (lastConnectTimestamp > 0) {
+      const nowMs = Date.now();
+      const durationMs = nowMs - lastConnectTimestamp;
+      operationHoursFormatted = formatarDuracao(durationMs > 0 ? durationMs : 0);
+    }
+
     // RFC-0094: Build entity object following WATER_STORES pattern
     const entityObject = {
       // Identificadores
@@ -726,7 +735,7 @@ async function renderList(visible) {
       lastConnectTime: it.lastConnectTime || 0,
       lastActivityTime: it.timeVal || null,
       instantaneousPower: 0, // Not applicable for water meters
-      operationHours: '0h 0min', // Not applicable for water meters
+      operationHours: operationHoursFormatted, // RFC-0094: Calculated from lastConnectTime
       temperatureC: 0,
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
       deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
