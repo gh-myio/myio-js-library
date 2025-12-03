@@ -3,21 +3,21 @@
 import { createModal } from '../internal/ModalPremiumShell';
 import { EnergyDataFetcher } from './EnergyDataFetcher';
 import { EnergyModalView } from './EnergyModalView';
-import { 
-  OpenDashboardPopupEnergyOptions, 
-  EnergyModalContext, 
+import {
+  OpenDashboardPopupEnergyOptions,
+  EnergyModalContext,
   EnergyModalError,
   DEFAULT_I18N,
-  DEFAULT_STYLES
+  DEFAULT_STYLES,
 } from './types';
-import { 
-  validateOptions, 
-  normalizeToSaoPauloISO, 
-  resolveDeviceAttributes, 
+import {
+  validateOptions,
+  normalizeToSaoPauloISO,
+  resolveDeviceAttributes,
   mapHttpError,
   createSafeErrorMessage,
   validateJwtToken,
-  createModalId
+  createModalId,
 } from './utils';
 
 export class EnergyModal {
@@ -32,16 +32,16 @@ export class EnergyModal {
   constructor(params: OpenDashboardPopupEnergyOptions) {
     // Validate parameters first
     validateOptions(params);
-    
+
     this.params = this.normalizeParams(params);
     this.modalId = createModalId();
-    
+
     // Initialize data fetcher
     this.dataFetcher = new EnergyDataFetcher({
       dataApiHost: this.params.dataApiHost,
       ingestionToken: this.params.ingestionToken,
       clientId: this.params.clientId,
-      clientSecret: this.params.clientSecret
+      clientSecret: this.params.clientSecret,
     });
 
     console.log('[EnergyModal] Initialized with params:', {
@@ -49,7 +49,7 @@ export class EnergyModal {
       hasIngestionToken: !!this.params.ingestionToken,
       hasClientCredentials: !!(this.params.clientId && this.params.clientSecret),
       dataApiHost: this.params.dataApiHost,
-      modalId: this.modalId
+      modalId: this.modalId,
     });
   }
 
@@ -76,7 +76,7 @@ export class EnergyModal {
           title: `Energy Report - ${identifier} - ${label}`,
           width: '80vw',
           height: '90vh',
-          theme: (this.params.theme === 'dark' ? 'dark' : 'light') as 'light' | 'dark'
+          theme: (this.params.theme === 'dark' ? 'dark' : 'light') as 'light' | 'dark',
         });
       }
       // ⭐ NEW: Comparison mode - skip ThingsBoard fetch
@@ -90,7 +90,7 @@ export class EnergyModal {
           title: `Comparação de ${deviceCount} Dispositivos`,
           width: '80vw',
           height: '90vh',
-          theme: (this.params.theme === 'dark' ? 'dark' : 'light') as 'light' | 'dark'
+          theme: (this.params.theme === 'dark' ? 'dark' : 'light') as 'light' | 'dark',
         });
       }
 
@@ -100,7 +100,7 @@ export class EnergyModal {
         params: this.params,
         onExport: () => this.handleExport(),
         onError: (error) => this.handleEnergyModalError(error),
-        onDateRangeChange: (startISO, endISO) => this.handleDateRangeChange(startISO, endISO)
+        onDateRangeChange: (startISO, endISO) => this.handleDateRangeChange(startISO, endISO),
       });
 
       // 4. Setup modal event handlers
@@ -121,7 +121,7 @@ export class EnergyModal {
         }
       }
 
-      // 5. Trigger onOpen callback
+      // 5. Trigger onOpen lback
       if (this.params.onOpen) {
         try {
           this.params.onOpen(this.context!);
@@ -133,9 +133,8 @@ export class EnergyModal {
       console.log('[EnergyModal] Modal successfully opened');
 
       return {
-        close: () => this.close()
+        close: () => this.close(),
       };
-
     } catch (error) {
       console.error('[EnergyModal] Error showing modal:', error);
       this.handleError(error as Error);
@@ -165,7 +164,7 @@ export class EnergyModal {
       // Merge i18n with defaults
       i18n: { ...DEFAULT_I18N, ...params.i18n },
       // Merge styles with defaults
-      styles: { ...DEFAULT_STYLES, ...params.styles }
+      styles: { ...DEFAULT_STYLES, ...params.styles },
     };
   }
 
@@ -180,14 +179,14 @@ export class EnergyModal {
       device: {
         id: 'comparison',
         label: `Comparação (${deviceCount} dispositivos)`,
-        attributes: {}
+        attributes: {},
       },
       resolved: {
         ingestionId: null,
         centralId: null,
         slaveId: null,
-        customerId: null
-      }
+        customerId: null,
+      },
     };
   }
 
@@ -201,7 +200,7 @@ export class EnergyModal {
       // Fetch device entity and attributes in parallel
       const [entityInfo, attributes] = await Promise.all([
         this.fetchEntityInfo(),
-        this.fetchEntityAttributes()
+        this.fetchEntityAttributes(),
       ]);
 
       const resolvedAttributes = resolveDeviceAttributes(attributes);
@@ -210,24 +209,23 @@ export class EnergyModal {
         device: {
           id: this.params.deviceId,
           label: this.params.label || entityInfo.label || entityInfo.name || 'Unknown Device',
-          attributes: attributes
+          attributes: attributes,
         },
         resolved: {
           ingestionId: this.params.ingestionId || resolvedAttributes.ingestionId,
           centralId: this.params.centralId || resolvedAttributes.centralId,
           slaveId: this.params.slaveId || resolvedAttributes.slaveId,
-          customerId: this.params.customerId || resolvedAttributes.customerId
-        }
+          customerId: this.params.customerId || resolvedAttributes.customerId,
+        },
       };
 
       console.log('[EnergyModal] Device context resolved:', {
         deviceLabel: context.device.label,
         hasIngestionId: !!context.resolved.ingestionId,
-        attributeCount: Object.keys(attributes).length
+        attributeCount: Object.keys(attributes).length,
       });
 
       return context;
-
     } catch (error) {
       console.error('[EnergyModal] Error fetching device context:', error);
       throw new Error(`Failed to fetch device information: ${createSafeErrorMessage(error)}`);
@@ -239,13 +237,13 @@ export class EnergyModal {
    */
   private async fetchEntityInfo(): Promise<any> {
     const url = `/api/device/${this.params.deviceId}`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         'X-Authorization': `Bearer ${this.params.tbJwtToken}`,
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+      },
     });
 
     if (!response.ok) {
@@ -261,13 +259,13 @@ export class EnergyModal {
    */
   private async fetchEntityAttributes(): Promise<Record<string, any>> {
     const url = `/api/plugins/telemetry/DEVICE/${this.params.deviceId}/values/attributes?scope=SERVER_SCOPE`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         'X-Authorization': `Bearer ${this.params.tbJwtToken}`,
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+      },
     });
 
     if (!response.ok) {
@@ -276,7 +274,7 @@ export class EnergyModal {
     }
 
     const attributes = await response.json();
-    
+
     // Convert array format to object
     return attributes.reduce((acc: any, attr: any) => {
       acc[attr.key] = attr.value;
@@ -297,7 +295,9 @@ export class EnergyModal {
     }
 
     if (!this.context?.resolved.ingestionId) {
-      const error = new Error('ingestionId not found in device attributes. Please configure the device properly.');
+      const error = new Error(
+        'ingestionId not found in device attributes. Please configure the device properly.'
+      );
       this.handleError(error);
       return;
     }
@@ -321,17 +321,16 @@ export class EnergyModal {
         ingestionId: this.context.resolved.ingestionId,
         startISO,
         endISO,
-        granularity: this.params.granularity || '1d'
+        granularity: this.params.granularity || '1d',
       });
 
       console.log('[EnergyModal] Energy data loaded:', {
         dataPoints: energyData.consumption.length,
-        totalConsumption: energyData.consumption.reduce((sum, point) => sum + point.value, 0)
+        totalConsumption: energyData.consumption.reduce((sum, point) => sum + point.value, 0),
       });
 
       // Render energy data
       this.view.renderEnergyData(energyData);
-
     } catch (error) {
       console.error('[EnergyModal] Error loading energy data:', error);
       this.handleError(error as Error);
@@ -358,7 +357,7 @@ export class EnergyModal {
       console.log('[EnergyModal] Modal closing');
       this.cleanup();
       this.emit('close');
-      
+
       if (this.params.onClose) {
         try {
           this.params.onClose();
@@ -378,7 +377,7 @@ export class EnergyModal {
       };
 
       document.addEventListener('keydown', handleKeyDown);
-      
+
       // Store for cleanup
       this.on('close', () => {
         document.removeEventListener('keydown', handleKeyDown);
@@ -436,17 +435,16 @@ export class EnergyModal {
         ingestionId: this.context.resolved.ingestionId,
         startISO,
         endISO,
-        granularity: this.params.granularity || '1d'
+        granularity: this.params.granularity || '1d',
       });
 
       console.log('[EnergyModal] Energy data reloaded:', {
         dataPoints: energyData.consumption.length,
-        totalConsumption: energyData.consumption.reduce((sum, point) => sum + point.value, 0)
+        totalConsumption: energyData.consumption.reduce((sum, point) => sum + point.value, 0),
       });
 
       // Render updated energy data
       this.view.renderEnergyData(energyData);
-
     } catch (error) {
       console.error('[EnergyModal] Error reloading energy data:', error);
       this.handleError(error as Error);
@@ -519,7 +517,7 @@ export class EnergyModal {
         const modalError: EnergyModalError = {
           code: 'UNKNOWN_ERROR',
           message: error.message,
-          cause: error
+          cause: error,
         };
         this.params.onError(modalError);
       } catch (callbackError) {
@@ -573,7 +571,7 @@ export class EnergyModal {
 
   private emit(event: string, payload?: any): void {
     if (this.eventHandlers[event]) {
-      this.eventHandlers[event].forEach(handler => {
+      this.eventHandlers[event].forEach((handler) => {
         try {
           handler();
         } catch (error) {

@@ -18,14 +18,18 @@ const MOCK_DEBUG_DAY_CONSUMPTION = false;
 // CACHE CONFIGURATION
 // ============================================
 
-// RFC-0073: Chart configuration state
+// RFC-0097: Chart configuration state
 const chartConfig = {
-  period: 7, // days
-  startDate: null,
-  endDate: null,
-  equipmentTypes: ['ELEVADOR', 'ESCADA_ROLANTE', 'CHILLER', 'FANCOIL', 'AR_CONDICIONADO', 'BOMBA', 'LOJA'],
+  period: 7, // days: 7, 14, 30, or 0 (custom)
+  startDate: null, // ISO string for custom period
+  endDate: null, // ISO string for custom period
+  granularity: '1d', // '1d' (day) or '1h' (hour)
   vizMode: 'total', // 'total' or 'separate'
+  chartType: 'line', // 'line' or 'bar'
 };
+
+// RFC-0097: Cache for chart data (avoid re-fetch when switching vizMode/chartType)
+let cachedChartData = null;
 
 /**
  * Renderiza a UI do card de consumo total com dados
@@ -852,23 +856,38 @@ async function initializeCharts() {
 
     // RFC-0073 Problem 1: Setup chart configuration button
     setupChartConfigButton();
+
+    // RFC-0097: Setup chart tab handlers (vizMode and chartType)
+    setupChartTabHandlers();
   }, 2000); // Increased timeout to ensure orchestrator is ready
 }
 
 /**
- * RFC-0073: Fetch consumption for configured period (respects shopping filter and chart config)
+ * RFC-0097: Fetch consumption for configured period (respects shopping filter and chart config)
+ * Returns data structured for caching and re-rendering
  */
 async function fetch7DaysConsumptionFiltered(customerIds) {
   if (!customerIds || customerIds.length === 0) {
-    return [];
+    return { labels: [], dailyTotals: [], shoppingData: {}, shoppingNames: {} };
   }
 
-  // RFC-0073: Use configured period or default to 7 days
+  // RFC-0097: Use configured period or default to 7 days
   const period = chartConfig.period || 7;
+  const granularity = chartConfig.granularity || '1d';
 
-  console.log('[ENERGY] [RFC-0073] Fetching', period, 'days for customers:', customerIds);
+  console.log('[ENERGY] [RFC-0097] Fetching', period, 'days with granularity', granularity, 'for customers:', customerIds);
 
-  const results = [];
+  const labels = [];
+  const dailyTotals = [];
+  const shoppingData = {}; // { customerId: [values...] }
+  const shoppingNames = {}; // { customerId: name }
+
+  // Initialize shopping data arrays
+  customerIds.forEach((cid) => {
+    shoppingData[cid] = [];
+    shoppingNames[cid] = getShoppingNameForFilter(cid);
+  });
+
   const now = new Date();
 
   // Iterate through configured period days
@@ -882,121 +901,63 @@ async function fetch7DaysConsumptionFiltered(customerIds) {
     endDate.setHours(23, 59, 59, 999);
     const endTs = endDate.getTime();
 
+    // Label for this data point
+    const label = dayDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    labels.push(label);
+
     // Aggregate consumption from all filtered customers for this day
     let dayTotal = 0;
 
     for (const customerId of customerIds) {
       const consumption = await fetchDayTotalConsumption(customerId, startTs, endTs);
+      shoppingData[customerId].push(consumption);
       dayTotal += consumption;
     }
 
-    results.push({
-      date: dayDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-      consumption: dayTotal,
-    });
+    dailyTotals.push(dayTotal);
   }
 
-  console.log('[ENERGY] [RFC-0073]', period, 'days consumption (filtered):', results);
-  return results;
+  // RFC-0097: Store in cache for re-rendering
+  cachedChartData = {
+    labels,
+    dailyTotals,
+    shoppingData,
+    shoppingNames,
+    customerIds,
+    fetchTimestamp: Date.now(),
+  };
+
+  console.log('[ENERGY] [RFC-0097] Data cached:', {
+    days: period,
+    shoppings: customerIds.length,
+    totalPoints: labels.length,
+  });
+
+  return cachedChartData;
 }
 
 /**
- * Atualiza o gráfico de linha com dados reais
- * RFC-0073: Now respects shopping filters, equipment types, and visualization mode
+ * RFC-0097: Atualiza o gráfico de linha com dados reais
+ * Fetches data and uses cache for rendering
  */
 async function updateLineChart(customerId) {
   try {
-    console.log('[ENERGY] [RFC-0073] Fetching consumption data with config:', chartConfig);
+    console.log('[ENERGY] [RFC-0097] Fetching consumption data with config:', chartConfig);
 
-    // RFC-0073: Get filtered shopping IDs or use widget's customerId
+    // RFC-0097: Get filtered shopping IDs or use widget's customerId
     const selectedShoppingIds = getSelectedShoppingIds();
     const customerIds = selectedShoppingIds.length > 0 ? selectedShoppingIds : [customerId];
 
-    if (!lineChartInstance) {
-      console.error('[ENERGY] Line chart instance not found');
-      return;
-    }
+    // RFC-0097: Fetch data (this also populates the cache)
+    await fetch7DaysConsumptionFiltered(customerIds);
 
-    // RFC-0073: Update chart title based on period
-    const period = chartConfig.period || 7;
-    const titleElement = document.getElementById('lineChartTitle');
-    if (titleElement) {
-      titleElement.textContent = `Consumo dos últimos ${period} dias`;
-    }
+    // RFC-0097: Update chart title
+    updateChartTitle();
 
-    // RFC-0073: Color palette for multiple shopping lines
-    const lineColors = [
-      '#3b82f6',
-      '#ef4444',
-      '#10b981',
-      '#f59e0b',
-      '#8b5cf6',
-      '#ec4899',
-      '#06b6d4',
-      '#84cc16',
-      '#f97316',
-      '#6366f1',
-    ];
-
-    // RFC-0073: Check visualization mode
-    if (chartConfig.vizMode === 'separate' && customerIds.length > 1) {
-      // Separate lines for each shopping
-      console.log('[ENERGY] [RFC-0073] Rendering separate lines for', customerIds.length, 'shoppings');
-
-      const datasets = [];
-      const allDates = new Set();
-
-      for (let i = 0; i < customerIds.length; i++) {
-        const cid = customerIds[i];
-        const shoppingName = getShoppingNameForFilter(cid);
-        const data = await fetch7DaysConsumptionFiltered([cid]);
-
-        data.forEach((d) => allDates.add(d.date));
-
-        datasets.push({
-          label: shoppingName,
-          data: data.map((d) => d.consumption),
-          borderColor: lineColors[i % lineColors.length],
-          backgroundColor: lineColors[i % lineColors.length] + '20',
-          fill: false,
-          tension: 0.3,
-          borderWidth: 2,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-        });
-      }
-
-      // Update chart with multiple datasets
-      lineChartInstance.data.labels = Array.from(allDates).sort();
-      lineChartInstance.data.datasets = datasets;
-      lineChartInstance.update();
-
-      console.log('[ENERGY] [RFC-0073] Line chart updated with', datasets.length, 'separate lines');
-    } else {
-      // Total consolidated (single line)
-      const sevenDaysData = await fetch7DaysConsumptionFiltered(customerIds);
-
-      // Update chart data (single dataset)
-      lineChartInstance.data.labels = sevenDaysData.map((d) => d.date);
-      lineChartInstance.data.datasets = [
-        {
-          label:
-            customerIds.length > 1
-              ? `Consumo Total (${customerIds.length} Shoppings)`
-              : `Consumo Total (${getShoppingNameForFilter(customerIds[0])})`,
-          data: sevenDaysData.map((d) => d.consumption),
-          borderColor: '#6c2fbf',
-          backgroundColor: 'rgba(108, 47, 191, 0.1)',
-          fill: true,
-          tension: 0.3,
-          borderWidth: 2,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-        },
-      ];
-      lineChartInstance.update();
-
-      console.log('[ENERGY] [RFC-0073] Line chart updated with consolidated total');
+    // RFC-0097: Render from cache
+    if (cachedChartData) {
+      updateLineChartFromCache(cachedChartData);
+      console.log('[ENERGY] [RFC-0097] Line chart updated from cache');
     }
   } catch (error) {
     console.error('[ENERGY] Error updating line chart:', error);
@@ -1163,6 +1124,162 @@ function setupChartConfigButton() {
 }
 
 /**
+ * RFC-0097: Configura os handlers das TABs do gráfico
+ * - TABs de vizMode: Consolidado / Por Shopping
+ * - TABs de chartType: Linhas / Barras
+ */
+function setupChartTabHandlers() {
+  // TABs vizMode (Consolidado/Por Shopping)
+  const vizTabs = document.querySelectorAll('.viz-mode-tabs .chart-tab');
+  vizTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      vizTabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      chartConfig.vizMode = tab.dataset.viz;
+      console.log('[ENERGY] [RFC-0097] vizMode changed to:', chartConfig.vizMode);
+      // Re-renderiza sem recarregar dados
+      rerenderLineChart();
+    });
+  });
+
+  // TABs chartType (Linhas/Barras)
+  const typeTabs = document.querySelectorAll('.chart-type-tabs .chart-tab');
+  typeTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      typeTabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      chartConfig.chartType = tab.dataset.type;
+      console.log('[ENERGY] [RFC-0097] chartType changed to:', chartConfig.chartType);
+      // Re-renderiza sem recarregar dados
+      rerenderLineChart();
+    });
+  });
+
+  console.log('[ENERGY] [RFC-0097] Chart tab handlers setup complete');
+}
+
+/**
+ * RFC-0097: Re-renderiza o gráfico com dados em cache
+ * Usado quando o usuário troca vizMode ou chartType via TABs
+ */
+function rerenderLineChart() {
+  if (!cachedChartData) {
+    console.warn('[ENERGY] [RFC-0097] No cached data to re-render');
+    return;
+  }
+
+  console.log('[ENERGY] [RFC-0097] Re-rendering chart from cache', {
+    vizMode: chartConfig.vizMode,
+    chartType: chartConfig.chartType,
+  });
+
+  updateLineChartFromCache(cachedChartData);
+}
+
+/**
+ * RFC-0097: Atualiza o gráfico de linhas/barras a partir de dados em cache
+ * @param {object} data - Dados em cache do gráfico
+ */
+function updateLineChartFromCache(data) {
+  const ctx = document.getElementById('lineChart');
+  if (!ctx) return;
+
+  // Destroy existing chart instance
+  if (lineChartInstance) {
+    lineChartInstance.destroy();
+    lineChartInstance = null;
+  }
+
+  const { labels, dailyTotals, shoppingData, shoppingNames } = data;
+
+  let datasets = [];
+
+  if (chartConfig.vizMode === 'separate' && shoppingData && Object.keys(shoppingData).length > 1) {
+    // Separate lines per shopping
+    const colors = [
+      '#6c2fbf',
+      '#2563eb',
+      '#16a34a',
+      '#ea580c',
+      '#dc2626',
+      '#8b5cf6',
+      '#0891b2',
+      '#65a30d',
+    ];
+
+    let colorIndex = 0;
+    for (const [shoppingId, values] of Object.entries(shoppingData)) {
+      const shoppingName = shoppingNames?.[shoppingId] || `Shopping ${shoppingId.slice(0, 8)}`;
+      const color = colors[colorIndex % colors.length];
+
+      datasets.push({
+        label: shoppingName,
+        data: values,
+        borderColor: color,
+        backgroundColor: chartConfig.chartType === 'bar' ? color + '80' : color + '20',
+        fill: chartConfig.chartType === 'line',
+        tension: 0.3,
+        pointRadius: chartConfig.chartType === 'line' ? 4 : 0,
+        pointBackgroundColor: color,
+        borderWidth: 2,
+      });
+      colorIndex++;
+    }
+  } else {
+    // Single consolidated line
+    datasets.push({
+      label: 'Consumo Total (kWh)',
+      data: dailyTotals,
+      borderColor: '#6c2fbf',
+      backgroundColor: chartConfig.chartType === 'bar' ? '#6c2fbf80' : 'rgba(108, 47, 191, 0.1)',
+      fill: chartConfig.chartType === 'line',
+      tension: 0.3,
+      pointRadius: chartConfig.chartType === 'line' ? 4 : 0,
+      pointBackgroundColor: '#6c2fbf',
+      borderWidth: 2,
+    });
+  }
+
+  lineChartInstance = new Chart(ctx, {
+    type: chartConfig.chartType,
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: chartConfig.vizMode === 'separate',
+          position: 'top',
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const value = context.parsed.y || 0;
+              return `${context.dataset.label}: ${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kWh`;
+            },
+          },
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Consumo (kWh)',
+          },
+        },
+        x: {
+          title: {
+            display: true,
+            text: chartConfig.granularity === '1h' ? 'Hora' : 'Data',
+          },
+        },
+      },
+    },
+  });
+}
+
+/**
  * RFC-0073 Problem 2: Abre a modal de configuração avançada do gráfico
  */
 function openChartConfigModal() {
@@ -1286,41 +1403,31 @@ function openChartConfigModal() {
           background: #eff6ff;
         }
 
-        #energyChartConfigModalGlobal .date-inputs {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
+        /* RFC-0097: DateRangePicker input styles */
+        #energyChartConfigModalGlobal .date-range-container {
+          margin-top: 12px;
         }
 
-        #energyChartConfigModalGlobal .date-field {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        #energyChartConfigModalGlobal .date-field label {
-          font-size: 13px;
-          color: #6b7a90;
-          font-weight: 500;
-        }
-
-        #energyChartConfigModalGlobal .date-field input {
-          padding: 10px 12px;
+        #energyChartConfigModalGlobal .date-range-input {
+          width: 100%;
+          padding: 12px 16px;
           border: 2px solid #e6eef5;
-          border-radius: 8px;
+          border-radius: 10px;
           font-size: 14px;
+          color: #1c2743;
+          background: #fff;
+          cursor: pointer;
           outline: none;
-          transition: border-color 0.2s;
+          transition: all 0.2s;
         }
 
-        #energyChartConfigModalGlobal .date-field input:focus {
+        #energyChartConfigModalGlobal .date-range-input:hover {
           border-color: #2563eb;
         }
 
-        #energyChartConfigModalGlobal .equipment-filters {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 10px;
+        #energyChartConfigModalGlobal .date-range-input:focus {
+          border-color: #2563eb;
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
         #energyChartConfigModalGlobal .checkbox-option {
@@ -1426,7 +1533,7 @@ function openChartConfigModal() {
           </div>
 
           <div class="modal-body">
-            <!-- Period Selection -->
+            <!-- RFC-0097: Period Selection -->
             <div class="config-section">
               <div class="section-label">Período</div>
               <div class="period-grid">
@@ -1448,65 +1555,23 @@ function openChartConfigModal() {
                 </label>
               </div>
 
-              <!-- Custom Date Range (hidden by default) -->
-              <div id="customDateRange" class="date-inputs" style="display: none;">
-                <div class="date-field">
-                  <label>Data Inicial</label>
-                  <input type="date" id="chartStartDate">
-                </div>
-                <div class="date-field">
-                  <label>Data Final</label>
-                  <input type="date" id="chartEndDate">
-                </div>
+              <!-- RFC-0097: DateRangePicker container (hidden by default) -->
+              <div id="chartDateRangeContainer" class="date-range-container" style="display: none; margin-top: 12px;">
+                <input type="text" id="chartDateRangeInput" class="date-range-input" placeholder="Selecione o período" readonly>
               </div>
             </div>
 
-            <!-- Equipment Type Filters -->
+            <!-- RFC-0097: Granularity Selection -->
             <div class="config-section">
-              <div class="section-label">Tipo</div>
-              <div class="equipment-filters">
-                <label class="checkbox-option">
-                  <input type="checkbox" class="equipment-type-filter" value="ELEVADOR" checked>
-                  <span>Elevadores</span>
+              <div class="section-label">Granularidade</div>
+              <div class="period-grid">
+                <label class="period-option">
+                  <input type="radio" name="chartGranularity" value="1d" checked>
+                  <span>Por Dia</span>
                 </label>
-                <label class="checkbox-option">
-                  <input type="checkbox" class="equipment-type-filter" value="ESCADA_ROLANTE" checked>
-                  <span>Escadas Rolantes</span>
-                </label>
-                <label class="checkbox-option">
-                  <input type="checkbox" class="equipment-type-filter" value="CHILLER" checked>
-                  <span>Chiller</span>
-                </label>
-                <label class="checkbox-option">
-                  <input type="checkbox" class="equipment-type-filter" value="FANCOIL" checked>
-                  <span>Fancoil</span>
-                </label>
-                <label class="checkbox-option">
-                  <input type="checkbox" class="equipment-type-filter" value="AR_CONDICIONADO" checked>
-                  <span>Ar Condicionado</span>
-                </label>
-                <label class="checkbox-option">
-                  <input type="checkbox" class="equipment-type-filter" value="BOMBA" checked>
-                  <span>Bombas</span>
-                </label>
-                <label class="checkbox-option">
-                  <input type="checkbox" class="equipment-type-filter" value="LOJA" checked>
-                  <span>Lojas</span>
-                </label>
-              </div>
-            </div>
-
-            <!-- Visualization Mode -->
-            <div class="config-section">
-              <div class="section-label">Modo de Visualização</div>
-              <div class="viz-mode-group">
-                <label class="checkbox-option">
-                  <input type="radio" name="vizMode" value="total" checked>
-                  <span>Total Consolidado</span>
-                </label>
-                <label class="checkbox-option">
-                  <input type="radio" name="vizMode" value="separate">
-                  <span>Séries Separadas por Shopping</span>
+                <label class="period-option">
+                  <input type="radio" name="chartGranularity" value="1h">
+                  <span>Por Hora</span>
                 </label>
               </div>
             </div>
@@ -1541,7 +1606,7 @@ function openChartConfigModal() {
 }
 
 /**
- * RFC-0073 Problem 2: Configura os handlers da modal de configuração
+ * RFC-0097: Configura os handlers da modal de configuração
  */
 function setupChartConfigModalHandlers() {
   const modal = document.getElementById('chartConfigModal');
@@ -1560,9 +1625,9 @@ function setupChartConfigModalHandlers() {
     }
   });
 
-  // Period selection handlers
+  // RFC-0097: Period selection handlers
   const periodRadios = modal.querySelectorAll('input[name="chartPeriod"]');
-  const customDateRange = document.getElementById('customDateRange');
+  const dateRangeContainer = document.getElementById('chartDateRangeContainer');
 
   periodRadios.forEach((radio) => {
     radio.addEventListener('change', (e) => {
@@ -1570,12 +1635,26 @@ function setupChartConfigModalHandlers() {
       modal.querySelectorAll('.period-option').forEach((opt) => opt.classList.remove('selected'));
       e.target.closest('.period-option').classList.add('selected');
 
-      // Show/hide custom date range
+      // Show/hide DateRangePicker container
       if (e.target.value === 'custom') {
-        customDateRange.style.display = 'grid';
+        dateRangeContainer.style.display = 'block';
+        initChartDateRangePicker();
       } else {
-        customDateRange.style.display = 'none';
+        dateRangeContainer.style.display = 'none';
       }
+    });
+  });
+
+  // RFC-0097: Granularity selection handlers
+  const granularityRadios = modal.querySelectorAll('input[name="chartGranularity"]');
+  granularityRadios.forEach((radio) => {
+    radio.addEventListener('change', (e) => {
+      modal.querySelectorAll('.period-option').forEach((opt) => {
+        if (opt.querySelector('input[name="chartGranularity"]')) {
+          opt.classList.remove('selected');
+        }
+      });
+      e.target.closest('.period-option').classList.add('selected');
     });
   });
 
@@ -1589,6 +1668,50 @@ function setupChartConfigModalHandlers() {
   const resetBtn = document.getElementById('resetChartConfig');
   if (resetBtn) {
     resetBtn.addEventListener('click', resetChartConfiguration);
+  }
+}
+
+/**
+ * RFC-0097: Inicializa o DateRangePicker para período customizado
+ */
+let chartDatePickerInstance = null;
+let chartCustomDates = { start: null, end: null };
+
+function initChartDateRangePicker() {
+  const inputElement = document.getElementById('chartDateRangeInput');
+  if (!inputElement) return;
+
+  // Se já inicializou, não faz nada
+  if (chartDatePickerInstance) return;
+
+  // Datas padrão: últimos 7 dias
+  const now = new Date();
+  const startDate = new Date(now);
+  startDate.setDate(now.getDate() - 7);
+
+  const startISO = startDate.toISOString();
+  const endISO = now.toISOString();
+
+  if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createDateRangePicker) {
+    MyIOLibrary.createDateRangePicker(inputElement, {
+      presetStart: startISO,
+      presetEnd: endISO,
+      maxRangeDays: 90,
+      onApply: (result) => {
+        chartCustomDates.start = result.startISO;
+        chartCustomDates.end = result.endISO;
+        console.log('[ENERGY] [RFC-0097] Custom date range selected:', chartCustomDates);
+      },
+    })
+      .then((picker) => {
+        chartDatePickerInstance = picker;
+        console.log('[ENERGY] [RFC-0097] DateRangePicker initialized');
+      })
+      .catch((err) => {
+        console.error('[ENERGY] [RFC-0097] Error initializing DateRangePicker:', err);
+      });
+  } else {
+    console.warn('[ENERGY] [RFC-0097] MyIOLibrary.createDateRangePicker not available');
   }
 }
 
@@ -1615,10 +1738,10 @@ function closeChartConfigModal() {
 }
 
 /**
- * RFC-0073 Problem 2: Aplica a configuração do gráfico
+ * RFC-0097: Aplica a configuração do gráfico
  */
 async function applyChartConfiguration() {
-  console.log('[ENERGY] [RFC-0073] Applying chart configuration');
+  console.log('[ENERGY] [RFC-0097] Applying chart configuration');
 
   const modal = document.getElementById('chartConfigModal');
   if (!modal) return;
@@ -1627,46 +1750,46 @@ async function applyChartConfiguration() {
   const periodRadio = modal.querySelector('input[name="chartPeriod"]:checked');
   const period = periodRadio ? periodRadio.value : '7';
 
-  // Get selected equipment types
-  const equipmentCheckboxes = modal.querySelectorAll('.equipment-type-filter:checked');
-  const selectedEquipmentTypes = Array.from(equipmentCheckboxes).map((cb) => cb.value);
-
-  // Get visualization mode
-  const vizModeRadio = modal.querySelector('input[name="vizMode"]:checked');
-  const vizMode = vizModeRadio ? vizModeRadio.value : 'total';
+  // RFC-0097: Get selected granularity
+  const granularityRadio = modal.querySelector('input[name="chartGranularity"]:checked');
+  const granularity = granularityRadio ? granularityRadio.value : '1d';
 
   // Get dates
   let startDate, endDate;
   if (period === 'custom') {
-    const startInput = document.getElementById('chartStartDate');
-    const endInput = document.getElementById('chartEndDate');
-    startDate = startInput ? startInput.value : null;
-    endDate = endInput ? endInput.value : null;
-
-    if (!startDate || !endDate) {
-      window.alert('Por favor, selecione as datas inicial e final');
+    // Use dates from DateRangePicker
+    if (!chartCustomDates.start || !chartCustomDates.end) {
+      window.alert('Por favor, selecione o período no calendário');
       return;
     }
+    startDate = chartCustomDates.start;
+    endDate = chartCustomDates.end;
   } else {
     // Calculate dates based on period
     const now = new Date();
-    endDate = now.toISOString().split('T')[0];
+    endDate = now.toISOString();
     const startDateObj = new Date(now);
     startDateObj.setDate(now.getDate() - parseInt(period));
-    startDate = startDateObj.toISOString().split('T')[0];
+    startDate = startDateObj.toISOString();
   }
 
-  // RFC-0073: Save configuration to global state
+  // RFC-0097: Save configuration to global state
   chartConfig.period = period === 'custom' ? 0 : parseInt(period);
   chartConfig.startDate = startDate;
   chartConfig.endDate = endDate;
-  chartConfig.equipmentTypes = selectedEquipmentTypes;
-  chartConfig.vizMode = vizMode;
+  chartConfig.granularity = granularity;
+  // vizMode and chartType are controlled by TABs, not modal
 
-  console.log('[ENERGY] [RFC-0073] Chart config saved:', chartConfig);
+  console.log('[ENERGY] [RFC-0097] Chart config saved:', chartConfig);
+
+  // Update chart title
+  updateChartTitle();
 
   // Close the modal
   closeChartConfigModal();
+
+  // Clear cache to force re-fetch with new config
+  cachedChartData = null;
 
   // Update the chart with new configuration
   const customerId = self.ctx.settings?.customerId;
@@ -1676,10 +1799,34 @@ async function applyChartConfiguration() {
 }
 
 /**
- * RFC-0073 Problem 2: Restaura configuração padrão
+ * RFC-0097: Atualiza o título do gráfico baseado na configuração
+ */
+function updateChartTitle() {
+  const titleEl = document.getElementById('lineChartTitle');
+  if (!titleEl) return;
+
+  let title = 'Consumo';
+  if (chartConfig.period > 0) {
+    title = `Consumo dos últimos ${chartConfig.period} dias`;
+  } else if (chartConfig.startDate && chartConfig.endDate) {
+    const start = new Date(chartConfig.startDate);
+    const end = new Date(chartConfig.endDate);
+    const formatDate = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    title = `Consumo de ${formatDate(start)} a ${formatDate(end)}`;
+  }
+
+  if (chartConfig.granularity === '1h') {
+    title += ' (por hora)';
+  }
+
+  titleEl.textContent = title;
+}
+
+/**
+ * RFC-0097: Restaura configuração padrão
  */
 function resetChartConfiguration() {
-  console.log('[ENERGY] [RFC-0073] Resetting chart configuration to defaults');
+  console.log('[ENERGY] [RFC-0097] Resetting chart configuration to defaults');
 
   const modal = document.getElementById('chartConfigModal');
   if (!modal) return;
@@ -1691,21 +1838,36 @@ function resetChartConfiguration() {
     period7Radio.dispatchEvent(new Event('change'));
   }
 
-  // Check all equipment types
-  const equipmentCheckboxes = modal.querySelectorAll('.equipment-type-filter');
-  equipmentCheckboxes.forEach((cb) => (cb.checked = true));
+  // RFC-0097: Reset granularity to 1d
+  const granularity1dRadio = modal.querySelector('input[name="chartGranularity"][value="1d"]');
+  if (granularity1dRadio) {
+    granularity1dRadio.checked = true;
+  }
 
-  // Reset visualization mode to total
-  const vizTotalRadio = modal.querySelector('input[name="vizMode"][value="total"]');
-  if (vizTotalRadio) {
-    vizTotalRadio.checked = true;
+  // Hide date range container
+  const dateRangeContainer = document.getElementById('chartDateRangeContainer');
+  if (dateRangeContainer) {
+    dateRangeContainer.style.display = 'none';
   }
 
   // Clear custom dates
-  const startInput = document.getElementById('chartStartDate');
-  const endInput = document.getElementById('chartEndDate');
-  if (startInput) startInput.value = '';
-  if (endInput) endInput.value = '';
+  chartCustomDates = { start: null, end: null };
+
+  // RFC-0097: Reset TABs to defaults
+  const vizTabs = document.querySelectorAll('.viz-mode-tabs .chart-tab');
+  vizTabs.forEach((tab) => {
+    tab.classList.toggle('active', tab.dataset.viz === 'total');
+  });
+
+  const typeTabs = document.querySelectorAll('.chart-type-tabs .chart-tab');
+  typeTabs.forEach((tab) => {
+    tab.classList.toggle('active', tab.dataset.type === 'line');
+  });
+
+  // Reset chartConfig
+  chartConfig.vizMode = 'total';
+  chartConfig.chartType = 'line';
+  chartConfig.granularity = '1d';
 }
 
 /**

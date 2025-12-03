@@ -1,3 +1,4 @@
+/* global self, window, document, localStorage, MyIOLibrary */
 /**
  * NOTA: Este script depende das seguintes bibliotecas:
  *

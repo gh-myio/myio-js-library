@@ -91,6 +91,17 @@
       <div class="chart-header">
         <h4 id="lineChartTitle">Consumo dos últimos 7 dias</h4>
         <div class="chart-controls">
+          <!-- RFC-0097: TABs de Modo de Visualização -->
+          <div class="chart-tabs viz-mode-tabs">
+            <button class="chart-tab active" data-viz="total">Consolidado</button>
+            <button class="chart-tab" data-viz="separate">Por Shopping</button>
+          </div>
+          <!-- RFC-0097: TABs de Tipo de Gráfico -->
+          <div class="chart-tabs chart-type-tabs">
+            <button class="chart-tab active" data-type="line">Linhas</button>
+            <button class="chart-tab" data-type="bar">Barras</button>
+          </div>
+          <!-- Botão Config -->
           <button id="configureChartBtn" class="config-btn" title="Configurar gráfico">⚙️</button>
         </div>
       </div>

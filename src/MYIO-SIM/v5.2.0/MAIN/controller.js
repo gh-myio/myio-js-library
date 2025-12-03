@@ -52,14 +52,15 @@ function formatWater(value) {
 }
 
 /**
- * RFC-0094: Fetch energy consumption for a customer within a time range
- * Used by ENERGY widget for 7-day chart and other consumption queries
+ * RFC-0094/RFC-0097: Fetch energy consumption for a customer within a time range
+ * Used by ENERGY widget for chart and other consumption queries
  * @param {string} customerId - Customer ID for ingestion API
  * @param {number} startTs - Start timestamp in milliseconds
  * @param {number} endTs - End timestamp in milliseconds
+ * @param {string} granularity - Data granularity: '1d' (day) or '1h' (hour). Default: '1d'
  * @returns {Promise<{devices: Array, total: number}>} - Devices list and total consumption
  */
-async function fetchEnergyDayConsumption(customerId, startTs, endTs) {
+async function fetchEnergyDayConsumption(customerId, startTs, endTs, granularity = '1d') {
   if (!customerId) {
     LogHelper.warn('[MAIN] fetchEnergyDayConsumption: Missing customerId');
     return { devices: [], total: 0 };
@@ -75,7 +76,8 @@ async function fetchEnergyDayConsumption(customerId, startTs, endTs) {
   const startTimeISO = formatDateISO(startTs);
   const endTimeISO = formatDateISO(endTs);
 
-  const url = `${getDataApiHost()}/api/v1/telemetry/customers/${customerId}/energy/?deep=1&granularity=1d&startTime=${encodeURIComponent(
+  // RFC-0097: Use granularity parameter
+  const url = `${getDataApiHost()}/api/v1/telemetry/customers/${customerId}/energy/?deep=1&granularity=${granularity}&startTime=${encodeURIComponent(
     startTimeISO
   )}&endTime=${encodeURIComponent(endTimeISO)}`;
 

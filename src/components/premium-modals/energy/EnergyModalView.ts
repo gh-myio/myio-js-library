@@ -27,6 +27,8 @@ export class EnergyModalView {
   private isLoading = false;
   private currentTheme: 'dark' | 'light' = 'dark';
   private currentBarMode: 'stacked' | 'grouped' = 'stacked';
+  // RFC-0097: Granularity selector state (only 1h and 1d supported)
+  private currentGranularity: '1h' | '1d' = '1d';
 
   constructor(modal: any, config: EnergyViewConfig) {
     this.modal = modal;
@@ -37,6 +39,9 @@ export class EnergyModalView {
 
     // ⭐ Initialize bar mode from localStorage
     this.initializeBarMode();
+
+    // RFC-0097: Initialize granularity from config or localStorage
+    this.initializeGranularity();
 
     // ⭐ VALIDATE MODE CONFIGURATION
     this.validateConfiguration();
@@ -58,6 +63,76 @@ export class EnergyModalView {
   private initializeBarMode(): void {
     const savedBarMode = localStorage.getItem('myio-modal-bar-mode') as 'stacked' | 'grouped' | null;
     this.currentBarMode = savedBarMode || 'stacked';
+  }
+
+  /**
+   * RFC-0097: Initializes granularity from config or localStorage
+   */
+  private initializeGranularity(): void {
+    const savedGranularity = localStorage.getItem('myio-modal-granularity') as '1h' | '1d' | null;
+    const configGranularity = this.config.params.granularity as '1h' | '1d' | null;
+    // Priority: localStorage > config params > default '1d'
+    // Only accept '1h' or '1d', fallback to '1d' for any other value
+    const candidate = savedGranularity || configGranularity || '1d';
+    this.currentGranularity = (candidate === '1h' || candidate === '1d') ? candidate : '1d';
+  }
+
+  /**
+   * RFC-0097: Sets granularity and re-renders chart
+   */
+  private setGranularity(granularity: '1h' | '1d'): void {
+    if (this.currentGranularity === granularity) return;
+
+    this.currentGranularity = granularity;
+
+    // Update UI - highlight active button
+    const buttons = document.querySelectorAll('.myio-btn-granularity');
+    buttons.forEach(btn => {
+      const btnEl = btn as HTMLElement;
+      if (btnEl.dataset.granularity === granularity) {
+        btnEl.classList.add('active');
+      } else {
+        btnEl.classList.remove('active');
+      }
+    });
+
+    // Save preference to localStorage
+    localStorage.setItem('myio-modal-granularity', granularity);
+
+    // Re-render chart with new granularity
+    this.reRenderChart();
+
+    console.log('[EnergyModalView] [RFC-0097] Granularity changed to:', granularity);
+  }
+
+  /**
+   * RFC-0097: Calculates suggested granularity based on date range
+   * Only supports '1h' (hour) and '1d' (day)
+   */
+  private calculateSuggestedGranularity(startDate: string, endDate: string): '1h' | '1d' {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+    // For periods <= 1 day, suggest hourly granularity
+    if (diffDays <= 1) return '1h';
+    // For all other periods, suggest daily granularity
+    return '1d';
+  }
+
+  /**
+   * RFC-0097: Applies granularity UI state (highlights correct button)
+   */
+  private applyGranularityUI(): void {
+    const buttons = document.querySelectorAll('.myio-btn-granularity');
+    buttons.forEach(btn => {
+      const btnEl = btn as HTMLElement;
+      if (btnEl.dataset.granularity === this.currentGranularity) {
+        btnEl.classList.add('active');
+      } else {
+        btnEl.classList.remove('active');
+      }
+    });
   }
 
   /**
@@ -366,6 +441,14 @@ export class EnergyModalView {
               </svg>
             </button>
             ` : ''}
+            ${this.config.params.mode === 'comparison' ? `
+            <!-- RFC-0097: Granularity Selector (only 1h and 1d supported) -->
+            <div class="myio-granularity-selector" style="display: flex; align-items: center; gap: 4px; margin-left: 8px; padding: 4px 8px; background: rgba(0,0,0,0.05); border-radius: 8px;">
+              <span style="font-size: 11px; color: #666; margin-right: 4px; white-space: nowrap;">Granularidade:</span>
+              <button class="myio-btn myio-btn-granularity ${this.currentGranularity === '1h' ? 'active' : ''}" data-granularity="1h" title="Hora">1h</button>
+              <button class="myio-btn myio-btn-granularity ${this.currentGranularity === '1d' ? 'active' : ''}" data-granularity="1d" title="Dia">1d</button>
+            </div>
+            ` : ''}
             <button id="close-btn" class="myio-btn myio-btn-secondary">
               Fechar
             </button>
@@ -650,7 +733,7 @@ export class EnergyModalView {
         readingType: this.config.params.readingType || 'energy',
         startDate: startDateStr,  // ← NO TIME (YYYY-MM-DD)
         endDate: endDateStr,      // ← NO TIME (YYYY-MM-DD)
-        granularity: this.config.params.granularity!,  // ← REQUIRED
+        granularity: this.currentGranularity,  // RFC-0097: Use current granularity from selector
         theme: this.currentTheme,  // ← Use current theme (dynamic)
         bar_mode: this.currentBarMode,  // ← Use current bar mode (stacked | grouped)
         timezone: tzIdentifier,
@@ -737,7 +820,7 @@ export class EnergyModalView {
         readingType: 'temperature',
         startDate: startDateStr,
         endDate: endDateStr,
-        granularity: this.config.params.granularity!,
+        granularity: this.currentGranularity,  // RFC-0097: Use current granularity from selector
         theme: this.currentTheme,
         timezone: tzIdentifier,
         iframeBaseUrl: this.config.params.chartsBaseUrl || 'https://graphs.apps.myio-bas.com',
@@ -1130,6 +1213,25 @@ export class EnergyModalView {
       });
     }
 
+    // RFC-0097: Granularity selector buttons (only in comparison mode)
+    const granularityButtons = document.querySelectorAll('.myio-btn-granularity');
+    if (granularityButtons.length > 0) {
+      // Apply initial granularity UI state
+      this.applyGranularityUI();
+
+      granularityButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const target = e.currentTarget as HTMLElement;
+          const newGranularity = target.dataset.granularity as '1h' | '1d' | '1w' | '1M';
+          if (newGranularity) {
+            this.setGranularity(newGranularity);
+          }
+        });
+      });
+
+      console.log('[EnergyModalView] [RFC-0097] Granularity selector initialized with:', this.currentGranularity);
+    }
+
     // Initialize DateRangePicker with widget dates as defaults
     try {
       this.dateRangePicker = await attachDateRangePicker(dateRangeInput, {
@@ -1242,6 +1344,37 @@ export class EnergyModalView {
 
       .myio-btn-secondary:hover:not(:disabled) {
         background: #e5e7eb;
+      }
+
+      /* RFC-0097: Granularity selector buttons */
+      .myio-btn-granularity {
+        padding: 4px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 6px;
+        border: 1px solid var(--myio-energy-border);
+        background: var(--myio-energy-bg);
+        color: var(--myio-energy-text);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        min-width: 36px;
+      }
+
+      .myio-btn-granularity:hover:not(.active) {
+        background: #f3f4f6;
+        border-color: var(--myio-energy-primary);
+        color: var(--myio-energy-primary);
+      }
+
+      .myio-btn-granularity.active {
+        background: var(--myio-energy-primary);
+        color: white;
+        border-color: var(--myio-energy-primary);
+        box-shadow: 0 2px 4px rgba(74, 20, 140, 0.25);
+      }
+
+      .myio-granularity-selector {
+        border: 1px solid var(--myio-energy-border);
       }
 
       .myio-modal-scope {

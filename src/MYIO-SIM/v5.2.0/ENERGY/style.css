@@ -278,3 +278,51 @@
     transform: rotate(360deg);
   }
 }
+
+/* ============================================ */
+/* RFC-0097: Chart TABs Styles                 */
+/* ============================================ */
+
+.chart-tabs {
+  display: inline-flex;
+  gap: 2px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 2px;
+  margin-right: 8px;
+}
+
+.chart-tab {
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.chart-tab:hover {
+  color: #1e293b;
+}
+
+.chart-tab.active {
+  background: #fff;
+  color: #6c2fbf;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive: Stack tabs on smaller screens */
+@media (max-width: 900px) {
+  .chart-controls {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .chart-tabs {
+    margin-bottom: 4px;
+  }
+}
