@@ -810,7 +810,8 @@ async function initializeCharts() {
     },
     options: {
       responsive: true,
-      animation: { duration: 0 }, // Disable animation to prevent loop
+      maintainAspectRatio: false,
+      animation: false,
       plugins: {
         legend: { display: true },
         tooltip: {
@@ -857,8 +858,8 @@ async function initializeCharts() {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
-      animation: { duration: 0 }, // Disable animation to prevent loop
+      maintainAspectRatio: false,
+      animation: false,
       indexAxis: 'y', // Horizontal bar chart
       plugins: {
         legend: {
@@ -1387,9 +1388,18 @@ function updateLineChartFromCache(data) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      // FIX: Disable animation to prevent requestAnimationFrame loop
-      animation: {
-        duration: 0,
+      // RFC-0097: Completely disable all animations to prevent requestAnimationFrame loop
+      animation: false,
+      animations: {
+        colors: false,
+        x: false,
+        y: false,
+      },
+      transitions: {
+        active: { animation: { duration: 0 } },
+        resize: { animation: { duration: 0 } },
+        show: { animation: { duration: 0 } },
+        hide: { animation: { duration: 0 } },
       },
       plugins: {
         legend: {
@@ -1400,9 +1410,10 @@ function updateLineChartFromCache(data) {
           callbacks: {
             label: (context) => {
               const value = context.parsed.y || 0;
-              return `${context.dataset.label}: ${value.toLocaleString('pt-BR', {
-                maximumFractionDigits: 2,
-              })} kWh`;
+              if (value >= 1000) {
+                return `${context.dataset.label}: ${(value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} MWh`;
+              }
+              return `${context.dataset.label}: ${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kWh`;
             },
           },
         },
@@ -1413,7 +1424,15 @@ function updateLineChartFromCache(data) {
           max: yAxisMax, // RFC-0097: Fix max to prevent animation loop
           title: {
             display: true,
-            text: 'Consumo (kWh)',
+            text: yAxisMax >= 1000 ? 'Consumo (MWh)' : 'Consumo (kWh)',
+          },
+          ticks: {
+            callback: function (value) {
+              if (yAxisMax >= 1000) {
+                return (value / 1000).toFixed(1);
+              }
+              return value.toFixed(0);
+            },
           },
         },
         x: {
@@ -1426,7 +1445,7 @@ function updateLineChartFromCache(data) {
     },
   });
 
-  console.log('[ENERGY] [RFC-0097] Chart created with fixed Y-axis max:', yAxisMax);
+  console.log('[ENERGY] [RFC-0097] Chart created with fixed Y-axis max:', yAxisMax, yAxisMax >= 1000 ? 'MWh' : 'kWh');
 }
 
 /**
@@ -2043,7 +2062,8 @@ function initializeMockCharts() {
     },
     options: {
       responsive: true,
-      animation: { duration: 0 }, // Disable animation
+      maintainAspectRatio: false,
+      animation: false,
       plugins: { legend: { display: true } },
     },
   });
@@ -2062,7 +2082,8 @@ function initializeMockCharts() {
     },
     options: {
       responsive: true,
-      animation: { duration: 0 }, // Disable animation
+      maintainAspectRatio: false,
+      animation: false,
       plugins: {
         legend: { position: 'right', labels: { usePointStyle: true } },
       },

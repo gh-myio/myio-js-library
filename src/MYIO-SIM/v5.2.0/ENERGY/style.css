@@ -132,10 +132,10 @@
 
 .chart-box canvas {
   flex: 1;
-  min-height: 350px !important; /* Altura mínima para o canvas do gráfico */
-  /* max-height removido para permitir crescimento completo */
+  min-height: 250px !important;
+  max-height: 300px !important; /* RFC-0097: Fix height to prevent infinite growth */
   width: 100% !important;
-  height: auto !important;
+  height: 300px !important;
 }
 
 .chart-header {
