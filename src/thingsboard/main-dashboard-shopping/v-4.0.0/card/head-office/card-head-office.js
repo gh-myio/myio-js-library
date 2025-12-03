@@ -654,7 +654,7 @@ function verifyOfflineStatus(entityObject, delayTimeInMins = 15) {
  * Paint/update DOM with current state
  */
 function paint(root, state) {
-  const { entityObject, i18n, delayTimeConnectionInMins } = state;
+  const { entityObject, i18n, delayTimeConnectionInMins, isSelected } = state;
 
   // RFC-0093: Use connectionStatus if available (from ThingsBoard real-time data)
   // Only fallback to timestamp verification if connectionStatus is not provided
@@ -693,8 +693,20 @@ function paint(root, state) {
   const barContainer = root.querySelector('.bar');
   const effContainer = root.querySelector('.myio-ho-card__eff'); // Contêiner do texto "%"
 
+  // --- NOVA LÓGICA DE SELEÇÃO VISUAL ---
+  if (state.enableSelection) {
+    const checkbox = root.querySelector('.myio-ho-card__select input[type="checkbox"]');
+    if (checkbox) {
+      // Força o checkbox a refletir o estado real
+      checkbox.checked = !!isSelected;
+    }
+    // Adiciona ou remove a borda de seleção
+    root.classList.toggle('is-selected', !!isSelected);
+  }
+
   // 1. Verifica se o valor da meta é válido (não é nulo, indefinido ou zero)
   const targetValue = entityObject.consumptionTargetValue;
+
 
   if (targetValue) {
     // --- A META EXISTE: MOSTRA E ATUALIZA A BARRA ---
@@ -811,6 +823,41 @@ function bindEvents(root, state, callbacks) {
       callbacks.handleActionSettings(e, entityObject);
     });
   }
+
+  const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+  
+  if (MyIOSelectionStore) {
+    // Definimos a função de callback
+    const onSelectionChange = () => {
+      const selectedIds = MyIOSelectionStore.getSelectedIds();
+      
+      // Verifica se EU (este card) estou na lista
+      const isSelected = selectedIds.includes(entityObject.entityId);
+      
+      // Se o estado mudou, repinta
+      if (state.isSelected !== isSelected) {
+        state.isSelected = isSelected;
+        paint(root, state); // Reaproveita sua função paint que já ajustamos
+      }
+    };
+
+    // Registra o ouvinte
+    MyIOSelectionStore.on('selection:change', onSelectionChange);
+
+    // [IMPORTANTE] Guardamos a referência da função no root para poder limpar depois
+    root._selectionListener = onSelectionChange;
+  }
+
+  // Store cleanup functions
+  root._cleanup = () => {
+    document.removeEventListener('click', closeMenu);
+    document.removeEventListener('keydown', closeMenu);
+    
+    // [NOVO] Remove o ouvinte da Store quando o card morrer
+    if (MyIOSelectionStore && root._selectionListener) {
+      MyIOSelectionStore.off('selection:change', root._selectionListener);
+    }
+  };
 
   // infoBtn.addEventListener('click', (e) => {
   //   e.stopPropagation();
@@ -1037,6 +1084,8 @@ export function renderCardComponentHeadOffice(containerEl, params) {
   ensureCss();
   const state = normalizeParams(params);
   const root = buildDOM(state);
+
+  state.isSelected = params.isSelected || false;
 
   containerEl.appendChild(root);
   bindEvents(root, state, state.callbacks);
