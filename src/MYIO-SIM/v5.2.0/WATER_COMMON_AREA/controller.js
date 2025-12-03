@@ -87,6 +87,7 @@ let waterCommonAreaHeaderController = null;
 
 let dateUpdateHandler = null;
 let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
+let waterDataReadyHandler = null; // FIX: Handler for myio:water-data-ready from MAIN
 let MyIO = null;
 let hasRequestedInitialData = false; // Flag to prevent duplicate initial requests
 let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent duplicate processing
@@ -334,7 +335,10 @@ function buildTbAttrIndex() {
         deviceMapInstaneousPower: null,
         customerId: null,
         connectionStatus: null,
-        consumption_power: null,
+        pulses: null, // FIX: Water meters use pulses (litros), not consumption_power
+        ingestionId: null,
+        identifier: null,
+        label: null,
         deviceProfile: null,
       });
     const slot = byTbId.get(tbId);
@@ -349,7 +353,10 @@ function buildTbAttrIndex() {
     if (key === 'devicemapinstaneouspower') slot.deviceMapInstaneousPower = val;
     if (key === 'customerid') slot.customerId = val;
     if (key === 'connectionstatus') slot.connectionStatus = val;
-    if (key === 'consumption_power') slot.consumption_power = val;
+    if (key === 'pulses') slot.pulses = val; // FIX: Water meters use pulses (litros)
+    if (key === 'ingestionid') slot.ingestionId = val;
+    if (key === 'identifier') slot.identifier = val;
+    if (key === 'label') slot.label = val;
   }
   return byTbId;
 }
@@ -415,7 +422,7 @@ function buildAuthoritativeItems() {
       tbId, // ThingsBoard deviceId (Settings)
       ingestionId, // join key API (totals/Report)
       identifier: r.identifier,
-      label: r.label,
+      label: attrs.label || r.label,
       slaveId: attrs.slaveId ?? null,
       centralId: attrs.centralId ?? null,
       centralName: attrs.centralName ?? null,
@@ -429,7 +436,7 @@ function buildAuthoritativeItems() {
       deviceMapInstaneousPower: attrs.deviceMapInstaneousPower ?? null,
       customerId: attrs.customerId ?? null,
       connectionStatus: attrs.connectionStatus ?? 'offline',
-      consumption_power: attrs.consumption_power ?? null,
+      pulses: attrs.pulses ?? null, // FIX: Water meters use pulses (litros instantâneos)
     };
   });
 
@@ -471,7 +478,7 @@ function applyFilters(enriched, searchTerm, selectedIds, sortMode) {
   }
 
   if (selectedIds && selectedIds.size) {
-    v = v.filter((x) => selectedIds.has(x.id));
+    v = v.filter((x) => selectedIds.has(String(x.id)));
   }
 
   const q = (searchTerm || '').trim().toLowerCase();
@@ -1102,8 +1109,8 @@ async function hydrateAndRender() {
 
     // 5) Sanitiza seleção
     if (STATE.selectedIds && STATE.selectedIds.size) {
-      const valid = new Set(STATE.itemsBase.map((x) => x.id));
-      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
+      const valid = new Set(STATE.itemsBase.map((x) => String(x.id)));
+      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(String(id))));
       STATE.selectedIds = next.size ? next : null;
     }
 
@@ -1138,38 +1145,44 @@ self.onInit = async function () {
   // RFC-0094: Build centralized header via buildHeaderDevicesGrid
   const buildHeaderDevicesGrid = window.MyIOUtils?.buildHeaderDevicesGrid;
   if (buildHeaderDevicesGrid) {
-    waterCommonAreaHeaderController = buildHeaderDevicesGrid({
-      container: '#waterCommonAreaHeaderContainer',
-      domain: 'water',
-      idPrefix: 'waterCommonArea',
-      labels: {
-        total: 'Total de Hidrômetros',
-        consumption: 'Consumo Total (m³)',
-      },
-      includeSearch: true,
-      includeFilter: true,
-      onSearchClick: () => {
-        STATE.searchActive = !STATE.searchActive;
-        if (STATE.searchActive) {
-          const input = waterCommonAreaHeaderController?.getSearchInput();
-          if (input) setTimeout(() => input.focus(), 100);
-        }
-      },
-      onFilterClick: () => {
-        openFilterModal();
-      },
-    });
-
-    // Setup search input listener
-    const searchInput = waterCommonAreaHeaderController?.getSearchInput();
-    if (searchInput) {
-      searchInput.addEventListener('input', (e) => {
-        STATE.searchTerm = e.target.value || '';
-        filterAndRender();
+    // FIX: Use $root().find() to get container within widget scope, not document.querySelector
+    const headerContainerEl = $root().find('#waterCommonAreaHeaderContainer')[0];
+    if (headerContainerEl) {
+      waterCommonAreaHeaderController = buildHeaderDevicesGrid({
+        container: headerContainerEl, // Pass element directly, not selector string
+        domain: 'water',
+        idPrefix: 'waterCommonArea',
+        labels: {
+          total: 'Total de Hidrômetros',
+          consumption: 'Consumo Total (m³)',
+        },
+        includeSearch: true,
+        includeFilter: true,
+        onSearchClick: () => {
+          STATE.searchActive = !STATE.searchActive;
+          if (STATE.searchActive) {
+            const input = waterCommonAreaHeaderController?.getSearchInput();
+            if (input) setTimeout(() => input.focus(), 100);
+          }
+        },
+        onFilterClick: () => {
+          openFilterModal();
+        },
       });
-    }
 
-    LogHelper.log('[WATER_COMMON_AREA] [RFC-0094] Header controller initialized');
+      // Setup search input listener
+      const searchInput = waterCommonAreaHeaderController?.getSearchInput();
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          STATE.searchTerm = e.target.value || '';
+          filterAndRender();
+        });
+      }
+
+      LogHelper.log('[WATER_COMMON_AREA] [RFC-0094] Header controller initialized');
+    } else {
+      LogHelper.warn('[WATER_COMMON_AREA] Header container element not found in widget scope');
+    }
   } else {
     LogHelper.warn('[WATER_COMMON_AREA] buildHeaderDevicesGrid not available - using fallback');
   }
@@ -1422,8 +1435,8 @@ self.onInit = async function () {
     LogHelper.log(`[WATER_COMMON_AREA] Enriched ${STATE.itemsEnriched.length} items with orchestrator values`);
 
     if (STATE.selectedIds && STATE.selectedIds.size) {
-      const valid = new Set(STATE.itemsBase.map((x) => x.id));
-      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
+      const valid = new Set(STATE.itemsBase.map((x) => String(x.id)));
+      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(String(id))));
       STATE.selectedIds = next.size ? next : null;
     }
 
@@ -1470,6 +1483,39 @@ self.onInit = async function () {
   }
 
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
+
+  // FIX: Add handler for myio:water-data-ready from MAIN waterCache
+  waterDataReadyHandler = function (ev) {
+    const { cache, totalDevices, fromCache } = ev.detail || {};
+
+    // Only process if cache is a Map with data
+    if (!(cache instanceof Map) || cache.size === 0) {
+      LogHelper.log('[WATER_COMMON_AREA] Ignoring water-data-ready: no cache or empty');
+      return;
+    }
+
+    LogHelper.log(`[WATER_COMMON_AREA] 📦 Received water-data-ready: ${cache.size} devices (fromCache: ${fromCache})`);
+
+    // Check if widget has items to enrich
+    if (!STATE.itemsBase || STATE.itemsBase.length === 0) {
+      LogHelper.log('[WATER_COMMON_AREA] No itemsBase yet, building...');
+      STATE.itemsBase = buildAuthoritativeItems();
+    }
+
+    if (STATE.itemsBase.length === 0) {
+      LogHelper.warn('[WATER_COMMON_AREA] Still no items after buildAuthoritativeItems, skipping');
+      return;
+    }
+
+    // Enrich items with data from MAIN waterCache
+    STATE.itemsEnriched = enrichItemsWithTotals(STATE.itemsBase, cache);
+    LogHelper.log(`[WATER_COMMON_AREA] Enriched ${STATE.itemsEnriched.length} items from MAIN waterCache`);
+
+    // Render
+    reflowFromState();
+  };
+
+  window.addEventListener('myio:water-data-ready', waterDataReadyHandler);
 
   // RFC-0094: Use credentials from MAIN via MyIOUtils (already fetched by MAIN)
   const jwt = localStorage.getItem('jwt_token');
@@ -1583,6 +1629,10 @@ self.onDestroy = function () {
   if (dataProvideHandler) {
     window.removeEventListener('myio:telemetry:provide-data', dataProvideHandler);
     LogHelper.log("[WATER_COMMON_AREA] Event listener 'myio:telemetry:provide-data' removido.");
+  }
+  if (waterDataReadyHandler) {
+    window.removeEventListener('myio:water-data-ready', waterDataReadyHandler);
+    LogHelper.log("[WATER_COMMON_AREA] Event listener 'myio:water-data-ready' removido.");
   }
 
   // RFC-0094: Cleanup header controller

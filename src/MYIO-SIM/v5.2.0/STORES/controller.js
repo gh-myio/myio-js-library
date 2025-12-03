@@ -581,7 +581,7 @@ function applyFilters(enriched, searchTerm, selectedIds, sortMode) {
   }
 
   if (selectedIds && selectedIds.size) {
-    v = v.filter((x) => selectedIds.has(x.id));
+    v = v.filter((x) => selectedIds.has(String(x.id)));
   }
 
   const q = (searchTerm || '').trim().toLowerCase();
@@ -1869,8 +1869,8 @@ async function hydrateAndRender() {
 
     // 5) Sanitiza seleção
     if (STATE.selectedIds && STATE.selectedIds.size) {
-      const valid = new Set(STATE.itemsBase.map((x) => x.id));
-      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
+      const valid = new Set(STATE.itemsBase.map((x) => String(x.id)));
+      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(String(id))));
       STATE.selectedIds = next.size ? next : null;
     }
 
@@ -2280,8 +2280,8 @@ self.onInit = async function () {
 
     // Sanitize selection
     if (STATE.selectedIds && STATE.selectedIds.size) {
-      const valid = new Set(STATE.itemsBase.map((x) => x.id));
-      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
+      const valid = new Set(STATE.itemsBase.map((x) => String(x.id)));
+      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(String(id))));
       STATE.selectedIds = next.size ? next : null;
     }
 

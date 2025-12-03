@@ -2484,7 +2484,7 @@ function createFilterModal(config) {
 
     sortedItems.forEach((item) => {
       const itemId = getItemId(item);
-      const isChecked = !selectedIds || selectedIds.has(itemId);
+      const isChecked = !selectedIds || selectedIds.has(String(itemId));
       const subLabel = getItemSubLabel(item);
       const value = getItemValue(item);
       const formattedValue = formatValue(value);
@@ -2556,7 +2556,7 @@ function createFilterModal(config) {
           const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
           checkboxes.forEach((cb) => {
             const itemId = cb.getAttribute(itemIdAttr);
-            const item = items.find((i) => getItemId(i) === itemId);
+            const item = items.find((i) => String(getItemId(i)) === String(itemId));
             if (!item) return;
 
             const tabConfig = filterTabs.find((t) => t.id === filterType);
