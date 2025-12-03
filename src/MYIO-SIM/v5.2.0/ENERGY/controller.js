@@ -30,6 +30,7 @@ const chartConfig = {
 
 // RFC-0097: Cache for chart data (avoid re-fetch when switching vizMode/chartType)
 let cachedChartData = null;
+const CHART_CACHE_TTL = 60 * 1000; // 1 minute cache TTL
 
 /**
  * Renderiza a UI do card de consumo total com dados
@@ -249,6 +250,68 @@ let lineChartInstance = null;
 let pieChartInstance = null;
 
 /**
+ * RFC-0097: Fetches consumption for a period and groups by day
+ * Makes ONE API call per shopping and returns array of daily totals
+ * API returns: [{ id, name, type, consumption: [{ timestamp, value }] }]
+ * @param {string} customerId - ID do customer
+ * @param {number} startTs - Start of period in ms
+ * @param {number} endTs - End of period in ms
+ * @param {Array} dayBoundaries - Array of { label, startTs, endTs } for each day
+ * @returns {Promise<number[]>} - Array of daily consumption totals
+ */
+async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries) {
+  try {
+    // Single API call for the entire period with granularity from chartConfig
+    const granularity = chartConfig.granularity || '1d';
+    const result = await window.MyIOUtils.fetchEnergyDayConsumption(customerId, startTs, endTs, granularity);
+
+    // Initialize daily totals with zeros
+    const dailyTotals = new Array(dayBoundaries.length).fill(0);
+
+    // API returns array directly, not { devices: [...] }
+    // Format: [{ id, name, type, consumption: [{ timestamp, value }] }]
+    const items = Array.isArray(result) ? result : result?.devices || result?.data || [];
+
+    if (items.length > 0) {
+      console.log(`[ENERGY] [RFC-0097] API returned ${items.length} items for ${customerId.slice(0, 8)}`);
+    }
+
+    items.forEach((item) => {
+      // Each item has consumption array with timestamp and value
+      if (Array.isArray(item.consumption)) {
+        item.consumption.forEach((entry) => {
+          const timestamp = entry.timestamp || entry.ts;
+          const value = Number(entry.value) || 0;
+
+          if (timestamp && value > 0) {
+            // Parse timestamp (ISO string like "2025-11-29T00:00:00+00:00")
+            const entryTs = new Date(timestamp).getTime();
+
+            // Find which day this timestamp belongs to
+            for (let dayIdx = 0; dayIdx < dayBoundaries.length; dayIdx++) {
+              const day = dayBoundaries[dayIdx];
+              if (entryTs >= day.startTs && entryTs <= day.endTs) {
+                dailyTotals[dayIdx] += value;
+                break;
+              }
+            }
+          }
+        });
+      }
+    });
+
+    console.log(
+      `[ENERGY] [RFC-0097] Period consumption for ${customerId.slice(0, 8)}:`,
+      dailyTotals.map((v) => v.toFixed(0))
+    );
+    return dailyTotals;
+  } catch (error) {
+    console.error('[ENERGY] Error fetching period consumption:', error);
+    return new Array(dayBoundaries.length).fill(0);
+  }
+}
+
+/**
  * Busca o consumo total de todos os devices para um dia específico
  * @param {string} customerId - ID do customer
  * @param {number} startTs - Início do dia em ms
@@ -288,12 +351,12 @@ async function fetchDayTotalConsumption(customerId, startTs, endTs) {
   }
 
   try {
-    const result = await window.MyIOUtils.fetchEnergyDayConsumption(customerId, startTs, endTs);
+    const result = await window.MyIOUtils.fetchEnergyDayConsumption(customerId, startTs, endTs, '1d');
 
-    // RFC-0096: Process the devices array to get accurate total
-    // API may return: [{ id, name, type, consumption: [{ timestamp, value }] }]
+    // RFC-0097: API returns array directly or { devices: [...] }
+    // Format: [{ id, name, type, consumption: [{ timestamp, value }] }]
     let total = 0;
-    const devices = result.devices || [];
+    const devices = Array.isArray(result) ? result : result?.devices || result?.data || [];
 
     if (Array.isArray(devices)) {
       devices.forEach((device) => {
@@ -747,6 +810,7 @@ async function initializeCharts() {
     },
     options: {
       responsive: true,
+      animation: { duration: 0 }, // Disable animation to prevent loop
       plugins: {
         legend: { display: true },
         tooltip: {
@@ -794,6 +858,7 @@ async function initializeCharts() {
     options: {
       responsive: true,
       maintainAspectRatio: true,
+      animation: { duration: 0 }, // Disable animation to prevent loop
       indexAxis: 'y', // Horizontal bar chart
       plugins: {
         legend: {
@@ -865,8 +930,9 @@ async function initializeCharts() {
 /**
  * RFC-0097: Fetch consumption for configured period (respects shopping filter and chart config)
  * Returns data structured for caching and re-rendering
+ * OPTIMIZED: Makes only N API calls (one per shopping) instead of N x Days
  */
-async function fetch7DaysConsumptionFiltered(customerIds) {
+async function fetch7DaysConsumptionFiltered(customerIds, forceRefresh = false) {
   if (!customerIds || customerIds.length === 0) {
     return { labels: [], dailyTotals: [], shoppingData: {}, shoppingNames: {} };
   }
@@ -875,45 +941,88 @@ async function fetch7DaysConsumptionFiltered(customerIds) {
   const period = chartConfig.period || 7;
   const granularity = chartConfig.granularity || '1d';
 
-  console.log('[ENERGY] [RFC-0097] Fetching', period, 'days with granularity', granularity, 'for customers:', customerIds);
+  // RFC-0097: Check if cache is valid (same customerIds and not expired)
+  if (!forceRefresh && cachedChartData && cachedChartData.fetchTimestamp) {
+    const cacheAge = Date.now() - cachedChartData.fetchTimestamp;
+    const sameCustomers =
+      cachedChartData.customerIds &&
+      cachedChartData.customerIds.length === customerIds.length &&
+      cachedChartData.customerIds.every((id) => customerIds.includes(id));
 
-  const labels = [];
-  const dailyTotals = [];
-  const shoppingData = {}; // { customerId: [values...] }
+    if (cacheAge < CHART_CACHE_TTL && sameCustomers) {
+      console.log('[ENERGY] [RFC-0097] Using cached data (age:', Math.round(cacheAge / 1000), 's)');
+      return cachedChartData;
+    }
+  }
+
+  console.log(
+    '[ENERGY] [RFC-0097] Fetching',
+    period,
+    'days with granularity',
+    granularity,
+    'for customers:',
+    customerIds
+  );
+
+  const shoppingData = {}; // { customerId: [values per day...] }
   const shoppingNames = {}; // { customerId: name }
 
-  // Initialize shopping data arrays
+  // Initialize shopping data
   customerIds.forEach((cid) => {
     shoppingData[cid] = [];
     shoppingNames[cid] = getShoppingNameForFilter(cid);
   });
 
+  // Calculate period start/end timestamps (full period, not per day)
   const now = new Date();
+  const periodStart = new Date(now);
+  periodStart.setDate(now.getDate() - (period - 1));
+  periodStart.setHours(0, 0, 0, 0);
+  const startTs = periodStart.getTime();
 
-  // Iterate through configured period days
-  for (let i = period - 1; i >= 0; i--) {
-    const dayDate = new Date(now);
-    dayDate.setDate(now.getDate() - i);
+  const periodEnd = new Date(now);
+  periodEnd.setHours(23, 59, 59, 999);
+  const endTs = periodEnd.getTime();
+
+  // Build day labels and day boundaries for grouping
+  const dayBoundaries = []; // { label, startTs, endTs }
+  for (let i = 0; i < period; i++) {
+    const dayDate = new Date(periodStart);
+    dayDate.setDate(periodStart.getDate() + i);
     dayDate.setHours(0, 0, 0, 0);
 
-    const startTs = dayDate.getTime();
-    const endDate = new Date(dayDate);
-    endDate.setHours(23, 59, 59, 999);
-    const endTs = endDate.getTime();
+    const dayStart = dayDate.getTime();
+    const dayEnd = new Date(dayDate);
+    dayEnd.setHours(23, 59, 59, 999);
 
-    // Label for this data point
     const label = dayDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    labels.push(label);
+    dayBoundaries.push({ label, startTs: dayStart, endTs: dayEnd.getTime() });
+  }
 
-    // Aggregate consumption from all filtered customers for this day
+  const labels = dayBoundaries.map((d) => d.label);
+
+  // OPTIMIZATION: Only N API calls (one per shopping for entire period)
+  console.log('[ENERGY] [RFC-0097] Executing', customerIds.length, 'API calls (one per shopping)...');
+
+  const fetchPromises = customerIds.map((customerId) =>
+    fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries)
+  );
+
+  const results = await Promise.all(fetchPromises);
+
+  // Process results - each result is an array of daily totals for that shopping
+  results.forEach((dailyValues, idx) => {
+    const customerId = customerIds[idx];
+    shoppingData[customerId] = dailyValues;
+  });
+
+  // Calculate daily totals (sum across all shoppings)
+  const dailyTotals = [];
+  for (let dayIdx = 0; dayIdx < period; dayIdx++) {
     let dayTotal = 0;
-
     for (const customerId of customerIds) {
-      const consumption = await fetchDayTotalConsumption(customerId, startTs, endTs);
-      shoppingData[customerId].push(consumption);
-      dayTotal += consumption;
+      dayTotal += shoppingData[customerId][dayIdx] || 0;
     }
-
     dailyTotals.push(dayTotal);
   }
 
@@ -931,16 +1040,31 @@ async function fetch7DaysConsumptionFiltered(customerIds) {
     days: period,
     shoppings: customerIds.length,
     totalPoints: labels.length,
+    parallelCalls: fetchPromises.length,
   });
 
   return cachedChartData;
 }
 
+// RFC-0097: Guard to prevent concurrent updateLineChart calls
+let isUpdatingLineChart = false;
+let pendingLineChartUpdate = null;
+
 /**
  * RFC-0097: Atualiza o gráfico de linha com dados reais
  * Fetches data and uses cache for rendering
+ * Includes debounce guard to prevent multiple concurrent calls
  */
 async function updateLineChart(customerId) {
+  // Prevent concurrent calls - if already updating, queue the latest request
+  if (isUpdatingLineChart) {
+    console.log('[ENERGY] [RFC-0097] updateLineChart already in progress, queuing...');
+    pendingLineChartUpdate = customerId;
+    return;
+  }
+
+  isUpdatingLineChart = true;
+
   try {
     console.log('[ENERGY] [RFC-0097] Fetching consumption data with config:', chartConfig);
 
@@ -961,6 +1085,16 @@ async function updateLineChart(customerId) {
     }
   } catch (error) {
     console.error('[ENERGY] Error updating line chart:', error);
+  } finally {
+    isUpdatingLineChart = false;
+
+    // Process any pending update request
+    if (pendingLineChartUpdate) {
+      const pendingCustomerId = pendingLineChartUpdate;
+      pendingLineChartUpdate = null;
+      console.log('[ENERGY] [RFC-0097] Processing queued updateLineChart...');
+      await updateLineChart(pendingCustomerId);
+    }
   }
 }
 
@@ -1192,20 +1326,27 @@ function updateLineChartFromCache(data) {
 
   const { labels, dailyTotals, shoppingData, shoppingNames } = data;
 
+  // RFC-0097: Calculate max Y value to fix axis and prevent animation loop
+  let maxValue = 0;
+  if (dailyTotals && dailyTotals.length > 0) {
+    maxValue = Math.max(...dailyTotals);
+  }
+  if (shoppingData) {
+    Object.values(shoppingData).forEach((values) => {
+      if (Array.isArray(values)) {
+        const shoppingMax = Math.max(...values);
+        if (shoppingMax > maxValue) maxValue = shoppingMax;
+      }
+    });
+  }
+  // Add 10% padding and round to nice number
+  const yAxisMax = maxValue > 0 ? Math.ceil(maxValue * 1.1 / 1000) * 1000 : 10000;
+
   let datasets = [];
 
   if (chartConfig.vizMode === 'separate' && shoppingData && Object.keys(shoppingData).length > 1) {
     // Separate lines per shopping
-    const colors = [
-      '#6c2fbf',
-      '#2563eb',
-      '#16a34a',
-      '#ea580c',
-      '#dc2626',
-      '#8b5cf6',
-      '#0891b2',
-      '#65a30d',
-    ];
+    const colors = ['#6c2fbf', '#2563eb', '#16a34a', '#ea580c', '#dc2626', '#8b5cf6', '#0891b2', '#65a30d'];
 
     let colorIndex = 0;
     for (const [shoppingId, values] of Object.entries(shoppingData)) {
@@ -1246,6 +1387,10 @@ function updateLineChartFromCache(data) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      // FIX: Disable animation to prevent requestAnimationFrame loop
+      animation: {
+        duration: 0,
+      },
       plugins: {
         legend: {
           display: chartConfig.vizMode === 'separate',
@@ -1255,7 +1400,9 @@ function updateLineChartFromCache(data) {
           callbacks: {
             label: (context) => {
               const value = context.parsed.y || 0;
-              return `${context.dataset.label}: ${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kWh`;
+              return `${context.dataset.label}: ${value.toLocaleString('pt-BR', {
+                maximumFractionDigits: 2,
+              })} kWh`;
             },
           },
         },
@@ -1263,6 +1410,7 @@ function updateLineChartFromCache(data) {
       scales: {
         y: {
           beginAtZero: true,
+          max: yAxisMax, // RFC-0097: Fix max to prevent animation loop
           title: {
             display: true,
             text: 'Consumo (kWh)',
@@ -1277,6 +1425,8 @@ function updateLineChartFromCache(data) {
       },
     },
   });
+
+  console.log('[ENERGY] [RFC-0097] Chart created with fixed Y-axis max:', yAxisMax);
 }
 
 /**
@@ -1893,6 +2043,7 @@ function initializeMockCharts() {
     },
     options: {
       responsive: true,
+      animation: { duration: 0 }, // Disable animation
       plugins: { legend: { display: true } },
     },
   });
@@ -1911,6 +2062,7 @@ function initializeMockCharts() {
     },
     options: {
       responsive: true,
+      animation: { duration: 0 }, // Disable animation
       plugins: {
         legend: { position: 'right', labels: { usePointStyle: true } },
       },
@@ -1923,11 +2075,59 @@ function initializeMockCharts() {
 // MAIN INITIALIZATION
 // ============================================
 
+// RFC-0097: Guard to prevent multiple initializations and store handlers for cleanup
+let energyWidgetInitialized = false;
+let registeredHandlers = {
+  handleEnergySummary: null,
+  handleFilterApplied: null,
+  handleEquipmentMetadataEnriched: null,
+};
+
+/**
+ * RFC-0097: Cleanup function to remove all event listeners
+ */
+function cleanupEventListeners() {
+  if (registeredHandlers.handleEnergySummary) {
+    window.removeEventListener('myio:energy-summary-ready', registeredHandlers.handleEnergySummary);
+    if (window.parent !== window) {
+      window.parent.removeEventListener('myio:energy-summary-ready', registeredHandlers.handleEnergySummary);
+    }
+  }
+  if (registeredHandlers.handleFilterApplied) {
+    window.removeEventListener('myio:filter-applied', registeredHandlers.handleFilterApplied);
+    if (window.parent !== window) {
+      window.parent.removeEventListener('myio:filter-applied', registeredHandlers.handleFilterApplied);
+    }
+  }
+  if (registeredHandlers.handleEquipmentMetadataEnriched) {
+    window.removeEventListener(
+      'myio:equipment-metadata-enriched',
+      registeredHandlers.handleEquipmentMetadataEnriched
+    );
+    if (window.parent !== window) {
+      window.parent.removeEventListener(
+        'myio:equipment-metadata-enriched',
+        registeredHandlers.handleEquipmentMetadataEnriched
+      );
+    }
+  }
+  console.log('[ENERGY] [RFC-0097] Event listeners cleaned up');
+}
+
 // ============================================
 // WIDGET ENERGY - FUNÇÃO DE INICIALIZAÇÃO COMPLETA
 // ============================================
 self.onInit = async function () {
+  // RFC-0097: Prevent multiple initializations
+  if (energyWidgetInitialized) {
+    console.log('[ENERGY] [RFC-0097] Widget already initialized, skipping...');
+    return;
+  }
+
   console.log('[ENERGY] Initializing energy charts and consumption cards...');
+
+  // RFC-0097: Cleanup any existing listeners before adding new ones
+  cleanupEventListeners();
 
   // 1. INICIALIZA A UI: Mostra os spinners de "loading" para o usuário.
   // -----------------------------------------------------------------
@@ -1942,22 +2142,25 @@ self.onInit = async function () {
 
   // Primeiro, prepara o "ouvinte" que vai receber os dados quando o MAIN responder.
   // ✅ Listen on both window and window.parent to support both iframe and non-iframe contexts
-  const handleEnergySummary = (ev) => {
+  registeredHandlers.handleEnergySummary = (ev) => {
     console.log('[ENERGY] Resumo de energia recebido do orquestrador!', ev.detail);
     // Chama as funções que atualizam os cards na tela com os dados recebidos.
     updateTotalConsumptionStoresCard(ev.detail); // Novo: card de lojas
     updateTotalConsumptionEquipmentsCard(ev.detail); // Novo: card de equipamentos
   };
 
-  window.addEventListener('myio:energy-summary-ready', handleEnergySummary);
+  window.addEventListener('myio:energy-summary-ready', registeredHandlers.handleEnergySummary);
 
   if (window.parent !== window) {
-    window.parent.addEventListener('myio:energy-summary-ready', handleEnergySummary);
+    window.parent.addEventListener('myio:energy-summary-ready', registeredHandlers.handleEnergySummary);
   }
 
   // RFC-0073: Listen to shopping filter changes and update charts
-  const handleFilterApplied = async (ev) => {
+  registeredHandlers.handleFilterApplied = async (ev) => {
     console.log('[ENERGY] [RFC-0073] Shopping filter applied, updating charts...', ev.detail);
+
+    // Invalidate cache when filter changes
+    cachedChartData = null;
 
     // Also update pie chart to reflect filtered data
     const currentMode = document.getElementById('distributionMode')?.value || 'groups';
@@ -1970,15 +2173,15 @@ self.onInit = async function () {
     }
   };
 
-  window.addEventListener('myio:filter-applied', handleFilterApplied);
+  window.addEventListener('myio:filter-applied', registeredHandlers.handleFilterApplied);
 
   if (window.parent !== window) {
-    window.parent.addEventListener('myio:filter-applied', handleFilterApplied);
+    window.parent.addEventListener('myio:filter-applied', registeredHandlers.handleFilterApplied);
   }
 
   // RFC-0076: Listen to equipment metadata enrichment from EQUIPMENTS widget
   // This forces chart updates when EQUIPMENTS finishes enriching the cache with deviceType/deviceProfile
-  const handleEquipmentMetadataEnriched = async (ev) => {
+  registeredHandlers.handleEquipmentMetadataEnriched = async (ev) => {
     console.log('[ENERGY] [RFC-0076] 🔧 Equipment metadata enriched! Forcing chart update...', ev.detail);
 
     // Force immediate update of pie chart to pick up elevator classifications
@@ -1988,11 +2191,20 @@ self.onInit = async function () {
     console.log('[ENERGY] [RFC-0076] ✅ Charts updated with enriched metadata');
   };
 
-  window.addEventListener('myio:equipment-metadata-enriched', handleEquipmentMetadataEnriched);
+  window.addEventListener(
+    'myio:equipment-metadata-enriched',
+    registeredHandlers.handleEquipmentMetadataEnriched
+  );
 
   if (window.parent !== window) {
-    window.parent.addEventListener('myio:equipment-metadata-enriched', handleEquipmentMetadataEnriched);
+    window.parent.addEventListener(
+      'myio:equipment-metadata-enriched',
+      registeredHandlers.handleEquipmentMetadataEnriched
+    );
   }
+
+  // RFC-0097: Mark widget as initialized
+  energyWidgetInitialized = true;
 
   // DEPOIS (NOVO CÓDIGO PARA O onInit DO WIDGET ENERGY)
 
@@ -2064,4 +2276,13 @@ self.onDestroy = function () {
 
   // Remove modal-open class if widget is destroyed with modal open
   document.body.classList.remove('modal-open');
+
+  // RFC-0097: Cleanup event listeners and reset initialization flag
+  cleanupEventListeners();
+  energyWidgetInitialized = false;
+  cachedChartData = null;
+  isUpdatingLineChart = false;
+  pendingLineChartUpdate = null;
+
+  console.log('[ENERGY] [RFC-0097] Widget destroyed, state reset');
 };

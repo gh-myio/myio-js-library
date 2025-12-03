@@ -98,14 +98,22 @@ async function fetchEnergyDayConsumption(customerId, startTs, endTs, granularity
 
     const data = await response.json();
 
-    // Extract devices and calculate total
-    const devices = data?.devices || data?.data || [];
+    // RFC-0097: API returns array directly, not { devices: [...] }
+    // Format: [{ id, name, type, consumption: [{ timestamp, value }] }]
+    const devices = Array.isArray(data) ? data : data?.devices || data?.data || [];
     let total = 0;
 
     if (Array.isArray(devices)) {
       devices.forEach((device) => {
-        const value = device.total_value || device.value || device.consumption || 0;
-        total += Number(value) || 0;
+        // Handle both formats: direct value or consumption array
+        if (Array.isArray(device.consumption)) {
+          device.consumption.forEach((entry) => {
+            total += Number(entry.value) || 0;
+          });
+        } else {
+          const value = device.total_value || device.value || 0;
+          total += Number(value) || 0;
+        }
       });
     }
 
