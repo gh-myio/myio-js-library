@@ -335,12 +335,33 @@ function openFullscreenChart() {
         align-items: center;
         margin-bottom: 16px;
       }
+      #energyChartFullscreenGlobal .fullscreen-title-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
       #energyChartFullscreenGlobal .fullscreen-header h3 {
         margin: 0;
         font-size: 20px;
         font-weight: 600;
         color: #166534;
         font-family: 'Inter', sans-serif;
+      }
+      #energyChartFullscreenGlobal .fullscreen-config-btn {
+        background: #fff;
+        border: 1px solid #86efac;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 18px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #energyChartFullscreenGlobal .fullscreen-config-btn:hover {
+        background: #dcfce7;
+        border-color: #22c55e;
       }
       #energyChartFullscreenGlobal .fullscreen-close-btn {
         background: #fff;
@@ -413,7 +434,10 @@ function openFullscreenChart() {
       }
     </style>
     <div class="fullscreen-header">
-      <h3 id="fullscreenChartTitle">Consumo dos últimos 7 dias</h3>
+      <div class="fullscreen-title-group">
+        <button class="fullscreen-config-btn" id="fullscreenConfigBtn" title="Configurar período">⚙️</button>
+        <h3 id="fullscreenChartTitle">Consumo dos últimos 7 dias</h3>
+      </div>
       <button class="fullscreen-close-btn" id="closeFullscreenChart">
         <span>✕</span> Fechar
       </button>
@@ -463,6 +487,15 @@ function setupFullscreenHandlers(container, targetDoc) {
         maximizeBtn.innerHTML = '⛶';
         maximizeBtn.title = 'Maximizar para tela toda';
       }
+    });
+  }
+
+  // Config button (settings) - opens the chart config modal
+  const configBtn = container.querySelector('#fullscreenConfigBtn');
+  if (configBtn) {
+    configBtn.addEventListener('click', () => {
+      console.log('[ENERGY] [RFC-0097] Opening config modal from fullscreen');
+      openChartConfigModal();
     });
   }
 
@@ -2414,6 +2447,22 @@ async function applyChartConfiguration() {
   const customerId = self.ctx.settings?.customerId;
   if (customerId) {
     await updateLineChart(customerId);
+  }
+
+  // RFC-0097: If fullscreen is open, update the fullscreen chart too
+  if (isChartFullscreen) {
+    const targetDoc = window.parent?.document || document;
+    const fullscreenContainer = targetDoc.getElementById('energyChartFullscreenGlobal');
+    if (fullscreenContainer) {
+      // Update fullscreen title
+      const fullscreenTitle = fullscreenContainer.querySelector('#fullscreenChartTitle');
+      const mainTitle = document.getElementById('lineChartTitle');
+      if (fullscreenTitle && mainTitle) {
+        fullscreenTitle.textContent = mainTitle.textContent;
+      }
+      // Rebuild fullscreen chart with new data
+      rebuildFullscreenChart(fullscreenContainer);
+    }
   }
 }
 

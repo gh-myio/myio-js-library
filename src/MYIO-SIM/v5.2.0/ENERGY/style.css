@@ -134,6 +134,7 @@
 .chart-box-energy {
   background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
   border: 1px solid #86efac;
+  min-height: 380px !important; /* Override default 450px - ajustado ao gráfico */
 }
 
 /* RFC-0097: Fullscreen mode */
