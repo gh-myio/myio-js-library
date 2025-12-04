@@ -3,6 +3,24 @@
 
   <div class="toolbar-zoom">
     <div class="shopping-filter-chips" id="shoppingFilterChips"></div>
+    <!-- RFC-0093: Real-Time Mode Controls -->
+    <div class="realtime-controls" id="realtimeControls">
+      <button id="realtimeToggleBtn" class="realtime-toggle" title="Ativar modo tempo real">
+        <span class="toggle-icon">⚡</span>
+        <span class="toggle-label">Tempo Real</span>
+        <span class="toggle-status">OFF</span>
+      </button>
+      <button id="realtimeSettingsBtn" class="realtime-settings-btn" title="Configurações" style="display: none;">
+        <span>⚙️</span>
+      </button>
+      <div id="realtimeConnectionIndicator" class="realtime-connection-indicator" style="display: none;"></div>
+      <div id="realtimeProgressContainer" class="realtime-progress-container" style="display: none;">
+        <div class="realtime-progress-bar">
+          <div id="realtimeProgressFill" class="realtime-progress-fill"></div>
+        </div>
+        <span id="realtimeProgressText" class="realtime-progress-text">30s</span>
+      </div>
+    </div>
   </div>
 
   <!-- RFC-0093: Header injected dynamically via buildHeaderDevicesGrid -->
