@@ -15,16 +15,16 @@ interface WaterTankModalViewConfig {
   onExport: () => void;
   onError: (error: WaterTankModalError) => void;
   onClose: () => void;
+  onDateRangeChange?: (startTs: number, endTs: number) => void;
 }
 
 /**
  * View class for Water Tank Modal
  *
- * Responsibilities:
- * - Render modal HTML structure
- * - Display telemetry data and charts
- * - Handle UI interactions
- * - Manage modal lifecycle (show, hide, destroy)
+ * Displays:
+ * - Visual water tank with percentage level (water_percentage * 100)
+ * - Chart showing water_level (m.c.a) over time
+ * - Date range picker to change the time period
  */
 export class WaterTankModalView {
   private config: WaterTankModalViewConfig;
@@ -54,7 +54,7 @@ export class WaterTankModalView {
       maxLevel: 'Maximum Level',
       dateRange: 'Date Range',
       deviceInfo: 'Device Information',
-      levelChart: 'Level Chart',
+      levelChart: 'Water Level History (m.c.a)',
       percentUnit: '%',
       status: {
         critical: 'Critical',
@@ -93,6 +93,21 @@ export class WaterTankModalView {
   }
 
   /**
+   * Get tank image URL based on level percentage (same logic as device card)
+   */
+  private getTankImageUrl(percentage: number): string {
+    if (percentage >= 70) {
+      return "https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq"; // 70-100%
+    } else if (percentage >= 40) {
+      return "https://dashboard.myio-bas.com/api/images/public/4UBbShfXCVWR9wcw6IzVMNran4x1EW5n"; // 40-69%
+    } else if (percentage >= 20) {
+      return "https://dashboard.myio-bas.com/api/images/public/aB9nX28F54fBBQs1Ht8jKUdYAMcq9QSm"; // 20-39%
+    } else {
+      return "https://dashboard.myio-bas.com/api/images/public/qLdwhV4qw295poSCa7HinpnmXoN7dAPO"; // 0-19%
+    }
+  }
+
+  /**
    * Format timestamp to readable date
    */
   private formatDate(ts: number, includeTime: boolean = true): string {
@@ -106,12 +121,18 @@ export class WaterTankModalView {
   }
 
   /**
+   * Format timestamp to ISO date string for input
+   */
+  private formatDateForInput(ts: number): string {
+    const date = new Date(ts);
+    return date.toISOString().split('T')[0];
+  }
+
+  /**
    * Render the modal HTML
    */
   public render(): void {
-    const { context, params, data } = this.config;
-    const currentLevel = data.summary.currentLevel ?? context.device.currentLevel ?? 0;
-    const levelStatus = this.getLevelStatus(currentLevel);
+    const { params } = this.config;
 
     // Create overlay
     this.overlay = document.createElement('div');
@@ -136,9 +157,9 @@ export class WaterTankModalView {
     this.modal.className = 'myio-water-tank-modal';
     this.modal.style.cssText = `
       background: white;
-      border-radius: 8px;
+      border-radius: 12px;
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
-      width: ${params.ui?.width || 900}px;
+      width: ${params.ui?.width || 700}px;
       max-width: 95vw;
       max-height: 90vh;
       display: flex;
@@ -212,102 +233,166 @@ export class WaterTankModalView {
         overflow-y: auto;
         flex: 1;
       ">
-        ${this.renderSummaryCards()}
+        ${this.renderDateRangePicker()}
+        ${this.renderTankVisualization()}
         ${this.renderChart()}
-        ${this.renderDeviceInfo()}
       </div>
       ${this.renderFooter()}
     `;
   }
 
   /**
-   * Render summary cards
+   * Render date range picker
    */
-  private renderSummaryCards(): string {
-    const { data } = this.config;
-    const currentLevel = data.summary.currentLevel ?? 0;
-    const levelStatus = this.getLevelStatus(currentLevel);
+  private renderDateRangePicker(): string {
+    const { params } = this.config;
+    const startDate = this.formatDateForInput(params.startTs);
+    const endDate = this.formatDateForInput(params.endTs);
 
     return `
       <div style="
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 16px;
-        margin-bottom: 24px;
-      ">
-        ${this.renderSummaryCard(
-          this.i18n.currentLevel,
-          `${currentLevel.toFixed(1)}${this.i18n.percentUnit}`,
-          levelStatus.color,
-          levelStatus.label
-        )}
-        ${this.renderSummaryCard(
-          this.i18n.averageLevel,
-          `${data.summary.avgLevel.toFixed(1)}${this.i18n.percentUnit}`,
-          '#3498db'
-        )}
-        ${this.renderSummaryCard(
-          this.i18n.minLevel,
-          `${data.summary.minLevel.toFixed(1)}${this.i18n.percentUnit}`,
-          '#e74c3c'
-        )}
-        ${this.renderSummaryCard(
-          this.i18n.maxLevel,
-          `${data.summary.maxLevel.toFixed(1)}${this.i18n.percentUnit}`,
-          '#27ae60'
-        )}
-      </div>
-    `;
-  }
-
-  /**
-   * Render a single summary card
-   */
-  private renderSummaryCard(label: string, value: string, color: string, badge?: string): string {
-    return `
-      <div style="
-        background: linear-gradient(135deg, ${color}15 0%, ${color}05 100%);
-        border: 1px solid ${color}30;
+        background: #f8f9fa;
+        border: 1px solid #e0e0e0;
         border-radius: 8px;
         padding: 16px;
-        position: relative;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
       ">
-        ${badge ? `
-          <div style="
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: ${color};
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-          ">${badge}</div>
-        ` : ''}
-        <div style="
-          font-size: 12px;
-          color: #7f8c8d;
-          margin-bottom: 8px;
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-size: 14px; font-weight: 500; color: #2c3e50;">From:</label>
+          <input type="date" id="myio-water-tank-start-date" value="${startDate}" style="
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #2c3e50;
+            cursor: pointer;
+          "/>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-size: 14px; font-weight: 500; color: #2c3e50;">To:</label>
+          <input type="date" id="myio-water-tank-end-date" value="${endDate}" style="
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #2c3e50;
+            cursor: pointer;
+          "/>
+        </div>
+        <button id="myio-water-tank-apply-dates" style="
+          background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+          color: white;
+          border: none;
+          padding: 8px 20px;
+          border-radius: 6px;
+          font-size: 14px;
           font-weight: 500;
-        ">${label}</div>
-        <div style="
-          font-size: 28px;
-          font-weight: 700;
-          color: ${color};
-        ">${value}</div>
+          cursor: pointer;
+          transition: all 0.2s ease;
+        ">
+          Apply
+        </button>
       </div>
     `;
   }
 
   /**
-   * Render chart section
+   * Render tank visualization with percentage
+   */
+  private renderTankVisualization(): string {
+    const { data, context } = this.config;
+
+    // Get water_percentage from telemetry or context
+    // water_percentage is 0-1, so multiply by 100 for display
+    let percentage = 0;
+
+    // Try to get the latest water_percentage value
+    const percentagePoints = data.telemetry.filter(p => p.key === 'water_percentage');
+    if (percentagePoints.length > 0) {
+      const latestPercentage = percentagePoints[percentagePoints.length - 1].value;
+      // If value is <= 1, it's in 0-1 format, multiply by 100
+      percentage = latestPercentage <= 1 ? latestPercentage * 100 : latestPercentage;
+    } else if (context.device.currentLevel !== undefined) {
+      // Fallback to currentLevel from context
+      const level = context.device.currentLevel;
+      percentage = level <= 1 ? level * 100 : level;
+    }
+
+    const levelStatus = this.getLevelStatus(percentage);
+    const tankImageUrl = this.getTankImageUrl(percentage);
+
+    return `
+      <div style="
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 32px;
+        padding: 24px;
+        background: linear-gradient(135deg, ${levelStatus.color}10 0%, ${levelStatus.color}05 100%);
+        border: 1px solid ${levelStatus.color}30;
+        border-radius: 12px;
+        margin-bottom: 24px;
+      ">
+        <div style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+        ">
+          <img src="${tankImageUrl}" alt="Water Tank" style="
+            width: 120px;
+            height: auto;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+          "/>
+          <div style="
+            background: ${levelStatus.color};
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+          ">${levelStatus.label}</div>
+        </div>
+
+        <div style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+        ">
+          <div style="
+            font-size: 48px;
+            font-weight: 700;
+            color: ${levelStatus.color};
+            line-height: 1;
+          ">${percentage.toFixed(1)}%</div>
+          <div style="
+            font-size: 14px;
+            color: #7f8c8d;
+            font-weight: 500;
+          ">${this.i18n.currentLevel}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Render chart section - shows water_level (m.c.a) over time
    */
   private renderChart(): string {
     const { data } = this.config;
 
-    if (data.telemetry.length === 0) {
+    // Filter for water_level data points
+    const waterLevelPoints = data.telemetry.filter(p =>
+      p.key === 'water_level' || p.key === 'waterLevel' || p.key === 'nivel' || p.key === 'level'
+    );
+
+    if (waterLevelPoints.length === 0) {
       return `
         <div style="
           background: #f8f9fa;
@@ -315,22 +400,25 @@ export class WaterTankModalView {
           border-radius: 8px;
           padding: 48px;
           text-align: center;
-          margin-bottom: 24px;
         ">
           <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;">📊</div>
           <div style="color: #7f8c8d; font-size: 16px;">${this.i18n.noData}</div>
+          <div style="color: #bdc3c7; font-size: 13px; margin-top: 8px;">
+            No water_level (m.c.a) data available for this period
+          </div>
         </div>
       `;
     }
 
-    // Simple ASCII-style chart with canvas
+    const firstTs = waterLevelPoints[0]?.ts;
+    const lastTs = waterLevelPoints[waterLevelPoints.length - 1]?.ts;
+
     return `
       <div style="
         background: white;
         border: 1px solid #e0e0e0;
         border-radius: 8px;
         padding: 20px;
-        margin-bottom: 24px;
       ">
         <h3 style="
           margin: 0 0 16px 0;
@@ -338,59 +426,18 @@ export class WaterTankModalView {
           font-weight: 600;
           color: #2c3e50;
         ">${this.i18n.levelChart}</h3>
-        <canvas id="myio-water-tank-chart" style="width: 100%; height: 300px;"></canvas>
-        <div style="
-          margin-top: 16px;
-          font-size: 12px;
-          color: #7f8c8d;
-          text-align: center;
-        ">
-          ${this.i18n.dateRange}: ${this.formatDate(data.summary.firstReadingTs!, false)} - ${this.formatDate(data.summary.lastReadingTs!, false)}
-        </div>
-      </div>
-    `;
-  }
-
-  /**
-   * Render device info section
-   */
-  private renderDeviceInfo(): string {
-    const { context, data } = this.config;
-
-    return `
-      <div style="
-        background: #f8f9fa;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 20px;
-      ">
-        <h3 style="
-          margin: 0 0 16px 0;
-          font-size: 16px;
-          font-weight: 600;
-          color: #2c3e50;
-        ">${this.i18n.deviceInfo}</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">
-          ${this.renderInfoRow('Device ID', context.device.id)}
-          ${this.renderInfoRow('Label', context.device.label)}
-          ${context.device.type ? this.renderInfoRow('Type', context.device.type) : ''}
-          ${context.metadata.slaveId ? this.renderInfoRow('Slave ID', String(context.metadata.slaveId)) : ''}
-          ${context.metadata.centralId ? this.renderInfoRow('Central ID', context.metadata.centralId) : ''}
-          ${this.renderInfoRow('Total Readings', String(data.summary.totalReadings))}
-          ${this.renderInfoRow('Data Keys', data.metadata.keys.join(', '))}
-        </div>
-      </div>
-    `;
-  }
-
-  /**
-   * Render an info row
-   */
-  private renderInfoRow(label: string, value: string): string {
-    return `
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span style="color: #7f8c8d; font-size: 13px;">${label}:</span>
-        <span style="color: #2c3e50; font-size: 13px; font-weight: 500; margin-left: 8px;">${value}</span>
+        <canvas id="myio-water-tank-chart" style="width: 100%; height: 280px;"></canvas>
+        ${firstTs && lastTs ? `
+          <div style="
+            margin-top: 12px;
+            font-size: 12px;
+            color: #7f8c8d;
+            text-align: center;
+          ">
+            ${this.formatDate(firstTs, false)} — ${this.formatDate(lastTs, false)}
+            (${waterLevelPoints.length} readings)
+          </div>
+        ` : ''}
       </div>
     `;
   }
@@ -448,6 +495,12 @@ export class WaterTankModalView {
       exportBtn.addEventListener('click', () => this.config.onExport());
     }
 
+    // Date range apply button
+    const applyDatesBtn = this.modal.querySelector('#myio-water-tank-apply-dates');
+    if (applyDatesBtn) {
+      applyDatesBtn.addEventListener('click', () => this.handleDateRangeChange());
+    }
+
     // Close on overlay click
     this.overlay.addEventListener('click', (e) => {
       if (e.target === this.overlay) {
@@ -467,6 +520,37 @@ export class WaterTankModalView {
     });
   }
 
+  /**
+   * Handle date range change
+   */
+  private handleDateRangeChange(): void {
+    if (!this.modal) return;
+
+    const startInput = this.modal.querySelector('#myio-water-tank-start-date') as HTMLInputElement;
+    const endInput = this.modal.querySelector('#myio-water-tank-end-date') as HTMLInputElement;
+
+    if (startInput && endInput) {
+      const startTs = new Date(startInput.value).setHours(0, 0, 0, 0);
+      const endTs = new Date(endInput.value).setHours(23, 59, 59, 999);
+
+      if (startTs >= endTs) {
+        alert('Start date must be before end date');
+        return;
+      }
+
+      console.log('[WaterTankModalView] Date range changed:', {
+        startTs,
+        endTs,
+        startDate: new Date(startTs).toISOString(),
+        endDate: new Date(endTs).toISOString()
+      });
+
+      if (this.config.onDateRangeChange) {
+        this.config.onDateRangeChange(startTs, endTs);
+      }
+    }
+  }
+
   private handleEscapeKey(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
       this.config.onClose();
@@ -474,14 +558,20 @@ export class WaterTankModalView {
   }
 
   /**
-   * Render chart using Canvas API
+   * Render chart using Canvas API - shows water_level (m.c.a) over time
    */
   private renderCanvasChart(): void {
     const canvas = document.getElementById('myio-water-tank-chart') as HTMLCanvasElement;
     if (!canvas) return;
 
     const { data } = this.config;
-    if (data.telemetry.length === 0) return;
+
+    // Filter for water_level data points
+    const points = data.telemetry.filter(p =>
+      p.key === 'water_level' || p.key === 'waterLevel' || p.key === 'nivel' || p.key === 'level'
+    );
+
+    if (points.length < 2) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -489,56 +579,106 @@ export class WaterTankModalView {
     // Set canvas size
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * window.devicePixelRatio;
-    canvas.height = 300 * window.devicePixelRatio;
+    canvas.height = 280 * window.devicePixelRatio;
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
     const width = rect.width;
-    const height = 300;
-    const padding = 40;
+    const height = 280;
+    const padding = { top: 20, right: 20, bottom: 40, left: 60 };
 
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
 
-    // Draw axes
-    ctx.strokeStyle = '#e0e0e0';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(padding, padding);
-    ctx.lineTo(padding, height - padding);
-    ctx.lineTo(width - padding, height - padding);
-    ctx.stroke();
+    // Calculate data range
+    const values = points.map(p => p.value);
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
+    const valueRange = maxValue - minValue || 1;
+    const valuePadding = valueRange * 0.1;
 
-    // Draw grid lines
-    ctx.strokeStyle = '#f0f0f0';
-    ctx.lineWidth = 0.5;
-    for (let i = 0; i <= 5; i++) {
-      const y = padding + (height - 2 * padding) * (i / 5);
+    const chartMinY = minValue - valuePadding;
+    const chartMaxY = maxValue + valuePadding;
+    const chartRangeY = chartMaxY - chartMinY;
+
+    // Draw background
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(padding.left, padding.top, width - padding.left - padding.right, height - padding.top - padding.bottom);
+
+    // Draw grid lines and Y-axis labels
+    ctx.strokeStyle = '#e8e8e8';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = '#666';
+    ctx.font = '11px Arial';
+    ctx.textAlign = 'right';
+
+    const ySteps = 5;
+    for (let i = 0; i <= ySteps; i++) {
+      const y = padding.top + (height - padding.top - padding.bottom) * (i / ySteps);
+      const value = chartMaxY - (chartRangeY * i / ySteps);
+
+      // Grid line
       ctx.beginPath();
-      ctx.moveTo(padding, y);
-      ctx.lineTo(width - padding, y);
+      ctx.moveTo(padding.left, y);
+      ctx.lineTo(width - padding.right, y);
       ctx.stroke();
 
-      // Y-axis labels
-      ctx.fillStyle = '#7f8c8d';
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'right';
-      ctx.fillText(`${(100 - i * 20)}%`, padding - 10, y + 4);
+      // Y-axis label (m.c.a)
+      ctx.fillText(`${value.toFixed(2)}`, padding.left - 8, y + 4);
     }
 
+    // Y-axis title
+    ctx.save();
+    ctx.translate(15, height / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#666';
+    ctx.font = '12px Arial';
+    ctx.fillText('m.c.a', 0, 0);
+    ctx.restore();
+
+    // Draw axes
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, padding.top);
+    ctx.lineTo(padding.left, height - padding.bottom);
+    ctx.lineTo(width - padding.right, height - padding.bottom);
+    ctx.stroke();
+
     // Draw data line
-    const points = data.telemetry;
-    if (points.length < 2) return;
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    const xScale = chartWidth / (points.length - 1);
 
-    const xScale = (width - 2 * padding) / (points.length - 1);
-    const yScale = (height - 2 * padding) / 100;
+    // Fill area under curve
+    ctx.beginPath();
+    ctx.moveTo(padding.left, height - padding.bottom);
 
+    points.forEach((point, index) => {
+      const x = padding.left + index * xScale;
+      const y = padding.top + chartHeight - ((point.value - chartMinY) / chartRangeY) * chartHeight;
+      ctx.lineTo(x, y);
+    });
+
+    ctx.lineTo(padding.left + (points.length - 1) * xScale, height - padding.bottom);
+    ctx.closePath();
+
+    const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
+    gradient.addColorStop(0, 'rgba(52, 152, 219, 0.3)');
+    gradient.addColorStop(1, 'rgba(52, 152, 219, 0.05)');
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    // Draw line
     ctx.strokeStyle = '#3498db';
     ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
     ctx.beginPath();
 
     points.forEach((point, index) => {
-      const x = padding + index * xScale;
-      const y = height - padding - point.value * yScale;
+      const x = padding.left + index * xScale;
+      const y = padding.top + chartHeight - ((point.value - chartMinY) / chartRangeY) * chartHeight;
 
       if (index === 0) {
         ctx.moveTo(x, y);
@@ -549,15 +689,70 @@ export class WaterTankModalView {
 
     ctx.stroke();
 
-    // Draw data points
-    ctx.fillStyle = '#3498db';
-    points.forEach((point, index) => {
-      const x = padding + index * xScale;
-      const y = height - padding - point.value * yScale;
-      ctx.beginPath();
-      ctx.arc(x, y, 3, 0, 2 * Math.PI);
-      ctx.fill();
-    });
+    // Draw data points (only if not too many)
+    if (points.length <= 50) {
+      ctx.fillStyle = '#3498db';
+      points.forEach((point, index) => {
+        const x = padding.left + index * xScale;
+        const y = padding.top + chartHeight - ((point.value - chartMinY) / chartRangeY) * chartHeight;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+    }
+
+    // Draw X-axis labels (timestamps)
+    ctx.fillStyle = '#888';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'center';
+
+    const xLabelCount = Math.min(6, points.length);
+    const xLabelStep = Math.floor(points.length / xLabelCount);
+
+    for (let i = 0; i < points.length; i += xLabelStep) {
+      const x = padding.left + i * xScale;
+      const date = new Date(points[i].ts);
+      const label = `${date.getDate()}/${date.getMonth() + 1}`;
+      ctx.fillText(label, x, height - padding.bottom + 16);
+    }
+
+    // Draw last point label
+    if (points.length > 1) {
+      const lastX = padding.left + (points.length - 1) * xScale;
+      const lastDate = new Date(points[points.length - 1].ts);
+      const lastLabel = `${lastDate.getDate()}/${lastDate.getMonth() + 1}`;
+      ctx.fillText(lastLabel, lastX, height - padding.bottom + 16);
+    }
+  }
+
+  /**
+   * Update data and re-render chart
+   */
+  public updateData(data: WaterTankTelemetryData): void {
+    this.config.data = data;
+
+    // Re-render tank visualization and chart
+    if (this.modal) {
+      const bodyEl = this.modal.querySelector('.myio-water-tank-modal-body');
+      if (bodyEl) {
+        bodyEl.innerHTML = `
+          ${this.renderDateRangePicker()}
+          ${this.renderTankVisualization()}
+          ${this.renderChart()}
+        `;
+
+        // Re-attach date picker event
+        const applyDatesBtn = this.modal.querySelector('#myio-water-tank-apply-dates');
+        if (applyDatesBtn) {
+          applyDatesBtn.addEventListener('click', () => this.handleDateRangeChange());
+        }
+
+        // Re-render chart
+        requestAnimationFrame(() => {
+          this.renderCanvasChart();
+        });
+      }
+    }
   }
 
   /**
