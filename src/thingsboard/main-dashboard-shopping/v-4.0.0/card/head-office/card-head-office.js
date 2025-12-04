@@ -79,6 +79,10 @@ function getIconSvg(deviceType, domain) {
     return Icons.waterDrop; // Usa o ícone que acabamos de criar
   }
 
+  if (domain === 'temperature') {
+    return Icons.thermometer;
+  }
+
   // Caso contrário, segue a lógica padrão por tipo de dispositivo
   return ICON_MAP[deviceType] || ICON_MAP.DEFAULT;
 }
@@ -299,15 +303,21 @@ function calculateConsumptionPercentage(target, consumption) {
  * Agora aceita o parâmetro 'domain'
  */
 function getStatusInfo(deviceStatus, i18n, domain) {
-  // <--- Adicione 'domain' aqui
   switch (deviceStatus) {
-    case DeviceStatusType.POWER_ON:
-      // Lógica para Água
+    // --- Novos Status de Temperatura ---
+    case 'normal':
+      return { chipClass: 'chip--ok', label: 'Normal' }; // Verde/Azul
+    case 'cold':
+      return { chipClass: 'chip--standby', label: 'Frio' }; // Azul claro/Ciano
+    case 'hot':
+      return { chipClass: 'chip--alert', label: 'Quente' }; // Laranja/Amarelo
+    
+    // --- Status Existentes ---
+    case DeviceStatusType.POWER_ON: // 'running'
       if (domain === 'water') {
         return { chipClass: 'chip--ok', label: i18n.in_operation_water };
-      } else {
-        return { chipClass: 'chip--ok', label: i18n.in_operation };
       }
+      return { chipClass: 'chip--ok', label: i18n.in_operation };
 
     case DeviceStatusType.STANDBY:
       return { chipClass: 'chip--standby', label: i18n.standby };
@@ -320,6 +330,8 @@ function getStatusInfo(deviceStatus, i18n, domain) {
       return { chipClass: 'chip--alert', label: i18n.maintenance };
     case DeviceStatusType.NOT_INSTALLED:
       return { chipClass: 'chip--offline', label: i18n.not_installed };
+    
+    // Default (Cai aqui se não achar 'normal', 'hot' etc)
     case DeviceStatusType.NO_INFO:
     default:
       return { chipClass: 'chip--offline', label: i18n.offline };
@@ -360,6 +372,15 @@ function getCardStateClass(deviceStatus) {
  */
 function getStatusDotClass(deviceStatus) {
   switch (deviceStatus) {
+    // --- Novos Status de Temperatura ---
+    case 'normal':
+      return 'dot--ok';
+    case 'cold':
+      return 'dot--standby';
+    case 'hot':
+      return 'dot--alert';
+
+    // --- Status Existentes ---
     case DeviceStatusType.POWER_ON:
       return 'dot--ok';
     case DeviceStatusType.STANDBY:
