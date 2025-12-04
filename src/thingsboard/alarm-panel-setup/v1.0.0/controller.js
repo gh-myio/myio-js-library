@@ -45,6 +45,7 @@ self.settings = null;
 self.customers = [];
 self.devices = [];
 self.deviceProfiles = {};
+self.profiles = [];
 self.alarms = [];
 self.selectedProfileIds = [];
 self.viewMode = 'devices';
@@ -107,18 +108,33 @@ self.onInit = function () {
   }
 
   var vm = self;
-  $scope.vm = vm;
+
+  // Expose self to template via $scope
+  $scope.self = self;
+
+  // Initialize $scope properties for template binding (fallback)
+  $scope.loading = true;
+  $scope.error = null;
+  $scope.profiles = [];
+  $scope.devices = [];
+  $scope.alarms = [];
+  $scope.selectedProfileIds = [];
+  $scope.viewMode = 'devices';
+  $scope.filters = vm.filters;
+  $scope.settings = null;
 
   // Expose ctx to template
   vm.ctx = ctx;
 
   vm.settings = normalizeSettings(ctx.settings || {});
+  $scope.settings = vm.settings; // Sync to $scope
   LogHelper.log('Settings normalized:', vm.settings);
 
   // Data containers
   vm.customers = [];
   vm.devices = [];
   vm.deviceProfiles = {}; // { [profileId]: ProfileData }
+  vm.profiles = []; // Profiles array for template binding
   vm.alarms = [];
 
   // UI state
@@ -163,29 +179,12 @@ self.onInit = function () {
 
   vm.refresh = refresh;
   vm.getProfilesList = getProfilesList;
-};
 
-self.onDataUpdated = function () {
-  LogHelper.log('onDataUpdated() called');
+  // Extract customers from datasources (available at onInit)
+  LogHelper.log('Extracting customers from ctx.datasources...');
+  LogHelper.log('ctx.datasources:', ctx.datasources);
 
-  var ctx = self.ctx;
-  if (!ctx) {
-    LogHelper.warn('onDataUpdated: ctx is undefined, aborting');
-    return;
-  }
-
-  var vm = self;
-  if (!vm.settings) {
-    LogHelper.warn('onDataUpdated: vm.settings is undefined, aborting');
-    return;
-  }
-
-  vm.loading = true;
-  vm.error = null;
-
-  // Extract customers from datasource
-  LogHelper.log('Extracting customers from datasource...');
-  vm.customers = extractCustomersFromDatasource(ctx);
+  vm.customers = extractCustomersFromDatasources(ctx);
   LogHelper.log('Customers extracted:', vm.customers.length, 'customer(s)');
   LogHelper.table(vm.customers, 'Customers');
 
@@ -193,13 +192,20 @@ self.onDataUpdated = function () {
     vm.loading = false;
     vm.error = 'No customers found in datasource. Please configure a Customer entity datasource.';
     LogHelper.warn('No customers found in datasource');
-    ctx.detectChanges();
+    if (ctx.detectChanges) ctx.detectChanges();
     return;
   }
 
   // Start API fetch chain
-  LogHelper.log('Starting API fetch chain...');
+  LogHelper.log('Starting API fetch chain from onInit...');
   fetchAllData(vm, ctx);
+  self.ctx.detectChanges();
+};
+
+self.onDataUpdated = function () {
+  // No-op - all logic is handled in onInit
+  self.ctx.detectChanges();
+  LogHelper.log('onDataUpdated() called - ignored (using onInit approach)');
 };
 
 self.onDestroy = function () {
@@ -214,49 +220,30 @@ self.onResize = function () {
  * Data Extraction
  * =======================*/
 
-function extractCustomersFromDatasource(ctx) {
-  LogHelper.log('extractCustomersFromDatasource() called');
+function extractCustomersFromDatasources(ctx) {
+  LogHelper.log('extractCustomersFromDatasources() called');
   var customers = [];
-  var data = ctx.data || [];
 
-  LogHelper.log('ctx.data length:', data.length);
-  LogHelper.log('ctx.data raw:', data);
+  // Try to get from ctx.datasources first
+  var datasources = ctx.datasources || [];
+  LogHelper.log('ctx.datasources length:', datasources.length);
 
-  data.forEach(function (dsData, index) {
-    LogHelper.log('Processing datasource item', index, ':', dsData);
+  datasources.forEach(function (ds, index) {
+    LogHelper.log('Processing datasource', index, ':', ds);
 
-    var ds = dsData.datasource || {};
     var entity = ds.entity || {};
-
-    LogHelper.log('  datasource:', ds);
     LogHelper.log('  entity:', entity);
 
     if (entity.id && entity.id.entityType === 'CUSTOMER') {
-      LogHelper.log('  Found CUSTOMER (structure 1):', entity.id.id);
+      LogHelper.log('  Found CUSTOMER:', entity.id.id);
       customers.push({
         id: entity.id.id,
         entityId: entity.id,
         name: entity.name || 'Unknown Customer',
         label: entity.label || '',
       });
-    } else if (entity.id && entity.entityType === 'CUSTOMER') {
-      // Alternative structure
-      LogHelper.log('  Found CUSTOMER (structure 2):', entity.id);
-      customers.push({
-        id: entity.id,
-        entityId: { entityType: 'CUSTOMER', id: entity.id },
-        name: entity.name || 'Unknown Customer',
-        label: entity.label || '',
-      });
-    } else {
-      LogHelper.warn(
-        '  Not a CUSTOMER entity, skipping. entityType:',
-        entity.entityType || (entity.id && entity.id.entityType)
-      );
     }
   });
-
-  LogHelper.log('Customers before dedup:', customers.length);
 
   // Deduplicate by ID
   var seen = {};
@@ -280,27 +267,42 @@ function fetchAllData(vm, ctx) {
   var customerIds = vm.customers.map(function (c) {
     return c.id;
   });
-  LogHelper.log('Customer IDs to fetch:', customerIds);
+  LogHelper.log('Customer IDs from datasource:', customerIds);
 
   // Reset data
   vm.devices = [];
   vm.deviceProfiles = {};
+  vm.profiles = [];
   vm.alarms = [];
 
-  // Fetch devices for all customers
-  LogHelper.log('Fetching devices for', customerIds.length, 'customer(s)...');
-  var devicePromises = customerIds.map(function (customerId) {
-    return fetchDevicesForCustomer(ctx, customerId, vm.settings.api.devicesPageSize);
-  });
+  // Fetch ALL devices with pagination, then filter by customer IDs
+  LogHelper.log('Fetching ALL devices with pagination...');
+  fetchAllDevicesWithPagination(ctx, vm.settings.api.devicesPageSize)
+    .then(function (allDevices) {
+      LogHelper.log('Total devices fetched from API:', allDevices.length);
 
-  Promise.all(devicePromises)
-    .then(function (results) {
-      // Flatten all devices
-      results.forEach(function (devices) {
-        vm.devices = vm.devices.concat(devices);
+      // Debug: Show unique owner IDs found in devices
+      var uniqueOwnerIds = {};
+      allDevices.forEach(function (d) {
+        if (d.ownerId) {
+          uniqueOwnerIds[d.ownerId] = (uniqueOwnerIds[d.ownerId] || 0) + 1;
+        }
       });
-      LogHelper.log('Total devices fetched:', vm.devices.length);
-      LogHelper.table(vm.devices.slice(0, 10), 'Devices (first 10)');
+      LogHelper.log('Unique owner IDs in devices:', Object.keys(uniqueOwnerIds).length);
+      LogHelper.log('Looking for customer/owner IDs:', customerIds);
+
+      // Check if our customer ID exists in any device's ownerId
+      customerIds.forEach(function (cid) {
+        var count = uniqueOwnerIds[cid] || 0;
+        LogHelper.log('Owner', cid, '- devices found:', count);
+      });
+
+      // Filter by ownerId matching customer IDs from datasource
+      vm.devices = allDevices.filter(function (device) {
+        return device.ownerId && customerIds.indexOf(device.ownerId) !== -1;
+      });
+      LogHelper.log('Devices after filtering by owner IDs:', vm.devices.length);
+      LogHelper.table(vm.devices.slice(0, 10), 'Filtered Devices (first 10)');
 
       // Extract unique device profile IDs
       var profileIds = extractUniqueProfileIds(vm.devices);
@@ -341,47 +343,165 @@ function fetchAllData(vm, ctx) {
       LogHelper.log('Alarms fetched:', vm.alarms.length);
       LogHelper.table(vm.alarms.slice(0, 10), 'Alarms (first 10)');
 
+      // Build profiles array for template binding
+      vm.profiles = getProfilesList();
+      LogHelper.log('vm.profiles built:', vm.profiles.length);
+      LogHelper.table(vm.profiles, 'Profiles list');
+
+      // Set loading to false
       vm.loading = false;
       LogHelper.log('fetchAllData() completed successfully');
-      ctx.detectChanges();
+      LogHelper.log('vm.loading:', vm.loading);
+      LogHelper.log('vm.devices.length:', vm.devices.length);
+      LogHelper.log('vm.profiles.length:', vm.profiles.length);
+
+      // Force update using ngZone
+      updateView(ctx, 'Data loaded successfully');
     })
     .catch(function (error) {
       LogHelper.error('API fetch error:', error);
       vm.error = 'Error fetching data: ' + (error.message || error.statusText || 'Unknown error');
       vm.loading = false;
-      ctx.detectChanges();
+      updateView(ctx, 'Error occurred');
     });
 }
 
-function fetchDevicesForCustomer(ctx, customerId, pageSize) {
-  var url = '/api/customer/' + customerId + '/devices?pageSize=' + (pageSize || 1000) + '&page=0';
-  LogHelper.log('API GET:', url);
+function updateView(ctx, reason) {
+  LogHelper.log('updateView() called - reason:', reason);
+  LogHelper.log('self.loading:', self.loading, 'self.profiles.length:', self.profiles.length);
 
-  return ctx.http
-    .get(url)
-    .toPromise()
-    .then(function (response) {
-      var devices = response.data || [];
-      LogHelper.log('Customer', customerId, '- devices received:', devices.length);
+  var $scope = ctx.$scope;
 
-      // Map to internal structure
-      return devices.map(function (device) {
-        return {
-          id: device.id ? device.id.id : null,
-          entityId: device.id,
-          name: device.name || 'Unknown Device',
-          label: device.label || '',
-          type: device.type || '',
-          customerId: device.customerId ? device.customerId.id : null,
-          deviceProfileId: device.deviceProfileId ? device.deviceProfileId.id : null,
-          createdTime: device.createdTime,
-        };
-      });
-    })
-    .catch(function (error) {
-      LogHelper.error('Error fetching devices for customer', customerId, ':', error);
-      return []; // Return empty array on error, don't fail entire chain
+  // Sync all properties to $scope
+  function syncScope() {
+    if ($scope) {
+      $scope.self = self;
+      $scope.loading = self.loading;
+      $scope.error = self.error;
+      $scope.profiles = self.profiles;
+      $scope.devices = self.devices;
+      $scope.alarms = self.alarms;
+      $scope.selectedProfileIds = self.selectedProfileIds;
+      $scope.viewMode = self.viewMode;
+      $scope.filters = self.filters;
+      $scope.settings = self.settings;
+    }
+  }
+
+  syncScope();
+  LogHelper.log('$scope synced - loading:', $scope ? $scope.loading : 'no $scope', 'profiles:', $scope && $scope.profiles ? $scope.profiles.length : 0);
+
+  // Method 1: Use ngZone.run() for Angular change detection
+  if (ctx.ngZone && ctx.ngZone.run) {
+    ctx.ngZone.run(function() {
+      LogHelper.log('ngZone.run() executing...');
+      syncScope();
+      if (ctx.detectChanges) {
+        ctx.detectChanges();
+        LogHelper.log('detectChanges inside ngZone.run()');
+      }
     });
+  }
+
+  // Method 2: Direct detectChanges
+  if (ctx.detectChanges) {
+    ctx.detectChanges();
+    LogHelper.log('detectChanges executed');
+  }
+
+  // Method 3: setTimeout with ngZone
+  setTimeout(function() {
+    LogHelper.log('setTimeout callback (50ms) executing...');
+    syncScope();
+
+    if (ctx.ngZone && ctx.ngZone.run) {
+      ctx.ngZone.run(function() {
+        if (ctx.detectChanges) {
+          ctx.detectChanges();
+          LogHelper.log('detectChanges inside ngZone.run() (setTimeout 50ms)');
+        }
+      });
+    } else if (ctx.detectChanges) {
+      ctx.detectChanges();
+      LogHelper.log('detectChanges (setTimeout 50ms)');
+    }
+  }, 50);
+
+  // Method 4: Longer delay fallback
+  setTimeout(function() {
+    LogHelper.log('setTimeout callback (300ms) executing...');
+    syncScope();
+
+    if (ctx.ngZone && ctx.ngZone.run) {
+      ctx.ngZone.run(function() {
+        if (ctx.detectChanges) {
+          ctx.detectChanges();
+          LogHelper.log('detectChanges inside ngZone.run() (setTimeout 300ms)');
+        }
+      });
+    } else if (ctx.detectChanges) {
+      ctx.detectChanges();
+      LogHelper.log('detectChanges (setTimeout 300ms)');
+    }
+  }, 300);
+}
+
+function fetchAllDevicesWithPagination(ctx, pageSize) {
+  var allDevices = [];
+  var ps = pageSize || 300;
+
+  function fetchPage(page) {
+    var url =
+      '/api/deviceInfos/all?pageSize=' +
+      ps +
+      '&page=' +
+      page +
+      '&includeCustomers=true&sortProperty=name&sortOrder=ASC';
+    LogHelper.log('API GET:', url);
+
+    return ctx.http
+      .get(url)
+      .toPromise()
+      .then(function (response) {
+        var devices = response.data || [];
+        LogHelper.log('Page', page, '- devices received:', devices.length, '- hasNext:', response.hasNext);
+
+        // Map to internal structure
+        var mappedDevices = devices.map(function (device) {
+          return {
+            id: device.id ? device.id.id : null,
+            entityId: device.id,
+            name: device.name || 'Unknown Device',
+            label: device.label || '',
+            type: device.type || '',
+            ownerName: device.ownerName || 'N/A',
+            ownerId: device.ownerId ? device.ownerId.id : null,
+            ownerType: device.ownerId ? device.ownerId.entityType : null,
+            customerId: device.customerId ? device.customerId.id : null,
+            deviceProfileId: device.deviceProfileId ? device.deviceProfileId.id : null,
+            createdTime: device.createdTime,
+            active: device.active || false,
+            groups: device.groups || [],
+          };
+        });
+
+        allDevices = allDevices.concat(mappedDevices);
+
+        // Continue pagination if more pages
+        if (response.hasNext) {
+          return fetchPage(page + 1);
+        }
+
+        LogHelper.log('Pagination complete. Total devices:', allDevices.length);
+        return allDevices;
+      })
+      .catch(function (error) {
+        LogHelper.error('Error fetching devices page', page, ':', error);
+        return allDevices; // Return what we have so far
+      });
+  }
+
+  return fetchPage(0);
 }
 
 function fetchDeviceProfile(ctx, profileId) {
@@ -520,6 +640,7 @@ function normalizeSettings(settings) {
 
 function toggleProfileSelection(profileId) {
   var vm = self;
+  var ctx = vm.ctx;
   var idx = vm.selectedProfileIds.indexOf(profileId);
   if (idx === -1) {
     vm.selectedProfileIds.push(profileId);
@@ -527,6 +648,9 @@ function toggleProfileSelection(profileId) {
   } else {
     vm.selectedProfileIds.splice(idx, 1);
     LogHelper.log('Profile deselected:', profileId, '- Total selected:', vm.selectedProfileIds.length);
+  }
+  if (ctx && ctx.detectChanges) {
+    ctx.detectChanges();
   }
 }
 
@@ -537,8 +661,13 @@ function isProfileSelected(profileId) {
 
 function setViewMode(mode) {
   var vm = self;
+  var ctx = vm.ctx;
   if (mode === 'devices' || mode === 'alarms') {
     vm.viewMode = mode;
+    LogHelper.log('View mode changed to:', mode);
+    if (ctx && ctx.detectChanges) {
+      ctx.detectChanges();
+    }
   }
 }
 
@@ -662,27 +791,43 @@ function getFilteredAlarms() {
 
 function openProfileDetails(profile) {
   var vm = self;
+  var ctx = vm.ctx;
   vm.activeProfileDetails = profile;
   vm.showProfileDetailsModal = true;
+  if (ctx && ctx.detectChanges) {
+    ctx.detectChanges();
+  }
 }
 
 function closeProfileDetails() {
   var vm = self;
+  var ctx = vm.ctx;
   vm.showProfileDetailsModal = false;
   vm.activeProfileDetails = null;
+  if (ctx && ctx.detectChanges) {
+    ctx.detectChanges();
+  }
 }
 
 function toggleStatusFilter(statusKey) {
   var vm = self;
+  var ctx = vm.ctx;
   if (!vm.filters.statuses) {
     vm.filters.statuses = {};
   }
   var current = !!vm.filters.statuses[statusKey];
   vm.filters.statuses[statusKey] = !current;
+  if (ctx && ctx.detectChanges) {
+    ctx.detectChanges();
+  }
 }
 
 function onDateFilterChange() {
-  // Placeholder for additional logic
+  var vm = self;
+  var ctx = vm.ctx;
+  if (ctx && ctx.detectChanges) {
+    ctx.detectChanges();
+  }
 }
 
 function getProfileDisplayName(profile) {
@@ -744,7 +889,7 @@ function refresh() {
 
   vm.loading = true;
   vm.error = null;
-  ctx.detectChanges();
+  updateView(ctx, 'Refresh started');
 
   fetchAllData(vm, ctx);
 }

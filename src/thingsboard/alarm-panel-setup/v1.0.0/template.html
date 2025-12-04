@@ -1,38 +1,41 @@
-<div class="ap-container" ng-class="{'ap-compact': vm && vm.settings && vm.settings.appearance && vm.settings.appearance.compactMode}">
+<div class="ap-container" ng-class="{'ap-compact': (settings && settings.appearance && settings.appearance.compactMode) || (self && self.settings && self.settings.appearance && self.settings.appearance.compactMode)}">
   <!-- Header -->
-  <div class="ap-header" ng-if="vm && vm.settings && vm.settings.appearance && vm.settings.appearance.showHeader">
+  <div class="ap-header" ng-if="(settings && settings.appearance && settings.appearance.showHeader) || (self && self.settings && self.settings.appearance && self.settings.appearance.showHeader)">
     <div class="ap-header-left">
-      <h3 class="ap-title">{{ vm && vm.settings && vm.settings.appearance ? vm.settings.appearance.headerTitle : 'Alarm Profiles Panel' }}</h3>
+      <h3 class="ap-title">{{ (settings && settings.appearance && settings.appearance.headerTitle) || (self && self.settings && self.settings.appearance && self.settings.appearance.headerTitle) || 'Alarm Profiles Panel' }}</h3>
       <span class="ap-subtitle">Select one or more device profiles, then switch between Devices and Alarms views.</span>
     </div>
     <div class="ap-header-right">
-      <button class="ap-btn ap-btn-secondary" ng-click="vm.refresh()">Refresh</button>
+      <button class="ap-btn ap-btn-secondary" ng-click="self.refresh()">Refresh</button>
     </div>
   </div>
 
   <!-- Loading / Error -->
-  <div class="ap-state" ng-if="vm && vm.loading">
+  <div class="ap-state" ng-if="loading !== false && (!self || self.loading !== false)">
     <span>Loading data...</span>
   </div>
-  <div class="ap-state ap-error" ng-if="vm && vm.error">
-    <span>{{ vm ? vm.error : '' }}</span>
+  <div class="ap-state ap-error" ng-if="error || (self && self.error)">
+    <span>{{ error ? error : (self && self.error ? self.error : '') }}</span>
   </div>
 
-  <div class="ap-content" ng-if="vm && !vm.loading && !vm.error">
+  <div class="ap-content" ng-if="loading === false || (self && self.loading === false)">
     <!-- Profiles multi-select -->
     <div class="ap-profiles-panel">
       <div class="ap-profiles-header">
         <span class="ap-section-title">Device Profiles</span>
-        <span class="ap-count">{{ vm && vm.getProfilesList ? vm.getProfilesList().length : 0 }} profile(s)</span>
+        <span class="ap-count">{{ (profiles ? profiles.length : (self && self.profiles ? self.profiles.length : 0)) }} profile(s)</span>
       </div>
 
-      <div class="ap-profiles-list">
+      <div class="ap-profiles-empty" ng-if="!profiles && !(self && self.profiles) || (profiles ? profiles.length : (self && self.profiles ? self.profiles.length : 0)) === 0">
+        No device profiles loaded.
+      </div>
+      <div class="ap-profiles-list" ng-if="(profiles && profiles.length > 0) || (self && self.profiles && self.profiles.length > 0)">
         <div
           class="ap-profile-pill"
-          ng-repeat="profile in vm.getProfilesList() track by profile.id"
-          ng-class="{'ap-profile-selected': profile && vm && vm.isProfileSelected && vm.isProfileSelected(profile.id)}"
+          ng-repeat="profile in (profiles ? profiles : (self && self.profiles ? self.profiles : [])) track by (profile ? profile.id : $index)"
+          ng-class="{'ap-profile-selected': self && self.isProfileSelected && profile ? self.isProfileSelected(profile.id) : false}"
         >
-          <div class="ap-profile-pill-main" ng-click="vm.toggleProfileSelection(profile.id)">
+          <div class="ap-profile-pill-main" ng-click="self && self.toggleProfileSelection && profile ? self.toggleProfileSelection(profile.id) : null">
             <div class="ap-profile-name">{{ profile ? profile.name : '' }}</div>
             <div class="ap-profile-device-count">({{ profile ? profile.deviceCount : 0 }} devices)</div>
             <div class="ap-profile-rulechain" ng-if="profile && profile.ruleChainId">
@@ -40,7 +43,7 @@
             </div>
           </div>
           <div class="ap-profile-pill-action">
-            <button class="ap-pill-info-btn" title="Profile details" ng-click="vm.openProfileDetails(profile)">i</button>
+            <button class="ap-pill-info-btn" title="Profile details" ng-click="self && self.openProfileDetails && profile ? self.openProfileDetails(profile) : null">i</button>
           </div>
         </div>
       </div>
@@ -48,28 +51,28 @@
 
     <!-- View toggle -->
     <div class="ap-view-toggle">
-      <button class="ap-toggle-btn" ng-class="{'ap-toggle-active': vm && vm.viewMode === 'devices'}" ng-click="vm.setViewMode('devices')">Devices</button>
-      <button class="ap-toggle-btn" ng-class="{'ap-toggle-active': vm && vm.viewMode === 'alarms'}" ng-click="vm.setViewMode('alarms')">Alarms</button>
+      <button class="ap-toggle-btn" ng-class="{'ap-toggle-active': self && self.viewMode === 'devices'}" ng-click="self.setViewMode('devices')">Devices</button>
+      <button class="ap-toggle-btn" ng-class="{'ap-toggle-active': self && self.viewMode === 'alarms'}" ng-click="self.setViewMode('alarms')">Alarms</button>
     </div>
 
     <!-- Devices / Alarms main views -->
-    <div class="ap-main-panel" ng-switch="vm.viewMode">
+    <div class="ap-main-panel" ng-switch="viewMode || (self && self.viewMode) || 'devices'">
       <!-- DEVICES VIEW -->
       <div ng-switch-when="devices" class="ap-devices-panel">
         <div class="ap-devices-header">
           <span class="ap-section-title">Devices</span>
-          <span class="ap-count">{{ vm && vm.getDevicesForSelectedProfiles ? vm.getDevicesForSelectedProfiles().length : 0 }} device(s)</span>
+          <span class="ap-count">{{ (self && self.getDevicesForSelectedProfiles) ? self.getDevicesForSelectedProfiles().length : 0 }} device(s)</span>
         </div>
 
-        <div class="ap-devices-empty" ng-if="!vm || !vm.selectedProfileIds || vm.selectedProfileIds.length === 0">
+        <div class="ap-devices-empty" ng-if="!(selectedProfileIds && selectedProfileIds.length > 0) && !(self && self.selectedProfileIds && self.selectedProfileIds.length > 0)">
           Select one or more device profiles to see devices.
         </div>
 
-        <div class="ap-devices-empty" ng-if="vm && vm.selectedProfileIds && vm.selectedProfileIds.length > 0 && vm.getDevicesForSelectedProfiles && vm.getDevicesForSelectedProfiles().length === 0">
+        <div class="ap-devices-empty" ng-if="(self && self.selectedProfileIds && self.selectedProfileIds.length > 0 && self.getDevicesForSelectedProfiles && self.getDevicesForSelectedProfiles().length === 0)">
           No devices found for the selected profiles.
         </div>
 
-        <div class="ap-devices-grid" ng-if="vm && vm.getDevicesForSelectedProfiles && vm.getDevicesForSelectedProfiles().length > 0">
+        <div class="ap-devices-grid" ng-if="self && self.getDevicesForSelectedProfiles && self.getDevicesForSelectedProfiles().length > 0">
           <div class="ap-devices-grid-header">
             <div class="ap-col ap-col-device">Device</div>
             <div class="ap-col ap-col-location">Location</div>
@@ -79,20 +82,20 @@
           </div>
 
           <div class="ap-devices-grid-body">
-            <div class="ap-device-row" ng-repeat="device in vm.getDevicesForSelectedProfiles() track by $index">
+            <div class="ap-device-row" ng-repeat="device in (self && self.getDevicesForSelectedProfiles ? self.getDevicesForSelectedProfiles() : []) track by $index">
               <div class="ap-col ap-col-device">
                 <div class="ap-device-name">{{ device ? device.name : '' }}</div>
                 <div class="ap-device-label" ng-if="device && device.label">{{ device ? device.label : '' }}</div>
               </div>
               <div class="ap-col ap-col-location">{{ device ? (device.location || '—') : '—' }}</div>
               <div class="ap-col ap-col-severity">
-                <span class="ap-badge" ng-class="vm && vm.getSeverityBadgeClass && device ? vm.getSeverityBadgeClass(device.currentAlarmSeverity) : 'ap-badge-none'">{{ device ? (device.currentAlarmSeverity || 'NONE') : 'NONE' }}</span>
+                <span class="ap-badge" ng-class="(self && self.getSeverityBadgeClass && device) ? self.getSeverityBadgeClass(device.currentAlarmSeverity) : 'ap-badge-none'">{{ device ? (device.currentAlarmSeverity || 'NONE') : 'NONE' }}</span>
               </div>
               <div class="ap-col ap-col-status">
-                <span class="ap-status-badge" ng-class="vm && vm.getStatusBadgeClass && device ? vm.getStatusBadgeClass(device.alarmStatus) : 'ap-status-normal'">{{ device ? (device.alarmStatus || 'NORMAL') : 'NORMAL' }}</span>
+                <span class="ap-status-badge" ng-class="(self && self.getStatusBadgeClass && device) ? self.getStatusBadgeClass(device.alarmStatus) : 'ap-status-normal'">{{ device ? (device.alarmStatus || 'NORMAL') : 'NORMAL' }}</span>
               </div>
               <div class="ap-col ap-col-last">
-                <span ng-if="device && device.lastAlarmTs">{{ device && device.lastAlarmTs ? (device.lastAlarmTs | date:'dd/MM/yyyy HH:mm:ss') : '—' }}</span>
+                <span ng-if="device && device.lastAlarmTs">{{ device ? (device.lastAlarmTs | date:'dd/MM/yyyy HH:mm:ss') : '' }}</span>
                 <span ng-if="!device || !device.lastAlarmTs">—</span>
               </div>
             </div>
@@ -105,49 +108,47 @@
         <div class="ap-alarms-header">
           <div class="ap-alarms-header-left">
             <span class="ap-section-title">Alarms</span>
-            <span class="ap-count">{{ vm && vm.getFilteredAlarms ? vm.getFilteredAlarms().length : 0 }} alarm(s)</span>
+            <span class="ap-count">{{ (self && self.getFilteredAlarms) ? self.getFilteredAlarms().length : 0 }} alarm(s)</span>
           </div>
           <div class="ap-alarms-header-right">
-            <div class="ap-filter-group" ng-if="vm && vm.filters">
-              <label>From: <input type="date" ng-model="vm.filters.dateFromStr" ng-change="vm.onDateFilterChange()" /></label>
-              <label>To: <input type="date" ng-model="vm.filters.dateToStr" ng-change="vm.onDateFilterChange()" /></label>
+            <div class="ap-filter-group" ng-if="self && self.filters">
+              <label>From: <input type="date" ng-model="self.filters.dateFromStr" ng-change="self.onDateFilterChange()" /></label>
+              <label>To: <input type="date" ng-model="self.filters.dateToStr" ng-change="self.onDateFilterChange()" /></label>
             </div>
-            <div class="ap-filter-group ap-filter-statuses" ng-if="vm && vm.filters && vm.filters.statuses">
+            <div class="ap-filter-group ap-filter-statuses" ng-if="self && self.filters && self.filters.statuses">
               <span class="ap-filter-label">Status:</span>
-              <label><input type="checkbox" ng-checked="vm.filters.statuses.ACTIVE" ng-click="vm.toggleStatusFilter('ACTIVE')" /> ACTIVE</label>
-              <label><input type="checkbox" ng-checked="vm.filters.statuses.CLEARED" ng-click="vm.toggleStatusFilter('CLEARED')" /> CLEARED</label>
-              <label><input type="checkbox" ng-checked="vm.filters.statuses.ACKNOWLEDGED" ng-click="vm.toggleStatusFilter('ACKNOWLEDGED')" /> ACK</label>
+              <label><input type="checkbox" ng-checked="self.filters.statuses.ACTIVE" ng-click="self.toggleStatusFilter('ACTIVE')" /> ACTIVE</label>
+              <label><input type="checkbox" ng-checked="self.filters.statuses.CLEARED" ng-click="self.toggleStatusFilter('CLEARED')" /> CLEARED</label>
+              <label><input type="checkbox" ng-checked="self.filters.statuses.ACKNOWLEDGED" ng-click="self.toggleStatusFilter('ACKNOWLEDGED')" /> ACK</label>
             </div>
           </div>
         </div>
 
-        <div class="ap-alarms-empty" ng-if="!vm || !vm.selectedProfileIds || vm.selectedProfileIds.length === 0">
+        <div class="ap-alarms-empty" ng-if="!(self && self.selectedProfileIds && self.selectedProfileIds.length > 0)">
           Select one or more device profiles to see alarms.
         </div>
 
-        <div class="ap-alarms-empty" ng-if="vm && vm.selectedProfileIds && vm.selectedProfileIds.length > 0 && vm.getFilteredAlarms && vm.getFilteredAlarms().length === 0">
+        <div class="ap-alarms-empty" ng-if="self && self.selectedProfileIds && self.selectedProfileIds.length > 0 && self.getFilteredAlarms && self.getFilteredAlarms().length === 0">
           No alarms found for the selected profiles and filters.
         </div>
 
-        <div class="ap-alarms-list" ng-if="vm && vm.getFilteredAlarms && vm.getFilteredAlarms().length > 0">
-          <div class="ap-alarm-card" ng-repeat="alarm in vm.getFilteredAlarms() track by alarm.alarmId">
+        <div class="ap-alarms-list" ng-if="self && self.getFilteredAlarms && self.getFilteredAlarms().length > 0">
+          <div class="ap-alarm-card" ng-repeat="alarm in (self && self.getFilteredAlarms ? self.getFilteredAlarms() : []) track by (alarm ? alarm.alarmId : $index)">
             <div class="ap-alarm-card-header">
               <div class="ap-alarm-main">
                 <div class="ap-alarm-device">{{ alarm ? (alarm.originatorName || alarm.originatorLabel || 'Unknown device') : 'Unknown device' }}</div>
                 <div class="ap-alarm-type">{{ alarm ? (alarm.type || alarm.name || 'Unknown alarm') : 'Unknown alarm' }}</div>
               </div>
               <div class="ap-alarm-meta">
-                <div class="ap-alarm-time">
-                  {{ alarm && alarm.startTs ? (alarm.startTs | date:'dd/MM/yyyy HH:mm:ss') : '—' }}
-                </div>
+                <div class="ap-alarm-time">{{ alarm && alarm.startTs ? (alarm.startTs | date:'dd/MM/yyyy HH:mm:ss') : '' }}</div>
                 <div class="ap-alarm-badges">
-                  <span class="ap-badge" ng-class="vm && vm.getSeverityBadgeClass && alarm ? vm.getSeverityBadgeClass(alarm.severity) : 'ap-badge-none'">{{ alarm ? (alarm.severity || 'NONE') : 'NONE' }}</span>
-                  <span class="ap-status-badge" ng-class="vm && vm.getStatusBadgeClass && alarm ? vm.getStatusBadgeClass(alarm.status) : 'ap-status-normal'">{{ alarm ? (alarm.status || 'ACTIVE') : 'ACTIVE' }}</span>
+                  <span class="ap-badge" ng-class="(self && self.getSeverityBadgeClass && alarm) ? self.getSeverityBadgeClass(alarm.severity) : 'ap-badge-none'">{{ alarm ? (alarm.severity || 'NONE') : 'NONE' }}</span>
+                  <span class="ap-status-badge" ng-class="(self && self.getStatusBadgeClass && alarm) ? self.getStatusBadgeClass(alarm.status) : 'ap-status-normal'">{{ alarm ? (alarm.status || 'ACTIVE') : 'ACTIVE' }}</span>
                 </div>
               </div>
             </div>
             <div class="ap-alarm-card-body" ng-if="alarm && alarm.details">
-              <div class="ap-alarm-details">{{ (alarm && alarm.details) ? (alarm.details | json) : '' }}</div>
+              <div class="ap-alarm-details">{{ alarm ? (alarm.details | json) : '' }}</div>
             </div>
           </div>
         </div>
@@ -156,31 +157,31 @@
   </div>
 
   <!-- Profile Details Modal -->
-  <div class="ap-modal-backdrop" ng-if="vm && vm.showProfileDetailsModal" ng-click="vm.closeProfileDetails()"></div>
-  <div class="ap-modal" ng-if="vm && vm.showProfileDetailsModal" ng-click="$event.stopPropagation()">
+  <div class="ap-modal-backdrop" ng-if="self && self.showProfileDetailsModal" ng-click="self && self.closeProfileDetails ? self.closeProfileDetails() : null"></div>
+  <div class="ap-modal" ng-if="self && self.showProfileDetailsModal" ng-click="$event.stopPropagation()">
     <div class="ap-modal-header">
-      <span class="ap-modal-title">Device Profile Details: {{ (vm && vm.activeProfileDetails) ? vm.activeProfileDetails.name : '' }}</span>
-      <button class="ap-modal-close" ng-click="vm.closeProfileDetails()">X</button>
+      <span class="ap-modal-title">Device Profile Details: {{ (self && self.activeProfileDetails) ? self.activeProfileDetails.name : '' }}</span>
+      <button class="ap-modal-close" ng-click="self && self.closeProfileDetails ? self.closeProfileDetails() : null">X</button>
     </div>
-    <div class="ap-modal-body" ng-if="vm && vm.activeProfileDetails">
+    <div class="ap-modal-body" ng-if="self && self.activeProfileDetails">
       <div class="ap-modal-section">
-        <div><strong>Profile ID:</strong> {{ (vm && vm.activeProfileDetails) ? vm.activeProfileDetails.id : '' }}</div>
-        <div><strong>Device Count:</strong> {{ (vm && vm.activeProfileDetails) ? vm.activeProfileDetails.deviceCount : 0 }}</div>
-        <div ng-if="vm && vm.activeProfileDetails && vm.activeProfileDetails.ruleChainId"><strong>Rule Chain ID:</strong> {{ (vm && vm.activeProfileDetails) ? vm.activeProfileDetails.ruleChainId : '' }}</div>
-        <div ng-if="!vm || !vm.activeProfileDetails || !vm.activeProfileDetails.ruleChainId"><strong>Rule Chain:</strong> Not configured</div>
+        <div><strong>Profile ID:</strong> {{ (self && self.activeProfileDetails) ? self.activeProfileDetails.id : '' }}</div>
+        <div><strong>Device Count:</strong> {{ (self && self.activeProfileDetails) ? self.activeProfileDetails.deviceCount : 0 }}</div>
+        <div ng-if="self && self.activeProfileDetails && self.activeProfileDetails.ruleChainId"><strong>Rule Chain ID:</strong> {{ (self && self.activeProfileDetails) ? self.activeProfileDetails.ruleChainId : '' }}</div>
+        <div ng-if="self && self.activeProfileDetails && !self.activeProfileDetails.ruleChainId"><strong>Rule Chain:</strong> Not configured</div>
       </div>
-      <div class="ap-modal-section" ng-if="vm && vm.activeProfileDetails && vm.activeProfileDetails.description">
+      <div class="ap-modal-section" ng-if="self && self.activeProfileDetails && self.activeProfileDetails.description">
         <strong>Description:</strong>
-        <p>{{ (vm && vm.activeProfileDetails) ? vm.activeProfileDetails.description : '' }}</p>
+        <p>{{ (self && self.activeProfileDetails) ? self.activeProfileDetails.description : '' }}</p>
       </div>
       <div class="ap-modal-section">
-        <strong>Alarm Rules ({{ (vm && vm.activeProfileDetails && vm.activeProfileDetails.alarmRules) ? vm.activeProfileDetails.alarmRules.length : 0 }}):</strong>
-        <pre class="ap-rules-json" ng-if="vm && vm.activeProfileDetails && vm.activeProfileDetails.alarmRules && vm.activeProfileDetails.alarmRules.length > 0">{{ (vm && vm.activeProfileDetails && vm.activeProfileDetails.alarmRules) ? (vm.activeProfileDetails.alarmRules | json) : '' }}</pre>
-        <div ng-if="!vm || !vm.activeProfileDetails || !vm.activeProfileDetails.alarmRules || vm.activeProfileDetails.alarmRules.length === 0">No alarm rules configured for this profile.</div>
+        <strong>Alarm Rules ({{ (self && self.activeProfileDetails && self.activeProfileDetails.alarmRules) ? self.activeProfileDetails.alarmRules.length : 0 }}):</strong>
+        <pre class="ap-rules-json" ng-if="self && self.activeProfileDetails && self.activeProfileDetails.alarmRules && self.activeProfileDetails.alarmRules.length > 0">{{ (self && self.activeProfileDetails) ? (self.activeProfileDetails.alarmRules | json) : '' }}</pre>
+        <div ng-if="!(self && self.activeProfileDetails && self.activeProfileDetails.alarmRules && self.activeProfileDetails.alarmRules.length > 0)">No alarm rules configured for this profile.</div>
       </div>
     </div>
     <div class="ap-modal-footer">
-      <button class="ap-btn ap-btn-primary" ng-click="vm.closeProfileDetails()">Close</button>
+      <button class="ap-btn ap-btn-primary" ng-click="self && self.closeProfileDetails ? self.closeProfileDetails() : null">Close</button>
     </div>
   </div>
 </div>
