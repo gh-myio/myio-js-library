@@ -73,7 +73,13 @@ function normalizeParams(params) {
 /**
  * Get icon SVG for device type
  */
-function getIconSvg(deviceType) {
+function getIconSvg(deviceType, domain) {
+  // Se o domínio for 'water', força o ícone de gota
+  if (domain === 'water') {
+    return Icons.waterDrop; // Usa o ícone que acabamos de criar
+  }
+
+  // Caso contrário, segue a lógica padrão por tipo de dispositivo
   return ICON_MAP[deviceType] || ICON_MAP.DEFAULT;
 }
 
@@ -290,12 +296,19 @@ function calculateConsumptionPercentage(target, consumption) {
 
 /**
  * Get status chip class and label based on deviceStatus
- * Labels include icons from DEFAULT_I18N (e.g., "⚡ Em funcionamento")
+ * Agora aceita o parâmetro 'domain'
  */
-function getStatusInfo(deviceStatus, i18n) {
+function getStatusInfo(deviceStatus, i18n, domain) {
+  // <--- Adicione 'domain' aqui
   switch (deviceStatus) {
     case DeviceStatusType.POWER_ON:
-      return { chipClass: 'chip--ok', label: i18n.in_operation };
+      // Lógica para Água
+      if (domain === 'water') {
+        return { chipClass: 'chip--ok', label: i18n.in_operation_water };
+      } else {
+        return { chipClass: 'chip--ok', label: i18n.in_operation };
+      }
+
     case DeviceStatusType.STANDBY:
       return { chipClass: 'chip--standby', label: i18n.standby };
     case DeviceStatusType.WARNING:
@@ -385,7 +398,7 @@ function buildDOM(state) {
   // Icon
   const iconContainer = document.createElement('div');
   iconContainer.className = 'myio-ho-card__icon';
-  iconContainer.innerHTML = getIconSvg(entityObject.deviceType);
+  iconContainer.innerHTML = getIconSvg(entityObject.deviceType, entityObject.domain);
   header.appendChild(iconContainer);
 
   // Title section
@@ -588,7 +601,11 @@ function buildDOM(state) {
 
   const powerLabel = document.createElement('div');
   powerLabel.className = 'label';
-  powerLabel.textContent = i18n.instantaneous_power || 'Potência';
+  if (entityObject.domain === 'water') {
+    powerLabel.textContent = 'Leitura';
+  } else {
+    powerLabel.textContent = i18n.instantaneous_power || 'Potência';
+  }
   powerMetric.appendChild(powerLabel);
 
   const powerVal = document.createElement('div');
@@ -676,10 +693,10 @@ function paint(root, state) {
   root.className = `myio-ho-card ${stateClass}`;
 
   // Update status chip using deviceStatus
-  const statusInfo = getStatusInfo(entityObject.deviceStatus, i18n);
+  const statusInfo = getStatusInfo(entityObject.deviceStatus, i18n, entityObject.domain);
   const chip = root.querySelector('.chip');
   chip.className = `chip ${statusInfo.chipClass}`;
-  chip.textContent = statusInfo.label;
+  chip.innerHTML = statusInfo.label;
 
   // Update primary value - use domain-specific formatting (energy or water)
   const primaryValue = formatValueByDomain(entityObject.val, entityObject.domain);
@@ -706,7 +723,6 @@ function paint(root, state) {
 
   // 1. Verifica se o valor da meta é válido (não é nulo, indefinido ou zero)
   const targetValue = entityObject.consumptionTargetValue;
-
 
   if (targetValue) {
     // --- A META EXISTE: MOSTRA E ATUALIZA A BARRA ---
@@ -740,9 +756,15 @@ function paint(root, state) {
   // Instantaneous Power (W/kW) - value comes in Watts
   const powerVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(2) .val');
   if (powerVal) {
-    const instantPower = entityObject.instantaneousPower ?? entityObject.consumption_power ?? null;
-    const powerFormatted = formatPower(instantPower);
-    powerVal.textContent = instantPower !== null ? `${powerFormatted.num} ${powerFormatted.unit}` : '-';
+if (entityObject.domain === 'water') {
+        const pulses = entityObject.pulses ?? 0;
+        powerVal.textContent = `${pulses} L`; 
+    } else {
+        // Lógica existente para Energia (Potência)
+        const instantPower = entityObject.instantaneousPower ?? entityObject.consumption_power ?? null;
+        const powerFormatted = formatPower(instantPower);
+        powerVal.textContent = instantPower !== null ? `${powerFormatted.num} ${powerFormatted.unit}` : '-';
+    }
   }
 
   // Update status dot color based on device status
@@ -825,15 +847,15 @@ function bindEvents(root, state, callbacks) {
   }
 
   const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
-  
+
   if (MyIOSelectionStore) {
     // Definimos a função de callback
     const onSelectionChange = () => {
       const selectedIds = MyIOSelectionStore.getSelectedIds();
-      
+
       // Verifica se EU (este card) estou na lista
       const isSelected = selectedIds.includes(entityObject.entityId);
-      
+
       // Se o estado mudou, repinta
       if (state.isSelected !== isSelected) {
         state.isSelected = isSelected;
@@ -852,7 +874,7 @@ function bindEvents(root, state, callbacks) {
   root._cleanup = () => {
     document.removeEventListener('click', closeMenu);
     document.removeEventListener('keydown', closeMenu);
-    
+
     // [NOVO] Remove o ouvinte da Store quando o card morrer
     if (MyIOSelectionStore && root._selectionListener) {
       MyIOSelectionStore.off('selection:change', root._selectionListener);
