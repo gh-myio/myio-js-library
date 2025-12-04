@@ -202,7 +202,8 @@ class MyIOSelectionStoreClass {
       lastValue: Number(entity.lastValue) || 0,
       unit: entity.unit || '',
       status: entity.status || 'unknown',
-      ingestionId: entity.ingestionId || entity.id  // ⭐ ADD: Store ingestionId for API calls
+      ingestionId: entity.ingestionId || entity.id,  // ⭐ ADD: Store ingestionId for API calls
+      customerName: entity.customerName || '',
     };
 
     this.entities.set(entity.id, normalizedEntity);
