@@ -119,8 +119,9 @@ self.onDataUpdated = function () {
       // Build key-value map from dataKeys
       var kv = {};
       (dsData.data || []).forEach(function (dk) {
+        if (!dk || !dk.dataKey || !dk.dataKey.name) return;
         var key = dk.dataKey.name;
-        var value = dk.data.length ? dk.data[0][1] : null;
+        var value = dk.data && dk.data.length ? dk.data[0][1] : null;
         kv[key] = value;
       });
 

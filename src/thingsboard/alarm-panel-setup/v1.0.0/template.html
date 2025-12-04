@@ -91,7 +91,7 @@
                 <span class="ap-status-badge" ng-class="vm && vm.getStatusBadgeClass && device ? vm.getStatusBadgeClass(device.alarmStatus) : 'ap-status-normal'">{{ device ? (device.alarmStatus || 'NORMAL') : 'NORMAL' }}</span>
               </div>
               <div class="ap-col ap-col-last">
-                <span ng-if="device && device.lastAlarmTs">{{ device.lastAlarmTs | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+                <span ng-if="device && device.lastAlarmTs">{{ device && device.lastAlarmTs ? (device.lastAlarmTs | date:'dd/MM/yyyy HH:mm:ss') : '—' }}</span>
                 <span ng-if="!device || !device.lastAlarmTs">—</span>
               </div>
             </div>
@@ -140,7 +140,7 @@
               </div>
               <div class="ap-alarm-meta">
                 <div class="ap-alarm-time">
-                  <span ng-if="alarm && alarm.alarmTsMs">{{ alarm.alarmTsMs | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+                  <span ng-if="alarm && alarm.alarmTsMs">{{ alarm && alarm.alarmTsMs ? (alarm.alarmTsMs | date:'dd/MM/yyyy HH:mm:ss') : '—' }}</span>
                   <span ng-if="!alarm || !alarm.alarmTsMs">{{ alarm ? (alarm.alarmTsRaw || '—') : '—' }}</span>
                 </div>
                 <div class="ap-alarm-badges">
@@ -169,7 +169,7 @@
     <div class="ap-modal-body" ng-if="vm && vm.activeProfileDetails">
       <div class="ap-modal-section">
         <div><strong>Rule Chain:</strong> {{ vm && vm.activeProfileDetails ? (vm.activeProfileDetails.ruleChainName || 'Not configured') : 'Not configured' }}</div>
-        <div ng-if="vm && vm.activeProfileDetails && vm.activeProfileDetails.ruleChainId"><strong>Rule Chain ID:</strong> {{ vm.activeProfileDetails.ruleChainId }}</div>
+        <div ng-if="vm && vm.activeProfileDetails && vm.activeProfileDetails.ruleChainId"><strong>Rule Chain ID:</strong> {{ vm && vm.activeProfileDetails ? vm.activeProfileDetails.ruleChainId : '' }}</div>
       </div>
       <div class="ap-modal-section" ng-if="vm && vm.activeProfileDetails && (vm.activeProfileDetails.descriptionLong || vm.activeProfileDetails.descriptionShort)">
         <strong>Description:</strong>
@@ -177,7 +177,7 @@
       </div>
       <div class="ap-modal-section">
         <strong>Alarm Rules (raw):</strong>
-        <pre class="ap-rules-json" ng-if="vm && vm.activeProfileDetails && vm.activeProfileDetails.alarmRulesJson">{{ vm.activeProfileDetails.alarmRulesJson | json }}</pre>
+        <pre class="ap-rules-json" ng-if="vm && vm.activeProfileDetails && vm.activeProfileDetails.alarmRulesJson">{{ vm && vm.activeProfileDetails && vm.activeProfileDetails.alarmRulesJson ? (vm.activeProfileDetails.alarmRulesJson | json) : '' }}</pre>
         <div ng-if="!vm || !vm.activeProfileDetails || !vm.activeProfileDetails.alarmRulesJson">No alarm rules JSON available for this profile.</div>
       </div>
     </div>
