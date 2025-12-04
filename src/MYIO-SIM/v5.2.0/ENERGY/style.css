@@ -23,7 +23,6 @@
 
   /* Espaçamento */
   padding: 20px;
-  padding-bottom: 80px;
 }
 
 .title {
@@ -100,7 +99,6 @@
   display: grid;
   grid-template-columns: minmax(400px, 1fr) minmax(350px, 1fr);
   gap: 16px;
-  margin-bottom: 100px !important; /* Espaço extra GRANDE no final para evitar truncamento */
   width: 100%;
   position: relative;
   min-height: 500px !important; /* Força altura mínima para os gráficos */
@@ -112,7 +110,6 @@
 @media (max-width: 1200px) {
   .charts {
     grid-template-columns: 1fr;
-    margin-bottom: 120px !important;
     min-height: 900px !important; /* Altura maior para empilhamento vertical */
   }
 }
@@ -185,7 +182,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .chart-loading-overlay span {

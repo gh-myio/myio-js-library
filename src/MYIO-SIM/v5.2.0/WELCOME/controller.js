@@ -29,7 +29,7 @@
  */
 
 // Debug configuration (can be overridden by widget settings)
-let DEBUG_ACTIVE = true;
+let DEBUG_ACTIVE = false;
 
 // RFC-0086: Shopping label storage key
 const MYIO_SHOPPING_LABEL_KEY = '__MYIO_SHOPPING_LABEL__';
@@ -733,10 +733,11 @@ function wireCTA(attrs) {
 function getCurrentDashboardTitle() {
   try {
     // Try multiple sources for dashboard title
-    const title = ctx.stateController?.dashboardCtx?.name ||
-                  ctx.stateController?.dashboardCtx?.dashboard?.title ||
-                  ctx.dashboard?.title ||
-                  null;
+    const title =
+      ctx.stateController?.dashboardCtx?.name ||
+      ctx.stateController?.dashboardCtx?.dashboard?.title ||
+      ctx.dashboard?.title ||
+      null;
     return title;
   } catch (error) {
     LogHelper.warn('Error getting dashboard title:', error);

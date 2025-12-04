@@ -1641,7 +1641,9 @@ function buildHeaderDevicesGrid(config) {
       // RFC: Update water widget consumption accumulator for HEADER
       if (domain === 'water' && idPrefix in waterWidgetConsumption) {
         waterWidgetConsumption[idPrefix] = consumption;
-        LogHelper.log(`[MAIN] Water widget consumption updated: ${idPrefix} = ${consumption}, total = ${getTotalWaterConsumptionFromWidgets()}`);
+        LogHelper.log(
+          `[MAIN] Water widget consumption updated: ${idPrefix} = ${consumption}, total = ${getTotalWaterConsumptionFromWidgets()}`
+        );
       }
 
       LogHelper.log(`[MAIN] Header stats updated for ${idPrefix}:`, stats);
@@ -4132,7 +4134,10 @@ self.onInit = async function () {
   // RFC: Check if MENU already dispatched myio:update-date before we were ready
   // This handles the race condition where MENU fires the event before MAIN registers the listener
   if (window.myioDateRange && window.myioDateRange.startDate && window.myioDateRange.endDate) {
-    LogHelper.log('[MAIN] [Orchestrator] Found existing date range from MENU, triggering initial fetch:', window.myioDateRange);
+    LogHelper.log(
+      '[MAIN] [Orchestrator] Found existing date range from MENU, triggering initial fetch:',
+      window.myioDateRange
+    );
     // Dispatch internal event to trigger fetch via existing listener
     window.dispatchEvent(
       new CustomEvent('myio:update-date', {

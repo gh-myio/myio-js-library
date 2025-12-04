@@ -1934,7 +1934,7 @@ self.onInit = async function () {
     if (searchInput) {
       searchInput.addEventListener('input', (e) => {
         STATE.searchTerm = e.target.value || '';
-        filterAndRender();
+        reflowFromState();
       });
     }
 

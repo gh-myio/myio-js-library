@@ -112,7 +112,10 @@ const STATE = {
   searchActive: false,
   searchTerm: '',
   selectedIds: /** @type {Set<string> | null} */ (null),
-  sortMode: /** @type {'cons_desc'|'cons_asc'|'alpha_asc'|'alpha_desc'|'status_asc'|'status_desc'|'shopping_asc'|'shopping_desc'} */ ('cons_desc'),
+  sortMode:
+    /** @type {'cons_desc'|'cons_asc'|'alpha_asc'|'alpha_desc'|'status_asc'|'status_desc'|'shopping_asc'|'shopping_desc'} */ (
+      'cons_desc'
+    ),
   firstHydrates: 0,
   selectedShoppingIds: [], // RFC-0093: Shopping filter from MENU
 };
@@ -384,9 +387,13 @@ function buildTbIdIndexes() {
 function buildAuthoritativeItems() {
   // DEBUG: Log all available aliases to help identify the correct one
   const allDatasources = self.ctx.datasources || [];
-  const allAliases = [...new Set(allDatasources.map(ds => ds.aliasName))];
+  const allAliases = [...new Set(allDatasources.map((ds) => ds.aliasName))];
   LogHelper.log(`[WATER_COMMON_AREA] DEBUG: Available aliases in widget: ${JSON.stringify(allAliases)}`);
-  LogHelper.log(`[WATER_COMMON_AREA] DEBUG: Total datasources: ${allDatasources.length}, Total data rows: ${(self.ctx.data || []).length}`);
+  LogHelper.log(
+    `[WATER_COMMON_AREA] DEBUG: Total datasources: ${allDatasources.length}, Total data rows: ${
+      (self.ctx.data || []).length
+    }`
+  );
 
   // RFC-0094: Filter datasources by aliasName = 'HidrometrosAreaComum'
   const filteredDatasources = (self.ctx.datasources || []).filter(
@@ -396,7 +403,9 @@ function buildAuthoritativeItems() {
     (d) => d?.datasource?.aliasName === 'HidrometrosAreaComum'
   );
 
-  LogHelper.log(`[WATER_COMMON_AREA] buildAuthoritativeItems: Filtered ${filteredDatasources.length} datasources, ${filteredData.length} data rows for 'HidrometrosAreaComum'`);
+  LogHelper.log(
+    `[WATER_COMMON_AREA] buildAuthoritativeItems: Filtered ${filteredDatasources.length} datasources, ${filteredData.length} data rows for 'HidrometrosAreaComum'`
+  );
 
   // items da LIB: [{ id: ingestionId, identifier, label }, ...]
   const base = MyIO.buildListItemsThingsboardByUniqueDatasource(filteredDatasources, filteredData) || [];
@@ -453,15 +462,30 @@ function buildAuthoritativeItems() {
 function enrichItemsWithTotals(items, apiMap) {
   return items.map((it) => {
     let raw = 0;
+    let cachedCustomerId = null; // [NOVO] Variável para guardar o ID vindo da API
 
     if (it.ingestionId && isValidUUID(it.ingestionId)) {
       const row = apiMap.get(String(it.ingestionId));
+
+      // 1. Recupera o valor
       raw = Number(row?.total_value ?? 0);
+
+      // 2. [NOVO] Tenta recuperar o customerId do cache se disponível
+      // A API pode retornar como 'customerId' ou 'customer_id'
+      cachedCustomerId = row?.customerId || row?.customer_id || null;
     }
 
     const value = Number(raw || 0);
 
-    return { ...it, value, perc: 0 };
+    // 3. [NOVO] Prioriza o ID que já existia (TB), senão usa o do Cache (API)
+    const finalCustomerId = it.customerId || cachedCustomerId;
+
+    return {
+      ...it,
+      value,
+      perc: 0,
+      customerId: finalCustomerId, // [NOVO] Atualiza o objeto com o ID encontrado
+    };
   });
 }
 
@@ -479,7 +503,9 @@ function applyFilters(enriched, searchTerm, selectedIds, sortMode) {
       return STATE.selectedShoppingIds.includes(x.customerId);
     });
     LogHelper.log(
-      `[WATER_COMMON_AREA] Shopping filter applied: ${before} -> ${v.length} devices (${before - v.length} filtered out)`
+      `[WATER_COMMON_AREA] Shopping filter applied: ${before} -> ${v.length} devices (${
+        before - v.length
+      } filtered out)`
     );
   }
 
@@ -713,6 +739,7 @@ async function renderList(visible) {
       unit: 'm³',
       icon: 'water',
       domain: 'water',
+      pulses: it.pulses || 0,
 
       // Metadados
       deviceType: it.deviceType || 'HIDROMETRO',
@@ -1064,7 +1091,9 @@ async function fetchApiTotals(startISO, endISO) {
   if (!token) throw new Error('No ingestion token');
 
   // RFC-0094: Use water endpoint
-  const url = new URL(`${getDataApiHost()}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/water/devices/totals`);
+  const url = new URL(
+    `${getDataApiHost()}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/water/devices/totals`
+  );
   url.searchParams.set('startTime', toSpOffsetNoMs(startISO));
   url.searchParams.set('endTime', toSpOffsetNoMs(endISO, true));
   url.searchParams.set('deep', '1');
@@ -1337,7 +1366,11 @@ self.onInit = async function () {
     Array.isArray(window.custumersSelected) &&
     window.custumersSelected.length > 0
   ) {
-    LogHelper.log('[WATER_COMMON_AREA] 🔄 Applying pre-existing filter:', window.custumersSelected.length, 'shoppings');
+    LogHelper.log(
+      '[WATER_COMMON_AREA] 🔄 Applying pre-existing filter:',
+      window.custumersSelected.length,
+      'shoppings'
+    );
     const shoppingIds = window.custumersSelected.map((s) => s.value).filter((v) => v);
     STATE.selectedShoppingIds = shoppingIds;
     renderShoppingFilterChips(window.custumersSelected);
@@ -1381,7 +1414,9 @@ self.onInit = async function () {
     };
 
     if (!myPeriod.startISO || !myPeriod.endISO) {
-      LogHelper.warn(`[WATER_COMMON_AREA] ⏸️ Period not set yet, storing provide-data event for later processing`);
+      LogHelper.warn(
+        `[WATER_COMMON_AREA] ⏸️ Period not set yet, storing provide-data event for later processing`
+      );
       pendingProvideData = { domain, periodKey, items };
       return;
     }
@@ -1389,7 +1424,9 @@ self.onInit = async function () {
     lastProcessedPeriodKey = periodKey;
 
     LogHelper.log(`[WATER_COMMON_AREA] 🔄 Processing data from orchestrator...`);
-    LogHelper.log(`[WATER_COMMON_AREA] Received ${items.length} items from orchestrator for domain ${domain}`);
+    LogHelper.log(
+      `[WATER_COMMON_AREA] Received ${items.length} items from orchestrator for domain ${domain}`
+    );
 
     const myDatasourceIds = extractDatasourceIds(self.ctx.datasources);
     const datasourceIdSet = new Set(myDatasourceIds);
@@ -1447,7 +1484,9 @@ self.onInit = async function () {
       };
     });
 
-    LogHelper.log(`[WATER_COMMON_AREA] Enriched ${STATE.itemsEnriched.length} items with orchestrator values`);
+    LogHelper.log(
+      `[WATER_COMMON_AREA] Enriched ${STATE.itemsEnriched.length} items with orchestrator values`
+    );
 
     if (STATE.selectedIds && STATE.selectedIds.size) {
       const valid = new Set(STATE.itemsBase.map((x) => String(x.id)));
@@ -1509,7 +1548,9 @@ self.onInit = async function () {
       return;
     }
 
-    LogHelper.log(`[WATER_COMMON_AREA] 📦 Received water-data-ready: ${cache.size} devices (fromCache: ${fromCache})`);
+    LogHelper.log(
+      `[WATER_COMMON_AREA] 📦 Received water-data-ready: ${cache.size} devices (fromCache: ${fromCache})`
+    );
 
     // Check if widget has items to enrich
     if (!STATE.itemsBase || STATE.itemsBase.length === 0) {
@@ -1611,7 +1652,9 @@ self.onInit = async function () {
     LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] Initial period defined, showing busy...`);
     showBusy();
   } else {
-    LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] No initial period, waiting for myio:update-date event...`);
+    LogHelper.log(
+      `[WATER_COMMON_AREA ${WIDGET_DOMAIN}] No initial period, waiting for myio:update-date event...`
+    );
   }
 
   if (hasData) {

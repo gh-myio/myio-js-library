@@ -1261,9 +1261,7 @@ function updateEnergyCardWithTotal(summary) {
   const isFiltered = typeof summary === 'object' ? summary.isFiltered : false;
 
   const formatEnergy = (val) =>
-    typeof MyIOLibrary?.formatEnergy === 'function'
-      ? MyIOLibrary.formatEnergy(val)
-      : `${val.toFixed(2)} kWh`;
+    typeof MyIOLibrary?.formatEnergy === 'function' ? MyIOLibrary.formatEnergy(val) : `${val.toFixed(2)} kWh`;
 
   // RFC-0093: Use same pattern as Equipment card - show "filtered / total" with percentage
   const showComparative =
@@ -1417,14 +1415,22 @@ function updateWaterCard(waterCache) {
     unfilteredConsumption =
       window.MyIOOrchestrator?.getUnfilteredTotalWaterConsumption?.() || filteredConsumption;
     isFiltered = window.MyIOOrchestrator?.isFilterActive?.() || false;
-    LogHelper.log('[HEADER] Water consumption (from widgets):', { filteredConsumption, unfilteredConsumption, isFiltered });
+    LogHelper.log('[HEADER] Water consumption (from widgets):', {
+      filteredConsumption,
+      unfilteredConsumption,
+      isFiltered,
+    });
   } else if (typeof window.MyIOOrchestrator?.getTotalWaterConsumption === 'function') {
     // Fallback to orchestrator (old behavior - may include devices not in widgets)
     filteredConsumption = window.MyIOOrchestrator.getTotalWaterConsumption();
     unfilteredConsumption =
       window.MyIOOrchestrator.getUnfilteredTotalWaterConsumption?.() || filteredConsumption;
     isFiltered = window.MyIOOrchestrator.isFilterActive?.() || false;
-    LogHelper.log('[HEADER] Water consumption (from orchestrator):', { filteredConsumption, unfilteredConsumption, isFiltered });
+    LogHelper.log('[HEADER] Water consumption (from orchestrator):', {
+      filteredConsumption,
+      unfilteredConsumption,
+      isFiltered,
+    });
   } else {
     LogHelper.warn('[HEADER] No water consumption source available');
     // Fallback: sum all from cache (old behavior)

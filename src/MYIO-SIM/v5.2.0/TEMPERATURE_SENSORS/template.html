@@ -1,64 +1,86 @@
-<div class="temp-sensors-wrap" id="tempSensorsWrap">
-  <!-- RFC-0092: Sub-menu removed - now controlled by MENU widget -->
-
-  <div class="toolbar-zoom">
-    <div class="shopping-filter-chips" id="tempShoppingFilterChips"></div>
-  </div>
-
-  <!-- Temperature Sensors Statistics Header -->
-  <div class="temp-sensors-stats-header" id="tempSensorsStatsHeader">
-    <div class="stat-item">
-      <span class="stat-label">Total de Sensores</span>
-      <span class="stat-value" id="tempSensorsStatsTotal">-</span>
-    </div>
-    <div class="stat-item highlight">
-      <span class="stat-label">Temperatura Média</span>
-      <span class="stat-value" id="tempSensorsStatsAvg">-</span>
-    </div>
-    <div class="stat-item">
-      <span class="stat-label">Sensores Online</span>
-      <span class="stat-value" id="tempSensorsStatsOnline">-</span>
-    </div>
-    <div class="stat-item alert">
-      <span class="stat-label">Alertas</span>
-      <span class="stat-value" id="tempSensorsStatsAlert">-</span>
-    </div>
-
-    <!-- Filter Actions -->
-    <div class="filter-actions">
-      <div class="search-wrap" id="tempSearchWrap">
-        <input type="text" id="tempSensorSearch" placeholder="Buscar sensor..." autocomplete="off">
-      </div>
-      <button class="icon-btn" id="btnTempSearch" title="Buscar" aria-label="Buscar">
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-          <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM4 9.5C4 6.46 6.46 4 9.5 4S15 6.46 15 9.5 12.54 15 9.5 15 4 12.54 4 9.5z"/>
-        </svg>
-      </button>
-      <button class="icon-btn" id="btnTempFilter" title="Filtros" aria-label="Filtros">
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-          <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z"/>
-        </svg>
-      </button>
-    </div>
-  </div>
-
+<section class="tb-temp-root">
   <!-- Loading overlay -->
-  <div id="temperature-sensors-loading-overlay" class="temp-sensors-loading-overlay" style="display: none;">
+  <div id="temperature-loading-overlay" class="temperature-loading-overlay" style="display: none">
     <div class="loading-spinner">
-      <svg style="width:48px; height:48px; animation: spin 1s linear infinite;" viewBox="0 0 50 50">
-        <circle cx="25" cy="25" r="20" fill="none" stroke="#e65100" stroke-width="5" stroke-linecap="round"
-                stroke-dasharray="90,150" stroke-dashoffset="0">
-        </circle>
+      <svg style="width: 48px; height: 48px; animation: spin 1s linear infinite" viewBox="0 0 50 50">
+        <circle
+          cx="25"
+          cy="25"
+          r="20"
+          fill="none"
+          stroke="#e65100"
+          stroke-width="5"
+          stroke-linecap="round"
+          stroke-dasharray="90,150"
+          stroke-dashoffset="0"
+        ></circle>
       </svg>
-      <p>Carregando sensores de temperatura...</p>
+      <p>Carregando dados de temperatura...</p>
     </div>
   </div>
 
-  <!-- Sensors Grid -->
-  <section class="temp-sensors-grid-container" id="tempSensorsGridContainer">
-    <div id="temp-sensors-grid" class="temp-sensors-grid"></div>
+  <!-- KPI Header Cards -->
+  <header class="header">
+    <div class="kpi-card">
+      <div class="kpi-head">
+        <span class="kpi-title">Temperatura Media Global</span>
+        <i class="kpi-ico">🌡️</i>
+      </div>
+      <div class="kpi-value" id="avgTemp">--</div>
+      <div class="kpi-sub">
+        <span id="avgTempTarget">Meta: 23°C +/- 2°C</span>
+      </div>
+      <div class="kpi-progress">
+        <div class="bar" id="avgTempBar" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-head">
+        <span class="kpi-title">Total de Sensores</span>
+        <i class="kpi-ico">📊</i>
+      </div>
+      <div class="kpi-value" id="totalSensors">--</div>
+      <div class="kpi-sub">Sensores Monitorados</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-head">
+        <span class="kpi-title">Shoppings Online</span>
+        <i class="kpi-ico">🏬</i>
+      </div>
+      <div class="kpi-value" id="shoppingsOnline">--</div>
+      <div class="kpi-sub">
+        <span class="badge badge-on" id="shoppingsBadge">Ativo</span>
+      </div>
+    </div>
+
+    <div class="kpi-card alert-card">
+      <div class="kpi-head">
+        <span class="kpi-title">Alertas</span>
+        <i class="kpi-ico">⚠️</i>
+      </div>
+      <div class="kpi-value" id="alertCount">--</div>
+      <div class="kpi-sub">Fora do intervalo ideal</div>
+    </div>
+  </header>
+
+  <!-- Temperature Comparison Chart -->
+  <section class="chart-card">
+    <h3 class="chart-title">Comparativo de Temperatura por Shopping</h3>
+    <p class="chart-sub">Evolucao da temperatura media ao longo do dia em cada shopping center</p>
+    <div class="chart-container">
+      <canvas id="tempChart"></canvas>
+    </div>
   </section>
 
-  <!-- RFC-0096: Shops list for card rendering (following STORES pattern) -->
-  <section id="shopsList" class="shops-list"></section>
-</div>
+  <!-- Shopping Temperature List -->
+  <section class="list-card">
+    <h3 class="list-title">Temperatura por Shopping Center</h3>
+    <p class="list-sub">Status de temperatura consolidado de cada shopping</p>
+
+    <div class="shopping-list" id="shoppingList">
+      <!-- rows generated via JS -->
+    </div>
+  </section>
+</section>

@@ -147,7 +147,9 @@ function renderTotalConsumptionUI(data, valueEl, trendEl, infoEl) {
   if (infoEl) {
     const storesTotal = data.storesTotal || 0;
     const commonAreaTotal = data.commonAreaTotal || 0;
-    infoEl.textContent = `${formatWaterVolume(storesTotal)} lojas | ${formatWaterVolume(commonAreaTotal)} área comum`;
+    infoEl.textContent = `${formatWaterVolume(storesTotal)} lojas | ${formatWaterVolume(
+      commonAreaTotal
+    )} área comum`;
   }
 
   console.log('[WATER] Card Total atualizado:', { totalGeral });

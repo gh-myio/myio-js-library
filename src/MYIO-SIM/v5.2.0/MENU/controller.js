@@ -1296,7 +1296,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     computeCustomersFromCtx();
   });
 
-  LogHelper.log('[MENU] 📡 Dispatching initial myio:update-date event:', { startDate: startDateFormatted, endDate: endDateFormatted });
+  LogHelper.log('[MENU] 📡 Dispatching initial myio:update-date event:', {
+    startDate: startDateFormatted,
+    endDate: endDateFormatted,
+  });
   window.dispatchEvent(
     new CustomEvent('myio:update-date', {
       detail: {

@@ -580,7 +580,7 @@ function rebuildFullscreenChart(container) {
       }
     });
   }
-  const yAxisMax = maxValue > 0 ? Math.ceil(maxValue * 1.1 / 1000) * 1000 : 10000;
+  const yAxisMax = maxValue > 0 ? Math.ceil((maxValue * 1.1) / 1000) * 1000 : 10000;
 
   let datasets = [];
   const colors = ['#166534', '#2563eb', '#16a34a', '#ea580c', '#dc2626', '#8b5cf6', '#0891b2', '#65a30d'];
@@ -635,9 +635,13 @@ function rebuildFullscreenChart(container) {
             label: (context) => {
               const value = context.parsed.y || 0;
               if (value >= 1000) {
-                return `${context.dataset.label}: ${(value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} MWh`;
+                return `${context.dataset.label}: ${(value / 1000).toLocaleString('pt-BR', {
+                  maximumFractionDigits: 2,
+                })} MWh`;
               }
-              return `${context.dataset.label}: ${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kWh`;
+              return `${context.dataset.label}: ${value.toLocaleString('pt-BR', {
+                maximumFractionDigits: 2,
+              })} kWh`;
             },
           },
         },
@@ -1824,7 +1828,7 @@ function updateLineChartFromCache(data) {
     });
   }
   // Add 10% padding and round to nice number
-  const yAxisMax = maxValue > 0 ? Math.ceil(maxValue * 1.1 / 1000) * 1000 : 10000;
+  const yAxisMax = maxValue > 0 ? Math.ceil((maxValue * 1.1) / 1000) * 1000 : 10000;
 
   let datasets = [];
 
@@ -1894,9 +1898,13 @@ function updateLineChartFromCache(data) {
             label: (context) => {
               const value = context.parsed.y || 0;
               if (value >= 1000) {
-                return `${context.dataset.label}: ${(value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} MWh`;
+                return `${context.dataset.label}: ${(value / 1000).toLocaleString('pt-BR', {
+                  maximumFractionDigits: 2,
+                })} MWh`;
               }
-              return `${context.dataset.label}: ${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kWh`;
+              return `${context.dataset.label}: ${value.toLocaleString('pt-BR', {
+                maximumFractionDigits: 2,
+              })} kWh`;
             },
           },
         },
@@ -1928,7 +1936,11 @@ function updateLineChartFromCache(data) {
     },
   });
 
-  console.log('[ENERGY] [RFC-0097] Chart created with fixed Y-axis max:', yAxisMax, yAxisMax >= 1000 ? 'MWh' : 'kWh');
+  console.log(
+    '[ENERGY] [RFC-0097] Chart created with fixed Y-axis max:',
+    yAxisMax,
+    yAxisMax >= 1000 ? 'MWh' : 'kWh'
+  );
 }
 
 /**

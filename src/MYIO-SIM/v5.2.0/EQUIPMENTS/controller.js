@@ -47,6 +47,7 @@ let CLIENT_SECRET;
 let MAP_INSTANTANEOUS_POWER;
 let DELAY_TIME_CONNECTION_MINS;
 let myIOAuth; // Instance of MyIO auth component from MyIOLibrary
+let activeCardComponents = [];
 
 // RFC-0093: Centralized header controller
 let equipHeaderController = null;
@@ -134,9 +135,19 @@ function closeExistingModals() {
 // ============================================
 
 // Initialize cards
+// Initialize cards
 function initializeCards(devices) {
-  const grid = document.getElementById('cards-grid');
+  // 1. LIMPEZA: Destrói instâncias antigas para remover ouvintes de eventos da memória
+  if (typeof activeCardComponents !== 'undefined' && Array.isArray(activeCardComponents)) {
+    activeCardComponents.forEach((comp) => {
+      if (comp && typeof comp.destroy === 'function') {
+        comp.destroy();
+      }
+    });
+    activeCardComponents = []; // Zera a lista
+  }
 
+  const grid = document.getElementById('cards-grid');
   grid.innerHTML = '';
 
   devices.forEach((device, _index) => {
@@ -155,9 +166,18 @@ function initializeCards(devices) {
     device.domain = 'energy'; // RFC-0087: Energy domain for kWh/MWh/GWh formatting
 
     // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (default 60 minutes)
-    MyIOLibrary.renderCardComponentHeadOffice(container, {
+    // 2. RENDERIZAÇÃO: Capturamos a instância retornada na variável 'cardInstance'
+    const cardInstance = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
       delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
+
+      // 3. SELEÇÃO INICIAL: Verifica na Store se este card já deve nascer selecionado
+      isSelected: (function () {
+        const store = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+        // Verifica se a store existe e se o ID deste device está na lista
+        return store ? store.getSelectedIds().includes(device.entityId) : false;
+      })(),
+
       handleActionDashboard: async () => {
         // RFC-0072: Enhanced modal handling to prevent corruption
         LogHelper.log('[EQUIPMENTS] [RFC-0072] Opening energy dashboard for:', device.entityId);
@@ -328,8 +348,8 @@ function initializeCards(devices) {
         if (MyIOSelectionStore) {
           if (checked) {
             // 1. IMPORTANTE: Registra os dados (Nome, Valor, Unidade) na Store
-            // Se pularmos isso, o Footer vai mostrar um chip vazio ou com erro
             if (MyIOSelectionStore.registerEntity) {
+              // console.log('[Main Widget] Registering entity in MyIOSelectionStore:', entity);
               MyIOSelectionStore.registerEntity(entity);
             }
             // 2. Adiciona o ID na lista de selecionados
@@ -354,11 +374,11 @@ function initializeCards(devices) {
       hideInfoMenuItem: true,
     });
 
-    // O componente renderCardComponentHeadOffice agora gerencia o estilo baseado em deviceStatus
-    // Não é mais necessário aplicar classes manualmente
+    // 4. PERSISTÊNCIA: Guarda a instância criada na lista global para limpeza futura
+    activeCardComponents.push(cardInstance);
   });
 
-  LogHelper.log('[EQUIPMENTS] Cards initialized successfully');
+  LogHelper.log('[EQUIPMENTS] Cards initialized successfully (Event-Driven Mode)');
 }
 
 self.onInit = async function () {
@@ -1518,7 +1538,7 @@ class RealTimeWebSocketService {
       onConnectionChange: () => {},
       onError: () => {},
       autoReconnect: true,
-      ...config
+      ...config,
     };
 
     this.ws = null;
@@ -1590,8 +1610,8 @@ class RealTimeWebSocketService {
     const authCmd = {
       authCmd: {
         cmdId: this.nextCmdId(),
-        token: token
-      }
+        token: token,
+      },
     };
     this.ws.send(JSON.stringify(authCmd));
     LogHelper.log('[WebSocket] Sent auth command');
@@ -1618,24 +1638,24 @@ class RealTimeWebSocketService {
     const cmdId = this.nextCmdId();
 
     const subscribeCmd = {
-      cmds: [{
-        cmdId: cmdId,
-        type: "ENTITY_DATA",
-        query: {
-          entityFilter: {
-            type: "entityList",
-            entityType: "DEVICE",
-            entityList: deviceIds
+      cmds: [
+        {
+          cmdId: cmdId,
+          type: 'ENTITY_DATA',
+          query: {
+            entityFilter: {
+              type: 'entityList',
+              entityType: 'DEVICE',
+              entityList: deviceIds,
+            },
+            entityFields: [{ type: 'ENTITY_FIELD', key: 'name' }],
+            latestValues: this.config.keys.map((key) => ({
+              type: 'TIME_SERIES',
+              key: key,
+            })),
           },
-          entityFields: [
-            { type: "ENTITY_FIELD", key: "name" }
-          ],
-          latestValues: this.config.keys.map(key => ({
-            type: "TIME_SERIES",
-            key: key
-          }))
-        }
-      }]
+        },
+      ],
     };
 
     this.ws.send(JSON.stringify(subscribeCmd));
@@ -1650,10 +1670,12 @@ class RealTimeWebSocketService {
     if (!this.isConnected() || cmdId === null) return;
 
     const unsubscribeCmd = {
-      cmds: [{
-        cmdId: cmdId,
-        type: "ENTITY_DATA_UNSUBSCRIBE"
-      }]
+      cmds: [
+        {
+          cmdId: cmdId,
+          type: 'ENTITY_DATA_UNSUBSCRIBE',
+        },
+      ],
     };
 
     this.ws.send(JSON.stringify(unsubscribeCmd));
@@ -1703,7 +1725,7 @@ class RealTimeWebSocketService {
   processDataUpdate(dataArray) {
     if (!Array.isArray(dataArray)) return;
 
-    dataArray.forEach(item => {
+    dataArray.forEach((item) => {
       const deviceId = item.entityId?.id;
       if (!deviceId) return;
 
@@ -1847,7 +1869,7 @@ function handleWebSocketError(error) {
  */
 function getVisibleDeviceIds() {
   const filtered = applyFilters(STATE.allDevices, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
-  return filtered.map(d => d.entityId).filter(id => id);
+  return filtered.map((d) => d.entityId).filter((id) => id);
 }
 
 /**
@@ -2076,7 +2098,9 @@ function updateCardPowerDisplay(entityId, powerData) {
   if (!lastUpdateEl) {
     const subEl = card.querySelector('.sub');
     if (subEl) {
-      subEl.innerHTML = `<span class="last-update"><span class="update-icon">🕐</span> ${formatTimeAgo(powerData.timestamp)}</span>`;
+      subEl.innerHTML = `<span class="last-update"><span class="update-icon">🕐</span> ${formatTimeAgo(
+        powerData.timestamp
+      )}</span>`;
     }
   } else {
     lastUpdateEl.innerHTML = `<span class="update-icon">🕐</span> ${formatTimeAgo(powerData.timestamp)}`;
@@ -2270,10 +2294,14 @@ function showRealtimeSettingsModal() {
               <span class="realtime-settings-sublabel">WebSocket para true real-time, REST como fallback</span>
             </label>
             <div class="realtime-engine-selector" id="engineSelector">
-              <button class="realtime-engine-btn ${currentEngine === 'websocket' ? 'active' : ''}" data-engine="websocket">
+              <button class="realtime-engine-btn ${
+                currentEngine === 'websocket' ? 'active' : ''
+              }" data-engine="websocket">
                 <span>🔌</span> WebSocket
               </button>
-              <button class="realtime-engine-btn ${currentEngine === 'rest' ? 'active' : ''}" data-engine="rest">
+              <button class="realtime-engine-btn ${
+                currentEngine === 'rest' ? 'active' : ''
+              }" data-engine="rest">
                 <span>🔄</span> REST Polling
               </button>
             </div>
@@ -2284,8 +2312,11 @@ function showRealtimeSettingsModal() {
               <span class="realtime-settings-sublabel">Usado quando WebSocket não está disponível</span>
             </label>
             <div class="realtime-interval-selector" id="intervalSelector">
-              ${REALTIME_CONFIG.INTERVAL_OPTIONS.map(sec =>
-                `<button class="realtime-interval-btn ${sec === currentInterval ? 'active' : ''}" data-interval="${sec}">${sec}s</button>`
+              ${REALTIME_CONFIG.INTERVAL_OPTIONS.map(
+                (sec) =>
+                  `<button class="realtime-interval-btn ${
+                    sec === currentInterval ? 'active' : ''
+                  }" data-interval="${sec}">${sec}s</button>`
               ).join('')}
             </div>
           </div>
@@ -2316,26 +2347,34 @@ function showRealtimeSettingsModal() {
   let selectedInterval = currentInterval;
 
   // Engine buttons
-  realtimeSettingsModal.querySelectorAll('.realtime-engine-btn').forEach(btn => {
+  realtimeSettingsModal.querySelectorAll('.realtime-engine-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      realtimeSettingsModal.querySelectorAll('.realtime-engine-btn').forEach(b => b.classList.remove('active'));
+      realtimeSettingsModal
+        .querySelectorAll('.realtime-engine-btn')
+        .forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       selectedEngine = btn.dataset.engine;
     });
   });
 
   // Interval buttons
-  realtimeSettingsModal.querySelectorAll('.realtime-interval-btn').forEach(btn => {
+  realtimeSettingsModal.querySelectorAll('.realtime-interval-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      realtimeSettingsModal.querySelectorAll('.realtime-interval-btn').forEach(b => b.classList.remove('active'));
+      realtimeSettingsModal
+        .querySelectorAll('.realtime-interval-btn')
+        .forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       selectedInterval = parseInt(btn.dataset.interval, 10);
     });
   });
 
   // Close/Cancel
-  realtimeSettingsModal.querySelector('#realtimeSettingsClose').addEventListener('click', hideRealtimeSettingsModal);
-  realtimeSettingsModal.querySelector('#realtimeSettingsCancel').addEventListener('click', hideRealtimeSettingsModal);
+  realtimeSettingsModal
+    .querySelector('#realtimeSettingsClose')
+    .addEventListener('click', hideRealtimeSettingsModal);
+  realtimeSettingsModal
+    .querySelector('#realtimeSettingsCancel')
+    .addEventListener('click', hideRealtimeSettingsModal);
 
   // Save
   realtimeSettingsModal.querySelector('#realtimeSettingsSave').addEventListener('click', () => {
@@ -2355,11 +2394,11 @@ function showRealtimeSettingsModal() {
   });
 
   // Click outside / ESC
-  realtimeSettingsModal.addEventListener('click', e => {
+  realtimeSettingsModal.addEventListener('click', (e) => {
     if (e.target === realtimeSettingsModal) hideRealtimeSettingsModal();
   });
 
-  const escHandler = e => {
+  const escHandler = (e) => {
     if (e.key === 'Escape') {
       hideRealtimeSettingsModal();
       document.removeEventListener('keydown', escHandler);

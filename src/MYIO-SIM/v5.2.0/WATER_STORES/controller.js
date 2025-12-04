@@ -390,7 +390,9 @@ function buildAuthoritativeItems() {
     (d) => d?.datasource?.aliasName === 'Todos Hidrometros Lojas'
   );
 
-  LogHelper.log(`[WATER_STORES] buildAuthoritativeItems: Filtered ${filteredDatasources.length} datasources, ${filteredData.length} data rows for 'Todos Hidrometros Lojas'`);
+  LogHelper.log(
+    `[WATER_STORES] buildAuthoritativeItems: Filtered ${filteredDatasources.length} datasources, ${filteredData.length} data rows for 'Todos Hidrometros Lojas'`
+  );
 
   // items da LIB: [{ id: ingestionId, identifier, label }, ...]
   const base = MyIO.buildListItemsThingsboardByUniqueDatasource(filteredDatasources, filteredData) || [];
@@ -447,15 +449,30 @@ function buildAuthoritativeItems() {
 function enrichItemsWithTotals(items, apiMap) {
   return items.map((it) => {
     let raw = 0;
+    let cachedCustomerId = null; // Variável para guardar o ID vindo da API
 
     if (it.ingestionId && isValidUUID(it.ingestionId)) {
       const row = apiMap.get(String(it.ingestionId));
+
+      // 1. Recupera o valor
       raw = Number(row?.total_value ?? 0);
+
+      // 2. FIX: Tenta recuperar o customerId do cache se disponível
+      // A API pode retornar como 'customerId' ou 'customer_id' dependendo do endpoint
+      cachedCustomerId = row?.customerId || row?.customer_id || null;
     }
 
     const value = Number(raw || 0);
 
-    return { ...it, value, perc: 0 };
+    // 3. FIX: Prioriza o ID que já existia (TB), senão usa o do Cache (API)
+    const finalCustomerId = it.customerId || cachedCustomerId;
+
+    return {
+      ...it,
+      value,
+      perc: 0,
+      customerId: finalCustomerId, // Atualiza o objeto com o ID encontrado
+    };
   });
 }
 
@@ -473,7 +490,9 @@ function applyFilters(enriched, searchTerm, selectedIds, sortMode) {
       return STATE.selectedShoppingIds.includes(x.customerId);
     });
     LogHelper.log(
-      `[WATER_STORES] Shopping filter applied: ${before} -> ${v.length} devices (${before - v.length} filtered out)`
+      `[WATER_STORES] Shopping filter applied: ${before} -> ${v.length} devices (${
+        before - v.length
+      } filtered out)`
     );
   }
 
@@ -707,6 +726,7 @@ async function renderList(visible) {
       unit: 'm³',
       icon: 'water',
       domain: 'water',
+      pulses: it.pulses || 0,
 
       // Metadados
       deviceType: it.deviceType || 'HIDROMETRO',
@@ -1058,7 +1078,9 @@ async function fetchApiTotals(startISO, endISO) {
   if (!token) throw new Error('No ingestion token');
 
   // RFC-0094: Use water endpoint
-  const url = new URL(`${getDataApiHost()}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/water/devices/totals`);
+  const url = new URL(
+    `${getDataApiHost()}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/water/devices/totals`
+  );
   url.searchParams.set('startTime', toSpOffsetNoMs(startISO));
   url.searchParams.set('endTime', toSpOffsetNoMs(endISO, true));
   url.searchParams.set('deep', '1');
@@ -1331,7 +1353,11 @@ self.onInit = async function () {
     Array.isArray(window.custumersSelected) &&
     window.custumersSelected.length > 0
   ) {
-    LogHelper.log('[WATER_STORES] 🔄 Applying pre-existing filter:', window.custumersSelected.length, 'shoppings');
+    LogHelper.log(
+      '[WATER_STORES] 🔄 Applying pre-existing filter:',
+      window.custumersSelected.length,
+      'shoppings'
+    );
     const shoppingIds = window.custumersSelected.map((s) => s.value).filter((v) => v);
     STATE.selectedShoppingIds = shoppingIds;
     renderShoppingFilterChips(window.custumersSelected);
@@ -1503,7 +1529,9 @@ self.onInit = async function () {
       return;
     }
 
-    LogHelper.log(`[WATER_STORES] 📦 Received water-data-ready: ${cache.size} devices (fromCache: ${fromCache})`);
+    LogHelper.log(
+      `[WATER_STORES] 📦 Received water-data-ready: ${cache.size} devices (fromCache: ${fromCache})`
+    );
 
     // Check if widget has items to enrich
     if (!STATE.itemsBase || STATE.itemsBase.length === 0) {
