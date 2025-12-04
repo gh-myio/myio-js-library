@@ -742,7 +742,7 @@ const footerController = {
 
           const name = document.createElement('span');
           name.className = 'myio-chip-name';
-          name.textContent = ent.name;
+          name.textContent = `${ent.name + ' ' + ent.customerName}`;
 
           const value = document.createElement('span');
           value.className = 'myio-chip-value';
@@ -1170,10 +1170,11 @@ const footerController = {
 
       // ⭐ NOVO: Prepara dataSources com ingestionId
       // IMPORTANTE: Usa ingestionId, não o ID do ThingsBoard
+
       const dataSources = selected.map((entity) => ({
         type: 'device',
         id: entity.ingestionId || entity.id, // Prioriza ingestionId
-        label: entity.name || entity.id,
+        label: `${entity.name + ' ' + entity.customerName}` || `${entity.name + ' ' + entity.id}`,
       }));
 
       // Obtém credenciais e período
