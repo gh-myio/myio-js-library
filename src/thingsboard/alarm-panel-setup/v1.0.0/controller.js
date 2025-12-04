@@ -1,5 +1,44 @@
-/* global self */
+/* global self, window */
 /* alarm-profiles-panel.js - API-Driven (RFC-0096) */
+
+// Debug configuration - can be toggled at runtime via window.AlarmProfilesPanel.setDebug(true/false)
+var DEBUG_ACTIVE = true;
+
+// LogHelper utility
+var LogHelper = {
+  log: function () {
+    if (DEBUG_ACTIVE) {
+      console.log.apply(console, ['[AlarmProfilesPanel]'].concat(Array.prototype.slice.call(arguments)));
+    }
+  },
+  warn: function () {
+    if (DEBUG_ACTIVE) {
+      console.warn.apply(console, ['[AlarmProfilesPanel]'].concat(Array.prototype.slice.call(arguments)));
+    }
+  },
+  error: function () {
+    // Errors always logged regardless of DEBUG_ACTIVE
+    console.error.apply(console, ['[AlarmProfilesPanel]'].concat(Array.prototype.slice.call(arguments)));
+  },
+  table: function (data, label) {
+    if (DEBUG_ACTIVE) {
+      console.log('[AlarmProfilesPanel]', label || 'Table:');
+      console.table(data);
+    }
+  },
+};
+
+// Expose debug toggle globally
+if (typeof window !== 'undefined') {
+  window.AlarmProfilesPanel = window.AlarmProfilesPanel || {};
+  window.AlarmProfilesPanel.setDebug = function (enabled) {
+    DEBUG_ACTIVE = !!enabled;
+    console.log('[AlarmProfilesPanel] Debug mode:', DEBUG_ACTIVE ? 'ON' : 'OFF');
+  };
+  window.AlarmProfilesPanel.getDebug = function () {
+    return DEBUG_ACTIVE;
+  };
+}
 
 // Pre-initialize to avoid undefined errors during widget validation
 self.settings = null;
@@ -13,31 +52,59 @@ self.loading = true;
 self.error = null;
 self.showProfileDetailsModal = false;
 self.activeProfileDetails = null;
-self.filters = { dateFromStr: null, dateToStr: null, statuses: { ACTIVE: true, CLEARED: false, ACKNOWLEDGED: false } };
+self.filters = {
+  dateFromStr: null,
+  dateToStr: null,
+  statuses: { ACTIVE: true, CLEARED: false, ACKNOWLEDGED: false },
+};
 
 // Pre-bind methods (will be re-assigned in onInit)
 self.toggleProfileSelection = function () {};
-self.isProfileSelected = function () { return false; };
+self.isProfileSelected = function () {
+  return false;
+};
 self.setViewMode = function () {};
-self.getDevicesForSelectedProfiles = function () { return []; };
-self.getFilteredAlarms = function () { return []; };
+self.getDevicesForSelectedProfiles = function () {
+  return [];
+};
+self.getFilteredAlarms = function () {
+  return [];
+};
 self.openProfileDetails = function () {};
 self.closeProfileDetails = function () {};
 self.toggleStatusFilter = function () {};
 self.onDateFilterChange = function () {};
-self.getProfileDisplayName = function () { return ''; };
-self.getProfileRuleChainLabel = function () { return ''; };
-self.getSeverityBadgeClass = function () { return 'ap-badge-none'; };
-self.getStatusBadgeClass = function () { return 'ap-status-normal'; };
+self.getProfileDisplayName = function () {
+  return '';
+};
+self.getProfileRuleChainLabel = function () {
+  return '';
+};
+self.getSeverityBadgeClass = function () {
+  return 'ap-badge-none';
+};
+self.getStatusBadgeClass = function () {
+  return 'ap-status-normal';
+};
 self.refresh = function () {};
-self.getProfilesList = function () { return []; };
+self.getProfilesList = function () {
+  return [];
+};
 
 self.onInit = function () {
+  LogHelper.log('onInit() called');
+
   var ctx = self.ctx;
-  if (!ctx) return;
+  if (!ctx) {
+    LogHelper.warn('onInit: ctx is undefined, aborting');
+    return;
+  }
 
   var $scope = ctx.$scope;
-  if (!$scope) return;
+  if (!$scope) {
+    LogHelper.warn('onInit: $scope is undefined, aborting');
+    return;
+  }
 
   var vm = self;
   $scope.vm = vm;
@@ -46,6 +113,7 @@ self.onInit = function () {
   vm.ctx = ctx;
 
   vm.settings = normalizeSettings(ctx.settings || {});
+  LogHelper.log('Settings normalized:', vm.settings);
 
   // Data containers
   vm.customers = [];
@@ -98,26 +166,39 @@ self.onInit = function () {
 };
 
 self.onDataUpdated = function () {
+  LogHelper.log('onDataUpdated() called');
+
   var ctx = self.ctx;
-  if (!ctx) return;
+  if (!ctx) {
+    LogHelper.warn('onDataUpdated: ctx is undefined, aborting');
+    return;
+  }
 
   var vm = self;
-  if (!vm.settings) return;
+  if (!vm.settings) {
+    LogHelper.warn('onDataUpdated: vm.settings is undefined, aborting');
+    return;
+  }
 
   vm.loading = true;
   vm.error = null;
 
   // Extract customers from datasource
+  LogHelper.log('Extracting customers from datasource...');
   vm.customers = extractCustomersFromDatasource(ctx);
+  LogHelper.log('Customers extracted:', vm.customers.length, 'customer(s)');
+  LogHelper.table(vm.customers, 'Customers');
 
   if (vm.customers.length === 0) {
     vm.loading = false;
     vm.error = 'No customers found in datasource. Please configure a Customer entity datasource.';
+    LogHelper.warn('No customers found in datasource');
     ctx.detectChanges();
     return;
   }
 
   // Start API fetch chain
+  LogHelper.log('Starting API fetch chain...');
   fetchAllData(vm, ctx);
 };
 
@@ -134,14 +215,24 @@ self.onResize = function () {
  * =======================*/
 
 function extractCustomersFromDatasource(ctx) {
+  LogHelper.log('extractCustomersFromDatasource() called');
   var customers = [];
   var data = ctx.data || [];
 
-  data.forEach(function (dsData) {
+  LogHelper.log('ctx.data length:', data.length);
+  LogHelper.log('ctx.data raw:', data);
+
+  data.forEach(function (dsData, index) {
+    LogHelper.log('Processing datasource item', index, ':', dsData);
+
     var ds = dsData.datasource || {};
     var entity = ds.entity || {};
 
+    LogHelper.log('  datasource:', ds);
+    LogHelper.log('  entity:', entity);
+
     if (entity.id && entity.id.entityType === 'CUSTOMER') {
+      LogHelper.log('  Found CUSTOMER (structure 1):', entity.id.id);
       customers.push({
         id: entity.id.id,
         entityId: entity.id,
@@ -150,22 +241,33 @@ function extractCustomersFromDatasource(ctx) {
       });
     } else if (entity.id && entity.entityType === 'CUSTOMER') {
       // Alternative structure
+      LogHelper.log('  Found CUSTOMER (structure 2):', entity.id);
       customers.push({
         id: entity.id,
         entityId: { entityType: 'CUSTOMER', id: entity.id },
         name: entity.name || 'Unknown Customer',
         label: entity.label || '',
       });
+    } else {
+      LogHelper.warn(
+        '  Not a CUSTOMER entity, skipping. entityType:',
+        entity.entityType || (entity.id && entity.id.entityType)
+      );
     }
   });
 
+  LogHelper.log('Customers before dedup:', customers.length);
+
   // Deduplicate by ID
   var seen = {};
-  return customers.filter(function (c) {
+  var result = customers.filter(function (c) {
     if (seen[c.id]) return false;
     seen[c.id] = true;
     return true;
   });
+
+  LogHelper.log('Customers after dedup:', result.length);
+  return result;
 }
 
 /* =========================
@@ -173,7 +275,12 @@ function extractCustomersFromDatasource(ctx) {
  * =======================*/
 
 function fetchAllData(vm, ctx) {
-  var customerIds = vm.customers.map(function (c) { return c.id; });
+  LogHelper.log('fetchAllData() started');
+
+  var customerIds = vm.customers.map(function (c) {
+    return c.id;
+  });
+  LogHelper.log('Customer IDs to fetch:', customerIds);
 
   // Reset data
   vm.devices = [];
@@ -181,6 +288,7 @@ function fetchAllData(vm, ctx) {
   vm.alarms = [];
 
   // Fetch devices for all customers
+  LogHelper.log('Fetching devices for', customerIds.length, 'customer(s)...');
   var devicePromises = customerIds.map(function (customerId) {
     return fetchDevicesForCustomer(ctx, customerId, vm.settings.api.devicesPageSize);
   });
@@ -191,11 +299,15 @@ function fetchAllData(vm, ctx) {
       results.forEach(function (devices) {
         vm.devices = vm.devices.concat(devices);
       });
+      LogHelper.log('Total devices fetched:', vm.devices.length);
+      LogHelper.table(vm.devices.slice(0, 10), 'Devices (first 10)');
 
       // Extract unique device profile IDs
       var profileIds = extractUniqueProfileIds(vm.devices);
+      LogHelper.log('Unique device profile IDs:', profileIds.length, profileIds);
 
       // Fetch device profiles
+      LogHelper.log('Fetching', profileIds.length, 'device profile(s)...');
       var profilePromises = profileIds.map(function (profileId) {
         return fetchDeviceProfile(ctx, profileId);
       });
@@ -204,22 +316,37 @@ function fetchAllData(vm, ctx) {
     })
     .then(function (profiles) {
       // Store profiles by ID
+      var validProfiles = 0;
       profiles.forEach(function (profile) {
         if (profile && profile.id && profile.id.id) {
           vm.deviceProfiles[profile.id.id] = profile;
+          validProfiles++;
         }
       });
+      LogHelper.log('Device profiles stored:', validProfiles);
+      LogHelper.log(
+        'Profile names:',
+        Object.keys(vm.deviceProfiles).map(function (id) {
+          return vm.deviceProfiles[id].name;
+        })
+      );
 
       // Fetch alarms
-      return fetchAlarms(ctx, vm.settings.api.alarmsPageSize, getActiveStatusList(vm.filters));
+      var statusList = getActiveStatusList(vm.filters);
+      LogHelper.log('Fetching alarms with status:', statusList);
+      return fetchAlarms(ctx, vm.settings.api.alarmsPageSize, statusList);
     })
     .then(function (alarms) {
       vm.alarms = alarms;
+      LogHelper.log('Alarms fetched:', vm.alarms.length);
+      LogHelper.table(vm.alarms.slice(0, 10), 'Alarms (first 10)');
+
       vm.loading = false;
+      LogHelper.log('fetchAllData() completed successfully');
       ctx.detectChanges();
     })
     .catch(function (error) {
-      console.error('[AlarmProfilesPanel] API fetch error:', error);
+      LogHelper.error('API fetch error:', error);
       vm.error = 'Error fetching data: ' + (error.message || error.statusText || 'Unknown error');
       vm.loading = false;
       ctx.detectChanges();
@@ -228,10 +355,14 @@ function fetchAllData(vm, ctx) {
 
 function fetchDevicesForCustomer(ctx, customerId, pageSize) {
   var url = '/api/customer/' + customerId + '/devices?pageSize=' + (pageSize || 1000) + '&page=0';
+  LogHelper.log('API GET:', url);
 
-  return ctx.http.get(url).toPromise()
+  return ctx.http
+    .get(url)
+    .toPromise()
     .then(function (response) {
       var devices = response.data || [];
+      LogHelper.log('Customer', customerId, '- devices received:', devices.length);
 
       // Map to internal structure
       return devices.map(function (device) {
@@ -248,31 +379,45 @@ function fetchDevicesForCustomer(ctx, customerId, pageSize) {
       });
     })
     .catch(function (error) {
-      console.error('[AlarmProfilesPanel] Error fetching devices for customer ' + customerId + ':', error);
+      LogHelper.error('Error fetching devices for customer', customerId, ':', error);
       return []; // Return empty array on error, don't fail entire chain
     });
 }
 
 function fetchDeviceProfile(ctx, profileId) {
   var url = '/api/deviceProfile/' + profileId + '?inlineImages=false';
+  LogHelper.log('API GET:', url);
 
-  return ctx.http.get(url).toPromise()
+  return ctx.http
+    .get(url)
+    .toPromise()
     .then(function (response) {
+      LogHelper.log('Profile', profileId, '- received:', response.name);
+      var alarmCount =
+        response.profileData && response.profileData.alarms ? response.profileData.alarms.length : 0;
+      LogHelper.log('Profile', profileId, '- alarm rules:', alarmCount);
       return response;
     })
     .catch(function (error) {
-      console.error('[AlarmProfilesPanel] Error fetching device profile ' + profileId + ':', error);
+      LogHelper.error('Error fetching device profile', profileId, ':', error);
       return null; // Return null on error
     });
 }
 
 function fetchAlarms(ctx, pageSize, statusList) {
-  var url = '/api/v2/alarms?pageSize=' + (pageSize || 500) +
-    '&page=0&sortProperty=createdTime&sortOrder=DESC&statusList=' + statusList;
+  var url =
+    '/api/v2/alarms?pageSize=' +
+    (pageSize || 500) +
+    '&page=0&sortProperty=createdTime&sortOrder=DESC&statusList=' +
+    statusList;
+  LogHelper.log('API GET:', url);
 
-  return ctx.http.get(url).toPromise()
+  return ctx.http
+    .get(url)
+    .toPromise()
     .then(function (response) {
       var alarms = response.data || [];
+      LogHelper.log('Alarms received:', alarms.length, '- Total available:', response.totalElements);
 
       // Map to internal structure
       return alarms.map(function (alarm) {
@@ -299,7 +444,7 @@ function fetchAlarms(ctx, pageSize, statusList) {
       });
     })
     .catch(function (error) {
-      console.error('[AlarmProfilesPanel] Error fetching alarms:', error);
+      LogHelper.error('Error fetching alarms:', error);
       return []; // Return empty array on error
     });
 }
@@ -378,8 +523,10 @@ function toggleProfileSelection(profileId) {
   var idx = vm.selectedProfileIds.indexOf(profileId);
   if (idx === -1) {
     vm.selectedProfileIds.push(profileId);
+    LogHelper.log('Profile selected:', profileId, '- Total selected:', vm.selectedProfileIds.length);
   } else {
     vm.selectedProfileIds.splice(idx, 1);
+    LogHelper.log('Profile deselected:', profileId, '- Total selected:', vm.selectedProfileIds.length);
   }
 }
 
@@ -417,7 +564,9 @@ function getProfilesList() {
 }
 
 function countDevicesForProfile(devices, profileId) {
-  return devices.filter(function (d) { return d.deviceProfileId === profileId; }).length;
+  return devices.filter(function (d) {
+    return d.deviceProfileId === profileId;
+  }).length;
 }
 
 function getDevicesForSelectedProfiles() {
@@ -475,10 +624,18 @@ function getFilteredAlarms() {
     var st = (alarm.status || '').toUpperCase();
     var statusMatch = false;
     if (filters.statuses.ACTIVE && (st === 'ACTIVE' || st === 'ACTIVE_UNACK')) statusMatch = true;
-    if (filters.statuses.CLEARED && (st === 'CLEARED' || st === 'CLEARED_ACK' || st === 'CLEARED_UNACK')) statusMatch = true;
-    if (filters.statuses.ACKNOWLEDGED && (st === 'ACKNOWLEDGED' || st === 'ACTIVE_ACK' || st === 'CLEARED_ACK')) statusMatch = true;
+    if (filters.statuses.CLEARED && (st === 'CLEARED' || st === 'CLEARED_ACK' || st === 'CLEARED_UNACK'))
+      statusMatch = true;
+    if (
+      filters.statuses.ACKNOWLEDGED &&
+      (st === 'ACKNOWLEDGED' || st === 'ACTIVE_ACK' || st === 'CLEARED_ACK')
+    )
+      statusMatch = true;
 
-    if (!statusMatch && (filters.statuses.ACTIVE || filters.statuses.CLEARED || filters.statuses.ACKNOWLEDGED)) {
+    if (
+      !statusMatch &&
+      (filters.statuses.ACTIVE || filters.statuses.CLEARED || filters.statuses.ACKNOWLEDGED)
+    ) {
       return false;
     }
 
@@ -569,16 +726,21 @@ function getStatusBadgeClass(status) {
 
   var st = ('' + status).toUpperCase();
   if (st === 'ACTIVE' || st === 'ACTIVE_UNACK') return vm.settings.statusStyle.activeClass;
-  if (st === 'CLEARED' || st === 'CLEARED_ACK' || st === 'CLEARED_UNACK') return vm.settings.statusStyle.clearedClass;
+  if (st === 'CLEARED' || st === 'CLEARED_ACK' || st === 'CLEARED_UNACK')
+    return vm.settings.statusStyle.clearedClass;
   if (st === 'ACKNOWLEDGED' || st === 'ACTIVE_ACK') return vm.settings.statusStyle.acknowledgedClass;
 
   return vm.settings.statusStyle.normalClass;
 }
 
 function refresh() {
+  LogHelper.log('refresh() called - Manual refresh triggered');
   var vm = self;
   var ctx = vm.ctx;
-  if (!ctx) return;
+  if (!ctx) {
+    LogHelper.warn('refresh: ctx is undefined, aborting');
+    return;
+  }
 
   vm.loading = true;
   vm.error = null;
