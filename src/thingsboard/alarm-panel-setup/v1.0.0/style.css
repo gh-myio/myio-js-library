@@ -1,0 +1,498 @@
+/* alarm-profiles-panel.css */
+
+.ap-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 12px;
+}
+
+/* Header */
+.ap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.ap-header-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.ap-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ap-subtitle {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.ap-header-right {
+  display: flex;
+  gap: 4px;
+}
+
+/* Buttons */
+.ap-btn {
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.ap-btn-primary {
+  background: #6a1b9a;
+  color: #ffffff;
+}
+
+.ap-btn-secondary {
+  background: #eeeeee;
+  color: #333333;
+}
+
+/* State */
+.ap-state {
+  padding: 8px;
+  border-radius: 4px;
+  background: #f5f5f5;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.ap-error {
+  background: #ffebee;
+  color: #c62828;
+}
+
+/* Layout */
+.ap-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+}
+
+/* Profiles panel */
+.ap-profiles-panel {
+  background: #ffffff;
+  border-radius: 6px;
+  padding: 8px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.ap-section-title {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.ap-count {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.ap-profiles-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.ap-profiles-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ap-profile-pill {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 16px;
+  border: 1px solid #cccccc;
+  background: #fafafa;
+  font-size: 11px;
+  overflow: hidden;
+}
+
+.ap-profile-pill-main {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.ap-profile-pill-action {
+  display: flex;
+  align-items: center;
+  padding-right: 4px;
+}
+
+.ap-profile-name {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ap-profile-rulechain {
+  font-size: 10px;
+  font-style: italic;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.ap-profile-selected {
+  background: #ede7f6;
+  border-color: #6a1b9a;
+  color: #4a148c;
+}
+
+.ap-pill-info-btn {
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+/* View toggle */
+.ap-view-toggle {
+  display: inline-flex;
+  border-radius: 16px;
+  border: 1px solid #cccccc;
+  overflow: hidden;
+  align-self: flex-start;
+}
+
+.ap-toggle-btn {
+  border: none;
+  background: #f5f5f5;
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.ap-toggle-btn + .ap-toggle-btn {
+  border-left: 1px solid #e0e0e0;
+}
+
+.ap-toggle-active {
+  background: #6a1b9a;
+  color: #ffffff;
+}
+
+/* Devices panel */
+.ap-main-panel {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.ap-devices-panel,
+.ap-alarms-panel {
+  background: #ffffff;
+  border-radius: 6px;
+  padding: 8px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.ap-devices-header,
+.ap-alarms-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.ap-devices-empty,
+.ap-alarms-empty {
+  font-size: 11px;
+  opacity: 0.8;
+  padding: 4px 0;
+}
+
+.ap-devices-grid {
+  display: flex;
+  flex-direction: column;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+  max-height: 100%;
+  overflow: auto;
+}
+
+.ap-devices-grid-header,
+.ap-device-row {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1fr 1fr 1.5fr;
+  column-gap: 4px;
+  align-items: center;
+}
+
+.ap-devices-grid-header {
+  background: #f5f5f5;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ap-devices-grid-body {
+  font-size: 11px;
+}
+
+.ap-device-row {
+  padding: 4px 6px;
+  border-top: 1px solid #eeeeee;
+}
+
+.ap-device-row:nth-child(even) {
+  background: #fafafa;
+}
+
+.ap-col {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ap-device-name {
+  font-weight: 500;
+}
+
+.ap-device-label {
+  opacity: 0.7;
+}
+
+/* Badges: severity */
+.ap-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.ap-badge-critical {
+  background: #b71c1c;
+  color: #ffffff;
+}
+
+.ap-badge-major {
+  background: #e53935;
+  color: #ffffff;
+}
+
+.ap-badge-minor {
+  background: #ffb300;
+  color: #212121;
+}
+
+.ap-badge-warning {
+  background: #ffeb3b;
+  color: #212121;
+}
+
+.ap-badge-info {
+  background: #bbdefb;
+  color: #0d47a1;
+}
+
+.ap-badge-none {
+  background: #eeeeee;
+  color: #616161;
+}
+
+/* Badges: status */
+.ap-status-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+}
+
+.ap-status-active {
+  background: #ef5350;
+  color: #ffffff;
+}
+
+.ap-status-cleared {
+  background: #c8e6c9;
+  color: #1b5e20;
+}
+
+.ap-status-ack {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.ap-status-normal {
+  background: #eeeeee;
+  color: #424242;
+}
+
+/* Alarms panel */
+.ap-alarms-header-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.ap-alarms-header-right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.ap-filter-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+}
+
+.ap-filter-group label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ap-filter-label {
+  font-weight: 500;
+}
+
+.ap-alarms-list {
+  margin-top: 6px;
+  max-height: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ap-alarm-card {
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+  padding: 6px 8px;
+  font-size: 11px;
+  background: #fafafa;
+}
+
+.ap-alarm-card-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.ap-alarm-device {
+  font-weight: 600;
+}
+
+.ap-alarm-profile {
+  opacity: 0.8;
+}
+
+.ap-alarm-rulechain {
+  font-size: 10px;
+  font-style: italic;
+  margin-left: 4px;
+}
+
+.ap-alarm-meta {
+  text-align: right;
+}
+
+.ap-alarm-badges {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.ap-alarm-card-body {
+  margin-top: 4px;
+}
+
+.ap-alarm-rule {
+  margin-bottom: 2px;
+}
+
+/* Modal */
+.ap-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.ap-modal {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  max-height: 70%;
+  background: #ffffff;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+.ap-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid #eeeeee;
+}
+
+.ap-modal-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ap-modal-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.ap-modal-body {
+  padding: 8px 10px;
+  overflow: auto;
+  font-size: 11px;
+}
+
+.ap-modal-footer {
+  padding: 8px 10px;
+  border-top: 1px solid #eeeeee;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ap-modal-section {
+  margin-bottom: 8px;
+}
+
+.ap-rules-json {
+  background: #f5f5f5;
+  border-radius: 4px;
+  padding: 6px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+/* Compact mode tweaks */
+.ap-compact .ap-header {
+  margin-bottom: 4px;
+}
+
+.ap-compact .ap-title {
+  font-size: 13px;
+}
