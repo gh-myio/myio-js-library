@@ -71,6 +71,7 @@ export interface EntityObject {
 export interface I18NMap {
   // Status labels (with icons)
   in_operation: string;
+  in_operation_water: string;
   standby: string;
   alert: string;
   failure: string;
@@ -99,6 +100,7 @@ export interface I18NMap {
 export const DEFAULT_I18N: I18NMap = {
   // Status labels with icons
   in_operation: '⚡ Normal',
+  in_operation_water: '💧 Normal',
   standby: '💤 Em standby',
   alert: '⚠️ Alerta',
   failure: '🚨 Falha',

@@ -155,19 +155,25 @@ export class EnergyModalView {
     console.log('[EnergyModalView] Bar mode toggled to:', this.currentBarMode);
   }
 
-  /**
-   * Applies the current theme to the modal and charts
+/**
+   * Applies the current theme to the modal and charts (Updated with #root override)
    */
   private applyTheme(): void {
     const themeToggleBtn = document.getElementById('theme-toggle-btn');
-    const modalContent = document.querySelector('.myio-energy-modal-scope') as HTMLElement;
+    const modalContent = this.container; 
+
+    // --- SELETORES EXTERNOS ---
+    // 1. Tenta achar o .myio-modal-body
+    const externalBody = this.container?.closest('.myio-modal-body') as HTMLElement || document.querySelector('.myio-modal-body') as HTMLElement;
+    // 2. Tenta achar o #root > div (a faixa branca específica que você mencionou)
+    const rootDiv = document.querySelector('#root > div') as HTMLElement;
 
     if (themeToggleBtn) {
       const sunIcon = themeToggleBtn.querySelector('.myio-theme-icon-sun') as HTMLElement;
       const moonIcon = themeToggleBtn.querySelector('.myio-theme-icon-moon') as HTMLElement;
 
       if (this.currentTheme === 'light') {
-        // Show sun icon (light mode)
+        // --- Light Mode UI ---
         if (sunIcon) {
           sunIcon.style.opacity = '1';
           sunIcon.style.transform = 'translate(-50%, -50%) rotate(0deg) scale(1)';
@@ -176,8 +182,19 @@ export class EnergyModalView {
           moonIcon.style.opacity = '0';
           moonIcon.style.transform = 'translate(-50%, -50%) rotate(90deg) scale(0)';
         }
+
+        // Força BRANCO nos containers externos
+        if (externalBody) {
+          externalBody.style.backgroundColor = '#ffffff';
+          externalBody.style.color = '#1f2937';
+        }
+        if (rootDiv) {
+          rootDiv.style.backgroundColor = '#ffffff';
+          rootDiv.style.color = '#1f2937';
+        }
+
       } else {
-        // Show moon icon (dark mode)
+        // --- Dark Mode UI ---
         if (sunIcon) {
           sunIcon.style.opacity = '0';
           sunIcon.style.transform = 'translate(-50%, -50%) rotate(-90deg) scale(0)';
@@ -186,10 +203,20 @@ export class EnergyModalView {
           moonIcon.style.opacity = '1';
           moonIcon.style.transform = 'translate(-50%, -50%) rotate(0deg) scale(1)';
         }
+
+        // Força ESCURO nos containers externos (igual ao --myio-energy-bg)
+        if (externalBody) {
+          externalBody.style.backgroundColor = '#1f1f1f';
+          externalBody.style.color = '#f3f4f6';
+        }
+        if (rootDiv) {
+          rootDiv.style.backgroundColor = '#1f1f1f';
+          rootDiv.style.color = '#f3f4f6';
+        }
       }
     }
 
-    // Apply theme to modal container
+    // Aplica o atributo de tema no container interno
     if (modalContent) {
       modalContent.setAttribute('data-theme', this.currentTheme);
     }
@@ -444,7 +471,7 @@ export class EnergyModalView {
             ${this.config.params.mode === 'comparison' ? `
             <!-- RFC-0097: Granularity Selector (only 1h and 1d supported) -->
             <div class="myio-granularity-selector" style="display: flex; align-items: center; gap: 4px; margin-left: 8px; padding: 4px 8px; background: rgba(0,0,0,0.05); border-radius: 8px;">
-              <span style="font-size: 11px; color: #666; margin-right: 4px; white-space: nowrap;">Granularidade:</span>
+              <span class="myio-label-secondary" style="font-size: 11px; margin-right: 4px; white-space: nowrap;">Granularidade:</span>
               <button class="myio-btn myio-btn-granularity ${this.currentGranularity === '1h' ? 'active' : ''}" data-granularity="1h" title="Hora">1h</button>
               <button class="myio-btn myio-btn-granularity ${this.currentGranularity === '1d' ? 'active' : ''}" data-granularity="1d" title="Dia">1d</button>
             </div>
@@ -1286,31 +1313,136 @@ export class EnergyModalView {
     return i18n[key] || DEFAULT_I18N[key];
   }
 
-  /**
-   * Gets modal styles with header color matching openDashboardPopupEnergy
+/**
+   * Gets modal styles with fixed Dark/Light contrast
+   */
+/**
+   * Gets modal styles with fixed Chart Border for Light Mode
    */
   private getModalStyles(): string {
     const styles = this.config.params.styles || {};
-    
+    const defaultPrimary = styles.primaryColor || '#4A148C';
+    const defaultFont = styles.fontFamily || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
     return `
+      /* --- VARIÁVEIS DE TEMA (LIGHT MODE - PADRÃO) --- */
       .myio-energy-modal-scope {
-        --myio-energy-primary: ${styles.primaryColor || '#4A148C'};
-        --myio-energy-bg: ${styles.backgroundColor || '#ffffff'};
-        --myio-energy-text: ${styles.textColor || '#1f2937'};
-        --myio-energy-border: ${styles.borderColor || '#e5e7eb'};
-        --myio-energy-radius: ${styles.borderRadius || '8px'};
-        --myio-energy-font: ${styles.fontFamily || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'};
+        --myio-energy-primary: ${defaultPrimary};
+        --myio-energy-font: ${defaultFont};
+        --myio-energy-radius: 8px;
+        
+        /* Cores Gerais (Light Mode) */
+        --myio-energy-bg: #ffffff;
+        --myio-energy-text: #1f2937;
+        --myio-energy-text-secondary: #6b7280;
+        
+        /* Borda GERAL (para botões e inputs) - Cinza suave */
+        --myio-energy-border: #e5e7eb;
+        
+        /* Borda ESPECÍFICA DO GRÁFICO (Aqui está a correção) */
+        /* No Light Mode, definimos como transparente ou branco para "sumir" */
+        --myio-chart-border: transparent; 
+
+        --myio-energy-btn-bg: #f3f4f6;
+        --myio-energy-btn-hover: #e5e7eb;
+        --myio-energy-input-bg: #ffffff;
+        --myio-granularity-bg: #f9fafb;
         
         font-family: var(--myio-energy-font);
+        background-color: var(--myio-energy-bg);
         color: var(--myio-energy-text);
         height: -webkit-fill-available;
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+
+      /* --- DARK MODE OVERRIDES --- */
+      .myio-energy-modal-scope[data-theme="dark"] {
+        --myio-energy-bg: #1f1f1f;
+        --myio-energy-text: #f3f4f6;
+        --myio-energy-text-secondary: #9ca3af;
+        
+        /* No Dark Mode, as bordas precisam aparecer */
+        --myio-energy-border: #374151;
+        --myio-chart-border: #374151; /* Borda visível no escuro */
+
+        --myio-energy-btn-bg: #374151;
+        --myio-energy-btn-hover: #4b5563;
+        --myio-energy-input-bg: #111827;
+        --myio-granularity-bg: #111827;
+      }
+
+      /* --- COMPONENTES --- */
+
+      .myio-energy-chart-container {
+        flex: 1 !important;
+        min-height: 353px !important;
+        height: 353px !important;
+        background: var(--myio-energy-bg);
+        border-radius: var(--myio-energy-radius);
+        
+        /* USO DA VARIÁVEL ESPECÍFICA AQUI */
+        border: 1px solid var(--myio-chart-border);
+        
+        padding: 10px !important;
+        display: block !important;
+        overflow: hidden !important;
+      }
+
+      .myio-chart-container {
+        /* Aplica a mesma lógica para o gráfico de fallback */
+        border: 1px solid var(--myio-chart-border);
+        border-radius: var(--myio-energy-radius);
+        overflow: hidden;
+      }
+
+      /* --- Resto dos estilos (Botões, Labels, etc.) --- */
+      
+      .myio-label-secondary {
+        color: var(--myio-energy-text-secondary);
+        font-weight: 500;
+      }
+
+      .myio-granularity-selector {
+        display: flex; 
+        align-items: center; 
+        gap: 4px; 
+        margin-left: 8px; 
+        padding: 4px 8px; 
+        border-radius: 8px;
+        background: var(--myio-granularity-bg);
+        border: 1px solid var(--myio-energy-border); /* Granularidade mantém borda suave */
+      }
+
+      .myio-btn-granularity {
+        padding: 4px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        min-width: 36px;
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--myio-energy-text-secondary);
+      }
+
+      .myio-btn-granularity:hover:not(.active) {
+        background: var(--myio-energy-btn-hover);
+        color: var(--myio-energy-text);
+      }
+
+      .myio-btn-granularity.active {
+        background: var(--myio-energy-primary);
+        color: white;
+        border-color: var(--myio-energy-primary);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
       }
 
       .myio-btn {
         padding: 8px 16px;
         border-radius: var(--myio-energy-radius);
         border: 1px solid var(--myio-energy-border);
-        background: var(--myio-energy-bg);
+        background: var(--myio-energy-btn-bg);
         color: var(--myio-energy-text);
         cursor: pointer;
         font-size: 14px;
@@ -1318,12 +1450,8 @@ export class EnergyModalView {
       }
 
       .myio-btn:hover:not(:disabled) {
-        background: #f3f4f6;
-      }
-
-      .myio-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
+        background: var(--myio-energy-btn-hover);
+        border-color: var(--myio-energy-border);
       }
 
       .myio-btn-primary {
@@ -1333,149 +1461,19 @@ export class EnergyModalView {
       }
 
       .myio-btn-primary:hover:not(:disabled) {
-        background: #6A1B9A;
+        opacity: 0.9;
       }
 
       .myio-btn-secondary {
-        background: #f3f4f6;
+        background: var(--myio-energy-btn-bg);
         color: var(--myio-energy-text);
         border-color: var(--myio-energy-border);
-      }
-
-      .myio-btn-secondary:hover:not(:disabled) {
-        background: #e5e7eb;
-      }
-
-      /* RFC-0097: Granularity selector buttons */
-      .myio-btn-granularity {
-        padding: 4px 10px;
-        font-size: 12px;
-        font-weight: 600;
-        border-radius: 6px;
-        border: 1px solid var(--myio-energy-border);
-        background: var(--myio-energy-bg);
-        color: var(--myio-energy-text);
-        cursor: pointer;
-        transition: all 0.2s ease;
-        min-width: 36px;
-      }
-
-      .myio-btn-granularity:hover:not(.active) {
-        background: #f3f4f6;
-        border-color: var(--myio-energy-primary);
-        color: var(--myio-energy-primary);
-      }
-
-      .myio-btn-granularity.active {
-        background: var(--myio-energy-primary);
-        color: white;
-        border-color: var(--myio-energy-primary);
-        box-shadow: 0 2px 4px rgba(74, 20, 140, 0.25);
-      }
-
-      .myio-granularity-selector {
-        border: 1px solid var(--myio-energy-border);
       }
 
       .myio-modal-scope {
         height: 100% !important;
         display: flex !important;
         flex-direction: column !important;
-      }
-
-      .myio-energy-chart-container {
-        flex: 1 !important;
-        min-height: 353px !important;
-        height: 353px !important;
-        background: var(--myio-energy-bg);
-        border-radius: var(--myio-energy-radius);
-        border: 1px solid var(--myio-energy-border);
-        padding: 10px !important;
-        display: block !important;
-        overflow: hidden !important;
-      }
-
-      .myio-energy-chart-container > iframe {
-        width: 100% !important;
-        height: 100% !important;
-        min-height: 408px !important;
-        border: none !important;
-      }
-
-      .myio-energy-chart-container iframe,
-      .myio-energy-chart-container iframe body,
-      .myio-energy-chart-container iframe html {
-        height: 100% !important;
-        min-height: 408px !important;
-      }
-
-      .myio-energy-chart-container .chart-wrapper,
-      .myio-energy-chart-container .chart-container,
-      .myio-energy-chart-container canvas,
-      .myio-energy-chart-container svg {
-        height: 408px !important;
-        min-height: 408px !important;
-      }
-
-      .myio-loading-state {
-        text-align: center;
-      }
-
-      .myio-spinner {
-        width: 40px;
-        height: 40px;
-        border: 4px solid var(--myio-energy-border);
-        border-top: 4px solid var(--myio-energy-primary);
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin: 0 auto 16px;
-      }
-
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-
-      .myio-energy-error {
-        background: #fef2f2;
-        border: 1px solid #fecaca;
-        border-radius: var(--myio-energy-radius);
-        padding: 16px;
-      }
-
-      .myio-error-content {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-
-      .myio-error-icon {
-        font-size: 24px;
-      }
-
-      .myio-error-message {
-        color: #dc2626;
-        font-weight: 500;
-      }
-
-
-
-      .myio-fallback-chart h4 {
-        margin: 0 0 16px 0;
-        text-align: center;
-      }
-
-      .myio-chart-container {
-        border: 1px solid var(--myio-energy-border);
-        border-radius: var(--myio-energy-radius);
-        overflow: hidden;
-      }
-
-      .myio-chart-note {
-        margin: 12px 0 0 0;
-        font-size: 12px;
-        color: #666;
-        text-align: center;
       }
 
       .myio-form-group {
@@ -1494,14 +1492,59 @@ export class EnergyModalView {
         border: 1px solid var(--myio-energy-border);
         border-radius: var(--myio-energy-radius);
         font-size: 14px;
-        background: var(--myio-energy-bg);
+        background: var(--myio-energy-input-bg);
         color: var(--myio-energy-text);
       }
 
       .myio-input:focus {
         outline: none;
         border-color: var(--myio-energy-primary);
-        box-shadow: 0 0 0 3px rgba(74, 20, 140, 0.1);
+        box-shadow: 0 0 0 1px var(--myio-energy-primary);
+      }
+
+      .myio-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid var(--myio-energy-border);
+        border-top: 4px solid var(--myio-energy-primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 16px;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .myio-loading-state p {
+        color: var(--myio-energy-text);
+      }
+
+      .myio-energy-error {
+        background: rgba(254, 202, 202, 0.15);
+        border: 1px solid rgba(248, 113, 113, 0.5);
+        border-radius: var(--myio-energy-radius);
+        padding: 16px;
+      }
+      
+      .myio-error-message {
+        color: #ef4444;
+        font-weight: 500;
+      }
+
+      .myio-chart-note {
+        margin: 12px 0 0 0;
+        font-size: 12px;
+        color: var(--myio-energy-text);
+        opacity: 0.7;
+        text-align: center;
+      }
+
+      .myio-energy-chart-container > iframe {
+        width: 100% !important;
+        height: 100% !important;
+        border: none !important;
       }
 
       @media (max-width: 768px) {
@@ -1509,16 +1552,9 @@ export class EnergyModalView {
           grid-template-columns: 1fr;
           grid-template-rows: auto 1fr;
         }
-        
-        .myio-energy-header {
-          flex-direction: column;
-          gap: 12px;
-          align-items: stretch;
-        }
       }
     `;
   }
-
   /**
    * Destroys the view and cleans up resources
    */
