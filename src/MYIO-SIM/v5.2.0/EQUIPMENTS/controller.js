@@ -1142,6 +1142,9 @@ self.onInit = async function () {
 
   // ====== FILTER & SEARCH LOGIC ======
   bindFilterEvents();
+
+  // RFC-0093: Bind real-time toggle button
+  bindRealTimeToggle();
 };
 
 // Global state for filters
@@ -1153,6 +1156,34 @@ const STATE = {
   sortMode: 'cons_desc',
   selectedShoppingIds: [], // Shopping filter from MENU
   totalShoppings: 0, // Total number of shoppings available
+  // RFC-0093: Real-Time Mode State
+  realTimeActive: false,
+  realTimePowerMap: new Map(), // deviceId -> { value: number, timestamp: number }
+  realTimeIntervalId: null,
+  realTimeCountdownId: null,
+  realTimeStartedAt: null,
+  realTimeNextRefresh: 0,
+  // RFC-0093: WebSocket Engine State
+  realTimeEngine: 'websocket', // 'websocket' | 'rest'
+  wsConsecutiveFailures: 0,
+};
+
+// RFC-0093: Real-Time Mode Constants
+const REALTIME_CONFIG = {
+  // Engine settings
+  DEFAULT_ENGINE: 'websocket',
+  FALLBACK_AFTER_FAILURES: 6,
+  // WebSocket settings
+  WS_URL: 'wss://dashboard.myio-bas.com/api/ws',
+  WS_RECONNECT_BACKOFF: [1000, 2000, 5000, 10000, 30000],
+  // REST fallback settings
+  REST_INTERVAL_MS: 30000,
+  BATCH_SIZE: 10,
+  BATCH_DELAY_MS: 50,
+  // General settings
+  MAX_RUNTIME_MS: 30 * 60 * 1000, // 30 minutes auto-disable
+  INTERVAL_OPTIONS: [10, 15, 30, 45, 60, 90, 120],
+  COUNTDOWN_UPDATE_MS: 100,
 };
 
 /**
@@ -1466,6 +1497,908 @@ function openFilterModal() {
   });
 }
 
+// ============================================
+// RFC-0093: REAL-TIME WEBSOCKET SERVICE
+// ============================================
+
+// Store references
+let realtimeSettingsModal = null;
+let websocketService = null;
+let filterDebounceTimer = null;
+
+/**
+ * RFC-0093: WebSocket Real-Time Service Class
+ */
+class RealTimeWebSocketService {
+  constructor(config) {
+    this.config = {
+      wsUrl: REALTIME_CONFIG.WS_URL,
+      keys: ['power'],
+      onData: () => {},
+      onConnectionChange: () => {},
+      onError: () => {},
+      autoReconnect: true,
+      ...config
+    };
+
+    this.ws = null;
+    this.cmdIdCounter = 0;
+    this.currentCmdId = null;
+    this.lastSubscribedDevices = [];
+    this.reconnectAttempts = 0;
+    this.reconnectTimeoutId = null;
+    this.isAuthenticated = false;
+  }
+
+  async connect() {
+    return new Promise((resolve, reject) => {
+      const token = localStorage.getItem('jwt_token');
+      if (!token) {
+        reject(new Error('No JWT token available'));
+        return;
+      }
+
+      try {
+        this.ws = new WebSocket(this.config.wsUrl);
+      } catch (err) {
+        reject(err);
+        return;
+      }
+
+      const connectionTimeout = setTimeout(() => {
+        if (this.ws && this.ws.readyState !== WebSocket.OPEN) {
+          this.ws.close();
+          reject(new Error('Connection timeout'));
+        }
+      }, 10000);
+
+      this.ws.onopen = () => {
+        clearTimeout(connectionTimeout);
+        LogHelper.log('[WebSocket] Connected to', this.config.wsUrl);
+        this.authenticate(token);
+        resolve();
+      };
+
+      this.ws.onmessage = (event) => {
+        try {
+          this.handleMessage(JSON.parse(event.data));
+        } catch (err) {
+          LogHelper.error('[WebSocket] Error parsing message:', err);
+        }
+      };
+
+      this.ws.onclose = (event) => {
+        clearTimeout(connectionTimeout);
+        LogHelper.log('[WebSocket] Disconnected:', event.code, event.reason);
+        this.isAuthenticated = false;
+        this.config.onConnectionChange(false);
+
+        if (this.config.autoReconnect && event.code !== 1000) {
+          this.scheduleReconnect();
+        }
+      };
+
+      this.ws.onerror = (error) => {
+        clearTimeout(connectionTimeout);
+        LogHelper.error('[WebSocket] Error:', error);
+        this.config.onError(error);
+      };
+    });
+  }
+
+  authenticate(token) {
+    const authCmd = {
+      authCmd: {
+        cmdId: this.nextCmdId(),
+        token: token
+      }
+    };
+    this.ws.send(JSON.stringify(authCmd));
+    LogHelper.log('[WebSocket] Sent auth command');
+  }
+
+  subscribe(deviceIds) {
+    if (!this.isConnected()) {
+      LogHelper.warn('[WebSocket] Not connected, cannot subscribe');
+      return null;
+    }
+
+    if (!this.isAuthenticated) {
+      LogHelper.warn('[WebSocket] Not authenticated yet, waiting...');
+      // Queue subscription for after auth
+      setTimeout(() => this.subscribe(deviceIds), 500);
+      return null;
+    }
+
+    // Unsubscribe previous if exists
+    if (this.currentCmdId !== null) {
+      this.unsubscribe(this.currentCmdId);
+    }
+
+    const cmdId = this.nextCmdId();
+
+    const subscribeCmd = {
+      cmds: [{
+        cmdId: cmdId,
+        type: "ENTITY_DATA",
+        query: {
+          entityFilter: {
+            type: "entityList",
+            entityType: "DEVICE",
+            entityList: deviceIds
+          },
+          entityFields: [
+            { type: "ENTITY_FIELD", key: "name" }
+          ],
+          latestValues: this.config.keys.map(key => ({
+            type: "TIME_SERIES",
+            key: key
+          }))
+        }
+      }]
+    };
+
+    this.ws.send(JSON.stringify(subscribeCmd));
+    this.currentCmdId = cmdId;
+    this.lastSubscribedDevices = [...deviceIds];
+
+    LogHelper.log(`[WebSocket] Subscribed to ${deviceIds.length} devices (cmdId: ${cmdId})`);
+    return cmdId;
+  }
+
+  unsubscribe(cmdId) {
+    if (!this.isConnected() || cmdId === null) return;
+
+    const unsubscribeCmd = {
+      cmds: [{
+        cmdId: cmdId,
+        type: "ENTITY_DATA_UNSUBSCRIBE"
+      }]
+    };
+
+    this.ws.send(JSON.stringify(unsubscribeCmd));
+
+    if (this.currentCmdId === cmdId) {
+      this.currentCmdId = null;
+    }
+
+    LogHelper.log(`[WebSocket] Unsubscribed (cmdId: ${cmdId})`);
+  }
+
+  handleMessage(message) {
+    // Handle authentication response
+    if (message.authCmd !== undefined) {
+      if (message.authCmd.success !== false) {
+        LogHelper.log('[WebSocket] Authentication successful');
+        this.isAuthenticated = true;
+        this.reconnectAttempts = 0;
+        STATE.wsConsecutiveFailures = 0;
+        this.config.onConnectionChange(true);
+      } else {
+        LogHelper.error('[WebSocket] Authentication failed:', message.authCmd.errorMsg);
+        this.config.onError(new Error('Authentication failed: ' + (message.authCmd.errorMsg || 'Unknown')));
+      }
+      return;
+    }
+
+    // Handle initial data
+    if (message.cmdId && message.data?.data) {
+      LogHelper.log(`[WebSocket] Received initial data for ${message.data.data.length} devices`);
+      this.processDataUpdate(message.data.data);
+    }
+
+    // Handle push updates
+    if (message.cmdId && message.update) {
+      LogHelper.log(`[WebSocket] Received update for ${message.update.length} devices`);
+      this.processDataUpdate(message.update);
+    }
+
+    // Handle errors
+    if (message.errorCode) {
+      LogHelper.error('[WebSocket] Error response:', message.errorCode, message.errorMsg);
+      this.config.onError(new Error(message.errorMsg || 'Unknown error'));
+    }
+  }
+
+  processDataUpdate(dataArray) {
+    if (!Array.isArray(dataArray)) return;
+
+    dataArray.forEach(item => {
+      const deviceId = item.entityId?.id;
+      if (!deviceId) return;
+
+      const latest = item.latest?.TIME_SERIES || {};
+
+      Object.entries(latest).forEach(([key, entry]) => {
+        const value = parseFloat(entry.value) || 0;
+        const timestamp = entry.ts || Date.now();
+
+        this.config.onData(deviceId, key, value, timestamp);
+      });
+    });
+  }
+
+  scheduleReconnect() {
+    if (this.reconnectTimeoutId) {
+      clearTimeout(this.reconnectTimeoutId);
+    }
+
+    const backoff = REALTIME_CONFIG.WS_RECONNECT_BACKOFF;
+    const delay = backoff[Math.min(this.reconnectAttempts, backoff.length - 1)];
+
+    this.reconnectAttempts++;
+    STATE.wsConsecutiveFailures++;
+
+    if (STATE.wsConsecutiveFailures >= REALTIME_CONFIG.FALLBACK_AFTER_FAILURES) {
+      LogHelper.error('[WebSocket] Max reconnect attempts reached, triggering fallback to REST');
+      this.config.onError(new Error('Max reconnect attempts reached'));
+      return;
+    }
+
+    LogHelper.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+
+    this.reconnectTimeoutId = setTimeout(async () => {
+      try {
+        await this.connect();
+
+        // Re-subscribe to previous devices
+        if (this.lastSubscribedDevices.length > 0) {
+          setTimeout(() => this.subscribe(this.lastSubscribedDevices), 500);
+        }
+      } catch (err) {
+        LogHelper.error('[WebSocket] Reconnect failed:', err);
+        // Will trigger another reconnect via onclose
+      }
+    }, delay);
+  }
+
+  disconnect() {
+    this.config.autoReconnect = false;
+
+    if (this.reconnectTimeoutId) {
+      clearTimeout(this.reconnectTimeoutId);
+      this.reconnectTimeoutId = null;
+    }
+
+    if (this.ws) {
+      if (this.currentCmdId !== null) {
+        this.unsubscribe(this.currentCmdId);
+      }
+
+      this.ws.close(1000, 'Client disconnect');
+      this.ws = null;
+    }
+
+    this.currentCmdId = null;
+    this.lastSubscribedDevices = [];
+    this.isAuthenticated = false;
+  }
+
+  nextCmdId() {
+    return ++this.cmdIdCounter;
+  }
+
+  isConnected() {
+    return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  getSubscribedDevices() {
+    return [...this.lastSubscribedDevices];
+  }
+}
+
+// ============================================
+// RFC-0093: REAL-TIME MODE FUNCTIONS
+// ============================================
+
+/**
+ * RFC-0093: Handle WebSocket data updates
+ */
+function handleWebSocketData(deviceId, key, value, timestamp) {
+  if (key === 'power') {
+    STATE.realTimePowerMap.set(deviceId, { value, timestamp });
+    updateCardPowerDisplay(deviceId, { value, timestamp });
+  }
+}
+
+/**
+ * RFC-0093: Handle WebSocket connection changes
+ */
+function handleWebSocketConnectionChange(isConnected) {
+  updateConnectionIndicator(isConnected ? 'websocket' : 'disconnected');
+
+  if (isConnected && STATE.realTimeActive) {
+    // Subscribe to visible devices
+    const visibleDeviceIds = getVisibleDeviceIds();
+    if (visibleDeviceIds.length > 0 && websocketService) {
+      websocketService.subscribe(visibleDeviceIds);
+    }
+  }
+}
+
+/**
+ * RFC-0093: Handle WebSocket errors - trigger fallback to REST
+ */
+function handleWebSocketError(error) {
+  LogHelper.error('[RealTime] WebSocket error:', error.message);
+
+  if (STATE.wsConsecutiveFailures >= REALTIME_CONFIG.FALLBACK_AFTER_FAILURES) {
+    LogHelper.warn('[RealTime] Falling back to REST polling mode');
+
+    // Show notification
+    const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
+    if (MyIOToast) {
+      MyIOToast.warning('WebSocket indisponível. Usando modo REST polling.', { duration: 5000 });
+    }
+
+    // Switch to REST mode
+    STATE.realTimeEngine = 'rest';
+    updateConnectionIndicator('rest');
+
+    // Start REST polling if real-time is still active
+    if (STATE.realTimeActive) {
+      startRestPollingMode();
+    }
+  }
+}
+
+/**
+ * RFC-0093: Get visible device IDs based on current filters
+ */
+function getVisibleDeviceIds() {
+  const filtered = applyFilters(STATE.allDevices, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
+  return filtered.map(d => d.entityId).filter(id => id);
+}
+
+/**
+ * RFC-0093: Update connection status indicator in UI
+ */
+function updateConnectionIndicator(mode) {
+  const indicator = document.getElementById('realtimeConnectionIndicator');
+  if (!indicator) return;
+
+  indicator.className = 'realtime-connection-indicator';
+
+  switch (mode) {
+    case 'websocket':
+      indicator.innerHTML = '<span class="ws-dot"></span> WebSocket';
+      indicator.classList.add('ws-connected');
+      break;
+    case 'rest':
+      indicator.innerHTML = '<span class="rest-dot"></span> REST Polling';
+      indicator.classList.add('rest-mode');
+      break;
+    case 'disconnected':
+      indicator.innerHTML = '<span class="disconnected-dot"></span> Reconectando...';
+      indicator.classList.add('disconnected');
+      break;
+    default:
+      indicator.innerHTML = '';
+  }
+}
+
+/**
+ * RFC-0093: Subscribe to visible devices (debounced for filter changes)
+ */
+function subscribeToVisibleDevices() {
+  clearTimeout(filterDebounceTimer);
+  filterDebounceTimer = setTimeout(() => {
+    if (!STATE.realTimeActive) return;
+
+    const visibleDeviceIds = getVisibleDeviceIds();
+
+    if (STATE.realTimeEngine === 'websocket' && websocketService?.isConnected()) {
+      websocketService.subscribe(visibleDeviceIds);
+    }
+  }, 300);
+}
+
+/**
+ * RFC-0093: Start WebSocket real-time mode
+ */
+async function startWebSocketMode() {
+  LogHelper.log('[RealTime] Starting WebSocket mode...');
+
+  STATE.realTimeEngine = 'websocket';
+  STATE.wsConsecutiveFailures = 0;
+
+  // Create WebSocket service
+  websocketService = new RealTimeWebSocketService({
+    onData: handleWebSocketData,
+    onConnectionChange: handleWebSocketConnectionChange,
+    onError: handleWebSocketError,
+    autoReconnect: true,
+  });
+
+  try {
+    await websocketService.connect();
+    updateConnectionIndicator('websocket');
+  } catch (err) {
+    LogHelper.error('[RealTime] WebSocket connection failed:', err);
+    STATE.wsConsecutiveFailures++;
+
+    if (STATE.wsConsecutiveFailures >= REALTIME_CONFIG.FALLBACK_AFTER_FAILURES) {
+      handleWebSocketError(err);
+    } else {
+      // Try reconnecting
+      websocketService.scheduleReconnect();
+    }
+  }
+}
+
+/**
+ * RFC-0093: Start REST polling mode (fallback)
+ */
+function startRestPollingMode() {
+  LogHelper.log('[RealTime] Starting REST polling mode...');
+
+  STATE.realTimeEngine = 'rest';
+  updateConnectionIndicator('rest');
+
+  // Initial fetch
+  fetchAllDevicesPowerREST();
+
+  // Start polling loop
+  STATE.realTimeIntervalId = setInterval(() => {
+    if (!STATE.realTimeActive) return;
+
+    // Check max runtime
+    if (Date.now() - STATE.realTimeStartedAt > REALTIME_CONFIG.MAX_RUNTIME_MS) {
+      LogHelper.log('[RealTime] Max runtime reached, stopping...');
+      stopRealTimeMode();
+      return;
+    }
+
+    fetchAllDevicesPowerREST();
+  }, REALTIME_CONFIG.REST_INTERVAL_MS);
+
+  // Start countdown update
+  STATE.realTimeCountdownId = setInterval(updateProgressBar, REALTIME_CONFIG.COUNTDOWN_UPDATE_MS);
+}
+
+/**
+ * RFC-0093: Fetch power via REST API (fallback mode)
+ */
+async function fetchAllDevicesPowerREST() {
+  const filtered = applyFilters(STATE.allDevices, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
+
+  if (filtered.length === 0) {
+    LogHelper.log('[REST] No devices to fetch');
+    return;
+  }
+
+  setProgressFetchingState(true);
+  LogHelper.log(`[REST] Fetching power for ${filtered.length} devices...`);
+
+  const batches = [];
+  for (let i = 0; i < filtered.length; i += REALTIME_CONFIG.BATCH_SIZE) {
+    batches.push(filtered.slice(i, i + REALTIME_CONFIG.BATCH_SIZE));
+  }
+
+  let fetchedCount = 0;
+
+  for (const batch of batches) {
+    const promises = batch.map(async (device) => {
+      const entityId = device.entityId;
+      if (!entityId) return;
+
+      const powerData = await fetchDevicePowerREST(entityId);
+      if (powerData) {
+        STATE.realTimePowerMap.set(entityId, powerData);
+        updateCardPowerDisplay(entityId, powerData);
+        fetchedCount++;
+      }
+    });
+
+    await Promise.all(promises);
+
+    if (batches.indexOf(batch) < batches.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, REALTIME_CONFIG.BATCH_DELAY_MS));
+    }
+  }
+
+  setProgressFetchingState(false);
+  STATE.realTimeStartedAt = Date.now(); // Reset for countdown
+  LogHelper.log(`[REST] Updated ${fetchedCount} cards`);
+}
+
+/**
+ * RFC-0093: Fetch single device power via REST (fallback)
+ */
+async function fetchDevicePowerREST(deviceId) {
+  try {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return null;
+
+    const tbHost = window.MyIOUtils?.getTbHost?.() || '';
+    const url = `${tbHost}/api/plugins/telemetry/DEVICE/${deviceId}/values/timeseries?keys=power&limit=1&agg=NONE&useStrictDataTypes=true`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (data.power && data.power.length > 0) {
+      return {
+        value: Number(data.power[0].value) || 0,
+        timestamp: data.power[0].ts || Date.now(),
+      };
+    }
+
+    return { value: 0, timestamp: Date.now() };
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
+ * RFC-0093: Set progress bar fetching state
+ */
+function setProgressFetchingState(isFetching) {
+  const progressFill = document.getElementById('realtimeProgressFill');
+  const progressText = document.getElementById('realtimeProgressText');
+
+  if (progressFill) {
+    progressFill.classList.toggle('fetching', isFetching);
+    if (isFetching) progressFill.style.width = '100%';
+  }
+
+  if (progressText) {
+    progressText.classList.toggle('fetching', isFetching);
+    if (isFetching) progressText.textContent = '...';
+  }
+}
+
+/**
+ * RFC-0093: Update a single card's power display
+ */
+function updateCardPowerDisplay(entityId, powerData) {
+  const card = document.querySelector(`[data-entity-id="${entityId}"]`);
+  if (!card) return;
+
+  if (!card.classList.contains('realtime-mode')) {
+    card.classList.add('realtime-mode');
+  }
+
+  const powerEl = card.querySelector('.power');
+  if (powerEl) {
+    const powerKw = (powerData.value / 1000).toFixed(2);
+    powerEl.textContent = powerKw;
+  }
+
+  let lastUpdateEl = card.querySelector('.last-update');
+  if (!lastUpdateEl) {
+    const subEl = card.querySelector('.sub');
+    if (subEl) {
+      subEl.innerHTML = `<span class="last-update"><span class="update-icon">🕐</span> ${formatTimeAgo(powerData.timestamp)}</span>`;
+    }
+  } else {
+    lastUpdateEl.innerHTML = `<span class="update-icon">🕐</span> ${formatTimeAgo(powerData.timestamp)}`;
+  }
+
+  if (!card.querySelector('.realtime-badge')) {
+    const badge = document.createElement('div');
+    badge.className = 'realtime-badge';
+    badge.innerHTML = '<span class="live-dot"></span> LIVE';
+    card.appendChild(badge);
+  }
+}
+
+/**
+ * RFC-0093: Format timestamp as relative time
+ */
+function formatTimeAgo(timestamp) {
+  const diff = Math.floor((Date.now() - timestamp) / 1000);
+  if (diff < 5) return 'agora';
+  if (diff < 60) return `há ${diff}s`;
+  if (diff < 3600) return `há ${Math.floor(diff / 60)}min`;
+  return `há ${Math.floor(diff / 3600)}h`;
+}
+
+/**
+ * RFC-0093: Update progress bar (REST mode only)
+ */
+function updateProgressBar() {
+  if (STATE.realTimeEngine !== 'rest') return;
+
+  const progressContainer = document.getElementById('realtimeProgressContainer');
+  const progressFill = document.getElementById('realtimeProgressFill');
+  const progressText = document.getElementById('realtimeProgressText');
+
+  if (!progressContainer || !progressFill || !progressText) return;
+  if (!STATE.realTimeActive) {
+    progressContainer.style.display = 'none';
+    return;
+  }
+
+  progressContainer.style.display = 'flex';
+
+  const elapsed = (Date.now() - STATE.realTimeStartedAt) % REALTIME_CONFIG.REST_INTERVAL_MS;
+  const remaining = Math.max(0, Math.ceil((REALTIME_CONFIG.REST_INTERVAL_MS - elapsed) / 1000));
+  const percentage = ((REALTIME_CONFIG.REST_INTERVAL_MS - elapsed) / REALTIME_CONFIG.REST_INTERVAL_MS) * 100;
+
+  progressFill.style.width = `${Math.max(0, percentage)}%`;
+  progressText.textContent = `${remaining}s`;
+}
+
+/**
+ * RFC-0093: Start real-time mode (WebSocket default, REST fallback)
+ */
+async function startRealTimeMode() {
+  if (STATE.realTimeActive) return;
+
+  LogHelper.log('[RealTime] Starting real-time mode...');
+
+  STATE.realTimeActive = true;
+  STATE.realTimeStartedAt = Date.now();
+  STATE.realTimePowerMap.clear();
+  STATE.realTimeEngine = REALTIME_CONFIG.DEFAULT_ENGINE;
+  STATE.wsConsecutiveFailures = 0;
+
+  // Update toggle button UI
+  const toggleBtn = document.getElementById('realtimeToggleBtn');
+  if (toggleBtn) {
+    toggleBtn.classList.add('active');
+    toggleBtn.querySelector('.toggle-status').textContent = 'ON';
+    toggleBtn.title = 'Desativar modo tempo real';
+  }
+
+  // Show settings and connection indicator
+  const settingsBtn = document.getElementById('realtimeSettingsBtn');
+  if (settingsBtn) settingsBtn.style.display = 'flex';
+
+  const progressContainer = document.getElementById('realtimeProgressContainer');
+  if (progressContainer) progressContainer.style.display = 'flex';
+
+  const connectionIndicator = document.getElementById('realtimeConnectionIndicator');
+  if (connectionIndicator) connectionIndicator.style.display = 'flex';
+
+  // Start with WebSocket (default)
+  if (REALTIME_CONFIG.DEFAULT_ENGINE === 'websocket') {
+    await startWebSocketMode();
+  } else {
+    startRestPollingMode();
+  }
+
+  LogHelper.log(`[RealTime] Mode started (engine: ${STATE.realTimeEngine})`);
+}
+
+/**
+ * RFC-0093: Stop real-time mode
+ */
+function stopRealTimeMode() {
+  if (!STATE.realTimeActive) return;
+
+  LogHelper.log('[RealTime] Stopping real-time mode...');
+
+  STATE.realTimeActive = false;
+
+  // Stop WebSocket
+  if (websocketService) {
+    websocketService.disconnect();
+    websocketService = null;
+  }
+
+  // Clear REST intervals
+  if (STATE.realTimeIntervalId) {
+    clearInterval(STATE.realTimeIntervalId);
+    STATE.realTimeIntervalId = null;
+  }
+  if (STATE.realTimeCountdownId) {
+    clearInterval(STATE.realTimeCountdownId);
+    STATE.realTimeCountdownId = null;
+  }
+
+  // Clear debounce timer
+  if (filterDebounceTimer) {
+    clearTimeout(filterDebounceTimer);
+    filterDebounceTimer = null;
+  }
+
+  // Update toggle button UI
+  const toggleBtn = document.getElementById('realtimeToggleBtn');
+  if (toggleBtn) {
+    toggleBtn.classList.remove('active');
+    toggleBtn.querySelector('.toggle-status').textContent = 'OFF';
+    toggleBtn.title = 'Ativar modo tempo real';
+  }
+
+  // Hide UI elements
+  const settingsBtn = document.getElementById('realtimeSettingsBtn');
+  if (settingsBtn) settingsBtn.style.display = 'none';
+
+  const progressContainer = document.getElementById('realtimeProgressContainer');
+  if (progressContainer) progressContainer.style.display = 'none';
+
+  const connectionIndicator = document.getElementById('realtimeConnectionIndicator');
+  if (connectionIndicator) connectionIndicator.style.display = 'none';
+
+  // Remove realtime-mode from cards
+  document.querySelectorAll('.equip-card.realtime-mode').forEach((card) => {
+    card.classList.remove('realtime-mode');
+    const badge = card.querySelector('.realtime-badge');
+    if (badge) badge.remove();
+  });
+
+  // Re-render cards with original data
+  reflowCards();
+
+  STATE.realTimePowerMap.clear();
+  STATE.realTimeStartedAt = null;
+  STATE.realTimeEngine = REALTIME_CONFIG.DEFAULT_ENGINE;
+
+  LogHelper.log('[RealTime] Mode stopped');
+}
+
+/**
+ * RFC-0093: Toggle real-time mode
+ */
+function toggleRealTimeMode() {
+  if (STATE.realTimeActive) {
+    stopRealTimeMode();
+  } else {
+    startRealTimeMode();
+  }
+}
+
+/**
+ * RFC-0093: Show settings modal
+ */
+function showRealtimeSettingsModal() {
+  if (realtimeSettingsModal) realtimeSettingsModal.remove();
+
+  const currentInterval = REALTIME_CONFIG.REST_INTERVAL_MS / 1000;
+  const currentEngine = STATE.realTimeEngine;
+
+  const modalHTML = `
+    <div class="realtime-settings-modal" id="realtimeSettingsModal">
+      <div class="realtime-settings-card">
+        <div class="realtime-settings-header">
+          <h3>⚡ Configurações Tempo Real</h3>
+          <button class="realtime-settings-close" id="realtimeSettingsClose">×</button>
+        </div>
+        <div class="realtime-settings-body">
+          <div class="realtime-settings-group">
+            <label class="realtime-settings-label">
+              Motor de Atualização
+              <span class="realtime-settings-sublabel">WebSocket para true real-time, REST como fallback</span>
+            </label>
+            <div class="realtime-engine-selector" id="engineSelector">
+              <button class="realtime-engine-btn ${currentEngine === 'websocket' ? 'active' : ''}" data-engine="websocket">
+                <span>🔌</span> WebSocket
+              </button>
+              <button class="realtime-engine-btn ${currentEngine === 'rest' ? 'active' : ''}" data-engine="rest">
+                <span>🔄</span> REST Polling
+              </button>
+            </div>
+          </div>
+          <div class="realtime-settings-group">
+            <label class="realtime-settings-label">
+              Intervalo REST (fallback)
+              <span class="realtime-settings-sublabel">Usado quando WebSocket não está disponível</span>
+            </label>
+            <div class="realtime-interval-selector" id="intervalSelector">
+              ${REALTIME_CONFIG.INTERVAL_OPTIONS.map(sec =>
+                `<button class="realtime-interval-btn ${sec === currentInterval ? 'active' : ''}" data-interval="${sec}">${sec}s</button>`
+              ).join('')}
+            </div>
+          </div>
+          <div class="realtime-settings-group" style="margin-bottom: 0;">
+            <label class="realtime-settings-label">Informações</label>
+            <p style="font-size: 12px; color: var(--ink-2); margin: 0; line-height: 1.5;">
+              • <b>WebSocket:</b> Atualizações instantâneas (< 100ms)<br>
+              • <b>REST:</b> Polling periódico, maior latência<br>
+              • Auto-fallback após 6 falhas de conexão<br>
+              • Desliga automaticamente após 30 minutos
+            </p>
+          </div>
+        </div>
+        <div class="realtime-settings-footer">
+          <button class="realtime-settings-btn-cancel" id="realtimeSettingsCancel">Cancelar</button>
+          <button class="realtime-settings-btn-save" id="realtimeSettingsSave">Salvar</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const container = document.createElement('div');
+  container.innerHTML = modalHTML;
+  realtimeSettingsModal = container.firstElementChild;
+  document.body.appendChild(realtimeSettingsModal);
+
+  let selectedEngine = currentEngine;
+  let selectedInterval = currentInterval;
+
+  // Engine buttons
+  realtimeSettingsModal.querySelectorAll('.realtime-engine-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      realtimeSettingsModal.querySelectorAll('.realtime-engine-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedEngine = btn.dataset.engine;
+    });
+  });
+
+  // Interval buttons
+  realtimeSettingsModal.querySelectorAll('.realtime-interval-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      realtimeSettingsModal.querySelectorAll('.realtime-interval-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedInterval = parseInt(btn.dataset.interval, 10);
+    });
+  });
+
+  // Close/Cancel
+  realtimeSettingsModal.querySelector('#realtimeSettingsClose').addEventListener('click', hideRealtimeSettingsModal);
+  realtimeSettingsModal.querySelector('#realtimeSettingsCancel').addEventListener('click', hideRealtimeSettingsModal);
+
+  // Save
+  realtimeSettingsModal.querySelector('#realtimeSettingsSave').addEventListener('click', () => {
+    REALTIME_CONFIG.REST_INTERVAL_MS = selectedInterval * 1000;
+
+    // If engine changed and real-time is active, restart
+    if (selectedEngine !== STATE.realTimeEngine && STATE.realTimeActive) {
+      stopRealTimeMode();
+      REALTIME_CONFIG.DEFAULT_ENGINE = selectedEngine;
+      startRealTimeMode();
+    } else {
+      REALTIME_CONFIG.DEFAULT_ENGINE = selectedEngine;
+    }
+
+    LogHelper.log(`[RealTime] Settings saved - Engine: ${selectedEngine}, Interval: ${selectedInterval}s`);
+    hideRealtimeSettingsModal();
+  });
+
+  // Click outside / ESC
+  realtimeSettingsModal.addEventListener('click', e => {
+    if (e.target === realtimeSettingsModal) hideRealtimeSettingsModal();
+  });
+
+  const escHandler = e => {
+    if (e.key === 'Escape') {
+      hideRealtimeSettingsModal();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+}
+
+/**
+ * RFC-0093: Hide settings modal
+ */
+function hideRealtimeSettingsModal() {
+  if (realtimeSettingsModal) {
+    realtimeSettingsModal.remove();
+    realtimeSettingsModal = null;
+  }
+}
+
+/**
+ * RFC-0093: Bind real-time toggle and settings events
+ */
+function bindRealTimeToggle() {
+  const toggleBtn = document.getElementById('realtimeToggleBtn');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', toggleRealTimeMode);
+    LogHelper.log('[RealTime] Toggle button bound');
+  }
+
+  const settingsBtn = document.getElementById('realtimeSettingsBtn');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', showRealtimeSettingsModal);
+    LogHelper.log('[RealTime] Settings button bound');
+  }
+}
+
+// ============================================
+// END RFC-0093: REAL-TIME WEBSOCKET SERVICE
+// ============================================
+
 /**
  * Bind all filter-related events
  * RFC-0093: Search and filter button events are now handled by buildHeaderDevicesGrid
@@ -1489,6 +2422,28 @@ self.onDestroy = function () {
   if (self._onCustomersReady) {
     window.removeEventListener('myio:customers-ready', self._onCustomersReady);
   }
+
+  // RFC-0093: Cleanup real-time mode and WebSocket
+  if (STATE.realTimeActive) {
+    stopRealTimeMode();
+  }
+  if (websocketService) {
+    websocketService.disconnect();
+    websocketService = null;
+  }
+  if (STATE.realTimeIntervalId) {
+    clearInterval(STATE.realTimeIntervalId);
+    STATE.realTimeIntervalId = null;
+  }
+  if (STATE.realTimeCountdownId) {
+    clearInterval(STATE.realTimeCountdownId);
+    STATE.realTimeCountdownId = null;
+  }
+  if (filterDebounceTimer) {
+    clearTimeout(filterDebounceTimer);
+    filterDebounceTimer = null;
+  }
+  LogHelper.log('[EQUIPMENTS] [RFC-0093] Real-time mode and WebSocket cleanup complete');
 
   // RFC-0093: Cleanup header controller
   if (equipHeaderController) {

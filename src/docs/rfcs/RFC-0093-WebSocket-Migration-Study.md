@@ -1,55 +1,63 @@
 # RFC-0093: WebSocket Migration Study - Real-Time Telemetry via ThingsBoard WebSocket API
 
-- **Status**: Draft (Study)
+- **Status**: Draft (Study) → Ready for Implementation
 - **Created**: 2025-12-03
+- **Updated**: 2025-12-03 (Review-001 incorporated)
 - **Author**: MyIO Team
-- **Related RFCs**: RFC-0093 (Equipments Grid Real-Time Mode)
+- **Supersedes**: REST polling mode in RFC-0093-Equipments-Grid-RealTime-Mode
+
+## Scope Declaration
+
+> **This document supersedes the REST polling real-time mode defined in RFC-0093-Equipments-Grid-RealTime-Mode-FULL-IMPLEMENTATION.md.**
+> WebSocket becomes the **default engine**. REST polling remains **only as fallback** when WebSocket fails.
+
+### Functions Being Replaced
+
+| Old (REST Polling) | New (WebSocket) |
+|-------------------|-----------------|
+| `fetchDevicePower()` | `WebSocketService.subscribe()` |
+| `fetchAllDevicesPowerAndUpdate()` | `onData()` callback |
+| `setInterval()` polling loop | Persistent connection |
+| `runRealtimeCycle()` | Event-driven updates |
+
+---
 
 ## Executive Summary
 
-Este documento analisa a viabilidade de migrar o modo real-time do widget EQUIPMENTS de polling REST API para WebSocket API do ThingsBoard, visando true real-time updates com menor latência e carga no servidor.
+Este documento define a migração do modo real-time do widget EQUIPMENTS de polling REST API para WebSocket API do ThingsBoard, alcançando true real-time updates com latência < 100ms.
 
-## Current Implementation (REST Polling)
+---
 
-### Arquitetura Atual
+## Current Implementation (REST Polling) - DEPRECATED
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     EQUIPMENTS Widget                            │
 │                                                                  │
 │  ┌─────────────────────┐                                        │
-│  │  RealTimeService    │    Polling Loop (8s interval)          │
+│  │  RealTimeService    │    Polling Loop (30s interval)         │
 │  │  ─────────────────  │                                        │
-│  │  - setInterval 8s   │───▶ For each device:                   │
+│  │  - setInterval 30s  │───▶ For each device:                   │
 │  │  - batch 10 devices │     GET /api/plugins/telemetry/DEVICE  │
-│  │  - 100ms delay      │         /{id}/values/timeseries        │
+│  │  - 50ms delay       │         /{id}/values/timeseries        │
 │  └─────────────────────┘         ?keys=power&limit=1            │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Problemas do Polling
+### Problems with Polling
 
-| Problema | Impacto |
-|----------|---------|
-| Latência mínima de 8s | Não é true real-time |
-| N chamadas HTTP por ciclo | Alto consumo de banda e CPU |
-| Sem garantia de ordem | Dados podem chegar fora de ordem |
-| Overhead de conexão | TCP handshake a cada request |
-| Carga no servidor | Múltiplas queries ao DB por ciclo |
-
-### Métricas Atuais (Estimativa)
-
-Para 50 dispositivos visíveis:
-- **Requests por ciclo**: 50 (5 batches de 10)
-- **Requests por minuto**: ~375 (50 × 60/8)
-- **Latência média**: 8s + tempo de resposta (~200ms)
+| Problem | Impact |
+|---------|--------|
+| Minimum latency 30s | Not true real-time |
+| N HTTP calls per cycle | High bandwidth and CPU |
+| No order guarantee | Data may arrive out of order |
+| Connection overhead | TCP handshake per request |
+| Server load | Multiple DB queries per cycle |
 
 ---
 
-## Proposed Implementation (WebSocket)
-
-### Arquitetura Proposta
+## Proposed Implementation (WebSocket) - DEFAULT
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -57,113 +65,75 @@ Para 50 dispositivos visíveis:
 │                                                                  │
 │  ┌─────────────────────┐    Single WebSocket Connection         │
 │  │  WebSocketService   │                                        │
-│  │  ─────────────────  │    ws://host/api/ws                    │
+│  │  ─────────────────  │    wss://host/api/ws + authCmd         │
 │  │  - single connection│◀──────────────────────────────────────▶│
-│  │  - N subscriptions  │    Push updates (instant)              │
+│  │  - ENTITY_DATA cmd  │    Push updates (instant)              │
 │  │  - auto-reconnect   │                                        │
 │  └─────────────────────┘                                        │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Benefícios do WebSocket
-
-| Benefício | Descrição |
-|-----------|-----------|
-| True Real-Time | Updates instantâneos (< 100ms latência) |
-| Eficiência | Uma conexão para N dispositivos |
-| Menor carga | Push em vez de pull |
-| Ordenação garantida | Mensagens em ordem |
-| Bi-direcional | Pode enviar/receber na mesma conexão |
-
 ---
 
-## ThingsBoard WebSocket API
+## Normative Specifications
 
-### Connection URL
+### 1. Connection Endpoint (MANDATORY)
 
 ```javascript
-const WS_URL = `wss://${host}/api/ws`;
-// ou com token na URL:
-const WS_URL = `wss://${host}/api/ws/plugins/telemetry?token=${JWT_TOKEN}`;
+// MUST use this URL format:
+const WS_URL = `wss://dashboard.myio-bas.com/api/ws`;
+
+// Authentication MUST be sent via authCmd after connection opens
+// DO NOT use token in query string
 ```
 
-### Authentication Command
+### 2. Authentication (MANDATORY)
 
 ```javascript
-// Após conectar, enviar em até 10 segundos:
+// MUST send within 10 seconds of connection open:
 const authCmd = {
   authCmd: {
     cmdId: 0,
-    token: JWT_TOKEN
+    token: JWT_TOKEN  // From localStorage.getItem('jwt_token')
   }
 };
 ws.send(JSON.stringify(authCmd));
 ```
 
-### Subscription Commands
+### 3. Command Type (MANDATORY: ENTITY_DATA)
 
-#### Opção 1: TIMESERIES (Latest Value)
+**For Equipments Grid, MUST use `ENTITY_DATA` with `entityList`:**
 
 ```javascript
-// Subscribe para telemetria de um dispositivo
+// Standard subscription command for multiple devices:
 const subscribeCmd = {
-  cmds: [
-    {
-      entityType: "DEVICE",
-      entityId: "device-uuid-here",
-      scope: "LATEST_TELEMETRY",
-      cmdId: 1,
-      type: "TIMESERIES",
-      keys: "power"
+  cmds: [{
+    cmdId: uniqueCmdId,
+    type: "ENTITY_DATA",
+    query: {
+      entityFilter: {
+        type: "entityList",
+        entityType: "DEVICE",
+        entityList: deviceIds  // Array of device UUIDs
+      },
+      entityFields: [
+        { type: "ENTITY_FIELD", key: "name" }
+      ],
+      latestValues: [
+        { type: "TIME_SERIES", key: "power" }
+      ]
     }
-  ]
+  }]
 };
-ws.send(JSON.stringify(subscribeCmd));
 ```
 
-#### Opção 2: ENTITY_DATA (Múltiplos Dispositivos)
+> **Note**: `TIMESERIES` command type is reserved for single-device widgets (e.g., DemandModal). Do NOT use for grid.
+
+### 4. Response Handling (MANDATORY)
 
 ```javascript
-// Subscribe para múltiplos dispositivos com Entity Data Query
-const entityDataCmd = {
-  cmds: [
-    {
-      cmdId: 1,
-      type: "ENTITY_DATA",
-      query: {
-        entityFilter: {
-          type: "entityList",
-          entityType: "DEVICE",
-          entityList: ["device-1-uuid", "device-2-uuid", "device-3-uuid"]
-        },
-        entityFields: [
-          { type: "ENTITY_FIELD", key: "name" }
-        ],
-        latestValues: [
-          { type: "TIME_SERIES", key: "power" }
-        ]
-      }
-    }
-  ]
-};
-ws.send(JSON.stringify(entityDataCmd));
-```
-
-### Response Format
-
-```javascript
-// Resposta de update de telemetria:
-{
-  "subscriptionId": 1,
-  "data": {
-    "power": [
-      [1733234567890, "3.42"]  // [timestamp, value]
-    ]
-  }
-}
-
-// Resposta de Entity Data:
+// Initial data response:
 {
   "cmdId": 1,
   "data": {
@@ -172,108 +142,234 @@ ws.send(JSON.stringify(entityDataCmd));
         "entityId": { "entityType": "DEVICE", "id": "device-uuid" },
         "latest": {
           "TIME_SERIES": {
-            "power": { "ts": 1733234567890, "value": "3.42" }
+            "power": { "ts": 1733234567890, "value": "3420" }  // Watts
           }
         }
       }
-    ],
-    "totalPages": 1,
-    "totalElements": 1,
-    "hasNext": false
-  },
-  "update": [...] // Updates subsequentes
+    ]
+  }
+}
+
+// Subsequent updates (push):
+{
+  "cmdId": 1,
+  "update": [
+    {
+      "entityId": { "entityType": "DEVICE", "id": "device-uuid" },
+      "latest": {
+        "TIME_SERIES": {
+          "power": { "ts": 1733234568000, "value": "3450" }
+        }
+      }
+    }
+  ]
 }
 ```
 
-### Unsubscribe Commands
+### 5. Unsubscribe (MANDATORY before new subscribe)
 
 ```javascript
-// Para parar de receber updates:
 const unsubscribeCmd = {
-  cmds: [
-    {
-      cmdId: 1,
-      type: "ENTITY_DATA_UNSUBSCRIBE"
-    }
-  ]
+  cmds: [{
+    cmdId: previousCmdId,
+    type: "ENTITY_DATA_UNSUBSCRIBE"
+  }]
 };
-ws.send(JSON.stringify(unsubscribeCmd));
 ```
 
 ---
 
-## Implementation Design
+## Integration with Equipments Grid
 
-### WebSocketService Interface
+### State Integration
 
-```typescript
-interface WebSocketServiceConfig {
-  /** WebSocket URL */
-  wsUrl: string;
+```javascript
+// WebSocket onData callback MUST update these STATE properties:
+STATE.realTimePowerMap.set(deviceId, { value, timestamp });
 
-  /** JWT token for authentication */
-  token: string;
+// And trigger card update:
+updateCardPowerDisplay(deviceId, { value, timestamp });
+```
 
-  /** Telemetry keys to subscribe */
-  keys: string[];
+### Filter/Pagination Flow
 
-  /** Callback when data arrives */
-  onData: (deviceId: string, key: string, value: number, timestamp: number) => void;
+```
+User changes filter/search
+        │
+        ▼
+┌─────────────────────────┐
+│ Debounce (300ms)        │  ◄── Prevents flood on fast typing
+└─────────────────────────┘
+        │
+        ▼
+┌─────────────────────────┐
+│ Compute visible IDs     │  ◄── Apply filters to STATE.allDevices
+│ const visibleIds = ...  │
+└─────────────────────────┘
+        │
+        ▼
+┌─────────────────────────┐
+│ Unsubscribe old cmdId   │  ◄── Clean up previous subscription
+└─────────────────────────┘
+        │
+        ▼
+┌─────────────────────────┐
+│ Subscribe(visibleIds)   │  ◄── New subscription with filtered list
+└─────────────────────────┘
+```
 
-  /** Callback when connection status changes */
-  onConnectionChange: (connected: boolean) => void;
+### Integration Code
 
-  /** Callback for errors */
-  onError: (error: Error) => void;
+```javascript
+// In EQUIPMENTS controller:
+let currentSubscriptionCmdId = null;
+let filterDebounceTimer = null;
 
-  /** Auto-reconnect on disconnect */
-  autoReconnect?: boolean;
+function onFilterChange() {
+  // Debounce to prevent flood
+  clearTimeout(filterDebounceTimer);
+  filterDebounceTimer = setTimeout(() => {
+    const visibleDeviceIds = getVisibleDeviceIds();
 
-  /** Reconnect delay in ms */
-  reconnectDelay?: number;
+    // Unsubscribe previous
+    if (currentSubscriptionCmdId !== null) {
+      websocketService.unsubscribe(currentSubscriptionCmdId);
+    }
+
+    // Subscribe to new list
+    if (visibleDeviceIds.length > 0) {
+      currentSubscriptionCmdId = websocketService.subscribe(visibleDeviceIds);
+    }
+  }, 300);  // 300ms debounce
 }
 
-interface WebSocketService {
-  /** Connect to WebSocket server */
-  connect(): Promise<void>;
-
-  /** Disconnect and cleanup */
-  disconnect(): void;
-
-  /** Subscribe to device telemetry */
-  subscribe(deviceIds: string[]): void;
-
-  /** Unsubscribe from device telemetry */
-  unsubscribe(deviceIds: string[]): void;
-
-  /** Check connection status */
-  isConnected(): boolean;
-
-  /** Get list of subscribed devices */
-  getSubscribedDevices(): string[];
+// onData callback - updates STATE and UI
+function handleWebSocketData(deviceId, key, value, timestamp) {
+  if (key === 'power') {
+    STATE.realTimePowerMap.set(deviceId, { value, timestamp });
+    updateCardPowerDisplay(deviceId, { value, timestamp });
+  }
 }
 ```
 
-### Implementation Skeleton
+---
+
+## Reconnection Strategy (NORMATIVE)
+
+### Backoff Schedule (MUST implement)
+
+| Attempt | Delay |
+|---------|-------|
+| 1 | 1 second |
+| 2 | 2 seconds |
+| 3 | 5 seconds |
+| 4 | 10 seconds |
+| 5 | 30 seconds |
+| 6+ | Fallback to REST |
+
+### Token Refresh Handling
+
+```javascript
+// MUST check token freshness on reconnect:
+async function reconnect() {
+  // Get fresh token (may have been refreshed by auth module)
+  const freshToken = localStorage.getItem('jwt_token');
+
+  await this.connect();
+  this.authenticate(freshToken);  // Use fresh token
+
+  // Re-subscribe to previously subscribed devices
+  if (this.lastSubscribedDevices.length > 0) {
+    this.subscribe(this.lastSubscribedDevices);
+  }
+}
+```
+
+---
+
+## Engine Selection and Fallback
+
+### Engine Type Definition
+
+```typescript
+type RealTimeEngine = 'websocket' | 'rest';
+
+const REALTIME_CONFIG = {
+  ENGINE: 'websocket' as RealTimeEngine,  // Default
+  FALLBACK_AFTER_FAILURES: 6,             // Switch to REST after 6 failures
+  REST_INTERVAL_MS: 30000,                // REST polling interval
+};
+```
+
+### Fallback Logic
+
+```javascript
+let consecutiveFailures = 0;
+let currentEngine: RealTimeEngine = REALTIME_CONFIG.ENGINE;
+
+function onWebSocketError() {
+  consecutiveFailures++;
+
+  if (consecutiveFailures >= REALTIME_CONFIG.FALLBACK_AFTER_FAILURES) {
+    LogHelper.warn('[RealTime] WebSocket failed 6 times, falling back to REST');
+
+    // Show user notification
+    MyIOToast.warning(
+      'Modo real-time via WebSocket indisponível. Usando polling REST.',
+      { duration: 5000 }
+    );
+
+    // Switch engine for this session
+    currentEngine = 'rest';
+    startPollingMode();
+  } else {
+    scheduleReconnect();
+  }
+}
+
+function onWebSocketSuccess() {
+  consecutiveFailures = 0;  // Reset on success
+}
+```
+
+---
+
+## Complete Implementation
 
 ```javascript
 class RealTimeWebSocketService {
   constructor(config) {
-    this.config = config;
+    this.config = {
+      wsUrl: 'wss://dashboard.myio-bas.com/api/ws',
+      keys: ['power'],
+      onData: () => {},
+      onConnectionChange: () => {},
+      onError: () => {},
+      autoReconnect: true,
+      ...config
+    };
+
     this.ws = null;
     this.cmdIdCounter = 0;
-    this.subscriptions = new Map(); // cmdId -> deviceIds
+    this.currentCmdId = null;
+    this.lastSubscribedDevices = [];
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
+    this.backoffSchedule = [1000, 2000, 5000, 10000, 30000];
   }
 
   async connect() {
     return new Promise((resolve, reject) => {
+      const token = localStorage.getItem('jwt_token');
+      if (!token) {
+        reject(new Error('No JWT token available'));
+        return;
+      }
+
       this.ws = new WebSocket(this.config.wsUrl);
 
       this.ws.onopen = () => {
-        console.log('[WebSocket] Connected');
-        this.authenticate();
+        LogHelper.log('[WebSocket] Connected');
+        this.authenticate(token);
         resolve();
       };
 
@@ -282,35 +378,45 @@ class RealTimeWebSocketService {
       };
 
       this.ws.onclose = (event) => {
-        console.log('[WebSocket] Disconnected:', event.code, event.reason);
+        LogHelper.log('[WebSocket] Disconnected:', event.code);
         this.config.onConnectionChange(false);
-        if (this.config.autoReconnect) {
+
+        if (this.config.autoReconnect && event.code !== 1000) {
           this.scheduleReconnect();
         }
       };
 
       this.ws.onerror = (error) => {
-        console.error('[WebSocket] Error:', error);
+        LogHelper.error('[WebSocket] Error:', error);
         this.config.onError(error);
         reject(error);
       };
     });
   }
 
-  authenticate() {
+  authenticate(token) {
     const authCmd = {
       authCmd: {
         cmdId: this.nextCmdId(),
-        token: this.config.token
+        token: token
       }
     };
     this.ws.send(JSON.stringify(authCmd));
   }
 
   subscribe(deviceIds) {
+    if (!this.isConnected()) {
+      LogHelper.warn('[WebSocket] Not connected, cannot subscribe');
+      return null;
+    }
+
+    // Unsubscribe previous if exists
+    if (this.currentCmdId !== null) {
+      this.unsubscribe(this.currentCmdId);
+    }
+
     const cmdId = this.nextCmdId();
 
-    // Usar Entity Data Query para múltiplos dispositivos
     const subscribeCmd = {
       cmds: [{
         cmdId: cmdId,
@@ -332,14 +438,17 @@ class RealTimeWebSocketService {
       }]
     };
 
-    this.subscriptions.set(cmdId, deviceIds);
     this.ws.send(JSON.stringify(subscribeCmd));
+    this.currentCmdId = cmdId;
+    this.lastSubscribedDevices = [...deviceIds];
 
-    console.log(`[WebSocket] Subscribed to ${deviceIds.length} devices (cmdId: ${cmdId})`);
+    LogHelper.log(`[WebSocket] Subscribed to ${deviceIds.length} devices (cmdId: ${cmdId})`);
     return cmdId;
   }
 
   unsubscribe(cmdId) {
+    if (!this.isConnected() || cmdId === null) return;
+
     const unsubscribeCmd = {
       cmds: [{
         cmdId: cmdId,
@@ -348,41 +457,43 @@ class RealTimeWebSocketService {
     };
 
     this.ws.send(JSON.stringify(unsubscribeCmd));
-    this.subscriptions.delete(cmdId);
 
-    console.log(`[WebSocket] Unsubscribed (cmdId: ${cmdId})`);
+    if (this.currentCmdId === cmdId) {
+      this.currentCmdId = null;
+    }
+
+    LogHelper.log(`[WebSocket] Unsubscribed (cmdId: ${cmdId})`);
   }
 
   handleMessage(message) {
     // Handle authentication response
-    if (message.authCmd) {
+    if (message.authCmd !== undefined) {
       if (message.authCmd.success) {
-        console.log('[WebSocket] Authentication successful');
+        LogHelper.log('[WebSocket] Authentication successful');
+        this.reconnectAttempts = 0;  // Reset on success
         this.config.onConnectionChange(true);
       } else {
-        console.error('[WebSocket] Authentication failed');
+        LogHelper.error('[WebSocket] Authentication failed');
         this.config.onError(new Error('Authentication failed'));
       }
       return;
     }
 
-    // Handle data updates
-    if (message.cmdId && message.data) {
-      this.processDataUpdate(message);
+    // Handle initial data
+    if (message.cmdId && message.data?.data) {
+      this.processDataUpdate(message.data.data);
     }
 
-    // Handle updates (for subscriptions)
-    if (message.update) {
-      this.processDataUpdate({ ...message, data: { data: message.update } });
+    // Handle push updates
+    if (message.cmdId && message.update) {
+      this.processDataUpdate(message.update);
     }
   }
 
-  processDataUpdate(message) {
-    const { cmdId, data } = message;
+  processDataUpdate(dataArray) {
+    if (!Array.isArray(dataArray)) return;
 
-    if (!data?.data) return;
-
-    data.data.forEach(item => {
+    dataArray.forEach(item => {
       const deviceId = item.entityId?.id;
       if (!deviceId) return;
 
@@ -397,32 +508,47 @@ class RealTimeWebSocketService {
     });
   }
 
-  disconnect() {
-    if (this.ws) {
-      // Unsubscribe from all
-      this.subscriptions.forEach((_, cmdId) => {
-        this.unsubscribe(cmdId);
-      });
-
-      this.ws.close();
-      this.ws = null;
-    }
-  }
-
   scheduleReconnect() {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('[WebSocket] Max reconnect attempts reached');
+    const delay = this.backoffSchedule[
+      Math.min(this.reconnectAttempts, this.backoffSchedule.length - 1)
+    ];
+
+    this.reconnectAttempts++;
+
+    if (this.reconnectAttempts > this.backoffSchedule.length) {
+      LogHelper.error('[WebSocket] Max reconnect attempts reached, triggering fallback');
+      this.config.onError(new Error('Max reconnect attempts reached'));
       return;
     }
 
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-    this.reconnectAttempts++;
+    LogHelper.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
-    console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+    setTimeout(async () => {
+      try {
+        await this.connect();
 
-    setTimeout(() => {
-      this.connect().catch(() => {});
+        // Re-subscribe to previous devices
+        if (this.lastSubscribedDevices.length > 0) {
+          this.subscribe(this.lastSubscribedDevices);
+        }
+      } catch (err) {
+        // Will trigger another reconnect via onclose
+      }
     }, delay);
+  }
+
+  disconnect() {
+    if (this.ws) {
+      if (this.currentCmdId !== null) {
+        this.unsubscribe(this.currentCmdId);
+      }
+
+      this.ws.close(1000, 'Client disconnect');
+      this.ws = null;
+    }
+
+    this.currentCmdId = null;
+    this.lastSubscribedDevices = [];
   }
 
   nextCmdId() {
@@ -432,188 +558,51 @@ class RealTimeWebSocketService {
   isConnected() {
     return this.ws?.readyState === WebSocket.OPEN;
   }
-}
-```
 
----
-
-## Migration Strategy
-
-### Phase 1: Parallel Implementation (Low Risk)
-
-1. Criar `RealTimeWebSocketService` como alternativa ao polling
-2. Adicionar feature flag para alternar entre modos
-3. Testar em ambiente de desenvolvimento
-
-```javascript
-const REALTIME_CONFIG = {
-  // ... existing config
-  USE_WEBSOCKET: false, // Feature flag
-};
-
-function startRealTimeMode() {
-  if (REALTIME_CONFIG.USE_WEBSOCKET) {
-    startWebSocketMode();
-  } else {
-    startPollingMode(); // Current implementation
+  getSubscribedDevices() {
+    return [...this.lastSubscribedDevices];
   }
 }
 ```
 
-### Phase 2: A/B Testing (Medium Risk)
+---
 
-1. Habilitar WebSocket para subset de usuários
-2. Monitorar métricas (latência, erros, uso de recursos)
-3. Coletar feedback
+## Performance Comparison
 
-### Phase 3: Full Migration (After Validation)
+### Scenario: 50 Visible Devices
 
-1. WebSocket como padrão
-2. Polling como fallback
-3. Remover polling após período de estabilidade
+| Metric | REST Polling (30s) | WebSocket |
+|--------|-------------------|-----------|
+| Requests/min | 100 | 0 (after subscribe) |
+| Average latency | ~30.2s | < 100ms |
+| Bandwidth (est.) | ~200KB/min | ~2KB/min |
+| TCP connections | 100/min | 1 |
+
+### Improvements
+
+- **Request reduction**: ~99.9%
+- **Latency reduction**: ~99.7%
+- **Bandwidth reduction**: ~99%
 
 ---
 
-## Comparison Table
+## Implementation Checklist
 
-| Aspecto | REST Polling | WebSocket |
-|---------|--------------|-----------|
-| **Latência** | 8s (intervalo) + RTT | < 100ms |
-| **Conexões** | N por ciclo | 1 persistente |
-| **Servidor** | N queries/ciclo | Push on change |
-| **Banda** | Alta (headers HTTP) | Baixa (frames WS) |
-| **Complexidade** | Baixa | Média |
-| **Reconnect** | Automático (HTTP) | Implementar |
-| **Escalabilidade** | Limitada | Alta |
-| **Browser Support** | Universal | IE10+ (99%+) |
-| **Debug** | Fácil (DevTools Network) | Médio (WS frames) |
-
----
-
-## Risks and Mitigations
-
-### Risk 1: Connection Stability
-**Risco**: WebSocket pode desconectar inesperadamente.
-**Mitigação**: Implementar auto-reconnect com exponential backoff.
-
-### Risk 2: Token Expiration
-**Risco**: JWT token expira durante conexão.
-**Mitigação**: Monitorar token expiry, re-autenticar antes de expirar.
-
-### Risk 3: Memory Leaks
-**Risco**: Subscriptions não removidas podem causar memory leaks.
-**Mitigação**: Garantir cleanup em `onDestroy`, usar WeakMap se apropriado.
-
-### Risk 4: Browser Compatibility
-**Risco**: Browsers antigos não suportam WebSocket.
-**Mitigação**: Fallback para polling se WebSocket não disponível.
-
-```javascript
-if ('WebSocket' in window) {
-  startWebSocketMode();
-} else {
-  console.warn('WebSocket not supported, falling back to polling');
-  startPollingMode();
-}
-```
-
----
-
-## Performance Estimates
-
-### Cenário: 50 Dispositivos Visíveis
-
-| Métrica | REST Polling (8s) | WebSocket |
-|---------|-------------------|-----------|
-| Requests/min | 375 | 0 (após subscribe) |
-| Latência média | ~8.2s | < 100ms |
-| Banda (estimada) | ~750KB/min | ~5KB/min |
-| Conexões TCP | 375/min | 1 |
-
-### Savings
-
-- **Redução de requests**: ~99.7%
-- **Redução de latência**: ~98%
-- **Redução de banda**: ~99%
-
----
-
-## Proof of Concept
-
-### Minimal Test Code
-
-```javascript
-// Testar conexão WebSocket com ThingsBoard
-async function testWebSocketConnection() {
-  const JWT_TOKEN = localStorage.getItem('jwt_token');
-  const WS_URL = `wss://dashboard.myio-bas.com/api/ws`;
-
-  const ws = new WebSocket(WS_URL);
-
-  ws.onopen = () => {
-    console.log('Connected!');
-
-    // Authenticate
-    ws.send(JSON.stringify({
-      authCmd: { cmdId: 0, token: JWT_TOKEN }
-    }));
-  };
-
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    console.log('Received:', data);
-
-    // After auth success, subscribe to a device
-    if (data.authCmd?.success) {
-      ws.send(JSON.stringify({
-        cmds: [{
-          cmdId: 1,
-          type: "TIMESERIES",
-          entityType: "DEVICE",
-          entityId: "YOUR_DEVICE_ID",
-          scope: "LATEST_TELEMETRY",
-          keys: "power"
-        }]
-      }));
-    }
-  };
-
-  ws.onerror = (err) => console.error('Error:', err);
-  ws.onclose = () => console.log('Disconnected');
-
-  // Return for manual testing
-  return ws;
-}
-
-// Run: const ws = await testWebSocketConnection();
-```
-
----
-
-## Conclusion
-
-A migração para WebSocket API é **altamente recomendada** para o modo real-time devido aos benefícios significativos em latência, eficiência e escalabilidade.
-
-### Recomendações
-
-1. **Curto prazo**: Implementar PoC para validar conectividade e formato de dados
-2. **Médio prazo**: Implementar `RealTimeWebSocketService` com feature flag
-3. **Longo prazo**: Migrar completamente, manter polling como fallback
-
-### Next Steps
-
-- [ ] Validar PoC em ambiente de desenvolvimento
-- [ ] Confirmar formato de resposta com ThingsBoard instalado
-- [ ] Implementar `RealTimeWebSocketService`
-- [ ] Adicionar testes de reconexão
-- [ ] Documentar API específica do ambiente MyIO
+- [ ] Implement `RealTimeWebSocketService` class
+- [ ] Add `currentEngine` state management
+- [ ] Implement fallback logic (6 failures → REST)
+- [ ] Add debounced filter change handling
+- [ ] Integrate with `STATE.realTimePowerMap`
+- [ ] Add user notifications for connection status
+- [ ] Test reconnection with token refresh
+- [ ] Test fallback to REST polling
+- [ ] Update UI to show connection mode indicator
 
 ---
 
 ## References
 
 - [ThingsBoard Telemetry Documentation](https://thingsboard.io/docs/user-guide/telemetry/)
-- [ThingsBoard WebSocket Commands (GitHub)](https://github.com/thingsboard/thingsboard/blob/release-3.6/application/src/main/java/org/thingsboard/server/service/ws/WsCommandsWrapper.java)
-- [Stack Overflow: WebSocket for Multiple Devices](https://stackoverflow.com/questions/56345204/how-to-retrieve-telemetry-for-all-customer-devices-from-thingsboard-via-websocke)
-- [GitHub Issue: WebSocket Telemetry Subscription](https://github.com/thingsboard/thingsboard/issues/10595)
-- RFC-0093: Equipments Grid Real-Time Mode (Current Implementation)
+- [ThingsBoard WebSocket API](https://thingsboard.io/docs/user-guide/telemetry/#websocket-api)
+- RFC-0093: Equipments Grid Real-Time Mode (Original Implementation)
+- RFC-0093-Equipments-Grid-RealTime-Mode-FULL-IMPLEMENTATION.md (REST code to replace)
