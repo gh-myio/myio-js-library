@@ -302,7 +302,8 @@ export class WaterTankModal {
         data: this.data,
         onExport: () => this.handleExport(),
         onError: (error) => this.handleError(error),
-        onClose: () => this.close() // Call close() to destroy view and trigger user callback
+        onClose: () => this.close(), // Call close() to destroy view and trigger user callback
+        onDateRangeChange: (startTs, endTs) => this.handleDateRangeChange(startTs, endTs)
       });
 
       this.view.render();
@@ -342,6 +343,54 @@ export class WaterTankModal {
     }
 
     this.handleClose();
+  }
+
+  /**
+   * Handle date range change from view
+   */
+  private async handleDateRangeChange(startTs: number, endTs: number): Promise<void> {
+    console.log('[WaterTankModal] Date range changed:', {
+      startTs,
+      endTs,
+      startDate: new Date(startTs).toISOString(),
+      endDate: new Date(endTs).toISOString()
+    });
+
+    // Update options with new date range
+    this.options.startTs = startTs;
+    this.options.endTs = endTs;
+
+    // Update context
+    this.context.timeRange.startTs = startTs;
+    this.context.timeRange.endTs = endTs;
+
+    try {
+      // Show loading state (could add loading indicator here)
+      console.log('[WaterTankModal] Fetching new data for date range...');
+
+      // Fetch new data
+      this.data = await this.fetchTelemetryData();
+
+      // Update view with new data
+      if (this.view) {
+        this.view.updateData(this.data);
+      }
+
+      // Trigger callback
+      if (this.options.onDataLoaded) {
+        try {
+          this.options.onDataLoaded(this.data);
+        } catch (callbackError) {
+          console.warn('[WaterTankModal] onDataLoaded callback error:', callbackError);
+        }
+      }
+
+      console.log('[WaterTankModal] Data refreshed successfully');
+
+    } catch (error) {
+      console.error('[WaterTankModal] Failed to fetch data for new date range:', error);
+      this.handleError(error as WaterTankModalError);
+    }
   }
 
   /**

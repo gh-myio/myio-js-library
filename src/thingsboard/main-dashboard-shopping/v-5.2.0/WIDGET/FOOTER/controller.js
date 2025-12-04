@@ -1,3 +1,5 @@
+/* global self, window, document, localStorage, MyIOLibrary*/
+
 /**
  * NOTA: Este script depende das seguintes bibliotecas:
  *
@@ -17,30 +19,19 @@
 // ============================================================================
 // CONFIGURAÇÃO DE AMBIENTE - Altere aqui para trocar entre staging e produção
 // ============================================================================
-const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+// RFC-0091: Use shared DATA_API_HOST from MAIN widget via window.MyIOUtils
+const DATA_API_HOST = window.MyIOUtils?.DATA_API_HOST;
+if (!DATA_API_HOST) {
+  console.error('[FOOTER] DATA_API_HOST not available from window.MyIOUtils - MAIN widget must load first');
+}
 const CHARTS_BASE_URL = 'https://graphs.staging.apps.myio-bas.com'; // staging para testes
 // const CHARTS_BASE_URL = 'https://graphs.apps.myio-bas.com'; // produção
 
-// Debug configuration
-const DEBUG_ACTIVE = true;
-
-// LogHelper utility
-const LogHelper = {
-  log: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.log(...args);
-    }
-  },
-  warn: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.warn(...args);
-    }
-  },
-  error: function (...args) {
-    if (DEBUG_ACTIVE) {
-      console.error(...args);
-    }
-  },
+// RFC-0091: Use shared LogHelper from MAIN widget via window.MyIOUtils
+const LogHelper = window.MyIOUtils?.LogHelper || {
+  log: (...args) => console.log('[FOOTER]', ...args),
+  warn: (...args) => console.warn('[FOOTER]', ...args),
+  error: (...args) => console.error('[FOOTER]', ...args),
 };
 
 // --- 2. Injeção de CSS (executada uma vez) ---
@@ -1151,7 +1142,7 @@ const footerController = {
 
     if (count < 2) {
       LogHelper.warn('[MyIO Footer] Need at least 2 devices for comparison');
-      alert('Selecione pelo menos 2 dispositivos para comparar.');
+      window.alert('Selecione pelo menos 2 dispositivos para comparar.');
       return;
     }
 
@@ -1211,7 +1202,7 @@ const footerController = {
       // Substitui a modal customizada (_createComparisonModalOverlay)
       if (!window.MyIOLibrary?.openDashboardPopupEnergy) {
         LogHelper.error('[MyIO Footer] openDashboardPopupEnergy not available');
-        alert('Biblioteca MyIO não está carregada. Recarregue a página.');
+        window.alert('Biblioteca MyIO não está carregada. Recarregue a página.');
         return;
       }
 
@@ -1248,14 +1239,14 @@ const footerController = {
         },
         onError: (error) => {
           LogHelper.error('[FOOTER] Comparison modal error:', error);
-          alert(`Erro: ${error.message}`);
+          window.alert(`Erro: ${error.message}`);
         },
       });
 
       LogHelper.log('[MyIO Footer] Modal opened successfully:', modal);
     } catch (error) {
       LogHelper.error('[MyIO Footer] Error opening comparison modal:', error);
-      alert('Erro ao abrir modal de comparação. Verifique o console.');
+      window.alert('Erro ao abrir modal de comparação. Verifique o console.');
     }
   },
 
@@ -1302,7 +1293,7 @@ const footerController = {
     const jwtToken = localStorage.getItem('jwt_token');
 
     if (!jwtToken) {
-      alert('Token de autenticação não encontrado. Faça login novamente.');
+      window.alert('Token de autenticação não encontrado. Faça login novamente.');
       return;
     }
 
@@ -1324,21 +1315,26 @@ const footerController = {
         label: entity.name || entity.label || entity.id,
         tbId: entity.tbId || entity.entityId,
         customerName: entity.customerTitle || entity.customerName || entity.customer || null,
-        temperatureMin: (min !== undefined && min !== null) ? Number(min) : undefined,
-        temperatureMax: (max !== undefined && max !== null) ? Number(max) : undefined
+        temperatureMin: min !== undefined && min !== null ? Number(min) : undefined,
+        temperatureMax: max !== undefined && max !== null ? Number(max) : undefined,
       };
     });
 
     // Check if devices have different temperature ranges (different customers)
     const uniqueRanges = new Set(
       devices
-        .filter(d => d.temperatureMin !== undefined && d.temperatureMax !== undefined)
-        .map(d => `${d.temperatureMin}-${d.temperatureMax}`)
+        .filter((d) => d.temperatureMin !== undefined && d.temperatureMax !== undefined)
+        .map((d) => `${d.temperatureMin}-${d.temperatureMax}`)
     );
 
     if (uniqueRanges.size > 1) {
-      LogHelper.log('[MyIO Footer] Devices have different temperature ranges (multiple customers):',
-        devices.map(d => ({ label: d.label, customer: d.customerName, range: `${d.temperatureMin}-${d.temperatureMax}` }))
+      LogHelper.log(
+        '[MyIO Footer] Devices have different temperature ranges (multiple customers):',
+        devices.map((d) => ({
+          label: d.label,
+          customer: d.customerName,
+          range: `${d.temperatureMin}-${d.temperatureMax}`,
+        }))
       );
     }
 
@@ -1354,15 +1350,15 @@ const footerController = {
     }
 
     LogHelper.log('[MyIO Footer] Temperature ranges:', {
-      perDevice: devices.map(d => ({ label: d.label, min: d.temperatureMin, max: d.temperatureMax })),
-      global: { min: globalTemperatureMin, max: globalTemperatureMax }
+      perDevice: devices.map((d) => ({ label: d.label, min: d.temperatureMin, max: d.temperatureMax })),
+      global: { min: globalTemperatureMin, max: globalTemperatureMax },
     });
 
     // Use MyIOLibrary.openTemperatureComparisonModal
     const MyIOLibrary = window.MyIOLibrary;
     if (!MyIOLibrary?.openTemperatureComparisonModal) {
       LogHelper.error('[MyIO Footer] MyIOLibrary.openTemperatureComparisonModal not available');
-      alert('Componente de comparação de temperatura não disponível.');
+      window.alert('Componente de comparação de temperatura não disponível.');
       return;
     }
 
@@ -1377,13 +1373,13 @@ const footerController = {
         granularity: 'hour',
         // Global fallback range (used only if devices don't have individual ranges)
         temperatureMin: globalTemperatureMin,
-        temperatureMax: globalTemperatureMax
+        temperatureMax: globalTemperatureMax,
       });
 
       LogHelper.log('[MyIO Footer] Temperature comparison modal opened via MyIOLibrary');
     } catch (error) {
       LogHelper.error('[MyIO Footer] Error opening temperature comparison modal:', error);
-      alert('Erro ao abrir modal de comparação de temperatura: ' + error.message);
+      window.alert('Erro ao abrir modal de comparação de temperatura: ' + error.message);
     }
   },
 

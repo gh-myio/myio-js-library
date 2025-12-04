@@ -8,10 +8,6 @@
             "title": "Widget Label",
             "default": "Devices"
         },
-        "customerTB_ID":{
-            "type":"string",
-            "title": "ThingsBoard Customer ID"
-        },
         "DOMAIN": {
             "type": "string",
             "title": "Domain",
@@ -27,11 +23,10 @@
             "description": "Override auto-detected context for water domain. Use 'auto' to detect from alias name."
         }
     },
-    "required": ["customerTB_ID", "DOMAIN"]
+    "required": ["DOMAIN"]
   },
   "form": [
     "labelWidget",
-    "customerTB_ID",
     "DOMAIN",
     "waterContext"
   ]

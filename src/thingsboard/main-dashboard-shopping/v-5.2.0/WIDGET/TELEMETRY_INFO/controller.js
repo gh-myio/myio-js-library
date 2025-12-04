@@ -1,4 +1,6 @@
-﻿/* =========================================================================
+﻿/* global self, window, document, sessionStorage, Chart */
+
+/* =========================================================================
  * ThingsBoard Widget: TELEMETRY_INFO (MyIO v-5.2.0)
  * RFC-0056: 6 Categories + Light Mode + Grid 2 Columns
  * - Consolida informaÃ§Ãµes de entrada e consumidores
@@ -13,17 +15,11 @@
 
 // ===================== CONFIGURATION =====================
 
-let DEBUG_ACTIVE = true; // RFC-0056: Temporary debug mode to troubleshoot expand button
-
-// LogHelper
-const LogHelper = {
-  log: (...args) => {
-    if (DEBUG_ACTIVE) console.log("[TELEMETRY_INFO]", ...args);
-  },
-  warn: (...args) => {
-    if (DEBUG_ACTIVE) console.warn("[TELEMETRY_INFO]", ...args);
-  },
-  error: (...args) => console.error("[TELEMETRY_INFO]", ...args)
+// RFC-0091: Use shared LogHelper from MAIN widget via window.MyIOUtils
+const LogHelper = window.MyIOUtils?.LogHelper || {
+  log: (...args) => console.log('[TELEMETRY_INFO]', ...args),
+  warn: (...args) => console.warn('[TELEMETRY_INFO]', ...args),
+  error: (...args) => console.error('[TELEMETRY_INFO]', ...args),
 };
 
 // Widget configuration
@@ -32,12 +28,12 @@ let SHOW_DEVICES_LIST = false;
 
 // RFC-0056: Chart colors with MyIO palette (6 categories)
 let CHART_COLORS = {
-  climatizacao: '#00C896',    // Teal (MyIO accent)
-  elevadores: '#5B2EBC',      // Purple (MyIO primary)
+  climatizacao: '#00C896', // Teal (MyIO accent)
+  elevadores: '#5B2EBC', // Purple (MyIO primary)
   escadasRolantes: '#FF6B6B', // Red
-  lojas: '#FFC107',           // Yellow
-  outros: '#9C27B0',          // Deep Purple
-  areaComum: '#4CAF50'        // Green (residual)
+  lojas: '#FFC107', // Yellow
+  outros: '#9C27B0', // Deep Purple
+  areaComum: '#4CAF50', // Green (residual)
 };
 
 // RFC-0002: Domain labels for multi-domain support (energy, water, gas)
@@ -45,18 +41,18 @@ const DOMAIN_LABELS = {
   energy: {
     title: 'Energia',
     unit: 'kWh',
-    icon: 'ℹ️'
+    icon: 'ℹ️',
   },
   water: {
     title: 'Água',
     unit: 'm³',
-    icon: '💧'
+    icon: '💧',
   },
   gas: {
     title: 'Gás',
     unit: 'm³',
-    icon: '🔥'
-  }
+    icon: '🔥',
+  },
 };
 
 /**
@@ -90,7 +86,7 @@ const STATE = {
   entrada: {
     devices: [],
     total: 0,
-    perc: 100
+    perc: 100,
   },
   consumidores: {
     climatizacao: { devices: [], total: 0, perc: 0 },
@@ -100,9 +96,9 @@ const STATE = {
     outros: { devices: [], total: 0, perc: 0 }, // â† RFC-0056: Outros equipamentos de AreaComum
     areaComum: { devices: [], total: 0, perc: 0 }, // â† Residual
     totalGeral: 0,
-    percGeral: 100
+    percGeral: 100,
   },
-  grandTotal: 0
+  grandTotal: 0,
 };
 
 // Chart instance
@@ -116,28 +112,28 @@ const STATE_WATER = {
     devices: [],
     total: 0,
     perc: 100,
-    source: 'widget-telemetry-entrada'
+    source: 'widget-telemetry-entrada',
   },
   lojas: {
     context: 'lojas',
     devices: [],
     total: 0,
     perc: 0,
-    source: 'widget-telemetry-lojas'
+    source: 'widget-telemetry-lojas',
   },
   banheiros: {
     context: 'banheiros',
     devices: [],
     total: 0,
     perc: 0,
-    source: 'widget-telemetry-area-comum (banheiros breakdown)' // Extracted from areaComum by label/identifier
+    source: 'widget-telemetry-area-comum (banheiros breakdown)', // Extracted from areaComum by label/identifier
   },
   areaComum: {
     context: 'areaComum',
     devices: [],
     total: 0,
     perc: 0,
-    source: 'widget-telemetry-area-comum (outros)'
+    source: 'widget-telemetry-area-comum (outros)',
   },
   pontosNaoMapeados: {
     context: 'pontosNaoMapeados',
@@ -145,12 +141,12 @@ const STATE_WATER = {
     total: 0,
     perc: 0,
     isCalculated: true,
-    hasInconsistency: false
+    hasInconsistency: false,
   },
   grandTotal: 0,
   periodKey: null,
   lastUpdate: null,
-  includeBathrooms: false // Setting from widget config
+  includeBathrooms: false, // Setting from widget config
 };
 
 // Event handlers
@@ -168,7 +164,7 @@ const CATEGORIES = {
   ELEVADORES: 'elevadores',
   ESCADAS_ROLANTES: 'escadas_rolantes',
   LOJAS: 'lojas',
-  AREA_COMUM: 'area_comum' // â† Residual (calculado)
+  AREA_COMUM: 'area_comum', // â† Residual (calculado)
 };
 
 // ===================== DOM HELPERS =====================
@@ -185,10 +181,10 @@ const $$ = (selector) => $root().find(selector);
 /**
  * Normalize label (remove accents, lowercase, trim)
  */
-function normalizeLabel(str = "") {
+function normalizeLabel(str = '') {
   return String(str)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
 }
@@ -199,7 +195,7 @@ function normalizeLabel(str = "") {
  * @param {string} datasourceAlias - Optional: ThingsBoard datasource alias
  * @returns {'entrada'|'climatizacao'|'elevadores'|'escadas_rolantes'|'lojas'|'area_comum'}
  */
-function classifyDevice(labelOrName = "", datasourceAlias = "") {
+function classifyDevice(labelOrName = '', datasourceAlias = '') {
   const s = normalizeLabel(labelOrName);
 
   // ========== 1. ENTRADA ==========
@@ -265,46 +261,46 @@ function classifyDevice(labelOrName = "", datasourceAlias = "") {
  *   Ãrea Comum = Entrada - (ClimatizaÃ§Ã£o + Elevadores + Esc.Rolantes + Lojas)
  */
 function aggregateData(items) {
-  LogHelper.log("RFC-0056: Aggregating data with 6 categories:", items.length, "items");
+  LogHelper.log('RFC-0056: Aggregating data with 6 categories:', items.length, 'items');
 
   // ========== 1. CLASSIFY DEVICES ==========
-  const entrada = items.filter(i => {
+  const entrada = items.filter((i) => {
     const cat = classifyDevice(i.label, i.datasourceAlias);
     return cat === CATEGORIES.ENTRADA;
   });
 
-  const climatizacao = items.filter(i => {
+  const climatizacao = items.filter((i) => {
     const cat = classifyDevice(i.label, i.datasourceAlias);
     return cat === CATEGORIES.CLIMATIZACAO;
   });
 
-  const elevadores = items.filter(i => {
+  const elevadores = items.filter((i) => {
     const cat = classifyDevice(i.label, i.datasourceAlias);
     return cat === CATEGORIES.ELEVADORES;
   });
 
-  const escadasRolantes = items.filter(i => {
+  const escadasRolantes = items.filter((i) => {
     const cat = classifyDevice(i.label, i.datasourceAlias);
     return cat === CATEGORIES.ESCADAS_ROLANTES;
   });
 
-  const lojas = items.filter(i => {
+  const lojas = items.filter((i) => {
     const cat = classifyDevice(i.label, i.datasourceAlias);
     return cat === CATEGORIES.LOJAS;
   });
 
-  const areaComumExplicit = items.filter(i => {
+  const areaComumExplicit = items.filter((i) => {
     const cat = classifyDevice(i.label, i.datasourceAlias);
     return cat === CATEGORIES.AREA_COMUM;
   });
 
-  LogHelper.log("RFC-0056: Classification breakdown:", {
+  LogHelper.log('RFC-0056: Classification breakdown:', {
     entrada: entrada.length,
     climatizacao: climatizacao.length,
     elevadores: elevadores.length,
     escadasRolantes: escadasRolantes.length,
     lojas: lojas.length,
-    areaComumExplicit: areaComumExplicit.length
+    areaComumExplicit: areaComumExplicit.length,
   });
 
   // ========== 2. CALCULATE TOTALS ==========
@@ -318,14 +314,16 @@ function aggregateData(items) {
   // ========== 3. RESIDUAL CALCULATION ==========
   // Ãrea Comum = Entrada - (Todos os outros consumidores)
   // Inclui tambÃ©m devices explicitamente rotulados como "Ãrea Comum"
-  const areaComumResidual = entradaTotal - (climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + lojasTotal);
+  const areaComumResidual =
+    entradaTotal - (climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + lojasTotal);
   const areaComumTotal = Math.max(0, areaComumResidual + areaComumExplicitTotal); // â† Nunca negativo
 
   // Total de consumidores = Entrada (sempre 100%)
-  const consumidoresTotal = climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + lojasTotal + areaComumTotal;
+  const consumidoresTotal =
+    climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + lojasTotal + areaComumTotal;
   const grandTotal = entradaTotal; // Entrada = referÃªncia 100%
 
-  LogHelper.log("RFC-0056: Totals calculated:", {
+  LogHelper.log('RFC-0056: Totals calculated:', {
     entradaTotal: entradaTotal.toFixed(2),
     climatizacaoTotal: climatizacaoTotal.toFixed(2),
     elevadoresTotal: elevadoresTotal.toFixed(2),
@@ -334,7 +332,7 @@ function aggregateData(items) {
     areaComumResidual: areaComumResidual.toFixed(2),
     areaComumExplicitTotal: areaComumExplicitTotal.toFixed(2),
     areaComumTotal: areaComumTotal.toFixed(2),
-    consumidoresTotal: consumidoresTotal.toFixed(2)
+    consumidoresTotal: consumidoresTotal.toFixed(2),
   });
 
   // ========== 4. CALCULATE PERCENTAGES ==========
@@ -342,47 +340,47 @@ function aggregateData(items) {
   STATE.entrada = {
     devices: entrada,
     total: entradaTotal,
-    perc: 100 // Entrada sempre 100%
+    perc: 100, // Entrada sempre 100%
   };
 
   STATE.consumidores = {
     climatizacao: {
       devices: climatizacao,
       total: climatizacaoTotal,
-      perc: grandTotal > 0 ? (climatizacaoTotal / grandTotal) * 100 : 0
+      perc: grandTotal > 0 ? (climatizacaoTotal / grandTotal) * 100 : 0,
     },
     elevadores: {
       devices: elevadores,
       total: elevadoresTotal,
-      perc: grandTotal > 0 ? (elevadoresTotal / grandTotal) * 100 : 0
+      perc: grandTotal > 0 ? (elevadoresTotal / grandTotal) * 100 : 0,
     },
     escadasRolantes: {
       devices: escadasRolantes,
       total: escadasRolantesTotal,
-      perc: grandTotal > 0 ? (escadasRolantesTotal / grandTotal) * 100 : 0
+      perc: grandTotal > 0 ? (escadasRolantesTotal / grandTotal) * 100 : 0,
     },
     lojas: {
       devices: lojas,
       total: lojasTotal,
-      perc: grandTotal > 0 ? (lojasTotal / grandTotal) * 100 : 0
+      perc: grandTotal > 0 ? (lojasTotal / grandTotal) * 100 : 0,
     },
     areaComum: {
       devices: areaComumExplicit, // â† Apenas devices explÃ­citos (residual nÃ£o tem devices)
       total: areaComumTotal,
-      perc: grandTotal > 0 ? (areaComumTotal / grandTotal) * 100 : 0
+      perc: grandTotal > 0 ? (areaComumTotal / grandTotal) * 100 : 0,
     },
     totalGeral: consumidoresTotal,
-    percGeral: 100 // â† Total sempre 100% (= entrada)
+    percGeral: 100, // â† Total sempre 100% (= entrada)
   };
 
   STATE.grandTotal = grandTotal;
 
-  LogHelper.log("RFC-0056: Percentages calculated:", {
+  LogHelper.log('RFC-0056: Percentages calculated:', {
     climatizacao: STATE.consumidores.climatizacao.perc.toFixed(1) + '%',
     elevadores: STATE.consumidores.elevadores.perc.toFixed(1) + '%',
     escadasRolantes: STATE.consumidores.escadasRolantes.perc.toFixed(1) + '%',
     lojas: STATE.consumidores.lojas.perc.toFixed(1) + '%',
-    areaComum: STATE.consumidores.areaComum.perc.toFixed(1) + '%'
+    areaComum: STATE.consumidores.areaComum.perc.toFixed(1) + '%',
   });
 
   // ========== 5. VALIDATE TOTALS ==========
@@ -394,31 +392,32 @@ function aggregateData(items) {
  * Logs warning if mismatch > 10 Wh (0.01 kWh)
  */
 function validateTotals() {
-  const sum = STATE.consumidores.climatizacao.total +
-              STATE.consumidores.elevadores.total +
-              STATE.consumidores.escadasRolantes.total +
-              STATE.consumidores.lojas.total +
-              STATE.consumidores.areaComum.total;
+  const sum =
+    STATE.consumidores.climatizacao.total +
+    STATE.consumidores.elevadores.total +
+    STATE.consumidores.escadasRolantes.total +
+    STATE.consumidores.lojas.total +
+    STATE.consumidores.areaComum.total;
 
   const entrada = STATE.entrada.total;
   const diff = Math.abs(entrada - sum);
   const tolerance = 0.01; // 10 Wh
 
   if (diff > tolerance) {
-    LogHelper.warn("âš ï¸ RFC-0056: Total validation FAILED!");
-    LogHelper.warn("  Entrada:  ", entrada.toFixed(2), "kWh");
-    LogHelper.warn("  Sum:      ", sum.toFixed(2), "kWh");
-    LogHelper.warn("  Diff:     ", diff.toFixed(2), "kWh");
-    LogHelper.warn("  Breakdown:", {
+    LogHelper.warn('[WARNING] RFC-0056: Total validation FAILED!');
+    LogHelper.warn('  Entrada:  ', entrada.toFixed(2), 'kWh');
+    LogHelper.warn('  Sum:      ', sum.toFixed(2), 'kWh');
+    LogHelper.warn('  Diff:     ', diff.toFixed(2), 'kWh');
+    LogHelper.warn('  Breakdown:', {
       climatizacao: STATE.consumidores.climatizacao.total.toFixed(2),
       elevadores: STATE.consumidores.elevadores.total.toFixed(2),
       escadasRolantes: STATE.consumidores.escadasRolantes.total.toFixed(2),
       lojas: STATE.consumidores.lojas.total.toFixed(2),
-      areaComum: STATE.consumidores.areaComum.total.toFixed(2)
+      areaComum: STATE.consumidores.areaComum.total.toFixed(2),
     });
   } else {
-    LogHelper.log("âœ… RFC-0056: Totals validated successfully");
-    LogHelper.log("  Entrada = Sum =", entrada.toFixed(2), "kWh (Diff:", diff.toFixed(4), "kWh)");
+    LogHelper.log('âœ… RFC-0056: Totals validated successfully');
+    LogHelper.log('  Entrada = Sum =', entrada.toFixed(2), 'kWh (Diff:', diff.toFixed(4), 'kWh)');
   }
 }
 
@@ -436,17 +435,19 @@ function formatEnergy(value) {
   }
 
   // Fallback formatting
-  return value.toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }) + ' kWh';
+  return (
+    value.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }) + ' kWh'
+  );
 }
 
 /**
  * RFC-0056: Render statistics for 6 categories
  */
 function renderStats() {
-  LogHelper.log("RFC-0056: Rendering stats for 6 categories...");
+  LogHelper.log('RFC-0056: Rendering stats for 6 categories...');
 
   // ========== ENTRADA ==========
   $$('#entradaTotal').text(formatEnergy(STATE.entrada.total));
@@ -497,25 +498,25 @@ function renderStats() {
   // ========== DEVICES LIST (opcional) ==========
   if (SHOW_DEVICES_LIST) {
     const $list = $$('#entradaDevices').empty();
-    STATE.entrada.devices.forEach(device => {
+    STATE.entrada.devices.forEach((device) => {
       $list.append(`<div class="device-item">${device.label || device.identifier || device.id}</div>`);
     });
   } else {
     $$('#entradaDevices').empty();
   }
 
-  LogHelper.log("RFC-0056: Stats rendered successfully");
+  LogHelper.log('RFC-0056: Stats rendered successfully');
 }
 
 /**
  * RFC-0056: Render pie chart with 6 slices (no Entrada)
  */
 function renderPieChart() {
-  LogHelper.log("RFC-0056: Rendering pie chart with 6 categories...");
+  LogHelper.log('RFC-0056: Rendering pie chart with 6 categories...');
 
   const canvas = document.getElementById('consumptionPieChart');
   if (!canvas) {
-    LogHelper.warn("Canvas element not found");
+    LogHelper.warn('Canvas element not found');
     return;
   }
 
@@ -527,7 +528,7 @@ function renderPieChart() {
 
   // Check if Chart.js is available
   if (typeof Chart === 'undefined') {
-    LogHelper.error("Chart.js library not loaded!");
+    LogHelper.error('Chart.js library not loaded!');
     $J(canvas).parent().html(`
       <div class="empty-state">
         <div class="empty-state-icon">ðŸ“Š</div>
@@ -547,49 +548,51 @@ function renderPieChart() {
   const hideAreaComum = WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms;
 
   const labels = hideAreaComum
-    ? ['Climatização','Elevadores','Esc. Rolantes','Lojas','Outros']
-    : ['Climatização','Elevadores','Esc. Rolantes','Lojas','Outros','Área Comum'];
+    ? ['Climatização', 'Elevadores', 'Esc. Rolantes', 'Lojas', 'Outros']
+    : ['Climatização', 'Elevadores', 'Esc. Rolantes', 'Lojas', 'Outros', 'Área Comum'];
 
   const data = {
     labels: labels,
-    datasets: [{
-      data: hideAreaComum
-        ? [
-            STATE.consumidores.climatizacao.total,
-            STATE.consumidores.elevadores.total,
-            STATE.consumidores.escadasRolantes.total,
-            STATE.consumidores.lojas.total,
-            STATE.consumidores.outros ? STATE.consumidores.outros.total : 0
-          ]
-        : [
-            STATE.consumidores.climatizacao.total,
-            STATE.consumidores.elevadores.total,
-            STATE.consumidores.escadasRolantes.total,
-            STATE.consumidores.lojas.total,
-            STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
-            STATE.consumidores.areaComum.total
-          ],
-      backgroundColor: hideAreaComum
-        ? [
-            CHART_COLORS.climatizacao,    // #00C896 (Teal)
-            CHART_COLORS.elevadores,      // #5B2EBC (Purple)
-            CHART_COLORS.escadasRolantes, // #FF6B6B (Red)
-            CHART_COLORS.lojas,           // #FFC107 (Yellow)
-            CHART_COLORS.outros           // #9C27B0 (Deep Purple)
-          ]
-        : [
-            CHART_COLORS.climatizacao,    // #00C896 (Teal)
-            CHART_COLORS.elevadores,      // #5B2EBC (Purple)
-            CHART_COLORS.escadasRolantes, // #FF6B6B (Red)
-            CHART_COLORS.lojas,           // #FFC107 (Yellow)
-            CHART_COLORS.outros,          // #9C27B0 (Deep Purple)
-            CHART_COLORS.areaComum        // #4CAF50 (Green)
-          ],
-      borderColor: '#FFFFFF',  // â† Light border
-      borderWidth: 2,
-      hoverBorderWidth: 3,
-      hoverBorderColor: '#222222'
-    }]
+    datasets: [
+      {
+        data: hideAreaComum
+          ? [
+              STATE.consumidores.climatizacao.total,
+              STATE.consumidores.elevadores.total,
+              STATE.consumidores.escadasRolantes.total,
+              STATE.consumidores.lojas.total,
+              STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
+            ]
+          : [
+              STATE.consumidores.climatizacao.total,
+              STATE.consumidores.elevadores.total,
+              STATE.consumidores.escadasRolantes.total,
+              STATE.consumidores.lojas.total,
+              STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
+              STATE.consumidores.areaComum.total,
+            ],
+        backgroundColor: hideAreaComum
+          ? [
+              CHART_COLORS.climatizacao, // #00C896 (Teal)
+              CHART_COLORS.elevadores, // #5B2EBC (Purple)
+              CHART_COLORS.escadasRolantes, // #FF6B6B (Red)
+              CHART_COLORS.lojas, // #FFC107 (Yellow)
+              CHART_COLORS.outros, // #9C27B0 (Deep Purple)
+            ]
+          : [
+              CHART_COLORS.climatizacao, // #00C896 (Teal)
+              CHART_COLORS.elevadores, // #5B2EBC (Purple)
+              CHART_COLORS.escadasRolantes, // #FF6B6B (Red)
+              CHART_COLORS.lojas, // #FFC107 (Yellow)
+              CHART_COLORS.outros, // #9C27B0 (Deep Purple)
+              CHART_COLORS.areaComum, // #4CAF50 (Green)
+            ],
+        borderColor: '#FFFFFF', // â† Light border
+        borderWidth: 2,
+        hoverBorderWidth: 3,
+        hoverBorderColor: '#222222',
+      },
+    ],
   };
 
   // ========== CHART CONFIG ==========
@@ -601,7 +604,7 @@ function renderPieChart() {
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          display: false // Use custom legend below
+          display: false, // Use custom legend below
         },
         tooltip: {
           backgroundColor: '#FFFFFF',
@@ -612,29 +615,29 @@ function renderPieChart() {
           padding: 12,
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
           callbacks: {
-            label: function(context) {
+            label: function (context) {
               const label = context.label || '';
               const value = context.parsed || 0;
               const total = context.dataset.data.reduce((a, b) => a + b, 0);
-              const perc = total > 0 ? (value / total * 100).toFixed(1) : 0;
+              const perc = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
               return `${label}: ${formatEnergy(value)} (${perc}%)`;
-            }
-          }
-        }
+            },
+          },
+        },
       },
       animation: {
         animateRotate: true,
         animateScale: true,
         duration: 800,
-        easing: 'easeOutQuart'
-      }
-    }
+        easing: 'easeOutQuart',
+      },
+    },
   });
 
   // Render custom legend
   renderChartLegend();
 
-  LogHelper.log("RFC-0056: Pie chart rendered successfully");
+  LogHelper.log('RFC-0056: Pie chart rendered successfully');
 }
 
 /**
@@ -646,18 +649,43 @@ function renderChartLegend() {
   const hideAreaComum = WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms;
 
   const items = [
-    { label: 'Climatização', color: CHART_COLORS.climatizacao, value: STATE.consumidores.climatizacao.total, perc: STATE.consumidores.climatizacao.perc },
-    { label: 'Elevadores', color: CHART_COLORS.elevadores, value: STATE.consumidores.elevadores.total, perc: STATE.consumidores.elevadores.perc },
-    { label: 'Esc. Rolantes', color: CHART_COLORS.escadasRolantes, value: STATE.consumidores.escadasRolantes.total, perc: STATE.consumidores.escadasRolantes.perc },
-    { label: 'Lojas', color: CHART_COLORS.lojas, value: STATE.consumidores.lojas.total, perc: STATE.consumidores.lojas.perc }
+    {
+      label: 'Climatização',
+      color: CHART_COLORS.climatizacao,
+      value: STATE.consumidores.climatizacao.total,
+      perc: STATE.consumidores.climatizacao.perc,
+    },
+    {
+      label: 'Elevadores',
+      color: CHART_COLORS.elevadores,
+      value: STATE.consumidores.elevadores.total,
+      perc: STATE.consumidores.elevadores.perc,
+    },
+    {
+      label: 'Esc. Rolantes',
+      color: CHART_COLORS.escadasRolantes,
+      value: STATE.consumidores.escadasRolantes.total,
+      perc: STATE.consumidores.escadasRolantes.perc,
+    },
+    {
+      label: 'Lojas',
+      color: CHART_COLORS.lojas,
+      value: STATE.consumidores.lojas.total,
+      perc: STATE.consumidores.lojas.perc,
+    },
   ];
 
   // Only add Área Comum if not hidden
   if (!hideAreaComum) {
-    items.push({ label: 'Área Comum', color: CHART_COLORS.areaComum, value: STATE.consumidores.areaComum.total, perc: STATE.consumidores.areaComum.perc });
+    items.push({
+      label: 'Área Comum',
+      color: CHART_COLORS.areaComum,
+      value: STATE.consumidores.areaComum.total,
+      perc: STATE.consumidores.areaComum.perc,
+    });
   }
 
-  items.forEach(item => {
+  items.forEach((item) => {
     const html = `
       <div class="legend-item">
         <div class="legend-color" style="background: ${item.color};"></div>
@@ -668,7 +696,7 @@ function renderChartLegend() {
     $legend.append(html);
   });
 
-  LogHelper.log("RFC-0056: Chart legend rendered with 5 items");
+  LogHelper.log('RFC-0056: Chart legend rendered with 5 items');
 }
 
 // ===================== MODAL FUNCTIONS =====================
@@ -679,43 +707,43 @@ let modalPieChartInstance = null;
  * Open expanded modal view
  */
 function openModal() {
-  console.log("[TELEMETRY_INFO] ðŸš€ openModal() called");
-  LogHelper.log("Opening expanded modal...");
+  console.log('[TELEMETRY_INFO] ðŸš€ openModal() called');
+  LogHelper.log('Opening expanded modal...');
 
   const $modal = $J('#modalExpanded');
 
   if (!$modal || $modal.length === 0) {
-    console.error("[TELEMETRY_INFO] âŒ Modal element #modalExpanded NOT FOUND!");
+    console.error('[TELEMETRY_INFO] âŒ Modal element #modalExpanded NOT FOUND!');
     return;
   }
 
-  console.log("[TELEMETRY_INFO] Modal found:", $modal.length, "elements");
-  console.log("[TELEMETRY_INFO] Modal current parent:", $modal.parent()[0]?.tagName || "NONE");
+  console.log('[TELEMETRY_INFO] Modal found:', $modal.length, 'elements');
+  console.log('[TELEMETRY_INFO] Modal current parent:', $modal.parent()[0]?.tagName || 'NONE');
 
   // CRITICAL: ALWAYS remove and re-add to body to ensure it's the LAST element (highest stacking)
   console.log("[TELEMETRY_INFO] ðŸ“¦ Re-appending modal to body to ensure it's last element");
   $modal.detach().appendTo(document.body);
-  console.log("[TELEMETRY_INFO] âœ… Modal is now last element in body");
+  console.log('[TELEMETRY_INFO] âœ… Modal is now last element in body');
 
   // RFC-0056 FIX: ULTRA-FORCE modal visibility with MAXIMUM z-index
-  console.log("[TELEMETRY_INFO] ðŸŽ¨ Setting modal visibility with MAX z-index...");
+  console.log('[TELEMETRY_INFO] ðŸŽ¨ Setting modal visibility with MAX z-index...');
 
   const MAX_Z_INDEX = '2147483647'; // Maximum 32-bit signed integer
 
   $modal.css({
-    'display': 'flex',
-    'visibility': 'visible',
-    'opacity': '1',
+    display: 'flex',
+    visibility: 'visible',
+    opacity: '1',
     'pointer-events': 'all',
     'z-index': MAX_Z_INDEX,
-    'position': 'fixed',
-    'top': '0',
-    'left': '0',
-    'right': '0',
-    'bottom': '0',
-    'width': '100vw',
-    'height': '100vh',
-    'background': 'rgba(0, 0, 0, 0.75)'
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    right: '0',
+    bottom: '0',
+    width: '100vw',
+    height: '100vh',
+    background: 'rgba(0, 0, 0, 0.75)',
   });
 
   // Force with !important for ABSOLUTE override
@@ -729,7 +757,7 @@ function openModal() {
   $modal[0].style.setProperty('top', '0', 'important');
   $modal[0].style.setProperty('left', '0', 'important');
 
-  console.log("[TELEMETRY_INFO] âœ… Modal visibility styles applied with z-index:", MAX_Z_INDEX);
+  console.log('[TELEMETRY_INFO] âœ… Modal visibility styles applied with z-index:', MAX_Z_INDEX);
 
   // Add a class to body to prevent scrolling
   $J('body').addClass('modal-open-telemetry-info');
@@ -743,7 +771,7 @@ function openModal() {
   // Prevent body scroll
   $J('body').css('overflow', 'hidden');
 
-  LogHelper.log("Modal opened successfully");
+  LogHelper.log('Modal opened successfully');
 }
 
 // RFC-0056 FIX: Expose openModal globally for onclick handler
@@ -753,8 +781,8 @@ window.TELEMETRY_INFO_openModal = openModal;
  * Close expanded modal view
  */
 function closeModal() {
-  console.log("[TELEMETRY_INFO] ðŸ”’ closeModal() called");
-  LogHelper.log("Closing expanded modal...");
+  console.log('[TELEMETRY_INFO] ðŸ”’ closeModal() called');
+  LogHelper.log('Closing expanded modal...');
 
   const $modal = $J('#modalExpanded');
   $modal.css('display', 'none');
@@ -771,65 +799,27 @@ function closeModal() {
   // Restore body scroll
   $J('body').css('overflow', '');
 
-  console.log("[TELEMETRY_INFO] âœ… Modal closed successfully");
-  LogHelper.log("Modal closed successfully");
+  console.log('[TELEMETRY_INFO] âœ… Modal closed successfully');
+  LogHelper.log('Modal closed successfully');
 }
 
 /**
  * Update modal cards with current STATE values
  */
 function updateModalData() {
-  LogHelper.log("Updating modal data...");
-
-  // Entrada
   // REMOVED: Modal redesigned as chart-only (no cards to update)
-  return;
-
-  // Lojas
-  $J('#modalLojasTotal').text(formatEnergy(STATE.consumidores.lojas.total));
-  $J('#modalLojasPerc').text(`(${STATE.consumidores.lojas.perc.toFixed(1)}%)`);
-
-  // ClimatizaÃ§Ã£o
-  $J('#modalClimatizacaoTotal').text(formatEnergy(STATE.consumidores.climatizacao.total));
-  $J('#modalClimatizacaoPerc').text(`(${STATE.consumidores.climatizacao.perc.toFixed(1)}%)`);
-
-  // Elevadores
-  $J('#modalElevadoresTotal').text(formatEnergy(STATE.consumidores.elevadores.total));
-  $J('#modalElevadoresPerc').text(`(${STATE.consumidores.elevadores.perc.toFixed(1)}%)`);
-
-  // Escadas Rolantes
-  $J('#modalEscadasTotal').text(formatEnergy(STATE.consumidores.escadasRolantes.total));
-  $J('#modalEscadasPerc').text(`(${STATE.consumidores.escadasRolantes.perc.toFixed(1)}%)`);
-
-  // Outros Equipamentos
-  if (STATE.consumidores.outros) {
-    $J('#modalOutrosTotal').text(formatEnergy(STATE.consumidores.outros.total));
-    $J('#modalOutrosPerc').text(`(${STATE.consumidores.outros.perc.toFixed(1)}%)`);
-  } else {
-    $J('#modalOutrosTotal').text('0,00 kWh');
-    $J('#modalOutrosPerc').text('(0%)');
-  }
-
-  // Ãrea Comum
-  $J('#modalAreaComumTotal').text(formatEnergy(STATE.consumidores.areaComum.total));
-  $J('#modalAreaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(1)}%)`);
-
-  // Total Consumidores
-  $J('#modalConsumidoresTotal').text(formatEnergy(STATE.consumidores.totalGeral));
-  $J('#modalConsumidoresPerc').text(`(${STATE.consumidores.percGeral.toFixed(1)}%)`);
-
-  LogHelper.log("Modal data updated successfully");
+  LogHelper.log('Modal data update skipped (chart-only mode)');
 }
 
 /**
  * Render modal pie chart
  */
 function renderModalChart() {
-  LogHelper.log("Rendering modal chart...");
+  LogHelper.log('Rendering modal chart...');
 
   const ctx = document.getElementById('modalConsumptionPieChart');
   if (!ctx) {
-    LogHelper.warn("Modal chart canvas not found");
+    LogHelper.warn('Modal chart canvas not found');
     return;
   }
 
@@ -847,7 +837,7 @@ function renderModalChart() {
         STATE.consumidores.elevadores.total,
         STATE.consumidores.escadasRolantes.total,
         STATE.consumidores.lojas.total,
-        STATE.consumidores.outros ? STATE.consumidores.outros.total : 0
+        STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
       ]
     : [
         STATE.consumidores.climatizacao.total,
@@ -855,7 +845,7 @@ function renderModalChart() {
         STATE.consumidores.escadasRolantes.total,
         STATE.consumidores.lojas.total,
         STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
-        STATE.consumidores.areaComum.total
+        STATE.consumidores.areaComum.total,
       ];
 
   const colors = hideAreaComum
@@ -864,7 +854,7 @@ function renderModalChart() {
         CHART_COLORS.elevadores,
         CHART_COLORS.escadasRolantes,
         CHART_COLORS.lojas,
-        CHART_COLORS.outros
+        CHART_COLORS.outros,
       ]
     : [
         CHART_COLORS.climatizacao,
@@ -872,34 +862,36 @@ function renderModalChart() {
         CHART_COLORS.escadasRolantes,
         CHART_COLORS.lojas,
         CHART_COLORS.outros,
-        CHART_COLORS.areaComum
+        CHART_COLORS.areaComum,
       ];
 
   const labels = hideAreaComum
-    ? ['Climatização','Elevadores','Esc. Rolantes','Lojas','Outros']
-    : ['Climatização','Elevadores','Esc. Rolantes','Lojas','Outros','Área Comum'];
+    ? ['Climatização', 'Elevadores', 'Esc. Rolantes', 'Lojas', 'Outros']
+    : ['Climatização', 'Elevadores', 'Esc. Rolantes', 'Lojas', 'Outros', 'Área Comum'];
 
   modalPieChartInstance = new Chart(ctx, {
     type: 'pie',
     data: {
       labels: labels,
-      datasets: [{
-        data: data,
-        backgroundColor: colors,
-        borderColor: '#FFFFFF',
-        borderWidth: 3,
-        hoverOffset: 12
-      }]
+      datasets: [
+        {
+          data: data,
+          backgroundColor: colors,
+          borderColor: '#FFFFFF',
+          borderWidth: 3,
+          hoverOffset: 12,
+        },
+      ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: true,
       layout: {
-        padding: 0
+        padding: 0,
       },
       plugins: {
         legend: {
-          display: false
+          display: false,
         },
         tooltip: {
           backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -910,29 +902,29 @@ function renderModalChart() {
           padding: 12,
           displayColors: true,
           callbacks: {
-            label: function(context) {
+            label: function (context) {
               const label = context.label || '';
               const value = context.parsed || 0;
               const total = context.dataset.data.reduce((a, b) => a + b, 0);
-              const perc = total > 0 ? (value / total * 100).toFixed(1) : 0;
+              const perc = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
               return `${label}: ${formatEnergy(value)} (${perc}%)`;
-            }
-          }
-        }
+            },
+          },
+        },
       },
       animation: {
         animateRotate: true,
         animateScale: true,
         duration: 800,
-        easing: 'easeOutQuart'
-      }
-    }
+        easing: 'easeOutQuart',
+      },
+    },
   });
 
   // Render modal legend
   renderModalChartLegend();
 
-  LogHelper.log("Modal chart rendered successfully");
+  LogHelper.log('Modal chart rendered successfully');
 }
 
 /**
@@ -944,24 +936,58 @@ function renderModalChartLegend() {
   const hideAreaComum = WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms;
 
   const items = [
-    { label: 'Climatização', color: CHART_COLORS.climatizacao, value: STATE.consumidores.climatizacao.total, perc: STATE.consumidores.climatizacao.perc },
-    { label: 'Elevadores', color: CHART_COLORS.elevadores, value: STATE.consumidores.elevadores.total, perc: STATE.consumidores.elevadores.perc },
-    { label: 'Esc. Rolantes', color: CHART_COLORS.escadasRolantes, value: STATE.consumidores.escadasRolantes.total, perc: STATE.consumidores.escadasRolantes.perc },
-    { label: 'Lojas', color: CHART_COLORS.lojas, value: STATE.consumidores.lojas.total, perc: STATE.consumidores.lojas.perc },
-    { label: 'Outros', color: CHART_COLORS.outros, value: STATE.consumidores.outros ? STATE.consumidores.outros.total : 0, perc: STATE.consumidores.outros ? STATE.consumidores.outros.perc : 0 }
+    {
+      label: 'Climatização',
+      color: CHART_COLORS.climatizacao,
+      value: STATE.consumidores.climatizacao.total,
+      perc: STATE.consumidores.climatizacao.perc,
+    },
+    {
+      label: 'Elevadores',
+      color: CHART_COLORS.elevadores,
+      value: STATE.consumidores.elevadores.total,
+      perc: STATE.consumidores.elevadores.perc,
+    },
+    {
+      label: 'Esc. Rolantes',
+      color: CHART_COLORS.escadasRolantes,
+      value: STATE.consumidores.escadasRolantes.total,
+      perc: STATE.consumidores.escadasRolantes.perc,
+    },
+    {
+      label: 'Lojas',
+      color: CHART_COLORS.lojas,
+      value: STATE.consumidores.lojas.total,
+      perc: STATE.consumidores.lojas.perc,
+    },
+    {
+      label: 'Outros',
+      color: CHART_COLORS.outros,
+      value: STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
+      perc: STATE.consumidores.outros ? STATE.consumidores.outros.perc : 0,
+    },
   ];
 
   // Only add Área Comum if not hidden
   if (!hideAreaComum) {
-    items.push({ label: 'Área Comum', color: CHART_COLORS.areaComum, value: STATE.consumidores.areaComum.total, perc: STATE.consumidores.areaComum.perc });
+    items.push({
+      label: 'Área Comum',
+      color: CHART_COLORS.areaComum,
+      value: STATE.consumidores.areaComum.total,
+      perc: STATE.consumidores.areaComum.perc,
+    });
   }
 
-  items.forEach(item => {
-    const html = `<div class="legend-item"><div class="legend-color" style="background: ${item.color}"></div><span class="legend-label">${item.label}:</span><span class="legend-value">${formatEnergy(item.value)}</span></div>`;
+  items.forEach((item) => {
+    const html = `<div class="legend-item"><div class="legend-color" style="background: ${
+      item.color
+    }"></div><span class="legend-label">${item.label}:</span><span class="legend-value">${formatEnergy(
+      item.value
+    )}</span></div>`;
     $legend.append(html);
   });
 
-  LogHelper.log("Modal chart legend rendered (6 categories)");
+  LogHelper.log('Modal chart legend rendered (6 categories)');
 }
 
 /**
@@ -976,15 +1002,15 @@ function updateDisplay() {
     if (WIDGET_DOMAIN === 'water') {
       renderWaterStats();
       renderWaterPieChart();
-      LogHelper.log("[RFC-0002 Water] Display updated successfully");
+      LogHelper.log('[RFC-0002 Water] Display updated successfully');
     } else {
       // Default: energy domain
       renderStats();
       renderPieChart();
-      LogHelper.log("Display updated successfully");
+      LogHelper.log('Display updated successfully');
     }
   } catch (error) {
-    LogHelper.error("Error updating display:", error);
+    LogHelper.error('Error updating display:', error);
   }
 }
 
@@ -994,10 +1020,10 @@ function updateDisplay() {
  * Process orchestrator data
  */
 function processOrchestratorData(items) {
-  LogHelper.log("Processing orchestrator data:", items.length, "items");
+  LogHelper.log('Processing orchestrator data:', items.length, 'items');
 
   if (!items || items.length === 0) {
-    LogHelper.warn("No data to process");
+    LogHelper.warn('No data to process');
 
     // Reset to empty state
     STATE.entrada.devices = [];
@@ -1040,7 +1066,7 @@ const RECEIVED_DATA = {
   climatizacao: null,
   elevadores: null,
   escadas_rolantes: null,
-  outros: null
+  outros: null,
 };
 
 /**
@@ -1048,10 +1074,12 @@ const RECEIVED_DATA = {
  * RFC-0056 FIX v1.1: Evento Ãºnico com detail.type discriminador
  */
 function setupTelemetryListener() {
-  telemetryUpdateHandler = function(ev) {
+  telemetryUpdateHandler = function (ev) {
     const { type, domain, periodKey, timestamp, source, data } = ev.detail || {};
 
-    LogHelper.log(`[RFC-0056] Received telemetry update: type=${type}, source=${source}, periodKey=${periodKey}`);
+    LogHelper.log(
+      `[RFC-0056] Received telemetry update: type=${type}, source=${source}, periodKey=${periodKey}`
+    );
 
     // Validar domÃ­nio
     if (domain !== WIDGET_DOMAIN) {
@@ -1110,32 +1138,32 @@ function handleAreaComumBreakdown(data, timestamp, periodKey) {
     total: data.climatizacao_kWh,
     totalMWh: data.climatizacao_MWh,
     timestamp,
-    periodKey
+    periodKey,
   };
   RECEIVED_DATA.elevadores = {
     total: data.elevadores_kWh,
     totalMWh: data.elevadores_MWh,
     timestamp,
-    periodKey
+    periodKey,
   };
   RECEIVED_DATA.escadas_rolantes = {
     total: data.escadas_rolantes_kWh,
     totalMWh: data.escadas_rolantes_MWh,
     timestamp,
-    periodKey
+    periodKey,
   };
   RECEIVED_DATA.outros = {
     total: data.outros_kWh,
     totalMWh: data.outros_MWh,
     timestamp,
-    periodKey
+    periodKey,
   };
 
   LogHelper.log(`[RFC-0056] âœ… AreaComum breakdown updated:`, {
     climatizacao: data.climatizacao_MWh,
     elevadores: data.elevadores_MWh,
     escadas_rolantes: data.escadas_rolantes_MWh,
-    outros: data.outros_MWh
+    outros: data.outros_MWh,
   });
 
   // Agendar recalculo com debounce
@@ -1227,7 +1255,9 @@ function recalculateWithReceivedData() {
 
   // RFC-0056: When water domain has bathrooms, consolidate área comum into "outros"
   if (WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms && STATE.consumidores.areaComum.total > 0) {
-    LogHelper.log(`[RFC-0056] Consolidating área comum (${STATE.consumidores.areaComum.total.toFixed(2)}) into outros`);
+    LogHelper.log(
+      `[RFC-0056] Consolidating área comum (${STATE.consumidores.areaComum.total.toFixed(2)}) into outros`
+    );
     STATE.consumidores.outros.total += STATE.consumidores.areaComum.total;
     LogHelper.log(`[RFC-0056] New outros total: ${STATE.consumidores.outros.total.toFixed(2)}`);
     // Set areaComum to 0 since it's now consolidated into outros
@@ -1247,24 +1277,18 @@ function recalculateWithReceivedData() {
 
   // Recalcular percentuais (RFC-0056: Baseados em Total Consumidores, nÃ£o em Entrada)
   const totalConsumidores = STATE.consumidores.totalGeral;
-  STATE.consumidores.lojas.perc = totalConsumidores > 0
-    ? (STATE.consumidores.lojas.total / totalConsumidores) * 100
-    : 0;
-  STATE.consumidores.climatizacao.perc = totalConsumidores > 0
-    ? (STATE.consumidores.climatizacao.total / totalConsumidores) * 100
-    : 0;
-  STATE.consumidores.elevadores.perc = totalConsumidores > 0
-    ? (STATE.consumidores.elevadores.total / totalConsumidores) * 100
-    : 0;
-  STATE.consumidores.escadasRolantes.perc = totalConsumidores > 0
-    ? (STATE.consumidores.escadasRolantes.total / totalConsumidores) * 100
-    : 0;
-  STATE.consumidores.outros.perc = totalConsumidores > 0
-    ? (STATE.consumidores.outros.total / totalConsumidores) * 100
-    : 0;
-  STATE.consumidores.areaComum.perc = totalConsumidores > 0
-    ? (STATE.consumidores.areaComum.total / totalConsumidores) * 100
-    : 0;
+  STATE.consumidores.lojas.perc =
+    totalConsumidores > 0 ? (STATE.consumidores.lojas.total / totalConsumidores) * 100 : 0;
+  STATE.consumidores.climatizacao.perc =
+    totalConsumidores > 0 ? (STATE.consumidores.climatizacao.total / totalConsumidores) * 100 : 0;
+  STATE.consumidores.elevadores.perc =
+    totalConsumidores > 0 ? (STATE.consumidores.elevadores.total / totalConsumidores) * 100 : 0;
+  STATE.consumidores.escadasRolantes.perc =
+    totalConsumidores > 0 ? (STATE.consumidores.escadasRolantes.total / totalConsumidores) * 100 : 0;
+  STATE.consumidores.outros.perc =
+    totalConsumidores > 0 ? (STATE.consumidores.outros.total / totalConsumidores) * 100 : 0;
+  STATE.consumidores.areaComum.perc =
+    totalConsumidores > 0 ? (STATE.consumidores.areaComum.total / totalConsumidores) * 100 : 0;
   STATE.consumidores.percGeral = 100; // Total Consumidores Ã© sempre 100% de si mesmo
 
   // ValidaÃ§Ã£o: Total consumidores vs Entrada
@@ -1272,7 +1296,13 @@ function recalculateWithReceivedData() {
   const tolerance = STATE.entrada.total * 0.02; // 2%
 
   if (diff > tolerance) {
-    LogHelper.warn(`[RFC-0056] âš ï¸ Validation warning: Entrada (${STATE.entrada.total.toFixed(2)} kWh) != Total Consumidores (${STATE.consumidores.totalGeral.toFixed(2)} kWh), diff: ${diff.toFixed(2)} kWh`);
+    LogHelper.warn(
+      `[RFC-0056] Validation warning: Entrada (${STATE.entrada.total.toFixed(
+        2
+      )} kWh) != Total Consumidores (${STATE.consumidores.totalGeral.toFixed(2)} kWh), diff: ${diff.toFixed(
+        2
+      )} kWh`
+    );
     showValidationWarning(diff);
   } else {
     hideValidationWarning();
@@ -1293,11 +1323,15 @@ function recalculateWithReceivedData() {
 function processWaterTelemetryData(eventDetail) {
   const { context, total, devices, periodKey, banheirosBreakdown } = eventDetail;
 
-  LogHelper.log(`[RFC-0002 Water] Received data: context=${context}, total=${total} m³, devices=${devices?.length || 0}`);
+  LogHelper.log(
+    `[RFC-0002 Water] Received data: context=${context}, total=${total} m³, devices=${devices?.length || 0}`
+  );
 
   // Validate period key
   if (periodKey && STATE_WATER.periodKey && periodKey !== STATE_WATER.periodKey) {
-    LogHelper.warn(`[RFC-0002 Water] Period mismatch: received ${periodKey}, current ${STATE_WATER.periodKey}`);
+    LogHelper.warn(
+      `[RFC-0002 Water] Period mismatch: received ${periodKey}, current ${STATE_WATER.periodKey}`
+    );
     return;
   }
 
@@ -1325,12 +1359,20 @@ function processWaterTelemetryData(eventDetail) {
         // Banheiros data from areaComum widget (devices with "banheiro" in label/identifier)
         STATE_WATER.banheiros.total = banheirosBreakdown.banheiros?.total || 0;
         STATE_WATER.banheiros.devices = banheirosBreakdown.banheiros?.devices || [];
-        LogHelper.log(`[RFC-0002 Water] Banheiros extracted from areaComum: ${STATE_WATER.banheiros.total.toFixed(2)} m³ (${STATE_WATER.banheiros.devices.length} devices)`);
+        LogHelper.log(
+          `[RFC-0002 Water] Banheiros extracted from areaComum: ${STATE_WATER.banheiros.total.toFixed(
+            2
+          )} m³ (${STATE_WATER.banheiros.devices.length} devices)`
+        );
 
         // Área Comum = only outros (non-bathroom devices)
         STATE_WATER.areaComum.total = banheirosBreakdown.outros?.total || 0;
         STATE_WATER.areaComum.devices = banheirosBreakdown.outros?.devices || [];
-        LogHelper.log(`[RFC-0002 Water] Área Comum (outros): ${STATE_WATER.areaComum.total.toFixed(2)} m³ (${STATE_WATER.areaComum.devices.length} devices)`);
+        LogHelper.log(
+          `[RFC-0002 Water] Área Comum (outros): ${STATE_WATER.areaComum.total.toFixed(2)} m³ (${
+            STATE_WATER.areaComum.devices.length
+          } devices)`
+        );
       } else {
         // No breakdown or banheiros disabled - use full areaComum
         STATE_WATER.areaComum.total = total || 0;
@@ -1358,7 +1400,7 @@ function processWaterTelemetryData(eventDetail) {
     lojas: STATE_WATER.lojas.total,
     banheiros: STATE_WATER.banheiros.total,
     areaComum: STATE_WATER.areaComum.total,
-    pontosNaoMapeados: STATE_WATER.pontosNaoMapeados.total
+    pontosNaoMapeados: STATE_WATER.pontosNaoMapeados.total,
   });
 }
 
@@ -1389,10 +1431,14 @@ function calculateWaterPontosNaoMapeados() {
   STATE_WATER.grandTotal = medidosTotal + (hasInconsistency ? 0 : naoMapeados);
 
   if (hasInconsistency) {
-    LogHelper.warn(`[RFC-0002 Water] ⚠️ Inconsistency detected: entrada (${entrada} m³) < medidos (${medidosTotal} m³)`);
+    LogHelper.warn(
+      `[RFC-0002 Water] [WARNING] Inconsistency detected: entrada (${entrada} m³) < medidos (${medidosTotal} m³)`
+    );
   }
 
-  LogHelper.log(`[RFC-0002 Water] Calculated pontos não mapeados: ${STATE_WATER.pontosNaoMapeados.total.toFixed(2)} m³`);
+  LogHelper.log(
+    `[RFC-0002 Water] Calculated pontos não mapeados: ${STATE_WATER.pontosNaoMapeados.total.toFixed(2)} m³`
+  );
 }
 
 /**
@@ -1420,7 +1466,7 @@ function calculateWaterPercentages() {
     lojas: STATE_WATER.lojas.perc.toFixed(1) + '%',
     banheiros: STATE_WATER.banheiros.perc.toFixed(1) + '%',
     areaComum: STATE_WATER.areaComum.perc.toFixed(1) + '%',
-    naoMapeados: STATE_WATER.pontosNaoMapeados.perc.toFixed(1) + '%'
+    naoMapeados: STATE_WATER.pontosNaoMapeados.perc.toFixed(1) + '%',
   });
 }
 
@@ -1484,7 +1530,9 @@ function renderWaterStats() {
   if (STATE_WATER.pontosNaoMapeados.hasInconsistency) {
     const $totalCardTitle = $$('.total-card .card-title');
     if ($totalCardTitle.length && !$totalCardTitle.find('.validation-warning').length) {
-      $totalCardTitle.append(' <span class="validation-warning" style="color: #FF6B6B; font-size: 0.9em;" title="Inconsistência: soma dos medidos > entrada">⚠️</span>');
+      $totalCardTitle.append(
+        ' <span class="validation-warning" style="color: #FF6B6B; font-size: 0.9em;" title="Inconsistência: soma dos medidos > entrada">[WARNING]</span>'
+      );
     }
   } else {
     $$('.total-card .validation-warning').remove();
@@ -1504,27 +1552,42 @@ function renderWaterPieChart() {
     lojas: self.ctx.settings?.waterChartColors?.lojas || '#FFC107',
     banheiros: self.ctx.settings?.waterChartColors?.banheiros || '#2196F3',
     areaComum: self.ctx.settings?.waterChartColors?.areaComum || '#4CAF50',
-    pontosNaoMapeados: self.ctx.settings?.waterChartColors?.pontosNaoMapeados || '#9E9E9E'
+    pontosNaoMapeados: self.ctx.settings?.waterChartColors?.pontosNaoMapeados || '#9E9E9E',
   };
 
   // Build chart data based on includeBathrooms setting
   const chartData = [
-    { label: 'Lojas', color: colors.lojas, value: STATE_WATER.lojas.total, perc: STATE_WATER.lojas.perc }
+    { label: 'Lojas', color: colors.lojas, value: STATE_WATER.lojas.total, perc: STATE_WATER.lojas.perc },
   ];
 
   // Add banheiros if enabled
   if (STATE_WATER.includeBathrooms) {
-    chartData.push({ label: 'Banheiros', color: colors.banheiros, value: STATE_WATER.banheiros.total, perc: STATE_WATER.banheiros.perc });
+    chartData.push({
+      label: 'Banheiros',
+      color: colors.banheiros,
+      value: STATE_WATER.banheiros.total,
+      perc: STATE_WATER.banheiros.perc,
+    });
   }
 
   // Add remaining contexts
   chartData.push(
-    { label: 'Área Comum', color: colors.areaComum, value: STATE_WATER.areaComum.total, perc: STATE_WATER.areaComum.perc },
-    { label: 'Pontos Não Mapeados', color: colors.pontosNaoMapeados, value: STATE_WATER.pontosNaoMapeados.total, perc: STATE_WATER.pontosNaoMapeados.perc }
+    {
+      label: 'Área Comum',
+      color: colors.areaComum,
+      value: STATE_WATER.areaComum.total,
+      perc: STATE_WATER.areaComum.perc,
+    },
+    {
+      label: 'Pontos Não Mapeados',
+      color: colors.pontosNaoMapeados,
+      value: STATE_WATER.pontosNaoMapeados.total,
+      perc: STATE_WATER.pontosNaoMapeados.perc,
+    }
   );
 
   // Filter out zero values
-  const validData = chartData.filter(item => item.value > 0);
+  const validData = chartData.filter((item) => item.value > 0);
 
   if (validData.length === 0) {
     LogHelper.warn('[RFC-0002 Water] No data to render chart');
@@ -1541,13 +1604,15 @@ function renderWaterPieChart() {
     pieChartInstance = new Chart(chartCanvas.getContext('2d'), {
       type: 'pie',
       data: {
-        labels: validData.map(item => item.label),
-        datasets: [{
-          data: validData.map(item => item.value),
-          backgroundColor: validData.map(item => item.color),
-          borderWidth: 2,
-          borderColor: '#fff'
-        }]
+        labels: validData.map((item) => item.label),
+        datasets: [
+          {
+            data: validData.map((item) => item.value),
+            backgroundColor: validData.map((item) => item.color),
+            borderWidth: 2,
+            borderColor: '#fff',
+          },
+        ],
       },
       options: {
         responsive: true,
@@ -1556,16 +1621,16 @@ function renderWaterPieChart() {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: function(context) {
+              label: function (context) {
                 const label = context.label || '';
                 const value = formatValue(context.parsed, 'water');
                 const perc = validData[context.dataIndex].perc.toFixed(1);
                 return `${label}: ${value} (${perc}%)`;
-              }
-            }
-          }
-        }
-      }
+              },
+            },
+          },
+        },
+      },
     });
   }
 
@@ -1573,7 +1638,7 @@ function renderWaterPieChart() {
   const $legend = $$('#chartLegend');
   if ($legend.length > 0) {
     $legend.empty();
-    validData.forEach(item => {
+    validData.forEach((item) => {
       $legend.append(`
         <div class="legend-item">
           <span class="legend-color" style="background-color: ${item.color};"></span>
@@ -1612,7 +1677,6 @@ function tryLoadFromCache() {
       handleAreaComumBreakdown(payload.data, payload.timestamp, payload.periodKey);
       LogHelper.log('[RFC-0056] ðŸ“¦ Loaded areacomum from cache');
     }
-
   } catch (err) {
     LogHelper.warn('[RFC-0056] Cache load failed:', err);
   }
@@ -1634,10 +1698,10 @@ function startFallbackTimeout() {
           domain: WIDGET_DOMAIN,
           periodKey: periodKey,
           timestamp: Date.now(),
-          source: 'TELEMETRY_INFO'
+          source: 'TELEMETRY_INFO',
         },
         bubbles: true,
-        cancelable: false
+        cancelable: false,
       });
 
       window.dispatchEvent(event);
@@ -1669,10 +1733,14 @@ function buildCurrentPeriodKey() {
  * RFC-0056 FIX v1.1: Ajuda debugging sem console
  */
 function showValidationWarning(diff) {
-  // Adicionar âš ï¸ no card Total Consumidores
+  // Adicionar warning icon no card Total Consumidores
   const $totalCard = $$('.total-card .card-title');
   if ($totalCard.length && !$totalCard.find('.validation-warning').length) {
-    $totalCard.append(' <span class="validation-warning" style="color: #FF6B6B; font-size: 0.9em;" title="DiferenÃ§a de ' + diff.toFixed(2) + ' kWh detectada">âš ï¸</span>');
+    $totalCard.append(
+      ' <span class="validation-warning" style="color: #FF6B6B; font-size: 0.9em;" title="DiferenÃ§a de ' +
+        diff.toFixed(2) +
+        ' kWh detectada">!</span>'
+    );
   }
 }
 
@@ -1685,40 +1753,39 @@ function hideValidationWarning() {
 
 // ===================== WIDGET LIFECYCLE =====================
 
-self.onInit = async function() {
-  LogHelper.log("Widget initializing (RFC-0056)...");
+self.onInit = async function () {
+  LogHelper.log('Widget initializing (RFC-0056)...');
 
   // RFC-0056 FIX: Expose openModal globally IMMEDIATELY for onclick handler
   window.TELEMETRY_INFO_openModal = openModal;
   window.TELEMETRY_INFO_closeModal = closeModal;
-  LogHelper.log("âœ… Modal functions exposed globally");
+  LogHelper.log('âœ… Modal functions exposed globally');
 
   // RFC-0056 FIX: Move modal to body immediately (but keep it hidden) to escape widget constraints
   setTimeout(() => {
     const $modal = $J('#modalExpanded');
     if ($modal.length > 0 && $modal.parent()[0] !== document.body) {
-      console.log("[TELEMETRY_INFO] ðŸ“¦ INIT: Moving modal to body (keeping it hidden)");
+      console.log('[TELEMETRY_INFO] ðŸ“¦ INIT: Moving modal to body (keeping it hidden)');
       $modal.detach().appendTo(document.body);
       // Ensure it stays hidden with ULTRA z-index
       $modal.css({
-        'display': 'none',
-        'z-index': '2147483647' // Maximum 32-bit integer
+        display: 'none',
+        'z-index': '2147483647', // Maximum 32-bit integer
       });
-      console.log("[TELEMETRY_INFO] âœ… INIT: Modal moved to body and hidden with max z-index");
+      console.log('[TELEMETRY_INFO] âœ… INIT: Modal moved to body and hidden with max z-index');
     }
   }, 100);
 
   // Setup container styles
   $root().css({
-    height: "100%",
-    overflow: "auto",
-    display: "flex",
-    flexDirection: "column",
-    position: "relative"
+    height: '100%',
+    overflow: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    position: 'relative',
   });
 
   // Load settings
-  DEBUG_ACTIVE = self.ctx.settings?.DEBUG_ACTIVE || false;
   WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
   SHOW_DEVICES_LIST = self.ctx.settings?.showDevicesList || false;
 
@@ -1733,14 +1800,13 @@ self.onInit = async function() {
     escadasRolantes: self.ctx.settings?.chartColors?.escadasRolantes || '#FF6B6B',
     lojas: self.ctx.settings?.chartColors?.lojas || '#FFC107',
     outros: self.ctx.settings?.chartColors?.outros || '#9C27B0',
-    areaComum: self.ctx.settings?.chartColors?.areaComum || '#4CAF50'
+    areaComum: self.ctx.settings?.chartColors?.areaComum || '#4CAF50',
   };
 
-  LogHelper.log("Settings loaded:", {
+  LogHelper.log('Settings loaded:', {
     domain: WIDGET_DOMAIN,
     showDevicesList: SHOW_DEVICES_LIST,
-    debugActive: DEBUG_ACTIVE,
-    chartColors: CHART_COLORS
+    chartColors: CHART_COLORS,
   });
 
   // RFC-0056: Migration - Ensure 'outros' exists in STATE (for backwards compatibility)
@@ -1756,7 +1822,8 @@ self.onInit = async function() {
   const domainConfig = getDomainLabel(WIDGET_DOMAIN);
 
   // Priority: 1) Manual config from settings, 2) Auto from domain
-  const widgetLabel = self.ctx.settings?.labelWidget || `${domainConfig.icon} Informações de ${domainConfig.title}`;
+  const widgetLabel =
+    self.ctx.settings?.labelWidget || `${domainConfig.icon} Informações de ${domainConfig.title}`;
   const modalLabel = self.ctx.settings?.modalTitle || `Distribuição de Consumo de ${domainConfig.title}`;
 
   // Update header title
@@ -1774,7 +1841,7 @@ self.onInit = async function() {
   LogHelper.log(`[RFC-0002] Títulos atualizados: domain=${WIDGET_DOMAIN}, title=${domainConfig.title}`);
 
   // Listen for orchestrator data
-  dataProvideHandler = function(ev) {
+  dataProvideHandler = function (ev) {
     const { domain, periodKey, items } = ev.detail;
 
     // Only process my domain
@@ -1799,8 +1866,8 @@ self.onInit = async function() {
 
   // RFC-0002: Listen for water domain events
   if (WIDGET_DOMAIN === 'water') {
-    waterProvideHandler = function(ev) {
-      const { domain, context, total, devices, periodKey } = ev.detail;
+    waterProvideHandler = function (ev) {
+      const { domain, context } = ev.detail;
 
       // Only process water domain
       if (domain !== 'water') {
@@ -1818,7 +1885,7 @@ self.onInit = async function() {
   }
 
   // Listen for clear cache event from HEADER
-  clearCacheHandler = function(ev) {
+  clearCacheHandler = function (ev) {
     const { domain } = ev.detail || {};
 
     // Only process if it's for my domain
@@ -1832,16 +1899,47 @@ self.onInit = async function() {
     // RFC-0002: Clear domain-specific STATE
     if (domain === 'water') {
       // Clear water state
-      STATE_WATER.entrada = { context: 'entrada', devices: [], total: 0, perc: 100, source: 'widget-telemetry-entrada' };
-      STATE_WATER.lojas = { context: 'lojas', devices: [], total: 0, perc: 0, source: 'widget-telemetry-lojas' };
-      STATE_WATER.banheiros = { context: 'banheiros', devices: [], total: 0, perc: 0, source: 'widget-telemetry-area-comum (banheiros breakdown)' };
-      STATE_WATER.areaComum = { context: 'areaComum', devices: [], total: 0, perc: 0, source: 'widget-telemetry-area-comum (outros)' };
-      STATE_WATER.pontosNaoMapeados = { context: 'pontosNaoMapeados', devices: [], total: 0, perc: 0, isCalculated: true, hasInconsistency: false };
+      STATE_WATER.entrada = {
+        context: 'entrada',
+        devices: [],
+        total: 0,
+        perc: 100,
+        source: 'widget-telemetry-entrada',
+      };
+      STATE_WATER.lojas = {
+        context: 'lojas',
+        devices: [],
+        total: 0,
+        perc: 0,
+        source: 'widget-telemetry-lojas',
+      };
+      STATE_WATER.banheiros = {
+        context: 'banheiros',
+        devices: [],
+        total: 0,
+        perc: 0,
+        source: 'widget-telemetry-area-comum (banheiros breakdown)',
+      };
+      STATE_WATER.areaComum = {
+        context: 'areaComum',
+        devices: [],
+        total: 0,
+        perc: 0,
+        source: 'widget-telemetry-area-comum (outros)',
+      };
+      STATE_WATER.pontosNaoMapeados = {
+        context: 'pontosNaoMapeados',
+        devices: [],
+        total: 0,
+        perc: 0,
+        isCalculated: true,
+        hasInconsistency: false,
+      };
       STATE_WATER.grandTotal = 0;
       STATE_WATER.periodKey = null;
       STATE_WATER.lastUpdate = null;
       // Note: includeBathrooms is preserved from settings, not cleared
-      LogHelper.log("[CLEAR] Water state cleared");
+      LogHelper.log('[CLEAR] Water state cleared');
     } else {
       // Clear energy state (default)
       STATE.entrada = { devices: [], total: 0, perc: 100 };
@@ -1853,7 +1951,7 @@ self.onInit = async function() {
         outros: { devices: [], total: 0, perc: 0 },
         areaComum: { devices: [], total: 0, perc: 0 },
         totalGeral: 0,
-        percGeral: 0
+        percGeral: 0,
       };
 
       // Clear RECEIVED_DATA
@@ -1864,7 +1962,7 @@ self.onInit = async function() {
       RECEIVED_DATA.lojas = null;
       RECEIVED_DATA.outros = null;
 
-      LogHelper.log("[CLEAR] Energy state cleared");
+      LogHelper.log('[CLEAR] Energy state cleared');
     }
 
     // Reset period key
@@ -1873,7 +1971,7 @@ self.onInit = async function() {
     // Update display with cleared data
     updateDisplay();
 
-    LogHelper.log("[CLEAR] ✅ Widget data cleared and display updated");
+    LogHelper.log('[CLEAR] ✅ Widget data cleared and display updated');
   };
 
   window.addEventListener('myio:telemetry:clear', clearCacheHandler);
@@ -1882,8 +1980,8 @@ self.onInit = async function() {
   setupTelemetryListener();
 
   // Listen for date updates
-  dateUpdateHandler = function(ev) {
-    LogHelper.log("Date updated:", ev.detail);
+  dateUpdateHandler = function (ev) {
+    LogHelper.log('Date updated:', ev.detail);
 
     // Update widget scope
     const { startISO, endISO } = ev.detail.period || {};
@@ -1907,21 +2005,21 @@ self.onInit = async function() {
 
       // Use stored data if less than 30 seconds old
       if (age < 30000 && storedData.items && storedData.items.length > 0) {
-        LogHelper.log("Using stored orchestrator data (age:", age, "ms)");
+        LogHelper.log('Using stored orchestrator data (age:', age, 'ms)');
         processOrchestratorData(storedData.items);
       } else {
-        LogHelper.log("Stored data is stale or empty (age:", age, "ms)");
+        LogHelper.log('Stored data is stale or empty (age:', age, 'ms)');
       }
     } else {
-      LogHelper.log("No stored orchestrator data found");
+      LogHelper.log('No stored orchestrator data found');
     }
   }, 500);
 
   // Setup modal event listeners (RFC-0056: Using event delegation for robustness)
   const $container = $root();
 
-  LogHelper.log("Setting up modal event listeners...");
-  LogHelper.log("Container:", $container.length > 0 ? "found" : "NOT FOUND");
+  LogHelper.log('Setting up modal event listeners...');
+  LogHelper.log('Container:', $container.length > 0 ? 'found' : 'NOT FOUND');
 
   // RFC-0056 FIX: Immediate button binding (no setTimeout)
   // Use multiple selectors to ensure button is found
@@ -1931,24 +2029,24 @@ self.onInit = async function() {
     const $btn2 = $container.find('.btn-expand');
     const $btn3 = $root().find('#btnExpandModal');
 
-    const $btn = $btn1.length > 0 ? $btn1 : ($btn2.length > 0 ? $btn2 : $btn3);
+    const $btn = $btn1.length > 0 ? $btn1 : $btn2.length > 0 ? $btn2 : $btn3;
 
-    LogHelper.log("Expand button found:", $btn.length > 0 ? "YES" : "NO");
+    LogHelper.log('Expand button found:', $btn.length > 0 ? 'YES' : 'NO');
 
     if ($btn.length > 0) {
-      LogHelper.log("Button HTML:", $btn[0].outerHTML);
+      LogHelper.log('Button HTML:', $btn[0].outerHTML);
 
       // DIRECT binding (no delegation needed since button is in widget container)
-      $btn.off('click').on('click', function(e) {
+      $btn.off('click').on('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log("[TELEMETRY_INFO] âœ… DIRECT Expand button clicked!"); // Force log
+        console.log('[TELEMETRY_INFO] âœ… DIRECT Expand button clicked!'); // Force log
         openModal();
       });
-      LogHelper.log("âœ… Direct click handler attached to button");
+      LogHelper.log('âœ… Direct click handler attached to button');
       return true;
     } else {
-      LogHelper.error("âŒ Button #btnExpandModal NOT FOUND in container!");
+      LogHelper.error('âŒ Button #btnExpandModal NOT FOUND in container!');
       return false;
     }
   };
@@ -1962,102 +2060,114 @@ self.onInit = async function() {
   }
 
   // Expand button - use delegation on container (PRIMARY)
-  $container.on('click', '#btnExpandModal, .btn-expand', function(e) {
+  $container.on('click', '#btnExpandModal, .btn-expand', function (e) {
     e.preventDefault();
     e.stopPropagation();
-    console.log("[TELEMETRY_INFO] âœ… DELEGATED Expand button clicked!"); // Force log even if DEBUG off
-    LogHelper.log("Expand button clicked (delegated)");
+    console.log('[TELEMETRY_INFO] âœ… DELEGATED Expand button clicked!'); // Force log even if DEBUG off
+    LogHelper.log('Expand button clicked (delegated)');
     openModal();
   });
 
   // Fallback: native DOM listener directly on the element (in case jQuery delegation fails)
   const nativeBtn = document.getElementById('btnExpandModal');
   if (nativeBtn) {
-    nativeBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('[TELEMETRY_INFO] âœ… NATIVE Expand button clicked!');
-      openModal();
-    }, { capture: false });
+    nativeBtn.addEventListener(
+      'click',
+      function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[TELEMETRY_INFO] âœ… NATIVE Expand button clicked!');
+        openModal();
+      },
+      { capture: false }
+    );
   }
   // Also bind by class, in case id changes or duplicates
   const nativeBtnsByClass = document.getElementsByClassName('btn-expand');
   if (nativeBtnsByClass && nativeBtnsByClass.length) {
-    Array.prototype.forEach.call(nativeBtnsByClass, function(el){
-      el.addEventListener('click', function(e){
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('[TELEMETRY_INFO] âœ… NATIVE(.btn-expand) Expand button clicked!');
-        openModal();
-      }, { capture: false });
+    Array.prototype.forEach.call(nativeBtnsByClass, function (el) {
+      el.addEventListener(
+        'click',
+        function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('[TELEMETRY_INFO] âœ… NATIVE(.btn-expand) Expand button clicked!');
+          openModal();
+        },
+        { capture: false }
+      );
     });
   }
 
   // Ultimate fallback: capture-phase on window to intercept the click
-  window.addEventListener('click', function(e) {
-    const t = e.target;
-    if (!t) return;
-    // match self or svg/path inside the button
-    let btn = t.id === 'btnExpandModal' ? t : (t.closest ? t.closest('#btnExpandModal') : null);
-    if (!btn && t.closest) {
-      btn = t.closest('.btn-expand');
-    }
-    if (btn) {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('[TELEMETRY_INFO] âœ… CAPTURE Expand button clicked!');
-      openModal();
-    }
-  }, true);
+  window.addEventListener(
+    'click',
+    function (e) {
+      const t = e.target;
+      if (!t) return;
+      // match self or svg/path inside the button
+      let btn = t.id === 'btnExpandModal' ? t : t.closest ? t.closest('#btnExpandModal') : null;
+      if (!btn && t.closest) {
+        btn = t.closest('.btn-expand');
+      }
+      if (btn) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[TELEMETRY_INFO] âœ… CAPTURE Expand button clicked!');
+        openModal();
+      }
+    },
+    true
+  );
 
   // Close button - delegate to body since modal moves there
-  $J('body').on('click', '#btnCloseModal', function(e) {
+  $J('body').on('click', '#btnCloseModal', function (e) {
     e.preventDefault();
     e.stopPropagation();
-    LogHelper.log("Close button clicked");
+    LogHelper.log('Close button clicked');
     closeModal();
   });
 
   // Close modal on overlay click
-  $J('body').on('click', '#modalExpanded', function(e) {
+  $J('body').on('click', '#modalExpanded', function (e) {
     if (e.target.id === 'modalExpanded') {
-      LogHelper.log("Modal overlay clicked");
+      LogHelper.log('Modal overlay clicked');
       closeModal();
     }
   });
 
   // Close modal on ESC key
-  $J(document).on('keydown.telemetryInfoModal', function(e) {
+  $J(document).on('keydown.telemetryInfoModal', function (e) {
     if (e.key === 'Escape' && $J('#modalExpanded').css('display') === 'flex') {
-      LogHelper.log("ESC key pressed - closing modal");
+      LogHelper.log('ESC key pressed - closing modal');
       closeModal();
     }
   });
 
-  LogHelper.log("Widget initialized successfully (RFC-0056)");
+  LogHelper.log('Widget initialized successfully (RFC-0056)');
 };
 
-self.onDataUpdated = function() {
+self.onDataUpdated = function () {
   // No-op: We rely on orchestrator events, not ThingsBoard datasources
-  LogHelper.log("onDataUpdated called (no-op in orchestrator mode)");
+  LogHelper.log('onDataUpdated called (no-op in orchestrator mode)');
 };
 
-self.onResize = function() {
-  LogHelper.log("Widget resized");
+self.onResize = function () {
+  LogHelper.log('Widget resized');
 
   // Resize chart if it exists
   if (pieChartInstance) {
     try {
       pieChartInstance.resize();
-      LogHelper.log("Chart resized");
+      LogHelper.log('Chart resized');
     } catch (error) {
-      LogHelper.warn("Error resizing chart:", error);
+      LogHelper.warn('Error resizing chart:', error);
     }
   }
 };
 
-self.onDestroy = function() {
-  LogHelper.log("Widget destroying...");
+self.onDestroy = function () {
+  LogHelper.log('Widget destroying...');
 
   // Remove event listeners
   if (dateUpdateHandler) {
@@ -2096,9 +2206,9 @@ self.onDestroy = function() {
     try {
       pieChartInstance.destroy();
       pieChartInstance = null;
-      LogHelper.log("Chart destroyed");
+      LogHelper.log('Chart destroyed');
     } catch (error) {
-      LogHelper.warn("Error destroying chart:", error);
+      LogHelper.warn('Error destroying chart:', error);
     }
   }
 
@@ -2107,39 +2217,41 @@ self.onDestroy = function() {
     try {
       modalPieChartInstance.destroy();
       modalPieChartInstance = null;
-      LogHelper.log("Modal chart destroyed");
+      LogHelper.log('Modal chart destroyed');
     } catch (error) {
-      LogHelper.warn("Error destroying modal chart:", error);
+      LogHelper.warn('Error destroying modal chart:', error);
     }
   }
 
   // Remove modal event listeners (RFC-0056: Cleanup delegated events)
   try {
-  const $container = $root();
+    const $container = $root();
     $container.off('click', '#btnExpandModal');
     $J('body').off('click', '#btnCloseModal');
     $J('body').off('click', '#modalExpanded');
     $J(document).off('keydown.telemetryInfoModal');
-    LogHelper.log("Modal event listeners removed");
+    LogHelper.log('Modal event listeners removed');
   } catch (error) {
-    LogHelper.warn("Error removing modal listeners:", error);
+    LogHelper.warn('Error removing modal listeners:', error);
   }
 
   // Remove modal from body if it was moved there
   try {
     const $modal = $J('#modalExpanded');
     if ($modal.parent()[0] === document.body) {
-      LogHelper.log("Removing modal from body");
+      LogHelper.log('Removing modal from body');
       $modal.remove();
     }
   } catch (error) {
-    LogHelper.warn("Error removing modal from body:", error);
+    LogHelper.warn('Error removing modal from body:', error);
   }
 
   // Clear jQuery event handlers
   try {
     $root().off();
-  } catch (_) {}
+  } catch {
+    // jQuery cleanup may fail if element no longer exists
+  }
 
-  LogHelper.log("Widget destroyed successfully");
+  LogHelper.log('Widget destroyed successfully');
 };

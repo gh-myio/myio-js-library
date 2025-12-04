@@ -1,3 +1,5 @@
+/* global self, window, document */
+
 /* =========================================================================
  * ThingsBoard Widget: Device Cards with Totals & Percentages (MyIO)
  * - Datas obrigatórias: startDateISO / endDateISO
@@ -20,7 +22,13 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
 
 LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
 
-const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
+// RFC-0091: Use shared DATA_API_HOST from MAIN widget via window.MyIOUtils
+const DATA_API_HOST = window.MyIOUtils?.DATA_API_HOST;
+if (!DATA_API_HOST) {
+  console.error(
+    '[TELEMETRY] DATA_API_HOST not available from window.MyIOUtils - MAIN widget must load first'
+  );
+}
 const MAX_FIRST_HYDRATES = 1;
 let MAP_INSTANTANEOUS_POWER;
 
@@ -672,7 +680,9 @@ function showGlobalSuccessModal(seconds = 6) {
       gSuccessTimer = null;
       try {
         window.location.reload();
-      } catch (_) {}
+      } catch {
+        // Reload may fail in restricted contexts (iframe, etc.)
+      }
     }
   }, 1000);
 }
@@ -1707,8 +1717,8 @@ function renderList(visible) {
         }
         const jwt = localStorage.getItem('jwt_token');
         try {
-          // RFC-0080: Get customerId from widget settings for GLOBAL mapInstantaneousPower fetch
-          const customerTbId = self.ctx.settings?.customerTB_ID || null;
+          // RFC-0080 + RFC-0091: Get customerId from MAIN widget via window.MyIOUtils
+          const customerTbId = window.MyIOUtils?.customerTB_ID || null;
 
           await MyIO.openDashboardPopupSettings({
             deviceId: tbId, // TB deviceId
@@ -3103,7 +3113,13 @@ self.onInit = async function () {
   }, 500); // Wait 500ms for widget to fully initialize
 
   // Auth do cliente/ingestion
-  const customerTB_ID = self.ctx.settings?.customerTB_ID || '';
+  // RFC-0091: Use shared customerTB_ID from MAIN widget via window.MyIOUtils
+  const customerTB_ID = window.MyIOUtils?.customerTB_ID;
+  if (!customerTB_ID) {
+    console.error(
+      '[TELEMETRY] customerTB_ID not available from window.MyIOUtils - MAIN widget must load first'
+    );
+  }
   //DEVICE_TYPE = self.ctx.settings?.DEVICE_TYPE || "energy";
   const jwt = localStorage.getItem('jwt_token');
 
@@ -3151,7 +3167,9 @@ self.onInit = async function () {
     LogHelper.log('[DeviceCards] Auth init OK');
     try {
       await MyIOAuth.getToken();
-    } catch (_) {}
+    } catch {
+      // Pre-warming token fetch, failure is non-critical
+    }
   } catch (err) {
     LogHelper.error('[DeviceCards] Auth init FAIL', err);
   }
@@ -3197,25 +3215,6 @@ self.onInit = async function () {
   } else {
     LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] No initial period, waiting for myio:update-date event...`);
   }
-
-  // RFC-0042: OLD CODE - Direct API fetch (now handled by orchestrator)
-  /*
-  if (hasData) {
-    STATE.firstHydrates++;
-    if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) {
-      await hydrateAndRender();
-    }
-  } else {
-    // Aguardar datasource chegar
-    const waiter = setInterval(async () => {
-      if (Array.isArray(self.ctx.data) && self.ctx.data.length > 0) {
-        clearInterval(waiter);
-        STATE.firstHydrates++;
-        if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) await hydrateAndRender();
-      }
-    }, 200);
-  }
-  */
 };
 
 // onDataUpdated removido (no-op por ora)
@@ -3240,7 +3239,9 @@ self.onDestroy = function () {
   }
   try {
     $root().off();
-  } catch (_e) {}
+  } catch {
+    // jQuery cleanup may fail if element no longer exists
+  }
 
   hideBusy();
   hideGlobalSuccessModal();

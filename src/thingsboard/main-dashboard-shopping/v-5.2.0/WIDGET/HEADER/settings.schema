@@ -1,12 +1,16 @@
 {
   "schema": {
     "type": "object",
-    "title": "Settings",
+    "title": "Header Widget Settings",
     "properties": {
-        "customerId":{
+        "labelWidget":{
             "type":"string",
-            "title": "customerId"
+            "title": "Widget Label",
+            "default": "Header de Menu dos Shoppings"
         }
     }
-  }
+  },
+  "form": [
+    "labelWidget"
+  ]
 }

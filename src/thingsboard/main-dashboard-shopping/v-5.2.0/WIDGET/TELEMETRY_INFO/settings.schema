@@ -15,11 +15,6 @@
         "enum": ["energy", "water", "temperature"],
         "description": "Data domain to filter orchestrator data"
       },
-      "customerTB_ID": {
-        "title": "Customer ThingsBoard ID",
-        "type": "string",
-        "description": "ThingsBoard customer ID (required for data filtering)"
-      },
       "showDevicesList": {
         "title": "Show Devices List",
         "type": "boolean",
@@ -68,12 +63,6 @@
           }
         }
       },
-      "DEBUG_ACTIVE": {
-        "title": "Enable Debug Logs",
-        "type": "boolean",
-        "default": false,
-        "description": "Show detailed console logs for debugging"
-      },
       "waterIncludeBathrooms": {
         "title": "Water: Include Bathrooms Card",
         "type": "boolean",
@@ -106,13 +95,11 @@
           }
         }
       }
-    },
-    "required": ["customerTB_ID", "DOMAIN"]
+    }
   },
   "form": [
     "labelWidget",
     "DOMAIN",
-    "customerTB_ID",
     "showDevicesList",
     "chartColors.climatizacao",
     "chartColors.elevadores",
@@ -124,7 +111,6 @@
     "waterChartColors.lojas",
     "waterChartColors.banheiros",
     "waterChartColors.areaComum",
-    "waterChartColors.pontosNaoMapeados",
-    "DEBUG_ACTIVE"
+    "waterChartColors.pontosNaoMapeados"
   ]
 }

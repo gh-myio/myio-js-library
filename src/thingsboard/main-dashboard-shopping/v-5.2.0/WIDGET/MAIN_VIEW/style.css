@@ -165,17 +165,6 @@
   max-width: none;
 }
 
-/*
-  REMOVIDO: Esta regra estava bloqueando scroll nos widgets TELEMETRY
-  Comentado em 2025-10-23 para corrigir bug de scroll
-
-#myio-root .myio-content .tb-child [style*="overflow"],
-#myio-root .myio-content .tb-child .scroll,
-#myio-root .myio-content .tb-child .tb-scroll {
-    overflow: visible;
-}
-*/
-
 /* Scrollbar suave apenas no content */
 #myio-root .myio-content::-webkit-scrollbar {
   width: 10px;
