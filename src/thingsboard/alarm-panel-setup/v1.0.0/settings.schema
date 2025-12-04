@@ -1,8 +1,32 @@
 {
   "schema": {
     "type": "object",
-    "title": "Alarm Profiles Panel Settings",
+    "title": "Alarm Profiles Panel Settings (API-Driven)",
     "properties": {
+      "api": {
+        "type": "object",
+        "title": "API Settings",
+        "properties": {
+          "devicesPageSize": {
+            "type": "number",
+            "title": "Devices page size",
+            "default": 1000,
+            "description": "Maximum number of devices to fetch per customer"
+          },
+          "alarmsPageSize": {
+            "type": "number",
+            "title": "Alarms page size",
+            "default": 500,
+            "description": "Maximum number of alarms to fetch"
+          },
+          "defaultAlarmStatuses": {
+            "type": "string",
+            "title": "Default alarm statuses",
+            "default": "ACTIVE",
+            "description": "Comma-separated list: ACTIVE, CLEARED, ACK"
+          }
+        }
+      },
       "appearance": {
         "type": "object",
         "title": "Appearance",
@@ -21,154 +45,6 @@
             "type": "boolean",
             "title": "Compact mode",
             "default": false
-          }
-        }
-      },
-      "profiles": {
-        "type": "object",
-        "title": "Device Profiles Mapping",
-        "properties": {
-          "profileIdKey": {
-            "type": "string",
-            "title": "Profile ID attribute",
-            "default": "profileId"
-          },
-          "profileNameKey": {
-            "type": "string",
-            "title": "Profile name attribute",
-            "default": "profileName"
-          },
-          "profileCodeKey": {
-            "type": "string",
-            "title": "Profile code attribute",
-            "default": "profileCode"
-          },
-          "profileDescriptionShortKey": {
-            "type": "string",
-            "title": "Short description attribute",
-            "default": "profileDescriptionShort"
-          },
-          "profileDescriptionLongKey": {
-            "type": "string",
-            "title": "Long description attribute",
-            "default": "profileDescriptionLong"
-          },
-          "alarmRulesKey": {
-            "type": "string",
-            "title": "Alarm rules JSON attribute",
-            "default": "alarmRules"
-          },
-          "ruleChainIdKey": {
-            "type": "string",
-            "title": "Rule Chain ID attribute",
-            "default": "ruleChainId"
-          },
-          "ruleChainNameKey": {
-            "type": "string",
-            "title": "Rule Chain name attribute",
-            "default": "ruleChainName"
-          }
-        }
-      },
-      "devices": {
-        "type": "object",
-        "title": "Devices Mapping",
-        "properties": {
-          "deviceProfileIdKey": {
-            "type": "string",
-            "title": "Device profile ID attribute",
-            "default": "deviceProfileId"
-          },
-          "deviceNameKey": {
-            "type": "string",
-            "title": "Device name attribute",
-            "default": "deviceName"
-          },
-          "deviceLabelKey": {
-            "type": "string",
-            "title": "Device label attribute",
-            "default": "deviceLabel"
-          },
-          "locationKey": {
-            "type": "string",
-            "title": "Location attribute",
-            "default": "location"
-          },
-          "severityKey": {
-            "type": "string",
-            "title": "Current alarm severity attribute",
-            "default": "currentAlarmSeverity"
-          },
-          "statusKey": {
-            "type": "string",
-            "title": "Alarm status attribute",
-            "default": "alarmStatus"
-          },
-          "lastAlarmTsKey": {
-            "type": "string",
-            "title": "Last alarm timestamp attribute",
-            "default": "lastAlarmTs"
-          }
-        }
-      },
-      "alarms": {
-        "type": "object",
-        "title": "Alarms Mapping",
-        "properties": {
-          "profileIdKey": {
-            "type": "string",
-            "title": "Profile ID field in alarm",
-            "default": "deviceProfileId"
-          },
-          "alarmIdKey": {
-            "type": "string",
-            "title": "Alarm ID field",
-            "default": "alarmId"
-          },
-          "deviceIdKey": {
-            "type": "string",
-            "title": "Device ID field",
-            "default": "deviceId"
-          },
-          "deviceNameKey": {
-            "type": "string",
-            "title": "Device name field",
-            "default": "deviceName"
-          },
-          "profileNameKey": {
-            "type": "string",
-            "title": "Profile name field",
-            "default": "deviceProfileName"
-          },
-          "ruleChainNameKey": {
-            "type": "string",
-            "title": "Rule Chain name field",
-            "default": "ruleChainName"
-          },
-          "alarmTsKey": {
-            "type": "string",
-            "title": "Alarm timestamp field",
-            "default": "alarmTs"
-          },
-          "statusKey": {
-            "type": "string",
-            "title": "Alarm status field",
-            "default": "status"
-          },
-          "severityKey": {
-            "type": "string",
-            "title": "Alarm severity field",
-            "default": "severity"
-          },
-          "ruleNameKey": {
-            "type": "string",
-            "title": "Alarm rule name field",
-            "default": "ruleName"
-          },
-          "reasonKey": {
-            "type": "string",
-            "title": "Alarm reason/description field",
-            "default": "reason"
           }
         }
       },
@@ -238,56 +114,21 @@
   },
   "form": [
     {
+      "key": "api",
+      "type": "fieldset",
+      "items": [
+        "api.devicesPageSize",
+        "api.alarmsPageSize",
+        "api.defaultAlarmStatuses"
+      ]
+    },
+    {
       "key": "appearance",
       "type": "fieldset",
       "items": [
         "appearance.showHeader",
         "appearance.headerTitle",
         "appearance.compactMode"
-      ]
-    },
-    {
-      "key": "profiles",
-      "type": "fieldset",
-      "items": [
-        "profiles.profileIdKey",
-        "profiles.profileNameKey",
-        "profiles.profileCodeKey",
-        "profiles.profileDescriptionShortKey",
-        "profiles.profileDescriptionLongKey",
-        "profiles.alarmRulesKey",
-        "profiles.ruleChainIdKey",
-        "profiles.ruleChainNameKey"
-      ]
-    },
-    {
-      "key": "devices",
-      "type": "fieldset",
-      "items": [
-        "devices.deviceProfileIdKey",
-        "devices.deviceNameKey",
-        "devices.deviceLabelKey",
-        "devices.locationKey",
-        "devices.severityKey",
-        "devices.statusKey",
-        "devices.lastAlarmTsKey"
-      ]
-    },
-    {
-      "key": "alarms",
-      "type": "fieldset",
-      "items": [
-        "alarms.profileIdKey",
-        "alarms.alarmIdKey",
-        "alarms.deviceIdKey",
-        "alarms.deviceNameKey",
-        "alarms.profileNameKey",
-        "alarms.ruleChainNameKey",
-        "alarms.alarmTsKey",
-        "alarms.statusKey",
-        "alarms.severityKey",
-        "alarms.ruleNameKey",
-        "alarms.reasonKey"
       ]
     },
     {

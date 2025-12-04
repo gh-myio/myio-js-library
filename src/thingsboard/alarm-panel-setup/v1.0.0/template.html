@@ -6,7 +6,7 @@
       <span class="ap-subtitle">Select one or more device profiles, then switch between Devices and Alarms views.</span>
     </div>
     <div class="ap-header-right">
-      <button class="ap-btn ap-btn-secondary" ng-click="vm.refresh()">⟳ Refresh</button>
+      <button class="ap-btn ap-btn-secondary" ng-click="vm.refresh()">Refresh</button>
     </div>
   </div>
 
@@ -23,19 +23,20 @@
     <div class="ap-profiles-panel">
       <div class="ap-profiles-header">
         <span class="ap-section-title">Device Profiles</span>
-        <span class="ap-count">{{ vm && vm.profiles ? vm.profiles.length : 0 }} profile(s)</span>
+        <span class="ap-count">{{ vm && vm.getProfilesList ? vm.getProfilesList().length : 0 }} profile(s)</span>
       </div>
 
       <div class="ap-profiles-list">
         <div
           class="ap-profile-pill"
-          ng-repeat="profile in vm.profiles track by $index"
+          ng-repeat="profile in vm.getProfilesList() track by profile.id"
           ng-class="{'ap-profile-selected': profile && vm && vm.isProfileSelected && vm.isProfileSelected(profile.id)}"
         >
           <div class="ap-profile-pill-main" ng-click="vm.toggleProfileSelection(profile.id)">
-            <div class="ap-profile-name">{{ vm && vm.getProfileDisplayName && profile ? vm.getProfileDisplayName(profile) : '' }}</div>
-            <div class="ap-profile-rulechain" ng-if="profile && vm && vm.getProfileRuleChainLabel && vm.getProfileRuleChainLabel(profile)">
-              (<span>{{ vm && vm.getProfileRuleChainLabel && profile ? vm.getProfileRuleChainLabel(profile) : '' }}</span>)
+            <div class="ap-profile-name">{{ profile ? profile.name : '' }}</div>
+            <div class="ap-profile-device-count">({{ profile ? profile.deviceCount : 0 }} devices)</div>
+            <div class="ap-profile-rulechain" ng-if="profile && profile.ruleChainId">
+              <span>Rule Chain: {{ profile ? profile.ruleChainId : '' }}</span>
             </div>
           </div>
           <div class="ap-profile-pill-action">
@@ -129,19 +130,15 @@
         </div>
 
         <div class="ap-alarms-list" ng-if="vm && vm.getFilteredAlarms && vm.getFilteredAlarms().length > 0">
-          <div class="ap-alarm-card" ng-repeat="alarm in vm.getFilteredAlarms() track by $index">
+          <div class="ap-alarm-card" ng-repeat="alarm in vm.getFilteredAlarms() track by alarm.alarmId">
             <div class="ap-alarm-card-header">
               <div class="ap-alarm-main">
-                <div class="ap-alarm-device">{{ alarm ? (alarm.deviceName || 'Unknown device') : 'Unknown device' }}</div>
-                <div class="ap-alarm-profile">
-                  {{ alarm ? (alarm.profileName || 'Unknown profile') : 'Unknown profile' }}
-                  <span class="ap-alarm-rulechain" ng-if="alarm && alarm.ruleChainName">({{ alarm ? alarm.ruleChainName : '' }})</span>
-                </div>
+                <div class="ap-alarm-device">{{ alarm ? (alarm.originatorName || alarm.originatorLabel || 'Unknown device') : 'Unknown device' }}</div>
+                <div class="ap-alarm-type">{{ alarm ? (alarm.type || alarm.name || 'Unknown alarm') : 'Unknown alarm' }}</div>
               </div>
               <div class="ap-alarm-meta">
                 <div class="ap-alarm-time">
-                  <span ng-if="alarm && alarm.alarmTsMs">{{ alarm && alarm.alarmTsMs ? (alarm.alarmTsMs | date:'dd/MM/yyyy HH:mm:ss') : '—' }}</span>
-                  <span ng-if="!alarm || !alarm.alarmTsMs">{{ alarm ? (alarm.alarmTsRaw || '—') : '—' }}</span>
+                  {{ alarm && alarm.startTs ? (alarm.startTs | date:'dd/MM/yyyy HH:mm:ss') : '—' }}
                 </div>
                 <div class="ap-alarm-badges">
                   <span class="ap-badge" ng-class="vm && vm.getSeverityBadgeClass && alarm ? vm.getSeverityBadgeClass(alarm.severity) : 'ap-badge-none'">{{ alarm ? (alarm.severity || 'NONE') : 'NONE' }}</span>
@@ -149,9 +146,8 @@
                 </div>
               </div>
             </div>
-            <div class="ap-alarm-card-body">
-              <div class="ap-alarm-rule" ng-if="alarm && alarm.ruleName">Rule: <strong>{{ alarm ? alarm.ruleName : '' }}</strong></div>
-              <div class="ap-alarm-reason">{{ alarm ? (alarm.reason || 'No reason/description provided.') : '' }}</div>
+            <div class="ap-alarm-card-body" ng-if="alarm && alarm.details">
+              <div class="ap-alarm-details">{{ (alarm && alarm.details) ? (alarm.details | json) : '' }}</div>
             </div>
           </div>
         </div>
@@ -163,22 +159,24 @@
   <div class="ap-modal-backdrop" ng-if="vm && vm.showProfileDetailsModal" ng-click="vm.closeProfileDetails()"></div>
   <div class="ap-modal" ng-if="vm && vm.showProfileDetailsModal" ng-click="$event.stopPropagation()">
     <div class="ap-modal-header">
-      <span class="ap-modal-title">Device Profile Details: {{ vm && vm.getProfileDisplayName && vm.activeProfileDetails ? vm.getProfileDisplayName(vm.activeProfileDetails) : '' }}</span>
-      <button class="ap-modal-close" ng-click="vm.closeProfileDetails()">✕</button>
+      <span class="ap-modal-title">Device Profile Details: {{ (vm && vm.activeProfileDetails) ? vm.activeProfileDetails.name : '' }}</span>
+      <button class="ap-modal-close" ng-click="vm.closeProfileDetails()">X</button>
     </div>
     <div class="ap-modal-body" ng-if="vm && vm.activeProfileDetails">
       <div class="ap-modal-section">
-        <div><strong>Rule Chain:</strong> {{ vm && vm.activeProfileDetails ? (vm.activeProfileDetails.ruleChainName || 'Not configured') : 'Not configured' }}</div>
-        <div ng-if="vm && vm.activeProfileDetails && vm.activeProfileDetails.ruleChainId"><strong>Rule Chain ID:</strong> {{ vm && vm.activeProfileDetails ? vm.activeProfileDetails.ruleChainId : '' }}</div>
+        <div><strong>Profile ID:</strong> {{ (vm && vm.activeProfileDetails) ? vm.activeProfileDetails.id : '' }}</div>
+        <div><strong>Device Count:</strong> {{ (vm && vm.activeProfileDetails) ? vm.activeProfileDetails.deviceCount : 0 }}</div>
+        <div ng-if="vm && vm.activeProfileDetails && vm.activeProfileDetails.ruleChainId"><strong>Rule Chain ID:</strong> {{ (vm && vm.activeProfileDetails) ? vm.activeProfileDetails.ruleChainId : '' }}</div>
+        <div ng-if="!vm || !vm.activeProfileDetails || !vm.activeProfileDetails.ruleChainId"><strong>Rule Chain:</strong> Not configured</div>
       </div>
-      <div class="ap-modal-section" ng-if="vm && vm.activeProfileDetails && (vm.activeProfileDetails.descriptionLong || vm.activeProfileDetails.descriptionShort)">
+      <div class="ap-modal-section" ng-if="vm && vm.activeProfileDetails && vm.activeProfileDetails.description">
         <strong>Description:</strong>
-        <p>{{ vm && vm.activeProfileDetails ? (vm.activeProfileDetails.descriptionLong || vm.activeProfileDetails.descriptionShort) : '' }}</p>
+        <p>{{ (vm && vm.activeProfileDetails) ? vm.activeProfileDetails.description : '' }}</p>
       </div>
       <div class="ap-modal-section">
-        <strong>Alarm Rules (raw):</strong>
-        <pre class="ap-rules-json" ng-if="vm && vm.activeProfileDetails && vm.activeProfileDetails.alarmRulesJson">{{ vm && vm.activeProfileDetails && vm.activeProfileDetails.alarmRulesJson ? (vm.activeProfileDetails.alarmRulesJson | json) : '' }}</pre>
-        <div ng-if="!vm || !vm.activeProfileDetails || !vm.activeProfileDetails.alarmRulesJson">No alarm rules JSON available for this profile.</div>
+        <strong>Alarm Rules ({{ (vm && vm.activeProfileDetails && vm.activeProfileDetails.alarmRules) ? vm.activeProfileDetails.alarmRules.length : 0 }}):</strong>
+        <pre class="ap-rules-json" ng-if="vm && vm.activeProfileDetails && vm.activeProfileDetails.alarmRules && vm.activeProfileDetails.alarmRules.length > 0">{{ (vm && vm.activeProfileDetails && vm.activeProfileDetails.alarmRules) ? (vm.activeProfileDetails.alarmRules | json) : '' }}</pre>
+        <div ng-if="!vm || !vm.activeProfileDetails || !vm.activeProfileDetails.alarmRules || vm.activeProfileDetails.alarmRules.length === 0">No alarm rules configured for this profile.</div>
       </div>
     </div>
     <div class="ap-modal-footer">
