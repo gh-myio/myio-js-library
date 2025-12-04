@@ -1,6 +1,35 @@
 /* global self */
 /* alarm-profiles-panel.js */
 
+// Pre-initialize to avoid undefined errors during widget validation
+self.settings = null;
+self.profiles = [];
+self.devicesByProfile = {};
+self.alarms = [];
+self.selectedProfileIds = [];
+self.viewMode = 'devices';
+self.loading = true;
+self.error = null;
+self.showProfileDetailsModal = false;
+self.activeProfileDetails = null;
+self.filters = { dateFromStr: null, dateToStr: null, statuses: {} };
+
+// Pre-bind methods (will be re-assigned in onInit)
+self.toggleProfileSelection = function () {};
+self.isProfileSelected = function () { return false; };
+self.setViewMode = function () {};
+self.getDevicesForSelectedProfiles = function () { return []; };
+self.getFilteredAlarms = function () { return []; };
+self.openProfileDetails = function () {};
+self.closeProfileDetails = function () {};
+self.toggleStatusFilter = function () {};
+self.onDateFilterChange = function () {};
+self.getProfileDisplayName = function () { return ''; };
+self.getProfileRuleChainLabel = function () { return ''; };
+self.getSeverityBadgeClass = function () { return 'ap-badge-none'; };
+self.getStatusBadgeClass = function () { return 'ap-status-normal'; };
+self.refresh = function () {};
+
 self.onInit = function () {
   var ctx = self.ctx;
   if (!ctx) return;
