@@ -1,10 +1,10 @@
-/* global self, window, document, localStorage, MyIOLibrary, Chart */
+/* global self, window, document, localStorage, MyIOLibrary */
 
 /**
- * RFC-0092: TEMPERATURE Widget Controller (Head Office)
+ * RFC-0092: TEMPERATURE_SENSORS Widget Controller
  *
- * Shopping-level temperature comparison panel.
- * Aggregates sensor data per shopping center and displays consolidated averages.
+ * Displays temperature sensor cards in an EQUIPMENTS-style grid layout.
+ * Fetches sensor data from ThingsBoard API and supports shopping filter synchronization.
  */
 
 // ============================================
@@ -16,359 +16,222 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error(...args),
 };
 
+const getDataApiHost =
+  window.MyIOUtils?.getDataApiHost ||
+  (() => {
+    console.error('[TEMPERATURE_SENSORS] getDataApiHost not available - MAIN widget not loaded');
+    return localStorage.getItem('__MYIO_DATA_API_HOST__') || '';
+  });
+
 const formatRelativeTime =
   window.MyIOUtils?.formatRelativeTime || ((ts) => (ts ? new Date(ts).toLocaleString() : '—'));
 
+const getCustomerNameForDevice =
+  window.MyIOUtils?.getCustomerNameForDevice ||
+  ((device) => device.customerName || device.customerId || 'N/A');
+
 // ============================================
-// WIDGET STATE
+// TEMPERATURE_SENSORS WIDGET STATE
 // ============================================
 const STATE = {
-  shoppingData: [],
   allSensors: [],
+  searchActive: false,
+  searchTerm: '',
+  selectedIds: null,
+  sortMode: 'temp_desc',
   selectedShoppingIds: [],
-  dateRange: {
-    start: null,
-    end: null,
-  },
-  chartInstance: null,
-  isLoading: false,
+  totalShoppings: 0,
+  isLoading: true,
 };
 
-// Settings defaults
-const DEFAULT_SETTINGS = {
-  useDemoData: false,
-  targetTemp: 23,
-  targetTol: 2,
-};
+let myIOAuth = null;
+let CLIENT_ID = '';
+let CLIENT_SECRET = '';
 
-LogHelper.log('[TEMPERATURE] RFC-0092: Widget script loaded');
-
-// ============================================
-// DEMO DATA (for preview mode)
-// ============================================
-function makeDemo() {
-  const hours = ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'];
-  const mk = (arr) => arr.map((v, i) => ({ t: hours[i], v }));
-
-  // Shopping-level aggregated data
-  const shoppingSeries = [
-    {
-      label: 'Shopping Center A',
-      data: mk([22.0, 21.7, 21.8, 22.3, 23.0, 23.6, 23.2, 22.5]),
-      avgTemp: 22.4,
-      sensorCount: 12,
-    },
-    {
-      label: 'Shopping Center B',
-      data: mk([22.2, 22.0, 22.1, 22.5, 23.2, 23.8, 23.4, 22.7]),
-      avgTemp: 22.7,
-      sensorCount: 8,
-    },
-    {
-      label: 'Shopping Center C',
-      data: mk([21.9, 21.6, 21.7, 22.1, 22.9, 23.4, 23.0, 22.3]),
-      avgTemp: 22.1,
-      sensorCount: 15,
-    },
-    {
-      label: 'Shopping Center D',
-      data: mk([23.2, 23.1, 23.3, 24.0, 24.5, 25.0, 24.6, 24.1]),
-      avgTemp: 24.0,
-      sensorCount: 10,
-    },
-  ];
-
-  // KPIs
-  const globalAvgTemp = 22.8;
-  const totalSensors = 45;
-  const shoppingsOnline = 4;
-  const alertCount = 1;
-
-  return { shoppingSeries, globalAvgTemp, totalSensors, shoppingsOnline, alertCount };
-}
+LogHelper.log('[TEMPERATURE_SENSORS] Script loaded, using shared utilities:', !!window.MyIOUtils);
 
 // ============================================
 // UTILITY FUNCTIONS
 // ============================================
 
 function formatTemperature(value) {
-  if (value === null || value === undefined || isNaN(value)) return '--';
+  if (value === null || value === undefined || isNaN(value)) return '—';
   return `${Number(value).toFixed(1)}°C`;
 }
 
-function formatKW(value) {
-  return `${Number(value || 0).toFixed(1)} kW`;
-}
-
-function formatOperationTime(minutes) {
-  const min = Number(minutes || 0);
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return `${h}h ${String(m).padStart(2, '0')}m`;
-}
-
-function getTemperatureStatus(avgTemp, target = 23, tolerance = 2) {
-  if (avgTemp === null || avgTemp === undefined || isNaN(avgTemp)) return 'no_info';
-  if (avgTemp < target - tolerance) return 'cold';
-  if (avgTemp > target + tolerance) return 'hot';
+function getTemperatureStatus(temp, min = 18, max = 26) {
+  if (temp === null || temp === undefined || isNaN(temp)) return 'no_info';
+  if (temp < min) return 'cold';
+  if (temp > max) return 'hot';
   return 'normal';
 }
 
+function getStatusLabel(status) {
+  const labels = {
+    normal: 'Normal',
+    cold: 'Frio',
+    hot: 'Quente',
+    no_info: 'Sem Dados',
+    offline: 'Offline',
+  };
+  return labels[status] || status;
+}
+
 function showLoadingOverlay(show) {
-  const overlay = document.getElementById('temperature-loading-overlay');
+  const overlay = document.getElementById('temperature-sensors-loading-overlay');
   if (overlay) {
     overlay.style.display = show ? 'flex' : 'none';
   }
 }
 
 // ============================================
-// KPIs RENDERING
+// CARD RENDERING
 // ============================================
 
-function setKpis({ globalAvgTemp, totalSensors, shoppingsOnline, alertCount }) {
-  const ctx = self.ctx;
-  const target = Number(ctx.settings?.targetTemp ?? DEFAULT_SETTINGS.targetTemp);
-  const tol = Number(ctx.settings?.targetTol ?? DEFAULT_SETTINGS.targetTol);
-
-  // Average Temperature KPI
-  const $avgTemp = document.getElementById('avgTemp');
-  const $avgTempBar = document.getElementById('avgTempBar');
-  const $avgTempTarget = document.getElementById('avgTempTarget');
-
-  if ($avgTemp) $avgTemp.textContent = formatTemperature(globalAvgTemp);
-  if ($avgTempTarget) $avgTempTarget.textContent = `Meta: ${target}°C +/- ${tol}°C`;
-  if ($avgTempBar) {
-    const span = Math.max(0, Math.min(100, ((globalAvgTemp - (target - tol)) / (2 * tol)) * 100));
-    $avgTempBar.style.width = `${span}%`;
-  }
-
-  // Total Sensors KPI
-  const $totalSensors = document.getElementById('totalSensors');
-  if ($totalSensors) $totalSensors.textContent = totalSensors || 0;
-
-  // Shoppings Online KPI
-  const $shoppingsOnline = document.getElementById('shoppingsOnline');
-  const $shoppingsBadge = document.getElementById('shoppingsBadge');
-  if ($shoppingsOnline) $shoppingsOnline.textContent = shoppingsOnline || 0;
-  if ($shoppingsBadge) $shoppingsBadge.classList.toggle('badge-on', shoppingsOnline > 0);
-
-  // Alerts KPI
-  const $alertCount = document.getElementById('alertCount');
-  if ($alertCount) {
-    $alertCount.textContent = alertCount || 0;
-    $alertCount.classList.toggle('has-alerts', alertCount > 0);
-  }
-}
-
-// ============================================
-// CHART RENDERING
-// ============================================
-
-function renderComparisonChart(shoppingSeries) {
-  const canvas = document.getElementById('tempChart');
-  if (!canvas) {
-    LogHelper.error('[TEMPERATURE] Chart canvas not found');
+function initializeSensorCards(sensors) {
+  const grid = document.getElementById('temp-sensors-grid');
+  if (!grid) {
+    LogHelper.error('[TEMPERATURE_SENSORS] Grid element not found');
     return;
   }
 
-  // Destroy existing chart
-  if (STATE.chartInstance) {
-    STATE.chartInstance.destroy();
-    STATE.chartInstance = null;
-  }
+  grid.innerHTML = '';
 
-  if (!shoppingSeries || shoppingSeries.length === 0) {
-    LogHelper.warn('[TEMPERATURE] No data for chart');
-    return;
-  }
-
-  const labels = shoppingSeries[0]?.data?.map((p) => p.t) || [];
-
-  // Color palette for shopping centers
-  const colors = [
-    { border: '#e65100', bg: 'rgba(230, 81, 0, 0.1)' },
-    { border: '#1565c0', bg: 'rgba(21, 101, 192, 0.1)' },
-    { border: '#2e7d32', bg: 'rgba(46, 125, 50, 0.1)' },
-    { border: '#7b1fa2', bg: 'rgba(123, 31, 162, 0.1)' },
-    { border: '#c62828', bg: 'rgba(198, 40, 40, 0.1)' },
-    { border: '#00838f', bg: 'rgba(0, 131, 143, 0.1)' },
-    { border: '#ef6c00', bg: 'rgba(239, 108, 0, 0.1)' },
-    { border: '#6a1b9a', bg: 'rgba(106, 27, 154, 0.1)' },
-  ];
-
-  const datasets = shoppingSeries.map((series, i) => ({
-    label: `${series.label} (${series.sensorCount || 0} sensores)`,
-    data: series.data.map((p) => p.v),
-    fill: false,
-    tension: 0.35,
-    borderWidth: 2,
-    borderColor: colors[i % colors.length].border,
-    backgroundColor: colors[i % colors.length].bg,
-    pointRadius: 3,
-    pointHoverRadius: 5,
-  }));
-
-  STATE.chartInstance = new Chart(canvas.getContext('2d'), {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        mode: 'index',
-        intersect: false,
-      },
-      scales: {
-        x: {
-          grid: { color: 'rgba(28,39,67,0.08)', drawTicks: false },
-          ticks: { font: { size: 11 } },
-        },
-        y: {
-          grid: { color: 'rgba(28,39,67,0.08)' },
-          suggestedMin: 18,
-          suggestedMax: 30,
-          ticks: {
-            font: { size: 11 },
-            callback: (value) => `${value}°C`,
-          },
-        },
-      },
-      plugins: {
-        legend: {
-          display: true,
-          position: 'bottom',
-          labels: {
-            boxWidth: 12,
-            padding: 15,
-            font: { size: 11 },
-          },
-        },
-        tooltip: {
-          backgroundColor: 'rgba(28, 39, 67, 0.95)',
-          titleFont: { size: 13 },
-          bodyFont: { size: 12 },
-          padding: 12,
-          callbacks: {
-            label: (context) => {
-              const label = context.dataset.label || '';
-              const value = context.parsed.y;
-              return `${label}: ${formatTemperature(value)}`;
-            },
-          },
-        },
-      },
-    },
-  });
-
-  LogHelper.log('[TEMPERATURE] Chart rendered with', shoppingSeries.length, 'shopping series');
-}
-
-// ============================================
-// SHOPPING LIST RENDERING
-// ============================================
-
-function renderShoppingList(shoppingSeries) {
-  const $list = document.getElementById('shoppingList');
-  if (!$list) return;
-
-  $list.innerHTML = '';
-
-  if (!shoppingSeries || shoppingSeries.length === 0) {
-    $list.innerHTML = `
-      <div class="empty-list">
-        <span>Nenhum shopping com sensores de temperatura</span>
+  if (sensors.length === 0) {
+    grid.innerHTML = `
+      <div class="temp-sensors-empty">
+        <div class="empty-icon">🌡️</div>
+        <div class="empty-text">Nenhum sensor de temperatura encontrado</div>
       </div>
     `;
     return;
   }
 
-  const ctx = self.ctx;
-  const target = Number(ctx.settings?.targetTemp ?? DEFAULT_SETTINGS.targetTemp);
-  const tol = Number(ctx.settings?.targetTol ?? DEFAULT_SETTINGS.targetTol);
+  sensors.forEach((sensor) => {
+    const container = document.createElement('div');
+    grid.appendChild(container);
 
-  shoppingSeries.forEach((shopping) => {
-    const status = getTemperatureStatus(shopping.avgTemp, target, tol);
-    const statusLabels = {
-      normal: 'Normal',
-      cold: 'Frio',
-      hot: 'Quente',
-      no_info: 'Sem Dados',
-    };
+    // Verifica se a biblioteca existe
+    if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.renderCardComponentHeadOffice) {
+      // --- LÓGICA DE STATUS CORRIGIDA ---
+      // 1. Define constantes que a biblioteca ENTENDE (running/no_info)
+      const STATUS_ONLINE = window.MyIOLibrary?.DeviceStatusType?.POWER_ON || 'running';
+      const STATUS_OFFLINE = window.MyIOLibrary?.DeviceStatusType?.NO_INFO || 'no_info';
 
-    const row = document.createElement('div');
-    row.className = `shopping-row status-${status}`;
-    row.innerHTML = `
-      <div class="shopping-left">
-        <span class="dot ${status}"></span>
-        <div>
-          <div class="shopping-name">${shopping.label}</div>
-          <div class="shopping-sensors">${shopping.sensorCount || 0} sensores</div>
+      // 2. Se tem temperatura válida, forçamos o status para ONLINE (Verde)
+      // Isso evita mandar 'normal'/'hot' que a lib não reconhece e joga para Offline
+      const visualStatus =
+        sensor.temperature !== null && sensor.temperature !== undefined ? STATUS_ONLINE : STATUS_OFFLINE;
+
+      const entityObject = {
+        entityId: sensor.id,
+        labelOrName: sensor.label || sensor.name,
+        deviceIdentifier: sensor.identifier || 'TEMP-SENSOR',
+
+        // Dados de valor
+        val: sensor.temperature,
+        valType: 'temperature',
+        deviceType: 'TEMPERATURE_SENSOR',
+        temperatureC: sensor.temperature,
+
+        // Dados de Cliente
+        customerName: sensor.customerName,
+        customerId: sensor.customerId,
+        updated: formatRelativeTime(sensor.lastUpdate),
+        domain: 'temperature',
+
+        // --- CORREÇÃO DO WATCHDOG ---
+        // Informa que a última conexão foi agora (data da leitura)
+        lastConnectTime: sensor.lastUpdate,
+
+        // --- CORREÇÃO VISUAL ---
+        // Aqui usamos o status 'traduzido' (running) em vez de sensor.status (normal)
+        deviceStatus: visualStatus,
+      };
+
+      MyIOLibrary.renderCardComponentHeadOffice(container, {
+        entityObject: entityObject,
+        delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
+        handleActionDashboard: async () => {
+          openTemperatureModal(sensor);
+        },
+        handleActionSettings: async () => {
+          // TODO: Implement settings
+        },
+        handleSelect: (checked, entity) => {
+          const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
+          if (MyIOSelectionStore) {
+            if (checked) {
+              if (MyIOSelectionStore.registerEntity) {
+                MyIOSelectionStore.registerEntity(entity);
+              }
+              MyIOSelectionStore.add(entity.entityId || entity.id);
+            } else {
+              MyIOSelectionStore.remove(entity.entityId || entity.id);
+            }
+          }
+        },
+        handleClickCard: (ev, entity) => {
+          LogHelper.log(`[TEMPERATURE_SENSORS] Card clicked: ${entity.labelOrName}`);
+        },
+        useNewComponents: true,
+        enableSelection: true,
+        hideInfoMenuItem: true,
+      });
+    } else {
+      // Fallback para card customizado
+      renderCustomSensorCard(container, sensor);
+    }
+  });
+
+  LogHelper.log('[TEMPERATURE_SENSORS] Rendered', sensors.length, 'sensor cards');
+}
+
+function renderCustomSensorCard(container, sensor) {
+  const statusClass = `status-${sensor.status}`;
+  const statusLabel = getStatusLabel(sensor.status);
+
+  container.innerHTML = `
+    <div class="temp-sensor-card ${statusClass}">
+      <div class="temp-sensor-header">
+        <div class="temp-sensor-icon">🌡️</div>
+        <div class="temp-sensor-info">
+          <div class="temp-sensor-name">${sensor.label || sensor.name}</div>
+          <div class="temp-sensor-location">${sensor.customerName || 'N/A'}</div>
         </div>
+        <button class="temp-sensor-menu" title="Opções">⋮</button>
       </div>
-      <div class="ft">
-        <div class="label">Temp. Media</div>
-        <div class="value">${formatTemperature(shopping.avgTemp)}</div>
+      <div class="temp-sensor-value">
+        <span class="temp-value">${formatTemperature(sensor.temperature)}</span>
       </div>
-      <div class="ft">
-        <div class="label">Min / Max</div>
-        <div class="value">${formatTemperature(shopping.minTemp)} / ${formatTemperature(
-      shopping.maxTemp
-    )}</div>
+      <div class="temp-sensor-status">
+        <span class="status-chip ${statusClass}">
+          <span class="status-dot"></span>
+          ${statusLabel}
+        </span>
       </div>
-      <div class="ft">
-        <div class="label">Status</div>
-        <div class="value status-badge ${status}">${statusLabels[status]}</div>
+      <div class="temp-sensor-footer">
+        <span class="temp-sensor-updated">Atualizado: ${formatRelativeTime(sensor.lastUpdate)}</span>
       </div>
-      <button class="shopping-action" title="Ver detalhes" aria-label="Ver detalhes">
-        <svg viewBox="0 0 24 24" width="18" height="18">
-          <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-        </svg>
-      </button>
-    `;
+    </div>
+  `;
 
-    // Add click handler for details
-    row.querySelector('.shopping-action').addEventListener('click', (e) => {
-      e.stopPropagation();
-      openShoppingTemperatureModal(shopping);
-    });
-
-    row.addEventListener('click', () => {
-      openShoppingTemperatureModal(shopping);
-    });
-
-    $list.appendChild(row);
+  // Add click handler
+  container.querySelector('.temp-sensor-card').addEventListener('click', () => {
+    openTemperatureModal(sensor);
   });
-
-  LogHelper.log('[TEMPERATURE] Shopping list rendered with', shoppingSeries.length, 'items');
 }
 
-async function openShoppingTemperatureModal(shopping) {
-  LogHelper.log('[TEMPERATURE] Opening modal for shopping:', shopping.label);
-
+async function openTemperatureModal(sensor) {
   if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.openTemperatureComparisonModal) {
     const token = localStorage.getItem('jwt_token');
     if (!token) {
-      LogHelper.error('[TEMPERATURE] JWT token not found');
-      return;
-    }
-
-    // Get sensors for this shopping
-    const shoppingSensors = STATE.allSensors.filter((s) => s.customerId === shopping.customerId);
-
-    const devices = shoppingSensors.map((sensor) => ({
-      id: sensor.id,
-      label: sensor.label || sensor.name,
-      customerName: shopping.label,
-      temperatureMin: sensor.temperatureMin || 18,
-      temperatureMax: sensor.temperatureMax || 26,
-    }));
-
-    if (devices.length === 0) {
-      alert(`Nenhum sensor encontrado para ${shopping.label}`);
+      LogHelper.error('[TEMPERATURE_SENSORS] JWT token not found');
       return;
     }
 
     try {
+      // Get date range from global state or use defaults
       const dateRange = window.myioDateRange || {};
       const now = new Date();
       const startDate = dateRange.startDate || new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
@@ -376,276 +239,610 @@ async function openShoppingTemperatureModal(shopping) {
 
       await MyIOLibrary.openTemperatureComparisonModal({
         token: token,
-        devices: devices,
+        devices: [
+          {
+            id: sensor.tbId || sensor.id,
+            label: sensor.label || sensor.name,
+            customerName: sensor.customerName,
+            temperatureMin: sensor.temperatureMin || 18,
+            temperatureMax: sensor.temperatureMax || 26,
+          },
+        ],
         startDate: startDate,
         endDate: endDate,
         locale: 'pt-BR',
         theme: 'dark',
         onClose: () => {
-          LogHelper.log('[TEMPERATURE] Shopping temperature modal closed');
+          LogHelper.log('[TEMPERATURE_SENSORS] Temperature modal closed');
         },
       });
     } catch (error) {
-      LogHelper.error('[TEMPERATURE] Error opening temperature modal:', error);
+      LogHelper.error('[TEMPERATURE_SENSORS] Error opening temperature modal:', error);
     }
   } else {
-    LogHelper.warn('[TEMPERATURE] openTemperatureComparisonModal not available');
+    LogHelper.warn('[TEMPERATURE_SENSORS] openTemperatureComparisonModal not available');
     alert('Modal de temperatura não disponível');
   }
-}
-
-// ============================================
-// DATA AGGREGATION
-// ============================================
-
-function aggregateByShoppingCenter(sensors) {
-  const shoppingMap = new Map();
-
-  sensors.forEach((sensor) => {
-    const customerId = sensor.customerId || 'unknown';
-    const customerName = sensor.customerName || 'Desconhecido';
-
-    if (!shoppingMap.has(customerId)) {
-      shoppingMap.set(customerId, {
-        customerId,
-        label: customerName,
-        sensors: [],
-        temperatures: [],
-        avgTemp: null,
-        minTemp: null,
-        maxTemp: null,
-        sensorCount: 0,
-        lastUpdate: 0,
-        data: [],
-      });
-    }
-
-    const shopping = shoppingMap.get(customerId);
-    shopping.sensors.push(sensor);
-
-    if (sensor.temperature !== null && sensor.temperature !== undefined && !isNaN(sensor.temperature)) {
-      shopping.temperatures.push(Number(sensor.temperature));
-      shopping.lastUpdate = Math.max(shopping.lastUpdate, sensor.lastUpdate || 0);
-    }
-  });
-
-  // Calculate aggregates
-  const result = Array.from(shoppingMap.values()).map((shopping) => {
-    const temps = shopping.temperatures;
-    if (temps.length > 0) {
-      shopping.avgTemp = temps.reduce((a, b) => a + b, 0) / temps.length;
-      shopping.minTemp = Math.min(...temps);
-      shopping.maxTemp = Math.max(...temps);
-    }
-    shopping.sensorCount = shopping.sensors.length;
-
-    // Generate mock time series data for chart (in production, this would come from API)
-    const hours = ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'];
-    shopping.data = hours.map((t) => ({
-      t,
-      v: shopping.avgTemp !== null ? shopping.avgTemp + (Math.random() - 0.5) * 2 : null,
-    }));
-
-    return shopping;
-  });
-
-  // Sort by average temperature descending
-  result.sort((a, b) => (b.avgTemp || 0) - (a.avgTemp || 0));
-
-  return result;
 }
 
 // ============================================
 // DATA FETCHING
 // ============================================
 
-async function fetchTemperatureData() {
-  LogHelper.log('[TEMPERATURE] Fetching temperature data...');
+async function fetchTemperatureSensors() {
+  LogHelper.log('[TEMPERATURE_SENSORS] Fetching temperature sensors...');
   STATE.isLoading = true;
   showLoadingOverlay(true);
 
   try {
-    const ctx = self.ctx;
-    const useDemo = !!ctx.settings?.useDemoData;
-
-    if (useDemo) {
-      const demoData = makeDemo();
-      return demoData;
-    }
-
-    // Collect sensors from ctx.data
     const sensors = [];
-    if (ctx && ctx.data) {
-      ctx.data.forEach((data) => {
+
+    // Method 1: Try to get sensors from ctx.data (ThingsBoard datasources)
+    if (self.ctx && self.ctx.data) {
+      self.ctx.data.forEach((data) => {
+        // Ignora dados do Alias "Shopping" se houver
         if (data.datasource && data.datasource.aliasName !== 'Shopping') {
           const entityId = data.datasource.entity?.id?.id;
-          const keyName = data.dataKey?.name;
 
-          if (entityId && keyName === 'temperature') {
-            const existingSensor = sensors.find((s) => s.id === entityId);
+          if (entityId) {
+            // 1. Tenta encontrar o sensor já criado na lista
+            let existingSensor = sensors.find((s) => s.id === entityId);
+
+            // 2. Se não existir, cria o esqueleto inicial e adiciona ao array
             if (!existingSensor) {
-              sensors.push({
+              existingSensor = {
                 id: entityId,
+                tbId: entityId,
                 name: data.datasource.name,
                 label: data.datasource.entityLabel || data.datasource.name,
-                temperature: data.data?.[0]?.[1] || null,
-                lastUpdate: data.data?.[0]?.[0] || null,
+                temperature: null,
+                lastUpdate: null,
                 customerId: data.datasource.customerId || null,
-                customerName: data.datasource.customerName || 'N/A',
+                customerName: 'N/A', // Inicializa com N/A
+                status: 'no_info',
                 temperatureMin: 18,
                 temperatureMax: 26,
-              });
-            } else {
-              existingSensor.temperature = data.data?.[0]?.[1] || existingSensor.temperature;
-              existingSensor.lastUpdate = data.data?.[0]?.[0] || existingSensor.lastUpdate;
+              };
+              sensors.push(existingSensor);
+            }
+
+            // 3. Verifica qual é a chave de dados atual e atualiza o campo correspondente
+            const keyName = data.dataKey?.name;
+            const value = data.data?.[0]?.[1];
+            const ts = data.data?.[0]?.[0];
+
+            if (keyName === 'temperature') {
+              existingSensor.temperature = value || existingSensor.temperature;
+              existingSensor.lastUpdate = ts || existingSensor.lastUpdate;
+              existingSensor.status = getTemperatureStatus(existingSensor.temperature);
+            } else if (keyName === 'ownerName') {
+              // [CORREÇÃO] Agora o código consegue entrar aqui
+              if (value) {
+                existingSensor.customerName = value;
+              }
             }
           }
         }
       });
     }
 
-    STATE.allSensors = sensors;
-
-    // Filter by selected shoppings
-    let filteredSensors = sensors;
-    if (STATE.selectedShoppingIds && STATE.selectedShoppingIds.length > 0) {
-      filteredSensors = sensors.filter((s) => STATE.selectedShoppingIds.includes(s.customerId));
+    // Method 2: If no sensors from ctx.data, try API fetch
+    if (sensors.length === 0) {
+      LogHelper.log('[TEMPERATURE_SENSORS] No sensors in ctx.data, trying API...');
+      const apiSensors = await fetchSensorsFromAPI();
+      sensors.push(...apiSensors);
     }
 
-    // Aggregate by shopping center
-    const shoppingSeries = aggregateByShoppingCenter(filteredSensors);
+    STATE.allSensors = sensors;
+    LogHelper.log('[TEMPERATURE_SENSORS] Loaded', sensors.length, 'sensors');
 
-    // Calculate global KPIs
-    const allTemps = filteredSensors
-      .filter((s) => s.temperature !== null && !isNaN(s.temperature))
-      .map((s) => Number(s.temperature));
-
-    const globalAvgTemp = allTemps.length > 0 ? allTemps.reduce((a, b) => a + b, 0) / allTemps.length : null;
-
-    const ctx2 = self.ctx;
-    const target = Number(ctx2.settings?.targetTemp ?? DEFAULT_SETTINGS.targetTemp);
-    const tol = Number(ctx2.settings?.targetTol ?? DEFAULT_SETTINGS.targetTol);
-
-    const alertCount = shoppingSeries.filter((s) => {
-      const status = getTemperatureStatus(s.avgTemp, target, tol);
-      return status === 'hot' || status === 'cold';
-    }).length;
-
-    return {
-      shoppingSeries,
-      globalAvgTemp,
-      totalSensors: filteredSensors.length,
-      shoppingsOnline: shoppingSeries.filter((s) => s.sensorCount > 0).length,
-      alertCount,
-    };
+    return sensors;
   } catch (error) {
-    LogHelper.error('[TEMPERATURE] Error fetching data:', error);
-    return makeDemo();
+    LogHelper.error('[TEMPERATURE_SENSORS] Error fetching sensors:', error);
+    return [];
   } finally {
     STATE.isLoading = false;
     showLoadingOverlay(false);
   }
 }
 
-// ============================================
-// MAIN UPDATE FUNCTION
-// ============================================
-
-async function updateAll() {
-  const data = await fetchTemperatureData();
-
-  if (!data) {
-    LogHelper.warn('[TEMPERATURE] No data available, using demo');
-    const demo = makeDemo();
-    renderComparisonChart(demo.shoppingSeries);
-    setKpis(demo);
-    renderShoppingList(demo.shoppingSeries);
-    return;
+async function fetchSensorsFromAPI() {
+  const token = localStorage.getItem('jwt_token');
+  if (!token) {
+    LogHelper.warn('[TEMPERATURE_SENSORS] No JWT token for API fetch');
+    return [];
   }
 
-  STATE.shoppingData = data.shoppingSeries;
-  renderComparisonChart(data.shoppingSeries);
-  setKpis(data);
-  renderShoppingList(data.shoppingSeries);
+  try {
+    // Busca dispositivos do tipo TEMPERATURE_SENSOR
+    const response = await fetch('/api/tenant/devices?pageSize=1000&page=0&type=TEMPERATURE_SENSOR', {
+      headers: {
+        'X-Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const devices = result.data || [];
+
+    // Busca última telemetria para cada dispositivo e aplica o "Enrich"
+    const sensors = await Promise.all(
+      devices.map(async (device) => {
+        try {
+          const telemetryResponse = await fetch(
+            `/api/plugins/telemetry/DEVICE/${device.id.id}/values/timeseries?keys=temperature`,
+            {
+              headers: {
+                'X-Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          let temperature = null;
+          let lastUpdate = null;
+
+          if (telemetryResponse.ok) {
+            const telemetry = await telemetryResponse.json();
+            if (telemetry.temperature && telemetry.temperature.length > 0) {
+              temperature = telemetry.temperature[0].value;
+              lastUpdate = telemetry.temperature[0].ts;
+            }
+          }
+
+          // =========================================================================
+          // [FIX] LÓGICA TIPO "enrichItemsWithTotals"
+          // Garante recuperação robusta de customerId e customerName
+          // =========================================================================
+
+          // 1. Tenta pegar o ID de várias fontes possíveis (fallback)
+          const finalCustomerId = device.customerId?.id || device.customer_id || null;
+
+          // 2. Tenta pegar o Nome de várias fontes possíveis (o TB retorna como customerTitle ou name)
+          const finalCustomerName =
+            device.customerTitle || device.customerName || device.customer_name || 'N/A';
+
+          return {
+            id: device.id.id,
+            tbId: device.id.id,
+            name: device.name,
+            label: device.label || device.name,
+            temperature: temperature,
+            lastUpdate: lastUpdate,
+
+            // [FIX] Usa os valores "enriquecidos"
+            customerId: finalCustomerId,
+            customerName: finalCustomerName,
+
+            status: getTemperatureStatus(temperature),
+            temperatureMin: 18,
+            temperatureMax: 26,
+          };
+        } catch (err) {
+          LogHelper.warn('[TEMPERATURE_SENSORS] Error fetching telemetry for device:', device.id.id, err);
+
+          // [FIX] Mesmo no erro, tentamos garantir os dados do cliente
+          const finalCustomerId = device.customerId?.id || null;
+          const finalCustomerName = device.customerTitle || 'N/A';
+
+          return {
+            id: device.id.id,
+            tbId: device.id.id,
+            name: device.name,
+            label: device.label || device.name,
+            temperature: null,
+            lastUpdate: null,
+            customerId: finalCustomerId,
+            customerName: finalCustomerName,
+            status: 'no_info',
+            temperatureMin: 18,
+            temperatureMax: 26,
+          };
+        }
+      })
+    );
+
+    return sensors;
+  } catch (error) {
+    LogHelper.error('[TEMPERATURE_SENSORS] API fetch error:', error);
+    return [];
+  }
+}
+
+// ============================================
+// FILTERING & SORTING
+// ============================================
+
+function applyFilters(sensors, searchTerm, selectedIds, sortMode) {
+  let filtered = sensors.slice();
+
+  // Apply shopping filter
+  if (STATE.selectedShoppingIds && STATE.selectedShoppingIds.length > 0) {
+    filtered = filtered.filter((s) => {
+      if (!s.customerId) return true;
+      return STATE.selectedShoppingIds.includes(s.customerId);
+    });
+  }
+
+  // Apply multiselect filter
+  if (selectedIds && selectedIds.size > 0) {
+    filtered = filtered.filter((s) => selectedIds.has(s.id));
+  }
+
+  // Apply search filter
+  const query = (searchTerm || '').trim().toLowerCase();
+  if (query) {
+    filtered = filtered.filter(
+      (s) =>
+        String(s.label || '')
+          .toLowerCase()
+          .includes(query) ||
+        String(s.name || '')
+          .toLowerCase()
+          .includes(query) ||
+        String(s.customerName || '')
+          .toLowerCase()
+          .includes(query)
+    );
+  }
+
+  // Apply sorting
+  filtered.sort((a, b) => {
+    const tempA = Number(a.temperature) || 0;
+    const tempB = Number(b.temperature) || 0;
+    const nameA = String(a.label || a.name || '').toLowerCase();
+    const nameB = String(b.label || b.name || '').toLowerCase();
+
+    switch (sortMode) {
+      case 'temp_desc':
+        return tempB !== tempA ? tempB - tempA : nameA.localeCompare(nameB);
+      case 'temp_asc':
+        return tempA !== tempB ? tempA - tempB : nameA.localeCompare(nameB);
+      case 'alpha_asc':
+        return nameA.localeCompare(nameB);
+      case 'alpha_desc':
+        return nameB.localeCompare(nameA);
+      default:
+        return 0;
+    }
+  });
+
+  return filtered;
+}
+
+function reflowCards() {
+  const filtered = applyFilters(STATE.allSensors, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
+
+  LogHelper.log('[TEMPERATURE_SENSORS] Reflow with filters:', {
+    total: STATE.allSensors.length,
+    filtered: filtered.length,
+    searchTerm: STATE.searchTerm,
+    sortMode: STATE.sortMode,
+  });
+
+  initializeSensorCards(filtered);
+  updateSensorStats(filtered);
+}
+
+function updateSensorStats(sensors) {
+  const statsTotal = document.getElementById('tempSensorsStatsTotal');
+  const statsAvg = document.getElementById('tempSensorsStatsAvg');
+  const statsOnline = document.getElementById('tempSensorsStatsOnline');
+  const statsAlert = document.getElementById('tempSensorsStatsAlert');
+
+  if (statsTotal) statsTotal.textContent = sensors.length;
+
+  // Calculate average temperature
+  const validTemps = sensors.filter((s) => s.temperature !== null && !isNaN(s.temperature));
+  const avgTemp =
+    validTemps.length > 0
+      ? validTemps.reduce((sum, s) => sum + Number(s.temperature), 0) / validTemps.length
+      : 0;
+
+  if (statsAvg) statsAvg.textContent = formatTemperature(avgTemp);
+
+  // Count online sensors (with recent data)
+  const onlineCount = sensors.filter((s) => s.status !== 'no_info' && s.status !== 'offline').length;
+  if (statsOnline) statsOnline.textContent = onlineCount;
+
+  // Count alert sensors (hot or cold)
+  const alertCount = sensors.filter((s) => s.status === 'hot' || s.status === 'cold').length;
+  if (statsAlert) statsAlert.textContent = alertCount;
 }
 
 // ============================================
 // EVENT HANDLERS
 // ============================================
 
-function bindEventListeners() {
-  // Listen for shopping filter events
-  self._onFilterApplied = (ev) => {
-    LogHelper.log('[TEMPERATURE] heard myio:filter-applied:', ev.detail);
+// RFC-0096: Filter modal instance (lazy initialized)
+let temperatureFilterModal = null;
 
-    const selection = ev.detail?.selection || [];
-    const shoppingIds = selection.map((s) => s.value).filter((v) => v);
+/**
+ * RFC-0096: Initialize filter modal using shared factory from MAIN
+ */
+function initFilterModal() {
+  const createFilterModal = window.MyIOUtils?.createFilterModal;
 
-    STATE.selectedShoppingIds = shoppingIds;
-    updateAll();
-  };
-  window.addEventListener('myio:filter-applied', self._onFilterApplied);
+  if (!createFilterModal) {
+    LogHelper.error('[TEMPERATURE_SENSORS] createFilterModal not available from MAIN');
+    return null;
+  }
 
-  // Listen for date range updates
-  self._onDateUpdate = (ev) => {
-    LogHelper.log('[TEMPERATURE] heard myio:update-date:', ev.detail);
+  return createFilterModal({
+    widgetName: 'TEMPERATURE_SENSORS',
+    containerId: 'temperatureSensorsFilterModalGlobal',
+    modalClass: 'temperature-sensors-modal',
+    primaryColor: '#e65100', // Orange for temperature
+    itemIdAttr: 'data-entity',
 
-    STATE.dateRange.start = ev.detail?.startDate;
-    STATE.dateRange.end = ev.detail?.endDate;
-    updateAll();
-  };
-  window.addEventListener('myio:update-date', self._onDateUpdate);
+    // Filter tabs configuration - specific for TEMPERATURE_SENSORS
+    filterTabs: [
+      {
+        id: 'all',
+        label: 'Todos',
+        filter: () => true,
+      },
+      {
+        id: 'online',
+        label: 'Online',
+        filter: (s) => s.status !== 'no_info' && s.status !== 'offline',
+      },
+      {
+        id: 'offline',
+        label: 'Offline',
+        filter: (s) => s.status === 'no_info' || s.status === 'offline',
+      },
+      {
+        id: 'normal',
+        label: 'Normal',
+        filter: (s) => s.status === 'normal',
+      },
+      {
+        id: 'alert',
+        label: 'Alerta',
+        filter: (s) => s.status === 'hot' || s.status === 'cold',
+      },
+    ],
+
+    // Data accessors
+    getItemId: (item) => item.id,
+    getItemLabel: (item) => item.label || item.name || item.id,
+    getItemValue: (item) => item.temperature,
+    getItemSubLabel: (item) => getCustomerNameForDevice(item),
+    formatValue: (val) => formatTemperature(val),
+
+    // Callbacks
+    onApply: ({ selectedIds, sortMode }) => {
+      STATE.selectedIds = selectedIds;
+      STATE.sortMode = sortMode;
+      reflowCards();
+      LogHelper.log('[TEMPERATURE_SENSORS] [RFC-0096] Filters applied via shared modal');
+    },
+
+    onReset: () => {
+      STATE.selectedIds = null;
+      STATE.sortMode = 'temp_desc';
+      STATE.searchTerm = '';
+      STATE.searchActive = false;
+
+      // Reset search UI
+      const searchWrap = document.getElementById('tempSearchWrap');
+      const searchInput = document.getElementById('tempSensorSearch');
+      if (searchWrap) searchWrap.classList.remove('active');
+      if (searchInput) searchInput.value = '';
+
+      reflowCards();
+      LogHelper.log('[TEMPERATURE_SENSORS] [RFC-0096] Filters reset via shared modal');
+    },
+
+    onClose: () => {
+      LogHelper.log('[TEMPERATURE_SENSORS] [RFC-0096] Filter modal closed');
+    },
+  });
+}
+
+/**
+ * RFC-0096: Open filter modal
+ */
+function openFilterModal() {
+  // Lazy initialize modal
+  if (!temperatureFilterModal) {
+    temperatureFilterModal = initFilterModal();
+  }
+
+  if (!temperatureFilterModal) {
+    LogHelper.error('[TEMPERATURE_SENSORS] Failed to initialize filter modal');
+    window.alert('Erro ao inicializar modal de filtros. Verifique se o widget MAIN foi carregado.');
+    return;
+  }
+
+  // Open with current sensors and state
+  temperatureFilterModal.open(STATE.allSensors, {
+    selectedIds: STATE.selectedIds,
+    sortMode: STATE.sortMode,
+  });
+}
+
+function bindFilterEvents() {
+  // Search button toggle
+  const btnSearch = document.getElementById('btnTempSearch');
+  const searchWrap = document.getElementById('tempSearchWrap');
+  const searchInput = document.getElementById('tempSensorSearch');
+
+  if (btnSearch && searchWrap && searchInput) {
+    btnSearch.addEventListener('click', () => {
+      STATE.searchActive = !STATE.searchActive;
+      searchWrap.classList.toggle('active', STATE.searchActive);
+      if (STATE.searchActive) {
+        setTimeout(() => searchInput.focus(), 100);
+      }
+    });
+
+    searchInput.addEventListener('input', (e) => {
+      STATE.searchTerm = e.target.value || '';
+      reflowCards();
+    });
+  }
+
+  // Filter button - RFC-0096: Now opens filter modal
+  const btnFilter = document.getElementById('btnTempFilter');
+  if (btnFilter) {
+    btnFilter.addEventListener('click', () => {
+      LogHelper.log('[TEMPERATURE_SENSORS] Filter button clicked - opening modal');
+      openFilterModal();
+    });
+  }
+}
+
+function renderShoppingFilterChips(selection) {
+  const chipsContainer = document.getElementById('tempShoppingFilterChips');
+  if (!chipsContainer) return;
+
+  chipsContainer.innerHTML = '';
+
+  if (!selection || selection.length === 0) {
+    return;
+  }
+
+  selection.forEach((shopping) => {
+    const chip = document.createElement('span');
+    chip.className = 'filter-chip';
+    chip.innerHTML = `<span class="filter-chip-icon">🏬</span><span>${shopping.name}</span>`;
+    chipsContainer.appendChild(chip);
+  });
+
+  LogHelper.log('[TEMPERATURE_SENSORS] Rendered', selection.length, 'shopping filter chips');
 }
 
 // ============================================
 // WIDGET LIFECYCLE
 // ============================================
 
-self.onInit = function () {
-  LogHelper.log('[TEMPERATURE] RFC-0092: onInit');
-  const ctx = self.ctx;
+self.onInit = async function () {
+  LogHelper.log('[TEMPERATURE_SENSORS] onInit - RFC-0092');
+  showLoadingOverlay(true);
 
-  // Set target temp display
-  const $avgTempTarget = document.getElementById('avgTempTarget');
-  if ($avgTempTarget) {
-    const target = Number(ctx.settings?.targetTemp ?? DEFAULT_SETTINGS.targetTemp);
-    const tol = Number(ctx.settings?.targetTol ?? DEFAULT_SETTINGS.targetTol);
-    $avgTempTarget.textContent = `Meta: ${target}°C +/- ${tol}°C`;
-  }
+  setTimeout(async () => {
+    // Wait for date params from parent
+    function waitForDateParams({ pollMs = 300, timeoutMs = 10000 } = {}) {
+      return new Promise((resolve) => {
+        let resolved = false;
+        let poller = null;
+        let timer = null;
 
-  // Bind event listeners
-  bindEventListeners();
+        const tryResolve = (p) => {
+          const s = p?.globalStartDateFilter || null;
+          const e = p?.globalEndDateFilter || null;
+          if (s && e) {
+            resolved = true;
+            cleanup();
+            resolve({
+              start: s,
+              end: e,
+              from: 'state/event',
+            });
+            return true;
+          }
+          return false;
+        };
 
-  // Initial render
-  updateAll();
+        const cleanup = () => {
+          window.removeEventListener('myio:date-params', onEvt);
+          if (poller) clearInterval(poller);
+          if (timer) clearTimeout(timer);
+        };
+
+        const onEvt = (ev) => tryResolve(ev.detail);
+        window.addEventListener('myio:date-params', onEvt);
+
+        if (tryResolve(window.myioStateParams || {})) return;
+
+        poller = setInterval(() => tryResolve(window.myioStateParams || {}), pollMs);
+
+        timer = setTimeout(() => {
+          if (!resolved) {
+            cleanup();
+            const end = new Date();
+            const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+            resolve({
+              start: start.toISOString(),
+              end: end.toISOString(),
+              from: 'fallback-7d',
+            });
+          }
+        }, timeoutMs);
+      });
+    }
+
+    const dateParams = await waitForDateParams();
+    LogHelper.log('[TEMPERATURE_SENSORS] Date params ready:', dateParams);
+
+    // Listen for shopping filter events
+    self._onFilterApplied = (ev) => {
+      LogHelper.log('[TEMPERATURE_SENSORS] heard myio:filter-applied:', ev.detail);
+
+      const selection = ev.detail?.selection || [];
+      const shoppingIds = selection.map((s) => s.value).filter((v) => v);
+
+      STATE.selectedShoppingIds = shoppingIds;
+      renderShoppingFilterChips(selection);
+      reflowCards();
+    };
+    window.addEventListener('myio:filter-applied', self._onFilterApplied);
+
+    // Listen for customers ready
+    self._onCustomersReady = (ev) => {
+      LogHelper.log('[TEMPERATURE_SENSORS] heard myio:customers-ready:', ev.detail);
+      const customers = ev.detail?.customers || [];
+      if (customers.length > 0) {
+        STATE.totalShoppings = customers.length;
+        renderShoppingFilterChips(customers);
+      }
+    };
+    window.addEventListener('myio:customers-ready', self._onCustomersReady, {
+      once: true,
+    });
+
+    // Fetch and render sensors
+    const sensors = await fetchTemperatureSensors();
+    initializeSensorCards(sensors);
+    updateSensorStats(sensors);
+
+    // Bind filter events
+    bindFilterEvents();
+
+    showLoadingOverlay(false);
+  }, 0);
 };
 
 self.onDataUpdated = function () {
-  LogHelper.log('[TEMPERATURE] onDataUpdated');
-  updateAll();
-};
-
-self.onResize = function () {
-  // Chart.js handles resize automatically
-  if (STATE.chartInstance) {
-    STATE.chartInstance.resize();
-  }
+  /*
+    LogHelper.log('[TEMPERATURE_SENSORS] onDataUpdated');
+    fetchTemperatureSensors().then((sensors) => {
+      STATE.allSensors = sensors;
+      reflowCards();
+    });
+    */
 };
 
 self.onDestroy = function () {
-  // Cleanup chart
-  if (STATE.chartInstance) {
-    STATE.chartInstance.destroy();
-    STATE.chartInstance = null;
-  }
-
-  // Remove event listeners
   if (self._onFilterApplied) {
     window.removeEventListener('myio:filter-applied', self._onFilterApplied);
   }
-  if (self._onDateUpdate) {
-    window.removeEventListener('myio:update-date', self._onDateUpdate);
+  if (self._onCustomersReady) {
+    window.removeEventListener('myio:customers-ready', self._onCustomersReady);
   }
 
-  LogHelper.log('[TEMPERATURE] Widget destroyed');
+  // RFC-0096: Cleanup filter modal
+  if (temperatureFilterModal) {
+    temperatureFilterModal.destroy();
+    temperatureFilterModal = null;
+    LogHelper.log('[TEMPERATURE_SENSORS] [RFC-0096] Filter modal destroyed');
+  }
+
+  LogHelper.log('[TEMPERATURE_SENSORS] Widget destroyed');
 };

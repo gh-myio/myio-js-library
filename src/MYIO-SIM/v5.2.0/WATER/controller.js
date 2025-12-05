@@ -1,3 +1,4 @@
+/* global self, window, document */
 // ============================================
 // MYIO-SIM 1.0.0 - WATER Widget Controller
 // RFC-0087: Water Consumption Dashboard

@@ -4164,7 +4164,11 @@ self.onInit = async function () {
   if (self.ctx.$scope.startDateISO && self.ctx.$scope.endDateISO) {
     window.__MYIO_CURRENT_START_DATE__ = self.ctx.$scope.startDateISO;
     window.__MYIO_CURRENT_END_DATE__ = self.ctx.$scope.endDateISO;
-    LogHelper.log('[MAIN] Global dates initialized:', window.__MYIO_CURRENT_START_DATE__, window.__MYIO_CURRENT_END_DATE__);
+    LogHelper.log(
+      '[MAIN] Global dates initialized:',
+      window.__MYIO_CURRENT_START_DATE__,
+      window.__MYIO_CURRENT_END_DATE__
+    );
   }
 
   // agora já pode carregar dados / inicializar UI dependente de datas
