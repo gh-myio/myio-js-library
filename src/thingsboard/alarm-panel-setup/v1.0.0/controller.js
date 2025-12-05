@@ -36,6 +36,13 @@ var state = {
   },
   showModal: false,
   showFilterModal: false,
+  showExportModal: false,
+  exportOptions: {
+    deviceProfiles: true,
+    deviceMap: true,
+    alarmList: true,
+  },
+  exportGenerating: false,
   activeProfile: null,
   settings: {
     appearance: { showHeader: true, headerTitle: 'Alarm Profiles Panel', compactMode: false },
@@ -151,6 +158,20 @@ function injectStyles() {
     .ap-alarm-rule-nocreate { font-size: 12px; color: #999; margin-left: 12px; font-style: italic; }
     .ap-alarm-rule-clear { font-size: 12px; color: #2e7d32; margin-left: 12px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ccc; }
     .ap-alarm-rule-propagate { font-size: 11px; color: #666; margin-left: 12px; margin-top: 4px; }
+    .ap-export-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 90%; max-width: 450px; z-index: 1001; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+    .ap-export-option { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }
+    .ap-export-option:hover { background: #f5f5f5; border-color: #1976d2; }
+    .ap-export-option.selected { background: #e3f2fd; border-color: #1976d2; }
+    .ap-export-option input[type="checkbox"] { margin-top: 2px; width: 18px; height: 18px; cursor: pointer; }
+    .ap-export-option-content { flex: 1; }
+    .ap-export-option-title { font-weight: 500; font-size: 14px; color: #333; margin-bottom: 4px; }
+    .ap-export-option-desc { font-size: 12px; color: #666; }
+    .ap-export-generating { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 20px; }
+    .ap-spinner { width: 24px; height: 24px; border: 3px solid #e0e0e0; border-top-color: #1976d2; border-radius: 50%; animation: ap-spin 1s linear infinite; }
+    @keyframes ap-spin { to { transform: rotate(360deg); } }
+    .ap-btn-export { background: #4caf50; color: white; }
+    .ap-btn-export:hover { background: #43a047; }
+    .ap-btn-export:disabled { background: #ccc; cursor: not-allowed; }
   `;
 
   var style = document.createElement('style');
@@ -172,7 +193,10 @@ function render() {
     html += '<div class="ap-header">';
     html += '<div><h3 class="ap-title">' + escapeHtml(state.settings.appearance.headerTitle) + '</h3>';
     html += '<div class="ap-subtitle">Select profiles, then view Devices or Alarms.</div></div>';
+    html += '<div style="display: flex; gap: 8px;">';
+    html += '<button class="ap-btn ap-btn-export" onclick="AlarmPanel.openExportModal()" title="Exportar PDF">&#128196; PDF</button>';
     html += '<button class="ap-btn ap-btn-secondary" onclick="AlarmPanel.refresh()">Refresh</button>';
+    html += '</div>';
     html += '</div>';
   }
 
@@ -195,6 +219,11 @@ function render() {
   // Filter Modal
   if (state.showFilterModal) {
     html += renderFilterModal();
+  }
+
+  // Export Modal
+  if (state.showExportModal) {
+    html += renderExportModal();
   }
 
   rootEl.innerHTML = html;
@@ -456,6 +485,308 @@ function renderFilterModal() {
   html += '</div>';
 
   return html;
+}
+
+function renderExportModal() {
+  var html = '<div class="ap-modal-backdrop" onclick="AlarmPanel.closeExportModal()"></div>';
+  html += '<div class="ap-export-modal">';
+  html += '<div class="ap-modal-header"><span class="ap-modal-title">Exportar Relatório PDF</span>';
+  html += '<button class="ap-modal-close" onclick="AlarmPanel.closeExportModal()">×</button></div>';
+  html += '<div class="ap-modal-body">';
+
+  if (state.exportGenerating) {
+    html += '<div class="ap-export-generating">';
+    html += '<div class="ap-spinner"></div>';
+    html += '<span>Gerando PDF...</span>';
+    html += '</div>';
+  } else {
+    html += '<p style="margin-bottom: 16px; color: #666;">Selecione o conteúdo do relatório:</p>';
+
+    // Device Profiles option
+    html += '<label class="ap-export-option' + (state.exportOptions.deviceProfiles ? ' selected' : '') + '" onclick="AlarmPanel.toggleExportOption(\'deviceProfiles\')">';
+    html += '<input type="checkbox" ' + (state.exportOptions.deviceProfiles ? 'checked' : '') + ' />';
+    html += '<div class="ap-export-option-content">';
+    html += '<div class="ap-export-option-title">Device Profiles e Regras de Alarmes</div>';
+    html += '<div class="ap-export-option-desc">Inclui: perfis, regras de criação/limpeza, agendamentos</div>';
+    html += '</div></label>';
+
+    // Device Map option
+    html += '<label class="ap-export-option' + (state.exportOptions.deviceMap ? ' selected' : '') + '" onclick="AlarmPanel.toggleExportOption(\'deviceMap\')">';
+    html += '<input type="checkbox" ' + (state.exportOptions.deviceMap ? 'checked' : '') + ' />';
+    html += '<div class="ap-export-option-content">';
+    html += '<div class="ap-export-option-title">Mapa de Devices</div>';
+    html += '<div class="ap-export-option-desc">Tabela com devices, localização, severidade e status</div>';
+    html += '</div></label>';
+
+    // Alarm List option
+    html += '<label class="ap-export-option' + (state.exportOptions.alarmList ? ' selected' : '') + '" onclick="AlarmPanel.toggleExportOption(\'alarmList\')">';
+    html += '<input type="checkbox" ' + (state.exportOptions.alarmList ? 'checked' : '') + ' />';
+    html += '<div class="ap-export-option-content">';
+    html += '<div class="ap-export-option-title">Lista de Alarmes</div>';
+    html += '<div class="ap-export-option-desc">Alarmes conforme filtros atuais (' + getFilteredAlarms().length + ' alarmes)</div>';
+    html += '</div></label>';
+  }
+
+  html += '</div>';
+  html += '<div class="ap-modal-footer">';
+  if (!state.exportGenerating) {
+    var hasSelection = state.exportOptions.deviceProfiles || state.exportOptions.deviceMap || state.exportOptions.alarmList;
+    html += '<button class="ap-btn ap-btn-secondary" onclick="AlarmPanel.closeExportModal()" style="margin-right: 8px;">Cancelar</button>';
+    html += '<button class="ap-btn ap-btn-export" onclick="AlarmPanel.generatePDF()"' + (hasSelection ? '' : ' disabled') + '>Gerar PDF</button>';
+  }
+  html += '</div>';
+  html += '</div>';
+
+  return html;
+}
+
+// ============================================================
+// PDF GENERATION
+// ============================================================
+var pdfLibLoaded = false;
+
+function loadPDFLibrary() {
+  return new Promise(function(resolve, reject) {
+    if (pdfLibLoaded && window.jspdf) {
+      resolve();
+      return;
+    }
+
+    var jspdfScript = document.createElement('script');
+    jspdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    jspdfScript.onload = function() {
+      var autoTableScript = document.createElement('script');
+      autoTableScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js';
+      autoTableScript.onload = function() {
+        pdfLibLoaded = true;
+        resolve();
+      };
+      autoTableScript.onerror = function() {
+        reject(new Error('Falha ao carregar jspdf-autotable'));
+      };
+      document.head.appendChild(autoTableScript);
+    };
+    jspdfScript.onerror = function() {
+      reject(new Error('Falha ao carregar jsPDF'));
+    };
+    document.head.appendChild(jspdfScript);
+  });
+}
+
+function generatePDFDocument() {
+  var jsPDF = window.jspdf.jsPDF;
+  var doc = new jsPDF('p', 'mm', 'a4');
+  var pageWidth = doc.internal.pageSize.getWidth();
+  var pageHeight = doc.internal.pageSize.getHeight();
+  var margin = 15;
+  var yPos = margin;
+
+  // Helper function to check and add new page
+  function checkNewPage(neededHeight) {
+    if (yPos + neededHeight > pageHeight - margin) {
+      doc.addPage();
+      yPos = margin;
+      return true;
+    }
+    return false;
+  }
+
+  // Header
+  doc.setFillColor(25, 118, 210);
+  doc.rect(0, 0, pageWidth, 25, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('RELATÓRIO DE ALARMES', pageWidth / 2, 12, { align: 'center' });
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Gerado em: ' + new Date().toLocaleString('pt-BR'), pageWidth / 2, 20, { align: 'center' });
+
+  yPos = 35;
+  doc.setTextColor(0, 0, 0);
+
+  // Customer info
+  if (state.customers.length > 0) {
+    doc.setFontSize(11);
+    doc.text('Cliente: ' + state.customers.map(function(c) { return c.name; }).join(', '), margin, yPos);
+    yPos += 10;
+  }
+
+  // Section 1: Device Profiles
+  if (state.exportOptions.deviceProfiles && state.profiles.length > 0) {
+    checkNewPage(20);
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, yPos - 5, pageWidth - 2 * margin, 8, 'F');
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DEVICE PROFILES E REGRAS DE ALARMES', margin + 2, yPos);
+    yPos += 10;
+
+    state.profiles.forEach(function(profile, idx) {
+      checkNewPage(30);
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(25, 118, 210);
+      doc.text((idx + 1) + '. ' + profile.name, margin, yPos);
+      yPos += 6;
+
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Devices: ' + profile.deviceCount + ' | Regras: ' + (profile.alarmRules ? profile.alarmRules.length : 0), margin + 5, yPos);
+      yPos += 6;
+
+      // Alarm rules
+      if (profile.alarmRules && profile.alarmRules.length > 0) {
+        profile.alarmRules.forEach(function(rule, ruleIdx) {
+          checkNewPage(20);
+
+          doc.setTextColor(0, 0, 0);
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.text('  [' + (ruleIdx + 1) + '] ' + rule.alarmType, margin + 5, yPos);
+          yPos += 5;
+
+          // Create rules
+          if (rule.createRules) {
+            Object.keys(rule.createRules).forEach(function(severity) {
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(8);
+              var createRule = rule.createRules[severity];
+              var conditionText = formatCondition(createRule.condition);
+              var scheduleText = formatSchedule(createRule.schedule);
+
+              doc.text('    Criação (' + severity + '): ' + conditionText.substring(0, 80), margin + 5, yPos);
+              yPos += 4;
+              if (conditionText.length > 80) {
+                doc.text('      ' + conditionText.substring(80, 160), margin + 5, yPos);
+                yPos += 4;
+              }
+              doc.text('    Agenda: ' + scheduleText.substring(0, 80), margin + 5, yPos);
+              yPos += 4;
+            });
+          }
+
+          // Clear rule
+          doc.setFontSize(8);
+          if (rule.clearRule && rule.clearRule.condition) {
+            doc.text('    Clear: ' + formatCondition(rule.clearRule.condition).substring(0, 80), margin + 5, yPos);
+          } else {
+            doc.setTextColor(150, 150, 150);
+            doc.text('    Clear: não configurado', margin + 5, yPos);
+          }
+          doc.setTextColor(0, 0, 0);
+          yPos += 6;
+        });
+      }
+      yPos += 4;
+    });
+  }
+
+  // Section 2: Device Map
+  if (state.exportOptions.deviceMap && state.devices.length > 0) {
+    checkNewPage(30);
+    yPos += 5;
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, yPos - 5, pageWidth - 2 * margin, 8, 'F');
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('MAPA DE DEVICES', margin + 2, yPos);
+    yPos += 10;
+
+    var deviceData = getFilteredDevices().map(function(d) {
+      var profileName = state.profiles.find(function(p) { return p.id === d.deviceProfileId; });
+      return [
+        d.name || '-',
+        d.label || '-',
+        profileName ? profileName.name.substring(0, 20) : '-',
+        d.currentAlarmSeverity || 'NONE',
+        d.alarmStatus || 'NORMAL'
+      ];
+    });
+
+    doc.autoTable({
+      startY: yPos,
+      head: [['Device', 'Label', 'Perfil', 'Severidade', 'Status']],
+      body: deviceData,
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [25, 118, 210], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+      columnStyles: {
+        0: { cellWidth: 40 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 40 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 25 }
+      }
+    });
+
+    yPos = doc.lastAutoTable.finalY + 10;
+  }
+
+  // Section 3: Alarm List
+  if (state.exportOptions.alarmList) {
+    var alarms = getFilteredAlarms();
+    if (alarms.length > 0) {
+      checkNewPage(30);
+      yPos += 5;
+      doc.setFillColor(240, 240, 240);
+      doc.rect(margin, yPos - 5, pageWidth - 2 * margin, 8, 'F');
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('LISTA DE ALARMES (' + alarms.length + ')', margin + 2, yPos);
+      yPos += 10;
+
+      var alarmData = alarms.map(function(a, idx) {
+        return [
+          (idx + 1).toString(),
+          a.originatorName || '-',
+          (a.type || a.name || '-').substring(0, 30),
+          a.severity || '-',
+          a.status || '-',
+          formatDate(a.startTs)
+        ];
+      });
+
+      doc.autoTable({
+        startY: yPos,
+        head: [['#', 'Device', 'Tipo', 'Severidade', 'Status', 'Início']],
+        body: alarmData,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [25, 118, 210], textColor: 255 },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        columnStyles: {
+          0: { cellWidth: 10 },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 45 },
+          3: { cellWidth: 22 },
+          4: { cellWidth: 22 },
+          5: { cellWidth: 35 }
+        }
+      });
+    }
+  }
+
+  // Footer on each page
+  var totalPages = doc.internal.getNumberOfPages();
+  for (var i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('Página ' + i + ' de ' + totalPages, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    doc.text('Gerado por Alarm Profiles Panel', margin, pageHeight - 10);
+  }
+
+  // Generate filename
+  var dateStr = new Date().toISOString().split('T')[0];
+  var filename = 'relatorio-alarmes-' + dateStr + '.pdf';
+
+  doc.save(filename);
 }
 
 function renderModal() {
@@ -873,6 +1204,40 @@ window.AlarmPanel = {
     state.filters.selectedDeviceIds = [];
     state.filters.severities = { CRITICAL: true, MAJOR: true, MINOR: true, WARNING: true };
     render();
+  },
+  // Export Modal
+  openExportModal: function () {
+    state.showExportModal = true;
+    state.exportGenerating = false;
+    render();
+  },
+  closeExportModal: function () {
+    state.showExportModal = false;
+    state.exportGenerating = false;
+    render();
+  },
+  toggleExportOption: function (option) {
+    state.exportOptions[option] = !state.exportOptions[option];
+    render();
+  },
+  generatePDF: function () {
+    state.exportGenerating = true;
+    render();
+
+    loadPDFLibrary()
+      .then(function () {
+        generatePDFDocument();
+        state.exportGenerating = false;
+        state.showExportModal = false;
+        render();
+        LogHelper.log('PDF gerado com sucesso');
+      })
+      .catch(function (err) {
+        LogHelper.error('Erro ao gerar PDF:', err);
+        state.exportGenerating = false;
+        state.error = 'Erro ao gerar PDF: ' + err.message;
+        render();
+      });
   },
 };
 

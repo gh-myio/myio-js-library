@@ -3623,6 +3623,55 @@ window.addEventListener('myio:request-energy-summary', () => {
   }
 });
 
+// ✅ WATER widget → solicita dados de água do cache ou busca na API
+window.addEventListener('myio:request-water-data', async (ev) => {
+  LogHelper.log('[MAIN] Received myio:request-water-data from:', ev.detail?.requestor);
+
+  // Check if orchestrator and auth are ready
+  if (!window.MyIOOrchestrator || !CUSTOMER_INGESTION_ID) {
+    LogHelper.warn('[MAIN] Orchestrator or credentials not ready for water data request');
+    return;
+  }
+
+  // Get current period from global state
+  const startDate = window.__MYIO_CURRENT_START_DATE__;
+  const endDate = window.__MYIO_CURRENT_END_DATE__;
+
+  if (!startDate || !endDate) {
+    LogHelper.warn('[MAIN] No date range set for water data request');
+    return;
+  }
+
+  try {
+    // Fetch water data (will use cache if available)
+    const waterCache = await window.MyIOOrchestrator.fetchWaterData(
+      CUSTOMER_INGESTION_ID,
+      startDate,
+      endDate
+    );
+
+    LogHelper.log('[MAIN] Water data fetched/cached:', waterCache?.size || 0, 'devices');
+
+    // Event is already dispatched by fetchWaterData, but dispatch again for late subscribers
+    if (waterCache && waterCache.size > 0) {
+      window.dispatchEvent(
+        new CustomEvent('myio:water-data-ready', {
+          detail: {
+            cache: waterCache,
+            totalDevices: waterCache.size,
+            startDate,
+            endDate,
+            timestamp: Date.now(),
+            fromCache: true,
+          },
+        })
+      );
+    }
+  } catch (err) {
+    LogHelper.error('[MAIN] Error fetching water data:', err);
+  }
+});
+
 // ✅ EQUIPMENTS → informa quais devices são lojas (3F_MEDIDOR)
 window.addEventListener('myio:lojas-identified', (ev) => {
   const ids = ev.detail?.lojasIngestionIds || [];
@@ -4001,6 +4050,10 @@ self.onInit = async function () {
     const { startDate, endDate } = ev.detail;
 
     if (startDate && endDate) {
+      // Store dates globally for other widgets (WATER, etc.) to access
+      window.__MYIO_CURRENT_START_DATE__ = startDate;
+      window.__MYIO_CURRENT_END_DATE__ = endDate;
+
       // Update scope
       applyParams({
         globalStartDateFilter: startDate,
@@ -4106,6 +4159,13 @@ self.onInit = async function () {
   });
 
   LogHelper.log('[EQUIPMENTS] date params ready:', datesFromParent);
+
+  // Store dates globally for other widgets (WATER, etc.) to access
+  if (self.ctx.$scope.startDateISO && self.ctx.$scope.endDateISO) {
+    window.__MYIO_CURRENT_START_DATE__ = self.ctx.$scope.startDateISO;
+    window.__MYIO_CURRENT_END_DATE__ = self.ctx.$scope.endDateISO;
+    LogHelper.log('[MAIN] Global dates initialized:', window.__MYIO_CURRENT_START_DATE__, window.__MYIO_CURRENT_END_DATE__);
+  }
 
   // agora já pode carregar dados / inicializar UI dependente de datas
   if (typeof self.loadData === 'function') {

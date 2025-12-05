@@ -448,21 +448,44 @@ function setupZoomControls() {
 
 /**
  * Handler para dados de água vindos do MAIN
+ * Suporta dois formatos:
+ * 1. cache Map - quando MAIN envia dados agregados do waterCache
+ * 2. source/data - quando MAIN envia dados específicos por categoria
  */
 function handleWaterDataReady(event) {
-  const { source, data } = event.detail || {};
-  console.log('[WATER] Received water data from:', source, data);
+  const { source, data, cache } = event.detail || {};
+  console.log('[WATER] Received water data:', { source, hasCache: !!cache, hasData: !!data });
 
   // Atualiza cache local
   const cached = getCachedTotalConsumption() || { storesTotal: 0, commonAreaTotal: 0, totalGeral: 0 };
 
-  if (source === 'WATER_COMMON_AREA' && data) {
+  // Formato 1: cache Map do MAIN (dados agregados de todos os hidrômetros)
+  if (cache instanceof Map && cache.size > 0) {
+    let totalFromCache = 0;
+    cache.forEach((device) => {
+      totalFromCache += Number(device.total_value || 0);
+    });
+
+    // Estima split 60/40 entre lojas e área comum (será ajustado quando tiver dados reais separados)
+    cached.storesTotal = totalFromCache * 0.6;
+    cached.commonAreaTotal = totalFromCache * 0.4;
+    cached.totalGeral = totalFromCache;
+
+    console.log('[WATER] Calculated totals from cache:', {
+      total: totalFromCache,
+      stores: cached.storesTotal,
+      commonArea: cached.commonAreaTotal,
+      devices: cache.size,
+    });
+  }
+  // Formato 2: source/data específico por categoria
+  else if (source === 'WATER_COMMON_AREA' && data) {
     cached.commonAreaTotal = data.totalConsumption || 0;
+    cached.totalGeral = cached.storesTotal + cached.commonAreaTotal;
   } else if (source === 'WATER_STORES' && data) {
     cached.storesTotal = data.totalConsumption || 0;
+    cached.totalGeral = cached.storesTotal + cached.commonAreaTotal;
   }
-
-  cached.totalGeral = cached.storesTotal + cached.commonAreaTotal;
 
   // Atualiza cache
   cacheTotalConsumption(cached.storesTotal, cached.commonAreaTotal, cached.totalGeral);
@@ -582,30 +605,37 @@ self.onInit = function () {
   // Setup event listeners
   setupEventListeners();
 
-  // Initialize charts
+  // Initialize charts with empty/loading state
   setTimeout(() => {
     initializeLineChart();
 
-    // Mock initial data for pie chart
-    const mockData = {
-      storesTotal: 120,
-      commonAreaTotal: 80,
-      totalGeral: 200,
-    };
-
-    initializePieChart(mockData);
-    updateAllCards(mockData);
-    cacheTotalConsumption(mockData.storesTotal, mockData.commonAreaTotal, mockData.totalGeral);
+    // Check if we already have cached data from MAIN
+    const cached = getCachedTotalConsumption();
+    if (cached) {
+      console.log('[WATER] Using cached data on init:', cached);
+      initializePieChart(cached);
+      updateAllCards(cached);
+    } else {
+      // Initialize with zeros while waiting for real data
+      const emptyData = {
+        storesTotal: 0,
+        commonAreaTotal: 0,
+        totalGeral: 0,
+      };
+      initializePieChart(emptyData);
+      // Keep loading state on cards
+    }
   }, 500);
 
-  // Request data from MAIN
+  // Request data from MAIN immediately
   setTimeout(() => {
+    console.log('[WATER] Requesting water data from MAIN...');
     window.dispatchEvent(
       new CustomEvent('myio:request-water-data', {
         detail: { requestor: 'WATER' },
       })
     );
-  }, 1000);
+  }, 200);
 };
 
 self.onDataUpdated = function () {

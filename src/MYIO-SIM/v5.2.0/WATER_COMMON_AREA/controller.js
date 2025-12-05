@@ -1,3 +1,5 @@
+/* global self, window, document, localStorage, MyIOLibrary */
+
 /* =========================================================================
  * ThingsBoard Widget: Water Common Area - Device Cards for Water Meters (MyIO)
  * RFC-0094: Aligned with WATER_STORES pattern using buildHeaderDevicesGrid and createFilterModal
@@ -10,8 +12,6 @@
  * - onDataUpdated: no-op
  * - Evento (myio:update-date): mostra modal + atualiza
  * =========================================================================*/
-
-/* eslint-disable no-undef, no-unused-vars */
 
 // ============================================
 // SHARED UTILITIES (from MAIN via window.MyIOUtils)
@@ -1169,7 +1169,7 @@ async function hydrateAndRender() {
 self.onInit = async function () {
   $(self.ctx.$container).css({
     height: '100%',
-    overflow: 'hidden',
+    overflow: 'auto', // FIX: Same as STORES - allows vertical scroll
     display: 'flex',
     flexDirection: 'column',
     position: 'relative',
