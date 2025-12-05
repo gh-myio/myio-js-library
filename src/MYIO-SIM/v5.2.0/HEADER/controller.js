@@ -1565,6 +1565,20 @@ window.addEventListener('myio:orchestrator-filter-updated', (ev) => {
   }
 });
 
+// ===== HEADER: Listen for water totals calculated from valid TB aliases =====
+// Este evento é disparado quando widgets WATER_COMMON_AREA ou WATER_STORES registram seus IDs
+window.addEventListener('myio:water-totals-updated', (ev) => {
+  const { commonArea, stores, total } = ev.detail || {};
+  LogHelper.log('[HEADER] 💧 heard myio:water-totals-updated:', { commonArea, stores, total });
+
+  // Atualizar card de água com total calculado (apenas IDs válidos dos Aliases TB)
+  const waterKpi = document.getElementById('water-kpi');
+  if (waterKpi && total > 0) {
+    waterKpi.innerText = formatWater(total);
+    LogHelper.log(`[HEADER] Water card updated from valid aliases: ${formatWater(total)}`);
+  }
+});
+
 self.onDataUpdated = function () {
   if (_dataRefreshCount >= MAX_DATA_REFRESHES) {
     return;

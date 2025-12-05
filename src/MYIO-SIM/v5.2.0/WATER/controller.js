@@ -460,19 +460,32 @@ function handleWaterDataReady(event) {
   // Atualiza cache local
   const cached = getCachedTotalConsumption() || { storesTotal: 0, commonAreaTotal: 0, totalGeral: 0 };
 
-  // Formato 1: cache Map do MAIN (dados agregados de todos os hidrômetros)
-  if (cache instanceof Map && cache.size > 0) {
+  // PRIORIDADE 1: Usar totais calculados pelo Orchestrator (apenas IDs válidos dos Aliases TB)
+  const orchestratorTotals = window.MyIOOrchestrator?.getWaterTotals?.();
+  if (orchestratorTotals && orchestratorTotals.total > 0) {
+    cached.storesTotal = orchestratorTotals.stores;
+    cached.commonAreaTotal = orchestratorTotals.commonArea;
+    cached.totalGeral = orchestratorTotals.total;
+
+    console.log('[WATER] Using Orchestrator totals (valid TB aliases):', {
+      total: cached.totalGeral,
+      stores: cached.storesTotal,
+      commonArea: cached.commonAreaTotal,
+    });
+  }
+  // FALLBACK: Formato 1 - cache Map do MAIN (dados agregados - NÃO RECOMENDADO)
+  else if (cache instanceof Map && cache.size > 0) {
     let totalFromCache = 0;
     cache.forEach((device) => {
       totalFromCache += Number(device.total_value || 0);
     });
 
-    // Estima split 60/40 entre lojas e área comum (será ajustado quando tiver dados reais separados)
+    // FALLBACK: Estima split 60/40 (será corrigido quando widgets registrarem IDs)
     cached.storesTotal = totalFromCache * 0.6;
     cached.commonAreaTotal = totalFromCache * 0.4;
     cached.totalGeral = totalFromCache;
 
-    console.log('[WATER] Calculated totals from cache:', {
+    console.log('[WATER] FALLBACK: Using estimated 60/40 split (waiting for valid IDs):', {
       total: totalFromCache,
       stores: cached.storesTotal,
       commonArea: cached.commonAreaTotal,
@@ -543,6 +556,24 @@ function renderShoppingFilterChips(selection) {
 function setupEventListeners() {
   // Listen for water data from MAIN
   window.addEventListener('myio:water-data-ready', handleWaterDataReady);
+
+  // Listen for water totals calculated from valid TB aliases (Orchestrator)
+  window.addEventListener('myio:water-totals-updated', (ev) => {
+    const { commonArea, stores, total } = ev.detail || {};
+    console.log('[WATER] 💧 heard myio:water-totals-updated:', { commonArea, stores, total });
+
+    if (total > 0) {
+      // Atualiza com totais reais do Orchestrator
+      cacheTotalConsumption(stores, commonArea, total);
+
+      // Atualiza UI
+      const cached = { storesTotal: stores, commonAreaTotal: commonArea, totalGeral: total };
+      updateAllCards(cached);
+      initializePieChart(cached);
+
+      console.log('[WATER] ✅ Updated with Orchestrator totals:', cached);
+    }
+  });
 
   // Listen for date/filter updates
   window.addEventListener('myio:update-date', handleDateUpdate);

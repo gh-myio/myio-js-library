@@ -2884,6 +2884,80 @@ const MyIOOrchestrator = (() => {
   let lastFetchParams = null;
   let lastFetchTimestamp = null;
 
+  // ===== WATER: Registro de IDs válidos por categoria (vindos dos Aliases TB) =====
+  // Os widgets WATER_COMMON_AREA e WATER_STORES registram seus IDs aqui
+  // O Orchestrator só soma devices que existem nesses registros
+  const waterValidIds = {
+    commonArea: new Set(),  // IDs do alias 'HidrometrosAreaComum'
+    stores: new Set(),      // IDs do alias 'Todos Hidrometros Lojas'
+  };
+
+  // Totais calculados apenas para IDs válidos
+  let waterTotals = {
+    commonArea: 0,
+    stores: 0,
+    total: 0,
+  };
+
+  /**
+   * Widgets registram seus IDs válidos de água
+   * @param {string} category - 'commonArea' ou 'stores'
+   * @param {string[]} ids - Array de ingestionIds válidos
+   */
+  function registerWaterDeviceIds(category, ids) {
+    if (category !== 'commonArea' && category !== 'stores') {
+      LogHelper.warn(`[Orchestrator] Invalid water category: ${category}`);
+      return;
+    }
+
+    waterValidIds[category] = new Set(ids.filter(Boolean));
+    LogHelper.log(`[Orchestrator] Registered ${waterValidIds[category].size} valid IDs for water ${category}`);
+
+    // Recalcular totais com IDs válidos
+    recalculateWaterTotals();
+  }
+
+  /**
+   * Calcula totais de água apenas para IDs válidos (dos Aliases TB)
+   * IDs que não estão em nenhum alias são IGNORADOS
+   */
+  function recalculateWaterTotals() {
+    let commonAreaTotal = 0;
+    let storesTotal = 0;
+
+    waterCache.forEach((device, id) => {
+      const value = Number(device.total_value || 0);
+      if (waterValidIds.commonArea.has(id)) {
+        commonAreaTotal += value;
+      } else if (waterValidIds.stores.has(id)) {
+        storesTotal += value;
+      }
+      // IDs que não estão em nenhum alias são IGNORADOS (não somados)
+    });
+
+    waterTotals = {
+      commonArea: commonAreaTotal,
+      stores: storesTotal,
+      total: commonAreaTotal + storesTotal,
+    };
+
+    LogHelper.log(`[Orchestrator] Water totals recalculated:`, waterTotals);
+    LogHelper.log(`[Orchestrator] Valid IDs: commonArea=${waterValidIds.commonArea.size}, stores=${waterValidIds.stores.size}`);
+    LogHelper.log(`[Orchestrator] Ignored devices: ${waterCache.size - waterValidIds.commonArea.size - waterValidIds.stores.size}`);
+
+    // Disparar evento para atualizar HEADER e WATER
+    window.dispatchEvent(new CustomEvent('myio:water-totals-updated', {
+      detail: { ...waterTotals, timestamp: Date.now() }
+    }));
+  }
+
+  /**
+   * Retorna os totais de água calculados (apenas IDs válidos)
+   */
+  function getWaterTotals() {
+    return { ...waterTotals };
+  }
+
   // ===== STATE para montar o resumo ENERGY =====
   let customerTotalConsumption = null; // total do cliente (vem do HEADER)
   let lojasIngestionIds = new Set(); // ingestionIds das lojas (3F_MEDIDOR) - vem do EQUIPMENTS
@@ -3564,6 +3638,11 @@ const MyIOOrchestrator = (() => {
       );
       LogHelper.log('[MAIN] [Orchestrator] ✅ Dispatched myio:orchestrator-filter-updated');
     },
+
+    // ===== WATER: Funções para registro de IDs válidos =====
+    registerWaterDeviceIds,
+    getWaterTotals,
+    recalculateWaterTotals,
   };
 })();
 

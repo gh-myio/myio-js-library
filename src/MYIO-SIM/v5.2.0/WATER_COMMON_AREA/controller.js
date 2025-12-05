@@ -456,6 +456,14 @@ function buildAuthoritativeItems() {
   });
 
   LogHelper.log(`[WATER_COMMON_AREA] buildAuthoritativeItems: Built ${mapped.length} water meter items`);
+
+  // Registrar IDs válidos no Orchestrator para cálculo correto dos totais
+  const validIds = mapped.map(m => m.ingestionId).filter(Boolean);
+  if (window.MyIOOrchestrator?.registerWaterDeviceIds) {
+    window.MyIOOrchestrator.registerWaterDeviceIds('commonArea', validIds);
+    LogHelper.log(`[WATER_COMMON_AREA] Registered ${validIds.length} IDs in Orchestrator`);
+  }
+
   return mapped;
 }
 
