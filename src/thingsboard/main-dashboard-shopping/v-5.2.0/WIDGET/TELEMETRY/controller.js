@@ -3123,7 +3123,7 @@ self.onInit = async function () {
   //DEVICE_TYPE = self.ctx.settings?.DEVICE_TYPE || "energy";
   const jwt = localStorage.getItem('jwt_token');
 
-  const boolExecSync = false;
+  const boolExecSync = new URLSearchParams(window.location.search).get('boolExecSync') === 'true';
 
   // RFC-0071: Trigger device profile synchronization (runs once)
   if (!__deviceProfileSyncComplete && boolExecSync) {

@@ -1,4 +1,4 @@
-/* global self, ctx */
+/* global self, ctx, localStorage, document, window, IntersectionObserver */
 
 /**
  * RFC-0057: Welcome LV Widget
@@ -87,6 +87,14 @@ const DEFAULT_SHOPPING_CARDS = [
     buttonId: 'ShoppingMoxuara',
     dashboardId: '4b53bbb0-b5a7-11f0-be7f-e760d1498268',
     entityId: '4b53bbb0-b5a7-11f0-be7f-e760d1498268',
+    entityType: 'ASSET',
+  },
+  {
+    title: 'Rio Poty',
+    subtitle: 'Dashboard Principal',
+    buttonId: 'ShoppingRioPoty',
+    dashboardId: 'd432db90-cee9-11f0-998e-25174baff087',
+    entityId: 'd432db90-cee9-11f0-998e-25174baff087',
     entityType: 'ASSET',
   },
   {
