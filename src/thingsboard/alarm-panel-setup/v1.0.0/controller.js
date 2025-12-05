@@ -28,8 +28,14 @@ var state = {
   devices: [],
   alarms: [],
   selectedProfileIds: [],
-  filters: { statuses: { ACTIVE: true, CLEARED: false, ACKNOWLEDGED: false } },
+  filters: {
+    statuses: { ACTIVE: true, CLEARED: false, ACKNOWLEDGED: false },
+    searchText: '',
+    selectedDeviceIds: [],
+    severities: { CRITICAL: true, MAJOR: true, MINOR: true, WARNING: true },
+  },
   showModal: false,
+  showFilterModal: false,
   activeProfile: null,
   settings: {
     appearance: { showHeader: true, headerTitle: 'Alarm Profiles Panel', compactMode: false },
@@ -74,8 +80,9 @@ function injectStyles() {
     .ap-toggle-btn.active { background: #1976d2; color: white; border-color: #1976d2; }
     .ap-toggle-btn:first-child { border-radius: 4px 0 0 4px; }
     .ap-toggle-btn:last-child { border-radius: 0 4px 4px 0; }
-    .ap-grid { border: 1px solid #ddd; border-radius: 4px; overflow: hidden; }
-    .ap-grid-header { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; background: #f5f5f5; padding: 10px; font-weight: bold; font-size: 12px; border-bottom: 1px solid #ddd; }
+    .ap-grid { border: 1px solid #ddd; border-radius: 4px; display: flex; flex-direction: column; max-height: 400px; }
+    .ap-grid-header { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; background: #f5f5f5; padding: 10px; font-weight: bold; font-size: 12px; border-bottom: 1px solid #ddd; flex-shrink: 0; }
+    .ap-grid-body { overflow-y: auto; flex: 1; }
     .ap-grid-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; padding: 10px; border-bottom: 1px solid #eee; font-size: 13px; }
     .ap-grid-row:hover { background: #fafafa; }
     .ap-device-name { font-weight: 500; }
@@ -89,15 +96,38 @@ function injectStyles() {
     .ap-status-active { background: #ffcdd2; color: #c62828; }
     .ap-status-cleared { background: #c8e6c9; color: #2e7d32; }
     .ap-status-ack { background: #bbdefb; color: #1565c0; }
-    .ap-alarm-card { border: 1px solid #ddd; border-radius: 4px; padding: 12px; margin-bottom: 8px; }
+    .ap-alarms-container { display: flex; flex-direction: column; max-height: 450px; border: 1px solid #ddd; border-radius: 4px; }
+    .ap-alarms-list { overflow-y: auto; flex: 1; padding: 8px; }
+    .ap-alarm-card { border: 1px solid #ddd; border-radius: 4px; padding: 12px; margin-bottom: 8px; background: white; }
+    .ap-alarm-card:last-child { margin-bottom: 0; }
     .ap-alarm-header { display: flex; justify-content: space-between; }
     .ap-alarm-device { font-weight: 500; }
     .ap-alarm-type { font-size: 12px; color: #666; }
     .ap-alarm-time { font-size: 11px; color: #999; }
     .ap-alarm-badges { display: flex; gap: 6px; margin-top: 4px; }
-    .ap-filters { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .ap-filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
     .ap-filter-group { display: flex; align-items: center; gap: 8px; font-size: 12px; }
     .ap-filter-group label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+    .ap-search-box { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px; }
+    .ap-search-input { flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+    .ap-search-input:focus { outline: none; border-color: #1976d2; }
+    .ap-filter-btn { display: flex; align-items: center; gap: 4px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 13px; }
+    .ap-filter-btn:hover { background: #f5f5f5; }
+    .ap-filter-btn.has-filters { border-color: #1976d2; background: #e3f2fd; }
+    .ap-filter-icon { font-size: 14px; }
+    .ap-filter-badge { background: #1976d2; color: white; border-radius: 10px; padding: 2px 6px; font-size: 10px; margin-left: 4px; }
+    .ap-filter-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 90%; max-width: 500px; max-height: 80vh; overflow: auto; z-index: 1001; }
+    .ap-filter-section { margin-bottom: 16px; }
+    .ap-filter-section-title { font-weight: bold; font-size: 13px; margin-bottom: 8px; color: #333; }
+    .ap-checkbox-list { display: flex; flex-direction: column; gap: 6px; max-height: 150px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; padding: 8px; }
+    .ap-checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; }
+    .ap-checkbox-item:hover { background: #f5f5f5; }
+    .ap-select-all { font-size: 11px; color: #1976d2; cursor: pointer; margin-left: 8px; }
+    .ap-select-all:hover { text-decoration: underline; }
+    .ap-active-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .ap-active-filter-tag { display: flex; align-items: center; gap: 4px; background: #e3f2fd; border: 1px solid #1976d2; border-radius: 12px; padding: 4px 8px; font-size: 11px; }
+    .ap-active-filter-tag button { background: none; border: none; cursor: pointer; font-size: 12px; color: #666; padding: 0; line-height: 1; }
+    .ap-active-filter-tag button:hover { color: #d32f2f; }
     .ap-modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; }
     .ap-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 90%; max-width: 600px; max-height: 80vh; overflow: auto; z-index: 1001; }
     .ap-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid #ddd; }
@@ -107,6 +137,20 @@ function injectStyles() {
     .ap-modal-section { margin-bottom: 16px; }
     .ap-modal-footer { padding: 16px; border-top: 1px solid #ddd; text-align: right; }
     .ap-empty { padding: 20px; text-align: center; color: #999; font-style: italic; }
+    .ap-alarm-rules-header { margin-bottom: 12px; font-size: 14px; }
+    .ap-alarm-rules-list { border: 1px solid #e0e0e0; border-radius: 4px; background: #fafafa; }
+    .ap-alarm-rules-empty { padding: 12px; color: #666; font-style: italic; }
+    .ap-alarm-rule-item { padding: 12px; border-bottom: 1px solid #e0e0e0; }
+    .ap-alarm-rule-item:last-child { border-bottom: none; }
+    .ap-alarm-rule-title { font-weight: bold; font-size: 14px; color: #1976d2; margin-bottom: 8px; }
+    .ap-alarm-rule-create { margin-left: 12px; margin-bottom: 8px; }
+    .ap-alarm-rule-severity { font-size: 13px; margin-bottom: 4px; }
+    .ap-alarm-rule-condition { font-size: 12px; color: #333; margin-left: 12px; margin-bottom: 2px; }
+    .ap-alarm-rule-default { font-size: 12px; color: #666; margin-left: 12px; margin-bottom: 2px; }
+    .ap-alarm-rule-schedule { font-size: 12px; color: #666; margin-left: 12px; margin-bottom: 4px; }
+    .ap-alarm-rule-nocreate { font-size: 12px; color: #999; margin-left: 12px; font-style: italic; }
+    .ap-alarm-rule-clear { font-size: 12px; color: #2e7d32; margin-left: 12px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ccc; }
+    .ap-alarm-rule-propagate { font-size: 11px; color: #666; margin-left: 12px; margin-top: 4px; }
   `;
 
   var style = document.createElement('style');
@@ -143,9 +187,14 @@ function render() {
 
   html += '</div>';
 
-  // Modal
+  // Profile Modal
   if (state.showModal && state.activeProfile) {
     html += renderModal();
+  }
+
+  // Filter Modal
+  if (state.showFilterModal) {
+    html += renderFilterModal();
   }
 
   rootEl.innerHTML = html;
@@ -212,6 +261,7 @@ function renderDevices() {
   html +=
     '<div class="ap-grid-header"><div>Device</div><div>Location</div><div>Severity</div><div>Status</div><div>Last Alarm</div></div>';
 
+  html += '<div class="ap-grid-body">';
   devices.forEach(function (d) {
     html += '<div class="ap-grid-row">';
     html += '<div><div class="ap-device-name">' + escapeHtml(d.name) + '</div>';
@@ -233,6 +283,7 @@ function renderDevices() {
     html += '<div>' + formatDate(d.lastAlarmTs) + '</div>';
     html += '</div>';
   });
+  html += '</div>';
 
   html += '</div>';
   return html;
@@ -243,8 +294,24 @@ function renderAlarms() {
   var html = '<div class="ap-alarms-header"><span class="ap-section-title">Alarms</span>';
   html += '<span class="ap-count">' + alarms.length + ' alarm(s)</span></div>';
 
-  // Filters
+  // Search and Filter Bar
   html += '<div class="ap-filters">';
+
+  // Search Box
+  html += '<div class="ap-search-box">';
+  html += '<input type="text" class="ap-search-input" placeholder="Buscar alarmes..." value="' + escapeHtml(state.filters.searchText) + '" onkeyup="AlarmPanel.onSearchChange(event)" />';
+  html += '</div>';
+
+  // Filter Button
+  var activeFilterCount = getActiveFilterCount();
+  html += '<button class="ap-filter-btn' + (activeFilterCount > 0 ? ' has-filters' : '') + '" onclick="AlarmPanel.openFilterModal()">';
+  html += '<span class="ap-filter-icon">&#128269;</span> Filtros';
+  if (activeFilterCount > 0) {
+    html += '<span class="ap-filter-badge">' + activeFilterCount + '</span>';
+  }
+  html += '</button>';
+
+  // Quick Status Toggles
   html += '<div class="ap-filter-group"><span>Status:</span>';
   html +=
     '<label><input type="checkbox" ' +
@@ -258,13 +325,21 @@ function renderAlarms() {
     '<label><input type="checkbox" ' +
     (state.filters.statuses.ACKNOWLEDGED ? 'checked' : '') +
     ' onchange="AlarmPanel.toggleFilter(\'ACKNOWLEDGED\')"> ACK</label>';
-  html += '</div></div>';
+  html += '</div>';
+
+  html += '</div>';
+
+  // Active Filters Tags
+  html += renderActiveFilterTags();
 
   if (alarms.length === 0) {
-    html += '<div class="ap-empty">No alarms found.</div>';
+    html += '<div class="ap-empty">Nenhum alarme encontrado.</div>';
     return html;
   }
 
+  // Alarms Container with Scroll
+  html += '<div class="ap-alarms-container">';
+  html += '<div class="ap-alarms-list">';
   alarms.forEach(function (a) {
     html += '<div class="ap-alarm-card">';
     html += '<div class="ap-alarm-header"><div>';
@@ -279,6 +354,106 @@ function renderAlarms() {
     html += '</div></div></div>';
     html += '</div>';
   });
+  html += '</div>';
+  html += '</div>';
+
+  return html;
+}
+
+function getActiveFilterCount() {
+  var count = 0;
+  if (state.filters.selectedDeviceIds.length > 0) count++;
+  if (!state.filters.severities.CRITICAL || !state.filters.severities.MAJOR ||
+      !state.filters.severities.MINOR || !state.filters.severities.WARNING) count++;
+  return count;
+}
+
+function renderActiveFilterTags() {
+  var html = '';
+  var tags = [];
+
+  // Device filters
+  if (state.filters.selectedDeviceIds.length > 0) {
+    var deviceNames = state.filters.selectedDeviceIds.map(function(id) {
+      var device = state.devices.find(function(d) { return d.id === id; });
+      return device ? device.name : id;
+    });
+    if (deviceNames.length <= 2) {
+      tags.push({ label: 'Devices: ' + deviceNames.join(', '), type: 'devices' });
+    } else {
+      tags.push({ label: 'Devices: ' + deviceNames.length + ' selecionados', type: 'devices' });
+    }
+  }
+
+  // Severity filters
+  var activeSeverities = [];
+  ['CRITICAL', 'MAJOR', 'MINOR', 'WARNING'].forEach(function(sev) {
+    if (state.filters.severities[sev]) activeSeverities.push(sev);
+  });
+  if (activeSeverities.length < 4 && activeSeverities.length > 0) {
+    tags.push({ label: 'Severidade: ' + activeSeverities.join(', '), type: 'severities' });
+  }
+
+  if (tags.length === 0) return '';
+
+  html += '<div class="ap-active-filters">';
+  tags.forEach(function(tag) {
+    html += '<div class="ap-active-filter-tag">';
+    html += '<span>' + escapeHtml(tag.label) + '</span>';
+    html += '<button onclick="AlarmPanel.clearFilterTag(\'' + tag.type + '\')">&times;</button>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  return html;
+}
+
+function renderFilterModal() {
+  var html = '<div class="ap-modal-backdrop" onclick="AlarmPanel.closeFilterModal()"></div>';
+  html += '<div class="ap-filter-modal">';
+  html += '<div class="ap-modal-header"><span class="ap-modal-title">Filtros Avançados</span>';
+  html += '<button class="ap-modal-close" onclick="AlarmPanel.closeFilterModal()">×</button></div>';
+  html += '<div class="ap-modal-body">';
+
+  // Devices Section
+  html += '<div class="ap-filter-section">';
+  html += '<div class="ap-filter-section-title">Devices <span class="ap-select-all" onclick="AlarmPanel.selectAllDevices()">Selecionar todos</span> <span class="ap-select-all" onclick="AlarmPanel.clearAllDevices()">Limpar</span></div>';
+  html += '<div class="ap-checkbox-list">';
+
+  var filteredDevices = getFilteredDevices();
+  filteredDevices.forEach(function(d) {
+    var checked = state.filters.selectedDeviceIds.indexOf(d.id) !== -1 ? 'checked' : '';
+    html += '<label class="ap-checkbox-item">';
+    html += '<input type="checkbox" ' + checked + ' onchange="AlarmPanel.toggleDeviceFilter(\'' + d.id + '\')" />';
+    html += '<span>' + escapeHtml(d.name) + '</span>';
+    html += '</label>';
+  });
+
+  html += '</div>';
+  html += '</div>';
+
+  // Severity Section
+  html += '<div class="ap-filter-section">';
+  html += '<div class="ap-filter-section-title">Severidade</div>';
+  html += '<div class="ap-checkbox-list" style="max-height: none;">';
+
+  ['CRITICAL', 'MAJOR', 'MINOR', 'WARNING'].forEach(function(sev) {
+    var checked = state.filters.severities[sev] ? 'checked' : '';
+    html += '<label class="ap-checkbox-item">';
+    html += '<input type="checkbox" ' + checked + ' onchange="AlarmPanel.toggleSeverityFilter(\'' + sev + '\')" />';
+    html += '<span class="ap-badge ' + getSeverityClass(sev) + '">' + sev + '</span>';
+    html += '</label>';
+  });
+
+  html += '</div>';
+  html += '</div>';
+
+  html += '</div>';
+  html += '<div class="ap-modal-footer">';
+  html += '<button class="ap-btn ap-btn-secondary" onclick="AlarmPanel.resetFilters()" style="margin-right: 8px;">Resetar</button>';
+  html += '<button class="ap-btn ap-btn-primary" onclick="AlarmPanel.closeFilterModal()">Aplicar</button>';
+  html += '</div>';
+  html += '</div>';
 
   return html;
 }
@@ -297,13 +472,16 @@ function renderModal() {
   if (p.description)
     html +=
       '<div class="ap-modal-section"><strong>Description:</strong> ' + escapeHtml(p.description) + '</div>';
-  html +=
-    '<div class="ap-modal-section"><strong>Alarm Rules:</strong> ' +
-    (p.alarmRules ? p.alarmRules.length : 0) +
-    '</div>';
+
+  // Alarm Rules Section with Details
+  html += '<div class="ap-modal-section">';
+  html += '<div class="ap-alarm-rules-header"><strong>Regras de Alarme:</strong> ' + (p.alarmRules ? p.alarmRules.length : 0) + '</div>';
+  html += renderAlarmRulesDetail(p.alarmRules);
+  html += '</div>';
+
   html += '</div>';
   html +=
-    '<div class="ap-modal-footer"><button class="ap-btn ap-btn-primary" onclick="AlarmPanel.closeModal()">Close</button></div>';
+    '<div class="ap-modal-footer"><button class="ap-btn ap-btn-primary" onclick="AlarmPanel.closeModal()">Fechar</button></div>';
   html += '</div>';
   return html;
 }
@@ -345,6 +523,212 @@ function getStatusClass(status) {
   return 'ap-badge-none';
 }
 
+// ============================================================
+// ALARM RULE FORMATTING HELPERS
+// ============================================================
+function formatOperation(operation) {
+  var ops = {
+    EQUAL: 'igual a',
+    NOT_EQUAL: 'diferente de',
+    GREATER: 'maior que',
+    LESS: 'menor que',
+    GREATER_OR_EQUAL: 'maior ou igual a',
+    LESS_OR_EQUAL: 'menor ou igual a',
+    STARTS_WITH: 'começar com',
+    ENDS_WITH: 'terminar com',
+    CONTAINS: 'conter',
+    NOT_CONTAINS: 'não conter',
+  };
+  return ops[operation] || operation;
+}
+
+function formatValueType(valueType) {
+  var types = {
+    NUMERIC: 'numérico',
+    STRING: 'texto',
+    BOOLEAN: 'booleano',
+    DATE_TIME: 'data/hora',
+  };
+  return types[valueType] || valueType;
+}
+
+function formatKeyType(keyType) {
+  var types = {
+    TIME_SERIES: 'telemetria',
+    ATTRIBUTE: 'atributo',
+    ENTITY_FIELD: 'campo da entidade',
+    CONSTANT: 'constante',
+  };
+  return types[keyType] || keyType;
+}
+
+function formatConditionValue(predicate) {
+  if (!predicate || !predicate.value) return '(valor não definido)';
+
+  var val = predicate.value;
+  var dynamicValue = val.dynamicValue;
+  var defaultValue = val.defaultValue;
+
+  if (dynamicValue && dynamicValue.sourceAttribute) {
+    var source = dynamicValue.sourceType === 'CURRENT_DEVICE' ? 'DEVICE' : dynamicValue.sourceType;
+    return 'atributo "' + dynamicValue.sourceAttribute + '" do ' + source;
+  }
+
+  if (defaultValue !== null && defaultValue !== undefined) {
+    if (typeof defaultValue === 'string') {
+      return '"' + defaultValue + '"';
+    }
+    return String(defaultValue);
+  }
+
+  return '(valor não definido)';
+}
+
+function formatCondition(condition) {
+  if (!condition || !condition.condition || !Array.isArray(condition.condition)) {
+    return 'Condição não definida';
+  }
+
+  var parts = [];
+  condition.condition.forEach(function (cond, idx) {
+    var keyType = formatKeyType(cond.key ? cond.key.type : 'UNKNOWN');
+    var keyName = cond.key ? cond.key.key : 'unknown';
+    var operation = formatOperation(cond.predicate ? cond.predicate.operation : 'UNKNOWN');
+    var value = formatConditionValue(cond.predicate);
+
+    parts.push('Quando a ' + keyType + ' "' + keyName + '" for ' + operation + ' ' + value);
+  });
+
+  return parts.join(' E ');
+}
+
+function formatDayOfWeek(day) {
+  var days = {
+    1: 'Domingo',
+    2: 'Segunda',
+    3: 'Terça',
+    4: 'Quarta',
+    5: 'Quinta',
+    6: 'Sexta',
+    7: 'Sábado',
+  };
+  return days[day] || 'Dia ' + day;
+}
+
+function formatTimeFromMs(ms) {
+  var totalMinutes = Math.floor(ms / 60000);
+  var hours = Math.floor(totalMinutes / 60);
+  var minutes = totalMinutes % 60;
+  var period = hours >= 12 ? 'PM' : 'AM';
+  var displayHours = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+  return String(displayHours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ' ' + period;
+}
+
+function formatSchedule(schedule) {
+  if (!schedule) return 'Sem agenda definida';
+
+  if (schedule.type === 'ANY_TIME') {
+    return 'Ativo a qualquer momento';
+  }
+
+  if (schedule.type === 'SPECIFIC_TIME') {
+    return 'Horário específico: ' + formatTimeFromMs(schedule.startsOn) + ' às ' + formatTimeFromMs(schedule.endsOn);
+  }
+
+  if (schedule.type === 'CUSTOM' && schedule.items && Array.isArray(schedule.items)) {
+    var timezone = schedule.timezone || 'UTC';
+    var activeDays = [];
+
+    schedule.items.forEach(function (item) {
+      if (item.enabled) {
+        var day = formatDayOfWeek(item.dayOfWeek);
+        var start = formatTimeFromMs(item.startsOn);
+        var end = formatTimeFromMs(item.endsOn);
+        activeDays.push(day + ' ' + start + ' - ' + end);
+      }
+    });
+
+    if (activeDays.length === 0) return 'Agenda personalizada (nenhum dia ativo)';
+    return 'Agenda: ' + timezone + ' | ' + activeDays.join(', ');
+  }
+
+  return 'Tipo de agenda: ' + schedule.type;
+}
+
+function renderAlarmRulesDetail(alarmRules) {
+  if (!alarmRules || alarmRules.length === 0) {
+    return '<div class="ap-alarm-rules-empty">Nenhuma regra de alarme configurada</div>';
+  }
+
+  var html = '<div class="ap-alarm-rules-list">';
+
+  alarmRules.forEach(function (rule, ruleIdx) {
+    var ruleNum = ruleIdx + 1;
+    html += '<div class="ap-alarm-rule-item">';
+    html += '<div class="ap-alarm-rule-title">[' + ruleNum + ' - ' + escapeHtml(rule.alarmType) + ']</div>';
+
+    // Create Rules
+    if (rule.createRules && Object.keys(rule.createRules).length > 0) {
+      var severities = Object.keys(rule.createRules);
+      severities.forEach(function (severity, sevIdx) {
+        var createRule = rule.createRules[severity];
+        var subNum = ruleNum + '.' + (sevIdx + 1);
+
+        html += '<div class="ap-alarm-rule-create">';
+        html += '<div class="ap-alarm-rule-severity">' + subNum + ' - Setup de Criação: <span class="ap-badge ' + getSeverityClass(severity) + '">' + severity + '</span></div>';
+
+        // Condition
+        if (createRule.condition) {
+          html += '<div class="ap-alarm-rule-condition">' + subNum + '.1 - REGRA: ' + escapeHtml(formatCondition(createRule.condition)) + '</div>';
+
+          // Default value
+          if (createRule.condition.condition && createRule.condition.condition[0]) {
+            var firstCond = createRule.condition.condition[0];
+            if (firstCond.predicate && firstCond.predicate.value && firstCond.predicate.value.defaultValue !== null) {
+              html += '<div class="ap-alarm-rule-default">' + subNum + '.2 - Valor padrão: ' + firstCond.predicate.value.defaultValue + '</div>';
+            }
+          }
+        }
+
+        // Schedule
+        html += '<div class="ap-alarm-rule-schedule">' + subNum + '.' + (createRule.condition ? '3' : '2') + ' - ' + escapeHtml(formatSchedule(createRule.schedule)) + '</div>';
+
+        html += '</div>';
+      });
+    } else {
+      html += '<div class="ap-alarm-rule-nocreate">- Create: não configurado</div>';
+    }
+
+    // Clear Rule
+    html += '<div class="ap-alarm-rule-clear">';
+    if (rule.clearRule && rule.clearRule.condition) {
+      html += '- Clear: ' + escapeHtml(formatCondition(rule.clearRule.condition));
+      if (rule.clearRule.schedule) {
+        html += ' | ' + escapeHtml(formatSchedule(rule.clearRule.schedule));
+      }
+    } else {
+      html += '- Clear: não configurado';
+    }
+    html += '</div>';
+
+    // Propagation
+    if (rule.propagate || rule.propagateToOwner || rule.propagateToTenant) {
+      html += '<div class="ap-alarm-rule-propagate">- Propagação: ';
+      var props = [];
+      if (rule.propagate) props.push('Geral');
+      if (rule.propagateToOwner) props.push('Para Owner');
+      if (rule.propagateToOwnerHierarchy) props.push('Hierarquia Owner');
+      if (rule.propagateToTenant) props.push('Para Tenant');
+      html += props.join(', ') + '</div>';
+    }
+
+    html += '</div>';
+  });
+
+  html += '</div>';
+  return html;
+}
+
 function getFilteredDevices() {
   if (state.selectedProfileIds.length === 0) return state.devices;
   return state.devices.filter(function (d) {
@@ -362,13 +746,39 @@ function getFilteredAlarms() {
     });
   }
 
+  var searchText = (state.filters.searchText || '').toLowerCase().trim();
+
   return state.alarms.filter(function (a) {
+    // Filter by selected profiles
     if (state.selectedProfileIds.length > 0 && !deviceIds[a.originatorId]) return false;
+
+    // Filter by selected devices (from filter modal)
+    if (state.filters.selectedDeviceIds.length > 0) {
+      if (state.filters.selectedDeviceIds.indexOf(a.originatorId) === -1) return false;
+    }
+
+    // Filter by severity
+    var sev = (a.severity || '').toUpperCase();
+    if (sev && !state.filters.severities[sev]) return false;
+
+    // Filter by status
     var st = (a.status || '').toUpperCase();
-    if (state.filters.statuses.ACTIVE && st.indexOf('ACTIVE') >= 0) return true;
-    if (state.filters.statuses.CLEARED && st.indexOf('CLEARED') >= 0) return true;
-    if (state.filters.statuses.ACKNOWLEDGED && st.indexOf('ACK') >= 0) return true;
-    return false;
+    var statusMatch = false;
+    if (state.filters.statuses.ACTIVE && st.indexOf('ACTIVE') >= 0) statusMatch = true;
+    if (state.filters.statuses.CLEARED && st.indexOf('CLEARED') >= 0) statusMatch = true;
+    if (state.filters.statuses.ACKNOWLEDGED && st.indexOf('ACK') >= 0) statusMatch = true;
+    if (!statusMatch) return false;
+
+    // Filter by search text
+    if (searchText) {
+      var deviceName = (a.originatorName || '').toLowerCase();
+      var alarmType = (a.type || a.name || '').toLowerCase();
+      if (deviceName.indexOf(searchText) === -1 && alarmType.indexOf(searchText) === -1) {
+        return false;
+      }
+    }
+
+    return true;
   });
 }
 
@@ -407,6 +817,62 @@ window.AlarmPanel = {
     state.error = null;
     render();
     fetchAllData();
+  },
+  // Search functionality
+  onSearchChange: function (event) {
+    state.filters.searchText = event.target.value;
+    render();
+  },
+  // Filter Modal
+  openFilterModal: function () {
+    state.showFilterModal = true;
+    render();
+  },
+  closeFilterModal: function () {
+    state.showFilterModal = false;
+    render();
+  },
+  // Device filters
+  toggleDeviceFilter: function (deviceId) {
+    var idx = state.filters.selectedDeviceIds.indexOf(deviceId);
+    if (idx === -1) {
+      state.filters.selectedDeviceIds.push(deviceId);
+    } else {
+      state.filters.selectedDeviceIds.splice(idx, 1);
+    }
+    render();
+  },
+  selectAllDevices: function () {
+    var filteredDevices = getFilteredDevices();
+    state.filters.selectedDeviceIds = filteredDevices.map(function (d) {
+      return d.id;
+    });
+    render();
+  },
+  clearAllDevices: function () {
+    state.filters.selectedDeviceIds = [];
+    render();
+  },
+  // Severity filters
+  toggleSeverityFilter: function (severity) {
+    state.filters.severities[severity] = !state.filters.severities[severity];
+    render();
+  },
+  // Clear filter tags
+  clearFilterTag: function (type) {
+    if (type === 'devices') {
+      state.filters.selectedDeviceIds = [];
+    } else if (type === 'severities') {
+      state.filters.severities = { CRITICAL: true, MAJOR: true, MINOR: true, WARNING: true };
+    }
+    render();
+  },
+  // Reset all filters
+  resetFilters: function () {
+    state.filters.searchText = '';
+    state.filters.selectedDeviceIds = [];
+    state.filters.severities = { CRITICAL: true, MAJOR: true, MINOR: true, WARNING: true };
+    render();
   },
 };
 
