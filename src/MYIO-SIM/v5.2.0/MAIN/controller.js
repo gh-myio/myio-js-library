@@ -2888,8 +2888,8 @@ const MyIOOrchestrator = (() => {
   // Os widgets WATER_COMMON_AREA e WATER_STORES registram seus IDs aqui
   // O Orchestrator só soma devices que existem nesses registros
   const waterValidIds = {
-    commonArea: new Set(),  // IDs do alias 'HidrometrosAreaComum'
-    stores: new Set(),      // IDs do alias 'Todos Hidrometros Lojas'
+    commonArea: new Set(), // IDs do alias 'HidrometrosAreaComum'
+    stores: new Set(), // IDs do alias 'Todos Hidrometros Lojas'
   };
 
   // Totais calculados apenas para IDs válidos
@@ -2911,7 +2911,9 @@ const MyIOOrchestrator = (() => {
     }
 
     waterValidIds[category] = new Set(ids.filter(Boolean));
-    LogHelper.log(`[Orchestrator] Registered ${waterValidIds[category].size} valid IDs for water ${category}`);
+    LogHelper.log(
+      `[Orchestrator] Registered ${waterValidIds[category].size} valid IDs for water ${category}`
+    );
 
     // Recalcular totais com IDs válidos
     recalculateWaterTotals();
@@ -2942,13 +2944,21 @@ const MyIOOrchestrator = (() => {
     };
 
     LogHelper.log(`[Orchestrator] Water totals recalculated:`, waterTotals);
-    LogHelper.log(`[Orchestrator] Valid IDs: commonArea=${waterValidIds.commonArea.size}, stores=${waterValidIds.stores.size}`);
-    LogHelper.log(`[Orchestrator] Ignored devices: ${waterCache.size - waterValidIds.commonArea.size - waterValidIds.stores.size}`);
+    LogHelper.log(
+      `[Orchestrator] Valid IDs: commonArea=${waterValidIds.commonArea.size}, stores=${waterValidIds.stores.size}`
+    );
+    LogHelper.log(
+      `[Orchestrator] Ignored devices: ${
+        waterCache.size - waterValidIds.commonArea.size - waterValidIds.stores.size
+      }`
+    );
 
     // Disparar evento para atualizar HEADER e WATER
-    window.dispatchEvent(new CustomEvent('myio:water-totals-updated', {
-      detail: { ...waterTotals, timestamp: Date.now() }
-    }));
+    window.dispatchEvent(
+      new CustomEvent('myio:water-totals-updated', {
+        detail: { ...waterTotals, timestamp: Date.now() },
+      })
+    );
   }
 
   /**
@@ -3315,6 +3325,10 @@ const MyIOOrchestrator = (() => {
 
       lastFetchTimestamp = Date.now();
 
+      // Recalcular totais de água agora que o cache foi preenchido
+      // Os IDs válidos já foram registrados por processWaterDatasourcesFromTB()
+      recalculateWaterTotals();
+
       // Dispara o evento de ÁGUA
       window.dispatchEvent(
         new CustomEvent('myio:water-data-ready', {
@@ -3648,6 +3662,83 @@ const MyIOOrchestrator = (() => {
 
 // Expose globally
 window.MyIOOrchestrator = MyIOOrchestrator;
+
+// ===== WATER: Processar datasources TB e registrar IDs válidos =====
+// Esta função deve ser chamada quando os dados do TB estiverem disponíveis (onDataUpdated)
+function processWaterDatasourcesFromTB() {
+  const datasources = self.ctx?.datasources || [];
+  const data = self.ctx?.data || [];
+
+  if (datasources.length === 0) {
+    LogHelper.log('[MAIN] processWaterDatasourcesFromTB: No datasources available yet');
+    return;
+  }
+
+  // Extrair IDs do alias 'HidrometrosAreaComum'
+  const commonAreaDatasources = datasources.filter((ds) => ds.aliasName === 'HidrometrosAreaComum');
+  const commonAreaData = data.filter((d) => d?.datasource?.aliasName === 'HidrometrosAreaComum');
+  const commonAreaIds = extractIngestionIdsFromTBData(commonAreaDatasources, commonAreaData);
+
+  // Extrair IDs do alias 'Todos Hidrometros Lojas'
+  const storesDatasources = datasources.filter((ds) => ds.aliasName === 'Todos Hidrometros Lojas');
+  const storesData = data.filter((d) => d?.datasource?.aliasName === 'Todos Hidrometros Lojas');
+  const storesIds = extractIngestionIdsFromTBData(storesDatasources, storesData);
+
+  LogHelper.log(
+    `[MAIN] Water datasources from TB: commonArea=${commonAreaIds.length}, stores=${storesIds.length}`
+  );
+
+  // Registrar no Orchestrator
+  if (commonAreaIds.length > 0 && window.MyIOOrchestrator?.registerWaterDeviceIds) {
+    window.MyIOOrchestrator.registerWaterDeviceIds('commonArea', commonAreaIds);
+  }
+  if (storesIds.length > 0 && window.MyIOOrchestrator?.registerWaterDeviceIds) {
+    window.MyIOOrchestrator.registerWaterDeviceIds('stores', storesIds);
+  }
+
+  // Disponibilizar dados completos para widgets via evento
+  if (commonAreaIds.length > 0 || storesIds.length > 0) {
+    window.dispatchEvent(
+      new CustomEvent('myio:water-tb-data-ready', {
+        detail: {
+          commonArea: { datasources: commonAreaDatasources, data: commonAreaData, ids: commonAreaIds },
+          stores: { datasources: storesDatasources, data: storesData, ids: storesIds },
+          timestamp: Date.now(),
+        },
+      })
+    );
+    LogHelper.log('[MAIN] Dispatched myio:water-tb-data-ready');
+  }
+}
+
+/**
+ * Extrai ingestionIds dos dados do ThingsBoard
+ * Busca pelo atributo 'ingestionid' nos dados
+ */
+function extractIngestionIdsFromTBData(datasources, data) {
+  const ids = new Set();
+
+  // Método 1: Usar MyIO.buildListItemsThingsboardByUniqueDatasource se disponível
+  if (typeof MyIOLibrary?.buildListItemsThingsboardByUniqueDatasource === 'function') {
+    const items = MyIOLibrary.buildListItemsThingsboardByUniqueDatasource(datasources, data) || [];
+    items.forEach((item) => {
+      if (item?.id) ids.add(item.id);
+    });
+  }
+
+  // Método 2: Extrair diretamente dos dados (fallback)
+  if (ids.size === 0) {
+    data.forEach((row) => {
+      const key = String(row?.dataKey?.name || '').toLowerCase();
+      const val = row?.data?.[0]?.[1];
+      if (key === 'ingestionid' && val) {
+        ids.add(String(val));
+      }
+    });
+  }
+
+  return Array.from(ids);
+}
 // HEADER → informa total do cliente (use o evento que seu HEADER emitir)
 window.addEventListener('myio:header-summary-ready', (ev) => {
   // Tenta chaves comuns
@@ -4293,6 +4384,14 @@ self.onInit = async function () {
   } else {
     LogHelper.log('[MAIN] [Orchestrator] Waiting for myio:update-date event from MENU to fetch data...');
   }
+
+  // Processar datasources de água do TB para registrar IDs válidos no Orchestrator
+  processWaterDatasourcesFromTB();
+};
+
+self.onDataUpdated = function () {
+  // Reprocessar datasources de água quando os dados do TB forem atualizados
+  //processWaterDatasourcesFromTB();
 };
 
 self.onDestroy = function () {

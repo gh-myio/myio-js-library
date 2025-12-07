@@ -88,7 +88,16 @@ let waterCommonAreaHeaderController = null;
 let dateUpdateHandler = null;
 let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
 let waterDataReadyHandler = null; // FIX: Handler for myio:water-data-ready from MAIN
+let waterTbDataHandler = null; // Handler for myio:water-tb-data-ready from MAIN (centralized datasources)
 let MyIO = null;
+
+// Cache para dados recebidos do MAIN (datasources centralizados)
+let mainWaterData = {
+  datasources: [],
+  data: [],
+  ids: [],
+  loaded: false
+};
 let hasRequestedInitialData = false; // Flag to prevent duplicate initial requests
 let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent duplicate processing
 let busyTimeoutId = null; // Timeout ID for busy fallback
@@ -385,23 +394,34 @@ function buildTbIdIndexes() {
 
 /** ===================== CORE: DATA PIPELINE ===================== **/
 function buildAuthoritativeItems() {
-  // DEBUG: Log all available aliases to help identify the correct one
-  const allDatasources = self.ctx.datasources || [];
-  const allAliases = [...new Set(allDatasources.map((ds) => ds.aliasName))];
-  LogHelper.log(`[WATER_COMMON_AREA] DEBUG: Available aliases in widget: ${JSON.stringify(allAliases)}`);
-  LogHelper.log(
-    `[WATER_COMMON_AREA] DEBUG: Total datasources: ${allDatasources.length}, Total data rows: ${
-      (self.ctx.data || []).length
-    }`
-  );
+  // PRIORIDADE 1: Usar dados centralizados do MAIN (via evento myio:water-tb-data-ready)
+  let filteredDatasources = [];
+  let filteredData = [];
 
-  // RFC-0094: Filter datasources by aliasName = 'HidrometrosAreaComum'
-  const filteredDatasources = (self.ctx.datasources || []).filter(
-    (ds) => ds.aliasName === 'HidrometrosAreaComum'
-  );
-  const filteredData = (self.ctx.data || []).filter(
-    (d) => d?.datasource?.aliasName === 'HidrometrosAreaComum'
-  );
+  if (mainWaterData.loaded && mainWaterData.datasources.length > 0) {
+    // Usar dados do MAIN (datasources centralizados)
+    filteredDatasources = mainWaterData.datasources;
+    filteredData = mainWaterData.data;
+    LogHelper.log(`[WATER_COMMON_AREA] Using centralized data from MAIN: ${filteredDatasources.length} datasources, ${filteredData.length} data rows`);
+  } else {
+    // FALLBACK: Usar dados locais do widget (se ainda houver)
+    const allDatasources = self.ctx.datasources || [];
+    const allAliases = [...new Set(allDatasources.map((ds) => ds.aliasName))];
+    LogHelper.log(`[WATER_COMMON_AREA] DEBUG: Available aliases in widget: ${JSON.stringify(allAliases)}`);
+    LogHelper.log(
+      `[WATER_COMMON_AREA] DEBUG: Total datasources: ${allDatasources.length}, Total data rows: ${
+        (self.ctx.data || []).length
+      }`
+    );
+
+    // RFC-0094: Filter datasources by aliasName = 'HidrometrosAreaComum'
+    filteredDatasources = (self.ctx.datasources || []).filter(
+      (ds) => ds.aliasName === 'HidrometrosAreaComum'
+    );
+    filteredData = (self.ctx.data || []).filter(
+      (d) => d?.datasource?.aliasName === 'HidrometrosAreaComum'
+    );
+  }
 
   LogHelper.log(
     `[WATER_COMMON_AREA] buildAuthoritativeItems: Filtered ${filteredDatasources.length} datasources, ${filteredData.length} data rows for 'HidrometrosAreaComum'`
@@ -457,12 +477,8 @@ function buildAuthoritativeItems() {
 
   LogHelper.log(`[WATER_COMMON_AREA] buildAuthoritativeItems: Built ${mapped.length} water meter items`);
 
-  // Registrar IDs válidos no Orchestrator para cálculo correto dos totais
-  const validIds = mapped.map(m => m.ingestionId).filter(Boolean);
-  if (window.MyIOOrchestrator?.registerWaterDeviceIds) {
-    window.MyIOOrchestrator.registerWaterDeviceIds('commonArea', validIds);
-    LogHelper.log(`[WATER_COMMON_AREA] Registered ${validIds.length} IDs in Orchestrator`);
-  }
+  // NOTA: O registro de IDs no Orchestrator agora é feito pelo MAIN
+  // que centraliza os datasources HidrometrosAreaComum e Todos Hidrometros Lojas
 
   return mapped;
 }
@@ -1581,6 +1597,32 @@ self.onInit = async function () {
 
   window.addEventListener('myio:water-data-ready', waterDataReadyHandler);
 
+  // Listener para dados TB centralizados do MAIN (datasources HidrometrosAreaComum)
+  waterTbDataHandler = (ev) => {
+    const { commonArea } = ev.detail || {};
+    if (commonArea && commonArea.datasources) {
+      mainWaterData = {
+        datasources: commonArea.datasources,
+        data: commonArea.data,
+        ids: commonArea.ids,
+        loaded: true
+      };
+      LogHelper.log(`[WATER_COMMON_AREA] Received TB data from MAIN: ${commonArea.datasources.length} datasources, ${commonArea.ids.length} IDs`);
+
+      // Rebuild items with new data
+      STATE.itemsBase = buildAuthoritativeItems();
+      LogHelper.log(`[WATER_COMMON_AREA] Rebuilt ${STATE.itemsBase.length} items from MAIN data`);
+
+      // Se já tiver cache de água disponível, enriquecer e renderizar
+      const waterCache = window.MyIOOrchestrator?.getWaterCache?.();
+      if (waterCache && waterCache.size > 0) {
+        STATE.itemsEnriched = enrichItemsWithTotals(STATE.itemsBase, waterCache);
+        reflowFromState();
+      }
+    }
+  };
+  window.addEventListener('myio:water-tb-data-ready', waterTbDataHandler);
+
   // RFC-0094: Use credentials from MAIN via MyIOUtils (already fetched by MAIN)
   const jwt = localStorage.getItem('jwt_token');
 
@@ -1699,6 +1741,10 @@ self.onDestroy = function () {
   if (waterDataReadyHandler) {
     window.removeEventListener('myio:water-data-ready', waterDataReadyHandler);
     LogHelper.log("[WATER_COMMON_AREA] Event listener 'myio:water-data-ready' removido.");
+  }
+  if (waterTbDataHandler) {
+    window.removeEventListener('myio:water-tb-data-ready', waterTbDataHandler);
+    LogHelper.log("[WATER_COMMON_AREA] Event listener 'myio:water-tb-data-ready' removido.");
   }
 
   // RFC-0094: Cleanup header controller

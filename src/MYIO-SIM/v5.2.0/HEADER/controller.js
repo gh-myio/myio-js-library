@@ -1574,8 +1574,12 @@ window.addEventListener('myio:water-totals-updated', (ev) => {
   // Atualizar card de água com total calculado (apenas IDs válidos dos Aliases TB)
   const waterKpi = document.getElementById('water-kpi');
   if (waterKpi && total > 0) {
-    waterKpi.innerText = formatWater(total);
-    LogHelper.log(`[HEADER] Water card updated from valid aliases: ${formatWater(total)}`);
+    // Usar MyIOLibrary.formatWaterVolumeM3 diretamente (formatWater é local à função updateWaterCard)
+    const formatted = typeof MyIOLibrary?.formatWaterVolumeM3 === 'function'
+      ? MyIOLibrary.formatWaterVolumeM3(total)
+      : `${total.toFixed(2)} m³`;
+    waterKpi.innerText = formatted;
+    LogHelper.log(`[HEADER] Water card updated from valid aliases: ${formatted}`);
   }
 });
 
