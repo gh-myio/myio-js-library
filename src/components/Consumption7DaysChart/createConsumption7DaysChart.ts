@@ -324,8 +324,8 @@ export function createConsumption7DaysChart(
     let datasets: any[];
 
     if (currentVizMode === 'separate' && data.shoppingData && data.shoppingNames) {
-      // Per-shopping datasets
-      const shoppingColors = [
+      // Per-shopping datasets - use config colors or defaults
+      const shoppingColors = colors.shoppingColors || [
         '#2563eb', '#16a34a', '#ea580c', '#dc2626', '#8b5cf6',
         '#0891b2', '#65a30d', '#d97706', '#be185d', '#0d9488',
       ];

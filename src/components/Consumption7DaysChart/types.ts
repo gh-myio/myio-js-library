@@ -104,6 +104,8 @@ export interface Consumption7DaysColors {
   /** Optional point colors for line charts */
   pointBackground?: string;
   pointBorder?: string;
+  /** Colors for per-shopping datasets (separate mode) */
+  shoppingColors?: string[];
 }
 
 /**

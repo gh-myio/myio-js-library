@@ -65,6 +65,10 @@ export { createConsumption7DaysChart } from './createConsumption7DaysChart';
 export { createConsumptionModal } from './createConsumptionModal';
 export type { ConsumptionModalConfig, ConsumptionModalInstance } from './createConsumptionModal';
 
+// Inline widget (injects HTML into container)
+export { createConsumptionChartWidget } from './createConsumptionChartWidget';
+export type { ConsumptionWidgetConfig, ConsumptionWidgetInstance } from './createConsumptionChartWidget';
+
 // Type exports
 export type {
   // Main types

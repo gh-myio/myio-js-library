@@ -242,6 +242,7 @@ export type {
 export {
   createConsumption7DaysChart,
   createConsumptionModal,
+  createConsumptionChartWidget,
   DEFAULT_COLORS as CONSUMPTION_CHART_COLORS,
   DEFAULT_CONFIG as CONSUMPTION_CHART_DEFAULTS,
   THEME_COLORS as CONSUMPTION_THEME_COLORS
@@ -262,6 +263,8 @@ export type {
   ThemeColors as ConsumptionThemeColors,
   ConsumptionModalConfig,
   ConsumptionModalInstance,
+  ConsumptionWidgetConfig,
+  ConsumptionWidgetInstance,
   // Ideal range (all domains)
   IdealRangeConfig as ConsumptionIdealRangeConfig,
   // Temperature types

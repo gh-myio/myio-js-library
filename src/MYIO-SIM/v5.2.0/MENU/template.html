@@ -17,7 +17,7 @@
       <!-- RFC-0092: Temperature button with modal dropdown -->
       <button id="temperatureButton" class="tab">
         <span class="ico">🌡️</span>
-        <span id="temperatureContextLabel">Temperatura: Sensores</span>
+        <span id="temperatureContextLabel">Temperatura: Ambientes Climatizáveis</span>
         <span class="dropdown-arrow">▼</span>
       </button>
     </nav>
@@ -159,10 +159,22 @@
           data-context="temperature_sensors"
           data-target="content_temperature_sensors"
         >
-          <span class="option-ico">📡</span>
+          <span class="option-ico">❄️</span>
           <div class="option-info">
-            <div class="option-title">Sensores</div>
-            <div class="option-desc">Cards de sensores de temperatura</div>
+            <div class="option-title">Sensores em Ambientes Climatizáveis</div>
+            <div class="option-desc">Sensores em áreas com ar-condicionado</div>
+          </div>
+          <span class="option-check">✓</span>
+        </button>
+        <button
+          class="temperature-modal-option"
+          data-context="temperature_sensors_external"
+          data-target="content_temperature_sensors_external"
+        >
+          <span class="option-ico">☀️</span>
+          <div class="option-info">
+            <div class="option-title">Sensores em Ambientes Não Climatizáveis</div>
+            <div class="option-desc">Sensores em áreas externas ou sem climatização</div>
           </div>
           <span class="option-check">✓</span>
         </button>
@@ -173,8 +185,8 @@
         >
           <span class="option-ico">📊</span>
           <div class="option-info">
-            <div class="option-title">Comparativo</div>
-            <div class="option-desc">Comparação entre shoppings</div>
+            <div class="option-title">Resumo Geral</div>
+            <div class="option-desc">Visão geral de temperatura entre shoppings</div>
           </div>
           <span class="option-check">✓</span>
         </button>
