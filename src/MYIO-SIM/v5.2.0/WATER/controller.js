@@ -315,6 +315,12 @@ async function initializeLineChart() {
   // Fetch data
   const data = await fetch7DaysConsumption();
 
+  // FIX: Calculate fixed Y-axis max to prevent infinite growth (same as ENERGY)
+  const consumptionValues = data.map((d) => d.consumption);
+  const maxValue = Math.max(...consumptionValues, 0);
+  // Add 10% padding and round to nice number
+  const yAxisMax = maxValue > 0 ? Math.ceil((maxValue * 1.1) / 50) * 50 : 250;
+
   lineChartInstance = new Chart(ctx, {
     type: 'line',
     data: {
@@ -322,7 +328,7 @@ async function initializeLineChart() {
       datasets: [
         {
           label: 'Consumo (m³)',
-          data: data.map((d) => d.consumption),
+          data: consumptionValues,
           borderColor: '#0288d1',
           backgroundColor: 'rgba(2, 136, 209, 0.1)',
           fill: true,
@@ -338,6 +344,7 @@ async function initializeLineChart() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: false, // FIX: Disable animation to prevent infinite growth
       plugins: {
         legend: {
           display: false,
@@ -353,20 +360,26 @@ async function initializeLineChart() {
       scales: {
         y: {
           beginAtZero: true,
+          max: yAxisMax, // FIX: Fixed max to prevent animation loop
           title: {
             display: true,
             text: 'm³',
+          },
+          ticks: {
+            callback: function (value) {
+              return `${value.toFixed(0)}`;
+            },
           },
         },
       },
     },
   });
 
-  console.log('[WATER] Line chart initialized');
+  console.log('[WATER] Line chart initialized with yAxisMax:', yAxisMax);
 }
 
 /**
- * Inicializa o gráfico de pizza (distribuição)
+ * Inicializa o gráfico de barras (distribuição) - igual ao ENERGY
  */
 function initializePieChart(data) {
   const canvas = $id('pieChart');
@@ -377,7 +390,7 @@ function initializePieChart(data) {
 
   // FIX: Check if Chart.js is available
   if (typeof Chart === 'undefined') {
-    console.error('[WATER] Chart.js not loaded, cannot initialize pie chart');
+    console.error('[WATER] Chart.js not loaded, cannot initialize bar chart');
     return;
   }
 
@@ -388,41 +401,72 @@ function initializePieChart(data) {
     pieChartInstance.destroy();
   }
 
-  const storesTotal = data?.storesTotal || 60;
-  const commonAreaTotal = data?.commonAreaTotal || 40;
+  const storesTotal = data?.storesTotal || 0;
+  const commonAreaTotal = data?.commonAreaTotal || 0;
+
+  // FIX: Calculate fixed X-axis max to prevent infinite growth (horizontal bar)
+  const barValues = [storesTotal, commonAreaTotal];
+  const maxBarValue = Math.max(...barValues, 0);
+  const xAxisMax = maxBarValue > 0 ? Math.ceil((maxBarValue * 1.1) / 100) * 100 : 500;
 
   pieChartInstance = new Chart(ctx, {
-    type: 'doughnut',
+    type: 'bar',
     data: {
       labels: ['Lojas', 'Área Comum'],
       datasets: [
         {
-          data: [storesTotal, commonAreaTotal],
+          label: 'Consumo (m³)',
+          data: barValues,
           backgroundColor: ['#06b6d4', '#0288d1'],
-          borderColor: ['#fff', '#fff'],
-          borderWidth: 2,
+          borderColor: ['#0891b2', '#0277bd'],
+          borderWidth: 1,
+          borderRadius: 4,
         },
       ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: false, // FIX: Disable animation to prevent issues
+      indexAxis: 'y', // Horizontal bar chart (same as ENERGY)
       plugins: {
         legend: {
-          position: 'bottom',
+          display: false, // Hide legend for bar chart
         },
         tooltip: {
           callbacks: {
             label: function (context) {
-              const total = context.dataset.data.reduce((a, b) => a + b, 0);
-              const percentage = ((context.parsed / total) * 100).toFixed(1);
-              return `${context.label}: ${context.parsed.toFixed(1)} m³ (${percentage}%)`;
+              const value = context.parsed.x || 0;
+              const dataset = context.dataset;
+              const total = dataset.data.reduce((sum, val) => sum + val, 0);
+              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+              return `${value.toFixed(1)} m³ (${percentage}%)`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          max: xAxisMax, // FIX: Fixed max to prevent animation loop
+          ticks: {
+            callback: function (value) {
+              return `${value.toFixed(0)} m³`;
+            },
+          },
+        },
+        y: {
+          ticks: {
+            font: {
+              size: 12,
             },
           },
         },
       },
     },
   });
+
+  console.log('[WATER] Bar chart initialized with xAxisMax:', xAxisMax);
 
   console.log('[WATER] Pie chart initialized');
 }

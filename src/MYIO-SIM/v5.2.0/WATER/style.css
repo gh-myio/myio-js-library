@@ -140,7 +140,7 @@
   border-radius: 12px;
   padding: 16px;
   min-width: 0;
-  min-height: 450px !important;
+  min-height: 380px !important; /* FIX: Same as ENERGY */
   height: auto;
   display: flex;
   flex-direction: column;
@@ -150,9 +150,10 @@
 
 .chart-box canvas {
   flex: 1;
-  min-height: 350px !important;
+  min-height: 250px !important;
+  max-height: 300px !important; /* FIX: Prevent infinite growth (same as ENERGY) */
   width: 100% !important;
-  height: auto !important;
+  height: 300px !important;
 }
 
 .chart-header {
