@@ -73,6 +73,22 @@ function formatWaterVolume(value) {
 }
 
 // ============================================
+// WIDGET CONTAINER HELPER
+// ============================================
+
+/**
+ * Gets element by ID within the widget container (not global document)
+ * This is required for ThingsBoard widgets to work correctly
+ */
+function $id(id) {
+  if (self.ctx && self.ctx.$container) {
+    return self.ctx.$container[0].querySelector(`#${id}`);
+  }
+  // Fallback to global document (should not happen in ThingsBoard context)
+  return document.getElementById(id);
+}
+
+// ============================================
 // UI UPDATE FUNCTIONS
 // ============================================
 
@@ -80,14 +96,21 @@ function formatWaterVolume(value) {
  * Renderiza a UI do card de consumo de LOJAS
  */
 function renderStoresConsumptionUI(data, valueEl, trendEl, infoEl) {
-  if (!data) return;
+  console.log('[WATER] renderStoresConsumptionUI called:', { data, hasValueEl: !!valueEl });
+  if (!data) {
+    console.log('[WATER] renderStoresConsumptionUI: data is null/undefined, returning');
+    return;
+  }
 
   const totalGeral = data.totalGeral || 0;
   const storesTotal = data.storesTotal || 0;
   const storesPercentage = totalGeral > 0 ? (storesTotal / totalGeral) * 100 : 0;
 
   if (valueEl) {
+    console.log('[WATER] Setting stores value to:', formatWaterVolume(storesTotal));
     valueEl.textContent = formatWaterVolume(storesTotal);
+  } else {
+    console.log('[WATER] WARNING: valueEl is null for stores card!');
   }
 
   if (trendEl) {
@@ -169,8 +192,8 @@ function initializeCards() {
   `;
 
   // Stores card
-  const storesValueEl = document.getElementById('total-consumption-stores-value');
-  const storesTrendEl = document.getElementById('total-consumption-stores-trend');
+  const storesValueEl = $id('total-consumption-stores-value');
+  const storesTrendEl = $id('total-consumption-stores-trend');
   if (storesValueEl) storesValueEl.innerHTML = loadingSpinner;
   if (storesTrendEl) {
     storesTrendEl.textContent = 'Aguardando dados...';
@@ -178,8 +201,8 @@ function initializeCards() {
   }
 
   // Common Area card
-  const commonAreaValueEl = document.getElementById('total-consumption-common-area-value');
-  const commonAreaTrendEl = document.getElementById('total-consumption-common-area-trend');
+  const commonAreaValueEl = $id('total-consumption-common-area-value');
+  const commonAreaTrendEl = $id('total-consumption-common-area-trend');
   if (commonAreaValueEl) commonAreaValueEl.innerHTML = loadingSpinner;
   if (commonAreaTrendEl) {
     commonAreaTrendEl.textContent = 'Aguardando dados...';
@@ -187,8 +210,8 @@ function initializeCards() {
   }
 
   // Total card
-  const totalValueEl = document.getElementById('total-consumption-value');
-  const totalTrendEl = document.getElementById('total-consumption-trend');
+  const totalValueEl = $id('total-consumption-value');
+  const totalTrendEl = $id('total-consumption-trend');
   if (totalValueEl) totalValueEl.innerHTML = loadingSpinner;
   if (totalTrendEl) {
     totalTrendEl.textContent = 'Aguardando dados...';
@@ -207,25 +230,25 @@ function updateAllCards(data) {
   // Stores
   renderStoresConsumptionUI(
     data,
-    document.getElementById('total-consumption-stores-value'),
-    document.getElementById('total-consumption-stores-trend'),
-    document.getElementById('total-consumption-stores-info')
+    $id('total-consumption-stores-value'),
+    $id('total-consumption-stores-trend'),
+    $id('total-consumption-stores-info')
   );
 
   // Common Area
   renderCommonAreaConsumptionUI(
     data,
-    document.getElementById('total-consumption-common-area-value'),
-    document.getElementById('total-consumption-common-area-trend'),
-    document.getElementById('total-consumption-common-area-info')
+    $id('total-consumption-common-area-value'),
+    $id('total-consumption-common-area-trend'),
+    $id('total-consumption-common-area-info')
   );
 
   // Total
   renderTotalConsumptionUI(
     data,
-    document.getElementById('total-consumption-value'),
-    document.getElementById('total-consumption-trend'),
-    document.getElementById('total-consumption-info')
+    $id('total-consumption-value'),
+    $id('total-consumption-trend'),
+    $id('total-consumption-info')
   );
 }
 
@@ -270,9 +293,15 @@ async function fetch7DaysConsumption() {
  * Inicializa o gráfico de linha (7 dias)
  */
 async function initializeLineChart() {
-  const canvas = document.getElementById('lineChart');
+  const canvas = $id('lineChart');
   if (!canvas) {
     console.warn('[WATER] lineChart canvas not found');
+    return;
+  }
+
+  // FIX: Check if Chart.js is available
+  if (typeof Chart === 'undefined') {
+    console.error('[WATER] Chart.js not loaded, cannot initialize line chart');
     return;
   }
 
@@ -340,9 +369,15 @@ async function initializeLineChart() {
  * Inicializa o gráfico de pizza (distribuição)
  */
 function initializePieChart(data) {
-  const canvas = document.getElementById('pieChart');
+  const canvas = $id('pieChart');
   if (!canvas) {
     console.warn('[WATER] pieChart canvas not found');
+    return;
+  }
+
+  // FIX: Check if Chart.js is available
+  if (typeof Chart === 'undefined') {
+    console.error('[WATER] Chart.js not loaded, cannot initialize pie chart');
     return;
   }
 
@@ -412,8 +447,8 @@ const MIN_ZOOM = 70;
 const MAX_ZOOM = 130;
 
 function setupZoomControls() {
-  const fontMinus = document.getElementById('fontMinus');
-  const fontPlus = document.getElementById('fontPlus');
+  const fontMinus = $id('fontMinus');
+  const fontPlus = $id('fontPlus');
   const dashboard = document.querySelector('.water-dashboard');
 
   if (fontMinus) {
@@ -534,7 +569,7 @@ function handleDateUpdate(event) {
 
 // RFC-0093: Function to render shopping filter chips in toolbar
 function renderShoppingFilterChips(selection) {
-  const chipsContainer = document.getElementById('waterShoppingFilterChips');
+  const chipsContainer = $id('waterShoppingFilterChips');
   if (!chipsContainer) return;
 
   chipsContainer.innerHTML = '';
@@ -596,7 +631,7 @@ function setupEventListeners() {
   }
 
   // Distribution mode selector
-  const distributionSelect = document.getElementById('distributionMode');
+  const distributionSelect = $id('distributionMode');
   if (distributionSelect) {
     distributionSelect.addEventListener('change', (e) => {
       updatePieChartMode(e.target.value);
@@ -627,6 +662,9 @@ function cleanup() {
 
 self.onInit = function () {
   console.log('[WATER] Widget initialized');
+  console.log('[WATER] DEBUG: Chart.js available?', typeof Chart !== 'undefined');
+  console.log('[WATER] DEBUG: lineChart canvas?', !!$id('lineChart'));
+  console.log('[WATER] DEBUG: pieChart canvas?', !!$id('pieChart'));
 
   // Initialize cards with loading state
   initializeCards();
@@ -639,23 +677,41 @@ self.onInit = function () {
 
   // Initialize charts with empty/loading state
   setTimeout(() => {
+    console.log('[WATER] DEBUG setTimeout: Chart.js available?', typeof Chart !== 'undefined');
+    console.log('[WATER] DEBUG setTimeout: lineChart canvas?', !!$id('lineChart'));
+    console.log('[WATER] DEBUG setTimeout: pieChart canvas?', !!$id('pieChart'));
+
     initializeLineChart();
 
-    // Check if we already have cached data from MAIN
-    const cached = getCachedTotalConsumption();
-    if (cached) {
-      console.log('[WATER] Using cached data on init:', cached);
-      initializePieChart(cached);
-      updateAllCards(cached);
-    } else {
-      // Initialize with zeros while waiting for real data
-      const emptyData = {
-        storesTotal: 0,
-        commonAreaTotal: 0,
-        totalGeral: 0,
+    // FIX: Check Orchestrator totals FIRST (may already be available)
+    const orchestratorTotals = window.MyIOOrchestrator?.getWaterTotals?.();
+    if (orchestratorTotals && orchestratorTotals.total > 0) {
+      console.log('[WATER] Using Orchestrator totals on init:', orchestratorTotals);
+      const data = {
+        storesTotal: orchestratorTotals.stores,
+        commonAreaTotal: orchestratorTotals.commonArea,
+        totalGeral: orchestratorTotals.total,
       };
-      initializePieChart(emptyData);
-      // Keep loading state on cards
+      cacheTotalConsumption(data.storesTotal, data.commonAreaTotal, data.totalGeral);
+      initializePieChart(data);
+      updateAllCards(data);
+    } else {
+      // Check if we already have cached data from MAIN
+      const cached = getCachedTotalConsumption();
+      if (cached) {
+        console.log('[WATER] Using cached data on init:', cached);
+        initializePieChart(cached);
+        updateAllCards(cached);
+      } else {
+        // Initialize with zeros while waiting for real data
+        const emptyData = {
+          storesTotal: 0,
+          commonAreaTotal: 0,
+          totalGeral: 0,
+        };
+        initializePieChart(emptyData);
+        // Keep loading state on cards
+      }
     }
   }, 500);
 
@@ -668,6 +724,68 @@ self.onInit = function () {
       })
     );
   }, 200);
+
+  // FIX: Retry request after 2 seconds if cards still show loading
+  setTimeout(() => {
+    const storesValueEl = $id('total-consumption-stores-value');
+    const hasSpinner = storesValueEl?.querySelector('.loading-spinner');
+    if (hasSpinner) {
+      console.log('[WATER] Cards still loading, retrying data request...');
+
+      // Check Orchestrator totals again
+      const orchestratorTotals = window.MyIOOrchestrator?.getWaterTotals?.();
+      if (orchestratorTotals && orchestratorTotals.total > 0) {
+        console.log('[WATER] Retry: Found Orchestrator totals:', orchestratorTotals);
+        const data = {
+          storesTotal: orchestratorTotals.stores,
+          commonAreaTotal: orchestratorTotals.commonArea,
+          totalGeral: orchestratorTotals.total,
+        };
+        cacheTotalConsumption(data.storesTotal, data.commonAreaTotal, data.totalGeral);
+        updateAllCards(data);
+        initializePieChart(data);
+      } else {
+        // Request from MAIN again
+        window.dispatchEvent(
+          new CustomEvent('myio:request-water-data', {
+            detail: { requestor: 'WATER', retry: true },
+          })
+        );
+      }
+    }
+  }, 2000);
+
+  // FIX: Final retry after 5 seconds - last attempt before giving up
+  setTimeout(() => {
+    const storesValueEl = $id('total-consumption-stores-value');
+    const hasSpinner = storesValueEl?.querySelector('.loading-spinner');
+    if (hasSpinner) {
+      console.log('[WATER] Final retry - cards still loading after 5s...');
+
+      const orchestratorTotals = window.MyIOOrchestrator?.getWaterTotals?.();
+      if (orchestratorTotals && orchestratorTotals.total > 0) {
+        console.log('[WATER] Final retry: Found Orchestrator totals:', orchestratorTotals);
+        const data = {
+          storesTotal: orchestratorTotals.stores,
+          commonAreaTotal: orchestratorTotals.commonArea,
+          totalGeral: orchestratorTotals.total,
+        };
+        cacheTotalConsumption(data.storesTotal, data.commonAreaTotal, data.totalGeral);
+        updateAllCards(data);
+        initializePieChart(data);
+      } else {
+        // Show zero values instead of infinite loading
+        console.log('[WATER] No data available, showing zero values');
+        const emptyData = {
+          storesTotal: 0,
+          commonAreaTotal: 0,
+          totalGeral: 0,
+        };
+        updateAllCards(emptyData);
+        initializePieChart(emptyData);
+      }
+    }
+  }, 5000);
 };
 
 self.onDataUpdated = function () {
