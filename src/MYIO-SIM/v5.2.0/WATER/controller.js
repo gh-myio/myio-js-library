@@ -377,44 +377,30 @@ async function initializeLineChart() {
     return;
   }
 
-  // RFC-0098: Use standardized component if available
-  if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumption7DaysChart) {
-    console.log('[WATER] [RFC-0098] Using createConsumption7DaysChart component');
+  // RFC-0098: Use standardized widget component if available
+  if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumptionChartWidget) {
+    console.log('[WATER] [RFC-0098] Using createConsumptionChartWidget component');
 
     // Get widget container for ThingsBoard compatibility
     const $container = self.ctx?.$container || null;
 
-    consumptionChartInstance = MyIOLibrary.createConsumption7DaysChart({
+    consumptionChartInstance = MyIOLibrary.createConsumptionChartWidget({
       domain: 'water',
-      containerId: 'lineChart',
+      containerId: 'water-chart-widget',
+      title: 'Consumo de Água - 7 dias',
       unit: 'm³',
       decimalPlaces: 1,
+      chartHeight: 280,
       defaultPeriod: chartConfig.period || 7,
       defaultChartType: chartConfig.chartType || 'line',
       defaultVizMode: chartConfig.vizMode || 'total',
       theme: 'light',
       $container: $container,
 
-      // Colors matching the water domain
-      colors: {
-        primary: '#0288d1',
-        background: 'rgba(2, 136, 209, 0.1)',
-        pointBackground: '#0288d1',
-        pointBorder: '#ffffff',
-      },
-
       // Data fetching via adapter
       fetchData: fetchWaterConsumptionDataAdapter,
 
-      // Button IDs for handlers
-      settingsButtonId: 'configureChartBtn',
-      maximizeButtonId: 'maximizeChartBtn',
-      titleElementId: 'lineChartTitle',
-
       // Callbacks
-      onSettingsClick: () => {
-        console.log('[WATER] [RFC-0098] Settings button clicked - TODO: implement settings');
-      },
       onMaximizeClick: () => {
         console.log('[WATER] [RFC-0098] Maximize button clicked');
         toggleChartFullscreen();
@@ -439,7 +425,7 @@ async function initializeLineChart() {
   }
 
   // RFC-0098: Component is required - no fallback
-  console.error('[WATER] [RFC-0098] createConsumption7DaysChart not available');
+  console.error('[WATER] [RFC-0098] createConsumptionChartWidget not available');
 }
 
 /**
@@ -1055,11 +1041,21 @@ function setupMaximizeButton() {
 }
 
 /**
- * RFC-0097: Setup chart tab handlers (vizMode and chartType)
+ * RFC-0098: Setup chart tab handlers
+ * NOTE: The createConsumptionChartWidget component now handles tabs internally.
+ * This function is kept for backwards compatibility with external tabs if present.
  */
 function setupChartTabHandlers() {
-  // TABs vizMode (Consolidado/Por Shopping)
+  // RFC-0098: The widget component injects its own tabs, so external tabs may not exist
   const vizTabs = document.querySelectorAll('.viz-mode-tabs .chart-tab');
+  const typeTabs = document.querySelectorAll('.chart-type-tabs .chart-tab');
+
+  if (vizTabs.length === 0 && typeTabs.length === 0) {
+    console.log('[WATER] [RFC-0098] No external tabs found - widget handles tabs internally');
+    return;
+  }
+
+  // Setup external vizMode tabs (if present)
   vizTabs.forEach((tab) => {
     tab.addEventListener('click', () => {
       vizTabs.forEach((t) => t.classList.remove('active'));
@@ -1067,20 +1063,14 @@ function setupChartTabHandlers() {
 
       const newVizMode = tab.dataset.viz;
       chartConfig.vizMode = newVizMode;
-      console.log('[WATER] [RFC-0097] vizMode changed to:', chartConfig.vizMode);
 
-      // RFC-0098: Use component API
       if (consumptionChartInstance && typeof consumptionChartInstance.setVizMode === 'function') {
-        console.log('[WATER] [RFC-0098] Setting vizMode via component:', newVizMode);
         consumptionChartInstance.setVizMode(newVizMode);
-      } else {
-        console.error('[WATER] [RFC-0098] Component not available for setVizMode');
       }
     });
   });
 
-  // TABs chartType (Linhas/Barras)
-  const typeTabs = document.querySelectorAll('.chart-type-tabs .chart-tab');
+  // Setup external chartType tabs (if present)
   typeTabs.forEach((tab) => {
     tab.addEventListener('click', () => {
       typeTabs.forEach((t) => t.classList.remove('active'));
@@ -1088,19 +1078,14 @@ function setupChartTabHandlers() {
 
       const newChartType = tab.dataset.type;
       chartConfig.chartType = newChartType;
-      console.log('[WATER] [RFC-0097] chartType changed to:', chartConfig.chartType);
 
-      // RFC-0098: Use component API
       if (consumptionChartInstance && typeof consumptionChartInstance.setChartType === 'function') {
-        console.log('[WATER] [RFC-0098] Setting chartType via component:', newChartType);
         consumptionChartInstance.setChartType(newChartType);
-      } else {
-        console.error('[WATER] [RFC-0098] Component not available for setChartType');
       }
     });
   });
 
-  console.log('[WATER] [RFC-0097] Chart tab handlers setup complete');
+  console.log('[WATER] [RFC-0098] External tab handlers setup (if present)');
 }
 
 // RFC-0098: Legacy chart functions removed (rerenderLineChart, openChartConfigModal, etc.) - settings handled by component

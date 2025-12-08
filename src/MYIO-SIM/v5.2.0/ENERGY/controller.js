@@ -1301,47 +1301,32 @@ async function initializeCharts() {
 
   console.log('[ENERGY] Customer ID:', customerId);
 
-  // RFC-0098: Initialize line chart using the standardized component
-  if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumption7DaysChart) {
-    console.log('[ENERGY] [RFC-0098] Using createConsumption7DaysChart component');
+  // RFC-0098: Initialize line chart using the standardized widget component
+  if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumptionChartWidget) {
+    console.log('[ENERGY] [RFC-0098] Using createConsumptionChartWidget component');
 
     // Get widget container for ThingsBoard compatibility
     const $container = self.ctx?.$container || null;
 
-    consumptionChartInstance = MyIOLibrary.createConsumption7DaysChart({
+    consumptionChartInstance = MyIOLibrary.createConsumptionChartWidget({
       domain: 'energy',
-      containerId: 'lineChart',
+      containerId: 'energy-chart-widget',
+      title: 'Consumo de Energia - 7 dias',
       unit: 'kWh',
       unitLarge: 'MWh',
       thresholdForLargeUnit: 1000,
       decimalPlaces: 1,
+      chartHeight: 280,
       defaultPeriod: chartConfig.period || 7,
       defaultChartType: chartConfig.chartType || 'line',
       defaultVizMode: chartConfig.vizMode || 'total',
       theme: 'light',
       $container: $container,
 
-      // Colors matching the energy domain
-      colors: {
-        primary: '#6c2fbf',
-        background: 'rgba(108, 47, 191, 0.1)',
-        pointBackground: '#6c2fbf',
-        pointBorder: '#ffffff',
-      },
-
       // Data fetching via adapter
       fetchData: fetchConsumptionDataAdapter,
 
-      // Button IDs for handlers
-      settingsButtonId: 'configureChartBtn',
-      maximizeButtonId: 'maximizeChartBtn',
-      titleElementId: 'lineChartTitle',
-
       // Callbacks
-      onSettingsClick: () => {
-        console.log('[ENERGY] [RFC-0098] Settings button clicked - TODO: implement settings modal');
-        // Settings functionality will be handled by the component or a separate modal
-      },
       onMaximizeClick: () => {
         console.log('[ENERGY] [RFC-0098] Maximize button clicked');
         toggleChartFullscreen();
@@ -1363,7 +1348,7 @@ async function initializeCharts() {
     // Store reference for compatibility with existing code
     lineChartInstance = consumptionChartInstance.getChartInstance();
   } else {
-    console.error('[ENERGY] [RFC-0098] createConsumption7DaysChart not available in MyIOLibrary!');
+    console.error('[ENERGY] [RFC-0098] createConsumptionChartWidget not available in MyIOLibrary!');
     return;
   }
 
@@ -1450,12 +1435,22 @@ async function initializeCharts() {
 }
 
 /**
- * RFC-0098: Setup chart tab handlers using the standardized component API
- * Updates vizMode and chartType via component methods instead of direct chart manipulation
+ * RFC-0098: Setup chart tab handlers
+ * NOTE: The createConsumptionChartWidget component now handles tabs internally.
+ * This function is kept for backwards compatibility with external tabs if present.
  */
 function setupChartTabHandlersRFC0098() {
-  // TABs vizMode (Consolidado/Por Shopping)
+  // RFC-0098: The widget component injects its own tabs, so external tabs may not exist
+  // If external tabs are present, sync them with the widget API
   const vizTabs = document.querySelectorAll('.viz-mode-tabs .chart-tab');
+  const typeTabs = document.querySelectorAll('.chart-type-tabs .chart-tab');
+
+  if (vizTabs.length === 0 && typeTabs.length === 0) {
+    console.log('[ENERGY] [RFC-0098] No external tabs found - widget handles tabs internally');
+    return;
+  }
+
+  // Setup external vizMode tabs (if present)
   vizTabs.forEach((tab) => {
     tab.addEventListener('click', () => {
       vizTabs.forEach((t) => t.classList.remove('active'));
@@ -1464,18 +1459,13 @@ function setupChartTabHandlersRFC0098() {
       const newVizMode = tab.dataset.viz;
       chartConfig.vizMode = newVizMode;
 
-      // RFC-0098: Use component API
       if (consumptionChartInstance && typeof consumptionChartInstance.setVizMode === 'function') {
-        console.log('[ENERGY] [RFC-0098] Setting vizMode via component:', newVizMode);
         consumptionChartInstance.setVizMode(newVizMode);
-      } else {
-        console.error('[ENERGY] [RFC-0098] Component not available for setVizMode');
       }
     });
   });
 
-  // TABs chartType (Linhas/Barras)
-  const typeTabs = document.querySelectorAll('.chart-type-tabs .chart-tab');
+  // Setup external chartType tabs (if present)
   typeTabs.forEach((tab) => {
     tab.addEventListener('click', () => {
       typeTabs.forEach((t) => t.classList.remove('active'));
@@ -1484,17 +1474,13 @@ function setupChartTabHandlersRFC0098() {
       const newChartType = tab.dataset.type;
       chartConfig.chartType = newChartType;
 
-      // RFC-0098: Use component API
       if (consumptionChartInstance && typeof consumptionChartInstance.setChartType === 'function') {
-        console.log('[ENERGY] [RFC-0098] Setting chartType via component:', newChartType);
         consumptionChartInstance.setChartType(newChartType);
-      } else {
-        console.error('[ENERGY] [RFC-0098] Component not available for setChartType');
       }
     });
   });
 
-  console.log('[ENERGY] [RFC-0098] Chart tab handlers setup complete');
+  console.log('[ENERGY] [RFC-0098] External tab handlers setup (if present)');
 }
 
 /**

@@ -698,30 +698,24 @@ async function initializeTemperature7DaysChart() {
   const minTemp = Number(ctx.settings?.minTemperature ?? 20);
   const maxTemp = Number(ctx.settings?.maxTemperature ?? 24);
 
-  // RFC-0098: Use standardized component if available
-  if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumption7DaysChart) {
-    LogHelper.log('[TEMPERATURE] [RFC-0098] Using createConsumption7DaysChart component');
+  // RFC-0098: Use standardized widget component if available
+  if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumptionChartWidget) {
+    LogHelper.log('[TEMPERATURE] [RFC-0098] Using createConsumptionChartWidget component');
 
     const $container = self.ctx?.$container || null;
 
-    consumptionChartInstance = MyIOLibrary.createConsumption7DaysChart({
+    consumptionChartInstance = MyIOLibrary.createConsumptionChartWidget({
       domain: 'temperature',
-      containerId: 'lineChart',
+      containerId: 'temperature-chart-widget',
+      title: 'Temperatura - 7 dias',
       unit: '°C',
       decimalPlaces: 1,
+      chartHeight: 280,
       defaultPeriod: chartConfig.period || 7,
       defaultChartType: chartConfig.chartType || 'line',
       defaultVizMode: chartConfig.vizMode || 'total',
       theme: 'light',
       $container: $container,
-
-      // Temperature domain colors
-      colors: {
-        primary: '#dc2626',
-        background: 'rgba(220, 38, 38, 0.1)',
-        pointBackground: '#dc2626',
-        pointBorder: '#ffffff',
-      },
 
       // Ideal range from customer attributes
       idealRange:
@@ -739,20 +733,7 @@ async function initializeTemperature7DaysChart() {
       // Data fetching via adapter
       fetchData: fetchTemperatureDataAdapter,
 
-      // Button IDs for handlers
-      settingsButtonId: 'configureChartBtn',
-      maximizeButtonId: 'maximizeChartBtn',
-      titleElementId: 'lineChartTitle',
-
       // Callbacks
-      onSettingsClick: () => {
-        LogHelper.log('[TEMPERATURE] [RFC-0098] Settings button clicked');
-        // TODO: Implement settings modal for temperature
-      },
-      onMaximizeClick: () => {
-        LogHelper.log('[TEMPERATURE] [RFC-0098] Maximize button clicked');
-        // TODO: Implement fullscreen mode for temperature
-      },
       onDataLoaded: (data) => {
         cachedChartData = data;
         LogHelper.log('[TEMPERATURE] [RFC-0098] Data loaded:', data.labels?.length, 'days');
@@ -769,15 +750,25 @@ async function initializeTemperature7DaysChart() {
   }
 
   // Fallback: Legacy initialization (simplified)
-  LogHelper.warn('[TEMPERATURE] [RFC-0098] createConsumption7DaysChart not available');
+  LogHelper.warn('[TEMPERATURE] [RFC-0098] createConsumptionChartWidget not available');
 }
 
 /**
  * RFC-0098: Setup chart tab handlers for temperature 7-day chart
+ * NOTE: The createConsumptionChartWidget component now handles tabs internally.
+ * This function is kept for backwards compatibility with external tabs if present.
  */
 function setupTemperatureChartTabs() {
-  // TABs vizMode (Consolidado/Por Shopping)
+  // RFC-0098: The widget component injects its own tabs, so external tabs may not exist
   const vizTabs = document.querySelectorAll('.viz-mode-tabs .chart-tab');
+  const typeTabs = document.querySelectorAll('.chart-type-tabs .chart-tab');
+
+  if (vizTabs.length === 0 && typeTabs.length === 0) {
+    LogHelper.log('[TEMPERATURE] [RFC-0098] No external tabs found - widget handles tabs internally');
+    return;
+  }
+
+  // Setup external vizMode tabs (if present)
   vizTabs.forEach((tab) => {
     tab.addEventListener('click', () => {
       vizTabs.forEach((t) => t.classList.remove('active'));
@@ -785,7 +776,6 @@ function setupTemperatureChartTabs() {
 
       const newVizMode = tab.dataset.viz;
       chartConfig.vizMode = newVizMode;
-      LogHelper.log('[TEMPERATURE] [RFC-0098] vizMode changed to:', newVizMode);
 
       if (consumptionChartInstance && typeof consumptionChartInstance.setVizMode === 'function') {
         consumptionChartInstance.setVizMode(newVizMode);
@@ -793,8 +783,7 @@ function setupTemperatureChartTabs() {
     });
   });
 
-  // TABs chartType (Linhas/Barras)
-  const typeTabs = document.querySelectorAll('.chart-type-tabs .chart-tab');
+  // Setup external chartType tabs (if present)
   typeTabs.forEach((tab) => {
     tab.addEventListener('click', () => {
       typeTabs.forEach((t) => t.classList.remove('active'));
@@ -802,7 +791,6 @@ function setupTemperatureChartTabs() {
 
       const newChartType = tab.dataset.type;
       chartConfig.chartType = newChartType;
-      LogHelper.log('[TEMPERATURE] [RFC-0098] chartType changed to:', newChartType);
 
       if (consumptionChartInstance && typeof consumptionChartInstance.setChartType === 'function') {
         consumptionChartInstance.setChartType(newChartType);
@@ -810,7 +798,7 @@ function setupTemperatureChartTabs() {
     });
   });
 
-  LogHelper.log('[TEMPERATURE] [RFC-0098] Chart tab handlers setup complete');
+  LogHelper.log('[TEMPERATURE] [RFC-0098] External tab handlers setup (if present)');
 }
 
 // ============================================
