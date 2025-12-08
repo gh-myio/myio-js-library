@@ -4,12 +4,6 @@
     "title": "Welcome LV Widget Settings",
     "description": "RFC-0057: Configuration for brand palette, user menu, and shopping shortcuts",
     "properties": {
-      "dataApiHost": {
-        "title": "Data API Host",
-        "type": "string",
-        "default": "https://api.data.apps.myio-bas.com",
-        "description": "RFC-0086: Base URL for MyIO Data API (shared with all widgets)"
-      },
       "enableDebugMode": {
         "title": "Enable Debug Mode",
         "type": "boolean",

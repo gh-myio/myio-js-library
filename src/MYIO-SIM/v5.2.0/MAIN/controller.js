@@ -2509,13 +2509,13 @@ window.MyIOUtils = {
   getDataApiHost,
   fetchEnergyDayConsumption,
 
-  // Formatting functions (from MyIOLibrary)
-  formatEnergy: MyIOLibrary.formatEnergy,
-  formatWater: MyIOLibrary.formatWater,
-  mapConnectionStatus: MyIOLibrary.mapConnectionStatus,
-  formatRelativeTime: MyIOLibrary.formatRelativeTime,
-  formatarDuracao: MyIOLibrary.formatarDuracao,
-  findValue: MyIOLibrary.findValueWithDefault,
+  // Formatting functions (from MyIOLibrary - evaluated at runtime)
+  formatEnergy: (val) => MyIOLibrary.formatEnergy(val),
+  formatWater: (val) => MyIOLibrary.formatWater(val),
+  mapConnectionStatus: (status) => MyIOLibrary.mapConnectionStatus(status),
+  formatRelativeTime: (ts) => MyIOLibrary.formatRelativeTime(ts),
+  formatarDuracao: (ms) => MyIOLibrary.formatarDuracao(ms),
+  findValue: (values, key, defaultValue) => MyIOLibrary.findValueWithDefault(values, key, defaultValue),
 
   // Credentials (getters - populated after onInit)
   getCustomerId: () => window.myioHoldingCustomerId,

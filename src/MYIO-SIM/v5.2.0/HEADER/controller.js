@@ -1,7 +1,5 @@
 /* global self, window, document, localStorage, MyIOLibrary */
 
-import { L } from 'vitest/dist/chunks/reporters.nr4dxCkA.js';
-
 /***********************************
  *  MENU PREMIUM + FILTRO MODAL    *
  ***********************************/
