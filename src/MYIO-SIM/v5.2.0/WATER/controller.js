@@ -403,7 +403,7 @@ async function initializeLineChart() {
       // Callbacks
       onMaximizeClick: () => {
         console.log('[WATER] [RFC-0098] Maximize button clicked');
-        toggleChartFullscreen();
+        openFullscreenModal();
       },
       onDataLoaded: (data) => {
         // Update cache for fullscreen and other features
@@ -658,32 +658,56 @@ function handleDateUpdate(event) {
 }
 
 // ============================================
-// RFC-0097: FULLSCREEN CHART FUNCTIONS
+// RFC-0098: FULLSCREEN MODAL FUNCTIONS
+// ============================================
+
+// RFC-0098: Reference to fullscreen modal instance
+let fullscreenModalInstance = null;
+
+/**
+ * RFC-0098: Open fullscreen modal using createConsumptionModal
+ * Replaces legacy fullscreen chart code with standardized component
+ */
+async function openFullscreenModal() {
+  if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createConsumptionModal) {
+    console.error('[WATER] [RFC-0098] createConsumptionModal not available');
+    return;
+  }
+
+  console.log('[WATER] [RFC-0098] Opening fullscreen modal...');
+
+  fullscreenModalInstance = MyIOLibrary.createConsumptionModal({
+    domain: 'water',
+    title: 'Consumo de Água',
+    unit: 'm³',
+    decimalPlaces: 1,
+    defaultPeriod: chartConfig.period || 7,
+    defaultChartType: chartConfig.chartType || 'line',
+    defaultVizMode: chartConfig.vizMode || 'total',
+    theme: 'light',
+    fetchData: fetchWaterConsumptionDataAdapter,
+    onClose: () => {
+      console.log('[WATER] [RFC-0098] Fullscreen modal closed');
+      fullscreenModalInstance = null;
+      isChartFullscreen = false;
+    },
+  });
+
+  isChartFullscreen = true;
+  await fullscreenModalInstance.open();
+}
+
+// ============================================
+// LEGACY FULLSCREEN CODE - DEPRECATED (RFC-0098)
+// Kept temporarily for backwards compatibility
 // ============================================
 
 /**
- * RFC-0097: Toggle fullscreen mode for water chart
+ * @deprecated Use openFullscreenModal() instead
  */
 function toggleChartFullscreen() {
-  const maximizeBtn = $id('maximizeChartBtn');
-
-  isChartFullscreen = !isChartFullscreen;
-
-  if (isChartFullscreen) {
-    openFullscreenChart();
-    if (maximizeBtn) {
-      maximizeBtn.innerHTML = '✕';
-      maximizeBtn.title = 'Sair da tela cheia';
-    }
-  } else {
-    closeFullscreenChart();
-    if (maximizeBtn) {
-      maximizeBtn.innerHTML = '⛶';
-      maximizeBtn.title = 'Maximizar para tela toda';
-    }
-  }
-
-  console.log('[WATER] [RFC-0097] Fullscreen toggled:', isChartFullscreen);
+  // RFC-0098: Redirect to new modal-based fullscreen
+  openFullscreenModal();
 }
 
 /**

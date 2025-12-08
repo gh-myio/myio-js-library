@@ -275,30 +275,55 @@ function hideChartLoading() {
   }
 }
 
+// RFC-0098: Reference to fullscreen modal instance
+let fullscreenModalInstance = null;
+
 /**
- * RFC-0097: Toggle fullscreen mode for energy chart
- * Uses the same pattern as filter modal - injects into parent document for true fullscreen
+ * RFC-0098: Open fullscreen modal using createConsumptionModal
+ * Replaces legacy fullscreen chart code with standardized component
  */
-function toggleChartFullscreen() {
-  const maximizeBtn = document.getElementById('maximizeChartBtn');
-
-  isChartFullscreen = !isChartFullscreen;
-
-  if (isChartFullscreen) {
-    openFullscreenChart();
-    if (maximizeBtn) {
-      maximizeBtn.innerHTML = '✕';
-      maximizeBtn.title = 'Sair da tela cheia';
-    }
-  } else {
-    closeFullscreenChart();
-    if (maximizeBtn) {
-      maximizeBtn.innerHTML = '⛶';
-      maximizeBtn.title = 'Maximizar para tela toda';
-    }
+async function openFullscreenModal() {
+  if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createConsumptionModal) {
+    console.error('[ENERGY] [RFC-0098] createConsumptionModal not available');
+    return;
   }
 
-  console.log('[ENERGY] [RFC-0097] Chart fullscreen:', isChartFullscreen);
+  console.log('[ENERGY] [RFC-0098] Opening fullscreen modal...');
+
+  fullscreenModalInstance = MyIOLibrary.createConsumptionModal({
+    domain: 'energy',
+    title: 'Consumo de Energia',
+    unit: 'kWh',
+    unitLarge: 'MWh',
+    thresholdForLargeUnit: 1000,
+    decimalPlaces: 1,
+    defaultPeriod: chartConfig.period || 7,
+    defaultChartType: chartConfig.chartType || 'line',
+    defaultVizMode: chartConfig.vizMode || 'total',
+    theme: 'light',
+    fetchData: fetchConsumptionDataAdapter,
+    onClose: () => {
+      console.log('[ENERGY] [RFC-0098] Fullscreen modal closed');
+      fullscreenModalInstance = null;
+      isChartFullscreen = false;
+    },
+  });
+
+  isChartFullscreen = true;
+  await fullscreenModalInstance.open();
+}
+
+// ============================================
+// LEGACY FULLSCREEN CODE - DEPRECATED (RFC-0098)
+// Kept temporarily for backwards compatibility
+// ============================================
+
+/**
+ * @deprecated Use openFullscreenModal() instead
+ */
+function toggleChartFullscreen() {
+  // RFC-0098: Redirect to new modal-based fullscreen
+  openFullscreenModal();
 }
 
 /**
@@ -1329,7 +1354,7 @@ async function initializeCharts() {
       // Callbacks
       onMaximizeClick: () => {
         console.log('[ENERGY] [RFC-0098] Maximize button clicked');
-        toggleChartFullscreen();
+        openFullscreenModal();
       },
       onDataLoaded: (data) => {
         // Update cache for fullscreen and other features

@@ -91,34 +91,9 @@
 
   <!-- Charts -->
   <div class="charts">
-    <div class="chart-box chart-box-water" id="lineChartBox">
-      <!-- RFC-0097: Loading overlay -->
-      <div id="lineChartLoading" class="chart-loading-overlay" style="display: none">
-        <div class="chart-loading-spinner"></div>
-        <span>Carregando dados...</span>
-      </div>
-      <div class="chart-header">
-        <div class="chart-title-group">
-          <button id="configureChartBtn" class="config-btn" title="Configurar período">⚙️</button>
-          <h4 id="lineChartTitle">Consumo dos últimos 7 dias</h4>
-        </div>
-        <div class="chart-controls">
-          <!-- RFC-0097: TABs de Modo de Visualização -->
-          <div class="chart-tabs viz-mode-tabs">
-            <button class="chart-tab active" data-viz="total">Consolidado</button>
-            <button class="chart-tab" data-viz="separate">Por Shopping</button>
-          </div>
-          <!-- RFC-0097: TABs de Tipo de Gráfico -->
-          <div class="chart-tabs chart-type-tabs">
-            <button class="chart-tab active" data-type="line">Linhas</button>
-            <button class="chart-tab" data-type="bar">Barras</button>
-          </div>
-          <!-- Botão Maximizar -->
-          <button id="maximizeChartBtn" class="maximize-btn" title="Maximizar para tela toda">⛶</button>
-        </div>
-      </div>
-      <canvas id="lineChart"></canvas>
-    </div>
+    <!-- RFC-0098: Container for createConsumptionChartWidget (widget injects its own HTML) -->
+    <div id="water-chart-widget" class="chart-box chart-box-water"></div>
+
     <div class="chart-box">
       <div class="chart-header">
         <h4>Distribuição de Consumo de Água</h4>
