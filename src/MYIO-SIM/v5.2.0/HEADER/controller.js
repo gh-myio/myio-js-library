@@ -1398,51 +1398,29 @@ function updateWaterCard(waterCache) {
 
   LogHelper.log('[HEADER] Updating water card | cache devices:', waterCache?.size || 0);
 
-  // ✅ Get water consumption from WIDGETS (not from API cache)
-  // RFC: The API may return devices not configured in any widget (e.g., 333 vs 313 devices)
-  // We should show only the sum of WATER_COMMON_AREA + WATER_STORES, not all API devices
+  // ✅ Get water consumption from Orchestrator waterTotals (only valid TB aliases)
+  // RFC-0097: The API may return devices not configured in any TB alias
+  // We should show only the sum of devices from HidrometrosAreaComum + Todos Hidrometros Lojas
   let filteredConsumption = 0;
   let unfilteredConsumption = 0;
   let isFiltered = false;
-  let deviceCount = 0;
 
-  // First try to get consumption from widget accumulator (accurate sum of visible widgets)
-  // Only use if value > 0 (widgets have been visited and reported their consumption)
-  const widgetTotal = window.MyIOUtils?.getTotalWaterConsumptionFromWidgets?.() || 0;
-  if (widgetTotal > 0) {
-    filteredConsumption = widgetTotal;
-    // For unfiltered, we still use the orchestrator's value (all API devices)
-    unfilteredConsumption =
-      window.MyIOOrchestrator?.getUnfilteredTotalWaterConsumption?.() || filteredConsumption;
+  // PRIORIDADE 1: Usar getWaterTotals() que calcula apenas IDs válidos dos Aliases TB
+  const waterTotals = window.MyIOOrchestrator?.getWaterTotals?.();
+  if (waterTotals && waterTotals.total > 0) {
+    filteredConsumption = waterTotals.total;
+    unfilteredConsumption = waterTotals.total; // Totais válidos são o unfiltrado também
     isFiltered = window.MyIOOrchestrator?.isFilterActive?.() || false;
-    LogHelper.log('[HEADER] Water consumption (from widgets):', {
+    LogHelper.log('[HEADER] Water consumption (from valid TB aliases):', {
       filteredConsumption,
-      unfilteredConsumption,
-      isFiltered,
-    });
-  } else if (typeof window.MyIOOrchestrator?.getTotalWaterConsumption === 'function') {
-    // Fallback to orchestrator (old behavior - may include devices not in widgets)
-    filteredConsumption = window.MyIOOrchestrator.getTotalWaterConsumption();
-    unfilteredConsumption =
-      window.MyIOOrchestrator.getUnfilteredTotalWaterConsumption?.() || filteredConsumption;
-    isFiltered = window.MyIOOrchestrator.isFilterActive?.() || false;
-    LogHelper.log('[HEADER] Water consumption (from orchestrator):', {
-      filteredConsumption,
-      unfilteredConsumption,
-      isFiltered,
+      commonArea: waterTotals.commonArea,
+      stores: waterTotals.stores,
     });
   } else {
-    LogHelper.warn('[HEADER] No water consumption source available');
-    // Fallback: sum all from cache (old behavior)
-    if (waterCache) {
-      waterCache.forEach((cached) => {
-        if (cached && cached.total_value) {
-          filteredConsumption += cached.total_value || 0;
-          deviceCount++;
-        }
-      });
-      unfilteredConsumption = filteredConsumption;
-    }
+    // FALLBACK: Se ainda não tiver totais calculados, não mostrar nada
+    LogHelper.warn('[HEADER] No valid water totals available yet');
+    filteredConsumption = 0;
+    unfilteredConsumption = 0;
   }
 
   // ✅ Format and display - RFC-0093: Use same pattern as Equipment card

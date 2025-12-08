@@ -1623,6 +1623,20 @@ self.onInit = async function () {
   };
   window.addEventListener('myio:water-tb-data-ready', waterTbDataHandler);
 
+  // Verificar se os dados já estão disponíveis (evento já disparado antes do widget carregar)
+  const cachedTbData = window.MyIOUtils?.getWaterTbData?.();
+  if (cachedTbData?.loaded && cachedTbData?.commonArea?.datasources?.length > 0) {
+    LogHelper.log('[WATER_COMMON_AREA] Found cached TB data from MAIN, loading...');
+    mainWaterData = {
+      datasources: cachedTbData.commonArea.datasources,
+      data: cachedTbData.commonArea.data,
+      ids: cachedTbData.commonArea.ids,
+      loaded: true
+    };
+    STATE.itemsBase = buildAuthoritativeItems();
+    LogHelper.log(`[WATER_COMMON_AREA] Built ${STATE.itemsBase.length} items from cached MAIN data`);
+  }
+
   // RFC-0094: Use credentials from MAIN via MyIOUtils (already fetched by MAIN)
   const jwt = localStorage.getItem('jwt_token');
 

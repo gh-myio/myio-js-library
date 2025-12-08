@@ -3665,6 +3665,14 @@ window.MyIOOrchestrator = MyIOOrchestrator;
 
 // ===== WATER: Processar datasources TB e registrar IDs válidos =====
 // Esta função deve ser chamada quando os dados do TB estiverem disponíveis (onDataUpdated)
+
+// Cache global dos dados de água do TB para acesso direto pelos widgets
+let waterTbDataCache = {
+  commonArea: { datasources: [], data: [], ids: [] },
+  stores: { datasources: [], data: [], ids: [] },
+  loaded: false,
+};
+
 function processWaterDatasourcesFromTB() {
   const datasources = self.ctx?.datasources || [];
   const data = self.ctx?.data || [];
@@ -3688,6 +3696,13 @@ function processWaterDatasourcesFromTB() {
     `[MAIN] Water datasources from TB: commonArea=${commonAreaIds.length}, stores=${storesIds.length}`
   );
 
+  // Atualizar cache global para acesso direto
+  waterTbDataCache = {
+    commonArea: { datasources: commonAreaDatasources, data: commonAreaData, ids: commonAreaIds },
+    stores: { datasources: storesDatasources, data: storesData, ids: storesIds },
+    loaded: commonAreaIds.length > 0 || storesIds.length > 0,
+  };
+
   // Registrar no Orchestrator
   if (commonAreaIds.length > 0 && window.MyIOOrchestrator?.registerWaterDeviceIds) {
     window.MyIOOrchestrator.registerWaterDeviceIds('commonArea', commonAreaIds);
@@ -3710,6 +3725,17 @@ function processWaterDatasourcesFromTB() {
     LogHelper.log('[MAIN] Dispatched myio:water-tb-data-ready');
   }
 }
+
+/**
+ * Retorna os dados de água do TB para widgets que inicializam depois do evento
+ */
+function getWaterTbData() {
+  return waterTbDataCache;
+}
+
+// Expor getWaterTbData globalmente via MyIOUtils
+window.MyIOUtils = window.MyIOUtils || {};
+window.MyIOUtils.getWaterTbData = getWaterTbData;
 
 /**
  * Extrai ingestionIds dos dados do ThingsBoard
