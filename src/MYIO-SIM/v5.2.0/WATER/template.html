@@ -91,11 +91,30 @@
 
   <!-- Charts -->
   <div class="charts">
-    <div class="chart-box">
+    <div class="chart-box chart-box-water" id="lineChartBox">
+      <!-- RFC-0097: Loading overlay -->
+      <div id="lineChartLoading" class="chart-loading-overlay" style="display: none">
+        <div class="chart-loading-spinner"></div>
+        <span>Carregando dados...</span>
+      </div>
       <div class="chart-header">
-        <h4>Consumo dos últimos 7 dias</h4>
+        <div class="chart-title-group">
+          <button id="configureChartBtn" class="config-btn" title="Configurar período">⚙️</button>
+          <h4 id="lineChartTitle">Consumo dos últimos 7 dias</h4>
+        </div>
         <div class="chart-controls">
-          <button id="configureChartBtn" class="config-btn" title="Configurar gráfico">⚙️</button>
+          <!-- RFC-0097: TABs de Modo de Visualização -->
+          <div class="chart-tabs viz-mode-tabs">
+            <button class="chart-tab active" data-viz="total">Consolidado</button>
+            <button class="chart-tab" data-viz="separate">Por Shopping</button>
+          </div>
+          <!-- RFC-0097: TABs de Tipo de Gráfico -->
+          <div class="chart-tabs chart-type-tabs">
+            <button class="chart-tab active" data-type="line">Linhas</button>
+            <button class="chart-tab" data-type="bar">Barras</button>
+          </div>
+          <!-- Botão Maximizar -->
+          <button id="maximizeChartBtn" class="maximize-btn" title="Maximizar para tela toda">⛶</button>
         </div>
       </div>
       <canvas id="lineChart"></canvas>

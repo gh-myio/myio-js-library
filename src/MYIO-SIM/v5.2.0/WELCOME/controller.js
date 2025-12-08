@@ -786,7 +786,9 @@ function updateShoppingLabelFromDashboard() {
     setShoppingButtonLabel(title);
     try {
       localStorage.setItem(MYIO_SHOPPING_LABEL_KEY, JSON.stringify(title));
-    } catch {}
+    } catch {
+      LogHelper.error('Error saving shopping label to localStorage:', title);
+    }
   } else {
     setShoppingButtonLabel(null);
   }
@@ -804,14 +806,6 @@ async function init() {
   const settings = ctx.settings || {};
   if (settings.enableDebugMode !== undefined) {
     DEBUG_ACTIVE = settings.enableDebugMode;
-  }
-
-  // RFC-0086: Save DATA_API_HOST to localStorage for all widgets
-  try {
-    localStorage.setItem('__MYIO_DATA_API_HOST__', settings.dataApiHost);
-    LogHelper.log('RFC-0086: DATA_API_HOST saved to localStorage:', settings.dataApiHost);
-  } catch (e) {
-    LogHelper.warn('RFC-0086: Failed to save DATA_API_HOST to localStorage:', e);
   }
 
   // RFC-0086: Update and persist shopping label

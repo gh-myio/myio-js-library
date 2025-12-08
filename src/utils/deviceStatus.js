@@ -100,6 +100,30 @@ export function mapDeviceToConnectionStatus(deviceStatus) {
 }
 
 /**
+ * Maps raw connection status string to normalized status
+ * @param {string} rawStatus - Raw status from ThingsBoard (e.g., 'ONLINE', 'ok', 'running', 'waiting', 'offline')
+ * @returns {'online' | 'waiting' | 'offline'} - Normalized status
+ */
+export function mapConnectionStatus(rawStatus) {
+  const statusLower = String(rawStatus || '')
+    .toLowerCase()
+    .trim();
+
+  // Online states
+  if (statusLower === 'online' || statusLower === 'ok' || statusLower === 'running') {
+    return 'online';
+  }
+
+  // Waiting/transitional states
+  if (statusLower === 'waiting' || statusLower === 'connecting' || statusLower === 'pending') {
+    return 'waiting';
+  }
+
+  // Default to offline
+  return 'offline';
+}
+
+/**
  * Maps device status to a simplified card status
  * Used for styling and visual representation
  *

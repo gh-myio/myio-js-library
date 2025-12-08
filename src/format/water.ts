@@ -1,4 +1,14 @@
 /**
+ * Simple water value formatting (same as MAIN controller)
+ * @param value - The water volume value in cubic meters
+ * @returns Formatted water volume string with m³ unit
+ */
+export function formatWater(value: number): string {
+  const num = Number(value) || 0;
+  return `${num.toFixed(2)} m³`;
+}
+
+/**
  * Formats water volume in cubic meters (M³) using Brazilian locale formatting
  * @param value - The water volume value in cubic meters
  * @param locale - The locale to use for formatting (defaults to 'pt-BR')

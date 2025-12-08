@@ -34,6 +34,19 @@ const STATE = {
   isLoading: false,
 };
 
+// RFC-0098: Chart configuration state for 7-day temperature chart
+const chartConfig = {
+  period: 7,
+  startDate: null,
+  endDate: null,
+  vizMode: 'total',
+  chartType: 'line',
+};
+
+// RFC-0098: Consumption 7 Days Chart instance
+let consumptionChartInstance = null;
+let cachedChartData = null;
+
 // Settings defaults
 const DEFAULT_SETTINGS = {
   useDemoData: false,
@@ -364,7 +377,7 @@ async function openShoppingTemperatureModal(shopping) {
     }));
 
     if (devices.length === 0) {
-      alert(`Nenhum sensor encontrado para ${shopping.label}`);
+      window.alert(`Nenhum sensor encontrado para ${shopping.label}`);
       return;
     }
 
@@ -390,7 +403,7 @@ async function openShoppingTemperatureModal(shopping) {
     }
   } else {
     LogHelper.warn('[TEMPERATURE] openTemperatureComparisonModal not available');
-    alert('Modal de temperatura não disponível');
+    window.alert('Modal de temperatura não disponível');
   }
 }
 
@@ -570,6 +583,237 @@ async function updateAll() {
 }
 
 // ============================================
+// RFC-0098: TEMPERATURE 7-DAY CHART FUNCTIONS
+// ============================================
+
+/**
+ * RFC-0098: Mock data fetching for temperature over days
+ * Returns structured data with per-shopping breakdown
+ */
+async function fetch7DaysTemperature(period = 7) {
+  const labels = [];
+  const dailyTotals = [];
+  const shoppingData = {};
+  const shoppingNames = {};
+  const now = new Date();
+
+  // Get customer attributes for ideal range (mock)
+  const ctx = self.ctx;
+  const minTemp = Number(ctx.settings?.minTemperature ?? 20);
+  const maxTemp = Number(ctx.settings?.maxTemperature ?? 24);
+
+  // Use shopping data from STATE or mock
+  const shoppings =
+    STATE.shoppingData.length > 0
+      ? STATE.shoppingData.map((s, i) => ({
+          id: s.shoppingId || `shop-${i}`,
+          name: s.shoppingName || s.label || `Shopping ${i + 1}`,
+        }))
+      : [
+          { id: 'shop-001', name: 'Shopping Morumbi' },
+          { id: 'shop-002', name: 'Shopping Eldorado' },
+          { id: 'shop-003', name: 'Shopping Iguatemi' },
+        ];
+
+  // Initialize shopping data arrays
+  shoppings.forEach((shop) => {
+    shoppingData[shop.id] = [];
+    shoppingNames[shop.id] = shop.name;
+  });
+
+  for (let i = period - 1; i >= 0; i--) {
+    const dayDate = new Date(now);
+    dayDate.setDate(now.getDate() - i);
+    dayDate.setHours(0, 0, 0, 0);
+
+    // Format date label
+    labels.push(dayDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+
+    // Generate per-shopping temperature averages
+    let dayTotal = 0;
+    shoppings.forEach((shop, index) => {
+      // Base temperature with slight variation per shopping
+      const baseTemp = 22 + index * 0.5;
+      // Random daily variation within range
+      const variation = (Math.random() - 0.5) * 3;
+      const temp = baseTemp + variation;
+      shoppingData[shop.id].push(Math.round(temp * 10) / 10);
+      dayTotal += temp;
+    });
+
+    // Average temperature for the day
+    dailyTotals.push(Math.round((dayTotal / shoppings.length) * 10) / 10);
+  }
+
+  const result = {
+    labels,
+    dailyTotals,
+    shoppingData,
+    shoppingNames,
+    fetchTimestamp: Date.now(),
+  };
+
+  LogHelper.log('[TEMPERATURE] [RFC-0098] 7 days temperature data:', result);
+  return result;
+}
+
+/**
+ * RFC-0098: Data fetching adapter for the standardized Consumption7DaysChart component
+ */
+async function fetchTemperatureDataAdapter(period) {
+  LogHelper.log('[TEMPERATURE] [RFC-0098] Fetching data via adapter for', period, 'days');
+
+  // Update chartConfig period
+  chartConfig.period = period;
+
+  // Fetch temperature data
+  const data = await fetch7DaysTemperature(period);
+
+  return {
+    labels: data.labels || [],
+    dailyTotals: data.dailyTotals || [],
+    shoppingData: data.shoppingData || {},
+    shoppingNames: data.shoppingNames || {},
+    fetchTimestamp: Date.now(),
+  };
+}
+
+/**
+ * RFC-0098: Initialize the 7-day temperature chart using the standardized component
+ */
+async function initializeTemperature7DaysChart() {
+  const canvas = document.getElementById('lineChart');
+  if (!canvas) {
+    LogHelper.warn('[TEMPERATURE] [RFC-0098] lineChart canvas not found');
+    return;
+  }
+
+  if (typeof Chart === 'undefined') {
+    LogHelper.error('[TEMPERATURE] [RFC-0098] Chart.js not loaded');
+    return;
+  }
+
+  // Get customer attributes for ideal range
+  const ctx = self.ctx;
+  const minTemp = Number(ctx.settings?.minTemperature ?? 20);
+  const maxTemp = Number(ctx.settings?.maxTemperature ?? 24);
+
+  // RFC-0098: Use standardized component if available
+  if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumption7DaysChart) {
+    LogHelper.log('[TEMPERATURE] [RFC-0098] Using createConsumption7DaysChart component');
+
+    const $container = self.ctx?.$container || null;
+
+    consumptionChartInstance = MyIOLibrary.createConsumption7DaysChart({
+      domain: 'temperature',
+      containerId: 'lineChart',
+      unit: '°C',
+      decimalPlaces: 1,
+      defaultPeriod: chartConfig.period || 7,
+      defaultChartType: chartConfig.chartType || 'line',
+      defaultVizMode: chartConfig.vizMode || 'total',
+      theme: 'light',
+      $container: $container,
+
+      // Temperature domain colors
+      colors: {
+        primary: '#dc2626',
+        background: 'rgba(220, 38, 38, 0.1)',
+        pointBackground: '#dc2626',
+        pointBorder: '#ffffff',
+      },
+
+      // Ideal range from customer attributes
+      idealRange:
+        minTemp > 0 || maxTemp > 0
+          ? {
+              min: minTemp,
+              max: maxTemp,
+              color: 'rgba(34, 197, 94, 0.15)',
+              borderColor: 'rgba(34, 197, 94, 0.4)',
+              label: 'Faixa Ideal',
+              enabled: true,
+            }
+          : null,
+
+      // Data fetching via adapter
+      fetchData: fetchTemperatureDataAdapter,
+
+      // Button IDs for handlers
+      settingsButtonId: 'configureChartBtn',
+      maximizeButtonId: 'maximizeChartBtn',
+      titleElementId: 'lineChartTitle',
+
+      // Callbacks
+      onSettingsClick: () => {
+        LogHelper.log('[TEMPERATURE] [RFC-0098] Settings button clicked');
+        // TODO: Implement settings modal for temperature
+      },
+      onMaximizeClick: () => {
+        LogHelper.log('[TEMPERATURE] [RFC-0098] Maximize button clicked');
+        // TODO: Implement fullscreen mode for temperature
+      },
+      onDataLoaded: (data) => {
+        cachedChartData = data;
+        LogHelper.log('[TEMPERATURE] [RFC-0098] Data loaded:', data.labels?.length, 'days');
+      },
+      onError: (error) => {
+        LogHelper.error('[TEMPERATURE] [RFC-0098] Chart error:', error);
+      },
+    });
+
+    // Render the chart
+    await consumptionChartInstance.render();
+    LogHelper.log('[TEMPERATURE] [RFC-0098] Temperature 7-day chart rendered successfully');
+    return;
+  }
+
+  // Fallback: Legacy initialization (simplified)
+  LogHelper.warn('[TEMPERATURE] [RFC-0098] createConsumption7DaysChart not available');
+}
+
+/**
+ * RFC-0098: Setup chart tab handlers for temperature 7-day chart
+ */
+function setupTemperatureChartTabs() {
+  // TABs vizMode (Consolidado/Por Shopping)
+  const vizTabs = document.querySelectorAll('.viz-mode-tabs .chart-tab');
+  vizTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      vizTabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      const newVizMode = tab.dataset.viz;
+      chartConfig.vizMode = newVizMode;
+      LogHelper.log('[TEMPERATURE] [RFC-0098] vizMode changed to:', newVizMode);
+
+      if (consumptionChartInstance && typeof consumptionChartInstance.setVizMode === 'function') {
+        consumptionChartInstance.setVizMode(newVizMode);
+      }
+    });
+  });
+
+  // TABs chartType (Linhas/Barras)
+  const typeTabs = document.querySelectorAll('.chart-type-tabs .chart-tab');
+  typeTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      typeTabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      const newChartType = tab.dataset.type;
+      chartConfig.chartType = newChartType;
+      LogHelper.log('[TEMPERATURE] [RFC-0098] chartType changed to:', newChartType);
+
+      if (consumptionChartInstance && typeof consumptionChartInstance.setChartType === 'function') {
+        consumptionChartInstance.setChartType(newChartType);
+      }
+    });
+  });
+
+  LogHelper.log('[TEMPERATURE] [RFC-0098] Chart tab handlers setup complete');
+}
+
+// ============================================
 // EVENT HANDLERS
 // ============================================
 
@@ -616,6 +860,14 @@ self.onInit = function () {
   // Bind event listeners
   bindEventListeners();
 
+  // RFC-0098: Setup tab handlers for 7-day chart
+  setupTemperatureChartTabs();
+
+  // RFC-0098: Initialize 7-day temperature chart (async)
+  setTimeout(() => {
+    initializeTemperature7DaysChart();
+  }, 500);
+
   // Initial render
   updateAll();
 };
@@ -633,7 +885,14 @@ self.onResize = function () {
 };
 
 self.onDestroy = function () {
-  // Cleanup chart
+  // RFC-0098: Cleanup 7-day consumption chart instance
+  if (consumptionChartInstance && typeof consumptionChartInstance.destroy === 'function') {
+    LogHelper.log('[TEMPERATURE] [RFC-0098] Destroying consumption chart instance');
+    consumptionChartInstance.destroy();
+    consumptionChartInstance = null;
+  }
+
+  // Cleanup comparison chart
   if (STATE.chartInstance) {
     STATE.chartInstance.destroy();
     STATE.chartInstance = null;

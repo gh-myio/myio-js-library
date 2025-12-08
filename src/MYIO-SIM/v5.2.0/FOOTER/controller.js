@@ -21,9 +21,13 @@
 const CHARTS_BASE_URL = 'https://graphs.staging.apps.myio-bas.com'; // staging para testes
 // const CHARTS_BASE_URL = 'https://graphs.apps.myio-bas.com'; // produção
 
-// RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
+// RFC-0086: Get DATA_API_HOST from MAIN via MyIOUtils
 function getDataApiHost() {
-  return localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com';
+  const host = window.MyIOUtils?.DATA_API_HOST;
+  if (!host) {
+    console.error('[FOOTER] DATA_API_HOST not available - MAIN widget not loaded');
+  }
+  return host || '';
 }
 
 // ============================================
@@ -1150,7 +1154,7 @@ const footerController = {
 
     if (count < 2) {
       LogHelper.warn('[MyIO Footer] Need at least 2 devices for comparison');
-      alert('Selecione pelo menos 2 dispositivos para comparar.');
+      window.alert('Selecione pelo menos 2 dispositivos para comparar.');
       return;
     }
 
@@ -1211,7 +1215,7 @@ const footerController = {
       // Substitui a modal customizada (_createComparisonModalOverlay)
       if (!window.MyIOLibrary?.openDashboardPopupEnergy) {
         LogHelper.error('[MyIO Footer] openDashboardPopupEnergy not available');
-        alert('Biblioteca MyIO não está carregada. Recarregue a página.');
+        window.alert('Biblioteca MyIO não está carregada. Recarregue a página.');
         return;
       }
 
@@ -1249,14 +1253,14 @@ const footerController = {
         },
         onError: (error) => {
           LogHelper.error('[FOOTER] Comparison modal error:', error);
-          alert(`Erro: ${error.message}`);
+          window.alert(`Erro: ${error.message}`);
         },
       });
 
       LogHelper.log('[MyIO Footer] Modal opened successfully:', modal);
     } catch (error) {
       LogHelper.error('[MyIO Footer] Error opening comparison modal:', error);
-      alert('Erro ao abrir modal de comparação. Verifique o console.');
+      window.alert('Erro ao abrir modal de comparação. Verifique o console.');
     }
   },
 
@@ -1303,7 +1307,7 @@ const footerController = {
     const jwtToken = localStorage.getItem('jwt_token');
 
     if (!jwtToken) {
-      alert('Token de autenticação não encontrado. Faça login novamente.');
+      window.alert('Token de autenticação não encontrado. Faça login novamente.');
       return;
     }
 
@@ -1368,7 +1372,7 @@ const footerController = {
     const MyIOLibrary = window.MyIOLibrary;
     if (!MyIOLibrary?.openTemperatureComparisonModal) {
       LogHelper.error('[MyIO Footer] MyIOLibrary.openTemperatureComparisonModal not available');
-      alert('Componente de comparação de temperatura não disponível.');
+      window.alert('Componente de comparação de temperatura não disponível.');
       return;
     }
 
@@ -1389,7 +1393,7 @@ const footerController = {
       LogHelper.log('[MyIO Footer] Temperature comparison modal opened via MyIOLibrary');
     } catch (error) {
       LogHelper.error('[MyIO Footer] Error opening temperature comparison modal:', error);
-      alert('Erro ao abrir modal de comparação de temperatura: ' + error.message);
+      window.alert('Erro ao abrir modal de comparação de temperatura: ' + error.message);
     }
   },
 

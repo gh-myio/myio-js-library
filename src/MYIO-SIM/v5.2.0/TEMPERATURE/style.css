@@ -201,6 +201,96 @@
   width: 100%;
 }
 
+/* RFC-0098: 7-Day Chart Styles */
+.chart-card-7days {
+  margin-bottom: 20px;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.chart-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.config-btn {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.config-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.maximize-btn {
+  background: transparent;
+  border: 1px solid var(--bd);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.maximize-btn:hover {
+  background: var(--brand-light);
+  border-color: var(--brand-light);
+  color: white;
+}
+
+/* Chart Tabs */
+.chart-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--muted);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.chart-tab {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.chart-tab:hover {
+  color: var(--ink-1);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.chart-tab.active {
+  background: white;
+  color: var(--brand);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
 /* ===== SHOPPING LIST ===== */
 .list-card {
   background: var(--card);

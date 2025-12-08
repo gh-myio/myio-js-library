@@ -101,7 +101,26 @@ export function findValue(data: any, keyOrPath: string, legacyDataKey?: string):
   if (legacyDataKey !== undefined) {
     return getValueByDatakeyLegacy(data, keyOrPath, legacyDataKey);
   }
-  
+
   // Modern mode: use path-based search
   return getValueByDatakey(data, keyOrPath);
+}
+
+/**
+ * Find a value in an array of objects by key/dataType (RFC-0091 compatible)
+ * Supports both ThingsBoard format {dataType, value} and generic {key, value}
+ * @param values - Array of objects with key/value or dataType/value properties
+ * @param key - Key or dataType to search for
+ * @param defaultValue - Default value if not found (defaults to null)
+ * @returns The found value or defaultValue
+ */
+export function findValueWithDefault<T = any>(
+  values: Array<{ key?: string; dataType?: string; value: any }> | any,
+  key: string,
+  defaultValue: T | null = null
+): T | null {
+  if (!Array.isArray(values)) return defaultValue;
+  // RFC-0091: Support both { key, value } and { dataType, value } formats
+  const found = values.find((v: any) => v.key === key || v.dataType === key);
+  return found ? found.value : defaultValue;
 }

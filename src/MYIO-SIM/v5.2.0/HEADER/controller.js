@@ -1,5 +1,7 @@
 /* global self, window, document, localStorage, MyIOLibrary */
 
+import { L } from 'vitest/dist/chunks/reporters.nr4dxCkA.js';
+
 /***********************************
  *  MENU PREMIUM + FILTRO MODAL    *
  ***********************************/
@@ -549,7 +551,9 @@ function injectModalGlobal() {
         window.myioFilterPresets = (window.myioFilterPresets || []).filter((x) => x.id !== p.id);
         try {
           localStorage.setItem(PRESET_KEY, JSON.stringify(window.myioFilterPresets));
-        } catch {}
+        } catch {
+          LogHelper.warn('[HEADER] Erro ao salvar presets no localStorage');
+        }
         renderPresets();
       });
 
@@ -589,7 +593,7 @@ function injectModalGlobal() {
   if (!elSave._bound) {
     elSave._bound = true;
     elSave.addEventListener('click', () => {
-      const name = prompt('Nome do preset:');
+      const name = window.prompt('Nome do preset:');
       if (!name) return;
       const preset = {
         id: crypto.randomUUID(),
@@ -605,7 +609,9 @@ function injectModalGlobal() {
       window.myioFilterPresets = next;
       try {
         localStorage.setItem(PRESET_KEY, JSON.stringify(next));
-      } catch {}
+      } catch {
+        LogHelper.warn('[HEADER] Erro ao salvar presets no localStorage');
+      }
       renderPresets();
     });
   }
@@ -645,7 +651,8 @@ function injectModalGlobal() {
         })
       );
 
-      await updateTemperatureCard();
+      // RFC-0100: Temperature will be updated via myio:filter-applied -> MAIN orchestrator
+      // No need to call updateTemperatureCard() directly anymore
 
       // Reabilita botão
       elApply.disabled = false;
@@ -844,43 +851,44 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // RFC-0093: Removed myio:update-date dispatch - MENU is the single source of truth for dates
   // The HEADER should NOT dispatch date events, only MENU controls the date range
 
-  const custumer = [];
-
-  // não apagar!!
-  self.ctx.data.forEach((data) => {
-    if (data.datasource.aliasName === 'Shopping') {
-      // adiciona no array custumes
-      custumer.push({
-        name: data.datasource.entityLabel, // ou outro campo que seja o "nome"
-        value: data.data[0][1], // ou o dado que você precisa salvar
-      });
-    }
-
-    // RFC: Request MAIN to update total consumption via CustomEvent
-    window.dispatchEvent(
-      new CustomEvent('myio:request-total-consumption', {
-        detail: {
-          customersArray: custumer,
-          startDateISO: startDateISO,
-          endDateISO: endDateISO,
-        },
-      })
-    );
-    // RFC: Request MAIN to update water consumption via CustomEvent
-    window.dispatchEvent(
-      new CustomEvent('myio:request-total-water-consumption', {
-        detail: {
-          customersArray: custumer,
-          startDateISO: startDateISO,
-          endDateISO: endDateISO,
-        },
-      })
-    );
-  });
-
-  self.ctx.$scope.custumer = custumer;
-  // console.log("custumer",custumer)
+  // RFC-0100: Request shoppings data from MAIN orchestrator
+  // HEADER no longer extracts from ctx.data directly - MAIN is the source of truth
+  window.dispatchEvent(new CustomEvent('myio:request-shoppings-data'));
 };
+
+// ===== RFC-0100: HEADER receives shoppings data from MAIN =====
+window.addEventListener('myio:shoppings-data-ready', (ev) => {
+  LogHelper.log('[HEADER] RFC-0100: Received shoppings data from MAIN:', ev.detail);
+
+  const { shoppings = [] } = ev.detail || {};
+
+  // Store in scope for other functions
+  self.ctx.$scope.custumer = shoppings;
+
+  // RFC: Request MAIN to update total consumption via CustomEvent
+  window.dispatchEvent(
+    new CustomEvent('myio:request-total-consumption', {
+      detail: {
+        customersArray: shoppings,
+        startDateISO: self.ctx.$scope.startDateISO,
+        endDateISO: self.ctx.$scope.endDateISO,
+      },
+    })
+  );
+
+  // RFC: Request MAIN to update water consumption via CustomEvent
+  window.dispatchEvent(
+    new CustomEvent('myio:request-total-water-consumption', {
+      detail: {
+        customersArray: shoppings,
+        startDateISO: self.ctx.$scope.startDateISO,
+        endDateISO: self.ctx.$scope.endDateISO,
+      },
+    })
+  );
+
+  LogHelper.log(`[HEADER] RFC-0100: Stored ${shoppings.length} shoppings and requested consumption data`);
+});
 
 // ===== HEADER: Equipment Card Handler =====
 /**
@@ -920,332 +928,12 @@ function updateEquipmentCard(eventData = null) {
   });
 }
 
-function extractDevicesWithDetails(ctxData) {
-  // Usamos um Map para armazenar os dispositivos, usando o ID como chave para garantir a unicidade
-  // e facilitar a atualização dos campos (como o ownerName) em iterações subsequentes.
-  const deviceMap = new Map();
-
-  if (!Array.isArray(ctxData)) {
-    console.warn('[ENERGY] ctxData is not an array');
-    return [];
-  }
-
-  ctxData.forEach((data) => {
-    // Ignorar entradas que não são do alias desejado
-    if (data.datasource?.aliasName !== 'AllTemperatureDevices') {
-      return;
-    }
-
-    const entityId =
-      data.datasource?.entityId?.id || data.datasource?.entity?.id?.id || data.datasource?.entityId;
-
-    if (!entityId) {
-      return;
-    }
-
-    // 1. Extrair o ID do dispositivo e garantir que o objeto está no mapa
-    let deviceObject = deviceMap.get(entityId) || { id: entityId, ownerName: null };
-
-    // 2. Tentar extrair o ownerName
-    const isOwnerNameData = data.dataKey?.name === 'ownerName';
-
-    if (isOwnerNameData && Array.isArray(data.data) && data.data.length > 0) {
-      // O ownerName está na segunda posição (índice 1) do array de dados (ex: [timestamp, 'Shopping da Ilha', array])
-      const ownerName = data.data[0] && data.data[0][1];
-      if (ownerName) {
-        deviceObject.ownerName = ownerName;
-      }
-    }
-
-    // 3. Atualizar/Adicionar o objeto no mapa
-    deviceMap.set(entityId, deviceObject);
-  });
-
-  LogHelper.log(`[HEADER] Extracted ${deviceMap.size} unique device entries`);
-  // Retornar um array com os valores do Map (os objetos de dispositivo)
-  return Array.from(deviceMap.values());
-}
-
-/**
- * Calcula a média dos valores de temperatura em um array de objetos.
- * Cada objeto deve ter uma propriedade 'value' contendo o valor numérico.
- *
- * @param {Array<Object>} dataArray O array de objetos de dados (ex: Array(104) na imagem).
- * @returns {number} A média calculada dos valores.
- */
-function calcularMedia(dataArray) {
-  if (!dataArray || dataArray.length === 0) {
-    return 0; // Retorna 0 se o array for nulo ou vazio
-  }
-
-  // 1. Usar reduce() para somar todos os valores.
-  // O valor precisa ser convertido para número, pois aparece como string na imagem.
-  const somaDosValores = dataArray.reduce((acumulador, elementoAtual) => {
-    // Usa parseFloat para garantir a precisão de ponto flutuante
-    const valorNumerico = parseFloat(elementoAtual.value);
-    // Verifica se é um número válido antes de somar
-    if (!isNaN(valorNumerico)) {
-      return acumulador + valorNumerico;
-    }
-    return acumulador; // Ignora valores não numéricos
-  }, 0); // O valor inicial do acumulador é 0
-
-  // 2. Dividir a soma pelo número de elementos para obter a média.
-  const media = somaDosValores / dataArray.length;
-
-  return media;
-}
-
-// ===== HEADER: Temperature Card Handler =====
-/**
- * Extrai faixas de temperatura (min/max) por shopping do ctx.data
- * @returns {Map<string, {min: number, max: number, entityLabel: string}>}
- */
-function extractTemperatureRangesByShopping() {
-  const rangesMap = new Map();
-
-  self.ctx.data.forEach((data) => {
-    const entityLabel = data.datasource?.entityLabel || 'Unknown';
-    const entityId = data.datasource?.entityId || entityLabel;
-
-    if (!rangesMap.has(entityId)) {
-      rangesMap.set(entityId, { min: null, max: null, entityLabel });
-    }
-
-    const entry = rangesMap.get(entityId);
-
-    if (data.dataKey?.name === 'maxTemperature' && data.data?.[0]?.[1] != null) {
-      entry.max = Number(data.data[0][1]);
-    }
-    if (data.dataKey?.name === 'minTemperature' && data.data?.[0]?.[1] != null) {
-      entry.min = Number(data.data[0][1]);
-    }
-  });
-
-  // Filtra apenas shoppings com faixas válidas
-  const validRanges = new Map();
-  rangesMap.forEach((value, key) => {
-    if (value.min != null && value.max != null) {
-      validRanges.set(key, value);
-    }
-  });
-
-  LogHelper.log('[HEADER] Temperature ranges by shopping:', Object.fromEntries(validRanges));
-  return validRanges;
-}
-
-/**
- * Calcula média de temperatura por shopping
- * @param {number} startTs
- * @param {number} endTs
- * @returns {Promise<Map<string, {avg: number, ownerName: string}>>}
- */
-async function fetchTemperatureAveragesByShopping(startTs, endTs) {
-  const tbToken = localStorage.getItem('jwt_token');
-  if (!tbToken) {
-    LogHelper.warn('[HEADER] JWT not found');
-    return new Map();
-  }
-
-  const devices = extractDevicesWithDetails(self.ctx.data);
-  const shoppingTemps = new Map(); // ownerName -> { temps: [], ownerName }
-
-  for (const device of devices) {
-    try {
-      const url =
-        `/api/plugins/telemetry/DEVICE/${device.id}/values/timeseries` +
-        `?keys=temperature` +
-        `&startTs=${encodeURIComponent(startTs)}` +
-        `&endTs=${encodeURIComponent(endTs)}` +
-        `&limit=50000` +
-        `&intervalType=MILLISECONDS` +
-        `&interval=7200000` +
-        `&agg=AVG`;
-
-      const response = await fetch(url, {
-        headers: {
-          'X-Authorization': `Bearer ${tbToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) continue;
-
-      const data = await response.json();
-      const temperatureData = data.temperature || [];
-      const avgTemp = calcularMedia(temperatureData);
-
-      if (avgTemp != null && !isNaN(avgTemp)) {
-        const ownerName = device.ownerName || 'Unknown';
-        if (!shoppingTemps.has(ownerName)) {
-          shoppingTemps.set(ownerName, { temps: [], ownerName });
-        }
-        shoppingTemps.get(ownerName).temps.push(avgTemp);
-      }
-    } catch (err) {
-      LogHelper.error(`[HEADER] Error fetching temperature for device ${device.id}:`, err);
-    }
-  }
-
-  // Calcula média por shopping
-  const result = new Map();
-  shoppingTemps.forEach((value, key) => {
-    const sum = value.temps.reduce((a, b) => a + b, 0);
-    const avg = value.temps.length > 0 ? sum / value.temps.length : null;
-    result.set(key, { avg, ownerName: value.ownerName });
-  });
-
-  LogHelper.log('[HEADER] Temperature averages by shopping:', Object.fromEntries(result));
-  return result;
-}
-
-async function updateTemperatureCard() {
-  const tempKpi = document.getElementById('temp-kpi');
-  const tempChip = document.querySelector('#card-temp .chip');
-
-  const startTs = self.ctx?.$scope?.startDateISO
-    ? new Date(self.ctx.$scope.startDateISO).getTime()
-    : Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const endTs = self.ctx.$scope?.endDateISO ? new Date(self.ctx.$scope.endDateISO).getTime() : Date.now();
-
-  // 1. Extrair faixas de temperatura por shopping
-  const rangesByShopping = extractTemperatureRangesByShopping();
-
-  // 2. Calcular médias de temperatura por shopping
-  const avgsByShopping = await fetchTemperatureAveragesByShopping(startTs, endTs);
-
-  // 3. Comparar cada shopping com sua própria faixa
-  const shoppingsInRange = [];
-  const shoppingsOutOfRange = [];
-  let totalSum = 0;
-  let totalCount = 0;
-
-  avgsByShopping.forEach((avgData, ownerName) => {
-    if (avgData.avg == null) return;
-
-    totalSum += avgData.avg;
-    totalCount++;
-
-    // Normaliza para matching (lowercase, sem acentos)
-    const normalize = (str) =>
-      (str || '')
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .trim();
-    const normalizedOwnerName = normalize(ownerName);
-
-    // Encontra a faixa correspondente a este shopping
-    let matchedRange = null;
-    rangesByShopping.forEach((range) => {
-      const normalizedLabel = normalize(range.entityLabel);
-      // Match exato ou parcial (normalizado)
-      if (
-        normalizedLabel === normalizedOwnerName ||
-        normalizedLabel.includes(normalizedOwnerName) ||
-        normalizedOwnerName.includes(normalizedLabel)
-      ) {
-        matchedRange = range;
-      }
-    });
-
-    // Se não encontrou por nome, usa a faixa default (primeira disponível)
-    if (!matchedRange && rangesByShopping.size > 0) {
-      matchedRange = rangesByShopping.values().next().value;
-      LogHelper.log(`[HEADER] Using default range for ${ownerName}:`, matchedRange);
-    }
-
-    const shoppingInfo = {
-      name: ownerName,
-      avg: avgData.avg,
-      min: matchedRange?.min,
-      max: matchedRange?.max,
-    };
-
-    if (matchedRange && avgData.avg >= matchedRange.min && avgData.avg <= matchedRange.max) {
-      shoppingsInRange.push(shoppingInfo);
-    } else {
-      shoppingsOutOfRange.push(shoppingInfo);
-    }
-  });
-
-  const totalAvg = totalCount > 0 ? totalSum / totalCount : null;
-
-  LogHelper.log('[HEADER] Temperature analysis:', {
-    totalAvg,
-    shoppingsInRange: shoppingsInRange.length,
-    shoppingsOutOfRange: shoppingsOutOfRange.length,
-  });
-
-  // 4. Atualizar KPI (média geral)
-  if (totalAvg != null) {
-    tempKpi.innerText = `${totalAvg.toFixed(1)}°C`;
-  } else {
-    tempKpi.innerText = '--°C';
-  }
-
-  // 5. Atualizar chip de status baseado na análise por shopping
-  if (!tempChip) return;
-
-  const totalShoppings = shoppingsInRange.length + shoppingsOutOfRange.length;
-
-  // Estilo inline para reduzir tamanho da fonte
-  const chipStyle = 'font-size: 10px; display: flex; align-items: center; gap: 4px;';
-
-  if (totalShoppings === 0) {
-    // Sem dados
-    tempChip.innerHTML = `<span style="${chipStyle}">-- Sem dados
-      <span class="info-icon" id="temp-info-icon" title="Aguardando dados de temperatura">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </span></span>`;
-    tempChip.className = 'chip';
-  } else if (shoppingsOutOfRange.length === 0) {
-    // Todos dentro da faixa
-    const tooltipDetails = shoppingsInRange
-      .map((s) => `✔ ${s.name}: ${s.avg?.toFixed(1)}°C (${s.min}–${s.max}°C)`)
-      .join('\n');
-    tempChip.innerHTML = `<span style="${chipStyle}">✔ Todos na faixa
-      <span class="info-icon" id="temp-info-icon" title="${tooltipDetails}">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </span></span>`;
-    tempChip.className = 'chip ok';
-  } else if (shoppingsInRange.length === 0) {
-    // Todos fora da faixa
-    const tooltipDetails = shoppingsOutOfRange
-      .map((s) => `⚠ ${s.name}: ${s.avg?.toFixed(1)}°C (faixa: ${s.min}–${s.max}°C)`)
-      .join('\n');
-    tempChip.innerHTML = `<span style="${chipStyle}">⚠ Todos fora da faixa
-      <span class="info-icon" id="temp-info-icon" title="${tooltipDetails}">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </span></span>`;
-    tempChip.className = 'chip warn';
-  } else {
-    // Alguns dentro, outros fora
-    const inRangeDetails = shoppingsInRange.map((s) => `✔ ${s.name}: ${s.avg?.toFixed(1)}°C`).join('\n');
-    const outOfRangeDetails = shoppingsOutOfRange
-      .map((s) => `⚠ ${s.name}: ${s.avg?.toFixed(1)}°C (faixa: ${s.min}–${s.max}°C)`)
-      .join('\n');
-    const tooltipDetails = `DENTRO DA FAIXA:\n${inRangeDetails}\n\nFORA DA FAIXA:\n${outOfRangeDetails}`;
-
-    tempChip.innerHTML = `<span style="${chipStyle}">⚠ Alguns fora da faixa
-      <span class="info-icon" id="temp-info-icon" title="${tooltipDetails}">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </span></span>`;
-    tempChip.className = 'chip warn';
-  }
-}
+// ============================================
+// RFC-0100: Temperature data fetching functions REMOVED
+// All temperature API calls are now handled by MAIN orchestrator
+// HEADER only receives data via myio:temperature-data-ready event
+// See: updateTemperatureCardFromOrchestrator() for display logic
+// ============================================
 
 // RFC-0093: Update energy card with total from energy-summary-ready event
 // Now accepts full summary object with customerTotal, unfilteredTotal, isFiltered
@@ -1525,9 +1213,8 @@ window.addEventListener('myio:filter-applied', (ev) => {
 
   // Equipment card will be updated via myio:equipment-count-updated event from EQUIPMENTS widget
   // Energy/Water cards will be updated via myio:orchestrator-filter-updated event
+  // RFC-0100: Temperature card will be updated via myio:temperature-data-ready event from MAIN
   // This ensures the orchestrator has already processed the filter
-
-  updateTemperatureCard();
 });
 
 // ===== HEADER: Listen for orchestrator filter update (after MAIN processes the filter) =====
@@ -1553,13 +1240,124 @@ window.addEventListener('myio:water-totals-updated', (ev) => {
   const waterKpi = document.getElementById('water-kpi');
   if (waterKpi && total > 0) {
     // Usar MyIOLibrary.formatWaterVolumeM3 diretamente (formatWater é local à função updateWaterCard)
-    const formatted = typeof MyIOLibrary?.formatWaterVolumeM3 === 'function'
-      ? MyIOLibrary.formatWaterVolumeM3(total)
-      : `${total.toFixed(2)} m³`;
+    const formatted =
+      typeof MyIOLibrary?.formatWaterVolumeM3 === 'function'
+        ? MyIOLibrary.formatWaterVolumeM3(total)
+        : `${total.toFixed(2)} m³`;
     waterKpi.innerText = formatted;
     LogHelper.log(`[HEADER] Water card updated from valid aliases: ${formatted}`);
   }
 });
+
+// ===== RFC-0100: HEADER listens for temperature data from MAIN orchestrator =====
+window.addEventListener('myio:temperature-data-ready', (ev) => {
+  LogHelper.log('[HEADER] RFC-0100: Received temperature data from MAIN:', ev.detail);
+  const data = ev.detail;
+  if (data) {
+    updateTemperatureCardFromOrchestrator(data);
+  }
+});
+
+/**
+ * RFC-0100: Simplified temperature card update - receives data from MAIN orchestrator
+ * @param {Object} data - Temperature data from myio:temperature-data-ready event
+ */
+function updateTemperatureCardFromOrchestrator(data) {
+  const tempKpi = document.getElementById('temp-kpi');
+  const tempTrend = document.getElementById('temp-trend');
+  const tempChip = document.querySelector('#card-temp .chip');
+
+  const { globalAvg, filteredAvg, isFiltered, shoppingsInRange = [], shoppingsOutOfRange = [] } = data || {};
+
+  // RFC-0099/RFC-0100: Update KPI with comparative display when filtered
+  if (tempKpi) {
+    tempKpi.style.fontSize = '0.85em';
+
+    const showComparative =
+      isFiltered && globalAvg != null && filteredAvg != null && Math.abs(filteredAvg - globalAvg) > 0.05;
+
+    if (showComparative) {
+      tempKpi.innerHTML = `${filteredAvg.toFixed(
+        1
+      )}°C <span style="font-size: 0.65em; color: #666;">/ ${globalAvg.toFixed(1)}°C</span>`;
+
+      const percentageDiff = ((filteredAvg - globalAvg) / globalAvg) * 100;
+      const absDiff = Math.abs(percentageDiff).toFixed(0);
+      const isAbove = percentageDiff > 0;
+
+      if (tempTrend) {
+        const diffLabel = isAbove ? 'acima da média' : 'abaixo da média';
+        const diffColor = isAbove ? '#f57c00' : '#0288d1';
+        tempTrend.innerHTML = `<span style="color: ${diffColor};">${absDiff}% ${diffLabel}</span>`;
+      }
+
+      LogHelper.log(
+        `[HEADER] RFC-0100: Temperature card updated (filtered): ${filteredAvg.toFixed(
+          1
+        )}°C / ${globalAvg.toFixed(1)}°C (${absDiff}% ${isAbove ? 'above' : 'below'})`
+      );
+    } else {
+      tempKpi.innerText = globalAvg != null ? `${globalAvg.toFixed(1)}°C` : '--°C';
+      if (tempTrend) tempTrend.innerText = '';
+    }
+  }
+
+  // Update chip status
+  if (!tempChip) return;
+
+  const totalShoppings = shoppingsInRange.length + shoppingsOutOfRange.length;
+  const chipStyle = 'font-size: 10px; display: flex; align-items: center; gap: 4px;';
+
+  if (totalShoppings === 0) {
+    tempChip.innerHTML = `<span style="${chipStyle}">-- Sem dados
+      <span class="info-icon" id="temp-info-icon" title="Aguardando dados de temperatura">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </span></span>`;
+    tempChip.className = 'chip';
+  } else if (shoppingsOutOfRange.length === 0) {
+    const tooltipDetails = shoppingsInRange
+      .map((s) => `✔ ${s.name}: ${s.avg?.toFixed(1)}°C (${s.min}–${s.max}°C)`)
+      .join('\n');
+    tempChip.innerHTML = `<span style="${chipStyle}">✔ Todos na faixa
+      <span class="info-icon" id="temp-info-icon" title="${tooltipDetails}">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </span></span>`;
+    tempChip.className = 'chip ok';
+  } else if (shoppingsInRange.length === 0) {
+    const tooltipDetails = shoppingsOutOfRange
+      .map((s) => `⚠ ${s.name}: ${s.avg?.toFixed(1)}°C (faixa: ${s.min}–${s.max}°C)`)
+      .join('\n');
+    tempChip.innerHTML = `<span style="${chipStyle}">⚠ Todos fora da faixa
+      <span class="info-icon" id="temp-info-icon" title="${tooltipDetails}">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </span></span>`;
+    tempChip.className = 'chip warn';
+  } else {
+    const inRangeDetails = shoppingsInRange.map((s) => `✔ ${s.name}: ${s.avg?.toFixed(1)}°C`).join('\n');
+    const outOfRangeDetails = shoppingsOutOfRange
+      .map((s) => `⚠ ${s.name}: ${s.avg?.toFixed(1)}°C (faixa: ${s.min}–${s.max}°C)`)
+      .join('\n');
+    const tooltipDetails = `DENTRO DA FAIXA:\n${inRangeDetails}\n\nFORA DA FAIXA:\n${outOfRangeDetails}`;
+
+    tempChip.innerHTML = `<span style="${chipStyle}">⚠ Alguns fora da faixa
+      <span class="info-icon" id="temp-info-icon" title="${tooltipDetails}">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </span></span>`;
+    tempChip.className = 'chip warn';
+  }
+}
 
 self.onDataUpdated = function () {
   if (_dataRefreshCount >= MAX_DATA_REFRESHES) {
@@ -1571,8 +1369,18 @@ self.onDataUpdated = function () {
   // Equipment card will be updated via myio:equipment-count-updated event from EQUIPMENTS widget
   // No need to call updateEquipmentCard() here anymore
 
-  // Update Temperature card
-  updateTemperatureCard();
+  // RFC-0100: Request temperature data from MAIN orchestrator instead of fetching directly
+  // Temperature card will be updated via myio:temperature-data-ready event
+  window.dispatchEvent(
+    new CustomEvent('myio:request-temperature-data', {
+      detail: {
+        startTs: self.ctx?.$scope?.startDateISO
+          ? new Date(self.ctx.$scope.startDateISO).getTime()
+          : Date.now() - 30 * 24 * 60 * 60 * 1000,
+        endTs: self.ctx.$scope?.endDateISO ? new Date(self.ctx.$scope.endDateISO).getTime() : Date.now(),
+      },
+    })
+  );
 };
 
 self.onDestroy = function () {

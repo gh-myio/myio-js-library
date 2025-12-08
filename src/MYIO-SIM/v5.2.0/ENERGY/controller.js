@@ -249,6 +249,9 @@ function getSelectedShoppingIds() {
 let lineChartInstance = null;
 let pieChartInstance = null;
 
+// RFC-0098: Consumption 7 Days Chart instance (new standardized component)
+let consumptionChartInstance = null;
+
 // RFC-0097: Fullscreen state
 let isChartFullscreen = false;
 
@@ -1250,10 +1253,47 @@ function getShoppingName(customerId) {
 }
 
 /**
+ * RFC-0098: Data fetching adapter for the standardized Consumption7DaysChart component
+ * Wraps existing fetch logic to conform to the component's expected interface
+ * @param {number} period - Number of days to fetch
+ * @returns {Promise<object>} - Consumption7DaysData formatted data
+ */
+async function fetchConsumptionDataAdapter(period) {
+  console.log('[ENERGY] [RFC-0098] Fetching data via adapter for', period, 'days');
+
+  // Get customer ID from widget context
+  const customerId = self.ctx?.settings?.customerId;
+  if (!customerId) {
+    console.warn('[ENERGY] [RFC-0098] No customer ID, returning empty data');
+    return { labels: [], dailyTotals: [], shoppingData: {}, shoppingNames: {} };
+  }
+
+  // Get filtered shopping IDs or use widget's customerId
+  const selectedShoppingIds = getSelectedShoppingIds();
+  const customerIds = selectedShoppingIds.length > 0 ? selectedShoppingIds : [customerId];
+
+  // Update chartConfig period for compatibility with existing modal
+  chartConfig.period = period;
+
+  // Use existing fetch logic
+  const data = await fetch7DaysConsumptionFiltered(customerIds, true);
+
+  return {
+    labels: data.labels || [],
+    dailyTotals: data.dailyTotals || [],
+    shoppingData: data.shoppingData || {},
+    shoppingNames: data.shoppingNames || {},
+    fetchTimestamp: Date.now(),
+    customerIds: customerIds,
+  };
+}
+
+/**
  * Inicializa os gráficos com dados reais
+ * RFC-0098: Now uses createConsumption7DaysChart for the line chart
  */
 async function initializeCharts() {
-  console.log('[ENERGY] Initializing charts with real data...');
+  console.log('[ENERGY] [RFC-0098] Initializing charts with standardized component...');
 
   // Get customer ID
   const customerId = self.ctx?.settings?.customerId;
@@ -1266,61 +1306,74 @@ async function initializeCharts() {
 
   console.log('[ENERGY] Customer ID:', customerId);
 
-  // Initialize line chart with 7 days data
-  const lineCtx = document.getElementById('lineChart').getContext('2d');
+  // RFC-0098: Initialize line chart using the standardized component
+  if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumption7DaysChart) {
+    console.log('[ENERGY] [RFC-0098] Using createConsumption7DaysChart component');
 
-  // Show loading state
-  lineChartInstance = new Chart(lineCtx, {
-    type: 'line',
-    data: {
-      labels: ['Carregando...'],
-      datasets: [
-        {
-          label: 'Consumo (kWh)',
-          data: [0],
-          borderColor: '#2563eb',
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          tension: 0.3,
-          pointRadius: 3,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      plugins: {
-        legend: { display: true },
-        tooltip: {
-          callbacks: {
-            label: function (context) {
-              const val = context.parsed.y || 0;
-              if (val >= 1000) {
-                return `Consumo: ${(val / 1000).toFixed(2)} MWh`;
-              }
-              return `Consumo: ${val.toFixed(2)} kWh`;
-            },
-          },
-        },
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: function (value) {
-              if (value >= 1000) {
-                return `${(value / 1000).toFixed(1)} MWh`;
-              }
-              return `${value.toFixed(0)} kWh`;
-            },
-          },
-        },
-      },
-    },
-  });
+    // Get widget container for ThingsBoard compatibility
+    const $container = self.ctx?.$container || null;
 
-  // Initialize bar chart with loading state
+    consumptionChartInstance = MyIOLibrary.createConsumption7DaysChart({
+      domain: 'energy',
+      containerId: 'lineChart',
+      unit: 'kWh',
+      unitLarge: 'MWh',
+      thresholdForLargeUnit: 1000,
+      decimalPlaces: 1,
+      defaultPeriod: chartConfig.period || 7,
+      defaultChartType: chartConfig.chartType || 'line',
+      defaultVizMode: chartConfig.vizMode || 'total',
+      theme: 'light',
+      $container: $container,
+
+      // Colors matching the energy domain
+      colors: {
+        primary: '#6c2fbf',
+        background: 'rgba(108, 47, 191, 0.1)',
+        pointBackground: '#6c2fbf',
+        pointBorder: '#ffffff',
+      },
+
+      // Data fetching via adapter
+      fetchData: fetchConsumptionDataAdapter,
+
+      // Button IDs for handlers
+      settingsButtonId: 'configureChartBtn',
+      maximizeButtonId: 'maximizeChartBtn',
+      titleElementId: 'lineChartTitle',
+
+      // Callbacks
+      onSettingsClick: () => {
+        console.log('[ENERGY] [RFC-0098] Settings button clicked');
+        openChartConfigModal();
+      },
+      onMaximizeClick: () => {
+        console.log('[ENERGY] [RFC-0098] Maximize button clicked');
+        toggleChartFullscreen();
+      },
+      onDataLoaded: (data) => {
+        // Update cache for fullscreen and other features
+        cachedChartData = data;
+        console.log('[ENERGY] [RFC-0098] Data loaded:', data.labels?.length, 'days');
+      },
+      onError: (error) => {
+        console.error('[ENERGY] [RFC-0098] Chart error:', error);
+      },
+    });
+
+    // Render the chart
+    await consumptionChartInstance.render();
+    console.log('[ENERGY] [RFC-0098] Consumption chart rendered successfully');
+
+    // Store reference for compatibility with existing code
+    lineChartInstance = consumptionChartInstance.getChartInstance();
+  } else {
+    // Fallback to legacy Chart.js initialization
+    console.warn('[ENERGY] [RFC-0098] createConsumption7DaysChart not available, using legacy init');
+    initializeLegacyLineChart();
+  }
+
+  // Initialize bar chart with loading state (unchanged)
   const pieCtx = document.getElementById('pieChart').getContext('2d');
   pieChartInstance = new Chart(pieCtx, {
     type: 'bar',
@@ -1389,24 +1442,136 @@ async function initializeCharts() {
     },
   });
 
-  // Fetch real data and update charts
+  // Fetch real data and update pie chart
   setTimeout(async () => {
-    console.log('[ENERGY] Starting chart updates...');
-    await updateLineChart(customerId);
+    console.log('[ENERGY] Starting pie chart update...');
     await updatePieChart('groups'); // Initialize with default mode
 
     // Setup distribution mode selector
     setupDistributionModeSelector();
 
-    // RFC-0073 Problem 1: Setup chart configuration button
-    setupChartConfigButton();
-
-    // RFC-0097: Setup chart tab handlers (vizMode and chartType)
-    setupChartTabHandlers();
-
-    // RFC-0097: Setup maximize button for fullscreen
-    setupMaximizeButton();
+    // RFC-0098: Setup chart tab handlers (now using component API)
+    setupChartTabHandlersRFC0098();
   }, 2000); // Increased timeout to ensure orchestrator is ready
+}
+
+/**
+ * RFC-0098: Legacy line chart initialization fallback
+ * Used when createConsumption7DaysChart is not available
+ */
+function initializeLegacyLineChart() {
+  console.log('[ENERGY] [RFC-0098] Initializing legacy line chart...');
+  const lineCtx = document.getElementById('lineChart')?.getContext('2d');
+  if (!lineCtx) return;
+
+  lineChartInstance = new Chart(lineCtx, {
+    type: 'line',
+    data: {
+      labels: ['Carregando...'],
+      datasets: [{
+        label: 'Consumo (kWh)',
+        data: [0],
+        borderColor: '#6c2fbf',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        tension: 0.3,
+        pointRadius: 3,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: true },
+        tooltip: {
+          callbacks: {
+            label: function (context) {
+              const val = context.parsed.y || 0;
+              if (val >= 1000) {
+                return `Consumo: ${(val / 1000).toFixed(2)} MWh`;
+              }
+              return `Consumo: ${val.toFixed(2)} kWh`;
+            },
+          },
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: function (value) {
+              if (value >= 1000) {
+                return `${(value / 1000).toFixed(1)} MWh`;
+              }
+              return `${value.toFixed(0)} kWh`;
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Fetch data after initialization
+  const customerId = self.ctx?.settings?.customerId;
+  if (customerId) {
+    updateLineChart(customerId);
+  }
+
+  // Setup legacy handlers
+  setupChartConfigButton();
+  setupChartTabHandlers();
+  setupMaximizeButton();
+}
+
+/**
+ * RFC-0098: Setup chart tab handlers using the standardized component API
+ * Updates vizMode and chartType via component methods instead of direct chart manipulation
+ */
+function setupChartTabHandlersRFC0098() {
+  // TABs vizMode (Consolidado/Por Shopping)
+  const vizTabs = document.querySelectorAll('.viz-mode-tabs .chart-tab');
+  vizTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      vizTabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      const newVizMode = tab.dataset.viz;
+      chartConfig.vizMode = newVizMode;
+
+      // RFC-0098: Use component API if available
+      if (consumptionChartInstance && typeof consumptionChartInstance.setVizMode === 'function') {
+        console.log('[ENERGY] [RFC-0098] Setting vizMode via component:', newVizMode);
+        consumptionChartInstance.setVizMode(newVizMode);
+      } else {
+        // Fallback to legacy re-render
+        rerenderLineChart();
+      }
+    });
+  });
+
+  // TABs chartType (Linhas/Barras)
+  const typeTabs = document.querySelectorAll('.chart-type-tabs .chart-tab');
+  typeTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      typeTabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      const newChartType = tab.dataset.type;
+      chartConfig.chartType = newChartType;
+
+      // RFC-0098: Use component API if available
+      if (consumptionChartInstance && typeof consumptionChartInstance.setChartType === 'function') {
+        console.log('[ENERGY] [RFC-0098] Setting chartType via component:', newChartType);
+        consumptionChartInstance.setChartType(newChartType);
+      } else {
+        // Fallback to legacy re-render
+        rerenderLineChart();
+      }
+    });
+  });
+
+  console.log('[ENERGY] [RFC-0098] Chart tab handlers setup complete');
 }
 
 /**
@@ -2698,10 +2863,16 @@ self.onInit = async function () {
     const currentMode = document.getElementById('distributionMode')?.value || 'groups';
     await updatePieChart(currentMode);
 
-    // RFC-0073 Problem 1: Update 7-day line chart with filtered data
-    const customerId = self.ctx.settings?.customerId;
-    if (customerId) {
-      await updateLineChart(customerId);
+    // RFC-0098: Update line chart using component API if available
+    if (consumptionChartInstance && typeof consumptionChartInstance.refresh === 'function') {
+      console.log('[ENERGY] [RFC-0098] Refreshing chart via component API');
+      await consumptionChartInstance.refresh(true); // Force refresh to bypass cache
+    } else {
+      // Fallback to legacy update
+      const customerId = self.ctx.settings?.customerId;
+      if (customerId) {
+        await updateLineChart(customerId);
+      }
     }
   };
 
@@ -2829,6 +3000,13 @@ self.onDestroy = function () {
   cachedChartData = null;
   isUpdatingLineChart = false;
   pendingLineChartUpdate = null;
+
+  // RFC-0098: Cleanup consumption chart instance
+  if (consumptionChartInstance && typeof consumptionChartInstance.destroy === 'function') {
+    console.log('[ENERGY] [RFC-0098] Destroying consumption chart instance');
+    consumptionChartInstance.destroy();
+    consumptionChartInstance = null;
+  }
 
   console.log('[ENERGY] [RFC-0097] Widget destroyed, state reset');
 };

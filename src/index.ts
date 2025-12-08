@@ -2,13 +2,21 @@
 export { formatEnergy, formatAllInSameUnit } from './format/energy';
 export { fmtPerc } from './format/percentage';
 export { formatNumberReadable } from './format/numbers';
-export { 
-  formatWaterVolumeM3, 
-  formatTankHeadFromCm, 
-  calcDeltaPercent, 
-  formatWaterByGroup, 
-  formatAllInSameWaterUnit 
+export {
+  formatWater,
+  formatWaterVolumeM3,
+  formatTankHeadFromCm,
+  calcDeltaPercent,
+  formatWaterByGroup,
+  formatAllInSameWaterUnit
 } from './format/water';
+
+// Time/Duration utilities
+export {
+  formatRelativeTime,
+  formatarDuracao,
+  formatDuration
+} from './format/time';
 
 // Date utilities
 export { formatDateToYMD } from './date/ymd';
@@ -44,7 +52,7 @@ export {
 } from './classify/waterLabel';
 
 // General utilities
-export { getValueByDatakey, getValueByDatakeyLegacy, findValue } from './utils/getValueByDatakey';
+export { getValueByDatakey, getValueByDatakeyLegacy, findValue, findValueWithDefault } from './utils/getValueByDatakey';
 
 // Device Status utilities
 export {
@@ -54,6 +62,7 @@ export {
   waterDeviceStatusIcons,
   connectionStatusIcons,
   mapDeviceToConnectionStatus,
+  mapConnectionStatus,
   mapDeviceStatusToCardStatus,
   shouldFlashIcon,
   isDeviceOffline,
@@ -215,3 +224,83 @@ export type {
   TemperatureGranularity,
   ClampRange
 } from './components/temperature';
+
+// Modal Header Component (Reusable)
+export {
+  createModalHeader,
+  getModalHeaderStyles
+} from './components/ModalHeader';
+
+export type {
+  ModalHeaderConfig,
+  ModalHeaderInstance,
+  ModalTheme,
+  ExportFormat as ModalExportFormat
+} from './components/ModalHeader';
+
+// RFC-0098: Consumption 7 Days Chart Component
+export {
+  createConsumption7DaysChart,
+  createConsumptionModal,
+  DEFAULT_COLORS as CONSUMPTION_CHART_COLORS,
+  DEFAULT_CONFIG as CONSUMPTION_CHART_DEFAULTS,
+  THEME_COLORS as CONSUMPTION_THEME_COLORS
+} from './components/Consumption7DaysChart';
+
+// RFC-0098: Consumption 7 Days Chart Types
+export type {
+  Consumption7DaysConfig,
+  Consumption7DaysInstance,
+  Consumption7DaysData,
+  Consumption7DaysColors,
+  ConsumptionDataPoint,
+  ShoppingDataPoint,
+  ChartDomain,
+  ChartType as ConsumptionChartType,
+  VizMode as ConsumptionVizMode,
+  ThemeMode as ConsumptionThemeMode,
+  ThemeColors as ConsumptionThemeColors,
+  ConsumptionModalConfig,
+  ConsumptionModalInstance,
+  // Ideal range (all domains)
+  IdealRangeConfig as ConsumptionIdealRangeConfig,
+  // Temperature types
+  TemperatureConfig as ConsumptionTemperatureConfig,
+  TemperatureReferenceLine as ConsumptionTemperatureReferenceLine,
+} from './components/Consumption7DaysChart';
+
+// RFC-0101: Export Data Smart Component
+export {
+  buildTemplateExport,
+  myioExportData,
+  // Utility exports
+  EXPORT_DEFAULT_COLORS,
+  EXPORT_DOMAIN_ICONS,
+  EXPORT_DOMAIN_LABELS,
+  EXPORT_DOMAIN_UNITS,
+  calculateExportStats,
+  generateExportFilename,
+} from './components/ExportData';
+
+// RFC-0101: Export Data Types
+export type {
+  ExportDomain,
+  ExportFormat,
+  ExportType,
+  BuildTemplateExportParams,
+  ExportConfigTemplate,
+  ExportColorsPallet,
+  ExportData,
+  ExportComparisonData,
+  ExportCustomerData,
+  ExportGroupData,
+  ExportDataInput,
+  ExportDataPoint,
+  ExportDeviceInfo,
+  ExportCustomerInfo,
+  ExportStats,
+  ExportResult,
+  ExportDataInstance,
+  ExportOptions,
+  ExportProgressCallback,
+} from './components/ExportData';

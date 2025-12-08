@@ -307,3 +307,117 @@
     transform: rotate(360deg);
   }
 }
+
+/* ============================================ */
+/* RFC-0097: Chart TABs Styles                 */
+/* ============================================ */
+
+.chart-tabs {
+  display: inline-flex;
+  gap: 2px;
+  background: #f0f9ff;
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.chart-tab {
+  padding: 4px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.chart-tab:hover {
+  background: #e0f2fe;
+  color: #0c4a6e;
+}
+
+.chart-tab.active {
+  background: #0288d1;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(2, 136, 209, 0.3);
+}
+
+/* RFC-0097: Title group with settings icon */
+.chart-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-title-group .config-btn {
+  order: -1; /* Icon before title */
+}
+
+/* RFC-0097: Maximize button */
+.maximize-btn {
+  background: transparent;
+  border: 1px solid #7dd3fc;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 16px;
+  color: #0288d1;
+  transition: all 0.2s;
+}
+
+.maximize-btn:hover {
+  background: #e0f2fe;
+  border-color: #0288d1;
+}
+
+/* RFC-0097: Loading overlay */
+.chart-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(240, 249, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 12px;
+  gap: 12px;
+}
+
+.chart-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #bae6fd;
+  border-top-color: #0288d1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.chart-loading-overlay span {
+  color: #0c4a6e;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Responsive adjustments for chart controls */
+@media (max-width: 600px) {
+  .chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .chart-controls {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .chart-tabs {
+    margin-bottom: 4px;
+  }
+}

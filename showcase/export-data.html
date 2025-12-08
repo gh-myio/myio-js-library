@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export Data - RFC-0101 Showcase</title>
+    <style>
+        :root {
+            --primary: #3e1a7d;
+            --primary-light: #6b4c9a;
+            --accent: #00bcd4;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            background: var(--gray-50);
+            min-height: 100vh;
+            color: var(--gray-800);
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 32px 24px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.9;
+        }
+
+        .back-link {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .back-link:hover {
+            opacity: 1;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--primary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 16px;
+            transition: box-shadow 0.2s;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .card h3 {
+            font-size: 1rem;
+            margin-bottom: 8px;
+            color: var(--gray-800);
+        }
+
+        .card p {
+            font-size: 13px;
+            color: var(--gray-600);
+            margin-bottom: 12px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-light);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-accent {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-outline {
+            background: white;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .tag-energy { background: #fef3c7; color: #d97706; }
+        .tag-water { background: #dbeafe; color: #2563eb; }
+        .tag-temperature { background: #fce7f3; color: #db2777; }
+        .tag-pdf { background: #fee2e2; color: #dc2626; }
+        .tag-xlsx { background: #dcfce7; color: #16a34a; }
+        .tag-csv { background: #e0e7ff; color: #4f46e5; }
+
+        .code-block {
+            background: var(--gray-800);
+            color: #e5e7eb;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin: 16px 0;
+        }
+
+        .code-block .comment { color: #6b7280; }
+        .code-block .keyword { color: #c084fc; }
+        .code-block .string { color: #86efac; }
+        .code-block .function { color: #60a5fa; }
+        .code-block .number { color: #fbbf24; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .stat-card {
+            background: var(--gray-100);
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            color: var(--gray-600);
+        }
+
+        .preview-frame {
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 16px;
+        }
+
+        .preview-frame iframe {
+            width: 100%;
+            height: 400px;
+            border: none;
+        }
+
+        .log-output {
+            background: #1a1a2e;
+            color: #00ff88;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Monaco', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 16px;
+        }
+
+        .log-output .log-entry {
+            margin-bottom: 4px;
+        }
+
+        .log-output .timestamp {
+            color: #888;
+        }
+
+        .log-output .success { color: #22c55e; }
+        .log-output .info { color: #60a5fa; }
+        .log-output .warning { color: #fbbf24; }
+
+        .domain-icon {
+            font-size: 24px;
+        }
+
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .mb-16 { margin-bottom: 16px; }
+        .mt-16 { margin-top: 16px; }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header" style="position: relative;">
+        <a href="index.html" class="back-link">&larr; Back to Showcase</a>
+        <h1>Export Data Smart Component</h1>
+        <p>RFC-0101: Export device data in PDF, XLSX, CSV formats</p>
+    </header>
+
+    <div class="container">
+        <!-- Quick Export Section -->
+        <section class="section">
+            <h2><span class="domain-icon">📤</span> Quick Export - Single Device</h2>
+            <p class="mb-16">Export data for a single device with one click. Choose format and domain.</p>
+
+            <div class="grid">
+                <!-- Energy Export -->
+                <div class="card">
+                    <div class="flex-between mb-16">
+                        <h3>⚡ Energy Device</h3>
+                        <span class="tag tag-energy">Energy</span>
+                    </div>
+                    <p><strong>Device:</strong> Burguer King - 113CD<br>
+                       <strong>Period:</strong> Last 7 days<br>
+                       <strong>Points:</strong> 168 measurements</p>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="exportEnergy('pdf')">📑 PDF</button>
+                        <button class="btn btn-success" onclick="exportEnergy('xlsx')">📊 XLSX</button>
+                        <button class="btn btn-accent" onclick="exportEnergy('csv')">📄 CSV</button>
+                    </div>
+                </div>
+
+                <!-- Water Export -->
+                <div class="card">
+                    <div class="flex-between mb-16">
+                        <h3>💧 Water Device</h3>
+                        <span class="tag tag-water">Water</span>
+                    </div>
+                    <p><strong>Device:</strong> Shopping Aricanduva - Tank 01<br>
+                       <strong>Period:</strong> Last 30 days<br>
+                       <strong>Points:</strong> 720 measurements</p>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="exportWater('pdf')">📑 PDF</button>
+                        <button class="btn btn-success" onclick="exportWater('xlsx')">📊 XLSX</button>
+                        <button class="btn btn-accent" onclick="exportWater('csv')">📄 CSV</button>
+                    </div>
+                </div>
+
+                <!-- Temperature Export -->
+                <div class="card">
+                    <div class="flex-between mb-16">
+                        <h3>🌡️ Temperature Device</h3>
+                        <span class="tag tag-temperature">Temperature</span>
+                    </div>
+                    <p><strong>Device:</strong> Cold Chamber - Sensor A<br>
+                       <strong>Period:</strong> Last 24 hours<br>
+                       <strong>Points:</strong> 288 measurements</p>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="exportTemperature('pdf')">📑 PDF</button>
+                        <button class="btn btn-success" onclick="exportTemperature('xlsx')">📊 XLSX</button>
+                        <button class="btn btn-accent" onclick="exportTemperature('csv')">📄 CSV</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Log Output -->
+            <div class="log-output" id="logOutput">
+                <div class="log-entry"><span class="timestamp">[Ready]</span> <span class="info">Export Data component initialized</span></div>
+            </div>
+        </section>
+
+        <!-- Comparison Export Section -->
+        <section class="section">
+            <h2><span class="domain-icon">📊</span> Comparison Export - Multiple Devices</h2>
+            <p class="mb-16">Compare multiple devices in a single export file.</p>
+
+            <div class="grid">
+                <div class="card">
+                    <h3>Energy Comparison - 3 Stores</h3>
+                    <p>Compare energy consumption across Burguer King, McDonalds, and Subway for the same period.</p>
+                    <div class="btn-group mt-16">
+                        <button class="btn btn-primary" onclick="exportComparison('energy')">Export Comparison</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Water Comparison - 2 Tanks</h3>
+                    <p>Compare water levels between Tank 01 and Tank 02 at Shopping Aricanduva.</p>
+                    <div class="btn-group mt-16">
+                        <button class="btn btn-primary" onclick="exportComparison('water')">Export Comparison</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Temperature Comparison - 4 Sensors</h3>
+                    <p>Compare temperature readings from Cold Chamber sensors A, B, C, D.</p>
+                    <div class="btn-group mt-16">
+                        <button class="btn btn-primary" onclick="exportComparison('temperature')">Export Comparison</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Statistics Preview Section -->
+        <section class="section">
+            <h2><span class="domain-icon">📈</span> Statistics Preview</h2>
+            <p class="mb-16">Preview calculated statistics before exporting.</p>
+
+            <div class="flex-between">
+                <div>
+                    <strong>Selected:</strong> Burguer King - 113CD (Energy)
+                </div>
+                <button class="btn btn-outline" onclick="calculateStats()">Calculate Stats</button>
+            </div>
+
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="value" id="statMin">--</div>
+                    <div class="label">Minimum</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="statMax">--</div>
+                    <div class="label">Maximum</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="statAvg">--</div>
+                    <div class="label">Average</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="statTotal">--</div>
+                    <div class="label">Total</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Code Example Section -->
+        <section class="section">
+            <h2><span class="domain-icon">💻</span> Code Examples</h2>
+
+            <h3 class="mb-16">Basic Usage</h3>
+            <div class="code-block">
+<span class="comment">// 1. Import the functions</span>
+<span class="keyword">import</span> { buildTemplateExport, myioExportData } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="comment">// 2. Create configuration template</span>
+<span class="keyword">const</span> config = <span class="function">buildTemplateExport</span>({
+  domain: <span class="string">'energy'</span>,
+  formatExport: <span class="string">'pdf'</span>,
+  typeExport: <span class="string">'one-device'</span>,
+  includeStats: <span class="keyword">true</span>,
+  includeChart: <span class="keyword">true</span>,
+});
+
+<span class="comment">// 3. Prepare your data</span>
+<span class="keyword">const</span> data = {
+  device: {
+    name: <span class="string">'Burguer King'</span>,
+    identifier: <span class="string">'113CD'</span>,
+    label: <span class="string">'Burguer King - Loja 01'</span>,
+  },
+  customer: {
+    customerName: <span class="string">'Shopping Aricanduva'</span>,
+  },
+  data: [
+    { timestamp: <span class="keyword">new</span> Date(<span class="string">'2025-12-01T00:00:00'</span>), value: <span class="number">145.5</span> },
+    { timestamp: <span class="keyword">new</span> Date(<span class="string">'2025-12-01T01:00:00'</span>), value: <span class="number">142.3</span> },
+    <span class="comment">// ... more data points</span>
+  ],
+};
+
+<span class="comment">// 4. Create exporter and download</span>
+<span class="keyword">const</span> exporter = <span class="function">myioExportData</span>(data, config);
+<span class="keyword">await</span> exporter.<span class="function">download</span>();
+
+<span class="comment">// Or get stats first</span>
+<span class="keyword">const</span> stats = exporter.<span class="function">getStats</span>();
+console.log(<span class="string">'Min:'</span>, stats.min, <span class="string">'Max:'</span>, stats.max, <span class="string">'Avg:'</span>, stats.average);
+            </div>
+
+            <h3 class="mb-16 mt-16">Comparison Export</h3>
+            <div class="code-block">
+<span class="keyword">const</span> config = <span class="function">buildTemplateExport</span>({
+  domain: <span class="string">'water'</span>,
+  formatExport: <span class="string">'xlsx'</span>,
+  typeExport: <span class="string">'comparison'</span>,
+});
+
+<span class="keyword">const</span> comparisonData = {
+  devices: [
+    { device: { name: <span class="string">'Tank 01'</span> }, data: [...] },
+    { device: { name: <span class="string">'Tank 02'</span> }, data: [...] },
+  ],
+  customer: { customerName: <span class="string">'Shopping Aricanduva'</span> },
+};
+
+<span class="keyword">const</span> exporter = <span class="function">myioExportData</span>(comparisonData, config);
+<span class="keyword">await</span> exporter.<span class="function">download</span>();
+            </div>
+
+            <h3 class="mb-16 mt-16">Custom Colors</h3>
+            <div class="code-block">
+<span class="keyword">const</span> config = <span class="function">buildTemplateExport</span>({
+  domain: <span class="string">'temperature'</span>,
+  formatExport: <span class="string">'pdf'</span>,
+  typeExport: <span class="string">'one-device'</span>,
+  colorsPallet: {
+    primary: <span class="string">'#1e40af'</span>,      <span class="comment">// Custom blue</span>
+    secondary: <span class="string">'#3b82f6'</span>,    <span class="comment">// Light blue</span>
+    accent: <span class="string">'#f59e0b'</span>,       <span class="comment">// Orange accent</span>
+    chartColors: [<span class="string">'#1e40af'</span>, <span class="string">'#3b82f6'</span>, <span class="string">'#60a5fa'</span>],
+  },
+});
+            </div>
+        </section>
+
+        <!-- File Naming Convention -->
+        <section class="section">
+            <h2><span class="domain-icon">📁</span> File Naming Convention</h2>
+            <p class="mb-16">Generated filenames follow a consistent pattern for easy organization.</p>
+
+            <div class="code-block">
+<span class="comment">// Pattern: {DeviceLabel}-{Identifier}-{DOMAIN}-{YYYY}-{MM}-{DD}-{HH}-{mm}-{ss}.{ext}</span>
+
+<span class="comment">// Examples:</span>
+Burguer_King-113CD-ENERGY-2025-12-08-14-30-00.pdf
+Shopping_Aricanduva-TANK01-WATER-2025-12-08-14-30-00.xlsx
+Cold_Chamber-SENSOR_A-TEMPERATURE-2025-12-08-14-30-00.csv
+            </div>
+        </section>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module">
+        // Mock data generators
+        function generateMockEnergyData(days = 7) {
+            const data = [];
+            const now = new Date();
+            for (let d = 0; d < days; d++) {
+                for (let h = 0; h < 24; h++) {
+                    const date = new Date(now);
+                    date.setDate(date.getDate() - days + d);
+                    date.setHours(h, 0, 0, 0);
+                    // Simulate energy consumption pattern
+                    const baseLoad = 100;
+                    const peakHour = h >= 9 && h <= 18;
+                    const variation = Math.random() * 50;
+                    const value = baseLoad + (peakHour ? 80 : 20) + variation;
+                    data.push({ timestamp: date, value: Math.round(value * 10) / 10 });
+                }
+            }
+            return data;
+        }
+
+        function generateMockWaterData(days = 30) {
+            const data = [];
+            const now = new Date();
+            for (let d = 0; d < days; d++) {
+                for (let h = 0; h < 24; h++) {
+                    const date = new Date(now);
+                    date.setDate(date.getDate() - days + d);
+                    date.setHours(h, 0, 0, 0);
+                    // Simulate water tank level
+                    const baseLevel = 75;
+                    const variation = Math.sin(h / 24 * Math.PI * 2) * 15;
+                    const noise = Math.random() * 10 - 5;
+                    const value = Math.max(10, Math.min(100, baseLevel + variation + noise));
+                    data.push({ timestamp: date, value: Math.round(value * 100) / 100 });
+                }
+            }
+            return data;
+        }
+
+        function generateMockTemperatureData(hours = 24) {
+            const data = [];
+            const now = new Date();
+            for (let h = 0; h < hours; h++) {
+                for (let m = 0; m < 60; m += 5) {
+                    const date = new Date(now);
+                    date.setHours(date.getHours() - hours + h, m, 0, 0);
+                    // Simulate cold chamber temperature (-18 to -15)
+                    const baseTemp = -16.5;
+                    const variation = Math.sin((h * 60 + m) / 1440 * Math.PI * 4) * 1;
+                    const noise = Math.random() * 0.5 - 0.25;
+                    const value = baseTemp + variation + noise;
+                    data.push({ timestamp: date, value: Math.round(value * 10) / 10 });
+                }
+            }
+            return data;
+        }
+
+        // Log function
+        function log(message, type = 'info') {
+            const logOutput = document.getElementById('logOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="timestamp">[${timestamp}]</span> <span class="${type}">${message}</span>`;
+            logOutput.appendChild(entry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+
+        // Mock export functions (simulating the library)
+        function buildTemplateExport(params) {
+            const domainLabels = { energy: 'Energia', water: 'Água', temperature: 'Temperatura' };
+            const domainUnits = { energy: 'kWh', water: 'm³', temperature: '°C' };
+            const domainIcons = { energy: '⚡', water: '💧', temperature: '🌡️' };
+
+            return {
+                ...params,
+                domainLabel: domainLabels[params.domain],
+                domainUnit: domainUnits[params.domain],
+                domainIcon: domainIcons[params.domain],
+                locale: params.locale || 'pt-BR',
+                includeStats: params.includeStats !== false,
+                includeChart: params.includeChart !== false,
+            };
+        }
+
+        function myioExportData(data, config) {
+            const allData = data.data || (data.devices ? data.devices.flatMap(d => d.data) : []);
+            const values = allData.map(d => d.value);
+            const sum = values.reduce((a, b) => a + b, 0);
+
+            const stats = {
+                min: Math.min(...values),
+                max: Math.max(...values),
+                average: sum / values.length,
+                sum: sum,
+                count: values.length,
+            };
+
+            const deviceName = data.device?.label || data.device?.name || 'export';
+            const identifier = data.device?.identifier || '';
+            const domain = config.domain.toUpperCase();
+            const now = new Date();
+            const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
+            const filename = `${deviceName.replace(/\s+/g, '_')}${identifier ? '-' + identifier : ''}-${domain}-${timestamp}.${config.formatExport}`;
+
+            return {
+                getStats: () => stats,
+                getFilename: () => filename,
+                download: async () => {
+                    // Simulate download
+                    log(`Generating ${config.formatExport.toUpperCase()} file...`, 'info');
+                    await new Promise(r => setTimeout(r, 500));
+                    log(`File ready: ${filename}`, 'success');
+                    log(`Stats - Min: ${stats.min.toFixed(2)}, Max: ${stats.max.toFixed(2)}, Avg: ${stats.average.toFixed(2)}`, 'info');
+
+                    // Create actual download for CSV
+                    if (config.formatExport === 'csv') {
+                        const csvContent = generateCSV(data, config);
+                        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = filename;
+                        link.click();
+                        URL.revokeObjectURL(url);
+                    }
+                },
+            };
+        }
+
+        function generateCSV(data, config) {
+            const sep = ';';
+            const rows = [['Timestamp', config.domainLabel, `Unit (${config.domainUnit})`]];
+            const dataPoints = data.data || [];
+
+            for (const point of dataPoints) {
+                const ts = new Date(point.timestamp).toLocaleString('pt-BR');
+                rows.push([ts, point.value.toFixed(2).replace('.', ','), config.domainUnit]);
+            }
+
+            return rows.map(r => r.map(c => `"${c}"`).join(sep)).join('\r\n');
+        }
+
+        // Export handlers
+        window.exportEnergy = function(format) {
+            log(`Starting energy export (${format.toUpperCase()})...`, 'info');
+
+            const config = buildTemplateExport({
+                domain: 'energy',
+                formatExport: format,
+                typeExport: 'one-device',
+            });
+
+            const data = {
+                device: { name: 'Burguer King', identifier: '113CD', label: 'Burguer King - Loja 01' },
+                customer: { customerName: 'Shopping Aricanduva' },
+                data: generateMockEnergyData(7),
+            };
+
+            const exporter = myioExportData(data, config);
+            exporter.download();
+        };
+
+        window.exportWater = function(format) {
+            log(`Starting water export (${format.toUpperCase()})...`, 'info');
+
+            const config = buildTemplateExport({
+                domain: 'water',
+                formatExport: format,
+                typeExport: 'one-device',
+            });
+
+            const data = {
+                device: { name: 'Tank 01', identifier: 'TANK01', label: 'Shopping Aricanduva - Tank 01' },
+                customer: { customerName: 'Shopping Aricanduva' },
+                data: generateMockWaterData(30),
+            };
+
+            const exporter = myioExportData(data, config);
+            exporter.download();
+        };
+
+        window.exportTemperature = function(format) {
+            log(`Starting temperature export (${format.toUpperCase()})...`, 'info');
+
+            const config = buildTemplateExport({
+                domain: 'temperature',
+                formatExport: format,
+                typeExport: 'one-device',
+            });
+
+            const data = {
+                device: { name: 'Cold Chamber', identifier: 'SENSOR_A', label: 'Cold Chamber - Sensor A' },
+                customer: { customerName: 'Frigorífico Central' },
+                data: generateMockTemperatureData(24),
+            };
+
+            const exporter = myioExportData(data, config);
+            exporter.download();
+        };
+
+        window.exportComparison = function(domain) {
+            log(`Starting ${domain} comparison export...`, 'info');
+
+            const config = buildTemplateExport({
+                domain: domain,
+                formatExport: 'csv',
+                typeExport: 'comparison',
+            });
+
+            let data;
+            if (domain === 'energy') {
+                data = {
+                    devices: [
+                        { device: { name: 'Burguer King' }, data: generateMockEnergyData(7) },
+                        { device: { name: 'McDonalds' }, data: generateMockEnergyData(7) },
+                        { device: { name: 'Subway' }, data: generateMockEnergyData(7) },
+                    ],
+                };
+            } else if (domain === 'water') {
+                data = {
+                    devices: [
+                        { device: { name: 'Tank 01' }, data: generateMockWaterData(7) },
+                        { device: { name: 'Tank 02' }, data: generateMockWaterData(7) },
+                    ],
+                };
+            } else {
+                data = {
+                    devices: [
+                        { device: { name: 'Sensor A' }, data: generateMockTemperatureData(24) },
+                        { device: { name: 'Sensor B' }, data: generateMockTemperatureData(24) },
+                        { device: { name: 'Sensor C' }, data: generateMockTemperatureData(24) },
+                        { device: { name: 'Sensor D' }, data: generateMockTemperatureData(24) },
+                    ],
+                };
+            }
+
+            log(`Comparison export prepared with ${data.devices.length} devices`, 'success');
+        };
+
+        window.calculateStats = function() {
+            const data = generateMockEnergyData(7);
+            const values = data.map(d => d.value);
+            const sum = values.reduce((a, b) => a + b, 0);
+
+            document.getElementById('statMin').textContent = Math.min(...values).toFixed(1) + ' kWh';
+            document.getElementById('statMax').textContent = Math.max(...values).toFixed(1) + ' kWh';
+            document.getElementById('statAvg').textContent = (sum / values.length).toFixed(1) + ' kWh';
+            document.getElementById('statTotal').textContent = (sum / 1000).toFixed(2) + ' MWh';
+
+            log('Statistics calculated for Burguer King - 113CD', 'success');
+        };
+
+        // Initialize
+        log('Mock data generators ready', 'success');
+        log('Click any export button to test', 'info');
+    </script>
+</body>
+</html>

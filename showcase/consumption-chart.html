@@ -1,0 +1,2639 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RFC-0098: Consumption 7 Days Chart - MYIO JS Library Showcase</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js Annotation Plugin (for temperature reference lines) -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <!-- MyIO JS Library (local build) -->
+    <script src="../dist/myio-js-library.umd.js"></script>
+    <!-- jQuery (for DateRangePicker) -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <!-- Moment.js (for DateRangePicker) -->
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <!-- DateRangePicker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css">
+    <script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+    <style>
+        :root {
+            --primary: #007ecc;
+            --primary-dark: #005a99;
+            --energy-primary: #2563eb;
+            --energy-bg: rgba(37, 99, 235, 0.1);
+            --water-primary: #0288d1;
+            --water-bg: rgba(2, 136, 209, 0.1);
+            --gas-primary: #ea580c;
+            --gas-bg: rgba(234, 88, 12, 0.1);
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--gray-50);
+            min-height: 100vh;
+            color: var(--gray-800);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 32px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .back-link {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .back-link:hover {
+            opacity: 1;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--gray-900);
+        }
+
+        .section-description {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 24px;
+        }
+
+        .chart-card {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+        }
+
+        .chart-card.energy {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border-color: #86efac;
+        }
+
+        .chart-card.water {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-color: #7dd3fc;
+        }
+
+        .chart-card.gas {
+            background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+            border-color: #fdba74;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .chart-title-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .chart-badge {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .chart-badge.energy {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .chart-badge.water {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .chart-badge.gas {
+            background: #fed7aa;
+            color: #9a3412;
+        }
+
+        .chart-badge.temperature {
+            background: #fecaca;
+            color: #991b1b;
+        }
+
+        .chart-card.temperature {
+            background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+            border-color: #f87171;
+        }
+
+        .chart-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        .chart-container canvas {
+            max-height: 300px !important;
+            height: 300px !important;
+        }
+
+        .global-controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-label {
+            font-size: 13px;
+            color: var(--gray-600);
+        }
+
+        select, button, input[type="text"] {
+            padding: 8px 12px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            font-size: 13px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        select:hover, button:hover {
+            border-color: var(--primary);
+        }
+
+        button.primary {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        button.primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            border-radius: 8px;
+        }
+
+        .icon-btn.settings {
+            background: var(--gray-100);
+        }
+
+        .icon-btn.maximize {
+            background: var(--gray-100);
+        }
+
+        .icon-btn.export {
+            background: var(--gray-100);
+        }
+
+        .tabs {
+            display: inline-flex;
+            background: var(--gray-100);
+            border-radius: 8px;
+            padding: 2px;
+        }
+
+        .tab {
+            padding: 6px 14px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--gray-600);
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: var(--gray-900);
+        }
+
+        .tab.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--gray-600);
+        }
+
+        .log-output {
+            background: var(--gray-900);
+            color: #86efac;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 11px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 16px;
+        }
+
+        .log-output .log-entry {
+            padding: 2px 0;
+        }
+
+        .log-output .log-entry.warn { color: #fbbf24; }
+        .log-output .log-entry.error { color: #f87171; }
+
+        /* Settings Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.hidden {
+            display: none;
+        }
+
+        .modal-card {
+            background: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 900px; /* Increased by ~38% from original 650px */
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            overflow: visible; /* Allow daterangepicker to overflow */
+            position: relative; /* For daterangepicker positioning */
+        }
+
+        /* Context group styling for settings modal */
+        .context-group {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .context-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .context-group.periodo-dados {
+            background: linear-gradient(135deg, #f0f9ff 0%, #f8fafc 100%);
+            border-color: #bae6fd;
+        }
+
+        .context-group.faixa-ideal {
+            background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 100%);
+            border-color: #bbf7d0;
+        }
+
+        .context-group.visualizacao {
+            background: linear-gradient(135deg, #faf5ff 0%, #f8fafc 100%);
+            border-color: #e9d5ff;
+        }
+
+        .context-group .config-section {
+            margin-bottom: 12px;
+        }
+
+        .context-group .config-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .context-group .config-section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 10px;
+        }
+
+        .modal-card .myio-modal-header {
+            border-radius: 10px 10px 0 0;
+        }
+
+        /* DateRangePicker - ensure it appears above modal */
+        .daterangepicker {
+            z-index: 100002 !important;
+        }
+
+        .modal-body {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow: visible; /* Allow daterangepicker to show */
+        }
+
+        .config-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .config-section-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--gray-800);
+        }
+
+        .period-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .period-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+            border: 2px solid var(--gray-200);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .period-option:hover {
+            border-color: var(--primary);
+            background: var(--gray-50);
+        }
+
+        .period-option.selected {
+            border-color: var(--primary);
+            background: #e0f2fe;
+        }
+
+        .period-option input {
+            accent-color: var(--primary);
+        }
+
+        .date-range-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--gray-200);
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            padding: 16px 24px;
+            border-top: 1px solid var(--gray-200);
+            background: #fafafa;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .modal-footer button {
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-footer button:not(.primary) {
+            background: white;
+            border: 1px solid var(--gray-300);
+            color: var(--gray-700);
+        }
+
+        .modal-footer button:not(.primary):hover {
+            background: var(--gray-100);
+        }
+
+        .modal-footer button.primary {
+            background: #3e1a7d;
+            border: none;
+            color: white;
+        }
+
+        .modal-footer button.primary:hover {
+            background: #4c2494;
+        }
+
+        /* Fullscreen Chart */
+        .fullscreen-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99998;
+        }
+
+        .fullscreen-overlay.hidden {
+            display: none;
+        }
+
+        .fullscreen-content {
+            width: 95%;
+            max-width: 1600px;
+            height: 90vh;
+            background: white;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .fullscreen-content.dark-mode {
+            background: #1f2937;
+        }
+
+        /* MyIO Premium Header */
+        .myio-modal-header {
+            padding: 4px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #3e1a7d;
+            color: white;
+            min-height: 20px;
+        }
+
+        .myio-modal-title {
+            margin: 6px;
+            font-size: 18px;
+            font-weight: 600;
+            color: white;
+            line-height: 2;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .myio-modal-actions {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .myio-header-btn {
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            color: rgba(255, 255, 255, 0.8);
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .myio-header-btn:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .myio-header-btn.close {
+            font-size: 20px;
+        }
+
+        /* Controls Bar */
+        .fullscreen-controls-bar {
+            display: flex;
+            gap: 16px;
+            padding: 12px 16px;
+            background: #f7f7f7;
+            border-bottom: 1px solid var(--gray-200);
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .fullscreen-content.dark-mode .fullscreen-controls-bar {
+            background: #374151;
+            border-bottom-color: #4b5563;
+        }
+
+        .fullscreen-content.dark-mode .tabs {
+            background: #4b5563;
+        }
+
+        .fullscreen-content.dark-mode .tab {
+            color: #d1d5db;
+        }
+
+        .fullscreen-content.dark-mode .tab.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .fullscreen-chart-container {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+            padding: 16px;
+        }
+
+        .fullscreen-content.dark-mode .fullscreen-chart-container {
+            background: #1f2937;
+        }
+
+        .fullscreen-chart-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Controls Row - TemperatureModal style */
+        .controls-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .control-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-field-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--gray-600);
+        }
+
+        .control-select, .control-input {
+            padding: 10px 14px;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            min-width: 140px;
+        }
+
+        .control-select:focus, .control-input:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        /* Period Dropdown */
+        .period-dropdown-container {
+            position: relative;
+        }
+
+        .period-dropdown-btn {
+            padding: 10px 14px;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            min-width: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .dropdown-arrow {
+            font-size: 10px;
+            color: var(--gray-600);
+        }
+
+        .period-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            z-index: 100001;
+            background: white;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            min-width: 220px;
+            padding: 8px 0;
+        }
+
+        .period-dropdown.hidden {
+            display: none;
+        }
+
+        .period-option-check {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--gray-800);
+            transition: background 0.15s;
+        }
+
+        .period-option-check:hover {
+            background: var(--gray-100);
+        }
+
+        .period-option-check input {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: var(--primary);
+        }
+
+        .period-dropdown-actions {
+            border-top: 1px solid var(--gray-200);
+            margin-top: 8px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .period-dropdown-actions button {
+            width: 100%;
+            padding: 8px;
+            background: var(--gray-100);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--gray-800);
+        }
+
+        .period-dropdown-actions button:hover {
+            background: var(--gray-200);
+        }
+
+        /* Suggestion icon tooltip */
+        .suggestion-icon {
+            position: relative;
+        }
+
+        .suggestion-icon:hover {
+            opacity: 1 !important;
+        }
+
+        .suggestion-icon:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: normal;
+            white-space: nowrap;
+            z-index: 100010;
+            margin-bottom: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .suggestion-icon:hover::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #1f2937;
+            margin-bottom: -6px;
+            z-index: 100010;
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            .global-controls {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .chart-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .controls-row {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header" style="position: relative;">
+        <a href="index.html" class="back-link">&#8592; Back to Showcase</a>
+        <h1>RFC-0098: Consumption 7 Days Chart</h1>
+        <p>Complete demo with Settings, Maximize, VizMode and DateRangePicker</p>
+    </header>
+
+    <div class="container">
+        <!-- Live Demo Section -->
+        <section class="section">
+            <h2 class="section-title">Live Demo</h2>
+            <p class="section-description">
+                Interactive demonstration with all features: Settings modal, Maximize, VizMode (Consolidated/Per Shopping), ChartType, and DateRangePicker.
+            </p>
+
+            <!-- Global Controls (simplified) -->
+            <div class="global-controls">
+                <div class="control-group">
+                    <button class="primary" id="refreshBtn">Refresh All</button>
+                </div>
+                <div class="control-group">
+                    <span style="font-size: 13px; color: var(--gray-600);">
+                        Clique no botão ⚙️ de cada gráfico para abrir as configurações
+                    </span>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <!-- Energy Chart -->
+                <div class="chart-card energy">
+                    <div class="chart-header">
+                        <div class="chart-title-group">
+                            <button class="icon-btn settings" id="energySettingsBtn" title="Settings">&#9881;</button>
+                            <span class="chart-title" id="energyTitle">Energy - Last 7 days</span>
+                            <span class="chart-badge energy">ENERGY</span>
+                        </div>
+                        <div class="chart-controls">
+                            <button class="icon-btn maximize" id="energyMaximizeBtn" title="Maximize">&#9974;</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="energyChart"></canvas>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stat">
+                            <div class="stat-value" id="energyTotal">-</div>
+                            <div class="stat-label">Total Period</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="energyAvg">-</div>
+                            <div class="stat-label">Daily Average</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="energyMax">-</div>
+                            <div class="stat-label">Peak Day</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Water Chart -->
+                <div class="chart-card water">
+                    <div class="chart-header">
+                        <div class="chart-title-group">
+                            <button class="icon-btn settings" id="waterSettingsBtn" title="Settings">&#9881;</button>
+                            <span class="chart-title" id="waterTitle">Water - Last 7 days</span>
+                            <span class="chart-badge water">WATER</span>
+                        </div>
+                        <div class="chart-controls">
+                            <button class="icon-btn maximize" id="waterMaximizeBtn" title="Maximize">&#9974;</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="waterChart"></canvas>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stat">
+                            <div class="stat-value" id="waterTotal">-</div>
+                            <div class="stat-label">Total Period</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="waterAvg">-</div>
+                            <div class="stat-label">Daily Average</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="waterMax">-</div>
+                            <div class="stat-label">Peak Day</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gas Chart -->
+                <div class="chart-card gas">
+                    <div class="chart-header">
+                        <div class="chart-title-group">
+                            <button class="icon-btn settings" id="gasSettingsBtn" title="Settings">&#9881;</button>
+                            <span class="chart-title" id="gasTitle">Gas - Last 7 days</span>
+                            <span class="chart-badge gas">GAS</span>
+                        </div>
+                        <div class="chart-controls">
+                            <button class="icon-btn maximize" id="gasMaximizeBtn" title="Maximize">&#9974;</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="gasChart"></canvas>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stat">
+                            <div class="stat-value" id="gasTotal">-</div>
+                            <div class="stat-label">Total Period</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="gasAvg">-</div>
+                            <div class="stat-label">Daily Average</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="gasMax">-</div>
+                            <div class="stat-label">Peak Day</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Temperature Chart -->
+                <div class="chart-card temperature">
+                    <div class="chart-header">
+                        <div class="chart-title-group">
+                            <button class="icon-btn settings" id="temperatureSettingsBtn" title="Settings">&#9881;</button>
+                            <span class="chart-title" id="temperatureTitle">Temperature - Last 7 days</span>
+                            <span class="chart-badge temperature">TEMP</span>
+                        </div>
+                        <div class="chart-controls">
+                            <button class="icon-btn maximize" id="temperatureMaximizeBtn" title="Maximize">&#9974;</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="temperatureChart"></canvas>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stat">
+                            <div class="stat-value" id="temperatureAvg">-</div>
+                            <div class="stat-label">Avg Temperature</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="temperatureMin">-</div>
+                            <div class="stat-label">Min</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="temperatureMax">-</div>
+                            <div class="stat-label">Max</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Console Log Output -->
+            <div class="log-output" id="logOutput">
+                <div class="log-entry">[DEMO] Console output will appear here...</div>
+            </div>
+        </section>
+
+        <!-- Library Modal Demo Section -->
+        <section class="section">
+            <h2 class="section-title">createConsumptionModal (Library Component)</h2>
+            <p class="section-description">
+                Demonstra o componente <code>createConsumptionModal</code> da biblioteca com o header MyIO padrão
+                e opções de exportação (CSV, XLS, PDF).
+            </p>
+
+            <div class="global-controls">
+                <button class="primary" id="openEnergyModalBtn" style="background: #2563eb;">
+                    ⚡ Abrir Modal Energia
+                </button>
+                <button class="primary" id="openWaterModalBtn" style="background: #0288d1;">
+                    💧 Abrir Modal Água
+                </button>
+                <button class="primary" id="openGasModalBtn" style="background: #ea580c;">
+                    🔥 Abrir Modal Gás
+                </button>
+                <button class="primary" id="openTempModalBtn" style="background: #059669;">
+                    🌡️ Abrir Modal Temperatura
+                </button>
+            </div>
+
+            <div style="margin-top: 16px; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #475569;">Configuração do Modal:</h4>
+                <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                        <input type="checkbox" id="exportCsvCheck" checked>
+                        CSV
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                        <input type="checkbox" id="exportXlsCheck" checked>
+                        XLS
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                        <input type="checkbox" id="exportPdfCheck" checked>
+                        PDF
+                    </label>
+                    <span style="color: #64748b; font-size: 12px;">|</span>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                        <input type="radio" name="modalTheme" value="light" checked>
+                        Light
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                        <input type="radio" name="modalTheme" value="dark">
+                        Dark
+                    </label>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay hidden" id="settingsModal">
+        <div class="modal-card" id="settingsModalCard">
+            <!-- MyIO Premium Header with all controls -->
+            <div class="myio-modal-header" id="settingsModalHeader">
+                <h2 class="myio-modal-title">
+                    <span id="settingsModalIcon">⚙️</span>
+                    <span id="settingsModalTitle">Configurações</span>
+                </h2>
+                <div class="myio-modal-actions">
+                    <!-- Export Dropdown -->
+                    <div style="position: relative; display: inline-block;">
+                        <button class="myio-header-btn" id="settingsExportBtn" title="Exportar">📥</button>
+                        <div id="settingsExportDropdown" class="settings-export-dropdown" style="
+                            display: none;
+                            position: absolute;
+                            top: 100%;
+                            right: 0;
+                            background: white;
+                            border-radius: 6px;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                            min-width: 140px;
+                            z-index: 100003;
+                            margin-top: 4px;
+                            overflow: hidden;
+                        ">
+                            <button class="settings-export-option" data-format="csv" style="
+                                display: flex; align-items: center; gap: 8px; width: 100%;
+                                padding: 10px 14px; border: none; background: white;
+                                cursor: pointer; font-size: 13px; color: #333; text-align: left;
+                            ">📄 CSV</button>
+                            <button class="settings-export-option" data-format="xls" style="
+                                display: flex; align-items: center; gap: 8px; width: 100%;
+                                padding: 10px 14px; border: none; background: white;
+                                cursor: pointer; font-size: 13px; color: #333; text-align: left;
+                            ">📊 Excel (XLS)</button>
+                            <button class="settings-export-option" data-format="pdf" style="
+                                display: flex; align-items: center; gap: 8px; width: 100%;
+                                padding: 10px 14px; border: none; background: white;
+                                cursor: pointer; font-size: 13px; color: #333; text-align: left;
+                            ">📑 PDF</button>
+                        </div>
+                    </div>
+                    <!-- Theme Toggle -->
+                    <button class="myio-header-btn" id="settingsThemeBtn" title="Alternar tema">🌙</button>
+                    <!-- Maximize -->
+                    <button class="myio-header-btn" id="settingsMaximizeBtn" title="Maximizar">🗖</button>
+                    <!-- Close -->
+                    <button class="myio-header-btn close" id="closeSettingsModal" title="Fechar">×</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <!-- CONTEXT 1: Período e Dados -->
+                <div class="context-group periodo-dados">
+                    <!-- Período -->
+                    <div class="config-section">
+                        <div class="config-section-label">📅 Período</div>
+                        <div class="controls-row">
+                            <div class="control-field" style="width: 100%;">
+                                <input type="text" id="dateRangeInput" class="control-input" style="width: 100%;" placeholder="Selecione o período" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dados -->
+                    <div class="config-section">
+                        <div class="config-section-label">📊 Dados</div>
+                        <div class="controls-row">
+                            <!-- Granularity Select -->
+                            <div class="control-field" id="granularityField">
+                                <label class="control-field-label">Granularidade</label>
+                                <select id="granularitySelect" class="control-select">
+                                    <option value="1d" selected>📆 Por Dia</option>
+                                    <option value="1h">🕐 Por Hora</option>
+                                </select>
+                            </div>
+
+                            <!-- Weekday Filter -->
+                            <div class="control-field">
+                                <label class="control-field-label">Dias da Semana</label>
+                                <div class="period-dropdown-container">
+                                    <button type="button" id="weekdayBtn" class="period-dropdown-btn">
+                                        <span id="weekdayLabel">Todos os dias</span>
+                                        <span class="dropdown-arrow">▼</span>
+                                    </button>
+                                    <div id="weekdayDropdown" class="period-dropdown hidden">
+                                        <label class="period-option-check">
+                                            <input type="checkbox" name="weekday" value="dom" checked>
+                                            Domingo
+                                        </label>
+                                        <label class="period-option-check">
+                                            <input type="checkbox" name="weekday" value="seg" checked>
+                                            Segunda-feira
+                                        </label>
+                                        <label class="period-option-check">
+                                            <input type="checkbox" name="weekday" value="ter" checked>
+                                            Terça-feira
+                                        </label>
+                                        <label class="period-option-check">
+                                            <input type="checkbox" name="weekday" value="qua" checked>
+                                            Quarta-feira
+                                        </label>
+                                        <label class="period-option-check">
+                                            <input type="checkbox" name="weekday" value="qui" checked>
+                                            Quinta-feira
+                                        </label>
+                                        <label class="period-option-check">
+                                            <input type="checkbox" name="weekday" value="sex" checked>
+                                            Sexta-feira
+                                        </label>
+                                        <label class="period-option-check">
+                                            <input type="checkbox" name="weekday" value="sab" checked>
+                                            Sábado
+                                        </label>
+                                        <div class="period-dropdown-actions">
+                                            <button type="button" id="selectAllWeekdays">Selecionar Todos</button>
+                                            <button type="button" id="clearAllWeekdays">Limpar</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Day Period Filter (only visible when hourly) -->
+                            <div class="control-field" id="dayPeriodField" style="display: none;">
+                                <label class="control-field-label">Períodos do Dia</label>
+                                <div class="period-dropdown-container">
+                                    <button type="button" id="dayPeriodBtn" class="period-dropdown-btn">
+                                        <span id="dayPeriodLabel">Todos os períodos</span>
+                                        <span class="dropdown-arrow">▼</span>
+                                    </button>
+                                    <div id="dayPeriodDropdown" class="period-dropdown hidden">
+                                        <label class="period-option-check">
+                                            <input type="checkbox" name="dayPeriod" value="madrugada" checked>
+                                            Madrugada (00h-06h)
+                                        </label>
+                                        <label class="period-option-check">
+                                            <input type="checkbox" name="dayPeriod" value="manha" checked>
+                                            Manhã (06h-12h)
+                                        </label>
+                                        <label class="period-option-check">
+                                            <input type="checkbox" name="dayPeriod" value="tarde" checked>
+                                            Tarde (12h-18h)
+                                        </label>
+                                        <label class="period-option-check">
+                                            <input type="checkbox" name="dayPeriod" value="noite" checked>
+                                            Noite (18h-24h)
+                                        </label>
+                                        <div class="period-dropdown-actions">
+                                            <button type="button" id="selectAllPeriods">Selecionar Todos</button>
+                                            <button type="button" id="clearAllPeriods">Limpar</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CONTEXT 2: Faixa Ideal -->
+                <div class="context-group faixa-ideal" id="idealRangeSection">
+                    <div class="config-section">
+                        <div class="config-section-label" style="display: flex; align-items: center; gap: 8px;">
+                            🎯 Faixa Ideal
+                            <span id="idealRangeHint" style="font-weight: normal; font-size: 11px; color: #6b7280;">
+                                (opcional - deixe zerado para não exibir)
+                            </span>
+                            <!-- Suggestion tooltip -->
+                            <span id="idealRangeSuggestion" class="suggestion-icon" title="" style="
+                                cursor: pointer;
+                                font-size: 16px;
+                                opacity: 0.7;
+                                transition: opacity 0.2s;
+                                position: relative;
+                            " onclick="applyIdealRangeSuggestion()">💡</span>
+                        </div>
+                        <div class="controls-row" style="gap: 16px;">
+                            <div class="control-field">
+                                <label class="control-field-label">Mínimo</label>
+                                <input type="number" id="idealRangeMin" class="control-input" style="min-width: 100px;" placeholder="0" step="0.1">
+                            </div>
+                            <div class="control-field">
+                                <label class="control-field-label">Máximo</label>
+                                <input type="number" id="idealRangeMax" class="control-input" style="min-width: 100px;" placeholder="0" step="0.1">
+                            </div>
+                            <div class="control-field" style="flex: 1;">
+                                <label class="control-field-label">Rótulo</label>
+                                <input type="text" id="idealRangeLabel" class="control-input" placeholder="Ex: Meta de Consumo">
+                            </div>
+                        </div>
+                        <div id="idealRangeInfo" style="font-size: 11px; color: #059669; margin-top: 8px; display: none;">
+                            🌡️ Valores carregados dos atributos do cliente (minTemperature / maxTemperature)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CONTEXT 3: Visualização -->
+                <div class="context-group visualizacao">
+                    <div class="config-section">
+                        <div class="config-section-label">🎨 Visualização</div>
+                        <div class="controls-row" style="gap: 20px; flex-wrap: wrap;">
+                            <!-- Chart Type -->
+                            <div class="control-field" style="flex: 1; min-width: 180px;">
+                                <label class="control-field-label">Tipo de Gráfico</label>
+                                <div class="tabs" id="settingsChartTypeTabs">
+                                    <button class="tab active" data-type="line">📈 Linhas</button>
+                                    <button class="tab" data-type="bar">📊 Barras</button>
+                                </div>
+                            </div>
+
+                            <!-- Viz Mode -->
+                            <div class="control-field" style="flex: 1; min-width: 200px;">
+                                <label class="control-field-label">Agrupamento</label>
+                                <div class="tabs" id="settingsVizModeTabs">
+                                    <button class="tab active" data-viz="total">🔗 Consolidado</button>
+                                    <button class="tab" data-viz="separate">🏬 Por Shopping</button>
+                                </div>
+                            </div>
+
+                            <!-- Theme -->
+                            <div class="control-field" style="flex: 1; min-width: 160px;">
+                                <label class="control-field-label">Tema</label>
+                                <div class="tabs" id="settingsThemeTabs">
+                                    <button class="tab active" data-theme="light">☀️ Light</button>
+                                    <button class="tab" data-theme="dark">🌙 Dark</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="resetSettingsBtn">Resetar</button>
+                <button class="primary" id="applySettingsBtn">Carregar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fullscreen Chart -->
+    <div class="fullscreen-overlay hidden" id="fullscreenOverlay">
+        <div class="fullscreen-content" id="fullscreenContent">
+            <!-- MyIO Premium Header -->
+            <div class="myio-modal-header" id="fullscreenHeader">
+                <h2 class="myio-modal-title" id="fullscreenTitle">
+                    <span class="title-icon" id="fullscreenIcon">📊</span>
+                    <span id="fullscreenTitleText">Chart - Fullscreen</span>
+                </h2>
+                <div class="myio-modal-actions">
+                    <button class="myio-header-btn" id="fullscreenSettingsBtn" title="Configurações">⚙️</button>
+                    <button class="myio-header-btn" id="fullscreenExportBtn" title="Exportar CSV">📥</button>
+                    <button class="myio-header-btn" id="fullscreenThemeBtn" title="Alternar tema">🌙</button>
+                    <button class="myio-header-btn close" id="closeFullscreenBtn" title="Fechar">×</button>
+                </div>
+            </div>
+            <!-- Controls Bar -->
+            <div class="fullscreen-controls-bar" id="fullscreenControlsBar">
+                <div class="tabs" id="fullscreenVizTabs">
+                    <button class="tab active" data-viz="total">Consolidado</button>
+                    <button class="tab" data-viz="separate">Por Shopping</button>
+                </div>
+                <div class="tabs" id="fullscreenTypeTabs">
+                    <button class="tab active" data-type="line">Linhas</button>
+                    <button class="tab" data-type="bar">Barras</button>
+                </div>
+            </div>
+            <!-- Chart Area -->
+            <div class="fullscreen-chart-container">
+                <canvas id="fullscreenChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // MOCK CUSTOMER ATTRIBUTES (must be defined first)
+        // ============================================
+
+        // Mock customer attributes (in production, this comes from ThingsBoard)
+        // Each customer/shopping has minTemperature and maxTemperature attributes
+        const mockCustomerAttributes = {
+            minTemperature: 20,  // °C - minimum acceptable temperature
+            maxTemperature: 24,  // °C - maximum acceptable temperature
+        };
+
+        // ============================================
+        // GLOBAL STATE
+        // ============================================
+
+        const state = {
+            chartType: 'line',
+            vizMode: 'total',
+            theme: 'light',
+            period: 7,
+            granularity: '1d',
+            currentDomain: null,
+            startDate: null,
+            endDate: null,
+            dayPeriods: ['madrugada', 'manha', 'tarde', 'noite'],
+            weekdays: ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'],
+            // Ideal range per domain (min/max for shaded area on chart)
+            idealRange: {
+                energy: { min: 0, max: 0, label: '' },      // Optional, user-defined
+                water: { min: 0, max: 0, label: '' },       // Optional, user-defined
+                gas: { min: 0, max: 0, label: '' },         // Optional, user-defined
+                // Temperature: loaded from customer attributes by default
+                temperature: {
+                    min: mockCustomerAttributes.minTemperature,
+                    max: mockCustomerAttributes.maxTemperature,
+                    label: 'Faixa Ideal'
+                }
+            }
+        };
+
+        const charts = {};
+        const chartData = {};
+        let fullscreenChartInstance = null;
+        let dateRangePickerInstance = null;
+
+        // Current suggestion for ideal range (calculated from data average)
+        let currentIdealRangeSuggestion = { min: 0, max: 0, unit: '' };
+
+        // Shopping mock data
+        const mockShoppings = [
+            { id: 'shop-001', name: 'Shopping Morumbi' },
+            { id: 'shop-002', name: 'Shopping Eldorado' },
+            { id: 'shop-003', name: 'Shopping Iguatemi' }
+        ];
+
+        const domainColors = {
+            energy: ['#2563eb', '#16a34a', '#8b5cf6', '#ea580c', '#dc2626'],
+            water: ['#0288d1', '#06b6d4', '#0891b2', '#22d3ee', '#67e8f9'],
+            gas: ['#ea580c', '#f97316', '#fb923c', '#fdba74', '#fed7aa'],
+            temperature: ['#dc2626', '#059669', '#0ea5e9', '#f59e0b', '#8b5cf6']
+        };
+
+        // Temperature reference thresholds (for annotation plugin)
+        const temperatureThresholds = {
+            coldStorage: { min: 2, max: 8, label: 'Faixa Ideal Câmara Fria' },
+            airConditioning: { min: 20, max: 24, label: 'Faixa Ideal A/C' }
+        };
+
+        // ============================================
+        // MOCK DATA GENERATORS
+        // ============================================
+
+        function generateMockData(domain, period) {
+            const labels = [];
+            const dailyTotals = [];
+            const shoppingData = {};
+            const shoppingNames = {};
+            const now = new Date();
+
+            // Temperature has different logic
+            if (domain === 'temperature') {
+                return generateTemperatureMockData(period);
+            }
+
+            const baseValues = {
+                energy: { base: 800, variance: 400 },
+                water: { base: 150, variance: 80 },
+                gas: { base: 50, variance: 30 }
+            };
+
+            const config = baseValues[domain] || baseValues.energy;
+
+            // Init shopping data
+            mockShoppings.forEach(shop => {
+                shoppingData[shop.id] = [];
+                shoppingNames[shop.id] = shop.name;
+            });
+
+            for (let i = period - 1; i >= 0; i--) {
+                const date = new Date(now);
+                date.setDate(date.getDate() - i);
+
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                labels.push(`${day}/${month}`);
+
+                const weekendFactor = (date.getDay() === 0 || date.getDay() === 6) ? 0.7 : 1;
+
+                let dayTotal = 0;
+                mockShoppings.forEach((shop, index) => {
+                    const shopBase = config.base * (0.8 + index * 0.2);
+                    const randomFactor = 0.5 + Math.random();
+                    const value = shopBase * weekendFactor * randomFactor / 3;
+                    shoppingData[shop.id].push(Math.round(value * 10) / 10);
+                    dayTotal += value;
+                });
+
+                dailyTotals.push(Math.round(dayTotal * 10) / 10);
+            }
+
+            return {
+                labels,
+                dailyTotals,
+                shoppingData,
+                shoppingNames,
+                fetchTimestamp: Date.now()
+            };
+        }
+
+        /**
+         * Generate mock temperature data
+         * Simulates realistic temperature variations with daily cycles
+         */
+        function generateTemperatureMockData(period) {
+            const labels = [];
+            const dailyTotals = [];
+            const shoppingData = {};
+            const shoppingNames = {};
+            const now = new Date();
+
+            // Temperature zones for different shoppings
+            const tempZones = [
+                { id: 'shop1', name: 'Ar-Condicionado Loja 1', baseTemp: 22, variance: 2 },
+                { id: 'shop2', name: 'Ar-Condicionado Loja 2', baseTemp: 21, variance: 3 },
+                { id: 'shop3', name: 'Câmara Fria', baseTemp: 4, variance: 1 },
+            ];
+
+            // Init shopping data
+            tempZones.forEach(zone => {
+                shoppingData[zone.id] = [];
+                shoppingNames[zone.id] = zone.name;
+            });
+
+            for (let i = period - 1; i >= 0; i--) {
+                const date = new Date(now);
+                date.setDate(date.getDate() - i);
+
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                labels.push(`${day}/${month}`);
+
+                // Simulate daily variation (hotter in afternoon)
+                const hourFactor = Math.sin((date.getHours() - 6) * Math.PI / 12);
+
+                let dayAvg = 0;
+                tempZones.forEach(zone => {
+                    const randomVariation = (Math.random() - 0.5) * zone.variance;
+                    const temp = zone.baseTemp + randomVariation + (hourFactor * 1.5);
+                    shoppingData[zone.id].push(Math.round(temp * 10) / 10);
+                    dayAvg += temp;
+                });
+
+                // Average temperature for consolidated view
+                dailyTotals.push(Math.round((dayAvg / tempZones.length) * 10) / 10);
+            }
+
+            return {
+                labels,
+                dailyTotals,
+                shoppingData,
+                shoppingNames,
+                fetchTimestamp: Date.now()
+            };
+        }
+
+        // ============================================
+        // LOGGING
+        // ============================================
+
+        const logOutput = document.getElementById('logOutput');
+
+        function log(message, level = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${level}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logOutput.appendChild(entry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+            console.log(message);
+        }
+
+        // ============================================
+        // CHART BUILDING
+        // ============================================
+
+        function buildChartConfig(domain, data) {
+            const colors = domainColors[domain] || domainColors.energy;
+            const isTemperature = domain === 'temperature';
+            const unit = isTemperature ? '°C' : (domain === 'energy' ? 'kWh' : 'm³');
+
+            let datasets = [];
+
+            if (state.vizMode === 'separate' && data.shoppingData) {
+                let colorIndex = 0;
+                for (const [shoppingId, values] of Object.entries(data.shoppingData)) {
+                    const shoppingName = data.shoppingNames?.[shoppingId] || shoppingId;
+                    const color = colors[colorIndex % colors.length];
+                    datasets.push({
+                        label: shoppingName,
+                        data: values,
+                        borderColor: color,
+                        backgroundColor: state.chartType === 'line' ? `${color}20` : color,
+                        fill: state.chartType === 'line',
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointRadius: state.chartType === 'line' ? 4 : 0,
+                        pointBackgroundColor: color,
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        borderRadius: state.chartType === 'bar' ? 4 : 0
+                    });
+                    colorIndex++;
+                }
+            } else {
+                const label = isTemperature ? `Temperatura Média (${unit})` : `Consumption (${unit})`;
+                datasets.push({
+                    label: label,
+                    data: data.dailyTotals,
+                    borderColor: colors[0],
+                    backgroundColor: state.chartType === 'line' ? `${colors[0]}20` : colors[0],
+                    fill: state.chartType === 'line',
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: state.chartType === 'line' ? 4 : 0,
+                    pointBackgroundColor: colors[0],
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    borderRadius: state.chartType === 'bar' ? 4 : 0
+                });
+            }
+
+            // Calculate Y-axis bounds
+            const allValues = datasets.flatMap(ds => ds.data);
+            const maxValue = Math.max(...allValues, 0);
+            const minValue = Math.min(...allValues);
+
+            let yAxisMin, yAxisMax;
+            const idealRange = state.idealRange[domain];
+
+            if (isTemperature) {
+                // For temperature, include both data range and ideal range
+                const idealMin = idealRange?.min || 0;
+                const idealMax = idealRange?.max || 0;
+                yAxisMin = Math.floor(Math.min(minValue, idealMin) - 2);
+                yAxisMax = Math.ceil(Math.max(maxValue, idealMax) + 2);
+            } else {
+                // For consumption, start at zero
+                yAxisMin = 0;
+                yAxisMax = Math.ceil((maxValue * 1.1) / 50) * 50 || 100;
+            }
+
+            // Build annotations for ideal range (all domains)
+            const annotations = {};
+
+            // idealRange already defined above for Y-axis calculation
+            log(`[${domain.toUpperCase()}] Ideal range check: min=${idealRange?.min}, max=${idealRange?.max}, valid=${idealRange && idealRange.min < idealRange.max}`);
+
+            if (idealRange && idealRange.min < idealRange.max) {
+                // Default colors based on domain
+                const rangeColors = {
+                    temperature: { bg: 'rgba(34, 197, 94, 0.15)', border: 'rgba(34, 197, 94, 0.4)', text: '#059669' },
+                    energy: { bg: 'rgba(37, 99, 235, 0.1)', border: 'rgba(37, 99, 235, 0.3)', text: '#2563eb' },
+                    water: { bg: 'rgba(2, 136, 209, 0.1)', border: 'rgba(2, 136, 209, 0.3)', text: '#0288d1' },
+                    gas: { bg: 'rgba(234, 88, 12, 0.1)', border: 'rgba(234, 88, 12, 0.3)', text: '#ea580c' }
+                };
+                const colorCfg = rangeColors[domain] || rangeColors.energy;
+
+                annotations.idealRange = {
+                    type: 'box',
+                    yMin: idealRange.min,
+                    yMax: idealRange.max,
+                    backgroundColor: colorCfg.bg,
+                    borderColor: colorCfg.border,
+                    borderWidth: 1,
+                    label: idealRange.label ? {
+                        display: true,
+                        content: idealRange.label,
+                        position: { x: 'start', y: 'center' },
+                        font: { size: 10, style: 'italic' },
+                        color: colorCfg.text,
+                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                        padding: { x: 4, y: 2 }
+                    } : undefined
+                };
+
+                // Adjust Y-axis to include the ideal range
+                if (!isTemperature) {
+                    yAxisMax = Math.max(yAxisMax, Math.ceil(idealRange.max * 1.1));
+                }
+            }
+
+            // For temperature: also show average reference line in consolidated view
+            if (isTemperature && state.vizMode === 'total') {
+                const avgTemp = allValues.reduce((a, b) => a + b, 0) / allValues.length;
+                annotations.avgLine = {
+                    type: 'line',
+                    yMin: avgTemp,
+                    yMax: avgTemp,
+                    borderColor: 'rgba(107, 114, 128, 0.5)',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    label: {
+                        display: true,
+                        content: `Média: ${avgTemp.toFixed(1)}°C`,
+                        position: 'end',
+                        font: { size: 11 },
+                        color: '#6b7280',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)'
+                    }
+                };
+            }
+
+            // Log annotations for debugging
+            if (Object.keys(annotations).length > 0) {
+                log(`[${domain.toUpperCase()}] Annotations:`, Object.keys(annotations).join(', '));
+            }
+
+            return {
+                type: state.chartType,
+                data: { labels: data.labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: {
+                            display: state.vizMode === 'separate',
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)} ${unit}`
+                            }
+                        },
+                        annotation: Object.keys(annotations).length > 0 ? { annotations } : undefined
+                    },
+                    scales: {
+                        y: {
+                            min: yAxisMin,
+                            max: yAxisMax,
+                            title: { display: true, text: unit }
+                        }
+                    }
+                }
+            };
+        }
+
+        function renderChart(domain) {
+            const canvas = document.getElementById(`${domain}Chart`);
+            if (!canvas) return;
+
+            if (charts[domain]) {
+                charts[domain].destroy();
+            }
+
+            const data = chartData[domain];
+            if (!data) return;
+
+            const config = buildChartConfig(domain, data);
+            charts[domain] = new Chart(canvas.getContext('2d'), config);
+
+            updateStats(domain, data);
+            log(`[${domain.toUpperCase()}] Chart rendered (${state.vizMode}, ${state.chartType})`);
+        }
+
+        function updateStats(domain, data) {
+            const isTemperature = domain === 'temperature';
+            const unit = isTemperature ? '°C' : (domain === 'energy' ? 'kWh' : 'm³');
+
+            const total = data.dailyTotals.reduce((a, b) => a + b, 0);
+            const avg = total / data.dailyTotals.length;
+            const max = Math.max(...data.dailyTotals);
+            const min = Math.min(...data.dailyTotals);
+
+            if (isTemperature) {
+                // Temperature: show Avg, Min, Max
+                document.getElementById(`${domain}Avg`).textContent = `${avg.toFixed(1)} ${unit}`;
+                document.getElementById(`${domain}Min`).textContent = `${min.toFixed(1)} ${unit}`;
+                document.getElementById(`${domain}Max`).textContent = `${max.toFixed(1)} ${unit}`;
+            } else {
+                // Consumption: show Total, Avg, Peak
+                document.getElementById(`${domain}Total`).textContent = `${total.toFixed(1)} ${unit}`;
+                document.getElementById(`${domain}Avg`).textContent = `${avg.toFixed(1)} ${unit}`;
+                document.getElementById(`${domain}Max`).textContent = `${max.toFixed(1)} ${unit}`;
+            }
+        }
+
+        function updateTitle(domain) {
+            const titleEl = document.getElementById(`${domain}Title`);
+            if (titleEl) {
+                const name = domain.charAt(0).toUpperCase() + domain.slice(1);
+                titleEl.textContent = `${name} - Last ${state.period} days`;
+            }
+        }
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+
+        function initializeCharts() {
+            log('[DEMO] Initializing charts...');
+
+            // Register Chart.js annotation plugin (required for ideal range shaded area)
+            // Plugin is auto-registered in modern versions, but let's ensure it
+            if (typeof Chart !== 'undefined') {
+                // Check if annotation plugin is available
+                const annotationPlugin = window['chartjs-plugin-annotation'] || Chart.registry?.plugins?.get('annotation');
+                if (annotationPlugin) {
+                    log('[DEMO] Chart.js annotation plugin available');
+                } else {
+                    log('[DEMO] WARNING: Chart.js annotation plugin not found!');
+                }
+            }
+
+            // Log initial ideal ranges for debugging
+            log('[DEMO] Initial ideal ranges:', JSON.stringify(state.idealRange));
+
+            ['energy', 'water', 'gas', 'temperature'].forEach(domain => {
+                chartData[domain] = generateMockData(domain, state.period);
+                renderChart(domain);
+                updateTitle(domain);
+            });
+
+            log('[DEMO] All charts initialized!');
+        }
+
+        function refreshAllCharts() {
+            log('[DEMO] Refreshing all charts...');
+            ['energy', 'water', 'gas', 'temperature'].forEach(domain => {
+                chartData[domain] = generateMockData(domain, state.period);
+                renderChart(domain);
+            });
+        }
+
+        // ============================================
+        // SETTINGS MODAL
+        // ============================================
+
+        function openSettingsModal(domain) {
+            state.currentDomain = domain;
+            const modal = document.getElementById('settingsModal');
+            const title = document.getElementById('settingsModalTitle');
+            const icon = document.getElementById('settingsModalIcon');
+            const themeBtn = document.getElementById('settingsThemeBtn');
+
+            const domainConfig = {
+                energy: { name: 'Energia', icon: '⚡' },
+                water: { name: 'Água', icon: '💧' },
+                gas: { name: 'Gás', icon: '🔥' },
+                temperature: { name: 'Temperatura', icon: '🌡️' }
+            };
+
+            const cfg = domainConfig[domain] || { name: domain, icon: '⚙️' };
+            icon.textContent = cfg.icon;
+            title.textContent = `Configurações - ${cfg.name}`;
+
+            // Sync header theme button
+            themeBtn.textContent = state.theme === 'dark' ? '☀️' : '🌙';
+            themeBtn.title = state.theme === 'dark' ? 'Modo claro' : 'Modo escuro';
+
+            // Sync chart type tabs
+            document.querySelectorAll('#settingsChartTypeTabs .tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.type === state.chartType);
+            });
+
+            // Sync viz mode tabs
+            document.querySelectorAll('#settingsVizModeTabs .tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.viz === state.vizMode);
+            });
+
+            // Sync theme tabs
+            document.querySelectorAll('#settingsThemeTabs .tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.theme === state.theme);
+            });
+
+            // Sync UI with state
+            document.getElementById('granularitySelect').value = state.granularity;
+
+            // Update granularity lock state
+            updateGranularityLock();
+
+            // Show/hide day period field based on granularity
+            const dayPeriodField = document.getElementById('dayPeriodField');
+            dayPeriodField.style.display = state.granularity === '1h' ? 'flex' : 'none';
+
+            // Sync day period checkboxes
+            document.querySelectorAll('input[name="dayPeriod"]').forEach(cb => {
+                cb.checked = state.dayPeriods.includes(cb.value);
+            });
+            updateDayPeriodLabel();
+
+            // Sync weekday checkboxes
+            document.querySelectorAll('input[name="weekday"]').forEach(cb => {
+                cb.checked = state.weekdays.includes(cb.value);
+            });
+            updateWeekdayLabel();
+
+            // Sync ideal range inputs for current domain
+            const idealRange = state.idealRange[domain] || { min: 0, max: 0, label: '' };
+            document.getElementById('idealRangeMin').value = idealRange.min || '';
+            document.getElementById('idealRangeMax').value = idealRange.max || '';
+            document.getElementById('idealRangeLabel').value = idealRange.label || '';
+
+            // Update ideal range UI based on domain
+            const idealRangeHint = document.getElementById('idealRangeHint');
+            const idealRangeInfo = document.getElementById('idealRangeInfo');
+            const isTemperature = domain === 'temperature';
+
+            if (isTemperature) {
+                // For temperature, values come from customer attributes
+                idealRangeHint.textContent = '(valores carregados do cliente)';
+                idealRangeInfo.style.display = 'block';
+                // Pre-fill with customer attributes if empty
+                if (!idealRange.min && !idealRange.max) {
+                    document.getElementById('idealRangeMin').value = mockCustomerAttributes.minTemperature;
+                    document.getElementById('idealRangeMax').value = mockCustomerAttributes.maxTemperature;
+                    document.getElementById('idealRangeLabel').value = 'Faixa Ideal';
+                }
+            } else {
+                // For other domains, range is optional
+                idealRangeHint.textContent = '(opcional - deixe zerado para não exibir)';
+                idealRangeInfo.style.display = 'none';
+            }
+
+            // Update suggestion tooltip (💡 icon)
+            updateIdealRangeSuggestionTooltip(domain);
+
+            modal.classList.remove('hidden');
+
+            // Init DateRangePicker after modal is visible
+            setTimeout(() => initDateRangePicker(), 100);
+
+            log(`[${domain.toUpperCase()}] Settings modal aberto`);
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').classList.add('hidden');
+
+            // Hide dropdowns if open
+            document.getElementById('dayPeriodDropdown')?.classList.add('hidden');
+            document.getElementById('weekdayDropdown')?.classList.add('hidden');
+
+            state.currentDomain = null;
+        }
+
+        /**
+         * Calculate suggested ideal range based on data average
+         * Min = avg - 15%, Max = avg + 15%
+         */
+        function calculateIdealRangeSuggestion(domain) {
+            const data = chartData[domain];
+            if (!data || !data.dailyTotals || data.dailyTotals.length === 0) {
+                return { min: 0, max: 0, avg: 0 };
+            }
+
+            const total = data.dailyTotals.reduce((a, b) => a + b, 0);
+            const avg = total / data.dailyTotals.length;
+            const min = avg * 0.85; // -15%
+            const max = avg * 1.15; // +15%
+
+            return {
+                min: Math.round(min * 10) / 10,
+                max: Math.round(max * 10) / 10,
+                avg: Math.round(avg * 10) / 10
+            };
+        }
+
+        /**
+         * Update the suggestion tooltip with calculated values
+         */
+        function updateIdealRangeSuggestionTooltip(domain) {
+            const suggestion = calculateIdealRangeSuggestion(domain);
+            const suggestionEl = document.getElementById('idealRangeSuggestion');
+            const isTemperature = domain === 'temperature';
+            const unit = isTemperature ? '°C' : (domain === 'energy' ? 'kWh' : 'm³');
+
+            // Store current suggestion for applying later
+            currentIdealRangeSuggestion = { ...suggestion, unit };
+
+            // Update tooltip
+            if (suggestion.avg > 0) {
+                const tooltipText = `Sugestão: ${suggestion.min} - ${suggestion.max} ${unit} (média ±15%). Clique para aplicar.`;
+                suggestionEl.title = tooltipText;
+                suggestionEl.style.display = 'inline';
+            } else {
+                suggestionEl.style.display = 'none';
+            }
+        }
+
+        /**
+         * Apply the suggested ideal range to the inputs
+         */
+        function applyIdealRangeSuggestion() {
+            if (currentIdealRangeSuggestion.min > 0 || currentIdealRangeSuggestion.max > 0) {
+                document.getElementById('idealRangeMin').value = currentIdealRangeSuggestion.min;
+                document.getElementById('idealRangeMax').value = currentIdealRangeSuggestion.max;
+                document.getElementById('idealRangeLabel').value = 'Faixa Sugerida';
+                log(`[SETTINGS] Sugestão aplicada: ${currentIdealRangeSuggestion.min} - ${currentIdealRangeSuggestion.max} ${currentIdealRangeSuggestion.unit}`);
+            }
+        }
+
+        function applySettings() {
+            // Get chart type from settings tabs
+            const activeChartType = document.querySelector('#settingsChartTypeTabs .tab.active');
+            if (activeChartType) {
+                state.chartType = activeChartType.dataset.type;
+            }
+
+            // Get viz mode from settings tabs
+            const activeVizMode = document.querySelector('#settingsVizModeTabs .tab.active');
+            if (activeVizMode) {
+                state.vizMode = activeVizMode.dataset.viz;
+            }
+
+            // Get theme from settings tabs
+            const activeTheme = document.querySelector('#settingsThemeTabs .tab.active');
+            if (activeTheme) {
+                state.theme = activeTheme.dataset.theme;
+            }
+
+            // Get granularity
+            state.granularity = document.getElementById('granularitySelect').value;
+
+            // Get weekdays
+            state.weekdays = Array.from(document.querySelectorAll('input[name="weekday"]:checked'))
+                .map(cb => cb.value);
+
+            // Get day periods
+            state.dayPeriods = Array.from(document.querySelectorAll('input[name="dayPeriod"]:checked'))
+                .map(cb => cb.value);
+
+            // Get ideal range for current domain
+            if (state.currentDomain) {
+                const idealMin = parseFloat(document.getElementById('idealRangeMin').value) || 0;
+                const idealMax = parseFloat(document.getElementById('idealRangeMax').value) || 0;
+                const idealLabel = document.getElementById('idealRangeLabel').value || '';
+
+                state.idealRange[state.currentDomain] = {
+                    min: idealMin,
+                    max: idealMax,
+                    label: idealLabel
+                };
+
+                // Log ideal range if set
+                if (idealMin > 0 || idealMax > 0) {
+                    log(`[SETTINGS] Faixa Ideal: ${idealMin} - ${idealMax} ${idealLabel ? `(${idealLabel})` : ''}`);
+                }
+            }
+
+            if (state.startDate && state.endDate) {
+                const diffDays = Math.ceil((state.endDate - state.startDate) / (1000 * 60 * 60 * 24)) + 1;
+                state.period = diffDays;
+
+                const granLabel = state.granularity === '1h' ? 'hora' : 'dia';
+                const weekdaysInfo = state.weekdays.length < 7 ? `, dias: ${getSelectedWeekdaysLabel(state.weekdays)}` : '';
+                const periodsInfo = state.granularity === '1h' ? `, períodos: ${getSelectedPeriodsLabel(state.dayPeriods)}` : '';
+                log(`[SETTINGS] Aplicado: ${state.chartType}, ${state.vizMode}, ${state.theme}, ${state.startDate.toLocaleDateString()} - ${state.endDate.toLocaleDateString()} (${state.period} dias, ${granLabel}${weekdaysInfo}${periodsInfo})`);
+
+                // Refresh the specific chart or all
+                if (state.currentDomain) {
+                    chartData[state.currentDomain] = generateMockData(state.currentDomain, state.period);
+                    renderChart(state.currentDomain);
+                    updateTitle(state.currentDomain);
+                }
+            }
+
+            closeSettingsModal();
+        }
+
+        function resetSettings() {
+            state.period = 7;
+            state.granularity = '1d';
+            state.weekdays = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+            state.dayPeriods = ['madrugada', 'manha', 'tarde', 'noite'];
+            state.startDate = moment().subtract(6, 'days').startOf('day').toDate();
+            state.endDate = new Date();
+
+            // Reset hour-based range lock
+            isHourBasedRange = false;
+
+            // Update UI
+            document.getElementById('granularitySelect').value = '1d';
+            document.getElementById('granularitySelect').disabled = false;
+            document.getElementById('granularityField').style.opacity = '1';
+            document.getElementById('granularityField').title = '';
+            document.getElementById('dayPeriodField').style.display = 'none';
+            document.querySelectorAll('input[name="weekday"]').forEach(cb => cb.checked = true);
+            document.querySelectorAll('input[name="dayPeriod"]').forEach(cb => cb.checked = true);
+            updateWeekdayLabel();
+            updateDayPeriodLabel();
+
+            // Update DateRangePicker
+            if (dateRangePickerInstance) {
+                dateRangePickerInstance.setStartDate(moment(state.startDate));
+                dateRangePickerInstance.setEndDate(moment(state.endDate));
+            }
+
+            // Reset ideal range for current domain
+            if (state.currentDomain) {
+                const isTemperature = state.currentDomain === 'temperature';
+                if (isTemperature) {
+                    // For temperature, reset to customer attributes
+                    state.idealRange.temperature = {
+                        min: mockCustomerAttributes.minTemperature,
+                        max: mockCustomerAttributes.maxTemperature,
+                        label: 'Faixa Ideal'
+                    };
+                    document.getElementById('idealRangeMin').value = mockCustomerAttributes.minTemperature;
+                    document.getElementById('idealRangeMax').value = mockCustomerAttributes.maxTemperature;
+                    document.getElementById('idealRangeLabel').value = 'Faixa Ideal';
+                } else {
+                    // For other domains, clear the range
+                    state.idealRange[state.currentDomain] = { min: 0, max: 0, label: '' };
+                    document.getElementById('idealRangeMin').value = '';
+                    document.getElementById('idealRangeMax').value = '';
+                    document.getElementById('idealRangeLabel').value = '';
+                }
+            }
+
+            log('[SETTINGS] Resetado para últimos 7 dias');
+        }
+
+        // ============================================
+        // DATE RANGE PICKER
+        // ============================================
+
+        // Track if current selection is hour-based (locks granularity)
+        let isHourBasedRange = false;
+
+        function updateGranularityLock() {
+            const granularityField = document.getElementById('granularityField');
+            const granularitySelect = document.getElementById('granularitySelect');
+
+            if (isHourBasedRange) {
+                // Lock to hourly
+                granularitySelect.value = '1h';
+                granularitySelect.disabled = true;
+                granularityField.style.opacity = '0.6';
+                granularityField.title = 'Granularidade bloqueada para "Por Hora" devido ao período selecionado';
+                state.granularity = '1h';
+
+                // Show day period field
+                document.getElementById('dayPeriodField').style.display = 'flex';
+            } else {
+                // Unlock
+                granularitySelect.disabled = false;
+                granularityField.style.opacity = '1';
+                granularityField.title = '';
+            }
+        }
+
+        function initDateRangePicker() {
+            const input = document.getElementById('dateRangeInput');
+            if (!input) return;
+
+            // Destroy existing instance if any
+            if (dateRangePickerInstance) {
+                $(input).data('daterangepicker')?.remove();
+            }
+
+            // Set initial dates (last 7 days)
+            const endDate = moment();
+            const startDate = moment().subtract(6, 'days').startOf('day');
+
+            state.startDate = startDate.toDate();
+            state.endDate = endDate.toDate();
+
+            $(input).daterangepicker({
+                startDate: startDate,
+                endDate: endDate,
+                timePicker: true,
+                timePicker24Hour: true,
+                timePickerIncrement: 15,
+                locale: {
+                    format: 'DD/MM/YYYY HH:mm',
+                    applyLabel: 'Aplicar',
+                    cancelLabel: 'Cancelar',
+                    fromLabel: 'De',
+                    toLabel: 'Até',
+                    customRangeLabel: 'Personalizado',
+                    daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'],
+                    monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
+                    firstDay: 0
+                },
+                opens: 'center',
+                drops: 'auto',
+                maxDate: moment(),
+                maxSpan: { days: 90 },
+                alwaysShowCalendars: true,
+                showCustomRangeLabel: true,
+                ranges: {
+                    'Última hora': [moment().subtract(1, 'hours'), moment()],
+                    'Últimas 6 horas': [moment().subtract(6, 'hours'), moment()],
+                    'Últimas 12 horas': [moment().subtract(12, 'hours'), moment()],
+                    'Últimas 24 horas': [moment().subtract(24, 'hours'), moment()],
+                    'Hoje': [moment().startOf('day'), moment()],
+                    'Ontem': [moment().subtract(1, 'day').startOf('day'), moment().subtract(1, 'day').endOf('day')],
+                    'Últimos 7 dias': [moment().subtract(6, 'days').startOf('day'), moment()],
+                    'Últimos 14 dias': [moment().subtract(13, 'days').startOf('day'), moment()],
+                    'Últimos 30 dias': [moment().subtract(29, 'days').startOf('day'), moment()],
+                    'Este mês': [moment().startOf('month'), moment()],
+                    'Mês passado': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+                }
+            }, function(start, end, label) {
+                state.startDate = start.toDate();
+                state.endDate = end.toDate();
+
+                // Check if hour-based range was selected
+                const hourBasedRanges = ['Última hora', 'Últimas 6 horas', 'Últimas 12 horas', 'Últimas 24 horas'];
+                isHourBasedRange = hourBasedRanges.includes(label);
+
+                updateGranularityLock();
+
+                log(`[DATERANGE] Selecionado: ${start.format('DD/MM/YYYY HH:mm')} - ${end.format('DD/MM/YYYY HH:mm')} (${label || 'Personalizado'})`);
+            });
+
+            dateRangePickerInstance = $(input).data('daterangepicker');
+            log('[DEMO] DateRangePicker inicializado com últimos 7 dias');
+        }
+
+        function getSelectedPeriodsLabel(periods) {
+            if (periods.length === 0) return 'Nenhum';
+            if (periods.length === 4) return 'Todos os períodos';
+            const labels = {
+                'madrugada': 'Madrugada',
+                'manha': 'Manhã',
+                'tarde': 'Tarde',
+                'noite': 'Noite'
+            };
+            return periods.map(p => labels[p]).join(', ');
+        }
+
+        function updateDayPeriodLabel() {
+            const label = document.getElementById('dayPeriodLabel');
+            if (label) {
+                label.textContent = getSelectedPeriodsLabel(state.dayPeriods);
+            }
+        }
+
+        function getSelectedWeekdaysLabel(weekdays) {
+            if (weekdays.length === 0) return 'Nenhum';
+            if (weekdays.length === 7) return 'Todos os dias';
+            const labels = {
+                'dom': 'Dom',
+                'seg': 'Seg',
+                'ter': 'Ter',
+                'qua': 'Qua',
+                'qui': 'Qui',
+                'sex': 'Sex',
+                'sab': 'Sáb'
+            };
+            return weekdays.map(d => labels[d]).join(', ');
+        }
+
+        function updateWeekdayLabel() {
+            const label = document.getElementById('weekdayLabel');
+            if (label) {
+                label.textContent = getSelectedWeekdaysLabel(state.weekdays);
+            }
+        }
+
+        // ============================================
+        // FULLSCREEN
+        // ============================================
+
+        function openFullscreen(domain) {
+            state.currentDomain = domain;
+            const overlay = document.getElementById('fullscreenOverlay');
+            const content = document.getElementById('fullscreenContent');
+            const titleText = document.getElementById('fullscreenTitleText');
+            const icon = document.getElementById('fullscreenIcon');
+            const themeBtn = document.getElementById('fullscreenThemeBtn');
+
+            const domainConfig = {
+                energy: { name: 'Energia', icon: '⚡' },
+                water: { name: 'Água', icon: '💧' },
+                gas: { name: 'Gás', icon: '🔥' },
+                temperature: { name: 'Temperatura', icon: '🌡️' }
+            };
+
+            const cfg = domainConfig[domain] || { name: domain, icon: '📊' };
+            icon.textContent = cfg.icon;
+            titleText.textContent = `${cfg.name} - Últimos ${state.period} dias`;
+
+            // Sync theme
+            content.classList.toggle('dark-mode', state.theme === 'dark');
+            themeBtn.textContent = state.theme === 'dark' ? '☀️' : '🌙';
+            themeBtn.title = state.theme === 'dark' ? 'Modo claro' : 'Modo escuro';
+
+            // Sync tabs
+            document.querySelectorAll('#fullscreenVizTabs .tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.viz === state.vizMode);
+            });
+            document.querySelectorAll('#fullscreenTypeTabs .tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.type === state.chartType);
+            });
+
+            overlay.classList.remove('hidden');
+            renderFullscreenChart(domain);
+            log(`[${domain.toUpperCase()}] Fullscreen aberto`);
+        }
+
+        function closeFullscreen() {
+            document.getElementById('fullscreenOverlay').classList.add('hidden');
+            if (fullscreenChartInstance) {
+                fullscreenChartInstance.destroy();
+                fullscreenChartInstance = null;
+            }
+            state.currentDomain = null;
+        }
+
+        function renderFullscreenChart(domain) {
+            const canvas = document.getElementById('fullscreenChart');
+            if (!canvas) return;
+
+            if (fullscreenChartInstance) {
+                fullscreenChartInstance.destroy();
+            }
+
+            const data = chartData[domain];
+            if (!data) return;
+
+            const config = buildChartConfig(domain, data);
+            fullscreenChartInstance = new Chart(canvas.getContext('2d'), config);
+        }
+
+        // ============================================
+        // EVENT HANDLERS
+        // ============================================
+
+        document.addEventListener('DOMContentLoaded', () => {
+            log('[DEMO] Page loaded, initializing...');
+
+            // Initialize charts
+            initializeCharts();
+
+            // Refresh button
+            document.getElementById('refreshBtn').addEventListener('click', refreshAllCharts);
+
+            // ============================================
+            // SETTINGS MODAL HEADER HANDLERS
+            // ============================================
+
+            // Export dropdown toggle
+            const settingsExportBtn = document.getElementById('settingsExportBtn');
+            const settingsExportDropdown = document.getElementById('settingsExportDropdown');
+
+            settingsExportBtn?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (settingsExportDropdown) {
+                    settingsExportDropdown.style.display = settingsExportDropdown.style.display === 'none' ? 'block' : 'none';
+                }
+            });
+
+            // Export option clicks
+            document.querySelectorAll('.settings-export-option').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const format = btn.dataset.format;
+                    if (settingsExportDropdown) settingsExportDropdown.style.display = 'none';
+                    if (state.currentDomain && charts[state.currentDomain]) {
+                        if (format === 'csv') {
+                            charts[state.currentDomain].exportCSV();
+                            log(`[${state.currentDomain.toUpperCase()}] CSV exported`);
+                        } else {
+                            alert(`Export ${format.toUpperCase()} não implementado neste demo.`);
+                            log(`[${state.currentDomain.toUpperCase()}] Export ${format.toUpperCase()} requested (not implemented)`, 'warn');
+                        }
+                    }
+                });
+                // Hover effect
+                btn.addEventListener('mouseenter', () => btn.style.backgroundColor = '#f0f0f0');
+                btn.addEventListener('mouseleave', () => btn.style.backgroundColor = 'white');
+            });
+
+            // Close export dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!settingsExportBtn?.contains(e.target) && !settingsExportDropdown?.contains(e.target)) {
+                    if (settingsExportDropdown) settingsExportDropdown.style.display = 'none';
+                }
+            });
+
+            // Settings header theme toggle
+            document.getElementById('settingsThemeBtn')?.addEventListener('click', () => {
+                state.theme = state.theme === 'light' ? 'dark' : 'light';
+                const themeBtn = document.getElementById('settingsThemeBtn');
+                themeBtn.textContent = state.theme === 'dark' ? '☀️' : '🌙';
+                themeBtn.title = state.theme === 'dark' ? 'Modo claro' : 'Modo escuro';
+
+                // Sync theme tabs
+                document.querySelectorAll('#settingsThemeTabs .tab').forEach(t => {
+                    t.classList.toggle('active', t.dataset.theme === state.theme);
+                });
+
+                log(`[SETTINGS] Theme toggled to: ${state.theme}`);
+            });
+
+            // Settings header maximize
+            document.getElementById('settingsMaximizeBtn')?.addEventListener('click', () => {
+                if (state.currentDomain) {
+                    closeSettingsModal();
+                    openFullscreen(state.currentDomain);
+                }
+            });
+
+            // ============================================
+            // SETTINGS MODAL TABS HANDLERS
+            // ============================================
+
+            // Chart type tabs in settings
+            document.getElementById('settingsChartTypeTabs')?.addEventListener('click', e => {
+                if (e.target.classList.contains('tab')) {
+                    document.querySelectorAll('#settingsChartTypeTabs .tab').forEach(t => t.classList.remove('active'));
+                    e.target.classList.add('active');
+                    log(`[SETTINGS] Chart type: ${e.target.dataset.type}`);
+                }
+            });
+
+            // Viz mode tabs in settings
+            document.getElementById('settingsVizModeTabs')?.addEventListener('click', e => {
+                if (e.target.classList.contains('tab')) {
+                    document.querySelectorAll('#settingsVizModeTabs .tab').forEach(t => t.classList.remove('active'));
+                    e.target.classList.add('active');
+                    log(`[SETTINGS] Viz mode: ${e.target.dataset.viz}`);
+                }
+            });
+
+            // Theme tabs in settings
+            document.getElementById('settingsThemeTabs')?.addEventListener('click', e => {
+                if (e.target.classList.contains('tab')) {
+                    document.querySelectorAll('#settingsThemeTabs .tab').forEach(t => t.classList.remove('active'));
+                    e.target.classList.add('active');
+
+                    // Also update header theme button
+                    const newTheme = e.target.dataset.theme;
+                    const themeBtn = document.getElementById('settingsThemeBtn');
+                    themeBtn.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+                    themeBtn.title = newTheme === 'dark' ? 'Modo claro' : 'Modo escuro';
+
+                    log(`[SETTINGS] Theme: ${newTheme}`);
+                }
+            });
+
+            // Settings, Maximize buttons (export moved to settings modal)
+            ['energy', 'water', 'gas', 'temperature'].forEach(domain => {
+                document.getElementById(`${domain}SettingsBtn`)?.addEventListener('click', () => openSettingsModal(domain));
+                document.getElementById(`${domain}MaximizeBtn`)?.addEventListener('click', () => openFullscreen(domain));
+            });
+
+            // Settings modal
+            document.getElementById('closeSettingsModal').addEventListener('click', closeSettingsModal);
+            document.getElementById('applySettingsBtn').addEventListener('click', applySettings);
+            document.getElementById('resetSettingsBtn').addEventListener('click', resetSettings);
+
+            // Granularity change - show/hide day period filter
+            document.getElementById('granularitySelect').addEventListener('change', (e) => {
+                const isHourly = e.target.value === '1h';
+                document.getElementById('dayPeriodField').style.display = isHourly ? 'flex' : 'none';
+                log(`[SETTINGS] Granularidade: ${isHourly ? 'Por Hora' : 'Por Dia'}`);
+            });
+
+            // Weekday dropdown toggle
+            const weekdayBtn = document.getElementById('weekdayBtn');
+            const weekdayDropdown = document.getElementById('weekdayDropdown');
+
+            weekdayBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                weekdayDropdown.classList.toggle('hidden');
+                // Close other dropdown
+                document.getElementById('dayPeriodDropdown').classList.add('hidden');
+            });
+
+            // Weekday checkbox changes
+            document.querySelectorAll('input[name="weekday"]').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    state.weekdays = Array.from(document.querySelectorAll('input[name="weekday"]:checked'))
+                        .map(c => c.value);
+                    updateWeekdayLabel();
+                });
+            });
+
+            // Select all weekdays
+            document.getElementById('selectAllWeekdays').addEventListener('click', () => {
+                document.querySelectorAll('input[name="weekday"]').forEach(cb => cb.checked = true);
+                state.weekdays = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+                updateWeekdayLabel();
+            });
+
+            // Clear all weekdays
+            document.getElementById('clearAllWeekdays').addEventListener('click', () => {
+                document.querySelectorAll('input[name="weekday"]').forEach(cb => cb.checked = false);
+                state.weekdays = [];
+                updateWeekdayLabel();
+            });
+
+            // Day period dropdown toggle
+            const dayPeriodBtn = document.getElementById('dayPeriodBtn');
+            const dayPeriodDropdown = document.getElementById('dayPeriodDropdown');
+
+            dayPeriodBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dayPeriodDropdown.classList.toggle('hidden');
+                // Close other dropdown
+                weekdayDropdown.classList.add('hidden');
+            });
+
+            // Day period checkbox changes
+            document.querySelectorAll('input[name="dayPeriod"]').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    state.dayPeriods = Array.from(document.querySelectorAll('input[name="dayPeriod"]:checked'))
+                        .map(c => c.value);
+                    updateDayPeriodLabel();
+                });
+            });
+
+            // Select all periods
+            document.getElementById('selectAllPeriods').addEventListener('click', () => {
+                document.querySelectorAll('input[name="dayPeriod"]').forEach(cb => cb.checked = true);
+                state.dayPeriods = ['madrugada', 'manha', 'tarde', 'noite'];
+                updateDayPeriodLabel();
+            });
+
+            // Clear all periods
+            document.getElementById('clearAllPeriods').addEventListener('click', () => {
+                document.querySelectorAll('input[name="dayPeriod"]').forEach(cb => cb.checked = false);
+                state.dayPeriods = [];
+                updateDayPeriodLabel();
+            });
+
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!dayPeriodBtn.contains(e.target) && !dayPeriodDropdown.contains(e.target)) {
+                    dayPeriodDropdown.classList.add('hidden');
+                }
+                if (!weekdayBtn.contains(e.target) && !weekdayDropdown.contains(e.target)) {
+                    weekdayDropdown.classList.add('hidden');
+                }
+            });
+
+            // Click outside modal to close
+            document.getElementById('settingsModal').addEventListener('click', e => {
+                if (e.target.id === 'settingsModal') closeSettingsModal();
+            });
+
+            // Fullscreen
+            document.getElementById('closeFullscreenBtn').addEventListener('click', closeFullscreen);
+            document.getElementById('fullscreenSettingsBtn').addEventListener('click', () => {
+                if (state.currentDomain) openSettingsModal(state.currentDomain);
+            });
+
+            // Fullscreen export button
+            document.getElementById('fullscreenExportBtn').addEventListener('click', () => {
+                if (state.currentDomain && charts[state.currentDomain]) {
+                    charts[state.currentDomain].exportCSV();
+                    log(`[${state.currentDomain.toUpperCase()}] CSV exported from fullscreen`);
+                }
+            });
+
+            // Fullscreen theme toggle
+            document.getElementById('fullscreenThemeBtn').addEventListener('click', () => {
+                state.theme = state.theme === 'light' ? 'dark' : 'light';
+                const content = document.getElementById('fullscreenContent');
+                const themeBtn = document.getElementById('fullscreenThemeBtn');
+
+                content.classList.toggle('dark-mode', state.theme === 'dark');
+                themeBtn.textContent = state.theme === 'dark' ? '☀️' : '🌙';
+                themeBtn.title = state.theme === 'dark' ? 'Modo claro' : 'Modo escuro';
+
+                // Sync global theme tabs
+                document.querySelectorAll('#themeTabs .tab').forEach(t =>
+                    t.classList.toggle('active', t.dataset.theme === state.theme)
+                );
+
+                // Apply to all charts
+                ['energy', 'water', 'gas', 'temperature'].forEach(domain => {
+                    if (charts[domain] && charts[domain].setTheme) {
+                        charts[domain].setTheme(state.theme);
+                    }
+                });
+
+                // Re-render fullscreen chart
+                if (state.currentDomain) {
+                    renderFullscreenChart(state.currentDomain);
+                }
+
+                log(`[FULLSCREEN] Theme changed to: ${state.theme}`);
+            });
+
+            // Fullscreen viz tabs
+            document.getElementById('fullscreenVizTabs').addEventListener('click', e => {
+                if (e.target.classList.contains('tab')) {
+                    document.querySelectorAll('#fullscreenVizTabs .tab').forEach(t => t.classList.remove('active'));
+                    e.target.classList.add('active');
+                    state.vizMode = e.target.dataset.viz;
+
+                    // Sync main tabs
+                    document.querySelectorAll('#vizModeTabs .tab').forEach(t => {
+                        t.classList.toggle('active', t.dataset.viz === state.vizMode);
+                    });
+
+                    if (state.currentDomain) {
+                        renderFullscreenChart(state.currentDomain);
+                        renderChart(state.currentDomain);
+                    }
+                }
+            });
+
+            // Fullscreen type tabs
+            document.getElementById('fullscreenTypeTabs').addEventListener('click', e => {
+                if (e.target.classList.contains('tab')) {
+                    document.querySelectorAll('#fullscreenTypeTabs .tab').forEach(t => t.classList.remove('active'));
+                    e.target.classList.add('active');
+                    state.chartType = e.target.dataset.type;
+
+                    // Sync main tabs
+                    document.querySelectorAll('#chartTypeTabs .tab').forEach(t => {
+                        t.classList.toggle('active', t.dataset.type === state.chartType);
+                    });
+
+                    if (state.currentDomain) {
+                        renderFullscreenChart(state.currentDomain);
+                        renderChart(state.currentDomain);
+                    }
+                }
+            });
+
+            // ESC to close fullscreen
+            document.addEventListener('keydown', e => {
+                if (e.key === 'Escape') {
+                    closeFullscreen();
+                    closeSettingsModal();
+                }
+            });
+
+            // ============================================
+            // LIBRARY MODAL DEMO (createConsumptionModal)
+            // ============================================
+
+            function getSelectedExportFormats() {
+                const formats = [];
+                if (document.getElementById('exportCsvCheck').checked) formats.push('csv');
+                if (document.getElementById('exportXlsCheck').checked) formats.push('xls');
+                if (document.getElementById('exportPdfCheck').checked) formats.push('pdf');
+                return formats.length > 0 ? formats : ['csv']; // Default to CSV if none selected
+            }
+
+            function getSelectedTheme() {
+                return document.querySelector('input[name="modalTheme"]:checked')?.value || 'light';
+            }
+
+            async function openLibraryModal(domain) {
+                // Check if library is loaded
+                if (typeof MyIOJSLibrary === 'undefined' || !MyIOJSLibrary.createConsumptionModal) {
+                    log('[ERROR] MyIO JS Library not loaded! Make sure to build first: npm run build', 'error');
+                    alert('Library not loaded! Run "npm run build" first.');
+                    return;
+                }
+
+                const exportFormats = getSelectedExportFormats();
+                const theme = getSelectedTheme();
+
+                log(`[LIBRARY] Opening ${domain} modal with formats: ${exportFormats.join(', ')}, theme: ${theme}`);
+
+                try {
+                    const modal = MyIOJSLibrary.createConsumptionModal({
+                        domain: domain,
+                        unit: domain === 'energy' ? 'kWh' : domain === 'water' ? 'm³' : domain === 'gas' ? 'm³' : '°C',
+                        theme: theme,
+                        exportFormats: exportFormats,
+                        fetchData: async (period) => {
+                            // Simulate API call
+                            log(`[LIBRARY] Fetching ${domain} data for ${period} days...`);
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                            return generateMockData(domain, period || 7);
+                        },
+                        onExport: (format) => {
+                            log(`[LIBRARY] Export requested: ${format.toUpperCase()}`);
+                            if (format === 'csv') {
+                                // Use built-in CSV export
+                                log(`[LIBRARY] Using built-in CSV export`);
+                            } else {
+                                // Show alert for XLS/PDF (not implemented)
+                                alert(`Export ${format.toUpperCase()} não implementado neste demo.\nEm produção, implemente o handler onExport.`);
+                            }
+                        },
+                        onClose: () => {
+                            log(`[LIBRARY] ${domain} modal closed`);
+                        }
+                    });
+
+                    await modal.open();
+                    log(`[LIBRARY] ${domain} modal opened successfully`);
+
+                } catch (error) {
+                    log(`[ERROR] Failed to open modal: ${error.message}`, 'error');
+                    console.error(error);
+                }
+            }
+
+            // Modal buttons
+            document.getElementById('openEnergyModalBtn')?.addEventListener('click', () => openLibraryModal('energy'));
+            document.getElementById('openWaterModalBtn')?.addEventListener('click', () => openLibraryModal('water'));
+            document.getElementById('openGasModalBtn')?.addEventListener('click', () => openLibraryModal('gas'));
+            document.getElementById('openTempModalBtn')?.addEventListener('click', () => openLibraryModal('temperature'));
+        });
+    </script>
+</body>
+</html>

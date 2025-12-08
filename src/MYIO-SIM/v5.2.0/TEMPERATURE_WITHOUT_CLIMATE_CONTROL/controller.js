@@ -16,12 +16,15 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error(...args),
 };
 
-const getDataApiHost =
-  window.MyIOUtils?.getDataApiHost ||
-  (() => {
-    console.error('[TEMPERATURE_SENSORS] getDataApiHost not available - MAIN widget not loaded');
-    return localStorage.getItem('__MYIO_DATA_API_HOST__') || '';
-  });
+const getDataApiHost = () => {
+  const host = window.MyIOUtils?.DATA_API_HOST;
+  if (!host) {
+    console.error(
+      '[TEMPERATURE_WITHOUT_CLIMATE_CONTROL] DATA_API_HOST not available - MAIN widget not loaded'
+    );
+  }
+  return host || '';
+};
 
 const formatRelativeTime =
   window.MyIOUtils?.formatRelativeTime || ((ts) => (ts ? new Date(ts).toLocaleString() : '—'));
@@ -261,7 +264,7 @@ async function openTemperatureModal(sensor) {
     }
   } else {
     LogHelper.warn('[TEMPERATURE_SENSORS] openTemperatureComparisonModal not available');
-    alert('Modal de temperatura não disponível');
+    window.alert('Modal de temperatura não disponível');
   }
 }
 

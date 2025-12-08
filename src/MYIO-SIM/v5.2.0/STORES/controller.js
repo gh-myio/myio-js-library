@@ -19,12 +19,13 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error(...args),
 };
 
-const getDataApiHost =
-  window.MyIOUtils?.getDataApiHost ||
-  (() => {
-    console.error('[STORES] getDataApiHost not available - MAIN widget not loaded');
-    return localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com';
-  });
+const getDataApiHost = () => {
+  const host = window.MyIOUtils?.DATA_API_HOST;
+  if (!host) {
+    console.error('[STORES] DATA_API_HOST not available - MAIN widget not loaded');
+  }
+  return host || '';
+};
 
 // RFC-0071: Device Profile functions (from MAIN)
 const fetchDeviceProfiles =

@@ -25,31 +25,16 @@ const LogHelper = {
   },
 };
 
-// RFC-0086: Get DATA_API_HOST from localStorage (set by WELCOME widget)
+// RFC-0086: Get DATA_API_HOST from window global (set by MAIN onInit)
 function getDataApiHost() {
-  return localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com';
+  const host = window.__MYIO_DATA_API_HOST__;
+  if (!host) {
+    LogHelper.error('[MAIN] DATA_API_HOST not available - onInit not executed yet');
+    return '';
+  }
+  return host;
 }
 
-// Format energy value using MyIOLibrary or fallback
-function formatEnergy(value) {
-  if (typeof MyIOLibrary?.formatEnergy === 'function') {
-    return MyIOLibrary.formatEnergy(value);
-  }
-  // Fallback formatting
-  const num = Number(value) || 0;
-  if (num >= 1000000) return `${(num / 1000000).toFixed(2)} GWh`;
-  if (num >= 1000) return `${(num / 1000).toFixed(2)} MWh`;
-  return `${num.toFixed(2)} kWh`;
-}
-
-// Format water value using MyIOLibrary or fallback
-function formatWater(value) {
-  if (typeof MyIOLibrary?.formatWater === 'function') {
-    return MyIOLibrary.formatWater(value);
-  }
-  const num = Number(value) || 0;
-  return `${num.toFixed(2)} m³`;
-}
 
 /**
  * RFC-0094/RFC-0097: Fetch energy consumption for a customer within a time range
@@ -124,117 +109,6 @@ async function fetchEnergyDayConsumption(customerId, startTs, endTs, granularity
   }
 }
 
-/**
- * Maps raw connection status to normalized status
- * @param {string} rawStatus - Raw status from ThingsBoard (e.g., 'ONLINE', 'ok', 'running', 'waiting', 'offline')
- * @returns {'online' | 'waiting' | 'offline'} - Normalized status
- */
-function mapConnectionStatus(rawStatus) {
-  const statusLower = String(rawStatus || '')
-    .toLowerCase()
-    .trim();
-
-  // Online states
-  if (statusLower === 'online' || statusLower === 'ok' || statusLower === 'running') {
-    return 'online';
-  }
-
-  // Waiting/transitional states
-  if (statusLower === 'waiting' || statusLower === 'connecting' || statusLower === 'pending') {
-    return 'waiting';
-  }
-
-  // Default to offline
-  return 'offline';
-}
-
-/**
- * Converte um timestamp em uma string de tempo relativo (ex: "há 5 minutos").
- * @param {number} timestamp - O timestamp em milissegundos.
- * @returns {string} A string formatada.
- */
-function formatRelativeTime(timestamp) {
-  if (!timestamp || timestamp <= 0) {
-    return '—';
-  }
-
-  const now = Date.now();
-  const diffSeconds = Math.round((now - timestamp) / 1000);
-
-  if (diffSeconds < 10) {
-    return 'agora';
-  }
-  if (diffSeconds < 60) {
-    return `há ${diffSeconds}s`;
-  }
-
-  const diffMinutes = Math.round(diffSeconds / 60);
-  if (diffMinutes === 1) {
-    return 'há 1 min';
-  }
-  if (diffMinutes < 60) {
-    return `há ${diffMinutes} mins`;
-  }
-
-  const diffHours = Math.round(diffMinutes / 60);
-  if (diffHours === 1) {
-    return 'há 1 hora';
-  }
-  if (diffHours < 24) {
-    return `há ${diffHours} horas`;
-  }
-
-  const diffDays = Math.round(diffHours / 24);
-  if (diffDays === 1) {
-    return 'ontem';
-  }
-  if (diffDays <= 30) {
-    return `há ${diffDays} dias`;
-  }
-
-  return new Date(timestamp).toLocaleDateString('pt-BR');
-}
-
-/**
- * Formata duração em milissegundos para string legível (ex: "2d 5h", "3h 20m", "45s")
- * @param {number} ms - Duração em milissegundos
- * @returns {string} Duração formatada
- */
-function formatarDuracao(ms) {
-  if (typeof ms !== 'number' || ms < 0 || !isFinite(ms)) {
-    return '0s';
-  }
-  if (ms === 0) {
-    return '0s';
-  }
-
-  const segundos = Math.floor((ms / 1000) % 60);
-  const minutos = Math.floor((ms / (1000 * 60)) % 60);
-  const horas = Math.floor((ms / (1000 * 60 * 60)) % 24);
-  const dias = Math.floor(ms / (1000 * 60 * 60 * 24));
-
-  const parts = [];
-  if (dias > 0) {
-    parts.push(`${dias}d`);
-    if (horas > 0) {
-      parts.push(`${horas}h`);
-    }
-  } else if (horas > 0) {
-    parts.push(`${horas}h`);
-    if (minutos > 0) {
-      parts.push(`${minutos}m`);
-    }
-  } else if (minutos > 0) {
-    parts.push(`${minutos}m`);
-    if (segundos > 0) {
-      parts.push(`${segundos}s`);
-    }
-  } else {
-    parts.push(`${segundos}s`);
-  }
-
-  return parts.length > 0 ? parts.join(' ') : '0s';
-}
 
 /**
  * Shows/hides loading overlay for equipments widget
@@ -959,10 +833,7 @@ function updateEquipmentStats(devices, energyCache = null, ctxData = null) {
   // Update UI
   connectivityEl.textContent = `${onlineCount}/${totalWithStatus} (${connectivityPercentage}%)`;
   totalEl.textContent = devices.length.toString();
-  consumptionEl.textContent =
-    typeof MyIOLibrary !== 'undefined'
-      ? MyIOLibrary.formatEnergy(totalConsumption)
-      : formatEnergy(totalConsumption);
+  consumptionEl.textContent = MyIOLibrary.formatEnergy(totalConsumption);
   zeroEl.textContent = zeroConsumptionCount.toString();
 
   LogHelper.log('[MAIN] Stats updated:', {
@@ -1440,29 +1311,25 @@ const HEADER_DOMAIN_CONFIG = {
     totalLabel: 'Total de Equipamentos',
     consumptionLabel: 'Consumo Total',
     zeroLabel: 'Sem Consumo',
-    formatValue: (val) =>
-      typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatEnergy(val) : `${val.toFixed(2)} kWh`,
+    formatValue: (val) => MyIOLibrary.formatEnergy(val),
   },
   stores: {
     totalLabel: 'Total de Lojas',
     consumptionLabel: 'Consumo Total',
     zeroLabel: 'Sem Consumo',
-    formatValue: (val) =>
-      typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatEnergy(val) : `${val.toFixed(2)} kWh`,
+    formatValue: (val) => MyIOLibrary.formatEnergy(val),
   },
   water: {
     totalLabel: 'Total de Hidrômetros',
     consumptionLabel: 'Consumo Total',
     zeroLabel: 'Sem Consumo',
-    formatValue: (val) =>
-      typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatWaterVolumeM3(val) : `${val.toFixed(2)} m³`,
+    formatValue: (val) => MyIOLibrary.formatWaterVolumeM3(val),
   },
   temperature: {
     totalLabel: 'Total de Sensores',
     consumptionLabel: 'Média de Temperatura',
     zeroLabel: 'Sem Leitura',
-    formatValue: (val) =>
-      typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatTemperature(val) : `${val.toFixed(1)}°C`,
+    formatValue: (val) => MyIOLibrary.formatTemperature(val),
   },
 };
 
@@ -1764,21 +1631,6 @@ function buildHeaderDevicesGrid(config) {
   LogHelper.log(`[MAIN] Header built for domain '${domain}' with prefix '${idPrefix}'`);
 
   return controller;
-}
-
-/**
- * Find a value in an array of objects by key/dataType
- * RFC-0091: Supports both ThingsBoard format {dataType, value} and generic {key, value}
- * @param {Array} values - Array of objects with key/value or dataType/value properties
- * @param {string} key - Key or dataType to search for
- * @param {*} defaultValue - Default value if not found
- * @returns {*} The found value or defaultValue
- */
-function findValue(values, key, defaultValue = null) {
-  if (!Array.isArray(values)) return defaultValue;
-  // RFC-0091: Support both { key, value } and { dataType, value } formats
-  const found = values.find((v) => v.key === key || v.dataType === key);
-  return found ? found.value : defaultValue;
 }
 
 /**
@@ -2655,13 +2507,15 @@ window.MyIOUtils = {
 
   // API & Formatting
   getDataApiHost,
-  formatEnergy,
-  formatWater,
   fetchEnergyDayConsumption,
-  mapConnectionStatus,
-  formatRelativeTime,
-  formatarDuracao,
-  findValue,
+
+  // Formatting functions (from MyIOLibrary)
+  formatEnergy: MyIOLibrary.formatEnergy,
+  formatWater: MyIOLibrary.formatWater,
+  mapConnectionStatus: MyIOLibrary.mapConnectionStatus,
+  formatRelativeTime: MyIOLibrary.formatRelativeTime,
+  formatarDuracao: MyIOLibrary.formatarDuracao,
+  findValue: MyIOLibrary.findValueWithDefault,
 
   // Credentials (getters - populated after onInit)
   getCustomerId: () => window.myioHoldingCustomerId,
@@ -2671,6 +2525,16 @@ window.MyIOUtils = {
 
   // RFC-0091: Connection delay time getter (default 60 minutes)
   getDelayTimeConnectionInMins: () => window.__MYIO_DELAY_TIME_CONNECTION_MINS__ ?? 60,
+
+  // RFC-0086: DATA_API_HOST getter (exposed directly for child widgets)
+  get DATA_API_HOST() {
+    const host = window.__MYIO_DATA_API_HOST__;
+    if (!host) {
+      LogHelper.error('[MyIOUtils] DATA_API_HOST not available - MAIN onInit not executed yet');
+      return '';
+    }
+    return host;
+  },
 
   // Convenience: get all credentials at once
   getCredentials: () => ({
@@ -2966,6 +2830,427 @@ const MyIOOrchestrator = (() => {
    */
   function getWaterTotals() {
     return { ...waterTotals };
+  }
+
+  // ===== RFC-0100: TEMPERATURE DATA MANAGEMENT =====
+  let temperatureCache = null;
+  let temperatureRanges = new Map();
+  let temperatureAverages = new Map();
+  let temperatureFetching = false;
+
+  /**
+   * RFC-0100: Extract temperature devices from ctx.data (AllTemperatureDevices alias)
+   * @returns {Array<{id: string, ownerName: string, connectionStatus: string, ingestionId: string}>}
+   */
+  function extractTemperatureDevices() {
+    const deviceMap = new Map();
+    const ctxData = self.ctx?.data || [];
+
+    ctxData.forEach((data) => {
+      if (data.datasource?.aliasName !== 'AllTemperatureDevices') return;
+
+      const entityId =
+        data.datasource?.entityId?.id || data.datasource?.entity?.id?.id || data.datasource?.entityId;
+
+      if (!entityId) return;
+
+      let device = deviceMap.get(entityId) || {
+        id: entityId,
+        ownerName: null,
+        connectionStatus: null,
+        ingestionId: null,
+      };
+
+      const keyName = data.dataKey?.name;
+      const value = data.data?.[0]?.[1];
+
+      if (keyName === 'ownerName' && value) {
+        device.ownerName = value;
+      }
+      if (keyName === 'connectionStatus' && value) {
+        device.connectionStatus = value;
+      }
+      if (keyName === 'ingestionId' && value) {
+        device.ingestionId = value;
+      }
+
+      deviceMap.set(entityId, device);
+    });
+
+    LogHelper.log(`[MAIN] RFC-0100: Extracted ${deviceMap.size} temperature devices`);
+    return Array.from(deviceMap.values());
+  }
+
+  /**
+   * RFC-0100: Extract temperature ranges from ctx.data (Shopping/customers datasource)
+   * @returns {Map<string, {min: number, max: number, entityLabel: string}>}
+   */
+  function extractTemperatureRanges() {
+    const rangesMap = new Map();
+    const ctxData = self.ctx?.data || [];
+
+    ctxData.forEach((data) => {
+      const entityLabel = data.datasource?.entityLabel || 'Unknown';
+      const entityId = data.datasource?.entityId || entityLabel;
+
+      // Look for minTemperature and maxTemperature dataKeys
+      const keyName = data.dataKey?.name;
+      if (keyName !== 'minTemperature' && keyName !== 'maxTemperature') return;
+
+      if (!rangesMap.has(entityId)) {
+        rangesMap.set(entityId, { min: null, max: null, entityLabel });
+      }
+
+      const entry = rangesMap.get(entityId);
+
+      if (keyName === 'maxTemperature' && data.data?.[0]?.[1] != null) {
+        entry.max = Number(data.data[0][1]);
+      }
+      if (keyName === 'minTemperature' && data.data?.[0]?.[1] != null) {
+        entry.min = Number(data.data[0][1]);
+      }
+    });
+
+    // Filter only valid ranges (both min and max present)
+    const validRanges = new Map();
+    rangesMap.forEach((value, key) => {
+      if (value.min != null && value.max != null) {
+        validRanges.set(key, value);
+      }
+    });
+
+    temperatureRanges = validRanges;
+    LogHelper.log(`[MAIN] RFC-0100: Extracted ${validRanges.size} temperature ranges`);
+    return validRanges;
+  }
+
+  /**
+   * RFC-0100: Calculate average from temperature data array
+   * @param {Array<{value: string|number}>} dataArray
+   * @returns {number}
+   */
+  function calcularMediaTemperatura(dataArray) {
+    if (!dataArray || dataArray.length === 0) return 0;
+
+    const sum = dataArray.reduce((acc, item) => {
+      const val = parseFloat(item.value);
+      return !isNaN(val) ? acc + val : acc;
+    }, 0);
+
+    return dataArray.length > 0 ? sum / dataArray.length : 0;
+  }
+
+  /**
+   * RFC-0100: Fetch temperature averages for all devices via ThingsBoard API
+   * @param {number} startTs - Start timestamp in milliseconds
+   * @param {number} endTs - End timestamp in milliseconds
+   * @returns {Promise<Map<string, {avg: number, ownerName: string, deviceCount: number}>>}
+   */
+  async function fetchTemperatureAverages(startTs, endTs) {
+    const tbToken = localStorage.getItem('jwt_token');
+    if (!tbToken) {
+      LogHelper.warn('[MAIN] RFC-0100: JWT not found for temperature fetch');
+      return new Map();
+    }
+
+    const devices = extractTemperatureDevices();
+    const shoppingTemps = new Map();
+
+    for (const device of devices) {
+      try {
+        const url =
+          `/api/plugins/telemetry/DEVICE/${device.id}/values/timeseries` +
+          `?keys=temperature` +
+          `&startTs=${encodeURIComponent(startTs)}` +
+          `&endTs=${encodeURIComponent(endTs)}` +
+          `&limit=50000` +
+          `&intervalType=MILLISECONDS` +
+          `&interval=7200000` +
+          `&agg=AVG`;
+
+        const response = await fetch(url, {
+          headers: {
+            'X-Authorization': `Bearer ${tbToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) continue;
+
+        const data = await response.json();
+        const temperatureData = data.temperature || [];
+        const avgTemp = calcularMediaTemperatura(temperatureData);
+
+        if (avgTemp != null && !isNaN(avgTemp) && avgTemp > 0) {
+          const ownerName = device.ownerName || 'Unknown';
+          if (!shoppingTemps.has(ownerName)) {
+            shoppingTemps.set(ownerName, { temps: [], ownerName, deviceCount: 0 });
+          }
+          const entry = shoppingTemps.get(ownerName);
+          entry.temps.push(avgTemp);
+          entry.deviceCount++;
+        }
+      } catch (err) {
+        LogHelper.error(`[MAIN] RFC-0100: Error fetching temperature for device ${device.id}:`, err);
+      }
+    }
+
+    // Calculate average per shopping
+    const result = new Map();
+    shoppingTemps.forEach((value, key) => {
+      const sum = value.temps.reduce((a, b) => a + b, 0);
+      const avg = value.temps.length > 0 ? sum / value.temps.length : null;
+      result.set(key, { avg, ownerName: value.ownerName, deviceCount: value.deviceCount });
+    });
+
+    temperatureAverages = result;
+    LogHelper.log(`[MAIN] RFC-0100: Calculated temperature averages for ${result.size} shoppings`);
+    return result;
+  }
+
+  /**
+   * RFC-0100: Main temperature data fetch function
+   * Fetches temperature data and emits myio:temperature-data-ready event
+   * @param {number} startTs - Start timestamp in milliseconds
+   * @param {number} endTs - End timestamp in milliseconds
+   * @returns {Promise<Object>} Temperature cache object
+   */
+  async function fetchTemperatureData(startTs, endTs) {
+    if (temperatureFetching) {
+      LogHelper.log('[MAIN] RFC-0100: Temperature fetch already in progress, skipping');
+      return temperatureCache;
+    }
+
+    temperatureFetching = true;
+    LogHelper.log('[MAIN] RFC-0100: Fetching temperature data...');
+
+    try {
+      // Extract ranges from ctx.data
+      const ranges = extractTemperatureRanges();
+
+      // Fetch averages from ThingsBoard API
+      const averages = await fetchTemperatureAverages(startTs, endTs);
+
+      // Build all shoppings data for comparison
+      const allShoppingsData = [];
+      averages.forEach((avgData, ownerName) => {
+        if (avgData.avg != null) {
+          allShoppingsData.push({ ownerName, avg: avgData.avg });
+        }
+      });
+
+      // Calculate global average (all shoppings)
+      let globalSum = 0;
+      let globalCount = 0;
+      averages.forEach((avgData) => {
+        if (avgData.avg != null) {
+          globalSum += avgData.avg;
+          globalCount++;
+        }
+      });
+      const globalAvg = globalCount > 0 ? globalSum / globalCount : null;
+
+      // Calculate filtered average based on selected shoppings
+      let filteredAvg = globalAvg;
+      let filteredCount = globalCount;
+      const isFiltered = selectedShoppingIds.length > 0 && selectedShoppingIds.length < allShoppingsData.length;
+
+      if (isFiltered) {
+        const selectedNames = (window.custumersSelected || []).map((s) => s.name);
+        const normalize = (str) =>
+          (str || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim();
+
+        let filteredSum = 0;
+        filteredCount = 0;
+
+        averages.forEach((avgData, ownerName) => {
+          if (avgData.avg == null) return;
+          const normalizedOwner = normalize(ownerName);
+          const matchesFilter = selectedNames.some((name) => {
+            const normalizedName = normalize(name);
+            return (
+              normalizedOwner === normalizedName ||
+              normalizedOwner.includes(normalizedName) ||
+              normalizedName.includes(normalizedOwner)
+            );
+          });
+
+          if (matchesFilter) {
+            filteredSum += avgData.avg;
+            filteredCount++;
+          }
+        });
+
+        filteredAvg = filteredCount > 0 ? filteredSum / filteredCount : globalAvg;
+      }
+
+      // Analyze in-range vs out-of-range shoppings
+      const shoppingsInRange = [];
+      const shoppingsOutOfRange = [];
+
+      averages.forEach((avgData, ownerName) => {
+        if (avgData.avg == null) return;
+
+        const normalize = (str) =>
+          (str || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim();
+        const normalizedOwner = normalize(ownerName);
+
+        // Find matching range
+        let matchedRange = null;
+        ranges.forEach((range) => {
+          const normalizedLabel = normalize(range.entityLabel);
+          if (
+            normalizedLabel === normalizedOwner ||
+            normalizedLabel.includes(normalizedOwner) ||
+            normalizedOwner.includes(normalizedLabel)
+          ) {
+            matchedRange = range;
+          }
+        });
+
+        // Fallback to first range if no match
+        if (!matchedRange && ranges.size > 0) {
+          matchedRange = ranges.values().next().value;
+        }
+
+        const shoppingInfo = {
+          name: ownerName,
+          avg: avgData.avg,
+          min: matchedRange?.min,
+          max: matchedRange?.max,
+        };
+
+        if (matchedRange && avgData.avg >= matchedRange.min && avgData.avg <= matchedRange.max) {
+          shoppingsInRange.push(shoppingInfo);
+        } else {
+          shoppingsOutOfRange.push(shoppingInfo);
+        }
+      });
+
+      // Build cache
+      temperatureCache = {
+        devices: extractTemperatureDevices(),
+        ranges,
+        averages,
+        allShoppingsData,
+        globalAvg,
+        filteredAvg,
+        filteredCount,
+        totalCount: globalCount,
+        isFiltered,
+        shoppingsInRange,
+        shoppingsOutOfRange,
+        startTs,
+        endTs,
+        fetchTimestamp: Date.now(),
+      };
+
+      // Dispatch event for HEADER and other widgets
+      window.dispatchEvent(
+        new CustomEvent('myio:temperature-data-ready', {
+          detail: temperatureCache,
+        })
+      );
+
+      LogHelper.log('[MAIN] RFC-0100: Temperature data ready:', {
+        deviceCount: temperatureCache.devices.length,
+        rangeCount: ranges.size,
+        averageCount: averages.size,
+        globalAvg: globalAvg?.toFixed(1),
+        filteredAvg: filteredAvg?.toFixed(1),
+        isFiltered,
+        inRange: shoppingsInRange.length,
+        outOfRange: shoppingsOutOfRange.length,
+      });
+
+      return temperatureCache;
+    } catch (err) {
+      LogHelper.error('[MAIN] RFC-0100: Error fetching temperature data:', err);
+      return null;
+    } finally {
+      temperatureFetching = false;
+    }
+  }
+
+  /**
+   * RFC-0100: Get current temperature cache
+   */
+  function getTemperatureCache() {
+    return temperatureCache;
+  }
+
+  /**
+   * RFC-0100: Get temperature ranges
+   */
+  function getTemperatureRanges() {
+    return temperatureRanges;
+  }
+
+  /**
+   * RFC-0100: Get temperature averages
+   */
+  function getTemperatureAverages() {
+    return temperatureAverages;
+  }
+
+  // ===== RFC-0100: SHOPPING DATA MANAGEMENT =====
+  let shoppingsCache = [];
+
+  /**
+   * RFC-0100: Extract shopping list from ctx.data (Shopping alias)
+   * @returns {Array<{name: string, value: string}>}
+   */
+  function extractShoppings() {
+    const shoppings = [];
+    const ctxData = self.ctx?.data || [];
+
+    ctxData.forEach((data) => {
+      if (data.datasource?.aliasName === 'Shopping') {
+        shoppings.push({
+          name: data.datasource.entityLabel,
+          value: data.data?.[0]?.[1] || null,
+        });
+      }
+    });
+
+    shoppingsCache = shoppings;
+    LogHelper.log(`[MAIN] RFC-0100: Extracted ${shoppings.length} shoppings from ctx.data`);
+    return shoppings;
+  }
+
+  /**
+   * RFC-0100: Get cached shoppings list
+   */
+  function getShoppings() {
+    return shoppingsCache;
+  }
+
+  /**
+   * RFC-0100: Dispatch shoppings data to HEADER and other widgets
+   */
+  function dispatchShoppingsData() {
+    const shoppings = extractShoppings();
+
+    window.dispatchEvent(
+      new CustomEvent('myio:shoppings-data-ready', {
+        detail: {
+          shoppings,
+          count: shoppings.length,
+          timestamp: Date.now(),
+        },
+      })
+    );
+
+    LogHelper.log(`[MAIN] RFC-0100: Dispatched myio:shoppings-data-ready with ${shoppings.length} shoppings`);
+    return shoppings;
   }
 
   // ===== STATE para montar o resumo ENERGY =====
@@ -3657,6 +3942,17 @@ const MyIOOrchestrator = (() => {
     registerWaterDeviceIds,
     getWaterTotals,
     recalculateWaterTotals,
+
+    // ===== RFC-0100: TEMPERATURE functions =====
+    fetchTemperatureData,
+    getTemperatureCache,
+    getTemperatureRanges,
+    getTemperatureAverages,
+
+    // ===== RFC-0100: SHOPPING functions =====
+    extractShoppings,
+    getShoppings,
+    dispatchShoppingsData,
   };
 })();
 
@@ -3894,6 +4190,62 @@ window.addEventListener('myio:customers-ready', async (_ev) => {
   // const TemperatureMap = getTemperatureReportByCustomer(devicesList, customersList);
 });
 
+// ===== RFC-0100: TEMPERATURE event listeners =====
+
+// Request temperature data from HEADER or other widgets
+window.addEventListener('myio:request-temperature-data', async (ev) => {
+  LogHelper.log('[MAIN] RFC-0100: Received myio:request-temperature-data', ev.detail);
+
+  // Get date range from global state or event detail
+  let startTs = ev.detail?.startTs;
+  let endTs = ev.detail?.endTs;
+
+  if (!startTs || !endTs) {
+    // Fallback to global date state
+    startTs = window.__MYIO_CURRENT_START_DATE__
+      ? new Date(window.__MYIO_CURRENT_START_DATE__).getTime()
+      : Date.now() - 30 * 24 * 60 * 60 * 1000; // Default: last 30 days
+    endTs = window.__MYIO_CURRENT_END_DATE__
+      ? new Date(window.__MYIO_CURRENT_END_DATE__).getTime()
+      : Date.now();
+  }
+
+  if (typeof window.MyIOOrchestrator?.fetchTemperatureData === 'function') {
+    await window.MyIOOrchestrator.fetchTemperatureData(startTs, endTs);
+  }
+});
+
+// Refresh temperature data when filter is applied
+window.addEventListener('myio:filter-applied', async (ev) => {
+  // Temperature data will be recalculated with new filter
+  const tempCache = window.MyIOOrchestrator?.getTemperatureCache?.();
+  if (tempCache && tempCache.startTs && tempCache.endTs) {
+    LogHelper.log('[MAIN] RFC-0100: Refreshing temperature data after filter change');
+    await window.MyIOOrchestrator.fetchTemperatureData(tempCache.startTs, tempCache.endTs);
+  }
+});
+
+// Refresh temperature data when date range changes
+window.addEventListener('myio:update-date', async (ev) => {
+  const { startDate, endDate } = ev.detail || {};
+  if (startDate && endDate) {
+    const startTs = new Date(startDate).getTime();
+    const endTs = new Date(endDate).getTime();
+    LogHelper.log('[MAIN] RFC-0100: Refreshing temperature data after date change');
+    await window.MyIOOrchestrator.fetchTemperatureData(startTs, endTs);
+  }
+});
+
+// ===== RFC-0100: SHOPPING event listeners =====
+
+// Request shopping data from HEADER or other widgets
+window.addEventListener('myio:request-shoppings-data', () => {
+  LogHelper.log('[MAIN] RFC-0100: Received myio:request-shoppings-data');
+  if (typeof window.MyIOOrchestrator?.dispatchShoppingsData === 'function') {
+    window.MyIOOrchestrator.dispatchShoppingsData();
+  }
+});
+
 LogHelper.log('[MyIOOrchestrator] Initialized');
 
 // ✅ Check if filter was already applied before MAIN initialized
@@ -4105,6 +4457,15 @@ self.onInit = async function () {
   // ===== STEP 1: Get ThingsBoard Customer ID and fetch credentials =====
   CUSTOMER_ID_TB = self.ctx.settings.customerId;
   self.ctx.$scope.mainContentStateId = 'content_equipments';
+
+  // RFC-0086: Get DATA_API_HOST from settings and expose globally
+  const dataApiHost = self.ctx.settings.dataApiHost;
+  if (!dataApiHost) {
+    LogHelper.error('[MAIN] [RFC-0086] dataApiHost not found in settings');
+  } else {
+    window.__MYIO_DATA_API_HOST__ = dataApiHost;
+    LogHelper.log('[MAIN] [RFC-0086] DATA_API_HOST set:', dataApiHost);
+  }
 
   // RFC-0091: Get delayTimeConnectionInMins from settings (default 60 minutes)
   const delayTimeConnectionInMins = self.ctx.settings.delayTimeConnectionInMins ?? 60;

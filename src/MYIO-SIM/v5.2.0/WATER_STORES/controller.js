@@ -1,4 +1,4 @@
-/* global self, window, document, localStorage, MyIOLibrary */
+/* global self, window, document, localStorage, MyIOLibrary, $ */
 
 /* =========================================================================
  * ThingsBoard Widget: Water Stores - Device Cards for Water Meters (MyIO)
@@ -22,12 +22,13 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error(...args),
 };
 
-const getDataApiHost =
-  window.MyIOUtils?.getDataApiHost ||
-  (() => {
-    console.error('[WATER_STORES] getDataApiHost not available - MAIN widget not loaded');
-    return localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com';
-  });
+const getDataApiHost = () => {
+  const host = window.MyIOUtils?.DATA_API_HOST;
+  if (!host) {
+    console.error('[WATER_STORES] DATA_API_HOST not available - MAIN widget not loaded');
+  }
+  return host || '';
+};
 
 // RFC-0071: Device Profile functions (from MAIN)
 const fetchDeviceProfiles =
@@ -96,7 +97,7 @@ let mainWaterData = {
   datasources: [],
   data: [],
   ids: [],
-  loaded: false
+  loaded: false,
 };
 let hasRequestedInitialData = false; // Flag to prevent duplicate initial requests
 let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent duplicate processing
@@ -255,7 +256,7 @@ function showGlobalSuccessModal(countdown = 5) {
     $(document.body).append(html);
     $m = $(document.body).find(`#${SUCCESS_MODAL_ID}`);
     $m.find(`#${SUCCESS_MODAL_ID}-btn`).on('click', () => {
-      location.reload();
+      window.location.reload();
     });
   }
   $m.css('display', 'flex');
@@ -267,7 +268,7 @@ function showGlobalSuccessModal(countdown = 5) {
     $c.text(sec);
     if (sec <= 0) {
       clearInterval(iv);
-      location.reload();
+      window.location.reload();
     }
   }, 1000);
 }
@@ -399,7 +400,9 @@ function buildAuthoritativeItems() {
     // Usar dados do MAIN (datasources centralizados)
     filteredDatasources = mainWaterData.datasources;
     filteredData = mainWaterData.data;
-    LogHelper.log(`[WATER_STORES] Using centralized data from MAIN: ${filteredDatasources.length} datasources, ${filteredData.length} data rows`);
+    LogHelper.log(
+      `[WATER_STORES] Using centralized data from MAIN: ${filteredDatasources.length} datasources, ${filteredData.length} data rows`
+    );
   } else {
     // FALLBACK: Usar dados locais do widget (se ainda houver)
     // RFC-0094: Filter datasources by aliasName = 'Todos Hidrometros Lojas'
@@ -793,18 +796,18 @@ async function renderList(visible) {
         console.log('[WATER_STORES] [RFC-0094] Opening water dashboard for:', entityObject.entityId);
         try {
           if (typeof MyIOLibrary.openDashboardPopupEnergy !== 'function') {
-            alert('Dashboard component não disponível');
+            window.alert('Dashboard component não disponível');
             return;
           }
           const startDate = self.ctx.scope?.startDateISO;
           const endDate = self.ctx.scope?.endDateISO;
           if (!startDate || !endDate) {
-            alert('Período de datas não definido.');
+            window.alert('Período de datas não definido.');
             return;
           }
           if (!MyIOAuth || typeof MyIOAuth.getToken !== 'function') {
             LogHelper.error('[WATER_STORES] MyIOAuth not available');
-            alert('Autenticação não disponível. Recarregue a página.');
+            window.alert('Autenticação não disponível. Recarregue a página.');
             return;
           }
           const tokenIngestionDashBoard = await MyIOAuth.getToken();
@@ -826,7 +829,7 @@ async function renderList(visible) {
           });
         } catch (err) {
           console.error(err);
-          alert('Erro ao abrir dashboard');
+          window.alert('Erro ao abrir dashboard');
         }
       },
 
@@ -834,7 +837,7 @@ async function renderList(visible) {
         try {
           if (!MyIOAuth || typeof MyIOAuth.getToken !== 'function') {
             LogHelper.error('[WATER_STORES] MyIOAuth not available for report');
-            alert('Autenticação não disponível. Recarregue a página.');
+            window.alert('Autenticação não disponível. Recarregue a página.');
             return;
           }
           const ingestionToken = await MyIOAuth.getToken();
@@ -851,7 +854,7 @@ async function renderList(visible) {
             },
           });
         } catch (err) {
-          alert('Erro ao abrir relatório');
+          window.alert('Erro ao abrir relatório');
         }
       },
 
@@ -866,7 +869,7 @@ async function renderList(visible) {
 
         const tbId = entityObject.entityId;
         if (!tbId || tbId === it.ingestionId) {
-          alert('ID inválido');
+          window.alert('ID inválido');
           return;
         }
 
@@ -1190,7 +1193,7 @@ self.onInit = async function () {
   MyIO = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
     (typeof window !== 'undefined' && window.MyIOLibrary) || {
       showAlert: function () {
-        alert('A Biblioteca Myio não foi carregada corretamente!');
+        window.alert('A Biblioteca Myio não foi carregada corretamente!');
       },
     };
 
@@ -1587,9 +1590,11 @@ self.onInit = async function () {
         datasources: stores.datasources,
         data: stores.data,
         ids: stores.ids,
-        loaded: true
+        loaded: true,
       };
-      LogHelper.log(`[WATER_STORES] Received TB data from MAIN: ${stores.datasources.length} datasources, ${stores.ids.length} IDs`);
+      LogHelper.log(
+        `[WATER_STORES] Received TB data from MAIN: ${stores.datasources.length} datasources, ${stores.ids.length} IDs`
+      );
 
       // Rebuild items with new data
       STATE.itemsBase = buildAuthoritativeItems();
@@ -1613,7 +1618,7 @@ self.onInit = async function () {
       datasources: cachedTbData.stores.datasources,
       data: cachedTbData.stores.data,
       ids: cachedTbData.stores.ids,
-      loaded: true
+      loaded: true,
     };
     STATE.itemsBase = buildAuthoritativeItems();
     LogHelper.log(`[WATER_STORES] Built ${STATE.itemsBase.length} items from cached MAIN data`);
