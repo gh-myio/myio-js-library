@@ -820,9 +820,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   bindTabs(root);
   bindFilter(root);
 
-  // Aplicar cores personalizadas dos cards (após o DOM estar pronto)
+  // Aplicar cores personalizadas dos cards e setup do tooltip (após o DOM estar pronto)
   setTimeout(() => {
     applyCardColors();
+    setupTemperatureTooltip();
   }, 100);
 
   // mocks (remova se alimentar via API/telemetria)
@@ -1248,13 +1249,196 @@ window.addEventListener('myio:water-totals-updated', (ev) => {
 });
 
 // ===== RFC-0100: HEADER listens for temperature data from MAIN orchestrator =====
+let currentTemperatureData = null;
+
 window.addEventListener('myio:temperature-data-ready', (ev) => {
   LogHelper.log('[HEADER] RFC-0100: Received temperature data from MAIN:', ev.detail);
   const data = ev.detail;
   if (data) {
+    currentTemperatureData = data;
     updateTemperatureCardFromOrchestrator(data);
   }
 });
+
+/**
+ * Premium Temperature Tooltip - Creates and manages the tooltip
+ */
+function createTemperatureTooltip() {
+  // Remove existing tooltip if any
+  const existing = document.getElementById('temp-premium-tooltip');
+  if (existing) existing.remove();
+
+  const container = document.createElement('div');
+  container.id = 'temp-premium-tooltip';
+  container.className = 'temp-tooltip-container';
+  document.body.appendChild(container);
+  return container;
+}
+
+function showTemperatureTooltip(triggerElement, data) {
+  let container = document.getElementById('temp-premium-tooltip');
+  if (!container) {
+    container = createTemperatureTooltip();
+  }
+
+  const { globalAvg, filteredAvg, isFiltered, shoppingsInRange = [], shoppingsOutOfRange = [], devices = [] } = data || {};
+  const totalShoppings = shoppingsInRange.length + shoppingsOutOfRange.length;
+
+  // Build shopping list HTML
+  let shoppingListHtml = '';
+
+  if (shoppingsInRange.length > 0) {
+    shoppingListHtml += `
+      <div class="temp-tooltip__section">
+        <div class="temp-tooltip__section-title">
+          <span>✅</span> Dentro da Faixa (${shoppingsInRange.length})
+        </div>
+        <div class="temp-tooltip__list">
+          ${shoppingsInRange.map(s => `
+            <div class="temp-tooltip__list-item temp-tooltip__list-item--ok">
+              <span class="temp-tooltip__list-icon">✔</span>
+              <span class="temp-tooltip__list-name">${s.name}</span>
+              <span class="temp-tooltip__list-value">${s.avg?.toFixed(1)}°C</span>
+              ${s.min != null && s.max != null ? `<span class="temp-tooltip__list-range">(${s.min}–${s.max}°C)</span>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  if (shoppingsOutOfRange.length > 0) {
+    shoppingListHtml += `
+      <div class="temp-tooltip__section">
+        <div class="temp-tooltip__section-title">
+          <span>⚠️</span> Fora da Faixa (${shoppingsOutOfRange.length})
+        </div>
+        <div class="temp-tooltip__list">
+          ${shoppingsOutOfRange.map(s => `
+            <div class="temp-tooltip__list-item temp-tooltip__list-item--warn">
+              <span class="temp-tooltip__list-icon">⚠</span>
+              <span class="temp-tooltip__list-name">${s.name}</span>
+              <span class="temp-tooltip__list-value">${s.avg?.toFixed(1)}°C</span>
+              ${s.min != null && s.max != null ? `<span class="temp-tooltip__list-range">(${s.min}–${s.max}°C)</span>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  // Status badge
+  let statusBadge = '';
+  if (totalShoppings === 0) {
+    statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--info">Aguardando dados</span>';
+  } else if (shoppingsOutOfRange.length === 0) {
+    statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--ok">✔ Todos na faixa</span>';
+  } else if (shoppingsInRange.length === 0) {
+    statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--warn">⚠ Todos fora da faixa</span>';
+  } else {
+    statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--warn">⚠ Alguns fora da faixa</span>';
+  }
+
+  container.innerHTML = `
+    <div class="temp-tooltip">
+      <div class="temp-tooltip__header">
+        <span class="temp-tooltip__icon">🌡️</span>
+        <span class="temp-tooltip__title">Detalhes de Temperatura</span>
+      </div>
+      <div class="temp-tooltip__content">
+        <div class="temp-tooltip__section">
+          <div class="temp-tooltip__section-title">
+            <span>📊</span> Resumo Geral
+          </div>
+          <div class="temp-tooltip__row">
+            <span class="temp-tooltip__label">Média Global:</span>
+            <span class="temp-tooltip__value temp-tooltip__value--highlight">${globalAvg != null ? globalAvg.toFixed(1) + '°C' : '--'}</span>
+          </div>
+          ${isFiltered && filteredAvg != null ? `
+          <div class="temp-tooltip__row">
+            <span class="temp-tooltip__label">Média Filtrada:</span>
+            <span class="temp-tooltip__value">${filteredAvg.toFixed(1)}°C</span>
+          </div>
+          ` : ''}
+          <div class="temp-tooltip__row">
+            <span class="temp-tooltip__label">Sensores Ativos:</span>
+            <span class="temp-tooltip__value">${devices.length || 0}</span>
+          </div>
+          <div class="temp-tooltip__row">
+            <span class="temp-tooltip__label">Status:</span>
+            ${statusBadge}
+          </div>
+        </div>
+
+        ${shoppingListHtml}
+
+        <div class="temp-tooltip__notice">
+          <span class="temp-tooltip__notice-icon">ℹ️</span>
+          <span class="temp-tooltip__notice-text">
+            São considerados apenas os <strong>sensores em ambientes climatizáveis</strong> que estejam <strong>ativos</strong>.
+            Sensores inativos ou em áreas não climatizadas são excluídos do cálculo.
+          </span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Position tooltip
+  const rect = triggerElement.getBoundingClientRect();
+  const tooltipRect = container.getBoundingClientRect();
+
+  let left = rect.left + rect.width / 2 - 160; // Center tooltip (320px / 2)
+  let top = rect.bottom + 8;
+
+  // Adjust if tooltip goes off screen
+  if (left < 10) left = 10;
+  if (left + 320 > window.innerWidth - 10) left = window.innerWidth - 330;
+  if (top + 400 > window.innerHeight) {
+    top = rect.top - 8 - 400; // Show above
+    if (top < 10) top = 10;
+  }
+
+  container.style.left = left + 'px';
+  container.style.top = top + 'px';
+  container.classList.add('visible');
+}
+
+function hideTemperatureTooltip() {
+  const container = document.getElementById('temp-premium-tooltip');
+  if (container) {
+    container.classList.remove('visible');
+  }
+}
+
+// Setup tooltip trigger events
+function setupTemperatureTooltip() {
+  // Try to find trigger in widget container first, then fallback to document
+  const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
+  const trigger = root.querySelector ? root.querySelector('#temp-info-trigger') : document.getElementById('temp-info-trigger');
+
+  if (!trigger || trigger._tooltipBound) return;
+
+  trigger._tooltipBound = true;
+  LogHelper.log('[HEADER] Temperature tooltip trigger found and bound');
+
+  trigger.addEventListener('mouseenter', () => {
+    LogHelper.log('[HEADER] Temperature tooltip mouseenter, data:', currentTemperatureData ? 'available' : 'not available');
+    if (currentTemperatureData) {
+      showTemperatureTooltip(trigger, currentTemperatureData);
+    }
+  });
+
+  trigger.addEventListener('mouseleave', () => {
+    hideTemperatureTooltip();
+  });
+
+  // Also hide on click outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.temp-tooltip-container') && !e.target.closest('#temp-info-trigger')) {
+      hideTemperatureTooltip();
+    }
+  });
+}
 
 /**
  * RFC-0100: Simplified temperature card update - receives data from MAIN orchestrator
@@ -1266,6 +1450,9 @@ function updateTemperatureCardFromOrchestrator(data) {
   const tempChip = document.querySelector('#card-temp .chip');
 
   const { globalAvg, filteredAvg, isFiltered, shoppingsInRange = [], shoppingsOutOfRange = [] } = data || {};
+
+  // Setup tooltip on first update
+  setupTemperatureTooltip();
 
   // RFC-0099/RFC-0100: Update KPI with comparative display when filtered
   if (tempKpi) {
@@ -1300,59 +1487,23 @@ function updateTemperatureCardFromOrchestrator(data) {
     }
   }
 
-  // Update chip status
+  // Update chip status (simplified - detailed info is now in the premium tooltip)
   if (!tempChip) return;
 
   const totalShoppings = shoppingsInRange.length + shoppingsOutOfRange.length;
   const chipStyle = 'font-size: 10px; display: flex; align-items: center; gap: 4px;';
 
   if (totalShoppings === 0) {
-    tempChip.innerHTML = `<span style="${chipStyle}">-- Sem dados
-      <span class="info-icon" id="temp-info-icon" title="Aguardando dados de temperatura">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </span></span>`;
+    tempChip.innerHTML = `<span style="${chipStyle}">-- Sem dados</span>`;
     tempChip.className = 'chip';
   } else if (shoppingsOutOfRange.length === 0) {
-    const tooltipDetails = shoppingsInRange
-      .map((s) => `✔ ${s.name}: ${s.avg?.toFixed(1)}°C (${s.min}–${s.max}°C)`)
-      .join('\n');
-    tempChip.innerHTML = `<span style="${chipStyle}">✔ Todos na faixa
-      <span class="info-icon" id="temp-info-icon" title="${tooltipDetails}">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </span></span>`;
+    tempChip.innerHTML = `<span style="${chipStyle}">✔ Todos na faixa</span>`;
     tempChip.className = 'chip ok';
   } else if (shoppingsInRange.length === 0) {
-    const tooltipDetails = shoppingsOutOfRange
-      .map((s) => `⚠ ${s.name}: ${s.avg?.toFixed(1)}°C (faixa: ${s.min}–${s.max}°C)`)
-      .join('\n');
-    tempChip.innerHTML = `<span style="${chipStyle}">⚠ Todos fora da faixa
-      <span class="info-icon" id="temp-info-icon" title="${tooltipDetails}">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </span></span>`;
+    tempChip.innerHTML = `<span style="${chipStyle}">⚠ Todos fora da faixa</span>`;
     tempChip.className = 'chip warn';
   } else {
-    const inRangeDetails = shoppingsInRange.map((s) => `✔ ${s.name}: ${s.avg?.toFixed(1)}°C`).join('\n');
-    const outOfRangeDetails = shoppingsOutOfRange
-      .map((s) => `⚠ ${s.name}: ${s.avg?.toFixed(1)}°C (faixa: ${s.min}–${s.max}°C)`)
-      .join('\n');
-    const tooltipDetails = `DENTRO DA FAIXA:\n${inRangeDetails}\n\nFORA DA FAIXA:\n${outOfRangeDetails}`;
-
-    tempChip.innerHTML = `<span style="${chipStyle}">⚠ Alguns fora da faixa
-      <span class="info-icon" id="temp-info-icon" title="${tooltipDetails}">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-          <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </span></span>`;
+    tempChip.innerHTML = `<span style="${chipStyle}">⚠ ${shoppingsOutOfRange.length} fora da faixa</span>`;
     tempChip.className = 'chip warn';
   }
 }
