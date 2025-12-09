@@ -1,4 +1,4 @@
-/* global self, window, document */
+/* global self, window, document, localStorage */
 /* alarm-profiles-panel.js - API-Driven (RFC-0096) - Pure JS Rendering */
 
 var DEBUG_ACTIVE = true;
@@ -14,6 +14,113 @@ var LogHelper = {
   },
   error: function () {
     console.error.apply(console, ['[AlarmPanel]'].concat(Array.prototype.slice.call(arguments)));
+  },
+};
+
+// ============================================================
+// AUTH BYPASS MODULE (RFC-0002)
+// Allows API calls with service account credentials
+// ============================================================
+var AuthBypass = {
+  // Service account credentials
+  SERVICE_USERNAME: 'alarmes@myio.com.br',
+  SERVICE_PASSWORD: 'hubmyio@2025!',
+  LOGIN_URL: '/api/auth/login',
+
+  // Session storage
+  originalToken: null,
+  originalRefreshToken: null,
+  serviceToken: null,
+  isUsingServiceAuth: false,
+
+  /**
+   * Save current user session before switching to service account
+   */
+  saveSession: function () {
+    this.originalToken = localStorage.getItem('jwt_token');
+    this.originalRefreshToken = localStorage.getItem('refresh_token');
+    LogHelper.log('AuthBypass: Session saved');
+  },
+
+  /**
+   * Restore original user session after API calls
+   */
+  restoreSession: function () {
+    if (this.originalToken) {
+      localStorage.setItem('jwt_token', this.originalToken);
+    }
+    if (this.originalRefreshToken) {
+      localStorage.setItem('refresh_token', this.originalRefreshToken);
+    }
+    this.isUsingServiceAuth = false;
+    LogHelper.log('AuthBypass: Session restored');
+  },
+
+  /**
+   * Authenticate with service account and get token
+   */
+  authenticateService: function () {
+    var self = this;
+    var body = {
+      username: this.SERVICE_USERNAME,
+      password: this.SERVICE_PASSWORD,
+    };
+
+    LogHelper.log('AuthBypass: Authenticating with service account...');
+
+    return fetch(this.LOGIN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error('Service auth failed: ' + response.status);
+        }
+        return response.json();
+      })
+      .then(function (data) {
+        if (!data.token) {
+          throw new Error('No token in response');
+        }
+        self.serviceToken = data.token;
+        localStorage.setItem('jwt_token', data.token);
+        if (data.refreshToken) {
+          localStorage.setItem('refresh_token', data.refreshToken);
+        }
+        self.isUsingServiceAuth = true;
+        LogHelper.log('AuthBypass: Service authentication successful');
+        return data.token;
+      })
+      .catch(function (err) {
+        LogHelper.error('AuthBypass: Authentication failed', err);
+        throw err;
+      });
+  },
+
+  /**
+   * Execute a function with service account authentication
+   * Saves current session, authenticates, executes fn, then restores session
+   */
+  withServiceAuth: function (fn) {
+    var self = this;
+
+    // Save current session
+    this.saveSession();
+
+    // Authenticate and execute
+    return this.authenticateService()
+      .then(function () {
+        return fn();
+      })
+      .then(function (result) {
+        self.restoreSession();
+        return result;
+      })
+      .catch(function (err) {
+        self.restoreSession();
+        throw err;
+      });
   },
 };
 
@@ -366,7 +473,7 @@ function render() {
     try {
       selectionStart = activeEl.selectionStart;
       selectionEnd = activeEl.selectionEnd;
-    } catch (e) {
+    } catch {
       // Alguns tipos de input não suportam selectionStart
     }
   }
@@ -381,7 +488,7 @@ function render() {
       if (selectionStart !== null) {
         try {
           el.setSelectionRange(selectionStart, selectionEnd);
-        } catch (e) {
+        } catch {
           // Ignora se não suportar
         }
       }
@@ -1596,7 +1703,7 @@ function formatCondition(condition) {
   }
 
   var parts = [];
-  condition.condition.forEach(function (cond, idx) {
+  condition.condition.forEach(function (cond, _idx) {
     var keyType = formatKeyType(cond.key ? cond.key.type : 'UNKNOWN');
     var keyName = cond.key ? cond.key.key : 'unknown';
     var operation = formatOperation(cond.predicate ? cond.predicate.operation : 'UNKNOWN');
@@ -2147,44 +2254,58 @@ function fetchAllData() {
   });
   var filteredDevices = [];
 
-  fetchAllDevicesWithPagination(state.settings.api.devicesPageSize)
-    .then(function (allDevices) {
-      LogHelper.log('Devices fetched:', allDevices.length);
+  // Use AuthBypass to execute API calls with service account (RFC-0002)
+  AuthBypass.withServiceAuth(function () {
+    // First: fetch all devices
+    return fetchAllDevicesWithPagination(state.settings.api.devicesPageSize)
+      .then(function (allDevices) {
+        LogHelper.log('Devices fetched:', allDevices.length);
 
-      filteredDevices = allDevices.filter(function (d) {
-        return d.customerId && customerIds.indexOf(d.customerId) !== -1;
-      });
+        filteredDevices = allDevices.filter(function (d) {
+          return d.customerId && customerIds.indexOf(d.customerId) !== -1;
+        });
 
-      // Enrich devices with customer name from state.customers
-      var customerMap = {};
-      state.customers.forEach(function (c) {
-        customerMap[c.id] = c.name;
-      });
-      filteredDevices.forEach(function (d) {
-        if (!d.customerName && d.customerId && customerMap[d.customerId]) {
-          d.customerName = customerMap[d.customerId];
-        }
-      });
-      LogHelper.log('Filtered devices:', filteredDevices.length);
+        // Enrich devices with customer name from state.customers
+        var customerMap = {};
+        state.customers.forEach(function (c) {
+          customerMap[c.id] = c.name;
+        });
+        filteredDevices.forEach(function (d) {
+          if (!d.customerName && d.customerId && customerMap[d.customerId]) {
+            d.customerName = customerMap[d.customerId];
+          }
+        });
+        LogHelper.log('Filtered devices:', filteredDevices.length);
 
-      var profileIds = [];
-      filteredDevices.forEach(function (d) {
-        if (d.deviceProfileId && profileIds.indexOf(d.deviceProfileId) === -1) {
-          profileIds.push(d.deviceProfileId);
-        }
-      });
+        var profileIds = [];
+        filteredDevices.forEach(function (d) {
+          if (d.deviceProfileId && profileIds.indexOf(d.deviceProfileId) === -1) {
+            profileIds.push(d.deviceProfileId);
+          }
+        });
 
-      return Promise.all(profileIds.map(fetchDeviceProfile));
-    })
-    .then(function (profiles) {
-      profiles.forEach(function (p) {
-        if (p && p.id && p.id.id) state.deviceProfiles[p.id.id] = p;
-      });
-      LogHelper.log('Profiles fetched:', Object.keys(state.deviceProfiles).length);
+        // Second: fetch device profiles
+        return Promise.all(profileIds.map(fetchDeviceProfile));
+      })
+      .then(function (profiles) {
+        profiles.forEach(function (p) {
+          if (p && p.id && p.id.id) state.deviceProfiles[p.id.id] = p;
+        });
+        LogHelper.log('Profiles fetched:', Object.keys(state.deviceProfiles).length);
 
-      return fetchAlarms(state.settings.api.alarmsPageSize);
-    })
-    .then(function (alarms) {
+        // Third: fetch alarms
+        return fetchAlarms(state.settings.api.alarmsPageSize);
+      })
+      .then(function (alarms) {
+        // Return data to be processed after auth is restored
+        return { alarms: alarms, filteredDevices: filteredDevices };
+      });
+  })
+    .then(function (data) {
+      // Process data after session is restored (outside of service auth)
+      var alarms = data.alarms;
+      filteredDevices = data.filteredDevices;
+
       LogHelper.log('Alarms fetched:', alarms.length);
 
       // Build profiles list
