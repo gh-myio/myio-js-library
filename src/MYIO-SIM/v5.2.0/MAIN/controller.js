@@ -4435,6 +4435,13 @@ const MyIOOrchestrator = (() => {
       // Recalculate and dispatch summary with filter applied
       dispatchEnergySummaryIfReady('setSelectedShoppings');
 
+      // RFC: Also dispatch water summary when filter changes
+      if (typeof getWaterWidgetData === 'function') {
+        const waterSummary = getWaterWidgetData();
+        window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: waterSummary }));
+        LogHelper.log('[MAIN] [Orchestrator] 🔔 water-summary-ready dispatched (setSelectedShoppings)', waterSummary);
+      }
+
       // Notify HEADER and other widgets that filter was updated in orchestrator
       window.dispatchEvent(
         new CustomEvent('myio:orchestrator-filter-updated', {
