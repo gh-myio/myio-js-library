@@ -298,24 +298,27 @@ function getShoppingNameForFilter(customerId) {
 }
 
 /**
- * RFC-0098: Get filtered customer IDs from Orchestrator
+ * RFC-0098: Get selected shopping IDs (ingestionIds) from filter
+ * Same pattern as ENERGY - uses window.custumersSelected from MENU filter
  */
-function getFilteredCustomerIds() {
-  const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
-  if (orchestrator?.getFilteredShoppingIds) {
-    const ids = orchestrator.getFilteredShoppingIds();
-    if (ids && ids.length > 0) {
-      console.log('[WATER] [RFC-0098] Using filtered shopping IDs:', ids);
-      return ids;
+function getSelectedShoppingIds() {
+  // Check if there are selected customers from MENU filter
+  if (
+    window.custumersSelected &&
+    Array.isArray(window.custumersSelected) &&
+    window.custumersSelected.length > 0
+  ) {
+    // Use ingestionId if available, fallback to value (which is also ingestionId)
+    const selectedIds = window.custumersSelected.map((c) => c.ingestionId || c.value).filter(Boolean);
+
+    if (selectedIds.length > 0) {
+      console.log('[WATER] [RFC-0098] Using filtered shopping ingestionIds:', selectedIds);
+      return selectedIds;
     }
   }
-  // Fallback: get all customer IDs
-  if (orchestrator?.getCustomers) {
-    const customers = orchestrator.getCustomers();
-    const ids = customers.map((c) => c.id?.id || c.customerId).filter(Boolean);
-    console.log('[WATER] [RFC-0098] Using all customer IDs:', ids);
-    return ids;
-  }
+
+  // Fallback: return empty array (will use widget's customerId)
+  console.log('[WATER] [RFC-0098] No shopping filter active, using widget customerId');
   return [];
 }
 
@@ -371,8 +374,13 @@ async function fetchWaterPeriodConsumptionByDay(customerId, startTs, endTs, dayB
  * RFC-0098: Fetch water consumption for N days with real API data
  * Returns structured data with per-shopping breakdown for vizMode support
  */
-async function fetch7DaysConsumption(period = 7) {
-  const customerIds = getFilteredCustomerIds();
+async function fetch7DaysConsumption(period = 7, fallbackCustomerId = null) {
+  // Get filtered shopping IDs or use fallback customerId
+  const selectedShoppingIds = getSelectedShoppingIds();
+
+  // Use fallback from MAIN if no filter active
+  const fallbackId = fallbackCustomerId || window.myioHoldingCustomerId;
+  const customerIds = selectedShoppingIds.length > 0 ? selectedShoppingIds : (fallbackId ? [fallbackId] : []);
 
   if (!customerIds || customerIds.length === 0) {
     console.warn('[WATER] [RFC-0098] No customer IDs available');
