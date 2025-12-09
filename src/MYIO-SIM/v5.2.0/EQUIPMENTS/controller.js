@@ -177,8 +177,8 @@ function initializeCards(devices) {
     // 2. RENDERIZAÇÃO: Capturamos a instância retornada na variável 'cardInstance'
     const cardInstance = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
-      debugActive: true,
-      activeTooltipDebug: true,
+      debugActive: false,
+      activeTooltipDebug: false,
       delayTimeConnectionInMins,
 
       // 3. SELEÇÃO INICIAL: Verifica na Store se este card já deve nascer selecionado
@@ -379,7 +379,7 @@ function initializeCards(devices) {
 
       useNewComponents: true,
       enableSelection: true,
-      enableDragDrop: false,
+      enableDragDrop: true,
       // RFC-0072: Disable "More Information" menu item (redundant with card click)
       hideInfoMenuItem: true,
     });
@@ -1505,9 +1505,6 @@ function initFilterModal() {
   });
 }
 
-/**
- * RFC-0090: Open filter modal
- */
 function openFilterModal() {
   // Lazy initialize modal
   if (!equipmentsFilterModal) {
@@ -1520,8 +1517,21 @@ function openFilterModal() {
     return;
   }
 
-  // Open with current devices and state
-  equipmentsFilterModal.open(STATE.allDevices, {
+  // 1. Pega a lista completa de dispositivos
+  let items = STATE.allDevices || [];
+
+  // 2. APLICA O FILTRO DE SHOPPING (Correção aqui)
+  // Filtra a lista antes de mandar para o modal, assim o contador "Todos"
+  // mostrará apenas a quantidade do shopping selecionado.
+  if (STATE.selectedShoppingIds && STATE.selectedShoppingIds.length > 0) {
+    items = items.filter((d) => {
+      // Se não tem customerId ou não está na lista de selecionados, remove.
+      return d.customerId && STATE.selectedShoppingIds.includes(d.customerId);
+    });
+  }
+
+  // 3. Abre o modal com a lista filtrada
+  equipmentsFilterModal.open(items, {
     selectedIds: STATE.selectedIds,
     sortMode: STATE.sortMode,
   });
