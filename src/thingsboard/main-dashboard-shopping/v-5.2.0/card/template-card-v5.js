@@ -30,6 +30,13 @@ import {
   getConnectionStatusIcon
 } from '../../../../utils/deviceStatus.js';
 
+// ============================================
+// CONSTANTS
+// ============================================
+
+/** Maximum characters for device label display before truncation */
+const LABEL_CHAR_LIMIT = 18;
+
 export function renderCardComponentV5({
   entityObject,
   handleActionDashboard,
@@ -640,7 +647,7 @@ export function renderCardComponentV5({
 
               <div class="device-title-row" style="flex-direction: column; min-height: 38px; text-align: center; width: 100%;">
                 <span class="device-title" title="${cardEntity.name}">
-                  ${cardEntity.name.length > 18 ? cardEntity.name.slice(0, 18) + "…" : cardEntity.name}
+                  ${cardEntity.name.length > LABEL_CHAR_LIMIT ? cardEntity.name.slice(0, LABEL_CHAR_LIMIT) + "…" : cardEntity.name}
                 </span>
                 ${deviceIdentifier ? `
                   <span class="device-subtitle" title="${deviceIdentifier}">

@@ -23,15 +23,30 @@ export const CSS_STRING = `
   --myio-chip-alert-fg: #b45309;
   --myio-border-alert: rgba(245, 158, 11, 0.5);
 
-  /* Status colors - Failure (red) */
+  /* Status colors - Failure (dark red) */
   --myio-chip-failure-bg: #fee2e2;
   --myio-chip-failure-fg: #b91c1c;
-  --myio-border-failure: rgba(239, 68, 68, 0.5);
+  --myio-border-failure: rgba(153, 27, 27, 0.6);
 
-  /* Status colors - Offline (gray) */
-  --myio-chip-offline-bg: #f1f5f9;
-  --myio-chip-offline-fg: #64748b;
-  --myio-border-offline: rgba(100, 116, 139, 0.4);
+  /* Status colors - Power Off (light red) */
+  --myio-chip-power-off-bg: #fecaca;
+  --myio-chip-power-off-fg: #dc2626;
+  --myio-border-power-off: rgba(239, 68, 68, 0.5);
+
+  /* Status colors - Offline (dark gray) */
+  --myio-chip-offline-bg: #e2e8f0;
+  --myio-chip-offline-fg: #475569;
+  --myio-border-offline: rgba(71, 85, 105, 0.6);
+
+  /* Status colors - No Info (dark orange) */
+  --myio-chip-no-info-bg: #fed7aa;
+  --myio-chip-no-info-fg: #c2410c;
+  --myio-border-no-info: rgba(194, 65, 12, 0.5);
+
+  /* Status colors - Not Installed (purple) */
+  --myio-chip-not-installed-bg: #e9d5ff;
+  --myio-chip-not-installed-fg: #7c3aed;
+  --myio-border-not-installed: rgba(124, 58, 237, 0.5);
 
   --myio-text-1: #0f172a;
   --myio-text-2: #4b5563;
@@ -87,24 +102,53 @@ export const CSS_STRING = `
 }
 
 /* Card border states based on device status */
-.myio-ho-card.is-ok {
+
+/* POWER_ON - Blue */
+.myio-ho-card.is-power-on {
   border-color: var(--myio-border-ok);
   box-shadow: 0 0 0 2px var(--myio-border-ok), var(--myio-card-shadow);
 }
 
+/* STANDBY - Green */
 .myio-ho-card.is-standby {
   border-color: var(--myio-border-standby);
   box-shadow: 0 0 0 2px var(--myio-border-standby), var(--myio-card-shadow);
 }
 
-.myio-ho-card.is-alert {
+/* WARNING - Yellow */
+.myio-ho-card.is-warning {
   border-color: var(--myio-border-alert);
   box-shadow: 0 0 0 2px var(--myio-border-alert), var(--myio-card-shadow);
 }
 
+/* MAINTENANCE - Yellow */
+.myio-ho-card.is-maintenance {
+  border-color: var(--myio-border-alert);
+  box-shadow: 0 0 0 2px var(--myio-border-alert), var(--myio-card-shadow);
+}
+
+/* FAILURE - Dark Red */
 .myio-ho-card.is-failure {
   border-color: var(--myio-border-failure);
   box-shadow: 0 0 0 2px var(--myio-border-failure), var(--myio-card-shadow);
+}
+
+/* POWER_OFF - Light Red */
+.myio-ho-card.is-power-off {
+  border-color: var(--myio-border-power-off);
+  box-shadow: 0 0 0 2px var(--myio-border-power-off), var(--myio-card-shadow);
+}
+
+/* NO_INFO - Dark Orange */
+.myio-ho-card.is-no-info {
+  border-color: var(--myio-border-no-info);
+  box-shadow: 0 0 0 2px var(--myio-border-no-info), var(--myio-card-shadow);
+}
+
+/* NOT_INSTALLED - Purple */
+.myio-ho-card.is-not-installed {
+  border-color: var(--myio-border-not-installed);
+  box-shadow: 0 0 0 2px var(--myio-border-not-installed), var(--myio-card-shadow);
 }
 
 /* Header section */
@@ -124,7 +168,9 @@ export const CSS_STRING = `
   margin-top: 2px;
 }
 
-.myio-ho-card.is-alert .myio-ho-card__icon {
+/* Icon colors based on status */
+.myio-ho-card.is-warning .myio-ho-card__icon,
+.myio-ho-card.is-maintenance .myio-ho-card__icon {
   color: var(--myio-chip-alert-fg);
 }
 
@@ -132,14 +178,28 @@ export const CSS_STRING = `
   color: var(--myio-chip-failure-fg);
 }
 
+.myio-ho-card.is-power-off .myio-ho-card__icon {
+  color: var(--myio-chip-power-off-fg);
+}
+
+.myio-ho-card.is-offline .myio-ho-card__icon {
+  color: var(--myio-chip-offline-fg);
+}
+
+.myio-ho-card.is-no-info .myio-ho-card__icon {
+  color: var(--myio-chip-no-info-fg);
+}
+
+.myio-ho-card.is-not-installed .myio-ho-card__icon {
+  color: var(--myio-chip-not-installed-fg);
+}
+
 .myio-ho-card__title {
   flex: 1;
   min-width: 0;
 }
 
-/* Adicione estas duas novas regras ao seu CSS_STRING */
-
-/* Estado Offline - borda cinza */
+/* OFFLINE - Dark Gray */
 .myio-ho-card.is-offline {
   border-color: var(--myio-border-offline);
   box-shadow: 0 0 0 2px var(--myio-border-offline), var(--myio-card-shadow);
@@ -534,6 +594,37 @@ export const CSS_STRING = `
   color: var(--myio-chip-offline-fg);
 }
 
+/* New chip classes aligned with getCardStateClass */
+.chip--power-on {
+  background: var(--myio-chip-ok-bg);
+  color: var(--myio-chip-ok-fg);
+}
+
+.chip--warning {
+  background: var(--myio-chip-alert-bg);
+  color: var(--myio-chip-alert-fg);
+}
+
+.chip--maintenance {
+  background: var(--myio-chip-alert-bg);
+  color: var(--myio-chip-alert-fg);
+}
+
+.chip--power-off {
+  background: var(--myio-chip-power-off-bg);
+  color: var(--myio-chip-power-off-fg);
+}
+
+.chip--no-info {
+  background: var(--myio-chip-no-info-bg);
+  color: var(--myio-chip-no-info-fg);
+}
+
+.chip--not-installed {
+  background: var(--myio-chip-not-installed-bg);
+  color: var(--myio-chip-not-installed-fg);
+}
+
 /* Status indicator dot for power metric */
 .status-dot {
   width: 8px;
@@ -565,6 +656,31 @@ export const CSS_STRING = `
 
 .status-dot.dot--neutral {
   background: var(--myio-muted);
+}
+
+/* New dot classes aligned with getCardStateClass */
+.status-dot.dot--power-on {
+  background: var(--myio-chip-ok-fg);
+}
+
+.status-dot.dot--warning {
+  background: var(--myio-chip-alert-fg);
+}
+
+.status-dot.dot--maintenance {
+  background: var(--myio-chip-alert-fg);
+}
+
+.status-dot.dot--power-off {
+  background: var(--myio-chip-power-off-fg);
+}
+
+.status-dot.dot--no-info {
+  background: var(--myio-chip-no-info-fg);
+}
+
+.status-dot.dot--not-installed {
+  background: var(--myio-chip-not-installed-fg);
 }
 
 /* Primary metric */

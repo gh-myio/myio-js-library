@@ -306,8 +306,14 @@ export function getSelectedPeriodsLabel(selectedPeriods: DayPeriod[]): string {
 
 /**
  * Formats temperature value for display
+ * @param value - Temperature value in Celsius
+ * @param decimals - Number of decimal places (default: 1)
+ * @returns Formatted temperature string with °C unit, or '—' if value is invalid
  */
-export function formatTemperature(value: number, decimals: number = 1): string {
+export function formatTemperature(value: number | null | undefined, decimals: number = 1): string {
+  if (value === null || value === undefined || isNaN(value)) {
+    return '—';
+  }
   return `${value.toFixed(decimals)}°C`;
 }
 

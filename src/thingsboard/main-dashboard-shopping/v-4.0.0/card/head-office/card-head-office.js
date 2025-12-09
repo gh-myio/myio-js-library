@@ -8,12 +8,21 @@ import { Icons, ICON_MAP } from '../../head-office/card-head-office.icons';
 import { DEFAULT_I18N } from '../../head-office/card-head-office.types';
 import { formatEnergy } from '../../../../../format/energy.ts';
 import { formatWaterVolumeM3 } from '../../../../../format/water.ts';
+import { formatTemperature } from '../../../../../components/temperature/utils';
 import {
   DeviceStatusType,
   mapDeviceToConnectionStatus,
   getDeviceStatusInfo,
 } from '../../../../../utils/deviceStatus.js';
+import { createLogHelper } from '../../../../../utils/logHelper.js';
 
+// ============================================
+// CONSTANTS
+// ============================================
+
+/** Maximum characters for device label display before truncation */
+const LABEL_CHAR_LIMIT = 18;
+const DEFAUL_DELAY_TIME_CONNECTION_IN_MINS = 1440; // 24 hours x 60 minutes = 1440 mins
 const CSS_TAG = 'head-office-card-v1';
 
 /**
@@ -45,10 +54,19 @@ function normalizeParams(params) {
     throw new Error('renderCardCompenteHeadOffice: entityObject is required');
   }
 
+  // Create LogHelper based on debugActive param (default: false)
+  const LogHelper = createLogHelper(params.debugActive ?? false);
+
   const entityObject = params.entityObject;
   if (!entityObject.entityId) {
-    console.warn('renderCardCompenteHeadOffice: entityId is missing, generating temporary ID');
+    LogHelper.warn('[CardHeadOffice] entityId is missing, generating temporary ID');
     entityObject.entityId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  if (!params.delayTimeConnectionInMins) {
+    LogHelper.warn(
+      `[CardHeadOffice] delayTimeConnectionInMins is missing, defaulting to ${DEFAUL_DELAY_TIME_CONNECTION_IN_MINS} mins`
+    );
   }
 
   return {
@@ -58,7 +76,9 @@ function normalizeParams(params) {
     enableDragDrop: Boolean(params.enableDragDrop),
     useNewComponents: Boolean(params.useNewComponents),
     // RFC-0091: Configurable delay time for connection status check (default 15 minutes)
-    delayTimeConnectionInMins: params.delayTimeConnectionInMins ?? 15,
+    delayTimeConnectionInMins: params.delayTimeConnectionInMins ?? DEFAUL_DELAY_TIME_CONNECTION_IN_MINS,
+    // LogHelper instance for this card
+    LogHelper,
     callbacks: {
       handleActionDashboard: params.handleActionDashboard,
       handleActionReport: params.handleActionReport,
@@ -196,22 +216,12 @@ function formatValueByDomain(value, domain) {
   if (domain === 'water') {
     return formatWaterVolumeM3(value);
   }
-  // RFC-0092: Add temperature domain support
+  // RFC-0092: Add temperature domain support (using library's formatTemperature with 0 decimals)
   if (domain === 'temperature') {
-    return formatTemperature(value);
+    return formatTemperature(value, 0);
   }
   // Default to energy formatting
   return formatEnergy(value);
-}
-
-/**
- * Format temperature value
- */
-function formatTemperature(temp) {
-  if (temp === null || temp === undefined || isNaN(temp)) {
-    return '—';
-  }
-  return `${temp.toFixed(0)}°C`;
 }
 
 /**
@@ -301,38 +311,59 @@ function calculateConsumptionPercentage(target, consumption) {
 /**
  * Get status chip class and label based on deviceStatus
  * Agora aceita o parâmetro 'domain'
+ *
+ * Chip classes aligned with getCardStateClass:
+ *   POWER_ON: chip--power-on (Blue)
+ *   STANDBY: chip--standby (Green)
+ *   WARNING: chip--warning (Yellow)
+ *   MAINTENANCE: chip--maintenance (Yellow)
+ *   FAILURE: chip--failure (Dark Red)
+ *   POWER_OFF: chip--power-off (Light Red)
+ *   OFFLINE: chip--offline (Dark Gray)
+ *   NO_INFO: chip--no-info (Dark Orange)
+ *   NOT_INSTALLED: chip--not-installed (Purple)
  */
 function getStatusInfo(deviceStatus, i18n, domain) {
   switch (deviceStatus) {
     // --- Novos Status de Temperatura ---
     case 'normal':
-      return { chipClass: 'chip--ok', label: 'Normal' }; // Verde/Azul
+      return { chipClass: 'chip--ok', label: 'Normal' };
     case 'cold':
-      return { chipClass: 'chip--standby', label: 'Frio' }; // Azul claro/Ciano
+      return { chipClass: 'chip--standby', label: 'Frio' };
     case 'hot':
-      return { chipClass: 'chip--alert', label: 'Quente' }; // Laranja/Amarelo
-    
-    // --- Status Existentes ---
-    case DeviceStatusType.POWER_ON: // 'running'
+      return { chipClass: 'chip--alert', label: 'Quente' };
+
+    // --- Status Existentes (aligned with getCardStateClass) ---
+    case DeviceStatusType.POWER_ON:
       if (domain === 'water') {
-        return { chipClass: 'chip--ok', label: i18n.in_operation_water };
+        return { chipClass: 'chip--power-on', label: i18n.in_operation_water };
       }
-      return { chipClass: 'chip--ok', label: i18n.in_operation };
+      return { chipClass: 'chip--power-on', label: i18n.in_operation };
 
     case DeviceStatusType.STANDBY:
       return { chipClass: 'chip--standby', label: i18n.standby };
+
     case DeviceStatusType.WARNING:
-      return { chipClass: 'chip--alert', label: i18n.alert };
-    case DeviceStatusType.FAILURE:
-    case DeviceStatusType.POWER_OFF:
-      return { chipClass: 'chip--failure', label: i18n.failure };
+      return { chipClass: 'chip--warning', label: i18n.alert };
+
     case DeviceStatusType.MAINTENANCE:
-      return { chipClass: 'chip--alert', label: i18n.maintenance };
-    case DeviceStatusType.NOT_INSTALLED:
-      return { chipClass: 'chip--offline', label: i18n.not_installed };
-    
-    // Default (Cai aqui se não achar 'normal', 'hot' etc)
+      return { chipClass: 'chip--maintenance', label: i18n.maintenance };
+
+    case DeviceStatusType.FAILURE:
+      return { chipClass: 'chip--failure', label: i18n.failure };
+
+    case DeviceStatusType.POWER_OFF:
+      return { chipClass: 'chip--power-off', label: i18n.power_off || i18n.failure };
+
+    case DeviceStatusType.OFFLINE:
+      return { chipClass: 'chip--offline', label: i18n.offline };
+
     case DeviceStatusType.NO_INFO:
+      return { chipClass: 'chip--no-info', label: i18n.no_info || i18n.offline };
+
+    case DeviceStatusType.NOT_INSTALLED:
+      return { chipClass: 'chip--not-installed', label: i18n.not_installed };
+
     default:
       return { chipClass: 'chip--offline', label: i18n.offline };
   }
@@ -340,27 +371,45 @@ function getStatusInfo(deviceStatus, i18n, domain) {
 
 /**
  * Get card state class for status border based on deviceStatus
- * Colors: Normal=blue, Standby=green, Alert=yellow, Failure=red, Offline=gray
+ * Colors:
+ *   POWER_ON: Blue
+ *   STANDBY: Green
+ *   WARNING: Yellow
+ *   MAINTENANCE: Yellow
+ *   FAILURE: Dark Red
+ *   POWER_OFF: Light Red
+ *   OFFLINE: Dark Gray
+ *   NO_INFO: Dark Orange
+ *   NOT_INSTALLED: Purple
  */
 function getCardStateClass(deviceStatus) {
   switch (deviceStatus) {
     case DeviceStatusType.POWER_ON:
-      return 'is-ok'; // Blue border
+      return 'is-power-on'; // Blue border
 
     case DeviceStatusType.STANDBY:
       return 'is-standby'; // Green border
 
     case DeviceStatusType.WARNING:
+      return 'is-warning'; // Yellow border
+
     case DeviceStatusType.MAINTENANCE:
-      return 'is-alert'; // Yellow border
+      return 'is-maintenance'; // Yellow border
 
     case DeviceStatusType.FAILURE:
+      return 'is-failure'; // Dark Red border
+
     case DeviceStatusType.POWER_OFF:
-      return 'is-failure'; // Red border
+      return 'is-power-off'; // Light Red border
+
+    case DeviceStatusType.OFFLINE:
+      return 'is-offline'; // Dark Gray border
 
     case DeviceStatusType.NO_INFO:
+      return 'is-no-info'; // Dark Orange border
+
     case DeviceStatusType.NOT_INSTALLED:
-      return 'is-offline'; // Gray border
+      return 'is-not-installed'; // Purple border
 
     default:
       return '';
@@ -369,6 +418,17 @@ function getCardStateClass(deviceStatus) {
 
 /**
  * Get status dot class for power metric indicator
+ *
+ * Dot classes aligned with getCardStateClass:
+ *   POWER_ON: dot--power-on (Blue)
+ *   STANDBY: dot--standby (Green)
+ *   WARNING: dot--warning (Yellow)
+ *   MAINTENANCE: dot--maintenance (Yellow)
+ *   FAILURE: dot--failure (Dark Red)
+ *   POWER_OFF: dot--power-off (Light Red)
+ *   OFFLINE: dot--offline (Dark Gray)
+ *   NO_INFO: dot--no-info (Dark Orange)
+ *   NOT_INSTALLED: dot--not-installed (Purple)
  */
 function getStatusDotClass(deviceStatus) {
   switch (deviceStatus) {
@@ -380,17 +440,34 @@ function getStatusDotClass(deviceStatus) {
     case 'hot':
       return 'dot--alert';
 
-    // --- Status Existentes ---
+    // --- Status Existentes (aligned with getCardStateClass) ---
     case DeviceStatusType.POWER_ON:
-      return 'dot--ok';
+      return 'dot--power-on';
+
     case DeviceStatusType.STANDBY:
       return 'dot--standby';
+
     case DeviceStatusType.WARNING:
+      return 'dot--warning';
+
     case DeviceStatusType.MAINTENANCE:
-      return 'dot--alert';
+      return 'dot--maintenance';
+
     case DeviceStatusType.FAILURE:
-    case DeviceStatusType.POWER_OFF:
       return 'dot--failure';
+
+    case DeviceStatusType.POWER_OFF:
+      return 'dot--power-off';
+
+    case DeviceStatusType.OFFLINE:
+      return 'dot--offline';
+
+    case DeviceStatusType.NO_INFO:
+      return 'dot--no-info';
+
+    case DeviceStatusType.NOT_INSTALLED:
+      return 'dot--not-installed';
+
     default:
       return 'dot--offline';
   }
@@ -428,7 +505,14 @@ function buildDOM(state) {
 
   const nameEl = document.createElement('div');
   nameEl.className = 'myio-ho-card__name';
-  nameEl.textContent = entityObject.labelOrName || 'Unknown Device';
+  const fullName = entityObject.labelOrName || 'Unknown Device';
+  // Truncate name if exceeds limit and add tooltip with full name
+  if (fullName.length > LABEL_CHAR_LIMIT) {
+    nameEl.textContent = fullName.slice(0, LABEL_CHAR_LIMIT) + '…';
+    nameEl.title = fullName;
+  } else {
+    nameEl.textContent = fullName;
+  }
   titleSection.appendChild(nameEl);
 
   if (entityObject.deviceIdentifier) {
@@ -511,7 +595,6 @@ function buildDOM(state) {
   statusChipContainer.appendChild(chip);
   chipsRow.appendChild(statusChipContainer); // Adiciona ao novo container
 
-  // Chip Mockado de Shopping (SEGUNDO, para ficar à direita)
   const chipShopping = document.createElement('span');
   chipShopping.className = 'myio-ho-card__shopping-chip';
   const chipIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="chip-icon"><path d="M4 22h16"/><path d="M7 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M9 18h6"/><path d="M9 14h6"/><path d="M9 10h6"/><path d="M9 6h6"/></svg>`;
@@ -664,9 +747,10 @@ function buildDOM(state) {
  * Verify if device is online based on connection timestamps
  * @param {Object} entityObject - Entity with lastConnectTime and lastDisconnectTime
  * @param {number} delayTimeInMins - Delay time in minutes for connection probation period (default 15)
+ * @param {Object} LogHelper - LogHelper instance for logging
  * @returns {boolean} true if online, false if offline
  */
-function verifyOfflineStatus(entityObject, delayTimeInMins = 15) {
+function verifyOfflineStatus(entityObject, delayTimeInMins = 15, LogHelper) {
   const lastConnectionTime = new Date(entityObject.lastConnectTime || 0);
   const lastDisconnectTime = new Date(entityObject.lastDisconnectTime || 0);
   const now = new Date();
@@ -674,38 +758,72 @@ function verifyOfflineStatus(entityObject, delayTimeInMins = 15) {
   const delayTimeInMs = delayTimeInMins * 60 * 1000;
   const timeSinceConnection = now.getTime() - lastConnectionTime.getTime();
 
+  let isOffline = false;
+
   // Rule 1: If last disconnect is more recent than last connect, device is offline
   if (lastDisconnectTime.getTime() > lastConnectionTime.getTime()) {
-    return false;
-  }
-
-  // Rule 2: If connection is recent (< configured delay), consider offline (probation period)
-  if (timeSinceConnection < delayTimeInMs) {
-    return false;
+    isOffline = true;
+    LogHelper.log(
+      '[CardHeadOffice][ConnectionStatus Verify] Device is OFFLINE because lastDisconnectTime is more recent than lastConnectTime',
+      entityObject.nameEl
+    );
+  } else if (timeSinceConnection > delayTimeInMs) {
+    // Rule 2: If connection is recent (< configured delay), consider offline (probation period)
+    isOffline = true;
+    LogHelper.log(
+      '[CardHeadOffice][ConnectionStatus Verify] Device is OFFLINE because lastConnectTime is older than configured delayTimeConnectionInMins:',
+      delayTimeInMins,
+      'for device',
+      entityObject.nameEl
+    );
+  } else {
+    isOffline = false;
+    LogHelper.log(
+      '[CardHeadOffice][ConnectionStatus Verify] Device is ONLINE because lastConnectTime is within configured delayTimeConnectionInMins:',
+      delayTimeInMins,
+      'for device',
+      entityObject.nameEl
+    );
   }
 
   // Otherwise: Connected for more than configured delay, device is online
-  return true;
+  return isOffline;
 }
 
 /**
  * Paint/update DOM with current state
  */
 function paint(root, state) {
-  const { entityObject, i18n, delayTimeConnectionInMins, isSelected } = state;
+  const { entityObject, i18n, delayTimeConnectionInMins, isSelected, LogHelper } = state;
 
   // RFC-0093: Use connectionStatus if available (from ThingsBoard real-time data)
   // Only fallback to timestamp verification if connectionStatus is not provided
   if (entityObject.connectionStatus) {
     // connectionStatus is already mapped ('online', 'waiting', 'offline')
     if (entityObject.connectionStatus === 'offline') {
-      entityObject.deviceStatus = DeviceStatusType.NO_INFO;
+      LogHelper.log(
+        '[CardHeadOffice][ConnectionStatus Verify 01] Setting deviceStatus to OFFLINE based on connectionStatus'
+      );
+      entityObject.deviceStatus = DeviceStatusType.OFFLINE;
+    } else {
+      LogHelper.log(
+        '[CardHeadOffice] Device is ONLINE or WAITING based on connectionStatus for device',
+        entityObject.nameEl
+      );
     }
     // If online/waiting, keep the existing deviceStatus (which reflects power status)
   } else {
     // RFC-0091: Fallback to timestamp-based verification when connectionStatus not available
-    if (verifyOfflineStatus(entityObject, delayTimeConnectionInMins) === false) {
-      entityObject.deviceStatus = DeviceStatusType.NO_INFO;
+    if (verifyOfflineStatus(entityObject, delayTimeConnectionInMins, LogHelper) === false) {
+      LogHelper.log(
+        '[CardHeadOffice][ConnectionStatus Verify 02] Setting deviceStatus to OFFLINE based on timestamp verification by verifyOfflineStatus METHOD with delayTimeConnectionInMins:',
+        delayTimeConnectionInMins
+      );
+      entityObject.deviceStatus = DeviceStatusType.OFFLINE;
+    } else {
+      LogHelper.log(
+        `[CardHeadOffice][ConnectionStatus Verify 03] Device is ONLINE with deviceStatus = ${entityObject.deviceStatus} based on timestamp verification for device ${entityObject.nameEl}`
+      );
     }
   }
 
@@ -777,14 +895,14 @@ function paint(root, state) {
   // Instantaneous Power (W/kW) - value comes in Watts
   const powerVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(2) .val');
   if (powerVal) {
-if (entityObject.domain === 'water') {
-        const pulses = entityObject.pulses ?? 0;
-        powerVal.textContent = `${pulses} L`; 
+    if (entityObject.domain === 'water') {
+      const pulses = entityObject.pulses ?? 0;
+      powerVal.textContent = `${pulses} L`;
     } else {
-        // Lógica existente para Energia (Potência)
-        const instantPower = entityObject.instantaneousPower ?? entityObject.consumption_power ?? null;
-        const powerFormatted = formatPower(instantPower);
-        powerVal.textContent = instantPower !== null ? `${powerFormatted.num} ${powerFormatted.unit}` : '-';
+      // Lógica existente para Energia (Potência)
+      const instantPower = entityObject.instantaneousPower ?? entityObject.consumption_power ?? null;
+      const powerFormatted = formatPower(instantPower);
+      powerVal.textContent = instantPower !== null ? `${powerFormatted.num} ${powerFormatted.unit}` : '-';
     }
   }
 

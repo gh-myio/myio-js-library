@@ -19,6 +19,7 @@ export const DeviceStatusType = {
   MAINTENANCE: "maintenance",
   NO_INFO: "no_info",
   NOT_INSTALLED: "not_installed",
+  OFFLINE: "offline",
 };
 
 /**
@@ -37,12 +38,13 @@ export const ConnectionStatusType = {
 export const deviceStatusIcons = {
   [DeviceStatusType.POWER_ON]: "⚡",
   [DeviceStatusType.STANDBY]: "🔌",
-  [DeviceStatusType.POWER_OFF]: "🔴",
+  [DeviceStatusType.POWER_OFF]: "⚫",
   [DeviceStatusType.WARNING]: "⚠️",
   [DeviceStatusType.FAILURE]: "🚨",
   [DeviceStatusType.MAINTENANCE]: "🛠️",
   [DeviceStatusType.NO_INFO]: "❓️",
   [DeviceStatusType.NOT_INSTALLED]: "📦",
+  [DeviceStatusType.OFFLINE]: "🔴",
 };
 
 /**
@@ -52,12 +54,13 @@ export const deviceStatusIcons = {
 export const waterDeviceStatusIcons = {
   [DeviceStatusType.POWER_ON]: "💧",
   [DeviceStatusType.STANDBY]: "🚰",
-  [DeviceStatusType.POWER_OFF]: "🔴",
+  [DeviceStatusType.POWER_OFF]: "⚫",
   [DeviceStatusType.WARNING]: "⚠️",
   [DeviceStatusType.FAILURE]: "🚨",
   [DeviceStatusType.MAINTENANCE]: "🛠️",
   [DeviceStatusType.NO_INFO]: "❓️",
   [DeviceStatusType.NOT_INSTALLED]: "📦",
+  [DeviceStatusType.OFFLINE]: "🔴",
 };
 
 /**
@@ -67,12 +70,13 @@ export const waterDeviceStatusIcons = {
 export const temperatureDeviceStatusIcons = {
   [DeviceStatusType.POWER_ON]: "🌡️",
   [DeviceStatusType.STANDBY]: "🌡️",
-  [DeviceStatusType.POWER_OFF]: "🔴",
+  [DeviceStatusType.POWER_OFF]: "⚫",
   [DeviceStatusType.WARNING]: "⚠️",
   [DeviceStatusType.FAILURE]: "🚨",
   [DeviceStatusType.MAINTENANCE]: "🛠️",
   [DeviceStatusType.NO_INFO]: "❓️",
   [DeviceStatusType.NOT_INSTALLED]: "📦",
+  [DeviceStatusType.OFFLINE]: "🔴",
 };
 
 /**
@@ -93,7 +97,7 @@ export const connectionStatusIcons = {
  * @returns {string} The connection status (connected or offline)
  */
 export function mapDeviceToConnectionStatus(deviceStatus) {
-  if (deviceStatus === DeviceStatusType.NO_INFO) {
+  if (deviceStatus === DeviceStatusType.NO_INFO || deviceStatus === DeviceStatusType.OFFLINE) {
     return ConnectionStatusType.OFFLINE;
   }
   return ConnectionStatusType.CONNECTED;
@@ -139,7 +143,8 @@ export function mapDeviceStatusToCardStatus(deviceStatus) {
     [DeviceStatusType.FAILURE]: 'fail',
     [DeviceStatusType.MAINTENANCE]: 'alert',
     [DeviceStatusType.NO_INFO]: 'unknown',
-    [DeviceStatusType.NOT_INSTALLED]: 'not_installed'
+    [DeviceStatusType.NOT_INSTALLED]: 'not_installed',
+    [DeviceStatusType.OFFLINE]: 'offline'
   };
   return statusMap[deviceStatus] || 'unknown';
 }
@@ -155,7 +160,8 @@ export function shouldFlashIcon(deviceStatus) {
     deviceStatus === DeviceStatusType.POWER_OFF ||
     deviceStatus === DeviceStatusType.WARNING ||
     deviceStatus === DeviceStatusType.FAILURE ||
-    deviceStatus === DeviceStatusType.MAINTENANCE
+    deviceStatus === DeviceStatusType.MAINTENANCE ||
+    deviceStatus === DeviceStatusType.OFFLINE
   );
 }
 
@@ -166,7 +172,7 @@ export function shouldFlashIcon(deviceStatus) {
  * @returns {boolean} True if device is offline
  */
 export function isDeviceOffline(deviceStatus) {
-  return deviceStatus === DeviceStatusType.NO_INFO;
+  return deviceStatus === DeviceStatusType.NO_INFO || deviceStatus === DeviceStatusType.OFFLINE;
 }
 
 /**
