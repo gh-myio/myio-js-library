@@ -247,10 +247,13 @@ function getSelectedShoppingIds() {
 
 // Global chart references for later updates
 let lineChartInstance = null;
-let pieChartInstance = null;
+let pieChartInstance = null; // Legacy reference (kept for backwards compatibility)
 
 // RFC-0098: Consumption 7 Days Chart instance (new standardized component)
 let consumptionChartInstance = null;
+
+// RFC-0102: Distribution Chart instance (new standardized component)
+let distributionChartInstance = null;
 
 // RFC-0097: Fullscreen state
 let isChartFullscreen = false;
@@ -301,6 +304,7 @@ async function openFullscreenModal() {
     defaultChartType: chartConfig.chartType || 'line',
     defaultVizMode: chartConfig.vizMode || 'total',
     theme: 'light',
+    showSettingsButton: false, // Settings configured in widget before maximizing
     fetchData: fetchConsumptionDataAdapter,
     onClose: () => {
       console.log('[ENERGY] [RFC-0098] Fullscreen modal closed');
@@ -1377,86 +1381,75 @@ async function initializeCharts() {
     return;
   }
 
-  // Initialize bar chart with loading state (unchanged)
-  const pieCtx = document.getElementById('pieChart').getContext('2d');
-  pieChartInstance = new Chart(pieCtx, {
-    type: 'bar',
-    data: {
-      labels: ['Carregando...'],
-      datasets: [
-        {
-          label: 'Consumo (kWh)',
-          data: [1],
-          backgroundColor: ['#e5e7eb'],
-        },
+  // RFC-0102: Initialize distribution chart using createDistributionChartWidget
+  if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createDistributionChartWidget) {
+    console.log('[ENERGY] [RFC-0102] Initializing distribution chart widget...');
+
+    distributionChartInstance = MyIOLibrary.createDistributionChartWidget({
+      domain: 'energy',
+      containerId: 'energy-distribution-widget',
+      title: 'Distribuição de Energia',
+      unit: 'kWh',
+      unitLarge: 'MWh',
+      thresholdForLargeUnit: 1000,
+      decimalPlaces: 2,
+      chartHeight: 300,
+      theme: 'light',
+      $container: $container,
+
+      // Visualization modes
+      modes: [
+        { value: 'groups', label: 'Por Grupos de Equipamentos' },
+        { value: 'elevators', label: 'Elevadores por Shopping' },
+        { value: 'escalators', label: 'Escadas Rolantes por Shopping' },
+        { value: 'hvac', label: 'Climatização por Shopping' },
+        { value: 'others', label: 'Outros Equipamentos por Shopping' },
+        { value: 'stores', label: 'Lojas por Shopping' },
       ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      indexAxis: 'y', // Horizontal bar chart
-      plugins: {
-        legend: {
-          display: false, // Hide legend for bar chart (not needed)
-        },
-        tooltip: {
-          callbacks: {
-            label: function (context) {
-              const value = context.parsed.x || 0;
+      defaultMode: 'groups',
 
-              // Calculate percentage
-              const dataset = context.dataset;
-              const total = dataset.data.reduce((sum, val) => sum + val, 0);
-              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-
-              // Format energy value
-              let energyStr;
-              if (value >= 1000) {
-                energyStr = `${(value / 1000).toFixed(2)} MWh`;
-              } else {
-                energyStr = `${value.toFixed(2)} kWh`;
-              }
-
-              return `${energyStr} (${percentage}%)`;
-            },
-          },
-        },
+      // Data fetching - uses existing calculateDistributionByMode function
+      fetchDistribution: async (mode) => {
+        console.log(`[ENERGY] [RFC-0102] Fetching distribution for mode: ${mode}`);
+        return await calculateDistributionByMode(mode);
       },
-      scales: {
-        x: {
-          beginAtZero: true,
-          ticks: {
-            callback: function (value) {
-              if (value >= 1000) {
-                return `${(value / 1000).toFixed(1)} MWh`;
-              }
-              return `${value.toFixed(0)} kWh`;
-            },
-          },
-        },
-        y: {
-          ticks: {
-            font: {
-              size: 11,
-            },
-          },
-        },
+
+      // Get shopping colors from orchestrator for consistency
+      getShoppingColors: () => {
+        const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+        return orchestrator?.getShoppingColors?.() || null;
       },
-    },
-  });
 
-  // Fetch real data and update pie chart
-  setTimeout(async () => {
-    console.log('[ENERGY] Starting pie chart update...');
-    await updatePieChart('groups'); // Initialize with default mode
+      // Callbacks
+      onModeChange: (mode) => {
+        console.log(`[ENERGY] [RFC-0102] Distribution mode changed to: ${mode}`);
+      },
+      onDataLoaded: (data) => {
+        console.log('[ENERGY] [RFC-0102] Distribution data loaded:', Object.keys(data).length, 'items');
+      },
+      onError: (error) => {
+        console.error('[ENERGY] [RFC-0102] Distribution chart error:', error);
+      },
+    });
 
-    // Setup distribution mode selector
-    setupDistributionModeSelector();
+    // Render the distribution chart after a delay to ensure orchestrator is ready
+    setTimeout(async () => {
+      try {
+        await distributionChartInstance.render();
+        console.log('[ENERGY] [RFC-0102] Distribution chart rendered successfully');
 
-    // RFC-0098: Setup chart tab handlers (now using component API)
-    setupChartTabHandlersRFC0098();
-  }, 2000); // Increased timeout to ensure orchestrator is ready
+        // Store legacy reference for backwards compatibility
+        pieChartInstance = distributionChartInstance.getChartInstance();
+      } catch (error) {
+        console.error('[ENERGY] [RFC-0102] Failed to render distribution chart:', error);
+      }
+
+      // RFC-0098: Setup chart tab handlers (now using component API)
+      setupChartTabHandlersRFC0098();
+    }, 2000); // Delay to ensure orchestrator is ready
+  } else {
+    console.error('[ENERGY] [RFC-0102] createDistributionChartWidget not available in MyIOLibrary!');
+  }
 }
 
 /**
@@ -1639,132 +1632,34 @@ function getShoppingNameForFilter(customerId) {
 }
 
 /**
- * Atualiza o gráfico de pizza com distribuição por tipo de equipamento ou por shopping
+ * RFC-0102: Atualiza o gráfico de distribuição usando o novo componente
  * @param {string} mode - Mode to display: "groups", "elevators", "escalators", "hvac", "others", "stores"
+ * @deprecated Use distributionChartInstance.setMode() or distributionChartInstance.refresh() instead
  */
 async function updatePieChart(mode = 'groups') {
-  try {
-    console.log(`[ENERGY] Calculating distribution for mode: ${mode}...`);
-
-    // Wait for orchestrator to be ready
-    let attempts = 0;
-    const maxAttempts = 20;
-
-    const waitForOrchestrator = () => {
-      return new Promise((resolve) => {
-        const intervalId = setInterval(() => {
-          attempts++;
-          const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
-
-          if (orchestrator && typeof orchestrator.getEnergyCache === 'function') {
-            clearInterval(intervalId);
-            resolve(true);
-          } else if (attempts >= maxAttempts) {
-            clearInterval(intervalId);
-            resolve(false);
-          }
-        }, 200);
-      });
-    };
-
-    const ready = await waitForOrchestrator();
-
-    if (!ready) {
-      console.warn('[ENERGY] Orchestrator not ready, using mock distribution');
-      return;
+  // RFC-0102: Use the new distribution chart widget API
+  if (distributionChartInstance) {
+    try {
+      console.log(`[ENERGY] [RFC-0102] Updating distribution chart with mode: ${mode}`);
+      await distributionChartInstance.setMode(mode);
+    } catch (error) {
+      console.error('[ENERGY] [RFC-0102] Error updating distribution chart:', error);
     }
-
-    // Use new distribution calculation based on mode
-    const distribution = await calculateDistributionByMode(mode);
-
-    if (!distribution || !pieChartInstance) {
-      console.error('[ENERGY] Unable to calculate distribution or chart not found');
-      return;
-    }
-
-    // Filter out zero values and prepare data
-    const labels = [];
-    const data = [];
-
-    // Calculate total for percentage calculation
-    const total = Object.values(distribution).reduce((sum, val) => sum + val, 0);
-
-    // Color palette for equipment groups
-    const groupColors = {
-      Elevadores: '#3b82f6',
-      'Escadas Rolantes': '#8b5cf6',
-      Climatização: '#f59e0b',
-      'Outros Equipamentos': '#ef4444',
-      Lojas: '#10b981',
-    };
-
-    // Color palette for shoppings (rotating colors)
-    const shoppingColors = [
-      '#3b82f6',
-      '#8b5cf6',
-      '#f59e0b',
-      '#ef4444',
-      '#10b981',
-      '#06b6d4',
-      '#ec4899',
-      '#14b8a6',
-      '#f97316',
-      '#a855f7',
-    ];
-
-    const backgroundColors = [];
-    let colorIndex = 0;
-
-    Object.entries(distribution).forEach(([type, value]) => {
-      if (value > 0) {
-        const formatted = MyIOLibrary.formatEnergy(value);
-        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-        labels.push(`${type} (${formatted} - ${percentage}%)`);
-        data.push(value);
-
-        // Use group colors for "groups" mode, shopping colors for other modes
-        if (mode === 'groups') {
-          backgroundColors.push(groupColors[type] || '#94a3b8');
-        } else {
-          backgroundColors.push(shoppingColors[colorIndex % shoppingColors.length]);
-          colorIndex++;
-        }
-      }
-    });
-
-    // Update chart
-    pieChartInstance.data.labels = labels;
-    pieChartInstance.data.datasets[0].data = data;
-    pieChartInstance.data.datasets[0].backgroundColor = backgroundColors;
-    pieChartInstance.data.datasets[0].label = 'Consumo'; // Bar chart label
-    pieChartInstance.update();
-
-    console.log(`[ENERGY] Bar chart updated with ${mode} distribution`);
-  } catch (error) {
-    console.error('[ENERGY] Error updating pie chart:', error);
-  }
-}
-
-/**
- * Configura o seletor de modo de distribuição
- */
-function setupDistributionModeSelector() {
-  const distributionModeSelect = document.getElementById('distributionMode');
-
-  if (!distributionModeSelect) {
-    console.warn('[ENERGY] Distribution mode selector not found');
     return;
   }
 
-  console.log('[ENERGY] Setting up distribution mode selector');
+  // Legacy fallback (should not be reached if component is initialized)
+  console.warn('[ENERGY] [RFC-0102] Distribution chart instance not available, legacy code path');
+}
 
-  distributionModeSelect.addEventListener('change', async (e) => {
-    const mode = e.target.value;
-    console.log(`[ENERGY] Distribution mode changed to: ${mode}`);
-
-    // Update pie chart with new mode
-    await updatePieChart(mode);
-  });
+/**
+ * RFC-0102: Distribution mode selector is now handled by the component internally
+ * @deprecated The createDistributionChartWidget component handles mode selection internally
+ */
+function setupDistributionModeSelector() {
+  // RFC-0102: Mode selector is now handled by createDistributionChartWidget component
+  // This function is kept for backwards compatibility but does nothing
+  console.log('[ENERGY] [RFC-0102] Distribution mode selector handled by component - skipping legacy setup');
 }
 
 // RFC-0098: Legacy chart functions removed - now using createConsumption7DaysChart component
@@ -1862,9 +1757,11 @@ self.onInit = async function () {
     // Invalidate cache when filter changes
     cachedChartData = null;
 
-    // Also update pie chart to reflect filtered data
-    const currentMode = document.getElementById('distributionMode')?.value || 'groups';
-    await updatePieChart(currentMode);
+    // RFC-0102: Update distribution chart to reflect filtered data
+    if (distributionChartInstance) {
+      console.log('[ENERGY] [RFC-0102] Refreshing distribution chart after filter change');
+      await distributionChartInstance.refresh();
+    }
 
     // RFC-0098: Update line chart using component API if available
     if (consumptionChartInstance && typeof consumptionChartInstance.refresh === 'function') {
@@ -1886,11 +1783,13 @@ self.onInit = async function () {
   registeredHandlers.handleEquipmentMetadataEnriched = async (ev) => {
     console.log('[ENERGY] [RFC-0076] 🔧 Equipment metadata enriched! Forcing chart update...', ev.detail);
 
-    // Force immediate update of pie chart to pick up elevator classifications
-    const currentMode = document.getElementById('distributionMode')?.value || 'groups';
-    await updatePieChart(currentMode);
+    // RFC-0102: Force immediate update of distribution chart to pick up elevator classifications
+    if (distributionChartInstance) {
+      console.log('[ENERGY] [RFC-0102] Refreshing distribution chart after metadata enrichment');
+      await distributionChartInstance.refresh();
+    }
 
-    console.log('[ENERGY] [RFC-0076] ✅ Charts updated with enriched metadata');
+    console.log('[ENERGY] [RFC-0076] [RFC-0102] Charts updated with enriched metadata');
   };
 
   window.addEventListener(

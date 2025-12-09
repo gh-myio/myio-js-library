@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RFC-0102: Distribution Chart Widget - Showcase</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- MyIO JS Library -->
+    <script src="../dist/myio-js-library.umd.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #3e1a7d;
+            --energy-color: #6c2fbf;
+            --water-color: #0288d1;
+            --bg-light: #f5f5f5;
+            --bg-dark: #111827;
+            --card-light: #ffffff;
+            --card-dark: #1f2937;
+            --text-light: #1f2937;
+            --text-dark: #f3f4f6;
+            --border-light: #e5e7eb;
+            --border-dark: #374151;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-light);
+            min-height: 100vh;
+            padding: 40px 20px;
+            transition: background 0.3s;
+        }
+
+        body.dark {
+            background: var(--bg-dark);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            color: var(--text-light);
+            margin-bottom: 8px;
+        }
+
+        body.dark .header h1 { color: var(--text-dark); }
+
+        .header p {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            z-index: 100;
+        }
+
+        .theme-toggle:hover {
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .section {
+            background: var(--card-light);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: background 0.3s;
+        }
+
+        body.dark .section {
+            background: var(--card-dark);
+        }
+
+        .section h2 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: var(--text-light);
+        }
+
+        body.dark .section h2 { color: var(--text-dark); }
+
+        .section > p {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 16px;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 24px;
+        }
+
+        /* RFC-0102: Widget container styling */
+        .widget-container {
+            background: var(--card-light);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            min-height: 400px;
+            transition: all 0.3s;
+            overflow: hidden;
+        }
+
+        body.dark .widget-container {
+            background: var(--card-dark);
+            border-color: var(--border-dark);
+        }
+
+        .color-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding: 16px;
+            background: var(--card-light);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        body.dark .color-legend {
+            background: var(--card-dark);
+            border-color: var(--border-dark);
+        }
+
+        .legend-title {
+            width: 100%;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: 8px;
+        }
+
+        body.dark .legend-title { color: var(--text-dark); }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .legend-label {
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        body.dark .legend-label { color: var(--text-dark); }
+
+        .log {
+            background: #1f2937;
+            color: #86efac;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 11px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        pre {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+
+        .code-comment { color: #6b7280; }
+        .code-keyword { color: #c084fc; }
+        .code-string { color: #86efac; }
+        .code-function { color: #60a5fa; }
+
+        @media (max-width: 600px) {
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">Toggle Theme</button>
+
+    <div class="header">
+        <h1>RFC-0102: Distribution Chart Widget</h1>
+        <p>createDistributionChartWidget - Self-contained horizontal bar chart component</p>
+    </div>
+
+    <div class="container">
+        <!-- Color Consistency Legend -->
+        <div class="section">
+            <h2>Shopping Color Consistency</h2>
+            <p>Same shopping always has the same color across all widgets and domains (via orchestrator)</p>
+
+            <div class="color-legend">
+                <div class="legend-title">Orchestrator Shopping Colors (Consistent Across All Charts)</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #3b82f6;"></div>
+                    <span class="legend-label">Shopping Morumbi</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #8b5cf6;"></div>
+                    <span class="legend-label">Shopping Eldorado</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f59e0b;"></div>
+                    <span class="legend-label">Shopping Iguatemi</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ef4444;"></div>
+                    <span class="legend-label">Shopping Villa Lobos</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #10b981;"></div>
+                    <span class="legend-label">Shopping Patio Paulista</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ENERGY Distribution Widget -->
+        <div class="section">
+            <h2>ENERGY Distribution Widget</h2>
+            <p>Equipment groups and per-shopping breakdown for energy consumption. Widget injects its own HTML.</p>
+
+            <div class="charts-grid">
+                <!-- RFC-0102: Widget container - component injects its own HTML -->
+                <div id="energy-distribution-widget" class="widget-container"></div>
+            </div>
+        </div>
+
+        <!-- WATER Distribution Widget -->
+        <div class="section">
+            <h2>WATER Distribution Widget</h2>
+            <p>Stores vs Common Area breakdown for water consumption. Widget injects its own HTML.</p>
+
+            <div class="charts-grid">
+                <!-- RFC-0102: Widget container - component injects its own HTML -->
+                <div id="water-distribution-widget" class="widget-container"></div>
+            </div>
+        </div>
+
+        <!-- Code Example -->
+        <div class="section">
+            <h2>Usage Example (RFC-0102)</h2>
+            <pre><span class="code-comment">// RFC-0102: Distribution Chart Widget</span>
+<span class="code-keyword">const</span> energyDistribution = MyIOLibrary.<span class="code-function">createDistributionChartWidget</span>({
+  domain: <span class="code-string">'energy'</span>,
+  containerId: <span class="code-string">'energy-distribution-widget'</span>,
+  title: <span class="code-string">'Distribuicao de Energia'</span>,
+  unit: <span class="code-string">'kWh'</span>,
+  unitLarge: <span class="code-string">'MWh'</span>,
+  thresholdForLargeUnit: <span class="code-string">1000</span>,
+
+  <span class="code-comment">// Visualization modes</span>
+  modes: [
+    { value: <span class="code-string">'groups'</span>, label: <span class="code-string">'Por Grupos de Equipamentos'</span> },
+    { value: <span class="code-string">'elevators'</span>, label: <span class="code-string">'Elevadores por Shopping'</span> },
+    { value: <span class="code-string">'stores'</span>, label: <span class="code-string">'Lojas por Shopping'</span> },
+  ],
+
+  <span class="code-comment">// Data fetching</span>
+  <span class="code-function">fetchDistribution</span>: <span class="code-keyword">async</span> (mode) => {
+    <span class="code-keyword">return await</span> <span class="code-function">calculateDistributionByMode</span>(mode);
+  },
+
+  <span class="code-comment">// Color consistency from orchestrator</span>
+  <span class="code-function">getShoppingColors</span>: () => {
+    <span class="code-keyword">const</span> orchestrator = window.MyIOOrchestrator;
+    <span class="code-keyword">return</span> orchestrator?.<span class="code-function">getShoppingColors</span>() || <span class="code-keyword">null</span>;
+  },
+
+  <span class="code-comment">// Callbacks</span>
+  <span class="code-function">onModeChange</span>: (mode) => console.log('Mode changed:', mode),
+  <span class="code-function">onDataLoaded</span>: (data) => console.log('Data loaded:', data),
+});
+
+<span class="code-keyword">await</span> energyDistribution.<span class="code-function">render</span>();</pre>
+        </div>
+
+        <!-- Log -->
+        <div class="section">
+            <h2>Log</h2>
+            <div class="log" id="log"></div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // LOGGING
+        // ============================================
+        function log(message) {
+            const logEl = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(message);
+        }
+
+        // ============================================
+        // MOCK ORCHESTRATOR (simulates production environment)
+        // ============================================
+        const SHOPPING_COLORS = {
+            'shop1': '#3b82f6',  // Morumbi - Blue
+            'shop2': '#8b5cf6',  // Eldorado - Purple
+            'shop3': '#f59e0b',  // Iguatemi - Amber
+            'shop4': '#ef4444',  // Villa Lobos - Red
+            'shop5': '#10b981',  // Patio Paulista - Emerald
+        };
+
+        const SHOPPING_NAMES = {
+            'shop1': 'Shopping Morumbi',
+            'shop2': 'Shopping Eldorado',
+            'shop3': 'Shopping Iguatemi',
+            'shop4': 'Shopping Villa Lobos',
+            'shop5': 'Shopping Patio Paulista',
+        };
+
+        // Simulate orchestrator API
+        window.MyIOOrchestrator = {
+            getShoppingColors: () => SHOPPING_COLORS,
+            getShoppingNames: () => SHOPPING_NAMES,
+        };
+
+        // ============================================
+        // MOCK DATA GENERATORS
+        // ============================================
+        function generateEnergyDistribution(mode) {
+            log(`[ENERGY] Fetching distribution for mode: ${mode}`);
+
+            if (mode === 'groups') {
+                return {
+                    'Elevadores': 12500 + Math.random() * 2000,
+                    'Escadas Rolantes': 8300 + Math.random() * 1500,
+                    'Climatizacao': 45000 + Math.random() * 5000,
+                    'Outros Equipamentos': 6200 + Math.random() * 1000,
+                    'Lojas': 95000 + Math.random() * 10000,
+                };
+            } else {
+                // Per-shopping distribution
+                const result = {};
+                Object.entries(SHOPPING_NAMES).forEach(([id, name]) => {
+                    result[name] = 15000 + Math.random() * 25000;
+                });
+                return result;
+            }
+        }
+
+        function generateWaterDistribution(mode) {
+            log(`[WATER] Fetching distribution for mode: ${mode}`);
+
+            if (mode === 'groups') {
+                return {
+                    'Lojas': 850 + Math.random() * 100,
+                    'Area Comum': 320 + Math.random() * 50,
+                };
+            } else {
+                // Per-shopping distribution
+                const result = {};
+                Object.entries(SHOPPING_NAMES).forEach(([id, name]) => {
+                    result[name] = 150 + Math.random() * 200;
+                });
+                return result;
+            }
+        }
+
+        // ============================================
+        // WIDGET INSTANCES
+        // ============================================
+        let energyDistributionWidget = null;
+        let waterDistributionWidget = null;
+        let currentTheme = 'light';
+
+        // ============================================
+        // THEME TOGGLE
+        // ============================================
+        function toggleTheme() {
+            document.body.classList.toggle('dark');
+            const isDark = document.body.classList.contains('dark');
+            currentTheme = isDark ? 'dark' : 'light';
+            log(`[THEME] Switched to ${currentTheme} mode`);
+
+            // Update widget themes
+            if (energyDistributionWidget) {
+                energyDistributionWidget.setTheme(currentTheme);
+            }
+            if (waterDistributionWidget) {
+                waterDistributionWidget.setTheme(currentTheme);
+            }
+        }
+
+        // ============================================
+        // INIT WIDGETS
+        // ============================================
+        async function initWidgets() {
+            log('[DEMO] Initializing RFC-0102 Distribution Chart Showcase...');
+            log('[DEMO] Using createDistributionChartWidget from MyIOLibrary');
+
+            // Check if library is loaded
+            if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createDistributionChartWidget) {
+                log('[ERROR] MyIOLibrary.createDistributionChartWidget not available!');
+                return;
+            }
+
+            log('[DEMO] MyIOLibrary loaded successfully');
+
+            // ============================================
+            // ENERGY Distribution Widget
+            // ============================================
+            energyDistributionWidget = MyIOLibrary.createDistributionChartWidget({
+                domain: 'energy',
+                containerId: 'energy-distribution-widget',
+                title: 'Distribuicao de Energia',
+                unit: 'kWh',
+                unitLarge: 'MWh',
+                thresholdForLargeUnit: 1000,
+                decimalPlaces: 2,
+                chartHeight: 300,
+                theme: currentTheme,
+                showHeader: true,
+                showModeSelector: true,
+
+                // Visualization modes for energy
+                modes: [
+                    { value: 'groups', label: 'Por Grupos de Equipamentos' },
+                    { value: 'elevators', label: 'Elevadores por Shopping' },
+                    { value: 'escalators', label: 'Escadas Rolantes por Shopping' },
+                    { value: 'hvac', label: 'Climatizacao por Shopping' },
+                    { value: 'others', label: 'Outros Equipamentos por Shopping' },
+                    { value: 'stores', label: 'Lojas por Shopping' },
+                ],
+                defaultMode: 'groups',
+
+                // Custom group colors for energy
+                groupColors: MyIOLibrary.DEFAULT_ENERGY_GROUP_COLORS,
+
+                // Data fetching
+                fetchDistribution: async (mode) => {
+                    // Simulate async API call
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    return generateEnergyDistribution(mode);
+                },
+
+                // Get shopping colors from orchestrator for consistency
+                getShoppingColors: () => {
+                    return window.MyIOOrchestrator?.getShoppingColors() || null;
+                },
+
+                getShoppingNames: () => {
+                    return window.MyIOOrchestrator?.getShoppingNames() || null;
+                },
+
+                // Callbacks
+                onModeChange: (mode) => {
+                    log(`[ENERGY] Mode changed to: ${mode}`);
+                },
+                onDataLoaded: (data) => {
+                    log(`[ENERGY] Data loaded: ${Object.keys(data).length} items`);
+                },
+                onError: (error) => {
+                    log(`[ENERGY] Error: ${error.message}`);
+                },
+            });
+
+            try {
+                await energyDistributionWidget.render();
+                log('[ENERGY] Widget rendered successfully');
+            } catch (error) {
+                log(`[ENERGY] Failed to render: ${error.message}`);
+            }
+
+            // ============================================
+            // WATER Distribution Widget
+            // ============================================
+            waterDistributionWidget = MyIOLibrary.createDistributionChartWidget({
+                domain: 'water',
+                containerId: 'water-distribution-widget',
+                title: 'Distribuicao de Agua',
+                unit: 'm3',
+                decimalPlaces: 2,
+                chartHeight: 300,
+                theme: currentTheme,
+                showHeader: true,
+                showModeSelector: true,
+
+                // Visualization modes for water
+                modes: [
+                    { value: 'groups', label: 'Lojas vs Area Comum' },
+                    { value: 'stores', label: 'Lojas por Shopping' },
+                    { value: 'common', label: 'Area Comum por Shopping' },
+                ],
+                defaultMode: 'groups',
+
+                // Custom group colors for water
+                groupColors: MyIOLibrary.DEFAULT_WATER_GROUP_COLORS,
+
+                // Data fetching
+                fetchDistribution: async (mode) => {
+                    // Simulate async API call
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    return generateWaterDistribution(mode);
+                },
+
+                // Get shopping colors from orchestrator for consistency
+                getShoppingColors: () => {
+                    return window.MyIOOrchestrator?.getShoppingColors() || null;
+                },
+
+                getShoppingNames: () => {
+                    return window.MyIOOrchestrator?.getShoppingNames() || null;
+                },
+
+                // Callbacks
+                onModeChange: (mode) => {
+                    log(`[WATER] Mode changed to: ${mode}`);
+                },
+                onDataLoaded: (data) => {
+                    log(`[WATER] Data loaded: ${Object.keys(data).length} items`);
+                },
+                onError: (error) => {
+                    log(`[WATER] Error: ${error.message}`);
+                },
+            });
+
+            try {
+                await waterDistributionWidget.render();
+                log('[WATER] Widget rendered successfully');
+            } catch (error) {
+                log(`[WATER] Failed to render: ${error.message}`);
+            }
+
+            log('[DEMO] All widgets initialized');
+            log('[DEMO] Note: Shopping colors are consistent across ENERGY and WATER charts');
+            log('[DEMO] Try changing modes using the dropdown in each widget header');
+        }
+
+        // Initialize on page load
+        initWidgets();
+    </script>
+</body>
+</html>

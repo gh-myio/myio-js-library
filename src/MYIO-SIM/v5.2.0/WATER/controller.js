@@ -271,10 +271,13 @@ function updateAllCards(data) {
 // ============================================
 
 let lineChartInstance = null;
-let pieChartInstance = null;
+let pieChartInstance = null; // Legacy reference (kept for backwards compatibility)
 
 // RFC-0098: Consumption 7 Days Chart instance (new standardized component)
 let consumptionChartInstance = null;
+
+// RFC-0102: Distribution Chart instance (new standardized component)
+let distributionChartInstance = null;
 
 /**
  * RFC-0097: Busca o consumo dos últimos N dias (mock)
@@ -429,107 +432,153 @@ async function initializeLineChart() {
 }
 
 /**
- * Inicializa o gráfico de barras (distribuição) - igual ao ENERGY
+ * RFC-0102: Inicializa o gráfico de distribuição usando createDistributionChartWidget
+ * @deprecated Use distributionChartInstance API instead
  */
-function initializePieChart(data) {
-  const canvas = $id('pieChart');
-  if (!canvas) {
-    console.warn('[WATER] pieChart canvas not found');
+async function initializePieChart(data) {
+  // RFC-0102: Distribution chart is now initialized via createDistributionChartWidget
+  // This function is kept for backwards compatibility
+  if (distributionChartInstance) {
+    console.log('[WATER] [RFC-0102] Refreshing distribution chart');
+    await distributionChartInstance.refresh();
     return;
   }
-
-  // FIX: Check if Chart.js is available
-  if (typeof Chart === 'undefined') {
-    console.error('[WATER] Chart.js not loaded, cannot initialize bar chart');
-    return;
-  }
-
-  const ctx = canvas.getContext('2d');
-
-  // Destroy existing instance
-  if (pieChartInstance) {
-    pieChartInstance.destroy();
-  }
-
-  const storesTotal = data?.storesTotal || 0;
-  const commonAreaTotal = data?.commonAreaTotal || 0;
-
-  // FIX: Calculate fixed X-axis max to prevent infinite growth (horizontal bar)
-  const barValues = [storesTotal, commonAreaTotal];
-  const maxBarValue = Math.max(...barValues, 0);
-  const xAxisMax = maxBarValue > 0 ? Math.ceil((maxBarValue * 1.1) / 100) * 100 : 500;
-
-  pieChartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: ['Lojas', 'Área Comum'],
-      datasets: [
-        {
-          label: 'Consumo (m³)',
-          data: barValues,
-          backgroundColor: ['#06b6d4', '#0288d1'],
-          borderColor: ['#0891b2', '#0277bd'],
-          borderWidth: 1,
-          borderRadius: 4,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false, // FIX: Disable animation to prevent issues
-      indexAxis: 'y', // Horizontal bar chart (same as ENERGY)
-      plugins: {
-        legend: {
-          display: false, // Hide legend for bar chart
-        },
-        tooltip: {
-          callbacks: {
-            label: function (context) {
-              const value = context.parsed.x || 0;
-              const dataset = context.dataset;
-              const total = dataset.data.reduce((sum, val) => sum + val, 0);
-              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-              return `${value.toFixed(1)} m³ (${percentage}%)`;
-            },
-          },
-        },
-      },
-      scales: {
-        x: {
-          beginAtZero: true,
-          max: xAxisMax, // FIX: Fixed max to prevent animation loop
-          ticks: {
-            callback: function (value) {
-              return `${value.toFixed(0)} m³`;
-            },
-          },
-        },
-        y: {
-          ticks: {
-            font: {
-              size: 12,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  console.log('[WATER] Bar chart initialized with xAxisMax:', xAxisMax);
-
-  console.log('[WATER] Pie chart initialized');
+  console.warn('[WATER] [RFC-0102] Distribution chart instance not available');
 }
 
 /**
- * Atualiza o gráfico de pizza com novo modo
+ * RFC-0102: Initialize distribution chart widget
  */
-function updatePieChartMode(mode) {
-  console.log('[WATER] Updating pie chart mode:', mode);
+async function initializeDistributionChartWidget() {
+  if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createDistributionChartWidget) {
+    console.error('[WATER] [RFC-0102] createDistributionChartWidget not available');
+    return;
+  }
 
-  // For now, just reinitialize with current data
-  const data = getCachedTotalConsumption();
-  initializePieChart(data);
+  console.log('[WATER] [RFC-0102] Initializing distribution chart widget...');
+
+  // Calculate distribution data for water
+  const calculateWaterDistribution = async (mode) => {
+    const cachedData = getCachedTotalConsumption();
+
+    if (mode === 'groups') {
+      // Lojas vs Área Comum
+      return {
+        'Lojas': cachedData?.storesTotal || 0,
+        'Área Comum': cachedData?.commonAreaTotal || 0,
+      };
+    } else if (mode === 'stores') {
+      // Lojas por Shopping - mock data for now
+      const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+      const customers = orchestrator?.getCustomers?.() || [];
+
+      const result = {};
+      customers.forEach((c, i) => {
+        const name = c.name || c.title || `Shopping ${i + 1}`;
+        result[name] = (cachedData?.storesTotal || 0) * (0.2 + Math.random() * 0.3);
+      });
+
+      if (Object.keys(result).length === 0) {
+        result['Shopping 1'] = (cachedData?.storesTotal || 0) * 0.4;
+        result['Shopping 2'] = (cachedData?.storesTotal || 0) * 0.35;
+        result['Shopping 3'] = (cachedData?.storesTotal || 0) * 0.25;
+      }
+
+      return result;
+    } else if (mode === 'common') {
+      // Área Comum por Shopping - mock data for now
+      const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+      const customers = orchestrator?.getCustomers?.() || [];
+
+      const result = {};
+      customers.forEach((c, i) => {
+        const name = c.name || c.title || `Shopping ${i + 1}`;
+        result[name] = (cachedData?.commonAreaTotal || 0) * (0.2 + Math.random() * 0.3);
+      });
+
+      if (Object.keys(result).length === 0) {
+        result['Shopping 1'] = (cachedData?.commonAreaTotal || 0) * 0.4;
+        result['Shopping 2'] = (cachedData?.commonAreaTotal || 0) * 0.35;
+        result['Shopping 3'] = (cachedData?.commonAreaTotal || 0) * 0.25;
+      }
+
+      return result;
+    }
+
+    return null;
+  };
+
+  // Get widget container for ThingsBoard compatibility
+  const $container = self.ctx?.$container || null;
+
+  distributionChartInstance = MyIOLibrary.createDistributionChartWidget({
+    domain: 'water',
+    containerId: 'water-distribution-widget',
+    title: 'Distribuição de Consumo de Água',
+    unit: 'm³',
+    decimalPlaces: 1,
+    chartHeight: 300,
+    theme: 'light',
+    $container: $container,
+
+    // Visualization modes for water
+    modes: [
+      { value: 'groups', label: 'Lojas vs Área Comum' },
+      { value: 'stores', label: 'Lojas por Shopping' },
+      { value: 'common', label: 'Área Comum por Shopping' },
+    ],
+    defaultMode: 'groups',
+
+    // Custom group colors for water
+    groupColors: {
+      'Lojas': '#10b981',
+      'Área Comum': '#0288d1',
+    },
+
+    // Data fetching
+    fetchDistribution: calculateWaterDistribution,
+
+    // Get shopping colors from orchestrator for consistency
+    getShoppingColors: () => {
+      const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+      return orchestrator?.getShoppingColors?.() || null;
+    },
+
+    // Callbacks
+    onModeChange: (mode) => {
+      console.log(`[WATER] [RFC-0102] Distribution mode changed to: ${mode}`);
+    },
+    onDataLoaded: (data) => {
+      console.log('[WATER] [RFC-0102] Distribution data loaded:', Object.keys(data).length, 'items');
+    },
+    onError: (error) => {
+      console.error('[WATER] [RFC-0102] Distribution chart error:', error);
+    },
+  });
+
+  try {
+    await distributionChartInstance.render();
+    console.log('[WATER] [RFC-0102] Distribution chart rendered successfully');
+
+    // Store legacy reference for backwards compatibility
+    pieChartInstance = distributionChartInstance.getChartInstance();
+  } catch (error) {
+    console.error('[WATER] [RFC-0102] Failed to render distribution chart:', error);
+  }
+}
+
+/**
+ * RFC-0102: Atualiza o gráfico de distribuição com novo modo
+ * @deprecated Use distributionChartInstance.setMode() instead
+ */
+async function updatePieChartMode(mode) {
+  console.log('[WATER] [RFC-0102] Updating distribution chart mode:', mode);
+
+  if (distributionChartInstance) {
+    await distributionChartInstance.setMode(mode);
+  } else {
+    console.warn('[WATER] [RFC-0102] Distribution chart instance not available');
+  }
 }
 
 // ============================================
@@ -685,6 +734,7 @@ async function openFullscreenModal() {
     defaultChartType: chartConfig.chartType || 'line',
     defaultVizMode: chartConfig.vizMode || 'total',
     theme: 'light',
+    showSettingsButton: false, // Settings configured in widget before maximizing
     fetchData: fetchWaterConsumptionDataAdapter,
     onClose: () => {
       console.log('[WATER] [RFC-0098] Fullscreen modal closed');
@@ -1203,6 +1253,13 @@ function cleanup() {
     consumptionChartInstance = null;
   }
 
+  // RFC-0102: Cleanup distribution chart instance
+  if (distributionChartInstance && typeof distributionChartInstance.destroy === 'function') {
+    console.log('[WATER] [RFC-0102] Destroying distribution chart instance');
+    distributionChartInstance.destroy();
+    distributionChartInstance = null;
+  }
+
   if (lineChartInstance) {
     lineChartInstance.destroy();
     lineChartInstance = null;
@@ -1248,6 +1305,9 @@ self.onInit = function () {
     console.log('[WATER] DEBUG setTimeout: pieChart canvas?', !!$id('pieChart'));
 
     initializeLineChart();
+
+    // RFC-0102: Initialize distribution chart widget
+    initializeDistributionChartWidget();
 
     // FIX: Check Orchestrator totals FIRST (may already be available)
     const orchestratorTotals = window.MyIOOrchestrator?.getWaterTotals?.();

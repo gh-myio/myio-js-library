@@ -307,3 +307,31 @@ export type {
   ExportOptions,
   ExportProgressCallback,
 } from './components/ExportData';
+
+// RFC-0102: Distribution Chart Widget Component
+export {
+  createDistributionChartWidget,
+  // Color management utilities
+  DEFAULT_SHOPPING_COLORS,
+  DEFAULT_ENERGY_GROUP_COLORS,
+  DEFAULT_WATER_GROUP_COLORS,
+  DEFAULT_GAS_GROUP_COLORS,
+  getDefaultGroupColors,
+  assignShoppingColors,
+  getShoppingColor,
+  getGroupColor,
+  getThemeColors as getDistributionThemeColors,
+  getHashColor,
+} from './components/DistributionChart';
+
+// RFC-0102: Distribution Chart Types
+export type {
+  DistributionDomain,
+  DistributionMode,
+  DistributionData,
+  GroupColors,
+  ShoppingColors,
+  DistributionThemeColors,
+  DistributionChartConfig,
+  DistributionChartInstance,
+} from './components/DistributionChart';

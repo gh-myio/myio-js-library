@@ -49,6 +49,10 @@ export interface ConsumptionModalConfig extends Omit<Consumption7DaysConfig, 'co
   exportFormats?: ExportFormat[];
   /** Custom export handler (receives format, default uses built-in CSV export) */
   onExport?: (format: ExportFormat) => void;
+  /** Show settings button (default: true) */
+  showSettingsButton?: boolean;
+  /** Callback when settings button is clicked */
+  onSettingsClick?: () => void;
 }
 
 export interface ConsumptionModalInstance {
@@ -103,6 +107,15 @@ export function createConsumptionModal(
     return THEME_COLORS[currentTheme];
   }
 
+  // SVG icons for tabs (same as widget)
+  const consolidadoIcon = `<svg viewBox="0 0 16 16" fill="currentColor" style="width:14px;height:14px;pointer-events:none"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>`;
+  const porShoppingIcon = `<svg viewBox="0 0 16 16" fill="currentColor" style="width:14px;height:14px;pointer-events:none"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>`;
+  const lineChartIcon = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;pointer-events:none"><polyline points="2,12 5,7 9,9 14,3"/></svg>`;
+  const barChartIcon = `<svg viewBox="0 0 16 16" fill="currentColor" style="width:14px;height:14px;pointer-events:none"><rect x="1" y="9" width="3" height="6" rx="0.5"/><rect x="6" y="5" width="3" height="10" rx="0.5"/><rect x="11" y="7" width="3" height="8" rx="0.5"/></svg>`;
+
+  // Options
+  const showSettingsButton = config.showSettingsButton ?? true;
+
   /**
    * Render the modal HTML
    */
@@ -145,7 +158,58 @@ export function createConsumptionModal(
       },
     });
 
+    // Inline button styles
+    const btnBaseStyle = `
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    `.replace(/\s+/g, ' ').trim();
+
+    const tabBgColor = currentTheme === 'dark' ? '#4b5563' : '#e5e7eb';
+    const activeColor = '#3e1a7d';
+    const inactiveTextColor = colors.text;
+
     return `
+      <style>
+        .myio-modal-tab-btn {
+          ${btnBaseStyle}
+        }
+        .myio-modal-tab-btn:hover {
+          opacity: 0.85;
+        }
+        .myio-modal-tab-btn.active {
+          background: ${activeColor} !important;
+          color: white !important;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+        .myio-modal-tab-btn svg {
+          pointer-events: none;
+        }
+        .myio-modal-settings-btn {
+          background: transparent;
+          border: 1px solid ${colors.border};
+          font-size: 16px;
+          cursor: pointer;
+          padding: 6px 10px;
+          border-radius: 6px;
+          transition: all 0.2s;
+          color: ${colors.text};
+        }
+        .myio-modal-settings-btn:hover {
+          background: ${activeColor};
+          border-color: ${activeColor};
+          color: white;
+        }
+      </style>
       <div class="myio-consumption-modal-overlay" style="
         position: fixed;
         top: 0;
@@ -176,59 +240,44 @@ export function createConsumptionModal(
           <!-- Controls Bar -->
           <div class="myio-consumption-modal-controls" style="
             display: flex;
-            gap: 16px;
+            gap: 12px;
             padding: 12px 16px;
             background: ${currentTheme === 'dark' ? '#374151' : '#f7f7f7'};
             border-bottom: 1px solid ${colors.border};
             align-items: center;
             flex-wrap: wrap;
           ">
+            <!-- Settings Button -->
+            ${showSettingsButton ? `
+              <button id="${modalId}-settings-btn" class="myio-modal-settings-btn" title="Configurações">⚙️</button>
+            ` : ''}
+
             <!-- Viz Mode Tabs -->
-            <div style="display: flex; gap: 2px; background: ${currentTheme === 'dark' ? '#4b5563' : '#e5e7eb'}; border-radius: 8px; padding: 2px;">
-              <button id="${modalId}-viz-total" style="
-                padding: 6px 12px;
-                border: none;
-                border-radius: 6px;
-                font-size: 13px;
-                cursor: pointer;
-                transition: all 0.2s;
-                background: ${currentVizMode === 'total' ? '#3e1a7d' : 'transparent'};
-                color: ${currentVizMode === 'total' ? 'white' : colors.text};
-              ">Consolidado</button>
-              <button id="${modalId}-viz-separate" style="
-                padding: 6px 12px;
-                border: none;
-                border-radius: 6px;
-                font-size: 13px;
-                cursor: pointer;
-                transition: all 0.2s;
-                background: ${currentVizMode === 'separate' ? '#3e1a7d' : 'transparent'};
-                color: ${currentVizMode === 'separate' ? 'white' : colors.text};
-              ">Por Shopping</button>
+            <div style="display: flex; gap: 2px; background: ${tabBgColor}; border-radius: 8px; padding: 3px;">
+              <button id="${modalId}-viz-total" class="myio-modal-tab-btn ${currentVizMode === 'total' ? 'active' : ''}"
+                data-viz="total" title="Consolidado"
+                style="background: ${currentVizMode === 'total' ? activeColor : 'transparent'}; color: ${currentVizMode === 'total' ? 'white' : inactiveTextColor};">
+                ${consolidadoIcon}
+              </button>
+              <button id="${modalId}-viz-separate" class="myio-modal-tab-btn ${currentVizMode === 'separate' ? 'active' : ''}"
+                data-viz="separate" title="Por Shopping"
+                style="background: ${currentVizMode === 'separate' ? activeColor : 'transparent'}; color: ${currentVizMode === 'separate' ? 'white' : inactiveTextColor};">
+                ${porShoppingIcon}
+              </button>
             </div>
 
             <!-- Chart Type Tabs -->
-            <div style="display: flex; gap: 2px; background: ${currentTheme === 'dark' ? '#4b5563' : '#e5e7eb'}; border-radius: 8px; padding: 2px;">
-              <button id="${modalId}-type-line" style="
-                padding: 6px 12px;
-                border: none;
-                border-radius: 6px;
-                font-size: 13px;
-                cursor: pointer;
-                transition: all 0.2s;
-                background: ${currentChartType === 'line' ? '#3e1a7d' : 'transparent'};
-                color: ${currentChartType === 'line' ? 'white' : colors.text};
-              ">Linhas</button>
-              <button id="${modalId}-type-bar" style="
-                padding: 6px 12px;
-                border: none;
-                border-radius: 6px;
-                font-size: 13px;
-                cursor: pointer;
-                transition: all 0.2s;
-                background: ${currentChartType === 'bar' ? '#3e1a7d' : 'transparent'};
-                color: ${currentChartType === 'bar' ? 'white' : colors.text};
-              ">Barras</button>
+            <div style="display: flex; gap: 2px; background: ${tabBgColor}; border-radius: 8px; padding: 3px;">
+              <button id="${modalId}-type-line" class="myio-modal-tab-btn ${currentChartType === 'line' ? 'active' : ''}"
+                data-type="line" title="Gráfico de Linhas"
+                style="background: ${currentChartType === 'line' ? activeColor : 'transparent'}; color: ${currentChartType === 'line' ? 'white' : inactiveTextColor};">
+                ${lineChartIcon}
+              </button>
+              <button id="${modalId}-type-bar" class="myio-modal-tab-btn ${currentChartType === 'bar' ? 'active' : ''}"
+                data-type="bar" title="Gráfico de Barras"
+                style="background: ${currentChartType === 'bar' ? activeColor : 'transparent'}; color: ${currentChartType === 'bar' ? 'white' : inactiveTextColor};">
+                ${barChartIcon}
+              </button>
             </div>
           </div>
 
@@ -255,6 +304,13 @@ export function createConsumptionModal(
 
     // Attach header listeners (handles theme, maximize, close, export)
     headerInstance?.attachListeners();
+
+    // Settings button
+    if (showSettingsButton) {
+      document.getElementById(`${modalId}-settings-btn`)?.addEventListener('click', () => {
+        config.onSettingsClick?.();
+      });
+    }
 
     // Viz mode buttons
     document.getElementById(`${modalId}-viz-total`)?.addEventListener('click', () => {
@@ -302,16 +358,19 @@ export function createConsumptionModal(
    */
   function updateControlStyles(): void {
     const colors = getThemeColors();
+    const activeColor = '#3e1a7d';
 
     // Update viz mode buttons
     const vizTotalBtn = document.getElementById(`${modalId}-viz-total`) as HTMLButtonElement;
     const vizSeparateBtn = document.getElementById(`${modalId}-viz-separate`) as HTMLButtonElement;
     if (vizTotalBtn) {
-      vizTotalBtn.style.background = currentVizMode === 'total' ? '#3e1a7d' : 'transparent';
+      vizTotalBtn.classList.toggle('active', currentVizMode === 'total');
+      vizTotalBtn.style.background = currentVizMode === 'total' ? activeColor : 'transparent';
       vizTotalBtn.style.color = currentVizMode === 'total' ? 'white' : colors.text;
     }
     if (vizSeparateBtn) {
-      vizSeparateBtn.style.background = currentVizMode === 'separate' ? '#3e1a7d' : 'transparent';
+      vizSeparateBtn.classList.toggle('active', currentVizMode === 'separate');
+      vizSeparateBtn.style.background = currentVizMode === 'separate' ? activeColor : 'transparent';
       vizSeparateBtn.style.color = currentVizMode === 'separate' ? 'white' : colors.text;
     }
 
@@ -319,11 +378,13 @@ export function createConsumptionModal(
     const typeLineBtn = document.getElementById(`${modalId}-type-line`) as HTMLButtonElement;
     const typeBarBtn = document.getElementById(`${modalId}-type-bar`) as HTMLButtonElement;
     if (typeLineBtn) {
-      typeLineBtn.style.background = currentChartType === 'line' ? '#3e1a7d' : 'transparent';
+      typeLineBtn.classList.toggle('active', currentChartType === 'line');
+      typeLineBtn.style.background = currentChartType === 'line' ? activeColor : 'transparent';
       typeLineBtn.style.color = currentChartType === 'line' ? 'white' : colors.text;
     }
     if (typeBarBtn) {
-      typeBarBtn.style.background = currentChartType === 'bar' ? '#3e1a7d' : 'transparent';
+      typeBarBtn.classList.toggle('active', currentChartType === 'bar');
+      typeBarBtn.style.background = currentChartType === 'bar' ? activeColor : 'transparent';
       typeBarBtn.style.color = currentChartType === 'bar' ? 'white' : colors.text;
     }
   }
