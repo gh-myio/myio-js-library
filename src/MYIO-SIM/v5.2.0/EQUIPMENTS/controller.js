@@ -1218,7 +1218,7 @@ const REALTIME_CONFIG = {
 
 /**
  * RFC: Emit event to update HEADER equipment card
- * Sends total equipment count and filtered count
+ * Sends total equipment count, filtered count, and category breakdown
  */
 function emitEquipmentCountEvent(filteredDevices) {
   const totalEquipments = STATE.allDevices.length;
@@ -1228,10 +1228,45 @@ function emitEquipmentCountEvent(filteredDevices) {
   const allShoppingsSelected =
     STATE.selectedShoppingIds.length === 0 || STATE.selectedShoppingIds.length === STATE.totalShoppings;
 
+  // RFC: Calculate category breakdown for filtered devices
+  const categories = {
+    climatizacao: { total: 0, filtered: 0, label: 'Climatização', icon: '❄️' },
+    elevadores: { total: 0, filtered: 0, label: 'Elevadores', icon: '🛗' },
+    escadasRolantes: { total: 0, filtered: 0, label: 'Escadas Rolantes', icon: '📶' },
+    outros: { total: 0, filtered: 0, label: 'Outros Equipamentos', icon: '⚙️' },
+  };
+
+  // Count totals from all devices
+  STATE.allDevices.forEach((device) => {
+    if (isHVAC(device)) {
+      categories.climatizacao.total++;
+    } else if (isElevator(device)) {
+      categories.elevadores.total++;
+    } else if (isEscalator(device)) {
+      categories.escadasRolantes.total++;
+    } else {
+      categories.outros.total++;
+    }
+  });
+
+  // Count filtered devices
+  filteredDevices.forEach((device) => {
+    if (isHVAC(device)) {
+      categories.climatizacao.filtered++;
+    } else if (isElevator(device)) {
+      categories.elevadores.filtered++;
+    } else if (isEscalator(device)) {
+      categories.escadasRolantes.filtered++;
+    } else {
+      categories.outros.filtered++;
+    }
+  });
+
   const eventData = {
     totalEquipments,
     filteredEquipments,
     allShoppingsSelected,
+    categories,
     timestamp: Date.now(),
   };
 

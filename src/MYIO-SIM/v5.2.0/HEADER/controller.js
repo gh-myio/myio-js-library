@@ -916,6 +916,36 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     } else {
       LogHelper.warn('[HEADER] Water tooltip trigger NOT found in onInit');
     }
+
+    // Setup equipment tooltip
+    const equipTrigger = root.querySelector('#equip-info-trigger');
+    if (equipTrigger && !equipTrigger._tooltipBound) {
+      equipTrigger._tooltipBound = true;
+      LogHelper.log('[HEADER] Equipment tooltip trigger found in onInit');
+
+      equipTrigger.addEventListener('mouseenter', (e) => {
+        LogHelper.log(
+          '[HEADER] Equipment tooltip mouseenter - data:',
+          window._headerEquipData ? 'available' : 'not available'
+        );
+        if (window._headerEquipData) {
+          showEquipmentTooltip(equipTrigger, window._headerEquipData);
+        } else {
+          showEquipmentTooltip(equipTrigger, {
+            totalEquipments: 0,
+            filteredEquipments: 0,
+            allShoppingsSelected: true,
+            categories: null,
+          });
+        }
+      });
+
+      equipTrigger.addEventListener('mouseleave', () => {
+        hideEquipmentTooltip();
+      });
+    } else {
+      LogHelper.warn('[HEADER] Equipment tooltip trigger NOT found in onInit');
+    }
   }, 200);
 
   // mocks (remova se alimentar via API/telemetria)
@@ -1353,8 +1383,14 @@ function updateWaterCardWithSummary(summary) {
 }
 
 // ===== HEADER: Listen for equipment count updates from EQUIPMENTS widget =====
+window._headerEquipData = null; // Global for tooltip access
+
 window.addEventListener('myio:equipment-count-updated', (ev) => {
-  //console.log('[HEADER] Received equipment count from EQUIPMENTS widget:', ev.detail);
+  LogHelper.log('[HEADER] 🔧 heard myio:equipment-count-updated:', ev.detail);
+
+  // Store for tooltip
+  window._headerEquipData = ev.detail;
+
   updateEquipmentCard(ev.detail);
 });
 
@@ -2403,6 +2439,315 @@ function showWaterTooltip(triggerElement, data) {
 
 function hideWaterTooltip() {
   const container = document.getElementById('water-premium-tooltip');
+  if (container) {
+    container.classList.remove('visible');
+  }
+}
+
+// ============================================
+// RFC: Equipment Tooltip (Premium) - Gray palette
+// ============================================
+
+function createEquipmentTooltip() {
+  const existing = document.getElementById('equip-premium-tooltip');
+  if (existing) existing.remove();
+
+  // Inject CSS if not already present
+  if (!document.getElementById('equip-tooltip-styles')) {
+    const style = document.createElement('style');
+    style.id = 'equip-tooltip-styles';
+    style.textContent = `
+      .equip-info-trigger {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: help;
+        opacity: 0.5;
+        transition: opacity 0.2s ease;
+        position: relative;
+        margin-left: 4px;
+        vertical-align: middle;
+        font-size: 12px;
+      }
+      .equip-info-trigger:hover { opacity: 1; }
+      .equip-tooltip-container {
+        position: fixed;
+        z-index: 99999;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.25s ease, transform 0.25s ease;
+        transform: translateY(5px);
+      }
+      .equip-tooltip-container.visible {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+      .equip-tooltip {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 2px 10px rgba(0, 0, 0, 0.08);
+        min-width: 340px;
+        max-width: 420px;
+        font-size: 12px;
+        color: #1e293b;
+        overflow: hidden;
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+      }
+      .equip-tooltip__header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 18px;
+        background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%);
+        border-bottom: 1px solid #cbd5e1;
+      }
+      .equip-tooltip__icon { font-size: 18px; }
+      .equip-tooltip__title {
+        font-weight: 700;
+        font-size: 14px;
+        color: #475569;
+        letter-spacing: 0.3px;
+      }
+      .equip-tooltip__content {
+        padding: 16px 18px;
+        max-height: 500px;
+        overflow-y: auto;
+      }
+      .equip-tooltip__section {
+        margin-bottom: 16px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      .equip-tooltip__section:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+      }
+      .equip-tooltip__section-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .equip-tooltip__row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        gap: 12px;
+      }
+      .equip-tooltip__label {
+        color: #64748b;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+      .equip-tooltip__value {
+        color: #1e293b;
+        font-weight: 600;
+        text-align: right;
+      }
+      .equip-tooltip__value--highlight {
+        color: #475569;
+        font-weight: 700;
+        font-size: 14px;
+      }
+      .equip-tooltip__category {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: #f8fafc;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        border-left: 3px solid #94a3b8;
+      }
+      .equip-tooltip__category:last-child {
+        margin-bottom: 0;
+      }
+      .equip-tooltip__category--climatizacao { border-left-color: #06b6d4; background: #ecfeff; }
+      .equip-tooltip__category--elevadores { border-left-color: #8b5cf6; background: #f5f3ff; }
+      .equip-tooltip__category--escadas { border-left-color: #f59e0b; background: #fffbeb; }
+      .equip-tooltip__category--outros { border-left-color: #64748b; background: #f1f5f9; }
+      .equip-tooltip__category-icon {
+        font-size: 16px;
+        flex-shrink: 0;
+      }
+      .equip-tooltip__category-info {
+        flex: 1;
+      }
+      .equip-tooltip__category-name {
+        font-weight: 600;
+        color: #334155;
+        font-size: 12px;
+      }
+      .equip-tooltip__category-count {
+        font-size: 11px;
+        color: #64748b;
+        margin-top: 2px;
+      }
+      .equip-tooltip__category-value {
+        font-weight: 700;
+        color: #334155;
+        font-size: 14px;
+      }
+      .equip-tooltip__notice {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 14px;
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        margin-top: 14px;
+      }
+      .equip-tooltip__notice-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+      .equip-tooltip__notice-text { font-size: 11px; color: #475569; line-height: 1.6; }
+      .equip-tooltip__notice-text strong { font-weight: 700; color: #334155; }
+    `;
+    document.head.appendChild(style);
+    LogHelper.log('[HEADER] Equipment tooltip CSS injected');
+  }
+
+  const container = document.createElement('div');
+  container.id = 'equip-premium-tooltip';
+  container.className = 'equip-tooltip-container';
+  document.body.appendChild(container);
+  return container;
+}
+
+function showEquipmentTooltip(triggerElement, data) {
+  LogHelper.log('[HEADER] showEquipmentTooltip called', { triggerElement, data });
+
+  let container = document.getElementById('equip-premium-tooltip');
+  if (!container) {
+    container = createEquipmentTooltip();
+    LogHelper.log('[HEADER] Created new equipment tooltip container');
+  }
+
+  const {
+    totalEquipments = 0,
+    filteredEquipments = 0,
+    allShoppingsSelected = true,
+    categories = null,
+  } = data || {};
+
+  // Build categories HTML
+  let categoriesHtml = '';
+  if (categories) {
+    const categoryOrder = ['climatizacao', 'elevadores', 'escadasRolantes', 'outros'];
+    const categoryClasses = {
+      climatizacao: 'climatizacao',
+      elevadores: 'elevadores',
+      escadasRolantes: 'escadas',
+      outros: 'outros',
+    };
+
+    categoryOrder.forEach((key) => {
+      const cat = categories[key];
+      if (cat) {
+        const displayValue = allShoppingsSelected
+          ? cat.total
+          : `${cat.filtered} / ${cat.total}`;
+        const percentage = cat.total > 0 ? Math.round((cat.filtered / cat.total) * 100) : 0;
+        const percentText = !allShoppingsSelected ? ` (${percentage}%)` : '';
+
+        categoriesHtml += `
+          <div class="equip-tooltip__category equip-tooltip__category--${categoryClasses[key]}">
+            <span class="equip-tooltip__category-icon">${cat.icon}</span>
+            <div class="equip-tooltip__category-info">
+              <div class="equip-tooltip__category-name">${cat.label}</div>
+              <div class="equip-tooltip__category-count">${allShoppingsSelected ? 'Total de equipamentos' : `Filtrados${percentText}`}</div>
+            </div>
+            <span class="equip-tooltip__category-value">${displayValue}</span>
+          </div>
+        `;
+      }
+    });
+  }
+
+  // Summary values
+  const summaryDisplay = allShoppingsSelected
+    ? `${totalEquipments}`
+    : `${filteredEquipments} / ${totalEquipments}`;
+  const percentageTotal = totalEquipments > 0 ? Math.round((filteredEquipments / totalEquipments) * 100) : 0;
+
+  container.innerHTML = `
+    <div class="equip-tooltip">
+      <div class="equip-tooltip__header">
+        <span class="equip-tooltip__icon">⚙️</span>
+        <span class="equip-tooltip__title">Detalhes de Equipamentos</span>
+      </div>
+      <div class="equip-tooltip__content">
+        <div class="equip-tooltip__section">
+          <div class="equip-tooltip__section-title">
+            <span>📊</span> Resumo Geral
+          </div>
+          <div class="equip-tooltip__row">
+            <span class="equip-tooltip__label">Total de Equipamentos:</span>
+            <span class="equip-tooltip__value equip-tooltip__value--highlight">${summaryDisplay}</span>
+          </div>
+          ${!allShoppingsSelected ? `
+          <div class="equip-tooltip__row">
+            <span class="equip-tooltip__label">Percentual Filtrado:</span>
+            <span class="equip-tooltip__value">${percentageTotal}%</span>
+          </div>
+          ` : ''}
+        </div>
+
+        ${categoriesHtml ? `
+        <div class="equip-tooltip__section">
+          <div class="equip-tooltip__section-title">
+            <span>📋</span> Por Categoria
+          </div>
+          ${categoriesHtml}
+        </div>
+        ` : ''}
+
+        <div class="equip-tooltip__notice">
+          <span class="equip-tooltip__notice-icon">ℹ️</span>
+          <div class="equip-tooltip__notice-text">
+            <strong>Observação:</strong> Mostramos todos os equipamentos monitorados como
+            <strong>Escadas Rolantes</strong>, <strong>Elevadores</strong>, <strong>Chillers</strong>,
+            <strong>Bombas</strong>, <strong>Fancoils</strong>, e outros equipamentos de
+            <strong>Climatização</strong> e infraestrutura predial.
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Position the tooltip below the trigger
+  const rect = triggerElement.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.bottom + 8;
+
+  // Prevent going off screen
+  const tooltipWidth = 380;
+  if (left + tooltipWidth > window.innerWidth - 20) {
+    left = window.innerWidth - tooltipWidth - 20;
+  }
+  if (left < 10) left = 10;
+
+  // If tooltip would go below viewport, show above
+  if (top + 500 > window.innerHeight) {
+    top = rect.top - 8 - 500;
+    if (top < 10) top = 10;
+  }
+
+  container.style.left = left + 'px';
+  container.style.top = top + 'px';
+  container.classList.add('visible');
+}
+
+function hideEquipmentTooltip() {
+  const container = document.getElementById('equip-premium-tooltip');
   if (container) {
     container.classList.remove('visible');
   }
