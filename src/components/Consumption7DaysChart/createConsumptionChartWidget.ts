@@ -78,6 +78,8 @@ export interface ConsumptionWidgetInstance {
   setIdealRange: (range: IdealRangeConfig | null) => void;
   /** Gets the internal chart instance */
   getChart: () => ReturnType<typeof createConsumption7DaysChart> | null;
+  /** Gets the underlying Chart.js instance (for backwards compatibility) */
+  getChartInstance: () => any | null;
   /** Gets the cached data */
   getCachedData: () => Consumption7DaysData | null;
   /** Exports data to CSV */
@@ -1586,6 +1588,11 @@ export function createConsumptionChartWidget(
 
     getChart() {
       return chartInstance;
+    },
+
+    // Alias for backwards compatibility with createConsumption7DaysChart API
+    getChartInstance() {
+      return chartInstance?.getChartInstance?.() ?? null;
     },
 
     getCachedData() {
