@@ -915,6 +915,7 @@ async function renderList(visible) {
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER, // Global map from settings
       deviceMapInstaneousPower: it.deviceMapInstaneousPower || null, // Device-specific map
       debugActive: true,
+      activeTooltipDebug: true,
     };
 
     // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (default 60 minutes)

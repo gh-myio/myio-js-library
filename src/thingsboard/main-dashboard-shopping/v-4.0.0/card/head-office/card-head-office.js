@@ -77,6 +77,9 @@ function normalizeParams(params) {
     useNewComponents: Boolean(params.useNewComponents),
     // RFC-0091: Configurable delay time for connection status check (default 15 minutes)
     delayTimeConnectionInMins: params.delayTimeConnectionInMins ?? DEFAUL_DELAY_TIME_CONNECTION_IN_MINS,
+    // Debug options
+    debugActive: params.debugActive ?? false,
+    activeTooltipDebug: params.activeTooltipDebug ?? false,
     // LogHelper instance for this card
     LogHelper,
     callbacks: {
@@ -743,6 +746,172 @@ function buildDOM(state) {
   return root;
 }
 
+// ============================================
+// DEBUG TOOLTIP FUNCTIONS
+// ============================================
+
+/**
+ * Build debug tooltip information object
+ */
+function buildDebugTooltipInfo(entityObject, statusInfo, stateClass, statusDecisionSource, delayTimeConnectionInMins) {
+  const formatTimestamp = (ts) => {
+    if (!ts) return 'N/A';
+    const d = new Date(ts);
+    return d.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  return {
+    // Entity identification
+    entityId: entityObject.entityId || 'N/A',
+    name: entityObject.name || entityObject.nameEl || 'N/A',
+    domain: entityObject.domain || 'energy',
+
+    // Status decision chain
+    originalDeviceStatus: entityObject._originalDeviceStatus || entityObject.deviceStatus,
+    finalDeviceStatus: entityObject.deviceStatus,
+    connectionStatus: entityObject.connectionStatus || 'N/A',
+    statusDecisionSource,
+
+    // Visual output
+    stateClass,
+    chipClass: statusInfo.chipClass,
+    chipLabel: statusInfo.label,
+
+    // Connection timestamps
+    lastConnectTime: formatTimestamp(entityObject.lastConnectTime),
+    lastDisconnectTime: formatTimestamp(entityObject.lastDisconnectTime),
+    delayTimeConnectionInMins,
+
+    // Raw values
+    val: entityObject.val,
+    consumptionTargetValue: entityObject.consumptionTargetValue,
+    deviceType: entityObject.deviceType || 'N/A',
+  };
+}
+
+/**
+ * Attach premium debug tooltip to an element
+ */
+function attachDebugTooltip(element, debugInfo) {
+  // Remove existing tooltip if any
+  const existingTooltip = element.querySelector('.debug-tooltip-container');
+  if (existingTooltip) {
+    existingTooltip.remove();
+  }
+
+  // Create tooltip container
+  const tooltipContainer = document.createElement('div');
+  tooltipContainer.className = 'debug-tooltip-container';
+
+  // Create tooltip content
+  const tooltip = document.createElement('div');
+  tooltip.className = 'debug-tooltip';
+  tooltip.innerHTML = `
+    <div class="debug-tooltip__header">
+      <span class="debug-tooltip__icon">🔍</span>
+      <span class="debug-tooltip__title">Debug Info</span>
+    </div>
+    <div class="debug-tooltip__content">
+      <div class="debug-tooltip__section">
+        <div class="debug-tooltip__section-title">📋 Identificação</div>
+        <div class="debug-tooltip__row">
+          <span class="debug-tooltip__label">Entity ID:</span>
+          <span class="debug-tooltip__value debug-tooltip__value--mono">${debugInfo.entityId}</span>
+        </div>
+        <div class="debug-tooltip__row">
+          <span class="debug-tooltip__label">Nome:</span>
+          <span class="debug-tooltip__value">${debugInfo.name}</span>
+        </div>
+        <div class="debug-tooltip__row">
+          <span class="debug-tooltip__label">Domínio:</span>
+          <span class="debug-tooltip__value debug-tooltip__badge debug-tooltip__badge--${debugInfo.domain}">${debugInfo.domain}</span>
+        </div>
+      </div>
+
+      <div class="debug-tooltip__section">
+        <div class="debug-tooltip__section-title">⚡ Decisão de Status</div>
+        <div class="debug-tooltip__row">
+          <span class="debug-tooltip__label">connectionStatus:</span>
+          <span class="debug-tooltip__value debug-tooltip__value--mono">${debugInfo.connectionStatus}</span>
+        </div>
+        <div class="debug-tooltip__row">
+          <span class="debug-tooltip__label">deviceStatus (final):</span>
+          <span class="debug-tooltip__value debug-tooltip__badge">${debugInfo.finalDeviceStatus}</span>
+        </div>
+        <div class="debug-tooltip__row debug-tooltip__row--full">
+          <span class="debug-tooltip__label">Fonte da decisão:</span>
+          <span class="debug-tooltip__value debug-tooltip__value--highlight">${debugInfo.statusDecisionSource}</span>
+        </div>
+      </div>
+
+      <div class="debug-tooltip__section">
+        <div class="debug-tooltip__section-title">🎨 Output Visual</div>
+        <div class="debug-tooltip__row">
+          <span class="debug-tooltip__label">stateClass:</span>
+          <span class="debug-tooltip__value debug-tooltip__value--mono">${debugInfo.stateClass}</span>
+        </div>
+        <div class="debug-tooltip__row">
+          <span class="debug-tooltip__label">chipClass:</span>
+          <span class="debug-tooltip__value debug-tooltip__value--mono">${debugInfo.chipClass}</span>
+        </div>
+        <div class="debug-tooltip__row">
+          <span class="debug-tooltip__label">chipLabel:</span>
+          <span class="debug-tooltip__value">${debugInfo.chipLabel}</span>
+        </div>
+      </div>
+
+      <div class="debug-tooltip__section">
+        <div class="debug-tooltip__section-title">🕐 Timestamps de Conexão</div>
+        <div class="debug-tooltip__row">
+          <span class="debug-tooltip__label">lastConnectTime:</span>
+          <span class="debug-tooltip__value debug-tooltip__value--mono">${debugInfo.lastConnectTime}</span>
+        </div>
+        <div class="debug-tooltip__row">
+          <span class="debug-tooltip__label">lastDisconnectTime:</span>
+          <span class="debug-tooltip__value debug-tooltip__value--mono">${debugInfo.lastDisconnectTime}</span>
+        </div>
+        <div class="debug-tooltip__row">
+          <span class="debug-tooltip__label">delayTime:</span>
+          <span class="debug-tooltip__value">${debugInfo.delayTimeConnectionInMins} mins</span>
+        </div>
+      </div>
+
+      <div class="debug-tooltip__section">
+        <div class="debug-tooltip__section-title">📊 Valores</div>
+        <div class="debug-tooltip__row">
+          <span class="debug-tooltip__label">val (consumo):</span>
+          <span class="debug-tooltip__value">${debugInfo.val ?? 'N/A'}</span>
+        </div>
+        <div class="debug-tooltip__row">
+          <span class="debug-tooltip__label">target (meta):</span>
+          <span class="debug-tooltip__value">${debugInfo.consumptionTargetValue ?? 'N/A'}</span>
+        </div>
+        <div class="debug-tooltip__row">
+          <span class="debug-tooltip__label">deviceType:</span>
+          <span class="debug-tooltip__value debug-tooltip__value--mono">${debugInfo.deviceType}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  tooltipContainer.appendChild(tooltip);
+
+  // Make chip position relative for tooltip positioning
+  element.style.position = 'relative';
+  element.style.cursor = 'help';
+  element.appendChild(tooltipContainer);
+
+  // Add hover indicator
+  element.classList.add('has-debug-tooltip');
+}
+
 /**
  * Verify if device is online based on connection timestamps
  * @param {Object} entityObject - Entity with lastConnectTime and lastDisconnectTime
@@ -794,7 +963,10 @@ function verifyOfflineStatus(entityObject, delayTimeInMins = 15, LogHelper) {
  * Paint/update DOM with current state
  */
 function paint(root, state) {
-  const { entityObject, i18n, delayTimeConnectionInMins, isSelected, LogHelper } = state;
+  const { entityObject, i18n, delayTimeConnectionInMins, isSelected, LogHelper, activeTooltipDebug } = state;
+
+  // Track decision source for debug tooltip
+  let statusDecisionSource = 'unknown';
 
   // RFC-0093: Use connectionStatus if available (from ThingsBoard real-time data)
   // Only fallback to timestamp verification if connectionStatus is not provided
@@ -805,11 +977,13 @@ function paint(root, state) {
         '[CardHeadOffice][ConnectionStatus Verify 01] Setting deviceStatus to OFFLINE based on connectionStatus'
       );
       entityObject.deviceStatus = DeviceStatusType.OFFLINE;
+      statusDecisionSource = 'connectionStatus === "offline"';
     } else {
       LogHelper.log(
         '[CardHeadOffice] Device is ONLINE or WAITING based on connectionStatus for device',
         entityObject.nameEl
       );
+      statusDecisionSource = `connectionStatus === "${entityObject.connectionStatus}" (kept original deviceStatus)`;
     }
     // If online/waiting, keep the existing deviceStatus (which reflects power status)
   } else {
@@ -820,10 +994,12 @@ function paint(root, state) {
         delayTimeConnectionInMins
       );
       entityObject.deviceStatus = DeviceStatusType.OFFLINE;
+      statusDecisionSource = `verifyOfflineStatus() returned false (delay: ${delayTimeConnectionInMins} mins)`;
     } else {
       LogHelper.log(
         `[CardHeadOffice][ConnectionStatus Verify 03] Device is ONLINE with deviceStatus = ${entityObject.deviceStatus} based on timestamp verification for device ${entityObject.nameEl}`
       );
+      statusDecisionSource = `verifyOfflineStatus() returned true (delay: ${delayTimeConnectionInMins} mins)`;
     }
   }
 
@@ -836,6 +1012,12 @@ function paint(root, state) {
   const chip = root.querySelector('.chip');
   chip.className = `chip ${statusInfo.chipClass}`;
   chip.innerHTML = statusInfo.label;
+
+  // Debug tooltip for chip (when activeTooltipDebug is enabled)
+  if (activeTooltipDebug) {
+    const debugInfo = buildDebugTooltipInfo(entityObject, statusInfo, stateClass, statusDecisionSource, delayTimeConnectionInMins);
+    attachDebugTooltip(chip, debugInfo);
+  }
 
   // Update primary value - use domain-specific formatting (energy or water)
   const primaryValue = formatValueByDomain(entityObject.val, entityObject.domain);

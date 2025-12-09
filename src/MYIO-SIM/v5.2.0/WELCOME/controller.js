@@ -110,7 +110,6 @@ const DEFAULT_SHOPPING_CARDS = [
 // State
 let customerAttrs = {};
 let currentPalette = DEFAULT_PALETTE;
-let shoppingCards = [];
 
 /**
  * Fetch Customer SERVER_SCOPE attributes
@@ -169,7 +168,7 @@ async function fetchCustomerAttributes() {
     data.forEach((attr) => {
       try {
         attrs[attr.key] = JSON.parse(attr.value);
-      } catch (e) {
+      } catch (_e) {
         attrs[attr.key] = attr.value;
       }
     });
@@ -392,7 +391,7 @@ async function fetchAndRenderUserMenu(attrs) {
 /**
  * Fallback: Get user info from ctx.currentUser
  */
-function renderUserMenuFallback(attrs) {
+function renderUserMenuFallback(_attrs) {
   const user = ctx.currentUser;
   if (!user) {
     LogHelper.warn('No user found in context');
@@ -441,70 +440,6 @@ function handleLogout() {
   } catch (error) {
     LogHelper.error('Logout error:', error);
   }
-}
-
-/**
- * Extract shopping cards from ctx.data[]
- * Each entity in ctx.data[] represents a shopping center
- */
-function extractShoppingCardsFromCtxData() {
-  const cards = [];
-
-  if (!ctx.data || !Array.isArray(ctx.data)) {
-    LogHelper.warn('No ctx.data available or not an array');
-    return cards;
-  }
-
-  LogHelper.log('Processing ctx.data[] for shopping cards, entries:', ctx.data.length);
-
-  // Group data by datasource (each datasource = one shopping)
-  const shoppingMap = new Map();
-
-  ctx.data.forEach((dataItem) => {
-    if (!dataItem.datasource) return;
-
-    const datasourceKey = dataItem.datasource.entityId || dataItem.datasource.name;
-    if (!datasourceKey) return;
-
-    if (!shoppingMap.has(datasourceKey)) {
-      shoppingMap.set(datasourceKey, {
-        entityId: dataItem.datasource.entityId,
-        entityType: dataItem.datasource.entityType,
-        name: dataItem.datasource.name || dataItem.datasource.entityName,
-        entityName: dataItem.datasource.entityName,
-        attributes: {},
-      });
-    }
-
-    // Collect attributes from dataKeys
-    if (dataItem.dataKey) {
-      const keyName = dataItem.dataKey.name;
-      const latestValue =
-        dataItem.data && dataItem.data.length > 0 ? dataItem.data[dataItem.data.length - 1][1] : null;
-
-      shoppingMap.get(datasourceKey).attributes[keyName] = latestValue;
-    }
-  });
-
-  // Convert map to cards array
-  shoppingMap.forEach((shopping, key) => {
-    const card = {
-      title: shopping.entityName || shopping.name || 'Shopping',
-      subtitle: shopping.attributes.description || shopping.attributes.subtitle || 'Dashboard',
-      dashboardId: shopping.attributes.dashboardId || shopping.entityId,
-      entityId: shopping.entityId,
-      entityType: shopping.entityType,
-      bgImageUrl: shopping.attributes.bgImageUrl || shopping.attributes.imageUrl || null,
-      state: shopping.attributes.defaultState || '',
-      openInNewTab: shopping.attributes.openInNewTab === 'true' || shopping.attributes.openInNewTab === true,
-    };
-
-    cards.push(card);
-    LogHelper.log('Shopping card created:', card.title, '→', card.dashboardId);
-  });
-
-  LogHelper.log('Total shopping cards extracted:', cards.length);
-  return cards;
 }
 
 /**
@@ -596,7 +531,7 @@ function setupLazyLoading() {
  * Render shopping cards
  * Always use DEFAULT_SHOPPING_CARDS with navigation onclick
  */
-function renderShortcuts(attrs) {
+function renderShortcuts(_attrs) {
   // Always use default hardcoded shopping cards with specific button IDs
   const cards = DEFAULT_SHOPPING_CARDS;
   LogHelper.log('Using default hardcoded shopping cards with button IDs:', cards.length);
@@ -759,22 +694,6 @@ function getCurrentDashboardTitle() {
 function setShoppingButtonLabel(label) {
   window[MYIO_SHOPPING_LABEL_KEY] = label;
   LogHelper.log('RFC-0086: Shopping label set to:', label);
-}
-
-/**
- * RFC-0086: Get shopping label (for other widgets to use)
- */
-function getShoppingLabel() {
-  // Try window first, then localStorage
-  if (window[MYIO_SHOPPING_LABEL_KEY]) {
-    return window[MYIO_SHOPPING_LABEL_KEY];
-  }
-  try {
-    const stored = localStorage.getItem(MYIO_SHOPPING_LABEL_KEY);
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
 }
 
 /**

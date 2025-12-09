@@ -865,4 +865,213 @@ export const CSS_STRING = `
     transition: none;
   }
 }
+
+/* ============================================
+   DEBUG TOOLTIP STYLES (Premium)
+   ============================================ */
+
+.has-debug-tooltip {
+  cursor: help !important;
+}
+
+.has-debug-tooltip::after {
+  content: '🐛';
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 10px;
+  z-index: 1;
+}
+
+.debug-tooltip-container {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.has-debug-tooltip:hover .debug-tooltip-container {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.debug-tooltip {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 12px;
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  min-width: 340px;
+  max-width: 420px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  color: #e2e8f0;
+  overflow: hidden;
+}
+
+.debug-tooltip__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.1) 100%);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.debug-tooltip__icon {
+  font-size: 16px;
+}
+
+.debug-tooltip__title {
+  font-weight: 700;
+  font-size: 13px;
+  color: #f1f5f9;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.debug-tooltip__content {
+  padding: 12px 16px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.debug-tooltip__section {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.debug-tooltip__section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.debug-tooltip__section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.debug-tooltip__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 4px 0;
+  gap: 12px;
+}
+
+.debug-tooltip__row--full {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.debug-tooltip__label {
+  color: #94a3b8;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.debug-tooltip__value {
+  color: #f1f5f9;
+  font-weight: 500;
+  text-align: right;
+  word-break: break-all;
+}
+
+.debug-tooltip__row--full .debug-tooltip__value {
+  text-align: left;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.debug-tooltip__value--mono {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.debug-tooltip__value--highlight {
+  color: #a5b4fc;
+  font-style: italic;
+}
+
+.debug-tooltip__badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(99, 102, 241, 0.3);
+  color: #a5b4fc;
+}
+
+.debug-tooltip__badge--energy {
+  background: rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+.debug-tooltip__badge--water {
+  background: rgba(6, 182, 212, 0.3);
+  color: #67e8f9;
+}
+
+.debug-tooltip__badge--temperature {
+  background: rgba(249, 115, 22, 0.3);
+  color: #fdba74;
+}
+
+/* Tooltip arrow */
+.debug-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 12px;
+  height: 12px;
+  background: #0f172a;
+  border-right: 1px solid rgba(99, 102, 241, 0.3);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+/* Scrollbar styling for tooltip content */
+.debug-tooltip__content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.debug-tooltip__content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.debug-tooltip__content::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.4);
+  border-radius: 3px;
+}
+
+.debug-tooltip__content::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+}
 `;

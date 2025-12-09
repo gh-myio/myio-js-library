@@ -782,6 +782,7 @@ async function renderList(visible) {
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
       deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
       debugActive: true,
+      activeTooltipDebug: true,
     };
 
     // RFC-0094: Use renderCardComponentHeadOffice like STORES

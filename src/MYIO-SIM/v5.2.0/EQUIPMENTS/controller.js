@@ -869,6 +869,7 @@ self.onInit = async function () {
             unit: 'kWh', // Energy unit
             icon: 'energy', // Domain identifier for SelectionStore
             debugActive: true,
+            activeTooltipDebug: true,
           };
         });
 
