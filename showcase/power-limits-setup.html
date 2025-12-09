@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Limits Setup Modal - MYIO JS Library Showcase</title>
+    <style>
+        :root {
+            --primary: #4A148C;
+            --primary-dark: #38006b;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-desc {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .demo-card {
+            background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+            border: 2px dashed var(--gray-300);
+            border-radius: 12px;
+            padding: 32px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .demo-card:hover {
+            border-color: var(--primary);
+            background: linear-gradient(135deg, #f3e8ff, #ede9fe);
+            transform: translateY(-2px);
+        }
+
+        .demo-card-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+
+        .demo-card-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--gray-800);
+            margin-bottom: 4px;
+        }
+
+        .demo-card-desc {
+            font-size: 13px;
+            color: var(--gray-600);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover { background: var(--primary-dark); }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-800);
+        }
+
+        .btn-secondary:hover { background: var(--gray-300); }
+
+        .code-example {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin-top: 16px;
+        }
+
+        .code-example .comment { color: #6b7280; }
+        .code-example .keyword { color: #c084fc; }
+        .code-example .string { color: #86efac; }
+        .code-example .function { color: #60a5fa; }
+        .code-example .number { color: #fbbf24; }
+
+        .props-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            margin-top: 16px;
+        }
+
+        .props-table th, .props-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .props-table th {
+            background: var(--gray-50);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--gray-600);
+        }
+
+        .props-table code {
+            background: var(--gray-100);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: var(--gray-50);
+            border-radius: 8px;
+        }
+
+        .feature-icon { font-size: 1.25rem; }
+
+        .feature-text {
+            font-size: 14px;
+            color: var(--gray-700);
+        }
+
+        .json-preview {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 16px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-badge.standby { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+        .status-badge.normal { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+        .status-badge.alert { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+        .status-badge.failure { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+        .log-container {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 16px;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #374151;
+        }
+
+        .log-entry:last-child { border-bottom: none; }
+
+        .log-time { color: #6b7280; }
+        .log-event { color: #60a5fa; }
+        .log-data { color: #86efac; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / Power Limits Setup Modal
+            </div>
+            <h1>&#x2699; Power Limits Setup Modal</h1>
+            <p style="opacity: 0.9; margin-top: 8px;">RFC-0103: Configure instantaneous power limits per device type and status</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Demo Section -->
+        <section class="section">
+            <h2>&#x1F3AE; Interactive Demo</h2>
+            <p class="section-desc">
+                Click on a demo card to open the Power Limits Setup Modal with different configurations.
+            </p>
+
+            <div class="demo-grid">
+                <div class="demo-card" onclick="openDemo('basic')">
+                    <div class="demo-card-icon">&#x26A1;</div>
+                    <div class="demo-card-title">Basic Demo</div>
+                    <div class="demo-card-desc">Open modal with default settings (Elevator + Consumption)</div>
+                </div>
+
+                <div class="demo-card" onclick="openDemo('motor')">
+                    <div class="demo-card-icon">&#x2699;</div>
+                    <div class="demo-card-title">Motor Configuration</div>
+                    <div class="demo-card-desc">Pre-configured for Motor device type</div>
+                </div>
+
+                <div class="demo-card" onclick="openDemo('voltage')">
+                    <div class="demo-card-icon">&#x26A0;</div>
+                    <div class="demo-card-title">Voltage Limits</div>
+                    <div class="demo-card-desc">Configure voltage telemetry limits</div>
+                </div>
+
+                <div class="demo-card" onclick="openDemo('existing')">
+                    <div class="demo-card-icon">&#x1F4BE;</div>
+                    <div class="demo-card-title">With Existing Data</div>
+                    <div class="demo-card-desc">Load modal with pre-populated values</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="section">
+            <h2>&#x2728; Features</h2>
+            <p class="section-desc">
+                Key capabilities of the Power Limits Setup Modal component.
+            </p>
+
+            <div class="feature-list">
+                <div class="feature-item">
+                    <span class="feature-icon">&#x1F4CA;</span>
+                    <span class="feature-text">Configure 4 status thresholds: StandBy, Normal, Alert, Failure</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">&#x1F50C;</span>
+                    <span class="feature-text">Support for 9+ device types (Elevator, Motor, Chiller, etc.)</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">&#x26A1;</span>
+                    <span class="feature-text">11 telemetry types (consumption, voltage, current, etc.)</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">&#x1F4BE;</span>
+                    <span class="feature-text">Persists to ThingsBoard customer server_scope attributes</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">&#x1F504;</span>
+                    <span class="feature-text">Partial JSON updates without data loss</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">&#x2705;</span>
+                    <span class="feature-text">Form validation with inline error messages</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">&#x1F3A8;</span>
+                    <span class="feature-text">Customizable styles and theming</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">&#x2328;</span>
+                    <span class="feature-text">Keyboard navigation and accessibility support</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Status Badges -->
+        <section class="section">
+            <h2>&#x1F3F7; Device Status Types</h2>
+            <p class="section-desc">
+                The modal configures threshold limits for these device operational statuses.
+            </p>
+
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px;">
+                <span class="status-badge standby">&#x23F8; StandBy</span>
+                <span class="status-badge normal">&#x2705; Normal</span>
+                <span class="status-badge alert">&#x26A0; Alert</span>
+                <span class="status-badge failure">&#x274C; Failure</span>
+            </div>
+
+            <p style="margin-top: 16px; font-size: 14px; color: var(--gray-600);">
+                Each status has a <strong>Base Value</strong> (minimum threshold) and <strong>Top Value</strong> (maximum threshold).
+                The system uses these ranges to classify device telemetry readings in real-time.
+            </p>
+        </section>
+
+        <!-- JSON Schema Preview -->
+        <section class="section">
+            <h2>&#x1F4C4; JSON Schema (RFC-0078)</h2>
+            <p class="section-desc">
+                The modal manipulates the <code>mapInstantaneousPower</code> JSON structure stored in customer attributes.
+            </p>
+
+            <div class="json-preview" id="json-preview">
+{
+  "version": "1.0.0",
+  "limitsByInstantaneoustPowerType": [
+    {
+      "telemetryType": "consumption",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "ELEVADOR",
+          "name": "mapInstantaneousPowerElevador",
+          "description": "Power limits for ELEVADOR - consumption",
+          "limitsByDeviceStatus": [
+            { "deviceStatusName": "standBy", "limitsValues": { "baseValue": 0, "topValue": 0 } },
+            { "deviceStatusName": "normal", "limitsValues": { "baseValue": 1, "topValue": 10000000 } },
+            { "deviceStatusName": "alert", "limitsValues": { "baseValue": 10000001, "topValue": 10000002 } },
+            { "deviceStatusName": "failure", "limitsValues": { "baseValue": 10000003, "topValue": 10000004 } }
+          ]
+        }
+      ]
+    }
+  ]
+}
+            </div>
+        </section>
+
+        <!-- Code Examples -->
+        <section class="section">
+            <h2>&#x1F4BB; Code Examples</h2>
+            <p class="section-desc">
+                How to use the Power Limits Setup Modal in your application.
+            </p>
+
+            <div class="code-example">
+<span class="comment">// Basic usage</span>
+<span class="keyword">import</span> { <span class="function">openPowerLimitsSetupModal</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="keyword">const</span> modal = <span class="keyword">await</span> <span class="function">openPowerLimitsSetupModal</span>({
+  token: <span class="string">'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'</span>,
+  customerId: <span class="string">'a1b2c3d4-e5f6-7890-abcd-ef1234567890'</span>,
+  tbBaseUrl: <span class="string">'https://tb.myio-bas.com'</span>,
+  onSave: (json) => console.log(<span class="string">'Saved:'</span>, json),
+  onClose: () => console.log(<span class="string">'Modal closed'</span>)
+});
+
+<span class="comment">// Clean up when needed</span>
+modal.<span class="function">destroy</span>();
+            </div>
+
+            <div class="code-example" style="margin-top: 16px;">
+<span class="comment">// Advanced usage with pre-selected device type and existing data</span>
+<span class="keyword">const</span> modal = <span class="keyword">await</span> <span class="function">openPowerLimitsSetupModal</span>({
+  token: jwtToken,
+  customerId: <span class="string">'customer-uuid'</span>,
+  tbBaseUrl: <span class="string">'https://tb.myio-bas.com'</span>,
+  deviceType: <span class="string">'MOTOR'</span>,
+  telemetryType: <span class="string">'total_current'</span>,
+  existingMapPower: existingJsonData,
+  styles: {
+    primaryColor: <span class="string">'#6366f1'</span>,
+    borderRadius: <span class="string">'16px'</span>
+  },
+  onSave: (updatedJson) => {
+    console.log(<span class="string">'Configuration saved!'</span>);
+    <span class="comment">// Sync with backend, update UI, etc.</span>
+  }
+});
+            </div>
+        </section>
+
+        <!-- API Reference -->
+        <section class="section">
+            <h2>&#x1F4D6; API Reference</h2>
+            <p class="section-desc">
+                Parameters accepted by <code>openPowerLimitsSetupModal()</code>.
+            </p>
+
+            <table class="props-table">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Required</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>token</code></td>
+                        <td>string</td>
+                        <td>Yes</td>
+                        <td>JWT token for ThingsBoard authentication</td>
+                    </tr>
+                    <tr>
+                        <td><code>customerId</code></td>
+                        <td>string</td>
+                        <td>Yes</td>
+                        <td>ThingsBoard customer UUID</td>
+                    </tr>
+                    <tr>
+                        <td><code>tbBaseUrl</code></td>
+                        <td>string</td>
+                        <td>No</td>
+                        <td>ThingsBoard API base URL (defaults to current origin)</td>
+                    </tr>
+                    <tr>
+                        <td><code>deviceType</code></td>
+                        <td>string</td>
+                        <td>No</td>
+                        <td>Pre-selected device type (default: 'ELEVADOR')</td>
+                    </tr>
+                    <tr>
+                        <td><code>telemetryType</code></td>
+                        <td>string</td>
+                        <td>No</td>
+                        <td>Pre-selected telemetry type (default: 'consumption')</td>
+                    </tr>
+                    <tr>
+                        <td><code>existingMapPower</code></td>
+                        <td>object</td>
+                        <td>No</td>
+                        <td>Existing configuration JSON to pre-populate form</td>
+                    </tr>
+                    <tr>
+                        <td><code>onSave</code></td>
+                        <td>function</td>
+                        <td>No</td>
+                        <td>Callback after successful save with updated JSON</td>
+                    </tr>
+                    <tr>
+                        <td><code>onClose</code></td>
+                        <td>function</td>
+                        <td>No</td>
+                        <td>Callback when modal closes</td>
+                    </tr>
+                    <tr>
+                        <td><code>styles</code></td>
+                        <td>object</td>
+                        <td>No</td>
+                        <td>Custom style tokens (primaryColor, borderRadius, etc.)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Event Log -->
+        <section class="section">
+            <h2>&#x1F4DD; Event Log</h2>
+            <p class="section-desc">
+                Real-time log of modal events from the demo.
+            </p>
+
+            <div class="log-container" id="event-log">
+                <div class="log-entry">
+                    <span class="log-time">[--:--:--]</span>
+                    <span class="log-event">Ready</span>
+                    <span class="log-data">Click a demo card to start...</span>
+                </div>
+            </div>
+
+            <button class="btn btn-secondary" onclick="clearLog()" style="margin-top: 12px;">Clear Log</button>
+        </section>
+
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="index.html" class="btn btn-primary">&#x2190; Back to Portal</a>
+            <a href="../src/docs/rfcs/RFC-0103-CreateModalSetupPowerLimits.md" class="btn btn-secondary" style="margin-left: 8px;">View RFC</a>
+        </div>
+    </div>
+
+    <!-- Load the library -->
+    <script src="../dist/myio-js-library.umd.min.js"></script>
+
+    <script>
+        // Mock JWT token for demo
+        const MOCK_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXIiLCJpYXQiOjE3MDI0MTk2MDAsImV4cCI6MTc5OTk5OTk5OX0.demo-signature';
+        const MOCK_CUSTOMER_ID = 'demo-customer-12345678-abcd-efgh-ijkl-mnopqrstuvwx';
+
+        // Mock existing data
+        const MOCK_EXISTING_DATA = {
+            version: "1.0.0",
+            limitsByInstantaneoustPowerType: [
+                {
+                    telemetryType: "consumption",
+                    itemsByDeviceType: [
+                        {
+                            deviceType: "ELEVADOR",
+                            name: "mapInstantaneousPowerElevador",
+                            description: "Power limits for ELEVADOR - consumption",
+                            limitsByDeviceStatus: [
+                                { deviceStatusName: "standBy", limitsValues: { baseValue: 0, topValue: 500 } },
+                                { deviceStatusName: "normal", limitsValues: { baseValue: 501, topValue: 5000 } },
+                                { deviceStatusName: "alert", limitsValues: { baseValue: 5001, topValue: 8000 } },
+                                { deviceStatusName: "failure", limitsValues: { baseValue: 8001, topValue: 99999 } }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // Event logging
+        function logEvent(event, data) {
+            const logContainer = document.getElementById('event-log');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="log-time">[${time}]</span>
+                <span class="log-event">${event}</span>
+                <span class="log-data">${typeof data === 'object' ? JSON.stringify(data).substring(0, 80) + '...' : data}</span>
+            `;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLog() {
+            const logContainer = document.getElementById('event-log');
+            logContainer.innerHTML = `
+                <div class="log-entry">
+                    <span class="log-time">[${new Date().toLocaleTimeString()}]</span>
+                    <span class="log-event">Cleared</span>
+                    <span class="log-data">Log cleared</span>
+                </div>
+            `;
+        }
+
+        // Demo configurations
+        const demoConfigs = {
+            basic: {
+                deviceType: 'ELEVADOR',
+                telemetryType: 'consumption',
+                existingMapPower: null
+            },
+            motor: {
+                deviceType: 'MOTOR',
+                telemetryType: 'consumption',
+                existingMapPower: null
+            },
+            voltage: {
+                deviceType: 'ELEVADOR',
+                telemetryType: 'voltage_a',
+                existingMapPower: null
+            },
+            existing: {
+                deviceType: 'ELEVADOR',
+                telemetryType: 'consumption',
+                existingMapPower: MOCK_EXISTING_DATA
+            }
+        };
+
+        // Open demo modal
+        async function openDemo(demoType) {
+            const config = demoConfigs[demoType];
+            logEvent('Modal Opening', `Demo: ${demoType}`);
+
+            try {
+                // Check if library is loaded
+                if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.openPowerLimitsSetupModal) {
+                    // Fallback: show alert if library not loaded
+                    logEvent('Warning', 'Library not loaded, showing mock modal');
+                    showMockModal(config);
+                    return;
+                }
+
+                const modal = await MyIOLibrary.openPowerLimitsSetupModal({
+                    token: MOCK_TOKEN,
+                    customerId: MOCK_CUSTOMER_ID,
+                    tbBaseUrl: 'https://demo.thingsboard.io', // Will fail but shows UI
+                    deviceType: config.deviceType,
+                    telemetryType: config.telemetryType,
+                    existingMapPower: config.existingMapPower,
+                    onSave: (json) => {
+                        logEvent('Save', json);
+                        document.getElementById('json-preview').textContent = JSON.stringify(json, null, 2);
+                    },
+                    onClose: () => {
+                        logEvent('Closed', 'Modal closed by user');
+                    }
+                });
+
+                logEvent('Modal Opened', `Device: ${config.deviceType}, Telemetry: ${config.telemetryType}`);
+
+            } catch (error) {
+                logEvent('Error', error.message);
+                // Show mock modal as fallback
+                showMockModal(config);
+            }
+        }
+
+        // Mock modal for when library is not loaded
+        function showMockModal(config) {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.6);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    overlay.remove();
+                    logEvent('Closed', 'Mock modal closed');
+                }
+            };
+
+            overlay.innerHTML = `
+                <div style="background: white; border-radius: 12px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+                    <div style="background: linear-gradient(135deg, #4A148C, #7c3aed); color: white; padding: 20px 24px; border-radius: 12px 12px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 24px;">&#x2699;</span>
+                            <h2 style="margin: 0; font-size: 1.25rem;">Power Limits Setup (Mock)</h2>
+                        </div>
+                        <button onclick="this.closest('div[style*=fixed]').remove(); logEvent('Closed', 'Mock modal closed');" style="background: transparent; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div style="padding: 24px;">
+                        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                            <strong>&#x26A0; Demo Mode</strong><br>
+                            <small>The library UMD build was not loaded. This is a mock preview of the modal UI.</small>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                            <div>
+                                <label style="font-size: 13px; font-weight: 500; display: block; margin-bottom: 4px;">Device Type</label>
+                                <select style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                                    <option ${config.deviceType === 'ELEVADOR' ? 'selected' : ''}>Elevator (ELEVADOR)</option>
+                                    <option ${config.deviceType === 'MOTOR' ? 'selected' : ''}>Motor (MOTOR)</option>
+                                    <option>Escalator (ESCADA_ROLANTE)</option>
+                                    <option>Pump (BOMBA)</option>
+                                    <option>Chiller (CHILLER)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size: 13px; font-weight: 500; display: block; margin-bottom: 4px;">Telemetry Type</label>
+                                <select style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                                    <option ${config.telemetryType === 'consumption' ? 'selected' : ''}>Consumption (kW)</option>
+                                    <option ${config.telemetryType === 'voltage_a' ? 'selected' : ''}>Voltage A (V)</option>
+                                    <option>Voltage B (V)</option>
+                                    <option>Total Current (A)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            ${['StandBy', 'Normal', 'Alert', 'Failure'].map((status, i) => {
+                                const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444'];
+                                const bgColors = ['rgba(34,197,94,0.1)', 'rgba(59,130,246,0.1)', 'rgba(245,158,11,0.1)', 'rgba(239,68,68,0.1)'];
+                                return `
+                                    <div style="background: ${bgColors[i]}; border: 1px solid ${colors[i]}; border-radius: 8px; padding: 16px;">
+                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                                            <span style="width: 12px; height: 12px; border-radius: 50%; background: ${colors[i]};"></span>
+                                            <strong>${status}</strong>
+                                        </div>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                            <div>
+                                                <label style="font-size: 11px; text-transform: uppercase; color: #6b7280;">Base</label>
+                                                <input type="number" value="${config.existingMapPower ? (i * 500) : ''}" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;" placeholder="0">
+                                            </div>
+                                            <div>
+                                                <label style="font-size: 11px; text-transform: uppercase; color: #6b7280;">Top</label>
+                                                <input type="number" value="${config.existingMapPower ? ((i + 1) * 500) : ''}" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;" placeholder="0">
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px;">
+                            <button onclick="logEvent('Reset', 'Form reset clicked');" style="padding: 10px 16px; border: 1px solid #d1d5db; border-radius: 6px; background: white; cursor: pointer;">Reset</button>
+                            <button onclick="logEvent('Save', {deviceType: '${config.deviceType}', telemetryType: '${config.telemetryType}'}); this.closest('div[style*=fixed]').remove();" style="padding: 10px 16px; border: none; border-radius: 6px; background: #4A148C; color: white; cursor: pointer;">Save</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(overlay);
+            logEvent('Mock Modal Opened', `Device: ${config.deviceType}, Telemetry: ${config.telemetryType}`);
+        }
+
+        // Initial log
+        logEvent('Page Loaded', 'Power Limits Setup Modal showcase ready');
+    </script>
+</body>
+</html>

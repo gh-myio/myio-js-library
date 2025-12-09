@@ -335,3 +335,29 @@ export type {
   DistributionChartConfig,
   DistributionChartInstance,
 } from './components/DistributionChart';
+
+// RFC-0103: Power Limits Setup Modal
+export {
+  openPowerLimitsSetupModal,
+} from './components/premium-modals/power-limits';
+
+// RFC-0103: Power Limits Setup Modal Types
+export type {
+  PowerLimitsModalParams,
+  PowerLimitsModalInstance,
+  PowerLimitsModalStyles,
+  PowerLimitsFormData,
+  PowerLimitsError,
+  InstantaneousPowerLimits,
+  TelemetryTypeLimits,
+  DeviceTypeLimits,
+  StatusLimits,
+  DeviceStatusName,
+} from './components/premium-modals/power-limits';
+
+// RFC-0103: Power Limits Setup Modal Constants
+export {
+  DEVICE_TYPES as POWER_LIMITS_DEVICE_TYPES,
+  TELEMETRY_TYPES as POWER_LIMITS_TELEMETRY_TYPES,
+  STATUS_CONFIG as POWER_LIMITS_STATUS_CONFIG,
+} from './components/premium-modals/power-limits';

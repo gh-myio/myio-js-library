@@ -5,3 +5,6 @@ export { openDashboardPopupReport } from './report-device/openDashboardPopupRepo
 export { openDashboardPopupAllReport } from './report-all/openDashboardPopupAllReport';
 export { openDashboardPopup } from './settings/openDashboardPopup';
 export { openDashboardPopupWaterTank } from './water-tank/openDashboardPopupWaterTank';
+
+// RFC-0103: Power Limits Setup Modal
+export { openPowerLimitsSetupModal } from './power-limits/openPowerLimitsSetupModal';
