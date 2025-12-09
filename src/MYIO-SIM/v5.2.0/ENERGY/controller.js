@@ -258,6 +258,10 @@ let distributionChartInstance = null;
 // RFC-0097: Fullscreen state
 let isChartFullscreen = false;
 
+// RFC-0098: Line chart update state (prevents concurrent updates)
+let isUpdatingLineChart = false;
+let pendingLineChartUpdate = null;
+
 /**
  * RFC-0097: Show loading overlay on energy chart
  */
@@ -293,6 +297,12 @@ async function openFullscreenModal() {
 
   console.log('[ENERGY] [RFC-0098] Opening fullscreen modal...');
 
+  // RFC-0098: Get cached data from the consumption chart widget for instant display
+  const initialData = cachedChartData || consumptionChartInstance?.getCachedData?.() || null;
+  if (initialData) {
+    console.log('[ENERGY] [RFC-0098] Using cached data for modal (instant display)');
+  }
+
   fullscreenModalInstance = MyIOLibrary.createConsumptionModal({
     domain: 'energy',
     title: 'Consumo de Energia',
@@ -306,6 +316,7 @@ async function openFullscreenModal() {
     theme: 'light',
     showSettingsButton: false, // Settings configured in widget before maximizing
     fetchData: fetchConsumptionDataAdapter,
+    initialData: initialData, // RFC-0098: Pass cached data for instant display
     onClose: () => {
       console.log('[ENERGY] [RFC-0098] Fullscreen modal closed');
       fullscreenModalInstance = null;
@@ -1330,12 +1341,12 @@ async function initializeCharts() {
 
   console.log('[ENERGY] Customer ID (from MAIN):', customerId);
 
+  // Get widget container for ThingsBoard compatibility (shared by all widgets)
+  const $container = self.ctx?.$container || null;
+
   // RFC-0098: Initialize line chart using the standardized widget component
   if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumptionChartWidget) {
     console.log('[ENERGY] [RFC-0098] Using createConsumptionChartWidget component');
-
-    // Get widget container for ThingsBoard compatibility
-    const $container = self.ctx?.$container || null;
 
     consumptionChartInstance = MyIOLibrary.createConsumptionChartWidget({
       domain: 'energy',

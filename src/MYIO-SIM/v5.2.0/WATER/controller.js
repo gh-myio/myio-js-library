@@ -725,6 +725,12 @@ async function openFullscreenModal() {
 
   console.log('[WATER] [RFC-0098] Opening fullscreen modal...');
 
+  // RFC-0098: Get cached data from the consumption chart widget for instant display
+  const initialData = cachedChartData || consumptionChartInstance?.getCachedData?.() || null;
+  if (initialData) {
+    console.log('[WATER] [RFC-0098] Using cached data for modal (instant display)');
+  }
+
   fullscreenModalInstance = MyIOLibrary.createConsumptionModal({
     domain: 'water',
     title: 'Consumo de Água',
@@ -736,6 +742,7 @@ async function openFullscreenModal() {
     theme: 'light',
     showSettingsButton: false, // Settings configured in widget before maximizing
     fetchData: fetchWaterConsumptionDataAdapter,
+    initialData: initialData, // RFC-0098: Pass cached data for instant display
     onClose: () => {
       console.log('[WATER] [RFC-0098] Fullscreen modal closed');
       fullscreenModalInstance = null;
