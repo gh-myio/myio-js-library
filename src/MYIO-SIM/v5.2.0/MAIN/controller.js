@@ -2985,7 +2985,8 @@ const MyIOOrchestrator = (() => {
   }
 
   /**
-   * RFC-0100: Extract temperature ranges from ctx.data (Shopping/customers datasource)
+   * RFC-0100: Extract temperature ranges from ctx.data (customers datasource)
+   * Filters by datasource.name === 'customers' and extracts minTemperature/maxTemperature per customer
    * @returns {Map<string, {min: number, max: number, entityLabel: string}>}
    */
   function extractTemperatureRanges() {
@@ -2993,6 +2994,10 @@ const MyIOOrchestrator = (() => {
     const ctxData = self.ctx?.data || [];
 
     ctxData.forEach((data) => {
+      // Filter only data from 'customers' datasource
+      const datasourceName = data.datasource?.name;
+      if (datasourceName !== 'customers') return;
+
       const entityLabel = data.datasource?.entityLabel || 'Unknown';
       const entityId = data.datasource?.entityId || entityLabel;
 
@@ -3023,7 +3028,7 @@ const MyIOOrchestrator = (() => {
     });
 
     temperatureRanges = validRanges;
-    LogHelper.log(`[MAIN] RFC-0100: Extracted ${validRanges.size} temperature ranges`);
+    LogHelper.log(`[MAIN] RFC-0100: Extracted ${validRanges.size} temperature ranges from customers datasource`);
     return validRanges;
   }
 
