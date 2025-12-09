@@ -823,8 +823,69 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // Aplicar cores personalizadas dos cards e setup do tooltip (após o DOM estar pronto)
   setTimeout(() => {
     applyCardColors();
-    setupTemperatureTooltip();
-  }, 100);
+
+    // Setup temperature tooltip directly here
+    const tempTrigger = root.querySelector('#temp-info-trigger');
+    if (tempTrigger && !tempTrigger._tooltipBound) {
+      tempTrigger._tooltipBound = true;
+      LogHelper.log('[HEADER] Temperature tooltip trigger found in onInit');
+
+      tempTrigger.addEventListener('mouseenter', (e) => {
+        LogHelper.log(
+          '[HEADER] Tooltip mouseenter - currentTemperatureData:',
+          window._headerTempData ? 'available' : 'not available'
+        );
+        if (window._headerTempData) {
+          showTemperatureTooltip(tempTrigger, window._headerTempData);
+        } else {
+          // Show tooltip even without data
+          showTemperatureTooltip(tempTrigger, {
+            globalAvg: null,
+            shoppingsInRange: [],
+            shoppingsOutOfRange: [],
+            devices: [],
+          });
+        }
+      });
+
+      tempTrigger.addEventListener('mouseleave', () => {
+        hideTemperatureTooltip();
+      });
+    } else {
+      LogHelper.warn('[HEADER] Temperature tooltip trigger NOT found in onInit');
+    }
+
+    // Setup energy tooltip
+    const energyTrigger = root.querySelector('#energy-info-trigger');
+    if (energyTrigger && !energyTrigger._tooltipBound) {
+      energyTrigger._tooltipBound = true;
+      LogHelper.log('[HEADER] Energy tooltip trigger found in onInit');
+
+      energyTrigger.addEventListener('mouseenter', (e) => {
+        LogHelper.log(
+          '[HEADER] Energy tooltip mouseenter - data:',
+          window._headerEnergyData ? 'available' : 'not available'
+        );
+        if (window._headerEnergyData) {
+          showEnergyTooltip(energyTrigger, window._headerEnergyData);
+        } else {
+          showEnergyTooltip(energyTrigger, {
+            customerTotal: null,
+            unfilteredTotal: null,
+            equipmentsTotal: null,
+            lojasTotal: null,
+            shoppingsEnergy: [],
+          });
+        }
+      });
+
+      energyTrigger.addEventListener('mouseleave', () => {
+        hideEnergyTooltip();
+      });
+    } else {
+      LogHelper.warn('[HEADER] Energy tooltip trigger NOT found in onInit');
+    }
+  }, 200);
 
   // mocks (remova se alimentar via API/telemetria)
   setSummary({
@@ -1157,9 +1218,15 @@ function updateWaterCard(waterCache) {
 
 // ===== HEADER: Listen for energy data from MAIN orchestrator =====
 // RFC-0093: Listen for energy-summary-ready for the correct total (equipments + lojas)
+window._headerEnergyData = null; // Global for tooltip access
+
 window.addEventListener('myio:energy-summary-ready', (ev) => {
   LogHelper.log('[HEADER] 📊 heard myio:energy-summary-ready:', ev.detail);
   const summary = ev.detail || {};
+
+  // Store for tooltip
+  window._headerEnergyData = summary;
+
   if (typeof summary.customerTotal === 'number') {
     // RFC-0093: Pass full summary object to show comparative (filtered/total) like Equipment card
     updateEnergyCardWithTotal(summary);
@@ -1250,12 +1317,14 @@ window.addEventListener('myio:water-totals-updated', (ev) => {
 
 // ===== RFC-0100: HEADER listens for temperature data from MAIN orchestrator =====
 let currentTemperatureData = null;
+window._headerTempData = null; // Global for tooltip access
 
 window.addEventListener('myio:temperature-data-ready', (ev) => {
   LogHelper.log('[HEADER] RFC-0100: Received temperature data from MAIN:', ev.detail);
   const data = ev.detail;
   if (data) {
     currentTemperatureData = data;
+    window._headerTempData = data; // Store globally for tooltip
     updateTemperatureCardFromOrchestrator(data);
   }
 });
@@ -1268,6 +1337,164 @@ function createTemperatureTooltip() {
   const existing = document.getElementById('temp-premium-tooltip');
   if (existing) existing.remove();
 
+  // Inject CSS if not already present
+  if (!document.getElementById('temp-tooltip-styles')) {
+    const style = document.createElement('style');
+    style.id = 'temp-tooltip-styles';
+    style.textContent = `
+      .temp-tooltip-container {
+        position: fixed;
+        z-index: 99999;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.25s ease, transform 0.25s ease;
+        transform: translateY(5px);
+      }
+      .temp-tooltip-container.visible {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+      .temp-tooltip {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 2px 10px rgba(0, 0, 0, 0.08);
+        min-width: 340px;
+        max-width: 420px;
+        font-size: 12px;
+        color: #1e293b;
+        overflow: hidden;
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+      }
+      .temp-tooltip__header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 18px;
+        background: linear-gradient(90deg, #fff7ed 0%, #fef3c7 100%);
+        border-bottom: 1px solid #fed7aa;
+      }
+      .temp-tooltip__icon { font-size: 18px; }
+      .temp-tooltip__title {
+        font-weight: 700;
+        font-size: 14px;
+        color: #c2410c;
+        letter-spacing: 0.3px;
+      }
+      .temp-tooltip__content {
+        padding: 16px 18px;
+        max-height: 600px;
+        overflow-y: auto;
+      }
+      .temp-tooltip__section {
+        margin-bottom: 16px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      .temp-tooltip__section:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+      }
+      .temp-tooltip__section-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .temp-tooltip__row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        gap: 12px;
+      }
+      .temp-tooltip__label {
+        color: #64748b;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+      .temp-tooltip__value {
+        color: #1e293b;
+        font-weight: 600;
+        text-align: right;
+      }
+      .temp-tooltip__value--highlight {
+        color: #ea580c;
+        font-weight: 700;
+        font-size: 14px;
+      }
+      .temp-tooltip__badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
+      .temp-tooltip__badge--ok {
+        background: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+      }
+      .temp-tooltip__badge--warn {
+        background: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+      }
+      .temp-tooltip__badge--info {
+        background: #e0e7ff;
+        color: #4338ca;
+        border: 1px solid #c7d2fe;
+      }
+      .temp-tooltip__list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .temp-tooltip__list-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        background: #f8fafc;
+        border-radius: 8px;
+        font-size: 12px;
+      }
+      .temp-tooltip__list-item--ok { border-left: 3px solid #22c55e; background: #f0fdf4; }
+      .temp-tooltip__list-item--warn { border-left: 3px solid #f59e0b; background: #fffbeb; }
+      .temp-tooltip__list-icon { font-size: 14px; flex-shrink: 0; }
+      .temp-tooltip__list-name { flex: 1; color: #334155; font-weight: 600; }
+      .temp-tooltip__list-value { color: #475569; font-size: 12px; font-weight: 500; }
+      .temp-tooltip__list-range { color: #94a3b8; font-size: 11px; }
+      .temp-tooltip__notice {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 14px;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 8px;
+        margin-top: 14px;
+      }
+      .temp-tooltip__notice-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+      .temp-tooltip__notice-text { font-size: 11px; color: #1e40af; line-height: 1.6; }
+      .temp-tooltip__notice-text strong { font-weight: 700; color: #1e3a8a; }
+    `;
+    document.head.appendChild(style);
+    LogHelper.log('[HEADER] Tooltip CSS injected');
+  }
+
   const container = document.createElement('div');
   container.id = 'temp-premium-tooltip';
   container.className = 'temp-tooltip-container';
@@ -1276,12 +1503,22 @@ function createTemperatureTooltip() {
 }
 
 function showTemperatureTooltip(triggerElement, data) {
+  LogHelper.log('[HEADER] showTemperatureTooltip called', { triggerElement, data });
+
   let container = document.getElementById('temp-premium-tooltip');
   if (!container) {
     container = createTemperatureTooltip();
+    LogHelper.log('[HEADER] Created new tooltip container');
   }
 
-  const { globalAvg, filteredAvg, isFiltered, shoppingsInRange = [], shoppingsOutOfRange = [], devices = [] } = data || {};
+  const {
+    globalAvg,
+    filteredAvg,
+    isFiltered,
+    shoppingsInRange = [],
+    shoppingsOutOfRange = [],
+    devices = [],
+  } = data || {};
   const totalShoppings = shoppingsInRange.length + shoppingsOutOfRange.length;
 
   // Build shopping list HTML
@@ -1294,14 +1531,20 @@ function showTemperatureTooltip(triggerElement, data) {
           <span>✅</span> Dentro da Faixa (${shoppingsInRange.length})
         </div>
         <div class="temp-tooltip__list">
-          ${shoppingsInRange.map(s => `
+          ${shoppingsInRange
+            .map((s) => {
+              const rangeText = s.min != null && s.max != null ? `(faixa: ${s.min}–${s.max}°C)` : '';
+              return `
             <div class="temp-tooltip__list-item temp-tooltip__list-item--ok">
               <span class="temp-tooltip__list-icon">✔</span>
-              <span class="temp-tooltip__list-name">${s.name}</span>
+              <span class="temp-tooltip__list-name">${
+                s.name
+              } <span class="temp-tooltip__list-range">${rangeText}</span></span>
               <span class="temp-tooltip__list-value">${s.avg?.toFixed(1)}°C</span>
-              ${s.min != null && s.max != null ? `<span class="temp-tooltip__list-range">(${s.min}–${s.max}°C)</span>` : ''}
             </div>
-          `).join('')}
+          `;
+            })
+            .join('')}
         </div>
       </div>
     `;
@@ -1314,14 +1557,20 @@ function showTemperatureTooltip(triggerElement, data) {
           <span>⚠️</span> Fora da Faixa (${shoppingsOutOfRange.length})
         </div>
         <div class="temp-tooltip__list">
-          ${shoppingsOutOfRange.map(s => `
+          ${shoppingsOutOfRange
+            .map((s) => {
+              const rangeText = s.min != null && s.max != null ? `(faixa: ${s.min}–${s.max}°C)` : '';
+              return `
             <div class="temp-tooltip__list-item temp-tooltip__list-item--warn">
               <span class="temp-tooltip__list-icon">⚠</span>
-              <span class="temp-tooltip__list-name">${s.name}</span>
+              <span class="temp-tooltip__list-name">${
+                s.name
+              } <span class="temp-tooltip__list-range">${rangeText}</span></span>
               <span class="temp-tooltip__list-value">${s.avg?.toFixed(1)}°C</span>
-              ${s.min != null && s.max != null ? `<span class="temp-tooltip__list-range">(${s.min}–${s.max}°C)</span>` : ''}
             </div>
-          `).join('')}
+          `;
+            })
+            .join('')}
         </div>
       </div>
     `;
@@ -1352,14 +1601,20 @@ function showTemperatureTooltip(triggerElement, data) {
           </div>
           <div class="temp-tooltip__row">
             <span class="temp-tooltip__label">Média Global:</span>
-            <span class="temp-tooltip__value temp-tooltip__value--highlight">${globalAvg != null ? globalAvg.toFixed(1) + '°C' : '--'}</span>
+            <span class="temp-tooltip__value temp-tooltip__value--highlight">${
+              globalAvg != null ? globalAvg.toFixed(1) + '°C' : '--'
+            }</span>
           </div>
-          ${isFiltered && filteredAvg != null ? `
+          ${
+            isFiltered && filteredAvg != null
+              ? `
           <div class="temp-tooltip__row">
             <span class="temp-tooltip__label">Média Filtrada:</span>
             <span class="temp-tooltip__value">${filteredAvg.toFixed(1)}°C</span>
           </div>
-          ` : ''}
+          `
+              : ''
+          }
           <div class="temp-tooltip__row">
             <span class="temp-tooltip__label">Sensores Ativos:</span>
             <span class="temp-tooltip__value">${devices.length || 0}</span>
@@ -1385,16 +1640,14 @@ function showTemperatureTooltip(triggerElement, data) {
 
   // Position tooltip
   const rect = triggerElement.getBoundingClientRect();
-  const tooltipRect = container.getBoundingClientRect();
-
   let left = rect.left + rect.width / 2 - 160; // Center tooltip (320px / 2)
   let top = rect.bottom + 8;
 
   // Adjust if tooltip goes off screen
   if (left < 10) left = 10;
   if (left + 320 > window.innerWidth - 10) left = window.innerWidth - 330;
-  if (top + 400 > window.innerHeight) {
-    top = rect.top - 8 - 400; // Show above
+  if (top + 600 > window.innerHeight) {
+    top = rect.top - 8 - 600; // Show above
     if (top < 10) top = 10;
   }
 
@@ -1410,11 +1663,309 @@ function hideTemperatureTooltip() {
   }
 }
 
+// ===== ENERGY TOOLTIP FUNCTIONS =====
+
+/**
+ * Premium Energy Tooltip - Creates and manages the tooltip
+ */
+function createEnergyTooltip() {
+  const existing = document.getElementById('energy-premium-tooltip');
+  if (existing) existing.remove();
+
+  // Inject CSS if not already present
+  if (!document.getElementById('energy-tooltip-styles')) {
+    const style = document.createElement('style');
+    style.id = 'energy-tooltip-styles';
+    style.textContent = `
+      .energy-info-trigger {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: help;
+        opacity: 0.5;
+        transition: opacity 0.2s ease;
+        position: relative;
+        margin-left: 4px;
+        vertical-align: middle;
+      }
+      .energy-info-trigger:hover { opacity: 1; }
+      .energy-tooltip-container {
+        position: fixed;
+        z-index: 99999;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.25s ease, transform 0.25s ease;
+        transform: translateY(5px);
+      }
+      .energy-tooltip-container.visible {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+      .energy-tooltip {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 2px 10px rgba(0, 0, 0, 0.08);
+        min-width: 340px;
+        max-width: 420px;
+        font-size: 12px;
+        color: #1e293b;
+        overflow: hidden;
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+      }
+      .energy-tooltip__header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 18px;
+        background: linear-gradient(90deg, #ecfdf5 0%, #d1fae5 100%);
+        border-bottom: 1px solid #a7f3d0;
+      }
+      .energy-tooltip__icon { font-size: 18px; }
+      .energy-tooltip__title {
+        font-weight: 700;
+        font-size: 14px;
+        color: #047857;
+        letter-spacing: 0.3px;
+      }
+      .energy-tooltip__content {
+        padding: 16px 18px;
+        max-height: 600px;
+        overflow-y: auto;
+      }
+      .energy-tooltip__section {
+        margin-bottom: 16px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      .energy-tooltip__section:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+      }
+      .energy-tooltip__section-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .energy-tooltip__row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        gap: 12px;
+      }
+      .energy-tooltip__label {
+        color: #64748b;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+      .energy-tooltip__value {
+        color: #1e293b;
+        font-weight: 600;
+        text-align: right;
+      }
+      .energy-tooltip__value--highlight {
+        color: #059669;
+        font-weight: 700;
+        font-size: 14px;
+      }
+      .energy-tooltip__value--secondary {
+        color: #64748b;
+        font-size: 11px;
+      }
+      .energy-tooltip__list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .energy-tooltip__list-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: #f8fafc;
+        border-radius: 8px;
+        font-size: 12px;
+        border-left: 3px solid #10b981;
+      }
+      .energy-tooltip__list-icon { font-size: 14px; flex-shrink: 0; }
+      .energy-tooltip__list-name { flex: 1; color: #334155; font-weight: 600; }
+      .energy-tooltip__list-value { color: #059669; font-size: 12px; font-weight: 600; }
+      .energy-tooltip__list-percent { color: #94a3b8; font-size: 11px; }
+      .energy-tooltip__notice {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 14px;
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        border-radius: 8px;
+        margin-top: 14px;
+      }
+      .energy-tooltip__notice-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+      .energy-tooltip__notice-text { font-size: 11px; color: #047857; line-height: 1.6; }
+      .energy-tooltip__notice-text strong { font-weight: 700; color: #065f46; }
+    `;
+    document.head.appendChild(style);
+    LogHelper.log('[HEADER] Energy tooltip CSS injected');
+  }
+
+  const container = document.createElement('div');
+  container.id = 'energy-premium-tooltip';
+  container.className = 'energy-tooltip-container';
+  document.body.appendChild(container);
+  return container;
+}
+
+function showEnergyTooltip(triggerElement, data) {
+  LogHelper.log('[HEADER] showEnergyTooltip called', { triggerElement, data });
+
+  let container = document.getElementById('energy-premium-tooltip');
+  if (!container) {
+    container = createEnergyTooltip();
+    LogHelper.log('[HEADER] Created new energy tooltip container');
+  }
+
+  const {
+    customerTotal = 0,
+    unfilteredTotal = 0,
+    equipmentsTotal = 0,
+    lojasTotal = 0,
+    deviceCount = 0,
+    isFiltered = false,
+    shoppingsEnergy = [],
+  } = data || {};
+
+  // Format energy value
+  const formatEnergy = (val) => {
+    if (val == null || isNaN(val)) return '--';
+    if (typeof MyIOLibrary?.formatEnergy === 'function') {
+      return MyIOLibrary.formatEnergy(val);
+    }
+    return val >= 1000 ? `${(val / 1000).toFixed(2)} MWh` : `${val.toFixed(2)} kWh`;
+  };
+
+  // Build shopping list HTML if available
+  let shoppingListHtml = '';
+  if (shoppingsEnergy && shoppingsEnergy.length > 0) {
+    const totalForPercent = customerTotal || shoppingsEnergy.reduce((sum, s) => sum + (s.value || 0), 0);
+    shoppingListHtml = `
+      <div class="energy-tooltip__section">
+        <div class="energy-tooltip__section-title">
+          <span>🏢</span> Consumo por Shopping (${shoppingsEnergy.length})
+        </div>
+        <div class="energy-tooltip__list">
+          ${shoppingsEnergy
+            .sort((a, b) => (b.value || 0) - (a.value || 0))
+            .map((s) => {
+              const percent = totalForPercent > 0 ? ((s.value || 0) / totalForPercent) * 100 : 0;
+              return `
+              <div class="energy-tooltip__list-item">
+                <span class="energy-tooltip__list-icon">⚡</span>
+                <span class="energy-tooltip__list-name">${s.name}</span>
+                <span class="energy-tooltip__list-value">${formatEnergy(s.value)}</span>
+                <span class="energy-tooltip__list-percent">(${percent.toFixed(1)}%)</span>
+              </div>
+            `;
+            })
+            .join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = `
+    <div class="energy-tooltip">
+      <div class="energy-tooltip__header">
+        <span class="energy-tooltip__icon">⚡</span>
+        <span class="energy-tooltip__title">Detalhes de Consumo de Energia</span>
+      </div>
+      <div class="energy-tooltip__content">
+        <div class="energy-tooltip__section">
+          <div class="energy-tooltip__section-title">
+            <span>📊</span> Resumo Geral
+          </div>
+          <div class="energy-tooltip__row">
+            <span class="energy-tooltip__label">Consumo Total${isFiltered ? ' (Filtrado)' : ''}:</span>
+            <span class="energy-tooltip__value energy-tooltip__value--highlight">${formatEnergy(customerTotal)}</span>
+          </div>
+          ${
+            isFiltered && unfilteredTotal > 0
+              ? `
+          <div class="energy-tooltip__row">
+            <span class="energy-tooltip__label">Consumo Total (Geral):</span>
+            <span class="energy-tooltip__value energy-tooltip__value--secondary">${formatEnergy(unfilteredTotal)}</span>
+          </div>
+          `
+              : ''
+          }
+          <div class="energy-tooltip__row">
+            <span class="energy-tooltip__label">Equipamentos:</span>
+            <span class="energy-tooltip__value">${formatEnergy(equipmentsTotal)}</span>
+          </div>
+          <div class="energy-tooltip__row">
+            <span class="energy-tooltip__label">Lojas:</span>
+            <span class="energy-tooltip__value">${formatEnergy(lojasTotal)}</span>
+          </div>
+          <div class="energy-tooltip__row">
+            <span class="energy-tooltip__label">Dispositivos:</span>
+            <span class="energy-tooltip__value">${deviceCount || 0}</span>
+          </div>
+        </div>
+
+        ${shoppingListHtml}
+
+        <div class="energy-tooltip__notice">
+          <span class="energy-tooltip__notice-icon">ℹ️</span>
+          <span class="energy-tooltip__notice-text">
+            O consumo total inclui <strong>equipamentos de área comum</strong> e <strong>medidores de lojas</strong>.
+            Valores em tempo real podem variar conforme a disponibilidade dos dados.
+          </span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Position tooltip
+  const rect = triggerElement.getBoundingClientRect();
+  let left = rect.left + rect.width / 2 - 170;
+  let top = rect.bottom + 8;
+
+  if (left < 10) left = 10;
+  if (left + 340 > window.innerWidth - 10) left = window.innerWidth - 350;
+  if (top + 600 > window.innerHeight) {
+    top = rect.top - 8 - 600;
+    if (top < 10) top = 10;
+  }
+
+  container.style.left = left + 'px';
+  container.style.top = top + 'px';
+  container.classList.add('visible');
+}
+
+function hideEnergyTooltip() {
+  const container = document.getElementById('energy-premium-tooltip');
+  if (container) {
+    container.classList.remove('visible');
+  }
+}
+
 // Setup tooltip trigger events
 function setupTemperatureTooltip() {
   // Try to find trigger in widget container first, then fallback to document
   const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
-  const trigger = root.querySelector ? root.querySelector('#temp-info-trigger') : document.getElementById('temp-info-trigger');
+  const trigger = root.querySelector
+    ? root.querySelector('#temp-info-trigger')
+    : document.getElementById('temp-info-trigger');
 
   if (!trigger || trigger._tooltipBound) return;
 
@@ -1422,7 +1973,10 @@ function setupTemperatureTooltip() {
   LogHelper.log('[HEADER] Temperature tooltip trigger found and bound');
 
   trigger.addEventListener('mouseenter', () => {
-    LogHelper.log('[HEADER] Temperature tooltip mouseenter, data:', currentTemperatureData ? 'available' : 'not available');
+    LogHelper.log(
+      '[HEADER] Temperature tooltip mouseenter, data:',
+      currentTemperatureData ? 'available' : 'not available'
+    );
     if (currentTemperatureData) {
       showTemperatureTooltip(trigger, currentTemperatureData);
     }
