@@ -2903,6 +2903,17 @@ const MyIOOrchestrator = (() => {
     return { ...waterTotals };
   }
 
+  /**
+   * Retorna os IDs válidos de água por categoria
+   * @returns {{ commonArea: Set<string>, stores: Set<string> }}
+   */
+  function getWaterValidIds() {
+    return {
+      commonArea: new Set(waterValidIds.commonArea),
+      stores: new Set(waterValidIds.stores),
+    };
+  }
+
   // ===== RFC-0100: TEMPERATURE DATA MANAGEMENT =====
   let temperatureCache = null;
   let temperatureRanges = new Map();
@@ -4012,6 +4023,7 @@ const MyIOOrchestrator = (() => {
     // ===== WATER: Funções para registro de IDs válidos =====
     registerWaterDeviceIds,
     getWaterTotals,
+    getWaterValidIds,
     recalculateWaterTotals,
 
     // ===== RFC-0100: TEMPERATURE functions =====

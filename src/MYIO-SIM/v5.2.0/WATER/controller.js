@@ -283,18 +283,38 @@ let distributionChartInstance = null;
 const CHART_CACHE_TTL = 5 * 60 * 1000;
 
 /**
- * RFC-0098: Get shopping name from Orchestrator or fallback
+ * RFC-0098: Get shopping name from multiple sources (same pattern as ENERGY)
  */
 function getShoppingNameForFilter(customerId) {
+  if (!customerId) return 'Sem Shopping';
+
+  // Priority 1: Try to get from waterCache (has customerName from API /totals)
   const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
-  if (orchestrator?.getCustomers) {
-    const customers = orchestrator.getCustomers();
-    const customer = customers.find((c) => c.id?.id === customerId || c.customerId === customerId);
-    if (customer) {
-      return customer.name || customer.title || customerId.slice(0, 8);
+  if (orchestrator && typeof orchestrator.getWaterCache === 'function') {
+    const waterCache = orchestrator.getWaterCache();
+
+    // Find any device with this customerId and get customerName
+    for (const [ingestionId, deviceData] of waterCache) {
+      if (deviceData.customerId === customerId && deviceData.customerName) {
+        return deviceData.customerName;
+      }
     }
   }
-  return customerId.slice(0, 8);
+
+  // Priority 2: Try from window.custumersSelected (MENU filter)
+  if (window.custumersSelected && Array.isArray(window.custumersSelected)) {
+    const shopping = window.custumersSelected.find((c) => c.value === customerId || c.ingestionId === customerId);
+    if (shopping && shopping.name) return shopping.name;
+  }
+
+  // Priority 3: Try from ctx.$scope.custumer
+  if (self.ctx?.$scope?.custumer && Array.isArray(self.ctx.$scope.custumer)) {
+    const shopping = self.ctx.$scope.custumer.find((c) => c.value === customerId);
+    if (shopping && shopping.name) return shopping.name;
+  }
+
+  // Fallback
+  return `Shopping ${customerId.substring(0, 8)}...`;
 }
 
 /**
@@ -587,9 +607,10 @@ async function initializeDistributionChartWidget() {
 
   console.log('[WATER] [RFC-0102] Initializing distribution chart widget...');
 
-  // Calculate distribution data for water
+  // Calculate distribution data for water using REAL data from waterCache
   const calculateWaterDistribution = async (mode) => {
     const cachedData = getCachedTotalConsumption();
+    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
 
     if (mode === 'groups') {
       // Lojas vs Área Comum
@@ -597,42 +618,44 @@ async function initializeDistributionChartWidget() {
         'Lojas': cachedData?.storesTotal || 0,
         'Área Comum': cachedData?.commonAreaTotal || 0,
       };
-    } else if (mode === 'stores') {
-      // Lojas por Shopping - mock data for now
-      const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
-      const customers = orchestrator?.getCustomers?.() || [];
-
-      const result = {};
-      customers.forEach((c, i) => {
-        const name = c.name || c.title || `Shopping ${i + 1}`;
-        result[name] = (cachedData?.storesTotal || 0) * (0.2 + Math.random() * 0.3);
-      });
-
-      if (Object.keys(result).length === 0) {
-        result['Shopping 1'] = (cachedData?.storesTotal || 0) * 0.4;
-        result['Shopping 2'] = (cachedData?.storesTotal || 0) * 0.35;
-        result['Shopping 3'] = (cachedData?.storesTotal || 0) * 0.25;
+    } else if (mode === 'stores' || mode === 'common') {
+      // Aggregate consumption by shopping using real data from waterCache
+      if (!orchestrator || typeof orchestrator.getWaterCache !== 'function') {
+        console.warn('[WATER] Orchestrator not available for distribution calculation');
+        return null;
       }
 
-      return result;
-    } else if (mode === 'common') {
-      // Área Comum por Shopping - mock data for now
-      const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
-      const customers = orchestrator?.getCustomers?.() || [];
+      const waterCache = orchestrator.getWaterCache();
+      const waterValidIds = orchestrator.getWaterValidIds?.() || { stores: new Set(), commonArea: new Set() };
 
-      const result = {};
-      customers.forEach((c, i) => {
-        const name = c.name || c.title || `Shopping ${i + 1}`;
-        result[name] = (cachedData?.commonAreaTotal || 0) * (0.2 + Math.random() * 0.3);
-      });
-
-      if (Object.keys(result).length === 0) {
-        result['Shopping 1'] = (cachedData?.commonAreaTotal || 0) * 0.4;
-        result['Shopping 2'] = (cachedData?.commonAreaTotal || 0) * 0.35;
-        result['Shopping 3'] = (cachedData?.commonAreaTotal || 0) * 0.25;
+      if (!waterCache || waterCache.size === 0) {
+        console.warn('[WATER] Water cache is empty');
+        return null;
       }
 
-      return result;
+      // Select the target category based on mode
+      const targetIds = mode === 'stores' ? waterValidIds.stores : waterValidIds.commonArea;
+
+      console.log(`[WATER] Calculating distribution for mode: ${mode}, valid IDs: ${targetIds.size}`);
+
+      // Aggregate by shopping (customerId)
+      const shoppingDistribution = {};
+
+      waterCache.forEach((deviceData, ingestionId) => {
+        // Only include devices from the selected category
+        if (!targetIds.has(ingestionId)) {
+          return;
+        }
+
+        const consumption = Number(deviceData.total_value) || 0;
+        const customerId = deviceData.customerId;
+        const shoppingName = getShoppingNameForFilter(customerId);
+
+        shoppingDistribution[shoppingName] = (shoppingDistribution[shoppingName] || 0) + consumption;
+      });
+
+      console.log(`[WATER] Distribution by ${mode}:`, shoppingDistribution);
+      return shoppingDistribution;
     }
 
     return null;
