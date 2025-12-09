@@ -110,6 +110,7 @@
   top: 6px;
   z-index: 2;
   display: flex;
+  flex-wrap: nowrap;
   gap: 6px;
   justify-content: space-between;
   align-items: center;
@@ -138,7 +139,9 @@
   flex-wrap: wrap;
   align-items: center;
   flex: 1;
+  min-width: 0;
   margin-right: 12px;
+  overflow: hidden;
 }
 
 .shopping-filter-chips .filter-chip {
@@ -593,7 +596,7 @@
 
 /* ====== RFC-0103: POWER LIMITS BUTTON ====== */
 .power-limits-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
@@ -606,6 +609,8 @@
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .power-limits-btn:hover {
@@ -640,9 +645,11 @@
 /* ====== RFC-0093: REAL-TIME MODE STYLES ====== */
 .realtime-controls {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .realtime-toggle {

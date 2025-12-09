@@ -1958,22 +1958,6 @@ function updateConnectionIndicator(mode) {
 }
 
 /**
- * RFC-0093: Subscribe to visible devices (debounced for filter changes)
- */
-function subscribeToVisibleDevices() {
-  clearTimeout(filterDebounceTimer);
-  filterDebounceTimer = setTimeout(() => {
-    if (!STATE.realTimeActive) return;
-
-    const visibleDeviceIds = getVisibleDeviceIds();
-
-    if (STATE.realTimeEngine === 'websocket' && websocketService?.isConnected()) {
-      websocketService.subscribe(visibleDeviceIds);
-    }
-  }, 300);
-}
-
-/**
  * RFC-0093: Start WebSocket real-time mode
  */
 async function startWebSocketMode() {
@@ -2521,15 +2505,16 @@ async function openPowerLimitsModal() {
     // Check if MyIOLibrary is available
     if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.openPowerLimitsSetupModal) {
       console.error('[PowerLimits] MyIOLibrary.openPowerLimitsSetupModal not available');
-      alert('Power Limits Setup is not available. Please ensure the library is loaded.');
+      window.alert('Power Limits Setup is not available. Please ensure the library is loaded.');
       return;
     }
 
     // Get JWT token from widgetContext
-    const jwtToken = self.ctx?.http?.getJwtToken?.() || self.ctx?.dashboard?.getJwtToken?.();
+    //const jwtToken = self.ctx?.http?.getJwtToken?.() || self.ct/x?.dashboard?.getJwtToken?.();
+    const jwtToken = localStorage.getItem('jwt_token');
     if (!jwtToken) {
       console.error('[PowerLimits] JWT token not available');
-      alert('Authentication error. Please refresh the page.');
+      window.alert('Authentication error. Please refresh the page.');
       return;
     }
 
@@ -2537,7 +2522,7 @@ async function openPowerLimitsModal() {
     const tbBaseUrl = window.location.origin;
 
     // Open the modal
-    const modal = await MyIOLibrary.openPowerLimitsSetupModal({
+    await MyIOLibrary.openPowerLimitsSetupModal({
       token: jwtToken,
       customerId: CUSTOMER_ID,
       tbBaseUrl: tbBaseUrl,
@@ -2551,14 +2536,13 @@ async function openPowerLimitsModal() {
       },
       onClose: () => {
         LogHelper.log('[PowerLimits] Modal closed');
-      }
+      },
     });
 
     LogHelper.log('[PowerLimits] Modal opened successfully');
-
   } catch (error) {
     console.error('[PowerLimits] Error opening modal:', error);
-    alert('Error opening Power Limits Setup: ' + error.message);
+    window.alert('Error opening Power Limits Setup: ' + error.message);
   }
 }
 
