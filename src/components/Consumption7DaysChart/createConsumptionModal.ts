@@ -96,7 +96,7 @@ export function createConsumptionModal(
   let currentTheme: ThemeMode = config.theme ?? 'light';
   let currentChartType: ChartType = config.defaultChartType ?? 'line';
   let currentVizMode: VizMode = config.defaultVizMode ?? 'total';
-  let isMaximized = false;
+  const isMaximized = true; // Modal is always fullscreen
 
   // Get domain config
   const domainCfg = DOMAIN_CONFIG[config.domain] || { name: config.domain, icon: '📊' };
@@ -131,7 +131,8 @@ export function createConsumptionModal(
       title: title,
       icon: domainCfg.icon,
       theme: currentTheme as ModalTheme,
-      isMaximized: isMaximized,
+      isMaximized: true, // Modal is always fullscreen
+      showMaximize: false, // Hide maximize button - modal is already fullscreen
       exportFormats: exportFormats,
       onExport: (format: ExportFormat) => {
         // If custom handler provided, use it
@@ -149,10 +150,6 @@ export function createConsumptionModal(
       onThemeToggle: (theme) => {
         currentTheme = theme as ThemeMode;
         chartInstance?.setTheme(currentTheme);
-        updateModal();
-      },
-      onMaximize: (maximized) => {
-        isMaximized = maximized;
         updateModal();
       },
       onClose: () => {
@@ -394,7 +391,7 @@ export function createConsumptionModal(
   /**
    * Update modal (re-render controls and styles)
    */
-  function updateModal(): void {
+  async function updateModal(): Promise<void> {
     if (!modalElement) return;
 
     const cachedData = chartInstance?.getCachedData();
@@ -407,7 +404,7 @@ export function createConsumptionModal(
     modalElement.innerHTML = renderModal();
     setupListeners();
 
-    // Re-create chart with same data
+    // Re-create chart with same data (pass as initialData for instant display)
     if (cachedData) {
       chartInstance = createConsumption7DaysChart({
         ...config,
@@ -415,8 +412,9 @@ export function createConsumptionModal(
         theme: currentTheme,
         defaultChartType: currentChartType,
         defaultVizMode: currentVizMode,
+        initialData: cachedData, // RFC-0098: Use initialData for instant re-render
       });
-      chartInstance.update(cachedData);
+      await chartInstance.render();
     }
   }
 
