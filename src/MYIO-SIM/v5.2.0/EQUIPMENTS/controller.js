@@ -177,6 +177,8 @@ function initializeCards(devices) {
     // 2. RENDERIZAÇÃO: Capturamos a instância retornada na variável 'cardInstance'
     const cardInstance = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
+      debugActive: true,
+      activeTooltipDebug: true,
       delayTimeConnectionInMins,
 
       // 3. SELEÇÃO INICIAL: Verifica na Store se este card já deve nascer selecionado
@@ -377,7 +379,7 @@ function initializeCards(devices) {
 
       useNewComponents: true,
       enableSelection: true,
-      enableDragDrop: true,
+      enableDragDrop: false,
       // RFC-0072: Disable "More Information" menu item (redundant with card click)
       hideInfoMenuItem: true,
     });
@@ -868,8 +870,6 @@ self.onInit = async function () {
             lastValue: consumptionValue, // Alias for val
             unit: 'kWh', // Energy unit
             icon: 'energy', // Domain identifier for SelectionStore
-            debugActive: true,
-            activeTooltipDebug: true,
           };
         });
 

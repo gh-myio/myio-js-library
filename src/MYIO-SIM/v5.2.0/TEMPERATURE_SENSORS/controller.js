@@ -148,12 +148,12 @@ function initializeSensorCards(sensors) {
         // --- CORREÇÃO VISUAL ---
         // Aqui usamos o status 'traduzido' (running) em vez de sensor.status (normal)
         deviceStatus: visualStatus,
-        debugActive: true,
-        activeTooltipDebug: true,
       };
 
       MyIOLibrary.renderCardComponentHeadOffice(container, {
         entityObject: entityObject,
+        debugActive: true,
+        activeTooltipDebug: true,
         delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
         handleActionDashboard: async () => {
           openTemperatureModal(sensor);

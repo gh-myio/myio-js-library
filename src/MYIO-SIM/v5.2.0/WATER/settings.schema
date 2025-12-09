@@ -6,7 +6,7 @@
         "labelWidget":{
             "type":"string",
             "title": "Widget Label",
-            "default": "Resumo de �gua"
+            "default": "Resumo de água"
         }
     }
   },

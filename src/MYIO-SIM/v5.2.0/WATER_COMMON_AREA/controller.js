@@ -791,12 +791,12 @@ async function renderList(visible) {
       temperatureC: 0,
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
       deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
-      debugActive: true,
-      activeTooltipDebug: true,
     };
 
     // RFC-0094: Use renderCardComponentHeadOffice like WATER_STORES
     MyIOLibrary.renderCardComponentHeadOffice(container, {
+      debugActive: true,
+      activeTooltipDebug: true,
       entityObject: entityObject,
       delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
 

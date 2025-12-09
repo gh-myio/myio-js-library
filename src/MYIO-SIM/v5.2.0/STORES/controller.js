@@ -914,13 +914,13 @@ async function renderList(visible) {
       temperatureC: 0, // Temperatura (não disponível para lojas)
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER, // Global map from settings
       deviceMapInstaneousPower: it.deviceMapInstaneousPower || null, // Device-specific map
-      debugActive: true,
-      activeTooltipDebug: true,
     };
 
     // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (default 60 minutes)
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: entityObject,
+      debugActive: true,
+      activeTooltipDebug: true,
       delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
 
       // --- DIFERENÇA 2: Callback de clique (mesmo que apenas logue) ---
