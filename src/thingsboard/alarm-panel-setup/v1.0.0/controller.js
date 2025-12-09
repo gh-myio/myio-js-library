@@ -28,15 +28,23 @@ var state = {
   devices: [],
   alarms: [],
   selectedProfileIds: [],
+  selectedCustomerIds: [], // Para filtrar por customer quando há múltiplos
   filters: {
     statuses: { ACTIVE: true, CLEARED: false, ACKNOWLEDGED: false },
     searchText: '',
+    searchDeviceText: '',
     selectedDeviceIds: [],
     severities: { CRITICAL: true, MAJOR: true, MINOR: true, WARNING: true },
   },
   showModal: false,
   showFilterModal: false,
   showExportModal: false,
+  showDeviceFilterDropdown: false,
+  showDeviceFilterModal: false,
+  deviceFilterModalSearch: '',
+  deviceFilterModalGroupBy: 'profile', // 'profile', 'status', 'severity', 'none'
+  deviceFilterModalShowOnlyWithAlarms: false,
+  deviceSort: { column: 'name', direction: 'asc' }, // Ordenação da grid de devices
   exportOptions: {
     deviceProfiles: true,
     deviceMap: true,
@@ -88,7 +96,13 @@ function injectStyles() {
     .ap-toggle-btn:first-child { border-radius: 4px 0 0 4px; }
     .ap-toggle-btn:last-child { border-radius: 0 4px 4px 0; }
     .ap-grid { border: 1px solid #ddd; border-radius: 4px; display: flex; flex-direction: column; max-height: 400px; }
-    .ap-grid-header { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; background: #f5f5f5; padding: 10px; font-weight: bold; font-size: 12px; border-bottom: 1px solid #ddd; flex-shrink: 0; }
+    .ap-grid-header { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; background: #f5f5f5; padding: 0; font-weight: bold; font-size: 12px; border-bottom: 1px solid #ddd; flex-shrink: 0; }
+    .ap-grid-header-cell { padding: 10px; cursor: pointer; display: flex; align-items: center; gap: 4px; user-select: none; transition: background 0.15s; }
+    .ap-grid-header-cell:hover { background: #e8e8e8; }
+    .ap-grid-header-cell.sorted { background: #e3f2fd; color: #1976d2; }
+    .ap-sort-icon { font-size: 10px; opacity: 0.4; transition: opacity 0.15s; }
+    .ap-grid-header-cell:hover .ap-sort-icon { opacity: 0.7; }
+    .ap-grid-header-cell.sorted .ap-sort-icon { opacity: 1; }
     .ap-grid-body { overflow-y: auto; flex: 1; }
     .ap-grid-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; padding: 10px; border-bottom: 1px solid #eee; font-size: 13px; }
     .ap-grid-row:hover { background: #fafafa; }
@@ -172,6 +186,115 @@ function injectStyles() {
     .ap-btn-export { background: #4caf50; color: white; }
     .ap-btn-export:hover { background: #43a047; }
     .ap-btn-export:disabled { background: #ccc; cursor: not-allowed; }
+
+    /* Premium Multiselect Filter */
+    .ap-device-filter-container { position: relative; display: inline-block; min-width: 280px; }
+    .ap-device-filter-trigger { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-size: 13px; min-height: 38px; transition: all 0.2s; }
+    .ap-device-filter-trigger:hover { border-color: #1976d2; }
+    .ap-device-filter-trigger.active { border-color: #1976d2; box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2); }
+    .ap-device-filter-trigger.has-selection { background: #e3f2fd; border-color: #1976d2; }
+    .ap-device-filter-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ap-device-filter-placeholder { color: #999; }
+    .ap-device-filter-count { background: #1976d2; color: white; border-radius: 10px; padding: 2px 8px; font-size: 11px; margin-left: 8px; }
+    .ap-device-filter-arrow { margin-left: 8px; font-size: 10px; transition: transform 0.2s; }
+    .ap-device-filter-arrow.open { transform: rotate(180deg); }
+    .ap-device-filter-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 1000; max-height: 350px; display: flex; flex-direction: column; }
+    .ap-device-filter-search { padding: 10px; border-bottom: 1px solid #eee; }
+    .ap-device-filter-search input { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; box-sizing: border-box; }
+    .ap-device-filter-search input:focus { outline: none; border-color: #1976d2; }
+    .ap-device-filter-actions { display: flex; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #eee; background: #fafafa; }
+    .ap-device-filter-action { font-size: 12px; color: #1976d2; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: background 0.2s; }
+    .ap-device-filter-action:hover { background: #e3f2fd; }
+    .ap-device-filter-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .ap-device-filter-item { display: flex; align-items: center; padding: 8px 12px; cursor: pointer; transition: background 0.15s; }
+    .ap-device-filter-item:hover { background: #f5f5f5; }
+    .ap-device-filter-item.selected { background: #e3f2fd; }
+    .ap-device-filter-checkbox { width: 18px; height: 18px; border: 2px solid #ddd; border-radius: 4px; margin-right: 10px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
+    .ap-device-filter-item.selected .ap-device-filter-checkbox { background: #1976d2; border-color: #1976d2; }
+    .ap-device-filter-checkmark { color: white; font-size: 12px; font-weight: bold; }
+    .ap-device-filter-item-content { flex: 1; min-width: 0; }
+    .ap-device-filter-item-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ap-device-filter-item-meta { font-size: 11px; color: #666; margin-top: 2px; display: flex; gap: 8px; }
+    .ap-device-filter-item-badge { padding: 1px 6px; border-radius: 8px; font-size: 10px; }
+    .ap-device-filter-empty { padding: 20px; text-align: center; color: #999; font-style: italic; }
+    .ap-device-filter-footer { padding: 10px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 8px; background: #fafafa; }
+    .ap-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 999; }
+
+    /* Device Filter Modal Premium */
+    .ap-dfm { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 12px; width: 90%; max-width: 700px; max-height: 85vh; z-index: 1001; box-shadow: 0 8px 32px rgba(0,0,0,0.2); display: flex; flex-direction: column; }
+    .ap-dfm-header { padding: 16px 20px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%); border-radius: 12px 12px 0 0; }
+    .ap-dfm-title { font-size: 18px; font-weight: 600; color: white; display: flex; align-items: center; gap: 10px; }
+    .ap-dfm-title-icon { font-size: 20px; }
+    .ap-dfm-close { background: rgba(255,255,255,0.2); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+    .ap-dfm-close:hover { background: rgba(255,255,255,0.3); }
+    .ap-dfm-toolbar { padding: 12px 16px; background: #f8f9fa; border-bottom: 1px solid #e0e0e0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .ap-dfm-search { flex: 1; min-width: 200px; position: relative; }
+    .ap-dfm-search input { width: 100%; padding: 10px 12px 10px 36px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; transition: border-color 0.2s, box-shadow 0.2s; }
+    .ap-dfm-search input:focus { outline: none; border-color: #1976d2; box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1); }
+    .ap-dfm-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999; font-size: 14px; }
+    .ap-dfm-groupby { display: flex; align-items: center; gap: 8px; }
+    .ap-dfm-groupby-label { font-size: 12px; color: #666; white-space: nowrap; }
+    .ap-dfm-groupby-select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; background: white; cursor: pointer; }
+    .ap-dfm-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666; cursor: pointer; padding: 6px 10px; border-radius: 6px; transition: background 0.2s; }
+    .ap-dfm-toggle:hover { background: #e3f2fd; }
+    .ap-dfm-toggle.active { background: #e3f2fd; color: #1976d2; }
+    .ap-dfm-toggle input { width: 16px; height: 16px; cursor: pointer; }
+    .ap-dfm-stats { display: flex; gap: 16px; padding: 8px 16px; background: #fafafa; border-bottom: 1px solid #eee; font-size: 12px; color: #666; }
+    .ap-dfm-stat { display: flex; align-items: center; gap: 4px; }
+    .ap-dfm-stat-value { font-weight: 600; color: #1976d2; }
+    .ap-dfm-body { flex: 1; overflow-y: auto; padding: 0; }
+    .ap-dfm-group { border-bottom: 1px solid #eee; }
+    .ap-dfm-group:last-child { border-bottom: none; }
+    .ap-dfm-group-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #f5f5f5; cursor: pointer; transition: background 0.2s; position: sticky; top: 0; z-index: 1; }
+    .ap-dfm-group-header:hover { background: #eeeeee; }
+    .ap-dfm-group-title { font-weight: 600; font-size: 13px; color: #333; display: flex; align-items: center; gap: 8px; }
+    .ap-dfm-group-count { font-size: 11px; color: #666; font-weight: normal; background: #e0e0e0; padding: 2px 8px; border-radius: 10px; }
+    .ap-dfm-group-actions { display: flex; gap: 8px; }
+    .ap-dfm-group-action { font-size: 11px; color: #1976d2; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: background 0.2s; }
+    .ap-dfm-group-action:hover { background: #e3f2fd; }
+    .ap-dfm-items { padding: 4px 0; }
+    .ap-dfm-item { display: flex; align-items: center; padding: 10px 16px; cursor: pointer; transition: background 0.15s; gap: 12px; }
+    .ap-dfm-item:hover { background: #f5f5f5; }
+    .ap-dfm-item.selected { background: #e3f2fd; }
+    .ap-dfm-checkbox { width: 20px; height: 20px; border: 2px solid #ccc; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
+    .ap-dfm-item.selected .ap-dfm-checkbox { background: #1976d2; border-color: #1976d2; }
+    .ap-dfm-checkmark { color: white; font-size: 12px; font-weight: bold; }
+    .ap-dfm-item-content { flex: 1; min-width: 0; }
+    .ap-dfm-item-name { font-size: 14px; font-weight: 500; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ap-dfm-item-label { font-size: 12px; color: #666; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ap-dfm-item-badges { display: flex; gap: 6px; flex-shrink: 0; }
+    .ap-dfm-item-badge { padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
+    .ap-dfm-item-alarms { font-size: 11px; color: #c62828; font-weight: 500; display: flex; align-items: center; gap: 4px; }
+    .ap-dfm-empty { padding: 40px 20px; text-align: center; color: #999; }
+    .ap-dfm-empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+    .ap-dfm-empty-text { font-size: 14px; }
+    .ap-dfm-footer { padding: 16px 20px; border-top: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; background: #fafafa; border-radius: 0 0 12px 12px; }
+    .ap-dfm-footer-info { font-size: 13px; color: #666; }
+    .ap-dfm-footer-info strong { color: #1976d2; }
+    .ap-dfm-footer-actions { display: flex; gap: 10px; }
+    .ap-dfm-btn { padding: 10px 20px; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+    .ap-dfm-btn-secondary { background: #e0e0e0; color: #333; }
+    .ap-dfm-btn-secondary:hover { background: #d0d0d0; }
+    .ap-dfm-btn-primary { background: #1976d2; color: white; }
+    .ap-dfm-btn-primary:hover { background: #1565c0; }
+    .ap-dfm-btn-clear { background: transparent; color: #d32f2f; border: 1px solid #d32f2f; }
+    .ap-dfm-btn-clear:hover { background: #ffebee; }
+
+    /* Customer Filter Pills */
+    .ap-customers-bar { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #e0e0e0; margin-bottom: 12px; flex-wrap: wrap; }
+    .ap-customers-label { font-size: 13px; font-weight: 600; color: #666; white-space: nowrap; }
+    .ap-customers-list { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+    .ap-customer-pill { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; }
+    .ap-customer-pill.selectable { background: #f5f5f5; color: #666; }
+    .ap-customer-pill.selectable:hover { background: #e3f2fd; border-color: #90caf9; }
+    .ap-customer-pill.selectable.selected { background: #1976d2; color: white; border-color: #1976d2; }
+    .ap-customer-pill.single { background: #e3f2fd; color: #1976d2; font-weight: 500; }
+    .ap-customer-icon { font-size: 14px; }
+    .ap-customer-name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ap-customer-count { font-size: 10px; opacity: 0.8; }
+    .ap-customers-actions { display: flex; gap: 8px; }
+    .ap-customers-action { font-size: 11px; color: #1976d2; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+    .ap-customers-action:hover { background: #e3f2fd; }
   `;
 
   var style = document.createElement('style');
@@ -226,11 +349,98 @@ function render() {
     html += renderExportModal();
   }
 
+  // Device Filter Modal
+  if (state.showDeviceFilterModal) {
+    html += renderDeviceFilterModal();
+  }
+
+  // Salvar qual elemento tinha foco antes de re-render
+  var activeEl = document.activeElement;
+  var activeElementId = activeEl ? activeEl.id : null;
+  var selectionStart = null;
+  var selectionEnd = null;
+
+  // Salvar posição do cursor para inputs de texto
+  if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+    try {
+      selectionStart = activeEl.selectionStart;
+      selectionEnd = activeEl.selectionEnd;
+    } catch (e) {
+      // Alguns tipos de input não suportam selectionStart
+    }
+  }
+
   rootEl.innerHTML = html;
+
+  // Restaurar foco após re-render
+  if (activeElementId) {
+    var el = document.getElementById(activeElementId);
+    if (el) {
+      el.focus();
+      if (selectionStart !== null) {
+        try {
+          el.setSelectionRange(selectionStart, selectionEnd);
+        } catch (e) {
+          // Ignora se não suportar
+        }
+      }
+    }
+  }
+}
+
+function renderCustomersBar() {
+  // Só mostra a barra se houver mais de 1 customer
+  if (state.customers.length <= 1) {
+    // Se só tem 1 customer, mostra uma pill simples
+    if (state.customers.length === 1) {
+      var c = state.customers[0];
+      var deviceCount = state.devices.filter(function(d) { return d.customerId === c.id; }).length;
+      var html = '<div class="ap-customers-bar">';
+      html += '<span class="ap-customers-label">&#127970; Cliente:</span>';
+      html += '<div class="ap-customers-list">';
+      html += '<div class="ap-customer-pill single">';
+      html += '<span class="ap-customer-name">' + escapeHtml(c.name) + '</span>';
+      html += '<span class="ap-customer-count">(' + deviceCount + ' devices)</span>';
+      html += '</div>';
+      html += '</div>';
+      html += '</div>';
+      return html;
+    }
+    return '';
+  }
+
+  // Múltiplos customers - mostra pills selecionáveis
+  var html = '<div class="ap-customers-bar">';
+  html += '<span class="ap-customers-label">&#127970; Clientes:</span>';
+  html += '<div class="ap-customers-list">';
+
+  state.customers.forEach(function(c) {
+    var isSelected = state.selectedCustomerIds.length === 0 || state.selectedCustomerIds.indexOf(c.id) !== -1;
+    var deviceCount = state.devices.filter(function(d) { return d.customerId === c.id; }).length;
+    html += '<div class="ap-customer-pill selectable' + (isSelected ? ' selected' : '') + '" onclick="AlarmPanel.toggleCustomer(\'' + c.id + '\')">';
+    html += '<span class="ap-customer-name">' + escapeHtml(c.name) + '</span>';
+    html += '<span class="ap-customer-count">(' + deviceCount + ')</span>';
+    html += '</div>';
+  });
+
+  html += '</div>';
+
+  // Ações
+  html += '<div class="ap-customers-actions">';
+  if (state.selectedCustomerIds.length > 0 && state.selectedCustomerIds.length < state.customers.length) {
+    html += '<span class="ap-customers-action" onclick="AlarmPanel.selectAllCustomers()">Todos</span>';
+  }
+  html += '</div>';
+
+  html += '</div>';
+  return html;
 }
 
 function renderContent() {
   var html = '';
+
+  // Customers Bar (quando há múltiplos customers)
+  html += renderCustomersBar();
 
   // Profiles
   html += '<div class="ap-profiles-header"><span class="ap-section-title">Device Profiles</span>';
@@ -277,18 +487,92 @@ function renderContent() {
 }
 
 function renderDevices() {
-  var devices = getFilteredDevices();
+  var allDevices = getFilteredDevices();
+
+  // Apply device filter if any devices are selected
+  var devices = allDevices;
+  if (state.filters.selectedDeviceIds.length > 0) {
+    devices = allDevices.filter(function(d) {
+      return state.filters.selectedDeviceIds.indexOf(d.id) !== -1;
+    });
+  }
+
   var html = '<div class="ap-devices-header"><span class="ap-section-title">Devices</span>';
-  html += '<span class="ap-count">' + devices.length + ' device(s)</span></div>';
+  html += '<span class="ap-count">' + devices.length + ' de ' + allDevices.length + ' device(s)</span></div>';
+
+  // Filter Bar for Devices
+  html += '<div class="ap-filters">';
+
+  // Search Box for devices
+  html += '<div class="ap-search-box">';
+  html += '<input type="text" id="ap-device-search" class="ap-search-input" placeholder="Buscar devices..." value="' + escapeHtml(state.filters.searchDeviceText || '') + '" onkeyup="AlarmPanel.onDeviceSearchChangeGrid(event)" />';
+  html += '</div>';
+
+  // Device Filter Button (opens modal)
+  var deviceFilterCount = state.filters.selectedDeviceIds.length;
+  html += '<button class="ap-filter-btn' + (deviceFilterCount > 0 ? ' has-filters' : '') + '" onclick="AlarmPanel.openDeviceFilterModal()">';
+  html += '<span class="ap-filter-icon">&#128187;</span> Filtrar Devices';
+  if (deviceFilterCount > 0) {
+    html += '<span class="ap-filter-badge">' + deviceFilterCount + '</span>';
+  }
+  html += '</button>';
+
+  // Quick filter: Only with alarms
+  var devicesWithAlarms = allDevices.filter(function(d) { return d.activeAlarmCount > 0; }).length;
+  html += '<label class="ap-dfm-toggle' + (state.deviceFilterModalShowOnlyWithAlarms ? ' active' : '') + '" style="margin-left: 8px;">';
+  html += '<input type="checkbox" ' + (state.deviceFilterModalShowOnlyWithAlarms ? 'checked' : '') + ' onchange="AlarmPanel.toggleDeviceFilterModalOnlyAlarms()" />';
+  html += 'Com alarmes (' + devicesWithAlarms + ')';
+  html += '</label>';
+
+  html += '</div>';
+
+  // Active Filters Tags for devices
+  if (deviceFilterCount > 0) {
+    html += '<div class="ap-active-filters">';
+    html += '<div class="ap-active-filter-tag">';
+    html += '<span>' + deviceFilterCount + ' device(s) filtrado(s)</span>';
+    html += '<button onclick="AlarmPanel.clearAllDevices()">&times;</button>';
+    html += '</div>';
+    html += '</div>';
+  }
+
+  // Apply search filter
+  var searchText = (state.filters.searchDeviceText || '').toLowerCase();
+  if (searchText) {
+    devices = devices.filter(function(d) {
+      return (d.name || '').toLowerCase().indexOf(searchText) !== -1 ||
+             (d.label || '').toLowerCase().indexOf(searchText) !== -1;
+    });
+  }
+
+  // Apply only with alarms filter
+  if (state.deviceFilterModalShowOnlyWithAlarms) {
+    devices = devices.filter(function(d) {
+      return d.activeAlarmCount > 0;
+    });
+  }
 
   if (devices.length === 0) {
-    html += '<div class="ap-empty">No devices found. Select profiles above.</div>';
+    html += '<div class="ap-empty">Nenhum device encontrado. Selecione profiles acima ou ajuste os filtros.</div>';
     return html;
   }
 
+  // Sort devices
+  devices = sortDevices(devices);
+
   html += '<div class="ap-grid">';
-  html +=
-    '<div class="ap-grid-header"><div>Device</div><div>Location</div><div>Severity</div><div>Status</div><div>Last Alarm</div></div>';
+
+  // Sortable header
+  var sortCol = state.deviceSort.column;
+  var sortDir = state.deviceSort.direction;
+
+  html += '<div class="ap-grid-header">';
+  html += renderSortableHeader('name', 'Device', sortCol, sortDir);
+  html += renderSortableHeader('profileName', 'Profile', sortCol, sortDir);
+  html += renderSortableHeader('currentAlarmSeverity', 'Severity', sortCol, sortDir);
+  html += renderSortableHeader('alarmStatus', 'Status', sortCol, sortDir);
+  html += renderSortableHeader('lastAlarmTs', 'Last Alarm', sortCol, sortDir);
+  html += '</div>';
 
   html += '<div class="ap-grid-body">';
   devices.forEach(function (d) {
@@ -296,7 +580,7 @@ function renderDevices() {
     html += '<div><div class="ap-device-name">' + escapeHtml(d.name) + '</div>';
     if (d.label) html += '<div class="ap-device-label">' + escapeHtml(d.label) + '</div>';
     html += '</div>';
-    html += '<div>' + escapeHtml(d.location || '—') + '</div>';
+    html += '<div>' + escapeHtml(d.profileName || d.location || '—') + '</div>';
     html +=
       '<div><span class="ap-badge ' +
       getSeverityClass(d.currentAlarmSeverity) +
@@ -318,6 +602,177 @@ function renderDevices() {
   return html;
 }
 
+function renderSortableHeader(column, label, currentColumn, currentDirection) {
+  var isSorted = column === currentColumn;
+  var sortClass = isSorted ? ' sorted' : '';
+  var arrow = '';
+
+  if (isSorted) {
+    arrow = currentDirection === 'asc' ? '&#9650;' : '&#9660;'; // ▲ ou ▼
+  } else {
+    arrow = '&#9650;'; // Default arrow
+  }
+
+  return '<div class="ap-grid-header-cell' + sortClass + '" onclick="AlarmPanel.sortDevices(\'' + column + '\')">' +
+    '<span>' + label + '</span>' +
+    '<span class="ap-sort-icon">' + arrow + '</span>' +
+    '</div>';
+}
+
+function sortDevices(devices) {
+  var column = state.deviceSort.column;
+  var direction = state.deviceSort.direction;
+  var multiplier = direction === 'asc' ? 1 : -1;
+
+  // Prioridade para severidades
+  var severityOrder = { CRITICAL: 4, MAJOR: 3, MINOR: 2, WARNING: 1, NONE: 0 };
+  // Prioridade para status
+  var statusOrder = { ACTIVE: 3, ACK: 2, CLEARED: 1, NORMAL: 0 };
+
+  return devices.slice().sort(function(a, b) {
+    var valA, valB;
+
+    switch (column) {
+      case 'name':
+        valA = (a.name || '').toLowerCase();
+        valB = (b.name || '').toLowerCase();
+        break;
+      case 'profileName':
+        valA = (a.profileName || '').toLowerCase();
+        valB = (b.profileName || '').toLowerCase();
+        break;
+      case 'currentAlarmSeverity':
+        valA = severityOrder[a.currentAlarmSeverity] || 0;
+        valB = severityOrder[b.currentAlarmSeverity] || 0;
+        break;
+      case 'alarmStatus':
+        valA = statusOrder[a.alarmStatus] || 0;
+        valB = statusOrder[b.alarmStatus] || 0;
+        break;
+      case 'lastAlarmTs':
+        valA = a.lastAlarmTs || 0;
+        valB = b.lastAlarmTs || 0;
+        break;
+      default:
+        valA = a[column] || '';
+        valB = b[column] || '';
+    }
+
+    if (valA < valB) return -1 * multiplier;
+    if (valA > valB) return 1 * multiplier;
+    return 0;
+  });
+}
+
+function renderDeviceFilterMultiselect() {
+  var devices = getFilteredDevices();
+  var selectedCount = state.filters.selectedDeviceIds.length;
+  var hasSelection = selectedCount > 0;
+  var searchText = (state.filters.searchDeviceText || '').toLowerCase();
+
+  // Filter devices by search text
+  var filteredDevices = devices;
+  if (searchText) {
+    filteredDevices = devices.filter(function(d) {
+      return (d.name || '').toLowerCase().indexOf(searchText) !== -1 ||
+             (d.label || '').toLowerCase().indexOf(searchText) !== -1;
+    });
+  }
+
+  var html = '<div class="ap-device-filter-container">';
+
+  // Overlay to close dropdown when clicking outside
+  if (state.showDeviceFilterDropdown) {
+    html += '<div class="ap-overlay" onclick="AlarmPanel.closeDeviceFilter()"></div>';
+  }
+
+  // Trigger button
+  var triggerClass = 'ap-device-filter-trigger';
+  if (state.showDeviceFilterDropdown) triggerClass += ' active';
+  if (hasSelection) triggerClass += ' has-selection';
+
+  html += '<div class="' + triggerClass + '" onclick="AlarmPanel.toggleDeviceFilter()">';
+  html += '<span class="ap-device-filter-text">';
+  if (hasSelection) {
+    if (selectedCount === 1) {
+      var selectedDevice = devices.find(function(d) { return d.id === state.filters.selectedDeviceIds[0]; });
+      html += escapeHtml(selectedDevice ? selectedDevice.name : '1 device');
+    } else if (selectedCount <= 3) {
+      var names = state.filters.selectedDeviceIds.map(function(id) {
+        var d = devices.find(function(dev) { return dev.id === id; });
+        return d ? d.name : '';
+      }).filter(Boolean);
+      html += escapeHtml(names.join(', '));
+    } else {
+      html += selectedCount + ' devices selecionados';
+    }
+  } else {
+    html += '<span class="ap-device-filter-placeholder">Filtrar por device...</span>';
+  }
+  html += '</span>';
+  if (hasSelection) {
+    html += '<span class="ap-device-filter-count">' + selectedCount + '</span>';
+  }
+  html += '<span class="ap-device-filter-arrow' + (state.showDeviceFilterDropdown ? ' open' : '') + '">&#9660;</span>';
+  html += '</div>';
+
+  // Dropdown
+  if (state.showDeviceFilterDropdown) {
+    html += '<div class="ap-device-filter-dropdown">';
+
+    // Search input
+    html += '<div class="ap-device-filter-search">';
+    html += '<input type="text" placeholder="Buscar devices..." value="' + escapeHtml(state.filters.searchDeviceText) + '" ';
+    html += 'onkeyup="AlarmPanel.onDeviceSearchChange(event)" onclick="event.stopPropagation()" />';
+    html += '</div>';
+
+    // Actions
+    html += '<div class="ap-device-filter-actions">';
+    html += '<span class="ap-device-filter-action" onclick="event.stopPropagation(); AlarmPanel.selectAllDevicesFiltered()">Selecionar visíveis (' + filteredDevices.length + ')</span>';
+    html += '<span class="ap-device-filter-action" onclick="event.stopPropagation(); AlarmPanel.clearAllDevices()">Limpar seleção</span>';
+    html += '</div>';
+
+    // Device list
+    html += '<div class="ap-device-filter-list">';
+    if (filteredDevices.length === 0) {
+      html += '<div class="ap-device-filter-empty">Nenhum device encontrado</div>';
+    } else {
+      filteredDevices.forEach(function(d) {
+        var isSelected = state.filters.selectedDeviceIds.indexOf(d.id) !== -1;
+        html += '<div class="ap-device-filter-item' + (isSelected ? ' selected' : '') + '" ';
+        html += 'onclick="event.stopPropagation(); AlarmPanel.toggleDeviceSelection(\'' + d.id + '\')">';
+        html += '<div class="ap-device-filter-checkbox">';
+        if (isSelected) html += '<span class="ap-device-filter-checkmark">&#10003;</span>';
+        html += '</div>';
+        html += '<div class="ap-device-filter-item-content">';
+        html += '<div class="ap-device-filter-item-name">' + escapeHtml(d.name) + '</div>';
+        html += '<div class="ap-device-filter-item-meta">';
+        if (d.label) html += '<span>' + escapeHtml(d.label) + '</span>';
+        if (d.currentAlarmSeverity) {
+          html += '<span class="ap-device-filter-item-badge ' + getSeverityClass(d.currentAlarmSeverity) + '">' + d.currentAlarmSeverity + '</span>';
+        }
+        if (d.activeAlarmCount > 0) {
+          html += '<span style="color: #c62828;">' + d.activeAlarmCount + ' alarme(s)</span>';
+        }
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+      });
+    }
+    html += '</div>';
+
+    // Footer
+    html += '<div class="ap-device-filter-footer">';
+    html += '<button class="ap-btn ap-btn-secondary" onclick="event.stopPropagation(); AlarmPanel.closeDeviceFilter()">Fechar</button>';
+    html += '</div>';
+
+    html += '</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
 function renderAlarms() {
   var alarms = getFilteredAlarms();
   var html = '<div class="ap-alarms-header"><span class="ap-section-title">Alarms</span>';
@@ -328,15 +783,15 @@ function renderAlarms() {
 
   // Search Box
   html += '<div class="ap-search-box">';
-  html += '<input type="text" class="ap-search-input" placeholder="Buscar alarmes..." value="' + escapeHtml(state.filters.searchText) + '" onkeyup="AlarmPanel.onSearchChange(event)" />';
+  html += '<input type="text" id="ap-alarm-search" class="ap-search-input" placeholder="Buscar alarmes..." value="' + escapeHtml(state.filters.searchText) + '" onkeyup="AlarmPanel.onSearchChange(event)" />';
   html += '</div>';
 
-  // Filter Button
-  var activeFilterCount = getActiveFilterCount();
-  html += '<button class="ap-filter-btn' + (activeFilterCount > 0 ? ' has-filters' : '') + '" onclick="AlarmPanel.openFilterModal()">';
-  html += '<span class="ap-filter-icon">&#128269;</span> Filtros';
-  if (activeFilterCount > 0) {
-    html += '<span class="ap-filter-badge">' + activeFilterCount + '</span>';
+  // Device Filter Button (opens modal)
+  var deviceFilterCount = state.filters.selectedDeviceIds.length;
+  html += '<button class="ap-filter-btn' + (deviceFilterCount > 0 ? ' has-filters' : '') + '" onclick="AlarmPanel.openDeviceFilterModal()">';
+  html += '<span class="ap-filter-icon">&#128187;</span> Devices';
+  if (deviceFilterCount > 0) {
+    html += '<span class="ap-filter-badge">' + deviceFilterCount + '</span>';
   }
   html += '</button>';
 
@@ -354,6 +809,14 @@ function renderAlarms() {
     '<label><input type="checkbox" ' +
     (state.filters.statuses.ACKNOWLEDGED ? 'checked' : '') +
     ' onchange="AlarmPanel.toggleFilter(\'ACKNOWLEDGED\')"> ACK</label>';
+  html += '</div>';
+
+  // Severity Filter
+  html += '<div class="ap-filter-group"><span>Severidade:</span>';
+  ['CRITICAL', 'MAJOR', 'MINOR', 'WARNING'].forEach(function(sev) {
+    html += '<label><input type="checkbox" ' + (state.filters.severities[sev] ? 'checked' : '') +
+      ' onchange="AlarmPanel.toggleSeverityFilter(\'' + sev + '\')"> <span class="ap-badge ' + getSeverityClass(sev) + '">' + sev + '</span></label>';
+  });
   html += '</div>';
 
   html += '</div>';
@@ -434,6 +897,200 @@ function renderActiveFilterTags() {
   });
   html += '</div>';
 
+  return html;
+}
+
+function renderDeviceFilterModal() {
+  var devices = getFilteredDevices();
+  var searchText = (state.deviceFilterModalSearch || '').toLowerCase();
+  var groupBy = state.deviceFilterModalGroupBy || 'profile';
+  var onlyWithAlarms = state.deviceFilterModalShowOnlyWithAlarms;
+
+  // Filter devices
+  var filteredDevices = devices.filter(function(d) {
+    // Search filter
+    if (searchText) {
+      var matchName = (d.name || '').toLowerCase().indexOf(searchText) !== -1;
+      var matchLabel = (d.label || '').toLowerCase().indexOf(searchText) !== -1;
+      if (!matchName && !matchLabel) return false;
+    }
+    // Only with alarms filter
+    if (onlyWithAlarms && (!d.activeAlarmCount || d.activeAlarmCount === 0)) {
+      return false;
+    }
+    return true;
+  });
+
+  // Group devices
+  var groups = {};
+  filteredDevices.forEach(function(d) {
+    var groupKey;
+    var groupLabel;
+    if (groupBy === 'profile') {
+      groupKey = d.deviceProfileId || 'unknown';
+      groupLabel = d.profileName || 'Sem Profile';
+    } else if (groupBy === 'customer') {
+      groupKey = d.customerId || 'unknown';
+      groupLabel = d.customerName || 'Sem Cliente';
+    } else if (groupBy === 'status') {
+      groupKey = d.alarmStatus || 'NORMAL';
+      groupLabel = d.alarmStatus || 'NORMAL';
+    } else if (groupBy === 'severity') {
+      groupKey = d.currentAlarmSeverity || 'NONE';
+      groupLabel = d.currentAlarmSeverity || 'Sem Alarme';
+    } else {
+      groupKey = 'all';
+      groupLabel = 'Todos os Devices';
+    }
+    if (!groups[groupKey]) {
+      groups[groupKey] = { label: groupLabel, devices: [], key: groupKey };
+    }
+    groups[groupKey].devices.push(d);
+  });
+
+  // Sort groups
+  var sortedGroups = Object.values(groups).sort(function(a, b) {
+    return a.label.localeCompare(b.label);
+  });
+
+  // Stats
+  var totalDevices = devices.length;
+  var selectedCount = state.filters.selectedDeviceIds.length;
+  var devicesWithAlarms = devices.filter(function(d) { return d.activeAlarmCount > 0; }).length;
+
+  var html = '<div class="ap-modal-backdrop" onclick="AlarmPanel.closeDeviceFilterModal()"></div>';
+  html += '<div class="ap-dfm">';
+
+  // Header
+  html += '<div class="ap-dfm-header">';
+  html += '<div class="ap-dfm-title"><span class="ap-dfm-title-icon">&#128270;</span> Filtrar por Devices</div>';
+  html += '<button class="ap-dfm-close" onclick="AlarmPanel.closeDeviceFilterModal()">&times;</button>';
+  html += '</div>';
+
+  // Toolbar
+  html += '<div class="ap-dfm-toolbar">';
+
+  // Search
+  html += '<div class="ap-dfm-search">';
+  html += '<span class="ap-dfm-search-icon">&#128269;</span>';
+  html += '<input type="text" id="ap-dfm-search" placeholder="Buscar por nome ou label..." value="' + escapeHtml(state.deviceFilterModalSearch) + '" ';
+  html += 'oninput="AlarmPanel.onDeviceFilterModalSearch(event)" />';
+  html += '</div>';
+
+  // Group By
+  html += '<div class="ap-dfm-groupby">';
+  html += '<span class="ap-dfm-groupby-label">Agrupar por:</span>';
+  html += '<select class="ap-dfm-groupby-select" onchange="AlarmPanel.onDeviceFilterModalGroupBy(event)">';
+  html += '<option value="profile"' + (groupBy === 'profile' ? ' selected' : '') + '>Profile</option>';
+  if (state.customers.length > 1) {
+    html += '<option value="customer"' + (groupBy === 'customer' ? ' selected' : '') + '>Cliente</option>';
+  }
+  html += '<option value="status"' + (groupBy === 'status' ? ' selected' : '') + '>Status</option>';
+  html += '<option value="severity"' + (groupBy === 'severity' ? ' selected' : '') + '>Severidade</option>';
+  html += '<option value="none"' + (groupBy === 'none' ? ' selected' : '') + '>Nenhum</option>';
+  html += '</select>';
+  html += '</div>';
+
+  // Toggle only with alarms
+  html += '<label class="ap-dfm-toggle' + (onlyWithAlarms ? ' active' : '') + '">';
+  html += '<input type="checkbox" ' + (onlyWithAlarms ? 'checked' : '') + ' onchange="AlarmPanel.toggleDeviceFilterModalOnlyAlarms()" />';
+  html += 'Apenas com alarmes (' + devicesWithAlarms + ')';
+  html += '</label>';
+
+  html += '</div>';
+
+  // Stats bar
+  html += '<div class="ap-dfm-stats">';
+  html += '<div class="ap-dfm-stat">Total: <span class="ap-dfm-stat-value">' + totalDevices + '</span></div>';
+  html += '<div class="ap-dfm-stat">Filtrados: <span class="ap-dfm-stat-value">' + filteredDevices.length + '</span></div>';
+  html += '<div class="ap-dfm-stat">Selecionados: <span class="ap-dfm-stat-value">' + selectedCount + '</span></div>';
+  html += '<div class="ap-dfm-stat">Com alarmes: <span class="ap-dfm-stat-value" style="color: #c62828;">' + devicesWithAlarms + '</span></div>';
+  html += '</div>';
+
+  // Body
+  html += '<div class="ap-dfm-body">';
+
+  if (filteredDevices.length === 0) {
+    html += '<div class="ap-dfm-empty">';
+    html += '<div class="ap-dfm-empty-icon">&#128269;</div>';
+    html += '<div class="ap-dfm-empty-text">Nenhum device encontrado com os filtros atuais</div>';
+    html += '</div>';
+  } else {
+    sortedGroups.forEach(function(group) {
+      var groupSelectedCount = group.devices.filter(function(d) {
+        return state.filters.selectedDeviceIds.indexOf(d.id) !== -1;
+      }).length;
+
+      html += '<div class="ap-dfm-group">';
+
+      // Group header
+      html += '<div class="ap-dfm-group-header">';
+      html += '<div class="ap-dfm-group-title">';
+      html += escapeHtml(group.label);
+      html += '<span class="ap-dfm-group-count">' + group.devices.length + ' devices';
+      if (groupSelectedCount > 0) {
+        html += ' | ' + groupSelectedCount + ' selecionados';
+      }
+      html += '</span>';
+      html += '</div>';
+      html += '<div class="ap-dfm-group-actions">';
+      html += '<span class="ap-dfm-group-action" onclick="event.stopPropagation(); AlarmPanel.selectDeviceGroup(\'' + group.key + '\')">Selecionar</span>';
+      html += '<span class="ap-dfm-group-action" onclick="event.stopPropagation(); AlarmPanel.deselectDeviceGroup(\'' + group.key + '\')">Desmarcar</span>';
+      html += '</div>';
+      html += '</div>';
+
+      // Group items
+      html += '<div class="ap-dfm-items">';
+      group.devices.forEach(function(d) {
+        var isSelected = state.filters.selectedDeviceIds.indexOf(d.id) !== -1;
+        html += '<div class="ap-dfm-item' + (isSelected ? ' selected' : '') + '" onclick="AlarmPanel.toggleDeviceSelection(\'' + d.id + '\')">';
+        html += '<div class="ap-dfm-checkbox">';
+        if (isSelected) html += '<span class="ap-dfm-checkmark">&#10003;</span>';
+        html += '</div>';
+        html += '<div class="ap-dfm-item-content">';
+        html += '<div class="ap-dfm-item-name">' + escapeHtml(d.name) + '</div>';
+        if (d.label) html += '<div class="ap-dfm-item-label">' + escapeHtml(d.label) + '</div>';
+        html += '</div>';
+        html += '<div class="ap-dfm-item-badges">';
+        if (d.currentAlarmSeverity) {
+          html += '<span class="ap-dfm-item-badge ' + getSeverityClass(d.currentAlarmSeverity) + '">' + d.currentAlarmSeverity + '</span>';
+        }
+        if (d.alarmStatus && d.alarmStatus !== 'NORMAL') {
+          html += '<span class="ap-dfm-item-badge ' + getStatusClass(d.alarmStatus) + '">' + d.alarmStatus + '</span>';
+        }
+        html += '</div>';
+        if (d.activeAlarmCount > 0) {
+          html += '<div class="ap-dfm-item-alarms">&#9888; ' + d.activeAlarmCount + '</div>';
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+
+      html += '</div>';
+    });
+  }
+
+  html += '</div>';
+
+  // Footer
+  html += '<div class="ap-dfm-footer">';
+  html += '<div class="ap-dfm-footer-info">';
+  if (selectedCount > 0) {
+    html += '<strong>' + selectedCount + '</strong> device(s) selecionado(s)';
+  } else {
+    html += 'Nenhum filtro de device aplicado';
+  }
+  html += '</div>';
+  html += '<div class="ap-dfm-footer-actions">';
+  if (selectedCount > 0) {
+    html += '<button class="ap-dfm-btn ap-dfm-btn-clear" onclick="AlarmPanel.clearAllDevices()">Limpar Seleção</button>';
+  }
+  html += '<button class="ap-dfm-btn ap-dfm-btn-secondary" onclick="AlarmPanel.selectAllDevicesInModal()">Selecionar Todos</button>';
+  html += '<button class="ap-dfm-btn ap-dfm-btn-primary" onclick="AlarmPanel.closeDeviceFilterModal()">Aplicar</button>';
+  html += '</div>';
+  html += '</div>';
+
+  html += '</div>';
   return html;
 }
 
@@ -1061,18 +1718,38 @@ function renderAlarmRulesDetail(alarmRules) {
 }
 
 function getFilteredDevices() {
-  if (state.selectedProfileIds.length === 0) return state.devices;
-  return state.devices.filter(function (d) {
-    return state.selectedProfileIds.indexOf(d.deviceProfileId) !== -1;
-  });
+  var devices = state.devices;
+
+  // Filter by selected customers (if any are selected)
+  if (state.selectedCustomerIds.length > 0) {
+    devices = devices.filter(function (d) {
+      return state.selectedCustomerIds.indexOf(d.customerId) !== -1;
+    });
+  }
+
+  // Filter by selected profiles
+  if (state.selectedProfileIds.length > 0) {
+    devices = devices.filter(function (d) {
+      return state.selectedProfileIds.indexOf(d.deviceProfileId) !== -1;
+    });
+  }
+
+  return devices;
 }
 
 function getFilteredAlarms() {
-  var deviceIds = {};
+  // Build a map of ALL device IDs that belong to the customer(s)
+  var customerDeviceIds = {};
+  state.devices.forEach(function (d) {
+    customerDeviceIds[d.id] = true;
+  });
+
+  // Build a map of device IDs filtered by selected profiles
+  var profileDeviceIds = {};
   if (state.selectedProfileIds.length > 0) {
     state.devices.forEach(function (d) {
       if (state.selectedProfileIds.indexOf(d.deviceProfileId) !== -1) {
-        deviceIds[d.id] = true;
+        profileDeviceIds[d.id] = true;
       }
     });
   }
@@ -1080,8 +1757,11 @@ function getFilteredAlarms() {
   var searchText = (state.filters.searchText || '').toLowerCase().trim();
 
   return state.alarms.filter(function (a) {
+    // CRITICAL: Filter by customer devices - only show alarms from devices that belong to the customer
+    if (!customerDeviceIds[a.originatorId]) return false;
+
     // Filter by selected profiles
-    if (state.selectedProfileIds.length > 0 && !deviceIds[a.originatorId]) return false;
+    if (state.selectedProfileIds.length > 0 && !profileDeviceIds[a.originatorId]) return false;
 
     // Filter by selected devices (from filter modal)
     if (state.filters.selectedDeviceIds.length > 0) {
@@ -1143,11 +1823,45 @@ window.AlarmPanel = {
     state.filters.statuses[key] = !state.filters.statuses[key];
     render();
   },
+  // Device grid sorting
+  sortDevices: function (column) {
+    if (state.deviceSort.column === column) {
+      // Toggle direction if same column
+      state.deviceSort.direction = state.deviceSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+      // New column, default to ascending
+      state.deviceSort.column = column;
+      state.deviceSort.direction = 'asc';
+    }
+    render();
+  },
   refresh: function () {
     state.loading = true;
     state.error = null;
     render();
     fetchAllData();
+  },
+  // Customer filter (for multiple datasources)
+  toggleCustomer: function (customerId) {
+    var idx = state.selectedCustomerIds.indexOf(customerId);
+    if (idx === -1) {
+      // Se estamos adicionando o primeiro, limpa a seleção "todos" implícita
+      if (state.selectedCustomerIds.length === 0) {
+        state.selectedCustomerIds = [customerId];
+      } else {
+        state.selectedCustomerIds.push(customerId);
+      }
+    } else {
+      state.selectedCustomerIds.splice(idx, 1);
+    }
+    // Reset device filter quando muda o customer
+    state.filters.selectedDeviceIds = [];
+    render();
+  },
+  selectAllCustomers: function () {
+    state.selectedCustomerIds = [];
+    state.filters.selectedDeviceIds = [];
+    render();
   },
   // Search functionality
   onSearchChange: function (event) {
@@ -1163,14 +1877,46 @@ window.AlarmPanel = {
     state.showFilterModal = false;
     render();
   },
-  // Device filters
-  toggleDeviceFilter: function (deviceId) {
+  // Premium Device Filter Multiselect
+  toggleDeviceFilter: function () {
+    state.showDeviceFilterDropdown = !state.showDeviceFilterDropdown;
+    if (!state.showDeviceFilterDropdown) {
+      state.filters.searchDeviceText = '';
+    }
+    render();
+  },
+  closeDeviceFilter: function () {
+    state.showDeviceFilterDropdown = false;
+    state.filters.searchDeviceText = '';
+    render();
+  },
+  onDeviceSearchChange: function (event) {
+    state.filters.searchDeviceText = event.target.value;
+    render();
+  },
+  toggleDeviceSelection: function (deviceId) {
     var idx = state.filters.selectedDeviceIds.indexOf(deviceId);
     if (idx === -1) {
       state.filters.selectedDeviceIds.push(deviceId);
     } else {
       state.filters.selectedDeviceIds.splice(idx, 1);
     }
+    render();
+  },
+  selectAllDevicesFiltered: function () {
+    var searchText = (state.filters.searchDeviceText || '').toLowerCase();
+    var devices = getFilteredDevices();
+    if (searchText) {
+      devices = devices.filter(function(d) {
+        return (d.name || '').toLowerCase().indexOf(searchText) !== -1 ||
+               (d.label || '').toLowerCase().indexOf(searchText) !== -1;
+      });
+    }
+    devices.forEach(function(d) {
+      if (state.filters.selectedDeviceIds.indexOf(d.id) === -1) {
+        state.filters.selectedDeviceIds.push(d.id);
+      }
+    });
     render();
   },
   selectAllDevices: function () {
@@ -1182,6 +1928,102 @@ window.AlarmPanel = {
   },
   clearAllDevices: function () {
     state.filters.selectedDeviceIds = [];
+    render();
+  },
+  // Device Filter Modal Premium
+  openDeviceFilterModal: function () {
+    state.showDeviceFilterModal = true;
+    state.deviceFilterModalSearch = '';
+    render();
+  },
+  closeDeviceFilterModal: function () {
+    state.showDeviceFilterModal = false;
+    state.deviceFilterModalSearch = '';
+    render();
+  },
+  onDeviceSearchChangeGrid: function (event) {
+    state.filters.searchDeviceText = event.target.value;
+    render();
+  },
+  onDeviceFilterModalSearch: function (event) {
+    state.deviceFilterModalSearch = event.target.value;
+    render();
+  },
+  onDeviceFilterModalGroupBy: function (event) {
+    state.deviceFilterModalGroupBy = event.target.value;
+    render();
+  },
+  toggleDeviceFilterModalOnlyAlarms: function () {
+    state.deviceFilterModalShowOnlyWithAlarms = !state.deviceFilterModalShowOnlyWithAlarms;
+    render();
+  },
+  selectDeviceGroup: function (groupKey) {
+    var devices = getFilteredDevices();
+    var groupBy = state.deviceFilterModalGroupBy || 'profile';
+    devices.forEach(function(d) {
+      var deviceGroupKey;
+      if (groupBy === 'profile') {
+        deviceGroupKey = d.deviceProfileId || 'unknown';
+      } else if (groupBy === 'customer') {
+        deviceGroupKey = d.customerId || 'unknown';
+      } else if (groupBy === 'status') {
+        deviceGroupKey = d.alarmStatus || 'NORMAL';
+      } else if (groupBy === 'severity') {
+        deviceGroupKey = d.currentAlarmSeverity || 'NONE';
+      } else {
+        deviceGroupKey = 'all';
+      }
+      if (deviceGroupKey === groupKey && state.filters.selectedDeviceIds.indexOf(d.id) === -1) {
+        state.filters.selectedDeviceIds.push(d.id);
+      }
+    });
+    render();
+  },
+  deselectDeviceGroup: function (groupKey) {
+    var devices = getFilteredDevices();
+    var groupBy = state.deviceFilterModalGroupBy || 'profile';
+    var idsToRemove = [];
+    devices.forEach(function(d) {
+      var deviceGroupKey;
+      if (groupBy === 'profile') {
+        deviceGroupKey = d.deviceProfileId || 'unknown';
+      } else if (groupBy === 'customer') {
+        deviceGroupKey = d.customerId || 'unknown';
+      } else if (groupBy === 'status') {
+        deviceGroupKey = d.alarmStatus || 'NORMAL';
+      } else if (groupBy === 'severity') {
+        deviceGroupKey = d.currentAlarmSeverity || 'NONE';
+      } else {
+        deviceGroupKey = 'all';
+      }
+      if (deviceGroupKey === groupKey) {
+        idsToRemove.push(d.id);
+      }
+    });
+    state.filters.selectedDeviceIds = state.filters.selectedDeviceIds.filter(function(id) {
+      return idsToRemove.indexOf(id) === -1;
+    });
+    render();
+  },
+  selectAllDevicesInModal: function () {
+    var devices = getFilteredDevices();
+    var searchText = (state.deviceFilterModalSearch || '').toLowerCase();
+    var onlyWithAlarms = state.deviceFilterModalShowOnlyWithAlarms;
+
+    devices.forEach(function(d) {
+      // Apply same filters as modal
+      if (searchText) {
+        var matchName = (d.name || '').toLowerCase().indexOf(searchText) !== -1;
+        var matchLabel = (d.label || '').toLowerCase().indexOf(searchText) !== -1;
+        if (!matchName && !matchLabel) return;
+      }
+      if (onlyWithAlarms && (!d.activeAlarmCount || d.activeAlarmCount === 0)) {
+        return;
+      }
+      if (state.filters.selectedDeviceIds.indexOf(d.id) === -1) {
+        state.filters.selectedDeviceIds.push(d.id);
+      }
+    });
     render();
   },
   // Severity filters
@@ -1257,7 +2099,18 @@ function fetchAllData() {
       LogHelper.log('Devices fetched:', allDevices.length);
 
       filteredDevices = allDevices.filter(function (d) {
-        return d.ownerId && customerIds.indexOf(d.ownerId) !== -1;
+        return d.customerId && customerIds.indexOf(d.customerId) !== -1;
+      });
+
+      // Enrich devices with customer name from state.customers
+      var customerMap = {};
+      state.customers.forEach(function(c) {
+        customerMap[c.id] = c.name;
+      });
+      filteredDevices.forEach(function(d) {
+        if (!d.customerName && d.customerId && customerMap[d.customerId]) {
+          d.customerName = customerMap[d.customerId];
+        }
       });
       LogHelper.log('Filtered devices:', filteredDevices.length);
 
@@ -1295,6 +2148,57 @@ function fetchAllData() {
             return d.deviceProfileId === id;
           }).length,
         });
+      });
+
+      // Enrich devices with alarm data
+      var severityPriority = { CRITICAL: 4, MAJOR: 3, MINOR: 2, WARNING: 1 };
+      filteredDevices.forEach(function(device) {
+        var deviceAlarms = alarms.filter(function(a) {
+          return a.originatorId === device.id;
+        });
+
+        // Count active alarms
+        var activeAlarms = deviceAlarms.filter(function(a) {
+          return a.status === 'ACTIVE' || a.status === 'ACKNOWLEDGED';
+        });
+        device.activeAlarmCount = activeAlarms.length;
+
+        // Find highest severity among active alarms
+        var highestSeverity = null;
+        var highestPriority = 0;
+        activeAlarms.forEach(function(a) {
+          var priority = severityPriority[a.severity] || 0;
+          if (priority > highestPriority) {
+            highestPriority = priority;
+            highestSeverity = a.severity;
+          }
+        });
+        device.currentAlarmSeverity = highestSeverity;
+
+        // Determine alarm status
+        if (activeAlarms.length > 0) {
+          var hasAck = activeAlarms.some(function(a) { return a.status === 'ACKNOWLEDGED'; });
+          device.alarmStatus = hasAck ? 'ACK' : 'ACTIVE';
+        } else if (deviceAlarms.length > 0) {
+          device.alarmStatus = 'CLEARED';
+        } else {
+          device.alarmStatus = 'NORMAL';
+        }
+
+        // Find last alarm timestamp
+        if (deviceAlarms.length > 0) {
+          var latestTs = 0;
+          deviceAlarms.forEach(function(a) {
+            if (a.startTs > latestTs) latestTs = a.startTs;
+          });
+          device.lastAlarmTs = latestTs;
+        }
+
+        // Get profile name for location fallback
+        var profile = state.deviceProfiles[device.deviceProfileId];
+        if (profile) {
+          device.profileName = profile.name;
+        }
       });
 
       state.devices = filteredDevices;
@@ -1340,7 +2244,8 @@ function fetchAllDevicesWithPagination(pageSize) {
             id: d.id ? d.id.id : null,
             name: d.name || 'Unknown',
             label: d.label || '',
-            ownerId: d.ownerId ? d.ownerId.id : null,
+            customerId: d.ownerId ? d.ownerId.id : null,
+            customerName: d.ownerName || d.customerTitle || '',
             deviceProfileId: d.deviceProfileId ? d.deviceProfileId.id : null,
             location: '',
             currentAlarmSeverity: null,
