@@ -53,6 +53,8 @@ export interface ConsumptionModalConfig extends Omit<Consumption7DaysConfig, 'co
   showSettingsButton?: boolean;
   /** Callback when settings button is clicked */
   onSettingsClick?: () => void;
+  /** Initial data to display (skips fetch if provided) */
+  initialData?: Consumption7DaysData;
 }
 
 export interface ConsumptionModalInstance {
@@ -444,8 +446,14 @@ export function createConsumptionModal(
         defaultVizMode: currentVizMode,
       });
 
-      // Render chart
-      await chartInstance.render();
+      // RFC-0098: Use initial data if provided (instant display), otherwise fetch
+      if (config.initialData) {
+        // Use cached data - instant display without fetch
+        chartInstance.update(config.initialData);
+      } else {
+        // No initial data - fetch from API
+        await chartInstance.render();
+      }
     },
 
     close(): void {
