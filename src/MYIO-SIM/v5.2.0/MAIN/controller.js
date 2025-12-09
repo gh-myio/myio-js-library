@@ -109,6 +109,76 @@ async function fetchEnergyDayConsumption(customerId, startTs, endTs, granularity
   }
 }
 
+/**
+ * RFC-0098: Fetch water consumption for a customer within a time range
+ * Used by WATER widget for chart and other consumption queries
+ * Same as fetchEnergyDayConsumption but for water domain
+ * @param {string} customerId - Customer ID for ingestion API
+ * @param {number} startTs - Start timestamp in milliseconds
+ * @param {number} endTs - End timestamp in milliseconds
+ * @param {string} granularity - Data granularity: '1d' (day) or '1h' (hour). Default: '1d'
+ * @returns {Promise<{devices: Array, total: number}>} - Devices list and total consumption
+ */
+async function fetchWaterDayConsumption(customerId, startTs, endTs, granularity = '1d') {
+  if (!customerId) {
+    LogHelper.warn('[MAIN] fetchWaterDayConsumption: Missing customerId');
+    return { devices: [], total: 0 };
+  }
+
+  const formatDateISO = (ts) => {
+    const d = new Date(ts);
+    d.setMilliseconds(0);
+    return d.toISOString();
+  };
+
+  const startTimeISO = formatDateISO(startTs);
+  const endTimeISO = formatDateISO(endTs);
+
+  // RFC-0098: Same as energy but with /water/ path
+  const url = `${getDataApiHost()}/api/v1/telemetry/customers/${customerId}/water/?deep=1&granularity=${granularity}&startTime=${encodeURIComponent(
+    startTimeISO
+  )}&endTime=${encodeURIComponent(endTimeISO)}`;
+
+  try {
+    const TOKEN_INGESTION_WaterDayConsumption = await myIOAuth.getToken();
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${TOKEN_INGESTION_WaterDayConsumption}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      LogHelper.warn(`[MAIN] fetchWaterDayConsumption: Failed with status ${response.status}`);
+      return { devices: [], total: 0 };
+    }
+
+    const data = await response.json();
+
+    const devices = Array.isArray(data) ? data : data?.devices || data?.data || [];
+    let total = 0;
+
+    if (Array.isArray(devices)) {
+      devices.forEach((device) => {
+        if (Array.isArray(device.consumption)) {
+          device.consumption.forEach((entry) => {
+            total += Number(entry.value) || 0;
+          });
+        } else {
+          const value = device.total_value || device.value || 0;
+          total += Number(value) || 0;
+        }
+      });
+    }
+
+    return { devices, total };
+  } catch (error) {
+    LogHelper.error('[MAIN] fetchWaterDayConsumption: Error', error);
+    return { devices: [], total: 0 };
+  }
+}
+
 
 /**
  * Shows/hides loading overlay for equipments widget
@@ -2508,6 +2578,7 @@ window.MyIOUtils = {
   // API & Formatting
   getDataApiHost,
   fetchEnergyDayConsumption,
+  fetchWaterDayConsumption,
 
   // Formatting functions (from MyIOLibrary - evaluated at runtime)
   formatEnergy: (val) => MyIOLibrary.formatEnergy(val),

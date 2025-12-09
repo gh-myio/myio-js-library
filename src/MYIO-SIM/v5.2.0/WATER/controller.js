@@ -279,52 +279,177 @@ let consumptionChartInstance = null;
 // RFC-0102: Distribution Chart instance (new standardized component)
 let distributionChartInstance = null;
 
+// RFC-0098: Cache TTL for chart data (5 minutes)
+const CHART_CACHE_TTL = 5 * 60 * 1000;
+
 /**
- * RFC-0097: Busca o consumo dos últimos N dias (mock)
+ * RFC-0098: Get shopping name from Orchestrator or fallback
+ */
+function getShoppingNameForFilter(customerId) {
+  const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+  if (orchestrator?.getCustomers) {
+    const customers = orchestrator.getCustomers();
+    const customer = customers.find((c) => c.id?.id === customerId || c.customerId === customerId);
+    if (customer) {
+      return customer.name || customer.title || customerId.slice(0, 8);
+    }
+  }
+  return customerId.slice(0, 8);
+}
+
+/**
+ * RFC-0098: Get filtered customer IDs from Orchestrator
+ */
+function getFilteredCustomerIds() {
+  const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+  if (orchestrator?.getFilteredShoppingIds) {
+    const ids = orchestrator.getFilteredShoppingIds();
+    if (ids && ids.length > 0) {
+      console.log('[WATER] [RFC-0098] Using filtered shopping IDs:', ids);
+      return ids;
+    }
+  }
+  // Fallback: get all customer IDs
+  if (orchestrator?.getCustomers) {
+    const customers = orchestrator.getCustomers();
+    const ids = customers.map((c) => c.id?.id || c.customerId).filter(Boolean);
+    console.log('[WATER] [RFC-0098] Using all customer IDs:', ids);
+    return ids;
+  }
+  return [];
+}
+
+/**
+ * RFC-0098: Fetch water consumption for a period, grouped by day
+ * @param {string} customerId - Customer ID
+ * @param {number} startTs - Start timestamp
+ * @param {number} endTs - End timestamp
+ * @param {Array} dayBoundaries - Array of { label, startTs, endTs }
+ * @returns {Promise<number[]>} - Array of daily totals
+ */
+async function fetchWaterPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries) {
+  try {
+    const granularity = chartConfig.granularity || '1d';
+    const result = await window.MyIOUtils.fetchWaterDayConsumption(customerId, startTs, endTs, granularity);
+
+    const dailyTotals = new Array(dayBoundaries.length).fill(0);
+    const items = Array.isArray(result) ? result : result?.devices || result?.data || [];
+
+    if (items.length > 0) {
+      console.log(`[WATER] [RFC-0098] API returned ${items.length} items for ${customerId.slice(0, 8)}`);
+    }
+
+    items.forEach((item) => {
+      if (Array.isArray(item.consumption)) {
+        item.consumption.forEach((entry) => {
+          const timestamp = entry.timestamp || entry.ts;
+          const value = Number(entry.value) || 0;
+
+          if (timestamp && value > 0) {
+            const entryTs = new Date(timestamp).getTime();
+            for (let dayIdx = 0; dayIdx < dayBoundaries.length; dayIdx++) {
+              const day = dayBoundaries[dayIdx];
+              if (entryTs >= day.startTs && entryTs <= day.endTs) {
+                dailyTotals[dayIdx] += value;
+                break;
+              }
+            }
+          }
+        });
+      }
+    });
+
+    console.log(`[WATER] [RFC-0098] Period consumption for ${customerId.slice(0, 8)}:`, dailyTotals.map((v) => v.toFixed(2)));
+    return dailyTotals;
+  } catch (error) {
+    console.error('[WATER] Error fetching period consumption:', error);
+    return new Array(dayBoundaries.length).fill(0);
+  }
+}
+
+/**
+ * RFC-0098: Fetch water consumption for N days with real API data
  * Returns structured data with per-shopping breakdown for vizMode support
  */
 async function fetch7DaysConsumption(period = 7) {
-  const labels = [];
-  const dailyTotals = [];
+  const customerIds = getFilteredCustomerIds();
+
+  if (!customerIds || customerIds.length === 0) {
+    console.warn('[WATER] [RFC-0098] No customer IDs available');
+    return { labels: [], dailyTotals: [], shoppingData: {}, shoppingNames: {} };
+  }
+
+  // Check cache
+  if (cachedChartData && cachedChartData.fetchTimestamp) {
+    const cacheAge = Date.now() - cachedChartData.fetchTimestamp;
+    const sameCustomers = cachedChartData.customerIds?.length === customerIds.length &&
+      cachedChartData.customerIds?.every((id) => customerIds.includes(id));
+
+    if (cacheAge < CHART_CACHE_TTL && sameCustomers) {
+      console.log('[WATER] [RFC-0098] Using cached data (age:', Math.round(cacheAge / 1000), 's)');
+      return cachedChartData;
+    }
+  }
+
+  console.log('[WATER] [RFC-0098] Fetching', period, 'days for customers:', customerIds);
+
   const shoppingData = {};
   const shoppingNames = {};
-  const now = new Date();
 
-  // Mock shopping list
-  const mockShoppings = [
-    { id: 'shop-001', name: 'Shopping Morumbi' },
-    { id: 'shop-002', name: 'Shopping Eldorado' },
-    { id: 'shop-003', name: 'Shopping Iguatemi' },
-  ];
-
-  // Initialize shopping data arrays
-  mockShoppings.forEach((shop) => {
-    shoppingData[shop.id] = [];
-    shoppingNames[shop.id] = shop.name;
+  customerIds.forEach((cid) => {
+    shoppingData[cid] = [];
+    shoppingNames[cid] = getShoppingNameForFilter(cid);
   });
 
-  for (let i = period - 1; i >= 0; i--) {
-    const dayDate = new Date(now);
-    dayDate.setDate(now.getDate() - i);
+  // Calculate period boundaries
+  const now = new Date();
+  const periodStart = new Date(now);
+  periodStart.setDate(now.getDate() - (period - 1));
+  periodStart.setHours(0, 0, 0, 0);
+  const startTs = periodStart.getTime();
+
+  const periodEnd = new Date(now);
+  periodEnd.setHours(23, 59, 59, 999);
+  const endTs = periodEnd.getTime();
+
+  // Build day boundaries
+  const dayBoundaries = [];
+  for (let i = 0; i < period; i++) {
+    const dayDate = new Date(periodStart);
+    dayDate.setDate(periodStart.getDate() + i);
     dayDate.setHours(0, 0, 0, 0);
 
-    const dayOfWeek = dayDate.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const dayStart = dayDate.getTime();
+    const dayEnd = new Date(dayDate);
+    dayEnd.setHours(23, 59, 59, 999);
 
-    // Format date label
-    labels.push(dayDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+    const label = dayDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    dayBoundaries.push({ label, startTs: dayStart, endTs: dayEnd.getTime() });
+  }
 
-    // Generate per-shopping consumption
+  const labels = dayBoundaries.map((d) => d.label);
+
+  // Fetch data for all customers in parallel
+  console.log('[WATER] [RFC-0098] Executing', customerIds.length, 'API calls (one per shopping)...');
+  const fetchPromises = customerIds.map((customerId) =>
+    fetchWaterPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries)
+  );
+
+  const results = await Promise.all(fetchPromises);
+
+  results.forEach((dailyValues, idx) => {
+    const customerId = customerIds[idx];
+    shoppingData[customerId] = dailyValues;
+  });
+
+  // Calculate daily totals
+  const dailyTotals = [];
+  for (let dayIdx = 0; dayIdx < period; dayIdx++) {
     let dayTotal = 0;
-    mockShoppings.forEach((shop, index) => {
-      const baseConsumption = 80 + index * 30 + Math.random() * 40; // Different base per shopping
-      const weekendFactor = isWeekend ? 0.7 : 1.0;
-      const consumption = baseConsumption * weekendFactor;
-      shoppingData[shop.id].push(Math.round(consumption * 10) / 10);
-      dayTotal += consumption;
-    });
-
-    dailyTotals.push(Math.round(dayTotal * 10) / 10);
+    for (const customerId of customerIds) {
+      dayTotal += shoppingData[customerId][dayIdx] || 0;
+    }
+    dailyTotals.push(dayTotal);
   }
 
   const result = {
@@ -332,10 +457,19 @@ async function fetch7DaysConsumption(period = 7) {
     dailyTotals,
     shoppingData,
     shoppingNames,
+    customerIds,
     fetchTimestamp: Date.now(),
   };
 
-  console.log('[WATER] [RFC-0097] 7 days consumption data:', result);
+  // Update cache
+  cachedChartData = result;
+
+  console.log('[WATER] [RFC-0098] Data fetched:', {
+    days: period,
+    shoppings: customerIds.length,
+    totalPoints: labels.length,
+  });
+
   return result;
 }
 
@@ -368,19 +502,7 @@ async function fetchWaterConsumptionDataAdapter(period) {
  * Uses standardized Consumption7DaysChart component
  */
 async function initializeLineChart() {
-  const canvas = $id('lineChart');
-  if (!canvas) {
-    console.warn('[WATER] lineChart canvas not found');
-    return;
-  }
-
-  // FIX: Check if Chart.js is available
-  if (typeof Chart === 'undefined') {
-    console.error('[WATER] Chart.js not loaded, cannot initialize line chart');
-    return;
-  }
-
-  // RFC-0098: Use standardized widget component if available
+  // RFC-0098: Use standardized widget component if available (preferred)
   if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumptionChartWidget) {
     console.log('[WATER] [RFC-0098] Using createConsumptionChartWidget component');
 
@@ -427,7 +549,7 @@ async function initializeLineChart() {
     return;
   }
 
-  // RFC-0098: Component is required - no fallback
+  // RFC-0098: Component is required - no fallback to legacy canvas
   console.error('[WATER] [RFC-0098] createConsumptionChartWidget not available');
 }
 
@@ -1285,8 +1407,9 @@ function cleanup() {
 self.onInit = function () {
   console.log('[WATER] Widget initialized');
   console.log('[WATER] DEBUG: Chart.js available?', typeof Chart !== 'undefined');
-  console.log('[WATER] DEBUG: lineChart canvas?', !!$id('lineChart'));
-  console.log('[WATER] DEBUG: pieChart canvas?', !!$id('pieChart'));
+  console.log('[WATER] DEBUG: MyIOLibrary available?', typeof MyIOLibrary !== 'undefined');
+  console.log('[WATER] DEBUG: water-chart-widget container?', !!$id('water-chart-widget'));
+  console.log('[WATER] DEBUG: water-distribution-widget container?', !!$id('water-distribution-widget'));
 
   // Initialize cards with loading state
   initializeCards();
@@ -1307,9 +1430,7 @@ self.onInit = function () {
 
   // Initialize charts with empty/loading state
   setTimeout(() => {
-    console.log('[WATER] DEBUG setTimeout: Chart.js available?', typeof Chart !== 'undefined');
-    console.log('[WATER] DEBUG setTimeout: lineChart canvas?', !!$id('lineChart'));
-    console.log('[WATER] DEBUG setTimeout: pieChart canvas?', !!$id('pieChart'));
+    console.log('[WATER] DEBUG setTimeout: Initializing charts...');
 
     initializeLineChart();
 
