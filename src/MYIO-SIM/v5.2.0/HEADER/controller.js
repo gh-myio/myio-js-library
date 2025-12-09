@@ -885,6 +885,37 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     } else {
       LogHelper.warn('[HEADER] Energy tooltip trigger NOT found in onInit');
     }
+
+    // Setup water tooltip
+    const waterTrigger = root.querySelector('#water-info-trigger');
+    if (waterTrigger && !waterTrigger._tooltipBound) {
+      waterTrigger._tooltipBound = true;
+      LogHelper.log('[HEADER] Water tooltip trigger found in onInit');
+
+      waterTrigger.addEventListener('mouseenter', (e) => {
+        LogHelper.log(
+          '[HEADER] Water tooltip mouseenter - data:',
+          window._headerWaterData ? 'available' : 'not available'
+        );
+        if (window._headerWaterData) {
+          showWaterTooltip(waterTrigger, window._headerWaterData);
+        } else {
+          showWaterTooltip(waterTrigger, {
+            filteredTotal: null,
+            unfilteredTotal: null,
+            commonArea: null,
+            stores: null,
+            shoppingsWater: [],
+          });
+        }
+      });
+
+      waterTrigger.addEventListener('mouseleave', () => {
+        hideWaterTooltip();
+      });
+    } else {
+      LogHelper.warn('[HEADER] Water tooltip trigger NOT found in onInit');
+    }
   }, 200);
 
   // mocks (remova se alimentar via API/telemetria)
@@ -1255,6 +1286,71 @@ window.addEventListener('myio:water-data-ready', (ev) => {
     updateWaterCard(ev.detail.cache);
   }
 });
+
+// ===== HEADER: Listen for water summary (for tooltip and comparative) =====
+window._headerWaterData = null; // Global for tooltip access
+
+window.addEventListener('myio:water-summary-ready', (ev) => {
+  LogHelper.log('[HEADER] 💧 heard myio:water-summary-ready:', ev.detail);
+  const summary = ev.detail || {};
+
+  // Store for tooltip
+  window._headerWaterData = summary;
+
+  // Update water card with summary data (includes comparative)
+  if (typeof summary.filteredTotal === 'number') {
+    updateWaterCardWithSummary(summary);
+  }
+});
+
+/**
+ * Update water card with summary data (includes comparative filter/total)
+ * @param {Object} summary - Water summary from myio:water-summary-ready
+ */
+function updateWaterCardWithSummary(summary) {
+  const waterKpi = document.getElementById('water-kpi');
+  const waterTrend = document.getElementById('water-trend');
+
+  if (!waterKpi) return;
+
+  const {
+    filteredTotal = 0,
+    unfilteredTotal = 0,
+    isFiltered = false,
+  } = summary;
+
+  const formatWater = (val) =>
+    typeof MyIOLibrary?.formatWaterVolumeM3 === 'function'
+      ? MyIOLibrary.formatWaterVolumeM3(val)
+      : `${val.toFixed(2)} m³`;
+
+  // Show comparative when filtered and values differ
+  const showComparative =
+    isFiltered && unfilteredTotal > 0 && Math.abs(filteredTotal - unfilteredTotal) > 0.01;
+
+  waterKpi.style.fontSize = '0.85em';
+
+  if (showComparative) {
+    const formattedFiltered = formatWater(filteredTotal);
+    const formattedTotal = formatWater(unfilteredTotal);
+    const percentage = Math.round((filteredTotal / unfilteredTotal) * 100);
+
+    waterKpi.innerHTML = `${formattedFiltered} <span style="font-size: 0.65em; color: #666;">/ ${formattedTotal}</span>`;
+
+    if (waterTrend) {
+      waterTrend.innerText = `${percentage}%`;
+    }
+    LogHelper.log(`[HEADER] Water card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`);
+  } else {
+    const formatted = formatWater(filteredTotal);
+    waterKpi.innerText = formatted;
+
+    if (waterTrend) {
+      waterTrend.innerText = '';
+    }
+    LogHelper.log(`[HEADER] Water card updated from summary: ${formatted}`);
+  }
+}
 
 // ===== HEADER: Listen for equipment count updates from EQUIPMENTS widget =====
 window.addEventListener('myio:equipment-count-updated', (ev) => {
@@ -1781,26 +1877,47 @@ function createEnergyTooltip() {
         color: #64748b;
         font-size: 11px;
       }
-      .energy-tooltip__list {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-top: 10px;
+      .energy-tooltip__table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+        font-size: 11px;
       }
-      .energy-tooltip__list-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 12px;
+      .energy-tooltip__table th {
+        text-align: left;
+        padding: 8px 10px;
+        background: #f1f5f9;
+        color: #64748b;
+        font-weight: 600;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .energy-tooltip__table th:not(:first-child) {
+        text-align: right;
+      }
+      .energy-tooltip__table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #475569;
+      }
+      .energy-tooltip__table td:first-child {
+        font-weight: 500;
+        color: #334155;
+      }
+      .energy-tooltip__table td:not(:first-child) {
+        text-align: right;
+        font-family: 'SF Mono', 'Consolas', monospace;
+        font-size: 10px;
+        color: #64748b;
+      }
+      .energy-tooltip__table tr:last-child td {
+        border-bottom: none;
+      }
+      .energy-tooltip__table tr:hover td {
         background: #f8fafc;
-        border-radius: 8px;
-        font-size: 12px;
-        border-left: 3px solid #10b981;
       }
-      .energy-tooltip__list-icon { font-size: 14px; flex-shrink: 0; }
-      .energy-tooltip__list-name { flex: 1; color: #334155; font-weight: 600; }
-      .energy-tooltip__list-value { color: #059669; font-size: 12px; font-weight: 600; }
-      .energy-tooltip__list-percent { color: #94a3b8; font-size: 11px; }
       .energy-tooltip__notice {
         display: flex;
         align-items: flex-start;
@@ -1854,31 +1971,35 @@ function showEnergyTooltip(triggerElement, data) {
     return val >= 1000 ? `${(val / 1000).toFixed(2)} MWh` : `${val.toFixed(2)} kWh`;
   };
 
-  // Build shopping list HTML if available
-  let shoppingListHtml = '';
+  // Build shopping table HTML if available
+  let shoppingTableHtml = '';
   if (shoppingsEnergy && shoppingsEnergy.length > 0) {
-    const totalForPercent = customerTotal || shoppingsEnergy.reduce((sum, s) => sum + (s.value || 0), 0);
-    shoppingListHtml = `
+    shoppingTableHtml = `
       <div class="energy-tooltip__section">
         <div class="energy-tooltip__section-title">
-          <span>🏢</span> Consumo por Shopping (${shoppingsEnergy.length})
+          <span>🏢</span> Consumo por Shopping
         </div>
-        <div class="energy-tooltip__list">
-          ${shoppingsEnergy
-            .sort((a, b) => (b.value || 0) - (a.value || 0))
-            .map((s) => {
-              const percent = totalForPercent > 0 ? ((s.value || 0) / totalForPercent) * 100 : 0;
-              return `
-              <div class="energy-tooltip__list-item">
-                <span class="energy-tooltip__list-icon">⚡</span>
-                <span class="energy-tooltip__list-name">${s.name}</span>
-                <span class="energy-tooltip__list-value">${formatEnergy(s.value)}</span>
-                <span class="energy-tooltip__list-percent">(${percent.toFixed(1)}%)</span>
-              </div>
-            `;
-            })
-            .join('')}
-        </div>
+        <table class="energy-tooltip__table">
+          <thead>
+            <tr>
+              <th>Shopping</th>
+              <th>Equipamentos</th>
+              <th>Lojas</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${shoppingsEnergy
+              .sort((a, b) => ((b.equipamentos || 0) + (b.lojas || 0)) - ((a.equipamentos || 0) + (a.lojas || 0)))
+              .map((s) => `
+                <tr>
+                  <td>${s.name}</td>
+                  <td>${formatEnergy(s.equipamentos)}</td>
+                  <td>${formatEnergy(s.lojas)}</td>
+                </tr>
+              `)
+              .join('')}
+          </tbody>
+        </table>
       </div>
     `;
   }
@@ -1895,19 +2016,9 @@ function showEnergyTooltip(triggerElement, data) {
             <span>📊</span> Resumo Geral
           </div>
           <div class="energy-tooltip__row">
-            <span class="energy-tooltip__label">Consumo Total${isFiltered ? ' (Filtrado)' : ''}:</span>
+            <span class="energy-tooltip__label">Consumo Total:</span>
             <span class="energy-tooltip__value energy-tooltip__value--highlight">${formatEnergy(customerTotal)}</span>
           </div>
-          ${
-            isFiltered && unfilteredTotal > 0
-              ? `
-          <div class="energy-tooltip__row">
-            <span class="energy-tooltip__label">Consumo Total (Geral):</span>
-            <span class="energy-tooltip__value energy-tooltip__value--secondary">${formatEnergy(unfilteredTotal)}</span>
-          </div>
-          `
-              : ''
-          }
           <div class="energy-tooltip__row">
             <span class="energy-tooltip__label">Equipamentos:</span>
             <span class="energy-tooltip__value">${formatEnergy(equipmentsTotal)}</span>
@@ -1922,7 +2033,7 @@ function showEnergyTooltip(triggerElement, data) {
           </div>
         </div>
 
-        ${shoppingListHtml}
+        ${shoppingTableHtml}
 
         <div class="energy-tooltip__notice">
           <span class="energy-tooltip__notice-icon">ℹ️</span>
@@ -1954,6 +2065,316 @@ function showEnergyTooltip(triggerElement, data) {
 
 function hideEnergyTooltip() {
   const container = document.getElementById('energy-premium-tooltip');
+  if (container) {
+    container.classList.remove('visible');
+  }
+}
+
+// ============================================
+// WATER TOOLTIP FUNCTIONS
+// ============================================
+
+function createWaterTooltip() {
+  const existing = document.getElementById('water-premium-tooltip');
+  if (existing) existing.remove();
+
+  // Inject CSS if not already present
+  if (!document.getElementById('water-tooltip-styles')) {
+    const style = document.createElement('style');
+    style.id = 'water-tooltip-styles';
+    style.textContent = `
+      .water-info-trigger {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: help;
+        opacity: 0.5;
+        transition: opacity 0.2s ease;
+        position: relative;
+        margin-left: 4px;
+        vertical-align: middle;
+      }
+      .water-info-trigger:hover { opacity: 1; }
+      .water-tooltip-container {
+        position: fixed;
+        z-index: 99999;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.25s ease, transform 0.25s ease;
+        transform: translateY(5px);
+      }
+      .water-tooltip-container.visible {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+      .water-tooltip {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 2px 10px rgba(0, 0, 0, 0.08);
+        min-width: 340px;
+        max-width: 420px;
+        font-size: 12px;
+        color: #1e293b;
+        overflow: hidden;
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+      }
+      .water-tooltip__header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 18px;
+        background: linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%);
+        border-bottom: 1px solid #93c5fd;
+      }
+      .water-tooltip__icon { font-size: 18px; }
+      .water-tooltip__title {
+        font-weight: 700;
+        font-size: 14px;
+        color: #1d4ed8;
+        letter-spacing: 0.3px;
+      }
+      .water-tooltip__content {
+        padding: 16px 18px;
+        max-height: 600px;
+        overflow-y: auto;
+      }
+      .water-tooltip__section {
+        margin-bottom: 16px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      .water-tooltip__section:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+      }
+      .water-tooltip__section-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .water-tooltip__row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        gap: 12px;
+      }
+      .water-tooltip__label {
+        color: #64748b;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+      .water-tooltip__value {
+        color: #1e293b;
+        font-weight: 600;
+        text-align: right;
+      }
+      .water-tooltip__value--highlight {
+        color: #2563eb;
+        font-weight: 700;
+        font-size: 14px;
+      }
+      .water-tooltip__value--secondary {
+        color: #64748b;
+        font-size: 11px;
+      }
+      .water-tooltip__table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+        font-size: 11px;
+      }
+      .water-tooltip__table th {
+        text-align: left;
+        padding: 8px 10px;
+        background: #f1f5f9;
+        color: #64748b;
+        font-weight: 600;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .water-tooltip__table th:not(:first-child) {
+        text-align: right;
+      }
+      .water-tooltip__table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #475569;
+      }
+      .water-tooltip__table td:first-child {
+        font-weight: 500;
+        color: #334155;
+      }
+      .water-tooltip__table td:not(:first-child) {
+        text-align: right;
+        font-family: 'SF Mono', 'Consolas', monospace;
+        font-size: 10px;
+        color: #64748b;
+      }
+      .water-tooltip__table tr:last-child td {
+        border-bottom: none;
+      }
+      .water-tooltip__table tr:hover td {
+        background: #f8fafc;
+      }
+      .water-tooltip__notice {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 14px;
+        background: #eff6ff;
+        border: 1px solid #93c5fd;
+        border-radius: 8px;
+        margin-top: 14px;
+      }
+      .water-tooltip__notice-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+      .water-tooltip__notice-text { font-size: 11px; color: #1d4ed8; line-height: 1.6; }
+      .water-tooltip__notice-text strong { font-weight: 700; color: #1e40af; }
+    `;
+    document.head.appendChild(style);
+    LogHelper.log('[HEADER] Water tooltip CSS injected');
+  }
+
+  const container = document.createElement('div');
+  container.id = 'water-premium-tooltip';
+  container.className = 'water-tooltip-container';
+  document.body.appendChild(container);
+  return container;
+}
+
+function showWaterTooltip(triggerElement, data) {
+  LogHelper.log('[HEADER] showWaterTooltip called', { triggerElement, data });
+
+  let container = document.getElementById('water-premium-tooltip');
+  if (!container) {
+    container = createWaterTooltip();
+    LogHelper.log('[HEADER] Created new water tooltip container');
+  }
+
+  const {
+    filteredTotal = 0,
+    unfilteredTotal = 0,
+    commonArea = 0,
+    stores = 0,
+    deviceCount = 0,
+    isFiltered = false,
+    shoppingsWater = [],
+  } = data || {};
+
+  // Format water value
+  const formatWater = (val) => {
+    if (val == null || isNaN(val)) return '--';
+    if (typeof MyIOLibrary?.formatWaterVolumeM3 === 'function') {
+      return MyIOLibrary.formatWaterVolumeM3(val);
+    }
+    return `${val.toFixed(2)} m³`;
+  };
+
+  // Build shopping table HTML if available
+  let shoppingTableHtml = '';
+  if (shoppingsWater && shoppingsWater.length > 0) {
+    shoppingTableHtml = `
+      <div class="water-tooltip__section">
+        <div class="water-tooltip__section-title">
+          <span>🏢</span> Consumo por Shopping
+        </div>
+        <table class="water-tooltip__table">
+          <thead>
+            <tr>
+              <th>Shopping</th>
+              <th>Área Comum</th>
+              <th>Lojas</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${shoppingsWater
+              .sort((a, b) => ((b.areaComum || 0) + (b.lojas || 0)) - ((a.areaComum || 0) + (a.lojas || 0)))
+              .map((s) => `
+                <tr>
+                  <td>${s.name}</td>
+                  <td>${formatWater(s.areaComum)}</td>
+                  <td>${formatWater(s.lojas)}</td>
+                </tr>
+              `)
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  container.innerHTML = `
+    <div class="water-tooltip">
+      <div class="water-tooltip__header">
+        <span class="water-tooltip__icon">💧</span>
+        <span class="water-tooltip__title">Detalhes de Consumo de Água</span>
+      </div>
+      <div class="water-tooltip__content">
+        <div class="water-tooltip__section">
+          <div class="water-tooltip__section-title">
+            <span>📊</span> Resumo Geral
+          </div>
+          <div class="water-tooltip__row">
+            <span class="water-tooltip__label">Consumo Total:</span>
+            <span class="water-tooltip__value water-tooltip__value--highlight">${formatWater(filteredTotal)}</span>
+          </div>
+          <div class="water-tooltip__row">
+            <span class="water-tooltip__label">Área Comum:</span>
+            <span class="water-tooltip__value">${formatWater(commonArea)}</span>
+          </div>
+          <div class="water-tooltip__row">
+            <span class="water-tooltip__label">Lojas:</span>
+            <span class="water-tooltip__value">${formatWater(stores)}</span>
+          </div>
+          <div class="water-tooltip__row">
+            <span class="water-tooltip__label">Dispositivos:</span>
+            <span class="water-tooltip__value">${deviceCount || 0}</span>
+          </div>
+        </div>
+
+        ${shoppingTableHtml}
+
+        <div class="water-tooltip__notice">
+          <span class="water-tooltip__notice-icon">ℹ️</span>
+          <span class="water-tooltip__notice-text">
+            O consumo total considera <strong>hidrômetros de área comum</strong> e <strong>hidrômetros de lojas</strong>.
+            Valores em tempo real podem variar conforme a disponibilidade dos dados.
+          </span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Position tooltip
+  const rect = triggerElement.getBoundingClientRect();
+  let left = rect.left + rect.width / 2 - 170;
+  let top = rect.bottom + 8;
+
+  if (left < 10) left = 10;
+  if (left + 340 > window.innerWidth - 10) left = window.innerWidth - 350;
+  if (top + 600 > window.innerHeight) {
+    top = rect.top - 8 - 600;
+    if (top < 10) top = 10;
+  }
+
+  container.style.left = left + 'px';
+  container.style.top = top + 'px';
+  container.classList.add('visible');
+}
+
+function hideWaterTooltip() {
+  const container = document.getElementById('water-premium-tooltip');
   if (container) {
     container.classList.remove('visible');
   }

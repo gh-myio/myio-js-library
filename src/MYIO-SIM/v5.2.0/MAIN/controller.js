@@ -2915,6 +2915,16 @@ const MyIOOrchestrator = (() => {
         detail: { ...waterTotals, timestamp: Date.now() },
       })
     );
+
+    // Disparar evento com dados completos para tooltip e comparativo
+    // Delayed to ensure getWaterWidgetData is available
+    setTimeout(() => {
+      if (typeof getWaterWidgetData === 'function') {
+        const summary = getWaterWidgetData();
+        window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: summary }));
+        LogHelper.log('[MAIN] [Orchestrator] 🔔 water-summary-ready dispatched', summary);
+      }
+    }, 100);
   }
 
   /**
@@ -3353,6 +3363,14 @@ const MyIOOrchestrator = (() => {
         // Fallback to first range if no match
         if (!matchedRange && ranges.size > 0) {
           matchedRange = ranges.values().next().value;
+          LogHelper.log(`[MAIN] RFC-0100: No exact range match for "${ownerName}", using fallback`);
+        }
+
+        // Log range match for debugging
+        if (matchedRange) {
+          LogHelper.log(`[MAIN] RFC-0100: Range for "${ownerName}": ${matchedRange.min}–${matchedRange.max}°C`);
+        } else {
+          LogHelper.warn(`[MAIN] RFC-0100: No range found for "${ownerName}"`);
         }
 
         const shoppingInfo = {
@@ -3456,7 +3474,9 @@ const MyIOOrchestrator = (() => {
     });
 
     shoppingsCache = shoppings;
-    LogHelper.log(`[MAIN] RFC-0100: Extracted ${shoppings.length} shoppings from ctx.data`);
+    // Set totalShoppings for filter comparison (to detect "all selected" = no filter)
+    totalShoppings = shoppings.length;
+    LogHelper.log(`[MAIN] RFC-0100: Extracted ${shoppings.length} shoppings from ctx.data, totalShoppings set`);
     return shoppings;
   }
 
@@ -3492,6 +3512,7 @@ const MyIOOrchestrator = (() => {
   let lojasIngestionIds = new Set(); // ingestionIds das lojas (3F_MEDIDOR) - vem do EQUIPMENTS
   let equipmentsIngestionIds = new Set(); // ingestionIds dos equipamentos - vem do EQUIPMENTS
   let selectedShoppingIds = []; // Shopping ingestionIds selecionados no filtro (vem do MENU)
+  let totalShoppings = 0; // Total de shoppings disponíveis (para determinar se "todos" estão selecionados)
 
   // ===== DEVICE-TO-SHOPPING MAPPING (Fallback for missing customerId) =====
   // Map<deviceIngestionId, shoppingIngestionId> - populated from EQUIPMENTS ctx.data
@@ -3938,6 +3959,67 @@ const MyIOOrchestrator = (() => {
   }
 
   /**
+   * Agrega consumo de energia por shopping (customerId)
+   * Retorna array de { name, equipamentos, lojas } para cada shopping
+   * Considera filtro de shoppings se aplicado
+   * @returns {Array<{name: string, equipamentos: number, lojas: number}>}
+   */
+  function getEnergyByShoppings() {
+    // Map<customerId, { name, equipamentos, lojas }>
+    const shoppingMap = new Map();
+
+    // Helper para obter nome do shopping pelo customerId
+    function getShoppingName(customerId) {
+      if (window.custumersSelected && Array.isArray(window.custumersSelected)) {
+        const shopping = window.custumersSelected.find((c) => c.value === customerId);
+        if (shopping) return shopping.name;
+      }
+      // Fallback: primeiros 8 caracteres do ID
+      if (customerId) {
+        return `Shopping ${customerId.substring(0, 8)}...`;
+      }
+      return 'Desconhecido';
+    }
+
+    // Itera pelo cache de energia
+    energyCache.forEach((device, ingestionId) => {
+      // Aplica filtro de shopping se ativo
+      if (!shouldIncludeDevice(device)) return;
+
+      // Obtém customerId (shopping)
+      let customerId = device.customerId;
+      if (!customerId && window.myioDeviceToShoppingMap) {
+        customerId = window.myioDeviceToShoppingMap.get(device.ingestionId);
+      }
+      if (!customerId) return; // Ignora dispositivos sem shopping
+
+      // Inicializa entrada do shopping se não existir
+      if (!shoppingMap.has(customerId)) {
+        shoppingMap.set(customerId, {
+          name: getShoppingName(customerId),
+          equipamentos: 0,
+          lojas: 0,
+        });
+      }
+
+      const entry = shoppingMap.get(customerId);
+      const value = device.total_value || 0;
+
+      // Classifica como equipamento ou loja
+      if (lojasIngestionIds.has(ingestionId)) {
+        entry.lojas += value;
+      } else if (equipmentsIngestionIds.size > 0 ? equipmentsIngestionIds.has(ingestionId) : true) {
+        entry.equipamentos += value;
+      }
+    });
+
+    // Converte Map para Array
+    const result = Array.from(shoppingMap.values());
+    LogHelper.log('[MAIN] [Orchestrator] Energy by shoppings:', result.length, 'shoppings');
+    return result;
+  }
+
+  /**
    * Calcula o total GERAL de consumo (EQUIPAMENTOS + LOJAS)
    * Se temos IDs identificados, soma apenas esses dispositivos
    * Senão, soma todos os dispositivos da API
@@ -4013,28 +4095,166 @@ const MyIOOrchestrator = (() => {
 
   /**
    * Calcula o total GERAL de consumo de ÁGUA SEM FILTRO (todos os devices)
+   * Considera apenas IDs válidos (dos Aliases TB)
    * @returns {number} - Total em m³
    */
   function getUnfilteredTotalWaterConsumption() {
     let total = 0;
-    waterCache.forEach((device) => {
-      total += device.total_value || 0;
+    waterCache.forEach((device, id) => {
+      // Apenas IDs válidos (area comum ou lojas)
+      if (waterValidIds.commonArea.has(id) || waterValidIds.stores.has(id)) {
+        total += device.total_value || 0;
+      }
     });
     return total;
   }
 
   /**
+   * Calcula o total de consumo de ÁGUA COM FILTRO aplicado
+   * Considera apenas IDs válidos (dos Aliases TB)
+   * @returns {number} - Total em m³
+   */
+  function getFilteredTotalWaterConsumption() {
+    let total = 0;
+    waterCache.forEach((device, id) => {
+      // Apenas IDs válidos (area comum ou lojas)
+      if (!waterValidIds.commonArea.has(id) && !waterValidIds.stores.has(id)) {
+        return;
+      }
+      // Aplica filtro de shopping
+      if (shouldIncludeDevice(device)) {
+        total += device.total_value || 0;
+      }
+    });
+    return total;
+  }
+
+  /**
+   * Agrega consumo de água por shopping (customerId)
+   * Retorna array de { name, areaComum, lojas } para cada shopping
+   * Considera filtro de shoppings se aplicado
+   * @returns {Array<{name: string, areaComum: number, lojas: number}>}
+   */
+  function getWaterByShoppings() {
+    // Map<customerId, { name, areaComum, lojas }>
+    const shoppingMap = new Map();
+
+    // Helper para obter nome do shopping pelo customerId
+    function getShoppingName(customerId) {
+      if (window.custumersSelected && Array.isArray(window.custumersSelected)) {
+        const shopping = window.custumersSelected.find((c) => c.value === customerId);
+        if (shopping) return shopping.name;
+      }
+      // Fallback: primeiros 8 caracteres do ID
+      if (customerId) {
+        return `Shopping ${customerId.substring(0, 8)}...`;
+      }
+      return 'Desconhecido';
+    }
+
+    // Itera pelo cache de água
+    waterCache.forEach((device, ingestionId) => {
+      // Apenas IDs válidos (area comum ou lojas)
+      const isCommonArea = waterValidIds.commonArea.has(ingestionId);
+      const isStore = waterValidIds.stores.has(ingestionId);
+      if (!isCommonArea && !isStore) return;
+
+      // Aplica filtro de shopping se ativo
+      if (!shouldIncludeDevice(device)) return;
+
+      // Obtém customerId (shopping)
+      let customerId = device.customerId;
+      if (!customerId && window.myioDeviceToShoppingMap) {
+        customerId = window.myioDeviceToShoppingMap.get(device.ingestionId);
+      }
+      if (!customerId) return; // Ignora dispositivos sem shopping
+
+      // Inicializa entrada do shopping se não existir
+      if (!shoppingMap.has(customerId)) {
+        shoppingMap.set(customerId, {
+          name: getShoppingName(customerId),
+          areaComum: 0,
+          lojas: 0,
+        });
+      }
+
+      const entry = shoppingMap.get(customerId);
+      const value = device.total_value || 0;
+
+      // Classifica como área comum ou loja
+      if (isCommonArea) {
+        entry.areaComum += value;
+      } else if (isStore) {
+        entry.lojas += value;
+      }
+    });
+
+    // Converte Map para Array
+    const result = Array.from(shoppingMap.values());
+    LogHelper.log('[MAIN] [Orchestrator] Water by shoppings:', result.length, 'shoppings');
+    return result;
+  }
+
+  /**
+   * Obtém dados agregados para o widget WATER
+   * @returns {object} - { filteredTotal, unfilteredTotal, commonArea, stores, isFiltered, shoppingsWater }
+   */
+  function getWaterWidgetData() {
+    const filteredTotal = getFilteredTotalWaterConsumption();
+    const unfilteredTotal = getUnfilteredTotalWaterConsumption();
+    const filtered = isFilterActive();
+
+    // Totais por categoria (com filtro)
+    let commonAreaFiltered = 0;
+    let storesFiltered = 0;
+    waterCache.forEach((device, id) => {
+      if (!shouldIncludeDevice(device)) return;
+      const value = device.total_value || 0;
+      if (waterValidIds.commonArea.has(id)) {
+        commonAreaFiltered += value;
+      } else if (waterValidIds.stores.has(id)) {
+        storesFiltered += value;
+      }
+    });
+
+    // Agregação por shopping para tooltip
+    const shoppingsWater = getWaterByShoppings();
+
+    const result = {
+      filteredTotal: Number(filteredTotal) || 0,
+      unfilteredTotal: Number(unfilteredTotal) || 0,
+      commonArea: Number(commonAreaFiltered) || 0,
+      stores: Number(storesFiltered) || 0,
+      deviceCount: waterCache.size,
+      isFiltered: filtered,
+      shoppingsWater: shoppingsWater,
+    };
+
+    LogHelper.log(`[MAIN] [Orchestrator] Water widget data:`, result);
+    return result;
+  }
+
+  /**
    * Verifica se há filtro de shoppings ativo
-   * @returns {boolean} - True se há filtro aplicado
+   * Considera que "todos selecionados" = sem filtro
+   * @returns {boolean} - True se há filtro aplicado (subconjunto selecionado)
    */
   function isFilterActive() {
-    return selectedShoppingIds && selectedShoppingIds.length > 0;
+    // Se nenhum shopping selecionado, sem filtro
+    if (!selectedShoppingIds || selectedShoppingIds.length === 0) {
+      return false;
+    }
+    // Se todos os shoppings estão selecionados, também é "sem filtro"
+    if (totalShoppings > 0 && selectedShoppingIds.length >= totalShoppings) {
+      return false;
+    }
+    return true;
   }
 
   /**
    * Obtém dados agregados para o widget ENERGY
    * @param {number} totalConsumption - Consumo TOTAL (Equipamentos + Lojas) vindo do HEADER (fallback)
-   * @returns {object} - { customerTotal, unfilteredTotal, equipmentsTotal, lojasTotal, percentage, isFiltered }
+   * @returns {object} - { customerTotal, unfilteredTotal, equipmentsTotal, lojasTotal, percentage, isFiltered, shoppingsEnergy }
    */
   function getEnergyWidgetData(totalConsumption = 0) {
     const equipmentsTotal = getTotalEquipmentsConsumption();
@@ -4055,6 +4275,9 @@ const MyIOOrchestrator = (() => {
     // ✅ Equipamentos como % do total
     const percentage = effectiveTotal > 0 ? (equipmentsTotal / effectiveTotal) * 100 : 0;
 
+    // Agregação por shopping para tooltip
+    const shoppingsEnergy = getEnergyByShoppings();
+
     const result = {
       customerTotal: Number(effectiveTotal) || 0,
       unfilteredTotal: Number(unfilteredTotal) || 0, // RFC-0093: Total without filter for comparison
@@ -4064,6 +4287,7 @@ const MyIOOrchestrator = (() => {
       percentage: Number(percentage) || 0,
       deviceCount: energyCache.size,
       isFiltered: filtered, // RFC-0093: Flag indicating filter is active
+      shoppingsEnergy: shoppingsEnergy, // Array de { name, equipamentos, lojas } por shopping
     };
 
     LogHelper.log(`[MAIN] [Orchestrator] Energy widget data:`, {
@@ -4093,8 +4317,12 @@ const MyIOOrchestrator = (() => {
     getTotalWaterConsumption,
     getUnfilteredTotalConsumption,
     getUnfilteredTotalWaterConsumption,
+    getFilteredTotalWaterConsumption,
     isFilterActive,
     getEnergyWidgetData,
+    getEnergyByShoppings,
+    getWaterWidgetData,
+    getWaterByShoppings,
     getLastFetchTimestamp: () => lastFetchTimestamp, // RFC: Expor timestamp para deduplicação
     requestSummary() {
       // Responde imediatamente com o que tiver no momento
@@ -4102,6 +4330,13 @@ const MyIOOrchestrator = (() => {
       const summary = getEnergyWidgetData(total);
       window.dispatchEvent(new CustomEvent('myio:energy-summary-ready', { detail: summary }));
       LogHelper.log('[MAIN] [Orchestrator] ▶ requestSummary() dispatched', summary);
+      return summary;
+    },
+    requestWaterSummary() {
+      // Responde imediatamente com dados de água
+      const summary = getWaterWidgetData();
+      window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: summary }));
+      LogHelper.log('[MAIN] [Orchestrator] ▶ requestWaterSummary() dispatched', summary);
       return summary;
     },
 
@@ -4143,16 +4378,37 @@ const MyIOOrchestrator = (() => {
     },
 
     /**
+     * Define o total de shoppings disponíveis (para determinar "todos selecionados")
+     * @param {number} total - Total de shoppings
+     */
+    setTotalShoppings(total) {
+      totalShoppings = Number(total) || 0;
+      LogHelper.log('[MAIN] [Orchestrator] Total shoppings set to:', totalShoppings);
+    },
+
+    /**
      * Aplica filtro de shoppings selecionados
      * @param {Array<string>} shoppingIds - Array de ingestionIds dos shoppings
      */
     setSelectedShoppings(shoppingIds) {
       selectedShoppingIds = Array.isArray(shoppingIds) ? shoppingIds : [];
+
+      // Auto-detect totalShoppings from ctx.data customers if not set
+      if (totalShoppings === 0) {
+        // Try to get from extracted shoppings
+        const extractedShoppings = getShoppings();
+        if (extractedShoppings && extractedShoppings.length > 0) {
+          totalShoppings = extractedShoppings.length;
+          LogHelper.log('[MAIN] [Orchestrator] Auto-detected totalShoppings from extracted:', totalShoppings);
+        }
+      }
+
+      const isFiltered = isFilterActive();
       LogHelper.log(
         '[MAIN] [Orchestrator] Shopping filter applied:',
-        selectedShoppingIds.length === 0
+        !isFiltered
           ? 'ALL (no filter)'
-          : `${selectedShoppingIds.length} shoppings selected`
+          : `${selectedShoppingIds.length}/${totalShoppings} shoppings selected`
       );
       if (selectedShoppingIds.length > 0) {
         LogHelper.log('[MAIN] [Orchestrator] Selected shopping IDs:', selectedShoppingIds);
@@ -4165,7 +4421,8 @@ const MyIOOrchestrator = (() => {
         new CustomEvent('myio:orchestrator-filter-updated', {
           detail: {
             selectedShoppingIds,
-            isFiltered: selectedShoppingIds.length > 0,
+            isFiltered: isFiltered,
+            totalShoppings: totalShoppings,
           },
         })
       );
