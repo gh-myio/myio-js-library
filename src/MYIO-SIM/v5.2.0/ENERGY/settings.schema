@@ -2,12 +2,7 @@
   "schema": {
     "type": "object",
     "title": "Settings",
-    "properties": {
-      "customerId": {
-        "type": "string",
-        "title": "customerId"
-      }
-    },
-    "required": ["customerId"]
+    "properties": {},
+    "required": []
   }
 }

@@ -2365,7 +2365,11 @@ self.onInit = async function () {
   } else {
     // Fallback: fetch credentials directly if MAIN not ready
     LogHelper.log('[STORES] MAIN credentials not available, fetching directly...');
-    const customerTB_ID = window.MyIOUtils?.getCustomerId?.() || self.ctx.settings?.customerTB_ID || '';
+    const customerTB_ID = window.MyIOUtils?.getCustomerId?.() || window.myioHoldingCustomerId || '';
+
+    if (!customerTB_ID) {
+      LogHelper.error('[STORES] ❌ customerTB_ID not found - MAIN has not initialized window.myioHoldingCustomerId');
+    }
 
     try {
       const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);

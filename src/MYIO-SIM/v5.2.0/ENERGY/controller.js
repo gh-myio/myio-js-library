@@ -1286,10 +1286,10 @@ function getShoppingName(customerId) {
 async function fetchConsumptionDataAdapter(period) {
   console.log('[ENERGY] [RFC-0098] Fetching data via adapter for', period, 'days');
 
-  // Get customer ID from widget context
-  const customerId = self.ctx?.settings?.customerId;
+  // Get customer ID from MAIN (exposed via window.myioHoldingCustomerId)
+  const customerId = window.myioHoldingCustomerId;
   if (!customerId) {
-    console.warn('[ENERGY] [RFC-0098] No customer ID, returning empty data');
+    console.error('[ENERGY] [RFC-0098] ❌ customerId not found - MAIN has not initialized window.myioHoldingCustomerId');
     return { labels: [], dailyTotals: [], shoppingData: {}, shoppingNames: {} };
   }
 
@@ -1320,15 +1320,15 @@ async function fetchConsumptionDataAdapter(period) {
 async function initializeCharts() {
   console.log('[ENERGY] [RFC-0098] Initializing charts with standardized component...');
 
-  // Get customer ID
-  const customerId = self.ctx?.settings?.customerId;
+  // Get customer ID from MAIN (exposed via window.myioHoldingCustomerId)
+  const customerId = window.myioHoldingCustomerId;
 
   if (!customerId) {
-    console.error('[ENERGY] [RFC-0098] Customer ID not found - chart requires customerId to fetch data');
+    console.error('[ENERGY] [RFC-0098] ❌ customerId not found - MAIN has not initialized window.myioHoldingCustomerId');
     return;
   }
 
-  console.log('[ENERGY] Customer ID:', customerId);
+  console.log('[ENERGY] Customer ID (from MAIN):', customerId);
 
   // RFC-0098: Initialize line chart using the standardized widget component
   if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumptionChartWidget) {
