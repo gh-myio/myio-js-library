@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "limitsByInstantaneoustPowerType": [
+    {
+      "telemetryType": "consumption",
+      "itemsByDeviceType": [
+        {
+          "deviceType": "MOTOR",
+          "name": "deviceMapInstaneousPowerMotor",
+          "description": "Override manual configurado via Dashboard",
+          "limitsByDeviceStatus": [
+            { "deviceStatusName": "alert", "limitsValues": { "baseValue": 0, "topValue": 99999 } }
+          ]
+        }
+      ]
+    }
+  ]
+}

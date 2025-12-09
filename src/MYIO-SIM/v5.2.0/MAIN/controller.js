@@ -3003,10 +3003,25 @@ const MyIOOrchestrator = (() => {
     const rangesMap = new Map();
     const ctxData = self.ctx?.data || [];
 
+    // Debug: Log all datasource names and aliasNames to find customers
+    const datasourceInfo = new Set();
     ctxData.forEach((data) => {
-      // Filter only data from 'customers' datasource
+      const name = data.datasource?.name;
+      const aliasName = data.datasource?.aliasName;
+      const keyName = data.dataKey?.name;
+      if (keyName === 'minTemperature' || keyName === 'maxTemperature') {
+        datasourceInfo.add(`name=${name}, aliasName=${aliasName}, key=${keyName}`);
+      }
+    });
+    if (datasourceInfo.size > 0) {
+      LogHelper.log(`[MAIN] RFC-0100: Found temperature keys in datasources:`, Array.from(datasourceInfo));
+    }
+
+    ctxData.forEach((data) => {
+      // Filter by datasource name OR aliasName = 'customers'
       const datasourceName = data.datasource?.name;
-      if (datasourceName !== 'customers') return;
+      const aliasName = data.datasource?.aliasName;
+      if (datasourceName !== 'customers' && aliasName !== 'customers') return;
 
       const entityLabel = data.datasource?.entityLabel || 'Unknown';
       const entityId = data.datasource?.entityId || entityLabel;
@@ -3332,9 +3347,10 @@ const MyIOOrchestrator = (() => {
         filteredAvg = filteredCount > 0 ? filteredSum / filteredCount : globalAvg;
       }
 
-      // Analyze in-range vs out-of-range shoppings
+      // Analyze in-range vs out-of-range vs unknown-range shoppings
       const shoppingsInRange = [];
       const shoppingsOutOfRange = [];
+      const shoppingsUnknownRange = []; // Shoppings without defined temperature range
 
       averages.forEach((avgData, ownerName) => {
         if (avgData.avg == null) return;
@@ -3360,17 +3376,12 @@ const MyIOOrchestrator = (() => {
           }
         });
 
-        // Fallback to first range if no match
-        if (!matchedRange && ranges.size > 0) {
-          matchedRange = ranges.values().next().value;
-          LogHelper.log(`[MAIN] RFC-0100: No exact range match for "${ownerName}", using fallback`);
-        }
-
+        // NO fallback - if no match, it's unknown range
         // Log range match for debugging
         if (matchedRange) {
           LogHelper.log(`[MAIN] RFC-0100: Range for "${ownerName}": ${matchedRange.min}–${matchedRange.max}°C`);
         } else {
-          LogHelper.warn(`[MAIN] RFC-0100: No range found for "${ownerName}"`);
+          LogHelper.warn(`[MAIN] RFC-0100: No range found for "${ownerName}" - marking as unknown`);
         }
 
         const shoppingInfo = {
@@ -3380,9 +3391,15 @@ const MyIOOrchestrator = (() => {
           max: matchedRange?.max,
         };
 
-        if (matchedRange && avgData.avg >= matchedRange.min && avgData.avg <= matchedRange.max) {
+        // Classify: in range, out of range, or unknown range
+        if (!matchedRange) {
+          // No range defined - unknown
+          shoppingsUnknownRange.push(shoppingInfo);
+        } else if (avgData.avg >= matchedRange.min && avgData.avg <= matchedRange.max) {
+          // Within defined range
           shoppingsInRange.push(shoppingInfo);
         } else {
+          // Outside defined range
           shoppingsOutOfRange.push(shoppingInfo);
         }
       });
@@ -3400,6 +3417,7 @@ const MyIOOrchestrator = (() => {
         isFiltered,
         shoppingsInRange,
         shoppingsOutOfRange,
+        shoppingsUnknownRange, // Shoppings without defined temperature range
         startTs,
         endTs,
         fetchTimestamp: Date.now(),
@@ -3421,6 +3439,7 @@ const MyIOOrchestrator = (() => {
         isFiltered,
         inRange: shoppingsInRange.length,
         outOfRange: shoppingsOutOfRange.length,
+        unknownRange: shoppingsUnknownRange.length,
       });
 
       return temperatureCache;

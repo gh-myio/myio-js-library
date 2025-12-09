@@ -1569,6 +1569,7 @@ function createTemperatureTooltip() {
       }
       .temp-tooltip__list-item--ok { border-left: 3px solid #22c55e; background: #f0fdf4; }
       .temp-tooltip__list-item--warn { border-left: 3px solid #f59e0b; background: #fffbeb; }
+      .temp-tooltip__list-item--unknown { border-left: 3px solid #6b7280; background: #f3f4f6; }
       .temp-tooltip__list-icon { font-size: 14px; flex-shrink: 0; }
       .temp-tooltip__list-name { flex: 1; color: #334155; font-weight: 600; }
       .temp-tooltip__list-value { color: #475569; font-size: 12px; font-weight: 500; }
@@ -1613,9 +1614,10 @@ function showTemperatureTooltip(triggerElement, data) {
     isFiltered,
     shoppingsInRange = [],
     shoppingsOutOfRange = [],
+    shoppingsUnknownRange = [],
     devices = [],
   } = data || {};
-  const totalShoppings = shoppingsInRange.length + shoppingsOutOfRange.length;
+  const totalShoppings = shoppingsInRange.length + shoppingsOutOfRange.length + shoppingsUnknownRange.length;
 
   // Build shopping list HTML
   let shoppingListHtml = '';
@@ -1672,16 +1674,42 @@ function showTemperatureTooltip(triggerElement, data) {
     `;
   }
 
+  if (shoppingsUnknownRange.length > 0) {
+    shoppingListHtml += `
+      <div class="temp-tooltip__section">
+        <div class="temp-tooltip__section-title">
+          <span>❓</span> Faixa Não Definida (${shoppingsUnknownRange.length})
+        </div>
+        <div class="temp-tooltip__list">
+          ${shoppingsUnknownRange
+            .map((s) => `
+            <div class="temp-tooltip__list-item temp-tooltip__list-item--unknown">
+              <span class="temp-tooltip__list-icon">?</span>
+              <span class="temp-tooltip__list-name">${s.name} <span class="temp-tooltip__list-range">(faixa não configurada)</span></span>
+              <span class="temp-tooltip__list-value">${s.avg?.toFixed(1)}°C</span>
+            </div>
+          `)
+            .join('')}
+        </div>
+      </div>
+    `;
+  }
+
   // Status badge
   let statusBadge = '';
   if (totalShoppings === 0) {
     statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--info">Aguardando dados</span>';
-  } else if (shoppingsOutOfRange.length === 0) {
+  } else if (shoppingsUnknownRange.length === totalShoppings) {
+    // All shoppings have unknown range
+    statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--info">❓ Faixas não configuradas</span>';
+  } else if (shoppingsOutOfRange.length === 0 && shoppingsUnknownRange.length === 0) {
     statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--ok">✔ Todos na faixa</span>';
-  } else if (shoppingsInRange.length === 0) {
+  } else if (shoppingsInRange.length === 0 && shoppingsUnknownRange.length === 0) {
     statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--warn">⚠ Todos fora da faixa</span>';
-  } else {
+  } else if (shoppingsOutOfRange.length > 0) {
     statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--warn">⚠ Alguns fora da faixa</span>';
+  } else if (shoppingsUnknownRange.length > 0) {
+    statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--info">❓ Algumas faixas não configuradas</span>';
   }
 
   container.innerHTML = `

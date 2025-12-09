@@ -888,6 +888,11 @@
   border-left: 3px solid #fbbf24;
 }
 
+.temp-tooltip__list-item--unknown {
+  border-left: 3px solid #6b7280;
+  background: rgba(107, 114, 128, 0.1);
+}
+
 .temp-tooltip__list-icon {
   font-size: 12px;
   flex-shrink: 0;
