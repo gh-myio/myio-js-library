@@ -437,23 +437,19 @@ export function createConsumptionModal(
       // Setup listeners
       setupListeners();
 
-      // Create chart instance
+      // Create chart instance with initialData passed through config
       chartInstance = createConsumption7DaysChart({
         ...config,
         containerId: `${modalId}-chart`,
         theme: currentTheme,
         defaultChartType: currentChartType,
         defaultVizMode: currentVizMode,
+        // RFC-0098: Pass initialData to chart config for instant display
+        initialData: config.initialData,
       });
 
-      // RFC-0098: Use initial data if provided (instant display), otherwise fetch
-      if (config.initialData) {
-        // Use cached data - instant display without fetch
-        chartInstance.update(config.initialData);
-      } else {
-        // No initial data - fetch from API
-        await chartInstance.render();
-      }
+      // Render chart (will use initialData if provided, otherwise fetch)
+      await chartInstance.render();
     },
 
     close(): void {

@@ -638,10 +638,17 @@ export function createConsumption7DaysChart(
       if (!canvas) return;
 
       try {
-        // Fetch data
-        log('log', `Fetching ${currentPeriod} days of data...`);
-        cachedData = await config.fetchData(currentPeriod);
-        cachedData.fetchTimestamp = Date.now();
+        // RFC-0098: Use initialData if provided (instant display), otherwise fetch
+        if (config.initialData) {
+          log('log', 'Using initial data (instant display)');
+          cachedData = config.initialData;
+          cachedData.fetchTimestamp = cachedData.fetchTimestamp || Date.now();
+        } else {
+          // Fetch data from API
+          log('log', `Fetching ${currentPeriod} days of data...`);
+          cachedData = await config.fetchData(currentPeriod);
+          cachedData.fetchTimestamp = Date.now();
+        }
 
         // Apply pre-render hook if provided
         if (config.onBeforeRender) {

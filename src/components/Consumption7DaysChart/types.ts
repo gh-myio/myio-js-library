@@ -173,6 +173,16 @@ export interface Consumption7DaysConfig {
   fetchData: (period: number) => Promise<Consumption7DaysData>;
 
   // ============================================
+  // OPTIONAL - DATA
+  // ============================================
+
+  /**
+   * Initial data to display (skips fetch if provided)
+   * Useful for modal/fullscreen views that reuse cached data
+   */
+  initialData?: Consumption7DaysData;
+
+  // ============================================
   // OPTIONAL - UNIT CONFIGURATION
   // ============================================
 
