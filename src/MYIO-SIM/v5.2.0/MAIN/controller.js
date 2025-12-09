@@ -35,7 +35,6 @@ function getDataApiHost() {
   return host;
 }
 
-
 /**
  * RFC-0094/RFC-0097: Fetch energy consumption for a customer within a time range
  * Used by ENERGY widget for chart and other consumption queries
@@ -178,7 +177,6 @@ async function fetchWaterDayConsumption(customerId, startTs, endTs, granularity 
     return { devices: [], total: 0 };
   }
 }
-
 
 /**
  * Shows/hides loading overlay for equipments widget
@@ -2425,12 +2423,38 @@ function createFilterModal(config) {
 
     checklist.innerHTML = '';
 
-    // Sort items alphabetically
-    const sortedItems = items
-      .slice()
-      .sort((a, b) =>
-        (getItemLabel(a) || '').localeCompare(getItemLabel(b) || '', 'pt-BR', { sensitivity: 'base' })
-      );
+    // 1. CORREÇÃO: Usa window.custumersSelected que é global, em vez de selectedShoppingIds que é privada
+    const globalSelection = window.custumersSelected || [];
+
+    // Verifica se o filtro está ativo: tem itens selecionados E não selecionou "todos" (se sua lógica de "todos" for lista vazia ou igual ao total)
+    // Assumindo que se window.custumersSelected tiver valor, o filtro está valendo.
+    const isFiltered = globalSelection.length > 0;
+
+    // 2. Cria cópia da lista
+    let itemsProcessing = items.slice();
+
+    // 3. APLICA O FILTRO
+    if (isFiltered) {
+      // Extrai os IDs dos shoppings selecionados
+      const allowedShoppingIds = globalSelection.map((c) => c.value); // c.value geralmente é o customerId/ingestionId
+
+      itemsProcessing = itemsProcessing.filter((item) => {
+        // Filtra comparando o customerId do item com os IDs permitidos
+        return item.customerId && allowedShoppingIds.includes(item.customerId);
+      });
+    }
+
+    // 4. Ordena a lista (já filtrada)
+    const sortedItems = itemsProcessing.sort((a, b) =>
+      (getItemLabel(a) || '').localeCompare(getItemLabel(b) || '', 'pt-BR', { sensitivity: 'base' })
+    );
+
+    // 5. Renderiza
+    if (sortedItems.length === 0) {
+      checklist.innerHTML =
+        '<div style="padding:10px; color:#666; font-size:12px; text-align:center;">Nenhum dispositivo encontrado para os filtros selecionados.</div>';
+      return;
+    }
 
     sortedItems.forEach((item) => {
       const itemId = getItemId(item);
@@ -2442,21 +2466,18 @@ function createFilterModal(config) {
       const div = document.createElement('div');
       div.className = 'check-item';
       div.innerHTML = `
-        <input type="checkbox" id="check-${itemId}" ${isChecked ? 'checked' : ''} ${itemIdAttr}="${itemId}">
-        <label for="check-${itemId}" style="flex: 1;">${getItemLabel(item)}</label>
-        ${
-          subLabel
-            ? `<span style="color: #64748b; font-size: 11px; margin-right: 8px;">${subLabel}</span>`
-            : ''
-        }
-        <span style="color: ${
-          value > 0 ? '#16a34a' : '#94a3b8'
-        }; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedValue}</span>
-      `;
+      <input type="checkbox" id="check-${itemId}" ${isChecked ? 'checked' : ''} ${itemIdAttr}="${itemId}">
+      <label for="check-${itemId}" style="flex: 1;">${getItemLabel(item)}</label>
+      ${
+        subLabel ? `<span style="color: #64748b; font-size: 11px; margin-right: 8px;">${subLabel}</span>` : ''
+      }
+      <span style="color: ${
+        value > 0 ? '#16a34a' : '#94a3b8'
+      }; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedValue}</span>
+    `;
       checklist.appendChild(div);
     });
   }
-
   // Open the modal
   function open(items, state = {}) {
     if (!items || items.length === 0) {
@@ -3202,7 +3223,9 @@ const MyIOOrchestrator = (() => {
       dailyTotals[i] = dailyCounts[i] > 0 ? Math.round((dailyTotals[i] / dailyCounts[i]) * 10) / 10 : null;
     }
 
-    LogHelper.log(`[MAIN] RFC-0100: Temperature day averages calculated for ${shoppingDailyData.size} shoppings, ${numDays} days`);
+    LogHelper.log(
+      `[MAIN] RFC-0100: Temperature day averages calculated for ${shoppingDailyData.size} shoppings, ${numDays} days`
+    );
 
     return {
       labels,
@@ -3258,7 +3281,8 @@ const MyIOOrchestrator = (() => {
       // Calculate filtered average based on selected shoppings
       let filteredAvg = globalAvg;
       let filteredCount = globalCount;
-      const isFiltered = selectedShoppingIds.length > 0 && selectedShoppingIds.length < allShoppingsData.length;
+      const isFiltered =
+        selectedShoppingIds.length > 0 && selectedShoppingIds.length < allShoppingsData.length;
 
       if (isFiltered) {
         const selectedNames = (window.custumersSelected || []).map((s) => s.name);
@@ -4677,7 +4701,9 @@ self.onInit = async function () {
   // RFC-0091: Get delayTimeConnectionInMins from settings (required - no fallback)
   const delayTimeConnectionInMins = self.ctx.settings.delayTimeConnectionInMins;
   if (delayTimeConnectionInMins === undefined || delayTimeConnectionInMins === null) {
-    LogHelper.error('[MAIN] [RFC-0091] delayTimeConnectionInMins não informado em settings. Configure o valor nas configurações do widget.');
+    LogHelper.error(
+      '[MAIN] [RFC-0091] delayTimeConnectionInMins não informado em settings. Configure o valor nas configurações do widget.'
+    );
   }
   window.__MYIO_DELAY_TIME_CONNECTION_MINS__ = delayTimeConnectionInMins;
   LogHelper.log('[MAIN] [RFC-0091] delayTimeConnectionInMins:', delayTimeConnectionInMins);
