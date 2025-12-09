@@ -475,7 +475,7 @@ export class PowerLimitsModalView {
         background: ${styles.backgroundColor || '#ffffff'};
         border-radius: ${styles.borderRadius || '12px'};
         width: 90%;
-        max-width: 700px;
+        max-width: 875px;
         max-height: 90vh;
         overflow-y: auto;
         transform: scale(0.9);
