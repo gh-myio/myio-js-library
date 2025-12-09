@@ -2594,8 +2594,8 @@ window.MyIOUtils = {
   getClientSecret: () => window.__MYIO_CLIENT_SECRET__,
   getCustomerIngestionId: () => window.__MYIO_CUSTOMER_INGESTION_ID__,
 
-  // RFC-0091: Connection delay time getter (default 60 minutes)
-  getDelayTimeConnectionInMins: () => window.__MYIO_DELAY_TIME_CONNECTION_MINS__ ?? 60,
+  // RFC-0091: Connection delay time getter (required - no fallback)
+  getDelayTimeConnectionInMins: () => window.__MYIO_DELAY_TIME_CONNECTION_MINS__,
 
   // RFC-0086: DATA_API_HOST getter (exposed directly for child widgets)
   get DATA_API_HOST() {
@@ -4674,8 +4674,11 @@ self.onInit = async function () {
     LogHelper.log('[MAIN] [RFC-0086] DATA_API_HOST set:', dataApiHost);
   }
 
-  // RFC-0091: Get delayTimeConnectionInMins from settings (default 60 minutes)
-  const delayTimeConnectionInMins = self.ctx.settings.delayTimeConnectionInMins ?? 60;
+  // RFC-0091: Get delayTimeConnectionInMins from settings (required - no fallback)
+  const delayTimeConnectionInMins = self.ctx.settings.delayTimeConnectionInMins;
+  if (delayTimeConnectionInMins === undefined || delayTimeConnectionInMins === null) {
+    LogHelper.error('[MAIN] [RFC-0091] delayTimeConnectionInMins não informado em settings. Configure o valor nas configurações do widget.');
+  }
   window.__MYIO_DELAY_TIME_CONNECTION_MINS__ = delayTimeConnectionInMins;
   LogHelper.log('[MAIN] [RFC-0091] delayTimeConnectionInMins:', delayTimeConnectionInMins);
 

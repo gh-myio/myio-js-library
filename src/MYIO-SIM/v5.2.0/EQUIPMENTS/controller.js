@@ -166,11 +166,16 @@ function initializeCards(devices) {
     device.customerName = customerName;
     device.domain = 'energy'; // RFC-0087: Energy domain for kWh/MWh/GWh formatting
 
-    // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (default 60 minutes)
+    // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (required)
+    const delayTimeConnectionInMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.();
+    if (delayTimeConnectionInMins === undefined || delayTimeConnectionInMins === null) {
+      LogHelper.error('[EQUIPMENTS] delayTimeConnectionInMins não informado. Verifique se MyIOUtils.getDelayTimeConnectionInMins() está disponível.');
+    }
+
     // 2. RENDERIZAÇÃO: Capturamos a instância retornada na variável 'cardInstance'
     const cardInstance = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
-      delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
+      delayTimeConnectionInMins,
 
       // 3. SELEÇÃO INICIAL: Verifica na Store se este card já deve nascer selecionado
       isSelected: (function () {
