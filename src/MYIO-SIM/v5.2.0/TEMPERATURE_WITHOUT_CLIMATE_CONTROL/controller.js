@@ -150,6 +150,7 @@ function initializeSensorCards(sensors) {
         // --- CORREÇÃO VISUAL ---
         // Aqui usamos o status 'traduzido' (running) em vez de sensor.status (normal)
         deviceStatus: visualStatus,
+        debugActive: true,
       };
 
       MyIOLibrary.renderCardComponentHeadOffice(container, {

@@ -781,10 +781,11 @@ async function renderList(visible) {
       temperatureC: 0,
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
       deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
+      debugActive: true,
     };
 
     // RFC-0094: Use renderCardComponentHeadOffice like STORES
-    const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
+    MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: entityObject,
       delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
 

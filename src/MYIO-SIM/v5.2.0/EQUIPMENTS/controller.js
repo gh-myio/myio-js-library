@@ -169,7 +169,9 @@ function initializeCards(devices) {
     // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (required)
     const delayTimeConnectionInMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.();
     if (delayTimeConnectionInMins === undefined || delayTimeConnectionInMins === null) {
-      LogHelper.error('[EQUIPMENTS] delayTimeConnectionInMins não informado. Verifique se MyIOUtils.getDelayTimeConnectionInMins() está disponível.');
+      LogHelper.error(
+        '[EQUIPMENTS] delayTimeConnectionInMins não informado. Verifique se MyIOUtils.getDelayTimeConnectionInMins() está disponível.'
+      );
     }
 
     // 2. RENDERIZAÇÃO: Capturamos a instância retornada na variável 'cardInstance'
@@ -866,6 +868,7 @@ self.onInit = async function () {
             lastValue: consumptionValue, // Alias for val
             unit: 'kWh', // Energy unit
             icon: 'energy', // Domain identifier for SelectionStore
+            debugActive: true,
           };
         });
 

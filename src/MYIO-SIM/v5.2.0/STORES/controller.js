@@ -914,6 +914,7 @@ async function renderList(visible) {
       temperatureC: 0, // Temperatura (não disponível para lojas)
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER, // Global map from settings
       deviceMapInstaneousPower: it.deviceMapInstaneousPower || null, // Device-specific map
+      debugActive: true,
     };
 
     // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (default 60 minutes)
@@ -2368,7 +2369,9 @@ self.onInit = async function () {
     const customerTB_ID = window.MyIOUtils?.getCustomerId?.() || window.myioHoldingCustomerId || '';
 
     if (!customerTB_ID) {
-      LogHelper.error('[STORES] ❌ customerTB_ID not found - MAIN has not initialized window.myioHoldingCustomerId');
+      LogHelper.error(
+        '[STORES] ❌ customerTB_ID not found - MAIN has not initialized window.myioHoldingCustomerId'
+      );
     }
 
     try {
