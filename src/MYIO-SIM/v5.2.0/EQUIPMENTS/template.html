@@ -3,8 +3,13 @@
 
   <div class="toolbar-zoom">
     <div class="shopping-filter-chips" id="shoppingFilterChips"></div>
-    <!-- RFC-0093: Real-Time Mode Controls -->
+    <!-- RFC-0093: Real-Time Mode Controls + RFC-0103: Power Limits -->
     <div class="realtime-controls" id="realtimeControls">
+      <!-- RFC-0103: Power Limits Setup Button -->
+      <button id="powerLimitsBtn" class="power-limits-btn" title="Configure Power Limits">
+        <span class="btn-icon">⚙️</span>
+        <span class="btn-label">Power Limits</span>
+      </button>
       <button id="realtimeToggleBtn" class="realtime-toggle" title="Ativar modo tempo real">
         <span class="toggle-icon">⚡</span>
         <span class="toggle-label">Tempo Real</span>

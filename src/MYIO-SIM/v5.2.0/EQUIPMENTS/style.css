@@ -591,6 +591,52 @@
 
 /* RFC-0093: Filter actions, search, modal, and button styles now injected from MAIN via injectHeaderAndModalCSS() */
 
+/* ====== RFC-0103: POWER LIMITS BUTTON ====== */
+.power-limits-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #dde7f1;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: var(--ink-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.power-limits-btn:hover {
+  border-color: #4A148C;
+  background: linear-gradient(180deg, #f3e8ff 0%, #ede9fe 100%);
+  color: #4A148C;
+}
+
+.power-limits-btn:active {
+  transform: scale(0.98);
+}
+
+.power-limits-btn .btn-icon {
+  font-size: 14px;
+}
+
+.power-limits-btn .btn-label {
+  font-size: var(--fs-xs);
+}
+
+/* Responsive: Hide label on smaller screens */
+@media (max-width: 768px) {
+  .power-limits-btn .btn-label {
+    display: none;
+  }
+
+  .power-limits-btn {
+    padding: 6px 10px;
+  }
+}
+
 /* ====== RFC-0093: REAL-TIME MODE STYLES ====== */
 .realtime-controls {
   display: flex;

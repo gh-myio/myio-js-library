@@ -1175,6 +1175,9 @@ self.onInit = async function () {
 
   // RFC-0093: Bind real-time toggle button
   bindRealTimeToggle();
+
+  // RFC-0103: Bind Power Limits Setup button
+  bindPowerLimitsButton();
 };
 
 // Global state for filters
@@ -2491,6 +2494,88 @@ function bindRealTimeToggle() {
 
 // ============================================
 // END RFC-0093: REAL-TIME WEBSOCKET SERVICE
+// ============================================
+
+// ============================================
+// RFC-0103: POWER LIMITS SETUP MODAL
+// ============================================
+
+/**
+ * RFC-0103: Bind Power Limits Setup button
+ */
+function bindPowerLimitsButton() {
+  const powerLimitsBtn = document.getElementById('powerLimitsBtn');
+  if (powerLimitsBtn) {
+    powerLimitsBtn.addEventListener('click', openPowerLimitsModal);
+    LogHelper.log('[PowerLimits] Button bound');
+  }
+}
+
+/**
+ * RFC-0103: Open Power Limits Setup Modal
+ */
+async function openPowerLimitsModal() {
+  LogHelper.log('[PowerLimits] Opening modal...');
+
+  try {
+    // Check if MyIOLibrary is available
+    if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.openPowerLimitsSetupModal) {
+      console.error('[PowerLimits] MyIOLibrary.openPowerLimitsSetupModal not available');
+      alert('Power Limits Setup is not available. Please ensure the library is loaded.');
+      return;
+    }
+
+    // Get JWT token from widgetContext
+    const jwtToken = self.ctx?.http?.getJwtToken?.() || self.ctx?.dashboard?.getJwtToken?.();
+    if (!jwtToken) {
+      console.error('[PowerLimits] JWT token not available');
+      alert('Authentication error. Please refresh the page.');
+      return;
+    }
+
+    // Get ThingsBoard base URL
+    const tbBaseUrl = window.location.origin;
+
+    // Open the modal
+    const modal = await MyIOLibrary.openPowerLimitsSetupModal({
+      token: jwtToken,
+      customerId: CUSTOMER_ID,
+      tbBaseUrl: tbBaseUrl,
+      existingMapPower: MAP_INSTANTANEOUS_POWER || null,
+      onSave: (updatedJson) => {
+        LogHelper.log('[PowerLimits] Configuration saved:', updatedJson);
+        // Update local cache
+        MAP_INSTANTANEOUS_POWER = updatedJson;
+        // Show success notification
+        showPowerLimitsNotification('Power limits saved successfully!', 'success');
+      },
+      onClose: () => {
+        LogHelper.log('[PowerLimits] Modal closed');
+      }
+    });
+
+    LogHelper.log('[PowerLimits] Modal opened successfully');
+
+  } catch (error) {
+    console.error('[PowerLimits] Error opening modal:', error);
+    alert('Error opening Power Limits Setup: ' + error.message);
+  }
+}
+
+/**
+ * RFC-0103: Show notification for Power Limits actions
+ */
+function showPowerLimitsNotification(message, type = 'info') {
+  // Use existing toast system if available, otherwise console
+  if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.MyIOToast) {
+    MyIOLibrary.MyIOToast.show(message, type);
+  } else {
+    console.log(`[PowerLimits][${type.toUpperCase()}] ${message}`);
+  }
+}
+
+// ============================================
+// END RFC-0103: POWER LIMITS SETUP MODAL
 // ============================================
 
 /**
