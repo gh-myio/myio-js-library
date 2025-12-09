@@ -3091,6 +3091,129 @@ const MyIOOrchestrator = (() => {
   }
 
   /**
+   * RFC-0100: Fetch temperature DAY averages for all devices via ThingsBoard API
+   * Returns per-day temperature averages for each shopping over the specified period
+   * Used by TEMPERATURE widget for 7-day chart
+   * @param {number} startTs - Start timestamp in milliseconds
+   * @param {number} endTs - End timestamp in milliseconds
+   * @returns {Promise<{labels: string[], dailyTotals: number[], shoppingData: Object, shoppingNames: Object}>}
+   */
+  async function fetchTemperatureDayAverages(startTs, endTs) {
+    const tbToken = localStorage.getItem('jwt_token');
+    if (!tbToken) {
+      LogHelper.warn('[MAIN] RFC-0100: JWT not found for temperature day averages fetch');
+      return { labels: [], dailyTotals: [], shoppingData: {}, shoppingNames: {} };
+    }
+
+    const devices = extractTemperatureDevices();
+    LogHelper.log(`[MAIN] RFC-0100: Fetching day averages for ${devices.length} temperature devices`);
+
+    // Calculate number of days in period
+    const dayMs = 24 * 60 * 60 * 1000;
+    const numDays = Math.ceil((endTs - startTs) / dayMs);
+
+    // Generate date labels
+    const labels = [];
+    for (let i = 0; i < numDays; i++) {
+      const dayDate = new Date(startTs + i * dayMs);
+      labels.push(dayDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
+    }
+
+    // Collect daily data per shopping
+    const shoppingDailyData = new Map(); // Map<ownerName, Map<dayIndex, {sum, count}>>
+
+    for (const device of devices) {
+      try {
+        // Use daily aggregation (86400000ms = 24 hours)
+        const url =
+          `/api/plugins/telemetry/DEVICE/${device.id}/values/timeseries` +
+          `?keys=temperature` +
+          `&startTs=${encodeURIComponent(startTs)}` +
+          `&endTs=${encodeURIComponent(endTs)}` +
+          `&limit=50000` +
+          `&intervalType=MILLISECONDS` +
+          `&interval=86400000` +
+          `&agg=AVG`;
+
+        const response = await fetch(url, {
+          headers: {
+            'X-Authorization': `Bearer ${tbToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) continue;
+
+        const data = await response.json();
+        const temperatureData = data.temperature || [];
+
+        if (temperatureData.length === 0) continue;
+
+        const ownerName = device.ownerName || 'Unknown';
+        if (!shoppingDailyData.has(ownerName)) {
+          shoppingDailyData.set(ownerName, new Map());
+        }
+        const shopData = shoppingDailyData.get(ownerName);
+
+        // Map each temperature reading to its day index
+        temperatureData.forEach((reading) => {
+          const ts = reading.ts;
+          const value = parseFloat(reading.value);
+          if (isNaN(value)) return;
+
+          const dayIndex = Math.floor((ts - startTs) / dayMs);
+          if (dayIndex < 0 || dayIndex >= numDays) return;
+
+          if (!shopData.has(dayIndex)) {
+            shopData.set(dayIndex, { sum: 0, count: 0 });
+          }
+          const dayData = shopData.get(dayIndex);
+          dayData.sum += value;
+          dayData.count++;
+        });
+      } catch (err) {
+        // Skip failing devices
+      }
+    }
+
+    // Build result structure
+    const shoppingData = {};
+    const shoppingNames = {};
+    const dailyTotals = new Array(numDays).fill(0);
+    const dailyCounts = new Array(numDays).fill(0);
+
+    shoppingDailyData.forEach((shopData, ownerName) => {
+      const shopId = ownerName.replace(/\s+/g, '-').toLowerCase();
+      shoppingNames[shopId] = ownerName;
+      shoppingData[shopId] = new Array(numDays).fill(null);
+
+      shopData.forEach((dayData, dayIndex) => {
+        const avg = dayData.count > 0 ? dayData.sum / dayData.count : null;
+        if (avg !== null) {
+          shoppingData[shopId][dayIndex] = Math.round(avg * 10) / 10;
+          dailyTotals[dayIndex] += avg;
+          dailyCounts[dayIndex]++;
+        }
+      });
+    });
+
+    // Calculate daily averages (average of shopping averages)
+    for (let i = 0; i < numDays; i++) {
+      dailyTotals[i] = dailyCounts[i] > 0 ? Math.round((dailyTotals[i] / dailyCounts[i]) * 10) / 10 : null;
+    }
+
+    LogHelper.log(`[MAIN] RFC-0100: Temperature day averages calculated for ${shoppingDailyData.size} shoppings, ${numDays} days`);
+
+    return {
+      labels,
+      dailyTotals,
+      shoppingData,
+      shoppingNames,
+      fetchTimestamp: Date.now(),
+    };
+  }
+
+  /**
    * RFC-0100: Main temperature data fetch function
    * Fetches temperature data and emits myio:temperature-data-ready event
    * @param {number} startTs - Start timestamp in milliseconds
@@ -4028,6 +4151,7 @@ const MyIOOrchestrator = (() => {
 
     // ===== RFC-0100: TEMPERATURE functions =====
     fetchTemperatureData,
+    fetchTemperatureDayAverages,
     getTemperatureCache,
     getTemperatureRanges,
     getTemperatureAverages,

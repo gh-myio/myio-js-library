@@ -486,7 +486,38 @@ async function fetchTemperatureData() {
       return demoData;
     }
 
-    // Collect sensors from ctx.data
+    // RFC-0100: Try to get data from orchestrator first
+    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+    if (orchestrator && typeof orchestrator.getTemperatureCache === 'function') {
+      const tempCache = orchestrator.getTemperatureCache();
+      if (tempCache && tempCache.allShoppingsData && tempCache.allShoppingsData.length > 0) {
+        LogHelper.log('[TEMPERATURE] Using data from orchestrator:', tempCache.allShoppingsData.length, 'shoppings');
+
+        // Transform orchestrator data to shoppingSeries format
+        const shoppingSeries = tempCache.allShoppingsData.map((shop) => ({
+          label: shop.name,
+          shoppingId: shop.customerId,
+          shoppingName: shop.name,
+          avgTemp: shop.avg,
+          sensorCount: shop.deviceCount || 0,
+          data: [], // Historical data not available from orchestrator yet
+        }));
+
+        STATE.allSensors = tempCache.devices || [];
+        STATE.shoppingData = shoppingSeries;
+        STATE.orchestratorData = tempCache;
+
+        return {
+          shoppingSeries,
+          globalAvgTemp: tempCache.globalAvg || tempCache.filteredAvg,
+          totalSensors: tempCache.devices?.length || 0,
+          shoppingsOnline: shoppingSeries.length,
+          alertCount: tempCache.shoppingsOutOfRange?.length || 0,
+        };
+      }
+    }
+
+    // Fallback: Collect sensors from ctx.data
     const sensors = [];
     if (ctx && ctx.data) {
       ctx.data.forEach((data) => {
@@ -587,74 +618,47 @@ async function updateAll() {
 // ============================================
 
 /**
- * RFC-0098: Mock data fetching for temperature over days
+ * RFC-0098: Fetch real temperature day averages via orchestrator
  * Returns structured data with per-shopping breakdown
  */
 async function fetch7DaysTemperature(period = 7) {
-  const labels = [];
-  const dailyTotals = [];
-  const shoppingData = {};
-  const shoppingNames = {};
+  LogHelper.log('[TEMPERATURE] [RFC-0098] Fetching real temperature data for', period, 'days');
+
+  // Calculate time range
   const now = new Date();
+  const endTs = now.getTime();
+  const startTs = endTs - period * 24 * 60 * 60 * 1000;
 
-  // Get customer attributes for ideal range (mock)
-  const ctx = self.ctx;
-  const minTemp = Number(ctx.settings?.minTemperature ?? 20);
-  const maxTemp = Number(ctx.settings?.maxTemperature ?? 24);
+  // Try to get data from orchestrator
+  const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+  if (orchestrator && typeof orchestrator.fetchTemperatureDayAverages === 'function') {
+    try {
+      const data = await orchestrator.fetchTemperatureDayAverages(startTs, endTs);
+      if (data && data.labels && data.labels.length > 0) {
+        LogHelper.log('[TEMPERATURE] [RFC-0098] Got real data from orchestrator:', data.labels.length, 'days');
+        return data;
+      }
+    } catch (err) {
+      LogHelper.error('[TEMPERATURE] [RFC-0098] Error fetching from orchestrator:', err);
+    }
+  }
 
-  // Use shopping data from STATE or mock
-  const shoppings =
-    STATE.shoppingData.length > 0
-      ? STATE.shoppingData.map((s, i) => ({
-          id: s.shoppingId || `shop-${i}`,
-          name: s.shoppingName || s.label || `Shopping ${i + 1}`,
-        }))
-      : [
-          { id: 'shop-001', name: 'Shopping Morumbi' },
-          { id: 'shop-002', name: 'Shopping Eldorado' },
-          { id: 'shop-003', name: 'Shopping Iguatemi' },
-        ];
-
-  // Initialize shopping data arrays
-  shoppings.forEach((shop) => {
-    shoppingData[shop.id] = [];
-    shoppingNames[shop.id] = shop.name;
-  });
-
+  // Fallback: Generate empty structure with date labels
+  LogHelper.warn('[TEMPERATURE] [RFC-0098] Orchestrator not available, using empty data');
+  const labels = [];
   for (let i = period - 1; i >= 0; i--) {
     const dayDate = new Date(now);
     dayDate.setDate(now.getDate() - i);
-    dayDate.setHours(0, 0, 0, 0);
-
-    // Format date label
     labels.push(dayDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
-
-    // Generate per-shopping temperature averages
-    let dayTotal = 0;
-    shoppings.forEach((shop, index) => {
-      // Base temperature with slight variation per shopping
-      const baseTemp = 22 + index * 0.5;
-      // Random daily variation within range
-      const variation = (Math.random() - 0.5) * 3;
-      const temp = baseTemp + variation;
-      shoppingData[shop.id].push(Math.round(temp * 10) / 10);
-      dayTotal += temp;
-    });
-
-    // Average temperature for the day
-    dailyTotals.push(Math.round((dayTotal / shoppings.length) * 10) / 10);
   }
 
-  const result = {
+  return {
     labels,
-    dailyTotals,
-    shoppingData,
-    shoppingNames,
+    dailyTotals: new Array(period).fill(null),
+    shoppingData: {},
+    shoppingNames: {},
     fetchTimestamp: Date.now(),
   };
-
-  LogHelper.log('[TEMPERATURE] [RFC-0098] 7 days temperature data:', result);
-  return result;
 }
 
 /**
@@ -682,27 +686,28 @@ async function fetchTemperatureDataAdapter(period) {
  * RFC-0098: Initialize the 7-day temperature chart using the standardized component
  */
 async function initializeTemperature7DaysChart() {
-  const canvas = document.getElementById('lineChart');
-  if (!canvas) {
-    LogHelper.warn('[TEMPERATURE] [RFC-0098] lineChart canvas not found');
-    return;
-  }
-
-  if (typeof Chart === 'undefined') {
-    LogHelper.error('[TEMPERATURE] [RFC-0098] Chart.js not loaded');
-    return;
-  }
-
-  // Get customer attributes for ideal range
-  const ctx = self.ctx;
-  const minTemp = Number(ctx.settings?.minTemperature ?? 20);
-  const maxTemp = Number(ctx.settings?.maxTemperature ?? 24);
-
-  // RFC-0098: Use standardized widget component if available
+  // RFC-0098: Check for createConsumptionChartWidget first (it creates its own canvas)
   if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumptionChartWidget) {
     LogHelper.log('[TEMPERATURE] [RFC-0098] Using createConsumptionChartWidget component');
 
+    // Get widget container for ThingsBoard compatibility
     const $container = self.ctx?.$container || null;
+
+    // Check if container exists (either via $container or document)
+    const containerId = 'temperature-chart-widget';
+    const containerEl = $container
+      ? $container[0]?.querySelector?.(`#${containerId}`) || $container.find?.(`#${containerId}`)?.[0]
+      : document.getElementById(containerId);
+
+    if (!containerEl) {
+      LogHelper.warn('[TEMPERATURE] [RFC-0098] Container temperature-chart-widget not found');
+      return;
+    }
+
+    // Get customer attributes for ideal range
+    const ctx = self.ctx;
+    const minTemp = Number(ctx.settings?.minTemperature ?? 20);
+    const maxTemp = Number(ctx.settings?.maxTemperature ?? 24);
 
     consumptionChartInstance = MyIOLibrary.createConsumptionChartWidget({
       domain: 'temperature',
@@ -827,6 +832,40 @@ function bindEventListeners() {
     updateAll();
   };
   window.addEventListener('myio:update-date', self._onDateUpdate);
+
+  // RFC-0100: Listen for temperature data from MAIN orchestrator
+  self._onTemperatureDataReady = (ev) => {
+    LogHelper.log('[TEMPERATURE] RFC-0100: Received myio:temperature-data-ready:', ev.detail);
+    const data = ev.detail;
+    if (data && data.allShoppingsData) {
+      // Store data in STATE for use by chart and other components
+      STATE.orchestratorData = data;
+
+      // Transform orchestrator data to shoppingSeries format
+      const shoppingSeries = data.allShoppingsData.map((shop) => ({
+        label: shop.name,
+        shoppingId: shop.customerId,
+        shoppingName: shop.name,
+        avgTemp: shop.avg,
+        sensorCount: shop.deviceCount || 0,
+        data: [], // Historical data not available from orchestrator yet
+      }));
+
+      STATE.shoppingData = shoppingSeries;
+      STATE.allSensors = data.devices || [];
+
+      // Update comparison chart with real data
+      renderComparisonChart(shoppingSeries);
+      setKpis({
+        globalAvgTemp: data.globalAvg || data.filteredAvg,
+        totalSensors: data.devices?.length || 0,
+        shoppingsOnline: shoppingSeries.length,
+        alertCount: data.shoppingsOutOfRange?.length || 0,
+      });
+      renderShoppingList(shoppingSeries);
+    }
+  };
+  window.addEventListener('myio:temperature-data-ready', self._onTemperatureDataReady);
 }
 
 // ============================================
@@ -858,6 +897,21 @@ self.onInit = function () {
 
   // Initial render
   updateAll();
+
+  // RFC-0100: Request temperature data from MAIN orchestrator
+  // The data will arrive via myio:temperature-data-ready event
+  setTimeout(() => {
+    const dateRange = window.myioGlobalDates || {};
+    const startTs = dateRange.startMs || Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const endTs = dateRange.endMs || Date.now();
+
+    window.dispatchEvent(
+      new CustomEvent('myio:request-temperature-data', {
+        detail: { startTs, endTs },
+      })
+    );
+    LogHelper.log('[TEMPERATURE] RFC-0100: Requested temperature data from MAIN');
+  }, 100);
 };
 
 self.onDataUpdated = function () {
@@ -892,6 +946,9 @@ self.onDestroy = function () {
   }
   if (self._onDateUpdate) {
     window.removeEventListener('myio:update-date', self._onDateUpdate);
+  }
+  if (self._onTemperatureDataReady) {
+    window.removeEventListener('myio:temperature-data-ready', self._onTemperatureDataReady);
   }
 
   LogHelper.log('[TEMPERATURE] Widget destroyed');
