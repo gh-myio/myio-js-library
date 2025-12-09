@@ -31,6 +31,7 @@ import {
 } from './utils';
 
 import { createDateRangePicker, type DateRangeControl } from '../createDateRangePicker';
+import { CSS_TOKENS, DATERANGEPICKER_STYLES } from '../premium-modals/internal/styles/tokens';
 
 // ============================================================================
 // Types
@@ -236,7 +237,7 @@ function renderModal(
   const contentBorderRadius = isMaximized ? '0' : '10px';
 
   container.innerHTML = `
-    <div class="myio-temp-modal-overlay" style="
+    <div class="myio-temp-modal-overlay myio-modal-scope" style="
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.5); z-index: 9998;
       display: flex; justify-content: center; align-items: center;
@@ -497,6 +498,22 @@ function renderModal(
       #${modalId} .myio-temp-modal-content > div:first-child button:hover {
         background: rgba(255, 255, 255, 0.1) !important;
         color: white !important;
+      }
+
+      /* DateRangePicker styles */
+      ${CSS_TOKENS}
+      ${DATERANGEPICKER_STYLES}
+
+      /* Fix DateRangePicker buttons alignment */
+      .myio-modal-scope .daterangepicker .drp-buttons {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 8px;
+      }
+      .myio-modal-scope .daterangepicker .drp-buttons .btn {
+        display: inline-block;
+        margin-left: 0;
       }
     </style>
   `;

@@ -33,6 +33,8 @@ import type {
 import { createConsumption7DaysChart } from './createConsumption7DaysChart';
 import { DEFAULT_COLORS, THEME_COLORS, DEFAULT_CONFIG } from './types';
 import { createModalHeader, type ModalHeaderInstance, type ModalTheme } from '../ModalHeader';
+import { createDateRangePicker, type DateRangeControl } from '../createDateRangePicker';
+import { CSS_TOKENS, DATERANGEPICKER_STYLES } from '../premium-modals/internal/styles/tokens';
 
 // ============================================================================
 // Types
@@ -159,16 +161,9 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
 
     .myio-chart-widget-title {
       margin: 0;
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 600;
       color: ${colors.text};
-    }
-
-    .myio-chart-widget-controls {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
     }
 
     .myio-chart-widget-tabs {
@@ -190,6 +185,20 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
       border-radius: 6px;
       transition: all 0.2s;
       white-space: nowrap;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .myio-chart-widget-tab.icon-only {
+      padding: 6px 10px;
+    }
+
+    .myio-chart-widget-tab svg {
+      width: 16px;
+      height: 16px;
+      pointer-events: none;
     }
 
     .myio-chart-widget-tab:hover {
@@ -323,7 +332,7 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
       background: ${colors.chartBackground};
       border-radius: 10px;
       width: 90%;
-      max-width: 600px;
+      max-width: 860px;
       max-height: 90vh;
       display: flex;
       flex-direction: column;
@@ -340,7 +349,7 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 12px;
     }
 
     .myio-settings-section {
@@ -383,10 +392,10 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
 
     .myio-settings-input,
     .myio-settings-select {
-      padding: 10px 14px;
+      padding: 8px 12px;
       border: 1px solid ${colors.border};
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 12px;
       background: ${colors.chartBackground};
       color: ${colors.text};
       width: 100%;
@@ -418,6 +427,10 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
       border-radius: 6px;
       transition: all 0.2s;
       white-space: nowrap;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
     .myio-settings-tab:hover {
@@ -475,11 +488,15 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
     }
 
     .myio-settings-context-group {
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
 
     .myio-settings-context-group:last-child {
       margin-bottom: 0;
+    }
+
+    .myio-settings-section + .myio-settings-section {
+      margin-top: 12px;
     }
 
     /* Dropdown styles */
@@ -585,6 +602,23 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
       opacity: 1 !important;
       transform: scale(1.2);
     }
+
+    /* DateRangePicker styles (CSS tokens + premium styling) */
+    ${CSS_TOKENS}
+    ${DATERANGEPICKER_STYLES}
+
+    /* Fix DateRangePicker buttons alignment */
+    .myio-modal-scope .daterangepicker .drp-buttons {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .myio-modal-scope .daterangepicker .drp-buttons .btn {
+      display: inline-block;
+      margin-left: 0;
+    }
   `;
 }
 
@@ -592,15 +626,14 @@ function getWidgetStyles(theme: ThemeMode, primaryColor: string): string {
 // Main Function
 // ============================================================================
 
-export function createConsumptionChartWidget(
-  config: ConsumptionWidgetConfig
-): ConsumptionWidgetInstance {
+export function createConsumptionChartWidget(config: ConsumptionWidgetConfig): ConsumptionWidgetInstance {
   const widgetId = `myio-widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   let containerElement: HTMLElement | null = null;
   let chartInstance: ReturnType<typeof createConsumption7DaysChart> | null = null;
   let styleElement: HTMLStyleElement | null = null;
   let settingsModalElement: HTMLElement | null = null;
   let settingsHeaderInstance: ModalHeaderInstance | null = null;
+  let dateRangePickerInstance: DateRangeControl | null = null;
 
   // State
   let currentTheme: ThemeMode = config.theme ?? 'light';
@@ -617,6 +650,10 @@ export function createConsumptionChartWidget(
   let tempTheme = currentTheme;
   let tempIdealRange: IdealRangeConfig | null = currentIdealRange;
 
+  // Date range state for settings modal
+  let tempStartDate: string | null = null;
+  let tempEndDate: string | null = null;
+
   // Suggestion state for ideal range
   let currentSuggestion: { min: number; max: number; avg: number } | null = null;
 
@@ -630,9 +667,8 @@ export function createConsumptionChartWidget(
   const showMaximizeButton = config.showMaximizeButton ?? true;
   const showVizModeTabs = config.showVizModeTabs ?? true;
   const showChartTypeTabs = config.showChartTypeTabs ?? true;
-  const chartHeight = typeof config.chartHeight === 'number'
-    ? `${config.chartHeight}px`
-    : (config.chartHeight ?? '300px');
+  const chartHeight =
+    typeof config.chartHeight === 'number' ? `${config.chartHeight}px` : config.chartHeight ?? '300px';
 
   /**
    * Generate the widget title
@@ -647,31 +683,63 @@ export function createConsumptionChartWidget(
    * Render the widget HTML
    */
   function renderHTML(): string {
+    // SVG icons for viz modes
+    const consolidadoIcon = `<svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>`;
+    const porShoppingIcon = `<svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>`;
+
+    // SVG icons for chart types
+    const lineChartIcon = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,12 5,7 9,9 14,3"/></svg>`;
+    const barChartIcon = `<svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="9" width="3" height="6" rx="0.5"/><rect x="6" y="5" width="3" height="10" rx="0.5"/><rect x="11" y="7" width="3" height="8" rx="0.5"/></svg>`;
+
     return `
-      <div id="${widgetId}" class="myio-chart-widget ${currentTheme === 'dark' ? 'dark' : ''} ${config.className || ''}">
+      <div id="${widgetId}" class="myio-chart-widget ${currentTheme === 'dark' ? 'dark' : ''} ${
+      config.className || ''
+    }">
         <div class="myio-chart-widget-header">
           <div class="myio-chart-widget-title-group">
-            ${showSettingsButton ? `
+            ${
+              showSettingsButton
+                ? `
               <button id="${widgetId}-settings-btn" class="myio-chart-widget-btn" title="Configurações">⚙️</button>
-            ` : ''}
+            `
+                : ''
+            }
             <h4 id="${widgetId}-title" class="myio-chart-widget-title">${getTitle()}</h4>
-          </div>
-          <div class="myio-chart-widget-controls">
-            ${showVizModeTabs ? `
+            ${
+              showVizModeTabs
+                ? `
               <div class="myio-chart-widget-tabs" id="${widgetId}-viz-tabs">
-                <button class="myio-chart-widget-tab ${currentVizMode === 'total' ? 'active' : ''}" data-viz="total">Consolidado</button>
-                <button class="myio-chart-widget-tab ${currentVizMode === 'separate' ? 'active' : ''}" data-viz="separate">Por Shopping</button>
+                <button class="myio-chart-widget-tab icon-only ${
+                  currentVizMode === 'total' ? 'active' : ''
+                }" data-viz="total" title="Consolidado">${consolidadoIcon}</button>
+                <button class="myio-chart-widget-tab icon-only ${
+                  currentVizMode === 'separate' ? 'active' : ''
+                }" data-viz="separate" title="Por Shopping">${porShoppingIcon}</button>
               </div>
-            ` : ''}
-            ${showChartTypeTabs ? `
+            `
+                : ''
+            }
+            ${
+              showChartTypeTabs
+                ? `
               <div class="myio-chart-widget-tabs" id="${widgetId}-type-tabs">
-                <button class="myio-chart-widget-tab ${currentChartType === 'line' ? 'active' : ''}" data-type="line">Linhas</button>
-                <button class="myio-chart-widget-tab ${currentChartType === 'bar' ? 'active' : ''}" data-type="bar">Barras</button>
+                <button class="myio-chart-widget-tab icon-only ${
+                  currentChartType === 'line' ? 'active' : ''
+                }" data-type="line" title="Gráfico de Linhas">${lineChartIcon}</button>
+                <button class="myio-chart-widget-tab icon-only ${
+                  currentChartType === 'bar' ? 'active' : ''
+                }" data-type="bar" title="Gráfico de Barras">${barChartIcon}</button>
               </div>
-            ` : ''}
-            ${showMaximizeButton ? `
+            `
+                : ''
+            }
+            ${
+              showMaximizeButton
+                ? `
               <button id="${widgetId}-maximize-btn" class="myio-chart-widget-btn" title="Maximizar">⛶</button>
-            ` : ''}
+            `
+                : ''
+            }
           </div>
         </div>
         <div class="myio-chart-widget-body">
@@ -708,13 +776,18 @@ export function createConsumptionChartWidget(
     const unit = config.unit ?? '';
     const isTemperature = config.domain === 'temperature';
 
+    // SVG icons (same as widget header)
+    const consolidadoIcon = `<svg viewBox="0 0 16 16" fill="currentColor" style="width:14px;height:14px;pointer-events:none"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>`;
+    const porShoppingIcon = `<svg viewBox="0 0 16 16" fill="currentColor" style="width:14px;height:14px;pointer-events:none"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>`;
+    const lineChartIcon = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;pointer-events:none"><polyline points="2,12 5,7 9,9 14,3"/></svg>`;
+    const barChartIcon = `<svg viewBox="0 0 16 16" fill="currentColor" style="width:14px;height:14px;pointer-events:none"><rect x="1" y="9" width="3" height="6" rx="0.5"/><rect x="6" y="5" width="3" height="10" rx="0.5"/><rect x="11" y="7" width="3" height="8" rx="0.5"/></svg>`;
+
     // Create header instance using ModalHeader component
     settingsHeaderInstance = createModalHeader({
       id: `${widgetId}-settings`,
       title: 'Configurações',
       icon: '⚙️',
       theme: tempTheme as ModalTheme,
-      backgroundColor: primaryColor,
       showThemeToggle: false,
       showMaximize: false,
       showClose: true,
@@ -722,7 +795,7 @@ export function createConsumptionChartWidget(
     });
 
     return `
-      <div id="${widgetId}-settings-overlay" class="myio-settings-overlay hidden">
+      <div id="${widgetId}-settings-overlay" class="myio-settings-overlay myio-modal-scope hidden">
         <div class="myio-settings-card">
           ${settingsHeaderInstance.render()}
           <div class="myio-settings-body">
@@ -733,13 +806,8 @@ export function createConsumptionChartWidget(
                 <div class="myio-settings-section-label">📅 Período</div>
                 <div class="myio-settings-row">
                   <div class="myio-settings-field" style="flex: 1;">
-                    <select id="${widgetId}-settings-period" class="myio-settings-select">
-                      <option value="7" ${tempPeriod === 7 ? 'selected' : ''}>Últimos 7 dias</option>
-                      <option value="14" ${tempPeriod === 14 ? 'selected' : ''}>Últimos 14 dias</option>
-                      <option value="30" ${tempPeriod === 30 ? 'selected' : ''}>Últimos 30 dias</option>
-                      <option value="60" ${tempPeriod === 60 ? 'selected' : ''}>Últimos 60 dias</option>
-                      <option value="90" ${tempPeriod === 90 ? 'selected' : ''}>Últimos 90 dias</option>
-                    </select>
+                    <input type="text" id="${widgetId}-settings-daterange" class="myio-settings-input"
+                      readonly placeholder="Selecione o período..." style="cursor: pointer;">
                   </div>
                 </div>
               </div>
@@ -853,7 +921,9 @@ export function createConsumptionChartWidget(
                   <div class="myio-settings-field" style="flex: 1;">
                     <label class="myio-settings-field-label">Rótulo</label>
                     <input type="text" id="${widgetId}-settings-range-label" class="myio-settings-input"
-                      value="${tempIdealRange?.label ?? ''}" placeholder="${isTemperature ? 'Faixa Ideal' : 'Meta de Consumo'}">
+                      value="${tempIdealRange?.label ?? ''}" placeholder="${
+      isTemperature ? 'Faixa Ideal' : 'Meta de Consumo'
+    }">
                   </div>
                 </div>
               </div>
@@ -868,8 +938,12 @@ export function createConsumptionChartWidget(
                   <div class="myio-settings-field" style="flex: 1; min-width: 180px;">
                     <label class="myio-settings-field-label">Tipo de Gráfico</label>
                     <div class="myio-settings-tabs" id="${widgetId}-settings-chart-type">
-                      <button class="myio-settings-tab ${tempChartType === 'line' ? 'active' : ''}" data-type="line">📈 Linhas</button>
-                      <button class="myio-settings-tab ${tempChartType === 'bar' ? 'active' : ''}" data-type="bar">📊 Barras</button>
+                      <button class="myio-settings-tab ${
+                        tempChartType === 'line' ? 'active' : ''
+                      }" data-type="line">${lineChartIcon} Linhas</button>
+                      <button class="myio-settings-tab ${
+                        tempChartType === 'bar' ? 'active' : ''
+                      }" data-type="bar">${barChartIcon} Barras</button>
                     </div>
                   </div>
 
@@ -877,8 +951,12 @@ export function createConsumptionChartWidget(
                   <div class="myio-settings-field" style="flex: 1; min-width: 200px;">
                     <label class="myio-settings-field-label">Agrupamento</label>
                     <div class="myio-settings-tabs" id="${widgetId}-settings-viz-mode">
-                      <button class="myio-settings-tab ${tempVizMode === 'total' ? 'active' : ''}" data-viz="total">🔗 Consolidado</button>
-                      <button class="myio-settings-tab ${tempVizMode === 'separate' ? 'active' : ''}" data-viz="separate">🏬 Por Shopping</button>
+                      <button class="myio-settings-tab ${
+                        tempVizMode === 'total' ? 'active' : ''
+                      }" data-viz="total">${consolidadoIcon} Consolidado</button>
+                      <button class="myio-settings-tab ${
+                        tempVizMode === 'separate' ? 'active' : ''
+                      }" data-viz="separate">${porShoppingIcon} Por Shopping</button>
                     </div>
                   </div>
 
@@ -886,8 +964,12 @@ export function createConsumptionChartWidget(
                   <div class="myio-settings-field" style="flex: 1; min-width: 160px;">
                     <label class="myio-settings-field-label">Tema</label>
                     <div class="myio-settings-tabs" id="${widgetId}-settings-theme">
-                      <button class="myio-settings-tab ${tempTheme === 'light' ? 'active' : ''}" data-theme="light">☀️ Light</button>
-                      <button class="myio-settings-tab ${tempTheme === 'dark' ? 'active' : ''}" data-theme="dark">🌙 Dark</button>
+                      <button class="myio-settings-tab ${
+                        tempTheme === 'light' ? 'active' : ''
+                      }" data-theme="light">☀️ Light</button>
+                      <button class="myio-settings-tab ${
+                        tempTheme === 'dark' ? 'active' : ''
+                      }" data-theme="dark">🌙 Dark</button>
                     </div>
                   </div>
                 </div>
@@ -1082,7 +1164,7 @@ export function createConsumptionChartWidget(
   /**
    * Open settings modal
    */
-  function openSettingsModal(): void {
+  async function openSettingsModal(): Promise<void> {
     // Reset temp state to current values
     tempPeriod = currentPeriod;
     tempChartType = currentChartType;
@@ -1090,13 +1172,19 @@ export function createConsumptionChartWidget(
     tempTheme = currentTheme;
     tempIdealRange = currentIdealRange ? { ...currentIdealRange } : null;
 
+    // Reset date range picker instance for re-initialization
+    dateRangePickerInstance = null;
+
     // Create modal if doesn't exist
     if (!settingsModalElement) {
       settingsModalElement = document.createElement('div');
       settingsModalElement.innerHTML = renderSettingsModal();
       document.body.appendChild(settingsModalElement.firstElementChild!);
       settingsModalElement = document.getElementById(`${widgetId}-settings-overlay`);
-      setupSettingsModalListeners();
+      await setupSettingsModalListeners();
+    } else {
+      // Re-initialize date range picker if modal already exists
+      await setupSettingsModalListeners();
     }
 
     // Update modal values
@@ -1115,6 +1203,11 @@ export function createConsumptionChartWidget(
   function closeSettingsModal(): void {
     settingsModalElement?.classList.add('hidden');
     // Don't destroy header instance - keep it for reuse
+    // Destroy date range picker instance
+    if (dateRangePickerInstance) {
+      dateRangePickerInstance.destroy();
+      dateRangePickerInstance = null;
+    }
   }
 
   /**
@@ -1165,7 +1258,7 @@ export function createConsumptionChartWidget(
    */
   function updateWeekdayLabel(): void {
     const checkboxes = document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-weekday"]`);
-    const checked = Array.from(checkboxes).filter(cb => cb.checked);
+    const checked = Array.from(checkboxes).filter((cb) => cb.checked);
     const label = document.getElementById(`${widgetId}-settings-weekday-label`);
     if (label) {
       if (checked.length === 0) {
@@ -1183,7 +1276,7 @@ export function createConsumptionChartWidget(
    */
   function updateDayPeriodLabel(): void {
     const checkboxes = document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-dayperiod"]`);
-    const checked = Array.from(checkboxes).filter(cb => cb.checked);
+    const checked = Array.from(checkboxes).filter((cb) => cb.checked);
     const label = document.getElementById(`${widgetId}-settings-dayperiod-label`);
     if (label) {
       if (checked.length === 0) {
@@ -1278,9 +1371,58 @@ export function createConsumptionChartWidget(
   /**
    * Setup settings modal event listeners
    */
-  function setupSettingsModalListeners(): void {
+  async function setupSettingsModalListeners(): Promise<void> {
     // Attach header listeners (handles close button)
     settingsHeaderInstance?.attachListeners();
+
+    // Initialize DateRangePicker
+    const dateRangeInput = document.getElementById(`${widgetId}-settings-daterange`) as HTMLInputElement;
+    if (dateRangeInput && !dateRangePickerInstance) {
+      try {
+        // Calculate default date range based on current period
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - tempPeriod);
+
+        // Use existing tempStartDate/tempEndDate if set
+        const presetStart = tempStartDate || startDate.toISOString();
+        const presetEnd = tempEndDate || endDate.toISOString();
+
+        dateRangePickerInstance = await createDateRangePicker(dateRangeInput, {
+          presetStart,
+          presetEnd,
+          includeTime: true,
+          timePrecision: 'hour',
+          maxRangeDays: 90,
+          locale: 'pt-BR',
+          parentEl: document.getElementById(`${widgetId}-settings-overlay`) as HTMLElement,
+          onApply: (result) => {
+            tempStartDate = result.startISO;
+            tempEndDate = result.endISO;
+            // Calculate period in hours
+            const start = new Date(result.startISO);
+            const end = new Date(result.endISO);
+            const diffTime = Math.abs(end.getTime() - start.getTime());
+            const diffHours = diffTime / (1000 * 60 * 60);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            tempPeriod = diffDays || 7;
+
+            // If period is <= 2 days, force granularity to hourly
+            const granularitySelect = document.getElementById(`${widgetId}-settings-granularity`) as HTMLSelectElement;
+            if (granularitySelect && diffHours <= 48) {
+              granularitySelect.value = '1h';
+              // Show day period field for hourly granularity
+              const dayPeriodField = document.getElementById(`${widgetId}-settings-dayperiod-field`);
+              if (dayPeriodField) dayPeriodField.style.display = 'block';
+            }
+
+            console.log('[ConsumptionChartWidget] Date range applied:', { start: result.startISO, end: result.endISO, hours: diffHours, days: tempPeriod });
+          },
+        });
+      } catch (error) {
+        console.warn('[ConsumptionChartWidget] DateRangePicker initialization failed:', error);
+      }
+    }
 
     // Overlay click to close
     document.getElementById(`${widgetId}-settings-overlay`)?.addEventListener('click', (e) => {
@@ -1311,13 +1453,13 @@ export function createConsumptionChartWidget(
     });
 
     // Weekday checkboxes
-    document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-weekday"]`).forEach(cb => {
+    document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-weekday"]`).forEach((cb) => {
       cb.addEventListener('change', updateWeekdayLabel);
     });
 
     // Weekday select all
     document.getElementById(`${widgetId}-settings-weekday-all`)?.addEventListener('click', () => {
-      document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-weekday"]`).forEach(cb => {
+      document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-weekday"]`).forEach((cb) => {
         cb.checked = true;
       });
       updateWeekdayLabel();
@@ -1325,7 +1467,7 @@ export function createConsumptionChartWidget(
 
     // Weekday clear all
     document.getElementById(`${widgetId}-settings-weekday-clear`)?.addEventListener('click', () => {
-      document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-weekday"]`).forEach(cb => {
+      document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-weekday"]`).forEach((cb) => {
         cb.checked = false;
       });
       updateWeekdayLabel();
@@ -1339,13 +1481,13 @@ export function createConsumptionChartWidget(
     });
 
     // Day period checkboxes
-    document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-dayperiod"]`).forEach(cb => {
+    document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-dayperiod"]`).forEach((cb) => {
       cb.addEventListener('change', updateDayPeriodLabel);
     });
 
     // Day period select all
     document.getElementById(`${widgetId}-settings-dayperiod-all`)?.addEventListener('click', () => {
-      document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-dayperiod"]`).forEach(cb => {
+      document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-dayperiod"]`).forEach((cb) => {
         cb.checked = true;
       });
       updateDayPeriodLabel();
@@ -1353,7 +1495,7 @@ export function createConsumptionChartWidget(
 
     // Day period clear all
     document.getElementById(`${widgetId}-settings-dayperiod-clear`)?.addEventListener('click', () => {
-      document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-dayperiod"]`).forEach(cb => {
+      document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-dayperiod"]`).forEach((cb) => {
         cb.checked = false;
       });
       updateDayPeriodLabel();
@@ -1365,10 +1507,18 @@ export function createConsumptionChartWidget(
       const weekdayDropdown = document.getElementById(`${widgetId}-settings-weekday-dropdown`);
       const dayperiodDropdown = document.getElementById(`${widgetId}-settings-dayperiod-dropdown`);
 
-      if (weekdayDropdown && !target.closest(`#${widgetId}-settings-weekday-btn`) && !target.closest(`#${widgetId}-settings-weekday-dropdown`)) {
+      if (
+        weekdayDropdown &&
+        !target.closest(`#${widgetId}-settings-weekday-btn`) &&
+        !target.closest(`#${widgetId}-settings-weekday-dropdown`)
+      ) {
         weekdayDropdown.classList.add('hidden');
       }
-      if (dayperiodDropdown && !target.closest(`#${widgetId}-settings-dayperiod-btn`) && !target.closest(`#${widgetId}-settings-dayperiod-dropdown`)) {
+      if (
+        dayperiodDropdown &&
+        !target.closest(`#${widgetId}-settings-dayperiod-btn`) &&
+        !target.closest(`#${widgetId}-settings-dayperiod-dropdown`)
+      ) {
         dayperiodDropdown.classList.add('hidden');
       }
     });
@@ -1401,15 +1551,64 @@ export function createConsumptionChartWidget(
     });
 
     // Reset button
-    document.getElementById(`${widgetId}-settings-reset`)?.addEventListener('click', () => {
+    document.getElementById(`${widgetId}-settings-reset`)?.addEventListener('click', async () => {
       tempPeriod = config.defaultPeriod ?? 7;
       tempChartType = config.defaultChartType ?? 'line';
       tempVizMode = config.defaultVizMode ?? 'total';
       tempTheme = config.theme ?? 'light';
       tempIdealRange = config.idealRange ?? null;
 
+      // Reset date range
+      tempStartDate = null;
+      tempEndDate = null;
+
+      // Re-initialize DateRangePicker with default dates
+      if (dateRangePickerInstance) {
+        dateRangePickerInstance.destroy();
+        dateRangePickerInstance = null;
+      }
+      const dateRangeInput = document.getElementById(`${widgetId}-settings-daterange`) as HTMLInputElement;
+      if (dateRangeInput) {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - tempPeriod);
+        try {
+          dateRangePickerInstance = await createDateRangePicker(dateRangeInput, {
+            presetStart: startDate.toISOString(),
+            presetEnd: endDate.toISOString(),
+            includeTime: true,
+            timePrecision: 'hour',
+            maxRangeDays: 90,
+            locale: 'pt-BR',
+            parentEl: document.getElementById(`${widgetId}-settings-overlay`) as HTMLElement,
+            onApply: (result) => {
+              tempStartDate = result.startISO;
+              tempEndDate = result.endISO;
+              const start = new Date(result.startISO);
+              const end = new Date(result.endISO);
+              const diffTime = Math.abs(end.getTime() - start.getTime());
+              const diffHours = diffTime / (1000 * 60 * 60);
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              tempPeriod = diffDays || 7;
+
+              // If period is <= 2 days, force granularity to hourly
+              const granularitySelect = document.getElementById(`${widgetId}-settings-granularity`) as HTMLSelectElement;
+              if (granularitySelect && diffHours <= 48) {
+                granularitySelect.value = '1h';
+                const dayPeriodField = document.getElementById(`${widgetId}-settings-dayperiod-field`);
+                if (dayPeriodField) dayPeriodField.style.display = 'block';
+              }
+            },
+          });
+        } catch (error) {
+          console.warn('[ConsumptionChartWidget] DateRangePicker reset failed:', error);
+        }
+      }
+
       // Reset granularity to daily
-      const granularitySelect = document.getElementById(`${widgetId}-settings-granularity`) as HTMLSelectElement;
+      const granularitySelect = document.getElementById(
+        `${widgetId}-settings-granularity`
+      ) as HTMLSelectElement;
       if (granularitySelect) granularitySelect.value = '1d';
 
       // Hide day period field
@@ -1417,13 +1616,13 @@ export function createConsumptionChartWidget(
       if (dayPeriodField) dayPeriodField.style.display = 'none';
 
       // Reset weekday checkboxes
-      document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-weekday"]`).forEach(cb => {
+      document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-weekday"]`).forEach((cb) => {
         cb.checked = true;
       });
       updateWeekdayLabel();
 
       // Reset day period checkboxes
-      document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-dayperiod"]`).forEach(cb => {
+      document.querySelectorAll<HTMLInputElement>(`input[name="${widgetId}-dayperiod"]`).forEach((cb) => {
         cb.checked = true;
       });
       updateDayPeriodLabel();
@@ -1617,6 +1816,12 @@ export function createConsumptionChartWidget(
       // Destroy settings header
       settingsHeaderInstance?.destroy();
       settingsHeaderInstance = null;
+
+      // Destroy date range picker
+      if (dateRangePickerInstance) {
+        dateRangePickerInstance.destroy();
+        dateRangePickerInstance = null;
+      }
 
       // Remove settings modal
       if (settingsModalElement) {
