@@ -1240,6 +1240,67 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     LogHelper.warn('[MENU] Metas button (myio-goals-btn) not found');
   }
 
+  // ===== APPLY STYLES FROM SETTINGS.SCHEMA =====
+  const settings = self.ctx?.settings || {};
+  LogHelper.log('[MENU] Applying styles from settings:', settings);
+
+  // Botão Carregar
+  if (btnCarregar) {
+    const carregarBg = settings.botaoCarregarBackgroundColor || '#2F5848';
+    const carregarFont = settings.botaoCarregarFontColor || '#F2F2F2';
+    btnCarregar.style.backgroundColor = carregarBg;
+    btnCarregar.style.color = carregarFont;
+    const carregarIcon = btnCarregar.querySelector('i.material-icons');
+    if (carregarIcon) carregarIcon.style.color = carregarFont;
+    LogHelper.log(`[MENU] Carregar button styled: bg=${carregarBg}, font=${carregarFont}`);
+  }
+
+  // Botão Limpar
+  if (btnLimpar) {
+    const limparBg = settings.botaoLimparBackgroundColor || '#FFFFFF';
+    const limparFont = settings.botaoLimparFontColor || '#1C2743';
+    btnLimpar.style.backgroundColor = limparBg;
+    btnLimpar.style.color = limparFont;
+    const limparIcon = btnLimpar.querySelector('i.material-icons');
+    if (limparIcon) limparIcon.style.color = limparFont;
+    LogHelper.log(`[MENU] Limpar button styled: bg=${limparBg}, font=${limparFont}`);
+  }
+
+  // Botão Metas
+  if (btnMetas) {
+    const metasBg = settings.botaoMetasBackgroundColor || '#6a1b9a';
+    const metasFont = settings.botaoMetasFontColor || '#F2F2F2';
+    btnMetas.style.backgroundColor = metasBg;
+    btnMetas.style.color = metasFont;
+    const metasIcon = btnMetas.querySelector('i.material-icons');
+    if (metasIcon) metasIcon.style.color = metasFont;
+    LogHelper.log(`[MENU] Metas button styled: bg=${metasBg}, font=${metasFont}`);
+  }
+
+  // Tabs styling (Energy, Water, Temperature)
+  const tabSelecionadoBg = settings.tabSelecionadoBackgroundColor || '#2F5848';
+  const tabSelecionadoFont = settings.tabSelecionadoFontColor || '#F2F2F2';
+  const tabNaoSelecionadoBg = settings.tabNaoSelecionadoBackgroundColor || '#FFFFFF';
+  const tabNaoSelecionadoFont = settings.tabNaoSelecionadoFontColor || '#1C2743';
+
+  // Inject dynamic tab styles
+  if (!document.getElementById('myio-menu-dynamic-styles')) {
+    const dynamicStyle = document.createElement('style');
+    dynamicStyle.id = 'myio-menu-dynamic-styles';
+    dynamicStyle.innerHTML = `
+      .myio-tabs .tab.is-active {
+        background-color: ${tabSelecionadoBg} !important;
+        color: ${tabSelecionadoFont} !important;
+      }
+      .myio-tabs .tab:not(.is-active) {
+        background-color: ${tabNaoSelecionadoBg} !important;
+        color: ${tabNaoSelecionadoFont} !important;
+      }
+    `;
+    document.head.appendChild(dynamicStyle);
+    LogHelper.log('[MENU] Dynamic tab styles injected');
+  }
+
   const root = (self?.ctx?.$container && self.ctx.$container[0]) || document;
 
   computeCustomersFromCtx();

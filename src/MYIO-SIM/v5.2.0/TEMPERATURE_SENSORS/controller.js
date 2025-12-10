@@ -141,16 +141,22 @@ function initializeSensorCards(sensors) {
         valType: 'temperature',
         deviceType: 'TEMPERATURE_SENSOR',
         temperatureC: sensor.temperature,
+        currentTemperature: sensor.temperature, // Para o card mostrar temperatura atual
 
         // Dados de Cliente
         customerName: sensor.customerName,
         customerId: sensor.customerId,
         updated: formatRelativeTime(sensor.lastUpdate),
+        // lastActivityTime é timestamp UTC de quando a última telemetria foi enviada
+        lastActivityTime: sensor.lastActivityTime,
         domain: 'temperature',
 
-        // --- CORREÇÃO DO WATCHDOG ---
-        // Informa que a última conexão foi agora (data da leitura)
-        lastConnectTime: sensor.lastUpdate,
+        // Dados de conexão
+        centralName: sensor.centralName,
+        identifier: sensor.identifier,
+        connectionStatus: sensor.connectionStatus,
+        lastConnectTime: sensor.lastConnectTime || sensor.lastUpdate,
+        lastDisconnectTime: sensor.lastDisconnectTime,
 
         // --- CORREÇÃO VISUAL ---
         // Aqui usamos o status 'traduzido' (running) em vez de sensor.status (normal)
@@ -330,6 +336,23 @@ async function fetchTemperatureSensors() {
               if (value) {
                 existingSensor.customerName = value;
               }
+            } else if (keyName === 'lastActivityTime') {
+              // Timestamp UTC da última telemetria enviada pelo dispositivo
+              existingSensor.lastActivityTime = value || existingSensor.lastActivityTime;
+            } else if (keyName === 'name') {
+              existingSensor.name = value || existingSensor.name;
+            } else if (keyName === 'label') {
+              existingSensor.label = value || existingSensor.label;
+            } else if (keyName === 'identifier') {
+              existingSensor.identifier = value || existingSensor.identifier;
+            } else if (keyName === 'centralName') {
+              existingSensor.centralName = value || existingSensor.centralName;
+            } else if (keyName === 'connectionStatus') {
+              existingSensor.connectionStatus = value || existingSensor.connectionStatus;
+            } else if (keyName === 'lastConnectTime') {
+              existingSensor.lastConnectTime = value || existingSensor.lastConnectTime;
+            } else if (keyName === 'lastDisconnectTime') {
+              existingSensor.lastDisconnectTime = value || existingSensor.lastDisconnectTime;
             }
           }
         }
