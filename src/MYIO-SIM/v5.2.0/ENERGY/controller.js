@@ -241,6 +241,40 @@ function getSelectedShoppingIds() {
   return [];
 }
 
+/**
+ * Get selected shopping ingestionIds from filter for energyCache filtering
+ * The energyCache stores customerId as the shopping's ingestionId (not ThingsBoard customerId)
+ * @returns {string[]} - Array of ingestionIds from selected shoppings, or empty if no filter/all selected
+ */
+function getSelectedShoppingCustomerIds() {
+  // Check if there are selected customers from MENU filter
+  if (
+    window.custumersSelected &&
+    Array.isArray(window.custumersSelected) &&
+    window.custumersSelected.length > 0
+  ) {
+    // Check if ALL shoppings are selected (no real filter)
+    // Compare with total available customers from ctx.$scope.custumer
+    const totalCustomers = self.ctx?.$scope?.custumer?.length || 0;
+    if (totalCustomers > 0 && window.custumersSelected.length >= totalCustomers) {
+      console.log('[ENERGY] All shoppings selected - no filter applied');
+      return []; // No filter when all are selected
+    }
+
+    // Use ingestionId (or value which is also ingestionId) to match energyCache.customerId
+    // Note: energyCache stores the shopping's ingestionId as customerId, not ThingsBoard customerId
+    const ingestionIds = window.custumersSelected.map((c) => c.ingestionId || c.value).filter(Boolean);
+
+    if (ingestionIds.length > 0) {
+      console.log('[ENERGY] Using filtered shopping ingestionIds for energyCache:', ingestionIds);
+      return ingestionIds;
+    }
+  }
+
+  // Fallback: return empty array (no filter active)
+  return [];
+}
+
 // ============================================
 // CHART FUNCTIONS
 // ============================================
@@ -1006,7 +1040,30 @@ async function calculateDistributionByMode(mode) {
       return null;
     }
 
-    console.log(`[ENERGY] Calculating distribution for mode: ${mode}`);
+    // Get filtered shopping customerIds (if filter is active)
+    const filteredCustomerIds = getSelectedShoppingCustomerIds();
+    const hasFilter = filteredCustomerIds.length > 0;
+
+    console.log(`[ENERGY] Calculating distribution for mode: ${mode}${hasFilter ? ` (filtered by ${filteredCustomerIds.length} shoppings)` : ' (all shoppings)'}`);
+
+    // Create a filtered view of energyCache if filter is active
+    const filteredEnergyCache = new Map();
+    if (hasFilter) {
+      energyCache.forEach((deviceData, ingestionId) => {
+        if (filteredCustomerIds.includes(deviceData.customerId)) {
+          filteredEnergyCache.set(ingestionId, deviceData);
+        }
+      });
+      console.log(`[ENERGY] Filtered energyCache: ${filteredEnergyCache.size} devices (from ${energyCache.size} total)`);
+    } else {
+      // No filter - use all devices
+      energyCache.forEach((deviceData, ingestionId) => {
+        filteredEnergyCache.set(ingestionId, deviceData);
+      });
+    }
+
+    // Use filteredEnergyCache for all calculations
+    const workingCache = filteredEnergyCache;
 
     if (mode === 'groups') {
       // Por grupos de equipamentos (padrão)
@@ -1032,7 +1089,7 @@ async function calculateDistributionByMode(mode) {
       console.log(`[ENERGY] Using lojasIngestionIds from orchestrator: ${lojasIngestionIds.size} lojas`);
 
       let sampleCount = 0;
-      energyCache.forEach((deviceData, ingestionId) => {
+      workingCache.forEach((deviceData, ingestionId) => {
         const consumption = Number(deviceData.total_value) || 0;
 
         // Priority 1: Check if it's a LOJA (using same logic as MAIN)
@@ -1134,7 +1191,7 @@ async function calculateDistributionByMode(mode) {
       // RFC-0076: Enhanced logging for debugging
       console.log('[ENERGY] ============================================');
       console.log('[ENERGY] Distribution by groups (RFC-0076):');
-      console.log('[ENERGY] - Total devices processed:', energyCache.size);
+      console.log('[ENERGY] - Total devices processed:', workingCache.size, hasFilter ? `(filtered from ${energyCache.size})` : '');
       console.log('[ENERGY] - Lojas from orchestrator:', lojasIngestionIds.size);
       console.log('[ENERGY] Device counts by category:');
       Object.entries(deviceCounters).forEach(([cat, count]) => {
@@ -1154,7 +1211,7 @@ async function calculateDistributionByMode(mode) {
         // Print sample of "Outros Equipamentos" to help identify misclassified elevators
         console.log("[ENERGY] 📋 Sample of 'Outros Equipamentos' (first 20 devices):");
         let othersCount = 0;
-        energyCache.forEach((deviceData, ingestionId) => {
+        workingCache.forEach((deviceData, ingestionId) => {
           if (!lojasIngestionIds.has(ingestionId) && othersCount < 20) {
             const label = String(
               deviceData.label || deviceData.entityLabel || deviceData.entityName || deviceData.name || ''
@@ -1212,7 +1269,7 @@ async function calculateDistributionByMode(mode) {
       // Agrupar por shopping
       const shoppingDistribution = {};
 
-      energyCache.forEach((deviceData, ingestionId) => {
+      workingCache.forEach((deviceData, ingestionId) => {
         const consumption = Number(deviceData.total_value) || 0;
         let type;
 
@@ -1244,7 +1301,7 @@ async function calculateDistributionByMode(mode) {
         }
       });
 
-      console.log(`[ENERGY] Distribution by ${mode}:`, shoppingDistribution);
+      console.log(`[ENERGY] Distribution by ${mode}${hasFilter ? ' (filtered)' : ''}:`, shoppingDistribution);
       return shoppingDistribution;
     }
   } catch (error) {

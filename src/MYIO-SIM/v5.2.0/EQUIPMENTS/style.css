@@ -137,13 +137,29 @@
 .shopping-filter-chips {
   display: inline-flex !important;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap !important;
   align-items: center;
   flex: 1 1 auto;
   min-width: 0;
-  max-width: calc(100% - 350px);
+  max-width: calc(100% - 380px);
   margin-right: 12px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #c0c0c0 transparent;
+}
+
+.shopping-filter-chips::-webkit-scrollbar {
+  height: 4px;
+}
+
+.shopping-filter-chips::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.shopping-filter-chips::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+  border-radius: 2px;
 }
 
 .shopping-filter-chips .filter-chip {
@@ -159,6 +175,7 @@
   font-weight: 500;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .shopping-filter-chips .filter-chip-icon {
