@@ -2505,7 +2505,7 @@ async function openPowerLimitsModal() {
     // Check if MyIOLibrary is available
     if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.openPowerLimitsSetupModal) {
       console.error('[PowerLimits] MyIOLibrary.openPowerLimitsSetupModal not available');
-      window.alert('Power Limits Setup is not available. Please ensure the library is loaded.');
+      window.alert('Configuração de limites não disponível. Verifique se a biblioteca está carregada.');
       return;
     }
 
@@ -2514,7 +2514,7 @@ async function openPowerLimitsModal() {
     const jwtToken = localStorage.getItem('jwt_token');
     if (!jwtToken) {
       console.error('[PowerLimits] JWT token not available');
-      window.alert('Authentication error. Please refresh the page.');
+      window.alert('Erro de autenticação. Por favor, atualize a página.');
       return;
     }
 
@@ -2526,13 +2526,14 @@ async function openPowerLimitsModal() {
       token: jwtToken,
       customerId: CUSTOMER_ID,
       tbBaseUrl: tbBaseUrl,
+      domain: 'energy', // RFC-0103: EQUIPMENTS widget uses energy domain
       existingMapPower: MAP_INSTANTANEOUS_POWER || null,
       onSave: (updatedJson) => {
         LogHelper.log('[PowerLimits] Configuration saved:', updatedJson);
         // Update local cache
         MAP_INSTANTANEOUS_POWER = updatedJson;
         // Show success notification
-        showPowerLimitsNotification('Power limits saved successfully!', 'success');
+        showPowerLimitsNotification('Limites salvos com sucesso!', 'success');
       },
       onClose: () => {
         LogHelper.log('[PowerLimits] Modal closed');
@@ -2542,7 +2543,7 @@ async function openPowerLimitsModal() {
     LogHelper.log('[PowerLimits] Modal opened successfully');
   } catch (error) {
     console.error('[PowerLimits] Error opening modal:', error);
-    window.alert('Error opening Power Limits Setup: ' + error.message);
+    window.alert('Erro ao abrir configuração de limites: ' + error.message);
   }
 }
 
