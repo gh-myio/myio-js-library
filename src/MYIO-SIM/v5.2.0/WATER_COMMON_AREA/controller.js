@@ -31,33 +31,6 @@ const getDataApiHost = () => {
 };
 
 // RFC-0071: Device Profile functions (from MAIN)
-const fetchDeviceProfiles =
-  window.MyIOUtils?.fetchDeviceProfiles ||
-  (() => {
-    console.error('[WATER_COMMON_AREA] fetchDeviceProfiles not available - MAIN widget not loaded');
-    return Promise.resolve(new Map());
-  });
-
-const fetchDeviceDetails =
-  window.MyIOUtils?.fetchDeviceDetails ||
-  (() => {
-    console.error('[WATER_COMMON_AREA] fetchDeviceDetails not available - MAIN widget not loaded');
-    return Promise.resolve({});
-  });
-
-const addDeviceProfileAttribute =
-  window.MyIOUtils?.addDeviceProfileAttribute ||
-  (() => {
-    console.error('[WATER_COMMON_AREA] addDeviceProfileAttribute not available - MAIN widget not loaded');
-    return Promise.resolve({ ok: false, status: 0, data: null });
-  });
-
-const syncDeviceProfileAttributes =
-  window.MyIOUtils?.syncDeviceProfileAttributes ||
-  (() => {
-    console.error('[WATER_COMMON_AREA] syncDeviceProfileAttributes not available - MAIN widget not loaded');
-    return Promise.resolve({ synced: 0, skipped: 0, errors: 0 });
-  });
 
 // RFC-0094: UI Helper from MAIN (replaces local getCustomerNameForDevice)
 const getCustomerNameForDevice =
@@ -68,7 +41,6 @@ const getCustomerNameForDevice =
   });
 
 // RFC-0094: Device status calculation functions from MAIN
-const getConsumptionRangesHierarchical = window.MyIOUtils?.getConsumptionRangesHierarchical;
 const mapConnectionStatus = window.MyIOUtils?.mapConnectionStatus || ((status) => status || 'offline');
 
 // RFC-0094: formatarDuracao for operationHours calculation (from MAIN)
@@ -80,8 +52,6 @@ let MAP_INSTANTANEOUS_POWER = null;
 LogHelper.log('🚀 [WATER_COMMON_AREA] Controller loaded - VERSION WITH RFC-0094 PATTERN');
 
 const MAX_FIRST_HYDRATES = 1;
-
-let __deviceProfileSyncComplete = false;
 
 // RFC-0094: Centralized header controller
 let waterCommonAreaHeaderController = null;
@@ -99,16 +69,11 @@ let mainWaterData = {
   ids: [],
   loaded: false,
 };
-let hasRequestedInitialData = false; // Flag to prevent duplicate initial requests
+
 let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent duplicate processing
-let busyTimeoutId = null; // Timeout ID for busy fallback
 
 // RFC-0094: Widget configuration (from settings) - WATER DOMAIN
 let WIDGET_DOMAIN = 'water';
-
-// RFC-0063: Classification mode configuration
-let USE_IDENTIFIER_CLASSIFICATION = false; // Flag to enable identifier-based classification
-let USE_HYBRID_CLASSIFICATION = false; // Flag to enable hybrid mode (identifier + labels)
 
 /** ===================== STATE ===================== **/
 let CLIENT_ID = '';
@@ -135,9 +100,6 @@ let hydrating = false;
 /** ===================== HELPERS (DOM) ===================== **/
 const $root = () => $(self.ctx.$container[0]);
 const $list = () => $root().find('#waterCommonAreaList');
-const $count = () => $root().find('#waterCommonAreaCount');
-const $total = () => $root().find('#waterCommonAreaTotal');
-const $modal = () => $root().find('#filterModal');
 
 /** ===================== BUSY MODAL (no widget) ===================== **/
 const BUSY_ID = 'myio-busy-modal';
@@ -281,12 +243,6 @@ function hideGlobalSuccessModal() {
   if ($m.length) $m.remove();
 }
 
-/** ===================== ESCAPE HTML ===================== **/
-function escapeHtml(str) {
-  if (typeof str !== 'string') return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
 /** ===================== HELPERS ===================== **/
 function isValidUUID(s) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s));
@@ -326,7 +282,15 @@ function mustGetDateRange() {
 /** ===================== TB INDEXES ===================== **/
 function buildTbAttrIndex() {
   const byTbId = new Map();
-  const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+
+  // Use centralized data from MAIN if available, otherwise use local ctx.data
+  const rows =
+    mainWaterData.loaded && mainWaterData.data.length > 0
+      ? mainWaterData.data
+      : Array.isArray(self.ctx?.data)
+      ? self.ctx.data
+      : [];
+
   for (const row of rows) {
     // RFC-0094: Filter by aliasName = 'HidrometrosAreaComum'
     const aliasName = row?.datasource?.aliasName || '';
@@ -377,7 +341,15 @@ function buildTbAttrIndex() {
 function buildTbIdIndexes() {
   const byIdentifier = new Map(); // identifier -> tbId
   const byIngestion = new Map(); // ingestionId -> tbId
-  const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+
+  // Use centralized data from MAIN if available, otherwise use local ctx.data
+  const rows =
+    mainWaterData.loaded && mainWaterData.data.length > 0
+      ? mainWaterData.data
+      : Array.isArray(self.ctx?.data)
+      ? self.ctx.data
+      : [];
+
   for (const row of rows) {
     // RFC-0094: Filter by aliasName = 'HidrometrosAreaComum'
     const aliasName = row?.datasource?.aliasName || '';
@@ -795,8 +767,6 @@ async function renderList(visible) {
 
     // RFC-0094: Use renderCardComponentHeadOffice like WATER_STORES
     MyIOLibrary.renderCardComponentHeadOffice(container, {
-      debugActive: true,
-      activeTooltipDebug: true,
       entityObject: entityObject,
       delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
 
@@ -941,6 +911,8 @@ async function renderList(visible) {
       enableSelection: true,
       enableDragDrop: true,
       hideInfoMenuItem: true,
+      debugActive: false,
+      activeTooltipDebug: false,
     });
   }
 
@@ -1077,7 +1049,7 @@ function bindModal() {
 /** ===================== RECOMPUTE (local only) ===================== **/
 async function filterAndRender() {
   const visible = applyFilters(STATE.itemsEnriched, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
-  const { visible: withPerc, groupSum } = recomputePercentages(visible);
+  const { visible: withPerc } = recomputePercentages(visible);
   await renderList(withPerc);
 
   // RFC-0094: Update stats header via centralized controller
@@ -1258,31 +1230,6 @@ self.onInit = async function () {
     LogHelper.warn('[WATER_COMMON_AREA] buildHeaderDevicesGrid not available - using fallback');
   }
 
-  // RFC-0042: Request data from orchestrator (defined early for use in handlers)
-  function requestDataFromOrchestrator() {
-    if (!self.ctx.scope?.startDateISO || !self.ctx.scope?.endDateISO) {
-      LogHelper.warn('[WATER_COMMON_AREA] No date range set, cannot request data');
-      return;
-    }
-
-    const period = {
-      startISO: self.ctx.scope.startDateISO,
-      endISO: self.ctx.scope.endDateISO,
-      granularity: window.calcGranularity
-        ? window.calcGranularity(self.ctx.scope.startDateISO, self.ctx.scope.endDateISO)
-        : 'day',
-      tz: 'America/Sao_Paulo',
-    };
-
-    LogHelper.log(`[WATER_COMMON_AREA] Requesting data for domain=${WIDGET_DOMAIN}, period:`, period);
-
-    window.dispatchEvent(
-      new CustomEvent('myio:telemetry:request-data', {
-        detail: { domain: WIDGET_DOMAIN, period },
-      })
-    );
-  }
-
   dateUpdateHandler = function (ev) {
     LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] ✅ DATE UPDATE EVENT RECEIVED!`, ev.detail);
 
@@ -1413,8 +1360,6 @@ self.onInit = async function () {
     }
   }, 100);
 
-  let pendingProvideData = null;
-
   dataProvideHandler = function (ev) {
     LogHelper.log(
       `[WATER_COMMON_AREA ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${
@@ -1444,7 +1389,6 @@ self.onInit = async function () {
       LogHelper.warn(
         `[WATER_COMMON_AREA] ⏸️ Period not set yet, storing provide-data event for later processing`
       );
-      pendingProvideData = { domain, periodKey, items };
       return;
     }
 
@@ -1567,7 +1511,7 @@ self.onInit = async function () {
 
   // FIX: Add handler for myio:water-data-ready from MAIN waterCache
   waterDataReadyHandler = function (ev) {
-    const { cache, totalDevices, fromCache } = ev.detail || {};
+    const { cache, fromCache } = ev.detail || {};
 
     // Only process if cache is a Map with data
     if (!(cache instanceof Map) || cache.size === 0) {
