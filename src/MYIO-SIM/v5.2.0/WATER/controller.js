@@ -344,43 +344,44 @@ function getSelectedShoppingIds() {
 
 /**
  * RFC-0098: Fetch water consumption for a period, grouped by day
+ * Water API (/water/devices/totals) returns total_value per device (not consumption array like energy)
+ * So we need to make one API call per day to get daily breakdown.
+ * Fetches in batches of 3 with delay between batches to avoid rate limiting.
  * @param {string} customerId - Customer ID
- * @param {number} startTs - Start timestamp
- * @param {number} endTs - End timestamp
+ * @param {number} startTs - Start timestamp (unused, we use dayBoundaries)
+ * @param {number} endTs - End timestamp (unused, we use dayBoundaries)
  * @param {Array} dayBoundaries - Array of { label, startTs, endTs }
  * @returns {Promise<number[]>} - Array of daily totals
  */
 async function fetchWaterPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries) {
   try {
-    const granularity = chartConfig.granularity || '1d';
-    const result = await window.MyIOUtils.fetchWaterDayConsumption(customerId, startTs, endTs, granularity);
+    const BATCH_SIZE = 3;
+    const BATCH_DELAY_MS = 200; // 200ms delay between batches
+    const dailyTotals = [];
 
-    const dailyTotals = new Array(dayBoundaries.length).fill(0);
-    const items = Array.isArray(result) ? result : result?.devices || result?.data || [];
+    // Process in batches of 3
+    for (let i = 0; i < dayBoundaries.length; i += BATCH_SIZE) {
+      const batch = dayBoundaries.slice(i, i + BATCH_SIZE);
 
-    if (items.length > 0) {
-      console.log(`[WATER] [RFC-0098] API returned ${items.length} items for ${customerId.slice(0, 8)}`);
-    }
+      // Fetch batch in parallel
+      const batchPromises = batch.map(async (day) => {
+        try {
+          const result = await window.MyIOUtils.fetchWaterDayConsumption(customerId, day.startTs, day.endTs);
+          return result?.total || 0;
+        } catch (dayError) {
+          console.warn(`[WATER] [RFC-0098] Error fetching day ${day.label}:`, dayError);
+          return 0;
+        }
+      });
 
-    items.forEach((item) => {
-      if (Array.isArray(item.consumption)) {
-        item.consumption.forEach((entry) => {
-          const timestamp = entry.timestamp || entry.ts;
-          const value = Number(entry.value) || 0;
+      const batchResults = await Promise.all(batchPromises);
+      dailyTotals.push(...batchResults);
 
-          if (timestamp && value > 0) {
-            const entryTs = new Date(timestamp).getTime();
-            for (let dayIdx = 0; dayIdx < dayBoundaries.length; dayIdx++) {
-              const day = dayBoundaries[dayIdx];
-              if (entryTs >= day.startTs && entryTs <= day.endTs) {
-                dailyTotals[dayIdx] += value;
-                break;
-              }
-            }
-          }
-        });
+      // Add delay before next batch (except for last batch)
+      if (i + BATCH_SIZE < dayBoundaries.length) {
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
       }
-    });
+    }
 
     console.log(`[WATER] [RFC-0098] Period consumption for ${customerId.slice(0, 8)}:`, dailyTotals.map((v) => v.toFixed(2)));
     return dailyTotals;

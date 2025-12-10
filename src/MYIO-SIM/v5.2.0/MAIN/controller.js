@@ -112,6 +112,10 @@ async function fetchEnergyDayConsumption(customerId, startTs, endTs, granularity
  * RFC-0098: Fetch water consumption for a customer within a time range
  * Used by WATER widget for chart and other consumption queries
  * Same as fetchEnergyDayConsumption but for water domain
+ *
+ * IMPORTANT: Only counts devices that have a match with ingestionIds from
+ * ThingsBoard datasources (HidrometrosAreaComum + Todos Hidrometros Lojas)
+ *
  * @param {string} customerId - Customer ID for ingestion API
  * @param {number} startTs - Start timestamp in milliseconds
  * @param {number} endTs - End timestamp in milliseconds
@@ -133,8 +137,9 @@ async function fetchWaterDayConsumption(customerId, startTs, endTs, granularity 
   const startTimeISO = formatDateISO(startTs);
   const endTimeISO = formatDateISO(endTs);
 
-  // RFC-0098: Same as energy but with /water/ path
-  const url = `${getDataApiHost()}/api/v1/telemetry/customers/${customerId}/water/?deep=1&granularity=${granularity}&startTime=${encodeURIComponent(
+  // RFC-0098: Water API returns total_value per device (not consumption array like energy)
+  // Use /water/devices/totals endpoint
+  const url = `${getDataApiHost()}/api/v1/telemetry/customers/${customerId}/water/devices/totals?deep=1&startTime=${encodeURIComponent(
     startTimeISO
   )}&endTime=${encodeURIComponent(endTimeISO)}`;
 
@@ -154,12 +159,32 @@ async function fetchWaterDayConsumption(customerId, startTs, endTs, granularity 
     }
 
     const data = await response.json();
+    const allDevices = Array.isArray(data) ? data : data?.devices || data?.data || [];
 
-    const devices = Array.isArray(data) ? data : data?.devices || data?.data || [];
+    // Get valid water ingestionIds from ThingsBoard datasources (HidrometrosAreaComum + Todos Hidrometros Lojas)
+    const orchestrator = window.MyIOOrchestrator;
+    const validIds = orchestrator?.getWaterValidIds?.() || { commonArea: new Set(), stores: new Set() };
+    const allValidIds = new Set([...validIds.commonArea, ...validIds.stores]);
+
+    // Filter devices: only include those with matching ingestionId
+    const hasValidIds = allValidIds.size > 0;
     let total = 0;
+    let matchedCount = 0;
+    let filteredDevices = [];
 
-    if (Array.isArray(devices)) {
-      devices.forEach((device) => {
+    if (Array.isArray(allDevices)) {
+      allDevices.forEach((device) => {
+        const deviceId = device.id || device.ingestionId;
+
+        // Only count if device.id matches a valid ingestionId from TB datasources
+        // If no valid IDs registered yet, skip filtering (will use all devices as fallback)
+        if (hasValidIds && !allValidIds.has(deviceId)) {
+          return; // Skip devices not in TB datasources
+        }
+
+        matchedCount++;
+        filteredDevices.push(device);
+
         if (Array.isArray(device.consumption)) {
           device.consumption.forEach((entry) => {
             total += Number(entry.value) || 0;
@@ -171,7 +196,11 @@ async function fetchWaterDayConsumption(customerId, startTs, endTs, granularity 
       });
     }
 
-    return { devices, total };
+    LogHelper.log(
+      `[MAIN] fetchWaterDayConsumption: API returned ${allDevices.length} devices, matched ${matchedCount} with TB datasources, total=${total.toFixed(2)}`
+    );
+
+    return { devices: filteredDevices, total };
   } catch (error) {
     LogHelper.error('[MAIN] fetchWaterDayConsumption: Error', error);
     return { devices: [], total: 0 };
@@ -3053,7 +3082,9 @@ const MyIOOrchestrator = (() => {
     });
 
     temperatureRanges = validRanges;
-    LogHelper.log(`[MAIN] RFC-0100: Extracted ${validRanges.size} temperature ranges from customers datasource`);
+    LogHelper.log(
+      `[MAIN] RFC-0100: Extracted ${validRanges.size} temperature ranges from customers datasource`
+    );
     return validRanges;
   }
 
@@ -3379,7 +3410,9 @@ const MyIOOrchestrator = (() => {
         // NO fallback - if no match, it's unknown range
         // Log range match for debugging
         if (matchedRange) {
-          LogHelper.log(`[MAIN] RFC-0100: Range for "${ownerName}": ${matchedRange.min}–${matchedRange.max}°C`);
+          LogHelper.log(
+            `[MAIN] RFC-0100: Range for "${ownerName}": ${matchedRange.min}–${matchedRange.max}°C`
+          );
         } else {
           LogHelper.warn(`[MAIN] RFC-0100: No range found for "${ownerName}" - marking as unknown`);
         }
@@ -3491,8 +3524,7 @@ const MyIOOrchestrator = (() => {
     // Calculate filtered average based on selected shoppings
     let filteredAvg = globalAvg;
     let filteredCount = globalCount;
-    const isFiltered =
-      selectedShoppingIds.length > 0 && selectedShoppingIds.length < globalCount;
+    const isFiltered = selectedShoppingIds.length > 0 && selectedShoppingIds.length < globalCount;
 
     const normalize = (str) =>
       (str || '')
@@ -3621,7 +3653,9 @@ const MyIOOrchestrator = (() => {
     shoppingsCache = shoppings;
     // Set totalShoppings for filter comparison (to detect "all selected" = no filter)
     totalShoppings = shoppings.length;
-    LogHelper.log(`[MAIN] RFC-0100: Extracted ${shoppings.length} shoppings from ctx.data, totalShoppings set`);
+    LogHelper.log(
+      `[MAIN] RFC-0100: Extracted ${shoppings.length} shoppings from ctx.data, totalShoppings set`
+    );
     return shoppings;
   }
 
@@ -4551,9 +4585,7 @@ const MyIOOrchestrator = (() => {
       const isFiltered = isFilterActive();
       LogHelper.log(
         '[MAIN] [Orchestrator] Shopping filter applied:',
-        !isFiltered
-          ? 'ALL (no filter)'
-          : `${selectedShoppingIds.length}/${totalShoppings} shoppings selected`
+        !isFiltered ? 'ALL (no filter)' : `${selectedShoppingIds.length}/${totalShoppings} shoppings selected`
       );
       if (selectedShoppingIds.length > 0) {
         LogHelper.log('[MAIN] [Orchestrator] Selected shopping IDs:', selectedShoppingIds);
@@ -4565,7 +4597,10 @@ const MyIOOrchestrator = (() => {
       if (typeof getWaterWidgetData === 'function') {
         const waterSummary = getWaterWidgetData();
         window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: waterSummary }));
-        LogHelper.log('[MAIN] [Orchestrator] 🔔 water-summary-ready dispatched (setSelectedShoppings)', waterSummary);
+        LogHelper.log(
+          '[MAIN] [Orchestrator] 🔔 water-summary-ready dispatched (setSelectedShoppings)',
+          waterSummary
+        );
       }
 
       // Notify HEADER and other widgets that filter was updated in orchestrator
