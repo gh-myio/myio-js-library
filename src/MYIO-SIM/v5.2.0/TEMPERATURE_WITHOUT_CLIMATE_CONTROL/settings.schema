@@ -1,13 +1,8 @@
 {
   "schema": {
     "type": "object",
-    "title": "Water Stores Widget Settings",
+    "title": "Temperature Without Climate Control Widget Settings",
     "properties": {
-        "labelWidget":{
-            "type":"string",
-            "title": "Widget Label",
-            "default": "Hidrômetros de Lojas"
-        },
         "useNewComponents":{
             "type":"boolean",
             "title": "Use New Components",
@@ -16,11 +11,6 @@
         "enableSelection":{
             "type":"boolean",
             "title": "Enable Selection",
-            "default": true
-        },
-        "enableDragDrop":{
-            "type":"boolean",
-            "title": "Enable Drag Drop",
             "default": true
         },
         "hideInfoMenuItem":{
@@ -41,10 +31,8 @@
     }
   },
   "form": [
-    "labelWidget",
     "useNewComponents",
     "enableSelection",
-    "enableDragDrop",
     "hideInfoMenuItem",
     "debugActive",
     "activeTooltipDebug"

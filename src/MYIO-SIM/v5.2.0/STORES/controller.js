@@ -100,6 +100,14 @@ let WIDGET_DOMAIN = 'energy'; // Will be set in onInit
 let USE_IDENTIFIER_CLASSIFICATION = false; // Flag to enable identifier-based classification
 let USE_HYBRID_CLASSIFICATION = false; // Flag to enable hybrid mode (identifier + labels)
 
+// Card rendering options (from settings, with defaults)
+let USE_NEW_COMPONENTS = true;
+let ENABLE_SELECTION = true;
+let ENABLE_DRAG_DROP = true;
+let HIDE_INFO_MENU_ITEM = true;
+let DEBUG_ACTIVE = false;
+let ACTIVE_TOOLTIP_DEBUG = false;
+
 /** ===================== STATE ===================== **/
 let CLIENT_ID = '';
 let CLIENT_SECRET = '';
@@ -919,8 +927,8 @@ async function renderList(visible) {
     // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (default 60 minutes)
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: entityObject,
-      debugActive: true,
-      activeTooltipDebug: true,
+      debugActive: DEBUG_ACTIVE,
+      activeTooltipDebug: ACTIVE_TOOLTIP_DEBUG,
       delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
 
       // --- DIFERENÇA 2: Callback de clique (mesmo que apenas logue) ---
@@ -1068,10 +1076,10 @@ async function renderList(visible) {
         }
       },
 
-      useNewComponents: true,
-      enableSelection: true,
-      enableDragDrop: true,
-      hideInfoMenuItem: true,
+      useNewComponents: USE_NEW_COMPONENTS,
+      enableSelection: ENABLE_SELECTION,
+      enableDragDrop: ENABLE_DRAG_DROP,
+      hideInfoMenuItem: HIDE_INFO_MENU_ITEM,
     });
   }
 
@@ -1905,7 +1913,13 @@ self.onInit = async function () {
 
   // RFC-0042: Set widget configuration from settings FIRST
   WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
-  LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}`);
+  USE_NEW_COMPONENTS = self.ctx.settings?.useNewComponents ?? true;
+  ENABLE_SELECTION = self.ctx.settings?.enableSelection ?? true;
+  ENABLE_DRAG_DROP = self.ctx.settings?.enableDragDrop ?? true;
+  HIDE_INFO_MENU_ITEM = self.ctx.settings?.hideInfoMenuItem ?? true;
+  DEBUG_ACTIVE = self.ctx.settings?.debugActive ?? false;
+  ACTIVE_TOOLTIP_DEBUG = self.ctx.settings?.activeTooltipDebug ?? false;
+  LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}, debugActive=${DEBUG_ACTIVE}, activeTooltipDebug=${ACTIVE_TOOLTIP_DEBUG}`);
 
   // RFC-0093: Build centralized header via buildHeaderDevicesGrid
   const buildHeaderDevicesGrid = window.MyIOUtils?.buildHeaderDevicesGrid;

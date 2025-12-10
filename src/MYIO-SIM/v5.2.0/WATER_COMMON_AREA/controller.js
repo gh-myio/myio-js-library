@@ -75,6 +75,14 @@ let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent 
 // RFC-0094: Widget configuration (from settings) - WATER DOMAIN
 let WIDGET_DOMAIN = 'water';
 
+// Card rendering options (from settings, with defaults)
+let USE_NEW_COMPONENTS = true;
+let ENABLE_SELECTION = true;
+let ENABLE_DRAG_DROP = true;
+let HIDE_INFO_MENU_ITEM = true;
+let DEBUG_ACTIVE = false;
+let ACTIVE_TOOLTIP_DEBUG = false;
+
 /** ===================== STATE ===================== **/
 let CLIENT_ID = '';
 let CLIENT_SECRET = '';
@@ -907,12 +915,12 @@ async function renderList(visible) {
         }
       },
 
-      useNewComponents: true,
-      enableSelection: true,
-      enableDragDrop: true,
-      hideInfoMenuItem: true,
-      debugActive: false,
-      activeTooltipDebug: false,
+      useNewComponents: USE_NEW_COMPONENTS,
+      enableSelection: ENABLE_SELECTION,
+      enableDragDrop: ENABLE_DRAG_DROP,
+      hideInfoMenuItem: HIDE_INFO_MENU_ITEM,
+      debugActive: DEBUG_ACTIVE,
+      activeTooltipDebug: ACTIVE_TOOLTIP_DEBUG,
     });
   }
 
@@ -1183,7 +1191,13 @@ self.onInit = async function () {
 
   // RFC-0094: Set widget configuration from settings FIRST - WATER DOMAIN
   WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'water';
-  LogHelper.log(`[WATER_COMMON_AREA] Configured EARLY: domain=${WIDGET_DOMAIN}`);
+  USE_NEW_COMPONENTS = self.ctx.settings?.useNewComponents ?? true;
+  ENABLE_SELECTION = self.ctx.settings?.enableSelection ?? true;
+  ENABLE_DRAG_DROP = self.ctx.settings?.enableDragDrop ?? true;
+  HIDE_INFO_MENU_ITEM = self.ctx.settings?.hideInfoMenuItem ?? true;
+  DEBUG_ACTIVE = self.ctx.settings?.debugActive ?? false;
+  ACTIVE_TOOLTIP_DEBUG = self.ctx.settings?.activeTooltipDebug ?? false;
+  LogHelper.log(`[WATER_COMMON_AREA] Configured EARLY: domain=${WIDGET_DOMAIN}, debugActive=${DEBUG_ACTIVE}, activeTooltipDebug=${ACTIVE_TOOLTIP_DEBUG}`);
 
   // RFC-0094: Build centralized header via buildHeaderDevicesGrid
   const buildHeaderDevicesGrid = window.MyIOUtils?.buildHeaderDevicesGrid;

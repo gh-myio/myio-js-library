@@ -49,6 +49,13 @@ let myIOAuth = null;
 let CLIENT_ID = '';
 let CLIENT_SECRET = '';
 
+// Card rendering options (from settings, with defaults)
+let USE_NEW_COMPONENTS = true;
+let ENABLE_SELECTION = true;
+let HIDE_INFO_MENU_ITEM = true;
+let DEBUG_ACTIVE = false;
+let ACTIVE_TOOLTIP_DEBUG = false;
+
 LogHelper.log('[TEMPERATURE_SENSORS] Script loaded, using shared utilities:', !!window.MyIOUtils);
 
 // ============================================
@@ -152,8 +159,8 @@ function initializeSensorCards(sensors) {
 
       MyIOLibrary.renderCardComponentHeadOffice(container, {
         entityObject: entityObject,
-        debugActive: true,
-        activeTooltipDebug: true,
+        debugActive: DEBUG_ACTIVE,
+        activeTooltipDebug: ACTIVE_TOOLTIP_DEBUG,
         delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
         handleActionDashboard: async () => {
           openTemperatureModal(sensor);
@@ -177,9 +184,9 @@ function initializeSensorCards(sensors) {
         handleClickCard: (ev, entity) => {
           LogHelper.log(`[TEMPERATURE_SENSORS] Card clicked: ${entity.labelOrName}`);
         },
-        useNewComponents: true,
-        enableSelection: true,
-        hideInfoMenuItem: true,
+        useNewComponents: USE_NEW_COMPONENTS,
+        enableSelection: ENABLE_SELECTION,
+        hideInfoMenuItem: HIDE_INFO_MENU_ITEM,
       });
     } else {
       // Fallback para card customizado
@@ -727,6 +734,15 @@ function renderShoppingFilterChips(selection) {
 
 self.onInit = async function () {
   LogHelper.log('[TEMPERATURE_SENSORS] onInit - RFC-0092');
+
+  // Load card rendering options from settings
+  USE_NEW_COMPONENTS = self.ctx.settings?.useNewComponents ?? true;
+  ENABLE_SELECTION = self.ctx.settings?.enableSelection ?? true;
+  HIDE_INFO_MENU_ITEM = self.ctx.settings?.hideInfoMenuItem ?? true;
+  DEBUG_ACTIVE = self.ctx.settings?.debugActive ?? false;
+  ACTIVE_TOOLTIP_DEBUG = self.ctx.settings?.activeTooltipDebug ?? false;
+  LogHelper.log(`[TEMPERATURE_SENSORS] Configured: debugActive=${DEBUG_ACTIVE}, activeTooltipDebug=${ACTIVE_TOOLTIP_DEBUG}`);
+
   showLoadingOverlay(true);
 
   setTimeout(async () => {

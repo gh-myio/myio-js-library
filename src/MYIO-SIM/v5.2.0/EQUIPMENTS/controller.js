@@ -53,6 +53,14 @@ let activeCardComponents = [];
 // RFC-0093: Centralized header controller
 let equipHeaderController = null;
 
+// Card rendering options (from settings, with defaults)
+let USE_NEW_COMPONENTS = true;
+let ENABLE_SELECTION = true;
+let ENABLE_DRAG_DROP = true;
+let HIDE_INFO_MENU_ITEM = true;
+let DEBUG_ACTIVE = false;
+let ACTIVE_TOOLTIP_DEBUG = false;
+
 LogHelper.log('[MYIO EQUIPMENTS] Script loaded, using shared utilities:', !!window.MyIOUtils);
 
 // RFC-0071: Device Profile Synchronization - Global flag to track if sync has been completed
@@ -177,8 +185,8 @@ function initializeCards(devices) {
     // 2. RENDERIZAÇÃO: Capturamos a instância retornada na variável 'cardInstance'
     const cardInstance = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: device,
-      debugActive: false,
-      activeTooltipDebug: false,
+      debugActive: DEBUG_ACTIVE,
+      activeTooltipDebug: ACTIVE_TOOLTIP_DEBUG,
       delayTimeConnectionInMins,
 
       // 3. SELEÇÃO INICIAL: Verifica na Store se este card já deve nascer selecionado
@@ -377,11 +385,11 @@ function initializeCards(devices) {
         LogHelper.log(`Card clicked: ${entity.labelOrName} - Power: ${entity.val}kWh`);
       },
 
-      useNewComponents: true,
-      enableSelection: true,
-      enableDragDrop: true,
+      useNewComponents: USE_NEW_COMPONENTS,
+      enableSelection: ENABLE_SELECTION,
+      enableDragDrop: ENABLE_DRAG_DROP,
       // RFC-0072: Disable "More Information" menu item (redundant with card click)
-      hideInfoMenuItem: true,
+      hideInfoMenuItem: HIDE_INFO_MENU_ITEM,
     });
 
     // 4. PERSISTÊNCIA: Guarda a instância criada na lista global para limpeza futura
@@ -400,6 +408,15 @@ self.onInit = async function () {
   window.__EQUIPMENTS_INITIALIZED__ = true;
 
   LogHelper.log('[EQUIPMENTS] onInit - ctx:', self.ctx);
+
+  // Load card rendering options from settings
+  USE_NEW_COMPONENTS = self.ctx.settings?.useNewComponents ?? true;
+  ENABLE_SELECTION = self.ctx.settings?.enableSelection ?? true;
+  ENABLE_DRAG_DROP = self.ctx.settings?.enableDragDrop ?? true;
+  HIDE_INFO_MENU_ITEM = self.ctx.settings?.hideInfoMenuItem ?? true;
+  DEBUG_ACTIVE = self.ctx.settings?.debugActive ?? false;
+  ACTIVE_TOOLTIP_DEBUG = self.ctx.settings?.activeTooltipDebug ?? false;
+  LogHelper.log(`[EQUIPMENTS] Configured: debugActive=${DEBUG_ACTIVE}, activeTooltipDebug=${ACTIVE_TOOLTIP_DEBUG}`);
 
   // RFC-0093: Build centralized header via buildHeaderDevicesGrid
   const buildHeaderDevicesGrid = window.MyIOUtils?.buildHeaderDevicesGrid;
