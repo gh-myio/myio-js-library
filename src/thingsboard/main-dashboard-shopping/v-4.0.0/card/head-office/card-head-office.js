@@ -710,6 +710,8 @@ function buildDOM(state) {
   powerLabel.className = 'label';
   if (entityObject.domain === 'water') {
     powerLabel.textContent = 'Leitura';
+  } else if (entityObject.domain === 'temperature') {
+    powerLabel.textContent = 'Últ. Telemetria';
   } else {
     powerLabel.textContent = i18n.instantaneous_power || 'Potência';
   }
@@ -1070,8 +1072,17 @@ function paint(root, state) {
 
   // Update footer metrics
   const opTimeVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(1) .val');
+  const opTimeLabel = root.querySelector('.myio-ho-card__footer .metric:nth-child(1) .label');
   if (opTimeVal) {
-    opTimeVal.textContent = entityObject.operationHours ?? '-';
+    if (entityObject.domain === 'temperature') {
+      // Para temperatura, mostrar temperatura atual no primeiro campo
+      if (opTimeLabel) opTimeLabel.textContent = 'Temp. Atual';
+      const currentTemp = entityObject.currentTemperature ?? entityObject.temperature ?? entityObject.val ?? null;
+      opTimeVal.textContent = currentTemp !== null ? `${Number(currentTemp).toFixed(1)}°C` : '-';
+    } else {
+      if (opTimeLabel) opTimeLabel.textContent = i18n.operation_time;
+      opTimeVal.textContent = entityObject.operationHours ?? '-';
+    }
   }
 
   // Instantaneous Power (W/kW) - value comes in Watts
@@ -1080,6 +1091,9 @@ function paint(root, state) {
     if (entityObject.domain === 'water') {
       const pulses = entityObject.pulses ?? 0;
       powerVal.textContent = `${pulses} L`;
+    } else if (entityObject.domain === 'temperature') {
+      // Para temperatura, mostrar última telemetria (lastActivityTime é timestamp UTC)
+      powerVal.textContent = entityObject.lastActivityTime ? formatRelativeTime(entityObject.lastActivityTime) : '-';
     } else {
       // Lógica existente para Energia (Potência)
       const instantPower = entityObject.instantaneousPower ?? entityObject.consumption_power ?? null;
