@@ -5,6 +5,7 @@ import {
   PowerLimitsModalInstance,
   PowerLimitsFormData,
   InstantaneousPowerLimits,
+  Domain,
 } from './types';
 import { PowerLimitsModalView } from './PowerLimitsModalView';
 import { PowerLimitsPersister } from './PowerLimitsPersister';
@@ -20,6 +21,7 @@ import { PowerLimitsPersister } from './PowerLimitsPersister';
  *   tbBaseUrl: 'https://tb.myio-bas.com',
  *   deviceType: 'ELEVADOR',
  *   telemetryType: 'consumption',
+ *   domain: 'energy', // 'energy' | 'water' | 'temperature'
  *   onSave: (json) => console.log('Saved:', json),
  *   onClose: () => console.log('Modal closed')
  * });
@@ -45,12 +47,14 @@ export async function openPowerLimitsSetupModal(
   // Track current state
   let currentDeviceType = params.deviceType || 'ELEVADOR';
   let currentTelemetryType = params.telemetryType || 'consumption';
+  let currentDomain: Domain = params.domain || 'energy';
   let existingLimits: InstantaneousPowerLimits | null = params.existingMapPower || null;
 
   // Create view
   const view = new PowerLimitsModalView({
     deviceType: currentDeviceType,
     telemetryType: currentTelemetryType,
+    domain: currentDomain,
     styles: params.styles,
     locale: params.locale,
     onDeviceTypeChange: async (deviceType: string) => {
@@ -60,6 +64,10 @@ export async function openPowerLimitsSetupModal(
     onTelemetryTypeChange: async (telemetryType: string) => {
       currentTelemetryType = telemetryType;
       await loadFormData();
+    },
+    onDomainChange: (domain: Domain) => {
+      currentDomain = domain;
+      // Domain change doesn't require reloading data, just updates icons
     },
     onSave: async () => {
       const formData = view.getFormData();
@@ -98,6 +106,7 @@ export async function openPowerLimitsSetupModal(
 
       // Extract form data for current device/telemetry type
       const formData = persister.extractFormData(existingLimits, currentDeviceType, currentTelemetryType);
+      formData.domain = currentDomain;
       view.setFormData(formData);
     } catch (error) {
       console.error('[PowerLimitsSetupModal] Error loading form data:', error);

@@ -115,6 +115,7 @@ export class PowerLimitsPersister {
     const defaultFormData: PowerLimitsFormData = {
       deviceType,
       telemetryType,
+      domain: 'energy', // Default to energy, will be overwritten by caller if needed
       standby: { baseValue: null, topValue: null },
       normal: { baseValue: null, topValue: null },
       alert: { baseValue: null, topValue: null },

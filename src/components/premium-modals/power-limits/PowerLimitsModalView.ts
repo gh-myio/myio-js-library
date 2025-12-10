@@ -7,15 +7,20 @@ import {
   DEVICE_TYPES,
   TELEMETRY_TYPES,
   STATUS_CONFIG,
+  Domain,
+  DOMAINS,
+  STATUS_ICONS,
 } from './types';
 
 export interface PowerLimitsViewConfig {
   deviceType: string;
   telemetryType: string;
+  domain: Domain;
   styles?: PowerLimitsModalStyles;
   locale?: string;
   onDeviceTypeChange: (deviceType: string) => void;
   onTelemetryTypeChange: (telemetryType: string) => void;
+  onDomainChange: (domain: Domain) => void;
   onSave: () => Promise<void>;
   onClose: () => void;
 }
@@ -33,11 +38,49 @@ export class PowerLimitsModalView {
     this.formData = {
       deviceType: config.deviceType,
       telemetryType: config.telemetryType,
+      domain: config.domain,
       standby: { baseValue: null, topValue: null },
       normal: { baseValue: null, topValue: null },
       alert: { baseValue: null, topValue: null },
       failure: { baseValue: null, topValue: null },
     };
+  }
+
+  // Format number with thousand separator (.) and up to 2 decimal places
+  private formatNumberForDisplay(value: number | null): string {
+    if (value === null || value === undefined) return '';
+    // Format with 2 decimal places, using . for thousands and , for decimal
+    const parts = value.toFixed(2).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return parts.join(',');
+  }
+
+  // Parse formatted string back to number
+  private parseFormattedNumber(value: string): number | null {
+    if (!value || value.trim() === '') return null;
+    // Remove thousand separators (.) and replace decimal separator (, to .)
+    const normalized = value.replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(normalized);
+    return isNaN(num) ? null : num;
+  }
+
+  // Handle input formatting on blur
+  private formatInputValue(input: HTMLInputElement): void {
+    const rawValue = input.value;
+    const parsed = this.parseFormattedNumber(rawValue);
+    if (parsed !== null) {
+      input.value = this.formatNumberForDisplay(parsed);
+    }
+  }
+
+  // Handle input on focus - show raw value for editing
+  private unformatInputValue(input: HTMLInputElement): void {
+    const formatted = input.value;
+    const parsed = this.parseFormattedNumber(formatted);
+    if (parsed !== null) {
+      // Show with decimal if exists, otherwise just integer
+      input.value = parsed.toString().replace('.', ',');
+    }
   }
 
   render(targetContainer?: HTMLElement): HTMLElement {
@@ -50,6 +93,7 @@ export class PowerLimitsModalView {
         ${this.renderHeader()}
         ${this.renderSelectors()}
         ${this.renderStatusCards()}
+        ${this.renderToolbar()}
         ${this.renderLoadingState()}
         ${this.renderErrorState()}
         ${this.renderSuccessState()}
@@ -73,46 +117,78 @@ export class PowerLimitsModalView {
   }
 
   private renderHeader(): string {
+    // Simple header following ModalPremiumShell pattern
     return `
-      <div class="myio-power-limits-header">
-        <div class="myio-power-limits-title-section">
-          <span class="myio-power-limits-icon">&#x2699;</span>
-          <h2 class="myio-power-limits-title">Power Limits Setup</h2>
-        </div>
-        <div class="myio-power-limits-actions">
+      <div class="myio-modal-header">
+        <h2 class="myio-modal-title">⚙️ Configuração de Limites</h2>
+        <button class="myio-modal-close" id="plm-close-btn" type="button" aria-label="Fechar modal">×</button>
+      </div>
+    `;
+  }
+
+  private renderToolbar(): string {
+    return `
+      <div class="myio-power-limits-toolbar">
+        <div class="myio-toolbar-actions">
+          <button class="myio-btn myio-btn-secondary" id="plm-reset-btn" type="button">Limpar</button>
           <button class="myio-btn myio-btn-primary" id="plm-save-btn" type="button">
-            <span class="myio-btn-text">Save</span>
+            <span class="myio-btn-text">Salvar</span>
             <span class="myio-btn-spinner" style="display: none;"></span>
           </button>
-          <button class="myio-btn myio-btn-secondary" id="plm-reset-btn" type="button">Reset</button>
-          <button class="myio-btn myio-btn-close" id="plm-close-btn" type="button" aria-label="Close">&times;</button>
         </div>
       </div>
     `;
   }
 
   private renderSelectors(): string {
-    const deviceOptions = DEVICE_TYPES.map(
-      (dt) => `<option value="${dt.value}" ${dt.value === this.config.deviceType ? 'selected' : ''}>${dt.label}</option>`
+    const domain = this.formData.domain || 'energy';
+
+    const domainOptions = DOMAINS.map(
+      (d) => `<option value="${d.value}" ${d.value === domain ? 'selected' : ''}>${d.icon} ${d.label}</option>`
     ).join('');
 
-    const telemetryOptions = TELEMETRY_TYPES.map(
-      (tt) => `<option value="${tt.value}" ${tt.value === this.config.telemetryType ? 'selected' : ''}>${tt.label}</option>`
-    ).join('');
+    // Domain-specific configuration for Device Type and Telemetry Type
+    let deviceTypeContent: string;
+    let telemetryLabel: string;
+
+    switch (domain) {
+      case 'temperature':
+        // Temperature: Fixed device and telemetry
+        deviceTypeContent = `<div class="myio-fixed-value">Sensor de Temperatura</div>`;
+        telemetryLabel = 'Temperatura em Celsius';
+        break;
+      case 'water':
+        // Water: Fixed device and telemetry
+        deviceTypeContent = `<div class="myio-fixed-value">Hidrômetro</div>`;
+        telemetryLabel = 'Litros';
+        break;
+      case 'energy':
+      default:
+        // Energy: Show full device type dropdown
+        deviceTypeContent = `<select id="plm-device-type" class="myio-select">
+          ${DEVICE_TYPES.map(
+            (dt) => `<option value="${dt.value}" ${dt.value === this.formData.deviceType ? 'selected' : ''}>${dt.label}</option>`
+          ).join('')}
+        </select>`;
+        telemetryLabel = 'Potência (kW)';
+        break;
+    }
 
     return `
       <div class="myio-power-limits-selectors">
         <div class="myio-form-group">
-          <label for="plm-device-type">Device Type</label>
-          <select id="plm-device-type" class="myio-select">
-            ${deviceOptions}
+          <label for="plm-domain">Domínio</label>
+          <select id="plm-domain" class="myio-select">
+            ${domainOptions}
           </select>
         </div>
         <div class="myio-form-group">
-          <label for="plm-telemetry-type">Telemetry Type</label>
-          <select id="plm-telemetry-type" class="myio-select">
-            ${telemetryOptions}
-          </select>
+          <label>Tipo de Dispositivo</label>
+          ${deviceTypeContent}
+        </div>
+        <div class="myio-form-group">
+          <label>Tipo de Telemetria</label>
+          <div class="myio-fixed-value">${telemetryLabel}</div>
         </div>
       </div>
     `;
@@ -120,40 +196,43 @@ export class PowerLimitsModalView {
 
   private renderStatusCards(): string {
     const statuses = ['standby', 'normal', 'alert', 'failure'] as const;
+    const domain = this.formData.domain || 'energy';
+    const domainIcons = STATUS_ICONS[domain];
 
     const cards = statuses.map((status) => {
-      const config = STATUS_CONFIG[status === 'standby' ? 'standBy' : status];
+      const statusKey = status === 'standby' ? 'standBy' : status;
+      const config = STATUS_CONFIG[statusKey];
       const formValues = this.formData[status];
+      const icon = domainIcons[statusKey];
 
       return `
         <div class="myio-power-limits-card-item myio-status-${status}" style="--status-color: ${config.color}; --status-bg: ${config.bgColor};">
           <div class="myio-card-header">
+            <span class="myio-status-icon">${icon}</span>
             <span class="myio-status-indicator"></span>
             <span class="myio-status-label">${config.label}</span>
           </div>
           <div class="myio-card-inputs">
             <div class="myio-input-group">
-              <label for="plm-${status}-base">Base Value</label>
+              <label for="plm-${status}-base">Limite Inferior</label>
               <input
-                type="number"
+                type="text"
                 id="plm-${status}-base"
-                class="myio-input"
-                min="0"
-                step="0.01"
-                value="${formValues.baseValue ?? ''}"
-                placeholder="0"
+                class="myio-input myio-formatted-number"
+                inputmode="decimal"
+                value="${this.formatNumberForDisplay(formValues.baseValue)}"
+                placeholder="0,00"
               >
             </div>
             <div class="myio-input-group">
-              <label for="plm-${status}-top">Top Value</label>
+              <label for="plm-${status}-top">Limite Superior</label>
               <input
-                type="number"
+                type="text"
                 id="plm-${status}-top"
-                class="myio-input"
-                min="0"
-                step="0.01"
-                value="${formValues.topValue ?? ''}"
-                placeholder="0"
+                class="myio-input myio-formatted-number"
+                inputmode="decimal"
+                value="${this.formatNumberForDisplay(formValues.topValue)}"
+                placeholder="0,00"
               >
             </div>
           </div>
@@ -172,7 +251,7 @@ export class PowerLimitsModalView {
     return `
       <div class="myio-power-limits-loading" id="plm-loading" style="display: none;">
         <div class="myio-spinner"></div>
-        <span>Loading configuration...</span>
+        <span>Carregando configuração...</span>
       </div>
     `;
   }
@@ -190,7 +269,7 @@ export class PowerLimitsModalView {
     return `
       <div class="myio-power-limits-success" id="plm-success" style="display: none;">
         <span class="myio-success-icon">&#x2713;</span>
-        <span class="myio-success-message">Configuration saved successfully!</span>
+        <span class="myio-success-message">Configuração salva com sucesso!</span>
       </div>
     `;
   }
@@ -220,38 +299,147 @@ export class PowerLimitsModalView {
     const resetBtn = this.overlayEl.querySelector('#plm-reset-btn');
     resetBtn?.addEventListener('click', () => this.handleReset());
 
-    // Device type change
-    const deviceSelect = this.overlayEl.querySelector('#plm-device-type') as HTMLSelectElement;
-    deviceSelect?.addEventListener('change', (e) => {
-      const value = (e.target as HTMLSelectElement).value;
-      this.formData.deviceType = value;
-      this.config.onDeviceTypeChange(value);
+    // Domain change - re-renders selectors to update device type and telemetry
+    const domainSelect = this.overlayEl.querySelector('#plm-domain') as HTMLSelectElement;
+    domainSelect?.addEventListener('change', (e) => {
+      const value = (e.target as HTMLSelectElement).value as Domain;
+      this.formData.domain = value;
+
+      // Update device type and telemetry type based on domain
+      switch (value) {
+        case 'temperature':
+          this.formData.deviceType = 'SENSOR_TEMPERATURA';
+          this.formData.telemetryType = 'temperature';
+          break;
+        case 'water':
+          this.formData.deviceType = 'HIDROMETRO';
+          this.formData.telemetryType = 'liters';
+          break;
+        case 'energy':
+        default:
+          this.formData.telemetryType = 'consumption';
+          break;
+      }
+
+      this.config.onDomainChange(value);
+      // Re-render selectors and status cards
+      this.updateSelectorsUI();
+      this.updateStatusIcons();
     });
 
-    // Telemetry type change
-    const telemetrySelect = this.overlayEl.querySelector('#plm-telemetry-type') as HTMLSelectElement;
-    telemetrySelect?.addEventListener('change', (e) => {
-      const value = (e.target as HTMLSelectElement).value;
-      this.formData.telemetryType = value;
-      this.config.onTelemetryTypeChange(value);
-    });
+    // Device type change (only exists for energy/water domains)
+    this.setupDeviceTypeListener();
 
-    // Input change handlers
+    // Input change handlers with number formatting
     const statuses = ['standby', 'normal', 'alert', 'failure'] as const;
     statuses.forEach((status) => {
       const baseInput = this.overlayEl?.querySelector(`#plm-${status}-base`) as HTMLInputElement;
       const topInput = this.overlayEl?.querySelector(`#plm-${status}-top`) as HTMLInputElement;
 
-      baseInput?.addEventListener('input', (e) => {
-        const value = (e.target as HTMLInputElement).value;
-        this.formData[status].baseValue = value ? parseFloat(value) : null;
-      });
+      // Base input handlers
+      if (baseInput) {
+        baseInput.addEventListener('focus', () => this.unformatInputValue(baseInput));
+        baseInput.addEventListener('blur', () => {
+          this.formData[status].baseValue = this.parseFormattedNumber(baseInput.value);
+          this.formatInputValue(baseInput);
+        });
+        baseInput.addEventListener('keydown', (e) => this.handleNumberKeydown(e));
+      }
 
-      topInput?.addEventListener('input', (e) => {
-        const value = (e.target as HTMLInputElement).value;
-        this.formData[status].topValue = value ? parseFloat(value) : null;
-      });
+      // Top input handlers
+      if (topInput) {
+        topInput.addEventListener('focus', () => this.unformatInputValue(topInput));
+        topInput.addEventListener('blur', () => {
+          this.formData[status].topValue = this.parseFormattedNumber(topInput.value);
+          this.formatInputValue(topInput);
+        });
+        topInput.addEventListener('keydown', (e) => this.handleNumberKeydown(e));
+      }
     });
+  }
+
+  // Handle keyboard input to allow only valid number characters
+  private handleNumberKeydown(e: KeyboardEvent): void {
+    const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'];
+    const isDigit = /^\d$/.test(e.key);
+    const isComma = e.key === ',';
+    const isAllowedKey = allowedKeys.includes(e.key);
+    const hasCtrl = e.ctrlKey || e.metaKey;
+
+    if (!isDigit && !isComma && !isAllowedKey && !hasCtrl) {
+      e.preventDefault();
+    }
+
+    // Only allow one comma
+    if (isComma) {
+      const input = e.target as HTMLInputElement;
+      if (input.value.includes(',')) {
+        e.preventDefault();
+      }
+    }
+  }
+
+  // Update status icons when domain changes
+  private updateStatusIcons(): void {
+    const domain = this.formData.domain || 'energy';
+    const domainIcons = STATUS_ICONS[domain];
+    const statuses = ['standby', 'normal', 'alert', 'failure'] as const;
+
+    statuses.forEach((status) => {
+      const statusKey = status === 'standby' ? 'standBy' : status;
+      const iconEl = this.overlayEl?.querySelector(`.myio-status-${status} .myio-status-icon`) as HTMLElement;
+      if (iconEl) {
+        iconEl.textContent = domainIcons[statusKey];
+      }
+    });
+  }
+
+  // Update selectors UI when domain changes
+  private updateSelectorsUI(): void {
+    const selectorsContainer = this.overlayEl?.querySelector('.myio-power-limits-selectors');
+    if (selectorsContainer) {
+      selectorsContainer.outerHTML = this.renderSelectors();
+      // Re-attach domain listener
+      const domainSelect = this.overlayEl?.querySelector('#plm-domain') as HTMLSelectElement;
+      domainSelect?.addEventListener('change', (e) => {
+        const value = (e.target as HTMLSelectElement).value as Domain;
+        this.formData.domain = value;
+
+        // Update device type and telemetry type based on domain
+        switch (value) {
+          case 'temperature':
+            this.formData.deviceType = 'SENSOR_TEMPERATURA';
+            this.formData.telemetryType = 'temperature';
+            break;
+          case 'water':
+            this.formData.deviceType = 'HIDROMETRO';
+            this.formData.telemetryType = 'liters';
+            break;
+          case 'energy':
+          default:
+            this.formData.telemetryType = 'consumption';
+            break;
+        }
+
+        this.config.onDomainChange(value);
+        this.updateSelectorsUI();
+        this.updateStatusIcons();
+      });
+      // Re-attach device type listener if present (only for energy domain)
+      this.setupDeviceTypeListener();
+    }
+  }
+
+  // Setup device type listener (only for energy/water domains)
+  private setupDeviceTypeListener(): void {
+    const deviceSelect = this.overlayEl?.querySelector('#plm-device-type') as HTMLSelectElement;
+    if (deviceSelect) {
+      deviceSelect.addEventListener('change', (e) => {
+        const value = (e.target as HTMLSelectElement).value;
+        this.formData.deviceType = value;
+        this.config.onDeviceTypeChange(value);
+      });
+    }
   }
 
   private handleKeyDown = (e: KeyboardEvent): void => {
@@ -281,7 +469,7 @@ export class PowerLimitsModalView {
       // Auto-hide success after 3 seconds
       setTimeout(() => this.hideSuccess(), 3000);
     } catch (error) {
-      this.showError((error as Error).message || 'Failed to save configuration');
+      this.showError((error as Error).message || 'Falha ao salvar configuração');
     } finally {
       this.isSaving = false;
       this.showSaveLoading(false);
@@ -314,15 +502,15 @@ export class PowerLimitsModalView {
 
       // Check for negative values
       if (base !== null && base < 0) {
-        return `${STATUS_CONFIG[status === 'standby' ? 'standBy' : status].label}: Base value cannot be negative`;
+        return `${STATUS_CONFIG[status === 'standby' ? 'standBy' : status].label}: Limite inferior não pode ser negativo`;
       }
       if (top !== null && top < 0) {
-        return `${STATUS_CONFIG[status === 'standby' ? 'standBy' : status].label}: Top value cannot be negative`;
+        return `${STATUS_CONFIG[status === 'standby' ? 'standBy' : status].label}: Limite superior não pode ser negativo`;
       }
 
       // Check base <= top
       if (base !== null && top !== null && base > top) {
-        return `${STATUS_CONFIG[status === 'standby' ? 'standBy' : status].label}: Base value should not exceed top value`;
+        return `${STATUS_CONFIG[status === 'standby' ? 'standBy' : status].label}: Limite inferior não pode ser maior que o limite superior`;
       }
     }
 
@@ -408,6 +596,7 @@ export class PowerLimitsModalView {
   setFormData(data: Partial<PowerLimitsFormData>): void {
     if (data.deviceType) this.formData.deviceType = data.deviceType;
     if (data.telemetryType) this.formData.telemetryType = data.telemetryType;
+    if (data.domain) this.formData.domain = data.domain;
     if (data.standby) this.formData.standby = { ...data.standby };
     if (data.normal) this.formData.normal = { ...data.normal };
     if (data.alert) this.formData.alert = { ...data.alert };
@@ -415,6 +604,8 @@ export class PowerLimitsModalView {
 
     // Update input values
     this.updateInputValues();
+    // Update icons for domain
+    this.updateStatusIcons();
   }
 
   private updateInputValues(): void {
@@ -425,19 +616,20 @@ export class PowerLimitsModalView {
       const topInput = this.overlayEl?.querySelector(`#plm-${status}-top`) as HTMLInputElement;
 
       if (baseInput) {
-        baseInput.value = this.formData[status].baseValue?.toString() ?? '';
+        baseInput.value = this.formatNumberForDisplay(this.formData[status].baseValue);
       }
       if (topInput) {
-        topInput.value = this.formData[status].topValue?.toString() ?? '';
+        topInput.value = this.formatNumberForDisplay(this.formData[status].topValue);
       }
     });
 
     // Update selects
+    const domainSelect = this.overlayEl?.querySelector('#plm-domain') as HTMLSelectElement;
     const deviceSelect = this.overlayEl?.querySelector('#plm-device-type') as HTMLSelectElement;
-    const telemetrySelect = this.overlayEl?.querySelector('#plm-telemetry-type') as HTMLSelectElement;
 
+    if (domainSelect) domainSelect.value = this.formData.domain;
     if (deviceSelect) deviceSelect.value = this.formData.deviceType;
-    if (telemetrySelect) telemetrySelect.value = this.formData.telemetryType;
+    // Telemetry type is fixed as "consumption" - no update needed
   }
 
   private getStyles(): string {
@@ -463,7 +655,7 @@ export class PowerLimitsModalView {
         opacity: 0;
         visibility: hidden;
         transition: all 0.3s ease;
-        font-family: ${styles.fontFamily || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'};
+        font-family: ${styles.fontFamily || "'Roboto', Arial, sans-serif"};
       }
 
       .myio-power-limits-overlay.active {
@@ -473,9 +665,9 @@ export class PowerLimitsModalView {
 
       .myio-power-limits-card {
         background: ${styles.backgroundColor || '#ffffff'};
-        border-radius: ${styles.borderRadius || '12px'};
+        border-radius: ${styles.borderRadius || '10px'};
         width: 90%;
-        max-width: 960px;
+        max-width: 1104px;
         max-height: 90vh;
         overflow-y: auto;
         transform: scale(0.9);
@@ -487,36 +679,55 @@ export class PowerLimitsModalView {
         transform: scale(1);
       }
 
-      .myio-power-limits-header {
+      /* Header - ModalPremiumShell pattern */
+      .myio-modal-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 20px 24px;
-        background: linear-gradient(135deg, ${primaryColor}, ${this.lightenColor(primaryColor, 20)});
-        color: white;
-        border-radius: 12px 12px 0 0;
+        padding: 4px 8px;
+        background: ${primaryColor};
+        border-radius: 10px 10px 0 0;
+        min-height: 20px;
       }
 
-      .myio-power-limits-title-section {
+      .myio-modal-title {
+        margin: 6px;
+        font-size: 18px;
+        font-weight: 600;
+        color: white;
+        line-height: 2;
+      }
+
+      .myio-modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 4px 12px;
+        border-radius: 6px;
+        color: rgba(255, 255, 255, 0.8);
+        transition: background-color 0.2s, color 0.2s;
+        line-height: 1;
+      }
+
+      .myio-modal-close:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+        color: white;
+      }
+
+      /* Toolbar with Save/Reset buttons */
+      .myio-power-limits-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        padding: 16px 24px;
+        background: #f9fafb;
+        border-top: 1px solid #e5e7eb;
+      }
+
+      .myio-toolbar-actions {
         display: flex;
         align-items: center;
         gap: 12px;
-      }
-
-      .myio-power-limits-icon {
-        font-size: 24px;
-      }
-
-      .myio-power-limits-title {
-        font-size: 1.25rem;
-        font-weight: 600;
-        margin: 0;
-      }
-
-      .myio-power-limits-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
       }
 
       .myio-btn {
@@ -538,33 +749,21 @@ export class PowerLimitsModalView {
       }
 
       .myio-btn-primary {
-        background: white;
-        color: ${primaryColor};
+        background: ${primaryColor};
+        color: white;
       }
 
       .myio-btn-primary:hover:not(:disabled) {
-        background: #f3f4f6;
+        background: ${this.lightenColor(primaryColor, -10)};
       }
 
       .myio-btn-secondary {
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
+        background: #e5e7eb;
+        color: #374151;
       }
 
       .myio-btn-secondary:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.3);
-      }
-
-      .myio-btn-close {
-        background: transparent;
-        color: white;
-        font-size: 24px;
-        padding: 4px 8px;
-        line-height: 1;
-      }
-
-      .myio-btn-close:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: #d1d5db;
       }
 
       .myio-btn-spinner {
@@ -582,7 +781,7 @@ export class PowerLimitsModalView {
 
       .myio-power-limits-selectors {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr 1fr 1fr;
         gap: 16px;
         padding: 20px 24px;
         background: #f9fafb;
@@ -617,6 +816,15 @@ export class PowerLimitsModalView {
         box-shadow: 0 0 0 3px ${this.hexToRgba(primaryColor, 0.1)};
       }
 
+      .myio-fixed-value {
+        padding: 10px 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        font-size: 14px;
+        background: #f9fafb;
+        color: #6b7280;
+      }
+
       .myio-power-limits-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -643,6 +851,11 @@ export class PowerLimitsModalView {
         align-items: center;
         gap: 8px;
         margin-bottom: 12px;
+      }
+
+      .myio-status-icon {
+        font-size: 18px;
+        line-height: 1;
       }
 
       .myio-status-indicator {
