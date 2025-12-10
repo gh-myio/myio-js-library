@@ -1,8 +1,18 @@
 /* global self, window, document, MyIOLibrary, Chart */
 
 // ============================================
-// MYIO-SIM 1.0.0 - ENERGY Widget Controller
+// MYIO-SIM 5.2.0 - ENERGY Widget Controller
 // ============================================
+
+// ============================================
+// SHARED UTILITIES (from MAIN via window.MyIOUtils)
+// ============================================
+// Use shared utilities from MAIN, with fallback to local implementation
+const LogHelper = window.MyIOUtils?.LogHelper || {
+  log: (...args) => LogHelper.log(...args),
+  warn: (...args) => LogHelper.warn(...args),
+  error: (...args) => LogHelper.error(...args),
+};
 
 // ============================================
 // DEBUG FLAGS
@@ -63,7 +73,7 @@ function renderTotalConsumptionStoresUI(energyData, valueEl, trendEl, infoEl) {
     infoEl.textContent = 'Apenas lojas';
   }
 
-  console.log('[ENERGY] Card de Lojas atualizado:', { lojasTotal, lojasFormatted, lojasPercentage });
+  LogHelper.log('[ENERGY] Card de Lojas atualizado:', { lojasTotal, lojasFormatted, lojasPercentage });
 }
 
 /**
@@ -92,7 +102,7 @@ function renderTotalConsumptionEquipmentsUI(energyData, valueEl, trendEl, infoEl
     infoEl.textContent = 'Elevadores, escadas, HVAC, etc.';
   }
 
-  console.log('[ENERGY] Card de Equipamentos atualizado:', {
+  LogHelper.log('[ENERGY] Card de Equipamentos atualizado:', {
     equipamentosTotal,
     equipamentosFormatted,
     equipamentosPercentage,
@@ -122,7 +132,7 @@ function initializeTotalConsumptionStoresCard() {
     trendEl.className = 'trend neutral';
   }
 
-  console.log('[ENERGY] Stores consumption card initialized with loading state');
+  LogHelper.log('[ENERGY] Stores consumption card initialized with loading state');
 }
 
 /**
@@ -148,7 +158,7 @@ function initializeTotalConsumptionEquipmentsCard() {
     trendEl.className = 'trend neutral';
   }
 
-  console.log('[ENERGY] Equipments consumption card initialized with loading state');
+  LogHelper.log('[ENERGY] Equipments consumption card initialized with loading state');
 }
 
 /**
@@ -156,7 +166,7 @@ function initializeTotalConsumptionEquipmentsCard() {
  * @param {object} summary - O objeto de resumo calculado pelo widget MAIN.
  */
 function updateTotalConsumptionStoresCard(summary) {
-  console.log('[ENERGY] Atualizando card de consumo de LOJAS:', summary);
+  LogHelper.log('[ENERGY] Atualizando card de consumo de LOJAS:', summary);
 
   if (!summary) return;
 
@@ -172,7 +182,7 @@ function updateTotalConsumptionStoresCard(summary) {
  * @param {object} summary - O objeto de resumo calculado pelo widget MAIN.
  */
 function updateTotalConsumptionEquipmentsCard(summary) {
-  console.log('[ENERGY] Atualizando card de consumo de EQUIPAMENTOS:', summary);
+  LogHelper.log('[ENERGY] Atualizando card de consumo de EQUIPAMENTOS:', summary);
 
   if (!summary) return;
 
@@ -211,7 +221,7 @@ function initializeTotalConsumptionCard() {
     infoEl.textContent = '';
   }
 
-  console.log('[ENERGY] Total consumption card initialized with loading state');
+  LogHelper.log('[ENERGY] Total consumption card initialized with loading state');
 }
 
 /**
@@ -231,13 +241,13 @@ function getSelectedShoppingIds() {
     const selectedIds = window.custumersSelected.map((c) => c.ingestionId || c.value).filter(Boolean);
 
     if (selectedIds.length > 0) {
-      console.log('[ENERGY] [RFC-0096] Using filtered shopping ingestionIds:', selectedIds);
+      LogHelper.log('[ENERGY] [RFC-0096] Using filtered shopping ingestionIds:', selectedIds);
       return selectedIds;
     }
   }
 
   // Fallback: return empty array (will use widget's customerId)
-  console.log('[ENERGY] [RFC-0096] No shopping filter active, using widget customerId');
+  LogHelper.log('[ENERGY] [RFC-0096] No shopping filter active, using widget customerId');
   return [];
 }
 
@@ -257,7 +267,7 @@ function getSelectedShoppingCustomerIds() {
     // Compare with total available customers from ctx.$scope.custumer
     const totalCustomers = self.ctx?.$scope?.custumer?.length || 0;
     if (totalCustomers > 0 && window.custumersSelected.length >= totalCustomers) {
-      console.log('[ENERGY] All shoppings selected - no filter applied');
+      LogHelper.log('[ENERGY] All shoppings selected - no filter applied');
       return []; // No filter when all are selected
     }
 
@@ -266,7 +276,7 @@ function getSelectedShoppingCustomerIds() {
     const ingestionIds = window.custumersSelected.map((c) => c.ingestionId || c.value).filter(Boolean);
 
     if (ingestionIds.length > 0) {
-      console.log('[ENERGY] Using filtered shopping ingestionIds for energyCache:', ingestionIds);
+      LogHelper.log('[ENERGY] Using filtered shopping ingestionIds for energyCache:', ingestionIds);
       return ingestionIds;
     }
   }
@@ -325,16 +335,16 @@ let fullscreenModalInstance = null;
  */
 async function openFullscreenModal() {
   if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.createConsumptionModal) {
-    console.error('[ENERGY] [RFC-0098] createConsumptionModal not available');
+    LogHelper.error('[ENERGY] [RFC-0098] createConsumptionModal not available');
     return;
   }
 
-  console.log('[ENERGY] [RFC-0098] Opening fullscreen modal...');
+  LogHelper.log('[ENERGY] [RFC-0098] Opening fullscreen modal...');
 
   // RFC-0098: Get cached data from the consumption chart widget for instant display
   const initialData = cachedChartData || consumptionChartInstance?.getCachedData?.() || null;
   if (initialData) {
-    console.log('[ENERGY] [RFC-0098] Using cached data for modal (instant display)');
+    LogHelper.log('[ENERGY] [RFC-0098] Using cached data for modal (instant display)');
   }
 
   fullscreenModalInstance = MyIOLibrary.createConsumptionModal({
@@ -352,7 +362,7 @@ async function openFullscreenModal() {
     fetchData: fetchConsumptionDataAdapter,
     initialData: initialData, // RFC-0098: Pass cached data for instant display
     onClose: () => {
-      console.log('[ENERGY] [RFC-0098] Fullscreen modal closed');
+      LogHelper.log('[ENERGY] [RFC-0098] Fullscreen modal closed');
       fullscreenModalInstance = null;
       isChartFullscreen = false;
     },
@@ -615,7 +625,7 @@ let fullscreenChartInstance = null;
  */
 function rebuildFullscreenChart(container) {
   if (!cachedChartData) {
-    console.warn('[ENERGY] [RFC-0097] No cached data for fullscreen chart');
+    LogHelper.warn('[ENERGY] [RFC-0097] No cached data for fullscreen chart');
     return;
   }
 
@@ -746,7 +756,7 @@ function rebuildFullscreenChart(container) {
     },
   });
 
-  console.log('[ENERGY] [RFC-0097] Fullscreen chart rebuilt');
+  LogHelper.log('[ENERGY] [RFC-0097] Fullscreen chart rebuilt');
 }
 
 /**
@@ -774,7 +784,7 @@ function closeFullscreenChart() {
     consumptionChartInstance.refresh();
   }
 
-  console.log('[ENERGY] [RFC-0097] Fullscreen closed');
+  LogHelper.log('[ENERGY] [RFC-0097] Fullscreen closed');
 }
 
 /**
@@ -792,72 +802,60 @@ function handleFullscreenEsc(e) {
 function setupMaximizeButton() {
   const maximizeBtn = document.getElementById('maximizeChartBtn');
   if (!maximizeBtn) {
-    console.warn('[ENERGY] [RFC-0097] Maximize button not found');
+    LogHelper.warn('[ENERGY] [RFC-0097] Maximize button not found');
     return;
   }
 
   maximizeBtn.addEventListener('click', toggleChartFullscreen);
-  console.log('[ENERGY] [RFC-0097] Maximize button handler setup complete');
+  LogHelper.log('[ENERGY] [RFC-0097] Maximize button handler setup complete');
 }
 
 /**
  * RFC-0097: Fetches consumption for a period and groups by day
- * Makes ONE API call per shopping and returns array of daily totals
- * API returns: [{ id, name, type, consumption: [{ timestamp, value }] }]
- * @param {string} customerId - ID do customer
- * @param {number} startTs - Start of period in ms
- * @param {number} endTs - End of period in ms
- * @param {Array} dayBoundaries - Array of { label, startTs, endTs } for each day
- * @returns {Promise<number[]>} - Array of daily consumption totals
+ * Fetches in batches of 3 with delay between batches to avoid rate limiting.
+ * @param {string} customerId - Customer ID
+ * @param {number} startTs - Start timestamp (unused, we use dayBoundaries)
+ * @param {number} endTs - End timestamp (unused, we use dayBoundaries)
+ * @param {Array} dayBoundaries - Array of { label, startTs, endTs }
+ * @returns {Promise<number[]>} - Array of daily totals
  */
 async function fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries) {
   try {
-    // Single API call for the entire period with granularity from chartConfig
-    const granularity = chartConfig.granularity || '1d';
-    const result = await window.MyIOUtils.fetchEnergyDayConsumption(customerId, startTs, endTs, granularity);
+    const BATCH_SIZE = 3;
+    const BATCH_DELAY_MS = 500; // 500ms delay between batches
+    const dailyTotals = [];
 
-    // Initialize daily totals with zeros
-    const dailyTotals = new Array(dayBoundaries.length).fill(0);
+    // Process in batches of 3
+    for (let i = 0; i < dayBoundaries.length; i += BATCH_SIZE) {
+      const batch = dayBoundaries.slice(i, i + BATCH_SIZE);
 
-    // API returns array directly, not { devices: [...] }
-    // Format: [{ id, name, type, consumption: [{ timestamp, value }] }]
-    const items = Array.isArray(result) ? result : result?.devices || result?.data || [];
+      // Fetch batch in parallel
+      const batchPromises = batch.map(async (day) => {
+        try {
+          const result = await window.MyIOUtils.fetchEnergyDayConsumption(customerId, day.startTs, day.endTs);
+          return result?.total || 0;
+        } catch (dayError) {
+          LogHelper.warn(`[ENERGY] [RFC-0097] Error fetching day ${day.label}:`, dayError);
+          return 0;
+        }
+      });
 
-    if (items.length > 0) {
-      console.log(`[ENERGY] [RFC-0097] API returned ${items.length} items for ${customerId.slice(0, 8)}`);
+      const batchResults = await Promise.all(batchPromises);
+      dailyTotals.push(...batchResults);
+
+      // Add delay before next batch (except for last batch)
+      if (i + BATCH_SIZE < dayBoundaries.length) {
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+      }
     }
 
-    items.forEach((item) => {
-      // Each item has consumption array with timestamp and value
-      if (Array.isArray(item.consumption)) {
-        item.consumption.forEach((entry) => {
-          const timestamp = entry.timestamp || entry.ts;
-          const value = Number(entry.value) || 0;
-
-          if (timestamp && value > 0) {
-            // Parse timestamp (ISO string like "2025-11-29T00:00:00+00:00")
-            const entryTs = new Date(timestamp).getTime();
-
-            // Find which day this timestamp belongs to
-            for (let dayIdx = 0; dayIdx < dayBoundaries.length; dayIdx++) {
-              const day = dayBoundaries[dayIdx];
-              if (entryTs >= day.startTs && entryTs <= day.endTs) {
-                dailyTotals[dayIdx] += value;
-                break;
-              }
-            }
-          }
-        });
-      }
-    });
-
-    console.log(
+    LogHelper.log(
       `[ENERGY] [RFC-0097] Period consumption for ${customerId.slice(0, 8)}:`,
-      dailyTotals.map((v) => v.toFixed(0))
+      dailyTotals.map((v) => v.toFixed(2))
     );
     return dailyTotals;
   } catch (error) {
-    console.error('[ENERGY] Error fetching period consumption:', error);
+    LogHelper.error('[ENERGY] Error fetching period consumption:', error);
     return new Array(dayBoundaries.length).fill(0);
   }
 }
@@ -891,7 +889,7 @@ async function fetchDayTotalConsumption(customerId, startTs, endTs) {
 
     const mockConsumption = baseConsumption * weekendFactor * variation;
 
-    console.log(
+    LogHelper.log(
       `[ENERGY] [MOCK] Day total (${dayDate.toLocaleDateString()}): ${mockConsumption.toFixed(2)} kWh`
     );
 
@@ -928,10 +926,10 @@ async function fetchDayTotalConsumption(customerId, startTs, endTs) {
       total = result.total;
     }
 
-    console.log(`[ENERGY] Day total (${new Date(startTs).toLocaleDateString()}): ${total.toFixed(2)} kWh`);
+    LogHelper.log(`[ENERGY] Day total (${new Date(startTs).toLocaleDateString()}): ${total.toFixed(2)} kWh`);
     return total;
   } catch (error) {
-    console.error('[ENERGY] Error fetching day total:', error);
+    LogHelper.error('[ENERGY] Error fetching day total:', error);
     return 0;
   }
 }
@@ -1029,14 +1027,14 @@ async function calculateDistributionByMode(mode) {
     const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
 
     if (!orchestrator || typeof orchestrator.getEnergyCache !== 'function') {
-      console.warn('[ENERGY] Orchestrator not available');
+      LogHelper.warn('[ENERGY] Orchestrator not available');
       return null;
     }
 
     const energyCache = orchestrator.getEnergyCache();
 
     if (!energyCache || energyCache.size === 0) {
-      console.warn('[ENERGY] Energy cache is empty');
+      LogHelper.warn('[ENERGY] Energy cache is empty');
       return null;
     }
 
@@ -1044,7 +1042,11 @@ async function calculateDistributionByMode(mode) {
     const filteredCustomerIds = getSelectedShoppingCustomerIds();
     const hasFilter = filteredCustomerIds.length > 0;
 
-    console.log(`[ENERGY] Calculating distribution for mode: ${mode}${hasFilter ? ` (filtered by ${filteredCustomerIds.length} shoppings)` : ' (all shoppings)'}`);
+    LogHelper.log(
+      `[ENERGY] Calculating distribution for mode: ${mode}${
+        hasFilter ? ` (filtered by ${filteredCustomerIds.length} shoppings)` : ' (all shoppings)'
+      }`
+    );
 
     // Create a filtered view of energyCache if filter is active
     const filteredEnergyCache = new Map();
@@ -1054,7 +1056,9 @@ async function calculateDistributionByMode(mode) {
           filteredEnergyCache.set(ingestionId, deviceData);
         }
       });
-      console.log(`[ENERGY] Filtered energyCache: ${filteredEnergyCache.size} devices (from ${energyCache.size} total)`);
+      LogHelper.log(
+        `[ENERGY] Filtered energyCache: ${filteredEnergyCache.size} devices (from ${energyCache.size} total)`
+      );
     } else {
       // No filter - use all devices
       energyCache.forEach((deviceData, ingestionId) => {
@@ -1086,7 +1090,7 @@ async function calculateDistributionByMode(mode) {
 
       // Get lojas IDs from orchestrator (same logic as MAIN uses)
       const lojasIngestionIds = orchestrator.getLojasIngestionIds?.() || new Set();
-      console.log(`[ENERGY] Using lojasIngestionIds from orchestrator: ${lojasIngestionIds.size} lojas`);
+      LogHelper.log(`[ENERGY] Using lojasIngestionIds from orchestrator: ${lojasIngestionIds.size} lojas`);
 
       let sampleCount = 0;
       workingCache.forEach((deviceData, ingestionId) => {
@@ -1098,7 +1102,7 @@ async function calculateDistributionByMode(mode) {
           deviceCounters['Lojas']++;
 
           if (sampleCount < 10) {
-            console.log(`[ENERGY] 🔍 Device classification sample #${sampleCount + 1}:`, {
+            LogHelper.log(`[ENERGY] 🔍 Device classification sample #${sampleCount + 1}:`, {
               name: deviceData.name,
               ingestionId: ingestionId,
               classified: 'Lojas (from lojasIngestionIds)',
@@ -1146,7 +1150,7 @@ async function calculateDistributionByMode(mode) {
 
         // RFC-0076: Log first 30 devices for debugging (increased from 10)
         if (sampleCount < 30 || couldBeElevator) {
-          console.log(
+          LogHelper.log(
             `[ENERGY] 🔍 Device classification ${couldBeElevator ? '⚡ ELEVATOR CANDIDATE' : 'sample'} #${
               sampleCount + 1
             }:`,
@@ -1178,7 +1182,7 @@ async function calculateDistributionByMode(mode) {
 
         // RFC-0076: Log Elevadores and Escadas Rolantes specifically
         if (type === 'Elevadores' || type === 'Escadas Rolantes') {
-          console.log(`[ENERGY] ✅ Found ${type}:`, {
+          LogHelper.log(`[ENERGY] ✅ Found ${type}:`, {
             name: deviceData.name,
             deviceType: deviceData.deviceType,
             deviceProfile: deviceData.deviceProfile,
@@ -1189,27 +1193,31 @@ async function calculateDistributionByMode(mode) {
       });
 
       // RFC-0076: Enhanced logging for debugging
-      console.log('[ENERGY] ============================================');
-      console.log('[ENERGY] Distribution by groups (RFC-0076):');
-      console.log('[ENERGY] - Total devices processed:', workingCache.size, hasFilter ? `(filtered from ${energyCache.size})` : '');
-      console.log('[ENERGY] - Lojas from orchestrator:', lojasIngestionIds.size);
-      console.log('[ENERGY] Device counts by category:');
+      LogHelper.log('[ENERGY] ============================================');
+      LogHelper.log('[ENERGY] Distribution by groups (RFC-0076):');
+      LogHelper.log(
+        '[ENERGY] - Total devices processed:',
+        workingCache.size,
+        hasFilter ? `(filtered from ${energyCache.size})` : ''
+      );
+      LogHelper.log('[ENERGY] - Lojas from orchestrator:', lojasIngestionIds.size);
+      LogHelper.log('[ENERGY] Device counts by category:');
       Object.entries(deviceCounters).forEach(([cat, count]) => {
-        console.log(`[ENERGY]   - ${cat}: ${count} devices, ${groups[cat].toFixed(2)} kWh`);
+        LogHelper.log(`[ENERGY]   - ${cat}: ${count} devices, ${groups[cat].toFixed(2)} kWh`);
       });
-      console.log('[ENERGY] Distribution breakdown (consumption):', groups);
+      LogHelper.log('[ENERGY] Distribution breakdown (consumption):', groups);
 
       // RFC-0076: Warning and diagnostic info if no elevators found
       if (deviceCounters['Elevadores'] === 0) {
-        console.warn('[ENERGY] ⚠️  No elevators detected in energyCache. Possible causes:');
-        console.warn('[ENERGY]     1. Elevators may not have energy measurement devices');
-        console.warn('[ENERGY]     2. Elevator devices may not be included in /energy/devices/totals API');
-        console.warn('[ENERGY]     3. deviceType/deviceProfile metadata may be missing from energyCache');
-        console.warn('[ENERGY]     4. Elevator naming convention may differ from expected patterns');
-        console.warn("[ENERGY]     Expected patterns: 'ELEVADOR', 'ELEVATOR', 'ELV' in device name/label");
+        LogHelper.warn('[ENERGY] ⚠️  No elevators detected in energyCache. Possible causes:');
+        LogHelper.warn('[ENERGY]     1. Elevators may not have energy measurement devices');
+        LogHelper.warn('[ENERGY]     2. Elevator devices may not be included in /energy/devices/totals API');
+        LogHelper.warn('[ENERGY]     3. deviceType/deviceProfile metadata may be missing from energyCache');
+        LogHelper.warn('[ENERGY]     4. Elevator naming convention may differ from expected patterns');
+        LogHelper.warn("[ENERGY]     Expected patterns: 'ELEVADOR', 'ELEVATOR', 'ELV' in device name/label");
 
         // Print sample of "Outros Equipamentos" to help identify misclassified elevators
-        console.log("[ENERGY] 📋 Sample of 'Outros Equipamentos' (first 20 devices):");
+        LogHelper.log("[ENERGY] 📋 Sample of 'Outros Equipamentos' (first 20 devices):");
         let othersCount = 0;
         workingCache.forEach((deviceData, ingestionId) => {
           if (!lojasIngestionIds.has(ingestionId) && othersCount < 20) {
@@ -1226,7 +1234,7 @@ async function calculateDistributionByMode(mode) {
             };
             const classification = classifyEquipmentDetailed(device);
             if (classification === 'Outros Equipamentos') {
-              console.log(
+              LogHelper.log(
                 `[ENERGY]    - "${deviceData.name || label}" (deviceType: ${device.deviceType}, profile: ${
                   device.deviceProfile
                 })`
@@ -1237,7 +1245,7 @@ async function calculateDistributionByMode(mode) {
         });
       }
 
-      console.log('[ENERGY] ============================================');
+      LogHelper.log('[ENERGY] ============================================');
 
       return groups;
     } else {
@@ -1301,11 +1309,14 @@ async function calculateDistributionByMode(mode) {
         }
       });
 
-      console.log(`[ENERGY] Distribution by ${mode}${hasFilter ? ' (filtered)' : ''}:`, shoppingDistribution);
+      LogHelper.log(
+        `[ENERGY] Distribution by ${mode}${hasFilter ? ' (filtered)' : ''}:`,
+        shoppingDistribution
+      );
       return shoppingDistribution;
     }
   } catch (error) {
-    console.error('[ENERGY] Error calculating distribution by mode:', error);
+    LogHelper.error('[ENERGY] Error calculating distribution by mode:', error);
     return null;
   }
 }
@@ -1352,12 +1363,14 @@ function getShoppingName(customerId) {
  * @returns {Promise<object>} - Consumption7DaysData formatted data
  */
 async function fetchConsumptionDataAdapter(period) {
-  console.log('[ENERGY] [RFC-0098] Fetching data via adapter for', period, 'days');
+  LogHelper.log('[ENERGY] [RFC-0098] Fetching data via adapter for', period, 'days');
 
   // Get customer ID from MAIN (exposed via window.myioHoldingCustomerId)
   const customerId = window.myioHoldingCustomerId;
   if (!customerId) {
-    console.error('[ENERGY] [RFC-0098] ❌ customerId not found - MAIN has not initialized window.myioHoldingCustomerId');
+    LogHelper.error(
+      '[ENERGY] [RFC-0098] ❌ customerId not found - MAIN has not initialized window.myioHoldingCustomerId'
+    );
     return { labels: [], dailyTotals: [], shoppingData: {}, shoppingNames: {} };
   }
 
@@ -1386,24 +1399,26 @@ async function fetchConsumptionDataAdapter(period) {
  * RFC-0098: Now uses createConsumption7DaysChart for the line chart
  */
 async function initializeCharts() {
-  console.log('[ENERGY] [RFC-0098] Initializing charts with standardized component...');
+  LogHelper.log('[ENERGY] [RFC-0098] Initializing charts with standardized component...');
 
   // Get customer ID from MAIN (exposed via window.myioHoldingCustomerId)
   const customerId = window.myioHoldingCustomerId;
 
   if (!customerId) {
-    console.error('[ENERGY] [RFC-0098] ❌ customerId not found - MAIN has not initialized window.myioHoldingCustomerId');
+    LogHelper.error(
+      '[ENERGY] [RFC-0098] ❌ customerId not found - MAIN has not initialized window.myioHoldingCustomerId'
+    );
     return;
   }
 
-  console.log('[ENERGY] Customer ID (from MAIN):', customerId);
+  LogHelper.log('[ENERGY] Customer ID (from MAIN):', customerId);
 
   // Get widget container for ThingsBoard compatibility (shared by all widgets)
   const $container = self.ctx?.$container || null;
 
   // RFC-0098: Initialize line chart using the standardized widget component
   if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createConsumptionChartWidget) {
-    console.log('[ENERGY] [RFC-0098] Using createConsumptionChartWidget component');
+    LogHelper.log('[ENERGY] [RFC-0098] Using createConsumptionChartWidget component');
 
     consumptionChartInstance = MyIOLibrary.createConsumptionChartWidget({
       domain: 'energy',
@@ -1425,33 +1440,33 @@ async function initializeCharts() {
 
       // Callbacks
       onMaximizeClick: () => {
-        console.log('[ENERGY] [RFC-0098] Maximize button clicked');
+        LogHelper.log('[ENERGY] [RFC-0098] Maximize button clicked');
         openFullscreenModal();
       },
       onDataLoaded: (data) => {
         // Update cache for fullscreen and other features
         cachedChartData = data;
-        console.log('[ENERGY] [RFC-0098] Data loaded:', data.labels?.length, 'days');
+        LogHelper.log('[ENERGY] [RFC-0098] Data loaded:', data.labels?.length, 'days');
       },
       onError: (error) => {
-        console.error('[ENERGY] [RFC-0098] Chart error:', error);
+        LogHelper.error('[ENERGY] [RFC-0098] Chart error:', error);
       },
     });
 
     // Render the chart
     await consumptionChartInstance.render();
-    console.log('[ENERGY] [RFC-0098] Consumption chart rendered successfully');
+    LogHelper.log('[ENERGY] [RFC-0098] Consumption chart rendered successfully');
 
     // Store reference for compatibility with existing code
     lineChartInstance = consumptionChartInstance.getChartInstance();
   } else {
-    console.error('[ENERGY] [RFC-0098] createConsumptionChartWidget not available in MyIOLibrary!');
+    LogHelper.error('[ENERGY] [RFC-0098] createConsumptionChartWidget not available in MyIOLibrary!');
     return;
   }
 
   // RFC-0102: Initialize distribution chart using createDistributionChartWidget
   if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.createDistributionChartWidget) {
-    console.log('[ENERGY] [RFC-0102] Initializing distribution chart widget...');
+    LogHelper.log('[ENERGY] [RFC-0102] Initializing distribution chart widget...');
 
     distributionChartInstance = MyIOLibrary.createDistributionChartWidget({
       domain: 'energy',
@@ -1478,7 +1493,7 @@ async function initializeCharts() {
 
       // Data fetching - uses existing calculateDistributionByMode function
       fetchDistribution: async (mode) => {
-        console.log(`[ENERGY] [RFC-0102] Fetching distribution for mode: ${mode}`);
+        LogHelper.log(`[ENERGY] [RFC-0102] Fetching distribution for mode: ${mode}`);
         return await calculateDistributionByMode(mode);
       },
 
@@ -1490,13 +1505,13 @@ async function initializeCharts() {
 
       // Callbacks
       onModeChange: (mode) => {
-        console.log(`[ENERGY] [RFC-0102] Distribution mode changed to: ${mode}`);
+        LogHelper.log(`[ENERGY] [RFC-0102] Distribution mode changed to: ${mode}`);
       },
       onDataLoaded: (data) => {
-        console.log('[ENERGY] [RFC-0102] Distribution data loaded:', Object.keys(data).length, 'items');
+        LogHelper.log('[ENERGY] [RFC-0102] Distribution data loaded:', Object.keys(data).length, 'items');
       },
       onError: (error) => {
-        console.error('[ENERGY] [RFC-0102] Distribution chart error:', error);
+        LogHelper.error('[ENERGY] [RFC-0102] Distribution chart error:', error);
       },
     });
 
@@ -1504,19 +1519,19 @@ async function initializeCharts() {
     setTimeout(async () => {
       try {
         await distributionChartInstance.render();
-        console.log('[ENERGY] [RFC-0102] Distribution chart rendered successfully');
+        LogHelper.log('[ENERGY] [RFC-0102] Distribution chart rendered successfully');
 
         // Store legacy reference for backwards compatibility
         pieChartInstance = distributionChartInstance.getChartInstance();
       } catch (error) {
-        console.error('[ENERGY] [RFC-0102] Failed to render distribution chart:', error);
+        LogHelper.error('[ENERGY] [RFC-0102] Failed to render distribution chart:', error);
       }
 
       // RFC-0098: Setup chart tab handlers (now using component API)
       setupChartTabHandlersRFC0098();
     }, 2000); // Delay to ensure orchestrator is ready
   } else {
-    console.error('[ENERGY] [RFC-0102] createDistributionChartWidget not available in MyIOLibrary!');
+    LogHelper.error('[ENERGY] [RFC-0102] createDistributionChartWidget not available in MyIOLibrary!');
   }
 }
 
@@ -1532,7 +1547,7 @@ function setupChartTabHandlersRFC0098() {
   const typeTabs = document.querySelectorAll('.chart-type-tabs .chart-tab');
 
   if (vizTabs.length === 0 && typeTabs.length === 0) {
-    console.log('[ENERGY] [RFC-0098] No external tabs found - widget handles tabs internally');
+    LogHelper.log('[ENERGY] [RFC-0098] No external tabs found - widget handles tabs internally');
     return;
   }
 
@@ -1566,7 +1581,7 @@ function setupChartTabHandlersRFC0098() {
     });
   });
 
-  console.log('[ENERGY] [RFC-0098] External tab handlers setup (if present)');
+  LogHelper.log('[ENERGY] [RFC-0098] External tab handlers setup (if present)');
 }
 
 /**
@@ -1592,12 +1607,12 @@ async function fetch7DaysConsumptionFiltered(customerIds, forceRefresh = false) 
       cachedChartData.customerIds.every((id) => customerIds.includes(id));
 
     if (cacheAge < CHART_CACHE_TTL && sameCustomers) {
-      console.log('[ENERGY] [RFC-0097] Using cached data (age:', Math.round(cacheAge / 1000), 's)');
+      LogHelper.log('[ENERGY] [RFC-0097] Using cached data (age:', Math.round(cacheAge / 1000), 's)');
       return cachedChartData;
     }
   }
 
-  console.log(
+  LogHelper.log(
     '[ENERGY] [RFC-0097] Fetching',
     period,
     'days with granularity',
@@ -1644,7 +1659,7 @@ async function fetch7DaysConsumptionFiltered(customerIds, forceRefresh = false) 
   const labels = dayBoundaries.map((d) => d.label);
 
   // OPTIMIZATION: Only N API calls (one per shopping for entire period)
-  console.log('[ENERGY] [RFC-0097] Executing', customerIds.length, 'API calls (one per shopping)...');
+  LogHelper.log('[ENERGY] [RFC-0097] Executing', customerIds.length, 'API calls (one per shopping)...');
 
   const fetchPromises = customerIds.map((customerId) =>
     fetchPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries)
@@ -1678,7 +1693,7 @@ async function fetch7DaysConsumptionFiltered(customerIds, forceRefresh = false) 
     fetchTimestamp: Date.now(),
   };
 
-  console.log('[ENERGY] [RFC-0097] Data cached:', {
+  LogHelper.log('[ENERGY] [RFC-0097] Data cached:', {
     days: period,
     shoppings: customerIds.length,
     totalPoints: labels.length,
@@ -1708,16 +1723,16 @@ async function updatePieChart(mode = 'groups') {
   // RFC-0102: Use the new distribution chart widget API
   if (distributionChartInstance) {
     try {
-      console.log(`[ENERGY] [RFC-0102] Updating distribution chart with mode: ${mode}`);
+      LogHelper.log(`[ENERGY] [RFC-0102] Updating distribution chart with mode: ${mode}`);
       await distributionChartInstance.setMode(mode);
     } catch (error) {
-      console.error('[ENERGY] [RFC-0102] Error updating distribution chart:', error);
+      LogHelper.error('[ENERGY] [RFC-0102] Error updating distribution chart:', error);
     }
     return;
   }
 
   // Legacy fallback (should not be reached if component is initialized)
-  console.warn('[ENERGY] [RFC-0102] Distribution chart instance not available, legacy code path');
+  LogHelper.warn('[ENERGY] [RFC-0102] Distribution chart instance not available, legacy code path');
 }
 
 /**
@@ -1727,7 +1742,9 @@ async function updatePieChart(mode = 'groups') {
 function setupDistributionModeSelector() {
   // RFC-0102: Mode selector is now handled by createDistributionChartWidget component
   // This function is kept for backwards compatibility but does nothing
-  console.log('[ENERGY] [RFC-0102] Distribution mode selector handled by component - skipping legacy setup');
+  LogHelper.log(
+    '[ENERGY] [RFC-0102] Distribution mode selector handled by component - skipping legacy setup'
+  );
 }
 
 // RFC-0098: Legacy chart functions removed - now using createConsumption7DaysChart component
@@ -1774,7 +1791,7 @@ function cleanupEventListeners() {
       );
     }
   }
-  console.log('[ENERGY] [RFC-0097] Event listeners cleaned up');
+  LogHelper.log('[ENERGY] [RFC-0097] Event listeners cleaned up');
 }
 
 // ============================================
@@ -1783,11 +1800,11 @@ function cleanupEventListeners() {
 self.onInit = async function () {
   // RFC-0097: Prevent multiple initializations
   if (energyWidgetInitialized) {
-    console.log('[ENERGY] [RFC-0097] Widget already initialized, skipping...');
+    LogHelper.log('[ENERGY] [RFC-0097] Widget already initialized, skipping...');
     return;
   }
 
-  console.log('[ENERGY] Initializing energy charts and consumption cards...');
+  LogHelper.log('[ENERGY] Initializing energy charts and consumption cards...');
 
   // RFC-0097: Cleanup any existing listeners before adding new ones
   cleanupEventListeners();
@@ -1806,7 +1823,7 @@ self.onInit = async function () {
   // Primeiro, prepara o "ouvinte" que vai receber os dados quando o MAIN responder.
   // ✅ Listen on both window and window.parent to support both iframe and non-iframe contexts
   registeredHandlers.handleEnergySummary = (ev) => {
-    console.log('[ENERGY] Resumo de energia recebido do orquestrador!', ev.detail);
+    LogHelper.log('[ENERGY] Resumo de energia recebido do orquestrador!', ev.detail);
     // Chama as funções que atualizam os cards na tela com os dados recebidos.
     updateTotalConsumptionStoresCard(ev.detail); // Novo: card de lojas
     updateTotalConsumptionEquipmentsCard(ev.detail); // Novo: card de equipamentos
@@ -1820,23 +1837,23 @@ self.onInit = async function () {
 
   // RFC-0073: Listen to shopping filter changes and update charts
   registeredHandlers.handleFilterApplied = async (ev) => {
-    console.log('[ENERGY] [RFC-0073] Shopping filter applied, updating charts...', ev.detail);
+    LogHelper.log('[ENERGY] [RFC-0073] Shopping filter applied, updating charts...', ev.detail);
 
     // Invalidate cache when filter changes
     cachedChartData = null;
 
     // RFC-0102: Update distribution chart to reflect filtered data
     if (distributionChartInstance) {
-      console.log('[ENERGY] [RFC-0102] Refreshing distribution chart after filter change');
+      LogHelper.log('[ENERGY] [RFC-0102] Refreshing distribution chart after filter change');
       await distributionChartInstance.refresh();
     }
 
     // RFC-0098: Update line chart using component API if available
     if (consumptionChartInstance && typeof consumptionChartInstance.refresh === 'function') {
-      console.log('[ENERGY] [RFC-0098] Refreshing chart via component API');
+      LogHelper.log('[ENERGY] [RFC-0098] Refreshing chart via component API');
       await consumptionChartInstance.refresh(true); // Force refresh to bypass cache
     } else {
-      console.error('[ENERGY] [RFC-0098] Component not available for refresh');
+      LogHelper.error('[ENERGY] [RFC-0098] Component not available for refresh');
     }
   };
 
@@ -1849,15 +1866,15 @@ self.onInit = async function () {
   // RFC-0076: Listen to equipment metadata enrichment from EQUIPMENTS widget
   // This forces chart updates when EQUIPMENTS finishes enriching the cache with deviceType/deviceProfile
   registeredHandlers.handleEquipmentMetadataEnriched = async (ev) => {
-    console.log('[ENERGY] [RFC-0076] 🔧 Equipment metadata enriched! Forcing chart update...', ev.detail);
+    LogHelper.log('[ENERGY] [RFC-0076] 🔧 Equipment metadata enriched! Forcing chart update...', ev.detail);
 
     // RFC-0102: Force immediate update of distribution chart to pick up elevator classifications
     if (distributionChartInstance) {
-      console.log('[ENERGY] [RFC-0102] Refreshing distribution chart after metadata enrichment');
+      LogHelper.log('[ENERGY] [RFC-0102] Refreshing distribution chart after metadata enrichment');
       await distributionChartInstance.refresh();
     }
 
-    console.log('[ENERGY] [RFC-0076] [RFC-0102] Charts updated with enriched metadata');
+    LogHelper.log('[ENERGY] [RFC-0076] [RFC-0102] Charts updated with enriched metadata');
   };
 
   window.addEventListener(
@@ -1892,14 +1909,14 @@ self.onInit = async function () {
       if (orchestrator && typeof orchestrator.requestSummary === 'function') {
         // SUCESSO! Orquestrador encontrado.
         clearInterval(intervalId); // Para de vigiar
-        console.log(`[ENERGY] Orquestrador encontrado após ${attempts} tentativas. Solicitando resumo.`);
+        LogHelper.log(`[ENERGY] Orquestrador encontrado após ${attempts} tentativas. Solicitando resumo.`);
 
         // Chama a função do orquestrador encontrado
         orchestrator.requestSummary();
       } else if (attempts >= maxAttempts) {
         // FALHA: Timeout
         clearInterval(intervalId); // Para de vigiar
-        console.error(
+        LogHelper.error(
           '[ENERGY] TIMEOUT: Orquestrador não foi encontrado após 10 segundos. O card não será carregado.'
         );
       }
@@ -1914,7 +1931,7 @@ self.onInit = async function () {
 
   // Limpa os caches se um evento global de limpeza for disparado.
   window.addEventListener('myio:telemetry:clear', (ev) => {
-    console.log('[ENERGY] Evento de limpeza de cache recebido.', ev.detail);
+    LogHelper.log('[ENERGY] Evento de limpeza de cache recebido.', ev.detail);
 
     // Reinicializa os cards para o estado de loading
     initializeTotalConsumptionCard();
@@ -1927,7 +1944,7 @@ self.onInit = async function () {
 // ============================================
 
 self.onDestroy = function () {
-  console.log('[ENERGY] [RFC-0073] Widget destroying, cleaning up modals');
+  LogHelper.log('[ENERGY] [RFC-0073] Widget destroying, cleaning up modals');
 
   // RFC-0073: Remove chart configuration modal if it exists
   const globalContainer = document.getElementById('energyChartConfigModalGlobal');
@@ -1940,7 +1957,7 @@ self.onDestroy = function () {
 
     // Remove global modal container from document.body
     globalContainer.remove();
-    console.log('[ENERGY] [RFC-0073] Global modal container removed on destroy');
+    LogHelper.log('[ENERGY] [RFC-0073] Global modal container removed on destroy');
   }
 
   // Remove modal-open class if widget is destroyed with modal open
@@ -1957,7 +1974,7 @@ self.onDestroy = function () {
   const fullscreenContainer = targetDoc.getElementById('energyChartFullscreenGlobal');
   if (fullscreenContainer) {
     fullscreenContainer.remove();
-    console.log('[ENERGY] [RFC-0097] Fullscreen container removed on destroy');
+    LogHelper.log('[ENERGY] [RFC-0097] Fullscreen container removed on destroy');
   }
 
   // RFC-0097: Cleanup event listeners and reset initialization flag
@@ -1969,10 +1986,10 @@ self.onDestroy = function () {
 
   // RFC-0098: Cleanup consumption chart instance
   if (consumptionChartInstance && typeof consumptionChartInstance.destroy === 'function') {
-    console.log('[ENERGY] [RFC-0098] Destroying consumption chart instance');
+    LogHelper.log('[ENERGY] [RFC-0098] Destroying consumption chart instance');
     consumptionChartInstance.destroy();
     consumptionChartInstance = null;
   }
 
-  console.log('[ENERGY] [RFC-0097] Widget destroyed, state reset');
+  LogHelper.log('[ENERGY] [RFC-0097] Widget destroyed, state reset');
 };

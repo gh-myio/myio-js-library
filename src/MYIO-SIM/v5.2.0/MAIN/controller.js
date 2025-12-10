@@ -38,6 +38,10 @@ function getDataApiHost() {
 /**
  * RFC-0094/RFC-0097: Fetch energy consumption for a customer within a time range
  * Used by ENERGY widget for chart and other consumption queries
+ *
+ * IMPORTANT: Only counts devices that have a match with ingestionIds from
+ * ThingsBoard datasources (Equipamentos e Lojas)
+ *
  * @param {string} customerId - Customer ID for ingestion API
  * @param {number} startTs - Start timestamp in milliseconds
  * @param {number} endTs - End timestamp in milliseconds
@@ -61,7 +65,7 @@ async function fetchEnergyDayConsumption(customerId, startTs, endTs, granularity
   const endTimeISO = formatDateISO(endTs);
 
   // RFC-0097: Use granularity parameter
-  const url = `${getDataApiHost()}/api/v1/telemetry/customers/${customerId}/energy/?deep=1&granularity=${granularity}&startTime=${encodeURIComponent(
+  const url = `${getDataApiHost()}/api/v1/telemetry/customers/${customerId}/energy/devices/totals/?deep=1&granularity=${granularity}&startTime=${encodeURIComponent(
     startTimeISO
   )}&endTime=${encodeURIComponent(endTimeISO)}`;
 
@@ -84,11 +88,31 @@ async function fetchEnergyDayConsumption(customerId, startTs, endTs, granularity
 
     // RFC-0097: API returns array directly, not { devices: [...] }
     // Format: [{ id, name, type, consumption: [{ timestamp, value }] }]
-    const devices = Array.isArray(data) ? data : data?.devices || data?.data || [];
-    let total = 0;
+    const allDevices = Array.isArray(data) ? data : data?.devices || data?.data || [];
 
-    if (Array.isArray(devices)) {
-      devices.forEach((device) => {
+    // Get valid energy ingestionIds from ThingsBoard datasources (Equipamentos e Lojas)
+    const orchestrator = window.MyIOOrchestrator;
+    const validIds = orchestrator?.getEnergyValidIds?.() || new Set();
+
+    // Filter devices: only include those with matching ingestionId
+    const hasValidIds = validIds.size > 0;
+    let total = 0;
+    let matchedCount = 0;
+    let filteredDevices = [];
+
+    if (Array.isArray(allDevices)) {
+      allDevices.forEach((device) => {
+        const deviceId = device.id || device.ingestionId;
+
+        // Only count if device.id matches a valid ingestionId from TB datasources
+        // If no valid IDs registered yet, skip filtering (will use all devices as fallback)
+        if (hasValidIds && !validIds.has(deviceId)) {
+          return; // Skip devices not in TB datasources
+        }
+
+        matchedCount++;
+        filteredDevices.push(device);
+
         // Handle both formats: direct value or consumption array
         if (Array.isArray(device.consumption)) {
           device.consumption.forEach((entry) => {
@@ -101,7 +125,11 @@ async function fetchEnergyDayConsumption(customerId, startTs, endTs, granularity
       });
     }
 
-    return { devices, total };
+    LogHelper.log(
+      `[MAIN] fetchEnergyDayConsumption: API returned ${allDevices.length} devices, matched ${matchedCount} with TB datasources, total=${total.toFixed(2)}`
+    );
+
+    return { devices: filteredDevices, total };
   } catch (error) {
     LogHelper.error('[MAIN] fetchEnergyDayConsumption: Error', error);
     return { devices: [], total: 0 };
@@ -2884,6 +2912,10 @@ const MyIOOrchestrator = (() => {
     total: 0,
   };
 
+  // ===== ENERGY: Registro de IDs válidos (vindos do Alias TB 'Equipamentos e Lojas') =====
+  // O Orchestrator só soma devices que existem nesse registro
+  let energyValidIds = new Set(); // IDs do alias 'Equipamentos e Lojas'
+
   /**
    * Widgets registram seus IDs válidos de água
    * @param {string} category - 'commonArea' ou 'stores'
@@ -2972,6 +3004,25 @@ const MyIOOrchestrator = (() => {
       commonArea: new Set(waterValidIds.commonArea),
       stores: new Set(waterValidIds.stores),
     };
+  }
+
+  // ===== ENERGY: Funções para registro de IDs válidos =====
+
+  /**
+   * Registra IDs válidos de energia (do alias 'Equipamentos e Lojas')
+   * @param {string[]} ids - Array de ingestionIds válidos
+   */
+  function registerEnergyDeviceIds(ids) {
+    energyValidIds = new Set(ids.filter(Boolean));
+    LogHelper.log(`[Orchestrator] Registered ${energyValidIds.size} valid IDs for energy`);
+  }
+
+  /**
+   * Retorna os IDs válidos de energia
+   * @returns {Set<string>}
+   */
+  function getEnergyValidIds() {
+    return new Set(energyValidIds);
   }
 
   // ===== RFC-0100: TEMPERATURE DATA MANAGEMENT =====
@@ -4622,6 +4673,10 @@ const MyIOOrchestrator = (() => {
     getWaterValidIds,
     recalculateWaterTotals,
 
+    // ===== ENERGY: Funções para registro de IDs válidos =====
+    registerEnergyDeviceIds,
+    getEnergyValidIds,
+
     // ===== RFC-0100: TEMPERATURE functions =====
     fetchTemperatureData,
     fetchTemperatureDayAverages,
@@ -4713,6 +4768,66 @@ function getWaterTbData() {
 // Expor getWaterTbData globalmente via MyIOUtils
 window.MyIOUtils = window.MyIOUtils || {};
 window.MyIOUtils.getWaterTbData = getWaterTbData;
+
+// ===== ENERGY: Processar datasources TB e registrar IDs válidos =====
+// Esta função deve ser chamada quando os dados do TB estiverem disponíveis (onDataUpdated)
+
+// Cache global dos dados de energia do TB para acesso direto pelos widgets
+let energyTbDataCache = {
+  devices: { datasources: [], data: [], ids: [] },
+  loaded: false,
+};
+
+function processEnergyDatasourcesFromTB() {
+  const datasources = self.ctx?.datasources || [];
+  const data = self.ctx?.data || [];
+
+  if (datasources.length === 0) {
+    LogHelper.log('[MAIN] processEnergyDatasourcesFromTB: No datasources available yet');
+    return;
+  }
+
+  // Extrair IDs do alias 'Equipamentos e Lojas'
+  const energyDatasources = datasources.filter((ds) => ds.aliasName === 'Equipamentos e Lojas');
+  const energyData = data.filter((d) => d?.datasource?.aliasName === 'Equipamentos e Lojas');
+  const energyIds = extractIngestionIdsFromTBData(energyDatasources, energyData);
+
+  LogHelper.log(`[MAIN] Energy datasources from TB: devices=${energyIds.length}`);
+
+  // Atualizar cache global para acesso direto
+  energyTbDataCache = {
+    devices: { datasources: energyDatasources, data: energyData, ids: energyIds },
+    loaded: energyIds.length > 0,
+  };
+
+  // Registrar no Orchestrator
+  if (energyIds.length > 0 && window.MyIOOrchestrator?.registerEnergyDeviceIds) {
+    window.MyIOOrchestrator.registerEnergyDeviceIds(energyIds);
+  }
+
+  // Disponibilizar dados completos para widgets via evento
+  if (energyIds.length > 0) {
+    window.dispatchEvent(
+      new CustomEvent('myio:energy-tb-data-ready', {
+        detail: {
+          devices: { datasources: energyDatasources, data: energyData, ids: energyIds },
+          timestamp: Date.now(),
+        },
+      })
+    );
+    LogHelper.log('[MAIN] Dispatched myio:energy-tb-data-ready');
+  }
+}
+
+/**
+ * Retorna os dados de energia do TB para widgets que inicializam depois do evento
+ */
+function getEnergyTbData() {
+  return energyTbDataCache;
+}
+
+// Expor getEnergyTbData globalmente via MyIOUtils
+window.MyIOUtils.getEnergyTbData = getEnergyTbData;
 
 /**
  * Extrai ingestionIds dos dados do ThingsBoard
@@ -5460,6 +5575,9 @@ self.onInit = async function () {
 
   // Processar datasources de água do TB para registrar IDs válidos no Orchestrator
   processWaterDatasourcesFromTB();
+
+  // Processar datasources de energia do TB para registrar IDs válidos no Orchestrator
+  processEnergyDatasourcesFromTB();
 };
 
 self.onDataUpdated = function () {

@@ -303,7 +303,9 @@ function getShoppingNameForFilter(customerId) {
 
   // Priority 2: Try from window.custumersSelected (MENU filter)
   if (window.custumersSelected && Array.isArray(window.custumersSelected)) {
-    const shopping = window.custumersSelected.find((c) => c.value === customerId || c.ingestionId === customerId);
+    const shopping = window.custumersSelected.find(
+      (c) => c.value === customerId || c.ingestionId === customerId
+    );
     if (shopping && shopping.name) return shopping.name;
   }
 
@@ -356,7 +358,7 @@ function getSelectedShoppingIds() {
 async function fetchWaterPeriodConsumptionByDay(customerId, startTs, endTs, dayBoundaries) {
   try {
     const BATCH_SIZE = 3;
-    const BATCH_DELAY_MS = 200; // 200ms delay between batches
+    const BATCH_DELAY_MS = 500; // 200ms delay between batches
     const dailyTotals = [];
 
     // Process in batches of 3
@@ -383,7 +385,10 @@ async function fetchWaterPeriodConsumptionByDay(customerId, startTs, endTs, dayB
       }
     }
 
-    console.log(`[WATER] [RFC-0098] Period consumption for ${customerId.slice(0, 8)}:`, dailyTotals.map((v) => v.toFixed(2)));
+    console.log(
+      `[WATER] [RFC-0098] Period consumption for ${customerId.slice(0, 8)}:`,
+      dailyTotals.map((v) => v.toFixed(2))
+    );
     return dailyTotals;
   } catch (error) {
     console.error('[WATER] Error fetching period consumption:', error);
@@ -401,7 +406,7 @@ async function fetch7DaysConsumption(period = 7, fallbackCustomerId = null) {
 
   // Use fallback from MAIN if no filter active
   const fallbackId = fallbackCustomerId || window.myioHoldingCustomerId;
-  const customerIds = selectedShoppingIds.length > 0 ? selectedShoppingIds : (fallbackId ? [fallbackId] : []);
+  const customerIds = selectedShoppingIds.length > 0 ? selectedShoppingIds : fallbackId ? [fallbackId] : [];
 
   if (!customerIds || customerIds.length === 0) {
     console.warn('[WATER] [RFC-0098] No customer IDs available');
@@ -411,7 +416,8 @@ async function fetch7DaysConsumption(period = 7, fallbackCustomerId = null) {
   // Check cache
   if (cachedChartData && cachedChartData.fetchTimestamp) {
     const cacheAge = Date.now() - cachedChartData.fetchTimestamp;
-    const sameCustomers = cachedChartData.customerIds?.length === customerIds.length &&
+    const sameCustomers =
+      cachedChartData.customerIds?.length === customerIds.length &&
       cachedChartData.customerIds?.every((id) => customerIds.includes(id));
 
     if (cacheAge < CHART_CACHE_TTL && sameCustomers) {
@@ -616,7 +622,7 @@ async function initializeDistributionChartWidget() {
     if (mode === 'groups') {
       // Lojas vs Área Comum
       return {
-        'Lojas': cachedData?.storesTotal || 0,
+        Lojas: cachedData?.storesTotal || 0,
         'Área Comum': cachedData?.commonAreaTotal || 0,
       };
     } else if (mode === 'stores' || mode === 'common') {
@@ -685,7 +691,7 @@ async function initializeDistributionChartWidget() {
 
     // Custom group colors for water
     groupColors: {
-      'Lojas': '#10b981',
+      Lojas: '#10b981',
       'Área Comum': '#0288d1',
     },
 
