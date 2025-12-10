@@ -152,11 +152,9 @@ function initializeSensorCards(sensors) {
         lastActivityTime: sensor.lastActivityTime,
         domain: 'temperature',
 
-        // Ranges de temperatura (para comparação)
+        // Ranges de temperatura (padrão: temperatureMin/temperatureMax)
         temperatureMin: sensor.temperatureMin,
         temperatureMax: sensor.temperatureMax,
-        minTemperature: sensor.temperatureMin,
-        maxTemperature: sensor.temperatureMax,
 
         // Dados de conexão
         centralName: sensor.centralName,

@@ -887,6 +887,16 @@ self.onInit = async function () {
             lastValue: consumptionValue, // Alias for val
             unit: 'kWh', // Energy unit
             icon: 'energy', // Domain identifier for SelectionStore
+            domain: 'energy', // Domain for card component tooltip
+            // Power ranges for tooltip visualization
+            powerRanges: rangesWithSource ? {
+              standbyRange: rangesWithSource.standbyRange,
+              normalRange: rangesWithSource.normalRange,
+              alertRange: rangesWithSource.alertRange,
+              failureRange: rangesWithSource.failureRange,
+              source: rangesWithSource.source,
+              tier: rangesWithSource.tier,
+            } : null,
           };
         });
 

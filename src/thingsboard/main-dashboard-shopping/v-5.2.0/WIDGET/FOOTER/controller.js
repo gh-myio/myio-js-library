@@ -1307,8 +1307,9 @@ const footerController = {
     // Each device can have its own ideal range from its customer's SERVER_SCOPE attributes
     const devices = selectedEntities.map((entity) => {
       // Get temperature range for this specific device/customer
-      const min = entity.minTemperature ?? entity.temperatureMin ?? entity.tempMin;
-      const max = entity.maxTemperature ?? entity.temperatureMax ?? entity.tempMax;
+      // Standard: temperatureMin/temperatureMax (fallback: minTemperature/maxTemperature for TB attributes)
+      const min = entity.temperatureMin ?? entity.minTemperature ?? entity.tempMin;
+      const max = entity.temperatureMax ?? entity.maxTemperature ?? entity.tempMax;
 
       return {
         id: entity.id || entity.entityId,
@@ -1339,13 +1340,18 @@ const footerController = {
     }
 
     // Fallback global range from ctx.scope (if no per-device ranges)
+    // Standard: temperatureMin/temperatureMax (fallback: minTemperature/maxTemperature for TB scope)
     let globalTemperatureMin = null;
     let globalTemperatureMax = null;
 
-    if (ctx.scope?.minTemperature !== undefined) {
+    if (ctx.scope?.temperatureMin !== undefined) {
+      globalTemperatureMin = Number(ctx.scope.temperatureMin);
+    } else if (ctx.scope?.minTemperature !== undefined) {
       globalTemperatureMin = Number(ctx.scope.minTemperature);
     }
-    if (ctx.scope?.maxTemperature !== undefined) {
+    if (ctx.scope?.temperatureMax !== undefined) {
+      globalTemperatureMax = Number(ctx.scope.temperatureMax);
+    } else if (ctx.scope?.maxTemperature !== undefined) {
       globalTemperatureMax = Number(ctx.scope.maxTemperature);
     }
 

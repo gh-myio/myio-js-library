@@ -844,12 +844,13 @@ async function renderList(visible) {
     }
 
     // Calculate deviceStatus using ranges if available
+    let rangesWithSource = null;
     if (
       getConsumptionRangesHierarchical &&
       typeof MyIOLibrary.calculateDeviceStatusWithRanges === 'function'
     ) {
       try {
-        const rangesWithSource = await getConsumptionRangesHierarchical(
+        rangesWithSource = await getConsumptionRangesHierarchical(
           resolvedTbId,
           deviceType,
           deviceMapLimits || window.__customerConsumptionLimits, // TIER 0 (deviceMap) > TIER 2 (customer)
@@ -922,6 +923,15 @@ async function renderList(visible) {
       temperatureC: 0, // Temperatura (não disponível para lojas)
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER, // Global map from settings
       deviceMapInstaneousPower: it.deviceMapInstaneousPower || null, // Device-specific map
+      // Power ranges for tooltip visualization (uses rangesWithSource from deviceStatus calculation)
+      powerRanges: rangesWithSource ? {
+        standbyRange: rangesWithSource.standbyRange,
+        normalRange: rangesWithSource.normalRange,
+        alertRange: rangesWithSource.alertRange,
+        failureRange: rangesWithSource.failureRange,
+        source: rangesWithSource.source,
+        tier: rangesWithSource.tier,
+      } : null,
     };
 
     // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (default 60 minutes)
