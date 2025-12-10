@@ -3472,6 +3472,132 @@ const MyIOOrchestrator = (() => {
     return temperatureAverages;
   }
 
+  /**
+   * RFC-0100: Recalculate temperature filtered values using cached data
+   * Called when shopping filter changes but date range stays the same
+   * Avoids unnecessary API calls by reusing cached averages
+   */
+  function recalculateTemperatureFiltered() {
+    if (!temperatureCache || !temperatureCache.averages) {
+      LogHelper.log('[MAIN] RFC-0100: No temperature cache available for recalculation');
+      return null;
+    }
+
+    const { averages, ranges, allShoppingsData, globalAvg, startTs, endTs } = temperatureCache;
+    const globalCount = allShoppingsData?.length || 0;
+
+    LogHelper.log('[MAIN] RFC-0100: Recalculating temperature filtered values (no API call)');
+
+    // Calculate filtered average based on selected shoppings
+    let filteredAvg = globalAvg;
+    let filteredCount = globalCount;
+    const isFiltered =
+      selectedShoppingIds.length > 0 && selectedShoppingIds.length < globalCount;
+
+    const normalize = (str) =>
+      (str || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+
+    if (isFiltered) {
+      const selectedNames = (window.custumersSelected || []).map((s) => s.name);
+
+      let filteredSum = 0;
+      filteredCount = 0;
+
+      averages.forEach((avgData, ownerName) => {
+        if (avgData.avg == null) return;
+        const normalizedOwner = normalize(ownerName);
+        const matchesFilter = selectedNames.some((name) => {
+          const normalizedName = normalize(name);
+          return (
+            normalizedOwner === normalizedName ||
+            normalizedOwner.includes(normalizedName) ||
+            normalizedName.includes(normalizedOwner)
+          );
+        });
+
+        if (matchesFilter) {
+          filteredSum += avgData.avg;
+          filteredCount++;
+        }
+      });
+
+      filteredAvg = filteredCount > 0 ? filteredSum / filteredCount : globalAvg;
+    }
+
+    // Analyze in-range vs out-of-range vs unknown-range shoppings
+    const shoppingsInRange = [];
+    const shoppingsOutOfRange = [];
+    const shoppingsUnknownRange = [];
+
+    averages.forEach((avgData, ownerName) => {
+      if (avgData.avg == null) return;
+
+      const normalizedOwner = normalize(ownerName);
+
+      // Find matching range
+      let matchedRange = null;
+      ranges.forEach((range) => {
+        const normalizedLabel = normalize(range.entityLabel);
+        if (
+          normalizedLabel === normalizedOwner ||
+          normalizedLabel.includes(normalizedOwner) ||
+          normalizedOwner.includes(normalizedLabel)
+        ) {
+          matchedRange = range;
+        }
+      });
+
+      const shoppingInfo = {
+        name: ownerName,
+        avg: avgData.avg,
+        min: matchedRange?.min,
+        max: matchedRange?.max,
+      };
+
+      // Classify: in range, out of range, or unknown range
+      if (!matchedRange) {
+        shoppingsUnknownRange.push(shoppingInfo);
+      } else if (avgData.avg >= matchedRange.min && avgData.avg <= matchedRange.max) {
+        shoppingsInRange.push(shoppingInfo);
+      } else {
+        shoppingsOutOfRange.push(shoppingInfo);
+      }
+    });
+
+    // Update cache with recalculated values
+    temperatureCache = {
+      ...temperatureCache,
+      filteredAvg,
+      filteredCount,
+      isFiltered,
+      shoppingsInRange,
+      shoppingsOutOfRange,
+      shoppingsUnknownRange,
+    };
+
+    // Dispatch event for HEADER and other widgets
+    window.dispatchEvent(
+      new CustomEvent('myio:temperature-data-ready', {
+        detail: temperatureCache,
+      })
+    );
+
+    LogHelper.log('[MAIN] RFC-0100: Temperature data recalculated:', {
+      globalAvg: globalAvg?.toFixed(1),
+      filteredAvg: filteredAvg?.toFixed(1),
+      isFiltered,
+      inRange: shoppingsInRange.length,
+      outOfRange: shoppingsOutOfRange.length,
+      unknownRange: shoppingsUnknownRange.length,
+    });
+
+    return temperatureCache;
+  }
+
   // ===== RFC-0100: SHOPPING DATA MANAGEMENT =====
   let shoppingsCache = [];
 
@@ -4467,6 +4593,7 @@ const MyIOOrchestrator = (() => {
     getTemperatureCache,
     getTemperatureRanges,
     getTemperatureAverages,
+    recalculateTemperatureFiltered,
 
     // ===== RFC-0100: SHOPPING functions =====
     extractShoppings,
@@ -4734,13 +4861,13 @@ window.addEventListener('myio:request-temperature-data', async (ev) => {
   }
 });
 
-// Refresh temperature data when filter is applied
-window.addEventListener('myio:filter-applied', async (ev) => {
-  // Temperature data will be recalculated with new filter
+// Recalculate temperature data when filter is applied (no API call - reuse cached data)
+window.addEventListener('myio:filter-applied', (ev) => {
+  // Temperature data will be recalculated from cache with new filter
   const tempCache = window.MyIOOrchestrator?.getTemperatureCache?.();
-  if (tempCache && tempCache.startTs && tempCache.endTs) {
-    LogHelper.log('[MAIN] RFC-0100: Refreshing temperature data after filter change');
-    await window.MyIOOrchestrator.fetchTemperatureData(tempCache.startTs, tempCache.endTs);
+  if (tempCache && tempCache.averages) {
+    LogHelper.log('[MAIN] RFC-0100: Recalculating temperature data after filter change (no API call)');
+    window.MyIOOrchestrator.recalculateTemperatureFiltered();
   }
 });
 
