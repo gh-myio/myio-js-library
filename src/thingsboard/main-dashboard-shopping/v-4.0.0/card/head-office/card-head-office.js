@@ -420,6 +420,458 @@ function getCardStateClass(deviceStatus) {
 }
 
 /**
+ * Calculate temperature status based on range
+ * Returns CSS class for temperature range background
+ *
+ * @param {object} entityObject - Entity with temperature data
+ * @returns {string} CSS class: 'is-temp-cold' | 'is-temp-ok' | 'is-temp-hot' | ''
+ */
+function getTempRangeClass(entityObject) {
+  // Only for temperature domain
+  if (entityObject.domain !== 'temperature') return '';
+
+  // Get temperature value and range
+  const currentTemp = Number(entityObject.val ?? entityObject.currentTemperature ?? entityObject.temperature) || 0;
+  const tempMin = entityObject.temperatureMin ?? entityObject.minTemperature;
+  const tempMax = entityObject.temperatureMax ?? entityObject.maxTemperature;
+
+  // If no range configured, don't apply temperature class
+  if (tempMin === undefined || tempMax === undefined || tempMin === null || tempMax === null) {
+    return '';
+  }
+
+  // Calculate status based on range
+  if (currentTemp > tempMax) return 'is-temp-hot';   // Above ideal range - light red
+  if (currentTemp < tempMin) return 'is-temp-cold';  // Below ideal range - blue
+  return 'is-temp-ok';                                // Within ideal range - green
+}
+
+/**
+ * Temperature Range Tooltip - Shows ruler with current position and deviation
+ */
+const TempRangeTooltip = {
+  containerId: 'myio-temp-range-tooltip',
+
+  /**
+   * Create or get the tooltip container
+   */
+  getContainer() {
+    let container = document.getElementById(this.containerId);
+    if (!container) {
+      container = document.createElement('div');
+      container.id = this.containerId;
+      container.className = 'temp-range-tooltip';
+      document.body.appendChild(container);
+    }
+    return container;
+  },
+
+  /**
+   * Calculate temperature status and deviation
+   */
+  calculateStatus(currentTemp, tempMin, tempMax) {
+    if (tempMin == null || tempMax == null) {
+      return { status: 'unknown', deviation: null, deviationPercent: null };
+    }
+
+    const rangeSize = tempMax - tempMin;
+    const midPoint = (tempMin + tempMax) / 2;
+
+    if (currentTemp < tempMin) {
+      const deviation = tempMin - currentTemp;
+      const deviationPercent = rangeSize > 0 ? (deviation / rangeSize) * 100 : 0;
+      return { status: 'cold', deviation: -deviation, deviationPercent: -deviationPercent };
+    } else if (currentTemp > tempMax) {
+      const deviation = currentTemp - tempMax;
+      const deviationPercent = rangeSize > 0 ? (deviation / rangeSize) * 100 : 0;
+      return { status: 'hot', deviation: deviation, deviationPercent: deviationPercent };
+    } else {
+      // Within range - show deviation from midpoint
+      const deviationFromMid = currentTemp - midPoint;
+      const halfRange = rangeSize / 2;
+      const deviationPercent = halfRange > 0 ? (deviationFromMid / halfRange) * 100 : 0;
+      return { status: 'ok', deviation: deviationFromMid, deviationPercent: 0 };
+    }
+  },
+
+  /**
+   * Calculate marker position on ruler (0-100%)
+   */
+  calculateMarkerPosition(currentTemp, tempMin, tempMax) {
+    if (tempMin == null || tempMax == null) return 50;
+
+    // Extend visible range by 20% on each side for out-of-range temps
+    const rangeSize = tempMax - tempMin;
+    const extension = rangeSize * 0.3;
+    const visibleMin = tempMin - extension;
+    const visibleMax = tempMax + extension;
+    const visibleRange = visibleMax - visibleMin;
+
+    // Clamp current temp to visible range
+    const clampedTemp = Math.max(visibleMin, Math.min(visibleMax, currentTemp));
+    const position = ((clampedTemp - visibleMin) / visibleRange) * 100;
+
+    return Math.max(2, Math.min(98, position));
+  },
+
+  /**
+   * Show tooltip for a temperature card
+   * @param {HTMLElement} triggerElement - The card element
+   * @param {Object} entityObject - Entity data
+   * @param {MouseEvent} event - Mouse event for cursor position
+   */
+  show(triggerElement, entityObject, event) {
+    const container = this.getContainer();
+
+    const currentTemp = Number(entityObject.val ?? entityObject.currentTemperature ?? entityObject.temperature) || 0;
+    const tempMin = entityObject.temperatureMin ?? entityObject.minTemperature;
+    const tempMax = entityObject.temperatureMax ?? entityObject.maxTemperature;
+    const hasRange = tempMin != null && tempMax != null;
+
+    const { status, deviation, deviationPercent } = this.calculateStatus(currentTemp, tempMin, tempMax);
+    const markerPos = this.calculateMarkerPosition(currentTemp, tempMin, tempMax);
+
+    // Calculate green range position on ruler
+    let rangeLeft = 0, rangeWidth = 100;
+    if (hasRange) {
+      const rangeSize = tempMax - tempMin;
+      const extension = rangeSize * 0.3;
+      const visibleMin = tempMin - extension;
+      const visibleMax = tempMax + extension;
+      const visibleRange = visibleMax - visibleMin;
+      rangeLeft = ((tempMin - visibleMin) / visibleRange) * 100;
+      rangeWidth = (rangeSize / visibleRange) * 100;
+    }
+
+    // Format deviation text
+    let deviationText = '';
+    let deviationClass = status;
+    if (status === 'cold') {
+      deviationText = `${Math.abs(deviation).toFixed(1)}°C abaixo`;
+    } else if (status === 'hot') {
+      deviationText = `+${deviation.toFixed(1)}°C acima`;
+    } else if (status === 'ok') {
+      deviationText = 'Na faixa ideal';
+    } else {
+      deviationText = 'Faixa não configurada';
+    }
+
+    // Status labels
+    const statusLabels = {
+      cold: '❄️ Abaixo da Faixa Ideal',
+      ok: '✔️ Dentro da Faixa Ideal',
+      hot: '🔥 Acima da Faixa Ideal',
+      unknown: '❓ Faixa Não Configurada'
+    };
+
+    container.innerHTML = `
+      <div class="temp-range-tooltip__content">
+        <div class="temp-range-tooltip__header">
+          <span class="temp-range-tooltip__icon">🌡️</span>
+          <span class="temp-range-tooltip__title">${entityObject.labelOrName || entityObject.name || 'Sensor'}</span>
+        </div>
+        <div class="temp-range-tooltip__body">
+          <div class="temp-range-tooltip__value-row">
+            <div class="temp-range-tooltip__current">
+              ${currentTemp.toFixed(1)}<sup>°C</sup>
+            </div>
+            <div class="temp-range-tooltip__deviation">
+              <div class="temp-range-tooltip__deviation-value ${deviationClass}">
+                ${status === 'ok' ? '✓' : (status === 'cold' ? '↓' : (status === 'hot' ? '↑' : '?'))} ${Math.abs(deviationPercent || 0).toFixed(0)}%
+              </div>
+              <div class="temp-range-tooltip__deviation-label">Desvio</div>
+            </div>
+          </div>
+
+          ${hasRange ? `
+          <div class="temp-range-tooltip__ruler">
+            <div class="temp-range-tooltip__ruler-track"></div>
+            <div class="temp-range-tooltip__ruler-range" style="left: ${rangeLeft}%; width: ${rangeWidth}%;"></div>
+            <div class="temp-range-tooltip__ruler-marker" style="left: ${markerPos}%;"></div>
+          </div>
+          <div class="temp-range-tooltip__ruler-labels">
+            <span class="temp-range-tooltip__ruler-min">${tempMin}°C</span>
+            <span style="color: #22c55e; font-weight: 600;">Faixa Ideal</span>
+            <span class="temp-range-tooltip__ruler-max">${tempMax}°C</span>
+          </div>
+          ` : ''}
+
+          <div class="temp-range-tooltip__range-info">
+            <div class="temp-range-tooltip__range-item">
+              <div class="temp-range-tooltip__range-label">Mínimo</div>
+              <div class="temp-range-tooltip__range-value">${hasRange ? tempMin + '°C' : '--'}</div>
+            </div>
+            <div class="temp-range-tooltip__range-item">
+              <div class="temp-range-tooltip__range-label">Atual</div>
+              <div class="temp-range-tooltip__range-value" style="color: ${status === 'ok' ? '#16a34a' : (status === 'cold' ? '#2563eb' : '#dc2626')}">${currentTemp.toFixed(1)}°C</div>
+            </div>
+            <div class="temp-range-tooltip__range-item">
+              <div class="temp-range-tooltip__range-label">Máximo</div>
+              <div class="temp-range-tooltip__range-value">${hasRange ? tempMax + '°C' : '--'}</div>
+            </div>
+          </div>
+
+          <div class="temp-range-tooltip__status ${status}">
+            ${statusLabels[status]}
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Position tooltip at cursor position
+    let left, top;
+    if (event && event.clientX && event.clientY) {
+      // Use cursor position with small offset
+      left = event.clientX + 15;
+      top = event.clientY + 15;
+    } else {
+      // Fallback to element position
+      const rect = triggerElement.getBoundingClientRect();
+      left = rect.left + rect.width / 2 - 150;
+      top = rect.bottom + 8;
+    }
+
+    // Adjust if goes off screen
+    const tooltipWidth = 300;
+    const tooltipHeight = 350;
+    if (left + tooltipWidth > window.innerWidth - 10) {
+      left = (event?.clientX || left) - tooltipWidth - 15;
+    }
+    if (left < 10) left = 10;
+    if (top + tooltipHeight > window.innerHeight - 10) {
+      top = (event?.clientY || top) - tooltipHeight - 15;
+    }
+    if (top < 10) top = 10;
+
+    container.style.left = left + 'px';
+    container.style.top = top + 'px';
+    container.classList.add('visible');
+  },
+
+  /**
+   * Hide tooltip
+   */
+  hide() {
+    const container = document.getElementById(this.containerId);
+    if (container) {
+      container.classList.remove('visible');
+    }
+  }
+};
+
+/**
+ * Energy Range Tooltip - Shows power ruler with ranges and current status
+ */
+const EnergyRangeTooltip = {
+  containerId: 'myio-energy-range-tooltip',
+
+  /**
+   * Create or get the tooltip container
+   */
+  getContainer() {
+    let container = document.getElementById(this.containerId);
+    if (!container) {
+      container = document.createElement('div');
+      container.id = this.containerId;
+      container.className = 'energy-range-tooltip';
+      document.body.appendChild(container);
+    }
+    return container;
+  },
+
+  /**
+   * Determine status based on power value and ranges
+   */
+  calculateStatus(powerValue, ranges) {
+    if (!ranges || powerValue == null) {
+      return { status: 'offline', label: 'Sem dados' };
+    }
+
+    const power = Number(powerValue) || 0;
+    const { standbyRange, normalRange, alertRange, failureRange } = ranges;
+
+    if (standbyRange && power >= standbyRange.down && power <= standbyRange.up) {
+      return { status: 'standby', label: 'Standby' };
+    }
+    if (normalRange && power >= normalRange.down && power <= normalRange.up) {
+      return { status: 'normal', label: 'Normal' };
+    }
+    if (alertRange && power >= alertRange.down && power <= alertRange.up) {
+      return { status: 'alert', label: 'Alerta' };
+    }
+    if (failureRange && power >= failureRange.down && power <= failureRange.up) {
+      return { status: 'failure', label: 'Falha' };
+    }
+
+    return { status: 'offline', label: 'Fora da faixa' };
+  },
+
+  /**
+   * Calculate marker position on ruler (0-100%)
+   */
+  calculateMarkerPosition(powerValue, ranges) {
+    if (!ranges) return 50;
+
+    const power = Number(powerValue) || 0;
+    const maxRange = ranges.failureRange?.up || ranges.alertRange?.up || 1000;
+
+    // Use 80% of ruler for normal display, leave room for failure range
+    const displayMax = Math.min(maxRange, (ranges.alertRange?.up || maxRange) * 1.2);
+    const position = (power / displayMax) * 100;
+
+    return Math.max(2, Math.min(98, position));
+  },
+
+  /**
+   * Calculate segment widths for the ruler
+   */
+  calculateSegmentWidths(ranges) {
+    if (!ranges) return { standby: 25, normal: 25, alert: 25, failure: 25 };
+
+    const maxValue = ranges.failureRange?.up || 10000;
+    const total = Math.min(maxValue, (ranges.alertRange?.up || maxValue) * 1.2);
+
+    return {
+      standby: ((ranges.standbyRange?.up || 0) / total) * 100,
+      normal: (((ranges.normalRange?.up || 0) - (ranges.normalRange?.down || 0)) / total) * 100,
+      alert: (((ranges.alertRange?.up || 0) - (ranges.alertRange?.down || 0)) / total) * 100,
+      failure: Math.max(5, 100 - ((ranges.alertRange?.up || 0) / total) * 100)
+    };
+  },
+
+  /**
+   * Format power value for display
+   */
+  formatPower(value) {
+    if (value == null || isNaN(value)) return '-';
+    const num = Number(value);
+    if (num >= 1000) {
+      return `${(num / 1000).toFixed(2)} kW`;
+    }
+    return `${Math.round(num)} W`;
+  },
+
+  /**
+   * Show tooltip for an energy card
+   */
+  show(triggerElement, entityObject, event) {
+    const container = this.getContainer();
+
+    const powerValue = entityObject.instantaneousPower ?? entityObject.consumption_power ?? 0;
+    const ranges = entityObject.powerRanges || entityObject.ranges;
+    const hasRanges = ranges && ranges.normalRange;
+
+    const { status, label } = this.calculateStatus(powerValue, ranges);
+    const markerPos = this.calculateMarkerPosition(powerValue, ranges);
+    const segmentWidths = this.calculateSegmentWidths(ranges);
+
+    // Status labels mapping
+    const statusLabels = {
+      standby: '🔵 Standby',
+      normal: '✅ Operação Normal',
+      alert: '⚠️ Alerta',
+      failure: '🔴 Falha',
+      offline: '⚫ Offline / Sem dados'
+    };
+
+    container.innerHTML = `
+      <div class="energy-range-tooltip__content">
+        <div class="energy-range-tooltip__header">
+          <span class="energy-range-tooltip__icon">⚡</span>
+          <span class="energy-range-tooltip__title">${entityObject.labelOrName || entityObject.name || 'Equipamento'}</span>
+        </div>
+        <div class="energy-range-tooltip__body">
+          <div class="energy-range-tooltip__value-row">
+            <div class="energy-range-tooltip__current">
+              ${this.formatPower(powerValue)}
+            </div>
+            <div class="energy-range-tooltip__status-badge">
+              <span class="energy-range-tooltip__status-value ${status}">${label}</span>
+            </div>
+          </div>
+
+          ${hasRanges ? `
+          <div class="energy-range-tooltip__ruler">
+            <div class="energy-range-tooltip__ruler-track">
+              <div class="energy-range-tooltip__ruler-segment standby" style="width: ${segmentWidths.standby}%"></div>
+              <div class="energy-range-tooltip__ruler-segment normal" style="width: ${segmentWidths.normal}%"></div>
+              <div class="energy-range-tooltip__ruler-segment alert" style="width: ${segmentWidths.alert}%"></div>
+              <div class="energy-range-tooltip__ruler-segment failure" style="width: ${segmentWidths.failure}%"></div>
+            </div>
+            <div class="energy-range-tooltip__ruler-marker" style="left: ${markerPos}%;"></div>
+          </div>
+
+          <div class="energy-range-tooltip__ranges">
+            <div class="energy-range-tooltip__range-item standby">
+              <div class="energy-range-tooltip__range-label">Standby</div>
+              <div class="energy-range-tooltip__range-value">${ranges.standbyRange?.down || 0}-${ranges.standbyRange?.up || 0}W</div>
+            </div>
+            <div class="energy-range-tooltip__range-item normal">
+              <div class="energy-range-tooltip__range-label">Normal</div>
+              <div class="energy-range-tooltip__range-value">${ranges.normalRange?.down || 0}-${ranges.normalRange?.up || 0}W</div>
+            </div>
+            <div class="energy-range-tooltip__range-item alert">
+              <div class="energy-range-tooltip__range-label">Alerta</div>
+              <div class="energy-range-tooltip__range-value">${ranges.alertRange?.down || 0}-${ranges.alertRange?.up || 0}W</div>
+            </div>
+            <div class="energy-range-tooltip__range-item failure">
+              <div class="energy-range-tooltip__range-label">Falha</div>
+              <div class="energy-range-tooltip__range-value">&gt;${ranges.failureRange?.down || 0}W</div>
+            </div>
+          </div>
+          ` : `
+          <div style="text-align: center; padding: 16px; color: #64748b; font-size: 12px;">
+            Ranges de potência não configurados
+          </div>
+          `}
+
+          <div class="energy-range-tooltip__status-info ${status}">
+            ${statusLabels[status] || statusLabels.offline}
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Position tooltip at cursor position
+    let left, top;
+    if (event && event.clientX && event.clientY) {
+      left = event.clientX + 15;
+      top = event.clientY + 15;
+    } else {
+      const rect = triggerElement.getBoundingClientRect();
+      left = rect.left + rect.width / 2 - 150;
+      top = rect.bottom + 8;
+    }
+
+    // Adjust if goes off screen
+    const tooltipWidth = 320;
+    const tooltipHeight = 380;
+    if (left + tooltipWidth > window.innerWidth - 10) {
+      left = (event?.clientX || left) - tooltipWidth - 15;
+    }
+    if (left < 10) left = 10;
+    if (top + tooltipHeight > window.innerHeight - 10) {
+      top = (event?.clientY || top) - tooltipHeight - 15;
+    }
+    if (top < 10) top = 10;
+
+    container.style.left = left + 'px';
+    container.style.top = top + 'px';
+    container.classList.add('visible');
+  },
+
+  /**
+   * Hide tooltip
+   */
+  hide() {
+    const container = document.getElementById(this.containerId);
+    if (container) {
+      container.classList.remove('visible');
+    }
+  }
+};
+
+/**
  * Get status dot class for power metric indicator
  *
  * Dot classes aligned with getCardStateClass:
@@ -1007,13 +1459,20 @@ function paint(root, state) {
 
   // Update card state class using deviceStatus
   const stateClass = getCardStateClass(entityObject.deviceStatus);
-  root.className = `myio-ho-card ${stateClass}`;
+  const tempRangeClass = getTempRangeClass(entityObject);
+  root.className = `myio-ho-card ${stateClass} ${tempRangeClass}`.trim();
 
   // Update status chip using deviceStatus
   const statusInfo = getStatusInfo(entityObject.deviceStatus, i18n, entityObject.domain);
   const chip = root.querySelector('.chip');
   chip.className = `chip ${statusInfo.chipClass}`;
   chip.innerHTML = statusInfo.label;
+
+  // Update icon based on domain (ensures correct icon after updates)
+  const iconContainer = root.querySelector('.myio-ho-card__icon');
+  if (iconContainer) {
+    iconContainer.innerHTML = getIconSvg(entityObject.deviceType, entityObject.domain);
+  }
 
   // Debug tooltip for chip (when activeTooltipDebug is enabled)
   if (activeTooltipDebug) {
@@ -1070,19 +1529,16 @@ function paint(root, state) {
     effContainer.style.display = 'none';
   }
 
-  // Update footer metrics
+  // Update footer metrics - primeiro campo sempre mostra tempo de operação
+  // Se deviceStatus for OFFLINE, não mostrar operationHours (mostrar "-")
   const opTimeVal = root.querySelector('.myio-ho-card__footer .metric:nth-child(1) .val');
   const opTimeLabel = root.querySelector('.myio-ho-card__footer .metric:nth-child(1) .label');
   if (opTimeVal) {
-    if (entityObject.domain === 'temperature') {
-      // Para temperatura, mostrar temperatura atual no primeiro campo
-      if (opTimeLabel) opTimeLabel.textContent = 'Temp. Atual';
-      const currentTemp = entityObject.currentTemperature ?? entityObject.temperature ?? entityObject.val ?? null;
-      opTimeVal.textContent = currentTemp !== null ? `${Number(currentTemp).toFixed(1)}°C` : '-';
-    } else {
-      if (opTimeLabel) opTimeLabel.textContent = i18n.operation_time;
-      opTimeVal.textContent = entityObject.operationHours ?? '-';
-    }
+    if (opTimeLabel) opTimeLabel.textContent = i18n.operation_time;
+    const isOffline = entityObject.deviceStatus === DeviceStatusType.OFFLINE ||
+                      entityObject.deviceStatus === 'offline' ||
+                      entityObject.deviceStatus === DeviceStatusType.NO_INFO;
+    opTimeVal.textContent = isOffline ? '-' : (entityObject.operationHours ?? '-');
   }
 
   // Instantaneous Power (W/kW) - value comes in Watts
@@ -1205,6 +1661,40 @@ function bindEvents(root, state, callbacks) {
     root._selectionListener = onSelectionChange;
   }
 
+  // Temperature range tooltip (only for domain=temperature)
+  if (entityObject.domain === 'temperature') {
+    const showTooltip = (e) => {
+      TempRangeTooltip.show(root, state.entityObject, e);
+    };
+    const hideTooltip = () => {
+      TempRangeTooltip.hide();
+    };
+
+    root.addEventListener('mouseenter', showTooltip);
+    root.addEventListener('mouseleave', hideTooltip);
+
+    // Store references for cleanup
+    root._tempTooltipShowFn = showTooltip;
+    root._tempTooltipHideFn = hideTooltip;
+  }
+
+  // Energy range tooltip (only for domain=energy)
+  if (entityObject.domain === 'energy') {
+    const showEnergyTooltip = (e) => {
+      EnergyRangeTooltip.show(root, state.entityObject, e);
+    };
+    const hideEnergyTooltip = () => {
+      EnergyRangeTooltip.hide();
+    };
+
+    root.addEventListener('mouseenter', showEnergyTooltip);
+    root.addEventListener('mouseleave', hideEnergyTooltip);
+
+    // Store references for cleanup
+    root._energyTooltipShowFn = showEnergyTooltip;
+    root._energyTooltipHideFn = hideEnergyTooltip;
+  }
+
   // Store cleanup functions
   root._cleanup = () => {
     document.removeEventListener('click', closeMenu);
@@ -1213,6 +1703,20 @@ function bindEvents(root, state, callbacks) {
     // [NOVO] Remove o ouvinte da Store quando o card morrer
     if (MyIOSelectionStore && root._selectionListener) {
       MyIOSelectionStore.off('selection:change', root._selectionListener);
+    }
+
+    // Cleanup temperature tooltip events
+    if (root._tempTooltipShowFn) {
+      root.removeEventListener('mouseenter', root._tempTooltipShowFn);
+      root.removeEventListener('mouseleave', root._tempTooltipHideFn);
+      TempRangeTooltip.hide();
+    }
+
+    // Cleanup energy tooltip events
+    if (root._energyTooltipShowFn) {
+      root.removeEventListener('mouseenter', root._energyTooltipShowFn);
+      root.removeEventListener('mouseleave', root._energyTooltipHideFn);
+      EnergyRangeTooltip.hide();
     }
   };
 

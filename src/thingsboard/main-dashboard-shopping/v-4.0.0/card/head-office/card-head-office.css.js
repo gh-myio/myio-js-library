@@ -48,6 +48,14 @@ export const CSS_STRING = `
   --myio-chip-not-installed-fg: #7c3aed;
   --myio-border-not-installed: rgba(124, 58, 237, 0.5);
 
+  /* Temperature range colors - solid backgrounds for better visibility */
+  --myio-temp-cold-bg: #dbeafe;           /* Blue 100 - below ideal range */
+  --myio-temp-cold-border: rgba(59, 130, 246, 0.6);
+  --myio-temp-ok-bg: #dcfce7;             /* Green 100 - within ideal range */
+  --myio-temp-ok-border: rgba(34, 197, 94, 0.6);
+  --myio-temp-hot-bg: #fee2e2;            /* Red 100 - above ideal range */
+  --myio-temp-hot-border: rgba(239, 68, 68, 0.6);
+
   --myio-text-1: #0f172a;
   --myio-text-2: #4b5563;
   --myio-muted: #94a3b8;
@@ -149,6 +157,25 @@ export const CSS_STRING = `
 .myio-ho-card.is-not-installed {
   border-color: var(--myio-border-not-installed);
   box-shadow: 0 0 0 2px var(--myio-border-not-installed), var(--myio-card-shadow);
+}
+
+/* Temperature range backgrounds (domain=temperature only) */
+.myio-ho-card.is-temp-cold {
+  background: var(--myio-temp-cold-bg);
+  border-color: var(--myio-temp-cold-border);
+  box-shadow: 0 0 0 2px var(--myio-temp-cold-border), var(--myio-card-shadow);
+}
+
+.myio-ho-card.is-temp-ok {
+  background: var(--myio-temp-ok-bg);
+  border-color: var(--myio-temp-ok-border);
+  box-shadow: 0 0 0 2px var(--myio-temp-ok-border), var(--myio-card-shadow);
+}
+
+.myio-ho-card.is-temp-hot {
+  background: var(--myio-temp-hot-bg);
+  border-color: var(--myio-temp-hot-border);
+  box-shadow: 0 0 0 2px var(--myio-temp-hot-border), var(--myio-card-shadow);
 }
 
 /* Header section */
@@ -1073,5 +1100,503 @@ export const CSS_STRING = `
 
 .debug-tooltip__content::-webkit-scrollbar-thumb:hover {
   background: rgba(99, 102, 241, 0.6);
+}
+
+/* ============================================
+   Temperature Range Tooltip (for domain=temperature)
+   Shows temperature ruler with current position and deviation
+   ============================================ */
+.temp-range-tooltip {
+  position: fixed;
+  z-index: 99999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(5px);
+}
+
+.temp-range-tooltip.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.temp-range-tooltip__content {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.08);
+  min-width: 280px;
+  max-width: 320px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  color: #1e293b;
+  overflow: hidden;
+}
+
+.temp-range-tooltip__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: linear-gradient(90deg, #fff7ed 0%, #fed7aa 100%);
+  border-bottom: 1px solid #fdba74;
+}
+
+.temp-range-tooltip__icon {
+  font-size: 18px;
+}
+
+.temp-range-tooltip__title {
+  font-weight: 700;
+  font-size: 13px;
+  color: #c2410c;
+}
+
+.temp-range-tooltip__body {
+  padding: 16px;
+}
+
+/* Temperature value display */
+.temp-range-tooltip__value-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.temp-range-tooltip__current {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.temp-range-tooltip__current sup {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.temp-range-tooltip__deviation {
+  text-align: right;
+}
+
+.temp-range-tooltip__deviation-value {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.temp-range-tooltip__deviation-value.cold {
+  color: #2563eb;
+}
+
+.temp-range-tooltip__deviation-value.ok {
+  color: #16a34a;
+}
+
+.temp-range-tooltip__deviation-value.hot {
+  color: #dc2626;
+}
+
+.temp-range-tooltip__deviation-label {
+  font-size: 10px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Temperature ruler/gauge */
+.temp-range-tooltip__ruler {
+  position: relative;
+  height: 32px;
+  margin: 12px 0;
+  border-radius: 8px;
+  overflow: visible;
+}
+
+.temp-range-tooltip__ruler-track {
+  position: absolute;
+  top: 12px;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: linear-gradient(90deg, #dbeafe 0%, #dcfce7 50%, #fee2e2 100%);
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.temp-range-tooltip__ruler-range {
+  position: absolute;
+  top: 12px;
+  height: 8px;
+  background: #22c55e;
+  border-radius: 4px;
+  opacity: 0.6;
+}
+
+.temp-range-tooltip__ruler-marker {
+  position: absolute;
+  top: 4px;
+  width: 4px;
+  height: 24px;
+  background: #1e293b;
+  border-radius: 2px;
+  transform: translateX(-50%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.temp-range-tooltip__ruler-marker::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 12px;
+  background: #1e293b;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.temp-range-tooltip__ruler-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 10px;
+  color: #64748b;
+}
+
+.temp-range-tooltip__ruler-min,
+.temp-range-tooltip__ruler-max {
+  font-weight: 600;
+}
+
+/* Range info */
+.temp-range-tooltip__range-info {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+
+.temp-range-tooltip__range-item {
+  text-align: center;
+}
+
+.temp-range-tooltip__range-label {
+  font-size: 10px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.temp-range-tooltip__range-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* Status badge */
+.temp-range-tooltip__status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.temp-range-tooltip__status.cold {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+
+.temp-range-tooltip__status.ok {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.temp-range-tooltip__status.hot {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.temp-range-tooltip__status.unknown {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+/* ============================================
+   Energy Range Tooltip (for domain=energy)
+   Shows power ruler with current position and status ranges
+   ============================================ */
+.energy-range-tooltip {
+  position: fixed;
+  z-index: 99999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(5px);
+}
+
+.energy-range-tooltip.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.energy-range-tooltip__content {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.08);
+  min-width: 300px;
+  max-width: 360px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  color: #1e293b;
+  overflow: hidden;
+}
+
+.energy-range-tooltip__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: linear-gradient(90deg, #ecfdf5 0%, #d1fae5 100%);
+  border-bottom: 1px solid #6ee7b7;
+}
+
+.energy-range-tooltip__icon {
+  font-size: 18px;
+}
+
+.energy-range-tooltip__title {
+  font-weight: 700;
+  font-size: 13px;
+  color: #047857;
+}
+
+.energy-range-tooltip__body {
+  padding: 16px;
+}
+
+/* Power value display */
+.energy-range-tooltip__value-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.energy-range-tooltip__current {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.energy-range-tooltip__current sup {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.energy-range-tooltip__status-badge {
+  text-align: right;
+}
+
+.energy-range-tooltip__status-value {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.energy-range-tooltip__status-value.standby {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.energy-range-tooltip__status-value.normal {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.energy-range-tooltip__status-value.alert {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.energy-range-tooltip__status-value.failure {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.energy-range-tooltip__status-value.offline {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Power ruler/gauge */
+.energy-range-tooltip__ruler {
+  position: relative;
+  height: 40px;
+  margin: 12px 0;
+  border-radius: 8px;
+  overflow: visible;
+}
+
+.energy-range-tooltip__ruler-track {
+  position: absolute;
+  top: 16px;
+  left: 0;
+  right: 0;
+  height: 8px;
+  display: flex;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.energy-range-tooltip__ruler-segment {
+  height: 100%;
+}
+
+.energy-range-tooltip__ruler-segment.standby {
+  background: #dbeafe;
+}
+
+.energy-range-tooltip__ruler-segment.normal {
+  background: #dcfce7;
+}
+
+.energy-range-tooltip__ruler-segment.alert {
+  background: #fef3c7;
+}
+
+.energy-range-tooltip__ruler-segment.failure {
+  background: #fee2e2;
+}
+
+.energy-range-tooltip__ruler-marker {
+  position: absolute;
+  top: 8px;
+  width: 4px;
+  height: 24px;
+  background: #1e293b;
+  border-radius: 2px;
+  transform: translateX(-50%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.energy-range-tooltip__ruler-marker::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 12px;
+  background: #1e293b;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Range info grid */
+.energy-range-tooltip__ranges {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.energy-range-tooltip__range-item {
+  text-align: center;
+  padding: 8px 4px;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.energy-range-tooltip__range-item.standby {
+  border-left: 3px solid #3b82f6;
+}
+
+.energy-range-tooltip__range-item.normal {
+  border-left: 3px solid #22c55e;
+}
+
+.energy-range-tooltip__range-item.alert {
+  border-left: 3px solid #f59e0b;
+}
+
+.energy-range-tooltip__range-item.failure {
+  border-left: 3px solid #ef4444;
+}
+
+.energy-range-tooltip__range-label {
+  font-size: 9px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.energy-range-tooltip__range-value {
+  font-size: 11px;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* Status info */
+.energy-range-tooltip__status-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.energy-range-tooltip__status-info.standby {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+
+.energy-range-tooltip__status-info.normal {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.energy-range-tooltip__status-info.alert {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+
+.energy-range-tooltip__status-info.failure {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.energy-range-tooltip__status-info.offline {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
 }
 `;
