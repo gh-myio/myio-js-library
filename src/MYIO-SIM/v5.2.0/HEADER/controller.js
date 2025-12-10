@@ -1311,6 +1311,13 @@ window.addEventListener('myio:energy-data-ready', (ev) => {
 window.addEventListener('myio:water-data-ready', (ev) => {
   //LogHelper.log('[HEADER] ✅ Dados de ÁGUA recebidos do Orchestrator:', ev.detail);
 
+  // RFC: Skip update if water-summary-ready already set comparative display
+  // The water-summary-ready event has priority as it includes filtered/unfiltered comparison
+  if (window._headerWaterData?.isFiltered) {
+    LogHelper.log('[HEADER] Skipping water-data-ready - summary with filter already applied');
+    return;
+  }
+
   // Se 'ev.detail.cache' existir, atualiza o card
   if (ev.detail && ev.detail.cache) {
     updateWaterCard(ev.detail.cache);
@@ -1343,11 +1350,7 @@ function updateWaterCardWithSummary(summary) {
 
   if (!waterKpi) return;
 
-  const {
-    filteredTotal = 0,
-    unfilteredTotal = 0,
-    isFiltered = false,
-  } = summary;
+  const { filteredTotal = 0, unfilteredTotal = 0, isFiltered = false } = summary;
 
   const formatWater = (val) =>
     typeof MyIOLibrary?.formatWaterVolumeM3 === 'function'
@@ -1370,7 +1373,9 @@ function updateWaterCardWithSummary(summary) {
     if (waterTrend) {
       waterTrend.innerText = `${percentage}%`;
     }
-    LogHelper.log(`[HEADER] Water card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`);
+    LogHelper.log(
+      `[HEADER] Water card updated (filtered): ${formattedFiltered} / ${formattedTotal} (${percentage}%)`
+    );
   } else {
     const formatted = formatWater(filteredTotal);
     waterKpi.innerText = formatted;
@@ -1423,9 +1428,8 @@ window.addEventListener('myio:orchestrator-filter-updated', (ev) => {
   if (window.MyIOOrchestrator?.getEnergyCache) {
     updateEnergyCard(window.MyIOOrchestrator.getEnergyCache());
   }
-  if (window.MyIOOrchestrator?.getWaterCache) {
-    updateWaterCard(window.MyIOOrchestrator.getWaterCache());
-  }
+  // RFC: Water card is now updated via water-summary-ready event which includes comparative
+  // Don't call updateWaterCard here as it would overwrite the comparative display
 });
 
 // ===== HEADER: Listen for water totals calculated from valid TB aliases =====
@@ -1433,6 +1437,13 @@ window.addEventListener('myio:orchestrator-filter-updated', (ev) => {
 window.addEventListener('myio:water-totals-updated', (ev) => {
   const { commonArea, stores, total } = ev.detail || {};
   LogHelper.log('[HEADER] 💧 heard myio:water-totals-updated:', { commonArea, stores, total });
+
+  // RFC: Skip update if water-summary-ready already set comparative display
+  // The water-summary-ready event has priority as it includes filtered/unfiltered comparison
+  if (window._headerWaterData?.isFiltered) {
+    LogHelper.log('[HEADER] Skipping water-totals-updated - summary with filter already applied');
+    return;
+  }
 
   // Atualizar card de água com total calculado (apenas IDs válidos dos Aliases TB)
   const waterKpi = document.getElementById('water-kpi');
@@ -1718,13 +1729,17 @@ function showTemperatureTooltip(triggerElement, data) {
         </div>
         <div class="temp-tooltip__list">
           ${shoppingsUnknownRange
-            .map((s) => `
+            .map(
+              (s) => `
             <div class="temp-tooltip__list-item temp-tooltip__list-item--unknown">
               <span class="temp-tooltip__list-icon">?</span>
-              <span class="temp-tooltip__list-name">${s.name} <span class="temp-tooltip__list-range">(faixa não configurada)</span></span>
+              <span class="temp-tooltip__list-name">${
+                s.name
+              } <span class="temp-tooltip__list-range">(faixa não configurada)</span></span>
               <span class="temp-tooltip__list-value">${s.avg?.toFixed(1)}°C</span>
             </div>
-          `)
+          `
+            )
             .join('')}
         </div>
       </div>
@@ -1737,7 +1752,8 @@ function showTemperatureTooltip(triggerElement, data) {
     statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--info">Aguardando dados</span>';
   } else if (shoppingsUnknownRange.length === totalShoppings) {
     // All shoppings have unknown range
-    statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--info">❓ Faixas não configuradas</span>';
+    statusBadge =
+      '<span class="temp-tooltip__badge temp-tooltip__badge--info">❓ Faixas não configuradas</span>';
   } else if (shoppingsOutOfRange.length === 0 && shoppingsUnknownRange.length === 0) {
     statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--ok">✔ Todos na faixa</span>';
   } else if (shoppingsInRange.length === 0 && shoppingsUnknownRange.length === 0) {
@@ -1745,7 +1761,8 @@ function showTemperatureTooltip(triggerElement, data) {
   } else if (shoppingsOutOfRange.length > 0) {
     statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--warn">⚠ Alguns fora da faixa</span>';
   } else if (shoppingsUnknownRange.length > 0) {
-    statusBadge = '<span class="temp-tooltip__badge temp-tooltip__badge--info">❓ Algumas faixas não configuradas</span>';
+    statusBadge =
+      '<span class="temp-tooltip__badge temp-tooltip__badge--info">❓ Algumas faixas não configuradas</span>';
   }
 
   container.innerHTML = `
@@ -2018,11 +2035,9 @@ function showEnergyTooltip(triggerElement, data) {
 
   const {
     customerTotal = 0,
-    unfilteredTotal = 0,
     equipmentsTotal = 0,
     lojasTotal = 0,
     deviceCount = 0,
-    isFiltered = false,
     shoppingsEnergy = [],
   } = data || {};
 
@@ -2053,14 +2068,18 @@ function showEnergyTooltip(triggerElement, data) {
           </thead>
           <tbody>
             ${shoppingsEnergy
-              .sort((a, b) => ((b.equipamentos || 0) + (b.lojas || 0)) - ((a.equipamentos || 0) + (a.lojas || 0)))
-              .map((s) => `
+              .sort(
+                (a, b) => (b.equipamentos || 0) + (b.lojas || 0) - ((a.equipamentos || 0) + (a.lojas || 0))
+              )
+              .map(
+                (s) => `
                 <tr>
                   <td>${s.name}</td>
                   <td>${formatEnergy(s.equipamentos)}</td>
                   <td>${formatEnergy(s.lojas)}</td>
                 </tr>
-              `)
+              `
+              )
               .join('')}
           </tbody>
         </table>
@@ -2081,7 +2100,9 @@ function showEnergyTooltip(triggerElement, data) {
           </div>
           <div class="energy-tooltip__row">
             <span class="energy-tooltip__label">Consumo Total:</span>
-            <span class="energy-tooltip__value energy-tooltip__value--highlight">${formatEnergy(customerTotal)}</span>
+            <span class="energy-tooltip__value energy-tooltip__value--highlight">${formatEnergy(
+              customerTotal
+            )}</span>
           </div>
           <div class="energy-tooltip__row">
             <span class="energy-tooltip__label">Equipamentos:</span>
@@ -2326,15 +2347,7 @@ function showWaterTooltip(triggerElement, data) {
     LogHelper.log('[HEADER] Created new water tooltip container');
   }
 
-  const {
-    filteredTotal = 0,
-    unfilteredTotal = 0,
-    commonArea = 0,
-    stores = 0,
-    deviceCount = 0,
-    isFiltered = false,
-    shoppingsWater = [],
-  } = data || {};
+  const { filteredTotal = 0, commonArea = 0, stores = 0, deviceCount = 0, shoppingsWater = [] } = data || {};
 
   // Format water value
   const formatWater = (val) => {
@@ -2363,14 +2376,16 @@ function showWaterTooltip(triggerElement, data) {
           </thead>
           <tbody>
             ${shoppingsWater
-              .sort((a, b) => ((b.areaComum || 0) + (b.lojas || 0)) - ((a.areaComum || 0) + (a.lojas || 0)))
-              .map((s) => `
+              .sort((a, b) => (b.areaComum || 0) + (b.lojas || 0) - ((a.areaComum || 0) + (a.lojas || 0)))
+              .map(
+                (s) => `
                 <tr>
                   <td>${s.name}</td>
                   <td>${formatWater(s.areaComum)}</td>
                   <td>${formatWater(s.lojas)}</td>
                 </tr>
-              `)
+              `
+              )
               .join('')}
           </tbody>
         </table>
@@ -2391,7 +2406,9 @@ function showWaterTooltip(triggerElement, data) {
           </div>
           <div class="water-tooltip__row">
             <span class="water-tooltip__label">Consumo Total:</span>
-            <span class="water-tooltip__value water-tooltip__value--highlight">${formatWater(filteredTotal)}</span>
+            <span class="water-tooltip__value water-tooltip__value--highlight">${formatWater(
+              filteredTotal
+            )}</span>
           </div>
           <div class="water-tooltip__row">
             <span class="water-tooltip__label">Área Comum:</span>
@@ -2512,7 +2529,7 @@ function createEquipmentTooltip() {
       }
       .equip-tooltip__content {
         padding: 16px 18px;
-        max-height: 500px;
+        max-height: 550px;
         overflow-y: auto;
       }
       .equip-tooltip__section {
@@ -2652,9 +2669,7 @@ function showEquipmentTooltip(triggerElement, data) {
     categoryOrder.forEach((key) => {
       const cat = categories[key];
       if (cat) {
-        const displayValue = allShoppingsSelected
-          ? cat.total
-          : `${cat.filtered} / ${cat.total}`;
+        const displayValue = allShoppingsSelected ? cat.total : `${cat.filtered} / ${cat.total}`;
         const percentage = cat.total > 0 ? Math.round((cat.filtered / cat.total) * 100) : 0;
         const percentText = !allShoppingsSelected ? ` (${percentage}%)` : '';
 
@@ -2663,7 +2678,9 @@ function showEquipmentTooltip(triggerElement, data) {
             <span class="equip-tooltip__category-icon">${cat.icon}</span>
             <div class="equip-tooltip__category-info">
               <div class="equip-tooltip__category-name">${cat.label}</div>
-              <div class="equip-tooltip__category-count">${allShoppingsSelected ? 'Total de equipamentos' : `Filtrados${percentText}`}</div>
+              <div class="equip-tooltip__category-count">${
+                allShoppingsSelected ? 'Total de equipamentos' : `Filtrados${percentText}`
+              }</div>
             </div>
             <span class="equip-tooltip__category-value">${displayValue}</span>
           </div>
@@ -2693,22 +2710,30 @@ function showEquipmentTooltip(triggerElement, data) {
             <span class="equip-tooltip__label">Total de Equipamentos:</span>
             <span class="equip-tooltip__value equip-tooltip__value--highlight">${summaryDisplay}</span>
           </div>
-          ${!allShoppingsSelected ? `
+          ${
+            !allShoppingsSelected
+              ? `
           <div class="equip-tooltip__row">
             <span class="equip-tooltip__label">Percentual Filtrado:</span>
             <span class="equip-tooltip__value">${percentageTotal}%</span>
           </div>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
 
-        ${categoriesHtml ? `
+        ${
+          categoriesHtml
+            ? `
         <div class="equip-tooltip__section">
           <div class="equip-tooltip__section-title">
             <span>📋</span> Por Categoria
           </div>
           ${categoriesHtml}
         </div>
-        ` : ''}
+        `
+            : ''
+        }
 
         <div class="equip-tooltip__notice">
           <span class="equip-tooltip__notice-icon">ℹ️</span>

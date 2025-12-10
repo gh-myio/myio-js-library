@@ -109,8 +109,9 @@
   position: sticky;
   top: 6px;
   z-index: 2;
-  display: flex;
-  flex-wrap: nowrap;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
   gap: 6px;
   justify-content: space-between;
   align-items: center;
@@ -134,12 +135,13 @@
 
 /* ====== SHOPPING FILTER CHIPS ====== */
 .shopping-filter-chips {
-  display: flex;
+  display: inline-flex !important;
   gap: 6px;
   flex-wrap: wrap;
   align-items: center;
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  max-width: calc(100% - 350px);
   margin-right: 12px;
   overflow: hidden;
 }
@@ -596,7 +598,7 @@
 
 /* ====== RFC-0103: POWER LIMITS BUTTON ====== */
 .power-limits-btn {
-  display: inline-flex;
+  display: inline-flex !important;
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
@@ -609,7 +611,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  flex-shrink: 0;
+  flex-shrink: 0 !important;
   white-space: nowrap;
 }
 
@@ -644,16 +646,26 @@
 
 /* ====== RFC-0093: REAL-TIME MODE STYLES ====== */
 .realtime-controls {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
   gap: 8px;
-  flex-shrink: 0;
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
   margin-left: auto;
+  white-space: nowrap;
+}
+
+/* Force all buttons inside realtime-controls to be inline */
+.realtime-controls > button,
+.realtime-controls > div {
+  display: inline-flex !important;
+  flex-shrink: 0 !important;
 }
 
 .realtime-toggle {
-  display: flex;
+  display: inline-flex !important;
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
@@ -666,6 +678,8 @@
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .realtime-toggle:hover {
