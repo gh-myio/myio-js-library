@@ -16,16 +16,6 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error(...args),
 };
 
-const getDataApiHost = () => {
-  const host = window.MyIOUtils?.DATA_API_HOST;
-  if (!host) {
-    console.error(
-      '[TEMPERATURE_WITHOUT_CLIMATE_CONTROL] DATA_API_HOST not available - MAIN widget not loaded'
-    );
-  }
-  return host || '';
-};
-
 const formatRelativeTime =
   window.MyIOUtils?.formatRelativeTime || ((ts) => (ts ? new Date(ts).toLocaleString() : '—'));
 
@@ -47,9 +37,7 @@ const STATE = {
   isLoading: true,
 };
 
-let myIOAuth = null;
-let CLIENT_ID = '';
-let CLIENT_SECRET = '';
+const WIDGET_DOMAIN = 'temperature'; // Will be set in onInit
 
 // Card rendering options (from settings, with defaults)
 let USE_NEW_COMPONENTS = true;
@@ -58,7 +46,10 @@ let HIDE_INFO_MENU_ITEM = true;
 let DEBUG_ACTIVE = false;
 let ACTIVE_TOOLTIP_DEBUG = false;
 
-LogHelper.log('[TEMPERATURE_WITHOUT_CLIMATE_CONTROL] Script loaded, using shared utilities:', !!window.MyIOUtils);
+LogHelper.log(
+  '[TEMPERATURE_WITHOUT_CLIMATE_CONTROL] Script loaded, using shared utilities:',
+  !!window.MyIOUtils
+);
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -135,23 +126,37 @@ function initializeSensorCards(sensors) {
 
       const entityObject = {
         entityId: sensor.id,
+        id: sensor.id, // Alias para FOOTER
+        tbId: sensor.id, // ThingsBoard ID
         labelOrName: sensor.label || sensor.name,
+        name: sensor.label || sensor.name, // Para o FOOTER mostrar no chip
+        label: sensor.label || sensor.name,
         deviceIdentifier: sensor.identifier || 'TEMP-SENSOR',
 
         // Dados de valor
         val: sensor.temperature,
+        lastValue: sensor.temperature, // Para o FOOTER mostrar no chip
         valType: 'temperature',
+        unit: '°C', // Para o FOOTER mostrar a unidade
+        icon: 'temperature', // Para o FOOTER detectar o tipo de unidade
         deviceType: 'TEMPERATURE_SENSOR',
         temperatureC: sensor.temperature,
         currentTemperature: sensor.temperature, // Para o card mostrar temperatura atual
 
         // Dados de Cliente
         customerName: sensor.customerName,
+        customerTitle: sensor.customerName, // Alias para comparação
         customerId: sensor.customerId,
         updated: formatRelativeTime(sensor.lastUpdate),
         // lastActivityTime é timestamp UTC de quando a última telemetria foi enviada
         lastActivityTime: sensor.lastActivityTime,
         domain: 'temperature',
+
+        // Ranges de temperatura (para comparação)
+        temperatureMin: sensor.temperatureMin,
+        temperatureMax: sensor.temperatureMax,
+        minTemperature: sensor.temperatureMin,
+        maxTemperature: sensor.temperatureMax,
 
         // Dados de conexão
         centralName: sensor.centralName,
@@ -174,7 +179,50 @@ function initializeSensorCards(sensors) {
           openTemperatureModal(sensor);
         },
         handleActionSettings: async () => {
-          // TODO: Implement settings
+          // RFC-0092: Settings handler para sensores de temperatura
+          const jwt = localStorage.getItem('jwt_token');
+
+          if (!jwt) {
+            LogHelper.error('[TEMPERATURE_WITHOUT_CLIMATE_CONTROL] JWT token not found');
+            window.alert('Token de autenticação não encontrado');
+            return;
+          }
+
+          const tbId = sensor.id;
+          if (!tbId) {
+            window.alert('ID do dispositivo inválido');
+            return;
+          }
+
+          try {
+            // Usa openDashboardPopupSettings se disponível
+            if (MyIOLibrary.openDashboardPopupSettings) {
+              await MyIOLibrary.openDashboardPopupSettings({
+                deviceId: tbId,
+                label: sensor.label || sensor.name,
+                jwtToken: jwt,
+                domain: WIDGET_DOMAIN,
+                deviceType: sensor.deviceType || 'TERMOSTATO',
+                deviceProfile: sensor.deviceProfile || 'TERMOSTATO',
+                customerId: sensor.customerId,
+                customerName: sensor.customerName,
+                centralName: sensor.centralName,
+                identifier: sensor.identifier,
+                // Temperature specific
+                temperatureMin: sensor.temperatureMin,
+                temperatureMax: sensor.temperatureMax,
+                theme: 'dark',
+              });
+            } else {
+              LogHelper.warn(
+                '[TEMPERATURE_WITHOUT_CLIMATE_CONTROL] openDashboardPopupSettings not available'
+              );
+              window.alert('Configurações não disponíveis');
+            }
+          } catch (error) {
+            LogHelper.error('[TEMPERATURE_WITHOUT_CLIMATE_CONTROL] Error opening settings:', error);
+            window.alert('Erro ao abrir configurações: ' + error.message);
+          }
         },
         handleSelect: (checked, entity) => {
           const MyIOSelectionStore = window.MyIOLibrary?.MyIOSelectionStore || window.MyIOSelectionStore;
@@ -190,7 +238,7 @@ function initializeSensorCards(sensors) {
           }
         },
         handleClickCard: (ev, entity) => {
-          LogHelper.log(`[TEMPERATURE_WITHOUT_CLIMATE_CONTROL] Card clicked: ${entity.labelOrName}`);
+          LogHelper.log(`[TEMP_NO_CLIMATE] Card clicked: ${entity.labelOrName}`);
         },
         useNewComponents: USE_NEW_COMPONENTS,
         enableSelection: ENABLE_SELECTION,
@@ -202,7 +250,7 @@ function initializeSensorCards(sensors) {
     }
   });
 
-  LogHelper.log('[TEMPERATURE_SENSORS] Rendered', sensors.length, 'sensor cards');
+  LogHelper.log('[TEMP_NO_CLIMATE] Rendered', sensors.length, 'sensor cards');
 }
 
 function renderCustomSensorCard(container, sensor) {
@@ -766,7 +814,9 @@ self.onInit = async function () {
   HIDE_INFO_MENU_ITEM = self.ctx.settings?.hideInfoMenuItem ?? true;
   DEBUG_ACTIVE = self.ctx.settings?.debugActive ?? false;
   ACTIVE_TOOLTIP_DEBUG = self.ctx.settings?.activeTooltipDebug ?? false;
-  LogHelper.log(`[TEMPERATURE_WITHOUT_CLIMATE_CONTROL] Configured: debugActive=${DEBUG_ACTIVE}, activeTooltipDebug=${ACTIVE_TOOLTIP_DEBUG}`);
+  LogHelper.log(
+    `[TEMPERATURE_WITHOUT_CLIMATE_CONTROL] Configured: debugActive=${DEBUG_ACTIVE}, activeTooltipDebug=${ACTIVE_TOOLTIP_DEBUG}`
+  );
 
   showLoadingOverlay(true);
 

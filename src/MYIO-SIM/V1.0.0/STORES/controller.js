@@ -31,11 +31,9 @@ const LogHelper = {
   },
 };
 
-LogHelper.log(
-  "🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT"
-);
+LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
 
-const DATA_API_HOST = "https://api.data.apps.myio-bas.com";
+const DATA_API_HOST = 'https://api.data.apps.myio-bas.com';
 const MAX_FIRST_HYDRATES = 1;
 
 let __deviceProfileSyncComplete = false;
@@ -51,42 +49,42 @@ let currentSubmenuView = 'stores'; // 'equipments' | 'stores' | 'general'
  * RFC-0079: Initialize sub-menu navigation
  */
 function initSubmenuNavigation() {
-    console.log('[RFC-0079] [STORES] 🚀 Initializing sub-menu navigation...');
+  console.log('[RFC-0079] [STORES] 🚀 Initializing sub-menu navigation...');
 
-    const root = document.getElementById('storesWrap');
-    if (!root) {
-        console.error('[RFC-0079] [STORES] ❌ storesWrap not found, cannot initialize sub-menu');
-        return;
-    }
+  const root = document.getElementById('storesWrap');
+  if (!root) {
+    console.error('[RFC-0079] [STORES] ❌ storesWrap not found, cannot initialize sub-menu');
+    return;
+  }
 
-    console.log('[RFC-0079] [STORES] ✅ Found storesWrap element:', root);
+  console.log('[RFC-0079] [STORES] ✅ Found storesWrap element:', root);
 
-    const submenuTabs = root.querySelectorAll('.submenu-tab');
-    console.log(`[RFC-0079] [STORES] 🔍 Found ${submenuTabs.length} sub-menu tabs`);
+  const submenuTabs = root.querySelectorAll('.submenu-tab');
+  console.log(`[RFC-0079] [STORES] 🔍 Found ${submenuTabs.length} sub-menu tabs`);
 
-    submenuTabs.forEach((tab, index) => {
-        const viewName = tab.getAttribute('data-submenu-view');
-        console.log(`[RFC-0079] [STORES] 📌 Tab ${index + 1}: data-submenu-view="${viewName}"`);
+  submenuTabs.forEach((tab, index) => {
+    const viewName = tab.getAttribute('data-submenu-view');
+    console.log(`[RFC-0079] [STORES] 📌 Tab ${index + 1}: data-submenu-view="${viewName}"`);
 
-        // Click handler
-        tab.addEventListener('click', (e) => {
-            console.log(`[RFC-0079] [STORES] 🖱️ Tab clicked: ${viewName}`);
-            const targetView = tab.getAttribute('data-submenu-view');
-            switchSubmenuView(targetView);
-        });
-
-        // Keyboard navigation support (WCAG 2.1 compliance)
-        tab.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                console.log(`[RFC-0079] [STORES] ⌨️ Tab keyboard activated: ${viewName}`);
-                const targetView = tab.getAttribute('data-submenu-view');
-                switchSubmenuView(targetView);
-            }
-        });
+    // Click handler
+    tab.addEventListener('click', (e) => {
+      console.log(`[RFC-0079] [STORES] 🖱️ Tab clicked: ${viewName}`);
+      const targetView = tab.getAttribute('data-submenu-view');
+      switchSubmenuView(targetView);
     });
 
-    console.log('[RFC-0079] [STORES] ✅ Sub-menu navigation initialized successfully');
+    // Keyboard navigation support (WCAG 2.1 compliance)
+    tab.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        console.log(`[RFC-0079] [STORES] ⌨️ Tab keyboard activated: ${viewName}`);
+        const targetView = tab.getAttribute('data-submenu-view');
+        switchSubmenuView(targetView);
+      }
+    });
+  });
+
+  console.log('[RFC-0079] [STORES] ✅ Sub-menu navigation initialized successfully');
 }
 
 /**
@@ -94,82 +92,82 @@ function initSubmenuNavigation() {
  * @param {string} viewName - 'equipments' | 'stores' | 'general'
  */
 function switchSubmenuView(viewName) {
-    console.log(`[RFC-0079] [STORES] 🔵 switchSubmenuView called with: ${viewName}`);
-    console.log(`[RFC-0079] [STORES] 🔵 currentSubmenuView: ${currentSubmenuView}`);
+  console.log(`[RFC-0079] [STORES] 🔵 switchSubmenuView called with: ${viewName}`);
+  console.log(`[RFC-0079] [STORES] 🔵 currentSubmenuView: ${currentSubmenuView}`);
 
-    if (currentSubmenuView === viewName) {
-        console.log(`[RFC-0079] [STORES] Already on ${viewName} view, skipping`);
-        return;
-    }
+  if (currentSubmenuView === viewName) {
+    console.log(`[RFC-0079] [STORES] Already on ${viewName} view, skipping`);
+    return;
+  }
 
-    console.log(`[RFC-0079] [STORES] Switching from ${currentSubmenuView} → ${viewName}`);
+  console.log(`[RFC-0079] [STORES] Switching from ${currentSubmenuView} → ${viewName}`);
 
-    const root = document.getElementById('storesWrap');
-    if (!root) {
-        console.error('[RFC-0079] [STORES] ❌ storesWrap not found!');
-        return;
-    }
+  const root = document.getElementById('storesWrap');
+  if (!root) {
+    console.error('[RFC-0079] [STORES] ❌ storesWrap not found!');
+    return;
+  }
 
-    // Update tab active states
-    root.querySelectorAll('.submenu-tab').forEach(tab => {
-        const isActive = tab.getAttribute('data-submenu-view') === viewName;
-        tab.classList.toggle('is-active', isActive);
-        tab.setAttribute('aria-selected', isActive);
-    });
+  // Update tab active states
+  root.querySelectorAll('.submenu-tab').forEach((tab) => {
+    const isActive = tab.getAttribute('data-submenu-view') === viewName;
+    tab.classList.toggle('is-active', isActive);
+    tab.setAttribute('aria-selected', isActive);
+  });
 
-    // RFC-0079: Request MAIN widget to switch state via event (no direct DOM manipulation)
-    let targetStateId = '';
-    switch (viewName) {
-        case 'equipments':
-            targetStateId = 'content_equipments';
-            break;
-        case 'stores':
-            targetStateId = 'content_store';
-            break;
-        case 'general':
-            targetStateId = 'content_energy';
-            break;
-    }
+  // RFC-0079: Request MAIN widget to switch state via event (no direct DOM manipulation)
+  let targetStateId = '';
+  switch (viewName) {
+    case 'equipments':
+      targetStateId = 'content_equipments';
+      break;
+    case 'stores':
+      targetStateId = 'content_store';
+      break;
+    case 'general':
+      targetStateId = 'content_energy';
+      break;
+  }
 
-    console.log(`[RFC-0079] [STORES] 🎯 Mapped viewName "${viewName}" → targetStateId "${targetStateId}"`);
+  console.log(`[RFC-0079] [STORES] 🎯 Mapped viewName "${viewName}" → targetStateId "${targetStateId}"`);
 
-    if (targetStateId) {
-        const detail = { targetStateId, source: 'stores-submenu', ts: Date.now() };
-        console.log(`[RFC-0079] [STORES] 📡 Dispatching myio:switch-main-state event:`, detail);
-        window.dispatchEvent(new CustomEvent('myio:switch-main-state', { detail }));
-        console.log(`[RFC-0079] [STORES] ✅ Event dispatched successfully`);
-    } else {
-        console.error(`[RFC-0079] [STORES] ❌ No targetStateId mapped for viewName: ${viewName}`);
-    }
+  if (targetStateId) {
+    const detail = { targetStateId, source: 'stores-submenu', ts: Date.now() };
+    console.log(`[RFC-0079] [STORES] 📡 Dispatching myio:switch-main-state event:`, detail);
+    window.dispatchEvent(new CustomEvent('myio:switch-main-state', { detail }));
+    console.log(`[RFC-0079] [STORES] ✅ Event dispatched successfully`);
+  } else {
+    console.error(`[RFC-0079] [STORES] ❌ No targetStateId mapped for viewName: ${viewName}`);
+  }
 
-    // Update current state
-    currentSubmenuView = viewName;
+  // Update current state
+  currentSubmenuView = viewName;
 
-    // Dispatch custom event for analytics/tracking
-    window.dispatchEvent(new CustomEvent('myio:submenu-switch', {
-        detail: { view: viewName, source: 'stores', timestamp: Date.now() }
-    }));
+  // Dispatch custom event for analytics/tracking
+  window.dispatchEvent(
+    new CustomEvent('myio:submenu-switch', {
+      detail: { view: viewName, source: 'stores', timestamp: Date.now() },
+    })
+  );
 }
 
 async function fetchDeviceProfiles() {
-  const token = localStorage.getItem("jwt_token");
-  if (!token) throw new Error("[RFC-0071] JWT token not found");
+  const token = localStorage.getItem('jwt_token');
+  if (!token) throw new Error('[RFC-0071] JWT token not found');
 
-  const url = "/api/deviceProfile/names?activeOnly=true";
+  const url = '/api/deviceProfile/names?activeOnly=true';
 
-  console.log("[EQUIPMENTS] [RFC-0071] Fetching device profiles...");
+  console.log('[EQUIPMENTS] [RFC-0071] Fetching device profiles...');
 
   const response = await fetch(url, {
     headers: {
-      "X-Authorization": `Bearer ${token}`,
-      "Content-Type": "application/json",
+      'X-Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
   });
 
   if (!response.ok) {
-    throw new Error(
-      `[RFC-0071] Failed to fetch device profiles: ${response.status}`
-    );
+    throw new Error(`[RFC-0071] Failed to fetch device profiles: ${response.status}`);
   }
 
   const profiles = await response.json();
@@ -186,7 +184,7 @@ async function fetchDeviceProfiles() {
     `[EQUIPMENTS] [RFC-0071] Loaded ${profileMap.size} device profiles:`,
     Array.from(profileMap.entries())
       .map(([id, name]) => name)
-      .join(", ")
+      .join(', ')
   );
 
   return profileMap;
@@ -198,22 +196,20 @@ async function fetchDeviceProfiles() {
  * @returns {Promise<Object>}
  */
 async function fetchDeviceDetails(deviceId) {
-  const token = localStorage.getItem("jwt_token");
-  if (!token) throw new Error("[RFC-0071] JWT token not found");
+  const token = localStorage.getItem('jwt_token');
+  if (!token) throw new Error('[RFC-0071] JWT token not found');
 
   const url = `/api/device/${deviceId}`;
 
   const response = await fetch(url, {
     headers: {
-      "X-Authorization": `Bearer ${token}`,
-      "Content-Type": "application/json",
+      'X-Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
   });
 
   if (!response.ok) {
-    throw new Error(
-      `[RFC-0071] Failed to fetch device ${deviceId}: ${response.status}`
-    );
+    throw new Error(`[RFC-0071] Failed to fetch device ${deviceId}: ${response.status}`);
   }
 
   return await response.json();
@@ -229,32 +225,30 @@ async function addDeviceProfileAttribute(deviceId, deviceProfile) {
   const t = Date.now();
 
   try {
-    if (!deviceId) throw new Error("deviceId is required");
-    if (deviceProfile == null || deviceProfile === "") {
-      throw new Error("deviceProfile is required");
+    if (!deviceId) throw new Error('deviceId is required');
+    if (deviceProfile == null || deviceProfile === '') {
+      throw new Error('deviceProfile is required');
     }
 
-    const token = localStorage.getItem("jwt_token");
-    if (!token) throw new Error("jwt_token not found in localStorage");
+    const token = localStorage.getItem('jwt_token');
+    if (!token) throw new Error('jwt_token not found in localStorage');
 
     const url = `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`;
     const headers = {
-      "Content-Type": "application/json",
-      "X-Authorization": `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Authorization': `Bearer ${token}`,
     };
 
     const res = await fetch(url, {
-      method: "POST",
+      method: 'POST',
       headers,
       body: JSON.stringify({ deviceProfile }),
     });
 
-    const bodyText = await res.text().catch(() => "");
+    const bodyText = await res.text().catch(() => '');
 
     if (!res.ok) {
-      throw new Error(
-        `[RFC-0071] HTTP ${res.status} ${res.statusText} - ${bodyText}`
-      );
+      throw new Error(`[RFC-0071] HTTP ${res.status} ${res.statusText} - ${bodyText}`);
     }
 
     let data = null;
@@ -287,9 +281,7 @@ async function addDeviceProfileAttribute(deviceId, deviceProfile) {
  * @returns {Promise<{synced: number, skipped: number, errors: number}>}
  */
 async function syncDeviceProfileAttributes() {
-  console.log(
-    "[EQUIPMENTS] [RFC-0071] 🔄 Starting device profile synchronization..."
-  );
+  console.log('[EQUIPMENTS] [RFC-0071] 🔄 Starting device profile synchronization...');
 
   try {
     // Step 1: Fetch all device profiles
@@ -324,17 +316,11 @@ async function syncDeviceProfileAttributes() {
       }
     });
 
-    console.log(
-      `[EQUIPMENTS] [RFC-0071] Found ${deviceMap.size} devices without deviceProfile attribute`
-    );
-    console.log(
-      `[EQUIPMENTS] [RFC-0071] Skipped ${skipped} devices that already have deviceProfile`
-    );
+    console.log(`[EQUIPMENTS] [RFC-0071] Found ${deviceMap.size} devices without deviceProfile attribute`);
+    console.log(`[EQUIPMENTS] [RFC-0071] Skipped ${skipped} devices that already have deviceProfile`);
 
     if (deviceMap.size === 0) {
-      console.log(
-        "[EQUIPMENTS] [RFC-0071] ✅ All devices already synchronized!"
-      );
+      console.log('[EQUIPMENTS] [RFC-0071] ✅ All devices already synchronized!');
       return { synced: 0, skipped, errors: 0 };
     }
 
@@ -342,25 +328,17 @@ async function syncDeviceProfileAttributes() {
     let processed = 0;
     for (const [entityId, deviceInfo] of deviceMap) {
       processed++;
-      const deviceLabel =
-        deviceInfo.entityLabel ||
-        deviceInfo.entityName ||
-        deviceInfo.name ||
-        entityId;
+      const deviceLabel = deviceInfo.entityLabel || deviceInfo.entityName || deviceInfo.name || entityId;
 
       try {
-        console.log(
-          `[EQUIPMENTS] [RFC-0071] Processing ${processed}/${deviceMap.size}: ${deviceLabel}`
-        );
+        console.log(`[EQUIPMENTS] [RFC-0071] Processing ${processed}/${deviceMap.size}: ${deviceLabel}`);
 
         // Fetch device details to get deviceProfileId
         const deviceDetails = await fetchDeviceDetails(entityId);
         const deviceProfileId = deviceDetails.deviceProfileId?.id;
 
         if (!deviceProfileId) {
-          console.warn(
-            `[EQUIPMENTS] [RFC-0071] ⚠️ Device ${deviceLabel} has no deviceProfileId`
-          );
+          console.warn(`[EQUIPMENTS] [RFC-0071] ⚠️ Device ${deviceLabel} has no deviceProfileId`);
           errors++;
           continue;
         }
@@ -369,9 +347,7 @@ async function syncDeviceProfileAttributes() {
         const profileName = profileMap.get(deviceProfileId);
 
         if (!profileName) {
-          console.warn(
-            `[EQUIPMENTS] [RFC-0071] ⚠️ Profile ID ${deviceProfileId} not found in map`
-          );
+          console.warn(`[EQUIPMENTS] [RFC-0071] ⚠️ Profile ID ${deviceProfileId} not found in map`);
           errors++;
           continue;
         }
@@ -380,17 +356,12 @@ async function syncDeviceProfileAttributes() {
         await addDeviceProfileAttribute(entityId, profileName);
         synced++;
 
-        console.log(
-          `[EQUIPMENTS] [RFC-0071] ✅ Synced ${deviceLabel} -> ${profileName}`
-        );
+        console.log(`[EQUIPMENTS] [RFC-0071] ✅ Synced ${deviceLabel} -> ${profileName}`);
 
         // Small delay to avoid overwhelming the API
         await new Promise((resolve) => setTimeout(resolve, 100));
       } catch (error) {
-        console.error(
-          `[EQUIPMENTS] [RFC-0071] ❌ Failed to sync device ${deviceLabel}:`,
-          error
-        );
+        console.error(`[EQUIPMENTS] [RFC-0071] ❌ Failed to sync device ${deviceLabel}:`, error);
         errors++;
       }
     }
@@ -401,7 +372,7 @@ async function syncDeviceProfileAttributes() {
 
     return { synced, skipped, errors };
   } catch (error) {
-    console.error("[EQUIPMENTS] [RFC-0071] ❌ Fatal error during sync:", error);
+    console.error('[EQUIPMENTS] [RFC-0071] ❌ Fatal error during sync:', error);
     throw error;
   }
 }
@@ -413,7 +384,7 @@ async function syncDeviceProfileAttributes() {
  */
 function getData(dataKeyName) {
   if (!self?.ctx?.data) {
-    LogHelper.warn("[getData] No ctx.data available");
+    LogHelper.warn('[getData] No ctx.data available');
     return null;
   }
 
@@ -440,27 +411,25 @@ let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent 
 let busyTimeoutId = null; // Timeout ID for busy fallback
 
 // RFC-0042: Widget configuration (from settings)
-let WIDGET_DOMAIN = "energy"; // Will be set in onInit
+let WIDGET_DOMAIN = 'energy'; // Will be set in onInit
 
 // RFC-0063: Classification mode configuration
 let USE_IDENTIFIER_CLASSIFICATION = false; // Flag to enable identifier-based classification
 let USE_HYBRID_CLASSIFICATION = false; // Flag to enable hybrid mode (identifier + labels)
 
 /** ===================== STATE ===================== **/
-let CLIENT_ID = "";
-let CLIENT_SECRET = "";
-let CUSTOMER_ING_ID = "";
+let CLIENT_ID = '';
+let CLIENT_SECRET = '';
+let CUSTOMER_ING_ID = '';
 let MyIOAuth = null;
 
 const STATE = {
   itemsBase: [], // lista autoritativa (TB)
   itemsEnriched: [], // lista com totals + perc
   searchActive: false,
-  searchTerm: "",
+  searchTerm: '',
   selectedIds: /** @type {Set<string> | null} */ (null),
-  sortMode: /** @type {'cons_desc'|'cons_asc'|'alpha_asc'|'alpha_desc'} */ (
-    "cons_desc"
-  ),
+  sortMode: /** @type {'cons_desc'|'cons_asc'|'alpha_asc'|'alpha_desc'} */ ('cons_desc'),
   firstHydrates: 0,
 };
 
@@ -468,13 +437,13 @@ let hydrating = false;
 
 /** ===================== HELPERS (DOM) ===================== **/
 const $root = () => $(self.ctx.$container[0]);
-const $list = () => $root().find("#shopsList");
-const $count = () => $root().find("#shopsCount");
-const $total = () => $root().find("#shopsTotal");
-const $modal = () => $root().find("#filterModal");
+const $list = () => $root().find('#shopsList');
+const $count = () => $root().find('#shopsCount');
+const $total = () => $root().find('#shopsTotal');
+const $modal = () => $root().find('#filterModal');
 
 /** ===================== BUSY MODAL (no widget) ===================== **/
-const BUSY_ID = "myio-busy-modal";
+const BUSY_ID = 'myio-busy-modal';
 function ensureBusyModalDOM() {
   let $m = $root().find(`#${BUSY_ID}`);
   if ($m.length) return $m;
@@ -505,15 +474,13 @@ function ensureBusyModalDOM() {
   <style>
     @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
   </style>`;
-  $root().css("position", "relative"); // garante overlay correto
+  $root().css('position', 'relative'); // garante overlay correto
   $root().append(html);
   return $root().find(`#${BUSY_ID}`);
 }
 // RFC-0044: Use centralized busy management
 function showBusy(message, timeoutMs = 35000) {
-  LogHelper.log(
-    `[TELEMETRY] 🔄 showBusy() called with message: "${message || "default"}"`
-  );
+  LogHelper.log(`[TELEMETRY] 🔄 showBusy() called with message: "${message || 'default'}"`);
 
   // Prevent multiple simultaneous busy calls
   if (window.busyInProgress) {
@@ -526,26 +493,16 @@ function showBusy(message, timeoutMs = 35000) {
   // Centralized busy with enhanced synchronization
   const safeShowBusy = () => {
     try {
-      if (
-        window.MyIOOrchestrator &&
-        typeof window.MyIOOrchestrator.showGlobalBusy === "function"
-      ) {
-        const text =
-          (message && String(message).trim()) || "Carregando dados...";
+      if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.showGlobalBusy === 'function') {
+        const text = (message && String(message).trim()) || 'Carregando dados...';
         window.MyIOOrchestrator.showGlobalBusy(WIDGET_DOMAIN, text, timeoutMs);
-        LogHelper.log(
-          `[TELEMETRY] ✅ Using centralized busy for domain: ${WIDGET_DOMAIN}`
-        );
+        LogHelper.log(`[TELEMETRY] ✅ Using centralized busy for domain: ${WIDGET_DOMAIN}`);
       } else {
-        LogHelper.warn(
-          `[TELEMETRY] ⚠️ Orchestrator not available, using fallback busy`
-        );
+        LogHelper.warn(`[TELEMETRY] ⚠️ Orchestrator not available, using fallback busy`);
         const $m = ensureBusyModalDOM();
-        const text =
-          (message && String(message).trim()) ||
-          "aguarde.. carregando os dados...";
+        const text = (message && String(message).trim()) || 'aguarde.. carregando os dados...';
         $m.find(`#${BUSY_ID}-msg`).text(text);
-        $m.css("display", "flex");
+        $m.css('display', 'flex');
       }
     } catch (err) {
       LogHelper.error(`[TELEMETRY] ❌ Error in showBusy:`, err);
@@ -558,53 +515,53 @@ function showBusy(message, timeoutMs = 35000) {
   };
 
   // RFC-0051.3: Check if orchestrator exists and is ready
-//   const checkOrchestratorReady = async () => {
-//     // First, check if orchestrator exists and is ready
-//     if (window.MyIOOrchestrator?.isReady) {
-//       safeShowBusy();
-//       return;
-//     }
+  //   const checkOrchestratorReady = async () => {
+  //     // First, check if orchestrator exists and is ready
+  //     if (window.MyIOOrchestrator?.isReady) {
+  //       safeShowBusy();
+  //       return;
+  //     }
 
-//     // Wait for orchestrator ready event (with timeout)
-//     const ready = await new Promise((resolve) => {
-//       let timeout;
-//       let interval;
+  //     // Wait for orchestrator ready event (with timeout)
+  //     const ready = await new Promise((resolve) => {
+  //       let timeout;
+  //       let interval;
 
-//       // Listen for ready event
-//       const handler = () => {
-//         clearTimeout(timeout);
-//         clearInterval(interval);
-//         window.removeEventListener("myio:orchestrator:ready", handler);
-//         resolve(true);
-//       };
+  //       // Listen for ready event
+  //       const handler = () => {
+  //         clearTimeout(timeout);
+  //         clearInterval(interval);
+  //         window.removeEventListener("myio:orchestrator:ready", handler);
+  //         resolve(true);
+  //       };
 
-//       window.addEventListener("myio:orchestrator:ready", handler);
+  //       window.addEventListener("myio:orchestrator:ready", handler);
 
-//       // Timeout after 5 seconds
-//       timeout = setTimeout(() => {
-//         clearInterval(interval);
-//         window.removeEventListener("myio:orchestrator:ready", handler);
-//         LogHelper.warn(
-//           "[TELEMETRY] ⚠️ Orchestrator ready timeout after 5s, using fallback"
-//         );
-//         resolve(false);
-//       }, 5000);
+  //       // Timeout after 5 seconds
+  //       timeout = setTimeout(() => {
+  //         clearInterval(interval);
+  //         window.removeEventListener("myio:orchestrator:ready", handler);
+  //         LogHelper.warn(
+  //           "[TELEMETRY] ⚠️ Orchestrator ready timeout after 5s, using fallback"
+  //         );
+  //         resolve(false);
+  //       }, 5000);
 
-//       // Also poll isReady flag (fallback if event is missed)
-//       interval = setInterval(() => {
-//         if (window.MyIOOrchestrator?.isReady) {
-//           clearInterval(interval);
-//           clearTimeout(timeout);
-//           window.removeEventListener("myio:orchestrator:ready", handler);
-//           resolve(true);
-//         }
-//       }, 100);
-//     });
+  //       // Also poll isReady flag (fallback if event is missed)
+  //       interval = setInterval(() => {
+  //         if (window.MyIOOrchestrator?.isReady) {
+  //           clearInterval(interval);
+  //           clearTimeout(timeout);
+  //           window.removeEventListener("myio:orchestrator:ready", handler);
+  //           resolve(true);
+  //         }
+  //       }, 100);
+  //     });
 
-//     safeShowBusy();
-//   };
+  //     safeShowBusy();
+  //   };
 
-//   checkOrchestratorReady();
+  //   checkOrchestratorReady();
 }
 
 function hideBusy() {
@@ -612,17 +569,12 @@ function hideBusy() {
 
   const safeHideBusy = () => {
     try {
-      if (
-        window.MyIOOrchestrator &&
-        typeof window.MyIOOrchestrator.hideGlobalBusy === "function"
-      ) {
+      if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.hideGlobalBusy === 'function') {
         window.MyIOOrchestrator.hideGlobalBusy();
         LogHelper.log(`[TELEMETRY] ✅ Using centralized hideBusy`);
       } else {
-        LogHelper.warn(
-          `[TELEMETRY] ⚠️ Orchestrator not available, using fallback hideBusy`
-        );
-        $root().find(`#${BUSY_ID}`).css("display", "none");
+        LogHelper.warn(`[TELEMETRY] ⚠️ Orchestrator not available, using fallback hideBusy`);
+        $root().find(`#${BUSY_ID}`).css('display', 'none');
       }
     } catch (err) {
       LogHelper.error(`[TELEMETRY] ❌ Error in hideBusy:`, err);
@@ -648,19 +600,17 @@ function hideBusy() {
       const handler = () => {
         clearTimeout(timeout);
         clearInterval(interval);
-        window.removeEventListener("myio:orchestrator:ready", handler);
+        window.removeEventListener('myio:orchestrator:ready', handler);
         resolve(true);
       };
 
-      window.addEventListener("myio:orchestrator:ready", handler);
+      window.addEventListener('myio:orchestrator:ready', handler);
 
       // Timeout after 5 seconds
       timeout = setTimeout(() => {
         clearInterval(interval);
-        window.removeEventListener("myio:orchestrator:ready", handler);
-        LogHelper.warn(
-          "[TELEMETRY] ⚠️ Orchestrator ready timeout after 5s, using fallback"
-        );
+        window.removeEventListener('myio:orchestrator:ready', handler);
+        LogHelper.warn('[TELEMETRY] ⚠️ Orchestrator ready timeout after 5s, using fallback');
         resolve(false);
       }, 5000);
 
@@ -669,7 +619,7 @@ function hideBusy() {
         if (window.MyIOOrchestrator?.isReady) {
           clearInterval(interval);
           clearTimeout(timeout);
-          window.removeEventListener("myio:orchestrator:ready", handler);
+          window.removeEventListener('myio:orchestrator:ready', handler);
           resolve(true);
         }
       }, 100);
@@ -681,7 +631,7 @@ function hideBusy() {
   checkOrchestratorReady();
 }
 
-const findValue = (values, dataType, defaultValue = "N/D") => {
+const findValue = (values, dataType, defaultValue = 'N/D') => {
   const item = values.find((v) => v.dataType === dataType);
   if (!item) return defaultValue;
   // Retorna a propriedade 'val' (da nossa API) ou 'value' (do ThingsBoard)
@@ -689,17 +639,17 @@ const findValue = (values, dataType, defaultValue = "N/D") => {
 };
 
 /** ===================== GLOBAL SUCCESS MODAL (fora do widget) ===================== **/
-const G_SUCCESS_ID = "myio-global-success-modal";
+const G_SUCCESS_ID = 'myio-global-success-modal';
 let gSuccessTimer = null;
 
 function ensureGlobalSuccessModalDOM() {
   let el = document.getElementById(G_SUCCESS_ID);
   if (el) return el;
 
-  const wrapper = document.createElement("div");
+  const wrapper = document.createElement('div');
   wrapper.id = G_SUCCESS_ID;
   wrapper.setAttribute(
-    "style",
+    'style',
     `
     position: fixed; inset: 0; display: none;
     z-index: 999999; 
@@ -710,9 +660,9 @@ function ensureGlobalSuccessModalDOM() {
   );
 
   // container central
-  const center = document.createElement("div");
+  const center = document.createElement('div');
   center.setAttribute(
-    "style",
+    'style',
     `
     position: absolute; top: 50%; left: 50%;
     transform: translate(-50%, -50%);
@@ -725,7 +675,7 @@ function ensureGlobalSuccessModalDOM() {
   `
   );
 
-  const icon = document.createElement("div");
+  const icon = document.createElement('div');
   icon.innerHTML = `
     <div style="
       width:56px;height:56px;margin:0 auto 10px auto;border-radius:50%;
@@ -737,18 +687,15 @@ function ensureGlobalSuccessModalDOM() {
     </div>
   `;
 
-  const title = document.createElement("div");
+  const title = document.createElement('div');
   title.id = `${G_SUCCESS_ID}-title`;
-  title.textContent = "os dados foram salvos com sucesso";
-  title.setAttribute(
-    "style",
-    `font-size:16px;font-weight:700;letter-spacing:.2px;margin-bottom:6px;`
-  );
+  title.textContent = 'os dados foram salvos com sucesso';
+  title.setAttribute('style', `font-size:16px;font-weight:700;letter-spacing:.2px;margin-bottom:6px;`);
 
-  const sub = document.createElement("div");
+  const sub = document.createElement('div');
   sub.id = `${G_SUCCESS_ID}-sub`;
   sub.innerHTML = `recarregando em <b id="${G_SUCCESS_ID}-count">6</b>s...`;
-  sub.setAttribute("style", `opacity:.9;font-size:13px;`);
+  sub.setAttribute('style', `opacity:.9;font-size:13px;`);
 
   center.appendChild(icon);
   center.appendChild(title);
@@ -764,7 +711,7 @@ function showGlobalSuccessModal(seconds = 6) {
   const countEl = el.querySelector(`#${G_SUCCESS_ID}-count`);
   if (countEl) countEl.textContent = String(seconds);
 
-  el.style.display = "block";
+  el.style.display = 'block';
 
   if (gSuccessTimer) {
     clearInterval(gSuccessTimer);
@@ -787,7 +734,7 @@ function showGlobalSuccessModal(seconds = 6) {
 
 function hideGlobalSuccessModal() {
   const el = document.getElementById(G_SUCCESS_ID);
-  if (el) el.style.display = "none";
+  if (el) el.style.display = 'none';
   if (gSuccessTimer) {
     clearInterval(gSuccessTimer);
     gSuccessTimer = null;
@@ -796,39 +743,29 @@ function hideGlobalSuccessModal() {
 
 /** ===================== UTILS ===================== **/
 function escapeHtml(s) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function isValidUUID(v) {
-  if (!v || typeof v !== "string") return false;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    v
-  );
+  if (!v || typeof v !== 'string') return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 }
 
 function toSpOffsetNoMs(dt, endOfDay = false) {
-  const d =
-    typeof dt === "number"
-      ? new Date(dt)
-      : dt instanceof Date
-      ? dt
-      : new Date(String(dt));
-  if (Number.isNaN(d.getTime())) throw new Error("Invalid date");
+  const d = typeof dt === 'number' ? new Date(dt) : dt instanceof Date ? dt : new Date(String(dt));
+  if (Number.isNaN(d.getTime())) throw new Error('Invalid date');
   if (endOfDay) d.setHours(23, 59, 59, 999);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(
     2,
-    "0"
-  )}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(
-    2,
-    "0"
-  )}:${String(d.getMinutes()).padStart(2, "0")}:${String(
+    '0'
+  )}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(
     d.getSeconds()
-  ).padStart(2, "0")}-03:00`;
+  ).padStart(2, '0')}-03:00`;
 }
 
 // converts raw API value to the UI target unit
@@ -859,11 +796,10 @@ function mustGetDateRange() {
   const s = self.ctx?.scope?.startDateISO;
   const e = self.ctx?.scope?.endDateISO;
   if (s && e) return { startISO: s, endISO: e };
-  throw new Error("DATE_RANGE_REQUIRED");
+  throw new Error('DATE_RANGE_REQUIRED');
 }
 
-const isAuthReady = () =>
-  !!(MyIOAuth && typeof MyIOAuth.getToken === "function");
+const isAuthReady = () => !!(MyIOAuth && typeof MyIOAuth.getToken === 'function');
 async function ensureAuthReady(maxMs = 6000, stepMs = 150) {
   const start = Date.now();
   while (!isAuthReady()) {
@@ -878,9 +814,8 @@ function buildTbAttrIndex() {
   const byTbId = new Map(); // tbId -> { slaveId, centralId, deviceType, centralName, lastConnectTime, lastActivityTime }
   const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
   for (const row of rows) {
-    const key = String(row?.dataKey?.name || "").toLowerCase();
-    const tbId =
-      row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
+    const key = String(row?.dataKey?.name || '').toLowerCase();
+    const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
     const val = row?.data?.[0]?.[1];
     if (!tbId || val == null) continue;
     if (!byTbId.has(tbId))
@@ -893,13 +828,13 @@ function buildTbAttrIndex() {
         lastActivityTime: null,
       });
     const slot = byTbId.get(tbId);
-    if (key === "slaveid") slot.slaveId = val;
-    if (key === "centralid") slot.centralId = val;
-    if (key === "devicetype") slot.deviceType = val;
-    if (key === "deviceprofile") slot.deviceProfile = val;
-    if (key === "centralname") slot.centralName = val;
-    if (key === "lastconnecttime") slot.lastConnectTime = val;
-    if (key === "lastactivitytime") slot.lastActivityTime = val;
+    if (key === 'slaveid') slot.slaveId = val;
+    if (key === 'centralid') slot.centralId = val;
+    if (key === 'devicetype') slot.deviceType = val;
+    if (key === 'deviceprofile') slot.deviceProfile = val;
+    if (key === 'centralname') slot.centralName = val;
+    if (key === 'lastconnecttime') slot.lastConnectTime = val;
+    if (key === 'lastactivitytime') slot.lastActivityTime = val;
   }
   return byTbId;
 }
@@ -908,13 +843,12 @@ function buildTbIdIndexes() {
   const byIngestion = new Map(); // ingestionId -> tbId
   const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
   for (const row of rows) {
-    const key = String(row?.dataKey?.name || "").toLowerCase();
-    const tbId =
-      row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
+    const key = String(row?.dataKey?.name || '').toLowerCase();
+    const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
     const val = row?.data?.[0]?.[1];
     if (!tbId || val == null) continue;
-    if (key === "identifier") byIdentifier.set(String(val), tbId);
-    if (key === "ingestionid") byIngestion.set(String(val), tbId);
+    if (key === 'identifier') byIdentifier.set(String(val), tbId);
+    if (key === 'ingestionid') byIngestion.set(String(val), tbId);
   }
   return { byIdentifier, byIngestion };
 }
@@ -922,11 +856,7 @@ function buildTbIdIndexes() {
 /** ===================== CORE: DATA PIPELINE ===================== **/
 function buildAuthoritativeItems() {
   // items da LIB: [{ id: ingestionId, identifier, label }, ...]
-  const base =
-    MyIO.buildListItemsThingsboardByUniqueDatasource(
-      self.ctx.datasources,
-      self.ctx.data
-    ) || [];
+  const base = MyIO.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data) || [];
 
   //LogHelper.log("[TELEMETRY][buildAuthoritativeItems] base: ", base);
 
@@ -939,19 +869,11 @@ function buildAuthoritativeItems() {
     //LogHelper.log("[TELEMETRY][buildAuthoritativeItems] ok.map: ", r);
 
     const ingestionId = r.id;
-    const tbFromIngestion = ingestionId
-      ? tbIdIdx.byIngestion.get(ingestionId)
-      : null;
-    const tbFromIdentifier = r.identifier
-      ? tbIdIdx.byIdentifier.get(r.identifier)
-      : null;
+    const tbFromIngestion = ingestionId ? tbIdIdx.byIngestion.get(ingestionId) : null;
+    const tbFromIdentifier = r.identifier ? tbIdIdx.byIdentifier.get(r.identifier) : null;
 
     let tbId = tbFromIngestion || tbFromIdentifier || null;
-    if (
-      tbFromIngestion &&
-      tbFromIdentifier &&
-      tbFromIngestion !== tbFromIdentifier
-    ) {
+    if (tbFromIngestion && tbFromIdentifier && tbFromIngestion !== tbFromIdentifier) {
       /*
       LogHelper.warn("[DeviceCards] TB id mismatch for item", {
         label: r.label, identifier: r.identifier, ingestionId, tbFromIngestion, tbFromIdentifier
@@ -961,10 +883,10 @@ function buildAuthoritativeItems() {
     }
 
     const attrs = tbId ? attrsByTb.get(tbId) || {} : {};
-    const deviceProfile = attrs.deviceProfile || "N/D";
-    let deviceTypeToDisplay = attrs.deviceType || "3F_MEDIDOR";
+    const deviceProfile = attrs.deviceProfile || 'N/D';
+    let deviceTypeToDisplay = attrs.deviceType || '3F_MEDIDOR';
 
-    if (deviceTypeToDisplay === "3F_MEDIDOR" && deviceProfile !== "N/D") {
+    if (deviceTypeToDisplay === '3F_MEDIDOR' && deviceProfile !== 'N/D') {
       deviceTypeToDisplay = deviceProfile;
     }
 
@@ -989,22 +911,20 @@ function buildAuthoritativeItems() {
 }
 
 async function fetchApiTotals(startISO, endISO) {
-  if (!isAuthReady()) throw new Error("Auth not ready");
+  if (!isAuthReady()) throw new Error('Auth not ready');
   const token = await MyIOAuth.getToken();
-  if (!token) throw new Error("No ingestion token");
+  if (!token) throw new Error('No ingestion token');
 
-  const url = new URL(
-    `${DATA_API_HOST}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/energy/devices/totals`
-  );
-  url.searchParams.set("startTime", toSpOffsetNoMs(startISO));
-  url.searchParams.set("endTime", toSpOffsetNoMs(endISO, true));
-  url.searchParams.set("deep", "1");
+  const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/energy/devices/totals`);
+  url.searchParams.set('startTime', toSpOffsetNoMs(startISO));
+  url.searchParams.set('endTime', toSpOffsetNoMs(endISO, true));
+  url.searchParams.set('deep', '1');
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
-    LogHelper.warn("[DeviceCards] API fetch failed:", res.status);
+    LogHelper.warn('[DeviceCards] API fetch failed:', res.status);
     return new Map();
   }
 
@@ -1039,40 +959,40 @@ function applyFilters(enriched, searchTerm, selectedIds, sortMode) {
     v = v.filter((x) => selectedIds.has(x.id));
   }
 
-  const q = (searchTerm || "").trim().toLowerCase();
+  const q = (searchTerm || '').trim().toLowerCase();
   if (q) {
     v = v.filter(
       (x) =>
-        (x.label || "").toLowerCase().includes(q) ||
-        String(x.identifier || "")
+        (x.label || '').toLowerCase().includes(q) ||
+        String(x.identifier || '')
           .toLowerCase()
           .includes(q)
     );
   }
 
   v.sort((a, b) => {
-    if (sortMode === "cons_desc") {
+    if (sortMode === 'cons_desc') {
       if (a.value !== b.value) return b.value - a.value;
-      return (a.label || "").localeCompare(b.label || "", "pt-BR", {
-        sensitivity: "base",
+      return (a.label || '').localeCompare(b.label || '', 'pt-BR', {
+        sensitivity: 'base',
       });
     }
-    if (sortMode === "cons_asc") {
+    if (sortMode === 'cons_asc') {
       if (a.value !== b.value) return a.value - b.value;
-      return (a.label || "").localeCompare(b.label || "", "pt-BR", {
-        sensitivity: "base",
+      return (a.label || '').localeCompare(b.label || '', 'pt-BR', {
+        sensitivity: 'base',
       });
     }
-    if (sortMode === "alpha_desc") {
+    if (sortMode === 'alpha_desc') {
       return (
-        (b.label || "").localeCompare(a.label || "", "pt-BR", {
-          sensitivity: "base",
+        (b.label || '').localeCompare(a.label || '', 'pt-BR', {
+          sensitivity: 'base',
         }) || b.value - a.value
       );
     }
     return (
-      (a.label || "").localeCompare(b.label || "", "pt-BR", {
-        sensitivity: "base",
+      (a.label || '').localeCompare(b.label || '', 'pt-BR', {
+        sensitivity: 'base',
       }) || a.value - b.value
     );
   });
@@ -1097,7 +1017,7 @@ function recomputePercentages(visible) {
 function getShoppingNameForDevice(device) {
   // Priority 1: Check if customerId exists and look it up
   if (device.customerId && window.custumersSelected && Array.isArray(window.custumersSelected)) {
-    const shopping = window.custumersSelected.find(c => c.value === device.customerId);
+    const shopping = window.custumersSelected.find((c) => c.value === device.customerId);
     if (shopping) return shopping.name;
   }
 
@@ -1127,11 +1047,11 @@ function renderHeader(count, groupSum) {
 
   // Format based on widget domain
   let formattedTotal = groupSum.toFixed(2);
-  if (WIDGET_DOMAIN === "energy") {
+  if (WIDGET_DOMAIN === 'energy') {
     formattedTotal = MyIO.formatEnergy(groupSum);
-  } else if (WIDGET_DOMAIN === "water") {
+  } else if (WIDGET_DOMAIN === 'water') {
     formattedTotal = MyIO.formatWaterVolumeM3(groupSum);
-  } else if (WIDGET_DOMAIN === "tank") {
+  } else if (WIDGET_DOMAIN === 'tank') {
     formattedTotal = MyIO.formatTankHeadFromCm(groupSum);
   }
 
@@ -1139,42 +1059,42 @@ function renderHeader(count, groupSum) {
 }
 
 function renderList(visible) {
-  const listElement = document.getElementById("shopsList");
+  const listElement = document.getElementById('shopsList');
   if (!listElement) {
-    console.error("[STORES] shopsList element not found");
+    console.error('[STORES] shopsList element not found');
     return;
   }
 
-  listElement.innerHTML = "";
+  listElement.innerHTML = '';
 
   visible.forEach((it) => {
-    const container = document.createElement("div");
+    const container = document.createElement('div');
     listElement.appendChild(container);
 
     const valNum = Number(it.value || 0);
-    const connectionStatus = valNum > 0 ? "power_on" : "power_off";
+    const connectionStatus = valNum > 0 ? 'power_on' : 'power_off';
 
     // RFC-0063: Safe identifier handling with fallbacks
-    let deviceIdentifierToDisplay = "N/A";
+    let deviceIdentifierToDisplay = 'N/A';
     if (it.identifier) {
-      if (String(it.identifier).includes("Sem Identificador identificado")) {
-        const label = String(it.label || "").toLowerCase();
-        deviceIdentifierToDisplay = label.includes("fancoil") ? "FANCOIL" : "CAG";
+      if (String(it.identifier).includes('Sem Identificador identificado')) {
+        const label = String(it.label || '').toLowerCase();
+        deviceIdentifierToDisplay = label.includes('fancoil') ? 'FANCOIL' : 'CAG';
       } else {
         deviceIdentifierToDisplay = it.identifier;
       }
     } else {
-      const label = String(it.label || "").toLowerCase();
-      if (label.includes("fancoil")) {
-        deviceIdentifierToDisplay = "FANCOIL";
-      } else if (label.includes("cag")) {
-        deviceIdentifierToDisplay = "CAG";
-      } else if (label.includes("elevador") || label.includes("elv")) {
-        deviceIdentifierToDisplay = "ELV";
-      } else if (label.includes("escada")) {
-        deviceIdentifierToDisplay = "ESC";
+      const label = String(it.label || '').toLowerCase();
+      if (label.includes('fancoil')) {
+        deviceIdentifierToDisplay = 'FANCOIL';
+      } else if (label.includes('cag')) {
+        deviceIdentifierToDisplay = 'CAG';
+      } else if (label.includes('elevador') || label.includes('elv')) {
+        deviceIdentifierToDisplay = 'ELV';
+      } else if (label.includes('escada')) {
+        deviceIdentifierToDisplay = 'ESC';
       } else {
-        deviceIdentifierToDisplay = "N/A";
+        deviceIdentifierToDisplay = 'N/A';
       }
     }
 
@@ -1184,17 +1104,17 @@ function renderList(visible) {
     const entityObject = {
       entityId: it.tbId || it.id,
       labelOrName: it.label,
-      deviceType: it.label.includes("dministra") ? "3F_MEDIDOR" : it.deviceType,
+      deviceType: it.label.includes('dministra') ? '3F_MEDIDOR' : it.deviceType,
       val: valNum,
       value: valNum,
       perc: it.perc ?? 0,
       deviceStatus: connectionStatus,
-      entityType: "DEVICE",
+      entityType: 'DEVICE',
       deviceIdentifier: deviceIdentifierToDisplay,
-      slaveId: it.slaveId || "N/A",
-      ingestionId: it.ingestionId || "N/A",
-      centralId: it.centralId || "N/A",
-      centralName: it.centralName || "N/A",
+      slaveId: it.slaveId || 'N/A',
+      ingestionId: it.ingestionId || 'N/A',
+      centralId: it.centralId || 'N/A',
+      centralName: it.centralName || 'N/A',
       customerName: customerName,
       updatedIdentifiers: it.updatedIdentifiers || {},
       connectionStatusTime: it.connectionStatusTime || Date.now(),
@@ -1206,25 +1126,25 @@ function renderList(visible) {
       entityObject: entityObject,
 
       handleActionDashboard: async () => {
-        console.log("[STORES] [RFC-0072] Opening energy dashboard for:", entityObject.entityId);
+        console.log('[STORES] [RFC-0072] Opening energy dashboard for:', entityObject.entityId);
 
         try {
           if (typeof MyIOLibrary.openDashboardPopupEnergy !== 'function') {
-            console.error("[STORES] [RFC-0072] openDashboardPopupEnergy component not loaded");
-            alert("Dashboard component não disponível");
+            console.error('[STORES] [RFC-0072] openDashboardPopupEnergy component not loaded');
+            alert('Dashboard component não disponível');
             return;
           }
 
           const tokenIngestionDashBoard = await MyIOAuth.getToken();
-          const myTbTokenDashBoard = localStorage.getItem("jwt_token");
+          const myTbTokenDashBoard = localStorage.getItem('jwt_token');
 
           if (!myTbTokenDashBoard) {
-            throw new Error("JWT token não encontrado");
+            throw new Error('JWT token não encontrado');
           }
 
           const modal = MyIOLibrary.openDashboardPopupEnergy({
             deviceId: entityObject.entityId,
-            readingType: "energy",
+            readingType: 'energy',
             startDate: self.ctx.$scope.startDateISO,
             endDate: self.ctx.$scope.endDateISO,
             tbJwtToken: myTbTokenDashBoard,
@@ -1232,32 +1152,31 @@ function renderList(visible) {
             clientId: CLIENT_ID,
             clientSecret: CLIENT_SECRET,
             onOpen: (context) => {
-              console.log("[STORES] [RFC-0072] Modal opened:", context);
+              console.log('[STORES] [RFC-0072] Modal opened:', context);
             },
             onError: (error) => {
-              console.error("[STORES] [RFC-0072] Modal error:", error);
+              console.error('[STORES] [RFC-0072] Modal error:', error);
               alert(`Erro: ${error.message}`);
             },
             onClose: () => {
-              const overlay = document.querySelector(".myio-modal-overlay");
+              const overlay = document.querySelector('.myio-modal-overlay');
               if (overlay) {
                 overlay.remove();
               }
-              console.log("[STORES] [RFC-0072] Energy dashboard closed");
+              console.log('[STORES] [RFC-0072] Energy dashboard closed');
             },
           });
 
           if (!modal) {
-            console.error("[STORES] [RFC-0072] Modal failed to initialize");
-            alert("Erro ao abrir dashboard");
+            console.error('[STORES] [RFC-0072] Modal failed to initialize');
+            alert('Erro ao abrir dashboard');
             return;
           }
 
-          console.log("[STORES] [RFC-0072] Energy dashboard opened successfully");
-
+          console.log('[STORES] [RFC-0072] Energy dashboard opened successfully');
         } catch (err) {
-          console.error("[STORES] [RFC-0072] Error opening energy dashboard:", err);
-          alert("Credenciais ainda carregando. Tente novamente em instantes.");
+          console.error('[STORES] [RFC-0072] Error opening energy dashboard:', err);
+          alert('Credenciais ainda carregando. Tente novamente em instantes.');
         }
       },
 
@@ -1265,13 +1184,13 @@ function renderList(visible) {
         try {
           const ingestionToken = await MyIOAuth.getToken();
 
-          if (!ingestionToken) throw new Error("No ingestion token");
+          if (!ingestionToken) throw new Error('No ingestion token');
 
           await MyIOLibrary.openDashboardPopupReport({
             ingestionId: it.ingestionId,
             identifier: it.identifier,
             label: it.label,
-            domain: "energy",
+            domain: 'energy',
             api: {
               dataApiBaseUrl: DATA_API_HOST,
               clientId: CLIENT_ID,
@@ -1280,18 +1199,18 @@ function renderList(visible) {
             },
           });
         } catch (err) {
-          console.warn("[STORES] Report open blocked:", err?.message || err);
-          alert("Credenciais ainda carregando. Tente novamente em instantes.");
+          console.warn('[STORES] Report open blocked:', err?.message || err);
+          alert('Credenciais ainda carregando. Tente novamente em instantes.');
         }
       },
 
       handleActionSettings: async () => {
-        console.log("[STORES] [RFC-0072] Opening settings for store:", entityObject.entityId);
+        console.log('[STORES] [RFC-0072] Opening settings for store:', entityObject.entityId);
 
-        const jwt = localStorage.getItem("jwt_token");
+        const jwt = localStorage.getItem('jwt_token');
         if (!jwt) {
-          console.error("[STORES] [RFC-0072] JWT token not found");
-          alert("Token de autenticação não encontrado");
+          console.error('[STORES] [RFC-0072] JWT token not found');
+          alert('Token de autenticação não encontrado');
           return;
         }
 
@@ -1306,13 +1225,13 @@ function renderList(visible) {
         }
 
         if (!tbId || tbId === it.ingestionId) {
-          LogHelper.warn("[STORES] Missing/ambiguous TB id for Settings", {
+          LogHelper.warn('[STORES] Missing/ambiguous TB id for Settings', {
             label: it.label,
             identifier: it.identifier,
             ingestionId: it.ingestionId,
             tbId,
           });
-          alert("Não foi possível identificar o deviceId do ThingsBoard para este card.");
+          alert('Não foi possível identificar o deviceId do ThingsBoard para este card.');
           return;
         }
 
@@ -1328,19 +1247,19 @@ function renderList(visible) {
               timeVal: it.timeVal || Date.now(),
               deviceStatus: connectionStatus,
             },
-            ui: { title: "Configurações", width: 900 },
+            ui: { title: 'Configurações', width: 900 },
             onSaved: (payload) => {
-              LogHelper.log("[STORES] Settings Saved:", payload);
+              LogHelper.log('[STORES] Settings Saved:', payload);
               showGlobalSuccessModal(6);
             },
             onClose: () => {
-              const overlay = document.querySelector(".myio-settings-modal-overlay");
+              const overlay = document.querySelector('.myio-settings-modal-overlay');
               if (overlay) overlay.remove();
-              console.log("[STORES] [RFC-0072] Settings closed");
+              console.log('[STORES] [RFC-0072] Settings closed');
             },
           });
         } catch (e) {
-          console.error("[STORES] [RFC-0072] Error opening settings:", e);
+          console.error('[STORES] [RFC-0072] Error opening settings:', e);
         }
       },
     });
@@ -1351,19 +1270,18 @@ function renderList(visible) {
 
 /** ===================== UI BINDINGS ===================== **/
 function bindHeader() {
-  $root().on("click", "#btnSearch", () => {
+  $root().on('click', '#btnSearch', () => {
     STATE.searchActive = !STATE.searchActive;
-    $root().find("#searchWrap").toggleClass("active", STATE.searchActive);
-    if (STATE.searchActive)
-      setTimeout(() => $root().find("#shopsSearch").trigger("focus"), 30);
+    $root().find('#searchWrap').toggleClass('active', STATE.searchActive);
+    if (STATE.searchActive) setTimeout(() => $root().find('#shopsSearch').trigger('focus'), 30);
   });
 
-  $root().on("input", "#shopsSearch", (ev) => {
-    STATE.searchTerm = ev.target.value || "";
+  $root().on('input', '#shopsSearch', (ev) => {
+    STATE.searchTerm = ev.target.value || '';
     reflowFromState();
   });
 
-  $root().on("click", "#btnFilter", () => openFilterModal());
+  $root().on('click', '#btnFilter', () => openFilterModal());
 }
 
 /**
@@ -1371,27 +1289,27 @@ function bindHeader() {
  */
 function setupModalCloseHandlers(modal) {
   // Close button
-  const closeBtn = modal.querySelector("#closeFilter");
+  const closeBtn = modal.querySelector('#closeFilter');
   if (closeBtn) {
-    closeBtn.addEventListener("click", closeFilterModal);
+    closeBtn.addEventListener('click', closeFilterModal);
   }
 
   // Backdrop click
-  modal.addEventListener("click", (e) => {
+  modal.addEventListener('click', (e) => {
     if (e.target === modal) {
       closeFilterModal();
     }
   });
 
   // Apply filters button
-  const applyBtn = modal.querySelector("#applyFilters");
+  const applyBtn = modal.querySelector('#applyFilters');
   if (applyBtn) {
-    applyBtn.addEventListener("click", () => {
+    applyBtn.addEventListener('click', () => {
       // Get selected stores
       const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']:checked");
       const selectedSet = new Set();
-      checkboxes.forEach(cb => {
-        const entityId = cb.getAttribute("data-entity");
+      checkboxes.forEach((cb) => {
+        const entityId = cb.getAttribute('data-entity');
         if (entityId) selectedSet.add(entityId);
       });
 
@@ -1404,10 +1322,10 @@ function setupModalCloseHandlers(modal) {
         STATE.sortMode = sortRadio.value;
       }
 
-      console.log("[STORES] [RFC-0072] Filters applied:", {
+      console.log('[STORES] [RFC-0072] Filters applied:', {
         selectedCount: STATE.selectedIds?.size || STATE.itemsBase.length,
         totalStores: STATE.itemsBase.length,
-        sortMode: STATE.sortMode
+        sortMode: STATE.sortMode,
       });
 
       // Apply filters and close modal
@@ -1417,44 +1335,44 @@ function setupModalCloseHandlers(modal) {
   }
 
   // Reset filters button
-  const resetBtn = modal.querySelector("#resetFilters");
+  const resetBtn = modal.querySelector('#resetFilters');
   if (resetBtn) {
-    resetBtn.addEventListener("click", () => {
+    resetBtn.addEventListener('click', () => {
       // Reset state
       STATE.selectedIds = null;
       STATE.sortMode = 'cons_desc';
-      STATE.searchTerm = "";
+      STATE.searchTerm = '';
       STATE.searchActive = false;
 
       // Reset UI
-      const searchInput = document.getElementById("shopsSearch");
-      const searchWrap = document.getElementById("searchWrap");
-      if (searchInput) searchInput.value = "";
-      if (searchWrap) searchWrap.classList.remove("active");
+      const searchInput = document.getElementById('shopsSearch');
+      const searchWrap = document.getElementById('searchWrap');
+      if (searchInput) searchInput.value = '';
+      if (searchWrap) searchWrap.classList.remove('active');
 
       // Apply and close
       reflowFromState();
       closeFilterModal();
 
-      console.log("[STORES] [RFC-0072] Filters reset");
+      console.log('[STORES] [RFC-0072] Filters reset');
     });
   }
 
   // Bind filter tab click handlers
-  const filterTabs = modal.querySelectorAll(".filter-tab");
-  filterTabs.forEach(tab => {
-    tab.addEventListener("click", () => {
-      const filterType = tab.getAttribute("data-filter");
+  const filterTabs = modal.querySelectorAll('.filter-tab');
+  filterTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const filterType = tab.getAttribute('data-filter');
 
       // Update active state
-      filterTabs.forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
+      filterTabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
 
       // Filter checkboxes based on selected tab
       const checkboxes = modal.querySelectorAll("#deviceChecklist input[type='checkbox']");
-      checkboxes.forEach(cb => {
-        const entityId = cb.getAttribute("data-entity");
-        const store = STATE.itemsBase.find(s => s.id === entityId);
+      checkboxes.forEach((cb) => {
+        const entityId = cb.getAttribute('data-entity');
+        const store = STATE.itemsBase.find((s) => s.id === entityId);
 
         if (!store) return;
 
@@ -1483,42 +1401,44 @@ function setupModalCloseHandlers(modal) {
       });
 
       // Count how many checkboxes are now checked
-      const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
-      console.log(`[STORES] Filter tab selected: ${filterType}, checked: ${checkedCount}/${checkboxes.length}`);
+      const checkedCount = Array.from(checkboxes).filter((cb) => cb.checked).length;
+      console.log(
+        `[STORES] Filter tab selected: ${filterType}, checked: ${checkedCount}/${checkboxes.length}`
+      );
     });
   });
 
   // Bind filter device search inside modal
-  const filterDeviceSearch = modal.querySelector("#filterDeviceSearch");
+  const filterDeviceSearch = modal.querySelector('#filterDeviceSearch');
   if (filterDeviceSearch) {
-    filterDeviceSearch.addEventListener("input", (e) => {
-      const query = (e.target.value || "").trim().toLowerCase();
-      const checkItems = modal.querySelectorAll("#deviceChecklist .check-item");
+    filterDeviceSearch.addEventListener('input', (e) => {
+      const query = (e.target.value || '').trim().toLowerCase();
+      const checkItems = modal.querySelectorAll('#deviceChecklist .check-item');
 
-      checkItems.forEach(item => {
-        const span = item.querySelector("span");
-        const text = (span?.textContent || "").toLowerCase();
-        item.style.display = text.includes(query) ? "flex" : "none";
+      checkItems.forEach((item) => {
+        const span = item.querySelector('span');
+        const text = (span?.textContent || '').toLowerCase();
+        item.style.display = text.includes(query) ? 'flex' : 'none';
       });
     });
   }
 
   // Bind clear filter search button
-  const filterDeviceClear = modal.querySelector("#filterDeviceClear");
+  const filterDeviceClear = modal.querySelector('#filterDeviceClear');
   if (filterDeviceClear && filterDeviceSearch) {
-    filterDeviceClear.addEventListener("click", () => {
-      filterDeviceSearch.value = "";
-      const checkItems = modal.querySelectorAll("#deviceChecklist .check-item");
-      checkItems.forEach(item => item.style.display = "flex");
+    filterDeviceClear.addEventListener('click', () => {
+      filterDeviceSearch.value = '';
+      const checkItems = modal.querySelectorAll('#deviceChecklist .check-item');
+      checkItems.forEach((item) => (item.style.display = 'flex'));
       filterDeviceSearch.focus();
     });
   }
 
-  console.log("[STORES] [RFC-0072] Modal handlers bound (close, apply, reset, filter tabs, search)");
+  console.log('[STORES] [RFC-0072] Modal handlers bound (close, apply, reset, filter tabs, search)');
 }
 
 function openFilterModal() {
-  console.log("[STORES] [RFC-0072] Opening filter modal...");
+  console.log('[STORES] [RFC-0072] Opening filter modal...');
 
   // RFC-0072: Move modal to document.body for full-screen overlay
   let globalContainer = document.getElementById('storesFilterModalGlobal');
@@ -1528,7 +1448,7 @@ function openFilterModal() {
     globalContainer.id = 'storesFilterModalGlobal';
 
     // Get the modal from the widget
-    const widgetModal = $root().find("#filterModal")[0];
+    const widgetModal = $root().find('#filterModal')[0];
     if (widgetModal) {
       // Add inline styles for the global container
       globalContainer.innerHTML = `
@@ -1764,17 +1684,17 @@ function openFilterModal() {
       // Bind close handlers now that modal is in document.body
       setupModalCloseHandlers(widgetModal);
 
-      console.log("[STORES] [RFC-0072] Modal moved to document.body with inline styles and handlers");
+      console.log('[STORES] [RFC-0072] Modal moved to document.body with inline styles and handlers');
     } else {
-      console.error("[STORES] [RFC-0072] Filter modal not found in template");
+      console.error('[STORES] [RFC-0072] Filter modal not found in template');
       return;
     }
   }
 
-  const modal = globalContainer.querySelector("#filterModal");
+  const modal = globalContainer.querySelector('#filterModal');
   if (!modal) return;
 
-  modal.classList.remove("hidden");
+  modal.classList.remove('hidden');
 
   // Calculate counts for filter tabs
   const list = STATE.itemsBase || [];
@@ -1783,10 +1703,10 @@ function openFilterModal() {
     online: 0,
     offline: 0,
     withConsumption: 0,
-    noConsumption: 0
+    noConsumption: 0,
   };
 
-  list.forEach(store => {
+  list.forEach((store) => {
     const consumption = Number(store.consumption) || Number(store.val) || 0;
 
     // Use consumption as proxy for online/offline status
@@ -1815,23 +1735,23 @@ function openFilterModal() {
   console.log('[STORES] Filter counts:', counts);
 
   // Populate device checklist
-  const checklist = globalContainer.querySelector("#deviceChecklist");
+  const checklist = globalContainer.querySelector('#deviceChecklist');
   if (!checklist) {
-    console.error("[STORES] ❌ deviceChecklist element not found!");
+    console.error('[STORES] ❌ deviceChecklist element not found!');
     return;
   }
 
-  checklist.innerHTML = "";
+  checklist.innerHTML = '';
 
-  const sortedList = list.slice().sort((a, b) =>
-    (a.label || "").localeCompare(b.label || "", "pt-BR", { sensitivity: "base" })
-  );
+  const sortedList = list
+    .slice()
+    .sort((a, b) => (a.label || '').localeCompare(b.label || '', 'pt-BR', { sensitivity: 'base' }));
 
-  sortedList.forEach(store => {
+  sortedList.forEach((store) => {
     const isChecked = !STATE.selectedIds || STATE.selectedIds.has(store.id);
 
-    const item = document.createElement("div");
-    item.className = "check-item";
+    const item = document.createElement('div');
+    item.className = 'check-item';
     item.innerHTML = `
       <input type="checkbox" id="check-${store.id}" ${isChecked ? 'checked' : ''} data-entity="${store.id}">
       <span>${escapeHtml(store.label || store.identifier || store.id)}</span>
@@ -1849,112 +1769,100 @@ function closeFilterModal() {
   // Try to find modal in global container first
   const globalContainer = document.getElementById('storesFilterModalGlobal');
   if (globalContainer) {
-    const modal = globalContainer.querySelector("#filterModal");
+    const modal = globalContainer.querySelector('#filterModal');
     if (modal) {
-      modal.classList.add("hidden");
-      console.log("[STORES] [RFC-0072] Filter modal closed");
+      modal.classList.add('hidden');
+      console.log('[STORES] [RFC-0072] Filter modal closed');
       return;
     }
   }
   // Fallback to original method
-  $modal().addClass("hidden");
+  $modal().addClass('hidden');
 }
 
 function bindModal() {
-  $root().on("click", "#closeFilter", closeFilterModal);
+  $root().on('click', '#closeFilter', closeFilterModal);
 
-  $root().on("click", "#selectAll", (ev) => {
+  $root().on('click', '#selectAll', (ev) => {
     ev.preventDefault();
-    $modal().find('.check-item input[type="checkbox"]').prop("checked", true);
+    $modal().find('.check-item input[type="checkbox"]').prop('checked', true);
     syncChecklistSelectionVisual();
   });
 
-  $root().on("click", "#clearAll", (ev) => {
+  $root().on('click', '#clearAll', (ev) => {
     ev.preventDefault();
-    $modal().find('.check-item input[type="checkbox"]').prop("checked", false);
+    $modal().find('.check-item input[type="checkbox"]').prop('checked', false);
     syncChecklistSelectionVisual();
   });
 
-  $root().on("click", "#resetFilters", (ev) => {
+  $root().on('click', '#resetFilters', (ev) => {
     ev.preventDefault();
     STATE.selectedIds = null;
-    STATE.sortMode = "cons_desc";
-    $modal().find('.check-item input[type="checkbox"]').prop("checked", true);
-    $modal()
-      .find('input[name="sortMode"][value="cons_desc"]')
-      .prop("checked", true);
+    STATE.sortMode = 'cons_desc';
+    $modal().find('.check-item input[type="checkbox"]').prop('checked', true);
+    $modal().find('input[name="sortMode"][value="cons_desc"]').prop('checked', true);
     syncChecklistSelectionVisual();
     reflowFromState();
   });
 
-  $root().on("click", "#applyFilters", (ev) => {
+  $root().on('click', '#applyFilters', (ev) => {
     ev.preventDefault();
     const set = new Set();
     $modal()
       .find('.check-item input[type="checkbox"]:checked')
       .each((_, el) => {
-        const id = $(el).data("entity");
+        const id = $(el).data('entity');
         if (id) set.add(id);
       });
 
-    STATE.selectedIds =
-      set.size === 0 || set.size === STATE.itemsBase.length ? null : set;
-    STATE.sortMode = String(
-      $modal().find('input[name="sortMode"]:checked').val() || "cons_desc"
-    );
+    STATE.selectedIds = set.size === 0 || set.size === STATE.itemsBase.length ? null : set;
+    STATE.sortMode = String($modal().find('input[name="sortMode"]:checked').val() || 'cons_desc');
 
     reflowFromState();
     closeFilterModal();
   });
 
-  $root().on("input", "#filterDeviceSearch", (ev) => {
-    const q = (ev.target.value || "").trim().toLowerCase();
+  $root().on('input', '#filterDeviceSearch', (ev) => {
+    const q = (ev.target.value || '').trim().toLowerCase();
     $modal()
-      .find(".check-item")
+      .find('.check-item')
       .each((_, node) => {
         const txt = $(node).text().trim().toLowerCase();
         $(node).toggle(txt.includes(q));
       });
   });
 
-  $root().on("click", "#filterDeviceClear", (ev) => {
+  $root().on('click', '#filterDeviceClear', (ev) => {
     ev.preventDefault();
-    const $inp = $modal().find("#filterDeviceSearch");
-    $inp.val("");
-    $modal().find(".check-item").show();
-    $inp.trigger("focus");
+    const $inp = $modal().find('#filterDeviceSearch');
+    $inp.val('');
+    $modal().find('.check-item').show();
+    $inp.trigger('focus');
   });
 
-  $root().on("click", "#deviceChecklist .check-item", function (ev) {
-    if (
-      ev.target &&
-      ev.target.tagName &&
-      ev.target.tagName.toLowerCase() === "input"
-    )
-      return;
+  $root().on('click', '#deviceChecklist .check-item', function (ev) {
+    if (ev.target && ev.target.tagName && ev.target.tagName.toLowerCase() === 'input') return;
     ev.preventDefault();
     ev.stopPropagation();
     const $chk = $(this).find('input[type="checkbox"]');
-    $chk.prop("checked", !$chk.prop("checked")).trigger("change");
+    $chk.prop('checked', !$chk.prop('checked')).trigger('change');
   });
 
-  $root().on("change", '#deviceChecklist input[type="checkbox"]', function () {
-    const $wrap = $(this).closest(".check-item");
+  $root().on('change', '#deviceChecklist input[type="checkbox"]', function () {
+    const $wrap = $(this).closest('.check-item');
     const on = this.checked;
-    $wrap
-      .toggleClass("selected", on)
-      .attr("data-checked", on ? "true" : "false");
+    $wrap.toggleClass('selected', on).attr('data-checked', on ? 'true' : 'false');
     $wrap.css(
       on
         ? {
-            background: "rgba(62,26,125,.08)",
-            borderColor: "#3E1A7D",
-            boxShadow: "0 8px 18px rgba(62,26,125,.15)",
+            background: 'rgba(62,26,125,.08)',
+            borderColor: '#3E1A7D',
+            boxShadow: '0 8px 18px rgba(62,26,125,.15)',
           }
         : {
-            background: "#fff",
-            borderColor: "#D6E1EC",
-            boxShadow: "0 6px 14px rgba(0,0,0,.05)",
+            background: '#fff',
+            borderColor: '#D6E1EC',
+            boxShadow: '0 6px 14px rgba(0,0,0,.05)',
           }
     );
   });
@@ -1962,24 +1870,22 @@ function bindModal() {
 
 function syncChecklistSelectionVisual() {
   $modal()
-    .find(".check-item")
+    .find('.check-item')
     .each(function () {
       const $el = $(this);
-      const on = $el.find('input[type="checkbox"]').prop("checked");
-      $el
-        .toggleClass("selected", on)
-        .attr("data-checked", on ? "true" : "false");
+      const on = $el.find('input[type="checkbox"]').prop('checked');
+      $el.toggleClass('selected', on).attr('data-checked', on ? 'true' : 'false');
       $el.css(
         on
           ? {
-              background: "rgba(62,26,125,.08)",
-              borderColor: "#3E1A7D",
-              boxShadow: "0 8px 18px rgba(62,26,125,.15)",
+              background: 'rgba(62,26,125,.08)',
+              borderColor: '#3E1A7D',
+              boxShadow: '0 8px 18px rgba(62,26,125,.15)',
             }
           : {
-              background: "#fff",
-              borderColor: "#D6E1EC",
-              boxShadow: "0 6px 14px rgba(0,0,0,.05)",
+              background: '#fff',
+              borderColor: '#D6E1EC',
+              boxShadow: '0 6px 14px rgba(0,0,0,.05)',
             }
       );
     });
@@ -1993,7 +1899,7 @@ function syncChecklistSelectionVisual() {
  * @returns {number} valor em MWh arredondado
  */
 function normalizeToMWh(kWhValue) {
-  if (typeof kWhValue !== "number" || isNaN(kWhValue)) return 0;
+  if (typeof kWhValue !== 'number' || isNaN(kWhValue)) return 0;
   return Math.round((kWhValue / 1000) * 100) / 100;
 }
 
@@ -2003,12 +1909,12 @@ function normalizeToMWh(kWhValue) {
  * @returns {string} label normalizado
  */
 function normalizeLabel(str) {
-  if (!str) return "";
+  if (!str) return '';
   return str
     .toLowerCase()
     .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
 /**
@@ -2021,7 +1927,7 @@ function emitTelemetryUpdate() {
     const widgetType = detectWidgetType();
 
     if (!widgetType) {
-      LogHelper.log("[RFC-0056] Widget type not detected - skipping emission");
+      LogHelper.log('[RFC-0056] Widget type not detected - skipping emission');
       return;
     }
 
@@ -2029,18 +1935,18 @@ function emitTelemetryUpdate() {
     const periodKey = buildPeriodKey();
 
     // RFC-0002: Domain-specific emission
-    if (WIDGET_DOMAIN === "water") {
+    if (WIDGET_DOMAIN === 'water') {
       emitWaterTelemetry(widgetType, periodKey);
     } else {
       // Default: energy domain
-      if (widgetType === "lojas") {
+      if (widgetType === 'lojas') {
         emitLojasTotal(periodKey);
-      } else if (widgetType === "areacomum") {
+      } else if (widgetType === 'areacomum') {
         emitAreaComumBreakdown(periodKey);
       }
     }
   } catch (err) {
-    LogHelper.error("[RFC-0056] Error in emitTelemetryUpdate:", err);
+    LogHelper.error('[RFC-0056] Error in emitTelemetryUpdate:', err);
   }
 }
 
@@ -2051,87 +1957,57 @@ function emitTelemetryUpdate() {
  */
 function detectWidgetType() {
   try {
-    LogHelper.log(
-      "🔍 [detectWidgetType] Iniciando detecção de tipo de widget..."
-    );
+    LogHelper.log('🔍 [detectWidgetType] Iniciando detecção de tipo de widget...');
 
     const datasources = ctx.datasources || [];
-    LogHelper.log(
-      `[detectWidgetType] Total de datasources detectados: ${datasources.length}`
-    );
+    LogHelper.log(`[detectWidgetType] Total de datasources detectados: ${datasources.length}`);
 
     if (!datasources.length) {
-      LogHelper.warn(
-        "[detectWidgetType] Nenhum datasource encontrado em ctx.datasources!"
-      );
+      LogHelper.warn('[detectWidgetType] Nenhum datasource encontrado em ctx.datasources!');
       return null;
     }
 
     // Percorrer todos os datasources
     for (let i = 0; i < datasources.length; i++) {
       const ds = datasources[i];
-      const alias = (ds.aliasName || "").toString().toLowerCase().trim();
+      const alias = (ds.aliasName || '').toString().toLowerCase().trim();
 
       LogHelper.log(`🔸 [detectWidgetType] Verificando datasource[${i}]`);
-      LogHelper.log(`    ↳ aliasName:     ${ds.aliasName || "(vazio)"}`);
-      LogHelper.log(`    ↳ entityName:    ${ds.entityName || "(vazio)"}`);
+      LogHelper.log(`    ↳ aliasName:     ${ds.aliasName || '(vazio)'}`);
+      LogHelper.log(`    ↳ entityName:    ${ds.entityName || '(vazio)'}`);
       LogHelper.log(`    ↳ alias normalizado: "${alias}"`);
 
       if (!alias) {
-        LogHelper.warn(
-          `[detectWidgetType] ⚠️ Alias vazio ou indefinido no datasource[${i}].`
-        );
+        LogHelper.warn(`[detectWidgetType] ⚠️ Alias vazio ou indefinido no datasource[${i}].`);
         continue;
       }
 
       // RFC-0002: Check for entrada (water domain)
       // Use word boundary matching to avoid false positives like "bomba entrada"
-      if (
-        /\bentrada\b/.test(alias) ||
-        alias === "entrada" ||
-        alias.includes("entrada")
-      ) {
-        LogHelper.log(
-          `✅ [detectWidgetType] Tipo detectado: "entrada" (com base no alias "${alias}")`
-        );
-        return "entrada";
+      if (/\bentrada\b/.test(alias) || alias === 'entrada' || alias.includes('entrada')) {
+        LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "entrada" (com base no alias "${alias}")`);
+        return 'entrada';
       }
 
       // Match "lojas" as standalone word or at end of alias
       // AVOID false positives like "Bomba Lojas", "Subestação Lojas"
       // ACCEPT: "lojas", "widget-lojas", "telemetry-lojas", "consumidores lojas"
-      if (
-        /\blojas\b/.test(alias) &&
-        !/bomba|subesta|entrada|chiller|elevador|escada/i.test(alias)
-      ) {
-        LogHelper.log(
-          `✅ [detectWidgetType] Tipo detectado: "lojas" (com base no alias "${alias}")`
-        );
-        return "lojas";
+      if (/\blojas\b/.test(alias) && !/bomba|subesta|entrada|chiller|elevador|escada/i.test(alias)) {
+        LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "lojas" (com base no alias "${alias}")`);
+        return 'lojas';
       }
 
       // Match area comum with flexible separators
-      if (
-        /\barea\s*comum\b/.test(alias) ||
-        alias.includes("areacomum") ||
-        alias.includes("area_comum")
-      ) {
-        LogHelper.log(
-          `✅ [detectWidgetType] Tipo detectado: "areacomum" (com base no alias "${alias}")`
-        );
-        return "areacomum";
+      if (/\barea\s*comum\b/.test(alias) || alias.includes('areacomum') || alias.includes('area_comum')) {
+        LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "areacomum" (com base no alias "${alias}")`);
+        return 'areacomum';
       }
     }
 
-    LogHelper.warn(
-      "[detectWidgetType] ⚠️ Nenhum tipo de widget correspondente encontrado."
-    );
+    LogHelper.warn('[detectWidgetType] ⚠️ Nenhum tipo de widget correspondente encontrado.');
     return null;
   } catch (err) {
-    LogHelper.error(
-      "[detectWidgetType] ❌ Erro durante detecção de tipo de widget:",
-      err
-    );
+    LogHelper.error('[detectWidgetType] ❌ Erro durante detecção de tipo de widget:', err);
     return null;
   }
 }
@@ -2144,14 +2020,14 @@ function buildPeriodKey() {
   const timewindow = ctx.defaultSubscription?.subscriptionTimewindow;
 
   if (!timewindow || timewindow.realtimeWindowMs) {
-    return "realtime";
+    return 'realtime';
   }
 
   const startMs = timewindow.fixedWindow?.startTimeMs || Date.now() - 86400000;
   const endMs = timewindow.fixedWindow?.endTimeMs || Date.now();
 
-  const startDate = new Date(startMs).toISOString().split("T")[0];
-  const endDate = new Date(endMs).toISOString().split("T")[0];
+  const startDate = new Date(startMs).toISOString().split('T')[0];
+  const endDate = new Date(endMs).toISOString().split('T')[0];
 
   return `${startDate}_${endDate}`;
 }
@@ -2170,11 +2046,11 @@ function emitLojasTotal(periodKey) {
     const totalMWh = normalizeToMWh(lojasTotal);
 
     const payload = {
-      type: "lojas_total",
-      domain: "energy",
+      type: 'lojas_total',
+      domain: 'energy',
       periodKey: periodKey,
       timestamp: Date.now(),
-      source: "TELEMETRY_Lojas",
+      source: 'TELEMETRY_Lojas',
       data: {
         total_kWh: lojasTotal,
         total_MWh: totalMWh,
@@ -2187,11 +2063,11 @@ function emitLojasTotal(periodKey) {
     try {
       sessionStorage.setItem(cacheKey, JSON.stringify(payload));
     } catch (e) {
-      LogHelper.warn("[RFC-0056] sessionStorage write failed:", e);
+      LogHelper.warn('[RFC-0056] sessionStorage write failed:', e);
     }
 
     // Dispatch consolidated event
-    const event = new CustomEvent("myio:telemetry:update", {
+    const event = new CustomEvent('myio:telemetry:update', {
       detail: payload,
       bubbles: true,
       cancelable: false,
@@ -2202,7 +2078,7 @@ function emitLojasTotal(periodKey) {
       `[RFC-0056] ✅ Emitted lojas_total: ${totalMWh} MWh (${STATE.itemsEnriched.length} devices)`
     );
   } catch (err) {
-    LogHelper.error("[RFC-0056] Error in emitLojasTotal:", err);
+    LogHelper.error('[RFC-0056] Error in emitLojasTotal:', err);
   }
 }
 
@@ -2211,56 +2087,36 @@ function emitLojasTotal(periodKey) {
  * @param {string} identifier - Device identifier (e.g., "CAG", "Fancoil", "ELV", etc.)
  * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'|null}
  */
-function classifyDeviceByIdentifier(identifier = "") {
+function classifyDeviceByIdentifier(identifier = '') {
   // RFC-0063: Safe guard against null/undefined/empty
-  if (
-    !identifier ||
-    identifier === "N/A" ||
-    identifier === "null" ||
-    identifier === "undefined"
-  ) {
+  if (!identifier || identifier === 'N/A' || identifier === 'null' || identifier === 'undefined') {
     return null;
   }
 
   const id = String(identifier).trim().toUpperCase();
 
   // Ignore "Sem Identificador identificado" marker
-  if (id.includes("SEM IDENTIFICADOR")) {
+  if (id.includes('SEM IDENTIFICADOR')) {
     return null;
   }
 
   // Climatização: CAG, Fancoil
-  if (
-    id === "CAG" ||
-    id === "FANCOIL" ||
-    id.startsWith("CAG-") ||
-    id.startsWith("FANCOIL-")
-  ) {
-    return "climatizacao";
+  if (id === 'CAG' || id === 'FANCOIL' || id.startsWith('CAG-') || id.startsWith('FANCOIL-')) {
+    return 'climatizacao';
   }
 
   // Elevadores: ELV, Elevador
-  if (
-    id === "ELV" ||
-    id === "ELEVADOR" ||
-    id.startsWith("ELV-") ||
-    id.startsWith("ELEVADOR-")
-  ) {
-    return "elevadores";
+  if (id === 'ELV' || id === 'ELEVADOR' || id.startsWith('ELV-') || id.startsWith('ELEVADOR-')) {
+    return 'elevadores';
   }
 
   // Escadas Rolantes: ESC, Escada
-  if (
-    id === "ESC" ||
-    id === "ESCADA" ||
-    id.startsWith("ESC-") ||
-    id.startsWith("ESCADA")
-  ) {
-    return "escadas_rolantes";
+  if (id === 'ESC' || id === 'ESCADA' || id.startsWith('ESC-') || id.startsWith('ESCADA')) {
+    return 'escadas_rolantes';
   }
 
   // Outros: qualquer outro identifier não reconhecido
-  return "outros";
+  return 'outros';
 }
 
 /**
@@ -2268,46 +2124,46 @@ function classifyDeviceByIdentifier(identifier = "") {
  * @param {string} label - Device label/name
  * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'}
  */
-function classifyDeviceByLabel(label = "") {
+function classifyDeviceByLabel(label = '') {
   // RFC-0063: Safe guard against null/undefined
   if (!label) {
-    return "outros";
+    return 'outros';
   }
 
   const normalized = normalizeLabel(label);
 
   // Climatização patterns
   if (
-    normalized.includes("climatizacao") ||
-    normalized.includes("hvac") ||
-    normalized.includes("ar condicionado") ||
-    normalized.includes("chiller") ||
-    normalized.includes("bomba cag") ||
-    normalized.includes("fancoil") ||
-    normalized.includes("casa de máquina ar") ||
-    normalized.includes("bomba primaria") ||
-    normalized.includes("bomba secundaria") ||
-    normalized.includes("bombas condensadoras") ||
-    normalized.includes("bombas condensadora") ||
-    normalized.includes("bomba condensadora") ||
-    normalized.includes("bombas primarias") ||
-    normalized.includes("bombas secundarias")
+    normalized.includes('climatizacao') ||
+    normalized.includes('hvac') ||
+    normalized.includes('ar condicionado') ||
+    normalized.includes('chiller') ||
+    normalized.includes('bomba cag') ||
+    normalized.includes('fancoil') ||
+    normalized.includes('casa de máquina ar') ||
+    normalized.includes('bomba primaria') ||
+    normalized.includes('bomba secundaria') ||
+    normalized.includes('bombas condensadoras') ||
+    normalized.includes('bombas condensadora') ||
+    normalized.includes('bomba condensadora') ||
+    normalized.includes('bombas primarias') ||
+    normalized.includes('bombas secundarias')
   ) {
-    return "climatizacao";
+    return 'climatizacao';
   }
 
   // Elevadores patterns
-  if (normalized.includes("elevador")) {
-    return "elevadores";
+  if (normalized.includes('elevador')) {
+    return 'elevadores';
   }
 
   // Escadas Rolantes patterns
-  if (normalized.includes("escada") && normalized.includes("rolante")) {
-    return "escadas_rolantes";
+  if (normalized.includes('escada') && normalized.includes('rolante')) {
+    return 'escadas_rolantes';
   }
 
   // Default: outros
-  return "outros";
+  return 'outros';
 }
 
 /**
@@ -2318,34 +2174,32 @@ function classifyDeviceByLabel(label = "") {
 function classifyDevice(item) {
   // RFC-0063: Safe guard - ensure item exists
   if (!item) {
-    LogHelper.warn("[RFC-0063] classifyDevice called with null/undefined item");
-    return "outros";
+    LogHelper.warn('[RFC-0063] classifyDevice called with null/undefined item');
+    return 'outros';
   }
 
   // Mode 1: Identifier only (new method)
   if (
     (USE_IDENTIFIER_CLASSIFICATION && !USE_HYBRID_CLASSIFICATION) ||
-    item.identifier === "ESCADASROLANTES"
+    item.identifier === 'ESCADASROLANTES'
   ) {
     const category = classifyDeviceByIdentifier(item.identifier);
     if (category) {
-      LogHelper.log(
-        `[RFC-0063] Device classified by identifier: "${item.identifier}" → ${category}`
-      );
+      LogHelper.log(`[RFC-0063] Device classified by identifier: "${item.identifier}" → ${category}`);
       return category;
     }
     // Fallback to 'outros' if identifier doesn't match any category
     const reason = !item.identifier
-      ? "no identifier attribute"
+      ? 'no identifier attribute'
       : `identifier "${item.identifier}" not recognized`;
     LogHelper.log(`[RFC-0063] Device ${reason} → outros`);
-    return "outros";
+    return 'outros';
   }
 
   // Mode 2: Hybrid (identifier with label fallback)
   if (USE_IDENTIFIER_CLASSIFICATION && USE_HYBRID_CLASSIFICATION) {
     const categoryByIdentifier = classifyDeviceByIdentifier(item.identifier);
-    if (categoryByIdentifier && categoryByIdentifier !== "outros") {
+    if (categoryByIdentifier && categoryByIdentifier !== 'outros') {
       LogHelper.log(
         `[RFC-0063 Hybrid] Device classified by identifier: "${item.identifier}" → ${categoryByIdentifier}`
       );
@@ -2354,7 +2208,7 @@ function classifyDevice(item) {
     // Fallback to label classification
     const categoryByLabel = classifyDeviceByLabel(item.label || item.name);
     const fallbackReason = !item.identifier
-      ? "no identifier"
+      ? 'no identifier'
       : `identifier "${item.identifier}" not recognized`;
     LogHelper.log(
       `[RFC-0063 Hybrid] Device (${fallbackReason}) classified by label fallback: "${item.label}" → ${categoryByLabel}`
@@ -2375,11 +2229,7 @@ function emitAreaComumBreakdown(periodKey) {
   try {
     LogHelper.log(
       `[RFC-0063] emitAreaComumBreakdown: mode=${
-        USE_IDENTIFIER_CLASSIFICATION
-          ? USE_HYBRID_CLASSIFICATION
-            ? "HYBRID"
-            : "IDENTIFIER"
-          : "LEGACY"
+        USE_IDENTIFIER_CLASSIFICATION ? (USE_HYBRID_CLASSIFICATION ? 'HYBRID' : 'IDENTIFIER') : 'LEGACY'
       }`
     );
 
@@ -2408,11 +2258,11 @@ function emitAreaComumBreakdown(periodKey) {
     });
 
     const payload = {
-      type: "areacomum_breakdown",
-      domain: "energy",
+      type: 'areacomum_breakdown',
+      domain: 'energy',
       periodKey: periodKey,
       timestamp: Date.now(),
-      source: "TELEMETRY_AreaComum",
+      source: 'TELEMETRY_AreaComum',
       data: {
         climatizacao_kWh: breakdown.climatizacao,
         climatizacao_MWh: normalizeToMWh(breakdown.climatizacao),
@@ -2431,11 +2281,11 @@ function emitAreaComumBreakdown(periodKey) {
     try {
       sessionStorage.setItem(cacheKey, JSON.stringify(payload));
     } catch (e) {
-      LogHelper.warn("[RFC-0056] sessionStorage write failed:", e);
+      LogHelper.warn('[RFC-0056] sessionStorage write failed:', e);
     }
 
     // Dispatch consolidated event
-    const event = new CustomEvent("myio:telemetry:update", {
+    const event = new CustomEvent('myio:telemetry:update', {
       detail: payload,
       bubbles: true,
       cancelable: false,
@@ -2444,16 +2294,13 @@ function emitAreaComumBreakdown(periodKey) {
     window.dispatchEvent(event);
 
     const totalMWh = normalizeToMWh(
-      breakdown.climatizacao +
-        breakdown.elevadores +
-        breakdown.escadas_rolantes +
-        breakdown.outros
+      breakdown.climatizacao + breakdown.elevadores + breakdown.escadas_rolantes + breakdown.outros
     );
     LogHelper.log(
       `[RFC-0056] ✅ Emitted areacomum_breakdown: ${totalMWh} MWh (${STATE.itemsEnriched.length} devices)`
     );
   } catch (err) {
-    LogHelper.error("[RFC-0056] Error in emitAreaComumBreakdown:", err);
+    LogHelper.error('[RFC-0056] Error in emitAreaComumBreakdown:', err);
   }
 }
 
@@ -2467,12 +2314,12 @@ function emitWaterTelemetry(widgetType, periodKey) {
   try {
     // Map widgetType to water context (direct mapping)
     let context = null;
-    if (widgetType === "entrada") {
-      context = "entrada";
-    } else if (widgetType === "lojas") {
-      context = "lojas";
-    } else if (widgetType === "areacomum") {
-      context = "areaComum";
+    if (widgetType === 'entrada') {
+      context = 'entrada';
+    } else if (widgetType === 'lojas') {
+      context = 'lojas';
+    } else if (widgetType === 'areacomum') {
+      context = 'areaComum';
     }
 
     if (!context) {
@@ -2481,22 +2328,19 @@ function emitWaterTelemetry(widgetType, periodKey) {
     }
 
     // Calculate total in m³
-    const totalM3 = STATE.itemsEnriched.reduce(
-      (sum, item) => sum + (item.value || 0),
-      0
-    );
+    const totalM3 = STATE.itemsEnriched.reduce((sum, item) => sum + (item.value || 0), 0);
 
     // Build device list
     const devices = STATE.itemsEnriched.map((item) => ({
-      id: item.id || item.entityId || "",
-      label: item.label || item.name || "",
+      id: item.id || item.entityId || '',
+      label: item.label || item.name || '',
       value: item.value || 0,
-      deviceType: item.deviceType || "HIDROMETRO",
+      deviceType: item.deviceType || 'HIDROMETRO',
     }));
 
     const payload = {
       context: context,
-      domain: "water",
+      domain: 'water',
       total: totalM3,
       devices: devices,
       periodKey: periodKey,
@@ -2504,7 +2348,7 @@ function emitWaterTelemetry(widgetType, periodKey) {
     };
 
     // Dispatch water event
-    const event = new CustomEvent("myio:telemetry:provide-water", {
+    const event = new CustomEvent('myio:telemetry:provide-water', {
       detail: payload,
       bubbles: true,
       cancelable: false,
@@ -2518,18 +2362,13 @@ function emitWaterTelemetry(widgetType, periodKey) {
       )} m³, devices=${devices.length}`
     );
   } catch (err) {
-    LogHelper.error("[RFC-0002 Water] Error in emitWaterTelemetry:", err);
+    LogHelper.error('[RFC-0002 Water] Error in emitWaterTelemetry:', err);
   }
 }
 
 /** ===================== RECOMPUTE (local only) ===================== **/
 function reflowFromState() {
-  const visible = applyFilters(
-    STATE.itemsEnriched,
-    STATE.searchTerm,
-    STATE.selectedIds,
-    STATE.sortMode
-  );
+  const visible = applyFilters(STATE.itemsEnriched, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
   const { visible: withPerc, groupSum } = recomputePercentages(visible);
   renderHeader(withPerc.length, groupSum);
   renderList(withPerc);
@@ -2549,16 +2388,14 @@ async function hydrateAndRender() {
     try {
       range = mustGetDateRange();
     } catch (_e) {
-      LogHelper.warn(
-        "[DeviceCards] Aguardando intervalo de datas (startDateISO/endDateISO)."
-      );
+      LogHelper.warn('[DeviceCards] Aguardando intervalo de datas (startDateISO/endDateISO).');
       return;
     }
 
     // 1) Auth
     const okAuth = await ensureAuthReady(6000, 150);
     if (!okAuth) {
-      LogHelper.warn("[DeviceCards] Auth not ready; adiando hidratação.");
+      LogHelper.warn('[DeviceCards] Auth not ready; adiando hidratação.');
       return;
     }
 
@@ -2570,7 +2407,7 @@ async function hydrateAndRender() {
     try {
       apiMap = await fetchApiTotals(range.startISO, range.endISO);
     } catch (err) {
-      LogHelper.error("[DeviceCards] API error:", err);
+      LogHelper.error('[DeviceCards] API error:', err);
       apiMap = new Map();
     }
 
@@ -2580,9 +2417,7 @@ async function hydrateAndRender() {
     // 5) Sanitiza seleção
     if (STATE.selectedIds && STATE.selectedIds.size) {
       const valid = new Set(STATE.itemsBase.map((x) => x.id));
-      const next = new Set(
-        [...STATE.selectedIds].filter((id) => valid.has(id))
-      );
+      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
       STATE.selectedIds = next.size ? next : null;
     }
 
@@ -2596,45 +2431,43 @@ async function hydrateAndRender() {
 /** ===================== TB LIFE CYCLE ===================== **/
 self.onInit = async function () {
   $(self.ctx.$container).css({
-    height: "100%",
-    overflow: "hidden",
-    display: "flex",
-    flexDirection: "column",
-    position: "relative",
+    height: '100%',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    position: 'relative',
   });
 
-  MyIO = (typeof MyIOLibrary !== "undefined" && MyIOLibrary) ||
-    (typeof window !== "undefined" && window.MyIOLibrary) || {
+  MyIO = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
+    (typeof window !== 'undefined' && window.MyIOLibrary) || {
       showAlert: function () {
-        alert("A Bliblioteca Myio não foi carregada corretamente!");
+        alert('A Bliblioteca Myio não foi carregada corretamente!');
       },
     };
 
-  $root().find("#labelWidgetId").text(self.ctx.settings?.labelWidget);
+  $root().find('#labelWidgetId').text(self.ctx.settings?.labelWidget);
 
   // RFC-0042: Set widget configuration from settings FIRST
-  WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || "energy";
+  WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
   LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}`);
 
   // RFC-0063: Load classification mode configuration
-  USE_IDENTIFIER_CLASSIFICATION =
-    self.ctx.settings?.USE_IDENTIFIER_CLASSIFICATION || false;
-  USE_HYBRID_CLASSIFICATION =
-    self.ctx.settings?.USE_HYBRID_CLASSIFICATION || false;
+  USE_IDENTIFIER_CLASSIFICATION = self.ctx.settings?.USE_IDENTIFIER_CLASSIFICATION || false;
+  USE_HYBRID_CLASSIFICATION = self.ctx.settings?.USE_HYBRID_CLASSIFICATION || false;
   LogHelper.log(
     `[RFC-0063] Classification mode: ${
       USE_IDENTIFIER_CLASSIFICATION
         ? USE_HYBRID_CLASSIFICATION
-          ? "HYBRID (identifier + label fallback)"
-          : "IDENTIFIER ONLY"
-        : "LEGACY (label only)"
+          ? 'HYBRID (identifier + label fallback)'
+          : 'IDENTIFIER ONLY'
+        : 'LEGACY (label only)'
     }`
   );
 
   // RFC-0042: Request data from orchestrator (defined early for use in handlers)
   function requestDataFromOrchestrator() {
     if (!self.ctx.scope?.startDateISO || !self.ctx.scope?.endDateISO) {
-      LogHelper.warn("[TELEMETRY] No date range set, cannot request data");
+      LogHelper.warn('[TELEMETRY] No date range set, cannot request data');
       return;
     }
 
@@ -2642,130 +2475,23 @@ self.onInit = async function () {
       startISO: self.ctx.scope.startDateISO,
       endISO: self.ctx.scope.endDateISO,
       granularity: window.calcGranularity
-        ? window.calcGranularity(
-            self.ctx.scope.startDateISO,
-            self.ctx.scope.endDateISO
-          )
-        : "day",
-      tz: "America/Sao_Paulo",
+        ? window.calcGranularity(self.ctx.scope.startDateISO, self.ctx.scope.endDateISO)
+        : 'day',
+      tz: 'America/Sao_Paulo',
     };
 
-    LogHelper.log(
-      `[TELEMETRY] Requesting data for domain=${WIDGET_DOMAIN}, period:`,
-      period
-    );
+    LogHelper.log(`[TELEMETRY] Requesting data for domain=${WIDGET_DOMAIN}, period:`, period);
 
     // RFC-0053: Single window context - emit to current window only
     window.dispatchEvent(
-      new CustomEvent("myio:telemetry:request-data", {
+      new CustomEvent('myio:telemetry:request-data', {
         detail: { domain: WIDGET_DOMAIN, period },
       })
     );
   }
 
-  // Listener com modal: evento externo de mudança de data
-  //   dateUpdateHandler = function (ev) {
-  //     LogHelper.log(
-  //       `[TELEMETRY ${WIDGET_DOMAIN}] ✅ DATE UPDATE EVENT RECEIVED!`,
-  //       ev.detail
-  //     );
-
-  //     try {
-  //       // RFC-0042: Handle both old and new format
-  //       let startISO, endISO;
-
-  //       if (ev.detail?.period) {
-  //         // New format from HEADER
-  //         startISO = ev.detail.period.startISO;
-  //         endISO = ev.detail.period.endISO;
-  //         LogHelper.log(
-  //           `[TELEMETRY ${WIDGET_DOMAIN}] Using NEW format (period object)`
-  //         );
-  //       } else {
-  //         // Old format (backward compatibility)
-  //         const { startDate, endDate } = ev.detail || {};
-  //         startISO = new Date(startDate).toISOString();
-  //         endISO = new Date(endDate).toISOString();
-  //         LogHelper.log(
-  //           `[TELEMETRY ${WIDGET_DOMAIN}] Using OLD format (startDate/endDate)`
-  //         );
-  //       }
-
-  //       LogHelper.log(
-  //         `[TELEMETRY ${WIDGET_DOMAIN}] Date range updated:`,
-  //         startISO,
-  //         endISO
-  //       );
-
-  //       // Datas mandatórias salvas no scope
-  //       self.ctx.scope = self.ctx.scope || {};
-  //       self.ctx.scope.startDateISO = startISO;
-  //       self.ctx.scope.endDateISO = endISO;
-
-  //       // IMPORTANT: Reset lastProcessedPeriodKey when new date range is selected
-  //       // This allows processing fresh data for the new period
-  //       lastProcessedPeriodKey = null;
-  //       LogHelper.log(
-  //         `[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Reset lastProcessedPeriodKey for new date range`
-  //       );
-
-  //       // Exibe modal
-  //       LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔄 Calling showBusy()...`);
-  //       showBusy();
-  //       LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ showBusy() called`);
-
-  //       // RFC-0045 FIX: Check if there's a pending provide-data event waiting for this period
-  //       if (pendingProvideData) {
-  //         LogHelper.log(
-  //           `[TELEMETRY ${WIDGET_DOMAIN}] ✅ Found pending provide-data event, processing now...`
-  //         );
-  //         const pending = pendingProvideData;
-  //         pendingProvideData = null; // Clear pending event
-
-  //         // Process the pending event immediately
-  //         dataProvideHandler({ detail: pending });
-  //         return; // Don't request data again, we already have it
-  //       }
-
-  //       // RFC-0053: Direct access to orchestrator (single window context)
-  //       const orchestrator = window.MyIOOrchestrator;
-
-  //       if (orchestrator) {
-  //         LogHelper.log(
-  //           `[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Requesting data from orchestrator (single window)`
-  //         );
-
-  //         // IMPORTANT: Mark as requested BEFORE calling requestDataFromOrchestrator
-  //         // This prevents the setTimeout(500ms) from making a duplicate request
-  //         hasRequestedInitialData = true;
-
-  //         requestDataFromOrchestrator();
-  //       } else {
-  //         // Fallback to old behavior
-  //         LogHelper.warn(
-  //           `[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Orchestrator not available, using legacy fetch`
-  //         );
-  //         if (typeof hydrateAndRender === "function") {
-  //           hydrateAndRender();
-  //         } else {
-  //           LogHelper.error(
-  //             `[TELEMETRY ${WIDGET_DOMAIN}] hydrateAndRender não encontrada.`
-  //           );
-  //         }
-  //       }
-  //     } catch (err) {
-  //       LogHelper.error(
-  //         `[TELEMETRY ${WIDGET_DOMAIN}] dateUpdateHandler error:`,
-  //         err
-  //       );
-  //       hideBusy();
-  //     }
-  //   };
   dateUpdateHandler = function (ev) {
-    LogHelper.log(
-      `[TELEMETRY ${WIDGET_DOMAIN}] ✅ DATE UPDATE EVENT RECEIVED!`,
-      ev.detail
-    );
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ DATE UPDATE EVENT RECEIVED!`, ev.detail);
 
     try {
       // Pega as datas do evento (formato antigo ou novo)
@@ -2780,11 +2506,7 @@ self.onInit = async function () {
         endISO = new Date(endDate).toISOString();
       }
 
-      LogHelper.log(
-        `[TELEMETRY ${WIDGET_DOMAIN}] Date range updated:`,
-        startISO,
-        endISO
-      );
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Date range updated:`, startISO, endISO);
 
       // Atualiza o scope
       self.ctx.scope = self.ctx.scope || {};
@@ -2795,37 +2517,26 @@ self.onInit = async function () {
       // Em vez de chamar o orquestrador.
       hydrateAndRender();
     } catch (err) {
-      LogHelper.error(
-        `[TELEMETRY ${WIDGET_DOMAIN}] dateUpdateHandler error:`,
-        err
-      );
+      LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] dateUpdateHandler error:`, err);
       hideBusy();
     }
   };
 
-  LogHelper.log(
-    `[TELEMETRY ${WIDGET_DOMAIN}] 📡 Registering myio:update-date listener...`
-  );
-  window.addEventListener("myio:update-date", dateUpdateHandler);
-  LogHelper.log(
-    `[TELEMETRY ${WIDGET_DOMAIN}] ✅ myio:update-date listener registered!`
-  );
+  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📡 Registering myio:update-date listener...`);
+  window.addEventListener('myio:update-date', dateUpdateHandler);
+  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ myio:update-date listener registered!`);
 
   // RFC-0042: Listen for clear event from HEADER (when user clicks "Limpar" button)
-  window.addEventListener("myio:telemetry:clear", (ev) => {
+  window.addEventListener('myio:telemetry:clear', (ev) => {
     const { domain } = ev.detail;
 
     // Only clear if it's for my domain
     if (domain !== WIDGET_DOMAIN) {
-      LogHelper.log(
-        `[TELEMETRY ${WIDGET_DOMAIN}] Ignoring clear event for domain: ${domain}`
-      );
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Ignoring clear event for domain: ${domain}`);
       return;
     }
 
-    LogHelper.log(
-      `[TELEMETRY ${WIDGET_DOMAIN}] 🧹 Received clear event - clearing visual content`
-    );
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧹 Received clear event - clearing visual content`);
 
     try {
       // Clear the items list
@@ -2837,63 +2548,50 @@ self.onInit = async function () {
       const $widget = $root();
 
       // Clear the visual list
-      const $shopsList = $widget.find("#shopsList");
+      const $shopsList = $widget.find('#shopsList');
       if ($shopsList.length > 0) {
         $shopsList.empty();
         LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ shopsList cleared`);
       }
 
       // Reset counts to 0
-      const $shopsCount = $widget.find("#shopsCount");
-      const $shopsTotal = $widget.find("#shopsTotal");
+      const $shopsCount = $widget.find('#shopsCount');
+      const $shopsTotal = $widget.find('#shopsTotal');
 
       if ($shopsCount.length > 0) {
-        $shopsCount.text("(0)");
+        $shopsCount.text('(0)');
         LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ shopsCount reset to 0`);
       }
 
       if ($shopsTotal.length > 0) {
-        $shopsTotal.text("0,00");
-        LogHelper.log(
-          `[TELEMETRY ${WIDGET_DOMAIN}] ✅ shopsTotal reset to 0,00`
-        );
+        $shopsTotal.text('0,00');
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ shopsTotal reset to 0,00`);
       }
 
-      LogHelper.log(
-        `[TELEMETRY ${WIDGET_DOMAIN}] 🧹 Clear completed successfully`
-      );
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧹 Clear completed successfully`);
     } catch (err) {
-      LogHelper.error(
-        `[TELEMETRY ${WIDGET_DOMAIN}] ❌ Error during clear:`,
-        err
-      );
+      LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ Error during clear:`, err);
     }
   });
 
   // Test if listener is working
   setTimeout(() => {
-    LogHelper.log(
-      `[TELEMETRY ${WIDGET_DOMAIN}] 🧪 Testing listener registration...`
-    );
-    const testEvent = new CustomEvent("myio:update-date", {
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧪 Testing listener registration...`);
+    const testEvent = new CustomEvent('myio:update-date', {
       detail: {
         period: {
-          startISO: "2025-09-26T00:00:00-03:00",
-          endISO: "2025-10-02T23:59:59-03:00",
-          granularity: "day",
-          tz: "America/Sao_Paulo",
+          startISO: '2025-09-26T00:00:00-03:00',
+          endISO: '2025-10-02T23:59:59-03:00',
+          granularity: 'day',
+          tz: 'America/Sao_Paulo',
         },
       },
     });
     // Don't dispatch, just check if handler exists
-    if (typeof dateUpdateHandler === "function") {
-      LogHelper.log(
-        `[TELEMETRY ${WIDGET_DOMAIN}] ✅ dateUpdateHandler is defined and ready`
-      );
+    if (typeof dateUpdateHandler === 'function') {
+      LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ dateUpdateHandler is defined and ready`);
     } else {
-      LogHelper.error(
-        `[TELEMETRY ${WIDGET_DOMAIN}] ❌ dateUpdateHandler is NOT defined!`
-      );
+      LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ dateUpdateHandler is NOT defined!`);
     }
   }, 100);
 
@@ -2905,9 +2603,7 @@ self.onInit = async function () {
     LogHelper.log(
       `[TELEMETRY ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${
         ev.detail.domain
-      }, periodKey: ${ev.detail.periodKey}, items: ${
-        ev.detail.items?.length || 0
-      }`
+      }, periodKey: ${ev.detail.periodKey}, items: ${ev.detail.items?.length || 0}`
     );
     const { domain, periodKey, items } = ev.detail;
 
@@ -2922,9 +2618,7 @@ self.onInit = async function () {
     // IMPORTANT: Prevent duplicate processing of the same periodKey
     // The Orchestrator retries emission after 1s, so we need to deduplicate
     if (lastProcessedPeriodKey === periodKey) {
-      LogHelper.log(
-        `[TELEMETRY] ⏭️ Skipping duplicate provide-data for periodKey: ${periodKey}`
-      );
+      LogHelper.log(`[TELEMETRY] ⏭️ Skipping duplicate provide-data for periodKey: ${periodKey}`);
       return;
     }
 
@@ -2936,9 +2630,7 @@ self.onInit = async function () {
 
     // RFC-0045 FIX: If period not set yet, STORE the event and wait for myio:update-date
     if (!myPeriod.startISO || !myPeriod.endISO) {
-      LogHelper.warn(
-        `[TELEMETRY] ⏸️ Period not set yet, storing provide-data event for later processing`
-      );
+      LogHelper.warn(`[TELEMETRY] ⏸️ Period not set yet, storing provide-data event for later processing`);
       pendingProvideData = { domain, periodKey, items };
       // DON'T call hideBusy() here - wait for update-date to process the data
       return;
@@ -2951,9 +2643,7 @@ self.onInit = async function () {
     // Calling it again creates a NEW timeout that won't be properly cancelled
     LogHelper.log(`[TELEMETRY] 🔄 Processing data from orchestrator...`);
 
-    LogHelper.log(
-      `[TELEMETRY] Received ${items.length} items from orchestrator for domain ${domain}`
-    );
+    LogHelper.log(`[TELEMETRY] Received ${items.length} items from orchestrator for domain ${domain}`);
 
     // Extract my datasource IDs
     const myDatasourceIds = extractDatasourceIds(self.ctx.datasources);
@@ -2990,9 +2680,7 @@ self.onInit = async function () {
 
     // If no matches, log warning and use all items (temporary fallback)
     if (filtered.length === 0) {
-      LogHelper.warn(
-        `[TELEMETRY] No items match datasource IDs! Using all items as fallback.`
-      );
+      LogHelper.warn(`[TELEMETRY] No items match datasource IDs! Using all items as fallback.`);
       LogHelper.warn(`[TELEMETRY] Sample datasource ID:`, myDatasourceIds[0]);
       LogHelper.warn(`[TELEMETRY] Sample API item ID:`, items[0]?.id);
       filtered = items;
@@ -3007,7 +2695,7 @@ self.onInit = async function () {
       label: item.label || item.identifier || item.id,
       value: Number(item.value || 0),
       perc: 0,
-      deviceType: item.deviceType || "energy",
+      deviceType: item.deviceType || 'energy',
       slaveId: item.slaveId || null,
       centralId: item.centralId || null,
       updatedIdentifiers: {},
@@ -3022,9 +2710,7 @@ self.onInit = async function () {
       });
     }
 
-    LogHelper.log(
-      `[TELEMETRY] Using ${filtered.length} items after processing`
-    );
+    LogHelper.log(`[TELEMETRY] Using ${filtered.length} items after processing`);
 
     // IMPORTANT: Merge orchestrator data with existing TB data
     // Keep original labels/identifiers from TB, only update values from orchestrator
@@ -3032,9 +2718,7 @@ self.onInit = async function () {
       // First load: build from TB data
       LogHelper.log(`[TELEMETRY] Building itemsBase from TB data...`);
       STATE.itemsBase = buildAuthoritativeItems();
-      LogHelper.log(
-        `[TELEMETRY] Built ${STATE.itemsBase.length} items from TB`
-      );
+      LogHelper.log(`[TELEMETRY] Built ${STATE.itemsBase.length} items from TB`);
     }
 
     // Create map of orchestrator values by ingestionId
@@ -3050,9 +2734,7 @@ self.onInit = async function () {
         }
       }
     });
-    LogHelper.log(
-      `[TELEMETRY] Orchestrator values map size: ${orchestratorValues.size}`
-    );
+    LogHelper.log(`[TELEMETRY] Orchestrator values map size: ${orchestratorValues.size}`);
 
     // Update values in existing items
     STATE.itemsEnriched = STATE.itemsBase.map((tbItem) => {
@@ -3067,17 +2749,12 @@ self.onInit = async function () {
 
       return {
         ...tbItem,
-        value:
-          orchestratorValue !== undefined
-            ? orchestratorValue
-            : tbItem.value || 0,
+        value: orchestratorValue !== undefined ? orchestratorValue : tbItem.value || 0,
         perc: 0,
       };
     });
 
-    LogHelper.log(
-      `[TELEMETRY] Enriched ${STATE.itemsEnriched.length} items with orchestrator values`
-    );
+    LogHelper.log(`[TELEMETRY] Enriched ${STATE.itemsEnriched.length} items with orchestrator values`);
 
     // RFC-0056 FIX v1.1: Emit telemetry update after enrichment
     emitTelemetryUpdate();
@@ -3085,18 +2762,14 @@ self.onInit = async function () {
     // Sanitize selection
     if (STATE.selectedIds && STATE.selectedIds.size) {
       const valid = new Set(STATE.itemsBase.map((x) => x.id));
-      const next = new Set(
-        [...STATE.selectedIds].filter((id) => valid.has(id))
-      );
+      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
       STATE.selectedIds = next.size ? next : null;
     }
 
     reflowFromState();
 
     // RFC-0044: ALWAYS hide busy when data is provided, regardless of source
-    LogHelper.log(
-      `[TELEMETRY] 🏁 Data processed successfully - ensuring busy is hidden`
-    );
+    LogHelper.log(`[TELEMETRY] 🏁 Data processed successfully - ensuring busy is hidden`);
 
     // Force hide busy with minimal delay to ensure UI update
     setTimeout(() => {
@@ -3125,10 +2798,10 @@ self.onInit = async function () {
     const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
 
     for (const row of rows) {
-      const key = String(row?.dataKey?.name || "").toLowerCase();
+      const key = String(row?.dataKey?.name || '').toLowerCase();
       const val = row?.data?.[0]?.[1];
 
-      if (key === "ingestionid" && val && isValidUUID(String(val))) {
+      if (key === 'ingestionid' && val && isValidUUID(String(val))) {
         ingestionIds.add(String(val));
       }
     }
@@ -3136,18 +2809,16 @@ self.onInit = async function () {
     return Array.from(ingestionIds);
   }
 
-  window.addEventListener("myio:telemetry:provide-data", dataProvideHandler);
+  window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
 
   // RFC-0056 FIX v1.1: Listen for request_refresh from TELEMETRY_INFO
   let requestRefreshHandler = function (ev) {
     const { type, domain, periodKey } = ev.detail || {};
 
-    if (type !== "request_refresh") return;
+    if (type !== 'request_refresh') return;
     if (domain !== WIDGET_DOMAIN) return;
 
-    LogHelper.log(
-      `[RFC-0056] Received request_refresh for domain ${domain}, periodKey ${periodKey}`
-    );
+    LogHelper.log(`[RFC-0056] Received request_refresh for domain ${domain}, periodKey ${periodKey}`);
 
     // Re-emit telemetry data
     const currentPeriodKey = buildPeriodKey();
@@ -3155,13 +2826,11 @@ self.onInit = async function () {
       LogHelper.log(`[RFC-0056] Re-emitting data for current period`);
       emitTelemetryUpdate();
     } else {
-      LogHelper.warn(
-        `[RFC-0056] Period mismatch: requested ${periodKey}, current ${currentPeriodKey}`
-      );
+      LogHelper.warn(`[RFC-0056] Period mismatch: requested ${periodKey}, current ${currentPeriodKey}`);
     }
   };
 
-  window.addEventListener("myio:telemetry:update", requestRefreshHandler);
+  window.addEventListener('myio:telemetry:update', requestRefreshHandler);
 
   // RFC: REMOVED - Fix selection integration with FOOTER
   //
@@ -3252,44 +2921,38 @@ self.onInit = async function () {
   //   }, 500); // Wait 500ms for widget to fully initialize
 
   // Auth do cliente/ingestion
-  const customerTB_ID = self.ctx.settings?.customerTB_ID || "";
+  const customerTB_ID = self.ctx.settings?.customerTB_ID || '';
   //DEVICE_TYPE = self.ctx.settings?.DEVICE_TYPE || "energy";
-  const jwt = localStorage.getItem("jwt_token");
+  const jwt = localStorage.getItem('jwt_token');
 
   const boolExecSync = false;
 
   // RFC-0071: Trigger device profile synchronization (runs once)
   if (!__deviceProfileSyncComplete && boolExecSync) {
     try {
-      console.log("[EQUIPMENTS] [RFC-0071] Triggering device profile sync...");
+      console.log('[EQUIPMENTS] [RFC-0071] Triggering device profile sync...');
       const syncResult = await syncDeviceProfileAttributes();
       __deviceProfileSyncComplete = true;
 
       if (syncResult.synced > 0) {
         console.log(
-          "[EQUIPMENTS] [RFC-0071] ⚠️ Widget reload recommended to load new deviceProfile attributes"
+          '[EQUIPMENTS] [RFC-0071] ⚠️ Widget reload recommended to load new deviceProfile attributes'
         );
         console.log(
-          "[EQUIPMENTS] [RFC-0071] You may need to refresh the dashboard to see deviceProfile in ctx.data"
+          '[EQUIPMENTS] [RFC-0071] You may need to refresh the dashboard to see deviceProfile in ctx.data'
         );
       }
     } catch (error) {
-      console.error(
-        "[EQUIPMENTS] [RFC-0071] Sync failed, continuing without it:",
-        error
-      );
+      console.error('[EQUIPMENTS] [RFC-0071] Sync failed, continuing without it:', error);
       // Don't block widget initialization if sync fails
     }
   }
 
   try {
-    const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(
-      customerTB_ID,
-      jwt
-    );
-    CLIENT_ID = attrs?.client_id || "";
-    CLIENT_SECRET = attrs?.client_secret || "";
-    CUSTOMER_ING_ID = attrs?.ingestionId || "";
+    const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt);
+    CLIENT_ID = attrs?.client_id || '';
+    CLIENT_SECRET = attrs?.client_secret || '';
+    CUSTOMER_ING_ID = attrs?.ingestionId || '';
 
     // Expõe credenciais globalmente para uso no FOOTER (modal de comparação)
     window.__MYIO_CLIENT_ID__ = CLIENT_ID;
@@ -3302,12 +2965,12 @@ self.onInit = async function () {
       clientSecret: CLIENT_SECRET,
     });
 
-    LogHelper.log("[DeviceCards] Auth init OK");
+    LogHelper.log('[DeviceCards] Auth init OK');
     try {
       await MyIOAuth.getToken();
     } catch (_) {}
   } catch (err) {
-    LogHelper.error("[DeviceCards] Auth init FAIL", err);
+    LogHelper.error('[DeviceCards] Auth init FAIL', err);
   }
 
   // Bind UI
@@ -3318,15 +2981,7 @@ self.onInit = async function () {
   if (!self.ctx?.scope?.startDateISO || !self.ctx?.scope?.endDateISO) {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0); // 1º dia 00:00
-    const end = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      23,
-      59,
-      59,
-      0
-    ); // hoje 23:59:59
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 0); // hoje 23:59:59
     self.ctx.scope = self.ctx.scope || {};
     self.ctx.scope.startDateISO = start.toISOString();
     self.ctx.scope.endDateISO = end.toISOString();
@@ -3335,19 +2990,13 @@ self.onInit = async function () {
 
   const hasData = Array.isArray(self.ctx.data) && self.ctx.data.length > 0;
   // RFC-0042: Removed direct API fetch - now using orchestrator
-  LogHelper.log(
-    `[TELEMETRY ${WIDGET_DOMAIN}] onInit - Waiting for orchestrator data...`
-  );
+  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] onInit - Waiting for orchestrator data...`);
 
   // Build initial itemsBase from ThingsBoard data
   if (hasData && (!STATE.itemsBase || STATE.itemsBase.length === 0)) {
-    LogHelper.log(
-      `[TELEMETRY ${WIDGET_DOMAIN}] Building itemsBase from TB data in onInit...`
-    );
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Building itemsBase from TB data in onInit...`);
     STATE.itemsBase = buildAuthoritativeItems();
-    LogHelper.log(
-      `[TELEMETRY ${WIDGET_DOMAIN}] Built ${STATE.itemsBase.length} items from TB`
-    );
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Built ${STATE.itemsBase.length} items from TB`);
 
     // Initial render with zero values (will be updated by orchestrator)
     STATE.itemsEnriched = STATE.itemsBase.map((item) => ({
@@ -3360,14 +3009,10 @@ self.onInit = async function () {
 
   // Only show busy if we have a date range defined
   if (self.ctx?.scope?.startDateISO && self.ctx?.scope?.endDateISO) {
-    LogHelper.log(
-      `[TELEMETRY ${WIDGET_DOMAIN}] Initial period defined, showing busy...`
-    );
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Initial period defined, showing busy...`);
     showBusy();
   } else {
-    LogHelper.log(
-      `[TELEMETRY ${WIDGET_DOMAIN}] No initial period, waiting for myio:update-date event...`
-    );
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] No initial period, waiting for myio:update-date event...`);
   }
 
   // RFC-0042: OLD CODE - Direct API fetch (now handled by orchestrator)
@@ -3399,24 +3044,17 @@ self.onDataUpdated = function () {
 self.onResize = function () {};
 self.onDestroy = function () {
   if (dateUpdateHandler) {
-    window.removeEventListener("myio:update-date", dateUpdateHandler);
+    window.removeEventListener('myio:update-date', dateUpdateHandler);
     LogHelper.log("[DeviceCards] Event listener 'myio:update-date' removido.");
   }
   if (dataProvideHandler) {
-    window.removeEventListener(
-      "myio:telemetry:provide-data",
-      dataProvideHandler
-    );
-    LogHelper.log(
-      "[DeviceCards] Event listener 'myio:telemetry:provide-data' removido."
-    );
+    window.removeEventListener('myio:telemetry:provide-data', dataProvideHandler);
+    LogHelper.log("[DeviceCards] Event listener 'myio:telemetry:provide-data' removido.");
   }
   // RFC-0056 FIX v1.1: Remove request_refresh listener
   if (requestRefreshHandler) {
-    window.removeEventListener("myio:telemetry:update", requestRefreshHandler);
-    LogHelper.log(
-      "[RFC-0056] Event listener 'myio:telemetry:update' removido."
-    );
+    window.removeEventListener('myio:telemetry:update', requestRefreshHandler);
+    LogHelper.log("[RFC-0056] Event listener 'myio:telemetry:update' removido.");
   }
 
   // RFC-0072: Clean up global filter modal container
