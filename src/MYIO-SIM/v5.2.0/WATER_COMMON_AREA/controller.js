@@ -946,6 +946,11 @@ function getItemConsumption(item) {
   return Number(item.value) || Number(item.consumption) || Number(item.val) || 0;
 }
 
+// Helper function to get item status (for filter tabs)
+function getItemStatus(item) {
+  return (item.deviceStatus || '').toLowerCase();
+}
+
 // Filter modal instance (lazy initialized)
 let waterCommonAreaFilterModal = null;
 
@@ -970,8 +975,8 @@ function initFilterModal() {
     // Filter tabs configuration - specific for WATER_COMMON_AREA
     filterTabs: [
       { id: 'all', label: 'Todos', filter: () => true },
-      { id: 'online', label: 'Online', filter: (s) => getItemConsumption(s) > 0 },
-      { id: 'offline', label: 'Offline', filter: (s) => getItemConsumption(s) === 0 },
+      { id: 'online', label: 'Online', filter: (s) => !['offline', 'no_info'].includes(getItemStatus(s)) },
+      { id: 'offline', label: 'Offline', filter: (s) => ['offline', 'no_info'].includes(getItemStatus(s)) },
       { id: 'withConsumption', label: 'Com Consumo', filter: (s) => getItemConsumption(s) > 0 },
       { id: 'noConsumption', label: 'Sem Consumo', filter: (s) => getItemConsumption(s) === 0 },
     ],
