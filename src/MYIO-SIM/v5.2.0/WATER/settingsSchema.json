@@ -1,0 +1,16 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Water Summary Widget Settings",
+    "properties": {
+        "labelWidget":{
+            "type":"string",
+            "title": "Widget Label",
+            "default": "Resumo de água"
+        }
+    }
+  },
+  "form": [
+    "labelWidget"
+  ]
+}

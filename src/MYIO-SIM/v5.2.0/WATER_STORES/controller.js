@@ -1,5 +1,3 @@
-/* global self, window, document, localStorage, MyIOLibrary, $ */
-
 /* =========================================================================
  * ThingsBoard Widget: Water Stores - Device Cards for Water Meters (MyIO)
  * RFC-0094: Aligned with STORES pattern using buildHeaderDevicesGrid and createFilterModal
@@ -13,6 +11,8 @@
  * - Evento (myio:update-date): mostra modal + atualiza
  * =========================================================================*/
 
+/* eslint-disable no-undef, no-unused-vars */
+
 // ============================================
 // SHARED UTILITIES (from MAIN via window.MyIOUtils)
 // ============================================
@@ -22,13 +22,41 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error(...args),
 };
 
-const getDataApiHost = () => {
-  const host = window.MyIOUtils?.DATA_API_HOST;
-  if (!host) {
-    console.error('[WATER_STORES] DATA_API_HOST not available - MAIN widget not loaded');
-  }
-  return host || '';
-};
+const getDataApiHost =
+  window.MyIOUtils?.getDataApiHost ||
+  (() => {
+    console.error('[WATER_STORES] getDataApiHost not available - MAIN widget not loaded');
+    return localStorage.getItem('__MYIO_DATA_API_HOST__') || 'https://api.data.apps.myio-bas.com';
+  });
+
+// RFC-0071: Device Profile functions (from MAIN)
+const fetchDeviceProfiles =
+  window.MyIOUtils?.fetchDeviceProfiles ||
+  (() => {
+    console.error('[WATER_STORES] fetchDeviceProfiles not available - MAIN widget not loaded');
+    return Promise.resolve(new Map());
+  });
+
+const fetchDeviceDetails =
+  window.MyIOUtils?.fetchDeviceDetails ||
+  (() => {
+    console.error('[WATER_STORES] fetchDeviceDetails not available - MAIN widget not loaded');
+    return Promise.resolve({});
+  });
+
+const addDeviceProfileAttribute =
+  window.MyIOUtils?.addDeviceProfileAttribute ||
+  (() => {
+    console.error('[WATER_STORES] addDeviceProfileAttribute not available - MAIN widget not loaded');
+    return Promise.resolve({ ok: false, status: 0, data: null });
+  });
+
+const syncDeviceProfileAttributes =
+  window.MyIOUtils?.syncDeviceProfileAttributes ||
+  (() => {
+    console.error('[WATER_STORES] syncDeviceProfileAttributes not available - MAIN widget not loaded');
+    return Promise.resolve({ synced: 0, skipped: 0, errors: 0 });
+  });
 
 // RFC-0094: UI Helper from MAIN (replaces local getCustomerNameForDevice)
 const getCustomerNameForDevice =
@@ -39,6 +67,7 @@ const getCustomerNameForDevice =
   });
 
 // RFC-0094: Device status calculation functions from MAIN
+const getConsumptionRangesHierarchical = window.MyIOUtils?.getConsumptionRangesHierarchical;
 const mapConnectionStatus = window.MyIOUtils?.mapConnectionStatus || ((status) => status || 'offline');
 
 // RFC-0094: formatarDuracao for operationHours calculation (from MAIN)
@@ -51,35 +80,25 @@ LogHelper.log('🚀 [WATER_STORES] Controller loaded - VERSION WITH RFC-0094 PAT
 
 const MAX_FIRST_HYDRATES = 1;
 
+let __deviceProfileSyncComplete = false;
+
 // RFC-0094: Centralized header controller
 let waterStoresHeaderController = null;
 
 let dateUpdateHandler = null;
 let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
 let waterDataReadyHandler = null; // FIX: Handler for myio:water-data-ready from MAIN
-let waterTbDataHandler = null; // Handler for myio:water-tb-data-ready from MAIN (centralized datasources)
 let MyIO = null;
-
-// Cache para dados recebidos do MAIN (datasources centralizados)
-let mainWaterData = {
-  datasources: [],
-  data: [],
-  ids: [],
-  loaded: false,
-};
-
+let hasRequestedInitialData = false; // Flag to prevent duplicate initial requests
 let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent duplicate processing
+let busyTimeoutId = null; // Timeout ID for busy fallback
 
 // RFC-0094: Widget configuration (from settings) - WATER DOMAIN
 let WIDGET_DOMAIN = 'water';
 
-// Card rendering options (from settings, with defaults)
-let USE_NEW_COMPONENTS = true;
-let ENABLE_SELECTION = true;
-let ENABLE_DRAG_DROP = true;
-let HIDE_INFO_MENU_ITEM = true;
-let DEBUG_ACTIVE = false;
-let ACTIVE_TOOLTIP_DEBUG = false;
+// RFC-0063: Classification mode configuration
+let USE_IDENTIFIER_CLASSIFICATION = false; // Flag to enable identifier-based classification
+let USE_HYBRID_CLASSIFICATION = false; // Flag to enable hybrid mode (identifier + labels)
 
 /** ===================== STATE ===================== **/
 let CLIENT_ID = '';
@@ -103,6 +122,9 @@ let hydrating = false;
 /** ===================== HELPERS (DOM) ===================== **/
 const $root = () => $(self.ctx.$container[0]);
 const $list = () => $root().find('#waterStoresList');
+const $count = () => $root().find('#waterStoresCount');
+const $total = () => $root().find('#waterStoresTotal');
+const $modal = () => $root().find('#filterModal');
 
 /** ===================== BUSY MODAL (no widget) ===================== **/
 const BUSY_ID = 'myio-busy-modal';
@@ -224,7 +246,7 @@ function showGlobalSuccessModal(countdown = 5) {
     $(document.body).append(html);
     $m = $(document.body).find(`#${SUCCESS_MODAL_ID}`);
     $m.find(`#${SUCCESS_MODAL_ID}-btn`).on('click', () => {
-      window.location.reload();
+      location.reload();
     });
   }
   $m.css('display', 'flex');
@@ -236,7 +258,7 @@ function showGlobalSuccessModal(countdown = 5) {
     $c.text(sec);
     if (sec <= 0) {
       clearInterval(iv);
-      window.location.reload();
+      location.reload();
     }
   }, 1000);
 }
@@ -244,6 +266,12 @@ function showGlobalSuccessModal(countdown = 5) {
 function hideGlobalSuccessModal() {
   const $m = $(document.body).find(`#${SUCCESS_MODAL_ID}`);
   if ($m.length) $m.remove();
+}
+
+/** ===================== ESCAPE HTML ===================== **/
+function escapeHtml(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 /** ===================== HELPERS ===================== **/
@@ -285,15 +313,7 @@ function mustGetDateRange() {
 /** ===================== TB INDEXES ===================== **/
 function buildTbAttrIndex() {
   const byTbId = new Map();
-
-  // Use centralized data from MAIN if available, otherwise use local ctx.data
-  const rows =
-    mainWaterData.loaded && mainWaterData.data.length > 0
-      ? mainWaterData.data
-      : Array.isArray(self.ctx?.data)
-      ? self.ctx.data
-      : [];
-
+  const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
   for (const row of rows) {
     // RFC-0094: Filter by aliasName = 'Todos Hidrometros Lojas'
     const aliasName = row?.datasource?.aliasName || '';
@@ -344,15 +364,7 @@ function buildTbAttrIndex() {
 function buildTbIdIndexes() {
   const byIdentifier = new Map(); // identifier -> tbId
   const byIngestion = new Map(); // ingestionId -> tbId
-
-  // Use centralized data from MAIN if available, otherwise use local ctx.data
-  const rows =
-    mainWaterData.loaded && mainWaterData.data.length > 0
-      ? mainWaterData.data
-      : Array.isArray(self.ctx?.data)
-      ? self.ctx.data
-      : [];
-
+  const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
   for (const row of rows) {
     // RFC-0094: Filter by aliasName = 'Todos Hidrometros Lojas'
     const aliasName = row?.datasource?.aliasName || '';
@@ -370,31 +382,15 @@ function buildTbIdIndexes() {
 
 /** ===================== CORE: DATA PIPELINE ===================== **/
 function buildAuthoritativeItems() {
-  // PRIORIDADE 1: Usar dados centralizados do MAIN (via evento myio:water-tb-data-ready)
-  let filteredDatasources = [];
-  let filteredData = [];
-
-  if (mainWaterData.loaded && mainWaterData.datasources.length > 0) {
-    // Usar dados do MAIN (datasources centralizados)
-    filteredDatasources = mainWaterData.datasources;
-    filteredData = mainWaterData.data;
-    LogHelper.log(
-      `[WATER_STORES] Using centralized data from MAIN: ${filteredDatasources.length} datasources, ${filteredData.length} data rows`
-    );
-  } else {
-    // FALLBACK: Usar dados locais do widget (se ainda houver)
-    // RFC-0094: Filter datasources by aliasName = 'Todos Hidrometros Lojas'
-    filteredDatasources = (self.ctx.datasources || []).filter(
-      (ds) => ds.aliasName === 'Todos Hidrometros Lojas'
-    );
-    filteredData = (self.ctx.data || []).filter(
-      (d) => d?.datasource?.aliasName === 'Todos Hidrometros Lojas'
-    );
-  }
-
-  LogHelper.log(
-    `[WATER_STORES] buildAuthoritativeItems: Filtered ${filteredDatasources.length} datasources, ${filteredData.length} data rows for 'Todos Hidrometros Lojas'`
+  // RFC-0094: Filter datasources by aliasName = 'Todos Hidrometros Lojas'
+  const filteredDatasources = (self.ctx.datasources || []).filter(
+    (ds) => ds.aliasName === 'Todos Hidrometros Lojas'
   );
+  const filteredData = (self.ctx.data || []).filter(
+    (d) => d?.datasource?.aliasName === 'Todos Hidrometros Lojas'
+  );
+
+  LogHelper.log(`[WATER_STORES] buildAuthoritativeItems: Filtered ${filteredDatasources.length} datasources, ${filteredData.length} data rows for 'Todos Hidrometros Lojas'`);
 
   // items da LIB: [{ id: ingestionId, identifier, label }, ...]
   const base = MyIO.buildListItemsThingsboardByUniqueDatasource(filteredDatasources, filteredData) || [];
@@ -445,10 +441,6 @@ function buildAuthoritativeItems() {
   });
 
   LogHelper.log(`[WATER_STORES] buildAuthoritativeItems: Built ${mapped.length} water meter items`);
-
-  // NOTA: O registro de IDs no Orchestrator agora é feito pelo MAIN
-  // que centraliza os datasources HidrometrosAreaComum e Todos Hidrometros Lojas
-
   return mapped;
 }
 
@@ -459,10 +451,10 @@ function enrichItemsWithTotals(items, apiMap) {
 
     if (it.ingestionId && isValidUUID(it.ingestionId)) {
       const row = apiMap.get(String(it.ingestionId));
-
+      
       // 1. Recupera o valor
       raw = Number(row?.total_value ?? 0);
-
+      
       // 2. FIX: Tenta recuperar o customerId do cache se disponível
       // A API pode retornar como 'customerId' ou 'customer_id' dependendo do endpoint
       cachedCustomerId = row?.customerId || row?.customer_id || null;
@@ -473,11 +465,11 @@ function enrichItemsWithTotals(items, apiMap) {
     // 3. FIX: Prioriza o ID que já existia (TB), senão usa o do Cache (API)
     const finalCustomerId = it.customerId || cachedCustomerId;
 
-    return {
-      ...it,
-      value,
-      perc: 0,
-      customerId: finalCustomerId, // Atualiza o objeto com o ID encontrado
+    return { 
+        ...it, 
+        value, 
+        perc: 0,
+        customerId: finalCustomerId // Atualiza o objeto com o ID encontrado
     };
   });
 }
@@ -496,9 +488,7 @@ function applyFilters(enriched, searchTerm, selectedIds, sortMode) {
       return STATE.selectedShoppingIds.includes(x.customerId);
     });
     LogHelper.log(
-      `[WATER_STORES] Shopping filter applied: ${before} -> ${v.length} devices (${
-        before - v.length
-      } filtered out)`
+      `[WATER_STORES] Shopping filter applied: ${before} -> ${v.length} devices (${before - v.length} filtered out)`
     );
   }
 
@@ -701,6 +691,7 @@ async function renderList(visible) {
 
     // Get customer name for this device
     const customerName = getCustomerNameForDevice(it);
+    
 
     // RFC-0094: Calculate operationHours based on lastConnectTime (like EQUIPMENTS)
     let operationHoursFormatted = '-';
@@ -760,12 +751,11 @@ async function renderList(visible) {
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
       deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
     };
+    
 
     // RFC-0094: Use renderCardComponentHeadOffice like STORES
-    MyIOLibrary.renderCardComponentHeadOffice(container, {
+    const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: entityObject,
-      debugActive: DEBUG_ACTIVE,
-      activeTooltipDebug: ACTIVE_TOOLTIP_DEBUG,
       delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
 
       handleClickCard: (ev, entity) => {
@@ -776,18 +766,18 @@ async function renderList(visible) {
         console.log('[WATER_STORES] [RFC-0094] Opening water dashboard for:', entityObject.entityId);
         try {
           if (typeof MyIOLibrary.openDashboardPopupEnergy !== 'function') {
-            window.alert('Dashboard component não disponível');
+            alert('Dashboard component não disponível');
             return;
           }
           const startDate = self.ctx.scope?.startDateISO;
           const endDate = self.ctx.scope?.endDateISO;
           if (!startDate || !endDate) {
-            window.alert('Período de datas não definido.');
+            alert('Período de datas não definido.');
             return;
           }
           if (!MyIOAuth || typeof MyIOAuth.getToken !== 'function') {
             LogHelper.error('[WATER_STORES] MyIOAuth not available');
-            window.alert('Autenticação não disponível. Recarregue a página.');
+            alert('Autenticação não disponível. Recarregue a página.');
             return;
           }
           const tokenIngestionDashBoard = await MyIOAuth.getToken();
@@ -809,7 +799,7 @@ async function renderList(visible) {
           });
         } catch (err) {
           console.error(err);
-          window.alert('Erro ao abrir dashboard');
+          alert('Erro ao abrir dashboard');
         }
       },
 
@@ -817,7 +807,7 @@ async function renderList(visible) {
         try {
           if (!MyIOAuth || typeof MyIOAuth.getToken !== 'function') {
             LogHelper.error('[WATER_STORES] MyIOAuth not available for report');
-            window.alert('Autenticação não disponível. Recarregue a página.');
+            alert('Autenticação não disponível. Recarregue a página.');
             return;
           }
           const ingestionToken = await MyIOAuth.getToken();
@@ -834,7 +824,7 @@ async function renderList(visible) {
             },
           });
         } catch (err) {
-          window.alert('Erro ao abrir relatório');
+          alert('Erro ao abrir relatório');
         }
       },
 
@@ -849,7 +839,7 @@ async function renderList(visible) {
 
         const tbId = entityObject.entityId;
         if (!tbId || tbId === it.ingestionId) {
-          window.alert('ID inválido');
+          alert('ID inválido');
           return;
         }
 
@@ -905,10 +895,10 @@ async function renderList(visible) {
         }
       },
 
-      useNewComponents: USE_NEW_COMPONENTS,
-      enableSelection: ENABLE_SELECTION,
-      enableDragDrop: ENABLE_DRAG_DROP,
-      hideInfoMenuItem: HIDE_INFO_MENU_ITEM,
+      useNewComponents: true,
+      enableSelection: true,
+      enableDragDrop: true,
+      hideInfoMenuItem: true,
     });
   }
 
@@ -1045,7 +1035,7 @@ function bindModal() {
 /** ===================== RECOMPUTE (local only) ===================== **/
 async function filterAndRender() {
   const visible = applyFilters(STATE.itemsEnriched, STATE.searchTerm, STATE.selectedIds, STATE.sortMode);
-  const { visible: withPerc } = recomputePercentages(visible);
+  const { visible: withPerc, groupSum } = recomputePercentages(visible);
   await renderList(withPerc);
 
   // RFC-0094: Update stats header via centralized controller
@@ -1086,9 +1076,7 @@ async function fetchApiTotals(startISO, endISO) {
   if (!token) throw new Error('No ingestion token');
 
   // RFC-0094: Use water endpoint
-  const url = new URL(
-    `${getDataApiHost()}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/water/devices/totals`
-  );
+  const url = new URL(`${getDataApiHost()}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/water/devices/totals`);
   url.searchParams.set('startTime', toSpOffsetNoMs(startISO));
   url.searchParams.set('endTime', toSpOffsetNoMs(endISO, true));
   url.searchParams.set('deep', '1');
@@ -1164,7 +1152,7 @@ async function hydrateAndRender() {
 self.onInit = async function () {
   $(self.ctx.$container).css({
     height: '100%',
-    overflow: 'auto', // FIX: Same as STORES - allows vertical scroll
+    overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
     position: 'relative',
@@ -1173,19 +1161,13 @@ self.onInit = async function () {
   MyIO = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
     (typeof window !== 'undefined' && window.MyIOLibrary) || {
       showAlert: function () {
-        window.alert('A Biblioteca Myio não foi carregada corretamente!');
+        alert('A Biblioteca Myio não foi carregada corretamente!');
       },
     };
 
   // RFC-0094: Set widget configuration from settings FIRST - WATER DOMAIN
   WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'water';
-  USE_NEW_COMPONENTS = self.ctx.settings?.useNewComponents ?? true;
-  ENABLE_SELECTION = self.ctx.settings?.enableSelection ?? true;
-  ENABLE_DRAG_DROP = self.ctx.settings?.enableDragDrop ?? true;
-  HIDE_INFO_MENU_ITEM = self.ctx.settings?.hideInfoMenuItem ?? true;
-  DEBUG_ACTIVE = self.ctx.settings?.debugActive ?? false;
-  ACTIVE_TOOLTIP_DEBUG = self.ctx.settings?.activeTooltipDebug ?? false;
-  LogHelper.log(`[WATER_STORES] Configured EARLY: domain=${WIDGET_DOMAIN}, debugActive=${DEBUG_ACTIVE}, activeTooltipDebug=${ACTIVE_TOOLTIP_DEBUG}`);
+  LogHelper.log(`[WATER_STORES] Configured EARLY: domain=${WIDGET_DOMAIN}`);
 
   // RFC-0094: Build centralized header via buildHeaderDevicesGrid
   const buildHeaderDevicesGrid = window.MyIOUtils?.buildHeaderDevicesGrid;
@@ -1230,6 +1212,31 @@ self.onInit = async function () {
     }
   } else {
     LogHelper.warn('[WATER_STORES] buildHeaderDevicesGrid not available - using fallback');
+  }
+
+  // RFC-0042: Request data from orchestrator (defined early for use in handlers)
+  function requestDataFromOrchestrator() {
+    if (!self.ctx.scope?.startDateISO || !self.ctx.scope?.endDateISO) {
+      LogHelper.warn('[WATER_STORES] No date range set, cannot request data');
+      return;
+    }
+
+    const period = {
+      startISO: self.ctx.scope.startDateISO,
+      endISO: self.ctx.scope.endDateISO,
+      granularity: window.calcGranularity
+        ? window.calcGranularity(self.ctx.scope.startDateISO, self.ctx.scope.endDateISO)
+        : 'day',
+      tz: 'America/Sao_Paulo',
+    };
+
+    LogHelper.log(`[WATER_STORES] Requesting data for domain=${WIDGET_DOMAIN}, period:`, period);
+
+    window.dispatchEvent(
+      new CustomEvent('myio:telemetry:request-data', {
+        detail: { domain: WIDGET_DOMAIN, period },
+      })
+    );
   }
 
   dateUpdateHandler = function (ev) {
@@ -1342,11 +1349,7 @@ self.onInit = async function () {
     Array.isArray(window.custumersSelected) &&
     window.custumersSelected.length > 0
   ) {
-    LogHelper.log(
-      '[WATER_STORES] 🔄 Applying pre-existing filter:',
-      window.custumersSelected.length,
-      'shoppings'
-    );
+    LogHelper.log('[WATER_STORES] 🔄 Applying pre-existing filter:', window.custumersSelected.length, 'shoppings');
     const shoppingIds = window.custumersSelected.map((s) => s.value).filter((v) => v);
     STATE.selectedShoppingIds = shoppingIds;
     renderShoppingFilterChips(window.custumersSelected);
@@ -1361,6 +1364,8 @@ self.onInit = async function () {
       LogHelper.error(`[WATER_STORES ${WIDGET_DOMAIN}] ❌ dateUpdateHandler is NOT defined!`);
     }
   }, 100);
+
+  let pendingProvideData = null;
 
   dataProvideHandler = function (ev) {
     LogHelper.log(
@@ -1389,6 +1394,7 @@ self.onInit = async function () {
 
     if (!myPeriod.startISO || !myPeriod.endISO) {
       LogHelper.warn(`[WATER_STORES] ⏸️ Period not set yet, storing provide-data event for later processing`);
+      pendingProvideData = { domain, periodKey, items };
       return;
     }
 
@@ -1485,14 +1491,7 @@ self.onInit = async function () {
    */
   function extractDatasourceIds(datasources) {
     const ingestionIds = new Set();
-
-    // Use centralized data from MAIN if available, otherwise use local ctx.data
-    const rows =
-      mainWaterData.loaded && mainWaterData.data.length > 0
-        ? mainWaterData.data
-        : Array.isArray(self.ctx?.data)
-        ? self.ctx.data
-        : [];
+    const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
 
     for (const row of rows) {
       // RFC-0094: Filter by aliasName = 'Todos Hidrometros Lojas'
@@ -1514,7 +1513,7 @@ self.onInit = async function () {
 
   // FIX: Add handler for myio:water-data-ready from MAIN waterCache
   waterDataReadyHandler = function (ev) {
-    const { cache, fromCache } = ev.detail || {};
+    const { cache, totalDevices, fromCache } = ev.detail || {};
 
     // Only process if cache is a Map with data
     if (!(cache instanceof Map) || cache.size === 0) {
@@ -1522,9 +1521,7 @@ self.onInit = async function () {
       return;
     }
 
-    LogHelper.log(
-      `[WATER_STORES] 📦 Received water-data-ready: ${cache.size} devices (fromCache: ${fromCache})`
-    );
+    LogHelper.log(`[WATER_STORES] 📦 Received water-data-ready: ${cache.size} devices (fromCache: ${fromCache})`);
 
     // Check if widget has items to enrich
     if (!STATE.itemsBase || STATE.itemsBase.length === 0) {
@@ -1546,48 +1543,6 @@ self.onInit = async function () {
   };
 
   window.addEventListener('myio:water-data-ready', waterDataReadyHandler);
-
-  // Listener para dados TB centralizados do MAIN (datasources Todos Hidrometros Lojas)
-  waterTbDataHandler = (ev) => {
-    const { stores } = ev.detail || {};
-    if (stores && stores.datasources) {
-      mainWaterData = {
-        datasources: stores.datasources,
-        data: stores.data,
-        ids: stores.ids,
-        loaded: true,
-      };
-      LogHelper.log(
-        `[WATER_STORES] Received TB data from MAIN: ${stores.datasources.length} datasources, ${stores.ids.length} IDs`
-      );
-
-      // Rebuild items with new data
-      STATE.itemsBase = buildAuthoritativeItems();
-      LogHelper.log(`[WATER_STORES] Rebuilt ${STATE.itemsBase.length} items from MAIN data`);
-
-      // Se já tiver cache de água disponível, enriquecer e renderizar
-      const waterCache = window.MyIOOrchestrator?.getWaterCache?.();
-      if (waterCache && waterCache.size > 0) {
-        STATE.itemsEnriched = enrichItemsWithTotals(STATE.itemsBase, waterCache);
-        reflowFromState();
-      }
-    }
-  };
-  window.addEventListener('myio:water-tb-data-ready', waterTbDataHandler);
-
-  // Verificar se os dados já estão disponíveis (evento já disparado antes do widget carregar)
-  const cachedTbData = window.MyIOUtils?.getWaterTbData?.();
-  if (cachedTbData?.loaded && cachedTbData?.stores?.datasources?.length > 0) {
-    LogHelper.log('[WATER_STORES] Found cached TB data from MAIN, loading...');
-    mainWaterData = {
-      datasources: cachedTbData.stores.datasources,
-      data: cachedTbData.stores.data,
-      ids: cachedTbData.stores.ids,
-      loaded: true,
-    };
-    STATE.itemsBase = buildAuthoritativeItems();
-    LogHelper.log(`[WATER_STORES] Built ${STATE.itemsBase.length} items from cached MAIN data`);
-  }
 
   // RFC-0094: Use credentials from MAIN via MyIOUtils (already fetched by MAIN)
   const jwt = localStorage.getItem('jwt_token');
@@ -1705,10 +1660,6 @@ self.onDestroy = function () {
   if (waterDataReadyHandler) {
     window.removeEventListener('myio:water-data-ready', waterDataReadyHandler);
     LogHelper.log("[WATER_STORES] Event listener 'myio:water-data-ready' removido.");
-  }
-  if (waterTbDataHandler) {
-    window.removeEventListener('myio:water-tb-data-ready', waterTbDataHandler);
-    LogHelper.log("[WATER_STORES] Event listener 'myio:water-tb-data-ready' removido.");
   }
 
   // RFC-0094: Cleanup header controller

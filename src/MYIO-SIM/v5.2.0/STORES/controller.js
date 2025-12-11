@@ -866,10 +866,20 @@ async function renderList(visible) {
         }
 
         // Calculate device status using range-based calculation
-        deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
+        const parsedInstantaneousPower = Number(instantaneousPower);
+        const lastConsumptionValue = Number.isNaN(parsedInstantaneousPower)
+          ? null
+          : parsedInstantaneousPower;
+        
+            deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
           connectionStatus: mappedConnectionStatus,
-          lastConsumptionValue: instantaneousPower,
-          ranges: rangesWithSource,
+          lastConsumptionValue,
+          ranges: {
+            standbyRange: rangesWithSource.standbyRange,
+            normalRange: rangesWithSource.normalRange,
+            alertRange: rangesWithSource.alertRange,
+            failureRange: rangesWithSource.failureRange,
+          },
         });
       } catch (e) {
         LogHelper.warn(`[RFC-0091] Failed to calculate deviceStatus for ${resolvedTbId}:`, e.message);

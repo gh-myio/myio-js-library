@@ -798,9 +798,28 @@ self.onInit = async function () {
             LogHelper.log(`[RFC-0078] Using deviceMapInstaneousPower (TIER 0) for ${deviceId}`);
           }
 
-          // Get instantaneous power from ctx.data (renamed to consumption_power to avoid confusion)
-          const instantaneousPower = findValue(device.values, 'consumption_power', 0);
+          const findTimestampAtTelemetry = (values, dataType, defaultValue = 'N/D') => {
+            const item = values.find((v) => v.dataType === dataType);
 
+            if (!item) return defaultValue;
+            // Retorna a propriedade 'val' (da nossa API) ou 'value' (do ThingsBoard)
+            return item.ts;
+          };          
+
+          // Get instantaneous power from ctx.data (renamed to consumption_power to avoid confusion)
+          let instantaneousPower = findValue(device.values, 'consumption_power', 0);
+          const instantaneousPowerTs = new Date(
+            findTimestampAtTelemetry(device.values, 'consumption_power', 0) || 0
+          );
+          const now = new Date();
+          // RFC-0091: Use configurable delay time (in minutes) instead of hardcoded 15 minutes
+          const delayLimitTimeInMiliseconds = window.MyIOUtils?.getDelayTimeConnectionInMins?.() * 60 * 1000;
+          const timeSinceLastTelemetry = now.getTime() - instantaneousPowerTs.getTime();
+
+          if (timeSinceLastTelemetry > delayLimitTimeInMiliseconds) {
+            instantaneousPower = null;
+          }
+          
           // Calculate device status using range-based calculation
           const parsedInstantaneousPower = Number(instantaneousPower);
           const lastConsumptionValue = Number.isNaN(parsedInstantaneousPower)
@@ -818,8 +837,8 @@ self.onInit = async function () {
             },
           });
 
-          // DEBUG ER 14  // TODO REMOVER DEPOIS
-          if (device.label && device.label.toLowerCase().includes('bomba cag5') && 3 > 2) {
+          // DEBUG // TODO REMOVER DEPOIS
+          if (device.label && device.label.toLowerCase().includes('bomba cag6') && 3 > 2) {
             console.log('╔══════════════════════════════════════════════════════════════╗');
             console.log('║                    DEBUG ER 14 - EQUIPMENTS                  ║');
             console.log('╚══════════════════════════════════════════════════════════════╝');
@@ -1522,8 +1541,8 @@ function initFilterModal() {
     // Filter tabs configuration - specific for EQUIPMENTS
     filterTabs: [
       { id: 'all', label: 'Todos', filter: () => true },
-      { id: 'online', label: 'Online', filter: (d) => getDeviceConsumption(d) > 0 },
-      { id: 'offline', label: 'Offline', filter: (d) => getDeviceConsumption(d) === 0 },
+      { id: 'online', label: 'Online', filter: (d) => !['offline', 'no_info'].includes(getDeviceStatus(d)) },
+      { id: 'offline', label: 'Offline', filter: (d) => ['offline', 'no_info'].includes(getDeviceStatus(d)) },
       {
         id: 'normal',
         label: 'Normal',

@@ -1,0 +1,96 @@
+#container {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: normal;
+  background: transparent !important;
+}
+
+/* Força transparência nas sections que NÃO são o footer */
+#container > section {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  overflow: hidden;
+}
+
+/* --- REGRAS ESSENCIAIS E DE DIMENSIONAMENTO DO FOOTER (Última Section) --- */
+
+#container > section:last-child {
+  height: 50px !important;
+  min-height: 50px !important;
+  max-height: 50px !important;
+  margin: 0 !important;
+  overflow: visible !important; /* CRÍTICO: Permite que tooltips e popups sejam visíveis */
+  z-index: 99999 !important; /* Prioridade máxima de Z-index */
+  position: relative;
+  background: transparent !important;
+}
+
+#container > section:last-child tb-dashboard-state,
+#container > section:last-child .content,
+#container > section:last-child .tb-widget-container,
+#container > section:last-child .tb-widget,
+#container > section:last-child .tb-widget-content,
+#container > section:last-child .tb-absolute-container,
+#container > section:last-child .mat-card,
+#container > section:last-child .mat-mdc-card,
+#container > section:last-child .tb-dashboard-state-component,
+#container > section:last-child tb-dynamic-component {
+  height: 100% !important;
+  width: 1630px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+
+  overflow: visible !important;
+  display: block !important;
+}
+
+#container > section:last-child .myio-footer {
+  background-color: #2e5848 !important;
+}
+
+/* Limpa o padding do ThingsBoard no wrapper mais interno */
+#myio-root .myio-footer .tb-child {
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* --- REGRAS DO MAIN VIEW E OUTRAS GERAIS --- */
+
+#mainView > div > .content {
+  height: 100%;
+}
+
+.tb-dashboard-toolbar {
+  display: none !important;
+}
+
+/* --- EXCEÇÕES ESPECÍFICAS QUE PRECISAM DE FUNDO (Manter) --- */
+
+section .myio-card.v2.myio-card-logo {
+  background: #5e35b1 !important;
+  background-color: #5e35b1 !important;
+}
+
+section .myio-bar,
+section .myio-bar-fill,
+section .dot-ok {
+  background: revert !important;
+}
+
+section button[style*='background-color: #6A1B9A'] {
+  background-color: #6a1b9a !important;
+}
+
+/* Remove o padding do container principal do gridster */
+#gridster-child {
+  padding: 0px !important;
+}

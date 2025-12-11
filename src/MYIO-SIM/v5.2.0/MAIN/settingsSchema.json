@@ -1,0 +1,25 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Settings",
+    "properties": {
+      "customerId": {
+        "type": "string",
+        "title": "customerId"
+      },
+      "dataApiHost": {
+        "type": "string",
+        "title": "Data API Host",
+        "default": "https://api.data.apps.myio-bas.com",
+        "description": "RFC-0086: Base URL for the MyIO Data API. Used by all widgets for API calls."
+      },
+      "delayTimeConnectionInMins": {
+        "type": "number",
+        "title": "Delay Time Connection (minutes)",
+        "default": 60,
+        "description": "RFC-0091: Delay time in minutes for connection status probation period. Devices connected for less than this time are considered offline."
+      }
+    },
+    "required": ["customerId", "dataApiHost"]
+  }
+}

@@ -1,64 +1,71 @@
 <div class="equip-wrap" id="equipWrap">
-  <!-- RFC-0079: Sub-menu removed - now controlled by MENU widget -->
+    <!-- RFC-0079: Sub-menu removed - now controlled by MENU widget -->
 
-  <div class="toolbar-zoom">
-    <div class="shopping-filter-chips" id="shoppingFilterChips"></div>
-    <!-- RFC-0093: Real-Time Mode Controls + RFC-0103: Power Limits -->
-    <div class="realtime-controls" id="realtimeControls">
-      <!-- RFC-0103: Power Limits Setup Button -->
-      <button id="powerLimitsBtn" class="power-limits-btn" title="Configurar Limites de Potência">
-        <span class="btn-icon">⚙️</span>
-        <span class="btn-label">Limites</span>
-      </button>
-      <button id="realtimeToggleBtn" class="realtime-toggle" title="Ativar modo tempo real">
-        <span class="toggle-icon">⚡</span>
-        <span class="toggle-label">Tempo Real</span>
-        <span class="toggle-status">OFF</span>
-      </button>
-      <button
-        id="realtimeSettingsBtn"
-        class="realtime-settings-btn"
-        title="Configurações"
-        style="display: none"
-      >
-        <span>⚙️</span>
-      </button>
-      <div id="realtimeConnectionIndicator" class="realtime-connection-indicator" style="display: none"></div>
-      <div id="realtimeProgressContainer" class="realtime-progress-container" style="display: none">
-        <div class="realtime-progress-bar">
-          <div id="realtimeProgressFill" class="realtime-progress-fill"></div>
+    <div class="toolbar-zoom" style="display: flex">
+        <div class="shopping-filter-chips"
+            id="shoppingFilterChips"></div>
+        <!-- RFC-0093: Real-Time Mode Controls + RFC-0103: Power Limits -->
+        <div class="realtime-controls" style="display: flex; padding: 7px; gap: 10px;"
+          id="realtimeControls">
+            <!-- RFC-0103: Power Limits Setup Button -->
+            <button id="powerLimitsBtn"
+                class="power-limits-btn"
+                title="Configurar Limites de Potência">
+                <span class="btn-icon">⚙️</span>
+                <span class="btn-label">Limites</span>
+            </button>
+            <button id="realtimeToggleBtn"
+                class="realtime-toggle"
+                title="Ativar modo tempo real">
+                <span class="toggle-icon">⚡</span>
+                <span class="toggle-label">Tempo Real</span>
+                <span class="toggle-status">OFF</span>
+            </button>
+            <button id="realtimeSettingsBtn"
+                class="realtime-settings-btn"
+                title="Configurações" style="display: none">
+                <span>⚙️</span>
+            </button>
+            <div id="realtimeConnectionIndicator"
+                class="realtime-connection-indicator"
+                style="display: none"></div>
+            <div id="realtimeProgressContainer"
+                class="realtime-progress-container"
+                style="display: none">
+                <div class="realtime-progress-bar">
+                    <div id="realtimeProgressFill"
+                        class="realtime-progress-fill">
+                    </div>
+                </div>
+                <span id="realtimeProgressText"
+                    class="realtime-progress-text">30s</span>
+            </div>
         </div>
-        <span id="realtimeProgressText" class="realtime-progress-text">30s</span>
-      </div>
     </div>
-  </div>
 
-  <!-- RFC-0093: Header injected dynamically via buildHeaderDevicesGrid -->
-  <div id="equipHeaderContainer"></div>
+    <!-- RFC-0093: Header injected dynamically via buildHeaderDevicesGrid -->
+    <div id="equipHeaderContainer"></div>
 
-  <!-- Loading overlay -->
-  <div id="equipments-loading-overlay" class="equipments-loading-overlay" style="display: none">
-    <div class="loading-spinner">
-      <svg style="width: 48px; height: 48px; animation: spin 1s linear infinite" viewBox="0 0 50 50">
-        <circle
-          cx="25"
-          cy="25"
-          r="20"
-          fill="none"
-          stroke="#6c2fbf"
-          stroke-width="5"
-          stroke-linecap="round"
-          stroke-dasharray="90,150"
-          stroke-dashoffset="0"
-        ></circle>
-      </svg>
-      <p>Carregando dados de consumo...</p>
+    <!-- Loading overlay -->
+    <div id="equipments-loading-overlay"
+        class="equipments-loading-overlay"
+        style="display: none">
+        <div class="loading-spinner">
+            <svg style="width: 48px; height: 48px; animation: spin 1s linear infinite"
+                viewBox="0 0 50 50">
+                <circle cx="25" cy="25" r="20" fill="none"
+                    stroke="#6c2fbf" stroke-width="5"
+                    stroke-linecap="round"
+                    stroke-dasharray="90,150"
+                    stroke-dashoffset="0"></circle>
+            </svg>
+            <p>Carregando dados de consumo...</p>
+        </div>
     </div>
-  </div>
 
-  <section class="equip-grid" id="equipGrid">
-    <div id="cards-grid" class="cards-grid"></div>
-  </section>
+    <section class="equip-grid" id="equipGrid">
+        <div id="cards-grid" class="cards-grid"></div>
+    </section>
 
-  <!-- RFC-0090: Filter Modal injected dynamically via createFilterModal -->
+    <!-- RFC-0090: Filter Modal injected dynamically via createFilterModal -->
 </div>

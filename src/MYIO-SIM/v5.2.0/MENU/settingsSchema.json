@@ -1,0 +1,101 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Settings",
+    "properties": {
+      "tabSelecionadoBackgroundColor": {
+        "type": "string",
+        "title": "Tab Ativo - Background Color",
+        "default": "#2F5848"
+      },
+      "tabSelecionadoFontColor": {
+        "type": "string",
+        "title": "Tab Ativo - Font Color",
+        "default": "#F2F2F2"
+      },
+      "tabNaoSelecionadoBackgroundColor": {
+        "type": "string",
+        "title": "Tab Inativo - Background Color",
+        "default": "#FFFFFF"
+      },
+      "tabNaoSelecionadoFontColor": {
+        "type": "string",
+        "title": "Tab Inativo - Font Color",
+        "default": "#1C2743"
+      },
+      "botaoCarregarBackgroundColor": {
+        "type": "string",
+        "title": "Botao Carregar - Background Color",
+        "default": "#2F5848"
+      },
+      "botaoCarregarFontColor": {
+        "type": "string",
+        "title": "Botao Carregar - Font Color",
+        "default": "#F2F2F2"
+      },
+      "botaoLimparBackgroundColor": {
+        "type": "string",
+        "title": "Botao Limpar - Background Color",
+        "default": "#FFFFFF"
+      },
+      "botaoLimparFontColor": {
+        "type": "string",
+        "title": "Botao Limpar - Font Color",
+        "default": "#1C2743"
+      },
+      "botaoMetasBackgroundColor": {
+        "type": "string",
+        "title": "Botao Metas - Background Color",
+        "default": "#6a1b9a"
+      },
+      "botaoMetasFontColor": {
+        "type": "string",
+        "title": "Botao Metas - Font Color",
+        "default": "#F2F2F2"
+      }
+    },
+    "required": []
+  },
+  "form": [
+    {
+      "key": "tabSelecionadoBackgroundColor",
+      "type": "color"
+    },
+    {
+      "key": "tabSelecionadoFontColor",
+      "type": "color"
+    },
+    {
+      "key": "tabNaoSelecionadoBackgroundColor",
+      "type": "color"
+    },
+    {
+      "key": "tabNaoSelecionadoFontColor",
+      "type": "color"
+    },
+    {
+      "key": "botaoCarregarBackgroundColor",
+      "type": "color"
+    },
+    {
+      "key": "botaoCarregarFontColor",
+      "type": "color"
+    },
+    {
+      "key": "botaoLimparBackgroundColor",
+      "type": "color"
+    },
+    {
+      "key": "botaoLimparFontColor",
+      "type": "color"
+    },
+    {
+      "key": "botaoMetasBackgroundColor",
+      "type": "color"
+    },
+    {
+      "key": "botaoMetasFontColor",
+      "type": "color"
+    }
+  ]
+}
