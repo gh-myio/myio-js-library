@@ -416,7 +416,9 @@ self.onInit = async function () {
   HIDE_INFO_MENU_ITEM = self.ctx.settings?.hideInfoMenuItem ?? true;
   DEBUG_ACTIVE = self.ctx.settings?.debugActive ?? false;
   ACTIVE_TOOLTIP_DEBUG = self.ctx.settings?.activeTooltipDebug ?? false;
-  LogHelper.log(`[EQUIPMENTS] Configured: debugActive=${DEBUG_ACTIVE}, activeTooltipDebug=${ACTIVE_TOOLTIP_DEBUG}`);
+  LogHelper.log(
+    `[EQUIPMENTS] Configured: debugActive=${DEBUG_ACTIVE}, activeTooltipDebug=${ACTIVE_TOOLTIP_DEBUG}`
+  );
 
   // RFC-0093: Build centralized header via buildHeaderDevicesGrid
   const buildHeaderDevicesGrid = window.MyIOUtils?.buildHeaderDevicesGrid;
@@ -800,14 +802,24 @@ self.onInit = async function () {
           const instantaneousPower = findValue(device.values, 'consumption_power', 0);
 
           // Calculate device status using range-based calculation
+          const parsedInstantaneousPower = Number(instantaneousPower);
+          const lastConsumptionValue = Number.isNaN(parsedInstantaneousPower)
+            ? null
+            : parsedInstantaneousPower;
+
           const deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
             connectionStatus: mappedConnectionStatus,
-            lastConsumptionValue: Number(instantaneousPower) || null,
-            ranges: rangesWithSource,
+            lastConsumptionValue,
+            ranges: {
+              standbyRange: rangesWithSource.standbyRange,
+              normalRange: rangesWithSource.normalRange,
+              alertRange: rangesWithSource.alertRange,
+              failureRange: rangesWithSource.failureRange,
+            },
           });
 
           // DEBUG ER 14  // TODO REMOVER DEPOIS
-          if (device.label && device.label.toLowerCase().includes('er 14') && 1 > 2) {
+          if (device.label && device.label.toLowerCase().includes('bomba cag5') && 3 > 2) {
             console.log('╔══════════════════════════════════════════════════════════════╗');
             console.log('║                    DEBUG ER 14 - EQUIPMENTS                  ║');
             console.log('╚══════════════════════════════════════════════════════════════╝');
@@ -889,14 +901,16 @@ self.onInit = async function () {
             icon: 'energy', // Domain identifier for SelectionStore
             domain: 'energy', // Domain for card component tooltip
             // Power ranges for tooltip visualization
-            powerRanges: rangesWithSource ? {
-              standbyRange: rangesWithSource.standbyRange,
-              normalRange: rangesWithSource.normalRange,
-              alertRange: rangesWithSource.alertRange,
-              failureRange: rangesWithSource.failureRange,
-              source: rangesWithSource.source,
-              tier: rangesWithSource.tier,
-            } : null,
+            powerRanges: rangesWithSource
+              ? {
+                  standbyRange: rangesWithSource.standbyRange,
+                  normalRange: rangesWithSource.normalRange,
+                  alertRange: rangesWithSource.alertRange,
+                  failureRange: rangesWithSource.failureRange,
+                  source: rangesWithSource.source,
+                  tier: rangesWithSource.tier,
+                }
+              : null,
           };
         });
 

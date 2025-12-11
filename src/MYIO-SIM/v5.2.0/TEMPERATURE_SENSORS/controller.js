@@ -1,4 +1,4 @@
-/* global self, window, document, localStorage, MyIOLibrary */
+/* global self, window, document, localStorage, MyIOLibrary, $ */
 
 /**
  * RFC-0092: TEMPERATURE_SENSORS Widget Controller
@@ -207,6 +207,28 @@ function initializeSensorCards(sensors) {
                 temperatureMin: sensor.temperatureMin,
                 temperatureMax: sensor.temperatureMax,
                 theme: 'light',
+                connectionData: {
+                  centralName: sensor.centralName || getCustomerNameForDevice(sensor),
+                  connectionStatusTime: sensor.lastConnectTime,
+                  timeVal: sensor.lastActivityTime || new Date('1970-01-01').getTime(),
+                  deviceStatus:
+                    sensor.deviceStatus !== 'power_off' && sensor.deviceStatus !== 'not_installed'
+                      ? 'power_on'
+                      : 'power_off',
+                  lastDisconnectTime: sensor.lastDisconnectTime || 0,
+                },
+                ui: { title: 'Configurações', width: 900 },
+                onSaved: (payload) => {
+                  LogHelper.log('[EQUIPMENTS] [RFC-0072] Settings saved:', payload);
+                },
+                onClose: () => {
+                  $('.myio-settings-modal-overlay').remove();
+                  const overlay = document.querySelector('.myio-modal-overlay');
+                  if (overlay) {
+                    overlay.remove();
+                  }
+                  LogHelper.log('[EQUIPMENTS] [RFC-0072] Settings modal closed');
+                },
               });
             } else {
               LogHelper.warn('[TEMPERATURE_SENSORS] openDashboardPopupSettings not available');
