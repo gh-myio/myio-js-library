@@ -1,0 +1,204 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Welcome LV Widget Settings",
+    "description": "RFC-0057: Configuration for brand palette, user menu, and shopping shortcuts",
+    "properties": {
+      "enableDebugMode": {
+        "title": "Enable Debug Mode",
+        "type": "boolean",
+        "default": true,
+        "description": "Enable console logging for debugging"
+      },
+      "defaultBackgroundUrl": {
+        "title": "Default Background URL",
+        "type": "string",
+        "default": "https://dashboard.myio-bas.com/api/images/public/wntqPf1KcpLX2l182DY86Y4p8pa3bj6F",
+        "description": "Default background image URL for hero section"
+      },
+      "defaultLogoUrl": {
+        "title": "Default Logo URL",
+        "type": "string",
+        "default": "https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG",
+        "description": "Default MYIO logo URL"
+      },
+      "primaryColor": {
+        "title": "Primary Color",
+        "type": "string",
+        "default": "#7A2FF7"
+      },
+      "secondaryColor": {
+        "title": "Secondary Color",
+        "type": "string",
+        "default": "#5A1FD1"
+      },
+      "textColor": {
+        "title": "Main Text Color",
+        "type": "string",
+        "default": "#F5F7FA"
+      },
+      "mutedTextColor": {
+        "title": "Muted Text Color",
+        "type": "string",
+        "default": "#B8C2D8"
+      },
+      "userMenuBackgroundColor": {
+        "title": "User Menu - Background Color",
+        "type": "string",
+        "default": "rgba(255, 255, 255, 0.15)"
+      },
+      "userMenuBorderColor": {
+        "title": "User Menu - Border Color",
+        "type": "string",
+        "default": "rgba(255, 255, 255, 0.3)"
+      },
+      "logoutButtonBackgroundColor": {
+        "title": "Logout Button - Background Color",
+        "type": "string",
+        "default": "rgba(255, 255, 255, 0.2)"
+      },
+      "logoutButtonBorderColor": {
+        "title": "Logout Button - Border Color",
+        "type": "string",
+        "default": "rgba(255, 255, 255, 0.4)"
+      },
+      "shoppingCardBackgroundColor": {
+        "title": "Shopping Card - Background Color",
+        "type": "string",
+        "default": "rgba(255, 255, 255, 0.1)"
+      },
+      "shoppingCardBorderColor": {
+        "title": "Shopping Card - Border Color",
+        "type": "string",
+        "default": "rgba(255, 255, 255, 0.2)"
+      },
+      "defaultHeroTitle": {
+        "title": "Default Hero Title",
+        "type": "string",
+        "default": "Bem-vindo ao MYIO Platform",
+        "description": "Default title for hero section (overridden by Customer attributes)"
+      },
+      "defaultHeroDescription": {
+        "title": "Default Hero Description",
+        "type": "string",
+        "default": "Gestão inteligente de energia, água e recursos para shoppings centers",
+        "description": "Default description for hero section (overridden by Customer attributes)"
+      },
+      "defaultPrimaryLabel": {
+        "title": "Default CTA Button Label",
+        "type": "string",
+        "default": "ACESSAR PAINEL",
+        "description": "Default label for primary CTA button (overridden by Customer attributes)"
+      },
+      "defaultPrimaryState": {
+        "title": "Default Primary State",
+        "type": "string",
+        "default": "main",
+        "description": "Default dashboard state for primary CTA button"
+      },
+      "showUserMenuByDefault": {
+        "title": "Show User Menu by Default",
+        "type": "boolean",
+        "default": true,
+        "description": "Show user menu by default (can be overridden by Customer attributes)"
+      },
+      "enableLazyLoading": {
+        "title": "Enable Lazy Loading",
+        "type": "boolean",
+        "default": true,
+        "description": "Enable lazy loading for shopping card background images"
+      },
+      "lazyLoadRootMargin": {
+        "title": "Lazy Load Root Margin",
+        "type": "string",
+        "default": "50px",
+        "description": "Root margin for IntersectionObserver (lazy loading)"
+      }
+    },
+    "required": []
+  },
+  "form": [
+    {
+      "type": "fieldset",
+      "title": "API Configuration",
+      "items": ["dataApiHost"]
+    },
+    {
+      "key": "enableDebugMode",
+      "type": "checkbox"
+    },
+    {
+      "type": "fieldset",
+      "title": "Background & Logo",
+      "items": ["defaultBackgroundUrl", "defaultLogoUrl"]
+    },
+    {
+      "type": "fieldset",
+      "title": "Brand Colors",
+      "items": [
+        {
+          "key": "primaryColor",
+          "type": "color"
+        },
+        {
+          "key": "secondaryColor",
+          "type": "color"
+        },
+        {
+          "key": "textColor",
+          "type": "color"
+        },
+        {
+          "key": "mutedTextColor",
+          "type": "color"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "User Menu Colors",
+      "items": [
+        {
+          "key": "userMenuBackgroundColor",
+          "type": "color"
+        },
+        {
+          "key": "userMenuBorderColor",
+          "type": "color"
+        },
+        {
+          "key": "logoutButtonBackgroundColor",
+          "type": "color"
+        },
+        {
+          "key": "logoutButtonBorderColor",
+          "type": "color"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Shopping Cards Colors",
+      "items": [
+        {
+          "key": "shoppingCardBackgroundColor",
+          "type": "color"
+        },
+        {
+          "key": "shoppingCardBorderColor",
+          "type": "color"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Hero Text Content",
+      "items": ["defaultHeroTitle", "defaultHeroDescription", "defaultPrimaryLabel"]
+    },
+    {
+      "type": "fieldset",
+      "title": "Navigation & Features",
+      "items": ["defaultPrimaryState", "showUserMenuByDefault", "enableLazyLoading", "lazyLoadRootMargin"]
+    }
+  ]
+}

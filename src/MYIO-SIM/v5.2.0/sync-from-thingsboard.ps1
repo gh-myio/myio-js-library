@@ -32,8 +32,8 @@ $MAPPING = @{
     "WATER_STORES"                       = "widget_head_office_water_stores_v_5_2_0"
     "TEMPERATURE"                        = "widget_head_office_temperature_v_5_2_0"
     "TEMPERATURE_SENSORS"                = "widget_head_office_temperature_sensors_v_5_2_0"
-    "TEMPERATURE_WITHOUT_CLIMATE_CONTROL" = "widget_head_office_temperature_without_climate_control_v_5_2_0"
-    "WELCOME"                            = "widget_head_office_welcome_v_5_2_0"
+    "TEMPERATURE_WITHOUT_CLIMATE_CONTROL" = "widget_head_office_temperature_without_climate_control_v_1_0_0"
+    "WELCOME"                            = "widget_head_office_welcome_v5_2_0"
 }
 
 Write-Host ""
