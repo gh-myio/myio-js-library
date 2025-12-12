@@ -12,7 +12,7 @@
       "sizeY": 3,
       "resources": [
         {
-          "url": "https://unpkg.com/myio-js-library@0.1.180/dist/myio-js-library.umd.min.js"
+          "url": "https://unpkg.com/myio-js-library@0.1.181/dist/myio-js-library.umd.min.js"
         },
         {
           "url": "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"

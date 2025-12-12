@@ -12,7 +12,7 @@
       "sizeY": 3,
       "resources": [
         {
-          "url": "https://unpkg.com/myio-js-library@0.1.180/dist/myio-js-library.umd.min.js"
+          "url": "https://unpkg.com/myio-js-library@0.1.181/dist/myio-js-library.umd.min.js"
         },
         {
           "url": "https://graphs.staging.apps.myio-bas.com/sdk/energy-chart-sdk.umd.js"
