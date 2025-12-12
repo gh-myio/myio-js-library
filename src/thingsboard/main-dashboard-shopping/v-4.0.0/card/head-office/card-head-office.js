@@ -1661,8 +1661,11 @@ function bindEvents(root, state, callbacks) {
     root._selectionListener = onSelectionChange;
   }
 
+  // Tooltip triggers on the value element (.myio-ho-card__value) instead of entire card
+  const valueElement = root.querySelector('.myio-ho-card__value');
+
   // Temperature range tooltip (only for domain=temperature)
-  if (entityObject.domain === 'temperature') {
+  if (entityObject.domain === 'temperature' && valueElement) {
     const showTooltip = (e) => {
       TempRangeTooltip.show(root, state.entityObject, e);
     };
@@ -1670,16 +1673,18 @@ function bindEvents(root, state, callbacks) {
       TempRangeTooltip.hide();
     };
 
-    root.addEventListener('mouseenter', showTooltip);
-    root.addEventListener('mouseleave', hideTooltip);
+    valueElement.style.cursor = 'help';
+    valueElement.addEventListener('mouseenter', showTooltip);
+    valueElement.addEventListener('mouseleave', hideTooltip);
 
     // Store references for cleanup
     root._tempTooltipShowFn = showTooltip;
     root._tempTooltipHideFn = hideTooltip;
+    root._tooltipElement = valueElement;
   }
 
   // Energy range tooltip (only for domain=energy)
-  if (entityObject.domain === 'energy') {
+  if (entityObject.domain === 'energy' && valueElement) {
     const showEnergyTooltip = (e) => {
       EnergyRangeTooltip.show(root, state.entityObject, e);
     };
@@ -1687,12 +1692,14 @@ function bindEvents(root, state, callbacks) {
       EnergyRangeTooltip.hide();
     };
 
-    root.addEventListener('mouseenter', showEnergyTooltip);
-    root.addEventListener('mouseleave', hideEnergyTooltip);
+    valueElement.style.cursor = 'help';
+    valueElement.addEventListener('mouseenter', showEnergyTooltip);
+    valueElement.addEventListener('mouseleave', hideEnergyTooltip);
 
     // Store references for cleanup
     root._energyTooltipShowFn = showEnergyTooltip;
     root._energyTooltipHideFn = hideEnergyTooltip;
+    root._tooltipElement = valueElement;
   }
 
   // Store cleanup functions
@@ -1706,16 +1713,16 @@ function bindEvents(root, state, callbacks) {
     }
 
     // Cleanup temperature tooltip events
-    if (root._tempTooltipShowFn) {
-      root.removeEventListener('mouseenter', root._tempTooltipShowFn);
-      root.removeEventListener('mouseleave', root._tempTooltipHideFn);
+    if (root._tempTooltipShowFn && root._tooltipElement) {
+      root._tooltipElement.removeEventListener('mouseenter', root._tempTooltipShowFn);
+      root._tooltipElement.removeEventListener('mouseleave', root._tempTooltipHideFn);
       TempRangeTooltip.hide();
     }
 
     // Cleanup energy tooltip events
-    if (root._energyTooltipShowFn) {
-      root.removeEventListener('mouseenter', root._energyTooltipShowFn);
-      root.removeEventListener('mouseleave', root._energyTooltipHideFn);
+    if (root._energyTooltipShowFn && root._tooltipElement) {
+      root._tooltipElement.removeEventListener('mouseenter', root._energyTooltipShowFn);
+      root._tooltipElement.removeEventListener('mouseleave', root._energyTooltipHideFn);
       EnergyRangeTooltip.hide();
     }
   };

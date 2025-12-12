@@ -126,7 +126,9 @@ async function fetchEnergyDayConsumption(customerId, startTs, endTs, granularity
     }
 
     LogHelper.log(
-      `[MAIN] fetchEnergyDayConsumption: API returned ${allDevices.length} devices, matched ${matchedCount} with TB datasources, total=${total.toFixed(2)}`
+      `[MAIN] fetchEnergyDayConsumption: API returned ${
+        allDevices.length
+      } devices, matched ${matchedCount} with TB datasources, total=${total.toFixed(2)}`
     );
 
     return { devices: filteredDevices, total };
@@ -225,7 +227,9 @@ async function fetchWaterDayConsumption(customerId, startTs, endTs, granularity 
     }
 
     LogHelper.log(
-      `[MAIN] fetchWaterDayConsumption: API returned ${allDevices.length} devices, matched ${matchedCount} with TB datasources, total=${total.toFixed(2)}`
+      `[MAIN] fetchWaterDayConsumption: API returned ${
+        allDevices.length
+      } devices, matched ${matchedCount} with TB datasources, total=${total.toFixed(2)}`
     );
 
     return { devices: filteredDevices, total };
@@ -3010,6 +3014,7 @@ const MyIOOrchestrator = (() => {
       else if (keyLower === 'label' && value) device.label = value;
       else if (keyLower === 'consumption') {
         device.consumption = value;
+        device.consumption_power = value;
         device.consumptionTimestamp = timestamp;
       }
       // Additional fields needed by EQUIPMENTS
@@ -3019,7 +3024,9 @@ const MyIOOrchestrator = (() => {
 
     // Update the metadata cache
     energyDevicesMetadata = deviceMap;
-    LogHelper.log(`[MAIN] extractEnergyDevicesMetadata: Extracted ${deviceMap.size} devices with full TB metadata`);
+    LogHelper.log(
+      `[MAIN] extractEnergyDevicesMetadata: Extracted ${deviceMap.size} devices with full TB metadata`
+    );
 
     // Classify devices into lojas vs equipments
     classifyEnergyDevices();
@@ -3047,7 +3054,9 @@ const MyIOOrchestrator = (() => {
 
     classifiedDevices = { lojas, equipments, all };
 
-    LogHelper.log(`[MAIN] classifyEnergyDevices: ${lojas.length} lojas, ${equipments.length} equipments, ${all.length} total`);
+    LogHelper.log(
+      `[MAIN] classifyEnergyDevices: ${lojas.length} lojas, ${equipments.length} equipments, ${all.length} total`
+    );
 
     // Update lojasIngestionIds and equipmentsIngestionIds Sets
     const lojasIds = lojas.map((d) => d.ingestionId).filter(Boolean);
@@ -3056,7 +3065,9 @@ const MyIOOrchestrator = (() => {
     lojasIngestionIds = new Set(lojasIds);
     equipmentsIngestionIds = new Set(equipmentIds);
 
-    LogHelper.log(`[MAIN] Updated lojasIngestionIds (${lojasIngestionIds.size}) and equipmentsIngestionIds (${equipmentsIngestionIds.size})`);
+    LogHelper.log(
+      `[MAIN] Updated lojasIngestionIds (${lojasIngestionIds.size}) and equipmentsIngestionIds (${equipmentsIngestionIds.size})`
+    );
 
     // Dispatch event so other widgets know classification is ready
     window.dispatchEvent(
@@ -3079,33 +3090,148 @@ const MyIOOrchestrator = (() => {
 
   /**
    * RFC-0102: Get all lojas devices with full TB metadata
-   * Merged with energyCache consumption data
+   * Merged with energyCache consumption data AND fresh consumption telemetry
    */
   function getLojasDevices() {
+    // Get fresh consumption values from live ctx.data
+    const freshConsumption = getFreshConsumptionFromCtxData();
+
     return classifiedDevices.lojas.map((device) => {
       // Merge with energyCache consumption data if available
       const cached = device.ingestionId ? energyCache.get(device.ingestionId) : null;
+      // Get fresh consumption for this device
+      const fresh = freshConsumption.get(device.entityId);
+
       return {
         ...device,
+        // Fresh consumption telemetry (instantaneous power)
+        consumption: fresh?.consumption ?? device.consumption ?? null,
+        consumptionTimestamp: fresh?.consumptionTimestamp ?? device.consumptionTimestamp ?? null,
         // From energyCache (API consumption data)
         total_value: cached?.total_value ?? null,
-        customerId: cached?.customerId ?? null,
+        customerId: cached?.customerId ?? device.customerId ?? null,
         customerName: cached?.customerName ?? null,
       };
     });
   }
 
   /**
+   * RFC-0102: Get fresh consumption telemetry from live ctx.data
+   * Returns Map<entityId, {consumption, consumptionTimestamp}>
+   */
+  function getFreshConsumptionFromCtxData() {
+    const data = self.ctx?.data || [];
+    const consumptionMap = new Map();
+
+    // DEBUG: Force console.log to ensure we see this
+    console.log('[MAIN] 🔍 getFreshConsumptionFromCtxData CALLED - ctx.data exists:', !!self.ctx?.data);
+    console.log('[MAIN] 🔍 ctx.data.length:', data.length);
+
+    // DEBUG: Log all unique aliasNames and dataKey names
+    const aliasNames = new Set();
+    const dataKeyNames = new Set();
+    data.forEach((d) => {
+      if (d?.datasource?.aliasName) aliasNames.add(d.datasource.aliasName);
+      if (d?.dataKey?.name) dataKeyNames.add(d.dataKey.name);
+    });
+
+    console.log('[MAIN] 🔍 aliasNames in ctx.data:', [...aliasNames]);
+    console.log('[MAIN] 🔍 dataKeyNames in ctx.data:', [...dataKeyNames]);
+
+    // Filter by alias "Equipamentos e Lojas" or "Lojas e Equipamentos"
+    const energyData = data.filter((d) => {
+      const alias = d?.datasource?.aliasName || '';
+      return alias === 'Equipamentos e Lojas' || alias === 'Lojas e Equipamentos';
+    });
+
+    console.log('[MAIN] 🔍 energyData.length after alias filter:', energyData.length);
+
+    // Count consumption entries
+    let consumptionCount = 0;
+    energyData.forEach((row) => {
+      const entityId = row?.datasource?.entity?.id?.id || row?.datasource?.entityId;
+      const keyName = (row?.dataKey?.name || '').toLowerCase();
+
+      if (entityId && keyName === 'consumption') {
+        const value = row?.data?.[0]?.[1] ?? null;
+        const timestamp = row?.data?.[0]?.[0] ?? null;
+        consumptionMap.set(entityId, { consumption: value, consumptionTimestamp: timestamp });
+        consumptionCount++;
+      }
+    });
+
+    console.log('[MAIN] 🔍 consumption entries found:', consumptionCount);
+    console.log('[MAIN] 🔍 consumptionMap.size:', consumptionMap.size);
+
+    // Log first 3 entries if any
+    if (consumptionMap.size > 0) {
+      let count = 0;
+      consumptionMap.forEach((val, key) => {
+        if (count < 3) {
+          console.log(`[MAIN] 🔍 Sample [${count}]: entityId=${key}, consumption=${val.consumption}`);
+          count++;
+        }
+      });
+    }
+
+    return consumptionMap;
+  }
+
+  /**
    * RFC-0102: Get all equipment devices with full TB metadata
-   * Merged with energyCache consumption data
+   * Merged with energyCache consumption data AND fresh consumption telemetry
    */
   function getEquipmentDevices() {
+    // Get fresh consumption values from live ctx.data
+    const freshConsumption = getFreshConsumptionFromCtxData();
+
+    // DEBUG: Log fresh consumption map size
+    LogHelper.log(
+      `[MAIN] getEquipmentDevices: freshConsumption map size = ${freshConsumption.size}, equipments count = ${classifiedDevices.equipments.length}`
+    );
+
+    // DEBUG: Log sample of fresh consumption (first 3)
+    if (freshConsumption.size > 0) {
+      let count = 0;
+      freshConsumption.forEach((val, key) => {
+        if (count < 3) {
+          LogHelper.log(
+            `[MAIN] Fresh consumption sample [${count}]: entityId=${key}, consumption=${
+              val.consumption
+            }, ts=${val.consumptionTimestamp} (${new Date(val.consumptionTimestamp).toLocaleString('pt-BR')})`
+          );
+          count++;
+        }
+      });
+    }
+
     return classifiedDevices.equipments.map((device) => {
       const cached = device.ingestionId ? energyCache.get(device.ingestionId) : null;
+      // Get fresh consumption for this device
+      const fresh = freshConsumption.get(device.entityId);
+
+      // DEBUG: Log for specific device (ER 14)
+      if (device.label && device.label.toLowerCase().includes('er 14')) {
+        LogHelper.log(`[MAIN] DEBUG ER 14:`, {
+          entityId: device.entityId,
+          label: device.label,
+          'device.consumption': device.consumption,
+          'device.consumptionTimestamp': device.consumptionTimestamp,
+          'fresh found': !!fresh,
+          'fresh?.consumption': fresh?.consumption,
+          'fresh?.consumptionTimestamp': fresh?.consumptionTimestamp,
+          'freshConsumption has entityId': freshConsumption.has(device.entityId),
+        });
+      }
+
       return {
         ...device,
+        // Fresh consumption telemetry (instantaneous power)
+        consumption: fresh?.consumption ?? device.consumption ?? null,
+        consumptionTimestamp: fresh?.consumptionTimestamp ?? device.consumptionTimestamp ?? null,
+        // From API cache
         total_value: cached?.total_value ?? null,
-        customerId: cached?.customerId ?? null,
+        customerId: cached?.customerId ?? device.customerId ?? null,
         customerName: cached?.customerName ?? null,
       };
     });
@@ -3113,14 +3239,22 @@ const MyIOOrchestrator = (() => {
 
   /**
    * RFC-0102: Get all energy devices (lojas + equipments) with full TB metadata
+   * Merged with fresh consumption telemetry
    */
   function getAllEnergyDevices() {
+    // Get fresh consumption values from live ctx.data
+    const freshConsumption = getFreshConsumptionFromCtxData();
+
     return classifiedDevices.all.map((device) => {
       const cached = device.ingestionId ? energyCache.get(device.ingestionId) : null;
+      const fresh = freshConsumption.get(device.entityId);
+
       return {
         ...device,
+        consumption: fresh?.consumption ?? device.consumption ?? null,
+        consumptionTimestamp: fresh?.consumptionTimestamp ?? device.consumptionTimestamp ?? null,
         total_value: cached?.total_value ?? null,
-        customerId: cached?.customerId ?? null,
+        customerId: cached?.customerId ?? device.customerId ?? null,
         customerName: cached?.customerName ?? null,
       };
     });

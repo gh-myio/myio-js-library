@@ -627,7 +627,9 @@ self.onInit = async function () {
     if (orchestrator?.isDevicesClassified?.()) {
       // Devices already classified - get ONLY equipment devices
       orchestratorDevices = orchestrator.getEquipmentDevices() || [];
-      LogHelper.log(`[EQUIPMENTS] RFC-0102: Got ${orchestratorDevices.length} EQUIPMENT devices from Orchestrator (already classified)`);
+      LogHelper.log(
+        `[EQUIPMENTS] RFC-0102: Got ${orchestratorDevices.length} EQUIPMENT devices from Orchestrator (already classified)`
+      );
     } else {
       // Wait for classification to complete
       LogHelper.log('[EQUIPMENTS] RFC-0102: Waiting for MAIN to classify devices...');
@@ -636,7 +638,9 @@ self.onInit = async function () {
           window.removeEventListener('myio:devices-classified', handler);
           // Get ONLY equipment devices after classification
           orchestratorDevices = orchestrator?.getEquipmentDevices?.() || [];
-          LogHelper.log(`[EQUIPMENTS] RFC-0102: Got ${orchestratorDevices.length} EQUIPMENT devices after classification event`);
+          LogHelper.log(
+            `[EQUIPMENTS] RFC-0102: Got ${orchestratorDevices.length} EQUIPMENT devices after classification event`
+          );
           resolve();
         };
         window.addEventListener('myio:devices-classified', handler);
@@ -666,24 +670,47 @@ self.onInit = async function () {
       const values = [];
       const now = Date.now();
 
-      if (device.ingestionId != null) values.push({ dataType: 'ingestionId', value: device.ingestionId, ts: now });
-      if (device.identifier != null) values.push({ dataType: 'identifier', value: device.identifier, ts: now });
-      if (device.deviceType != null) values.push({ dataType: 'deviceType', value: device.deviceType, ts: now });
-      if (device.deviceProfile != null) values.push({ dataType: 'deviceProfile', value: device.deviceProfile, ts: now });
-      if (device.connectionStatus != null) values.push({ dataType: 'connectionStatus', value: device.connectionStatus, ts: now });
-      if (device.centralName != null) values.push({ dataType: 'centralName', value: device.centralName, ts: now });
+      if (device.ingestionId != null)
+        values.push({ dataType: 'ingestionId', value: device.ingestionId, ts: now });
+      if (device.identifier != null)
+        values.push({ dataType: 'identifier', value: device.identifier, ts: now });
+      if (device.deviceType != null)
+        values.push({ dataType: 'deviceType', value: device.deviceType, ts: now });
+      if (device.deviceProfile != null)
+        values.push({ dataType: 'deviceProfile', value: device.deviceProfile, ts: now });
+      if (device.connectionStatus != null)
+        values.push({ dataType: 'connectionStatus', value: device.connectionStatus, ts: now });
+      if (device.centralName != null)
+        values.push({ dataType: 'centralName', value: device.centralName, ts: now });
       if (device.ownerName != null) values.push({ dataType: 'ownerName', value: device.ownerName, ts: now });
-      if (device.lastActivityTime != null) values.push({ dataType: 'lastActivityTime', value: device.lastActivityTime, ts: now });
-      if (device.lastConnectTime != null) values.push({ dataType: 'lastConnectTime', value: device.lastConnectTime, ts: now });
-      if (device.lastDisconnectTime != null) values.push({ dataType: 'lastDisconnectTime', value: device.lastDisconnectTime, ts: now });
-      if (device.customerId != null) values.push({ dataType: 'customerId', value: device.customerId, ts: now });
-      if (device.deviceMapInstaneousPower != null) values.push({ dataType: 'deviceMapInstaneousPower', value: device.deviceMapInstaneousPower, ts: now });
+      if (device.lastActivityTime != null)
+        values.push({ dataType: 'lastActivityTime', value: device.lastActivityTime, ts: now });
+      if (device.lastConnectTime != null)
+        values.push({ dataType: 'lastConnectTime', value: device.lastConnectTime, ts: now });
+      if (device.lastDisconnectTime != null)
+        values.push({ dataType: 'lastDisconnectTime', value: device.lastDisconnectTime, ts: now });
+      if (device.customerId != null)
+        values.push({ dataType: 'customerId', value: device.customerId, ts: now });
+      if (device.deviceMapInstaneousPower != null)
+        values.push({
+          dataType: 'deviceMapInstaneousPower',
+          value: device.deviceMapInstaneousPower,
+          ts: now,
+        });
 
       // Consumption power (instantaneous) - rename to consumption_power to avoid confusion with API kWh
       if (device.consumption != null) {
-        values.push({ dataType: 'consumption_power', value: device.consumption, ts: device.consumptionTimestamp || now });
+        values.push({
+          dataType: 'consumption_power',
+          value: device.consumption,
+          ts: device.consumptionTimestamp || now,
+        });
         // Also add as 'consumption' for backward compatibility in renderDeviceCards filter
-        values.push({ dataType: 'consumption', value: device.consumption, ts: device.consumptionTimestamp || now });
+        values.push({
+          dataType: 'consumption',
+          value: device.consumption,
+          ts: device.consumptionTimestamp || now,
+        });
       }
 
       devices[entityId] = {
@@ -869,7 +896,7 @@ self.onInit = async function () {
           });
 
           // DEBUG // TODO REMOVER DEPOIS
-          if (device.label && device.label.toLowerCase().includes('bomba cag6') && 1 > 2) {
+          if (device.label && device.label.toLowerCase().includes('er 14') && 3 > 2) {
             console.log('╔══════════════════════════════════════════════════════════════╗');
             console.log('║                    DEBUG ER 14 - EQUIPMENTS                  ║');
             console.log('╚══════════════════════════════════════════════════════════════╝');
@@ -884,6 +911,15 @@ self.onInit = async function () {
             console.log('   instantaneousPower:', instantaneousPower);
             console.log('   consumptionValue:', consumptionValue);
             console.log('');
+            console.log('⏱️ TIMING:');
+            console.log('   instantaneousPowerTs (raw):', instantaneousPowerTs.getTime());
+            console.log('   instantaneousPowerTs (formatted):', instantaneousPowerTs.toLocaleString('pt-BR'));
+            console.log('   now (raw):', now.getTime());
+            console.log('   now (formatted):', now.toLocaleString('pt-BR'));
+            console.log('   delayLimitTimeInMiliseconds:', delayLimitTimeInMiliseconds, `(${delayLimitTimeInMiliseconds / 60000} min)`);
+            console.log('   timeSinceLastTelemetry:', timeSinceLastTelemetry, `(${(timeSinceLastTelemetry / 60000).toFixed(2)} min)`);
+            console.log('   isStale (timeSince > delay):', timeSinceLastTelemetry > delayLimitTimeInMiliseconds);
+            console.log('');
             console.log('📊 RANGES:');
             console.log('   rangesWithSource:', JSON.stringify(rangesWithSource, null, 2));
             console.log('');
@@ -892,7 +928,7 @@ self.onInit = async function () {
             console.log('');
             console.log('📦 RAW device.values:');
             device.values?.forEach((v, i) => {
-              console.log(`   [${i}] ${v.dataKey?.name}: ${v.data?.[0]?.[1]}`);
+              console.log(`   [${i}] ${v.dataType}: ${v.value} (ts: ${v.ts} = ${new Date(v.ts).toLocaleString('pt-BR')})`);
             });
             console.log('════════════════════════════════════════════════════════════════');
           }
