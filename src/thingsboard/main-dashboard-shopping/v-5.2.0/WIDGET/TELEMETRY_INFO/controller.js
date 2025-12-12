@@ -1,4 +1,4 @@
-﻿/* global self, window, document, sessionStorage, Chart */
+/* global self, window, document, sessionStorage, Chart */
 
 /* =========================================================================
  * ThingsBoard Widget: TELEMETRY_INFO (MyIO v-5.2.0)
