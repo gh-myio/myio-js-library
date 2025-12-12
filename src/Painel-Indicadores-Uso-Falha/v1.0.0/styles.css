@@ -1,0 +1,842 @@
+/* ============================================================================
+   OPERATIONAL INDICATORS PANEL - Styles
+   Version: 1.0.0
+   ============================================================================ */
+
+/* ============================================================================
+   VARIABLES
+   ============================================================================ */
+
+:root {
+    --color-primary: #1976d2;
+    --color-primary-dark: #1565c0;
+    --color-primary-light: #42a5f5;
+    --color-success: #4caf50;
+    --color-success-light: #e8f5e9;
+    --color-warning: #ff9800;
+    --color-warning-light: #fff3e0;
+    --color-danger: #f44336;
+    --color-danger-light: #ffebee;
+    --color-info: #2196f3;
+    --color-info-light: #e3f2fd;
+    --color-text: #333333;
+    --color-text-secondary: #666666;
+    --color-text-muted: #999999;
+    --color-border: #e0e0e0;
+    --color-background: #f5f5f5;
+    --color-card: #ffffff;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --transition: all 0.2s ease;
+}
+
+/* ============================================================================
+   CONTAINER
+   ============================================================================ */
+
+.oip-container {
+    padding: 20px;
+    background: var(--color-background);
+    min-height: 100vh;
+}
+
+/* ============================================================================
+   HEADER
+   ============================================================================ */
+
+.oip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.oip-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--color-text);
+    margin: 0;
+}
+
+.oip-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* ============================================================================
+   SELECT & INPUTS
+   ============================================================================ */
+
+.oip-select {
+    padding: 10px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-card);
+    font-size: 14px;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: var(--transition);
+    min-width: 160px;
+}
+
+.oip-select:hover {
+    border-color: var(--color-primary);
+}
+
+.oip-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+/* ============================================================================
+   TOGGLE SWITCH
+   ============================================================================ */
+
+.oip-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.oip-toggle input {
+    display: none;
+}
+
+.oip-toggle-slider {
+    width: 44px;
+    height: 24px;
+    background: #ccc;
+    border-radius: 12px;
+    position: relative;
+    transition: var(--transition);
+}
+
+.oip-toggle-slider::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+}
+
+.oip-toggle input:checked + .oip-toggle-slider {
+    background: var(--color-primary);
+}
+
+.oip-toggle input:checked + .oip-toggle-slider::after {
+    left: 22px;
+}
+
+.oip-toggle-label {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+}
+
+/* ============================================================================
+   BUTTONS
+   ============================================================================ */
+
+.oip-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.oip-btn-primary {
+    background: var(--color-primary);
+    color: white;
+}
+
+.oip-btn-primary:hover {
+    background: var(--color-primary-dark);
+}
+
+.oip-btn-icon {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    font-size: 14px;
+}
+
+.oip-btn-icon:hover {
+    background: var(--color-background);
+}
+
+/* ============================================================================
+   EXPORT DROPDOWN
+   ============================================================================ */
+
+.oip-export-dropdown {
+    position: relative;
+}
+
+.oip-export-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: var(--color-card);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: var(--transition);
+    z-index: 100;
+    min-width: 140px;
+    overflow: hidden;
+}
+
+.oip-export-menu.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.oip-export-option {
+    display: block;
+    width: 100%;
+    padding: 12px 16px;
+    border: none;
+    background: none;
+    text-align: left;
+    font-size: 14px;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.oip-export-option:hover {
+    background: var(--color-background);
+}
+
+/* ============================================================================
+   CONSOLIDATED VIEW
+   ============================================================================ */
+
+.oip-consolidated {
+    margin-bottom: 24px;
+}
+
+.oip-consolidated-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+}
+
+.oip-stat-card {
+    background: var(--color-card);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+}
+
+.oip-stat-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.oip-stat-icon {
+    font-size: 24px;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.oip-stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--color-text);
+    display: block;
+}
+
+.oip-stat-label {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+    display: block;
+}
+
+.oip-stat-card.stat-online .oip-stat-value {
+    color: var(--color-success);
+}
+
+.oip-stat-card.stat-offline .oip-stat-value {
+    color: var(--color-danger);
+}
+
+.oip-stat-card.stat-alerts .oip-stat-value {
+    color: var(--color-warning);
+}
+
+/* ============================================================================
+   CARDS GRID
+   ============================================================================ */
+
+.oip-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+/* ============================================================================
+   EQUIPMENT CARD
+   ============================================================================ */
+
+.oip-card {
+    background: var(--color-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: var(--transition);
+}
+
+.oip-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-3px);
+}
+
+/* Card Header */
+.oip-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.oip-card-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.oip-card-icon {
+    font-size: 28px;
+}
+
+.oip-card-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.oip-card-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--color-text);
+}
+
+.oip-card-location {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+}
+
+/* Status Badge */
+.oip-status-badge {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.status-online {
+    background: var(--color-success-light);
+    color: var(--color-success);
+}
+
+.status-offline {
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+}
+
+.status-warning {
+    background: var(--color-warning-light);
+    color: var(--color-warning);
+}
+
+/* Card Body */
+.oip-card-body {
+    padding: 20px;
+}
+
+/* Gauge Container */
+.oip-gauge-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.oip-gauge-canvas {
+    display: block;
+}
+
+/* Metrics */
+.oip-metrics {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-bottom: 16px;
+    padding: 12px 0;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.oip-metric {
+    text-align: center;
+}
+
+.oip-metric-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--color-text);
+    display: block;
+}
+
+.oip-metric-label {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+    display: block;
+}
+
+/* Phase Reversal Alert */
+.oip-reversal-alert {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--color-warning-light);
+    border-radius: var(--radius-sm);
+    margin-bottom: 16px;
+}
+
+.oip-reversal-icon {
+    font-size: 18px;
+    animation: pulse 1.5s infinite;
+}
+
+.oip-reversal-alert span:last-child {
+    font-size: 13px;
+    font-weight: 500;
+    color: #e65100;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Electrical Indicators */
+.oip-electrical {
+    background: var(--color-background);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+}
+
+.oip-electrical-row {
+    display: flex;
+    justify-content: space-around;
+}
+
+.oip-electrical-item {
+    text-align: center;
+}
+
+.oip-electrical-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.oip-electrical-unit {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-left: 2px;
+}
+
+.oip-electrical-label {
+    display: block;
+    font-size: 10px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+/* Card Footer */
+.oip-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: var(--color-background);
+    border-top: 1px solid var(--color-border);
+}
+
+.oip-alert-count {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--color-text-muted);
+}
+
+.oip-alert-count.has-alerts {
+    color: var(--color-danger);
+    font-weight: 500;
+}
+
+.oip-alert-icon {
+    font-size: 14px;
+}
+
+.oip-last-update {
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+/* ============================================================================
+   LOADING STATE
+   ============================================================================ */
+
+.oip-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--color-text-secondary);
+}
+
+.oip-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ============================================================================
+   EMPTY STATE
+   ============================================================================ */
+
+.oip-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--color-text-muted);
+}
+
+.oip-empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+/* ============================================================================
+   ALERTS PANEL
+   ============================================================================ */
+
+.oip-alerts-panel {
+    margin-top: 24px;
+    background: var(--color-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.oip-alerts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: var(--color-background);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.oip-alerts-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text);
+    margin: 0;
+}
+
+.oip-alerts-list {
+    max-height: 400px;
+    overflow-y: auto;
+    transition: max-height 0.3s ease;
+}
+
+.oip-alerts-list.collapsed {
+    max-height: 0;
+    overflow: hidden;
+}
+
+.oip-alert-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--color-border);
+    transition: var(--transition);
+}
+
+.oip-alert-item:last-child {
+    border-bottom: none;
+}
+
+.oip-alert-item:hover {
+    background: var(--color-background);
+}
+
+.oip-alert-item.acknowledged {
+    opacity: 0.5;
+}
+
+.oip-alert-item.severity-critical {
+    border-left: 4px solid var(--color-danger);
+}
+
+.oip-alert-item.severity-warning {
+    border-left: 4px solid var(--color-warning);
+}
+
+.oip-alert-item.severity-info {
+    border-left: 4px solid var(--color-info);
+}
+
+.oip-alert-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.oip-alert-badge {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.oip-alert-badge.critical {
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+}
+
+.oip-alert-badge.warning {
+    background: var(--color-warning-light);
+    color: #e65100;
+}
+
+.oip-alert-badge.info {
+    background: var(--color-info-light);
+    color: var(--color-info);
+}
+
+.oip-alert-message {
+    font-size: 13px;
+    color: var(--color-text);
+    flex: 1;
+}
+
+.oip-alert-time {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.oip-btn-ack {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--color-success);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-success);
+    cursor: pointer;
+    transition: var(--transition);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.oip-btn-ack:hover {
+    background: var(--color-success);
+    color: white;
+}
+
+.oip-no-alerts {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 14px;
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 1024px) {
+    .oip-cards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .oip-container {
+        padding: 16px;
+    }
+
+    .oip-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .oip-controls {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .oip-title {
+        font-size: 20px;
+    }
+
+    .oip-cards-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .oip-consolidated-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .oip-stat-value {
+        font-size: 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    .oip-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .oip-select {
+        width: 100%;
+    }
+
+    .oip-toggle {
+        justify-content: space-between;
+    }
+
+    .oip-consolidated-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .oip-metrics {
+        gap: 20px;
+    }
+
+    .oip-metric-value {
+        font-size: 18px;
+    }
+
+    .oip-alert-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+}
+
+/* ============================================================================
+   PRINT STYLES
+   ============================================================================ */
+
+@media print {
+    .oip-container {
+        padding: 0;
+        background: white;
+    }
+
+    .oip-controls,
+    .oip-alerts-panel {
+        display: none;
+    }
+
+    .oip-card {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid var(--color-border);
+    }
+}
+
+/* ============================================================================
+   SCROLLBAR
+   ============================================================================ */
+
+.oip-alerts-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.oip-alerts-list::-webkit-scrollbar-track {
+    background: var(--color-background);
+}
+
+.oip-alerts-list::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+}
+
+.oip-alerts-list::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+}

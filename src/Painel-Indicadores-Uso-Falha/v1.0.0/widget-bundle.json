@@ -1,0 +1,152 @@
+{
+    "widgetsBundleTitle": "Myio Operational Indicators",
+    "widgetsBundleAlias": "myio_operational_indicators",
+    "widgetTypes": [
+        {
+            "alias": "operational_indicators_panel",
+            "name": "Painel de Indicadores Operacionais",
+            "descriptor": {
+                "type": "latest",
+                "sizeX": 24,
+                "sizeY": 16,
+                "resources": [],
+                "templateHtml": "",
+                "templateCss": "",
+                "controllerScript": "",
+                "settingsSchema": {},
+                "dataKeySettingsSchema": {},
+                "defaultConfig": {
+                    "datasources": [
+                        {
+                            "type": "entity",
+                            "dataKeys": [
+                                {
+                                    "name": "status",
+                                    "type": "timeseries",
+                                    "label": "Status",
+                                    "settings": {}
+                                },
+                                {
+                                    "name": "operationTime",
+                                    "type": "timeseries",
+                                    "label": "Operation Time",
+                                    "settings": {}
+                                },
+                                {
+                                    "name": "maintenanceTime",
+                                    "type": "timeseries",
+                                    "label": "Maintenance Time",
+                                    "settings": {}
+                                },
+                                {
+                                    "name": "stopCount",
+                                    "type": "timeseries",
+                                    "label": "Stop Count",
+                                    "settings": {}
+                                },
+                                {
+                                    "name": "phaseReversal",
+                                    "type": "timeseries",
+                                    "label": "Phase Reversal",
+                                    "settings": {}
+                                },
+                                {
+                                    "name": "gridFrequency",
+                                    "type": "timeseries",
+                                    "label": "Grid Frequency",
+                                    "settings": {}
+                                },
+                                {
+                                    "name": "powerDemand",
+                                    "type": "timeseries",
+                                    "label": "Power Demand",
+                                    "settings": {}
+                                },
+                                {
+                                    "name": "currentR",
+                                    "type": "timeseries",
+                                    "label": "Current R",
+                                    "settings": {}
+                                },
+                                {
+                                    "name": "currentS",
+                                    "type": "timeseries",
+                                    "label": "Current S",
+                                    "settings": {}
+                                },
+                                {
+                                    "name": "currentT",
+                                    "type": "timeseries",
+                                    "label": "Current T",
+                                    "settings": {}
+                                },
+                                {
+                                    "name": "voltageRS",
+                                    "type": "timeseries",
+                                    "label": "Voltage RS",
+                                    "settings": {}
+                                },
+                                {
+                                    "name": "voltageST",
+                                    "type": "timeseries",
+                                    "label": "Voltage ST",
+                                    "settings": {}
+                                },
+                                {
+                                    "name": "voltageTR",
+                                    "type": "timeseries",
+                                    "label": "Voltage TR",
+                                    "settings": {}
+                                },
+                                {
+                                    "name": "energyConsumption",
+                                    "type": "timeseries",
+                                    "label": "Energy Consumption",
+                                    "settings": {}
+                                }
+                            ]
+                        }
+                    ],
+                    "timewindow": {
+                        "realtime": {
+                            "timewindowMs": 86400000
+                        }
+                    },
+                    "showTitle": false,
+                    "backgroundColor": "transparent",
+                    "color": "rgba(0, 0, 0, 0.87)",
+                    "padding": "0",
+                    "settings": {
+                        "general": {
+                            "title": "Painel de Indicadores Operacionais",
+                            "refreshInterval": 60000,
+                            "showConsolidatedView": true
+                        },
+                        "inactivityWindow": {
+                            "enabled": true,
+                            "startHour": 22,
+                            "endHour": 5
+                        },
+                        "alerts": {
+                            "enabled": true,
+                            "emailRecipients": [],
+                            "frequencyThreshold": 5
+                        },
+                        "display": {
+                            "cardsPerRow": 4,
+                            "showElectricalIndicators": true,
+                            "gaugeColorScheme": "default"
+                        },
+                        "kpi": {
+                            "availabilityTarget": 95,
+                            "mtbfTarget": 500,
+                            "mttrTarget": 4
+                        }
+                    }
+                }
+            },
+            "image": null,
+            "description": "Painel de monitoramento de indicadores operacionais (MTBF, MTTR, Disponibilidade) para escadas rolantes e elevadores com alertas automáticos e relatórios."
+        }
+    ]
+}

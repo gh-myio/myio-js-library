@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RFC - Painel de Indicadores Operacionais | MYIO</title>
+    <style>
+        /* ============================================================
+           MYIO BRAND COLORS
+           ============================================================ */
+        :root {
+            --myio-primary: #00D09C;
+            --myio-primary-dark: #00B589;
+            --myio-primary-light: #E6FAF5;
+            --myio-secondary: #1A1A2E;
+            --myio-text: #2D3748;
+            --myio-text-light: #718096;
+            --myio-bg: #FFFFFF;
+            --myio-border: #E2E8F0;
+            --myio-success: #48BB78;
+            --myio-warning: #ECC94B;
+            --myio-danger: #F56565;
+            --myio-info: #4299E1;
+        }
+
+        /* ============================================================
+           RESET & BASE
+           ============================================================ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @page {
+            size: A4;
+            margin: 15mm 12mm;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+            font-size: 10pt;
+            line-height: 1.5;
+            color: var(--myio-text);
+            background: var(--myio-bg);
+        }
+
+        /* ============================================================
+           HEADER
+           ============================================================ */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 15px;
+            border-bottom: 3px solid var(--myio-primary);
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            height: 45px;
+        }
+
+        .header-info {
+            text-align: right;
+        }
+
+        .header-info .doc-type {
+            font-size: 9pt;
+            color: var(--myio-text-light);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .header-info .doc-date {
+            font-size: 9pt;
+            color: var(--myio-text-light);
+        }
+
+        /* ============================================================
+           TITLE
+           ============================================================ */
+        .title-section {
+            background: linear-gradient(135deg, var(--myio-secondary) 0%, #2D2D4A 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .title-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 250px;
+            height: 250px;
+            background: var(--myio-primary);
+            opacity: 0.1;
+            border-radius: 50%;
+        }
+
+        .title-section h1 {
+            font-size: 20pt;
+            font-weight: 700;
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .title-section h1::after {
+            content: '';
+            display: block;
+            width: 50px;
+            height: 4px;
+            background: var(--myio-primary);
+            margin-top: 12px;
+            border-radius: 2px;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px 20px;
+            position: relative;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .meta-label {
+            font-size: 8pt;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .meta-value {
+            font-size: 9pt;
+            color: white;
+            font-weight: 500;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            background: var(--myio-primary);
+            color: var(--myio-secondary);
+            font-size: 8pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-radius: 20px;
+        }
+
+        /* ============================================================
+           SECTIONS
+           ============================================================ */
+        .section {
+            margin-bottom: 20px;
+            page-break-inside: avoid;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--myio-border);
+        }
+
+        .section-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: var(--myio-primary);
+            color: white;
+            font-size: 12pt;
+            font-weight: 700;
+            border-radius: 6px;
+        }
+
+        .section-title {
+            font-size: 13pt;
+            font-weight: 700;
+            color: var(--myio-secondary);
+        }
+
+        .subsection {
+            margin-bottom: 15px;
+        }
+
+        .subsection-title {
+            font-size: 10pt;
+            font-weight: 600;
+            color: var(--myio-primary-dark);
+            margin-bottom: 8px;
+            padding-left: 10px;
+            border-left: 3px solid var(--myio-primary);
+        }
+
+        /* ============================================================
+           CONTENT
+           ============================================================ */
+        p {
+            margin-bottom: 10px;
+            text-align: justify;
+        }
+
+        .highlight {
+            background: var(--myio-primary-light);
+            padding: 12px 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--myio-primary);
+            margin-bottom: 12px;
+        }
+
+        .highlight strong {
+            color: var(--myio-primary-dark);
+        }
+
+        ul {
+            margin-bottom: 12px;
+            padding-left: 0;
+            list-style: none;
+        }
+
+        ul li {
+            position: relative;
+            padding-left: 20px;
+            margin-bottom: 6px;
+        }
+
+        ul li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 7px;
+            width: 6px;
+            height: 6px;
+            background: var(--myio-primary);
+            border-radius: 50%;
+        }
+
+        /* ============================================================
+           TABLES
+           ============================================================ */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 9pt;
+        }
+
+        thead {
+            background: var(--myio-secondary);
+            color: white;
+        }
+
+        th {
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 8pt;
+            letter-spacing: 0.5px;
+        }
+
+        th:first-child {
+            border-radius: 6px 0 0 0;
+        }
+
+        th:last-child {
+            border-radius: 0 6px 0 0;
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--myio-border);
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        /* ============================================================
+           INFO BOXES
+           ============================================================ */
+        .info-box {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .info-box.goals {
+            background: linear-gradient(135deg, #E6FAF5 0%, #D4F5ED 100%);
+            border: 1px solid var(--myio-primary);
+        }
+
+        .info-box.non-goals {
+            background: linear-gradient(135deg, #FFF5F5 0%, #FED7D7 100%);
+            border: 1px solid var(--myio-danger);
+        }
+
+        .info-box h4 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-size: 10pt;
+        }
+
+        .info-box.goals h4 {
+            color: var(--myio-primary-dark);
+        }
+
+        .info-box.non-goals h4 {
+            color: var(--myio-danger);
+        }
+
+        /* ============================================================
+           TWO COLUMNS
+           ============================================================ */
+        .two-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .three-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+
+        /* ============================================================
+           FORMULA BOX
+           ============================================================ */
+        .formula-box {
+            background: var(--myio-secondary);
+            color: white;
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        .formula-box .label {
+            font-size: 8pt;
+            color: var(--myio-primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .formula-box .formula {
+            font-size: 10pt;
+        }
+
+        /* ============================================================
+           TIMELINE / CRONOGRAMA
+           ============================================================ */
+        .timeline-header {
+            background: linear-gradient(135deg, #00896B 0%, #006B54 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .timeline-header h2 {
+            font-size: 14pt;
+            margin-bottom: 8px;
+        }
+
+        .timeline-header .duration {
+            font-size: 11pt;
+            opacity: 0.9;
+        }
+
+        .premises {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .premise-tag {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 8pt;
+        }
+
+        .week-card {
+            background: white;
+            border: 1px solid var(--myio-border);
+            border-radius: 10px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            page-break-inside: avoid;
+        }
+
+        .week-header {
+            background: var(--myio-secondary);
+            color: white;
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .week-number {
+            font-size: 11pt;
+            font-weight: 700;
+        }
+
+        .week-title {
+            font-size: 9pt;
+            opacity: 0.8;
+        }
+
+        .week-objective {
+            background: var(--myio-primary-light);
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--myio-border);
+            font-size: 9pt;
+        }
+
+        .week-objective strong {
+            color: var(--myio-primary-dark);
+        }
+
+        .week-content {
+            padding: 15px;
+        }
+
+        .week-section {
+            margin-bottom: 12px;
+        }
+
+        .week-section-title {
+            font-size: 9pt;
+            font-weight: 600;
+            color: var(--myio-secondary);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .deliverables {
+            background: #f8f9fa;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border-left: 3px solid var(--myio-primary);
+        }
+
+        .deliverables ul li::before {
+            background: var(--myio-success);
+        }
+
+        /* ============================================================
+           ARCHITECTURE BOX
+           ============================================================ */
+        .architecture-box {
+            background: var(--myio-secondary);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .architecture-flow {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .arch-item {
+            background: rgba(0, 208, 156, 0.2);
+            border: 1px solid var(--myio-primary);
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 9pt;
+            min-width: 200px;
+        }
+
+        .arch-arrow {
+            color: var(--myio-primary);
+            font-size: 14pt;
+        }
+
+        /* ============================================================
+           ALERT BOX
+           ============================================================ */
+        .alert-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .alert-item {
+            background: white;
+            border: 1px solid var(--myio-border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .alert-item .icon {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+
+        .alert-item .label {
+            font-size: 8pt;
+            color: var(--myio-text-light);
+        }
+
+        /* ============================================================
+           CHANNELS GRID
+           ============================================================ */
+        .channels-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .channel-item {
+            background: white;
+            border: 1px solid var(--myio-border);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .channel-item.active {
+            border-color: var(--myio-primary);
+            background: var(--myio-primary-light);
+        }
+
+        .channel-item.future {
+            opacity: 0.6;
+            border-style: dashed;
+        }
+
+        .channel-icon {
+            font-size: 18px;
+        }
+
+        .channel-name {
+            font-size: 9pt;
+            font-weight: 600;
+            color: var(--myio-text);
+        }
+
+        .channel-status {
+            font-size: 7pt;
+            padding: 2px 8px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .channel-status.available {
+            background: var(--myio-success);
+            color: white;
+        }
+
+        .channel-status.optional {
+            background: var(--myio-info);
+            color: white;
+        }
+
+        .channel-status.future-tag {
+            background: var(--myio-text-light);
+            color: white;
+        }
+
+        /* ============================================================
+           PAGE BREAK
+           ============================================================ */
+        .page-break {
+            page-break-before: always;
+            margin-top: 20px;
+        }
+
+        /* ============================================================
+           MOCKUP SECTION
+           ============================================================ */
+        .mockup-container {
+            background: #f8f9fa;
+            border: 1px solid var(--myio-border);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .mockup-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .mockup-legend {
+            background: white;
+            border: 1px solid var(--myio-border);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .mockup-legend h4 {
+            font-size: 10pt;
+            color: var(--myio-secondary);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--myio-primary);
+        }
+
+        .legend-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 9pt;
+        }
+
+        .legend-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+            height: 22px;
+            background: var(--myio-primary);
+            color: white;
+            font-size: 10pt;
+            font-weight: 700;
+            border-radius: 50%;
+        }
+
+        .legend-text {
+            flex: 1;
+            line-height: 1.4;
+        }
+
+        .mockup-features {
+            background: var(--myio-secondary);
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .feature-row {
+            display: flex;
+            justify-content: space-around;
+            gap: 10px;
+        }
+
+        .feature-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            color: white;
+            font-size: 8pt;
+        }
+
+        .feature-badge {
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 8pt;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .feature-item.online .feature-badge {
+            background: var(--myio-success);
+            color: white;
+        }
+
+        .feature-item.offline .feature-badge {
+            background: var(--myio-danger);
+            color: white;
+        }
+
+        .feature-item.warning .feature-badge {
+            background: var(--myio-warning);
+            color: var(--myio-secondary);
+        }
+
+        .feature-item.alert .feature-badge {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        /* ============================================================
+           FOOTER
+           ============================================================ */
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 2px solid var(--myio-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 8pt;
+            color: var(--myio-text-light);
+        }
+
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .footer-brand svg {
+            height: 20px;
+        }
+
+        /* ============================================================
+           PRINT STYLES
+           ============================================================ */
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .section, .week-card {
+                page-break-inside: avoid;
+            }
+
+            .title-section, .timeline-header, .architecture-box {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <header class="header">
+        <svg class="logo" viewBox="0 0 120 50" xmlns="http://www.w3.org/2000/svg">
+            <text x="0" y="38" font-family="Arial Black, sans-serif" font-size="36" font-weight="900" fill="#1A1A2E">my</text>
+            <text x="52" y="38" font-family="Arial Black, sans-serif" font-size="36" font-weight="900" fill="#00D09C">io</text>
+            <circle cx="73" cy="12" r="5" fill="#00D09C"/>
+        </svg>
+        <div class="header-info">
+            <div class="doc-type">Request for Comments</div>
+            <div class="doc-date">Dezembro 2025</div>
+        </div>
+    </header>
+
+    <!-- TITLE SECTION -->
+    <section class="title-section">
+        <h1>Painel de Indicadores Operacionais<br>Escadas Rolantes e Elevadores</h1>
+        <div class="meta-grid">
+            <div class="meta-item">
+                <span class="meta-label">Status:</span>
+                <span class="status-badge">Rascunho</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Autor:</span>
+                <span class="meta-value">MYIO Engenharia</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Plataforma:</span>
+                <span class="meta-value">ThingsBoard + MYIO</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Tipo:</span>
+                <span class="meta-value">Produto v1.0</span>
+            </div>
+            <div class="meta-item" style="grid-column: span 2;">
+                <span class="meta-label">Stakeholders:</span>
+                <span class="meta-value">Operacao, CME, Mecanica, CCM, Engenharia MYIO</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 1: RESUMO -->
+    <section class="section">
+        <div class="section-header">
+            <span class="section-number">1</span>
+            <span class="section-title">Resumo Executivo</span>
+        </div>
+        <div class="highlight">
+            <p>Este documento propoe a criacao de um <strong>Painel de Indicadores Operacionais</strong> para escadas rolantes e elevadores, baseado em <strong>cards modulares no ThingsBoard</strong>, com foco em disponibilidade, confiabilidade, qualidade eletrica e alertas automaticos.</p>
+        </div>
+        <p>O sistema visa entregar visibilidade operacional em tempo real, com metricas consolidadas (<strong>MTBF, MTTR, Disponibilidade %</strong>), deteccao de <strong>eventos criticos</strong> e <strong>relatorios automaticos</strong>, garantindo rapida tomada de decisao e melhoria continua da operacao.</p>
+    </section>
+
+    <!-- SECTION 2: MOTIVACAO -->
+    <section class="section">
+        <div class="section-header">
+            <span class="section-number">2</span>
+            <span class="section-title">Motivacao</span>
+        </div>
+        <p>Atualmente, a operacao de escadas rolantes e elevadores carece de:</p>
+        <ul>
+            <li>Visibilidade consolidada de desempenho</li>
+            <li>Indicadores confiaveis de disponibilidade e manutencao</li>
+            <li>Alertas automaticos em horarios criticos</li>
+            <li>Historico comparativo mensal de desempenho</li>
+            <li>Deteccao automatica de problemas eletricos, como inversao de fase</li>
+        </ul>
+        <p>Este projeto endereca essas lacunas, integrando telemetria eletrica e logica operacional dentro do ecossistema MYIO.</p>
+    </section>
+
+    <!-- SECTION 3: OBJETIVOS -->
+    <section class="section">
+        <div class="section-header">
+            <span class="section-number">3</span>
+            <span class="section-title">Objetivos</span>
+        </div>
+
+        <div class="two-columns">
+            <div class="info-box goals">
+                <h4>&#10004; Requisitos Funcionais</h4>
+                <ul>
+                    <li>Monitorar <strong>Disponibilidade (%)</strong> por equipamento e consolidado</li>
+                    <li>Calcular <strong>MTBF e MTTR</strong> em horas</li>
+                    <li>Exibir status <strong>Online / Offline</strong> em tempo real</li>
+                    <li>Detectar <strong>reversao de sentido</strong> por inversao de fase</li>
+                    <li>Gerar <strong>alertas automaticos</strong> por e-mail</li>
+                    <li>Disponibilizar <strong>relatorios diarios (D-1)</strong> e mensais</li>
+                </ul>
+            </div>
+            <div class="info-box goals">
+                <h4>&#9881; Requisitos Nao Funcionais</h4>
+                <ul>
+                    <li>Arquitetura modular e escalavel</li>
+                    <li>Baixo acoplamento entre calculo, visualizacao e alertas</li>
+                    <li>Compatibilidade total com ThingsBoard</li>
+                    <li>Evolucao futura sem quebra de contratos</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 4: FORA DO ESCOPO -->
+    <section class="section">
+        <div class="section-header">
+            <span class="section-number">4</span>
+            <span class="section-title">Evolucoes Futuras</span>
+        </div>
+        <div class="info-box non-goals">
+            <h4>&#128640; Previsto para Proximas Versoes</h4>
+            <div class="two-columns">
+                <ul>
+                    <li>Predicao de falhas via IA</li>
+                    <li>Integracao direta com CMMS/ERP</li>
+                </ul>
+                <ul>
+                    <li>Automacao de acionamentos fisicos</li>
+                    <li>Interface publica externa</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 5: INDICADORES -->
+    <section class="section">
+        <div class="section-header">
+            <span class="section-number">5</span>
+            <span class="section-title">Definicao de Indicadores</span>
+        </div>
+
+        <div class="two-columns">
+            <div class="subsection">
+                <h3 class="subsection-title">Indicadores Operacionais</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Indicador</th>
+                            <th>Descricao</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Disponibilidade (%)</strong></td>
+                            <td>Percentual de tempo operacional</td>
+                        </tr>
+                        <tr>
+                            <td><strong>MTBF (h)</strong></td>
+                            <td>Tempo medio entre falhas</td>
+                        </tr>
+                        <tr>
+                            <td><strong>MTTR (h)</strong></td>
+                            <td>Tempo medio de reparo</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Status</strong></td>
+                            <td>Online / Offline</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Reversao</strong></td>
+                            <td>Inversao de fase</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="subsection">
+                <h3 class="subsection-title">Indicadores Eletricos</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Indicador</th>
+                            <th>Descricao</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Frequencia</strong></td>
+                            <td>Qualidade da energia</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Tensao</strong></td>
+                            <td>Fases R, S e T</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Corrente</strong></td>
+                            <td>Fases R, S e T</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Potencia</strong></td>
+                            <td>Consumo vs carga nominal</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Consumo</strong></td>
+                            <td>Diario / Horario / Mensal</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 6: REGRAS DE NEGOCIO -->
+    <section class="section">
+        <div class="section-header">
+            <span class="section-number">6</span>
+            <span class="section-title">Regras de Negocio - Formulas</span>
+        </div>
+
+        <div class="three-columns">
+            <div class="formula-box">
+                <div class="label">MTBF</div>
+                <div class="formula">(Op - Manut) / Paradas</div>
+            </div>
+            <div class="formula-box">
+                <div class="label">MTTR</div>
+                <div class="formula">Manut Total / Paradas</div>
+            </div>
+            <div class="formula-box">
+                <div class="label">Disponibilidade</div>
+                <div class="formula">MTBF/(MTBF+MTTR)*100</div>
+            </div>
+        </div>
+
+        <div class="highlight">
+            <strong>Janela Noturna:</strong> 22h - 5h &#8594; Equipamentos em OFF automatico. Offline nesse periodo gera alerta critico.
+        </div>
+    </section>
+
+    <!-- PAGE BREAK - CRONOGRAMA -->
+    <div class="page-break"></div>
+
+    <!-- CRONOGRAMA HEADER -->
+    <div class="timeline-header">
+        <h2>&#128197; Cronograma de Desenvolvimento</h2>
+        <div class="duration">&#9202; Duracao: <strong>5 semanas</strong> (25 dias uteis)</div>
+        <div class="premises">
+            <span class="premise-tag">Produto completo</span>
+            <span class="premise-tag">Cards modulares</span>
+            <span class="premise-tag">Baixo risco tecnico</span>
+            <span class="premise-tag">Entregas incrementais</span>
+            <span class="premise-tag">ThingsBoard + Lovable</span>
+        </div>
+    </div>
+
+    <!-- SEMANA 1 -->
+    <div class="week-card">
+        <div class="week-header">
+            <span class="week-number">Semana 1</span>
+            <span class="week-title">Fundamentos & Arquitetura</span>
+        </div>
+        <div class="week-objective">
+            <strong>&#127919; Objetivo:</strong> Garantir base solida de dados e regras
+        </div>
+        <div class="week-content">
+            <div class="two-columns">
+                <div class="week-section">
+                    <div class="week-section-title">&#128204; Atividades</div>
+                    <ul>
+                        <li>Levantamento final de telemetrias (Frequencia, Tensao R/S/T, Corrente R/S/T, Potencia, Status)</li>
+                        <li>Definicao oficial das regras de calculo (MTBF, MTTR, Disponibilidade %)</li>
+                        <li>Definir janelas operacionais (22h-5h OFF automatico)</li>
+                        <li>Mapear eventos de Falha, Parada, Retorno e Inversao de fase</li>
+                    </ul>
+                </div>
+                <div class="week-section">
+                    <div class="week-section-title">&#128230; Entregaveis</div>
+                    <div class="deliverables">
+                        <ul>
+                            <li>Documento: Arquitetura de Indicadores (v1)</li>
+                            <li>Tabela de mapeamento: Telemetry &#8594; Indicador</li>
+                            <li>Pseudo-codigo dos calculos</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEMANA 2 -->
+    <div class="week-card">
+        <div class="week-header">
+            <span class="week-number">Semana 2</span>
+            <span class="week-title">Backend Logico (ThingsBoard)</span>
+        </div>
+        <div class="week-objective">
+            <strong>&#127919; Objetivo:</strong> Desenvolvimento de Regras de Persistencias de Dados com Integridade
+        </div>
+        <div class="week-content">
+            <div class="two-columns">
+                <div class="week-section">
+                    <div class="week-section-title">&#128204; Atividades</div>
+                    <ul>
+                        <li>Criacao/ajuste de Rule Chains: Deteccao de offline, Janela noturna, Oscilacao de frequencia, Reversao de fase</li>
+                        <li>Persistencia de: Tempo de parada, Tempo de manutencao, Contadores de falha</li>
+                        <li>Atributos calculados: mtbf_hours, mttr_hours, availability_percent</li>
+                    </ul>
+                </div>
+                <div class="week-section">
+                    <div class="week-section-title">&#128230; Entregaveis</div>
+                    <div class="deliverables">
+                        <ul>
+                            <li>Rule Chains versionadas</li>
+                            <li>Scripts JS / TBEL documentados</li>
+                            <li>Testes com dados simulados</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEMANA 3 -->
+    <div class="week-card">
+        <div class="week-header">
+            <span class="week-number">Semana 3</span>
+            <span class="week-title">Frontend (Dashboard / Cards)</span>
+        </div>
+        <div class="week-objective">
+            <strong>&#127919; Objetivo:</strong> Visual claro, executivo e escalavel
+        </div>
+        <div class="week-content">
+            <div class="two-columns">
+                <div class="week-section">
+                    <div class="week-section-title">&#128204; Atividades</div>
+                    <ul>
+                        <li>Criacao dos Cards Modulares: Card Individual, Card Consolidado, Lista de Alertas</li>
+                        <li>Estados visuais: Online/Offline, Alerta/Critico, Reversao de sentido</li>
+                        <li>Filtros: Tipo de equipamento, Status</li>
+                        <li>Integracao com Lovable</li>
+                    </ul>
+                </div>
+                <div class="week-section">
+                    <div class="week-section-title">&#128230; Entregaveis</div>
+                    <div class="deliverables">
+                        <ul>
+                            <li>Dashboard publicado</li>
+                            <li>Biblioteca inicial de cards</li>
+                            <li>Layout responsivo validado</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEMANA 4 -->
+    <div class="week-card">
+        <div class="week-header">
+            <span class="week-number">Semana 4</span>
+            <span class="week-title">Alertas & Relatorios</span>
+        </div>
+        <div class="week-objective">
+            <strong>&#127919; Objetivo:</strong> Fechar o ciclo operacional com notificacoes e relatorios
+        </div>
+        <div class="week-content">
+            <div class="two-columns">
+                <div class="week-section">
+                    <div class="week-section-title">&#128204; Atividades</div>
+                    <ul>
+                        <li>Configurar alertas por e-mail: CME, Mecanica, CCM</li>
+                        <li>Relatorio D-1 automatico</li>
+                        <li>Relatorio mensal consolidado</li>
+                        <li>Integracao de notificacoes com dashboard</li>
+                    </ul>
+                </div>
+                <div class="week-section">
+                    <div class="week-section-title">&#128230; Entregaveis</div>
+                    <div class="deliverables">
+                        <ul>
+                            <li>Sistema de alertas configurado</li>
+                            <li>Relatorios funcionando</li>
+                            <li>Exportacao PDF/CSV operacional</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEMANA 5 -->
+    <div class="week-card">
+        <div class="week-header">
+            <span class="week-number">Semana 5</span>
+            <span class="week-title">Homologacao & Go-live</span>
+        </div>
+        <div class="week-objective">
+            <strong>&#127919; Objetivo:</strong> Validacao final, testes integrados e deploy em producao
+        </div>
+        <div class="week-content">
+            <div class="two-columns">
+                <div class="week-section">
+                    <div class="week-section-title">&#128204; Atividades</div>
+                    <ul>
+                        <li>Testes de integracao ponta a ponta</li>
+                        <li>Validacao com equipe de operacao</li>
+                        <li>Ajustes finais de UX e performance</li>
+                        <li>Treinamento das equipes (CME, Mecanica, CCM)</li>
+                        <li>Deploy em ambiente de producao</li>
+                    </ul>
+                </div>
+                <div class="week-section">
+                    <div class="week-section-title">&#128230; Entregaveis</div>
+                    <div class="deliverables">
+                        <ul>
+                            <li>Sistema validado e homologado</li>
+                            <li>Sistema em producao</li>
+                            <li>Guia de usuario documentado</li>
+                            <li>Equipes treinadas</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE BREAK - DOCUMENTACAO -->
+    <div class="page-break"></div>
+
+    <!-- SECTION 7: DOCUMENTACAO -->
+    <section class="section">
+        <div class="section-header">
+            <span class="section-number">7</span>
+            <span class="section-title">Documentacao Basica do Projeto</span>
+        </div>
+
+        <div class="highlight">
+            <strong>&#128214; Guia de Usuario:</strong> Documentacao minima viavel para operacao e manutencao do sistema.
+        </div>
+
+        <div class="subsection">
+            <h3 class="subsection-title">7.1 Visao Geral</h3>
+            <table>
+                <tbody>
+                    <tr>
+                        <td><strong>Nome</strong></td>
+                        <td>Painel de Indicadores Operacionais - Escadas & Elevadores</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Plataforma</strong></td>
+                        <td>ThingsBoard + MYIO</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Objetivo</strong></td>
+                        <td>Monitorar desempenho, disponibilidade e confiabilidade operacional</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="subsection">
+            <h3 class="subsection-title">7.2 Arquitetura Simplificada</h3>
+            <div class="architecture-box">
+                <div class="architecture-flow">
+                    <div class="arch-item">&#128225; Devices (Escadas/Elevadores)</div>
+                    <div class="arch-arrow">&#8595;</div>
+                    <div class="arch-item">&#128202; Telemetria (ThingsBoard)</div>
+                    <div class="arch-arrow">&#8595;</div>
+                    <div class="arch-item">&#9881; Rule Chains (Calculo + Alertas)</div>
+                    <div class="arch-arrow">&#8595;</div>
+                    <div class="arch-item">&#128200; Atributos Consolidados</div>
+                    <div class="arch-arrow">&#8595;</div>
+                    <div class="arch-item">&#128202; Dashboard (Cards Modulares)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="subsection">
+            <h3 class="subsection-title">7.3 Sistema de Alertas</h3>
+            <div class="highlight" style="margin-bottom: 12px;">
+                <strong>&#9989; Infraestrutura Existente:</strong> Painel de alertas ja disponivel no ThingsBoard com integracao ativa para multiplos canais de notificacao.
+            </div>
+
+            <p style="font-size: 9pt; font-weight: 600; color: var(--myio-secondary); margin: 12px 0 8px 0;">7.3.1 Canais de Alertas</p>
+            <div class="channels-grid">
+                <div class="channel-item active">
+                    <span class="channel-icon">&#128233;</span>
+                    <span class="channel-name">E-mail</span>
+                    <span class="channel-status available">Disponivel</span>
+                </div>
+                <div class="channel-item active">
+                    <span class="channel-icon">&#128172;</span>
+                    <span class="channel-name">Telegram</span>
+                    <span class="channel-status available">Disponivel</span>
+                </div>
+                <div class="channel-item active">
+                    <span class="channel-icon">&#128241;</span>
+                    <span class="channel-name">SMS</span>
+                    <span class="channel-status optional">Opcional</span>
+                </div>
+                <div class="channel-item future">
+                    <span class="channel-icon">&#128488;</span>
+                    <span class="channel-name">WhatsApp/Teams</span>
+                    <span class="channel-status future-tag">Futuro</span>
+                </div>
+            </div>
+
+            <p style="font-size: 9pt; font-weight: 600; color: var(--myio-secondary); margin: 15px 0 8px 0;">7.3.2 Tipos de Alertas</p>
+            <div class="alert-grid">
+                <div class="alert-item">
+                    <div class="icon">&#128683;</div>
+                    <div class="label">Paralisacao</div>
+                </div>
+                <div class="alert-item">
+                    <div class="icon">&#9889;</div>
+                    <div class="label">Oscilacao Eletrica</div>
+                </div>
+                <div class="alert-item">
+                    <div class="icon">&#127769;</div>
+                    <div class="label">Offline Noturno</div>
+                </div>
+                <div class="alert-item">
+                    <div class="icon">&#128260;</div>
+                    <div class="label">Reversao de Fase</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="subsection">
+            <h3 class="subsection-title">7.4 Relatorios</h3>
+            <div class="two-columns">
+                <div class="info-box goals">
+                    <h4>&#128197; Relatorio Diario (D-1)</h4>
+                    <ul>
+                        <li>Status operacional de cada equipamento</li>
+                        <li>MTBF e MTTR do dia anterior</li>
+                        <li>Disponibilidade percentual</li>
+                        <li>Alertas ocorridos</li>
+                    </ul>
+                </div>
+                <div class="info-box goals">
+                    <h4>&#128198; Relatorio Mensal</h4>
+                    <ul>
+                        <li>Historico comparativo</li>
+                        <li>Evolucao de MTBF/MTTR</li>
+                        <li>Ranking por disponibilidade</li>
+                        <li>Tendencias e insights</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PAGE BREAK - MOCKUP -->
+    <div class="page-break"></div>
+
+    <!-- SECTION 8: MOCKUP -->
+    <section class="section">
+        <div class="section-header">
+            <span class="section-number">8</span>
+            <span class="section-title">Visualizacao do Sistema</span>
+        </div>
+
+        <div class="highlight">
+            <strong>Preview do Dashboard:</strong> Visualizacao do painel de indicadores operacionais com cards modulares, visao consolidada e alertas em tempo real.
+        </div>
+
+        <div class="mockup-container">
+            <img src="print.mockup.mvp.panel.png" alt="Painel de Indicadores Operacionais - Interface do Sistema" class="mockup-image">
+        </div>
+
+        <div class="mockup-legend">
+            <h4>Elementos do Dashboard</h4>
+            <div class="legend-grid">
+                <div class="legend-item">
+                    <span class="legend-number">1</span>
+                    <span class="legend-text"><strong>Visao Consolidada:</strong> Metricas globais (Total, Disponibilidade Media, MTBF, MTTR, Alertas)</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-number">2</span>
+                    <span class="legend-text"><strong>Filtros:</strong> Estacoes, Zonas, Andares, Tipos e Busca</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-number">3</span>
+                    <span class="legend-text"><strong>Cards Individuais:</strong> Gauge de disponibilidade, MTBF, MTTR, Status e Alertas por equipamento</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-number">4</span>
+                    <span class="legend-text"><strong>Painel de Alertas:</strong> Lista em tempo real com severidade e timestamp</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="mockup-features">
+            <div class="feature-row">
+                <div class="feature-item online">
+                    <span class="feature-badge">Online</span>
+                    <span>Equipamento operacional</span>
+                </div>
+                <div class="feature-item offline">
+                    <span class="feature-badge">Offline</span>
+                    <span>Equipamento parado</span>
+                </div>
+                <div class="feature-item warning">
+                    <span class="feature-badge">Reversao</span>
+                    <span>Inversao de fase detectada</span>
+                </div>
+                <div class="feature-item alert">
+                    <span class="feature-badge">Alerta</span>
+                    <span>Evento critico</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="footer-brand">
+            <svg viewBox="0 0 120 50" xmlns="http://www.w3.org/2000/svg">
+                <text x="0" y="38" font-family="Arial Black, sans-serif" font-size="36" font-weight="900" fill="#1A1A2E">my</text>
+                <text x="52" y="38" font-family="Arial Black, sans-serif" font-size="36" font-weight="900" fill="#00D09C">io</text>
+                <circle cx="73" cy="12" r="5" fill="#00D09C"/>
+            </svg>
+            <span>Smart Building Solutions</span>
+        </div>
+        <div>
+            Documento Confidencial | RFC-XXXX | v1.0.0
+        </div>
+    </footer>
+
+    <script>
+        if (window.location.search.includes('print')) {
+            window.onload = function() { window.print(); };
+        }
+    </script>
+</body>
+</html>

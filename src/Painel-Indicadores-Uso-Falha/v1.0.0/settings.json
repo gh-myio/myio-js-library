@@ -1,0 +1,188 @@
+{
+    "schema": {
+        "type": "object",
+        "title": "Configurações do Painel de Indicadores",
+        "properties": {
+            "general": {
+                "type": "object",
+                "title": "Configurações Gerais",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "title": "Título do Widget",
+                        "default": "Painel de Indicadores Operacionais"
+                    },
+                    "refreshInterval": {
+                        "type": "number",
+                        "title": "Intervalo de Atualização (ms)",
+                        "default": 60000,
+                        "minimum": 10000,
+                        "maximum": 300000
+                    },
+                    "showConsolidatedView": {
+                        "type": "boolean",
+                        "title": "Mostrar Visão Consolidada",
+                        "default": true
+                    }
+                },
+                "required": ["title", "refreshInterval"]
+            },
+            "inactivityWindow": {
+                "type": "object",
+                "title": "Janela de Inatividade",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean",
+                        "title": "Ativar Detecção de Inatividade",
+                        "default": true
+                    },
+                    "startHour": {
+                        "type": "number",
+                        "title": "Hora de Início (24h)",
+                        "default": 22,
+                        "minimum": 0,
+                        "maximum": 23
+                    },
+                    "endHour": {
+                        "type": "number",
+                        "title": "Hora de Fim (24h)",
+                        "default": 5,
+                        "minimum": 0,
+                        "maximum": 23
+                    }
+                }
+            },
+            "alerts": {
+                "type": "object",
+                "title": "Configuração de Alertas",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean",
+                        "title": "Ativar Alertas",
+                        "default": true
+                    },
+                    "emailRecipients": {
+                        "type": "array",
+                        "title": "Destinatários de E-mail",
+                        "items": {
+                            "type": "string",
+                            "format": "email"
+                        },
+                        "default": []
+                    },
+                    "frequencyThreshold": {
+                        "type": "number",
+                        "title": "Threshold de Frequência (%)",
+                        "default": 5,
+                        "minimum": 1,
+                        "maximum": 20
+                    }
+                }
+            },
+            "display": {
+                "type": "object",
+                "title": "Opções de Exibição",
+                "properties": {
+                    "cardsPerRow": {
+                        "type": "number",
+                        "title": "Cards por Linha",
+                        "default": 4,
+                        "minimum": 1,
+                        "maximum": 6
+                    },
+                    "showElectricalIndicators": {
+                        "type": "boolean",
+                        "title": "Mostrar Indicadores Elétricos",
+                        "default": true
+                    },
+                    "gaugeColorScheme": {
+                        "type": "string",
+                        "title": "Esquema de Cores do Gauge",
+                        "default": "default",
+                        "enum": ["default", "traffic-light", "blue-scale"]
+                    }
+                }
+            },
+            "kpi": {
+                "type": "object",
+                "title": "Configurações de KPI",
+                "properties": {
+                    "availabilityTarget": {
+                        "type": "number",
+                        "title": "Meta de Disponibilidade (%)",
+                        "default": 95,
+                        "minimum": 80,
+                        "maximum": 100
+                    },
+                    "mtbfTarget": {
+                        "type": "number",
+                        "title": "Meta de MTBF (horas)",
+                        "default": 500,
+                        "minimum": 1
+                    },
+                    "mttrTarget": {
+                        "type": "number",
+                        "title": "Meta de MTTR (horas)",
+                        "default": 4,
+                        "minimum": 0.5
+                    }
+                }
+            }
+        }
+    },
+    "form": [
+        {
+            "key": "general",
+            "items": [
+                "general.title",
+                "general.refreshInterval",
+                "general.showConsolidatedView"
+            ]
+        },
+        {
+            "key": "inactivityWindow",
+            "items": [
+                "inactivityWindow.enabled",
+                {
+                    "key": "inactivityWindow.startHour",
+                    "condition": "model.inactivityWindow.enabled"
+                },
+                {
+                    "key": "inactivityWindow.endHour",
+                    "condition": "model.inactivityWindow.enabled"
+                }
+            ]
+        },
+        {
+            "key": "alerts",
+            "items": [
+                "alerts.enabled",
+                {
+                    "key": "alerts.emailRecipients",
+                    "condition": "model.alerts.enabled",
+                    "add": "Adicionar E-mail"
+                },
+                {
+                    "key": "alerts.frequencyThreshold",
+                    "condition": "model.alerts.enabled"
+                }
+            ]
+        },
+        {
+            "key": "display",
+            "items": [
+                "display.cardsPerRow",
+                "display.showElectricalIndicators",
+                "display.gaugeColorScheme"
+            ]
+        },
+        {
+            "key": "kpi",
+            "items": [
+                "kpi.availabilityTarget",
+                "kpi.mtbfTarget",
+                "kpi.mttrTarget"
+            ]
+        }
+    ]
+}
