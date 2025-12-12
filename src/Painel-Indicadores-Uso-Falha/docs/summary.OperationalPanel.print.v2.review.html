@@ -1,0 +1,698 @@
+<!-- NOVA SEÇÃO: TELAS DO SISTEMA (SETUP / ADMIN / PERMISSÕES) -->
+<section class="section">
+  <div class="section-header">
+    <span class="section-number">8</span>
+    <span class="section-title">Telas do Sistema</span>
+  </div>
+
+  <div class="highlight">
+    <strong>Objetivo:</strong> Disponibilizar um módulo administrativo (setup) para parametrização do sistema,
+    com governança de acesso baseada em <strong>zonas, regiões, estações</strong> e
+    <strong>perfis de usuário</strong>, garantindo visibilidade hierárquica e operação segura.
+  </div>
+
+  <div class="subsection">
+    <h3 class="subsection-title">8.1 Tela Administrativa - Setup de Parâmetros</h3>
+    <p>
+      Tela destinada à configuração operacional do sistema, permitindo organizar o empreendimento por
+      <strong>Regiões</strong>, <strong>Zonas</strong> e <strong>Estações</strong>, além de manter parâmetros
+      globais (janelas operacionais, thresholds e regras).
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Grupo</th>
+          <th>Configurações / Cadastros</th>
+          <th>Observações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Estrutura</strong></td>
+          <td>Regiões, Zonas, Estações</td>
+          <td>Hierarquia operacional (Região → Zona → Estação)</td>
+        </tr>
+        <tr>
+          <td><strong>Mapeamentos</strong></td>
+          <td>Estação ↔ Zona (e Zona ↔ Região)</td>
+          <td>Define onde cada estação aparece e quem pode ver</td>
+        </tr>
+        <tr>
+          <td><strong>Parâmetros</strong></td>
+          <td>Janelas operacionais, regras e limites (thresholds)</td>
+          <td>Base para severidade e eventos no dashboard</td>
+        </tr>
+        <tr>
+          <td><strong>Governança</strong></td>
+          <td>Perfis de usuários e permissões por escopo</td>
+          <td>Controle de acesso por estação/zona/região</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="subsection">
+    <h3 class="subsection-title">8.2 Tela de Estrutura Operacional - Regiões, Zonas e Estações</h3>
+    <p>
+      Tela para manutenção do cadastro e relacionamento entre os elementos operacionais. O objetivo é permitir
+      que a operação navegue por recortes (por região/zona/estação), e que o dashboard reflita exatamente
+      esses agrupamentos.
+    </p>
+
+    <div class="two-columns">
+      <div class="info-box goals">
+        <h4>🗺️ Cadastros</h4>
+        <ul>
+          <li>Criar/editar <strong>Regiões</strong> (ex.: Ala Norte, Subsolo, Torre A)</li>
+          <li>Criar/editar <strong>Zonas</strong> (ex.: Praça de Alimentação, Corredor Principal)</li>
+          <li>Criar/editar <strong>Estações</strong> (ex.: Estação Escadas - Piso 1)</li>
+        </ul>
+      </div>
+
+      <div class="info-box goals">
+        <h4>🔗 Mapeamentos</h4>
+        <ul>
+          <li>Mapear <strong>Estação → Zona</strong></li>
+          <li>Mapear <strong>Zona → Região</strong></li>
+          <li>Validar duplicidades e consistência (estação sem zona, zona sem região, etc.)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="highlight">
+      <strong>Resultado esperado:</strong> filtros do dashboard (região/zona/estação) passam a ser “fonte da
+      verdade” do recorte operacional e de visibilidade por usuário.
+    </div>
+  </div>
+
+  <div class="subsection">
+    <h3 class="subsection-title">8.3 Tela de Usuários, Perfis e Hierarquia de Visibilidade</h3>
+    <p>
+      Tela para gestão de usuários e permissões, com hierarquia de visibilidade para garantir que cada usuário
+      acesse apenas os painéis compatíveis com seu escopo operacional.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Perfil</th>
+          <th>Escopo de Visibilidade</th>
+          <th>Exemplo de Uso</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Operador Estação</strong></td>
+          <td>Apenas uma <strong>Estação específica</strong></td>
+          <td>Equipe local responsável por um conjunto pequeno de equipamentos</td>
+        </tr>
+        <tr>
+          <td><strong>Gestor de Zona</strong></td>
+          <td>Todas as estações de uma <strong>Zona</strong></td>
+          <td>CME/Manutenção com responsabilidade por área</td>
+        </tr>
+        <tr>
+          <td><strong>Gestor Regional</strong></td>
+          <td>Todas as estações de uma <strong>Região</strong></td>
+          <td>Responsáveis por um bloco/andar/torre</td>
+        </tr>
+        <tr>
+          <td><strong>Superusuário</strong></td>
+          <td><strong>Visão total</strong> (todas as regiões/zonas/estações)</td>
+          <td>Engenharia / Admin / Auditoria / Suporte MYIO</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="two-columns">
+      <div class="info-box goals">
+        <h4>🔐 Regras de Acesso (modelo sugerido)</h4>
+        <ul>
+          <li>Permissão por <strong>escopo</strong>: Estação / Zona / Região</li>
+          <li>Herança de visibilidade: Região inclui Zonas e Estações</li>
+          <li>Permissões podem ser cumulativas (ex.: 2 zonas diferentes)</li>
+          <li>Superusuário ignora restrições (visão total)</li>
+        </ul>
+      </div>
+
+      <div class="info-box goals">
+        <h4>🧭 Navegação orientada por permissão</h4>
+        <ul>
+          <li>Filtros e listas exibem apenas itens permitidos</li>
+          <li>Dashboards “por zona/região” aparecem conforme perfil</li>
+          <li>Acesso direto por link deve respeitar permissão (bloqueio/redirect)</li>
+          <li>Log de auditoria (futuro): acessos e alterações administrativas</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="highlight">
+      <strong>Nota:</strong> a implementação pode usar RBAC nativo do ThingsBoard + grupos/labels/atributos,
+      ou uma camada MYIO de governança (recomendado para regras avançadas e multi-dashboards).
+    </div>
+  </div>
+
+  <div class="subsection">
+    <h3 class="subsection-title">8.4 Mockups / Telas (placeholders)</h3>
+    <p>
+      Abaixo estão espaços reservados para inserir as imagens das telas (setup/admin e gestão de usuários).
+      Substitua os <code>src</code> quando tiver os prints finais.
+    </p>
+
+    <div class="mockup-container">
+      <img
+        class="mockup-image"
+        alt="Tela - Setup de Parâmetros (Admin)"
+        src="print.mockup.setup.parameters.png"
+      />
+    </div>
+
+    <div class="mockup-container">
+      <img
+        class="mockup-image"
+        alt="Tela - Mapeamento Estação x Zona / Região"
+        src="print.mockup.mapping.station.zone.png"
+      />
+    </div>
+
+    <div class="mockup-container">
+      <img
+        class="mockup-image"
+        alt="Tela - Usuários e Perfis (Hierarquia de Visibilidade)"
+        src="print.mockup.users.roles.png"
+      />
+    </div>
+  </div>
+</section>
+
+----- (A) Bloco novo — Arquitetura de Metadados (Real-time Backend)
+
+<div class="subsection">
+  <h3 class="subsection-title">7.3 Arquitetura de Metadados (Real-time no Back-end)</h3>
+
+  <div class="highlight">
+    <strong>Diretriz da V2:</strong> os <strong>metadados e indicadores</strong> (ex.: disponibilidade,
+    MTBF/MTTR, severidade, eventos, agrupamentos por zona/região e rankings) serão
+    <strong>pré-calculados</strong> por um <strong>servidor dedicado</strong>, em
+    <strong>rotina real-time</strong>, para que o painel apenas <strong>consuma dados prontos</strong> — sem
+    cálculos contínuos no front-end.
+  </div>
+
+  <div class="two-columns">
+    <div class="info-box goals">
+      <h4>⚙️ O que é “metadado pronto”</h4>
+      <ul>
+        <li>
+          <strong>Status consolidado</strong> por estação/equipamento (online/offline, reversão, severidade
+          atual)
+        </li>
+        <li><strong>Indicadores calculados</strong> (MTBF/MTTR, disponibilidade, contadores e tempos)</li>
+        <li>
+          <strong>Eventos normalizados</strong> (parada/retorno/reversão/offline noturno) com timestamp e
+          severidade
+        </li>
+        <li><strong>Agregações</strong> por zona/região (totais, comparativos, rankings, tendências)</li>
+      </ul>
+    </div>
+
+    <div class="info-box goals">
+      <h4>🚀 Benefícios</h4>
+      <ul>
+        <li>Dashboard rápido (consulta direta, sem “recalcular a todo instante”)</li>
+        <li>Menor custo e risco no ThingsBoard (cálculo pesado fora do front)</li>
+        <li>Padronização dos resultados (mesmas regras para todos)</li>
+        <li>Escalabilidade para muitos equipamentos e múltiplas zonas</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="architecture-box-new" style="margin-top: 12px">
+    <div class="arch-device">
+      <span class="arch-icon">📡</span> <span>Telemetria (ThingsBoard / Devices)</span>
+    </div>
+    <div class="arch-split">
+      <div class="arch-branch">
+        <div class="arch-branch-header thingsboard">
+          <span class="arch-icon">⚙</span> <span>ThingsBoard</span>
+        </div>
+        <div class="arch-branch-content">
+          <ul>
+            <li>Recepção de telemetria e alarmes</li>
+            <li>Persistência base (timeseries / attributes)</li>
+            <li>Eventos brutos (quando aplicável)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="arch-branch">
+        <div class="arch-branch-header ingestion">
+          <span class="arch-icon">🧠</span> <span>Servidor de Metadados (Real-time)</span>
+        </div>
+        <div class="arch-branch-content">
+          <ul>
+            <li>Worker real-time (stream/poll) para atualização contínua</li>
+            <li>Motor de regras: janelas operacionais + severidade + normalização</li>
+            <li>Persistência de metadados prontos (cache/DB) para consulta rápida</li>
+          </ul>
+          <div class="arch-sub-arrow">↓</div>
+          <div class="arch-sub-items">
+            <div class="arch-sub-item">Metadados por estação/equipamento</div>
+            <div class="arch-sub-item">Agregações por zona/região</div>
+            <div class="arch-sub-item highlight-item">API de Consulta do Painel</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size: 9pt; color: var(--myio-text-light); margin-top: 10px">
+    Observação: o modelo exato de persistência pode usar cache (ex.: Redis) e/ou banco relacional/NoSQL para
+    armazenar “último estado” e agregados. O importante é que o dashboard consuma resultados finalizados,
+    mantendo o cálculo concentrado no back-end.
+  </p>
+</div>
+
+----- (B) Substitua Semana 1 e Semana 2 por estas versões (cronograma com metadados) ✅ Semana 1 (substituir o
+card inteiro da Semana 1)
+<!-- Semana 1 (AJUSTADA) -->
+<div class="week-card">
+  <div class="week-header">
+    <span class="week-number">Semana 1</span>
+    <span class="week-title">Fundamentos, Metadados & Arquitetura</span>
+  </div>
+  <div class="week-objective">
+    <strong>🎯 Objetivo:</strong> Definir base de dados, modelo de metadados e arquitetura do servidor
+    real-time (dados prontos para o painel)
+  </div>
+  <div class="week-content">
+    <div class="two-columns">
+      <div class="week-section">
+        <div class="week-section-title">📌 Atividades</div>
+        <ul>
+          <li>
+            Levantamento final de telemetrias (frequência, tensão R/S/T, corrente R/S/T, potência, status)
+          </li>
+          <li>
+            Definição oficial das regras (MTBF, MTTR, disponibilidade %, janelas operacionais, severidade)
+          </li>
+          <li>
+            Modelagem dos <strong>metadados prontos</strong>: estado atual, eventos normalizados, agregações e
+            rankings
+          </li>
+          <li>
+            Definição do <strong>contrato de consulta</strong> do painel (quais endpoints/queries e quais
+            campos)
+          </li>
+          <li>Modelagem do banco/camadas de persistência para metadados (estado + agregados)</li>
+        </ul>
+      </div>
+
+      <div class="week-section">
+        <div class="week-section-title">📦 Entregáveis</div>
+        <div class="deliverables">
+          <ul>
+            <li>Documento: Arquitetura de Metadados (real-time) + fluxos de dados</li>
+            <li>Especificação do modelo de metadados (tabelas/coleções/campos)</li>
+            <li>Contrato de consulta do painel (payloads de leitura)</li>
+            <li>Pseudocódigo do motor de cálculo (regras + eventos + agregações)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+✅ Semana 2 (substituir o card inteiro da Semana 2)
+
+<!-- Semana 2 (AJUSTADA) -->
+<div class="week-card">
+  <div class="week-header">
+    <span class="week-number">Semana 2</span>
+    <span class="week-title">Back-end Real-time (Servidor de Metadados) + Integração Base</span>
+  </div>
+  <div class="week-objective">
+    <strong>🎯 Objetivo:</strong> Implementar a rotina real-time no back-end para gerar metadados prontos,
+    reduzindo cálculo no dashboard
+  </div>
+  <div class="week-content">
+    <div class="two-columns">
+      <div class="week-section">
+        <div class="week-section-title">📌 Atividades</div>
+        <ul>
+          <li>Implementar worker/serviço real-time para consumir telemetria/eventos (stream ou polling)</li>
+          <li>Normalizar eventos: falha, parada, retorno, offline noturno, inversão de fase</li>
+          <li>
+            Calcular e persistir metadados: mtbf_hours, mttr_hours, availability_percent, severidade atual,
+            contadores e tempos
+          </li>
+          <li>Gerar agregações por zona/região e rankings (base para cards analíticos)</li>
+          <li>Endpoints/queries de leitura para o painel (dados prontos, baixa latência)</li>
+        </ul>
+      </div>
+
+      <div class="week-section">
+        <div class="week-section-title">📦 Entregáveis</div>
+        <div class="deliverables">
+          <ul>
+            <li>Serviço real-time de metadados rodando (ambiente de dev/homolog)</li>
+            <li>Persistência de metadados (estado + agregados) validada</li>
+            <li>API/consultas de leitura integradas ao dashboard (mock/real)</li>
+            <li>Testes com dados simulados e validação de consistência</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+----- ✅ Onde colar: substitua toda a seção que você colou como “Telas do Sistema” (Seção 8) por este bloco.
+
+<!-- SEÇÃO: TELAS DO SISTEMA (SETUP / ADMIN / PERMISSÕES / ESTAÇÕES) -->
+<section class="section">
+  <div class="section-header">
+    <span class="section-number">8</span>
+    <span class="section-title">Telas do Sistema</span>
+  </div>
+
+  <div class="highlight">
+    <strong>Objetivo:</strong> Disponibilizar um módulo administrativo (setup) para parametrização do sistema
+    e governança de acesso, com controle hierárquico por <strong>Regiões</strong>, <strong>Zonas</strong> e
+    <strong>Estações</strong>, além de parametrizações globais e específicas por estação (ex.:
+    <strong>janelas de descarte de dados</strong> para relatórios).
+  </div>
+
+  <div class="subsection">
+    <h3 class="subsection-title">8.1 Módulo Administrativo - Visão Geral das Telas</h3>
+    <p>
+      O módulo administrativo é composto por telas de cadastro (perfis, regiões/zonas), telas de associação
+      (usuários → perfis/escopos), tela de parâmetros globais (índices/thresholds e setups) e telas
+      operacionais relacionadas a seleção e parametrização de estações.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Tela</th>
+          <th>Finalidade</th>
+          <th>Principais Campos / Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Cadastro de Perfis</strong></td>
+          <td>Definir perfis de acesso e capacidades</td>
+          <td>Nome do perfil, escopo padrão (estação/zona/região/global), permissões (ver/editar/admin)</td>
+        </tr>
+        <tr>
+          <td><strong>Cadastro de Regiões e Zonas</strong></td>
+          <td>Modelar a estrutura operacional do empreendimento</td>
+          <td>Criar/editar regiões, criar/editar zonas, associar zona → região, status (ativo/inativo)</td>
+        </tr>
+        <tr>
+          <td><strong>Associação Usuário ↔ Perfil e Escopos</strong></td>
+          <td>Vincular usuários aos perfis e definir visibilidade</td>
+          <td>
+            Usuário → perfil, usuário → regiões, usuário → zonas, usuário → estações (opcional), herança
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Parâmetros & Setups Globais</strong></td>
+          <td>Configurar índices de falhas, janelas e limites do sistema</td>
+          <td>Thresholds, regras de severidade, janelas operacionais, índices de falha e padrões</td>
+        </tr>
+        <tr>
+          <td><strong>Seleção de Estação</strong></td>
+          <td>Permitir navegação e recorte por estação específica</td>
+          <td>Filtro por região/zona, busca por estação, lista, favoritos, acesso conforme permissão</td>
+        </tr>
+        <tr>
+          <td><strong>Parametrização da Estação (Detalhe)</strong></td>
+          <td>Configurar regras específicas daquela estação</td>
+          <td>Janelas de descarte de dados (ex.: 10:00–00:00), overrides de thresholds, tags e metadados</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="subsection">
+    <h3 class="subsection-title">8.2 Tela 1 - Cadastro de Perfis</h3>
+    <p>
+      Tela para criar e manter perfis (roles) que determinam o nível de visibilidade e ações permitidas no
+      sistema. Perfis podem ser usados em conjunto com escopos (região/zona/estação) para compor as regras de
+      acesso.
+    </p>
+
+    <div class="two-columns">
+      <div class="info-box goals">
+        <h4>👤 Tipos de perfil (exemplos)</h4>
+        <ul>
+          <li><strong>Operador Estação</strong>: visualiza apenas uma estação</li>
+          <li><strong>Gestor de Zona</strong>: visualiza todas as estações de uma zona</li>
+          <li><strong>Gestor Regional</strong>: visualiza todas as zonas/estações de uma região</li>
+          <li><strong>Superusuário</strong>: visão total e gestão administrativa</li>
+        </ul>
+      </div>
+
+      <div class="info-box goals">
+        <h4>🧩 Campos principais</h4>
+        <ul>
+          <li>Nome do perfil + descrição</li>
+          <li>Escopo padrão: estação / zona / região / global</li>
+          <li>Permissões: visualizar / configurar / administrar</li>
+          <li>Flags: acesso a setup, acesso a parametrização por estação</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <h3 class="subsection-title">8.3 Tela 2 - Cadastro de Regiões e Zonas</h3>
+    <p>
+      Tela de cadastro da estrutura operacional. Permite definir <strong>regiões</strong> e
+      <strong>zonas</strong> e seus relacionamentos, que serão utilizados em filtros, painéis e regras de
+      visibilidade.
+    </p>
+
+    <div class="two-columns">
+      <div class="info-box goals">
+        <h4>🗺️ Cadastros</h4>
+        <ul>
+          <li>Regiões (nome, descrição, status)</li>
+          <li>Zonas (nome, descrição, status)</li>
+          <li>Associação: <strong>Zona → Região</strong></li>
+        </ul>
+      </div>
+
+      <div class="info-box goals">
+        <h4>🔗 Regras de consistência</h4>
+        <ul>
+          <li>Zonas devem pertencer a uma região (ou “Sem região” explicitamente)</li>
+          <li>Histórico de alterações (opcional)</li>
+          <li>Bloquear exclusões com estações associadas (ou exigir migração)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <h3 class="subsection-title">8.4 Tela 3 - Associação Usuário ↔ Perfil ↔ (Regiões/Zonas/Estações)</h3>
+    <p>
+      Tela para associar usuários a perfis e determinar exatamente o escopo de visibilidade. O modelo suporta
+      <strong>herança</strong> (ex.: região inclui zonas/estações) e exceções (ex.: liberar apenas uma
+      estação).
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Associação</th>
+          <th>Descrição</th>
+          <th>Exemplo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Usuário → Perfil</strong></td>
+          <td>Define capacidades (ver/configurar/admin)</td>
+          <td>João → Gestor de Zona</td>
+        </tr>
+        <tr>
+          <td><strong>Usuário → Regiões</strong></td>
+          <td>Visibilidade por região (herda zonas/estações)</td>
+          <td>Maria → Região Norte</td>
+        </tr>
+        <tr>
+          <td><strong>Usuário → Zonas</strong></td>
+          <td>Visibilidade direta por zona</td>
+          <td>Carlos → Zona Praça de Alimentação</td>
+        </tr>
+        <tr>
+          <td><strong>Usuário → Estações</strong> (opcional)</td>
+          <td>Permissão granular (somente algumas estações)</td>
+          <td>Ana → Estação Escadas Piso 1</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="highlight">
+      <strong>Hierarquia recomendada:</strong> Região → Zona → Estação. Perfis controlam “o que pode fazer”,
+      escopos controlam “o que pode ver”.
+    </div>
+  </div>
+
+  <div class="subsection">
+    <h3 class="subsection-title">8.5 Tela 4 - Parâmetros & Setups Globais (Índices de Falhas)</h3>
+    <p>
+      Tela para configuração de parâmetros globais usados pelo motor de metadados (real-time) e pela
+      interpretação operacional no painel. Aqui entram os <strong>índices de falhas</strong>, thresholds e
+      regras padrão.
+    </p>
+
+    <div class="two-columns">
+      <div class="info-box goals">
+        <h4>⚙️ Exemplos de parâmetros globais</h4>
+        <ul>
+          <li>Thresholds elétricos (faixa aceitável de frequência, tensão, corrente)</li>
+          <li>Regras padrão de severidade (warning/critical)</li>
+          <li>Janela operacional padrão (ex.: 22h–5h)</li>
+          <li>Definição de “falha” vs “parada” (regras e tempos mínimos)</li>
+        </ul>
+      </div>
+
+      <div class="info-box goals">
+        <h4>📉 Índices de falhas (exemplos)</h4>
+        <ul>
+          <li>Contagem de falhas por período (dia/semana/mês)</li>
+          <li>Tempo acumulado de parada por período</li>
+          <li>Critérios de ranking (pior MTTR, menor disponibilidade, mais falhas)</li>
+          <li>Regras de tendência (↑ ↓ estabilidade)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <h3 class="subsection-title">8.6 Tela 5 - Seleção de Estação</h3>
+    <p>
+      Tela de navegação para selecionar uma estação específica. A listagem e os filtros devem respeitar as
+      permissões do usuário. Esta tela serve como entrada para o detalhe e parametrizações daquela estação.
+    </p>
+
+    <div class="two-columns">
+      <div class="info-box goals">
+        <h4>🔎 Filtros / Acesso</h4>
+        <ul>
+          <li>Filtro por região e zona</li>
+          <li>Busca por nome/código da estação</li>
+          <li>Exibir apenas estações permitidas (RBAC + escopo)</li>
+          <li>Favoritos e últimas acessadas (opcional)</li>
+        </ul>
+      </div>
+
+      <div class="info-box goals">
+        <h4>🧭 Ações</h4>
+        <ul>
+          <li>Abrir dashboard da estação</li>
+          <li>Abrir parametrização da estação (se permitido)</li>
+          <li>Visualizar resumo: status atual, severidade, eventos recentes</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <h3 class="subsection-title">8.7 Tela 6 - Parametrização da Estação (Detalhe)</h3>
+    <p>
+      Tela para configurar parâmetros específicos de uma estação, permitindo <strong>overrides</strong> locais
+      sobre regras globais. Exemplo crítico: <strong>janelas de descarte de dados</strong> para fins de
+      relatórios/indicadores.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Parâmetro por estação</th>
+          <th>Descrição</th>
+          <th>Exemplo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Janela de descarte de dados</strong></td>
+          <td>Período(s) que devem ser ignorados em cálculos/relatórios</td>
+          <td>Desconsiderar 10:00–00:00</td>
+        </tr>
+        <tr>
+          <td><strong>Overrides de thresholds</strong></td>
+          <td>Ajustes locais de limites elétricos e regras</td>
+          <td>Frequência mínima diferente para estação X</td>
+        </tr>
+        <tr>
+          <td><strong>Janelas operacionais específicas</strong></td>
+          <td>Quando a estação deveria estar ativa/inativa</td>
+          <td>Operação esperada até 23:30</td>
+        </tr>
+        <tr>
+          <td><strong>Metadados complementares</strong></td>
+          <td>Tags, criticidade, descrição e observações</td>
+          <td>Criticidade: alta (acesso principal)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="highlight">
+      <strong>Regra de negócio (V2):</strong> janelas de descarte devem ser processadas no
+      <strong>Servidor de Metadados (real-time)</strong>, para que o painel consuma indicadores já ajustados
+      (sem custo de cálculo no front-end).
+    </div>
+  </div>
+
+  <div class="subsection">
+    <h3 class="subsection-title">8.8 Mockups / Telas (placeholders)</h3>
+    <p>
+      Espaços reservados para inserir imagens/prints das telas. Substitua os <code>src</code> abaixo quando
+      tiver os mockups finais.
+    </p>
+
+    <div class="mockup-container">
+      <img class="mockup-image" alt="Tela - Cadastro de Perfis" src="print.mockup.admin.profiles.png" />
+    </div>
+
+    <div class="mockup-container">
+      <img
+        class="mockup-image"
+        alt="Tela - Cadastro de Regiões e Zonas"
+        src="print.mockup.admin.regions.zones.png"
+      />
+    </div>
+
+    <div class="mockup-container">
+      <img
+        class="mockup-image"
+        alt="Tela - Associação Usuário / Perfil / Escopos"
+        src="print.mockup.admin.user.scope.png"
+      />
+    </div>
+
+    <div class="mockup-container">
+      <img
+        class="mockup-image"
+        alt="Tela - Parâmetros & Setups Globais (Índices de Falhas)"
+        src="print.mockup.admin.parameters.failures.png"
+      />
+    </div>
+
+    <div class="mockup-container">
+      <img class="mockup-image" alt="Tela - Seleção de Estação" src="print.mockup.station.selector.png" />
+    </div>
+
+    <div class="mockup-container">
+      <img
+        class="mockup-image"
+        alt="Tela - Parametrização da Estação (Janelas de Descarte)"
+        src="print.mockup.station.parameters.discard.png"
+      />
+    </div>
+  </div>
+</section>

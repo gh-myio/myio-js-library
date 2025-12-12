@@ -1,0 +1,1765 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta content="width=device-width,initial-scale=1" name="viewport" />
+    <title>RFC - Painel de Indicadores Operacionais | MYIO</title>
+
+    <style>
+      :root {
+        --myio-primary: #00d09c;
+        --myio-primary-dark: #00b589;
+        --myio-primary-light: #e6faf5;
+        --myio-secondary: #1a1a2e;
+        --myio-text: #2d3748;
+        --myio-text-light: #718096;
+        --myio-bg: #ffffff;
+        --myio-border: #e2e8f0;
+        --myio-success: #48bb78;
+        --myio-warning: #ecc94b;
+        --myio-danger: #f56565;
+        --myio-info: #4299e1;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      @page {
+        size: A4;
+        margin: 15mm 12mm;
+      }
+      body {
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+        font-size: 10pt;
+        line-height: 1.5;
+        color: var(--myio-text);
+        background: var(--myio-bg);
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 15px;
+        border-bottom: 3px solid var(--myio-primary);
+        margin-bottom: 20px;
+      }
+      .logo {
+        height: 45px;
+      }
+      .header-info {
+        text-align: right;
+      }
+      .header-info .doc-type {
+        font-size: 9pt;
+        color: var(--myio-text-light);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .header-info .doc-date {
+        font-size: 9pt;
+        color: var(--myio-text-light);
+      }
+      .title-section {
+        background: linear-gradient(135deg, var(--myio-secondary) 0, #2d2d4a 100%);
+        color: #fff;
+        padding: 25px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        position: relative;
+        overflow: hidden;
+      }
+      .title-section::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 250px;
+        height: 250px;
+        background: var(--myio-primary);
+        opacity: 0.1;
+        border-radius: 50%;
+      }
+      .title-section h1 {
+        font-size: 20pt;
+        font-weight: 700;
+        margin-bottom: 15px;
+        position: relative;
+      }
+      .title-section h1::after {
+        content: '';
+        display: block;
+        width: 50px;
+        height: 4px;
+        background: var(--myio-primary);
+        margin-top: 12px;
+        border-radius: 2px;
+      }
+      .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px 20px;
+        position: relative;
+      }
+      .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .meta-label {
+        font-size: 8pt;
+        color: rgba(255, 255, 255, 0.6);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .meta-value {
+        font-size: 9pt;
+        color: #fff;
+        font-weight: 500;
+      }
+      .status-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        background: var(--myio-primary);
+        color: var(--myio-secondary);
+        font-size: 8pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-radius: 20px;
+      }
+      .section {
+        margin-bottom: 20px;
+        page-break-inside: avoid;
+      }
+      .section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--myio-border);
+      }
+      .section-number {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        background: var(--myio-primary);
+        color: #fff;
+        font-size: 12pt;
+        font-weight: 700;
+        border-radius: 6px;
+      }
+      .section-title {
+        font-size: 13pt;
+        font-weight: 700;
+        color: var(--myio-secondary);
+      }
+      .subsection {
+        margin-bottom: 15px;
+      }
+      .subsection-title {
+        font-size: 10pt;
+        font-weight: 600;
+        color: var(--myio-primary-dark);
+        margin-bottom: 8px;
+        padding-left: 10px;
+        border-left: 3px solid var(--myio-primary);
+      }
+      p {
+        margin-bottom: 10px;
+        text-align: justify;
+      }
+      .highlight {
+        background: var(--myio-primary-light);
+        padding: 12px 15px;
+        border-radius: 8px;
+        border-left: 4px solid var(--myio-primary);
+        margin-bottom: 12px;
+      }
+      .highlight strong {
+        color: var(--myio-primary-dark);
+      }
+      ul {
+        margin-bottom: 12px;
+        padding-left: 0;
+        list-style: none;
+      }
+      ul li {
+        position: relative;
+        padding-left: 20px;
+        margin-bottom: 6px;
+      }
+      ul li::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 7px;
+        width: 6px;
+        height: 6px;
+        background: var(--myio-primary);
+        border-radius: 50%;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 15px;
+        font-size: 9pt;
+      }
+      thead {
+        background: var(--myio-secondary);
+        color: #fff;
+      }
+      th {
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 8pt;
+        letter-spacing: 0.5px;
+      }
+      th:first-child {
+        border-radius: 6px 0 0 0;
+      }
+      th:last-child {
+        border-radius: 0 6px 0 0;
+      }
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--myio-border);
+      }
+      tbody tr:nth-child(even) {
+        background: #f8f9fa;
+      }
+      .info-box {
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+      }
+      .info-box.goals {
+        background: linear-gradient(135deg, #e6faf5 0, #d4f5ed 100%);
+        border: 1px solid var(--myio-primary);
+      }
+      .info-box.non-goals {
+        background: linear-gradient(135deg, #fff5f5 0, #fed7d7 100%);
+        border: 1px solid var(--myio-danger);
+      }
+      .info-box h4 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        font-size: 10pt;
+      }
+      .info-box.goals h4 {
+        color: var(--myio-primary-dark);
+      }
+      .info-box.non-goals h4 {
+        color: var(--myio-danger);
+      }
+      .two-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+      }
+      .three-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+      }
+      .formula-box {
+        background: var(--myio-secondary);
+        color: #fff;
+        padding: 12px 15px;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        font-family: Consolas, Monaco, monospace;
+      }
+      .formula-box .label {
+        font-size: 8pt;
+        color: var(--myio-primary);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+      }
+      .formula-box .formula {
+        font-size: 10pt;
+      }
+
+      .timeline-header {
+        background: linear-gradient(135deg, #00896b 0, #006b54 100%);
+        color: #fff;
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+      }
+      .timeline-header h2 {
+        font-size: 14pt;
+        margin-bottom: 8px;
+      }
+      .timeline-header .duration {
+        font-size: 11pt;
+        opacity: 0.9;
+      }
+      .premises {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .premise-tag {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 4px 10px;
+        border-radius: 15px;
+        font-size: 8pt;
+      }
+
+      .week-card {
+        background: #fff;
+        border: 1px solid var(--myio-border);
+        border-radius: 10px;
+        margin-bottom: 15px;
+        overflow: hidden;
+        page-break-inside: avoid;
+      }
+      .week-header {
+        background: var(--myio-secondary);
+        color: #fff;
+        padding: 12px 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .week-number {
+        font-size: 11pt;
+        font-weight: 700;
+      }
+      .week-title {
+        font-size: 9pt;
+        opacity: 0.8;
+      }
+      .week-objective {
+        background: var(--myio-primary-light);
+        padding: 10px 15px;
+        border-bottom: 1px solid var(--myio-border);
+        font-size: 9pt;
+      }
+      .week-objective strong {
+        color: var(--myio-primary-dark);
+      }
+      .week-content {
+        padding: 15px;
+      }
+      .week-section {
+        margin-bottom: 12px;
+      }
+      .week-section-title {
+        font-size: 9pt;
+        font-weight: 600;
+        color: var(--myio-secondary);
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .deliverables {
+        background: #f8f9fa;
+        padding: 10px 12px;
+        border-radius: 6px;
+        border-left: 3px solid var(--myio-primary);
+      }
+      .deliverables ul li::before {
+        background: var(--myio-success);
+      }
+
+      .architecture-box-new {
+        background: var(--myio-secondary);
+        border-radius: 10px;
+        padding: 20px;
+        color: #fff;
+      }
+      .arch-device {
+        background: var(--myio-primary);
+        color: var(--myio-secondary);
+        padding: 12px 20px;
+        border-radius: 8px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 10pt;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .arch-icon {
+        font-size: 16px;
+      }
+      .arch-split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+      }
+      .arch-branch {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .arch-branch-header {
+        padding: 10px 15px;
+        font-weight: 600;
+        font-size: 10pt;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .arch-branch-header.thingsboard {
+        background: #3f51b5;
+      }
+      .arch-branch-header.ingestion {
+        background: #00896b;
+      }
+      .arch-branch-content {
+        padding: 12px 15px;
+      }
+      .arch-branch-content ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .arch-branch-content ul li {
+        padding: 4px 0;
+        padding-left: 15px;
+        font-size: 8pt;
+        position: relative;
+      }
+      .arch-branch-content ul li::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 9px;
+        width: 5px;
+        height: 5px;
+        background: var(--myio-primary);
+        border-radius: 50%;
+      }
+      .arch-sub-arrow {
+        text-align: center;
+        color: var(--myio-primary);
+        font-size: 12pt;
+        margin: 8px 0;
+      }
+      .arch-sub-items {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .arch-sub-item {
+        background: rgba(0, 208, 156, 0.15);
+        border: 1px solid rgba(0, 208, 156, 0.3);
+        padding: 6px 10px;
+        border-radius: 5px;
+        font-size: 8pt;
+        text-align: center;
+      }
+      .arch-sub-item.highlight-item {
+        background: var(--myio-primary);
+        color: var(--myio-secondary);
+        font-weight: 600;
+        border: none;
+      }
+
+      .page-break {
+        page-break-before: always;
+        margin-top: 20px;
+      }
+      .mockup-container {
+        background: #f8f9fa;
+        border: 1px solid var(--myio-border);
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+      .mockup-image {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      }
+      .mockup-legend {
+        background: #fff;
+        border: 1px solid var(--myio-border);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+      }
+      .mockup-legend h4 {
+        font-size: 10pt;
+        color: var(--myio-secondary);
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--myio-primary);
+      }
+      .legend-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        font-size: 9pt;
+      }
+      .legend-number {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        height: 22px;
+        background: var(--myio-primary);
+        color: #fff;
+        font-size: 10pt;
+        font-weight: 700;
+        border-radius: 50%;
+      }
+      .legend-text {
+        flex: 1;
+        line-height: 1.4;
+      }
+
+      .footer {
+        margin-top: 30px;
+        padding-top: 15px;
+        border-top: 2px solid var(--myio-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 8pt;
+        color: var(--myio-text-light);
+      }
+      .footer-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .footer-brand svg {
+        height: 20px;
+      }
+
+      @media print {
+        body {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        .section,
+        .week-card {
+          page-break-inside: avoid;
+        }
+        .timeline-header,
+        .title-section {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header class="header">
+      <svg viewBox="0 0 120 50" xmlns="http://www.w3.org/2000/svg" class="logo" aria-label="MYIO">
+        <text
+          fill="#1A1A2E"
+          font-family="Arial Black, sans-serif"
+          font-size="36"
+          font-weight="900"
+          x="0"
+          y="38"
+        >
+          my
+        </text>
+        <text
+          fill="#00D09C"
+          font-family="Arial Black, sans-serif"
+          font-size="36"
+          font-weight="900"
+          x="52"
+          y="38"
+        >
+          io
+        </text>
+        <circle cx="73" cy="12" fill="#00D09C" r="5" />
+      </svg>
+      <div class="header-info">
+        <div class="doc-type">Request for Comments</div>
+        <div class="doc-date">Dezembro 2025</div>
+      </div>
+    </header>
+
+    <section class="title-section">
+      <h1>Painel de Indicadores Operacionais<br />Escadas Rolantes e Elevadores</h1>
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span class="meta-label">Status:</span> <span class="status-badge">Aguardando Aprovação</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Autor:</span> <span class="meta-value">MYIO Engenharia</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Plataforma:</span> <span class="meta-value">ThingsBoard + MYIO</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Tipo:</span> <span class="meta-value">Produto v1.0</span>
+        </div>
+        <div class="meta-item" style="grid-column: span 2">
+          <span class="meta-label">Stakeholders:</span>
+          <span class="meta-value">Operação, CME, Mecânica, CCM, Engenharia MYIO</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <span class="section-number">1</span>
+        <span class="section-title">Resumo Executivo</span>
+      </div>
+      <div class="highlight">
+        <p>
+          Este documento propõe a criação de um <strong>Painel de Indicadores Operacionais</strong> para
+          escadas rolantes e elevadores, baseado em <strong>cards modulares no ThingsBoard</strong>, com foco
+          em disponibilidade, confiabilidade, qualidade elétrica e visualização operacional clara de eventos.
+        </p>
+      </div>
+      <p>
+        O sistema visa entregar visibilidade operacional em tempo real, com métricas consolidadas (<strong
+          >MTBF, MTTR, Disponibilidade %</strong
+        >), detecção de <strong>eventos críticos</strong> e uma base robusta para evoluções futuras
+        (relatórios e notificações), garantindo rápida tomada de decisão e melhoria contínua da operação.
+      </p>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <span class="section-number">2</span>
+        <span class="section-title">Motivação</span>
+      </div>
+      <p>Atualmente, a operação de escadas rolantes e elevadores carece de:</p>
+      <ul>
+        <li>Visibilidade consolidada de desempenho</li>
+        <li>Indicadores confiáveis de disponibilidade e manutenção</li>
+        <li>Detecção automatizada de problemas elétricos, como inversão de fase</li>
+        <li>Leitura clara de eventos e severidade diretamente no painel</li>
+      </ul>
+      <p>
+        Este projeto endereça essas lacunas, integrando telemetria elétrica e lógica operacional dentro do
+        ecossistema MYIO.
+      </p>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <span class="section-number">3</span>
+        <span class="section-title">Objetivos</span>
+      </div>
+
+      <div class="two-columns">
+        <div class="info-box goals">
+          <h4>✔ Requisitos Funcionais (V1)</h4>
+          <ul>
+            <li>Monitorar <strong>Disponibilidade (%)</strong> por equipamento e consolidado</li>
+            <li>Calcular <strong>MTBF</strong> e <strong>MTTR</strong> em horas</li>
+            <li>Exibir status <strong>Online / Offline</strong> em tempo real</li>
+            <li>Detectar <strong>reversão de sentido</strong> por inversão de fase</li>
+            <li>Exibir <strong>eventos e severidade</strong> diretamente no dashboard (visual)</li>
+            <li>Disponibilizar <strong>análises e rankings</strong> operacionais no painel</li>
+          </ul>
+        </div>
+
+        <div class="info-box goals">
+          <h4>⚙ Requisitos Não Funcionais</h4>
+          <ul>
+            <li>Arquitetura modular e escalável</li>
+            <li>Baixo acoplamento entre cálculo, visualização e eventos</li>
+            <li>Compatibilidade total com ThingsBoard</li>
+            <li>Evolução futura sem quebra de contratos</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <span class="section-number">4</span>
+        <span class="section-title">Evoluções Futuras</span>
+      </div>
+      <div class="info-box non-goals">
+        <h4>🚀 Previsto para Próximas Versões (V3+)</h4>
+        <div class="two-columns">
+          <ul>
+            <li>Relatório D-1 automático por e-mail</li>
+            <li>Relatório mensal consolidado</li>
+            <li>Templates de e-mail personalizados</li>
+            <li>Agendamento de envios automáticos</li>
+          </ul>
+          <ul>
+            <li>Notificações externas (E-mail, Telegram, SMS, etc.)</li>
+            <li>Painel de alarmes integrado com ações</li>
+            <li>Regras de notificação por severidade</li>
+            <li>Integração de notificações com dashboard</li>
+          </ul>
+        </div>
+        <div class="two-columns" style="margin-top: 10px">
+          <ul>
+            <li>Predição de falhas via IA</li>
+            <li>Integração direta com CMMS/ERP</li>
+          </ul>
+          <ul>
+            <li>Automação de acionamentos físicos</li>
+            <li>Interface pública externa</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <span class="section-number">5</span>
+        <span class="section-title">Definição de Indicadores</span>
+      </div>
+
+      <div class="two-columns">
+        <div class="subsection">
+          <h3 class="subsection-title">Indicadores Operacionais</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Indicador</th>
+                <th>Descrição</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Disponibilidade (%)</strong></td>
+                <td>Percentual de tempo operacional</td>
+              </tr>
+              <tr>
+                <td><strong>MTBF (h)</strong></td>
+                <td>Tempo médio entre falhas</td>
+              </tr>
+              <tr>
+                <td><strong>MTTR (h)</strong></td>
+                <td>Tempo médio de reparo</td>
+              </tr>
+              <tr>
+                <td><strong>Status</strong></td>
+                <td>Online / Offline</td>
+              </tr>
+              <tr>
+                <td><strong>Reversão</strong></td>
+                <td>Inversão de fase</td>
+              </tr>
+              <tr>
+                <td><strong>Eventos</strong></td>
+                <td>Paradas, retornos e ocorrências com severidade</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="subsection">
+          <h3 class="subsection-title">Indicadores Elétricos</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Indicador</th>
+                <th>Descrição</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Frequência</strong></td>
+                <td>Qualidade da energia</td>
+              </tr>
+              <tr>
+                <td><strong>Tensão</strong></td>
+                <td>Fases R, S e T</td>
+              </tr>
+              <tr>
+                <td><strong>Corrente</strong></td>
+                <td>Fases R, S e T</td>
+              </tr>
+              <tr>
+                <td><strong>Potência</strong></td>
+                <td>Consumo vs carga nominal</td>
+              </tr>
+              <tr>
+                <td><strong>Consumo</strong></td>
+                <td>Diário / horário / mensal (via histórico)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <span class="section-number">6</span>
+        <span class="section-title">Regras de Negócio - Fórmulas</span>
+      </div>
+
+      <div class="three-columns">
+        <div class="formula-box">
+          <div class="label">MTBF</div>
+          <div class="formula">(Operação - Manutenção) / Paradas</div>
+        </div>
+        <div class="formula-box">
+          <div class="label">MTTR</div>
+          <div class="formula">Manutenção Total / Paradas</div>
+        </div>
+        <div class="formula-box">
+          <div class="label">Disponibilidade</div>
+          <div class="formula">MTBF / (MTBF + MTTR) * 100</div>
+        </div>
+      </div>
+
+      <div class="highlight">
+        <strong>Janela Noturna:</strong> 22h - 5h → equipamentos em OFF automático. Offline nesse período pode
+        ser marcado como evento (severidade configurável).
+      </div>
+    </section>
+
+    <div class="page-break"></div>
+
+    <div class="timeline-header">
+      <h2>📅 Cronograma de Desenvolvimento (V1)</h2>
+      <div class="duration">⏲ Duração: <strong>8 semanas</strong> (40 dias úteis)</div>
+      <div class="premises">
+        <span class="premise-tag">Cards modulares</span>
+        <span class="premise-tag">Baixo risco técnico</span>
+        <span class="premise-tag">Entregas incrementais</span>
+        <span class="premise-tag">ThingsBoard + Ingestion</span>
+      </div>
+    </div>
+
+    <!-- Semana 1 (AJUSTADA) -->
+    <div class="week-card">
+      <div class="week-header">
+        <span class="week-number">Semana 1</span>
+        <span class="week-title">Fundamentos, Metadados & Arquitetura</span>
+      </div>
+      <div class="week-objective">
+        <strong>🎯 Objetivo:</strong> Definir base de dados, modelo de metadados e arquitetura do servidor
+        real-time (dados prontos para o painel)
+      </div>
+      <div class="week-content">
+        <div class="two-columns">
+          <div class="week-section">
+            <div class="week-section-title">📌 Atividades</div>
+            <ul>
+              <li>
+                Levantamento final de telemetrias (frequência, tensão R/S/T, corrente R/S/T, potência, status)
+              </li>
+              <li>
+                Definição oficial das regras (MTBF, MTTR, disponibilidade %, janelas operacionais, severidade)
+              </li>
+              <li>
+                Modelagem dos <strong>metadados prontos</strong>: estado atual, eventos normalizados, agregações e
+                rankings
+              </li>
+              <li>
+                Definição do <strong>contrato de consulta</strong> do painel (quais endpoints/queries e quais
+                campos)
+              </li>
+              <li>Modelagem do banco/camadas de persistência para metadados (estado + agregados)</li>
+            </ul>
+          </div>
+
+          <div class="week-section">
+            <div class="week-section-title">📦 Entregáveis</div>
+            <div class="deliverables">
+              <ul>
+                <li>Documento: Arquitetura de Metadados (real-time) + fluxos de dados</li>
+                <li>Especificação do modelo de metadados (tabelas/coleções/campos)</li>
+                <li>Contrato de consulta do painel (payloads de leitura)</li>
+                <li>Pseudocódigo do motor de cálculo (regras + eventos + agregações)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semana 2 (AJUSTADA) -->
+    <div class="week-card">
+      <div class="week-header">
+        <span class="week-number">Semana 2</span>
+        <span class="week-title">Back-end Real-time (Servidor de Metadados) + Integração Base</span>
+      </div>
+      <div class="week-objective">
+        <strong>🎯 Objetivo:</strong> Implementar a rotina real-time no back-end para gerar metadados prontos,
+        reduzindo cálculo no dashboard
+      </div>
+      <div class="week-content">
+        <div class="two-columns">
+          <div class="week-section">
+            <div class="week-section-title">📌 Atividades</div>
+            <ul>
+              <li>Implementar worker/serviço real-time para consumir telemetria/eventos (stream ou polling)</li>
+              <li>Normalizar eventos: falha, parada, retorno, offline noturno, inversão de fase</li>
+              <li>
+                Calcular e persistir metadados: mtbf_hours, mttr_hours, availability_percent, severidade atual,
+                contadores e tempos
+              </li>
+              <li>Gerar agregações por zona/região e rankings (base para cards analíticos)</li>
+              <li>Endpoints/queries de leitura para o painel (dados prontos, baixa latência)</li>
+            </ul>
+          </div>
+
+          <div class="week-section">
+            <div class="week-section-title">📦 Entregáveis</div>
+            <div class="deliverables">
+              <ul>
+                <li>Serviço real-time de metadados rodando (ambiente de dev/homolog)</li>
+                <li>Persistência de metadados (estado + agregados) validada</li>
+                <li>API/consultas de leitura integradas ao dashboard (mock/real)</li>
+                <li>Testes com dados simulados e validação de consistência</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semana 3 -->
+    <div class="week-card">
+      <div class="week-header">
+        <span class="week-number">Semana 3</span>
+        <span class="week-title">Frontend (Dashboard / Cards)</span>
+      </div>
+      <div class="week-objective"><strong>🎯 Objetivo:</strong> Visual claro, executivo e escalável</div>
+      <div class="week-content">
+        <div class="two-columns">
+          <div class="week-section">
+            <div class="week-section-title">📌 Atividades</div>
+            <ul>
+              <li>Criação dos cards modulares: card individual, card consolidado, visão de eventos</li>
+              <li>Estados visuais: online/offline, alerta/crítico (visual), reversão de sentido</li>
+              <li>Filtros: tipo de equipamento, status, busca</li>
+              <li>Integração com Lovable</li>
+            </ul>
+          </div>
+          <div class="week-section">
+            <div class="week-section-title">📦 Entregáveis</div>
+            <div class="deliverables">
+              <ul>
+                <li>Dashboard publicado</li>
+                <li>Biblioteca inicial de cards</li>
+                <li>Layout responsivo validado</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semana 4 (AJUSTADA) -->
+    <div class="week-card">
+      <div class="week-header">
+        <span class="week-number">Semana 4</span>
+        <span class="week-title">Eventos & Severidade (Somente no Dashboard)</span>
+      </div>
+      <div class="week-objective">
+        <strong>🎯 Objetivo:</strong> Fechar o ciclo operacional com leitura clara de eventos e severidade no
+        painel
+      </div>
+      <div class="week-content">
+        <div class="two-columns">
+          <div class="week-section">
+            <div class="week-section-title">📌 Atividades</div>
+            <ul>
+              <li>Modelar severidades (info / warning / critical) para eventos operacionais</li>
+              <li>
+                Exibir timeline de eventos por equipamento (paradas, retornos, reversões, offline noturno)
+              </li>
+              <li>Padronizar badges, cores e ícones por severidade</li>
+              <li>Regras internas para marcação de eventos (sem envio externo)</li>
+            </ul>
+          </div>
+          <div class="week-section">
+            <div class="week-section-title">📦 Entregáveis</div>
+            <div class="deliverables">
+              <ul>
+                <li>Eventos e severidade funcionando no dashboard</li>
+                <li>Cards com badges/estados consistentes</li>
+                <li>Lista/timeline de eventos operacionais</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semana 5 (AJUSTADA) -->
+    <div class="week-card">
+      <div class="week-header">
+        <span class="week-number">Semana 5</span>
+        <span class="week-title">Indicadores Avançados & Análises</span>
+      </div>
+      <div class="week-objective">
+        <strong>🎯 Objetivo:</strong> Aumentar valor com comparativos, rankings e tendências no painel
+      </div>
+      <div class="week-content">
+        <div class="two-columns">
+          <div class="week-section">
+            <div class="week-section-title">📌 Atividades</div>
+            <ul>
+              <li>Consolidação por tipo (escada/elevador) e por zona/andar</li>
+              <li>Rankings: melhor/pior disponibilidade, maior MTTR, maior frequência de falhas</li>
+              <li>Tendências simples (↑ ↓) de disponibilidade e estabilidade</li>
+              <li>Cards executivos: resumo do dia/semana (sem e-mail, somente painel)</li>
+            </ul>
+          </div>
+          <div class="week-section">
+            <div class="week-section-title">📦 Entregáveis</div>
+            <div class="deliverables">
+              <ul>
+                <li>Cards analíticos avançados</li>
+                <li>Rankings e comparativos operacionais</li>
+                <li>Base pronta para relatórios futuros (V3+)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semana 6 -->
+    <div class="week-card">
+      <div class="week-header">
+        <span class="week-number">Semana 6</span>
+        <span class="week-title">Homologação - Fase 1</span>
+      </div>
+      <div class="week-objective">
+        <strong>🎯 Objetivo:</strong> Testes integrados e validação com equipes operacionais
+      </div>
+      <div class="week-content">
+        <div class="two-columns">
+          <div class="week-section">
+            <div class="week-section-title">📌 Atividades</div>
+            <ul>
+              <li>Testes de integração ponta a ponta</li>
+              <li>Validação com equipe de operação</li>
+              <li>Identificação de ajustes necessários</li>
+              <li>Documentação de issues encontradas</li>
+            </ul>
+          </div>
+          <div class="week-section">
+            <div class="week-section-title">📦 Entregáveis</div>
+            <div class="deliverables">
+              <ul>
+                <li>Relatório de testes</li>
+                <li>Lista de ajustes priorizados</li>
+                <li>Feedback das equipes</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semana 7 -->
+    <div class="week-card">
+      <div class="week-header">
+        <span class="week-number">Semana 7</span>
+        <span class="week-title">Homologação - Fase 2</span>
+      </div>
+      <div class="week-objective">
+        <strong>🎯 Objetivo:</strong> Ajustes finais, treinamento e preparação para produção
+      </div>
+      <div class="week-content">
+        <div class="two-columns">
+          <div class="week-section">
+            <div class="week-section-title">📌 Atividades</div>
+            <ul>
+              <li>Correção de ajustes identificados</li>
+              <li>Ajustes finais de UX e performance</li>
+              <li>Treinamento das equipes (CME, Mecânica, CCM)</li>
+              <li>Elaboração do guia de usuário</li>
+            </ul>
+          </div>
+          <div class="week-section">
+            <div class="week-section-title">📦 Entregáveis</div>
+            <div class="deliverables">
+              <ul>
+                <li>Sistema homologado</li>
+                <li>Guia de usuário documentado</li>
+                <li>Equipes treinadas</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semana 8 -->
+    <div class="week-card">
+      <div class="week-header">
+        <span class="week-number">Semana 8</span>
+        <span class="week-title">Go-Live Produção</span>
+      </div>
+      <div class="week-objective">
+        <strong>🎯 Objetivo:</strong> Deploy em produção e acompanhamento inicial
+      </div>
+      <div class="week-content">
+        <div class="two-columns">
+          <div class="week-section">
+            <div class="week-section-title">📌 Atividades</div>
+            <ul>
+              <li>Deploy em ambiente de produção</li>
+              <li>Monitoramento pós-deploy</li>
+              <li>Suporte inicial às equipes</li>
+              <li>Ajustes emergenciais se necessário</li>
+            </ul>
+          </div>
+          <div class="week-section">
+            <div class="week-section-title">📦 Entregáveis</div>
+            <div class="deliverables">
+              <ul>
+                <li>Sistema em produção</li>
+                <li>Operação estabilizada</li>
+                <li>Handover para equipe de suporte</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-break"></div>
+
+    <section class="section">
+      <div class="section-header">
+        <span class="section-number">7</span>
+        <span class="section-title">Documentação Básica do Projeto</span>
+      </div>
+
+      <div class="highlight">
+        <strong>📖 Guia de Usuário:</strong> Documentação mínima viável para operação e manutenção do sistema.
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">7.1 Visão Geral</h3>
+        <table>
+          <tr>
+            <td><strong>Nome</strong></td>
+            <td>Painel de Indicadores Operacionais - Escadas & Elevadores</td>
+          </tr>
+          <tr>
+            <td><strong>Plataforma</strong></td>
+            <td>ThingsBoard + MYIO</td>
+          </tr>
+          <tr>
+            <td><strong>Objetivo</strong></td>
+            <td>Monitorar desempenho, disponibilidade e confiabilidade operacional</td>
+          </tr>
+          <tr>
+            <td><strong>Versão</strong></td>
+            <td>V1 (sem relatórios automáticos e sem notificações externas)</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">7.2 Arquitetura Simplificada</h3>
+        <div class="architecture-box-new">
+          <div class="arch-device">
+            <span class="arch-icon">📡</span> <span>Devices (Escadas/Elevadores)</span>
+          </div>
+          <div class="arch-split">
+            <div class="arch-branch">
+              <div class="arch-branch-header thingsboard">
+                <span class="arch-icon">⚙</span> <span>ThingsBoard</span>
+              </div>
+              <div class="arch-branch-content">
+                <ul>
+                  <li>Gestão de cadastro</li>
+                  <li>Perfil de dispositivos</li>
+                  <li>Alarmes / eventos (internos)</li>
+                  <li>Potência, tensão e corrente instantânea</li>
+                </ul>
+                <div class="arch-sub-arrow">↓</div>
+                <div class="arch-sub-items">
+                  <div class="arch-sub-item">Rule Chains (Cálculo + Eventos)</div>
+                  <div class="arch-sub-item">Dados consolidados</div>
+                  <div class="arch-sub-item highlight-item">Painel de gestão</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="arch-branch">
+              <div class="arch-branch-header ingestion">
+                <span class="arch-icon">📊</span> <span>Plataforma Ingestion</span>
+              </div>
+              <div class="arch-branch-content">
+                <ul>
+                  <li>Dados de consumo</li>
+                  <li>Histórico energético</li>
+                  <li>Agregações temporais</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">7.3 Arquitetura de Metadados (Real-time no Back-end)</h3>
+
+        <div class="highlight">
+          <strong>Diretriz da V2:</strong> os <strong>metadados e indicadores</strong> (ex.: disponibilidade,
+          MTBF/MTTR, severidade, eventos, agrupamentos por zona/região e rankings) serão
+          <strong>pré-calculados</strong> por um <strong>servidor dedicado</strong>, em
+          <strong>rotina real-time</strong>, para que o painel apenas <strong>consuma dados prontos</strong> — sem
+          cálculos contínuos no front-end.
+        </div>
+
+        <div class="two-columns">
+          <div class="info-box goals">
+            <h4>⚙️ O que é "metadado pronto"</h4>
+            <ul>
+              <li>
+                <strong>Status consolidado</strong> por estação/equipamento (online/offline, reversão, severidade
+                atual)
+              </li>
+              <li><strong>Indicadores calculados</strong> (MTBF/MTTR, disponibilidade, contadores e tempos)</li>
+              <li>
+                <strong>Eventos normalizados</strong> (parada/retorno/reversão/offline noturno) com timestamp e
+                severidade
+              </li>
+              <li><strong>Agregações</strong> por zona/região (totais, comparativos, rankings, tendências)</li>
+            </ul>
+          </div>
+
+          <div class="info-box goals">
+            <h4>🚀 Benefícios</h4>
+            <ul>
+              <li>Dashboard rápido (consulta direta, sem "recalcular a todo instante")</li>
+              <li>Menor custo e risco no ThingsBoard (cálculo pesado fora do front)</li>
+              <li>Padronização dos resultados (mesmas regras para todos)</li>
+              <li>Escalabilidade para muitos equipamentos e múltiplas zonas</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="architecture-box-new" style="margin-top: 12px">
+          <div class="arch-device">
+            <span class="arch-icon">📡</span> <span>Telemetria (ThingsBoard / Devices)</span>
+          </div>
+          <div class="arch-split">
+            <div class="arch-branch">
+              <div class="arch-branch-header thingsboard">
+                <span class="arch-icon">⚙</span> <span>ThingsBoard</span>
+              </div>
+              <div class="arch-branch-content">
+                <ul>
+                  <li>Recepção de telemetria e alarmes</li>
+                  <li>Persistência base (timeseries / attributes)</li>
+                  <li>Eventos brutos (quando aplicável)</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="arch-branch">
+              <div class="arch-branch-header ingestion">
+                <span class="arch-icon">🧠</span> <span>Servidor de Metadados (Real-time)</span>
+              </div>
+              <div class="arch-branch-content">
+                <ul>
+                  <li>Worker real-time (stream/poll) para atualização contínua</li>
+                  <li>Motor de regras: janelas operacionais + severidade + normalização</li>
+                  <li>Persistência de metadados prontos (cache/DB) para consulta rápida</li>
+                </ul>
+                <div class="arch-sub-arrow">↓</div>
+                <div class="arch-sub-items">
+                  <div class="arch-sub-item">Metadados por estação/equipamento</div>
+                  <div class="arch-sub-item">Agregações por zona/região</div>
+                  <div class="arch-sub-item highlight-item">API de Consulta do Painel</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p style="font-size: 9pt; color: var(--myio-text-light); margin-top: 10px">
+          Observação: o modelo exato de persistência pode usar cache (ex.: Redis) e/ou banco relacional/NoSQL para
+          armazenar "último estado" e agregados. O importante é que o dashboard consuma resultados finalizados,
+          mantendo o cálculo concentrado no back-end.
+        </p>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">7.4 Eventos & Severidade (V1)</h3>
+        <div class="highlight" style="margin-bottom: 12px">
+          <strong>✅ V1:</strong> Os eventos e severidades são exibidos diretamente no dashboard (sem envio
+          por e-mail/Telegram/SMS).
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Evento</th>
+              <th>Exemplo</th>
+              <th>Severidade (visual)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Paralisação</strong></td>
+              <td>Equipamento parado fora da janela prevista</td>
+              <td>Warning / Critical</td>
+            </tr>
+            <tr>
+              <td><strong>Oscilação elétrica</strong></td>
+              <td>Frequência fora do intervalo aceitável</td>
+              <td>Warning</td>
+            </tr>
+            <tr>
+              <td><strong>Offline noturno</strong></td>
+              <td>Offline em janela noturna (regra configurável)</td>
+              <td>Info / Warning</td>
+            </tr>
+            <tr>
+              <td><strong>Reversão de fase</strong></td>
+              <td>Inversão detectada (sentido de giro)</td>
+              <td>Critical</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="font-size: 9pt; color: var(--myio-text-light)">&nbsp;</p>
+      </div>
+    </section>
+
+    <div class="page-break"></div>
+
+    <!-- SEÇÃO: TELAS DO SISTEMA (SETUP / ADMIN / PERMISSÕES / ESTAÇÕES) -->
+    <section class="section">
+      <div class="section-header">
+        <span class="section-number">8</span>
+        <span class="section-title">Telas do Sistema</span>
+      </div>
+
+      <div class="highlight">
+        <strong>Objetivo:</strong> Disponibilizar um módulo administrativo (setup) para parametrização do sistema
+        e governança de acesso, com controle hierárquico por <strong>Regiões</strong>, <strong>Zonas</strong> e
+        <strong>Estações</strong>, além de parametrizações globais e específicas por estação (ex.:
+        <strong>janelas de descarte de dados</strong> para relatórios).
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">8.1 Módulo Administrativo - Visão Geral das Telas</h3>
+        <p>
+          O módulo administrativo é composto por telas de cadastro (perfis, regiões/zonas), telas de associação
+          (usuários → perfis/escopos), tela de parâmetros globais (índices/thresholds e setups) e telas
+          operacionais relacionadas a seleção e parametrização de estações.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Tela</th>
+              <th>Finalidade</th>
+              <th>Principais Campos / Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Cadastro de Perfis</strong></td>
+              <td>Definir perfis de acesso e capacidades</td>
+              <td>Nome do perfil, escopo padrão (estação/zona/região/global), permissões (ver/editar/admin)</td>
+            </tr>
+            <tr>
+              <td><strong>Cadastro de Regiões e Zonas</strong></td>
+              <td>Modelar a estrutura operacional do empreendimento</td>
+              <td>Criar/editar regiões, criar/editar zonas, associar zona → região, status (ativo/inativo)</td>
+            </tr>
+            <tr>
+              <td><strong>Associação Usuário ↔ Perfil e Escopos</strong></td>
+              <td>Vincular usuários aos perfis e definir visibilidade</td>
+              <td>
+                Usuário → perfil, usuário → regiões, usuário → zonas, usuário → estações (opcional), herança
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Parâmetros & Setups Globais</strong></td>
+              <td>Configurar índices de falhas, janelas e limites do sistema</td>
+              <td>Thresholds, regras de severidade, janelas operacionais, índices de falha e padrões</td>
+            </tr>
+            <tr>
+              <td><strong>Seleção de Estação</strong></td>
+              <td>Permitir navegação e recorte por estação específica</td>
+              <td>Filtro por região/zona, busca por estação, lista, favoritos, acesso conforme permissão</td>
+            </tr>
+            <tr>
+              <td><strong>Parametrização da Estação (Detalhe)</strong></td>
+              <td>Configurar regras específicas daquela estação</td>
+              <td>Janelas de descarte de dados (ex.: 10:00–00:00), overrides de thresholds, tags e metadados</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">8.2 Tela 1 - Cadastro de Perfis</h3>
+        <p>
+          Tela para criar e manter perfis (roles) que determinam o nível de visibilidade e ações permitidas no
+          sistema. Perfis podem ser usados em conjunto com escopos (região/zona/estação) para compor as regras de
+          acesso.
+        </p>
+
+        <div class="two-columns">
+          <div class="info-box goals">
+            <h4>👤 Tipos de perfil (exemplos)</h4>
+            <ul>
+              <li><strong>Operador Estação</strong>: visualiza apenas uma estação</li>
+              <li><strong>Gestor de Zona</strong>: visualiza todas as estações de uma zona</li>
+              <li><strong>Gestor Regional</strong>: visualiza todas as zonas/estações de uma região</li>
+              <li><strong>Superusuário</strong>: visão total e gestão administrativa</li>
+            </ul>
+          </div>
+
+          <div class="info-box goals">
+            <h4>🧩 Campos principais</h4>
+            <ul>
+              <li>Nome do perfil + descrição</li>
+              <li>Escopo padrão: estação / zona / região / global</li>
+              <li>Permissões: visualizar / configurar / administrar</li>
+              <li>Flags: acesso a setup, acesso a parametrização por estação</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">8.3 Tela 2 - Cadastro de Regiões e Zonas</h3>
+        <p>
+          Tela de cadastro da estrutura operacional. Permite definir <strong>regiões</strong> e
+          <strong>zonas</strong> e seus relacionamentos, que serão utilizados em filtros, painéis e regras de
+          visibilidade.
+        </p>
+
+        <div class="two-columns">
+          <div class="info-box goals">
+            <h4>🗺️ Cadastros</h4>
+            <ul>
+              <li>Regiões (nome, descrição, status)</li>
+              <li>Zonas (nome, descrição, status)</li>
+              <li>Associação: <strong>Zona → Região</strong></li>
+            </ul>
+          </div>
+
+          <div class="info-box goals">
+            <h4>🔗 Regras de consistência</h4>
+            <ul>
+              <li>Zonas devem pertencer a uma região (ou "Sem região" explicitamente)</li>
+              <li>Histórico de alterações (opcional)</li>
+              <li>Bloquear exclusões com estações associadas (ou exigir migração)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">8.4 Tela 3 - Associação Usuário ↔ Perfil ↔ (Regiões/Zonas/Estações)</h3>
+        <p>
+          Tela para associar usuários a perfis e determinar exatamente o escopo de visibilidade. O modelo suporta
+          <strong>herança</strong> (ex.: região inclui zonas/estações) e exceções (ex.: liberar apenas uma
+          estação).
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Associação</th>
+              <th>Descrição</th>
+              <th>Exemplo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Usuário → Perfil</strong></td>
+              <td>Define capacidades (ver/configurar/admin)</td>
+              <td>João → Gestor de Zona</td>
+            </tr>
+            <tr>
+              <td><strong>Usuário → Regiões</strong></td>
+              <td>Visibilidade por região (herda zonas/estações)</td>
+              <td>Maria → Região Norte</td>
+            </tr>
+            <tr>
+              <td><strong>Usuário → Zonas</strong></td>
+              <td>Visibilidade direta por zona</td>
+              <td>Carlos → Zona Praça de Alimentação</td>
+            </tr>
+            <tr>
+              <td><strong>Usuário → Estações</strong> (opcional)</td>
+              <td>Permissão granular (somente algumas estações)</td>
+              <td>Ana → Estação Escadas Piso 1</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="highlight">
+          <strong>Hierarquia recomendada:</strong> Região → Zona → Estação. Perfis controlam "o que pode fazer",
+          escopos controlam "o que pode ver".
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">8.5 Tela 4 - Parâmetros & Setups Globais (Índices de Falhas)</h3>
+        <p>
+          Tela para configuração de parâmetros globais usados pelo motor de metadados (real-time) e pela
+          interpretação operacional no painel. Aqui entram os <strong>índices de falhas</strong>, thresholds e
+          regras padrão.
+        </p>
+
+        <div class="two-columns">
+          <div class="info-box goals">
+            <h4>⚙️ Exemplos de parâmetros globais</h4>
+            <ul>
+              <li>Thresholds elétricos (faixa aceitável de frequência, tensão, corrente)</li>
+              <li>Regras padrão de severidade (warning/critical)</li>
+              <li>Janela operacional padrão (ex.: 22h–5h)</li>
+              <li>Definição de "falha" vs "parada" (regras e tempos mínimos)</li>
+            </ul>
+          </div>
+
+          <div class="info-box goals">
+            <h4>📉 Índices de falhas (exemplos)</h4>
+            <ul>
+              <li>Contagem de falhas por período (dia/semana/mês)</li>
+              <li>Tempo acumulado de parada por período</li>
+              <li>Critérios de ranking (pior MTTR, menor disponibilidade, mais falhas)</li>
+              <li>Regras de tendência (↑ ↓ estabilidade)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">8.6 Tela 5 - Seleção de Estação</h3>
+        <p>
+          Tela de navegação para selecionar uma estação específica. A listagem e os filtros devem respeitar as
+          permissões do usuário. Esta tela serve como entrada para o detalhe e parametrizações daquela estação.
+        </p>
+
+        <div class="two-columns">
+          <div class="info-box goals">
+            <h4>🔎 Filtros / Acesso</h4>
+            <ul>
+              <li>Filtro por região e zona</li>
+              <li>Busca por nome/código da estação</li>
+              <li>Exibir apenas estações permitidas (RBAC + escopo)</li>
+              <li>Favoritos e últimas acessadas (opcional)</li>
+            </ul>
+          </div>
+
+          <div class="info-box goals">
+            <h4>🧭 Ações</h4>
+            <ul>
+              <li>Abrir dashboard da estação</li>
+              <li>Abrir parametrização da estação (se permitido)</li>
+              <li>Visualizar resumo: status atual, severidade, eventos recentes</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">8.7 Tela 6 - Parametrização da Estação (Detalhe)</h3>
+        <p>
+          Tela para configurar parâmetros específicos de uma estação, permitindo <strong>overrides</strong> locais
+          sobre regras globais. Exemplo crítico: <strong>janelas de descarte de dados</strong> para fins de
+          relatórios/indicadores.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Parâmetro por estação</th>
+              <th>Descrição</th>
+              <th>Exemplo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Janela de descarte de dados</strong></td>
+              <td>Período(s) que devem ser ignorados em cálculos/relatórios</td>
+              <td>Desconsiderar 10:00–00:00</td>
+            </tr>
+            <tr>
+              <td><strong>Overrides de thresholds</strong></td>
+              <td>Ajustes locais de limites elétricos e regras</td>
+              <td>Frequência mínima diferente para estação X</td>
+            </tr>
+            <tr>
+              <td><strong>Janelas operacionais específicas</strong></td>
+              <td>Quando a estação deveria estar ativa/inativa</td>
+              <td>Operação esperada até 23:30</td>
+            </tr>
+            <tr>
+              <td><strong>Metadados complementares</strong></td>
+              <td>Tags, criticidade, descrição e observações</td>
+              <td>Criticidade: alta (acesso principal)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="highlight">
+          <strong>Regra de negócio (V2):</strong> janelas de descarte devem ser processadas no
+          <strong>Servidor de Metadados (real-time)</strong>, para que o painel consuma indicadores já ajustados
+          (sem custo de cálculo no front-end).
+        </div>
+      </div>
+
+      <div class="subsection">
+        <h3 class="subsection-title">8.8 Mockups / Telas (placeholders)</h3>
+        <p>
+          Espaços reservados para inserir imagens/prints das telas. Substitua os <code>src</code> abaixo quando
+          tiver os mockups finais.
+        </p>
+
+        <div class="mockup-container">
+          <img class="mockup-image" alt="Tela - Cadastro de Perfis" src="print.mockup.admin.profiles.png" />
+        </div>
+
+        <div class="mockup-container">
+          <img
+            class="mockup-image"
+            alt="Tela - Cadastro de Regiões e Zonas"
+            src="print.mockup.admin.regions.zones.png"
+          />
+        </div>
+
+        <div class="mockup-container">
+          <img
+            class="mockup-image"
+            alt="Tela - Associação Usuário / Perfil / Escopos"
+            src="print.mockup.admin.user.scope.png"
+          />
+        </div>
+
+        <div class="mockup-container">
+          <img
+            class="mockup-image"
+            alt="Tela - Parâmetros & Setups Globais (Índices de Falhas)"
+            src="print.mockup.admin.parameters.failures.png"
+          />
+        </div>
+
+        <div class="mockup-container">
+          <img class="mockup-image" alt="Tela - Seleção de Estação" src="print.mockup.station.selector.png" />
+        </div>
+
+        <div class="mockup-container">
+          <img
+            class="mockup-image"
+            alt="Tela - Parametrização da Estação (Janelas de Descarte)"
+            src="print.mockup.station.parameters.discard.png"
+          />
+        </div>
+      </div>
+    </section>
+
+    <div class="page-break"></div>
+
+    <section class="section">
+      <div class="section-header">
+        <span class="section-number">9</span>
+        <span class="section-title">Visualização do Sistema</span>
+      </div>
+
+      <div class="highlight">
+        <strong>Preview do Dashboard:</strong> Visualização do painel de indicadores operacionais com cards
+        modulares, visão consolidada e eventos em tempo real.
+      </div>
+
+      <div class="mockup-container">
+        <img
+          alt="Painel de Indicadores Operacionais - Interface do Sistema"
+          class="mockup-image"
+          src="print.mockup.mvp.panel.png"
+        />
+      </div>
+
+      <div class="mockup-legend">
+        <h4>Elementos do Dashboard</h4>
+        <div class="legend-grid">
+          <div class="legend-item">
+            <span class="legend-number">1</span>
+            <span class="legend-text"
+              ><strong>Visão Consolidada:</strong> métricas globais (total, disponibilidade média, MTBF, MTTR,
+              eventos)</span
+            >
+          </div>
+          <div class="legend-item">
+            <span class="legend-number">2</span>
+            <span class="legend-text"><strong>Filtros:</strong> estações, zonas, andares, tipos e busca</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-number">3</span>
+            <span class="legend-text"
+              ><strong>Cards Individuais:</strong> disponibilidade, MTBF, MTTR, status e severidade</span
+            >
+          </div>
+          <div class="legend-item">
+            <span class="legend-number">4</span>
+            <span class="legend-text"
+              ><strong>Eventos:</strong> lista/timeline com severidade e timestamp</span
+            >
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="footer-brand">
+        <svg viewBox="0 0 120 50" xmlns="http://www.w3.org/2000/svg" aria-label="MYIO">
+          <text
+            fill="#1A1A2E"
+            font-family="Arial Black, sans-serif"
+            font-size="36"
+            font-weight="900"
+            x="0"
+            y="38"
+          >
+            my
+          </text>
+          <text
+            fill="#00D09C"
+            font-family="Arial Black, sans-serif"
+            font-size="36"
+            font-weight="900"
+            x="52"
+            y="38"
+          >
+            io
+          </text>
+          <circle cx="73" cy="12" fill="#00D09C" r="5" />
+        </svg>
+        <span>Smart Building Solutions</span>
+      </div>
+      <div>Documento Confidencial | RFC-XXXX | v1.0.0</div>
+    </footer>
+
+    <script>
+      if (window.location.search.includes('print')) {
+        window.onload = function () {
+          window.print();
+        };
+      }
+    </script>
+  </body>
+</html>
