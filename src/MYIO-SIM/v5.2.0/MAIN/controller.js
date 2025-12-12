@@ -2381,14 +2381,14 @@ function createFilterModal(config) {
       { id: 'type', label: 'Tipo', filters: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
     ];
 
-    // Build 'all' button first
+    // Build 'all' button first - starts active since all filters are active by default
     const allTab = filterTabs.find((t) => t.id === 'all');
     let html = '';
     if (allTab) {
       const icon = filterTabIcons['all'] || '';
       html += `
         <div class="filter-group filter-group-all">
-          <button class="filter-tab" data-filter="all">
+          <button class="filter-tab active" data-filter="all">
             ${icon} ${allTab.label} (<span id="countAll">${counts['all'] || 0}</span>)
           </button>
         </div>
@@ -2656,28 +2656,170 @@ function createFilterModal(config) {
       );
     };
 
+    // RFC-0103: Bidirectional cascade filter logic
+    // Status filters imply connectivity: standby/normal/alert/failure → online, offline → offline
+    const statusToConnectivity = {
+      normal: 'online',
+      standby: 'online',
+      alert: 'online',
+      failure: 'online',
+      offline: 'offline'
+    };
+
+    // Helper to get items matching current active filters
+    const getFilteredItems = () => {
+      const filterGroups = [
+        { name: 'connectivity', ids: ['online', 'offline'] },
+        { name: 'status', ids: ['normal', 'standby', 'alert', 'failure'] },
+        { name: 'consumption', ids: ['withConsumption', 'noConsumption'] },
+        { name: 'type', ids: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
+      ];
+
+      const getFilterFn = (filterId) => {
+        const tabConfig = filterTabs.find((t) => t.id === filterId);
+        return tabConfig ? tabConfig.filter : () => false;
+      };
+
+      let filteredItems = [...items];
+      filterGroups.forEach((group) => {
+        const activeInGroup = Array.from(filterTabsEl)
+          .filter((t) => group.ids.includes(t.getAttribute('data-filter')) && t.classList.contains('active'))
+          .map((t) => t.getAttribute('data-filter'));
+
+        if (activeInGroup.length > 0) {
+          filteredItems = filteredItems.filter((item) =>
+            activeInGroup.some((filterId) => getFilterFn(filterId)(item))
+          );
+        }
+      });
+      return filteredItems;
+    };
+
+    // Helper to update filter counts based on filtered items
+    const updateFilterCounts = (filteredItems) => {
+      filterTabs.forEach((tabConfig) => {
+        if (tabConfig.id === 'all') {
+          const countEl = modal.querySelector('#countAll');
+          if (countEl) countEl.textContent = filteredItems.length;
+        } else {
+          const count = filteredItems.filter(tabConfig.filter).length;
+          const countEl = modal.querySelector(`#count${tabConfig.id.charAt(0).toUpperCase() + tabConfig.id.slice(1)}`);
+          if (countEl) countEl.textContent = count;
+        }
+      });
+    };
+
+    // Helper to sync "Todos" button state
+    const syncTodosButton = () => {
+      const allTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === 'all');
+      const otherTabs = Array.from(filterTabsEl).filter((t) => t.getAttribute('data-filter') !== 'all');
+      const allOthersActive = otherTabs.every((t) => t.classList.contains('active'));
+      if (allTab) {
+        allTab.classList.toggle('active', allOthersActive);
+      }
+    };
+
     filterTabsEl.forEach((tab) => {
       tab.addEventListener('click', () => {
         const filterType = tab.getAttribute('data-filter');
+        const otherTabs = Array.from(filterTabsEl).filter((t) => t.getAttribute('data-filter') !== 'all');
+        const allTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === 'all');
 
         if (filterType === 'all') {
-          // 'TODOS' = Master reset: activate ALL filters and select ALL checkboxes
-          const otherTabs = Array.from(filterTabsEl).filter((t) => t.getAttribute('data-filter') !== 'all');
-          otherTabs.forEach((t) => t.classList.add('active'));
+          // RFC-0103: "Todos" as TOGGLE - if all active, deactivate all; otherwise activate all
+          const allOthersActive = otherTabs.every((t) => t.classList.contains('active'));
 
-          // Also check all checkboxes
-          const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
-          checkboxes.forEach((cb) => (cb.checked = true));
+          if (allOthersActive) {
+            // Deactivate ALL filters
+            otherTabs.forEach((t) => t.classList.remove('active'));
+            if (allTab) allTab.classList.remove('active');
 
-          LogHelper.log(`[${widgetName}] TODOS clicked: All filters activated, all items selected`);
-          return; // Don't call applyActiveFilters, we already selected all
-        } else {
-          // Toggle this tab's active state
-          tab.classList.toggle('active');
+            // Uncheck all checkboxes
+            const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
+            checkboxes.forEach((cb) => (cb.checked = false));
+
+            LogHelper.log(`[${widgetName}] TODOS clicked: All filters DEACTIVATED`);
+          } else {
+            // Activate ALL filters
+            otherTabs.forEach((t) => t.classList.add('active'));
+            if (allTab) allTab.classList.add('active');
+
+            // Check all checkboxes
+            const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
+            checkboxes.forEach((cb) => (cb.checked = true));
+
+            LogHelper.log(`[${widgetName}] TODOS clicked: All filters ACTIVATED`);
+          }
+          return;
         }
 
-        // Apply filters based on active tabs
+        // Toggle this tab's active state
+        const wasActive = tab.classList.contains('active');
+        tab.classList.toggle('active');
+        const isNowActive = tab.classList.contains('active');
+
+        // RFC-0103: Bidirectional cascade - auto-enable dependent filters
+        if (isNowActive) {
+          // 1. Status implies connectivity
+          const impliedConnectivity = statusToConnectivity[filterType];
+          if (impliedConnectivity) {
+            const connectivityTab = Array.from(filterTabsEl).find(
+              (t) => t.getAttribute('data-filter') === impliedConnectivity
+            );
+            if (connectivityTab && !connectivityTab.classList.contains('active')) {
+              connectivityTab.classList.add('active');
+              LogHelper.log(`[${widgetName}] Auto-enabled ${impliedConnectivity} (implied by ${filterType})`);
+            }
+          }
+
+          // 2. After enabling, auto-enable type filters that have matching items
+          const getFilterFn = (filterId) => {
+            const tabConfig = filterTabs.find((t) => t.id === filterId);
+            return tabConfig ? tabConfig.filter : () => false;
+          };
+
+          // Get items after current filter
+          const filteredItems = getFilteredItems();
+
+          // Auto-enable type filters with matching items
+          const typeIds = ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'];
+          typeIds.forEach((typeId) => {
+            const typeTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === typeId);
+            if (!typeTab) return;
+
+            const typeFilterFn = getFilterFn(typeId);
+            const hasItems = filteredItems.some((item) => typeFilterFn(item));
+
+            if (hasItems && !typeTab.classList.contains('active')) {
+              typeTab.classList.add('active');
+              LogHelper.log(`[${widgetName}] Auto-enabled ${typeId} (has ${filteredItems.filter(typeFilterFn).length} matching items)`);
+            }
+          });
+
+          // 3. Auto-enable consumption filters with matching items
+          const consumptionIds = ['withConsumption', 'noConsumption'];
+          consumptionIds.forEach((consId) => {
+            const consTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === consId);
+            if (!consTab) return;
+
+            const consFilterFn = getFilterFn(consId);
+            const hasItems = filteredItems.some((item) => consFilterFn(item));
+
+            if (hasItems && !consTab.classList.contains('active')) {
+              consTab.classList.add('active');
+            }
+          });
+        }
+
+        // Apply filters to checkboxes
         applyActiveFilters();
+
+        // Update counts based on filtered items
+        const filteredItems = getFilteredItems();
+        updateFilterCounts(filteredItems);
+
+        // Sync "Todos" button
+        syncTodosButton();
       });
     });
 
@@ -2914,24 +3056,131 @@ function createFilterModal(config) {
         });
       };
 
+      // RFC-0103: Bidirectional cascade filter logic
+      const statusToConnectivity = {
+        normal: 'online',
+        standby: 'online',
+        alert: 'online',
+        failure: 'online',
+        offline: 'offline'
+      };
+
+      // Helper to get items matching current active filters
+      const getFilteredItems = () => {
+        let filteredItems = [...items];
+        filterGroups.forEach((group) => {
+          const activeInGroup = Array.from(filterTabsEl)
+            .filter((t) => group.ids.includes(t.getAttribute('data-filter')) && t.classList.contains('active'))
+            .map((t) => t.getAttribute('data-filter'));
+
+          if (activeInGroup.length > 0) {
+            filteredItems = filteredItems.filter((item) =>
+              activeInGroup.some((filterId) => getFilterFn(filterId)(item))
+            );
+          }
+        });
+        return filteredItems;
+      };
+
+      // Helper to update filter counts based on filtered items
+      const updateFilterCounts = (filteredItems) => {
+        filterTabs.forEach((tabConfig) => {
+          if (tabConfig.id === 'all') {
+            const countEl = modal.querySelector('#countAll');
+            if (countEl) countEl.textContent = filteredItems.length;
+          } else {
+            const count = filteredItems.filter(tabConfig.filter).length;
+            const countEl = modal.querySelector(`#count${tabConfig.id.charAt(0).toUpperCase() + tabConfig.id.slice(1)}`);
+            if (countEl) countEl.textContent = count;
+          }
+        });
+      };
+
+      // Helper to sync "Todos" button state
+      const syncTodosButton = () => {
+        const allTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === 'all');
+        const otherTabs = Array.from(filterTabsEl).filter((t) => t.getAttribute('data-filter') !== 'all');
+        const allOthersActive = otherTabs.every((t) => t.classList.contains('active'));
+        if (allTab) {
+          allTab.classList.toggle('active', allOthersActive);
+        }
+      };
+
       filterTabsEl.forEach((tab) => {
         tab.addEventListener('click', () => {
           const filterType = tab.getAttribute('data-filter');
+          const otherTabs = Array.from(filterTabsEl).filter((t) => t.getAttribute('data-filter') !== 'all');
+          const allTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === 'all');
 
           if (filterType === 'all') {
-            // 'TODOS' = Master reset: activate ALL filters and select ALL checkboxes
-            const otherTabs = Array.from(filterTabsEl).filter((t) => t.getAttribute('data-filter') !== 'all');
-            otherTabs.forEach((t) => t.classList.add('active'));
+            // RFC-0103: "Todos" as TOGGLE
+            const allOthersActive = otherTabs.every((t) => t.classList.contains('active'));
 
-            // Also check all checkboxes
-            const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
-            checkboxes.forEach((cb) => (cb.checked = true));
+            if (allOthersActive) {
+              otherTabs.forEach((t) => t.classList.remove('active'));
+              if (allTab) allTab.classList.remove('active');
+              const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
+              checkboxes.forEach((cb) => (cb.checked = false));
+            } else {
+              otherTabs.forEach((t) => t.classList.add('active'));
+              if (allTab) allTab.classList.add('active');
+              const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
+              checkboxes.forEach((cb) => (cb.checked = true));
+            }
             return;
-          } else {
-            tab.classList.toggle('active');
+          }
+
+          // Toggle this tab
+          tab.classList.toggle('active');
+          const isNowActive = tab.classList.contains('active');
+
+          // RFC-0103: Bidirectional cascade
+          if (isNowActive) {
+            // 1. Status implies connectivity
+            const impliedConnectivity = statusToConnectivity[filterType];
+            if (impliedConnectivity) {
+              const connectivityTab = Array.from(filterTabsEl).find(
+                (t) => t.getAttribute('data-filter') === impliedConnectivity
+              );
+              if (connectivityTab && !connectivityTab.classList.contains('active')) {
+                connectivityTab.classList.add('active');
+              }
+            }
+
+            // 2. Auto-enable type filters with matching items
+            const filteredItems = getFilteredItems();
+            const typeIds = ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'];
+            typeIds.forEach((typeId) => {
+              const typeTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === typeId);
+              if (!typeTab) return;
+              const typeFilterFn = getFilterFn(typeId);
+              const hasItems = filteredItems.some((item) => typeFilterFn(item));
+              if (hasItems && !typeTab.classList.contains('active')) {
+                typeTab.classList.add('active');
+              }
+            });
+
+            // 3. Auto-enable consumption filters with matching items
+            const consumptionIds = ['withConsumption', 'noConsumption'];
+            consumptionIds.forEach((consId) => {
+              const consTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === consId);
+              if (!consTab) return;
+              const consFilterFn = getFilterFn(consId);
+              const hasItems = filteredItems.some((item) => consFilterFn(item));
+              if (hasItems && !consTab.classList.contains('active')) {
+                consTab.classList.add('active');
+              }
+            });
           }
 
           applyActiveFilters();
+
+          // Update counts
+          const filteredItems = getFilteredItems();
+          updateFilterCounts(filteredItems);
+
+          // Sync "Todos" button
+          syncTodosButton();
         });
       });
     }
