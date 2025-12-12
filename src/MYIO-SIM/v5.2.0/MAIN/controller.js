@@ -1882,7 +1882,7 @@ function createFilterModal(config) {
         #${containerId} .${modalClass}-card {
           border-radius: 16px;
           width: 90%;
-          max-width: 1000px;
+          max-width: 1200px;
           height: auto;
           max-height: 90vh;
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -1904,13 +1904,41 @@ function createFilterModal(config) {
         color: #1C2743;
       }
 
+      /* RFC-0103: Two-column layout */
       #${containerId} .${modalClass}-body {
         flex: 1;
         overflow-y: auto;
         padding: 20px;
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         gap: 20px;
+      }
+
+      #${containerId} .filter-sidebar {
+        width: 220px;
+        min-width: 220px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        border-right: 1px solid #E6EEF5;
+        padding-right: 20px;
+      }
+
+      #${containerId} .filter-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        border-right: 1px solid #E6EEF5;
+        padding-right: 20px;
+      }
+
+      #${containerId} .filter-sortbar {
+        width: 160px;
+        min-width: 160px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
       }
 
       #${containerId} .${modalClass}-footer {
@@ -1933,88 +1961,153 @@ function createFilterModal(config) {
         color: #1C2743;
       }
 
+      /* RFC-0103: Vertical filter tabs in sidebar */
       #${containerId} .filter-tabs {
         display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-        margin-bottom: 12px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #E6EEF5;
+        flex-direction: column;
+        gap: 12px;
       }
 
+      #${containerId} .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      #${containerId} .filter-group-all {
+        padding-bottom: 10px;
+        border-bottom: 1px solid #E6EEF5;
+        margin-bottom: 4px;
+      }
+
+      #${containerId} .filter-group-all .filter-tab {
+        width: 100%;
+        justify-content: center;
+      }
+
+      #${containerId} .filter-group-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #6b7a90;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 2px;
+      }
+
+      #${containerId} .filter-group-tabs {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      /* RFC-0103: Filter tabs styled like card chips (pill shape, light bg + dark text) */
       #${containerId} .filter-tab {
-        border: 1px solid #DDE7F1;
-        background: #fff;
-        padding: 6px 10px;
-        border-radius: 6px;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.2px;
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
         cursor: pointer;
         transition: all 0.2s;
-        color: #6b7a90;
         white-space: nowrap;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        gap: 4px;
+        border: none;
+        opacity: 0.5;
       }
 
       #${containerId} .filter-tab:hover {
+        opacity: 0.8;
         transform: translateY(-1px);
-        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
       }
 
-      /* RFC-0095: Color-coded filter tabs */
+      #${containerId} .filter-tab.active {
+        opacity: 1;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      }
+
+      /* Todos - Gray (chip--offline style) */
       #${containerId} .filter-tab[data-filter="all"] {
-        border-color: #9ca3af;
-        color: #4b5563;
-      }
-      #${containerId} .filter-tab[data-filter="all"]:hover,
-      #${containerId} .filter-tab[data-filter="all"].active {
-        background: #6b7280;
-        border-color: #6b7280;
-        color: #fff;
+        background: #e2e8f0;
+        color: #475569;
       }
 
-      #${containerId} .filter-tab[data-filter="online"] {
-        border-color: #3b82f6;
-        color: #2563eb;
-      }
-      #${containerId} .filter-tab[data-filter="online"]:hover,
-      #${containerId} .filter-tab[data-filter="online"].active {
-        background: #3b82f6;
-        border-color: #3b82f6;
-        color: #fff;
+      /* ONLINE/NORMAL - Blue (chip--power-on / chip--ok style) */
+      #${containerId} .filter-tab[data-filter="online"],
+      #${containerId} .filter-tab[data-filter="normal"] {
+        background: #dbeafe;
+        color: #1d4ed8;
       }
 
+      /* OFFLINE - Gray (chip--offline style) */
       #${containerId} .filter-tab[data-filter="offline"] {
-        border-color: #ef4444;
-        color: #dc2626;
-      }
-      #${containerId} .filter-tab[data-filter="offline"]:hover,
-      #${containerId} .filter-tab[data-filter="offline"].active {
-        background: #ef4444;
-        border-color: #ef4444;
-        color: #fff;
+        background: #e2e8f0;
+        color: #475569;
       }
 
+      /* STANDBY - Green (chip--standby style) */
+      #${containerId} .filter-tab[data-filter="standby"],
       #${containerId} .filter-tab[data-filter="withConsumption"] {
-        border-color: #22c55e;
-        color: #16a34a;
-      }
-      #${containerId} .filter-tab[data-filter="withConsumption"]:hover,
-      #${containerId} .filter-tab[data-filter="withConsumption"].active {
-        background: #22c55e;
-        border-color: #22c55e;
-        color: #fff;
+        background: #dcfce7;
+        color: #15803d;
       }
 
-      #${containerId} .filter-tab[data-filter="noConsumption"] {
-        border-color: #9ca3af;
-        color: #6b7280;
+      /* ALERT/WARNING - Amber (chip--alert / chip--warning style) */
+      #${containerId} .filter-tab[data-filter="alert"] {
+        background: #fef3c7;
+        color: #b45309;
       }
-      #${containerId} .filter-tab[data-filter="noConsumption"]:hover,
-      #${containerId} .filter-tab[data-filter="noConsumption"].active {
-        background: #9ca3af;
-        border-color: #9ca3af;
-        color: #fff;
+
+      /* FAILURE - Red (chip--failure style) */
+      #${containerId} .filter-tab[data-filter="failure"] {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+
+      /* NO CONSUMPTION - Gray (chip--offline style) */
+      #${containerId} .filter-tab[data-filter="noConsumption"] {
+        background: #e2e8f0;
+        color: #475569;
+      }
+
+      /* Equipment type filters - distinct chip-like colors */
+      /* Elevators - Purple (chip--not-installed style) */
+      #${containerId} .filter-tab[data-filter="elevators"] {
+        background: #e9d5ff;
+        color: #7c3aed;
+      }
+
+      /* Escalators - Pink */
+      #${containerId} .filter-tab[data-filter="escalators"] {
+        background: #fce7f3;
+        color: #db2777;
+      }
+
+      /* HVAC - Cyan */
+      #${containerId} .filter-tab[data-filter="hvac"] {
+        background: #cffafe;
+        color: #0891b2;
+      }
+
+      /* Others - Stone */
+      #${containerId} .filter-tab[data-filter="others"] {
+        background: #e7e5e4;
+        color: #57534e;
+      }
+
+      /* Water filters - chip-like colors */
+      /* Common Area - Sky blue */
+      #${containerId} .filter-tab[data-filter="commonArea"] {
+        background: #e0f2fe;
+        color: #0284c7;
+      }
+
+      /* Stores - Violet */
+      #${containerId} .filter-tab[data-filter="stores"] {
+        background: #f3e8ff;
+        color: #9333ea;
       }
 
       #${containerId} .filter-tab span {
@@ -2156,9 +2249,9 @@ function createFilterModal(config) {
       }
 
       #${containerId} .radio-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
       }
 
       #${containerId} .radio-grid label {
@@ -2252,21 +2345,87 @@ function createFilterModal(config) {
   }
 
   // Generate filter tabs HTML
+  // RFC-0103: MULTISELECT filter tabs - all start active by default
+  // RFC-0103: Generate grouped filter tabs HTML - organized by category
+
+  // RFC-0103: Filter tab icons - matches deviceStatusIcons from deviceStatus.js
+  const filterTabIcons = {
+    // Status icons (from deviceStatus.js)
+    online: '⚡',      // POWER_ON
+    normal: '⚡',      // POWER_ON (same as online for energy)
+    offline: '🔴',     // OFFLINE
+    standby: '🔌',     // STANDBY
+    alert: '⚠️',       // WARNING
+    failure: '🚨',     // FAILURE
+    // Consumption icons
+    withConsumption: '✓',
+    noConsumption: '○',
+    // Equipment type icons
+    elevators: '🛗',
+    escalators: '📶',   // Representing stairs/escalator
+    hvac: '❄️',
+    others: '⚙️',
+    // Water type icons
+    commonArea: '💧',
+    stores: '🏪',
+    // All
+    all: '📋'
+  };
+
   function generateFilterTabsHTML(counts) {
-    return filterTabs
-      .map(
-        (tab) => `
-        <button class="filter-tab${tab.id === 'all' ? ' active' : ''}" data-filter="${tab.id}">
-          ${tab.label} (<span id="count${tab.id.charAt(0).toUpperCase() + tab.id.slice(1)}">${
-          counts[tab.id] || 0
-        }</span>)
-        </button>
-      `
-      )
-      .join('');
+    // Define filter groups - hierarchy: 1-Connectivity, 2-Status, 3-Consumption, 4-Type
+    const filterGroups = [
+      { id: 'connectivity', label: 'Conectividade', filters: ['online', 'offline'] },
+      { id: 'status', label: 'Status', filters: ['normal', 'standby', 'alert', 'failure'] },
+      { id: 'consumption', label: 'Consumo', filters: ['withConsumption', 'noConsumption'] },
+      { id: 'type', label: 'Tipo', filters: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
+    ];
+
+    // Build 'all' button first
+    const allTab = filterTabs.find((t) => t.id === 'all');
+    let html = '';
+    if (allTab) {
+      const icon = filterTabIcons['all'] || '';
+      html += `
+        <div class="filter-group filter-group-all">
+          <button class="filter-tab" data-filter="all">
+            ${icon} ${allTab.label} (<span id="countAll">${counts['all'] || 0}</span>)
+          </button>
+        </div>
+      `;
+    }
+
+    // Build each group with its filters
+    filterGroups.forEach((group) => {
+      const groupTabs = filterTabs.filter((t) => group.filters.includes(t.id));
+      if (groupTabs.length === 0) return;
+
+      html += `
+        <div class="filter-group">
+          <span class="filter-group-label">${group.label}</span>
+          <div class="filter-group-tabs">
+            ${groupTabs
+              .map(
+                (tab) => {
+                  const icon = filterTabIcons[tab.id] || '';
+                  return `
+              <button class="filter-tab active" data-filter="${tab.id}">
+                ${icon} ${tab.label} (<span id="count${tab.id.charAt(0).toUpperCase() + tab.id.slice(1)}">${counts[tab.id] || 0}</span>)
+              </button>
+            `;
+                }
+              )
+              .join('')}
+          </div>
+        </div>
+      `;
+    });
+
+    return html;
   }
 
   // Generate modal HTML
+  // RFC-0103: Three-column layout - filters (left) | checklist (center) | sort (right)
   function generateModalHTML() {
     return `
       <div id="filterModal" class="${modalClass} hidden">
@@ -2278,46 +2437,50 @@ function createFilterModal(config) {
             </button>
           </div>
           <div class="${modalClass}-body">
-            <!-- Filter Tabs -->
-            <div class="filter-block">
+            <!-- LEFT COLUMN: Filters -->
+            <div class="filter-sidebar">
               <div class="filter-tabs" id="filterTabsContainer"></div>
             </div>
 
-            <!-- Search -->
-            <div class="filter-block">
-              <div class="filter-search">
-                <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-                <input type="text" id="filterDeviceSearch" placeholder="Buscar...">
-                <button class="clear-x" id="filterDeviceClear">
-                  <svg width="14" height="14" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="#6b7a90"/></svg>
-                </button>
+            <!-- CENTER COLUMN: Search + Checklist -->
+            <div class="filter-content">
+              <div class="filter-block">
+                <div class="filter-search">
+                  <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                  <input type="text" id="filterDeviceSearch" placeholder="Buscar...">
+                  <button class="clear-x" id="filterDeviceClear">
+                    <svg width="14" height="14" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="#6b7a90"/></svg>
+                  </button>
+                </div>
+                <!-- RFC-0093: Select All / Clear Selection buttons -->
+                <div class="inline-actions" style="margin-bottom: 8px;">
+                  <button class="tiny-btn" id="selectAllItems">Selecionar Todos</button>
+                  <button class="tiny-btn" id="clearAllItems">Limpar Seleção</button>
+                </div>
+                <div class="checklist" id="deviceChecklist"></div>
               </div>
-              <!-- RFC-0093: Select All / Clear Selection buttons -->
-              <div class="inline-actions" style="margin-bottom: 8px;">
-                <button class="tiny-btn" id="selectAllItems">Selecionar Todos</button>
-                <button class="tiny-btn" id="clearAllItems">Limpar Seleção</button>
-              </div>
-              <div class="checklist" id="deviceChecklist"></div>
             </div>
 
-            <!-- Sort Options -->
-            <div class="filter-block">
-              <span class="block-label">Ordenar por</span>
-              <div class="radio-grid">
-                <label><input type="radio" name="sortMode" value="cons_desc" checked> Maior consumo</label>
-                <label><input type="radio" name="sortMode" value="cons_asc"> Menor consumo</label>
-                <label><input type="radio" name="sortMode" value="alpha_asc"> Nome A → Z</label>
-                <label><input type="radio" name="sortMode" value="alpha_desc"> Nome Z → A</label>
-                <label><input type="radio" name="sortMode" value="status_asc"> Status A → Z</label>
-                <label><input type="radio" name="sortMode" value="status_desc"> Status Z → A</label>
-                <label><input type="radio" name="sortMode" value="shopping_asc"> Shopping A → Z</label>
-                <label><input type="radio" name="sortMode" value="shopping_desc"> Shopping Z → A</label>
+            <!-- RIGHT COLUMN: Sort Options -->
+            <div class="filter-sortbar">
+              <div class="filter-block">
+                <span class="block-label">Ordenar por</span>
+                <div class="radio-grid">
+                  <label><input type="radio" name="sortMode" value="cons_desc" checked> Maior consumo</label>
+                  <label><input type="radio" name="sortMode" value="cons_asc"> Menor consumo</label>
+                  <label><input type="radio" name="sortMode" value="alpha_asc"> Nome A → Z</label>
+                  <label><input type="radio" name="sortMode" value="alpha_desc"> Nome Z → A</label>
+                  <label><input type="radio" name="sortMode" value="status_asc"> Status A → Z</label>
+                  <label><input type="radio" name="sortMode" value="status_desc"> Status Z → A</label>
+                  <label><input type="radio" name="sortMode" value="shopping_asc"> Shopping A → Z</label>
+                  <label><input type="radio" name="sortMode" value="shopping_desc"> Shopping Z → A</label>
+                </div>
               </div>
             </div>
           </div>
           <div class="${modalClass}-footer">
             <button class="btn" id="resetFilters">Fechar</button>
-            <button class="btn primary" id="applyFilters">Ordenar</button>
+            <button class="btn primary" id="applyFilters">Aplicar</button>
           </div>
         </div>
       </div>
@@ -2401,33 +2564,120 @@ function createFilterModal(config) {
       });
     }
 
-    // Filter tabs
+    // RFC-0103: MULTISELECT filter tabs - toggle behavior
     const filterTabsEl = modal.querySelectorAll('.filter-tab');
+
+    // Helper function to apply active filters to checkboxes
+    // RFC-0103: Hierarchical cascade - filters in lower groups are auto-disabled if no items match
+    const applyActiveFilters = () => {
+      // Define filter groups - hierarchy: 1-Connectivity, 2-Status, 3-Consumption, 4-Type
+      const filterGroups = [
+        { name: 'connectivity', ids: ['online', 'offline'] },
+        { name: 'status', ids: ['normal', 'standby', 'alert', 'failure'] },
+        { name: 'consumption', ids: ['withConsumption', 'noConsumption'] },
+        { name: 'type', ids: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
+      ];
+
+      // Helper to get filter function by id
+      const getFilterFn = (filterId) => {
+        const tabConfig = filterTabs.find((t) => t.id === filterId);
+        return tabConfig ? tabConfig.filter : () => false;
+      };
+
+      // Helper to check if item passes a group's active filters (OR within group)
+      const itemPassesGroup = (item, groupActiveFilters) => {
+        if (groupActiveFilters.length === 0) return true;
+        return groupActiveFilters.some((filterId) => getFilterFn(filterId)(item));
+      };
+
+      // CASCADING FILTER: Each group filters items, then next group is auto-disabled if no items match
+      let filteredItems = [...items];
+
+      for (let i = 0; i < filterGroups.length; i++) {
+        const group = filterGroups[i];
+
+        // Get active filters for this group
+        const activeInGroup = Array.from(filterTabsEl)
+          .filter((t) => group.ids.includes(t.getAttribute('data-filter')) && t.classList.contains('active'))
+          .map((t) => t.getAttribute('data-filter'));
+
+        // Filter items by this group (if any active)
+        if (activeInGroup.length > 0) {
+          filteredItems = filteredItems.filter((item) => itemPassesGroup(item, activeInGroup));
+        }
+
+        // Auto-disable filters in NEXT groups that have no matching items
+        for (let j = i + 1; j < filterGroups.length; j++) {
+          const nextGroup = filterGroups[j];
+          nextGroup.ids.forEach((filterId) => {
+            const tab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === filterId);
+            if (!tab) return;
+            const filterFn = getFilterFn(filterId);
+            const hasMatchingItems = filteredItems.some((item) => filterFn(item));
+            if (!hasMatchingItems && tab.classList.contains('active')) {
+              tab.classList.remove('active');
+            }
+          });
+        }
+      }
+
+      // Build final activeByGroup from updated tab states
+      const activeFilters = Array.from(filterTabsEl)
+        .filter((t) => t.classList.contains('active') && t.getAttribute('data-filter') !== 'all')
+        .map((t) => t.getAttribute('data-filter'));
+
+      const activeByGroup = {};
+      filterGroups.forEach((group) => {
+        const activeInGroup = activeFilters.filter((id) => group.ids.includes(id));
+        if (activeInGroup.length > 0) {
+          activeByGroup[group.name] = activeInGroup;
+        }
+      });
+
+      // Apply to checkboxes
+      const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
+      checkboxes.forEach((cb) => {
+        const itemId = cb.getAttribute(itemIdAttr);
+        const item = items.find((i) => getItemId(i) === itemId);
+        if (!item) return;
+
+        if (activeFilters.length === 0) {
+          cb.checked = true;
+        } else {
+          cb.checked = Object.entries(activeByGroup).every(([groupName, groupFilterIds]) => {
+            return groupFilterIds.some((filterId) => getFilterFn(filterId)(item));
+          });
+        }
+      });
+
+      const checkedCount = Array.from(checkboxes).filter((cb) => cb.checked).length;
+      LogHelper.log(
+        `[${widgetName}] Filters: [${activeFilters.join(', ')}], groups: ${JSON.stringify(Object.keys(activeByGroup))}, checked: ${checkedCount}/${checkboxes.length}`
+      );
+    };
+
     filterTabsEl.forEach((tab) => {
       tab.addEventListener('click', () => {
         const filterType = tab.getAttribute('data-filter');
 
-        // Update active state
-        filterTabsEl.forEach((t) => t.classList.remove('active'));
-        tab.classList.add('active');
+        if (filterType === 'all') {
+          // 'TODOS' = Master reset: activate ALL filters and select ALL checkboxes
+          const otherTabs = Array.from(filterTabsEl).filter((t) => t.getAttribute('data-filter') !== 'all');
+          otherTabs.forEach((t) => t.classList.add('active'));
 
-        // Apply filter to checkboxes
-        const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
-        checkboxes.forEach((cb) => {
-          const itemId = cb.getAttribute(itemIdAttr);
-          const item = items.find((i) => getItemId(i) === itemId);
+          // Also check all checkboxes
+          const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
+          checkboxes.forEach((cb) => (cb.checked = true));
 
-          if (!item) return;
+          LogHelper.log(`[${widgetName}] TODOS clicked: All filters activated, all items selected`);
+          return; // Don't call applyActiveFilters, we already selected all
+        } else {
+          // Toggle this tab's active state
+          tab.classList.toggle('active');
+        }
 
-          // Find the filter function for this tab
-          const tabConfig = filterTabs.find((t) => t.id === filterType);
-          cb.checked = tabConfig ? tabConfig.filter(item) : true;
-        });
-
-        const checkedCount = Array.from(checkboxes).filter((cb) => cb.checked).length;
-        LogHelper.log(
-          `[${widgetName}] Filter tab: ${filterType}, checked: ${checkedCount}/${checkboxes.length}`
-        );
+        // Apply filters based on active tabs
+        applyActiveFilters();
       });
     });
 
@@ -2577,23 +2827,111 @@ function createFilterModal(config) {
     if (tabsContainer) {
       tabsContainer.innerHTML = generateFilterTabsHTML(counts);
 
-      // Re-bind tab click handlers after updating HTML
+      // RFC-0103: Re-bind tab click handlers with MULTISELECT behavior
       const filterTabsEl = tabsContainer.querySelectorAll('.filter-tab');
+
+      // Helper function to apply active filters to checkboxes
+      // RFC-0103: Hierarchical cascade - filters in lower groups are auto-disabled if no items match
+      const applyActiveFilters = () => {
+        // Define filter groups - hierarchy: 1-Connectivity, 2-Status, 3-Consumption, 4-Type
+        const filterGroups = [
+          { name: 'connectivity', ids: ['online', 'offline'] },
+          { name: 'status', ids: ['normal', 'standby', 'alert', 'failure'] },
+          { name: 'consumption', ids: ['withConsumption', 'noConsumption'] },
+          { name: 'type', ids: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
+        ];
+
+        // Helper to get filter function by id
+        const getFilterFn = (filterId) => {
+          const tabConfig = filterTabs.find((t) => t.id === filterId);
+          return tabConfig ? tabConfig.filter : () => false;
+        };
+
+        // Helper to check if item passes a group's active filters (OR within group)
+        const itemPassesGroup = (item, groupActiveFilters) => {
+          if (groupActiveFilters.length === 0) return true;
+          return groupActiveFilters.some((filterId) => getFilterFn(filterId)(item));
+        };
+
+        // CASCADING FILTER: Each group filters items, then next group is auto-disabled if no items match
+        let filteredItems = [...items];
+
+        for (let i = 0; i < filterGroups.length; i++) {
+          const group = filterGroups[i];
+
+          // Get active filters for this group
+          const activeInGroup = Array.from(filterTabsEl)
+            .filter((t) => group.ids.includes(t.getAttribute('data-filter')) && t.classList.contains('active'))
+            .map((t) => t.getAttribute('data-filter'));
+
+          // Filter items by this group (if any active)
+          if (activeInGroup.length > 0) {
+            filteredItems = filteredItems.filter((item) => itemPassesGroup(item, activeInGroup));
+          }
+
+          // Auto-disable filters in NEXT groups that have no matching items
+          for (let j = i + 1; j < filterGroups.length; j++) {
+            const nextGroup = filterGroups[j];
+            nextGroup.ids.forEach((filterId) => {
+              const tab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === filterId);
+              if (!tab) return;
+              const filterFn = getFilterFn(filterId);
+              const hasMatchingItems = filteredItems.some((item) => filterFn(item));
+              if (!hasMatchingItems && tab.classList.contains('active')) {
+                tab.classList.remove('active');
+              }
+            });
+          }
+        }
+
+        // Build final activeByGroup from updated tab states
+        const activeFilters = Array.from(filterTabsEl)
+          .filter((t) => t.classList.contains('active') && t.getAttribute('data-filter') !== 'all')
+          .map((t) => t.getAttribute('data-filter'));
+
+        const activeByGroup = {};
+        filterGroups.forEach((group) => {
+          const activeInGroup = activeFilters.filter((id) => group.ids.includes(id));
+          if (activeInGroup.length > 0) {
+            activeByGroup[group.name] = activeInGroup;
+          }
+        });
+
+        // Apply to checkboxes
+        const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
+        checkboxes.forEach((cb) => {
+          const itemId = cb.getAttribute(itemIdAttr);
+          const item = items.find((i) => String(getItemId(i)) === String(itemId));
+          if (!item) return;
+
+          if (activeFilters.length === 0) {
+            cb.checked = true;
+          } else {
+            cb.checked = Object.entries(activeByGroup).every(([groupName, groupFilterIds]) => {
+              return groupFilterIds.some((filterId) => getFilterFn(filterId)(item));
+            });
+          }
+        });
+      };
+
       filterTabsEl.forEach((tab) => {
         tab.addEventListener('click', () => {
           const filterType = tab.getAttribute('data-filter');
-          filterTabsEl.forEach((t) => t.classList.remove('active'));
-          tab.classList.add('active');
 
-          const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
-          checkboxes.forEach((cb) => {
-            const itemId = cb.getAttribute(itemIdAttr);
-            const item = items.find((i) => String(getItemId(i)) === String(itemId));
-            if (!item) return;
+          if (filterType === 'all') {
+            // 'TODOS' = Master reset: activate ALL filters and select ALL checkboxes
+            const otherTabs = Array.from(filterTabsEl).filter((t) => t.getAttribute('data-filter') !== 'all');
+            otherTabs.forEach((t) => t.classList.add('active'));
 
-            const tabConfig = filterTabs.find((t) => t.id === filterType);
-            cb.checked = tabConfig ? tabConfig.filter(item) : true;
-          });
+            // Also check all checkboxes
+            const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
+            checkboxes.forEach((cb) => (cb.checked = true));
+            return;
+          } else {
+            tab.classList.toggle('active');
+          }
+
+          applyActiveFilters();
         });
       });
     }
