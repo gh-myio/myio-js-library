@@ -500,6 +500,119 @@
             font-size: 14pt;
         }
 
+        /* New Architecture Layout */
+        .architecture-box-new {
+            background: var(--myio-secondary);
+            border-radius: 10px;
+            padding: 20px;
+            color: white;
+        }
+
+        .arch-device {
+            background: var(--myio-primary);
+            color: var(--myio-secondary);
+            padding: 12px 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 10pt;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .arch-icon {
+            font-size: 16px;
+        }
+
+        .arch-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .arch-branch {
+            background: rgba(255,255,255,0.08);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .arch-branch-header {
+            padding: 10px 15px;
+            font-weight: 600;
+            font-size: 10pt;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .arch-branch-header.thingsboard {
+            background: #3F51B5;
+        }
+
+        .arch-branch-header.ingestion {
+            background: #00896B;
+        }
+
+        .arch-branch-content {
+            padding: 12px 15px;
+        }
+
+        .arch-branch-content ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .arch-branch-content ul li {
+            padding: 4px 0;
+            padding-left: 15px;
+            font-size: 8pt;
+            position: relative;
+        }
+
+        .arch-branch-content ul li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 9px;
+            width: 5px;
+            height: 5px;
+            background: var(--myio-primary);
+            border-radius: 50%;
+        }
+
+        .arch-sub-arrow {
+            text-align: center;
+            color: var(--myio-primary);
+            font-size: 12pt;
+            margin: 8px 0;
+        }
+
+        .arch-sub-items {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .arch-sub-item {
+            background: rgba(0, 208, 156, 0.15);
+            border: 1px solid rgba(0, 208, 156, 0.3);
+            padding: 6px 10px;
+            border-radius: 5px;
+            font-size: 8pt;
+            text-align: center;
+        }
+
+        .arch-sub-item.highlight-item {
+            background: var(--myio-primary);
+            color: var(--myio-secondary);
+            font-weight: 600;
+            border: none;
+        }
+
         /* ============================================================
            ALERT BOX
            ============================================================ */
@@ -1211,17 +1324,45 @@
 
         <div class="subsection">
             <h3 class="subsection-title">7.2 Arquitetura Simplificada</h3>
-            <div class="architecture-box">
-                <div class="architecture-flow">
-                    <div class="arch-item">&#128225; Devices (Escadas/Elevadores)</div>
-                    <div class="arch-arrow">&#8595;</div>
-                    <div class="arch-item">&#128202; Telemetria (ThingsBoard)</div>
-                    <div class="arch-arrow">&#8595;</div>
-                    <div class="arch-item">&#9881; Rule Chains (Calculo + Alertas)</div>
-                    <div class="arch-arrow">&#8595;</div>
-                    <div class="arch-item">&#128200; Atributos Consolidados</div>
-                    <div class="arch-arrow">&#8595;</div>
-                    <div class="arch-item">&#128202; Dashboard (Cards Modulares)</div>
+            <div class="architecture-box-new">
+                <div class="arch-device">
+                    <span class="arch-icon">&#128225;</span>
+                    <span>Devices (Escadas/Elevadores)</span>
+                </div>
+                <div class="arch-split">
+                    <div class="arch-branch">
+                        <div class="arch-branch-header thingsboard">
+                            <span class="arch-icon">&#9881;</span>
+                            <span>ThingsBoard</span>
+                        </div>
+                        <div class="arch-branch-content">
+                            <ul>
+                                <li>Gestao de Cadastro</li>
+                                <li>Perfil de Dispositivos</li>
+                                <li>Alarmes</li>
+                                <li>Potencia, Tensao e Corrente Instantanea</li>
+                            </ul>
+                            <div class="arch-sub-arrow">&#8595;</div>
+                            <div class="arch-sub-items">
+                                <div class="arch-sub-item">Rule Chains (Calculo + Alertas)</div>
+                                <div class="arch-sub-item">Dados Consolidados</div>
+                                <div class="arch-sub-item highlight-item">Painel de Gestao</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="arch-branch">
+                        <div class="arch-branch-header ingestion">
+                            <span class="arch-icon">&#128202;</span>
+                            <span>Plataforma Ingestion</span>
+                        </div>
+                        <div class="arch-branch-content">
+                            <ul>
+                                <li>Dados de Consumo</li>
+                                <li>Historico Energetico</li>
+                                <li>Agregacoes Temporais</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
