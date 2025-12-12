@@ -65,17 +65,20 @@
     </div>
   </header>
 
-  <!-- RFC-0098: Container for createConsumptionChartWidget (widget injects its own HTML) -->
-  <section id="temperature-chart-widget" class="chart-card chart-card-7days"></section>
+  <!-- RFC-0098: Charts Row - Side by Side -->
+  <div class="charts-row">
+    <!-- RFC-0098: Container for createConsumptionChartWidget (widget injects its own HTML) -->
+    <section id="temperature-chart-widget" class="chart-card chart-card-7days"></section>
 
-  <!-- Temperature Comparison Chart -->
-  <section class="chart-card">
-    <h3 class="chart-title">Comparativo de Temperatura por Shopping</h3>
-    <p class="chart-sub">Evolucao da temperatura media ao longo do dia em cada shopping center</p>
-    <div class="chart-container">
-      <canvas id="tempChart"></canvas>
-    </div>
-  </section>
+    <!-- Temperature Comparison Chart -->
+    <section class="chart-card chart-card-comparison">
+      <h3 class="chart-title">Comparativo de Temperatura por Shopping</h3>
+      <p class="chart-sub">Evolucao da temperatura media ao longo do dia em cada shopping center</p>
+      <div class="chart-container">
+        <canvas id="tempChart"></canvas>
+      </div>
+    </section>
+  </div>
 
   <!-- Shopping Temperature List -->
   <section class="list-card">

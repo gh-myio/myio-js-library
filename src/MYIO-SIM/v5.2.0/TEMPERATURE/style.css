@@ -177,6 +177,19 @@
   background: var(--ok);
 }
 
+/* ===== CHARTS ROW (Side by Side) ===== */
+.charts-row {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.charts-row .chart-card {
+  flex: 1;
+  min-width: 0; /* Prevent flex items from overflowing */
+  margin-bottom: 0; /* Remove individual margin, parent handles it */
+}
+
 /* ===== CHART ===== */
 .chart-card {
   background: var(--card);
@@ -496,6 +509,21 @@
 }
 
 /* ===== RESPONSIVE ===== */
+@media (max-width: 1400px) {
+  /* Stack charts vertically on medium screens */
+  .charts-row {
+    flex-direction: column;
+  }
+
+  .charts-row .chart-card {
+    margin-bottom: 20px;
+  }
+
+  .charts-row .chart-card:last-child {
+    margin-bottom: 0;
+  }
+}
+
 @media (max-width: 1200px) {
   .header {
     grid-template-columns: repeat(2, 1fr);

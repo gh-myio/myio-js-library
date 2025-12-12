@@ -2567,22 +2567,23 @@ function createFilterModal(config) {
     // RFC-0103: MULTISELECT filter tabs - toggle behavior
     const filterTabsEl = modal.querySelectorAll('.filter-tab');
 
+    // Define filter groups - hierarchy: 1-Connectivity, 2-Status, 3-Consumption, 4-Type (SHARED)
+    const filterGroups = [
+      { name: 'connectivity', ids: ['online', 'offline'] },
+      { name: 'status', ids: ['normal', 'standby', 'alert', 'failure'] },
+      { name: 'consumption', ids: ['withConsumption', 'noConsumption'] },
+      { name: 'type', ids: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
+    ];
+
+    // Helper to get filter function by id (SHARED)
+    const getFilterFn = (filterId) => {
+      const tabConfig = filterTabs.find((t) => t.id === filterId);
+      return tabConfig ? tabConfig.filter : () => false;
+    };
+
     // Helper function to apply active filters to checkboxes
     // RFC-0103: Hierarchical cascade - filters in lower groups are auto-disabled if no items match
     const applyActiveFilters = () => {
-      // Define filter groups - hierarchy: 1-Connectivity, 2-Status, 3-Consumption, 4-Type
-      const filterGroups = [
-        { name: 'connectivity', ids: ['online', 'offline'] },
-        { name: 'status', ids: ['normal', 'standby', 'alert', 'failure'] },
-        { name: 'consumption', ids: ['withConsumption', 'noConsumption'] },
-        { name: 'type', ids: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
-      ];
-
-      // Helper to get filter function by id
-      const getFilterFn = (filterId) => {
-        const tabConfig = filterTabs.find((t) => t.id === filterId);
-        return tabConfig ? tabConfig.filter : () => false;
-      };
 
       // Helper to check if item passes a group's active filters (OR within group)
       const itemPassesGroup = (item, groupActiveFilters) => {
@@ -2773,11 +2774,6 @@ function createFilterModal(config) {
           }
 
           // 2. After enabling, auto-enable type filters that have matching items
-          const getFilterFn = (filterId) => {
-            const tabConfig = filterTabs.find((t) => t.id === filterId);
-            return tabConfig ? tabConfig.filter : () => false;
-          };
-
           // Get items after current filter
           const filteredItems = getFilteredItems();
 
@@ -2972,22 +2968,23 @@ function createFilterModal(config) {
       // RFC-0103: Re-bind tab click handlers with MULTISELECT behavior
       const filterTabsEl = tabsContainer.querySelectorAll('.filter-tab');
 
+      // Define filter groups - hierarchy: 1-Connectivity, 2-Status, 3-Consumption, 4-Type (SHARED)
+      const filterGroups = [
+        { name: 'connectivity', ids: ['online', 'offline'] },
+        { name: 'status', ids: ['normal', 'standby', 'alert', 'failure'] },
+        { name: 'consumption', ids: ['withConsumption', 'noConsumption'] },
+        { name: 'type', ids: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
+      ];
+
+      // Helper to get filter function by id (SHARED)
+      const getFilterFn = (filterId) => {
+        const tabConfig = filterTabs.find((t) => t.id === filterId);
+        return tabConfig ? tabConfig.filter : () => false;
+      };
+
       // Helper function to apply active filters to checkboxes
       // RFC-0103: Hierarchical cascade - filters in lower groups are auto-disabled if no items match
       const applyActiveFilters = () => {
-        // Define filter groups - hierarchy: 1-Connectivity, 2-Status, 3-Consumption, 4-Type
-        const filterGroups = [
-          { name: 'connectivity', ids: ['online', 'offline'] },
-          { name: 'status', ids: ['normal', 'standby', 'alert', 'failure'] },
-          { name: 'consumption', ids: ['withConsumption', 'noConsumption'] },
-          { name: 'type', ids: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
-        ];
-
-        // Helper to get filter function by id
-        const getFilterFn = (filterId) => {
-          const tabConfig = filterTabs.find((t) => t.id === filterId);
-          return tabConfig ? tabConfig.filter : () => false;
-        };
 
         // Helper to check if item passes a group's active filters (OR within group)
         const itemPassesGroup = (item, groupActiveFilters) => {

@@ -1364,7 +1364,8 @@ async function importedTree(tbCustomerId) {
     const [attrs] = await Promise.all([attrsPromise, hydratePromise]);
 
     // 4) extraia o customerId da Ingestion (várias chaves possíveis)
-    const ingestionCustomerId = attrs.customerId || null;
+    // const ingestionCustomerId = attrs.customerId || null; ALTERADO de customerId para ingestionId
+    const ingestionCustomerId = attrs.ingestionId || null;
 
     // 5) salve global para uso em qualquer parte (ex.: modal Ingestion Sync)
     window.currentIngestionCustomerId = ingestionCustomerId;
@@ -2192,9 +2193,7 @@ function handleIngestionSyncModal(modal) {
   // ---- low-level TB call ----
   async function writeServerScopeAttributes(deviceId, attrs) {
     const tbToken = localStorage.getItem('jwt_token');
-    const url = `/api/plugins/telemetry/DEVICE/${encodeURIComponent(
-      deviceId
-    )}/attributes/SERVER_SCOPE`;
+    const url = `/api/plugins/telemetry/DEVICE/${encodeURIComponent(deviceId)}/attributes/SERVER_SCOPE`;
     const res = await fetch(url, {
       method: 'POST',
       headers: {
@@ -2408,7 +2407,7 @@ function handleIngestionSyncModal(modal) {
     });
 
     // ⬇️⬇️ RFC-0071: SYNC DEVICE PROFILES ⬇️⬇️
-    await syncDeviceProfileAttributes(toProcess);
+    //await syncDeviceProfileAttributes(toProcess);
 
     let bound = 0,
       skipped = 0,
@@ -2928,7 +2927,7 @@ function handleIngestionSyncModal(modal) {
     });
 
     // ⬇️⬇️ RFC-0071: SYNC DEVICE PROFILES ⬇️⬇️
-    await syncDeviceProfileAttributes(toProcess);
+    //await syncDeviceProfileAttributes(toProcess);
 
     let matched = 0,
       saved = 0,
