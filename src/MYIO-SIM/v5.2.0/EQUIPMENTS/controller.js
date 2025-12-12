@@ -618,59 +618,90 @@ self.onInit = async function () {
     // 🗺️ NOVO: Mapa para conectar o ingestionId ao ID da entidade do ThingsBoard
     const ingestionIdToEntityIdMap = new Map();
 
-    // --- FASE 1: Monta o objeto inicial e o mapa de IDs ---
-    self.ctx.data.forEach((data) => {
-      if (data.datasource.aliasName !== 'Shopping') {
-        const entityId = data.datasource.entity.id.id;
+    // --- FASE 1: RFC-0102 - Get EQUIPMENT devices from Orchestrator (not ctx.data) ---
+    // MAIN already has TB datasource "Equipamentos e Lojas" and classifies devices
+    // EQUIPMENTS widget should only show equipment devices (NOT lojas)
+    const orchestrator = window.MyIOOrchestrator;
+    let orchestratorDevices = [];
 
-        // Cria o objeto do dispositivo se for a primeira vez
-        if (!devices[entityId]) {
-          devices[entityId] = {
-            name: data.datasource.name,
-            label: data.datasource.entityLabel,
-            values: [],
-          };
+    if (orchestrator?.isDevicesClassified?.()) {
+      // Devices already classified - get ONLY equipment devices
+      orchestratorDevices = orchestrator.getEquipmentDevices() || [];
+      LogHelper.log(`[EQUIPMENTS] RFC-0102: Got ${orchestratorDevices.length} EQUIPMENT devices from Orchestrator (already classified)`);
+    } else {
+      // Wait for classification to complete
+      LogHelper.log('[EQUIPMENTS] RFC-0102: Waiting for MAIN to classify devices...');
+      await new Promise((resolve) => {
+        const handler = (ev) => {
+          window.removeEventListener('myio:devices-classified', handler);
+          // Get ONLY equipment devices after classification
+          orchestratorDevices = orchestrator?.getEquipmentDevices?.() || [];
+          LogHelper.log(`[EQUIPMENTS] RFC-0102: Got ${orchestratorDevices.length} EQUIPMENT devices after classification event`);
+          resolve();
+        };
+        window.addEventListener('myio:devices-classified', handler);
+        // Also trigger extraction in case MAIN hasn't processed yet
+        if (orchestrator?.extractEnergyDevicesMetadata) {
+          orchestrator.extractEnergyDevicesMetadata();
         }
+        // Timeout fallback
+        setTimeout(() => {
+          window.removeEventListener('myio:devices-classified', handler);
+          if (orchestratorDevices.length === 0) {
+            LogHelper.warn('[EQUIPMENTS] RFC-0102: Classification timeout, using fallback');
+            orchestratorDevices = orchestrator?.getEquipmentDevices?.() || [];
+          }
+          resolve();
+        }, 3000);
+      });
+    }
 
-        // Adiciona o valor atual ao array
-        // RFC: Rename 'consumption' to 'consumption_power' to avoid confusion with API consumption (kWh)
-        const dataType = data.dataKey.name === 'consumption' ? 'consumption_power' : data.dataKey.name;
-        devices[entityId].values.push({
-          dataType: dataType,
-          value: data.data[0][1],
-          ts: data.data[0][0],
-        });
+    // Transform orchestrator devices to the format expected by renderDeviceCards
+    // Each device needs: name, label, values[] array for findValue() compatibility
+    orchestratorDevices.forEach((device) => {
+      const entityId = device.entityId || device.tbId;
+      if (!entityId) return;
 
-        // ✅ LÓGICA DO MAPA: Se o dado for o ingestionId, guardamos a relação
-        if (data.dataKey.name === 'ingestionId' && data.data[0][1]) {
-          const ingestionId = data.data[0][1];
-          ingestionIdToEntityIdMap.set(ingestionId, entityId);
-        }
+      // Build values array from flat orchestrator properties
+      const values = [];
+      const now = Date.now();
+
+      if (device.ingestionId != null) values.push({ dataType: 'ingestionId', value: device.ingestionId, ts: now });
+      if (device.identifier != null) values.push({ dataType: 'identifier', value: device.identifier, ts: now });
+      if (device.deviceType != null) values.push({ dataType: 'deviceType', value: device.deviceType, ts: now });
+      if (device.deviceProfile != null) values.push({ dataType: 'deviceProfile', value: device.deviceProfile, ts: now });
+      if (device.connectionStatus != null) values.push({ dataType: 'connectionStatus', value: device.connectionStatus, ts: now });
+      if (device.centralName != null) values.push({ dataType: 'centralName', value: device.centralName, ts: now });
+      if (device.ownerName != null) values.push({ dataType: 'ownerName', value: device.ownerName, ts: now });
+      if (device.lastActivityTime != null) values.push({ dataType: 'lastActivityTime', value: device.lastActivityTime, ts: now });
+      if (device.lastConnectTime != null) values.push({ dataType: 'lastConnectTime', value: device.lastConnectTime, ts: now });
+      if (device.lastDisconnectTime != null) values.push({ dataType: 'lastDisconnectTime', value: device.lastDisconnectTime, ts: now });
+      if (device.customerId != null) values.push({ dataType: 'customerId', value: device.customerId, ts: now });
+      if (device.deviceMapInstaneousPower != null) values.push({ dataType: 'deviceMapInstaneousPower', value: device.deviceMapInstaneousPower, ts: now });
+
+      // Consumption power (instantaneous) - rename to consumption_power to avoid confusion with API kWh
+      if (device.consumption != null) {
+        values.push({ dataType: 'consumption_power', value: device.consumption, ts: device.consumptionTimestamp || now });
+        // Also add as 'consumption' for backward compatibility in renderDeviceCards filter
+        values.push({ dataType: 'consumption', value: device.consumption, ts: device.consumptionTimestamp || now });
+      }
+
+      devices[entityId] = {
+        name: device.name || device.label || 'Unknown',
+        label: device.label || device.name || 'Unknown',
+        values: values,
+      };
+
+      // Build ingestionId to entityId map
+      if (device.ingestionId) {
+        ingestionIdToEntityIdMap.set(device.ingestionId, entityId);
       }
     });
 
+    LogHelper.log(`[EQUIPMENTS] RFC-0102: Built ${Object.keys(devices).length} devices from Orchestrator`);
+
+    // Note: RFC-0071 device profile sync disabled - profiles now come from MAIN's TB datasource
     const boolExecSync = false;
-
-    // RFC-0071: Trigger device profile synchronization (runs once)
-    if (!__deviceProfileSyncComplete && boolExecSync) {
-      try {
-        LogHelper.log('[EQUIPMENTS] [RFC-0071] Triggering device profile sync...');
-        const syncResult = await syncDeviceProfileAttributes(self.ctx.data);
-        __deviceProfileSyncComplete = true;
-
-        if (syncResult.synced > 0) {
-          LogHelper.log(
-            '[EQUIPMENTS] [RFC-0071] ⚠️ Widget reload recommended to load new deviceProfile attributes'
-          );
-          LogHelper.log(
-            '[EQUIPMENTS] [RFC-0071] You may need to refresh the dashboard to see deviceProfile in ctx.data'
-          );
-        }
-      } catch (error) {
-        LogHelper.error('[EQUIPMENTS] [RFC-0071] Sync failed, continuing without it:', error);
-        // Don't block widget initialization if sync fails
-      }
-    }
 
     // ============================================
     // CREDENTIALS: Prefer MAIN's, fallback to direct fetch
@@ -804,7 +835,7 @@ self.onInit = async function () {
             if (!item) return defaultValue;
             // Retorna a propriedade 'val' (da nossa API) ou 'value' (do ThingsBoard)
             return item.ts;
-          };          
+          };
 
           // Get instantaneous power from ctx.data (renamed to consumption_power to avoid confusion)
           let instantaneousPower = findValue(device.values, 'consumption_power', 0);
@@ -819,7 +850,7 @@ self.onInit = async function () {
           if (timeSinceLastTelemetry > delayLimitTimeInMiliseconds) {
             instantaneousPower = null;
           }
-          
+
           // Calculate device status using range-based calculation
           const parsedInstantaneousPower = Number(instantaneousPower);
           const lastConsumptionValue = Number.isNaN(parsedInstantaneousPower)
@@ -838,7 +869,7 @@ self.onInit = async function () {
           });
 
           // DEBUG // TODO REMOVER DEPOIS
-          if (device.label && device.label.toLowerCase().includes('bomba cag6') && 3 > 2) {
+          if (device.label && device.label.toLowerCase().includes('bomba cag6') && 1 > 2) {
             console.log('╔══════════════════════════════════════════════════════════════╗');
             console.log('║                    DEBUG ER 14 - EQUIPMENTS                  ║');
             console.log('╚══════════════════════════════════════════════════════════════╝');
@@ -935,63 +966,14 @@ self.onInit = async function () {
 
       const devicesFormatadosParaCards = await Promise.all(promisesDeCards);
 
-      function isActuallyEquipment(device) {
-        // Non-3F_MEDIDOR devices are always equipment
-        if (device.deviceType !== '3F_MEDIDOR') {
-          return true;
-        }
-        // For 3F_MEDIDOR, check deviceProfile and labelOrName to determine if it's actually equipment
-        const equipmentKeywords = ['MOTOR', 'ELEVADOR', 'ESCADA_ROLANTE', 'CHILLER', 'BOMBA', 'FANCOIL'];
-        const profileUpper = (device.deviceProfile || '').toUpperCase();
-        const labelUpper = (device.labelOrName || '').toUpperCase();
+      // RFC-0102: Classification is done by MAIN's Orchestrator
+      // We already called getEquipmentDevices() so all devices are equipment (no lojas)
+      const equipmentDevices = devicesFormatadosParaCards;
 
-        return equipmentKeywords.some(
-          (keyword) => profileUpper.includes(keyword) || labelUpper.includes(keyword)
-        );
-      }
+      LogHelper.log('[EQUIPMENTS] RFC-0102: Equipment devices from orchestrator:', equipmentDevices.length);
 
-      // Separate lojas from equipments based on deviceType
-      const lojasDevices = devicesFormatadosParaCards.filter((d) => !isActuallyEquipment(d));
-      const equipmentDevices = devicesFormatadosParaCards.filter((d) => isActuallyEquipment(d));
-
-      LogHelper.log('[EQUIPMENTS] Total devices:', devicesFormatadosParaCards.length);
-      LogHelper.log('[EQUIPMENTS] Equipment devices:', equipmentDevices.length);
-      LogHelper.log('[EQUIPMENTS] Lojas (actual 3F_MEDIDOR stores):', lojasDevices.length);
-
-      // ✅ Emit event to inform MAIN about lojas ingestionIds
-      const lojasIngestionIds = lojasDevices.map((d) => d.ingestionId).filter((id) => id); // Remove nulls
-
-      window.dispatchEvent(
-        new CustomEvent('myio:lojas-identified', {
-          detail: {
-            lojasIngestionIds,
-            lojasCount: lojasIngestionIds.length,
-            timestamp: Date.now(),
-          },
-        })
-      );
-
-      LogHelper.log('[EQUIPMENTS] ✅ Emitted myio:lojas-identified:', {
-        lojasCount: lojasIngestionIds.length,
-        lojasIngestionIds,
-      });
-
-      // ✅ Emit event to inform MAIN about equipment ingestionIds
-      const equipmentsIngestionIds = equipmentDevices.map((d) => d.ingestionId).filter((id) => id);
-
-      window.dispatchEvent(
-        new CustomEvent('myio:equipments-identified', {
-          detail: {
-            equipmentsIngestionIds,
-            equipmentsCount: equipmentsIngestionIds.length,
-            timestamp: Date.now(),
-          },
-        })
-      );
-
-      LogHelper.log('[EQUIPMENTS] ✅ Emitted myio:equipments-identified:', {
-        equipmentsCount: equipmentsIngestionIds.length,
-      });
+      // Note: RFC-0102 - Events myio:lojas-identified and myio:equipments-identified
+      // are now dispatched by MAIN's classifyEnergyDevices() function
 
       // ✅ Save ONLY equipment devices to global STATE for filtering
       STATE.allDevices = equipmentDevices;
@@ -1017,14 +999,14 @@ self.onInit = async function () {
       initializeCards(equipmentDevices);
 
       // RFC-0093: Update statistics header via centralized controller
+      // RFC-0102: ctxData removed (data now comes from orchestrator)
       if (equipHeaderController) {
         equipHeaderController.updateFromDevices(equipmentDevices, {
           cache: energyCacheFromMain,
-          ctxData: self.ctx.data,
         });
       } else {
         // Fallback to old function if header controller not available
-        updateEquipmentStats(equipmentDevices, energyCacheFromMain, self.ctx.data);
+        updateEquipmentStats(equipmentDevices, energyCacheFromMain);
       }
 
       // RFC: Emit initial equipment count to HEADER
@@ -1195,10 +1177,10 @@ self.onInit = async function () {
     }
 
     // Lógica principal: "verificar-depois-ouvir"
-    const orchestrator = await waitForOrchestrator();
+    const orchestratorInstance = await waitForOrchestrator();
 
-    if (orchestrator) {
-      const existingCache = orchestrator.getCache();
+    if (orchestratorInstance) {
+      const existingCache = orchestratorInstance.getCache();
 
       if (existingCache && existingCache.size > 0) {
         // CAMINHO 1: (Navegação de volta)
@@ -1453,15 +1435,15 @@ function reflowCards() {
   initializeCards(filtered);
 
   // RFC-0093: Update statistics header via centralized controller
+  // RFC-0102: ctxData removed (data now comes from orchestrator)
   const energyCache = window.MyIOOrchestrator?.getCache?.() || null;
   if (equipHeaderController) {
     equipHeaderController.updateFromDevices(filtered, {
       cache: energyCache,
-      ctxData: self.ctx.data,
     });
   } else {
     // Fallback to old function if header controller not available
-    updateEquipmentStats(filtered, energyCache, self.ctx.data);
+    updateEquipmentStats(filtered, energyCache);
   }
 
   // RFC: Emit event to update HEADER card

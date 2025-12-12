@@ -2916,6 +2916,236 @@ const MyIOOrchestrator = (() => {
   // O Orchestrator só soma devices que existem nesse registro
   let energyValidIds = new Set(); // IDs do alias 'Equipamentos e Lojas'
 
+  // ===== ENERGY DEVICES METADATA: Full TB device info + classification =====
+  // Map<entityId, deviceMetadata> - stores ALL TB metadata (connectionStatus, deviceProfile, etc.)
+  let energyDevicesMetadata = new Map();
+  // Classified device lists
+  let classifiedDevices = {
+    lojas: [], // deviceType=3F_MEDIDOR AND deviceProfile=3F_MEDIDOR
+    equipments: [], // deviceType!=3F_MEDIDOR OR (deviceType=3F_MEDIDOR AND deviceProfile!=3F_MEDIDOR)
+    all: [],
+  };
+
+  /**
+   * RFC-0102: Classification logic for energy devices
+   * - Loja: deviceType = '3F_MEDIDOR' AND deviceProfile = '3F_MEDIDOR'
+   * - Equipamento: deviceType != '3F_MEDIDOR' OR (deviceType = '3F_MEDIDOR' AND deviceProfile != '3F_MEDIDOR')
+   */
+  function isEquipment(device) {
+    const deviceType = (device.deviceType || '').toUpperCase();
+    const deviceProfile = (device.deviceProfile || '').toUpperCase();
+
+    // Non-3F_MEDIDOR devices are always equipment
+    if (deviceType !== '3F_MEDIDOR') {
+      return true;
+    }
+    // For 3F_MEDIDOR, check if deviceProfile differs (real equipment type)
+    return deviceProfile !== '3F_MEDIDOR';
+  }
+
+  /**
+   * RFC-0102: Extract ALL device metadata from TB datasource "Equipamentos e Lojas"
+   * Called by processEnergyDatasourcesFromTB() after data is available
+   */
+  function extractEnergyDevicesMetadata() {
+    const data = self.ctx?.data || [];
+    const deviceMap = new Map();
+
+    // Filter data for "Equipamentos e Lojas" alias
+    const energyData = data.filter((d) => d?.datasource?.aliasName === 'Equipamentos e Lojas');
+
+    if (energyData.length === 0) {
+      LogHelper.log('[MAIN] extractEnergyDevicesMetadata: No data for "Equipamentos e Lojas"');
+      return;
+    }
+
+    // Build device metadata map from ctx.data
+    energyData.forEach((row) => {
+      const entityId = row?.datasource?.entity?.id?.id || row?.datasource?.entityId;
+      if (!entityId) return;
+
+      if (!deviceMap.has(entityId)) {
+        const entity = row.datasource?.entity || {};
+        deviceMap.set(entityId, {
+          entityId,
+          tbId: entityId,
+          name: entity.name || row.datasource?.name || null,
+          label: entity.label || null,
+          // Will be populated from dataKeys below
+          ingestionId: null,
+          identifier: null,
+          deviceType: null,
+          deviceProfile: null,
+          connectionStatus: null,
+          centralName: null,
+          ownerName: null,
+          lastActivityTime: null,
+          lastConnectTime: null,
+          lastDisconnectTime: null,
+          consumption: null,
+          consumptionTimestamp: null,
+          // Additional fields needed by EQUIPMENTS
+          deviceMapInstaneousPower: null,
+          customerId: null,
+        });
+      }
+
+      // Extract value from dataKey
+      const keyName = row?.dataKey?.name || '';
+      const value = row?.data?.[0]?.[1] ?? null;
+      const timestamp = row?.data?.[0]?.[0] ?? null;
+      const device = deviceMap.get(entityId);
+
+      const keyLower = keyName.toLowerCase();
+      if (keyLower === 'ingestionid') device.ingestionId = value;
+      else if (keyLower === 'identifier') device.identifier = value;
+      else if (keyLower === 'devicetype') device.deviceType = value;
+      else if (keyLower === 'deviceprofile') device.deviceProfile = value;
+      else if (keyLower === 'connectionstatus') device.connectionStatus = value;
+      else if (keyLower === 'centralname') device.centralName = value;
+      else if (keyLower === 'ownername') device.ownerName = value;
+      else if (keyLower === 'lastactivitytime') device.lastActivityTime = value;
+      else if (keyLower === 'lastconnecttime') device.lastConnectTime = value;
+      else if (keyLower === 'lastdisconnecttime') device.lastDisconnectTime = value;
+      else if (keyLower === 'label' && value) device.label = value;
+      else if (keyLower === 'consumption') {
+        device.consumption = value;
+        device.consumptionTimestamp = timestamp;
+      }
+      // Additional fields needed by EQUIPMENTS
+      else if (keyLower === 'devicemapinstaneouspower') device.deviceMapInstaneousPower = value;
+      else if (keyLower === 'customerid') device.customerId = value;
+    });
+
+    // Update the metadata cache
+    energyDevicesMetadata = deviceMap;
+    LogHelper.log(`[MAIN] extractEnergyDevicesMetadata: Extracted ${deviceMap.size} devices with full TB metadata`);
+
+    // Classify devices into lojas vs equipments
+    classifyEnergyDevices();
+  }
+
+  /**
+   * RFC-0102: Classify extracted devices into lojas vs equipments
+   */
+  function classifyEnergyDevices() {
+    const lojas = [];
+    const equipments = [];
+    const all = [];
+
+    energyDevicesMetadata.forEach((device, entityId) => {
+      // Add to all list
+      all.push(device);
+
+      // Classify
+      if (isEquipment(device)) {
+        equipments.push(device);
+      } else {
+        lojas.push(device);
+      }
+    });
+
+    classifiedDevices = { lojas, equipments, all };
+
+    LogHelper.log(`[MAIN] classifyEnergyDevices: ${lojas.length} lojas, ${equipments.length} equipments, ${all.length} total`);
+
+    // Update lojasIngestionIds and equipmentsIngestionIds Sets
+    const lojasIds = lojas.map((d) => d.ingestionId).filter(Boolean);
+    const equipmentIds = equipments.map((d) => d.ingestionId).filter(Boolean);
+
+    lojasIngestionIds = new Set(lojasIds);
+    equipmentsIngestionIds = new Set(equipmentIds);
+
+    LogHelper.log(`[MAIN] Updated lojasIngestionIds (${lojasIngestionIds.size}) and equipmentsIngestionIds (${equipmentsIngestionIds.size})`);
+
+    // Dispatch event so other widgets know classification is ready
+    window.dispatchEvent(
+      new CustomEvent('myio:devices-classified', {
+        detail: {
+          lojasCount: lojas.length,
+          equipmentsCount: equipments.length,
+          totalCount: all.length,
+          lojasIngestionIds: lojasIds,
+          equipmentsIngestionIds: equipmentIds,
+          timestamp: Date.now(),
+        },
+      })
+    );
+    LogHelper.log('[MAIN] Dispatched myio:devices-classified');
+
+    // Recalculate totals now that we have classified devices
+    dispatchEnergySummaryIfReady('classifyEnergyDevices');
+  }
+
+  /**
+   * RFC-0102: Get all lojas devices with full TB metadata
+   * Merged with energyCache consumption data
+   */
+  function getLojasDevices() {
+    return classifiedDevices.lojas.map((device) => {
+      // Merge with energyCache consumption data if available
+      const cached = device.ingestionId ? energyCache.get(device.ingestionId) : null;
+      return {
+        ...device,
+        // From energyCache (API consumption data)
+        total_value: cached?.total_value ?? null,
+        customerId: cached?.customerId ?? null,
+        customerName: cached?.customerName ?? null,
+      };
+    });
+  }
+
+  /**
+   * RFC-0102: Get all equipment devices with full TB metadata
+   * Merged with energyCache consumption data
+   */
+  function getEquipmentDevices() {
+    return classifiedDevices.equipments.map((device) => {
+      const cached = device.ingestionId ? energyCache.get(device.ingestionId) : null;
+      return {
+        ...device,
+        total_value: cached?.total_value ?? null,
+        customerId: cached?.customerId ?? null,
+        customerName: cached?.customerName ?? null,
+      };
+    });
+  }
+
+  /**
+   * RFC-0102: Get all energy devices (lojas + equipments) with full TB metadata
+   */
+  function getAllEnergyDevices() {
+    return classifiedDevices.all.map((device) => {
+      const cached = device.ingestionId ? energyCache.get(device.ingestionId) : null;
+      return {
+        ...device,
+        total_value: cached?.total_value ?? null,
+        customerId: cached?.customerId ?? null,
+        customerName: cached?.customerName ?? null,
+      };
+    });
+  }
+
+  /**
+   * RFC-0102: Get a single device by entityId or ingestionId
+   */
+  function getEnergyDevice(id) {
+    // Try entityId first
+    if (energyDevicesMetadata.has(id)) {
+      const device = energyDevicesMetadata.get(id);
+      const cached = device.ingestionId ? energyCache.get(device.ingestionId) : null;
+      return { ...device, total_value: cached?.total_value ?? null };
+    }
+    // Try ingestionId
+    for (const device of energyDevicesMetadata.values()) {
+      if (device.ingestionId === id) {
+        const cached = energyCache.get(id);
+        return { ...device, total_value: cached?.total_value ?? null };
+      }
+    }
+    return null;
+  }
+
   /**
    * Widgets registram seus IDs válidos de água
    * @param {string} category - 'commonArea' ou 'stores'
@@ -3948,6 +4178,12 @@ const MyIOOrchestrator = (() => {
             entityName: device.entityName || device.entity_name || device.name || '',
             total_value: device.total_value || 0,
             timestamp: Date.now(),
+            // RFC-0102: Additional fields from API for STORES widget
+            slaveId: device.slaveId || null,
+            gatewayId: device.gatewayId || null,
+            assetId: device.assetId || null,
+            assetName: device.assetName || null, // Can be used as identifier proxy
+            identifier: device.identifier || device.assetName || null, // Explicit identifier if API provides
           };
 
           energyCache.set(device.id, cachedData);
@@ -4677,6 +4913,14 @@ const MyIOOrchestrator = (() => {
     registerEnergyDeviceIds,
     getEnergyValidIds,
 
+    // ===== RFC-0102: ENERGY DEVICES METADATA + CLASSIFICATION =====
+    extractEnergyDevicesMetadata,
+    getLojasDevices,
+    getEquipmentDevices,
+    getAllEnergyDevices,
+    getEnergyDevice,
+    isDevicesClassified: () => classifiedDevices.all.length > 0,
+
     // ===== RFC-0100: TEMPERATURE functions =====
     fetchTemperatureData,
     fetchTemperatureDayAverages,
@@ -4816,6 +5060,12 @@ function processEnergyDatasourcesFromTB() {
       })
     );
     LogHelper.log('[MAIN] Dispatched myio:energy-tb-data-ready');
+  }
+
+  // RFC-0102: Extract full TB metadata and classify devices (lojas vs equipments)
+  if (window.MyIOOrchestrator?.extractEnergyDevicesMetadata) {
+    window.MyIOOrchestrator.extractEnergyDevicesMetadata();
+    LogHelper.log('[MAIN] processEnergyDatasourcesFromTB: Called extractEnergyDevicesMetadata()');
   }
 }
 

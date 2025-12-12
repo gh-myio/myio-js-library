@@ -410,147 +410,12 @@ async function ensureAuthReady(maxMs = 6000, stepMs = 150) {
   return true;
 }
 
-/** ===================== TB INDEXES ===================== **/
-function buildTbAttrIndex() {
-  // RFC-0091: Extended to include deviceMapInstaneousPower, lastDisconnectTime, customerId, connectionStatus
-  const byTbId = new Map(); // tbId -> { slaveId, centralId, deviceType, centralName, lastConnectTime, lastActivityTime, ... }
-  const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
-
-  for (const row of rows) {
-    const key = String(row?.dataKey?.name || '').toLowerCase();
-    const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
-    const val = row?.data?.[0]?.[1];
-
-    if (!tbId || val == null) continue;
-    if (!byTbId.has(tbId))
-      byTbId.set(tbId, {
-        slaveId: null,
-        centralId: null,
-        deviceType: null,
-        deviceProfile: null,
-        centralName: null,
-        lastConnectTime: null,
-        lastActivityTime: null,
-        // RFC-0091: Added for proper deviceStatus calculation
-        lastDisconnectTime: null,
-        deviceMapInstaneousPower: null,
-        customerId: null,
-        connectionStatus: null,
-        consumption_power: null, // Instantaneous power
-      });
-
-    const slot = byTbId.get(tbId);
-
-    if (key === 'slaveid') slot.slaveId = val;
-    if (key === 'centralid') slot.centralId = val;
-    if (key === 'devicetype') slot.deviceType = val;
-    if (key === 'deviceprofile') slot.deviceProfile = val;
-    if (key === 'centralname') slot.centralName = val;
-    if (key === 'lastconnecttime') slot.lastConnectTime = val;
-    if (key === 'lastactivitytime') slot.lastActivityTime = val;
-    // RFC-0091: New attributes for proper deviceStatus calculation
-    if (key === 'lastdisconnecttime') slot.lastDisconnectTime = val;
-    if (key === 'devicemapinstaneouspower') slot.deviceMapInstaneousPower = val;
-    if (key === 'customerid') slot.customerId = val;
-    if (key === 'connectionstatus') slot.connectionStatus = val;
-    // RFC-0093: 'consumption' from ThingsBoard is renamed to 'consumption_power' (same as EQUIPMENTS)
-    if (key === 'consumption_power' || key === 'consumption') slot.consumption_power = val;
-  }
-  return byTbId;
-}
-function buildTbIdIndexes() {
-  const byIdentifier = new Map(); // identifier -> tbId
-  const byIngestion = new Map(); // ingestionId -> tbId
-
-  const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
-  for (const row of rows) {
-    const key = String(row?.dataKey?.name || '').toLowerCase();
-    const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
-    const val = row?.data?.[0]?.[1];
-
-    if (!tbId || val == null) continue;
-    if (key === 'identifier') byIdentifier.set(String(val), tbId);
-    if (key === 'ingestionid') byIngestion.set(String(val), tbId);
-  }
-  return { byIdentifier, byIngestion };
-}
+/** ===================== RFC-0102: REMOVED TB INDEXES ===================== **/
+// buildTbAttrIndex(), buildTbIdIndexes(), buildAuthoritativeItems() REMOVED
+// Data now comes from Orchestrator (MAIN already loads all devices from EQUIPMENTS)
+// No more ctx.data or ctx.datasources dependencies
 
 /** ===================== CORE: DATA PIPELINE ===================== **/
-function buildAuthoritativeItems() {
-  // items da LIB: [{ id: ingestionId, identifier, label }, ...]
-  const base = MyIO.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data) || [];
-  const ok = Array.isArray(base) ? base.filter((x) => x && x.id) : [];
-  const tbIdIdx = buildTbIdIndexes(); // { byIdentifier, byIngestion }
-  const attrsByTb = buildTbAttrIndex(); // tbId -> { slaveId, centralId, deviceType }
-
-  const mapped = ok.map((r) => {
-    const ingestionId = r.id;
-    const tbFromIngestion = ingestionId ? tbIdIdx.byIngestion.get(ingestionId) : null;
-    const tbFromIdentifier = r.identifier ? tbIdIdx.byIdentifier.get(r.identifier) : null;
-
-    let tbId = tbFromIngestion || tbFromIdentifier || null;
-    if (tbFromIngestion && tbFromIdentifier && tbFromIngestion !== tbFromIdentifier) {
-      tbId = tbFromIngestion;
-    }
-
-    const attrs = tbId ? attrsByTb.get(tbId) || {} : {};
-    const deviceProfile = attrs.deviceProfile || 'N/D';
-    let deviceTypeToDisplay = attrs.deviceType || '3F_MEDIDOR';
-
-    if (deviceTypeToDisplay === '3F_MEDIDOR' && deviceProfile !== 'N/D') {
-      deviceTypeToDisplay = deviceProfile;
-    }
-
-    // RFC-0093: Get customerId with fallback to global map or Orchestrator cache
-    let customerId = attrs.customerId ?? null;
-
-    // Fallback 1: Try global device-to-shopping map (populated by EQUIPMENTS)
-    if (!customerId && ingestionId && window.myioDeviceToShoppingMap) {
-      customerId = window.myioDeviceToShoppingMap.get(ingestionId) || null;
-    }
-
-    // Fallback 2: Try Orchestrator energy cache
-    if (!customerId && ingestionId && window.MyIOOrchestrator?.getEnergyCache) {
-      const energyCache = window.MyIOOrchestrator.getEnergyCache();
-      if (energyCache && energyCache.has(ingestionId)) {
-        customerId = energyCache.get(ingestionId).customerId || null;
-      }
-    }
-
-    // Populate global map for other widgets to use
-    if (ingestionId && customerId) {
-      if (!window.myioDeviceToShoppingMap) {
-        window.myioDeviceToShoppingMap = new Map();
-      }
-      window.myioDeviceToShoppingMap.set(ingestionId, customerId);
-    }
-
-    return {
-      id: tbId || ingestionId, // para seleção/toggle
-      tbId, // ThingsBoard deviceId (Settings)
-      ingestionId, // join key API (totals/Report)
-      identifier: r.identifier,
-      label: r.label,
-      slaveId: attrs.slaveId ?? null,
-      centralId: attrs.centralId ?? null,
-      centralName: attrs.centralName ?? null,
-      deviceType: deviceTypeToDisplay,
-      deviceProfile: deviceProfile, // RFC-0091: Added for Settings
-      updatedIdentifiers: {},
-      connectionStatusTime: attrs.lastConnectTime ?? null,
-      timeVal: attrs.lastActivityTime ?? null,
-      // RFC-0091: Added for proper deviceStatus calculation and Settings
-      lastDisconnectTime: attrs.lastDisconnectTime ?? null,
-      lastConnectTime: attrs.lastConnectTime ?? null,
-      deviceMapInstaneousPower: attrs.deviceMapInstaneousPower ?? null,
-      customerId: customerId, // RFC-0093: With fallback from global map or Orchestrator
-      connectionStatus: attrs.connectionStatus ?? 'offline',
-      consumption_power: attrs.consumption_power ?? null, // Instantaneous power
-    };
-  });
-
-  return mapped;
-}
 
 // RFC-0090: fetchApiTotals REMOVED - now using Orchestrator cache
 // The Orchestrator already fetches data once for all widgets,
@@ -766,8 +631,7 @@ async function renderList(visible) {
 
   listElement.innerHTML = '';
 
-  // 1. Carrega índices para garantir UUID do ThingsBoard
-  const idx = buildTbIdIndexes();
+  // RFC-0102: Removed buildTbIdIndexes() - data comes from orchestrator with tbId already set
 
   // RFC-0091: Process items with async deviceStatus calculation
   for (const it of visible) {
@@ -780,7 +644,7 @@ async function renderList(visible) {
     const rawConnectionStatus = it.connectionStatus || 'offline';
     const mappedConnectionStatus = mapConnectionStatus(rawConnectionStatus);
 
-    // ... (lógica de identifier mantida igual) ...
+    // Identifier display logic
     let deviceIdentifierToDisplay = 'N/A';
     if (it.identifier) {
       if (String(it.identifier).includes('Sem Identificador identificado')) {
@@ -806,14 +670,8 @@ async function renderList(visible) {
 
     const customerName = getCustomerNameForDevice(it);
 
-    // 2. Resolução Robusta do UUID (TB ID)
-    let resolvedTbId = it.tbId;
-    if (!resolvedTbId || !isValidUUID(resolvedTbId)) {
-      resolvedTbId =
-        (it.ingestionId && idx.byIngestion.get(it.ingestionId)) ||
-        (it.identifier && idx.byIdentifier.get(it.identifier)) ||
-        it.id;
-    }
+    // RFC-0102: Simplified tbId resolution - orchestrator already provides valid tbId
+    const resolvedTbId = it.tbId || it.id || it.ingestionId;
 
     const deviceType = it.label.includes('dministra') ? '3F_MEDIDOR' : it.deviceType;
 
@@ -1125,6 +983,11 @@ function getStoreConsumption(store) {
   return Number(store.value) || Number(store.consumption) || Number(store.val) || 0;
 }
 
+// Helper function to get store status (for filter tabs)
+function getStoreStatus(store) {
+  return (store.deviceStatus || '').toLowerCase();
+}
+
 // Filter modal instance (lazy initialized)
 let storesFilterModal = null;
 
@@ -1149,8 +1012,8 @@ function initFilterModal() {
     // Filter tabs configuration - specific for STORES (simpler than EQUIPMENTS)
     filterTabs: [
       { id: 'all', label: 'Todos', filter: () => true },
-      { id: 'online', label: 'Online', filter: (s) => getStoreConsumption(s) > 0 },
-      { id: 'offline', label: 'Offline', filter: (s) => getStoreConsumption(s) === 0 },
+      { id: 'online', label: 'Online', filter: (s) => !['offline', 'no_info'].includes(getStoreStatus(s)) },
+      { id: 'offline', label: 'Offline', filter: (s) => ['offline', 'no_info'].includes(getStoreStatus(s)) },
       { id: 'withConsumption', label: 'Com Consumo', filter: (s) => getStoreConsumption(s) > 0 },
       { id: 'noConsumption', label: 'Sem Consumo', filter: (s) => getStoreConsumption(s) === 0 },
     ],
@@ -1400,60 +1263,39 @@ function emitTelemetryUpdate() {
 }
 
 /**
- * Detecta tipo de widget baseado no datasource alias
- * RFC-0002: Added 'entrada' detection for water domain
+ * Detecta tipo de widget baseado no self.ctx.settings.labelWidget
+ * RFC-0102: Simplificado - não usa mais ctx.datasources
  * @returns {'lojas'|'areacomum'|'entrada'|null}
  */
 function detectWidgetType() {
   try {
-    LogHelper.log('🔍 [detectWidgetType] Iniciando detecção de tipo de widget...');
+    const labelWidget = (self.ctx.settings?.labelWidget || '').toString().toLowerCase().trim();
+    LogHelper.log(`🔍 [detectWidgetType] labelWidget from settings: "${labelWidget}"`);
 
-    const datasources = ctx.datasources || [];
-    LogHelper.log(`[detectWidgetType] Total de datasources detectados: ${datasources.length}`);
-
-    if (!datasources.length) {
-      LogHelper.warn('[detectWidgetType] Nenhum datasource encontrado em ctx.datasources!');
+    if (!labelWidget) {
+      LogHelper.warn('[detectWidgetType] ⚠️ labelWidget não definido em settings!');
       return null;
     }
 
-    // Percorrer todos os datasources
-    for (let i = 0; i < datasources.length; i++) {
-      const ds = datasources[i];
-      const alias = (ds.aliasName || '').toString().toLowerCase().trim();
-
-      LogHelper.log(`🔸 [detectWidgetType] Verificando datasource[${i}]`);
-      LogHelper.log(`    ↳ aliasName:     ${ds.aliasName || '(vazio)'}`);
-      LogHelper.log(`    ↳ entityName:    ${ds.entityName || '(vazio)'}`);
-      LogHelper.log(`    ↳ alias normalizado: "${alias}"`);
-
-      if (!alias) {
-        LogHelper.warn(`[detectWidgetType] ⚠️ Alias vazio ou indefinido no datasource[${i}].`);
-        continue;
-      }
-
-      // RFC-0002: Check for entrada (water domain)
-      // Use word boundary matching to avoid false positives like "bomba entrada"
-      if (/\bentrada\b/.test(alias) || alias === 'entrada' || alias.includes('entrada')) {
-        LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "entrada" (com base no alias "${alias}")`);
-        return 'entrada';
-      }
-
-      // Match "lojas" as standalone word or at end of alias
-      // AVOID false positives like "Bomba Lojas", "Subestação Lojas"
-      // ACCEPT: "lojas", "widget-lojas", "telemetry-lojas", "consumidores lojas"
-      if (/\blojas\b/.test(alias) && !/bomba|subesta|entrada|chiller|elevador|escada/i.test(alias)) {
-        LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "lojas" (com base no alias "${alias}")`);
-        return 'lojas';
-      }
-
-      // Match area comum with flexible separators
-      if (/\barea\s*comum\b/.test(alias) || alias.includes('areacomum') || alias.includes('area_comum')) {
-        LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "areacomum" (com base no alias "${alias}")`);
-        return 'areacomum';
-      }
+    // RFC-0002: Check for entrada (water domain)
+    if (/\bentrada\b/.test(labelWidget) || labelWidget === 'entrada' || labelWidget.includes('entrada')) {
+      LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "entrada"`);
+      return 'entrada';
     }
 
-    LogHelper.warn('[detectWidgetType] ⚠️ Nenhum tipo de widget correspondente encontrado.');
+    // Match "lojas"
+    if (/\blojas\b/.test(labelWidget) || labelWidget === 'lojas') {
+      LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "lojas"`);
+      return 'lojas';
+    }
+
+    // Match area comum
+    if (/\barea\s*comum\b/.test(labelWidget) || labelWidget.includes('areacomum') || labelWidget.includes('area_comum') || labelWidget.includes('área comum')) {
+      LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "areacomum"`);
+      return 'areacomum';
+    }
+
+    LogHelper.warn(`[detectWidgetType] ⚠️ labelWidget "${labelWidget}" não corresponde a nenhum tipo conhecido.`);
     return null;
   } catch (err) {
     LogHelper.error('[detectWidgetType] ❌ Erro durante detecção de tipo de widget:', err);
@@ -1859,44 +1701,108 @@ async function hydrateAndRender() {
       return;
     }
 
-    // 2) Lista autoritativa
-    STATE.itemsBase = buildAuthoritativeItems();
-
-    // 3) RFC-0090: Use Orchestrator cache instead of direct API fetch
-    // The Orchestrator already fetches data for all widgets, so we just use its cache
-    let apiMap = new Map();
+    // RFC-0102: Get LOJAS devices from Orchestrator with full TB metadata
+    // STORES no longer has its own datasources, data comes from MAIN which has TB datasource
     const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
 
-    if (orchestrator && typeof orchestrator.getCache === 'function') {
+    if (orchestrator && typeof orchestrator.getLojasDevices === 'function') {
+      // Use new getLojasDevices() which returns lojas with full TB metadata + API consumption data
+      const lojasDevices = orchestrator.getLojasDevices() || [];
+
+      if (lojasDevices.length > 0) {
+        // Convert orchestrator devices to itemsBase format
+        const mappedItems = lojasDevices.map((device) => {
+          // identifier from TB metadata, fallback to assetName or extract from name
+          const name = device.label || device.name || device.ingestionId;
+          let identifier = device.identifier || null;
+          if (!identifier && name) {
+            // Try to extract identifier from name pattern "3F XXXX. IDENTIFIER"
+            const match = name.match(/^3F\s+\w+\.\s*(.+)$/i);
+            identifier = match ? match[1] : null;
+          }
+
+          return {
+            id: device.entityId || device.tbId || device.ingestionId,
+            tbId: device.entityId || device.tbId || device.ingestionId,
+            ingestionId: device.ingestionId,
+            identifier: identifier,
+            label: name,
+            value: Number(device.total_value || 0),
+            perc: 0,
+            deviceType: device.deviceType || '3F_MEDIDOR',
+            slaveId: device.slaveId || null,
+            centralId: device.centralId || device.gatewayId || null,
+            centralName: device.centralName || device.ownerName || null,
+            customerId: device.customerId || null,
+            customerName: device.customerName || null,
+            // From TB metadata - now available!
+            connectionStatus: device.connectionStatus || 'online',
+            lastConnectTime: device.lastConnectTime || null,
+            lastDisconnectTime: device.lastDisconnectTime || null,
+            lastActivityTime: device.lastActivityTime || null,
+            deviceMapInstaneousPower: device.deviceMapInstaneousPower || null,
+            // TB consumption telemetry (instantaneous power)
+            consumption_power: device.consumption || null,
+            consumptionTimestamp: device.consumptionTimestamp || null,
+            deviceProfile: device.deviceProfile || '3F_MEDIDOR',
+            updatedIdentifiers: {},
+          };
+        });
+
+        STATE.itemsBase = mappedItems;
+        STATE.itemsEnriched = mappedItems;
+        LogHelper.log(`[STORES] RFC-0102: Using ${mappedItems.length} lojas devices from Orchestrator with full TB metadata`);
+      } else {
+        LogHelper.warn('[STORES] RFC-0102: No lojas devices from Orchestrator, waiting for classification...');
+        STATE.itemsBase = [];
+        STATE.itemsEnriched = [];
+      }
+    } else if (orchestrator && typeof orchestrator.getCache === 'function') {
+      // Fallback to old method if getLojasDevices not available
       const energyCache = orchestrator.getCache(WIDGET_DOMAIN);
+      const lojasIds = orchestrator.getLojasIngestionIds?.() || new Set();
+      const hasLojasFilter = lojasIds && lojasIds.size > 0;
+      LogHelper.log(`[STORES] RFC-0102 Fallback: using energyCache with lojas filter (${lojasIds.size} lojas)`);
+
       if (energyCache && energyCache.size > 0) {
-        // Convert cache to apiMap format expected by enrichItemsWithTotals
+        const mappedItems = [];
         energyCache.forEach((item, ingestionId) => {
-          apiMap.set(ingestionId, {
-            id: ingestionId,
-            total_value: item.total_value || item.value || 0,
-            ...item,
+          if (hasLojasFilter && !lojasIds.has(ingestionId)) return;
+
+          const name = item.name || item.label || ingestionId;
+          let identifier = item.identifier || item.assetName || null;
+          if (!identifier && name) {
+            const match = name.match(/^3F\s+\w+\.\s*(.+)$/i);
+            identifier = match ? match[1] : null;
+          }
+
+          mappedItems.push({
+            id: item.tbId || ingestionId,
+            tbId: item.tbId || ingestionId,
+            ingestionId: ingestionId,
+            identifier: identifier,
+            label: name,
+            value: Number(item.total_value || item.value || 0),
+            perc: 0,
+            deviceType: item.deviceType || '3F_MEDIDOR',
+            connectionStatus: item.connectionStatus || 'online',
+            deviceProfile: item.deviceProfile || '3F_MEDIDOR',
+            updatedIdentifiers: {},
           });
         });
-        LogHelper.log(`[STORES] Using ${apiMap.size} items from Orchestrator cache`);
+        STATE.itemsBase = mappedItems;
+        STATE.itemsEnriched = mappedItems;
+        LogHelper.log(`[STORES] RFC-0102 Fallback: ${mappedItems.length} items from energyCache`);
       } else {
         LogHelper.warn('[STORES] Orchestrator cache is empty, waiting for data...');
-        // RFC-0093: Show toast to reload page after a delay if still no data
-        setTimeout(() => {
-          if (apiMap.size === 0) {
-            const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
-            if (MyIOToast) {
-              MyIOToast.warning('Dados não carregados. Por favor, recarregue a página.', { duration: 8000 });
-            }
-          }
-        }, 5000); // Wait 5 seconds before showing toast
+        STATE.itemsBase = [];
+        STATE.itemsEnriched = [];
       }
     } else {
-      LogHelper.warn('[STORES] Orchestrator not available, data will come via provide-data event');
+      LogHelper.warn('[STORES] Orchestrator not available, waiting for provide-data event');
+      STATE.itemsBase = [];
+      STATE.itemsEnriched = [];
     }
-
-    // 4) Enrich + render
-    STATE.itemsEnriched = enrichItemsWithTotals(STATE.itemsBase, apiMap);
 
     // 5) Sanitiza seleção
     if (STATE.selectedIds && STATE.selectedIds.size) {
@@ -2231,86 +2137,70 @@ self.onInit = async function () {
     LogHelper.log(`[TELEMETRY] 🔄 Processing data from orchestrator...`);
     LogHelper.log(`[TELEMETRY] Received ${items.length} items from orchestrator for domain ${domain}`);
 
-    // Extract my datasource IDs
-    const myDatasourceIds = extractDatasourceIds(self.ctx.datasources);
+    // RFC-0102: Get lojas IDs to filter - STORES should only show lojas (3F_MEDIDOR)
+    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
+    const lojasIds = orchestrator?.getLojasIngestionIds?.() || new Set();
+    const hasLojasFilter = lojasIds && lojasIds.size > 0;
+    LogHelper.log(`[TELEMETRY] Lojas filter: ${hasLojasFilter ? lojasIds.size + ' lojas registered' : 'NO lojas registered - showing all devices'}`);
 
-    // RFC-0042: Filter items by datasource IDs
-    // ThingsBoard datasource entityId should match API item id (ingestionId)
-    const datasourceIdSet = new Set(myDatasourceIds);
-    let filtered = items.filter((item) => {
-      // Check if item.id (from API) matches any datasource entityId
-      return datasourceIdSet.has(item.id) || datasourceIdSet.has(item.tbId);
+    // RFC-0102: Filter and map items from orchestrator
+    const mappedItems = [];
+    items.forEach((item) => {
+      const ingestionId = item.ingestionId || item.id;
+
+      // Filter for lojas only (if lojasIds is populated)
+      if (hasLojasFilter && !lojasIds.has(ingestionId)) {
+        return; // Skip non-lojas devices
+      }
+
+      // RFC-0102: Use assetName as identifier (API provides it), fallback to extract from name
+      const name = item.name || item.label || ingestionId;
+      let identifier = item.identifier || item.assetName || null;
+      if (!identifier && name) {
+        const match = name.match(/^3F\s+\w+\.\s*(.+)$/i);
+        identifier = match ? match[1] : null;
+      }
+
+      mappedItems.push({
+        id: item.tbId || ingestionId,
+        tbId: item.tbId || ingestionId,
+        ingestionId: ingestionId,
+        identifier: identifier, // Use assetName or extracted, NOT name
+        label: name, // API name is the display label
+        value: Number(item.value || item.total_value || 0),
+        perc: 0,
+        deviceType: item.deviceType || '3F_MEDIDOR',
+        slaveId: item.slaveId || null,
+        centralId: item.centralId || item.gatewayId || null,
+        centralName: item.assetName || item.centralName || null,
+        customerId: item.customerId || null,
+        customerName: item.customerName || null,
+        connectionStatus: item.connectionStatus || 'online',
+        lastConnectTime: item.lastConnectTime || Date.now(),
+        lastDisconnectTime: item.lastDisconnectTime || null,
+        deviceMapInstaneousPower: item.deviceMapInstaneousPower || null,
+        consumption_power: item.consumption_power || item.instantaneousPower || null,
+        deviceProfile: item.deviceProfile || '3F_MEDIDOR',
+        updatedIdentifiers: {},
+      });
     });
-
-    LogHelper.log(
-      `[TELEMETRY] Filtered ${items.length} items down to ${filtered.length} items matching datasources`
-    );
-
-    // If no matches, log warning and use all items (temporary fallback)
-    if (filtered.length === 0) {
-      LogHelper.warn(`[TELEMETRY] No items match datasource IDs! Using all items as fallback.`);
-      LogHelper.warn(`[TELEMETRY] Sample datasource ID:`, myDatasourceIds[0]);
-      LogHelper.warn(`[TELEMETRY] Sample API item ID:`, items[0]?.id);
-      filtered = items;
-    }
-
-    // Convert orchestrator items to TELEMETRY widget format
-    filtered = filtered.map((item) => ({
-      id: item.tbId || item.id,
-      tbId: item.tbId || item.id,
-      ingestionId: item.ingestionId || item.id,
-      identifier: item.identifier || item.id,
-      label: item.label || item.identifier || item.id,
-      value: Number(item.value || 0),
-      perc: 0,
-      deviceType: item.deviceType || 'energy',
-      slaveId: item.slaveId || null,
-      centralId: item.centralId || null,
-      updatedIdentifiers: {},
-    }));
 
     // DEBUG: Log sample item with value
-    if (filtered.length > 0 && filtered[0].value > 0) {
+    if (mappedItems.length > 0 && mappedItems[0].value > 0) {
       LogHelper.log(`[TELEMETRY] 🔍 Sample orchestrator item after mapping:`, {
-        ingestionId: filtered[0].ingestionId,
-        label: filtered[0].label,
-        value: filtered[0].value,
+        ingestionId: mappedItems[0].ingestionId,
+        label: mappedItems[0].label,
+        value: mappedItems[0].value,
       });
     }
+    LogHelper.log(`[TELEMETRY] Using ${mappedItems.length} items from orchestrator (filtered from ${items.length} total)`);
 
-    LogHelper.log(`[TELEMETRY] Using ${filtered.length} items after processing`);
+    // RFC-0102: Use orchestrator items directly as both itemsBase and itemsEnriched
+    // No more merging with TB data - orchestrator is the single source of truth
+    STATE.itemsBase = mappedItems;
+    STATE.itemsEnriched = mappedItems;
 
-    // IMPORTANT: Merge orchestrator data with existing TB data
-    // Keep original labels/identifiers from TB, only update values from orchestrator
-    if (!STATE.itemsBase || STATE.itemsBase.length === 0) {
-      // First load: build from TB data
-      LogHelper.log(`[TELEMETRY] Building itemsBase from TB data...`);
-      STATE.itemsBase = buildAuthoritativeItems();
-      LogHelper.log(`[TELEMETRY] Built ${STATE.itemsBase.length} items from TB`);
-    }
-
-    // Create map of orchestrator values by ingestionId
-    const orchestratorValues = new Map();
-    filtered.forEach((item) => {
-      if (item.ingestionId) {
-        const value = Number(item.value || 0);
-        orchestratorValues.set(item.ingestionId, value);
-      }
-    });
-    LogHelper.log(`[TELEMETRY] Orchestrator values map size: ${orchestratorValues.size}`);
-
-    // Update values in existing items
-    STATE.itemsEnriched = STATE.itemsBase.map((tbItem) => {
-      const orchestratorValue = orchestratorValues.get(tbItem.ingestionId);
-
-      return {
-        ...tbItem,
-        value: orchestratorValue !== undefined ? orchestratorValue : tbItem.value || 0,
-        perc: 0,
-      };
-    });
-
-    LogHelper.log(`[TELEMETRY] Enriched ${STATE.itemsEnriched.length} items with orchestrator values`);
+    LogHelper.log(`[TELEMETRY] Set ${STATE.itemsEnriched.length} items from orchestrator`);
 
     // RFC-0056 FIX v1.1: Emit telemetry update after enrichment
     emitTelemetryUpdate();
@@ -2343,27 +2233,7 @@ self.onInit = async function () {
     }, 100); // Reduced to 100ms for faster response
   };
 
-  /**
-   * Extracts ingestionIds from ThingsBoard ctx.data (not datasource entityIds).
-   * Each device has 6 keys (slaveId, centralId, ingestionId, connectionStatus, deviceType, identifier).
-   * We need to extract the ingestionId values to match with API data.
-   */
-  function extractDatasourceIds(datasources) {
-    // Build index from ctx.data to get ingestionId for each device
-    const ingestionIds = new Set();
-    const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
-
-    for (const row of rows) {
-      const key = String(row?.dataKey?.name || '').toLowerCase();
-      const val = row?.data?.[0]?.[1];
-
-      if (key === 'ingestionid' && val && isValidUUID(String(val))) {
-        ingestionIds.add(String(val));
-      }
-    }
-
-    return Array.from(ingestionIds);
-  }
+  // RFC-0102: extractDatasourceIds() REMOVED - no more ctx.data dependencies
 
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
 
@@ -2456,26 +2326,10 @@ self.onInit = async function () {
   }
   // ------------------------------------------------------------
 
-  const hasData = Array.isArray(self.ctx.data) && self.ctx.data.length > 0;
-  // RFC-0042: Removed direct API fetch - now using orchestrator
-  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] onInit - Waiting for orchestrator data...`);
+  // RFC-0102: No more ctx.data dependencies - data comes from orchestrator
+  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] onInit - Waiting for orchestrator data via provide-data event...`);
 
-  // Build initial itemsBase from ThingsBoard data
-  if (hasData && (!STATE.itemsBase || STATE.itemsBase.length === 0)) {
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Building itemsBase from TB data in onInit...`);
-    STATE.itemsBase = buildAuthoritativeItems();
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Built ${STATE.itemsBase.length} items from TB`);
-
-    // Initial render with zero values (will be updated by orchestrator)
-    STATE.itemsEnriched = STATE.itemsBase.map((item) => ({
-      ...item,
-      value: 0,
-      perc: 0,
-    }));
-    reflowFromState();
-  }
-
-  // Only show busy if we have a date range defined
+  // Show busy if we have a date range defined
   if (self.ctx?.scope?.startDateISO && self.ctx?.scope?.endDateISO) {
     LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Initial period defined, showing busy...`);
     showBusy();
@@ -2483,21 +2337,10 @@ self.onInit = async function () {
     LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] No initial period, waiting for myio:update-date event...`);
   }
 
-  // RFC-0042: OLD CODE - Direct API fetch (now handled by orchestrator)
-  if (hasData) {
-    STATE.firstHydrates++;
-    if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) {
-      await hydrateAndRender();
-    }
-  } else {
-    // Aguardar datasource chegar
-    const waiter = setInterval(async () => {
-      if (Array.isArray(self.ctx.data) && self.ctx.data.length > 0) {
-        clearInterval(waiter);
-        STATE.firstHydrates++;
-        if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) await hydrateAndRender();
-      }
-    }, 200);
+  // RFC-0102: Try to get initial data from orchestrator cache (if EQUIPMENTS already loaded)
+  STATE.firstHydrates++;
+  if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) {
+    await hydrateAndRender();
   }
 };
 
