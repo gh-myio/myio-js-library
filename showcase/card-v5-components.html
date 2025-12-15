@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card V5 Components - MYIO JS Library Showcase</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-900);
+            color: var(--gray-100);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #00e09e, #00b4d8);
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header p {
+            margin-top: 8px;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: var(--gray-800);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--gray-100);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-desc {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        /* Domain tabs */
+        .domain-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .domain-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--gray-700);
+        }
+
+        .domain-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .domain-icon.energy { background: rgba(59, 130, 246, 0.2); }
+        .domain-icon.water { background: rgba(34, 197, 94, 0.2); }
+        .domain-icon.temperature { background: rgba(249, 115, 22, 0.2); }
+
+        .domain-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .domain-title.energy { color: #60a5fa; }
+        .domain-title.water { color: #4ade80; }
+        .domain-title.temperature { color: #fb923c; }
+
+        /* Cards grid */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .card-wrapper {
+            min-height: 180px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .control-panel {
+            background: var(--gray-700);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .control-panel h3 {
+            font-size: 14px;
+            color: var(--gray-400);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .control-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .control-group label {
+            font-size: 12px;
+            color: var(--gray-400);
+        }
+
+        .control-group select, .control-group input {
+            padding: 8px 12px;
+            border: 1px solid var(--gray-600);
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 150px;
+            background: var(--gray-800);
+            color: var(--gray-100);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        .btn-primary {
+            background: #00e09e;
+            color: #1f2937;
+        }
+
+        .btn-primary:hover { background: #00c78a; }
+
+        .btn-secondary {
+            background: var(--gray-600);
+            color: var(--gray-100);
+        }
+
+        .btn-secondary:hover { background: var(--gray-500); }
+
+        .btn-energy {
+            background: #3b82f6;
+            color: white;
+        }
+        .btn-energy:hover { background: #2563eb; }
+
+        .btn-water {
+            background: #22c55e;
+            color: white;
+        }
+        .btn-water:hover { background: #16a34a; }
+
+        .btn-temperature {
+            background: #f97316;
+            color: white;
+        }
+        .btn-temperature:hover { background: #ea580c; }
+
+        .event-log {
+            background: var(--gray-900);
+            color: #86efac;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--gray-700);
+        }
+
+        .event-log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .code-example {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            border: 1px solid var(--gray-700);
+        }
+
+        .code-example .comment { color: #6b7280; }
+        .code-example .keyword { color: #c084fc; }
+        .code-example .string { color: #86efac; }
+        .code-example .function { color: #60a5fa; }
+        .code-example .number { color: #fbbf24; }
+
+        .status-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--gray-700);
+            border-radius: 8px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--gray-300);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .status-dot.power_on { background: #3b82f6; }
+        .status-dot.standby { background: #22c55e; }
+        .status-dot.warning { background: #f59e0b; }
+        .status-dot.failure { background: #ef4444; }
+        .status-dot.offline { background: #6b7280; }
+
+        .comparison-note {
+            background: rgba(0, 224, 158, 0.1);
+            border: 1px solid rgba(0, 224, 158, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #86efac;
+        }
+
+        .version-badge {
+            display: inline-block;
+            background: rgba(0, 224, 158, 0.2);
+            color: #00e09e;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 12px;
+        }
+    </style>
+    <script src="../dist/myio-js-library.umd.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / Card V5 Components
+            </div>
+            <h1>
+                renderCardComponentV5
+                <span class="version-badge">v5.2.0</span>
+            </h1>
+            <p>Card component otimizado para Shopping Dashboard com TempRangeTooltip integrado</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="comparison-note">
+            <strong>Diferenças do V5:</strong> Layout otimizado, min-height reduzido (114px),
+            TempRangeTooltip rico para sensores de temperatura (hover na imagem),
+            piano-keys laterais sem icone de info.
+        </div>
+
+        <!-- Temperature Cards Section -->
+        <section class="section">
+            <div class="domain-header">
+                <div class="domain-icon temperature">🌡️</div>
+                <h2 class="domain-title temperature">Temperature Domain - TERMOSTATO</h2>
+            </div>
+
+            <div class="control-panel">
+                <h3>Controles de Temperatura (com TempRangeTooltip)</h3>
+                <div class="control-row">
+                    <div class="control-group">
+                        <label>Temperatura (°C)</label>
+                        <input type="number" id="tempValue" value="24.5" step="0.1">
+                    </div>
+                    <div class="control-group">
+                        <label>Temp Min (°C)</label>
+                        <input type="number" id="tempMin" value="20" step="0.5">
+                    </div>
+                    <div class="control-group">
+                        <label>Temp Max (°C)</label>
+                        <input type="number" id="tempMax" value="26" step="0.5">
+                    </div>
+                    <div class="control-group">
+                        <label>Status</label>
+                        <select id="tempStatus">
+                            <option value="power_on">Em Operacao</option>
+                            <option value="standby">Standby</option>
+                            <option value="warning">Alerta</option>
+                            <option value="failure">Falha</option>
+                            <option value="offline">Offline</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-temperature" onclick="updateTempCards()">Atualizar</button>
+                </div>
+                <div style="margin-top: 12px; font-size: 12px; color: var(--gray-400);">
+                    <strong>Passe o mouse sobre a imagem do termostato para ver o TempRangeTooltip!</strong>
+                </div>
+            </div>
+
+            <div class="cards-grid" id="tempCardsGrid"></div>
+        </section>
+
+        <!-- Energy Cards Section -->
+        <section class="section">
+            <div class="domain-header">
+                <div class="domain-icon energy">⚡</div>
+                <h2 class="domain-title energy">Energy Domain</h2>
+            </div>
+
+            <div class="control-panel">
+                <div class="control-row">
+                    <div class="control-group">
+                        <label>Consumo (kWh)</label>
+                        <input type="number" id="energyValue" value="156.8" step="0.1">
+                    </div>
+                    <div class="control-group">
+                        <label>Percentual (%)</label>
+                        <input type="number" id="energyPerc" value="75" step="1" min="0" max="100">
+                    </div>
+                    <div class="control-group">
+                        <label>Status</label>
+                        <select id="energyStatus">
+                            <option value="power_on">Power On</option>
+                            <option value="standby">Standby</option>
+                            <option value="warning">Warning</option>
+                            <option value="failure">Failure</option>
+                            <option value="offline">Offline</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-energy" onclick="updateEnergyCards()">Atualizar</button>
+                </div>
+            </div>
+
+            <div class="cards-grid" id="energyCardsGrid"></div>
+        </section>
+
+        <!-- Water Cards Section -->
+        <section class="section">
+            <div class="domain-header">
+                <div class="domain-icon water">💧</div>
+                <h2 class="domain-title water">Water Domain - TANK</h2>
+            </div>
+
+            <div class="control-panel">
+                <div class="control-row">
+                    <div class="control-group">
+                        <label>Volume (L)</label>
+                        <input type="number" id="waterValue" value="4500" step="100">
+                    </div>
+                    <div class="control-group">
+                        <label>Nivel (0-1)</label>
+                        <input type="number" id="waterLevel" value="0.75" step="0.05" min="0" max="1">
+                    </div>
+                    <div class="control-group">
+                        <label>Status</label>
+                        <select id="waterStatus">
+                            <option value="power_on">Em Operacao</option>
+                            <option value="standby">Standby</option>
+                            <option value="warning">Alerta</option>
+                            <option value="failure">Falha</option>
+                            <option value="offline">Offline</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-water" onclick="updateWaterCards()">Atualizar</button>
+                </div>
+            </div>
+
+            <div class="cards-grid" id="waterCardsGrid"></div>
+        </section>
+
+        <!-- Event Log -->
+        <section class="section">
+            <div class="event-log-header">
+                <h2>Event Log</h2>
+                <button class="btn btn-sm btn-secondary" onclick="clearLog()">Limpar</button>
+            </div>
+            <div class="event-log" id="eventLog">Aguardando eventos...\n</div>
+
+            <div class="status-legend">
+                <div class="status-item"><span class="status-dot power_on"></span> Power On</div>
+                <div class="status-item"><span class="status-dot standby"></span> Standby</div>
+                <div class="status-item"><span class="status-dot warning"></span> Warning</div>
+                <div class="status-item"><span class="status-dot failure"></span> Failure</div>
+                <div class="status-item"><span class="status-dot offline"></span> Offline</div>
+            </div>
+        </section>
+
+        <!-- Code Examples -->
+        <section class="section">
+            <h2>Exemplo de Uso - renderCardComponentV5</h2>
+
+            <h3 style="color: #fb923c; margin: 16px 0 8px;">Temperature (TERMOSTATO) com TempRangeTooltip</h3>
+            <div class="code-example">
+<span class="keyword">import</span> { renderCardComponentV5 } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="comment">// entityObject contém TODOS os dados, incluindo entityId e labelOrName</span>
+<span class="keyword">const</span> entityObject = {
+    entityId: <span class="string">'termo-001'</span>,
+    labelOrName: <span class="string">'Sensor Loja 01'</span>,
+    val: <span class="number">24.5</span>,
+    deviceType: <span class="string">'TERMOSTATO'</span>,
+    deviceIdentifier: <span class="string">'TERMO-001'</span>,
+    customerName: <span class="string">'Shopping ABC'</span>,
+    deviceStatus: <span class="string">'power_on'</span>,
+    temperatureMin: <span class="number">20</span>,        <span class="comment">// Faixa ideal min</span>
+    temperatureMax: <span class="number">26</span>         <span class="comment">// Faixa ideal max</span>
+};
+
+<span class="keyword">const</span> [cardElement, cardEntity] = <span class="function">renderCardComponentV5</span>({
+    entityObject,
+    handleClickCard: (entity) => console.log(<span class="string">'Clicked:'</span>, entity),
+    handleActionDashboard: (entity) => console.log(<span class="string">'Dashboard:'</span>, entity),
+    handleActionReport: (entity) => console.log(<span class="string">'Report:'</span>, entity),
+    handleActionSettings: (entity) => console.log(<span class="string">'Settings:'</span>, entity),
+    enableSelection: <span class="keyword">true</span>,
+    enableDragDrop: <span class="keyword">false</span>
+});
+
+<span class="comment">// Append o elemento retornado ao container</span>
+document.getElementById(<span class="string">'card-container'</span>).appendChild(cardElement);
+
+<span class="comment">// O TempRangeTooltip e automaticamente vinculado ao hover na imagem!</span>
+            </div>
+        </section>
+
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="index.html" class="btn btn-primary">← Voltar ao Portal</a>
+            <a href="card-components.html" class="btn btn-secondary" style="margin-left: 12px;">Ver Head Office Cards</a>
+        </div>
+    </div>
+
+    <script>
+        const { renderCardComponentV5 } = MyIOLibrary;
+
+        const cardInstances = {
+            energy: [],
+            water: [],
+            temperature: []
+        };
+
+        const eventLog = document.getElementById('eventLog');
+
+        function log(message, domain = '') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = domain ? `[${domain.toUpperCase()}]` : '';
+            eventLog.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            eventLog.scrollTop = eventLog.scrollHeight;
+        }
+
+        window.clearLog = function() {
+            eventLog.textContent = '';
+        };
+
+        // =====================
+        // TEMPERATURE CARDS (TERMOSTATO)
+        // entityObject must have entityId and labelOrName
+        // =====================
+        const tempEntityObjects = [
+            {
+                entityId: 'termo-001',
+                labelOrName: 'Sensor Loja 01',
+                val: 18.0,
+                deviceType: 'TERMOSTATO',
+                deviceIdentifier: 'TERMO-001',
+                customerName: 'Loja Magazine',
+                deviceStatus: 'power_on',
+                temperatureMin: 20,
+                temperatureMax: 26
+            },
+            {
+                entityId: 'termo-002',
+                labelOrName: 'Sensor Praca Alimentacao',
+                val: 23.0,
+                deviceType: 'TERMOSTATO',
+                deviceIdentifier: 'TERMO-002',
+                customerName: 'Administracao',
+                deviceStatus: 'power_on',
+                temperatureMin: 20,
+                temperatureMax: 26
+            },
+            {
+                entityId: 'termo-003',
+                labelOrName: 'Sensor Deposito',
+                val: 28.5,
+                deviceType: 'TERMOSTATO',
+                deviceIdentifier: 'TERMO-003',
+                customerName: 'Logistica',
+                deviceStatus: 'warning',
+                temperatureMin: 20,
+                temperatureMax: 26
+            }
+        ];
+
+        function initTempCards() {
+            const grid = document.getElementById('tempCardsGrid');
+            grid.innerHTML = '';
+
+            tempEntityObjects.forEach((entityObj, idx) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'card-wrapper';
+                grid.appendChild(wrapper);
+
+                const instance = renderCardComponentV5({
+                    entityObject: { ...entityObj },
+                    handleActionDashboard: (entity) => log(`Dashboard: ${entity.name}`, 'temperature'),
+                    handleActionReport: (entity) => log(`Report: ${entity.name}`, 'temperature'),
+                    handleActionSettings: (entity) => log(`Settings: ${entity.name}`, 'temperature'),
+                    handleSelect: (checked, entity) => log(`Select ${checked ? 'ON' : 'OFF'}: ${entity.name}`, 'temperature'),
+                    handleClickCard: (entity) => log(`Click: ${entity.name}`, 'temperature'),
+                    enableSelection: true,
+                    enableDragDrop: false
+                });
+
+                // Append the returned element to wrapper
+                if (instance && instance[0]) {
+                    wrapper.appendChild(instance[0]);
+                }
+
+                cardInstances.temperature.push({ instance, entityObject: entityObj });
+            });
+
+            log('Temperature cards initialized (hover sobre imagem para TempRangeTooltip)', 'temperature');
+        }
+
+        window.updateTempCards = function() {
+            const val = parseFloat(document.getElementById('tempValue').value) || 0;
+            const tempMin = parseFloat(document.getElementById('tempMin').value) || 20;
+            const tempMax = parseFloat(document.getElementById('tempMax').value) || 26;
+            const status = document.getElementById('tempStatus').value;
+
+            // Determine range status for log
+            let rangeStatus = 'OK (verde)';
+            if (val < tempMin) rangeStatus = 'FRIO (azul)';
+            else if (val > tempMax) rangeStatus = 'QUENTE (vermelho)';
+
+            // Re-render cards with new values
+            const grid = document.getElementById('tempCardsGrid');
+            grid.innerHTML = '';
+            cardInstances.temperature = [];
+
+            tempEntityObjects.forEach((entityObj, idx) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'card-wrapper';
+                grid.appendChild(wrapper);
+
+                const updatedEntityObject = {
+                    ...entityObj,
+                    val: val,
+                    deviceStatus: status,
+                    temperatureMin: tempMin,
+                    temperatureMax: tempMax
+                };
+
+                const instance = renderCardComponentV5({
+                    entityObject: updatedEntityObject,
+                    handleActionDashboard: (entity) => log(`Dashboard: ${entity.name}`, 'temperature'),
+                    handleActionReport: (entity) => log(`Report: ${entity.name}`, 'temperature'),
+                    handleActionSettings: (entity) => log(`Settings: ${entity.name}`, 'temperature'),
+                    handleSelect: (checked, entity) => log(`Select ${checked ? 'ON' : 'OFF'}: ${entity.name}`, 'temperature'),
+                    handleClickCard: (entity) => log(`Click: ${entity.name}`, 'temperature'),
+                    enableSelection: true,
+                    enableDragDrop: false
+                });
+
+                if (instance && instance[0]) {
+                    wrapper.appendChild(instance[0]);
+                }
+
+                cardInstances.temperature.push({ instance, entityObject: updatedEntityObject });
+            });
+
+            log(`Updated: ${val}°C (faixa ${tempMin}-${tempMax}°C) → ${rangeStatus}, ${status}`, 'temperature');
+        };
+
+        // =====================
+        // ENERGY CARDS
+        // =====================
+        const energyEntityObjects = [
+            {
+                entityId: 'elv-001',
+                labelOrName: 'Elevador Social',
+                val: 156.8,
+                perc: 78,
+                deviceType: 'ELEVADOR',
+                deviceIdentifier: 'ELV-001',
+                customerName: 'Shopping ABC',
+                deviceStatus: 'power_on'
+            },
+            {
+                entityId: 'ac-001',
+                labelOrName: 'Ar Condicionado',
+                val: 89.2,
+                perc: 45,
+                deviceType: 'AR_CONDICIONADO',
+                deviceIdentifier: 'AC-001',
+                customerName: 'Shopping ABC',
+                deviceStatus: 'standby'
+            },
+            {
+                entityId: 'ilu-001',
+                labelOrName: 'Iluminacao',
+                val: 45.6,
+                perc: 92,
+                deviceType: 'ILUMINACAO',
+                deviceIdentifier: 'ILU-001',
+                customerName: 'Shopping XYZ',
+                deviceStatus: 'warning'
+            }
+        ];
+
+        function initEnergyCards() {
+            const grid = document.getElementById('energyCardsGrid');
+            grid.innerHTML = '';
+
+            energyEntityObjects.forEach((entityObj) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'card-wrapper';
+                grid.appendChild(wrapper);
+
+                const instance = renderCardComponentV5({
+                    entityObject: { ...entityObj },
+                    handleActionDashboard: (entity) => log(`Dashboard: ${entity.name}`, 'energy'),
+                    handleActionReport: (entity) => log(`Report: ${entity.name}`, 'energy'),
+                    handleActionSettings: (entity) => log(`Settings: ${entity.name}`, 'energy'),
+                    handleSelect: (checked, entity) => log(`Select ${checked ? 'ON' : 'OFF'}: ${entity.name}`, 'energy'),
+                    handleClickCard: (entity) => log(`Click: ${entity.name}`, 'energy'),
+                    enableSelection: true,
+                    enableDragDrop: true
+                });
+
+                if (instance && instance[0]) {
+                    wrapper.appendChild(instance[0]);
+                }
+
+                cardInstances.energy.push({ instance, entityObject: entityObj });
+            });
+
+            log('Energy cards initialized', 'energy');
+        }
+
+        window.updateEnergyCards = function() {
+            const val = parseFloat(document.getElementById('energyValue').value) || 0;
+            const perc = parseFloat(document.getElementById('energyPerc').value) || 0;
+            const status = document.getElementById('energyStatus').value;
+
+            // Re-render cards
+            const grid = document.getElementById('energyCardsGrid');
+            grid.innerHTML = '';
+            cardInstances.energy = [];
+
+            energyEntityObjects.forEach((entityObj) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'card-wrapper';
+                grid.appendChild(wrapper);
+
+                const updatedEntityObject = {
+                    ...entityObj,
+                    val: val,
+                    perc: perc,
+                    deviceStatus: status
+                };
+
+                const instance = renderCardComponentV5({
+                    entityObject: updatedEntityObject,
+                    handleActionDashboard: (entity) => log(`Dashboard: ${entity.name}`, 'energy'),
+                    handleActionReport: (entity) => log(`Report: ${entity.name}`, 'energy'),
+                    handleActionSettings: (entity) => log(`Settings: ${entity.name}`, 'energy'),
+                    handleSelect: (checked, entity) => log(`Select ${checked ? 'ON' : 'OFF'}: ${entity.name}`, 'energy'),
+                    handleClickCard: (entity) => log(`Click: ${entity.name}`, 'energy'),
+                    enableSelection: true,
+                    enableDragDrop: true
+                });
+
+                if (instance && instance[0]) {
+                    wrapper.appendChild(instance[0]);
+                }
+
+                cardInstances.energy.push({ instance, entityObject: updatedEntityObject });
+            });
+
+            log(`Updated: ${val} kWh, ${perc}%, ${status}`, 'energy');
+        };
+
+        // =====================
+        // WATER CARDS (TANK)
+        // =====================
+        const waterEntityObjects = [
+            {
+                entityId: 'tank-001',
+                labelOrName: 'Caixa Dagua Principal',
+                val: 4500,
+                waterPercentage: 0.90,
+                deviceType: 'TANK',
+                deviceIdentifier: 'TANK-001',
+                customerName: 'Shopping ABC',
+                deviceStatus: 'power_on'
+            },
+            {
+                entityId: 'tank-002',
+                labelOrName: 'Reservatorio Inferior',
+                val: 2800,
+                waterPercentage: 0.56,
+                deviceType: 'CAIXA_DAGUA',
+                deviceIdentifier: 'TANK-002',
+                customerName: 'Shopping ABC',
+                deviceStatus: 'standby'
+            },
+            {
+                entityId: 'tank-003',
+                labelOrName: 'Cisterna',
+                val: 1200,
+                waterPercentage: 0.24,
+                deviceType: 'TANK',
+                deviceIdentifier: 'TANK-003',
+                customerName: 'Shopping XYZ',
+                deviceStatus: 'warning'
+            }
+        ];
+
+        function initWaterCards() {
+            const grid = document.getElementById('waterCardsGrid');
+            grid.innerHTML = '';
+
+            waterEntityObjects.forEach((entityObj) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'card-wrapper';
+                grid.appendChild(wrapper);
+
+                const instance = renderCardComponentV5({
+                    entityObject: { ...entityObj },
+                    handleActionDashboard: (entity) => log(`Dashboard: ${entity.name}`, 'water'),
+                    handleActionReport: (entity) => log(`Report: ${entity.name}`, 'water'),
+                    handleActionSettings: (entity) => log(`Settings: ${entity.name}`, 'water'),
+                    handleSelect: (checked, entity) => log(`Select ${checked ? 'ON' : 'OFF'}: ${entity.name}`, 'water'),
+                    handleClickCard: (entity) => log(`Click: ${entity.name}`, 'water'),
+                    enableSelection: true,
+                    enableDragDrop: true
+                });
+
+                if (instance && instance[0]) {
+                    wrapper.appendChild(instance[0]);
+                }
+
+                cardInstances.water.push({ instance, entityObject: entityObj });
+            });
+
+            log('Water cards initialized', 'water');
+        }
+
+        window.updateWaterCards = function() {
+            const val = parseFloat(document.getElementById('waterValue').value) || 0;
+            const level = parseFloat(document.getElementById('waterLevel').value) || 0;
+            const status = document.getElementById('waterStatus').value;
+
+            // Re-render cards
+            const grid = document.getElementById('waterCardsGrid');
+            grid.innerHTML = '';
+            cardInstances.water = [];
+
+            waterEntityObjects.forEach((entityObj) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'card-wrapper';
+                grid.appendChild(wrapper);
+
+                const updatedEntityObject = {
+                    ...entityObj,
+                    val: val,
+                    waterPercentage: level,
+                    deviceStatus: status
+                };
+
+                const instance = renderCardComponentV5({
+                    entityObject: updatedEntityObject,
+                    handleActionDashboard: (entity) => log(`Dashboard: ${entity.name}`, 'water'),
+                    handleActionReport: (entity) => log(`Report: ${entity.name}`, 'water'),
+                    handleActionSettings: (entity) => log(`Settings: ${entity.name}`, 'water'),
+                    handleSelect: (checked, entity) => log(`Select ${checked ? 'ON' : 'OFF'}: ${entity.name}`, 'water'),
+                    handleClickCard: (entity) => log(`Click: ${entity.name}`, 'water'),
+                    enableSelection: true,
+                    enableDragDrop: true
+                });
+
+                if (instance && instance[0]) {
+                    wrapper.appendChild(instance[0]);
+                }
+
+                cardInstances.water.push({ instance, entityObject: updatedEntityObject });
+            });
+
+            log(`Updated: ${val}L, nivel ${(level * 100).toFixed(0)}%, ${status}`, 'water');
+        };
+
+        // Initialize all cards on load
+        document.addEventListener('DOMContentLoaded', () => {
+            initTempCards();
+            initEnergyCards();
+            initWaterCards();
+            log('All V5 cards initialized successfully!');
+        });
+    </script>
+</body>
+</html>

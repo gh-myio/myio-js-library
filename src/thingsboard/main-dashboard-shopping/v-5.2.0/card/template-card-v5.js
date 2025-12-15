@@ -29,6 +29,8 @@ import {
   getDeviceStatusIcon,
   getConnectionStatusIcon
 } from '../../../../utils/deviceStatus.js';
+import { TempRangeTooltip } from '../../../../utils/TempRangeTooltip';
+import { EnergyRangeTooltip } from '../../../../utils/EnergyRangeTooltip';
 
 // ============================================
 // CONSTANTS
@@ -574,6 +576,7 @@ export function renderCardComponentV5({
   // For other devices, perc is already 0-100
   const isTankDevice = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
   const isTermostatoDevice = deviceType?.toUpperCase() === 'TERMOSTATO';
+  const isEnergyDeviceFlag = isEnergyDevice(deviceType);
   const percentageForDisplay = isTankDevice ? (waterPercentage || 0) * 100 : perc;
 
   // Calculate temperature status for TERMOSTATO devices
@@ -599,34 +602,7 @@ export function renderCardComponentV5({
     isOffline
   });
 
-  // Generate temperature tooltip text for TERMOSTATO devices
-  const getTemperatureTooltip = () => {
-    if (!isTermostatoDevice) return '';
-
-    const currentTemp = Number(val) || 0;
-    const hasRange = temperatureMin !== undefined && temperatureMax !== undefined &&
-                     temperatureMin !== null && temperatureMax !== null;
-
-    if (isOffline) {
-      return 'Dispositivo offline';
-    }
-
-    if (!hasRange) {
-      return `Temperatura atual: ${currentTemp.toFixed(1)}°C\nFaixa não configurada`;
-    }
-
-    const rangeText = `Faixa ideal: ${temperatureMin}°C a ${temperatureMax}°C`;
-
-    if (tempStatus === 'above') {
-      return `ACIMA da faixa ideal\nTemperatura atual: ${currentTemp.toFixed(1)}°C\n${rangeText}`;
-    } else if (tempStatus === 'below') {
-      return `ABAIXO da faixa ideal\nTemperatura atual: ${currentTemp.toFixed(1)}°C\n${rangeText}`;
-    } else {
-      return `DENTRO da faixa ideal\nTemperatura atual: ${currentTemp.toFixed(1)}°C\n${rangeText}`;
-    }
-  };
-
-  const temperatureTooltip = getTemperatureTooltip();
+  // Temperature tooltip is now handled by TempRangeTooltip (attached after render)
 
   // Create card HTML with optimized spacing
   const cardHTML = `
@@ -656,7 +632,7 @@ export function renderCardComponentV5({
                 ` : ''}
               </div>
 
-              <img class="device-image" src="${deviceImageUrl}" alt="${deviceType}" ${isTermostatoDevice && temperatureTooltip ? `title="${temperatureTooltip}"` : ''} style="${isTermostatoDevice ? 'cursor: help;' : ''}" />
+              <img class="device-image ${isTermostatoDevice ? 'temp-tooltip-trigger' : ''}${isEnergyDeviceFlag ? ' energy-tooltip-trigger' : ''}" src="${deviceImageUrl}" alt="${deviceType}" style="${isTermostatoDevice || isEnergyDeviceFlag ? 'cursor: help;' : ''}" />
 
 
               ${(customerName && String(customerName).trim() !== '') ? `
@@ -1258,6 +1234,41 @@ export function renderCardComponentV5({
       }
     });
   }
+
+  // Attach TempRangeTooltip for TERMOSTATO devices
+  const tempTooltipTrigger = enhancedCardElement.querySelector('.temp-tooltip-trigger');
+  let tempTooltipCleanup = null;
+  if (tempTooltipTrigger && isTermostatoDevice) {
+    // Build entity data for tooltip
+    const tooltipEntityData = {
+      val: val,
+      temperatureMin: temperatureMin,
+      temperatureMax: temperatureMax,
+      labelOrName: cardEntity.name,
+      name: cardEntity.name
+    };
+    tempTooltipCleanup = TempRangeTooltip.attach(tempTooltipTrigger, tooltipEntityData);
+  }
+
+  // Attach EnergyRangeTooltip for energy devices
+  const energyTooltipTrigger = enhancedCardElement.querySelector('.energy-tooltip-trigger');
+  let energyTooltipCleanup = null;
+  if (energyTooltipTrigger && isEnergyDeviceFlag) {
+    // Build entity data for energy tooltip
+    const energyTooltipData = {
+      labelOrName: cardEntity.name,
+      name: cardEntity.name,
+      instantaneousPower: entityObject.instantaneousPower ?? entityObject.consumption_power ?? val,
+      powerRanges: entityObject.powerRanges || entityObject.ranges
+    };
+    energyTooltipCleanup = EnergyRangeTooltip.attach(energyTooltipTrigger, energyTooltipData);
+  }
+
+  // Store cleanup function for tooltips
+  container._cleanup = () => {
+    if (tempTooltipCleanup) tempTooltipCleanup();
+    if (energyTooltipCleanup) energyTooltipCleanup();
+  };
 
   // Return jQuery-like object for compatibility
   const jQueryLikeObject = {

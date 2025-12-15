@@ -42,6 +42,32 @@ Object.assign(window.MyIOUtils, {
     DEBUG_ACTIVE = !!active;
     console.log(`[MyIOUtils] Debug mode ${DEBUG_ACTIVE ? 'enabled' : 'disabled'}`);
   },
+  // Temperature domain: global min/max temperature limits (populated by onDataUpdated)
+  temperatureLimits: {
+    minTemperature: null,
+    maxTemperature: null,
+  },
+  /**
+   * Handle 401 Unauthorized errors globally
+   * Shows toast message and reloads the page
+   * @param {string} context - Context description for logging (e.g., 'TemperatureSettingsModal')
+   */
+  handleUnauthorizedError: (context = 'API') => {
+    LogHelper.error(`[MyIOUtils] 401 Unauthorized in ${context} - session expired`);
+
+    // Get MyIOToast from library
+    const MyIOToast = window.MyIOLibrary?.MyIOToast;
+    if (MyIOToast) {
+      MyIOToast.error('Sessão expirada. Recarregando página...', 3000);
+    } else {
+      console.error('[MyIOUtils] Sessão expirada. Recarregando página...');
+    }
+
+    // Reload page after toast displays
+    setTimeout(() => {
+      window.location.reload();
+    }, 2500);
+  },
 });
 // Expose customerTB_ID via getter (reads from MyIOOrchestrator when available)
 // Check if property already exists to avoid "Cannot redefine property" error
@@ -448,6 +474,23 @@ let config = null;
     setTimeout(() => {
       applySizing();
     }, 50);
+
+    // Extract and expose global minTemperature/maxTemperature for temperature domain
+    // These values are read by TELEMETRY widget via window.MyIOUtils.temperatureLimits
+    const ctxDataRows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+    ctxDataRows.forEach((data) => {
+      const keyName = data?.dataKey?.name;
+      if (keyName === 'maxTemperature') {
+        const val = Number(data.data?.[0]?.[1]) || null;
+        window.MyIOUtils.temperatureLimits.maxTemperature = val;
+        LogHelper.log(`[MAIN_VIEW] Exposed global maxTemperature: ${val}`);
+      }
+      if (keyName === 'minTemperature') {
+        const val = Number(data.data?.[0]?.[1]) || null;
+        window.MyIOUtils.temperatureLimits.minTemperature = val;
+        LogHelper.log(`[MAIN_VIEW] Exposed global minTemperature: ${val}`);
+      }
+    });
   };
 
   self.onDestroy = function () {

@@ -1751,6 +1751,515 @@ function hideValidationWarning() {
   $$('.validation-warning').remove();
 }
 
+// ===================== INFO TOOLTIP (Premium Style) =====================
+
+/**
+ * CSS for the info tooltip (injected once)
+ */
+const INFO_TOOLTIP_CSS = `
+  .info-tooltip-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: help;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+    position: relative;
+    margin-left: 6px;
+    vertical-align: middle;
+    font-size: 12px;
+  }
+  .info-tooltip-trigger:hover { opacity: 1; }
+
+  .info-tooltip-container {
+    position: fixed;
+    z-index: 99999;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    transform: translateY(5px);
+  }
+  .info-tooltip-container.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .info-tooltip-panel {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 2px 10px rgba(0, 0, 0, 0.08);
+    min-width: 320px;
+    max-width: 400px;
+    font-size: 12px;
+    color: #1e293b;
+    overflow: hidden;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+  }
+
+  .info-tooltip-panel__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 18px;
+    background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%);
+    border-bottom: 1px solid #cbd5e1;
+  }
+  .info-tooltip-panel__icon { font-size: 18px; }
+  .info-tooltip-panel__title {
+    font-weight: 700;
+    font-size: 14px;
+    color: #475569;
+    letter-spacing: 0.3px;
+  }
+
+  .info-tooltip-panel__content {
+    padding: 16px 18px;
+    max-height: 450px;
+    overflow-y: auto;
+  }
+
+  .info-tooltip-panel__section {
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .info-tooltip-panel__section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .info-tooltip-panel__section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .info-tooltip-panel__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    gap: 12px;
+  }
+  .info-tooltip-panel__label {
+    color: #64748b;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .info-tooltip-panel__value {
+    color: #1e293b;
+    font-weight: 600;
+    text-align: right;
+  }
+  .info-tooltip-panel__value--highlight {
+    color: #10b981;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .info-tooltip-panel__value--negative {
+    color: #ef4444;
+  }
+
+  .info-tooltip-panel__formula {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-top: 10px;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    font-size: 11px;
+    color: #475569;
+    line-height: 1.6;
+  }
+  .info-tooltip-panel__formula-title {
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 6px;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .info-tooltip-panel__formula-text {
+    word-break: break-word;
+  }
+
+  .info-tooltip-panel__notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    margin-top: 12px;
+  }
+  .info-tooltip-panel__notice--warning {
+    background: #fffbeb;
+    border-color: #fde68a;
+  }
+  .info-tooltip-panel__notice-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .info-tooltip-panel__notice-text { font-size: 11px; color: #475569; line-height: 1.5; }
+  .info-tooltip-panel__notice-text strong { font-weight: 700; color: #334155; }
+
+  .info-tooltip-panel__category {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    border-left: 3px solid #94a3b8;
+  }
+  .info-tooltip-panel__category:last-child { margin-bottom: 0; }
+  .info-tooltip-panel__category--climatizacao { border-left-color: #00C896; background: #ecfdf5; }
+  .info-tooltip-panel__category--elevadores { border-left-color: #5B2EBC; background: #f5f3ff; }
+  .info-tooltip-panel__category--escadas { border-left-color: #FF6B6B; background: #fef2f2; }
+  .info-tooltip-panel__category--lojas { border-left-color: #FFC107; background: #fffbeb; }
+  .info-tooltip-panel__category--outros { border-left-color: #9C27B0; background: #fdf4ff; }
+  .info-tooltip-panel__category--areacomum { border-left-color: #4CAF50; background: #f0fdf4; }
+
+  .info-tooltip-panel__category-icon { font-size: 14px; flex-shrink: 0; }
+  .info-tooltip-panel__category-info { flex: 1; }
+  .info-tooltip-panel__category-name {
+    font-weight: 600;
+    color: #334155;
+    font-size: 12px;
+  }
+  .info-tooltip-panel__category-desc {
+    font-size: 10px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+  .info-tooltip-panel__category-value {
+    font-weight: 700;
+    color: #334155;
+    font-size: 13px;
+  }
+`;
+
+/**
+ * Inject tooltip CSS once
+ */
+function ensureInfoTooltipCSS() {
+  if (document.getElementById('telemetry-info-tooltip-styles')) return;
+
+  const style = document.createElement('style');
+  style.id = 'telemetry-info-tooltip-styles';
+  style.textContent = INFO_TOOLTIP_CSS;
+  document.head.appendChild(style);
+  LogHelper.log('[Tooltip] CSS injected');
+}
+
+/**
+ * Create tooltip container (appended to body)
+ */
+function createInfoTooltipContainer() {
+  const existing = document.getElementById('telemetry-info-tooltip');
+  if (existing) existing.remove();
+
+  ensureInfoTooltipCSS();
+
+  const container = document.createElement('div');
+  container.id = 'telemetry-info-tooltip';
+  container.className = 'info-tooltip-container';
+  document.body.appendChild(container);
+  return container;
+}
+
+/**
+ * Show Área Comum tooltip with formula and breakdown
+ * @param {HTMLElement} triggerElement - Element that triggered the tooltip
+ */
+function showAreaComumTooltip(triggerElement) {
+  let container = document.getElementById('telemetry-info-tooltip');
+  if (!container) {
+    container = createInfoTooltipContainer();
+  }
+
+  // Get current values from STATE
+  const entrada = STATE.entrada.total || 0;
+  const lojas = STATE.consumidores.lojas?.total || 0;
+  const climatizacao = STATE.consumidores.climatizacao?.total || 0;
+  const elevadores = STATE.consumidores.elevadores?.total || 0;
+  const escadasRolantes = STATE.consumidores.escadasRolantes?.total || 0;
+  const outros = STATE.consumidores.outros?.total || 0;
+  const areaComum = STATE.consumidores.areaComum?.total || 0;
+
+  // Calculate expected (sanity check)
+  const consumidoresSum = lojas + climatizacao + elevadores + escadasRolantes + outros;
+  const expectedAreaComum = entrada - consumidoresSum;
+  const hasDiscrepancy = Math.abs(expectedAreaComum - areaComum) > 0.01;
+
+  // Build HTML
+  container.innerHTML = `
+    <div class="info-tooltip-panel">
+      <div class="info-tooltip-panel__header">
+        <span class="info-tooltip-panel__icon">🏢</span>
+        <span class="info-tooltip-panel__title">Área Comum - Detalhes</span>
+      </div>
+      <div class="info-tooltip-panel__content">
+        <div class="info-tooltip-panel__section">
+          <div class="info-tooltip-panel__section-title">
+            <span>📊</span> Valores Atuais
+          </div>
+          <div class="info-tooltip-panel__row">
+            <span class="info-tooltip-panel__label">📥 Entrada (Total):</span>
+            <span class="info-tooltip-panel__value">${formatEnergy(entrada)}</span>
+          </div>
+          <div class="info-tooltip-panel__row">
+            <span class="info-tooltip-panel__label">➖ Lojas:</span>
+            <span class="info-tooltip-panel__value">${formatEnergy(lojas)}</span>
+          </div>
+          <div class="info-tooltip-panel__row">
+            <span class="info-tooltip-panel__label">➖ Climatização:</span>
+            <span class="info-tooltip-panel__value">${formatEnergy(climatizacao)}</span>
+          </div>
+          <div class="info-tooltip-panel__row">
+            <span class="info-tooltip-panel__label">➖ Elevadores:</span>
+            <span class="info-tooltip-panel__value">${formatEnergy(elevadores)}</span>
+          </div>
+          <div class="info-tooltip-panel__row">
+            <span class="info-tooltip-panel__label">➖ Esc. Rolantes:</span>
+            <span class="info-tooltip-panel__value">${formatEnergy(escadasRolantes)}</span>
+          </div>
+          <div class="info-tooltip-panel__row">
+            <span class="info-tooltip-panel__label">➖ Outros:</span>
+            <span class="info-tooltip-panel__value">${formatEnergy(outros)}</span>
+          </div>
+          <div class="info-tooltip-panel__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
+            <span class="info-tooltip-panel__label"><strong>= Área Comum:</strong></span>
+            <span class="info-tooltip-panel__value info-tooltip-panel__value--highlight">${formatEnergy(areaComum)}</span>
+          </div>
+        </div>
+
+        <div class="info-tooltip-panel__formula">
+          <div class="info-tooltip-panel__formula-title">📐 Fórmula</div>
+          <div class="info-tooltip-panel__formula-text">
+            Área Comum = Entrada − (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)
+          </div>
+        </div>
+
+        <div class="info-tooltip-panel__notice">
+          <span class="info-tooltip-panel__notice-icon">💡</span>
+          <div class="info-tooltip-panel__notice-text">
+            <strong>Área Comum</strong> representa o consumo residual do shopping que não está associado a nenhuma categoria específica (iluminação geral, tomadas, etc).
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Position tooltip
+  positionInfoTooltip(container, triggerElement);
+  container.classList.add('visible');
+}
+
+/**
+ * Show Climatização tooltip with breakdown of subcategories
+ * @param {HTMLElement} triggerElement - Element that triggered the tooltip
+ */
+function showClimatizacaoTooltip(triggerElement) {
+  let container = document.getElementById('telemetry-info-tooltip');
+  if (!container) {
+    container = createInfoTooltipContainer();
+  }
+
+  const climatizacao = STATE.consumidores.climatizacao?.total || 0;
+  const devices = STATE.consumidores.climatizacao?.devices || [];
+
+  // Group devices by subcategory
+  const subcategories = {
+    cag: { label: 'CAG', icon: '❄️', devices: [], total: 0 },
+    fancoils: { label: 'Fancoils', icon: '🌀', devices: [], total: 0 },
+    chillers: { label: 'Chillers', icon: '🧊', devices: [], total: 0 },
+    bombas: { label: 'Bombas', icon: '💧', devices: [], total: 0 },
+    outros: { label: 'Outros Climatização', icon: '🔧', devices: [], total: 0 },
+  };
+
+  // Classify devices into subcategories
+  devices.forEach((d) => {
+    const label = normalizeLabel(d.labelOrName || d.name || '');
+    const val = d.value || d.consumption || 0;
+
+    if (label.includes('cag') || label.includes('central de agua gelada')) {
+      subcategories.cag.devices.push(d);
+      subcategories.cag.total += val;
+    } else if (label.includes('fancoil') || label.includes('fan coil') || label.includes('fcu')) {
+      subcategories.fancoils.devices.push(d);
+      subcategories.fancoils.total += val;
+    } else if (label.includes('chiller')) {
+      subcategories.chillers.devices.push(d);
+      subcategories.chillers.total += val;
+    } else if (label.includes('bomba') || label.includes('bomb') || label.includes('primaria') || label.includes('secundaria') || label.includes('condensadora')) {
+      subcategories.bombas.devices.push(d);
+      subcategories.bombas.total += val;
+    } else {
+      subcategories.outros.devices.push(d);
+      subcategories.outros.total += val;
+    }
+  });
+
+  // Build subcategories HTML
+  let subcatHtml = '';
+  Object.values(subcategories).forEach((cat) => {
+    if (cat.total > 0 || cat.devices.length > 0) {
+      subcatHtml += `
+        <div class="info-tooltip-panel__category info-tooltip-panel__category--climatizacao">
+          <span class="info-tooltip-panel__category-icon">${cat.icon}</span>
+          <div class="info-tooltip-panel__category-info">
+            <div class="info-tooltip-panel__category-name">${cat.label}</div>
+            <div class="info-tooltip-panel__category-desc">${cat.devices.length} equipamento(s)</div>
+          </div>
+          <span class="info-tooltip-panel__category-value">${formatEnergy(cat.total)}</span>
+        </div>
+      `;
+    }
+  });
+
+  if (!subcatHtml) {
+    subcatHtml = `<div style="color: #64748b; font-size: 11px; padding: 8px;">Nenhum equipamento de climatização encontrado.</div>`;
+  }
+
+  container.innerHTML = `
+    <div class="info-tooltip-panel">
+      <div class="info-tooltip-panel__header">
+        <span class="info-tooltip-panel__icon">❄️</span>
+        <span class="info-tooltip-panel__title">Climatização - Detalhes</span>
+      </div>
+      <div class="info-tooltip-panel__content">
+        <div class="info-tooltip-panel__section">
+          <div class="info-tooltip-panel__section-title">
+            <span>📊</span> Total
+          </div>
+          <div class="info-tooltip-panel__row">
+            <span class="info-tooltip-panel__label">Climatização Total:</span>
+            <span class="info-tooltip-panel__value info-tooltip-panel__value--highlight">${formatEnergy(climatizacao)}</span>
+          </div>
+          <div class="info-tooltip-panel__row">
+            <span class="info-tooltip-panel__label">Equipamentos:</span>
+            <span class="info-tooltip-panel__value">${devices.length}</span>
+          </div>
+        </div>
+
+        <div class="info-tooltip-panel__section">
+          <div class="info-tooltip-panel__section-title">
+            <span>📋</span> Por Subcategoria
+          </div>
+          ${subcatHtml}
+        </div>
+
+        <div class="info-tooltip-panel__notice">
+          <span class="info-tooltip-panel__notice-icon">💡</span>
+          <div class="info-tooltip-panel__notice-text">
+            <strong>Climatização</strong> inclui: CAG, Fancoils, Chillers, e Bombas (Primárias, Secundárias e Condensadoras).
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  positionInfoTooltip(container, triggerElement);
+  container.classList.add('visible');
+}
+
+/**
+ * Position tooltip below or above the trigger element
+ * @param {HTMLElement} container - Tooltip container
+ * @param {HTMLElement} triggerElement - Element that triggered the tooltip
+ */
+function positionInfoTooltip(container, triggerElement) {
+  const rect = triggerElement.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.bottom + 8;
+
+  // Prevent going off screen horizontally
+  const tooltipWidth = 380;
+  if (left + tooltipWidth > window.innerWidth - 20) {
+    left = window.innerWidth - tooltipWidth - 20;
+  }
+  if (left < 10) left = 10;
+
+  // If tooltip would go below viewport, show above
+  if (top + 400 > window.innerHeight) {
+    top = rect.top - 8 - 400;
+    if (top < 10) top = 10;
+  }
+
+  container.style.left = left + 'px';
+  container.style.top = top + 'px';
+}
+
+/**
+ * Hide the info tooltip
+ */
+function hideInfoTooltip() {
+  const container = document.getElementById('telemetry-info-tooltip');
+  if (container) {
+    container.classList.remove('visible');
+  }
+}
+
+/**
+ * Setup tooltip triggers for all info icons
+ */
+function setupInfoTooltips() {
+  const $container = $root();
+
+  // Área Comum tooltip trigger
+  const $areaComumTrigger = $container.find('.area-comum-card .info-tooltip');
+  if ($areaComumTrigger.length) {
+    $areaComumTrigger
+      .addClass('info-tooltip-trigger')
+      .removeAttr('title')
+      .off('mouseenter.infoTooltip mouseleave.infoTooltip')
+      .on('mouseenter.infoTooltip', function () {
+        showAreaComumTooltip(this);
+      })
+      .on('mouseleave.infoTooltip', function () {
+        hideInfoTooltip();
+      });
+    LogHelper.log('[Tooltip] Área Comum trigger bound');
+  }
+
+  // Climatização tooltip trigger
+  const $climatizacaoTrigger = $container.find('.climatizacao-card .info-tooltip');
+  if ($climatizacaoTrigger.length) {
+    $climatizacaoTrigger
+      .addClass('info-tooltip-trigger')
+      .removeAttr('title')
+      .off('mouseenter.infoTooltip mouseleave.infoTooltip')
+      .on('mouseenter.infoTooltip', function () {
+        showClimatizacaoTooltip(this);
+      })
+      .on('mouseleave.infoTooltip', function () {
+        hideInfoTooltip();
+      });
+    LogHelper.log('[Tooltip] Climatização trigger bound');
+  }
+
+  // Banheiros tooltip trigger (water domain)
+  const $banheirosTrigger = $container.find('.banheiros-card .info-tooltip');
+  if ($banheirosTrigger.length) {
+    $banheirosTrigger
+      .addClass('info-tooltip-trigger')
+      .removeAttr('title');
+    LogHelper.log('[Tooltip] Banheiros trigger found (native title kept)');
+  }
+
+  LogHelper.log('[Tooltip] All info tooltips configured');
+}
+
 // ===================== WIDGET LIFECYCLE =====================
 
 self.onInit = async function () {
@@ -2143,6 +2652,11 @@ self.onInit = async function () {
       closeModal();
     }
   });
+
+  // Setup info tooltips (premium style)
+  setTimeout(() => {
+    setupInfoTooltips();
+  }, 200);
 
   LogHelper.log('Widget initialized successfully (RFC-0056)');
 };

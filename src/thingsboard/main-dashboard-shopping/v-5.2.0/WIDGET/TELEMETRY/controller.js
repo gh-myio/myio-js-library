@@ -13,11 +13,13 @@
 /* eslint-disable no-undef, no-unused-vars */
 
 // RFC-0091: Use LogHelper from MAIN via MyIOUtils (centralized logging)
+if (!window.MyIOUtils?.LogHelper) {
+  console.error('[TELEMETRY] window.MyIOUtils.LogHelper not found - MAIN_VIEW must load first');
+}
 const LogHelper = window.MyIOUtils?.LogHelper || {
-  // Fallback if MAIN not loaded yet
-  log: (...args) => console.log(...args),
-  warn: (...args) => console.warn(...args),
-  error: (...args) => console.error(...args),
+  log: () => {},
+  warn: () => {},
+  error: (...args) => console.error('[TELEMETRY]', ...args),
 };
 
 LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
@@ -833,72 +835,20 @@ function buildAuthoritativeItems() {
   const tbIdIdx = buildTbIdIndexes(); // { byIdentifier, byIngestion }
   const attrsByTb = buildTbAttrIndex(); // tbId -> { slaveId, centralId, deviceType }
 
-  // Extract global minTemperature and maxTemperature from ctx.data (dataKey.name)
+  // Extract global minTemperature and maxTemperature from window.MyIOUtils
+  // These values are exposed by MAIN_VIEW widget which has the datasource for temperature limits
   let globalTempMin = null;
   let globalTempMax = null;
-  const ctxDataRows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
 
-  // Track entityIds that have temp config keys (minTemperature, maxTemperature)
-  // and build a map of all dataKeys per entityId to identify config-only entities
-  const entityDataKeysMap = new Map(); // entityId -> Set of dataKey names
-
-  ctxDataRows.forEach((data) => {
-    const entityId = data?.datasource?.entityId?.id || data?.datasource?.entityId || null;
-    const keyName = data?.dataKey?.name;
-
-    if (entityId && keyName) {
-      if (!entityDataKeysMap.has(entityId)) {
-        entityDataKeysMap.set(entityId, new Set());
-      }
-      entityDataKeysMap.get(entityId).add(keyName);
-    }
-
-    if (keyName === 'maxTemperature') {
-      globalTempMax = Number(data.data?.[0]?.[1]) || null;
-      LogHelper.log(
-        `[DeviceCards] Found global maxTemperature: ${globalTempMax} from ${data.datasource?.entityLabel}`
-      );
-    }
-    if (keyName === 'minTemperature') {
-      globalTempMin = Number(data.data?.[0]?.[1]) || null;
-      LogHelper.log(
-        `[DeviceCards] Found global minTemperature: ${globalTempMin} from ${data.datasource?.entityLabel}`
-      );
-    }
-  });
-
-  // RFC-BUG-FIX: For temperature domain, filter out entities that ONLY have
-  // minTemperature/maxTemperature keys (config entities, not actual sensors)
-  const tempConfigKeys = new Set(['minTemperature', 'maxTemperature']);
-  const configOnlyEntityIds = new Set();
-
-  if (WIDGET_DOMAIN === 'temperature') {
-    entityDataKeysMap.forEach((keys, entityId) => {
-      // Check if ALL keys for this entity are temp config keys
-      const allKeysAreConfig = [...keys].every(k => tempConfigKeys.has(k));
-      if (allKeysAreConfig && keys.size > 0) {
-        configOnlyEntityIds.add(entityId);
-        LogHelper.log(`[DeviceCards] Excluding config-only entity ${entityId} (keys: ${[...keys].join(', ')})`);
-      }
-    });
+  if (WIDGET_DOMAIN === 'temperature' && window.MyIOUtils?.temperatureLimits) {
+    globalTempMin = window.MyIOUtils.temperatureLimits.minTemperature;
+    globalTempMax = window.MyIOUtils.temperatureLimits.maxTemperature;
+    LogHelper.log(
+      `[DeviceCards] Reading temperature limits from MyIOUtils: min=${globalTempMin}, max=${globalTempMax}`
+    );
   }
 
-  // Filter out config-only entities from the items list
-  const filtered = ok.filter((item) => {
-    // Get the tbId for this item to check against configOnlyEntityIds
-    const ingestionId = item.id;
-    const tbFromIngestion = ingestionId ? tbIdIdx.byIngestion.get(ingestionId) : null;
-    const tbFromIdentifier = item.identifier ? tbIdIdx.byIdentifier.get(item.identifier) : null;
-    const tbId = tbFromIngestion || tbFromIdentifier || null;
-
-    if (tbId && configOnlyEntityIds.has(tbId)) {
-      LogHelper.log(`[DeviceCards] Filtering out item ${item.label} (tbId=${tbId}) - config-only entity`);
-      return false;
-    }
-    return true;
-  });
-
-  const mapped = filtered.map((r) => {
+  const mapped = ok.map((r) => {
     //LogHelper.log("[TELEMETRY][buildAuthoritativeItems] ok.map: ", r);
 
     const ingestionId = r.id;
@@ -1187,6 +1137,358 @@ function recomputePercentages(visible) {
     perc: groupSum > 0 ? (x.value / groupSum) * 100 : 0,
   }));
   return { visible: updated, groupSum };
+}
+
+/** ===================== TEMPERATURE INFO TOOLTIP ===================== **/
+
+// CSS for temperature info tooltip (injected once)
+const TEMP_INFO_TOOLTIP_CSS = `
+  .temp-info-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+    border: 1px solid #fdba74;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+  .temp-info-trigger:hover {
+    background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(251, 146, 60, 0.3);
+  }
+  .temp-info-trigger svg {
+    color: #c2410c;
+  }
+  .temp-info-tooltip-container {
+    position: fixed;
+    z-index: 99999;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    transform: translateY(5px);
+  }
+  .temp-info-tooltip-container.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+  .temp-info-tooltip {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 2px 10px rgba(0, 0, 0, 0.08);
+    min-width: 320px;
+    max-width: 400px;
+    font-size: 12px;
+    color: #1e293b;
+    overflow: hidden;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+  }
+  .temp-info-tooltip__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 18px;
+    background: linear-gradient(90deg, #fff7ed 0%, #fef3c7 100%);
+    border-bottom: 1px solid #fed7aa;
+  }
+  .temp-info-tooltip__icon { font-size: 18px; }
+  .temp-info-tooltip__title {
+    font-weight: 700;
+    font-size: 14px;
+    color: #c2410c;
+    letter-spacing: 0.3px;
+  }
+  .temp-info-tooltip__content {
+    padding: 16px 18px;
+    max-height: 500px;
+    overflow-y: auto;
+  }
+  .temp-info-tooltip__section {
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .temp-info-tooltip__section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+  .temp-info-tooltip__section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .temp-info-tooltip__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    gap: 12px;
+  }
+  .temp-info-tooltip__label {
+    color: #64748b;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .temp-info-tooltip__value {
+    color: #1e293b;
+    font-weight: 600;
+    text-align: right;
+  }
+  .temp-info-tooltip__value--highlight {
+    color: #ea580c;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .temp-info-tooltip__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .temp-info-tooltip__badge--ok {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+  }
+  .temp-info-tooltip__badge--warn {
+    background: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+  }
+  .temp-info-tooltip__badge--info {
+    background: #e0e7ff;
+    color: #4338ca;
+    border: 1px solid #c7d2fe;
+  }
+  .temp-info-tooltip__list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .temp-info-tooltip__list-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: #f8fafc;
+    border-radius: 6px;
+    font-size: 11px;
+  }
+  .temp-info-tooltip__list-item--ok { border-left: 3px solid #22c55e; background: #f0fdf4; }
+  .temp-info-tooltip__list-item--warn { border-left: 3px solid #f59e0b; background: #fffbeb; }
+  .temp-info-tooltip__list-item--unknown { border-left: 3px solid #6b7280; background: #f3f4f6; }
+  .temp-info-tooltip__list-icon { font-size: 12px; flex-shrink: 0; }
+  .temp-info-tooltip__list-name { flex: 1; color: #334155; font-weight: 500; }
+  .temp-info-tooltip__list-value { color: #475569; font-size: 11px; font-weight: 500; }
+  .temp-info-tooltip__list-range { color: #94a3b8; font-size: 10px; }
+  .temp-info-tooltip__notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    margin-top: 12px;
+  }
+  .temp-info-tooltip__notice-icon { font-size: 14px; flex-shrink: 0; }
+  .temp-info-tooltip__notice-text { font-size: 10px; color: #1e40af; line-height: 1.5; }
+`;
+
+function ensureTempInfoTooltipCSS() {
+  if (document.getElementById('temp-info-tooltip-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'temp-info-tooltip-styles';
+  style.textContent = TEMP_INFO_TOOLTIP_CSS;
+  document.head.appendChild(style);
+}
+
+function createTempInfoTooltipContainer() {
+  const existing = document.getElementById('temp-info-tooltip');
+  if (existing) return existing;
+
+  ensureTempInfoTooltipCSS();
+
+  const container = document.createElement('div');
+  container.id = 'temp-info-tooltip';
+  container.className = 'temp-info-tooltip-container';
+  document.body.appendChild(container);
+  return container;
+}
+
+function showTempInfoTooltip(triggerElement) {
+  const container = createTempInfoTooltipContainer();
+
+  // Get temperature data from current visible items
+  const tempMin = window.MyIOUtils?.temperatureLimits?.min;
+  const tempMax = window.MyIOUtils?.temperatureLimits?.max;
+  const hasLimits = tempMin != null && tempMax != null;
+
+  // Collect data from authoritativeItems (already filtered for TERMOSTATO)
+  const tempDevices = [];
+  let totalTemp = 0;
+  let devicesInRange = 0;
+  let devicesOutOfRange = 0;
+  let devicesUnknown = 0;
+
+  if (window._telemetryAuthoritativeItems) {
+    window._telemetryAuthoritativeItems.forEach(item => {
+      if (item.deviceType === 'TERMOSTATO') {
+        const temp = Number(item.value) || 0;
+        totalTemp += temp;
+
+        let status = 'unknown';
+        if (hasLimits) {
+          if (temp >= tempMin && temp <= tempMax) {
+            status = 'ok';
+            devicesInRange++;
+          } else {
+            status = 'warn';
+            devicesOutOfRange++;
+          }
+        } else {
+          devicesUnknown++;
+        }
+
+        tempDevices.push({
+          name: item.label || item.identifier || 'Sensor',
+          temp: temp,
+          status: status
+        });
+      }
+    });
+  }
+
+  const avgTemp = tempDevices.length > 0 ? totalTemp / tempDevices.length : 0;
+
+  // Build status badge
+  let statusBadge = '';
+  if (tempDevices.length === 0) {
+    statusBadge = '<span class="temp-info-tooltip__badge temp-info-tooltip__badge--info">Aguardando dados</span>';
+  } else if (!hasLimits) {
+    statusBadge = '<span class="temp-info-tooltip__badge temp-info-tooltip__badge--info">Faixa nao configurada</span>';
+  } else if (devicesOutOfRange === 0) {
+    statusBadge = '<span class="temp-info-tooltip__badge temp-info-tooltip__badge--ok">Todos na faixa</span>';
+  } else if (devicesInRange === 0) {
+    statusBadge = '<span class="temp-info-tooltip__badge temp-info-tooltip__badge--warn">Todos fora da faixa</span>';
+  } else {
+    statusBadge = '<span class="temp-info-tooltip__badge temp-info-tooltip__badge--warn">' + devicesOutOfRange + ' fora da faixa</span>';
+  }
+
+  // Build device list HTML
+  let deviceListHtml = '';
+  if (tempDevices.length > 0) {
+    const sortedDevices = [...tempDevices].sort((a, b) => b.temp - a.temp);
+    const displayDevices = sortedDevices.slice(0, 8); // Show max 8
+    const hasMore = sortedDevices.length > 8;
+
+    deviceListHtml = `
+      <div class="temp-info-tooltip__section">
+        <div class="temp-info-tooltip__section-title">
+          <span>🌡️</span> Sensores (${tempDevices.length})
+        </div>
+        <div class="temp-info-tooltip__list">
+          ${displayDevices.map(d => {
+            const statusClass = d.status === 'ok' ? 'ok' : d.status === 'warn' ? 'warn' : 'unknown';
+            const icon = d.status === 'ok' ? '✔' : d.status === 'warn' ? '⚠' : '?';
+            return `
+              <div class="temp-info-tooltip__list-item temp-info-tooltip__list-item--${statusClass}">
+                <span class="temp-info-tooltip__list-icon">${icon}</span>
+                <span class="temp-info-tooltip__list-name">${d.name}</span>
+                <span class="temp-info-tooltip__list-value">${d.temp.toFixed(1)}°C</span>
+              </div>
+            `;
+          }).join('')}
+          ${hasMore ? `<div style="text-align: center; color: #94a3b8; font-size: 10px; padding: 4px;">... e mais ${sortedDevices.length - 8} sensores</div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = `
+    <div class="temp-info-tooltip">
+      <div class="temp-info-tooltip__header">
+        <span class="temp-info-tooltip__icon">🌡️</span>
+        <span class="temp-info-tooltip__title">Detalhes de Temperatura</span>
+      </div>
+      <div class="temp-info-tooltip__content">
+        <div class="temp-info-tooltip__section">
+          <div class="temp-info-tooltip__section-title">
+            <span>📊</span> Resumo
+          </div>
+          <div class="temp-info-tooltip__row">
+            <span class="temp-info-tooltip__label">Media Geral:</span>
+            <span class="temp-info-tooltip__value temp-info-tooltip__value--highlight">${avgTemp.toFixed(1)}°C</span>
+          </div>
+          ${hasLimits ? `
+          <div class="temp-info-tooltip__row">
+            <span class="temp-info-tooltip__label">Faixa Ideal:</span>
+            <span class="temp-info-tooltip__value">${tempMin}°C - ${tempMax}°C</span>
+          </div>
+          ` : ''}
+          <div class="temp-info-tooltip__row">
+            <span class="temp-info-tooltip__label">Sensores Ativos:</span>
+            <span class="temp-info-tooltip__value">${tempDevices.length}</span>
+          </div>
+          <div class="temp-info-tooltip__row">
+            <span class="temp-info-tooltip__label">Status:</span>
+            ${statusBadge}
+          </div>
+        </div>
+
+        ${deviceListHtml}
+
+        <div class="temp-info-tooltip__notice">
+          <span class="temp-info-tooltip__notice-icon">ℹ️</span>
+          <span class="temp-info-tooltip__notice-text">
+            Considerados apenas sensores <strong>TERMOSTATO</strong> ativos.
+          </span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Position tooltip
+  const rect = triggerElement.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.bottom + 8;
+
+  // Adjust if goes off screen
+  if (left + 340 > window.innerWidth - 10) left = window.innerWidth - 350;
+  if (left < 10) left = 10;
+  if (top + 400 > window.innerHeight) {
+    top = rect.top - 8 - 400;
+    if (top < 10) top = 10;
+  }
+
+  container.style.left = left + 'px';
+  container.style.top = top + 'px';
+  container.classList.add('visible');
+}
+
+function hideTempInfoTooltip() {
+  const container = document.getElementById('temp-info-tooltip');
+  if (container) {
+    container.classList.remove('visible');
+  }
 }
 
 /** ===================== RENDER ===================== **/
@@ -2577,6 +2879,8 @@ async function hydrateAndRender() {
 
     // 2) Lista autoritativa
     STATE.itemsBase = buildAuthoritativeItems();
+    // Expose for temperature tooltip
+    window._telemetryAuthoritativeItems = STATE.itemsBase;
 
     // 3) Totais na API (skip for temperature domain - uses only ctx.data telemetry)
     // Also skip if no date range
@@ -2633,6 +2937,24 @@ self.onInit = async function () {
   // RFC-0042: Set widget configuration from settings FIRST
   WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
   LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}`);
+
+  // Show temperature info icon for temperature domain
+  if (WIDGET_DOMAIN === 'temperature') {
+    const tempInfoTrigger = $root().find('#tempInfoTrigger');
+    if (tempInfoTrigger.length) {
+      tempInfoTrigger.css('display', 'inline-flex');
+
+      // Add event listeners for tooltip
+      tempInfoTrigger.on('mouseenter', function(e) {
+        showTempInfoTooltip(this);
+      });
+      tempInfoTrigger.on('mouseleave', function() {
+        hideTempInfoTooltip();
+      });
+
+      LogHelper.log('[TELEMETRY] Temperature info icon initialized');
+    }
+  }
 
   // RFC-0063: Load classification mode configuration
   USE_IDENTIFIER_CLASSIFICATION = self.ctx.settings?.USE_IDENTIFIER_CLASSIFICATION || false;
@@ -2970,6 +3292,7 @@ self.onInit = async function () {
       // First load: build from TB data
       LogHelper.log(`[TELEMETRY] Building itemsBase from TB data...`);
       STATE.itemsBase = buildAuthoritativeItems();
+      window._telemetryAuthoritativeItems = STATE.itemsBase; // Expose for temperature tooltip
       LogHelper.log(`[TELEMETRY] Built ${STATE.itemsBase.length} items from TB`);
     }
 
@@ -3243,6 +3566,7 @@ self.onInit = async function () {
   if (hasData && (!STATE.itemsBase || STATE.itemsBase.length === 0)) {
     LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Building itemsBase from TB data in onInit...`);
     STATE.itemsBase = buildAuthoritativeItems();
+    window._telemetryAuthoritativeItems = STATE.itemsBase; // Expose for temperature tooltip
     LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Built ${STATE.itemsBase.length} items from TB`);
 
     // Initial render with zero values (will be updated by orchestrator)

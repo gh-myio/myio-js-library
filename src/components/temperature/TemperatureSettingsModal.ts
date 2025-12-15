@@ -21,6 +21,8 @@ export interface TemperatureSettingsParams {
   onSave?: (settings: { minTemperature: number; maxTemperature: number }) => void;
   /** Callback when modal closes */
   onClose?: () => void;
+  /** Callback when API error occurs (e.g., 401 unauthorized) */
+  onError?: (error: { status: number; message: string }) => void;
   /** Initial theme */
   theme?: 'dark' | 'light';
 }
@@ -91,7 +93,8 @@ function getColors(theme: 'dark' | 'light') {
 
 async function fetchCustomerAttributes(
   customerId: string,
-  token: string
+  token: string,
+  onError?: (error: { status: number; message: string }) => void
 ): Promise<{ minTemperature: number | null; maxTemperature: number | null }> {
   const url = `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE`;
 
@@ -106,6 +109,11 @@ async function fetchCustomerAttributes(
   if (!response.ok) {
     if (response.status === 404 || response.status === 400) {
       // No attributes found - return defaults
+      return { minTemperature: null, maxTemperature: null };
+    }
+    // Call onError callback if provided
+    if (onError) {
+      onError({ status: response.status, message: `Failed to fetch attributes: ${response.status}` });
       return { minTemperature: null, maxTemperature: null };
     }
     throw new Error(`Failed to fetch attributes: ${response.status}`);
@@ -132,7 +140,8 @@ async function saveCustomerAttributes(
   customerId: string,
   token: string,
   minTemperature: number,
-  maxTemperature: number
+  maxTemperature: number,
+  onError?: (error: { status: number; message: string }) => void
 ): Promise<void> {
   const url = `/api/plugins/telemetry/CUSTOMER/${customerId}/SERVER_SCOPE`;
 
@@ -151,6 +160,11 @@ async function saveCustomerAttributes(
   });
 
   if (!response.ok) {
+    // Call onError callback if provided
+    if (onError) {
+      onError({ status: response.status, message: `Failed to save attributes: ${response.status}` });
+      return;
+    }
     throw new Error(`Failed to save attributes: ${response.status}`);
   }
 }
@@ -614,7 +628,7 @@ export function openTemperatureSettingsModal(
     renderModal(container, state, modalId, destroy, handleSave);
 
     try {
-      await saveCustomerAttributes(state.customerId, state.token, min, max);
+      await saveCustomerAttributes(state.customerId, state.token, min, max, params.onError);
 
       state.minTemperature = min;
       state.maxTemperature = max;
@@ -641,7 +655,7 @@ export function openTemperatureSettingsModal(
   renderModal(container, state, modalId, destroy, handleSave);
 
   // Fetch current values
-  fetchCustomerAttributes(state.customerId, state.token)
+  fetchCustomerAttributes(state.customerId, state.token, params.onError)
     .then(({ minTemperature, maxTemperature }) => {
       state.minTemperature = minTemperature;
       state.maxTemperature = maxTemperature;

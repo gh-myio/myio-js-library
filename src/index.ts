@@ -225,6 +225,14 @@ export type {
   ClampRange
 } from './components/temperature';
 
+// Temperature Range Tooltip (Reusable UI component)
+export { TempRangeTooltip } from './utils/TempRangeTooltip';
+export type { TempEntityData, TempStatus, TempStatusResult } from './utils/TempRangeTooltip';
+
+// Energy Range Tooltip (Reusable UI component)
+export { EnergyRangeTooltip } from './utils/EnergyRangeTooltip';
+export type { EnergyEntityData, EnergyStatus, EnergyStatusResult, PowerRange, PowerRanges } from './utils/EnergyRangeTooltip';
+
 // Modal Header Component (Reusable)
 export {
   createModalHeader,
