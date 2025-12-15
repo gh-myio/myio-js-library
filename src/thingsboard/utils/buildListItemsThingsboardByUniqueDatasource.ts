@@ -52,13 +52,17 @@ function buildEntityMapFromDatasource(datasources: any[]): Map<string, EntityRec
   const map = new Map<string, EntityRecord>();
 
   dsArray.forEach((ds) => {
-    const entityId = ds?.entityId;
+    // ThingsBoard stores entityId in different locations depending on version/config:
+    // - ds.entity.id.id (most common for device entities)
+    // - ds.entity.id (if id is a string directly)
+    // - ds.entityId (legacy/some configurations)
+    const entityId = ds?.entity?.id?.id || ds?.entity?.id || ds?.entityId || null;
     if (!entityId) return;
 
     if (!map.has(entityId)) {
       const entity = ds?.entity;
-      const draftLabel = entity?.label || entity?.name || ds?.name || null;
-      
+      const draftLabel = entity?.label || entity?.name || ds?.entityLabel || ds?.name || null;
+
       map.set(entityId, {
         id: entityId,
         identifier: null,
@@ -70,7 +74,7 @@ function buildEntityMapFromDatasource(datasources: any[]): Map<string, EntityRec
 
     const keys = Array.isArray(ds?.dataKeys) ? ds.dataKeys : [];
     const rec = map.get(entityId)!;
-    
+
     keys.forEach((k) => {
       if (k?.name) {
         rec.expectedKeys.add(String(k.name).toLowerCase());
@@ -90,7 +94,8 @@ function hydrateEntityMapWithCtxData(data: any[], map: Map<string, EntityRecord>
   const rows = Array.isArray(data) ? data : [];
 
   rows.forEach((row) => {
-    const entityId = row?.datasource?.entityId || null;
+    // Match the same entityId extraction pattern as buildEntityMapFromDatasource
+    const entityId = row?.datasource?.entity?.id?.id || row?.datasource?.entity?.id || row?.datasource?.entityId || null;
     if (!entityId || !map.has(entityId)) return;
 
     const rawKey = row?.dataKey?.name || '';
