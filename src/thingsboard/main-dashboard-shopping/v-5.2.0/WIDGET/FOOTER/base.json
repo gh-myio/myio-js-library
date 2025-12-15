@@ -15,7 +15,7 @@
           "url": "https://graphs.staging.apps.myio-bas.com/sdk/energy-chart-sdk.umd.js"
         },
         {
-          "url": "https://unpkg.com/myio-js-library@0.1.180/dist/myio-js-library.umd.min.js"
+          "url": "https://unpkg.com/myio-js-library@0.1.181/dist/myio-js-library.umd.min.js"
         }
       ],
       "templateHtml": "<section class=\"myio-footer\">\r\n  <div class=\"myio-dock\" id=\"myioDock\" aria-live=\"polite\">\r\n    <span class=\"myio-empty\">Selecione dispositivos para comparar</span>\r\n  </div>\r\n  <div class=\"myio-right\">\r\n    <div class=\"myio-meta\">\r\n      <div class=\"myio-meta-title\">SELEÇÃO</div>\r\n      <div id=\"myioTotals\">0 itens</div>\r\n    </div>\r\n    <button id=\"myioClear\" class=\"myio-clear-btn\" title=\"Limpar seleção\">\r\n      <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\r\n        <polyline points=\"3 6 5 6 21 6\"></polyline>\r\n        <path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"></path>\r\n      </svg>\r\n    </button>\r\n    <button id=\"myioCompare\" class=\"myio-compare\" disabled>Comparar</button>\r\n  </div>\r\n</section>\r\n",
