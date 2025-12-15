@@ -1350,7 +1350,7 @@ function showTempInfoTooltip(triggerElement) {
   let devicesUnknown = 0;
 
   if (window._telemetryAuthoritativeItems) {
-    window._telemetryAuthoritativeItems.forEach(item => {
+    window._telemetryAuthoritativeItems.forEach((item) => {
       if (item.deviceType === 'TERMOSTATO') {
         const temp = Number(item.value) || 0;
         totalTemp += temp;
@@ -1371,7 +1371,7 @@ function showTempInfoTooltip(triggerElement) {
         tempDevices.push({
           name: item.label || item.identifier || 'Sensor',
           temp: temp,
-          status: status
+          status: status,
         });
       }
     });
@@ -1382,23 +1382,29 @@ function showTempInfoTooltip(triggerElement) {
   // Build status badge
   let statusBadge = '';
   if (tempDevices.length === 0) {
-    statusBadge = '<span class="temp-info-tooltip__badge temp-info-tooltip__badge--info">Aguardando dados</span>';
+    statusBadge =
+      '<span class="temp-info-tooltip__badge temp-info-tooltip__badge--info">Aguardando dados</span>';
   } else if (!hasLimits) {
-    statusBadge = '<span class="temp-info-tooltip__badge temp-info-tooltip__badge--info">Faixa nao configurada</span>';
+    statusBadge =
+      '<span class="temp-info-tooltip__badge temp-info-tooltip__badge--info">Faixa nao configurada</span>';
   } else if (devicesOutOfRange === 0) {
     statusBadge = '<span class="temp-info-tooltip__badge temp-info-tooltip__badge--ok">Todos na faixa</span>';
   } else if (devicesInRange === 0) {
-    statusBadge = '<span class="temp-info-tooltip__badge temp-info-tooltip__badge--warn">Todos fora da faixa</span>';
+    statusBadge =
+      '<span class="temp-info-tooltip__badge temp-info-tooltip__badge--warn">Todos fora da faixa</span>';
   } else {
-    statusBadge = '<span class="temp-info-tooltip__badge temp-info-tooltip__badge--warn">' + devicesOutOfRange + ' fora da faixa</span>';
+    statusBadge =
+      '<span class="temp-info-tooltip__badge temp-info-tooltip__badge--warn">' +
+      devicesOutOfRange +
+      ' fora da faixa</span>';
   }
 
   // Build device list HTML
   let deviceListHtml = '';
-  if (tempDevices.length > 0) {
+  if (tempDevices.length > 0 && 3 > 2) {
     const sortedDevices = [...tempDevices].sort((a, b) => b.temp - a.temp);
-    const displayDevices = sortedDevices.slice(0, 8); // Show max 8
-    const hasMore = sortedDevices.length > 8;
+    const displayDevices = sortedDevices.slice(0, 5); // Show max 8
+    const hasMore = sortedDevices.length > 5;
 
     deviceListHtml = `
       <div class="temp-info-tooltip__section">
@@ -1406,18 +1412,26 @@ function showTempInfoTooltip(triggerElement) {
           <span>🌡️</span> Sensores (${tempDevices.length})
         </div>
         <div class="temp-info-tooltip__list">
-          ${displayDevices.map(d => {
-            const statusClass = d.status === 'ok' ? 'ok' : d.status === 'warn' ? 'warn' : 'unknown';
-            const icon = d.status === 'ok' ? '✔' : d.status === 'warn' ? '⚠' : '?';
-            return `
+          ${displayDevices
+            .map((d) => {
+              const statusClass = d.status === 'ok' ? 'ok' : d.status === 'warn' ? 'warn' : 'unknown';
+              const icon = d.status === 'ok' ? '✔' : d.status === 'warn' ? '⚠' : '?';
+              return `
               <div class="temp-info-tooltip__list-item temp-info-tooltip__list-item--${statusClass}">
                 <span class="temp-info-tooltip__list-icon">${icon}</span>
                 <span class="temp-info-tooltip__list-name">${d.name}</span>
                 <span class="temp-info-tooltip__list-value">${d.temp.toFixed(1)}°C</span>
               </div>
             `;
-          }).join('')}
-          ${hasMore ? `<div style="text-align: center; color: #94a3b8; font-size: 10px; padding: 4px;">... e mais ${sortedDevices.length - 8} sensores</div>` : ''}
+            })
+            .join('')}
+          ${
+            hasMore
+              ? `<div style="text-align: center; color: #94a3b8; font-size: 10px; padding: 4px;">... e mais ${
+                  sortedDevices.length - 5
+                } sensores</div>`
+              : ''
+          }
         </div>
       </div>
     `;
@@ -1436,14 +1450,20 @@ function showTempInfoTooltip(triggerElement) {
           </div>
           <div class="temp-info-tooltip__row">
             <span class="temp-info-tooltip__label">Media Geral:</span>
-            <span class="temp-info-tooltip__value temp-info-tooltip__value--highlight">${avgTemp.toFixed(1)}°C</span>
+            <span class="temp-info-tooltip__value temp-info-tooltip__value--highlight">${avgTemp.toFixed(
+              1
+            )}°C</span>
           </div>
-          ${hasLimits ? `
+          ${
+            hasLimits
+              ? `
           <div class="temp-info-tooltip__row">
             <span class="temp-info-tooltip__label">Faixa Ideal:</span>
             <span class="temp-info-tooltip__value">${tempMin}°C - ${tempMax}°C</span>
           </div>
-          ` : ''}
+          `
+              : ''
+          }
           <div class="temp-info-tooltip__row">
             <span class="temp-info-tooltip__label">Sensores Ativos:</span>
             <span class="temp-info-tooltip__value">${tempDevices.length}</span>
@@ -2674,10 +2694,21 @@ function emitAreaComumBreakdown(periodKey) {
         const label = normalizeLabel(item.label || '');
         const identifier = String(item.identifier || '').toUpperCase();
 
-        if (identifier === 'CAG' || identifier.startsWith('CAG-') || label.includes('cag') || label.includes('central de agua gelada')) {
+        if (
+          identifier === 'CAG' ||
+          identifier.startsWith('CAG-') ||
+          label.includes('cag') ||
+          label.includes('central de agua gelada')
+        ) {
           climatizacaoSubcategories.cag.total += energia;
           climatizacaoSubcategories.cag.count += 1;
-        } else if (identifier === 'FANCOIL' || identifier.startsWith('FANCOIL-') || label.includes('fancoil') || label.includes('fan coil') || label.includes('fcu')) {
+        } else if (
+          identifier === 'FANCOIL' ||
+          identifier.startsWith('FANCOIL-') ||
+          label.includes('fancoil') ||
+          label.includes('fan coil') ||
+          label.includes('fcu')
+        ) {
           climatizacaoSubcategories.fancoils.total += energia;
           climatizacaoSubcategories.fancoils.count += 1;
         } else if (label.includes('chiller')) {
@@ -2751,7 +2782,10 @@ function emitAreaComumBreakdown(periodKey) {
     window.dispatchEvent(event);
 
     const totalMWh = normalizeToMWh(
-      breakdown.climatizacao.total + breakdown.elevadores.total + breakdown.escadas_rolantes.total + breakdown.outros.total
+      breakdown.climatizacao.total +
+        breakdown.elevadores.total +
+        breakdown.escadas_rolantes.total +
+        breakdown.outros.total
     );
     LogHelper.log(
       `[RFC-0056] ✅ Emitted areacomum_breakdown: ${totalMWh} MWh (${STATE.itemsEnriched.length} devices, climatizacao: ${breakdown.climatizacao.count})`
@@ -2992,10 +3026,10 @@ self.onInit = async function () {
       tempInfoTrigger.css('display', 'inline-flex');
 
       // Add event listeners for tooltip
-      tempInfoTrigger.on('mouseenter', function(e) {
+      tempInfoTrigger.on('mouseenter', function (e) {
         showTempInfoTooltip(this);
       });
-      tempInfoTrigger.on('mouseleave', function() {
+      tempInfoTrigger.on('mouseleave', function () {
         hideTempInfoTooltip();
       });
 
