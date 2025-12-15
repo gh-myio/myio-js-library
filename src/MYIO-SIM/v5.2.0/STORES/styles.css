@@ -1,0 +1,290 @@
+/* ====== TOKENS (escopo no wrap) - matching EQUIPMENTS ====== */
+.shops-root {
+  /* escala global de fontes (ajustada via JS) */
+  --fs: 0.94;
+
+  /* cores e layout */
+  --card-grad: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  --card-bd: #dde7f1;
+  --ink-1: #1c2743;
+  --ink-2: #6b7a90;
+  --blue: #1f6fb5;
+  --accent: #9fc131;
+  --danger: #e54848;
+  --shadow: 0 8px 24px rgba(31, 116, 164, 0.08);
+  --shadow-hover: 0 14px 36px rgba(31, 116, 164, 0.16);
+  --radius: 20px;
+  --brand: #3e1a7d;
+  --brand-ghost: rgba(62, 26, 125, 0.08);
+
+  /* tipografia derivada da escala */
+  --fs-2xs: calc(11px * var(--fs));
+  --fs-xs: calc(12px * var(--fs));
+  --fs-sm: calc(13px * var(--fs));
+  --fs-md: calc(14px * var(--fs));
+  --fs-lg: calc(16px * var(--fs));
+  --fs-xl: calc(20px * var(--fs));
+  --fs-xxl: calc(28px * var(--fs));
+
+  /* padding para não "encostar" no contorno do widget */
+  position: relative;
+  box-sizing: border-box;
+  padding: 12px;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background: transparent;
+}
+
+/* ====== RFC-0079: SUB-MENU NAVIGATION ====== */
+.shops-root .equipments-submenu {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: linear-gradient(to bottom, #f8f9fa, #ffffff);
+  border-bottom: 2px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin: -12px -12px 16px -12px;
+}
+
+.shops-root .submenu-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #ffffff;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  color: #424242;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.shops-root .submenu-tab:hover {
+  background: #f5f5f5;
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.shops-root .submenu-tab.is-active {
+  background: linear-gradient(135deg, #7a2ff7, #5a1fd1);
+  color: #ffffff;
+  border-color: #7a2ff7;
+  box-shadow: 0 2px 8px rgba(122, 47, 247, 0.3);
+}
+
+.shops-root .submenu-tab .ico {
+  font-size: var(--fs-lg);
+  line-height: 1;
+}
+
+/* RFC-0093: Header CSS now injected from MAIN via injectHeaderAndModalCSS() */
+
+/* ====== CONTROLES DE ZOOM ====== */
+.shops-root .toolbar-zoom {
+  position: sticky;
+  top: 6px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.shops-root .toolbar-zoom button {
+  border: 1px solid var(--card-bd);
+  background: #fff;
+  border-radius: 10px;
+  padding: 4px 10px;
+  font-size: var(--fs-lg);
+  color: var(--ink-1);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.shops-root .toolbar-zoom button:hover {
+  background: #f3f8fc;
+}
+
+/* ====== SHOPPING FILTER CHIPS ====== */
+.shops-root .shopping-filter-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  flex: 1;
+  margin-right: 12px;
+}
+
+.shops-root .shopping-filter-chips .filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: var(--fs-xs);
+  color: #0c4a6e;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  white-space: nowrap;
+}
+
+.shops-root .shopping-filter-chips .filter-chip-icon {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* ====== CARDS GRID (matching EQUIPMENTS) ====== */
+.shops-root .shops-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+  padding-bottom: 100px;
+}
+
+.shops-root .shops-list > * {
+  min-width: 0;
+  width: auto;
+  box-sizing: border-box;
+}
+
+/* Responsive grid - matching EQUIPMENTS */
+@media (min-width: 1920px) {
+  .shops-root .shops-list {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (min-width: 1600px) and (max-width: 1919px) {
+  .shops-root .shops-list {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 15px;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1599px) {
+  .shops-root .shops-list {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .shops-root .shops-list {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .shops-root .shops-list {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+  }
+}
+
+/* RFC-0093: Filter actions, search, modal, and button styles now injected from MAIN via injectHeaderAndModalCSS() */
+
+/* ====== LOADING OVERLAY ====== */
+.shops-root .stores-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.shops-root .loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.shops-root .loading-spinner p {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--ink-1);
+  margin: 0;
+}
+
+/* ====== SCROLLBAR ====== */
+.shops-root .shops-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.shops-root .shops-list::-webkit-scrollbar-thumb {
+  background: #c9d4e2;
+  border-radius: 6px;
+}
+
+/* ====== CARD ACTIONS (side buttons) ====== */
+.shops-root .device-card-centered .card-actions {
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  left: 12px !important;
+  gap: 10px !important;
+}
+
+.shops-root .device-card-centered .card-action {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px;
+  min-height: 38px;
+  border-radius: 12px !important;
+}
+
+.shops-root .device-card-centered .card-action img {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* ====== ANIMATIONS ====== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* RFC-0093: Modal styling now injected from MAIN via injectHeaderAndModalCSS() */
+
+/* Responsive: Stack tabs vertically on mobile */
+@media (max-width: 768px) {
+  .shops-root .equipments-submenu {
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+
+  .shops-root .submenu-tab {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 12px 16px;
+  }
+}

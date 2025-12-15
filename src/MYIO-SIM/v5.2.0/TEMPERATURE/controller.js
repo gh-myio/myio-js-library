@@ -479,22 +479,13 @@ async function fetchTemperatureData() {
         LogHelper.log('[TEMPERATURE] Using data from orchestrator:', tempCache.allShoppingsData.length, 'shoppings');
 
         // Transform orchestrator data to shoppingSeries format
-        // Generate time series data for comparison chart based on avgTemp
-        const hours = ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'];
         const shoppingSeries = tempCache.allShoppingsData.map((shop) => ({
           label: shop.name,
           shoppingId: shop.customerId,
           shoppingName: shop.name,
           avgTemp: shop.avg,
-          minTemp: shop.min,
-          maxTemp: shop.max,
           sensorCount: shop.deviceCount || 0,
-          customerId: shop.customerId,
-          // Generate time series based on avgTemp for comparison chart
-          data: hours.map((t) => ({
-            t,
-            v: shop.avg !== null && shop.avg !== undefined ? shop.avg + (Math.random() - 0.5) * 2 : null,
-          })),
+          data: [], // Historical data not available from orchestrator yet
         }));
 
         STATE.allSensors = tempCache.devices || [];
@@ -836,22 +827,13 @@ function bindEventListeners() {
       STATE.orchestratorData = data;
 
       // Transform orchestrator data to shoppingSeries format
-      // Generate time series data for comparison chart based on avgTemp
-      const hours = ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'];
       const shoppingSeries = data.allShoppingsData.map((shop) => ({
         label: shop.name,
         shoppingId: shop.customerId,
         shoppingName: shop.name,
         avgTemp: shop.avg,
-        minTemp: shop.min,
-        maxTemp: shop.max,
         sensorCount: shop.deviceCount || 0,
-        customerId: shop.customerId,
-        // Generate time series based on avgTemp for comparison chart
-        data: hours.map((t) => ({
-          t,
-          v: shop.avg !== null && shop.avg !== undefined ? shop.avg + (Math.random() - 0.5) * 2 : null,
-        })),
+        data: [], // Historical data not available from orchestrator yet
       }));
 
       STATE.shoppingData = shoppingSeries;
