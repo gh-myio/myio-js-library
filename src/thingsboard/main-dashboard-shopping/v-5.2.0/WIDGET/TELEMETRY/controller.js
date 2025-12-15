@@ -2643,19 +2643,60 @@ function emitAreaComumBreakdown(periodKey) {
       }`
     );
 
-    // Classificar dispositivos por categoria
+    // Classificar dispositivos por categoria (consumo e contagem)
     const breakdown = {
-      climatizacao: 0,
-      elevadores: 0,
-      escadas_rolantes: 0,
-      outros: 0,
+      climatizacao: { total: 0, count: 0 },
+      elevadores: { total: 0, count: 0 },
+      escadas_rolantes: { total: 0, count: 0 },
+      outros: { total: 0, count: 0 },
+    };
+
+    // RFC-0096: Subcategorias de climatização para tooltip detalhado
+    const climatizacaoSubcategories = {
+      cag: { total: 0, count: 0, label: 'CAG' },
+      fancoils: { total: 0, count: 0, label: 'Fancoils' },
+      chillers: { total: 0, count: 0, label: 'Chillers' },
+      bombas_primarias: { total: 0, count: 0, label: 'Bombas Primárias' },
+      bombas_secundarias: { total: 0, count: 0, label: 'Bombas Secundárias' },
+      bombas_condensadoras: { total: 0, count: 0, label: 'Bombas Condensadoras' },
+      outros_climatizacao: { total: 0, count: 0, label: 'Outros Climatização' },
     };
 
     STATE.itemsEnriched.forEach((item) => {
       const energia = item.value || 0;
       const category = classifyDevice(item);
 
-      breakdown[category] += energia;
+      breakdown[category].total += energia;
+      breakdown[category].count += 1;
+
+      // RFC-0096: Classificar subcategorias de climatização
+      if (category === 'climatizacao') {
+        const label = normalizeLabel(item.label || '');
+        const identifier = String(item.identifier || '').toUpperCase();
+
+        if (identifier === 'CAG' || identifier.startsWith('CAG-') || label.includes('cag') || label.includes('central de agua gelada')) {
+          climatizacaoSubcategories.cag.total += energia;
+          climatizacaoSubcategories.cag.count += 1;
+        } else if (identifier === 'FANCOIL' || identifier.startsWith('FANCOIL-') || label.includes('fancoil') || label.includes('fan coil') || label.includes('fcu')) {
+          climatizacaoSubcategories.fancoils.total += energia;
+          climatizacaoSubcategories.fancoils.count += 1;
+        } else if (label.includes('chiller')) {
+          climatizacaoSubcategories.chillers.total += energia;
+          climatizacaoSubcategories.chillers.count += 1;
+        } else if (label.includes('bomba primaria') || label.includes('bombas primarias')) {
+          climatizacaoSubcategories.bombas_primarias.total += energia;
+          climatizacaoSubcategories.bombas_primarias.count += 1;
+        } else if (label.includes('bomba secundaria') || label.includes('bombas secundarias')) {
+          climatizacaoSubcategories.bombas_secundarias.total += energia;
+          climatizacaoSubcategories.bombas_secundarias.count += 1;
+        } else if (label.includes('condensadora') || label.includes('bombas condensadora')) {
+          climatizacaoSubcategories.bombas_condensadoras.total += energia;
+          climatizacaoSubcategories.bombas_condensadoras.count += 1;
+        } else {
+          climatizacaoSubcategories.outros_climatizacao.total += energia;
+          climatizacaoSubcategories.outros_climatizacao.count += 1;
+        }
+      }
 
       // Debug log for first 5 items
       if (STATE.itemsEnriched.indexOf(item) < 5) {
@@ -2674,15 +2715,21 @@ function emitAreaComumBreakdown(periodKey) {
       timestamp: Date.now(),
       source: 'TELEMETRY_AreaComum',
       data: {
-        climatizacao_kWh: breakdown.climatizacao,
-        climatizacao_MWh: normalizeToMWh(breakdown.climatizacao),
-        elevadores_kWh: breakdown.elevadores,
-        elevadores_MWh: normalizeToMWh(breakdown.elevadores),
-        escadas_rolantes_kWh: breakdown.escadas_rolantes,
-        escadas_rolantes_MWh: normalizeToMWh(breakdown.escadas_rolantes),
-        outros_kWh: breakdown.outros,
-        outros_MWh: normalizeToMWh(breakdown.outros),
+        climatizacao_kWh: breakdown.climatizacao.total,
+        climatizacao_MWh: normalizeToMWh(breakdown.climatizacao.total),
+        climatizacao_count: breakdown.climatizacao.count,
+        elevadores_kWh: breakdown.elevadores.total,
+        elevadores_MWh: normalizeToMWh(breakdown.elevadores.total),
+        elevadores_count: breakdown.elevadores.count,
+        escadas_rolantes_kWh: breakdown.escadas_rolantes.total,
+        escadas_rolantes_MWh: normalizeToMWh(breakdown.escadas_rolantes.total),
+        escadas_rolantes_count: breakdown.escadas_rolantes.count,
+        outros_kWh: breakdown.outros.total,
+        outros_MWh: normalizeToMWh(breakdown.outros.total),
+        outros_count: breakdown.outros.count,
         device_count: STATE.itemsEnriched.length,
+        // RFC-0096: Subcategorias de climatização
+        climatizacao_subcategories: climatizacaoSubcategories,
       },
     };
 
@@ -2704,10 +2751,10 @@ function emitAreaComumBreakdown(periodKey) {
     window.dispatchEvent(event);
 
     const totalMWh = normalizeToMWh(
-      breakdown.climatizacao + breakdown.elevadores + breakdown.escadas_rolantes + breakdown.outros
+      breakdown.climatizacao.total + breakdown.elevadores.total + breakdown.escadas_rolantes.total + breakdown.outros.total
     );
     LogHelper.log(
-      `[RFC-0056] ✅ Emitted areacomum_breakdown: ${totalMWh} MWh (${STATE.itemsEnriched.length} devices)`
+      `[RFC-0056] ✅ Emitted areacomum_breakdown: ${totalMWh} MWh (${STATE.itemsEnriched.length} devices, climatizacao: ${breakdown.climatizacao.count})`
     );
   } catch (err) {
     LogHelper.error('[RFC-0056] Error in emitAreaComumBreakdown:', err);

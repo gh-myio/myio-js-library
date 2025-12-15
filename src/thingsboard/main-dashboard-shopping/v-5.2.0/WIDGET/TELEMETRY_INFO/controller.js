@@ -1132,38 +1132,44 @@ function handleLojasTotal(data, timestamp, periodKey) {
 
 /**
  * Handler: areacomum_breakdown
+ * RFC-0096: Enhanced with device counts and climatização subcategories
  */
 function handleAreaComumBreakdown(data, timestamp, periodKey) {
   RECEIVED_DATA.climatizacao = {
     total: data.climatizacao_kWh,
     totalMWh: data.climatizacao_MWh,
+    count: data.climatizacao_count || 0,
+    subcategories: data.climatizacao_subcategories || null,
     timestamp,
     periodKey,
   };
   RECEIVED_DATA.elevadores = {
     total: data.elevadores_kWh,
     totalMWh: data.elevadores_MWh,
+    count: data.elevadores_count || 0,
     timestamp,
     periodKey,
   };
   RECEIVED_DATA.escadas_rolantes = {
     total: data.escadas_rolantes_kWh,
     totalMWh: data.escadas_rolantes_MWh,
+    count: data.escadas_rolantes_count || 0,
     timestamp,
     periodKey,
   };
   RECEIVED_DATA.outros = {
     total: data.outros_kWh,
     totalMWh: data.outros_MWh,
+    count: data.outros_count || 0,
     timestamp,
     periodKey,
   };
 
-  LogHelper.log(`[RFC-0056] âœ… AreaComum breakdown updated:`, {
-    climatizacao: data.climatizacao_MWh,
-    elevadores: data.elevadores_MWh,
-    escadas_rolantes: data.escadas_rolantes_MWh,
-    outros: data.outros_MWh,
+  LogHelper.log(`[RFC-0056] ✅ AreaComum breakdown updated:`, {
+    climatizacao: `${data.climatizacao_MWh} MWh (${data.climatizacao_count || 0} devices)`,
+    elevadores: `${data.elevadores_MWh} MWh (${data.elevadores_count || 0} devices)`,
+    escadas_rolantes: `${data.escadas_rolantes_MWh} MWh (${data.escadas_rolantes_count || 0} devices)`,
+    outros: `${data.outros_MWh} MWh (${data.outros_count || 0} devices)`,
   });
 
   // Agendar recalculo com debounce
@@ -2066,7 +2072,8 @@ function showAreaComumTooltip(triggerElement) {
 }
 
 /**
- * Show Climatização tooltip with breakdown of subcategories
+ * Show Climatização tooltip with composition explanation
+ * RFC-0096: Now shows real device counts and consumption from TELEMETRY widget
  * @param {HTMLElement} triggerElement - Element that triggered the tooltip
  */
 function showClimatizacaoTooltip(triggerElement) {
@@ -2076,59 +2083,57 @@ function showClimatizacaoTooltip(triggerElement) {
   }
 
   const climatizacao = STATE.consumidores.climatizacao?.total || 0;
-  const devices = STATE.consumidores.climatizacao?.devices || [];
+  const climatizacaoPerc = STATE.consumidores.climatizacao?.perc || 0;
+  const climatizacaoCount = RECEIVED_DATA.climatizacao?.count || 0;
+  const subcategoriesData = RECEIVED_DATA.climatizacao?.subcategories || null;
 
-  // Group devices by subcategory
-  const subcategories = {
-    cag: { label: 'CAG', icon: '❄️', devices: [], total: 0 },
-    fancoils: { label: 'Fancoils', icon: '🌀', devices: [], total: 0 },
-    chillers: { label: 'Chillers', icon: '🧊', devices: [], total: 0 },
-    bombas: { label: 'Bombas', icon: '💧', devices: [], total: 0 },
-    outros: { label: 'Outros Climatização', icon: '🔧', devices: [], total: 0 },
-  };
+  // RFC-0096: Subcategory definitions with icons
+  const subcategoryDefs = [
+    { key: 'cag', icon: '❄️', label: 'CAG', desc: 'Central de Água Gelada' },
+    { key: 'fancoils', icon: '🌀', label: 'Fancoils', desc: 'Unidades de climatização' },
+    { key: 'chillers', icon: '🧊', label: 'Chillers', desc: 'Resfriadores industriais' },
+    { key: 'bombas_primarias', icon: '💧', label: 'Bombas Primárias', desc: 'Circulação principal' },
+    { key: 'bombas_secundarias', icon: '💧', label: 'Bombas Secundárias', desc: 'Circulação secundária' },
+    { key: 'bombas_condensadoras', icon: '💧', label: 'Bombas Condensadoras', desc: 'Sistema de condensação' },
+    { key: 'outros_climatizacao', icon: '🔧', label: 'Outros', desc: 'Outros equipamentos' },
+  ];
 
-  // Classify devices into subcategories
-  devices.forEach((d) => {
-    const label = normalizeLabel(d.labelOrName || d.name || '');
-    const val = d.value || d.consumption || 0;
-
-    if (label.includes('cag') || label.includes('central de agua gelada')) {
-      subcategories.cag.devices.push(d);
-      subcategories.cag.total += val;
-    } else if (label.includes('fancoil') || label.includes('fan coil') || label.includes('fcu')) {
-      subcategories.fancoils.devices.push(d);
-      subcategories.fancoils.total += val;
-    } else if (label.includes('chiller')) {
-      subcategories.chillers.devices.push(d);
-      subcategories.chillers.total += val;
-    } else if (label.includes('bomba') || label.includes('bomb') || label.includes('primaria') || label.includes('secundaria') || label.includes('condensadora')) {
-      subcategories.bombas.devices.push(d);
-      subcategories.bombas.total += val;
-    } else {
-      subcategories.outros.devices.push(d);
-      subcategories.outros.total += val;
-    }
-  });
-
-  // Build subcategories HTML
+  // Build subcategories HTML with real data if available
   let subcatHtml = '';
-  Object.values(subcategories).forEach((cat) => {
-    if (cat.total > 0 || cat.devices.length > 0) {
-      subcatHtml += `
-        <div class="info-tooltip-panel__category info-tooltip-panel__category--climatizacao">
-          <span class="info-tooltip-panel__category-icon">${cat.icon}</span>
-          <div class="info-tooltip-panel__category-info">
-            <div class="info-tooltip-panel__category-name">${cat.label}</div>
-            <div class="info-tooltip-panel__category-desc">${cat.devices.length} equipamento(s)</div>
+  if (subcategoriesData) {
+    subcategoryDefs.forEach((def) => {
+      const data = subcategoriesData[def.key];
+      if (data && (data.count > 0 || data.total > 0)) {
+        subcatHtml += `
+          <div class="info-tooltip-panel__category info-tooltip-panel__category--climatizacao">
+            <span class="info-tooltip-panel__category-icon">${def.icon}</span>
+            <div class="info-tooltip-panel__category-info">
+              <div class="info-tooltip-panel__category-name">${def.label}</div>
+              <div class="info-tooltip-panel__category-desc">${data.count} equipamento(s)</div>
+            </div>
+            <span class="info-tooltip-panel__category-value">${formatEnergy(data.total)}</span>
           </div>
-          <span class="info-tooltip-panel__category-value">${formatEnergy(cat.total)}</span>
-        </div>
-      `;
-    }
-  });
+        `;
+      }
+    });
+  }
 
+  // Fallback if no subcategory data
   if (!subcatHtml) {
-    subcatHtml = `<div style="color: #64748b; font-size: 11px; padding: 8px;">Nenhum equipamento de climatização encontrado.</div>`;
+    subcatHtml = subcategoryDefs
+      .filter((def) => def.key !== 'outros_climatizacao')
+      .map(
+        (def) => `
+          <div class="info-tooltip-panel__category info-tooltip-panel__category--climatizacao">
+            <span class="info-tooltip-panel__category-icon">${def.icon}</span>
+            <div class="info-tooltip-panel__category-info">
+              <div class="info-tooltip-panel__category-name">${def.label}</div>
+              <div class="info-tooltip-panel__category-desc">${def.desc}</div>
+            </div>
+          </div>
+        `
+      )
+      .join('');
   }
 
   container.innerHTML = `
@@ -2140,21 +2145,25 @@ function showClimatizacaoTooltip(triggerElement) {
       <div class="info-tooltip-panel__content">
         <div class="info-tooltip-panel__section">
           <div class="info-tooltip-panel__section-title">
-            <span>📊</span> Total
+            <span>📊</span> Consumo Total
           </div>
           <div class="info-tooltip-panel__row">
-            <span class="info-tooltip-panel__label">Climatização Total:</span>
+            <span class="info-tooltip-panel__label">Climatização:</span>
             <span class="info-tooltip-panel__value info-tooltip-panel__value--highlight">${formatEnergy(climatizacao)}</span>
           </div>
           <div class="info-tooltip-panel__row">
             <span class="info-tooltip-panel__label">Equipamentos:</span>
-            <span class="info-tooltip-panel__value">${devices.length}</span>
+            <span class="info-tooltip-panel__value">${climatizacaoCount}</span>
+          </div>
+          <div class="info-tooltip-panel__row">
+            <span class="info-tooltip-panel__label">Participação:</span>
+            <span class="info-tooltip-panel__value">${climatizacaoPerc.toFixed(1)}%</span>
           </div>
         </div>
 
         <div class="info-tooltip-panel__section">
           <div class="info-tooltip-panel__section-title">
-            <span>📋</span> Por Subcategoria
+            <span>📋</span> Composição
           </div>
           ${subcatHtml}
         </div>
@@ -2162,7 +2171,7 @@ function showClimatizacaoTooltip(triggerElement) {
         <div class="info-tooltip-panel__notice">
           <span class="info-tooltip-panel__notice-icon">💡</span>
           <div class="info-tooltip-panel__notice-text">
-            <strong>Climatização</strong> inclui: CAG, Fancoils, Chillers, e Bombas (Primárias, Secundárias e Condensadoras).
+            O valor de <strong>Climatização</strong> é calculado pela soma do consumo de todos os equipamentos classificados nestas categorias.
           </div>
         </div>
       </div>

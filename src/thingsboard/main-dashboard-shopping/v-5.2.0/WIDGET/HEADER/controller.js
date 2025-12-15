@@ -369,9 +369,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
     });
 
-    // Initial controls state (disabled by default in HTML, will be enabled when domain is set)
-    // Note: Don't call updateControlsState here - controls start disabled and will be enabled
-    // when myio:dashboard-state event fires with the actual domain
+    // RFC-0096 FIX: Check if domain was already set before listener was registered (race condition fix)
+    // MENU may fire myio:dashboard-state before HEADER's onInit completes
+    if (currentDomain.value && (currentDomain.value === 'energy' || currentDomain.value === 'water')) {
+      LogHelper.log(`[HEADER] 🔧 Race condition fix: Domain already set to ${currentDomain.value}, enabling controls`);
+      updateControlsState(currentDomain.value);
+    }
 
     // RFC-0045 FIX: Track last emission to prevent duplicates
     let lastEmission = {};
