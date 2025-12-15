@@ -837,14 +837,29 @@ function buildAuthoritativeItems() {
   let globalTempMin = null;
   let globalTempMax = null;
   const ctxDataRows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+
+  // Track entityIds that have temp config keys (minTemperature, maxTemperature)
+  // and build a map of all dataKeys per entityId to identify config-only entities
+  const entityDataKeysMap = new Map(); // entityId -> Set of dataKey names
+
   ctxDataRows.forEach((data) => {
-    if (data?.dataKey?.name === 'maxTemperature') {
+    const entityId = data?.datasource?.entityId?.id || data?.datasource?.entityId || null;
+    const keyName = data?.dataKey?.name;
+
+    if (entityId && keyName) {
+      if (!entityDataKeysMap.has(entityId)) {
+        entityDataKeysMap.set(entityId, new Set());
+      }
+      entityDataKeysMap.get(entityId).add(keyName);
+    }
+
+    if (keyName === 'maxTemperature') {
       globalTempMax = Number(data.data?.[0]?.[1]) || null;
       LogHelper.log(
         `[DeviceCards] Found global maxTemperature: ${globalTempMax} from ${data.datasource?.entityLabel}`
       );
     }
-    if (data?.dataKey?.name === 'minTemperature') {
+    if (keyName === 'minTemperature') {
       globalTempMin = Number(data.data?.[0]?.[1]) || null;
       LogHelper.log(
         `[DeviceCards] Found global minTemperature: ${globalTempMin} from ${data.datasource?.entityLabel}`
@@ -852,7 +867,38 @@ function buildAuthoritativeItems() {
     }
   });
 
-  const mapped = ok.map((r) => {
+  // RFC-BUG-FIX: For temperature domain, filter out entities that ONLY have
+  // minTemperature/maxTemperature keys (config entities, not actual sensors)
+  const tempConfigKeys = new Set(['minTemperature', 'maxTemperature']);
+  const configOnlyEntityIds = new Set();
+
+  if (WIDGET_DOMAIN === 'temperature') {
+    entityDataKeysMap.forEach((keys, entityId) => {
+      // Check if ALL keys for this entity are temp config keys
+      const allKeysAreConfig = [...keys].every(k => tempConfigKeys.has(k));
+      if (allKeysAreConfig && keys.size > 0) {
+        configOnlyEntityIds.add(entityId);
+        LogHelper.log(`[DeviceCards] Excluding config-only entity ${entityId} (keys: ${[...keys].join(', ')})`);
+      }
+    });
+  }
+
+  // Filter out config-only entities from the items list
+  const filtered = ok.filter((item) => {
+    // Get the tbId for this item to check against configOnlyEntityIds
+    const ingestionId = item.id;
+    const tbFromIngestion = ingestionId ? tbIdIdx.byIngestion.get(ingestionId) : null;
+    const tbFromIdentifier = item.identifier ? tbIdIdx.byIdentifier.get(item.identifier) : null;
+    const tbId = tbFromIngestion || tbFromIdentifier || null;
+
+    if (tbId && configOnlyEntityIds.has(tbId)) {
+      LogHelper.log(`[DeviceCards] Filtering out item ${item.label} (tbId=${tbId}) - config-only entity`);
+      return false;
+    }
+    return true;
+  });
+
+  const mapped = filtered.map((r) => {
     //LogHelper.log("[TELEMETRY][buildAuthoritativeItems] ok.map: ", r);
 
     const ingestionId = r.id;
