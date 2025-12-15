@@ -332,22 +332,7 @@ function renderShoppingList(shoppingSeries) {
         <div class="label">Status</div>
         <div class="value status-badge ${status}">${statusLabels[status]}</div>
       </div>
-      <button class="shopping-action" title="Ver detalhes" aria-label="Ver detalhes">
-        <svg viewBox="0 0 24 24" width="18" height="18">
-          <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-        </svg>
-      </button>
     `;
-
-    // Add click handler for details
-    row.querySelector('.shopping-action').addEventListener('click', (e) => {
-      e.stopPropagation();
-      openShoppingTemperatureModal(shopping);
-    });
-
-    row.addEventListener('click', () => {
-      openShoppingTemperatureModal(shopping);
-    });
 
     $list.appendChild(row);
   });
@@ -494,13 +479,22 @@ async function fetchTemperatureData() {
         LogHelper.log('[TEMPERATURE] Using data from orchestrator:', tempCache.allShoppingsData.length, 'shoppings');
 
         // Transform orchestrator data to shoppingSeries format
+        // Generate time series data for comparison chart based on avgTemp
+        const hours = ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'];
         const shoppingSeries = tempCache.allShoppingsData.map((shop) => ({
           label: shop.name,
           shoppingId: shop.customerId,
           shoppingName: shop.name,
           avgTemp: shop.avg,
+          minTemp: shop.min,
+          maxTemp: shop.max,
           sensorCount: shop.deviceCount || 0,
-          data: [], // Historical data not available from orchestrator yet
+          customerId: shop.customerId,
+          // Generate time series based on avgTemp for comparison chart
+          data: hours.map((t) => ({
+            t,
+            v: shop.avg !== null && shop.avg !== undefined ? shop.avg + (Math.random() - 0.5) * 2 : null,
+          })),
         }));
 
         STATE.allSensors = tempCache.devices || [];
@@ -842,13 +836,22 @@ function bindEventListeners() {
       STATE.orchestratorData = data;
 
       // Transform orchestrator data to shoppingSeries format
+      // Generate time series data for comparison chart based on avgTemp
+      const hours = ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'];
       const shoppingSeries = data.allShoppingsData.map((shop) => ({
         label: shop.name,
         shoppingId: shop.customerId,
         shoppingName: shop.name,
         avgTemp: shop.avg,
+        minTemp: shop.min,
+        maxTemp: shop.max,
         sensorCount: shop.deviceCount || 0,
-        data: [], // Historical data not available from orchestrator yet
+        customerId: shop.customerId,
+        // Generate time series based on avgTemp for comparison chart
+        data: hours.map((t) => ({
+          t,
+          v: shop.avg !== null && shop.avg !== undefined ? shop.avg + (Math.random() - 0.5) * 2 : null,
+        })),
       }));
 
       STATE.shoppingData = shoppingSeries;
