@@ -1,12 +1,12 @@
 {
   "schema": {
     "type": "object",
-    "title": "Water Common Area Widget Settings",
+    "title": "Water Stores Widget Settings",
     "properties": {
         "labelWidget":{
             "type":"string",
             "title": "Widget Label",
-            "default": "Hidrômetros de Áreas Comuns"
+            "default": "Hidrômetros de Lojas"
         },
         "useNewComponents":{
             "type":"boolean",

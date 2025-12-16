@@ -924,6 +924,11 @@ function getStoreConsumption(store) {
   return Number(store.value) || Number(store.consumption) || Number(store.val) || 0;
 }
 
+// Helper function to get store status (for filter tabs)
+function getStoreStatus(store) {
+  return (store.deviceStatus || '').toLowerCase();
+}
+
 // Filter modal instance (lazy initialized)
 let waterStoresFilterModal = null;
 
@@ -948,8 +953,8 @@ function initFilterModal() {
     // Filter tabs configuration - specific for WATER_STORES
     filterTabs: [
       { id: 'all', label: 'Todos', filter: () => true },
-      { id: 'online', label: 'Online', filter: (s) => getStoreConsumption(s) > 0 },
-      { id: 'offline', label: 'Offline', filter: (s) => getStoreConsumption(s) === 0 },
+      { id: 'online', label: 'Online', filter: (s) => !['offline', 'no_info'].includes(getStoreStatus(s)) },
+      { id: 'offline', label: 'Offline', filter: (s) => ['offline', 'no_info'].includes(getStoreStatus(s)) },
       { id: 'withConsumption', label: 'Com Consumo', filter: (s) => getStoreConsumption(s) > 0 },
       { id: 'noConsumption', label: 'Sem Consumo', filter: (s) => getStoreConsumption(s) === 0 },
     ],
