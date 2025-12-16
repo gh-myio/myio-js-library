@@ -27,7 +27,7 @@ import {
   shouldFlashIcon as shouldIconFlash,
   isDeviceOffline,
   getDeviceStatusIcon,
-  getConnectionStatusIcon
+  getConnectionStatusIcon,
 } from '../../../../utils/deviceStatus.js';
 import { TempRangeTooltip } from '../../../../utils/TempRangeTooltip';
 import { EnergyRangeTooltip } from '../../../../utils/EnergyRangeTooltip';
@@ -39,6 +39,130 @@ import { EnergyRangeTooltip } from '../../../../utils/EnergyRangeTooltip';
 /** Maximum characters for device label display before truncation */
 const LABEL_CHAR_LIMIT = 18;
 
+/**
+ * Centralized device type configuration
+ * category: 'energy' | 'water' | 'tank' | 'temperature'
+ * image: URL or null (for dynamic images like TANK/TERMOSTATO)
+ */
+const DEVICE_TYPE_CONFIG = {
+  // Energy devices
+  COMPRESSOR: { category: 'energy', image: null },
+  VENTILADOR: { category: 'energy', image: null },
+  ESCADA_ROLANTE: {
+    category: 'energy',
+    image: 'https://dashboard.myio-bas.com/api/images/public/EJ997iB2HD1AYYUHwIloyQOOszeqb2jp',
+  },
+  ELEVADOR: {
+    category: 'energy',
+    image: 'https://dashboard.myio-bas.com/api/images/public/rAjOvdsYJLGah6w6BABPJSD9znIyrkJX',
+  },
+  MOTOR: {
+    category: 'energy',
+    image: 'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
+  },
+  BOMBA_HIDRAULICA: {
+    category: 'energy',
+    image: 'https://dashboard.myio-bas.com/api/images/public/rbO2wQb6iKBtX0Ec04DFDcO3Qg04EOoD',
+  },
+  BOMBA_INCENDIO: {
+    category: 'energy',
+    image: 'https://dashboard.myio-bas.com/api/images/public/YJkELCk9kluQSM6QXaFINX6byQWI7vbB',
+  },
+  BOMBA: {
+    category: 'energy',
+    image: 'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
+  },
+  '3F_MEDIDOR': {
+    category: 'energy',
+    image: 'https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k',
+  },
+  RELOGIO: {
+    category: 'energy',
+    image: 'https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB',
+  },
+  ENTRADA: {
+    category: 'energy',
+    image: 'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
+  },
+  SUBESTACAO: {
+    category: 'energy',
+    image: 'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
+  },
+  FANCOIL: {
+    category: 'energy',
+    image: 'https://dashboard.myio-bas.com/api/images/public/4BWMuVIFHnsfqatiV86DmTrOB7IF0X8Y',
+  },
+  CHILLER: {
+    category: 'energy',
+    image: 'https://dashboard.myio-bas.com/api/images/public/27Rvy9HbNoPz8KKWPa0SBDwu4kQ827VU',
+  },
+  AR_CONDICIONADO: { category: 'energy', image: null },
+  HVAC: { category: 'energy', image: null },
+
+  // Water devices
+  HIDROMETRO: {
+    category: 'water',
+    image: 'https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4',
+  },
+  CAIXA_DAGUA: {
+    category: 'water',
+    image: 'https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq',
+  },
+
+  // Tank devices (dynamic images based on level)
+  TANK: { category: 'tank', image: null },
+
+  // Temperature devices (dynamic images based on status)
+  TERMOSTATO: { category: 'temperature', image: null },
+};
+
+// Pre-computed sets for fast lookup
+const ENERGY_DEVICE_TYPES = new Set(
+  Object.entries(DEVICE_TYPE_CONFIG)
+    .filter(([_, cfg]) => cfg.category === 'energy')
+    .map(([type]) => type)
+);
+
+const WATER_DEVICE_TYPES = new Set(
+  Object.entries(DEVICE_TYPE_CONFIG)
+    .filter(([_, cfg]) => cfg.category === 'water')
+    .map(([type]) => type)
+);
+
+const TEMPERATURE_DEVICE_TYPES = new Set(
+  Object.entries(DEVICE_TYPE_CONFIG)
+    .filter(([_, cfg]) => cfg.category === 'temperature')
+    .map(([type]) => type)
+);
+
+const DEFAULT_DEVICE_IMAGE = 'https://cdn-icons-png.flaticon.com/512/1178/1178428.png';
+
+// Helper functions derived from config
+const getDeviceCategory = (deviceType) => {
+  const normalizedType = String(deviceType || '').toUpperCase();
+  return DEVICE_TYPE_CONFIG[normalizedType]?.category || 'energy';
+};
+
+const isEnergyDeviceType = (deviceType) => {
+  const normalizedType = String(deviceType || '').toUpperCase();
+  return ENERGY_DEVICE_TYPES.has(normalizedType);
+};
+
+const isWaterDeviceType = (deviceType) => {
+  const normalizedType = String(deviceType || '').toUpperCase();
+  return WATER_DEVICE_TYPES.has(normalizedType);
+};
+
+const isTemperatureDeviceType = (deviceType) => {
+  const normalizedType = String(deviceType || '').toUpperCase();
+  return TEMPERATURE_DEVICE_TYPES.has(normalizedType);
+};
+
+const getStaticDeviceImage = (deviceType) => {
+  const normalizedType = String(deviceType || '').toUpperCase();
+  return DEVICE_TYPE_CONFIG[normalizedType]?.image || DEFAULT_DEVICE_IMAGE;
+};
+
 export function renderCardComponentV5({
   entityObject,
   handleActionDashboard,
@@ -48,8 +172,8 @@ export function renderCardComponentV5({
   handInfo, // DEPRECATED: Info now handled in settings modal
   handleClickCard,
   useNewComponents = true, // Flag to enable/disable new components
-  enableSelection = true,  // Flag to enable selection functionality
-  enableDragDrop = true,   // Flag to enable drag and drop
+  enableSelection = true, // Flag to enable selection functionality
+  enableDragDrop = true, // Flag to enable drag and drop
 }) {
   const {
     entityId,
@@ -74,21 +198,21 @@ export function renderCardComponentV5({
     temperature,
     temperatureMin,
     temperatureMax,
-    temperatureStatus // 'ok' | 'above' | 'below' | undefined
+    temperatureStatus, // 'ok' | 'above' | 'below' | undefined
   } = entityObject;
 
   /*********************************************************
- * MyIO Global Toast Manager
- * - Cria um único elemento de toast no DOM.
- * - Evita múltiplos toasts de diferentes widgets.
- * - Simples de usar: MyIOToast.show('Sua mensagem');
- *********************************************************/
-  const MyIOToast = (function() {
-      let toastContainer = null;
-      let toastTimeout = null;
+   * MyIO Global Toast Manager
+   * - Cria um único elemento de toast no DOM.
+   * - Evita múltiplos toasts de diferentes widgets.
+   * - Simples de usar: MyIOToast.show('Sua mensagem');
+   *********************************************************/
+  const MyIOToast = (function () {
+    let toastContainer = null;
+    let toastTimeout = null;
 
-      // CSS para um toast simples e agradável
-      const TOAST_CSS = `
+    // CSS para um toast simples e agradável
+    const TOAST_CSS = `
           #myio-global-toast-container {
               position: fixed;
               top: 25px;
@@ -128,73 +252,77 @@ export function renderCardComponentV5({
           }
       `;
 
-      // Função para criar o elemento do toast (só roda uma vez)
-      function createToastElement() {
-          if (document.getElementById('myio-global-toast-container')) {
-              toastContainer = document.getElementById('myio-global-toast-container');
-              return;
-          }
-
-          // Injeta o CSS no <head>
-          const style = document.createElement('style');
-          style.id = 'myio-global-toast-styles';
-          style.textContent = TOAST_CSS;
-          document.head.appendChild(style);
-
-          // Cria o elemento HTML e anexa ao <body>
-          toastContainer = document.createElement('div');
-          toastContainer.id = 'myio-global-toast-container';
-          document.body.appendChild(toastContainer);
+    // Função para criar o elemento do toast (só roda uma vez)
+    function createToastElement() {
+      if (document.getElementById('myio-global-toast-container')) {
+        toastContainer = document.getElementById('myio-global-toast-container');
+        return;
       }
 
-      /**
-       * Exibe o toast com uma mensagem.
-       * @param {string} message - A mensagem a ser exibida.
-       * @param {string} [type='warning'] - O tipo do toast ('warning' ou 'error').
-       * @param {number} [duration=3500] - Duração em milissegundos.
-       */
-      function show(message, type = 'warning', duration = 3500) {
-          if (!toastContainer) {
-              createToastElement();
-          }
+      // Injeta o CSS no <head>
+      const style = document.createElement('style');
+      style.id = 'myio-global-toast-styles';
+      style.textContent = TOAST_CSS;
+      document.head.appendChild(style);
 
-          clearTimeout(toastTimeout);
+      // Cria o elemento HTML e anexa ao <body>
+      toastContainer = document.createElement('div');
+      toastContainer.id = 'myio-global-toast-container';
+      document.body.appendChild(toastContainer);
+    }
 
-          toastContainer.textContent = message;
-          toastContainer.className = ''; // Reseta classes
-          toastContainer.classList.add(type);
-
-          // Força o navegador a reconhecer a mudança antes de adicionar a classe 'show'
-          // para garantir que a animação sempre funcione.
-          setTimeout(() => {
-              toastContainer.classList.add('show');
-          }, 10);
-
-          toastTimeout = setTimeout(() => {
-              toastContainer.classList.remove('show');
-          }, duration);
+    /**
+     * Exibe o toast com uma mensagem.
+     * @param {string} message - A mensagem a ser exibida.
+     * @param {string} [type='warning'] - O tipo do toast ('warning' ou 'error').
+     * @param {number} [duration=3500] - Duração em milissegundos.
+     */
+    function show(message, type = 'warning', duration = 3500) {
+      if (!toastContainer) {
+        createToastElement();
       }
 
-      // Garante que o elemento seja criado assim que o script for carregado.
-      if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', createToastElement);
-      } else {
-          createToastElement();
-      }
+      clearTimeout(toastTimeout);
 
-      return {
-          show: show
-      };
+      toastContainer.textContent = message;
+      toastContainer.className = ''; // Reseta classes
+      toastContainer.classList.add(type);
+
+      // Força o navegador a reconhecer a mudança antes de adicionar a classe 'show'
+      // para garantir que a animação sempre funcione.
+      setTimeout(() => {
+        toastContainer.classList.add('show');
+      }, 10);
+
+      toastTimeout = setTimeout(() => {
+        toastContainer.classList.remove('show');
+      }, duration);
+    }
+
+    // Garante que o elemento seja criado assim que o script for carregado.
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', createToastElement);
+    } else {
+      createToastElement();
+    }
+
+    return {
+      show: show,
+    };
   })();
 
   // Deprecated warning for handInfo
   if (handInfo) {
-    console.warn('[template-card-v5] handInfo parameter is deprecated. Info functionality has been moved to settings modal.');
+    console.warn(
+      '[template-card-v5] handInfo parameter is deprecated. Info functionality has been moved to settings modal.'
+    );
   }
 
   // If new components are disabled, fall back to v2 implementation
   if (!useNewComponents) {
-    console.warn('[template-card-v5] useNewComponents=false is not recommended. Consider using template-card-v2 directly.');
+    console.warn(
+      '[template-card-v5] useNewComponents=false is not recommended. Consider using template-card-v2 directly.'
+    );
     // Could import and call v2 here if needed
   }
 
@@ -205,62 +333,28 @@ export function renderCardComponentV5({
   const icon = getDeviceStatusIcon(deviceStatus, deviceType); // Pass deviceType for water device icons
   const connectionIcon = getConnectionStatusIcon(connectionStatus);
 
-  // Map device type to icon
+  // Map device type to icon category (uses centralized config)
   const mapDeviceTypeToIcon = (deviceType) => {
-    const typeMap = {
-      'COMPRESSOR': 'energy',
-      'VENTILADOR': 'energy',
-      'ESCADA_ROLANTE': 'energy',
-      'ELEVADOR': 'energy',
-      'MOTOR': 'energy',
-      '3F_MEDIDOR': 'energy',
-      'RELOGIO': 'energy',
-      'ENTRADA': 'energy',
-      'SUBESTACAO': 'energy',
-      'HIDROMETRO': 'water',
-      'CAIXA_DAGUA': 'water',
-      'TANK': 'water',
-      'TERMOSTATO': 'temperature',
-    };
-
-    const normalizedType = deviceType?.toUpperCase() || '';
-    return typeMap[normalizedType] || 'generic';
+    const category = getDeviceCategory(deviceType);
+    // Map category to icon type
+    if (category === 'water' || category === 'tank') return 'water';
+    if (category === 'temperature') return 'temperature';
+    if (category === 'energy') return 'energy';
+    return 'generic';
   };
 
-  // Get value type from device type (replaces valType logic)
+  // Get value type from device type (uses centralized config)
   const getValueTypeFromDeviceType = (deviceType) => {
-    const typeMap = {
-      'COMPRESSOR': 'ENERGY',
-      'VENTILADOR': 'ENERGY',
-      'ESCADA_ROLANTE': 'ENERGY',
-      'ELEVADOR': 'ENERGY',
-      'MOTOR': 'ENERGY',
-      '3F_MEDIDOR': 'ENERGY',
-      'RELOGIO': 'ENERGY',
-      'ENTRADA': 'ENERGY',
-      'SUBESTACAO': 'ENERGY',
-      'HIDROMETRO': 'WATER',
-      'CAIXA_DAGUA': 'WATER',
-      'TANK': 'TANK',
-      'TERMOSTATO': 'TEMPERATURE'
-    };
-    const normalizedType = deviceType?.toUpperCase() || '';
-    return typeMap[normalizedType] || 'ENERGY';
+    const category = getDeviceCategory(deviceType);
+    if (category === 'tank') return 'TANK';
+    return category.toUpperCase(); // 'energy' -> 'ENERGY', 'water' -> 'WATER', etc.
   };
 
-  // Check if device is energy-related (now uses deviceType only)
-  const isEnergyDevice = (deviceType) => {
-    const energyDeviceTypes = ['COMPRESSOR', 'VENTILADOR', 'ESCADA_ROLANTE', 'ELEVADOR', 'MOTOR', '3F_MEDIDOR', 'RELOGIO', 'ENTRADA', 'SUBESTACAO'];
-    const normalizedType = deviceType?.toUpperCase() || '';
-    return energyDeviceTypes.includes(normalizedType);
-  };
+  // Check if device is energy-related (uses centralized config)
+  const isEnergyDevice = (deviceType) => isEnergyDeviceType(deviceType);
 
-  // Check if device is temperature-related
-  const isTemperatureDevice = (deviceType) => {
-    const temperatureDeviceTypes = ['TERMOSTATO'];
-    const normalizedType = deviceType?.toUpperCase() || '';
-    return temperatureDeviceTypes.includes(normalizedType);
-  };
+  // Check if device is temperature-related (uses centralized config)
+  const isTemperatureDevice = (deviceType) => isTemperatureDeviceType(deviceType);
 
   // Smart formatting function that uses formatEnergy for energy devices
   const formatCardValue = (value, deviceType) => {
@@ -273,7 +367,7 @@ export function renderCardComponentV5({
       // Format temperature with 1 decimal place and °C unit
       const formattedTemp = numValue.toLocaleString('pt-BR', {
         minimumFractionDigits: 1,
-        maximumFractionDigits: 1
+        maximumFractionDigits: 1,
       });
       return `${formattedTemp} °C`;
     } else {
@@ -281,7 +375,7 @@ export function renderCardComponentV5({
       const unit = determineUnit(deviceType);
       const formattedValue = numValue.toLocaleString('pt-BR', {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 2
+        maximumFractionDigits: 2,
       });
       return `${formattedValue} ${unit}`;
     }
@@ -314,7 +408,7 @@ export function renderCardComponentV5({
     lastValue: Number(val) || 0,
     unit: determineUnit(deviceType),
     status: mapDeviceStatusToCardStatus(deviceStatus),
-    ingestionId: ingestionId || entityId  // Store ingestionId for API calls
+    ingestionId: ingestionId || entityId, // Store ingestionId for API calls
   };
 
   // Register entity with SelectionStore if selection is enabled
@@ -512,63 +606,40 @@ export function renderCardComponentV5({
   const getDeviceImageUrl = (deviceType, percentage = 0, options = {}) => {
     const { tempStatus, isOffline } = options;
 
-    // Normalize device type
-    function normalizeString(str) {
-      if (typeof str !== 'string') {
-        str = '';
-      }
-      return str
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toUpperCase();
-    }
-
-    const nameType = normalizeString(deviceType);
+    const nameType = String(deviceType || '').toUpperCase();
 
     // TERMOSTATO devices: Dynamic icon based on temperature status
     if (nameType === 'TERMOSTATO') {
       // If offline, return offline icon (gray/neutral)
       if (isOffline) {
-        return "https://dashboard.myio-bas.com/api/images/public/Q4bE6zWz4pL3u5M3rjmMt2uSis6Xe52F"; // offline/online base
+        return 'https://dashboard.myio-bas.com/api/images/public/Q4bE6zWz4pL3u5M3rjmMt2uSis6Xe52F'; // offline/online base
       }
       // Determine status: 'ok' = within range, 'above' = above max, 'below' = below min
       if (tempStatus === 'above') {
-        return "https://dashboard.myio-bas.com/api/images/public/S3IvpZRJvskqFrhoypKBCKKsLaKiqzJI"; // above range (hot)
+        return 'https://dashboard.myio-bas.com/api/images/public/S3IvpZRJvskqFrhoypKBCKKsLaKiqzJI'; // above range (hot)
       } else if (tempStatus === 'below') {
-        return "https://dashboard.myio-bas.com/api/images/public/ctfORoxVGP2bB7VKeprJfIvNgmNjpaO4"; // below range (cold)
+        return 'https://dashboard.myio-bas.com/api/images/public/ctfORoxVGP2bB7VKeprJfIvNgmNjpaO4'; // below range (cold)
       } else {
         // Default: within range or status not specified
-        return "https://dashboard.myio-bas.com/api/images/public/rtCcq6kZZVCD7wgJywxEurRZwR8LA7Q7"; // within range (ok)
+        return 'https://dashboard.myio-bas.com/api/images/public/rtCcq6kZZVCD7wgJywxEurRZwR8LA7Q7'; // within range (ok)
       }
     }
 
     // TANK devices: Dynamic icon based on water level percentage
     if (nameType === 'TANK') {
       if (percentage >= 70) {
-        return "https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq"; // 70-100%
+        return 'https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq'; // 70-100%
       } else if (percentage >= 40) {
-        return "https://dashboard.myio-bas.com/api/images/public/4UBbShfXCVWR9wcw6IzVMNran4x1EW5n"; // 40-69%
+        return 'https://dashboard.myio-bas.com/api/images/public/4UBbShfXCVWR9wcw6IzVMNran4x1EW5n'; // 40-69%
       } else if (percentage >= 20) {
-        return "https://dashboard.myio-bas.com/api/images/public/aB9nX28F54fBBQs1Ht8jKUdYAMcq9QSm"; // 20-39%
+        return 'https://dashboard.myio-bas.com/api/images/public/aB9nX28F54fBBQs1Ht8jKUdYAMcq9QSm'; // 20-39%
       } else {
-        return "https://dashboard.myio-bas.com/api/images/public/qLdwhV4qw295poSCa7HinpnmXoN7dAPO"; // 0-19%
+        return 'https://dashboard.myio-bas.com/api/images/public/qLdwhV4qw295poSCa7HinpnmXoN7dAPO'; // 0-19%
       }
     }
 
-    // Standard device image mapping (non-TANK devices)
-    const deviceImages = {
-      MOTOR: "https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT",
-      "3F_MEDIDOR": "https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k",
-      RELOGIO: "https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB",
-      HIDROMETRO: "https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4",
-      ENTRADA: "https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU",
-      CAIXA_DAGUA: "https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq",
-      ELEVADOR: "https://dashboard.myio-bas.com/api/images/public/rAjOvdsYJLGah6w6BABPJSD9znIyrkJX",
-      ESCADA_ROLANTE: "https://dashboard.myio-bas.com/api/images/public/EJ997iB2HD1AYYUHwIloyQOOszeqb2jp",
-    };
-
-    const defaultImage = "https://cdn-icons-png.flaticon.com/512/1178/1178428.png";
-    return deviceImages[nameType] || defaultImage;
+    // Use centralized config for static images
+    return getStaticDeviceImage(nameType);
   };
 
   // Create custom card HTML
@@ -599,7 +670,7 @@ export function renderCardComponentV5({
   const tempStatus = isTermostatoDevice ? calculateTempStatus() : null;
   const deviceImageUrl = getDeviceImageUrl(deviceType, percentageForDisplay, {
     tempStatus,
-    isOffline
+    isOffline,
   });
 
   // Temperature tooltip is now handled by TempRangeTooltip (attached after render)
@@ -615,42 +686,64 @@ export function renderCardComponentV5({
 
         <div class="device-card-inner">
           <div class="device-card-front">
-            ${enableSelection && typeof handleSelect === 'function' ?
-              `<input type="checkbox" class="card-checkbox action-checker" aria-label="Select ${cardEntity.name}" style="position: absolute; top: 8px; right: 8px; z-index: 10;">` :
-              ''}
+            ${
+              enableSelection && typeof handleSelect === 'function'
+                ? `<input type="checkbox" class="card-checkbox action-checker" aria-label="Select ${cardEntity.name}" style="position: absolute; top: 8px; right: 8px; z-index: 10;">`
+                : ''
+            }
 
             <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100%; flex-grow: 1; min-width: 0; padding: 0 12px 0 20px; margin-left: 16px;">
 
               <div class="device-title-row" style="flex-direction: column; min-height: 38px; text-align: center; width: 100%;">
                 <span class="device-title" title="${cardEntity.name}">
-                  ${cardEntity.name.length > LABEL_CHAR_LIMIT ? cardEntity.name.slice(0, LABEL_CHAR_LIMIT) + "…" : cardEntity.name}
+                  ${
+                    cardEntity.name.length > LABEL_CHAR_LIMIT
+                      ? cardEntity.name.slice(0, LABEL_CHAR_LIMIT) + '…'
+                      : cardEntity.name
+                  }
                 </span>
-                ${deviceIdentifier ? `
+                ${
+                  deviceIdentifier
+                    ? `
                   <span class="device-subtitle" title="${deviceIdentifier}">
                     ${deviceIdentifier}
                   </span>
-                ` : ''}
+                `
+                    : ''
+                }
               </div>
 
-              <img class="device-image ${isTermostatoDevice ? 'temp-tooltip-trigger' : ''}${isEnergyDeviceFlag ? ' energy-tooltip-trigger' : ''}" src="${deviceImageUrl}" alt="${deviceType}" style="${isTermostatoDevice || isEnergyDeviceFlag ? 'cursor: help;' : ''}" />
+              <img class="device-image ${isTermostatoDevice ? 'temp-tooltip-trigger' : ''}${
+    isEnergyDeviceFlag ? ' energy-tooltip-trigger' : ''
+  }" src="${deviceImageUrl}" alt="${deviceType}" style="${
+    isTermostatoDevice || isEnergyDeviceFlag ? 'cursor: help;' : ''
+  }" />
 
 
-              ${(customerName && String(customerName).trim() !== '') ? `
+              ${
+                customerName && String(customerName).trim() !== ''
+                  ? `
                 <div class="myio-v5-shopping-badge-row">
                   <span class="myio-v5-shopping-badge" title="${customerName}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="chip-icon"><path d="M4 22h16"/><path d="M7 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/></svg>
                     <span style="font-size: 0.65rem;">${customerName}</span>
                   </span>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
 
               <div class="device-data-row">
                 <div class="consumption-main">
-                  <span class="flash-icon ${shouldFlashIcon ? "flash" : ""}">
+                  <span class="flash-icon ${shouldFlashIcon ? 'flash' : ''}">
                     ${icon}
                   </span>
                   <span class="consumption-value">${formatCardValue(cardEntity.lastValue, deviceType)}</span>
-                  ${!isTermostatoDevice ? `<span class="device-title-percent">(${percentageForDisplay.toFixed(1)}%)</span>` : ''}
+                  ${
+                    !isTermostatoDevice
+                      ? `<span class="device-title-percent">(${percentageForDisplay.toFixed(1)}%)</span>`
+                      : ''
+                  }
                 </div>
               </div>
             </div>
@@ -1103,7 +1196,8 @@ export function renderCardComponentV5({
     const dashboardBtn = document.createElement('button');
     dashboardBtn.className = 'card-action action-dashboard';
     dashboardBtn.title = 'Dashboard';
-    dashboardBtn.innerHTML = '<img src="https://dashboard.myio-bas.com/api/images/public/TAVXE0sTbCZylwGsMF9lIWdllBB3iFtS"/>';
+    dashboardBtn.innerHTML =
+      '<img src="https://dashboard.myio-bas.com/api/images/public/TAVXE0sTbCZylwGsMF9lIWdllBB3iFtS"/>';
     dashboardBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       handleActionDashboard(entityObject);
@@ -1115,7 +1209,8 @@ export function renderCardComponentV5({
     const reportBtn = document.createElement('button');
     reportBtn.className = 'card-action action-report';
     reportBtn.title = 'Relatório';
-    reportBtn.innerHTML = '<img src="https://dashboard.myio-bas.com/api/images/public/d9XuQwMYQCG2otvtNSlqUHGavGaSSpz4"/>';
+    reportBtn.innerHTML =
+      '<img src="https://dashboard.myio-bas.com/api/images/public/d9XuQwMYQCG2otvtNSlqUHGavGaSSpz4"/>';
     reportBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       handleActionReport(entityObject);
@@ -1127,7 +1222,8 @@ export function renderCardComponentV5({
     const settingsBtn = document.createElement('button');
     settingsBtn.className = 'card-action action-settings';
     settingsBtn.title = 'Configurações';
-    settingsBtn.innerHTML = '<img src="https://dashboard.myio-bas.com/api/images/public/5n9tze6vED2uwIs5VvJxGzNNZ9eV4yoz"/>';
+    settingsBtn.innerHTML =
+      '<img src="https://dashboard.myio-bas.com/api/images/public/5n9tze6vED2uwIs5VvJxGzNNZ9eV4yoz"/>';
     settingsBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       // V5: Settings should now include info functionality
@@ -1137,8 +1233,8 @@ export function renderCardComponentV5({
           centralName,
           connectionStatusTime,
           timeVal,
-          deviceStatus
-        }
+          deviceStatus,
+        },
       });
     });
     actionsContainer.appendChild(settingsBtn);
@@ -1165,22 +1261,21 @@ export function renderCardComponentV5({
         if (e.target.checked) {
           const currentCount = MyIOSelectionStore.getSelectedEntities().length;
           const selectedEntities = MyIOSelectionStore.getSelectedEntities();
-          console.log("selectedEntities", selectedEntities);
+          console.log('selectedEntities', selectedEntities);
           const isTryingToAdd = e.target.checked;
 
           if (isTryingToAdd && currentCount >= 6) {
-              e.preventDefault();
-              e.target.checked = false;
-              MyIOToast.show('Não é possível selecionar mais de 6 itens.', 'warning');
-              return;
+            e.preventDefault();
+            e.target.checked = false;
+            MyIOToast.show('Não é possível selecionar mais de 6 itens.', 'warning');
+            return;
           }
 
           MyIOSelectionStore.add(entityId);
-
         } else {
           // Remove from SelectionStore when UNCHECKED
           MyIOSelectionStore.remove(entityId);
-       }
+        }
       });
     }
 
@@ -1245,7 +1340,7 @@ export function renderCardComponentV5({
       temperatureMin: temperatureMin,
       temperatureMax: temperatureMax,
       labelOrName: cardEntity.name,
-      name: cardEntity.name
+      name: cardEntity.name,
     };
     tempTooltipCleanup = TempRangeTooltip.attach(tempTooltipTrigger, tooltipEntityData);
   }
@@ -1259,7 +1354,7 @@ export function renderCardComponentV5({
       labelOrName: cardEntity.name,
       name: cardEntity.name,
       instantaneousPower: entityObject.instantaneousPower ?? entityObject.consumption_power ?? val,
-      powerRanges: entityObject.powerRanges || entityObject.ranges
+      powerRanges: entityObject.powerRanges || entityObject.ranges,
     };
     energyTooltipCleanup = EnergyRangeTooltip.attach(energyTooltipTrigger, energyTooltipData);
   }
@@ -1272,19 +1367,19 @@ export function renderCardComponentV5({
 
   // Return jQuery-like object for compatibility
   const jQueryLikeObject = {
-    get: (index) => index === 0 ? container : undefined,
+    get: (index) => (index === 0 ? container : undefined),
     0: container,
     length: 1,
     find: (selector) => {
       const found = container.querySelector(selector);
       return {
-        get: (index) => index === 0 ? found : undefined,
+        get: (index) => (index === 0 ? found : undefined),
         0: found,
         length: found ? 1 : 0,
         on: (event, handler) => {
           if (found) found.addEventListener(event, handler);
           return this;
-        }
+        },
       };
     },
     on: (event, handler) => {
@@ -1304,7 +1399,7 @@ export function renderCardComponentV5({
       if (container._cleanup) {
         container._cleanup();
       }
-    }
+    },
   };
 
   return jQueryLikeObject;

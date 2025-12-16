@@ -95,10 +95,10 @@ export const DEVICE_TYPES = [
   { value: 'ELEVADOR', label: 'Elevador' },
   { value: 'ESCADA_ROLANTE', label: 'Escada Rolante' },
   { value: 'MOTOR', label: 'Motor' },
-  { value: 'BOMBA', label: 'Bomba' },
+  { value: 'BOMBA_HIDRAULICA', label: 'Bomba Hidráulica' },
+  { value: 'BOMBA_INCENDIO', label: 'Bomba Incêndio' },
   { value: 'CHILLER', label: 'Chiller' },
   { value: 'AR_CONDICIONADO', label: 'Ar Condicionado' },
-  { value: 'HVAC', label: 'HVAC' },
   { value: 'FANCOIL', label: 'Fancoil' },
   { value: '3F_MEDIDOR', label: 'Medidor Trifásico' },
 ] as const;
