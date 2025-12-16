@@ -117,16 +117,118 @@ function injectBadgeStyles() {
               background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
               border: 1px solid rgba(0, 0, 0, 0.1);
               border-radius: 10px;
-              padding: 12px 14px;
+              padding: 0;
               box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
               font-family: 'Inter', system-ui, sans-serif;
               font-size: 12px;
               color: #1a1a2e;
               opacity: 0;
               visibility: hidden;
-              transition: opacity 0.2s ease, visibility 0.2s ease;
+              transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
               pointer-events: none;
               z-index: 9999;
+          }
+
+          .annotation-summary-tooltip.visible {
+              opacity: 1;
+              visibility: visible;
+              pointer-events: auto;
+          }
+
+          .annotation-summary-tooltip.closing {
+              opacity: 0;
+              transform: scale(0.95);
+          }
+
+          .annotation-summary-tooltip.pinned {
+              box-shadow: 0 0 0 2px #6366f1, 0 8px 24px rgba(0, 0, 0, 0.2);
+          }
+
+          .annotation-summary-tooltip.maximized {
+              min-width: 400px;
+              max-width: 600px;
+              max-height: 80vh;
+              overflow-y: auto;
+              position: fixed;
+              left: 50% !important;
+              top: 50% !important;
+              transform: translate(-50%, -50%) !important;
+          }
+
+          .annotation-summary-tooltip.maximized .annotation-summary-tooltip__content {
+              max-height: calc(80vh - 50px);
+              overflow-y: auto;
+          }
+
+          .annotation-summary-tooltip.dragging {
+              cursor: move;
+              user-select: none;
+          }
+
+          .annotation-summary-tooltip__header {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              padding: 10px 12px;
+              background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%);
+              border-radius: 10px 10px 0 0;
+              border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+              cursor: move;
+              user-select: none;
+          }
+
+          .annotation-summary-tooltip__header-title {
+              font-weight: 600;
+              font-size: 13px;
+              flex: 1;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              color: #1a1a2e;
+          }
+
+          .annotation-summary-tooltip__header-actions {
+              display: flex;
+              align-items: center;
+              gap: 4px;
+          }
+
+          .annotation-summary-tooltip__header-btn {
+              width: 22px;
+              height: 22px;
+              border: none;
+              background: rgba(255, 255, 255, 0.6);
+              border-radius: 4px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              transition: all 0.15s ease;
+              color: #64748b;
+          }
+
+          .annotation-summary-tooltip__header-btn:hover {
+              background: rgba(255, 255, 255, 0.9);
+              color: #1e293b;
+          }
+
+          .annotation-summary-tooltip__header-btn.pinned {
+              background: #6366f1;
+              color: white;
+          }
+
+          .annotation-summary-tooltip__header-btn.pinned:hover {
+              background: #4f46e5;
+              color: white;
+          }
+
+          .annotation-summary-tooltip__header-btn svg {
+              width: 12px;
+              height: 12px;
+          }
+
+          .annotation-summary-tooltip__content {
+              padding: 12px 14px;
           }
 
           .annotation-summary-tooltip::after {
@@ -149,11 +251,6 @@ function injectBadgeStyles() {
               right: -8px;
               border-left-color: #ffffff;
               border-right-color: transparent;
-          }
-
-          .annotation-summary-tooltip.visible {
-              opacity: 1;
-              visibility: visible;
           }
 
           .annotation-summary-tooltip__title {
@@ -235,7 +332,6 @@ function injectBadgeStyles() {
 function addAnnotationIndicator(cardElement, entityObject) {
   console.log(`[TELEMETRY] Adding annotation indicators for ${entityObject.labelOrName}`, entityObject);
 
-  //const annotations = entityObject.log_annotations || [];
   const annotations = entityObject.log_annotations.annotations;
 
   if (entityObject.labelOrName === 'Chiller 1') {
@@ -254,23 +350,19 @@ function addAnnotationIndicator(cardElement, entityObject) {
   const activeAnnotations = annotations.filter((a) => a.status !== 'archived');
   if (activeAnnotations.length === 0) return null;
 
-  // Count by type
-  const counts = {
-    pending: 0,
-    maintenance: 0,
-    activity: 0,
-    observation: 0,
+  // Group annotations by type
+  const annotationsByType = {
+    pending: [],
+    maintenance: [],
+    activity: [],
+    observation: [],
   };
 
-  let overdueCount = 0;
   const now = new Date();
 
   activeAnnotations.forEach((a) => {
-    if (counts[a.type] !== undefined) {
-      counts[a.type]++;
-    }
-    if (a.dueDate && new Date(a.dueDate) < now) {
-      overdueCount++;
+    if (annotationsByType[a.type] !== undefined) {
+      annotationsByType[a.type].push(a);
     }
   });
 
@@ -304,104 +396,317 @@ function addAnnotationIndicator(cardElement, entityObject) {
     },
   };
 
+  // Helper function to setup pinned clone listeners
+  function setupPinnedCloneListeners(cloneEl) {
+    let isMaximized = false;
+    let isDragging = false;
+    let dragOffset = { x: 0, y: 0 };
+    let savedPosition = null;
+
+    const closeBtn = cloneEl.querySelector('[data-action="close"]');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cloneEl.classList.add('closing');
+        setTimeout(() => cloneEl.remove(), 200);
+      });
+    }
+
+    const maxBtn = cloneEl.querySelector('[data-action="maximize"]');
+    if (maxBtn) {
+      maxBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isMaximized = !isMaximized;
+        if (isMaximized) {
+          savedPosition = {
+            left: cloneEl.style.left,
+            top: cloneEl.style.top,
+            transform: cloneEl.style.transform,
+          };
+          cloneEl.classList.add('maximized');
+          cloneEl.style.left = '50%';
+          cloneEl.style.top = '50%';
+          cloneEl.style.transform = 'translate(-50%, -50%)';
+        } else {
+          cloneEl.classList.remove('maximized');
+          if (savedPosition) {
+            cloneEl.style.left = savedPosition.left;
+            cloneEl.style.top = savedPosition.top;
+            cloneEl.style.transform = savedPosition.transform;
+          }
+        }
+      });
+    }
+
+    const pinBtn = cloneEl.querySelector('[data-action="pin"]');
+    if (pinBtn) {
+      pinBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cloneEl.classList.add('closing');
+        setTimeout(() => cloneEl.remove(), 200);
+      });
+    }
+
+    const dragHandle = cloneEl.querySelector('[data-drag-handle]');
+    if (dragHandle) {
+      dragHandle.style.cursor = 'move';
+      dragHandle.addEventListener('mousedown', (e) => {
+        if (e.target.closest('[data-action]')) return;
+        isDragging = true;
+        cloneEl.classList.add('dragging');
+        const rect = cloneEl.getBoundingClientRect();
+        dragOffset = {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        };
+        e.preventDefault();
+      });
+    }
+
+    const onMouseMove = (e) => {
+      if (!isDragging) return;
+      cloneEl.style.left = `${e.clientX - dragOffset.x}px`;
+      cloneEl.style.top = `${e.clientY - dragOffset.y}px`;
+      cloneEl.style.transform = 'none';
+    };
+
+    const onMouseUp = () => {
+      if (isDragging) {
+        isDragging = false;
+        cloneEl.classList.remove('dragging');
+      }
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  // Create a tooltip for each badge type
   typeOrder.forEach((type) => {
-    if (counts[type] > 0) {
-      const config = TYPE_CONFIG[type];
-      const badge = document.createElement('div');
-      badge.className = 'annotation-type-badge';
-      badge.style.background = config.color;
-      badge.innerHTML = `
-                        <span>${config.icon}</span>
-                        <span class="annotation-type-badge__count">${counts[type]}</span>
-                    `;
-      container.appendChild(badge);
+    const typeAnnotations = annotationsByType[type];
+    if (typeAnnotations.length === 0) return;
+
+    const config = TYPE_CONFIG[type];
+    const badge = document.createElement('div');
+    badge.className = 'annotation-type-badge';
+    badge.style.background = config.color;
+    badge.innerHTML = `
+      <span>${config.icon}</span>
+      <span class="annotation-type-badge__count">${typeAnnotations.length}</span>
+    `;
+
+    // Count overdue for this type
+    const typeOverdueCount = typeAnnotations.filter(
+      (a) => a.dueDate && new Date(a.dueDate) < now
+    ).length;
+
+    // Create tooltip specific to this type
+    const latestAnnotation = typeAnnotations[0];
+    const tooltipId = `annotation-tooltip-${entityObject.entityId || Date.now()}-${type}`;
+
+    const overdueWarning =
+      typeOverdueCount > 0
+        ? `<div class="annotation-summary-tooltip__overdue">⚠️ ${typeOverdueCount} anotação(ões) vencida(s)</div>`
+        : '';
+
+    // Build annotations list
+    const annotationsList = typeAnnotations
+      .slice(0, 5)
+      .map(
+        (a) => `
+        <div class="annotation-summary-tooltip__row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
+          <div style="font-weight: 500; color: #1a1a2e;">"${a.text}"</div>
+          <div style="font-size: 10px; color: #868e96;">
+            ${a.createdBy?.name || 'N/A'} • ${new Date(a.createdAt).toLocaleDateString('pt-BR')}
+            ${a.dueDate ? ` • Vence: ${new Date(a.dueDate).toLocaleDateString('pt-BR')}` : ''}
+          </div>
+        </div>
+      `
+      )
+      .join('');
+
+    const moreCount = typeAnnotations.length > 5 ? typeAnnotations.length - 5 : 0;
+    const moreSection =
+      moreCount > 0 ? `<div style="font-size: 11px; color: #6c757d; margin-top: 8px;">+ ${moreCount} mais...</div>` : '';
+
+    const tooltip = document.createElement('div');
+    tooltip.className = 'annotation-summary-tooltip';
+    tooltip.id = tooltipId;
+    tooltip.innerHTML = `
+      <div class="annotation-summary-tooltip__header" data-drag-handle>
+        <span class="annotation-summary-tooltip__header-title">
+          <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${config.color};"></span>
+          ${config.icon} ${config.label} (${typeAnnotations.length})
+        </span>
+        <div class="annotation-summary-tooltip__header-actions">
+          <button class="annotation-summary-tooltip__header-btn" data-action="pin" title="Fixar na tela">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
+              <line x1="12" y1="16" x2="12" y2="21"/>
+              <line x1="8" y1="4" x2="16" y2="4"/>
+            </svg>
+          </button>
+          <button class="annotation-summary-tooltip__header-btn" data-action="maximize" title="Maximizar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+            </svg>
+          </button>
+          <button class="annotation-summary-tooltip__header-btn" data-action="close" title="Fechar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="annotation-summary-tooltip__content">
+        ${overdueWarning}
+        ${annotationsList}
+        ${moreSection}
+      </div>
+    `;
+
+    document.body.appendChild(tooltip);
+
+    // Tooltip state management
+    let hideTimer = null;
+    let isMouseOverTooltip = false;
+    let pinnedCounter = 0;
+
+    function positionTooltip(targetRect) {
+      const tooltipWidth = 260;
+      const spacing = 12;
+      const viewportWidth = window.innerWidth;
+      const rightPosition = targetRect.right + spacing;
+      const canFitRight = rightPosition + tooltipWidth < viewportWidth;
+
+      tooltip.classList.remove('arrow-left', 'arrow-right');
+      if (canFitRight) {
+        tooltip.style.left = `${rightPosition}px`;
+        tooltip.classList.add('arrow-left');
+      } else {
+        tooltip.style.left = `${targetRect.left - tooltipWidth - spacing}px`;
+        tooltip.classList.add('arrow-right');
+      }
+      tooltip.style.top = `${targetRect.top + targetRect.height / 2}px`;
+      tooltip.style.transform = 'translateY(-50%)';
     }
-  });
 
-  // Create summary tooltip
-  const latestAnnotation = activeAnnotations[0];
-  const rows = typeOrder
-    .filter((type) => counts[type] > 0)
-    .map(
-      (type) => `
-                    <div class="annotation-summary-tooltip__row">
-                        <span class="annotation-summary-tooltip__label">
-                            <span class="annotation-summary-tooltip__dot" style="background: ${TYPE_CONFIG[type].color}"></span>
-                            ${TYPE_CONFIG[type].label}
-                        </span>
-                        <span class="annotation-summary-tooltip__value">${counts[type]}</span>
-                    </div>
-                `
-    )
-    .join('');
-
-  const latestSection = latestAnnotation
-    ? `
-                <div class="annotation-summary-tooltip__latest">
-                    <div class="annotation-summary-tooltip__latest-label">Última anotação:</div>
-                    <div class="annotation-summary-tooltip__latest-text">"${latestAnnotation.text}"</div>
-                    <div class="annotation-summary-tooltip__latest-meta">
-                        ${latestAnnotation.createdBy.name} • ${new Date(
-        latestAnnotation.createdAt
-      ).toLocaleDateString('pt-BR')}
-                    </div>
-                </div>
-            `
-    : '';
-
-  const overdueWarning =
-    overdueCount > 0
-      ? `<div class="annotation-summary-tooltip__overdue">⚠️ ${overdueCount} anotação(ões) vencida(s)</div>`
-      : '';
-
-  const tooltip = document.createElement('div');
-  tooltip.className = 'annotation-summary-tooltip';
-  tooltip.innerHTML = `
-                <div class="annotation-summary-tooltip__title">
-                    📋 Anotações (${activeAnnotations.length})
-                </div>
-                ${rows}
-                ${overdueWarning}
-                ${latestSection}
-            `;
-
-  // Append tooltip to body (to avoid card overflow issues)
-  document.body.appendChild(tooltip);
-
-  // Position tooltip on hover - prefer right side
-  container.addEventListener('mouseenter', () => {
-    const rect = container.getBoundingClientRect();
-    const tooltipWidth = 260; // approximate width
-    const spacing = 12;
-    const viewportWidth = window.innerWidth;
-
-    // Calculate positions
-    const rightPosition = rect.right + spacing;
-    const leftPosition = rect.left - tooltipWidth - spacing;
-
-    // Check if right side has enough space
-    const canFitRight = rightPosition + tooltipWidth < viewportWidth;
-
-    // Remove previous arrow classes
-    tooltip.classList.remove('arrow-left', 'arrow-right');
-
-    if (canFitRight) {
-      // Position on right side
-      tooltip.style.left = `${rightPosition}px`;
-      tooltip.classList.add('arrow-left'); // arrow points left
-    } else {
-      // Fallback to left side
-      tooltip.style.left = `${leftPosition}px`;
-      tooltip.classList.add('arrow-right'); // arrow points right
+    function showTooltip() {
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+      tooltip.classList.remove('closing');
+      tooltip.classList.add('visible');
     }
 
-    tooltip.style.top = `${rect.top + rect.height / 2}px`;
-    tooltip.style.transform = 'translateY(-50%)';
-    tooltip.classList.add('visible');
-  });
+    function hideTooltipWithDelay() {
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        if (!isMouseOverTooltip) {
+          tooltip.classList.add('closing');
+          setTimeout(() => {
+            tooltip.classList.remove('visible', 'closing');
+          }, 200);
+        }
+      }, 1500);
+    }
 
-  container.addEventListener('mouseleave', () => {
-    tooltip.classList.remove('visible');
+    function createPinnedClone() {
+      pinnedCounter++;
+      const pinnedId = `${tooltipId}-pinned-${pinnedCounter}`;
+      const clone = tooltip.cloneNode(true);
+      clone.id = pinnedId;
+      clone.classList.add('pinned');
+      clone.classList.remove('arrow-left', 'arrow-right');
+
+      const pinBtn = clone.querySelector('[data-action="pin"]');
+      if (pinBtn) {
+        pinBtn.classList.add('pinned');
+        pinBtn.title = 'Fixado';
+      }
+
+      document.body.appendChild(clone);
+      setupPinnedCloneListeners(clone);
+      tooltip.classList.remove('visible');
+    }
+
+    // Badge hover events
+    badge.addEventListener('mouseenter', () => {
+      const rect = badge.getBoundingClientRect();
+      positionTooltip(rect);
+      showTooltip();
+    });
+
+    badge.addEventListener('mouseleave', () => {
+      hideTooltipWithDelay();
+    });
+
+    // Tooltip hover detection
+    tooltip.addEventListener('mouseenter', () => {
+      isMouseOverTooltip = true;
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+    });
+
+    tooltip.addEventListener('mouseleave', () => {
+      isMouseOverTooltip = false;
+      hideTooltipWithDelay();
+    });
+
+    // Tooltip button handlers
+    const pinBtn = tooltip.querySelector('[data-action="pin"]');
+    const maxBtn = tooltip.querySelector('[data-action="maximize"]');
+    const closeBtn = tooltip.querySelector('[data-action="close"]');
+
+    if (pinBtn) {
+      pinBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        createPinnedClone();
+      });
+    }
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        tooltip.classList.add('closing');
+        setTimeout(() => {
+          tooltip.classList.remove('visible', 'closing');
+        }, 200);
+      });
+    }
+
+    if (maxBtn) {
+      let isMaximized = false;
+      let savedPosition = null;
+      maxBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isMaximized = !isMaximized;
+        if (isMaximized) {
+          savedPosition = {
+            left: tooltip.style.left,
+            top: tooltip.style.top,
+            transform: tooltip.style.transform,
+          };
+          tooltip.classList.add('maximized');
+          tooltip.style.left = '50%';
+          tooltip.style.top = '50%';
+          tooltip.style.transform = 'translate(-50%, -50%)';
+        } else {
+          tooltip.classList.remove('maximized');
+          if (savedPosition) {
+            tooltip.style.left = savedPosition.left;
+            tooltip.style.top = savedPosition.top;
+            tooltip.style.transform = savedPosition.transform;
+          }
+        }
+      });
+    }
+
+    container.appendChild(badge);
   });
 
   // Append badges to card

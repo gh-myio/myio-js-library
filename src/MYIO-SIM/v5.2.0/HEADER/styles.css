@@ -575,6 +575,7 @@
 /* ===== Card da Logo - Versão Única e Limpa ===== */
 .myio-toolbar-root .myio-cards .myio-card.v2.myio-card-logo,
 .myio-card.v2.myio-card-logo {
+  position: relative !important;
   background: #1f3a35 !important;
   background-color: #1f3a35 !important;
   background-image: none !important;
@@ -613,6 +614,51 @@
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25)) !important;
   background: none !important;
   background-color: transparent !important;
+}
+
+/* Botão premium de voltar - posicionado à esquerda */
+.myio-toolbar-root .myio-cards .myio-card.v2.myio-card-logo .myio-back-btn,
+.myio-card.v2.myio-card-logo .myio-back-btn {
+  position: absolute !important;
+  left: 8px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 56px !important;
+  height: 56px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 12px !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+  z-index: 10 !important;
+  opacity: 0.85 !important;
+}
+
+.myio-toolbar-root .myio-cards .myio-card.v2.myio-card-logo .myio-back-btn:hover,
+.myio-card.v2.myio-card-logo .myio-back-btn:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: rgba(255, 255, 255, 1) !important;
+  opacity: 1 !important;
+  transform: translateY(-50%) scale(1.05) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+.myio-toolbar-root .myio-cards .myio-card.v2.myio-card-logo .myio-back-btn:active,
+.myio-card.v2.myio-card-logo .myio-back-btn:active {
+  transform: translateY(-50%) scale(0.95) !important;
+}
+
+.myio-toolbar-root .myio-cards .myio-card.v2.myio-card-logo .myio-back-btn svg,
+.myio-card.v2.myio-card-logo .myio-back-btn svg {
+  width: 32px !important;
+  height: 32px !important;
+  stroke: currentColor !important;
+  fill: none !important;
 }
 
 /* breakpoints responsivos - prioriza 5 colunas */

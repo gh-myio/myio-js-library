@@ -6,7 +6,7 @@
  * Purpose: Home dashboard hero with brand palette, user menu, and shopping shortcuts
  *
  * Customer Attributes (SERVER_SCOPE):
- * { 
+ * {
  *   "home.brand.logoUrl": "https://...",
  *   "home.brand.palette": {
  *     "primary": "#7A2FF7",
@@ -103,6 +103,14 @@ const DEFAULT_SHOPPING_CARDS = [
     buttonId: 'ShoppingDaIlha',
     dashboardId: 'd2754480-b668-11f0-be7f-e760d1498268',
     entityId: 'd2754480-b668-11f0-be7f-e760d1498268',
+    entityType: 'ASSET',
+  },
+  {
+    title: 'Metrópole Ananindeua',
+    subtitle: 'Dashboard Principal',
+    buttonId: 'ShoppingMetrópoleAnanindeua',
+    dashboardId: 'aaa21b80-d6e9-11f0-998e-25174baff087',
+    entityId: 'aaa21b80-d6e9-11f0-998e-25174baff087',
     entityType: 'ASSET',
   },
 ];
