@@ -1,0 +1,111 @@
+{
+  "schemaVersion": "1.0.0",
+  "deviceId": "35f4a6c0-9181-11f0-a06d-e9509531b1d5",
+  "lastModified": "2025-12-16T19:12:29.699Z",
+  "lastModifiedBy": {
+    "id": "6a47c8d0-81d2-11f0-a06d-e9509531b1d5",
+    "email": "victorhjoe@gmail.com",
+    "name": "Victor Hugo Da Silva"
+  },
+  "annotations": [
+    {
+      "id": "899ea8c8-c0e6-47b6-bcac-98330b542289",
+      "version": 1,
+      "text": "teste de atividade",
+      "type": "activity",
+      "importance": 3,
+      "status": "created",
+      "createdAt": "2025-12-16T19:12:29.699Z",
+      "dueDate": "2025-12-30T16:12",
+      "createdBy": {
+        "id": "6a47c8d0-81d2-11f0-a06d-e9509531b1d5",
+        "email": "victorhjoe@gmail.com",
+        "name": "Victor Hugo Da Silva"
+      },
+      "acknowledged": false,
+      "history": [
+        {
+          "timestamp": "2025-12-16T19:12:29.699Z",
+          "userId": "6a47c8d0-81d2-11f0-a06d-e9509531b1d5",
+          "userName": "Victor Hugo Da Silva",
+          "userEmail": "victorhjoe@gmail.com",
+          "action": "created"
+        }
+      ]
+    },
+    {
+      "id": "fe98582b-0943-4774-ac8d-1e9e473e5d8a",
+      "version": 1,
+      "text": "teste manutenção",
+      "type": "maintenance",
+      "importance": 5,
+      "status": "created",
+      "createdAt": "2025-12-16T19:12:06.215Z",
+      "dueDate": "2025-12-24T16:11",
+      "createdBy": {
+        "id": "6a47c8d0-81d2-11f0-a06d-e9509531b1d5",
+        "email": "victorhjoe@gmail.com",
+        "name": "Victor Hugo Da Silva"
+      },
+      "acknowledged": false,
+      "history": [
+        {
+          "timestamp": "2025-12-16T19:12:06.215Z",
+          "userId": "6a47c8d0-81d2-11f0-a06d-e9509531b1d5",
+          "userName": "Victor Hugo Da Silva",
+          "userEmail": "victorhjoe@gmail.com",
+          "action": "created"
+        }
+      ]
+    },
+    {
+      "id": "ed9b5982-2899-4149-b172-b2c1818a56d6",
+      "version": 1,
+      "text": "anotação teste Victor",
+      "type": "observation",
+      "importance": 2,
+      "status": "created",
+      "createdAt": "2025-12-16T19:10:47.267Z",
+      "createdBy": {
+        "id": "6a47c8d0-81d2-11f0-a06d-e9509531b1d5",
+        "email": "victorhjoe@gmail.com",
+        "name": "Victor Hugo Da Silva"
+      },
+      "acknowledged": false,
+      "history": [
+        {
+          "timestamp": "2025-12-16T19:10:47.267Z",
+          "userId": "6a47c8d0-81d2-11f0-a06d-e9509531b1d5",
+          "userName": "Victor Hugo Da Silva",
+          "userEmail": "victorhjoe@gmail.com",
+          "action": "created"
+        }
+      ]
+    },
+    {
+      "id": "25619f14-ac67-4797-aa0a-2bf640e907df",
+      "version": 1,
+      "text": "Testando primeira anotação de Pendência.",
+      "type": "pending",
+      "importance": 4,
+      "status": "created",
+      "createdAt": "2025-12-16T19:09:15.314Z",
+      "dueDate": "2025-12-31T16:09",
+      "createdBy": {
+        "id": "37e6b1e0-1fb6-11f0-9baa-8137e6ac9d72",
+        "email": "rodrigo@myio.com.br",
+        "name": "Rodrigo Lago"
+      },
+      "acknowledged": false,
+      "history": [
+        {
+          "timestamp": "2025-12-16T19:09:15.314Z",
+          "userId": "37e6b1e0-1fb6-11f0-9baa-8137e6ac9d72",
+          "userName": "Rodrigo Lago",
+          "userEmail": "rodrigo@myio.com.br",
+          "action": "created"
+        }
+      ]
+    }
+  ]
+}

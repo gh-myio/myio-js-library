@@ -2781,7 +2781,7 @@ function setupEnergySummaryTooltipFallback(triggerElement) {
 
     const totalDevices = entradaCount + lojasCount + climatCount + elevCount + escadasCount + outrosCount;
 
-    tooltipEl.innerHTML = \`
+    tooltipEl.innerHTML = `
       <div class="energy-summary-tooltip-fallback__header" data-drag-handle>
         <span>⚡</span>
         <span class="energy-summary-tooltip-fallback__title">Resumo do Dashboard</span>
@@ -2841,7 +2841,7 @@ function setupEnergySummaryTooltipFallback(triggerElement) {
         <span>Consumo Total</span>
         <span class="energy-summary-tooltip-fallback__total-value">\${formatEnergy(STATE.grandTotal || entradaTotal)}</span>
       </div>
-    \`;
+    `;
 
     // Position near trigger element (not following mouse)
     const rect = triggerElement.getBoundingClientRect();

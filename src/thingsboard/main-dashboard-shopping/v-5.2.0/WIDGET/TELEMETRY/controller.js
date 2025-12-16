@@ -54,9 +54,367 @@ const DEVICE_CLASSIFICATION_CONFIG = {
   },
 };
 
+// Inject styles for type badges
+function injectBadgeStyles() {
+  if (document.getElementById('annotation-type-badges-styles')) return;
+
+  const style = document.createElement('style');
+  style.id = 'annotation-type-badges-styles';
+  style.textContent = `
+          .annotation-type-badges {
+              position: absolute;
+              top: 50%;
+              right: 6px;
+              transform: translateY(-50%);
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+              z-index: 10;
+          }
+
+          .annotation-type-badge {
+              position: relative;
+              width: 22px;
+              height: 22px;
+              border-radius: 6px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 11px;
+              cursor: pointer;
+              transition: all 0.2s ease;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+          }
+
+          .annotation-type-badge:hover {
+              transform: scale(1.15);
+              box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+          }
+
+          .annotation-type-badge__count {
+              position: absolute;
+              top: -4px;
+              right: -4px;
+              min-width: 14px;
+              height: 14px;
+              padding: 0 3px;
+              background: #1a1a2e;
+              color: white;
+              border-radius: 7px;
+              font-size: 9px;
+              font-weight: 700;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              line-height: 1;
+          }
+
+          /* Summary tooltip - positioned via JS to avoid card overflow */
+          .annotation-summary-tooltip {
+              position: fixed;
+              min-width: 240px;
+              max-width: 300px;
+              background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+              border: 1px solid rgba(0, 0, 0, 0.1);
+              border-radius: 10px;
+              padding: 12px 14px;
+              box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+              font-family: 'Inter', system-ui, sans-serif;
+              font-size: 12px;
+              color: #1a1a2e;
+              opacity: 0;
+              visibility: hidden;
+              transition: opacity 0.2s ease, visibility 0.2s ease;
+              pointer-events: none;
+              z-index: 9999;
+          }
+
+          .annotation-summary-tooltip::after {
+              content: '';
+              position: absolute;
+              top: 50%;
+              transform: translateY(-50%);
+              border: 8px solid transparent;
+          }
+
+          /* Arrow pointing left (tooltip on right side) */
+          .annotation-summary-tooltip.arrow-left::after {
+              left: -8px;
+              border-right-color: #ffffff;
+              border-left-color: transparent;
+          }
+
+          /* Arrow pointing right (tooltip on left side) */
+          .annotation-summary-tooltip.arrow-right::after {
+              right: -8px;
+              border-left-color: #ffffff;
+              border-right-color: transparent;
+          }
+
+          .annotation-summary-tooltip.visible {
+              opacity: 1;
+              visibility: visible;
+          }
+
+          .annotation-summary-tooltip__title {
+              font-weight: 600;
+              font-size: 13px;
+              margin-bottom: 10px;
+              padding-bottom: 8px;
+              border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              color: #1a1a2e;
+          }
+
+          .annotation-summary-tooltip__row {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              padding: 4px 0;
+          }
+
+          .annotation-summary-tooltip__label {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              color: #495057;
+          }
+
+          .annotation-summary-tooltip__dot {
+              width: 8px;
+              height: 8px;
+              border-radius: 50%;
+          }
+
+          .annotation-summary-tooltip__value {
+              font-weight: 600;
+              color: #1a1a2e;
+          }
+
+          .annotation-summary-tooltip__latest {
+              margin-top: 10px;
+              padding-top: 10px;
+              border-top: 1px solid rgba(0, 0, 0, 0.1);
+              font-size: 11px;
+          }
+
+          .annotation-summary-tooltip__latest-label {
+              color: #6c757d;
+              margin-bottom: 4px;
+          }
+
+          .annotation-summary-tooltip__latest-text {
+              color: #343a40;
+              line-height: 1.4;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              display: -webkit-box;
+              -webkit-line-clamp: 2;
+              -webkit-box-orient: vertical;
+          }
+
+          .annotation-summary-tooltip__latest-meta {
+              color: #868e96;
+              font-size: 10px;
+              margin-top: 4px;
+          }
+
+          .annotation-summary-tooltip__overdue {
+              color: #d63031;
+              margin-top: 8px;
+              font-size: 11px;
+              font-weight: 500;
+          }
+      `;
+  document.head.appendChild(style);
+}
+
+// Function to add annotation type badges to a card
+function addAnnotationIndicator(cardElement, entityObject) {
+  console.log(`[TELEMETRY] Adding annotation indicators for ${entityObject.labelOrName}`, entityObject);
+
+  //const annotations = entityObject.log_annotations || [];
+  const annotations = entityObject.log_annotations.annotations;
+
+  if (entityObject.labelOrName === 'Chiller 1') {
+    console.log(`[TELEMETRY] Adding annotation indicators for ${entityObject.labelOrName}`, annotations);
+  }
+
+  // Ensure styles are injected
+  injectBadgeStyles();
+
+  // Create wrapper for positioning
+  if (cardElement && cardElement.style) {
+    cardElement.style.position = 'relative';
+  }
+
+  // Filter active annotations
+  const activeAnnotations = annotations.filter((a) => a.status !== 'archived');
+  if (activeAnnotations.length === 0) return null;
+
+  // Count by type
+  const counts = {
+    pending: 0,
+    maintenance: 0,
+    activity: 0,
+    observation: 0,
+  };
+
+  let overdueCount = 0;
+  const now = new Date();
+
+  activeAnnotations.forEach((a) => {
+    if (counts[a.type] !== undefined) {
+      counts[a.type]++;
+    }
+    if (a.dueDate && new Date(a.dueDate) < now) {
+      overdueCount++;
+    }
+  });
+
+  // Create badges container
+  const container = document.createElement('div');
+  container.className = 'annotation-type-badges';
+
+  // Priority order: pending, maintenance, activity, observation
+  const typeOrder = ['pending', 'maintenance', 'activity', 'observation'];
+
+  const TYPE_CONFIG = {
+    pending: {
+      color: '#d63031',
+      icon: '⚠️',
+      label: 'Pendência',
+    },
+    maintenance: {
+      color: '#e17055',
+      icon: '🔧',
+      label: 'Manutenção',
+    },
+    activity: {
+      color: '#00b894',
+      icon: '✓',
+      label: 'Atividade',
+    },
+    observation: {
+      color: '#0984e3',
+      icon: '📝',
+      label: 'Observação',
+    },
+  };
+
+  typeOrder.forEach((type) => {
+    if (counts[type] > 0) {
+      const config = TYPE_CONFIG[type];
+      const badge = document.createElement('div');
+      badge.className = 'annotation-type-badge';
+      badge.style.background = config.color;
+      badge.innerHTML = `
+                        <span>${config.icon}</span>
+                        <span class="annotation-type-badge__count">${counts[type]}</span>
+                    `;
+      container.appendChild(badge);
+    }
+  });
+
+  // Create summary tooltip
+  const latestAnnotation = activeAnnotations[0];
+  const rows = typeOrder
+    .filter((type) => counts[type] > 0)
+    .map(
+      (type) => `
+                    <div class="annotation-summary-tooltip__row">
+                        <span class="annotation-summary-tooltip__label">
+                            <span class="annotation-summary-tooltip__dot" style="background: ${TYPE_CONFIG[type].color}"></span>
+                            ${TYPE_CONFIG[type].label}
+                        </span>
+                        <span class="annotation-summary-tooltip__value">${counts[type]}</span>
+                    </div>
+                `
+    )
+    .join('');
+
+  const latestSection = latestAnnotation
+    ? `
+                <div class="annotation-summary-tooltip__latest">
+                    <div class="annotation-summary-tooltip__latest-label">Última anotação:</div>
+                    <div class="annotation-summary-tooltip__latest-text">"${latestAnnotation.text}"</div>
+                    <div class="annotation-summary-tooltip__latest-meta">
+                        ${latestAnnotation.createdBy.name} • ${new Date(
+        latestAnnotation.createdAt
+      ).toLocaleDateString('pt-BR')}
+                    </div>
+                </div>
+            `
+    : '';
+
+  const overdueWarning =
+    overdueCount > 0
+      ? `<div class="annotation-summary-tooltip__overdue">⚠️ ${overdueCount} anotação(ões) vencida(s)</div>`
+      : '';
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'annotation-summary-tooltip';
+  tooltip.innerHTML = `
+                <div class="annotation-summary-tooltip__title">
+                    📋 Anotações (${activeAnnotations.length})
+                </div>
+                ${rows}
+                ${overdueWarning}
+                ${latestSection}
+            `;
+
+  // Append tooltip to body (to avoid card overflow issues)
+  document.body.appendChild(tooltip);
+
+  // Position tooltip on hover - prefer right side
+  container.addEventListener('mouseenter', () => {
+    const rect = container.getBoundingClientRect();
+    const tooltipWidth = 260; // approximate width
+    const spacing = 12;
+    const viewportWidth = window.innerWidth;
+
+    // Calculate positions
+    const rightPosition = rect.right + spacing;
+    const leftPosition = rect.left - tooltipWidth - spacing;
+
+    // Check if right side has enough space
+    const canFitRight = rightPosition + tooltipWidth < viewportWidth;
+
+    // Remove previous arrow classes
+    tooltip.classList.remove('arrow-left', 'arrow-right');
+
+    if (canFitRight) {
+      // Position on right side
+      tooltip.style.left = `${rightPosition}px`;
+      tooltip.classList.add('arrow-left'); // arrow points left
+    } else {
+      // Fallback to left side
+      tooltip.style.left = `${leftPosition}px`;
+      tooltip.classList.add('arrow-right'); // arrow points right
+    }
+
+    tooltip.style.top = `${rect.top + rect.height / 2}px`;
+    tooltip.style.transform = 'translateY(-50%)';
+    tooltip.classList.add('visible');
+  });
+
+  container.addEventListener('mouseleave', () => {
+    tooltip.classList.remove('visible');
+  });
+
+  // Append badges to card
+  cardElement.appendChild(container);
+
+  return container;
+}
+
 // Sets pré-computados para lookup rápido
 const CLIMATIZACAO_DEVICE_TYPES_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceTypes);
-const CLIMATIZACAO_CONDITIONAL_TYPES_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.climatizacao.conditionalDeviceTypes || []);
+const CLIMATIZACAO_CONDITIONAL_TYPES_SET = new Set(
+  DEVICE_CLASSIFICATION_CONFIG.climatizacao.conditionalDeviceTypes || []
+);
 const ELEVADORES_DEVICE_TYPES_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.elevadores.deviceTypes);
 const ESCADAS_DEVICE_TYPES_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.escadas_rolantes.deviceTypes);
 
@@ -71,7 +429,9 @@ const EQUIPMENT_EXCLUSION_PATTERN = new RegExp(
     ...DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceTypes,
     ...DEVICE_CLASSIFICATION_CONFIG.elevadores.deviceTypes,
     ...DEVICE_CLASSIFICATION_CONFIG.escadas_rolantes.deviceTypes,
-    'bomba', 'subesta', 'entrada', // Termos adicionais fixos
+    'bomba',
+    'subesta',
+    'entrada', // Termos adicionais fixos
   ]
     .map((t) => t.toLowerCase())
     .join('|'),
@@ -878,6 +1238,7 @@ function buildTbAttrIndex() {
     const key = String(row?.dataKey?.name || '').toLowerCase();
     const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
     const val = row?.data?.[0]?.[1];
+
     if (!tbId || val == null) continue;
     if (!byTbId.has(tbId))
       byTbId.set(tbId, {
@@ -893,6 +1254,7 @@ function buildTbAttrIndex() {
         connectionStatus: null,
         consumption_power: null,
         deviceMapInstaneousPower: null, // RFC-0091: Device-specific power limits (TIER 0)
+        log_annotations: null, // RFC-0096: Log annotations array
       });
     const slot = byTbId.get(tbId);
     if (key === 'slaveid') slot.slaveId = val;
@@ -907,6 +1269,7 @@ function buildTbAttrIndex() {
     if (key === 'connectionstatus') slot.connectionStatus = String(val).toLowerCase();
     // RFC-0091: Extract device-specific power limits JSON
     if (key === 'devicemapinstaneouspower') slot.deviceMapInstaneousPower = val;
+    if (key === 'log_annotations') slot.log_annotations = val;
     if (key === 'consumption') slot.consumption_power = val;
   }
   return byTbId;
@@ -915,11 +1278,14 @@ function buildTbIdIndexes() {
   const byIdentifier = new Map(); // identifier -> tbId
   const byIngestion = new Map(); // ingestionId -> tbId
   const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+
   for (const row of rows) {
     const key = String(row?.dataKey?.name || '').toLowerCase();
     const tbId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
     const val = row?.data?.[0]?.[1];
+
     if (!tbId || val == null) continue;
+
     if (key === 'identifier') byIdentifier.set(String(val), tbId);
     if (key === 'ingestionid') byIngestion.set(String(val), tbId);
   }
@@ -931,7 +1297,7 @@ function buildAuthoritativeItems() {
   // items da LIB: [{ id: ingestionId, identifier, label }, ...]
   const base = MyIO.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data) || [];
 
-  LogHelper.log('[TELEMETRY][buildAuthoritativeItems] base: ', base);
+  //LogHelper.log('[TELEMETRY][buildAuthoritativeItems] base: ', base);
 
   const ok = Array.isArray(base) ? base.filter((x) => x && x.id) : [];
 
@@ -946,13 +1312,15 @@ function buildAuthoritativeItems() {
   if (WIDGET_DOMAIN === 'temperature' && window.MyIOUtils?.temperatureLimits) {
     globalTempMin = window.MyIOUtils.temperatureLimits.minTemperature;
     globalTempMax = window.MyIOUtils.temperatureLimits.maxTemperature;
+    /*
     LogHelper.log(
       `[DeviceCards] Reading temperature limits from MyIOUtils: min=${globalTempMin}, max=${globalTempMax}`
     );
+    */
   }
 
   const mapped = ok.map((r) => {
-    LogHelper.log('[TELEMETRY][buildAuthoritativeItems] ok.map: ', r);
+    //LogHelper.log('[TELEMETRY][buildAuthoritativeItems] ok.map: ', r);
 
     // r.id from buildListItemsThingsboardByUniqueDatasource can be:
     // 1. ThingsBoard entityId (most common - comes directly from datasource.entity.id.id)
@@ -970,7 +1338,7 @@ function buildAuthoritativeItems() {
 
     // Priority: direct tbId > ingestion lookup > identifier lookup
     // Direct tbId is highest priority because it's the actual entityId
-    let tbId = isDirectTbId ? itemId : (tbFromIngestionLookup || tbFromIdentifier || null);
+    let tbId = isDirectTbId ? itemId : tbFromIngestionLookup || tbFromIdentifier || null;
 
     if (tbFromIngestionLookup && tbFromIdentifier && tbFromIngestionLookup !== tbFromIdentifier) {
       /*
@@ -1013,7 +1381,7 @@ function buildAuthoritativeItems() {
         const deviceKeys = rows
           .filter((row) => (row?.datasource?.entityId?.id || row?.datasource?.entityId) === tbId)
           .map((row) => row?.dataKey?.name);
-        LogHelper.log(`[DeviceCards] TERMOSTATO tbId=${tbId}, available telemetry keys:`, deviceKeys);
+        //LogHelper.log(`[DeviceCards] TERMOSTATO tbId=${tbId}, available telemetry keys:`, deviceKeys);
       }
 
       for (const row of rows) {
@@ -1033,9 +1401,11 @@ function buildAuthoritativeItems() {
           // TERMOSTATO specific telemetry
           if (key === 'temperature') {
             temperature = Number(val) || 0;
+            /*
             LogHelper.log(
               `[DeviceCards] Found temperature telemetry: key=${key}, val=${val}, parsed=${temperature}`
             );
+            */
           }
         }
       }
@@ -1053,6 +1423,16 @@ function buildAuthoritativeItems() {
         deviceMapLimits = JSON.parse(attrs.deviceMapInstaneousPower);
       } catch (e) {
         LogHelper.warn(`[RFC-0091] Failed to parse deviceMapInstaneousPower for ${tbId}:`, e.message);
+      }
+    }
+
+    let log_annotations_Parsed = null;
+    if (attrs.log_annotations && typeof attrs.log_annotations === 'string') {
+      try {
+        log_annotations_Parsed = JSON.parse(attrs.log_annotations);
+        LogHelper.log(`[TELEMETRY] OK parse log_annotations for ${tbId}:`, log_annotations_Parsed);
+      } catch (e) {
+        LogHelper.warn(`[RFC-0091] Failed to parse log_annotations for ${tbId}:`, e.message);
       }
     }
 
@@ -1109,9 +1489,11 @@ function buildAuthoritativeItems() {
       } else {
         temperatureStatus = 'ok';
       }
+      /*
       LogHelper.log(
         `[DeviceCards] TERMOSTATO status: temp=${temperature}, min=${globalTempMin}, max=${globalTempMax}, status=${temperatureStatus}`
       );
+      */
     }
 
     return {
@@ -1144,6 +1526,7 @@ function buildAuthoritativeItems() {
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER,
       // RFC-0091: Include device-specific power limits for Settings modal
       deviceMapInstaneousPower: attrs.deviceMapInstaneousPower || null,
+      log_annotations: log_annotations_Parsed || null,
       // Use appropriate value based on device type
       value: deviceValue,
       perc: isTankDevice ? waterPercentage || 0 : 0,
@@ -1162,7 +1545,10 @@ function buildAuthoritativeItems() {
       const deviceProfile = String(item.deviceProfile || '').toUpperCase();
 
       // Discard if deviceType = 3F_MEDIDOR AND deviceProfile is also 3F_MEDIDOR or empty/N/D
-      if (deviceType === '3F_MEDIDOR' && (deviceProfile === '3F_MEDIDOR' || deviceProfile === 'N/D' || !deviceProfile)) {
+      if (
+        deviceType === '3F_MEDIDOR' &&
+        (deviceProfile === '3F_MEDIDOR' || deviceProfile === 'N/D' || !deviceProfile)
+      ) {
         LogHelper.log(
           `[RFC-0097] Filtering out 3F_MEDIDOR without proper deviceProfile: label="${item.label}", deviceProfile="${deviceProfile}"`
         );
@@ -1723,10 +2109,11 @@ function renderList(visible) {
       temperatureMin: it.temperatureMin || null,
       temperatureMax: it.temperatureMax || null,
       temperatureStatus: it.temperatureStatus || null,
+      log_annotations: it.log_annotations || null,
     };
 
-    if (it.label === 'Allegria') {
-      //LogHelper.log("RENDER CARD ALLEGRIA >>> it.value: " , it.value);
+    if (it.label === 'Chiller 1') {
+      LogHelper.log('RENDER CARD ALLEGRIA >>> OBJ: ', it);
     }
 
     const myTbToken = localStorage.getItem('jwt_token');
@@ -2190,6 +2577,7 @@ function renderList(visible) {
         showBusy(null, 3000); // mensagem fixa
         // resolve TB id “fresh”
         let tbId = it.tbId;
+
         if (!tbId || !isValidUUID(tbId)) {
           const idx = buildTbIdIndexes();
           tbId =
@@ -2197,6 +2585,7 @@ function renderList(visible) {
             (it.identifier && idx.byIdentifier.get(it.identifier)) ||
             null;
         }
+
         if (!tbId || tbId === it.ingestionId) {
           LogHelper.warn('[DeviceCards] Missing/ambiguous TB id for Settings', {
             label: it.label,
@@ -2208,13 +2597,17 @@ function renderList(visible) {
           alert('Não foi possível identificar o deviceId do ThingsBoard para este card.');
           return;
         }
+
         const jwt = localStorage.getItem('jwt_token');
+
         try {
           // RFC-0080 + RFC-0091: Get customerId from MAIN widget via window.MyIOUtils
           const customerTbId = window.MyIOUtils?.customerTB_ID || null;
 
           // RFC-XXXX: SuperAdmin flag from MAIN_VIEW
           const isSuperAdmin = window.MyIOUtils?.SuperAdmin || false;
+
+          console.log(`[TELEMETRY] openDashboardPopupSettings > isSuperAdmin: `, isSuperAdmin);
 
           await MyIO.openDashboardPopupSettings({
             deviceId: tbId, // TB deviceId
@@ -2262,6 +2655,11 @@ function renderList(visible) {
         LogHelper.log('[TELEMETRY] handleSelect called (no-op):', entityObj.labelOrName);
       },
     });
+
+    // Append the returned element to wrapper
+    if ($card && $card[0] && entityObject.log_annotations) {
+      addAnnotationIndicator($card[0], entityObject);
+    }
 
     $ul.append($card);
   });
@@ -2723,7 +3121,9 @@ function classifyDeviceByDeviceType(item) {
 
   // DeviceTypes condicionais (BOMBA, MOTOR) - só climatização se identifier for CAG, etc.
   if (CLIMATIZACAO_CONDITIONAL_TYPES_SET.has(effectiveType)) {
-    const identifier = String(item.identifier || '').toUpperCase().trim();
+    const identifier = String(item.identifier || '')
+      .toUpperCase()
+      .trim();
 
     // Verificar se o identifier indica climatização
     if (CLIMATIZACAO_IDENTIFIERS_SET.has(identifier)) {
@@ -2895,16 +3295,20 @@ function emitAreaComumBreakdown(periodKey) {
         group.count += 1;
 
         // Debug: Log climatização devices
+        /*
         LogHelper.log(
           `[RFC-0097] Climatização: deviceType="${deviceType}", identifier="${identifier}", group="${groupKey}", value=${energia.toFixed(
             2
           )} kWh`
         );
+        */
       }
 
       // RFC-0097: Agrupar subcategorias de "outros" por deviceType (ou deviceProfile se 3F_MEDIDOR)
       if (category === 'outros') {
-        let deviceType = String(item.deviceType || 'DESCONHECIDO').toUpperCase().trim();
+        let deviceType = String(item.deviceType || 'DESCONHECIDO')
+          .toUpperCase()
+          .trim();
 
         // Se deviceType é 3F_MEDIDOR, usar deviceProfile como tipo real
         if (deviceType === '3F_MEDIDOR' && item.deviceProfile) {
@@ -3885,6 +4289,7 @@ self.onInit = async function () {
       value: 0,
       perc: 0,
     }));
+
     reflowFromState();
   }
 
