@@ -1,5 +1,8 @@
 import { ModalConfig } from "./types";
 import { mapDeviceStatusToCardStatus } from "../../../utils/deviceStatus";
+import { AnnotationsTab } from "./annotations/AnnotationsTab";
+import { getAnnotationPermissions } from "../../../utils/superAdminUtils";
+import type { UserInfo, PermissionSet } from "./annotations/types";
 
 export class SettingsModalView {
   private container: HTMLElement;
@@ -8,6 +11,11 @@ export class SettingsModalView {
   private config: ModalConfig;
   private focusTrapElements: HTMLElement[] = [];
   private originalActiveElement: Element | null = null;
+  // RFC-0104: Annotations Tab
+  private annotationsTab: AnnotationsTab | null = null;
+  private currentTab: 'general' | 'annotations' = 'general';
+  private currentUser: UserInfo | null = null;
+  private permissions: PermissionSet | null = null;
 
   constructor(config: ModalConfig) {
     this.config = config;
@@ -45,10 +53,90 @@ export class SettingsModalView {
     this.setupFocusTrap();
     this.applyTheme();
     this.fetchLatestConsumptionTelemetry();
+
+    // RFC-0104: Initialize annotations tab (async)
+    this.initAnnotationsTab();
+  }
+
+  // RFC-0104: Initialize the Annotations Tab
+  private async initAnnotationsTab(): Promise<void> {
+    const annotationsContainer = this.modal.querySelector('#annotations-tab-content') as HTMLElement;
+    if (!annotationsContainer) {
+      console.warn('[SettingsModalView] Annotations container not found');
+      return;
+    }
+
+    if (!this.config.deviceId || !this.config.jwtToken) {
+      console.warn('[SettingsModalView] Missing deviceId or jwtToken for annotations');
+      annotationsContainer.innerHTML = '<p style="color: #6c757d; padding: 20px; text-align: center;">Anotações não disponíveis (autenticação necessária)</p>';
+      return;
+    }
+
+    try {
+      // Fetch permissions
+      const permissions = await getAnnotationPermissions(this.config.customerId, this.config.jwtToken);
+
+      if (!permissions.currentUser) {
+        console.warn('[SettingsModalView] Could not get current user for annotations');
+        annotationsContainer.innerHTML = '<p style="color: #6c757d; padding: 20px; text-align: center;">Anotações não disponíveis (usuário não identificado)</p>';
+        return;
+      }
+
+      this.currentUser = permissions.currentUser;
+      this.permissions = {
+        currentUser: permissions.currentUser,
+        isSuperAdminMyio: permissions.isSuperAdminMyio,
+        isSuperAdminHolding: permissions.isSuperAdminHolding,
+      };
+
+      // Create annotations tab
+      this.annotationsTab = new AnnotationsTab({
+        container: annotationsContainer,
+        deviceId: this.config.deviceId,
+        jwtToken: this.config.jwtToken,
+        currentUser: this.currentUser,
+        permissions: this.permissions,
+      });
+
+      await this.annotationsTab.init();
+      console.log('[SettingsModalView] RFC-0104: Annotations tab initialized');
+    } catch (error) {
+      console.error('[SettingsModalView] Failed to initialize annotations tab:', error);
+      annotationsContainer.innerHTML = '<p style="color: #dc3545; padding: 20px; text-align: center;">Erro ao carregar anotações</p>';
+    }
+  }
+
+  // RFC-0104: Switch between tabs
+  private switchTab(tab: 'general' | 'annotations'): void {
+    this.currentTab = tab;
+
+    // Update tab buttons
+    const generalTabBtn = this.modal.querySelector('[data-tab="general"]');
+    const annotationsTabBtn = this.modal.querySelector('[data-tab="annotations"]');
+
+    generalTabBtn?.classList.toggle('active', tab === 'general');
+    annotationsTabBtn?.classList.toggle('active', tab === 'annotations');
+
+    // Update tab content visibility
+    const generalContent = this.modal.querySelector('#general-tab-content') as HTMLElement;
+    const annotationsContent = this.modal.querySelector('#annotations-tab-content') as HTMLElement;
+
+    if (generalContent) generalContent.style.display = tab === 'general' ? 'block' : 'none';
+    if (annotationsContent) annotationsContent.style.display = tab === 'annotations' ? 'block' : 'none';
+
+    // Update footer buttons visibility (only show Save on General tab)
+    const saveBtn = this.modal.querySelector('.btn-save') as HTMLElement;
+    if (saveBtn) saveBtn.style.display = tab === 'general' ? 'inline-flex' : 'none';
   }
 
   close(): void {
     this.teardownFocusTrap();
+
+    // RFC-0104: Clean up annotations tab
+    if (this.annotationsTab) {
+      this.annotationsTab.destroy();
+      this.annotationsTab = null;
+    }
 
     // Restore focus to original element
     if (this.originalActiveElement && "focus" in this.originalActiveElement) {
@@ -138,7 +226,7 @@ export class SettingsModalView {
 
     for (const [key, value] of formData.entries()) {
       if (typeof value === "string") {
-        // Handle numeric fields (consumption, temperature, and water levels)
+        // Handle numeric fields (consumption, temperature, water levels, and offset)
         if (
           [
             "maxDailyKwh",
@@ -146,6 +234,7 @@ export class SettingsModalView {
             "maxBusinessKwh",
             "minTemperature",
             "maxTemperature",
+            "offSetTemperature", // RFC-XXXX: Temperature offset (SuperAdmin only)
             "minWaterLevel",
             "maxWaterLevel",
           ].includes(key)
@@ -159,6 +248,12 @@ export class SettingsModalView {
             // For water level fields, ensure they are between 0 and 100
             if (key.includes("WaterLevel")) {
               if (num < 0 || num > 100) {
+                continue;
+              }
+            }
+            // For offSetTemperature, ensure value is between -99.99 and +99.99
+            if (key === "offSetTemperature") {
+              if (num < -99.99 || num > 99.99) {
                 continue;
               }
             }
@@ -196,11 +291,41 @@ export class SettingsModalView {
             <h3 id="modal-title">Configurações</h3>
             <button type="button" class="close-btn" aria-label="Fechar">&times;</button>
           </div>
+          <!-- RFC-0104: Tab Navigation -->
+          <div class="modal-tabs">
+            <button type="button" class="modal-tab active" data-tab="general">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              Geral
+            </button>
+            <button type="button" class="modal-tab" data-tab="annotations">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14,2 14,8 20,8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10,9 9,9 8,9"></polyline>
+              </svg>
+              Anotações
+            </button>
+          </div>
           <div class="modal-body">
             <div class="error-message" style="display: none;" role="alert" aria-live="polite"></div>
-            <form novalidate>
-              ${this.getFormHTML()}
-            </form>
+            <!-- RFC-0104: General Tab Content -->
+            <div id="general-tab-content" class="tab-content">
+              <form novalidate>
+                ${this.getFormHTML()}
+              </form>
+            </div>
+            <!-- RFC-0104: Annotations Tab Content -->
+            <div id="annotations-tab-content" class="tab-content" style="display: none;">
+              <div style="padding: 20px; text-align: center; color: #6c757d;">
+                <div class="loading-spinner"></div>
+                <p>Carregando anotações...</p>
+              </div>
+            </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn-cancel">Fechar</button>
@@ -263,7 +388,7 @@ export class SettingsModalView {
 
               <div class="form-group">
                 <label for="identifier">Identificador / LUC / SUC</label>
-                <input type="text" id="identifier" name="identifier" maxlength="20" readonly>
+                <input type="text" id="identifier" name="identifier" maxlength="20" ${this.config.superadmin ? '' : 'readonly'}>
               </div>
             </div>
           </div>
@@ -326,6 +451,17 @@ export class SettingsModalView {
   }
 
   private getThermostatAlarmsHTML(): string {
+    // RFC-XXXX: offSetTemperature field only visible for SuperAdmin
+    const offSetTemperatureField = this.config.superadmin
+      ? `
+        <div class="form-group">
+          <label for="offSetTemperature">Offset de Temperatura (°C)</label>
+          <input type="number" id="offSetTemperature" name="offSetTemperature" step="0.01" min="-99.99" max="99.99" placeholder="-99.99 a +99.99">
+          <small class="form-hint" style="color: #6b7280; font-size: 11px; margin-top: 4px; display: block;">Correção aplicada à leitura do sensor (valores negativos ou positivos)</small>
+        </div>
+      `
+      : "";
+
     return `
       <div class="form-card">
         <h4 class="section-title">Alarmes de Temperatura</h4>
@@ -339,6 +475,8 @@ export class SettingsModalView {
           <label for="maxTemperature">Temperatura Máxima (°C)</label>
           <input type="number" id="maxTemperature" name="maxTemperature" step="0.1">
         </div>
+
+        ${offSetTemperatureField}
       </div>
     `;
   }
@@ -942,7 +1080,7 @@ export class SettingsModalView {
           box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
           max-width: 95vw;
           max-height: 90vh;
-          width: 1000px;
+          width: 1300px;
           overflow: hidden;
           display: flex;
           flex-direction: column;
@@ -982,7 +1120,67 @@ export class SettingsModalView {
         .close-btn:hover {
           background: rgba(255, 255, 255, 0.1);
         }
-        
+
+        /* RFC-0104: Tab Navigation Styles */
+        .modal-tabs {
+          display: flex;
+          background: #f1f3f5;
+          border-bottom: 1px solid #dee2e6;
+          padding: 0 24px;
+        }
+
+        .modal-tab {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px 20px;
+          background: transparent;
+          border: none;
+          border-bottom: 3px solid transparent;
+          font-size: 14px;
+          font-weight: 500;
+          color: #6c757d;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          margin-bottom: -1px;
+        }
+
+        .modal-tab:hover {
+          color: #495057;
+          background: rgba(0, 0, 0, 0.03);
+        }
+
+        .modal-tab.active {
+          color: #3e1a7d;
+          border-bottom-color: #3e1a7d;
+          background: #fff;
+        }
+
+        .modal-tab svg {
+          width: 16px;
+          height: 16px;
+          stroke-width: 2;
+        }
+
+        .tab-content {
+          min-height: 400px;
+        }
+
+        /* Loading spinner for annotations tab */
+        .loading-spinner {
+          width: 32px;
+          height: 32px;
+          border: 3px solid #e9ecef;
+          border-top-color: #3e1a7d;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+          margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
         .modal-body {
           padding: 24px;
           overflow-y: auto;
@@ -1831,6 +2029,18 @@ export class SettingsModalView {
   }
 
   private attachEventListeners(): void {
+    // RFC-0104: Handle tab switching
+    const tabButtons = this.modal.querySelectorAll('.modal-tab');
+    tabButtons.forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        const tab = (btn as HTMLElement).dataset.tab as 'general' | 'annotations';
+        if (tab) {
+          this.switchTab(tab);
+        }
+      });
+    });
+
     // Handle form submission
     this.form.addEventListener("submit", (event) => {
       event.preventDefault();
@@ -2018,12 +2228,13 @@ export class SettingsModalView {
       formatter: (value: number) => string;
     };
 
+    const decimalPlaces = this.config.consumptionDecimalPlaces ?? 3;
     const telemetryConfigByDomain: Record<string, TelemetryConfig> = {
       energy: {
         key: "consumption",
         unit: "kW",
         label: "Consumo",
-        formatter: (v) => (v / 1000).toFixed(2), // W to kW
+        formatter: (v) => (v / 1000).toFixed(decimalPlaces), // W to kW
       },
       temperature: {
         key: "temperature",

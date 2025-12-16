@@ -1245,12 +1245,19 @@ function bindEvents(root, state, callbacks) {
   const valueElement = root.querySelector('.myio-ho-card__value');
 
   // Temperature range tooltip (only for domain=temperature)
+  // Uses delayed hide pattern: 1.5s delay before closing, allows hover on tooltip to copy data
   if (entityObject.domain === 'temperature' && valueElement) {
     const showTooltip = (e) => {
+      // Cancel any pending hide when re-entering
+      if (TempRangeTooltip._hideTimer) {
+        clearTimeout(TempRangeTooltip._hideTimer);
+        TempRangeTooltip._hideTimer = null;
+      }
       TempRangeTooltip.show(root, state.entityObject, e);
     };
     const hideTooltip = () => {
-      TempRangeTooltip.hide();
+      // Use delayed hide instead of immediate hide
+      TempRangeTooltip._startDelayedHide();
     };
 
     valueElement.style.cursor = 'help';
@@ -1264,12 +1271,19 @@ function bindEvents(root, state, callbacks) {
   }
 
   // Energy range tooltip (only for domain=energy)
+  // Uses delayed hide pattern: 1.5s delay before closing, allows hover on tooltip to copy data
   if (entityObject.domain === 'energy' && valueElement) {
     const showEnergyTooltip = (e) => {
+      // Cancel any pending hide when re-entering
+      if (EnergyRangeTooltip._hideTimer) {
+        clearTimeout(EnergyRangeTooltip._hideTimer);
+        EnergyRangeTooltip._hideTimer = null;
+      }
       EnergyRangeTooltip.show(root, state.entityObject, e);
     };
     const hideEnergyTooltip = () => {
-      EnergyRangeTooltip.hide();
+      // Use delayed hide instead of immediate hide
+      EnergyRangeTooltip._startDelayedHide();
     };
 
     valueElement.style.cursor = 'help';

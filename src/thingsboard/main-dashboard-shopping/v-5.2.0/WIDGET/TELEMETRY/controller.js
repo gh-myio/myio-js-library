@@ -2213,6 +2213,9 @@ function renderList(visible) {
           // RFC-0080 + RFC-0091: Get customerId from MAIN widget via window.MyIOUtils
           const customerTbId = window.MyIOUtils?.customerTB_ID || null;
 
+          // RFC-XXXX: SuperAdmin flag from MAIN_VIEW
+          const isSuperAdmin = window.MyIOUtils?.SuperAdmin || false;
+
           await MyIO.openDashboardPopupSettings({
             deviceId: tbId, // TB deviceId
             label: it.label,
@@ -2220,6 +2223,7 @@ function renderList(visible) {
             domain: WIDGET_DOMAIN,
             deviceType: it.deviceType,
             customerId: customerTbId, // RFC-0080: Pass customerId for GLOBAL fetch
+            superadmin: isSuperAdmin, // RFC-XXXX: SuperAdmin mode
             connectionData: {
               centralName: it.centralName,
               connectionStatusTime: it.connectionStatusTime || null,

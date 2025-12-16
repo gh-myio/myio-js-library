@@ -47,6 +47,9 @@ Object.assign(window.MyIOUtils, {
     minTemperature: null,
     maxTemperature: null,
   },
+  // RFC-XXXX: SuperAdmin flag - user with @myio.com.br email (except alarme/alarmes)
+  // Populated by detectSuperAdmin() in onInit
+  SuperAdmin: false,
   /**
    * Handle 401 Unauthorized errors globally
    * Shows toast message and reloads the page
@@ -205,6 +208,49 @@ let config = null;
     }
   }
 
+  // RFC-XXXX: SuperAdmin detection
+  // SuperAdmin = user with @myio.com.br email EXCEPT alarme@myio.com.br or alarmes@myio.com.br
+  async function detectSuperAdmin() {
+    const jwt = localStorage.getItem('jwt_token');
+    if (!jwt) {
+      window.MyIOUtils.SuperAdmin = false;
+      LogHelper.log('[MAIN_VIEW] SuperAdmin: false (no JWT token)');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/auth/user', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Authorization': `Bearer ${jwt}`,
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        window.MyIOUtils.SuperAdmin = false;
+        LogHelper.warn('[MAIN_VIEW] SuperAdmin: false (API error:', response.status, ')');
+        return;
+      }
+
+      const user = await response.json();
+      const email = (user.email || '').toLowerCase().trim();
+
+      // Check: email ends with @myio.com.br AND is NOT alarme@ or alarmes@
+      const isSuperAdmin =
+        email.endsWith('@myio.com.br') &&
+        !email.startsWith('alarme@') &&
+        !email.startsWith('alarmes@');
+
+      window.MyIOUtils.SuperAdmin = isSuperAdmin;
+      LogHelper.log(`[MAIN_VIEW] SuperAdmin detection: ${email} -> ${isSuperAdmin}`);
+    } catch (err) {
+      LogHelper.error('[MAIN_VIEW] SuperAdmin detection failed:', err);
+      window.MyIOUtils.SuperAdmin = false;
+    }
+  }
+
   // ThingsBoard lifecycle
   self.onInit = async function () {
     rootEl = $('#myio-root');
@@ -286,6 +332,9 @@ let config = null;
 
     registerGlobalEvents();
     setupResizeObserver();
+
+    // RFC-XXXX: Detect SuperAdmin early (async, non-blocking)
+    detectSuperAdmin();
 
     // Initialize MyIO Library and Authentication
     const MyIO =

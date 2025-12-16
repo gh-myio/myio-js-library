@@ -757,6 +757,9 @@ async function renderList(visible) {
       centralName: it.centralName || 'N/A',
       deviceIdentifier: deviceIdentifierToDisplay,
 
+      // RFC-0102 FIX: connectionStatus is required by card-head-office.js for status determination
+      connectionStatus: mappedConnectionStatus,
+
       // Valores e Tipos
       val: valNum,
       value: valNum,

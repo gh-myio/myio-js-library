@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Summary Tooltip - MYIO JS Library Showcase</title>
+    <style>
+        :root {
+            --primary: #047857;
+            --primary-dark: #065f46;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #047857, #065f46);
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-desc {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .demo-area {
+            background: var(--gray-100);
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .demo-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, #047857, #059669);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(4, 120, 87, 0.3);
+        }
+
+        .demo-trigger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(4, 120, 87, 0.4);
+        }
+
+        .demo-trigger svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .info-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 0 8px;
+        }
+
+        .info-button:hover {
+            background: #e2e8f0;
+            border-color: #cbd5e1;
+        }
+
+        .info-button svg {
+            color: #64748b;
+        }
+
+        .code-block {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+        }
+
+        .code-block code {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            color: #e2e8f0;
+            white-space: pre;
+        }
+
+        .code-block .comment { color: #64748b; }
+        .code-block .keyword { color: #c084fc; }
+        .code-block .string { color: #86efac; }
+        .code-block .function { color: #60a5fa; }
+        .code-block .number { color: #fde047; }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .feature-card {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .feature-card h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .feature-card p {
+            font-size: 13px;
+            color: var(--gray-600);
+        }
+
+        .mock-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 20px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .mock-header-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+            flex: 1;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-indicator.success { background: #dcfce7; color: #15803d; }
+        .status-indicator.warning { background: #fef3c7; color: #b45309; }
+        .status-indicator.danger { background: #fee2e2; color: #b91c1c; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / Energy Summary Tooltip
+            </div>
+            <h1>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                Energy Summary Tooltip
+            </h1>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Demo Section -->
+        <div class="section">
+            <h2>Interactive Demo</h2>
+            <p class="section-desc">
+                Hover over the info button to see the premium energy summary tooltip with real-time dashboard data.
+            </p>
+
+            <div class="mock-header">
+                <span style="font-size: 20px;">&#8505;&#65039;</span>
+                <span class="mock-header-title">Informacoes de Energia</span>
+                <button class="info-button" id="demoTrigger" title="Ver resumo do dashboard">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                </button>
+                <span class="status-indicator success">
+                    <span style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%;"></span>
+                    Online
+                </span>
+            </div>
+
+            <div class="demo-area">
+                <button class="demo-trigger" id="largeTrigger">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                    </svg>
+                    Hover for Energy Summary
+                </button>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="section">
+            <h2>Features</h2>
+            <p class="section-desc">
+                RFC-0105: Premium tooltip component showing comprehensive energy dashboard summary.
+            </p>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>
+                        <span>&#128202;</span>
+                        Total Device Count
+                    </h3>
+                    <p>Shows the total number of monitored energy devices across all categories.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#127970;</span>
+                        Category Breakdown
+                    </h3>
+                    <p>Hierarchical tree view with device counts and consumption per category (Entrada, Lojas, Area Comum).</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#127981;</span>
+                        Subcategories
+                    </h3>
+                    <p>Area Comum expands to show Climatizacao, Elevadores, Esc. Rolantes, Chillers, Fancoils, Bombas, etc.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#128994;</span>
+                        Status Matrix
+                    </h3>
+                    <p>Visual breakdown of device statuses: Normal, Alert, Failure, Standby, Offline, No Consumption.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#9889;</span>
+                        Total Consumption
+                    </h3>
+                    <p>Aggregated consumption total displayed prominently in the footer with proper unit formatting.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#128260;</span>
+                        Real-Time Sync
+                    </h3>
+                    <p>Data synchronized with TELEMETRY and MAIN_VIEW widget controllers for live updates.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#128204;</span>
+                        PIN Button
+                    </h3>
+                    <p>Fix the tooltip in place so it stays visible even when mouse leaves. Click again to unpin.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#9635;</span>
+                        Maximize/Restore
+                    </h3>
+                    <p>Expand the tooltip to full screen for easier reading. Click again to restore original size.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#9997;</span>
+                        Drag to Move
+                    </h3>
+                    <p>Click and drag the header to move the tooltip anywhere on screen. Maintains position until closed.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#10006;</span>
+                        Close Button
+                    </h3>
+                    <p>Instantly close the tooltip with a single click. Also resets all states (pin, maximize, position).</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Usage Section -->
+        <div class="section">
+            <h2>Usage</h2>
+            <p class="section-desc">
+                How to integrate the Energy Summary Tooltip in your widgets.
+            </p>
+
+            <div class="code-block">
+                <code><span class="comment">// Import the component</span>
+<span class="keyword">import</span> { EnergySummaryTooltip } <span class="keyword">from</span> <span class="string">'@myio/js-library'</span>;
+
+<span class="comment">// Build summary data from widget state</span>
+<span class="keyword">const</span> getSummaryData = () => {
+  <span class="keyword">return</span> EnergySummaryTooltip.<span class="function">buildSummaryFromState</span>(
+    { entrada: STATE.entrada, consumidores: STATE.consumidores, grandTotal: STATE.grandTotal },
+    RECEIVED_DATA
+  );
+};
+
+<span class="comment">// Attach tooltip to trigger element</span>
+<span class="keyword">const</span> triggerElement = document.<span class="function">getElementById</span>(<span class="string">'btnInfoSummary'</span>);
+<span class="keyword">const</span> cleanup = EnergySummaryTooltip.<span class="function">attach</span>(triggerElement, getSummaryData);
+
+<span class="comment">// Later: cleanup() to remove event listeners</span></code>
+            </div>
+        </div>
+
+        <!-- Data Structure Section -->
+        <div class="section">
+            <h2>Data Structure</h2>
+            <p class="section-desc">
+                The tooltip expects data in the following format.
+            </p>
+
+            <div class="code-block">
+                <code><span class="keyword">interface</span> DashboardEnergySummary {
+  totalDevices: <span class="keyword">number</span>;
+  totalConsumption: <span class="keyword">number</span>;
+  unit: <span class="string">'kWh'</span> | <span class="string">'MWh'</span>;
+  byCategory: CategorySummary[];
+  byStatus: {
+    normal: <span class="keyword">number</span>;
+    alert: <span class="keyword">number</span>;
+    failure: <span class="keyword">number</span>;
+    standby: <span class="keyword">number</span>;
+    offline: <span class="keyword">number</span>;
+    noConsumption: <span class="keyword">number</span>;
+  };
+  lastUpdated: <span class="keyword">string</span>; <span class="comment">// ISO 8601</span>
+}
+
+<span class="keyword">interface</span> CategorySummary {
+  id: <span class="keyword">string</span>;
+  name: <span class="keyword">string</span>;
+  icon: <span class="keyword">string</span>;
+  deviceCount: <span class="keyword">number</span>;
+  consumption: <span class="keyword">number</span>;
+  percentage: <span class="keyword">number</span>;
+  children?: CategorySummary[];
+}</code>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load MyIO Library -->
+    <script src="../dist/myio-js-library.umd.js"></script>
+    <script>
+        // Mock summary data for demo
+        const mockSummary = {
+            totalDevices: 127,
+            totalConsumption: 90460,
+            unit: 'kWh',
+            byCategory: [
+                {
+                    id: 'entrada',
+                    name: 'Entrada',
+                    icon: '📥',
+                    deviceCount: 3,
+                    consumption: 90460,
+                    percentage: 100
+                },
+                {
+                    id: 'lojas',
+                    name: 'Lojas',
+                    icon: '🏪',
+                    deviceCount: 85,
+                    consumption: 28450,
+                    percentage: 31
+                },
+                {
+                    id: 'areaComum',
+                    name: 'Area Comum',
+                    icon: '🏢',
+                    deviceCount: 39,
+                    consumption: 62010,
+                    percentage: 69,
+                    children: [
+                        { id: 'climatizacao', name: 'Climatizacao', icon: '❄️', deviceCount: 16, consumption: 35200, percentage: 39 },
+                        { id: 'elevadores', name: 'Elevadores', icon: '🛗', deviceCount: 8, consumption: 12800, percentage: 14 },
+                        { id: 'escadasRolantes', name: 'Esc. Rolantes', icon: '🎢', deviceCount: 6, consumption: 8400, percentage: 9 },
+                        { id: 'outros', name: 'Outros', icon: '⚙️', deviceCount: 9, consumption: 5610, percentage: 6 }
+                    ]
+                }
+            ],
+            byStatus: {
+                normal: 108,
+                alert: 10,
+                failure: 2,
+                standby: 4,
+                offline: 3,
+                noConsumption: 0
+            },
+            lastUpdated: new Date().toISOString()
+        };
+
+        // Wait for library to load
+        document.addEventListener('DOMContentLoaded', function() {
+            const MyIO = window.MyIOLibrary;
+
+            if (MyIO && MyIO.EnergySummaryTooltip) {
+                console.log('[Showcase] EnergySummaryTooltip loaded from library');
+
+                // Attach to demo trigger
+                const demoTrigger = document.getElementById('demoTrigger');
+                const largeTrigger = document.getElementById('largeTrigger');
+
+                if (demoTrigger) {
+                    MyIO.EnergySummaryTooltip.attach(demoTrigger, () => mockSummary);
+                }
+
+                if (largeTrigger) {
+                    MyIO.EnergySummaryTooltip.attach(largeTrigger, () => mockSummary);
+                }
+            } else {
+                console.warn('[Showcase] EnergySummaryTooltip not found, using fallback');
+
+                // Fallback: inline implementation
+                const tooltipEl = document.createElement('div');
+                tooltipEl.id = 'showcase-tooltip';
+                tooltipEl.style.cssText = `
+                    position: fixed;
+                    z-index: 99999;
+                    background: white;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 12px;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+                    min-width: 360px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    font-size: 12px;
+                    color: #1e293b;
+                    opacity: 0;
+                    pointer-events: none;
+                    transition: opacity 0.2s ease;
+                `;
+                document.body.appendChild(tooltipEl);
+
+                const formatConsumption = (val) => {
+                    if (val >= 1000) return (val / 1000).toFixed(2).replace('.', ',') + ' MWh';
+                    return val.toFixed(2).replace('.', ',') + ' kWh';
+                };
+
+                const showTooltip = (e, data) => {
+                    let categoriesHtml = data.byCategory.map(cat => {
+                        let html = `<div style="display: grid; grid-template-columns: 1fr 50px 80px; padding: 6px 12px; align-items: center;">
+                            <span>${cat.icon} ${cat.name}</span>
+                            <span style="text-align: center; font-weight: 600;">${cat.deviceCount}</span>
+                            <span style="text-align: right; font-weight: 600; color: #059669;">${formatConsumption(cat.consumption)}</span>
+                        </div>`;
+                        if (cat.children) {
+                            cat.children.forEach(child => {
+                                html += `<div style="display: grid; grid-template-columns: 1fr 50px 80px; padding: 4px 12px 4px 32px; align-items: center; font-size: 11px; color: #64748b;">
+                                    <span>${child.icon} ${child.name}</span>
+                                    <span style="text-align: center;">${child.deviceCount}</span>
+                                    <span style="text-align: right; color: #059669;">${formatConsumption(child.consumption)}</span>
+                                </div>`;
+                            });
+                        }
+                        return html;
+                    }).join('');
+
+                    tooltipEl.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: linear-gradient(90deg, #ecfdf5, #d1fae5); border-radius: 12px 12px 0 0;">
+                            <span style="font-size: 18px;">⚡</span>
+                            <span style="font-weight: 700; font-size: 14px; color: #047857;">Resumo do Dashboard</span>
+                        </div>
+                        <div style="padding: 16px;">
+                            <div style="display: flex; justify-content: space-between; padding: 10px 14px; background: #f8fafc; border-radius: 8px; margin-bottom: 16px;">
+                                <span style="font-weight: 600; color: #475569;">Total de Dispositivos</span>
+                                <span style="font-weight: 700; font-size: 20px;">${data.totalDevices}</span>
+                            </div>
+                            <div style="font-weight: 700; font-size: 11px; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Distribuicao por Categoria</div>
+                            ${categoriesHtml}
+                            <div style="font-weight: 700; font-size: 11px; color: #64748b; text-transform: uppercase; margin: 16px 0 8px 0;">Status dos Dispositivos</div>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                                <div style="display: flex; align-items: center; gap: 6px; padding: 8px; background: #dcfce7; border-radius: 6px; font-size: 11px; font-weight: 600; color: #15803d;">
+                                    <span style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%;"></span>
+                                    ${data.byStatus.normal} Normal
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px; padding: 8px; background: #fef3c7; border-radius: 6px; font-size: 11px; font-weight: 600; color: #b45309;">
+                                    <span style="width: 8px; height: 8px; background: #f59e0b; border-radius: 50%;"></span>
+                                    ${data.byStatus.alert} Alerta
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px; padding: 8px; background: #fee2e2; border-radius: 6px; font-size: 11px; font-weight: 600; color: #b91c1c;">
+                                    <span style="width: 8px; height: 8px; background: #ef4444; border-radius: 50%;"></span>
+                                    ${data.byStatus.failure} Falha
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px; padding: 8px; background: #dbeafe; border-radius: 6px; font-size: 11px; font-weight: 600; color: #1d4ed8;">
+                                    <span style="width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;"></span>
+                                    ${data.byStatus.standby} Standby
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px; padding: 8px; background: #f3f4f6; border-radius: 6px; font-size: 11px; font-weight: 600; color: #6b7280;">
+                                    <span style="width: 8px; height: 8px; background: #6b7280; border-radius: 50%;"></span>
+                                    ${data.byStatus.offline} Offline
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 14px 16px; background: linear-gradient(135deg, #047857, #059669); border-radius: 0 0 12px 12px; color: white;">
+                            <span style="font-weight: 600;">Consumo Total</span>
+                            <span style="font-weight: 700; font-size: 20px;">${formatConsumption(data.totalConsumption)}</span>
+                        </div>
+                    `;
+
+                    let left = e.clientX + 12;
+                    let top = e.clientY + 12;
+                    if (left + 380 > window.innerWidth) left = e.clientX - 380 - 12;
+                    if (top + 450 > window.innerHeight) top = e.clientY - 450 - 12;
+
+                    tooltipEl.style.left = left + 'px';
+                    tooltipEl.style.top = top + 'px';
+                    tooltipEl.style.opacity = '1';
+                };
+
+                const hideTooltip = () => {
+                    tooltipEl.style.opacity = '0';
+                };
+
+                const demoTrigger = document.getElementById('demoTrigger');
+                const largeTrigger = document.getElementById('largeTrigger');
+
+                [demoTrigger, largeTrigger].forEach(el => {
+                    if (el) {
+                        el.addEventListener('mouseenter', (e) => showTooltip(e, mockSummary));
+                        el.addEventListener('mouseleave', hideTooltip);
+                        el.addEventListener('mousemove', (e) => {
+                            if (tooltipEl.style.opacity === '1') {
+                                let left = e.clientX + 12;
+                                let top = e.clientY + 12;
+                                if (left + 380 > window.innerWidth) left = e.clientX - 380 - 12;
+                                if (top + 450 > window.innerHeight) top = e.clientY - 450 - 12;
+                                tooltipEl.style.left = left + 'px';
+                                tooltipEl.style.top = top + 'px';
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

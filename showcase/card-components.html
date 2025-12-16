@@ -362,6 +362,15 @@
     </header>
 
     <div class="container">
+        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: #60a5fa;">
+            <strong>Tooltip Features:</strong> Hover sobre os cards de temperatura/energia para ver as tooltips premium.
+            <br>📌 <strong>PIN:</strong> Fixa a tooltip na tela (cria um clone independente) |
+            ⬜ <strong>Maximizar:</strong> Expande para tela cheia |
+            ✕ <strong>Fechar:</strong> Fecha a tooltip |
+            🖐️ <strong>Arrastar:</strong> Mova pelo header |
+            ⏱️ <strong>Delay:</strong> 1.5s antes de fechar
+        </div>
+
         <!-- Energy Cards Section -->
         <section class="section">
             <div class="domain-header">
@@ -558,7 +567,7 @@
     </div>
 
     <script>
-        const { renderCardComponentHeadOffice } = MyIOLibrary;
+        const { renderCardComponentHeadOffice, createAnnotationIndicator, openDashboardPopupSettings } = MyIOLibrary;
 
         const cardInstances = {
             energy: [],
@@ -567,6 +576,576 @@
         };
 
         const eventLog = document.getElementById('eventLog');
+
+        // =====================
+        // MOCK ANNOTATIONS DATA
+        // =====================
+        const MOCK_ANNOTATIONS = {
+            'elv-001': [
+                {
+                    id: 'ann-001',
+                    version: 2,
+                    text: 'Consumo acima da média - verificar motor',
+                    type: 'pending',
+                    importance: 5,
+                    status: 'modified',
+                    createdAt: '2024-12-08T08:00:00Z',
+                    dueDate: '2024-12-10T18:00:00Z', // Overdue!
+                    createdBy: { id: 'user-003', email: 'supervisor@myio.com.br', name: 'Supervisor' },
+                    acknowledged: false,
+                    history: []
+                }
+            ],
+            'ar-001': [
+                {
+                    id: 'ann-002',
+                    version: 1,
+                    text: 'Manutenção preventiva agendada',
+                    type: 'maintenance',
+                    importance: 3,
+                    status: 'created',
+                    createdAt: '2024-12-12T14:30:00Z',
+                    createdBy: { id: 'user-002', email: 'admin@cliente.com', name: 'Admin Cliente' },
+                    acknowledged: true,
+                    acknowledgedBy: { id: 'user-001', email: 'tecnico@myio.com.br', name: 'Técnico MYIO' },
+                    history: []
+                },
+                {
+                    id: 'ann-003',
+                    version: 1,
+                    text: 'Limpeza dos filtros realizada',
+                    type: 'activity',
+                    importance: 2,
+                    status: 'created',
+                    createdAt: '2024-12-15T11:00:00Z',
+                    createdBy: { id: 'user-002', email: 'admin@cliente.com', name: 'Admin Cliente' },
+                    acknowledged: true,
+                    history: []
+                }
+            ],
+            'ilu-001': [
+                {
+                    id: 'ann-004',
+                    version: 1,
+                    text: 'Observação: lâmpadas LED instaladas',
+                    type: 'observation',
+                    importance: 1,
+                    status: 'created',
+                    createdAt: '2024-12-13T16:45:00Z',
+                    createdBy: { id: 'user-001', email: 'tecnico@myio.com.br', name: 'Técnico MYIO' },
+                    acknowledged: false,
+                    history: []
+                }
+            ],
+            'hid-001': [
+                {
+                    id: 'ann-005',
+                    version: 1,
+                    text: 'Verificar vazamento no hidrômetro',
+                    type: 'pending',
+                    importance: 4,
+                    status: 'created',
+                    createdAt: '2024-12-14T10:00:00Z',
+                    dueDate: '2024-12-20T23:59:59Z',
+                    createdBy: { id: 'user-001', email: 'tecnico@myio.com.br', name: 'Técnico MYIO' },
+                    acknowledged: false,
+                    history: []
+                }
+            ],
+            'hid-002': [],
+            'hid-003': [
+                {
+                    id: 'ann-006',
+                    version: 1,
+                    text: 'Consumo normal para o período',
+                    type: 'observation',
+                    importance: 1,
+                    status: 'created',
+                    createdAt: '2024-12-14T08:30:00Z',
+                    createdBy: { id: 'user-002', email: 'admin@cliente.com', name: 'Admin Cliente' },
+                    acknowledged: false,
+                    history: []
+                }
+            ],
+            'temp-001': [
+                {
+                    id: 'ann-007',
+                    version: 1,
+                    text: 'Sensor abaixo da temperatura ideal',
+                    type: 'maintenance',
+                    importance: 3,
+                    status: 'created',
+                    createdAt: '2024-12-11T14:00:00Z',
+                    dueDate: '2024-12-18T18:00:00Z',
+                    createdBy: { id: 'user-003', email: 'supervisor@myio.com.br', name: 'Supervisor' },
+                    acknowledged: false,
+                    history: []
+                }
+            ],
+            'temp-002': [
+                {
+                    id: 'ann-008',
+                    version: 1,
+                    text: 'Temperatura estável',
+                    type: 'activity',
+                    importance: 2,
+                    status: 'created',
+                    createdAt: '2024-12-10T09:15:00Z',
+                    createdBy: { id: 'user-001', email: 'tecnico@myio.com.br', name: 'Técnico MYIO' },
+                    acknowledged: false,
+                    history: []
+                }
+            ],
+            'temp-003': []
+        };
+
+        // Type icons configuration
+        const TYPE_CONFIG = {
+            pending: {
+                color: '#d63031',
+                icon: '⚠️',
+                label: 'Pendência'
+            },
+            maintenance: {
+                color: '#e17055',
+                icon: '🔧',
+                label: 'Manutenção'
+            },
+            activity: {
+                color: '#00b894',
+                icon: '✓',
+                label: 'Atividade'
+            },
+            observation: {
+                color: '#0984e3',
+                icon: '📝',
+                label: 'Observação'
+            }
+        };
+
+        // Inject styles for type badges
+        function injectBadgeStyles() {
+            if (document.getElementById('annotation-type-badges-styles')) return;
+
+            const style = document.createElement('style');
+            style.id = 'annotation-type-badges-styles';
+            style.textContent = `
+                .annotation-type-badges {
+                    position: absolute;
+                    top: 50%;
+                    right: 6px;
+                    transform: translateY(-50%);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                    z-index: 10;
+                }
+
+                .annotation-type-badge {
+                    position: relative;
+                    width: 22px;
+                    height: 22px;
+                    border-radius: 6px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 11px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+                }
+
+                .annotation-type-badge:hover {
+                    transform: scale(1.15);
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+                }
+
+                .annotation-type-badge__count {
+                    position: absolute;
+                    top: -4px;
+                    right: -4px;
+                    min-width: 14px;
+                    height: 14px;
+                    padding: 0 3px;
+                    background: #1a1a2e;
+                    color: white;
+                    border-radius: 7px;
+                    font-size: 9px;
+                    font-weight: 700;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    line-height: 1;
+                }
+
+                /* Summary tooltip - positioned via JS to avoid card overflow */
+                .annotation-summary-tooltip {
+                    position: fixed;
+                    min-width: 260px;
+                    max-width: 320px;
+                    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+                    border: 1px solid rgba(0, 0, 0, 0.1);
+                    border-radius: 10px;
+                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+                    font-family: 'Inter', system-ui, sans-serif;
+                    font-size: 12px;
+                    color: #1a1a2e;
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: opacity 0.3s ease, transform 0.3s ease;
+                    transform: translateY(4px);
+                    pointer-events: auto;
+                    z-index: 9999;
+                }
+
+                .annotation-summary-tooltip.visible {
+                    opacity: 1;
+                    visibility: visible;
+                    transform: translateY(0);
+                }
+
+                .annotation-summary-tooltip.closing {
+                    opacity: 0;
+                    transform: translateY(4px);
+                    transition: opacity 0.4s ease, transform 0.4s ease;
+                }
+
+                .annotation-summary-tooltip.pinned {
+                    box-shadow: 0 0 0 2px #6366f1, 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+                }
+
+                .annotation-summary-tooltip.maximized {
+                    top: 20px !important;
+                    left: 20px !important;
+                    right: 20px !important;
+                    bottom: 20px !important;
+                    width: auto !important;
+                    max-width: none !important;
+                    min-width: auto !important;
+                    transform: none !important;
+                }
+
+                .annotation-summary-tooltip.maximized .annotation-summary-tooltip__body {
+                    flex: 1;
+                    overflow-y: auto;
+                }
+
+                .annotation-summary-tooltip.dragging {
+                    transition: none !important;
+                    cursor: move;
+                }
+
+                .annotation-summary-tooltip__header {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 10px 12px;
+                    background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%);
+                    border-radius: 10px 10px 0 0;
+                    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+                    cursor: move;
+                    user-select: none;
+                }
+
+                .annotation-summary-tooltip__header-title {
+                    font-weight: 600;
+                    font-size: 13px;
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    color: #1a1a2e;
+                }
+
+                .annotation-summary-tooltip__header-actions {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                }
+
+                .annotation-summary-tooltip__header-btn {
+                    width: 22px;
+                    height: 22px;
+                    border: none;
+                    background: rgba(255, 255, 255, 0.6);
+                    border-radius: 4px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.15s ease;
+                    color: #64748b;
+                }
+
+                .annotation-summary-tooltip__header-btn:hover {
+                    background: rgba(255, 255, 255, 0.9);
+                    color: #1e293b;
+                }
+
+                .annotation-summary-tooltip__header-btn.pinned {
+                    background: #6366f1;
+                    color: white;
+                }
+
+                .annotation-summary-tooltip__header-btn.pinned:hover {
+                    background: #4f46e5;
+                    color: white;
+                }
+
+                .annotation-summary-tooltip__header-btn svg {
+                    width: 12px;
+                    height: 12px;
+                }
+
+                .annotation-summary-tooltip__body {
+                    padding: 12px 14px;
+                }
+
+                .annotation-summary-tooltip::after {
+                    content: '';
+                    position: absolute;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    border: 8px solid transparent;
+                }
+
+                /* Arrow pointing left (tooltip on right side) */
+                .annotation-summary-tooltip.arrow-left::after {
+                    left: -8px;
+                    border-right-color: #ffffff;
+                    border-left-color: transparent;
+                }
+
+                /* Arrow pointing right (tooltip on left side) */
+                .annotation-summary-tooltip.arrow-right::after {
+                    right: -8px;
+                    border-left-color: #ffffff;
+                    border-right-color: transparent;
+                }
+
+                .annotation-summary-tooltip.visible {
+                    opacity: 1;
+                    visibility: visible;
+                }
+
+                .annotation-summary-tooltip__title {
+                    font-weight: 600;
+                    font-size: 13px;
+                    margin-bottom: 10px;
+                    padding-bottom: 8px;
+                    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    color: #1a1a2e;
+                }
+
+                .annotation-summary-tooltip__row {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 4px 0;
+                }
+
+                .annotation-summary-tooltip__label {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    color: #495057;
+                }
+
+                .annotation-summary-tooltip__dot {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                }
+
+                .annotation-summary-tooltip__value {
+                    font-weight: 600;
+                    color: #1a1a2e;
+                }
+
+                .annotation-summary-tooltip__latest {
+                    margin-top: 10px;
+                    padding-top: 10px;
+                    border-top: 1px solid rgba(0, 0, 0, 0.1);
+                    font-size: 11px;
+                }
+
+                .annotation-summary-tooltip__latest-label {
+                    color: #6c757d;
+                    margin-bottom: 4px;
+                }
+
+                .annotation-summary-tooltip__latest-text {
+                    color: #343a40;
+                    line-height: 1.4;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    display: -webkit-box;
+                    -webkit-line-clamp: 2;
+                    -webkit-box-orient: vertical;
+                }
+
+                .annotation-summary-tooltip__latest-meta {
+                    color: #868e96;
+                    font-size: 10px;
+                    margin-top: 4px;
+                }
+
+                .annotation-summary-tooltip__overdue {
+                    color: #d63031;
+                    margin-top: 8px;
+                    font-size: 11px;
+                    font-weight: 500;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // Function to add annotation type badges to a card
+        function addAnnotationIndicator(cardElement, entityId, entityObject) {
+            const annotations = MOCK_ANNOTATIONS[entityId] || [];
+
+            // Ensure styles are injected
+            injectBadgeStyles();
+
+            // Create wrapper for positioning
+            if (cardElement && cardElement.style) {
+                cardElement.style.position = 'relative';
+            }
+
+            // Filter active annotations
+            const activeAnnotations = annotations.filter(a => a.status !== 'archived');
+            if (activeAnnotations.length === 0) return null;
+
+            // Count by type
+            const counts = {
+                pending: 0,
+                maintenance: 0,
+                activity: 0,
+                observation: 0
+            };
+
+            let overdueCount = 0;
+            const now = new Date();
+
+            activeAnnotations.forEach(a => {
+                if (counts[a.type] !== undefined) {
+                    counts[a.type]++;
+                }
+                if (a.dueDate && new Date(a.dueDate) < now) {
+                    overdueCount++;
+                }
+            });
+
+            // Create badges container
+            const container = document.createElement('div');
+            container.className = 'annotation-type-badges';
+
+            // Priority order: pending, maintenance, activity, observation
+            const typeOrder = ['pending', 'maintenance', 'activity', 'observation'];
+
+            typeOrder.forEach(type => {
+                if (counts[type] > 0) {
+                    const config = TYPE_CONFIG[type];
+                    const badge = document.createElement('div');
+                    badge.className = 'annotation-type-badge';
+                    badge.style.background = config.color;
+                    badge.innerHTML = `
+                        <span>${config.icon}</span>
+                        <span class="annotation-type-badge__count">${counts[type]}</span>
+                    `;
+
+                    badge.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        log(`Opening Settings Modal for ${entityObject.labelOrName} (${config.label})...`);
+                        openDashboardPopupSettings({
+                            entityId: entityId,
+                            entityType: 'DEVICE',
+                            entityName: entityObject.labelOrName,
+                            activeTab: 'annotations',
+                            onClose: () => log(`Settings Modal closed for ${entityObject.labelOrName}`)
+                        });
+                    });
+
+                    container.appendChild(badge);
+                }
+            });
+
+            // Create summary tooltip
+            const latestAnnotation = activeAnnotations[0];
+            const rows = typeOrder
+                .filter(type => counts[type] > 0)
+                .map(type => `
+                    <div class="annotation-summary-tooltip__row">
+                        <span class="annotation-summary-tooltip__label">
+                            <span class="annotation-summary-tooltip__dot" style="background: ${TYPE_CONFIG[type].color}"></span>
+                            ${TYPE_CONFIG[type].label}
+                        </span>
+                        <span class="annotation-summary-tooltip__value">${counts[type]}</span>
+                    </div>
+                `).join('');
+
+            const latestSection = latestAnnotation ? `
+                <div class="annotation-summary-tooltip__latest">
+                    <div class="annotation-summary-tooltip__latest-label">Última anotação:</div>
+                    <div class="annotation-summary-tooltip__latest-text">"${latestAnnotation.text}"</div>
+                    <div class="annotation-summary-tooltip__latest-meta">
+                        ${latestAnnotation.createdBy.name} • ${new Date(latestAnnotation.createdAt).toLocaleDateString('pt-BR')}
+                    </div>
+                </div>
+            ` : '';
+
+            const overdueWarning = overdueCount > 0
+                ? `<div class="annotation-summary-tooltip__overdue">⚠️ ${overdueCount} anotação(ões) vencida(s)</div>`
+                : '';
+
+            const tooltip = document.createElement('div');
+            tooltip.className = 'annotation-summary-tooltip';
+            tooltip.innerHTML = `
+                <div class="annotation-summary-tooltip__title">
+                    📋 Anotações (${activeAnnotations.length})
+                </div>
+                ${rows}
+                ${overdueWarning}
+                ${latestSection}
+            `;
+
+            // Append tooltip to body (to avoid card overflow issues)
+            document.body.appendChild(tooltip);
+
+            // Position tooltip on hover - prefer right side
+            container.addEventListener('mouseenter', () => {
+                const rect = container.getBoundingClientRect();
+                const tooltipWidth = 260;
+                const spacing = 12;
+                const viewportWidth = window.innerWidth;
+                const rightPosition = rect.right + spacing;
+                const canFitRight = (rightPosition + tooltipWidth) < viewportWidth;
+
+                tooltip.classList.remove('arrow-left', 'arrow-right');
+                if (canFitRight) {
+                    tooltip.style.left = `${rightPosition}px`;
+                    tooltip.classList.add('arrow-left');
+                } else {
+                    tooltip.style.left = `${rect.left - tooltipWidth - spacing}px`;
+                    tooltip.classList.add('arrow-right');
+                }
+                tooltip.style.top = `${rect.top + rect.height / 2}px`;
+                tooltip.style.transform = 'translateY(-50%)';
+                tooltip.classList.add('visible');
+            });
+
+            container.addEventListener('mouseleave', () => {
+                tooltip.classList.remove('visible');
+            });
+
+            // Append badges to card
+            cardElement.appendChild(container);
+
+            return container;
+        }
 
         function log(message, domain = '') {
             const timestamp = new Date().toLocaleTimeString();
@@ -687,6 +1266,9 @@
                     debugActive: false
                 });
 
+                // Add annotation indicator to the wrapper
+                addAnnotationIndicator(wrapper, device.entityId, device);
+
                 cardInstances.energy.push({ instance, device });
             });
 
@@ -790,6 +1372,9 @@
                     useNewComponents: true,
                     debugActive: false
                 });
+
+                // Add annotation indicator to the wrapper
+                addAnnotationIndicator(wrapper, device.entityId, device);
 
                 cardInstances.water.push({ instance, device });
             });
@@ -903,6 +1488,9 @@
                     useNewComponents: true,
                     debugActive: false
                 });
+
+                // Add annotation indicator to the wrapper
+                addAnnotationIndicator(wrapper, device.entityId, device);
 
                 cardInstances.temperature.push({ instance, device });
             });

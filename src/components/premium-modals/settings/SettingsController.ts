@@ -27,7 +27,7 @@ export class SettingsController {
     // Initialize view
     this.view = new SettingsModalView({
       title: params.ui?.title || `Settings - ${params.label || params.deviceId}`,
-      width: params.ui?.width || 600,
+      width: params.ui?.width || 780,
       theme: 'light', // Default theme
       closeOnBackdrop: params.ui?.closeOnBackdrop !== false,
       domain: params.domain || 'energy',

@@ -64,6 +64,10 @@ const DEVICE_TYPE_CONFIG = {
     category: 'energy',
     image: 'https://dashboard.myio-bas.com/api/images/public/rbO2wQb6iKBtX0Ec04DFDcO3Qg04EOoD',
   },
+  BOMBA_CAG: {
+    category: 'energy',
+    image: 'https://dashboard.myio-bas.com/api/images/public/rbO2wQb6iKBtX0Ec04DFDcO3Qg04EOoD',
+  },
   BOMBA_INCENDIO: {
     category: 'energy',
     image: 'https://dashboard.myio-bas.com/api/images/public/YJkELCk9kluQSM6QXaFINX6byQWI7vbB',

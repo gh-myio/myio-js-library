@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Annotations Grid - RFC-0104 Showcase</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --primary-dark: #5b4cdb;
+            --success: #00b894;
+            --warning: #fdcb6e;
+            --danger: #d63031;
+            --info: #0984e3;
+            --gray-50: #f8f9fa;
+            --gray-100: #f1f3f5;
+            --gray-200: #e9ecef;
+            --gray-300: #dee2e6;
+            --gray-600: #6c757d;
+            --gray-800: #343a40;
+            --gray-900: #212529;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--gray-100);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: white;
+            padding: 24px 20px;
+            box-shadow: 0 4px 20px rgba(108, 92, 231, 0.3);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px 20px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(108, 92, 231, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-800);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-300);
+        }
+
+        .btn-danger {
+            background: #d63031;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-outline {
+            background: white;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .info-banner {
+            background: linear-gradient(135deg, #e8f4fd 0%, #d4e8f9 100%);
+            border: 1px solid #b8d4e8;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .info-banner-icon {
+            font-size: 1.5rem;
+        }
+
+        .info-banner-text {
+            flex: 1;
+            font-size: 14px;
+            color: #2c5282;
+        }
+
+        .info-banner-text strong {
+            color: #1a365d;
+        }
+
+        .grid-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            min-height: 600px;
+        }
+
+        .grid-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .grid-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--gray-800);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .grid-stats {
+            display: flex;
+            gap: 16px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+        }
+
+        .stat-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .stat-dot--pending { background: #d63031; }
+        .stat-dot--maintenance { background: #fdcb6e; }
+        .stat-dot--activity { background: #00b894; }
+        .stat-dot--observation { background: #0984e3; }
+
+        .grid-body {
+            padding: 20px;
+        }
+
+        /* Permissions Toggle */
+        .permissions-panel {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .permissions-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gray-600);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .permissions-toggles {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .toggle-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: var(--primary);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        .toggle-label {
+            font-size: 13px;
+            color: var(--gray-800);
+        }
+
+        .current-user-info {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--gray-200);
+            font-size: 12px;
+            color: var(--gray-600);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--gray-600);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 8px;
+        }
+
+        .empty-state-desc {
+            font-size: 14px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        /* Loading State */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 24px;
+            color: var(--gray-600);
+            font-size: 13px;
+        }
+
+        .footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Creation Form */
+        .creation-form {
+            background: white;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .creation-form-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .form-group--full {
+            flex: 100%;
+            min-width: 100%;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--gray-600);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 10px 12px;
+            border: 1px solid var(--gray-300);
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--gray-800);
+            background: white;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            padding-top: 12px;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        /* Type selector with colors */
+        .type-selector {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .type-option {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+
+        .type-option:hover {
+            border-color: var(--gray-400);
+        }
+
+        .type-option.selected {
+            border-color: currentColor;
+            background: currentColor;
+        }
+
+        .type-option.selected span {
+            color: white;
+        }
+
+        .type-option input {
+            display: none;
+        }
+
+        .type-option--pending { color: #d63031; }
+        .type-option--maintenance { color: #e17055; }
+        .type-option--activity { color: #00b894; }
+        .type-option--observation { color: #0984e3; }
+
+        .type-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* Importance selector */
+        .importance-selector {
+            display: flex;
+            gap: 6px;
+        }
+
+        .importance-option {
+            width: 36px;
+            height: 36px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .importance-option:hover {
+            border-color: var(--gray-400);
+        }
+
+        .importance-option.selected {
+            color: white;
+        }
+
+        .importance-option input {
+            display: none;
+        }
+
+        .importance-option--1 { color: #74b9ff; }
+        .importance-option--1.selected { background: #74b9ff; border-color: #74b9ff; }
+        .importance-option--2 { color: #81ecec; }
+        .importance-option--2.selected { background: #81ecec; border-color: #81ecec; }
+        .importance-option--3 { color: #ffeaa7; }
+        .importance-option--3.selected { background: #ffeaa7; border-color: #ffeaa7; color: #333; }
+        .importance-option--4 { color: #fab1a0; }
+        .importance-option--4.selected { background: #fab1a0; border-color: #fab1a0; }
+        .importance-option--5 { color: #ff7675; }
+        .importance-option--5.selected { background: #ff7675; border-color: #ff7675; }
+    </style>
+    <script src="../dist/myio-js-library.umd.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / RFC-0104 Annotations
+            </div>
+            <h1>RFC-0104: Device Annotations System</h1>
+            <div class="header-subtitle">Sistema de anotações para dispositivos com controle de permissões</div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Info Banner -->
+        <div class="info-banner">
+            <span class="info-banner-icon">ℹ️</span>
+            <div class="info-banner-text">
+                <strong>Modo Demonstração:</strong> Esta página simula o componente de anotações com dados mock.
+                As operações de CRUD são simuladas e não persistem dados reais.
+            </div>
+        </div>
+
+        <!-- Permissions Panel -->
+        <div class="permissions-panel">
+            <div class="permissions-title">Simular Permissões</div>
+            <div class="permissions-toggles">
+                <label class="toggle-item">
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="toggleSuperAdminMyio">
+                        <span class="toggle-slider"></span>
+                    </div>
+                    <span class="toggle-label">SuperAdmin MYIO</span>
+                </label>
+                <label class="toggle-item">
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="toggleSuperAdminHolding">
+                        <span class="toggle-slider"></span>
+                    </div>
+                    <span class="toggle-label">SuperAdmin Holding</span>
+                </label>
+            </div>
+            <div class="current-user-info" id="currentUserInfo">
+                Usuário atual: <strong>Demo User</strong> (demo@example.com)
+            </div>
+        </div>
+
+        <!-- Creation Form -->
+        <div class="creation-form">
+            <div class="creation-form-title">
+                ✏️ Nova Anotação
+            </div>
+
+            <div class="form-row">
+                <div class="form-group form-group--full">
+                    <label>Texto da Anotação</label>
+                    <textarea id="annotationText" placeholder="Digite o texto da anotação..."></textarea>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <div class="type-selector" id="typeSelector">
+                        <label class="type-option type-option--pending selected" data-type="pending">
+                            <input type="radio" name="annotationType" value="pending" checked>
+                            <span class="type-dot"></span>
+                            <span>Pendência</span>
+                        </label>
+                        <label class="type-option type-option--maintenance" data-type="maintenance">
+                            <input type="radio" name="annotationType" value="maintenance">
+                            <span class="type-dot"></span>
+                            <span>Manutenção</span>
+                        </label>
+                        <label class="type-option type-option--activity" data-type="activity">
+                            <input type="radio" name="annotationType" value="activity">
+                            <span class="type-dot"></span>
+                            <span>Atividade</span>
+                        </label>
+                        <label class="type-option type-option--observation" data-type="observation">
+                            <input type="radio" name="annotationType" value="observation">
+                            <span class="type-dot"></span>
+                            <span>Observação</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Importância</label>
+                    <div class="importance-selector" id="importanceSelector">
+                        <label class="importance-option importance-option--1" data-importance="1" title="Muito Baixa">
+                            <input type="radio" name="annotationImportance" value="1">
+                            1
+                        </label>
+                        <label class="importance-option importance-option--2" data-importance="2" title="Baixa">
+                            <input type="radio" name="annotationImportance" value="2">
+                            2
+                        </label>
+                        <label class="importance-option importance-option--3 selected" data-importance="3" title="Média">
+                            <input type="radio" name="annotationImportance" value="3" checked>
+                            3
+                        </label>
+                        <label class="importance-option importance-option--4" data-importance="4" title="Alta">
+                            <input type="radio" name="annotationImportance" value="4">
+                            4
+                        </label>
+                        <label class="importance-option importance-option--5" data-importance="5" title="Muito Alta">
+                            <input type="radio" name="annotationImportance" value="5">
+                            5
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Data de Vencimento (opcional)</label>
+                    <input type="datetime-local" id="annotationDueDate">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-secondary" onclick="clearForm()">Limpar</button>
+                <button class="btn btn-primary" onclick="createAnnotation()">Criar Anotação</button>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button class="btn btn-primary" onclick="addMockAnnotation()">
+                + Nova Anotação
+            </button>
+            <button class="btn btn-secondary" onclick="loadMockData()">
+                Recarregar Dados Mock
+            </button>
+            <button class="btn btn-danger" onclick="clearAnnotations()">
+                Limpar Todas
+            </button>
+            <button class="btn btn-outline" onclick="exportAnnotations()">
+                Exportar JSON
+            </button>
+        </div>
+
+        <!-- Grid Container -->
+        <div class="grid-container">
+            <div class="grid-header">
+                <div class="grid-title">
+                    📋 Anotações do Dispositivo
+                </div>
+                <div class="grid-stats" id="gridStats">
+                    <!-- Stats will be populated by JS -->
+                </div>
+            </div>
+            <div class="grid-body" id="annotationsContainer">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <a href="index.html">← Voltar ao Portal</a>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // MOCK DATA
+        // ============================================
+
+        const MOCK_USERS = [
+            { id: 'user-001', email: 'joao.silva@myio.com.br', name: 'João Silva' },
+            { id: 'user-002', email: 'maria.santos@cliente.com.br', name: 'Maria Santos' },
+            { id: 'user-003', email: 'carlos.admin@myio.com.br', name: 'Carlos Admin' },
+            { id: 'user-004', email: 'ana.tech@cliente.com.br', name: 'Ana Tech' },
+        ];
+
+        const MOCK_ANNOTATIONS = [
+            {
+                id: 'ann-001',
+                version: 2,
+                text: 'Verificar sensor de temperatura - leituras inconsistentes nos últimos 3 dias',
+                type: 'pending',
+                importance: 4,
+                status: 'modified',
+                createdAt: '2024-12-10T14:30:00Z',
+                dueDate: '2024-12-20T23:59:59Z',
+                createdBy: MOCK_USERS[0],
+                acknowledged: false,
+                history: [
+                    {
+                        timestamp: '2024-12-10T14:30:00Z',
+                        userId: 'user-001',
+                        userName: 'João Silva',
+                        userEmail: 'joao.silva@myio.com.br',
+                        action: 'created'
+                    },
+                    {
+                        timestamp: '2024-12-12T09:15:00Z',
+                        userId: 'user-001',
+                        userName: 'João Silva',
+                        userEmail: 'joao.silva@myio.com.br',
+                        action: 'modified',
+                        previousVersion: 1,
+                        changes: { importance: { from: 3, to: 4 } }
+                    }
+                ]
+            },
+            {
+                id: 'ann-002',
+                version: 1,
+                text: 'Manutenção preventiva agendada para próxima semana',
+                type: 'maintenance',
+                importance: 3,
+                status: 'created',
+                createdAt: '2024-12-14T10:00:00Z',
+                dueDate: '2024-12-21T08:00:00Z',
+                createdBy: MOCK_USERS[1],
+                acknowledged: true,
+                acknowledgedBy: MOCK_USERS[2],
+                acknowledgedAt: '2024-12-14T15:30:00Z',
+                history: [
+                    {
+                        timestamp: '2024-12-14T10:00:00Z',
+                        userId: 'user-002',
+                        userName: 'Maria Santos',
+                        userEmail: 'maria.santos@cliente.com.br',
+                        action: 'created'
+                    },
+                    {
+                        timestamp: '2024-12-14T15:30:00Z',
+                        userId: 'user-003',
+                        userName: 'Carlos Admin',
+                        userEmail: 'carlos.admin@myio.com.br',
+                        action: 'acknowledged'
+                    }
+                ]
+            },
+            {
+                id: 'ann-003',
+                version: 1,
+                text: 'Consumo normal dentro dos parâmetros esperados para o período',
+                type: 'observation',
+                importance: 1,
+                status: 'created',
+                createdAt: '2024-12-15T16:45:00Z',
+                createdBy: MOCK_USERS[3],
+                acknowledged: false,
+                history: [
+                    {
+                        timestamp: '2024-12-15T16:45:00Z',
+                        userId: 'user-004',
+                        userName: 'Ana Tech',
+                        userEmail: 'ana.tech@cliente.com.br',
+                        action: 'created'
+                    }
+                ]
+            },
+            {
+                id: 'ann-004',
+                version: 1,
+                text: 'Troca de equipamento realizada com sucesso - novo medidor instalado',
+                type: 'activity',
+                importance: 2,
+                status: 'created',
+                createdAt: '2024-12-13T11:20:00Z',
+                createdBy: MOCK_USERS[0],
+                acknowledged: true,
+                acknowledgedBy: MOCK_USERS[1],
+                acknowledgedAt: '2024-12-13T14:00:00Z',
+                history: [
+                    {
+                        timestamp: '2024-12-13T11:20:00Z',
+                        userId: 'user-001',
+                        userName: 'João Silva',
+                        userEmail: 'joao.silva@myio.com.br',
+                        action: 'created'
+                    }
+                ]
+            },
+            {
+                id: 'ann-005',
+                version: 3,
+                text: 'URGENTE: Alerta de sobrecarga detectado - necessária verificação imediata',
+                type: 'pending',
+                importance: 5,
+                status: 'modified',
+                createdAt: '2024-12-08T08:00:00Z',
+                dueDate: '2024-12-10T18:00:00Z', // Overdue!
+                createdBy: MOCK_USERS[2],
+                acknowledged: false,
+                history: [
+                    {
+                        timestamp: '2024-12-08T08:00:00Z',
+                        userId: 'user-003',
+                        userName: 'Carlos Admin',
+                        userEmail: 'carlos.admin@myio.com.br',
+                        action: 'created'
+                    }
+                ]
+            }
+        ];
+
+        // ============================================
+        // STATE
+        // ============================================
+
+        let annotations = [...MOCK_ANNOTATIONS];
+        let currentUser = { id: 'user-demo', email: 'demo@example.com', name: 'Demo User' };
+        let permissions = {
+            isSuperAdminMyio: false,
+            isSuperAdminHolding: false,
+            currentUser: currentUser
+        };
+
+        // ============================================
+        // LIBRARY IMPORTS
+        // ============================================
+
+        const {
+            ANNOTATION_TYPE_LABELS,
+            ANNOTATION_TYPE_COLORS,
+            IMPORTANCE_LABELS,
+            IMPORTANCE_COLORS,
+            STATUS_LABELS,
+            STATUS_COLORS,
+            canModifyAnnotation
+        } = window.MyIOJSLibrary || {};
+
+        // Fallback labels if library not loaded
+        const TYPE_LABELS = ANNOTATION_TYPE_LABELS || {
+            observation: 'Observação',
+            pending: 'Pendência',
+            maintenance: 'Manutenção',
+            activity: 'Atividade'
+        };
+
+        const TYPE_COLORS = ANNOTATION_TYPE_COLORS || {
+            observation: '#0984e3',
+            pending: '#d63031',
+            maintenance: '#fdcb6e',
+            activity: '#00b894'
+        };
+
+        const IMP_LABELS = IMPORTANCE_LABELS || {
+            1: 'Muito Baixa',
+            2: 'Baixa',
+            3: 'Média',
+            4: 'Alta',
+            5: 'Muito Alta'
+        };
+
+        const IMP_COLORS = IMPORTANCE_COLORS || {
+            1: '#74b9ff',
+            2: '#81ecec',
+            3: '#ffeaa7',
+            4: '#fab1a0',
+            5: '#ff7675'
+        };
+
+        const STS_LABELS = STATUS_LABELS || {
+            created: 'Criado',
+            modified: 'Modificado',
+            archived: 'Arquivado'
+        };
+
+        // ============================================
+        // RENDER FUNCTIONS
+        // ============================================
+
+        function updateStats() {
+            const stats = {
+                pending: annotations.filter(a => a.type === 'pending' && a.status !== 'archived').length,
+                maintenance: annotations.filter(a => a.type === 'maintenance' && a.status !== 'archived').length,
+                activity: annotations.filter(a => a.type === 'activity' && a.status !== 'archived').length,
+                observation: annotations.filter(a => a.type === 'observation' && a.status !== 'archived').length
+            };
+
+            document.getElementById('gridStats').innerHTML = `
+                <div class="stat-item">
+                    <span class="stat-dot stat-dot--pending"></span>
+                    <span>${stats.pending} pendências</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-dot stat-dot--maintenance"></span>
+                    <span>${stats.maintenance} manutenções</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-dot stat-dot--activity"></span>
+                    <span>${stats.activity} atividades</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-dot stat-dot--observation"></span>
+                    <span>${stats.observation} observações</span>
+                </div>
+            `;
+        }
+
+        function formatDate(isoString) {
+            if (!isoString) return '-';
+            const date = new Date(isoString);
+            return date.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function isOverdue(annotation) {
+            if (!annotation.dueDate || annotation.status === 'archived') return false;
+            return new Date(annotation.dueDate) < new Date();
+        }
+
+        function canEdit(annotation) {
+            if (permissions.isSuperAdminMyio) return true;
+            if (permissions.isSuperAdminHolding) return true;
+            return annotation.createdBy.id === currentUser.id;
+        }
+
+        function renderAnnotationCard(annotation) {
+            const overdue = isOverdue(annotation);
+            const canModify = canEdit(annotation);
+
+            return `
+                <div class="annotation-card ${overdue ? 'annotation-card--overdue' : ''}" data-id="${annotation.id}">
+                    <div class="annotation-card__header">
+                        <div class="annotation-card__type" style="background: ${TYPE_COLORS[annotation.type]}20; color: ${TYPE_COLORS[annotation.type]}; border: 1px solid ${TYPE_COLORS[annotation.type]}40;">
+                            ${TYPE_LABELS[annotation.type]}
+                        </div>
+                        <div class="annotation-card__importance" style="background: ${IMP_COLORS[annotation.importance]}">
+                            ${IMP_LABELS[annotation.importance]}
+                        </div>
+                        ${annotation.acknowledged ? '<div class="annotation-card__ack">✓ Reconhecida</div>' : ''}
+                        ${overdue ? '<div class="annotation-card__overdue-badge">⚠️ Vencida</div>' : ''}
+                    </div>
+                    <div class="annotation-card__text">${annotation.text}</div>
+                    <div class="annotation-card__meta">
+                        <div class="annotation-card__author">
+                            <span class="annotation-card__avatar">${annotation.createdBy.name.charAt(0)}</span>
+                            <span>${annotation.createdBy.name}</span>
+                        </div>
+                        <div class="annotation-card__date">${formatDate(annotation.createdAt)}</div>
+                    </div>
+                    ${annotation.dueDate ? `
+                        <div class="annotation-card__due ${overdue ? 'annotation-card__due--overdue' : ''}">
+                            Prazo: ${formatDate(annotation.dueDate)}
+                        </div>
+                    ` : ''}
+                    <div class="annotation-card__actions">
+                        ${canModify ? `
+                            <button class="annotation-card__btn annotation-card__btn--edit" onclick="editAnnotation('${annotation.id}')">
+                                ✏️ Editar
+                            </button>
+                            <button class="annotation-card__btn annotation-card__btn--archive" onclick="archiveAnnotation('${annotation.id}')">
+                                📦 Arquivar
+                            </button>
+                        ` : ''}
+                        ${!annotation.acknowledged ? `
+                            <button class="annotation-card__btn annotation-card__btn--ack" onclick="acknowledgeAnnotation('${annotation.id}')">
+                                ✓ Reconhecer
+                            </button>
+                        ` : ''}
+                        <button class="annotation-card__btn annotation-card__btn--history" onclick="showHistory('${annotation.id}')">
+                            📜 Histórico
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('annotationsContainer');
+            const activeAnnotations = annotations.filter(a => a.status !== 'archived');
+
+            if (activeAnnotations.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <div class="empty-state-title">Nenhuma anotação</div>
+                        <div class="empty-state-desc">
+                            Este dispositivo ainda não possui anotações. Clique em "Nova Anotação" para criar a primeira.
+                        </div>
+                    </div>
+                `;
+                updateStats();
+                return;
+            }
+
+            // Sort by importance (highest first), then by date (newest first)
+            const sorted = [...activeAnnotations].sort((a, b) => {
+                if (b.importance !== a.importance) return b.importance - a.importance;
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            });
+
+            container.innerHTML = `
+                <style>
+                    .annotations-grid {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+                        gap: 16px;
+                    }
+
+                    .annotation-card {
+                        background: white;
+                        border: 1px solid var(--gray-200);
+                        border-radius: 12px;
+                        padding: 16px;
+                        transition: all 0.2s;
+                    }
+
+                    .annotation-card:hover {
+                        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+                        transform: translateY(-2px);
+                    }
+
+                    .annotation-card--overdue {
+                        border-color: #d63031;
+                        background: #fff5f5;
+                    }
+
+                    .annotation-card__header {
+                        display: flex;
+                        gap: 8px;
+                        flex-wrap: wrap;
+                        margin-bottom: 12px;
+                    }
+
+                    .annotation-card__type,
+                    .annotation-card__importance,
+                    .annotation-card__ack,
+                    .annotation-card__overdue-badge {
+                        padding: 4px 10px;
+                        border-radius: 20px;
+                        font-size: 11px;
+                        font-weight: 600;
+                    }
+
+                    .annotation-card__importance {
+                        color: #333;
+                    }
+
+                    .annotation-card__ack {
+                        background: #d4edda;
+                        color: #155724;
+                    }
+
+                    .annotation-card__overdue-badge {
+                        background: #f8d7da;
+                        color: #721c24;
+                    }
+
+                    .annotation-card__text {
+                        font-size: 14px;
+                        line-height: 1.5;
+                        color: var(--gray-800);
+                        margin-bottom: 12px;
+                    }
+
+                    .annotation-card__meta {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        font-size: 12px;
+                        color: var(--gray-600);
+                        margin-bottom: 8px;
+                    }
+
+                    .annotation-card__author {
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    }
+
+                    .annotation-card__avatar {
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 50%;
+                        background: var(--primary);
+                        color: white;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 11px;
+                        font-weight: 600;
+                    }
+
+                    .annotation-card__due {
+                        font-size: 12px;
+                        color: var(--gray-600);
+                        padding: 8px;
+                        background: var(--gray-50);
+                        border-radius: 6px;
+                        margin-bottom: 12px;
+                    }
+
+                    .annotation-card__due--overdue {
+                        background: #fee2e2;
+                        color: #991b1b;
+                        font-weight: 600;
+                    }
+
+                    .annotation-card__actions {
+                        display: flex;
+                        gap: 8px;
+                        flex-wrap: wrap;
+                        padding-top: 12px;
+                        border-top: 1px solid var(--gray-200);
+                    }
+
+                    .annotation-card__btn {
+                        padding: 6px 12px;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        font-weight: 500;
+                        border: none;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        background: var(--gray-100);
+                        color: var(--gray-700);
+                    }
+
+                    .annotation-card__btn:hover {
+                        background: var(--gray-200);
+                    }
+
+                    .annotation-card__btn--edit:hover {
+                        background: #e8f4fd;
+                        color: #0984e3;
+                    }
+
+                    .annotation-card__btn--archive:hover {
+                        background: #fff3cd;
+                        color: #856404;
+                    }
+
+                    .annotation-card__btn--ack:hover {
+                        background: #d4edda;
+                        color: #155724;
+                    }
+
+                    .annotation-card__btn--history:hover {
+                        background: #e2e3e5;
+                        color: #383d41;
+                    }
+                </style>
+                <div class="annotations-grid">
+                    ${sorted.map(a => renderAnnotationCard(a)).join('')}
+                </div>
+            `;
+
+            updateStats();
+        }
+
+        // ============================================
+        // ACTIONS
+        // ============================================
+
+        function loadMockData() {
+            annotations = [...MOCK_ANNOTATIONS];
+            renderGrid();
+        }
+
+        function clearAnnotations() {
+            if (confirm('Tem certeza que deseja limpar todas as anotações?')) {
+                annotations = [];
+                renderGrid();
+            }
+        }
+
+        // =====================
+        // FORM FUNCTIONS
+        // =====================
+
+        function initFormSelectors() {
+            // Type selector
+            const typeOptions = document.querySelectorAll('.type-option');
+            typeOptions.forEach(opt => {
+                opt.addEventListener('click', () => {
+                    typeOptions.forEach(o => o.classList.remove('selected'));
+                    opt.classList.add('selected');
+                    opt.querySelector('input').checked = true;
+                });
+            });
+
+            // Importance selector
+            const importanceOptions = document.querySelectorAll('.importance-option');
+            importanceOptions.forEach(opt => {
+                opt.addEventListener('click', () => {
+                    importanceOptions.forEach(o => o.classList.remove('selected'));
+                    opt.classList.add('selected');
+                    opt.querySelector('input').checked = true;
+                });
+            });
+        }
+
+        function createAnnotation() {
+            const text = document.getElementById('annotationText').value.trim();
+            if (!text) {
+                alert('Por favor, digite o texto da anotação.');
+                return;
+            }
+
+            const type = document.querySelector('input[name="annotationType"]:checked')?.value || 'observation';
+            const importance = parseInt(document.querySelector('input[name="annotationImportance"]:checked')?.value || '3');
+            const dueDateInput = document.getElementById('annotationDueDate').value;
+            const dueDate = dueDateInput ? new Date(dueDateInput).toISOString() : undefined;
+
+            const newAnnotation = {
+                id: 'ann-' + Date.now(),
+                version: 1,
+                text: text,
+                type: type,
+                importance: importance,
+                status: 'created',
+                createdAt: new Date().toISOString(),
+                dueDate: dueDate,
+                createdBy: currentUser,
+                acknowledged: false,
+                history: [{
+                    timestamp: new Date().toISOString(),
+                    userId: currentUser.id,
+                    userName: currentUser.name,
+                    userEmail: currentUser.email,
+                    action: 'created'
+                }]
+            };
+
+            annotations.unshift(newAnnotation);
+            renderGrid();
+            clearForm();
+        }
+
+        function clearForm() {
+            document.getElementById('annotationText').value = '';
+            document.getElementById('annotationDueDate').value = '';
+
+            // Reset type to pending
+            document.querySelectorAll('.type-option').forEach(o => o.classList.remove('selected'));
+            document.querySelector('.type-option--pending').classList.add('selected');
+            document.querySelector('input[name="annotationType"][value="pending"]').checked = true;
+
+            // Reset importance to 3
+            document.querySelectorAll('.importance-option').forEach(o => o.classList.remove('selected'));
+            document.querySelector('.importance-option--3').classList.add('selected');
+            document.querySelector('input[name="annotationImportance"][value="3"]').checked = true;
+        }
+
+        function addMockAnnotation() {
+            const types = ['observation', 'pending', 'maintenance', 'activity'];
+            const texts = [
+                'Nova observação registrada pelo sistema',
+                'Verificação necessária - aguardando análise',
+                'Equipamento funcionando normalmente',
+                'Calibração realizada com sucesso',
+                'Alerta de consumo acima da média',
+                'Manutenção preventiva programada'
+            ];
+
+            const newAnnotation = {
+                id: 'ann-' + Date.now(),
+                version: 1,
+                text: texts[Math.floor(Math.random() * texts.length)],
+                type: types[Math.floor(Math.random() * types.length)],
+                importance: Math.floor(Math.random() * 5) + 1,
+                status: 'created',
+                createdAt: new Date().toISOString(),
+                createdBy: currentUser,
+                acknowledged: false,
+                history: [{
+                    timestamp: new Date().toISOString(),
+                    userId: currentUser.id,
+                    userName: currentUser.name,
+                    userEmail: currentUser.email,
+                    action: 'created'
+                }]
+            };
+
+            annotations.unshift(newAnnotation);
+            renderGrid();
+        }
+
+        function editAnnotation(id) {
+            const annotation = annotations.find(a => a.id === id);
+            if (!annotation) return;
+
+            const newText = prompt('Editar texto da anotação:', annotation.text);
+            if (newText && newText !== annotation.text) {
+                annotation.text = newText;
+                annotation.version++;
+                annotation.status = 'modified';
+                annotation.history.push({
+                    timestamp: new Date().toISOString(),
+                    userId: currentUser.id,
+                    userName: currentUser.name,
+                    userEmail: currentUser.email,
+                    action: 'modified',
+                    previousVersion: annotation.version - 1,
+                    changes: { text: { from: annotation.text, to: newText } }
+                });
+                renderGrid();
+            }
+        }
+
+        function archiveAnnotation(id) {
+            if (!confirm('Arquivar esta anotação?')) return;
+
+            const annotation = annotations.find(a => a.id === id);
+            if (annotation) {
+                annotation.status = 'archived';
+                annotation.history.push({
+                    timestamp: new Date().toISOString(),
+                    userId: currentUser.id,
+                    userName: currentUser.name,
+                    userEmail: currentUser.email,
+                    action: 'archived'
+                });
+                renderGrid();
+            }
+        }
+
+        function acknowledgeAnnotation(id) {
+            const annotation = annotations.find(a => a.id === id);
+            if (annotation && !annotation.acknowledged) {
+                annotation.acknowledged = true;
+                annotation.acknowledgedBy = currentUser;
+                annotation.acknowledgedAt = new Date().toISOString();
+                annotation.history.push({
+                    timestamp: new Date().toISOString(),
+                    userId: currentUser.id,
+                    userName: currentUser.name,
+                    userEmail: currentUser.email,
+                    action: 'acknowledged'
+                });
+                renderGrid();
+            }
+        }
+
+        function showHistory(id) {
+            const annotation = annotations.find(a => a.id === id);
+            if (!annotation) return;
+
+            const historyText = annotation.history.map(h => {
+                const date = new Date(h.timestamp).toLocaleString('pt-BR');
+                return `[${date}] ${h.userName}: ${h.action}`;
+            }).join('\n');
+
+            alert('Histórico da Anotação:\n\n' + historyText);
+        }
+
+        function exportAnnotations() {
+            const data = JSON.stringify(annotations, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'annotations-export.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ============================================
+        // PERMISSION TOGGLES
+        // ============================================
+
+        document.getElementById('toggleSuperAdminMyio').addEventListener('change', function() {
+            permissions.isSuperAdminMyio = this.checked;
+            if (this.checked) {
+                currentUser = { id: 'user-003', email: 'carlos.admin@myio.com.br', name: 'Carlos Admin (MYIO)' };
+            } else if (!permissions.isSuperAdminHolding) {
+                currentUser = { id: 'user-demo', email: 'demo@example.com', name: 'Demo User' };
+            }
+            permissions.currentUser = currentUser;
+            updateUserInfo();
+            renderGrid();
+        });
+
+        document.getElementById('toggleSuperAdminHolding').addEventListener('change', function() {
+            permissions.isSuperAdminHolding = this.checked;
+            if (this.checked && !permissions.isSuperAdminMyio) {
+                currentUser = { id: 'user-002', email: 'maria.santos@cliente.com.br', name: 'Maria Santos (Admin Holding)' };
+            } else if (!permissions.isSuperAdminMyio) {
+                currentUser = { id: 'user-demo', email: 'demo@example.com', name: 'Demo User' };
+            }
+            permissions.currentUser = currentUser;
+            updateUserInfo();
+            renderGrid();
+        });
+
+        function updateUserInfo() {
+            const roles = [];
+            if (permissions.isSuperAdminMyio) roles.push('SuperAdmin MYIO');
+            if (permissions.isSuperAdminHolding) roles.push('SuperAdmin Holding');
+
+            document.getElementById('currentUserInfo').innerHTML = `
+                Usuário atual: <strong>${currentUser.name}</strong> (${currentUser.email})
+                ${roles.length > 0 ? `<br>Permissões: <strong>${roles.join(', ')}</strong>` : ''}
+            `;
+        }
+
+        // ============================================
+        // INIT
+        // ============================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initFormSelectors();
+            loadMockData();
+        });
+    </script>
+</body>
+</html>

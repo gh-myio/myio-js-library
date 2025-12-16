@@ -96,6 +96,7 @@ export const DEVICE_TYPES = [
   { value: 'ESCADA_ROLANTE', label: 'Escada Rolante' },
   { value: 'MOTOR', label: 'Motor' },
   { value: 'BOMBA_HIDRAULICA', label: 'Bomba Hidráulica' },
+  { value: 'BOMBA_CAG', label: 'Bomba CAG' },
   { value: 'BOMBA_INCENDIO', label: 'Bomba Incêndio' },
   { value: 'CHILLER', label: 'Chiller' },
   { value: 'AR_CONDICIONADO', label: 'Ar Condicionado' },
@@ -121,22 +122,22 @@ export const TELEMETRY_TYPES = [
 // standBy = STANDBY, normal = POWER_ON, alert = WARNING, failure = FAILURE
 export const STATUS_ICONS: Record<Domain, Record<DeviceStatusName, string>> = {
   energy: {
-    standBy: '🔌',   // STANDBY
-    normal: '⚡',    // POWER_ON
-    alert: '⚠️',    // WARNING
-    failure: '🚨',  // FAILURE
+    standBy: '🔌', // STANDBY
+    normal: '⚡', // POWER_ON
+    alert: '⚠️', // WARNING
+    failure: '🚨', // FAILURE
   },
   water: {
-    standBy: '🚰',   // STANDBY
-    normal: '💧',    // POWER_ON
-    alert: '⚠️',    // WARNING
-    failure: '🚨',  // FAILURE
+    standBy: '🚰', // STANDBY
+    normal: '💧', // POWER_ON
+    alert: '⚠️', // WARNING
+    failure: '🚨', // FAILURE
   },
   temperature: {
-    standBy: '🌡️',  // STANDBY
-    normal: '🌡️',   // POWER_ON
-    alert: '⚠️',    // WARNING
-    failure: '🚨',  // FAILURE
+    standBy: '🌡️', // STANDBY
+    normal: '🌡️', // POWER_ON
+    alert: '⚠️', // WARNING
+    failure: '🚨', // FAILURE
   },
 };
 

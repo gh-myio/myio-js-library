@@ -2433,6 +2433,481 @@ function setupInfoTooltips() {
   LogHelper.log('[Tooltip] All info tooltips configured');
 }
 
+// ===================== RFC-0105: ENERGY SUMMARY TOOLTIP =====================
+
+let energySummaryTooltipCleanup = null;
+
+/**
+ * RFC-0105: Setup Energy Summary Tooltip
+ * Premium tooltip showing dashboard summary on header info button hover
+ */
+function setupEnergySummaryTooltip() {
+  LogHelper.log('[RFC-0105] Setting up Energy Summary Tooltip...');
+
+  const $container = $root();
+  const $trigger = $container.find('#btnInfoSummary');
+
+  if (!$trigger.length) {
+    LogHelper.warn('[RFC-0105] Info summary button not found');
+    return;
+  }
+
+  // Get EnergySummaryTooltip from library
+  const EnergySummaryTooltip = window.MyIOLibrary?.EnergySummaryTooltip;
+
+  if (!EnergySummaryTooltip) {
+    LogHelper.warn('[RFC-0105] EnergySummaryTooltip not available in MyIOLibrary, using inline implementation');
+    // Fallback: use native tooltip with summary
+    setupEnergySummaryTooltipFallback($trigger[0]);
+    return;
+  }
+
+  // Build summary data function
+  const getSummaryData = () => {
+    return EnergySummaryTooltip.buildSummaryFromState(
+      { entrada: STATE.entrada, consumidores: STATE.consumidores, grandTotal: STATE.grandTotal },
+      RECEIVED_DATA
+    );
+  };
+
+  // Attach tooltip
+  energySummaryTooltipCleanup = EnergySummaryTooltip.attach($trigger[0], getSummaryData);
+
+  LogHelper.log('[RFC-0105] Energy Summary Tooltip attached successfully');
+}
+
+/**
+ * RFC-0105: Fallback tooltip implementation when library component not available
+ * - Supports hover on tooltip to copy data
+ * - 1.5s delay before closing
+ * - Fade animation on close
+ * - PIN, Maximize, Close buttons
+ * - Drag to move functionality
+ */
+function setupEnergySummaryTooltipFallback(triggerElement) {
+  const TOOLTIP_CSS = `
+    .energy-summary-tooltip-fallback {
+      position: fixed;
+      z-index: 99999;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+      width: max-content;
+      max-width: 90vw;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 12px;
+      color: #1e293b;
+      opacity: 0;
+      pointer-events: auto;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      transform: translateY(8px);
+    }
+    .energy-summary-tooltip-fallback.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .energy-summary-tooltip-fallback.closing {
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .energy-summary-tooltip-fallback.pinned {
+      box-shadow: 0 0 0 2px #047857, 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+    .energy-summary-tooltip-fallback.maximized {
+      top: 20px !important;
+      left: 20px !important;
+      right: 20px !important;
+      bottom: 20px !important;
+      width: auto !important;
+      max-width: none !important;
+    }
+    .energy-summary-tooltip-fallback.maximized .energy-summary-tooltip-fallback__body {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .energy-summary-tooltip-fallback.dragging {
+      transition: none !important;
+      cursor: move;
+    }
+    .energy-summary-tooltip-fallback__header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: linear-gradient(90deg, #ecfdf5 0%, #d1fae5 100%);
+      border-bottom: 1px solid #6ee7b7;
+      border-radius: 12px 12px 0 0;
+      cursor: move;
+      user-select: none;
+    }
+    .energy-summary-tooltip-fallback__title {
+      font-weight: 700;
+      font-size: 14px;
+      color: #047857;
+      flex: 1;
+    }
+    .energy-summary-tooltip-fallback__header-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .energy-summary-tooltip-fallback__header-btn {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      color: #64748b;
+    }
+    .energy-summary-tooltip-fallback__header-btn:hover {
+      background: rgba(255, 255, 255, 0.9);
+      color: #1e293b;
+    }
+    .energy-summary-tooltip-fallback__header-btn.pinned {
+      background: #047857;
+      color: white;
+    }
+    .energy-summary-tooltip-fallback__header-btn.pinned:hover {
+      background: #065f46;
+      color: white;
+    }
+    .energy-summary-tooltip-fallback__header-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+    .energy-summary-tooltip-fallback__body {
+      padding: 14px;
+    }
+    .energy-summary-tooltip-fallback__row {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px solid #f1f5f9;
+      gap: 20px;
+    }
+    .energy-summary-tooltip-fallback__row:last-child {
+      border-bottom: none;
+    }
+    .energy-summary-tooltip-fallback__label {
+      color: #64748b;
+      font-size: 11px;
+    }
+    .energy-summary-tooltip-fallback__value {
+      font-weight: 600;
+      color: #1e293b;
+      font-size: 11px;
+    }
+    .energy-summary-tooltip-fallback__total {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, #047857 0%, #059669 100%);
+      border-radius: 0 0 12px 12px;
+      color: white;
+    }
+    .energy-summary-tooltip-fallback__total-value {
+      font-weight: 700;
+      font-size: 16px;
+    }
+  `;
+
+  // Inject CSS
+  if (!document.getElementById('energy-summary-tooltip-fallback-css')) {
+    const style = document.createElement('style');
+    style.id = 'energy-summary-tooltip-fallback-css';
+    style.textContent = TOOLTIP_CSS;
+    document.head.appendChild(style);
+  }
+
+  // Create tooltip element
+  let tooltipEl = document.getElementById('energy-summary-tooltip-fallback');
+  if (!tooltipEl) {
+    tooltipEl = document.createElement('div');
+    tooltipEl.id = 'energy-summary-tooltip-fallback';
+    tooltipEl.className = 'energy-summary-tooltip-fallback';
+    document.body.appendChild(tooltipEl);
+  }
+
+  // State for delayed hide, pin, maximize, and drag
+  let hideTimer = null;
+  let isMouseOverTooltip = false;
+  let isPinned = false;
+  let isMaximized = false;
+  let isDragging = false;
+  let dragOffset = { x: 0, y: 0 };
+  let savedPosition = null;
+
+  const formatEnergy = (val) => {
+    if (val >= 1000) return (val / 1000).toFixed(2).replace('.', ',') + ' MWh';
+    return val.toFixed(2).replace('.', ',') + ' kWh';
+  };
+
+  const startDelayedHide = () => {
+    if (isMouseOverTooltip || isPinned) return;
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      if (!isPinned) {
+        hideTooltipWithAnimation();
+      }
+    }, 1500);
+  };
+
+  const hideTooltipWithAnimation = () => {
+    if (tooltipEl.classList.contains('visible')) {
+      tooltipEl.classList.add('closing');
+      setTimeout(() => {
+        tooltipEl.classList.remove('visible');
+        tooltipEl.classList.remove('closing');
+      }, 400);
+    }
+  };
+
+  const hideTooltipImmediate = () => {
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = null;
+    isMouseOverTooltip = false;
+    isPinned = false;
+    isMaximized = false;
+    isDragging = false;
+    savedPosition = null;
+    tooltipEl.classList.remove('visible', 'closing', 'pinned', 'maximized', 'dragging');
+  };
+
+  const togglePin = () => {
+    isPinned = !isPinned;
+    const pinBtn = tooltipEl.querySelector('[data-action="pin"]');
+    if (pinBtn) pinBtn.classList.toggle('pinned', isPinned);
+    tooltipEl.classList.toggle('pinned', isPinned);
+    if (!isPinned) {
+      startDelayedHide();
+    } else if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+  };
+
+  const toggleMaximize = () => {
+    isMaximized = !isMaximized;
+    if (isMaximized) {
+      savedPosition = { left: tooltipEl.style.left, top: tooltipEl.style.top };
+    }
+    tooltipEl.classList.toggle('maximized', isMaximized);
+    const maxBtn = tooltipEl.querySelector('[data-action="maximize"]');
+    if (maxBtn) {
+      if (isMaximized) {
+        maxBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 5V3h12v12h-2"/></svg>';
+        maxBtn.setAttribute('title', 'Restaurar');
+      } else {
+        maxBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>';
+        maxBtn.setAttribute('title', 'Maximizar');
+        if (savedPosition) {
+          tooltipEl.style.left = savedPosition.left;
+          tooltipEl.style.top = savedPosition.top;
+        }
+      }
+    }
+  };
+
+  const closeTooltip = () => {
+    isPinned = false;
+    isMaximized = false;
+    isDragging = false;
+    savedPosition = null;
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+    tooltipEl.classList.remove('visible', 'pinned', 'maximized', 'dragging', 'closing');
+  };
+
+  const setupDragListeners = (header) => {
+    const onMouseDown = (e) => {
+      if (e.target.closest('[data-action]')) return;
+      if (isMaximized) return;
+      isDragging = true;
+      tooltipEl.classList.add('dragging');
+      const rect = tooltipEl.getBoundingClientRect();
+      dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    };
+    const onMouseMove = (e) => {
+      if (!isDragging) return;
+      const newLeft = e.clientX - dragOffset.x;
+      const newTop = e.clientY - dragOffset.y;
+      const maxLeft = window.innerWidth - tooltipEl.offsetWidth;
+      const maxTop = window.innerHeight - tooltipEl.offsetHeight;
+      tooltipEl.style.left = Math.max(0, Math.min(newLeft, maxLeft)) + 'px';
+      tooltipEl.style.top = Math.max(0, Math.min(newTop, maxTop)) + 'px';
+    };
+    const onMouseUp = () => {
+      isDragging = false;
+      tooltipEl.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    header.addEventListener('mousedown', onMouseDown);
+  };
+
+  const showTooltip = (e) => {
+    // Cancel any pending hide
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+    tooltipEl.classList.remove('closing');
+
+    const entradaTotal = STATE.entrada?.total || 0;
+    const lojasTotal = STATE.consumidores?.lojas?.total || 0;
+    const climatTotal = STATE.consumidores?.climatizacao?.total || 0;
+    const elevTotal = STATE.consumidores?.elevadores?.total || 0;
+    const escadasTotal = STATE.consumidores?.escadasRolantes?.total || 0;
+    const outrosTotal = STATE.consumidores?.outros?.total || 0;
+    const areaComumTotal = STATE.consumidores?.areaComum?.total || 0;
+
+    const entradaCount = RECEIVED_DATA.entrada_total?.device_count || 0;
+    const lojasCount = RECEIVED_DATA.lojas_total?.device_count || 0;
+    const climatCount = RECEIVED_DATA.climatizacao?.count || 0;
+    const elevCount = RECEIVED_DATA.elevadores?.count || 0;
+    const escadasCount = RECEIVED_DATA.escadas_rolantes?.count || 0;
+    const outrosCount = RECEIVED_DATA.outros?.count || 0;
+
+    const totalDevices = entradaCount + lojasCount + climatCount + elevCount + escadasCount + outrosCount;
+
+    tooltipEl.innerHTML = \`
+      <div class="energy-summary-tooltip-fallback__header" data-drag-handle>
+        <span>⚡</span>
+        <span class="energy-summary-tooltip-fallback__title">Resumo do Dashboard</span>
+        <div class="energy-summary-tooltip-fallback__header-actions">
+          <button class="energy-summary-tooltip-fallback__header-btn" data-action="pin" title="Fixar tooltip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v10M12 12l-4 4v6M12 12l4 4v6M8 6h8"/>
+            </svg>
+          </button>
+          <button class="energy-summary-tooltip-fallback__header-btn" data-action="maximize" title="Maximizar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+            </svg>
+          </button>
+          <button class="energy-summary-tooltip-fallback__header-btn" data-action="close" title="Fechar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="energy-summary-tooltip-fallback__body">
+        <div class="energy-summary-tooltip-fallback__row">
+          <span class="energy-summary-tooltip-fallback__label">Total de Dispositivos</span>
+          <span class="energy-summary-tooltip-fallback__value">\${totalDevices}</span>
+        </div>
+        <div class="energy-summary-tooltip-fallback__row">
+          <span class="energy-summary-tooltip-fallback__label">📥 Entrada (\${entradaCount})</span>
+          <span class="energy-summary-tooltip-fallback__value">\${formatEnergy(entradaTotal)}</span>
+        </div>
+        <div class="energy-summary-tooltip-fallback__row">
+          <span class="energy-summary-tooltip-fallback__label">🏪 Lojas (\${lojasCount})</span>
+          <span class="energy-summary-tooltip-fallback__value">\${formatEnergy(lojasTotal)}</span>
+        </div>
+        <div class="energy-summary-tooltip-fallback__row">
+          <span class="energy-summary-tooltip-fallback__label">❄️ Climatizacao (\${climatCount})</span>
+          <span class="energy-summary-tooltip-fallback__value">\${formatEnergy(climatTotal)}</span>
+        </div>
+        <div class="energy-summary-tooltip-fallback__row">
+          <span class="energy-summary-tooltip-fallback__label">🛗 Elevadores (\${elevCount})</span>
+          <span class="energy-summary-tooltip-fallback__value">\${formatEnergy(elevTotal)}</span>
+        </div>
+        <div class="energy-summary-tooltip-fallback__row">
+          <span class="energy-summary-tooltip-fallback__label">🎢 Esc. Rolantes (\${escadasCount})</span>
+          <span class="energy-summary-tooltip-fallback__value">\${formatEnergy(escadasTotal)}</span>
+        </div>
+        <div class="energy-summary-tooltip-fallback__row">
+          <span class="energy-summary-tooltip-fallback__label">⚙️ Outros (\${outrosCount})</span>
+          <span class="energy-summary-tooltip-fallback__value">\${formatEnergy(outrosTotal)}</span>
+        </div>
+        <div class="energy-summary-tooltip-fallback__row">
+          <span class="energy-summary-tooltip-fallback__label">🏢 Area Comum</span>
+          <span class="energy-summary-tooltip-fallback__value">\${formatEnergy(areaComumTotal)}</span>
+        </div>
+      </div>
+      <div class="energy-summary-tooltip-fallback__total">
+        <span>Consumo Total</span>
+        <span class="energy-summary-tooltip-fallback__total-value">\${formatEnergy(STATE.grandTotal || entradaTotal)}</span>
+      </div>
+    \`;
+
+    // Position near trigger element (not following mouse)
+    const rect = triggerElement.getBoundingClientRect();
+    let left = rect.right + 12;
+    let top = rect.top;
+
+    // Adjust for viewport bounds
+    const tooltipWidth = 350;
+    const tooltipHeight = 400;
+
+    if (left + tooltipWidth > window.innerWidth - 16) {
+      left = rect.left - tooltipWidth - 12;
+    }
+    if (left < 16) left = 16;
+    if (top + tooltipHeight > window.innerHeight - 16) {
+      top = window.innerHeight - tooltipHeight - 16;
+    }
+    if (top < 16) top = 16;
+
+    tooltipEl.style.left = left + 'px';
+    tooltipEl.style.top = top + 'px';
+    tooltipEl.classList.add('visible');
+
+    // Setup tooltip hover listeners
+    tooltipEl.onmouseenter = () => {
+      isMouseOverTooltip = true;
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+    };
+    tooltipEl.onmouseleave = () => {
+      isMouseOverTooltip = false;
+      startDelayedHide();
+    };
+
+    // Setup button click handlers
+    const buttons = tooltipEl.querySelectorAll('[data-action]');
+    buttons.forEach(btn => {
+      btn.onclick = (ev) => {
+        ev.stopPropagation();
+        const action = btn.dataset.action;
+        if (action === 'pin') togglePin();
+        else if (action === 'maximize') toggleMaximize();
+        else if (action === 'close') closeTooltip();
+      };
+    });
+
+    // Setup drag listeners
+    const header = tooltipEl.querySelector('[data-drag-handle]');
+    if (header) setupDragListeners(header);
+  };
+
+  triggerElement.addEventListener('mouseenter', showTooltip);
+  triggerElement.addEventListener('mouseleave', startDelayedHide);
+
+  // Store cleanup function
+  energySummaryTooltipCleanup = () => {
+    triggerElement.removeEventListener('mouseenter', showTooltip);
+    triggerElement.removeEventListener('mouseleave', startDelayedHide);
+    hideTooltipImmediate();
+  };
+
+  LogHelper.log('[RFC-0105] Energy Summary Tooltip (fallback) attached successfully');
+}
+
 // ===================== WIDGET LIFECYCLE =====================
 
 self.onInit = async function () {
@@ -2831,6 +3306,11 @@ self.onInit = async function () {
     setupInfoTooltips();
   }, 200);
 
+  // RFC-0105: Setup Energy Summary Tooltip
+  setTimeout(() => {
+    setupEnergySummaryTooltip();
+  }, 300);
+
   LogHelper.log('Widget initialized successfully (RFC-0056)');
 };
 
@@ -2886,6 +3366,17 @@ self.onDestroy = function () {
   if (fallbackTimer) {
     clearTimeout(fallbackTimer);
     fallbackTimer = null;
+  }
+
+  // RFC-0105: Cleanup Energy Summary Tooltip
+  if (energySummaryTooltipCleanup) {
+    try {
+      energySummaryTooltipCleanup();
+      energySummaryTooltipCleanup = null;
+      LogHelper.log('[RFC-0105] Energy Summary Tooltip cleaned up');
+    } catch (error) {
+      LogHelper.warn('[RFC-0105] Error cleaning up Energy Summary Tooltip:', error);
+    }
   }
 
   // Destroy chart

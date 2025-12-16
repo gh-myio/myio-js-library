@@ -15,6 +15,8 @@ export interface OpenDashboardPopupSettingsParams {
   mapInstantaneousPower?: object
   deviceMapInstaneousPower?: object
 
+  // RFC-XXXX: SuperAdmin mode - allows editing identifier and offSetTemperature fields
+  superadmin?: boolean;
 
   // Connection information (from card v5 info panel)
   connectionData?: {
@@ -64,6 +66,7 @@ export interface OpenDashboardPopupSettingsParams {
     closeOnBackdrop?: boolean;
     themeTokens?: Record<string, string | number>; // Custom theme variables
     i18n?: { t: (key: string, def?: string) => string }; // Internationalization
+    consumptionDecimalPlaces?: number; // Decimal places for consumption values (default: 3)
   };
   
   // Pre-populate form with existing values
@@ -76,6 +79,7 @@ export interface OpenDashboardPopupSettingsParams {
     maxBusinessKwh?: number;
     minTemperature?: number; // For TERMOSTATO deviceType
     maxTemperature?: number; // For TERMOSTATO deviceType
+    offSetTemperature?: number; // RFC-XXXX: Temperature offset (SuperAdmin only, e.g., -20.99, +12.55)
     minWaterLevel?: number; // For CAIXA_DAGUA deviceType (percentage)
     maxWaterLevel?: number; // For CAIXA_DAGUA deviceType (percentage)
   };
@@ -149,6 +153,8 @@ export interface ModalConfig {
     deviceStatus?: string;
     lastDisconnectTime?: string;
   };
+  consumptionDecimalPlaces?: number; // Decimal places for consumption values (default: 3)
+  superadmin?: boolean; // RFC-XXXX: SuperAdmin mode - allows editing identifier and offSetTemperature fields
   onSave: (formData: Record<string, any>) => Promise<void>;
   onClose: () => void;
 }

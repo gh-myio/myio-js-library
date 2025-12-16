@@ -96,6 +96,55 @@ export {
 //   type TBEntityInfo
 // } from './thingsboard/entity';
 
+// SuperAdmin Detection Utilities (RFC-0104)
+export {
+  fetchCurrentUserInfo,
+  detectSuperAdminMyio,
+  detectSuperAdminHolding,
+  getAnnotationPermissions,
+  canModifyAnnotation
+} from './utils/superAdminUtils';
+
+// Annotation Types (RFC-0104)
+export type {
+  AnnotationType,
+  ImportanceLevel,
+  AnnotationStatus,
+  AuditAction,
+  UserInfo,
+  AuditEntry,
+  Annotation,
+  LogAnnotationsAttribute,
+  AnnotationFilterState,
+  PaginationState,
+  PermissionSet,
+  NewAnnotationData
+} from './components/premium-modals/settings/annotations/types';
+
+export {
+  ANNOTATION_TYPE_LABELS,
+  ANNOTATION_TYPE_LABELS_EN,
+  IMPORTANCE_LABELS,
+  IMPORTANCE_LABELS_EN,
+  STATUS_LABELS,
+  STATUS_LABELS_EN,
+  ANNOTATION_TYPE_COLORS,
+  IMPORTANCE_COLORS,
+  STATUS_COLORS
+} from './components/premium-modals/settings/annotations/types';
+
+// RFC-0104: Annotation Indicator Component
+export {
+  AnnotationIndicator,
+  createAnnotationIndicator
+} from './utils/AnnotationIndicator';
+
+export type {
+  AnnotationIndicatorConfig,
+  AnnotationIndicatorTheme,
+  AnnotationSummary
+} from './utils/AnnotationIndicator';
+
 // Re-export existing utilities
 export { detectDeviceType, getAvailableContexts, addDetectionContext } from './utils/deviceType';
 export { addNamespace } from './utils/namespace';
@@ -232,6 +281,10 @@ export type { TempEntityData, TempStatus, TempStatusResult } from './utils/TempR
 // Energy Range Tooltip (Reusable UI component)
 export { EnergyRangeTooltip } from './utils/EnergyRangeTooltip';
 export type { EnergyEntityData, EnergyStatus, EnergyStatusResult, PowerRange, PowerRanges } from './utils/EnergyRangeTooltip';
+
+// RFC-0105: Energy Summary Tooltip (Dashboard summary on hover)
+export { EnergySummaryTooltip } from './utils/EnergySummaryTooltip';
+export type { DashboardEnergySummary, CategorySummary, StatusSummary } from './utils/EnergySummaryTooltip';
 
 // Modal Header Component (Reusable)
 export {
