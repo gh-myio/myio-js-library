@@ -897,7 +897,8 @@
                     height: 12px;
                 }
 
-                .annotation-summary-tooltip__body {
+                .annotation-summary-tooltip__body,
+                .annotation-summary-tooltip__content {
                     padding: 12px 14px;
                 }
 
@@ -995,9 +996,59 @@
 
                 .annotation-summary-tooltip__overdue {
                     color: #d63031;
-                    margin-top: 8px;
+                    margin-bottom: 10px;
                     font-size: 11px;
                     font-weight: 500;
+                    padding: 6px 10px;
+                    background: #fff5f5;
+                    border-radius: 6px;
+                }
+
+                .annotation-summary-tooltip__list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                }
+
+                .annotation-summary-tooltip__item {
+                    padding: 8px 10px;
+                    background: #f8f9fa;
+                    border-radius: 6px;
+                    border-left: 3px solid currentColor;
+                }
+
+                .annotation-summary-tooltip__item.overdue {
+                    background: #fff5f5;
+                    border-left-color: #d63031;
+                }
+
+                .annotation-summary-tooltip__item-text {
+                    font-size: 12px;
+                    color: #343a40;
+                    line-height: 1.4;
+                    margin-bottom: 4px;
+                }
+
+                .annotation-summary-tooltip__item-meta {
+                    font-size: 10px;
+                    color: #868e96;
+                }
+
+                .annotation-summary-tooltip__more {
+                    font-size: 11px;
+                    color: #6c757d;
+                    text-align: center;
+                    padding: 6px;
+                    font-style: italic;
+                }
+
+                .annotation-summary-tooltip__hint {
+                    font-size: 10px;
+                    color: #adb5bd;
+                    text-align: center;
+                    padding-top: 10px;
+                    margin-top: 10px;
+                    border-top: 1px solid rgba(0,0,0,0.1);
                 }
             `;
             document.head.appendChild(style);
@@ -1019,23 +1070,17 @@
             const activeAnnotations = annotations.filter(a => a.status !== 'archived');
             if (activeAnnotations.length === 0) return null;
 
-            // Count by type
-            const counts = {
-                pending: 0,
-                maintenance: 0,
-                activity: 0,
-                observation: 0
+            // Group by type
+            const byType = {
+                pending: [],
+                maintenance: [],
+                activity: [],
+                observation: []
             };
 
-            let overdueCount = 0;
-            const now = new Date();
-
             activeAnnotations.forEach(a => {
-                if (counts[a.type] !== undefined) {
-                    counts[a.type]++;
-                }
-                if (a.dueDate && new Date(a.dueDate) < now) {
-                    overdueCount++;
+                if (byType[a.type]) {
+                    byType[a.type].push(a);
                 }
             });
 
@@ -1047,18 +1092,43 @@
             const typeOrder = ['pending', 'maintenance', 'activity', 'observation'];
 
             typeOrder.forEach(type => {
-                if (counts[type] > 0) {
+                const typeAnnotations = byType[type];
+                if (typeAnnotations.length > 0) {
                     const config = TYPE_CONFIG[type];
                     const badge = document.createElement('div');
                     badge.className = 'annotation-type-badge';
                     badge.style.background = config.color;
                     badge.innerHTML = `
                         <span>${config.icon}</span>
-                        <span class="annotation-type-badge__count">${counts[type]}</span>
+                        <span class="annotation-type-badge__count">${typeAnnotations.length}</span>
                     `;
+
+                    // Create tooltip for THIS type only
+                    const tooltip = createTypeTooltip(type, typeAnnotations, config, entityId);
+                    document.body.appendChild(tooltip);
+
+                    // Tooltip positioning and visibility
+                    badge.addEventListener('mouseenter', () => {
+                        const rect = badge.getBoundingClientRect();
+                        positionTypeTooltip(tooltip, rect);
+                        tooltip.classList.add('visible');
+                    });
+
+                    badge.addEventListener('mouseleave', () => {
+                        setTimeout(() => {
+                            if (!tooltip.matches(':hover')) {
+                                tooltip.classList.remove('visible');
+                            }
+                        }, 100);
+                    });
+
+                    tooltip.addEventListener('mouseleave', () => {
+                        tooltip.classList.remove('visible');
+                    });
 
                     badge.addEventListener('click', (e) => {
                         e.stopPropagation();
+                        tooltip.classList.remove('visible');
                         log(`Opening Settings Modal for ${entityObject.labelOrName} (${config.label})...`);
                         openDashboardPopupSettings({
                             entityId: entityId,
@@ -1073,78 +1143,72 @@
                 }
             });
 
-            // Create summary tooltip
-            const latestAnnotation = activeAnnotations[0];
-            const rows = typeOrder
-                .filter(type => counts[type] > 0)
-                .map(type => `
-                    <div class="annotation-summary-tooltip__row">
-                        <span class="annotation-summary-tooltip__label">
-                            <span class="annotation-summary-tooltip__dot" style="background: ${TYPE_CONFIG[type].color}"></span>
-                            ${TYPE_CONFIG[type].label}
-                        </span>
-                        <span class="annotation-summary-tooltip__value">${counts[type]}</span>
-                    </div>
-                `).join('');
+            // Append container to card
+            cardElement.appendChild(container);
 
-            const latestSection = latestAnnotation ? `
-                <div class="annotation-summary-tooltip__latest">
-                    <div class="annotation-summary-tooltip__latest-label">Última anotação:</div>
-                    <div class="annotation-summary-tooltip__latest-text">"${latestAnnotation.text}"</div>
-                    <div class="annotation-summary-tooltip__latest-meta">
-                        ${latestAnnotation.createdBy.name} • ${new Date(latestAnnotation.createdAt).toLocaleDateString('pt-BR')}
-                    </div>
-                </div>
-            ` : '';
+            return container;
+        }
 
-            const overdueWarning = overdueCount > 0
-                ? `<div class="annotation-summary-tooltip__overdue">⚠️ ${overdueCount} anotação(ões) vencida(s)</div>`
+        // Helper function to create tooltip for a specific type
+        function createTypeTooltip(type, typeAnnotations, config, entityId) {
+            const now = new Date();
+            const overdueAnnotations = typeAnnotations.filter(a => a.dueDate && new Date(a.dueDate) < now);
+
+            const annotationsList = typeAnnotations.slice(0, 5).map(a => {
+                const isOverdue = a.dueDate && new Date(a.dueDate) < now;
+                const date = new Date(a.createdAt).toLocaleDateString('pt-BR');
+                return `
+                    <div class="annotation-summary-tooltip__item ${isOverdue ? 'overdue' : ''}">
+                        <div class="annotation-summary-tooltip__item-text">"${a.text.length > 60 ? a.text.substring(0, 60) + '...' : a.text}"</div>
+                        <div class="annotation-summary-tooltip__item-meta">
+                            ${a.createdBy.name} • ${date}
+                            ${isOverdue ? ' • <span style="color:#d63031">Vencida</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const moreText = typeAnnotations.length > 5
+                ? `<div class="annotation-summary-tooltip__more">+ ${typeAnnotations.length - 5} mais...</div>`
                 : '';
 
             const tooltip = document.createElement('div');
             tooltip.className = 'annotation-summary-tooltip';
             tooltip.innerHTML = `
-                <div class="annotation-summary-tooltip__title">
-                    📋 Anotações (${activeAnnotations.length})
+                <div class="annotation-summary-tooltip__header">
+                    <span class="annotation-summary-tooltip__header-title">${config.icon} ${config.label} (${typeAnnotations.length})</span>
                 </div>
-                ${rows}
-                ${overdueWarning}
-                ${latestSection}
+                <div class="annotation-summary-tooltip__content">
+                    ${overdueAnnotations.length > 0 ? `<div class="annotation-summary-tooltip__overdue">⚠️ ${overdueAnnotations.length} vencida(s)</div>` : ''}
+                    <div class="annotation-summary-tooltip__list">
+                        ${annotationsList}
+                        ${moreText}
+                    </div>
+                    <div class="annotation-summary-tooltip__hint">Clique para ver todas</div>
+                </div>
             `;
 
-            // Append tooltip to body (to avoid card overflow issues)
-            document.body.appendChild(tooltip);
+            return tooltip;
+        }
 
-            // Position tooltip on hover - prefer right side
-            container.addEventListener('mouseenter', () => {
-                const rect = container.getBoundingClientRect();
-                const tooltipWidth = 260;
-                const spacing = 12;
-                const viewportWidth = window.innerWidth;
-                const rightPosition = rect.right + spacing;
-                const canFitRight = (rightPosition + tooltipWidth) < viewportWidth;
+        // Helper function to position type tooltip
+        function positionTypeTooltip(tooltip, rect) {
+            const tooltipWidth = 280;
+            const spacing = 12;
+            const viewportWidth = window.innerWidth;
+            const rightPosition = rect.right + spacing;
+            const canFitRight = (rightPosition + tooltipWidth) < viewportWidth;
 
-                tooltip.classList.remove('arrow-left', 'arrow-right');
-                if (canFitRight) {
-                    tooltip.style.left = `${rightPosition}px`;
-                    tooltip.classList.add('arrow-left');
-                } else {
-                    tooltip.style.left = `${rect.left - tooltipWidth - spacing}px`;
-                    tooltip.classList.add('arrow-right');
-                }
-                tooltip.style.top = `${rect.top + rect.height / 2}px`;
-                tooltip.style.transform = 'translateY(-50%)';
-                tooltip.classList.add('visible');
-            });
-
-            container.addEventListener('mouseleave', () => {
-                tooltip.classList.remove('visible');
-            });
-
-            // Append badges to card
-            cardElement.appendChild(container);
-
-            return container;
+            tooltip.classList.remove('arrow-left', 'arrow-right');
+            if (canFitRight) {
+                tooltip.style.left = `${rightPosition}px`;
+                tooltip.classList.add('arrow-left');
+            } else {
+                tooltip.style.left = `${rect.left - tooltipWidth - spacing}px`;
+                tooltip.classList.add('arrow-right');
+            }
+            tooltip.style.top = `${rect.top + rect.height / 2}px`;
+            tooltip.style.transform = 'translateY(-50%)';
         }
 
         function log(message, domain = '') {
