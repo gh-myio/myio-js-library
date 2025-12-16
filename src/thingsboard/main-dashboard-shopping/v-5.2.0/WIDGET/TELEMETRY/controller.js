@@ -24,6 +24,109 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
 
 LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
 
+/**
+ * RFC-0097: Configuração centralizada de classificação de dispositivos
+ * Todas as regras de mapeamento deviceType → categoria estão aqui
+ */
+const DEVICE_CLASSIFICATION_CONFIG = {
+  // DeviceTypes que pertencem à categoria Climatização
+  // Baseado em src/MYIO-SIM/v5.2.0/mapPower.json
+  climatizacao: {
+    // DeviceTypes que são SEMPRE climatização (independente do identifier)
+    deviceTypes: ['CHILLER', 'AR_CONDICIONADO', 'HVAC', 'FANCOIL'],
+    // DeviceTypes genéricos que só são climatização SE tiverem identifier de climatização
+    conditionalDeviceTypes: ['BOMBA', 'MOTOR'],
+    // Identifiers que indicam climatização (usado para deviceTypes condicionais)
+    identifiers: ['CAG', 'FANCOIL'],
+    identifierPrefixes: ['CAG-', 'FANCOIL-'],
+  },
+  // DeviceTypes que pertencem à categoria Elevadores
+  elevadores: {
+    deviceTypes: ['ELEVADOR'],
+    identifiers: ['ELV', 'ELEVADOR', 'ELEVADORES'],
+    identifierPrefixes: ['ELV-', 'ELEVADOR-'],
+  },
+  // DeviceTypes que pertencem à categoria Escadas Rolantes
+  escadas_rolantes: {
+    deviceTypes: ['ESCADA_ROLANTE'],
+    identifiers: ['ESC', 'ESCADA', 'ESCADASROLANTES'],
+    identifierPrefixes: ['ESC-', 'ESCADA-', 'ESCADA_'],
+  },
+};
+
+// Sets pré-computados para lookup rápido
+const CLIMATIZACAO_DEVICE_TYPES_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceTypes);
+const CLIMATIZACAO_CONDITIONAL_TYPES_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.climatizacao.conditionalDeviceTypes || []);
+const ELEVADORES_DEVICE_TYPES_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.elevadores.deviceTypes);
+const ESCADAS_DEVICE_TYPES_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.escadas_rolantes.deviceTypes);
+
+const CLIMATIZACAO_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.climatizacao.identifiers);
+const ELEVADORES_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.elevadores.identifiers);
+const ESCADAS_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.escadas_rolantes.identifiers);
+
+// RFC-0097: Regex para excluir equipamentos ao detectar widget "lojas"
+// Construído dinamicamente a partir do config
+const EQUIPMENT_EXCLUSION_PATTERN = new RegExp(
+  [
+    ...DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceTypes,
+    ...DEVICE_CLASSIFICATION_CONFIG.elevadores.deviceTypes,
+    ...DEVICE_CLASSIFICATION_CONFIG.escadas_rolantes.deviceTypes,
+    'bomba', 'subesta', 'entrada', // Termos adicionais fixos
+  ]
+    .map((t) => t.toLowerCase())
+    .join('|'),
+  'i'
+);
+
+/**
+ * RFC-0097: Infere um identifier para exibição baseado no deviceType ou label
+ * Usado quando o atributo identifier está ausente
+ * @param {Object} item - Item com deviceType e/ou label
+ * @returns {string} Identifier inferido ou 'N/A'
+ */
+function inferDisplayIdentifier(item) {
+  if (!item) return 'N/A';
+
+  // Primeiro, tentar usar deviceType
+  const deviceType = String(item.deviceType || '').toUpperCase();
+  if (deviceType && deviceType !== 'N/D' && deviceType !== '3F_MEDIDOR') {
+    // Se for um deviceType conhecido, retornar o próprio deviceType ou abreviação
+    if (CLIMATIZACAO_DEVICE_TYPES_SET.has(deviceType)) {
+      return deviceType;
+    }
+    if (ELEVADORES_DEVICE_TYPES_SET.has(deviceType)) {
+      return 'ELV';
+    }
+    if (ESCADAS_DEVICE_TYPES_SET.has(deviceType)) {
+      return 'ESC';
+    }
+  }
+
+  // Fallback: inferir do label usando deviceTypes do config
+  const label = String(item.label || '').toLowerCase();
+
+  // Verificar cada deviceType de climatização no label
+  for (const dt of DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceTypes) {
+    if (label.includes(dt.toLowerCase())) {
+      return dt;
+    }
+  }
+  // Verificar identifiers de climatização
+  for (const id of DEVICE_CLASSIFICATION_CONFIG.climatizacao.identifiers) {
+    if (label.includes(id.toLowerCase())) {
+      return id;
+    }
+  }
+
+  // Elevadores
+  if (label.includes('elevador') || label.includes('elv')) return 'ELV';
+
+  // Escadas
+  if (label.includes('escada')) return 'ESC';
+
+  return 'N/A';
+}
+
 // RFC-0091: Use shared DATA_API_HOST from MAIN widget via window.MyIOUtils
 const DATA_API_HOST = window.MyIOUtils?.DATA_API_HOST;
 if (!DATA_API_HOST) {
@@ -828,7 +931,7 @@ function buildAuthoritativeItems() {
   // items da LIB: [{ id: ingestionId, identifier, label }, ...]
   const base = MyIO.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data) || [];
 
-  //LogHelper.log("[TELEMETRY][buildAuthoritativeItems] base: ", base);
+  LogHelper.log('[TELEMETRY][buildAuthoritativeItems] base: ', base);
 
   const ok = Array.isArray(base) ? base.filter((x) => x && x.id) : [];
 
@@ -849,20 +952,33 @@ function buildAuthoritativeItems() {
   }
 
   const mapped = ok.map((r) => {
-    //LogHelper.log("[TELEMETRY][buildAuthoritativeItems] ok.map: ", r);
+    LogHelper.log('[TELEMETRY][buildAuthoritativeItems] ok.map: ', r);
 
-    const ingestionId = r.id;
-    const tbFromIngestion = ingestionId ? tbIdIdx.byIngestion.get(ingestionId) : null;
+    // r.id from buildListItemsThingsboardByUniqueDatasource can be:
+    // 1. ThingsBoard entityId (most common - comes directly from datasource.entity.id.id)
+    // 2. ingestionId value (only if device has ingestionId attribute that overwrites it)
+    const itemId = r.id;
+
+    // Check 1: Is itemId directly a valid ThingsBoard entityId in our attrs map?
+    const isDirectTbId = itemId && attrsByTb.has(itemId);
+
+    // Check 2: Try to find tbId by looking up itemId as an ingestionId
+    const tbFromIngestionLookup = itemId ? tbIdIdx.byIngestion.get(itemId) : null;
+
+    // Check 3: Try to find tbId by identifier
     const tbFromIdentifier = r.identifier ? tbIdIdx.byIdentifier.get(r.identifier) : null;
 
-    let tbId = tbFromIngestion || tbFromIdentifier || null;
-    if (tbFromIngestion && tbFromIdentifier && tbFromIngestion !== tbFromIdentifier) {
+    // Priority: direct tbId > ingestion lookup > identifier lookup
+    // Direct tbId is highest priority because it's the actual entityId
+    let tbId = isDirectTbId ? itemId : (tbFromIngestionLookup || tbFromIdentifier || null);
+
+    if (tbFromIngestionLookup && tbFromIdentifier && tbFromIngestionLookup !== tbFromIdentifier) {
       /*
       LogHelper.warn("[DeviceCards] TB id mismatch for item", {
-        label: r.label, identifier: r.identifier, ingestionId, tbFromIngestion, tbFromIdentifier
+        label: r.label, identifier: r.identifier, itemId, tbFromIngestionLookup, tbFromIdentifier
       });
       */
-      tbId = tbFromIngestion;
+      tbId = isDirectTbId ? itemId : tbFromIngestionLookup;
     }
 
     const attrs = tbId ? attrsByTb.get(tbId) || {} : {};
@@ -999,9 +1115,12 @@ function buildAuthoritativeItems() {
     }
 
     return {
-      id: tbId || ingestionId, // para seleção/toggle
+      id: tbId || itemId, // para seleção/toggle
       tbId, // ThingsBoard deviceId (Settings)
-      ingestionId, // join key API (totals/Report)
+      // ingestionId logic:
+      // - Energy devices: itemId is the ingestionId (isDirectTbId=false), use it for API matching
+      // - Termostatos: itemId is the tbId (isDirectTbId=true), use null to avoid Settings validation failing
+      ingestionId: attrs.ingestionId || (isDirectTbId ? null : itemId),
       identifier: r.identifier,
       label: r.label,
       slaveId: attrs.slaveId ?? null,
@@ -1031,8 +1150,32 @@ function buildAuthoritativeItems() {
     };
   });
 
-  //LogHelper.log(`[DeviceCards] TB items: ${mapped.length}`);
-  return mapped;
+  // RFC-0097: Filter out 3F_MEDIDOR devices without proper deviceProfile for areacomum widget
+  // These are generic meters that shouldn't be counted in area comum breakdown
+  const widgetType = detectWidgetType();
+  let filtered = mapped;
+
+  if (widgetType === 'areacomum') {
+    filtered = mapped.filter((item) => {
+      // Keep item unless it's a 3F_MEDIDOR with 3F_MEDIDOR deviceProfile (no real type)
+      const deviceType = String(item.deviceType || '').toUpperCase();
+      const deviceProfile = String(item.deviceProfile || '').toUpperCase();
+
+      // Discard if deviceType = 3F_MEDIDOR AND deviceProfile is also 3F_MEDIDOR or empty/N/D
+      if (deviceType === '3F_MEDIDOR' && (deviceProfile === '3F_MEDIDOR' || deviceProfile === 'N/D' || !deviceProfile)) {
+        LogHelper.log(
+          `[RFC-0097] Filtering out 3F_MEDIDOR without proper deviceProfile: label="${item.label}", deviceProfile="${deviceProfile}"`
+        );
+        return false;
+      }
+      return true;
+    });
+
+    LogHelper.log(`[RFC-0097] Filtered areacomum items: ${mapped.length} → ${filtered.length}`);
+  }
+
+  //LogHelper.log(`[DeviceCards] TB items: ${filtered.length}`);
+  return filtered;
 }
 
 async function fetchApiTotals(startISO, endISO) {
@@ -1545,32 +1688,14 @@ function renderList(visible) {
     // Note: deviceStatus comes from buildAuthoritativeItems (based on TB connectionStatus + telemetry)
     // Don't recalculate here - it would be incorrect for ENERGY devices
 
-    // RFC-0063: Safe identifier handling with fallbacks
+    // RFC-0097: Safe identifier handling with fallbacks using centralized function
     let deviceIdentifierToDisplay = 'N/A';
-    if (it.identifier) {
-      // Has identifier attribute
-      if (String(it.identifier).includes('Sem Identificador identificado')) {
-        // Identifier exists but is marked as "unknown" - infer from label
-        const label = String(it.label || '').toLowerCase();
-        deviceIdentifierToDisplay = label.includes('fancoil') ? 'FANCOIL' : 'CAG';
-      } else {
-        // Valid identifier
-        deviceIdentifierToDisplay = it.identifier;
-      }
+    if (it.identifier && !String(it.identifier).includes('Sem Identificador identificado')) {
+      // Valid identifier attribute
+      deviceIdentifierToDisplay = it.identifier;
     } else {
-      // No identifier attribute - try to infer from label
-      const label = String(it.label || '').toLowerCase();
-      if (label.includes('fancoil')) {
-        deviceIdentifierToDisplay = 'FANCOIL';
-      } else if (label.includes('cag')) {
-        deviceIdentifierToDisplay = 'CAG';
-      } else if (label.includes('elevador') || label.includes('elv')) {
-        deviceIdentifierToDisplay = 'ELV';
-      } else if (label.includes('escada')) {
-        deviceIdentifierToDisplay = 'ESC';
-      } else {
-        deviceIdentifierToDisplay = 'N/A';
-      }
+      // No valid identifier - infer from deviceType or label
+      deviceIdentifierToDisplay = inferDisplayIdentifier(it);
     }
 
     const entityObject = {
@@ -2369,6 +2494,9 @@ function emitTelemetryUpdate() {
         emitLojasTotal(periodKey);
       } else if (widgetType === 'areacomum') {
         emitAreaComumBreakdown(periodKey);
+      } else if (widgetType === 'entrada') {
+        // RFC-0098: Emit entrada total for energy domain
+        emitEntradaTotal(periodKey);
       }
     }
   } catch (err) {
@@ -2418,7 +2546,8 @@ function detectWidgetType() {
       // Match "lojas" as standalone word or at end of alias
       // AVOID false positives like "Bomba Lojas", "Subestação Lojas"
       // ACCEPT: "lojas", "widget-lojas", "telemetry-lojas", "consumidores lojas"
-      if (/\blojas\b/.test(alias) && !/bomba|subesta|entrada|chiller|elevador|escada/i.test(alias)) {
+      // RFC-0097: Usa EQUIPMENT_EXCLUSION_PATTERN construído do config
+      if (/\blojas\b/.test(alias) && !EQUIPMENT_EXCLUSION_PATTERN.test(alias)) {
         LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "lojas" (com base no alias "${alias}")`);
         return 'lojas';
       }
@@ -2456,6 +2585,56 @@ function buildPeriodKey() {
   const endDate = new Date(endMs).toISOString().split('T')[0];
 
   return `${startDate}_${endDate}`;
+}
+
+/**
+ * RFC-0098: Emite evento entrada_total
+ * TELEMETRY (Entrada) → TELEMETRY_INFO
+ */
+function emitEntradaTotal(periodKey) {
+  try {
+    // Calcular total de Entrada a partir dos itens enriquecidos
+    const entradaTotal = STATE.itemsEnriched.reduce((sum, item) => {
+      return sum + (item.value || 0);
+    }, 0);
+
+    const totalMWh = normalizeToMWh(entradaTotal);
+
+    const payload = {
+      type: 'entrada_total',
+      domain: 'energy',
+      periodKey: periodKey,
+      timestamp: Date.now(),
+      source: 'TELEMETRY_Entrada',
+      data: {
+        total_kWh: entradaTotal,
+        total_MWh: totalMWh,
+        device_count: STATE.itemsEnriched.length,
+      },
+    };
+
+    // Cache em sessionStorage
+    const cacheKey = `myio:telemetry:entrada_${periodKey}`;
+    try {
+      sessionStorage.setItem(cacheKey, JSON.stringify(payload));
+    } catch (e) {
+      LogHelper.warn('[RFC-0098] sessionStorage write failed:', e);
+    }
+
+    // Dispatch consolidated event
+    const event = new CustomEvent('myio:telemetry:update', {
+      detail: payload,
+      bubbles: true,
+      cancelable: false,
+    });
+
+    window.dispatchEvent(event);
+    LogHelper.log(
+      `[RFC-0098] ✅ Emitted entrada_total: ${totalMWh} MWh (${STATE.itemsEnriched.length} devices)`
+    );
+  } catch (err) {
+    LogHelper.error('[RFC-0098] Error in emitEntradaTotal:', err);
+  }
 }
 
 /**
@@ -2509,12 +2688,73 @@ function emitLojasTotal(periodKey) {
 }
 
 /**
- * RFC-0063: Classify device by identifier attribute
+ * RFC-0097: Classify device by deviceType attribute
+ * Primary classification method - uses deviceType (or deviceProfile when deviceType = 3F_MEDIDOR)
+ * Uses centralized DEVICE_CLASSIFICATION_CONFIG
+ *
+ * Para deviceTypes condicionais (BOMBA, MOTOR), só classifica como climatização
+ * se o identifier for de climatização (ex: CAG)
+ *
+ * @param {Object} item - Device item with deviceType and identifier properties
+ * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'}
+ */
+function classifyDeviceByDeviceType(item) {
+  if (!item) return 'outros';
+
+  // Get effective device type: use deviceType, or deviceProfile if deviceType is 3F_MEDIDOR
+  let effectiveType = String(item.deviceType || '').toUpperCase();
+
+  if (effectiveType === '3F_MEDIDOR' && item.deviceProfile) {
+    effectiveType = String(item.deviceProfile).toUpperCase();
+  }
+
+  if (!effectiveType || effectiveType === 'N/D') {
+    return 'outros';
+  }
+
+  // DeviceTypes que são SEMPRE climatização (CHILLER, FANCOIL, etc.)
+  if (CLIMATIZACAO_DEVICE_TYPES_SET.has(effectiveType)) {
+    return 'climatizacao';
+  }
+
+  // DeviceTypes condicionais (BOMBA, MOTOR) - só climatização se identifier for CAG, etc.
+  if (CLIMATIZACAO_CONDITIONAL_TYPES_SET.has(effectiveType)) {
+    const identifier = String(item.identifier || '').toUpperCase().trim();
+
+    // Verificar se o identifier indica climatização
+    if (CLIMATIZACAO_IDENTIFIERS_SET.has(identifier)) {
+      return 'climatizacao';
+    }
+    // Verificar prefixos (CAG-, FANCOIL-, etc.)
+    for (const prefix of DEVICE_CLASSIFICATION_CONFIG.climatizacao.identifierPrefixes) {
+      if (identifier.startsWith(prefix.toUpperCase())) {
+        return 'climatizacao';
+      }
+    }
+    // BOMBA/MOTOR sem identifier de climatização → outros
+    return 'outros';
+  }
+
+  if (ELEVADORES_DEVICE_TYPES_SET.has(effectiveType)) {
+    return 'elevadores';
+  }
+
+  if (ESCADAS_DEVICE_TYPES_SET.has(effectiveType)) {
+    return 'escadas_rolantes';
+  }
+
+  // Default: outros
+  return 'outros';
+}
+
+/**
+ * RFC-0097: Classify device by identifier attribute
+ * Uses centralized DEVICE_CLASSIFICATION_CONFIG
  * @param {string} identifier - Device identifier (e.g., "CAG", "Fancoil", "ELV", etc.)
  * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'|null}
  */
 function classifyDeviceByIdentifier(identifier = '') {
-  // RFC-0063: Safe guard against null/undefined/empty
+  // Safe guard against null/undefined/empty
   if (!identifier || identifier === 'N/A' || identifier === 'null' || identifier === 'undefined') {
     return null;
   }
@@ -2526,66 +2766,63 @@ function classifyDeviceByIdentifier(identifier = '') {
     return null;
   }
 
-  // Climatização: CAG, Fancoil
-  if (id === 'CAG' || id === 'FANCOIL' || id.startsWith('CAG-') || id.startsWith('FANCOIL-')) {
+  // Check each category using centralized config
+  // Climatização
+  if (CLIMATIZACAO_IDENTIFIERS_SET.has(id)) {
     return 'climatizacao';
   }
-
-  // Elevadores: ELV, Elevador
-  if (id === 'ELV' || id === 'ELEVADOR' || id.startsWith('ELV-') || id.startsWith('ELEVADOR-')) {
-    return 'elevadores';
+  for (const prefix of DEVICE_CLASSIFICATION_CONFIG.climatizacao.identifierPrefixes) {
+    if (id.startsWith(prefix.toUpperCase())) return 'climatizacao';
   }
 
-  // Escadas Rolantes: ESC, Escada
-  if (id === 'ESC' || id === 'ESCADA' || id.startsWith('ESC-') || id.startsWith('ESCADA')) {
+  // Elevadores
+  if (ELEVADORES_IDENTIFIERS_SET.has(id)) {
+    return 'elevadores';
+  }
+  for (const prefix of DEVICE_CLASSIFICATION_CONFIG.elevadores.identifierPrefixes) {
+    if (id.startsWith(prefix.toUpperCase())) return 'elevadores';
+  }
+
+  // Escadas Rolantes
+  if (ESCADAS_IDENTIFIERS_SET.has(id)) {
     return 'escadas_rolantes';
+  }
+  for (const prefix of DEVICE_CLASSIFICATION_CONFIG.escadas_rolantes.identifierPrefixes) {
+    if (id.startsWith(prefix.toUpperCase())) return 'escadas_rolantes';
   }
 
   // Outros: qualquer outro identifier não reconhecido
   return 'outros';
 }
 
+// RFC-0097: classifyDeviceByLabel foi removida - classificação agora é por deviceType
+
 /**
- * RFC-0063: Classify device by label (legacy method)
- * @param {string} label - Device label/name
+ * RFC-0097: Classify device using deviceType as primary method
+ * @param {Object} item - Device item with deviceType, deviceProfile, identifier, and label
  * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'}
  */
-function classifyDeviceByLabel(label = '') {
-  // RFC-0063: Safe guard against null/undefined
-  if (!label) {
+function classifyDevice(item) {
+  // Safe guard - ensure item exists
+  if (!item) {
+    LogHelper.warn('[RFC-0097] classifyDevice called with null/undefined item');
     return 'outros';
   }
 
-  const normalized = normalizeLabel(label);
+  // RFC-0097: Primary classification by deviceType (or deviceProfile when deviceType = 3F_MEDIDOR)
+  const category = classifyDeviceByDeviceType(item);
 
-  // Climatização patterns
-  if (
-    normalized.includes('climatizacao') ||
-    normalized.includes('hvac') ||
-    normalized.includes('ar condicionado') ||
-    normalized.includes('chiller') ||
-    normalized.includes('bomba cag') ||
-    normalized.includes('fancoil') ||
-    normalized.includes('casa de máquina ar') ||
-    normalized.includes('bomba primaria') ||
-    normalized.includes('bomba secundaria') ||
-    normalized.includes('bombas condensadoras') ||
-    normalized.includes('bombas condensadora') ||
-    normalized.includes('bomba condensadora') ||
-    normalized.includes('bombas primarias') ||
-    normalized.includes('bombas secundarias')
-  ) {
-    return 'climatizacao';
+  // Return if we got a specific category (not 'outros')
+  if (category !== 'outros') {
+    return category;
   }
 
-  // Elevadores patterns
-  if (normalized.includes('elevador')) {
-    return 'elevadores';
-  }
-
-  // Escadas Rolantes patterns
-  if (normalized.includes('escada') && normalized.includes('rolante')) {
-    return 'escadas_rolantes';
+  // Fallback: try identifier-based classification for special cases (e.g., ESCADASROLANTES)
+  if (item.identifier) {
+    const categoryByIdentifier = classifyDeviceByIdentifier(item.identifier);
+    if (categoryByIdentifier && categoryByIdentifier !== 'outros') {
+      return categoryByIdentifier;
+    }
   }
 
   // Default: outros
@@ -2593,75 +2830,13 @@ function classifyDeviceByLabel(label = '') {
 }
 
 /**
- * RFC-0063: Classify device using configured mode
- * @param {Object} item - Device item with identifier and label
- * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'}
- */
-function classifyDevice(item) {
-  // RFC-0063: Safe guard - ensure item exists
-  if (!item) {
-    LogHelper.warn('[RFC-0063] classifyDevice called with null/undefined item');
-    return 'outros';
-  }
-
-  // Mode 1: Identifier only (new method)
-  if (
-    (USE_IDENTIFIER_CLASSIFICATION && !USE_HYBRID_CLASSIFICATION) ||
-    item.identifier === 'ESCADASROLANTES'
-  ) {
-    const category = classifyDeviceByIdentifier(item.identifier);
-    if (category) {
-      LogHelper.log(`[RFC-0063] Device classified by identifier: "${item.identifier}" → ${category}`);
-      return category;
-    }
-    // Fallback to 'outros' if identifier doesn't match any category
-    const reason = !item.identifier
-      ? 'no identifier attribute'
-      : `identifier "${item.identifier}" not recognized`;
-    LogHelper.log(`[RFC-0063] Device ${reason} → outros`);
-    return 'outros';
-  }
-
-  // Mode 2: Hybrid (identifier with label fallback)
-  if (USE_IDENTIFIER_CLASSIFICATION && USE_HYBRID_CLASSIFICATION) {
-    const categoryByIdentifier = classifyDeviceByIdentifier(item.identifier);
-
-    if (categoryByIdentifier && categoryByIdentifier !== 'outros') {
-      LogHelper.log(
-        `[RFC-0063 Hybrid] Device classified by identifier: "${item.identifier}" → ${categoryByIdentifier}`
-      );
-      return categoryByIdentifier;
-    }
-
-    // Fallback to label classification
-    const categoryByLabel = classifyDeviceByLabel(item.label || item.name);
-    const fallbackReason = !item.identifier
-      ? 'no identifier'
-      : `identifier "${item.identifier}" not recognized`;
-
-    LogHelper.log(
-      `[RFC-0063 Hybrid] Device (${fallbackReason}) classified by label fallback: "${item.label}" → ${categoryByLabel}`
-    );
-
-    return categoryByLabel;
-  }
-
-  // Mode 3: Legacy (label only - default)
-  return classifyDeviceByLabel(item.label || item.name);
-}
-
-/**
  * Emite evento areacomum_breakdown
  * RFC-0056 FIX v1.1: TELEMETRY (AreaComum) → TELEMETRY_INFO
- * RFC-0063: Enhanced with identifier-based classification
+ * RFC-0097: Classification by deviceType, subcategories by identifier
  */
 function emitAreaComumBreakdown(periodKey) {
   try {
-    LogHelper.log(
-      `[RFC-0063] emitAreaComumBreakdown: mode=${
-        USE_IDENTIFIER_CLASSIFICATION ? (USE_HYBRID_CLASSIFICATION ? 'HYBRID' : 'IDENTIFIER') : 'LEGACY'
-      }`
-    );
+    LogHelper.log(`[RFC-0097] emitAreaComumBreakdown: classification by deviceType`);
 
     // Classificar dispositivos por categoria (consumo e contagem)
     const breakdown = {
@@ -2671,16 +2846,12 @@ function emitAreaComumBreakdown(periodKey) {
       outros: { total: 0, count: 0 },
     };
 
-    // RFC-0096: Subcategorias de climatização para tooltip detalhado
-    const climatizacaoSubcategories = {
-      cag: { total: 0, count: 0, label: 'CAG' },
-      fancoils: { total: 0, count: 0, label: 'Fancoils' },
-      chillers: { total: 0, count: 0, label: 'Chillers' },
-      bombas_primarias: { total: 0, count: 0, label: 'Bombas Primárias' },
-      bombas_secundarias: { total: 0, count: 0, label: 'Bombas Secundárias' },
-      bombas_condensadoras: { total: 0, count: 0, label: 'Bombas Condensadoras' },
-      outros_climatizacao: { total: 0, count: 0, label: 'Outros Climatização' },
-    };
+    // RFC-0097: Subcategorias de climatização agrupadas por identifier (ou deviceType se identifier vazio)
+    // Mapa dinâmico: key = identifier ou deviceType, value = { total, count, label }
+    const climatizacaoSubcategories = new Map();
+
+    // RFC-0097: Subcategorias de "outros" agrupadas por deviceType
+    const outrosSubcategories = new Map();
 
     STATE.itemsEnriched.forEach((item) => {
       const energia = item.value || 0;
@@ -2689,55 +2860,107 @@ function emitAreaComumBreakdown(periodKey) {
       breakdown[category].total += energia;
       breakdown[category].count += 1;
 
-      // RFC-0096: Classificar subcategorias de climatização
+      // RFC-0097: Agrupar subcategorias de climatização por identifier (ou deviceType)
       if (category === 'climatizacao') {
-        const label = normalizeLabel(item.label || '');
-        const identifier = String(item.identifier || '').toUpperCase();
+        const identifier = String(item.identifier || '')
+          .toUpperCase()
+          .trim();
+        const deviceType = String(item.deviceType || '').toUpperCase();
 
-        if (
-          identifier === 'CAG' ||
-          identifier.startsWith('CAG-') ||
-          label.includes('cag') ||
-          label.includes('central de agua gelada')
-        ) {
-          climatizacaoSubcategories.cag.total += energia;
-          climatizacaoSubcategories.cag.count += 1;
-        } else if (
-          identifier === 'FANCOIL' ||
-          identifier.startsWith('FANCOIL-') ||
-          label.includes('fancoil') ||
-          label.includes('fan coil') ||
-          label.includes('fcu')
-        ) {
-          climatizacaoSubcategories.fancoils.total += energia;
-          climatizacaoSubcategories.fancoils.count += 1;
-        } else if (label.includes('chiller')) {
-          climatizacaoSubcategories.chillers.total += energia;
-          climatizacaoSubcategories.chillers.count += 1;
-        } else if (label.includes('bomba primaria') || label.includes('bombas primarias')) {
-          climatizacaoSubcategories.bombas_primarias.total += energia;
-          climatizacaoSubcategories.bombas_primarias.count += 1;
-        } else if (label.includes('bomba secundaria') || label.includes('bombas secundarias')) {
-          climatizacaoSubcategories.bombas_secundarias.total += energia;
-          climatizacaoSubcategories.bombas_secundarias.count += 1;
-        } else if (label.includes('condensadora') || label.includes('bombas condensadora')) {
-          climatizacaoSubcategories.bombas_condensadoras.total += energia;
-          climatizacaoSubcategories.bombas_condensadoras.count += 1;
-        } else {
-          climatizacaoSubcategories.outros_climatizacao.total += energia;
-          climatizacaoSubcategories.outros_climatizacao.count += 1;
+        // Usar identifier como chave de agrupamento, ou deviceType se identifier estiver vazio
+        let groupKey = identifier;
+        let groupLabel = identifier;
+
+        if (!identifier || identifier === 'N/A' || identifier === 'NULL' || identifier === 'UNDEFINED') {
+          groupKey = deviceType || 'OUTROS';
+          groupLabel = deviceType || 'Outros';
         }
+
+        // Inicializar grupo se não existir
+        if (!climatizacaoSubcategories.has(groupKey)) {
+          climatizacaoSubcategories.set(groupKey, {
+            total: 0,
+            count: 0,
+            label: groupLabel,
+          });
+        }
+
+        // Acumular valores
+        const group = climatizacaoSubcategories.get(groupKey);
+        group.total += energia;
+        group.count += 1;
+
+        // Debug: Log climatização devices
+        LogHelper.log(
+          `[RFC-0097] Climatização: deviceType="${deviceType}", identifier="${identifier}", group="${groupKey}", value=${energia.toFixed(
+            2
+          )} kWh`
+        );
+      }
+
+      // RFC-0097: Agrupar subcategorias de "outros" por deviceType (ou deviceProfile se 3F_MEDIDOR)
+      if (category === 'outros') {
+        let deviceType = String(item.deviceType || 'DESCONHECIDO').toUpperCase().trim();
+
+        // Se deviceType é 3F_MEDIDOR, usar deviceProfile como tipo real
+        if (deviceType === '3F_MEDIDOR' && item.deviceProfile) {
+          deviceType = String(item.deviceProfile).toUpperCase().trim();
+        }
+
+        // Usar deviceType como chave de agrupamento
+        const groupKey = deviceType || 'DESCONHECIDO';
+        const groupLabel = deviceType || 'Desconhecido';
+
+        // Inicializar grupo se não existir
+        if (!outrosSubcategories.has(groupKey)) {
+          outrosSubcategories.set(groupKey, {
+            total: 0,
+            count: 0,
+            label: groupLabel,
+          });
+        }
+
+        // Acumular valores
+        const group = outrosSubcategories.get(groupKey);
+        group.total += energia;
+        group.count += 1;
       }
 
       // Debug log for first 5 items
       if (STATE.itemsEnriched.indexOf(item) < 5) {
         LogHelper.log(
-          `[RFC-0063] Item classified: id="${item.identifier}", label="${
+          `[RFC-0097] Item: deviceType="${item.deviceType}", identifier="${item.identifier}", label="${
             item.label
           }" → ${category} (${energia.toFixed(2)} kWh)`
         );
       }
     });
+
+    // Converter Map para objeto para serialização
+    const climatizacaoSubcategoriesObj = {};
+    climatizacaoSubcategories.forEach((value, key) => {
+      climatizacaoSubcategoriesObj[key.toLowerCase()] = value;
+    });
+
+    // RFC-0097: Converter outros subcategories Map para objeto
+    const outrosSubcategoriesObj = {};
+    outrosSubcategories.forEach((value, key) => {
+      outrosSubcategoriesObj[key.toLowerCase()] = value;
+    });
+
+    // RFC-0097: Log subcategory totals for debugging
+    const subcatSummary = {};
+    climatizacaoSubcategories.forEach((value, key) => {
+      subcatSummary[key] = `${value.count} devices, ${normalizeToMWh(value.total)} MWh`;
+    });
+    LogHelper.log(`[RFC-0097] Climatização subcategories breakdown:`, subcatSummary);
+
+    // RFC-0097: Log outros subcategory totals
+    const outrosSubcatSummary = {};
+    outrosSubcategories.forEach((value, key) => {
+      outrosSubcatSummary[key] = `${value.count} devices, ${normalizeToMWh(value.total)} MWh`;
+    });
+    LogHelper.log(`[RFC-0097] Outros subcategories breakdown:`, outrosSubcatSummary);
 
     const payload = {
       type: 'areacomum_breakdown',
@@ -2759,8 +2982,10 @@ function emitAreaComumBreakdown(periodKey) {
         outros_MWh: normalizeToMWh(breakdown.outros.total),
         outros_count: breakdown.outros.count,
         device_count: STATE.itemsEnriched.length,
-        // RFC-0096: Subcategorias de climatização
-        climatizacao_subcategories: climatizacaoSubcategories,
+        // RFC-0097: Subcategorias de climatização (objeto para serialização)
+        climatizacao_subcategories: climatizacaoSubcategoriesObj,
+        // RFC-0097: Subcategorias de "outros" agrupadas por deviceType
+        outros_subcategories: outrosSubcategoriesObj,
       },
     };
 

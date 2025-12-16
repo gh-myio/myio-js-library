@@ -199,16 +199,19 @@ function classifyDevice(labelOrName = '', datasourceAlias = '') {
   const s = normalizeLabel(labelOrName);
 
   // ========== 1. ENTRADA ==========
-  // Dispositivos de mediÃ§Ã£o principal (relÃ³gios, subestaÃ§Ãµes)
+  // RFC-0098: Entrada is now handled via events (entrada_total) from TELEMETRY widget
+  // This classification is DEPRECATED - kept only for backwards compatibility
+  // The TELEMETRY widget detects entrada via alias and emits entrada_total event
   if (/\brelogio\b/.test(s)) return CATEGORIES.ENTRADA;
   if (/subesta/.test(s)) return CATEGORIES.ENTRADA;
   if (/\bentrada\b/.test(s)) return CATEGORIES.ENTRADA;
   if (/medicao/.test(s)) return CATEGORIES.ENTRADA;
   if (/medidor principal/.test(s)) return CATEGORIES.ENTRADA;
-  if (/geracao/.test(s)) return CATEGORIES.ENTRADA; // GeraÃ§Ã£o solar, etc
+  if (/geracao/.test(s)) return CATEGORIES.ENTRADA;
 
   // ========== 2. CLIMATIZAÃ‡ÃƒO ==========
-  // Chillers, bombas, sistemas de climatizaÃ§Ã£o
+  // RFC-0098: Climatização classification now handled by TELEMETRY via deviceType
+  // This label-based classification is DEPRECATED
   if (/chiller/.test(s)) return CATEGORIES.CLIMATIZACAO;
   if (/\bbomba\b/.test(s)) return CATEGORIES.CLIMATIZACAO;
   if (/bomba primaria/.test(s)) return CATEGORIES.CLIMATIZACAO;
@@ -233,7 +236,7 @@ function classifyDevice(labelOrName = '', datasourceAlias = '') {
   if (datasourceAlias && /lojas/i.test(datasourceAlias)) {
     return CATEGORIES.LOJAS;
   }
-  // Fallback to label matching
+  // Fallback to label matching (DEPRECATED - lojas_total event preferred)
   if (/\bloja\b/.test(s)) return CATEGORIES.LOJAS;
   if (/\bstore\b/.test(s)) return CATEGORIES.LOJAS; // EN
   if (/varejo/.test(s)) return CATEGORIES.LOJAS;
@@ -336,44 +339,55 @@ function aggregateData(items) {
   });
 
   // ========== 4. CALCULATE PERCENTAGES ==========
-  // Todos os percentuais sÃ£o baseados na Entrada (= 100%)
-  STATE.entrada = {
-    devices: entrada,
-    total: entradaTotal,
-    perc: 100, // Entrada sempre 100%
-  };
+  // RFC-0098: If we have entrada data from event (handleEntradaTotal), use it instead of label-classified data
+  // This prevents the old label-based classification from overwriting event-based data
+  if (RECEIVED_DATA.entrada_total !== null) {
+    // Keep existing STATE.entrada from handleEntradaTotal - don't overwrite!
+    LogHelper.log('[RFC-0098] Preserving entrada data from event (not overwriting with label-classified data)');
+  } else {
+    // Fallback to label-classified data (DEPRECATED)
+    STATE.entrada = {
+      devices: entrada,
+      total: entradaTotal,
+      perc: 100, // Entrada sempre 100%
+    };
+  }
+
+  // Use entrada total from event if available, otherwise use label-classified
+  const effectiveEntradaTotal = RECEIVED_DATA.entrada_total?.total_kWh ?? STATE.entrada.total;
+  const grandTotalEffective = effectiveEntradaTotal > 0 ? effectiveEntradaTotal : grandTotal;
 
   STATE.consumidores = {
     climatizacao: {
       devices: climatizacao,
       total: climatizacaoTotal,
-      perc: grandTotal > 0 ? (climatizacaoTotal / grandTotal) * 100 : 0,
+      perc: grandTotalEffective > 0 ? (climatizacaoTotal / grandTotalEffective) * 100 : 0,
     },
     elevadores: {
       devices: elevadores,
       total: elevadoresTotal,
-      perc: grandTotal > 0 ? (elevadoresTotal / grandTotal) * 100 : 0,
+      perc: grandTotalEffective > 0 ? (elevadoresTotal / grandTotalEffective) * 100 : 0,
     },
     escadasRolantes: {
       devices: escadasRolantes,
       total: escadasRolantesTotal,
-      perc: grandTotal > 0 ? (escadasRolantesTotal / grandTotal) * 100 : 0,
+      perc: grandTotalEffective > 0 ? (escadasRolantesTotal / grandTotalEffective) * 100 : 0,
     },
     lojas: {
       devices: lojas,
       total: lojasTotal,
-      perc: grandTotal > 0 ? (lojasTotal / grandTotal) * 100 : 0,
+      perc: grandTotalEffective > 0 ? (lojasTotal / grandTotalEffective) * 100 : 0,
     },
     areaComum: {
       devices: areaComumExplicit, // â† Apenas devices explÃ­citos (residual nÃ£o tem devices)
       total: areaComumTotal,
-      perc: grandTotal > 0 ? (areaComumTotal / grandTotal) * 100 : 0,
+      perc: grandTotalEffective > 0 ? (areaComumTotal / grandTotalEffective) * 100 : 0,
     },
     totalGeral: consumidoresTotal,
     percGeral: 100, // â† Total sempre 100% (= entrada)
   };
 
-  STATE.grandTotal = grandTotal;
+  STATE.grandTotal = grandTotalEffective;
 
   LogHelper.log('RFC-0056: Percentages calculated:', {
     climatizacao: STATE.consumidores.climatizacao.perc.toFixed(1) + '%',
@@ -1062,6 +1076,7 @@ let fallbackTimer = null;
 
 // RFC-0056 FIX v1.1: Dados recebidos dos widgets TELEMETRY
 const RECEIVED_DATA = {
+  entrada_total: null, // RFC-0098: Entrada (medidor principal)
   lojas_total: null,
   climatizacao: null,
   elevadores: null,
@@ -1096,6 +1111,10 @@ function setupTelemetryListener() {
 
     // Dispatch por tipo
     switch (type) {
+      case 'entrada_total':
+        // RFC-0098: Handle entrada total
+        handleEntradaTotal(data, timestamp, periodKey);
+        break;
       case 'lojas_total':
         handleLojasTotal(data, timestamp, periodKey);
         break;
@@ -1120,11 +1139,28 @@ function setupTelemetryListener() {
 }
 
 /**
+ * RFC-0098: Handler: entrada_total
+ * Receives entrada (main meter) data from TELEMETRY widget
+ */
+function handleEntradaTotal(data, timestamp, periodKey) {
+  RECEIVED_DATA.entrada_total = { ...data, timestamp, periodKey };
+  LogHelper.log(`[RFC-0098] ✅ Entrada total updated: ${data.total_MWh} MWh (${data.device_count} devices)`);
+
+  // Update STATE.entrada directly
+  STATE.entrada.total = data.total_kWh || 0;
+  STATE.entrada.devices = []; // Devices list not sent, just totals
+  STATE.entrada.perc = 100; // Entrada is always 100% reference
+
+  // Agendar recalculo com debounce
+  scheduleRecalculation();
+}
+
+/**
  * Handler: lojas_total
  */
 function handleLojasTotal(data, timestamp, periodKey) {
   RECEIVED_DATA.lojas_total = { ...data, timestamp, periodKey };
-  LogHelper.log(`[RFC-0056] âœ… Lojas total updated: ${data.total_MWh} MWh`);
+  LogHelper.log(`[RFC-0056] ✅ Lojas total updated: ${data.total_MWh} MWh`);
 
   // Agendar recalculo com debounce
   scheduleRecalculation();
@@ -1161,6 +1197,8 @@ function handleAreaComumBreakdown(data, timestamp, periodKey) {
     total: data.outros_kWh,
     totalMWh: data.outros_MWh,
     count: data.outros_count || 0,
+    // RFC-0097: Subcategorias de "outros" agrupadas por deviceType
+    subcategories: data.outros_subcategories || null,
     timestamp,
     periodKey,
   };
@@ -1209,8 +1247,10 @@ function scheduleRecalculation() {
 
 /**
  * Verifica se temos dados suficientes para recalcular
+ * RFC-0098: Added entrada check
  */
 function canRecalculate() {
+  const hasEntrada = RECEIVED_DATA.entrada_total !== null || STATE.entrada.total > 0;
   const hasLojas = RECEIVED_DATA.lojas_total !== null;
   const hasAreaComum =
     RECEIVED_DATA.climatizacao !== null &&
@@ -1218,7 +1258,7 @@ function canRecalculate() {
     RECEIVED_DATA.escadas_rolantes !== null &&
     RECEIVED_DATA.outros !== null;
 
-  return hasLojas && hasAreaComum;
+  return hasEntrada && hasLojas && hasAreaComum;
 }
 
 /**
@@ -1822,7 +1862,7 @@ const INFO_TOOLTIP_CSS = `
 
   .info-tooltip-panel__content {
     padding: 16px 18px;
-    max-height: 450px;
+    max-height: 600px;
     overflow-y: auto;
   }
 
@@ -2087,28 +2127,26 @@ function showClimatizacaoTooltip(triggerElement) {
   const climatizacaoCount = RECEIVED_DATA.climatizacao?.count || 0;
   const subcategoriesData = RECEIVED_DATA.climatizacao?.subcategories || null;
 
-  // RFC-0096: Subcategory definitions with icons
-  const subcategoryDefs = [
-    { key: 'cag', icon: '❄️', label: 'CAG', desc: 'Central de Água Gelada' },
-    { key: 'fancoils', icon: '🌀', label: 'Fancoils', desc: 'Unidades de climatização' },
-    { key: 'chillers', icon: '🧊', label: 'Chillers', desc: 'Resfriadores industriais' },
-    { key: 'bombas_primarias', icon: '💧', label: 'Bombas Primárias', desc: 'Circulação principal' },
-    { key: 'bombas_secundarias', icon: '💧', label: 'Bombas Secundárias', desc: 'Circulação secundária' },
-    { key: 'bombas_condensadoras', icon: '💧', label: 'Bombas Condensadoras', desc: 'Sistema de condensação' },
-    { key: 'outros_climatizacao', icon: '🔧', label: 'Outros', desc: 'Outros equipamentos' },
-  ];
-
-  // Build subcategories HTML with real data if available
+  // RFC-0097: Build subcategories HTML dynamically from data
+  // Subcategories are now grouped by identifier (e.g., CAG) or deviceType
   let subcatHtml = '';
-  if (subcategoriesData) {
-    subcategoryDefs.forEach((def) => {
-      const data = subcategoriesData[def.key];
+  if (subcategoriesData && typeof subcategoriesData === 'object') {
+    // Sort by total consumption (descending)
+    const sortedKeys = Object.keys(subcategoriesData).sort((a, b) => {
+      const totalA = subcategoriesData[a]?.total || 0;
+      const totalB = subcategoriesData[b]?.total || 0;
+      return totalB - totalA;
+    });
+
+    sortedKeys.forEach((key) => {
+      const data = subcategoriesData[key];
       if (data && (data.count > 0 || data.total > 0)) {
+        const label = data.label || key.toUpperCase();
         subcatHtml += `
           <div class="info-tooltip-panel__category info-tooltip-panel__category--climatizacao">
-            <span class="info-tooltip-panel__category-icon">${def.icon}</span>
+            <span class="info-tooltip-panel__category-icon">❄️</span>
             <div class="info-tooltip-panel__category-info">
-              <div class="info-tooltip-panel__category-name">${def.label}</div>
+              <div class="info-tooltip-panel__category-name">${label}</div>
               <div class="info-tooltip-panel__category-desc">${data.count} equipamento(s)</div>
             </div>
             <span class="info-tooltip-panel__category-value">${formatEnergy(data.total)}</span>
@@ -2120,20 +2158,15 @@ function showClimatizacaoTooltip(triggerElement) {
 
   // Fallback if no subcategory data
   if (!subcatHtml) {
-    subcatHtml = subcategoryDefs
-      .filter((def) => def.key !== 'outros_climatizacao')
-      .map(
-        (def) => `
-          <div class="info-tooltip-panel__category info-tooltip-panel__category--climatizacao">
-            <span class="info-tooltip-panel__category-icon">${def.icon}</span>
-            <div class="info-tooltip-panel__category-info">
-              <div class="info-tooltip-panel__category-name">${def.label}</div>
-              <div class="info-tooltip-panel__category-desc">${def.desc}</div>
-            </div>
-          </div>
-        `
-      )
-      .join('');
+    subcatHtml = `
+      <div class="info-tooltip-panel__category info-tooltip-panel__category--climatizacao">
+        <span class="info-tooltip-panel__category-icon">ℹ️</span>
+        <div class="info-tooltip-panel__category-info">
+          <div class="info-tooltip-panel__category-name">Sem dados</div>
+          <div class="info-tooltip-panel__category-desc">Aguardando dados de subcategorias</div>
+        </div>
+      </div>
+    `;
   }
 
   container.innerHTML = `
@@ -2172,6 +2205,121 @@ function showClimatizacaoTooltip(triggerElement) {
           <span class="info-tooltip-panel__notice-icon">💡</span>
           <div class="info-tooltip-panel__notice-text">
             O valor de <strong>Climatização</strong> é calculado pela soma do consumo de todos os equipamentos classificados nestas categorias.
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  positionInfoTooltip(container, triggerElement);
+  container.classList.add('visible');
+}
+
+/**
+ * RFC-0097: Show detailed tooltip for "Outros Equipamentos"
+ * Displays breakdown by deviceType
+ * @param {HTMLElement} triggerElement - Element that triggered the tooltip
+ */
+function showOutrosTooltip(triggerElement) {
+  let container = document.getElementById('telemetry-info-tooltip');
+  if (!container) {
+    container = createInfoTooltipContainer();
+  }
+
+  const outros = STATE.consumidores.outros?.total || 0;
+  const outrosPerc = STATE.consumidores.outros?.perc || 0;
+  const outrosCount = RECEIVED_DATA.outros?.count || 0;
+  const subcategoriesData = RECEIVED_DATA.outros?.subcategories || null;
+
+  // RFC-0097: Build subcategories HTML dynamically from data (grouped by deviceType)
+  let subcatHtml = '';
+  if (subcategoriesData && typeof subcategoriesData === 'object') {
+    // Sort by total consumption (descending)
+    const sortedKeys = Object.keys(subcategoriesData).sort((a, b) => {
+      const totalA = subcategoriesData[a]?.total || 0;
+      const totalB = subcategoriesData[b]?.total || 0;
+      return totalB - totalA;
+    });
+
+    // Icon mapping by device type
+    const deviceTypeIcons = {
+      'motor': '⚙️',
+      '3f_medidor': '📊',
+      'compressor': '🔧',
+      'ventilador': '🌀',
+      'bomba': '💧',
+      'bomba_hidraulica': '💧',
+      'desconhecido': '❓',
+    };
+
+    sortedKeys.forEach((key) => {
+      const data = subcategoriesData[key];
+      if (data && (data.count > 0 || data.total > 0)) {
+        const label = data.label || key.toUpperCase();
+        const icon = deviceTypeIcons[key.toLowerCase()] || '🔌';
+        subcatHtml += `
+          <div class="info-tooltip-panel__category info-tooltip-panel__category--outros">
+            <span class="info-tooltip-panel__category-icon">${icon}</span>
+            <div class="info-tooltip-panel__category-info">
+              <div class="info-tooltip-panel__category-name">${label}</div>
+              <div class="info-tooltip-panel__category-desc">${data.count} equipamento(s)</div>
+            </div>
+            <span class="info-tooltip-panel__category-value">${formatEnergy(data.total)}</span>
+          </div>
+        `;
+      }
+    });
+  }
+
+  // Fallback if no subcategory data
+  if (!subcatHtml) {
+    subcatHtml = `
+      <div class="info-tooltip-panel__category info-tooltip-panel__category--outros">
+        <span class="info-tooltip-panel__category-icon">ℹ️</span>
+        <div class="info-tooltip-panel__category-info">
+          <div class="info-tooltip-panel__category-name">Sem dados</div>
+          <div class="info-tooltip-panel__category-desc">Aguardando dados de subcategorias</div>
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = `
+    <div class="info-tooltip-panel">
+      <div class="info-tooltip-panel__header">
+        <span class="info-tooltip-panel__icon">🔌</span>
+        <span class="info-tooltip-panel__title">Outros Equipamentos - Detalhes</span>
+      </div>
+      <div class="info-tooltip-panel__content">
+        <div class="info-tooltip-panel__section">
+          <div class="info-tooltip-panel__section-title">
+            <span>📊</span> Consumo Total
+          </div>
+          <div class="info-tooltip-panel__row">
+            <span class="info-tooltip-panel__label">Outros:</span>
+            <span class="info-tooltip-panel__value info-tooltip-panel__value--highlight">${formatEnergy(outros)}</span>
+          </div>
+          <div class="info-tooltip-panel__row">
+            <span class="info-tooltip-panel__label">Equipamentos:</span>
+            <span class="info-tooltip-panel__value">${outrosCount}</span>
+          </div>
+          <div class="info-tooltip-panel__row">
+            <span class="info-tooltip-panel__label">Participação:</span>
+            <span class="info-tooltip-panel__value">${outrosPerc.toFixed(1)}%</span>
+          </div>
+        </div>
+
+        <div class="info-tooltip-panel__section">
+          <div class="info-tooltip-panel__section-title">
+            <span>📋</span> Composição por Tipo
+          </div>
+          ${subcatHtml}
+        </div>
+
+        <div class="info-tooltip-panel__notice">
+          <span class="info-tooltip-panel__notice-icon">💡</span>
+          <div class="info-tooltip-panel__notice-text">
+            O valor de <strong>Outros Equipamentos</strong> inclui todos os dispositivos que não se enquadram nas categorias principais (Climatização, Elevadores, Escadas Rolantes).
           </div>
         </div>
       </div>
@@ -2255,6 +2403,22 @@ function setupInfoTooltips() {
         hideInfoTooltip();
       });
     LogHelper.log('[Tooltip] Climatização trigger bound');
+  }
+
+  // RFC-0097: Outros Equipamentos tooltip trigger
+  const $outrosTrigger = $container.find('.outros-card .info-tooltip');
+  if ($outrosTrigger.length) {
+    $outrosTrigger
+      .addClass('info-tooltip-trigger')
+      .removeAttr('title')
+      .off('mouseenter.infoTooltip mouseleave.infoTooltip')
+      .on('mouseenter.infoTooltip', function () {
+        showOutrosTooltip(this);
+      })
+      .on('mouseleave.infoTooltip', function () {
+        hideInfoTooltip();
+      });
+    LogHelper.log('[Tooltip] Outros Equipamentos trigger bound');
   }
 
   // Banheiros tooltip trigger (water domain)
