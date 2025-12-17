@@ -548,10 +548,18 @@ function renderPieChart() {
     return;
   }
 
-  // Destroy previous chart instance
+  // Destroy previous chart instance (robust: use Chart.getChart to find any existing chart)
   if (pieChartInstance) {
     pieChartInstance.destroy();
     pieChartInstance = null;
+  }
+  // Also check Chart.js registry directly (handles cases where reference was lost)
+  if (typeof Chart !== 'undefined' && typeof Chart.getChart === 'function') {
+    const existingChart = Chart.getChart(canvas);
+    if (existingChart) {
+      LogHelper.log('Destroying orphaned chart instance from canvas');
+      existingChart.destroy();
+    }
   }
 
   // Check if Chart.js is available
@@ -851,9 +859,18 @@ function renderModalChart() {
     return;
   }
 
-  // Destroy existing instance
+  // Destroy existing instance (robust: use Chart.getChart to find any existing chart)
   if (modalPieChartInstance) {
     modalPieChartInstance.destroy();
+    modalPieChartInstance = null;
+  }
+  // Also check Chart.js registry directly (handles cases where reference was lost)
+  if (typeof Chart !== 'undefined' && typeof Chart.getChart === 'function') {
+    const existingChart = Chart.getChart(ctx);
+    if (existingChart) {
+      LogHelper.log('Destroying orphaned modal chart instance from canvas');
+      existingChart.destroy();
+    }
   }
 
   // RFC-0056: 5 or 6 categories for pie chart (hide Área Comum when water + bathrooms)
@@ -1661,8 +1678,18 @@ function renderWaterPieChart() {
   // Render main widget chart
   const chartCanvas = $$('#consumptionPieChart')[0];
   if (chartCanvas) {
+    // Destroy existing instance (robust: use Chart.getChart to find any existing chart)
     if (pieChartInstance) {
       pieChartInstance.destroy();
+      pieChartInstance = null;
+    }
+    // Also check Chart.js registry directly (handles cases where reference was lost)
+    if (typeof Chart !== 'undefined' && typeof Chart.getChart === 'function') {
+      const existingChart = Chart.getChart(chartCanvas);
+      if (existingChart) {
+        LogHelper.log('[RFC-0002 Water] Destroying orphaned chart instance from canvas');
+        existingChart.destroy();
+      }
     }
 
     pieChartInstance = new Chart(chartCanvas.getContext('2d'), {
@@ -2641,7 +2668,7 @@ self.onInit = async function () {
       LogHelper.log('âœ… Direct click handler attached to button');
       return true;
     } else {
-      LogHelper.error('âŒ Button #btnExpandModal NOT FOUND in container!');
+      // Silent: button may not be rendered yet, delegation fallbacks will handle clicks
       return false;
     }
   };
