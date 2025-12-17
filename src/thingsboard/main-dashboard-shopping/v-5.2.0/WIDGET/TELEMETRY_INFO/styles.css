@@ -822,12 +822,28 @@ body.modal-open-telemetry-info {
 
 /* RFC-0105: Compact 2-line card layout overrides */
 /* Card structure - ONLY 2 lines: [icon+name...info] and [value...%] */
-.info-card:not(.chart-card) {
+/* Note: domain-specific cards excluded - controlled via JS for domain switching */
+.info-card:not(.chart-card):not(.banheiros-card):not(.climatizacao-card):not(.elevadores-card):not(.escadas-card):not(.outros-card) {
   padding: 6px 10px !important;
   min-height: auto !important;
   max-height: 50px !important;
   overflow: hidden !important;
   display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+}
+
+/* Domain-switchable cards - same styling but respects display:none from JS */
+/* banheiros = water only, climatizacao/elevadores/escadas/outros = energy only */
+.info-card.banheiros-card,
+.info-card.climatizacao-card,
+.info-card.elevadores-card,
+.info-card.escadas-card,
+.info-card.outros-card {
+  padding: 6px 10px !important;
+  min-height: auto !important;
+  max-height: 50px !important;
+  overflow: hidden !important;
   flex-direction: column !important;
   justify-content: center !important;
 }

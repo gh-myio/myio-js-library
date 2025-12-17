@@ -1539,9 +1539,55 @@ function recomputePercentages(visible) {
 }
 
 /** ===================== TEMPERATURE INFO TOOLTIP ===================== **/
+// Now uses TempSensorSummaryTooltip from myio-js-library (premium tooltip with drag, pin, maximize, close)
 
-// CSS for temperature info tooltip (injected once)
-const TEMP_INFO_TOOLTIP_CSS = `
+/**
+ * Build temperature sensor data for the TempSensorSummaryTooltip
+ * @returns {Object} Data object for TempSensorSummaryTooltip.show()
+ */
+function buildTempSensorSummaryData() {
+  const tempMin = window.MyIOUtils?.temperatureLimits?.min;
+  const tempMax = window.MyIOUtils?.temperatureLimits?.max;
+  const hasLimits = tempMin != null && tempMax != null;
+
+  const devices = [];
+
+  if (window._telemetryAuthoritativeItems) {
+    window._telemetryAuthoritativeItems.forEach((item) => {
+      if (item.deviceType === 'TERMOSTATO') {
+        const temp = Number(item.value) || 0;
+
+        let status = 'unknown';
+        if (hasLimits) {
+          status = (temp >= tempMin && temp <= tempMax) ? 'ok' : 'warn';
+        }
+
+        devices.push({
+          name: item.label || item.identifier || 'Sensor',
+          temp: temp,
+          status: status,
+        });
+      }
+    });
+  }
+
+  return {
+    devices,
+    temperatureMin: tempMin,
+    temperatureMax: tempMax,
+    title: 'Detalhes de Temperatura'
+  };
+}
+
+// Cleanup function for tooltip (stored globally for widget destroy)
+let _tempTooltipCleanup = null;
+
+// ============================================
+// LEGACY CODE BELOW - DEPRECATED (kept for reference)
+// Use MyIO.TempSensorSummaryTooltip instead
+// ============================================
+
+const TEMP_INFO_TOOLTIP_CSS_LEGACY = `
   .temp-info-trigger {
     display: inline-flex;
     align-items: center;
@@ -3528,15 +3574,24 @@ self.onInit = async function () {
     if (tempInfoTrigger.length) {
       tempInfoTrigger.css('display', 'inline-flex');
 
-      // Add event listeners for tooltip
-      tempInfoTrigger.on('mouseenter', function (e) {
-        showTempInfoTooltip(this);
-      });
-      tempInfoTrigger.on('mouseleave', function () {
-        hideTempInfoTooltip();
-      });
-
-      LogHelper.log('[TELEMETRY] Temperature info icon initialized');
+      // Use TempSensorSummaryTooltip from myio-js-library (premium tooltip with drag, pin, maximize, close)
+      if (MyIO?.TempSensorSummaryTooltip) {
+        // Attach using the library component
+        _tempTooltipCleanup = MyIO.TempSensorSummaryTooltip.attach(
+          tempInfoTrigger[0],
+          buildTempSensorSummaryData
+        );
+        LogHelper.log('[TELEMETRY] Temperature info icon initialized with TempSensorSummaryTooltip (library)');
+      } else {
+        // Fallback to legacy tooltip if library not available
+        tempInfoTrigger.on('mouseenter', function (e) {
+          showTempInfoTooltip(this);
+        });
+        tempInfoTrigger.on('mouseleave', function () {
+          hideTempInfoTooltip();
+        });
+        LogHelper.warn('[TELEMETRY] TempSensorSummaryTooltip not found in library, using legacy tooltip');
+      }
     }
   }
 
@@ -4192,6 +4247,14 @@ self.onDestroy = function () {
     window.removeEventListener('myio:telemetry:update', requestRefreshHandler);
     LogHelper.log("[RFC-0056] Event listener 'myio:telemetry:update' removido.");
   }
+
+  // Cleanup TempSensorSummaryTooltip if attached
+  if (_tempTooltipCleanup) {
+    _tempTooltipCleanup();
+    _tempTooltipCleanup = null;
+    LogHelper.log('[TELEMETRY] TempSensorSummaryTooltip cleanup executed.');
+  }
+
   try {
     $root().off();
   } catch {

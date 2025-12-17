@@ -23,8 +23,16 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
 };
 
 // Widget configuration
-let WIDGET_DOMAIN = 'energy';
+// NOTE: WIDGET_DOMAIN variable was removed - always use getWidgetDomain() function
 let SHOW_DEVICES_LIST = false;
+
+/**
+ * Get widget domain from settings.
+ * @returns {string} The configured domain or empty string
+ */
+function getWidgetDomain() {
+  return self.ctx.settings?.DOMAIN || '';
+}
 
 // RFC-0056: Chart colors with MyIO palette (6 categories)
 let CHART_COLORS = {
@@ -44,7 +52,7 @@ const DOMAIN_LABELS = {
     icon: 'ℹ️',
   },
   water: {
-    title: 'Água',
+    title: 'Água 111',
     unit: 'm³',
     icon: '💧',
   },
@@ -343,7 +351,9 @@ function aggregateData(items) {
   // This prevents the old label-based classification from overwriting event-based data
   if (RECEIVED_DATA.entrada_total !== null) {
     // Keep existing STATE.entrada from handleEntradaTotal - don't overwrite!
-    LogHelper.log('[RFC-0098] Preserving entrada data from event (not overwriting with label-classified data)');
+    LogHelper.log(
+      '[RFC-0098] Preserving entrada data from event (not overwriting with label-classified data)'
+    );
   } else {
     // Fallback to label-classified data (DEPRECATED)
     STATE.entrada = {
@@ -463,6 +473,10 @@ function formatEnergy(value) {
 function renderStats() {
   LogHelper.log('RFC-0056: Rendering stats for 6 categories...');
 
+  // Hide water-only cards (banheiros is water domain specific)
+  $$('.banheiros-card').hide();
+  LogHelper.log('[RFC-0056] Hiding banheiros-card (energy domain)');
+
   // ========== ENTRADA ==========
   $$('#entradaTotal').text(formatEnergy(STATE.entrada.total));
 
@@ -499,7 +513,7 @@ function renderStats() {
 
   // RFC-0056: Hide Área Comum card when water domain has bathrooms enabled
   // Consolidate área comum into "Pontos não mapeados" instead
-  if (WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms) {
+  if (getWidgetDomain() === 'water' && STATE_WATER.includeBathrooms) {
     $$('.area-comum-card').hide();
   } else {
     $$('.area-comum-card').show();
@@ -559,7 +573,7 @@ function renderPieChart() {
 
   // ========== CHART DATA (6 slices or 5 if hiding Área Comum) ==========
   // RFC-0056: Hide Área Comum when water domain has bathrooms enabled
-  const hideAreaComum = WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms;
+  const hideAreaComum = getWidgetDomain() === 'water' && STATE_WATER.includeBathrooms;
 
   const labels = hideAreaComum
     ? ['Climatização', 'Elevadores', 'Esc. Rolantes', 'Lojas', 'Outros']
@@ -660,7 +674,7 @@ function renderPieChart() {
 function renderChartLegend() {
   const $legend = $$('#chartLegend').empty();
 
-  const hideAreaComum = WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms;
+  const hideAreaComum = getWidgetDomain() === 'water' && STATE_WATER.includeBathrooms;
 
   const items = [
     {
@@ -843,7 +857,7 @@ function renderModalChart() {
   }
 
   // RFC-0056: 5 or 6 categories for pie chart (hide Área Comum when water + bathrooms)
-  const hideAreaComum = WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms;
+  const hideAreaComum = getWidgetDomain() === 'water' && STATE_WATER.includeBathrooms;
 
   const data = hideAreaComum
     ? [
@@ -947,7 +961,7 @@ function renderModalChart() {
 function renderModalChartLegend() {
   const $legend = $J('#modalChartLegend').empty();
 
-  const hideAreaComum = WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms;
+  const hideAreaComum = getWidgetDomain() === 'water' && STATE_WATER.includeBathrooms;
 
   const items = [
     {
@@ -1009,11 +1023,11 @@ function renderModalChartLegend() {
  * RFC-0002: Supports both energy and water domains
  */
 function updateDisplay() {
-  LogHelper.log(`Updating display for domain: ${WIDGET_DOMAIN}...`);
+  LogHelper.log(`Updating display for domain: ${getWidgetDomain()}...`);
 
   try {
     // RFC-0002: Domain-specific rendering
-    if (WIDGET_DOMAIN === 'water') {
+    if (getWidgetDomain() === 'water') {
       renderWaterStats();
       renderWaterPieChart();
       LogHelper.log('[RFC-0002 Water] Display updated successfully');
@@ -1097,8 +1111,8 @@ function setupTelemetryListener() {
     );
 
     // Validar domÃ­nio
-    if (domain !== WIDGET_DOMAIN) {
-      LogHelper.log(`[RFC-0056] Ignoring domain: ${domain} (expecting: ${WIDGET_DOMAIN})`);
+    if (domain !== getWidgetDomain()) {
+      LogHelper.log(`[RFC-0056] Ignoring domain: ${domain} (expecting: ${getWidgetDomain()})`);
       return;
     }
 
@@ -1300,7 +1314,11 @@ function recalculateWithReceivedData() {
   STATE.consumidores.areaComum.total = Math.max(0, STATE.entrada.total - somaConsumidores);
 
   // RFC-0056: When water domain has bathrooms, consolidate área comum into "outros"
-  if (WIDGET_DOMAIN === 'water' && STATE_WATER.includeBathrooms && STATE.consumidores.areaComum.total > 0) {
+  if (
+    getWidgetDomain() === 'water' &&
+    STATE_WATER.includeBathrooms &&
+    STATE.consumidores.areaComum.total > 0
+  ) {
     LogHelper.log(
       `[RFC-0056] Consolidating área comum (${STATE.consumidores.areaComum.total.toFixed(2)}) into outros`
     );
@@ -1741,7 +1759,7 @@ function startFallbackTimeout() {
       const event = new CustomEvent('myio:telemetry:update', {
         detail: {
           type: 'request_refresh',
-          domain: WIDGET_DOMAIN,
+          domain: getWidgetDomain(),
           periodKey: periodKey,
           timestamp: Date.now(),
           source: 'TELEMETRY_INFO',
@@ -1808,10 +1826,10 @@ function getInfoTooltip() {
 }
 
 /**
- * Build Área Comum tooltip content HTML
+ * Build Área Comum tooltip content HTML (Energy domain)
  * @returns {string} HTML content
  */
-function buildAreaComumContent() {
+function buildAreaComumContentEnergy() {
   const entrada = STATE.entrada.total || 0;
   const lojas = STATE.consumidores.lojas?.total || 0;
   const climatizacao = STATE.consumidores.climatizacao?.total || 0;
@@ -1851,7 +1869,9 @@ function buildAreaComumContent() {
       </div>
       <div class="myio-info-tooltip__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
         <span class="myio-info-tooltip__label"><strong>= Área Comum:</strong></span>
-        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatEnergy(areaComum)}</span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatEnergy(
+          areaComum
+        )}</span>
       </div>
     </div>
 
@@ -1869,6 +1889,81 @@ function buildAreaComumContent() {
       </div>
     </div>
   `;
+}
+
+/**
+ * Build Área Comum tooltip content HTML (Water domain)
+ * @returns {string} HTML content
+ */
+function buildAreaComumContentWater() {
+  const entrada = STATE_WATER.entrada.total || 0;
+  const lojas = STATE_WATER.lojas?.total || 0;
+  const banheiros = STATE_WATER.banheiros?.total || 0;
+  const areaComum = STATE_WATER.areaComum?.total || 0;
+  const includeBathrooms = STATE_WATER.includeBathrooms;
+
+  let rows = `
+    <div class="myio-info-tooltip__row">
+      <span class="myio-info-tooltip__label">📥 Entrada (Total):</span>
+      <span class="myio-info-tooltip__value">${formatValue(entrada, 'water')}</span>
+    </div>
+    <div class="myio-info-tooltip__row">
+      <span class="myio-info-tooltip__label">➖ Lojas:</span>
+      <span class="myio-info-tooltip__value">${formatValue(lojas, 'water')}</span>
+    </div>
+  `;
+
+  if (includeBathrooms) {
+    rows += `
+    <div class="myio-info-tooltip__row">
+      <span class="myio-info-tooltip__label">➖ Banheiros:</span>
+      <span class="myio-info-tooltip__value">${formatValue(banheiros, 'water')}</span>
+    </div>
+    `;
+  }
+
+  rows += `
+    <div class="myio-info-tooltip__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
+      <span class="myio-info-tooltip__label"><strong>= Área Comum:</strong></span>
+      <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(areaComum, 'water')}</span>
+    </div>
+  `;
+
+  const formula = includeBathrooms
+    ? 'Área Comum = Entrada − (Lojas + Banheiros)'
+    : 'Área Comum = Entrada − Lojas';
+
+  return `
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">
+        <span>📊</span> Valores Atuais
+      </div>
+      ${rows}
+    </div>
+
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">📐 Fórmula</div>
+      <div style="font-size: 11px; color: #475569; line-height: 1.5;">
+        ${formula}
+      </div>
+    </div>
+
+    <div class="myio-info-tooltip__notice">
+      <span class="myio-info-tooltip__notice-icon">💡</span>
+      <div class="myio-info-tooltip__notice-text">
+        <strong>Área Comum</strong> representa o consumo de água residual do shopping que não está associado a lojas${includeBathrooms ? ' ou banheiros' : ''} (jardins, limpeza, etc).
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Build Área Comum tooltip content HTML (auto-detects domain)
+ * @returns {string} HTML content
+ */
+function buildAreaComumContent() {
+  const domain = getWidgetDomain();
+  return domain === 'water' ? buildAreaComumContentWater() : buildAreaComumContentEnergy();
 }
 
 /**
@@ -1927,7 +2022,9 @@ function buildClimatizacaoContent() {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Climatização:</span>
-        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatEnergy(climatizacao)}</span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatEnergy(
+          climatizacao
+        )}</span>
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Equipamentos:</span>
@@ -1966,13 +2063,13 @@ function buildOutrosContent() {
   const subcategoriesData = RECEIVED_DATA.outros?.subcategories || null;
 
   const deviceTypeIcons = {
-    'motor': '⚙️',
+    motor: '⚙️',
     '3f_medidor': '📊',
-    'compressor': '🔧',
-    'ventilador': '🌀',
-    'bomba': '💧',
-    'bomba_hidraulica': '💧',
-    'desconhecido': '❓',
+    compressor: '🔧',
+    ventilador: '🌀',
+    bomba: '💧',
+    bomba_hidraulica: '💧',
+    desconhecido: '❓',
   };
 
   let subcatHtml = '';
@@ -2021,7 +2118,9 @@ function buildOutrosContent() {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Outros:</span>
-        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatEnergy(outros)}</span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatEnergy(
+          outros
+        )}</span>
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Equipamentos:</span>
@@ -2062,7 +2161,7 @@ function showAreaComumTooltip(triggerElement) {
   InfoTooltip.show(triggerElement, {
     icon: '🏢',
     title: 'Área Comum - Detalhes',
-    content: buildAreaComumContent()
+    content: buildAreaComumContent(),
   });
 }
 
@@ -2079,7 +2178,7 @@ function showClimatizacaoTooltip(triggerElement) {
   InfoTooltip.show(triggerElement, {
     icon: '❄️',
     title: 'Climatização - Detalhes',
-    content: buildClimatizacaoContent()
+    content: buildClimatizacaoContent(),
   });
 }
 
@@ -2096,7 +2195,7 @@ function showOutrosTooltip(triggerElement) {
   InfoTooltip.show(triggerElement, {
     icon: '🔌',
     title: 'Outros Equipamentos - Detalhes',
-    content: buildOutrosContent()
+    content: buildOutrosContent(),
   });
 }
 
@@ -2164,9 +2263,7 @@ function setupInfoTooltips() {
   // Banheiros tooltip trigger (water domain)
   const $banheirosTrigger = $container.find('.banheiros-card .info-tooltip');
   if ($banheirosTrigger.length) {
-    $banheirosTrigger
-      .addClass('info-tooltip-trigger')
-      .removeAttr('title');
+    $banheirosTrigger.addClass('info-tooltip-trigger').removeAttr('title');
     LogHelper.log('[Tooltip] Banheiros trigger found (native title kept)');
   }
 
@@ -2176,16 +2273,20 @@ function setupInfoTooltips() {
 // NOTE: Legacy tooltip CSS removed - now using InfoTooltip from library
 // See RFC-0105 for standardized tooltip implementation
 
-// ===================== RFC-0105: ENERGY SUMMARY TOOLTIP =====================
+// ===================== RFC-0105: SUMMARY TOOLTIP (ENERGY/WATER) =====================
 
-let energySummaryTooltipCleanup = null;
+let summaryTooltipCleanup = null;
 
 /**
- * RFC-0105: Setup Energy Summary Tooltip
+ * RFC-0105: Setup Summary Tooltip (Energy or Water based on domain)
  * Premium tooltip showing dashboard summary on header info button hover
  */
-function setupEnergySummaryTooltip() {
-  LogHelper.log('[RFC-0105] Setting up Energy Summary Tooltip...');
+function setupSummaryTooltip() {
+  const domain = getWidgetDomain();
+  const isWater = domain === 'water';
+  const tooltipType = isWater ? 'Water' : 'Energy';
+
+  LogHelper.log(`[RFC-0105] Setting up ${tooltipType} Summary Tooltip...`);
 
   const $container = $root();
   let $trigger = $container.find('#btnInfoSummary');
@@ -2194,8 +2295,11 @@ function setupEnergySummaryTooltip() {
   if (!$trigger.length) {
     LogHelper.log('[RFC-0105] Creating btnInfoSummary dynamically...');
     const $title = $container.find('#infoTitleHeader');
+
     if ($title.length) {
-      const $btn = $J('<span class="info-tooltip btn-info-summary" id="btnInfoSummary" title="Ver resumo do dashboard" style="cursor: pointer; margin-left: 8px;">ℹ️</span>');
+      const $btn = $J(
+        '<span class="info-tooltip btn-info-summary" id="btnInfoSummary" title="Ver resumo do dashboard" style="cursor: pointer; margin-left: 8px;">ℹ️</span>'
+      );
       $title.append($btn);
       $trigger = $btn;
       LogHelper.log('[RFC-0105] btnInfoSummary created and appended to title');
@@ -2205,30 +2309,40 @@ function setupEnergySummaryTooltip() {
     }
   }
 
-  // Get EnergySummaryTooltip from library
-  const EnergySummaryTooltip = window.MyIOLibrary?.EnergySummaryTooltip;
+  // Get appropriate tooltip from library based on domain
+  const SummaryTooltip = isWater
+    ? window.MyIOLibrary?.WaterSummaryTooltip
+    : window.MyIOLibrary?.EnergySummaryTooltip;
 
-  if (!EnergySummaryTooltip) {
-    console.error('[RFC-0105] EnergySummaryTooltip not available in MyIOLibrary. Tooltip will not work.');
+  if (!SummaryTooltip) {
+    console.error(`[RFC-0105] ${tooltipType}SummaryTooltip not available in MyIOLibrary. Tooltip will not work.`);
     return;
   }
 
-  // Build summary data function
+  // Build summary data function based on domain
   const getSummaryData = () => {
-    return EnergySummaryTooltip.buildSummaryFromState(
-      { entrada: STATE.entrada, consumidores: STATE.consumidores, grandTotal: STATE.grandTotal },
-      RECEIVED_DATA
-    );
+    if (isWater) {
+      return SummaryTooltip.buildSummaryFromState(
+        STATE_WATER,
+        RECEIVED_DATA,
+        STATE_WATER.includeBathrooms
+      );
+    } else {
+      return SummaryTooltip.buildSummaryFromState(
+        { entrada: STATE.entrada, consumidores: STATE.consumidores, grandTotal: STATE.grandTotal },
+        RECEIVED_DATA
+      );
+    }
   };
 
   // Attach tooltip
-  energySummaryTooltipCleanup = EnergySummaryTooltip.attach($trigger[0], getSummaryData);
+  summaryTooltipCleanup = SummaryTooltip.attach($trigger[0], getSummaryData);
 
-  LogHelper.log('[RFC-0105] Energy Summary Tooltip attached successfully');
+  LogHelper.log(`[RFC-0105] ${tooltipType} Summary Tooltip attached successfully`);
 }
 
 // NOTE: Fallback tooltip removed - library component is required
-// If EnergySummaryTooltip is not available, a console.error will be logged
+// If SummaryTooltip is not available, a console.error will be logged
 
 // ===================== WIDGET LIFECYCLE =====================
 
@@ -2264,8 +2378,7 @@ self.onInit = async function () {
     position: 'relative',
   });
 
-  // Load settings
-  WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
+  // Load settings (WIDGET_DOMAIN removed - use getWidgetDomain() instead)
   SHOW_DEVICES_LIST = self.ctx.settings?.showDevicesList || false;
 
   // RFC-0002: Water domain - load banheiros setting
@@ -2283,7 +2396,7 @@ self.onInit = async function () {
   };
 
   LogHelper.log('Settings loaded:', {
-    domain: WIDGET_DOMAIN,
+    domain: getWidgetDomain(),
     showDevicesList: SHOW_DEVICES_LIST,
     chartColors: CHART_COLORS,
   });
@@ -2298,7 +2411,7 @@ self.onInit = async function () {
   }
 
   // RFC-0002: Set widget label (dynamic based on domain)
-  const domainConfig = getDomainLabel(WIDGET_DOMAIN);
+  const domainConfig = getDomainLabel(getWidgetDomain());
 
   // Priority: 1) Manual config from settings, 2) Auto from domain
   const widgetLabel =
@@ -2317,15 +2430,15 @@ self.onInit = async function () {
     $modalTitle.text(modalLabel);
   }
 
-  LogHelper.log(`[RFC-0002] Títulos atualizados: domain=${WIDGET_DOMAIN}, title=${domainConfig.title}`);
+  LogHelper.log(`[RFC-0002] Títulos atualizados: domain=${getWidgetDomain()}, title=${domainConfig.title}`);
 
   // Listen for orchestrator data
   dataProvideHandler = function (ev) {
     const { domain, periodKey, items } = ev.detail;
 
     // Only process my domain
-    if (domain !== WIDGET_DOMAIN) {
-      LogHelper.log(`Ignoring data for domain: ${domain} (expecting: ${WIDGET_DOMAIN})`);
+    if (domain !== getWidgetDomain()) {
+      LogHelper.log(`Ignoring data for domain: ${domain} (expecting: ${getWidgetDomain()})`);
       return;
     }
 
@@ -2344,7 +2457,7 @@ self.onInit = async function () {
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
 
   // RFC-0002: Listen for water domain events
-  if (WIDGET_DOMAIN === 'water') {
+  if (getWidgetDomain() === 'water') {
     waterProvideHandler = function (ev) {
       const { domain, context } = ev.detail;
 
@@ -2368,8 +2481,8 @@ self.onInit = async function () {
     const { domain } = ev.detail || {};
 
     // Only process if it's for my domain
-    if (domain !== WIDGET_DOMAIN) {
-      LogHelper.log(`Ignoring clear event for domain: ${domain} (expecting: ${WIDGET_DOMAIN})`);
+    if (domain !== getWidgetDomain()) {
+      LogHelper.log(`Ignoring clear event for domain: ${domain} (expecting: ${getWidgetDomain()})`);
       return;
     }
 
@@ -2478,8 +2591,8 @@ self.onInit = async function () {
   setTimeout(() => {
     const orchestratorData = window.MyIOOrchestratorData || window.parent?.MyIOOrchestratorData;
 
-    if (orchestratorData && orchestratorData[WIDGET_DOMAIN]) {
-      const storedData = orchestratorData[WIDGET_DOMAIN];
+    if (orchestratorData && orchestratorData[getWidgetDomain()]) {
+      const storedData = orchestratorData[getWidgetDomain()];
       const age = Date.now() - storedData.timestamp;
 
       // Use stored data if less than 30 seconds old
@@ -2628,9 +2741,9 @@ self.onInit = async function () {
     setupInfoTooltips();
   }, 200);
 
-  // RFC-0105: Setup Energy Summary Tooltip
+  // RFC-0105: Setup Summary Tooltip (Energy or Water based on domain)
   setTimeout(() => {
-    setupEnergySummaryTooltip();
+    setupSummaryTooltip();
   }, 300);
 
   LogHelper.log('Widget initialized successfully (RFC-0056)');
@@ -2690,14 +2803,14 @@ self.onDestroy = function () {
     fallbackTimer = null;
   }
 
-  // RFC-0105: Cleanup Energy Summary Tooltip
-  if (energySummaryTooltipCleanup) {
+  // RFC-0105: Cleanup Summary Tooltip
+  if (summaryTooltipCleanup) {
     try {
-      energySummaryTooltipCleanup();
-      energySummaryTooltipCleanup = null;
-      LogHelper.log('[RFC-0105] Energy Summary Tooltip cleaned up');
+      summaryTooltipCleanup();
+      summaryTooltipCleanup = null;
+      LogHelper.log('[RFC-0105] Summary Tooltip cleaned up');
     } catch (error) {
-      LogHelper.warn('[RFC-0105] Error cleaning up Energy Summary Tooltip:', error);
+      LogHelper.warn('[RFC-0105] Error cleaning up Summary Tooltip:', error);
     }
   }
 
