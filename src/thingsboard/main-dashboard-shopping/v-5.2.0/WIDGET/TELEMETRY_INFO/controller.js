@@ -2320,17 +2320,20 @@ function setupSummaryTooltip() {
   }
 
   // Build summary data function based on domain
+  // RFC-0105: Now passing domain to enable device list aggregation from MyIOOrchestratorData
   const getSummaryData = () => {
     if (isWater) {
       return SummaryTooltip.buildSummaryFromState(
         STATE_WATER,
         RECEIVED_DATA,
-        STATE_WATER.includeBathrooms
+        STATE_WATER.includeBathrooms,
+        'water'  // RFC-0105: Domain for device list aggregation
       );
     } else {
       return SummaryTooltip.buildSummaryFromState(
         { entrada: STATE.entrada, consumidores: STATE.consumidores, grandTotal: STATE.grandTotal },
-        RECEIVED_DATA
+        RECEIVED_DATA,
+        'energy'  // RFC-0105: Domain for device list aggregation
       );
     }
   };
