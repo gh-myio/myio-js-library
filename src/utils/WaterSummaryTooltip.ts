@@ -1497,45 +1497,67 @@ export const WaterSummaryTooltip = {
     summary.totalDevices = summary.byCategory.reduce((sum, cat) => sum + cat.deviceCount, 0);
     summary.totalConsumption = state.entrada?.total || 0;
 
-    // RFC-0105 Enhancement: Aggregate device status from MyIOOrchestratorData
-    // This provides both counts AND device lists for the status popup
-    const statusAggregation = this._aggregateDeviceStatusFromOrchestrator(domain);
+    // RFC-0105 Enhancement: Use device status aggregation passed from widget controller
+    // Priority: 1. deviceStatusAggregation from receivedData (widget context)
+    //           2. Direct orchestrator access (may not work in all contexts)
+    //           3. Fallback estimates
+    const widgetAggregation = receivedData?.deviceStatusAggregation;
 
-    if (statusAggregation.hasData) {
-      // Use actual device data from orchestrator
-      summary.byStatus = statusAggregation.byStatus;
+    if (widgetAggregation && widgetAggregation.hasData) {
+      // Use device data aggregated by the widget controller (preferred method)
+      summary.byStatus = {
+        normal: widgetAggregation.normal || 0,
+        alert: widgetAggregation.alert || 0,
+        failure: widgetAggregation.failure || 0,
+        standby: widgetAggregation.standby || 0,
+        offline: widgetAggregation.offline || 0,
+        noConsumption: widgetAggregation.noConsumption || 0,
+        normalDevices: widgetAggregation.normalDevices || [],
+        alertDevices: widgetAggregation.alertDevices || [],
+        failureDevices: widgetAggregation.failureDevices || [],
+        standbyDevices: widgetAggregation.standbyDevices || [],
+        offlineDevices: widgetAggregation.offlineDevices || [],
+        noConsumptionDevices: widgetAggregation.noConsumptionDevices || [],
+      };
     } else {
-      // Fallback: estimate based on device counts (no device lists available)
-      const totalDevices = summary.totalDevices;
-      const statusData = receivedData?.statusCounts || receivedData?.deviceStatus || null;
+      // Try direct orchestrator access (may not work in iframe/library context)
+      const statusAggregation = this._aggregateDeviceStatusFromOrchestrator(domain);
 
-      if (statusData && typeof statusData === 'object') {
-        // Use actual status counts from data (but no device lists)
-        summary.byStatus = {
-          normal: statusData.normal || 0,
-          alert: statusData.alert || 0,
-          failure: statusData.failure || 0,
-          standby: statusData.standby || 0,
-          offline: statusData.offline || 0,
-          noConsumption: statusData.noConsumption || statusData.zeroConsumption || 0,
-        };
+      if (statusAggregation.hasData) {
+        summary.byStatus = statusAggregation.byStatus;
       } else {
-        // Last resort: estimate based on device counts
-        summary.byStatus = {
-          normal: Math.floor(totalDevices * 0.80),
-          alert: Math.floor(totalDevices * 0.05),
-          failure: Math.floor(totalDevices * 0.02),
-          standby: Math.floor(totalDevices * 0.02),
-          offline: Math.floor(totalDevices * 0.03),
-          noConsumption: Math.floor(totalDevices * 0.08),
-        };
+        // Fallback: estimate based on device counts (no device lists available)
+        const totalDevices = summary.totalDevices;
+        const statusData = receivedData?.statusCounts || receivedData?.deviceStatus || null;
 
-        // Adjust to ensure totals match
-        const statusSum = Object.values(summary.byStatus).reduce((a, b) => {
-          return typeof b === 'number' ? a + b : a;
-        }, 0);
-        if (statusSum !== totalDevices && totalDevices > 0) {
-          summary.byStatus.normal += (totalDevices - statusSum);
+        if (statusData && typeof statusData === 'object') {
+          // Use actual status counts from data (but no device lists)
+          summary.byStatus = {
+            normal: statusData.normal || 0,
+            alert: statusData.alert || 0,
+            failure: statusData.failure || 0,
+            standby: statusData.standby || 0,
+            offline: statusData.offline || 0,
+            noConsumption: statusData.noConsumption || statusData.zeroConsumption || 0,
+          };
+        } else {
+          // Last resort: estimate based on device counts
+          summary.byStatus = {
+            normal: Math.floor(totalDevices * 0.80),
+            alert: Math.floor(totalDevices * 0.05),
+            failure: Math.floor(totalDevices * 0.02),
+            standby: Math.floor(totalDevices * 0.02),
+            offline: Math.floor(totalDevices * 0.03),
+            noConsumption: Math.floor(totalDevices * 0.08),
+          };
+
+          // Adjust to ensure totals match
+          const statusSum = Object.values(summary.byStatus).reduce((a, b) => {
+            return typeof b === 'number' ? a + b : a;
+          }, 0);
+          if (statusSum !== totalDevices && totalDevices > 0) {
+            summary.byStatus.normal += (totalDevices - statusSum);
+          }
         }
       }
     }

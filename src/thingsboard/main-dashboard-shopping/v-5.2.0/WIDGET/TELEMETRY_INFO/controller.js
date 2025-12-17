@@ -74,6 +74,97 @@ function getDomainLabel(domain = 'energy') {
 }
 
 /**
+ * RFC-0105: Aggregate device status from MyIOOrchestratorData
+ * This function runs in the widget context where orchestrator data is accessible.
+ * Returns both counts AND device lists for the summary tooltip.
+ *
+ * @param {string} domain - Domain ('energy' or 'water')
+ * @returns {Object} Status aggregation with counts and device lists
+ */
+function aggregateDeviceStatusFromOrchestrator(domain) {
+  const result = {
+    hasData: false,
+    normal: 0,
+    alert: 0,
+    failure: 0,
+    standby: 0,
+    offline: 0,
+    noConsumption: 0,
+    normalDevices: [],
+    alertDevices: [],
+    failureDevices: [],
+    standbyDevices: [],
+    offlineDevices: [],
+    noConsumptionDevices: [],
+  };
+
+  // Try to access orchestrator data (available in widget context)
+  const orchestratorData = window.MyIOOrchestratorData || window.parent?.MyIOOrchestratorData;
+
+  if (!orchestratorData || !orchestratorData[domain]) {
+    LogHelper.log('[RFC-0105] No orchestrator data available for device status aggregation');
+    return result;
+  }
+
+  const domainData = orchestratorData[domain];
+  const items = domainData.items || [];
+
+  if (!items || items.length === 0) {
+    LogHelper.log('[RFC-0105] No items in orchestrator data');
+    return result;
+  }
+
+  result.hasData = true;
+
+  // Threshold for "no consumption" - devices with value below this are considered zero
+  const NO_CONSUMPTION_THRESHOLD = domain === 'water' ? 0.001 : 0.01; // m³ for water, kWh for energy
+
+  // Map deviceStatus values to our status categories
+  const statusMapping = {
+    'power_on': 'normal',
+    'warning': 'alert',
+    'failure': 'failure',
+    'standby': 'standby',
+    'power_off': 'offline',
+    'maintenance': 'offline',
+    'no_info': 'offline',
+    'not_installed': 'offline',
+    'offline': 'offline',
+  };
+
+  items.forEach((item) => {
+    const deviceInfo = {
+      id: item.id || item.deviceId || '',
+      label: item.label || item.entityLabel || item.name || item.deviceIdentifier || '',
+      name: item.name || item.entityLabel || '',
+    };
+
+    const deviceStatus = item.deviceStatus || 'no_info';
+    const value = Number(item.value || item.val || 0);
+
+    // Check for "no consumption" first (value is 0 or very close to 0)
+    // Only applies to online devices (not offline/no_info)
+    const isOnline = !['no_info', 'offline', 'not_installed', 'maintenance', 'power_off'].includes(deviceStatus);
+
+    if (isOnline && Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
+      result.noConsumption++;
+      result.noConsumptionDevices.push(deviceInfo);
+      return;
+    }
+
+    // Map deviceStatus to our categories
+    const mappedStatus = statusMapping[deviceStatus] || 'offline';
+
+    // Increment count and add to device list
+    result[mappedStatus]++;
+    result[mappedStatus + 'Devices'].push(deviceInfo);
+  });
+
+  LogHelper.log(`[RFC-0105] Device status aggregation complete: ${items.length} items processed`);
+  return result;
+}
+
+/**
  * RFC-0002: Format value based on domain
  * @param {number} value - Numeric value
  * @param {string} domain - Domain ('energy' or 'water')
@@ -2349,18 +2440,27 @@ function setupSummaryTooltip() {
   // Build summary data function based on domain
   // RFC-0105: Now passing domain to enable device list aggregation from MyIOOrchestratorData
   const getSummaryData = () => {
+    // RFC-0105: Aggregate device status from orchestrator data (runs in widget context)
+    const deviceStatusData = aggregateDeviceStatusFromOrchestrator(domain);
+
+    // Enrich RECEIVED_DATA with device status aggregation
+    const enrichedData = {
+      ...RECEIVED_DATA,
+      deviceStatusAggregation: deviceStatusData,
+    };
+
     if (isWater) {
       return SummaryTooltip.buildSummaryFromState(
         STATE_WATER,
-        RECEIVED_DATA,
+        enrichedData,
         STATE_WATER.includeBathrooms,
-        'water'  // RFC-0105: Domain for device list aggregation
+        'water'
       );
     } else {
       return SummaryTooltip.buildSummaryFromState(
         { entrada: STATE.entrada, consumidores: STATE.consumidores, grandTotal: STATE.grandTotal },
-        RECEIVED_DATA,
-        'energy'  // RFC-0105: Domain for device list aggregation
+        enrichedData,
+        'energy'
       );
     }
   };
