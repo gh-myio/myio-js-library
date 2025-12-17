@@ -284,6 +284,7 @@ export type { EnergyEntityData, EnergyStatus, EnergyStatusResult, PowerRange, Po
 
 // RFC-0105: Energy Summary Tooltip (Dashboard summary on hover)
 export { EnergySummaryTooltip } from './utils/EnergySummaryTooltip';
+export { InfoTooltip } from './utils/InfoTooltip';
 export type { DashboardEnergySummary, CategorySummary, StatusSummary } from './utils/EnergySummaryTooltip';
 
 // Modal Header Component (Reusable)

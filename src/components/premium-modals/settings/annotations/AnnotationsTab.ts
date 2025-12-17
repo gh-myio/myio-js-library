@@ -28,6 +28,7 @@ import {
 } from './types';
 
 import { canModifyAnnotation } from '../../../../utils/superAdminUtils';
+import { MyIOToast } from '../../../../components/MyIOToast';
 
 // ============================================
 // UUID GENERATOR
@@ -991,6 +992,142 @@ export class AnnotationsTab {
     }
   }
 
+  /**
+   * Show a confirmation modal and return user's choice
+   * Replaces native confirm() for better UX
+   */
+  private showConfirmation(message: string, title: string = 'Confirmar'): Promise<boolean> {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'annotations-confirm-overlay';
+      overlay.innerHTML = `
+        <div class="annotations-confirm-modal">
+          <div class="annotations-confirm-header">
+            <span class="annotations-confirm-icon">⚠️</span>
+            <span class="annotations-confirm-title">${title}</span>
+          </div>
+          <div class="annotations-confirm-body">
+            <p>${message}</p>
+          </div>
+          <div class="annotations-confirm-actions">
+            <button class="annotations-confirm-btn annotations-confirm-btn--cancel" data-action="cancel">
+              Cancelar
+            </button>
+            <button class="annotations-confirm-btn annotations-confirm-btn--confirm" data-action="confirm">
+              Confirmar
+            </button>
+          </div>
+        </div>
+      `;
+
+      // Inject styles if not present
+      if (!document.getElementById('annotations-confirm-styles')) {
+        const style = document.createElement('style');
+        style.id = 'annotations-confirm-styles';
+        style.textContent = `
+          .annotations-confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100001;
+            animation: confirmFadeIn 0.2s ease;
+          }
+          @keyframes confirmFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          .annotations-confirm-modal {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+            overflow: hidden;
+            animation: confirmSlideIn 0.25s ease;
+          }
+          @keyframes confirmSlideIn {
+            from { transform: translateY(-20px) scale(0.95); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
+          }
+          .annotations-confirm-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-bottom: 1px solid #f59e0b;
+          }
+          .annotations-confirm-icon {
+            font-size: 20px;
+          }
+          .annotations-confirm-title {
+            font-weight: 600;
+            color: #92400e;
+            font-size: 16px;
+          }
+          .annotations-confirm-body {
+            padding: 20px;
+          }
+          .annotations-confirm-body p {
+            margin: 0;
+            color: #374151;
+            font-size: 14px;
+            line-height: 1.5;
+          }
+          .annotations-confirm-actions {
+            display: flex;
+            gap: 12px;
+            padding: 16px 20px;
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            justify-content: flex-end;
+          }
+          .annotations-confirm-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+          }
+          .annotations-confirm-btn--cancel {
+            background: #e5e7eb;
+            color: #374151;
+          }
+          .annotations-confirm-btn--cancel:hover {
+            background: #d1d5db;
+          }
+          .annotations-confirm-btn--confirm {
+            background: #f59e0b;
+            color: white;
+          }
+          .annotations-confirm-btn--confirm:hover {
+            background: #d97706;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+
+      document.body.appendChild(overlay);
+
+      const cleanup = (result: boolean) => {
+        overlay.remove();
+        resolve(result);
+      };
+
+      overlay.querySelector('[data-action="cancel"]')?.addEventListener('click', () => cleanup(false));
+      overlay.querySelector('[data-action="confirm"]')?.addEventListener('click', () => cleanup(true));
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) cleanup(false);
+      });
+    });
+  }
+
   private async saveAnnotations(): Promise<boolean> {
     try {
       const data: LogAnnotationsAttribute = {
@@ -1061,7 +1198,7 @@ export class AnnotationsTab {
       this.render();
     } else {
       this.annotations.shift();
-      alert('Erro ao salvar anotação. Tente novamente.');
+      MyIOToast.show('Erro ao salvar anotação. Tente novamente.', 'error');
     }
   }
 
@@ -1075,9 +1212,10 @@ export class AnnotationsTab {
     // Build change record
     const changeRecord: Record<string, { from: unknown; to: unknown }> = {};
     for (const [key, value] of Object.entries(changes)) {
-      if ((annotation as Record<string, unknown>)[key] !== value) {
+      const annotationAny = annotation as unknown as Record<string, unknown>;
+      if (annotationAny[key] !== value) {
         changeRecord[key] = {
-          from: (annotation as Record<string, unknown>)[key],
+          from: annotationAny[key],
           to: value,
         };
       }
@@ -1106,7 +1244,7 @@ export class AnnotationsTab {
 
     if (!success) {
       this.annotations[index] = annotation;
-      alert('Erro ao atualizar anotação. Tente novamente.');
+      MyIOToast.show('Erro ao atualizar anotação. Tente novamente.', 'error');
     }
   }
 
@@ -1140,7 +1278,7 @@ export class AnnotationsTab {
       this.render();
     } else {
       this.annotations[index] = annotation;
-      alert('Erro ao arquivar anotação. Tente novamente.');
+      MyIOToast.show('Erro ao arquivar anotação. Tente novamente.', 'error');
     }
   }
 
@@ -1741,8 +1879,8 @@ export class AnnotationsTab {
         this.showDetailModal(id);
       });
 
-      card.querySelector('[data-action="archive"]')?.addEventListener('click', () => {
-        if (confirm('Tem certeza que deseja arquivar esta anotação?')) {
+      card.querySelector('[data-action="archive"]')?.addEventListener('click', async () => {
+        if (await this.showConfirmation('Tem certeza que deseja arquivar esta anotação?', 'Arquivar Anotação')) {
           this.archiveAnnotation(id);
         }
       });
@@ -1765,8 +1903,8 @@ export class AnnotationsTab {
         this.showDetailModal(id);
       });
 
-      row.querySelector('[data-action="archive"]')?.addEventListener('click', () => {
-        if (confirm('Tem certeza que deseja arquivar esta anotação?')) {
+      row.querySelector('[data-action="archive"]')?.addEventListener('click', async () => {
+        if (await this.showConfirmation('Tem certeza que deseja arquivar esta anotação?', 'Arquivar Anotação')) {
           this.archiveAnnotation(id);
         }
       });
@@ -1777,13 +1915,204 @@ export class AnnotationsTab {
   // EDIT MODAL
   // ============================================
 
-  private showEditModal(id: string): void {
+  /**
+   * Show a styled input modal for editing annotation text
+   * Replaces native prompt() for better UX
+   */
+  private showInputModal(title: string, placeholder: string, initialValue: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'annotations-input-overlay';
+      overlay.innerHTML = `
+        <div class="annotations-input-modal">
+          <div class="annotations-input-header">
+            <span class="annotations-input-icon">✏️</span>
+            <span class="annotations-input-title">${title}</span>
+          </div>
+          <div class="annotations-input-body">
+            <textarea
+              class="annotations-input-textarea"
+              placeholder="${placeholder}"
+              maxlength="255"
+            >${initialValue}</textarea>
+            <div class="annotations-input-char-count">
+              <span id="input-char-count">${initialValue.length}</span> / 255
+            </div>
+          </div>
+          <div class="annotations-input-actions">
+            <button class="annotations-input-btn annotations-input-btn--cancel" data-action="cancel">
+              Cancelar
+            </button>
+            <button class="annotations-input-btn annotations-input-btn--confirm" data-action="confirm">
+              Salvar
+            </button>
+          </div>
+        </div>
+      `;
+
+      // Inject styles if not present
+      if (!document.getElementById('annotations-input-styles')) {
+        const style = document.createElement('style');
+        style.id = 'annotations-input-styles';
+        style.textContent = `
+          .annotations-input-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100001;
+            animation: inputFadeIn 0.2s ease;
+          }
+          @keyframes inputFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          .annotations-input-modal {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+            overflow: hidden;
+            animation: inputSlideIn 0.25s ease;
+          }
+          @keyframes inputSlideIn {
+            from { transform: translateY(-20px) scale(0.95); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
+          }
+          .annotations-input-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+            border-bottom: 1px solid #5b4cdb;
+          }
+          .annotations-input-icon {
+            font-size: 20px;
+          }
+          .annotations-input-title {
+            font-weight: 600;
+            color: white;
+            font-size: 16px;
+          }
+          .annotations-input-body {
+            padding: 20px;
+          }
+          .annotations-input-textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            color: #212529;
+          }
+          .annotations-input-textarea:focus {
+            outline: none;
+            border-color: #6c5ce7;
+            box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+          }
+          .annotations-input-char-count {
+            font-size: 11px;
+            color: #6c757d;
+            text-align: right;
+            margin-top: 6px;
+          }
+          .annotations-input-actions {
+            display: flex;
+            gap: 12px;
+            padding: 16px 20px;
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            justify-content: flex-end;
+          }
+          .annotations-input-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+          }
+          .annotations-input-btn--cancel {
+            background: #e5e7eb;
+            color: #374151;
+          }
+          .annotations-input-btn--cancel:hover {
+            background: #d1d5db;
+          }
+          .annotations-input-btn--confirm {
+            background: #6c5ce7;
+            color: white;
+          }
+          .annotations-input-btn--confirm:hover {
+            background: #5b4cdb;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+
+      document.body.appendChild(overlay);
+
+      const textarea = overlay.querySelector('.annotations-input-textarea') as HTMLTextAreaElement;
+      const charCount = overlay.querySelector('#input-char-count') as HTMLSpanElement;
+
+      // Focus and select text
+      textarea.focus();
+      textarea.select();
+
+      // Update char count on input
+      textarea.addEventListener('input', () => {
+        charCount.textContent = String(textarea.value.length);
+      });
+
+      const cleanup = (result: string | null) => {
+        overlay.remove();
+        resolve(result);
+      };
+
+      overlay.querySelector('[data-action="cancel"]')?.addEventListener('click', () => cleanup(null));
+      overlay.querySelector('[data-action="confirm"]')?.addEventListener('click', () => {
+        const value = textarea.value.trim();
+        cleanup(value || null);
+      });
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) cleanup(null);
+      });
+
+      // Handle Enter key (Ctrl+Enter to submit)
+      textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.ctrlKey) {
+          const value = textarea.value.trim();
+          cleanup(value || null);
+        }
+        if (e.key === 'Escape') {
+          cleanup(null);
+        }
+      });
+    });
+  }
+
+  private async showEditModal(id: string): Promise<void> {
     const annotation = this.annotations.find((a) => a.id === id);
     if (!annotation) return;
 
-    const newText = prompt('Editar texto da anotação:', annotation.text);
-    if (newText && newText.trim() !== annotation.text) {
-      this.updateAnnotation(id, { text: newText.trim() });
+    const newText = await this.showInputModal(
+      'Editar Anotação',
+      'Digite o novo texto da anotação...',
+      annotation.text
+    );
+
+    if (newText && newText !== annotation.text) {
+      await this.editAnnotation(id, { text: newText });
+      this.render();
     }
   }
 
@@ -1884,7 +2213,7 @@ export class AnnotationsTab {
     overlay.querySelector('.annotation-detail__close')?.addEventListener('click', () => overlay.remove());
     overlay.querySelector('[data-action="close"]')?.addEventListener('click', () => overlay.remove());
     overlay.querySelector('[data-action="archive"]')?.addEventListener('click', async () => {
-      if (confirm('Tem certeza que deseja arquivar esta anotação?')) {
+      if (await this.showConfirmation('Tem certeza que deseja arquivar esta anotação?', 'Arquivar Anotação')) {
         overlay.remove();
         await this.archiveAnnotation(id);
       }

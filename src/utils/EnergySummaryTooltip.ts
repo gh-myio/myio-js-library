@@ -84,11 +84,13 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.08);
+  min-width: 380px;
   width: max-content;
   max-width: 90vw;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 12px;
   color: #1e293b;
+  overflow: hidden;
 }
 
 .energy-summary-tooltip__header {
@@ -394,8 +396,7 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   align-items: center;
   padding: 10px 14px;
   background: linear-gradient(135deg, #047857 0%, #059669 100%);
-  margin: 12px -14px -14px;
-  border-radius: 0 0 12px 12px;
+  border-radius: 0 0 11px 11px;
 }
 
 .energy-summary-tooltip__total-label {
@@ -580,7 +581,7 @@ export const EnergySummaryTooltip = {
       { key: 'failure', label: 'Falha', count: status.failure },
       { key: 'standby', label: 'Standby', count: status.standby },
       { key: 'offline', label: 'Offline', count: status.offline },
-      { key: 'no-consumption', label: 'Sem Dados', count: status.noConsumption },
+      { key: 'no-consumption', label: 'Sem Consumo', count: status.noConsumption },
     ];
 
     return items.map(item => `
@@ -1289,17 +1290,35 @@ export const EnergySummaryTooltip = {
     summary.totalDevices = entrada.deviceCount + lojas.deviceCount + areaComumDeviceCount;
     summary.totalConsumption = state.grandTotal || entrada.consumption;
 
-    // Status counts (placeholder - would need device-level status data)
-    // For now, estimate based on device counts
+    // Status counts - use actual data from receivedData if available
+    // Otherwise, estimate based on device counts
     const totalDevices = summary.totalDevices;
-    summary.byStatus = {
-      normal: Math.floor(totalDevices * 0.85), // Estimate 85% normal
-      alert: Math.floor(totalDevices * 0.08),  // Estimate 8% alert
-      failure: Math.floor(totalDevices * 0.02), // Estimate 2% failure
-      standby: Math.floor(totalDevices * 0.03), // Estimate 3% standby
-      offline: Math.floor(totalDevices * 0.02), // Estimate 2% offline
-      noConsumption: 0,
-    };
+
+    // Check if receivedData has actual status counts
+    const statusData = receivedData?.statusCounts || receivedData?.deviceStatus || null;
+
+    if (statusData && typeof statusData === 'object') {
+      // Use actual status counts from data
+      summary.byStatus = {
+        normal: statusData.normal || 0,
+        alert: statusData.alert || 0,
+        failure: statusData.failure || 0,
+        standby: statusData.standby || 0,
+        offline: statusData.offline || 0,
+        noConsumption: statusData.noConsumption || statusData.zeroConsumption || 0,
+      };
+    } else {
+      // Fallback: estimate based on device counts
+      // Include noConsumption estimate (devices with 0,00 kWh)
+      summary.byStatus = {
+        normal: Math.floor(totalDevices * 0.75), // Estimate 75% normal (with consumption)
+        alert: Math.floor(totalDevices * 0.06),  // Estimate 6% alert
+        failure: Math.floor(totalDevices * 0.02), // Estimate 2% failure
+        standby: Math.floor(totalDevices * 0.02), // Estimate 2% standby
+        offline: Math.floor(totalDevices * 0.03), // Estimate 3% offline
+        noConsumption: Math.floor(totalDevices * 0.12), // Estimate 12% sem consumo
+      };
+    }
 
     // Adjust to ensure totals match
     const statusSum = Object.values(summary.byStatus).reduce((a, b) => a + b, 0);

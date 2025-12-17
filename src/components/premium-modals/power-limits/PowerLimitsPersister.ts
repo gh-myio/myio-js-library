@@ -67,20 +67,60 @@ export class PowerLimitsPersister {
   }
 
   /**
-   * Save mapInstantaneousPower to customer server_scope attributes
+   * Fetch child customer relations (level 1) from a parent customer
+   * Returns array of child customer IDs
    */
-  async saveCustomerPowerLimits(
+  async fetchChildCustomerIds(parentCustomerId: string): Promise<string[]> {
+    try {
+      const url = `${this.tbBaseUrl}/api/relations/info?fromId=${parentCustomerId}&fromType=CUSTOMER`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'X-Authorization': `Bearer ${this.jwtToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.warn('[PowerLimitsPersister] Failed to fetch relations:', response.status);
+        return [];
+      }
+
+      const relations = await response.json();
+
+      if (!Array.isArray(relations) || relations.length === 0) {
+        console.log('[PowerLimitsPersister] No child customer relations found');
+        return [];
+      }
+
+      // Extract customer IDs from relations where toEntityType is CUSTOMER
+      const childCustomerIds = relations
+        .filter((rel: any) => rel.to?.entityType === 'CUSTOMER' && rel.to?.id)
+        .map((rel: any) => rel.to.id);
+
+      console.log(`[PowerLimitsPersister] Found ${childCustomerIds.length} child customer(s)`);
+      return childCustomerIds;
+
+    } catch (error) {
+      console.error('[PowerLimitsPersister] Error fetching relations:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Save power limits to a single customer (internal method)
+   */
+  private async saveToSingleCustomer(
     customerId: string,
     limits: InstantaneousPowerLimits
-  ): Promise<{ ok: boolean; error?: PowerLimitsError }> {
+  ): Promise<boolean> {
     try {
       const url = `${this.tbBaseUrl}/api/plugins/telemetry/CUSTOMER/${customerId}/attributes/SERVER_SCOPE`;
 
       const payload = {
         mapInstantaneousPower: limits,
       };
-
-      console.log('[PowerLimitsPersister] Saving power limits:', payload);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -92,11 +132,56 @@ export class PowerLimitsPersister {
       });
 
       if (!response.ok) {
-        throw this.createHttpError(response.status, await response.text().catch(() => ''));
+        console.warn(`[PowerLimitsPersister] Failed to save to customer ${customerId}:`, response.status);
+        return false;
       }
 
-      console.log('[PowerLimitsPersister] Successfully saved power limits');
-      return { ok: true };
+      return true;
+    } catch (error) {
+      console.error(`[PowerLimitsPersister] Error saving to customer ${customerId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Save mapInstantaneousPower to customer server_scope attributes
+   * Also propagates to all child customers (level 1 relations)
+   */
+  async saveCustomerPowerLimits(
+    customerId: string,
+    limits: InstantaneousPowerLimits
+  ): Promise<{ ok: boolean; error?: PowerLimitsError; savedCount?: number }> {
+    try {
+      console.log('[PowerLimitsPersister] Saving power limits:', { customerId, limits });
+
+      // 1. Save to the main customer first
+      const mainSaveSuccess = await this.saveToSingleCustomer(customerId, limits);
+      if (!mainSaveSuccess) {
+        throw new Error('Failed to save to main customer');
+      }
+      console.log('[PowerLimitsPersister] Successfully saved to main customer');
+
+      // 2. Fetch child customers from relations
+      const childCustomerIds = await this.fetchChildCustomerIds(customerId);
+
+      // 3. Save to all child customers in parallel
+      let successCount = 1; // Main customer already saved
+      if (childCustomerIds.length > 0) {
+        console.log(`[PowerLimitsPersister] Saving to ${childCustomerIds.length} child customer(s)...`);
+
+        const savePromises = childCustomerIds.map((childId) =>
+          this.saveToSingleCustomer(childId, limits)
+        );
+
+        const results = await Promise.all(savePromises);
+        const childSuccessCount = results.filter(Boolean).length;
+        successCount += childSuccessCount;
+
+        console.log(`[PowerLimitsPersister] Saved to ${childSuccessCount}/${childCustomerIds.length} child customer(s)`);
+      }
+
+      console.log(`[PowerLimitsPersister] Total: saved to ${successCount} customer(s)`);
+      return { ok: true, savedCount: successCount };
 
     } catch (error) {
       console.error('[PowerLimitsPersister] Error saving power limits:', error);
