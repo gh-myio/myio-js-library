@@ -1797,243 +1797,21 @@ function hideValidationWarning() {
   $$('.validation-warning').remove();
 }
 
-// ===================== INFO TOOLTIP (Premium Style) =====================
+// ===================== INFO TOOLTIP (RFC-0105: Using Library Component) =====================
 
 /**
- * CSS for the info tooltip (injected once)
+ * Get InfoTooltip from library
+ * @returns {object|null} InfoTooltip component or null if not available
  */
-const INFO_TOOLTIP_CSS = `
-  .info-tooltip-trigger {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: help;
-    opacity: 0.6;
-    transition: opacity 0.2s ease;
-    position: relative;
-    margin-left: 6px;
-    vertical-align: middle;
-    font-size: 12px;
-  }
-  .info-tooltip-trigger:hover { opacity: 1; }
-
-  .info-tooltip-container {
-    position: fixed;
-    z-index: 99999;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.25s ease, transform 0.25s ease;
-    transform: translateY(5px);
-  }
-  .info-tooltip-container.visible {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateY(0);
-  }
-
-  .info-tooltip-panel {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 2px 10px rgba(0, 0, 0, 0.08);
-    min-width: 320px;
-    max-width: 400px;
-    font-size: 12px;
-    color: #1e293b;
-    overflow: hidden;
-    font-family: Inter, system-ui, -apple-system, sans-serif;
-  }
-
-  .info-tooltip-panel__header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 14px 18px;
-    background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%);
-    border-bottom: 1px solid #cbd5e1;
-  }
-  .info-tooltip-panel__icon { font-size: 18px; }
-  .info-tooltip-panel__title {
-    font-weight: 700;
-    font-size: 14px;
-    color: #475569;
-    letter-spacing: 0.3px;
-  }
-
-  .info-tooltip-panel__content {
-    padding: 16px 18px;
-    max-height: 600px;
-    overflow-y: auto;
-  }
-
-  .info-tooltip-panel__section {
-    margin-bottom: 14px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #f1f5f9;
-  }
-  .info-tooltip-panel__section:last-child {
-    margin-bottom: 0;
-    padding-bottom: 0;
-    border-bottom: none;
-  }
-
-  .info-tooltip-panel__section-title {
-    font-size: 11px;
-    font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .info-tooltip-panel__row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 5px 0;
-    gap: 12px;
-  }
-  .info-tooltip-panel__label {
-    color: #64748b;
-    font-size: 12px;
-    flex-shrink: 0;
-  }
-  .info-tooltip-panel__value {
-    color: #1e293b;
-    font-weight: 600;
-    text-align: right;
-  }
-  .info-tooltip-panel__value--highlight {
-    color: #10b981;
-    font-weight: 700;
-    font-size: 14px;
-  }
-  .info-tooltip-panel__value--negative {
-    color: #ef4444;
-  }
-
-  .info-tooltip-panel__formula {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 12px 14px;
-    margin-top: 10px;
-    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-    font-size: 11px;
-    color: #475569;
-    line-height: 1.6;
-  }
-  .info-tooltip-panel__formula-title {
-    font-weight: 700;
-    color: #334155;
-    margin-bottom: 6px;
-    font-family: Inter, system-ui, sans-serif;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  .info-tooltip-panel__formula-text {
-    word-break: break-word;
-  }
-
-  .info-tooltip-panel__notice {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 12px 14px;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    border-radius: 8px;
-    margin-top: 12px;
-  }
-  .info-tooltip-panel__notice--warning {
-    background: #fffbeb;
-    border-color: #fde68a;
-  }
-  .info-tooltip-panel__notice-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
-  .info-tooltip-panel__notice-text { font-size: 11px; color: #475569; line-height: 1.5; }
-  .info-tooltip-panel__notice-text strong { font-weight: 700; color: #334155; }
-
-  .info-tooltip-panel__category {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: #f8fafc;
-    border-radius: 8px;
-    margin-bottom: 6px;
-    border-left: 3px solid #94a3b8;
-  }
-  .info-tooltip-panel__category:last-child { margin-bottom: 0; }
-  .info-tooltip-panel__category--climatizacao { border-left-color: #00C896; background: #ecfdf5; }
-  .info-tooltip-panel__category--elevadores { border-left-color: #5B2EBC; background: #f5f3ff; }
-  .info-tooltip-panel__category--escadas { border-left-color: #FF6B6B; background: #fef2f2; }
-  .info-tooltip-panel__category--lojas { border-left-color: #FFC107; background: #fffbeb; }
-  .info-tooltip-panel__category--outros { border-left-color: #9C27B0; background: #fdf4ff; }
-  .info-tooltip-panel__category--areacomum { border-left-color: #4CAF50; background: #f0fdf4; }
-
-  .info-tooltip-panel__category-icon { font-size: 14px; flex-shrink: 0; }
-  .info-tooltip-panel__category-info { flex: 1; }
-  .info-tooltip-panel__category-name {
-    font-weight: 600;
-    color: #334155;
-    font-size: 12px;
-  }
-  .info-tooltip-panel__category-desc {
-    font-size: 10px;
-    color: #64748b;
-    margin-top: 2px;
-  }
-  .info-tooltip-panel__category-value {
-    font-weight: 700;
-    color: #334155;
-    font-size: 13px;
-  }
-`;
-
-/**
- * Inject tooltip CSS once
- */
-function ensureInfoTooltipCSS() {
-  if (document.getElementById('telemetry-info-tooltip-styles')) return;
-
-  const style = document.createElement('style');
-  style.id = 'telemetry-info-tooltip-styles';
-  style.textContent = INFO_TOOLTIP_CSS;
-  document.head.appendChild(style);
-  LogHelper.log('[Tooltip] CSS injected');
+function getInfoTooltip() {
+  return window.MyIOLibrary?.InfoTooltip || null;
 }
 
 /**
- * Create tooltip container (appended to body)
+ * Build Área Comum tooltip content HTML
+ * @returns {string} HTML content
  */
-function createInfoTooltipContainer() {
-  const existing = document.getElementById('telemetry-info-tooltip');
-  if (existing) existing.remove();
-
-  ensureInfoTooltipCSS();
-
-  const container = document.createElement('div');
-  container.id = 'telemetry-info-tooltip';
-  container.className = 'info-tooltip-container';
-  document.body.appendChild(container);
-  return container;
-}
-
-/**
- * Show Área Comum tooltip with formula and breakdown
- * @param {HTMLElement} triggerElement - Element that triggered the tooltip
- */
-function showAreaComumTooltip(triggerElement) {
-  let container = document.getElementById('telemetry-info-tooltip');
-  if (!container) {
-    container = createInfoTooltipContainer();
-  }
-
-  // Get current values from STATE
+function buildAreaComumContent() {
   const entrada = STATE.entrada.total || 0;
   const lojas = STATE.consumidores.lojas?.total || 0;
   const climatizacao = STATE.consumidores.climatizacao?.total || 0;
@@ -2042,96 +1820,70 @@ function showAreaComumTooltip(triggerElement) {
   const outros = STATE.consumidores.outros?.total || 0;
   const areaComum = STATE.consumidores.areaComum?.total || 0;
 
-  // Calculate expected (sanity check)
-  const consumidoresSum = lojas + climatizacao + elevadores + escadasRolantes + outros;
-  const expectedAreaComum = entrada - consumidoresSum;
-  const hasDiscrepancy = Math.abs(expectedAreaComum - areaComum) > 0.01;
-
-  // Build HTML
-  container.innerHTML = `
-    <div class="info-tooltip-panel">
-      <div class="info-tooltip-panel__header">
-        <span class="info-tooltip-panel__icon">🏢</span>
-        <span class="info-tooltip-panel__title">Área Comum - Detalhes</span>
+  return `
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">
+        <span>📊</span> Valores Atuais
       </div>
-      <div class="info-tooltip-panel__content">
-        <div class="info-tooltip-panel__section">
-          <div class="info-tooltip-panel__section-title">
-            <span>📊</span> Valores Atuais
-          </div>
-          <div class="info-tooltip-panel__row">
-            <span class="info-tooltip-panel__label">📥 Entrada (Total):</span>
-            <span class="info-tooltip-panel__value">${formatEnergy(entrada)}</span>
-          </div>
-          <div class="info-tooltip-panel__row">
-            <span class="info-tooltip-panel__label">➖ Lojas:</span>
-            <span class="info-tooltip-panel__value">${formatEnergy(lojas)}</span>
-          </div>
-          <div class="info-tooltip-panel__row">
-            <span class="info-tooltip-panel__label">➖ Climatização:</span>
-            <span class="info-tooltip-panel__value">${formatEnergy(climatizacao)}</span>
-          </div>
-          <div class="info-tooltip-panel__row">
-            <span class="info-tooltip-panel__label">➖ Elevadores:</span>
-            <span class="info-tooltip-panel__value">${formatEnergy(elevadores)}</span>
-          </div>
-          <div class="info-tooltip-panel__row">
-            <span class="info-tooltip-panel__label">➖ Esc. Rolantes:</span>
-            <span class="info-tooltip-panel__value">${formatEnergy(escadasRolantes)}</span>
-          </div>
-          <div class="info-tooltip-panel__row">
-            <span class="info-tooltip-panel__label">➖ Outros:</span>
-            <span class="info-tooltip-panel__value">${formatEnergy(outros)}</span>
-          </div>
-          <div class="info-tooltip-panel__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
-            <span class="info-tooltip-panel__label"><strong>= Área Comum:</strong></span>
-            <span class="info-tooltip-panel__value info-tooltip-panel__value--highlight">${formatEnergy(areaComum)}</span>
-          </div>
-        </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">📥 Entrada (Total):</span>
+        <span class="myio-info-tooltip__value">${formatEnergy(entrada)}</span>
+      </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">➖ Lojas:</span>
+        <span class="myio-info-tooltip__value">${formatEnergy(lojas)}</span>
+      </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">➖ Climatização:</span>
+        <span class="myio-info-tooltip__value">${formatEnergy(climatizacao)}</span>
+      </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">➖ Elevadores:</span>
+        <span class="myio-info-tooltip__value">${formatEnergy(elevadores)}</span>
+      </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">➖ Esc. Rolantes:</span>
+        <span class="myio-info-tooltip__value">${formatEnergy(escadasRolantes)}</span>
+      </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">➖ Outros:</span>
+        <span class="myio-info-tooltip__value">${formatEnergy(outros)}</span>
+      </div>
+      <div class="myio-info-tooltip__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
+        <span class="myio-info-tooltip__label"><strong>= Área Comum:</strong></span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatEnergy(areaComum)}</span>
+      </div>
+    </div>
 
-        <div class="info-tooltip-panel__formula">
-          <div class="info-tooltip-panel__formula-title">📐 Fórmula</div>
-          <div class="info-tooltip-panel__formula-text">
-            Área Comum = Entrada − (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)
-          </div>
-        </div>
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">📐 Fórmula</div>
+      <div style="font-size: 11px; color: #475569; line-height: 1.5;">
+        Área Comum = Entrada − (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)
+      </div>
+    </div>
 
-        <div class="info-tooltip-panel__notice">
-          <span class="info-tooltip-panel__notice-icon">💡</span>
-          <div class="info-tooltip-panel__notice-text">
-            <strong>Área Comum</strong> representa o consumo residual do shopping que não está associado a nenhuma categoria específica (iluminação geral, tomadas, etc).
-          </div>
-        </div>
+    <div class="myio-info-tooltip__notice">
+      <span class="myio-info-tooltip__notice-icon">💡</span>
+      <div class="myio-info-tooltip__notice-text">
+        <strong>Área Comum</strong> representa o consumo residual do shopping que não está associado a nenhuma categoria específica (iluminação geral, tomadas, etc).
       </div>
     </div>
   `;
-
-  // Position tooltip
-  positionInfoTooltip(container, triggerElement);
-  container.classList.add('visible');
 }
 
 /**
- * Show Climatização tooltip with composition explanation
- * RFC-0096: Now shows real device counts and consumption from TELEMETRY widget
- * @param {HTMLElement} triggerElement - Element that triggered the tooltip
+ * Build Climatização tooltip content HTML
+ * @returns {string} HTML content
  */
-function showClimatizacaoTooltip(triggerElement) {
-  let container = document.getElementById('telemetry-info-tooltip');
-  if (!container) {
-    container = createInfoTooltipContainer();
-  }
-
+function buildClimatizacaoContent() {
   const climatizacao = STATE.consumidores.climatizacao?.total || 0;
   const climatizacaoPerc = STATE.consumidores.climatizacao?.perc || 0;
   const climatizacaoCount = RECEIVED_DATA.climatizacao?.count || 0;
   const subcategoriesData = RECEIVED_DATA.climatizacao?.subcategories || null;
 
-  // RFC-0097: Build subcategories HTML dynamically from data
-  // Subcategories are now grouped by identifier (e.g., CAG) or deviceType
+  // Build subcategories HTML dynamically
   let subcatHtml = '';
   if (subcategoriesData && typeof subcategoriesData === 'object') {
-    // Sort by total consumption (descending)
     const sortedKeys = Object.keys(subcategoriesData).sort((a, b) => {
       const totalA = subcategoriesData[a]?.total || 0;
       const totalB = subcategoriesData[b]?.total || 0;
@@ -2143,114 +1895,93 @@ function showClimatizacaoTooltip(triggerElement) {
       if (data && (data.count > 0 || data.total > 0)) {
         const label = data.label || key.toUpperCase();
         subcatHtml += `
-          <div class="info-tooltip-panel__category info-tooltip-panel__category--climatizacao">
-            <span class="info-tooltip-panel__category-icon">❄️</span>
-            <div class="info-tooltip-panel__category-info">
-              <div class="info-tooltip-panel__category-name">${label}</div>
-              <div class="info-tooltip-panel__category-desc">${data.count} equipamento(s)</div>
+          <div class="myio-info-tooltip__category myio-info-tooltip__category--climatizacao">
+            <span class="myio-info-tooltip__category-icon">❄️</span>
+            <div class="myio-info-tooltip__category-info">
+              <div class="myio-info-tooltip__category-name">${label}</div>
+              <div class="myio-info-tooltip__category-desc">${data.count} equipamento(s)</div>
             </div>
-            <span class="info-tooltip-panel__category-value">${formatEnergy(data.total)}</span>
+            <span class="myio-info-tooltip__category-value">${formatEnergy(data.total)}</span>
           </div>
         `;
       }
     });
   }
 
-  // Fallback if no subcategory data
   if (!subcatHtml) {
     subcatHtml = `
-      <div class="info-tooltip-panel__category info-tooltip-panel__category--climatizacao">
-        <span class="info-tooltip-panel__category-icon">ℹ️</span>
-        <div class="info-tooltip-panel__category-info">
-          <div class="info-tooltip-panel__category-name">Sem dados</div>
-          <div class="info-tooltip-panel__category-desc">Aguardando dados de subcategorias</div>
+      <div class="myio-info-tooltip__category myio-info-tooltip__category--climatizacao">
+        <span class="myio-info-tooltip__category-icon">ℹ️</span>
+        <div class="myio-info-tooltip__category-info">
+          <div class="myio-info-tooltip__category-name">Sem dados</div>
+          <div class="myio-info-tooltip__category-desc">Aguardando dados de subcategorias</div>
         </div>
       </div>
     `;
   }
 
-  container.innerHTML = `
-    <div class="info-tooltip-panel">
-      <div class="info-tooltip-panel__header">
-        <span class="info-tooltip-panel__icon">❄️</span>
-        <span class="info-tooltip-panel__title">Climatização - Detalhes</span>
+  return `
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">
+        <span>📊</span> Consumo Total
       </div>
-      <div class="info-tooltip-panel__content">
-        <div class="info-tooltip-panel__section">
-          <div class="info-tooltip-panel__section-title">
-            <span>📊</span> Consumo Total
-          </div>
-          <div class="info-tooltip-panel__row">
-            <span class="info-tooltip-panel__label">Climatização:</span>
-            <span class="info-tooltip-panel__value info-tooltip-panel__value--highlight">${formatEnergy(climatizacao)}</span>
-          </div>
-          <div class="info-tooltip-panel__row">
-            <span class="info-tooltip-panel__label">Equipamentos:</span>
-            <span class="info-tooltip-panel__value">${climatizacaoCount}</span>
-          </div>
-          <div class="info-tooltip-panel__row">
-            <span class="info-tooltip-panel__label">Participação:</span>
-            <span class="info-tooltip-panel__value">${climatizacaoPerc.toFixed(1)}%</span>
-          </div>
-        </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Climatização:</span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatEnergy(climatizacao)}</span>
+      </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Equipamentos:</span>
+        <span class="myio-info-tooltip__value">${climatizacaoCount}</span>
+      </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Participação:</span>
+        <span class="myio-info-tooltip__value">${climatizacaoPerc.toFixed(1)}%</span>
+      </div>
+    </div>
 
-        <div class="info-tooltip-panel__section">
-          <div class="info-tooltip-panel__section-title">
-            <span>📋</span> Composição
-          </div>
-          ${subcatHtml}
-        </div>
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">
+        <span>📋</span> Composição
+      </div>
+      ${subcatHtml}
+    </div>
 
-        <div class="info-tooltip-panel__notice">
-          <span class="info-tooltip-panel__notice-icon">💡</span>
-          <div class="info-tooltip-panel__notice-text">
-            O valor de <strong>Climatização</strong> é calculado pela soma do consumo de todos os equipamentos classificados nestas categorias.
-          </div>
-        </div>
+    <div class="myio-info-tooltip__notice">
+      <span class="myio-info-tooltip__notice-icon">💡</span>
+      <div class="myio-info-tooltip__notice-text">
+        O valor de <strong>Climatização</strong> é calculado pela soma do consumo de todos os equipamentos classificados nestas categorias.
       </div>
     </div>
   `;
-
-  positionInfoTooltip(container, triggerElement);
-  container.classList.add('visible');
 }
 
 /**
- * RFC-0097: Show detailed tooltip for "Outros Equipamentos"
- * Displays breakdown by deviceType
- * @param {HTMLElement} triggerElement - Element that triggered the tooltip
+ * Build Outros Equipamentos tooltip content HTML
+ * @returns {string} HTML content
  */
-function showOutrosTooltip(triggerElement) {
-  let container = document.getElementById('telemetry-info-tooltip');
-  if (!container) {
-    container = createInfoTooltipContainer();
-  }
-
+function buildOutrosContent() {
   const outros = STATE.consumidores.outros?.total || 0;
   const outrosPerc = STATE.consumidores.outros?.perc || 0;
   const outrosCount = RECEIVED_DATA.outros?.count || 0;
   const subcategoriesData = RECEIVED_DATA.outros?.subcategories || null;
 
-  // RFC-0097: Build subcategories HTML dynamically from data (grouped by deviceType)
+  const deviceTypeIcons = {
+    'motor': '⚙️',
+    '3f_medidor': '📊',
+    'compressor': '🔧',
+    'ventilador': '🌀',
+    'bomba': '💧',
+    'bomba_hidraulica': '💧',
+    'desconhecido': '❓',
+  };
+
   let subcatHtml = '';
   if (subcategoriesData && typeof subcategoriesData === 'object') {
-    // Sort by total consumption (descending)
     const sortedKeys = Object.keys(subcategoriesData).sort((a, b) => {
       const totalA = subcategoriesData[a]?.total || 0;
       const totalB = subcategoriesData[b]?.total || 0;
       return totalB - totalA;
     });
-
-    // Icon mapping by device type
-    const deviceTypeIcons = {
-      'motor': '⚙️',
-      '3f_medidor': '📊',
-      'compressor': '🔧',
-      'ventilador': '🌀',
-      'bomba': '💧',
-      'bomba_hidraulica': '💧',
-      'desconhecido': '❓',
-    };
 
     sortedKeys.forEach((key) => {
       const data = subcategoriesData[key];
@@ -2258,120 +1989,129 @@ function showOutrosTooltip(triggerElement) {
         const label = data.label || key.toUpperCase();
         const icon = deviceTypeIcons[key.toLowerCase()] || '🔌';
         subcatHtml += `
-          <div class="info-tooltip-panel__category info-tooltip-panel__category--outros">
-            <span class="info-tooltip-panel__category-icon">${icon}</span>
-            <div class="info-tooltip-panel__category-info">
-              <div class="info-tooltip-panel__category-name">${label}</div>
-              <div class="info-tooltip-panel__category-desc">${data.count} equipamento(s)</div>
+          <div class="myio-info-tooltip__category myio-info-tooltip__category--outros">
+            <span class="myio-info-tooltip__category-icon">${icon}</span>
+            <div class="myio-info-tooltip__category-info">
+              <div class="myio-info-tooltip__category-name">${label}</div>
+              <div class="myio-info-tooltip__category-desc">${data.count} equipamento(s)</div>
             </div>
-            <span class="info-tooltip-panel__category-value">${formatEnergy(data.total)}</span>
+            <span class="myio-info-tooltip__category-value">${formatEnergy(data.total)}</span>
           </div>
         `;
       }
     });
   }
 
-  // Fallback if no subcategory data
   if (!subcatHtml) {
     subcatHtml = `
-      <div class="info-tooltip-panel__category info-tooltip-panel__category--outros">
-        <span class="info-tooltip-panel__category-icon">ℹ️</span>
-        <div class="info-tooltip-panel__category-info">
-          <div class="info-tooltip-panel__category-name">Sem dados</div>
-          <div class="info-tooltip-panel__category-desc">Aguardando dados de subcategorias</div>
+      <div class="myio-info-tooltip__category myio-info-tooltip__category--outros">
+        <span class="myio-info-tooltip__category-icon">ℹ️</span>
+        <div class="myio-info-tooltip__category-info">
+          <div class="myio-info-tooltip__category-name">Sem dados</div>
+          <div class="myio-info-tooltip__category-desc">Aguardando dados de subcategorias</div>
         </div>
       </div>
     `;
   }
 
-  container.innerHTML = `
-    <div class="info-tooltip-panel">
-      <div class="info-tooltip-panel__header">
-        <span class="info-tooltip-panel__icon">🔌</span>
-        <span class="info-tooltip-panel__title">Outros Equipamentos - Detalhes</span>
+  return `
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">
+        <span>📊</span> Consumo Total
       </div>
-      <div class="info-tooltip-panel__content">
-        <div class="info-tooltip-panel__section">
-          <div class="info-tooltip-panel__section-title">
-            <span>📊</span> Consumo Total
-          </div>
-          <div class="info-tooltip-panel__row">
-            <span class="info-tooltip-panel__label">Outros:</span>
-            <span class="info-tooltip-panel__value info-tooltip-panel__value--highlight">${formatEnergy(outros)}</span>
-          </div>
-          <div class="info-tooltip-panel__row">
-            <span class="info-tooltip-panel__label">Equipamentos:</span>
-            <span class="info-tooltip-panel__value">${outrosCount}</span>
-          </div>
-          <div class="info-tooltip-panel__row">
-            <span class="info-tooltip-panel__label">Participação:</span>
-            <span class="info-tooltip-panel__value">${outrosPerc.toFixed(1)}%</span>
-          </div>
-        </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Outros:</span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatEnergy(outros)}</span>
+      </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Equipamentos:</span>
+        <span class="myio-info-tooltip__value">${outrosCount}</span>
+      </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Participação:</span>
+        <span class="myio-info-tooltip__value">${outrosPerc.toFixed(1)}%</span>
+      </div>
+    </div>
 
-        <div class="info-tooltip-panel__section">
-          <div class="info-tooltip-panel__section-title">
-            <span>📋</span> Composição por Tipo
-          </div>
-          ${subcatHtml}
-        </div>
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">
+        <span>📋</span> Composição por Tipo
+      </div>
+      ${subcatHtml}
+    </div>
 
-        <div class="info-tooltip-panel__notice">
-          <span class="info-tooltip-panel__notice-icon">💡</span>
-          <div class="info-tooltip-panel__notice-text">
-            O valor de <strong>Outros Equipamentos</strong> inclui todos os dispositivos que não se enquadram nas categorias principais (Climatização, Elevadores, Escadas Rolantes).
-          </div>
-        </div>
+    <div class="myio-info-tooltip__notice">
+      <span class="myio-info-tooltip__notice-icon">💡</span>
+      <div class="myio-info-tooltip__notice-text">
+        O valor de <strong>Outros Equipamentos</strong> inclui todos os dispositivos que não se enquadram nas categorias principais (Climatização, Elevadores, Escadas Rolantes).
       </div>
     </div>
   `;
-
-  positionInfoTooltip(container, triggerElement);
-  container.classList.add('visible');
 }
 
 /**
- * Position tooltip below or above the trigger element
- * @param {HTMLElement} container - Tooltip container
+ * Show Área Comum tooltip using library InfoTooltip
  * @param {HTMLElement} triggerElement - Element that triggered the tooltip
  */
-function positionInfoTooltip(container, triggerElement) {
-  const rect = triggerElement.getBoundingClientRect();
-  let left = rect.left;
-  let top = rect.bottom + 8;
-
-  // Prevent going off screen horizontally
-  const tooltipWidth = 380;
-  if (left + tooltipWidth > window.innerWidth - 20) {
-    left = window.innerWidth - tooltipWidth - 20;
+function showAreaComumTooltip(triggerElement) {
+  const InfoTooltip = getInfoTooltip();
+  if (!InfoTooltip) {
+    LogHelper.warn('[Tooltip] InfoTooltip not available in library');
+    return;
   }
-  if (left < 10) left = 10;
-
-  // If tooltip would go below viewport, show above
-  if (top + 400 > window.innerHeight) {
-    top = rect.top - 8 - 400;
-    if (top < 10) top = 10;
-  }
-
-  container.style.left = left + 'px';
-  container.style.top = top + 'px';
+  InfoTooltip.show(triggerElement, {
+    icon: '🏢',
+    title: 'Área Comum - Detalhes',
+    content: buildAreaComumContent()
+  });
 }
 
 /**
- * Hide the info tooltip
+ * Show Climatização tooltip using library InfoTooltip
+ * @param {HTMLElement} triggerElement - Element that triggered the tooltip
  */
-function hideInfoTooltip() {
-  const container = document.getElementById('telemetry-info-tooltip');
-  if (container) {
-    container.classList.remove('visible');
+function showClimatizacaoTooltip(triggerElement) {
+  const InfoTooltip = getInfoTooltip();
+  if (!InfoTooltip) {
+    LogHelper.warn('[Tooltip] InfoTooltip not available in library');
+    return;
   }
+  InfoTooltip.show(triggerElement, {
+    icon: '❄️',
+    title: 'Climatização - Detalhes',
+    content: buildClimatizacaoContent()
+  });
+}
+
+/**
+ * Show Outros Equipamentos tooltip using library InfoTooltip
+ * @param {HTMLElement} triggerElement - Element that triggered the tooltip
+ */
+function showOutrosTooltip(triggerElement) {
+  const InfoTooltip = getInfoTooltip();
+  if (!InfoTooltip) {
+    LogHelper.warn('[Tooltip] InfoTooltip not available in library');
+    return;
+  }
+  InfoTooltip.show(triggerElement, {
+    icon: '🔌',
+    title: 'Outros Equipamentos - Detalhes',
+    content: buildOutrosContent()
+  });
 }
 
 /**
  * Setup tooltip triggers for all info icons
+ * RFC-0105: Now using library InfoTooltip component
  */
 function setupInfoTooltips() {
   const $container = $root();
+  const InfoTooltip = getInfoTooltip();
+
+  if (!InfoTooltip) {
+    LogHelper.warn('[Tooltip] InfoTooltip not available - tooltips disabled');
+    return;
+  }
 
   // Área Comum tooltip trigger
   const $areaComumTrigger = $container.find('.area-comum-card .info-tooltip');
@@ -2384,7 +2124,7 @@ function setupInfoTooltips() {
         showAreaComumTooltip(this);
       })
       .on('mouseleave.infoTooltip', function () {
-        hideInfoTooltip();
+        InfoTooltip.startDelayedHide();
       });
     LogHelper.log('[Tooltip] Área Comum trigger bound');
   }
@@ -2400,7 +2140,7 @@ function setupInfoTooltips() {
         showClimatizacaoTooltip(this);
       })
       .on('mouseleave.infoTooltip', function () {
-        hideInfoTooltip();
+        InfoTooltip.startDelayedHide();
       });
     LogHelper.log('[Tooltip] Climatização trigger bound');
   }
@@ -2416,7 +2156,7 @@ function setupInfoTooltips() {
         showOutrosTooltip(this);
       })
       .on('mouseleave.infoTooltip', function () {
-        hideInfoTooltip();
+        InfoTooltip.startDelayedHide();
       });
     LogHelper.log('[Tooltip] Outros Equipamentos trigger bound');
   }
@@ -2433,6 +2173,9 @@ function setupInfoTooltips() {
   LogHelper.log('[Tooltip] All info tooltips configured');
 }
 
+// NOTE: Legacy tooltip CSS removed - now using InfoTooltip from library
+// See RFC-0105 for standardized tooltip implementation
+
 // ===================== RFC-0105: ENERGY SUMMARY TOOLTIP =====================
 
 let energySummaryTooltipCleanup = null;
@@ -2445,20 +2188,28 @@ function setupEnergySummaryTooltip() {
   LogHelper.log('[RFC-0105] Setting up Energy Summary Tooltip...');
 
   const $container = $root();
-  const $trigger = $container.find('#btnInfoSummary');
+  let $trigger = $container.find('#btnInfoSummary');
 
+  // Se o botão não existir, criar dinamicamente
   if (!$trigger.length) {
-    LogHelper.warn('[RFC-0105] Info summary button not found');
-    return;
+    LogHelper.log('[RFC-0105] Creating btnInfoSummary dynamically...');
+    const $title = $container.find('#infoTitleHeader');
+    if ($title.length) {
+      const $btn = $J('<span class="info-tooltip btn-info-summary" id="btnInfoSummary" title="Ver resumo do dashboard" style="cursor: pointer; margin-left: 8px;">ℹ️</span>');
+      $title.append($btn);
+      $trigger = $btn;
+      LogHelper.log('[RFC-0105] btnInfoSummary created and appended to title');
+    } else {
+      LogHelper.warn('[RFC-0105] Info title header not found, cannot create button');
+      return;
+    }
   }
 
   // Get EnergySummaryTooltip from library
   const EnergySummaryTooltip = window.MyIOLibrary?.EnergySummaryTooltip;
 
   if (!EnergySummaryTooltip) {
-    LogHelper.warn('[RFC-0105] EnergySummaryTooltip not available in MyIOLibrary, using inline implementation');
-    // Fallback: use native tooltip with summary
-    setupEnergySummaryTooltipFallback($trigger[0]);
+    console.error('[RFC-0105] EnergySummaryTooltip not available in MyIOLibrary. Tooltip will not work.');
     return;
   }
 
@@ -2476,437 +2227,8 @@ function setupEnergySummaryTooltip() {
   LogHelper.log('[RFC-0105] Energy Summary Tooltip attached successfully');
 }
 
-/**
- * RFC-0105: Fallback tooltip implementation when library component not available
- * - Supports hover on tooltip to copy data
- * - 1.5s delay before closing
- * - Fade animation on close
- * - PIN, Maximize, Close buttons
- * - Drag to move functionality
- */
-function setupEnergySummaryTooltipFallback(triggerElement) {
-  const TOOLTIP_CSS = `
-    .energy-summary-tooltip-fallback {
-      position: fixed;
-      z-index: 99999;
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-      width: max-content;
-      max-width: 90vw;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 12px;
-      color: #1e293b;
-      opacity: 0;
-      pointer-events: auto;
-      transition: opacity 0.3s ease, transform 0.3s ease;
-      transform: translateY(8px);
-    }
-    .energy-summary-tooltip-fallback.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    .energy-summary-tooltip-fallback.closing {
-      opacity: 0;
-      transform: translateY(8px);
-      transition: opacity 0.4s ease, transform 0.4s ease;
-    }
-    .energy-summary-tooltip-fallback.pinned {
-      box-shadow: 0 0 0 2px #047857, 0 10px 40px rgba(0, 0, 0, 0.2);
-    }
-    .energy-summary-tooltip-fallback.maximized {
-      top: 20px !important;
-      left: 20px !important;
-      right: 20px !important;
-      bottom: 20px !important;
-      width: auto !important;
-      max-width: none !important;
-    }
-    .energy-summary-tooltip-fallback.maximized .energy-summary-tooltip-fallback__body {
-      flex: 1;
-      overflow-y: auto;
-    }
-    .energy-summary-tooltip-fallback.dragging {
-      transition: none !important;
-      cursor: move;
-    }
-    .energy-summary-tooltip-fallback__header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
-      background: linear-gradient(90deg, #ecfdf5 0%, #d1fae5 100%);
-      border-bottom: 1px solid #6ee7b7;
-      border-radius: 12px 12px 0 0;
-      cursor: move;
-      user-select: none;
-    }
-    .energy-summary-tooltip-fallback__title {
-      font-weight: 700;
-      font-size: 14px;
-      color: #047857;
-      flex: 1;
-    }
-    .energy-summary-tooltip-fallback__header-actions {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .energy-summary-tooltip-fallback__header-btn {
-      width: 24px;
-      height: 24px;
-      border: none;
-      background: rgba(255, 255, 255, 0.6);
-      border-radius: 4px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.15s ease;
-      color: #64748b;
-    }
-    .energy-summary-tooltip-fallback__header-btn:hover {
-      background: rgba(255, 255, 255, 0.9);
-      color: #1e293b;
-    }
-    .energy-summary-tooltip-fallback__header-btn.pinned {
-      background: #047857;
-      color: white;
-    }
-    .energy-summary-tooltip-fallback__header-btn.pinned:hover {
-      background: #065f46;
-      color: white;
-    }
-    .energy-summary-tooltip-fallback__header-btn svg {
-      width: 14px;
-      height: 14px;
-    }
-    .energy-summary-tooltip-fallback__body {
-      padding: 14px;
-    }
-    .energy-summary-tooltip-fallback__row {
-      display: flex;
-      justify-content: space-between;
-      padding: 5px 0;
-      border-bottom: 1px solid #f1f5f9;
-      gap: 20px;
-    }
-    .energy-summary-tooltip-fallback__row:last-child {
-      border-bottom: none;
-    }
-    .energy-summary-tooltip-fallback__label {
-      color: #64748b;
-      font-size: 11px;
-    }
-    .energy-summary-tooltip-fallback__value {
-      font-weight: 600;
-      color: #1e293b;
-      font-size: 11px;
-    }
-    .energy-summary-tooltip-fallback__total {
-      display: flex;
-      justify-content: space-between;
-      padding: 10px 14px;
-      background: linear-gradient(135deg, #047857 0%, #059669 100%);
-      border-radius: 0 0 12px 12px;
-      color: white;
-    }
-    .energy-summary-tooltip-fallback__total-value {
-      font-weight: 700;
-      font-size: 16px;
-    }
-  `;
-
-  // Inject CSS
-  if (!document.getElementById('energy-summary-tooltip-fallback-css')) {
-    const style = document.createElement('style');
-    style.id = 'energy-summary-tooltip-fallback-css';
-    style.textContent = TOOLTIP_CSS;
-    document.head.appendChild(style);
-  }
-
-  // Create tooltip element
-  let tooltipEl = document.getElementById('energy-summary-tooltip-fallback');
-  if (!tooltipEl) {
-    tooltipEl = document.createElement('div');
-    tooltipEl.id = 'energy-summary-tooltip-fallback';
-    tooltipEl.className = 'energy-summary-tooltip-fallback';
-    document.body.appendChild(tooltipEl);
-  }
-
-  // State for delayed hide, pin, maximize, and drag
-  let hideTimer = null;
-  let isMouseOverTooltip = false;
-  let isPinned = false;
-  let isMaximized = false;
-  let isDragging = false;
-  let dragOffset = { x: 0, y: 0 };
-  let savedPosition = null;
-
-  const formatEnergy = (val) => {
-    if (val >= 1000) return (val / 1000).toFixed(2).replace('.', ',') + ' MWh';
-    return val.toFixed(2).replace('.', ',') + ' kWh';
-  };
-
-  const startDelayedHide = () => {
-    if (isMouseOverTooltip || isPinned) return;
-    if (hideTimer) clearTimeout(hideTimer);
-    hideTimer = setTimeout(() => {
-      if (!isPinned) {
-        hideTooltipWithAnimation();
-      }
-    }, 1500);
-  };
-
-  const hideTooltipWithAnimation = () => {
-    if (tooltipEl.classList.contains('visible')) {
-      tooltipEl.classList.add('closing');
-      setTimeout(() => {
-        tooltipEl.classList.remove('visible');
-        tooltipEl.classList.remove('closing');
-      }, 400);
-    }
-  };
-
-  const hideTooltipImmediate = () => {
-    if (hideTimer) clearTimeout(hideTimer);
-    hideTimer = null;
-    isMouseOverTooltip = false;
-    isPinned = false;
-    isMaximized = false;
-    isDragging = false;
-    savedPosition = null;
-    tooltipEl.classList.remove('visible', 'closing', 'pinned', 'maximized', 'dragging');
-  };
-
-  const togglePin = () => {
-    isPinned = !isPinned;
-    const pinBtn = tooltipEl.querySelector('[data-action="pin"]');
-    if (pinBtn) pinBtn.classList.toggle('pinned', isPinned);
-    tooltipEl.classList.toggle('pinned', isPinned);
-    if (!isPinned) {
-      startDelayedHide();
-    } else if (hideTimer) {
-      clearTimeout(hideTimer);
-      hideTimer = null;
-    }
-  };
-
-  const toggleMaximize = () => {
-    isMaximized = !isMaximized;
-    if (isMaximized) {
-      savedPosition = { left: tooltipEl.style.left, top: tooltipEl.style.top };
-    }
-    tooltipEl.classList.toggle('maximized', isMaximized);
-    const maxBtn = tooltipEl.querySelector('[data-action="maximize"]');
-    if (maxBtn) {
-      if (isMaximized) {
-        maxBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 5V3h12v12h-2"/></svg>';
-        maxBtn.setAttribute('title', 'Restaurar');
-      } else {
-        maxBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>';
-        maxBtn.setAttribute('title', 'Maximizar');
-        if (savedPosition) {
-          tooltipEl.style.left = savedPosition.left;
-          tooltipEl.style.top = savedPosition.top;
-        }
-      }
-    }
-  };
-
-  const closeTooltip = () => {
-    isPinned = false;
-    isMaximized = false;
-    isDragging = false;
-    savedPosition = null;
-    if (hideTimer) {
-      clearTimeout(hideTimer);
-      hideTimer = null;
-    }
-    tooltipEl.classList.remove('visible', 'pinned', 'maximized', 'dragging', 'closing');
-  };
-
-  const setupDragListeners = (header) => {
-    const onMouseDown = (e) => {
-      if (e.target.closest('[data-action]')) return;
-      if (isMaximized) return;
-      isDragging = true;
-      tooltipEl.classList.add('dragging');
-      const rect = tooltipEl.getBoundingClientRect();
-      dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-    };
-    const onMouseMove = (e) => {
-      if (!isDragging) return;
-      const newLeft = e.clientX - dragOffset.x;
-      const newTop = e.clientY - dragOffset.y;
-      const maxLeft = window.innerWidth - tooltipEl.offsetWidth;
-      const maxTop = window.innerHeight - tooltipEl.offsetHeight;
-      tooltipEl.style.left = Math.max(0, Math.min(newLeft, maxLeft)) + 'px';
-      tooltipEl.style.top = Math.max(0, Math.min(newTop, maxTop)) + 'px';
-    };
-    const onMouseUp = () => {
-      isDragging = false;
-      tooltipEl.classList.remove('dragging');
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-    header.addEventListener('mousedown', onMouseDown);
-  };
-
-  const showTooltip = (e) => {
-    // Cancel any pending hide
-    if (hideTimer) {
-      clearTimeout(hideTimer);
-      hideTimer = null;
-    }
-    tooltipEl.classList.remove('closing');
-
-    const entradaTotal = STATE.entrada?.total || 0;
-    const lojasTotal = STATE.consumidores?.lojas?.total || 0;
-    const climatTotal = STATE.consumidores?.climatizacao?.total || 0;
-    const elevTotal = STATE.consumidores?.elevadores?.total || 0;
-    const escadasTotal = STATE.consumidores?.escadasRolantes?.total || 0;
-    const outrosTotal = STATE.consumidores?.outros?.total || 0;
-    const areaComumTotal = STATE.consumidores?.areaComum?.total || 0;
-
-    const entradaCount = RECEIVED_DATA.entrada_total?.device_count || 0;
-    const lojasCount = RECEIVED_DATA.lojas_total?.device_count || 0;
-    const climatCount = RECEIVED_DATA.climatizacao?.count || 0;
-    const elevCount = RECEIVED_DATA.elevadores?.count || 0;
-    const escadasCount = RECEIVED_DATA.escadas_rolantes?.count || 0;
-    const outrosCount = RECEIVED_DATA.outros?.count || 0;
-
-    const totalDevices = entradaCount + lojasCount + climatCount + elevCount + escadasCount + outrosCount;
-
-    tooltipEl.innerHTML = `
-      <div class="energy-summary-tooltip-fallback__header" data-drag-handle>
-        <span>⚡</span>
-        <span class="energy-summary-tooltip-fallback__title">Resumo do Dashboard</span>
-        <div class="energy-summary-tooltip-fallback__header-actions">
-          <button class="energy-summary-tooltip-fallback__header-btn" data-action="pin" title="Fixar tooltip">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2v10M12 12l-4 4v6M12 12l4 4v6M8 6h8"/>
-            </svg>
-          </button>
-          <button class="energy-summary-tooltip-fallback__header-btn" data-action="maximize" title="Maximizar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-            </svg>
-          </button>
-          <button class="energy-summary-tooltip-fallback__header-btn" data-action="close" title="Fechar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-      <div class="energy-summary-tooltip-fallback__body">
-        <div class="energy-summary-tooltip-fallback__row">
-          <span class="energy-summary-tooltip-fallback__label">Total de Dispositivos</span>
-          <span class="energy-summary-tooltip-fallback__value">\${totalDevices}</span>
-        </div>
-        <div class="energy-summary-tooltip-fallback__row">
-          <span class="energy-summary-tooltip-fallback__label">📥 Entrada (\${entradaCount})</span>
-          <span class="energy-summary-tooltip-fallback__value">\${formatEnergy(entradaTotal)}</span>
-        </div>
-        <div class="energy-summary-tooltip-fallback__row">
-          <span class="energy-summary-tooltip-fallback__label">🏪 Lojas (\${lojasCount})</span>
-          <span class="energy-summary-tooltip-fallback__value">\${formatEnergy(lojasTotal)}</span>
-        </div>
-        <div class="energy-summary-tooltip-fallback__row">
-          <span class="energy-summary-tooltip-fallback__label">❄️ Climatizacao (\${climatCount})</span>
-          <span class="energy-summary-tooltip-fallback__value">\${formatEnergy(climatTotal)}</span>
-        </div>
-        <div class="energy-summary-tooltip-fallback__row">
-          <span class="energy-summary-tooltip-fallback__label">🛗 Elevadores (\${elevCount})</span>
-          <span class="energy-summary-tooltip-fallback__value">\${formatEnergy(elevTotal)}</span>
-        </div>
-        <div class="energy-summary-tooltip-fallback__row">
-          <span class="energy-summary-tooltip-fallback__label">🎢 Esc. Rolantes (\${escadasCount})</span>
-          <span class="energy-summary-tooltip-fallback__value">\${formatEnergy(escadasTotal)}</span>
-        </div>
-        <div class="energy-summary-tooltip-fallback__row">
-          <span class="energy-summary-tooltip-fallback__label">⚙️ Outros (\${outrosCount})</span>
-          <span class="energy-summary-tooltip-fallback__value">\${formatEnergy(outrosTotal)}</span>
-        </div>
-        <div class="energy-summary-tooltip-fallback__row">
-          <span class="energy-summary-tooltip-fallback__label">🏢 Area Comum</span>
-          <span class="energy-summary-tooltip-fallback__value">\${formatEnergy(areaComumTotal)}</span>
-        </div>
-      </div>
-      <div class="energy-summary-tooltip-fallback__total">
-        <span>Consumo Total</span>
-        <span class="energy-summary-tooltip-fallback__total-value">\${formatEnergy(STATE.grandTotal || entradaTotal)}</span>
-      </div>
-    `;
-
-    // Position near trigger element (not following mouse)
-    const rect = triggerElement.getBoundingClientRect();
-    let left = rect.right + 12;
-    let top = rect.top;
-
-    // Adjust for viewport bounds
-    const tooltipWidth = 350;
-    const tooltipHeight = 400;
-
-    if (left + tooltipWidth > window.innerWidth - 16) {
-      left = rect.left - tooltipWidth - 12;
-    }
-    if (left < 16) left = 16;
-    if (top + tooltipHeight > window.innerHeight - 16) {
-      top = window.innerHeight - tooltipHeight - 16;
-    }
-    if (top < 16) top = 16;
-
-    tooltipEl.style.left = left + 'px';
-    tooltipEl.style.top = top + 'px';
-    tooltipEl.classList.add('visible');
-
-    // Setup tooltip hover listeners
-    tooltipEl.onmouseenter = () => {
-      isMouseOverTooltip = true;
-      if (hideTimer) {
-        clearTimeout(hideTimer);
-        hideTimer = null;
-      }
-    };
-    tooltipEl.onmouseleave = () => {
-      isMouseOverTooltip = false;
-      startDelayedHide();
-    };
-
-    // Setup button click handlers
-    const buttons = tooltipEl.querySelectorAll('[data-action]');
-    buttons.forEach(btn => {
-      btn.onclick = (ev) => {
-        ev.stopPropagation();
-        const action = btn.dataset.action;
-        if (action === 'pin') togglePin();
-        else if (action === 'maximize') toggleMaximize();
-        else if (action === 'close') closeTooltip();
-      };
-    });
-
-    // Setup drag listeners
-    const header = tooltipEl.querySelector('[data-drag-handle]');
-    if (header) setupDragListeners(header);
-  };
-
-  triggerElement.addEventListener('mouseenter', showTooltip);
-  triggerElement.addEventListener('mouseleave', startDelayedHide);
-
-  // Store cleanup function
-  energySummaryTooltipCleanup = () => {
-    triggerElement.removeEventListener('mouseenter', showTooltip);
-    triggerElement.removeEventListener('mouseleave', startDelayedHide);
-    hideTooltipImmediate();
-  };
-
-  LogHelper.log('[RFC-0105] Energy Summary Tooltip (fallback) attached successfully');
-}
+// NOTE: Fallback tooltip removed - library component is required
+// If EnergySummaryTooltip is not available, a console.error will be logged
 
 // ===================== WIDGET LIFECYCLE =====================
 

@@ -59,11 +59,12 @@
 
 /* ========== CARDS ========== */
 
+/* RFC-0105: Compact 2-line cards */
 .info-card {
   background: var(--myio-bg-secondary, #F9F9F9);
   border: 1px solid var(--myio-border, #E0E0E0);
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 10px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -101,39 +102,39 @@
   }
 }
 
+/* RFC-0105: Compact 2-line card layout */
 .card-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--myio-border-light, #F0F0F0);
+  gap: 6px;
+  margin-bottom: 4px;
 }
 
 .card-icon {
-  font-size: 20px;
+  font-size: 16px;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
   margin: 0;
   color: var(--myio-primary, #5B2EBC);
   letter-spacing: -0.01em;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
   white-space: nowrap;
+  flex: 1;
 }
 
-/* Tooltip icon */
+/* Tooltip icon - floats right in card-header */
 .info-tooltip {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--myio-accent, #00C896);
   cursor: help;
-  opacity: 0.8;
+  opacity: 0.7;
   transition: opacity 0.2s ease;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .info-tooltip:hover {
@@ -141,11 +142,9 @@
 }
 
 .card-body {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  overflow-y: auto;
+  gap: 0;
 }
 
 /* ========== STATS (RFC-0056 FIX: Valor + Percentual na mesma linha) ========== */
@@ -153,16 +152,15 @@
 .stat-row {
   display: flex;
   align-items: center;
-  justify-content: space-between; /* RFC-0056: EspaÃ§a valor e percentual */
-  gap: 12px;
-  font-size: 14px;
-  line-height: 1.4;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.2;
 }
 
 .stat-row.main-stat {
-  font-size: 18px; /* RFC-0056: Aumentado de 16px para 18px para destaque */
+  font-size: 14px;
   font-weight: 600;
-  color: var(--myio-primary, #5B2EBC);
 }
 
 .stat-label {
@@ -181,7 +179,7 @@
 .stat-perc {
   color: var(--myio-accent, #00C896);
   font-weight: 500;
-  font-size: 14px; /* RFC-0056: Percentual um pouco menor que o valor */
+  font-size: 11px;
   text-align: right;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
@@ -822,23 +820,99 @@ body.modal-open-telemetry-info {
 /* Ensure chart spans both columns on all widths */
 .info-grid > .chart-card { grid-column: 1 / -1 !important; }
 
-/* RFC-0056 FIX: Proportional font-size reduction (~35%) for ultra-compact layout */
-/* Cards principais */
-.info-title { font-size: 13px !important; }           /* era 20px → 13px (-35%) */
-.card-title { font-size: 10px !important; }           /* era 16px → 10px (-37%) */
-.card-icon { font-size: 14px !important; }            /* era 20px → 14px (-30%) */
-.stat-row { font-size: 9px !important; }              /* era 14px → 9px (-36%) */
-.stat-row.main-stat { font-size: 12px !important; }   /* era 18px → 12px (-33%) */
-.stat-value { font-size: 12px !important; }           /* era 18px → 12px (-33%) */
-.stat-perc { font-size: 9px !important; }             /* era 14px → 9px (-36%) */
-.devices-list { font-size: 8px !important; }          /* era 12px → 8px (-33%) */
+/* RFC-0105: Compact 2-line card layout overrides */
+/* Card structure - ONLY 2 lines: [icon+name...info] and [value...%] */
+.info-card:not(.chart-card) {
+  padding: 6px 10px !important;
+  min-height: auto !important;
+  max-height: 50px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+}
+
+/* Line 1: Header - [Icon][Title]...[ℹ️] */
+.info-card:not(.chart-card) .card-header {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  gap: 4px !important;
+  border: none !important;
+  flex-shrink: 0 !important;
+  height: 18px !important;
+  line-height: 18px !important;
+}
+
+/* Line 2: Body - [Value]...[%] */
+.info-card:not(.chart-card) .card-body {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+  height: 20px !important;
+  line-height: 20px !important;
+}
+
+.info-card:not(.chart-card) .stat-row.main-stat {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 20px !important;
+  line-height: 20px !important;
+}
+
+/* Hide all other elements */
+.info-card:not(.chart-card) .devices-list,
+.info-card:not(.chart-card) .stat-row:not(.main-stat),
+.info-card:not(.chart-card) .residual-note {
+  display: none !important;
+}
+
+/* Font sizes - compact */
+.info-title { font-size: 13px !important; }
+.info-card:not(.chart-card) .card-title {
+  font-size: 11px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 18px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  flex: 1 !important;
+}
+.info-card:not(.chart-card) .card-icon {
+  font-size: 13px !important;
+  line-height: 18px !important;
+  flex-shrink: 0 !important;
+}
+.info-card:not(.chart-card) .info-tooltip {
+  font-size: 10px !important;
+  line-height: 18px !important;
+  flex-shrink: 0 !important;
+  margin-left: auto !important;
+}
+.info-card:not(.chart-card) .stat-value {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 20px !important;
+}
+.info-card:not(.chart-card) .stat-perc {
+  font-size: 10px !important;
+  line-height: 20px !important;
+}
 
 /* Empty states */
-.empty-state-icon { font-size: 32px !important; }     /* era 48px → 32px (-33%) */
-.empty-state-text { font-size: 10px !important; }     /* era 14px → 10px (-29%) */
-.empty-state-hint, .empty-state-hint small { font-size: 9px !important; } /* era 12px → 9px (-25%) */
+.empty-state-icon { font-size: 32px !important; }
+.empty-state-text { font-size: 10px !important; }
+.empty-state-hint, .empty-state-hint small { font-size: 9px !important; }
 
 /* Chart legend - main widget */
-.legend-item { font-size: 9px !important; }           /* era 12px → 9px (-25%) */
-.legend-label { font-size: 9px !important; }          /* era 12px → 9px (-25%) */
-.legend-value { font-size: 9px !important; }          /* era 12px → 9px (-25%) */
+.legend-item { font-size: 9px !important; }
+.legend-label { font-size: 9px !important; }
+.legend-value { font-size: 9px !important; }

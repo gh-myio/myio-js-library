@@ -22,6 +22,15 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error('[TELEMETRY]', ...args),
 };
 
+// ===== INFOTOOLTIP FROM LIBRARY (RFC-0105) =====
+/**
+ * Get InfoTooltip from the library
+ * @returns {object|null} InfoTooltip component or null if not available
+ */
+function getInfoTooltip() {
+  return window.MyIOLibrary?.InfoTooltip || null;
+}
+
 LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
 
 /**
@@ -108,237 +117,70 @@ function injectBadgeStyles() {
               justify-content: center;
               line-height: 1;
           }
-
-          /* Summary tooltip - positioned via JS to avoid card overflow */
-          .annotation-summary-tooltip {
-              position: fixed;
-              min-width: 240px;
-              max-width: 300px;
-              background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-              border: 1px solid rgba(0, 0, 0, 0.1);
-              border-radius: 10px;
-              padding: 0;
-              box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-              font-family: 'Inter', system-ui, sans-serif;
-              font-size: 12px;
-              color: #1a1a2e;
-              opacity: 0;
-              visibility: hidden;
-              transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
-              pointer-events: none;
-              z-index: 9999;
-          }
-
-          .annotation-summary-tooltip.visible {
-              opacity: 1;
-              visibility: visible;
-              pointer-events: auto;
-          }
-
-          .annotation-summary-tooltip.closing {
-              opacity: 0;
-              transform: scale(0.95);
-          }
-
-          .annotation-summary-tooltip.pinned {
-              box-shadow: 0 0 0 2px #6366f1, 0 8px 24px rgba(0, 0, 0, 0.2);
-          }
-
-          .annotation-summary-tooltip.maximized {
-              min-width: 400px;
-              max-width: 600px;
-              max-height: 80vh;
-              overflow-y: auto;
-              position: fixed;
-              left: 50% !important;
-              top: 50% !important;
-              transform: translate(-50%, -50%) !important;
-          }
-
-          .annotation-summary-tooltip.maximized .annotation-summary-tooltip__content {
-              max-height: calc(80vh - 50px);
-              overflow-y: auto;
-          }
-
-          .annotation-summary-tooltip.dragging {
-              cursor: move;
-              user-select: none;
-          }
-
-          .annotation-summary-tooltip__header {
-              display: flex;
-              align-items: center;
-              gap: 8px;
-              padding: 10px 12px;
-              background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%);
-              border-radius: 10px 10px 0 0;
-              border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-              cursor: move;
-              user-select: none;
-          }
-
-          .annotation-summary-tooltip__header-title {
-              font-weight: 600;
-              font-size: 13px;
-              flex: 1;
-              display: flex;
-              align-items: center;
-              gap: 6px;
-              color: #1a1a2e;
-          }
-
-          .annotation-summary-tooltip__header-actions {
-              display: flex;
-              align-items: center;
-              gap: 4px;
-          }
-
-          .annotation-summary-tooltip__header-btn {
-              width: 22px;
-              height: 22px;
-              border: none;
-              background: rgba(255, 255, 255, 0.6);
-              border-radius: 4px;
-              cursor: pointer;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              transition: all 0.15s ease;
-              color: #64748b;
-          }
-
-          .annotation-summary-tooltip__header-btn:hover {
-              background: rgba(255, 255, 255, 0.9);
-              color: #1e293b;
-          }
-
-          .annotation-summary-tooltip__header-btn.pinned {
-              background: #6366f1;
-              color: white;
-          }
-
-          .annotation-summary-tooltip__header-btn.pinned:hover {
-              background: #4f46e5;
-              color: white;
-          }
-
-          .annotation-summary-tooltip__header-btn svg {
-              width: 12px;
-              height: 12px;
-          }
-
-          .annotation-summary-tooltip__content {
-              padding: 12px 14px;
-          }
-
-          .annotation-summary-tooltip::after {
-              content: '';
-              position: absolute;
-              top: 50%;
-              transform: translateY(-50%);
-              border: 8px solid transparent;
-          }
-
-          /* Arrow pointing left (tooltip on right side) */
-          .annotation-summary-tooltip.arrow-left::after {
-              left: -8px;
-              border-right-color: #ffffff;
-              border-left-color: transparent;
-          }
-
-          /* Arrow pointing right (tooltip on left side) */
-          .annotation-summary-tooltip.arrow-right::after {
-              right: -8px;
-              border-left-color: #ffffff;
-              border-right-color: transparent;
-          }
-
-          .annotation-summary-tooltip__title {
-              font-weight: 600;
-              font-size: 13px;
-              margin-bottom: 10px;
-              padding-bottom: 8px;
-              border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-              display: flex;
-              align-items: center;
-              gap: 6px;
-              color: #1a1a2e;
-          }
-
-          .annotation-summary-tooltip__row {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              padding: 4px 0;
-          }
-
-          .annotation-summary-tooltip__label {
-              display: flex;
-              align-items: center;
-              gap: 6px;
-              color: #495057;
-          }
-
-          .annotation-summary-tooltip__dot {
-              width: 8px;
-              height: 8px;
-              border-radius: 50%;
-          }
-
-          .annotation-summary-tooltip__value {
-              font-weight: 600;
-              color: #1a1a2e;
-          }
-
-          .annotation-summary-tooltip__latest {
-              margin-top: 10px;
-              padding-top: 10px;
-              border-top: 1px solid rgba(0, 0, 0, 0.1);
-              font-size: 11px;
-          }
-
-          .annotation-summary-tooltip__latest-label {
-              color: #6c757d;
-              margin-bottom: 4px;
-          }
-
-          .annotation-summary-tooltip__latest-text {
-              color: #343a40;
-              line-height: 1.4;
-              overflow: hidden;
-              text-overflow: ellipsis;
-              display: -webkit-box;
-              -webkit-line-clamp: 2;
-              -webkit-box-orient: vertical;
-          }
-
-          .annotation-summary-tooltip__latest-meta {
-              color: #868e96;
-              font-size: 10px;
-              margin-top: 4px;
-          }
-
-          .annotation-summary-tooltip__overdue {
-              color: #d63031;
-              margin-top: 8px;
-              font-size: 11px;
-              font-weight: 500;
-          }
       `;
   document.head.appendChild(style);
 }
 
+/**
+ * RFC-0105: Build annotation type tooltip content using InfoTooltip classes
+ * @param {string} type - Annotation type (pending, maintenance, activity, observation)
+ * @param {Array} typeAnnotations - Annotations of this type
+ * @param {Object} config - Type configuration (color, icon, label)
+ * @returns {string} HTML content for the tooltip
+ */
+function buildAnnotationTypeTooltipContent(type, typeAnnotations, config) {
+  const now = new Date();
+
+  // Count overdue for this type
+  const typeOverdueCount = typeAnnotations.filter(
+    (a) => a.dueDate && new Date(a.dueDate) < now
+  ).length;
+
+  // Build overdue warning
+  const overdueWarning = typeOverdueCount > 0
+    ? `<div style="color:#d63031;padding:8px 12px;background:#fff5f5;border-radius:6px;margin-bottom:12px;font-size:11px;font-weight:500;">
+         ⚠️ ${typeOverdueCount} anotação(ões) vencida(s)
+       </div>`
+    : '';
+
+  // Build annotations list
+  const annotationsList = typeAnnotations
+    .slice(0, 5)
+    .map((a) => `
+      <div class="myio-info-tooltip__row" style="flex-direction:column;align-items:flex-start;gap:4px;padding:8px 0;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:500;color:#1a1a2e;font-size:12px;line-height:1.4;">"${a.text}"</div>
+        <div style="font-size:10px;color:#868e96;">
+          ${a.createdBy?.name || 'N/A'} • ${new Date(a.createdAt).toLocaleDateString('pt-BR')}
+          ${a.dueDate ? ` • Vence: ${new Date(a.dueDate).toLocaleDateString('pt-BR')}` : ''}
+        </div>
+      </div>
+    `).join('');
+
+  const moreCount = typeAnnotations.length > 5 ? typeAnnotations.length - 5 : 0;
+  const moreSection = moreCount > 0
+    ? `<div style="font-size:11px;color:#6c757d;margin-top:8px;text-align:center;">+ ${moreCount} mais...</div>`
+    : '';
+
+  return `
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${config.color};"></span>
+        ${config.label} (${typeAnnotations.length})
+      </div>
+      ${overdueWarning}
+      ${annotationsList}
+      ${moreSection}
+    </div>
+  `;
+}
+
 // Function to add annotation type badges to a card
 function addAnnotationIndicator(cardElement, entityObject) {
-  console.log(`[TELEMETRY] Adding annotation indicators for ${entityObject.labelOrName}`, entityObject);
+  LogHelper.log(`[TELEMETRY] Adding annotation indicators for ${entityObject.labelOrName}`);
 
   const annotations = entityObject.log_annotations.annotations;
 
-  if (entityObject.labelOrName === 'Chiller 1') {
-    console.log(`[TELEMETRY] Adding annotation indicators for ${entityObject.labelOrName}`, annotations);
-  }
-
-  // Ensure styles are injected
+  // Ensure badge styles are injected
   injectBadgeStyles();
 
   // Create wrapper for positioning
@@ -357,8 +199,6 @@ function addAnnotationIndicator(cardElement, entityObject) {
     activity: [],
     observation: [],
   };
-
-  const now = new Date();
 
   activeAnnotations.forEach((a) => {
     if (annotationsByType[a.type] !== undefined) {
@@ -396,92 +236,10 @@ function addAnnotationIndicator(cardElement, entityObject) {
     },
   };
 
-  // Helper function to setup pinned clone listeners
-  function setupPinnedCloneListeners(cloneEl) {
-    let isMaximized = false;
-    let isDragging = false;
-    let dragOffset = { x: 0, y: 0 };
-    let savedPosition = null;
+  // RFC-0105: Get InfoTooltip from library
+  const InfoTooltip = getInfoTooltip();
 
-    const closeBtn = cloneEl.querySelector('[data-action="close"]');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        cloneEl.classList.add('closing');
-        setTimeout(() => cloneEl.remove(), 200);
-      });
-    }
-
-    const maxBtn = cloneEl.querySelector('[data-action="maximize"]');
-    if (maxBtn) {
-      maxBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        isMaximized = !isMaximized;
-        if (isMaximized) {
-          savedPosition = {
-            left: cloneEl.style.left,
-            top: cloneEl.style.top,
-            transform: cloneEl.style.transform,
-          };
-          cloneEl.classList.add('maximized');
-          cloneEl.style.left = '50%';
-          cloneEl.style.top = '50%';
-          cloneEl.style.transform = 'translate(-50%, -50%)';
-        } else {
-          cloneEl.classList.remove('maximized');
-          if (savedPosition) {
-            cloneEl.style.left = savedPosition.left;
-            cloneEl.style.top = savedPosition.top;
-            cloneEl.style.transform = savedPosition.transform;
-          }
-        }
-      });
-    }
-
-    const pinBtn = cloneEl.querySelector('[data-action="pin"]');
-    if (pinBtn) {
-      pinBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        cloneEl.classList.add('closing');
-        setTimeout(() => cloneEl.remove(), 200);
-      });
-    }
-
-    const dragHandle = cloneEl.querySelector('[data-drag-handle]');
-    if (dragHandle) {
-      dragHandle.style.cursor = 'move';
-      dragHandle.addEventListener('mousedown', (e) => {
-        if (e.target.closest('[data-action]')) return;
-        isDragging = true;
-        cloneEl.classList.add('dragging');
-        const rect = cloneEl.getBoundingClientRect();
-        dragOffset = {
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
-        };
-        e.preventDefault();
-      });
-    }
-
-    const onMouseMove = (e) => {
-      if (!isDragging) return;
-      cloneEl.style.left = `${e.clientX - dragOffset.x}px`;
-      cloneEl.style.top = `${e.clientY - dragOffset.y}px`;
-      cloneEl.style.transform = 'none';
-    };
-
-    const onMouseUp = () => {
-      if (isDragging) {
-        isDragging = false;
-        cloneEl.classList.remove('dragging');
-      }
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  }
-
-  // Create a tooltip for each badge type
+  // Create a badge for each type with annotations
   typeOrder.forEach((type) => {
     const typeAnnotations = annotationsByType[type];
     if (typeAnnotations.length === 0) return;
@@ -495,215 +253,22 @@ function addAnnotationIndicator(cardElement, entityObject) {
       <span class="annotation-type-badge__count">${typeAnnotations.length}</span>
     `;
 
-    // Count overdue for this type
-    const typeOverdueCount = typeAnnotations.filter(
-      (a) => a.dueDate && new Date(a.dueDate) < now
-    ).length;
-
-    // Create tooltip specific to this type
-    const latestAnnotation = typeAnnotations[0];
-    const tooltipId = `annotation-tooltip-${entityObject.entityId || Date.now()}-${type}`;
-
-    const overdueWarning =
-      typeOverdueCount > 0
-        ? `<div class="annotation-summary-tooltip__overdue">⚠️ ${typeOverdueCount} anotação(ões) vencida(s)</div>`
-        : '';
-
-    // Build annotations list
-    const annotationsList = typeAnnotations
-      .slice(0, 5)
-      .map(
-        (a) => `
-        <div class="annotation-summary-tooltip__row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
-          <div style="font-weight: 500; color: #1a1a2e;">"${a.text}"</div>
-          <div style="font-size: 10px; color: #868e96;">
-            ${a.createdBy?.name || 'N/A'} • ${new Date(a.createdAt).toLocaleDateString('pt-BR')}
-            ${a.dueDate ? ` • Vence: ${new Date(a.dueDate).toLocaleDateString('pt-BR')}` : ''}
-          </div>
-        </div>
-      `
-      )
-      .join('');
-
-    const moreCount = typeAnnotations.length > 5 ? typeAnnotations.length - 5 : 0;
-    const moreSection =
-      moreCount > 0 ? `<div style="font-size: 11px; color: #6c757d; margin-top: 8px;">+ ${moreCount} mais...</div>` : '';
-
-    const tooltip = document.createElement('div');
-    tooltip.className = 'annotation-summary-tooltip';
-    tooltip.id = tooltipId;
-    tooltip.innerHTML = `
-      <div class="annotation-summary-tooltip__header" data-drag-handle>
-        <span class="annotation-summary-tooltip__header-title">
-          <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${config.color};"></span>
-          ${config.icon} ${config.label} (${typeAnnotations.length})
-        </span>
-        <div class="annotation-summary-tooltip__header-actions">
-          <button class="annotation-summary-tooltip__header-btn" data-action="pin" title="Fixar na tela">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
-              <line x1="12" y1="16" x2="12" y2="21"/>
-              <line x1="8" y1="4" x2="16" y2="4"/>
-            </svg>
-          </button>
-          <button class="annotation-summary-tooltip__header-btn" data-action="maximize" title="Maximizar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-            </svg>
-          </button>
-          <button class="annotation-summary-tooltip__header-btn" data-action="close" title="Fechar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-      <div class="annotation-summary-tooltip__content">
-        ${overdueWarning}
-        ${annotationsList}
-        ${moreSection}
-      </div>
-    `;
-
-    document.body.appendChild(tooltip);
-
-    // Tooltip state management
-    let hideTimer = null;
-    let isMouseOverTooltip = false;
-    let pinnedCounter = 0;
-
-    function positionTooltip(targetRect) {
-      const tooltipWidth = 260;
-      const spacing = 12;
-      const viewportWidth = window.innerWidth;
-      const rightPosition = targetRect.right + spacing;
-      const canFitRight = rightPosition + tooltipWidth < viewportWidth;
-
-      tooltip.classList.remove('arrow-left', 'arrow-right');
-      if (canFitRight) {
-        tooltip.style.left = `${rightPosition}px`;
-        tooltip.classList.add('arrow-left');
-      } else {
-        tooltip.style.left = `${targetRect.left - tooltipWidth - spacing}px`;
-        tooltip.classList.add('arrow-right');
-      }
-      tooltip.style.top = `${targetRect.top + targetRect.height / 2}px`;
-      tooltip.style.transform = 'translateY(-50%)';
-    }
-
-    function showTooltip() {
-      if (hideTimer) {
-        clearTimeout(hideTimer);
-        hideTimer = null;
-      }
-      tooltip.classList.remove('closing');
-      tooltip.classList.add('visible');
-    }
-
-    function hideTooltipWithDelay() {
-      if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = setTimeout(() => {
-        if (!isMouseOverTooltip) {
-          tooltip.classList.add('closing');
-          setTimeout(() => {
-            tooltip.classList.remove('visible', 'closing');
-          }, 200);
-        }
-      }, 1500);
-    }
-
-    function createPinnedClone() {
-      pinnedCounter++;
-      const pinnedId = `${tooltipId}-pinned-${pinnedCounter}`;
-      const clone = tooltip.cloneNode(true);
-      clone.id = pinnedId;
-      clone.classList.add('pinned');
-      clone.classList.remove('arrow-left', 'arrow-right');
-
-      const pinBtn = clone.querySelector('[data-action="pin"]');
-      if (pinBtn) {
-        pinBtn.classList.add('pinned');
-        pinBtn.title = 'Fixado';
-      }
-
-      document.body.appendChild(clone);
-      setupPinnedCloneListeners(clone);
-      tooltip.classList.remove('visible');
-    }
-
-    // Badge hover events
-    badge.addEventListener('mouseenter', () => {
-      const rect = badge.getBoundingClientRect();
-      positionTooltip(rect);
-      showTooltip();
-    });
-
-    badge.addEventListener('mouseleave', () => {
-      hideTooltipWithDelay();
-    });
-
-    // Tooltip hover detection
-    tooltip.addEventListener('mouseenter', () => {
-      isMouseOverTooltip = true;
-      if (hideTimer) {
-        clearTimeout(hideTimer);
-        hideTimer = null;
-      }
-    });
-
-    tooltip.addEventListener('mouseleave', () => {
-      isMouseOverTooltip = false;
-      hideTooltipWithDelay();
-    });
-
-    // Tooltip button handlers
-    const pinBtn = tooltip.querySelector('[data-action="pin"]');
-    const maxBtn = tooltip.querySelector('[data-action="maximize"]');
-    const closeBtn = tooltip.querySelector('[data-action="close"]');
-
-    if (pinBtn) {
-      pinBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        createPinnedClone();
+    // RFC-0105: Use InfoTooltip from library
+    if (InfoTooltip) {
+      badge.addEventListener('mouseenter', () => {
+        const content = buildAnnotationTypeTooltipContent(type, typeAnnotations, config);
+        InfoTooltip.show(badge, {
+          icon: config.icon,
+          title: `${config.label} - ${entityObject.labelOrName}`,
+          content: content
+        });
       });
-    }
 
-    if (closeBtn) {
-      closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        tooltip.classList.add('closing');
-        setTimeout(() => {
-          tooltip.classList.remove('visible', 'closing');
-        }, 200);
+      badge.addEventListener('mouseleave', () => {
+        InfoTooltip.startDelayedHide();
       });
-    }
-
-    if (maxBtn) {
-      let isMaximized = false;
-      let savedPosition = null;
-      maxBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        isMaximized = !isMaximized;
-        if (isMaximized) {
-          savedPosition = {
-            left: tooltip.style.left,
-            top: tooltip.style.top,
-            transform: tooltip.style.transform,
-          };
-          tooltip.classList.add('maximized');
-          tooltip.style.left = '50%';
-          tooltip.style.top = '50%';
-          tooltip.style.transform = 'translate(-50%, -50%)';
-        } else {
-          tooltip.classList.remove('maximized');
-          if (savedPosition) {
-            tooltip.style.left = savedPosition.left;
-            tooltip.style.top = savedPosition.top;
-            tooltip.style.transform = savedPosition.transform;
-          }
-        }
-      });
+    } else {
+      console.error('[TELEMETRY] InfoTooltip not available - cannot show annotation tooltip');
     }
 
     container.appendChild(badge);
