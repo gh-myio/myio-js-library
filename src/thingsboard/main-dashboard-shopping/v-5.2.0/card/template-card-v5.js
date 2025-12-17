@@ -31,6 +31,8 @@ import {
 } from '../../../../utils/deviceStatus.js';
 import { TempRangeTooltip } from '../../../../utils/TempRangeTooltip';
 import { EnergyRangeTooltip } from '../../../../utils/EnergyRangeTooltip';
+import { DeviceComparisonTooltip } from '../../../../utils/DeviceComparisonTooltip';
+import { TempComparisonTooltip } from '../../../../utils/TempComparisonTooltip';
 
 // ============================================
 // CONSTANTS
@@ -677,6 +679,25 @@ export function renderCardComponentV5({
     isOffline,
   });
 
+  // Calculate temperature deviation percentage from average (for TERMOSTATO devices)
+  const calculateTempDeviationPercent = () => {
+    const currentTemp = Number(val) || 0;
+    if (temperatureMin !== undefined && temperatureMax !== undefined) {
+      const avgTemp = (Number(temperatureMin) + Number(temperatureMax)) / 2;
+      if (avgTemp === 0) return { value: 0, sign: '' };
+      const deviation = ((currentTemp - avgTemp) / avgTemp) * 100;
+      return {
+        value: Math.abs(deviation),
+        sign: deviation >= 0 ? '+' : '-',
+        isAbove: deviation > 0,
+        isBelow: deviation < 0,
+      };
+    }
+    return null;
+  };
+
+  const tempDeviationPercent = isTermostatoDevice ? calculateTempDeviationPercent() : null;
+
   // Temperature tooltip is now handled by TempRangeTooltip (attached after render)
 
   // Create card HTML with optimized spacing
@@ -717,11 +738,13 @@ export function renderCardComponentV5({
                 }
               </div>
 
-              <img class="device-image ${isTermostatoDevice ? 'temp-tooltip-trigger' : ''}${
+              <div class="device-image-wrapper">
+                <img class="device-image ${isTermostatoDevice ? 'temp-tooltip-trigger' : ''}${
     isEnergyDeviceFlag ? ' energy-tooltip-trigger' : ''
   }" src="${deviceImageUrl}" alt="${deviceType}" style="${
     isTermostatoDevice || isEnergyDeviceFlag ? 'cursor: help;' : ''
   }" />
+              </div>
 
 
               ${
@@ -743,13 +766,13 @@ export function renderCardComponentV5({
                     ${icon}
                   </span>
                   <span class="consumption-value">${formatCardValue(cardEntity.lastValue, deviceType)}</span>
-                  ${
-                    !isTermostatoDevice
-                      ? `<span class="device-title-percent">(${percentageForDisplay.toFixed(1)}%)</span>`
-                      : ''
-                  }
                 </div>
               </div>
+              ${!isTermostatoDevice
+                ? `<span class="device-percentage-badge percentage-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; cursor: help;">${percentageForDisplay.toFixed(1)}%</span>`
+                : (tempDeviationPercent
+                    ? `<span class="device-percentage-badge temp-deviation-badge temp-comparison-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; color: ${tempDeviationPercent.isAbove ? '#ef4444' : tempDeviationPercent.isBelow ? '#3b82f6' : '#6b7280'}; font-weight: 600; cursor: help;">${tempDeviationPercent.sign}${tempDeviationPercent.value.toFixed(1)}%</span>`
+                    : '')}
             </div>
           </div>
         </div>
@@ -842,6 +865,14 @@ export function renderCardComponentV5({
         }
       }
 
+      /* Device data row - flex to align consumption and percentage */
+      .device-card-centered .device-data-row {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px !important;
+      }
+
       /* Device image - UPDATED margin: 10px → 4px */
       .device-card-centered .device-image {
         max-height: 47px !important;
@@ -856,6 +887,19 @@ export function renderCardComponentV5({
       .device-card-centered:hover .device-image {
         filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.15));
         transform: scale(1.05);
+      }
+
+      /* Floating percentage badge - bottom-right of card */
+      .device-card-centered .device-percentage-badge {
+        background: none !important;
+        background-color: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        font-size: 0.65rem !important;
+        font-weight: 600 !important;
+        color: #6b7280 !important;
+        white-space: nowrap !important;
+        box-shadow: none !important;
       }
 
       .device-card-centered .device-title-row {
@@ -1154,6 +1198,11 @@ export function renderCardComponentV5({
           width: 36px !important;
           height: 36px !important;
         }
+
+        .device-card-centered .device-percentage-badge {
+          font-size: 0.55rem;
+          padding: 2px 5px;
+        }
       }
 
       @media (prefers-color-scheme: dark) {
@@ -1185,6 +1234,10 @@ export function renderCardComponentV5({
         .device-card-centered .card-action {
           background: #1e293b !important;
           border-bottom: 1px solid rgba(71, 85, 105, 0.8);
+        }
+
+        .device-card-centered .device-percentage-badge {
+          color: #94a3b8;
         }
       }
     `;
@@ -1363,10 +1416,82 @@ export function renderCardComponentV5({
     energyTooltipCleanup = EnergyRangeTooltip.attach(energyTooltipTrigger, energyTooltipData);
   }
 
+  // Attach DeviceComparisonTooltip for percentage badge (non-termostato devices)
+  const percentageTooltipTrigger = enhancedCardElement.querySelector('.percentage-tooltip-trigger');
+  let percentageTooltipCleanup = null;
+  if (percentageTooltipTrigger && !isTermostatoDevice) {
+    // Get comparison data function - this pulls from entityObject's comparison data
+    const getComparisonData = () => {
+      // Extract comparison data from entityObject if available
+      const categoryData = entityObject.categoryComparison || {
+        name: `Todos ${deviceType || 'Dispositivos'}`,
+        total: entityObject.categoryTotal || cardEntity.lastValue,
+        deviceCount: entityObject.categoryDeviceCount || 1,
+      };
+
+      const widgetData = entityObject.widgetComparison || {
+        name: entityObject.widgetScopeName || 'Area Comum',
+        total: entityObject.widgetTotal || cardEntity.lastValue,
+        deviceCount: entityObject.widgetDeviceCount || 1,
+      };
+
+      const grandTotalData = entityObject.grandTotalComparison || {
+        name: 'Area Comum + Lojas',
+        total: entityObject.grandTotal || cardEntity.lastValue,
+        deviceCount: entityObject.grandTotalDeviceCount || 1,
+      };
+
+      return DeviceComparisonTooltip.buildComparisonData(
+        {
+          entityId: entityId,
+          labelOrName: cardEntity.name,
+          deviceType: deviceType,
+          val: cardEntity.lastValue,
+          perc: percentageForDisplay,
+        },
+        categoryData,
+        widgetData,
+        grandTotalData
+      );
+    };
+
+    percentageTooltipCleanup = DeviceComparisonTooltip.attach(percentageTooltipTrigger, getComparisonData);
+  }
+
+  // Attach TempComparisonTooltip for temperature deviation badge (TERMOSTATO devices)
+  const tempComparisonTrigger = enhancedCardElement.querySelector('.temp-comparison-tooltip-trigger');
+  let tempComparisonCleanup = null;
+  if (tempComparisonTrigger && isTermostatoDevice && tempDeviationPercent) {
+    const getTempComparisonData = () => {
+      // Get average temperature from entityObject if available
+      const avgTemp = entityObject.averageTemperature ?? entityObject.avgTemp ?? ((Number(temperatureMin) + Number(temperatureMax)) / 2);
+      const deviceCount = entityObject.temperatureDeviceCount ?? entityObject.tempDeviceCount ?? 1;
+
+      return TempComparisonTooltip.buildComparisonData(
+        {
+          entityId: entityId,
+          labelOrName: cardEntity.name,
+          currentTemp: Number(val) || 0,
+          minTemp: Number(temperatureMin) || 18,
+          maxTemp: Number(temperatureMax) || 26,
+        },
+        {
+          name: entityObject.averageName || 'Media Geral',
+          value: Number(avgTemp) || 0,
+          deviceCount: deviceCount,
+        }
+      );
+    };
+
+    tempComparisonCleanup = TempComparisonTooltip.attach(tempComparisonTrigger, getTempComparisonData);
+  }
+
   // Store cleanup function for tooltips
   container._cleanup = () => {
     if (tempTooltipCleanup) tempTooltipCleanup();
     if (energyTooltipCleanup) energyTooltipCleanup();
+    if (percentageTooltipCleanup) percentageTooltipCleanup();
+    if (tempComparisonCleanup) tempComparisonCleanup();
   };
 
   // Return jQuery-like object for compatibility

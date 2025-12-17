@@ -1,6 +1,6 @@
 /**
- * EnergySummaryTooltip - Dashboard Energy Summary Tooltip Component
- * RFC-0105: Premium tooltip showing comprehensive energy dashboard summary
+ * WaterSummaryTooltip - Dashboard Water Summary Tooltip Component
+ * RFC-0105: Premium tooltip showing comprehensive water dashboard summary
  *
  * Shows:
  * - Total device count
@@ -10,26 +10,26 @@
  *
  * @example
  * // Attach to an element
- * const cleanup = EnergySummaryTooltip.attach(triggerElement, getDataFn);
+ * const cleanup = WaterSummaryTooltip.attach(triggerElement, getDataFn);
  * // Later: cleanup();
  *
  * // Or manual control
- * EnergySummaryTooltip.show(element, summaryData, event);
- * EnergySummaryTooltip.hide();
+ * WaterSummaryTooltip.show(element, summaryData, event);
+ * WaterSummaryTooltip.hide();
  */
 
 // ============================================
 // Types
 // ============================================
 
-export interface CategorySummary {
+export interface WaterCategorySummary {
   id: string;
   name: string;
   icon: string;
   deviceCount: number;
   consumption: number;
   percentage: number;
-  children?: CategorySummary[];
+  children?: WaterCategorySummary[];
 }
 
 export interface DeviceInfo {
@@ -54,25 +54,26 @@ export interface StatusSummary {
   noConsumptionDevices?: DeviceInfo[];
 }
 
-export interface DashboardEnergySummary {
+export interface DashboardWaterSummary {
   totalDevices: number;
   totalConsumption: number;
   unit: string;
-  byCategory: CategorySummary[];
+  byCategory: WaterCategorySummary[];
   byStatus: StatusSummary;
   lastUpdated: string;
+  includeBathrooms?: boolean;
 }
 
 // ============================================
 // CSS Styles (injected once)
 // ============================================
 
-const ENERGY_SUMMARY_TOOLTIP_CSS = `
+const WATER_SUMMARY_TOOLTIP_CSS = `
 /* ============================================
-   Energy Summary Tooltip (RFC-0105)
+   Water Summary Tooltip (RFC-0105)
    Premium dashboard summary on hover
    ============================================ */
-.energy-summary-tooltip {
+.water-summary-tooltip {
   position: fixed;
   z-index: 99999;
   pointer-events: auto;
@@ -81,18 +82,18 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   transform: translateY(8px);
 }
 
-.energy-summary-tooltip.visible {
+.water-summary-tooltip.visible {
   opacity: 1;
   transform: translateY(0);
 }
 
-.energy-summary-tooltip.closing {
+.water-summary-tooltip.closing {
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
-.energy-summary-tooltip__content {
+.water-summary-tooltip__content {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -106,36 +107,36 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   overflow: hidden;
 }
 
-.energy-summary-tooltip__header {
+.water-summary-tooltip__header {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: linear-gradient(90deg, #ecfdf5 0%, #d1fae5 100%);
-  border-bottom: 1px solid #6ee7b7;
+  background: linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%);
+  border-bottom: 1px solid #93c5fd;
   border-radius: 12px 12px 0 0;
   cursor: move;
   user-select: none;
 }
 
-.energy-summary-tooltip__icon {
+.water-summary-tooltip__icon {
   font-size: 18px;
 }
 
-.energy-summary-tooltip__title {
+.water-summary-tooltip__title {
   font-weight: 700;
   font-size: 14px;
-  color: #047857;
+  color: #1d4ed8;
   flex: 1;
 }
 
-.energy-summary-tooltip__header-actions {
+.water-summary-tooltip__header-actions {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.energy-summary-tooltip__header-btn {
+.water-summary-tooltip__header-btn {
   width: 24px;
   height: 24px;
   border: none;
@@ -149,38 +150,38 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   color: #64748b;
 }
 
-.energy-summary-tooltip__header-btn:hover {
+.water-summary-tooltip__header-btn:hover {
   background: rgba(255, 255, 255, 0.9);
   color: #1e293b;
 }
 
-.energy-summary-tooltip__header-btn.pinned {
-  background: #047857;
+.water-summary-tooltip__header-btn.pinned {
+  background: #1d4ed8;
   color: white;
 }
 
-.energy-summary-tooltip__header-btn.pinned:hover {
-  background: #065f46;
+.water-summary-tooltip__header-btn.pinned:hover {
+  background: #1e40af;
   color: white;
 }
 
-.energy-summary-tooltip__header-btn svg {
+.water-summary-tooltip__header-btn svg {
   width: 14px;
   height: 14px;
 }
 
-.energy-summary-tooltip__timestamp {
+.water-summary-tooltip__timestamp {
   font-size: 10px;
   color: #6b7280;
   margin-right: 8px;
 }
 
-.energy-summary-tooltip__body {
+.water-summary-tooltip__body {
   padding: 14px;
 }
 
 /* Maximized state */
-.energy-summary-tooltip.maximized {
+.water-summary-tooltip.maximized {
   top: 20px !important;
   left: 20px !important;
   right: 20px !important;
@@ -189,7 +190,7 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   max-width: none !important;
 }
 
-.energy-summary-tooltip.maximized .energy-summary-tooltip__content {
+.water-summary-tooltip.maximized .water-summary-tooltip__content {
   width: 100%;
   height: 100%;
   max-width: none;
@@ -197,24 +198,24 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   flex-direction: column;
 }
 
-.energy-summary-tooltip.maximized .energy-summary-tooltip__body {
+.water-summary-tooltip.maximized .water-summary-tooltip__body {
   flex: 1;
   overflow-y: auto;
 }
 
 /* Pinned state indicator */
-.energy-summary-tooltip.pinned {
-  box-shadow: 0 0 0 2px #047857, 0 10px 40px rgba(0, 0, 0, 0.2);
+.water-summary-tooltip.pinned {
+  box-shadow: 0 0 0 2px #1d4ed8, 0 10px 40px rgba(0, 0, 0, 0.2);
 }
 
 /* Dragging state */
-.energy-summary-tooltip.dragging {
+.water-summary-tooltip.dragging {
   transition: none !important;
   cursor: move;
 }
 
 /* Total Devices Banner */
-.energy-summary-tooltip__total-devices {
+.water-summary-tooltip__total-devices {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -225,20 +226,20 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   border: 1px solid #e2e8f0;
 }
 
-.energy-summary-tooltip__total-devices-label {
+.water-summary-tooltip__total-devices-label {
   font-weight: 600;
   color: #475569;
   font-size: 12px;
 }
 
-.energy-summary-tooltip__total-devices-value {
+.water-summary-tooltip__total-devices-value {
   font-weight: 700;
   font-size: 20px;
   color: #1e293b;
 }
 
 /* Section Title */
-.energy-summary-tooltip__section-title {
+.water-summary-tooltip__section-title {
   font-weight: 700;
   font-size: 10px;
   color: #64748b;
@@ -250,11 +251,11 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
 }
 
 /* Category Tree */
-.energy-summary-tooltip__category-tree {
+.water-summary-tooltip__category-tree {
   margin: 6px 0;
 }
 
-.energy-summary-tooltip__category-header {
+.water-summary-tooltip__category-header {
   display: grid;
   grid-template-columns: 1fr 50px 80px;
   gap: 8px;
@@ -266,7 +267,7 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   letter-spacing: 0.3px;
 }
 
-.energy-summary-tooltip__category-row {
+.water-summary-tooltip__category-row {
   display: grid;
   grid-template-columns: 1fr 50px 80px;
   gap: 8px;
@@ -276,22 +277,22 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   transition: background-color 0.15s ease;
 }
 
-.energy-summary-tooltip__category-row:hover {
+.water-summary-tooltip__category-row:hover {
   background: #f8fafc;
 }
 
-.energy-summary-tooltip__category-row.parent {
+.water-summary-tooltip__category-row.parent {
   font-weight: 600;
   background: #fafafa;
 }
 
-.energy-summary-tooltip__category-row.child {
+.water-summary-tooltip__category-row.child {
   padding-left: 28px;
   font-size: 11px;
   color: #64748b;
 }
 
-.energy-summary-tooltip__category-row.child::before {
+.water-summary-tooltip__category-row.child::before {
   content: '';
   position: absolute;
   left: 18px;
@@ -300,19 +301,19 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   background: #cbd5e1;
 }
 
-.energy-summary-tooltip__category-name {
+.water-summary-tooltip__category-name {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.energy-summary-tooltip__category-icon {
+.water-summary-tooltip__category-icon {
   font-size: 14px;
   width: 18px;
   text-align: center;
 }
 
-.energy-summary-tooltip__category-count {
+.water-summary-tooltip__category-count {
   text-align: center;
   font-weight: 600;
   color: #475569;
@@ -322,22 +323,22 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   font-size: 11px;
 }
 
-.energy-summary-tooltip__category-consumption {
+.water-summary-tooltip__category-consumption {
   text-align: right;
   font-weight: 600;
-  color: #059669;
+  color: #2563eb;
   font-size: 11px;
 }
 
 /* Status Matrix */
-.energy-summary-tooltip__status-matrix {
+.water-summary-tooltip__status-matrix {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   margin: 6px 0 12px 0;
 }
 
-.energy-summary-tooltip__status-item {
+.water-summary-tooltip__status-item {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -347,63 +348,63 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   font-weight: 600;
 }
 
-.energy-summary-tooltip__status-item.normal {
+.water-summary-tooltip__status-item.normal {
   background: #dcfce7;
   color: #15803d;
 }
 
-.energy-summary-tooltip__status-item.alert {
+.water-summary-tooltip__status-item.alert {
   background: #fef3c7;
   color: #b45309;
 }
 
-.energy-summary-tooltip__status-item.failure {
+.water-summary-tooltip__status-item.failure {
   background: #fee2e2;
   color: #b91c1c;
 }
 
-.energy-summary-tooltip__status-item.standby {
+.water-summary-tooltip__status-item.standby {
   background: #dbeafe;
   color: #1d4ed8;
 }
 
-.energy-summary-tooltip__status-item.offline {
+.water-summary-tooltip__status-item.offline {
   background: #f3f4f6;
   color: #6b7280;
 }
 
-.energy-summary-tooltip__status-item.no-consumption {
+.water-summary-tooltip__status-item.no-consumption {
   background: #f8fafc;
   color: #9ca3af;
   border: 1px dashed #e2e8f0;
 }
 
-.energy-summary-tooltip__status-dot {
+.water-summary-tooltip__status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.energy-summary-tooltip__status-dot.normal { background: #22c55e; }
-.energy-summary-tooltip__status-dot.alert { background: #f59e0b; }
-.energy-summary-tooltip__status-dot.failure { background: #ef4444; }
-.energy-summary-tooltip__status-dot.standby { background: #3b82f6; }
-.energy-summary-tooltip__status-dot.offline { background: #6b7280; }
-.energy-summary-tooltip__status-dot.no-consumption { background: #d1d5db; }
+.water-summary-tooltip__status-dot.normal { background: #22c55e; }
+.water-summary-tooltip__status-dot.alert { background: #f59e0b; }
+.water-summary-tooltip__status-dot.failure { background: #ef4444; }
+.water-summary-tooltip__status-dot.standby { background: #3b82f6; }
+.water-summary-tooltip__status-dot.offline { background: #6b7280; }
+.water-summary-tooltip__status-dot.no-consumption { background: #d1d5db; }
 
-.energy-summary-tooltip__status-count {
+.water-summary-tooltip__status-count {
   font-size: 12px;
   font-weight: 700;
 }
 
-.energy-summary-tooltip__status-label {
+.water-summary-tooltip__status-label {
   font-size: 9px;
   opacity: 0.85;
 }
 
 /* Status Expand Button (+) */
-.energy-summary-tooltip__status-expand {
+.water-summary-tooltip__status-expand {
   width: 16px;
   height: 16px;
   border-radius: 50%;
@@ -422,70 +423,70 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   opacity: 0.7;
 }
 
-.energy-summary-tooltip__status-expand:hover {
+.water-summary-tooltip__status-expand:hover {
   background: rgba(0, 0, 0, 0.2);
   transform: scale(1.1);
   opacity: 1;
 }
 
-.energy-summary-tooltip__status-item.normal .energy-summary-tooltip__status-expand:hover {
+.water-summary-tooltip__status-item.normal .water-summary-tooltip__status-expand:hover {
   background: #15803d;
   color: white;
 }
 
-.energy-summary-tooltip__status-item.alert .energy-summary-tooltip__status-expand:hover {
+.water-summary-tooltip__status-item.alert .water-summary-tooltip__status-expand:hover {
   background: #b45309;
   color: white;
 }
 
-.energy-summary-tooltip__status-item.failure .energy-summary-tooltip__status-expand:hover {
+.water-summary-tooltip__status-item.failure .water-summary-tooltip__status-expand:hover {
   background: #b91c1c;
   color: white;
 }
 
-.energy-summary-tooltip__status-item.standby .energy-summary-tooltip__status-expand:hover {
+.water-summary-tooltip__status-item.standby .water-summary-tooltip__status-expand:hover {
   background: #1d4ed8;
   color: white;
 }
 
-.energy-summary-tooltip__status-item.offline .energy-summary-tooltip__status-expand:hover {
+.water-summary-tooltip__status-item.offline .water-summary-tooltip__status-expand:hover {
   background: #6b7280;
   color: white;
 }
 
-.energy-summary-tooltip__status-item.no-consumption .energy-summary-tooltip__status-expand:hover {
+.water-summary-tooltip__status-item.no-consumption .water-summary-tooltip__status-expand:hover {
   background: #9ca3af;
   color: white;
 }
 
 /* Device dot colors (used in InfoTooltip content) */
-.energy-summary-tooltip__device-dot {
+.water-summary-tooltip__device-dot {
   display: inline-block;
 }
-.energy-summary-tooltip__device-dot.normal { background: #22c55e; }
-.energy-summary-tooltip__device-dot.alert { background: #f59e0b; }
-.energy-summary-tooltip__device-dot.failure { background: #ef4444; }
-.energy-summary-tooltip__device-dot.standby { background: #3b82f6; }
-.energy-summary-tooltip__device-dot.offline { background: #6b7280; }
-.energy-summary-tooltip__device-dot.no-consumption { background: #d1d5db; }
+.water-summary-tooltip__device-dot.normal { background: #22c55e; }
+.water-summary-tooltip__device-dot.alert { background: #f59e0b; }
+.water-summary-tooltip__device-dot.failure { background: #ef4444; }
+.water-summary-tooltip__device-dot.standby { background: #3b82f6; }
+.water-summary-tooltip__device-dot.offline { background: #6b7280; }
+.water-summary-tooltip__device-dot.no-consumption { background: #d1d5db; }
 
 /* Total Consumption Footer */
-.energy-summary-tooltip__total {
+.water-summary-tooltip__total {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px;
-  background: linear-gradient(135deg, #047857 0%, #059669 100%);
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
   border-radius: 0 0 11px 11px;
 }
 
-.energy-summary-tooltip__total-label {
+.water-summary-tooltip__total-label {
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   font-size: 12px;
 }
 
-.energy-summary-tooltip__total-value {
+.water-summary-tooltip__total-value {
   font-size: 18px;
   font-weight: 700;
   color: #ffffff;
@@ -493,12 +494,12 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
 
 /* Responsive adjustments */
 @media (max-width: 600px) {
-  .energy-summary-tooltip__content {
+  .water-summary-tooltip__content {
     min-width: 360px;
     max-width: 95vw;
   }
 
-  .energy-summary-tooltip__status-matrix {
+  .water-summary-tooltip__status-matrix {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -514,7 +515,7 @@ function injectCSS(): void {
   if (cssInjected) return;
   if (typeof document === 'undefined') return;
 
-  const styleId = 'myio-energy-summary-tooltip-styles';
+  const styleId = 'myio-water-summary-tooltip-styles';
   if (document.getElementById(styleId)) {
     cssInjected = true;
     return;
@@ -522,28 +523,21 @@ function injectCSS(): void {
 
   const style = document.createElement('style');
   style.id = styleId;
-  style.textContent = ENERGY_SUMMARY_TOOLTIP_CSS;
+  style.textContent = WATER_SUMMARY_TOOLTIP_CSS;
   document.head.appendChild(style);
   cssInjected = true;
 }
 
 // ============================================
-// Category Icons
+// Category Icons (Water specific)
 // ============================================
 
-const CATEGORY_ICONS: Record<string, string> = {
+const WATER_CATEGORY_ICONS: Record<string, string> = {
   entrada: '📥',
   lojas: '🏪',
-  climatizacao: '❄️',
-  elevadores: '🛗',
-  escadas: '🎢',
-  escadasRolantes: '🎢',
-  chillers: '🧊',
-  fancoils: '💨',
-  bombas: '💧',
-  cag: '🌡️',
-  outros: '⚙️',
+  banheiros: '🚿',
   areaComum: '🏢',
+  pontosNaoMapeados: '❓',
 };
 
 // ============================================
@@ -551,18 +545,10 @@ const CATEGORY_ICONS: Record<string, string> = {
 // ============================================
 
 /**
- * Format consumption value with appropriate unit
+ * Format consumption value with appropriate unit (m³)
  */
-function formatConsumption(value: number, unit: string = 'kWh'): string {
+function formatConsumption(value: number, unit: string = 'm³'): string {
   if (value == null || isNaN(value)) return '0,00 ' + unit;
-
-  // Convert to MWh if large
-  if (unit === 'kWh' && value >= 1000) {
-    return (value / 1000).toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }) + ' MWh';
-  }
 
   return value.toLocaleString('pt-BR', {
     minimumFractionDigits: 2,
@@ -587,11 +573,11 @@ function formatTimestamp(isoString: string): string {
 }
 
 // ============================================
-// EnergySummaryTooltip Object
+// WaterSummaryTooltip Object
 // ============================================
 
-export const EnergySummaryTooltip = {
-  containerId: 'myio-energy-summary-tooltip',
+export const WaterSummaryTooltip = {
+  containerId: 'myio-water-summary-tooltip',
 
   /**
    * Create or get the tooltip container
@@ -603,7 +589,7 @@ export const EnergySummaryTooltip = {
     if (!container) {
       container = document.createElement('div');
       container.id = this.containerId;
-      container.className = 'energy-summary-tooltip';
+      container.className = 'water-summary-tooltip';
       document.body.appendChild(container);
     }
     return container;
@@ -612,36 +598,36 @@ export const EnergySummaryTooltip = {
   /**
    * Render category tree rows
    */
-  renderCategoryTree(categories: CategorySummary[], unit: string): string {
+  renderCategoryTree(categories: WaterCategorySummary[], unit: string): string {
     let html = '';
 
     categories.forEach(cat => {
-      const icon = CATEGORY_ICONS[cat.id] || CATEGORY_ICONS.outros;
+      const icon = WATER_CATEGORY_ICONS[cat.id] || WATER_CATEGORY_ICONS.areaComum;
       const isParent = cat.children && cat.children.length > 0;
 
       html += `
-        <div class="energy-summary-tooltip__category-row ${isParent ? 'parent' : ''}">
-          <span class="energy-summary-tooltip__category-name">
-            <span class="energy-summary-tooltip__category-icon">${icon}</span>
+        <div class="water-summary-tooltip__category-row ${isParent ? 'parent' : ''}">
+          <span class="water-summary-tooltip__category-name">
+            <span class="water-summary-tooltip__category-icon">${icon}</span>
             <span>${cat.name}</span>
           </span>
-          <span class="energy-summary-tooltip__category-count">${cat.deviceCount}</span>
-          <span class="energy-summary-tooltip__category-consumption">${formatConsumption(cat.consumption, unit)}</span>
+          <span class="water-summary-tooltip__category-count">${cat.deviceCount}</span>
+          <span class="water-summary-tooltip__category-consumption">${formatConsumption(cat.consumption, unit)}</span>
         </div>
       `;
 
       // Render children (subcategories)
       if (cat.children && cat.children.length > 0) {
         cat.children.forEach(child => {
-          const childIcon = CATEGORY_ICONS[child.id] || '•';
+          const childIcon = WATER_CATEGORY_ICONS[child.id] || '•';
           html += `
-            <div class="energy-summary-tooltip__category-row child">
-              <span class="energy-summary-tooltip__category-name">
-                <span class="energy-summary-tooltip__category-icon">${childIcon}</span>
+            <div class="water-summary-tooltip__category-row child">
+              <span class="water-summary-tooltip__category-name">
+                <span class="water-summary-tooltip__category-icon">${childIcon}</span>
                 <span>${child.name}</span>
               </span>
-              <span class="energy-summary-tooltip__category-count">${child.deviceCount}</span>
-              <span class="energy-summary-tooltip__category-consumption">${formatConsumption(child.consumption, unit)}</span>
+              <span class="water-summary-tooltip__category-count">${child.deviceCount}</span>
+              <span class="water-summary-tooltip__category-consumption">${formatConsumption(child.consumption, unit)}</span>
             </div>
           `;
         });
@@ -668,7 +654,7 @@ export const EnergySummaryTooltip = {
       // Always show expand button if count > 0
       const expandBtn = item.count > 0 ? `
         <button
-          class="energy-summary-tooltip__status-expand"
+          class="water-summary-tooltip__status-expand"
           data-status="${item.key}"
           data-label="${item.label}"
           data-count="${item.count}"
@@ -676,10 +662,10 @@ export const EnergySummaryTooltip = {
       ` : '';
 
       return `
-        <div class="energy-summary-tooltip__status-item ${item.key}">
-          <span class="energy-summary-tooltip__status-dot ${item.key}"></span>
-          <span class="energy-summary-tooltip__status-count">${item.count}</span>
-          <span class="energy-summary-tooltip__status-label">${item.label}</span>
+        <div class="water-summary-tooltip__status-item ${item.key}">
+          <span class="water-summary-tooltip__status-dot ${item.key}"></span>
+          <span class="water-summary-tooltip__status-count">${item.count}</span>
+          <span class="water-summary-tooltip__status-label">${item.label}</span>
           ${expandBtn}
         </div>
       `;
@@ -689,46 +675,46 @@ export const EnergySummaryTooltip = {
   /**
    * Render full tooltip HTML
    */
-  renderHTML(summary: DashboardEnergySummary): string {
+  renderHTML(summary: DashboardWaterSummary): string {
     const categoryRows = this.renderCategoryTree(summary.byCategory, summary.unit);
     const statusMatrix = this.renderStatusMatrix(summary.byStatus);
     const timestamp = formatTimestamp(summary.lastUpdated);
 
     return `
-      <div class="energy-summary-tooltip__content">
-        <div class="energy-summary-tooltip__header" data-drag-handle>
-          <span class="energy-summary-tooltip__icon">⚡</span>
-          <span class="energy-summary-tooltip__title">Resumo do Dashboard</span>
-          ${timestamp ? `<span class="energy-summary-tooltip__timestamp">${timestamp}</span>` : ''}
-          <div class="energy-summary-tooltip__header-actions">
-            <button class="energy-summary-tooltip__header-btn" data-action="pin" title="Fixar na tela">
+      <div class="water-summary-tooltip__content">
+        <div class="water-summary-tooltip__header" data-drag-handle>
+          <span class="water-summary-tooltip__icon">💧</span>
+          <span class="water-summary-tooltip__title">Resumo de Água</span>
+          ${timestamp ? `<span class="water-summary-tooltip__timestamp">${timestamp}</span>` : ''}
+          <div class="water-summary-tooltip__header-actions">
+            <button class="water-summary-tooltip__header-btn" data-action="pin" title="Fixar na tela">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/>
                 <line x1="12" y1="16" x2="12" y2="21"/>
                 <line x1="8" y1="4" x2="16" y2="4"/>
               </svg>
             </button>
-            <button class="energy-summary-tooltip__header-btn" data-action="maximize" title="Maximizar">
+            <button class="water-summary-tooltip__header-btn" data-action="maximize" title="Maximizar">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="18" height="18" rx="2"/>
               </svg>
             </button>
-            <button class="energy-summary-tooltip__header-btn" data-action="close" title="Fechar">
+            <button class="water-summary-tooltip__header-btn" data-action="close" title="Fechar">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 6L6 18M6 6l12 12"/>
               </svg>
             </button>
           </div>
         </div>
-        <div class="energy-summary-tooltip__body">
-          <div class="energy-summary-tooltip__total-devices">
-            <span class="energy-summary-tooltip__total-devices-label">Total de Dispositivos</span>
-            <span class="energy-summary-tooltip__total-devices-value">${summary.totalDevices}</span>
+        <div class="water-summary-tooltip__body">
+          <div class="water-summary-tooltip__total-devices">
+            <span class="water-summary-tooltip__total-devices-label">Total de Medidores</span>
+            <span class="water-summary-tooltip__total-devices-value">${summary.totalDevices}</span>
           </div>
 
-          <div class="energy-summary-tooltip__section-title">Distribuicao por Categoria</div>
-          <div class="energy-summary-tooltip__category-tree">
-            <div class="energy-summary-tooltip__category-header">
+          <div class="water-summary-tooltip__section-title">Distribuição por Categoria</div>
+          <div class="water-summary-tooltip__category-tree">
+            <div class="water-summary-tooltip__category-header">
               <span>Categoria</span>
               <span>Qtd</span>
               <span>Consumo</span>
@@ -736,14 +722,14 @@ export const EnergySummaryTooltip = {
             ${categoryRows}
           </div>
 
-          <div class="energy-summary-tooltip__section-title">Status dos Dispositivos</div>
-          <div class="energy-summary-tooltip__status-matrix">
+          <div class="water-summary-tooltip__section-title">Status dos Medidores</div>
+          <div class="water-summary-tooltip__status-matrix">
             ${statusMatrix}
           </div>
         </div>
-        <div class="energy-summary-tooltip__total">
-          <span class="energy-summary-tooltip__total-label">Consumo Total</span>
-          <span class="energy-summary-tooltip__total-value">${formatConsumption(summary.totalConsumption, summary.unit)}</span>
+        <div class="water-summary-tooltip__total">
+          <span class="water-summary-tooltip__total-label">Consumo Total</span>
+          <span class="water-summary-tooltip__total-value">${formatConsumption(summary.totalConsumption, summary.unit)}</span>
         </div>
       </div>
     `;
@@ -761,12 +747,12 @@ export const EnergySummaryTooltip = {
 
   // Store current status data for device list popup
   _currentStatus: null as StatusSummary | null,
-  _devicePopupId: 'myio-energy-device-popup',
+  _devicePopupId: 'myio-water-device-popup',
 
   /**
    * Show tooltip for an element
    */
-  show(triggerElement: HTMLElement, summary: DashboardEnergySummary, event?: MouseEvent): void {
+  show(triggerElement: HTMLElement, summary: DashboardWaterSummary, event?: MouseEvent): void {
     // Cancel any pending hide
     if (this._hideTimer) {
       clearTimeout(this._hideTimer);
@@ -783,7 +769,6 @@ export const EnergySummaryTooltip = {
     let top = rect.top;
 
     // Adjust for viewport bounds
-    const tooltipRect = container.getBoundingClientRect();
     const tooltipWidth = 400;
     const tooltipHeight = 450;
 
@@ -900,7 +885,7 @@ export const EnergySummaryTooltip = {
    */
   _setupExpandButtonListeners(container: HTMLElement): void {
     const self = this;
-    const expandBtns = container.querySelectorAll('.energy-summary-tooltip__status-expand');
+    const expandBtns = container.querySelectorAll('.water-summary-tooltip__status-expand');
     expandBtns.forEach(btn => {
       const btnEl = btn as HTMLElement;
 
@@ -1000,7 +985,7 @@ export const EnergySummaryTooltip = {
           <div style="text-align: center; padding: 16px 0;">
             <div style="font-size: 32px; margin-bottom: 12px;">📋</div>
             <div style="font-size: 14px; font-weight: 600; color: #334155; margin-bottom: 6px;">
-              ${count} dispositivo${count !== 1 ? 's' : ''}
+              ${count} medidor${count !== 1 ? 'es' : ''}
             </div>
             <div style="font-size: 11px; color: #64748b;">
               com status "${label}"
@@ -1016,7 +1001,7 @@ export const EnergySummaryTooltip = {
     // Build device list
     const deviceItems = devices.map(device => `
       <div class="myio-info-tooltip__row" style="padding: 6px 0;">
-        <span class="energy-summary-tooltip__device-dot ${statusKey}" style="width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;"></span>
+        <span class="water-summary-tooltip__device-dot ${statusKey}" style="width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;"></span>
         <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${device.label || device.name || device.id}">
           ${device.label || device.name || device.id}
         </span>
@@ -1026,7 +1011,7 @@ export const EnergySummaryTooltip = {
     return `
       <div class="myio-info-tooltip__section">
         <div class="myio-info-tooltip__section-title">
-          Dispositivos (${devices.length})
+          Medidores (${devices.length})
         </div>
         <div style="max-height: 200px; overflow-y: auto;">
           ${deviceItems}
@@ -1042,7 +1027,7 @@ export const EnergySummaryTooltip = {
     // Get InfoTooltip from window (loaded via library)
     const InfoTooltip = (window as any).MyIOLibrary?.InfoTooltip;
     if (!InfoTooltip) {
-      console.error('[EnergySummaryTooltip] InfoTooltip not available');
+      console.error('[WaterSummaryTooltip] InfoTooltip not available');
       return;
     }
 
@@ -1384,7 +1369,7 @@ export const EnergySummaryTooltip = {
    * Attach tooltip to an element with automatic show/hide on hover
    * Returns cleanup function to remove event listeners
    */
-  attach(element: HTMLElement, getDataFn: () => DashboardEnergySummary): () => void {
+  attach(element: HTMLElement, getDataFn: () => DashboardWaterSummary): () => void {
     const self = this;
 
     const handleMouseEnter = (e: MouseEvent) => {
@@ -1416,14 +1401,14 @@ export const EnergySummaryTooltip = {
   },
 
   /**
-   * Build summary data from TELEMETRY_INFO STATE
+   * Build summary data from TELEMETRY_INFO STATE_WATER
    * This is called by the widget controller to get data for the tooltip
    */
-  buildSummaryFromState(state: any, receivedData: any): DashboardEnergySummary {
-    const summary: DashboardEnergySummary = {
+  buildSummaryFromState(state: any, receivedData: any, includeBathrooms: boolean = false): DashboardWaterSummary {
+    const summary: DashboardWaterSummary = {
       totalDevices: 0,
       totalConsumption: 0,
-      unit: 'kWh',
+      unit: 'm³',
       byCategory: [],
       byStatus: {
         normal: 0,
@@ -1434,153 +1419,76 @@ export const EnergySummaryTooltip = {
         noConsumption: 0,
       },
       lastUpdated: new Date().toISOString(),
+      includeBathrooms: includeBathrooms,
     };
 
     if (!state) return summary;
 
-    // Build categories from state
-    const entrada = {
+    // Build categories from state (Water specific)
+    const entrada: WaterCategorySummary = {
       id: 'entrada',
       name: 'Entrada',
-      icon: CATEGORY_ICONS.entrada,
+      icon: WATER_CATEGORY_ICONS.entrada,
       deviceCount: state.entrada?.devices?.length || (receivedData?.entrada_total?.device_count || 0),
       consumption: state.entrada?.total || 0,
       percentage: 100,
     };
 
-    const lojas = {
+    const lojas: WaterCategorySummary = {
       id: 'lojas',
       name: 'Lojas',
-      icon: CATEGORY_ICONS.lojas,
-      deviceCount: state.consumidores?.lojas?.devices?.length || (receivedData?.lojas_total?.device_count || 0),
-      consumption: state.consumidores?.lojas?.total || 0,
-      percentage: state.consumidores?.lojas?.perc || 0,
+      icon: WATER_CATEGORY_ICONS.lojas,
+      deviceCount: state.lojas?.devices?.length || (receivedData?.lojas_total?.device_count || 0),
+      consumption: state.lojas?.total || 0,
+      percentage: state.lojas?.perc || 0,
     };
 
-    // Build Area Comum with subcategories
-    const climatizacaoData = receivedData?.climatizacao || {};
-    const elevadoresData = receivedData?.elevadores || {};
-    const escadasData = receivedData?.escadas_rolantes || {};
-    const outrosData = receivedData?.outros || {};
+    // Build categories array
+    summary.byCategory = [entrada, lojas];
 
-    const areaComumChildren: CategorySummary[] = [];
-
-    // Climatizacao with optional subcategories
-    const climatizacao: CategorySummary = {
-      id: 'climatizacao',
-      name: 'Climatizacao',
-      icon: CATEGORY_ICONS.climatizacao,
-      deviceCount: climatizacaoData.count || state.consumidores?.climatizacao?.devices?.length || 0,
-      consumption: state.consumidores?.climatizacao?.total || 0,
-      percentage: state.consumidores?.climatizacao?.perc || 0,
-    };
-
-    // Add climatizacao subcategories if available
-    if (climatizacaoData.subcategories) {
-      climatizacao.children = [];
-      const subs = climatizacaoData.subcategories;
-
-      if (subs.chillers) {
-        climatizacao.children.push({
-          id: 'chillers',
-          name: 'Chillers',
-          icon: CATEGORY_ICONS.chillers,
-          deviceCount: subs.chillers.count || 0,
-          consumption: subs.chillers.kWh || 0,
-          percentage: 0,
-        });
-      }
-      if (subs.fancoils) {
-        climatizacao.children.push({
-          id: 'fancoils',
-          name: 'Fancoils',
-          icon: CATEGORY_ICONS.fancoils,
-          deviceCount: subs.fancoils.count || 0,
-          consumption: subs.fancoils.kWh || 0,
-          percentage: 0,
-        });
-      }
-      if (subs.bombas) {
-        climatizacao.children.push({
-          id: 'bombas',
-          name: 'Bombas',
-          icon: CATEGORY_ICONS.bombas,
-          deviceCount: subs.bombas.count || 0,
-          consumption: subs.bombas.kWh || 0,
-          percentage: 0,
-        });
-      }
-      if (subs.cag) {
-        climatizacao.children.push({
-          id: 'cag',
-          name: 'CAG',
-          icon: CATEGORY_ICONS.cag,
-          deviceCount: subs.cag.count || 0,
-          consumption: subs.cag.kWh || 0,
-          percentage: 0,
-        });
-      }
+    // Add Banheiros if enabled
+    if (includeBathrooms) {
+      const banheiros: WaterCategorySummary = {
+        id: 'banheiros',
+        name: 'Banheiros',
+        icon: WATER_CATEGORY_ICONS.banheiros,
+        deviceCount: state.banheiros?.devices?.length || (receivedData?.banheiros_total?.device_count || 0),
+        consumption: state.banheiros?.total || 0,
+        percentage: state.banheiros?.perc || 0,
+      };
+      summary.byCategory.push(banheiros);
     }
 
-    areaComumChildren.push(climatizacao);
-
-    // Elevadores
-    areaComumChildren.push({
-      id: 'elevadores',
-      name: 'Elevadores',
-      icon: CATEGORY_ICONS.elevadores,
-      deviceCount: elevadoresData.count || state.consumidores?.elevadores?.devices?.length || 0,
-      consumption: state.consumidores?.elevadores?.total || 0,
-      percentage: state.consumidores?.elevadores?.perc || 0,
-    });
-
-    // Escadas Rolantes
-    areaComumChildren.push({
-      id: 'escadasRolantes',
-      name: 'Esc. Rolantes',
-      icon: CATEGORY_ICONS.escadas,
-      deviceCount: escadasData.count || state.consumidores?.escadasRolantes?.devices?.length || 0,
-      consumption: state.consumidores?.escadasRolantes?.total || 0,
-      percentage: state.consumidores?.escadasRolantes?.perc || 0,
-    });
-
-    // Outros
-    areaComumChildren.push({
-      id: 'outros',
-      name: 'Outros',
-      icon: CATEGORY_ICONS.outros,
-      deviceCount: outrosData.count || state.consumidores?.outros?.devices?.length || 0,
-      consumption: state.consumidores?.outros?.total || 0,
-      percentage: state.consumidores?.outros?.perc || 0,
-    });
-
-    // Calculate Area Comum totals
-    const areaComumDeviceCount = areaComumChildren.reduce((sum, c) => sum + c.deviceCount, 0);
-    const areaComumConsumption = state.consumidores?.areaComum?.total ||
-      areaComumChildren.reduce((sum, c) => sum + c.consumption, 0);
-
-    const areaComum: CategorySummary = {
+    // Area Comum
+    const areaComum: WaterCategorySummary = {
       id: 'areaComum',
-      name: 'Area Comum',
-      icon: CATEGORY_ICONS.areaComum,
-      deviceCount: areaComumDeviceCount,
-      consumption: areaComumConsumption,
-      percentage: state.consumidores?.areaComum?.perc || 0,
-      children: areaComumChildren,
+      name: 'Área Comum',
+      icon: WATER_CATEGORY_ICONS.areaComum,
+      deviceCount: state.areaComum?.devices?.length || (receivedData?.area_comum_total?.device_count || 0),
+      consumption: state.areaComum?.total || 0,
+      percentage: state.areaComum?.perc || 0,
     };
+    summary.byCategory.push(areaComum);
 
-    // Build final categories array
-    summary.byCategory = [entrada, lojas, areaComum];
+    // Pontos Não Mapeados (if exists)
+    if (state.pontosNaoMapeados && state.pontosNaoMapeados.total > 0) {
+      const pontosNaoMapeados: WaterCategorySummary = {
+        id: 'pontosNaoMapeados',
+        name: 'Pontos Não Mapeados',
+        icon: WATER_CATEGORY_ICONS.pontosNaoMapeados,
+        deviceCount: state.pontosNaoMapeados?.devices?.length || 0,
+        consumption: state.pontosNaoMapeados?.total || 0,
+        percentage: state.pontosNaoMapeados?.perc || 0,
+      };
+      summary.byCategory.push(pontosNaoMapeados);
+    }
 
     // Calculate totals
-    summary.totalDevices = entrada.deviceCount + lojas.deviceCount + areaComumDeviceCount;
-    summary.totalConsumption = state.grandTotal || entrada.consumption;
+    summary.totalDevices = summary.byCategory.reduce((sum, cat) => sum + cat.deviceCount, 0);
+    summary.totalConsumption = state.entrada?.total || 0;
 
     // Status counts - use actual data from receivedData if available
-    // Otherwise, estimate based on device counts
     const totalDevices = summary.totalDevices;
-
-    // Check if receivedData has actual status counts
     const statusData = receivedData?.statusCounts || receivedData?.deviceStatus || null;
 
     if (statusData && typeof statusData === 'object') {
@@ -1595,14 +1503,13 @@ export const EnergySummaryTooltip = {
       };
     } else {
       // Fallback: estimate based on device counts
-      // Include noConsumption estimate (devices with 0,00 kWh)
       summary.byStatus = {
-        normal: Math.floor(totalDevices * 0.75), // Estimate 75% normal (with consumption)
-        alert: Math.floor(totalDevices * 0.06),  // Estimate 6% alert
-        failure: Math.floor(totalDevices * 0.02), // Estimate 2% failure
-        standby: Math.floor(totalDevices * 0.02), // Estimate 2% standby
-        offline: Math.floor(totalDevices * 0.03), // Estimate 3% offline
-        noConsumption: Math.floor(totalDevices * 0.12), // Estimate 12% sem consumo
+        normal: Math.floor(totalDevices * 0.80),
+        alert: Math.floor(totalDevices * 0.05),
+        failure: Math.floor(totalDevices * 0.02),
+        standby: Math.floor(totalDevices * 0.02),
+        offline: Math.floor(totalDevices * 0.03),
+        noConsumption: Math.floor(totalDevices * 0.08),
       };
     }
 
@@ -1617,4 +1524,4 @@ export const EnergySummaryTooltip = {
 };
 
 // Default export
-export default EnergySummaryTooltip;
+export default WaterSummaryTooltip;

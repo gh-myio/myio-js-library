@@ -186,8 +186,8 @@ export function getDeviceStatusIcon(deviceStatus, deviceType = null) {
   // Normalize device type for comparison
   const normalizedType = deviceType?.toUpperCase() || '';
 
-  // Use water icons for TANK/CAIXA_DAGUA devices
-  const isWaterDevice = normalizedType === 'TANK' || normalizedType === 'CAIXA_DAGUA';
+  // Use water icons for TANK/CAIXA_DAGUA/HIDROMETRO devices
+  const isWaterDevice = normalizedType === 'TANK' || normalizedType === 'CAIXA_DAGUA' || normalizedType === 'HIDROMETRO';
 
   // Use temperature icons for TERMOSTATO devices
   const isTemperatureDevice = normalizedType === 'TERMOSTATO';

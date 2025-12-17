@@ -87,11 +87,17 @@ export interface AnnotationFilterState {
     start: string;
     end: string;
   };
+  // Legacy single-select (deprecated)
   status?: AnnotationStatus | 'all';
   type?: AnnotationType | 'all';
+  importance?: ImportanceLevel | 'all';
+  // Multiselect lists
+  statusList?: AnnotationStatus[];
+  typeList?: AnnotationType[];
+  importanceList?: ImportanceLevel[];
+  // Other filters
   userId?: string | 'all';
   searchText?: string;
-  importance?: ImportanceLevel | 'all';
   showOverdueOnly?: boolean;
 }
 

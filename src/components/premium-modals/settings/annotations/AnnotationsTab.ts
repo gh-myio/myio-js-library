@@ -29,6 +29,7 @@ import {
 
 import { canModifyAnnotation } from '../../../../utils/superAdminUtils';
 import { MyIOToast } from '../../../../components/MyIOToast';
+import { createDateRangePicker, type DateRangeControl } from '../../../../components/createDateRangePicker';
 
 // ============================================
 // UUID GENERATOR
@@ -378,13 +379,22 @@ const ANNOTATIONS_STYLES = `
   transform: none;
 }
 
-/* Filters Section */
+/* Filters + Create Button Container */
+.annotations-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: stretch;
+}
+
+/* Filters Section - 85% width */
 .annotations-filters {
   background: #fff;
   border-radius: 12px;
   padding: 12px 16px;
-  margin-bottom: 16px;
   border: 1px solid rgba(0, 0, 0, 0.08);
+  flex: 0 0 85%;
+  min-width: 0;
 }
 
 .annotations-filters__title {
@@ -404,21 +414,256 @@ const ANNOTATIONS_STYLES = `
 
 .annotations-filters__field {
   flex: 1;
-  min-width: 120px;
+  min-width: 100px;
+}
+
+/* Multiselect Dropdown Styles */
+.annotations-filters__multiselect {
+  position: relative;
+  min-width: 130px;
+}
+
+.annotations-filters__multiselect-btn {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  font-size: 12px;
+  background: #f8f9fa;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: #212529;
+  text-align: left;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.annotations-filters__multiselect-btn:hover {
+  border-color: #6c5ce7;
+}
+
+.annotations-filters__multiselect-btn:focus {
+  outline: none;
+  border-color: #6c5ce7;
+  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.15);
+}
+
+.annotations-filters__arrow {
+  font-size: 10px;
+  color: #6c757d;
+  transition: transform 0.2s;
+}
+
+.annotations-filters__multiselect.open .annotations-filters__arrow {
+  transform: rotate(180deg);
+}
+
+.annotations-filters__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  margin-top: 4px;
+  display: none;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.annotations-filters__multiselect.open .annotations-filters__dropdown {
+  display: block;
+}
+
+.annotations-filters__checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #212529;
+  transition: background-color 0.15s;
+}
+
+.annotations-filters__checkbox-item:hover {
+  background: #f8f9fa;
+}
+
+.annotations-filters__checkbox-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #6c5ce7;
+  cursor: pointer;
 }
 
 .annotations-filters__select,
 .annotations-filters__input {
   width: 100%;
-  padding: 6px 10px;
+  padding: 8px 10px;
   border: 1px solid #e9ecef;
   border-radius: 6px;
   font-size: 12px;
   background: #f8f9fa;
+  cursor: pointer;
+}
+
+.annotations-filters__select:focus,
+.annotations-filters__input:focus {
+  outline: none;
+  border-color: #6c5ce7;
+  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.15);
 }
 
 .annotations-filters__search {
   flex: 2;
+}
+
+.annotations-filters__date-range {
+  flex: 1.5;
+  min-width: 180px;
+}
+
+.annotations-filters__date-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  font-size: 12px;
+  background: #f8f9fa;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.annotations-filters__date-input:focus {
+  outline: none;
+  border-color: #6c5ce7;
+  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.15);
+}
+
+/* Create Button - fills remaining 15% */
+.annotations-create-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 20px;
+  flex: 1;
+  min-width: 80px;
+  background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.annotations-create-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
+}
+
+.annotations-create-btn__icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.annotations-create-btn__text {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* New Annotation Modal Overlay */
+.annotations-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100001;
+  animation: annotModalFadeIn 0.2s ease;
+}
+
+@keyframes annotModalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.annotations-modal {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 560px;
+  width: 95%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: annotModalSlideIn 0.25s ease;
+}
+
+@keyframes annotModalSlideIn {
+  from { transform: translateY(-20px) scale(0.95); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.annotations-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+  color: #fff;
+}
+
+.annotations-modal__title {
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.annotations-modal__close {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.annotations-modal__close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.annotations-modal__content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.annotations-modal__footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  justify-content: flex-end;
 }
 
 /* Grid Section */
@@ -927,6 +1172,9 @@ export class AnnotationsTab {
   private pagination: PaginationState = { currentPage: 1, pageSize: 10, totalItems: 0, totalPages: 0 };
   private onAnnotationChange?: (annotations: Annotation[]) => void;
   private styleElement: HTMLStyleElement | null = null;
+  private filterDateRangePicker: DateRangeControl | null = null;
+  private modalDateRangePicker: DateRangeControl | null = null;
+  private newAnnotationModal: HTMLElement | null = null;
 
   constructor(config: AnnotationsTabConfig) {
     this.container = config.container;
@@ -1322,19 +1570,29 @@ export class AnnotationsTab {
   private getFilteredAnnotations(): Annotation[] {
     let result = [...this.annotations];
 
-    // Filter by status
-    if (this.filters.status && this.filters.status !== 'all') {
-      result = result.filter((a) => a.status === this.filters.status);
+    // Filter by status (multiselect)
+    if (this.filters.statusList && this.filters.statusList.length > 0) {
+      result = result.filter((a) => this.filters.statusList!.includes(a.status));
     }
 
-    // Filter by type
-    if (this.filters.type && this.filters.type !== 'all') {
-      result = result.filter((a) => a.type === this.filters.type);
+    // Filter by type (multiselect)
+    if (this.filters.typeList && this.filters.typeList.length > 0) {
+      result = result.filter((a) => this.filters.typeList!.includes(a.type));
     }
 
-    // Filter by importance
-    if (this.filters.importance && this.filters.importance !== 'all') {
-      result = result.filter((a) => a.importance === this.filters.importance);
+    // Filter by importance (multiselect)
+    if (this.filters.importanceList && this.filters.importanceList.length > 0) {
+      result = result.filter((a) => this.filters.importanceList!.includes(a.importance));
+    }
+
+    // Filter by date range
+    if (this.filters.dateRange?.start && this.filters.dateRange?.end) {
+      const startDate = new Date(this.filters.dateRange.start).getTime();
+      const endDate = new Date(this.filters.dateRange.end).getTime();
+      result = result.filter((a) => {
+        const annotationDate = new Date(a.createdAt).getTime();
+        return annotationDate >= startDate && annotationDate <= endDate;
+      });
     }
 
     // Filter by search text
@@ -1378,15 +1636,14 @@ export class AnnotationsTab {
       <div class="annotations-tab">
         ${this.renderHeader()}
         ${this.renderStats()}
-        ${this.renderForm()}
-        ${this.renderFilters()}
+        ${this.renderToolbar()}
         ${this.renderGrid()}
         ${this.renderPagination()}
       </div>
     `;
 
     this.attachEventListeners();
-    this.attachFormSelectors();
+    this.initFilterDateRangePicker();
   }
 
   private renderHeader(): string {
@@ -1559,49 +1816,163 @@ export class AnnotationsTab {
     this.container.querySelector('.importance-option--3')?.classList.add('selected');
   }
 
-  private renderFilters(): string {
+  private renderToolbar(): string {
     return `
-      <div class="annotations-filters">
-        <div class="annotations-filters__title">Filtros</div>
-        <div class="annotations-filters__row">
-          <div class="annotations-filters__field">
-            <select class="annotations-filters__select" id="filter-status">
-              <option value="all">Todos Status</option>
-              <option value="created">${STATUS_LABELS.created}</option>
-              <option value="modified">${STATUS_LABELS.modified}</option>
-              <option value="archived">${STATUS_LABELS.archived}</option>
-            </select>
-          </div>
-          <div class="annotations-filters__field">
-            <select class="annotations-filters__select" id="filter-type">
-              <option value="all">Todos Tipos</option>
-              <option value="observation">${ANNOTATION_TYPE_LABELS.observation}</option>
-              <option value="pending">${ANNOTATION_TYPE_LABELS.pending}</option>
-              <option value="maintenance">${ANNOTATION_TYPE_LABELS.maintenance}</option>
-              <option value="activity">${ANNOTATION_TYPE_LABELS.activity}</option>
-            </select>
-          </div>
-          <div class="annotations-filters__field">
-            <select class="annotations-filters__select" id="filter-importance">
-              <option value="all">Todas Importâncias</option>
-              <option value="1">${IMPORTANCE_LABELS[1]}</option>
-              <option value="2">${IMPORTANCE_LABELS[2]}</option>
-              <option value="3">${IMPORTANCE_LABELS[3]}</option>
-              <option value="4">${IMPORTANCE_LABELS[4]}</option>
-              <option value="5">${IMPORTANCE_LABELS[5]}</option>
-            </select>
-          </div>
-          <div class="annotations-filters__field annotations-filters__search">
-            <input
-              type="text"
-              class="annotations-filters__input"
-              id="filter-search"
-              placeholder="Buscar..."
-            >
+      <div class="annotations-toolbar">
+        <div class="annotations-filters">
+          <div class="annotations-filters__title">Filtros</div>
+          <div class="annotations-filters__row">
+            <!-- Status Multiselect -->
+            <div class="annotations-filters__field annotations-filters__multiselect">
+              <button type="button" class="annotations-filters__multiselect-btn" id="filter-status-btn">
+                <span>${this.getStatusFilterLabel()}</span>
+                <span class="annotations-filters__arrow">▼</span>
+              </button>
+              <div class="annotations-filters__dropdown" id="filter-status-dropdown">
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-status" value="all" ${!this.filters.statusList || this.filters.statusList.length === 0 ? 'checked' : ''}>
+                  <span>Todos</span>
+                </label>
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-status" value="created" ${this.filters.statusList?.includes('created') ? 'checked' : ''}>
+                  <span>${STATUS_LABELS.created}</span>
+                </label>
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-status" value="modified" ${this.filters.statusList?.includes('modified') ? 'checked' : ''}>
+                  <span>${STATUS_LABELS.modified}</span>
+                </label>
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-status" value="archived" ${this.filters.statusList?.includes('archived') ? 'checked' : ''}>
+                  <span>${STATUS_LABELS.archived}</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Type Multiselect -->
+            <div class="annotations-filters__field annotations-filters__multiselect">
+              <button type="button" class="annotations-filters__multiselect-btn" id="filter-type-btn">
+                <span>${this.getTypeFilterLabel()}</span>
+                <span class="annotations-filters__arrow">▼</span>
+              </button>
+              <div class="annotations-filters__dropdown" id="filter-type-dropdown">
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-type" value="all" ${!this.filters.typeList || this.filters.typeList.length === 0 ? 'checked' : ''}>
+                  <span>Todos</span>
+                </label>
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-type" value="pending" ${this.filters.typeList?.includes('pending') ? 'checked' : ''}>
+                  <span>${ANNOTATION_TYPE_LABELS.pending}</span>
+                </label>
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-type" value="maintenance" ${this.filters.typeList?.includes('maintenance') ? 'checked' : ''}>
+                  <span>${ANNOTATION_TYPE_LABELS.maintenance}</span>
+                </label>
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-type" value="activity" ${this.filters.typeList?.includes('activity') ? 'checked' : ''}>
+                  <span>${ANNOTATION_TYPE_LABELS.activity}</span>
+                </label>
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-type" value="observation" ${this.filters.typeList?.includes('observation') ? 'checked' : ''}>
+                  <span>${ANNOTATION_TYPE_LABELS.observation}</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Importance Multiselect -->
+            <div class="annotations-filters__field annotations-filters__multiselect">
+              <button type="button" class="annotations-filters__multiselect-btn" id="filter-importance-btn">
+                <span>${this.getImportanceFilterLabel()}</span>
+                <span class="annotations-filters__arrow">▼</span>
+              </button>
+              <div class="annotations-filters__dropdown" id="filter-importance-dropdown">
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-importance" value="all" ${!this.filters.importanceList || this.filters.importanceList.length === 0 ? 'checked' : ''}>
+                  <span>Todas</span>
+                </label>
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-importance" value="1" ${this.filters.importanceList?.includes(1) ? 'checked' : ''}>
+                  <span>${IMPORTANCE_LABELS[1]}</span>
+                </label>
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-importance" value="2" ${this.filters.importanceList?.includes(2) ? 'checked' : ''}>
+                  <span>${IMPORTANCE_LABELS[2]}</span>
+                </label>
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-importance" value="3" ${this.filters.importanceList?.includes(3) ? 'checked' : ''}>
+                  <span>${IMPORTANCE_LABELS[3]}</span>
+                </label>
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-importance" value="4" ${this.filters.importanceList?.includes(4) ? 'checked' : ''}>
+                  <span>${IMPORTANCE_LABELS[4]}</span>
+                </label>
+                <label class="annotations-filters__checkbox-item">
+                  <input type="checkbox" name="filter-importance" value="5" ${this.filters.importanceList?.includes(5) ? 'checked' : ''}>
+                  <span>${IMPORTANCE_LABELS[5]}</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Date Range Filter -->
+            <div class="annotations-filters__field annotations-filters__date-range">
+              <input
+                type="text"
+                class="annotations-filters__date-input"
+                id="filter-date-range"
+                placeholder="Filtrar por período..."
+                readonly
+              >
+            </div>
+
+            <!-- Search -->
+            <div class="annotations-filters__field annotations-filters__search">
+              <input
+                type="text"
+                class="annotations-filters__input"
+                id="filter-search"
+                placeholder="Buscar..."
+                value="${this.filters.searchText || ''}"
+              >
+            </div>
           </div>
         </div>
+
+        <!-- Create Button -->
+        <button type="button" class="annotations-create-btn" id="open-new-annotation-modal">
+          <span class="annotations-create-btn__icon">+</span>
+          <span class="annotations-create-btn__text">Nova</span>
+        </button>
       </div>
     `;
+  }
+
+  private getStatusFilterLabel(): string {
+    if (!this.filters.statusList || this.filters.statusList.length === 0) {
+      return 'Todos Status';
+    }
+    if (this.filters.statusList.length === 1) {
+      return STATUS_LABELS[this.filters.statusList[0]];
+    }
+    return `${this.filters.statusList.length} selecionados`;
+  }
+
+  private getTypeFilterLabel(): string {
+    if (!this.filters.typeList || this.filters.typeList.length === 0) {
+      return 'Todos Tipos';
+    }
+    if (this.filters.typeList.length === 1) {
+      return ANNOTATION_TYPE_LABELS[this.filters.typeList[0]];
+    }
+    return `${this.filters.typeList.length} selecionados`;
+  }
+
+  private getImportanceFilterLabel(): string {
+    if (!this.filters.importanceList || this.filters.importanceList.length === 0) {
+      return 'Todas Importâncias';
+    }
+    if (this.filters.importanceList.length === 1) {
+      return IMPORTANCE_LABELS[this.filters.importanceList[0]];
+    }
+    return `${this.filters.importanceList.length} selecionadas`;
   }
 
   private renderGrid(): string {
@@ -1782,69 +2153,45 @@ export class AnnotationsTab {
   // ============================================
 
   private attachEventListeners(): void {
-    // Form events
-    const textArea = this.container.querySelector('#annotation-text') as HTMLTextAreaElement;
-    const charCount = this.container.querySelector('#char-count');
-    const addBtn = this.container.querySelector('#add-annotation-btn') as HTMLButtonElement;
-
-    textArea?.addEventListener('input', () => {
-      const len = textArea.value.length;
-      if (charCount) {
-        charCount.textContent = `${len} / 255`;
-        charCount.className = 'annotations-form__char-count' +
-          (len > 240 ? ' annotations-form__char-count--warning' : '') +
-          (len >= 255 ? ' annotations-form__char-count--error' : '');
-      }
-      if (addBtn) {
-        addBtn.disabled = len === 0;
-      }
+    // Open New Annotation Modal button
+    const openModalBtn = this.container.querySelector('#open-new-annotation-modal');
+    openModalBtn?.addEventListener('click', () => {
+      this.showNewAnnotationModal();
     });
 
-    addBtn?.addEventListener('click', async () => {
-      // Get type from visual selector
-      const selectedType = this.container.querySelector('.type-option.selected') as HTMLElement;
-      const type = (selectedType?.dataset.type || 'observation') as AnnotationType;
-
-      // Get importance from visual selector
-      const selectedImportance = this.container.querySelector('.importance-option.selected') as HTMLElement;
-      const importance = parseInt(selectedImportance?.dataset.importance || '3') as ImportanceLevel;
-
-      const dueDate = (this.container.querySelector('#annotation-due-date') as HTMLInputElement).value || undefined;
-      const text = textArea.value.trim();
-
-      if (text) {
-        addBtn.disabled = true;
-        addBtn.textContent = 'Salvando...';
-        await this.addAnnotation({ text, type, importance, dueDate });
-        addBtn.textContent = 'Criar Anotação';
-        this.clearForm();
+    // Multiselect dropdown toggles
+    this.setupMultiselectDropdown('filter-status', (values) => {
+      if (values.includes('all') || values.length === 0) {
+        this.filters.statusList = undefined;
+      } else {
+        this.filters.statusList = values as AnnotationStatus[];
       }
+      this.pagination.currentPage = 1;
+      this.render();
     });
 
-    // Filter events
-    const filterStatus = this.container.querySelector('#filter-status') as HTMLSelectElement;
-    const filterType = this.container.querySelector('#filter-type') as HTMLSelectElement;
-    const filterImportance = this.container.querySelector('#filter-importance') as HTMLSelectElement;
+    this.setupMultiselectDropdown('filter-type', (values) => {
+      if (values.includes('all') || values.length === 0) {
+        this.filters.typeList = undefined;
+      } else {
+        this.filters.typeList = values as AnnotationType[];
+      }
+      this.pagination.currentPage = 1;
+      this.render();
+    });
+
+    this.setupMultiselectDropdown('filter-importance', (values) => {
+      if (values.includes('all') || values.length === 0) {
+        this.filters.importanceList = undefined;
+      } else {
+        this.filters.importanceList = values.map(v => parseInt(v)) as ImportanceLevel[];
+      }
+      this.pagination.currentPage = 1;
+      this.render();
+    });
+
+    // Search filter
     const filterSearch = this.container.querySelector('#filter-search') as HTMLInputElement;
-
-    filterStatus?.addEventListener('change', () => {
-      this.filters.status = filterStatus.value as AnnotationStatus | 'all';
-      this.pagination.currentPage = 1;
-      this.render();
-    });
-
-    filterType?.addEventListener('change', () => {
-      this.filters.type = filterType.value as AnnotationType | 'all';
-      this.pagination.currentPage = 1;
-      this.render();
-    });
-
-    filterImportance?.addEventListener('change', () => {
-      this.filters.importance = filterImportance.value === 'all' ? 'all' : parseInt(filterImportance.value) as ImportanceLevel;
-      this.pagination.currentPage = 1;
-      this.render();
-    });
-
     filterSearch?.addEventListener('input', () => {
       this.filters.searchText = filterSearch.value;
       this.pagination.currentPage = 1;
@@ -1909,6 +2256,335 @@ export class AnnotationsTab {
         }
       });
     });
+  }
+
+  // ============================================
+  // MULTISELECT DROPDOWN HELPER
+  // ============================================
+
+  private setupMultiselectDropdown(
+    filterName: string,
+    onChange: (selectedValues: string[]) => void
+  ): void {
+    const btn = this.container.querySelector(`#${filterName}-btn`);
+    const dropdown = this.container.querySelector(`#${filterName}-dropdown`);
+    const multiselect = btn?.closest('.annotations-filters__multiselect');
+
+    if (!btn || !dropdown || !multiselect) return;
+
+    // Toggle dropdown on button click
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Close other open dropdowns
+      this.container.querySelectorAll('.annotations-filters__multiselect.open').forEach((el) => {
+        if (el !== multiselect) el.classList.remove('open');
+      });
+      multiselect.classList.toggle('open');
+    });
+
+    // Handle checkbox changes
+    const checkboxes = dropdown.querySelectorAll('input[type="checkbox"]') as NodeListOf<HTMLInputElement>;
+    checkboxes.forEach((checkbox) => {
+      checkbox.addEventListener('change', () => {
+        const allCheckbox = dropdown.querySelector('input[value="all"]') as HTMLInputElement;
+
+        if (checkbox.value === 'all' && checkbox.checked) {
+          // "All" selected - uncheck others
+          checkboxes.forEach((cb) => {
+            if (cb !== allCheckbox) cb.checked = false;
+          });
+        } else if (checkbox.value !== 'all' && checkbox.checked) {
+          // Specific value selected - uncheck "all"
+          if (allCheckbox) allCheckbox.checked = false;
+        }
+
+        // Collect selected values
+        const selected: string[] = [];
+        checkboxes.forEach((cb) => {
+          if (cb.checked && cb.value !== 'all') {
+            selected.push(cb.value);
+          }
+        });
+
+        // If none selected or "all" is checked, treat as all
+        if (selected.length === 0) {
+          if (allCheckbox) allCheckbox.checked = true;
+        }
+
+        // Update button label
+        const labelSpan = btn.querySelector('span:first-child');
+        if (labelSpan) {
+          if (selected.length === 0) {
+            const filterType = filterName.replace('filter-', '');
+            if (filterType === 'status') labelSpan.textContent = 'Todos Status';
+            else if (filterType === 'type') labelSpan.textContent = 'Todos Tipos';
+            else if (filterType === 'importance') labelSpan.textContent = 'Todas Importâncias';
+          } else if (selected.length === 1) {
+            const filterType = filterName.replace('filter-', '');
+            if (filterType === 'status') labelSpan.textContent = STATUS_LABELS[selected[0] as AnnotationStatus];
+            else if (filterType === 'type') labelSpan.textContent = ANNOTATION_TYPE_LABELS[selected[0] as AnnotationType];
+            else if (filterType === 'importance') labelSpan.textContent = IMPORTANCE_LABELS[parseInt(selected[0]) as ImportanceLevel];
+          } else {
+            labelSpan.textContent = `${selected.length} selecionados`;
+          }
+        }
+
+        onChange(selected);
+      });
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!multiselect.contains(e.target as Node)) {
+        multiselect.classList.remove('open');
+      }
+    });
+  }
+
+  // ============================================
+  // FILTER DATE RANGE PICKER
+  // ============================================
+
+  private async initFilterDateRangePicker(): Promise<void> {
+    const dateInput = this.container.querySelector('#filter-date-range') as HTMLInputElement;
+    if (!dateInput) return;
+
+    // Add clear button functionality via double-click on input
+    dateInput.addEventListener('dblclick', () => {
+      if (this.filters.dateRange) {
+        this.filters.dateRange = undefined;
+        dateInput.value = '';
+        this.pagination.currentPage = 1;
+        this.render();
+      }
+    });
+    dateInput.title = 'Duplo clique para limpar filtro de data';
+
+    try {
+      this.filterDateRangePicker = await createDateRangePicker(dateInput, {
+        includeTime: true,
+        timePrecision: 'minute',
+        maxRangeDays: 365,
+        locale: 'pt-BR',
+        parentEl: this.container,
+        onApply: (result) => {
+          this.filters.dateRange = {
+            start: result.startISO,
+            end: result.endISO,
+          };
+          this.pagination.currentPage = 1;
+          this.render();
+        },
+      });
+    } catch (error) {
+      console.warn('[AnnotationsTab] DateRangePicker initialization failed:', error);
+    }
+  }
+
+  // ============================================
+  // NEW ANNOTATION MODAL
+  // ============================================
+
+  private async showNewAnnotationModal(): Promise<void> {
+    // Remove existing modal if present
+    this.newAnnotationModal?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'annotations-modal-overlay';
+    this.newAnnotationModal = overlay;
+
+    overlay.innerHTML = `
+      <div class="annotations-modal">
+        <div class="annotations-modal__header">
+          <span class="annotations-modal__title">✏️ Nova Anotação</span>
+          <button class="annotations-modal__close" data-action="close">&times;</button>
+        </div>
+        <div class="annotations-modal__content">
+          <!-- Text Area -->
+          <div class="annotations-form__field annotations-form__field--full" style="margin-bottom: 16px;">
+            <label class="annotations-form__label">Texto da Anotação</label>
+            <textarea
+              class="annotations-form__textarea"
+              id="new-annotation-text"
+              placeholder="Digite sua anotação (máx. 255 caracteres)..."
+              maxlength="255"
+              style="min-height: 100px;"
+            ></textarea>
+            <div class="annotations-form__char-count" id="new-annotation-char-count">0 / 255</div>
+          </div>
+
+          <!-- Type Selector -->
+          <div class="annotations-form__field" style="margin-bottom: 16px;">
+            <label class="annotations-form__label">Tipo</label>
+            <div class="type-selector" id="new-annotation-type-selector">
+              <div class="type-option type-option--pending selected" data-type="pending">
+                <span class="type-option__dot"></span>
+                <span class="type-option__label">Pendência</span>
+              </div>
+              <div class="type-option type-option--maintenance" data-type="maintenance">
+                <span class="type-option__dot"></span>
+                <span class="type-option__label">Manutenção</span>
+              </div>
+              <div class="type-option type-option--activity" data-type="activity">
+                <span class="type-option__dot"></span>
+                <span class="type-option__label">Atividade</span>
+              </div>
+              <div class="type-option type-option--observation" data-type="observation">
+                <span class="type-option__dot"></span>
+                <span class="type-option__label">Observação</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Importance Selector -->
+          <div class="annotations-form__field" style="margin-bottom: 16px;">
+            <label class="annotations-form__label">Importância</label>
+            <div class="importance-selector" id="new-annotation-importance-selector">
+              <div class="importance-option importance-option--1" data-importance="1" title="Muito Baixa">1</div>
+              <div class="importance-option importance-option--2" data-importance="2" title="Baixa">2</div>
+              <div class="importance-option importance-option--3 selected" data-importance="3" title="Média">3</div>
+              <div class="importance-option importance-option--4" data-importance="4" title="Alta">4</div>
+              <div class="importance-option importance-option--5" data-importance="5" title="Muito Alta">5</div>
+            </div>
+          </div>
+
+          <!-- Due Date Range -->
+          <div class="annotations-form__field" style="margin-bottom: 16px;">
+            <label class="annotations-form__label">Data Limite (opcional)</label>
+            <input
+              type="text"
+              class="annotations-form__input"
+              id="new-annotation-due-date"
+              placeholder="Selecione a data limite..."
+              readonly
+              style="cursor: pointer;"
+            >
+          </div>
+        </div>
+        <div class="annotations-modal__footer">
+          <button class="annotations-form__btn annotations-form__btn--secondary" data-action="cancel">
+            Cancelar
+          </button>
+          <button class="annotations-form__btn annotations-form__btn--primary" id="new-annotation-submit" disabled>
+            Criar Anotação
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Setup event listeners for the modal
+    const textArea = overlay.querySelector('#new-annotation-text') as HTMLTextAreaElement;
+    const charCount = overlay.querySelector('#new-annotation-char-count');
+    const submitBtn = overlay.querySelector('#new-annotation-submit') as HTMLButtonElement;
+
+    // Character count
+    textArea?.addEventListener('input', () => {
+      const len = textArea.value.length;
+      if (charCount) {
+        charCount.textContent = `${len} / 255`;
+        charCount.className = 'annotations-form__char-count' +
+          (len > 240 ? ' annotations-form__char-count--warning' : '') +
+          (len >= 255 ? ' annotations-form__char-count--error' : '');
+      }
+      if (submitBtn) {
+        submitBtn.disabled = len === 0;
+      }
+    });
+
+    // Type selector
+    const typeSelector = overlay.querySelector('#new-annotation-type-selector');
+    if (typeSelector) {
+      const typeOptions = typeSelector.querySelectorAll('.type-option');
+      typeOptions.forEach((opt) => {
+        opt.addEventListener('click', () => {
+          typeOptions.forEach((o) => o.classList.remove('selected'));
+          opt.classList.add('selected');
+        });
+      });
+    }
+
+    // Importance selector
+    const importanceSelector = overlay.querySelector('#new-annotation-importance-selector');
+    if (importanceSelector) {
+      const importanceOptions = importanceSelector.querySelectorAll('.importance-option');
+      importanceOptions.forEach((opt) => {
+        opt.addEventListener('click', () => {
+          importanceOptions.forEach((o) => o.classList.remove('selected'));
+          opt.classList.add('selected');
+        });
+      });
+    }
+
+    // Initialize DateRangePicker for due date (using same start/end for single date)
+    const dueDateInput = overlay.querySelector('#new-annotation-due-date') as HTMLInputElement;
+    if (dueDateInput) {
+      try {
+        this.modalDateRangePicker = await createDateRangePicker(dueDateInput, {
+          includeTime: true,
+          timePrecision: 'minute',
+          locale: 'pt-BR',
+          parentEl: overlay.querySelector('.annotations-modal') as HTMLElement,
+          onApply: (result) => {
+            // Store the selected date/time in the input
+            dueDateInput.setAttribute('data-due-date', result.startISO);
+          },
+        });
+      } catch (error) {
+        console.warn('[AnnotationsTab] Modal DateRangePicker initialization failed:', error);
+        // Fallback to native datetime-local input
+        dueDateInput.type = 'datetime-local';
+        dueDateInput.removeAttribute('readonly');
+        dueDateInput.style.cursor = 'text';
+      }
+    }
+
+    // Close handlers
+    const closeModal = () => {
+      this.modalDateRangePicker?.destroy?.();
+      this.modalDateRangePicker = null;
+      overlay.remove();
+      this.newAnnotationModal = null;
+    };
+
+    overlay.querySelector('[data-action="close"]')?.addEventListener('click', closeModal);
+    overlay.querySelector('[data-action="cancel"]')?.addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeModal();
+    });
+
+    // Submit handler
+    submitBtn?.addEventListener('click', async () => {
+      const selectedType = overlay.querySelector('.type-option.selected') as HTMLElement;
+      const type = (selectedType?.dataset.type || 'observation') as AnnotationType;
+
+      const selectedImportance = overlay.querySelector('.importance-option.selected') as HTMLElement;
+      const importance = parseInt(selectedImportance?.dataset.importance || '3') as ImportanceLevel;
+
+      // Get due date from data attribute (set by DateRangePicker onApply) or fallback input
+      let dueDate: string | undefined;
+      const storedDueDate = dueDateInput?.getAttribute('data-due-date');
+      if (storedDueDate) {
+        dueDate = storedDueDate;
+      } else if (dueDateInput?.value) {
+        // Fallback for native datetime-local input
+        dueDate = new Date(dueDateInput.value).toISOString();
+      }
+
+      const text = textArea.value.trim();
+
+      if (text) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Salvando...';
+        await this.addAnnotation({ text, type, importance, dueDate });
+        submitBtn.textContent = 'Criar Anotação';
+        closeModal();
+      }
+    });
+
+    // Focus on textarea
+    textArea?.focus();
   }
 
   // ============================================

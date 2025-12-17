@@ -284,8 +284,22 @@ export type { EnergyEntityData, EnergyStatus, EnergyStatusResult, PowerRange, Po
 
 // RFC-0105: Energy Summary Tooltip (Dashboard summary on hover)
 export { EnergySummaryTooltip } from './utils/EnergySummaryTooltip';
+export { WaterSummaryTooltip } from './utils/WaterSummaryTooltip';
 export { InfoTooltip } from './utils/InfoTooltip';
-export type { DashboardEnergySummary, CategorySummary, StatusSummary } from './utils/EnergySummaryTooltip';
+export type { DashboardEnergySummary, CategorySummary, StatusSummary, DeviceInfo } from './utils/EnergySummaryTooltip';
+export type { DashboardWaterSummary, WaterCategorySummary } from './utils/WaterSummaryTooltip';
+
+// RFC-0110: Device Comparison Tooltip (Premium device comparison on percentage hover)
+export { DeviceComparisonTooltip } from './utils/DeviceComparisonTooltip';
+export type { DeviceComparisonData } from './utils/DeviceComparisonTooltip';
+
+// RFC-0110: Temp Comparison Tooltip (Premium temperature comparison with average)
+export { TempComparisonTooltip } from './utils/TempComparisonTooltip';
+export type { TempComparisonData } from './utils/TempComparisonTooltip';
+
+// Temp Sensor Summary Tooltip (Widget temperature sensors summary)
+export { TempSensorSummaryTooltip } from './utils/TempSensorSummaryTooltip';
+export type { TempSensorSummaryData, TempSensorDevice } from './utils/TempSensorSummaryTooltip';
 
 // Modal Header Component (Reusable)
 export {
