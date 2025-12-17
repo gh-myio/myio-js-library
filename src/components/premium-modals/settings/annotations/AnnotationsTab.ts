@@ -2018,19 +2018,30 @@ export class AnnotationsTab {
 
   private isOverdue(annotation: Annotation): boolean {
     if (!annotation.dueDate || annotation.status === 'archived') return false;
-    return new Date(annotation.dueDate) < new Date();
+    try {
+      const dueDate = new Date(annotation.dueDate);
+      if (isNaN(dueDate.getTime())) return false;
+      return dueDate < new Date();
+    } catch (e) {
+      return false;
+    }
   }
 
   private formatDate(isoString: string): string {
     if (!isoString) return '-';
-    const date = new Date(isoString);
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    try {
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) return '-';
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (e) {
+      return '-';
+    }
   }
 
   private renderCard(annotation: Annotation): string {
@@ -2095,7 +2106,7 @@ export class AnnotationsTab {
     const typeColor = ANNOTATION_TYPE_COLORS[annotation.type];
     const importanceColor = IMPORTANCE_COLORS[annotation.importance];
     const statusColor = STATUS_COLORS[annotation.status];
-    const date = new Date(annotation.createdAt).toLocaleString('pt-BR');
+    const date = this.formatDate(annotation.createdAt);
     const truncatedText = annotation.text.length > 50
       ? annotation.text.substring(0, 50) + '...'
       : annotation.text;
@@ -2462,16 +2473,14 @@ export class AnnotationsTab {
             </div>
           </div>
 
-          <!-- Due Date Range -->
+          <!-- Due Date -->
           <div class="annotations-form__field" style="margin-bottom: 16px;">
             <label class="annotations-form__label">Data Limite (opcional)</label>
             <input
-              type="text"
+              type="datetime-local"
               class="annotations-form__input"
               id="new-annotation-due-date"
-              placeholder="Selecione a data limite..."
-              readonly
-              style="cursor: pointer;"
+              style="cursor: text;"
             >
           </div>
         </div>
@@ -2531,28 +2540,8 @@ export class AnnotationsTab {
       });
     }
 
-    // Initialize DateRangePicker for due date (using same start/end for single date)
+    // Due date input (using native datetime-local)
     const dueDateInput = overlay.querySelector('#new-annotation-due-date') as HTMLInputElement;
-    if (dueDateInput) {
-      try {
-        this.modalDateRangePicker = await createDateRangePicker(dueDateInput, {
-          includeTime: true,
-          timePrecision: 'minute',
-          locale: 'pt-BR',
-          parentEl: overlay.querySelector('.annotations-modal') as HTMLElement,
-          onApply: (result) => {
-            // Store the selected date/time in the input
-            dueDateInput.setAttribute('data-due-date', result.startISO);
-          },
-        });
-      } catch (error) {
-        console.warn('[AnnotationsTab] Modal DateRangePicker initialization failed:', error);
-        // Fallback to native datetime-local input
-        dueDateInput.type = 'datetime-local';
-        dueDateInput.removeAttribute('readonly');
-        dueDateInput.style.cursor = 'text';
-      }
-    }
 
     // Close handlers
     const closeModal = () => {
@@ -2576,14 +2565,17 @@ export class AnnotationsTab {
       const selectedImportance = overlay.querySelector('.importance-option.selected') as HTMLElement;
       const importance = parseInt(selectedImportance?.dataset.importance || '3') as ImportanceLevel;
 
-      // Get due date from data attribute (set by DateRangePicker onApply) or fallback input
+      // Get due date from native datetime-local input
       let dueDate: string | undefined;
-      const storedDueDate = dueDateInput?.getAttribute('data-due-date');
-      if (storedDueDate) {
-        dueDate = storedDueDate;
-      } else if (dueDateInput?.value) {
-        // Fallback for native datetime-local input
-        dueDate = new Date(dueDateInput.value).toISOString();
+      if (dueDateInput?.value) {
+        try {
+          const dateValue = new Date(dueDateInput.value);
+          if (!isNaN(dateValue.getTime())) {
+            dueDate = dateValue.toISOString();
+          }
+        } catch (e) {
+          console.warn('[AnnotationsTab] Invalid due date value:', dueDateInput.value);
+        }
       }
 
       const text = textArea.value.trim();
@@ -2855,12 +2847,12 @@ export class AnnotationsTab {
           </div>
           <div class="annotation-detail__field">
             <div class="annotation-detail__label">Data de Criação</div>
-            <div class="annotation-detail__value">${new Date(annotation.createdAt).toLocaleString('pt-BR')}</div>
+            <div class="annotation-detail__value">${this.formatDate(annotation.createdAt)}</div>
           </div>
           ${annotation.dueDate ? `
             <div class="annotation-detail__field">
               <div class="annotation-detail__label">Data Limite</div>
-              <div class="annotation-detail__value">${new Date(annotation.dueDate).toLocaleDateString('pt-BR')}</div>
+              <div class="annotation-detail__value">${this.formatDate(annotation.dueDate)}</div>
             </div>
           ` : ''}
           <div class="annotation-detail__field">
@@ -2871,7 +2863,7 @@ export class AnnotationsTab {
             <div class="annotation-detail__field">
               <div class="annotation-detail__label">Reconhecido por</div>
               <div class="annotation-detail__value">
-                ${annotation.acknowledgedBy?.name} em ${new Date(annotation.acknowledgedAt || '').toLocaleString('pt-BR')}
+                ${annotation.acknowledgedBy?.name} em ${this.formatDate(annotation.acknowledgedAt || '')}
               </div>
             </div>
           ` : ''}
@@ -2879,7 +2871,7 @@ export class AnnotationsTab {
             <div class="annotation-detail__history-title">Histórico (${annotation.history.length} eventos)</div>
             ${annotation.history.map((h) => `
               <div class="annotation-detail__history-item">
-                <strong>${h.action}</strong> por ${h.userName} em ${new Date(h.timestamp).toLocaleString('pt-BR')}
+                <strong>${h.action}</strong> por ${h.userName} em ${this.formatDate(h.timestamp)}
               </div>
             `).join('')}
           </div>

@@ -98,23 +98,25 @@ function aggregateDeviceStatusFromOrchestrator(domain) {
     noConsumptionDevices: [],
   };
 
-  // Try to access orchestrator data (available in widget context)
-  const orchestratorData = window.MyIOOrchestratorData || window.parent?.MyIOOrchestratorData;
-
-  if (!orchestratorData || !orchestratorData[domain]) {
-    LogHelper.log('[RFC-0105] No orchestrator data available for device status aggregation');
-    return result;
-  }
-
-  const domainData = orchestratorData[domain];
-  const items = domainData.items || [];
+  // RFC-0105: Use items stored from processOrchestratorData (primary source)
+  // Falls back to window.MyIOOrchestratorData if available
+  let items = RECEIVED_ORCHESTRATOR_ITEMS;
 
   if (!items || items.length === 0) {
-    LogHelper.log('[RFC-0105] No items in orchestrator data');
+    // Fallback: try window.MyIOOrchestratorData
+    const orchestratorData = window.MyIOOrchestratorData || window.parent?.MyIOOrchestratorData;
+    if (orchestratorData && orchestratorData[domain]) {
+      items = orchestratorData[domain].items || [];
+    }
+  }
+
+  if (!items || items.length === 0) {
+    LogHelper.log('[RFC-0105] No items available for device status aggregation');
     return result;
   }
 
   result.hasData = true;
+  LogHelper.log(`[RFC-0105] Aggregating device status from ${items.length} items`);
 
   // Threshold for "no consumption" - devices with value below this are considered zero
   const NO_CONSUMPTION_THRESHOLD = domain === 'water' ? 0.001 : 0.01; // m³ for water, kWh for energy
@@ -254,6 +256,9 @@ let dataProvideHandler = null;
 let waterProvideHandler = null; // RFC-0002: Handler for water events
 let clearCacheHandler = null;
 let lastProcessedPeriodKey = null;
+
+// RFC-0105: Store received orchestrator items for device status aggregation
+let RECEIVED_ORCHESTRATOR_ITEMS = [];
 
 // ===================== CATEGORIES (RFC-0056) =====================
 
@@ -1157,6 +1162,9 @@ function updateDisplay() {
  */
 function processOrchestratorData(items) {
   LogHelper.log('Processing orchestrator data:', items.length, 'items');
+
+  // RFC-0105: Store items for device status aggregation (used by summary tooltip)
+  RECEIVED_ORCHESTRATOR_ITEMS = items || [];
 
   if (!items || items.length === 0) {
     LogHelper.warn('No data to process');
