@@ -645,10 +645,12 @@ function formatConsumption(value: number): string {
  */
 function formatPercentage(value: number): string {
   if (value == null || isNaN(value)) return '0,0%';
-  return value.toLocaleString('pt-BR', {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }) + '%';
+  return (
+    value.toLocaleString('pt-BR', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }) + '%'
+  );
 }
 
 /**
@@ -717,18 +719,22 @@ function generateBodyHTML(data: DeviceComparisonData): string {
       <div class="myio-device-comparison-tooltip__main-stats">
         <div class="myio-device-comparison-tooltip__stat-card">
           <div class="myio-device-comparison-tooltip__stat-label">Consumo</div>
-          <div class="myio-device-comparison-tooltip__stat-value consumption">${formatConsumption(device.consumption)}</div>
+          <div class="myio-device-comparison-tooltip__stat-value consumption">${formatConsumption(
+            device.consumption
+          )}</div>
         </div>
         <div class="myio-device-comparison-tooltip__stat-card">
           <div class="myio-device-comparison-tooltip__stat-label">Participacao</div>
-          <div class="myio-device-comparison-tooltip__stat-value percentage">${formatPercentage(device.percentage)}</div>
+          <div class="myio-device-comparison-tooltip__stat-value percentage">${formatPercentage(
+            device.percentage
+          )}</div>
         </div>
       </div>
 
       <!-- Section: Category Comparison -->
       <div class="myio-device-comparison-tooltip__section-title">
         <span class="myio-device-comparison-tooltip__section-icon">📊</span>
-        Comparacao por Categoria
+        Comparação por Tipo
       </div>
       <div class="myio-device-comparison-tooltip__comparison">
         <div class="myio-device-comparison-tooltip__comparison-header">
@@ -736,25 +742,36 @@ function generateBodyHTML(data: DeviceComparisonData): string {
             <span class="myio-device-comparison-tooltip__comparison-icon">🏷️</span>
             ${device.name} vs ${categoryGroup.name}
           </div>
-          <div class="myio-device-comparison-tooltip__comparison-meta">${categoryGroup.deviceCount} dispositivos</div>
+          <div class="myio-device-comparison-tooltip__comparison-meta">${
+            categoryGroup.deviceCount
+          } dispositivos</div>
         </div>
         <div class="myio-device-comparison-tooltip__progress-container">
           <div class="myio-device-comparison-tooltip__progress-bar">
-            <div class="myio-device-comparison-tooltip__progress-fill category" style="width: ${Math.min(categoryGroup.devicePercentage, 100)}%"></div>
+            <div class="myio-device-comparison-tooltip__progress-fill category" style="width: ${Math.min(
+              categoryGroup.devicePercentage,
+              100
+            )}%"></div>
           </div>
         </div>
         <div class="myio-device-comparison-tooltip__comparison-stats">
           <div class="myio-device-comparison-tooltip__comparison-stat">
             <div class="myio-device-comparison-tooltip__comparison-stat-label">Este Device</div>
-            <div class="myio-device-comparison-tooltip__comparison-stat-value">${formatConsumption(device.consumption)}</div>
+            <div class="myio-device-comparison-tooltip__comparison-stat-value">${formatConsumption(
+              device.consumption
+            )}</div>
           </div>
           <div class="myio-device-comparison-tooltip__comparison-stat">
             <div class="myio-device-comparison-tooltip__comparison-stat-label">Total Grupo</div>
-            <div class="myio-device-comparison-tooltip__comparison-stat-value">${formatConsumption(categoryGroup.totalConsumption)}</div>
+            <div class="myio-device-comparison-tooltip__comparison-stat-value">${formatConsumption(
+              categoryGroup.totalConsumption
+            )}</div>
           </div>
           <div class="myio-device-comparison-tooltip__comparison-stat">
             <div class="myio-device-comparison-tooltip__comparison-stat-label">Participacao</div>
-            <div class="myio-device-comparison-tooltip__comparison-stat-value highlight">${formatPercentage(categoryGroup.devicePercentage)}</div>
+            <div class="myio-device-comparison-tooltip__comparison-stat-value highlight">${formatPercentage(
+              categoryGroup.devicePercentage
+            )}</div>
           </div>
         </div>
       </div>
@@ -762,7 +779,7 @@ function generateBodyHTML(data: DeviceComparisonData): string {
       <!-- Section: Widget Scope Comparison -->
       <div class="myio-device-comparison-tooltip__section-title">
         <span class="myio-device-comparison-tooltip__section-icon">🏢</span>
-        Comparacao no Widget
+        Comparação no Grupo
       </div>
       <div class="myio-device-comparison-tooltip__comparison">
         <div class="myio-device-comparison-tooltip__comparison-header">
@@ -770,25 +787,36 @@ function generateBodyHTML(data: DeviceComparisonData): string {
             <span class="myio-device-comparison-tooltip__comparison-icon">🏠</span>
             ${device.name} vs ${widgetScope.name}
           </div>
-          <div class="myio-device-comparison-tooltip__comparison-meta">${widgetScope.deviceCount} dispositivos</div>
+          <div class="myio-device-comparison-tooltip__comparison-meta">${
+            widgetScope.deviceCount
+          } dispositivos</div>
         </div>
         <div class="myio-device-comparison-tooltip__progress-container">
           <div class="myio-device-comparison-tooltip__progress-bar">
-            <div class="myio-device-comparison-tooltip__progress-fill widget" style="width: ${Math.min(widgetScope.devicePercentage, 100)}%"></div>
+            <div class="myio-device-comparison-tooltip__progress-fill widget" style="width: ${Math.min(
+              widgetScope.devicePercentage,
+              100
+            )}%"></div>
           </div>
         </div>
         <div class="myio-device-comparison-tooltip__comparison-stats">
           <div class="myio-device-comparison-tooltip__comparison-stat">
             <div class="myio-device-comparison-tooltip__comparison-stat-label">Este Device</div>
-            <div class="myio-device-comparison-tooltip__comparison-stat-value">${formatConsumption(device.consumption)}</div>
+            <div class="myio-device-comparison-tooltip__comparison-stat-value">${formatConsumption(
+              device.consumption
+            )}</div>
           </div>
           <div class="myio-device-comparison-tooltip__comparison-stat">
             <div class="myio-device-comparison-tooltip__comparison-stat-label">Total Widget</div>
-            <div class="myio-device-comparison-tooltip__comparison-stat-value">${formatConsumption(widgetScope.totalConsumption)}</div>
+            <div class="myio-device-comparison-tooltip__comparison-stat-value">${formatConsumption(
+              widgetScope.totalConsumption
+            )}</div>
           </div>
           <div class="myio-device-comparison-tooltip__comparison-stat">
             <div class="myio-device-comparison-tooltip__comparison-stat-label">Participacao</div>
-            <div class="myio-device-comparison-tooltip__comparison-stat-value highlight">${formatPercentage(widgetScope.devicePercentage)}</div>
+            <div class="myio-device-comparison-tooltip__comparison-stat-value highlight">${formatPercentage(
+              widgetScope.devicePercentage
+            )}</div>
           </div>
         </div>
       </div>
@@ -796,7 +824,7 @@ function generateBodyHTML(data: DeviceComparisonData): string {
       <!-- Section: Grand Total Comparison -->
       <div class="myio-device-comparison-tooltip__section-title">
         <span class="myio-device-comparison-tooltip__section-icon">🌐</span>
-        Comparacao Total
+        Comparação Total
       </div>
       <div class="myio-device-comparison-tooltip__comparison">
         <div class="myio-device-comparison-tooltip__comparison-header">
@@ -804,25 +832,36 @@ function generateBodyHTML(data: DeviceComparisonData): string {
             <span class="myio-device-comparison-tooltip__comparison-icon">🏪</span>
             ${device.name} vs ${grandTotal.name}
           </div>
-          <div class="myio-device-comparison-tooltip__comparison-meta">${grandTotal.deviceCount} dispositivos</div>
+          <div class="myio-device-comparison-tooltip__comparison-meta">${
+            grandTotal.deviceCount
+          } dispositivos</div>
         </div>
         <div class="myio-device-comparison-tooltip__progress-container">
           <div class="myio-device-comparison-tooltip__progress-bar">
-            <div class="myio-device-comparison-tooltip__progress-fill total" style="width: ${Math.min(grandTotal.devicePercentage, 100)}%"></div>
+            <div class="myio-device-comparison-tooltip__progress-fill total" style="width: ${Math.min(
+              grandTotal.devicePercentage,
+              100
+            )}%"></div>
           </div>
         </div>
         <div class="myio-device-comparison-tooltip__comparison-stats">
           <div class="myio-device-comparison-tooltip__comparison-stat">
             <div class="myio-device-comparison-tooltip__comparison-stat-label">Este Device</div>
-            <div class="myio-device-comparison-tooltip__comparison-stat-value">${formatConsumption(device.consumption)}</div>
+            <div class="myio-device-comparison-tooltip__comparison-stat-value">${formatConsumption(
+              device.consumption
+            )}</div>
           </div>
           <div class="myio-device-comparison-tooltip__comparison-stat">
             <div class="myio-device-comparison-tooltip__comparison-stat-label">Total Geral</div>
-            <div class="myio-device-comparison-tooltip__comparison-stat-value">${formatConsumption(grandTotal.totalConsumption)}</div>
+            <div class="myio-device-comparison-tooltip__comparison-stat-value">${formatConsumption(
+              grandTotal.totalConsumption
+            )}</div>
           </div>
           <div class="myio-device-comparison-tooltip__comparison-stat">
             <div class="myio-device-comparison-tooltip__comparison-stat-label">Participacao</div>
-            <div class="myio-device-comparison-tooltip__comparison-stat-value highlight">${formatPercentage(grandTotal.devicePercentage)}</div>
+            <div class="myio-device-comparison-tooltip__comparison-stat-value highlight">${formatPercentage(
+              grandTotal.devicePercentage
+            )}</div>
           </div>
         </div>
       </div>
@@ -859,7 +898,7 @@ function setupHoverListeners(container: HTMLElement): void {
  */
 function setupButtonListeners(container: HTMLElement): void {
   const buttons = container.querySelectorAll('[data-action]');
-  buttons.forEach(btn => {
+  buttons.forEach((btn) => {
     (btn as HTMLElement).onclick = (e: MouseEvent) => {
       e.stopPropagation();
       const action = (btn as HTMLElement).dataset.action;
@@ -895,7 +934,7 @@ function setupDragListeners(container: HTMLElement): void {
     const rect = container.getBoundingClientRect();
     state.dragOffset = {
       x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      y: e.clientY - rect.top,
     };
 
     const onMouseMove = (e: MouseEvent) => {
@@ -1052,7 +1091,7 @@ function toggleMaximize(container: HTMLElement): void {
   if (state.isMaximized) {
     state.savedPosition = {
       left: container.style.left,
-      top: container.style.top
+      top: container.style.top,
     };
   }
 
@@ -1222,10 +1261,7 @@ export const DeviceComparisonTooltip = {
   /**
    * Attach tooltip to trigger element with hover behavior
    */
-  attach(
-    triggerElement: HTMLElement,
-    getDataFn: () => DeviceComparisonData | null
-  ): () => void {
+  attach(triggerElement: HTMLElement, getDataFn: () => DeviceComparisonData | null): () => void {
     const self = this;
 
     const handleMouseEnter = () => {
@@ -1285,15 +1321,9 @@ export const DeviceComparisonTooltip = {
     const deviceConsumption = Number(entity.val) || 0;
 
     // Calculate percentages
-    const categoryPerc = categoryData.total > 0
-      ? (deviceConsumption / categoryData.total) * 100
-      : 0;
-    const widgetPerc = widgetData.total > 0
-      ? (deviceConsumption / widgetData.total) * 100
-      : 0;
-    const grandTotalPerc = grandTotalData.total > 0
-      ? (deviceConsumption / grandTotalData.total) * 100
-      : 0;
+    const categoryPerc = categoryData.total > 0 ? (deviceConsumption / categoryData.total) * 100 : 0;
+    const widgetPerc = widgetData.total > 0 ? (deviceConsumption / widgetData.total) * 100 : 0;
+    const grandTotalPerc = grandTotalData.total > 0 ? (deviceConsumption / grandTotalData.total) * 100 : 0;
 
     return {
       device: {

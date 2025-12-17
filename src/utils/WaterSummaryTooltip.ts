@@ -1403,8 +1403,11 @@ export const WaterSummaryTooltip = {
   /**
    * Build summary data from TELEMETRY_INFO STATE_WATER
    * This is called by the widget controller to get data for the tooltip
+   *
+   * RFC-0105 Enhancement: Now fetches device lists from MyIOOrchestratorData
+   * to populate device lists for status popup display
    */
-  buildSummaryFromState(state: any, receivedData: any, includeBathrooms: boolean = false): DashboardWaterSummary {
+  buildSummaryFromState(state: any, receivedData: any, includeBathrooms: boolean = false, domain: string = 'water'): DashboardWaterSummary {
     const summary: DashboardWaterSummary = {
       totalDevices: 0,
       totalConsumption: 0,
@@ -1417,6 +1420,13 @@ export const WaterSummaryTooltip = {
         standby: 0,
         offline: 0,
         noConsumption: 0,
+        // Device lists - populated from orchestrator data
+        normalDevices: [],
+        alertDevices: [],
+        failureDevices: [],
+        standbyDevices: [],
+        offlineDevices: [],
+        noConsumptionDevices: [],
       },
       lastUpdated: new Date().toISOString(),
       includeBathrooms: includeBathrooms,
@@ -1487,39 +1497,143 @@ export const WaterSummaryTooltip = {
     summary.totalDevices = summary.byCategory.reduce((sum, cat) => sum + cat.deviceCount, 0);
     summary.totalConsumption = state.entrada?.total || 0;
 
-    // Status counts - use actual data from receivedData if available
-    const totalDevices = summary.totalDevices;
-    const statusData = receivedData?.statusCounts || receivedData?.deviceStatus || null;
+    // RFC-0105 Enhancement: Aggregate device status from MyIOOrchestratorData
+    // This provides both counts AND device lists for the status popup
+    const statusAggregation = this._aggregateDeviceStatusFromOrchestrator(domain);
 
-    if (statusData && typeof statusData === 'object') {
-      // Use actual status counts from data
-      summary.byStatus = {
-        normal: statusData.normal || 0,
-        alert: statusData.alert || 0,
-        failure: statusData.failure || 0,
-        standby: statusData.standby || 0,
-        offline: statusData.offline || 0,
-        noConsumption: statusData.noConsumption || statusData.zeroConsumption || 0,
-      };
+    if (statusAggregation.hasData) {
+      // Use actual device data from orchestrator
+      summary.byStatus = statusAggregation.byStatus;
     } else {
-      // Fallback: estimate based on device counts
-      summary.byStatus = {
-        normal: Math.floor(totalDevices * 0.80),
-        alert: Math.floor(totalDevices * 0.05),
-        failure: Math.floor(totalDevices * 0.02),
-        standby: Math.floor(totalDevices * 0.02),
-        offline: Math.floor(totalDevices * 0.03),
-        noConsumption: Math.floor(totalDevices * 0.08),
-      };
-    }
+      // Fallback: estimate based on device counts (no device lists available)
+      const totalDevices = summary.totalDevices;
+      const statusData = receivedData?.statusCounts || receivedData?.deviceStatus || null;
 
-    // Adjust to ensure totals match
-    const statusSum = Object.values(summary.byStatus).reduce((a, b) => a + b, 0);
-    if (statusSum !== totalDevices && totalDevices > 0) {
-      summary.byStatus.normal += (totalDevices - statusSum);
+      if (statusData && typeof statusData === 'object') {
+        // Use actual status counts from data (but no device lists)
+        summary.byStatus = {
+          normal: statusData.normal || 0,
+          alert: statusData.alert || 0,
+          failure: statusData.failure || 0,
+          standby: statusData.standby || 0,
+          offline: statusData.offline || 0,
+          noConsumption: statusData.noConsumption || statusData.zeroConsumption || 0,
+        };
+      } else {
+        // Last resort: estimate based on device counts
+        summary.byStatus = {
+          normal: Math.floor(totalDevices * 0.80),
+          alert: Math.floor(totalDevices * 0.05),
+          failure: Math.floor(totalDevices * 0.02),
+          standby: Math.floor(totalDevices * 0.02),
+          offline: Math.floor(totalDevices * 0.03),
+          noConsumption: Math.floor(totalDevices * 0.08),
+        };
+
+        // Adjust to ensure totals match
+        const statusSum = Object.values(summary.byStatus).reduce((a, b) => {
+          return typeof b === 'number' ? a + b : a;
+        }, 0);
+        if (statusSum !== totalDevices && totalDevices > 0) {
+          summary.byStatus.normal += (totalDevices - statusSum);
+        }
+      }
     }
 
     return summary;
+  },
+
+  /**
+   * RFC-0105: Aggregate device status from MyIOOrchestratorData
+   * Iterates through all orchestrator items and groups devices by status
+   * Returns both counts and device lists
+   */
+  _aggregateDeviceStatusFromOrchestrator(domain: string = 'water'): { hasData: boolean; byStatus: StatusSummary } {
+    const result: StatusSummary = {
+      normal: 0,
+      alert: 0,
+      failure: 0,
+      standby: 0,
+      offline: 0,
+      noConsumption: 0,
+      normalDevices: [],
+      alertDevices: [],
+      failureDevices: [],
+      standbyDevices: [],
+      offlineDevices: [],
+      noConsumptionDevices: [],
+    };
+
+    // Try to access orchestrator data
+    const win = typeof window !== 'undefined' ? window : null;
+    if (!win) return { hasData: false, byStatus: result };
+
+    // Try both window and parent window (for iframe scenarios)
+    const orchestratorData = (win as any).MyIOOrchestratorData ||
+                             (win.parent as any)?.MyIOOrchestratorData;
+
+    if (!orchestratorData || !orchestratorData[domain]) {
+      return { hasData: false, byStatus: result };
+    }
+
+    const domainData = orchestratorData[domain];
+    const items = domainData.items || [];
+
+    if (!items || items.length === 0) {
+      return { hasData: false, byStatus: result };
+    }
+
+    // Threshold for "no consumption" - devices with value below this are considered zero
+    const NO_CONSUMPTION_THRESHOLD = 0.001; // m³ for water
+
+    // Map deviceStatus values to our status categories
+    // deviceStatus values: power_on, standby, power_off, warning, failure, maintenance, no_info, not_installed, offline
+    const statusMapping: Record<string, keyof Pick<StatusSummary, 'normal' | 'alert' | 'failure' | 'standby' | 'offline'>> = {
+      'power_on': 'normal',
+      'warning': 'alert',
+      'failure': 'failure',
+      'standby': 'standby',
+      'power_off': 'offline',
+      'maintenance': 'offline',
+      'no_info': 'offline',
+      'not_installed': 'offline',
+      'offline': 'offline',
+    };
+
+    items.forEach((item: any) => {
+      const deviceInfo: DeviceInfo = {
+        id: item.id || item.deviceId || '',
+        label: item.label || item.entityLabel || item.name || item.deviceIdentifier || '',
+        name: item.name || item.entityLabel || '',
+      };
+
+      const deviceStatus = item.deviceStatus || 'no_info';
+      const value = Number(item.value || item.val || 0);
+
+      // Check for "no consumption" first (value is 0 or very close to 0)
+      // Only applies to online devices (not offline/no_info)
+      const isOnline = !['no_info', 'offline', 'not_installed', 'maintenance', 'power_off'].includes(deviceStatus);
+
+      if (isOnline && Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
+        result.noConsumption++;
+        result.noConsumptionDevices?.push(deviceInfo);
+        return;
+      }
+
+      // Map deviceStatus to our categories
+      const mappedStatus = statusMapping[deviceStatus] || 'offline';
+
+      // Increment count and add to device list
+      result[mappedStatus]++;
+
+      const deviceListKey = `${mappedStatus}Devices` as keyof StatusSummary;
+      const deviceList = result[deviceListKey] as DeviceInfo[] | undefined;
+      if (deviceList) {
+        deviceList.push(deviceInfo);
+      }
+    });
+
+    return { hasData: true, byStatus: result };
   },
 };
 
