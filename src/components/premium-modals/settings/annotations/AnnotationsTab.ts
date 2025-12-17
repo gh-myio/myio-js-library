@@ -564,6 +564,9 @@ const ANNOTATIONS_STYLES = `
   transition: all 0.2s ease;
   font-weight: 600;
   font-size: 13px;
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
 }
 
 .annotations-create-btn:hover {
@@ -571,15 +574,22 @@ const ANNOTATIONS_STYLES = `
   box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
 }
 
+.annotations-create-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(108, 92, 231, 0.3);
+}
+
 .annotations-create-btn__icon {
   font-size: 28px;
   line-height: 1;
+  pointer-events: none;
 }
 
 .annotations-create-btn__text {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  pointer-events: none;
 }
 
 /* New Annotation Modal Overlay */
@@ -2154,10 +2164,14 @@ export class AnnotationsTab {
 
   private attachEventListeners(): void {
     // Open New Annotation Modal button
-    const openModalBtn = this.container.querySelector('#open-new-annotation-modal');
-    openModalBtn?.addEventListener('click', () => {
-      this.showNewAnnotationModal();
-    });
+    const openModalBtn = this.container.querySelector('#open-new-annotation-modal') as HTMLButtonElement;
+    if (openModalBtn) {
+      openModalBtn.onclick = () => {
+        this.showNewAnnotationModal();
+      };
+    } else {
+      console.warn('[AnnotationsTab] Create button not found');
+    }
 
     // Multiselect dropdown toggles
     this.setupMultiselectDropdown('filter-status', (values) => {
