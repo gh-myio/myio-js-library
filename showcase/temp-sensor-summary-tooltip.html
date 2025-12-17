@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temp Sensor Summary Tooltip - MYIO JS Library Showcase</title>
+    <style>
+        :root {
+            --primary: #ea580c;
+            --primary-dark: #c2410c;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ea580c, #c2410c);
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-desc {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .demo-area {
+            background: var(--gray-100);
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .demo-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, #ea580c, #f97316);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
+        }
+
+        .demo-trigger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(234, 88, 12, 0.4);
+        }
+
+        .demo-trigger svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .info-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 0 8px;
+        }
+
+        .info-button:hover {
+            background: #fed7aa;
+            border-color: #fdba74;
+        }
+
+        .info-button svg {
+            color: #c2410c;
+        }
+
+        .code-block {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+        }
+
+        .code-block code {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            color: #e2e8f0;
+            white-space: pre;
+        }
+
+        .code-block .comment { color: #64748b; }
+        .code-block .keyword { color: #c084fc; }
+        .code-block .string { color: #86efac; }
+        .code-block .function { color: #60a5fa; }
+        .code-block .number { color: #fde047; }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .feature-card {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .feature-card h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .feature-card p {
+            font-size: 13px;
+            color: var(--gray-600);
+        }
+
+        .mock-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 20px;
+            background: white;
+            border: 1px solid #fed7aa;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .mock-header-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #c2410c;
+            flex: 1;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-indicator.success { background: #dcfce7; color: #15803d; }
+        .status-indicator.warning { background: #fef3c7; color: #b45309; }
+        .status-indicator.danger { background: #fee2e2; color: #b91c1c; }
+
+        .temp-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: linear-gradient(135deg, #fff7ed, #fed7aa);
+            border: 1px solid #fdba74;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #c2410c;
+        }
+
+        .controls-panel {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .controls-panel h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #c2410c;
+            margin-bottom: 12px;
+        }
+
+        .controls-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .control-group label {
+            font-size: 12px;
+            color: #9a3412;
+        }
+
+        .control-group input, .control-group select {
+            padding: 8px 12px;
+            border: 1px solid #fdba74;
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 120px;
+            background: white;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #ea580c;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #c2410c;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / Temp Sensor Summary Tooltip
+            </div>
+            <h1>
+                <span style="font-size: 32px;">&#127777;</span>
+                Temp Sensor Summary Tooltip
+            </h1>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Demo Section -->
+        <div class="section">
+            <h2>Interactive Demo</h2>
+            <p class="section-desc">
+                Hover over the info button to see the premium temperature sensor summary tooltip with real-time data.
+            </p>
+
+            <div class="mock-header">
+                <span style="font-size: 20px;">&#127777;</span>
+                <span class="mock-header-title">Sensores de Temperatura</span>
+                <button class="info-button" id="demoTrigger" title="Ver resumo dos sensores">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                </button>
+                <span class="temp-badge">
+                    <span>&#127777;</span>
+                    <span id="avgTempDisplay">23.5°C</span>
+                </span>
+                <span class="status-indicator success" id="statusDisplay">
+                    <span style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%;"></span>
+                    Todos na faixa
+                </span>
+            </div>
+
+            <div class="demo-area">
+                <button class="demo-trigger" id="largeTrigger">
+                    <span style="font-size: 24px;">&#127777;</span>
+                    Hover for Temperature Summary
+                </button>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls-panel">
+                <h3>Controles de Simulacao</h3>
+                <div class="controls-row">
+                    <div class="control-group">
+                        <label>Temp Min (°C)</label>
+                        <input type="number" id="tempMin" value="20" step="0.5" />
+                    </div>
+                    <div class="control-group">
+                        <label>Temp Max (°C)</label>
+                        <input type="number" id="tempMax" value="26" step="0.5" />
+                    </div>
+                    <div class="control-group">
+                        <label>Sensores</label>
+                        <select id="sensorCount">
+                            <option value="5">5 sensores</option>
+                            <option value="10" selected>10 sensores</option>
+                            <option value="20">20 sensores</option>
+                            <option value="50">50 sensores</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Cenario</label>
+                        <select id="scenario">
+                            <option value="normal">Todos na faixa</option>
+                            <option value="mixed">Alguns fora</option>
+                            <option value="critical">Todos fora</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="updateMockData()">Atualizar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="section">
+            <h2>Features</h2>
+            <p class="section-desc">
+                Premium tooltip component showing comprehensive temperature sensor summary for the TELEMETRY widget.
+            </p>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>
+                        <span>&#128200;</span>
+                        Media Geral
+                    </h3>
+                    <p>Shows the average temperature across all active TERMOSTATO sensors in the widget.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#127919;</span>
+                        Faixa Ideal
+                    </h3>
+                    <p>Displays the configured temperature range (min/max) for the monitored area.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#128200;</span>
+                        Contagem de Sensores
+                    </h3>
+                    <p>Total number of active TERMOSTATO devices currently being monitored.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#9989;</span>
+                        Status Geral
+                    </h3>
+                    <p>Visual badge showing: "Todos na faixa", "X fora da faixa", or "Todos fora da faixa".</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#127777;</span>
+                        Lista de Sensores
+                    </h3>
+                    <p>Sorted list of sensors (hottest first) with individual temperature readings and status indicators.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#128204;</span>
+                        PIN Button
+                    </h3>
+                    <p>Fix the tooltip in place so it stays visible even when mouse leaves. Creates an independent clone.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#9635;</span>
+                        Maximize/Restore
+                    </h3>
+                    <p>Expand the tooltip to full screen for easier reading. Click again to restore original size.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#9997;</span>
+                        Drag to Move
+                    </h3>
+                    <p>Click and drag the header to move the tooltip anywhere on screen. Maintains position until closed.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#10006;</span>
+                        Close Button
+                    </h3>
+                    <p>Instantly close the tooltip with a single click. Also resets all states (pin, maximize, position).</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <span>&#9200;</span>
+                        Delayed Hide (1.5s)
+                    </h3>
+                    <p>Tooltip stays visible for 1.5 seconds after mouse leaves, allowing interaction with content.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Usage Section -->
+        <div class="section">
+            <h2>Usage</h2>
+            <p class="section-desc">
+                How to integrate the Temp Sensor Summary Tooltip in your widgets.
+            </p>
+
+            <div class="code-block">
+                <code><span class="comment">// Import the component</span>
+<span class="keyword">import</span> { TempSensorSummaryTooltip } <span class="keyword">from</span> <span class="string">'@myio/js-library'</span>;
+
+<span class="comment">// Build summary data from widget state</span>
+<span class="keyword">const</span> getData = () => {
+  <span class="keyword">const</span> devices = window._telemetryAuthoritativeItems
+    .<span class="function">filter</span>(item => item.deviceType === <span class="string">'TERMOSTATO'</span>)
+    .<span class="function">map</span>(item => ({
+      name: item.label || item.identifier,
+      temp: Number(item.value) || <span class="number">0</span>,
+      status: getStatus(item.value, tempMin, tempMax)
+    }));
+
+  <span class="keyword">return</span> {
+    devices,
+    temperatureMin: window.MyIOUtils?.temperatureLimits?.min,
+    temperatureMax: window.MyIOUtils?.temperatureLimits?.max,
+    title: <span class="string">'Detalhes de Temperatura'</span>
+  };
+};
+
+<span class="comment">// Attach tooltip to trigger element</span>
+<span class="keyword">const</span> triggerElement = document.<span class="function">getElementById</span>(<span class="string">'btnTempInfo'</span>);
+<span class="keyword">const</span> cleanup = TempSensorSummaryTooltip.<span class="function">attach</span>(triggerElement, getData);
+
+<span class="comment">// Later: cleanup() to remove event listeners</span></code>
+            </div>
+        </div>
+
+        <!-- Data Structure Section -->
+        <div class="section">
+            <h2>Data Structure</h2>
+            <p class="section-desc">
+                The tooltip expects data in the following format.
+            </p>
+
+            <div class="code-block">
+                <code><span class="keyword">interface</span> TempSensorSummaryData {
+  devices: TempSensorDevice[];
+  temperatureMin?: <span class="keyword">number</span>;  <span class="comment">// Optional: ideal range min</span>
+  temperatureMax?: <span class="keyword">number</span>;  <span class="comment">// Optional: ideal range max</span>
+  title?: <span class="keyword">string</span>;           <span class="comment">// Optional: custom title</span>
+}
+
+<span class="keyword">interface</span> TempSensorDevice {
+  name: <span class="keyword">string</span>;              <span class="comment">// Sensor name/label</span>
+  temp: <span class="keyword">number</span>;              <span class="comment">// Current temperature</span>
+  status: <span class="string">'ok'</span> | <span class="string">'warn'</span> | <span class="string">'unknown'</span>;  <span class="comment">// Status based on range</span>
+}
+
+<span class="comment">// Status determination:</span>
+<span class="comment">// - 'ok': temp >= min && temp <= max</span>
+<span class="comment">// - 'warn': temp < min || temp > max</span>
+<span class="comment">// - 'unknown': no limits configured</span></code>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load MyIO Library -->
+    <script src="../dist/myio-js-library.umd.js"></script>
+    <script>
+        // Generate mock sensor data
+        function generateMockDevices(count, scenario, tempMin, tempMax) {
+            const devices = [];
+            const sensorNames = [
+                'Sensor Loja 01', 'Sensor Loja 02', 'Sensor Praca Alimentacao',
+                'Sensor Deposito', 'Sensor Escritorio', 'Sensor Recepcao',
+                'Sensor Sala Reuniao', 'Sensor Corredor A', 'Sensor Corredor B',
+                'Sensor Estoque', 'Sensor Vestiario', 'Sensor Cozinha',
+                'Sensor Banheiro M', 'Sensor Banheiro F', 'Sensor Hall Elevador',
+                'Sensor Escada', 'Sensor Portaria', 'Sensor Guarita',
+                'Sensor Almoxarifado', 'Sensor Sala TI', 'Sensor CPD',
+                'Sensor Auditorio', 'Sensor Cafeteria', 'Sensor Academia',
+                'Sensor Terraço', 'Sensor Subsolo', 'Sensor Garagem 1',
+                'Sensor Garagem 2', 'Sensor Area Externa', 'Sensor Jardim',
+                'Sensor Loja 03', 'Sensor Loja 04', 'Sensor Loja 05',
+                'Sensor Loja 06', 'Sensor Loja 07', 'Sensor Loja 08',
+                'Sensor Loja 09', 'Sensor Loja 10', 'Sensor Loja 11',
+                'Sensor Loja 12', 'Sensor Loja 13', 'Sensor Loja 14',
+                'Sensor Loja 15', 'Sensor Loja 16', 'Sensor Loja 17',
+                'Sensor Loja 18', 'Sensor Loja 19', 'Sensor Loja 20'
+            ];
+
+            for (let i = 0; i < count; i++) {
+                let temp;
+                let status;
+
+                if (scenario === 'normal') {
+                    // All within range
+                    temp = tempMin + Math.random() * (tempMax - tempMin);
+                    status = 'ok';
+                } else if (scenario === 'critical') {
+                    // All outside range
+                    if (Math.random() > 0.5) {
+                        temp = tempMax + 1 + Math.random() * 5; // Above max
+                    } else {
+                        temp = tempMin - 1 - Math.random() * 5; // Below min
+                    }
+                    status = 'warn';
+                } else {
+                    // Mixed - 70% ok, 30% warn
+                    if (Math.random() > 0.3) {
+                        temp = tempMin + Math.random() * (tempMax - tempMin);
+                        status = 'ok';
+                    } else {
+                        if (Math.random() > 0.5) {
+                            temp = tempMax + 1 + Math.random() * 4;
+                        } else {
+                            temp = tempMin - 1 - Math.random() * 4;
+                        }
+                        status = 'warn';
+                    }
+                }
+
+                devices.push({
+                    name: sensorNames[i % sensorNames.length],
+                    temp: Math.round(temp * 10) / 10,
+                    status: status
+                });
+            }
+
+            return devices;
+        }
+
+        // Current mock data
+        let mockData = {
+            devices: [],
+            temperatureMin: 20,
+            temperatureMax: 26,
+            title: 'Detalhes de Temperatura'
+        };
+
+        // Update mock data based on controls
+        function updateMockData() {
+            const tempMin = parseFloat(document.getElementById('tempMin').value) || 20;
+            const tempMax = parseFloat(document.getElementById('tempMax').value) || 26;
+            const sensorCount = parseInt(document.getElementById('sensorCount').value) || 10;
+            const scenario = document.getElementById('scenario').value;
+
+            mockData = {
+                devices: generateMockDevices(sensorCount, scenario, tempMin, tempMax),
+                temperatureMin: tempMin,
+                temperatureMax: tempMax,
+                title: 'Detalhes de Temperatura'
+            };
+
+            // Update header display
+            const avgTemp = mockData.devices.length > 0
+                ? mockData.devices.reduce((sum, d) => sum + d.temp, 0) / mockData.devices.length
+                : 0;
+
+            document.getElementById('avgTempDisplay').textContent = avgTemp.toFixed(1) + '°C';
+
+            const warnCount = mockData.devices.filter(d => d.status === 'warn').length;
+            const statusEl = document.getElementById('statusDisplay');
+
+            if (warnCount === 0) {
+                statusEl.className = 'status-indicator success';
+                statusEl.innerHTML = '<span style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%;"></span> Todos na faixa';
+            } else if (warnCount === mockData.devices.length) {
+                statusEl.className = 'status-indicator danger';
+                statusEl.innerHTML = '<span style="width: 8px; height: 8px; background: #ef4444; border-radius: 50%;"></span> Todos fora da faixa';
+            } else {
+                statusEl.className = 'status-indicator warning';
+                statusEl.innerHTML = `<span style="width: 8px; height: 8px; background: #f59e0b; border-radius: 50%;"></span> ${warnCount} fora da faixa`;
+            }
+
+            console.log('[Showcase] Mock data updated:', mockData);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Generate initial data
+            updateMockData();
+
+            const MyIO = window.MyIOLibrary;
+
+            if (MyIO && MyIO.TempSensorSummaryTooltip) {
+                console.log('[Showcase] TempSensorSummaryTooltip loaded from library');
+
+                // Attach to demo triggers
+                const demoTrigger = document.getElementById('demoTrigger');
+                const largeTrigger = document.getElementById('largeTrigger');
+
+                if (demoTrigger) {
+                    MyIO.TempSensorSummaryTooltip.attach(demoTrigger, () => mockData);
+                }
+
+                if (largeTrigger) {
+                    MyIO.TempSensorSummaryTooltip.attach(largeTrigger, () => mockData);
+                }
+            } else {
+                console.warn('[Showcase] TempSensorSummaryTooltip not found in library');
+                alert('TempSensorSummaryTooltip not found! Please rebuild the library.');
+            }
+        });
+    </script>
+</body>
+</html>

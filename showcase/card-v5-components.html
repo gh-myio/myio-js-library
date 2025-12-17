@@ -402,6 +402,8 @@
 
       <div style="background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: #fb923c;">
         <strong>Tooltip Features:</strong> Hover sobre os cards de temperatura para ver as tooltips premium.
+        <br>🌡️ <strong>Imagem:</strong> TempRangeTooltip (faixa de temperatura) |
+        📊 <strong>Percentual:</strong> TempComparisonTooltip (comparacao com media)
         <br>📌 <strong>PIN:</strong> Fixa a tooltip na tela (cria um clone independente) |
         ⬜ <strong>Maximizar:</strong> Expande para tela cheia |
         ✕ <strong>Fechar:</strong> Fecha a tooltip |
@@ -485,14 +487,50 @@
         <div class="cards-grid" id="energyCardsGrid"></div>
       </section>
 
-      <!-- Water Cards Section -->
+      <!-- Water Cards Section - HIDROMETRO -->
       <section class="section">
         <div class="domain-header">
           <div class="domain-icon water">💧</div>
-          <h2 class="domain-title water">Water Domain - TANK</h2>
+          <h2 class="domain-title water">Water Domain - HIDROMETRO</h2>
         </div>
 
         <div class="control-panel">
+          <h3>Controles de Hidrometro (Consumo em m³)</h3>
+          <div class="control-row">
+            <div class="control-group">
+              <label>Consumo (m³)</label>
+              <input type="number" id="hidroValue" value="125.8" step="0.1" />
+            </div>
+            <div class="control-group">
+              <label>Percentual (%)</label>
+              <input type="number" id="hidroPerc" value="35" step="1" min="0" max="100" />
+            </div>
+            <div class="control-group">
+              <label>Status</label>
+              <select id="hidroStatus">
+                <option value="power_on">Em Operacao</option>
+                <option value="standby">Standby</option>
+                <option value="warning">Alerta</option>
+                <option value="failure">Falha</option>
+                <option value="offline">Offline</option>
+              </select>
+            </div>
+            <button class="btn btn-water" onclick="updateHidroCards()">Atualizar</button>
+          </div>
+        </div>
+
+        <div class="cards-grid" id="hidroCardsGrid"></div>
+      </section>
+
+      <!-- Water Cards Section - TANK -->
+      <section class="section">
+        <div class="domain-header">
+          <div class="domain-icon water">🚰</div>
+          <h2 class="domain-title water">Water Domain - TANK / CAIXA DAGUA</h2>
+        </div>
+
+        <div class="control-panel">
+          <h3>Controles de Reservatorio (Nivel)</h3>
           <div class="control-row">
             <div class="control-group">
               <label>Volume (L)</label>
@@ -599,6 +637,7 @@
       const cardInstances = {
         energy: [],
         water: [],
+        hidro: [],
         temperature: [],
       };
 
@@ -1259,6 +1298,10 @@
           deviceStatus: 'power_on',
           temperatureMin: 20,
           temperatureMax: 26,
+          // Temperature comparison data
+          averageTemperature: 22.5,
+          averageName: 'Media Shopping',
+          temperatureDeviceCount: 12,
         },
         {
           entityId: 'termo-002',
@@ -1270,6 +1313,10 @@
           deviceStatus: 'power_on',
           temperatureMin: 20,
           temperatureMax: 26,
+          // Temperature comparison data
+          averageTemperature: 22.5,
+          averageName: 'Media Shopping',
+          temperatureDeviceCount: 12,
         },
         {
           entityId: 'termo-003',
@@ -1281,6 +1328,10 @@
           deviceStatus: 'warning',
           temperatureMin: 20,
           temperatureMax: 26,
+          // Temperature comparison data
+          averageTemperature: 22.5,
+          averageName: 'Media Shopping',
+          temperatureDeviceCount: 12,
         },
       ];
 
@@ -1345,6 +1396,10 @@
             deviceStatus: status,
             temperatureMin: tempMin,
             temperatureMax: tempMax,
+            // Keep temperature comparison data
+            averageTemperature: entityObj.averageTemperature || 22.5,
+            averageName: entityObj.averageName || 'Media Shopping',
+            temperatureDeviceCount: entityObj.temperatureDeviceCount || 12,
           };
 
           const instance = renderCardComponentV5({
@@ -1483,6 +1538,117 @@
       };
 
       // =====================
+      // WATER CARDS (HIDROMETRO)
+      // =====================
+      const hidroEntityObjects = [
+        {
+          entityId: 'hidro-001',
+          labelOrName: 'Hidrometro Geral',
+          val: 125.8,
+          perc: 35,
+          deviceType: 'HIDROMETRO',
+          deviceIdentifier: 'HIDRO-001',
+          customerName: 'Shopping ABC',
+          deviceStatus: 'power_on',
+        },
+        {
+          entityId: 'hidro-002',
+          labelOrName: 'Hidrometro Lojas',
+          val: 89.4,
+          perc: 25,
+          deviceType: 'HIDROMETRO',
+          deviceIdentifier: 'HIDRO-002',
+          customerName: 'Shopping ABC',
+          deviceStatus: 'standby',
+        },
+        {
+          entityId: 'hidro-003',
+          labelOrName: 'Hidrometro Praca Alimentacao',
+          val: 234.2,
+          perc: 65,
+          deviceType: 'HIDROMETRO',
+          deviceIdentifier: 'HIDRO-003',
+          customerName: 'Shopping XYZ',
+          deviceStatus: 'warning',
+        },
+      ];
+
+      function initHidroCards() {
+        const grid = document.getElementById('hidroCardsGrid');
+        grid.innerHTML = '';
+
+        hidroEntityObjects.forEach((entityObj) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'card-wrapper';
+          grid.appendChild(wrapper);
+
+          const instance = renderCardComponentV5({
+            entityObject: { ...entityObj },
+            handleActionDashboard: (entity) => log(`Dashboard: ${entity.name}`, 'hidro'),
+            handleActionReport: (entity) => log(`Report: ${entity.name}`, 'hidro'),
+            handleActionSettings: (entity) => handleOpenSettings(entity, 'hidro'),
+            handleSelect: (checked, entity) =>
+              log(`Select ${checked ? 'ON' : 'OFF'}: ${entity.name}`, 'hidro'),
+            handleClickCard: (entity) => log(`Click: ${entity.name}`, 'hidro'),
+            enableSelection: true,
+            enableDragDrop: true,
+          });
+
+          if (instance && instance[0]) {
+            wrapper.appendChild(instance[0]);
+          }
+
+          cardInstances.hidro.push({ instance, entityObject: entityObj });
+        });
+
+        log('Hidrometro cards initialized', 'hidro');
+      }
+
+      window.updateHidroCards = function () {
+        const val = parseFloat(document.getElementById('hidroValue').value) || 0;
+        const perc = parseFloat(document.getElementById('hidroPerc').value) || 0;
+        const status = document.getElementById('hidroStatus').value;
+
+        // Re-render cards
+        const grid = document.getElementById('hidroCardsGrid');
+        grid.innerHTML = '';
+        cardInstances.hidro = [];
+
+        hidroEntityObjects.forEach((entityObj) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'card-wrapper';
+          grid.appendChild(wrapper);
+
+          const updatedEntityObject = {
+            ...entityObj,
+            val: val,
+            perc: perc,
+            deviceStatus: status,
+          };
+
+          const instance = renderCardComponentV5({
+            entityObject: updatedEntityObject,
+            handleActionDashboard: (entity) => log(`Dashboard: ${entity.name}`, 'hidro'),
+            handleActionReport: (entity) => log(`Report: ${entity.name}`, 'hidro'),
+            handleActionSettings: (entity) => handleOpenSettings(entity, 'hidro'),
+            handleSelect: (checked, entity) =>
+              log(`Select ${checked ? 'ON' : 'OFF'}: ${entity.name}`, 'hidro'),
+            handleClickCard: (entity) => log(`Click: ${entity.name}`, 'hidro'),
+            enableSelection: true,
+            enableDragDrop: true,
+          });
+
+          if (instance && instance[0]) {
+            wrapper.appendChild(instance[0]);
+          }
+
+          cardInstances.hidro.push({ instance, entityObject: updatedEntityObject });
+        });
+
+        log(`Updated: ${val} m³, ${perc}%, ${status}`, 'hidro');
+      };
+
+      // =====================
       // WATER CARDS (TANK)
       // =====================
       const waterEntityObjects = [
@@ -1599,6 +1765,7 @@
       document.addEventListener('DOMContentLoaded', () => {
         initTempCards();
         initEnergyCards();
+        initHidroCards();
         initWaterCards();
         log('All V5 cards initialized successfully!');
       });
