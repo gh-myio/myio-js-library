@@ -495,17 +495,6 @@ self.onInit = function () {
             })
           );
         },
-        onError: (error) => {
-          LogHelper.error('[MENU] Temperature settings error:', error);
-          // Handle 401 - session expired
-          if (error.status === 401) {
-            const MyIOToast = window.MyIOLibrary?.MyIOToast;
-            if (MyIOToast) {
-              MyIOToast.error('Sessão expirada. Recarregando página...', 3000);
-            }
-            setTimeout(() => window.location.reload(), 2500);
-          }
-        },
         onClose: () => {
           LogHelper.log('[MENU] Temperature settings modal closed');
         },

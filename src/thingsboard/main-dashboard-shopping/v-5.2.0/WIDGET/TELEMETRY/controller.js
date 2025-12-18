@@ -17,8 +17,8 @@ if (!window.MyIOUtils?.LogHelper) {
   console.error('[TELEMETRY] window.MyIOUtils.LogHelper not found - MAIN_VIEW must load first');
 }
 const LogHelper = window.MyIOUtils?.LogHelper || {
-  log: () => {},
-  warn: () => {},
+  log: () => { },
+  warn: () => { },
   error: (...args) => console.error('[TELEMETRY]', ...args),
 };
 
@@ -374,32 +374,61 @@ let MAP_INSTANTANEOUS_POWER;
  * @param {string} telemetryType - Telemetry type (default: 'consumption')
  * @returns {Object|null} Range configuration or null
  */
+/**
+ * RFC-0078: Busca limites no JSON com "Funil" de fallback inteligente
+ * Resolve inconsistências entre nomes do TB e chaves do JSON (incluindo Overrides)
+ */
 function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'consumption') {
   if (!powerLimitsJSON || !powerLimitsJSON.limitsByInstantaneoustPowerType) {
     return null;
   }
 
-  // Find telemetry type configuration
   const telemetryConfig = powerLimitsJSON.limitsByInstantaneoustPowerType.find(
     (config) => config.telemetryType === telemetryType
   );
 
-  if (!telemetryConfig) {
-    LogHelper.log(`[RFC-0078] Telemetry type ${telemetryType} not found in JSON`);
-    return null;
-  }
+  if (!telemetryConfig) return null;
 
-  // Find device type configuration
-  const deviceConfig = telemetryConfig.itemsByDeviceType.find(
-    (item) => item.deviceType === deviceType || item.deviceType === deviceType.toUpperCase()
+  // Normaliza o tipo para evitar problemas de espaço ou minúsculas
+  const typeUpper = String(deviceType || '').toUpperCase().trim();
+
+  // 1. TENTATIVA EXATA (O ideal)
+  let deviceConfig = telemetryConfig.itemsByDeviceType.find(
+    (item) => String(item.deviceType).toUpperCase().trim() === typeUpper
   );
 
+  // 2. SE NÃO ACHOU, TENTA IDENTIFICAR PELO NOME (Apelidos)
   if (!deviceConfig) {
-    LogHelper.log(`[RFC-0078] Device type ${deviceType} not found for telemetry ${telemetryType}`);
-    return null;
+      if (typeUpper.includes('ESCADA') || typeUpper === 'ESCADASROLANTES' || typeUpper.includes('ER ')) {
+           deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'ESCADA_ROLANTE');
+      }
+      else if (typeUpper.includes('ELEVADOR') || typeUpper.includes('ELV')) {
+           deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'ELEVADOR');
+      }
+      else if (typeUpper.includes('BOMBA')) {
+           deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'BOMBA');
+      }
+      // Chillers com override muitas vezes usam perfil de MOTOR
+      else if (typeUpper.includes('CHILLER')) {
+           deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'CHILLER');
+           if (!deviceConfig) deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'MOTOR');
+      }
+      // Fancoil / HVAC
+      else if (typeUpper.includes('FANCOIL')) deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'FANCOIL');
+      else if (typeUpper.includes('HVAC')) deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'HVAC');
   }
 
-  // Extract ranges by status
+  // 3. FALLBACK UNIVERSAL (CATCH-ALL)
+  // Resolve Lojas ("102B", "L0L1"), Entradas ("TRAFO", "REDE") e qualquer outro desconhecido.
+  if (!deviceConfig) {
+       deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === '3F_MEDIDOR');
+       // Se não tiver 3F_MEDIDOR (raro), tenta MOTOR como último recurso
+       if (!deviceConfig) deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'MOTOR');
+  }
+
+  if (!deviceConfig) return null;
+
+  // 4. Extrai os ranges
   const ranges = {
     standbyRange: { down: 0, up: 0 },
     normalRange: { down: 0, up: 0 },
@@ -407,34 +436,27 @@ function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'con
     failureRange: { down: 0, up: 0 },
   };
 
-  deviceConfig.limitsByDeviceStatus.forEach((status) => {
-    const baseValue = status.limitsValues?.baseValue ?? status.limitsVales?.baseValue ?? 0;
-    const topValue = status.limitsValues?.topValue ?? status.limitsVales?.topValue ?? 99999;
+  if (deviceConfig.limitsByDeviceStatus) {
+      deviceConfig.limitsByDeviceStatus.forEach((status) => {
+        const vals = status.limitsValues || status.limitsVales || {};
+        const baseValue = vals.baseValue ?? 0;
+        const topValue = vals.topValue ?? 99999999; 
 
-    switch (status.deviceStatusName) {
-      case 'standBy':
-        ranges.standbyRange = { down: baseValue, up: topValue };
-        break;
-      case 'normal':
-        ranges.normalRange = { down: baseValue, up: topValue };
-        break;
-      case 'alert':
-        ranges.alertRange = { down: baseValue, up: topValue };
-        break;
-      case 'failure':
-        ranges.failureRange = { down: baseValue, up: topValue };
-        break;
-    }
-  });
+        switch (status.deviceStatusName) {
+          case 'standBy': ranges.standbyRange = { down: baseValue, up: topValue }; break;
+          case 'normal': ranges.normalRange = { down: baseValue, up: topValue }; break;
+          case 'alert': ranges.alertRange = { down: baseValue, up: topValue }; break;
+          case 'failure': ranges.failureRange = { down: baseValue, up: topValue }; break;
+        }
+      });
+  }
 
   return {
     ...ranges,
     source: 'json',
     metadata: {
       name: deviceConfig.name,
-      description: deviceConfig.description,
-      version: powerLimitsJSON.version,
-      telemetryType: telemetryType,
+      matchedType: deviceConfig.deviceType 
     },
   };
 }
@@ -557,8 +579,7 @@ async function addDeviceProfileAttribute(deviceId, deviceProfile) {
   } catch (err) {
     const dt = Date.now() - t;
     console.error(
-      `[EQUIPMENTS] [RFC-0071] ❌ Failed to save deviceProfile | device=${deviceId} | "${deviceProfile}" | ${dt}ms | error: ${
-        err?.message || err
+      `[EQUIPMENTS] [RFC-0071] ❌ Failed to save deviceProfile | device=${deviceId} | "${deviceProfile}" | ${dt}ms | error: ${err?.message || err
       }`
     );
     throw err;
@@ -1364,7 +1385,7 @@ function buildAuthoritativeItems() {
         `[DeviceCards] TERMOSTATO status: temp=${temperature}, min=${globalTempMin}, max=${globalTempMax}, status=${temperatureStatus}`
       );
       */
-    }
+    }    
 
     return {
       id: tbId || itemId, // para seleção/toggle
@@ -1858,25 +1879,23 @@ function showTempInfoTooltip(triggerElement) {
         </div>
         <div class="temp-info-tooltip__list">
           ${displayDevices
-            .map((d) => {
-              const statusClass = d.status === 'ok' ? 'ok' : d.status === 'warn' ? 'warn' : 'unknown';
-              const icon = d.status === 'ok' ? '✔' : d.status === 'warn' ? '⚠' : '?';
-              return `
+        .map((d) => {
+          const statusClass = d.status === 'ok' ? 'ok' : d.status === 'warn' ? 'warn' : 'unknown';
+          const icon = d.status === 'ok' ? '✔' : d.status === 'warn' ? '⚠' : '?';
+          return `
               <div class="temp-info-tooltip__list-item temp-info-tooltip__list-item--${statusClass}">
                 <span class="temp-info-tooltip__list-icon">${icon}</span>
                 <span class="temp-info-tooltip__list-name">${d.name}</span>
                 <span class="temp-info-tooltip__list-value">${d.temp.toFixed(1)}°C</span>
               </div>
             `;
-            })
-            .join('')}
-          ${
-            hasMore
-              ? `<div style="text-align: center; color: #94a3b8; font-size: 10px; padding: 4px;">... e mais ${
-                  sortedDevices.length - 5
-                } sensores</div>`
-              : ''
-          }
+        })
+        .join('')}
+          ${hasMore
+        ? `<div style="text-align: center; color: #94a3b8; font-size: 10px; padding: 4px;">... e mais ${sortedDevices.length - 5
+        } sensores</div>`
+        : ''
+      }
         </div>
       </div>
     `;
@@ -1896,19 +1915,18 @@ function showTempInfoTooltip(triggerElement) {
           <div class="temp-info-tooltip__row">
             <span class="temp-info-tooltip__label">Media Geral:</span>
             <span class="temp-info-tooltip__value temp-info-tooltip__value--highlight">${avgTemp.toFixed(
-              1
-            )}°C</span>
+    1
+  )}°C</span>
           </div>
-          ${
-            hasLimits
-              ? `
+          ${hasLimits
+      ? `
           <div class="temp-info-tooltip__row">
             <span class="temp-info-tooltip__label">Faixa Ideal:</span>
             <span class="temp-info-tooltip__value">${tempMin}°C - ${tempMax}°C</span>
           </div>
           `
-              : ''
-          }
+      : ''
+    }
           <div class="temp-info-tooltip__row">
             <span class="temp-info-tooltip__label">Sensores Ativos:</span>
             <span class="temp-info-tooltip__value">${tempDevices.length}</span>
@@ -2000,6 +2018,9 @@ function renderList(visible) {
       deviceIdentifierToDisplay = inferDisplayIdentifier(it);
     }
 
+    console.log("it", it);
+    
+
     const entityObject = {
       entityId: it.tbId || it.id, // preferir TB deviceId
       labelOrName: it.label.toUpperCase(),
@@ -2017,6 +2038,8 @@ function renderList(visible) {
       updatedIdentifiers: it.updatedIdentifiers || {},
       connectionStatusTime: it.connectionStatusTime || Date.now(),
       timeVal: it.timeVal || Date.now(),
+      powerRanges: it.powerRanges || null,
+      instantaneousPower: it.instantaneousPower || 0,
       // TANK/CAIXA_DAGUA specific fields
       waterLevel: it.waterLevel || null,
       waterPercentage: it.waterPercentage || null,
@@ -2101,8 +2124,8 @@ function renderList(visible) {
           const loadingMsg = isTermostato
             ? 'Carregando dados de temperatura...'
             : isWaterTank
-            ? 'Loading water tank data...'
-            : 'Loading energy data...';
+              ? 'Loading water tank data...'
+              : 'Loading energy data...';
           loadingToast = MyIOToast.info(loadingMsg, 0);
         }
 
@@ -2628,9 +2651,8 @@ function openFilterModal() {
     label.className = 'check-item';
     label.setAttribute('role', 'option');
     label.innerHTML = `
-      <input type="checkbox" id="chk-${safeId}" data-entity="${escapeHtml(it.id)}" ${
-      checked ? 'checked' : ''
-    }>
+      <input type="checkbox" id="chk-${safeId}" data-entity="${escapeHtml(it.id)}" ${checked ? 'checked' : ''
+      }>
       <span>${escapeHtml(it.label || it.identifier || it.id)}</span>
     `;
     frag.appendChild(label);
@@ -2724,15 +2746,15 @@ function bindModal() {
     $wrap.css(
       on
         ? {
-            background: 'rgba(62,26,125,.08)',
-            borderColor: '#3E1A7D',
-            boxShadow: '0 8px 18px rgba(62,26,125,.15)',
-          }
+          background: 'rgba(62,26,125,.08)',
+          borderColor: '#3E1A7D',
+          boxShadow: '0 8px 18px rgba(62,26,125,.15)',
+        }
         : {
-            background: '#fff',
-            borderColor: '#D6E1EC',
-            boxShadow: '0 6px 14px rgba(0,0,0,.05)',
-          }
+          background: '#fff',
+          borderColor: '#D6E1EC',
+          boxShadow: '0 6px 14px rgba(0,0,0,.05)',
+        }
     );
   });
 }
@@ -2747,15 +2769,15 @@ function syncChecklistSelectionVisual() {
       $el.css(
         on
           ? {
-              background: 'rgba(62,26,125,.08)',
-              borderColor: '#3E1A7D',
-              boxShadow: '0 8px 18px rgba(62,26,125,.15)',
-            }
+            background: 'rgba(62,26,125,.08)',
+            borderColor: '#3E1A7D',
+            boxShadow: '0 8px 18px rgba(62,26,125,.15)',
+          }
           : {
-              background: '#fff',
-              borderColor: '#D6E1EC',
-              boxShadow: '0 6px 14px rgba(0,0,0,.05)',
-            }
+            background: '#fff',
+            borderColor: '#D6E1EC',
+            boxShadow: '0 6px 14px rgba(0,0,0,.05)',
+          }
       );
     });
 }
@@ -3253,8 +3275,7 @@ function emitAreaComumBreakdown(periodKey) {
       // Debug log for first 5 items
       if (STATE.itemsEnriched.indexOf(item) < 5) {
         LogHelper.log(
-          `[RFC-0097] Item: deviceType="${item.deviceType}", identifier="${item.identifier}", label="${
-            item.label
+          `[RFC-0097] Item: deviceType="${item.deviceType}", identifier="${item.identifier}", label="${item.label
           }" → ${category} (${energia.toFixed(2)} kWh)`
         );
       }
@@ -3332,9 +3353,9 @@ function emitAreaComumBreakdown(periodKey) {
 
     const totalMWh = normalizeToMWh(
       breakdown.climatizacao.total +
-        breakdown.elevadores.total +
-        breakdown.escadas_rolantes.total +
-        breakdown.outros.total
+      breakdown.elevadores.total +
+      breakdown.escadas_rolantes.total +
+      breakdown.outros.total
     );
     LogHelper.log(
       `[RFC-0056] ✅ Emitted areacomum_breakdown: ${totalMWh} MWh (${STATE.itemsEnriched.length} devices, climatizacao: ${breakdown.climatizacao.count})`
@@ -3423,8 +3444,7 @@ function emitWaterTelemetry(widgetType, periodKey) {
       };
 
       LogHelper.log(
-        `[RFC-0002 Water] areaComum breakdown: banheiros=${banheirosTotal.toFixed(2)} m³ (${
-          banheirosDevices.length
+        `[RFC-0002 Water] areaComum breakdown: banheiros=${banheirosTotal.toFixed(2)} m³ (${banheirosDevices.length
         } devices), outros=${outrosTotal.toFixed(2)} m³ (${outrosDevices.length} devices)`
       );
     }
@@ -3557,10 +3577,10 @@ self.onInit = async function () {
 
   MyIO = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
     (typeof window !== 'undefined' && window.MyIOLibrary) || {
-      showAlert: function () {
-        alert('A Bliblioteca Myio não foi carregada corretamente!');
-      },
-    };
+    showAlert: function () {
+      alert('A Bliblioteca Myio não foi carregada corretamente!');
+    },
+  };
 
   $root().find('#labelWidgetId').text(self.ctx.settings?.labelWidget);
 
@@ -3599,12 +3619,11 @@ self.onInit = async function () {
   USE_IDENTIFIER_CLASSIFICATION = self.ctx.settings?.USE_IDENTIFIER_CLASSIFICATION || false;
   USE_HYBRID_CLASSIFICATION = self.ctx.settings?.USE_HYBRID_CLASSIFICATION || false;
   LogHelper.log(
-    `[RFC-0063] Classification mode: ${
-      USE_IDENTIFIER_CLASSIFICATION
-        ? USE_HYBRID_CLASSIFICATION
-          ? 'HYBRID (identifier + label fallback)'
-          : 'IDENTIFIER ONLY'
-        : 'LEGACY (label only)'
+    `[RFC-0063] Classification mode: ${USE_IDENTIFIER_CLASSIFICATION
+      ? USE_HYBRID_CLASSIFICATION
+        ? 'HYBRID (identifier + label fallback)'
+        : 'IDENTIFIER ONLY'
+      : 'LEGACY (label only)'
     }`
   );
 
@@ -3815,8 +3834,7 @@ self.onInit = async function () {
   // RFC-0042: Listen for data provision from orchestrator
   dataProvideHandler = function (ev) {
     LogHelper.log(
-      `[TELEMETRY ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${
-        ev.detail.domain
+      `[TELEMETRY ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${ev.detail.domain
       }, periodKey: ${ev.detail.periodKey}, items: ${ev.detail.items?.length || 0}`
     );
     const { domain, periodKey, items } = ev.detail;
@@ -3927,13 +3945,8 @@ self.onInit = async function () {
 
     // IMPORTANT: Merge orchestrator data with existing TB data
     // Keep original labels/identifiers from TB, only update values from orchestrator
-    if (!STATE.itemsBase || STATE.itemsBase.length === 0) {
-      // First load: build from TB data
-      LogHelper.log(`[TELEMETRY] Building itemsBase from TB data...`);
-      STATE.itemsBase = buildAuthoritativeItems();
-      window._telemetryAuthoritativeItems = STATE.itemsBase; // Expose for temperature tooltip
-      LogHelper.log(`[TELEMETRY] Built ${STATE.itemsBase.length} items from TB`);
-    }
+    STATE.itemsBase = buildAuthoritativeItems();
+    window._telemetryAuthoritativeItems = STATE.itemsBase;
 
     // Create map of orchestrator values by ingestionId
     const orchestratorValues = new Map();
@@ -4075,8 +4088,7 @@ self.onInit = async function () {
       const age = Date.now() - storedData.timestamp;
 
       LogHelper.log(
-        `[TELEMETRY ${WIDGET_DOMAIN}] Found stored data: ${
-          storedData.items?.length || 0
+        `[TELEMETRY ${WIDGET_DOMAIN}] Found stored data: ${storedData.items?.length || 0
         } items, age: ${age}ms`
       );
 
@@ -4159,7 +4171,71 @@ self.onInit = async function () {
     CLIENT_ID = attrs?.client_id || '';
     CLIENT_SECRET = attrs?.client_secret || '';
     CUSTOMER_ING_ID = attrs?.ingestionId || '';
+// Carrega o mapa
     MAP_INSTANTANEOUS_POWER = attrs?.mapInstantaneousPower ? JSON.parse(attrs?.mapInstantaneousPower) : null;
+
+    // [CORREÇÃO CRÍTICA]
+    // Se o mapa chegou AGORA, precisamos re-executar a lógica de enriquecimento
+    // para garantir que os ranges sejam aplicados aos cards que já podem ter sido renderizados pelo Orchestrator.
+    if (MAP_INSTANTANEOUS_POWER) {
+        LogHelper.log('[TELEMETRY] Mapa de Potência carregado. Forçando atualização dos ranges...');
+        
+        // 1. Reconstrói a base (agora com ranges garantidos)
+        const newBase = buildAuthoritativeItems();
+        STATE.itemsBase = newBase;
+        window._telemetryAuthoritativeItems = STATE.itemsBase;
+
+        // 2. Se já tínhamos dados de consumo do Orchestrator, reaplique-os
+        if (STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
+            const valuesMap = new Map();
+            STATE.itemsEnriched.forEach(i => {
+                if (i.ingestionId) valuesMap.set(i.ingestionId, i.value);
+            });
+
+            STATE.itemsEnriched = STATE.itemsBase.map(baseItem => {
+                const existingVal = valuesMap.get(baseItem.ingestionId);
+                return {
+                    ...baseItem,
+                    value: existingVal !== undefined ? existingVal : (baseItem.value || 0),
+                    perc: 0
+                };
+            });
+            
+            // 3. Redesenha a tela imediatamente
+            reflowFromState();
+            LogHelper.log('[TELEMETRY] Cards atualizados com sucesso após carga do mapa.');
+        }
+    }
+    if (MAP_INSTANTANEOUS_POWER && STATE.itemsBase && STATE.itemsBase.length > 0) {
+      LogHelper.log('[TELEMETRY] Mapa de Potência carregado tardiamente. Reconstruindo ranges...');
+
+      // 1. Reconstrói a estrutura base (agora ele vai encontrar o MAP_INSTANTANEOUS_POWER)
+      STATE.itemsBase = buildAuthoritativeItems();
+      window._telemetryAuthoritativeItems = STATE.itemsBase;
+
+      // 2. Preserva os valores de API/Orchestrator que já tínhamos nos itens enriquecidos
+      if (STATE.itemsEnriched.length > 0) {
+        const valuesMap = new Map();
+        STATE.itemsEnriched.forEach(i => {
+          if (i.ingestionId) valuesMap.set(i.ingestionId, i.value);
+        });
+
+        // 3. Mescla a nova base (com ranges) com os valores antigos
+        STATE.itemsEnriched = STATE.itemsBase.map(baseItem => {
+          const existingVal = valuesMap.get(baseItem.ingestionId);
+          return {
+            ...baseItem,
+            value: existingVal !== undefined ? existingVal : (baseItem.value || 0),
+            perc: 0
+          };
+        });
+      } else {
+        STATE.itemsEnriched = STATE.itemsBase;
+      }
+
+      // 4. Redesenha a tela imediatamente
+      reflowFromState();
+    }
 
     // Expõe credenciais globalmente para uso no FOOTER (modal de comparação)
     window.__MYIO_CLIENT_ID__ = CLIENT_ID;
@@ -4232,7 +4308,7 @@ self.onDataUpdated = function () {
   /* no-op */
 };
 
-self.onResize = function () {};
+self.onResize = function () { };
 self.onDestroy = function () {
   if (dateUpdateHandler) {
     window.removeEventListener('myio:update-date', dateUpdateHandler);
