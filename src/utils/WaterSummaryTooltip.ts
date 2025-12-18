@@ -1519,12 +1519,40 @@ export const WaterSummaryTooltip = {
         offlineDevices: widgetAggregation.offlineDevices || [],
         noConsumptionDevices: widgetAggregation.noConsumptionDevices || [],
       };
+
+      // RFC-0105: Use orchestrator item count as source of truth for totalDevices
+      // This ensures consistency between total count and status breakdown
+      const orchestratorTotal =
+        (widgetAggregation.normal || 0) +
+        (widgetAggregation.alert || 0) +
+        (widgetAggregation.failure || 0) +
+        (widgetAggregation.standby || 0) +
+        (widgetAggregation.offline || 0) +
+        (widgetAggregation.noConsumption || 0);
+
+      if (orchestratorTotal > 0) {
+        // Override totalDevices with orchestrator count for consistency
+        summary.totalDevices = orchestratorTotal;
+      }
     } else {
       // Try direct orchestrator access (may not work in iframe/library context)
       const statusAggregation = this._aggregateDeviceStatusFromOrchestrator(domain);
 
       if (statusAggregation.hasData) {
         summary.byStatus = statusAggregation.byStatus;
+
+        // Use orchestrator item count as source of truth
+        const orchestratorTotal =
+          statusAggregation.byStatus.normal +
+          statusAggregation.byStatus.alert +
+          statusAggregation.byStatus.failure +
+          statusAggregation.byStatus.standby +
+          statusAggregation.byStatus.offline +
+          statusAggregation.byStatus.noConsumption;
+
+        if (orchestratorTotal > 0) {
+          summary.totalDevices = orchestratorTotal;
+        }
       } else {
         // Fallback: estimate based on device counts (no device lists available)
         const totalDevices = summary.totalDevices;

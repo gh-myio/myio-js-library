@@ -2,12 +2,20 @@
 
 /* =========================================================================
  * ThingsBoard Widget: Device Cards with Totals & Percentages (MyIO)
+ *
+ * RFC-0106: Data fetching migrated to MAIN_VIEW orchestrator.
+ * This widget NO LONGER makes direct API calls to /api/v1/telemetry/customers.
+ * All data is received via 'myio:telemetry:provide-data' events from orchestrator.
+ *
+ * Architecture:
+ * - MAIN_VIEW (orchestrator): Makes single API call, distributes to all widgets
+ * - TELEMETRY (this widget): Receives data via events, renders cards
+ *
+ * Features:
  * - Datas obrigatórias: startDateISO / endDateISO
- * - Se ausentes no onInit: usa "current month so far" (1º dia 00:00 → hoje 23:59)
  * - Modal premium (busy) no widget durante carregamentos
- * - Modal premium global (fora do widget) para sucesso, com contador e reload
- * - onDataUpdated: no-op
  * - Evento (myio:update-date): mostra modal + atualiza
+ * - Temperature domain: uses ctx.data directly (no API)
  * =========================================================================*/
 
 /* eslint-disable no-undef, no-unused-vars */
@@ -33,34 +41,17 @@ function getInfoTooltip() {
 
 LogHelper.log('🚀 [TELEMETRY] Controller loaded - VERSION WITH ORCHESTRATOR SUPPORT');
 
-/**
- * RFC-0097: Configuração centralizada de classificação de dispositivos
- * Todas as regras de mapeamento deviceType → categoria estão aqui
- */
-const DEVICE_CLASSIFICATION_CONFIG = {
-  // DeviceTypes que pertencem à categoria Climatização
-  // Baseado em src/MYIO-SIM/v5.2.0/mapPower.json
-  climatizacao: {
-    // DeviceTypes que são SEMPRE climatização (independente do identifier)
-    deviceTypes: ['CHILLER', 'AR_CONDICIONADO', 'HVAC', 'FANCOIL'],
-    // DeviceTypes genéricos que só são climatização SE tiverem identifier de climatização
-    conditionalDeviceTypes: ['BOMBA', 'MOTOR'],
-    // Identifiers que indicam climatização (usado para deviceTypes condicionais)
-    identifiers: ['CAG', 'FANCOIL'],
-    identifierPrefixes: ['CAG-', 'FANCOIL-'],
-  },
-  // DeviceTypes que pertencem à categoria Elevadores
-  elevadores: {
-    deviceTypes: ['ELEVADOR'],
-    identifiers: ['ELV', 'ELEVADOR', 'ELEVADORES'],
-    identifierPrefixes: ['ELV-', 'ELEVADOR-'],
-  },
-  // DeviceTypes que pertencem à categoria Escadas Rolantes
-  escadas_rolantes: {
-    deviceTypes: ['ESCADA_ROLANTE'],
-    identifiers: ['ESC', 'ESCADA', 'ESCADASROLANTES'],
-    identifierPrefixes: ['ESC-', 'ESCADA-', 'ESCADA_'],
-  },
+// ============================================================================
+// RFC-0106: Device Classification - NOW USES MAIN_VIEW via window.MyIOUtils
+// The classification config and functions have been moved to MAIN_VIEW orchestrator.
+// TELEMETRY widgets should use window.MyIOUtils.classifyDevice() and related functions.
+// ============================================================================
+
+// RFC-0106: Get classification utilities from MAIN_VIEW (exposed via window.MyIOUtils)
+const DEVICE_CLASSIFICATION_CONFIG = window.MyIOUtils?.DEVICE_CLASSIFICATION_CONFIG || {
+  climatizacao: { deviceTypes: [], conditionalDeviceTypes: [], identifiers: [], identifierPrefixes: [] },
+  elevadores: { deviceTypes: [], identifiers: [], identifierPrefixes: [] },
+  escadas_rolantes: { deviceTypes: [], identifiers: [], identifierPrefixes: [] },
 };
 
 // Inject styles for type badges
@@ -280,7 +271,8 @@ function addAnnotationIndicator(cardElement, entityObject) {
   return container;
 }
 
-// Sets pré-computados para lookup rápido
+// RFC-0106: Sets are now derived from DEVICE_CLASSIFICATION_CONFIG (from window.MyIOUtils)
+// These are computed at load time based on the config
 const CLIMATIZACAO_DEVICE_TYPES_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceTypes);
 const CLIMATIZACAO_CONDITIONAL_TYPES_SET = new Set(
   DEVICE_CLASSIFICATION_CONFIG.climatizacao.conditionalDeviceTypes || []
@@ -292,16 +284,15 @@ const CLIMATIZACAO_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.climat
 const ELEVADORES_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.elevadores.identifiers);
 const ESCADAS_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.escadas_rolantes.identifiers);
 
-// RFC-0097: Regex para excluir equipamentos ao detectar widget "lojas"
-// Construído dinamicamente a partir do config
-const EQUIPMENT_EXCLUSION_PATTERN = new RegExp(
+// RFC-0106: Get EQUIPMENT_EXCLUSION_PATTERN from MAIN_VIEW if available
+const EQUIPMENT_EXCLUSION_PATTERN = window.MyIOUtils?.EQUIPMENT_EXCLUSION_PATTERN || new RegExp(
   [
     ...DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceTypes,
     ...DEVICE_CLASSIFICATION_CONFIG.elevadores.deviceTypes,
     ...DEVICE_CLASSIFICATION_CONFIG.escadas_rolantes.deviceTypes,
     'bomba',
     'subesta',
-    'entrada', // Termos adicionais fixos
+    'entrada',
   ]
     .map((t) => t.toLowerCase())
     .join('|'),
@@ -1184,7 +1175,14 @@ function buildTbIdIndexes() {
 }
 
 /** ===================== CORE: DATA PIPELINE ===================== **/
+/**
+ * RFC-0106: DEPRECATED - buildAuthoritativeItems no longer used.
+ * All data now comes from orchestrator via 'myio:telemetry:provide-data' event.
+ * This function used ctx.datasources and ctx.data which are no longer available.
+ * @deprecated Use dataProvideHandler for all data processing
+ */
 function buildAuthoritativeItems() {
+  LogHelper.warn('[RFC-0106] buildAuthoritativeItems is DEPRECATED - use orchestrator data');
   // items da LIB: [{ id: ingestionId, identifier, label }, ...]
   const base = MyIO.buildListItemsThingsboardByUniqueDatasource(self.ctx.datasources, self.ctx.data) || [];
 
@@ -1455,33 +1453,27 @@ function buildAuthoritativeItems() {
   return filtered;
 }
 
-async function fetchApiTotals(startISO, endISO) {
-  if (!isAuthReady()) throw new Error('Auth not ready');
-  const token = await MyIOAuth.getToken();
-  if (!token) throw new Error('No ingestion token');
+/**
+ * RFC-0106: DEPRECATED - fetchApiTotals removed.
+ * All API calls now go through the orchestrator in MAIN_VIEW.
+ * Data is received via 'myio:telemetry:provide-data' event from orchestrator.
+ *
+ * Previously this function called:
+ * /api/v1/telemetry/customers/${CUSTOMER_ING_ID}/energy/devices/totals
+ *
+ * Now the orchestrator (MAIN_VIEW) makes this call once and distributes to all widgets.
+ */
+// function fetchApiTotals(startISO, endISO) { /* REMOVED BY RFC-0106 */ }
 
-  const url = new URL(`${DATA_API_HOST}/api/v1/telemetry/customers/${CUSTOMER_ING_ID}/energy/devices/totals`);
-  url.searchParams.set('startTime', toSpOffsetNoMs(startISO));
-  url.searchParams.set('endTime', toSpOffsetNoMs(endISO, true));
-  url.searchParams.set('deep', '1');
-
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    LogHelper.warn('[DeviceCards] API fetch failed:', res.status);
-    return new Map();
-  }
-
-  const json = await res.json();
-  const rows = Array.isArray(json) ? json : json?.data ?? [];
-  const map = new Map();
-  for (const r of rows) if (r && r.id) map.set(String(r.id), r);
-  //LogHelper.log(`[DeviceCards] API rows: ${rows.length}, map keys: ${map.size}`);
-  return map;
-}
-
+/**
+ * RFC-0106: DEPRECATED - enrichItemsWithTotals no longer used.
+ * Data enrichment is now handled by dataProvideHandler which receives
+ * pre-enriched data from the orchestrator.
+ *
+ * @deprecated Use dataProvideHandler for data enrichment
+ */
 function enrichItemsWithTotals(items, apiMap) {
+  LogHelper.warn('[RFC-0106] enrichItemsWithTotals is deprecated - data should come from orchestrator');
   return items.map((it) => {
     // For temperature domain, preserve the value from ctx.data (buildAuthoritativeItems)
     if (WIDGET_DOMAIN === 'temperature') {
@@ -1495,7 +1487,7 @@ function enrichItemsWithTotals(items, apiMap) {
       raw = Number(row?.total_value ?? 0);
     }
 
-    const value = Number(raw || 0); // toTargetUnit(raw); TODO verificar se ainda precisa dessa chamada
+    const value = Number(raw || 0);
 
     return { ...it, value, perc: 0 };
   });
@@ -3027,147 +3019,58 @@ function emitLojasTotal(periodKey) {
   }
 }
 
+// ============================================================================
+// RFC-0106: Classification functions - NOW DELEGATES TO MAIN_VIEW
+// These functions now use window.MyIOUtils which is populated by MAIN_VIEW
+// ============================================================================
+
 /**
- * RFC-0097: Classify device by deviceType attribute
- * Primary classification method - uses deviceType (or deviceProfile when deviceType = 3F_MEDIDOR)
- * Uses centralized DEVICE_CLASSIFICATION_CONFIG
- *
- * Para deviceTypes condicionais (BOMBA, MOTOR), só classifica como climatização
- * se o identifier for de climatização (ex: CAG)
- *
+ * RFC-0106: Classify device by deviceType attribute
+ * DELEGATES TO window.MyIOUtils.classifyDeviceByDeviceType
  * @param {Object} item - Device item with deviceType and identifier properties
  * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'}
  */
 function classifyDeviceByDeviceType(item) {
-  if (!item) return 'outros';
-
-  // Get effective device type: use deviceType, or deviceProfile if deviceType is 3F_MEDIDOR
-  let effectiveType = String(item.deviceType || '').toUpperCase();
-
-  if (effectiveType === '3F_MEDIDOR' && item.deviceProfile) {
-    effectiveType = String(item.deviceProfile).toUpperCase();
+  // RFC-0106: Use MAIN_VIEW's classification function
+  if (window.MyIOUtils?.classifyDeviceByDeviceType) {
+    return window.MyIOUtils.classifyDeviceByDeviceType(item);
   }
-
-  if (!effectiveType || effectiveType === 'N/D') {
-    return 'outros';
-  }
-
-  // DeviceTypes que são SEMPRE climatização (CHILLER, FANCOIL, etc.)
-  if (CLIMATIZACAO_DEVICE_TYPES_SET.has(effectiveType)) {
-    return 'climatizacao';
-  }
-
-  // DeviceTypes condicionais (BOMBA, MOTOR) - só climatização se identifier for CAG, etc.
-  if (CLIMATIZACAO_CONDITIONAL_TYPES_SET.has(effectiveType)) {
-    const identifier = String(item.identifier || '')
-      .toUpperCase()
-      .trim();
-
-    // Verificar se o identifier indica climatização
-    if (CLIMATIZACAO_IDENTIFIERS_SET.has(identifier)) {
-      return 'climatizacao';
-    }
-    // Verificar prefixos (CAG-, FANCOIL-, etc.)
-    for (const prefix of DEVICE_CLASSIFICATION_CONFIG.climatizacao.identifierPrefixes) {
-      if (identifier.startsWith(prefix.toUpperCase())) {
-        return 'climatizacao';
-      }
-    }
-    // BOMBA/MOTOR sem identifier de climatização → outros
-    return 'outros';
-  }
-
-  if (ELEVADORES_DEVICE_TYPES_SET.has(effectiveType)) {
-    return 'elevadores';
-  }
-
-  if (ESCADAS_DEVICE_TYPES_SET.has(effectiveType)) {
-    return 'escadas_rolantes';
-  }
-
-  // Default: outros
+  // Fallback if MAIN_VIEW not loaded yet
+  LogHelper.warn('[RFC-0106] classifyDeviceByDeviceType: window.MyIOUtils not available, returning outros');
   return 'outros';
 }
 
 /**
- * RFC-0097: Classify device by identifier attribute
- * Uses centralized DEVICE_CLASSIFICATION_CONFIG
+ * RFC-0106: Classify device by identifier attribute
+ * DELEGATES TO window.MyIOUtils.classifyDeviceByIdentifier
  * @param {string} identifier - Device identifier (e.g., "CAG", "Fancoil", "ELV", etc.)
  * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'|null}
  */
 function classifyDeviceByIdentifier(identifier = '') {
-  // Safe guard against null/undefined/empty
-  if (!identifier || identifier === 'N/A' || identifier === 'null' || identifier === 'undefined') {
-    return null;
+  // RFC-0106: Use MAIN_VIEW's classification function
+  if (window.MyIOUtils?.classifyDeviceByIdentifier) {
+    return window.MyIOUtils.classifyDeviceByIdentifier(identifier);
   }
-
-  const id = String(identifier).trim().toUpperCase();
-
-  // Ignore "Sem Identificador identificado" marker
-  if (id.includes('SEM IDENTIFICADOR')) {
-    return null;
-  }
-
-  // Check each category using centralized config
-  // Climatização
-  if (CLIMATIZACAO_IDENTIFIERS_SET.has(id)) {
-    return 'climatizacao';
-  }
-  for (const prefix of DEVICE_CLASSIFICATION_CONFIG.climatizacao.identifierPrefixes) {
-    if (id.startsWith(prefix.toUpperCase())) return 'climatizacao';
-  }
-
-  // Elevadores
-  if (ELEVADORES_IDENTIFIERS_SET.has(id)) {
-    return 'elevadores';
-  }
-  for (const prefix of DEVICE_CLASSIFICATION_CONFIG.elevadores.identifierPrefixes) {
-    if (id.startsWith(prefix.toUpperCase())) return 'elevadores';
-  }
-
-  // Escadas Rolantes
-  if (ESCADAS_IDENTIFIERS_SET.has(id)) {
-    return 'escadas_rolantes';
-  }
-  for (const prefix of DEVICE_CLASSIFICATION_CONFIG.escadas_rolantes.identifierPrefixes) {
-    if (id.startsWith(prefix.toUpperCase())) return 'escadas_rolantes';
-  }
-
-  // Outros: qualquer outro identifier não reconhecido
-  return 'outros';
+  // Fallback if MAIN_VIEW not loaded yet
+  LogHelper.warn('[RFC-0106] classifyDeviceByIdentifier: window.MyIOUtils not available, returning null');
+  return null;
 }
 
 // RFC-0097: classifyDeviceByLabel foi removida - classificação agora é por deviceType
 
 /**
- * RFC-0097: Classify device using deviceType as primary method
+ * RFC-0106: Classify device using deviceType as primary method
+ * DELEGATES TO window.MyIOUtils.classifyDevice
  * @param {Object} item - Device item with deviceType, deviceProfile, identifier, and label
  * @returns {'climatizacao'|'elevadores'|'escadas_rolantes'|'outros'}
  */
 function classifyDevice(item) {
-  // Safe guard - ensure item exists
-  if (!item) {
-    LogHelper.warn('[RFC-0097] classifyDevice called with null/undefined item');
-    return 'outros';
+  // RFC-0106: Use MAIN_VIEW's classification function
+  if (window.MyIOUtils?.classifyDevice) {
+    return window.MyIOUtils.classifyDevice(item);
   }
-
-  // RFC-0097: Primary classification by deviceType (or deviceProfile when deviceType = 3F_MEDIDOR)
-  const category = classifyDeviceByDeviceType(item);
-
-  // Return if we got a specific category (not 'outros')
-  if (category !== 'outros') {
-    return category;
-  }
-
-  // Fallback: try identifier-based classification for special cases (e.g., ESCADASROLANTES)
-  if (item.identifier) {
-    const categoryByIdentifier = classifyDeviceByIdentifier(item.identifier);
-    if (categoryByIdentifier && categoryByIdentifier !== 'outros') {
-      return categoryByIdentifier;
-    }
-  }
-
-  // Default: outros
+  // Fallback if MAIN_VIEW not loaded yet
+  LogHelper.warn('[RFC-0106] classifyDevice: window.MyIOUtils not available, returning outros');
   return 'outros';
 }
 
@@ -3488,80 +3391,57 @@ function reflowFromState() {
 }
 
 /** ===================== HYDRATE (end-to-end) ===================== **/
+/**
+ * RFC-0106: hydrateAndRender requests data from orchestrator (MAIN_VIEW).
+ * No datasources, no ctx.data, no direct API calls.
+ * All data comes from orchestrator via 'myio:telemetry:provide-data' event.
+ */
 async function hydrateAndRender() {
   if (hydrating) return;
   hydrating = true;
 
-  // Mostra modal durante todo o processo (mensagem fixa)
   showBusy();
 
   try {
-    // 0) Datas: verificar se existem (não obrigatórias para energy/water - só para API call)
-    let range = null;
+    // Check for date range
     let hasDateRange = false;
     try {
-      range = mustGetDateRange();
+      mustGetDateRange();
       hasDateRange = true;
     } catch (_e) {
-      // For energy/water domains, continue rendering UI even without dates
-      // Just skip the API call for totals
-      if (WIDGET_DOMAIN === 'energy' || WIDGET_DOMAIN === 'water') {
-        LogHelper.warn(
-          '[DeviceCards] No date range set, but continuing for energy/water domain - buttons will be enabled'
-        );
-      } else {
-        LogHelper.warn('[DeviceCards] Aguardando intervalo de datas (startDateISO/endDateISO).');
-        return;
-      }
+      LogHelper.warn('[RFC-0106] No date range set, waiting for orchestrator...');
     }
 
-    // 1) Auth (skip for temperature domain - no API calls needed)
-    // Also skip if no date range (no API call will be made anyway)
-    if (WIDGET_DOMAIN !== 'temperature' && hasDateRange) {
-      const okAuth = await ensureAuthReady(6000, 150);
-      if (!okAuth) {
-        LogHelper.warn('[DeviceCards] Auth not ready; adiando hidratação.');
-        return;
-      }
-    } else {
-      LogHelper.log('[DeviceCards] Skipping auth check - temperature domain or no date range');
-    }
+    // RFC-0106: Request data from orchestrator for ALL domains
+    // No local itemsBase building - orchestrator provides everything
+    if (hasDateRange) {
+      LogHelper.log(`[RFC-0106] Requesting ${WIDGET_DOMAIN} data from orchestrator`);
 
-    // 2) Lista autoritativa
-    STATE.itemsBase = buildAuthoritativeItems();
-    // Expose for temperature tooltip
-    window._telemetryAuthoritativeItems = STATE.itemsBase;
+      const period = {
+        startISO: self.ctx.scope?.startDateISO,
+        endISO: self.ctx.scope?.endDateISO,
+        granularity: window.calcGranularity
+          ? window.calcGranularity(self.ctx.scope?.startDateISO, self.ctx.scope?.endDateISO)
+          : 'day',
+        tz: 'America/Sao_Paulo',
+      };
 
-    // 3) Totais na API (skip for temperature domain - uses only ctx.data telemetry)
-    // Also skip if no date range
-    let apiMap = new Map();
-    if (WIDGET_DOMAIN !== 'temperature' && hasDateRange && range) {
-      try {
-        apiMap = await fetchApiTotals(range.startISO, range.endISO);
-      } catch (err) {
-        LogHelper.error('[DeviceCards] API error:', err);
-        apiMap = new Map();
-      }
-    } else {
-      LogHelper.log(
-        '[DeviceCards] Skipping API fetch - temperature domain or no date range - using ctx.data only'
+      window.dispatchEvent(
+        new CustomEvent('myio:telemetry:request-data', {
+          detail: { domain: WIDGET_DOMAIN, period },
+        })
       );
+
+      // dataProvideHandler will handle the response and call hideBusy
+      hydrating = false;
+      return;
     }
 
-    // 4) Enrich + render
-    STATE.itemsEnriched = enrichItemsWithTotals(STATE.itemsBase, apiMap);
-
-    // 5) Sanitiza seleção
-    if (STATE.selectedIds && STATE.selectedIds.size) {
-      const valid = new Set(STATE.itemsBase.map((x) => x.id));
-      const next = new Set([...STATE.selectedIds].filter((id) => valid.has(id)));
-      STATE.selectedIds = next.size ? next : null;
-    }
-
-    reflowFromState();
+    // No date range yet - just wait
+    LogHelper.log('[RFC-0106] Waiting for date range and orchestrator data...');
   } finally {
     hydrating = false;
-    hideBusy();
+    // Don't hide busy here - dataProvideHandler will hide it
   }
 }
 
@@ -3831,7 +3711,10 @@ self.onInit = async function () {
   // RFC-0045 FIX: Store pending provide-data events that arrive before update-date
   let pendingProvideData = null;
 
-  // RFC-0042: Listen for data provision from orchestrator
+  /**
+   * RFC-0106: Listen for data provision from orchestrator
+   * All data comes from MAIN_VIEW orchestrator - no datasources, no ctx.data, no fallback
+   */
   dataProvideHandler = function (ev) {
     LogHelper.log(
       `[TELEMETRY ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${ev.detail.domain
@@ -3847,8 +3730,7 @@ self.onInit = async function () {
       return;
     }
 
-    // IMPORTANT: Prevent duplicate processing of the same periodKey
-    // The Orchestrator retries emission after 1s, so we need to deduplicate
+    // Prevent duplicate processing of the same periodKey
     if (lastProcessedPeriodKey === periodKey) {
       LogHelper.log(`[TELEMETRY] ⏭️ Skipping duplicate provide-data for periodKey: ${periodKey}`);
       return;
@@ -3860,144 +3742,54 @@ self.onInit = async function () {
       endISO: self.ctx.scope?.endDateISO,
     };
 
-    // RFC-0045 FIX: If period not set yet, STORE the event and wait for myio:update-date
+    // If period not set yet, store event for later processing
     if (!myPeriod.startISO || !myPeriod.endISO) {
       LogHelper.warn(`[TELEMETRY] ⏸️ Period not set yet, storing provide-data event for later processing`);
       pendingProvideData = { domain, periodKey, items };
-      // DON'T call hideBusy() here - wait for update-date to process the data
       return;
     }
 
-    // Mark this periodKey as processed ONLY when actually processing
+    // Mark this periodKey as processed
     lastProcessedPeriodKey = periodKey;
 
-    // IMPORTANT: Do NOT call showBusy() here - it was already called in dateUpdateHandler
-    // Calling it again creates a NEW timeout that won't be properly cancelled
-    LogHelper.log(`[TELEMETRY] 🔄 Processing data from orchestrator...`);
-    LogHelper.log(`[TELEMETRY] Received ${items.length} items from orchestrator for domain ${domain}`);
+    LogHelper.log(`[RFC-0106] Processing ${items.length} items from orchestrator`);
 
-    // Extract my datasource IDs
-    const myDatasourceIds = extractDatasourceIds(self.ctx.datasources);
-    //LogHelper.log(`[TELEMETRY] My datasource IDs:`, myDatasourceIds);
-    //LogHelper.log(`[TELEMETRY] Sample orchestrator items:`, items.slice(0, 3));
+    // RFC-0106: Filter items by labelWidget (configured in widget settings)
+    const myLabelWidget = self.ctx.settings?.labelWidget || '';
+    let filtered = items;
 
-    // RFC-0042: Debug datasources structure to understand the mapping
-    /*
-    if (self.ctx.datasources && self.ctx.datasources.length > 0) {
-      LogHelper.log(`[TELEMETRY] Datasource[0] keys:`, Object.keys(self.ctx.datasources[0]));
-      LogHelper.log(`[TELEMETRY] Datasource[0] entityId:`, self.ctx.datasources[0].entityId);
-      LogHelper.log(`[TELEMETRY] Datasource[0] entityName:`, self.ctx.datasources[0].entityName);
-      LogHelper.log(`[TELEMETRY] Datasource[0] full:`, JSON.stringify(self.ctx.datasources[0], null, 2));
-    }
-    if (self.ctx.data && self.ctx.data.length > 0) {
-      LogHelper.log(`[TELEMETRY] Data[0] keys:`, Object.keys(self.ctx.data[0]));
-      LogHelper.log(`[TELEMETRY] Data[0] full:`, JSON.stringify(self.ctx.data[0], null, 2));
-    }
-      */
-
-    // Data filtering is done by datasource IDs (ThingsBoard handles grouping)
-
-    // RFC-0042: Filter items by datasource IDs
-    // ThingsBoard datasource entityId should match API item id (ingestionId)
-    const datasourceIdSet = new Set(myDatasourceIds);
-    let filtered = items.filter((item) => {
-      // Check if item.id (from API) matches any datasource entityId
-      return datasourceIdSet.has(item.id) || datasourceIdSet.has(item.tbId);
-    });
-
-    LogHelper.log(
-      `[TELEMETRY] Filtered ${items.length} items down to ${filtered.length} items matching datasources`
-    );
-
-    // If no matches, log warning and use all items (temporary fallback)
-    if (filtered.length === 0) {
-      LogHelper.warn(`[TELEMETRY] No items match datasource IDs! Using all items as fallback.`);
-      LogHelper.warn(`[TELEMETRY] Sample datasource ID:`, myDatasourceIds[0]);
-      LogHelper.warn(`[TELEMETRY] Sample API item ID:`, items[0]?.id);
-      filtered = items;
+    if (myLabelWidget) {
+      filtered = items.filter((item) => {
+        const itemLabel = item.labelWidget || item.groupLabel || '';
+        return itemLabel.toLowerCase() === myLabelWidget.toLowerCase();
+      });
+      LogHelper.log(`[RFC-0106] Filtered to ${filtered.length} items matching labelWidget="${myLabelWidget}"`);
     }
 
-    // Convert orchestrator items to TELEMETRY widget format
-    filtered = filtered.map((item) => ({
+    // RFC-0106: Convert orchestrator items to widget format (no ctx.data, no datasources)
+    STATE.itemsBase = filtered.map((item) => ({
       id: item.tbId || item.id,
       tbId: item.tbId || item.id,
       ingestionId: item.ingestionId || item.id,
       identifier: item.identifier || item.id,
-      label: item.label || item.identifier || item.id,
+      label: item.label || item.name || item.identifier || item.id,
+      entityLabel: item.entityLabel || item.label || item.name || '',
       value: Number(item.value || 0),
       perc: 0,
-      deviceType: item.deviceType || 'energy',
+      deviceType: item.deviceType || WIDGET_DOMAIN,
       slaveId: item.slaveId || null,
       centralId: item.centralId || null,
+      deviceStatus: item.deviceStatus || 'no_info',
+      labelWidget: item.labelWidget || myLabelWidget,
       updatedIdentifiers: {},
     }));
 
-    // DEBUG: Log sample item with value
-    if (filtered.length > 0 && filtered[0].value > 0) {
-      LogHelper.log(`[TELEMETRY] 🔍 Sample orchestrator item after mapping:`, {
-        ingestionId: filtered[0].ingestionId,
-        label: filtered[0].label,
-        value: filtered[0].value,
-      });
-    }
-
-    LogHelper.log(`[TELEMETRY] Using ${filtered.length} items after processing`);
-
-    // IMPORTANT: Merge orchestrator data with existing TB data
-    // Keep original labels/identifiers from TB, only update values from orchestrator
-    STATE.itemsBase = buildAuthoritativeItems();
     window._telemetryAuthoritativeItems = STATE.itemsBase;
 
-    // Create map of orchestrator values by ingestionId
-    const orchestratorValues = new Map();
-    filtered.forEach((item) => {
-      if (item.ingestionId) {
-        const value = Number(item.value || 0);
-        orchestratorValues.set(item.ingestionId, value);
+    // Items come enriched from orchestrator
+    STATE.itemsEnriched = STATE.itemsBase.map((item) => ({ ...item }));
 
-        // Debug: log non-zero values from API
-        if (value > 0) {
-          //LogHelper.log(`[TELEMETRY] ✅ Orchestrator has data: ${item.label} (${item.ingestionId}) = ${value}`);
-        }
-      }
-    });
-    LogHelper.log(`[TELEMETRY] Orchestrator values map size: ${orchestratorValues.size}`);
-
-    // Update values in existing items
-    STATE.itemsEnriched = STATE.itemsBase.map((tbItem) => {
-      const orchestratorValue = orchestratorValues.get(tbItem.ingestionId);
-
-      // TANK/CAIXA_DAGUA devices: use telemetry data from TB, NOT from orchestrator API
-      const isTankDevice = tbItem.deviceType === 'TANK' || tbItem.deviceType === 'CAIXA_DAGUA';
-
-      // DEBUG: Log matching process for all items
-      if (orchestratorValue !== undefined && orchestratorValue > 0) {
-        //LogHelper.log(`[TELEMETRY] ✅ MATCH FOUND: ${tbItem.label} (ingestionId: ${tbItem.ingestionId}) = ${orchestratorValue}`);
-      } else {
-        //LogHelper.warn(`[TELEMETRY] ❌ NO MATCH: ${tbItem.label} (ingestionId: ${tbItem.ingestionId}), orchestrator=${orchestratorValue}, TB=${tbItem.value}`);
-      }
-
-      // For TANK devices, preserve the telemetry values (don't overwrite with API)
-      if (isTankDevice) {
-        return {
-          ...tbItem,
-          // Keep ALL values from buildAuthoritativeItems (waterLevel, waterPercentage, value, perc)
-          value: tbItem.value || 0,
-          perc: tbItem.perc || 0,
-          waterLevel: tbItem.waterLevel || 0,
-          waterPercentage: tbItem.waterPercentage || 0,
-        };
-      }
-
-      // For other devices, use orchestrator API values
-      return {
-        ...tbItem,
-        value: orchestratorValue !== undefined ? orchestratorValue : tbItem.value || 0,
-        perc: 0,
-      };
-    });
-
-    LogHelper.log(`[TELEMETRY] Enriched ${STATE.itemsEnriched.length} items with orchestrator values`);
+    LogHelper.log(`[RFC-0106] Final items: ${STATE.itemsEnriched.length}`);
 
     // RFC-0056 FIX v1.1: Emit telemetry update after enrichment
     emitTelemetryUpdate();
@@ -4031,25 +3823,13 @@ self.onInit = async function () {
   };
 
   /**
-   * Extracts ingestionIds from ThingsBoard ctx.data (not datasource entityIds).
-   * Each device has 6 keys (slaveId, centralId, ingestionId, connectionStatus, deviceType, identifier).
-   * We need to extract the ingestionId values to match with API data.
+   * RFC-0106: DEPRECATED - extractDatasourceIds no longer used.
+   * All data comes from orchestrator - no ctx.data dependencies.
+   * @deprecated Not needed with orchestrator architecture
    */
-  function extractDatasourceIds(datasources) {
-    // Build index from ctx.data to get ingestionId for each device
-    const ingestionIds = new Set();
-    const rows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
-
-    for (const row of rows) {
-      const key = String(row?.dataKey?.name || '').toLowerCase();
-      const val = row?.data?.[0]?.[1];
-
-      if (key === 'ingestionid' && val && isValidUUID(String(val))) {
-        ingestionIds.add(String(val));
-      }
-    }
-
-    return Array.from(ingestionIds);
+  function extractDatasourceIds(_datasources) {
+    LogHelper.warn('[RFC-0106] extractDatasourceIds is DEPRECATED');
+    return [];
   }
 
   window.addEventListener('myio:telemetry:provide-data', dataProvideHandler);
@@ -4176,64 +3956,10 @@ self.onInit = async function () {
 
     // [CORREÇÃO CRÍTICA]
     // Se o mapa chegou AGORA, precisamos re-executar a lógica de enriquecimento
-    // para garantir que os ranges sejam aplicados aos cards que já podem ter sido renderizados pelo Orchestrator.
-    if (MAP_INSTANTANEOUS_POWER) {
-        LogHelper.log('[TELEMETRY] Mapa de Potência carregado. Forçando atualização dos ranges...');
-        
-        // 1. Reconstrói a base (agora com ranges garantidos)
-        const newBase = buildAuthoritativeItems();
-        STATE.itemsBase = newBase;
-        window._telemetryAuthoritativeItems = STATE.itemsBase;
-
-        // 2. Se já tínhamos dados de consumo do Orchestrator, reaplique-os
-        if (STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
-            const valuesMap = new Map();
-            STATE.itemsEnriched.forEach(i => {
-                if (i.ingestionId) valuesMap.set(i.ingestionId, i.value);
-            });
-
-            STATE.itemsEnriched = STATE.itemsBase.map(baseItem => {
-                const existingVal = valuesMap.get(baseItem.ingestionId);
-                return {
-                    ...baseItem,
-                    value: existingVal !== undefined ? existingVal : (baseItem.value || 0),
-                    perc: 0
-                };
-            });
-            
-            // 3. Redesenha a tela imediatamente
-            reflowFromState();
-            LogHelper.log('[TELEMETRY] Cards atualizados com sucesso após carga do mapa.');
-        }
-    }
-    if (MAP_INSTANTANEOUS_POWER && STATE.itemsBase && STATE.itemsBase.length > 0) {
-      LogHelper.log('[TELEMETRY] Mapa de Potência carregado tardiamente. Reconstruindo ranges...');
-
-      // 1. Reconstrói a estrutura base (agora ele vai encontrar o MAP_INSTANTANEOUS_POWER)
-      STATE.itemsBase = buildAuthoritativeItems();
-      window._telemetryAuthoritativeItems = STATE.itemsBase;
-
-      // 2. Preserva os valores de API/Orchestrator que já tínhamos nos itens enriquecidos
-      if (STATE.itemsEnriched.length > 0) {
-        const valuesMap = new Map();
-        STATE.itemsEnriched.forEach(i => {
-          if (i.ingestionId) valuesMap.set(i.ingestionId, i.value);
-        });
-
-        // 3. Mescla a nova base (com ranges) com os valores antigos
-        STATE.itemsEnriched = STATE.itemsBase.map(baseItem => {
-          const existingVal = valuesMap.get(baseItem.ingestionId);
-          return {
-            ...baseItem,
-            value: existingVal !== undefined ? existingVal : (baseItem.value || 0),
-            perc: 0
-          };
-        });
-      } else {
-        STATE.itemsEnriched = STATE.itemsBase;
-      }
-
-      // 4. Redesenha a tela imediatamente
+    // RFC-0106: Power range updates now handled via orchestrator data
+    // The orchestrator includes all device metadata including power ranges
+    if (MAP_INSTANTANEOUS_POWER && STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
+      LogHelper.log('[RFC-0106] Power map loaded - ranges will be applied from orchestrator data');
       reflowFromState();
     }
 
@@ -4273,26 +3999,8 @@ self.onInit = async function () {
   }
   // ------------------------------------------------------------
 
-  const hasData = Array.isArray(self.ctx.data) && self.ctx.data.length > 0;
-  // RFC-0042: Removed direct API fetch - now using orchestrator
-  LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] onInit - Waiting for orchestrator data...`);
-
-  // Build initial itemsBase from ThingsBoard data
-  if (hasData && (!STATE.itemsBase || STATE.itemsBase.length === 0)) {
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Building itemsBase from TB data in onInit...`);
-    STATE.itemsBase = buildAuthoritativeItems();
-    window._telemetryAuthoritativeItems = STATE.itemsBase; // Expose for temperature tooltip
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] Built ${STATE.itemsBase.length} items from TB`);
-
-    // Initial render with zero values (will be updated by orchestrator)
-    STATE.itemsEnriched = STATE.itemsBase.map((item) => ({
-      ...item,
-      value: 0,
-      perc: 0,
-    }));
-
-    reflowFromState();
-  }
+  // RFC-0106: No ctx.data, no datasources - all data comes from orchestrator
+  LogHelper.log(`[RFC-0106] ${WIDGET_DOMAIN} widget waiting for orchestrator data...`);
 
   // Only show busy if we have a date range defined
   if (self.ctx?.scope?.startDateISO && self.ctx?.scope?.endDateISO) {
