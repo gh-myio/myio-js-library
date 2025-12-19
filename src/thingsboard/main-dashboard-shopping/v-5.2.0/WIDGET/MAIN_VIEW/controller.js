@@ -76,6 +76,7 @@ Object.assign(window.MyIOUtils, {
    * RFC-0106: Handle data loading errors (ctx.data timeout, no datasources, etc.)
    * Shows toast message and reloads the page to try again
    * ONLY reloads if there's no existing data displayed (prevents unnecessary reloads when cache is available)
+   * Now includes RETRY logic: tries to refetch data before reloading the page
    * @param {string} domain - Domain that failed to load (e.g., 'energy', 'water')
    * @param {string} reason - Reason for the failure
    */
@@ -99,9 +100,63 @@ Object.assign(window.MyIOUtils, {
       return; // Don't reload - we have data to show
     }
 
-    // No existing data - must reload
+    // Track retry attempts per domain
+    window._dataLoadRetryAttempts = window._dataLoadRetryAttempts || {};
+    const retryCount = window._dataLoadRetryAttempts[domain] || 0;
+    const MAX_RETRIES = 2;
+
+    if (retryCount < MAX_RETRIES) {
+      // Increment retry counter
+      window._dataLoadRetryAttempts[domain] = retryCount + 1;
+
+      const MyIOToast = window.MyIOLibrary?.MyIOToast;
+      const retryMessage = `Tentativa ${retryCount + 1}/${MAX_RETRIES}: Recarregando dados (${domain})...`;
+
+      LogHelper.warn(`[MyIOUtils] Retry ${retryCount + 1}/${MAX_RETRIES} for ${domain}`);
+
+      if (MyIOToast) {
+        MyIOToast.warning(retryMessage, 3000);
+      }
+
+      // Try to trigger a refetch by clicking the "Carregar" button after a short delay
+      setTimeout(() => {
+        LogHelper.log(`[MyIOUtils] Triggering retry fetch for ${domain}...`);
+
+        // Clear any cached period key to force a fresh fetch
+        if (window.MyIOOrchestrator?.clearCache) {
+          window.MyIOOrchestrator.clearCache(domain);
+        }
+
+        // Try to click the "Carregar" button from HEADER widget
+        // This is more reliable because it uses the exact same flow as user interaction
+        const btnLoad = document.querySelector('#tbx-btn-load');
+        if (btnLoad && !btnLoad.disabled) {
+          LogHelper.log(`[MyIOUtils] 🔄 Clicking "Carregar" button for retry...`);
+          btnLoad.click();
+        } else {
+          // Fallback: emit request event directly if button not available
+          LogHelper.log(`[MyIOUtils] ⚠️ Carregar button not found, emitting request event directly...`);
+          window.dispatchEvent(new CustomEvent('myio:telemetry:request-data', {
+            detail: {
+              domain: domain,
+              isRetry: true,
+              retryAttempt: retryCount + 1,
+            },
+          }));
+        }
+      }, 2000);
+
+      return; // Don't reload yet - wait for retry
+    }
+
+    // Max retries exceeded - must reload
+    LogHelper.error(`[MyIOUtils] Max retries (${MAX_RETRIES}) exceeded for ${domain} - reloading page`);
+
+    // Reset retry counter before reload
+    window._dataLoadRetryAttempts[domain] = 0;
+
     const MyIOToast = window.MyIOLibrary?.MyIOToast;
-    const message = `Erro ao carregar dados (${domain}). Recarregando...`;
+    const message = `Erro ao carregar dados (${domain}). Recarregando página...`;
 
     if (MyIOToast) {
       MyIOToast.error(message, 4000);
@@ -1062,13 +1117,15 @@ function categorizeItemsByGroup(items) {
 
 /**
  * RFC-0106: Categorize water items into 4 groups: entrada, lojas, banheiros, areacomum
- * Rules (based on deviceType AND deviceProfile):
- * - LOJAS: deviceType = 'HIDROMETRO' AND (deviceProfile = 'HIDROMETRO' OR deviceProfile is empty)
- * - ENTRADA: deviceType = 'HIDROMETRO_SHOPPING' OR (deviceType = 'HIDROMETRO' AND deviceProfile = 'HIDROMETRO_SHOPPING')
- * - AREACOMUM: deviceType = 'HIDROMETRO_AREA_COMUM' OR (deviceType = 'HIDROMETRO' AND deviceProfile = 'HIDROMETRO_AREA_COMUM')
  *
- * Fallback rules (pattern matching for items not matching above):
- * - BANHEIROS: label/identifier contains BANHEIRO, WC, SANITARIO
+ * RULE ORDER:
+ * 1. ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
+ * 2. AREACOMUM: deviceType = HIDROMETRO_AREA_COMUM OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM)
+ *    NOTE: Banheiros with HIDROMETRO_AREA_COMUM go here - they are extracted by TELEMETRY widget for TELEMETRY_INFO
+ * 3. BANHEIROS: identifier/label contains BANHEIRO, WC, SANITARIO, TOALETE, LAVABO (for standalone bathroom meters)
+ * 4. LOJAS: deviceType = HIDROMETRO AND (deviceProfile = HIDROMETRO OR empty)
+ *
+ * Fallback rules (for items not matching primary rules):
  * - ENTRADA: label/identifier contains ENTRADA, PRINCIPAL, RELOGIO
  * - AREACOMUM: everything else
  */
@@ -1101,20 +1158,20 @@ function categorizeItemsByGroupWater(items) {
     }
 
     // Rule 2: AREACOMUM - deviceType = HIDROMETRO_AREA_COMUM OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM)
+    // NOTE: Banheiros with deviceType HIDROMETRO_AREA_COMUM go here too - they are extracted later by TELEMETRY widget
     if (dt === 'HIDROMETRO_AREA_COMUM' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_AREA_COMUM')) {
       areacomum.push(item);
       continue;
     }
 
-    // Rule 3: BANHEIROS - check identifier for bathroom patterns BEFORE assigning to LOJAS
-    // This catches HIDROMETRO devices that are actually bathroom meters
+    // Rule 3: BANHEIROS - check identifier for bathroom patterns (only for HIDROMETRO devices not in areacomum)
+    // These are standalone bathroom meters with deviceType = HIDROMETRO
     if (BANHEIRO_PATTERNS.some((p) => identifier.includes(p) || label.includes(p))) {
       banheiros.push(item);
       continue;
     }
 
     // Rule 4: LOJAS - deviceType = HIDROMETRO AND (deviceProfile = HIDROMETRO OR deviceProfile is empty/missing)
-    // This must come AFTER the banheiros check above
     if (dt === 'HIDROMETRO' && (dp === 'HIDROMETRO' || dp === '')) {
       lojas.push(item);
       continue;
@@ -2340,7 +2397,7 @@ const MyIOOrchestrator = (() => {
    * RFC-0106: Wait for ctx.data to be populated with datasources
    * This prevents the timing issue where API is called before ThingsBoard loads datasources
    */
-  async function waitForCtxData(maxWaitMs = 10000, checkIntervalMs = 200) {
+  async function waitForCtxData(maxWaitMs = 20000, checkIntervalMs = 200) {
     const startTime = Date.now();
 
     while (Date.now() - startTime < maxWaitMs) {
@@ -2414,7 +2471,7 @@ const MyIOOrchestrator = (() => {
         LogHelper.log(`[Orchestrator] 🌡️ Temperature domain - using ctx.data directly (no API)`);
 
         // Wait for ctx.data to be populated
-        const ctxDataReady = await waitForCtxData(10000, 200);
+        const ctxDataReady = await waitForCtxData(20000, 200);
         if (!ctxDataReady) {
           LogHelper.warn(`[Orchestrator] ⚠️ ctx.data not ready for temperature`);
           window.MyIOUtils?.handleDataLoadError(domain, 'ctx.data timeout - datasources not loaded');
@@ -2475,7 +2532,7 @@ const MyIOOrchestrator = (() => {
       lastFetchDomain = domain;
       lastFetchPeriod = period;
 
-      const ctxDataReady = await waitForCtxData(10000, 200);
+      const ctxDataReady = await waitForCtxData(20000, 200);
       if (!ctxDataReady) {
         // Mark that ctx.data was empty - will trigger re-fetch when data arrives
         ctxDataWasEmpty = true;

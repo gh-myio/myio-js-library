@@ -407,15 +407,20 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       );
 
       // RFC-0054: Validate current domain
+      const MyIOToast = window.MyIOLibrary?.MyIOToast;
       if (!currentDomain.value) {
         LogHelper.error('[HEADER] ❌ Cannot load - currentDomain is null');
-        window.alert('Erro: Domínio atual não definido. Por favor, selecione uma aba no menu.');
+        if (MyIOToast) {
+          MyIOToast.error('Erro: Domínio atual não definido. Por favor, selecione uma aba no menu.', 5000);
+        }
         return;
       }
 
       if (currentDomain.value !== 'energy' && currentDomain.value !== 'water') {
         LogHelper.warn(`[HEADER] ⚠️ Cannot load - domain ${currentDomain.value} not supported`);
-        window.alert(`Domínio "${currentDomain.value}" não suporta carregamento de dados.`);
+        if (MyIOToast) {
+          MyIOToast.warning(`Domínio "${currentDomain.value}" não suporta carregamento de dados.`, 5000);
+        }
         return;
       }
 
@@ -504,14 +509,20 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
 
         // Show success message only for manual clicks
         if (!isProgrammatic) {
-          window.alert("Cache limpo com sucesso! Clique em 'Carregar' para buscar dados atualizados.");
+          const MyIOToast = window.MyIOLibrary?.MyIOToast;
+          if (MyIOToast) {
+            MyIOToast.success("Cache limpo com sucesso! Clique em 'Carregar' para buscar dados atualizados.", 5000);
+          }
         }
 
         LogHelper.log('[HEADER] 🔄 Force Refresh completed successfully');
       } catch (err) {
         LogHelper.error('[HEADER] ❌ Error during Force Refresh:', err);
         if (!isProgrammatic) {
-          window.alert('Erro ao limpar cache. Consulte o console para detalhes.');
+          const MyIOToast = window.MyIOLibrary?.MyIOToast;
+          if (MyIOToast) {
+            MyIOToast.error('Erro ao limpar cache. Consulte o console para detalhes.', 5000);
+          }
         }
       }
     });
@@ -530,7 +541,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         // Safety check: button should be disabled if domain is not supported
         if (!domain || (domain !== 'energy' && domain !== 'water')) {
           LogHelper.error(`[HEADER] Invalid domain: ${domain}. Button should be disabled.`);
-          window.alert('Domínio inválido. Por favor, selecione Energia ou Água no menu.');
+          const MyIOToast = window.MyIOLibrary?.MyIOToast;
+          if (MyIOToast) {
+            MyIOToast.error('Domínio inválido. Por favor, selecione Energia ou Água no menu.', 5000);
+          }
           return;
         }
 
@@ -633,7 +647,10 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         });
       } catch (err) {
         LogHelper.error('[HEADER] Failed to open All-Report modal:', err);
-        window.alert('Erro ao abrir relatório geral. Tente novamente.');
+        const MyIOToast = window.MyIOLibrary?.MyIOToast;
+        if (MyIOToast) {
+          MyIOToast.error('Erro ao abrir relatório geral. Tente novamente.', 5000);
+        }
       }
     });
 

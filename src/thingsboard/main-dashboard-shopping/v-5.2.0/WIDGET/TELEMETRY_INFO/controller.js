@@ -1330,8 +1330,48 @@ function processStateFromSummaryWater(summary, grandTotal) {
   // Store items for device status aggregation (from pre-computed details)
   const entradaDevices = summary.entrada?.details?.devices || [];
   const lojasDevices = summary.lojas?.details?.devices || [];
-  const banheirosDevices = summary.banheiros?.details?.devices || [];
-  const areaComumDevices = summary.areaComum?.details?.devices || [];
+  let banheirosDevices = summary.banheiros?.details?.devices || [];
+  let areaComumDevices = summary.areaComum?.details?.devices || [];
+
+  // RFC-0106 FIX: Extract banheiros from areaComum when summary doesn't have them separated
+  // This happens when devices with identifier/label containing bathroom patterns have deviceType = HIDROMETRO_AREA_COMUM
+  const BANHEIRO_PATTERNS = ['banheiro', 'wc', 'sanitario', 'toalete', 'lavabo'];
+  let banheirosExtracted = false;
+  let banheirosTotal = summary.banheiros?.summary?.total || 0;
+  let areaComumTotal = summary.areaComum?.summary?.total || 0;
+
+  if (banheirosDevices.length === 0 && areaComumDevices.length > 0) {
+    const extractedBanheiros = [];
+    const remainingAreaComum = [];
+
+    areaComumDevices.forEach((device) => {
+      const labelLower = (device.label || '').toLowerCase();
+      const identifierLower = (device.identifier || device.id || '').toLowerCase();
+      const isBanheiro = BANHEIRO_PATTERNS.some(
+        (p) => labelLower.includes(p) || identifierLower.includes(p)
+      );
+
+      if (isBanheiro) {
+        extractedBanheiros.push(device);
+      } else {
+        remainingAreaComum.push(device);
+      }
+    });
+
+    if (extractedBanheiros.length > 0) {
+      banheirosDevices = extractedBanheiros;
+      areaComumDevices = remainingAreaComum;
+      banheirosExtracted = true;
+
+      // Recalculate totals from extracted devices
+      banheirosTotal = extractedBanheiros.reduce((sum, d) => sum + (d.value || 0), 0);
+      areaComumTotal = remainingAreaComum.reduce((sum, d) => sum + (d.value || 0), 0);
+
+      LogHelper.log(
+        `[RFC-0106] Extracted ${extractedBanheiros.length} banheiros (${banheirosTotal.toFixed(2)} m³) from areaComum (${remainingAreaComum.length} remaining, ${areaComumTotal.toFixed(2)} m³)`
+      );
+    }
+  }
 
   RECEIVED_ORCHESTRATOR_ITEMS = [
     ...entradaDevices,
@@ -1350,12 +1390,12 @@ function processStateFromSummaryWater(summary, grandTotal) {
   STATE_WATER.lojas.perc = summary.lojas?.summary?.perc || 0;
 
   STATE_WATER.banheiros.devices = banheirosDevices;
-  STATE_WATER.banheiros.total = summary.banheiros?.summary?.total || 0;
-  STATE_WATER.banheiros.perc = summary.banheiros?.summary?.perc || 0;
+  STATE_WATER.banheiros.total = banheirosTotal;
+  STATE_WATER.banheiros.perc = grandTotal > 0 ? (banheirosTotal / grandTotal) * 100 : 0;
 
   STATE_WATER.areaComum.devices = areaComumDevices;
-  STATE_WATER.areaComum.total = summary.areaComum?.summary?.total || 0;
-  STATE_WATER.areaComum.perc = summary.areaComum?.summary?.perc || 0;
+  STATE_WATER.areaComum.total = areaComumTotal;
+  STATE_WATER.areaComum.perc = grandTotal > 0 ? (areaComumTotal / grandTotal) * 100 : 0;
 
   STATE_WATER.pontosNaoMapeados.devices = [];
   STATE_WATER.pontosNaoMapeados.total = summary.pontosNaoMapeados?.summary?.total || 0;
@@ -1374,21 +1414,23 @@ function processStateFromSummaryWater(summary, grandTotal) {
     perc: 100,
   };
 
+  // RFC-0106 FIX: Use recalculated totals for banheiros and areaComum (after extraction)
+  const lojasTotal = summary.lojas?.summary?.total || 0;
   STATE.consumidores = {
     lojas: {
       devices: lojasDevices,
-      total: summary.lojas?.summary?.total || 0,
+      total: lojasTotal,
       perc: summary.lojas?.summary?.perc || 0,
     },
     banheiros: {
       devices: banheirosDevices,
-      total: summary.banheiros?.summary?.total || 0,
-      perc: summary.banheiros?.summary?.perc || 0,
+      total: banheirosTotal, // Use recalculated value
+      perc: grandTotal > 0 ? (banheirosTotal / grandTotal) * 100 : 0,
     },
     areaComum: {
       devices: areaComumDevices,
-      total: summary.areaComum?.summary?.total || 0,
-      perc: summary.areaComum?.summary?.perc || 0,
+      total: areaComumTotal, // Use recalculated value
+      perc: grandTotal > 0 ? (areaComumTotal / grandTotal) * 100 : 0,
     },
     pontosNaoMapeados: {
       devices: [],
@@ -1397,23 +1439,36 @@ function processStateFromSummaryWater(summary, grandTotal) {
       isCalculated: true,
       hasInconsistency: summary.pontosNaoMapeados?.summary?.hasInconsistency || false,
     },
-    totalGeral: (summary.lojas?.summary?.total || 0) +
-                (summary.banheiros?.summary?.total || 0) +
-                (summary.areaComum?.summary?.total || 0),
+    totalGeral: lojasTotal + banheirosTotal + areaComumTotal, // Use recalculated values
     percGeral: 100,
   };
 
   STATE.grandTotal = grandTotal;
 
   // RFC-0106: Store pre-computed tooltip data for WaterSummaryTooltip
+  // If banheiros were extracted, create updated category objects with correct values
+  const banheirosForTooltip = banheirosExtracted
+    ? {
+        summary: { total: banheirosTotal, perc: grandTotal > 0 ? (banheirosTotal / grandTotal) * 100 : 0, count: banheirosDevices.length },
+        details: { devices: banheirosDevices },
+      }
+    : summary.banheiros;
+
+  const areaComumForTooltip = banheirosExtracted
+    ? {
+        summary: { total: areaComumTotal, perc: grandTotal > 0 ? (areaComumTotal / grandTotal) * 100 : 0, count: areaComumDevices.length },
+        details: { devices: areaComumDevices },
+      }
+    : summary.areaComum;
+
   STATE.tooltipData = {
     resumo: summary.resumo,
     deviceStatusAggregation: summary.deviceStatusAggregation,
     byCategory: {
       entrada: summary.entrada,
       lojas: summary.lojas,
-      banheiros: summary.banheiros,
-      areaComum: summary.areaComum,
+      banheiros: banheirosForTooltip,
+      areaComum: areaComumForTooltip,
       pontosNaoMapeados: summary.pontosNaoMapeados,
     },
   };
@@ -1422,9 +1477,12 @@ function processStateFromSummaryWater(summary, grandTotal) {
     entrada: STATE_WATER.entrada.total,
     lojas: STATE_WATER.lojas.total,
     banheiros: STATE_WATER.banheiros.total,
+    banheirosDeviceCount: banheirosDevices.length,
     areaComum: STATE_WATER.areaComum.total,
+    areaComumDeviceCount: areaComumDevices.length,
     pontosNaoMapeados: STATE_WATER.pontosNaoMapeados.total,
     grandTotal: STATE_WATER.grandTotal,
+    banheirosExtracted: banheirosExtracted,
     hasTooltipData: !!STATE.tooltipData,
   });
 }

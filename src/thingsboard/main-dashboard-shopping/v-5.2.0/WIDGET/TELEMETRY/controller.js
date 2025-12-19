@@ -3367,22 +3367,26 @@ function emitWaterTelemetry(widgetType, periodKey) {
     // Build device list
     const devices = STATE.itemsEnriched.map((item) => ({
       id: item.id || item.entityId || '',
+      identifier: item.identifier || item.deviceIdentifier || '', // FIX: incluir identifier para classificação de banheiros
       label: item.label || item.name || '',
       value: item.value || 0,
       deviceType: item.deviceType || 'HIDROMETRO',
     }));
 
     // RFC-0002: For areaComum context, classify devices into banheiros vs outros
-    // Banheiros are identified by "banheiro" in label or identifier (case-insensitive)
+    // Banheiros are identified by bathroom patterns in label or identifier (case-insensitive)
     let banheirosBreakdown = null;
     if (context === 'areaComum') {
+      const BANHEIRO_PATTERNS = ['banheiro', 'wc', 'sanitario', 'toalete', 'lavabo'];
       const banheirosDevices = [];
       const outrosDevices = [];
 
       devices.forEach((device) => {
         const labelLower = (device.label || '').toLowerCase();
-        const idLower = (device.id || '').toLowerCase();
-        const isBanheiro = labelLower.includes('banheiro') || idLower.includes('banheiro');
+        const identifierLower = (device.identifier || '').toLowerCase(); // FIX: usar identifier, não id
+        const isBanheiro = BANHEIRO_PATTERNS.some(
+          (p) => labelLower.includes(p) || identifierLower.includes(p)
+        );
 
         if (isBanheiro) {
           banheirosDevices.push(device);
