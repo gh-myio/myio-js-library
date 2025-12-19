@@ -113,8 +113,15 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
           attributes.identifier = attr.value; // identifier -> Número da Loja (read-only)
         } else if (attr.key === "mapInstantaneousPower") {
           attributes.mapInstantaneousPower = attr.value;
-        } else if ((attr.key === "deviceMapInstaneousPower")) {
+        } else if (attr.key === "deviceMapInstaneousPower") {
           attributes.deviceMapInstaneousPower = attr.value;
+        } else if (attr.key === "offSetTemperature") {
+          // Temperature offset for TERMOSTATO devices (stored in SERVER_SCOPE)
+          attributes.offSetTemperature = attr.value;
+        } else if (attr.key === "minTemperature") {
+          attributes.minTemperature = attr.value;
+        } else if (attr.key === "maxTemperature") {
+          attributes.maxTemperature = attr.value;
         }
       }
     }
@@ -167,13 +174,31 @@ static sanitizeFetchedData(data: Record<string, any>): Record<string, any> {
       }
     }
 
-    // 2. Campos Numéricos
-    const numericFields = ["maxDailyKwh", "maxNightKwh", "maxBusinessKwh"];
-    for (const field of numericFields) {
+    // 2. Campos Numéricos (consumo - devem ser >= 0)
+    const consumptionFields = ["maxDailyKwh", "maxNightKwh", "maxBusinessKwh"];
+    for (const field of consumptionFields) {
       if (data[field] !== undefined && data[field] !== null) {
         const num = Number(data[field]);
         if (!isNaN(num) && num >= 0) {
           sanitized[field] = num;
+        }
+      }
+    }
+
+    // 2b. Campos Numéricos de Temperatura (podem ser negativos ou positivos)
+    const temperatureFields = ["minTemperature", "maxTemperature", "offSetTemperature"];
+    for (const field of temperatureFields) {
+      if (data[field] !== undefined && data[field] !== null) {
+        const num = Number(data[field]);
+        if (!isNaN(num)) {
+          // offSetTemperature: limitar entre -99.99 e +99.99
+          if (field === "offSetTemperature") {
+            if (num >= -99.99 && num <= 99.99) {
+              sanitized[field] = num;
+            }
+          } else {
+            sanitized[field] = num;
+          }
         }
       }
     }

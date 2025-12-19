@@ -376,7 +376,7 @@ export class SettingsController {
     }
 
     // Numeric validation
-    const numericFields = ['maxDailyKwh', 'maxNightKwh', 'maxBusinessKwh', 'minTemperature', 'maxTemperature', 'minWaterLevel', 'maxWaterLevel'];
+    const numericFields = ['maxDailyKwh', 'maxNightKwh', 'maxBusinessKwh', 'minTemperature', 'maxTemperature', 'offSetTemperature', 'minWaterLevel', 'maxWaterLevel'];
     for (const field of numericFields) {
       if (formData[field] !== undefined) {
         const num = Number(formData[field]);
@@ -388,6 +388,12 @@ export class SettingsController {
         if (field.includes('WaterLevel')) {
           if (num < 0 || num > 100) {
             errors.push(`${field} must be between 0 and 100`);
+          }
+        }
+        // offSetTemperature must be between -99.99 and +99.99
+        if (field === 'offSetTemperature') {
+          if (num < -99.99 || num > 99.99) {
+            errors.push(`${field} must be between -99.99 and +99.99`);
           }
         }
       }
