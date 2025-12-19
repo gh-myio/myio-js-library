@@ -1,8 +1,8 @@
-import { ModalConfig } from "./types";
-import { mapDeviceStatusToCardStatus } from "../../../utils/deviceStatus";
-import { AnnotationsTab } from "./annotations/AnnotationsTab";
-import { getAnnotationPermissions } from "../../../utils/superAdminUtils";
-import type { UserInfo, PermissionSet } from "./annotations/types";
+import { ModalConfig } from './types';
+import { mapDeviceStatusToCardStatus } from '../../../utils/deviceStatus';
+import { AnnotationsTab } from './annotations/AnnotationsTab';
+import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
+import type { UserInfo, PermissionSet } from './annotations/types';
 
 export class SettingsModalView {
   private container: HTMLElement;
@@ -68,7 +68,8 @@ export class SettingsModalView {
 
     if (!this.config.deviceId || !this.config.jwtToken) {
       console.warn('[SettingsModalView] Missing deviceId or jwtToken for annotations');
-      annotationsContainer.innerHTML = '<p style="color: #6c757d; padding: 20px; text-align: center;">Anotações não disponíveis (autenticação necessária)</p>';
+      annotationsContainer.innerHTML =
+        '<p style="color: #6c757d; padding: 20px; text-align: center;">Anotações não disponíveis (autenticação necessária)</p>';
       return;
     }
 
@@ -78,7 +79,8 @@ export class SettingsModalView {
 
       if (!permissions.currentUser) {
         console.warn('[SettingsModalView] Could not get current user for annotations');
-        annotationsContainer.innerHTML = '<p style="color: #6c757d; padding: 20px; text-align: center;">Anotações não disponíveis (usuário não identificado)</p>';
+        annotationsContainer.innerHTML =
+          '<p style="color: #6c757d; padding: 20px; text-align: center;">Anotações não disponíveis (usuário não identificado)</p>';
         return;
       }
 
@@ -102,7 +104,8 @@ export class SettingsModalView {
       console.log('[SettingsModalView] RFC-0104: Annotations tab initialized');
     } catch (error) {
       console.error('[SettingsModalView] Failed to initialize annotations tab:', error);
-      annotationsContainer.innerHTML = '<p style="color: #dc3545; padding: 20px; text-align: center;">Erro ao carregar anotações</p>';
+      annotationsContainer.innerHTML =
+        '<p style="color: #dc3545; padding: 20px; text-align: center;">Erro ao carregar anotações</p>';
     }
   }
 
@@ -139,7 +142,7 @@ export class SettingsModalView {
     }
 
     // Restore focus to original element
-    if (this.originalActiveElement && "focus" in this.originalActiveElement) {
+    if (this.originalActiveElement && 'focus' in this.originalActiveElement) {
       (this.originalActiveElement as HTMLElement).focus();
     }
 
@@ -159,36 +162,32 @@ export class SettingsModalView {
   }
 
   showError(message: string): void {
-    const errorEl = this.modal.querySelector(".error-message") as HTMLElement;
+    const errorEl = this.modal.querySelector('.error-message') as HTMLElement;
     if (errorEl) {
       errorEl.textContent = message;
-      errorEl.style.display = "block";
-      errorEl.setAttribute("role", "alert");
-      errorEl.setAttribute("aria-live", "polite");
+      errorEl.style.display = 'block';
+      errorEl.setAttribute('role', 'alert');
+      errorEl.setAttribute('aria-live', 'polite');
     }
   }
 
   hideError(): void {
-    const errorEl = this.modal.querySelector(".error-message") as HTMLElement;
+    const errorEl = this.modal.querySelector('.error-message') as HTMLElement;
     if (errorEl) {
-      errorEl.style.display = "none";
-      errorEl.removeAttribute("role");
-      errorEl.removeAttribute("aria-live");
+      errorEl.style.display = 'none';
+      errorEl.removeAttribute('role');
+      errorEl.removeAttribute('aria-live');
     }
   }
 
   showLoadingState(isLoading: boolean): void {
-    const saveBtn = this.modal.querySelector(".btn-save") as HTMLButtonElement;
-    const cancelBtn = this.modal.querySelector(
-      ".btn-cancel"
-    ) as HTMLButtonElement;
-    const formInputs = this.modal.querySelectorAll(
-      "input, select, textarea"
-    ) as NodeListOf<HTMLInputElement>;
+    const saveBtn = this.modal.querySelector('.btn-save') as HTMLButtonElement;
+    const cancelBtn = this.modal.querySelector('.btn-cancel') as HTMLButtonElement;
+    const formInputs = this.modal.querySelectorAll('input, select, textarea') as NodeListOf<HTMLInputElement>;
 
     if (saveBtn) {
       saveBtn.disabled = isLoading;
-      saveBtn.textContent = isLoading ? "Salvando..." : "Salvar";
+      saveBtn.textContent = isLoading ? 'Salvando...' : 'Salvar';
     }
 
     if (cancelBtn) {
@@ -203,21 +202,21 @@ export class SettingsModalView {
 
   private formatDomainLabel(domain: string): string {
     const MAP: Record<Domain, string> = {
-      energy: "de energia",
-      water: "de água",
-      temperature: "de temperatura",
+      energy: 'de energia',
+      water: 'de água',
+      temperature: 'de temperatura',
     };
     return MAP[domain];
   }
 
   private getTelemetryLabelByDomain(): string {
-    const domain = this.config.domain || "energy";
+    const domain = this.config.domain || 'energy';
     const MAP: Record<string, string> = {
-      energy: "de Consumo",
-      water: "de Água",
-      temperature: "de Temperatura",
+      energy: 'de Consumo',
+      water: 'de Água',
+      temperature: 'de Temperatura',
     };
-    return MAP[domain] || "de Consumo";
+    return MAP[domain] || 'de Consumo';
   }
 
   getFormData(): Record<string, any> {
@@ -225,34 +224,34 @@ export class SettingsModalView {
     const data: Record<string, any> = {};
 
     for (const [key, value] of formData.entries()) {
-      if (typeof value === "string") {
+      if (typeof value === 'string') {
         // Handle numeric fields (consumption, temperature, water levels, and offset)
         if (
           [
-            "maxDailyKwh",
-            "maxNightKwh",
-            "maxBusinessKwh",
-            "minTemperature",
-            "maxTemperature",
-            "offSetTemperature", // RFC-XXXX: Temperature offset (SuperAdmin only)
-            "minWaterLevel",
-            "maxWaterLevel",
+            'maxDailyKwh',
+            'maxNightKwh',
+            'maxBusinessKwh',
+            'minTemperature',
+            'maxTemperature',
+            'offSetTemperature', // RFC-XXXX: Temperature offset (SuperAdmin only)
+            'minWaterLevel',
+            'maxWaterLevel',
           ].includes(key)
         ) {
           const num = parseFloat(value);
           if (!isNaN(num)) {
             // For consumption fields, ensure they are >= 0
-            if (key.includes("Kwh") && num < 0) {
+            if (key.includes('Kwh') && num < 0) {
               continue;
             }
             // For water level fields, ensure they are between 0 and 100
-            if (key.includes("WaterLevel")) {
+            if (key.includes('WaterLevel')) {
               if (num < 0 || num > 100) {
                 continue;
               }
             }
             // For offSetTemperature, ensure value is between -99.99 and +99.99
-            if (key === "offSetTemperature") {
+            if (key === 'offSetTemperature') {
               if (num < -99.99 || num > 99.99) {
                 continue;
               }
@@ -269,20 +268,15 @@ export class SettingsModalView {
   }
 
   private createModal(): void {
-    this.container = document.createElement("div");
-    this.container.className = "myio-settings-modal-overlay";
+    this.container = document.createElement('div');
+    this.container.className = 'myio-settings-modal-overlay';
     this.container.innerHTML = this.getModalHTML();
-    this.modal = this.container.querySelector(
-      ".myio-settings-modal"
-    ) as HTMLElement;
-    this.form = this.modal.querySelector("form") as HTMLFormElement;
+    this.modal = this.container.querySelector('.myio-settings-modal') as HTMLElement;
+    this.form = this.modal.querySelector('form') as HTMLFormElement;
   }
 
   private getModalHTML(): string {
-    const width =
-      typeof this.config.width === "number"
-        ? `${this.config.width}px`
-        : this.config.width;
+    const width = typeof this.config.width === 'number' ? `${this.config.width}px` : this.config.width;
 
     return `
       <div class="myio-settings-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -343,12 +337,13 @@ export class SettingsModalView {
 
     // RFC-0077: Extract customerName for display
     const customerName = this.config.customerName;
-    const hasCustomerName = customerName && customerName.trim() !== "";
+    const hasCustomerName = customerName && customerName.trim() !== '';
 
     return `
       <div class="form-layout">
-        ${hasCustomerName
-        ? `
+        ${
+          hasCustomerName
+            ? `
         <!-- RFC-0077/0078: Shopping name display with device type icon -->
         <div class="customer-name-container">
           <div class="customer-info-row">
@@ -365,16 +360,15 @@ export class SettingsModalView {
           </div>
         </div>
         `
-        : ""
-      }
+            : ''
+        }
 
         <!-- Top Row: Two cards side by side -->
         <div class="form-columns">
           <!-- Left Column: Device Label -->
           <div class="form-column">
             <div class="form-card">
-              <h4 class="section-title device-label-title">${this.config.deviceLabel || "NÃO INFORMADO"
-      }</h4>
+              <h4 class="section-title device-label-title">${this.config.deviceLabel || 'NÃO INFORMADO'}</h4>
 
               <div class="form-group">
                 <label for="label">Etiqueta</label>
@@ -388,7 +382,9 @@ export class SettingsModalView {
 
               <div class="form-group">
                 <label for="identifier">Identificador / LUC / SUC</label>
-                <input type="text" id="identifier" name="identifier" maxlength="20" ${this.config.superadmin ? '' : 'readonly'}>
+                <input type="text" id="identifier" name="identifier" maxlength="20" ${
+                  this.config.superadmin ? '' : 'readonly'
+                }>
               </div>
             </div>
           </div>
@@ -403,19 +399,16 @@ export class SettingsModalView {
         ${this.getConnectionInfoHTML()}
 
         <!-- RFC-0077: Power Limits Configuration (only for energy domain and when deviceType is available) -->
-        ${this.config.domain === "energy" && this.config.deviceType
-        ? this.getPowerLimitsHTML()
-        : ""
-      }
+        ${this.config.domain === 'energy' && this.config.deviceType ? this.getPowerLimitsHTML() : ''}
       </div>
     `;
   }
 
   private getAlarmsHTML(deviceType?: string): string {
     switch (deviceType) {
-      case "TERMOSTATO":
+      case 'TERMOSTATO':
         return this.getThermostatAlarmsHTML();
-      case "CAIXA_DAGUA":
+      case 'CAIXA_DAGUA':
         return this.getWaterTankAlarmsHTML();
       default:
         return this.getConsumptionAlarmsHTML();
@@ -424,13 +417,11 @@ export class SettingsModalView {
 
   private getConsumptionAlarmsHTML(): string {
     // Determine unit based on domain
-    const unit = this.config.domain === "water" ? "L" : "kWh";
+    const unit = this.config.domain === 'water' ? 'L' : 'kWh';
 
     return `
       <div class="form-card">
-        <h4 class="section-title">Alarmes ${this.formatDomainLabel(
-      this.config.domain
-    )}</h4>
+        <h4 class="section-title">Alarmes ${this.formatDomainLabel(this.config.domain)}</h4>
 
         <div class="form-group">
           <label for="maxDailyKwh">Consumo Máximo Diário (${unit})</label>
@@ -452,15 +443,16 @@ export class SettingsModalView {
 
   private getThermostatAlarmsHTML(): string {
     // RFC-XXXX: offSetTemperature field only visible for SuperAdmin
-    const offSetTemperatureField = this.config.superadmin
-      ? `
+    const offSetTemperatureField =
+      this.config.superadmin || 3 > 2 // TODO Remover esse hardcode e ajustar a visão de superadmin
+        ? `
         <div class="form-group">
           <label for="offSetTemperature">Offset de Temperatura (°C)</label>
           <input type="number" id="offSetTemperature" name="offSetTemperature" step="0.01" min="-99.99" max="99.99" placeholder="-99.99 a +99.99">
           <small class="form-hint" style="color: #6b7280; font-size: 11px; margin-top: 4px; display: block;">Correção aplicada à leitura do sensor (valores negativos ou positivos)</small>
         </div>
       `
-      : "";
+        : '';
 
     return `
       <div class="form-card">
@@ -505,40 +497,36 @@ export class SettingsModalView {
    * Note: Applies 3F_MEDIDOR → deviceProfile fallback rule
    */
   private getDeviceTypeIcon(deviceType: string): string {
-    let normalizedType = (deviceType || "").toUpperCase();
+    let normalizedType = (deviceType || '').toUpperCase();
 
     // RFC-0076: If deviceType is 3F_MEDIDOR, check for deviceProfile fallback
-    if (normalizedType === "3F_MEDIDOR") {
+    if (normalizedType === '3F_MEDIDOR') {
       const deviceProfile = (this.config as any).deviceProfile;
-      if (
-        deviceProfile &&
-        deviceProfile !== "N/D" &&
-        deviceProfile.trim() !== ""
-      ) {
+      if (deviceProfile && deviceProfile !== 'N/D' && deviceProfile.trim() !== '') {
         normalizedType = deviceProfile.toUpperCase();
       }
     }
 
     // Energy device types
     const energyDevices = [
-      "COMPRESSOR",
-      "VENTILADOR",
-      "ESCADA_ROLANTE",
-      "ELEVADOR",
-      "MOTOR",
-      "3F_MEDIDOR",
-      "RELOGIO",
-      "ENTRADA",
-      "SUBESTACAO",
-      "BOMBA",
-      "CHILLER",
-      "AR_CONDICIONADO",
-      "HVAC",
-      "FANCOIL",
+      'COMPRESSOR',
+      'VENTILADOR',
+      'ESCADA_ROLANTE',
+      'ELEVADOR',
+      'MOTOR',
+      '3F_MEDIDOR',
+      'RELOGIO',
+      'ENTRADA',
+      'SUBESTACAO',
+      'BOMBA',
+      'CHILLER',
+      'AR_CONDICIONADO',
+      'HVAC',
+      'FANCOIL',
     ];
 
     // Water device types
-    const waterDevices = ["HIDROMETRO", "CAIXA_DAGUA", "TANK"];
+    const waterDevices = ['HIDROMETRO', 'CAIXA_DAGUA', 'TANK'];
 
     if (energyDevices.includes(normalizedType)) {
       // Energy icon - bolt/lightning
@@ -581,36 +569,30 @@ export class SettingsModalView {
     const limitsByType = mapPower.limitsByInstantaneoustPowerType || [];
 
     // 3. Filtra pelo tipo 'consumption'
-    const consumptionGroup = limitsByType.find(
-      (group: any) => group.telemetryType === "consumption"
-    );
+    const consumptionGroup = limitsByType.find((group: any) => group.telemetryType === 'consumption');
 
     // 4. Filtra pelo Device Type configurado no widget
     const targetDeviceType = this.config.deviceType;
     const itemsByDevice = consumptionGroup?.itemsByDeviceType || [];
-    const deviceSettings = itemsByDevice.find(
-      (item: any) => item.deviceType === targetDeviceType
-    );
+    const deviceSettings = itemsByDevice.find((item: any) => item.deviceType === targetDeviceType);
 
     // 5. Extrai a lista de status
     const limitsList = deviceSettings?.limitsByDeviceStatus || [];
 
     // Helper para extrair valores (Retorna string vazia se não existir)
     const getValues = (statusName: string) => {
-      const statusObj = limitsList.find(
-        (l: any) => l.deviceStatusName === statusName
-      );
-      return statusObj?.limitsValues || { baseValue: "", topValue: "" };
+      const statusObj = limitsList.find((l: any) => l.deviceStatusName === statusName);
+      return statusObj?.limitsValues || { baseValue: '', topValue: '' };
     };
 
     return {
       hasConfig: !!deviceSettings,
-      description: deviceSettings?.description || "Padrão do Sistema",
+      description: deviceSettings?.description || 'Padrão do Sistema',
       // Valores Globais (JSON)
-      standby: getValues("standBy"),
-      normal: getValues("normal"),
-      alert: getValues("alert"),
-      failure: getValues("failure"),
+      standby: getValues('standBy'),
+      normal: getValues('normal'),
+      alert: getValues('alert'),
+      failure: getValues('failure'),
     };
   }
 
@@ -624,7 +606,7 @@ export class SettingsModalView {
 
     // Helper visual para formatar a referência (Ex: "0 a 150 W")
     const fmtRange = (val: any) => {
-      if (val.baseValue === "" || val.baseValue === undefined) return "—";
+      if (val.baseValue === '' || val.baseValue === undefined) return '—';
       return `${val.baseValue} a ${val.topValue} W`;
     };
 
@@ -633,8 +615,7 @@ export class SettingsModalView {
         <div class="power-limits-header">
           <h4 class="section-title">Configuração de Limites de Telemetrias Instantâneas</h4>
           <div class="power-limits-subtitle">
-            Monitoramento de Consumo (W) para: <strong>${this.config.deviceType || "N/D"
-      }</strong>
+            Monitoramento de Consumo (W) para: <strong>${this.config.deviceType || 'N/D'}</strong>
           </div>
         </div>
 
@@ -780,10 +761,8 @@ export class SettingsModalView {
   private calculateTimeBetweenDates(data1, data2) {
     // 1. Validação das entradas
     if (!(data1 instanceof Date) || !(data2 instanceof Date)) {
-      console.error(
-        "Entradas inválidas. As duas entradas devem ser objetos Date."
-      );
-      return "Datas inválidas";
+      console.error('Entradas inválidas. As duas entradas devem ser objetos Date.');
+      return 'Datas inválidas';
     }
 
     // 2. Calcular a diferença absoluta em milissegundos
@@ -799,57 +778,52 @@ export class SettingsModalView {
     // Se a diferença for de 1 dia ou mais
     if (diffMs >= msPorDia) {
       const dias = Math.floor(diffMs / msPorDia);
-      return `${dias} ${dias === 1 ? "dia" : "dias"}`;
+      return `${dias} ${dias === 1 ? 'dia' : 'dias'}`;
     }
 
     // Se a diferença for de 1 hora ou mais (mas menos de 1 dia)
     if (diffMs >= msPorHora) {
       const horas = Math.floor(diffMs / msPorHora);
-      return `${horas} ${horas === 1 ? "hora" : "horas"}`;
+      return `${horas} ${horas === 1 ? 'hora' : 'horas'}`;
     }
 
     // Se a diferença for menor que 1 hora
     const minutos = Math.round(diffMs / msPorMinuto);
-    return `${minutos} ${minutos === 1 ? "minuto" : "minutos"}`;
+    return `${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`;
   }
 
   private getConnectionInfoHTML(): string {
     if (!this.config.connectionData) {
-      return "";
+      return '';
     }
 
-    const {
-      centralName,
-      connectionStatusTime,
-      timeVal,
-      deviceStatus,
-      lastDisconnectTime,
-    } = this.config.connectionData;
+    const { centralName, connectionStatusTime, timeVal, deviceStatus, lastDisconnectTime } =
+      this.config.connectionData;
 
     // Format disconnection interval (from disconnect to reconnect)
-    let disconnectionIntervalFormatted = "N/A";
+    let disconnectionIntervalFormatted = 'N/A';
     if (lastDisconnectTime && connectionStatusTime) {
       try {
         const disconnectDate = new Date(lastDisconnectTime);
         const reconnectDate = new Date(connectionStatusTime);
 
         // Format both dates with seconds
-        const disconnectFormatted = disconnectDate.toLocaleString("pt-BR", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
+        const disconnectFormatted = disconnectDate.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
         });
 
-        const reconnectFormatted = reconnectDate.toLocaleString("pt-BR", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
+        const reconnectFormatted = reconnectDate.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
         });
 
         // Calculate duration of disconnection
@@ -859,62 +833,51 @@ export class SettingsModalView {
         const diffHours = Math.floor(diffMinutes / 60);
         const diffDays = Math.floor(diffHours / 24);
 
-        let durationText = "";
+        let durationText = '';
         if (diffDays > 0) {
           const remainingHours = diffHours % 24;
-          durationText = `${diffDays} dia${diffDays > 1 ? "s" : ""}${remainingHours > 0
-              ? ` e ${remainingHours} hora${remainingHours > 1 ? "s" : ""}`
-              : ""
-            }`;
+          durationText = `${diffDays} dia${diffDays > 1 ? 's' : ''}${
+            remainingHours > 0 ? ` e ${remainingHours} hora${remainingHours > 1 ? 's' : ''}` : ''
+          }`;
         } else if (diffHours > 0) {
           const remainingMinutes = diffMinutes % 60;
-          durationText = `${diffHours} hora${diffHours > 1 ? "s" : ""}${remainingMinutes > 0
-              ? ` e ${remainingMinutes} minuto${remainingMinutes > 1 ? "s" : ""
-              }`
-              : ""
-            }`;
+          durationText = `${diffHours} hora${diffHours > 1 ? 's' : ''}${
+            remainingMinutes > 0 ? ` e ${remainingMinutes} minuto${remainingMinutes > 1 ? 's' : ''}` : ''
+          }`;
         } else if (diffMinutes > 0) {
           const remainingSeconds = diffSeconds % 60;
-          durationText = `${diffMinutes} minuto${diffMinutes > 1 ? "s" : ""}${remainingSeconds > 0
-              ? ` e ${remainingSeconds} segundo${remainingSeconds > 1 ? "s" : ""
-              }`
-              : ""
-            }`;
+          durationText = `${diffMinutes} minuto${diffMinutes > 1 ? 's' : ''}${
+            remainingSeconds > 0 ? ` e ${remainingSeconds} segundo${remainingSeconds > 1 ? 's' : ''}` : ''
+          }`;
         } else {
-          durationText = `${diffSeconds} segundo${diffSeconds !== 1 ? "s" : ""
-            }`;
+          durationText = `${diffSeconds} segundo${diffSeconds !== 1 ? 's' : ''}`;
         }
 
         disconnectionIntervalFormatted = `${disconnectFormatted} até ${reconnectFormatted} (${durationText})`;
       } catch (e) {
-        disconnectionIntervalFormatted = "Formato inválido";
+        disconnectionIntervalFormatted = 'Formato inválido';
       }
     }
 
     // Format connection time - only show if lastConnectTime > lastDisconnectTime (device is connected)
-    let connectionTimeFormatted = "—";
-    let timeSinceLastConnection = "";
+    let connectionTimeFormatted = '—';
+    let timeSinceLastConnection = '';
     let isCurrentlyConnected = false;
 
     if (connectionStatusTime) {
       try {
         const connectDate = new Date(connectionStatusTime);
-        const disconnectDate = lastDisconnectTime
-          ? new Date(lastDisconnectTime)
-          : null;
+        const disconnectDate = lastDisconnectTime ? new Date(lastDisconnectTime) : null;
 
         // Only show "Conectado desde" if lastConnectTime > lastDisconnectTime
-        if (
-          !disconnectDate ||
-          connectDate.getTime() > disconnectDate.getTime()
-        ) {
+        if (!disconnectDate || connectDate.getTime() > disconnectDate.getTime()) {
           isCurrentlyConnected = true;
-          connectionTimeFormatted = connectDate.toLocaleString("pt-BR", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
+          connectionTimeFormatted = connectDate.toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
           });
 
           // Calculate time since last connection
@@ -929,36 +892,34 @@ export class SettingsModalView {
             const remainingHours = diffHours % 24;
             timeSinceLastConnection = `(${diffDays}d:${remainingHours
               .toString()
-              .padStart(2, "0")}hs:${remainingMinutes
-                .toString()
-                .padStart(2, "0")}mins atrás)`;
+              .padStart(2, '0')}hs:${remainingMinutes.toString().padStart(2, '0')}mins atrás)`;
           } else if (diffHours > 0) {
             timeSinceLastConnection = `(${diffHours}hs:${remainingMinutes
               .toString()
-              .padStart(2, "0")}mins atrás)`;
+              .padStart(2, '0')}mins atrás)`;
           } else if (diffMinutes > 0) {
             timeSinceLastConnection = `(${diffMinutes}mins atrás)`;
           } else {
-            timeSinceLastConnection = "(agora)";
+            timeSinceLastConnection = '(agora)';
           }
         }
       } catch (e) {
-        connectionTimeFormatted = "—";
+        connectionTimeFormatted = '—';
       }
     }
 
     // Format telemetry time
-    let telemetryTimeFormatted = "N/A";
-    let timeSinceLastTelemetry = "";
+    let telemetryTimeFormatted = 'N/A';
+    let timeSinceLastTelemetry = '';
     if (timeVal) {
       try {
         const telemetryDate = new Date(timeVal);
-        telemetryTimeFormatted = telemetryDate.toLocaleString("pt-BR", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
+        telemetryTimeFormatted = telemetryDate.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
         });
 
         // Calculate time difference
@@ -975,24 +936,25 @@ export class SettingsModalView {
         } else if (diffMinutes > 0) {
           timeSinceLastTelemetry = `(${diffMinutes}min atrás)`;
         } else {
-          timeSinceLastTelemetry = "(agora)";
+          timeSinceLastTelemetry = '(agora)';
         }
       } catch (e) {
-        telemetryTimeFormatted = "Formato inválido";
+        telemetryTimeFormatted = 'Formato inválido';
       }
     }
 
     const statusMap: Record<string, { text: string; color: string }> = {
-      ok: { text: "ONLINE", color: "#22c55e" },
-      alert: { text: "Atenção", color: "#f59e0b" },
-      fail: { text: "OFFLINE", color: "#ef4444" },
-      not_installed: { text: "Não instalado", color: "#94a3b8" },
-      unknown: { text: "Sem informação", color: "#94a3b8" },
+      ok: { text: 'ONLINE', color: '#22c55e' },
+      alert: { text: 'Atenção', color: '#f59e0b' },
+      fail: { text: 'OFFLINE', color: '#ef4444' },
+      not_installed: { text: 'Não instalado', color: '#94a3b8' },
+      unknown: { text: 'Sem informação', color: '#94a3b8' },
     };
 
-    const statusInfo = statusMap[
-      mapDeviceStatusToCardStatus(deviceStatus) || ""
-    ] || { text: "Desconhecido", color: "#6b7280" };
+    const statusInfo = statusMap[mapDeviceStatusToCardStatus(deviceStatus) || ''] || {
+      text: 'Desconhecido',
+      color: '#6b7280',
+    };
 
     return `
       <div class="form-card info-card-wide">
@@ -1007,14 +969,14 @@ export class SettingsModalView {
         <div class="info-grid">
           <div class="info-row">
             <span class="info-label">Central:</span>
-            <span class="info-value">${centralName || "N/A"}${this.config.customerName ? ` (${this.config.customerName})` : ""
-      }</span>
+            <span class="info-value">${centralName || 'N/A'}${
+      this.config.customerName ? ` (${this.config.customerName})` : ''
+    }</span>
           </div>
 
           <div class="info-row">
             <span class="info-label">Status:</span>
-            <span class="info-value" style="color: ${statusInfo.color
-      }; font-weight: 600;">
+            <span class="info-value" style="color: ${statusInfo.color}; font-weight: 600;">
               ${statusInfo.text}
             </span>
           </div>
@@ -1023,10 +985,7 @@ export class SettingsModalView {
             <span class="info-label">Conectado desde:</span>
             <span class="info-value">
               ${connectionTimeFormatted}
-              ${timeSinceLastConnection
-        ? `<span class="time-since">${timeSinceLastConnection}</span>`
-        : ""
-      }
+              ${timeSinceLastConnection ? `<span class="time-since">${timeSinceLastConnection}</span>` : ''}
             </span>
           </div>
 
@@ -1034,10 +993,7 @@ export class SettingsModalView {
             <span class="info-label">Último check status:</span>
             <span class="info-value">
               ${telemetryTimeFormatted}
-              ${timeSinceLastTelemetry
-        ? `<span class="time-since">${timeSinceLastTelemetry}</span>`
-        : ""
-      }
+              ${timeSinceLastTelemetry ? `<span class="time-since">${timeSinceLastTelemetry}</span>` : ''}
             </span>
           </div>
             <div class="info-row full-width">
@@ -1914,9 +1870,7 @@ export class SettingsModalView {
 
   private populateForm(data: Record<string, any>): void {
     for (const [key, value] of Object.entries(data)) {
-      const input = this.form.querySelector(
-        `[name="${key}"]`
-      ) as HTMLInputElement;
+      const input = this.form.querySelector(`[name="${key}"]`) as HTMLInputElement;
       if (input && value !== undefined && value !== null) {
         input.value = String(value);
       }
@@ -1925,42 +1879,39 @@ export class SettingsModalView {
 
   private setupAccessibility(): void {
     // Set initial focus to first input
-    const firstInput = this.modal.querySelector("input") as HTMLInputElement;
+    const firstInput = this.modal.querySelector('input') as HTMLInputElement;
     if (firstInput) {
       setTimeout(() => firstInput.focus(), 100);
     }
 
     // Setup ARIA relationships
-    this.modal.setAttribute("aria-labelledby", "modal-title");
+    this.modal.setAttribute('aria-labelledby', 'modal-title');
   }
 
   private setupFocusTrap(): void {
     // Get all focusable elements
     this.focusTrapElements = Array.from(
-      this.modal.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      )
+      this.modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
     ) as HTMLElement[];
 
     // Handle Tab key for focus trap
-    this.modal.addEventListener("keydown", this.handleKeyDown.bind(this));
+    this.modal.addEventListener('keydown', this.handleKeyDown.bind(this));
   }
 
   private teardownFocusTrap(): void {
-    this.modal.removeEventListener("keydown", this.handleKeyDown.bind(this));
+    this.modal.removeEventListener('keydown', this.handleKeyDown.bind(this));
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
-    if (event.key === "Escape" && this.config.closeOnBackdrop !== false) {
+    if (event.key === 'Escape' && this.config.closeOnBackdrop !== false) {
       event.preventDefault();
       this.config.onClose();
       return;
     }
 
-    if (event.key === "Tab") {
+    if (event.key === 'Tab') {
       const firstElement = this.focusTrapElements[0];
-      const lastElement =
-        this.focusTrapElements[this.focusTrapElements.length - 1];
+      const lastElement = this.focusTrapElements[this.focusTrapElements.length - 1];
 
       if (event.shiftKey) {
         if (document.activeElement === firstElement) {
@@ -1977,7 +1928,7 @@ export class SettingsModalView {
   }
 
   /**
-   * Helper: Traduz o JSON RFC-0086 (deviceMapInstaneousPower) 
+   * Helper: Traduz o JSON RFC-0086 (deviceMapInstaneousPower)
    * para os campos planos do formulário (ex: standbyLimitUpConsumption)
    */
   private parseDeviceSavedLimits(deviceJson: any): Record<string, any> {
@@ -2000,10 +1951,10 @@ export class SettingsModalView {
       // Mapeia o nome do status no JSON para o prefixo do input HTML
       // JSON: "standBy" -> Input: "standby..."
       const mapPrefix: Record<string, string> = {
-        'standBy': 'standby',
-        'normal': 'normal',
-        'alert': 'alert',
-        'failure': 'failure'
+        standBy: 'standby',
+        normal: 'normal',
+        alert: 'alert',
+        failure: 'failure',
       };
 
       deviceItem.limitsByDeviceStatus.forEach((status: any) => {
@@ -2042,7 +1993,7 @@ export class SettingsModalView {
     });
 
     // Handle form submission
-    this.form.addEventListener("submit", (event) => {
+    this.form.addEventListener('submit', (event) => {
       event.preventDefault();
       this.hideError();
 
@@ -2051,11 +2002,9 @@ export class SettingsModalView {
     });
 
     // Handle close button (X button)
-    const closeBtn = this.modal.querySelector(
-      ".close-btn"
-    ) as HTMLButtonElement;
+    const closeBtn = this.modal.querySelector('.close-btn') as HTMLButtonElement;
     if (closeBtn) {
-      closeBtn.addEventListener("click", (event) => {
+      closeBtn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.config.onClose();
@@ -2063,11 +2012,9 @@ export class SettingsModalView {
     }
 
     // Handle cancel button (Fechar button)
-    const cancelBtn = this.modal.querySelector(
-      ".btn-cancel"
-    ) as HTMLButtonElement;
+    const cancelBtn = this.modal.querySelector('.btn-cancel') as HTMLButtonElement;
     if (cancelBtn) {
-      cancelBtn.addEventListener("click", (event) => {
+      cancelBtn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.config.onClose();
@@ -2075,9 +2022,9 @@ export class SettingsModalView {
     }
 
     // Handle save button (Salvar button)
-    const saveBtn = this.modal.querySelector(".btn-save") as HTMLButtonElement;
+    const saveBtn = this.modal.querySelector('.btn-save') as HTMLButtonElement;
     if (saveBtn) {
-      saveBtn.addEventListener("click", (event) => {
+      saveBtn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.hideError();
@@ -2087,105 +2034,93 @@ export class SettingsModalView {
       });
     }
 
-    const btnCopy = this.modal.querySelector(
-      "#btnCopyFromGlobal"
-    ) as HTMLButtonElement;
+    const btnCopy = this.modal.querySelector('#btnCopyFromGlobal') as HTMLButtonElement;
     if (btnCopy) {
-      btnCopy.addEventListener("click", (e) => {
+      btnCopy.addEventListener('click', (e) => {
         e.preventDefault(); // Previne submissão do form
         e.stopPropagation();
 
         // Busca todos os inputs que tem a classe marcadora
-        const inputs = this.modal.querySelectorAll(".js-limit-input");
+        const inputs = this.modal.querySelectorAll('.js-limit-input');
 
         inputs.forEach((el) => {
           const input = el as HTMLInputElement;
-          const globalVal = input.getAttribute("data-global-value");
+          const globalVal = input.getAttribute('data-global-value');
 
           // Só copia se existir um valor global válido
-          if (
-            globalVal !== null &&
-            globalVal !== "" &&
-            globalVal !== "undefined"
-          ) {
+          if (globalVal !== null && globalVal !== '' && globalVal !== 'undefined') {
             input.value = globalVal;
 
             // Dispara evento 'input' para notificar validações ou frameworks reativos se houver
-            input.dispatchEvent(new Event("input", { bubbles: true }));
+            input.dispatchEvent(new Event('input', { bubbles: true }));
           }
         });
       });
     }
 
     // 2. Botão Limpar Campos
-    const btnClear = this.modal.querySelector(
-      "#btnClearInputs"
-    ) as HTMLButtonElement;
+    const btnClear = this.modal.querySelector('#btnClearInputs') as HTMLButtonElement;
     if (btnClear) {
-      btnClear.addEventListener("click", (e) => {
+      btnClear.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
 
-        const inputs = this.modal.querySelectorAll(".js-limit-input");
+        const inputs = this.modal.querySelectorAll('.js-limit-input');
 
         inputs.forEach((el) => {
           const input = el as HTMLInputElement;
-          input.value = ""; // Limpa o valor visualmente
-          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.value = ''; // Limpa o valor visualmente
+          input.dispatchEvent(new Event('input', { bubbles: true }));
         });
       });
     }
 
     // Handle backdrop click
-    this.container.addEventListener("click", (event) => {
+    this.container.addEventListener('click', (event) => {
       const target = event.target as HTMLElement;
 
-      if (
-        target.classList.contains("myio-settings-modal-overlay") &&
-        this.config.closeOnBackdrop !== false
-      ) {
+      if (target.classList.contains('myio-settings-modal-overlay') && this.config.closeOnBackdrop !== false) {
         this.config.onClose();
       }
     });
 
     // Real-time validation
-    this.form.addEventListener("input", this.handleInputValidation.bind(this));
+    this.form.addEventListener('input', this.handleInputValidation.bind(this));
   }
 
   private handleInputValidation(event: Event): void {
     const input = event.target as HTMLInputElement;
 
     // Clear previous validation state
-    input.classList.remove("is-invalid");
+    input.classList.remove('is-invalid');
 
     // GUID validation
-    if (input.name === "guid" && input.value) {
-      const guidPattern =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (input.name === 'guid' && input.value) {
+      const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!guidPattern.test(input.value)) {
-        input.classList.add("is-invalid");
-        input.setCustomValidity("Invalid GUID format");
+        input.classList.add('is-invalid');
+        input.setCustomValidity('Invalid GUID format');
       } else {
-        input.setCustomValidity("");
+        input.setCustomValidity('');
       }
     }
 
     // Numeric validation
-    if (input.type === "number" && input.value) {
+    if (input.type === 'number' && input.value) {
       const num = parseFloat(input.value);
       if (isNaN(num) || num < 0) {
-        input.classList.add("is-invalid");
-        input.setCustomValidity("Must be a positive number");
+        input.classList.add('is-invalid');
+        input.setCustomValidity('Must be a positive number');
       } else {
-        input.setCustomValidity("");
+        input.setCustomValidity('');
       }
     }
   }
 
   private applyTheme(): void {
     if (this.config.themeTokens) {
-      const style = document.createElement("style");
-      let css = "";
+      const style = document.createElement('style');
+      let css = '';
 
       for (const [property, value] of Object.entries(this.config.themeTokens)) {
         css += `--myio-${property}: ${value};\n`;
@@ -2206,14 +2141,12 @@ export class SettingsModalView {
    * Uses different keys based on domain: consumption (energy), temperature, pulses (water)
    */
   private async fetchLatestConsumptionTelemetry(): Promise<void> {
-    const telemetryElement = this.modal.querySelector(
-      "#lastConsumptionTelemetry"
-    );
+    const telemetryElement = this.modal.querySelector('#lastConsumptionTelemetry');
     if (!telemetryElement) return;
 
     const deviceId = this.config.deviceId;
     const jwtToken = this.config.jwtToken;
-    const domain = this.config.domain || "energy";
+    const domain = this.config.domain || 'energy';
 
     if (!deviceId || !jwtToken) {
       telemetryElement.innerHTML = '<span class="telemetry-error">N/A</span>';
@@ -2231,21 +2164,21 @@ export class SettingsModalView {
     const decimalPlaces = this.config.consumptionDecimalPlaces ?? 3;
     const telemetryConfigByDomain: Record<string, TelemetryConfig> = {
       energy: {
-        key: "consumption",
-        unit: "kW",
-        label: "Consumo",
+        key: 'consumption',
+        unit: 'kW',
+        label: 'Consumo',
         formatter: (v) => (v / 1000).toFixed(decimalPlaces), // W to kW
       },
       temperature: {
-        key: "temperature",
-        unit: "°C",
-        label: "Temperatura",
+        key: 'temperature',
+        unit: '°C',
+        label: 'Temperatura',
         formatter: (v) => v.toFixed(1),
       },
       water: {
-        key: "pulses",
-        unit: "L",
-        label: "Pulsos",
+        key: 'pulses',
+        unit: 'L',
+        label: 'Pulsos',
         formatter: (v) => v.toFixed(0),
       },
     };
@@ -2260,8 +2193,8 @@ export class SettingsModalView {
 
       const response = await fetch(url, {
         headers: {
-          "X-Authorization": `Bearer ${jwtToken}`,
-          "Content-Type": "application/json",
+          'X-Authorization': `Bearer ${jwtToken}`,
+          'Content-Type': 'application/json',
         },
       });
 
@@ -2282,13 +2215,13 @@ export class SettingsModalView {
 
         // Format timestamp with seconds
         const date = new Date(timestamp);
-        const formattedDate = date.toLocaleString("pt-BR", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
+        const formattedDate = date.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
         });
 
         // Calculate time since
@@ -2298,15 +2231,13 @@ export class SettingsModalView {
         const diffHours = Math.floor(diffMinutes / 60);
         const remainingMinutes = diffMinutes % 60;
 
-        let timeSince = "";
+        let timeSince = '';
         if (diffHours > 0) {
-          timeSince = `(${diffHours}hs:${remainingMinutes
-            .toString()
-            .padStart(2, "0")}mins atrás)`;
+          timeSince = `(${diffHours}hs:${remainingMinutes.toString().padStart(2, '0')}mins atrás)`;
         } else if (diffMinutes > 0) {
           timeSince = `(${diffMinutes}mins atrás)`;
         } else {
-          timeSince = "(agora)";
+          timeSince = '(agora)';
         }
 
         telemetryElement.innerHTML = `
@@ -2315,18 +2246,13 @@ export class SettingsModalView {
           <span class="time-since">${timeSince}</span>
         `;
       } else {
-        telemetryElement.innerHTML =
-          '<span class="telemetry-no-data">Sem dados</span>';
+        telemetryElement.innerHTML = '<span class="telemetry-no-data">Sem dados</span>';
       }
     } catch (error) {
-      console.error(
-        "[SettingsModal] Failed to fetch telemetry:",
-        error
-      );
-      telemetryElement.innerHTML =
-        '<span class="telemetry-error">Erro ao carregar</span>';
+      console.error('[SettingsModal] Failed to fetch telemetry:', error);
+      telemetryElement.innerHTML = '<span class="telemetry-error">Erro ao carregar</span>';
     }
   }
 }
 
-type Domain = "energy" | "water" | "temperature";
+type Domain = 'energy' | 'water' | 'temperature';
