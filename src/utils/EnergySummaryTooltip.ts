@@ -54,6 +54,12 @@ export interface StatusSummary {
   noConsumptionDevices?: DeviceInfo[];
 }
 
+export interface ExcludedDevice {
+  id: string;
+  label: string;
+  value: number;
+}
+
 export interface DashboardEnergySummary {
   totalDevices: number;
   totalConsumption: number;
@@ -61,6 +67,7 @@ export interface DashboardEnergySummary {
   byCategory: CategorySummary[];
   byStatus: StatusSummary;
   lastUpdated: string;
+  excludedFromCAG?: ExcludedDevice[];
 }
 
 // ============================================
@@ -491,6 +498,65 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
   color: #ffffff;
 }
 
+/* Excluded Devices Notice */
+.energy-summary-tooltip__excluded-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-radius: 8px;
+  margin-top: 12px;
+  border: 1px solid #f59e0b;
+}
+
+.energy-summary-tooltip__excluded-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.energy-summary-tooltip__excluded-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.energy-summary-tooltip__excluded-title {
+  font-weight: 600;
+  font-size: 11px;
+  color: #92400e;
+  margin-bottom: 4px;
+}
+
+.energy-summary-tooltip__excluded-list {
+  font-size: 10px;
+  color: #78350f;
+  line-height: 1.4;
+}
+
+.energy-summary-tooltip__excluded-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  border-bottom: 1px dashed rgba(120, 53, 15, 0.2);
+}
+
+.energy-summary-tooltip__excluded-item:last-child {
+  border-bottom: none;
+}
+
+.energy-summary-tooltip__excluded-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.energy-summary-tooltip__excluded-value {
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
 /* Responsive adjustments */
 @media (max-width: 600px) {
   .energy-summary-tooltip__content {
@@ -687,12 +753,49 @@ export const EnergySummaryTooltip = {
   },
 
   /**
+   * Render excluded devices notice (if any devices are excluded from CAG)
+   */
+  renderExcludedNotice(excludedDevices: ExcludedDevice[] | undefined, unit: string): string {
+    if (!excludedDevices || excludedDevices.length === 0) {
+      return '';
+    }
+
+    const deviceItems = excludedDevices.map(device => `
+      <div class="energy-summary-tooltip__excluded-item">
+        <span class="energy-summary-tooltip__excluded-label" title="${device.label}">${device.label}</span>
+        <span class="energy-summary-tooltip__excluded-value">${formatConsumption(device.value, unit)}</span>
+      </div>
+    `).join('');
+
+    const totalExcluded = excludedDevices.reduce((sum, d) => sum + (d.value || 0), 0);
+
+    return `
+      <div class="energy-summary-tooltip__excluded-notice">
+        <span class="energy-summary-tooltip__excluded-icon">⚠️</span>
+        <div class="energy-summary-tooltip__excluded-content">
+          <div class="energy-summary-tooltip__excluded-title">
+            Dispositivos excluídos do subtotal CAG (${excludedDevices.length})
+          </div>
+          <div class="energy-summary-tooltip__excluded-list">
+            ${deviceItems}
+            <div class="energy-summary-tooltip__excluded-item" style="font-weight: 700; margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(120, 53, 15, 0.3);">
+              <span>Total excluído:</span>
+              <span class="energy-summary-tooltip__excluded-value">${formatConsumption(totalExcluded, unit)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  /**
    * Render full tooltip HTML
    */
   renderHTML(summary: DashboardEnergySummary): string {
     const categoryRows = this.renderCategoryTree(summary.byCategory, summary.unit);
     const statusMatrix = this.renderStatusMatrix(summary.byStatus);
     const timestamp = formatTimestamp(summary.lastUpdated);
+    const excludedNotice = this.renderExcludedNotice(summary.excludedFromCAG, summary.unit);
 
     return `
       <div class="energy-summary-tooltip__content">
@@ -740,6 +843,7 @@ export const EnergySummaryTooltip = {
           <div class="energy-summary-tooltip__status-matrix">
             ${statusMatrix}
           </div>
+          ${excludedNotice}
         </div>
         <div class="energy-summary-tooltip__total">
           <span class="energy-summary-tooltip__total-label">Consumo Total</span>
