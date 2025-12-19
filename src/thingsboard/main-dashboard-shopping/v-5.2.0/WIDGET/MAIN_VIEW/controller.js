@@ -188,6 +188,7 @@ let widgetSettings = {
   customerTB_ID: null, // MUST be set in onInit
   debugMode: false,
   domainsEnabled: { energy: true, water: true, temperature: true },
+  excludeDevicesAtCountSubtotalCAG: [], // Entity IDs to exclude from CAG subtotal calculation
 };
 
 // Config object (populated in onInit from widgetSettings)
@@ -735,10 +736,13 @@ Object.assign(window.MyIOUtils, {
       water: true,
       temperature: true,
     };
+    widgetSettings.excludeDevicesAtCountSubtotalCAG =
+      self.ctx.settings?.excludeDevicesAtCountSubtotalCAG ?? [];
 
     LogHelper.log('[Orchestrator] 📋 Widget settings captured:', {
       customerTB_ID: widgetSettings.customerTB_ID,
       debugMode: widgetSettings.debugMode,
+      excludeDevicesAtCountSubtotalCAG: widgetSettings.excludeDevicesAtCountSubtotalCAG,
     });
 
     // Initialize config from widgetSettings
@@ -1299,17 +1303,44 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     }
   }
 
+  // ============ FILTER EXCLUDED DEVICES FROM CAG ============
+  // RFC: excludeDevicesAtCountSubtotalCAG - remove specified entity IDs from CAG calculation
+  const excludeIds = widgetSettings.excludeDevicesAtCountSubtotalCAG || [];
+  const excludeIdsSet = new Set(excludeIds.map((id) => String(id).trim().toLowerCase()));
+
+  let cagItemsFiltered = cagItems;
+  let excludedFromCAG = [];
+
+  if (excludeIdsSet.size > 0) {
+    cagItemsFiltered = cagItems.filter((item) => {
+      const itemId = String(item.id || '').toLowerCase();
+      const isExcluded = excludeIdsSet.has(itemId);
+      if (isExcluded) {
+        excludedFromCAG.push(item);
+      }
+      return !isExcluded;
+    });
+
+    if (excludedFromCAG.length > 0) {
+      const excludedTotal = excludedFromCAG.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
+      LogHelper.log(
+        `[buildSummary] 🚫 Excluded ${excludedFromCAG.length} devices from CAG subtotal (${excludedTotal.toFixed(2)} kWh):`,
+        excludedFromCAG.map((i) => ({ id: i.id, label: i.label, value: i.value }))
+      );
+    }
+  }
+
   // ============ CALCULATE SUB-TOTALS ============
   const climatizacaoTotal = climatizacaoItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
   const elevadoresTotal = elevadoresItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
   const escadasRolantesTotal = escadasRolantesItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
   const outrosTotal = outrosItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
 
-  // Climatizacao subcategories totals
+  // Climatizacao subcategories totals (CAG uses filtered list)
   const chillerTotal = chillerItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
   const fancoilTotal = fancoilItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
   const bombaHidraulicaTotal = bombaHidraulicaItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
-  const cagTotal = cagItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
+  const cagTotal = cagItemsFiltered.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
   const hvacOutrosTotal = hvacOutrosItems.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
 
   // Outros subcategories totals
@@ -1381,7 +1412,7 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
           bombaHidraulicaTotal,
           'Bombas Hidráulicas'
         ),
-        cag: buildCategorySummary(cagItems, cagTotal, 'CAG'),
+        cag: buildCategorySummary(cagItemsFiltered, cagTotal, 'CAG'),
         hvacOutros: buildCategorySummary(hvacOutrosItems, hvacOutrosTotal, 'Outros HVAC'),
       },
     },
@@ -1422,6 +1453,14 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
 
     // ============ DEVICE STATUS AGGREGATION (for tooltip) ============
     deviceStatusAggregation: statusAggregation,
+
+    // ============ EXCLUDED DEVICES FROM CAG SUBTOTAL ============
+    // RFC: excludeDevicesAtCountSubtotalCAG - list of devices excluded from CAG calculation
+    excludedFromCAG: excludedFromCAG.map((item) => ({
+      id: item.id,
+      label: item.label || item.name || item.deviceIdentifier || item.id,
+      value: item.value || 0,
+    })),
   };
 }
 

@@ -409,11 +409,33 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // RFC-0054: Validate current domain
       const MyIOToast = window.MyIOLibrary?.MyIOToast;
       if (!currentDomain.value) {
-        LogHelper.error('[HEADER] ❌ Cannot load - currentDomain is null');
-        if (MyIOToast) {
-          MyIOToast.error('Erro: Domínio atual não definido. Por favor, selecione uma aba no menu.', 5000);
+        LogHelper.warn('[HEADER] ⚠️ currentDomain is null - attempting to auto-select energy');
+
+        // Try to auto-select energy domain before showing error
+        try {
+          // Set domain directly
+          currentDomain.value = 'energy';
+
+          // Dispatch event to notify other widgets
+          window.dispatchEvent(
+            new CustomEvent('myio:dashboard-state', {
+              detail: { tab: 'energy' },
+            })
+          );
+
+          LogHelper.log('[HEADER] ✅ Auto-selected energy domain');
+
+          // If still null after setting (edge case), show error
+          if (!currentDomain.value) {
+            throw new Error('Failed to set domain');
+          }
+        } catch (err) {
+          LogHelper.error('[HEADER] ❌ Cannot load - failed to auto-select domain:', err);
+          if (MyIOToast) {
+            MyIOToast.error('Erro: Domínio atual não definido. Por favor, selecione uma aba no menu.', 5000);
+          }
+          return;
         }
-        return;
       }
 
       if (currentDomain.value !== 'energy' && currentDomain.value !== 'water') {

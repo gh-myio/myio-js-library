@@ -1306,6 +1306,8 @@ function processStateFromSummaryEnergy(summary, grandTotal) {
       outros: summary.outros,
       areaComum: summary.areaComum,
     },
+    // RFC: Excluded devices from CAG subtotal (for tooltip notice)
+    excludedFromCAG: summary.excludedFromCAG || [],
   };
 
   LogHelper.log('[RFC-0106] STATE updated from pre-computed energy summary:', {
@@ -1318,6 +1320,7 @@ function processStateFromSummaryEnergy(summary, grandTotal) {
     areaComum: STATE.consumidores.areaComum.total,
     grandTotal: STATE.grandTotal,
     hasTooltipData: !!STATE.tooltipData,
+    excludedFromCAGCount: (summary.excludedFromCAG || []).length,
   });
 }
 
@@ -2480,6 +2483,50 @@ function buildClimatizacaoContent() {
       <span class="myio-info-tooltip__notice-icon">💡</span>
       <div class="myio-info-tooltip__notice-text">
         O valor de <strong>Climatização</strong> é calculado pela soma do consumo de todos os equipamentos classificados nestas categorias.
+      </div>
+    </div>
+    ${buildExcludedFromCAGNotice()}
+  `;
+}
+
+/**
+ * Build notice for devices excluded from CAG subtotal
+ * @returns {string} HTML content or empty string
+ */
+function buildExcludedFromCAGNotice() {
+  const excludedDevices = STATE.tooltipData?.excludedFromCAG || [];
+
+  if (excludedDevices.length === 0) {
+    return '';
+  }
+
+  const deviceListHtml = excludedDevices
+    .map(
+      (device) => `
+      <div class="myio-info-tooltip__row" style="padding: 4px 0; border-bottom: 1px dashed rgba(146, 64, 14, 0.2);">
+        <span class="myio-info-tooltip__label" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${device.label}">${device.label}</span>
+        <span class="myio-info-tooltip__value">${formatEnergy(device.value)}</span>
+      </div>
+    `
+    )
+    .join('');
+
+  const totalExcluded = excludedDevices.reduce((sum, d) => sum + (d.value || 0), 0);
+
+  return `
+    <div class="myio-info-tooltip__notice" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-color: #f59e0b; margin-top: 12px;">
+      <span class="myio-info-tooltip__notice-icon">⚠️</span>
+      <div class="myio-info-tooltip__notice-text" style="color: #92400e;">
+        <div style="font-weight: 600; margin-bottom: 8px;">
+          Dispositivos excluídos do subtotal CAG (${excludedDevices.length})
+        </div>
+        <div style="font-size: 11px;">
+          ${deviceListHtml}
+          <div class="myio-info-tooltip__row" style="padding-top: 6px; margin-top: 4px; border-top: 1px solid rgba(146, 64, 14, 0.3); font-weight: 600;">
+            <span class="myio-info-tooltip__label">Total excluído:</span>
+            <span class="myio-info-tooltip__value">${formatEnergy(totalExcluded)}</span>
+          </div>
+        </div>
       </div>
     </div>
   `;

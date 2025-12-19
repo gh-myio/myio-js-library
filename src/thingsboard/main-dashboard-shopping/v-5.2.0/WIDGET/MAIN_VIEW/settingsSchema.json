@@ -58,6 +58,15 @@
             "default": true
           }
         }
+      },
+      "excludeDevicesAtCountSubtotalCAG": {
+        "title": "Excluir Devices do Subtotal CAG",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "Lista de Entity IDs do ThingsBoard que serão excluídos do cálculo de consumo no summary CAG (Climatização, Áreas Comuns, etc). Ex: ['abc123-def456-...', 'xyz789-...']"
       }
     }
   },
@@ -70,6 +79,7 @@
     "debugMode",
     "domainsEnabled.energy",
     "domainsEnabled.water",
-    "domainsEnabled.temperature"
+    "domainsEnabled.temperature",
+    "excludeDevicesAtCountSubtotalCAG"
   ]
 }
