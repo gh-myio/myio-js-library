@@ -1198,6 +1198,237 @@ function processOrchestratorData(items) {
   updateDisplay();
 }
 
+/**
+ * RFC-0106: Process STATE directly from window.STATE.summary
+ * Uses pre-computed data from MAIN_VIEW - NO re-filtering needed!
+ *
+ * @param {string} domain - Domain ('energy', 'water', etc.)
+ * @param {Object} summary - Summary from window.STATE.getSummary(domain)
+ */
+function processStateFromSummary(domain, summary) {
+  LogHelper.log('[RFC-0106] Processing STATE from pre-computed summary for domain:', domain);
+
+  // RFC-0106: All data is pre-computed in summary - just read it!
+  const grandTotal = summary.total || 0;
+
+  if (domain === 'water') {
+    // ============ WATER DOMAIN ============
+    processStateFromSummaryWater(summary, grandTotal);
+  } else {
+    // ============ ENERGY DOMAIN (default) ============
+    processStateFromSummaryEnergy(summary, grandTotal);
+  }
+
+  // Update display
+  updateDisplay();
+}
+
+/**
+ * RFC-0106: Process energy domain summary into STATE
+ */
+function processStateFromSummaryEnergy(summary, grandTotal) {
+  // Store items for device status aggregation (from pre-computed details)
+  const entradaDevices = summary.entrada?.details?.devices || [];
+  const lojasDevices = summary.lojas?.details?.devices || [];
+  const climatizacaoDevices = summary.climatizacao?.details?.devices || [];
+  const elevadoresDevices = summary.elevadores?.details?.devices || [];
+  const escadasRolantesDevices = summary.escadasRolantes?.details?.devices || [];
+  const outrosDevices = summary.outros?.details?.devices || [];
+
+  RECEIVED_ORCHESTRATOR_ITEMS = [
+    ...entradaDevices,
+    ...lojasDevices,
+    ...climatizacaoDevices,
+    ...elevadoresDevices,
+    ...escadasRolantesDevices,
+    ...outrosDevices,
+  ];
+
+  // Update STATE.entrada - read from pre-computed
+  STATE.entrada = {
+    devices: entradaDevices,
+    total: summary.entrada?.summary?.total || 0,
+    perc: 100, // Entrada is always 100% reference
+  };
+
+  // Update STATE.consumidores - ALL from pre-computed data!
+  STATE.consumidores = {
+    climatizacao: {
+      devices: climatizacaoDevices,
+      total: summary.climatizacao?.summary?.total || 0,
+      perc: summary.climatizacao?.summary?.perc || 0,
+      // Subcategories available for detailed tooltips
+      subcategories: summary.climatizacao?.subcategories || null,
+    },
+    elevadores: {
+      devices: elevadoresDevices,
+      total: summary.elevadores?.summary?.total || 0,
+      perc: summary.elevadores?.summary?.perc || 0,
+    },
+    escadasRolantes: {
+      devices: escadasRolantesDevices,
+      total: summary.escadasRolantes?.summary?.total || 0,
+      perc: summary.escadasRolantes?.summary?.perc || 0,
+    },
+    lojas: {
+      devices: lojasDevices,
+      total: summary.lojas?.summary?.total || 0,
+      perc: summary.lojas?.summary?.perc || 0,
+    },
+    outros: {
+      devices: outrosDevices,
+      total: summary.outros?.summary?.total || 0,
+      perc: summary.outros?.summary?.perc || 0,
+      // Subcategories available for detailed tooltips
+      subcategories: summary.outros?.subcategories || null,
+    },
+    areaComum: {
+      devices: summary.areaComum?.details?.devices || [],
+      total: summary.areaComum?.summary?.total || 0,
+      perc: summary.areaComum?.summary?.perc || 0,
+    },
+    totalGeral: (summary.lojas?.summary?.total || 0) + (summary.areaComum?.summary?.total || 0),
+    percGeral: 100,
+  };
+
+  STATE.grandTotal = grandTotal;
+
+  // RFC-0106: Store pre-computed tooltip data for EnergySummaryTooltip
+  STATE.tooltipData = {
+    resumo: summary.resumo,
+    deviceStatusAggregation: summary.deviceStatusAggregation,
+    byCategory: {
+      entrada: summary.entrada,
+      lojas: summary.lojas,
+      climatizacao: summary.climatizacao,
+      elevadores: summary.elevadores,
+      escadasRolantes: summary.escadasRolantes,
+      outros: summary.outros,
+      areaComum: summary.areaComum,
+    },
+  };
+
+  LogHelper.log('[RFC-0106] STATE updated from pre-computed energy summary:', {
+    entrada: STATE.entrada.total,
+    lojas: STATE.consumidores.lojas.total,
+    climatizacao: STATE.consumidores.climatizacao.total,
+    elevadores: STATE.consumidores.elevadores.total,
+    escadasRolantes: STATE.consumidores.escadasRolantes.total,
+    outros: STATE.consumidores.outros.total,
+    areaComum: STATE.consumidores.areaComum.total,
+    grandTotal: STATE.grandTotal,
+    hasTooltipData: !!STATE.tooltipData,
+  });
+}
+
+/**
+ * RFC-0106: Process water domain summary into STATE and STATE_WATER
+ * Water has different categories: entrada, lojas, banheiros, areaComum, pontosNaoMapeados
+ * NOTE: Water rendering uses STATE_WATER, so we populate both STATE and STATE_WATER
+ */
+function processStateFromSummaryWater(summary, grandTotal) {
+  // Store items for device status aggregation (from pre-computed details)
+  const entradaDevices = summary.entrada?.details?.devices || [];
+  const lojasDevices = summary.lojas?.details?.devices || [];
+  const banheirosDevices = summary.banheiros?.details?.devices || [];
+  const areaComumDevices = summary.areaComum?.details?.devices || [];
+
+  RECEIVED_ORCHESTRATOR_ITEMS = [
+    ...entradaDevices,
+    ...lojasDevices,
+    ...banheirosDevices,
+    ...areaComumDevices,
+  ];
+
+  // ============ UPDATE STATE_WATER (for existing water rendering functions) ============
+  STATE_WATER.entrada.devices = entradaDevices;
+  STATE_WATER.entrada.total = summary.entrada?.summary?.total || 0;
+  STATE_WATER.entrada.perc = 100;
+
+  STATE_WATER.lojas.devices = lojasDevices;
+  STATE_WATER.lojas.total = summary.lojas?.summary?.total || 0;
+  STATE_WATER.lojas.perc = summary.lojas?.summary?.perc || 0;
+
+  STATE_WATER.banheiros.devices = banheirosDevices;
+  STATE_WATER.banheiros.total = summary.banheiros?.summary?.total || 0;
+  STATE_WATER.banheiros.perc = summary.banheiros?.summary?.perc || 0;
+
+  STATE_WATER.areaComum.devices = areaComumDevices;
+  STATE_WATER.areaComum.total = summary.areaComum?.summary?.total || 0;
+  STATE_WATER.areaComum.perc = summary.areaComum?.summary?.perc || 0;
+
+  STATE_WATER.pontosNaoMapeados.devices = [];
+  STATE_WATER.pontosNaoMapeados.total = summary.pontosNaoMapeados?.summary?.total || 0;
+  STATE_WATER.pontosNaoMapeados.perc = summary.pontosNaoMapeados?.summary?.perc || 0;
+  STATE_WATER.pontosNaoMapeados.isCalculated = true;
+  STATE_WATER.pontosNaoMapeados.hasInconsistency = summary.pontosNaoMapeados?.summary?.hasInconsistency || false;
+
+  STATE_WATER.grandTotal = grandTotal;
+  STATE_WATER.periodKey = summary.periodKey;
+  STATE_WATER.lastUpdate = Date.now();
+
+  // ============ UPDATE STATE (for consistency) ============
+  STATE.entrada = {
+    devices: entradaDevices,
+    total: summary.entrada?.summary?.total || 0,
+    perc: 100,
+  };
+
+  STATE.consumidores = {
+    lojas: {
+      devices: lojasDevices,
+      total: summary.lojas?.summary?.total || 0,
+      perc: summary.lojas?.summary?.perc || 0,
+    },
+    banheiros: {
+      devices: banheirosDevices,
+      total: summary.banheiros?.summary?.total || 0,
+      perc: summary.banheiros?.summary?.perc || 0,
+    },
+    areaComum: {
+      devices: areaComumDevices,
+      total: summary.areaComum?.summary?.total || 0,
+      perc: summary.areaComum?.summary?.perc || 0,
+    },
+    pontosNaoMapeados: {
+      devices: [],
+      total: summary.pontosNaoMapeados?.summary?.total || 0,
+      perc: summary.pontosNaoMapeados?.summary?.perc || 0,
+      isCalculated: true,
+      hasInconsistency: summary.pontosNaoMapeados?.summary?.hasInconsistency || false,
+    },
+    totalGeral: (summary.lojas?.summary?.total || 0) +
+                (summary.banheiros?.summary?.total || 0) +
+                (summary.areaComum?.summary?.total || 0),
+    percGeral: 100,
+  };
+
+  STATE.grandTotal = grandTotal;
+
+  // RFC-0106: Store pre-computed tooltip data for WaterSummaryTooltip
+  STATE.tooltipData = {
+    resumo: summary.resumo,
+    deviceStatusAggregation: summary.deviceStatusAggregation,
+    byCategory: {
+      entrada: summary.entrada,
+      lojas: summary.lojas,
+      banheiros: summary.banheiros,
+      areaComum: summary.areaComum,
+      pontosNaoMapeados: summary.pontosNaoMapeados,
+    },
+  };
+
+  LogHelper.log('[RFC-0106] STATE_WATER and STATE updated from pre-computed water summary:', {
+    entrada: STATE_WATER.entrada.total,
+    lojas: STATE_WATER.lojas.total,
+    banheiros: STATE_WATER.banheiros.total,
+    areaComum: STATE_WATER.areaComum.total,
+    pontosNaoMapeados: STATE_WATER.pontosNaoMapeados.total,
+    grandTotal: STATE_WATER.grandTotal,
+    hasTooltipData: !!STATE.tooltipData,
+  });
+}
+
 // ===================== RFC-0056 FIX v1.1: RECEPTOR =====================
 
 let telemetryUpdateHandler = null;
@@ -2094,35 +2325,53 @@ function buildAreaComumContent() {
 
 /**
  * Build Climatização tooltip content HTML
+ * RFC-0106: Now using pre-computed subcategories from STATE.consumidores
  * @returns {string} HTML content
  */
 function buildClimatizacaoContent() {
   const climatizacao = STATE.consumidores.climatizacao?.total || 0;
   const climatizacaoPerc = STATE.consumidores.climatizacao?.perc || 0;
-  const climatizacaoCount = RECEIVED_DATA.climatizacao?.count || 0;
-  const subcategoriesData = RECEIVED_DATA.climatizacao?.subcategories || null;
+  // RFC-0106: Get count from STATE or calculate from devices
+  const climatizacaoCount = STATE.consumidores.climatizacao?.devices?.length || 0;
+  // RFC-0106: Get subcategories from STATE.consumidores (pre-computed in MAIN_VIEW)
+  const subcategoriesData = STATE.consumidores.climatizacao?.subcategories || null;
+
+  // Subcategory icons
+  const subcatIcons = {
+    chillers: '🧊',
+    fancoils: '💨',
+    bombasHidraulicas: '💧',
+    cag: '🌡️',
+    hvacOutros: '❄️',
+  };
 
   // Build subcategories HTML dynamically
   let subcatHtml = '';
   if (subcategoriesData && typeof subcategoriesData === 'object') {
     const sortedKeys = Object.keys(subcategoriesData).sort((a, b) => {
-      const totalA = subcategoriesData[a]?.total || 0;
-      const totalB = subcategoriesData[b]?.total || 0;
+      // RFC-0106: New structure has .summary.total
+      const totalA = subcategoriesData[a]?.summary?.total || 0;
+      const totalB = subcategoriesData[b]?.summary?.total || 0;
       return totalB - totalA;
     });
 
     sortedKeys.forEach((key) => {
       const data = subcategoriesData[key];
-      if (data && (data.count > 0 || data.total > 0)) {
-        const label = data.label || key.toUpperCase();
+      // RFC-0106: Access .summary.count and .summary.total
+      const count = data?.summary?.count || 0;
+      const total = data?.summary?.total || 0;
+      if (count > 0 || total > 0) {
+        // RFC-0106: Label comes from .details.name
+        const label = data?.details?.name || key.toUpperCase();
+        const icon = subcatIcons[key] || '❄️';
         subcatHtml += `
           <div class="myio-info-tooltip__category myio-info-tooltip__category--climatizacao">
-            <span class="myio-info-tooltip__category-icon">❄️</span>
+            <span class="myio-info-tooltip__category-icon">${icon}</span>
             <div class="myio-info-tooltip__category-info">
               <div class="myio-info-tooltip__category-name">${label}</div>
-              <div class="myio-info-tooltip__category-desc">${data.count} equipamento(s)</div>
+              <div class="myio-info-tooltip__category-desc">${count} equipamento(s)</div>
             </div>
-            <span class="myio-info-tooltip__category-value">${formatEnergy(data.total)}</span>
+            <span class="myio-info-tooltip__category-value">${formatEnergy(total)}</span>
           </div>
         `;
       }
@@ -2180,45 +2429,51 @@ function buildClimatizacaoContent() {
 
 /**
  * Build Outros Equipamentos tooltip content HTML
+ * RFC-0106: Now using pre-computed subcategories from STATE.consumidores
  * @returns {string} HTML content
  */
 function buildOutrosContent() {
   const outros = STATE.consumidores.outros?.total || 0;
   const outrosPerc = STATE.consumidores.outros?.perc || 0;
-  const outrosCount = RECEIVED_DATA.outros?.count || 0;
-  const subcategoriesData = RECEIVED_DATA.outros?.subcategories || null;
+  // RFC-0106: Get count from STATE or calculate from devices
+  const outrosCount = STATE.consumidores.outros?.devices?.length || 0;
+  // RFC-0106: Get subcategories from STATE.consumidores (pre-computed in MAIN_VIEW)
+  const subcategoriesData = STATE.consumidores.outros?.subcategories || null;
 
-  const deviceTypeIcons = {
-    motor: '⚙️',
-    '3f_medidor': '📊',
-    compressor: '🔧',
-    ventilador: '🌀',
-    bomba: '💧',
-    bomba_hidraulica: '💧',
-    desconhecido: '❓',
+  // Subcategory icons
+  const subcatIcons = {
+    iluminacao: '💡',
+    bombasIncendio: '🔥',
+    geradores: '🔋',
+    geral: '⚙️',
   };
 
   let subcatHtml = '';
   if (subcategoriesData && typeof subcategoriesData === 'object') {
     const sortedKeys = Object.keys(subcategoriesData).sort((a, b) => {
-      const totalA = subcategoriesData[a]?.total || 0;
-      const totalB = subcategoriesData[b]?.total || 0;
+      // RFC-0106: New structure has .summary.total
+      const totalA = subcategoriesData[a]?.summary?.total || 0;
+      const totalB = subcategoriesData[b]?.summary?.total || 0;
       return totalB - totalA;
     });
 
     sortedKeys.forEach((key) => {
       const data = subcategoriesData[key];
-      if (data && (data.count > 0 || data.total > 0)) {
-        const label = data.label || key.toUpperCase();
-        const icon = deviceTypeIcons[key.toLowerCase()] || '🔌';
+      // RFC-0106: Access .summary.count and .summary.total
+      const count = data?.summary?.count || 0;
+      const total = data?.summary?.total || 0;
+      if (count > 0 || total > 0) {
+        // RFC-0106: Label comes from .details.name
+        const label = data?.details?.name || key.toUpperCase();
+        const icon = subcatIcons[key] || '🔌';
         subcatHtml += `
           <div class="myio-info-tooltip__category myio-info-tooltip__category--outros">
             <span class="myio-info-tooltip__category-icon">${icon}</span>
             <div class="myio-info-tooltip__category-info">
               <div class="myio-info-tooltip__category-name">${label}</div>
-              <div class="myio-info-tooltip__category-desc">${data.count} equipamento(s)</div>
+              <div class="myio-info-tooltip__category-desc">${count} equipamento(s)</div>
             </div>
-            <span class="myio-info-tooltip__category-value">${formatEnergy(data.total)}</span>
+            <span class="myio-info-tooltip__category-value">${formatEnergy(total)}</span>
           </div>
         `;
       }
@@ -2275,6 +2530,171 @@ function buildOutrosContent() {
 }
 
 /**
+ * RFC-0106: Build Banheiros tooltip content HTML (water domain)
+ * @returns {string} HTML content
+ */
+function buildBanheirosContent() {
+  const banheiros = STATE_WATER.banheiros?.total || 0;
+  const banheirosPerc = STATE_WATER.banheiros?.perc || 0;
+  const banheirosCount = STATE_WATER.banheiros?.devices?.length || 0;
+  const entrada = STATE_WATER.entrada?.total || 0;
+
+  // Build device list if available
+  let deviceListHtml = '';
+  const devices = STATE_WATER.banheiros?.devices || [];
+  if (devices.length > 0) {
+    const sortedDevices = [...devices].sort((a, b) => (b.value || 0) - (a.value || 0));
+    const topDevices = sortedDevices.slice(0, 5);
+
+    topDevices.forEach((device) => {
+      const value = device.value || 0;
+      const label = device.label || device.name || 'Sem nome';
+      deviceListHtml += `
+        <div class="myio-info-tooltip__category myio-info-tooltip__category--water">
+          <span class="myio-info-tooltip__category-icon">🚿</span>
+          <div class="myio-info-tooltip__category-info">
+            <div class="myio-info-tooltip__category-name">${label}</div>
+          </div>
+          <span class="myio-info-tooltip__category-value">${formatValue(value, 'water')}</span>
+        </div>
+      `;
+    });
+
+    if (devices.length > 5) {
+      deviceListHtml += `
+        <div class="myio-info-tooltip__category myio-info-tooltip__category--more">
+          <span class="myio-info-tooltip__category-icon">...</span>
+          <div class="myio-info-tooltip__category-info">
+            <div class="myio-info-tooltip__category-name">+${devices.length - 5} outros pontos</div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  if (!deviceListHtml) {
+    deviceListHtml = `
+      <div class="myio-info-tooltip__category myio-info-tooltip__category--empty">
+        <span class="myio-info-tooltip__category-icon">📭</span>
+        <div class="myio-info-tooltip__category-info">
+          <div class="myio-info-tooltip__category-name">Sem dados disponíveis</div>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">
+        <span>📊</span> Resumo
+      </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Total:</span>
+        <span class="myio-info-tooltip__value">${formatValue(banheiros, 'water')}</span>
+      </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Percentual:</span>
+        <span class="myio-info-tooltip__value">${banheirosPerc.toFixed(1)}% da entrada</span>
+      </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">Pontos de medição:</span>
+        <span class="myio-info-tooltip__value">${banheirosCount}</span>
+      </div>
+    </div>
+
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">
+        <span>🚿</span> Detalhes por Ponto
+      </div>
+      ${deviceListHtml}
+    </div>
+
+    <div class="myio-info-tooltip__notice">
+      <span class="myio-info-tooltip__notice-icon">💡</span>
+      <div class="myio-info-tooltip__notice-text">
+        <strong>Banheiros</strong> representa o consumo de água dos sanitários e lavatórios do shopping.
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * RFC-0106: Build Pontos Não Mapeados tooltip content HTML (water domain)
+ * @returns {string} HTML content
+ */
+function buildPontosNaoMapeadosContent() {
+  const pontosNaoMapeados = STATE_WATER.pontosNaoMapeados?.total || 0;
+  const pontosNaoMapeadosPerc = STATE_WATER.pontosNaoMapeados?.perc || 0;
+  const hasInconsistency = STATE_WATER.pontosNaoMapeados?.hasInconsistency || false;
+
+  const entrada = STATE_WATER.entrada?.total || 0;
+  const lojas = STATE_WATER.lojas?.total || 0;
+  const banheiros = STATE_WATER.includeBathrooms ? (STATE_WATER.banheiros?.total || 0) : 0;
+  const areaComum = STATE_WATER.areaComum?.total || 0;
+
+  const formulaTerms = STATE_WATER.includeBathrooms
+    ? 'Lojas + Banheiros + Área Comum'
+    : 'Lojas + Área Comum';
+
+  const warningHtml = hasInconsistency
+    ? `
+      <div class="myio-info-tooltip__warning">
+        <span class="myio-info-tooltip__warning-icon">⚠️</span>
+        <div class="myio-info-tooltip__warning-text">
+          <strong>Inconsistência detectada:</strong> A soma dos consumidores excede a entrada em mais de 5%. Verifique os medidores.
+        </div>
+      </div>
+    `
+    : '';
+
+  return `
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">
+        <span>📊</span> Valores Atuais
+      </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">📥 Entrada (Total):</span>
+        <span class="myio-info-tooltip__value">${formatValue(entrada, 'water')}</span>
+      </div>
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">➖ Lojas:</span>
+        <span class="myio-info-tooltip__value">${formatValue(lojas, 'water')}</span>
+      </div>
+      ${STATE_WATER.includeBathrooms ? `
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">➖ Banheiros:</span>
+        <span class="myio-info-tooltip__value">${formatValue(banheiros, 'water')}</span>
+      </div>
+      ` : ''}
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">➖ Área Comum:</span>
+        <span class="myio-info-tooltip__value">${formatValue(areaComum, 'water')}</span>
+      </div>
+      <div class="myio-info-tooltip__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
+        <span class="myio-info-tooltip__label"><strong>= Não Mapeados:</strong></span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(pontosNaoMapeados, 'water')} (${pontosNaoMapeadosPerc.toFixed(1)}%)</span>
+      </div>
+    </div>
+
+    <div class="myio-info-tooltip__section">
+      <div class="myio-info-tooltip__section-title">📐 Fórmula</div>
+      <div style="font-size: 11px; color: #475569; line-height: 1.5;">
+        Pontos Não Mapeados = Entrada − (${formulaTerms})
+      </div>
+    </div>
+
+    ${warningHtml}
+
+    <div class="myio-info-tooltip__notice">
+      <span class="myio-info-tooltip__notice-icon">💡</span>
+      <div class="myio-info-tooltip__notice-text">
+        <strong>Pontos Não Mapeados</strong> representa a diferença entre a entrada total e os consumidores identificados. Pode incluir perdas, vazamentos ou pontos de consumo não monitorados.
+      </div>
+    </div>
+  `;
+}
+
+/**
  * Show Área Comum tooltip using library InfoTooltip
  * @param {HTMLElement} triggerElement - Element that triggered the tooltip
  */
@@ -2322,6 +2742,40 @@ function showOutrosTooltip(triggerElement) {
     icon: '🔌',
     title: 'Outros Equipamentos - Detalhes',
     content: buildOutrosContent(),
+  });
+}
+
+/**
+ * RFC-0106: Show Banheiros tooltip using library InfoTooltip (water domain)
+ * @param {HTMLElement} triggerElement - Element that triggered the tooltip
+ */
+function showBanheirosTooltip(triggerElement) {
+  const InfoTooltip = getInfoTooltip();
+  if (!InfoTooltip) {
+    LogHelper.warn('[Tooltip] InfoTooltip not available in library');
+    return;
+  }
+  InfoTooltip.show(triggerElement, {
+    icon: '🚿',
+    title: 'Banheiros - Detalhes',
+    content: buildBanheirosContent(),
+  });
+}
+
+/**
+ * RFC-0106: Show Pontos Não Mapeados tooltip using library InfoTooltip (water domain)
+ * @param {HTMLElement} triggerElement - Element that triggered the tooltip
+ */
+function showPontosNaoMapeadosTooltip(triggerElement) {
+  const InfoTooltip = getInfoTooltip();
+  if (!InfoTooltip) {
+    LogHelper.warn('[Tooltip] InfoTooltip not available in library');
+    return;
+  }
+  InfoTooltip.show(triggerElement, {
+    icon: '❓',
+    title: 'Pontos Não Mapeados - Detalhes',
+    content: buildPontosNaoMapeadosContent(),
   });
 }
 
@@ -2386,11 +2840,36 @@ function setupInfoTooltips() {
     LogHelper.log('[Tooltip] Outros Equipamentos trigger bound');
   }
 
-  // Banheiros tooltip trigger (water domain)
+  // RFC-0106: Banheiros tooltip trigger (water domain)
   const $banheirosTrigger = $container.find('.banheiros-card .info-tooltip');
   if ($banheirosTrigger.length) {
-    $banheirosTrigger.addClass('info-tooltip-trigger').removeAttr('title');
-    LogHelper.log('[Tooltip] Banheiros trigger found (native title kept)');
+    $banheirosTrigger
+      .addClass('info-tooltip-trigger')
+      .removeAttr('title')
+      .off('mouseenter.infoTooltip mouseleave.infoTooltip')
+      .on('mouseenter.infoTooltip', function () {
+        showBanheirosTooltip(this);
+      })
+      .on('mouseleave.infoTooltip', function () {
+        InfoTooltip.startDelayedHide();
+      });
+    LogHelper.log('[Tooltip] Banheiros trigger bound');
+  }
+
+  // RFC-0106: Pontos Não Mapeados tooltip trigger (water domain)
+  const $pontosNaoMapeadosTrigger = $container.find('.pontos-nao-mapeados-card .info-tooltip');
+  if ($pontosNaoMapeadosTrigger.length) {
+    $pontosNaoMapeadosTrigger
+      .addClass('info-tooltip-trigger')
+      .removeAttr('title')
+      .off('mouseenter.infoTooltip mouseleave.infoTooltip')
+      .on('mouseenter.infoTooltip', function () {
+        showPontosNaoMapeadosTooltip(this);
+      })
+      .on('mouseleave.infoTooltip', function () {
+        InfoTooltip.startDelayedHide();
+      });
+    LogHelper.log('[Tooltip] Pontos Não Mapeados trigger bound');
   }
 
   LogHelper.log('[Tooltip] All info tooltips configured');
@@ -2446,31 +2925,169 @@ function setupSummaryTooltip() {
   }
 
   // Build summary data function based on domain
-  // RFC-0105: Now passing domain to enable device list aggregation from MyIOOrchestratorData
+  // RFC-0106: Use pre-computed tooltip data from MAIN_VIEW when available
   const getSummaryData = () => {
-    // RFC-0105: Aggregate device status from orchestrator data (runs in widget context)
-    const deviceStatusData = aggregateDeviceStatusFromOrchestrator(domain);
-
-    // Enrich RECEIVED_DATA with device status aggregation
-    const enrichedData = {
-      ...RECEIVED_DATA,
-      deviceStatusAggregation: deviceStatusData,
-    };
-
     if (isWater) {
+      // Water still uses the old method
+      const deviceStatusData = aggregateDeviceStatusFromOrchestrator(domain);
+      const enrichedData = { ...RECEIVED_DATA, deviceStatusAggregation: deviceStatusData };
       return SummaryTooltip.buildSummaryFromState(
         STATE_WATER,
         enrichedData,
         STATE_WATER.includeBathrooms,
         'water'
       );
-    } else {
-      return SummaryTooltip.buildSummaryFromState(
-        { entrada: STATE.entrada, consumidores: STATE.consumidores, grandTotal: STATE.grandTotal },
-        enrichedData,
-        'energy'
-      );
     }
+
+    // RFC-0106: For energy, use pre-computed tooltip data if available
+    if (STATE.tooltipData?.deviceStatusAggregation) {
+      LogHelper.log('[RFC-0106] Using pre-computed tooltip data from MAIN_VIEW');
+
+      // Build DashboardEnergySummary directly from pre-computed data
+      const tooltipData = STATE.tooltipData;
+      const resumo = tooltipData.resumo;
+      const byCategory = tooltipData.byCategory;
+
+      return {
+        totalDevices: resumo?.summary?.count || 0,
+        totalConsumption: resumo?.summary?.total || STATE.grandTotal || 0,
+        unit: 'kWh',
+        byCategory: [
+          {
+            id: 'entrada',
+            name: 'Entrada',
+            icon: '📥',
+            deviceCount: byCategory.entrada?.summary?.count || 0,
+            consumption: byCategory.entrada?.summary?.total || 0,
+            percentage: 100,
+          },
+          {
+            id: 'lojas',
+            name: 'Lojas',
+            icon: '🏪',
+            deviceCount: byCategory.lojas?.summary?.count || 0,
+            consumption: byCategory.lojas?.summary?.total || 0,
+            percentage: byCategory.lojas?.summary?.perc || 0,
+          },
+          {
+            id: 'areaComum',
+            name: 'Área Comum',
+            icon: '🏢',
+            deviceCount: byCategory.areaComum?.summary?.count || 0,
+            consumption: byCategory.areaComum?.summary?.total || 0,
+            percentage: byCategory.areaComum?.summary?.perc || 0,
+            children: [
+              {
+                id: 'climatizacao',
+                name: 'Climatização',
+                icon: '❄️',
+                deviceCount: byCategory.climatizacao?.summary?.count || 0,
+                consumption: byCategory.climatizacao?.summary?.total || 0,
+                percentage: byCategory.climatizacao?.summary?.perc || 0,
+                // Subcategories within climatização
+                children: byCategory.climatizacao?.subcategories ? [
+                  {
+                    id: 'chillers',
+                    name: 'Chillers',
+                    icon: '🧊',
+                    deviceCount: byCategory.climatizacao.subcategories.chillers?.summary?.count || 0,
+                    consumption: byCategory.climatizacao.subcategories.chillers?.summary?.total || 0,
+                    percentage: byCategory.climatizacao.subcategories.chillers?.summary?.perc || 0,
+                  },
+                  {
+                    id: 'fancoils',
+                    name: 'Fancoils',
+                    icon: '💨',
+                    deviceCount: byCategory.climatizacao.subcategories.fancoils?.summary?.count || 0,
+                    consumption: byCategory.climatizacao.subcategories.fancoils?.summary?.total || 0,
+                    percentage: byCategory.climatizacao.subcategories.fancoils?.summary?.perc || 0,
+                  },
+                  {
+                    id: 'bombasHidraulicas',
+                    name: 'Bombas Hidráulicas',
+                    icon: '💧',
+                    deviceCount: byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.count || 0,
+                    consumption: byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.total || 0,
+                    percentage: byCategory.climatizacao.subcategories.bombasHidraulicas?.summary?.perc || 0,
+                  },
+                  {
+                    id: 'cag',
+                    name: 'CAG',
+                    icon: '🌡️',
+                    deviceCount: byCategory.climatizacao.subcategories.cag?.summary?.count || 0,
+                    consumption: byCategory.climatizacao.subcategories.cag?.summary?.total || 0,
+                    percentage: byCategory.climatizacao.subcategories.cag?.summary?.perc || 0,
+                  },
+                ].filter(c => c.deviceCount > 0) : undefined,
+              },
+              {
+                id: 'elevadores',
+                name: 'Elevadores',
+                icon: '🛗',
+                deviceCount: byCategory.elevadores?.summary?.count || 0,
+                consumption: byCategory.elevadores?.summary?.total || 0,
+                percentage: byCategory.elevadores?.summary?.perc || 0,
+              },
+              {
+                id: 'escadasRolantes',
+                name: 'Esc. Rolantes',
+                icon: '🎢',
+                deviceCount: byCategory.escadasRolantes?.summary?.count || 0,
+                consumption: byCategory.escadasRolantes?.summary?.total || 0,
+                percentage: byCategory.escadasRolantes?.summary?.perc || 0,
+              },
+              {
+                id: 'outros',
+                name: 'Outros',
+                icon: '⚙️',
+                deviceCount: byCategory.outros?.summary?.count || 0,
+                consumption: byCategory.outros?.summary?.total || 0,
+                percentage: byCategory.outros?.summary?.perc || 0,
+                // Subcategories within outros
+                children: byCategory.outros?.subcategories ? [
+                  {
+                    id: 'iluminacao',
+                    name: 'Iluminação',
+                    icon: '💡',
+                    deviceCount: byCategory.outros.subcategories.iluminacao?.summary?.count || 0,
+                    consumption: byCategory.outros.subcategories.iluminacao?.summary?.total || 0,
+                    percentage: byCategory.outros.subcategories.iluminacao?.summary?.perc || 0,
+                  },
+                  {
+                    id: 'bombasIncendio',
+                    name: 'Bombas Incêndio',
+                    icon: '🔥',
+                    deviceCount: byCategory.outros.subcategories.bombasIncendio?.summary?.count || 0,
+                    consumption: byCategory.outros.subcategories.bombasIncendio?.summary?.total || 0,
+                    percentage: byCategory.outros.subcategories.bombasIncendio?.summary?.perc || 0,
+                  },
+                  {
+                    id: 'geradores',
+                    name: 'Geradores',
+                    icon: '🔋',
+                    deviceCount: byCategory.outros.subcategories.geradores?.summary?.count || 0,
+                    consumption: byCategory.outros.subcategories.geradores?.summary?.total || 0,
+                    percentage: byCategory.outros.subcategories.geradores?.summary?.perc || 0,
+                  },
+                ].filter(c => c.deviceCount > 0) : undefined,
+              },
+            ],
+          },
+        ],
+        byStatus: tooltipData.deviceStatusAggregation,
+        lastUpdated: new Date().toISOString(),
+      };
+    }
+
+    // Fallback: use old method with buildSummaryFromState
+    LogHelper.log('[RFC-0106] Fallback: Building tooltip data from STATE');
+    const deviceStatusData = aggregateDeviceStatusFromOrchestrator(domain);
+    const enrichedData = { ...RECEIVED_DATA, deviceStatusAggregation: deviceStatusData };
+    return SummaryTooltip.buildSummaryFromState(
+      { entrada: STATE.entrada, consumidores: STATE.consumidores, grandTotal: STATE.grandTotal },
+      enrichedData,
+      'energy'
+    );
   };
 
   // Attach tooltip
@@ -2572,7 +3189,7 @@ self.onInit = async function () {
 
   // Listen for orchestrator data
   dataProvideHandler = function (ev) {
-    const { domain, periodKey, items } = ev.detail;
+    const { domain, periodKey } = ev.detail;
 
     // Only process my domain
     if (domain !== getWidgetDomain()) {
@@ -2587,8 +3204,26 @@ self.onInit = async function () {
     }
     lastProcessedPeriodKey = periodKey;
 
-    LogHelper.log(`Received data: domain=${domain}, periodKey=${periodKey}, items=${items.length}`);
+    // RFC-0106: Read directly from window.STATE instead of processing event items
+    if (window.STATE?.isReady(domain)) {
+      const summary = window.STATE.getSummary(domain);
+      if (summary) {
+        LogHelper.log(`[RFC-0106] Reading summary from window.STATE for domain ${domain}:`, {
+          total: summary.total,
+          lojas: summary.byGroup.lojas.total,
+          entrada: summary.byGroup.entrada.total,
+          areacomum: summary.byGroup.areacomum.total,
+        });
 
+        // Update STATE directly from window.STATE.summary
+        processStateFromSummary(domain, summary);
+        return;
+      }
+    }
+
+    // Fallback: process items from event (backwards compatibility)
+    const items = ev.detail.items || [];
+    LogHelper.log(`[RFC-0106] Fallback: Received data from event, items=${items.length}`);
     processOrchestratorData(items);
   };
 

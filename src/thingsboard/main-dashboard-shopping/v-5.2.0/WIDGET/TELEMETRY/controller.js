@@ -708,6 +708,63 @@ let dateUpdateHandler = null;
 let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
 //let DEVICE_TYPE = "energy";
 let MyIO = null;
+
+// RFC-0106: Map labelWidget to window.STATE group
+// lojas = 'Lojas'
+// entrada = 'Entrada'
+// areacomum = everything else (Climatização, Elevadores, Escadas Rolantes, Área Comum, etc.)
+function mapLabelWidgetToStateGroup(labelWidget) {
+  if (!labelWidget) return null;
+  const lw = labelWidget.toLowerCase().trim();
+  if (lw === 'lojas') return 'lojas';
+  if (lw === 'entrada') return 'entrada';
+  // Everything else maps to areacomum
+  return 'areacomum';
+}
+
+// RFC-0106: Get items from window.STATE based on labelWidget
+function getItemsFromState(domain, labelWidget) {
+  if (!window.STATE?.isReady(domain)) {
+    LogHelper.warn(`[TELEMETRY] window.STATE not ready for domain ${domain}`);
+    return null;
+  }
+
+  const stateGroup = mapLabelWidgetToStateGroup(labelWidget);
+
+  if (!stateGroup) {
+    // No labelWidget filter - return all items
+    LogHelper.log(`[TELEMETRY] No labelWidget filter - returning all items from _raw`);
+    return window.STATE[domain]?._raw || [];
+  }
+
+  // For lojas and entrada, return directly from STATE group
+  if (stateGroup === 'lojas' || stateGroup === 'entrada') {
+    const groupData = window.STATE.get(domain, stateGroup);
+    LogHelper.log(`[TELEMETRY] Getting items from STATE.${domain}.${stateGroup}: ${groupData?.count || 0} items`);
+    return groupData?.items || [];
+  }
+
+  // For areacomum, we might need to filter further by labelWidget
+  // since areacomum contains Climatização, Elevadores, Escadas Rolantes, Área Comum
+  const areacomumData = window.STATE.get(domain, 'areacomum');
+  if (!areacomumData) return [];
+
+  // If labelWidget is specifically 'Área Comum' or 'areacomum', return all areacomum items
+  const lwLower = labelWidget.toLowerCase().trim();
+  if (lwLower === 'área comum' || lwLower === 'areacomum' || lwLower === 'area comum') {
+    LogHelper.log(`[TELEMETRY] Getting all areacomum items: ${areacomumData.count} items`);
+    return areacomumData.items;
+  }
+
+  // Otherwise, filter areacomum by specific labelWidget (Climatização, Elevadores, etc.)
+  const filtered = areacomumData.items.filter((item) => {
+    const itemLabel = (item.labelWidget || '').toLowerCase().trim();
+    return itemLabel === lwLower;
+  });
+
+  LogHelper.log(`[TELEMETRY] Filtered areacomum by labelWidget="${labelWidget}": ${filtered.length} items`);
+  return filtered;
+}
 let hasRequestedInitialData = false; // Flag to prevent duplicate initial requests
 let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent duplicate processing
 let busyTimeoutId = null; // Timeout ID for busy fallback
@@ -2013,10 +2070,14 @@ function renderList(visible) {
     console.log("it", it);
     
 
+    // RFC-0106: Use effectiveDeviceType for card icon (deviceProfile > deviceType)
+    // This ensures proper icon rendering based on actual device classification
+    const cardDeviceType = it.effectiveDeviceType || it.deviceProfile || it.deviceType || 'N/A';
+
     const entityObject = {
       entityId: it.tbId || it.id, // preferir TB deviceId
       labelOrName: it.label.toUpperCase(),
-      deviceType: it.label.includes('dministra') ? '3F_MEDIDOR' : it.deviceType,
+      deviceType: cardDeviceType, // RFC-0106: Use effectiveDeviceType for proper icon
       val: valNum, // TODO verificar ESSE MULTIPLICADOR PQ PRECISA DELE ?
       perc: it.perc ?? 0,
       deviceStatus: it.deviceStatus || 'no_info', // Use from buildAuthoritativeItems (based on TB connectionStatus + telemetry)
@@ -3713,14 +3774,14 @@ self.onInit = async function () {
 
   /**
    * RFC-0106: Listen for data provision from orchestrator
-   * All data comes from MAIN_VIEW orchestrator - no datasources, no ctx.data, no fallback
+   * Now reads directly from window.STATE instead of processing event items
    */
   dataProvideHandler = function (ev) {
+    const { domain, periodKey } = ev.detail;
+
     LogHelper.log(
-      `[TELEMETRY ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${ev.detail.domain
-      }, periodKey: ${ev.detail.periodKey}, items: ${ev.detail.items?.length || 0}`
+      `[TELEMETRY ${WIDGET_DOMAIN}] 📦 Received provide-data event for domain ${domain}, periodKey: ${periodKey}`
     );
-    const { domain, periodKey, items } = ev.detail;
 
     // Only process if it's for my domain
     if (domain !== WIDGET_DOMAIN) {
@@ -3745,29 +3806,26 @@ self.onInit = async function () {
     // If period not set yet, store event for later processing
     if (!myPeriod.startISO || !myPeriod.endISO) {
       LogHelper.warn(`[TELEMETRY] ⏸️ Period not set yet, storing provide-data event for later processing`);
-      pendingProvideData = { domain, periodKey, items };
+      pendingProvideData = { domain, periodKey };
       return;
     }
 
     // Mark this periodKey as processed
     lastProcessedPeriodKey = periodKey;
 
-    LogHelper.log(`[RFC-0106] Processing ${items.length} items from orchestrator`);
-
-    // RFC-0106: Filter items by labelWidget (configured in widget settings)
+    // RFC-0106: Get items directly from window.STATE
     const myLabelWidget = self.ctx.settings?.labelWidget || '';
-    let filtered = items;
+    const stateItems = getItemsFromState(domain, myLabelWidget);
 
-    if (myLabelWidget) {
-      filtered = items.filter((item) => {
-        const itemLabel = item.labelWidget || item.groupLabel || '';
-        return itemLabel.toLowerCase() === myLabelWidget.toLowerCase();
-      });
-      LogHelper.log(`[RFC-0106] Filtered to ${filtered.length} items matching labelWidget="${myLabelWidget}"`);
+    if (!stateItems) {
+      LogHelper.warn(`[TELEMETRY] ⚠️ No items found in window.STATE for domain ${domain}`);
+      return;
     }
 
-    // RFC-0106: Convert orchestrator items to widget format (no ctx.data, no datasources)
-    STATE.itemsBase = filtered.map((item) => ({
+    LogHelper.log(`[RFC-0106] Got ${stateItems.length} items from window.STATE for labelWidget="${myLabelWidget}"`);
+
+    // RFC-0106: Convert STATE items to widget format
+    STATE.itemsBase = stateItems.map((item) => ({
       id: item.tbId || item.id,
       tbId: item.tbId || item.id,
       ingestionId: item.ingestionId || item.id,
@@ -3819,7 +3877,7 @@ self.onInit = async function () {
           window.MyIOOrchestrator.hideGlobalBusy();
         }
       }
-    }, 100); // Reduced to 100ms for faster response
+    }, 100);
   };
 
   /**
