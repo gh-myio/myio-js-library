@@ -724,6 +724,26 @@ function mapLabelWidgetToStateGroup(labelWidget) {
 
 // RFC-0106: Get items from window.STATE based on labelWidget
 function getItemsFromState(domain, labelWidget) {
+  // RFC-0106 FIX: Temperature domain ignores labelWidget filter - return all items directly
+  // Temperature sensors don't use labelWidget categorization like energy does
+  if (domain === 'temperature') {
+    // First try window.STATE
+    if (window.STATE?.isReady('temperature') && window.STATE.temperature?.items?.length > 0) {
+      LogHelper.log(`[TELEMETRY] 🌡️ Temperature: returning ${window.STATE.temperature.items.length} items from window.STATE`);
+      return window.STATE.temperature.items;
+    }
+
+    // Fallback to MyIOOrchestratorData
+    const orchestratorData = window.MyIOOrchestratorData;
+    if (orchestratorData?.temperature?.items?.length > 0) {
+      LogHelper.log(`[TELEMETRY] 🌡️ Temperature: using MyIOOrchestratorData fallback (${orchestratorData.temperature.items.length} items)`);
+      return orchestratorData.temperature.items;
+    }
+
+    LogHelper.warn(`[TELEMETRY] 🌡️ Temperature: no items found in STATE or OrchestratorData`);
+    return null;
+  }
+
   if (!window.STATE?.isReady(domain)) {
     LogHelper.warn(`[TELEMETRY] window.STATE not ready for domain ${domain}`);
     return null;
@@ -2586,7 +2606,10 @@ function renderList(visible) {
             tbId,
           });
           hideBusy();
-          alert('Não foi possível identificar o deviceId do ThingsBoard para este card.');
+          const MyIOToast = window.MyIOLibrary?.MyIOToast;
+          if (MyIOToast) {
+            MyIOToast.error('Não foi possível identificar o deviceId do ThingsBoard para este card.', 5000);
+          }
           return;
         }
 
@@ -3808,7 +3831,8 @@ self.onInit = async function () {
     };
 
     // If period not set yet, store event for later processing
-    if (!myPeriod.startISO || !myPeriod.endISO) {
+    // RFC-0106 FIX: Skip period check for temperature domain (uses real-time readings, no period needed)
+    if (domain !== 'temperature' && (!myPeriod.startISO || !myPeriod.endISO)) {
       LogHelper.warn(`[TELEMETRY] ⏸️ Period not set yet, storing provide-data event for later processing`);
       pendingProvideData = { domain, periodKey };
       return;
@@ -3829,10 +3853,12 @@ self.onInit = async function () {
     LogHelper.log(`[RFC-0106] Got ${stateItems.length} items from window.STATE for labelWidget="${myLabelWidget}"`);
 
     // RFC-0106: Convert STATE items to widget format
+    // FIX: Don't use item.id as fallback for ingestionId - temperature sensors don't have ingestionId
+    // Using item.id would make tbId === ingestionId which fails the Settings validation
     STATE.itemsBase = stateItems.map((item) => ({
       id: item.tbId || item.id,
       tbId: item.tbId || item.id,
-      ingestionId: item.ingestionId || item.id,
+      ingestionId: item.ingestionId || null, // Don't fallback to item.id
       identifier: item.identifier || item.id,
       label: item.label || item.name || item.identifier || item.id,
       entityLabel: item.entityLabel || item.label || item.name || '',
@@ -4063,6 +4089,32 @@ self.onInit = async function () {
 
   // RFC-0106: No ctx.data, no datasources - all data comes from orchestrator
   LogHelper.log(`[RFC-0106] ${WIDGET_DOMAIN} widget waiting for orchestrator data...`);
+
+  // RFC-0106 FIX: Temperature domain doesn't need period - check for stored data immediately
+  if (WIDGET_DOMAIN === 'temperature') {
+    const orchestratorData = window.MyIOOrchestratorData;
+    if (orchestratorData && orchestratorData.temperature) {
+      const storedData = orchestratorData.temperature;
+      const age = Date.now() - storedData.timestamp;
+
+      LogHelper.log(
+        `[TELEMETRY temperature] 🌡️ Found stored temperature data: ${storedData.items?.length || 0} items, age: ${age}ms`
+      );
+
+      // Use stored data if it's less than 60 seconds old AND has items
+      if (age < 60000 && storedData.items && storedData.items.length > 0) {
+        LogHelper.log(`[TELEMETRY temperature] ✅ Using stored temperature data directly (no period needed)`);
+        dataProvideHandler({
+          detail: {
+            domain: 'temperature',
+            periodKey: storedData.periodKey,
+            items: storedData.items,
+          },
+        });
+        return; // Don't proceed to showBusy
+      }
+    }
+  }
 
   // Only show busy if we have a date range defined
   if (self.ctx?.scope?.startDateISO && self.ctx?.scope?.endDateISO) {

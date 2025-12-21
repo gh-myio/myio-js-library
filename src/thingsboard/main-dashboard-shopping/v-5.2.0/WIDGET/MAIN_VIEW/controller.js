@@ -2436,7 +2436,7 @@ const MyIOOrchestrator = (() => {
    * RFC-0106: Wait for ctx.data to be populated with datasources
    * This prevents the timing issue where API is called before ThingsBoard loads datasources
    */
-  async function waitForCtxData(maxWaitMs = 20000, checkIntervalMs = 200) {
+  async function waitForCtxData(maxWaitMs = 20000, checkIntervalMs = 200, domain = null) {
     const startTime = Date.now();
 
     while (Date.now() - startTime < maxWaitMs) {
@@ -2451,6 +2451,21 @@ const MyIOOrchestrator = (() => {
         return true;
       }
 
+      // RFC-0106 FIX: Check if another call already fetched data for this domain
+      // This prevents duplicate waiting when data is already available
+      if (domain) {
+        const cachedData = window.MyIOOrchestratorData?.[domain];
+        if (cachedData && cachedData.items && cachedData.items.length > 0) {
+          const cacheAge = Date.now() - (cachedData.timestamp || 0);
+          if (cacheAge < 30000) {
+            LogHelper.log(
+              `[Orchestrator] ✅ Data already available in cache for ${domain} (${cachedData.items.length} items, age: ${cacheAge}ms) - exiting wait`
+            );
+            return 'cached'; // Special return to indicate cached data is available
+          }
+        }
+      }
+
       // Log progress every second
       const elapsed = Date.now() - startTime;
       if (elapsed % 1000 < checkIntervalMs) {
@@ -2463,6 +2478,17 @@ const MyIOOrchestrator = (() => {
 
       // Wait before next check
       await new Promise((resolve) => setTimeout(resolve, checkIntervalMs));
+    }
+
+    // Timeout - check one more time if cache is available before failing
+    if (domain) {
+      const cachedData = window.MyIOOrchestratorData?.[domain];
+      if (cachedData && cachedData.items && cachedData.items.length > 0) {
+        LogHelper.log(
+          `[Orchestrator] ✅ Timeout but cache available for ${domain} (${cachedData.items.length} items)`
+        );
+        return 'cached';
+      }
     }
 
     // Timeout - proceed anyway but log warning
@@ -2505,12 +2531,35 @@ const MyIOOrchestrator = (() => {
     try {
       LogHelper.log(`[Orchestrator] 🔍 fetchAndEnrich called for ${domain}`);
 
+      // RFC-0106 FIX: Check if fresh data is already available in MyIOOrchestratorData
+      // This prevents duplicate hydrateDomain calls (with different keys) from waiting for ctx.data
+      // when data was already successfully fetched by another call
+      const cachedData = window.MyIOOrchestratorData?.[domain];
+      if (cachedData && cachedData.items && cachedData.items.length > 0) {
+        const cacheAge = Date.now() - (cachedData.timestamp || 0);
+        // Use cache if less than 30 seconds old
+        if (cacheAge < 30000) {
+          LogHelper.log(
+            `[Orchestrator] ✅ Using cached data for ${domain}: ${cachedData.items.length} items (age: ${cacheAge}ms)`
+          );
+          return cachedData.items;
+        }
+      }
+
       // Temperature domain: uses ctx.data directly (no API call) - realtime data from ThingsBoard
       if (domain === 'temperature') {
         LogHelper.log(`[Orchestrator] 🌡️ Temperature domain - using ctx.data directly (no API)`);
 
-        // Wait for ctx.data to be populated
-        const ctxDataReady = await waitForCtxData(20000, 200);
+        // Wait for ctx.data to be populated (pass domain to check cache during wait)
+        const ctxDataReady = await waitForCtxData(20000, 200, domain);
+
+        // If cached data is available, return it directly
+        if (ctxDataReady === 'cached') {
+          const cachedData = window.MyIOOrchestratorData?.[domain];
+          LogHelper.log(`[Orchestrator] ✅ Using cached temperature data: ${cachedData?.items?.length || 0} items`);
+          return cachedData?.items || [];
+        }
+
         if (!ctxDataReady) {
           LogHelper.warn(`[Orchestrator] ⚠️ ctx.data not ready for temperature`);
           window.MyIOUtils?.handleDataLoadError(domain, 'ctx.data timeout - datasources not loaded');
@@ -2571,7 +2620,15 @@ const MyIOOrchestrator = (() => {
       lastFetchDomain = domain;
       lastFetchPeriod = period;
 
-      const ctxDataReady = await waitForCtxData(20000, 200);
+      const ctxDataReady = await waitForCtxData(20000, 200, domain);
+
+      // If cached data is available, return it directly (another call already fetched)
+      if (ctxDataReady === 'cached') {
+        const cachedData = window.MyIOOrchestratorData?.[domain];
+        LogHelper.log(`[Orchestrator] ✅ Using cached ${domain} data: ${cachedData?.items?.length || 0} items`);
+        return cachedData?.items || [];
+      }
+
       if (!ctxDataReady) {
         // Mark that ctx.data was empty - will trigger re-fetch when data arrives
         ctxDataWasEmpty = true;
@@ -2970,6 +3027,21 @@ const MyIOOrchestrator = (() => {
     // RFC-0106: Populate window.STATE with categorized data BEFORE emitting
     // This allows widgets to read directly from window.STATE instead of events
     populateState(domain, items, pKey);
+
+    // RFC-0106 FIX: Store in MyIOOrchestratorData for late-initializing widgets
+    // This ensures widgets that miss the event can still find the data
+    if (!window.MyIOOrchestratorData) {
+      window.MyIOOrchestratorData = {};
+    }
+    window.MyIOOrchestratorData[domain] = {
+      periodKey: pKey,
+      items: items,
+      timestamp: now,
+      version: (window.MyIOOrchestratorData[domain]?.version || 0) + 1,
+    };
+    LogHelper.log(
+      `[Orchestrator] 📦 MyIOOrchestratorData updated for ${domain}: ${items.length} items (v${window.MyIOOrchestratorData[domain].version})`
+    );
 
     // Emit event to all widgets (kept for backwards compatibility)
     const eventDetail = { domain, periodKey: pKey, items };
