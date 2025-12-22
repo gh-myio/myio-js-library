@@ -1099,6 +1099,257 @@ if (!window.STATE) {
 }
 
 /**
+ * RFC-0107: Global contract state
+ * Stores device counts from SERVER_SCOPE attributes for HEADER widget access
+ *
+ * This state is populated during dashboard initialization when contract
+ * attributes are fetched from the ThingsBoard SERVER_SCOPE API.
+ *
+ * The HEADER widget listens for 'myio:contract:loaded' event to display
+ * the contract status icon with tooltip.
+ */
+if (!window.CONTRACT_STATE) {
+  window.CONTRACT_STATE = {
+    isLoaded: false,
+    isValid: false,
+    timestamp: null,
+    energy: {
+      total: 0,
+      entries: 0,      // qtDevices3f-Entries
+      commonArea: 0,   // qtDevices3f-CommonArea
+      stores: 0,       // qtDevices3f-Stores
+    },
+    water: {
+      total: 0,
+      entries: 0,      // qtDevicesHidr-Entries
+      commonArea: 0,   // qtDevicesHidr-CommonArea
+      stores: 0,       // qtDevicesHidr-Stores
+    },
+    temperature: {
+      total: 0,
+      internal: 0,     // qtDevicesTemp-Internal (climate-controlled)
+      stores: 0,       // qtDevicesTemp-Stores (non-climate-controlled)
+    },
+  };
+  LogHelper.log('[RFC-0107] 📋 window.CONTRACT_STATE initialized');
+}
+
+/**
+ * RFC-0107: Device count attribute keys from SERVER_SCOPE
+ * These attributes are set by the backend during customer provisioning
+ */
+const DEVICE_COUNT_KEYS = {
+  energy: {
+    total: 'qtDevices3f',
+    entries: 'qtDevices3f-Entries',
+    commonArea: 'qtDevices3f-CommonArea',
+    stores: 'qtDevices3f-Stores',
+  },
+  water: {
+    total: 'qtDevicesHidr',
+    entries: 'qtDevicesHidr-Entries',
+    commonArea: 'qtDevicesHidr-CommonArea',
+    stores: 'qtDevicesHidr-Stores',
+  },
+  temperature: {
+    total: 'qtDevicesTemp',
+    internal: 'qtDevicesTemp-Internal',
+    stores: 'qtDevicesTemp-Stores',
+  },
+};
+
+/**
+ * RFC-0107: Parses SERVER_SCOPE attributes into device count structure
+ * @param {Array} attributes - Raw attributes from ThingsBoard API
+ * @returns {Object} Parsed device counts by domain and group
+ */
+function parseDeviceCountAttributes(attributes) {
+  const getAttrValue = (key) => {
+    const attr = attributes.find((a) => a.key === key);
+    if (!attr) return 0;
+    const value = typeof attr.value === 'string' ? parseInt(attr.value, 10) : attr.value;
+    return isNaN(value) ? 0 : value;
+  };
+
+  return {
+    energy: {
+      total: getAttrValue(DEVICE_COUNT_KEYS.energy.total),
+      entries: getAttrValue(DEVICE_COUNT_KEYS.energy.entries),
+      commonArea: getAttrValue(DEVICE_COUNT_KEYS.energy.commonArea),
+      stores: getAttrValue(DEVICE_COUNT_KEYS.energy.stores),
+    },
+    water: {
+      total: getAttrValue(DEVICE_COUNT_KEYS.water.total),
+      entries: getAttrValue(DEVICE_COUNT_KEYS.water.entries),
+      commonArea: getAttrValue(DEVICE_COUNT_KEYS.water.commonArea),
+      stores: getAttrValue(DEVICE_COUNT_KEYS.water.stores),
+    },
+    temperature: {
+      total: getAttrValue(DEVICE_COUNT_KEYS.temperature.total),
+      internal: getAttrValue(DEVICE_COUNT_KEYS.temperature.internal),
+      stores: getAttrValue(DEVICE_COUNT_KEYS.temperature.stores),
+    },
+  };
+}
+
+/**
+ * RFC-0107: Fetches device count attributes from SERVER_SCOPE
+ * Reference pattern: MYIO-SIM/v5.2.0/MAIN/controller.js - fetchInstantaneousPowerLimits()
+ *
+ * @param {string} entityId - The customer entity ID (customerTB_ID)
+ * @param {string} entityType - Entity type (default: 'CUSTOMER')
+ * @returns {Promise<Object|null>} Device counts object or null on error
+ */
+async function fetchDeviceCountAttributes(entityId, entityType = 'CUSTOMER') {
+  const token = localStorage.getItem('jwt_token');
+  if (!token) {
+    LogHelper.warn('[RFC-0107] JWT token not found');
+    return null;
+  }
+
+  const url = `/api/plugins/telemetry/${entityType}/${entityId}/values/attributes/SERVER_SCOPE`;
+
+  try {
+    LogHelper.log(`[RFC-0107] Fetching device counts from SERVER_SCOPE: ${url}`);
+
+    const response = await fetch(url, {
+      headers: {
+        'X-Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        LogHelper.log(`[RFC-0107] No attributes found for ${entityType} ${entityId}`);
+        return null;
+      }
+      LogHelper.warn(`[RFC-0107] Failed to fetch ${entityType} attributes: ${response.status}`);
+      return null;
+    }
+
+    const attributes = await response.json();
+    LogHelper.log('[RFC-0107] SERVER_SCOPE attributes received:', attributes.length, 'items');
+
+    return parseDeviceCountAttributes(attributes);
+  } catch (error) {
+    LogHelper.error('[RFC-0107] Error fetching device counts:', error);
+    return null;
+  }
+}
+
+/**
+ * RFC-0107: Validates SERVER_SCOPE device counts against window.STATE
+ * Called after all domains have loaded to verify contract integrity
+ *
+ * @param {Object} serverCounts - Counts from SERVER_SCOPE attributes
+ * @returns {Object} Validation result with status and discrepancies
+ */
+function validateDeviceCounts(serverCounts) {
+  const state = window.STATE;
+  const discrepancies = [];
+
+  // Validate Energy
+  if (state?.energy) {
+    const stateEnergyTotal =
+      (state.energy.lojas?.count || 0) +
+      (state.energy.entrada?.count || 0) +
+      (state.energy.areacomum?.count || 0);
+
+    if (serverCounts.energy.total > 0 && stateEnergyTotal !== serverCounts.energy.total) {
+      discrepancies.push({
+        domain: 'energy',
+        expected: serverCounts.energy.total,
+        actual: stateEnergyTotal,
+      });
+    }
+  }
+
+  // Validate Water
+  if (state?.water) {
+    const stateWaterTotal =
+      (state.water.lojas?.count || 0) +
+      (state.water.entrada?.count || 0) +
+      (state.water.areacomum?.count || 0);
+
+    if (serverCounts.water.total > 0 && stateWaterTotal !== serverCounts.water.total) {
+      discrepancies.push({
+        domain: 'water',
+        expected: serverCounts.water.total,
+        actual: stateWaterTotal,
+      });
+    }
+  }
+
+  // Validate Temperature
+  if (state?.temperature) {
+    const stateTempTotal =
+      (state.temperature.lojas?.count || 0) +
+      (state.temperature.entrada?.count || 0) +
+      (state.temperature.areacomum?.count || 0);
+
+    if (serverCounts.temperature.total > 0 && stateTempTotal !== serverCounts.temperature.total) {
+      discrepancies.push({
+        domain: 'temperature',
+        expected: serverCounts.temperature.total,
+        actual: stateTempTotal,
+      });
+    }
+  }
+
+  const isValid = discrepancies.length === 0;
+  if (!isValid) {
+    LogHelper.warn('[RFC-0107] Device count validation failed:', discrepancies);
+  } else {
+    LogHelper.log('[RFC-0107] Device count validation passed');
+  }
+
+  return { isValid, discrepancies };
+}
+
+/**
+ * RFC-0107: Stores contract state in window.CONTRACT_STATE and dispatches event
+ * This function is called after device counts are fetched and validated
+ *
+ * @param {Object} deviceCounts - Device counts from SERVER_SCOPE
+ * @param {Object} validationResult - Validation result (optional, defaults to valid)
+ */
+function storeContractState(deviceCounts, validationResult = { isValid: true, discrepancies: [] }) {
+  window.CONTRACT_STATE = {
+    isLoaded: true,
+    isValid: validationResult.isValid,
+    discrepancies: validationResult.discrepancies || [],
+    timestamp: new Date().toISOString(),
+    energy: {
+      total: deviceCounts.energy.total,
+      entries: deviceCounts.energy.entries,
+      commonArea: deviceCounts.energy.commonArea,
+      stores: deviceCounts.energy.stores,
+    },
+    water: {
+      total: deviceCounts.water.total,
+      entries: deviceCounts.water.entries,
+      commonArea: deviceCounts.water.commonArea,
+      stores: deviceCounts.water.stores,
+    },
+    temperature: {
+      total: deviceCounts.temperature.total,
+      internal: deviceCounts.temperature.internal,
+      stores: deviceCounts.temperature.stores,
+    },
+  };
+
+  // Dispatch event for HEADER widget to listen
+  window.dispatchEvent(
+    new CustomEvent('myio:contract:loaded', {
+      detail: window.CONTRACT_STATE,
+    })
+  );
+
+  LogHelper.log('[RFC-0107] 📋 CONTRACT_STATE stored and event dispatched:', window.CONTRACT_STATE);
+}
+
+/**
  * Categorize items into 3 groups: lojas, entrada, areacomum
  * Rules:
  * - LOJAS: deviceType = '3F_MEDIDOR' AND deviceProfile = '3F_MEDIDOR'
@@ -1888,6 +2139,11 @@ const MyIOOrchestrator = (() => {
     return total;
   }
 
+  /**
+   * RFC-0107: Creates the contract loading modal DOM with domain breakdown
+   * Shows loading progress for Energy, Water, and Temperature domains
+   * with expandable details for each group (entries, common area, stores)
+   */
   function ensureOrchestratorBusyDOM() {
     let el = document.getElementById(BUSY_OVERLAY_ID);
     if (el) return el;
@@ -1897,54 +2153,167 @@ const MyIOOrchestrator = (() => {
     el.style.cssText = `
     position: fixed;
     inset: 0;
-    background: rgba(45, 20, 88, 0.6);
-    backdrop-filter: blur(3px);
+    background: rgba(150, 132, 181, 0.45);
+    backdrop-filter: blur(5px);
     display: none;
     align-items: center;
     justify-content: center;
     z-index: 99999;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
   `;
 
     const container = document.createElement('div');
+    container.id = `${BUSY_OVERLAY_ID}-container`;
     container.style.cssText = `
     background: #2d1458;
     color: #fff;
     border-radius: 18px;
-    padding: 24px 32px;
+    padding: 28px 32px;
     box-shadow: 0 12px 40px rgba(0,0,0,0.35);
     border: 1px solid rgba(255,255,255,0.1);
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    min-width: 320px;
+    min-width: 400px;
+    max-width: 500px;
   `;
 
-    const spinner = document.createElement('div');
-    spinner.style.cssText = `
-    width: 24px;
-    height: 24px;
-    border: 3px solid rgba(255,255,255,0.25);
-    border-top-color: #ffffff;
-    border-radius: 50%;
-    animation: spin 0.9s linear infinite;
-  `;
+    // RFC-0107: Contract loading modal with domain details
+    container.innerHTML = `
+      <!-- Header with spinner -->
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+        <div class="contract-spinner" style="
+            width:22px;height:22px;border-radius:50%;
+            border:3px solid rgba(255,255,255,.25);
+            border-top-color:#ffffff; animation:spin .9s linear infinite;"></div>
+        <div id="${BUSY_OVERLAY_ID}-message" style="font-weight:600; font-size:16px; letter-spacing:.2px;">
+          Carregando contrato...
+        </div>
+      </div>
 
-    const message = document.createElement('div');
-    message.id = `${BUSY_OVERLAY_ID}-message`;
-    message.style.cssText = `
-    font-weight: 600;
-    font-size: 14px;
-    letter-spacing: 0.2px;
-  `;
-    message.textContent = 'Carregando dados...';
+      <!-- Domain sections -->
+      <div id="${BUSY_OVERLAY_ID}-domains" style="display:flex; flex-direction:column; gap:10px;">
 
-    container.appendChild(spinner);
-    container.appendChild(message);
+        <!-- Energy Domain -->
+        <div class="domain-section" data-domain="energy" style="
+            background:rgba(255,255,255,0.08); border-radius:12px; overflow:hidden;">
+          <div class="domain-header" style="
+              display:flex; align-items:center; justify-content:space-between;
+              padding:12px 14px; cursor:pointer;" onclick="this.parentElement.classList.toggle('expanded')">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:20px;">⚡</span>
+              <span style="font-weight:500;">Energia</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span class="domain-status" style="
+                  width:18px; height:18px; border-radius:50%;
+                  border:2px solid rgba(255,255,255,0.3);
+                  display:flex; align-items:center; justify-content:center;
+                  font-size:10px;"></span>
+              <span class="domain-count" style="font-size:13px; opacity:0.7;">--</span>
+              <span class="expand-arrow" style="font-size:12px; transition:transform 0.2s;">▼</span>
+            </div>
+          </div>
+          <div class="domain-details" style="
+              max-height:0; overflow:hidden; transition:max-height 0.3s ease-out;
+              padding:0 14px; background:rgba(0,0,0,0.15);">
+            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+              <span style="font-size:12px; opacity:0.8;">Entradas</span>
+              <span class="detail-entries" style="font-size:12px;">--</span>
+            </div>
+            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+              <span style="font-size:12px; opacity:0.8;">Área Comum</span>
+              <span class="detail-commonArea" style="font-size:12px;">--</span>
+            </div>
+            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0;">
+              <span style="font-size:12px; opacity:0.8;">Lojas</span>
+              <span class="detail-stores" style="font-size:12px;">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Water Domain -->
+        <div class="domain-section" data-domain="water" style="
+            background:rgba(255,255,255,0.08); border-radius:12px; overflow:hidden;">
+          <div class="domain-header" style="
+              display:flex; align-items:center; justify-content:space-between;
+              padding:12px 14px; cursor:pointer;" onclick="this.parentElement.classList.toggle('expanded')">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:20px;">💧</span>
+              <span style="font-weight:500;">Água</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span class="domain-status" style="
+                  width:18px; height:18px; border-radius:50%;
+                  border:2px solid rgba(255,255,255,0.3);
+                  display:flex; align-items:center; justify-content:center;
+                  font-size:10px;"></span>
+              <span class="domain-count" style="font-size:13px; opacity:0.7;">--</span>
+              <span class="expand-arrow" style="font-size:12px; transition:transform 0.2s;">▼</span>
+            </div>
+          </div>
+          <div class="domain-details" style="
+              max-height:0; overflow:hidden; transition:max-height 0.3s ease-out;
+              padding:0 14px; background:rgba(0,0,0,0.15);">
+            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+              <span style="font-size:12px; opacity:0.8;">Entradas</span>
+              <span class="detail-entries" style="font-size:12px;">--</span>
+            </div>
+            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+              <span style="font-size:12px; opacity:0.8;">Área Comum</span>
+              <span class="detail-commonArea" style="font-size:12px;">--</span>
+            </div>
+            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0;">
+              <span style="font-size:12px; opacity:0.8;">Lojas</span>
+              <span class="detail-stores" style="font-size:12px;">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Temperature Domain -->
+        <div class="domain-section" data-domain="temperature" style="
+            background:rgba(255,255,255,0.08); border-radius:12px; overflow:hidden;">
+          <div class="domain-header" style="
+              display:flex; align-items:center; justify-content:space-between;
+              padding:12px 14px; cursor:pointer;" onclick="this.parentElement.classList.toggle('expanded')">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:20px;">🌡️</span>
+              <span style="font-weight:500;">Temperatura</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span class="domain-status" style="
+                  width:18px; height:18px; border-radius:50%;
+                  border:2px solid rgba(255,255,255,0.3);
+                  display:flex; align-items:center; justify-content:center;
+                  font-size:10px;"></span>
+              <span class="domain-count" style="font-size:13px; opacity:0.7;">--</span>
+              <span class="expand-arrow" style="font-size:12px; transition:transform 0.2s;">▼</span>
+            </div>
+          </div>
+          <div class="domain-details" style="
+              max-height:0; overflow:hidden; transition:max-height 0.3s ease-out;
+              padding:0 14px; background:rgba(0,0,0,0.15);">
+            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+              <span style="font-size:12px; opacity:0.8;">Climatizados</span>
+              <span class="detail-internal" style="font-size:12px;">--</span>
+            </div>
+            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0;">
+              <span style="font-size:12px; opacity:0.8;">Lojas</span>
+              <span class="detail-stores" style="font-size:12px;">--</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Validation status (hidden by default) -->
+      <div id="${BUSY_OVERLAY_ID}-status" style="
+          margin-top:16px; padding:12px 14px; border-radius:10px;
+          background:rgba(255,255,255,0.05); display:none;">
+      </div>
+    `;
+
     el.appendChild(container);
     document.body.appendChild(el);
 
-    // Add CSS animation
+    // Add CSS animation and expand styles
     if (!document.querySelector('#myio-busy-styles')) {
       const styleEl = document.createElement('style');
       styleEl.id = 'myio-busy-styles';
@@ -1953,11 +2322,108 @@ const MyIOOrchestrator = (() => {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
       }
+      #${BUSY_OVERLAY_ID} .domain-section.expanded .domain-details {
+        max-height: 150px;
+        padding: 0 14px 10px 14px;
+      }
+      #${BUSY_OVERLAY_ID} .domain-section.expanded .expand-arrow {
+        transform: rotate(180deg);
+      }
+      #${BUSY_OVERLAY_ID} .domain-section.loaded .domain-status {
+        background: rgba(76,175,80,0.3);
+        border-color: #81c784;
+        color: #81c784;
+      }
+      #${BUSY_OVERLAY_ID} .domain-section.loaded .domain-count {
+        opacity: 1;
+        color: #81c784;
+      }
+      #${BUSY_OVERLAY_ID} .domain-section.error .domain-status {
+        background: rgba(244,67,54,0.3);
+        border-color: #ef5350;
+        color: #ef5350;
+      }
+      #${BUSY_OVERLAY_ID} .domain-section.error .domain-count {
+        opacity: 1;
+        color: #ef5350;
+      }
     `;
       document.head.appendChild(styleEl);
     }
 
     return el;
+  }
+
+  /**
+   * RFC-0107: Updates a domain section in the contract loading modal
+   * @param {string} domain - Domain name (energy, water, temperature)
+   * @param {Object} counts - Device counts object
+   * @param {boolean} isLoaded - Whether domain data is loaded
+   * @param {boolean} hasError - Whether there's a validation error
+   */
+  function updateContractModalDomain(domain, counts, isLoaded = false, hasError = false) {
+    const el = document.getElementById(BUSY_OVERLAY_ID);
+    if (!el) return;
+
+    const section = el.querySelector(`.domain-section[data-domain="${domain}"]`);
+    if (!section) return;
+
+    // Update total count
+    const totalCount = counts?.total || 0;
+    const countEl = section.querySelector('.domain-count');
+    if (countEl) {
+      countEl.textContent = `${totalCount} dispositivos`;
+    }
+
+    // Update status icon
+    const statusEl = section.querySelector('.domain-status');
+    if (statusEl && isLoaded) {
+      statusEl.textContent = hasError ? '!' : '✓';
+    }
+
+    // Update detail rows based on domain
+    if (domain === 'energy' || domain === 'water') {
+      const entriesEl = section.querySelector('.detail-entries');
+      const commonAreaEl = section.querySelector('.detail-commonArea');
+      const storesEl = section.querySelector('.detail-stores');
+      if (entriesEl) entriesEl.textContent = counts?.entries || 0;
+      if (commonAreaEl) commonAreaEl.textContent = counts?.commonArea || 0;
+      if (storesEl) storesEl.textContent = counts?.stores || 0;
+    } else if (domain === 'temperature') {
+      const internalEl = section.querySelector('.detail-internal');
+      const storesEl = section.querySelector('.detail-stores');
+      if (internalEl) internalEl.textContent = counts?.internal || 0;
+      if (storesEl) storesEl.textContent = counts?.stores || 0;
+    }
+
+    // Add loaded/error class
+    section.classList.remove('loaded', 'error');
+    if (isLoaded) {
+      section.classList.add(hasError ? 'error' : 'loaded');
+    }
+  }
+
+  /**
+   * RFC-0107: Updates the validation status in the contract loading modal
+   * @param {boolean} isValid - Validation result
+   * @param {string} message - Status message
+   */
+  function updateContractModalStatus(isValid, message) {
+    const el = document.getElementById(BUSY_OVERLAY_ID);
+    if (!el) return;
+
+    const statusEl = el.querySelector(`#${BUSY_OVERLAY_ID}-status`);
+    if (!statusEl) return;
+
+    statusEl.style.display = 'block';
+
+    if (isValid) {
+      statusEl.style.background = 'rgba(76,175,80,0.2)';
+      statusEl.innerHTML = `<span style="color:#81c784; font-size:13px;">✓ ${message || 'Contrato validado com sucesso'}</span>`;
+    } else {
+      statusEl.style.background = 'rgba(244,67,54,0.2)';
+      statusEl.innerHTML = `<span style="color:#ef5350; font-size:13px;">⚠ ${message || 'Problemas detectados na validação'}</span>`;
+    }
   }
 
   // PHASE 1: Centralized busy management with extended timeout
@@ -3349,6 +3815,10 @@ const MyIOOrchestrator = (() => {
     showGlobalBusy,
     hideGlobalBusy,
 
+    // RFC-0107: Contract loading modal functions
+    updateContractModalDomain,
+    updateContractModalStatus,
+
     // Expose shared state
     getSharedWidgetState: () => sharedWidgetState,
     setSharedPeriod: (period) => {
@@ -3434,6 +3904,9 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
   );
 
   LogHelper.log('[Orchestrator] 📢 Emitted myio:orchestrator:ready event');
+
+  // RFC-0107: Initialize contract loading on orchestrator ready
+  initializeContractLoading();
 } else {
   // Fallback: no stub exists (shouldn't happen but be safe)
   window.MyIOOrchestrator = MyIOOrchestrator;
@@ -3441,4 +3914,159 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
   window.MyIOOrchestrator.credentialsSet = false;
 
   LogHelper.log('[MyIOOrchestrator] Initialized (no stub found)');
+
+  // RFC-0107: Initialize contract loading (fallback path)
+  initializeContractLoading();
+}
+
+/**
+ * RFC-0107: Initializes the contract loading modal and fetches device counts
+ * This function is called when the orchestrator becomes ready
+ */
+async function initializeContractLoading() {
+  const customerTB_ID = widgetSettings.customerTB_ID;
+  if (!customerTB_ID) {
+    LogHelper.warn('[RFC-0107] customerTB_ID not available, skipping contract initialization');
+    return;
+  }
+
+  LogHelper.log('[RFC-0107] 📋 Initializing contract loading...');
+
+  try {
+    // Fetch device counts from SERVER_SCOPE
+    const deviceCounts = await fetchDeviceCountAttributes(customerTB_ID);
+
+    if (deviceCounts) {
+      LogHelper.log('[RFC-0107] Device counts fetched:', deviceCounts);
+
+      // Update the loading modal with expected counts
+      if (window.MyIOOrchestrator?.updateContractModalDomain) {
+        window.MyIOOrchestrator.updateContractModalDomain('energy', deviceCounts.energy, false);
+        window.MyIOOrchestrator.updateContractModalDomain('water', deviceCounts.water, false);
+        window.MyIOOrchestrator.updateContractModalDomain('temperature', deviceCounts.temperature, false);
+      }
+
+      // Store counts in CONTRACT_STATE (initial, not validated yet)
+      window.CONTRACT_STATE = {
+        ...window.CONTRACT_STATE,
+        energy: deviceCounts.energy,
+        water: deviceCounts.water,
+        temperature: deviceCounts.temperature,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Listen for domain data loaded events to update modal and validate
+      setupContractValidationListeners(deviceCounts);
+    } else {
+      LogHelper.warn('[RFC-0107] No device counts available from SERVER_SCOPE');
+    }
+  } catch (error) {
+    LogHelper.error('[RFC-0107] Error initializing contract loading:', error);
+  }
+}
+
+/**
+ * RFC-0107: Sets up listeners to track domain loading and validate contract
+ * @param {Object} expectedCounts - Device counts from SERVER_SCOPE
+ */
+function setupContractValidationListeners(expectedCounts) {
+  const domainsLoaded = { energy: false, water: false, temperature: false };
+
+  // Listen for domain state-ready events
+  const handleStateReady = (event) => {
+    const { domain } = event.detail || {};
+    if (!domain || !['energy', 'water', 'temperature'].includes(domain)) return;
+
+    LogHelper.log(`[RFC-0107] Domain ${domain} data ready`);
+    domainsLoaded[domain] = true;
+
+    // Check for validation discrepancies
+    const state = window.STATE;
+    let hasError = false;
+
+    if (domain === 'energy' && state?.energy) {
+      const actual =
+        (state.energy.lojas?.count || 0) +
+        (state.energy.entrada?.count || 0) +
+        (state.energy.areacomum?.count || 0);
+      hasError = expectedCounts.energy.total > 0 && actual !== expectedCounts.energy.total;
+    } else if (domain === 'water' && state?.water) {
+      const actual =
+        (state.water.lojas?.count || 0) +
+        (state.water.entrada?.count || 0) +
+        (state.water.areacomum?.count || 0);
+      hasError = expectedCounts.water.total > 0 && actual !== expectedCounts.water.total;
+    } else if (domain === 'temperature' && state?.temperature) {
+      const actual =
+        (state.temperature.lojas?.count || 0) +
+        (state.temperature.entrada?.count || 0) +
+        (state.temperature.areacomum?.count || 0);
+      hasError = expectedCounts.temperature.total > 0 && actual !== expectedCounts.temperature.total;
+    }
+
+    // Update modal domain status
+    if (window.MyIOOrchestrator?.updateContractModalDomain) {
+      window.MyIOOrchestrator.updateContractModalDomain(
+        domain,
+        expectedCounts[domain],
+        true, // isLoaded
+        hasError
+      );
+    }
+
+    // Check if all domains are loaded
+    const allLoaded = Object.values(domainsLoaded).every((loaded) => loaded);
+    if (allLoaded) {
+      finalizeContractValidation(expectedCounts);
+      window.removeEventListener('myio:state:ready', handleStateReady);
+    }
+  };
+
+  window.addEventListener('myio:state:ready', handleStateReady);
+
+  // Also check for already-loaded domains (in case events were missed)
+  setTimeout(() => {
+    ['energy', 'water', 'temperature'].forEach((domain) => {
+      if (!domainsLoaded[domain] && window.STATE?.isReady?.(domain)) {
+        handleStateReady({ detail: { domain } });
+      }
+    });
+  }, 100);
+}
+
+/**
+ * RFC-0107: Finalizes contract validation and stores state
+ * @param {Object} expectedCounts - Device counts from SERVER_SCOPE
+ */
+function finalizeContractValidation(expectedCounts) {
+  LogHelper.log('[RFC-0107] All domains loaded, finalizing contract validation...');
+
+  // Validate all domains
+  const validationResult = validateDeviceCounts(expectedCounts);
+
+  // Store final CONTRACT_STATE
+  storeContractState(expectedCounts, validationResult);
+
+  // Update modal status
+  if (window.MyIOOrchestrator?.updateContractModalStatus) {
+    const totalExpected =
+      expectedCounts.energy.total +
+      expectedCounts.water.total +
+      expectedCounts.temperature.total;
+
+    if (validationResult.isValid) {
+      window.MyIOOrchestrator.updateContractModalStatus(
+        true,
+        `${totalExpected} dispositivos carregados com sucesso`
+      );
+    } else {
+      const discrepancyDomains = validationResult.discrepancies.map((d) => d.domain).join(', ');
+      window.MyIOOrchestrator.updateContractModalStatus(
+        false,
+        `Divergências detectadas em: ${discrepancyDomains}`
+      );
+    }
+  }
+
+  LogHelper.log('[RFC-0107] ✅ Contract validation complete:', validationResult);
 }

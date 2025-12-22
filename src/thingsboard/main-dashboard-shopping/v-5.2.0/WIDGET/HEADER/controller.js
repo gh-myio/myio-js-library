@@ -30,6 +30,155 @@ let currentDomain = {
   },
 };
 
+/* ==== RFC-0107: Contract Status Icon Management ==== */
+
+/**
+ * RFC-0107: Initializes the contract status icon in HEADER
+ * Listens for myio:contract:loaded event from MAIN widget
+ * Uses ContractSummaryTooltip from library for detailed view
+ */
+function initContractStatusIcon() {
+  // Get the contract status container
+  const contractStatusEl = document.getElementById('tbx-contract-status');
+  if (!contractStatusEl) {
+    LogHelper.warn('[HEADER] Contract status element not found');
+    return;
+  }
+
+  const iconEl = contractStatusEl.querySelector('.tbx-contract-icon');
+  const countEl = contractStatusEl.querySelector('.tbx-contract-count');
+
+  // Style the contract status container
+  contractStatusEl.style.cssText = `
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(45, 20, 88, 0.9);
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.15);
+    margin-right: 8px;
+    transition: all 0.2s ease;
+    font-size: 13px;
+    color: #fff;
+  `;
+
+  // Hover effect
+  contractStatusEl.addEventListener('mouseenter', () => {
+    contractStatusEl.style.background = 'rgba(45, 20, 88, 1)';
+    contractStatusEl.style.borderColor = 'rgba(255,255,255,0.3)';
+  });
+  contractStatusEl.addEventListener('mouseleave', () => {
+    contractStatusEl.style.background = 'rgba(45, 20, 88, 0.9)';
+    contractStatusEl.style.borderColor = 'rgba(255,255,255,0.15)';
+  });
+
+  /**
+   * Updates the contract status icon based on CONTRACT_STATE
+   * @param {Object} contractState - The contract state from window.CONTRACT_STATE
+   */
+  function updateContractStatus(contractState) {
+    if (!contractState || !contractState.isLoaded) {
+      contractStatusEl.style.display = 'none';
+      return;
+    }
+
+    const totalDevices =
+      (contractState.energy?.total || 0) +
+      (contractState.water?.total || 0) +
+      (contractState.temperature?.total || 0);
+
+    // Update icon based on validation status
+    if (iconEl) {
+      if (contractState.isValid) {
+        iconEl.textContent = '✓';
+        iconEl.style.cssText = `
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: rgba(76, 175, 80, 0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #81c784;
+          font-size: 11px;
+          font-weight: bold;
+        `;
+      } else {
+        iconEl.textContent = '!';
+        iconEl.style.cssText = `
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: rgba(244, 67, 54, 0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #ef5350;
+          font-size: 11px;
+          font-weight: bold;
+        `;
+      }
+    }
+
+    // Update count text
+    if (countEl) {
+      countEl.textContent = `${totalDevices} disp.`;
+      countEl.style.color = contractState.isValid ? '#81c784' : '#ef5350';
+    }
+
+    // Show the container
+    contractStatusEl.style.display = 'flex';
+
+    LogHelper.log('[HEADER] Contract status updated:', {
+      total: totalDevices,
+      isValid: contractState.isValid,
+    });
+  }
+
+  // Click handler to show ContractSummaryTooltip
+  contractStatusEl.addEventListener('click', (event) => {
+    event.stopPropagation();
+
+    const ContractSummaryTooltip = window.MyIOLibrary?.ContractSummaryTooltip;
+    if (!ContractSummaryTooltip) {
+      LogHelper.warn('[HEADER] ContractSummaryTooltip not available in library');
+      return;
+    }
+
+    // Build tooltip data from window.CONTRACT_STATE
+    const contractState = window.CONTRACT_STATE;
+    if (!contractState || !contractState.isLoaded) {
+      LogHelper.warn('[HEADER] Contract state not loaded');
+      return;
+    }
+
+    // Create tooltip instance and show
+    const tooltip = new ContractSummaryTooltip();
+    const data = tooltip.buildFromGlobalState();
+
+    if (data) {
+      tooltip.show(contractStatusEl, data);
+      LogHelper.log('[HEADER] ContractSummaryTooltip shown');
+    }
+  });
+
+  // Listen for contract loaded event from MAIN
+  window.addEventListener('myio:contract:loaded', (event) => {
+    LogHelper.log('[HEADER] Received myio:contract:loaded event:', event.detail);
+    updateContractStatus(event.detail);
+  });
+
+  // Check if contract already loaded (page refresh scenario)
+  if (window.CONTRACT_STATE?.isLoaded) {
+    LogHelper.log('[HEADER] Contract already loaded, updating status');
+    updateContractStatus(window.CONTRACT_STATE);
+  }
+
+  LogHelper.log('[HEADER] Contract status icon initialized');
+}
+
 /* ==== Tooltip premium (global no <body>) ==== */
 function setupTooltipPremium(target, text) {
   if (!target) return;
@@ -112,6 +261,9 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   });
 
   LogHelper.log('[MyIOAuth] Initialized with extracted component');
+
+  // RFC-0107: Initialize contract status icon
+  initContractStatusIcon();
 
   // RFC-0049: FIX - Ensure default period is always set
   // Calculate default period: 1st of month 00:00 → today 23:59
