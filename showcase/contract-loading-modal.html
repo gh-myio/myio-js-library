@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contract Loading Modal - RFC-0107 Showcase</title>
+    <style>
+        :root {
+            --primary: #9684B5;
+            --primary-dark: #2d1458;
+            --success: #4caf50;
+            --success-light: #81c784;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --danger-light: #ef5350;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #9684B5, #2d1458);
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-subtitle {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-top: 8px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-desc {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .btn-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover { background: var(--primary-dark); }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover { background: #388e3c; }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover { background: #d32f2f; }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-800);
+        }
+
+        .btn-secondary:hover { background: var(--gray-300); }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Modal Preview Container */
+        .modal-preview-container {
+            position: relative;
+            background: #1a1a2e;
+            border-radius: 12px;
+            min-height: 600px;
+            overflow: hidden;
+        }
+
+        .modal-preview-label {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 10;
+        }
+
+        /* Contract Loading Modal Styles */
+        .contract-modal-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(150,132,181,0.45);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .contract-modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .contract-modal-content {
+            background: #2d1458;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.10);
+            box-shadow: 0 12px 40px rgba(0,0,0,.35);
+            border-radius: 18px;
+            padding: 28px 32px;
+            min-width: 480px;
+            max-width: 560px;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+            max-height: 90%;
+            overflow-y: auto;
+        }
+
+        .contract-modal-overlay.active .contract-modal-content {
+            transform: scale(1);
+        }
+
+        .contract-modal-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .spinner {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,.25);
+            border-top-color: #ffffff;
+            animation: spin .9s linear infinite;
+        }
+
+        .spinner.hidden { display: none; }
+
+        .checkmark {
+            width: 22px;
+            height: 22px;
+            color: var(--success-light);
+            display: none;
+        }
+
+        .checkmark.visible { display: block; }
+
+        @keyframes spin {
+            from { transform: rotate(0); }
+            to { transform: rotate(360deg); }
+        }
+
+        .contract-modal-title {
+            font-weight: 600;
+            font-size: 16px;
+            letter-spacing: .2px;
+        }
+
+        .contract-modal-domains {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Domain Section with Expandable Details */
+        .domain-section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .domain-section.loaded {
+            background: rgba(76,175,80,0.1);
+        }
+
+        .domain-section.error {
+            background: rgba(244,67,54,0.1);
+        }
+
+        .domain-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .domain-header:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .domain-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .domain-icon {
+            font-size: 20px;
+        }
+
+        .domain-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .domain-total {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .domain-count {
+            font-size: 13px;
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+
+        .domain-section.loaded .domain-count {
+            opacity: 1;
+            color: var(--success-light);
+        }
+
+        .domain-section.error .domain-count {
+            opacity: 1;
+            color: var(--danger-light);
+        }
+
+        .expand-icon {
+            font-size: 12px;
+            opacity: 0.6;
+            transition: transform 0.3s ease;
+        }
+
+        .domain-section.expanded .expand-icon {
+            transform: rotate(180deg);
+        }
+
+        /* Domain Details (Sub-groups) */
+        .domain-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            background: rgba(0,0,0,0.15);
+        }
+
+        .domain-section.expanded .domain-details {
+            max-height: 200px;
+        }
+
+        .domain-detail-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px 8px 46px;
+            font-size: 13px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .domain-detail-row:first-child {
+            border-top: none;
+        }
+
+        .detail-label {
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .detail-label::before {
+            content: '';
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: currentColor;
+            opacity: 0.5;
+        }
+
+        .detail-count {
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        .detail-count.loaded {
+            color: var(--success-light);
+        }
+
+        .contract-modal-status {
+            margin-top: 20px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.05);
+            display: none;
+        }
+
+        .contract-modal-status.visible {
+            display: block;
+        }
+
+        .contract-modal-status.success {
+            background: rgba(76,175,80,0.2);
+        }
+
+        .contract-modal-status.error {
+            background: rgba(244,67,54,0.2);
+        }
+
+        .status-text {
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-text.success {
+            color: var(--success-light);
+        }
+
+        .status-text.error {
+            color: var(--danger-light);
+        }
+
+        /* Header Status Preview */
+        .header-status-preview {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(45, 20, 88, 0.95);
+            border-radius: 12px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 10;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .header-status-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .header-status-icon.loading {
+            background: rgba(255,255,255,0.1);
+            animation: pulse 1.5s infinite;
+        }
+
+        .header-status-icon.success {
+            background: rgba(76,175,80,0.3);
+            color: var(--success-light);
+        }
+
+        .header-status-icon.error {
+            background: rgba(244,67,54,0.3);
+            color: var(--danger-light);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .header-status-text {
+            font-size: 12px;
+            color: rgba(255,255,255,0.8);
+        }
+
+        .header-status-count {
+            font-weight: 600;
+            color: white;
+        }
+
+        /* Code Example */
+        .code-example {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin-top: 16px;
+        }
+
+        .code-example .comment { color: #6b7280; }
+        .code-example .keyword { color: #c084fc; }
+        .code-example .string { color: #86efac; }
+        .code-example .function { color: #60a5fa; }
+        .code-example .number { color: #fbbf24; }
+
+        /* Props Table */
+        .props-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .props-table th, .props-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .props-table th {
+            background: var(--gray-50);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--gray-600);
+        }
+
+        .props-table code {
+            background: var(--gray-100);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        /* Device Count Inputs */
+        .device-inputs-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-bottom: 20px;
+        }
+
+        .device-input-section {
+            background: var(--gray-50);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .device-input-section h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .device-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .device-input-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .device-input-group label {
+            font-size: 12px;
+            color: var(--gray-600);
+        }
+
+        .device-input-group input {
+            padding: 8px 10px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            font-size: 13px;
+            width: 100%;
+        }
+
+        /* Log Panel */
+        .log-panel {
+            background: var(--gray-900);
+            border-radius: 8px;
+            padding: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            color: #a0a0a0;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .log-entry:last-child { border-bottom: none; }
+
+        .log-time { color: #6b7280; }
+        .log-info { color: #60a5fa; }
+        .log-success { color: #86efac; }
+        .log-error { color: #f87171; }
+        .log-warn { color: #fbbf24; }
+
+        /* State Display */
+        .state-display {
+            background: var(--gray-900);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            color: #e5e7eb;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / Contract Loading Modal
+            </div>
+            <h1>Contract Loading Modal</h1>
+            <p class="header-subtitle">RFC-0107: Welcome and Loading Modal for Shopping Dashboard</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Interactive Demo -->
+        <section class="section">
+            <h2>Interactive Demo</h2>
+            <p class="section-desc">
+                Click the buttons below to control the modal state and simulate different loading scenarios.
+                The modal shows detailed breakdown by domain groups (Entries, Common Area, Stores).
+            </p>
+
+            <div class="btn-grid">
+                <button class="btn btn-primary" onclick="showModal()">
+                    Show Modal
+                </button>
+                <button class="btn btn-secondary" onclick="hideModal()">
+                    Hide Modal
+                </button>
+                <button class="btn btn-success" onclick="simulateFullLoad()">
+                    Simulate Full Load
+                </button>
+                <button class="btn btn-danger" onclick="simulateError()">
+                    Simulate Error
+                </button>
+            </div>
+
+            <div class="modal-preview-container" id="previewContainer">
+                <div class="modal-preview-label">Modal Preview Area</div>
+
+                <!-- Header Status Preview -->
+                <div class="header-status-preview" id="headerStatus">
+                    <div class="header-status-icon loading" id="headerIcon">...</div>
+                    <div>
+                        <div class="header-status-text">Contract Status</div>
+                        <div class="header-status-count" id="headerCount">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- Contract Loading Modal -->
+                <div class="contract-modal-overlay" id="contractModal">
+                    <div class="contract-modal-content">
+                        <!-- Header -->
+                        <div class="contract-modal-header">
+                            <div class="spinner" id="modalSpinner"></div>
+                            <svg class="checkmark" id="modalCheckmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <div class="contract-modal-title" id="modalTitle">Loading Contract...</div>
+                        </div>
+
+                        <!-- Domain Sections -->
+                        <div class="contract-modal-domains">
+                            <!-- Energy -->
+                            <div class="domain-section" id="sectionEnergy" data-domain="energy">
+                                <div class="domain-header" onclick="toggleDomain('energy')">
+                                    <div class="domain-info">
+                                        <span class="domain-icon">⚡</span>
+                                        <span class="domain-name">Energy</span>
+                                    </div>
+                                    <div class="domain-total">
+                                        <span class="domain-count" id="totalEnergy">--</span>
+                                        <span class="expand-icon">▼</span>
+                                    </div>
+                                </div>
+                                <div class="domain-details">
+                                    <div class="domain-detail-row">
+                                        <span class="detail-label">Entries</span>
+                                        <span class="detail-count" id="energyEntries">--</span>
+                                    </div>
+                                    <div class="domain-detail-row">
+                                        <span class="detail-label">Common Area</span>
+                                        <span class="detail-count" id="energyCommonArea">--</span>
+                                    </div>
+                                    <div class="domain-detail-row">
+                                        <span class="detail-label">Stores</span>
+                                        <span class="detail-count" id="energyStores">--</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Water -->
+                            <div class="domain-section" id="sectionWater" data-domain="water">
+                                <div class="domain-header" onclick="toggleDomain('water')">
+                                    <div class="domain-info">
+                                        <span class="domain-icon">💧</span>
+                                        <span class="domain-name">Water</span>
+                                    </div>
+                                    <div class="domain-total">
+                                        <span class="domain-count" id="totalWater">--</span>
+                                        <span class="expand-icon">▼</span>
+                                    </div>
+                                </div>
+                                <div class="domain-details">
+                                    <div class="domain-detail-row">
+                                        <span class="detail-label">Entries</span>
+                                        <span class="detail-count" id="waterEntries">--</span>
+                                    </div>
+                                    <div class="domain-detail-row">
+                                        <span class="detail-label">Common Area</span>
+                                        <span class="detail-count" id="waterCommonArea">--</span>
+                                    </div>
+                                    <div class="domain-detail-row">
+                                        <span class="detail-label">Stores</span>
+                                        <span class="detail-count" id="waterStores">--</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Temperature -->
+                            <div class="domain-section" id="sectionTemperature" data-domain="temperature">
+                                <div class="domain-header" onclick="toggleDomain('temperature')">
+                                    <div class="domain-info">
+                                        <span class="domain-icon">🌡️</span>
+                                        <span class="domain-name">Temperature</span>
+                                    </div>
+                                    <div class="domain-total">
+                                        <span class="domain-count" id="totalTemperature">--</span>
+                                        <span class="expand-icon">▼</span>
+                                    </div>
+                                </div>
+                                <div class="domain-details">
+                                    <div class="domain-detail-row">
+                                        <span class="detail-label">Internal (Climate)</span>
+                                        <span class="detail-count" id="tempInternal">--</span>
+                                    </div>
+                                    <div class="domain-detail-row">
+                                        <span class="detail-label">Stores (Non-Climate)</span>
+                                        <span class="detail-count" id="tempStores">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status -->
+                        <div class="contract-modal-status" id="modalStatus">
+                            <span class="status-text" id="statusText"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Domain Controls -->
+        <section class="section">
+            <h2>Domain Controls</h2>
+            <p class="section-desc">
+                Set device counts for each domain and sub-group. Values are stored in window.CONTRACT_STATE for header display.
+            </p>
+
+            <div class="device-inputs-grid">
+                <!-- Energy Inputs -->
+                <div class="device-input-section">
+                    <h4>⚡ Energy</h4>
+                    <div class="device-input-group">
+                        <label>Entries (qtDevices3f-Entries)</label>
+                        <input type="number" id="inputEnergyEntries" value="3" min="0">
+                    </div>
+                    <div class="device-input-group">
+                        <label>Common Area (qtDevices3f-CommonArea)</label>
+                        <input type="number" id="inputEnergyCommonArea" value="5" min="0">
+                    </div>
+                    <div class="device-input-group">
+                        <label>Stores (qtDevices3f-Stores)</label>
+                        <input type="number" id="inputEnergyStores" value="12" min="0">
+                    </div>
+                </div>
+
+                <!-- Water Inputs -->
+                <div class="device-input-section">
+                    <h4>💧 Water</h4>
+                    <div class="device-input-group">
+                        <label>Entries (qtDevicesHidr-Entries)</label>
+                        <input type="number" id="inputWaterEntries" value="2" min="0">
+                    </div>
+                    <div class="device-input-group">
+                        <label>Common Area (qtDevicesHidr-CommonArea)</label>
+                        <input type="number" id="inputWaterCommonArea" value="3" min="0">
+                    </div>
+                    <div class="device-input-group">
+                        <label>Stores (qtDevicesHidr-Stores)</label>
+                        <input type="number" id="inputWaterStores" value="8" min="0">
+                    </div>
+                </div>
+
+                <!-- Temperature Inputs -->
+                <div class="device-input-section">
+                    <h4>🌡️ Temperature</h4>
+                    <div class="device-input-group">
+                        <label>Internal - Climate (qtDevicesTemp-Internal)</label>
+                        <input type="number" id="inputTempInternal" value="6" min="0">
+                    </div>
+                    <div class="device-input-group">
+                        <label>Stores - Non-Climate (qtDevicesTemp-Stores)</label>
+                        <input type="number" id="inputTempStores" value="4" min="0">
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-grid">
+                <button class="btn btn-outline" onclick="updateDomainFromInputs('energy')">
+                    Update Energy
+                </button>
+                <button class="btn btn-outline" onclick="updateDomainFromInputs('water')">
+                    Update Water
+                </button>
+                <button class="btn btn-outline" onclick="updateDomainFromInputs('temperature')">
+                    Update Temperature
+                </button>
+                <button class="btn btn-success" onclick="showValidationSuccess()">
+                    Show Success Status
+                </button>
+                <button class="btn btn-danger" onclick="showValidationError()">
+                    Show Error Status
+                </button>
+                <button class="btn btn-secondary" onclick="resetModal()">
+                    Reset All
+                </button>
+            </div>
+        </section>
+
+        <!-- Header Status Demo -->
+        <section class="section">
+            <h2>HEADER Widget - Contract Status Icon</h2>
+            <p class="section-desc">
+                The HEADER widget displays a contract status icon that reads from window.CONTRACT_STATE.
+                Click the icon to show the detailed tooltip with breakdown by domain.
+            </p>
+
+            <div style="background: #2d1458; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                    <span style="color: white; font-size: 14px; opacity: 0.7;">HEADER Widget Preview</span>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-success" onclick="setHeaderSuccess()" style="padding: 8px 16px; font-size: 12px;">Set Valid</button>
+                        <button class="btn btn-danger" onclick="setHeaderError()" style="padding: 8px 16px; font-size: 12px;">Set Error</button>
+                    </div>
+                </div>
+
+                <!-- Simulated Header Bar -->
+                <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="color: white; font-weight: 600;">Shopping Dashboard</div>
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <!-- Contract Status Icon -->
+                        <div id="headerStatusDemo" onclick="toggleHeaderTooltip()" style="
+                            display: flex; align-items: center; gap: 8px;
+                            padding: 8px 12px; background: rgba(255,255,255,0.1);
+                            border-radius: 8px; cursor: pointer;
+                            border: 1px solid rgba(255,255,255,0.1);
+                            transition: all 0.2s;">
+                            <div id="headerIconDemo" style="
+                                width: 24px; height: 24px; border-radius: 50%;
+                                background: rgba(255,255,255,0.1);
+                                display: flex; align-items: center; justify-content: center;
+                                color: white; font-size: 12px;">
+                                ...
+                            </div>
+                            <div style="font-size: 12px; color: white;" id="headerTextDemo">Loading...</div>
+                        </div>
+                        <!-- Other header icons -->
+                        <div style="color: white; opacity: 0.6;">🔔</div>
+                        <div style="color: white; opacity: 0.6;">⚙️</div>
+                    </div>
+                </div>
+
+                <!-- Tooltip Container -->
+                <div id="headerTooltipDemo" style="
+                    display: none;
+                    position: absolute;
+                    background: #2d1458;
+                    border: 1px solid rgba(255,255,255,0.15);
+                    border-radius: 12px;
+                    padding: 16px;
+                    min-width: 300px;
+                    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+                    z-index: 1000;
+                    margin-top: 8px;
+                    right: 40px;
+                ">
+                    <div style="font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: white;">
+                        <span id="tooltipStatusIcon">✓</span>
+                        Contract Summary
+                    </div>
+
+                    <!-- Energy -->
+                    <div style="margin-bottom: 12px; color: white;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                            <span>⚡ Energy</span>
+                            <span style="color: #81c784;" id="tooltipEnergyTotal">20 devices</span>
+                        </div>
+                        <div style="padding-left: 20px; font-size: 12px; opacity: 0.7;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Entries</span><span id="tooltipEnergyEntries">3</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Common Area</span><span id="tooltipEnergyCommon">5</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Stores</span><span id="tooltipEnergyStores">12</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Water -->
+                    <div style="margin-bottom: 12px; color: white;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                            <span>💧 Water</span>
+                            <span style="color: #81c784;" id="tooltipWaterTotal">13 devices</span>
+                        </div>
+                        <div style="padding-left: 20px; font-size: 12px; opacity: 0.7;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Entries</span><span id="tooltipWaterEntries">2</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Common Area</span><span id="tooltipWaterCommon">3</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Stores</span><span id="tooltipWaterStores">8</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Temperature -->
+                    <div style="margin-bottom: 12px; color: white;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                            <span>🌡️ Temperature</span>
+                            <span style="color: #81c784;" id="tooltipTempTotal">10 devices</span>
+                        </div>
+                        <div style="padding-left: 20px; font-size: 12px; opacity: 0.7;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Internal (Climate)</span><span id="tooltipTempInternal">6</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Stores (Non-Climate)</span><span id="tooltipTempStores">4</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timestamp -->
+                    <div style="font-size: 11px; opacity: 0.5; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); color: white;">
+                        Loaded: <span id="tooltipTimestamp">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="code-example">
+<span class="comment">// HEADER listens for contract loaded event from MAIN</span>
+<span class="keyword">window</span>.addEventListener(<span class="string">'myio:contract:loaded'</span>, (event) => {
+    <span class="keyword">const</span> state = event.detail;
+    <span class="function">renderContractStatusIcon</span>(state);
+});
+
+<span class="comment">// Click on icon shows detailed tooltip</span>
+statusIcon.addEventListener(<span class="string">'click'</span>, () => {
+    <span class="function">showContractSummaryTooltip</span>(statusIcon, <span class="keyword">window</span>.CONTRACT_STATE);
+});
+            </div>
+        </section>
+
+        <!-- Contract State -->
+        <section class="section">
+            <h2>window.CONTRACT_STATE</h2>
+            <p class="section-desc">
+                This state is stored and used by the HEADER widget to display contract status icon and tooltip.
+            </p>
+            <div class="state-display" id="stateDisplay">
+                <pre id="stateJson">{}</pre>
+            </div>
+        </section>
+
+        <!-- Event Log -->
+        <section class="section">
+            <h2>Event Log</h2>
+            <p class="section-desc">
+                Real-time log of modal events and state changes.
+            </p>
+            <div class="log-panel" id="logPanel">
+                <div class="log-entry"><span class="log-time">[--:--:--]</span> <span class="log-info">Showcase initialized</span></div>
+            </div>
+        </section>
+
+        <!-- API Reference -->
+        <section class="section">
+            <h2>SERVER_SCOPE Attributes</h2>
+            <p class="section-desc">
+                Device count attributes fetched from ThingsBoard SERVER_SCOPE.
+            </p>
+
+            <table class="props-table">
+                <thead>
+                    <tr>
+                        <th>Domain</th>
+                        <th>Attribute Key</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td rowspan="4"><strong>Energy</strong></td>
+                        <td><code>qtDevices3f</code></td>
+                        <td>Total energy devices</td>
+                    </tr>
+                    <tr>
+                        <td><code>qtDevices3f-Entries</code></td>
+                        <td>Energy entry devices</td>
+                    </tr>
+                    <tr>
+                        <td><code>qtDevices3f-CommonArea</code></td>
+                        <td>Common area energy devices</td>
+                    </tr>
+                    <tr>
+                        <td><code>qtDevices3f-Stores</code></td>
+                        <td>Store energy devices</td>
+                    </tr>
+                    <tr>
+                        <td rowspan="4"><strong>Water</strong></td>
+                        <td><code>qtDevicesHidr</code></td>
+                        <td>Total water devices</td>
+                    </tr>
+                    <tr>
+                        <td><code>qtDevicesHidr-Entries</code></td>
+                        <td>Water entry devices</td>
+                    </tr>
+                    <tr>
+                        <td><code>qtDevicesHidr-CommonArea</code></td>
+                        <td>Common area water devices</td>
+                    </tr>
+                    <tr>
+                        <td><code>qtDevicesHidr-Stores</code></td>
+                        <td>Store water devices</td>
+                    </tr>
+                    <tr>
+                        <td rowspan="3"><strong>Temperature</strong></td>
+                        <td><code>qtDevicesTemp</code></td>
+                        <td>Total temperature devices</td>
+                    </tr>
+                    <tr>
+                        <td><code>qtDevicesTemp-Internal</code></td>
+                        <td>Climate-controlled environment</td>
+                    </tr>
+                    <tr>
+                        <td><code>qtDevicesTemp-Stores</code></td>
+                        <td>Non-climate-controlled environment</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Code Example -->
+        <section class="section">
+            <h2>Implementation Example</h2>
+            <p class="section-desc">
+                How to use the contract loading modal with detailed breakdown.
+            </p>
+
+            <div class="code-example">
+<span class="comment">// Store contract state globally for HEADER access</span>
+<span class="keyword">window</span>.CONTRACT_STATE = {
+    isLoaded: <span class="keyword">false</span>,
+    isValid: <span class="keyword">false</span>,
+    energy: { total: <span class="number">0</span>, entries: <span class="number">0</span>, commonArea: <span class="number">0</span>, stores: <span class="number">0</span> },
+    water: { total: <span class="number">0</span>, entries: <span class="number">0</span>, commonArea: <span class="number">0</span>, stores: <span class="number">0</span> },
+    temperature: { total: <span class="number">0</span>, internal: <span class="number">0</span>, stores: <span class="number">0</span> }
+};
+
+<span class="comment">// Update domain with detailed counts</span>
+<span class="keyword">function</span> <span class="function">updateContractModalDomain</span>(domain, counts) {
+    <span class="keyword">const</span> section = document.getElementById(<span class="string">`section${domain}`</span>);
+
+    <span class="comment">// Update totals and details</span>
+    <span class="keyword">if</span> (domain === <span class="string">'energy'</span>) {
+        <span class="keyword">window</span>.CONTRACT_STATE.energy = counts;
+        document.getElementById(<span class="string">'totalEnergy'</span>).textContent = <span class="string">`${counts.total} devices`</span>;
+        document.getElementById(<span class="string">'energyEntries'</span>).textContent = counts.entries;
+        document.getElementById(<span class="string">'energyCommonArea'</span>).textContent = counts.commonArea;
+        document.getElementById(<span class="string">'energyStores'</span>).textContent = counts.stores;
+    }
+    <span class="comment">// ... similar for water and temperature</span>
+
+    section.classList.add(<span class="string">'loaded'</span>);
+}
+            </div>
+        </section>
+
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="index.html" class="btn btn-primary">Back to Showcase Portal</a>
+        </div>
+    </div>
+
+    <script>
+        // Global contract state (simulating window.CONTRACT_STATE in MAIN)
+        window.CONTRACT_STATE = {
+            isLoaded: false,
+            isValid: false,
+            timestamp: null,
+            energy: { total: 0, entries: 0, commonArea: 0, stores: 0 },
+            water: { total: 0, entries: 0, commonArea: 0, stores: 0 },
+            temperature: { total: 0, internal: 0, stores: 0 }
+        };
+
+        // Log helper
+        function log(message, type = 'info') {
+            const panel = document.getElementById('logPanel');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
+            panel.appendChild(entry);
+            panel.scrollTop = panel.scrollHeight;
+        }
+
+        // Update state display
+        function updateStateDisplay() {
+            document.getElementById('stateJson').textContent = JSON.stringify(window.CONTRACT_STATE, null, 2);
+        }
+
+        // Update header status
+        function updateHeaderStatus() {
+            const icon = document.getElementById('headerIcon');
+            const count = document.getElementById('headerCount');
+
+            const totalDevices =
+                window.CONTRACT_STATE.energy.total +
+                window.CONTRACT_STATE.water.total +
+                window.CONTRACT_STATE.temperature.total;
+
+            if (window.CONTRACT_STATE.isLoaded) {
+                if (window.CONTRACT_STATE.isValid) {
+                    icon.className = 'header-status-icon success';
+                    icon.textContent = '✓';
+                    count.textContent = `${totalDevices} devices`;
+                } else {
+                    icon.className = 'header-status-icon error';
+                    icon.textContent = '!';
+                    count.textContent = 'Validation Error';
+                }
+            } else {
+                icon.className = 'header-status-icon loading';
+                icon.textContent = '...';
+                count.textContent = 'Loading...';
+            }
+        }
+
+        // Toggle domain expand/collapse
+        function toggleDomain(domain) {
+            const section = document.getElementById('section' + domain.charAt(0).toUpperCase() + domain.slice(1));
+            section.classList.toggle('expanded');
+        }
+
+        // Modal functions
+        function showModal() {
+            document.getElementById('contractModal').classList.add('active');
+            log('Modal shown', 'info');
+        }
+
+        function hideModal() {
+            document.getElementById('contractModal').classList.remove('active');
+            log('Modal hidden', 'info');
+        }
+
+        function updateDomainFromInputs(domain) {
+            let counts;
+
+            if (domain === 'energy') {
+                counts = {
+                    entries: parseInt(document.getElementById('inputEnergyEntries').value) || 0,
+                    commonArea: parseInt(document.getElementById('inputEnergyCommonArea').value) || 0,
+                    stores: parseInt(document.getElementById('inputEnergyStores').value) || 0
+                };
+                counts.total = counts.entries + counts.commonArea + counts.stores;
+
+                document.getElementById('totalEnergy').textContent = `${counts.total} devices`;
+                document.getElementById('energyEntries').textContent = counts.entries;
+                document.getElementById('energyCommonArea').textContent = counts.commonArea;
+                document.getElementById('energyStores').textContent = counts.stores;
+
+                window.CONTRACT_STATE.energy = counts;
+
+            } else if (domain === 'water') {
+                counts = {
+                    entries: parseInt(document.getElementById('inputWaterEntries').value) || 0,
+                    commonArea: parseInt(document.getElementById('inputWaterCommonArea').value) || 0,
+                    stores: parseInt(document.getElementById('inputWaterStores').value) || 0
+                };
+                counts.total = counts.entries + counts.commonArea + counts.stores;
+
+                document.getElementById('totalWater').textContent = `${counts.total} devices`;
+                document.getElementById('waterEntries').textContent = counts.entries;
+                document.getElementById('waterCommonArea').textContent = counts.commonArea;
+                document.getElementById('waterStores').textContent = counts.stores;
+
+                window.CONTRACT_STATE.water = counts;
+
+            } else if (domain === 'temperature') {
+                counts = {
+                    internal: parseInt(document.getElementById('inputTempInternal').value) || 0,
+                    stores: parseInt(document.getElementById('inputTempStores').value) || 0
+                };
+                counts.total = counts.internal + counts.stores;
+
+                document.getElementById('totalTemperature').textContent = `${counts.total} devices`;
+                document.getElementById('tempInternal').textContent = counts.internal;
+                document.getElementById('tempStores').textContent = counts.stores;
+
+                window.CONTRACT_STATE.temperature = counts;
+            }
+
+            // Mark as loaded
+            const section = document.getElementById('section' + domain.charAt(0).toUpperCase() + domain.slice(1));
+            section.classList.add('loaded');
+            section.classList.add('expanded');
+
+            // Mark detail counts as loaded
+            section.querySelectorAll('.detail-count').forEach(el => el.classList.add('loaded'));
+
+            log(`${domain} updated: ${counts.total} devices (${JSON.stringify(counts)})`, 'success');
+            updateStateDisplay();
+            updateHeaderStatus();
+        }
+
+        function showValidationSuccess() {
+            const status = document.getElementById('modalStatus');
+            const text = document.getElementById('statusText');
+
+            status.classList.add('visible', 'success');
+            status.classList.remove('error');
+            text.className = 'status-text success';
+
+            const total = window.CONTRACT_STATE.energy.total +
+                         window.CONTRACT_STATE.water.total +
+                         window.CONTRACT_STATE.temperature.total;
+
+            text.innerHTML = `✓ Contract validated successfully - ${total} devices loaded`;
+
+            // Show checkmark, hide spinner
+            document.getElementById('modalSpinner').classList.add('hidden');
+            document.getElementById('modalCheckmark').classList.add('visible');
+            document.getElementById('modalTitle').textContent = 'Contract Loaded';
+
+            // Update global state
+            window.CONTRACT_STATE.isLoaded = true;
+            window.CONTRACT_STATE.isValid = true;
+            window.CONTRACT_STATE.timestamp = new Date().toISOString();
+
+            log('Validation passed', 'success');
+            updateStateDisplay();
+            updateHeaderStatus();
+        }
+
+        function showValidationError() {
+            const status = document.getElementById('modalStatus');
+            const text = document.getElementById('statusText');
+
+            status.classList.add('visible', 'error');
+            status.classList.remove('success');
+            text.className = 'status-text error';
+            text.innerHTML = '⚠ Validation issues: device count mismatch with window.STATE';
+
+            // Update global state
+            window.CONTRACT_STATE.isLoaded = true;
+            window.CONTRACT_STATE.isValid = false;
+
+            log('Validation failed: device count mismatch', 'error');
+            updateStateDisplay();
+            updateHeaderStatus();
+        }
+
+        function resetModal() {
+            // Reset domains
+            ['Energy', 'Water', 'Temperature'].forEach(domain => {
+                const section = document.getElementById('section' + domain);
+                section.classList.remove('loaded', 'error', 'expanded');
+            });
+
+            document.getElementById('totalEnergy').textContent = '--';
+            document.getElementById('energyEntries').textContent = '--';
+            document.getElementById('energyCommonArea').textContent = '--';
+            document.getElementById('energyStores').textContent = '--';
+
+            document.getElementById('totalWater').textContent = '--';
+            document.getElementById('waterEntries').textContent = '--';
+            document.getElementById('waterCommonArea').textContent = '--';
+            document.getElementById('waterStores').textContent = '--';
+
+            document.getElementById('totalTemperature').textContent = '--';
+            document.getElementById('tempInternal').textContent = '--';
+            document.getElementById('tempStores').textContent = '--';
+
+            // Reset detail loaded class
+            document.querySelectorAll('.detail-count').forEach(el => el.classList.remove('loaded'));
+
+            // Reset status
+            const status = document.getElementById('modalStatus');
+            status.classList.remove('visible', 'success', 'error');
+
+            // Reset header
+            document.getElementById('modalSpinner').classList.remove('hidden');
+            document.getElementById('modalCheckmark').classList.remove('visible');
+            document.getElementById('modalTitle').textContent = 'Loading Contract...';
+
+            // Reset global state
+            window.CONTRACT_STATE = {
+                isLoaded: false,
+                isValid: false,
+                timestamp: null,
+                energy: { total: 0, entries: 0, commonArea: 0, stores: 0 },
+                water: { total: 0, entries: 0, commonArea: 0, stores: 0 },
+                temperature: { total: 0, internal: 0, stores: 0 }
+            };
+
+            log('Modal reset', 'info');
+            updateStateDisplay();
+            updateHeaderStatus();
+        }
+
+        function simulateFullLoad() {
+            resetModal();
+            showModal();
+
+            log('Starting full load simulation...', 'info');
+
+            // Energy after 800ms
+            setTimeout(() => {
+                updateDomainFromInputs('energy');
+            }, 800);
+
+            // Water after 1600ms
+            setTimeout(() => {
+                updateDomainFromInputs('water');
+            }, 1600);
+
+            // Temperature after 2400ms
+            setTimeout(() => {
+                updateDomainFromInputs('temperature');
+            }, 2400);
+
+            // Validation after 3200ms
+            setTimeout(() => {
+                showValidationSuccess();
+            }, 3200);
+
+            // Hide after 5000ms
+            setTimeout(() => {
+                hideModal();
+                log('Simulation complete - CONTRACT_STATE available for HEADER', 'success');
+            }, 5000);
+        }
+
+        function simulateError() {
+            resetModal();
+            showModal();
+
+            log('Starting error simulation...', 'info');
+
+            setTimeout(() => updateDomainFromInputs('energy'), 800);
+
+            setTimeout(() => {
+                // Simulate water error
+                const section = document.getElementById('sectionWater');
+                section.classList.add('error');
+                document.getElementById('totalWater').textContent = 'Error loading';
+                log('Water domain failed to load', 'error');
+            }, 1600);
+
+            setTimeout(() => updateDomainFromInputs('temperature'), 2400);
+            setTimeout(() => showValidationError(), 3200);
+        }
+
+        // Header Demo Functions
+        let headerTooltipVisible = false;
+
+        function toggleHeaderTooltip() {
+            const tooltip = document.getElementById('headerTooltipDemo');
+            headerTooltipVisible = !headerTooltipVisible;
+            tooltip.style.display = headerTooltipVisible ? 'block' : 'none';
+
+            if (headerTooltipVisible) {
+                updateHeaderTooltipData();
+                log('Header tooltip shown', 'info');
+            } else {
+                log('Header tooltip hidden', 'info');
+            }
+        }
+
+        function updateHeaderTooltipData() {
+            const state = window.CONTRACT_STATE;
+
+            document.getElementById('tooltipStatusIcon').textContent = state.isValid ? '✓' : '⚠';
+            document.getElementById('tooltipEnergyTotal').textContent = `${state.energy.total} devices`;
+            document.getElementById('tooltipEnergyEntries').textContent = state.energy.entries;
+            document.getElementById('tooltipEnergyCommon').textContent = state.energy.commonArea;
+            document.getElementById('tooltipEnergyStores').textContent = state.energy.stores;
+
+            document.getElementById('tooltipWaterTotal').textContent = `${state.water.total} devices`;
+            document.getElementById('tooltipWaterEntries').textContent = state.water.entries;
+            document.getElementById('tooltipWaterCommon').textContent = state.water.commonArea;
+            document.getElementById('tooltipWaterStores').textContent = state.water.stores;
+
+            document.getElementById('tooltipTempTotal').textContent = `${state.temperature.total} devices`;
+            document.getElementById('tooltipTempInternal').textContent = state.temperature.internal;
+            document.getElementById('tooltipTempStores').textContent = state.temperature.stores;
+
+            document.getElementById('tooltipTimestamp').textContent = state.timestamp
+                ? new Date(state.timestamp).toLocaleString()
+                : '--';
+        }
+
+        function updateHeaderDemo() {
+            const state = window.CONTRACT_STATE;
+            const icon = document.getElementById('headerIconDemo');
+            const text = document.getElementById('headerTextDemo');
+
+            const total = state.energy.total + state.water.total + state.temperature.total;
+
+            if (state.isLoaded) {
+                if (state.isValid) {
+                    icon.style.background = 'rgba(76,175,80,0.3)';
+                    icon.style.color = '#81c784';
+                    icon.textContent = '✓';
+                    text.textContent = `${total} devices`;
+                } else {
+                    icon.style.background = 'rgba(244,67,54,0.3)';
+                    icon.style.color = '#ef5350';
+                    icon.textContent = '!';
+                    text.textContent = 'Validation Error';
+                }
+            } else {
+                icon.style.background = 'rgba(255,255,255,0.1)';
+                icon.style.color = 'white';
+                icon.textContent = '...';
+                text.textContent = 'Loading...';
+            }
+
+            if (headerTooltipVisible) {
+                updateHeaderTooltipData();
+            }
+        }
+
+        function setHeaderSuccess() {
+            // Update from current input values
+            window.CONTRACT_STATE.energy = {
+                entries: parseInt(document.getElementById('inputEnergyEntries').value) || 0,
+                commonArea: parseInt(document.getElementById('inputEnergyCommonArea').value) || 0,
+                stores: parseInt(document.getElementById('inputEnergyStores').value) || 0,
+                total: 0
+            };
+            window.CONTRACT_STATE.energy.total =
+                window.CONTRACT_STATE.energy.entries +
+                window.CONTRACT_STATE.energy.commonArea +
+                window.CONTRACT_STATE.energy.stores;
+
+            window.CONTRACT_STATE.water = {
+                entries: parseInt(document.getElementById('inputWaterEntries').value) || 0,
+                commonArea: parseInt(document.getElementById('inputWaterCommonArea').value) || 0,
+                stores: parseInt(document.getElementById('inputWaterStores').value) || 0,
+                total: 0
+            };
+            window.CONTRACT_STATE.water.total =
+                window.CONTRACT_STATE.water.entries +
+                window.CONTRACT_STATE.water.commonArea +
+                window.CONTRACT_STATE.water.stores;
+
+            window.CONTRACT_STATE.temperature = {
+                internal: parseInt(document.getElementById('inputTempInternal').value) || 0,
+                stores: parseInt(document.getElementById('inputTempStores').value) || 0,
+                total: 0
+            };
+            window.CONTRACT_STATE.temperature.total =
+                window.CONTRACT_STATE.temperature.internal +
+                window.CONTRACT_STATE.temperature.stores;
+
+            window.CONTRACT_STATE.isLoaded = true;
+            window.CONTRACT_STATE.isValid = true;
+            window.CONTRACT_STATE.timestamp = new Date().toISOString();
+
+            updateHeaderDemo();
+            updateStateDisplay();
+            log('Header set to valid state', 'success');
+        }
+
+        function setHeaderError() {
+            window.CONTRACT_STATE.isLoaded = true;
+            window.CONTRACT_STATE.isValid = false;
+            window.CONTRACT_STATE.timestamp = new Date().toISOString();
+
+            updateHeaderDemo();
+            updateStateDisplay();
+            log('Header set to error state', 'error');
+        }
+
+        // Close tooltip when clicking outside
+        document.addEventListener('click', (e) => {
+            const tooltip = document.getElementById('headerTooltipDemo');
+            const statusIcon = document.getElementById('headerStatusDemo');
+            if (headerTooltipVisible && !tooltip.contains(e.target) && !statusIcon.contains(e.target)) {
+                headerTooltipVisible = false;
+                tooltip.style.display = 'none';
+            }
+        });
+
+        // Initialize
+        log('Showcase initialized', 'info');
+        updateStateDisplay();
+        updateHeaderStatus();
+        updateHeaderDemo();
+    </script>
+</body>
+</html>

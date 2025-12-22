@@ -301,6 +301,10 @@ export type { TempComparisonData } from './utils/TempComparisonTooltip';
 export { TempSensorSummaryTooltip } from './utils/TempSensorSummaryTooltip';
 export type { TempSensorSummaryData, TempSensorDevice } from './utils/TempSensorSummaryTooltip';
 
+// RFC-0107: Contract Summary Tooltip (Shopping Dashboard contract status)
+export { ContractSummaryTooltip } from './utils/ContractSummaryTooltip';
+export type { ContractSummaryData, ContractDomainCounts, ContractTemperatureCounts } from './utils/ContractSummaryTooltip';
+
 // Modal Header Component (Reusable)
 export {
   createModalHeader,

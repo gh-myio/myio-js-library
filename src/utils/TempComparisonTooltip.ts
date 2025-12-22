@@ -688,7 +688,7 @@ function formatTimestamp(isoString?: string): string {
 }
 
 /**
- * Calculate temperature status and deviation
+ * Calculate temperature status relative to average
  */
 function calculateTempStatus(currentTemp: number, avgTemp: number): {
   deviation: number;
@@ -711,6 +711,23 @@ function calculateTempStatus(currentTemp: number, avgTemp: number): {
     return { deviation: absDeviation, sign: '+', status: 'above', statusText: 'Acima da media', statusIcon: '🔺' };
   } else {
     return { deviation: absDeviation, sign: '-', status: 'below', statusText: 'Abaixo da media', statusIcon: '🔻' };
+  }
+}
+
+/**
+ * Calculate temperature status relative to configured range (minTemp - maxTemp)
+ */
+function calculateRangeStatus(currentTemp: number, minTemp: number, maxTemp: number): {
+  status: 'ok' | 'above' | 'below';
+  statusText: string;
+  statusIcon: string;
+} {
+  if (currentTemp >= minTemp && currentTemp <= maxTemp) {
+    return { status: 'ok', statusText: 'Dentro da faixa', statusIcon: '✓' };
+  } else if (currentTemp > maxTemp) {
+    return { status: 'above', statusText: 'Acima da faixa', statusIcon: '🔺' };
+  } else {
+    return { status: 'below', statusText: 'Abaixo da faixa', statusIcon: '🔻' };
   }
 }
 
@@ -770,8 +787,12 @@ function generateBodyHTML(data: TempComparisonData): string {
   const timestamp = formatTimestamp(lastUpdated);
 
   const tempStatus = calculateTempStatus(device.currentTemp, average.value);
+  const rangeStatus = calculateRangeStatus(device.currentTemp, device.minTemp, device.maxTemp);
   const deviceBarPos = calcTempBarPosition(device.currentTemp, device.minTemp, device.maxTemp);
   const avgBarPos = calcTempBarPosition(average.value, device.minTemp, device.maxTemp);
+
+  // Map rangeStatus.status to CSS class (ok -> normal for styling)
+  const rangeStatusClass = rangeStatus.status === 'ok' ? 'normal' : rangeStatus.status;
 
   return `
     <div class="myio-temp-comparison-tooltip__body">
@@ -787,10 +808,16 @@ function generateBodyHTML(data: TempComparisonData): string {
         </div>
       </div>
 
-      <!-- Configured Range -->
+      <!-- Configured Range with Status -->
       <div class="myio-temp-comparison-tooltip__range">
         <span class="myio-temp-comparison-tooltip__range-label">Faixa Ideal:</span>
         <span class="myio-temp-comparison-tooltip__range-value">${formatTemp(device.minTemp)} - ${formatTemp(device.maxTemp)}</span>
+      </div>
+
+      <!-- Range Status Indicator -->
+      <div class="myio-temp-comparison-tooltip__status ${rangeStatusClass}">
+        <span class="myio-temp-comparison-tooltip__status-icon">${rangeStatus.statusIcon}</span>
+        <span>${rangeStatus.statusText}</span>
       </div>
 
       <!-- Section: Average Comparison -->
