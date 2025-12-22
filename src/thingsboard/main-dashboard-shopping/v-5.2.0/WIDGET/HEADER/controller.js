@@ -154,13 +154,15 @@ function initContractStatusIcon() {
       return;
     }
 
-    // Create tooltip instance and show
-    const tooltip = new ContractSummaryTooltip();
-    const data = tooltip.buildFromGlobalState();
+    // Build data from global state and show tooltip
+    // ContractSummaryTooltip is an object with static methods, not a class
+    const data = ContractSummaryTooltip.buildFromGlobalState();
 
     if (data) {
-      tooltip.show(contractStatusEl, data);
+      ContractSummaryTooltip.show(contractStatusEl, data);
       LogHelper.log('[HEADER] ContractSummaryTooltip shown');
+    } else {
+      LogHelper.warn('[HEADER] Could not build tooltip data from CONTRACT_STATE');
     }
   });
 

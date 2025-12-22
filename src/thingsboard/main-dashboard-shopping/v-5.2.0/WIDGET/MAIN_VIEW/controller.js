@@ -2200,7 +2200,7 @@ const MyIOOrchestrator = (() => {
             background:rgba(255,255,255,0.08); border-radius:12px; overflow:hidden;">
           <div class="domain-header" style="
               display:flex; align-items:center; justify-content:space-between;
-              padding:12px 14px; cursor:pointer;" onclick="this.parentElement.classList.toggle('expanded')">
+              padding:12px 14px; cursor:pointer;">
             <div style="display:flex; align-items:center; gap:10px;">
               <span style="font-size:20px;">⚡</span>
               <span style="font-weight:500;">Energia</span>
@@ -2215,20 +2215,18 @@ const MyIOOrchestrator = (() => {
               <span class="expand-arrow" style="font-size:12px; transition:transform 0.2s;">▼</span>
             </div>
           </div>
-          <div class="domain-details" style="
-              max-height:0; overflow:hidden; transition:max-height 0.3s ease-out;
-              padding:0 14px; background:rgba(0,0,0,0.15);">
-            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+          <div class="domain-details">
+            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.08);">
               <span style="font-size:12px; opacity:0.8;">Entradas</span>
-              <span class="detail-entries" style="font-size:12px;">--</span>
+              <span class="detail-entries" style="font-size:12px; font-weight:500;">--</span>
             </div>
-            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.08);">
               <span style="font-size:12px; opacity:0.8;">Área Comum</span>
-              <span class="detail-commonArea" style="font-size:12px;">--</span>
+              <span class="detail-commonArea" style="font-size:12px; font-weight:500;">--</span>
             </div>
             <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0;">
               <span style="font-size:12px; opacity:0.8;">Lojas</span>
-              <span class="detail-stores" style="font-size:12px;">--</span>
+              <span class="detail-stores" style="font-size:12px; font-weight:500;">--</span>
             </div>
           </div>
         </div>
@@ -2238,7 +2236,7 @@ const MyIOOrchestrator = (() => {
             background:rgba(255,255,255,0.08); border-radius:12px; overflow:hidden;">
           <div class="domain-header" style="
               display:flex; align-items:center; justify-content:space-between;
-              padding:12px 14px; cursor:pointer;" onclick="this.parentElement.classList.toggle('expanded')">
+              padding:12px 14px; cursor:pointer;">
             <div style="display:flex; align-items:center; gap:10px;">
               <span style="font-size:20px;">💧</span>
               <span style="font-weight:500;">Água</span>
@@ -2253,20 +2251,18 @@ const MyIOOrchestrator = (() => {
               <span class="expand-arrow" style="font-size:12px; transition:transform 0.2s;">▼</span>
             </div>
           </div>
-          <div class="domain-details" style="
-              max-height:0; overflow:hidden; transition:max-height 0.3s ease-out;
-              padding:0 14px; background:rgba(0,0,0,0.15);">
-            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+          <div class="domain-details">
+            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.08);">
               <span style="font-size:12px; opacity:0.8;">Entradas</span>
-              <span class="detail-entries" style="font-size:12px;">--</span>
+              <span class="detail-entries" style="font-size:12px; font-weight:500;">--</span>
             </div>
-            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.08);">
               <span style="font-size:12px; opacity:0.8;">Área Comum</span>
-              <span class="detail-commonArea" style="font-size:12px;">--</span>
+              <span class="detail-commonArea" style="font-size:12px; font-weight:500;">--</span>
             </div>
             <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0;">
               <span style="font-size:12px; opacity:0.8;">Lojas</span>
-              <span class="detail-stores" style="font-size:12px;">--</span>
+              <span class="detail-stores" style="font-size:12px; font-weight:500;">--</span>
             </div>
           </div>
         </div>
@@ -2276,7 +2272,7 @@ const MyIOOrchestrator = (() => {
             background:rgba(255,255,255,0.08); border-radius:12px; overflow:hidden;">
           <div class="domain-header" style="
               display:flex; align-items:center; justify-content:space-between;
-              padding:12px 14px; cursor:pointer;" onclick="this.parentElement.classList.toggle('expanded')">
+              padding:12px 14px; cursor:pointer;">
             <div style="display:flex; align-items:center; gap:10px;">
               <span style="font-size:20px;">🌡️</span>
               <span style="font-weight:500;">Temperatura</span>
@@ -2291,16 +2287,14 @@ const MyIOOrchestrator = (() => {
               <span class="expand-arrow" style="font-size:12px; transition:transform 0.2s;">▼</span>
             </div>
           </div>
-          <div class="domain-details" style="
-              max-height:0; overflow:hidden; transition:max-height 0.3s ease-out;
-              padding:0 14px; background:rgba(0,0,0,0.15);">
-            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+          <div class="domain-details">
+            <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.08);">
               <span style="font-size:12px; opacity:0.8;">Climatizados</span>
-              <span class="detail-internal" style="font-size:12px;">--</span>
+              <span class="detail-internal" style="font-size:12px; font-weight:500;">--</span>
             </div>
             <div class="detail-row" style="display:flex; justify-content:space-between; padding:8px 0;">
               <span style="font-size:12px; opacity:0.8;">Lojas</span>
-              <span class="detail-stores" style="font-size:12px;">--</span>
+              <span class="detail-stores" style="font-size:12px; font-weight:500;">--</span>
             </div>
           </div>
         </div>
@@ -2311,6 +2305,27 @@ const MyIOOrchestrator = (() => {
       <div id="${BUSY_OVERLAY_ID}-status" style="
           margin-top:16px; padding:12px 14px; border-radius:10px;
           background:rgba(255,255,255,0.05); display:none;">
+      </div>
+
+      <!-- Action buttons -->
+      <div id="${BUSY_OVERLAY_ID}-actions" style="
+          display:flex; gap:10px; margin-top:16px; justify-content:flex-end;">
+        <button class="contract-pause-btn" style="
+            padding:8px 16px; border-radius:8px; border:1px solid rgba(255,255,255,0.2);
+            background:rgba(255,255,255,0.1); color:#fff; font-size:13px;
+            cursor:pointer; display:flex; align-items:center; gap:6px;
+            transition:all 0.2s ease;">
+          <span class="pause-icon">⏸</span>
+          <span class="pause-text">Pausar</span>
+        </button>
+        <button class="contract-close-btn" style="
+            padding:8px 16px; border-radius:8px; border:none;
+            background:#81c784; color:#1a1a2e; font-size:13px; font-weight:500;
+            cursor:not-allowed; opacity:0.5; display:flex; align-items:center; gap:6px;
+            transition:all 0.2s ease;" disabled>
+          <span>✓</span>
+          <span>Fechar</span>
+        </button>
       </div>
     `;
 
@@ -2326,12 +2341,22 @@ const MyIOOrchestrator = (() => {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
       }
+      #${BUSY_OVERLAY_ID} .domain-section .domain-details {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+        padding: 0 14px;
+        background: rgba(0,0,0,0.15);
+      }
       #${BUSY_OVERLAY_ID} .domain-section.expanded .domain-details {
-        max-height: 150px;
-        padding: 0 14px 10px 14px;
+        max-height: 200px;
+        padding: 8px 14px 12px 14px;
       }
       #${BUSY_OVERLAY_ID} .domain-section.expanded .expand-arrow {
         transform: rotate(180deg);
+      }
+      #${BUSY_OVERLAY_ID} .domain-section .domain-header {
+        user-select: none;
       }
       #${BUSY_OVERLAY_ID} .domain-section.loaded .domain-status {
         background: rgba(76,175,80,0.3);
@@ -2351,11 +2376,99 @@ const MyIOOrchestrator = (() => {
         opacity: 1;
         color: #ef5350;
       }
+      #${BUSY_OVERLAY_ID} .contract-pause-btn:hover {
+        background: rgba(255,255,255,0.2);
+        border-color: rgba(255,255,255,0.4);
+      }
+      #${BUSY_OVERLAY_ID} .contract-pause-btn.paused {
+        background: rgba(239,83,80,0.2);
+        border-color: #ef5350;
+      }
+      #${BUSY_OVERLAY_ID} .contract-close-btn:not(:disabled):hover {
+        background: #66bb6a;
+      }
     `;
       document.head.appendChild(styleEl);
     }
 
+    // RFC-0107: Set up button event listeners
+    setupContractModalButtons(el);
+
     return el;
+  }
+
+  /**
+   * RFC-0107: Sets up event listeners for pause, close buttons and domain expand
+   */
+  function setupContractModalButtons(modalEl) {
+    const pauseBtn = modalEl.querySelector('.contract-pause-btn');
+    const closeBtn = modalEl.querySelector('.contract-close-btn');
+
+    // Initialize pause state
+    window._contractModalPaused = false;
+
+    // Domain header expand/collapse handlers
+    const domainHeaders = modalEl.querySelectorAll('.domain-header');
+    domainHeaders.forEach((header) => {
+      header.addEventListener('click', () => {
+        const section = header.parentElement;
+        section.classList.toggle('expanded');
+        LogHelper.log(`[RFC-0107] Domain ${section.dataset.domain} ${section.classList.contains('expanded') ? 'expanded' : 'collapsed'}`);
+      });
+    });
+
+    // Pause button handler
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', () => {
+        window._contractModalPaused = !window._contractModalPaused;
+        const icon = pauseBtn.querySelector('.pause-icon');
+        const text = pauseBtn.querySelector('.pause-text');
+
+        if (window._contractModalPaused) {
+          // Paused state
+          icon.textContent = '▶';
+          text.textContent = 'Retomar';
+          pauseBtn.classList.add('paused');
+          LogHelper.log('[RFC-0107] Contract modal auto-close paused');
+
+          // Clear auto-close timeout
+          if (window._contractModalAutoCloseId) {
+            clearTimeout(window._contractModalAutoCloseId);
+            window._contractModalAutoCloseId = null;
+          }
+        } else {
+          // Resumed state
+          icon.textContent = '⏸';
+          text.textContent = 'Pausar';
+          pauseBtn.classList.remove('paused');
+          LogHelper.log('[RFC-0107] Contract modal auto-close resumed');
+
+          // Restart auto-close timer (15 seconds)
+          window._contractModalAutoCloseId = setTimeout(() => {
+            if (!window._contractModalPaused && window.MyIOOrchestrator?.hideGlobalBusy) {
+              LogHelper.log('[RFC-0107] Auto-closing contract modal');
+              window.MyIOOrchestrator.hideGlobalBusy();
+            }
+          }, 15000);
+        }
+      });
+    }
+
+    // Close button handler
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        if (!closeBtn.disabled) {
+          LogHelper.log('[RFC-0107] Contract modal closed by user');
+          if (window._contractModalAutoCloseId) {
+            clearTimeout(window._contractModalAutoCloseId);
+            window._contractModalAutoCloseId = null;
+          }
+          if (window.MyIOOrchestrator?.hideGlobalBusy) {
+            window.MyIOOrchestrator.hideGlobalBusy();
+          }
+        }
+      });
+    }
   }
 
   /**
@@ -4079,11 +4192,23 @@ function finalizeContractValidation(expectedCounts) {
 
   LogHelper.log('[RFC-0107] ✅ Contract validation complete:', validationResult);
 
-  // RFC-0107: Auto-close the contract loading modal after 6 seconds
-  setTimeout(() => {
+  // RFC-0107: Auto-close the contract loading modal after 15 seconds (if not paused)
+  window._contractModalAutoCloseId = setTimeout(() => {
+    if (window._contractModalPaused) {
+      LogHelper.log('[RFC-0107] Auto-close skipped - modal is paused');
+      return;
+    }
     if (window.MyIOOrchestrator?.hideGlobalBusy) {
-      LogHelper.log('[RFC-0107] Auto-closing contract loading modal after 6 seconds');
+      LogHelper.log('[RFC-0107] Auto-closing contract loading modal after 15 seconds');
       window.MyIOOrchestrator.hideGlobalBusy();
     }
-  }, 6000);
+  }, 15000);
+
+  // Enable close button now that loading is complete
+  const closeBtn = document.querySelector('#myio-orchestrator-busy-overlay .contract-close-btn');
+  if (closeBtn) {
+    closeBtn.disabled = false;
+    closeBtn.style.opacity = '1';
+    closeBtn.style.cursor = 'pointer';
+  }
 }
