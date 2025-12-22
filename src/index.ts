@@ -441,3 +441,19 @@ export {
   TELEMETRY_TYPES as POWER_LIMITS_TELEMETRY_TYPES,
   STATUS_CONFIG as POWER_LIMITS_STATUS_CONFIG,
 } from './components/premium-modals/power-limits';
+
+// RFC-0107: Contract Devices Modal (Shopping Dashboard)
+export {
+  openContractDevicesModal,
+  DEVICE_COUNT_KEYS,
+} from './components/premium-modals/contract-devices';
+
+// RFC-0107: Contract Devices Modal Types
+export type {
+  OpenContractDevicesModalParams,
+  ContractDevicesPersistResult,
+  ContractDevicesError,
+  ContractDeviceCounts,
+  DeviceCountKeys,
+  ContractDomain,
+} from './components/premium-modals/contract-devices';
