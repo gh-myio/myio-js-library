@@ -110,6 +110,14 @@ const DEVICE_TYPE_CONFIG = {
     category: 'water',
     image: 'https://dashboard.myio-bas.com/api/images/public/aMQYFJbGHs9gQbQkMn6XseAlUZHanBR4',
   },
+  HIDROMETRO_AREA_COMUM: {
+    category: 'water',
+    image: 'https://dashboard.myio-bas.com/api/images/public/IbEhjsvixAxwKg1ntGGZc5xZwwvGKv2t',
+  },
+  HIDROMETRO_SHOPPING: {
+    category: 'water',
+    image: 'https://dashboard.myio-bas.com/api/images/public/OIMmvN4ZTKYDvrpPGYY5agqMRoSaWNTI',
+  },
   CAIXA_DAGUA: {
     category: 'water',
     image: 'https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq',
@@ -769,11 +777,23 @@ export function renderCardComponentV5({
                   <span class="consumption-value">${formatCardValue(cardEntity.lastValue, deviceType)}</span>
                 </div>
               </div>
-              ${!isTermostatoDevice
-                ? `<span class="device-percentage-badge percentage-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; cursor: help;">${percentageForDisplay.toFixed(1)}%</span>`
-                : (tempDeviationPercent
-                    ? `<span class="device-percentage-badge temp-deviation-badge temp-comparison-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; color: ${tempDeviationPercent.isAbove ? '#ef4444' : tempDeviationPercent.isBelow ? '#3b82f6' : '#6b7280'}; font-weight: 600; cursor: help;">${tempDeviationPercent.sign}${tempDeviationPercent.value.toFixed(1)}%</span>`
-                    : '')}
+              ${
+                !isTermostatoDevice
+                  ? `<span class="device-percentage-badge percentage-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; cursor: help;">${percentageForDisplay.toFixed(
+                      1
+                    )}%</span>`
+                  : tempDeviationPercent
+                  ? `<span class="device-percentage-badge temp-deviation-badge temp-comparison-tooltip-trigger" style="position: absolute; bottom: 12px; right: 12px; z-index: 20; background: none !important; color: ${
+                      tempDeviationPercent.isAbove
+                        ? '#ef4444'
+                        : tempDeviationPercent.isBelow
+                        ? '#3b82f6'
+                        : '#6b7280'
+                    }; font-weight: 600; cursor: help;">${
+                      tempDeviationPercent.sign
+                    }${tempDeviationPercent.value.toFixed(1)}%</span>`
+                  : ''
+              }
             </div>
           </div>
         </div>
@@ -1466,7 +1486,10 @@ export function renderCardComponentV5({
   if (tempComparisonTrigger && isTermostatoDevice && tempDeviationPercent) {
     const getTempComparisonData = () => {
       // Get average temperature from entityObject if available
-      const avgTemp = entityObject.averageTemperature ?? entityObject.avgTemp ?? ((Number(temperatureMin) + Number(temperatureMax)) / 2);
+      const avgTemp =
+        entityObject.averageTemperature ??
+        entityObject.avgTemp ??
+        (Number(temperatureMin) + Number(temperatureMax)) / 2;
       const deviceCount = entityObject.temperatureDeviceCount ?? entityObject.tempDeviceCount ?? 1;
 
       return TempComparisonTooltip.buildComparisonData(

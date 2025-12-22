@@ -1368,10 +1368,10 @@ function buildAuthoritativeItems() {
     }
 
     const attrs = tbId ? attrsByTb.get(tbId) || {} : {};
-    const deviceProfile = attrs.deviceProfile || 'N/D';
-    let deviceTypeToDisplay = attrs.deviceType || '3F_MEDIDOR';
+    const deviceProfile = attrs.deviceProfile || 'no_info';
+    let deviceTypeToDisplay = attrs.deviceType || 'no_info';
 
-    if (deviceTypeToDisplay === '3F_MEDIDOR' && deviceProfile !== 'N/D') {
+    if (deviceTypeToDisplay === '3F_MEDIDOR' && deviceProfile === '3F_MEDIDOR') {
       deviceTypeToDisplay = deviceProfile;
     }
 
@@ -2212,8 +2212,8 @@ function renderList(visible) {
       log_annotations: it.log_annotations || null,
     };
 
-    if (it.label === 'Chiller 1') {
-      LogHelper.log('RENDER CARD ALLEGRIA >>> OBJ: ', it);
+    if (it.label === 'Cesan Banheiros L2') {
+      LogHelper.log('RENDER CARD Cesan Banheiros L2 >>> OBJ: ', it);
     }
 
     const myTbToken = localStorage.getItem('jwt_token');
@@ -3647,7 +3647,16 @@ self.onInit = async function () {
   $root().find('#labelWidgetId').text(self.ctx.settings?.labelWidget);
 
   // RFC-0042: Set widget configuration from settings FIRST
-  WIDGET_DOMAIN = self.ctx.settings?.DOMAIN || 'energy';
+  // CRITICAL: DOMAIN must be explicitly set in widget settings - no fallback to avoid water showing as energy
+  const configuredDomain = self.ctx.settings?.DOMAIN;
+  const validDomains = ['energy', 'water', 'temperature', 'tank'];
+
+  if (!configuredDomain || !validDomains.includes(configuredDomain)) {
+    LogHelper.error(`[TELEMETRY] ❌ CRITICAL: Invalid or missing DOMAIN in widget settings: "${configuredDomain}". Valid values: ${validDomains.join(', ')}`);
+    LogHelper.error(`[TELEMETRY] ❌ Widget labelWidget="${self.ctx.settings?.labelWidget}" must have DOMAIN configured correctly!`);
+  }
+
+  WIDGET_DOMAIN = configuredDomain || 'energy'; // Keep fallback for backwards compatibility but log error above
   LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}`);
 
   // Show temperature info icon for temperature domain
@@ -4235,8 +4244,15 @@ self.onInit = async function () {
     CLIENT_ID = attrs?.client_id || '';
     CLIENT_SECRET = attrs?.client_secret || '';
     CUSTOMER_ING_ID = attrs?.ingestionId || '';
-    // Carrega o mapa
-    MAP_INSTANTANEOUS_POWER = attrs?.mapInstantaneousPower ? JSON.parse(attrs?.mapInstantaneousPower) : null;
+    // Carrega o mapa (pode ser string JSON ou objeto)
+    if (attrs?.mapInstantaneousPower) {
+      MAP_INSTANTANEOUS_POWER =
+        typeof attrs.mapInstantaneousPower === 'string'
+          ? JSON.parse(attrs.mapInstantaneousPower)
+          : attrs.mapInstantaneousPower;
+    } else {
+      MAP_INSTANTANEOUS_POWER = null;
+    }
 
     // [CORREÇÃO CRÍTICA]
     // Se o mapa chegou AGORA, precisamos re-executar a lógica de enriquecimento
