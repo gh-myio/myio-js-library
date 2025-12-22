@@ -2133,10 +2133,15 @@ function renderList(visible) {
       centralName: it.centralName || '',
       customerName: it.customerName || null,
       updatedIdentifiers: it.updatedIdentifiers || {},
-      connectionStatusTime: it.connectionStatusTime || Date.now(),
-      timeVal: it.timeVal || Date.now(),
+      // Connection timing fields (for Settings modal)
+      connectionStatusTime: it.connectionStatusTime || it.lastConnectTime || null,
+      timeVal: it.timeVal || it.lastActivityTime || null,
+      lastDisconnectTime: it.lastDisconnectTime || null,
       powerRanges: it.powerRanges || null,
       instantaneousPower: it.instantaneousPower || 0,
+      // Power limits for Settings modal
+      mapInstantaneousPower: it.mapInstantaneousPower || null,
+      deviceMapInstaneousPower: it.deviceMapInstaneousPower || null,
       // TANK/CAIXA_DAGUA specific fields
       waterLevel: it.waterLevel || null,
       waterPercentage: it.waterPercentage || null,
@@ -3921,11 +3926,27 @@ self.onInit = async function () {
         value: temp,
         perc: 0,
         deviceType: item.deviceType || WIDGET_DOMAIN,
+        deviceProfile: item.deviceProfile || null,
+        effectiveDeviceType: item.effectiveDeviceType || item.deviceProfile || item.deviceType || null,
         slaveId: item.slaveId || null,
         centralId: item.centralId || null,
+        centralName: item.centralName || null,
+        customerName: item.customerName || null,
         deviceStatus: item.deviceStatus || 'no_info',
+        connectionStatus: item.connectionStatus || null,
         labelWidget: item.labelWidget || myLabelWidget,
         updatedIdentifiers: {},
+        // Connection timing fields (for Settings modal)
+        connectionStatusTime: item.lastConnectTime || null,
+        timeVal: item.lastActivityTime || null,
+        lastConnectTime: item.lastConnectTime || null,
+        lastActivityTime: item.lastActivityTime || null,
+        lastDisconnectTime: item.lastDisconnectTime || null,
+        // Annotations
+        log_annotations: item.log_annotations || null,
+        // Power limits
+        mapInstantaneousPower: item.mapInstantaneousPower || MAP_INSTANTANEOUS_POWER || null,
+        deviceMapInstaneousPower: item.deviceMapInstaneousPower || null,
         // Temperature domain specific fields - use global limits from customer
         temperature: isTemperatureDomain ? temp : null,
         temperatureMin: isTemperatureDomain ? globalTempMin : null,

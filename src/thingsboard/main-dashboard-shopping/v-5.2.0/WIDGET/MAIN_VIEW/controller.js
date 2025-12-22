@@ -445,9 +445,6 @@ function inferLabelWidget(row) {
   const deviceType = String(row.deviceType || '').toUpperCase();
   const deviceProfile = String(row.deviceProfile || '').toUpperCase();
 
-  // Skip domain values (not real deviceTypes)
-  const DOMAIN_VALUES = new Set(['ENERGY', 'WATER', 'TEMPERATURE', '']);
-
   // ==========================================================================
   // RULE 1: LOJAS - ONLY when BOTH deviceType AND deviceProfile = '3F_MEDIDOR'
   // ==========================================================================
@@ -774,13 +771,13 @@ Object.assign(window.MyIOUtils, {
         getCredentials: () => null,
 
         // Credential management (will be populated later)
-        setCredentials: async (customerId, clientId, clientSecret) => {
+        setCredentials: async (_customerId, _clientId, _clientSecret) => {
           LogHelper.warn('[Orchestrator] ⚠️ setCredentials called before orchestrator is ready');
         },
 
         // Token manager stub
         tokenManager: {
-          setToken: (key, token) => {
+          setToken: (_key, _token) => {
             LogHelper.warn('[Orchestrator] ⚠️ tokenManager.setToken called before orchestrator is ready');
           },
         },
@@ -2688,118 +2685,6 @@ const MyIOOrchestrator = (() => {
     }, 4000);
   }
 
-  // Premium alert for missing credentials
-  function showCredentialsAlert() {
-    const overlay = document.createElement('div');
-    overlay.id = 'myio-credentials-alert';
-    overlay.style.cssText = `
-    position: fixed;
-    inset: 0;
-    background: rgba(45, 20, 88, 0.75);
-    backdrop-filter: blur(8px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 999999;
-    font-family: Inter, system-ui, sans-serif;
-  `;
-
-    const alertBox = document.createElement('div');
-    alertBox.style.cssText = `
-    background: linear-gradient(135deg, #2d1458 0%, #1a0b33 100%);
-    color: #fff;
-    border-radius: 20px;
-    padding: 40px 48px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    border: 2px solid rgba(255,255,255,0.1);
-    max-width: 500px;
-    text-align: center;
-    animation: slideIn 0.3s ease-out;
-  `;
-
-    alertBox.innerHTML = `
-    <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
-    <h2 style="
-      font-size: 24px;
-      font-weight: 700;
-      margin: 0 0 16px 0;
-      background: linear-gradient(135deg, #fbbf24, #f59e0b);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    ">Credenciais Não Encontradas</h2>
-    <p style="
-      font-size: 16px;
-      line-height: 1.6;
-      margin: 0 0 24px 0;
-      color: rgba(255,255,255,0.85);
-    ">
-      As credenciais de autenticação não foram configuradas no sistema.
-      <br><br>
-      <strong>Credenciais necessárias:</strong>
-      <br>• CLIENT_ID
-      <br>• CLIENT_SECRET
-      <br>• CUSTOMER_ING_ID
-      <br><br>
-      Entre em contato com o administrador para configurar as credenciais necessárias.
-    </p>
-    <button id="credentials-alert-close" style="
-      background: linear-gradient(135deg, #f59e0b, #d97706);
-      color: white;
-      border: none;
-      padding: 14px 32px;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
-      transition: all 0.2s ease;
-    ">Fechar</button>
-  `;
-
-    overlay.appendChild(alertBox);
-    document.body.appendChild(overlay);
-
-    // Add CSS animation
-    if (!document.querySelector('#myio-credentials-alert-styles')) {
-      const styleEl = document.createElement('style');
-      styleEl.id = 'myio-credentials-alert-styles';
-      styleEl.textContent = `
-      @keyframes slideIn {
-        from {
-          opacity: 0;
-          transform: translateY(-20px) scale(0.95);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0) scale(1);
-        }
-      }
-
-      #credentials-alert-close:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(245, 158, 11, 0.5);
-      }
-
-      #credentials-alert-close:active {
-        transform: translateY(0);
-      }
-    `;
-      document.head.appendChild(styleEl);
-    }
-
-    // Close button handler
-    const closeBtn = document.getElementById('credentials-alert-close');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        if (overlay.parentNode) {
-          overlay.parentNode.removeChild(overlay);
-        }
-      });
-    }
-
-    LogHelper.error('[MAIN_VIEW] Credentials alert displayed - system halted');
-  }
 
   // PHASE 2: Shared state management for widgets coordination
   let sharedWidgetState = {
@@ -2861,14 +2746,6 @@ const MyIOOrchestrator = (() => {
   };
 
   // Request management
-  function abortInflight(key) {
-    const ac = abortControllers.get(key);
-    if (ac) {
-      ac.abort();
-      abortControllers.delete(key);
-    }
-  }
-
   function abortAllInflight() {
     for (const [key, ac] of abortControllers.entries()) {
       ac.abort();
@@ -3438,6 +3315,7 @@ const MyIOOrchestrator = (() => {
           effectiveDeviceType: deviceProfile || deviceType || null,
           deviceStatus:
             convertConnectionStatusToDeviceStatus(meta.connectionStatus) || row.deviceStatus || 'no_info',
+          connectionStatus: meta.connectionStatus || 'unknown',
           slaveId: meta.slaveId || row.slaveId || null,
           centralId: meta.centralId || row.centralId || null,
           centralName: meta.centralName || null,
@@ -3450,6 +3328,8 @@ const MyIOOrchestrator = (() => {
           lastConnectTime: meta.lastConnectTime || null,
           lastDisconnectTime: meta.lastDisconnectTime || null,
           log_annotations: meta.log_annotations || null,
+          // Power limits
+          deviceMapInstaneousPower: meta.deviceMapInstaneousPower || null,
           labelWidget: labelWidget,
           groupLabel: labelWidget,
           // Flag to indicate if metadata was found
@@ -3531,17 +3411,6 @@ const MyIOOrchestrator = (() => {
       LogHelper.error(`[Orchestrator] fetchAndEnrich error for domain ${domain}:`, error);
       return [];
     }
-  }
-
-  /**
-   * Extracts period from key, ignoring customerTB_ID prefix.
-   * @param {string} key - Ex: 'null:energy:2025-10-01...:day' ou '20b93da0:energy:2025-10-01...:day'
-   * @returns {string} Ex: 'energy:2025-10-01...:day'
-   */
-  function extractPeriod(key) {
-    if (!key) return '';
-    const parts = key.split(':');
-    return parts.slice(1).join(':'); // Remove primeiro segmento (customerTB_ID)
   }
 
   // Fetch data for a domain and period
@@ -3664,7 +3533,7 @@ const MyIOOrchestrator = (() => {
     try {
       lastProvide.set(domain, { periodKey: pKey, at: Date.now() });
       hideGlobalBusy(domain);
-    } catch (e) {
+    } catch (_e) {
       // Silently ignore
     }
 
@@ -3793,7 +3662,7 @@ const MyIOOrchestrator = (() => {
     const tab = ev.detail.tab;
     try {
       hideGlobalBusy(tab);
-    } catch (e) {
+    } catch (_e) {
       // Silently ignore - busy indicator may not exist yet
     }
     visibleTab = tab;
@@ -3829,7 +3698,7 @@ const MyIOOrchestrator = (() => {
         try {
           lastProvide.set(domain, { periodKey: data.detail.periodKey, at: Date.now() });
           hideGlobalBusy(domain);
-        } catch (e) {
+        } catch (_e) {
           // Silently ignore
         }
       });
