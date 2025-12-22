@@ -25,8 +25,8 @@ if (!window.MyIOUtils?.LogHelper) {
   console.error('[TELEMETRY] window.MyIOUtils.LogHelper not found - MAIN_VIEW must load first');
 }
 const LogHelper = window.MyIOUtils?.LogHelper || {
-  log: () => { },
-  warn: () => { },
+  log: () => {},
+  warn: () => {},
   error: (...args) => console.error('[TELEMETRY]', ...args),
 };
 
@@ -123,21 +123,21 @@ function buildAnnotationTypeTooltipContent(type, typeAnnotations, config) {
   const now = new Date();
 
   // Count overdue for this type
-  const typeOverdueCount = typeAnnotations.filter(
-    (a) => a.dueDate && new Date(a.dueDate) < now
-  ).length;
+  const typeOverdueCount = typeAnnotations.filter((a) => a.dueDate && new Date(a.dueDate) < now).length;
 
   // Build overdue warning
-  const overdueWarning = typeOverdueCount > 0
-    ? `<div style="color:#d63031;padding:8px 12px;background:#fff5f5;border-radius:6px;margin-bottom:12px;font-size:11px;font-weight:500;">
+  const overdueWarning =
+    typeOverdueCount > 0
+      ? `<div style="color:#d63031;padding:8px 12px;background:#fff5f5;border-radius:6px;margin-bottom:12px;font-size:11px;font-weight:500;">
          ⚠️ ${typeOverdueCount} anotação(ões) vencida(s)
        </div>`
-    : '';
+      : '';
 
   // Build annotations list
   const annotationsList = typeAnnotations
     .slice(0, 5)
-    .map((a) => `
+    .map(
+      (a) => `
       <div class="myio-info-tooltip__row" style="flex-direction:column;align-items:flex-start;gap:4px;padding:8px 0;border-bottom:1px solid #f1f5f9;">
         <div style="font-weight:500;color:#1a1a2e;font-size:12px;line-height:1.4;">"${a.text}"</div>
         <div style="font-size:10px;color:#868e96;">
@@ -145,12 +145,15 @@ function buildAnnotationTypeTooltipContent(type, typeAnnotations, config) {
           ${a.dueDate ? ` • Vence: ${new Date(a.dueDate).toLocaleDateString('pt-BR')}` : ''}
         </div>
       </div>
-    `).join('');
+    `
+    )
+    .join('');
 
   const moreCount = typeAnnotations.length > 5 ? typeAnnotations.length - 5 : 0;
-  const moreSection = moreCount > 0
-    ? `<div style="font-size:11px;color:#6c757d;margin-top:8px;text-align:center;">+ ${moreCount} mais...</div>`
-    : '';
+  const moreSection =
+    moreCount > 0
+      ? `<div style="font-size:11px;color:#6c757d;margin-top:8px;text-align:center;">+ ${moreCount} mais...</div>`
+      : '';
 
   return `
     <div class="myio-info-tooltip__section">
@@ -188,7 +191,10 @@ function addAnnotationIndicator(cardElement, entityObject) {
       annotations = logAnnotations;
     }
   } catch (err) {
-    LogHelper.warn(`[TELEMETRY] Failed to parse log_annotations for ${entityObject.labelOrName}:`, err.message);
+    LogHelper.warn(
+      `[TELEMETRY] Failed to parse log_annotations for ${entityObject.labelOrName}:`,
+      err.message
+    );
     return null;
   }
 
@@ -277,7 +283,7 @@ function addAnnotationIndicator(cardElement, entityObject) {
         InfoTooltip.show(badge, {
           icon: config.icon,
           title: `${config.label} - ${entityObject.labelOrName}`,
-          content: content
+          content: content,
         });
       });
 
@@ -311,19 +317,21 @@ const ELEVADORES_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.elevador
 const ESCADAS_IDENTIFIERS_SET = new Set(DEVICE_CLASSIFICATION_CONFIG.escadas_rolantes.identifiers);
 
 // RFC-0106: Get EQUIPMENT_EXCLUSION_PATTERN from MAIN_VIEW if available
-const EQUIPMENT_EXCLUSION_PATTERN = window.MyIOUtils?.EQUIPMENT_EXCLUSION_PATTERN || new RegExp(
-  [
-    ...DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceTypes,
-    ...DEVICE_CLASSIFICATION_CONFIG.elevadores.deviceTypes,
-    ...DEVICE_CLASSIFICATION_CONFIG.escadas_rolantes.deviceTypes,
-    'bomba',
-    'subesta',
-    'entrada',
-  ]
-    .map((t) => t.toLowerCase())
-    .join('|'),
-  'i'
-);
+const EQUIPMENT_EXCLUSION_PATTERN =
+  window.MyIOUtils?.EQUIPMENT_EXCLUSION_PATTERN ||
+  new RegExp(
+    [
+      ...DEVICE_CLASSIFICATION_CONFIG.climatizacao.deviceTypes,
+      ...DEVICE_CLASSIFICATION_CONFIG.elevadores.deviceTypes,
+      ...DEVICE_CLASSIFICATION_CONFIG.escadas_rolantes.deviceTypes,
+      'bomba',
+      'subesta',
+      'entrada',
+    ]
+      .map((t) => t.toLowerCase())
+      .join('|'),
+    'i'
+  );
 
 /**
  * RFC-0097: Infere um identifier para exibição baseado no deviceType ou label
@@ -407,7 +415,9 @@ function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'con
   if (!telemetryConfig) return null;
 
   // Normaliza o tipo para evitar problemas de espaço ou minúsculas
-  const typeUpper = String(deviceType || '').toUpperCase().trim();
+  const typeUpper = String(deviceType || '')
+    .toUpperCase()
+    .trim();
 
   // 1. TENTATIVA EXATA (O ideal)
   let deviceConfig = telemetryConfig.itemsByDeviceType.find(
@@ -416,31 +426,32 @@ function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'con
 
   // 2. SE NÃO ACHOU, TENTA IDENTIFICAR PELO NOME (Apelidos)
   if (!deviceConfig) {
-      if (typeUpper.includes('ESCADA') || typeUpper === 'ESCADASROLANTES' || typeUpper.includes('ER ')) {
-           deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'ESCADA_ROLANTE');
-      }
-      else if (typeUpper.includes('ELEVADOR') || typeUpper.includes('ELV')) {
-           deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'ELEVADOR');
-      }
-      else if (typeUpper.includes('BOMBA')) {
-           deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'BOMBA');
-      }
-      // Chillers com override muitas vezes usam perfil de MOTOR
-      else if (typeUpper.includes('CHILLER')) {
-           deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'CHILLER');
-           if (!deviceConfig) deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'MOTOR');
-      }
-      // Fancoil / HVAC
-      else if (typeUpper.includes('FANCOIL')) deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'FANCOIL');
-      else if (typeUpper.includes('HVAC')) deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'HVAC');
+    if (typeUpper.includes('ESCADA') || typeUpper === 'ESCADASROLANTES' || typeUpper.includes('ER ')) {
+      deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'ESCADA_ROLANTE');
+    } else if (typeUpper.includes('ELEVADOR') || typeUpper.includes('ELV')) {
+      deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'ELEVADOR');
+    } else if (typeUpper.includes('BOMBA')) {
+      deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'BOMBA');
+    }
+    // Chillers com override muitas vezes usam perfil de MOTOR
+    else if (typeUpper.includes('CHILLER')) {
+      deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'CHILLER');
+      if (!deviceConfig)
+        deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'MOTOR');
+    }
+    // Fancoil / HVAC
+    else if (typeUpper.includes('FANCOIL'))
+      deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'FANCOIL');
+    else if (typeUpper.includes('HVAC'))
+      deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'HVAC');
   }
 
   // 3. FALLBACK UNIVERSAL (CATCH-ALL)
   // Resolve Lojas ("102B", "L0L1"), Entradas ("TRAFO", "REDE") e qualquer outro desconhecido.
   if (!deviceConfig) {
-       deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === '3F_MEDIDOR');
-       // Se não tiver 3F_MEDIDOR (raro), tenta MOTOR como último recurso
-       if (!deviceConfig) deviceConfig = telemetryConfig.itemsByDeviceType.find(i => i.deviceType === 'MOTOR');
+    deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === '3F_MEDIDOR');
+    // Se não tiver 3F_MEDIDOR (raro), tenta MOTOR como último recurso
+    if (!deviceConfig) deviceConfig = telemetryConfig.itemsByDeviceType.find((i) => i.deviceType === 'MOTOR');
   }
 
   if (!deviceConfig) return null;
@@ -454,18 +465,26 @@ function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'con
   };
 
   if (deviceConfig.limitsByDeviceStatus) {
-      deviceConfig.limitsByDeviceStatus.forEach((status) => {
-        const vals = status.limitsValues || status.limitsVales || {};
-        const baseValue = vals.baseValue ?? 0;
-        const topValue = vals.topValue ?? 99999999; 
+    deviceConfig.limitsByDeviceStatus.forEach((status) => {
+      const vals = status.limitsValues || status.limitsVales || {};
+      const baseValue = vals.baseValue ?? 0;
+      const topValue = vals.topValue ?? 99999999;
 
-        switch (status.deviceStatusName) {
-          case 'standBy': ranges.standbyRange = { down: baseValue, up: topValue }; break;
-          case 'normal': ranges.normalRange = { down: baseValue, up: topValue }; break;
-          case 'alert': ranges.alertRange = { down: baseValue, up: topValue }; break;
-          case 'failure': ranges.failureRange = { down: baseValue, up: topValue }; break;
-        }
-      });
+      switch (status.deviceStatusName) {
+        case 'standBy':
+          ranges.standbyRange = { down: baseValue, up: topValue };
+          break;
+        case 'normal':
+          ranges.normalRange = { down: baseValue, up: topValue };
+          break;
+        case 'alert':
+          ranges.alertRange = { down: baseValue, up: topValue };
+          break;
+        case 'failure':
+          ranges.failureRange = { down: baseValue, up: topValue };
+          break;
+      }
+    });
   }
 
   return {
@@ -473,7 +492,7 @@ function extractLimitsFromJSON(powerLimitsJSON, deviceType, telemetryType = 'con
     source: 'json',
     metadata: {
       name: deviceConfig.name,
-      matchedType: deviceConfig.deviceType 
+      matchedType: deviceConfig.deviceType,
     },
   };
 }
@@ -596,7 +615,8 @@ async function addDeviceProfileAttribute(deviceId, deviceProfile) {
   } catch (err) {
     const dt = Date.now() - t;
     console.error(
-      `[EQUIPMENTS] [RFC-0071] ❌ Failed to save deviceProfile | device=${deviceId} | "${deviceProfile}" | ${dt}ms | error: ${err?.message || err
+      `[EQUIPMENTS] [RFC-0071] ❌ Failed to save deviceProfile | device=${deviceId} | "${deviceProfile}" | ${dt}ms | error: ${
+        err?.message || err
       }`
     );
     throw err;
@@ -755,14 +775,18 @@ function getItemsFromState(domain, labelWidget) {
   if (domain === 'temperature') {
     // First try window.STATE
     if (window.STATE?.isReady('temperature') && window.STATE.temperature?.items?.length > 0) {
-      LogHelper.log(`[TELEMETRY] 🌡️ Temperature: returning ${window.STATE.temperature.items.length} items from window.STATE`);
+      LogHelper.log(
+        `[TELEMETRY] 🌡️ Temperature: returning ${window.STATE.temperature.items.length} items from window.STATE`
+      );
       return window.STATE.temperature.items;
     }
 
     // Fallback to MyIOOrchestratorData
     const orchestratorData = window.MyIOOrchestratorData;
     if (orchestratorData?.temperature?.items?.length > 0) {
-      LogHelper.log(`[TELEMETRY] 🌡️ Temperature: using MyIOOrchestratorData fallback (${orchestratorData.temperature.items.length} items)`);
+      LogHelper.log(
+        `[TELEMETRY] 🌡️ Temperature: using MyIOOrchestratorData fallback (${orchestratorData.temperature.items.length} items)`
+      );
       return orchestratorData.temperature.items;
     }
 
@@ -786,7 +810,9 @@ function getItemsFromState(domain, labelWidget) {
   // For lojas and entrada, return directly from STATE group
   if (stateGroup === 'lojas' || stateGroup === 'entrada') {
     const groupData = window.STATE.get(domain, stateGroup);
-    LogHelper.log(`[TELEMETRY] Getting items from STATE.${domain}.${stateGroup}: ${groupData?.count || 0} items`);
+    LogHelper.log(
+      `[TELEMETRY] Getting items from STATE.${domain}.${stateGroup}: ${groupData?.count || 0} items`
+    );
     return groupData?.items || [];
   }
 
@@ -900,7 +926,7 @@ function showBusy(message, timeoutMs = 35000) {
     try {
       if (window.MyIOOrchestrator && typeof window.MyIOOrchestrator.showGlobalBusy === 'function') {
         const text = (message && String(message).trim()) || 'Carregando dados...';
-        window.MyIOOrchestrator.showGlobalBusy(WIDGET_DOMAIN, text, timeoutMs);
+        //window.MyIOOrchestrator.showGlobalBusy(WIDGET_DOMAIN, text, timeoutMs);
         LogHelper.log(`[TELEMETRY] ✅ Using centralized busy for domain: ${WIDGET_DOMAIN}`);
       } else {
         LogHelper.warn(`[TELEMETRY] ⚠️ Orchestrator not available, using fallback busy`);
@@ -1486,7 +1512,7 @@ function buildAuthoritativeItems() {
         `[DeviceCards] TERMOSTATO status: temp=${temperature}, min=${globalTempMin}, max=${globalTempMax}, status=${temperatureStatus}`
       );
       */
-    }    
+    }
 
     return {
       id: tbId || itemId, // para seleção/toggle
@@ -1671,9 +1697,10 @@ function buildTempSensorSummaryData() {
   if (window._telemetryAuthoritativeItems) {
     window._telemetryAuthoritativeItems.forEach((item) => {
       // Skip offline devices - only count active sensors
-      const isOffline = item.deviceStatus === 'power_off' ||
-                        item.deviceStatus === 'offline' ||
-                        item.deviceStatus === 'no_info';
+      const isOffline =
+        item.deviceStatus === 'power_off' ||
+        item.deviceStatus === 'offline' ||
+        item.deviceStatus === 'no_info';
       if (isOffline) {
         return; // Skip this device
       }
@@ -1682,7 +1709,7 @@ function buildTempSensorSummaryData() {
 
       let status = 'unknown';
       if (hasLimits) {
-        status = (temp >= tempMin && temp <= tempMax) ? 'ok' : 'warn';
+        status = temp >= tempMin && temp <= tempMax ? 'ok' : 'warn';
       }
 
       devices.push({
@@ -1697,7 +1724,7 @@ function buildTempSensorSummaryData() {
     devices,
     temperatureMin: tempMin,
     temperatureMax: tempMax,
-    title: 'Detalhes de Temperatura'
+    title: 'Detalhes de Temperatura',
   };
 }
 
@@ -1980,23 +2007,25 @@ function showTempInfoTooltip(triggerElement) {
         </div>
         <div class="temp-info-tooltip__list">
           ${displayDevices
-        .map((d) => {
-          const statusClass = d.status === 'ok' ? 'ok' : d.status === 'warn' ? 'warn' : 'unknown';
-          const icon = d.status === 'ok' ? '✔' : d.status === 'warn' ? '⚠' : '?';
-          return `
+            .map((d) => {
+              const statusClass = d.status === 'ok' ? 'ok' : d.status === 'warn' ? 'warn' : 'unknown';
+              const icon = d.status === 'ok' ? '✔' : d.status === 'warn' ? '⚠' : '?';
+              return `
               <div class="temp-info-tooltip__list-item temp-info-tooltip__list-item--${statusClass}">
                 <span class="temp-info-tooltip__list-icon">${icon}</span>
                 <span class="temp-info-tooltip__list-name">${d.name}</span>
                 <span class="temp-info-tooltip__list-value">${d.temp.toFixed(1)}°C</span>
               </div>
             `;
-        })
-        .join('')}
-          ${hasMore
-        ? `<div style="text-align: center; color: #94a3b8; font-size: 10px; padding: 4px;">... e mais ${sortedDevices.length - 5
-        } sensores</div>`
-        : ''
-      }
+            })
+            .join('')}
+          ${
+            hasMore
+              ? `<div style="text-align: center; color: #94a3b8; font-size: 10px; padding: 4px;">... e mais ${
+                  sortedDevices.length - 5
+                } sensores</div>`
+              : ''
+          }
         </div>
       </div>
     `;
@@ -2016,18 +2045,19 @@ function showTempInfoTooltip(triggerElement) {
           <div class="temp-info-tooltip__row">
             <span class="temp-info-tooltip__label">Media Geral:</span>
             <span class="temp-info-tooltip__value temp-info-tooltip__value--highlight">${avgTemp.toFixed(
-    1
-  )}°C</span>
+              1
+            )}°C</span>
           </div>
-          ${hasLimits
-      ? `
+          ${
+            hasLimits
+              ? `
           <div class="temp-info-tooltip__row">
             <span class="temp-info-tooltip__label">Faixa Ideal:</span>
             <span class="temp-info-tooltip__value">${tempMin}°C - ${tempMax}°C</span>
           </div>
           `
-      : ''
-    }
+              : ''
+          }
           <div class="temp-info-tooltip__row">
             <span class="temp-info-tooltip__label">Sensores Ativos:</span>
             <span class="temp-info-tooltip__value">${tempDevices.length}</span>
@@ -2106,9 +2136,10 @@ function renderList(visible) {
     let totalTemp = 0;
     visible.forEach((item) => {
       // Skip offline devices
-      const isOffline = item.deviceStatus === 'power_off' ||
-                        item.deviceStatus === 'offline' ||
-                        item.deviceStatus === 'no_info';
+      const isOffline =
+        item.deviceStatus === 'power_off' ||
+        item.deviceStatus === 'offline' ||
+        item.deviceStatus === 'no_info';
       if (!isOffline) {
         totalTemp += Number(item.value || 0);
         tempDeviceCount++;
@@ -2138,7 +2169,6 @@ function renderList(visible) {
       // No valid identifier - infer from deviceType or label
       deviceIdentifierToDisplay = inferDisplayIdentifier(it);
     }
-
 
     // RFC-0106: Use effectiveDeviceType for card icon (deviceProfile > deviceType)
     // This ensures proper icon rendering based on actual device classification
@@ -2255,8 +2285,8 @@ function renderList(visible) {
           const loadingMsg = isTermostato
             ? 'Carregando dados de temperatura...'
             : isWaterTank
-              ? 'Loading water tank data...'
-              : 'Loading energy data...';
+            ? 'Loading water tank data...'
+            : 'Loading energy data...';
           loadingToast = MyIOToast.info(loadingMsg, 0);
         }
 
@@ -2781,8 +2811,9 @@ function openFilterModal() {
     label.className = 'check-item';
     label.setAttribute('role', 'option');
     label.innerHTML = `
-      <input type="checkbox" id="chk-${safeId}" data-entity="${escapeHtml(it.id)}" ${checked ? 'checked' : ''
-      }>
+      <input type="checkbox" id="chk-${safeId}" data-entity="${escapeHtml(it.id)}" ${
+      checked ? 'checked' : ''
+    }>
       <span>${escapeHtml(it.label || it.identifier || it.id)}</span>
     `;
     frag.appendChild(label);
@@ -2876,15 +2907,15 @@ function bindModal() {
     $wrap.css(
       on
         ? {
-          background: 'rgba(62,26,125,.08)',
-          borderColor: '#3E1A7D',
-          boxShadow: '0 8px 18px rgba(62,26,125,.15)',
-        }
+            background: 'rgba(62,26,125,.08)',
+            borderColor: '#3E1A7D',
+            boxShadow: '0 8px 18px rgba(62,26,125,.15)',
+          }
         : {
-          background: '#fff',
-          borderColor: '#D6E1EC',
-          boxShadow: '0 6px 14px rgba(0,0,0,.05)',
-        }
+            background: '#fff',
+            borderColor: '#D6E1EC',
+            boxShadow: '0 6px 14px rgba(0,0,0,.05)',
+          }
     );
   });
 }
@@ -2899,15 +2930,15 @@ function syncChecklistSelectionVisual() {
       $el.css(
         on
           ? {
-            background: 'rgba(62,26,125,.08)',
-            borderColor: '#3E1A7D',
-            boxShadow: '0 8px 18px rgba(62,26,125,.15)',
-          }
+              background: 'rgba(62,26,125,.08)',
+              borderColor: '#3E1A7D',
+              boxShadow: '0 8px 18px rgba(62,26,125,.15)',
+            }
           : {
-            background: '#fff',
-            borderColor: '#D6E1EC',
-            boxShadow: '0 6px 14px rgba(0,0,0,.05)',
-          }
+              background: '#fff',
+              borderColor: '#D6E1EC',
+              boxShadow: '0 6px 14px rgba(0,0,0,.05)',
+            }
       );
     });
 }
@@ -3323,7 +3354,8 @@ function emitAreaComumBreakdown(periodKey) {
       // Debug log for first 5 items
       if (STATE.itemsEnriched.indexOf(item) < 5) {
         LogHelper.log(
-          `[RFC-0097] Item: deviceType="${item.deviceType}", identifier="${item.identifier}", label="${item.label
+          `[RFC-0097] Item: deviceType="${item.deviceType}", identifier="${item.identifier}", label="${
+            item.label
           }" → ${category} (${energia.toFixed(2)} kWh)`
         );
       }
@@ -3401,9 +3433,9 @@ function emitAreaComumBreakdown(periodKey) {
 
     const totalMWh = normalizeToMWh(
       breakdown.climatizacao.total +
-      breakdown.elevadores.total +
-      breakdown.escadas_rolantes.total +
-      breakdown.outros.total
+        breakdown.elevadores.total +
+        breakdown.escadas_rolantes.total +
+        breakdown.outros.total
     );
     LogHelper.log(
       `[RFC-0056] ✅ Emitted areacomum_breakdown: ${totalMWh} MWh (${STATE.itemsEnriched.length} devices, climatizacao: ${breakdown.climatizacao.count})`
@@ -3496,7 +3528,8 @@ function emitWaterTelemetry(widgetType, periodKey) {
       };
 
       LogHelper.log(
-        `[RFC-0002 Water] areaComum breakdown: banheiros=${banheirosTotal.toFixed(2)} m³ (${banheirosDevices.length
+        `[RFC-0002 Water] areaComum breakdown: banheiros=${banheirosTotal.toFixed(2)} m³ (${
+          banheirosDevices.length
         } devices), outros=${outrosTotal.toFixed(2)} m³ (${outrosDevices.length} devices)`
       );
     }
@@ -3606,10 +3639,10 @@ self.onInit = async function () {
 
   MyIO = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) ||
     (typeof window !== 'undefined' && window.MyIOLibrary) || {
-    showAlert: function () {
-      alert('A Bliblioteca Myio não foi carregada corretamente!');
-    },
-  };
+      showAlert: function () {
+        alert('A Bliblioteca Myio não foi carregada corretamente!');
+      },
+    };
 
   $root().find('#labelWidgetId').text(self.ctx.settings?.labelWidget);
 
@@ -3630,7 +3663,9 @@ self.onInit = async function () {
           tempInfoTrigger[0],
           buildTempSensorSummaryData
         );
-        LogHelper.log('[TELEMETRY] Temperature info icon initialized with TempSensorSummaryTooltip (library)');
+        LogHelper.log(
+          '[TELEMETRY] Temperature info icon initialized with TempSensorSummaryTooltip (library)'
+        );
       } else {
         // Fallback to legacy tooltip if library not available
         tempInfoTrigger.on('mouseenter', function (e) {
@@ -3648,11 +3683,12 @@ self.onInit = async function () {
   USE_IDENTIFIER_CLASSIFICATION = self.ctx.settings?.USE_IDENTIFIER_CLASSIFICATION || false;
   USE_HYBRID_CLASSIFICATION = self.ctx.settings?.USE_HYBRID_CLASSIFICATION || false;
   LogHelper.log(
-    `[RFC-0063] Classification mode: ${USE_IDENTIFIER_CLASSIFICATION
-      ? USE_HYBRID_CLASSIFICATION
-        ? 'HYBRID (identifier + label fallback)'
-        : 'IDENTIFIER ONLY'
-      : 'LEGACY (label only)'
+    `[RFC-0063] Classification mode: ${
+      USE_IDENTIFIER_CLASSIFICATION
+        ? USE_HYBRID_CLASSIFICATION
+          ? 'HYBRID (identifier + label fallback)'
+          : 'IDENTIFIER ONLY'
+        : 'LEGACY (label only)'
     }`
   );
 
@@ -3911,7 +3947,9 @@ self.onInit = async function () {
       return;
     }
 
-    LogHelper.log(`[RFC-0106] Got ${stateItems.length} items from window.STATE for labelWidget="${myLabelWidget}"`);
+    LogHelper.log(
+      `[RFC-0106] Got ${stateItems.length} items from window.STATE for labelWidget="${myLabelWidget}"`
+    );
 
     // RFC-0106: Convert STATE items to widget format
     // FIX: Don't use item.id as fallback for ingestionId - temperature sensors don't have ingestionId
@@ -3922,7 +3960,9 @@ self.onInit = async function () {
     const globalTempMax = window.MyIOUtils?.temperatureLimits?.maxTemperature ?? null;
 
     if (domain === 'temperature') {
-      LogHelper.log(`[RFC-0106] Temperature limits from MyIOUtils: min=${globalTempMin}, max=${globalTempMax}`);
+      LogHelper.log(
+        `[RFC-0106] Temperature limits from MyIOUtils: min=${globalTempMin}, max=${globalTempMax}`
+      );
     }
 
     STATE.itemsBase = stateItems.map((item) => {
@@ -3930,6 +3970,7 @@ self.onInit = async function () {
       // (can be TERMOSTATO, SENSOR_TEMP, or other temperature-related deviceTypes)
       let temperatureStatus = null;
       const isTemperatureDomain = domain === 'temperature';
+      const isEnergyDomain = domain === 'energy';
       const temp = Number(item.value || 0);
 
       if (isTemperatureDomain && temp && globalTempMin !== null && globalTempMax !== null) {
@@ -3940,6 +3981,45 @@ self.onInit = async function () {
         } else {
           temperatureStatus = 'ok';
         }
+      }
+
+      // RFC-0106: Calculate deviceStatus using power ranges for energy devices
+      // Uses the same logic as buildAuthoritativeItems
+      let deviceStatus = item.deviceStatus || 'no_info';
+      const connectionStatus = item.connectionStatus || 'unknown';
+      const isOnline =
+        connectionStatus === 'online' || connectionStatus === 'true' || connectionStatus === true;
+      const isOffline =
+        connectionStatus === 'offline' || connectionStatus === 'false' || connectionStatus === false;
+
+      if (isOffline) {
+        deviceStatus = 'no_info';
+      } else if (isOnline && isEnergyDomain) {
+        // For energy devices, calculate status using power ranges
+        const instantaneousPower = Number(item.consumptionPower || 0);
+        const deviceTypeForRanges = item.effectiveDeviceType || item.deviceProfile || item.deviceType || '';
+
+        // Use device-specific limits (TIER 0) or fall back to customer-level (TIER 2)
+        // RFC-0106: Get global mapInstantaneousPower from MyIOUtils (set by MAIN_VIEW)
+        const globalMapPower = window.MyIOUtils?.mapInstantaneousPower || MAP_INSTANTANEOUS_POWER;
+        const limitsToUse = item.deviceMapInstaneousPower || globalMapPower;
+        const ranges = limitsToUse
+          ? extractLimitsFromJSON(limitsToUse, deviceTypeForRanges, 'consumption')
+          : null;
+
+        if (ranges && typeof MyIOLibrary?.calculateDeviceStatusWithRanges === 'function') {
+          deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
+            connectionStatus: connectionStatus,
+            lastConsumptionValue: instantaneousPower,
+            ranges: ranges,
+          });
+        } else {
+          // Fallback if no ranges or MyIOLibrary not available
+          deviceStatus = 'power_on';
+        }
+      } else if (isOnline) {
+        // Non-energy devices (TANK, TERMOSTATO) - simple power_on
+        deviceStatus = 'power_on';
       }
 
       return {
@@ -3958,8 +4038,8 @@ self.onInit = async function () {
         centralId: item.centralId || null,
         centralName: item.centralName || null,
         customerName: item.customerName || null,
-        deviceStatus: item.deviceStatus || 'no_info',
-        connectionStatus: item.connectionStatus || null,
+        deviceStatus: deviceStatus,
+        connectionStatus: connectionStatus,
         labelWidget: item.labelWidget || myLabelWidget,
         updatedIdentifiers: {},
         // Connection timing fields (for Settings modal)
@@ -3970,9 +4050,15 @@ self.onInit = async function () {
         lastDisconnectTime: item.lastDisconnectTime || null,
         // Annotations
         log_annotations: item.log_annotations || null,
-        // Power limits
-        mapInstantaneousPower: item.mapInstantaneousPower || MAP_INSTANTANEOUS_POWER || null,
+        // Power limits and instantaneous power
+        // RFC-0106: Prefer MyIOUtils (from MAIN_VIEW) over local MAP_INSTANTANEOUS_POWER
+        mapInstantaneousPower:
+          item.mapInstantaneousPower ||
+          window.MyIOUtils?.mapInstantaneousPower ||
+          MAP_INSTANTANEOUS_POWER ||
+          null,
         deviceMapInstaneousPower: item.deviceMapInstaneousPower || null,
+        consumptionPower: item.consumptionPower || null,
         // Temperature domain specific fields - use global limits from customer
         temperature: isTemperatureDomain ? temp : null,
         temperatureMin: isTemperatureDomain ? globalTempMin : null,
@@ -4065,7 +4151,8 @@ self.onInit = async function () {
       const age = Date.now() - storedData.timestamp;
 
       LogHelper.log(
-        `[TELEMETRY ${WIDGET_DOMAIN}] Found stored data: ${storedData.items?.length || 0
+        `[TELEMETRY ${WIDGET_DOMAIN}] Found stored data: ${
+          storedData.items?.length || 0
         } items, age: ${age}ms`
       );
 
@@ -4148,7 +4235,7 @@ self.onInit = async function () {
     CLIENT_ID = attrs?.client_id || '';
     CLIENT_SECRET = attrs?.client_secret || '';
     CUSTOMER_ING_ID = attrs?.ingestionId || '';
-// Carrega o mapa
+    // Carrega o mapa
     MAP_INSTANTANEOUS_POWER = attrs?.mapInstantaneousPower ? JSON.parse(attrs?.mapInstantaneousPower) : null;
 
     // [CORREÇÃO CRÍTICA]
@@ -4207,7 +4294,9 @@ self.onInit = async function () {
       const age = Date.now() - storedData.timestamp;
 
       LogHelper.log(
-        `[TELEMETRY temperature] 🌡️ Found stored temperature data: ${storedData.items?.length || 0} items, age: ${age}ms`
+        `[TELEMETRY temperature] 🌡️ Found stored temperature data: ${
+          storedData.items?.length || 0
+        } items, age: ${age}ms`
       );
 
       // Use stored data if it's less than 60 seconds old AND has items
@@ -4239,7 +4328,7 @@ self.onDataUpdated = function () {
   /* no-op */
 };
 
-self.onResize = function () { };
+self.onResize = function () {};
 self.onDestroy = function () {
   if (dateUpdateHandler) {
     window.removeEventListener('myio:update-date', dateUpdateHandler);

@@ -47,6 +47,9 @@ Object.assign(window.MyIOUtils, {
     minTemperature: null,
     maxTemperature: null,
   },
+  // RFC-0106: Global mapInstantaneousPower from customer's parent entity
+  // Used for deviceStatus calculation with power ranges
+  mapInstantaneousPower: null,
   // RFC-XXXX: SuperAdmin flag - user with @myio.com.br email (except alarme/alarmes)
   // Populated by detectSuperAdmin() in onInit
   SuperAdmin: false,
@@ -999,6 +1002,20 @@ Object.assign(window.MyIOUtils, {
         if (!isNaN(val) && window.MyIOUtils.temperatureLimits.maxTemperature !== val) {
           window.MyIOUtils.temperatureLimits.maxTemperature = val;
           LogHelper.log(`[MAIN_VIEW] Exposed global maxTemperature from customer: ${val}`);
+        }
+      }
+
+      // RFC-0106: Extract mapInstantaneousPower from customer datasource
+      // This is used for deviceStatus calculation with power ranges
+      if (keyName === 'mapinstantaneouspower' && rawValue !== undefined && rawValue !== null) {
+        try {
+          const parsed = typeof rawValue === 'string' ? JSON.parse(rawValue) : rawValue;
+          if (parsed && window.MyIOUtils.mapInstantaneousPower !== parsed) {
+            window.MyIOUtils.mapInstantaneousPower = parsed;
+            LogHelper.log(`[MAIN_VIEW] Exposed global mapInstantaneousPower from customer`);
+          }
+        } catch (err) {
+          LogHelper.warn(`[MAIN_VIEW] Failed to parse mapInstantaneousPower: ${err.message}`);
         }
       }
     }
@@ -2889,7 +2906,7 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'label') meta.label = val;
       // Energy-specific fields
       else if (keyName === 'devicemapinstaneouspower') meta.deviceMapInstaneousPower = val;
-      else if (keyName === 'consumption') meta.consumption = val;
+      else if (keyName === 'consumption') meta.consumption = val; // instantaneous power in Watts
       // Water-specific fields
       else if (keyName === 'pulses') meta.pulses = val;
       else if (keyName === 'litersperpulse') meta.litersPerPulse = val;
@@ -3329,8 +3346,7 @@ const MyIOOrchestrator = (() => {
           deviceType: deviceType,
           deviceProfile: deviceProfile,
           effectiveDeviceType: deviceProfile || deviceType || null,
-          deviceStatus:
-            convertConnectionStatusToDeviceStatus(meta.connectionStatus) || row.deviceStatus || 'no_info',
+          deviceStatus: convertConnectionStatusToDeviceStatus(meta.connectionStatus),
           connectionStatus: meta.connectionStatus || 'unknown',
           slaveId: meta.slaveId || row.slaveId || null,
           centralId: meta.centralId || row.centralId || null,
@@ -3343,8 +3359,10 @@ const MyIOOrchestrator = (() => {
           lastConnectTime: meta.lastConnectTime || null,
           lastDisconnectTime: meta.lastDisconnectTime || null,
           log_annotations: meta.log_annotations || null,
-          // Power limits
+          // Power limits and instantaneous power (for deviceStatus calculation)
+          // consumption from datasource = instantaneous power in Watts
           deviceMapInstaneousPower: meta.deviceMapInstaneousPower || null,
+          consumptionPower: meta.consumption || null,
           labelWidget: labelWidget,
           groupLabel: labelWidget,
           // Flag to indicate if metadata was found
