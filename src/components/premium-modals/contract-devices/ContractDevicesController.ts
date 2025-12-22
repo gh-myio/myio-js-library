@@ -67,6 +67,13 @@ export class ContractDevicesController {
   private async handleSave(formData: ContractDeviceCounts): Promise<void> {
     if (!this.view) return;
 
+    // Validate totals match sum of components
+    const validationError = this.validateTotals(formData);
+    if (validationError) {
+      this.view.showError(validationError);
+      return;
+    }
+
     this.view.showLoadingState(true);
     this.view.hideError();
 
@@ -121,6 +128,45 @@ export class ContractDevicesController {
     if (this.params.onClose) {
       this.params.onClose();
     }
+  }
+
+  /**
+   * Validate that totals match sum of components for each domain
+   * Returns error message if validation fails, null if valid
+   */
+  private validateTotals(formData: ContractDeviceCounts): string | null {
+    const errors: string[] = [];
+
+    // Energy: total = entries + commonArea + stores
+    if (formData.energy.total !== null) {
+      const energySum = (formData.energy.entries || 0) +
+                        (formData.energy.commonArea || 0) +
+                        (formData.energy.stores || 0);
+      if (formData.energy.total !== energySum) {
+        errors.push(`Energia: Total (${formData.energy.total}) deve ser igual a Entradas + Area Comum + Lojas (${energySum})`);
+      }
+    }
+
+    // Water: total = entries + commonArea + stores
+    if (formData.water.total !== null) {
+      const waterSum = (formData.water.entries || 0) +
+                       (formData.water.commonArea || 0) +
+                       (formData.water.stores || 0);
+      if (formData.water.total !== waterSum) {
+        errors.push(`Agua: Total (${formData.water.total}) deve ser igual a Entradas + Area Comum + Lojas (${waterSum})`);
+      }
+    }
+
+    // Temperature: total = internal + stores
+    if (formData.temperature.total !== null) {
+      const tempSum = (formData.temperature.internal || 0) +
+                      (formData.temperature.stores || 0);
+      if (formData.temperature.total !== tempSum) {
+        errors.push(`Temperatura: Total (${formData.temperature.total}) deve ser igual a Sensores Internos + Lojas (${tempSum})`);
+      }
+    }
+
+    return errors.length > 0 ? errors.join('\n') : null;
   }
 
   private mergeCounts(

@@ -314,6 +314,8 @@ export class ContractDevicesModalView {
           border-radius: 6px;
           margin-bottom: 16px;
           font-size: 14px;
+          white-space: pre-line;
+          line-height: 1.6;
         }
 
         .myio-contract-devices-modal .customer-info {
