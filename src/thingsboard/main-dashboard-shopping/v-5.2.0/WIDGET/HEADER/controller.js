@@ -140,29 +140,36 @@ function initContractStatusIcon() {
   // Click handler to show ContractSummaryTooltip
   contractStatusEl.addEventListener('click', (event) => {
     event.stopPropagation();
+    event.preventDefault();
+
+    LogHelper.log('[HEADER] Contract status clicked, checking ContractSummaryTooltip...');
 
     const ContractSummaryTooltip = window.MyIOLibrary?.ContractSummaryTooltip;
     if (!ContractSummaryTooltip) {
-      LogHelper.warn('[HEADER] ContractSummaryTooltip not available in library');
+      LogHelper.error('[HEADER] ContractSummaryTooltip not available in library. Available exports:', Object.keys(window.MyIOLibrary || {}));
       return;
     }
 
     // Build tooltip data from window.CONTRACT_STATE
     const contractState = window.CONTRACT_STATE;
     if (!contractState || !contractState.isLoaded) {
-      LogHelper.warn('[HEADER] Contract state not loaded');
+      LogHelper.warn('[HEADER] Contract state not loaded yet. CONTRACT_STATE:', contractState);
       return;
     }
 
     // Build data from global state and show tooltip
     // ContractSummaryTooltip is an object with static methods, not a class
-    const data = ContractSummaryTooltip.buildFromGlobalState();
+    try {
+      const data = ContractSummaryTooltip.buildFromGlobalState();
 
-    if (data) {
-      ContractSummaryTooltip.show(contractStatusEl, data);
-      LogHelper.log('[HEADER] ContractSummaryTooltip shown');
-    } else {
-      LogHelper.warn('[HEADER] Could not build tooltip data from CONTRACT_STATE');
+      if (data) {
+        ContractSummaryTooltip.show(contractStatusEl, data);
+        LogHelper.log('[HEADER] ContractSummaryTooltip.show() called successfully');
+      } else {
+        LogHelper.warn('[HEADER] buildFromGlobalState() returned null. CONTRACT_STATE:', window.CONTRACT_STATE);
+      }
+    } catch (err) {
+      LogHelper.error('[HEADER] Error showing ContractSummaryTooltip:', err);
     }
   });
 

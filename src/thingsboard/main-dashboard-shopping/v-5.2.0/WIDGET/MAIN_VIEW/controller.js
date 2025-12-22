@@ -3596,6 +3596,14 @@ const MyIOOrchestrator = (() => {
         // Release mutex
         sharedWidgetState.mutexMap.set(domain, false);
         LogHelper.log(`[Orchestrator] 🔓 Mutex released for ${domain}`);
+
+        // RFC-0107: Dispatch event to signal fetch completion (for contract modal timer)
+        window.dispatchEvent(
+          new CustomEvent('myio:domain:fetch-complete', {
+            detail: { domain },
+          })
+        );
+        LogHelper.log(`[Orchestrator] 📡 Dispatched myio:domain:fetch-complete for ${domain}`);
       }
     })().finally(() => {
       inFlight.delete(key);
@@ -4093,8 +4101,10 @@ async function initializeContractLoading() {
  */
 function setupContractValidationListeners(expectedCounts) {
   const domainsLoaded = { energy: false, water: false, temperature: false };
+  const domainsFetchComplete = { energy: false, water: false, temperature: false };
+  let validationFinalized = false;
 
-  // Listen for domain state-ready events
+  // Listen for domain state-ready events (data is in STATE)
   const handleStateReady = (event) => {
     const { domain } = event.detail || {};
     if (!domain || !['energy', 'water', 'temperature'].includes(domain)) return;
@@ -4136,15 +4146,42 @@ function setupContractValidationListeners(expectedCounts) {
       );
     }
 
-    // Check if all domains are loaded
-    const allLoaded = Object.values(domainsLoaded).every((loaded) => loaded);
-    if (allLoaded) {
+    // Check if all domains are loaded and fetch complete
+    checkAllComplete();
+  };
+
+  // RFC-0107 FIX: Listen for fetch-complete events (after Finally block)
+  const handleFetchComplete = (event) => {
+    const { domain } = event.detail || {};
+    if (!domain || !['energy', 'water', 'temperature'].includes(domain)) return;
+
+    LogHelper.log(`[RFC-0107] Domain ${domain} fetch complete (finally block done)`);
+    domainsFetchComplete[domain] = true;
+
+    // Check if all domains are loaded and fetch complete
+    checkAllComplete();
+  };
+
+  // Check if all domains have both state-ready and fetch-complete
+  const checkAllComplete = () => {
+    if (validationFinalized) return;
+
+    const allStateReady = Object.values(domainsLoaded).every((loaded) => loaded);
+    const allFetchComplete = Object.values(domainsFetchComplete).every((complete) => complete);
+
+    LogHelper.log(`[RFC-0107] checkAllComplete: stateReady=${allStateReady}, fetchComplete=${allFetchComplete}`);
+
+    if (allStateReady && allFetchComplete) {
+      validationFinalized = true;
+      LogHelper.log('[RFC-0107] All domains loaded AND fetch complete - finalizing validation');
       finalizeContractValidation(expectedCounts);
       window.removeEventListener('myio:state:ready', handleStateReady);
+      window.removeEventListener('myio:domain:fetch-complete', handleFetchComplete);
     }
   };
 
   window.addEventListener('myio:state:ready', handleStateReady);
+  window.addEventListener('myio:domain:fetch-complete', handleFetchComplete);
 
   // Also check for already-loaded domains (in case events were missed)
   setTimeout(() => {
