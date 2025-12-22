@@ -339,22 +339,29 @@ function injectCSS(): void {
 
 interface TooltipState {
   hideTimer: ReturnType<typeof setTimeout> | null;
+  safetyTimer: ReturnType<typeof setTimeout> | null;
   isMouseOverTooltip: boolean;
   isMaximized: boolean;
   isDragging: boolean;
   dragOffset: { x: number; y: number };
   savedPosition: { left: string; top: string } | null;
   pinnedCounter: number;
+  isPinned: boolean;
 }
+
+const HIDE_DELAY_MS = 2500; // 1.5 seconds
+const SAFETY_TIMEOUT_MS = 15000; // 15 seconds max without interaction
 
 const state: TooltipState = {
   hideTimer: null,
+  safetyTimer: null,
   isMouseOverTooltip: false,
   isMaximized: false,
   isDragging: false,
   dragOffset: { x: 0, y: 0 },
   savedPosition: null,
   pinnedCounter: 0,
+  isPinned: false,
 };
 
 // ============================================
@@ -402,6 +409,8 @@ function setupHoverListeners(container: HTMLElement): void {
       clearTimeout(state.hideTimer);
       state.hideTimer = null;
     }
+    // Reset safety timer on interaction
+    resetSafetyTimer();
   };
 
   container.onmouseleave = () => {
@@ -415,7 +424,7 @@ function setupHoverListeners(container: HTMLElement): void {
  */
 function setupButtonListeners(container: HTMLElement): void {
   const buttons = container.querySelectorAll('[data-action]');
-  buttons.forEach(btn => {
+  buttons.forEach((btn) => {
     (btn as HTMLElement).onclick = (e: MouseEvent) => {
       e.stopPropagation();
       const action = (btn as HTMLElement).dataset.action;
@@ -451,7 +460,7 @@ function setupDragListeners(container: HTMLElement): void {
     const rect = container.getBoundingClientRect();
     state.dragOffset = {
       x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      y: e.clientY - rect.top,
     };
 
     const onMouseMove = (e: MouseEvent) => {
@@ -608,7 +617,7 @@ function toggleMaximize(container: HTMLElement): void {
   if (state.isMaximized) {
     state.savedPosition = {
       left: container.style.left,
-      top: container.style.top
+      top: container.style.top,
     };
   }
 
@@ -631,22 +640,60 @@ function toggleMaximize(container: HTMLElement): void {
 }
 
 /**
- * Start delayed hide (1.5s)
+ * Start delayed hide (uses HIDE_DELAY_MS constant)
  */
 function startDelayedHide(): void {
-  if (state.isMouseOverTooltip) return;
+  if (state.isMouseOverTooltip || state.isPinned) return;
   if (state.hideTimer) {
     clearTimeout(state.hideTimer);
   }
   state.hideTimer = setTimeout(() => {
     hideWithAnimation();
-  }, 1500);
+  }, HIDE_DELAY_MS);
+}
+
+/**
+ * Reset safety timer - called on any user interaction
+ */
+function resetSafetyTimer(): void {
+  if (state.safetyTimer) {
+    clearTimeout(state.safetyTimer);
+    state.safetyTimer = null;
+  }
+  // Only set safety timer if tooltip is visible and not pinned
+  const container = document.getElementById('myio-info-tooltip');
+  if (container && container.classList.contains('visible') && !state.isPinned) {
+    state.safetyTimer = setTimeout(() => {
+      console.log('[InfoTooltip] Safety timeout reached - forcing hide');
+      InfoTooltip.destroy();
+    }, SAFETY_TIMEOUT_MS);
+  }
+}
+
+/**
+ * Clear all timers
+ */
+function clearAllTimers(): void {
+  if (state.hideTimer) {
+    clearTimeout(state.hideTimer);
+    state.hideTimer = null;
+  }
+  if (state.safetyTimer) {
+    clearTimeout(state.safetyTimer);
+    state.safetyTimer = null;
+  }
 }
 
 /**
  * Hide with animation
  */
 function hideWithAnimation(): void {
+  // Clear safety timer when hiding
+  if (state.safetyTimer) {
+    clearTimeout(state.safetyTimer);
+    state.safetyTimer = null;
+  }
+
   const container = document.getElementById('myio-info-tooltip');
   if (container && container.classList.contains('visible')) {
     container.classList.add('closing');
@@ -706,14 +753,12 @@ export const InfoTooltip = {
    * Show tooltip
    */
   show(triggerElement: HTMLElement, options: InfoTooltipOptions): void {
-    // Cancel pending hide
-    if (state.hideTimer) {
-      clearTimeout(state.hideTimer);
-      state.hideTimer = null;
-    }
+    // Cancel pending timers
+    clearAllTimers();
 
     const container = this.getContainer();
     container.classList.remove('closing');
+    state.isPinned = false;
 
     // Build HTML
     container.innerHTML = `
@@ -733,6 +778,9 @@ export const InfoTooltip = {
     setupHoverListeners(container);
     setupButtonListeners(container);
     setupDragListeners(container);
+
+    // Start safety timer to guarantee cleanup
+    resetSafetyTimer();
   },
 
   /**
@@ -746,10 +794,7 @@ export const InfoTooltip = {
    * Hide immediately
    */
   hide(): void {
-    if (state.hideTimer) {
-      clearTimeout(state.hideTimer);
-      state.hideTimer = null;
-    }
+    clearAllTimers();
     state.isMouseOverTooltip = false;
 
     const container = document.getElementById(this.containerId);
@@ -762,14 +807,12 @@ export const InfoTooltip = {
    * Close and reset all states
    */
   close(): void {
+    clearAllTimers();
     state.isMaximized = false;
     state.isDragging = false;
     state.savedPosition = null;
-    if (state.hideTimer) {
-      clearTimeout(state.hideTimer);
-      state.hideTimer = null;
-    }
     state.isMouseOverTooltip = false;
+    state.isPinned = false;
 
     const container = document.getElementById(this.containerId);
     if (container) {
@@ -778,12 +821,33 @@ export const InfoTooltip = {
   },
 
   /**
+   * Destroy tooltip completely - guaranteed cleanup
+   * Removes from DOM and clears all timers/state
+   */
+  destroy(): void {
+    clearAllTimers();
+    state.isMaximized = false;
+    state.isDragging = false;
+    state.savedPosition = null;
+    state.isMouseOverTooltip = false;
+    state.isPinned = false;
+
+    const container = document.getElementById(this.containerId);
+    if (container) {
+      container.remove();
+    }
+
+    // Also remove any pinned clones
+    const pinnedClones = document.querySelectorAll('[id^="myio-info-tooltip-pinned-"]');
+    pinnedClones.forEach((clone) => clone.remove());
+
+    console.log('[InfoTooltip] Destroyed - all tooltips removed');
+  },
+
+  /**
    * Attach tooltip to trigger element with hover behavior
    */
-  attach(
-    triggerElement: HTMLElement,
-    getOptions: () => InfoTooltipOptions
-  ): () => void {
+  attach(triggerElement: HTMLElement, getOptions: () => InfoTooltipOptions): () => void {
     const self = this;
 
     const handleMouseEnter = () => {
