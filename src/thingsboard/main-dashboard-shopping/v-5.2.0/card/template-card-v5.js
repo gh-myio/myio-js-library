@@ -374,6 +374,12 @@ export function renderCardComponentV5({
   // Smart formatting function that uses formatEnergy for energy devices
   const formatCardValue = (value, deviceType) => {
     const numValue = Number(value) || 0;
+    const category = getDeviceCategory(deviceType);
+
+    // Debug log for troubleshooting water/energy display issues
+    if (category !== 'energy' && category !== 'temperature') {
+      console.log(`[template-card-v5] formatCardValue: deviceType=${deviceType}, category=${category}, isEnergy=${isEnergyDevice(deviceType)}`);
+    }
 
     if (isEnergyDevice(deviceType)) {
       // Use formatEnergy for intelligent unit conversion (Wh → kWh → MWh → GWh)
