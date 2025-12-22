@@ -2768,8 +2768,13 @@ const MyIOOrchestrator = (() => {
   /**
    * RFC-0106: Convert ThingsBoard connectionStatus to deviceStatus
    * ThingsBoard connectionStatus can be: 'true'/'false', 'ONLINE'/'OFFLINE', true/false, 'CONNECTED'/'DISCONNECTED'
+   *
+   * Logic follows TELEMETRY buildAuthoritativeItems:
+   * - offline → 'no_info' (device disconnected, no consumption data available)
+   * - online → 'power_on' (simplified; energy devices may use calculateDeviceStatusWithRanges in TELEMETRY)
+   *
    * @param {string|boolean|null} connectionStatus - Raw status from ThingsBoard
-   * @returns {string} deviceStatus: 'power_on', 'offline', or 'no_info'
+   * @returns {string} deviceStatus: 'power_on' or 'no_info'
    */
   function convertConnectionStatusToDeviceStatus(connectionStatus) {
     if (connectionStatus === null || connectionStatus === undefined || connectionStatus === '') {
@@ -2784,13 +2789,9 @@ const MyIOOrchestrator = (() => {
       return 'power_on';
     }
 
-    // Offline/disconnected states → offline
-    const OFFLINE_VALUES = ['false', 'offline', 'disconnected', '0', 'inactive', 'no'];
-    if (OFFLINE_VALUES.includes(statusStr)) {
-      return 'offline';
-    }
-
-    // Unknown status → no_info
+    // Offline/disconnected/unknown states → no_info
+    // RFC-0106: Offline devices have no consumption data, so status is 'no_info' (not 'offline')
+    // This aligns with TELEMETRY logic: tbConnectionStatus === 'offline' → deviceStatus = 'no_info'
     return 'no_info';
   }
 
