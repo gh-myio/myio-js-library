@@ -86,12 +86,12 @@ Object.assign(window.MyIOUtils, {
     // Check if we already have data in window.STATE for this domain
     // If we have cached/existing data, don't reload - just log the error
     const existingData = window.STATE?.[domain];
-    const hasExistingData = existingData && (
-      existingData.summary?.total > 0 ||
-      existingData.entrada?.total > 0 ||
-      existingData.lojas?.total > 0 ||
-      existingData._raw?.length > 0
-    );
+    const hasExistingData =
+      existingData &&
+      (existingData.summary?.total > 0 ||
+        existingData.entrada?.total > 0 ||
+        existingData.lojas?.total > 0 ||
+        existingData._raw?.length > 0);
 
     if (hasExistingData) {
       LogHelper.warn(`[MyIOUtils] Data load failed but existing data found for ${domain} - skipping reload`);
@@ -136,13 +136,15 @@ Object.assign(window.MyIOUtils, {
         } else {
           // Fallback: emit request event directly if button not available
           LogHelper.log(`[MyIOUtils] ⚠️ Carregar button not found, emitting request event directly...`);
-          window.dispatchEvent(new CustomEvent('myio:telemetry:request-data', {
-            detail: {
-              domain: domain,
-              isRetry: true,
-              retryAttempt: retryCount + 1,
-            },
-          }));
+          window.dispatchEvent(
+            new CustomEvent('myio:telemetry:request-data', {
+              detail: {
+                domain: domain,
+                isRetry: true,
+                retryAttempt: retryCount + 1,
+              },
+            })
+          );
         }
       }, 2000);
 
@@ -1116,20 +1118,20 @@ if (!window.CONTRACT_STATE) {
     timestamp: null,
     energy: {
       total: 0,
-      entries: 0,      // qtDevices3f-Entries
-      commonArea: 0,   // qtDevices3f-CommonArea
-      stores: 0,       // qtDevices3f-Stores
+      entries: 0, // qtDevices3f-Entries
+      commonArea: 0, // qtDevices3f-CommonArea
+      stores: 0, // qtDevices3f-Stores
     },
     water: {
       total: 0,
-      entries: 0,      // qtDevicesHidr-Entries
-      commonArea: 0,   // qtDevicesHidr-CommonArea
-      stores: 0,       // qtDevicesHidr-Stores
+      entries: 0, // qtDevicesHidr-Entries
+      commonArea: 0, // qtDevicesHidr-CommonArea
+      stores: 0, // qtDevicesHidr-Stores
     },
     temperature: {
       total: 0,
-      internal: 0,     // qtDevicesTemp-Internal (climate-controlled)
-      stores: 0,       // qtDevicesTemp-Stores (non-climate-controlled)
+      internal: 0, // qtDevicesTemp-Internal (climate-controlled)
+      stores: 0, // qtDevicesTemp-Stores (non-climate-controlled)
     },
   };
   LogHelper.log('[RFC-0107] 📋 window.CONTRACT_STATE initialized');
@@ -1599,7 +1601,9 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
     if (excludedFromCAG.length > 0) {
       const excludedTotal = excludedFromCAG.reduce((sum, i) => sum + (Number(i.value) || 0), 0);
       LogHelper.log(
-        `[buildSummary] 🚫 Excluded ${excludedFromCAG.length} devices from CAG subtotal (${excludedTotal.toFixed(2)} kWh):`,
+        `[buildSummary] 🚫 Excluded ${
+          excludedFromCAG.length
+        } devices from CAG subtotal (${excludedTotal.toFixed(2)} kWh):`,
         excludedFromCAG.map((i) => ({ id: i.id, label: i.label, value: i.value }))
       );
     }
@@ -2410,7 +2414,11 @@ const MyIOOrchestrator = (() => {
       header.addEventListener('click', () => {
         const section = header.parentElement;
         section.classList.toggle('expanded');
-        LogHelper.log(`[RFC-0107] Domain ${section.dataset.domain} ${section.classList.contains('expanded') ? 'expanded' : 'collapsed'}`);
+        LogHelper.log(
+          `[RFC-0107] Domain ${section.dataset.domain} ${
+            section.classList.contains('expanded') ? 'expanded' : 'collapsed'
+          }`
+        );
       });
     });
 
@@ -2533,10 +2541,14 @@ const MyIOOrchestrator = (() => {
 
     if (isValid) {
       statusEl.style.background = 'rgba(76,175,80,0.2)';
-      statusEl.innerHTML = `<span style="color:#81c784; font-size:13px;">✓ ${message || 'Contrato validado com sucesso'}</span>`;
+      statusEl.innerHTML = `<span style="color:#81c784; font-size:13px;">✓ ${
+        message || 'Contrato validado com sucesso'
+      }</span>`;
     } else {
       statusEl.style.background = 'rgba(244,67,54,0.2)';
-      statusEl.innerHTML = `<span style="color:#ef5350; font-size:13px;">⚠ ${message || 'Problemas detectados na validação'}</span>`;
+      statusEl.innerHTML = `<span style="color:#ef5350; font-size:13px;">⚠ ${
+        message || 'Problemas detectados na validação'
+      }</span>`;
     }
   }
 
@@ -2684,7 +2696,6 @@ const MyIOOrchestrator = (() => {
       }
     }, 4000);
   }
-
 
   // PHASE 2: Shared state management for widgets coordination
   let sharedWidgetState = {
@@ -3039,7 +3050,9 @@ const MyIOOrchestrator = (() => {
         // If cached data is available, return it directly
         if (ctxDataReady === 'cached') {
           const cachedData = window.MyIOOrchestratorData?.[domain];
-          LogHelper.log(`[Orchestrator] ✅ Using cached temperature data: ${cachedData?.items?.length || 0} items`);
+          LogHelper.log(
+            `[Orchestrator] ✅ Using cached temperature data: ${cachedData?.items?.length || 0} items`
+          );
           return cachedData?.items || [];
         }
 
@@ -3108,7 +3121,9 @@ const MyIOOrchestrator = (() => {
       // If cached data is available, return it directly (another call already fetched)
       if (ctxDataReady === 'cached') {
         const cachedData = window.MyIOOrchestratorData?.[domain];
-        LogHelper.log(`[Orchestrator] ✅ Using cached ${domain} data: ${cachedData?.items?.length || 0} items`);
+        LogHelper.log(
+          `[Orchestrator] ✅ Using cached ${domain} data: ${cachedData?.items?.length || 0} items`
+        );
         return cachedData?.items || [];
       }
 
@@ -3321,7 +3336,6 @@ const MyIOOrchestrator = (() => {
           centralName: meta.centralName || null,
           gatewayId: row.gatewayId || null,
           customerId: row.customerId || null,
-          customerName: row.customerName || null,
           assetId: row.assetId || null,
           assetName: row.assetName || null,
           lastActivityTime: meta.lastActivityTime || null,
@@ -3971,13 +3985,13 @@ async function initializeContractLoading() {
 function setupContractValidationListeners(expectedCounts) {
   // FIX: Only track domains that are actually enabled in widgetSettings
   const enabledDomains = widgetSettings.domainsEnabled || { energy: true, water: true, temperature: true };
-  const activeDomains = ['energy', 'water', 'temperature'].filter(d => enabledDomains[d]);
+  const activeDomains = ['energy', 'water', 'temperature'].filter((d) => enabledDomains[d]);
 
   LogHelper.log('[RFC-0107] Active domains for validation:', activeDomains);
 
   const domainsLoaded = {};
   const domainsFetchComplete = {};
-  activeDomains.forEach(d => {
+  activeDomains.forEach((d) => {
     domainsLoaded[d] = false;
     domainsFetchComplete[d] = false;
   });
@@ -4049,7 +4063,9 @@ function setupContractValidationListeners(expectedCounts) {
     const allStateReady = Object.values(domainsLoaded).every((loaded) => loaded);
     const allFetchComplete = Object.values(domainsFetchComplete).every((complete) => complete);
 
-    LogHelper.log(`[RFC-0107] checkAllComplete: stateReady=${allStateReady}, fetchComplete=${allFetchComplete}`);
+    LogHelper.log(
+      `[RFC-0107] checkAllComplete: stateReady=${allStateReady}, fetchComplete=${allFetchComplete}`
+    );
 
     if (allStateReady && allFetchComplete) {
       validationFinalized = true;
@@ -4089,9 +4105,7 @@ function finalizeContractValidation(expectedCounts) {
   // Update modal status
   if (window.MyIOOrchestrator?.updateContractModalStatus) {
     const totalExpected =
-      expectedCounts.energy.total +
-      expectedCounts.water.total +
-      expectedCounts.temperature.total;
+      expectedCounts.energy.total + expectedCounts.water.total + expectedCounts.temperature.total;
 
     if (validationResult.isValid) {
       window.MyIOOrchestrator.updateContractModalStatus(

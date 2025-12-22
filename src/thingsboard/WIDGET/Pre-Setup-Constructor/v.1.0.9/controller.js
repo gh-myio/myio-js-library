@@ -179,6 +179,8 @@ async function fetchIdentifierAndCentralNameByDevice(deviceEntityList) {
   let postsPlanned = 0;
   let postsOK = 0;
   let postsFail = 0;
+  let profilePostsOK = 0;
+  let profilePostsFail = 0;
 
   // “Sub-tempos”
   let tSanity = 0,
@@ -285,6 +287,140 @@ async function fetchIdentifierAndCentralNameByDevice(deviceEntityList) {
         const dt = nowMs() - t;
         console.error(
           `${TAG} ❌ POST identifier falhou | dev=${deviceId} | "${identifier}" | ${fmtMs(dt)} | erro: ${
+            err?.message || err
+          }`
+        );
+        throw err;
+      }
+    }
+
+    // ==========================================================
+    // 🏷️ DeviceProfile Sync Helpers (RFC-0071 algorithm)
+    // ==========================================================
+
+    /**
+     * Fetch all device profiles from ThingsBoard
+     * @returns {Promise<Map<string, string>>} Map of profileId -> profileName
+     */
+    async function fetchDeviceProfiles() {
+      const t = nowMs();
+      try {
+        const token = localStorage.getItem('jwt_token');
+        if (!token) throw new Error('jwt_token ausente no localStorage');
+
+        const url = '/api/deviceProfile/names?activeOnly=true';
+        const res = await fetch(url, {
+          headers: {
+            'X-Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error(`[fetchDeviceProfiles] HTTP ${res.status} ${res.statusText}`);
+        }
+
+        const profiles = await res.json();
+        const profileMap = new Map();
+        profiles.forEach((profile) => {
+          const profileId = profile.id?.id || profile.id;
+          const profileName = profile.name;
+          if (profileId && profileName) {
+            profileMap.set(profileId, profileName);
+          }
+        });
+
+        const dt = nowMs() - t;
+        console.log(`${TAG} ✅ fetchDeviceProfiles ok | ${profileMap.size} profiles | ${fmtMs(dt)}`);
+        return profileMap;
+      } catch (err) {
+        const dt = nowMs() - t;
+        console.error(`${TAG} ❌ fetchDeviceProfiles falhou | ${fmtMs(dt)} | erro: ${err?.message || err}`);
+        throw err;
+      }
+    }
+
+    /**
+     * Fetch device details to get deviceProfileId
+     * @param {string} deviceId - Device entity ID
+     * @returns {Promise<Object>} Device details including deviceProfileId
+     */
+    async function fetchDeviceDetails(deviceId) {
+      const t = nowMs();
+      try {
+        const token = localStorage.getItem('jwt_token');
+        if (!token) throw new Error('jwt_token ausente no localStorage');
+
+        const url = `/api/device/${deviceId}`;
+        const res = await fetch(url, {
+          headers: {
+            'X-Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error(`[fetchDeviceDetails] HTTP ${res.status} ${res.statusText}`);
+        }
+
+        const device = await res.json();
+        const dt = nowMs() - t;
+        console.log(`${TAG} ✅ fetchDeviceDetails ok | dev=${deviceId} | ${fmtMs(dt)}`);
+        return device;
+      } catch (err) {
+        const dt = nowMs() - t;
+        console.error(`${TAG} ❌ fetchDeviceDetails falhou | dev=${deviceId} | ${fmtMs(dt)} | erro: ${err?.message || err}`);
+        throw err;
+      }
+    }
+
+    /**
+     * Saves deviceProfile as a server-scope attribute on the device
+     * @param {string} deviceId - Device entity ID
+     * @param {string} deviceProfile - Profile name (e.g., "MOTOR", "3F_MEDIDOR")
+     * @returns {Promise<{ok: boolean, status: number, data: any}>}
+     */
+    async function addDeviceProfileAttribute(deviceId, deviceProfile) {
+      const t = nowMs();
+      try {
+        if (!deviceId) throw new Error('deviceId é obrigatório');
+        if (deviceProfile == null || deviceProfile === '') {
+          throw new Error('deviceProfile é obrigatório');
+        }
+
+        const token = localStorage.getItem('jwt_token');
+        if (!token) throw new Error('jwt_token ausente no localStorage');
+
+        const url = `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`;
+        const headers = {
+          'Content-Type': 'application/json',
+          'X-Authorization': 'Bearer ' + token,
+        };
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ deviceProfile }),
+        });
+
+        const bodyText = await res.text().catch(() => '');
+        if (!res.ok) {
+          throw new Error(`[addDeviceProfileAttribute] HTTP ${res.status} ${res.statusText} - ${bodyText}`);
+        }
+
+        let data = null;
+        try {
+          data = bodyText ? JSON.parse(bodyText) : null;
+        } catch {
+          /* pode não ser JSON */
+        }
+        const dt = nowMs() - t;
+        console.log(`${TAG} ✅ POST deviceProfile ok | dev=${deviceId} | "${deviceProfile}" | ${fmtMs(dt)}`);
+        return { ok: true, status: res.status, data };
+      } catch (err) {
+        const dt = nowMs() - t;
+        console.error(
+          `${TAG} ❌ POST deviceProfile falhou | dev=${deviceId} | "${deviceProfile}" | ${fmtMs(dt)} | erro: ${
             err?.message || err
           }`
         );
@@ -436,9 +572,21 @@ async function fetchIdentifierAndCentralNameByDevice(deviceEntityList) {
     );
 
     // =========================
-    // 🏷️ Cálculo dos identifiers
+    // 🏷️ Cálculo dos identifiers + deviceProfile
     // =========================
+
+    // Fetch device profiles map once before the loop
+    console.log(`${TAG} 🔎 Carregando device profiles...`);
+    let deviceProfileMap = new Map();
+    try {
+      deviceProfileMap = await fetchDeviceProfiles();
+    } catch (err) {
+      console.error(`${TAG} ❌ Falha ao carregar device profiles: ${err?.message || err}`);
+      // Continue without device profiles - identifier sync will still work
+    }
+
     const jobs = [];
+
     for (const dev of deviceEntityList) {
       try {
         const deviceId = dev.id;
@@ -465,23 +613,46 @@ async function fetchIdentifierAndCentralNameByDevice(deviceEntityList) {
 
         postsPlanned++;
         jobs.push(
-          addIdentifierAttribute(deviceId, identifier)
-            .then(() => {
+          (async () => {
+            // Step 1: Save identifier
+            try {
+              await addIdentifierAttribute(deviceId, identifier);
               postsOK++;
-              return { deviceId, status: 'fulfilled', identifier };
-            })
-            .catch((err) => {
+            } catch (err) {
               postsFail++;
               return {
                 deviceId,
                 status: 'rejected',
                 identifier,
+                deviceProfile: null,
                 reason: err?.message || String(err),
               };
-            })
+            }
+
+            // Step 2: Fetch device details to get deviceProfileId and save deviceProfile attribute
+            let deviceProfile = null;
+            try {
+              const deviceDetails = await fetchDeviceDetails(deviceId);
+              const deviceProfileId = deviceDetails.deviceProfileId?.id;
+
+              if (deviceProfileId && deviceProfileMap.has(deviceProfileId)) {
+                deviceProfile = deviceProfileMap.get(deviceProfileId);
+                await addDeviceProfileAttribute(deviceId, deviceProfile);
+                profilePostsOK++;
+              } else {
+                console.warn(`${TAG} ⚠️ deviceProfileId não encontrado para dev=${deviceId}`);
+                profilePostsFail++;
+              }
+            } catch (err) {
+              console.error(`${TAG} ❌ Falha ao salvar deviceProfile para dev=${deviceId}: ${err?.message || err}`);
+              profilePostsFail++;
+            }
+
+            return { deviceId, status: 'fulfilled', identifier, deviceProfile };
+          })()
         );
 
-        // Salvar o “último” calculado para retorno (se quiser o do primeiro, mova isso para fora)
+        // Salvar o "último" calculado para retorno (se quiser o do primeiro, mova isso para fora)
         finalDeviceIdentifier = identifier;
       } catch (err) {
         console.error(`${TAG} ❌ Falha ao preparar identifier para dev=${dev?.id}: ${err?.message || err}`);
@@ -490,13 +661,13 @@ async function fetchIdentifierAndCentralNameByDevice(deviceEntityList) {
     tCompute = nowMs() - tC;
 
     // =========================
-    // ☁️ POST dos identifiers
+    // ☁️ POST dos identifiers + deviceProfile
     // =========================
     const tP = nowMs();
     if (postsPlanned === 0) {
       console.log(`${TAG} ℹ️ Nenhum POST a realizar (0 identifiers válidos).`);
     } else {
-      console.log(`${TAG} 🚀 Publicando identifiers (SERVER_SCOPE): ${postsPlanned} dispositivos...`);
+      console.log(`${TAG} 🚀 Publicando identifiers + deviceProfile (SERVER_SCOPE): ${postsPlanned} dispositivos...`);
       try {
         const results = await Promise.allSettled(jobs);
         // Tabela resumida (cap)
@@ -508,6 +679,7 @@ async function fetchIdentifierAndCentralNameByDevice(deviceEntityList) {
               deviceId: item.deviceId,
               status: item.status || r.status,
               identifier: item.identifier,
+              deviceProfile: item.deviceProfile || '—',
               error: item.status === 'rejected' ? item.reason : undefined,
             };
           })
@@ -515,6 +687,7 @@ async function fetchIdentifierAndCentralNameByDevice(deviceEntityList) {
         if (results.length > 50) {
           console.log(`${TAG} (…+${results.length - 50} linhas ocultas)`);
         }
+        console.log(`${TAG} 📊 deviceProfile: ${profilePostsOK} ok, ${profilePostsFail} falhas`);
       } catch (err) {
         console.error(`${TAG} 💥 Falha durante o Promise.allSettled dos POSTs: ${err?.message || err}`);
       }
@@ -550,7 +723,8 @@ async function fetchIdentifierAndCentralNameByDevice(deviceEntityList) {
         ` | avós=${grandparentsFound}` +
         ` | assetIds=${assetIdsTotal}` +
         ` | batches=${batchesOK}/${batchesTotal}` +
-        ` | posts=${postsOK} ok / ${postsFail} fail / ${postsPlanned} planned` +
+        ` | identifier posts=${postsOK} ok / ${postsFail} fail / ${postsPlanned} planned` +
+        ` | deviceProfile posts=${profilePostsOK} ok / ${profilePostsFail} fail` +
         ` | tempos: sanity=${fmtMs(tSanity)}, pais=${fmtMs(tParents)}, avós=${fmtMs(
           tGrandparents
         )}, assets=${fmtMs(tAssets)}, compute=${fmtMs(tCompute)}, post=${fmtMs(tPosts)}, total=${fmtMs(

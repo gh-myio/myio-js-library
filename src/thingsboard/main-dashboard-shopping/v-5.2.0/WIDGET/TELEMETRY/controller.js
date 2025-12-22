@@ -169,7 +169,33 @@ function buildAnnotationTypeTooltipContent(type, typeAnnotations, config) {
 function addAnnotationIndicator(cardElement, entityObject) {
   LogHelper.log(`[TELEMETRY] Adding annotation indicators for ${entityObject.labelOrName}`);
 
-  const annotations = entityObject.log_annotations.annotations;
+  // Safely extract annotations array from log_annotations
+  // log_annotations can be: null, string (JSON), or object with annotations property
+  let annotations = null;
+  try {
+    let logAnnotations = entityObject.log_annotations;
+
+    // If it's a string, try to parse it as JSON
+    if (typeof logAnnotations === 'string') {
+      logAnnotations = JSON.parse(logAnnotations);
+    }
+
+    // Extract annotations array from parsed object
+    if (logAnnotations && Array.isArray(logAnnotations.annotations)) {
+      annotations = logAnnotations.annotations;
+    } else if (Array.isArray(logAnnotations)) {
+      // log_annotations might be the array directly
+      annotations = logAnnotations;
+    }
+  } catch (err) {
+    LogHelper.warn(`[TELEMETRY] Failed to parse log_annotations for ${entityObject.labelOrName}:`, err.message);
+    return null;
+  }
+
+  // No valid annotations found
+  if (!annotations || annotations.length === 0) {
+    return null;
+  }
 
   // Ensure badge styles are injected
   injectBadgeStyles();
