@@ -753,6 +753,10 @@ Object.assign(window.MyIOUtils, {
 
     LogHelper.log('[Orchestrator] 🔧 Config initialized from settings:', config);
 
+    // RFC-0107: Initialize contract loading now that customerTB_ID is available
+    // This fetches device counts from SERVER_SCOPE and shows the contract loading modal
+    initializeContractLoading();
+
     // RFC-0051.2: Expose orchestrator stub IMMEDIATELY
     // This prevents race conditions with TELEMETRY widgets that check for orchestrator
     // We expose a stub with isReady flag that will be set to true when fully initialized
@@ -3905,8 +3909,7 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
 
   LogHelper.log('[Orchestrator] 📢 Emitted myio:orchestrator:ready event');
 
-  // RFC-0107: Initialize contract loading on orchestrator ready
-  initializeContractLoading();
+  // RFC-0107: Contract loading will be initialized from self.onInit after customerTB_ID is set
 } else {
   // Fallback: no stub exists (shouldn't happen but be safe)
   window.MyIOOrchestrator = MyIOOrchestrator;
@@ -3915,8 +3918,7 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
 
   LogHelper.log('[MyIOOrchestrator] Initialized (no stub found)');
 
-  // RFC-0107: Initialize contract loading (fallback path)
-  initializeContractLoading();
+  // RFC-0107: Contract loading will be initialized from self.onInit after customerTB_ID is set
 }
 
 /**
@@ -3932,6 +3934,12 @@ async function initializeContractLoading() {
 
   LogHelper.log('[RFC-0107] 📋 Initializing contract loading...');
 
+  // Show the contract loading modal immediately
+  if (window.MyIOOrchestrator?.showGlobalBusy) {
+    window.MyIOOrchestrator.showGlobalBusy('contract', 'Carregando contrato...', 60000);
+    LogHelper.log('[RFC-0107] Contract loading modal shown');
+  }
+
   try {
     // Fetch device counts from SERVER_SCOPE
     const deviceCounts = await fetchDeviceCountAttributes(customerTB_ID);
@@ -3939,11 +3947,12 @@ async function initializeContractLoading() {
     if (deviceCounts) {
       LogHelper.log('[RFC-0107] Device counts fetched:', deviceCounts);
 
-      // Update the loading modal with expected counts
+      // Update the loading modal with expected counts (modal DOM should exist now)
       if (window.MyIOOrchestrator?.updateContractModalDomain) {
         window.MyIOOrchestrator.updateContractModalDomain('energy', deviceCounts.energy, false);
         window.MyIOOrchestrator.updateContractModalDomain('water', deviceCounts.water, false);
         window.MyIOOrchestrator.updateContractModalDomain('temperature', deviceCounts.temperature, false);
+        LogHelper.log('[RFC-0107] Modal domains updated with expected counts');
       }
 
       // Store counts in CONTRACT_STATE (initial, not validated yet)
@@ -4069,4 +4078,12 @@ function finalizeContractValidation(expectedCounts) {
   }
 
   LogHelper.log('[RFC-0107] ✅ Contract validation complete:', validationResult);
+
+  // RFC-0107: Auto-close the contract loading modal after 6 seconds
+  setTimeout(() => {
+    if (window.MyIOOrchestrator?.hideGlobalBusy) {
+      LogHelper.log('[RFC-0107] Auto-closing contract loading modal after 6 seconds');
+      window.MyIOOrchestrator.hideGlobalBusy();
+    }
+  }, 6000);
 }
