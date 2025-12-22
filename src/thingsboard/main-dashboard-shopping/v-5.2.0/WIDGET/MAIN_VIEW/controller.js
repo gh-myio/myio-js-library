@@ -3199,7 +3199,7 @@ const MyIOOrchestrator = (() => {
             name: meta.label || meta.identifier || 'Sensor',
             value: temperatureValue,
             temperature: temperatureValue,
-            deviceType: meta.deviceType || 'SENSOR_TEMP',
+            deviceType: meta.deviceType || 'TERMOSTATO',
             deviceProfile: meta.deviceProfile || '',
             deviceStatus: deviceStatus,
             connectionStatus: meta.connectionStatus || 'unknown',

@@ -1644,28 +1644,26 @@ function buildTempSensorSummaryData() {
 
   if (window._telemetryAuthoritativeItems) {
     window._telemetryAuthoritativeItems.forEach((item) => {
-      if (item.deviceType === 'TERMOSTATO') {
-        // Skip offline devices - only count active sensors
-        const isOffline = item.deviceStatus === 'power_off' ||
-                          item.deviceStatus === 'offline' ||
-                          item.deviceStatus === 'no_info';
-        if (isOffline) {
-          return; // Skip this device
-        }
-
-        const temp = Number(item.value) || 0;
-
-        let status = 'unknown';
-        if (hasLimits) {
-          status = (temp >= tempMin && temp <= tempMax) ? 'ok' : 'warn';
-        }
-
-        devices.push({
-          name: item.label || item.identifier || 'Sensor',
-          temp: temp,
-          status: status,
-        });
+      // Skip offline devices - only count active sensors
+      const isOffline = item.deviceStatus === 'power_off' ||
+                        item.deviceStatus === 'offline' ||
+                        item.deviceStatus === 'no_info';
+      if (isOffline) {
+        return; // Skip this device
       }
+
+      const temp = Number(item.value) || 0;
+
+      let status = 'unknown';
+      if (hasLimits) {
+        status = (temp >= tempMin && temp <= tempMax) ? 'ok' : 'warn';
+      }
+
+      devices.push({
+        name: item.label || item.identifier || 'Sensor',
+        temp: temp,
+        status: status,
+      });
     });
   }
 
@@ -2074,22 +2072,20 @@ function renderHeader(count, groupSum) {
 function renderList(visible) {
   const $ul = $list().empty();
 
-  // Calculate average temperature for TERMOSTATO devices (for TempComparisonTooltip)
+  // Calculate average temperature for all temperature devices (for TempComparisonTooltip)
   // Only count active sensors, exclude offline devices
   let avgTemperature = null;
   let tempDeviceCount = 0;
   if (WIDGET_DOMAIN === 'temperature') {
     let totalTemp = 0;
     visible.forEach((item) => {
-      if (item.deviceType === 'TERMOSTATO') {
-        // Skip offline devices
-        const isOffline = item.deviceStatus === 'power_off' ||
-                          item.deviceStatus === 'offline' ||
-                          item.deviceStatus === 'no_info';
-        if (!isOffline) {
-          totalTemp += Number(item.value || 0);
-          tempDeviceCount++;
-        }
+      // Skip offline devices
+      const isOffline = item.deviceStatus === 'power_off' ||
+                        item.deviceStatus === 'offline' ||
+                        item.deviceStatus === 'no_info';
+      if (!isOffline) {
+        totalTemp += Number(item.value || 0);
+        tempDeviceCount++;
       }
     });
     if (tempDeviceCount > 0) {
@@ -2098,10 +2094,9 @@ function renderList(visible) {
   }
 
   visible.forEach((it) => {
-    // For temperature domain, only render TERMOSTATO devices
-    if (WIDGET_DOMAIN === 'temperature' && it.deviceType !== 'TERMOSTATO') {
-      return; // Skip non-TERMOSTATO devices in temperature domain
-    }
+    // For temperature domain, render all temperature-related devices
+    // (deviceType can be TERMOSTATO, SENSOR_TEMP, or other temperature sensor types)
+    // No filtering needed - temperature domain items are already filtered by orchestrator
 
     const valNum = Number(it.value || 0);
 
@@ -2951,7 +2946,8 @@ function emitTelemetryUpdate() {
 /**
  * Detecta tipo de widget baseado no datasource alias
  * RFC-0002: Added 'entrada' detection for water domain
- * @returns {'lojas'|'areacomum'|'entrada'|null}
+ * RFC-0107: Added 'temperature' detection for temperature sensors
+ * @returns {'lojas'|'areacomum'|'entrada'|'temperature'|null}
  */
 function detectWidgetType() {
   try {
@@ -3000,6 +2996,12 @@ function detectWidgetType() {
       if (/\barea\s*comum\b/.test(alias) || alias.includes('areacomum') || alias.includes('area_comum')) {
         LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "areacomum" (com base no alias "${alias}")`);
         return 'areacomum';
+      }
+
+      // RFC-0107: Match temperature sensors - aliases like "devices temp1", "temp", "temperature", "alltempdevices"
+      if (/\btemp\b/.test(alias) || alias.includes('temp') || alias.includes('temperature')) {
+        LogHelper.log(`✅ [detectWidgetType] Tipo detectado: "temperature" (com base no alias "${alias}")`);
+        return 'temperature';
       }
     }
 
@@ -3893,12 +3895,13 @@ self.onInit = async function () {
     }
 
     STATE.itemsBase = stateItems.map((item) => {
-      // Calculate temperatureStatus for TERMOSTATO devices
+      // Calculate temperatureStatus for temperature domain devices
+      // (can be TERMOSTATO, SENSOR_TEMP, or other temperature-related deviceTypes)
       let temperatureStatus = null;
-      const isTermostato = item.deviceType === 'TERMOSTATO';
+      const isTemperatureDomain = domain === 'temperature';
       const temp = Number(item.value || 0);
 
-      if (isTermostato && temp && globalTempMin !== null && globalTempMax !== null) {
+      if (isTemperatureDomain && temp && globalTempMin !== null && globalTempMax !== null) {
         if (temp > globalTempMax) {
           temperatureStatus = 'above';
         } else if (temp < globalTempMin) {
@@ -3923,10 +3926,10 @@ self.onInit = async function () {
         deviceStatus: item.deviceStatus || 'no_info',
         labelWidget: item.labelWidget || myLabelWidget,
         updatedIdentifiers: {},
-        // TERMOSTATO specific fields - use global limits from customer
-        temperature: isTermostato ? temp : null,
-        temperatureMin: isTermostato ? globalTempMin : null,
-        temperatureMax: isTermostato ? globalTempMax : null,
+        // Temperature domain specific fields - use global limits from customer
+        temperature: isTemperatureDomain ? temp : null,
+        temperatureMin: isTemperatureDomain ? globalTempMin : null,
+        temperatureMax: isTemperatureDomain ? globalTempMax : null,
         temperatureStatus: temperatureStatus,
       };
     });
