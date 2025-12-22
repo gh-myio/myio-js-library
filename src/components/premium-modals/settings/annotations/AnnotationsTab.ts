@@ -2177,9 +2177,13 @@ export class AnnotationsTab {
     // Open New Annotation Modal button
     const openModalBtn = this.container.querySelector('#open-new-annotation-modal') as HTMLButtonElement;
     if (openModalBtn) {
-      openModalBtn.onclick = () => {
+      // Use addEventListener instead of onclick for better reliability
+      openModalBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[AnnotationsTab] Create button clicked');
         this.showNewAnnotationModal();
-      };
+      });
     } else {
       console.warn('[AnnotationsTab] Create button not found');
     }

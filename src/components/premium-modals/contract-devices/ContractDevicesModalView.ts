@@ -153,24 +153,25 @@ export class ContractDevicesModalView {
             <h4>Energia</h4>
           </div>
           <div class="domain-fields">
-            <div class="field-group">
+            <div class="field-group field-total">
               <label for="energy_total">Total Contratado</label>
-              <input type="number" id="energy_total" name="energy_total" min="0" step="1" placeholder="0">
+              <input type="number" id="energy_total" name="energy_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
               <small class="field-key">${DEVICE_COUNT_KEYS.energy.total}</small>
+              <small class="field-hint">Soma automatica</small>
             </div>
             <div class="field-group">
               <label for="energy_entries">Entradas</label>
-              <input type="number" id="energy_entries" name="energy_entries" min="0" step="1" placeholder="0">
+              <input type="number" id="energy_entries" name="energy_entries" min="0" step="1" placeholder="0" data-domain="energy">
               <small class="field-key">${DEVICE_COUNT_KEYS.energy.entries}</small>
             </div>
             <div class="field-group">
               <label for="energy_commonArea">Area Comum</label>
-              <input type="number" id="energy_commonArea" name="energy_commonArea" min="0" step="1" placeholder="0">
+              <input type="number" id="energy_commonArea" name="energy_commonArea" min="0" step="1" placeholder="0" data-domain="energy">
               <small class="field-key">${DEVICE_COUNT_KEYS.energy.commonArea}</small>
             </div>
             <div class="field-group">
               <label for="energy_stores">Lojas</label>
-              <input type="number" id="energy_stores" name="energy_stores" min="0" step="1" placeholder="0">
+              <input type="number" id="energy_stores" name="energy_stores" min="0" step="1" placeholder="0" data-domain="energy">
               <small class="field-key">${DEVICE_COUNT_KEYS.energy.stores}</small>
             </div>
           </div>
@@ -183,24 +184,25 @@ export class ContractDevicesModalView {
             <h4>Agua</h4>
           </div>
           <div class="domain-fields">
-            <div class="field-group">
+            <div class="field-group field-total">
               <label for="water_total">Total Contratado</label>
-              <input type="number" id="water_total" name="water_total" min="0" step="1" placeholder="0">
+              <input type="number" id="water_total" name="water_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
               <small class="field-key">${DEVICE_COUNT_KEYS.water.total}</small>
+              <small class="field-hint">Soma automatica</small>
             </div>
             <div class="field-group">
               <label for="water_entries">Entradas</label>
-              <input type="number" id="water_entries" name="water_entries" min="0" step="1" placeholder="0">
+              <input type="number" id="water_entries" name="water_entries" min="0" step="1" placeholder="0" data-domain="water">
               <small class="field-key">${DEVICE_COUNT_KEYS.water.entries}</small>
             </div>
             <div class="field-group">
               <label for="water_commonArea">Area Comum</label>
-              <input type="number" id="water_commonArea" name="water_commonArea" min="0" step="1" placeholder="0">
+              <input type="number" id="water_commonArea" name="water_commonArea" min="0" step="1" placeholder="0" data-domain="water">
               <small class="field-key">${DEVICE_COUNT_KEYS.water.commonArea}</small>
             </div>
             <div class="field-group">
               <label for="water_stores">Lojas</label>
-              <input type="number" id="water_stores" name="water_stores" min="0" step="1" placeholder="0">
+              <input type="number" id="water_stores" name="water_stores" min="0" step="1" placeholder="0" data-domain="water">
               <small class="field-key">${DEVICE_COUNT_KEYS.water.stores}</small>
             </div>
           </div>
@@ -213,19 +215,20 @@ export class ContractDevicesModalView {
             <h4>Temperatura</h4>
           </div>
           <div class="domain-fields">
-            <div class="field-group">
+            <div class="field-group field-total">
               <label for="temperature_total">Total Contratado</label>
-              <input type="number" id="temperature_total" name="temperature_total" min="0" step="1" placeholder="0">
+              <input type="number" id="temperature_total" name="temperature_total" min="0" step="1" placeholder="0" readonly class="input-readonly">
               <small class="field-key">${DEVICE_COUNT_KEYS.temperature.total}</small>
+              <small class="field-hint">Soma automatica</small>
             </div>
             <div class="field-group">
               <label for="temperature_internal">Sensores Internos</label>
-              <input type="number" id="temperature_internal" name="temperature_internal" min="0" step="1" placeholder="0">
+              <input type="number" id="temperature_internal" name="temperature_internal" min="0" step="1" placeholder="0" data-domain="temperature">
               <small class="field-key">${DEVICE_COUNT_KEYS.temperature.internal}</small>
             </div>
             <div class="field-group">
-              <label for="temperature_stores">Lojas</label>
-              <input type="number" id="temperature_stores" name="temperature_stores" min="0" step="1" placeholder="0">
+              <label for="temperature_stores">Sensores Externos</label>
+              <input type="number" id="temperature_stores" name="temperature_stores" min="0" step="1" placeholder="0" data-domain="temperature">
               <small class="field-key">${DEVICE_COUNT_KEYS.temperature.stores}</small>
             </div>
           </div>
@@ -425,6 +428,26 @@ export class ContractDevicesModalView {
           font-family: 'Courier New', monospace;
         }
 
+        .myio-contract-devices-modal .field-hint {
+          font-size: 10px;
+          color: #6c757d;
+          font-style: italic;
+        }
+
+        .myio-contract-devices-modal .input-readonly {
+          background: #f0f0f0;
+          color: #555;
+          cursor: not-allowed;
+          font-weight: 600;
+        }
+
+        .myio-contract-devices-modal .field-total {
+          background: #f8f9fa;
+          padding: 10px;
+          border-radius: 6px;
+          margin-bottom: 4px;
+        }
+
         .myio-contract-devices-modal .modal-footer {
           padding: 16px 24px;
           border-top: 1px solid #e0e0e0;
@@ -504,25 +527,28 @@ export class ContractDevicesModalView {
       }
     };
 
+    // Populate sub-fields (NOT totals - totals are auto-calculated)
     if (data.energy) {
-      setValue('energy_total', data.energy.total);
       setValue('energy_entries', data.energy.entries);
       setValue('energy_commonArea', data.energy.commonArea);
       setValue('energy_stores', data.energy.stores);
     }
 
     if (data.water) {
-      setValue('water_total', data.water.total);
       setValue('water_entries', data.water.entries);
       setValue('water_commonArea', data.water.commonArea);
       setValue('water_stores', data.water.stores);
     }
 
     if (data.temperature) {
-      setValue('temperature_total', data.temperature.total);
       setValue('temperature_internal', data.temperature.internal);
       setValue('temperature_stores', data.temperature.stores);
     }
+
+    // Calculate totals from sub-fields
+    this.calculateDomainTotal('energy');
+    this.calculateDomainTotal('water');
+    this.calculateDomainTotal('temperature');
   }
 
   private attachEventListeners(): void {
@@ -562,6 +588,62 @@ export class ContractDevicesModalView {
         this.config.onClose();
       }
     });
+
+    // Auto-calculate totals when sub-fields change
+    this.setupAutoCalculation();
+  }
+
+  private setupAutoCalculation(): void {
+    // Energy: total = entries + commonArea + stores
+    const energyFields = ['energy_entries', 'energy_commonArea', 'energy_stores'];
+    energyFields.forEach(fieldName => {
+      const input = this.form.querySelector(`[name="${fieldName}"]`) as HTMLInputElement;
+      if (input) {
+        input.addEventListener('input', () => this.calculateDomainTotal('energy'));
+      }
+    });
+
+    // Water: total = entries + commonArea + stores
+    const waterFields = ['water_entries', 'water_commonArea', 'water_stores'];
+    waterFields.forEach(fieldName => {
+      const input = this.form.querySelector(`[name="${fieldName}"]`) as HTMLInputElement;
+      if (input) {
+        input.addEventListener('input', () => this.calculateDomainTotal('water'));
+      }
+    });
+
+    // Temperature: total = internal + stores (external)
+    const temperatureFields = ['temperature_internal', 'temperature_stores'];
+    temperatureFields.forEach(fieldName => {
+      const input = this.form.querySelector(`[name="${fieldName}"]`) as HTMLInputElement;
+      if (input) {
+        input.addEventListener('input', () => this.calculateDomainTotal('temperature'));
+      }
+    });
+  }
+
+  private calculateDomainTotal(domain: 'energy' | 'water' | 'temperature'): void {
+    const getValue = (name: string): number => {
+      const input = this.form.querySelector(`[name="${name}"]`) as HTMLInputElement;
+      if (!input || input.value === '') return 0;
+      const num = parseInt(input.value, 10);
+      return isNaN(num) ? 0 : num;
+    };
+
+    let total = 0;
+
+    if (domain === 'energy') {
+      total = getValue('energy_entries') + getValue('energy_commonArea') + getValue('energy_stores');
+    } else if (domain === 'water') {
+      total = getValue('water_entries') + getValue('water_commonArea') + getValue('water_stores');
+    } else if (domain === 'temperature') {
+      total = getValue('temperature_internal') + getValue('temperature_stores');
+    }
+
+    const totalInput = this.form.querySelector(`[name="${domain}_total"]`) as HTMLInputElement;
+    if (totalInput) {
+      totalInput.value = String(total);
+    }
   }
 
   private setupAccessibility(): void {
