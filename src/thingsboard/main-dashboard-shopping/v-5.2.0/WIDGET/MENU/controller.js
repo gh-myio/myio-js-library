@@ -204,6 +204,7 @@ self.onInit = function () {
         LogHelper.log('[MENU] User admin detected - enabling shopping selector and temperature settings');
         addShoppingSelectorButton();
         addTemperatureSettingsButton(user);
+        addContractDevicesButton(user);
         updateShoppingLabel();
       }
     } catch (err) {
@@ -502,6 +503,93 @@ self.onInit = function () {
     });
 
     LogHelper.log('[MENU] Temperature settings button added successfully');
+  }
+
+  // RFC-0107: Add contract devices button for admin users
+  function addContractDevicesButton(user) {
+    if (document.getElementById('contract-devices-btn')) {
+      LogHelper.log('[MENU] Contract devices button already exists');
+      return;
+    }
+
+    const menuFooter = document.querySelector('.shops-menu-root .menu-footer');
+    const logoutBtn = document.getElementById('logout-btn');
+    if (!menuFooter) {
+      LogHelper.error('[MENU] Menu footer not found - cannot add contract devices button');
+      return;
+    }
+
+    const contractDevicesBtn = document.createElement('button');
+    contractDevicesBtn.id = 'contract-devices-btn';
+    contractDevicesBtn.className = 'contract-devices-btn';
+    contractDevicesBtn.type = 'button';
+    contractDevicesBtn.setAttribute('aria-label', 'Dispositivos Contratados');
+
+    contractDevicesBtn.innerHTML = `
+      <span class="contract-icon">📋</span>
+      <span class="contract-text">Dispositivos Contratados</span>
+    `;
+
+    // Insert before logout button
+    if (logoutBtn) menuFooter.insertBefore(contractDevicesBtn, logoutBtn);
+    else menuFooter.appendChild(contractDevicesBtn);
+
+    // Click handler
+    contractDevicesBtn.addEventListener('click', () => {
+      LogHelper.log('[MENU] Contract devices clicked');
+
+      const MyIOLibrary = window.MyIOLibrary;
+      if (!MyIOLibrary?.openContractDevicesModal) {
+        LogHelper.error('[MENU] openContractDevicesModal not available');
+        window.alert('Componente de dispositivos contratados nao disponivel.');
+        return;
+      }
+
+      const jwtToken = localStorage.getItem('jwt_token');
+      if (!jwtToken) {
+        window.alert('Token de autenticacao nao encontrado. Faca login novamente.');
+        return;
+      }
+
+      // RFC-0107: Get customerTB_ID from MAIN_VIEW orchestrator (single source of truth)
+      const customerId = window.MyIOOrchestrator?.customerTB_ID;
+      const customerName =
+        user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || 'Cliente';
+
+      if (!customerId) {
+        LogHelper.error(
+          '[MENU] customerTB_ID not found in MyIOOrchestrator - ensure MAIN_VIEW is configured'
+        );
+        window.alert('ID do cliente nao encontrado. Verifique configuracao do dashboard.');
+        return;
+      }
+
+      LogHelper.log('[MENU] Opening contract devices modal for customer:', { customerId, customerName });
+
+      MyIOLibrary.openContractDevicesModal({
+        customerId: customerId,
+        customerName: customerName,
+        jwtToken: jwtToken,
+        onSaved: (result) => {
+          LogHelper.log('[MENU] Contract devices saved:', result);
+          // Dispatch event to notify other widgets
+          window.dispatchEvent(
+            new CustomEvent('myio:contract-devices-updated', {
+              detail: result,
+            })
+          );
+        },
+        onClose: () => {
+          LogHelper.log('[MENU] Contract devices modal closed');
+        },
+        onError: (error) => {
+          LogHelper.error('[MENU] Contract devices error:', error);
+          window.alert('Erro ao salvar: ' + (error.message || 'Erro desconhecido'));
+        },
+      });
+    });
+
+    LogHelper.log('[MENU] Contract devices button added successfully');
   }
 
   // RFC-0055: Show modal with shopping options
