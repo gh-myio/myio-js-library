@@ -2066,6 +2066,22 @@ function renderHeader(count, groupSum) {
 function renderList(visible) {
   const $ul = $list().empty();
 
+  // Calculate average temperature for TERMOSTATO devices (for TempComparisonTooltip)
+  let avgTemperature = null;
+  let tempDeviceCount = 0;
+  if (WIDGET_DOMAIN === 'temperature') {
+    let totalTemp = 0;
+    visible.forEach((item) => {
+      if (item.deviceType === 'TERMOSTATO') {
+        totalTemp += Number(item.value || 0);
+        tempDeviceCount++;
+      }
+    });
+    if (tempDeviceCount > 0) {
+      avgTemperature = totalTemp / tempDeviceCount;
+    }
+  }
+
   visible.forEach((it) => {
     // For temperature domain, only render TERMOSTATO devices
     if (WIDGET_DOMAIN === 'temperature' && it.deviceType !== 'TERMOSTATO') {
@@ -2087,8 +2103,6 @@ function renderList(visible) {
       deviceIdentifierToDisplay = inferDisplayIdentifier(it);
     }
 
-    console.log("it", it);
-    
 
     // RFC-0106: Use effectiveDeviceType for card icon (deviceProfile > deviceType)
     // This ensures proper icon rendering based on actual device classification
@@ -2121,6 +2135,9 @@ function renderList(visible) {
       temperatureMin: it.temperatureMin || null,
       temperatureMax: it.temperatureMax || null,
       temperatureStatus: it.temperatureStatus || null,
+      // Average temperature across all TERMOSTATO devices (for TempComparisonTooltip)
+      averageTemperature: avgTemperature,
+      temperatureDeviceCount: tempDeviceCount,
       log_annotations: it.log_annotations || null,
     };
 
@@ -2211,25 +2228,21 @@ function renderList(visible) {
             const deviceId = it.tbId || it.id;
 
             // Get temperature-related properties from entity
-            // Check for various attribute names: temperatureMin, minTemperature, tempMin (SERVER_SCOPE)
+            // Priority: device attributes > entity attributes > global customer limits (MyIOUtils)
             const currentTemp = it.temperature || entityObject.temperature;
             const tempMinRange =
               it.temperatureMin ??
               it.minTemperature ??
-              it.tempMin ??
               entityObject.temperatureMin ??
               entityObject.minTemperature ??
-              entityObject.tempMin ??
-              self.ctx?.scope?.minTemperature ??
+              window.MyIOUtils?.temperatureLimits?.minTemperature ??
               null;
             const tempMaxRange =
               it.temperatureMax ??
               it.maxTemperature ??
-              it.tempMax ??
               entityObject.temperatureMax ??
               entityObject.maxTemperature ??
-              entityObject.tempMax ??
-              self.ctx?.scope?.maxTemperature ??
+              window.MyIOUtils?.temperatureLimits?.maxTemperature ??
               null;
             const tempStatus = it.temperatureStatus || entityObject.temperatureStatus;
 
@@ -3855,22 +3868,53 @@ self.onInit = async function () {
     // RFC-0106: Convert STATE items to widget format
     // FIX: Don't use item.id as fallback for ingestionId - temperature sensors don't have ingestionId
     // Using item.id would make tbId === ingestionId which fails the Settings validation
-    STATE.itemsBase = stateItems.map((item) => ({
-      id: item.tbId || item.id,
-      tbId: item.tbId || item.id,
-      ingestionId: item.ingestionId || null, // Don't fallback to item.id
-      identifier: item.identifier || item.id,
-      label: item.label || item.name || item.identifier || item.id,
-      entityLabel: item.entityLabel || item.label || item.name || '',
-      value: Number(item.value || 0),
-      perc: 0,
-      deviceType: item.deviceType || WIDGET_DOMAIN,
-      slaveId: item.slaveId || null,
-      centralId: item.centralId || null,
-      deviceStatus: item.deviceStatus || 'no_info',
-      labelWidget: item.labelWidget || myLabelWidget,
-      updatedIdentifiers: {},
-    }));
+
+    // Get global temperature limits from MyIOUtils (set by MAIN_VIEW from customer attributes)
+    const globalTempMin = window.MyIOUtils?.temperatureLimits?.minTemperature ?? null;
+    const globalTempMax = window.MyIOUtils?.temperatureLimits?.maxTemperature ?? null;
+
+    if (domain === 'temperature') {
+      LogHelper.log(`[RFC-0106] Temperature limits from MyIOUtils: min=${globalTempMin}, max=${globalTempMax}`);
+    }
+
+    STATE.itemsBase = stateItems.map((item) => {
+      // Calculate temperatureStatus for TERMOSTATO devices
+      let temperatureStatus = null;
+      const isTermostato = item.deviceType === 'TERMOSTATO';
+      const temp = Number(item.value || 0);
+
+      if (isTermostato && temp && globalTempMin !== null && globalTempMax !== null) {
+        if (temp > globalTempMax) {
+          temperatureStatus = 'above';
+        } else if (temp < globalTempMin) {
+          temperatureStatus = 'below';
+        } else {
+          temperatureStatus = 'ok';
+        }
+      }
+
+      return {
+        id: item.tbId || item.id,
+        tbId: item.tbId || item.id,
+        ingestionId: item.ingestionId || null, // Don't fallback to item.id
+        identifier: item.identifier || item.id,
+        label: item.label || item.name || item.identifier || item.id,
+        entityLabel: item.entityLabel || item.label || item.name || '',
+        value: temp,
+        perc: 0,
+        deviceType: item.deviceType || WIDGET_DOMAIN,
+        slaveId: item.slaveId || null,
+        centralId: item.centralId || null,
+        deviceStatus: item.deviceStatus || 'no_info',
+        labelWidget: item.labelWidget || myLabelWidget,
+        updatedIdentifiers: {},
+        // TERMOSTATO specific fields - use global limits from customer
+        temperature: isTermostato ? temp : null,
+        temperatureMin: isTermostato ? globalTempMin : null,
+        temperatureMax: isTermostato ? globalTempMax : null,
+        temperatureStatus: temperatureStatus,
+      };
+    });
 
     window._telemetryAuthoritativeItems = STATE.itemsBase;
 

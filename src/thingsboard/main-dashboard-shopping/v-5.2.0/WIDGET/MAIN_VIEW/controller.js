@@ -961,17 +961,17 @@ Object.assign(window.MyIOUtils, {
       }, 100);
     }
 
-    // // Log útil para conferir se os states existem
-    // try {
-    //   const states = self.ctx?.dashboard?.configuration?.states || {};
-    //   // LogHelper.log('[myio-container] states disponíveis:', Object.keys(states));
-    //   // Esperados: "menu", "telemetry_content", "water_content", "temperature_content", "alarm_content", "footer"
-    // } catch (e) {
-    //   LogHelper.warn('[myio-container] não foi possível listar states:', e);
-    // }
+    // NOTE: Temperature limits (minTemperature, maxTemperature) are extracted in onDataUpdated
+    // because onInit runs before the customer datasource data is available
+  };
 
-    // RFC-0106: Extract temperature limits from customer datasource
-    // These limits are used by TELEMETRY for TERMOSTATO devices
+  self.onResize = function () {
+    applySizing();
+  };
+
+  // RFC-0106: Extract temperature limits when data arrives from customer datasource
+  // This must be in onDataUpdated because onInit runs before data is available
+  self.onDataUpdated = function () {
     const ctxDataRows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
     for (const row of ctxDataRows) {
       // Look for customer datasource (aliasName = 'customer')
@@ -985,7 +985,7 @@ Object.assign(window.MyIOUtils, {
 
       if (keyName === 'mintemperature' && rawValue !== undefined && rawValue !== null) {
         const val = Number(rawValue);
-        if (!isNaN(val)) {
+        if (!isNaN(val) && window.MyIOUtils.temperatureLimits.minTemperature !== val) {
           window.MyIOUtils.temperatureLimits.minTemperature = val;
           LogHelper.log(`[MAIN_VIEW] Exposed global minTemperature from customer: ${val}`);
         }
@@ -993,16 +993,12 @@ Object.assign(window.MyIOUtils, {
 
       if (keyName === 'maxtemperature' && rawValue !== undefined && rawValue !== null) {
         const val = Number(rawValue);
-        if (!isNaN(val)) {
+        if (!isNaN(val) && window.MyIOUtils.temperatureLimits.maxTemperature !== val) {
           window.MyIOUtils.temperatureLimits.maxTemperature = val;
           LogHelper.log(`[MAIN_VIEW] Exposed global maxTemperature from customer: ${val}`);
         }
       }
     }
-  };
-
-  self.onResize = function () {
-    applySizing();
   };
 
   self.onDestroy = function () {
