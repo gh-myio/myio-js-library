@@ -197,6 +197,7 @@ export function renderCardComponentV5({
     centralName,
     connectionStatusTime,
     timeVal,
+    lastDisconnectTime,
     customerName,
     waterLevel,
     waterPercentage,
@@ -1291,6 +1292,7 @@ export function renderCardComponentV5({
           connectionStatusTime,
           timeVal,
           deviceStatus,
+          lastDisconnectTime,
         },
       });
     });
