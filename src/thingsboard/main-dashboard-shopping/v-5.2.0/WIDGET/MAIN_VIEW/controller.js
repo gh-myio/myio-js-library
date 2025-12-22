@@ -969,14 +969,41 @@ Object.assign(window.MyIOUtils, {
     // } catch (e) {
     //   LogHelper.warn('[myio-container] não foi possível listar states:', e);
     // }
+
+    // RFC-0106: Extract temperature limits from customer datasource
+    // These limits are used by TELEMETRY for TERMOSTATO devices
+    const ctxDataRows = Array.isArray(self.ctx?.data) ? self.ctx.data : [];
+    for (const row of ctxDataRows) {
+      // Look for customer datasource (aliasName = 'customer')
+      const aliasName = (row?.datasource?.aliasName || row?.datasource?.name || '').toLowerCase();
+      if (aliasName !== 'customer') {
+        continue;
+      }
+
+      const keyName = (row?.dataKey?.name || '').toLowerCase();
+      const rawValue = row?.data?.[0]?.[1];
+
+      if (keyName === 'mintemperature' && rawValue !== undefined && rawValue !== null) {
+        const val = Number(rawValue);
+        if (!isNaN(val)) {
+          window.MyIOUtils.temperatureLimits.minTemperature = val;
+          LogHelper.log(`[MAIN_VIEW] Exposed global minTemperature from customer: ${val}`);
+        }
+      }
+
+      if (keyName === 'maxtemperature' && rawValue !== undefined && rawValue !== null) {
+        const val = Number(rawValue);
+        if (!isNaN(val)) {
+          window.MyIOUtils.temperatureLimits.maxTemperature = val;
+          LogHelper.log(`[MAIN_VIEW] Exposed global maxTemperature from customer: ${val}`);
+        }
+      }
+    }
   };
 
   self.onResize = function () {
     applySizing();
   };
-
-  // RFC-0106: onDataUpdated removed to prevent infinite loop
-  // Temperature limits are now handled differently if needed
 
   self.onDestroy = function () {
     // Limpa event listeners se necessário

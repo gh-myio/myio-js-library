@@ -1636,8 +1636,8 @@ function recomputePercentages(visible) {
  * @returns {Object} Data object for TempSensorSummaryTooltip.show()
  */
 function buildTempSensorSummaryData() {
-  const tempMin = window.MyIOUtils?.temperatureLimits?.min;
-  const tempMax = window.MyIOUtils?.temperatureLimits?.max;
+  const tempMin = window.MyIOUtils?.temperatureLimits?.minTemperature;
+  const tempMax = window.MyIOUtils?.temperatureLimits?.maxTemperature;
   const hasLimits = tempMin != null && tempMax != null;
 
   const devices = [];
@@ -1873,8 +1873,8 @@ function showTempInfoTooltip(triggerElement) {
   const container = createTempInfoTooltipContainer();
 
   // Get temperature data from current visible items
-  const tempMin = window.MyIOUtils?.temperatureLimits?.min;
-  const tempMax = window.MyIOUtils?.temperatureLimits?.max;
+  const tempMin = window.MyIOUtils?.temperatureLimits?.minTemperature;
+  const tempMax = window.MyIOUtils?.temperatureLimits?.maxTemperature;
   const hasLimits = tempMin != null && tempMax != null;
 
   // Collect data from authoritativeItems (already filtered for TERMOSTATO)
