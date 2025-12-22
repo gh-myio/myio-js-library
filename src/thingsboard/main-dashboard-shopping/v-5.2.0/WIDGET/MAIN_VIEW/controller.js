@@ -2865,6 +2865,34 @@ const MyIOOrchestrator = (() => {
     }
     LogHelper.log(`[Orchestrator] 📋 Datasource aliases found: ${Array.from(allAliases).join(', ')}`);
 
+    // DEBUG: Log sample items from the allowed alias datasource
+    const aliasRows = rows.filter((r) => {
+      const alias = (r?.datasource?.aliasName || r?.datasource?.name || '').toLowerCase();
+      return alias === allowedAlias;
+    });
+    if (aliasRows.length > 0) {
+      // Get unique entityIds from this alias
+      const entityIds = [...new Set(aliasRows.map((r) => r?.datasource?.entityId?.id || r?.datasource?.entityId))].filter(Boolean);
+      LogHelper.log(`[Orchestrator] 🔍 DEBUG: Found ${entityIds.length} unique entities in '${allowedAlias}' datasource`);
+
+      // Sample: first + 2 random
+      const sampleIds = [entityIds[0]];
+      if (entityIds.length > 1) sampleIds.push(entityIds[Math.floor(entityIds.length / 3)]);
+      if (entityIds.length > 2) sampleIds.push(entityIds[Math.floor(entityIds.length * 2 / 3)]);
+
+      for (const sampleId of sampleIds) {
+        const sampleRows = aliasRows.filter((r) => (r?.datasource?.entityId?.id || r?.datasource?.entityId) === sampleId);
+        const sampleData = {};
+        for (const sr of sampleRows) {
+          const key = sr?.dataKey?.name || 'unknown';
+          sampleData[key] = sr?.data?.[0]?.[1] ?? null;
+        }
+        sampleData._entityId = sampleId;
+        sampleData._entityName = sampleRows[0]?.datasource?.entityName || 'N/A';
+        LogHelper.log(`[Orchestrator] 🔍 DEBUG Sample from '${allowedAlias}':`, JSON.stringify(sampleData, null, 2));
+      }
+    }
+
     // Group by entityId first - only process rows from allowed alias
     for (const row of rows) {
       // Check aliasName - only include allowed datasource (whitelist approach)
@@ -3322,7 +3350,7 @@ const MyIOOrchestrator = (() => {
           );
         }
         const identifier = meta.identifier || 'N/A';
-        const label = meta.label || 'SEM ETIQUETA';
+        const label = meta.label || name || 'SEM ETIQUETA';
 
         // Infer labelWidget from deviceType/deviceProfile
         const labelWidget = inferLabelWidget({
@@ -3413,6 +3441,19 @@ const MyIOOrchestrator = (() => {
         LogHelper.log(
           `[Orchestrator] 🗑️ Discarded ${discardedCount} invalid items (no metadata or deviceType='${domain}')`
         );
+
+        // DEBUG: Show first 3 discarded items with their API IDs for debugging
+        const discardedItems = items.filter((item) => !item._hasMetadata).slice(0, 3);
+        if (discardedItems.length > 0) {
+          LogHelper.log(`[Orchestrator] 🔍 DEBUG: Sample discarded items (API ID not found in datasource):`);
+          discardedItems.forEach((item) => {
+            LogHelper.log(`  - API id: ${item.id}, name: ${item.name || item.label}`);
+          });
+
+          // Show sample ingestionIds that ARE in the metadataMap
+          const metaIds = Array.from(metadataMap.keys()).slice(0, 3);
+          LogHelper.log(`[Orchestrator] 🔍 DEBUG: Sample ingestionIds in metadataMap: ${metaIds.join(', ')}`);
+        }
       }
 
       // DEBUG: Log sample item and metadata match stats
