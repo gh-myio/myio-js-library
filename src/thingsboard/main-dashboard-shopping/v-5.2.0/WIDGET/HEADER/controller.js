@@ -48,9 +48,10 @@ function initContractStatusIcon() {
   const iconEl = contractStatusEl.querySelector('.tbx-contract-icon');
   const countEl = contractStatusEl.querySelector('.tbx-contract-count');
 
-  // Style the contract status container
+  // Style the contract status container (keep display:none until contract is loaded)
+  // NOTE: display is set by updateContractStatus() - do NOT set display:flex here
   contractStatusEl.style.cssText = `
-    display: flex;
+    display: none;
     align-items: center;
     gap: 6px;
     padding: 6px 12px;

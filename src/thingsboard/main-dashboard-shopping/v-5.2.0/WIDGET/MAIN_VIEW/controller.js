@@ -4100,14 +4100,25 @@ async function initializeContractLoading() {
  * @param {Object} expectedCounts - Device counts from SERVER_SCOPE
  */
 function setupContractValidationListeners(expectedCounts) {
-  const domainsLoaded = { energy: false, water: false, temperature: false };
-  const domainsFetchComplete = { energy: false, water: false, temperature: false };
+  // FIX: Only track domains that are actually enabled in widgetSettings
+  const enabledDomains = widgetSettings.domainsEnabled || { energy: true, water: true, temperature: true };
+  const activeDomains = ['energy', 'water', 'temperature'].filter(d => enabledDomains[d]);
+
+  LogHelper.log('[RFC-0107] Active domains for validation:', activeDomains);
+
+  const domainsLoaded = {};
+  const domainsFetchComplete = {};
+  activeDomains.forEach(d => {
+    domainsLoaded[d] = false;
+    domainsFetchComplete[d] = false;
+  });
+
   let validationFinalized = false;
 
   // Listen for domain state-ready events (data is in STATE)
   const handleStateReady = (event) => {
     const { domain } = event.detail || {};
-    if (!domain || !['energy', 'water', 'temperature'].includes(domain)) return;
+    if (!domain || !activeDomains.includes(domain)) return;
 
     LogHelper.log(`[RFC-0107] Domain ${domain} data ready`);
     domainsLoaded[domain] = true;
@@ -4153,7 +4164,7 @@ function setupContractValidationListeners(expectedCounts) {
   // RFC-0107 FIX: Listen for fetch-complete events (after Finally block)
   const handleFetchComplete = (event) => {
     const { domain } = event.detail || {};
-    if (!domain || !['energy', 'water', 'temperature'].includes(domain)) return;
+    if (!domain || !activeDomains.includes(domain)) return;
 
     LogHelper.log(`[RFC-0107] Domain ${domain} fetch complete (finally block done)`);
     domainsFetchComplete[domain] = true;
@@ -4185,7 +4196,7 @@ function setupContractValidationListeners(expectedCounts) {
 
   // Also check for already-loaded domains (in case events were missed)
   setTimeout(() => {
-    ['energy', 'water', 'temperature'].forEach((domain) => {
+    activeDomains.forEach((domain) => {
       if (!domainsLoaded[domain] && window.STATE?.isReady?.(domain)) {
         handleStateReady({ detail: { domain } });
       }
