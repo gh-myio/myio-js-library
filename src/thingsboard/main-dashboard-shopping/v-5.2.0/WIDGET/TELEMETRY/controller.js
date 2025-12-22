@@ -1645,6 +1645,14 @@ function buildTempSensorSummaryData() {
   if (window._telemetryAuthoritativeItems) {
     window._telemetryAuthoritativeItems.forEach((item) => {
       if (item.deviceType === 'TERMOSTATO') {
+        // Skip offline devices - only count active sensors
+        const isOffline = item.deviceStatus === 'power_off' ||
+                          item.deviceStatus === 'offline' ||
+                          item.deviceStatus === 'no_info';
+        if (isOffline) {
+          return; // Skip this device
+        }
+
         const temp = Number(item.value) || 0;
 
         let status = 'unknown';
@@ -2067,14 +2075,21 @@ function renderList(visible) {
   const $ul = $list().empty();
 
   // Calculate average temperature for TERMOSTATO devices (for TempComparisonTooltip)
+  // Only count active sensors, exclude offline devices
   let avgTemperature = null;
   let tempDeviceCount = 0;
   if (WIDGET_DOMAIN === 'temperature') {
     let totalTemp = 0;
     visible.forEach((item) => {
       if (item.deviceType === 'TERMOSTATO') {
-        totalTemp += Number(item.value || 0);
-        tempDeviceCount++;
+        // Skip offline devices
+        const isOffline = item.deviceStatus === 'power_off' ||
+                          item.deviceStatus === 'offline' ||
+                          item.deviceStatus === 'no_info';
+        if (!isOffline) {
+          totalTemp += Number(item.value || 0);
+          tempDeviceCount++;
+        }
       }
     });
     if (tempDeviceCount > 0) {
