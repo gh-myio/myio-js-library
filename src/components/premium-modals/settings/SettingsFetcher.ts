@@ -3,10 +3,33 @@ import { SettingsFetcher, TbScope } from "./types";
 export class DefaultSettingsFetcher implements SettingsFetcher {
   private jwtToken: string;
   private tbBaseUrl: string;
+  private static readonly FETCH_TIMEOUT_MS = 8000; // 8 second timeout
 
   constructor(jwtToken: string, apiConfig?: any) {
     this.jwtToken = jwtToken;
     this.tbBaseUrl = apiConfig?.tbBaseUrl || window.location.origin;
+  }
+
+  /**
+   * Fetch with timeout to prevent hanging requests from blocking modal render
+   */
+  private async fetchWithTimeout(
+    url: string,
+    options: RequestInit,
+    timeoutMs: number = DefaultSettingsFetcher.FETCH_TIMEOUT_MS
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      return response;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   async fetchCurrentSettings(
@@ -62,9 +85,12 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
   private async fetchDeviceEntity(
     deviceId: string
   ): Promise<{ label?: string }> {
-    const response = await fetch(`${this.tbBaseUrl}/api/device/${deviceId}`, {
-      headers: { "X-Authorization": `Bearer ${this.jwtToken}` },
-    });
+    const response = await this.fetchWithTimeout(
+      `${this.tbBaseUrl}/api/device/${deviceId}`,
+      {
+        headers: { "X-Authorization": `Bearer ${this.jwtToken}` },
+      }
+    );
 
     if (!response.ok) {
       throw new Error(
@@ -82,7 +108,7 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
     deviceId: string,
     scope: TbScope
   ): Promise<Record<string, unknown>> {
-    const response = await fetch(
+    const response = await this.fetchWithTimeout(
       `${this.tbBaseUrl}/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/${scope}`,
       {
         headers: { "X-Authorization": `Bearer ${this.jwtToken}` },

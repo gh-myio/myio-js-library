@@ -131,12 +131,19 @@ export class SettingsController {
 
       console.log('[SettingsModal] RFC-0080: Fetching GLOBAL from:', url);
 
+      // Use AbortController for timeout (8s)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
       const response = await fetch(url, {
         headers: {
           'X-Authorization': `Bearer ${jwtToken}`,
           'Content-Type': 'application/json'
-        }
+        },
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);

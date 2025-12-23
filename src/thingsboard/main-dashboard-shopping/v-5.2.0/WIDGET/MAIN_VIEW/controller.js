@@ -2971,7 +2971,9 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'lastconnecttime') meta.lastConnectTime = val;
       else if (keyName === 'lastdisconnecttime') meta.lastDisconnectTime = val;
       else if (keyName === 'log_annotations') meta.log_annotations = val;
-      else if (keyName === 'label') meta.label = val;
+      // Only override label if dataKey has a non-empty value
+      // Otherwise keep the entityLabel/entityName fallback from initialization
+      else if (keyName === 'label' && val && String(val).trim() !== '') meta.label = val;
       // Energy-specific fields
       else if (keyName === 'devicemapinstaneouspower') meta.deviceMapInstaneousPower = val;
       else if (keyName === 'consumption') meta.consumption = val; // instantaneous power in Watts
@@ -3549,11 +3551,16 @@ const MyIOOrchestrator = (() => {
         const identifier = meta.identifier || 'N/A';
         // RFC-0108: Use label from datasource, fallback to entityName without customer suffix
         // entityName format: "Device Name (Customer Name)" → extract just "Device Name"
+        // Also clean meta.label if it has the suffix (when entityLabel was not set)
         let entityNameClean = meta.entityName || '';
         if (entityNameClean.includes(' (') && entityNameClean.endsWith(')')) {
           entityNameClean = entityNameClean.substring(0, entityNameClean.lastIndexOf(' ('));
         }
-        const label = meta.label || entityNameClean || 'SEM ETIQUETA';
+        let labelClean = meta.label || '';
+        if (labelClean.includes(' (') && labelClean.endsWith(')')) {
+          labelClean = labelClean.substring(0, labelClean.lastIndexOf(' ('));
+        }
+        const label = labelClean || entityNameClean || 'SEM ETIQUETA';
         const name = apiRow?.name || entityNameClean || '';
 
         // Infer labelWidget from deviceType/deviceProfile
