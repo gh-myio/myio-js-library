@@ -1457,9 +1457,13 @@ function buildAuthoritativeItems() {
       }
     }
 
+    // "waiting" means device is registered and awaiting data, treat as online
+    const ONLINE_STATUSES = ['online', 'waiting', 'true', 'connected', 'active'];
+    const isOnlineStatus = ONLINE_STATUSES.includes(String(tbConnectionStatus).toLowerCase());
+
     if (tbConnectionStatus === 'offline') {
       deviceStatus = 'no_info'; // offline = no_info
-    } else if (tbConnectionStatus === 'online') {
+    } else if (isOnlineStatus) {
       // RFC-0078: For energy devices, calculate status using ranges from mapInstantaneousPower
       const isEnergyDevice = !isTankDevice && !isTermostatoDevice;
 
@@ -3953,6 +3957,17 @@ self.onInit = async function () {
       return;
     }
 
+    // Triple-check: Detect shopping change by comparing customerTB_ID in periodKey
+    // periodKey format: "customerTB_ID:domain:startISO:endISO:granularity"
+    const currentCustomerId = periodKey.split(':')[0];
+    const lastCustomerId = lastProcessedPeriodKey?.split(':')[0];
+    if (lastCustomerId && currentCustomerId !== lastCustomerId) {
+      LogHelper.warn(`[TELEMETRY] 🔄 Shopping changed (${lastCustomerId} → ${currentCustomerId}) - resetting cache`);
+      lastProcessedPeriodKey = null;
+      STATE.itemsBase = [];
+      STATE.itemsEnriched = [];
+    }
+
     // Prevent duplicate processing of the same periodKey
     if (lastProcessedPeriodKey === periodKey) {
       LogHelper.log(`[TELEMETRY] ⏭️ Skipping duplicate provide-data for periodKey: ${periodKey}`);
@@ -4025,8 +4040,11 @@ self.onInit = async function () {
       // Uses the same logic as buildAuthoritativeItems
       let deviceStatus = item.deviceStatus || 'no_info';
       const connectionStatus = item.connectionStatus || 'unknown';
+      const connStatusLower = String(connectionStatus).toLowerCase();
+      // "waiting" means device is registered and awaiting data, treat as online
       const isOnline =
-        connectionStatus === 'online' || connectionStatus === 'true' || connectionStatus === true;
+        ['online', 'waiting', 'true', 'connected', 'active'].includes(connStatusLower) ||
+        connectionStatus === true;
       const isOffline =
         connectionStatus === 'offline' || connectionStatus === 'false' || connectionStatus === false;
 

@@ -748,6 +748,13 @@ Object.assign(window.MyIOUtils, {
 
     widgetSettings.customerTB_ID = customerTB_ID;
 
+    // Triple-check: Validate that cached data belongs to current shopping
+    // If shopping changed, clear all cached data to prevent stale data display
+    const shoppingChanged = window.STATE?.validateCustomer?.(customerTB_ID);
+    if (shoppingChanged) {
+      LogHelper.warn('[Orchestrator] 🔄 Shopping changed - cache cleared, will reload all data');
+    }
+
     // RFC-0085: Expose customerTB_ID globally for MENU and other widgets
     if (window.MyIOOrchestrator) {
       window.MyIOOrchestrator.customerTB_ID = customerTB_ID;
@@ -1107,6 +1114,7 @@ if (!window.STATE) {
     water: null,
     temperature: null,
     _lastUpdate: {},
+    _customerTB_ID: null, // Track current shopping to detect navigation
 
     // Helper: Get items for a specific domain and group
     // Usage: window.STATE.get('energy', 'lojas') => { items: [...], total: 0, count: 0 }
@@ -1134,6 +1142,43 @@ if (!window.STATE) {
     // Usage: window.STATE.isReady('energy') => true/false
     isReady(domain) {
       return this[domain] !== null && this._lastUpdate[domain] !== undefined;
+    },
+
+    /**
+     * Triple-check: Validate that data belongs to current shopping
+     * If customerTB_ID changed, clear all cached data
+     * @param {string} customerTB_ID - Current shopping ID
+     * @returns {boolean} true if data was cleared due to shopping change
+     */
+    validateCustomer(customerTB_ID) {
+      if (!customerTB_ID) return false;
+
+      if (this._customerTB_ID && this._customerTB_ID !== customerTB_ID) {
+        // Shopping changed! Clear all cached data
+        console.warn(`[STATE] 🔄 Shopping changed from ${this._customerTB_ID} to ${customerTB_ID} - clearing cache`);
+        this.energy = null;
+        this.water = null;
+        this.temperature = null;
+        this._lastUpdate = {};
+        this._customerTB_ID = customerTB_ID;
+        return true; // Data was cleared
+      }
+
+      // First time or same shopping
+      this._customerTB_ID = customerTB_ID;
+      return false;
+    },
+
+    /**
+     * Force clear all data (for manual refresh)
+     */
+    clearAll() {
+      console.log('[STATE] 🧹 Clearing all cached data');
+      this.energy = null;
+      this.water = null;
+      this.temperature = null;
+      this._lastUpdate = {};
+      // Keep _customerTB_ID to avoid unnecessary reloads
     },
   };
   LogHelper.log('[Orchestrator] 🗄️ window.STATE initialized with helpers');
@@ -2832,7 +2877,8 @@ const MyIOOrchestrator = (() => {
     const statusStr = String(connectionStatus).toLowerCase().trim();
 
     // Online/connected states → power_on
-    const ONLINE_VALUES = ['true', 'online', 'connected', '1', 'active', 'yes'];
+    // "waiting" means device is registered and awaiting data, treat as potentially online
+    const ONLINE_VALUES = ['true', 'online', 'connected', '1', 'active', 'yes', 'waiting'];
     if (ONLINE_VALUES.includes(statusStr)) {
       return 'power_on';
     }
