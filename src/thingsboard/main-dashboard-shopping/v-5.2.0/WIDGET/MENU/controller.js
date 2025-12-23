@@ -201,10 +201,11 @@ self.onInit = function () {
 
       // Habilita botão de troca de shopping apenas para admin
       if (isUserAdmin) {
-        LogHelper.log('[MENU] User admin detected - enabling shopping selector and temperature settings');
+        LogHelper.log('[MENU] User admin detected - enabling shopping selector and settings buttons');
         addShoppingSelectorButton();
         addTemperatureSettingsButton(user);
         addContractDevicesButton(user);
+        addMeasurementSetupButton(user); // RFC-0108
         updateShoppingLabel();
       }
     } catch (err) {
@@ -590,6 +591,96 @@ self.onInit = function () {
     });
 
     LogHelper.log('[MENU] Contract devices button added successfully');
+  }
+
+  // RFC-0108: Add measurement setup button for admin users
+  function addMeasurementSetupButton(user) {
+    if (document.getElementById('measurement-setup-btn')) {
+      LogHelper.log('[MENU] Measurement setup button already exists');
+      return;
+    }
+
+    const menuFooter = document.querySelector('.shops-menu-root .menu-footer');
+    const logoutBtn = document.getElementById('logout-btn');
+    if (!menuFooter) {
+      LogHelper.error('[MENU] Menu footer not found - cannot add measurement setup button');
+      return;
+    }
+
+    const measurementSetupBtn = document.createElement('button');
+    measurementSetupBtn.id = 'measurement-setup-btn';
+    measurementSetupBtn.className = 'measurement-setup-btn';
+    measurementSetupBtn.type = 'button';
+    measurementSetupBtn.setAttribute('aria-label', 'Configurar Medidas');
+
+    measurementSetupBtn.innerHTML = `
+      <span class="measurement-icon">📐</span>
+      <span class="measurement-text">Config. Medidas</span>
+    `;
+
+    // Insert before logout button
+    if (logoutBtn) menuFooter.insertBefore(measurementSetupBtn, logoutBtn);
+    else menuFooter.appendChild(measurementSetupBtn);
+
+    // Click handler
+    measurementSetupBtn.addEventListener('click', () => {
+      LogHelper.log('[MENU] Measurement setup clicked');
+
+      const MyIOLibrary = window.MyIOLibrary;
+      if (!MyIOLibrary?.openMeasurementSetupModal) {
+        LogHelper.error('[MENU] openMeasurementSetupModal not available');
+        window.alert('Componente de configuração de medidas não disponível.');
+        return;
+      }
+
+      const jwtToken = localStorage.getItem('jwt_token');
+      if (!jwtToken) {
+        window.alert('Token de autenticação não encontrado. Faça login novamente.');
+        return;
+      }
+
+      // RFC-0108: Get customerTB_ID from MAIN_VIEW orchestrator (single source of truth)
+      const customerId = window.MyIOOrchestrator?.customerTB_ID;
+      const customerName =
+        user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || 'Cliente';
+
+      if (!customerId) {
+        LogHelper.error(
+          '[MENU] customerTB_ID not found in MyIOOrchestrator - ensure MAIN_VIEW is configured'
+        );
+        window.alert('ID do cliente não encontrado. Verifique configuração do dashboard.');
+        return;
+      }
+
+      LogHelper.log('[MENU] Opening measurement setup modal for customer:', { customerId, customerName });
+
+      // RFC-0108: Get existing settings from MyIOOrchestrator if available
+      const existingSettings = window.MyIOOrchestrator?.measurementDisplaySettings || null;
+
+      MyIOLibrary.openMeasurementSetupModal({
+        token: jwtToken,
+        customerId: customerId,
+        existingSettings: existingSettings,
+        onSave: (settings) => {
+          LogHelper.log('[MENU] Measurement settings saved:', settings);
+          // Update orchestrator with new settings
+          if (window.MyIOOrchestrator) {
+            window.MyIOOrchestrator.measurementDisplaySettings = settings;
+          }
+          // Dispatch event to notify other widgets (TELEMETRY, MAIN_VIEW, etc.)
+          window.dispatchEvent(
+            new CustomEvent('myio:measurement-settings-updated', {
+              detail: settings,
+            })
+          );
+        },
+        onClose: () => {
+          LogHelper.log('[MENU] Measurement setup modal closed');
+        },
+      });
+    });
+
+    LogHelper.log('[MENU] Measurement setup button added successfully');
   }
 
   // RFC-0055: Show modal with shopping options

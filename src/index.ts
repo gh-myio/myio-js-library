@@ -457,3 +457,35 @@ export type {
   DeviceCountKeys,
   ContractDomain,
 } from './components/premium-modals/contract-devices';
+
+// RFC-0108: Measurement Setup Modal
+export {
+  openMeasurementSetupModal,
+} from './components/premium-modals/measurement-setup';
+
+// RFC-0108: Measurement Setup Modal Types
+export type {
+  MeasurementSetupModalParams,
+  MeasurementSetupModalInstance,
+  MeasurementSetupModalStyles,
+  MeasurementSetupFormData,
+  MeasurementSetupError,
+  MeasurementDisplaySettings,
+  WaterDisplaySettings,
+  EnergyDisplaySettings,
+  TemperatureDisplaySettings,
+  WaterUnit,
+  EnergyUnit,
+  TemperatureUnit,
+  MeasurementSetupPersistResult,
+} from './components/premium-modals/measurement-setup';
+
+// RFC-0108: Measurement Setup Modal Constants
+export {
+  WATER_UNITS,
+  ENERGY_UNITS,
+  TEMPERATURE_UNITS,
+  DECIMAL_OPTIONS,
+  DOMAIN_CONFIG as MEASUREMENT_DOMAIN_CONFIG,
+  DEFAULT_MEASUREMENT_SETTINGS,
+} from './components/premium-modals/measurement-setup';

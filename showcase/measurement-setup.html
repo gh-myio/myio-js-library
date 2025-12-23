@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Measurement Setup Modal - MYIO JS Library Showcase</title>
+    <style>
+        :root {
+            --primary: #4A148C;
+            --primary-dark: #38006b;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-desc {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .demo-card {
+            background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+            border: 2px dashed var(--gray-300);
+            border-radius: 12px;
+            padding: 32px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .demo-card:hover {
+            border-color: var(--primary);
+            background: linear-gradient(135deg, #f3e8ff, #ede9fe);
+            transform: translateY(-2px);
+        }
+
+        .demo-card-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+
+        .demo-card-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--gray-800);
+            margin-bottom: 4px;
+        }
+
+        .demo-card-desc {
+            font-size: 13px;
+            color: var(--gray-600);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover { background: var(--primary-dark); }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-800);
+        }
+
+        .btn-secondary:hover { background: var(--gray-300); }
+
+        .code-example {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin-top: 16px;
+        }
+
+        .code-example .comment { color: #6b7280; }
+        .code-example .keyword { color: #c084fc; }
+        .code-example .string { color: #86efac; }
+        .code-example .function { color: #60a5fa; }
+        .code-example .number { color: #fbbf24; }
+
+        .props-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            margin-top: 16px;
+        }
+
+        .props-table th, .props-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .props-table th {
+            background: var(--gray-50);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--gray-600);
+        }
+
+        .props-table code {
+            background: var(--gray-100);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: var(--gray-50);
+            border-radius: 8px;
+        }
+
+        .feature-icon { font-size: 1.25rem; }
+
+        .feature-text {
+            font-size: 14px;
+            color: var(--gray-700);
+        }
+
+        .json-preview {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 16px;
+        }
+
+        .domain-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .domain-badge.water { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+        .domain-badge.energy { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+        .domain-badge.temperature { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+        .log-container {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 16px;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #374151;
+        }
+
+        .log-entry:last-child { border-bottom: none; }
+
+        .log-time { color: #6b7280; }
+        .log-event { color: #60a5fa; }
+        .log-data { color: #86efac; }
+
+        .settings-preview {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .settings-preview-card {
+            background: var(--gray-50);
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid var(--gray-200);
+        }
+
+        .settings-preview-card h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .settings-preview-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            padding: 4px 0;
+            border-bottom: 1px dashed var(--gray-200);
+        }
+
+        .settings-preview-row:last-child {
+            border-bottom: none;
+        }
+
+        .settings-preview-row .label {
+            color: var(--gray-600);
+        }
+
+        .settings-preview-row .value {
+            font-weight: 500;
+            font-family: 'Monaco', monospace;
+        }
+
+        @media (max-width: 768px) {
+            .settings-preview {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / Measurement Setup Modal
+            </div>
+            <h1>&#x1F4D0; Measurement Setup Modal</h1>
+            <p style="opacity: 0.9; margin-top: 8px;">RFC-0108: Configure measurement display settings (units, decimal places) per domain</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Demo Section -->
+        <section class="section">
+            <h2>&#x1F3AE; Interactive Demo</h2>
+            <p class="section-desc">
+                Click on a demo card to open the Measurement Setup Modal with different configurations.
+            </p>
+
+            <div class="demo-grid">
+                <div class="demo-card" onclick="openDemo('basic')">
+                    <div class="demo-card-icon">&#x1F4D0;</div>
+                    <div class="demo-card-title">Basic Demo</div>
+                    <div class="demo-card-desc">Open modal with default settings</div>
+                </div>
+
+                <div class="demo-card" onclick="openDemo('liters')">
+                    <div class="demo-card-icon">&#x1F4A7;</div>
+                    <div class="demo-card-title">Water in Liters</div>
+                    <div class="demo-card-desc">Pre-configured for liters with 6 decimal places</div>
+                </div>
+
+                <div class="demo-card" onclick="openDemo('forceKwh')">
+                    <div class="demo-card-icon">&#x26A1;</div>
+                    <div class="demo-card-title">Force kWh Unit</div>
+                    <div class="demo-card-desc">Energy always in kWh, 2 decimal places</div>
+                </div>
+
+                <div class="demo-card" onclick="openDemo('fahrenheit')">
+                    <div class="demo-card-icon">&#x1F321;</div>
+                    <div class="demo-card-title">Fahrenheit Mode</div>
+                    <div class="demo-card-desc">Temperature in Fahrenheit</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="section">
+            <h2>&#x2728; Features</h2>
+            <p class="section-desc">
+                Key capabilities of the Measurement Setup Modal component.
+            </p>
+
+            <div class="feature-list">
+                <div class="feature-item">
+                    <span class="feature-icon">&#x1F4A7;</span>
+                    <span class="feature-text">Water: m&#179; or Liters with configurable decimals (0-6)</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">&#x26A1;</span>
+                    <span class="feature-text">Energy: Auto, kWh, or MWh with force option</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">&#x1F321;</span>
+                    <span class="feature-text">Temperature: Celsius or Fahrenheit</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">&#x1F522;</span>
+                    <span class="feature-text">Configurable decimal places per domain</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">&#x1F4BE;</span>
+                    <span class="feature-text">Persists to ThingsBoard customer SERVER_SCOPE</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">&#x1F441;</span>
+                    <span class="feature-text">Live preview of formatted values</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">&#x1F1E7;&#x1F1F7;</span>
+                    <span class="feature-text">Interface em Português (pt-BR)</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">&#x1F3A8;</span>
+                    <span class="feature-text">Customizable styles and theming</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Domain Badges -->
+        <section class="section">
+            <h2>&#x1F3F7; Supported Domains</h2>
+            <p class="section-desc">
+                The modal configures display settings for these measurement domains.
+            </p>
+
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px;">
+                <span class="domain-badge water">&#x1F4A7; Water (m&#179; / L)</span>
+                <span class="domain-badge energy">&#x26A1; Energy (kWh / MWh)</span>
+                <span class="domain-badge temperature">&#x1F321; Temperature (&#176;C / &#176;F)</span>
+            </div>
+        </section>
+
+        <!-- Current Settings Preview -->
+        <section class="section">
+            <h2>&#x1F4CA; Settings Preview</h2>
+            <p class="section-desc">
+                Current configured settings (updated after save).
+            </p>
+
+            <div class="settings-preview" id="settings-preview">
+                <div class="settings-preview-card" style="border-color: #3b82f6;">
+                    <h4 style="color: #3b82f6;">&#x1F4A7; Água</h4>
+                    <div class="settings-preview-row">
+                        <span class="label">Unidade</span>
+                        <span class="value" id="preview-water-unit">m&#179;</span>
+                    </div>
+                    <div class="settings-preview-row">
+                        <span class="label">Decimais</span>
+                        <span class="value" id="preview-water-decimals">3</span>
+                    </div>
+                    <div class="settings-preview-row">
+                        <span class="label">Escala Auto</span>
+                        <span class="value" id="preview-water-autoscale">Sim</span>
+                    </div>
+                </div>
+
+                <div class="settings-preview-card" style="border-color: #f59e0b;">
+                    <h4 style="color: #f59e0b;">&#x26A1; Energia</h4>
+                    <div class="settings-preview-row">
+                        <span class="label">Unidade</span>
+                        <span class="value" id="preview-energy-unit">auto</span>
+                    </div>
+                    <div class="settings-preview-row">
+                        <span class="label">Decimais</span>
+                        <span class="value" id="preview-energy-decimals">3</span>
+                    </div>
+                    <div class="settings-preview-row">
+                        <span class="label">Forçar Unidade</span>
+                        <span class="value" id="preview-energy-force">Não</span>
+                    </div>
+                </div>
+
+                <div class="settings-preview-card" style="border-color: #ef4444;">
+                    <h4 style="color: #ef4444;">&#x1F321; Temperatura</h4>
+                    <div class="settings-preview-row">
+                        <span class="label">Unidade</span>
+                        <span class="value" id="preview-temp-unit">&#176;C</span>
+                    </div>
+                    <div class="settings-preview-row">
+                        <span class="label">Decimais</span>
+                        <span class="value" id="preview-temp-decimals">1</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- JSON Schema Preview -->
+        <section class="section">
+            <h2>&#x1F4C4; JSON Schema (RFC-0108)</h2>
+            <p class="section-desc">
+                The modal manipulates the <code>measurementDisplaySettings</code> JSON structure stored in customer attributes.
+            </p>
+
+            <div class="json-preview" id="json-preview">
+{
+  "version": "1.0.0",
+  "updatedAt": "2025-12-23T12:00:00.000Z",
+  "water": {
+    "unit": "m3",
+    "decimalPlaces": 3,
+    "autoScale": true
+  },
+  "energy": {
+    "unit": "auto",
+    "decimalPlaces": 3,
+    "forceUnit": false
+  },
+  "temperature": {
+    "unit": "celsius",
+    "decimalPlaces": 1
+  }
+}
+            </div>
+        </section>
+
+        <!-- Code Examples -->
+        <section class="section">
+            <h2>&#x1F4BB; Code Examples</h2>
+            <p class="section-desc">
+                How to use the Measurement Setup Modal in your application.
+            </p>
+
+            <div class="code-example">
+<span class="comment">// Basic usage</span>
+<span class="keyword">import</span> { <span class="function">openMeasurementSetupModal</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="keyword">const</span> modal = <span class="keyword">await</span> <span class="function">openMeasurementSetupModal</span>({
+  token: <span class="string">'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'</span>,
+  customerId: <span class="string">'a1b2c3d4-e5f6-7890-abcd-ef1234567890'</span>,
+  tbBaseUrl: <span class="string">'https://tb.myio-bas.com'</span>,
+  onSave: (settings) => {
+    console.log(<span class="string">'Settings saved:'</span>, settings);
+    <span class="comment">// Refresh dashboard to apply new settings</span>
+  },
+  onClose: () => console.log(<span class="string">'Modal closed'</span>)
+});
+
+<span class="comment">// Clean up when needed</span>
+modal.<span class="function">destroy</span>();
+            </div>
+
+            <div class="code-example" style="margin-top: 16px;">
+<span class="comment">// Using settings in your widget</span>
+<span class="keyword">const</span> settings = <span class="keyword">await</span> <span class="function">fetchMeasurementSettings</span>(customerId, token);
+
+<span class="comment">// Format water value</span>
+<span class="keyword">const</span> waterValue = <span class="number">1234.567</span>;
+<span class="keyword">const</span> unit = settings.water.unit === <span class="string">'liters'</span> ? <span class="string">'L'</span> : <span class="string">'m&#179;'</span>;
+<span class="keyword">const</span> display = settings.water.unit === <span class="string">'liters'</span>
+  ? (waterValue * <span class="number">1000</span>).<span class="function">toFixed</span>(settings.water.decimalPlaces)
+  : waterValue.<span class="function">toFixed</span>(settings.water.decimalPlaces);
+
+console.log(<span class="string">`${display} ${unit}`</span>); <span class="comment">// "1234567.000 L" or "1234.567 m&#179;"</span>
+            </div>
+        </section>
+
+        <!-- API Reference -->
+        <section class="section">
+            <h2>&#x1F4D6; API Reference</h2>
+            <p class="section-desc">
+                Parameters accepted by <code>openMeasurementSetupModal()</code>.
+            </p>
+
+            <table class="props-table">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Required</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>token</code></td>
+                        <td>string</td>
+                        <td>Yes</td>
+                        <td>JWT token for ThingsBoard authentication</td>
+                    </tr>
+                    <tr>
+                        <td><code>customerId</code></td>
+                        <td>string</td>
+                        <td>Yes</td>
+                        <td>ThingsBoard customer UUID (shopping)</td>
+                    </tr>
+                    <tr>
+                        <td><code>tbBaseUrl</code></td>
+                        <td>string</td>
+                        <td>No</td>
+                        <td>ThingsBoard API base URL (defaults to current origin)</td>
+                    </tr>
+                    <tr>
+                        <td><code>existingSettings</code></td>
+                        <td>object</td>
+                        <td>No</td>
+                        <td>Existing settings JSON to pre-populate form</td>
+                    </tr>
+                    <tr>
+                        <td><code>onSave</code></td>
+                        <td>function</td>
+                        <td>No</td>
+                        <td>Callback after successful save with updated settings</td>
+                    </tr>
+                    <tr>
+                        <td><code>onClose</code></td>
+                        <td>function</td>
+                        <td>No</td>
+                        <td>Callback when modal closes</td>
+                    </tr>
+                    <tr>
+                        <td><code>styles</code></td>
+                        <td>object</td>
+                        <td>No</td>
+                        <td>Custom style tokens (primaryColor, borderRadius, etc.)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Event Log -->
+        <section class="section">
+            <h2>&#x1F4DD; Event Log</h2>
+            <p class="section-desc">
+                Real-time log of modal events from the demo.
+            </p>
+
+            <div class="log-container" id="event-log">
+                <div class="log-entry">
+                    <span class="log-time">[--:--:--]</span>
+                    <span class="log-event">Ready</span>
+                    <span class="log-data">Click a demo card to start...</span>
+                </div>
+            </div>
+
+            <button class="btn btn-secondary" onclick="clearLog()" style="margin-top: 12px;">Clear Log</button>
+        </section>
+
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="index.html" class="btn btn-primary">&#x2190; Back to Portal</a>
+            <a href="../src/docs/rfcs/RFC-0108-MeasurementSetupModal.md" class="btn btn-secondary" style="margin-left: 8px;">View RFC</a>
+        </div>
+    </div>
+
+    <!-- Load the library -->
+    <script src="../dist/myio-js-library.umd.min.js"></script>
+
+    <script>
+        // Mock JWT token for demo
+        const MOCK_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vLXVzZXIiLCJpYXQiOjE3MDI0MTk2MDAsImV4cCI6MTc5OTk5OTk5OX0.demo-signature';
+        const MOCK_CUSTOMER_ID = 'demo-customer-12345678-abcd-efgh-ijkl-mnopqrstuvwx';
+
+        // Event logging
+        function logEvent(event, data) {
+            const logContainer = document.getElementById('event-log');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="log-time">[${time}]</span>
+                <span class="log-event">${event}</span>
+                <span class="log-data">${typeof data === 'object' ? JSON.stringify(data).substring(0, 100) + '...' : data}</span>
+            `;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLog() {
+            const logContainer = document.getElementById('event-log');
+            logContainer.innerHTML = `
+                <div class="log-entry">
+                    <span class="log-time">[${new Date().toLocaleTimeString()}]</span>
+                    <span class="log-event">Cleared</span>
+                    <span class="log-data">Log cleared</span>
+                </div>
+            `;
+        }
+
+        // Update settings preview
+        function updateSettingsPreview(settings) {
+            document.getElementById('preview-water-unit').textContent = settings.water.unit === 'm3' ? 'm³' : 'L';
+            document.getElementById('preview-water-decimals').textContent = settings.water.decimalPlaces;
+            document.getElementById('preview-water-autoscale').textContent = settings.water.autoScale ? 'Sim' : 'Não';
+
+            document.getElementById('preview-energy-unit').textContent = settings.energy.unit;
+            document.getElementById('preview-energy-decimals').textContent = settings.energy.decimalPlaces;
+            document.getElementById('preview-energy-force').textContent = settings.energy.forceUnit ? 'Sim' : 'Não';
+
+            document.getElementById('preview-temp-unit').textContent = settings.temperature.unit === 'celsius' ? '°C' : '°F';
+            document.getElementById('preview-temp-decimals').textContent = settings.temperature.decimalPlaces;
+
+            document.getElementById('json-preview').textContent = JSON.stringify(settings, null, 2);
+        }
+
+        // Demo configurations
+        const demoConfigs = {
+            basic: {
+                existingSettings: null
+            },
+            liters: {
+                existingSettings: {
+                    version: '1.0.0',
+                    updatedAt: new Date().toISOString(),
+                    water: { unit: 'liters', decimalPlaces: 6, autoScale: false },
+                    energy: { unit: 'auto', decimalPlaces: 3, forceUnit: false },
+                    temperature: { unit: 'celsius', decimalPlaces: 1 }
+                }
+            },
+            forceKwh: {
+                existingSettings: {
+                    version: '1.0.0',
+                    updatedAt: new Date().toISOString(),
+                    water: { unit: 'm3', decimalPlaces: 3, autoScale: true },
+                    energy: { unit: 'kwh', decimalPlaces: 2, forceUnit: true },
+                    temperature: { unit: 'celsius', decimalPlaces: 1 }
+                }
+            },
+            fahrenheit: {
+                existingSettings: {
+                    version: '1.0.0',
+                    updatedAt: new Date().toISOString(),
+                    water: { unit: 'm3', decimalPlaces: 3, autoScale: true },
+                    energy: { unit: 'auto', decimalPlaces: 3, forceUnit: false },
+                    temperature: { unit: 'fahrenheit', decimalPlaces: 2 }
+                }
+            }
+        };
+
+        // Open demo modal
+        async function openDemo(demoType) {
+            const config = demoConfigs[demoType];
+            logEvent('Modal Opening', `Demo: ${demoType}`);
+
+            try {
+                // Check if library is loaded
+                if (typeof MyIOLibrary === 'undefined' || !MyIOLibrary.openMeasurementSetupModal) {
+                    logEvent('Warning', 'Library not loaded, showing mock modal');
+                    showMockModal(config);
+                    return;
+                }
+
+                const modal = await MyIOLibrary.openMeasurementSetupModal({
+                    token: MOCK_TOKEN,
+                    customerId: MOCK_CUSTOMER_ID,
+                    tbBaseUrl: 'https://demo.thingsboard.io',
+                    existingSettings: config.existingSettings,
+                    onSave: (settings) => {
+                        logEvent('Save', settings);
+                        updateSettingsPreview(settings);
+                    },
+                    onClose: () => {
+                        logEvent('Closed', 'Modal closed by user');
+                    }
+                });
+
+                logEvent('Modal Opened', `Demo: ${demoType}`);
+
+            } catch (error) {
+                logEvent('Error', error.message);
+                showMockModal(config);
+            }
+        }
+
+        // Mock modal for when library is not loaded
+        function showMockModal(config) {
+            const settings = config.existingSettings || {
+                version: '1.0.0',
+                updatedAt: new Date().toISOString(),
+                water: { unit: 'm3', decimalPlaces: 3, autoScale: true },
+                energy: { unit: 'auto', decimalPlaces: 3, forceUnit: false },
+                temperature: { unit: 'celsius', decimalPlaces: 1 }
+            };
+
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.6);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    overlay.remove();
+                    logEvent('Closed', 'Mock modal closed');
+                }
+            };
+
+            overlay.innerHTML = `
+                <div style="background: white; border-radius: 8px; max-width: 580px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+                    <div style="background: linear-gradient(135deg, #4A148C, #7c3aed); color: white; padding: 6px 12px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 14px;">&#x1F4D0;</span>
+                            <h2 style="margin: 0; font-size: 14px; font-weight: 600;">Configuração de Medidas (Mock)</h2>
+                        </div>
+                        <button onclick="this.closest('div[style*=fixed]').remove(); logEvent('Closed', 'Mock modal closed');" style="background: transparent; border: none; color: white; font-size: 18px; cursor: pointer; padding: 2px 8px;">&times;</button>
+                    </div>
+                    <div style="padding: 12px 16px;">
+                        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; padding: 8px; margin-bottom: 10px; font-size: 11px;">
+                            <strong>&#x26A0; Demo Mode</strong> - Library not loaded. Mock UI preview.
+                        </div>
+
+                        <!-- Water Section -->
+                        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3b82f6; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(0,0,0,0.08);">
+                                <span style="font-size: 16px;">&#x1F4A7;</span>
+                                <strong style="font-size: 13px;">Água</strong>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                                <div>
+                                    <label style="font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">Unidade</label>
+                                    <select id="mock-water-unit" style="width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
+                                        <option value="m3" ${settings.water.unit === 'm3' ? 'selected' : ''}>Metros Cúbicos (m&#179;)</option>
+                                        <option value="liters" ${settings.water.unit === 'liters' ? 'selected' : ''}>Litros (L)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">Casas Decimais</label>
+                                    <select id="mock-water-decimals" style="width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
+                                        ${[0,1,2,3,4,5,6].map(n => `<option value="${n}" ${settings.water.decimalPlaces === n ? 'selected' : ''}>${n} ${n === 1 ? 'casa' : 'casas'}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">Escala Auto</label>
+                                    <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px;">
+                                        <input type="checkbox" id="mock-water-autoscale" ${settings.water.autoScale ? 'checked' : ''} style="width: 14px; height: 14px;">
+                                        <span style="font-size: 12px;">L&#x2194;m&#179;</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Energy Section -->
+                        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(0,0,0,0.08);">
+                                <span style="font-size: 16px;">&#x26A1;</span>
+                                <strong style="font-size: 13px;">Energia</strong>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                                <div>
+                                    <label style="font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">Unidade</label>
+                                    <select id="mock-energy-unit" style="width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
+                                        <option value="auto" ${settings.energy.unit === 'auto' ? 'selected' : ''}>Automático (kWh/MWh)</option>
+                                        <option value="kwh" ${settings.energy.unit === 'kwh' ? 'selected' : ''}>Quilowatt-hora (kWh)</option>
+                                        <option value="mwh" ${settings.energy.unit === 'mwh' ? 'selected' : ''}>Megawatt-hora (MWh)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">Casas Decimais</label>
+                                    <select id="mock-energy-decimals" style="width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
+                                        ${[0,1,2,3,4].map(n => `<option value="${n}" ${settings.energy.decimalPlaces === n ? 'selected' : ''}>${n} ${n === 1 ? 'casa' : 'casas'}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">Forçar Unidade</label>
+                                    <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px;">
+                                        <input type="checkbox" id="mock-energy-force" ${settings.energy.forceUnit ? 'checked' : ''} style="width: 14px; height: 14px;">
+                                        <span style="font-size: 12px;">Sem conversão</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Temperature Section -->
+                        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(0,0,0,0.08);">
+                                <span style="font-size: 16px;">&#x1F321;</span>
+                                <strong style="font-size: 13px;">Temperatura</strong>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                                <div>
+                                    <label style="font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">Unidade</label>
+                                    <select id="mock-temp-unit" style="width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
+                                        <option value="celsius" ${settings.temperature.unit === 'celsius' ? 'selected' : ''}>Celsius (&#176;C)</option>
+                                        <option value="fahrenheit" ${settings.temperature.unit === 'fahrenheit' ? 'selected' : ''}>Fahrenheit (&#176;F)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">Casas Decimais</label>
+                                    <select id="mock-temp-decimals" style="width: 100%; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
+                                        ${[0,1,2,3].map(n => `<option value="${n}" ${settings.temperature.decimalPlaces === n ? 'selected' : ''}>${n} ${n === 1 ? 'casa' : 'casas'}</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 8px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+                            <button onclick="logEvent('Reset', 'Form reset clicked');" style="padding: 6px 14px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; font-size: 12px;">Restaurar Padrão</button>
+                            <button onclick="saveMockSettings(); this.closest('div[style*=fixed]').remove();" style="padding: 6px 14px; border: none; border-radius: 4px; background: #4A148C; color: white; cursor: pointer; font-size: 12px;">Salvar</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(overlay);
+            logEvent('Mock Modal Opened', 'Using mock UI');
+        }
+
+        function saveMockSettings() {
+            const settings = {
+                version: '1.0.0',
+                updatedAt: new Date().toISOString(),
+                water: {
+                    unit: document.getElementById('mock-water-unit').value,
+                    decimalPlaces: parseInt(document.getElementById('mock-water-decimals').value),
+                    autoScale: document.getElementById('mock-water-autoscale').checked
+                },
+                energy: {
+                    unit: document.getElementById('mock-energy-unit').value,
+                    decimalPlaces: parseInt(document.getElementById('mock-energy-decimals').value),
+                    forceUnit: document.getElementById('mock-energy-force').checked
+                },
+                temperature: {
+                    unit: document.getElementById('mock-temp-unit').value,
+                    decimalPlaces: parseInt(document.getElementById('mock-temp-decimals').value)
+                }
+            };
+
+            logEvent('Save', settings);
+            updateSettingsPreview(settings);
+        }
+
+        // Initial log
+        logEvent('Page Loaded', 'Measurement Setup Modal showcase ready');
+    </script>
+</body>
+</html>
