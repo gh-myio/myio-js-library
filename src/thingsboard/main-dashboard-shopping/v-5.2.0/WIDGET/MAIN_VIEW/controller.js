@@ -106,7 +106,7 @@ Object.assign(window.MyIOUtils, {
     // Track retry attempts per domain
     window._dataLoadRetryAttempts = window._dataLoadRetryAttempts || {};
     const retryCount = window._dataLoadRetryAttempts[domain] || 0;
-    const MAX_RETRIES = 2;
+    const MAX_RETRIES = 5;
 
     if (retryCount < MAX_RETRIES) {
       // Increment retry counter
@@ -263,11 +263,32 @@ const EQUIPMENT_EXCLUSION_PATTERN = new RegExp(
 );
 
 /**
+ * RFC-0106: Check if device is a store (loja)
+ * Centralized logic: deviceProfile === '3F_MEDIDOR'
+ *
+ * @param {Object|string} itemOrDeviceProfile - Device item with deviceProfile property, or deviceProfile string directly
+ * @returns {boolean} True if device is a store
+ */
+function isStoreDevice(itemOrDeviceProfile) {
+  let deviceProfile;
+
+  if (typeof itemOrDeviceProfile === 'string') {
+    deviceProfile = itemOrDeviceProfile;
+  } else if (itemOrDeviceProfile && typeof itemOrDeviceProfile === 'object') {
+    deviceProfile = itemOrDeviceProfile.deviceProfile;
+  } else {
+    return false;
+  }
+
+  return String(deviceProfile || '').toUpperCase() === '3F_MEDIDOR';
+}
+
+/**
  * RFC-0106: Classify device by deviceProfile attribute
  * Single datasource approach - classification based on deviceProfile
  *
  * Rules:
- * - Lojas: deviceType === '3F_MEDIDOR' AND deviceProfile === '3F_MEDIDOR'
+ * - Lojas: deviceProfile === '3F_MEDIDOR' (uses isStoreDevice)
  * - Others: classify by deviceProfile using DEVICE_CLASSIFICATION_CONFIG
  *
  * @param {Object} item - Device item with deviceType, deviceProfile and identifier properties
@@ -276,11 +297,10 @@ const EQUIPMENT_EXCLUSION_PATTERN = new RegExp(
 function classifyDeviceByDeviceType(item) {
   if (!item) return 'outros';
 
-  const deviceType = String(item.deviceType || '').toUpperCase();
   const deviceProfile = String(item.deviceProfile || '').toUpperCase();
 
-  // RFC-0106: Lojas = deviceType === '3F_MEDIDOR' AND deviceProfile === '3F_MEDIDOR'
-  if (deviceType === '3F_MEDIDOR' && deviceProfile === '3F_MEDIDOR') {
+  // RFC-0106: Lojas - use centralized isStoreDevice
+  if (isStoreDevice(item)) {
     return 'lojas';
   }
 
@@ -427,7 +447,7 @@ function categoryToLabelWidget(category) {
  * Classification based on BOTH deviceType and deviceProfile from ThingsBoard datasource
  *
  * Rules (priority order):
- * 1. LOJAS: ONLY when deviceType = '3F_MEDIDOR' AND deviceProfile = '3F_MEDIDOR' (both must match)
+ * 1. LOJAS: deviceProfile = '3F_MEDIDOR' (uses isStoreDevice)
  * 2. ENTRADA: deviceType OR deviceProfile contains ENTRADA/TRAFO/SUBESTACAO
  * 3. For other categories, check deviceProfile first, then deviceType:
  *    - CHILLER, FANCOIL, HVAC, AR_CONDICIONADO → 'Climatização'
@@ -451,9 +471,9 @@ function inferLabelWidget(row) {
   const deviceProfile = String(row.deviceProfile || '').toUpperCase();
 
   // ==========================================================================
-  // RULE 1: LOJAS - ONLY when BOTH deviceType AND deviceProfile = '3F_MEDIDOR'
+  // RULE 1: LOJAS - use centralized isStoreDevice
   // ==========================================================================
-  if (deviceType === '3F_MEDIDOR' && deviceProfile === '3F_MEDIDOR') {
+  if (isStoreDevice(row)) {
     return 'Lojas';
   }
 
@@ -545,6 +565,7 @@ Object.assign(window.MyIOUtils, {
   classifyDeviceByIdentifier,
   categoryToLabelWidget,
   inferLabelWidget,
+  isStoreDevice,
   EQUIPMENT_EXCLUSION_PATTERN,
 });
 
@@ -1372,7 +1393,7 @@ function storeContractState(deviceCounts, validationResult = { isValid: true, di
 /**
  * Categorize items into 3 groups: lojas, entrada, areacomum
  * Rules:
- * - LOJAS: deviceType = '3F_MEDIDOR' AND deviceProfile = '3F_MEDIDOR'
+ * - LOJAS: deviceProfile = '3F_MEDIDOR' (uses isStoreDevice)
  * - ENTRADA: (deviceType = '3F_MEDIDOR' AND deviceProfile in [TRAFO, ENTRADA, RELOGIO, SUBESTACAO])
  *            OR deviceType in [TRAFO, ENTRADA, RELOGIO, SUBESTACAO]
  * - AREACOMUM: everything else
@@ -1392,8 +1413,8 @@ function categorizeItemsByGroup(items) {
     const deviceType = toStr(item.deviceType);
     const deviceProfile = toStr(item.deviceProfile);
 
-    // Rule 1: LOJAS - both deviceType AND deviceProfile = '3F_MEDIDOR'
-    if (deviceType === '3F_MEDIDOR' && deviceProfile === '3F_MEDIDOR') {
+    // Rule 1: LOJAS - use centralized isStoreDevice
+    if (isStoreDevice(item)) {
       lojas.push(item);
       continue;
     }
@@ -1435,6 +1456,7 @@ function categorizeItemsByGroupWater(items) {
   const lojas = [];
   const banheiros = [];
   const areacomum = [];
+  const caixadagua = []; // RFC-0107: Category for tanks
 
   // Helper to safely convert to uppercase string (handles objects, arrays, numbers, etc.)
   const toStr = (val) => String(val || '').toUpperCase();
@@ -1450,7 +1472,8 @@ function categorizeItemsByGroupWater(items) {
     // ========== PRIMARY RULES: Based on deviceType AND deviceProfile ==========
 
     // Rule 1: ENTRADA - deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
-    if (dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING')) {
+    // RFC-0107: Also check for _isHidrometerDevice flag (from ctx.data hidrometro items)
+    if (dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING') || item._isHidrometerDevice) {
       entrada.push(item);
       continue;
     }
@@ -1475,6 +1498,12 @@ function categorizeItemsByGroupWater(items) {
       continue;
     }
 
+    // Rule 5: CAIXA D'ÁGUA - tanks (deviceType = TANK or CAIXA_DAGUA, or labelWidget = "Caixa D'Água")
+    if (dt === 'TANK' || dt === 'CAIXA_DAGUA' || lw === "CAIXA D'ÁGUA" || item._isTankDevice) {
+      caixadagua.push(item);
+      continue;
+    }
+
     // ========== FALLBACK RULES: Pattern matching for other deviceTypes ==========
 
     // Fallback 1: ENTRADA - main water entry points
@@ -1487,7 +1516,7 @@ function categorizeItemsByGroupWater(items) {
     areacomum.push(item);
   }
 
-  return { entrada, lojas, banheiros, areacomum };
+  return { entrada, lojas, banheiros, areacomum, caixadagua };
 }
 
 /**
@@ -1966,14 +1995,15 @@ function buildSummaryWater(entrada, lojas, banheiros, areacomum, periodKey) {
  */
 function populateState(domain, items, periodKey) {
   if (domain === 'water') {
-    // Water domain: entrada, lojas, banheiros, areacomum
-    const { entrada, lojas, banheiros, areacomum } = categorizeItemsByGroupWater(items);
+    // Water domain: entrada, lojas, banheiros, areacomum, caixadagua
+    const { entrada, lojas, banheiros, areacomum, caixadagua } = categorizeItemsByGroupWater(items);
 
     window.STATE[domain] = {
       entrada: buildGroupData(entrada),
       lojas: buildGroupData(lojas),
       banheiros: buildGroupData(banheiros),
       areacomum: buildGroupData(areacomum),
+      caixadagua: buildGroupData(caixadagua), // RFC-0107: Tanks
       summary: buildSummaryWater(entrada, lojas, banheiros, areacomum, periodKey),
       _raw: items,
     };
@@ -1985,6 +2015,7 @@ function populateState(domain, items, periodKey) {
       lojas: lojas.length,
       banheiros: banheiros.length,
       areacomum: areacomum.length,
+      caixadagua: caixadagua.length,
       total: items.length,
     });
   } else {
@@ -2872,16 +2903,22 @@ const MyIOOrchestrator = (() => {
     });
     if (aliasRows.length > 0) {
       // Get unique entityIds from this alias
-      const entityIds = [...new Set(aliasRows.map((r) => r?.datasource?.entityId?.id || r?.datasource?.entityId))].filter(Boolean);
-      LogHelper.log(`[Orchestrator] 🔍 DEBUG: Found ${entityIds.length} unique entities in '${allowedAlias}' datasource`);
+      const entityIds = [
+        ...new Set(aliasRows.map((r) => r?.datasource?.entityId?.id || r?.datasource?.entityId)),
+      ].filter(Boolean);
+      LogHelper.log(
+        `[Orchestrator] 🔍 DEBUG: Found ${entityIds.length} unique entities in '${allowedAlias}' datasource`
+      );
 
       // Sample: first + 2 random
       const sampleIds = [entityIds[0]];
       if (entityIds.length > 1) sampleIds.push(entityIds[Math.floor(entityIds.length / 3)]);
-      if (entityIds.length > 2) sampleIds.push(entityIds[Math.floor(entityIds.length * 2 / 3)]);
+      if (entityIds.length > 2) sampleIds.push(entityIds[Math.floor((entityIds.length * 2) / 3)]);
 
       for (const sampleId of sampleIds) {
-        const sampleRows = aliasRows.filter((r) => (r?.datasource?.entityId?.id || r?.datasource?.entityId) === sampleId);
+        const sampleRows = aliasRows.filter(
+          (r) => (r?.datasource?.entityId?.id || r?.datasource?.entityId) === sampleId
+        );
         const sampleData = {};
         for (const sr of sampleRows) {
           const key = sr?.dataKey?.name || 'unknown';
@@ -2889,7 +2926,10 @@ const MyIOOrchestrator = (() => {
         }
         sampleData._entityId = sampleId;
         sampleData._entityName = sampleRows[0]?.datasource?.entityName || 'N/A';
-        LogHelper.log(`[Orchestrator] 🔍 DEBUG Sample from '${allowedAlias}':`, JSON.stringify(sampleData, null, 2));
+        LogHelper.log(
+          `[Orchestrator] 🔍 DEBUG Sample from '${allowedAlias}':`,
+          JSON.stringify(sampleData, null, 2)
+        );
       }
     }
 
@@ -2939,6 +2979,9 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'pulses') meta.pulses = val;
       else if (keyName === 'litersperpulse') meta.litersPerPulse = val;
       else if (keyName === 'volume') meta.volume = val;
+      // Tank-specific fields (TANK/CAIXA_DAGUA)
+      else if (keyName === 'water_level') meta.waterLevel = val;
+      else if (keyName === 'water_percentage') meta.waterPercentage = val;
       // Temperature-specific fields
       else if (keyName === 'temperature') meta.temperature = val;
     }
@@ -2954,6 +2997,15 @@ const MyIOOrchestrator = (() => {
     LogHelper.log(
       `[Orchestrator] 📋 Built metadata map: ${metadataByEntityId.size} entities, ${metadataByIngestion.size} with ingestionId`
     );
+
+    // DEBUG RFC-0107: Log deviceTypes of all entities in metadataByEntityId
+    if (metadataByEntityId.size > 0) {
+      const deviceTypes = [];
+      for (const [entityId, meta] of metadataByEntityId.entries()) {
+        deviceTypes.push(`${meta.label || entityId.substring(0, 8)}:${meta.deviceType || 'N/A'}`);
+      }
+      LogHelper.log(`[Orchestrator] 📋 RFC-0107 Device types in metadata: ${deviceTypes.join(', ')}`);
+    }
 
     // DEBUG: Log all dataKeys found in ctx.data
     const allDataKeys = new Set();
@@ -3190,7 +3242,118 @@ const MyIOOrchestrator = (() => {
       const { byIngestion: metadataMap, byEntityId: metadataByEntityId } =
         buildMetadataMapFromCtxData(domain);
 
-      if (metadataMap.size === 0) {
+      // RFC-0107: For water domain, check for tank and hidrometro devices from ctx.data
+      // TANK/CAIXA_DAGUA get data directly from ThingsBoard (water_level, water_percentage)
+      // HIDROMETRO devices also need to be included from ctx.data (they have pulses)
+      let tankItems = [];
+      let hidrometroItems = [];
+      if (domain === 'water' && metadataByEntityId.size > 0) {
+        // DEBUG: Log all water device types
+        const waterDeviceTypes = [];
+        for (const [, meta] of metadataByEntityId.entries()) {
+          waterDeviceTypes.push(meta.deviceType || 'N/A');
+        }
+        LogHelper.log(`[Orchestrator] 🔍 DEBUG Water device types: ${waterDeviceTypes.join(', ')}`);
+
+        for (const [entityId, meta] of metadataByEntityId.entries()) {
+          const deviceType = String(meta.deviceType || '').toUpperCase();
+          const deviceProfile = String(meta.deviceProfile || '').toUpperCase();
+          // RFC-0107: Detect tank devices by:
+          // 1. deviceType = TANK or CAIXA_DAGUA
+          // 2. OR has water_level/water_percentage data (even without deviceType)
+          // BUT EXCLUDE hidrometers (devices with pulses data or HIDROMETRO deviceType)
+          const hasWaterLevelData = meta.waterLevel !== undefined || meta.waterPercentage !== undefined;
+          const isTankByType = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
+          // Check for hidrometers: deviceType contains HIDROMETRO
+          const isHidrometer = deviceType.includes('HIDROMETRO');
+          const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus);
+
+          // RFC-0107: Build HIDROMETRO items from ctx.data
+          // They have pulses data and should go to "Entrada" widget
+          if (isHidrometer) {
+            const pulses = Number(meta.pulses || 0);
+            hidrometroItems.push({
+              id: entityId,
+              tbId: entityId,
+              ingestionId: meta.ingestionId || null,
+              identifier: meta.identifier || '',
+              label: meta.label || meta.identifier || 'Hidrômetro',
+              entityLabel: meta.label || meta.identifier || 'Hidrômetro',
+              name: meta.label || meta.identifier || 'Hidrômetro',
+              value: pulses, // pulses count
+              pulses: pulses,
+              deviceType: deviceType,
+              deviceProfile: deviceProfile || deviceType,
+              effectiveDeviceType: deviceProfile || deviceType,
+              deviceStatus: deviceStatus,
+              connectionStatus: meta.connectionStatus || 'unknown',
+              centralId: meta.centralId || null,
+              centralName: meta.centralName || '',
+              slaveId: meta.slaveId || null,
+              lastActivityTime: meta.lastActivityTime || null,
+              lastConnectTime: meta.lastConnectTime || null,
+              lastDisconnectTime: meta.lastDisconnectTime || null,
+              log_annotations: meta.log_annotations || null,
+              labelWidget: 'Entrada', // HIDROMETRO goes to Entrada widget
+              groupLabel: 'Entrada',
+              _hasMetadata: true,
+              _isHidrometerDevice: true,
+            });
+            continue;
+          }
+
+          if (isTankByType || hasWaterLevelData) {
+            const waterLevel = Number(meta.waterLevel || 0);
+            const waterPercentage = Number(meta.waterPercentage || 0);
+
+            tankItems.push({
+              id: entityId,
+              tbId: entityId,
+              ingestionId: meta.ingestionId || null,
+              identifier: meta.identifier || '',
+              label: meta.label || meta.identifier || "Caixa d'água",
+              entityLabel: meta.label || meta.identifier || "Caixa d'água",
+              name: meta.label || meta.identifier || "Caixa d'água",
+              value: waterLevel, // water_level in liters
+              waterLevel: waterLevel,
+              waterPercentage: waterPercentage, // 0-1 range
+              // Default to TANK if detected by water data but no deviceType
+              deviceType: deviceType || 'TANK',
+              deviceProfile: meta.deviceProfile || deviceType || 'TANK',
+              effectiveDeviceType: meta.deviceProfile || deviceType || 'TANK',
+              deviceStatus: deviceStatus,
+              connectionStatus: meta.connectionStatus || 'unknown',
+              centralId: meta.centralId || null,
+              centralName: meta.centralName || '',
+              slaveId: meta.slaveId || null,
+              lastActivityTime: meta.lastActivityTime || null,
+              lastConnectTime: meta.lastConnectTime || null,
+              lastDisconnectTime: meta.lastDisconnectTime || null,
+              log_annotations: meta.log_annotations || null,
+              labelWidget: "Caixa D'Água", // Tanks go to Caixa D'Água widget
+              groupLabel: "Caixa D'Água",
+              _hasMetadata: true,
+              _isTankDevice: true,
+            });
+          }
+        }
+
+        if (tankItems.length > 0) {
+          LogHelper.log(
+            `[Orchestrator] 🚰 Found ${tankItems.length} tank devices (TANK/CAIXA_DAGUA) in water domain`
+          );
+        }
+        if (hidrometroItems.length > 0) {
+          LogHelper.log(
+            `[Orchestrator] 🚿 Found ${hidrometroItems.length} hidrometro devices in water domain`
+          );
+        }
+      }
+
+      // RFC-0107: Combine water devices from ctx.data (tanks + hidrometros)
+      const waterDevicesFromCtx = [...tankItems, ...hidrometroItems];
+
+      if (metadataMap.size === 0 && waterDevicesFromCtx.length === 0) {
         LogHelper.warn(`[Orchestrator] ⚠️ Metadata map is empty - no devices found in ctx.data`);
         ctxDataWasEmpty = true;
 
@@ -3198,6 +3361,16 @@ const MyIOOrchestrator = (() => {
         window.MyIOUtils?.handleDataLoadError(domain, 'no devices found in datasource');
 
         return []; // No metadata = no point calling API
+      }
+
+      // If we only have water devices from ctx.data and no devices with ingestionId, return them directly
+      if (metadataMap.size === 0 && waterDevicesFromCtx.length > 0) {
+        LogHelper.log(
+          `[Orchestrator] 🚰 Only water devices from ctx.data found - skipping API call, returning ${waterDevicesFromCtx.length} items (${tankItems.length} tanks, ${hidrometroItems.length} hidrometros)`
+        );
+        const waterPeriodKey = `water:${domain}:${period.startISO}:${period.endISO}:${period.granularity}`;
+        populateState(domain, waterDevicesFromCtx, waterPeriodKey);
+        return waterDevicesFromCtx;
       }
 
       LogHelper.log(`[Orchestrator] ✅ Metadata map built: ${metadataMap.size} devices with ingestionId`);
@@ -3477,10 +3650,19 @@ const MyIOOrchestrator = (() => {
         });
       }
 
+      // RFC-0107: Combine API items with water devices from ctx.data (tanks + hidrometros)
+      let finalItems = filteredItems;
+      if (tankItems.length > 0 || hidrometroItems.length > 0) {
+        finalItems = [...filteredItems, ...tankItems, ...hidrometroItems];
+        LogHelper.log(
+          `[Orchestrator] 🚰 Combined ${filteredItems.length} API items + ${tankItems.length} tanks + ${hidrometroItems.length} hidrometros = ${finalItems.length} total`
+        );
+      }
+
       LogHelper.log(
-        `[Orchestrator] fetchAndEnrich: fetched ${filteredItems.length} items for domain ${domain}`
+        `[Orchestrator] fetchAndEnrich: fetched ${finalItems.length} items for domain ${domain}`
       );
-      return filteredItems;
+      return finalItems;
     } catch (error) {
       LogHelper.error(`[Orchestrator] fetchAndEnrich error for domain ${domain}:`, error);
       return [];

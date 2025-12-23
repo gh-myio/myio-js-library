@@ -764,6 +764,8 @@ function mapLabelWidgetToStateGroup(labelWidget) {
   const lw = labelWidget.toLowerCase().trim();
   if (lw === 'lojas') return 'lojas';
   if (lw === 'entrada') return 'entrada';
+  // RFC-0107: Add caixadagua for water tanks
+  if (lw === "caixa d'água" || lw === 'caixadagua' || lw === 'caixa dagua') return 'caixadagua';
   // Everything else maps to areacomum
   return 'areacomum';
 }
@@ -807,8 +809,8 @@ function getItemsFromState(domain, labelWidget) {
     return window.STATE[domain]?._raw || [];
   }
 
-  // For lojas and entrada, return directly from STATE group
-  if (stateGroup === 'lojas' || stateGroup === 'entrada') {
+  // For lojas, entrada, and caixadagua, return directly from STATE group
+  if (stateGroup === 'lojas' || stateGroup === 'entrada' || stateGroup === 'caixadagua') {
     const groupData = window.STATE.get(domain, stateGroup);
     LogHelper.log(
       `[TELEMETRY] Getting items from STATE.${domain}.${stateGroup}: ${groupData?.count || 0} items`
@@ -1371,8 +1373,9 @@ function buildAuthoritativeItems() {
     const deviceProfile = attrs.deviceProfile || 'no_info';
     let deviceTypeToDisplay = attrs.deviceType || 'no_info';
 
-    if (deviceTypeToDisplay === '3F_MEDIDOR' && deviceProfile === '3F_MEDIDOR') {
-      deviceTypeToDisplay = deviceProfile;
+    // Use centralized isStoreDevice from MyIOUtils
+    if (window.MyIOUtils?.isStoreDevice?.({ deviceProfile })) {
+      deviceTypeToDisplay = '3F_MEDIDOR';
     }
 
     // Extract telemetry data from ThingsBoard ctx.data
@@ -1558,15 +1561,20 @@ function buildAuthoritativeItems() {
 
   if (widgetType === 'areacomum') {
     filtered = mapped.filter((item) => {
-      // Keep item unless it's a 3F_MEDIDOR with 3F_MEDIDOR deviceProfile (no real type)
+      // Keep item unless it's a store device or a generic 3F_MEDIDOR without proper type
       const deviceType = String(item.deviceType || '').toUpperCase();
       const deviceProfile = String(item.deviceProfile || '').toUpperCase();
 
-      // Discard if deviceType = 3F_MEDIDOR AND deviceProfile is also 3F_MEDIDOR or empty/N/D
-      if (
-        deviceType === '3F_MEDIDOR' &&
-        (deviceProfile === '3F_MEDIDOR' || deviceProfile === 'N/D' || !deviceProfile)
-      ) {
+      // Discard store devices (uses centralized isStoreDevice)
+      if (window.MyIOUtils?.isStoreDevice?.(item)) {
+        LogHelper.log(
+          `[RFC-0097] Filtering out store device: label="${item.label}", deviceProfile="${deviceProfile}"`
+        );
+        return false;
+      }
+
+      // Discard if deviceType = 3F_MEDIDOR with empty/N/D deviceProfile (no real classification)
+      if (deviceType === '3F_MEDIDOR' && (deviceProfile === 'N/D' || !deviceProfile)) {
         LogHelper.log(
           `[RFC-0097] Filtering out 3F_MEDIDOR without proper deviceProfile: label="${item.label}", deviceProfile="${deviceProfile}"`
         );
@@ -2390,17 +2398,32 @@ function renderList(visible) {
               throw new Error(errorMsg);
             }
 
-            // For TANK/CAIXA_DAGUA: get water level from telemetry
-            const waterLevel = getData('water_level');
-            const waterPercentage = getData('water_percentage');
-            const currentLevel = waterPercentage || it.perc || it.val || 0;
+            // RFC-0107: For TANK/CAIXA_DAGUA: get water level from item (built from ctx.data)
+            // Note: getData() won't work here because the data is in the item, not ctx.data
+            const waterLevel = it.waterLevel ?? entityObject.waterLevel ?? null;
+            const waterPercentage = it.waterPercentage ?? entityObject.waterPercentage ?? null;
+
+            // RFC-0107: waterPercentage is in 0-1 range (e.g., 0.21 = 21%)
+            // Convert to 0-100 range for display, and clamp to 0-100 for visual display
+            let currentLevelPercent = 0;
+            if (waterPercentage !== null && waterPercentage !== undefined) {
+              // waterPercentage is 0-1 range, convert to percentage
+              currentLevelPercent = waterPercentage * 100;
+            } else if (waterLevel !== null && waterLevel !== undefined) {
+              // Fallback: if only waterLevel is available, use it as percentage (assume it's already %)
+              currentLevelPercent = waterLevel;
+            }
+
+            // Clamp for display (can be >100% but visual indicator should cap at 100)
+            const currentLevelClamped = Math.min(100, Math.max(0, currentLevelPercent));
 
             LogHelper.log('[TELEMETRY v5] Water tank telemetry data:', {
               water_level: waterLevel,
               water_percentage: waterPercentage,
-              currentLevel: currentLevel,
-              it_perc: it.perc,
-              it_val: it.val,
+              currentLevelPercent: currentLevelPercent,
+              currentLevelClamped: currentLevelClamped,
+              it_waterLevel: it.waterLevel,
+              it_waterPercentage: it.waterPercentage,
             });
 
             LogHelper.log('[TELEMETRY v5] Calling openDashboardPopupWaterTank with params:', {
@@ -2409,7 +2432,10 @@ function renderList(visible) {
               startTs: typeof startTs === 'number' ? startTs : new Date(startTs).getTime(),
               endTs: typeof endTs === 'number' ? endTs : new Date(endTs).getTime(),
               label: it.label || it.name || 'Water Tank',
-              currentLevel: currentLevel,
+              currentLevel: currentLevelPercent,
+              currentLevelClamped: currentLevelClamped,
+              waterLevel: waterLevel,
+              waterPercentage: waterPercentage,
             });
 
             LogHelper.log('[TELEMETRY v5] ⏳ About to call openDashboardPopupWaterTank...');
@@ -2421,7 +2447,10 @@ function renderList(visible) {
               startTs: typeof startTs === 'number' ? startTs : new Date(startTs).getTime(),
               endTs: typeof endTs === 'number' ? endTs : new Date(endTs).getTime(),
               label: it.label || it.name || 'Water Tank',
-              currentLevel: currentLevel,
+              currentLevel: currentLevelPercent, // RFC-0107: Use converted percentage (0-100)
+              currentLevelClamped: currentLevelClamped, // RFC-0107: Clamped for visual display
+              waterLevel: waterLevel, // RFC-0107: Raw water_level value
+              waterPercentage: waterPercentage, // RFC-0107: Raw water_percentage (0-1 range)
               slaveId: it.slaveId,
               centralId: it.centralId,
               timezone: self.ctx?.timeWindow?.timezone || 'America/Sao_Paulo',

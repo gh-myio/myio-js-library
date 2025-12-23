@@ -21,6 +21,9 @@ export interface OpenDashboardPopupWaterTankOptions {
   deviceType?: string;                 // Device type (TANK, CAIXA_DAGUA, etc.)
   label?: string;                      // Display label for the device
   currentLevel?: number;               // Current water level (0-100%)
+  currentLevelClamped?: number;        // RFC-0107: Clamped level for visual display (0-100)
+  waterLevel?: number | null;          // RFC-0107: Raw water_level value from ThingsBoard
+  waterPercentage?: number | null;     // RFC-0107: Raw water_percentage (0-1 range)
 
   // Optional Device Metadata
   slaveId?: string | number;           // Slave device ID
@@ -31,6 +34,7 @@ export interface OpenDashboardPopupWaterTankOptions {
   // TELEMETRY CONFIGURATION
   // ========================================
   telemetryKeys?: string[];            // Keys to fetch (default: ['waterLevel', 'nivel', 'level'])
+  displayKey?: 'water_level' | 'water_percentage';  // RFC-0107: Which key to display in chart (default: 'water_percentage')
   aggregation?: 'NONE' | 'MIN' | 'MAX' | 'AVG' | 'SUM' | 'COUNT';  // default: 'NONE'
   limit?: number;                      // Max data points (default: 1000)
 

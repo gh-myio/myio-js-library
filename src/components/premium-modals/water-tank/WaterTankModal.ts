@@ -59,12 +59,15 @@ export class WaterTankModal {
    * Build context object for callbacks
    */
   private buildContext(options: OpenDashboardPopupWaterTankOptions): WaterTankModalContext {
+    // RFC-0107: Use clamped level for visual display (0-100)
+    const displayLevel = options.currentLevelClamped ?? options.currentLevel ?? 0;
+
     return {
       device: {
         id: options.deviceId,
         label: options.label || options.deviceId,
         type: options.deviceType,
-        currentLevel: options.currentLevel
+        currentLevel: displayLevel
       },
       metadata: {
         slaveId: options.slaveId,
@@ -176,18 +179,35 @@ export class WaterTankModal {
 
   /**
    * Transform raw ThingsBoard response to our data points
+   * RFC-0107: Support displayKey option to choose between water_level or water_percentage
    */
   private transformTelemetryData(rawData: ThingsBoardTelemetryResponse, keys: string[]): WaterTankDataPoint[] {
     const allPoints: WaterTankDataPoint[] = [];
+    const displayKey = this.options.displayKey || 'water_percentage';
+
+    // RFC-0107: If displayKey is specified and available, prioritize it
+    const prioritizedKeys = displayKey && rawData[displayKey]
+      ? [displayKey, ...keys.filter(k => k !== displayKey)]
+      : keys;
 
     // Combine data from all keys
-    for (const key of keys) {
+    for (const key of prioritizedKeys) {
       if (rawData[key] && Array.isArray(rawData[key])) {
-        const keyPoints = rawData[key].map(point => ({
-          ts: point.ts,
-          value: typeof point.value === 'string' ? parseFloat(point.value) : point.value,
-          key: key
-        }));
+        const keyPoints = rawData[key].map(point => {
+          let value = typeof point.value === 'string' ? parseFloat(point.value) : point.value;
+
+          // RFC-0107: Convert water_percentage from 0-1 to 0-100 range for display
+          if (key === 'water_percentage' && value <= 1.5) {
+            // Values <= 1.5 are assumed to be in 0-1 range, convert to percentage
+            value = value * 100;
+          }
+
+          return {
+            ts: point.ts,
+            value: value,
+            key: key
+          };
+        });
         allPoints.push(...keyPoints);
       }
     }
@@ -195,7 +215,7 @@ export class WaterTankModal {
     // Sort by timestamp
     allPoints.sort((a, b) => a.ts - b.ts);
 
-    // Remove duplicates (same timestamp)
+    // Remove duplicates (same timestamp) - prefer displayKey data
     const uniquePoints: WaterTankDataPoint[] = [];
     const seenTimestamps = new Set<number>();
 
@@ -206,16 +226,21 @@ export class WaterTankModal {
       }
     }
 
+    console.log(`[WaterTankModal] Transformed ${uniquePoints.length} points, displayKey: ${displayKey}`);
     return uniquePoints;
   }
 
   /**
    * Calculate summary statistics from telemetry data
+   * RFC-0107: Use clamped level for display
    */
   private calculateSummary(telemetry: WaterTankDataPoint[]) {
+    // RFC-0107: Use clamped level for visual display
+    const displayLevel = this.options.currentLevelClamped ?? this.options.currentLevel ?? 0;
+
     if (telemetry.length === 0) {
       return {
-        currentLevel: this.options.currentLevel,
+        currentLevel: displayLevel,
         avgLevel: 0,
         minLevel: 0,
         maxLevel: 0,
