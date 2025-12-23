@@ -53,6 +53,114 @@ Object.assign(window.MyIOUtils, {
   // RFC-XXXX: SuperAdmin flag - user with @myio.com.br email (except alarme/alarmes)
   // Populated by detectSuperAdmin() in onInit
   SuperAdmin: false,
+
+  // RFC-0108: Measurement display settings (units, decimal places)
+  // Default values - can be overridden by user via MeasurementSetupModal
+  measurementSettings: {
+    water: { unit: 'm3', decimalPlaces: 3, autoScale: true },
+    energy: { unit: 'auto', decimalPlaces: 3, forceUnit: false },
+    temperature: { unit: 'celsius', decimalPlaces: 1 },
+  },
+
+  /**
+   * RFC-0108: Format a number with Brazilian locale (1.234,56)
+   * @param {number} value - The number to format
+   * @param {number} decimals - Number of decimal places
+   * @returns {string} Formatted number string
+   */
+  formatNumberBR: (value, decimals = 2) => {
+    const parts = value.toFixed(decimals).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return decimals > 0 ? parts.join(',') : parts[0];
+  },
+
+  /**
+   * RFC-0108: Format energy value based on measurement settings
+   * @param {number} valueKwh - Energy value in kWh
+   * @returns {string} Formatted value with unit (e.g., "1.234,567 kWh" or "1,234 MWh")
+   */
+  formatEnergyWithSettings: (valueKwh) => {
+    const settings = window.MyIOUtils?.measurementSettings?.energy || {
+      unit: 'auto',
+      decimalPlaces: 3,
+      forceUnit: false,
+    };
+    const formatNum = window.MyIOUtils?.formatNumberBR || ((v, d) => v.toFixed(d));
+
+    let displayValue = valueKwh;
+    let unit = 'kWh';
+
+    if (settings.unit === 'mwh') {
+      displayValue = valueKwh / 1000;
+      unit = 'MWh';
+    } else if (settings.unit === 'auto' && !settings.forceUnit && valueKwh >= 1000) {
+      displayValue = valueKwh / 1000;
+      unit = 'MWh';
+    }
+
+    return `${formatNum(displayValue, settings.decimalPlaces)} ${unit}`;
+  },
+
+  /**
+   * RFC-0108: Format water value based on measurement settings
+   * @param {number} valueM3 - Water volume in cubic meters
+   * @returns {string} Formatted value with unit (e.g., "1.234,567 m³" or "1.234.567,000 L")
+   */
+  formatWaterWithSettings: (valueM3) => {
+    const settings = window.MyIOUtils?.measurementSettings?.water || {
+      unit: 'm3',
+      decimalPlaces: 3,
+      autoScale: true,
+    };
+    const formatNum = window.MyIOUtils?.formatNumberBR || ((v, d) => v.toFixed(d));
+
+    let displayValue = valueM3;
+    let unit = 'm³';
+
+    if (settings.unit === 'liters') {
+      displayValue = valueM3 * 1000;
+      unit = 'L';
+    }
+
+    return `${formatNum(displayValue, settings.decimalPlaces)} ${unit}`;
+  },
+
+  /**
+   * RFC-0108: Format temperature value based on measurement settings
+   * @param {number} valueCelsius - Temperature in Celsius
+   * @returns {string} Formatted value with unit (e.g., "23,5 °C" or "74,3 °F")
+   */
+  formatTemperatureWithSettings: (valueCelsius) => {
+    const settings = window.MyIOUtils?.measurementSettings?.temperature || {
+      unit: 'celsius',
+      decimalPlaces: 1,
+    };
+    const formatNum = window.MyIOUtils?.formatNumberBR || ((v, d) => v.toFixed(d));
+
+    let displayValue = valueCelsius;
+    let unit = '°C';
+
+    if (settings.unit === 'fahrenheit') {
+      displayValue = (valueCelsius * 9) / 5 + 32;
+      unit = '°F';
+    }
+
+    return `${formatNum(displayValue, settings.decimalPlaces)} ${unit}`;
+  },
+
+  /**
+   * RFC-0108: Update measurement settings (called by MENU after modal save)
+   * @param {object} newSettings - New measurement settings object
+   */
+  updateMeasurementSettings: (newSettings) => {
+    if (newSettings) {
+      if (newSettings.water) window.MyIOUtils.measurementSettings.water = newSettings.water;
+      if (newSettings.energy) window.MyIOUtils.measurementSettings.energy = newSettings.energy;
+      if (newSettings.temperature) window.MyIOUtils.measurementSettings.temperature = newSettings.temperature;
+      LogHelper.log('[MyIOUtils] RFC-0108: Measurement settings updated:', window.MyIOUtils.measurementSettings);
+    }
+  },
+
   /**
    * Handle 401 Unauthorized errors globally
    * Shows toast message and reloads the page
@@ -676,6 +784,22 @@ Object.assign(window.MyIOUtils, {
       const isCompact = rootEl?.classList.contains('menu-compact');
       setMenuCompact(!isCompact);
     });
+
+    // RFC-0108: Listen for measurement settings updates from MENU
+    on(window, 'myio:measurement-settings-updated', (ev) => {
+      const settings = ev?.detail;
+      if (settings) {
+        // Update MyIOUtils shared settings
+        if (window.MyIOUtils?.updateMeasurementSettings) {
+          window.MyIOUtils.updateMeasurementSettings(settings);
+        }
+        // Also store in orchestrator for persistence
+        if (window.MyIOOrchestrator) {
+          window.MyIOOrchestrator.measurementDisplaySettings = settings;
+        }
+        LogHelper.log('[MAIN_VIEW] RFC-0108: Measurement settings updated:', settings);
+      }
+    });
   }
 
   // Detecta mudanças de viewport para aplicar sizing
@@ -798,6 +922,10 @@ Object.assign(window.MyIOUtils, {
 
         // Customer ID from settings (for MENU and other widgets)
         customerTB_ID: null,
+
+        // RFC-0108: Measurement display settings (units, decimal places)
+        // Populated by MENU when user opens MeasurementSetupModal
+        measurementDisplaySettings: null,
 
         // Data access methods (will be populated later)
         getCurrentPeriod: () => null,

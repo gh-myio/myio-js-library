@@ -203,9 +203,7 @@ self.onInit = function () {
       if (isUserAdmin) {
         LogHelper.log('[MENU] User admin detected - enabling shopping selector and settings buttons');
         addShoppingSelectorButton();
-        addTemperatureSettingsButton(user);
-        addContractDevicesButton(user);
-        addMeasurementSetupButton(user); // RFC-0108
+        addSettingsMenuButton(user); // RFC-0108: Consolidated settings menu
         updateShoppingLabel();
       }
     } catch (err) {
@@ -372,6 +370,250 @@ self.onInit = function () {
       }
     }
   };
+
+  // RFC-0108: Consolidated Settings Menu Button
+  function addSettingsMenuButton(user) {
+    if (document.getElementById('settings-menu-btn')) {
+      LogHelper.log('[MENU] Settings menu button already exists');
+      return;
+    }
+
+    const menuFooter = document.querySelector('.shops-menu-root .menu-footer');
+    const logoutBtn = document.getElementById('logout-btn');
+    if (!menuFooter) {
+      LogHelper.error('[MENU] Menu footer not found - cannot add settings menu button');
+      return;
+    }
+
+    const settingsMenuBtn = document.createElement('button');
+    settingsMenuBtn.id = 'settings-menu-btn';
+    settingsMenuBtn.className = 'settings-menu-btn';
+    settingsMenuBtn.type = 'button';
+    settingsMenuBtn.setAttribute('aria-label', 'Configurações');
+
+    settingsMenuBtn.innerHTML = `
+      <span class="settings-menu-icon">⚙️</span>
+      <span class="settings-menu-text">Configurações</span>
+    `;
+
+    // Insert before logout button
+    if (logoutBtn) menuFooter.insertBefore(settingsMenuBtn, logoutBtn);
+    else menuFooter.appendChild(settingsMenuBtn);
+
+    // Click handler - show settings modal
+    settingsMenuBtn.addEventListener('click', () => {
+      LogHelper.log('[MENU] Settings menu button clicked');
+      showSettingsModal(user);
+    });
+
+    LogHelper.log('[MENU] Settings menu button added successfully');
+  }
+
+  // RFC-0108: Show centered settings modal with options
+  function showSettingsModal(user) {
+    // Remove existing modal if any
+    const existingModal = document.getElementById('myio-settings-modal');
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'myio-settings-modal';
+    modal.className = 'myio-settings-modal';
+    modal.innerHTML = `
+      <div class="myio-settings-modal__overlay"></div>
+      <div class="myio-settings-modal__content">
+        <div class="myio-settings-modal__header">
+          <h3>⚙️ Configurações</h3>
+          <button class="myio-settings-modal__close" aria-label="Fechar">&times;</button>
+        </div>
+        <div class="myio-settings-modal__body">
+          <button class="myio-settings-option" data-action="temperature">
+            <span class="myio-settings-option__icon">🌡️</span>
+            <div class="myio-settings-option__text">
+              <span class="myio-settings-option__title">Config. Temperatura</span>
+              <span class="myio-settings-option__desc">Limites e alertas de temperatura</span>
+            </div>
+          </button>
+          <button class="myio-settings-option" data-action="contract">
+            <span class="myio-settings-option__icon">📋</span>
+            <div class="myio-settings-option__text">
+              <span class="myio-settings-option__title">Dispositivos Contratados</span>
+              <span class="myio-settings-option__desc">Quantidade de dispositivos por domínio</span>
+            </div>
+          </button>
+          <button class="myio-settings-option" data-action="measurement">
+            <span class="myio-settings-option__icon">📐</span>
+            <div class="myio-settings-option__text">
+              <span class="myio-settings-option__title">Config. Medidas</span>
+              <span class="myio-settings-option__desc">Unidades e casas decimais</span>
+            </div>
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Animate in
+    requestAnimationFrame(() => modal.classList.add('show'));
+
+    // Close handlers
+    const closeModal = () => {
+      modal.classList.remove('show');
+      setTimeout(() => modal.remove(), 200);
+    };
+
+    modal.querySelector('.myio-settings-modal__overlay').addEventListener('click', closeModal);
+    modal.querySelector('.myio-settings-modal__close').addEventListener('click', closeModal);
+
+    // ESC key to close
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        closeModal();
+        document.removeEventListener('keydown', escHandler);
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    // Option click handlers
+    modal.querySelectorAll('.myio-settings-option').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.action;
+        closeModal();
+
+        // Small delay to let modal close animation complete
+        setTimeout(() => {
+          if (action === 'temperature') {
+            openTemperatureSettings(user);
+          } else if (action === 'contract') {
+            openContractDevicesSettings(user);
+          } else if (action === 'measurement') {
+            openMeasurementSettings(user);
+          }
+        }, 250);
+      });
+    });
+  }
+
+  // RFC-0108: Open temperature settings modal
+  function openTemperatureSettings(user) {
+    const MyIOLibrary = window.MyIOLibrary;
+    if (!MyIOLibrary?.openTemperatureSettingsModal) {
+      LogHelper.error('[MENU] openTemperatureSettingsModal not available');
+      window.alert('Componente de configuração de temperatura não disponível.');
+      return;
+    }
+
+    const jwtToken = localStorage.getItem('jwt_token');
+    if (!jwtToken) {
+      window.alert('Token de autenticação não encontrado. Faça login novamente.');
+      return;
+    }
+
+    const customerId = window.MyIOOrchestrator?.customerTB_ID;
+    const customerName = user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || 'Cliente';
+
+    if (!customerId) {
+      window.alert('ID do cliente não encontrado. Verifique configuração do dashboard.');
+      return;
+    }
+
+    MyIOLibrary.openTemperatureSettingsModal({
+      token: jwtToken,
+      customerId: customerId,
+      customerName: customerName,
+      theme: 'dark',
+      onSave: (settings) => {
+        LogHelper.log('[MENU] Temperature settings saved:', settings);
+        window.dispatchEvent(new CustomEvent('myio:temperature-settings-updated', { detail: settings }));
+      },
+      onClose: () => LogHelper.log('[MENU] Temperature settings modal closed'),
+    });
+  }
+
+  // RFC-0108: Open contract devices modal
+  function openContractDevicesSettings(user) {
+    const MyIOLibrary = window.MyIOLibrary;
+    if (!MyIOLibrary?.openContractDevicesModal) {
+      LogHelper.error('[MENU] openContractDevicesModal not available');
+      window.alert('Componente de dispositivos contratados não disponível.');
+      return;
+    }
+
+    const jwtToken = localStorage.getItem('jwt_token');
+    if (!jwtToken) {
+      window.alert('Token de autenticação não encontrado. Faça login novamente.');
+      return;
+    }
+
+    const customerId = window.MyIOOrchestrator?.customerTB_ID;
+    const customerName = user?.customerTitle || user?.customerName || getCurrentDashboardTitle() || 'Cliente';
+
+    if (!customerId) {
+      window.alert('ID do cliente não encontrado. Verifique configuração do dashboard.');
+      return;
+    }
+
+    MyIOLibrary.openContractDevicesModal({
+      customerId: customerId,
+      customerName: customerName,
+      jwtToken: jwtToken,
+      onSaved: (result) => {
+        LogHelper.log('[MENU] Contract devices saved:', result);
+        window.dispatchEvent(new CustomEvent('myio:contract-devices-updated', { detail: result }));
+      },
+      onClose: () => LogHelper.log('[MENU] Contract devices modal closed'),
+      onError: (error) => {
+        LogHelper.error('[MENU] Contract devices error:', error);
+        window.alert('Erro ao salvar: ' + (error.message || 'Erro desconhecido'));
+      },
+    });
+  }
+
+  // RFC-0108: Open measurement setup modal
+  function openMeasurementSettings(user) {
+    const MyIOLibrary = window.MyIOLibrary;
+    if (!MyIOLibrary?.openMeasurementSetupModal) {
+      LogHelper.error('[MENU] openMeasurementSetupModal not available');
+      window.alert('Componente de configuração de medidas não disponível.');
+      return;
+    }
+
+    const jwtToken = localStorage.getItem('jwt_token');
+    if (!jwtToken) {
+      window.alert('Token de autenticação não encontrado. Faça login novamente.');
+      return;
+    }
+
+    const customerId = window.MyIOOrchestrator?.customerTB_ID;
+    if (!customerId) {
+      window.alert('ID do cliente não encontrado. Verifique configuração do dashboard.');
+      return;
+    }
+
+    const existingSettings = window.MyIOOrchestrator?.measurementDisplaySettings ||
+      (window.MyIOUtils?.measurementSettings ? {
+        water: { ...window.MyIOUtils.measurementSettings.water },
+        energy: { ...window.MyIOUtils.measurementSettings.energy },
+        temperature: { ...window.MyIOUtils.measurementSettings.temperature },
+      } : null);
+
+    MyIOLibrary.openMeasurementSetupModal({
+      token: jwtToken,
+      customerId: customerId,
+      existingSettings: existingSettings,
+      onSave: (settings) => {
+        LogHelper.log('[MENU] Measurement settings saved:', settings);
+        if (window.MyIOUtils?.updateMeasurementSettings) {
+          window.MyIOUtils.updateMeasurementSettings(settings);
+        }
+        if (window.MyIOOrchestrator) {
+          window.MyIOOrchestrator.measurementDisplaySettings = settings;
+        }
+        window.dispatchEvent(new CustomEvent('myio:measurement-settings-updated', { detail: settings }));
+      },
+      onClose: () => LogHelper.log('[MENU] Measurement setup modal closed'),
+    });
+  }
 
   // RFC-0055: Add shopping selector button for sacavalcante.com.br users
   function addShoppingSelectorButton() {
@@ -654,8 +896,13 @@ self.onInit = function () {
 
       LogHelper.log('[MENU] Opening measurement setup modal for customer:', { customerId, customerName });
 
-      // RFC-0108: Get existing settings from MyIOOrchestrator if available
-      const existingSettings = window.MyIOOrchestrator?.measurementDisplaySettings || null;
+      // RFC-0108: Get existing settings from orchestrator or MyIOUtils defaults
+      const existingSettings = window.MyIOOrchestrator?.measurementDisplaySettings ||
+        (window.MyIOUtils?.measurementSettings ? {
+          water: { ...window.MyIOUtils.measurementSettings.water },
+          energy: { ...window.MyIOUtils.measurementSettings.energy },
+          temperature: { ...window.MyIOUtils.measurementSettings.temperature },
+        } : null);
 
       MyIOLibrary.openMeasurementSetupModal({
         token: jwtToken,
@@ -663,6 +910,10 @@ self.onInit = function () {
         existingSettings: existingSettings,
         onSave: (settings) => {
           LogHelper.log('[MENU] Measurement settings saved:', settings);
+          // RFC-0108: Update MyIOUtils shared settings directly
+          if (window.MyIOUtils?.updateMeasurementSettings) {
+            window.MyIOUtils.updateMeasurementSettings(settings);
+          }
           // Update orchestrator with new settings
           if (window.MyIOOrchestrator) {
             window.MyIOOrchestrator.measurementDisplaySettings = settings;

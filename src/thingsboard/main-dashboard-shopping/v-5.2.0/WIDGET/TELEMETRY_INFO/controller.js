@@ -168,13 +168,18 @@ function aggregateDeviceStatusFromOrchestrator(domain) {
 
 /**
  * RFC-0002: Format value based on domain
+ * RFC-0108: Updated to use MyIOUtils measurement settings
  * @param {number} value - Numeric value
  * @param {string} domain - Domain ('energy' or 'water')
  * @returns {string} Formatted string with unit
  */
 function formatValue(value, domain = 'energy') {
   if (domain === 'water') {
-    // Format as m³ with 2 decimals
+    // RFC-0108: Use MyIOUtils formatting if available, fallback to legacy
+    if (window.MyIOUtils?.formatWaterWithSettings) {
+      return window.MyIOUtils.formatWaterWithSettings(value);
+    }
+    // Fallback: Format as m³ with 2 decimals
     return value.toFixed(2).replace('.', ',') + ' m³';
   }
   // Default: energy (kWh)
@@ -545,9 +550,15 @@ function validateTotals() {
 
 /**
  * Format energy value (kWh)
+ * RFC-0108: Updated to use MyIOUtils measurement settings
  */
 function formatEnergy(value) {
   if (typeof value !== 'number' || isNaN(value)) return '0,00 kWh';
+
+  // RFC-0108: Use MyIOUtils formatting if available (respects measurement settings)
+  if (window.MyIOUtils?.formatEnergyWithSettings) {
+    return window.MyIOUtils.formatEnergyWithSettings(value);
+  }
 
   // Use MyIOLibrary if available, otherwise fallback
   if (window.MyIOLibrary && typeof window.MyIOLibrary.formatEnergy === 'function') {

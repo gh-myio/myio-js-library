@@ -2121,12 +2121,18 @@ function hideTempInfoTooltip() {
 function renderHeader(count, groupSum) {
   $count().text(`(${count})`);
 
-  // Format based on widget domain
+  // RFC-0108: Format based on widget domain using MyIOUtils measurement settings
   let formattedTotal = groupSum.toFixed(2);
   if (WIDGET_DOMAIN === 'energy') {
-    formattedTotal = MyIO.formatEnergy(groupSum);
+    // Use MyIOUtils formatting if available, fallback to legacy
+    formattedTotal = window.MyIOUtils?.formatEnergyWithSettings
+      ? window.MyIOUtils.formatEnergyWithSettings(groupSum)
+      : MyIO.formatEnergy(groupSum);
   } else if (WIDGET_DOMAIN === 'water') {
-    formattedTotal = MyIO.formatWaterVolumeM3(groupSum);
+    // Use MyIOUtils formatting if available, fallback to legacy
+    formattedTotal = window.MyIOUtils?.formatWaterWithSettings
+      ? window.MyIOUtils.formatWaterWithSettings(groupSum)
+      : MyIO.formatWaterVolumeM3(groupSum);
   } else if (WIDGET_DOMAIN === 'tank') {
     formattedTotal = MyIO.formatTankHeadFromCm(groupSum);
   } else if (WIDGET_DOMAIN === 'temperature') {

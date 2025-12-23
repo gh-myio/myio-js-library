@@ -1156,6 +1156,211 @@
   padding: 10px;
 }
 
+/* RFC-0108: Consolidated Settings Menu Button */
+#settings-menu-btn.settings-menu-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid #E6E6EF;
+  background: #FFFFFF;
+  color: #2F2A3B;
+  box-shadow: 0 2px 10px rgba(31, 28, 53, 0.06);
+  cursor: pointer;
+  transition: transform 0.06s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  font: 500 14px/1 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+
+#settings-menu-btn .settings-menu-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #F3E5F5;
+  color: #7B1FA2;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+#settings-menu-btn .settings-menu-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #2F2A3B;
+}
+
+#settings-menu-btn:hover {
+  background: #F3E5F5;
+  border-color: #CE93D8;
+  box-shadow: 0 4px 18px rgba(123, 31, 162, 0.12);
+}
+
+#settings-menu-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 10px rgba(123, 31, 162, 0.10);
+}
+
+#settings-menu-btn:focus-visible {
+  outline: 3px solid rgba(156, 39, 176, 0.45);
+  outline-offset: 2px;
+}
+
+/* Collapsed state */
+.shops-menu-root.collapsed #settings-menu-btn .settings-menu-text {
+  display: none;
+}
+
+.shops-menu-root.collapsed #settings-menu-btn {
+  justify-content: center;
+  padding: 10px;
+}
+
+/* RFC-0108: Settings Modal Styles */
+.myio-settings-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.myio-settings-modal.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.myio-settings-modal__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.myio-settings-modal__content {
+  position: relative;
+  z-index: 2;
+  background: #FFFFFF;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  width: min(400px, 90vw);
+  max-height: 90vh;
+  overflow: hidden;
+  transform: translateY(10px) scale(0.98);
+  transition: transform 0.2s ease;
+}
+
+.myio-settings-modal.show .myio-settings-modal__content {
+  transform: translateY(0) scale(1);
+}
+
+.myio-settings-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #7B1FA2, #9C27B0);
+  color: white;
+}
+
+.myio-settings-modal__header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.myio-settings-modal__close {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.myio-settings-modal__close:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.myio-settings-modal__body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.myio-settings-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  background: #FAFAFA;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.myio-settings-option:hover {
+  background: #F3E5F5;
+  border-color: #CE93D8;
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(123, 31, 162, 0.1);
+}
+
+.myio-settings-option:active {
+  transform: translateX(2px);
+}
+
+.myio-settings-option__icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: white;
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.myio-settings-option__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.myio-settings-option__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1F2937;
+}
+
+.myio-settings-option__desc {
+  font-size: 12px;
+  color: #6B7280;
+  line-height: 1.3;
+}
+
 /* Responsive adjustments */
 @media (max-width: 640px) {
   .shopping-modal-content {
