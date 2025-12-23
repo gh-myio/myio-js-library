@@ -3920,6 +3920,20 @@ self.onInit = async function () {
     }
   });
 
+  // RFC-0108: Listen for measurement settings changes to re-render cards with new formatting
+  window.addEventListener('myio:measurement-settings-updated', (ev) => {
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 📐 Measurement settings updated - re-rendering cards...`);
+    try {
+      // Re-render cards with new formatting (reflowFromState re-renders the list)
+      if (STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
+        reflowFromState();
+        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ✅ Cards re-rendered with new measurement settings`);
+      }
+    } catch (err) {
+      LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ Error re-rendering after measurement settings change:`, err);
+    }
+  });
+
   // Test if listener is working
   setTimeout(() => {
     LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧪 Testing listener registration...`);

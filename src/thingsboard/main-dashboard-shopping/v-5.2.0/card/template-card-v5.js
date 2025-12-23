@@ -371,28 +371,41 @@ export function renderCardComponentV5({
   // Check if device is temperature-related (uses centralized config)
   const isTemperatureDevice = (deviceType) => isTemperatureDeviceType(deviceType);
 
-  // Smart formatting function that uses formatEnergy for energy devices
+  // RFC-0108: Smart formatting function that respects MyIOUtils measurement settings
   const formatCardValue = (value, deviceType) => {
     const numValue = Number(value) || 0;
     const category = getDeviceCategory(deviceType);
 
-    // Debug log for troubleshooting water/energy display issues
-    if (category !== 'energy' && category !== 'temperature') {
-      console.log(`[template-card-v5] formatCardValue: deviceType=${deviceType}, category=${category}, isEnergy=${isEnergyDevice(deviceType)}`);
-    }
-
     if (isEnergyDevice(deviceType)) {
-      // Use formatEnergy for intelligent unit conversion (Wh → kWh → MWh → GWh)
+      // RFC-0108: Use MyIOUtils formatting if available, fallback to legacy formatEnergy
+      if (window.MyIOUtils?.formatEnergyWithSettings) {
+        return window.MyIOUtils.formatEnergyWithSettings(numValue);
+      }
       return formatEnergy(numValue);
     } else if (isTemperatureDevice(deviceType)) {
-      // Format temperature with 1 decimal place and °C unit
+      // RFC-0108: Use MyIOUtils formatting if available
+      if (window.MyIOUtils?.formatTemperatureWithSettings) {
+        return window.MyIOUtils.formatTemperatureWithSettings(numValue);
+      }
+      // Fallback: Format temperature with 1 decimal place and °C unit
       const formattedTemp = numValue.toLocaleString('pt-BR', {
         minimumFractionDigits: 1,
         maximumFractionDigits: 1,
       });
       return `${formattedTemp} °C`;
+    } else if (isWaterDeviceType(deviceType)) {
+      // RFC-0108: Use MyIOUtils formatting if available for water devices
+      if (window.MyIOUtils?.formatWaterWithSettings) {
+        return window.MyIOUtils.formatWaterWithSettings(numValue);
+      }
+      // Fallback: Format as m³ with 2 decimals
+      const formattedValue = numValue.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return `${formattedValue} m³`;
     } else {
-      // Use existing formatting for non-energy devices
+      // Other device types - use generic formatting
       const unit = determineUnit(deviceType);
       const formattedValue = numValue.toLocaleString('pt-BR', {
         minimumFractionDigits: 0,

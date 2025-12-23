@@ -411,11 +411,154 @@ self.onInit = function () {
 
   // RFC-0108: Show centered settings modal with options
   function showSettingsModal(user) {
+    // Use top-level document to ensure modal appears above everything
+    const topWin = window.top || window;
+    const topDoc = (() => {
+      try {
+        return topWin.document;
+      } catch {
+        return document;
+      }
+    })();
+
+    // Inject styles if not present
+    const STYLE_ID = 'myio-settings-modal-styles';
+    if (!topDoc.getElementById(STYLE_ID)) {
+      const style = topDoc.createElement('style');
+      style.id = STYLE_ID;
+      style.textContent = `
+        .myio-settings-modal {
+          position: fixed;
+          inset: 0;
+          z-index: 999999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.2s ease;
+          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        }
+        .myio-settings-modal.show {
+          opacity: 1;
+          pointer-events: auto;
+        }
+        .myio-settings-modal__overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.5);
+          backdrop-filter: blur(4px);
+        }
+        .myio-settings-modal__content {
+          position: relative;
+          z-index: 2;
+          background: #FFFFFF;
+          border-radius: 16px;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+          width: min(400px, 90vw);
+          max-height: 90vh;
+          overflow: hidden;
+          transform: translateY(10px) scale(0.98);
+          transition: transform 0.2s ease;
+        }
+        .myio-settings-modal.show .myio-settings-modal__content {
+          transform: translateY(0) scale(1);
+        }
+        .myio-settings-modal__header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 16px 20px;
+          background: linear-gradient(135deg, #7B1FA2, #9C27B0);
+          color: white;
+        }
+        .myio-settings-modal__header h3 {
+          margin: 0;
+          font-size: 16px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .myio-settings-modal__close {
+          background: transparent;
+          border: none;
+          color: white;
+          font-size: 24px;
+          line-height: 1;
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 4px;
+          transition: background 0.15s ease;
+        }
+        .myio-settings-modal__close:hover {
+          background: rgba(255, 255, 255, 0.15);
+        }
+        .myio-settings-modal__body {
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .myio-settings-option {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 14px 16px;
+          border: 1px solid #E5E7EB;
+          border-radius: 12px;
+          background: #FAFAFA;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          text-align: left;
+          width: 100%;
+        }
+        .myio-settings-option:hover {
+          background: #F3E5F5;
+          border-color: #CE93D8;
+          transform: translateX(4px);
+          box-shadow: 0 4px 12px rgba(123, 31, 162, 0.1);
+        }
+        .myio-settings-option:active {
+          transform: translateX(2px);
+        }
+        .myio-settings-option__icon {
+          width: 44px;
+          height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 12px;
+          background: white;
+          font-size: 22px;
+          flex-shrink: 0;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        .myio-settings-option__text {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+        }
+        .myio-settings-option__title {
+          font-size: 14px;
+          font-weight: 600;
+          color: #1F2937;
+        }
+        .myio-settings-option__desc {
+          font-size: 12px;
+          color: #6B7280;
+          line-height: 1.3;
+        }
+      `;
+      topDoc.head.appendChild(style);
+    }
+
     // Remove existing modal if any
-    const existingModal = document.getElementById('myio-settings-modal');
+    const existingModal = topDoc.getElementById('myio-settings-modal');
     if (existingModal) existingModal.remove();
 
-    const modal = document.createElement('div');
+    const modal = topDoc.createElement('div');
     modal.id = 'myio-settings-modal';
     modal.className = 'myio-settings-modal';
     modal.innerHTML = `
@@ -451,7 +594,7 @@ self.onInit = function () {
       </div>
     `;
 
-    document.body.appendChild(modal);
+    topDoc.body.appendChild(modal);
 
     // Animate in
     requestAnimationFrame(() => modal.classList.add('show'));
@@ -469,10 +612,10 @@ self.onInit = function () {
     const escHandler = (e) => {
       if (e.key === 'Escape') {
         closeModal();
-        document.removeEventListener('keydown', escHandler);
+        topDoc.removeEventListener('keydown', escHandler);
       }
     };
-    document.addEventListener('keydown', escHandler);
+    topDoc.addEventListener('keydown', escHandler);
 
     // Option click handlers
     modal.querySelectorAll('.myio-settings-option').forEach((btn) => {
@@ -492,6 +635,8 @@ self.onInit = function () {
         }, 250);
       });
     });
+
+    LogHelper.log('[MENU] Settings modal opened');
   }
 
   // RFC-0108: Open temperature settings modal
