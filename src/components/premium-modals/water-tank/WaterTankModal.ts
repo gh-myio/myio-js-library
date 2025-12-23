@@ -179,19 +179,14 @@ export class WaterTankModal {
 
   /**
    * Transform raw ThingsBoard response to our data points
-   * RFC-0107: Support displayKey option to choose between water_level or water_percentage
+   * RFC-0107: Keep ALL data points with their original keys (no deduplication)
+   * This allows the chart to switch between water_level and water_percentage dynamically
    */
   private transformTelemetryData(rawData: ThingsBoardTelemetryResponse, keys: string[]): WaterTankDataPoint[] {
     const allPoints: WaterTankDataPoint[] = [];
-    const displayKey = this.options.displayKey || 'water_percentage';
 
-    // RFC-0107: If displayKey is specified and available, prioritize it
-    const prioritizedKeys = displayKey && rawData[displayKey]
-      ? [displayKey, ...keys.filter(k => k !== displayKey)]
-      : keys;
-
-    // Combine data from all keys
-    for (const key of prioritizedKeys) {
+    // Combine data from all keys - keep ALL points for dynamic filtering
+    for (const key of keys) {
       if (rawData[key] && Array.isArray(rawData[key])) {
         const keyPoints = rawData[key].map(point => {
           let value = typeof point.value === 'string' ? parseFloat(point.value) : point.value;
@@ -212,22 +207,17 @@ export class WaterTankModal {
       }
     }
 
-    // Sort by timestamp
+    // Sort by timestamp (but keep all points - no deduplication)
     allPoints.sort((a, b) => a.ts - b.ts);
 
-    // Remove duplicates (same timestamp) - prefer displayKey data
-    const uniquePoints: WaterTankDataPoint[] = [];
-    const seenTimestamps = new Set<number>();
-
-    for (const point of allPoints) {
-      if (!seenTimestamps.has(point.ts)) {
-        seenTimestamps.add(point.ts);
-        uniquePoints.push(point);
-      }
+    // Log counts by key for debugging
+    const keyCounts: Record<string, number> = {};
+    for (const p of allPoints) {
+      keyCounts[p.key || 'unknown'] = (keyCounts[p.key || 'unknown'] || 0) + 1;
     }
+    console.log(`[WaterTankModal] Transformed ${allPoints.length} total points:`, keyCounts);
 
-    console.log(`[WaterTankModal] Transformed ${uniquePoints.length} points, displayKey: ${displayKey}`);
-    return uniquePoints;
+    return allPoints;
   }
 
   /**
