@@ -3480,15 +3480,15 @@ const MyIOOrchestrator = (() => {
         //LogHelper.log(`[Orchestrator] Sample API row groupType field:`, rows[0].groupType);
       }
 
-      // RFC-0106: metadataMap was already built BEFORE API call (line ~1755)
-      // Now combine metadata (ctx.data) with consumption values (API)
-      // Match by ingestionId: metadata.ingestionId === api.id
-      // NO FALLBACK: deviceType, identifier, label ONLY from ctx.data
+      // RFC-0108: Use METADATA as base, enrich with API data
+      // If no API match found, keep item with value=0 (don't discard)
+      // This ensures all devices from ThingsBoard datasource are displayed
 
       // RFC-0106: Value field differs by domain:
       // - energy: total_value (kWh)
       // - water: total_value (m³) - API returns total_value for both domains
       const getValueFromRow = (row) => {
+        if (!row) return 0;
         // Both energy and water use total_value from API
         // Water API may also return total_volume or total_pulses as alternatives
         if (domain === 'water') {
@@ -3498,15 +3498,37 @@ const MyIOOrchestrator = (() => {
         return Number(row.total_value || 0);
       };
 
-      const items = rows.map((row) => {
-        const apiId = row.id; // This is the ingestionId from API
-        const meta = metadataMap.get(apiId) || {}; // Get metadata by ingestionId
-        const name = row.name || '';
+      // RFC-0108: Build API data map by ingestionId for quick lookup
+      const apiDataMap = new Map();
+      for (const row of rows) {
+        if (row.id) {
+          apiDataMap.set(row.id, row);
+        }
+      }
+      LogHelper.log(`[Orchestrator] 📊 API data map: ${apiDataMap.size} items from API`);
+
+      // RFC-0108: Create items from METADATA (ctx.data) as base
+      // Enrich with API data if available, otherwise value=0
+      const domainLower = domain.toLowerCase();
+      const items = [];
+      let matchedCount = 0;
+      let unmatchedCount = 0;
+
+      for (const [entityId, meta] of metadataByEntityId.entries()) {
+        // Skip if no ingestionId in metadata
+        const ingestionId = meta.ingestionId;
+
+        // Try to find API data by ingestionId
+        const apiRow = ingestionId ? apiDataMap.get(ingestionId) : null;
+        const hasApiData = !!apiRow;
+
+        if (hasApiData) {
+          matchedCount++;
+        } else {
+          unmatchedCount++;
+        }
 
         // Use metadata from ThingsBoard datasource (ctx.data) - NO FALLBACKS for deviceType
-        // deviceType: ONLY from ctx.data where datakey = deviceType, NO fallback
-        // identifier: ONLY from ctx.data where datakey = identifier, fallback = 'N/A'
-        // label: ONLY from ctx.data where datakey = label, fallback = 'SEM ETIQUETA'
         const rawDeviceType = meta.deviceType || null;
         const deviceProfile = meta.deviceProfile || null;
 
@@ -3516,14 +3538,23 @@ const MyIOOrchestrator = (() => {
         let deviceType = rawDeviceType;
         if (rawDeviceType === '3F_MEDIDOR' && deviceProfile && deviceProfile !== '3F_MEDIDOR') {
           deviceType = deviceProfile;
-          LogHelper.log(
-            `[Orchestrator] 🔄 Master rule applied: deviceType changed from 3F_MEDIDOR to ${deviceProfile} for ${
-              meta.label || row.name
-            }`
-          );
         }
+
+        // Skip items with deviceType = domain (placeholder)
+        const dt = (deviceType || '').toLowerCase();
+        if (dt === domainLower) {
+          continue;
+        }
+
         const identifier = meta.identifier || 'N/A';
-        const label = meta.label || name || 'SEM ETIQUETA';
+        // RFC-0108: Use label from datasource, fallback to entityName without customer suffix
+        // entityName format: "Device Name (Customer Name)" → extract just "Device Name"
+        let entityNameClean = meta.entityName || '';
+        if (entityNameClean.includes(' (') && entityNameClean.endsWith(')')) {
+          entityNameClean = entityNameClean.substring(0, entityNameClean.lastIndexOf(' ('));
+        }
+        const label = meta.label || entityNameClean || 'SEM ETIQUETA';
+        const name = apiRow?.name || entityNameClean || '';
 
         // Infer labelWidget from deviceType/deviceProfile
         const labelWidget = inferLabelWidget({
@@ -3533,129 +3564,77 @@ const MyIOOrchestrator = (() => {
           name: name,
         });
 
-        return {
-          id: apiId,
-          tbId: meta.tbId || apiId,
-          ingestionId: apiId,
+        items.push({
+          id: ingestionId || entityId,
+          tbId: entityId,
+          ingestionId: ingestionId || null,
           identifier: identifier,
           deviceIdentifier: identifier,
           label: label,
           entityLabel: label,
           name: name,
-          value: getValueFromRow(row),
+          value: getValueFromRow(apiRow), // 0 if no API match
           perc: 0,
           deviceType: deviceType,
           deviceProfile: deviceProfile,
           effectiveDeviceType: deviceProfile || deviceType || null,
           deviceStatus: convertConnectionStatusToDeviceStatus(meta.connectionStatus),
           connectionStatus: meta.connectionStatus || 'unknown',
-          slaveId: meta.slaveId || row.slaveId || null,
-          centralId: meta.centralId || row.centralId || null,
+          slaveId: meta.slaveId || apiRow?.slaveId || null,
+          centralId: meta.centralId || apiRow?.centralId || null,
           centralName: meta.centralName || null,
-          gatewayId: row.gatewayId || null,
-          customerId: row.customerId || null,
-          assetId: row.assetId || null,
-          assetName: row.assetName || null,
+          gatewayId: apiRow?.gatewayId || null,
+          customerId: apiRow?.customerId || null,
+          assetId: apiRow?.assetId || null,
+          assetName: apiRow?.assetName || null,
           lastActivityTime: meta.lastActivityTime || null,
           lastConnectTime: meta.lastConnectTime || null,
           lastDisconnectTime: meta.lastDisconnectTime || null,
           log_annotations: meta.log_annotations || null,
           // Power limits and instantaneous power (for deviceStatus calculation)
-          // consumption from datasource = instantaneous power in Watts
           deviceMapInstaneousPower: meta.deviceMapInstaneousPower || null,
           consumptionPower: meta.consumption || null,
           labelWidget: labelWidget,
           groupLabel: labelWidget,
-          // Flag to indicate if metadata was found
-          _hasMetadata: !!meta.tbId,
-        };
-      });
-
-      // Filter out invalid items:
-      // 1. Items with deviceType = domain name (placeholder from API - 'energy' or 'water')
-      // 2. Items with effectiveDeviceType = domain name (no proper deviceType/deviceProfile)
-      // 3. Items without metadata (_hasMetadata = false) - these exist in API but not in ThingsBoard datasource
-      const itemsBeforeFilter = items.length;
-      const domainLower = domain.toLowerCase(); // 'energy' or 'water'
-      const filteredItems = items.filter((item) => {
-        const dt = (item.deviceType || '').toLowerCase();
-        const edt = (item.effectiveDeviceType || '').toLowerCase();
-
-        // Discard items with deviceType = domain (placeholder from API)
-        if (dt === domainLower) {
-          LogHelper.log(
-            `[Orchestrator] 🗑️ Discarding item with deviceType='${domain}': ${item.label || item.name}`
-          );
-          return false;
-        }
-
-        // Discard items with effectiveDeviceType = domain (no proper classification)
-        if (edt === domainLower) {
-          LogHelper.log(
-            `[Orchestrator] 🗑️ Discarding item with effectiveDeviceType='${domain}': ${
-              item.label || item.name
-            }`
-          );
-          return false;
-        }
-
-        // Discard items without metadata (exist in API but not in ThingsBoard datasource)
-        if (!item._hasMetadata) {
-          LogHelper.log(
-            `[Orchestrator] 🗑️ Discarding item without metadata: ${item.label || item.name} (id: ${item.id})`
-          );
-          return false;
-        }
-
-        return true;
-      });
-      const discardedCount = itemsBeforeFilter - filteredItems.length;
-      if (discardedCount > 0) {
-        LogHelper.log(
-          `[Orchestrator] 🗑️ Discarded ${discardedCount} invalid items (no metadata or deviceType='${domain}')`
-        );
-
-        // DEBUG: Show first 3 discarded items with their API IDs for debugging
-        const discardedItems = items.filter((item) => !item._hasMetadata).slice(0, 3);
-        if (discardedItems.length > 0) {
-          LogHelper.log(`[Orchestrator] 🔍 DEBUG: Sample discarded items (API ID not found in datasource):`);
-          discardedItems.forEach((item) => {
-            LogHelper.log(`  - API id: ${item.id}, name: ${item.name || item.label}`);
-          });
-
-          // Show sample ingestionIds that ARE in the metadataMap
-          const metaIds = Array.from(metadataMap.keys()).slice(0, 3);
-          LogHelper.log(`[Orchestrator] 🔍 DEBUG: Sample ingestionIds in metadataMap: ${metaIds.join(', ')}`);
-        }
-      }
-
-      // DEBUG: Log sample item and metadata match stats
-      const itemsWithMeta = filteredItems.filter((i) => i._hasMetadata).length;
-      const itemsWithoutMeta = filteredItems.filter((i) => !i._hasMetadata).length;
-      LogHelper.log(
-        `[Orchestrator] 📊 Metadata match: ${itemsWithMeta} with metadata, ${itemsWithoutMeta} without`
-      );
-
-      if (filteredItems.length > 0) {
-        LogHelper.log(`[Orchestrator] 🔍 Sample API row:`, JSON.stringify(rows[0], null, 2));
-        LogHelper.log(`[Orchestrator] 🔍 Sample mapped item:`, {
-          id: filteredItems[0].id,
-          label: filteredItems[0].label,
-          identifier: filteredItems[0].identifier,
-          value: filteredItems[0].value,
-          deviceType: filteredItems[0].deviceType,
-          deviceProfile: filteredItems[0].deviceProfile,
-          labelWidget: filteredItems[0].labelWidget,
-          _hasMetadata: filteredItems[0]._hasMetadata,
+          _hasMetadata: true, // All items come from metadata
+          _hasApiData: hasApiData, // Flag to indicate if API data was found
         });
       }
 
-      // RFC-0107: Combine API items with water devices from ctx.data (tanks + hidrometros)
-      let finalItems = filteredItems;
+      LogHelper.log(
+        `[Orchestrator] 📊 RFC-0108: Created ${items.length} items from metadata. API match: ${matchedCount} matched, ${unmatchedCount} with value=0`
+      );
+
+      // DEBUG: Log sample items
+      if (items.length > 0) {
+        const sampleWithApi = items.find(i => i._hasApiData);
+        const sampleWithoutApi = items.find(i => !i._hasApiData);
+        if (sampleWithApi) {
+          LogHelper.log(`[Orchestrator] 🔍 Sample item WITH API data:`, {
+            id: sampleWithApi.id,
+            label: sampleWithApi.label,
+            value: sampleWithApi.value,
+            deviceType: sampleWithApi.deviceType,
+            labelWidget: sampleWithApi.labelWidget,
+          });
+        }
+        if (sampleWithoutApi) {
+          LogHelper.log(`[Orchestrator] 🔍 Sample item WITHOUT API data (value=0):`, {
+            id: sampleWithoutApi.id,
+            label: sampleWithoutApi.label,
+            value: sampleWithoutApi.value,
+            deviceType: sampleWithoutApi.deviceType,
+            labelWidget: sampleWithoutApi.labelWidget,
+          });
+        }
+      }
+
+      // RFC-0107: Combine with water devices from ctx.data (tanks + hidrometros)
+      let finalItems = items;
       if (tankItems.length > 0 || hidrometroItems.length > 0) {
-        finalItems = [...filteredItems, ...tankItems, ...hidrometroItems];
+        finalItems = [...items, ...tankItems, ...hidrometroItems];
         LogHelper.log(
-          `[Orchestrator] 🚰 Combined ${filteredItems.length} API items + ${tankItems.length} tanks + ${hidrometroItems.length} hidrometros = ${finalItems.length} total`
+          `[Orchestrator] 🚰 Combined ${items.length} metadata items + ${tankItems.length} tanks + ${hidrometroItems.length} hidrometros = ${finalItems.length} total`
         );
       }
 
