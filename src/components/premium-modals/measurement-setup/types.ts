@@ -63,7 +63,6 @@ export interface MeasurementSetupModalParams {
   container?: HTMLElement | string;
   onSave?: (settings: MeasurementDisplaySettings) => void;
   onClose?: () => void;
-  locale?: 'pt-BR' | 'en-US' | string;
   styles?: MeasurementSetupModalStyles;
 }
 
