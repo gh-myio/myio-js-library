@@ -3317,9 +3317,27 @@ const MyIOOrchestrator = (() => {
           const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus);
 
           // RFC-0107: Build HIDROMETRO items from ctx.data
-          // They have pulses data and should go to "Entrada" widget
+          // Categorization based on deviceType AND deviceProfile:
+          // - HIDROMETRO_SHOPPING → Entrada (main water meter)
+          // - HIDROMETRO_AREA_COMUM → Área Comum (common area meters)
+          // - HIDROMETRO with profile = HIDROMETRO or empty → Lojas (store meters)
           if (isHidrometer) {
             const pulses = Number(meta.pulses || 0);
+            const dp = (deviceProfile || '').toUpperCase();
+            const dt = deviceType.toUpperCase();
+
+            // Determine labelWidget based on deviceType and deviceProfile
+            let labelWidget = 'Lojas'; // Default: store meters
+            let isEntradaDevice = false;
+
+            if (dt === 'HIDROMETRO_SHOPPING' || dp === 'HIDROMETRO_SHOPPING') {
+              labelWidget = 'Entrada';
+              isEntradaDevice = true;
+            } else if (dt === 'HIDROMETRO_AREA_COMUM' || dp === 'HIDROMETRO_AREA_COMUM') {
+              labelWidget = 'Área Comum';
+            }
+            // else: HIDROMETRO with profile = HIDROMETRO or empty → Lojas
+
             hidrometroItems.push({
               id: entityId,
               tbId: entityId,
@@ -3342,10 +3360,10 @@ const MyIOOrchestrator = (() => {
               lastConnectTime: meta.lastConnectTime || null,
               lastDisconnectTime: meta.lastDisconnectTime || null,
               log_annotations: meta.log_annotations || null,
-              labelWidget: 'Entrada', // HIDROMETRO goes to Entrada widget
-              groupLabel: 'Entrada',
+              labelWidget: labelWidget,
+              groupLabel: labelWidget,
               _hasMetadata: true,
-              _isHidrometerDevice: true,
+              _isHidrometerDevice: isEntradaDevice, // Only true for ENTRADA devices
             });
             continue;
           }
@@ -3683,11 +3701,19 @@ const MyIOOrchestrator = (() => {
       }
 
       // RFC-0107: Combine with water devices from ctx.data (tanks + hidrometros)
+      // FIX: Deduplicate - remove devices from items that already exist in tankItems or hidrometroItems
       let finalItems = items;
       if (tankItems.length > 0 || hidrometroItems.length > 0) {
-        finalItems = [...items, ...tankItems, ...hidrometroItems];
+        // Create set of IDs already processed as tanks or hidrometros
+        const waterDeviceIds = new Set([
+          ...tankItems.map(i => i.tbId),
+          ...hidrometroItems.map(i => i.tbId)
+        ]);
+        // Filter items to exclude duplicates
+        const itemsWithoutWaterDevices = items.filter(i => !waterDeviceIds.has(i.tbId));
+        finalItems = [...itemsWithoutWaterDevices, ...tankItems, ...hidrometroItems];
         LogHelper.log(
-          `[Orchestrator] 🚰 Combined ${items.length} metadata items + ${tankItems.length} tanks + ${hidrometroItems.length} hidrometros = ${finalItems.length} total`
+          `[Orchestrator] 🚰 Combined ${itemsWithoutWaterDevices.length} metadata items + ${tankItems.length} tanks + ${hidrometroItems.length} hidrometros = ${finalItems.length} total (filtered ${items.length - itemsWithoutWaterDevices.length} duplicates)`
         );
       }
 
