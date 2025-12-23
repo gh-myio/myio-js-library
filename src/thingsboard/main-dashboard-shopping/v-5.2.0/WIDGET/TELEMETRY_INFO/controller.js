@@ -179,8 +179,20 @@ function formatValue(value, domain = 'energy') {
     if (window.MyIOUtils?.formatWaterWithSettings) {
       return window.MyIOUtils.formatWaterWithSettings(value);
     }
-    // Fallback: Format as m³ with 2 decimals
-    return value.toFixed(2).replace('.', ',') + ' m³';
+    // Fallback: Respect water settings
+    const settings = window.MyIOUtils?.measurementSettings?.water || { unit: 'm3', decimalPlaces: 3 };
+    const decimals = settings.decimalPlaces ?? 2;
+    if (settings.unit === 'liters') {
+      const liters = value * 1000;
+      return liters.toLocaleString('pt-BR', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      }) + ' L';
+    }
+    return value.toLocaleString('pt-BR', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }) + ' m³';
   }
   // Default: energy (kWh)
   return formatEnergy(value);
@@ -553,7 +565,12 @@ function validateTotals() {
  * RFC-0108: Updated to use MyIOUtils measurement settings
  */
 function formatEnergy(value) {
-  if (typeof value !== 'number' || isNaN(value)) return '0,00 kWh';
+  // RFC-0108: Get settings for proper fallback unit
+  const settings = window.MyIOUtils?.measurementSettings?.energy || { unit: 'auto', decimalPlaces: 3, forceUnit: false };
+  const fallbackUnit = settings.unit === 'mwh' ? 'MWh' : 'kWh';
+  const fallbackZero = settings.unit === 'mwh' ? '0,000 MWh' : '0,00 kWh';
+
+  if (typeof value !== 'number' || isNaN(value)) return fallbackZero;
 
   // RFC-0108: Use MyIOUtils formatting if available (respects measurement settings)
   if (window.MyIOUtils?.formatEnergyWithSettings) {
@@ -565,12 +582,13 @@ function formatEnergy(value) {
     return window.MyIOLibrary.formatEnergy(value);
   }
 
-  // Fallback formatting
+  // Fallback formatting - respects settings unit
+  const decimals = settings.decimalPlaces ?? 2;
   return (
     value.toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }) + ' kWh'
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }) + ' ' + fallbackUnit
   );
 }
 
@@ -610,7 +628,8 @@ function renderStats() {
     $$('#outrosTotal').text(formatEnergy(STATE.consumidores.outros.total));
     $$('#outrosPerc').text(`(${STATE.consumidores.outros.perc.toFixed(1)}%)`);
   } else {
-    $$('#outrosTotal').text('0,00 kWh');
+    // RFC-0108: Use formatEnergy(0) to respect measurement settings
+    $$('#outrosTotal').text(formatEnergy(0));
     $$('#outrosPerc').text('(0%)');
   }
 
@@ -3064,10 +3083,14 @@ function setupSummaryTooltip() {
       const resumo = tooltipData.resumo;
       const byCategory = tooltipData.byCategory;
 
+      // RFC-0108: Get energy unit from measurement settings
+      const energySettings = window.MyIOUtils?.measurementSettings?.energy || { unit: 'auto' };
+      const energyUnit = energySettings.unit === 'mwh' ? 'MWh' : 'kWh';
+
       return {
         totalDevices: resumo?.summary?.count || 0,
         totalConsumption: resumo?.summary?.total || STATE.grandTotal || 0,
-        unit: 'kWh',
+        unit: energyUnit,
         byCategory: [
           {
             id: 'entrada',
@@ -3634,6 +3657,30 @@ self.onInit = async function () {
   setTimeout(() => {
     setupSummaryTooltip();
   }, 300);
+
+  // RFC-0108: Listen for measurement settings changes to re-render with new formatting
+  const measurementSettingsHandler = (ev) => {
+    LogHelper.log('[RFC-0108] Measurement settings updated, re-rendering TELEMETRY_INFO...', ev?.detail);
+
+    // Re-render based on domain
+    const domain = getWidgetDomain();
+    if (domain === 'water') {
+      // Re-render water stats
+      if (STATE_WATER.entrada.total > 0 || RECEIVED_ORCHESTRATOR_ITEMS.length > 0) {
+        renderWaterStats();
+        renderWaterPieChart();
+        LogHelper.log('[RFC-0108] Water stats re-rendered');
+      }
+    } else {
+      // Re-render energy stats
+      if (STATE.entrada.total > 0 || STATE.consumidores.totalGeral > 0) {
+        renderStats();
+        renderPieChart();
+        LogHelper.log('[RFC-0108] Energy stats re-rendered');
+      }
+    }
+  };
+  window.addEventListener('myio:measurement-settings-updated', measurementSettingsHandler);
 
   LogHelper.log('Widget initialized successfully (RFC-0056)');
 };
