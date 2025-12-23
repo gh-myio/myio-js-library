@@ -4060,6 +4060,22 @@ self.onInit = async function () {
         deviceStatus = 'power_on';
       }
 
+      // RFC-0107: Calculate percentage and value for water tanks
+      const isTankDevice = item._isTankDevice || item.deviceType === 'TANK' || item.deviceType === 'CAIXA_DAGUA';
+      let itemPerc = 0;
+      let itemValue = temp;
+
+      if (isTankDevice) {
+        // waterPercentage is 0-1 range, convert to 0-100 for display
+        if (item.waterPercentage != null) {
+          itemPerc = item.waterPercentage * 100;
+        }
+        // Use waterLevel as value (in liters/m³)
+        if (item.waterLevel != null) {
+          itemValue = item.waterLevel;
+        }
+      }
+
       return {
         id: item.tbId || item.id,
         tbId: item.tbId || item.id,
@@ -4067,8 +4083,8 @@ self.onInit = async function () {
         identifier: item.identifier || item.id,
         label: item.label || item.name || item.identifier || item.id,
         entityLabel: item.entityLabel || item.label || item.name || '',
-        value: temp,
-        perc: 0,
+        value: itemValue,
+        perc: itemPerc,
         deviceType: item.deviceType || WIDGET_DOMAIN,
         deviceProfile: item.deviceProfile || null,
         effectiveDeviceType: item.effectiveDeviceType || item.deviceProfile || item.deviceType || null,
@@ -4102,6 +4118,11 @@ self.onInit = async function () {
         temperatureMin: isTemperatureDomain ? globalTempMin : null,
         temperatureMax: isTemperatureDomain ? globalTempMax : null,
         temperatureStatus: temperatureStatus,
+        // RFC-0107: Water tank specific fields
+        waterLevel: item.waterLevel ?? null,
+        waterPercentage: item.waterPercentage ?? null,
+        _isTankDevice: item._isTankDevice || false,
+        _isHidrometerDevice: item._isHidrometerDevice || false,
       };
     });
 

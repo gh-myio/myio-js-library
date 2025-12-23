@@ -18,6 +18,9 @@ interface WaterTankModalViewConfig {
   onDateRangeChange?: (startTs: number, endTs: number) => void;
 }
 
+// RFC-0107: Chart display mode
+type ChartDisplayMode = 'water_level' | 'water_percentage';
+
 /**
  * View class for Water Tank Modal
  *
@@ -31,10 +34,15 @@ export class WaterTankModalView {
   private overlay: HTMLElement | null = null;
   private modal: HTMLElement | null = null;
   private i18n: WaterTankModalI18n;
+  private chartDisplayMode: ChartDisplayMode = 'water_level'; // RFC-0107: Default to water_level (m.c.a)
 
   constructor(config: WaterTankModalViewConfig) {
     this.config = config;
     this.i18n = this.getI18n();
+    // RFC-0107: Use displayKey from params if specified
+    if (config.params.displayKey) {
+      this.chartDisplayMode = config.params.displayKey;
+    }
   }
 
   /**
@@ -382,17 +390,17 @@ export class WaterTankModalView {
   }
 
   /**
-   * Render chart section - shows water_level (m.c.a) over time
+   * RFC-0107: Render chart section with display mode selector
+   * Shows water_level (m.c.a) or water_percentage (%) based on user selection
    */
   private renderChart(): string {
     const { data } = this.config;
 
-    // Filter for water_level data points
-    const waterLevelPoints = data.telemetry.filter(p =>
-      p.key === 'water_level' || p.key === 'waterLevel' || p.key === 'nivel' || p.key === 'level'
-    );
+    // Get data points for current display mode
+    const chartPoints = this.getChartDataPoints();
 
-    if (waterLevelPoints.length === 0) {
+    if (chartPoints.length === 0) {
+      const displayLabel = this.chartDisplayMode === 'water_percentage' ? '%' : 'm.c.a';
       return `
         <div style="
           background: #f8f9fa;
@@ -404,14 +412,17 @@ export class WaterTankModalView {
           <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;">📊</div>
           <div style="color: #7f8c8d; font-size: 16px;">${this.i18n.noData}</div>
           <div style="color: #bdc3c7; font-size: 13px; margin-top: 8px;">
-            No water_level (m.c.a) data available for this period
+            No ${this.chartDisplayMode} (${displayLabel}) data available for this period
           </div>
         </div>
       `;
     }
 
-    const firstTs = waterLevelPoints[0]?.ts;
-    const lastTs = waterLevelPoints[waterLevelPoints.length - 1]?.ts;
+    const firstTs = chartPoints[0]?.ts;
+    const lastTs = chartPoints[chartPoints.length - 1]?.ts;
+    const chartTitle = this.chartDisplayMode === 'water_percentage'
+      ? 'Water Level History (%)'
+      : this.i18n.levelChart;
 
     return `
       <div style="
@@ -420,12 +431,38 @@ export class WaterTankModalView {
         border-radius: 8px;
         padding: 20px;
       ">
-        <h3 style="
-          margin: 0 0 16px 0;
-          font-size: 16px;
-          font-weight: 600;
-          color: #2c3e50;
-        ">${this.i18n.levelChart}</h3>
+        <div style="
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 16px;
+        ">
+          <h3 style="
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+          ">${chartTitle}</h3>
+          <div style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          ">
+            <span style="font-size: 13px; color: #7f8c8d;">Display:</span>
+            <select id="myio-water-tank-display-mode" style="
+              padding: 6px 12px;
+              border: 1px solid #ddd;
+              border-radius: 6px;
+              font-size: 13px;
+              color: #2c3e50;
+              background: white;
+              cursor: pointer;
+            ">
+              <option value="water_level" ${this.chartDisplayMode === 'water_level' ? 'selected' : ''}>Level (m.c.a)</option>
+              <option value="water_percentage" ${this.chartDisplayMode === 'water_percentage' ? 'selected' : ''}>Percentage (%)</option>
+            </select>
+          </div>
+        </div>
         <canvas id="myio-water-tank-chart" style="width: 100%; height: 280px;"></canvas>
         ${firstTs && lastTs ? `
           <div style="
@@ -435,11 +472,33 @@ export class WaterTankModalView {
             text-align: center;
           ">
             ${this.formatDate(firstTs, false)} — ${this.formatDate(lastTs, false)}
-            (${waterLevelPoints.length} readings)
+            (${chartPoints.length} readings)
           </div>
         ` : ''}
       </div>
     `;
+  }
+
+  /**
+   * RFC-0107: Get chart data points based on current display mode
+   */
+  private getChartDataPoints(): Array<{ ts: number; value: number; key?: string }> {
+    const { data } = this.config;
+
+    if (this.chartDisplayMode === 'water_percentage') {
+      // Filter for water_percentage points
+      const percentagePoints = data.telemetry.filter(p => p.key === 'water_percentage');
+      // Convert from 0-1 to 0-100 if needed
+      return percentagePoints.map(p => ({
+        ...p,
+        value: p.value <= 1.5 ? p.value * 100 : p.value
+      }));
+    } else {
+      // Filter for water_level points
+      return data.telemetry.filter(p =>
+        p.key === 'water_level' || p.key === 'waterLevel' || p.key === 'nivel' || p.key === 'level'
+      );
+    }
   }
 
   /**
@@ -501,6 +560,15 @@ export class WaterTankModalView {
       applyDatesBtn.addEventListener('click', () => this.handleDateRangeChange());
     }
 
+    // RFC-0107: Display mode selector
+    const displayModeSelect = this.modal.querySelector('#myio-water-tank-display-mode') as HTMLSelectElement;
+    if (displayModeSelect) {
+      displayModeSelect.addEventListener('change', () => {
+        this.chartDisplayMode = displayModeSelect.value as ChartDisplayMode;
+        this.refreshChart();
+      });
+    }
+
     // Close on overlay click
     this.overlay.addEventListener('click', (e) => {
       if (e.target === this.overlay) {
@@ -558,18 +626,35 @@ export class WaterTankModalView {
   }
 
   /**
-   * Render chart using Canvas API - shows water_level (m.c.a) over time
+   * RFC-0107: Refresh chart when display mode changes
+   */
+  private refreshChart(): void {
+    if (!this.modal) return;
+
+    // Update chart title
+    const chartTitle = this.chartDisplayMode === 'water_percentage'
+      ? 'Water Level History (%)'
+      : this.i18n.levelChart;
+
+    const titleEl = this.modal.querySelector('.myio-water-tank-modal-body h3:last-of-type');
+    if (titleEl) {
+      titleEl.textContent = chartTitle;
+    }
+
+    // Re-render canvas chart with new data
+    this.renderCanvasChart();
+  }
+
+  /**
+   * RFC-0107: Render chart using Canvas API
+   * Shows water_level (m.c.a) or water_percentage (%) based on display mode
    */
   private renderCanvasChart(): void {
     const canvas = document.getElementById('myio-water-tank-chart') as HTMLCanvasElement;
     if (!canvas) return;
 
-    const { data } = this.config;
-
-    // Filter for water_level data points
-    const points = data.telemetry.filter(p =>
-      p.key === 'water_level' || p.key === 'waterLevel' || p.key === 'nivel' || p.key === 'level'
-    );
+    // Get data points based on current display mode
+    const points = this.getChartDataPoints();
 
     if (points.length < 2) return;
 
@@ -626,14 +711,15 @@ export class WaterTankModalView {
       ctx.fillText(`${value.toFixed(2)}`, padding.left - 8, y + 4);
     }
 
-    // Y-axis title
+    // Y-axis title - RFC-0107: Show correct unit based on display mode
+    const yAxisLabel = this.chartDisplayMode === 'water_percentage' ? '%' : 'm.c.a';
     ctx.save();
     ctx.translate(15, height / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.textAlign = 'center';
     ctx.fillStyle = '#666';
     ctx.font = '12px Arial';
-    ctx.fillText('m.c.a', 0, 0);
+    ctx.fillText(yAxisLabel, 0, 0);
     ctx.restore();
 
     // Draw axes
@@ -745,6 +831,15 @@ export class WaterTankModalView {
         const applyDatesBtn = this.modal.querySelector('#myio-water-tank-apply-dates');
         if (applyDatesBtn) {
           applyDatesBtn.addEventListener('click', () => this.handleDateRangeChange());
+        }
+
+        // RFC-0107: Re-attach display mode selector event
+        const displayModeSelect = this.modal.querySelector('#myio-water-tank-display-mode') as HTMLSelectElement;
+        if (displayModeSelect) {
+          displayModeSelect.addEventListener('change', () => {
+            this.chartDisplayMode = displayModeSelect.value as ChartDisplayMode;
+            this.refreshChart();
+          });
         }
 
         // Re-render chart
