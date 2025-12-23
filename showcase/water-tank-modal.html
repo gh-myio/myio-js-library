@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Tank Modal - MYIO JS Library Showcase</title>
+    <style>
+        :root {
+            --primary: #3498db;
+            --primary-dark: #2980b9;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-desc {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .tank-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .tank-card {
+            background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+            border: 2px solid var(--gray-200);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tank-card:hover {
+            border-color: #3498db;
+            background: linear-gradient(135deg, #ebf5fb, #d4edfc);
+            transform: translateY(-2px);
+        }
+
+        .tank-card img {
+            width: 80px;
+            height: auto;
+            margin-bottom: 12px;
+        }
+
+        .tank-card-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--gray-800);
+            margin-bottom: 4px;
+        }
+
+        .tank-card-level {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .tank-card-level.critical { color: #e74c3c; }
+        .tank-card-level.low { color: #e67e22; }
+        .tank-card-level.medium { color: #f39c12; }
+        .tank-card-level.good { color: #27ae60; }
+        .tank-card-level.full { color: #3498db; }
+
+        .tank-card-desc {
+            font-size: 13px;
+            color: var(--gray-600);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover { background: #2980b9; }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-800);
+        }
+
+        .code-example {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .code-example .comment { color: #6b7280; }
+        .code-example .keyword { color: #c084fc; }
+        .code-example .string { color: #86efac; }
+        .code-example .function { color: #60a5fa; }
+        .code-example .number { color: #fbbf24; }
+
+        .props-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .props-table th, .props-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .props-table th {
+            background: var(--gray-50);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--gray-600);
+        }
+
+        .props-table code {
+            background: var(--gray-100);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: var(--gray-50);
+            border-radius: 8px;
+        }
+
+        .feature-icon {
+            font-size: 1.25rem;
+        }
+
+        .feature-text {
+            font-size: 14px;
+            color: var(--gray-700);
+        }
+
+        .param-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .param-form label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--gray-600);
+            margin-bottom: 4px;
+        }
+
+        .param-form input,
+        .param-form select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        #console-output {
+            background: var(--gray-900);
+            color: #22c55e;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 16px;
+        }
+
+        #console-output .log-entry {
+            margin-bottom: 4px;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        #console-output .log-time {
+            color: #6b7280;
+            margin-right: 8px;
+        }
+    </style>
+    <script src="../dist/myio-js-library.umd.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / Water Tank Modal
+            </div>
+            <h1>Water Tank Modal</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Demo Section -->
+        <section class="section">
+            <h2>Demo - Click to Open Modal</h2>
+            <p class="section-desc">
+                Click on a tank card to open the water tank modal with simulated data.
+            </p>
+
+            <div class="tank-grid">
+                <div class="tank-card" onclick="openTankModal('tank1', 85)">
+                    <img src="https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq" alt="Tank">
+                    <div class="tank-card-title">Cisterna Principal</div>
+                    <div class="tank-card-level good">85%</div>
+                    <div class="tank-card-desc">Click to view details</div>
+                </div>
+
+                <div class="tank-card" onclick="openTankModal('tank2', 45)">
+                    <img src="https://dashboard.myio-bas.com/api/images/public/4UBbShfXCVWR9wcw6IzVMNran4x1EW5n" alt="Tank">
+                    <div class="tank-card-title">Reservatorio Superior</div>
+                    <div class="tank-card-level medium">45%</div>
+                    <div class="tank-card-desc">Click to view details</div>
+                </div>
+
+                <div class="tank-card" onclick="openTankModal('tank3', 15)">
+                    <img src="https://dashboard.myio-bas.com/api/images/public/qLdwhV4qw295poSCa7HinpnmXoN7dAPO" alt="Tank">
+                    <div class="tank-card-title">Caixa d'Agua Leste</div>
+                    <div class="tank-card-level critical">15%</div>
+                    <div class="tank-card-desc">Click to view details</div>
+                </div>
+
+                <div class="tank-card" onclick="openTankModal('tank4', 104)">
+                    <img src="https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq" alt="Tank">
+                    <div class="tank-card-title">Cisterna Cepec</div>
+                    <div class="tank-card-level full">104%</div>
+                    <div class="tank-card-desc">Overflow test (>100%)</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Custom Parameters Section -->
+        <section class="section">
+            <h2>Custom Parameters</h2>
+            <p class="section-desc">
+                Configure custom parameters and open modal with your settings.
+            </p>
+
+            <div class="param-form">
+                <div>
+                    <label>Device ID</label>
+                    <input type="text" id="param-deviceId" value="mock-device-123">
+                </div>
+                <div>
+                    <label>Device Label</label>
+                    <input type="text" id="param-label" value="Custom Tank">
+                </div>
+                <div>
+                    <label>Current Level (%)</label>
+                    <input type="number" id="param-level" value="65" min="0" max="150">
+                </div>
+                <div>
+                    <label>Aggregation</label>
+                    <select id="param-aggregation">
+                        <option value="NONE">None</option>
+                        <option value="AVG">Average</option>
+                        <option value="MIN">Minimum</option>
+                        <option value="MAX">Maximum</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Limit</label>
+                    <select id="param-limit">
+                        <option value="100">100</option>
+                        <option value="500">500</option>
+                        <option value="1000" selected>1000</option>
+                        <option value="2000">2000</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Days Range</label>
+                    <select id="param-days">
+                        <option value="1">Last 1 day</option>
+                        <option value="7" selected>Last 7 days</option>
+                        <option value="30">Last 30 days</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="openCustomModal()">
+                Open Modal with Custom Params
+            </button>
+
+            <div id="console-output">
+                <div class="log-entry"><span class="log-time">[00:00:00]</span> Console initialized. Click a tank to see logs...</div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="section">
+            <h2>Features</h2>
+            <p class="section-desc">
+                The Water Tank Modal includes the following features:
+            </p>
+
+            <div class="feature-list">
+                <div class="feature-item">
+                    <span class="feature-icon">Tank visualization with level indicator</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">Chart with water level history (m.c.a)</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">Display mode: Level (m.c.a) or Percentage (%)</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">Date range selector</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">Aggregation selector (None/Avg/Min/Max)</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">Limit selector (100-5000 points)</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">Maximize button for fullscreen chart</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">CSV export functionality</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- API Section -->
+        <section class="section">
+            <h2>API Reference</h2>
+            <p class="section-desc">
+                Parameters for openDashboardPopupWaterTank function.
+            </p>
+
+            <table class="props-table">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Required</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>deviceId</code></td>
+                        <td>string</td>
+                        <td>Yes</td>
+                        <td>ThingsBoard device UUID</td>
+                    </tr>
+                    <tr>
+                        <td><code>tbJwtToken</code></td>
+                        <td>string</td>
+                        <td>Yes</td>
+                        <td>ThingsBoard JWT token for REST API</td>
+                    </tr>
+                    <tr>
+                        <td><code>startTs</code></td>
+                        <td>number</td>
+                        <td>Yes</td>
+                        <td>Start timestamp in milliseconds</td>
+                    </tr>
+                    <tr>
+                        <td><code>endTs</code></td>
+                        <td>number</td>
+                        <td>Yes</td>
+                        <td>End timestamp in milliseconds</td>
+                    </tr>
+                    <tr>
+                        <td><code>label</code></td>
+                        <td>string</td>
+                        <td>No</td>
+                        <td>Display label for the device</td>
+                    </tr>
+                    <tr>
+                        <td><code>currentLevel</code></td>
+                        <td>number</td>
+                        <td>No</td>
+                        <td>Current water level (0-100% or higher)</td>
+                    </tr>
+                    <tr>
+                        <td><code>aggregation</code></td>
+                        <td>'NONE' | 'AVG' | 'MIN' | 'MAX'</td>
+                        <td>No</td>
+                        <td>Data aggregation method</td>
+                    </tr>
+                    <tr>
+                        <td><code>limit</code></td>
+                        <td>number</td>
+                        <td>No</td>
+                        <td>Max data points (1-10000, default: 1000)</td>
+                    </tr>
+                    <tr>
+                        <td><code>displayKey</code></td>
+                        <td>'water_level' | 'water_percentage'</td>
+                        <td>No</td>
+                        <td>Which key to display in chart</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Code Example Section -->
+        <section class="section">
+            <h2>Code Example</h2>
+            <p class="section-desc">
+                How to use the openDashboardPopupWaterTank function.
+            </p>
+
+            <div class="code-example">
+<span class="keyword">import</span> { <span class="function">openDashboardPopupWaterTank</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="comment">// Open water tank modal</span>
+<span class="keyword">const</span> modal = <span class="keyword">await</span> <span class="function">openDashboardPopupWaterTank</span>({
+    deviceId: <span class="string">'your-device-uuid'</span>,
+    tbJwtToken: <span class="string">'your-jwt-token'</span>,
+    startTs: Date.now() - <span class="number">7</span> * <span class="number">24</span> * <span class="number">60</span> * <span class="number">60</span> * <span class="number">1000</span>, <span class="comment">// 7 days ago</span>
+    endTs: Date.now(),
+    label: <span class="string">'Cisterna Principal'</span>,
+    currentLevel: <span class="number">85</span>,
+    aggregation: <span class="string">'NONE'</span>,
+    limit: <span class="number">1000</span>,
+    onOpen: (ctx) => console.log(<span class="string">'Modal opened'</span>, ctx),
+    onDataLoaded: (data) => console.log(<span class="string">'Data loaded'</span>, data),
+    onClose: () => console.log(<span class="string">'Modal closed'</span>),
+    onError: (err) => console.error(<span class="string">'Error:'</span>, err)
+});
+
+<span class="comment">// Close programmatically</span>
+modal.<span class="function">close</span>();
+            </div>
+        </section>
+
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="index.html" class="btn btn-primary">Back to Portal</a>
+        </div>
+    </div>
+
+    <script>
+        // Console log helper
+        function logToConsole(message) {
+            const consoleEl = document.getElementById('console-output');
+            const time = new Date().toLocaleTimeString('pt-BR');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${time}]</span> ${message}`;
+            consoleEl.appendChild(entry);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        // Generate mock telemetry data
+        function generateMockData(days, percentage) {
+            const now = Date.now();
+            const startTs = now - days * 24 * 60 * 60 * 1000;
+            const data = {
+                water_level: [],
+                water_percentage: []
+            };
+
+            // Generate hourly data points
+            const pointCount = days * 24;
+            for (let i = 0; i < pointCount; i++) {
+                const ts = startTs + (i * 60 * 60 * 1000);
+                // Add some variation to the percentage
+                const variation = (Math.random() - 0.5) * 20;
+                const level = Math.max(0, Math.min(120, percentage + variation));
+
+                // water_level is in meters (0-10 range typically)
+                data.water_level.push({
+                    ts: ts,
+                    value: (level / 10).toFixed(2)  // Convert % to meters (assuming 10m max)
+                });
+
+                // water_percentage is in 0-1 range
+                data.water_percentage.push({
+                    ts: ts,
+                    value: (level / 100).toFixed(4)
+                });
+            }
+
+            return data;
+        }
+
+        // Open tank modal with mock data
+        window.openTankModal = function(tankId, percentage) {
+            logToConsole(`Opening modal for ${tankId} at ${percentage}%`);
+
+            const now = Date.now();
+            const days = 7;
+            const startTs = now - days * 24 * 60 * 60 * 1000;
+
+            const labels = {
+                tank1: 'Cisterna Principal',
+                tank2: 'Reservatorio Superior',
+                tank3: "Caixa d'Agua Leste",
+                tank4: 'Cisterna Cepec'
+            };
+
+            // Check if library is loaded
+            if (typeof window.MYIO === 'undefined') {
+                logToConsole('ERROR: MYIO library not loaded. Using mock modal.');
+                showMockModal(labels[tankId], percentage, days);
+                return;
+            }
+
+            try {
+                // Generate mock data for demonstration
+                const mockData = generateMockData(days, percentage);
+                logToConsole(`Generated ${mockData.water_level.length} mock data points`);
+
+                // Try to use the real modal
+                window.MYIO.openDashboardPopupWaterTank({
+                    deviceId: tankId,
+                    tbJwtToken: 'mock-token-for-demo',
+                    startTs: startTs,
+                    endTs: now,
+                    label: labels[tankId],
+                    currentLevel: percentage,
+                    currentLevelClamped: Math.min(100, percentage),
+                    waterLevel: percentage / 10,
+                    waterPercentage: percentage / 100,
+                    aggregation: 'NONE',
+                    limit: 1000,
+                    telemetryKeys: ['water_level', 'water_percentage'],
+                    onOpen: (ctx) => {
+                        logToConsole(`Modal opened: ${ctx.device.label}`);
+                    },
+                    onDataLoaded: (data) => {
+                        logToConsole(`Data loaded: ${data.telemetry.length} points`);
+                    },
+                    onClose: () => {
+                        logToConsole('Modal closed');
+                    },
+                    onError: (err) => {
+                        logToConsole(`Error: ${err.code} - ${err.message}`);
+                    }
+                }).then(modal => {
+                    logToConsole('Modal opened successfully');
+                }).catch(err => {
+                    logToConsole(`Failed to open modal: ${err.message}`);
+                    showMockModal(labels[tankId], percentage, days);
+                });
+            } catch (err) {
+                logToConsole(`Exception: ${err.message}`);
+                showMockModal(labels[tankId], percentage, days);
+            }
+        };
+
+        // Open custom modal with form parameters
+        window.openCustomModal = function() {
+            const deviceId = document.getElementById('param-deviceId').value;
+            const label = document.getElementById('param-label').value;
+            const level = parseFloat(document.getElementById('param-level').value);
+            const aggregation = document.getElementById('param-aggregation').value;
+            const limit = parseInt(document.getElementById('param-limit').value);
+            const days = parseInt(document.getElementById('param-days').value);
+
+            logToConsole(`Opening custom modal: ${label} at ${level}%`);
+            logToConsole(`Params: aggregation=${aggregation}, limit=${limit}, days=${days}`);
+
+            const now = Date.now();
+            const startTs = now - days * 24 * 60 * 60 * 1000;
+
+            if (typeof window.MYIO === 'undefined') {
+                logToConsole('ERROR: MYIO library not loaded. Using mock modal.');
+                showMockModal(label, level, days);
+                return;
+            }
+
+            try {
+                window.MYIO.openDashboardPopupWaterTank({
+                    deviceId: deviceId,
+                    tbJwtToken: 'mock-token-for-demo',
+                    startTs: startTs,
+                    endTs: now,
+                    label: label,
+                    currentLevel: level,
+                    currentLevelClamped: Math.min(100, level),
+                    aggregation: aggregation,
+                    limit: limit,
+                    telemetryKeys: ['water_level', 'water_percentage'],
+                    onOpen: (ctx) => logToConsole(`Modal opened: ${ctx.device.label}`),
+                    onDataLoaded: (data) => logToConsole(`Data loaded: ${data.telemetry.length} points`),
+                    onClose: () => logToConsole('Modal closed'),
+                    onError: (err) => logToConsole(`Error: ${err.code} - ${err.message}`)
+                }).then(() => {
+                    logToConsole('Modal opened successfully');
+                }).catch(err => {
+                    logToConsole(`Failed: ${err.message}`);
+                    showMockModal(label, level, days);
+                });
+            } catch (err) {
+                logToConsole(`Exception: ${err.message}`);
+                showMockModal(label, level, days);
+            }
+        };
+
+        // Show a simple mock modal when the library is not available
+        function showMockModal(label, percentage, days) {
+            const levelStatus = percentage < 20 ? { color: '#e74c3c', label: 'Critical' } :
+                               percentage < 40 ? { color: '#e67e22', label: 'Low' } :
+                               percentage < 70 ? { color: '#f39c12', label: 'Medium' } :
+                               percentage < 90 ? { color: '#27ae60', label: 'Good' } :
+                               { color: '#3498db', label: 'Full' };
+
+            const tankImage = percentage >= 70 ? 'https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq' :
+                             percentage >= 40 ? 'https://dashboard.myio-bas.com/api/images/public/4UBbShfXCVWR9wcw6IzVMNran4x1EW5n' :
+                             percentage >= 20 ? 'https://dashboard.myio-bas.com/api/images/public/aB9nX28F54fBBQs1Ht8jKUdYAMcq9QSm' :
+                             'https://dashboard.myio-bas.com/api/images/public/qLdwhV4qw295poSCa7HinpnmXoN7dAPO';
+
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.5); display: flex; align-items: center;
+                justify-content: center; z-index: 10000;
+            `;
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+            overlay.innerHTML = `
+                <div style="background: white; border-radius: 12px; width: 900px; max-width: 95vw; max-height: 90vh; overflow: hidden;">
+                    <div style="padding: 20px 24px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center;">
+                        <h2 style="margin: 0; font-size: 20px;">Water Tank - ${label}</h2>
+                        <button onclick="this.closest('div').parentElement.parentElement.remove()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div style="padding: 20px;">
+                        <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label style="font-size: 13px; font-weight: 500;">From:</label>
+                                <input type="date" value="${new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px;">
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label style="font-size: 13px; font-weight: 500;">To:</label>
+                                <input type="date" value="${new Date().toISOString().split('T')[0]}" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px;">
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label style="font-size: 13px; font-weight: 500;">Aggregation:</label>
+                                <select style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px;">
+                                    <option>None</option><option>Average</option><option>Min</option><option>Max</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label style="font-size: 13px; font-weight: 500;">Limit:</label>
+                                <select style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px;">
+                                    <option>100</option><option>500</option><option selected>1000</option><option>2000</option>
+                                </select>
+                            </div>
+                            <button style="background: linear-gradient(135deg, #3498db, #2980b9); color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer;">Apply</button>
+                        </div>
+                        <div style="display: flex; gap: 20px; min-height: 400px;">
+                            <div style="width: 200px; min-width: 200px; background: linear-gradient(135deg, ${levelStatus.color}10, ${levelStatus.color}05); border: 1px solid ${levelStatus.color}30; border-radius: 12px; padding: 24px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;">
+                                <img src="${tankImage}" style="width: 100px;">
+                                <div style="font-size: 42px; font-weight: 700; color: ${levelStatus.color};">${percentage.toFixed(1)}%</div>
+                                <div style="background: ${levelStatus.color}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase;">${levelStatus.label}</div>
+                                <div style="font-size: 12px; color: #7f8c8d;">Current Level</div>
+                            </div>
+                            <div style="flex: 1; background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                    <h3 style="margin: 0; font-size: 15px;">Water Level History (m.c.a)</h3>
+                                    <div style="display: flex; gap: 8px;">
+                                        <select style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
+                                            <option>Level (m.c.a)</option><option>Percentage (%)</option>
+                                        </select>
+                                        <button style="background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; padding: 4px 8px; cursor: pointer;">&#x26F6;</button>
+                                    </div>
+                                </div>
+                                <div style="flex: 1; background: #fafafa; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #7f8c8d;">
+                                    <div style="text-align: center;">
+                                        <div style="font-size: 48px; margin-bottom: 8px;">&#128202;</div>
+                                        <div>Mock Modal - Library not loaded</div>
+                                        <div style="font-size: 12px; margin-top: 4px;">Build the project to see real chart</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="padding: 16px 24px; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end;">
+                        <button style="background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">Export CSV</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(overlay);
+            logToConsole('Mock modal displayed (library not available)');
+        }
+
+        // Initialize
+        logToConsole('Water Tank Modal showcase initialized');
+        if (typeof window.MYIO !== 'undefined') {
+            logToConsole('MYIO library loaded successfully');
+        } else {
+            logToConsole('WARNING: MYIO library not found. Build the project first.');
+        }
+    </script>
+</body>
+</html>

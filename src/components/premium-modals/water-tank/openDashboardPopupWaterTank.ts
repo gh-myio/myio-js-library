@@ -154,10 +154,11 @@ function validateOptions(options: OpenDashboardPopupWaterTankOptions): void {
   }
 
   // Validate current level if provided
+  // RFC-0107: Allow values > 100% (tanks can overflow or have calibration issues)
   if (options.currentLevel !== undefined) {
     const level = Number(options.currentLevel);
-    if (isNaN(level) || level < 0 || level > 100) {
-      errors.push('currentLevel must be a number between 0 and 100');
+    if (isNaN(level) || level < 0) {
+      errors.push('currentLevel must be a non-negative number');
     }
   }
 

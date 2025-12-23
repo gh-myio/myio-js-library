@@ -318,7 +318,8 @@ export class WaterTankModal {
         onExport: () => this.handleExport(),
         onError: (error) => this.handleError(error),
         onClose: () => this.close(), // Call close() to destroy view and trigger user callback
-        onDateRangeChange: (startTs, endTs) => this.handleDateRangeChange(startTs, endTs)
+        onDateRangeChange: (startTs, endTs) => this.handleDateRangeChange(startTs, endTs),
+        onParamsChange: (params) => this.handleParamsChange(params)
       });
 
       this.view.render();
@@ -404,6 +405,57 @@ export class WaterTankModal {
 
     } catch (error) {
       console.error('[WaterTankModal] Failed to fetch data for new date range:', error);
+      this.handleError(error as WaterTankModalError);
+    }
+  }
+
+  /**
+   * RFC-0107: Handle params change (date range, aggregation, limit)
+   */
+  private async handleParamsChange(params: { startTs: number; endTs: number; aggregation: string; limit: number }): Promise<void> {
+    console.log('[WaterTankModal] Params changed:', {
+      startTs: params.startTs,
+      endTs: params.endTs,
+      aggregation: params.aggregation,
+      limit: params.limit,
+      startDate: new Date(params.startTs).toISOString(),
+      endDate: new Date(params.endTs).toISOString()
+    });
+
+    // Update options with new params
+    this.options.startTs = params.startTs;
+    this.options.endTs = params.endTs;
+    this.options.aggregation = params.aggregation as typeof this.options.aggregation;
+    this.options.limit = params.limit;
+
+    // Update context
+    this.context.timeRange.startTs = params.startTs;
+    this.context.timeRange.endTs = params.endTs;
+
+    try {
+      console.log('[WaterTankModal] Fetching data with new params...');
+
+      // Fetch new data with updated params
+      this.data = await this.fetchTelemetryData();
+
+      // Update view with new data
+      if (this.view) {
+        this.view.updateData(this.data);
+      }
+
+      // Trigger callback
+      if (this.options.onDataLoaded) {
+        try {
+          this.options.onDataLoaded(this.data);
+        } catch (callbackError) {
+          console.warn('[WaterTankModal] onDataLoaded callback error:', callbackError);
+        }
+      }
+
+      console.log('[WaterTankModal] Data refreshed with new params successfully');
+
+    } catch (error) {
+      console.error('[WaterTankModal] Failed to fetch data with new params:', error);
       this.handleError(error as WaterTankModalError);
     }
   }

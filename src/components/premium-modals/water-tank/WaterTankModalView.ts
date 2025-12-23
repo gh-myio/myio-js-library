@@ -16,6 +16,7 @@ interface WaterTankModalViewConfig {
   onError: (error: WaterTankModalError) => void;
   onClose: () => void;
   onDateRangeChange?: (startTs: number, endTs: number) => void;
+  onParamsChange?: (params: { startTs: number; endTs: number; aggregation: string; limit: number }) => void;
 }
 
 // RFC-0107: Chart display mode
@@ -50,26 +51,26 @@ export class WaterTankModalView {
    */
   private getI18n(): WaterTankModalI18n {
     const defaults: WaterTankModalI18n = {
-      title: 'Water Tank',
-      loading: 'Loading...',
-      error: 'Error loading data',
-      noData: 'No data available',
-      exportCsv: 'Export CSV',
-      close: 'Close',
-      currentLevel: 'Current Level',
-      averageLevel: 'Average Level',
-      minLevel: 'Minimum Level',
-      maxLevel: 'Maximum Level',
-      dateRange: 'Date Range',
-      deviceInfo: 'Device Information',
-      levelChart: 'Water Level History (m.c.a)',
+      title: 'Caixa d\'Água',
+      loading: 'Carregando...',
+      error: 'Erro ao carregar dados',
+      noData: 'Nenhum dado disponível',
+      exportCsv: 'Exportar CSV',
+      close: 'Fechar',
+      currentLevel: 'Nível Atual',
+      averageLevel: 'Nível Médio',
+      minLevel: 'Nível Mínimo',
+      maxLevel: 'Nível Máximo',
+      dateRange: 'Período',
+      deviceInfo: 'Informações do Dispositivo',
+      levelChart: 'Histórico de Nível (m.c.a)',
       percentUnit: '%',
       status: {
-        critical: 'Critical',
-        low: 'Low',
-        medium: 'Medium',
-        good: 'Good',
-        full: 'Full'
+        critical: 'Crítico',
+        low: 'Baixo',
+        medium: 'Médio',
+        good: 'Bom',
+        full: 'Cheio'
       }
     };
 
@@ -190,7 +191,7 @@ export class WaterTankModalView {
   }
 
   /**
-   * Render modal header
+   * Render modal header - MyIO Premium Style
    */
   private renderHeader(): string {
     const { context, params } = this.config;
@@ -198,54 +199,334 @@ export class WaterTankModalView {
 
     return `
       <div class="myio-water-tank-modal-header" style="
-        padding: 20px 24px;
-        border-bottom: 1px solid #e0e0e0;
+        padding: 4px 8px;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        background: #3e1a7d;
+        color: white;
+        border-radius: 12px 12px 0 0;
+        min-height: 20px;
       ">
         <h2 style="
-          margin: 0;
-          font-size: 20px;
+          margin: 6px;
+          font-size: 18px;
           font-weight: 600;
-          color: #2c3e50;
-        ">${title}</h2>
-        <button class="myio-water-tank-modal-close" style="
-          background: none;
-          border: none;
-          font-size: 24px;
-          color: #7f8c8d;
-          cursor: pointer;
-          padding: 0;
-          width: 32px;
-          height: 32px;
+          color: white;
+          line-height: 2;
+        ">💧 ${title}</h2>
+        <div style="display: flex; gap: 4px; align-items: center;">
+          <button class="myio-water-tank-modal-close" title="${this.i18n.close}" style="
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            color: rgba(255,255,255,0.8);
+            transition: background-color 0.2s;
+          ">×</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * RFC-0107: Render modal body with new layout
+   * Left side: Tank visualization with percentage
+   * Right side: Chart with controls (larger area)
+   */
+  private renderBody(): string {
+    return `
+      <div class="myio-water-tank-modal-body" style="
+        padding: 20px;
+        overflow-y: auto;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      ">
+        ${this.renderControlsBar()}
+        <div style="
           display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 4px;
-          transition: background 0.2s ease;
-        " title="${this.i18n.close}">
-          ×
+          gap: 20px;
+          flex: 1;
+          min-height: 400px;
+        ">
+          ${this.renderTankPanel()}
+          ${this.renderChartPanel()}
+        </div>
+      </div>
+      ${this.renderFooter()}
+    `;
+  }
+
+  /**
+   * RFC-0107: Render controls bar with date range, aggregation, and limit
+   */
+  private renderControlsBar(): string {
+    const { params } = this.config;
+    const startDate = this.formatDateForInput(params.startTs);
+    const endDate = this.formatDateForInput(params.endTs);
+    const currentAggregation = params.aggregation || 'NONE';
+    const currentLimit = params.limit || 1000;
+
+    return `
+      <div style="
+        background: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      ">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-size: 13px; font-weight: 500; color: #2c3e50;">De:</label>
+          <input type="date" id="myio-water-tank-start-date" value="${startDate}" style="
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #2c3e50;
+            cursor: pointer;
+          "/>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-size: 13px; font-weight: 500; color: #2c3e50;">Até:</label>
+          <input type="date" id="myio-water-tank-end-date" value="${endDate}" style="
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #2c3e50;
+            cursor: pointer;
+          "/>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-size: 13px; font-weight: 500; color: #2c3e50;">Agregação:</label>
+          <select id="myio-water-tank-aggregation" style="
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #2c3e50;
+            background: white;
+            cursor: pointer;
+          ">
+            <option value="NONE" ${currentAggregation === 'NONE' ? 'selected' : ''}>Nenhuma</option>
+            <option value="AVG" ${currentAggregation === 'AVG' ? 'selected' : ''}>Média</option>
+            <option value="MIN" ${currentAggregation === 'MIN' ? 'selected' : ''}>Mínimo</option>
+            <option value="MAX" ${currentAggregation === 'MAX' ? 'selected' : ''}>Máximo</option>
+            <option value="SUM" ${currentAggregation === 'SUM' ? 'selected' : ''}>Soma</option>
+            <option value="COUNT" ${currentAggregation === 'COUNT' ? 'selected' : ''}>Contagem</option>
+          </select>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-size: 13px; font-weight: 500; color: #2c3e50;">Limite:</label>
+          <select id="myio-water-tank-limit" style="
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #2c3e50;
+            background: white;
+            cursor: pointer;
+          ">
+            <option value="100" ${currentLimit === 100 ? 'selected' : ''}>100</option>
+            <option value="500" ${currentLimit === 500 ? 'selected' : ''}>500</option>
+            <option value="1000" ${currentLimit === 1000 ? 'selected' : ''}>1000</option>
+            <option value="2000" ${currentLimit === 2000 ? 'selected' : ''}>2000</option>
+            <option value="5000" ${currentLimit === 5000 ? 'selected' : ''}>5000</option>
+          </select>
+        </div>
+        <button id="myio-water-tank-apply-dates" style="
+          background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+          color: white;
+          border: none;
+          padding: 6px 16px;
+          border-radius: 6px;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        ">
+          Aplicar
         </button>
       </div>
     `;
   }
 
   /**
-   * Render modal body
+   * RFC-0107: Render tank panel (left side)
    */
-  private renderBody(): string {
+  private renderTankPanel(): string {
+    const { data, context } = this.config;
+
+    // Get water_percentage from telemetry or context
+    let percentage = 0;
+
+    // Try to get the latest water_percentage value
+    const percentagePoints = data.telemetry.filter(p => p.key === 'water_percentage');
+    if (percentagePoints.length > 0) {
+      const latestPercentage = percentagePoints[percentagePoints.length - 1].value;
+      percentage = latestPercentage <= 1.5 ? latestPercentage * 100 : latestPercentage;
+    } else if (context.device.currentLevel !== undefined) {
+      const level = context.device.currentLevel;
+      percentage = level <= 1.5 ? level * 100 : level;
+    }
+
+    const levelStatus = this.getLevelStatus(Math.min(percentage, 100));
+    const tankImageUrl = this.getTankImageUrl(Math.min(percentage, 100));
+    const displayPercentage = percentage.toFixed(1);
+
     return `
-      <div class="myio-water-tank-modal-body" style="
-        padding: 24px;
-        overflow-y: auto;
-        flex: 1;
+      <div style="
+        width: 200px;
+        min-width: 200px;
+        background: linear-gradient(135deg, ${levelStatus.color}10 0%, ${levelStatus.color}05 100%);
+        border: 1px solid ${levelStatus.color}30;
+        border-radius: 12px;
+        padding: 24px 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
       ">
-        ${this.renderDateRangePicker()}
-        ${this.renderTankVisualization()}
-        ${this.renderChart()}
+        <img src="${tankImageUrl}" alt="Water Tank" style="
+          width: 100px;
+          height: auto;
+          filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+        "/>
+        <div style="
+          font-size: 42px;
+          font-weight: 700;
+          color: ${levelStatus.color};
+          line-height: 1;
+        ">${displayPercentage}%</div>
+        <div style="
+          background: ${levelStatus.color};
+          color: white;
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+        ">${levelStatus.label}</div>
+        <div style="
+          font-size: 12px;
+          color: #7f8c8d;
+          text-align: center;
+        ">${this.i18n.currentLevel}</div>
       </div>
-      ${this.renderFooter()}
+    `;
+  }
+
+  /**
+   * RFC-0107: Render chart panel (right side) with maximize button
+   */
+  private renderChartPanel(): string {
+    const chartPoints = this.getChartDataPoints();
+    const chartTitle = this.chartDisplayMode === 'water_percentage'
+      ? 'Histórico de Nível (%)'
+      : this.i18n.levelChart;
+
+    if (chartPoints.length === 0) {
+      const displayLabel = this.chartDisplayMode === 'water_percentage' ? '%' : 'm.c.a';
+      return `
+        <div style="
+          flex: 1;
+          background: #f8f9fa;
+          border: 1px solid #e0e0e0;
+          border-radius: 12px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+        ">
+          <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;">📊</div>
+          <div style="color: #7f8c8d; font-size: 16px;">${this.i18n.noData}</div>
+          <div style="color: #bdc3c7; font-size: 13px; margin-top: 8px;">
+            Sem dados de ${this.chartDisplayMode === 'water_percentage' ? 'percentual' : 'nível'} (${displayLabel}) disponíveis
+          </div>
+        </div>
+      `;
+    }
+
+    const firstTs = chartPoints[0]?.ts;
+    const lastTs = chartPoints[chartPoints.length - 1]?.ts;
+
+    return `
+      <div id="myio-water-tank-chart-panel" style="
+        flex: 1;
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      ">
+        <div style="
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 12px;
+        ">
+          <h3 style="
+            margin: 0;
+            font-size: 15px;
+            font-weight: 600;
+            color: #2c3e50;
+          ">${chartTitle}</h3>
+          <div style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          ">
+            <select id="myio-water-tank-display-mode" style="
+              padding: 4px 8px;
+              border: 1px solid #ddd;
+              border-radius: 4px;
+              font-size: 12px;
+              color: #2c3e50;
+              background: white;
+              cursor: pointer;
+            ">
+              <option value="water_level" ${this.chartDisplayMode === 'water_level' ? 'selected' : ''}>Nível (m.c.a)</option>
+              <option value="water_percentage" ${this.chartDisplayMode === 'water_percentage' ? 'selected' : ''}>Percentual (%)</option>
+            </select>
+            <button id="myio-water-tank-maximize" title="Maximizar gráfico" style="
+              background: #f0f0f0;
+              border: 1px solid #ddd;
+              border-radius: 4px;
+              padding: 4px 8px;
+              cursor: pointer;
+              font-size: 14px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            ">⛶</button>
+          </div>
+        </div>
+        <div style="flex: 1; min-height: 300px;">
+          <canvas id="myio-water-tank-chart" style="width: 100%; height: 100%;"></canvas>
+        </div>
+        ${firstTs && lastTs ? `
+          <div style="
+            margin-top: 8px;
+            font-size: 11px;
+            color: #7f8c8d;
+            text-align: center;
+          ">
+            ${this.formatDate(firstTs, false)} — ${this.formatDate(lastTs, false)}
+            (${chartPoints.length} leituras)
+          </div>
+        ` : ''}
+      </div>
     `;
   }
 
@@ -270,7 +551,7 @@ export class WaterTankModalView {
         flex-wrap: wrap;
       ">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <label style="font-size: 14px; font-weight: 500; color: #2c3e50;">From:</label>
+          <label style="font-size: 14px; font-weight: 500; color: #2c3e50;">De:</label>
           <input type="date" id="myio-water-tank-start-date" value="${startDate}" style="
             padding: 8px 12px;
             border: 1px solid #ddd;
@@ -281,7 +562,7 @@ export class WaterTankModalView {
           "/>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-          <label style="font-size: 14px; font-weight: 500; color: #2c3e50;">To:</label>
+          <label style="font-size: 14px; font-weight: 500; color: #2c3e50;">Até:</label>
           <input type="date" id="myio-water-tank-end-date" value="${endDate}" style="
             padding: 8px 12px;
             border: 1px solid #ddd;
@@ -302,7 +583,7 @@ export class WaterTankModalView {
           cursor: pointer;
           transition: all 0.2s ease;
         ">
-          Apply
+          Aplicar
         </button>
       </div>
     `;
@@ -554,10 +835,10 @@ export class WaterTankModalView {
       exportBtn.addEventListener('click', () => this.config.onExport());
     }
 
-    // Date range apply button
+    // Date range apply button - now also reads aggregation and limit
     const applyDatesBtn = this.modal.querySelector('#myio-water-tank-apply-dates');
     if (applyDatesBtn) {
-      applyDatesBtn.addEventListener('click', () => this.handleDateRangeChange());
+      applyDatesBtn.addEventListener('click', () => this.handleApplyParams());
     }
 
     // RFC-0107: Display mode selector
@@ -567,6 +848,12 @@ export class WaterTankModalView {
         this.chartDisplayMode = displayModeSelect.value as ChartDisplayMode;
         this.refreshChart();
       });
+    }
+
+    // RFC-0107: Maximize button
+    const maximizeBtn = this.modal.querySelector('#myio-water-tank-maximize');
+    if (maximizeBtn) {
+      maximizeBtn.addEventListener('click', () => this.handleMaximize());
     }
 
     // Close on overlay click
@@ -589,13 +876,22 @@ export class WaterTankModalView {
   }
 
   /**
-   * Handle date range change
+   * Handle date range change (legacy - kept for compatibility)
    */
   private handleDateRangeChange(): void {
+    this.handleApplyParams();
+  }
+
+  /**
+   * RFC-0107: Handle apply params (date range, aggregation, limit)
+   */
+  private handleApplyParams(): void {
     if (!this.modal) return;
 
     const startInput = this.modal.querySelector('#myio-water-tank-start-date') as HTMLInputElement;
     const endInput = this.modal.querySelector('#myio-water-tank-end-date') as HTMLInputElement;
+    const aggregationSelect = this.modal.querySelector('#myio-water-tank-aggregation') as HTMLSelectElement;
+    const limitSelect = this.modal.querySelector('#myio-water-tank-limit') as HTMLSelectElement;
 
     if (startInput && endInput) {
       const startTs = new Date(startInput.value).setHours(0, 0, 0, 0);
@@ -606,17 +902,90 @@ export class WaterTankModalView {
         return;
       }
 
-      console.log('[WaterTankModalView] Date range changed:', {
+      const aggregation = aggregationSelect?.value || 'NONE';
+      const limit = parseInt(limitSelect?.value || '1000', 10);
+
+      console.log('[WaterTankModalView] Params changed:', {
         startTs,
         endTs,
+        aggregation,
+        limit,
         startDate: new Date(startTs).toISOString(),
         endDate: new Date(endTs).toISOString()
       });
 
-      if (this.config.onDateRangeChange) {
+      // Update local params
+      this.config.params.startTs = startTs;
+      this.config.params.endTs = endTs;
+      this.config.params.aggregation = aggregation as OpenDashboardPopupWaterTankOptions['aggregation'];
+      this.config.params.limit = limit;
+
+      // Use new callback if available, otherwise fall back to onDateRangeChange
+      if (this.config.onParamsChange) {
+        this.config.onParamsChange({ startTs, endTs, aggregation, limit });
+      } else if (this.config.onDateRangeChange) {
         this.config.onDateRangeChange(startTs, endTs);
       }
     }
+  }
+
+  /**
+   * RFC-0107: Handle maximize/restore chart
+   */
+  private isMaximized = false;
+  private originalModalStyle: string = '';
+
+  private handleMaximize(): void {
+    if (!this.modal) return;
+
+    const chartPanel = this.modal.querySelector('#myio-water-tank-chart-panel') as HTMLElement;
+    const tankPanel = chartPanel?.previousElementSibling as HTMLElement;
+    const maximizeBtn = this.modal.querySelector('#myio-water-tank-maximize') as HTMLButtonElement;
+
+    if (!chartPanel) return;
+
+    if (this.isMaximized) {
+      // Restore original layout
+      this.modal.style.cssText = this.originalModalStyle;
+      if (tankPanel) tankPanel.style.display = '';
+      chartPanel.style.cssText = `
+        flex: 1;
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      `;
+      if (maximizeBtn) maximizeBtn.textContent = '⛶';
+      this.isMaximized = false;
+    } else {
+      // Maximize chart
+      this.originalModalStyle = this.modal.style.cssText;
+      this.modal.style.width = '95vw';
+      this.modal.style.height = '90vh';
+      this.modal.style.maxWidth = '95vw';
+      if (tankPanel) tankPanel.style.display = 'none';
+      chartPanel.style.cssText = `
+        flex: 1;
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        min-height: 100%;
+      `;
+      if (maximizeBtn) maximizeBtn.textContent = '⛶';
+      this.isMaximized = true;
+    }
+
+    // Re-render chart with new size
+    requestAnimationFrame(() => {
+      this.renderCanvasChart();
+    });
   }
 
   private handleEscapeKey(e: KeyboardEvent): void {
@@ -812,34 +1181,47 @@ export class WaterTankModalView {
   }
 
   /**
-   * Update data and re-render chart
+   * Update data and re-render chart with new layout
    */
   public updateData(data: WaterTankTelemetryData): void {
     this.config.data = data;
 
-    // Re-render tank visualization and chart
+    // Re-render with new layout (controls bar, tank panel, chart panel)
     if (this.modal) {
       const bodyEl = this.modal.querySelector('.myio-water-tank-modal-body');
       if (bodyEl) {
         bodyEl.innerHTML = `
-          ${this.renderDateRangePicker()}
-          ${this.renderTankVisualization()}
-          ${this.renderChart()}
+          ${this.renderControlsBar()}
+          <div style="
+            display: flex;
+            gap: 20px;
+            flex: 1;
+            min-height: 400px;
+          ">
+            ${this.renderTankPanel()}
+            ${this.renderChartPanel()}
+          </div>
         `;
 
-        // Re-attach date picker event
+        // Re-attach apply params event
         const applyDatesBtn = this.modal.querySelector('#myio-water-tank-apply-dates');
         if (applyDatesBtn) {
-          applyDatesBtn.addEventListener('click', () => this.handleDateRangeChange());
+          applyDatesBtn.addEventListener('click', () => this.handleApplyParams());
         }
 
-        // RFC-0107: Re-attach display mode selector event
+        // Re-attach display mode selector event
         const displayModeSelect = this.modal.querySelector('#myio-water-tank-display-mode') as HTMLSelectElement;
         if (displayModeSelect) {
           displayModeSelect.addEventListener('change', () => {
             this.chartDisplayMode = displayModeSelect.value as ChartDisplayMode;
             this.refreshChart();
           });
+        }
+
+        // Re-attach maximize button event
+        const maximizeBtn = this.modal.querySelector('#myio-water-tank-maximize');
+        if (maximizeBtn) {
+          maximizeBtn.addEventListener('click', () => this.handleMaximize());
         }
 
         // Re-render chart
