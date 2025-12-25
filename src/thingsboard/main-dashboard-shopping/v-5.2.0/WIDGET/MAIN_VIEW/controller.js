@@ -3199,12 +3199,25 @@ const MyIOOrchestrator = (() => {
           tbId: entityId.substring(0, 8),
         });
       }
-      // Log devices with VACINA in name
-      const vacinaDevices = allIngestionIds.filter(d =>
-        d.label.toUpperCase().includes('VACINA') || d.label.toUpperCase().includes('VACINAÇÃO')
-      );
+      // Log devices with VACINA in name or entityName
+      const vacinaDevices = [];
+      for (const [entityId, meta] of metadataByEntityId.entries()) {
+        const labelUpper = (meta.label || '').toUpperCase();
+        const entityNameUpper = (meta.entityName || '').toUpperCase();
+        if (labelUpper.includes('VACINA') || labelUpper.includes('VACINAÇÃO') ||
+            entityNameUpper.includes('VACINA') || entityNameUpper.includes('VACINAÇÃO')) {
+          vacinaDevices.push({
+            label: meta.label,
+            entityName: meta.entityName,
+            ingestionId: meta.ingestionId || 'MISSING',
+            deviceType: meta.deviceType || 'MISSING',
+            deviceProfile: meta.deviceProfile || 'MISSING',
+            tbId: entityId,
+          });
+        }
+      }
       if (vacinaDevices.length > 0) {
-        LogHelper.log(`[RFC-0108 DEBUG] VACINA devices in metadata:`, vacinaDevices);
+        LogHelper.log(`[RFC-0108 DEBUG] VACINA devices in metadata:`, JSON.stringify(vacinaDevices, null, 2));
       }
       // Log first 10 ingestionIds for reference
       LogHelper.log(`[RFC-0108 DEBUG] First 10 ingestionIds:`, allIngestionIds.slice(0, 10));
@@ -3346,6 +3359,48 @@ const MyIOOrchestrator = (() => {
           LogHelper.log(
             `[Orchestrator] ✅ Using cached data for ${domain}: ${cachedData.items.length} items (age: ${cacheAge}ms)`
           );
+
+          // RFC-0108 DEBUG: Analyze cached data for ingestionId issues (water domain)
+          if (domain === 'water') {
+            const items = cachedData.items;
+            const withIngestionId = items.filter(i => i.ingestionId).length;
+            const withApiData = items.filter(i => i._hasApiData).length;
+            const withZeroValue = items.filter(i => i.value === 0 || i.value === null || i.value === undefined).length;
+            const entradaDevices = items.filter(i => i.labelWidget === 'Entrada');
+
+            LogHelper.log(`[RFC-0108 CACHE DEBUG] Water cache analysis:`, {
+              total: items.length,
+              withIngestionId,
+              withoutIngestionId: items.length - withIngestionId,
+              withApiData,
+              withZeroValue,
+              entradaCount: entradaDevices.length,
+            });
+
+            // Log devices with labelWidget='Entrada' to diagnose VACINACAO issue
+            if (entradaDevices.length > 0) {
+              LogHelper.log(`[RFC-0108 CACHE DEBUG] Entrada devices:`, entradaDevices.map(d => ({
+                label: d.label,
+                value: d.value,
+                ingestionId: d.ingestionId || 'MISSING',
+                hasApiData: d._hasApiData,
+                tbId: d.tbId?.substring(0, 8),
+              })));
+            }
+
+            // Log devices with value=0 but might have API data
+            const suspiciousDevices = items.filter(i => i.value === 0 && !i._hasApiData);
+            if (suspiciousDevices.length > 0) {
+              LogHelper.log(`[RFC-0108 CACHE DEBUG] Devices with value=0 and no API match (first 5):`,
+                suspiciousDevices.slice(0, 5).map(d => ({
+                  label: d.label,
+                  ingestionId: d.ingestionId || 'MISSING',
+                  deviceType: d.deviceType,
+                  labelWidget: d.labelWidget,
+                })));
+            }
+          }
+
           return cachedData.items;
         }
       }
@@ -3510,8 +3565,8 @@ const MyIOOrchestrator = (() => {
               label: meta.label || meta.identifier || 'Hidrômetro',
               entityLabel: meta.label || meta.identifier || 'Hidrômetro',
               name: meta.label || meta.identifier || 'Hidrômetro',
-              value: pulses, // pulses count
-              pulses: pulses,
+              value: 0, // RFC-0108 FIX: Use 0 as placeholder - real value comes from API enrichment via ingestionId
+              pulses: pulses, // Keep pulses for reference only, not for display
               deviceType: deviceType,
               deviceProfile: deviceProfile || deviceType,
               effectiveDeviceType: deviceProfile || deviceType,
@@ -3758,12 +3813,21 @@ const MyIOOrchestrator = (() => {
 
       // RFC-0108: Build API data map by ingestionId for quick lookup
       const apiDataMap = new Map();
+      // RFC-0108 FIX: Also build name-based map as fallback for devices without ingestionId
+      const apiDataByName = new Map();
       for (const row of rows) {
         if (row.id) {
           apiDataMap.set(row.id, row);
         }
+        // Build normalized name map (lowercase, trimmed) for fallback matching
+        if (row.name) {
+          const normalizedName = String(row.name).toLowerCase().trim();
+          if (!apiDataByName.has(normalizedName)) {
+            apiDataByName.set(normalizedName, row);
+          }
+        }
       }
-      LogHelper.log(`[Orchestrator] 📊 API data map: ${apiDataMap.size} items from API`);
+      LogHelper.log(`[Orchestrator] 📊 API data map: ${apiDataMap.size} items by ID, ${apiDataByName.size} by name`);
 
       // RFC-0108 DEBUG: Compare metadata ingestionIds with API ids
       if (domain === 'water') {
@@ -3799,12 +3863,27 @@ const MyIOOrchestrator = (() => {
       let matchedCount = 0;
       let unmatchedCount = 0;
 
+      let nameMatchedCount = 0;
+
       for (const [entityId, meta] of metadataByEntityId.entries()) {
         // Skip if no ingestionId in metadata
         const ingestionId = meta.ingestionId;
 
-        // Try to find API data by ingestionId
-        const apiRow = ingestionId ? apiDataMap.get(ingestionId) : null;
+        // Try to find API data by ingestionId first
+        let apiRow = ingestionId ? apiDataMap.get(ingestionId) : null;
+        let matchedBy = apiRow ? 'ingestionId' : null;
+
+        // RFC-0108 FIX: Fallback to name-based matching if ingestionId doesn't match
+        if (!apiRow && domain === 'water') {
+          const metaLabel = (meta.label || meta.entityName || '').toLowerCase().trim();
+          if (metaLabel && apiDataByName.has(metaLabel)) {
+            apiRow = apiDataByName.get(metaLabel);
+            matchedBy = 'name';
+            nameMatchedCount++;
+            LogHelper.log(`[RFC-0108 DEBUG] Name-based match for "${meta.label}": found API data with value ${getValueFromRow(apiRow)}`);
+          }
+        }
+
         const hasApiData = !!apiRow;
 
         if (hasApiData) {
@@ -3888,11 +3967,12 @@ const MyIOOrchestrator = (() => {
           groupLabel: labelWidget,
           _hasMetadata: true, // All items come from metadata
           _hasApiData: hasApiData, // Flag to indicate if API data was found
+          _matchedBy: matchedBy, // 'ingestionId', 'name', or null
         });
       }
 
       LogHelper.log(
-        `[Orchestrator] 📊 RFC-0108: Created ${items.length} items from metadata. API match: ${matchedCount} matched, ${unmatchedCount} with value=0`
+        `[Orchestrator] 📊 RFC-0108: Created ${items.length} items from metadata. API match: ${matchedCount} matched (${nameMatchedCount} by name), ${unmatchedCount} with value=0`
       );
 
       // DEBUG: Log sample items
@@ -3906,6 +3986,7 @@ const MyIOOrchestrator = (() => {
             value: sampleWithApi.value,
             deviceType: sampleWithApi.deviceType,
             labelWidget: sampleWithApi.labelWidget,
+            matchedBy: sampleWithApi._matchedBy,
           });
         }
         if (sampleWithoutApi) {
@@ -3915,14 +3996,102 @@ const MyIOOrchestrator = (() => {
             value: sampleWithoutApi.value,
             deviceType: sampleWithoutApi.deviceType,
             labelWidget: sampleWithoutApi.labelWidget,
+            ingestionId: sampleWithoutApi.ingestionId || 'MISSING',
           });
+        }
+
+        // RFC-0108 DEBUG: Log VACINA device specifically after enrichment (regardless of classification)
+        if (domain === 'water') {
+          const vacinaItems = items.filter(i => {
+            const label = (i.label || '').toUpperCase();
+            const name = (i.name || '').toUpperCase();
+            return label.includes('VACINA') || name.includes('VACINA');
+          });
+          if (vacinaItems.length > 0) {
+            LogHelper.log(`[RFC-0108 DEBUG] VACINA device AFTER ENRICHMENT:`, JSON.stringify(vacinaItems.map(d => ({
+              label: d.label,
+              value: d.value,
+              ingestionId: d.ingestionId,
+              hasApiData: d._hasApiData,
+              matchedBy: d._matchedBy,
+              labelWidget: d.labelWidget,
+              deviceType: d.deviceType,
+              deviceProfile: d.deviceProfile,
+            })), null, 2));
+          }
+
+          const entradaDevices = items.filter(i => i.labelWidget === 'Entrada');
+          if (entradaDevices.length > 0) {
+            LogHelper.log(`[RFC-0108 DEBUG] Entrada devices after enrichment:`, entradaDevices.map(d => ({
+              label: d.label,
+              value: d.value,
+              hasApiData: d._hasApiData,
+              matchedBy: d._matchedBy,
+              ingestionId: d.ingestionId || 'MISSING',
+            })));
+          }
+
+          // Log all devices that have no match and value=0
+          const unmatchedDevices = items.filter(i => !i._hasApiData && i.value === 0);
+          if (unmatchedDevices.length > 0 && unmatchedDevices.length <= 20) {
+            LogHelper.log(`[RFC-0108 DEBUG] ALL unmatched devices (value=0):`, unmatchedDevices.map(d => ({
+              label: d.label,
+              ingestionId: d.ingestionId || 'MISSING',
+              labelWidget: d.labelWidget,
+            })));
+          } else if (unmatchedDevices.length > 20) {
+            LogHelper.log(`[RFC-0108 DEBUG] Too many unmatched devices: ${unmatchedDevices.length} - showing first 10:`, unmatchedDevices.slice(0, 10).map(d => ({
+              label: d.label,
+              ingestionId: d.ingestionId || 'MISSING',
+              labelWidget: d.labelWidget,
+            })));
+          }
         }
       }
 
       // RFC-0107: Combine with water devices from ctx.data (tanks + hidrometros)
-      // FIX: Deduplicate - remove devices from items that already exist in tankItems or hidrometroItems
+      // RFC-0108 FIX: Merge API values from enriched items into hidrometroItems before combining
       let finalItems = items;
       if (tankItems.length > 0 || hidrometroItems.length > 0) {
+        // Create map from tbId to enriched item data (API values)
+        const enrichedItemsMap = new Map();
+        for (const item of items) {
+          if (item.tbId) {
+            enrichedItemsMap.set(item.tbId, item);
+          }
+        }
+
+        // Merge API values into hidrometroItems (preserving pulses but using API total_value)
+        let mergedCount = 0;
+        for (const hidro of hidrometroItems) {
+          const enrichedItem = enrichedItemsMap.get(hidro.tbId);
+          if (enrichedItem && enrichedItem._hasApiData) {
+            hidro.value = enrichedItem.value; // Use API total_value
+            hidro._hasApiData = true;
+            hidro._matchedBy = enrichedItem._matchedBy;
+            mergedCount++;
+          }
+        }
+
+        if (mergedCount > 0) {
+          LogHelper.log(`[Orchestrator] 🔄 RFC-0108: Merged API values into ${mergedCount}/${hidrometroItems.length} hidrometros`);
+
+          // DEBUG: Log VACINA device after merge
+          const vacinaHidro = hidrometroItems.find(h => {
+            const label = (h.label || '').toUpperCase();
+            return label.includes('VACINA');
+          });
+          if (vacinaHidro) {
+            LogHelper.log(`[RFC-0108 DEBUG] VACINA hidrometro AFTER MERGE:`, JSON.stringify({
+              label: vacinaHidro.label,
+              value: vacinaHidro.value,
+              pulses: vacinaHidro.pulses,
+              hasApiData: vacinaHidro._hasApiData,
+              matchedBy: vacinaHidro._matchedBy,
+            }, null, 2));
+          }
+        }
+
         // Create set of IDs already processed as tanks or hidrometros
         const waterDeviceIds = new Set([
           ...tankItems.map(i => i.tbId),
