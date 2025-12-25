@@ -652,33 +652,6 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         // RFC-0091: Use shared customerTB_ID from MAIN widget via window.MyIOUtils
         const customerTbId = window.MyIOUtils?.customerTB_ID || 'default';
 
-        // RFC-0108: List of specific localStorage keys to clear (modal preferences, themes, etc.)
-        const specificKeysToRemove = [
-          'myio-modal-bar-mode',
-          'myio-granularity',
-          'myio-modal-theme',
-          'myio-temp-comparison-granularity',
-          'myio-temp-comparison-theme',
-          'myio-temp-modal-granularity',
-          'myio-temp-modal-theme',
-          'myio:current-shopping-name',
-          'myio:date-range-modal',
-          'myio:last-period',
-          'myio:last-domain',
-          'dark', // Theme preference
-        ];
-
-        // Remove specific keys first
-        let removedSpecificCount = 0;
-        specificKeysToRemove.forEach((key) => {
-          if (localStorage.getItem(key) !== null) {
-            localStorage.removeItem(key);
-            LogHelper.log(`[HEADER] 🗑️ Removed localStorage key: ${key}`);
-            removedSpecificCount++;
-          }
-        });
-
-        // RFC-0047: Also remove cache keys with dynamic prefixes
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
@@ -688,8 +661,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           const energyPrefix = `myio:cache:${customerTbId}:energy:`;
           const waterPrefix = `myio:cache:${customerTbId}:water:`;
 
-          // Also match any myio: prefixed cache keys
-          if (key.startsWith(energyPrefix) || key.startsWith(waterPrefix) || key.startsWith('myio:cache:')) {
+          if (key.startsWith(energyPrefix) || key.startsWith(waterPrefix)) {
             keysToRemove.push(key);
           }
         }
@@ -699,8 +671,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           LogHelper.log(`[HEADER] 🗑️ Removed localStorage key: ${key}`);
         });
 
-        const totalRemoved = removedSpecificCount + keysToRemove.length;
-        LogHelper.log(`[HEADER] ✅ LocalStorage cache cleared (${totalRemoved} keys: ${removedSpecificCount} preferences + ${keysToRemove.length} cache)`);
+        LogHelper.log(`[HEADER] ✅ LocalStorage cache cleared (${keysToRemove.length} keys removed)`);
 
         // Invalidate orchestrator cache if available
         if (window.MyIOOrchestrator && window.MyIOOrchestrator.invalidateCache) {

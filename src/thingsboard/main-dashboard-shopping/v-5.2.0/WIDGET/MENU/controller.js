@@ -31,6 +31,10 @@ self.onInit = function () {
       self.ctx?.dashboard?.configuration?.title ||
       null;
 
+    console.log('self.ctx?.dashboard', self.ctx?.dashboard)
+    console.log('Dashboard title found:', name);
+    console.log('Datasources:', self.ctx?.datasources);
+
     if (name) return name;
 
     // ✅ Se não estiver no dashboard, pega do datasource principal
