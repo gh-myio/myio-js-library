@@ -634,12 +634,27 @@ function inferLabelWidget(row) {
     return 'Escadas Rolantes';
   }
 
-  // Área Comum: BOMBA, MOTOR, RELOGIO, HIDROMETRO, etc
+  // ==========================================================================
+  // RFC-0108 FIX: Water domain - HIDROMETRO_SHOPPING and HIDROMETRO_AREA_COMUM
+  // Must be checked BEFORE generic HIDROMETRO pattern in AREA_COMUM_PATTERNS
+  // ==========================================================================
+  if (deviceType.includes('HIDROMETRO_SHOPPING') || deviceProfile.includes('HIDROMETRO_SHOPPING')) {
+    return 'Entrada';
+  }
+  if (deviceType.includes('HIDROMETRO_AREA_COMUM') || deviceProfile.includes('HIDROMETRO_AREA_COMUM')) {
+    return 'Área Comum';
+  }
+  // Generic HIDROMETRO (without specific profile) → Lojas (for water domain)
+  if (deviceType === 'HIDROMETRO' && (deviceProfile === 'HIDROMETRO' || !deviceProfile)) {
+    return 'Lojas';
+  }
+
+  // Área Comum: BOMBA, MOTOR, RELOGIO, etc (but NOT generic HIDROMETRO)
   const AREA_COMUM_PATTERNS = [
     'BOMBA',
     'MOTOR',
     'RELOGIO',
-    'HIDROMETRO',
+    // 'HIDROMETRO', - REMOVED: Now handled specifically above
     'CAIXA_DAGUA',
     'TANK',
     'ILUMINACAO',
@@ -3174,6 +3189,27 @@ const MyIOOrchestrator = (() => {
       `[Orchestrator] 📋 Built metadata map: ${metadataByEntityId.size} entities, ${metadataByIngestion.size} with ingestionId`
     );
 
+    // RFC-0108 DEBUG: Log ALL ingestionIds for water domain to diagnose matching issues
+    if (domain === 'water' && metadataByEntityId.size > 0) {
+      const allIngestionIds = [];
+      for (const [entityId, meta] of metadataByEntityId.entries()) {
+        allIngestionIds.push({
+          label: meta.label || meta.entityName || entityId.substring(0, 8),
+          ingestionId: meta.ingestionId || 'MISSING',
+          tbId: entityId.substring(0, 8),
+        });
+      }
+      // Log devices with VACINA in name
+      const vacinaDevices = allIngestionIds.filter(d =>
+        d.label.toUpperCase().includes('VACINA') || d.label.toUpperCase().includes('VACINAÇÃO')
+      );
+      if (vacinaDevices.length > 0) {
+        LogHelper.log(`[RFC-0108 DEBUG] VACINA devices in metadata:`, vacinaDevices);
+      }
+      // Log first 10 ingestionIds for reference
+      LogHelper.log(`[RFC-0108 DEBUG] First 10 ingestionIds:`, allIngestionIds.slice(0, 10));
+    }
+
     // DEBUG RFC-0107: Log deviceTypes of all entities in metadataByEntityId
     if (metadataByEntityId.size > 0) {
       const deviceTypes = [];
@@ -3666,12 +3702,29 @@ const MyIOOrchestrator = (() => {
       }
 
       const json = await res.json();
+
+      // RFC-0108 DEBUG: Log raw JSON structure for water
+      if (domain === 'water') {
+        LogHelper.log(`[RFC-0108 DEBUG] Water API JSON structure:`, {
+          isArray: Array.isArray(json),
+          hasData: !!json?.data,
+          hasSummary: !!json?.summary,
+          topLevelKeys: Object.keys(json || {}),
+          summaryTotal: json?.summary?.totalValue,
+        });
+      }
+
       const rows = Array.isArray(json) ? json : json?.data ?? [];
 
-      // Debug first row to see available fields
-      if (rows.length > 0) {
-        //LogHelper.log(`[Orchestrator] Sample API row (full):`, JSON.stringify(rows[0], null, 2));
-        //LogHelper.log(`[Orchestrator] Sample API row groupType field:`, rows[0].groupType);
+      // RFC-0108 DEBUG: Log raw API response for water domain
+      if (domain === 'water' && rows.length > 0) {
+        LogHelper.log(`[RFC-0108 DEBUG] Water API first row with total_value:`, {
+          id: rows[0].id,
+          name: rows[0].name,
+          total_value: rows[0].total_value,
+          typeof_total_value: typeof rows[0].total_value,
+        });
+        LogHelper.log(`[RFC-0108 DEBUG] Water API total rows: ${rows.length}`);
       }
 
       // RFC-0108: Use METADATA as base, enrich with API data
@@ -3686,7 +3739,18 @@ const MyIOOrchestrator = (() => {
         // Both energy and water use total_value from API
         // Water API may also return total_volume or total_pulses as alternatives
         if (domain === 'water') {
-          return Number(row.total_value || row.total_volume || row.total_pulses || 0);
+          const val = Number(row.total_value ?? row.total_volume ?? row.total_pulses ?? 0);
+          // RFC-0108 DEBUG: Log first few water API rows to diagnose value extraction
+          if (!getValueFromRow._loggedWater) {
+            getValueFromRow._loggedWater = 0;
+          }
+          if (getValueFromRow._loggedWater < 3) {
+            LogHelper.log(`[RFC-0108 DEBUG] Water API row FULL:`, JSON.stringify(row, null, 2));
+            LogHelper.log(`[RFC-0108 DEBUG] Water API keys: ${Object.keys(row).join(', ')}`);
+            LogHelper.log(`[RFC-0108 DEBUG] Extracted value: ${val}`);
+            getValueFromRow._loggedWater++;
+          }
+          return val;
         }
         // Energy: total_value
         return Number(row.total_value || 0);
@@ -3700,6 +3764,33 @@ const MyIOOrchestrator = (() => {
         }
       }
       LogHelper.log(`[Orchestrator] 📊 API data map: ${apiDataMap.size} items from API`);
+
+      // RFC-0108 DEBUG: Compare metadata ingestionIds with API ids
+      if (domain === 'water') {
+        const metaIngestionIds = new Set();
+        for (const [, meta] of metadataByEntityId.entries()) {
+          if (meta.ingestionId) metaIngestionIds.add(meta.ingestionId);
+        }
+        const apiIds = new Set(apiDataMap.keys());
+
+        // Find IDs in API but not in metadata
+        const apiOnly = [...apiIds].filter(id => !metaIngestionIds.has(id));
+        // Find IDs in metadata but not in API
+        const metaOnly = [...metaIngestionIds].filter(id => !apiIds.has(id));
+
+        LogHelper.log(`[RFC-0108 DEBUG] Water ID comparison:`, {
+          metadataCount: metaIngestionIds.size,
+          apiCount: apiIds.size,
+          apiOnlyCount: apiOnly.length,
+          metaOnlyCount: metaOnly.length,
+        });
+        if (apiOnly.length > 0) {
+          LogHelper.log(`[RFC-0108 DEBUG] API IDs NOT in metadata (first 5):`, apiOnly.slice(0, 5));
+        }
+        if (metaOnly.length > 0) {
+          LogHelper.log(`[RFC-0108 DEBUG] Metadata IDs NOT in API (first 5):`, metaOnly.slice(0, 5));
+        }
+      }
 
       // RFC-0108: Create items from METADATA (ctx.data) as base
       // Enrich with API data if available, otherwise value=0
