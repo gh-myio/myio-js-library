@@ -1,11 +1,12 @@
 {
   "schema": {
     "type": "object",
-    "title": "Settings",
+    "title": "MAIN Orchestrator Settings",
     "properties": {
-      "customerId": {
+      "customerTB_ID": {
+        "title": "Customer ThingsBoard ID",
         "type": "string",
-        "title": "customerId"
+        "description": "ID do customer no ThingsBoard para buscar atributos de autenticação (client_id, client_secret, ingestionId)"
       },
       "dataApiHost": {
         "type": "string",
@@ -18,8 +19,68 @@
         "title": "Delay Time Connection (minutes)",
         "default": 60,
         "description": "RFC-0091: Delay time in minutes for connection status probation period. Devices connected for less than this time are considered offline."
+      },
+      "enableCache": {
+        "title": "Enable Cache System",
+        "type": "boolean",
+        "default": true,
+        "description": "RFC-0052: Enable/disable cache system globally. Set to FALSE to always fetch fresh data from API."
+      },
+      "cacheTtlMinutes": {
+        "title": "Cache TTL (minutes)",
+        "type": "number",
+        "default": 30,
+        "description": "Time-to-live for cached data entries"
+      },
+      "debugMode": {
+        "title": "Debug Mode",
+        "type": "boolean",
+        "default": false,
+        "description": "Enable console logging and debug overlay"
+      },
+      "domainsEnabled": {
+        "title": "Enabled Domains",
+        "type": "object",
+        "properties": {
+          "energy": {
+            "title": "Energy Domain",
+            "type": "boolean",
+            "default": true
+          },
+          "water": {
+            "title": "Water Domain",
+            "type": "boolean",
+            "default": true
+          },
+          "temperature": {
+            "title": "Temperature Domain",
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "excludeDevicesAtCountSubtotalCAG": {
+        "title": "Excluir Devices do Subtotal CAG",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "Lista de Entity IDs do ThingsBoard que serão excluídos do cálculo de consumo no summary CAG"
       }
     },
-    "required": ["customerId", "dataApiHost"]
-  }
+    "required": ["customerTB_ID"]
+  },
+  "form": [
+    "customerTB_ID",
+    "dataApiHost",
+    "delayTimeConnectionInMins",
+    "enableCache",
+    "cacheTtlMinutes",
+    "debugMode",
+    "domainsEnabled.energy",
+    "domainsEnabled.water",
+    "domainsEnabled.temperature",
+    "excludeDevicesAtCountSubtotalCAG"
+  ]
 }

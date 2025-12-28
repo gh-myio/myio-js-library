@@ -74,7 +74,7 @@ window.__customerPowerLimitsJSON = null;
 const findValue =
   window.MyIOUtils?.findValue ||
   ((values, key, defaultValue = null) => {
-    console.error('[EQUIPMENTS] findValue not available - MAIN widget not loaded');
+    // Fallback implementation when MAIN is not loaded yet
     if (!Array.isArray(values)) return defaultValue;
     const found = values.find((v) => v.key === key || v.dataType === key);
     return found ? found.value : defaultValue;
@@ -610,7 +610,10 @@ self.onInit = async function () {
     // 1. window.MyIOUtils.getCredentials() - from MAIN (preferred)
     // 2. fetchCustomerServerScopeAttrs() - direct fetch (fallback)
     const mainCredentials = window.MyIOUtils?.getCredentials?.() || {};
-    CUSTOMER_ID = mainCredentials.customerId || window.myioHoldingCustomerId || ' ';
+    // RFC-0091 FIX: For API calls, use customerId (ingestionId) from credentials
+    // For SERVER_SCOPE fetch, use customerTB_ID (ThingsBoard entity ID)
+    CUSTOMER_ID = mainCredentials.customerId || window.myioHoldingCustomerId || '';
+    const CUSTOMER_TB_ID = window.MyIOOrchestrator?.customerTB_ID || window.MyIOUtils?.customerTB_ID || '';
 
     // Objeto principal para armazenar os dados dos dispositivos
     const devices = {};
@@ -683,6 +686,7 @@ self.onInit = async function () {
       if (device.centralName != null)
         values.push({ dataType: 'centralName', value: device.centralName, ts: now });
       if (device.ownerName != null) values.push({ dataType: 'ownerName', value: device.ownerName, ts: now });
+      if (device.assetName != null) values.push({ dataType: 'assetName', value: device.assetName, ts: now });
       if (device.lastActivityTime != null)
         values.push({ dataType: 'lastActivityTime', value: device.lastActivityTime, ts: now });
       if (device.lastConnectTime != null)
@@ -698,17 +702,19 @@ self.onInit = async function () {
           ts: now,
         });
 
-      // Consumption power (instantaneous) - rename to consumption_power to avoid confusion with API kWh
-      if (device.consumption != null) {
+      // Consumption value from Orchestrator (can be 'value' or 'consumption' or 'consumptionPower')
+      // The Orchestrator stores consumption in 'value' field (from API response)
+      const consumptionValue = device.value ?? device.consumption ?? device.consumptionPower ?? null;
+      if (consumptionValue != null) {
         values.push({
           dataType: 'consumption_power',
-          value: device.consumption,
+          value: consumptionValue,
           ts: device.consumptionTimestamp || now,
         });
         // Also add as 'consumption' for backward compatibility in renderDeviceCards filter
         values.push({
           dataType: 'consumption',
-          value: device.consumption,
+          value: consumptionValue,
           ts: device.consumptionTimestamp || now,
         });
       }
@@ -740,13 +746,13 @@ self.onInit = async function () {
       LogHelper.log('[EQUIPMENTS] Using credentials from MAIN (MyIOUtils)');
 
       // Still need to fetch mapInstantaneousPower (not in MAIN)
-      const customerCredentials = await fetchCustomerServerScopeAttrs(CUSTOMER_ID);
+      const customerCredentials = await fetchCustomerServerScopeAttrs(CUSTOMER_TB_ID);
       MAP_INSTANTANEOUS_POWER = customerCredentials.mapInstantaneousPower;
       DELAY_TIME_CONNECTION_MINS = window.MyIOUtils?.getDelayTimeConnectionInMins();
     } else {
       // Fallback: fetch all credentials directly
       LogHelper.log('[EQUIPMENTS] MAIN credentials not available, fetching directly...');
-      const customerCredentials = await fetchCustomerServerScopeAttrs(CUSTOMER_ID);
+      const customerCredentials = await fetchCustomerServerScopeAttrs(CUSTOMER_TB_ID);
       LogHelper.log('customerCredentials', customerCredentials);
 
       CLIENT_ID = customerCredentials.client_id || ' ';
@@ -957,12 +963,19 @@ self.onInit = async function () {
             ? 'Sem identificador'
             : rawIdentifier;
 
+          // RFC-0102: ownerName from ctx.data is the customerName for the device
+          const ownerName = findValue(device.values, 'ownerName', null);
+          const assetName = findValue(device.values, 'assetName', null);
+
           return {
             entityId: entityId,
             labelOrName: device.label,
             val: consumptionValue,
             deviceIdentifier: deviceIdentifier,
             centralName: findValue(device.values, 'centralName', null),
+            ownerName: ownerName, // RFC-0102: customerName from ctx.data
+            assetName: assetName, // RFC-0102: assetName for fallback
+            customerName: ownerName || assetName || findValue(device.values, 'centralName', null) || customerId, // RFC-0102: Resolved customer name
             ingestionId: ingestionId,
             customerId: customerId, // Shopping ingestionId for filtering
             deviceType: deviceType,
@@ -1098,21 +1111,25 @@ self.onInit = async function () {
           const cached = energyCacheFromMain.get(ingestionId);
 
           if (cached) {
-            // Remove old consumption data if exists
-            // RFC-0091: Use 'value' property to match findValue expected format
-            const consumptionIndex = device.values.findIndex((v) => v.dataType === 'consumption');
-            if (consumptionIndex >= 0) {
-              device.values[consumptionIndex] = {
-                value: cached.total_value,
-                ts: cached.timestamp,
-                dataType: 'consumption',
-              };
-            } else {
-              device.values.push({
-                value: cached.total_value,
-                ts: cached.timestamp,
-                dataType: 'consumption',
-              });
+            // Get consumption value from cache (can be 'value' or 'total_value')
+            const consumptionFromCache = cached.value ?? cached.total_value ?? null;
+            if (consumptionFromCache != null) {
+              // Remove old consumption data if exists
+              // RFC-0091: Use 'value' property to match findValue expected format
+              const consumptionIndex = device.values.findIndex((v) => v.dataType === 'consumption');
+              if (consumptionIndex >= 0) {
+                device.values[consumptionIndex] = {
+                  value: consumptionFromCache,
+                  ts: cached.timestamp || Date.now(),
+                  dataType: 'consumption',
+                };
+              } else {
+                device.values.push({
+                  value: consumptionFromCache,
+                  ts: cached.timestamp || Date.now(),
+                  dataType: 'consumption',
+                });
+              }
             }
           }
         }

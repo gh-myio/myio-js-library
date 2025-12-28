@@ -42,6 +42,95 @@ Object.assign(window.MyIOUtils, {
     DEBUG_ACTIVE = !!active;
     console.log(`[MyIOUtils] Debug mode ${DEBUG_ACTIVE ? 'enabled' : 'disabled'}`);
   },
+  // RFC-0091: Get delay time for connection status (configurable via settings)
+  getDelayTimeConnectionInMins: () => {
+    return widgetSettings.delayTimeConnectionInMins ?? 60;
+  },
+  // RFC-0091: Stub for getCachedConsumptionLimits - EQUIPMENTS expects this
+  // Returns null to indicate no cached limits available (EQUIPMENTS will use defaults)
+  getCachedConsumptionLimits: async (_customerId) => {
+    LogHelper.log(
+      '[MyIOUtils] getCachedConsumptionLimits called - returning null (not implemented in MYIO-SIM)'
+    );
+    return null;
+  },
+  // RFC-0091: Proxy getCredentials to MyIOOrchestrator - EQUIPMENTS expects this
+  getCredentials: () => {
+    const creds = window.MyIOOrchestrator?.getCredentials?.() || {};
+    return {
+      customerId: creds.CUSTOMER_ING_ID || null,
+      clientId: creds.CLIENT_ID || null,
+      clientSecret: creds.CLIENT_SECRET || null,
+    };
+  },
+  // RFC-0102: Stub for updateEquipmentStats - EQUIPMENTS expects this as fallback
+  // This is a no-op in MYIO-SIM since equipHeaderController handles stats
+  updateEquipmentStats: (devices, cache) => {
+    LogHelper.log(
+      `[MyIOUtils] updateEquipmentStats called with ${devices?.length || 0} devices (no-op stub)`
+    );
+  },
+  // RFC-0102: findValue helper for EQUIPMENTS - finds value in values array by key/dataType
+  findValue: (values, key, defaultValue = null) => {
+    if (!Array.isArray(values)) return defaultValue;
+    const found = values.find((v) => v.key === key || v.dataType === key);
+    return found ? found.value : defaultValue;
+  },
+  // RFC-0078: getConsumptionRangesHierarchical stub for EQUIPMENTS
+  // Returns default ranges when no customer limits are available
+  // NOTE: Uses 'down' and 'up' properties as expected by calculateDeviceStatusWithRanges
+  getConsumptionRangesHierarchical: async (deviceId, deviceType, limits, metric, fallback) => {
+    // Return default ranges for MYIO-SIM (no hierarchical resolution implemented)
+    // Using 999999999 instead of Infinity because JSON doesn't support Infinity
+    return {
+      standbyRange: { down: 0, up: 500 },
+      normalRange: { down: 500, up: 10000 },
+      alertRange: { down: 10000, up: 50000 },
+      failureRange: { down: 50000, up: 999999999 },
+      source: 'default',
+      tier: 3,
+    };
+  },
+  // RFC-0102: mapConnectionStatus - maps raw connection status to display status
+  mapConnectionStatus: (rawStatus) => {
+    if (!rawStatus) return 'offline';
+    const status = String(rawStatus).toLowerCase();
+    if (status === 'connected' || status === 'online' || status === 'true') return 'online';
+    if (status === 'disconnected' || status === 'offline' || status === 'false') return 'offline';
+    return status; // Return as-is if unknown
+  },
+  // RFC-0102: formatRelativeTime - formats timestamp to relative time string
+  formatRelativeTime: (ts) => {
+    if (!ts) return '—';
+    const date = new Date(ts);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'agora';
+    if (diffMins < 60) return `${diffMins} min atrás`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h atrás`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d atrás`;
+  },
+  // RFC-0102: formatarDuracao - formats duration in milliseconds to readable string
+  formatarDuracao: (ms) => {
+    if (!ms || ms < 0) return '0s';
+    const seconds = Math.floor(ms / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `${days}d`;
+  },
+  // RFC-0102: getCustomerNameForDevice - gets the customer/shopping name for a device
+  getCustomerNameForDevice: (device) => {
+    // Priority: ownerName (from ctx.data) > assetName > centralName > customerName > customerId
+    // ownerName is the customer name in ThingsBoard (from ctx.data datakeyname)
+    return device.ownerName || device.customerName || 'N/A';
+  },
   // Temperature domain: global min/max temperature limits (populated by onDataUpdated)
   temperatureLimits: {
     minTemperature: null,
@@ -176,6 +265,65 @@ Object.assign(window.MyIOUtils, {
       window.location.reload();
     }, 3500);
   },
+
+  /**
+   * RFC-0091: Fetch customer SERVER_SCOPE attributes from ThingsBoard
+   * Used by EQUIPMENTS and other widgets to get credentials and configuration
+   * @param {string} customerId - Customer entity ID
+   * @returns {Promise<Object>} Object with client_id, client_secret, mapInstantaneousPower, etc.
+   */
+  fetchCustomerServerScopeAttrs: async (customerId) => {
+    const token = localStorage.getItem('jwt_token');
+    if (!token || !customerId) {
+      LogHelper.warn('[MyIOUtils] fetchCustomerServerScopeAttrs: missing token or customerId');
+      return {};
+    }
+
+    const url = `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE`;
+
+    try {
+      LogHelper.log(`[MyIOUtils] Fetching SERVER_SCOPE attributes for customer: ${customerId}`);
+
+      const response = await fetch(url, {
+        headers: {
+          'X-Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        LogHelper.warn(`[MyIOUtils] Failed to fetch SERVER_SCOPE: ${response.status}`);
+        return {};
+      }
+
+      const attributes = await response.json();
+      LogHelper.log('[MyIOUtils] SERVER_SCOPE attributes received:', attributes.length, 'items');
+
+      // Convert array of {key, value} to object
+      const result = {};
+      for (const attr of attributes) {
+        const key = attr.key;
+        let value = attr.value;
+
+        // Parse JSON values if needed
+        if (typeof value === 'string' && (value.startsWith('{') || value.startsWith('['))) {
+          try {
+            value = JSON.parse(value);
+          } catch (e) {
+            // Keep as string if parse fails
+          }
+        }
+
+        result[key] = value;
+      }
+
+      LogHelper.log('[MyIOUtils] Parsed SERVER_SCOPE result:', Object.keys(result));
+      return result;
+    } catch (error) {
+      LogHelper.error('[MyIOUtils] Error fetching SERVER_SCOPE:', error);
+      return {};
+    }
+  },
 });
 // Expose customerTB_ID via getter (reads from MyIOOrchestrator when available)
 // Check if property already exists to avoid "Cannot redefine property" error
@@ -194,6 +342,7 @@ let widgetSettings = {
   debugMode: false,
   domainsEnabled: { energy: true, water: true, temperature: true },
   excludeDevicesAtCountSubtotalCAG: [], // Entity IDs to exclude from CAG subtotal calculation
+  delayTimeConnectionInMins: 60, // RFC-0091: Default delay time for connection status
 };
 
 // Config object (populated in onInit from widgetSettings)
@@ -573,6 +722,1374 @@ Object.assign(window.MyIOUtils, {
 // End RFC-0106: Device Classification
 // ============================================================================
 
+// ============================================================================
+// RFC-0093: CENTRALIZED HEADER AND MODAL CSS + FUNCTIONS (restored from 503771a)
+// ============================================================================
+
+const HEADER_AND_MODAL_CSS = `
+/* ====== RFC-0093: CENTRALIZED HEADER STYLES ====== */
+.equip-stats-header {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  border-bottom: 3px solid #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  width: 100%;
+}
+
+.equip-stats-header .stat-item {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.equip-stats-header .stat-item.highlight {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border-radius: 8px;
+  padding: 6px 12px;
+  border: 1px solid #93c5fd;
+}
+
+.equip-stats-header .stat-label {
+  font-size: 12px;
+  color: #6b7a90;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.equip-stats-header .stat-value {
+  font-size: 16px;
+  color: #1c2743;
+  font-weight: 700;
+}
+
+.equip-stats-header .stat-item.highlight .stat-value {
+  color: #1d4ed8;
+  font-size: 20px;
+}
+
+/* ====== FILTER ACTIONS ====== */
+.equip-stats-header .filter-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.equip-stats-header .search-wrap {
+  position: relative;
+  width: 0;
+  overflow: hidden;
+  transition: width 0.3s ease;
+}
+
+.equip-stats-header .search-wrap.active {
+  width: 200px;
+}
+
+.equip-stats-header .search-wrap input {
+  width: 100%;
+  padding: 6px 12px;
+  border: 1px solid #dde7f1;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+}
+
+.equip-stats-header .search-wrap input:focus {
+  border-color: #1f6fb5;
+  box-shadow: 0 0 0 2px rgba(31, 111, 181, 0.1);
+}
+
+.equip-stats-header .icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #dde7f1;
+  background: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.equip-stats-header .icon-btn:hover {
+  background: #f8f9fa;
+  border-color: #1f6fb5;
+}
+
+.equip-stats-header .icon-btn svg {
+  fill: #1c2743;
+}
+
+/* ====== RFC-0090: CENTRALIZED FILTER MODAL STYLES ====== */
+.myio-filter-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  backdrop-filter: blur(4px);
+  left: 0 !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  animation: myioFadeIn 0.2s ease-in;
+}
+
+.myio-filter-modal.hidden {
+  display: none;
+}
+
+.myio-filter-modal-card {
+  background: #fff;
+  border-radius: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .myio-filter-modal-card {
+    border-radius: 16px;
+    width: 90%;
+    max-width: 900px;
+    height: auto;
+    max-height: 90vh;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  }
+}
+
+.myio-filter-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #dde7f1;
+}
+
+.myio-filter-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1c2743;
+}
+
+.myio-filter-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.myio-filter-modal-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 16px 20px;
+  border-top: 1px solid #dde7f1;
+}
+
+/* Filter Blocks */
+.myio-filter-modal .filter-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.myio-filter-modal .block-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1c2743;
+}
+
+.myio-filter-modal .filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.myio-filter-modal .filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #dde7f1;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #6b7a90;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.myio-filter-modal .filter-tab:hover {
+  background: #f8f9fa;
+  border-color: #1f6fb5;
+  color: #1f6fb5;
+}
+
+.myio-filter-modal .filter-tab.active {
+  background: rgba(31, 111, 181, 0.1);
+  border-color: #1f6fb5;
+  color: #1f6fb5;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(31, 111, 181, 0.15);
+}
+
+/* Buttons */
+.myio-filter-modal .btn {
+  padding: 10px 20px;
+  border: 1px solid #dde7f1;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.myio-filter-modal .btn:hover {
+  background: #f8f9fa;
+}
+
+.myio-filter-modal .btn.primary {
+  background: #1f6fb5;
+  color: #fff;
+  border-color: #1f6fb5;
+}
+
+.myio-filter-modal .btn.primary:hover {
+  background: #1a5a8f;
+  border-color: #1a5a8f;
+}
+
+.myio-filter-modal .icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #dde7f1;
+  background: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.myio-filter-modal .icon-btn:hover {
+  background: #f8f9fa;
+  border-color: #1f6fb5;
+}
+
+.myio-filter-modal .icon-btn svg {
+  fill: #1c2743;
+}
+
+@keyframes myioFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Prevent body scroll when modal is open */
+body.filter-modal-open {
+  overflow: hidden !important;
+}
+`;
+
+let headerAndModalCssInjected = false;
+
+function injectHeaderAndModalCSS() {
+  if (headerAndModalCssInjected) return;
+
+  const styleEl = document.createElement('style');
+  styleEl.id = 'myio-header-modal-css';
+  styleEl.textContent = HEADER_AND_MODAL_CSS;
+  document.head.appendChild(styleEl);
+
+  headerAndModalCssInjected = true;
+  LogHelper.log('[MAIN] RFC-0093: Centralized header and modal CSS injected');
+}
+
+/**
+ * Configuration for header labels per domain
+ */
+const HEADER_DOMAIN_CONFIG = {
+  energy: {
+    totalLabel: 'Total de Equipamentos',
+    consumptionLabel: 'Consumo Total',
+    zeroLabel: 'Sem Consumo',
+    formatValue: (val) => (typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatEnergy(val) : `${val.toFixed(2)} kWh`),
+  },
+  stores: {
+    totalLabel: 'Total de Lojas',
+    consumptionLabel: 'Consumo Total',
+    zeroLabel: 'Sem Consumo',
+    formatValue: (val) => (typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatEnergy(val) : `${val.toFixed(2)} kWh`),
+  },
+  water: {
+    totalLabel: 'Total de Hidrômetros',
+    consumptionLabel: 'Consumo Total',
+    zeroLabel: 'Sem Consumo',
+    formatValue: (val) => (typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatWaterVolumeM3(val) : `${val.toFixed(2)} m³`),
+  },
+  temperature: {
+    totalLabel: 'Total de Sensores',
+    consumptionLabel: 'Média de Temperatura',
+    zeroLabel: 'Sem Leitura',
+    formatValue: (val) => (typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.formatTemperature(val) : `${val.toFixed(1)}°C`),
+  },
+};
+
+/**
+ * RFC-0093: Build and inject a centralized header for device grids
+ * @param {Object} config - Configuration object
+ * @returns {Object} Controller object with update methods
+ */
+function buildHeaderDevicesGrid(config) {
+  injectHeaderAndModalCSS();
+
+  const {
+    container,
+    domain = 'energy',
+    idPrefix = 'devices',
+    labels = {},
+    includeSearch = true,
+    includeFilter = true,
+    onSearchClick,
+    onFilterClick,
+  } = config;
+
+  const containerEl = typeof container === 'string' ? document.querySelector(container) : container;
+  if (!containerEl) {
+    LogHelper.error('[MAIN] buildHeaderDevicesGrid: Container not found');
+    return null;
+  }
+
+  const domainConfig = HEADER_DOMAIN_CONFIG[domain] || HEADER_DOMAIN_CONFIG.energy;
+
+  const finalLabels = {
+    connectivity: labels.connectivity || 'Conectividade',
+    total: labels.total || domainConfig.totalLabel,
+    consumption: labels.consumption || domainConfig.consumptionLabel,
+    zero: labels.zero || domainConfig.zeroLabel,
+  };
+
+  const ids = {
+    header: `${idPrefix}StatsHeader`,
+    connectivity: `${idPrefix}StatsConnectivity`,
+    total: `${idPrefix}StatsTotal`,
+    consumption: `${idPrefix}StatsConsumption`,
+    zero: `${idPrefix}StatsZero`,
+    searchWrap: `${idPrefix}SearchWrap`,
+    searchInput: `${idPrefix}Search`,
+    btnSearch: `${idPrefix}BtnSearch`,
+    btnFilter: `${idPrefix}BtnFilter`,
+  };
+
+  const searchButtonHTML = includeSearch
+    ? `
+    <button class="icon-btn" id="${ids.btnSearch}" title="Buscar" aria-label="Buscar">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20l-6-6zM4 9.5C4 6.46 6.46 4 9.5 4S15 6.46 15 9.5 12.54 15 9.5 15 4 12.54 4 9.5z"/>
+      </svg>
+    </button>`
+    : '';
+
+  const filterButtonHTML = includeFilter
+    ? `
+    <button class="icon-btn" id="${ids.btnFilter}" title="Filtros" aria-label="Filtros">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M3 4h18l-7 8v6l-4 2v-8L3 4z"/>
+      </svg>
+    </button>`
+    : '';
+
+  const headerHTML = `
+    <div class="equip-stats-header" id="${ids.header}" style="display: flex !important; flex-direction: row !important;">
+      <div class="stat-item">
+        <span class="stat-label">${finalLabels.connectivity}</span>
+        <span class="stat-value" id="${ids.connectivity}">-</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">${finalLabels.total}</span>
+        <span class="stat-value" id="${ids.total}">-</span>
+      </div>
+      <div class="stat-item highlight">
+        <span class="stat-label">${finalLabels.consumption}</span>
+        <span class="stat-value" id="${ids.consumption}">-</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">${finalLabels.zero}</span>
+        <span class="stat-value" id="${ids.zero}">-</span>
+      </div>
+      <div class="filter-actions">
+        <div class="search-wrap" id="${ids.searchWrap}">
+          <input type="text" id="${ids.searchInput}" placeholder="Buscar..." autocomplete="off">
+        </div>
+        ${searchButtonHTML}
+        ${filterButtonHTML}
+      </div>
+    </div>
+  `;
+
+  containerEl.insertAdjacentHTML('afterbegin', headerHTML);
+
+  if (includeSearch && onSearchClick) {
+    const btnSearch = document.getElementById(ids.btnSearch);
+    const searchWrap = document.getElementById(ids.searchWrap);
+    if (btnSearch) {
+      btnSearch.addEventListener('click', () => {
+        if (searchWrap) {
+          searchWrap.classList.toggle('active');
+          if (searchWrap.classList.contains('active')) {
+            const input = document.getElementById(ids.searchInput);
+            if (input) input.focus();
+          }
+        }
+        onSearchClick();
+      });
+    }
+  }
+
+  if (includeFilter && onFilterClick) {
+    const btnFilter = document.getElementById(ids.btnFilter);
+    if (btnFilter) {
+      btnFilter.addEventListener('click', onFilterClick);
+    }
+  }
+
+  const controller = {
+    ids,
+    domain,
+    domainConfig,
+
+    updateStats(stats) {
+      const { online = 0, total = 0, consumption = 0, zeroCount = 0 } = stats;
+
+      const connectivityEl = document.getElementById(ids.connectivity);
+      const totalEl = document.getElementById(ids.total);
+      const consumptionEl = document.getElementById(ids.consumption);
+      const zeroEl = document.getElementById(ids.zero);
+
+      if (!connectivityEl || !totalEl || !consumptionEl || !zeroEl) {
+        LogHelper.warn(`[MAIN] buildHeaderDevicesGrid: Stats elements not found for ${idPrefix}`);
+        return;
+      }
+
+      const percentage = total > 0 ? ((online / total) * 100).toFixed(1) : '0.0';
+
+      connectivityEl.textContent = `${online}/${total} (${percentage}%)`;
+      totalEl.textContent = total.toString();
+      consumptionEl.textContent = domainConfig.formatValue(consumption);
+      zeroEl.textContent = zeroCount.toString();
+
+      LogHelper.log(`[MAIN] Header stats updated for ${idPrefix}:`, stats);
+    },
+
+    updateFromDevices(devices, options = {}) {
+      const { cache, ctxData } = options;
+
+      let online = 0;
+      let totalWithStatus = 0;
+
+      if (ctxData && Array.isArray(ctxData)) {
+        const deviceMap = new Map();
+        ctxData.forEach((data) => {
+          const entityId = data.datasource?.entityId;
+          const dataKeyName = data.dataKey?.name;
+          if (!entityId) return;
+          if (!deviceMap.has(entityId)) {
+            deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false });
+          }
+          if (dataKeyName === 'connectionStatus') {
+            const status = String(data.data?.[0]?.[1] || '').toLowerCase();
+            deviceMap.get(entityId).hasConnectionStatus = true;
+            deviceMap.get(entityId).isOnline = status === 'online';
+          }
+        });
+
+        devices.forEach((device) => {
+          const deviceData = deviceMap.get(device.entityId);
+          if (deviceData && deviceData.hasConnectionStatus) {
+            totalWithStatus++;
+            if (deviceData.isOnline) online++;
+          }
+        });
+      } else {
+        devices.forEach((device) => {
+          const status = (device.connectionStatus || device.deviceStatus || '').toLowerCase();
+          if (status === 'online' || status === 'power_on' || status === 'normal') {
+            online++;
+          }
+        });
+        totalWithStatus = devices.length;
+      }
+
+      let totalConsumption = 0;
+      let zeroCount = 0;
+
+      devices.forEach((device) => {
+        let consumption = 0;
+
+        if (cache && device.ingestionId) {
+          const cached = cache.get(device.ingestionId);
+          if (cached) {
+            consumption = Number(cached.total_value) || 0;
+          }
+        }
+
+        if (consumption === 0) {
+          consumption = Number(device.val) || Number(device.value) || Number(device.lastValue) || 0;
+        }
+
+        totalConsumption += consumption;
+        if (consumption === 0) zeroCount++;
+      });
+
+      this.updateStats({
+        online,
+        total: devices.length,
+        consumption: totalConsumption,
+        zeroCount,
+      });
+    },
+
+    getSearchInput() {
+      return document.getElementById(ids.searchInput);
+    },
+
+    toggleSearch(active) {
+      const searchWrap = document.getElementById(ids.searchWrap);
+      if (searchWrap) {
+        if (active !== undefined) {
+          searchWrap.classList.toggle('active', active);
+        } else {
+          searchWrap.classList.toggle('active');
+        }
+      }
+    },
+
+    destroy() {
+      const header = document.getElementById(ids.header);
+      if (header) header.remove();
+    },
+  };
+
+  LogHelper.log(`[MAIN] Header built for domain '${domain}' with prefix '${idPrefix}'`);
+
+  return controller;
+}
+
+/**
+ * RFC-0090: Factory function to create a filter modal with customizable filter tabs
+ * RFC-0103: Three-column layout - filters (left) | checklist (center) | sort (right)
+ * @param {Object} config - Modal configuration
+ * @returns {Object} Modal controller with open, close, and destroy methods
+ */
+function createFilterModal(config) {
+  injectHeaderAndModalCSS();
+
+  const {
+    widgetName = 'WIDGET',
+    containerId,
+    modalClass = 'filter-modal',
+    primaryColor = '#2563eb',
+    itemIdAttr = 'data-item-id',
+    filterTabs = [],
+    getItemId = (item) => item.id,
+    getItemLabel = (item) => item.label || item.name,
+    getItemValue = (item) => Number(item.value) || 0,
+    getItemSubLabel = () => '',
+    formatValue = (val) => val.toFixed(2),
+    onApply = () => {},
+    onReset = () => {},
+    onClose = () => {},
+  } = config;
+
+  let globalContainer = null;
+  let escHandler = null;
+
+  // RFC-0103: Filter tab icons
+  const filterTabIcons = {
+    online: '⚡', normal: '⚡', offline: '🔴', standby: '🔌', alert: '⚠️', failure: '🚨',
+    withConsumption: '✓', noConsumption: '○',
+    elevators: '🏙', escalators: '📶', hvac: '❄️', others: '⚙️',
+    commonArea: '💧', stores: '🏪', all: '📊'
+  };
+
+  // Generate CSS styles with customizable primary color
+  function generateStyles() {
+    return `
+      /* RFC-0090: Shared Filter Modal Styles for ${widgetName} */
+      #${containerId} .${modalClass} {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 999999;
+        backdrop-filter: blur(4px);
+        animation: filterModalFadeIn 0.2s ease-in;
+      }
+      #${containerId} .${modalClass}.hidden { display: none; }
+      #${containerId} .${modalClass}-card {
+        background: #fff;
+        border-radius: 0;
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        display: flex;
+        flex-direction: column;
+        box-shadow: none;
+        overflow: hidden;
+      }
+      @media (min-width: 768px) {
+        #${containerId} .${modalClass}-card {
+          border-radius: 16px;
+          width: 90%;
+          max-width: 1200px;
+          height: auto;
+          max-height: 90vh;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+      }
+      #${containerId} .${modalClass}-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid #DDE7F1;
+      }
+      #${containerId} .${modalClass}-header h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        color: #1C2743;
+      }
+      /* RFC-0103: Three-column layout */
+      #${containerId} .${modalClass}-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: row;
+        gap: 20px;
+      }
+      #${containerId} .filter-sidebar {
+        width: 220px;
+        min-width: 220px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        border-right: 1px solid #E6EEF5;
+        padding-right: 20px;
+      }
+      #${containerId} .filter-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        border-right: 1px solid #E6EEF5;
+        padding-right: 20px;
+      }
+      #${containerId} .filter-sortbar {
+        width: 160px;
+        min-width: 160px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      #${containerId} .${modalClass}-footer {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        padding: 16px 20px;
+        border-top: 1px solid #DDE7F1;
+      }
+      #${containerId} .filter-block {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      #${containerId} .block-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1C2743;
+      }
+      /* RFC-0103: Vertical filter tabs in sidebar */
+      #${containerId} .filter-tabs {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      #${containerId} .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      #${containerId} .filter-group-all {
+        padding-bottom: 10px;
+        border-bottom: 1px solid #E6EEF5;
+        margin-bottom: 4px;
+      }
+      #${containerId} .filter-group-all .filter-tab {
+        width: 100%;
+        justify-content: center;
+      }
+      #${containerId} .filter-group-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #6b7a90;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 2px;
+      }
+      #${containerId} .filter-group-tabs {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      /* RFC-0103: Filter tabs styled like card chips */
+      #${containerId} .filter-tab {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        gap: 4px;
+        border: none;
+        opacity: 0.5;
+      }
+      #${containerId} .filter-tab:hover { opacity: 0.8; transform: translateY(-1px); }
+      #${containerId} .filter-tab.active { opacity: 1; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+      #${containerId} .filter-tab[data-filter="all"] { background: #e2e8f0; color: #475569; }
+      #${containerId} .filter-tab[data-filter="online"],
+      #${containerId} .filter-tab[data-filter="normal"] { background: #dbeafe; color: #1d4ed8; }
+      #${containerId} .filter-tab[data-filter="offline"] { background: #e2e8f0; color: #475569; }
+      #${containerId} .filter-tab[data-filter="standby"],
+      #${containerId} .filter-tab[data-filter="withConsumption"] { background: #dcfce7; color: #15803d; }
+      #${containerId} .filter-tab[data-filter="alert"] { background: #fef3c7; color: #b45309; }
+      #${containerId} .filter-tab[data-filter="failure"] { background: #fee2e2; color: #b91c1c; }
+      #${containerId} .filter-tab[data-filter="noConsumption"] { background: #e2e8f0; color: #475569; }
+      #${containerId} .filter-tab[data-filter="elevators"] { background: #e9d5ff; color: #7c3aed; }
+      #${containerId} .filter-tab[data-filter="escalators"] { background: #fce7f3; color: #db2777; }
+      #${containerId} .filter-tab[data-filter="hvac"] { background: #cffafe; color: #0891b2; }
+      #${containerId} .filter-tab[data-filter="others"] { background: #e7e5e4; color: #57534e; }
+      #${containerId} .filter-tab[data-filter="commonArea"] { background: #e0f2fe; color: #0284c7; }
+      #${containerId} .filter-tab[data-filter="stores"] { background: #f3e8ff; color: #9333ea; }
+      #${containerId} .filter-search {
+        position: relative;
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      #${containerId} .filter-search svg {
+        position: absolute;
+        left: 10px;
+        width: 14px;
+        height: 14px;
+        fill: #6b7a90;
+        pointer-events: none;
+      }
+      #${containerId} .filter-search input {
+        width: 100%;
+        padding: 8px 32px 8px 32px;
+        border: 1px solid #DDE7F1;
+        border-radius: 8px;
+        font-size: 12px;
+        outline: none;
+        box-sizing: border-box;
+      }
+      #${containerId} .filter-search input:focus {
+        border-color: ${primaryColor};
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+      }
+      #${containerId} .filter-search .clear-x {
+        position: absolute;
+        right: 6px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: 0;
+        background: #f3f4f6;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+      }
+      #${containerId} .filter-search .clear-x:hover { background: #e5e7eb; }
+      #${containerId} .filter-search .clear-x svg { position: static; width: 12px; height: 12px; fill: #6b7280; }
+      #${containerId} .inline-actions { display: flex; gap: 8px; margin-top: 8px; }
+      #${containerId} .tiny-btn {
+        padding: 6px 12px;
+        border: 1px solid #DDE7F1;
+        border-radius: 6px;
+        background: #fff;
+        font-size: 12px;
+        font-weight: 500;
+        color: #1C2743;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      #${containerId} .tiny-btn:hover { background: #f0f4f8; border-color: ${primaryColor}; color: ${primaryColor}; }
+      #${containerId} .checklist {
+        min-height: 120px;
+        max-height: 340px;
+        overflow-y: auto;
+        border: 1px solid #DDE7F1;
+        border-radius: 8px;
+        padding: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      #${containerId} .check-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 6px;
+        border-radius: 4px;
+        transition: background 0.2s;
+      }
+      #${containerId} .check-item:hover { background: #f8f9fa; }
+      #${containerId} .check-item input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+      #${containerId} .check-item label { flex: 1; cursor: pointer; font-size: 11px; color: #1C2743; line-height: 1.3; }
+      #${containerId} .radio-grid { display: flex; flex-direction: column; gap: 4px; }
+      #${containerId} .radio-grid label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 8px;
+        border: 1px solid #DDE7F1;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 11px;
+        color: #1C2743;
+      }
+      #${containerId} .radio-grid label:hover { background: #f8f9fa; border-color: ${primaryColor}; }
+      #${containerId} .radio-grid input[type="radio"] { width: 12px; height: 12px; cursor: pointer; flex-shrink: 0; }
+      #${containerId} .radio-grid label:has(input:checked) { background: rgba(37, 99, 235, 0.08); border-color: ${primaryColor}; color: ${primaryColor}; font-weight: 600; }
+      #${containerId} .btn {
+        padding: 10px 16px;
+        border: 1px solid #DDE7F1;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      #${containerId} .btn:hover { background: #f8f9fa; }
+      #${containerId} .btn.primary { background: ${primaryColor}; color: #fff; border-color: ${primaryColor}; }
+      #${containerId} .btn.primary:hover { filter: brightness(0.9); }
+      #${containerId} .icon-btn {
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: background 0.2s;
+      }
+      #${containerId} .icon-btn:hover { background: #f0f0f0; }
+      #${containerId} .icon-btn svg { width: 18px; height: 18px; fill: #1C2743; }
+      @keyframes filterModalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+      body.filter-modal-open { overflow: hidden !important; }
+    `;
+  }
+
+  // RFC-0103: Generate grouped filter tabs HTML
+  function generateFilterTabsHTML(counts) {
+    const filterGroups = [
+      { id: 'connectivity', label: 'Conectividade', filters: ['online', 'offline'] },
+      { id: 'status', label: 'Status', filters: ['normal', 'standby', 'alert', 'failure'] },
+      { id: 'consumption', label: 'Consumo', filters: ['withConsumption', 'noConsumption'] },
+      { id: 'type', label: 'Tipo', filters: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
+    ];
+
+    const allTab = filterTabs.find((t) => t.id === 'all');
+    let html = '';
+    if (allTab) {
+      const icon = filterTabIcons['all'] || '';
+      html += `
+        <div class="filter-group filter-group-all">
+          <button class="filter-tab active" data-filter="all">
+            ${icon} ${allTab.label} (<span id="countAll">${counts['all'] || 0}</span>)
+          </button>
+        </div>
+      `;
+    }
+
+    filterGroups.forEach((group) => {
+      const groupTabs = filterTabs.filter((t) => group.filters.includes(t.id));
+      if (groupTabs.length === 0) return;
+      html += `
+        <div class="filter-group">
+          <span class="filter-group-label">${group.label}</span>
+          <div class="filter-group-tabs">
+            ${groupTabs.map((tab) => {
+              const icon = filterTabIcons[tab.id] || '';
+              return `
+              <button class="filter-tab active" data-filter="${tab.id}">
+                ${icon} ${tab.label} (<span id="count${tab.id.charAt(0).toUpperCase() + tab.id.slice(1)}">${counts[tab.id] || 0}</span>)
+              </button>
+            `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    });
+    return html;
+  }
+
+  // RFC-0103: Three-column layout
+  function generateModalHTML() {
+    return `
+      <div id="filterModal" class="${modalClass} hidden">
+        <div class="${modalClass}-card">
+          <div class="${modalClass}-header">
+            <h3>Filtrar e Ordenar</h3>
+            <button class="icon-btn" id="closeFilter">
+              <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+          </div>
+          <div class="${modalClass}-body">
+            <!-- LEFT COLUMN: Filters -->
+            <div class="filter-sidebar">
+              <div class="filter-tabs" id="filterTabsContainer"></div>
+            </div>
+            <!-- CENTER COLUMN: Search + Checklist -->
+            <div class="filter-content">
+              <div class="filter-block">
+                <div class="filter-search">
+                  <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                  <input type="text" id="filterDeviceSearch" placeholder="Buscar...">
+                  <button class="clear-x" id="filterDeviceClear">
+                    <svg width="14" height="14" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="#6b7a90"/></svg>
+                  </button>
+                </div>
+                <div class="inline-actions" style="margin-bottom: 8px;">
+                  <button class="tiny-btn" id="selectAllItems">Selecionar Todos</button>
+                  <button class="tiny-btn" id="clearAllItems">Limpar Seleção</button>
+                </div>
+                <div class="checklist" id="deviceChecklist"></div>
+              </div>
+            </div>
+            <!-- RIGHT COLUMN: Sort Options -->
+            <div class="filter-sortbar">
+              <div class="filter-block">
+                <span class="block-label">Ordenar por</span>
+                <div class="radio-grid">
+                  <label><input type="radio" name="sortMode" value="cons_desc" checked> Maior consumo</label>
+                  <label><input type="radio" name="sortMode" value="cons_asc"> Menor consumo</label>
+                  <label><input type="radio" name="sortMode" value="alpha_asc"> Nome A → Z</label>
+                  <label><input type="radio" name="sortMode" value="alpha_desc"> Nome Z → A</label>
+                  <label><input type="radio" name="sortMode" value="status_asc"> Status A → Z</label>
+                  <label><input type="radio" name="sortMode" value="status_desc"> Status Z → A</label>
+                  <label><input type="radio" name="sortMode" value="shopping_asc"> Shopping A → Z</label>
+                  <label><input type="radio" name="sortMode" value="shopping_desc"> Shopping Z → A</label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="${modalClass}-footer">
+            <button class="btn" id="resetFilters">Fechar</button>
+            <button class="btn primary" id="applyFilters">Aplicar</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function calculateCounts(items) {
+    const counts = {};
+    filterTabs.forEach((tab) => {
+      counts[tab.id] = items.filter(tab.filter).length;
+    });
+    return counts;
+  }
+
+  function populateChecklist(modal, items, selectedIds) {
+    const checklist = modal.querySelector('#deviceChecklist');
+    if (!checklist) return;
+    checklist.innerHTML = '';
+
+    // Use global filter if available
+    const globalSelection = window.custumersSelected || [];
+    const isFiltered = globalSelection.length > 0;
+    let itemsProcessing = items.slice();
+    if (isFiltered) {
+      const allowedShoppingIds = globalSelection.map((c) => c.value);
+      itemsProcessing = itemsProcessing.filter((item) => item.customerId && allowedShoppingIds.includes(item.customerId));
+    }
+
+    const sortedItems = itemsProcessing.sort((a, b) =>
+      (getItemLabel(a) || '').localeCompare(getItemLabel(b) || '', 'pt-BR', { sensitivity: 'base' })
+    );
+
+    if (sortedItems.length === 0) {
+      checklist.innerHTML = '<div style="padding:10px; color:#666; font-size:12px; text-align:center;">Nenhum dispositivo encontrado.</div>';
+      return;
+    }
+
+    sortedItems.forEach((item) => {
+      const itemId = getItemId(item);
+      const isChecked = !selectedIds || selectedIds.has(String(itemId));
+      const subLabel = getItemSubLabel(item);
+      const value = getItemValue(item);
+      const formattedValue = formatValue(value);
+
+      const div = document.createElement('div');
+      div.className = 'check-item';
+      div.innerHTML = `
+        <input type="checkbox" id="check-${itemId}" ${isChecked ? 'checked' : ''} ${itemIdAttr}="${itemId}">
+        <label for="check-${itemId}" style="flex: 1;">${getItemLabel(item)}</label>
+        ${subLabel ? `<span style="color: #64748b; font-size: 11px; margin-right: 8px;">${subLabel}</span>` : ''}
+        <span style="color: ${value > 0 ? '#16a34a' : '#94a3b8'}; font-size: 11px; font-weight: 600; min-width: 70px; text-align: right;">${formattedValue}</span>
+      `;
+      checklist.appendChild(div);
+    });
+  }
+
+  function setupHandlers(modal, items, _state) {
+    const closeBtn = modal.querySelector('#closeFilter');
+    if (closeBtn) closeBtn.addEventListener('click', close);
+
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+    const applyBtn = modal.querySelector('#applyFilters');
+    if (applyBtn) {
+      applyBtn.addEventListener('click', () => {
+        const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']:checked`);
+        const selectedSet = new Set();
+        checkboxes.forEach((cb) => {
+          const itemId = cb.getAttribute(itemIdAttr);
+          if (itemId) selectedSet.add(itemId);
+        });
+        const sortRadio = modal.querySelector('input[name="sortMode"]:checked');
+        const sortMode = sortRadio ? sortRadio.value : 'cons_desc';
+        LogHelper.log(`[${widgetName}] Filters applied:`, { selectedCount: selectedSet.size, totalItems: items.length, sortMode });
+        onApply({ selectedIds: selectedSet.size === items.length ? null : selectedSet, sortMode });
+        close();
+      });
+    }
+
+    const resetBtn = modal.querySelector('#resetFilters');
+    if (resetBtn) resetBtn.addEventListener('click', close);
+
+    const selectAllBtn = modal.querySelector('#selectAllItems');
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', () => {
+        modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`).forEach((cb) => cb.checked = true);
+      });
+    }
+
+    const clearAllBtn = modal.querySelector('#clearAllItems');
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener('click', () => {
+        modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`).forEach((cb) => cb.checked = false);
+      });
+    }
+
+    const searchInput = modal.querySelector('#filterDeviceSearch');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        const query = (e.target.value || '').trim().toLowerCase();
+        modal.querySelectorAll('#deviceChecklist .check-item').forEach((item) => {
+          const label = item.querySelector('label');
+          const text = (label?.textContent || '').toLowerCase();
+          item.style.display = text.includes(query) ? 'flex' : 'none';
+        });
+      });
+    }
+
+    const clearBtn = modal.querySelector('#filterDeviceClear');
+    if (clearBtn && searchInput) {
+      clearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        modal.querySelectorAll('#deviceChecklist .check-item').forEach((item) => item.style.display = 'flex');
+        searchInput.focus();
+      });
+    }
+
+    escHandler = (e) => { if (e.key === 'Escape' && !modal.classList.contains('hidden')) close(); };
+    document.addEventListener('keydown', escHandler);
+  }
+
+  function bindFilterTabHandlers(modal, items) {
+    const filterTabsEl = modal.querySelectorAll('.filter-tab');
+    const filterGroups = [
+      { name: 'connectivity', ids: ['online', 'offline'] },
+      { name: 'status', ids: ['normal', 'standby', 'alert', 'failure'] },
+      { name: 'consumption', ids: ['withConsumption', 'noConsumption'] },
+      { name: 'type', ids: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
+    ];
+
+    const getFilterFn = (filterId) => {
+      const tabConfig = filterTabs.find((t) => t.id === filterId);
+      return tabConfig ? tabConfig.filter : () => false;
+    };
+
+    const applyActiveFilters = () => {
+      const itemPassesGroup = (item, groupActiveFilters) => {
+        if (groupActiveFilters.length === 0) return true;
+        return groupActiveFilters.some((filterId) => getFilterFn(filterId)(item));
+      };
+
+      let filteredItems = [...items];
+      for (let i = 0; i < filterGroups.length; i++) {
+        const group = filterGroups[i];
+        const activeInGroup = Array.from(filterTabsEl)
+          .filter((t) => group.ids.includes(t.getAttribute('data-filter')) && t.classList.contains('active'))
+          .map((t) => t.getAttribute('data-filter'));
+        if (activeInGroup.length > 0) {
+          filteredItems = filteredItems.filter((item) => itemPassesGroup(item, activeInGroup));
+        }
+        for (let j = i + 1; j < filterGroups.length; j++) {
+          const nextGroup = filterGroups[j];
+          nextGroup.ids.forEach((filterId) => {
+            const tab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === filterId);
+            if (!tab) return;
+            const filterFn = getFilterFn(filterId);
+            const hasMatchingItems = filteredItems.some((item) => filterFn(item));
+            if (!hasMatchingItems && tab.classList.contains('active')) tab.classList.remove('active');
+          });
+        }
+      }
+
+      const activeFilters = Array.from(filterTabsEl)
+        .filter((t) => t.classList.contains('active') && t.getAttribute('data-filter') !== 'all')
+        .map((t) => t.getAttribute('data-filter'));
+
+      const activeByGroup = {};
+      filterGroups.forEach((group) => {
+        const activeInGroup = activeFilters.filter((id) => group.ids.includes(id));
+        if (activeInGroup.length > 0) activeByGroup[group.name] = activeInGroup;
+      });
+
+      const checkboxes = modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`);
+      checkboxes.forEach((cb) => {
+        const itemId = cb.getAttribute(itemIdAttr);
+        const item = items.find((i) => String(getItemId(i)) === String(itemId));
+        if (!item) return;
+        if (activeFilters.length === 0) {
+          cb.checked = true;
+        } else {
+          cb.checked = Object.entries(activeByGroup).every(([_groupName, groupFilterIds]) => {
+            return groupFilterIds.some((filterId) => getFilterFn(filterId)(item));
+          });
+        }
+      });
+    };
+
+    const statusToConnectivity = { normal: 'online', standby: 'online', alert: 'online', failure: 'online', offline: 'offline' };
+
+    const getFilteredItems = () => {
+      let filteredItems = [...items];
+      filterGroups.forEach((group) => {
+        const activeInGroup = Array.from(filterTabsEl)
+          .filter((t) => group.ids.includes(t.getAttribute('data-filter')) && t.classList.contains('active'))
+          .map((t) => t.getAttribute('data-filter'));
+        if (activeInGroup.length > 0) {
+          filteredItems = filteredItems.filter((item) => activeInGroup.some((filterId) => getFilterFn(filterId)(item)));
+        }
+      });
+      return filteredItems;
+    };
+
+    const updateFilterCounts = (filteredItems) => {
+      filterTabs.forEach((tabConfig) => {
+        if (tabConfig.id === 'all') {
+          const countEl = modal.querySelector('#countAll');
+          if (countEl) countEl.textContent = filteredItems.length;
+        } else {
+          const count = filteredItems.filter(tabConfig.filter).length;
+          const countEl = modal.querySelector(`#count${tabConfig.id.charAt(0).toUpperCase() + tabConfig.id.slice(1)}`);
+          if (countEl) countEl.textContent = count;
+        }
+      });
+    };
+
+    const syncTodosButton = () => {
+      const allTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === 'all');
+      const otherTabs = Array.from(filterTabsEl).filter((t) => t.getAttribute('data-filter') !== 'all');
+      const allOthersActive = otherTabs.every((t) => t.classList.contains('active'));
+      if (allTab) allTab.classList.toggle('active', allOthersActive);
+    };
+
+    filterTabsEl.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const filterType = tab.getAttribute('data-filter');
+        const otherTabs = Array.from(filterTabsEl).filter((t) => t.getAttribute('data-filter') !== 'all');
+        const allTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === 'all');
+
+        if (filterType === 'all') {
+          const allOthersActive = otherTabs.every((t) => t.classList.contains('active'));
+          if (allOthersActive) {
+            otherTabs.forEach((t) => t.classList.remove('active'));
+            if (allTab) allTab.classList.remove('active');
+            modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`).forEach((cb) => cb.checked = false);
+          } else {
+            otherTabs.forEach((t) => t.classList.add('active'));
+            if (allTab) allTab.classList.add('active');
+            modal.querySelectorAll(`#deviceChecklist input[type='checkbox']`).forEach((cb) => cb.checked = true);
+          }
+          return;
+        }
+
+        tab.classList.toggle('active');
+        const isNowActive = tab.classList.contains('active');
+
+        if (isNowActive) {
+          const impliedConnectivity = statusToConnectivity[filterType];
+          if (impliedConnectivity) {
+            const connectivityTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === impliedConnectivity);
+            if (connectivityTab && !connectivityTab.classList.contains('active')) connectivityTab.classList.add('active');
+          }
+          const filteredItems = getFilteredItems();
+          const typeIds = ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'];
+          typeIds.forEach((typeId) => {
+            const typeTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === typeId);
+            if (!typeTab) return;
+            const typeFilterFn = getFilterFn(typeId);
+            const hasItems = filteredItems.some((item) => typeFilterFn(item));
+            if (hasItems && !typeTab.classList.contains('active')) typeTab.classList.add('active');
+          });
+          const consumptionIds = ['withConsumption', 'noConsumption'];
+          consumptionIds.forEach((consId) => {
+            const consTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === consId);
+            if (!consTab) return;
+            const consFilterFn = getFilterFn(consId);
+            const hasItems = filteredItems.some((item) => consFilterFn(item));
+            if (hasItems && !consTab.classList.contains('active')) consTab.classList.add('active');
+          });
+        }
+
+        applyActiveFilters();
+        const filteredItems = getFilteredItems();
+        updateFilterCounts(filteredItems);
+        syncTodosButton();
+      });
+    });
+  }
+
+  function open(items, state = {}) {
+    if (!items || items.length === 0) {
+      LogHelper.warn(`[${widgetName}] No items to display in filter modal`);
+      window.alert('Nenhum item encontrado. Por favor, aguarde o carregamento dos dados.');
+      return;
+    }
+    LogHelper.log(`[${widgetName}] Opening filter modal with ${items.length} items`);
+
+    if (!globalContainer) {
+      globalContainer = document.getElementById(containerId);
+      if (!globalContainer) {
+        globalContainer = document.createElement('div');
+        globalContainer.id = containerId;
+        globalContainer.innerHTML = `<style>${generateStyles()}</style>${generateModalHTML()}`;
+        document.body.appendChild(globalContainer);
+        const modal = globalContainer.querySelector('#filterModal');
+        if (modal) setupHandlers(modal, items, state);
+        LogHelper.log(`[${widgetName}] Modal created and attached to document.body`);
+      }
+    }
+
+    const modal = globalContainer.querySelector('#filterModal');
+    if (!modal) return;
+
+    const counts = calculateCounts(items);
+    const tabsContainer = modal.querySelector('#filterTabsContainer');
+    if (tabsContainer) {
+      tabsContainer.innerHTML = generateFilterTabsHTML(counts);
+      bindFilterTabHandlers(modal, items);
+    }
+
+    populateChecklist(modal, items, state.selectedIds);
+
+    const sortRadio = modal.querySelector(`input[name="sortMode"][value="${state.sortMode || 'cons_desc'}"]`);
+    if (sortRadio) sortRadio.checked = true;
+
+    modal.classList.remove('hidden');
+    document.body.classList.add('filter-modal-open');
+  }
+
+  function close() {
+    if (globalContainer) {
+      const modal = globalContainer.querySelector('#filterModal');
+      if (modal) modal.classList.add('hidden');
+    }
+    document.body.classList.remove('filter-modal-open');
+    if (typeof onClose === 'function') onClose();
+  }
+
+  function destroy() {
+    if (escHandler) {
+      document.removeEventListener('keydown', escHandler);
+      escHandler = null;
+    }
+    if (globalContainer) {
+      globalContainer.remove();
+      globalContainer = null;
+    }
+    document.body.classList.remove('filter-modal-open');
+    LogHelper.log(`[${widgetName}] Filter modal destroyed`);
+  }
+
+  return { open, close, destroy };
+}
+
+// Expose buildHeaderDevicesGrid and createFilterModal to MyIOUtils
+Object.assign(window.MyIOUtils, {
+  buildHeaderDevicesGrid,
+  createFilterModal,
+  HEADER_DOMAIN_CONFIG,
+});
+
+// ============================================================================
+// End RFC-0093: CENTRALIZED HEADER AND MODAL
+// ============================================================================
+
 (function () {
   // Utilitários DOM
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -761,10 +2278,13 @@ Object.assign(window.MyIOUtils, {
     };
     widgetSettings.excludeDevicesAtCountSubtotalCAG =
       self.ctx.settings?.excludeDevicesAtCountSubtotalCAG ?? [];
+    // RFC-0091: Read delay time for connection status from settings
+    widgetSettings.delayTimeConnectionInMins = self.ctx.settings?.delayTimeConnectionInMins ?? 60;
 
     LogHelper.log('[Orchestrator] 📋 Widget settings captured:', {
       customerTB_ID: widgetSettings.customerTB_ID,
       debugMode: widgetSettings.debugMode,
+      delayTimeConnectionInMins: widgetSettings.delayTimeConnectionInMins,
       excludeDevicesAtCountSubtotalCAG: widgetSettings.excludeDevicesAtCountSubtotalCAG,
     });
 
@@ -795,6 +2315,105 @@ Object.assign(window.MyIOUtils, {
         // Data access methods (will be populated later)
         getCurrentPeriod: () => null,
         getCredentials: () => null,
+        // RFC-0091: getCache - for compatibility with EQUIPMENTS (stub version)
+        getCache: () => {
+          const energyData = window.MyIOOrchestratorData?.energy;
+          if (energyData?.items?.length > 0) {
+            const cache = new Map();
+            energyData.items.forEach((item) => {
+              // Add by tbId for ThingsBoard entity lookup
+              if (item.tbId) cache.set(item.tbId, item);
+              // Also add by ingestionId for API/enrichment lookup
+              if (item.ingestionId && item.ingestionId !== item.tbId) cache.set(item.ingestionId, item);
+              // Fallback to id if neither exists
+              if (!item.tbId && !item.ingestionId && item.id) cache.set(item.id, item);
+            });
+            return cache;
+          }
+          return new Map();
+        },
+        getCacheStats: () => ({ size: 0, hits: 0, misses: 0 }),
+
+        // RFC-0102: Device classification state (stub version)
+        isDevicesClassified: () => {
+          // Check if energy data exists in MyIOOrchestratorData
+          const energyData = window.MyIOOrchestratorData?.energy;
+          return !!(energyData?.items?.length > 0);
+        },
+
+        // RFC-0102: Get equipment devices (not stores) - stub version
+        getEquipmentDevices: () => {
+          const energyData = window.MyIOOrchestratorData?.energy;
+          if (!energyData?.items?.length) return [];
+          // Filter out stores - use effectiveDeviceType (which is deviceProfile || deviceType)
+          // Stores have effectiveDeviceType = '3F_MEDIDOR'
+          return energyData.items.filter((item) => {
+            const edt = String(item.effectiveDeviceType || item.deviceType || '').toUpperCase();
+            return edt !== '3F_MEDIDOR';
+          });
+        },
+
+        // RFC-0102: Extract and emit devices metadata
+        extractEnergyDevicesMetadata: () => {
+          LogHelper.log(
+            '[Orchestrator] extractEnergyDevicesMetadata called (stub - checking for existing data)'
+          );
+          const energyData = window.MyIOOrchestratorData?.energy;
+          if (energyData?.items?.length > 0) {
+            // Data already exists, emit classification event
+            window.dispatchEvent(
+              new CustomEvent('myio:devices-classified', {
+                detail: { timestamp: Date.now(), count: energyData.items.length },
+              })
+            );
+          }
+        },
+
+        // RFC-0102: Consumption aggregation functions for HEADER widget
+        getTotalConsumption: () => {
+          const energyData = window.MyIOOrchestratorData?.energy;
+          if (!energyData?.items?.length) return 0;
+          return energyData.items.reduce((sum, item) => sum + (item.value || 0), 0);
+        },
+
+        getUnfilteredTotalConsumption: () => {
+          const energyData = window.MyIOOrchestratorData?.energy;
+          if (!energyData?.items?.length) return 0;
+          return energyData.items.reduce((sum, item) => sum + (item.value || 0), 0);
+        },
+
+        getTotalWaterConsumption: () => {
+          const waterData = window.MyIOOrchestratorData?.water;
+          if (!waterData?.items?.length) return 0;
+          return waterData.items.reduce((sum, item) => sum + (item.value || 0), 0);
+        },
+
+        isFilterActive: () => {
+          // Check if shopping filter is active
+          return window.STATE?.selectedShoppingIds?.length > 0;
+        },
+
+        getEnergyCache: () => {
+          const energyData = window.MyIOOrchestratorData?.energy;
+          if (!energyData?.items?.length) return new Map();
+          const cache = new Map();
+          energyData.items.forEach((item) => {
+            if (item.tbId) cache.set(item.tbId, item);
+            if (item.ingestionId) cache.set(item.ingestionId, item);
+          });
+          return cache;
+        },
+
+        getWaterCache: () => {
+          const waterData = window.MyIOOrchestratorData?.water;
+          if (!waterData?.items?.length) return new Map();
+          const cache = new Map();
+          waterData.items.forEach((item) => {
+            if (item.tbId) cache.set(item.tbId, item);
+            if (item.ingestionId) cache.set(item.ingestionId, item);
+          });
+          return cache;
+        },
 
         // Credential management (will be populated later)
         setCredentials: async (_customerId, _clientId, _clientSecret) => {
@@ -2118,6 +3737,25 @@ function populateStateTemperature(items) {
       detail: { domain: 'temperature', periodKey: 'realtime' },
     })
   );
+
+  // RFC-0102: Emit temperature-data-ready event for HEADER widget
+  window.dispatchEvent(
+    new CustomEvent('myio:temperature-data-ready', {
+      detail: {
+        globalAvg: avgTemp,
+        filteredAvg: avgTemp,
+        isFiltered: false,
+        inRangeCount: normal.length,
+        outOfRangeCount: critical.length + warning.length,
+        unknownCount: offline.length,
+        shoppingsInRange: [],
+        shoppingsOutOfRange: [],
+        shoppingsUnknownRange: [],
+        limits: { min: minTemp, max: maxTemp },
+      },
+    })
+  );
+  LogHelper.log(`[Orchestrator] 🌡️ Emitted myio:temperature-data-ready for HEADER`);
 }
 
 /**
@@ -2836,11 +4474,12 @@ const MyIOOrchestrator = (() => {
   /**
    * RFC-0106: Datasource alias whitelist by domain
    * Each domain has a specific datasource that contains device metadata
+   * RFC-0091: Updated for MYIO-SIM context (different aliases than shopping)
    */
   const ALLOWED_ALIASES_BY_DOMAIN = {
-    energy: 'all3fs', // Energy domain: All3Fs datasource
-    water: 'allhidrosdevices', // Water domain: AllHidrosDevices datasource
-    temperature: 'alltempdevices', // Temperature domain: AllTempDevices datasource
+    energy: 'equipamentos e lojas', // MYIO-SIM: Equipamentos e Lojas datasource
+    water: 'hidrometrosareacomum', // MYIO-SIM: HidrometrosAreaComum datasource (lowercase for matching)
+    temperature: 'alltemperaturedevices', // MYIO-SIM: AllTemperatureDevices datasource
   };
 
   /**
@@ -2956,6 +4595,8 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'slaveid') meta.slaveId = val;
       else if (keyName === 'centralid') meta.centralId = val;
       else if (keyName === 'centralname') meta.centralName = val;
+      else if (keyName === 'ownername') meta.ownerName = val; // RFC-0102: customerName from ThingsBoard
+      else if (keyName === 'assetname') meta.assetName = val; // RFC-0102: assetName fallback
       else if (keyName === 'connectionstatus') meta.connectionStatus = val;
       else if (keyName === 'lastactivitytime') meta.lastActivityTime = val;
       else if (keyName === 'lastconnecttime') meta.lastConnectTime = val;
@@ -2992,7 +4633,7 @@ const MyIOOrchestrator = (() => {
     if (metadataByEntityId.size > 0) {
       const deviceTypes = [];
       for (const [entityId, meta] of metadataByEntityId.entries()) {
-        deviceTypes.push(`${meta.label || entityId.substring(0,8)}:${meta.deviceType || 'N/A'}`);
+        deviceTypes.push(`${meta.label || entityId.substring(0, 8)}:${meta.deviceType || 'N/A'}`);
       }
       LogHelper.log(`[Orchestrator] 📋 RFC-0107 Device types in metadata: ${deviceTypes.join(', ')}`);
     }
@@ -3255,9 +4896,9 @@ const MyIOOrchestrator = (() => {
               tbId: entityId,
               ingestionId: meta.ingestionId || null,
               identifier: meta.identifier || '',
-              label: meta.label || meta.identifier || 'Caixa d\'água',
-              entityLabel: meta.label || meta.identifier || 'Caixa d\'água',
-              name: meta.label || meta.identifier || 'Caixa d\'água',
+              label: meta.label || meta.identifier || "Caixa d'água",
+              entityLabel: meta.label || meta.identifier || "Caixa d'água",
+              name: meta.label || meta.identifier || "Caixa d'água",
               value: waterLevel, // water_level in liters
               waterLevel: waterLevel,
               waterPercentage: waterPercentage, // 0-1 range
@@ -3282,7 +4923,9 @@ const MyIOOrchestrator = (() => {
         }
 
         if (tankItems.length > 0) {
-          LogHelper.log(`[Orchestrator] 🚰 Found ${tankItems.length} tank devices (TANK/CAIXA_DAGUA) in water domain`);
+          LogHelper.log(
+            `[Orchestrator] 🚰 Found ${tankItems.length} tank devices (TANK/CAIXA_DAGUA) in water domain`
+          );
         }
       }
 
@@ -3298,7 +4941,9 @@ const MyIOOrchestrator = (() => {
 
       // If we only have tank devices and no devices with ingestionId, return tank items directly
       if (metadataMap.size === 0 && tankItems.length > 0) {
-        LogHelper.log(`[Orchestrator] 🚰 Only tank devices found - skipping API call, returning ${tankItems.length} items`);
+        LogHelper.log(
+          `[Orchestrator] 🚰 Only tank devices found - skipping API call, returning ${tankItems.length} items`
+        );
         const tankPeriodKey = `tank:${domain}:${period.startISO}:${period.endISO}:${period.granularity}`;
         populateState(domain, tankItems, tankPeriodKey);
         return tankItems;
@@ -3483,10 +5128,11 @@ const MyIOOrchestrator = (() => {
           slaveId: meta.slaveId || row.slaveId || null,
           centralId: meta.centralId || row.centralId || null,
           centralName: meta.centralName || null,
+          ownerName: meta.ownerName || null, // RFC-0102: customerName from ThingsBoard ctx.data
           gatewayId: row.gatewayId || null,
           customerId: row.customerId || null,
           assetId: row.assetId || null,
-          assetName: row.assetName || null,
+          assetName: meta.assetName || row.assetName || null, // RFC-0102: assetName from ctx.data or API
           lastActivityTime: meta.lastActivityTime || null,
           lastConnectTime: meta.lastConnectTime || null,
           lastDisconnectTime: meta.lastDisconnectTime || null,
@@ -3708,6 +5354,55 @@ const MyIOOrchestrator = (() => {
     const eventDetail = { domain, periodKey: pKey, items };
     window.dispatchEvent(new CustomEvent('myio:telemetry:provide-data', { detail: eventDetail }));
 
+    // RFC-0091: Emit domain-specific event for EQUIPMENTS compatibility
+    // EQUIPMENTS widget listens for myio:energy-data-ready with cache
+    if (domain === 'energy') {
+      // Create a Map cache from items for EQUIPMENTS compatibility
+      const energyCache = new Map();
+      items.forEach((item) => {
+        if (item.tbId || item.id) {
+          energyCache.set(item.tbId || item.id, item);
+        }
+      });
+      window.dispatchEvent(
+        new CustomEvent('myio:energy-data-ready', {
+          detail: { cache: energyCache, items, periodKey: pKey },
+        })
+      );
+      LogHelper.log(
+        `[Orchestrator] 📡 Emitted myio:energy-data-ready for EQUIPMENTS (${energyCache.size} items)`
+      );
+
+      // RFC-0102: Emit devices-classified event for EQUIPMENTS RFC-0102 compatibility
+      window.dispatchEvent(
+        new CustomEvent('myio:devices-classified', {
+          detail: { timestamp: Date.now(), count: items.length },
+        })
+      );
+      LogHelper.log(`[Orchestrator] 📢 Emitted myio:devices-classified (${items.length} items)`);
+    }
+
+    // RFC-0102: Emit water-data-ready event for HEADER and WATER widgets
+    if (domain === 'water') {
+      const waterCache = new Map();
+      items.forEach((item) => {
+        if (item.tbId || item.id) {
+          waterCache.set(item.tbId || item.id, item);
+        }
+        if (item.ingestionId) {
+          waterCache.set(item.ingestionId, item);
+        }
+      });
+      window.dispatchEvent(
+        new CustomEvent('myio:water-data-ready', {
+          detail: { cache: waterCache, items, periodKey: pKey },
+        })
+      );
+      LogHelper.log(
+        `[Orchestrator] 💧 Emitted myio:water-data-ready for HEADER (${waterCache.size} items)`
+      );
+    }
+
     try {
       lastProvide.set(domain, { periodKey: pKey, at: Date.now() });
       hideGlobalBusy(domain);
@@ -3825,7 +5520,21 @@ const MyIOOrchestrator = (() => {
   // Event listeners
   window.addEventListener('myio:update-date', (ev) => {
     LogHelper.log('[Orchestrator] 📅 Received myio:update-date event', ev.detail);
-    currentPeriod = ev.detail.period;
+
+    // RFC-0091 FIX: Handle both period object and startDate/endDate format from MENU
+    if (ev.detail.period) {
+      currentPeriod = ev.detail.period;
+    } else if (ev.detail.startDate && ev.detail.endDate) {
+      // Construct period from startDate/endDate (MENU format)
+      currentPeriod = {
+        startISO: ev.detail.startDate,
+        endISO: ev.detail.endDate,
+        granularity: 'HOUR', // Default granularity
+        startMs: ev.detail.startMs || new Date(ev.detail.startDate).getTime(),
+        endMs: ev.detail.endMs || new Date(ev.detail.endDate).getTime(),
+      };
+      LogHelper.log('[Orchestrator] 📅 Constructed period from startDate/endDate:', currentPeriod);
+    }
 
     // Cross-context emission removed - HEADER already handles this
     // No need to re-emit here as it creates infinite loop
@@ -4038,6 +5747,69 @@ const MyIOOrchestrator = (() => {
         CLIENT_ID,
         CLIENT_SECRET,
       };
+    },
+
+    // RFC-0091: getCache - returns energy data as Map for EQUIPMENTS compatibility
+    getCache: () => {
+      // Check if we have energy data in MyIOOrchestratorData
+      const energyData = window.MyIOOrchestratorData?.energy;
+      if (energyData && energyData.items && energyData.items.length > 0) {
+        const cache = new Map();
+        energyData.items.forEach((item) => {
+          // Add by tbId for ThingsBoard entity lookup
+          if (item.tbId) {
+            cache.set(item.tbId, item);
+          }
+          // Also add by ingestionId for API/enrichment lookup
+          if (item.ingestionId && item.ingestionId !== item.tbId) {
+            cache.set(item.ingestionId, item);
+          }
+          // Fallback to id if neither exists
+          if (!item.tbId && !item.ingestionId && item.id) {
+            cache.set(item.id, item);
+          }
+        });
+        return cache;
+      }
+      return new Map();
+    },
+
+    // RFC-0091: Stub for getCacheStats - for compatibility with EQUIPMENTS
+    getCacheStats: () => {
+      return { size: 0, hits: 0, misses: 0 };
+    },
+
+    // RFC-0102: Check if energy devices have been classified
+    isDevicesClassified: () => {
+      const energyData = window.MyIOOrchestratorData?.energy;
+      return !!(energyData?.items?.length > 0);
+    },
+
+    // RFC-0102: Get equipment devices (not stores) for EQUIPMENTS widget
+    getEquipmentDevices: () => {
+      const energyData = window.MyIOOrchestratorData?.energy;
+      if (!energyData?.items?.length) return [];
+      // Filter out stores - use effectiveDeviceType (which is deviceProfile || deviceType)
+      // Stores have effectiveDeviceType = '3F_MEDIDOR'
+      return energyData.items.filter((item) => {
+        const edt = String(item.effectiveDeviceType || item.deviceType || '').toUpperCase();
+        return edt !== '3F_MEDIDOR';
+      });
+    },
+
+    // RFC-0102: Extract devices metadata and emit classification event
+    extractEnergyDevicesMetadata: () => {
+      LogHelper.log('[Orchestrator] extractEnergyDevicesMetadata called');
+      const energyData = window.MyIOOrchestratorData?.energy;
+      if (energyData?.items?.length > 0) {
+        // Data already exists, emit classification event
+        window.dispatchEvent(
+          new CustomEvent('myio:devices-classified', {
+            detail: { timestamp: Date.now(), count: energyData.items.length },
+          })
+        );
+        LogHelper.log(`[Orchestrator] 📢 Emitted myio:devices-classified (${energyData.items.length} items)`);
+      }
     },
 
     destroy: () => {
