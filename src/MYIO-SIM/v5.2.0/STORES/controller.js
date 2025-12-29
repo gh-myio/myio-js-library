@@ -1760,19 +1760,26 @@ async function hydrateAndRender() {
     } else if (orchestrator && typeof orchestrator.getCache === 'function') {
       // Fallback to old method if getLojasDevices not available
       const energyCache = orchestrator.getCache(WIDGET_DOMAIN);
-      const lojasIds = orchestrator.getLojasIngestionIds?.() || new Set();
-      const hasLojasFilter = lojasIds && lojasIds.size > 0;
-      LogHelper.log(`[STORES] RFC-0102 Fallback: using energyCache with lojas filter (${lojasIds.size} lojas)`);
+      LogHelper.log(`[STORES] RFC-0102 Fallback: using energyCache with isStoreDevice filter`);
+
+      // RFC-0106: Filter for lojas only - BOTH deviceType AND deviceProfile must be '3F_MEDIDOR'
+      const isStoreDeviceFallback = window.MyIOUtils?.isStoreDevice || ((item) => {
+        const deviceProfile = String(item?.deviceProfile || '').toUpperCase();
+        const deviceType = String(item?.deviceType || '').toUpperCase();
+        return deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
+      });
 
       if (energyCache && energyCache.size > 0) {
         const mappedItems = [];
         energyCache.forEach((item, ingestionId) => {
-          if (hasLojasFilter && !lojasIds.has(ingestionId)) return;
+          // Filter for lojas only - BOTH deviceType AND deviceProfile must be '3F_MEDIDOR'
+          if (!isStoreDeviceFallback(item)) return;
 
-          const name = item.name || item.label || ingestionId;
+          // Use label (human-readable) first, fallback to name
+          const displayLabel = item.label || item.name || ingestionId;
           let identifier = item.identifier || item.assetName || null;
-          if (!identifier && name) {
-            const match = name.match(/^3F\s+\w+\.\s*(.+)$/i);
+          if (!identifier && item.name) {
+            const match = item.name.match(/^3F\s+\w+\.\s*(.+)$/i);
             identifier = match ? match[1] : null;
           }
 
@@ -1781,7 +1788,7 @@ async function hydrateAndRender() {
             tbId: item.tbId || ingestionId,
             ingestionId: ingestionId,
             identifier: identifier,
-            label: name,
+            label: displayLabel,
             value: Number(item.total_value || item.value || 0),
             perc: 0,
             deviceType: item.deviceType || '3F_MEDIDOR',
@@ -2137,27 +2144,32 @@ self.onInit = async function () {
     LogHelper.log(`[TELEMETRY] 🔄 Processing data from orchestrator...`);
     LogHelper.log(`[TELEMETRY] Received ${items.length} items from orchestrator for domain ${domain}`);
 
-    // RFC-0102: Get lojas IDs to filter - STORES should only show lojas (3F_MEDIDOR)
-    const orchestrator = window.MyIOOrchestrator || window.parent?.MyIOOrchestrator;
-    const lojasIds = orchestrator?.getLojasIngestionIds?.() || new Set();
-    const hasLojasFilter = lojasIds && lojasIds.size > 0;
-    LogHelper.log(`[TELEMETRY] Lojas filter: ${hasLojasFilter ? lojasIds.size + ' lojas registered' : 'NO lojas registered - showing all devices'}`);
+    // RFC-0106: Filter for lojas only - BOTH deviceType AND deviceProfile must be '3F_MEDIDOR'
+    // Use isStoreDevice from MyIOUtils or inline check
+    const isStoreDevice = window.MyIOUtils?.isStoreDevice || ((item) => {
+      const deviceProfile = String(item?.deviceProfile || '').toUpperCase();
+      const deviceType = String(item?.deviceType || '').toUpperCase();
+      return deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
+    });
 
     // RFC-0102: Filter and map items from orchestrator
     const mappedItems = [];
     items.forEach((item) => {
       const ingestionId = item.ingestionId || item.id;
 
-      // Filter for lojas only (if lojasIds is populated)
-      if (hasLojasFilter && !lojasIds.has(ingestionId)) {
+      // Filter for lojas only - BOTH deviceType AND deviceProfile must be '3F_MEDIDOR'
+      if (!isStoreDevice(item)) {
+        LogHelper.log(`[TELEMETRY] Skipping non-loja device: ${item.label || item.name} (deviceType=${item.deviceType}, deviceProfile=${item.deviceProfile})`);
         return; // Skip non-lojas devices
       }
 
-      // RFC-0102: Use assetName as identifier (API provides it), fallback to extract from name
-      const name = item.name || item.label || ingestionId;
+      // RFC-0102: Use label (human-readable name) as display, fallback to name
+      // label is typically "Millenium Store", name is typically "312P_L3"
+      const displayLabel = item.label || item.name || ingestionId;
       let identifier = item.identifier || item.assetName || null;
-      if (!identifier && name) {
-        const match = name.match(/^3F\s+\w+\.\s*(.+)$/i);
+      if (!identifier && item.name) {
+        // Extract store name from device name like "3F SCMAL.Nike" -> "Nike"
+        const match = item.name.match(/^3F\s+\w+\.\s*(.+)$/i);
         identifier = match ? match[1] : null;
       }
 
@@ -2165,8 +2177,8 @@ self.onInit = async function () {
         id: item.tbId || ingestionId,
         tbId: item.tbId || ingestionId,
         ingestionId: ingestionId,
-        identifier: identifier, // Use assetName or extracted, NOT name
-        label: name, // API name is the display label
+        identifier: identifier, // Use assetName or extracted from name
+        label: displayLabel, // Use label (human-readable) first, fallback to name
         value: Number(item.value || item.total_value || 0),
         perc: 0,
         deviceType: item.deviceType || '3F_MEDIDOR',

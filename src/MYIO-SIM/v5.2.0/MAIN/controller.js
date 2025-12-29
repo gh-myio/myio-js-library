@@ -413,23 +413,26 @@ const EQUIPMENT_EXCLUSION_PATTERN = new RegExp(
 
 /**
  * RFC-0106: Check if device is a store (loja)
- * Centralized logic: deviceProfile === '3F_MEDIDOR'
+ * A device is considered a store when BOTH deviceType AND deviceProfile equal '3F_MEDIDOR'
  *
- * @param {Object|string} itemOrDeviceProfile - Device item with deviceProfile property, or deviceProfile string directly
+ * @param {Object|string} itemOrDeviceProfile - Device item with deviceProfile/deviceType properties, or deviceProfile string directly
  * @returns {boolean} True if device is a store
  */
 function isStoreDevice(itemOrDeviceProfile) {
-  let deviceProfile;
-
   if (typeof itemOrDeviceProfile === 'string') {
-    deviceProfile = itemOrDeviceProfile;
-  } else if (itemOrDeviceProfile && typeof itemOrDeviceProfile === 'object') {
-    deviceProfile = itemOrDeviceProfile.deviceProfile;
-  } else {
+    // If only a string is passed, assume it's deviceProfile and return true if it matches
+    return String(itemOrDeviceProfile || '').toUpperCase() === '3F_MEDIDOR';
+  }
+
+  if (!itemOrDeviceProfile || typeof itemOrDeviceProfile !== 'object') {
     return false;
   }
 
-  return String(deviceProfile || '').toUpperCase() === '3F_MEDIDOR';
+  const deviceProfile = String(itemOrDeviceProfile.deviceProfile || '').toUpperCase();
+  const deviceType = String(itemOrDeviceProfile.deviceType || '').toUpperCase();
+
+  // A device is a store only if BOTH deviceType AND deviceProfile are '3F_MEDIDOR'
+  return deviceProfile === '3F_MEDIDOR' && deviceType === '3F_MEDIDOR';
 }
 
 /**
@@ -3745,7 +3748,15 @@ function populateStateTemperature(items) {
 
   // RFC-0102: Group temperature items by shopping for tooltip display
   const shoppingTempMap = new Map();
-  const onlineItems = items.filter((i) => i.deviceStatus !== 'offline' && i.connectionStatus !== 'offline');
+  // Filter to online devices only - check connectionStatus (deviceStatus may be undefined)
+  const onlineItems = items.filter((i) => {
+    const connStatus = (i.connectionStatus || '').toLowerCase();
+    const devStatus = (i.deviceStatus || '').toLowerCase();
+    return connStatus !== 'offline' && devStatus !== 'offline' && devStatus !== 'no_info';
+  });
+
+  LogHelper.log(`[Orchestrator] 🌡️ Temperature grouping: ${items.length} total items, ${onlineItems.length} online items`);
+
   onlineItems.forEach((item) => {
     const shoppingName = item.ownerName || item.customerName || 'Desconhecido';
     if (!shoppingTempMap.has(shoppingName)) {
@@ -3756,6 +3767,8 @@ function populateStateTemperature(items) {
       shoppingTempMap.get(shoppingName).temps.push(temp);
     }
   });
+
+  LogHelper.log(`[Orchestrator] 🌡️ Temperature shoppings found: ${shoppingTempMap.size}`);
 
   // Calculate averages and categorize shoppings
   const shoppingsInRange = [];
@@ -4869,6 +4882,9 @@ const MyIOOrchestrator = (() => {
             lastConnectTime: meta.lastConnectTime || null,
             lastDisconnectTime: meta.lastDisconnectTime || null,
             log_annotations: meta.log_annotations || null,
+            // RFC-0108: Include ownerName for shopping grouping in tooltips
+            ownerName: meta.ownerName || null,
+            customerName: meta.ownerName || null,
           });
         }
 
@@ -5444,7 +5460,7 @@ const MyIOOrchestrator = (() => {
           const customer = customerId ? customerList.find?.((c) => c.value === customerId) : null;
           shoppingMap.set(mapKey, {
             id: customerId || mapKey,
-            name: customer?.text || ownerName || item.customerName || 'Shopping',
+            name: customer?.name || ownerName || item.customerName || 'Shopping',
             equipamentos: 0,
             lojas: 0,
           });
@@ -5479,33 +5495,75 @@ const MyIOOrchestrator = (() => {
       // This ensures HEADER gets water data without waiting for water tab to be selected
       try {
         const waterAliases = ['hidrometrosareacomum', 'todos hidrometros lojas'];
-        const waterItems = [];
+        const waterDevicesMap = new Map(); // entityId -> { ownerName, consumption, pulses, aliasName }
+        const ownerNameMap = new Map(); // entityId -> ownerName (from ownername dataKey)
         const ctxData = self?.ctx?.data || [];
 
-        // Extract water devices from ctx.data using water aliases
+        LogHelper.log(`[Orchestrator] 💧 Checking ctx.data for water devices (${ctxData.length} datasources)`);
+
+        // RFC-0108: First pass - collect ownerName for each entity from ownername dataKey
         ctxData.forEach((ds) => {
-          const aliasName = (ds.datasource?.aliasName || '').toLowerCase();
-          if (waterAliases.some((wa) => aliasName.includes(wa))) {
-            const entityId = ds.datasource?.entityId;
-            if (!entityId) return;
+          const entityId = ds.datasource?.entityId;
+          if (!entityId) return;
 
-            // Get consumption value from latest data point
-            if (ds.dataKey?.name === 'consumption' && ds.data?.length > 0) {
-              const latestData = ds.data[ds.data.length - 1];
-              const value = Number(latestData?.[1]) || 0;
-              const ownerName = ds.datasource?.name || ds.datasource?.entityName || 'Desconhecido';
-              const isStoreAlias = aliasName.includes('loja');
+          const dataKeyName = ds.dataKey?.name?.toLowerCase();
+          const hasData = ds.data?.length > 0;
 
-              waterItems.push({
-                tbId: entityId,
-                ownerName,
-                value,
-                _aliasName: aliasName,
-                _isStore: isStoreAlias,
-              });
+          if (dataKeyName === 'ownername' && hasData) {
+            const latestData = ds.data[ds.data.length - 1];
+            const ownerName = latestData?.[1];
+            if (ownerName && typeof ownerName === 'string') {
+              ownerNameMap.set(entityId, ownerName);
             }
           }
         });
+
+        LogHelper.log(`[Orchestrator] 💧 Found ${ownerNameMap.size} entities with ownerName`);
+
+        // Second pass: collect all water devices and their values
+        ctxData.forEach((ds) => {
+          const aliasName = (ds.datasource?.aliasName || '').toLowerCase();
+          if (!waterAliases.some((wa) => aliasName.includes(wa))) return;
+
+          const entityId = ds.datasource?.entityId;
+          if (!entityId) return;
+
+          const dataKeyName = ds.dataKey?.name?.toLowerCase();
+          const hasData = ds.data?.length > 0;
+
+          if (!waterDevicesMap.has(entityId)) {
+            waterDevicesMap.set(entityId, {
+              tbId: entityId,
+              // RFC-0108: Use ownerName from dataKey instead of device name for proper shopping grouping
+              ownerName: ownerNameMap.get(entityId) || 'Desconhecido',
+              consumption: 0,
+              pulses: 0,
+              _aliasName: aliasName,
+              _isStore: aliasName.includes('loja'),
+            });
+          }
+
+          const device = waterDevicesMap.get(entityId);
+
+          // Get value from latest data point for consumption or pulses
+          if (hasData && (dataKeyName === 'consumption' || dataKeyName === 'pulses')) {
+            const latestData = ds.data[ds.data.length - 1];
+            const value = Number(latestData?.[1]) || 0;
+            if (dataKeyName === 'consumption') {
+              device.consumption = value;
+            } else if (dataKeyName === 'pulses') {
+              device.pulses = value;
+            }
+          }
+        });
+
+        // Convert map to array and calculate water value (prefer consumption, fallback to pulses)
+        const waterItems = Array.from(waterDevicesMap.values()).map((d) => ({
+          ...d,
+          value: d.consumption > 0 ? d.consumption : d.pulses,
+        })).filter((d) => d.value > 0);
+
+        LogHelper.log(`[Orchestrator] 💧 Found ${waterDevicesMap.size} water devices, ${waterItems.length} with values`);
 
         if (waterItems.length > 0) {
           const waterTotal = waterItems.reduce((sum, item) => sum + (item.value || 0), 0);
@@ -5588,7 +5646,7 @@ const MyIOOrchestrator = (() => {
           const customer = customerId ? waterCustomerList.find?.((c) => c.value === customerId) : null;
           waterShoppingMap.set(mapKey, {
             id: customerId || mapKey,
-            name: customer?.text || ownerName || item.customerName || 'Shopping',
+            name: customer?.name || ownerName || item.customerName || 'Shopping',
             areaComum: 0,
             lojas: 0,
           });
@@ -5822,7 +5880,7 @@ const MyIOOrchestrator = (() => {
           const customer = customerId ? customerList.find((c) => c.value === customerId) : null;
           shoppingMap.set(mapKey, {
             id: customerId || mapKey,
-            name: customer?.text || ownerName || item.customerName || 'Shopping',
+            name: customer?.name || ownerName || item.customerName || 'Shopping',
             equipamentos: 0,
             lojas: 0,
           });
@@ -5856,8 +5914,17 @@ const MyIOOrchestrator = (() => {
     const waterData = window.MyIOOrchestratorData?.water;
     if (waterData?.items?.length) {
       const allItems = waterData.items;
+
+      // Build set of selected shopping names from selection array for matching
+      const selectedWaterShoppingNames = new Set(selection.map((s) => s.name?.toLowerCase()).filter(Boolean));
+
+      // Filter by shopping - match ownerName or customerId against selection
       const filteredItems = isFiltered
-        ? allItems.filter((item) => item.customerId && selectedIds.includes(item.customerId))
+        ? allItems.filter((item) => {
+            const ownerName = (item.ownerName || item.customerName || '').toLowerCase();
+            const customerId = item.customerId || item.ingestionId || '';
+            return selectedWaterShoppingNames.has(ownerName) || selectedIds.includes(customerId);
+          })
         : allItems;
 
       const unfilteredTotal = allItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
@@ -5881,7 +5948,7 @@ const MyIOOrchestrator = (() => {
           const customer = customerId ? selection.find((c) => c.value === customerId) : null;
           waterShoppingMap.set(mapKey, {
             id: customerId || mapKey,
-            name: customer?.text || ownerName || item.customerName || 'Shopping',
+            name: customer?.name || ownerName || item.customerName || 'Shopping',
             areaComum: 0,
             lojas: 0,
           });
@@ -5917,13 +5984,21 @@ const MyIOOrchestrator = (() => {
       const allItems = tempState.items;
       const limits = tempState.summary?.limits || { min: 20, max: 25 };
 
-      // Filter by shopping (using customerId which maps to ingestionId parent)
+      // Build set of selected shopping names from selection array for matching
+      // RFC-0108: selection contains { value: ingestionId, name: 'Shopping Name' } (not 'text')
+      const selectedShoppingNames = new Set(selection.map((s) => s.name?.toLowerCase()).filter(Boolean));
+
+      // Filter by shopping - match ownerName against selected shopping names
       const filteredItems = isFiltered
         ? allItems.filter((item) => {
-            const customerId = item.customerId || item.ownerName;
-            return customerId && selectedIds.includes(customerId);
+            const ownerName = (item.ownerName || item.customerName || '').toLowerCase();
+            // Also try matching by ingestionId in case item has shopping's ingestionId
+            const ingestionId = item.ingestionId || item.customerId || '';
+            return selectedShoppingNames.has(ownerName) || selectedIds.includes(ingestionId);
           })
         : allItems;
+
+      LogHelper.log(`[Orchestrator] 🌡️ Temperature filter: ${allItems.length} total → ${filteredItems.length} filtered (${selectedShoppingNames.size} shopping names)`);
 
       // Calculate averages (only online devices)
       const calcAvg = (items) => {
