@@ -74,7 +74,9 @@ export interface Device {
   name: string;
   type?: string;
   label?: string;
+  createdTime?: number;
   deviceProfileId?: TbEntityId;
+  deviceProfileName?: string;
   customerId?: TbEntityId;
   tenantId?: TbEntityId;
 }

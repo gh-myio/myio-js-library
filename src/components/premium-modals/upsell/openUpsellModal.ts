@@ -177,7 +177,8 @@ const i18n = {
 // Modal State
 // ============================================================================
 
-type SortField = 'name' | 'createdTime' | 'parentName';
+type CustomerSortField = 'name' | 'createdTime' | 'parentName';
+type DeviceSortField = 'name' | 'label' | 'createdTime' | 'type' | 'deviceProfileName';
 type SortOrder = 'asc' | 'desc';
 
 interface ModalState {
@@ -197,7 +198,9 @@ interface ModalState {
   selectedDevice: Device | null;
   deviceAttributes: DeviceAttributes;
   deviceRelation: DeviceRelation | null;
-  customerSort: { field: SortField; order: SortOrder };
+  customerSort: { field: CustomerSortField; order: SortOrder };
+  deviceSort: { field: DeviceSortField; order: SortOrder };
+  deviceFilters: { types: string[]; profiles: string[] };
 }
 
 // Helper: format timestamp to locale date string
@@ -214,7 +217,7 @@ function formatDate(timestamp: number | undefined, locale: string): string {
 // Helper: sort customers by field
 function sortCustomers(
   customers: Customer[],
-  field: SortField,
+  field: CustomerSortField,
   order: SortOrder,
   nameMap?: Map<string, string>
 ): Customer[] {
@@ -230,6 +233,29 @@ function sortCustomers(
       const parentA = a.parentCustomerId?.id ? (nameMap.get(a.parentCustomerId.id) || '') : '';
       const parentB = b.parentCustomerId?.id ? (nameMap.get(b.parentCustomerId.id) || '') : '';
       compare = parentA.toLowerCase().localeCompare(parentB.toLowerCase());
+    }
+    return order === 'asc' ? compare : -compare;
+  });
+}
+
+// Helper: sort devices by field
+function sortDevices(
+  devices: Device[],
+  field: DeviceSortField,
+  order: SortOrder
+): Device[] {
+  return [...devices].sort((a, b) => {
+    let compare = 0;
+    if (field === 'name') {
+      compare = (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+    } else if (field === 'label') {
+      compare = (a.label || '').toLowerCase().localeCompare((b.label || '').toLowerCase());
+    } else if (field === 'createdTime') {
+      compare = (a.createdTime || 0) - (b.createdTime || 0);
+    } else if (field === 'type') {
+      compare = (a.type || '').toLowerCase().localeCompare((b.type || '').toLowerCase());
+    } else if (field === 'deviceProfileName') {
+      compare = (a.deviceProfileName || '').toLowerCase().localeCompare((b.deviceProfileName || '').toLowerCase());
     }
     return order === 'asc' ? compare : -compare;
   });
@@ -265,6 +291,8 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     deviceAttributes: {},
     deviceRelation: null,
     customerSort: { field: 'name', order: 'asc' },
+    deviceSort: { field: 'name', order: 'asc' },
+    deviceFilters: { types: [], profiles: [] },
   };
 
   // Load saved theme
@@ -313,7 +341,7 @@ function renderModal(
   error?: Error
 ): void {
   const colors = getThemeColors(state.theme);
-  const contentMaxWidth = state.isMaximized ? '100%' : '800px';
+  const contentMaxWidth = state.isMaximized ? '100%' : '1040px';
   const contentMaxHeight = state.isMaximized ? '100vh' : '90vh';
   const contentBorderRadius = state.isMaximized ? '0' : '10px';
 
@@ -619,70 +647,158 @@ function renderStep1(state: ModalState, modalId: string, colors: ThemeColors, t:
 // ============================================================================
 
 function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t: typeof i18n.pt): string {
-  const types = [...new Set(state.devices.map(d => d.type).filter(Boolean))];
+  const types = [...new Set(state.devices.map(d => d.type).filter(Boolean))].sort() as string[];
+  const profiles = [...new Set(state.devices.map(d => d.deviceProfileName).filter(Boolean))].sort() as string[];
+
+  const { field: sortField, order: sortOrder } = state.deviceSort;
+  const { types: filterTypes, profiles: filterProfiles } = state.deviceFilters;
+
+  // Filter devices
+  let filteredDevices = state.devices.filter(d => {
+    if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
+    if (filterProfiles.length > 0 && !filterProfiles.includes(d.deviceProfileName || '')) return false;
+    return true;
+  });
+
+  // Sort devices
+  const sortedDevices = sortDevices(filteredDevices, sortField, sortOrder);
+  const sortIcon = sortOrder === 'asc' ? '↑' : '↓';
+
+  const btnStyle = (isActive: boolean) => `
+    background: ${isActive ? MYIO_PURPLE : colors.cardBg};
+    color: ${isActive ? 'white' : colors.text};
+    border: 1px solid ${isActive ? MYIO_PURPLE : colors.border};
+    padding: 4px 8px; border-radius: 4px; cursor: pointer;
+    font-size: 10px; font-weight: 500;
+  `;
+
+  const checkboxStyle = `
+    width: 14px; height: 14px; margin-right: 6px; cursor: pointer;
+    accent-color: ${MYIO_PURPLE};
+  `;
 
   return `
     <div style="
-      padding: 16px; background: ${colors.cardBg}; border-radius: 8px;
-      border: 1px solid ${colors.border}; margin-bottom: 16px;
+      padding: 12px; background: ${colors.cardBg}; border-radius: 8px;
+      border: 1px solid ${colors.border}; margin-bottom: 12px;
     ">
-      <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;">
-        <div style="flex: 1; min-width: 150px;">
-          <label style="color: ${colors.textMuted}; font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px;">
-            Tipo
-          </label>
-          <select id="${modalId}-device-type-filter" style="
-            width: 100%; padding: 8px 12px; border: 1px solid ${colors.border};
-            border-radius: 6px; font-size: 14px; color: ${colors.text};
-            background: ${colors.inputBg}; cursor: pointer;
-          ">
-            <option value="">${t.allTypes}</option>
-            ${types.map(type => `<option value="${type}">${type}</option>`).join('')}
-          </select>
-        </div>
-        <div style="flex: 2; min-width: 200px;">
-          <label style="color: ${colors.textMuted}; font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px;">
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+        <div style="flex: 2; min-width: 180px;">
+          <label style="color: ${colors.textMuted}; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
             🔍 Buscar
           </label>
           <input type="text" id="${modalId}-device-search" placeholder="${t.searchDevices}" style="
-            width: 100%; padding: 8px 12px; border: 1px solid ${colors.border};
-            border-radius: 6px; font-size: 14px; color: ${colors.text};
+            width: 100%; padding: 7px 10px; border: 1px solid ${colors.border};
+            border-radius: 6px; font-size: 13px; color: ${colors.text};
             background: ${colors.inputBg}; box-sizing: border-box;
           "/>
         </div>
+        <div style="min-width: 140px;">
+          <label style="color: ${colors.textMuted}; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
+            Type ${filterTypes.length > 0 ? `(${filterTypes.length})` : ''}
+          </label>
+          <select id="${modalId}-device-type-filter" multiple size="1" style="
+            width: 100%; padding: 7px 8px; border: 1px solid ${filterTypes.length > 0 ? MYIO_PURPLE : colors.border};
+            border-radius: 6px; font-size: 12px; color: ${colors.text};
+            background: ${colors.inputBg}; cursor: pointer; height: 32px;
+          ">
+            ${types.map(type => `<option value="${type}" ${filterTypes.includes(type) ? 'selected' : ''}>${type}</option>`).join('')}
+          </select>
+        </div>
+        <div style="min-width: 140px;">
+          <label style="color: ${colors.textMuted}; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
+            Profile ${filterProfiles.length > 0 ? `(${filterProfiles.length})` : ''}
+          </label>
+          <select id="${modalId}-device-profile-filter" multiple size="1" style="
+            width: 100%; padding: 7px 8px; border: 1px solid ${filterProfiles.length > 0 ? MYIO_PURPLE : colors.border};
+            border-radius: 6px; font-size: 12px; color: ${colors.text};
+            background: ${colors.inputBg}; cursor: pointer; height: 32px;
+          ">
+            ${profiles.map(p => `<option value="${p}" ${filterProfiles.includes(p) ? 'selected' : ''}>${p}</option>`).join('')}
+          </select>
+        </div>
+        ${(filterTypes.length > 0 || filterProfiles.length > 0) ? `
+          <div style="display: flex; align-items: flex-end;">
+            <button id="${modalId}-clear-filters" style="
+              background: ${colors.danger}; color: white; border: none;
+              padding: 7px 12px; border-radius: 6px; cursor: pointer;
+              font-size: 11px; font-weight: 500;
+            ">✕ Limpar</button>
+          </div>
+        ` : ''}
       </div>
-      <div style="font-size: 12px; color: ${colors.textMuted};">
-        📍 Cliente: <strong>${state.selectedCustomer?.name}</strong>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div style="font-size: 11px; color: ${colors.textMuted};">
+          📍 Cliente: <strong>${state.selectedCustomer?.name || state.selectedCustomer?.title}</strong>
+          <span style="margin-left: 8px; color: ${colors.primary};">(${sortedDevices.length}/${state.devices.length} devices)</span>
+        </div>
+        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+          <button id="${modalId}-sort-device-name" style="${btnStyle(sortField === 'name')}">
+            Nome ${sortField === 'name' ? sortIcon : ''}
+          </button>
+          <button id="${modalId}-sort-device-label" style="${btnStyle(sortField === 'label')}">
+            Label ${sortField === 'label' ? sortIcon : ''}
+          </button>
+          <button id="${modalId}-sort-device-date" style="${btnStyle(sortField === 'createdTime')}">
+            Data ${sortField === 'createdTime' ? sortIcon : ''}
+          </button>
+          <button id="${modalId}-sort-device-type" style="${btnStyle(sortField === 'type')}">
+            Type ${sortField === 'type' ? sortIcon : ''}
+          </button>
+          <button id="${modalId}-sort-device-profile" style="${btnStyle(sortField === 'deviceProfileName')}">
+            Profile ${sortField === 'deviceProfileName' ? sortIcon : ''}
+          </button>
+        </div>
       </div>
     </div>
 
     <div style="
-      max-height: 320px; overflow-y: auto; border: 1px solid ${colors.border};
+      max-height: 340px; overflow-y: auto; border: 1px solid ${colors.border};
       border-radius: 8px; background: ${colors.surface};
     " id="${modalId}-device-list">
-      ${state.devices.length === 0
+      ${sortedDevices.length === 0
         ? `<div style="padding: 40px; text-align: center; color: ${colors.textMuted};">${t.noResults}</div>`
-        : state.devices.map(device => {
+        : sortedDevices.map(device => {
             const deviceId = getEntityId(device);
             const isSelected = getEntityId(state.selectedDevice) === deviceId;
+            const createdDate = formatDate(device.createdTime, state.locale);
             return `
           <div class="myio-list-item ${isSelected ? 'selected' : ''}"
                data-device-id="${deviceId}" style="
-            display: flex; align-items: center; gap: 12px;
-            padding: 12px 16px; border-bottom: 1px solid ${colors.border};
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 12px; border-bottom: 1px solid ${colors.border};
             cursor: pointer; transition: background 0.15s;
           ">
-            <div style="font-size: 24px;">${getDeviceIcon(device.type)}</div>
-            <div style="flex: 1;">
-              <div style="font-weight: 500; color: ${colors.text}; font-size: 14px;">${device.name}</div>
-              <div style="font-size: 11px; color: ${colors.textMuted};">ID: ${deviceId}</div>
+            <div style="font-size: 20px;">${getDeviceIcon(device.type)}</div>
+            <div style="flex: 1; min-width: 100px;">
+              <div style="font-weight: 500; color: ${colors.text}; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;">${device.name}</div>
+              <div style="font-size: 10px; color: ${colors.textMuted};">ID: ${deviceId.slice(0, 8)}...</div>
             </div>
-            <div style="
-              padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;
-              background: ${device.type?.includes('HIDRO') ? '#dbeafe' : '#fef3c7'};
-              color: ${device.type?.includes('HIDRO') ? '#1e40af' : '#92400e'};
-            ">${device.type || 'UNKNOWN'}</div>
-            ${isSelected ? `<div style="color: ${colors.success}; font-size: 18px;">✓</div>` : ''}
+            <div style="min-width: 80px;">
+              <div style="font-size: 9px; color: ${colors.textMuted};">Label</div>
+              <div style="font-size: 11px; color: ${device.label ? colors.text : colors.textMuted}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">
+                ${device.label || 'N/A'}
+              </div>
+            </div>
+            <div style="min-width: 70px; text-align: center;">
+              <div style="font-size: 9px; color: ${colors.textMuted};">Criado</div>
+              <div style="font-size: 10px; color: ${colors.text};">${createdDate || 'N/A'}</div>
+            </div>
+            <div style="min-width: 70px; text-align: center;">
+              <div style="font-size: 9px; color: ${colors.textMuted};">Type</div>
+              <div style="font-size: 10px; padding: 2px 4px; border-radius: 3px;
+                background: ${device.type?.includes('HIDRO') ? '#dbeafe' : '#fef3c7'};
+                color: ${device.type?.includes('HIDRO') ? '#1e40af' : '#92400e'};">
+                ${device.type || 'N/A'}
+              </div>
+            </div>
+            <div style="min-width: 80px; text-align: center;">
+              <div style="font-size: 9px; color: ${colors.textMuted};">Profile</div>
+              <div style="font-size: 10px; color: ${device.deviceProfileName ? colors.text : colors.textMuted}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">
+                ${device.deviceProfileName || 'N/A'}
+              </div>
+            </div>
+            ${isSelected ? `<div style="color: ${colors.success}; font-size: 14px;">✓</div>` : ''}
           </div>
         `;}).join('')
       }
@@ -1065,18 +1181,51 @@ function setupEventListeners(
     });
   });
 
-  // Device search
+  // Device search - just filter visually without re-rendering
   document.getElementById(`${modalId}-device-search`)?.addEventListener('input', (e) => {
     const search = (e.target as HTMLInputElement).value.toLowerCase();
-    const typeFilter = (document.getElementById(`${modalId}-device-type-filter`) as HTMLSelectElement)?.value;
-    filterDeviceList(container, state.devices, search, typeFilter, state.selectedDevice);
+    filterDeviceListVisual(container, state.devices, search, state.deviceFilters, state.deviceSort);
   });
 
-  // Device type filter
+  // Device type filter (multiselect)
   document.getElementById(`${modalId}-device-type-filter`)?.addEventListener('change', (e) => {
-    const typeFilter = (e.target as HTMLSelectElement).value;
-    const search = (document.getElementById(`${modalId}-device-search`) as HTMLInputElement)?.value.toLowerCase() || '';
-    filterDeviceList(container, state.devices, search, typeFilter, state.selectedDevice);
+    const select = e.target as HTMLSelectElement;
+    state.deviceFilters.types = Array.from(select.selectedOptions).map(o => o.value);
+    renderModal(container, state, modalId, t);
+  });
+
+  // Device profile filter (multiselect)
+  document.getElementById(`${modalId}-device-profile-filter`)?.addEventListener('change', (e) => {
+    const select = e.target as HTMLSelectElement;
+    state.deviceFilters.profiles = Array.from(select.selectedOptions).map(o => o.value);
+    renderModal(container, state, modalId, t);
+  });
+
+  // Clear filters button
+  document.getElementById(`${modalId}-clear-filters`)?.addEventListener('click', () => {
+    state.deviceFilters = { types: [], profiles: [] };
+    renderModal(container, state, modalId, t);
+  });
+
+  // Device sort buttons
+  const deviceSortFields: DeviceSortField[] = ['name', 'label', 'createdTime', 'type', 'deviceProfileName'];
+  const deviceSortBtnIds: Record<DeviceSortField, string> = {
+    name: `${modalId}-sort-device-name`,
+    label: `${modalId}-sort-device-label`,
+    createdTime: `${modalId}-sort-device-date`,
+    type: `${modalId}-sort-device-type`,
+    deviceProfileName: `${modalId}-sort-device-profile`,
+  };
+
+  deviceSortFields.forEach(field => {
+    document.getElementById(deviceSortBtnIds[field])?.addEventListener('click', () => {
+      if (state.deviceSort.field === field) {
+        state.deviceSort.order = state.deviceSort.order === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.deviceSort = { field, order: field === 'createdTime' ? 'desc' : 'asc' };
+      }
+      renderModal(container, state, modalId, t);
+    });
   });
 
   // Suggestion buttons
@@ -1124,23 +1273,39 @@ function filterCustomerList(
   });
 }
 
-function filterDeviceList(
+function filterDeviceListVisual(
   container: HTMLElement,
   devices: Device[],
   search: string,
-  typeFilter: string,
-  selected: Device | null
+  filters: { types: string[]; profiles: string[] },
+  sort: { field: DeviceSortField; order: SortOrder }
 ): void {
   const listContainer = container.querySelector('[id$="-device-list"]');
   if (!listContainer) return;
 
+  // Filter and sort devices
+  let filtered = devices.filter(d => {
+    if (filters.types.length > 0 && !filters.types.includes(d.type || '')) return false;
+    if (filters.profiles.length > 0 && !filters.profiles.includes(d.deviceProfileName || '')) return false;
+    return true;
+  });
+
+  filtered = sortDevices(filtered, sort.field, sort.order);
+
   const items = listContainer.querySelectorAll('[data-device-id]');
   items.forEach(item => {
     const id = item.getAttribute('data-device-id');
-    const device = devices.find(d => d.id?.id === id);
-    const matchesSearch = device?.name.toLowerCase().includes(search);
-    const matchesType = !typeFilter || device?.type === typeFilter;
-    (item as HTMLElement).style.display = matchesSearch && matchesType ? 'flex' : 'none';
+    const device = filtered.find(d => d.id?.id === id);
+    if (!device) {
+      (item as HTMLElement).style.display = 'none';
+      return;
+    }
+    const matchesSearch = !search ||
+      device.name?.toLowerCase().includes(search) ||
+      device.label?.toLowerCase().includes(search) ||
+      device.type?.toLowerCase().includes(search) ||
+      device.deviceProfileName?.toLowerCase().includes(search);
+    (item as HTMLElement).style.display = matchesSearch ? 'flex' : 'none';
   });
 }
 
