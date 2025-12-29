@@ -1305,20 +1305,23 @@ window.addEventListener('myio:energy-summary-ready', (ev) => {
 
 // RFC-0093: Also listen for energy-data-ready as initial fallback (shows loading/partial data)
 window.addEventListener('myio:energy-data-ready', (ev) => {
+  LogHelper.log('[HEADER] ⚡ heard myio:energy-data-ready:', ev.detail?.cache?.size || 0, 'items');
   // Only use this if we haven't received a summary yet
   // The summary will have the correct total after EQUIPMENTS identifies devices
   if (ev.detail && ev.detail.cache) {
-    // Show a loading indicator or partial data
-    const energyKpi = document.getElementById('energy-kpi');
-    if (energyKpi && energyKpi.innerText === '0,00 kWh') {
-      // Only update if still showing zero (summary not received yet)
-      updateEnergyCard(ev.detail.cache);
+    // RFC-0103: Skip if summary already received (it has the correct total)
+    if (window._headerEnergyData?.customerTotal !== undefined) {
+      LogHelper.log('[HEADER] ⚡ Skipping energy-data-ready - summary already received');
+      return;
     }
+    // Show initial data (summary not received yet)
+    LogHelper.log('[HEADER] ⚡ Calling updateEnergyCard (no summary yet)...');
+    updateEnergyCard(ev.detail.cache);
   }
 });
 
 window.addEventListener('myio:water-data-ready', (ev) => {
-  //LogHelper.log('[HEADER] ✅ Dados de ÁGUA recebidos do Orchestrator:', ev.detail);
+  LogHelper.log('[HEADER] 💧 heard myio:water-data-ready:', ev.detail?.cache?.size || 0, 'items');
 
   // RFC: Skip update if water-summary-ready already set comparative display
   // The water-summary-ready event has priority as it includes filtered/unfiltered comparison

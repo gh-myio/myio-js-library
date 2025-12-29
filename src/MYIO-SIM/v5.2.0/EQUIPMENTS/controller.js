@@ -1552,6 +1552,24 @@ function getDeviceStatus(device) {
   return (device.deviceStatus || '').toLowerCase();
 }
 
+/**
+ * RFC-0103: Check if device is offline based on both connectionStatus and deviceStatus
+ * The header uses connectionStatus directly, so filter should too for consistency
+ */
+function isDeviceOffline(device) {
+  const connStatus = (device.connectionStatus || '').toLowerCase();
+  const devStatus = (device.deviceStatus || '').toLowerCase();
+  // Device is offline if connectionStatus is offline OR deviceStatus is no_info/offline
+  return connStatus === 'offline' || ['offline', 'no_info'].includes(devStatus);
+}
+
+/**
+ * RFC-0103: Check if device is online based on both connectionStatus and deviceStatus
+ */
+function isDeviceOnline(device) {
+  return !isDeviceOffline(device);
+}
+
 // Filter modal instance (lazy initialized)
 let equipmentsFilterModal = null;
 
@@ -1574,25 +1592,26 @@ function initFilterModal() {
     itemIdAttr: 'data-device-id',
 
     // Filter tabs configuration - specific for EQUIPMENTS
+    // RFC-0103: Use isDeviceOnline/isDeviceOffline for consistent counting with header
     filterTabs: [
       { id: 'all', label: 'Todos', filter: () => true },
-      { id: 'online', label: 'Online', filter: (d) => !['offline', 'no_info'].includes(getDeviceStatus(d)) },
-      { id: 'offline', label: 'Offline', filter: (d) => ['offline', 'no_info'].includes(getDeviceStatus(d)) },
+      { id: 'online', label: 'Online', filter: isDeviceOnline },
+      { id: 'offline', label: 'Offline', filter: isDeviceOffline },
       {
         id: 'normal',
         label: 'Normal',
-        filter: (d) => getDeviceStatus(d) === 'power_on' || getDeviceStatus(d) === 'normal',
+        filter: (d) => isDeviceOnline(d) && (getDeviceStatus(d) === 'power_on' || getDeviceStatus(d) === 'normal'),
       },
-      { id: 'standby', label: 'Stand By', filter: (d) => getDeviceStatus(d) === 'standby' },
+      { id: 'standby', label: 'Stand By', filter: (d) => isDeviceOnline(d) && getDeviceStatus(d) === 'standby' },
       {
         id: 'alert',
         label: 'Alerta',
-        filter: (d) => ['warning', 'alert', 'maintenance'].includes(getDeviceStatus(d)),
+        filter: (d) => isDeviceOnline(d) && ['warning', 'alert', 'maintenance'].includes(getDeviceStatus(d)),
       },
       {
         id: 'failure',
         label: 'Falha',
-        filter: (d) => getDeviceStatus(d) === 'failure' || getDeviceStatus(d) === 'power_off',
+        filter: (d) => isDeviceOnline(d) && (getDeviceStatus(d) === 'failure' || getDeviceStatus(d) === 'power_off'),
       },
       { id: 'elevators', label: 'Elevadores', filter: isElevator },
       { id: 'escalators', label: 'Escadas', filter: isEscalator },

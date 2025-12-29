@@ -5380,6 +5380,21 @@ const MyIOOrchestrator = (() => {
         })
       );
       LogHelper.log(`[Orchestrator] 📢 Emitted myio:devices-classified (${items.length} items)`);
+
+      // RFC-0103: Emit energy-summary-ready for HEADER widget
+      const customerTotal = items.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const energySummary = {
+        customerTotal,
+        unfilteredTotal: customerTotal,
+        isFiltered: false,
+        deviceCount: items.length,
+      };
+      window.dispatchEvent(
+        new CustomEvent('myio:energy-summary-ready', {
+          detail: energySummary,
+        })
+      );
+      LogHelper.log(`[Orchestrator] 📊 Emitted myio:energy-summary-ready (total: ${customerTotal.toFixed(2)} kWh)`);
     }
 
     // RFC-0102: Emit water-data-ready event for HEADER and WATER widgets
@@ -5401,6 +5416,21 @@ const MyIOOrchestrator = (() => {
       LogHelper.log(
         `[Orchestrator] 💧 Emitted myio:water-data-ready for HEADER (${waterCache.size} items)`
       );
+
+      // RFC-0103: Emit water-summary-ready for HEADER widget
+      const filteredTotal = items.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const waterSummary = {
+        filteredTotal,
+        unfilteredTotal: filteredTotal,
+        isFiltered: false,
+        deviceCount: items.length,
+      };
+      window.dispatchEvent(
+        new CustomEvent('myio:water-summary-ready', {
+          detail: waterSummary,
+        })
+      );
+      LogHelper.log(`[Orchestrator] 💧 Emitted myio:water-summary-ready (total: ${filteredTotal.toFixed(2)} m³)`);
     }
 
     try {
@@ -5608,6 +5638,38 @@ const MyIOOrchestrator = (() => {
     } catch (error) {
       LogHelper.error(`[Orchestrator] Error hydrating ${domain}:`, error);
       OrchestratorState.loading[domain] = false;
+    }
+  });
+
+  // RFC-0103: Listen for temperature data request from HEADER widget
+  // HEADER emits this event in onDataUpdated to populate the temperature card
+  window.addEventListener('myio:request-temperature-data', async (ev) => {
+    LogHelper.log('[Orchestrator] 🌡️ Received myio:request-temperature-data from HEADER:', ev.detail);
+
+    // Use current period if available, or construct from event detail
+    const period = currentPeriod || {
+      startISO: new Date(ev.detail?.startTs || Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      endISO: new Date(ev.detail?.endTs || Date.now()).toISOString(),
+      granularity: 'HOUR',
+    };
+
+    if (!period) {
+      LogHelper.warn('[Orchestrator] ⚠️ Cannot fetch temperature - no period available');
+      return;
+    }
+
+    try {
+      // Fetch temperature data
+      const items = await fetchAndEnrich('temperature', period);
+
+      if (items && items.length > 0) {
+        LogHelper.log(`[Orchestrator] 🌡️ Temperature data fetched: ${items.length} items`);
+        // populateStateTemperature already emits myio:temperature-data-ready
+      } else {
+        LogHelper.warn('[Orchestrator] ⚠️ No temperature items returned');
+      }
+    } catch (error) {
+      LogHelper.error('[Orchestrator] ❌ Error fetching temperature data:', error);
     }
   });
 
