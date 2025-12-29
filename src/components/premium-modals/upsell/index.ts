@@ -15,6 +15,7 @@ export type {
 } from './openUpsellModal';
 
 export type {
+  TbEntityId,
   IngestionDevice,
   IngestionCache,
   UpsellModalStyles,

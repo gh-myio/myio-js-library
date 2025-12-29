@@ -49,22 +49,34 @@ export interface UpsellModalInstance {
   getContainer: () => HTMLElement;
 }
 
-/** Customer entity */
-export interface Customer {
+/** ThingsBoard Entity ID structure */
+export interface TbEntityId {
+  entityType: string;
   id: string;
+}
+
+/** Customer entity (matches ThingsBoard API response) */
+export interface Customer {
+  id: TbEntityId;
   name: string;
+  title?: string;
   cnpj?: string;
+  createdTime?: number;
+  parentCustomerId?: TbEntityId | null;
+  tenantId?: TbEntityId;
+  ownerId?: TbEntityId;
   additionalInfo?: Record<string, unknown>;
 }
 
-/** Device entity */
+/** Device entity (matches ThingsBoard API response) */
 export interface Device {
-  id: string;
+  id: TbEntityId;
   name: string;
   type?: string;
   label?: string;
-  deviceProfileId?: string;
-  customerId: string;
+  deviceProfileId?: TbEntityId;
+  customerId?: TbEntityId;
+  tenantId?: TbEntityId;
 }
 
 /** Server-scope device attributes */

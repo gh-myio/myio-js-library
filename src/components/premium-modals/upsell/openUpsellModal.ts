@@ -24,7 +24,13 @@ import type {
   IngestionDevice,
   ValidationMap,
   IngestionCache,
+  TbEntityId,
 } from './types';
+
+// Helper: extract ID string from ThingsBoard entity ID object
+function getEntityId(entity: { id: TbEntityId } | null | undefined): string {
+  return entity?.id?.id || '';
+}
 
 // Re-export types
 export type {
@@ -35,6 +41,7 @@ export type {
   DeviceAttributes,
   DeviceRelation,
   ValidationMap,
+  TbEntityId,
 };
 
 // ============================================================================
@@ -170,6 +177,9 @@ const i18n = {
 // Modal State
 // ============================================================================
 
+type SortField = 'name' | 'createdTime' | 'parentName';
+type SortOrder = 'asc' | 'desc';
+
 interface ModalState {
   token: string;
   ingestionToken: string;
@@ -181,11 +191,48 @@ interface ModalState {
   currentStep: number;
   isLoading: boolean;
   customers: Customer[];
+  customerNameMap: Map<string, string>; // id -> name for parent lookup
   devices: Device[];
   selectedCustomer: Customer | null;
   selectedDevice: Device | null;
   deviceAttributes: DeviceAttributes;
   deviceRelation: DeviceRelation | null;
+  customerSort: { field: SortField; order: SortOrder };
+}
+
+// Helper: format timestamp to locale date string
+function formatDate(timestamp: number | undefined, locale: string): string {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  return date.toLocaleDateString(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+// Helper: sort customers by field
+function sortCustomers(
+  customers: Customer[],
+  field: SortField,
+  order: SortOrder,
+  nameMap?: Map<string, string>
+): Customer[] {
+  return [...customers].sort((a, b) => {
+    let compare = 0;
+    if (field === 'name') {
+      const nameA = (a.name || a.title || '').toLowerCase();
+      const nameB = (b.name || b.title || '').toLowerCase();
+      compare = nameA.localeCompare(nameB);
+    } else if (field === 'createdTime') {
+      compare = (a.createdTime || 0) - (b.createdTime || 0);
+    } else if (field === 'parentName' && nameMap) {
+      const parentA = a.parentCustomerId?.id ? (nameMap.get(a.parentCustomerId.id) || '') : '';
+      const parentB = b.parentCustomerId?.id ? (nameMap.get(b.parentCustomerId.id) || '') : '';
+      compare = parentA.toLowerCase().localeCompare(parentB.toLowerCase());
+    }
+    return order === 'asc' ? compare : -compare;
+  });
 }
 
 // ============================================================================
@@ -211,11 +258,13 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     currentStep: 1,
     isLoading: true,
     customers: [],
+    customerNameMap: new Map(),
     devices: [],
     selectedCustomer: null,
     selectedDevice: null,
     deviceAttributes: {},
     deviceRelation: null,
+    customerSort: { field: 'name', order: 'asc' },
   };
 
   // Load saved theme
@@ -458,42 +507,108 @@ function renderError(colors: ThemeColors, t: typeof i18n.pt, error: Error): stri
 // ============================================================================
 
 function renderStep1(state: ModalState, modalId: string, colors: ThemeColors, t: typeof i18n.pt): string {
+  const { field: sortField, order: sortOrder } = state.customerSort;
+  const sortedCustomers = sortCustomers(state.customers, sortField, sortOrder, state.customerNameMap);
+  const sortIcon = sortOrder === 'asc' ? '↑' : '↓';
+
+  const btnStyle = (isActive: boolean) => `
+    background: ${isActive ? MYIO_PURPLE : colors.cardBg};
+    color: ${isActive ? 'white' : colors.text};
+    border: 1px solid ${isActive ? MYIO_PURPLE : colors.border};
+    padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 4px;
+  `;
+
+  // Helper to get parent name
+  const getParentName = (customer: Customer): string => {
+    if (!customer.parentCustomerId?.id) return 'N/A';
+    return state.customerNameMap.get(customer.parentCustomerId.id) || 'N/A';
+  };
+
+  // Helper to get owner name
+  const getOwnerName = (customer: Customer): string => {
+    if (!customer.ownerId?.id) return 'N/A';
+    // If owner is a customer, look up the name
+    if (customer.ownerId.entityType === 'CUSTOMER') {
+      return state.customerNameMap.get(customer.ownerId.id) || 'N/A';
+    }
+    // If owner is a tenant, show TENANT
+    return 'TENANT';
+  };
+
   return `
     <div style="
       padding: 16px; background: ${colors.cardBg}; border-radius: 8px;
       border: 1px solid ${colors.border}; margin-bottom: 16px;
     ">
-      <label style="color: ${colors.textMuted}; font-size: 12px; font-weight: 500; display: block; margin-bottom: 8px;">
-        🔍 ${t.searchCustomers}
-      </label>
-      <input type="text" id="${modalId}-customer-search" placeholder="${t.searchCustomers}" style="
-        width: 100%; padding: 10px 14px; border: 1px solid ${colors.border};
-        border-radius: 6px; font-size: 14px; color: ${colors.text};
-        background: ${colors.inputBg}; box-sizing: border-box;
-      "/>
+      <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 200px;">
+          <label style="color: ${colors.textMuted}; font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px;">
+            🔍 ${t.searchCustomers}
+          </label>
+          <input type="text" id="${modalId}-customer-search" placeholder="${t.searchCustomers}" style="
+            width: 100%; padding: 10px 14px; border: 1px solid ${colors.border};
+            border-radius: 6px; font-size: 14px; color: ${colors.text};
+            background: ${colors.inputBg}; box-sizing: border-box;
+          "/>
+        </div>
+        <div style="display: flex; gap: 6px;">
+          <button id="${modalId}-sort-name" style="${btnStyle(sortField === 'name')}">
+            Nome ${sortField === 'name' ? sortIcon : ''}
+          </button>
+          <button id="${modalId}-sort-parent" style="${btnStyle(sortField === 'parentName')}">
+            Pai ${sortField === 'parentName' ? sortIcon : ''}
+          </button>
+          <button id="${modalId}-sort-date" style="${btnStyle(sortField === 'createdTime')}">
+            Data ${sortField === 'createdTime' ? sortIcon : ''}
+          </button>
+        </div>
+      </div>
     </div>
 
     <div style="
       max-height: 350px; overflow-y: auto; border: 1px solid ${colors.border};
       border-radius: 8px; background: ${colors.surface};
     " id="${modalId}-customer-list">
-      ${state.customers.length === 0
+      ${sortedCustomers.length === 0
         ? `<div style="padding: 40px; text-align: center; color: ${colors.textMuted};">${t.noResults}</div>`
-        : state.customers.map(customer => `
-          <div class="myio-list-item ${state.selectedCustomer?.id === customer.id ? 'selected' : ''}"
-               data-customer-id="${customer.id}" style="
-            display: flex; align-items: center; gap: 12px;
-            padding: 14px 16px; border-bottom: 1px solid ${colors.border};
+        : sortedCustomers.map(customer => {
+            const customerId = getEntityId(customer);
+            const isSelected = getEntityId(state.selectedCustomer) === customerId;
+            const createdDate = formatDate(customer.createdTime, state.locale);
+            const parentName = getParentName(customer);
+            const ownerName = getOwnerName(customer);
+            return `
+          <div class="myio-list-item ${isSelected ? 'selected' : ''}"
+               data-customer-id="${customerId}" style="
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 14px; border-bottom: 1px solid ${colors.border};
             cursor: pointer; transition: background 0.15s;
           ">
-            <div style="font-size: 28px;">🏢</div>
-            <div style="flex: 1;">
-              <div style="font-weight: 500; color: ${colors.text}; font-size: 14px;">${customer.name}</div>
-              <div style="font-size: 12px; color: ${colors.textMuted};">${customer.cnpj || 'ID: ' + customer.id}</div>
+            <div style="font-size: 24px;">🏢</div>
+            <div style="flex: 1; min-width: 100px;">
+              <div style="font-weight: 500; color: ${colors.text}; font-size: 13px;">${customer.name || customer.title}</div>
+              <div style="font-size: 11px; color: ${colors.textMuted};">${customer.cnpj || 'ID: ' + customerId.slice(0, 8) + '...'}</div>
             </div>
-            ${state.selectedCustomer?.id === customer.id ? `<div style="color: ${colors.success}; font-size: 18px;">✓</div>` : ''}
+            <div style="min-width: 90px; text-align: center;">
+              <div style="font-size: 10px; color: ${colors.textMuted};">Pai</div>
+              <div style="font-size: 11px; color: ${parentName === 'N/A' ? colors.textMuted : colors.text}; font-weight: ${parentName === 'N/A' ? 'normal' : '500'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px;">
+                ${parentName}
+              </div>
+            </div>
+            <div style="min-width: 70px; text-align: center;">
+              <div style="font-size: 10px; color: ${colors.textMuted};">Owner</div>
+              <div style="font-size: 11px; color: ${ownerName === 'N/A' ? colors.textMuted : ownerName === 'TENANT' ? colors.primary : colors.text}; font-weight: ${ownerName === 'N/A' ? 'normal' : '500'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70px;">
+                ${ownerName}
+              </div>
+            </div>
+            ${createdDate ? `<div style="min-width: 70px; text-align: center;">
+              <div style="font-size: 10px; color: ${colors.textMuted};">Criado</div>
+              <div style="font-size: 11px; color: ${colors.text};">${createdDate}</div>
+            </div>` : ''}
+            ${isSelected ? `<div style="color: ${colors.success}; font-size: 16px;">✓</div>` : ''}
           </div>
-        `).join('')
+        `;}).join('')
       }
     </div>
   `;
@@ -547,9 +662,12 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
     " id="${modalId}-device-list">
       ${state.devices.length === 0
         ? `<div style="padding: 40px; text-align: center; color: ${colors.textMuted};">${t.noResults}</div>`
-        : state.devices.map(device => `
-          <div class="myio-list-item ${state.selectedDevice?.id === device.id ? 'selected' : ''}"
-               data-device-id="${device.id}" style="
+        : state.devices.map(device => {
+            const deviceId = getEntityId(device);
+            const isSelected = getEntityId(state.selectedDevice) === deviceId;
+            return `
+          <div class="myio-list-item ${isSelected ? 'selected' : ''}"
+               data-device-id="${deviceId}" style="
             display: flex; align-items: center; gap: 12px;
             padding: 12px 16px; border-bottom: 1px solid ${colors.border};
             cursor: pointer; transition: background 0.15s;
@@ -557,16 +675,16 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
             <div style="font-size: 24px;">${getDeviceIcon(device.type)}</div>
             <div style="flex: 1;">
               <div style="font-weight: 500; color: ${colors.text}; font-size: 14px;">${device.name}</div>
-              <div style="font-size: 11px; color: ${colors.textMuted};">ID: ${device.id}</div>
+              <div style="font-size: 11px; color: ${colors.textMuted};">ID: ${deviceId}</div>
             </div>
             <div style="
               padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;
               background: ${device.type?.includes('HIDRO') ? '#dbeafe' : '#fef3c7'};
               color: ${device.type?.includes('HIDRO') ? '#1e40af' : '#92400e'};
             ">${device.type || 'UNKNOWN'}</div>
-            ${state.selectedDevice?.id === device.id ? `<div style="color: ${colors.success}; font-size: 18px;">✓</div>` : ''}
+            ${isSelected ? `<div style="color: ${colors.success}; font-size: 18px;">✓</div>` : ''}
           </div>
-        `).join('')
+        `;}).join('')
       }
     </div>
   `;
@@ -597,9 +715,13 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
     return `<div style="padding: 40px; text-align: center; color: ${colors.textMuted};">No device selected</div>`;
   }
 
+  const deviceId = getEntityId(state.selectedDevice);
+  const customerId = getEntityId(state.selectedCustomer);
+  const deviceCustomerId = state.selectedDevice.customerId?.id || '';
+
   const suggestedType = handleDeviceType(state.selectedDevice.name);
-  const suggestedCentralName = `Central ${state.selectedCustomer.name} PADRAO`;
-  const isOwnerValid = state.selectedDevice.customerId === state.selectedCustomer.id;
+  const suggestedCentralName = `Central ${state.selectedCustomer.name || state.selectedCustomer.title} PADRAO`;
+  const isOwnerValid = deviceCustomerId === customerId;
   const hasRelation = state.deviceRelation !== null;
 
   const attrs = state.deviceAttributes;
@@ -615,7 +737,7 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
       <div style="flex: 1;">
         <div style="font-weight: 600; font-size: 16px; color: ${colors.text};">${state.selectedDevice.name}</div>
         <div style="font-size: 12px; color: ${colors.textMuted};">
-          ID: ${state.selectedDevice.id} • Cliente: ${state.selectedCustomer.name}
+          ID: ${deviceId} • Cliente: ${state.selectedCustomer.name || state.selectedCustomer.title}
         </div>
       </div>
     </div>
@@ -673,7 +795,7 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
           </span>
           <span style="color: ${colors.text};">
             ${isOwnerValid
-              ? `<strong>CUSTOMER:</strong> "${state.selectedCustomer.name}" (${t.validOwner})`
+              ? `<strong>CUSTOMER:</strong> "${state.selectedCustomer.name || state.selectedCustomer.title}" (${t.validOwner})`
               : `<span style="color: ${colors.danger};"><strong>ERROR:</strong> ${t.invalidOwner}</span>`
             }
           </span>
@@ -892,7 +1014,7 @@ function setupEventListeners(
   container.querySelectorAll('[data-customer-id]').forEach(el => {
     el.addEventListener('click', () => {
       const id = el.getAttribute('data-customer-id');
-      state.selectedCustomer = state.customers.find(c => c.id === id) || null;
+      state.selectedCustomer = state.customers.find(c => c.id?.id === id) || null;
       state.selectedDevice = null;
       renderModal(container, state, modalId, t);
     });
@@ -901,14 +1023,44 @@ function setupEventListeners(
   // Customer search
   document.getElementById(`${modalId}-customer-search`)?.addEventListener('input', (e) => {
     const search = (e.target as HTMLInputElement).value.toLowerCase();
-    filterCustomerList(container, state.customers, search, state.selectedCustomer);
+    filterCustomerList(container, state.customers, search, state.selectedCustomer, state.customerSort);
+  });
+
+  // Customer sort by name
+  document.getElementById(`${modalId}-sort-name`)?.addEventListener('click', () => {
+    if (state.customerSort.field === 'name') {
+      state.customerSort.order = state.customerSort.order === 'asc' ? 'desc' : 'asc';
+    } else {
+      state.customerSort = { field: 'name', order: 'asc' };
+    }
+    renderModal(container, state, modalId, t);
+  });
+
+  // Customer sort by parent
+  document.getElementById(`${modalId}-sort-parent`)?.addEventListener('click', () => {
+    if (state.customerSort.field === 'parentName') {
+      state.customerSort.order = state.customerSort.order === 'asc' ? 'desc' : 'asc';
+    } else {
+      state.customerSort = { field: 'parentName', order: 'asc' };
+    }
+    renderModal(container, state, modalId, t);
+  });
+
+  // Customer sort by date
+  document.getElementById(`${modalId}-sort-date`)?.addEventListener('click', () => {
+    if (state.customerSort.field === 'createdTime') {
+      state.customerSort.order = state.customerSort.order === 'asc' ? 'desc' : 'asc';
+    } else {
+      state.customerSort = { field: 'createdTime', order: 'desc' };
+    }
+    renderModal(container, state, modalId, t);
   });
 
   // Device selection
   container.querySelectorAll('[data-device-id]').forEach(el => {
     el.addEventListener('click', () => {
       const id = el.getAttribute('data-device-id');
-      state.selectedDevice = state.devices.find(d => d.id === id) || null;
+      state.selectedDevice = state.devices.find(d => d.id?.id === id) || null;
       renderModal(container, state, modalId, t);
     });
   });
@@ -951,17 +1103,23 @@ function filterCustomerList(
   container: HTMLElement,
   customers: Customer[],
   search: string,
-  selected: Customer | null
+  selected: Customer | null,
+  sort?: { field: SortField; order: SortOrder }
 ): void {
   const listContainer = container.querySelector('[id$="-customer-list"]');
   if (!listContainer) return;
 
+  // Get sorted customers to match display order
+  const sortedCustomers = sort ? sortCustomers(customers, sort.field, sort.order) : customers;
+
   const items = listContainer.querySelectorAll('[data-customer-id]');
   items.forEach(item => {
     const id = item.getAttribute('data-customer-id');
-    const customer = customers.find(c => c.id === id);
-    const matches = customer?.name.toLowerCase().includes(search) ||
-                    customer?.cnpj?.includes(search);
+    const customer = sortedCustomers.find(c => c.id?.id === id);
+    const customerName = customer?.name || customer?.title || '';
+    const matches = customerName.toLowerCase().includes(search) ||
+                    customer?.cnpj?.includes(search) ||
+                    id?.includes(search);
     (item as HTMLElement).style.display = matches ? 'flex' : 'none';
   });
 }
@@ -979,7 +1137,7 @@ function filterDeviceList(
   const items = listContainer.querySelectorAll('[data-device-id]');
   items.forEach(item => {
     const id = item.getAttribute('data-device-id');
-    const device = devices.find(d => d.id === id);
+    const device = devices.find(d => d.id?.id === id);
     const matchesSearch = device?.name.toLowerCase().includes(search);
     const matchesType = !typeFilter || device?.type === typeFilter;
     (item as HTMLElement).style.display = matchesSearch && matchesType ? 'flex' : 'none';
@@ -1034,6 +1192,17 @@ async function loadCustomers(
   try {
     const response = await tbFetch<{ data: Customer[] }>(state, '/api/customers?pageSize=1000&page=0');
     state.customers = response.data || [];
+
+    // Build customer name map for parent lookup
+    state.customerNameMap.clear();
+    state.customers.forEach(c => {
+      const id = c.id?.id;
+      const name = c.name || c.title || '';
+      if (id && name) {
+        state.customerNameMap.set(id, name);
+      }
+    });
+
     state.isLoading = false;
     renderModal(container, state, modalId, t);
   } catch (error) {
@@ -1053,9 +1222,10 @@ async function loadDevices(
   if (!state.selectedCustomer) return;
 
   try {
+    const customerId = getEntityId(state.selectedCustomer);
     const response = await tbFetch<{ data: Device[] }>(
       state,
-      `/api/customer/${state.selectedCustomer.id}/devices?pageSize=1000&page=0`
+      `/api/customer/${customerId}/devices?pageSize=1000&page=0`
     );
     state.devices = response.data || [];
     state.isLoading = false;
@@ -1076,11 +1246,13 @@ async function loadValidationData(
 ): Promise<void> {
   if (!state.selectedDevice) return;
 
+  const deviceId = getEntityId(state.selectedDevice);
+
   try {
     // Fetch server-scope attributes
     const attrs = await tbFetch<Array<{ key: string; value: unknown }>>(
       state,
-      `/api/plugins/telemetry/DEVICE/${state.selectedDevice.id}/values/attributes/SERVER_SCOPE`
+      `/api/plugins/telemetry/DEVICE/${deviceId}/values/attributes/SERVER_SCOPE`
     );
 
     state.deviceAttributes = {};
@@ -1091,7 +1263,7 @@ async function loadValidationData(
     // Fetch relations
     const relations = await tbFetch<Array<{ to: { entityType: string; id: string } }>>(
       state,
-      `/api/relations?fromId=${state.selectedDevice.id}&fromType=DEVICE&relationTypeGroup=COMMON&direction=TO`
+      `/api/relations?fromId=${deviceId}&fromType=DEVICE&relationTypeGroup=COMMON&direction=TO`
     );
 
     if (relations.length > 0) {
@@ -1121,6 +1293,7 @@ async function saveChanges(
 ): Promise<void> {
   if (!state.selectedDevice) return;
 
+  const deviceId = getEntityId(state.selectedDevice);
   const attrs: Record<string, string> = {};
 
   // Collect values from inputs
@@ -1133,7 +1306,7 @@ async function saveChanges(
   });
 
   try {
-    await tbPost(state, `/api/plugins/telemetry/DEVICE/${state.selectedDevice.id}/attributes/SERVER_SCOPE`, attrs);
+    await tbPost(state, `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`, attrs);
     alert(t.saved);
     closeModal(container, onClose);
   } catch (error) {

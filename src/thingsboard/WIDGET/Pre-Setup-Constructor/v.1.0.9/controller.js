@@ -4022,41 +4022,61 @@ self.onInit = function () {
   document.getElementById('ingestion-sync').onclick = () => window.showModal('ingestionSync', null);
 
   // RFC-0109: Upsell Post-Setup Modal
-  document.getElementById('upsell-modal').onclick = () => {
-    // Verifica se a biblioteca está disponível
-    if (typeof window.MyIO === 'undefined' || typeof window.MyIO.openUpsellModal !== 'function') {
-      console.error('[Upsell] MyIO library not loaded or openUpsellModal not available');
-      window.alert('Biblioteca MyIO não carregada. Verifique se o CDN está configurado.');
-      return;
-    }
+  // Helper: carrega a biblioteca dinamicamente se necessário
+  function loadMyIOLibrary() {
+    return new Promise((resolve, reject) => {
+      if (typeof window.MyIOLibrary !== 'undefined' && typeof window.MyIOLibrary.openUpsellModal === 'function') {
+        resolve(window.MyIOLibrary);
+        return;
+      }
 
-    // Obtém tokens necessários
-    const thingsboardToken = localStorage.getItem('jwt_token');
-    if (!thingsboardToken) {
-      window.alert('Token ThingsBoard não encontrado. Faça login novamente.');
-      return;
-    }
+      console.log('[Upsell] Loading MyIOLibrary from CDN...');
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/myio-js-library@latest/dist/myio-js-library.umd.min.js';
+      script.onload = () => {
+        if (typeof window.MyIOLibrary !== 'undefined') {
+          console.log('[Upsell] MyIOLibrary loaded successfully');
+          resolve(window.MyIOLibrary);
+        } else {
+          reject(new Error('MyIOLibrary not available after script load'));
+        }
+      };
+      script.onerror = () => reject(new Error('Failed to load MyIOLibrary from CDN'));
+      document.head.appendChild(script);
+    });
+  }
 
-    // Obtém token da Ingestion API via MyIOAuth
-    MyIOAuth.getToken()
-      .then((ingestionToken) => {
-        // Abre a modal da biblioteca
-        window.MyIO.openUpsellModal({
-          thingsboardToken: thingsboardToken,
-          ingestionToken: ingestionToken,
-          lang: 'pt',
-          onSave: (deviceId, attributes) => {
-            console.log(`[Upsell] Saved device ${deviceId}:`, attributes);
-          },
-          onClose: () => {
-            console.log('[Upsell] Modal closed');
-          },
-        });
-      })
-      .catch((err) => {
-        console.error('[Upsell] Failed to get ingestion token:', err);
-        window.alert('Erro ao obter token da Ingestion API: ' + err.message);
+  document.getElementById('upsell-modal').onclick = async () => {
+    try {
+      // Carrega biblioteca se necessário
+      const lib = await loadMyIOLibrary();
+
+      // Obtém tokens necessários
+      const thingsboardToken = localStorage.getItem('jwt_token');
+      if (!thingsboardToken) {
+        window.alert('Token ThingsBoard não encontrado. Faça login novamente.');
+        return;
+      }
+
+      // Obtém token da Ingestion API via MyIOAuth
+      const ingestionToken = await MyIOAuth.getToken();
+
+      // Abre a modal da biblioteca
+      lib.openUpsellModal({
+        thingsboardToken: thingsboardToken,
+        ingestionToken: ingestionToken,
+        lang: 'pt',
+        onSave: (deviceId, attributes) => {
+          console.log(`[Upsell] Saved device ${deviceId}:`, attributes);
+        },
+        onClose: () => {
+          console.log('[Upsell] Modal closed');
+        },
       });
+    } catch (err) {
+      console.error('[Upsell] Error:', err);
+      window.alert('Erro ao abrir modal: ' + err.message);
+    }
   };
 
   window.renderTree = function () {
