@@ -957,13 +957,12 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     }
   }, 200);
 
-  // mocks (remova se alimentar via API/telemetria)
-  setSummary({
-    equip: { totalStr: '24/26', percent: 92 },
-    energy: {}, // Removido peakText - não mostramos mais no rodapé
-    temp: { kpi: '22.5°C' }, // Removido rangeText - agora está apenas no tooltip
-    water: { percent: 87 }, // Removido alertText - não mostramos mais no rodapé
-  });
+  // RFC-0103: Removed mock values - real data comes from orchestrator events
+  // setSummary only sets initial placeholder text, real values come from:
+  // - myio:energy-summary-ready for energy
+  // - myio:water-summary-ready for water
+  // - myio:temperature-data-ready for temperature
+  // - myio:equipment-count-updated for equipment
 
   const filterBtn = document.getElementById('filterBtn');
 

@@ -1245,9 +1245,14 @@ function buildHeaderDevicesGrid(config) {
           }
         });
       } else {
+        // RFC-0103: Use consistent offline detection logic with EQUIPMENTS filter modal
+        // A device is offline if connectionStatus is 'offline' OR deviceStatus is 'offline'/'no_info'
+        // Count as online if NOT offline (inverse of isDeviceOffline logic)
         devices.forEach((device) => {
-          const status = (device.connectionStatus || device.deviceStatus || '').toLowerCase();
-          if (status === 'online' || status === 'power_on' || status === 'normal') {
+          const connStatus = (device.connectionStatus || '').toLowerCase();
+          const devStatus = (device.deviceStatus || '').toLowerCase();
+          const isOffline = connStatus === 'offline' || ['offline', 'no_info'].includes(devStatus);
+          if (!isOffline) {
             online++;
           }
         });
@@ -3738,6 +3743,41 @@ function populateStateTemperature(items) {
     })
   );
 
+  // RFC-0102: Group temperature items by shopping for tooltip display
+  const shoppingTempMap = new Map();
+  const onlineItems = items.filter((i) => i.deviceStatus !== 'offline' && i.connectionStatus !== 'offline');
+  onlineItems.forEach((item) => {
+    const shoppingName = item.ownerName || item.customerName || 'Desconhecido';
+    if (!shoppingTempMap.has(shoppingName)) {
+      shoppingTempMap.set(shoppingName, { name: shoppingName, temps: [], min: minTemp, max: maxTemp });
+    }
+    const temp = Number(item.temperature || 0);
+    if (!isNaN(temp) && temp > 0) {
+      shoppingTempMap.get(shoppingName).temps.push(temp);
+    }
+  });
+
+  // Calculate averages and categorize shoppings
+  const shoppingsInRange = [];
+  const shoppingsOutOfRange = [];
+  const shoppingsUnknownRange = [];
+
+  shoppingTempMap.forEach((data) => {
+    if (data.temps.length === 0) return;
+    const avg = data.temps.reduce((a, b) => a + b, 0) / data.temps.length;
+    const shoppingInfo = { name: data.name, avg, min: data.min, max: data.max, deviceCount: data.temps.length };
+
+    if (avg >= data.min && avg <= data.max) {
+      shoppingsInRange.push(shoppingInfo);
+    } else {
+      shoppingsOutOfRange.push(shoppingInfo);
+    }
+  });
+
+  // Sort by name for consistent display
+  shoppingsInRange.sort((a, b) => a.name.localeCompare(b.name));
+  shoppingsOutOfRange.sort((a, b) => a.name.localeCompare(b.name));
+
   // RFC-0102: Emit temperature-data-ready event for HEADER widget
   window.dispatchEvent(
     new CustomEvent('myio:temperature-data-ready', {
@@ -3748,14 +3788,14 @@ function populateStateTemperature(items) {
         inRangeCount: normal.length,
         outOfRangeCount: critical.length + warning.length,
         unknownCount: offline.length,
-        shoppingsInRange: [],
-        shoppingsOutOfRange: [],
-        shoppingsUnknownRange: [],
+        shoppingsInRange,
+        shoppingsOutOfRange,
+        shoppingsUnknownRange,
         limits: { min: minTemp, max: maxTemp },
       },
     })
   );
-  LogHelper.log(`[Orchestrator] 🌡️ Emitted myio:temperature-data-ready for HEADER`);
+  LogHelper.log(`[Orchestrator] 🌡️ Emitted myio:temperature-data-ready for HEADER (${shoppingsInRange.length} in-range, ${shoppingsOutOfRange.length} out-of-range)`);
 }
 
 /**
@@ -5381,20 +5421,130 @@ const MyIOOrchestrator = (() => {
       );
       LogHelper.log(`[Orchestrator] 📢 Emitted myio:devices-classified (${items.length} items)`);
 
-      // RFC-0103: Emit energy-summary-ready for HEADER widget
+      // RFC-0103: Emit energy-summary-ready for HEADER widget with breakdown
       const customerTotal = items.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      // Calculate breakdown by type using isStoreDevice (3F_MEDIDOR = loja)
+      const lojaItems = items.filter((item) => isStoreDevice(item));
+      const equipmentItems = items.filter((item) => !isStoreDevice(item));
+      const lojasTotal = lojaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const equipmentsTotal = equipmentItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+
+      // Calculate breakdown by shopping using customerId or ownerName
+      const shoppingMap = new Map();
+      const customerList = window.custumersSelected || window.customersList || [];
+      items.forEach((item) => {
+        // Use customerId if available, otherwise try to match by ownerName
+        const customerId = item.customerId;
+        const ownerName = item.ownerName || item.customerName;
+        if (!customerId && !ownerName) return;
+
+        const mapKey = customerId || ownerName;
+        if (!shoppingMap.has(mapKey)) {
+          // Try to find customer name from list or use ownerName
+          const customer = customerId ? customerList.find?.((c) => c.value === customerId) : null;
+          shoppingMap.set(mapKey, {
+            id: customerId || mapKey,
+            name: customer?.text || ownerName || item.customerName || 'Shopping',
+            equipamentos: 0,
+            lojas: 0,
+          });
+        }
+        const entry = shoppingMap.get(mapKey);
+        const value = item.value || item.total_value || 0;
+        if (isStoreDevice(item)) {
+          entry.lojas += value;
+        } else {
+          entry.equipamentos += value;
+        }
+      });
+      const shoppingsEnergy = Array.from(shoppingMap.values());
+
       const energySummary = {
         customerTotal,
         unfilteredTotal: customerTotal,
         isFiltered: false,
         deviceCount: items.length,
+        equipmentsTotal,
+        lojasTotal,
+        shoppingsEnergy,
       };
       window.dispatchEvent(
         new CustomEvent('myio:energy-summary-ready', {
           detail: energySummary,
         })
       );
-      LogHelper.log(`[Orchestrator] 📊 Emitted myio:energy-summary-ready (total: ${customerTotal.toFixed(2)} kWh)`);
+      LogHelper.log(`[Orchestrator] 📊 Emitted myio:energy-summary-ready (total: ${customerTotal.toFixed(2)} kWh, equip: ${equipmentsTotal.toFixed(2)}, lojas: ${lojasTotal.toFixed(2)})`);
+
+      // RFC-0103: Also emit initial water-summary-ready from ctx.data when energy loads
+      // This ensures HEADER gets water data without waiting for water tab to be selected
+      try {
+        const waterAliases = ['hidrometrosareacomum', 'todos hidrometros lojas'];
+        const waterItems = [];
+        const ctxData = self?.ctx?.data || [];
+
+        // Extract water devices from ctx.data using water aliases
+        ctxData.forEach((ds) => {
+          const aliasName = (ds.datasource?.aliasName || '').toLowerCase();
+          if (waterAliases.some((wa) => aliasName.includes(wa))) {
+            const entityId = ds.datasource?.entityId;
+            if (!entityId) return;
+
+            // Get consumption value from latest data point
+            if (ds.dataKey?.name === 'consumption' && ds.data?.length > 0) {
+              const latestData = ds.data[ds.data.length - 1];
+              const value = Number(latestData?.[1]) || 0;
+              const ownerName = ds.datasource?.name || ds.datasource?.entityName || 'Desconhecido';
+              const isStoreAlias = aliasName.includes('loja');
+
+              waterItems.push({
+                tbId: entityId,
+                ownerName,
+                value,
+                _aliasName: aliasName,
+                _isStore: isStoreAlias,
+              });
+            }
+          }
+        });
+
+        if (waterItems.length > 0) {
+          const waterTotal = waterItems.reduce((sum, item) => sum + (item.value || 0), 0);
+          const storeWaterItems = waterItems.filter((item) => item._isStore);
+          const commonAreaItems = waterItems.filter((item) => !item._isStore);
+          const storesTotal = storeWaterItems.reduce((sum, item) => sum + (item.value || 0), 0);
+          const commonAreaTotal = commonAreaItems.reduce((sum, item) => sum + (item.value || 0), 0);
+
+          // Group by shopping
+          const waterShoppingMap = new Map();
+          waterItems.forEach((item) => {
+            const name = item.ownerName;
+            if (!waterShoppingMap.has(name)) {
+              waterShoppingMap.set(name, { name, areaComum: 0, lojas: 0 });
+            }
+            const entry = waterShoppingMap.get(name);
+            if (item._isStore) {
+              entry.lojas += item.value || 0;
+            } else {
+              entry.areaComum += item.value || 0;
+            }
+          });
+
+          const waterSummary = {
+            filteredTotal: waterTotal,
+            unfilteredTotal: waterTotal,
+            isFiltered: false,
+            deviceCount: waterItems.length,
+            commonArea: commonAreaTotal,
+            stores: storesTotal,
+            shoppingsWater: Array.from(waterShoppingMap.values()),
+          };
+
+          window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: waterSummary }));
+          LogHelper.log(`[Orchestrator] 💧 Initial water-summary-ready from ctx.data (total: ${waterTotal.toFixed(2)} m³, area: ${commonAreaTotal.toFixed(2)}, lojas: ${storesTotal.toFixed(2)})`);
+        }
+      } catch (err) {
+        LogHelper.warn(`[Orchestrator] Failed to emit initial water-summary-ready: ${err.message}`);
+      }
     }
 
     // RFC-0102: Emit water-data-ready event for HEADER and WATER widgets
@@ -5417,20 +5567,57 @@ const MyIOOrchestrator = (() => {
         `[Orchestrator] 💧 Emitted myio:water-data-ready for HEADER (${waterCache.size} items)`
       );
 
-      // RFC-0103: Emit water-summary-ready for HEADER widget
+      // RFC-0103: Emit water-summary-ready for HEADER widget with breakdown
       const filteredTotal = items.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      // Calculate breakdown by type using isStoreDevice or aliasName
+      const storeItems = items.filter((item) => isStoreDevice(item) || (item._aliasName || '').toLowerCase().includes('loja'));
+      const commonAreaItems = items.filter((item) => !isStoreDevice(item) && !(item._aliasName || '').toLowerCase().includes('loja'));
+      const stores = storeItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const commonArea = commonAreaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+
+      // Calculate breakdown by shopping using customerId or ownerName
+      const waterShoppingMap = new Map();
+      const waterCustomerList = window.custumersSelected || window.customersList || [];
+      items.forEach((item) => {
+        const customerId = item.customerId;
+        const ownerName = item.ownerName || item.customerName;
+        if (!customerId && !ownerName) return;
+
+        const mapKey = customerId || ownerName;
+        if (!waterShoppingMap.has(mapKey)) {
+          const customer = customerId ? waterCustomerList.find?.((c) => c.value === customerId) : null;
+          waterShoppingMap.set(mapKey, {
+            id: customerId || mapKey,
+            name: customer?.text || ownerName || item.customerName || 'Shopping',
+            areaComum: 0,
+            lojas: 0,
+          });
+        }
+        const entry = waterShoppingMap.get(mapKey);
+        const value = item.value || item.total_value || 0;
+        if (isStoreDevice(item) || (item._aliasName || '').toLowerCase().includes('loja')) {
+          entry.lojas += value;
+        } else {
+          entry.areaComum += value;
+        }
+      });
+      const shoppingsWater = Array.from(waterShoppingMap.values());
+
       const waterSummary = {
         filteredTotal,
         unfilteredTotal: filteredTotal,
         isFiltered: false,
         deviceCount: items.length,
+        commonArea,
+        stores,
+        shoppingsWater,
       };
       window.dispatchEvent(
         new CustomEvent('myio:water-summary-ready', {
           detail: waterSummary,
         })
       );
-      LogHelper.log(`[Orchestrator] 💧 Emitted myio:water-summary-ready (total: ${filteredTotal.toFixed(2)} m³)`);
+      LogHelper.log(`[Orchestrator] 💧 Emitted myio:water-summary-ready (total: ${filteredTotal.toFixed(2)} m³, area: ${commonArea.toFixed(2)}, lojas: ${stores.toFixed(2)})`);
     }
 
     try {
@@ -5591,6 +5778,216 @@ const MyIOOrchestrator = (() => {
         `[Orchestrator] ?? myio:dashboard-state skipped (visibleTab=${visibleTab}, currentPeriod=${!!currentPeriod})`
       );
     }
+  });
+
+  // RFC-0103: Listen for shopping filter changes and emit summary events with filtered data
+  window.addEventListener('myio:filter-applied', (ev) => {
+    LogHelper.log('[Orchestrator] 🔥 Received myio:filter-applied:', ev.detail);
+
+    const selection = ev.detail?.selection || [];
+    const selectedIds = selection.map((s) => s.value).filter((v) => v);
+    const isFiltered = selectedIds.length > 0;
+
+    // Store in global state for other functions to use
+    window.STATE = window.STATE || {};
+    window.STATE.selectedShoppingIds = selectedIds;
+
+    // Get energy data and calculate filtered/unfiltered totals
+    const energyData = window.MyIOOrchestratorData?.energy;
+    if (energyData?.items?.length) {
+      const allItems = energyData.items;
+      const filteredItems = isFiltered
+        ? allItems.filter((item) => item.customerId && selectedIds.includes(item.customerId))
+        : allItems;
+
+      const unfilteredTotal = allItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const filteredTotal = filteredItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+
+      // Calculate breakdown by type using isStoreDevice (3F_MEDIDOR = loja)
+      const lojaItems = filteredItems.filter((item) => isStoreDevice(item));
+      const equipmentItems = filteredItems.filter((item) => !isStoreDevice(item));
+      const lojasTotal = lojaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const equipmentsTotal = equipmentItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+
+      // Calculate breakdown by shopping using customerId or ownerName
+      const shoppingMap = new Map();
+      const customerList = window.custumersSelected || [];
+      filteredItems.forEach((item) => {
+        const customerId = item.customerId;
+        const ownerName = item.ownerName || item.customerName;
+        if (!customerId && !ownerName) return;
+
+        const mapKey = customerId || ownerName;
+        if (!shoppingMap.has(mapKey)) {
+          const customer = customerId ? customerList.find((c) => c.value === customerId) : null;
+          shoppingMap.set(mapKey, {
+            id: customerId || mapKey,
+            name: customer?.text || ownerName || item.customerName || 'Shopping',
+            equipamentos: 0,
+            lojas: 0,
+          });
+        }
+        const entry = shoppingMap.get(mapKey);
+        const value = item.value || item.total_value || 0;
+        if (isStoreDevice(item)) {
+          entry.lojas += value;
+        } else {
+          entry.equipamentos += value;
+        }
+      });
+      const shoppingsEnergy = Array.from(shoppingMap.values());
+
+      const energySummary = {
+        customerTotal: filteredTotal,
+        unfilteredTotal,
+        isFiltered,
+        deviceCount: filteredItems.length,
+        totalDeviceCount: allItems.length,
+        equipmentsTotal,
+        lojasTotal,
+        shoppingsEnergy,
+      };
+
+      window.dispatchEvent(new CustomEvent('myio:energy-summary-ready', { detail: energySummary }));
+      LogHelper.log(`[Orchestrator] 📊 Filter applied - energy-summary-ready (filtered: ${filteredTotal.toFixed(2)} / total: ${unfilteredTotal.toFixed(2)} kWh, equip: ${equipmentsTotal.toFixed(2)}, lojas: ${lojasTotal.toFixed(2)})`);
+    }
+
+    // Get water data and calculate filtered/unfiltered totals
+    const waterData = window.MyIOOrchestratorData?.water;
+    if (waterData?.items?.length) {
+      const allItems = waterData.items;
+      const filteredItems = isFiltered
+        ? allItems.filter((item) => item.customerId && selectedIds.includes(item.customerId))
+        : allItems;
+
+      const unfilteredTotal = allItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const filteredTotal = filteredItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+
+      // Calculate breakdown by type using isStoreDevice or aliasName
+      const storeItems = filteredItems.filter((item) => isStoreDevice(item) || (item._aliasName || '').toLowerCase().includes('loja'));
+      const commonAreaItems = filteredItems.filter((item) => !isStoreDevice(item) && !(item._aliasName || '').toLowerCase().includes('loja'));
+      const stores = storeItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      const commonArea = commonAreaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+
+      // Calculate breakdown by shopping using customerId or ownerName
+      const waterShoppingMap = new Map();
+      filteredItems.forEach((item) => {
+        const customerId = item.customerId;
+        const ownerName = item.ownerName || item.customerName;
+        if (!customerId && !ownerName) return;
+
+        const mapKey = customerId || ownerName;
+        if (!waterShoppingMap.has(mapKey)) {
+          const customer = customerId ? selection.find((c) => c.value === customerId) : null;
+          waterShoppingMap.set(mapKey, {
+            id: customerId || mapKey,
+            name: customer?.text || ownerName || item.customerName || 'Shopping',
+            areaComum: 0,
+            lojas: 0,
+          });
+        }
+        const entry = waterShoppingMap.get(mapKey);
+        const value = item.value || item.total_value || 0;
+        if (isStoreDevice(item) || (item._aliasName || '').toLowerCase().includes('loja')) {
+          entry.lojas += value;
+        } else {
+          entry.areaComum += value;
+        }
+      });
+      const shoppingsWater = Array.from(waterShoppingMap.values());
+
+      const waterSummary = {
+        filteredTotal,
+        unfilteredTotal,
+        isFiltered,
+        deviceCount: filteredItems.length,
+        totalDeviceCount: allItems.length,
+        commonArea,
+        stores,
+        shoppingsWater,
+      };
+
+      window.dispatchEvent(new CustomEvent('myio:water-summary-ready', { detail: waterSummary }));
+      LogHelper.log(`[Orchestrator] 💧 Filter applied - water-summary-ready (filtered: ${filteredTotal.toFixed(2)} / total: ${unfilteredTotal.toFixed(2)} m³, area: ${commonArea.toFixed(2)}, lojas: ${stores.toFixed(2)})`);
+    }
+
+    // Get temperature data from STATE and calculate filtered averages
+    const tempState = window.STATE?.temperature;
+    if (tempState?.items?.length) {
+      const allItems = tempState.items;
+      const limits = tempState.summary?.limits || { min: 20, max: 25 };
+
+      // Filter by shopping (using customerId which maps to ingestionId parent)
+      const filteredItems = isFiltered
+        ? allItems.filter((item) => {
+            const customerId = item.customerId || item.ownerName;
+            return customerId && selectedIds.includes(customerId);
+          })
+        : allItems;
+
+      // Calculate averages (only online devices)
+      const calcAvg = (items) => {
+        const onlineItems = items.filter((i) => i.connectionStatus !== 'offline' && i.deviceStatus !== 'offline');
+        const withTemp = onlineItems.filter((i) => typeof i.temperature === 'number' && !isNaN(i.temperature) && i.temperature > 0);
+        return withTemp.length > 0 ? withTemp.reduce((s, i) => s + i.temperature, 0) / withTemp.length : null;
+      };
+
+      const globalAvg = calcAvg(allItems);
+      const filteredAvg = calcAvg(filteredItems);
+
+      // Group by shopping for tooltip
+      const shoppingTempMap = new Map();
+      const onlineFiltered = filteredItems.filter((i) => i.connectionStatus !== 'offline' && i.deviceStatus !== 'offline');
+      onlineFiltered.forEach((item) => {
+        const shoppingName = item.ownerName || item.customerName || 'Desconhecido';
+        if (!shoppingTempMap.has(shoppingName)) {
+          shoppingTempMap.set(shoppingName, { name: shoppingName, temps: [], min: limits.min, max: limits.max });
+        }
+        const temp = Number(item.temperature || 0);
+        if (!isNaN(temp) && temp > 0) {
+          shoppingTempMap.get(shoppingName).temps.push(temp);
+        }
+      });
+
+      // Calculate averages and categorize shoppings
+      const shoppingsInRange = [];
+      const shoppingsOutOfRange = [];
+
+      shoppingTempMap.forEach((data) => {
+        if (data.temps.length === 0) return;
+        const avg = data.temps.reduce((a, b) => a + b, 0) / data.temps.length;
+        const shoppingInfo = { name: data.name, avg, min: data.min, max: data.max, deviceCount: data.temps.length };
+
+        if (avg >= data.min && avg <= data.max) {
+          shoppingsInRange.push(shoppingInfo);
+        } else {
+          shoppingsOutOfRange.push(shoppingInfo);
+        }
+      });
+
+      // Sort by name
+      shoppingsInRange.sort((a, b) => a.name.localeCompare(b.name));
+      shoppingsOutOfRange.sort((a, b) => a.name.localeCompare(b.name));
+
+      const tempSummary = {
+        globalAvg,
+        filteredAvg: isFiltered ? filteredAvg : globalAvg,
+        isFiltered,
+        inRangeCount: shoppingsInRange.reduce((s, sh) => s + sh.deviceCount, 0),
+        outOfRangeCount: shoppingsOutOfRange.reduce((s, sh) => s + sh.deviceCount, 0),
+        shoppingsInRange,
+        shoppingsOutOfRange,
+        shoppingsUnknownRange: [],
+        limits,
+      };
+
+      window.dispatchEvent(new CustomEvent('myio:temperature-data-ready', { detail: tempSummary }));
+      LogHelper.log(`[Orchestrator] 🌡️ Filter applied - temperature-data-ready (filtered avg: ${filteredAvg?.toFixed(1) || 'N/A'}°C, ${shoppingsInRange.length} in-range, ${shoppingsOutOfRange.length} out-of-range)`);
+    }
+
+    // Emit orchestrator-filter-updated for backwards compatibility
+    window.dispatchEvent(new CustomEvent('myio:orchestrator-filter-updated', { detail: { selectedIds, isFiltered } }));
+    LogHelper.log('[Orchestrator] 🔄 Emitted myio:orchestrator-filter-updated');
   });
 
   // Request-data listener with pending listeners support
