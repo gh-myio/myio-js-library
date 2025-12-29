@@ -57,6 +57,147 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MYIO_PURPLE = '#3e1a7d';
 const MYIO_PURPLE_DARK = '#2d1360';
 
+// ============================================================================
+// Busy Modal (Progress Indicator)
+// ============================================================================
+
+const BUSY_MODAL_ID = 'myio-upsell-busy-modal';
+
+interface BusyModalState {
+  isVisible: boolean;
+  message: string;
+  current: number;
+  total: number;
+}
+
+const busyState: BusyModalState = {
+  isVisible: false,
+  message: '',
+  current: 0,
+  total: 0,
+};
+
+function ensureBusyModalDOM(): HTMLElement {
+  let modal = document.getElementById(BUSY_MODAL_ID);
+  if (modal) return modal;
+
+  const html = `
+    <div id="${BUSY_MODAL_ID}" style="
+      position: fixed; inset: 0; display: none;
+      background: rgba(62, 26, 125, 0.45);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      z-index: 99999;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Roboto', Inter, system-ui, -apple-system, sans-serif;
+    ">
+      <div style="
+        background: ${MYIO_PURPLE_DARK};
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.10);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+        border-radius: 18px;
+        padding: 24px 32px;
+        min-width: 340px;
+        max-width: 90%;
+      ">
+        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+          <div class="upsell-busy-spinner" style="
+            width: 24px; height: 24px; border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.25);
+            border-top-color: #ffffff;
+            animation: upsellBusySpin 0.9s linear infinite;
+          "></div>
+          <div id="${BUSY_MODAL_ID}-msg" style="
+            font-weight: 600;
+            font-size: 15px;
+            letter-spacing: 0.2px;
+          ">Aguarde...</div>
+        </div>
+        <div style="margin-bottom: 8px;">
+          <div style="
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+            height: 8px;
+            overflow: hidden;
+          ">
+            <div id="${BUSY_MODAL_ID}-bar" style="
+              background: linear-gradient(90deg, #a78bfa, #8b5cf6);
+              height: 100%;
+              width: 0%;
+              border-radius: 10px;
+              transition: width 0.3s ease;
+            "></div>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px; color: rgba(255,255,255,0.7);">
+          <span id="${BUSY_MODAL_ID}-count">0 / 0</span>
+          <span id="${BUSY_MODAL_ID}-percent">0%</span>
+        </div>
+      </div>
+    </div>
+    <style>
+      @keyframes upsellBusySpin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  `;
+
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
+  document.body.appendChild(wrapper.firstElementChild!);
+  document.body.appendChild(wrapper.lastElementChild!); // style tag
+
+  return document.getElementById(BUSY_MODAL_ID)!;
+}
+
+function showBusyProgress(message: string, total: number): void {
+  busyState.isVisible = true;
+  busyState.message = message;
+  busyState.current = 0;
+  busyState.total = total;
+
+  const modal = ensureBusyModalDOM();
+  const msgEl = document.getElementById(`${BUSY_MODAL_ID}-msg`);
+  const barEl = document.getElementById(`${BUSY_MODAL_ID}-bar`);
+  const countEl = document.getElementById(`${BUSY_MODAL_ID}-count`);
+  const percentEl = document.getElementById(`${BUSY_MODAL_ID}-percent`);
+
+  if (msgEl) msgEl.textContent = message;
+  if (barEl) barEl.style.width = '0%';
+  if (countEl) countEl.textContent = `0 / ${total}`;
+  if (percentEl) percentEl.textContent = '0%';
+
+  modal.style.display = 'flex';
+}
+
+function updateBusyProgress(current: number, customMessage?: string): void {
+  if (!busyState.isVisible) return;
+
+  busyState.current = current;
+  const percent = busyState.total > 0 ? Math.round((current / busyState.total) * 100) : 0;
+
+  const msgEl = document.getElementById(`${BUSY_MODAL_ID}-msg`);
+  const barEl = document.getElementById(`${BUSY_MODAL_ID}-bar`);
+  const countEl = document.getElementById(`${BUSY_MODAL_ID}-count`);
+  const percentEl = document.getElementById(`${BUSY_MODAL_ID}-percent`);
+
+  if (customMessage && msgEl) msgEl.textContent = customMessage;
+  if (barEl) barEl.style.width = `${percent}%`;
+  if (countEl) countEl.textContent = `${current} / ${busyState.total}`;
+  if (percentEl) percentEl.textContent = `${percent}%`;
+}
+
+function hideBusyProgress(): void {
+  busyState.isVisible = false;
+  const modal = document.getElementById(BUSY_MODAL_ID);
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
 // Ingestion device cache
 const ingestionCache = new Map<string, IngestionCache>();
 
@@ -223,6 +364,8 @@ interface ModalState {
   };
   columnWidths: ColumnWidths;
   deviceAttrsLoaded: boolean;
+  attrsLoading: boolean;
+  attrsLoadedCount: number;
   deviceTelemetryLoaded: boolean;
   telemetryLoading: boolean;
   telemetryLoadedCount: number;
@@ -333,6 +476,8 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     bulkAttributeModal: { open: false, attribute: 'deviceType', value: '', saving: false },
     columnWidths: { label: 140, type: 70, deviceType: 80, deviceProfile: 90, telemetry: 100, status: 70 },
     deviceAttrsLoaded: false,
+    attrsLoading: false,
+    attrsLoadedCount: 0,
     deviceTelemetryLoaded: false,
     telemetryLoading: false,
     telemetryLoadedCount: 0,
@@ -872,8 +1017,24 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
           <div style="font-size: 11px; color: ${colors.textMuted};">
             📍 <strong>${state.selectedCustomer?.name || state.selectedCustomer?.title}</strong>
             <span style="margin-left: 8px; color: ${colors.primary};">(${sortedDevices.length}/${state.devices.length})</span>
-            ${!state.deviceAttrsLoaded ? `<span style="color: ${colors.warning}; margin-left: 6px;">⏳ attrs...</span>` : ''}
           </div>
+          ${state.attrsLoading ? `
+            <span style="font-size: 10px; color: ${colors.warning}; padding: 3px 8px; background: ${colors.surface}; border-radius: 4px; border: 1px solid ${colors.border};">
+              ⏳ Atributos ${state.attrsLoadedCount}/${state.devices.length}...
+            </span>
+          ` : state.deviceAttrsLoaded ? `
+            <span style="font-size: 10px; color: ${colors.success}; padding: 3px 8px;">
+              ✅ Atributos OK
+            </span>
+          ` : `
+            <button id="${modalId}-load-attrs" style="
+              padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;
+              background: ${colors.cardBg}; border: 1px solid ${colors.border}; color: ${colors.text};
+              display: flex; align-items: center; gap: 4px;
+            ">
+              🏷️ Carregar Atributos (${state.devices.length})
+            </button>
+          `}
           ${state.telemetryLoading ? `
             <span style="font-size: 10px; color: ${colors.warning}; padding: 3px 8px; background: ${colors.surface}; border-radius: 4px; border: 1px solid ${colors.border};">
               ⏳ Telemetria ${state.telemetryLoadedCount}/${sortedDevices.length}...
@@ -1635,6 +1796,26 @@ function setupEventListeners(
   document.addEventListener('keydown', escHandler);
 
   // ========================
+  // Load Attributes Button
+  // ========================
+
+  document.getElementById(`${modalId}-load-attrs`)?.addEventListener('click', async () => {
+    if (state.attrsLoading) return;
+
+    state.attrsLoading = true;
+    state.attrsLoadedCount = 0;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+
+    await loadDeviceAttrsInBatch(state, container, modalId, t, onClose);
+
+    state.attrsLoading = false;
+    state.deviceAttrsLoaded = true;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // ========================
   // Load Telemetry Button
   // ========================
 
@@ -2212,13 +2393,15 @@ async function loadDevices(
     );
     state.devices = response.data || [];
     state.deviceAttrsLoaded = false;
+    state.attrsLoading = false;
+    state.attrsLoadedCount = 0;
     state.deviceTelemetryLoaded = false;
+    state.telemetryLoading = false;
+    state.telemetryLoadedCount = 0;
     state.isLoading = false;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
-
-    // Start loading attrs in background (telemetry loaded on demand via button)
-    loadDeviceAttrsInBatch(state, container, modalId, t, onClose);
+    // Attrs and telemetry are now loaded on demand via buttons
   } catch (error) {
     console.error('[UpsellModal] Error loading devices:', error);
     state.isLoading = false;
@@ -2239,6 +2422,9 @@ async function loadDeviceAttrsInBatch(
   const deviceIds = state.devices.map(d => getEntityId(d));
   const BATCH_SIZE = 5;
   const BATCH_DELAY_MS = 1500;
+
+  // Show progress modal
+  showBusyProgress('Carregando atributos dos dispositivos...', deviceIds.length);
 
   try {
     for (let i = 0; i < deviceIds.length; i += BATCH_SIZE) {
@@ -2269,6 +2455,11 @@ async function loadDeviceAttrsInBatch(
         }
       });
 
+      // Update progress counter and modal
+      const processed = Math.min(i + BATCH_SIZE, deviceIds.length);
+      state.attrsLoadedCount = processed;
+      updateBusyProgress(processed);
+
       // Re-render to show progress
       if (state.currentStep === 2) {
         renderModal(container, state, modalId, t);
@@ -2282,12 +2473,17 @@ async function loadDeviceAttrsInBatch(
     }
 
     state.deviceAttrsLoaded = true;
+    state.attrsLoading = false;
+    hideBusyProgress();
+
     if (state.currentStep === 2) {
       renderModal(container, state, modalId, t);
       setupEventListeners(container, state, modalId, t, onClose);
     }
   } catch (error) {
     console.error('[UpsellModal] Error loading device attrs:', error);
+    state.attrsLoading = false;
+    hideBusyProgress();
   }
 }
 
@@ -2308,6 +2504,9 @@ async function loadDeviceTelemetryInBatch(
   const BATCH_SIZE = 5;
   const BATCH_DELAY_MS = 1500;
   const telemetryKeys = 'pulses,consumption,temperature,connectionStatus';
+
+  // Show progress modal
+  showBusyProgress('Carregando telemetria dos dispositivos...', deviceIds.length);
 
   try {
     for (let i = 0; i < deviceIds.length; i += BATCH_SIZE) {
@@ -2360,6 +2559,9 @@ async function loadDeviceTelemetryInBatch(
       // Update progress counter
       state.telemetryLoadedCount = Math.min(i + BATCH_SIZE, deviceIds.length);
 
+      // Update progress modal
+      updateBusyProgress(state.telemetryLoadedCount);
+
       // Re-render to show progress
       if (state.currentStep === 2) {
         renderModal(container, state, modalId, t);
@@ -2373,12 +2575,16 @@ async function loadDeviceTelemetryInBatch(
     }
 
     state.deviceTelemetryLoaded = true;
+    hideBusyProgress();
+
     if (state.currentStep === 2) {
       renderModal(container, state, modalId, t);
       setupEventListeners(container, state, modalId, t, onClose);
     }
   } catch (error) {
     console.error('[UpsellModal] Error loading device telemetry:', error);
+    state.telemetryLoading = false;
+    hideBusyProgress();
   }
 }
 
@@ -2487,12 +2693,16 @@ async function saveBulkAttribute(
   state.bulkAttributeModal.saving = true;
   renderModal(container, state, modalId, t);
 
+  // Show progress modal
+  showBusyProgress(`Salvando atributo "${attribute}"...`, devices.length);
+
   let successCount = 0;
   let errorCount = 0;
   const errors: string[] = [];
 
   // Save attribute to each device
-  for (const device of devices) {
+  for (let i = 0; i < devices.length; i++) {
+    const device = devices[i];
     const deviceId = getEntityId(device);
     const attrs: Record<string, string> = { [attribute]: value };
 
@@ -2504,7 +2714,13 @@ async function saveBulkAttribute(
       errors.push(`${device.name}: ${(error as Error).message}`);
       console.error(`[UpsellModal] Error saving to device ${device.name}:`, error);
     }
+
+    // Update progress modal
+    updateBusyProgress(i + 1);
   }
+
+  // Hide progress modal
+  hideBusyProgress();
 
   // Reset modal state
   state.bulkAttributeModal.saving = false;
@@ -2513,11 +2729,11 @@ async function saveBulkAttribute(
 
   // Show result message
   if (errorCount === 0) {
-    alert(`✅ Atributo "${attribute}" salvo com sucesso para ${successCount} dispositivos!`);
+    alert(`Atributo "${attribute}" salvo com sucesso para ${successCount} dispositivos!`);
   } else {
     alert(
-      `⚠️ Atributo salvo para ${successCount} dispositivos.\n` +
-      `❌ Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
+      `Atributo salvo para ${successCount} dispositivos.\n` +
+      `Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
       (errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : '')
     );
   }
