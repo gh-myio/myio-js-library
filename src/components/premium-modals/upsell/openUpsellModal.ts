@@ -224,6 +224,8 @@ interface ModalState {
   columnWidths: ColumnWidths;
   deviceAttrsLoaded: boolean;
   deviceTelemetryLoaded: boolean;
+  telemetryLoading: boolean;
+  telemetryLoadedCount: number;
   deviceRelations: DeviceRelation[];
   allRelations: Array<{ from: TbEntityId; to: TbEntityId; type: string }>;
 }
@@ -332,6 +334,8 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     columnWidths: { label: 140, type: 70, deviceType: 80, deviceProfile: 90, telemetry: 100, status: 70 },
     deviceAttrsLoaded: false,
     deviceTelemetryLoaded: false,
+    telemetryLoading: false,
+    telemetryLoadedCount: 0,
     deviceRelations: [],
     allRelations: [],
   };
@@ -868,8 +872,25 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
           <div style="font-size: 11px; color: ${colors.textMuted};">
             📍 <strong>${state.selectedCustomer?.name || state.selectedCustomer?.title}</strong>
             <span style="margin-left: 8px; color: ${colors.primary};">(${sortedDevices.length}/${state.devices.length})</span>
-            ${!state.deviceAttrsLoaded ? `<span style="color: ${colors.warning}; margin-left: 6px;">⏳ carregando attrs...</span>` : ''}
+            ${!state.deviceAttrsLoaded ? `<span style="color: ${colors.warning}; margin-left: 6px;">⏳ attrs...</span>` : ''}
           </div>
+          ${state.telemetryLoading ? `
+            <span style="font-size: 10px; color: ${colors.warning}; padding: 3px 8px; background: ${colors.surface}; border-radius: 4px; border: 1px solid ${colors.border};">
+              ⏳ Telemetria ${state.telemetryLoadedCount}/${sortedDevices.length}...
+            </span>
+          ` : state.deviceTelemetryLoaded ? `
+            <span style="font-size: 10px; color: ${colors.success}; padding: 3px 8px;">
+              ✅ Telemetria OK
+            </span>
+          ` : `
+            <button id="${modalId}-load-telemetry" style="
+              padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;
+              background: ${colors.cardBg}; border: 1px solid ${colors.border}; color: ${colors.text};
+              display: flex; align-items: center; gap: 4px;
+            " ${!state.deviceAttrsLoaded ? 'disabled' : ''}>
+              📡 Carregar Telemetria (${sortedDevices.length})
+            </button>
+          `}
           <div style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: ${colors.surface}; border-radius: 6px; border: 1px solid ${colors.border};">
             <span style="font-size: 10px; color: ${colors.textMuted};">Modo:</span>
             <button id="${modalId}-mode-single" style="
@@ -972,18 +993,32 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
   const connStatus = telemetry.connectionStatus?.value || 'offline';
   const statusStyle = statusColors[connStatus] || statusColors.offline;
 
-  // Telemetry display (prioritize: consumption > pulses > temperature)
-  let telemetryDisplay = '—';
-  let telemetryTs = '';
+  // Telemetry display - support hybrid devices with multiple telemetry types
+  const telemetryItems: Array<{ label: string; value: string; unit: string; ts: string }> = [];
+
   if (telemetry.consumption) {
-    telemetryDisplay = `${telemetry.consumption.value.toFixed(1)}`;
-    telemetryTs = formatDate(telemetry.consumption.ts, state.locale, true);
-  } else if (telemetry.pulses) {
-    telemetryDisplay = `${telemetry.pulses.value}`;
-    telemetryTs = formatDate(telemetry.pulses.ts, state.locale, true);
-  } else if (telemetry.temperature) {
-    telemetryDisplay = `${telemetry.temperature.value.toFixed(1)}°`;
-    telemetryTs = formatDate(telemetry.temperature.ts, state.locale, true);
+    telemetryItems.push({
+      label: 'consumption',
+      value: telemetry.consumption.value.toFixed(1),
+      unit: 'W',
+      ts: formatDate(telemetry.consumption.ts, state.locale, true),
+    });
+  }
+  if (telemetry.pulses) {
+    telemetryItems.push({
+      label: 'pulses',
+      value: String(telemetry.pulses.value),
+      unit: 'L',
+      ts: formatDate(telemetry.pulses.ts, state.locale, true),
+    });
+  }
+  if (telemetry.temperature) {
+    telemetryItems.push({
+      label: 'temperature',
+      value: telemetry.temperature.value.toFixed(1),
+      unit: '°C',
+      ts: formatDate(telemetry.temperature.ts, state.locale, true),
+    });
   }
 
   const statusTs = telemetry.connectionStatus?.ts ? formatDate(telemetry.connectionStatus.ts, state.locale, true) : '';
@@ -1034,11 +1069,15 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
           ${attrs.deviceProfile || '—'}
         </div>
       </div>
-      <div style="width: ${state.columnWidths.telemetry}px; padding: 0 6px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 2px;">
-        <span style="font-size: 10px; color: ${colors.text}; font-weight: 500;">${telemetryDisplay}</span>
-        ${telemetryTs ? `<span class="myio-ts-btn" data-ts="${telemetryTs}" style="
-          cursor: pointer; font-size: 10px; color: ${colors.primary}; font-weight: 600;
-        " title="${telemetryTs}">(+)</span>` : ''}
+      <div style="width: ${state.columnWidths.telemetry}px; padding: 0 6px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
+        ${telemetryItems.length === 0 ? `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>` : telemetryItems.map(item => `
+          <span style="display: inline-flex; align-items: center; gap: 1px;">
+            <span style="font-size: 9px; color: ${colors.text}; font-weight: 500;" title="${item.label}">${item.value}${item.unit}</span>
+            <span class="myio-ts-btn" data-ts="${item.label}: ${item.value}${item.unit}\\n${item.ts}" style="
+              cursor: pointer; font-size: 9px; color: ${colors.primary}; font-weight: 600;
+            " title="${item.label}: ${item.ts}">(+)</span>
+          </span>
+        `).join('')}
       </div>
       <div style="width: ${state.columnWidths.status}px; padding: 0 6px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 2px;">
         <span style="font-size: 9px; padding: 2px 6px; border-radius: 3px; background: ${statusStyle.bg}; color: ${statusStyle.text};">
@@ -1596,6 +1635,35 @@ function setupEventListeners(
   document.addEventListener('keydown', escHandler);
 
   // ========================
+  // Load Telemetry Button
+  // ========================
+
+  document.getElementById(`${modalId}-load-telemetry`)?.addEventListener('click', async () => {
+    if (state.telemetryLoading) return;
+
+    // Get filtered devices based on current filters
+    const { types: filterTypes, deviceTypes: filterDeviceTypes, deviceProfiles: filterDeviceProfiles } = state.deviceFilters;
+    const filteredDevices = state.devices.filter(d => {
+      if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
+      if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || '')) return false;
+      if (filterDeviceProfiles.length > 0 && !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')) return false;
+      return true;
+    });
+
+    state.telemetryLoading = true;
+    state.telemetryLoadedCount = 0;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+
+    await loadDeviceTelemetryInBatch(state, container, modalId, t, onClose, filteredDevices);
+
+    state.telemetryLoading = false;
+    state.deviceTelemetryLoaded = true;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // ========================
   // Multiselect Mode Handlers
   // ========================
 
@@ -2149,9 +2217,8 @@ async function loadDevices(
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
 
-    // Start loading attrs and telemetry in background
+    // Start loading attrs in background (telemetry loaded on demand via button)
     loadDeviceAttrsInBatch(state, container, modalId, t, onClose);
-    loadDeviceTelemetryInBatch(state, container, modalId, t, onClose);
   } catch (error) {
     console.error('[UpsellModal] Error loading devices:', error);
     state.isLoading = false;
@@ -2170,7 +2237,8 @@ async function loadDeviceAttrsInBatch(
   if (state.devices.length === 0) return;
 
   const deviceIds = state.devices.map(d => getEntityId(d));
-  const BATCH_SIZE = 50;
+  const BATCH_SIZE = 5;
+  const BATCH_DELAY_MS = 1500;
 
   try {
     for (let i = 0; i < deviceIds.length; i += BATCH_SIZE) {
@@ -2206,6 +2274,11 @@ async function loadDeviceAttrsInBatch(
         renderModal(container, state, modalId, t);
         setupEventListeners(container, state, modalId, t, onClose);
       }
+
+      // Delay before next batch (if not last batch)
+      if (i + BATCH_SIZE < deviceIds.length) {
+        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+      }
     }
 
     state.deviceAttrsLoaded = true;
@@ -2218,18 +2291,22 @@ async function loadDeviceAttrsInBatch(
   }
 }
 
-// Load latest telemetry for all devices in batch
+// Load latest telemetry for filtered devices in batch (on demand)
 async function loadDeviceTelemetryInBatch(
   state: ModalState,
   container: HTMLElement,
   modalId: string,
   t: typeof i18n.pt,
-  onClose?: () => void
+  onClose?: () => void,
+  filteredDevices?: Device[]
 ): Promise<void> {
-  if (state.devices.length === 0) return;
+  // Use filtered devices if provided, otherwise use all
+  const devicesToLoad = filteredDevices || state.devices;
+  if (devicesToLoad.length === 0) return;
 
-  const deviceIds = state.devices.map(d => getEntityId(d));
-  const BATCH_SIZE = 50;
+  const deviceIds = devicesToLoad.map(d => getEntityId(d));
+  const BATCH_SIZE = 5;
+  const BATCH_DELAY_MS = 1500;
   const telemetryKeys = 'pulses,consumption,temperature,connectionStatus';
 
   try {
@@ -2280,10 +2357,18 @@ async function loadDeviceTelemetryInBatch(
         }
       });
 
+      // Update progress counter
+      state.telemetryLoadedCount = Math.min(i + BATCH_SIZE, deviceIds.length);
+
       // Re-render to show progress
       if (state.currentStep === 2) {
         renderModal(container, state, modalId, t);
         setupEventListeners(container, state, modalId, t, onClose);
+      }
+
+      // Delay before next batch (if not last batch)
+      if (i + BATCH_SIZE < deviceIds.length) {
+        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
       }
     }
 
