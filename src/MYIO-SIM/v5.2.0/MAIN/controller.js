@@ -5501,7 +5501,7 @@ const MyIOOrchestrator = (() => {
 
         LogHelper.log(`[Orchestrator] 💧 Checking ctx.data for water devices (${ctxData.length} datasources)`);
 
-        // RFC-0108: First pass - collect ownerName for each entity from ownername dataKey
+        // RFC-0108: First pass - collect ownerName for each entity from ownername dataKey (all datasources)
         ctxData.forEach((ds) => {
           const entityId = ds.datasource?.entityId;
           if (!entityId) return;
@@ -5520,7 +5520,8 @@ const MyIOOrchestrator = (() => {
 
         LogHelper.log(`[Orchestrator] 💧 Found ${ownerNameMap.size} entities with ownerName`);
 
-        // Second pass: collect all water devices and their values
+        // Second pass: collect all water devices and their values + ownerName/customerId from water datasource
+        const waterDataKeys = new Set(); // RFC-0108: Debug - collect all dataKeys for water devices
         ctxData.forEach((ds) => {
           const aliasName = (ds.datasource?.aliasName || '').toLowerCase();
           if (!waterAliases.some((wa) => aliasName.includes(wa))) return;
@@ -5531,11 +5532,15 @@ const MyIOOrchestrator = (() => {
           const dataKeyName = ds.dataKey?.name?.toLowerCase();
           const hasData = ds.data?.length > 0;
 
+          // RFC-0108: Debug - collect dataKey names for water devices
+          if (dataKeyName) waterDataKeys.add(dataKeyName);
+
           if (!waterDevicesMap.has(entityId)) {
             waterDevicesMap.set(entityId, {
               tbId: entityId,
-              // RFC-0108: Use ownerName from dataKey instead of device name for proper shopping grouping
-              ownerName: ownerNameMap.get(entityId) || 'Desconhecido',
+              // RFC-0108: ownerName will be filled in from water datasource's ownername key or customerId lookup
+              ownerName: ownerNameMap.get(entityId) || null,
+              customerId: null,
               consumption: 0,
               pulses: 0,
               _aliasName: aliasName,
@@ -5544,6 +5549,24 @@ const MyIOOrchestrator = (() => {
           }
 
           const device = waterDevicesMap.get(entityId);
+
+          // RFC-0108: Collect ownerName from water datasource itself
+          if (dataKeyName === 'ownername' && hasData) {
+            const latestData = ds.data[ds.data.length - 1];
+            const ownerName = latestData?.[1];
+            if (ownerName && typeof ownerName === 'string') {
+              device.ownerName = ownerName;
+            }
+          }
+
+          // RFC-0108: Collect customerId from water datasource for shopping lookup
+          if (dataKeyName === 'customerid' && hasData) {
+            const latestData = ds.data[ds.data.length - 1];
+            const customerId = latestData?.[1];
+            if (customerId && typeof customerId === 'string') {
+              device.customerId = customerId;
+            }
+          }
 
           // Get value from latest data point for consumption or pulses
           if (hasData && (dataKeyName === 'consumption' || dataKeyName === 'pulses')) {
@@ -5556,6 +5579,28 @@ const MyIOOrchestrator = (() => {
             }
           }
         });
+
+        // RFC-0108: Final pass - resolve ownerName from customerId via customers list
+        const customersList = window.custumersSelected || window.customersList || [];
+        let withOwnerName = 0;
+        let withoutOwnerName = 0;
+        waterDevicesMap.forEach((device) => {
+          // If no ownerName but has customerId, look up shopping name from customers list
+          if (!device.ownerName && device.customerId && customersList.length > 0) {
+            const customer = customersList.find((c) => c.value === device.customerId);
+            if (customer?.name) {
+              device.ownerName = customer.name;
+            }
+          }
+          if (device.ownerName) {
+            withOwnerName++;
+          } else {
+            withoutOwnerName++;
+            device.ownerName = 'Desconhecido';
+          }
+        });
+        LogHelper.log(`[Orchestrator] 💧 Water dataKeys: ${Array.from(waterDataKeys).join(', ')}`);
+        LogHelper.log(`[Orchestrator] 💧 Water devices: ${withOwnerName} with ownerName, ${withoutOwnerName} without (customersList: ${customersList.length})`);
 
         // Convert map to array and calculate water value (prefer consumption, fallback to pulses)
         const waterItems = Array.from(waterDevicesMap.values()).map((d) => ({
