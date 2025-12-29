@@ -204,14 +204,20 @@ interface ModalState {
 }
 
 // Helper: format timestamp to locale date string
-function formatDate(timestamp: number | undefined, locale: string): string {
+function formatDate(timestamp: number | undefined, locale: string, includeTime = false): string {
   if (!timestamp) return '';
   const date = new Date(timestamp);
-  return date.toLocaleDateString(locale, {
+  const dateStr = date.toLocaleDateString(locale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   });
+  if (!includeTime) return dateStr;
+  const timeStr = date.toLocaleTimeString(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `${dateStr} ${timeStr}`;
 }
 
 // Helper: sort customers by field
@@ -752,53 +758,67 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
       </div>
     </div>
 
+    <!-- Device Grid Header -->
     <div style="
-      max-height: 340px; overflow-y: auto; border: 1px solid ${colors.border};
-      border-radius: 8px; background: ${colors.surface};
+      display: flex; align-items: center; gap: 0; padding: 8px 12px;
+      background: ${colors.cardBg}; border: 1px solid ${colors.border};
+      border-bottom: none; border-radius: 8px 8px 0 0; font-size: 10px;
+      font-weight: 600; color: ${colors.textMuted}; text-transform: uppercase;
+    ">
+      <div style="width: 28px;"></div>
+      <div class="myio-col-resize" style="flex: 3; min-width: 180px; padding: 0 8px; cursor: col-resize; border-right: 1px solid ${colors.border};">Nome</div>
+      <div class="myio-col-resize" style="flex: 2; min-width: 120px; padding: 0 8px; cursor: col-resize; border-right: 1px solid ${colors.border};">Label</div>
+      <div class="myio-col-resize" style="width: 110px; padding: 0 8px; text-align: center; cursor: col-resize; border-right: 1px solid ${colors.border};">Data/Hora</div>
+      <div class="myio-col-resize" style="width: 80px; padding: 0 8px; text-align: center; cursor: col-resize; border-right: 1px solid ${colors.border};">Type</div>
+      <div class="myio-col-resize" style="width: 90px; padding: 0 8px; text-align: center; cursor: col-resize; border-right: 1px solid ${colors.border};">Profile</div>
+      <div style="width: 24px;"></div>
+    </div>
+
+    <div style="
+      max-height: 320px; overflow-y: auto; border: 1px solid ${colors.border};
+      border-radius: 0 0 8px 8px; background: ${colors.surface};
     " id="${modalId}-device-list">
       ${sortedDevices.length === 0
         ? `<div style="padding: 40px; text-align: center; color: ${colors.textMuted};">${t.noResults}</div>`
         : sortedDevices.map(device => {
             const deviceId = getEntityId(device);
             const isSelected = getEntityId(state.selectedDevice) === deviceId;
-            const createdDate = formatDate(device.createdTime, state.locale);
+            const createdDateTime = formatDate(device.createdTime, state.locale, true);
             return `
           <div class="myio-list-item ${isSelected ? 'selected' : ''}"
                data-device-id="${deviceId}" style="
-            display: flex; align-items: center; gap: 8px;
-            padding: 10px 12px; border-bottom: 1px solid ${colors.border};
+            display: flex; align-items: center; gap: 0;
+            padding: 8px 12px; border-bottom: 1px solid ${colors.border};
             cursor: pointer; transition: background 0.15s;
           ">
-            <div style="font-size: 20px;">${getDeviceIcon(device.type)}</div>
-            <div style="flex: 1; min-width: 100px;">
-              <div style="font-weight: 500; color: ${colors.text}; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;">${device.name}</div>
-              <div style="font-size: 10px; color: ${colors.textMuted};">ID: ${deviceId.slice(0, 8)}...</div>
+            <div style="width: 28px; font-size: 18px; flex-shrink: 0;">${getDeviceIcon(device.type)}</div>
+            <div style="flex: 3; min-width: 180px; padding: 0 8px; overflow: hidden;">
+              <div style="font-weight: 500; color: ${colors.text}; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${device.name}">${device.name}</div>
+              <div style="font-size: 9px; color: ${colors.textMuted};">ID: ${deviceId.slice(0, 12)}...</div>
             </div>
-            <div style="min-width: 80px;">
-              <div style="font-size: 9px; color: ${colors.textMuted};">Label</div>
-              <div style="font-size: 11px; color: ${device.label ? colors.text : colors.textMuted}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">
+            <div style="flex: 2; min-width: 120px; padding: 0 8px; overflow: hidden;">
+              <div style="font-size: 11px; color: ${device.label ? colors.text : colors.textMuted}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${device.label || ''}">
                 ${device.label || 'N/A'}
               </div>
             </div>
-            <div style="min-width: 70px; text-align: center;">
-              <div style="font-size: 9px; color: ${colors.textMuted};">Criado</div>
-              <div style="font-size: 10px; color: ${colors.text};">${createdDate || 'N/A'}</div>
+            <div style="width: 110px; padding: 0 8px; text-align: center; flex-shrink: 0;">
+              <div style="font-size: 10px; color: ${colors.text};">${createdDateTime || 'N/A'}</div>
             </div>
-            <div style="min-width: 70px; text-align: center;">
-              <div style="font-size: 9px; color: ${colors.textMuted};">Type</div>
-              <div style="font-size: 10px; padding: 2px 4px; border-radius: 3px;
+            <div style="width: 80px; padding: 0 8px; text-align: center; flex-shrink: 0;">
+              <div style="font-size: 10px; padding: 2px 6px; border-radius: 3px; display: inline-block;
                 background: ${device.type?.includes('HIDRO') ? '#dbeafe' : '#fef3c7'};
                 color: ${device.type?.includes('HIDRO') ? '#1e40af' : '#92400e'};">
                 ${device.type || 'N/A'}
               </div>
             </div>
-            <div style="min-width: 80px; text-align: center;">
-              <div style="font-size: 9px; color: ${colors.textMuted};">Profile</div>
-              <div style="font-size: 10px; color: ${device.deviceProfileName ? colors.text : colors.textMuted}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">
+            <div style="width: 90px; padding: 0 8px; text-align: center; flex-shrink: 0; overflow: hidden;">
+              <div style="font-size: 10px; color: ${device.deviceProfileName ? colors.text : colors.textMuted}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${device.deviceProfileName || ''}">
                 ${device.deviceProfileName || 'N/A'}
               </div>
             </div>
-            ${isSelected ? `<div style="color: ${colors.success}; font-size: 14px;">✓</div>` : ''}
+            <div style="width: 24px; flex-shrink: 0; text-align: center;">
+              ${isSelected ? `<span style="color: ${colors.success}; font-size: 14px;">✓</span>` : ''}
+            </div>
           </div>
         `;}).join('')
       }
