@@ -1253,7 +1253,7 @@ function filterCustomerList(
   customers: Customer[],
   search: string,
   selected: Customer | null,
-  sort?: { field: SortField; order: SortOrder }
+  sort?: { field: CustomerSortField; order: SortOrder }
 ): void {
   const listContainer = container.querySelector('[id$="-customer-list"]');
   if (!listContainer) return;
