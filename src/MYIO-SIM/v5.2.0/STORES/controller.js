@@ -690,7 +690,8 @@ async function renderList(visible) {
     }
 
     // Get instantaneous power from item data
-    const instantaneousPower = Number(it.consumption_power) || null;
+    // RFC-0108: Field is 'consumptionPower' (from orchestrator) or 'consumption_power' (legacy)
+    const instantaneousPower = Number(it.consumptionPower || it.consumption_power) || null;
 
     // RFC-0091: Calculate operationHours (same as EQUIPMENTS)
     let operationHoursFormatted = '0s';
@@ -1771,12 +1772,20 @@ async function hydrateAndRender() {
 
       if (energyCache && energyCache.size > 0) {
         const mappedItems = [];
-        energyCache.forEach((item, ingestionId) => {
+        // RFC-0108: Track processed items by tbId to avoid duplicates (cache has same item with multiple keys)
+        const processedTbIds = new Set();
+
+        energyCache.forEach((item, _key) => {
           // Filter for lojas only - BOTH deviceType AND deviceProfile must be '3F_MEDIDOR'
           if (!isStoreDeviceFallback(item)) return;
 
+          // RFC-0108: Skip duplicates - cache may have same item under tbId and ingestionId keys
+          const itemTbId = item.tbId || item.id || item.ingestionId;
+          if (processedTbIds.has(itemTbId)) return;
+          processedTbIds.add(itemTbId);
+
           // Use label (human-readable) first, fallback to name
-          const displayLabel = item.label || item.name || ingestionId;
+          const displayLabel = item.label || item.name || item.ingestionId;
           let identifier = item.identifier || item.assetName || null;
           if (!identifier && item.name) {
             const match = item.name.match(/^3F\s+\w+\.\s*(.+)$/i);
@@ -1784,9 +1793,9 @@ async function hydrateAndRender() {
           }
 
           mappedItems.push({
-            id: item.tbId || ingestionId,
-            tbId: item.tbId || ingestionId,
-            ingestionId: ingestionId,
+            id: itemTbId,
+            tbId: itemTbId,
+            ingestionId: item.ingestionId || itemTbId,
             identifier: identifier,
             label: displayLabel,
             value: Number(item.total_value || item.value || 0),
@@ -1795,11 +1804,22 @@ async function hydrateAndRender() {
             connectionStatus: item.connectionStatus || 'online',
             deviceProfile: item.deviceProfile || '3F_MEDIDOR',
             updatedIdentifiers: {},
+            // RFC-0108: Add missing fields for card rendering
+            consumptionPower: item.consumptionPower || null,
+            lastConnectTime: item.lastConnectTime || null,
+            lastDisconnectTime: item.lastDisconnectTime || null,
+            lastActivityTime: item.lastActivityTime || null,
+            centralName: item.centralName || null,
+            ownerName: item.ownerName || null,
+            customerId: item.customerId || null,
+            deviceMapInstaneousPower: item.deviceMapInstaneousPower || null,
+            slaveId: item.slaveId || null,
+            centralId: item.centralId || null,
           });
         });
         STATE.itemsBase = mappedItems;
         STATE.itemsEnriched = mappedItems;
-        LogHelper.log(`[STORES] RFC-0102 Fallback: ${mappedItems.length} items from energyCache`);
+        LogHelper.log(`[STORES] RFC-0102 Fallback: ${mappedItems.length} items from energyCache (${processedTbIds.size} unique)`);
       } else {
         LogHelper.warn('[STORES] Orchestrator cache is empty, waiting for data...');
         STATE.itemsBase = [];

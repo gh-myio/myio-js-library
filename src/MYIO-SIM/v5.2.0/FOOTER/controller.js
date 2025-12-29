@@ -1189,18 +1189,27 @@ const footerController = {
       // Calcula granularidade baseada no período
       const granularity = this._calculateGranularity(startDate, endDate);
 
-      // ⭐ Obtém credenciais de autenticação com fallback
-      const clientId = window.__MYIO_CLIENT_ID__ || 'mestreal_mfh4e642_4flnuh';
-      const clientSecret =
-        window.__MYIO_CLIENT_SECRET__ || 'gv0zfmdekNxYA296OcqFrnBAVU4PhbUBhBwNlMCamk2oXDHeXJqu1K6YtpVOZ5da';
+      // RFC-0108: Get ingestion token from MyIOOrchestrator (set by MAIN widget)
+      // No more hardcoded fallback credentials - MAIN must set the token
+      const tokenIngestionDashBoardComparison = window.MyIOOrchestrator?.tokenManager?.getToken?.('ingestionToken');
 
-      // Log se estiver usando fallback
-      if (!window.__MYIO_CLIENT_ID__) {
-        LogHelper.warn('[MyIO Footer] Using fallback clientId');
+      if (!tokenIngestionDashBoardComparison) {
+        LogHelper.error('[MyIO Footer] ❌ Ingestion token not available from MyIOOrchestrator');
+
+        // Show TOAST error to user
+        const MyIOToast = window.MyIOLibrary?.MyIOToast;
+        if (MyIOToast) {
+          MyIOToast.error('Credenciais não disponíveis. Aguarde o carregamento do dashboard.', 4000);
+        } else {
+          window.alert('Credenciais não disponíveis. Aguarde o carregamento do dashboard.');
+        }
+        return;
       }
-      if (!window.__MYIO_CLIENT_SECRET__) {
-        LogHelper.warn('[MyIO Footer] Using fallback clientSecret');
-      }
+
+      // Get credentials from MyIOOrchestrator for modal configuration
+      const credentials = window.MyIOUtils?.getCredentials?.() || {};
+      const clientId = credentials.clientId;
+      const clientSecret = credentials.clientSecret;
 
       LogHelper.log('[MyIO Footer] Opening modal with config:', {
         dataSources: dataSources.length,
@@ -1208,7 +1217,8 @@ const footerController = {
         startDate,
         endDate,
         granularity,
-        clientId,
+        hasToken: !!tokenIngestionDashBoardComparison,
+        hasCredentials: !!(clientId && clientSecret),
       });
 
       // ⭐ NOVO: Usa openDashboardPopupEnergy em modo comparison
@@ -1219,16 +1229,8 @@ const footerController = {
         return;
       }
 
-      // ⭐ Usa as variáveis com fallback (já definidas acima)
       const dataApiHost = getDataApiHost();
-      const MyIOAuthFooter = MyIOLibrary.buildMyioIngestionAuth({
-        dataApiHost: dataApiHost,
-        clientId: clientId, // ← Usa a variável com fallback
-        clientSecret: clientSecret, // ← Usa a variável com fallback
-      });
-
       const myTbTokenDashBoardFooter = localStorage.getItem('jwt_token');
-      const tokenIngestionDashBoardComparison = await MyIOAuthFooter.getToken();
 
       const modal = window.MyIOLibrary.openDashboardPopupEnergy({
         mode: 'comparison', // ← MODO COMPARISON

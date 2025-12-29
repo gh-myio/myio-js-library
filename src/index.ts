@@ -489,3 +489,28 @@ export {
   DOMAIN_CONFIG as MEASUREMENT_DOMAIN_CONFIG,
   DEFAULT_MEASUREMENT_SETTINGS,
 } from './components/premium-modals/measurement-setup';
+
+// RFC-0109: Device Type Classification
+export {
+  handleDeviceType,
+  getSuggestedProfiles,
+  getSuggestedIdentifier,
+  DEVICE_TYPE_DOMAIN,
+} from './classify/deviceType';
+
+export type { InferredDeviceType } from './classify/deviceType';
+
+// RFC-0109: Upsell Post-Setup Modal
+export { openUpsellModal } from './components/premium-modals/upsell';
+
+export type {
+  UpsellModalParams,
+  UpsellModalInstance,
+  Customer as UpsellCustomer,
+  Device as UpsellDevice,
+  DeviceAttributes,
+  DeviceRelation,
+  ValidationMap,
+  UpsellModalStyles,
+  UpsellModalError,
+} from './components/premium-modals/upsell';

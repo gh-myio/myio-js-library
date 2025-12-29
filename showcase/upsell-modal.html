@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upsell Modal - RFC-0109 Showcase</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: white;
+            padding: 32px 20px;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .breadcrumb a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-subtitle {
+            margin-top: 8px;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-desc {
+            color: var(--gray-600);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #6366f1;
+            color: white;
+        }
+
+        .btn-primary:hover { background: #4f46e5; }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-800);
+        }
+
+        .btn-secondary:hover { background: var(--gray-300); }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover { background: #16a34a; }
+
+        .btn-lg {
+            padding: 14px 24px;
+            font-size: 16px;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            max-width: 700px;
+            width: 95%;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transform: scale(0.9);
+            transition: transform 0.3s;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--gray-50);
+        }
+
+        .modal-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--gray-500);
+            padding: 4px;
+            line-height: 1;
+        }
+
+        .modal-close:hover { color: var(--gray-800); }
+
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            background: var(--gray-50);
+        }
+
+        /* Steps */
+        .steps {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--gray-100);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--gray-500);
+        }
+
+        .step.active {
+            background: #6366f1;
+            color: white;
+        }
+
+        .step.completed {
+            background: var(--success);
+            color: white;
+        }
+
+        .step-number {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        .step.active .step-number,
+        .step.completed .step-number {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Search Box */
+        .search-box {
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 16px 12px 44px;
+            border: 2px solid var(--gray-200);
+            border-radius: 10px;
+            font-size: 15px;
+            transition: border-color 0.2s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #6366f1;
+        }
+
+        .search-box::before {
+            content: "🔍";
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
+        }
+
+        /* List Items */
+        .list-container {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--gray-200);
+            border-radius: 10px;
+        }
+
+        .list-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--gray-100);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .list-item:last-child { border-bottom: none; }
+
+        .list-item:hover { background: var(--gray-50); }
+
+        .list-item.selected {
+            background: #eef2ff;
+            border-left: 3px solid #6366f1;
+        }
+
+        .list-item-icon {
+            font-size: 24px;
+        }
+
+        .list-item-content {
+            flex: 1;
+        }
+
+        .list-item-title {
+            font-weight: 500;
+            color: var(--gray-800);
+        }
+
+        .list-item-subtitle {
+            font-size: 12px;
+            color: var(--gray-500);
+        }
+
+        .list-item-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .badge-energy { background: #fef3c7; color: #92400e; }
+        .badge-water { background: #dbeafe; color: #1e40af; }
+        .badge-temp { background: #fce7f3; color: #9d174d; }
+
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .filter-select {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+        }
+
+        /* Validation Map */
+        .validation-section {
+            margin-bottom: 24px;
+        }
+
+        .validation-section h4 {
+            font-size: 14px;
+            color: var(--gray-600);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .validation-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--gray-50);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .validation-icon {
+            font-size: 18px;
+        }
+
+        .validation-label {
+            width: 120px;
+            font-size: 13px;
+            color: var(--gray-600);
+            font-weight: 500;
+        }
+
+        .validation-value {
+            flex: 1;
+        }
+
+        .validation-value input,
+        .validation-value select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .validation-value input:disabled {
+            background: var(--gray-100);
+            color: var(--gray-600);
+        }
+
+        .validation-value.has-warning input,
+        .validation-value.has-warning select {
+            border-color: var(--warning);
+            background: #fffbeb;
+        }
+
+        .validation-action {
+            width: 80px;
+        }
+
+        .btn-sm {
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+
+        .relation-box {
+            padding: 16px;
+            background: var(--gray-50);
+            border-radius: 8px;
+            border: 1px solid var(--gray-200);
+        }
+
+        .relation-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+        }
+
+        .relation-item + .relation-item {
+            padding-left: 24px;
+            border-top: 1px dashed var(--gray-200);
+        }
+
+        /* Console */
+        .console-output {
+            background: var(--gray-900);
+            color: #e5e7eb;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .console-output .log { color: #9ca3af; }
+        .console-output .info { color: #60a5fa; }
+        .console-output .success { color: #34d399; }
+        .console-output .warning { color: #fbbf24; }
+        .console-output .error { color: #f87171; }
+
+        /* Scenarios Grid */
+        .scenario-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .scenario-card {
+            padding: 16px;
+            border: 2px solid var(--gray-200);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .scenario-card:hover {
+            border-color: #6366f1;
+            background: #f5f3ff;
+        }
+
+        .scenario-card.active {
+            border-color: #6366f1;
+            background: #eef2ff;
+        }
+
+        .scenario-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .scenario-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .scenario-desc {
+            font-size: 12px;
+            color: var(--gray-500);
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="breadcrumb">
+                <a href="index.html">Showcase</a> / RFC-0109 Upsell Modal
+            </div>
+            <h1>📦 Upsell Post-Setup Modal</h1>
+            <p class="header-subtitle">Multi-step wizard for device configuration and attribute validation</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Open Modal Section -->
+        <section class="section">
+            <h2>🚀 Launch Upsell Modal</h2>
+            <p class="section-desc">
+                Click the button below to open the Upsell Modal wizard. Select a test scenario to see different validation states.
+            </p>
+
+            <div class="scenario-grid" style="margin-bottom: 20px;">
+                <div class="scenario-card active" onclick="selectScenario('happy')" id="scenario-happy">
+                    <div class="scenario-icon">✅</div>
+                    <div class="scenario-title">Happy Path</div>
+                    <div class="scenario-desc">All attributes valid</div>
+                </div>
+                <div class="scenario-card" onclick="selectScenario('missing')" id="scenario-missing">
+                    <div class="scenario-icon">⚠️</div>
+                    <div class="scenario-title">Missing Attributes</div>
+                    <div class="scenario-desc">Null/empty values</div>
+                </div>
+                <div class="scenario-card" onclick="selectScenario('invalid-owner')" id="scenario-invalid-owner">
+                    <div class="scenario-icon">❌</div>
+                    <div class="scenario-title">Invalid Owner</div>
+                    <div class="scenario-desc">Wrong customer</div>
+                </div>
+                <div class="scenario-card" onclick="selectScenario('no-relation')" id="scenario-no-relation">
+                    <div class="scenario-icon">🔗</div>
+                    <div class="scenario-title">Missing Relation</div>
+                    <div class="scenario-desc">No TO relation</div>
+                </div>
+                <div class="scenario-card" onclick="selectScenario('ingestion-mismatch')" id="scenario-ingestion-mismatch">
+                    <div class="scenario-icon">🔍</div>
+                    <div class="scenario-title">Ingestion Mismatch</div>
+                    <div class="scenario-desc">No matching record</div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-lg" onclick="openUpsellModal()">
+                📦 Open Upsell Modal
+            </button>
+        </section>
+
+        <!-- handleDeviceType Demo -->
+        <section class="section">
+            <h2>🏷️ handleDeviceType() Function</h2>
+            <p class="section-desc">
+                Test the device type inference function. Enter a device name to see the suggested type.
+            </p>
+
+            <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                <input type="text" id="deviceNameInput" placeholder="Enter device name (e.g., Compressor AC 01, Hidrometro Loja 15...)"
+                       style="flex: 1; padding: 12px; border: 2px solid var(--gray-200); border-radius: 8px; font-size: 15px;"
+                       oninput="testHandleDeviceType()">
+                <div id="deviceTypeResult" style="padding: 12px 20px; background: #6366f1; color: white; border-radius: 8px; font-weight: 600; min-width: 140px; text-align: center;">
+                    3F_MEDIDOR
+                </div>
+            </div>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                <button class="btn btn-secondary" onclick="setDeviceName('Compressor AC Norte')">Compressor AC Norte</button>
+                <button class="btn btn-secondary" onclick="setDeviceName('Escada Rolante 01')">Escada Rolante 01</button>
+                <button class="btn btn-secondary" onclick="setDeviceName('Hidrometro Loja 15')">Hidrometro Loja 15</button>
+                <button class="btn btn-secondary" onclick="setDeviceName('Chiller 3F Central')">Chiller 3F Central</button>
+                <button class="btn btn-secondary" onclick="setDeviceName('Elevador Social')">Elevador Social</button>
+                <button class="btn btn-secondary" onclick="setDeviceName('Caixa Dagua Principal')">Caixa Dagua Principal</button>
+                <button class="btn btn-secondary" onclick="setDeviceName('Motor Recalque 01')">Motor Recalque 01</button>
+                <button class="btn btn-secondary" onclick="setDeviceName('Entrada Subestacao')">Entrada Subestacao</button>
+            </div>
+        </section>
+
+        <!-- Console Output -->
+        <section class="section">
+            <h2>🖥️ Console Output</h2>
+            <p class="section-desc">
+                Action logs and API call simulations.
+            </p>
+            <div class="console-output" id="console">
+                <div class="log">[Init] Upsell Modal Showcase loaded</div>
+                <div class="info">[Mock] 5 customers loaded</div>
+                <div class="info">[Mock] 45 devices loaded across all customers</div>
+                <div class="success">[Ready] Click "Open Upsell Modal" to begin</div>
+            </div>
+        </section>
+
+        <div style="text-align: center; margin-top: 32px;">
+            <a href="index.html" class="btn btn-primary">← Back to Portal</a>
+        </div>
+    </div>
+
+    <!-- Upsell Modal -->
+    <div class="modal-overlay" id="upsellModal" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="modalTitle">📦 Upsell Post-Setup</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Steps Indicator -->
+                <div class="steps">
+                    <div class="step" id="step1-indicator">
+                        <span class="step-number">1</span>
+                        <span>Customer</span>
+                    </div>
+                    <div class="step" id="step2-indicator">
+                        <span class="step-number">2</span>
+                        <span>Device</span>
+                    </div>
+                    <div class="step" id="step3-indicator">
+                        <span class="step-number">3</span>
+                        <span>Validation</span>
+                    </div>
+                </div>
+
+                <!-- Step 1: Customer Selection -->
+                <div id="step1" class="step-content">
+                    <div class="search-box">
+                        <input type="text" id="customerSearch" placeholder="Search customers..." oninput="filterCustomers()">
+                    </div>
+                    <div class="list-container" id="customerList"></div>
+                </div>
+
+                <!-- Step 2: Device Selection -->
+                <div id="step2" class="step-content" style="display: none;">
+                    <div class="filters">
+                        <select class="filter-select" id="deviceTypeFilter" onchange="filterDevices()">
+                            <option value="">All Device Types</option>
+                            <option value="3F_MEDIDOR">3F_MEDIDOR</option>
+                            <option value="HIDROMETRO">HIDROMETRO</option>
+                            <option value="CHILLER">CHILLER</option>
+                            <option value="ELEVADOR">ELEVADOR</option>
+                            <option value="ESCADA_ROLANTE">ESCADA_ROLANTE</option>
+                        </select>
+                        <select class="filter-select" id="deviceProfileFilter" onchange="filterDevices()">
+                            <option value="">All Profiles</option>
+                            <option value="3F_MEDIDOR">3F_MEDIDOR</option>
+                            <option value="HIDROMETRO">HIDROMETRO</option>
+                            <option value="CHILLER">CHILLER</option>
+                        </select>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="deviceSearch" placeholder="Search devices..." oninput="filterDevices()">
+                    </div>
+                    <div class="list-container" id="deviceList"></div>
+                </div>
+
+                <!-- Step 3: Validation Map -->
+                <div id="step3" class="step-content" style="display: none;">
+                    <div id="validationContent"></div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <div>
+                    <button class="btn btn-secondary" id="backBtn" onclick="prevStep()" style="display: none;">← Back</button>
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button class="btn btn-primary" id="nextBtn" onclick="nextStep()">Next →</button>
+                    <button class="btn btn-success" id="saveBtn" onclick="saveChanges()" style="display: none;">💾 Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== MOCK DATA ====================
+        const MOCK_CUSTOMERS = [
+            { id: 'cust-001', name: 'Shopping Iguatemi', cnpj: '12.345.678/0001-90' },
+            { id: 'cust-002', name: 'Shopping Morumbi', cnpj: '23.456.789/0001-01' },
+            { id: 'cust-003', name: 'Shopping Eldorado', cnpj: '34.567.890/0001-12' },
+            { id: 'cust-004', name: 'Shopping Cidade Jardim', cnpj: '45.678.901/0001-23' },
+            { id: 'cust-005', name: 'Shopping Bourbon', cnpj: '56.789.012/0001-34' }
+        ];
+
+        const MOCK_DEVICES = {
+            'cust-001': [
+                { id: 'dev-001', name: 'Compressor AC Norte 01', type: '3F_MEDIDOR', profile: 'CHILLER', centralId: '21.154.001.001', slaveId: 1, centralName: 'Central Iguatemi', identifier: 'COMP-N01', ingestionId: 'ing-001', owner: 'cust-001', relation: { type: 'ASSET', name: 'CAG Norte', parentType: 'CUSTOMER' } },
+                { id: 'dev-002', name: 'Elevador Social 01', type: 'ELEVADOR', profile: 'ELEVADOR', centralId: '21.154.001.002', slaveId: 2, centralName: 'Central Iguatemi', identifier: 'ELV-S01', ingestionId: 'ing-002', owner: 'cust-001', relation: { type: 'ASSET', name: 'Bloco A', parentType: 'CUSTOMER' } },
+                { id: 'dev-003', name: 'Hidrometro Loja 15', type: 'HIDROMETRO', profile: 'HIDROMETRO', centralId: '21.154.001.003', slaveId: 3, centralName: null, identifier: null, ingestionId: null, owner: 'cust-001', relation: { type: 'ASSET', name: 'Loja 15', parentType: 'CUSTOMER' } },
+                { id: 'dev-004', name: 'Escada Rolante 01', type: 'ESCADA_ROLANTE', profile: 'ESCADA_ROLANTE', centralId: '21.154.001.004', slaveId: 4, centralName: 'Central Iguatemi', identifier: 'ESC-01', ingestionId: 'ing-004', owner: 'cust-001', relation: { type: 'ASSET', name: 'Circulacao', parentType: 'CUSTOMER' } },
+                { id: 'dev-005', name: 'Sensor 3F Entrada', type: '3F_MEDIDOR', profile: '3F_MEDIDOR', centralId: '21.154.001.005', slaveId: 5, centralName: null, deviceType: null, identifier: null, ingestionId: null, owner: 'cust-001', relation: null },
+                { id: 'dev-006', name: 'Chiller 3F Central', type: 'CHILLER', profile: 'CHILLER', centralId: '21.154.001.006', slaveId: 6, centralName: 'Central Iguatemi', identifier: 'CHL-01', ingestionId: 'ing-006', owner: 'cust-002', relation: { type: 'ASSET', name: 'CAG', parentType: 'CUSTOMER' } },
+            ],
+            'cust-002': [
+                { id: 'dev-101', name: 'Compressor Chiller 01', type: 'CHILLER', profile: 'CHILLER', centralId: '21.155.001.001', slaveId: 1, centralName: 'Central Morumbi', identifier: 'CHL-01', ingestionId: 'ing-101', owner: 'cust-002', relation: { type: 'ASSET', name: 'CAG', parentType: 'CUSTOMER' } },
+                { id: 'dev-102', name: 'Hidrometro Area Comum', type: 'HIDROMETRO', profile: 'HIDROMETRO_AREA_COMUM', centralId: '21.155.001.002', slaveId: 2, centralName: 'Central Morumbi', identifier: 'HID-AC', ingestionId: 'ing-102', owner: 'cust-002', relation: { type: 'CUSTOMER', name: 'Shopping Morumbi', parentType: null } },
+            ],
+            'cust-003': [
+                { id: 'dev-201', name: 'Sensor Entrada Principal', type: '3F_MEDIDOR', profile: 'ENTRADA', centralId: '21.156.001.001', slaveId: 1, centralName: 'Central Eldorado', identifier: 'ENT-01', ingestionId: 'ing-201', owner: 'cust-003', relation: { type: 'ASSET', name: 'Subestacao', parentType: 'CUSTOMER' } },
+            ],
+            'cust-004': [
+                { id: 'dev-301', name: 'Caixa Dagua Principal', type: 'CAIXA_DAGUA', profile: 'TANK', centralId: '21.157.001.001', slaveId: 1, centralName: 'Central CJ', identifier: 'CXD-01', ingestionId: 'ing-301', owner: 'cust-004', relation: { type: 'ASSET', name: 'Reservatorios', parentType: 'CUSTOMER' } },
+            ],
+            'cust-005': [
+                { id: 'dev-401', name: 'Fancoil 3F Piso 1', type: 'FANCOIL', profile: 'FANCOIL', centralId: '21.158.001.001', slaveId: 1, centralName: 'Central Bourbon', identifier: 'FAN-P1', ingestionId: 'ing-401', owner: 'cust-005', relation: { type: 'ASSET', name: 'Climatizacao', parentType: 'CUSTOMER' } },
+            ]
+        };
+
+        const MOCK_INGESTION = [
+            { id: 'ing-001', centralId: '21.154.001.001', slaveId: 1 },
+            { id: 'ing-002', centralId: '21.154.001.002', slaveId: 2 },
+            { id: 'ing-004', centralId: '21.154.001.004', slaveId: 4 },
+            { id: 'ing-006', centralId: '21.154.001.006', slaveId: 6 },
+            { id: 'ing-101', centralId: '21.155.001.001', slaveId: 1 },
+            { id: 'ing-102', centralId: '21.155.001.002', slaveId: 2 },
+            { id: 'ing-201', centralId: '21.156.001.001', slaveId: 1 },
+            { id: 'ing-301', centralId: '21.157.001.001', slaveId: 1 },
+            { id: 'ing-401', centralId: '21.158.001.001', slaveId: 1 },
+        ];
+
+        // ==================== STATE ====================
+        let currentStep = 1;
+        let selectedCustomer = null;
+        let selectedDevice = null;
+        let currentScenario = 'happy';
+
+        // ==================== handleDeviceType FUNCTION ====================
+        function handleDeviceType(name) {
+            const upper = (name || '').toUpperCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+
+            // ENERGY
+            if (upper.includes('COMPRESSOR')) return 'COMPRESSOR';
+            if (upper.includes('VENT')) return 'VENTILADOR';
+            if (upper.includes('ESRL') || upper.includes('ESCADA')) return 'ESCADA_ROLANTE';
+            if (upper.includes('ELEV')) return 'ELEVADOR';
+            if (
+                (upper.includes('MOTR') && !upper.includes('CHILLER')) ||
+                upper.includes('MOTOR') ||
+                upper.includes('RECALQUE')
+            ) return 'MOTOR';
+
+            if (upper.includes('RELOGIO') || upper.includes('RELOG') || upper.includes('REL '))
+                return 'RELOGIO';
+            if (upper.includes('ENTRADA') || upper.includes('SUBESTACAO') || upper.includes('SUBEST'))
+                return 'ENTRADA';
+
+            if (upper.includes('3F')) {
+                if (upper.includes('CHILLER')) return 'CHILLER';
+                if (upper.includes('FANCOIL')) return 'FANCOIL';
+                if (upper.includes('TRAFO')) return 'ENTRADA';
+                if (upper.includes('ENTRADA')) return 'ENTRADA';
+                if (upper.includes('CAG')) return 'BOMBA_CAG';
+                return '3F_MEDIDOR';
+            }
+
+            // WATER
+            if (upper.includes('HIDR') || upper.includes('BANHEIRO')) return 'HIDROMETRO';
+            if (upper.includes('CAIXA DAGUA') || upper.includes('CX DAGUA') ||
+                upper.includes('CXDAGUA') || upper.includes('SCD'))
+                return 'CAIXA_DAGUA';
+            if (upper.includes('TANK') || upper.includes('TANQUE') || upper.includes('RESERVATORIO'))
+                return 'TANK';
+
+            // Other
+            if (upper.includes('AUTOMATICO')) return 'SELETOR_AUTO_MANUAL';
+            if (upper.includes('TERMOSTATO') || upper.includes('TERMO') || upper.includes('TEMP'))
+                return 'TERMOSTATO';
+            if (upper.includes('ABRE')) return 'SOLENOIDE';
+            if (upper.includes('AUTOMACAO') || upper.includes('GW_AUTO')) return 'GLOBAL_AUTOMACAO';
+            if (upper.includes(' AC ') || upper.endsWith(' AC')) return 'CONTROLE REMOTO';
+
+            return '3F_MEDIDOR';
+        }
+
+        // ==================== UI FUNCTIONS ====================
+        function log(message, type = 'log') {
+            const console = document.getElementById('console');
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            console.appendChild(div);
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function selectScenario(scenario) {
+            document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('active'));
+            document.getElementById('scenario-' + scenario).classList.add('active');
+            currentScenario = scenario;
+            log(`Scenario selected: ${scenario}`, 'info');
+        }
+
+        function openUpsellModal() {
+            currentStep = 1;
+            selectedCustomer = null;
+            selectedDevice = null;
+            updateStepIndicators();
+            showStep(1);
+            renderCustomerList();
+            document.getElementById('upsellModal').classList.add('active');
+            log('Upsell Modal opened', 'info');
+        }
+
+        function closeModal(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('upsellModal').classList.remove('active');
+            log('Modal closed', 'log');
+        }
+
+        function updateStepIndicators() {
+            for (let i = 1; i <= 3; i++) {
+                const indicator = document.getElementById(`step${i}-indicator`);
+                indicator.classList.remove('active', 'completed');
+                if (i < currentStep) indicator.classList.add('completed');
+                else if (i === currentStep) indicator.classList.add('active');
+            }
+        }
+
+        function showStep(step) {
+            document.querySelectorAll('.step-content').forEach(s => s.style.display = 'none');
+            document.getElementById(`step${step}`).style.display = 'block';
+
+            document.getElementById('backBtn').style.display = step > 1 ? 'inline-flex' : 'none';
+            document.getElementById('nextBtn').style.display = step < 3 ? 'inline-flex' : 'none';
+            document.getElementById('saveBtn').style.display = step === 3 ? 'inline-flex' : 'none';
+        }
+
+        function nextStep() {
+            if (currentStep === 1 && !selectedCustomer) {
+                alert('Please select a customer');
+                return;
+            }
+            if (currentStep === 2 && !selectedDevice) {
+                alert('Please select a device');
+                return;
+            }
+
+            if (currentStep < 3) {
+                currentStep++;
+                updateStepIndicators();
+                showStep(currentStep);
+
+                if (currentStep === 2) {
+                    renderDeviceList();
+                    log(`Fetching devices for ${selectedCustomer.name}...`, 'info');
+                } else if (currentStep === 3) {
+                    renderValidationMap();
+                    log(`Loading validation map for ${selectedDevice.name}...`, 'info');
+                }
+            }
+        }
+
+        function prevStep() {
+            if (currentStep > 1) {
+                currentStep--;
+                updateStepIndicators();
+                showStep(currentStep);
+            }
+        }
+
+        // ==================== CUSTOMER LIST ====================
+        function renderCustomerList(filter = '') {
+            const container = document.getElementById('customerList');
+            const filtered = MOCK_CUSTOMERS.filter(c =>
+                c.name.toLowerCase().includes(filter.toLowerCase()) ||
+                c.cnpj.includes(filter)
+            );
+
+            container.innerHTML = filtered.map(customer => `
+                <div class="list-item ${selectedCustomer?.id === customer.id ? 'selected' : ''}"
+                     onclick="selectCustomer('${customer.id}')">
+                    <div class="list-item-icon">🏢</div>
+                    <div class="list-item-content">
+                        <div class="list-item-title">${customer.name}</div>
+                        <div class="list-item-subtitle">CNPJ: ${customer.cnpj}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterCustomers() {
+            const search = document.getElementById('customerSearch').value;
+            renderCustomerList(search);
+        }
+
+        function selectCustomer(id) {
+            selectedCustomer = MOCK_CUSTOMERS.find(c => c.id === id);
+            selectedDevice = null;
+            renderCustomerList(document.getElementById('customerSearch').value);
+            log(`Customer selected: ${selectedCustomer.name}`, 'success');
+        }
+
+        // ==================== DEVICE LIST ====================
+        function renderDeviceList() {
+            const typeFilter = document.getElementById('deviceTypeFilter').value;
+            const profileFilter = document.getElementById('deviceProfileFilter').value;
+            const search = document.getElementById('deviceSearch').value.toLowerCase();
+
+            let devices = MOCK_DEVICES[selectedCustomer.id] || [];
+
+            if (typeFilter) devices = devices.filter(d => d.type === typeFilter);
+            if (profileFilter) devices = devices.filter(d => d.profile === profileFilter);
+            if (search) devices = devices.filter(d => d.name.toLowerCase().includes(search));
+
+            const container = document.getElementById('deviceList');
+            container.innerHTML = devices.map(device => {
+                const badgeClass = device.type?.includes('HIDRO') ? 'badge-water' :
+                                   device.type?.includes('TEMP') ? 'badge-temp' : 'badge-energy';
+                return `
+                    <div class="list-item ${selectedDevice?.id === device.id ? 'selected' : ''}"
+                         onclick="selectDevice('${device.id}')">
+                        <div class="list-item-icon">${getDeviceIcon(device.type)}</div>
+                        <div class="list-item-content">
+                            <div class="list-item-title">${device.name}</div>
+                            <div class="list-item-subtitle">ID: ${device.id} | Slave: ${device.slaveId}</div>
+                        </div>
+                        <div class="list-item-badge ${badgeClass}">${device.type || 'UNKNOWN'}</div>
+                    </div>
+                `;
+            }).join('') || '<div style="padding: 40px; text-align: center; color: var(--gray-500);">No devices found</div>';
+        }
+
+        function filterDevices() {
+            renderDeviceList();
+        }
+
+        function selectDevice(id) {
+            const devices = MOCK_DEVICES[selectedCustomer.id] || [];
+            selectedDevice = devices.find(d => d.id === id);
+            renderDeviceList();
+            log(`Device selected: ${selectedDevice.name}`, 'success');
+        }
+
+        function getDeviceIcon(type) {
+            const icons = {
+                'COMPRESSOR': '❄️',
+                'CHILLER': '🌡️',
+                'ELEVADOR': '🛗',
+                'ESCADA_ROLANTE': '📶',
+                'HIDROMETRO': '💧',
+                'CAIXA_DAGUA': '🪣',
+                'TANK': '🛢️',
+                '3F_MEDIDOR': '⚡',
+                'ENTRADA': '🔌',
+                'FANCOIL': '🌀'
+            };
+            return icons[type] || '📟';
+        }
+
+        // ==================== VALIDATION MAP ====================
+        function renderValidationMap() {
+            let device = { ...selectedDevice };
+
+            // Apply scenario modifications
+            if (currentScenario === 'missing') {
+                device.centralName = null;
+                device.deviceType = null;
+                device.identifier = null;
+                device.ingestionId = null;
+            } else if (currentScenario === 'invalid-owner') {
+                device.owner = 'cust-999';
+            } else if (currentScenario === 'no-relation') {
+                device.relation = null;
+            } else if (currentScenario === 'ingestion-mismatch') {
+                device.ingestionId = null;
+                device.centralId = '99.999.999.999';
+            }
+
+            const suggestedType = handleDeviceType(device.name);
+            const suggestedCentralName = `Central ${selectedCustomer.name} PADRAO`;
+
+            const isOwnerValid = device.owner === selectedCustomer.id;
+            const hasRelation = device.relation !== null;
+
+            // Check ingestion match
+            const ingestionMatch = MOCK_INGESTION.find(i =>
+                i.centralId === device.centralId && i.slaveId === device.slaveId
+            );
+
+            const html = `
+                <!-- Server-Scope Attributes -->
+                <div class="validation-section">
+                    <h4>📋 3.1 Server-Scope Attributes</h4>
+
+                    <div class="validation-row">
+                        <span class="validation-icon">${device.centralId ? '✅' : '⚠️'}</span>
+                        <span class="validation-label">centralId</span>
+                        <div class="validation-value">
+                            <input type="text" value="${device.centralId || ''}" disabled>
+                        </div>
+                        <div class="validation-action"></div>
+                    </div>
+
+                    <div class="validation-row">
+                        <span class="validation-icon">${device.slaveId ? '✅' : '⚠️'}</span>
+                        <span class="validation-label">slaveId</span>
+                        <div class="validation-value">
+                            <input type="text" value="${device.slaveId || ''}" disabled>
+                        </div>
+                        <div class="validation-action"></div>
+                    </div>
+
+                    <div class="validation-row">
+                        <span class="validation-icon">${device.centralName ? '✅' : '⚠️'}</span>
+                        <span class="validation-label">centralName</span>
+                        <div class="validation-value ${!device.centralName ? 'has-warning' : ''}">
+                            <input type="text" id="centralNameInput" value="${device.centralName || ''}" placeholder="Enter central name...">
+                        </div>
+                        <div class="validation-action">
+                            ${!device.centralName ? `<button class="btn btn-secondary btn-sm" onclick="suggestCentralName('${suggestedCentralName}')">Suggest</button>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="validation-row">
+                        <span class="validation-icon">${device.type ? '✅' : '⚠️'}</span>
+                        <span class="validation-label">deviceType</span>
+                        <div class="validation-value ${!device.type ? 'has-warning' : ''}">
+                            <select id="deviceTypeInput">
+                                <option value="">Select type...</option>
+                                <option value="3F_MEDIDOR" ${device.type === '3F_MEDIDOR' ? 'selected' : ''}>3F_MEDIDOR</option>
+                                <option value="HIDROMETRO" ${device.type === 'HIDROMETRO' ? 'selected' : ''}>HIDROMETRO</option>
+                                <option value="CHILLER" ${device.type === 'CHILLER' ? 'selected' : ''}>CHILLER</option>
+                                <option value="ELEVADOR" ${device.type === 'ELEVADOR' ? 'selected' : ''}>ELEVADOR</option>
+                                <option value="ESCADA_ROLANTE" ${device.type === 'ESCADA_ROLANTE' ? 'selected' : ''}>ESCADA_ROLANTE</option>
+                                <option value="COMPRESSOR" ${device.type === 'COMPRESSOR' ? 'selected' : ''}>COMPRESSOR</option>
+                                <option value="FANCOIL" ${device.type === 'FANCOIL' ? 'selected' : ''}>FANCOIL</option>
+                                <option value="ENTRADA" ${device.type === 'ENTRADA' ? 'selected' : ''}>ENTRADA</option>
+                                <option value="CAIXA_DAGUA" ${device.type === 'CAIXA_DAGUA' ? 'selected' : ''}>CAIXA_DAGUA</option>
+                                <option value="TANK" ${device.type === 'TANK' ? 'selected' : ''}>TANK</option>
+                            </select>
+                        </div>
+                        <div class="validation-action">
+                            ${!device.type ? `<button class="btn btn-secondary btn-sm" onclick="suggestDeviceType('${suggestedType}')">Suggest</button>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="validation-row">
+                        <span class="validation-icon">${device.profile ? '✅' : '⚠️'}</span>
+                        <span class="validation-label">deviceProfile</span>
+                        <div class="validation-value ${!device.profile ? 'has-warning' : ''}">
+                            <select id="deviceProfileInput">
+                                <option value="">Select profile...</option>
+                                <option value="3F_MEDIDOR" ${device.profile === '3F_MEDIDOR' ? 'selected' : ''}>3F_MEDIDOR</option>
+                                <option value="HIDROMETRO" ${device.profile === 'HIDROMETRO' ? 'selected' : ''}>HIDROMETRO</option>
+                                <option value="HIDROMETRO_AREA_COMUM" ${device.profile === 'HIDROMETRO_AREA_COMUM' ? 'selected' : ''}>HIDROMETRO_AREA_COMUM</option>
+                                <option value="CHILLER" ${device.profile === 'CHILLER' ? 'selected' : ''}>CHILLER</option>
+                                <option value="ELEVADOR" ${device.profile === 'ELEVADOR' ? 'selected' : ''}>ELEVADOR</option>
+                                <option value="ESCADA_ROLANTE" ${device.profile === 'ESCADA_ROLANTE' ? 'selected' : ''}>ESCADA_ROLANTE</option>
+                                <option value="ENTRADA" ${device.profile === 'ENTRADA' ? 'selected' : ''}>ENTRADA</option>
+                                <option value="FANCOIL" ${device.profile === 'FANCOIL' ? 'selected' : ''}>FANCOIL</option>
+                                <option value="TANK" ${device.profile === 'TANK' ? 'selected' : ''}>TANK</option>
+                            </select>
+                        </div>
+                        <div class="validation-action"></div>
+                    </div>
+
+                    <div class="validation-row">
+                        <span class="validation-icon">${device.identifier ? '✅' : '⚠️'}</span>
+                        <span class="validation-label">identifier</span>
+                        <div class="validation-value ${!device.identifier ? 'has-warning' : ''}">
+                            <input type="text" id="identifierInput" value="${device.identifier || ''}" placeholder="Enter LUC or category...">
+                        </div>
+                        <div class="validation-action"></div>
+                    </div>
+
+                    <div class="validation-row">
+                        <span class="validation-icon">${device.ingestionId ? '✅' : '⚠️'}</span>
+                        <span class="validation-label">ingestionId</span>
+                        <div class="validation-value ${!device.ingestionId ? 'has-warning' : ''}">
+                            <input type="text" id="ingestionIdInput" value="${device.ingestionId || ''}" placeholder="Ingestion ID...">
+                        </div>
+                        <div class="validation-action">
+                            ${!device.ingestionId ? `<button class="btn btn-secondary btn-sm" onclick="fetchIngestionId()">Fetch</button>` : ''}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Relation TO -->
+                <div class="validation-section">
+                    <h4>🔗 3.2 Relation TO</h4>
+                    <div class="relation-box">
+                        ${hasRelation ? `
+                            <div class="relation-item">
+                                <span class="validation-icon">✅</span>
+                                <span><strong>${device.relation.type}:</strong> "${device.relation.name}"</span>
+                            </div>
+                            ${device.relation.parentType ? `
+                                <div class="relation-item">
+                                    <span>└── Parent: <strong>${device.relation.parentType}</strong> "${selectedCustomer.name}"</span>
+                                </div>
+                            ` : ''}
+                        ` : `
+                            <div class="relation-item">
+                                <span class="validation-icon">⚠️</span>
+                                <span style="color: var(--warning);">No TO relation found. Device should have relation to an ASSET or CUSTOMER.</span>
+                            </div>
+                        `}
+                    </div>
+                </div>
+
+                <!-- Owner -->
+                <div class="validation-section">
+                    <h4>👤 3.3 Owner</h4>
+                    <div class="relation-box">
+                        <div class="relation-item">
+                            <span class="validation-icon">${isOwnerValid ? '✅' : '❌'}</span>
+                            <span>
+                                ${isOwnerValid ?
+                                    `<strong>CUSTOMER:</strong> "${selectedCustomer.name}" (matches selected customer)` :
+                                    `<span style="color: var(--danger);"><strong>ERROR:</strong> Owner is "${device.owner}" but selected customer is "${selectedCustomer.id}"</span>`
+                                }
+                            </span>
+                        </div>
+                        ${!isOwnerValid ? `
+                            <div style="margin-top: 12px;">
+                                <button class="btn btn-primary btn-sm" onclick="reassignOwner()">Reassign to ${selectedCustomer.name}</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('validationContent').innerHTML = html;
+        }
+
+        // ==================== SUGGESTION FUNCTIONS ====================
+        function suggestCentralName(name) {
+            document.getElementById('centralNameInput').value = name;
+            log(`Central name suggested: ${name}`, 'success');
+        }
+
+        function suggestDeviceType(type) {
+            document.getElementById('deviceTypeInput').value = type;
+            log(`Device type suggested: ${type}`, 'success');
+        }
+
+        function fetchIngestionId() {
+            log('Fetching ingestion records...', 'info');
+            const ingestionMatch = MOCK_INGESTION.find(i =>
+                i.centralId === selectedDevice.centralId && i.slaveId === selectedDevice.slaveId
+            );
+
+            if (ingestionMatch) {
+                document.getElementById('ingestionIdInput').value = ingestionMatch.id;
+                log(`Ingestion ID found: ${ingestionMatch.id}`, 'success');
+            } else {
+                log(`No ingestion match found for centralId=${selectedDevice.centralId}, slaveId=${selectedDevice.slaveId}`, 'warning');
+                alert('No matching ingestion record found for this device');
+            }
+        }
+
+        function reassignOwner() {
+            log(`Reassigning device owner to ${selectedCustomer.id}...`, 'info');
+            selectedDevice.owner = selectedCustomer.id;
+            renderValidationMap();
+            log('Owner reassigned successfully', 'success');
+        }
+
+        function saveChanges() {
+            const attrs = {
+                centralName: document.getElementById('centralNameInput').value,
+                deviceType: document.getElementById('deviceTypeInput').value,
+                deviceProfile: document.getElementById('deviceProfileInput').value,
+                identifier: document.getElementById('identifierInput').value,
+                ingestionId: document.getElementById('ingestionIdInput').value
+            };
+
+            log(`Saving attributes for ${selectedDevice.name}...`, 'info');
+            log(`POST /api/plugins/telemetry/DEVICE/${selectedDevice.id}/attributes/SERVER_SCOPE`, 'log');
+            log(JSON.stringify(attrs, null, 2), 'log');
+
+            setTimeout(() => {
+                log('Attributes saved successfully!', 'success');
+                closeModal();
+            }, 500);
+        }
+
+        // ==================== DEVICE TYPE DEMO ====================
+        function testHandleDeviceType() {
+            const name = document.getElementById('deviceNameInput').value;
+            const result = handleDeviceType(name);
+            document.getElementById('deviceTypeResult').textContent = result;
+        }
+
+        function setDeviceName(name) {
+            document.getElementById('deviceNameInput').value = name;
+            testHandleDeviceType();
+        }
+
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+</body>
+</html>

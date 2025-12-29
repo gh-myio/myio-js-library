@@ -962,7 +962,7 @@ function findGatewayForAsset(assetPath) {
           if (testAsset && testAsset.gateways && testAsset.gateways.length > 0) {
             return testAsset.gateways[0];
           }
-        } catch (e) {
+        } catch {
           // Continue searching
         }
       }
@@ -1037,7 +1037,7 @@ function sanitizeForFile(s) {
   return String(s || 'unknown')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') // sem acentos
-    .replace(/[^\w\-]+/g, '-') // troca espaços/símbolos por -
+    .replace(/[^\w-]+/g, '-') // troca espaços/símbolos por -
     .replace(/-+/g, '-') // colapsa múltiplos -
     .replace(/^[-_]+|[-_]+$/g, '') // trim - _
     .slice(0, 80); // limite de segurança
@@ -1891,7 +1891,9 @@ window.importHierarchy = function importHierarchy(jsonInput, options = {}) {
     }
     const infoBtn = document.getElementById('information');
     if (infoBtn) infoBtn.style.display = 'inline-flex';
-  } catch (_) {}
+  } catch {
+    // Erro ignorado intencionalmente
+  }
 
   // ---- re-render ----
   if (typeof window.renderTree === 'function') {
@@ -2096,7 +2098,7 @@ function handleIngestionSyncModal(modal) {
       let parsed;
       try {
         parsed = JSON.parse(txt);
-      } catch (e) {
+      } catch {
         throw new Error('Arquivo não é um JSON válido.');
       }
 
@@ -2581,7 +2583,7 @@ function handleIngestionSyncModal(modal) {
     });
 
     // ⬇️⬇️ RFC-0071: SYNC DEVICE PROFILES ⬇️⬇️
-    //await syncDeviceProfileAttributes(toProcess);
+    //await _syncDeviceProfileAttributes(toProcess);
 
     let bound = 0,
       skipped = 0,
@@ -2955,8 +2957,8 @@ function handleIngestionSyncModal(modal) {
    * @param {Array} devices - Array of device objects from window.structure
    * @returns {Promise<{synced: number, skipped: number, errors: number}>}
    */
-  async function syncDeviceProfileAttributes(devices) {
-    const tbToken = localStorage.getItem('jwt_token');
+  // eslint-disable-next-line no-unused-vars
+  async function _syncDeviceProfileAttributes(devices) {
     logIngestion('[RFC-0071] 🔄 Starting device profile synchronization...');
 
     try {
@@ -3101,7 +3103,7 @@ function handleIngestionSyncModal(modal) {
     });
 
     // ⬇️⬇️ RFC-0071: SYNC DEVICE PROFILES ⬇️⬇️
-    //await syncDeviceProfileAttributes(toProcess);
+    //await _syncDeviceProfileAttributes(toProcess);
 
     let matched = 0,
       saved = 0,
@@ -3451,11 +3453,11 @@ self.onInit = function () {
       return text
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^\u0000-\u007F]/g, '');
+        .replace(/[^\x20-\x7E]/g, '');
     }
 
     async function generateQRCodeBase64(url) {
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve, _reject) => {
         if (typeof QRious === 'undefined') {
           console.warn('[generateQRCodeBase64] QRious library not loaded, using placeholder');
           resolve(
@@ -3481,7 +3483,7 @@ self.onInit = function () {
       });
     }
 
-    async function writeDeviceTableFixed(device, assetName, idl) {
+    async function writeDeviceTableFixed(device, _assetName, _idl) {
       const tableX = margin;
       const tableWidth = pageWidth - 2 * margin;
       const tableHeight = 30;
@@ -3699,7 +3701,7 @@ self.onInit = function () {
   }
 
   // Desenha UMA etiqueta simples na posição indicada
-  async function drawSimpleTag(doc, x, y, w, h, device, assetName) {
+  async function drawSimpleTag(doc, x, y, w, h, device, _assetName) {
     const FRAME_SCALE_Y = 1.05; // +5% de altura da moldura
     const QR_SCALE = 1.7; // você já usava 1.7
     const QR_SHIFT_Y = 3; // desloca o QR para baixo (mm)
@@ -3753,7 +3755,9 @@ self.onInit = function () {
 
     try {
       doc.addImage(qrData, 'PNG', qrX, qrY, qrSize, qrSize);
-    } catch {}
+    } catch {
+      // Erro ignorado intencionalmente
+    }
 
     // ---------- TEXTOS ABAIXO DO QR ----------
     // RFC: Only show device identifier below QR code
@@ -3986,6 +3990,7 @@ self.onInit = function () {
             <button id="import-root" class="btn btn-outline"><i>⤓</i> Importar Cliente</button>
             <button id="import-json" class="btn btn-outline"><i>📥</i> Importar JSON</button>
             <button id="ingestion-sync" class="btn btn-outline"><i>🔄</i> Ingestion Sync</button>
+            <button id="upsell-modal" class="btn btn-outline" style="background:#3e1a7d;color:#fff;border-color:#3e1a7d;"><i>⚡</i> Upsell Setup</button>
             <button id="information" class="btn btn-ghost" style="display:none;"><i>ℹ️</i> Informações</button>
           </div>
           <div id="treeContainer"></div>
@@ -4015,6 +4020,44 @@ self.onInit = function () {
   document.getElementById('import-root').onclick = () => window.showModal('importCustomer', null);
   document.getElementById('import-json').onclick = () => window.showModal('importJson', null);
   document.getElementById('ingestion-sync').onclick = () => window.showModal('ingestionSync', null);
+
+  // RFC-0109: Upsell Post-Setup Modal
+  document.getElementById('upsell-modal').onclick = () => {
+    // Verifica se a biblioteca está disponível
+    if (typeof window.MyIO === 'undefined' || typeof window.MyIO.openUpsellModal !== 'function') {
+      console.error('[Upsell] MyIO library not loaded or openUpsellModal not available');
+      window.alert('Biblioteca MyIO não carregada. Verifique se o CDN está configurado.');
+      return;
+    }
+
+    // Obtém tokens necessários
+    const thingsboardToken = localStorage.getItem('jwt_token');
+    if (!thingsboardToken) {
+      window.alert('Token ThingsBoard não encontrado. Faça login novamente.');
+      return;
+    }
+
+    // Obtém token da Ingestion API via MyIOAuth
+    MyIOAuth.getToken()
+      .then((ingestionToken) => {
+        // Abre a modal da biblioteca
+        window.MyIO.openUpsellModal({
+          thingsboardToken: thingsboardToken,
+          ingestionToken: ingestionToken,
+          lang: 'pt',
+          onSave: (deviceId, attributes) => {
+            console.log(`[Upsell] Saved device ${deviceId}:`, attributes);
+          },
+          onClose: () => {
+            console.log('[Upsell] Modal closed');
+          },
+        });
+      })
+      .catch((err) => {
+        console.error('[Upsell] Failed to get ingestion token:', err);
+        window.alert('Erro ao obter token da Ingestion API: ' + err.message);
+      });
+  };
 
   window.renderTree = function () {
     const treeContainer = document.getElementById('treeContainer');
@@ -4164,7 +4207,7 @@ self.onInit = function () {
           select.innerHTML = '';
 
           const filterLower = filter.toLowerCase();
-          const filtered = sortedCustomers.filter(([key, client]) => {
+          const filtered = sortedCustomers.filter(([_key, client]) => {
             return (client.name || '').toLowerCase().includes(filterLower);
           });
 
@@ -4175,7 +4218,7 @@ self.onInit = function () {
             noResults.disabled = true;
             select.appendChild(noResults);
           } else {
-            filtered.forEach(([key, client]) => {
+            filtered.forEach(([_key, client]) => {
               const opt = document.createElement('option');
               opt.value = client.id;
               opt.textContent = client.name;
@@ -4641,7 +4684,7 @@ self.onInit = function () {
           pasteBtn.onclick = async () => {
             try {
               textArea.value = await navigator.clipboard.readText();
-            } catch (e) {
+            } catch {
               window.alert('Não foi possível ler do clipboard neste navegador.');
             }
           };
@@ -5514,7 +5557,7 @@ self.onInit = function () {
     }
   }
 
-  async function provisionCentralAPI(gw, logFn = console.log) {
+  async function provisionCentralAPI(gw, _logFn = console.log) {
     try {
       updateStatusSync(gw, 'central', 'not_started', 'Iniciando provisionamento da central');
 
@@ -5673,7 +5716,7 @@ self.onInit = function () {
 
         try {
           return JSON.parse(text);
-        } catch (jsonErr) {
+        } catch {
           console.warn('[createHierarchyInternal | post] Resposta não é JSON válido:', text);
           return {};
         }
@@ -5989,7 +6032,7 @@ self.onInit = function () {
 
         try {
           return JSON.parse(text);
-        } catch (jsonErr) {
+        } catch {
           console.warn('Resposta não é JSON válido:', text);
           return {};
         }
