@@ -79,6 +79,29 @@ export interface Device {
   deviceProfileName?: string;
   customerId?: TbEntityId;
   tenantId?: TbEntityId;
+  /** Server-scope attributes loaded separately */
+  serverAttrs?: DeviceServerAttrs;
+  /** Latest telemetry loaded separately */
+  latestTelemetry?: DeviceLatestTelemetry;
+}
+
+/** Server-scope attributes for device (loaded separately) */
+export interface DeviceServerAttrs {
+  deviceType?: string;
+  deviceProfile?: string;
+  centralId?: string;
+  centralName?: string;
+  slaveId?: string | number;
+  identifier?: string;
+  ingestionId?: string;
+}
+
+/** Latest telemetry for device (loaded separately) */
+export interface DeviceLatestTelemetry {
+  pulses?: { value: number; ts: number };
+  consumption?: { value: number; ts: number };
+  temperature?: { value: number; ts: number };
+  connectionStatus?: { value: 'online' | 'offline' | 'waiting' | 'bad'; ts: number };
 }
 
 /** Server-scope device attributes */

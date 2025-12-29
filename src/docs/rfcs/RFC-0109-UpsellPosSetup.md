@@ -4,8 +4,8 @@
 - **Start Date:** 2025-12-29
 - **RFC PR:** (leave this empty)
 - **Implementation Issue:** (leave this empty)
-- **Status:** Draft
-- **Version:** 1.0.0
+- **Status:** Implemented
+- **Version:** 1.2.0
 - **Author:** MYIO Engineering
 - **Target Platform:** ThingsBoard (Custom Widget)
 - **Target File:** `src/thingsboard/WIDGET/Pre-Setup-Constructor/v.1.0.9/controller.js`
@@ -382,7 +382,7 @@ Allow bulk attribute updates via CSV upload.
 
 ## Unresolved Questions
 
-1. **Batch Operations**: Should the modal support selecting multiple devices at once?
+1. ~~**Batch Operations**: Should the modal support selecting multiple devices at once?~~ **RESOLVED: v1.1.0**
 2. **Undo/History**: Should we track changes for rollback?
 3. **Relation Creation**: If relation is missing, should modal create it automatically?
 4. **Validation Strictness**: Should save be blocked if warnings exist, or just warn?
@@ -391,7 +391,7 @@ Allow bulk attribute updates via CSV upload.
 
 ## Future Possibilities
 
-1. **Bulk Upsell Mode**: Process multiple devices in sequence
+1. ~~**Bulk Upsell Mode**: Process multiple devices in sequence~~ **IMPLEMENTED v1.1.0**
 2. **Template Presets**: Save attribute configurations as reusable templates
 3. **Audit Log**: Track all changes made via the modal
 4. **Webhook Integration**: Notify external systems when device configuration changes
@@ -399,22 +399,294 @@ Allow bulk attribute updates via CSV upload.
 
 ---
 
+## Version 1.1.0 - Multiselect & Bulk Attribute Update
+
+### New Features
+
+#### Device Selection Modes
+
+The modal now supports two selection modes in Step 2 (Device Selection):
+
+| Mode | Description | Next Button | Bulk Actions |
+|------|-------------|-------------|--------------|
+| **Single** | Traditional single-device selection | Enabled | - |
+| **Multi** | Select multiple devices with checkboxes | Disabled | Enabled |
+
+#### Mode Toggle UI
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  📍 Cliente: Shopping ABC (25/50 devices)                        │
+│  ┌─────────────────────┐                                         │
+│  │ Modo: [Single] [Multi]                                       │
+│  └─────────────────────┘                                         │
+│  ✓ 5 selecionados [Todos] [Limpar]                              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Multiselect Controls
+
+| Control | Description |
+|---------|-------------|
+| **Single/Multi Toggle** | Switch between selection modes |
+| **Checkbox Column** | Visible only in Multi mode |
+| **Select All** | Selects all filtered/visible devices |
+| **Clear Selection** | Deselects all devices |
+| **Counter** | Shows "✓ N selecionados" |
+
+#### Bulk Attribute Update
+
+When in Multi mode with devices selected, a new "Forçar Atributo" button appears in the footer:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ [⚡ Forçar Atributo (5)]  [Cancelar]  [Próximo → (disabled)]    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Clicking opens a modal to set a single SERVER_SCOPE attribute across all selected devices:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ⚡ Forçar Atributo                                        [✕]  │
+│  ───────────────────────────────────────────────────────────────│
+│  Devices selecionados: 5 dispositivos                           │
+│                                                                  │
+│  Atributo (SERVER_SCOPE)                                        │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ deviceType                                           ▼  │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│  Valor                                                          │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ HIDROMETRO                                              │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│                    [Cancelar]  [Salvar para 5 devices]          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Available Bulk Attributes
+
+| Attribute | Description |
+|-----------|-------------|
+| `deviceType` | Device type classification |
+| `deviceProfile` | Device profile for telemetry parsing |
+| `centralName` | Name of the central/gateway |
+| `centralId` | ID of the central/gateway |
+| `identifier` | Store identifier (LUC code) |
+
+### State Changes
+
+```typescript
+interface ModalState {
+  // ... existing fields ...
+
+  // NEW: Multiselect support
+  deviceSelectionMode: 'single' | 'multi';
+  selectedDevices: Device[];
+  bulkAttributeModal: {
+    open: boolean;
+    attribute: string;
+    value: string;
+    saving: boolean;
+  };
+}
+```
+
+### API Operations
+
+| Operation | Endpoint | Notes |
+|-----------|----------|-------|
+| Save bulk attribute | `POST /api/plugins/telemetry/DEVICE/{id}/attributes/SERVER_SCOPE` | Called sequentially for each selected device |
+
+### Error Handling
+
+The bulk save operation provides detailed feedback:
+
+- **Success**: "✅ Atributo "deviceType" salvo com sucesso para 5 dispositivos!"
+- **Partial Success**: "⚠️ Atributo salvo para 3 dispositivos. ❌ Erro em 2 dispositivos: [error details]"
+- **Validation Errors**: Alerts if attribute or value is empty
+
+### Grid Enhancements (v1.1.0)
+
+The device grid was also improved with:
+
+| Feature | Description |
+|---------|-------------|
+| **Fixed Header** | Column headers with uppercase labels |
+| **Flex Columns** | Name (flex:3), Label (flex:2) expand proportionally |
+| **Date/Time** | Shows DD/MM/YYYY HH:MM format |
+| **Tooltips** | Hover to see full text on truncated fields |
+| **Type Badge** | Color-coded badge for device type |
+
+---
+
 ## Implementation Checklist
 
-- [ ] Create `handleDeviceType()` function and export from `src/index.ts`
-- [ ] Implement modal base structure with 3-step navigation
-- [ ] Step 1: Customer selection with search
-- [ ] Step 2: Device selection with filters (type, profile)
-- [ ] Step 3: Attribute validation map UI
-- [ ] Implement server-scope attribute fetching
-- [ ] Implement relation hierarchy fetching
-- [ ] Implement owner validation
+### v1.0.0 (Core Implementation)
+
+- [x] Create `handleDeviceType()` function and export from `src/index.ts`
+- [x] Implement modal base structure with 3-step navigation
+- [x] Step 1: Customer selection with search
+- [x] Step 2: Device selection with filters (type, profile)
+- [x] Step 3: Attribute validation map UI
+- [x] Implement server-scope attribute fetching
+- [x] Implement relation hierarchy fetching
+- [x] Implement owner validation
 - [ ] Implement ingestion device caching
 - [ ] Implement `ingestionId` matching via `matchIngestionRecord()`
-- [ ] Implement attribute save functionality
+- [x] Implement attribute save functionality
 - [ ] Add "Upsell" button to Pre-Setup Constructor toolbar
 - [ ] Write unit tests for `handleDeviceType()`
 - [ ] Write integration tests for modal workflow
+
+### v1.1.0 (Multiselect & Bulk Update)
+
+- [x] Add device selection mode toggle (Single/Multi)
+- [x] Implement checkbox column for multi-select
+- [x] Add "Select All" button for filtered devices
+- [x] Add "Clear Selection" button
+- [x] Add selection counter display
+- [x] Implement "Forçar Atributo" bulk action button
+- [x] Implement bulk attribute modal UI
+- [x] Implement `saveBulkAttribute()` function
+- [x] Add attribute dropdown (deviceType, deviceProfile, centralName, centralId, identifier)
+- [x] Implement sequential API calls with error handling
+- [x] Add success/error feedback messages
+- [x] Disable "Next" button in multi-select mode
+- [x] Improve device grid with fixed header
+- [x] Add date/time format (DD/MM/YYYY HH:MM)
+- [x] Add tooltips for truncated text
+
+### v1.2.0 (Grid Improvements, Owner/Relations, Drag-Resize)
+
+- [x] Grid height responsive to maximize state (calc(100vh - 340px))
+- [x] Refactor grid: Label column with (ⓘ) info tooltip showing name/id/type/created
+- [x] Separate type (device.type) and deviceType (serverAttrs.deviceType) columns
+- [x] Add deviceProfile column from serverAttrs.deviceProfile
+- [x] Add Telemetry column (pulses, consumption, temperature) with (+) timestamp tooltip
+- [x] Add Status column (connectionStatus) with (+) timestamp tooltip
+- [x] Separate filters: type, deviceType, deviceProfile
+- [x] Implement drag-resize for column widths
+- [x] Implement loadDeviceAttrsInBatch() for SERVER_SCOPE attributes
+- [x] Implement loadDeviceTelemetryInBatch() for latest telemetry
+- [x] Add progress indicator while loading attrs
+- [x] Implement owner change functionality with changeDeviceOwner()
+- [x] Implement relation add with createRelation()
+- [x] Implement relation delete with deleteRelation()
+- [x] Add tbDelete() API helper function
+
+---
+
+## Version 1.2.0 - Grid Improvements, Owner/Relations, Drag-Resize
+
+### Grid Height Responsive
+
+The device grid now adjusts its height based on modal maximize state:
+
+| State | Grid Height |
+|-------|-------------|
+| Normal | 360px |
+| Maximized | calc(100vh - 340px) |
+
+### Refactored Grid Layout
+
+| Column | Width | Content |
+|--------|-------|---------|
+| Checkbox | 28px | Multi-select checkbox (only in Multi mode) |
+| Icon | 28px | Device type icon |
+| Label | 140px (resizable) | device.label or device.name + (ⓘ) info button |
+| Type | 70px (resizable) | device.type (badge) |
+| deviceType | 80px (resizable) | serverAttrs.deviceType |
+| deviceProfile | 90px (resizable) | serverAttrs.deviceProfile |
+| Telemetry | 100px (resizable) | pulses/consumption/temperature + (+) timestamp |
+| Status | 70px (resizable) | connectionStatus badge + (+) timestamp |
+| Selection | 24px | ✓ indicator |
+
+### Info Tooltip (ⓘ)
+
+Hovering over the (ⓘ) button shows a tooltip with:
+- Device Name
+- Device ID
+- Device Type
+- Created Time
+
+### Telemetry Display
+
+Priority order for displaying telemetry value:
+1. consumption (if available)
+2. pulses (if available)
+3. temperature (if available)
+
+Each with (+) button that shows timestamp on hover.
+
+### Status Colors
+
+| Status | Background | Text |
+|--------|------------|------|
+| online | #dcfce7 | #166534 |
+| offline | #fee2e2 | #991b1b |
+| waiting | #fef3c7 | #92400e |
+| bad | #fce7f3 | #9d174d |
+
+### Separate Filters
+
+| Filter | Source |
+|--------|--------|
+| Type | device.type (ThingsBoard entity) |
+| deviceType | serverAttrs.deviceType (SERVER_SCOPE) |
+| deviceProfile | serverAttrs.deviceProfile (SERVER_SCOPE) |
+
+### Drag-Resize Columns
+
+Column widths can be adjusted by dragging the right edge of each header cell:
+- Minimum width: 50px
+- Widths persist in state during session
+
+### Owner Management (Step 3)
+
+| Button | Description |
+|--------|-------------|
+| **Alterar** | Show form to change owner (when valid) |
+| **Corrigir** | Show form to fix owner (when invalid) |
+
+Form includes:
+- New Customer ID input
+- Helper text with current customer ID for quick copy
+
+### Relation Management (Step 3)
+
+| Button | Description |
+|--------|-------------|
+| **Adicionar** | Show form to create new relation |
+| **Remover** | Delete existing relation (with confirmation) |
+
+Form includes:
+- Entity Type select (ASSET or CUSTOMER)
+- Entity ID input
+
+### New API Functions
+
+| Function | Endpoint | Method |
+|----------|----------|--------|
+| changeDeviceOwner | /api/customer/{customerId}/device/{deviceId} | POST |
+| createRelation | /api/relation | POST |
+| deleteRelation | /api/relation?... | DELETE |
+| tbDelete | (any path) | DELETE |
+
+### Data Loading
+
+Two new async functions load device data in background:
+
+**loadDeviceAttrsInBatch()**
+- Loads SERVER_SCOPE attributes for all devices
+- Batch size: 50 devices
+- Progress shown as "⏳ carregando attrs..."
+
+**loadDeviceTelemetryInBatch()**
+- Loads latest telemetry (pulses, consumption, temperature, connectionStatus)
+- Batch size: 50 devices
 
 ---
 
