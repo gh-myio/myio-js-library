@@ -328,6 +328,7 @@ type SortOrder = 'asc' | 'desc';
 interface ColumnWidths {
   label: number;
   type: number;
+  createdTime: number;
   deviceType: number;
   deviceProfile: number;
   telemetry: number;
@@ -352,8 +353,10 @@ interface ModalState {
   deviceAttributes: DeviceAttributes;
   deviceRelation: DeviceRelation | null;
   customerSort: { field: CustomerSortField; order: SortOrder };
+  customerSearchTerm: string;
   deviceSort: { field: DeviceSortField; order: SortOrder };
-  deviceFilters: { types: string[]; deviceTypes: string[]; deviceProfiles: string[] };
+  deviceSearchTerm: string;
+  deviceFilters: { types: string[]; deviceTypes: string[]; deviceProfiles: string[]; statuses: string[] };
   deviceSelectionMode: 'single' | 'multi';
   selectedDevices: Device[];
   bulkAttributeModal: {
@@ -469,12 +472,14 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     deviceAttributes: {},
     deviceRelation: null,
     customerSort: { field: 'name', order: 'asc' },
+    customerSearchTerm: '',
     deviceSort: { field: 'name', order: 'asc' },
-    deviceFilters: { types: [], deviceTypes: [], deviceProfiles: [] },
+    deviceSearchTerm: '',
+    deviceFilters: { types: [], deviceTypes: [], deviceProfiles: [], statuses: [] },
     deviceSelectionMode: 'single',
     selectedDevices: [],
     bulkAttributeModal: { open: false, attribute: 'deviceType', value: '', saving: false },
-    columnWidths: { label: 140, type: 70, deviceType: 80, deviceProfile: 90, telemetry: 100, status: 70 },
+    columnWidths: { label: 280, type: 180, createdTime: 100, deviceType: 80, deviceProfile: 90, telemetry: 100, status: 70 },
     deviceAttrsLoaded: false,
     attrsLoading: false,
     attrsLoadedCount: 0,
@@ -844,7 +849,7 @@ function renderStep1(state: ModalState, modalId: string, colors: ThemeColors, t:
           <label style="color: ${colors.textMuted}; font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px;">
             🔍 ${t.searchCustomers}
           </label>
-          <input type="text" id="${modalId}-customer-search" placeholder="${t.searchCustomers}" style="
+          <input type="text" id="${modalId}-customer-search" placeholder="${t.searchCustomers}" value="${state.customerSearchTerm}" style="
             width: 100%; padding: 10px 14px; border: 1px solid ${colors.border};
             border-radius: 6px; font-size: 14px; color: ${colors.text};
             background: ${colors.inputBg}; box-sizing: border-box;
@@ -921,34 +926,46 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
   const types = [...new Set(state.devices.map(d => d.type).filter(Boolean))].sort() as string[];
   const deviceTypes = [...new Set(state.devices.map(d => d.serverAttrs?.deviceType).filter(Boolean))].sort() as string[];
   const deviceProfiles = [...new Set(state.devices.map(d => d.serverAttrs?.deviceProfile).filter(Boolean))].sort() as string[];
+  const statuses = ['online', 'offline', 'waiting', 'bad'];
 
   const { field: sortField, order: sortOrder } = state.deviceSort;
-  const { types: filterTypes, deviceTypes: filterDeviceTypes, deviceProfiles: filterDeviceProfiles } = state.deviceFilters;
+  const { types: filterTypes, deviceTypes: filterDeviceTypes, deviceProfiles: filterDeviceProfiles, statuses: filterStatuses } = state.deviceFilters;
 
   // Filter devices
   let filteredDevices = state.devices.filter(d => {
     if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
     if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || '')) return false;
     if (filterDeviceProfiles.length > 0 && !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')) return false;
+    if (filterStatuses.length > 0) {
+      const status = d.latestTelemetry?.connectionStatus?.value || 'offline';
+      if (!filterStatuses.includes(status)) return false;
+    }
     return true;
   });
 
   // Sort devices
   const sortedDevices = sortDevices(filteredDevices, sortField, sortOrder);
-  const sortIcon = sortOrder === 'asc' ? '↑' : '↓';
 
   // Grid height based on maximize state
   const gridHeight = state.isMaximized ? 'calc(100vh - 340px)' : '360px';
 
-  const btnStyle = (isActive: boolean) => `
-    background: ${isActive ? MYIO_PURPLE : colors.cardBg};
-    color: ${isActive ? 'white' : colors.text};
-    border: 1px solid ${isActive ? MYIO_PURPLE : colors.border};
-    padding: 4px 8px; border-radius: 4px; cursor: pointer;
-    font-size: 10px; font-weight: 500;
-  `;
+  const hasActiveFilters = filterTypes.length > 0 || filterDeviceTypes.length > 0 || filterDeviceProfiles.length > 0 || filterStatuses.length > 0;
 
-  const hasActiveFilters = filterTypes.length > 0 || filterDeviceTypes.length > 0 || filterDeviceProfiles.length > 0;
+  // Helper for sortable column header
+  const renderSortableHeader = (col: string, label: string, field: DeviceSortField, width: number) => {
+    const isActive = sortField === field;
+    const arrow = isActive ? (sortOrder === 'asc' ? '▲' : '▼') : '▽';
+    return `
+      <div id="${modalId}-sort-col-${col}" data-sort-field="${field}" style="
+        width: ${width}px; padding: 0 6px; display: flex; align-items: center; justify-content: space-between;
+        border-right: 1px solid ${colors.border}; cursor: pointer; user-select: none;
+        ${isActive ? `background: rgba(62,26,125,0.1);` : ''}
+      ">
+        <span>${label}</span>
+        <span style="font-size: 8px; color: ${isActive ? MYIO_PURPLE : colors.textMuted};">${arrow}</span>
+      </div>
+    `;
+  };
 
   return `
     <div style="
@@ -960,7 +977,7 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
           <label style="color: ${colors.textMuted}; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
             🔍 Buscar
           </label>
-          <input type="text" id="${modalId}-device-search" placeholder="${t.searchDevices}" style="
+          <input type="text" id="${modalId}-device-search" placeholder="${t.searchDevices}" value="${state.deviceSearchTerm}" style="
             width: 100%; padding: 7px 10px; border: 1px solid ${colors.border};
             border-radius: 6px; font-size: 13px; color: ${colors.text};
             background: ${colors.inputBg}; box-sizing: border-box;
@@ -979,27 +996,42 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
           </select>
         </div>
         <div style="min-width: 100px;">
-          <label style="color: ${colors.textMuted}; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
-            deviceType ${filterDeviceTypes.length > 0 ? `(${filterDeviceTypes.length})` : ''}
+          <label style="color: ${state.deviceAttrsLoaded ? colors.textMuted : colors.warning}; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
+            deviceType ${filterDeviceTypes.length > 0 ? `(${filterDeviceTypes.length})` : ''} ${!state.deviceAttrsLoaded ? '🔒' : ''}
           </label>
           <select id="${modalId}-device-devicetype-filter" multiple size="1" style="
             width: 100%; padding: 7px 8px; border: 1px solid ${filterDeviceTypes.length > 0 ? MYIO_PURPLE : colors.border};
             border-radius: 6px; font-size: 11px; color: ${colors.text};
-            background: ${colors.inputBg}; cursor: pointer; height: 32px;
-          ">
+            background: ${colors.inputBg}; cursor: ${state.deviceAttrsLoaded ? 'pointer' : 'not-allowed'}; height: 32px;
+            opacity: ${state.deviceAttrsLoaded ? '1' : '0.5'};
+          " ${!state.deviceAttrsLoaded ? 'disabled' : ''}>
             ${deviceTypes.map(dt => `<option value="${dt}" ${filterDeviceTypes.includes(dt) ? 'selected' : ''}>${dt}</option>`).join('')}
           </select>
         </div>
         <div style="min-width: 100px;">
-          <label style="color: ${colors.textMuted}; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
-            deviceProfile ${filterDeviceProfiles.length > 0 ? `(${filterDeviceProfiles.length})` : ''}
+          <label style="color: ${state.deviceAttrsLoaded ? colors.textMuted : colors.warning}; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
+            deviceProfile ${filterDeviceProfiles.length > 0 ? `(${filterDeviceProfiles.length})` : ''} ${!state.deviceAttrsLoaded ? '🔒' : ''}
           </label>
           <select id="${modalId}-device-profile-filter" multiple size="1" style="
             width: 100%; padding: 7px 8px; border: 1px solid ${filterDeviceProfiles.length > 0 ? MYIO_PURPLE : colors.border};
             border-radius: 6px; font-size: 11px; color: ${colors.text};
-            background: ${colors.inputBg}; cursor: pointer; height: 32px;
-          ">
+            background: ${colors.inputBg}; cursor: ${state.deviceAttrsLoaded ? 'pointer' : 'not-allowed'}; height: 32px;
+            opacity: ${state.deviceAttrsLoaded ? '1' : '0.5'};
+          " ${!state.deviceAttrsLoaded ? 'disabled' : ''}>
             ${deviceProfiles.map(p => `<option value="${p}" ${filterDeviceProfiles.includes(p) ? 'selected' : ''}>${p}</option>`).join('')}
+          </select>
+        </div>
+        <div style="min-width: 100px;">
+          <label style="color: ${state.deviceTelemetryLoaded ? colors.textMuted : colors.warning}; font-size: 11px; font-weight: 500; display: block; margin-bottom: 3px;">
+            Status ${filterStatuses.length > 0 ? `(${filterStatuses.length})` : ''} ${!state.deviceTelemetryLoaded ? '🔒' : ''}
+          </label>
+          <select id="${modalId}-device-status-filter" multiple size="1" style="
+            width: 100%; padding: 7px 8px; border: 1px solid ${filterStatuses.length > 0 ? MYIO_PURPLE : colors.border};
+            border-radius: 6px; font-size: 11px; color: ${colors.text};
+            background: ${colors.inputBg}; cursor: ${state.deviceTelemetryLoaded ? 'pointer' : 'not-allowed'}; height: 32px;
+            opacity: ${state.deviceTelemetryLoaded ? '1' : '0.5'};
+          " ${!state.deviceTelemetryLoaded ? 'disabled' : ''}>
+            ${statuses.map(s => `<option value="${s}" ${filterStatuses.includes(s) ? 'selected' : ''}>${s}</option>`).join('')}
           </select>
         </div>
         ${hasActiveFilters ? `
@@ -1013,7 +1045,7 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
         ` : ''}
       </div>
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-        <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
           <div style="font-size: 11px; color: ${colors.textMuted};">
             📍 <strong>${state.selectedCustomer?.name || state.selectedCustomer?.title}</strong>
             <span style="margin-left: 8px; color: ${colors.primary};">(${sortedDevices.length}/${state.devices.length})</span>
@@ -1048,7 +1080,7 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
               padding: 3px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;
               background: ${colors.cardBg}; border: 1px solid ${colors.border}; color: ${colors.text};
               display: flex; align-items: center; gap: 4px;
-            " ${!state.deviceAttrsLoaded ? 'disabled' : ''}>
+            ">
               📡 Carregar Telemetria (${sortedDevices.length})
             </button>
           `}
@@ -1087,24 +1119,10 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
             ">Selecionar Todos</button>
           ` : ''}
         </div>
-        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-          <button id="${modalId}-sort-device-label" style="${btnStyle(sortField === 'label')}">
-            Label ${sortField === 'label' ? sortIcon : ''}
-          </button>
-          <button id="${modalId}-sort-device-type" style="${btnStyle(sortField === 'type')}">
-            Type ${sortField === 'type' ? sortIcon : ''}
-          </button>
-          <button id="${modalId}-sort-device-devicetype" style="${btnStyle(sortField === 'deviceType')}">
-            devType ${sortField === 'deviceType' ? sortIcon : ''}
-          </button>
-          <button id="${modalId}-sort-device-profile" style="${btnStyle(sortField === 'deviceProfile')}">
-            devProf ${sortField === 'deviceProfile' ? sortIcon : ''}
-          </button>
-        </div>
       </div>
     </div>
 
-    <!-- Device Grid Header -->
+    <!-- Device Grid Header with Sortable Columns -->
     <div id="${modalId}-grid-header" style="
       display: flex; align-items: center; gap: 0; padding: 8px 12px;
       background: ${colors.cardBg}; border: 1px solid ${colors.border};
@@ -1113,12 +1131,21 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
     ">
       ${state.deviceSelectionMode === 'multi' ? `<div style="width: 28px; text-align: center;">☑</div>` : ''}
       <div style="width: 28px;"></div>
-      <div data-col="label" class="myio-col-resize" style="width: ${state.columnWidths.label}px; padding: 0 6px; cursor: col-resize; border-right: 1px solid ${colors.border}; user-select: none;">Label</div>
-      <div data-col="type" class="myio-col-resize" style="width: ${state.columnWidths.type}px; padding: 0 6px; text-align: center; cursor: col-resize; border-right: 1px solid ${colors.border}; user-select: none;">Type</div>
-      <div data-col="deviceType" class="myio-col-resize" style="width: ${state.columnWidths.deviceType}px; padding: 0 6px; text-align: center; cursor: col-resize; border-right: 1px solid ${colors.border}; user-select: none;">devType</div>
-      <div data-col="deviceProfile" class="myio-col-resize" style="width: ${state.columnWidths.deviceProfile}px; padding: 0 6px; text-align: center; cursor: col-resize; border-right: 1px solid ${colors.border}; user-select: none;">devProfile</div>
-      <div data-col="telemetry" class="myio-col-resize" style="width: ${state.columnWidths.telemetry}px; padding: 0 6px; text-align: center; cursor: col-resize; border-right: 1px solid ${colors.border}; user-select: none;">Telemetria</div>
-      <div data-col="status" class="myio-col-resize" style="width: ${state.columnWidths.status}px; padding: 0 6px; text-align: center; cursor: col-resize; border-right: 1px solid ${colors.border}; user-select: none;">Status</div>
+      ${renderSortableHeader('label', 'Label', 'label', state.columnWidths.label)}
+      ${renderSortableHeader('type', 'Type', 'type', state.columnWidths.type)}
+      ${renderSortableHeader('createdTime', 'Criado', 'createdTime', state.columnWidths.createdTime)}
+      <div style="width: ${state.columnWidths.deviceType}px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
+        devType ${!state.deviceAttrsLoaded ? '🔒' : ''}
+      </div>
+      <div style="width: ${state.columnWidths.deviceProfile}px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
+        devProfile ${!state.deviceAttrsLoaded ? '🔒' : ''}
+      </div>
+      <div style="width: ${state.columnWidths.telemetry}px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
+        Telemetria ${!state.deviceTelemetryLoaded ? '🔒' : ''}
+      </div>
+      <div style="width: ${state.columnWidths.status}px; padding: 0 6px; text-align: center; border-right: 1px solid ${colors.border};">
+        Status ${!state.deviceTelemetryLoaded ? '🔒' : ''}
+      </div>
       <div style="width: 24px;"></div>
     </div>
 
@@ -1151,41 +1178,103 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
     waiting: { bg: '#fef3c7', text: '#92400e' },
     bad: { bg: '#fce7f3', text: '#9d174d' },
   };
-  const connStatus = telemetry.connectionStatus?.value || 'offline';
-  const statusStyle = statusColors[connStatus] || statusColors.offline;
+
+  // Not loaded styling (gray)
+  const notLoadedStyle = { bg: '#f3f4f6', text: '#9ca3af' };
+
+  // Only show status if telemetry is loaded
+  const connStatus = state.deviceTelemetryLoaded ? (telemetry.connectionStatus?.value || 'offline') : null;
+  const statusStyle = connStatus ? (statusColors[connStatus] || statusColors.offline) : notLoadedStyle;
 
   // Telemetry display - support hybrid devices with multiple telemetry types
   const telemetryItems: Array<{ label: string; value: string; unit: string; ts: string }> = [];
 
-  if (telemetry.consumption) {
-    telemetryItems.push({
-      label: 'consumption',
-      value: telemetry.consumption.value.toFixed(1),
-      unit: 'W',
-      ts: formatDate(telemetry.consumption.ts, state.locale, true),
-    });
-  }
-  if (telemetry.pulses) {
-    telemetryItems.push({
-      label: 'pulses',
-      value: String(telemetry.pulses.value),
-      unit: 'L',
-      ts: formatDate(telemetry.pulses.ts, state.locale, true),
-    });
-  }
-  if (telemetry.temperature) {
-    telemetryItems.push({
-      label: 'temperature',
-      value: telemetry.temperature.value.toFixed(1),
-      unit: '°C',
-      ts: formatDate(telemetry.temperature.ts, state.locale, true),
-    });
+  if (state.deviceTelemetryLoaded) {
+    if (telemetry.consumption) {
+      telemetryItems.push({
+        label: 'consumption',
+        value: telemetry.consumption.value.toFixed(1),
+        unit: 'W',
+        ts: formatDate(telemetry.consumption.ts, state.locale, true),
+      });
+    }
+    if (telemetry.pulses) {
+      telemetryItems.push({
+        label: 'pulses',
+        value: String(telemetry.pulses.value),
+        unit: 'L',
+        ts: formatDate(telemetry.pulses.ts, state.locale, true),
+      });
+    }
+    if (telemetry.temperature) {
+      telemetryItems.push({
+        label: 'temperature',
+        value: telemetry.temperature.value.toFixed(1),
+        unit: '°C',
+        ts: formatDate(telemetry.temperature.ts, state.locale, true),
+      });
+    }
   }
 
   const statusTs = telemetry.connectionStatus?.ts ? formatDate(telemetry.connectionStatus.ts, state.locale, true) : '';
 
   // Tooltip content for device info
   const tooltipContent = `Name: ${device.name}\\nID: ${deviceId}\\nType: ${device.type || 'N/A'}\\nCreated: ${formatDate(device.createdTime, state.locale, true)}`;
+
+  // Format createdTime
+  const createdTimeStr = device.createdTime ? formatDate(device.createdTime, state.locale) : '—';
+
+  // Render deviceType/deviceProfile based on attrs loaded state
+  const renderDeviceTypeValue = () => {
+    if (!state.deviceAttrsLoaded) {
+      return `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`;
+    }
+    return attrs.deviceType
+      ? `<span style="font-size: 9px; color: ${colors.text};" title="${attrs.deviceType}">${attrs.deviceType}</span>`
+      : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`;
+  };
+
+  const renderDeviceProfileValue = () => {
+    if (!state.deviceAttrsLoaded) {
+      return `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`;
+    }
+    return attrs.deviceProfile
+      ? `<span style="font-size: 9px; color: ${colors.text};" title="${attrs.deviceProfile}">${attrs.deviceProfile}</span>`
+      : `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`;
+  };
+
+  // Render telemetry based on loaded state
+  const renderTelemetryValue = () => {
+    if (!state.deviceTelemetryLoaded) {
+      return `<span style="font-size: 8px; color: ${colors.textMuted}; font-style: italic;">—</span>`;
+    }
+    if (telemetryItems.length === 0) {
+      return `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>`;
+    }
+    return telemetryItems.map(item => `
+      <span style="display: inline-flex; align-items: center; gap: 1px;">
+        <span style="font-size: 9px; color: ${colors.text}; font-weight: 500;" title="${item.label}">${item.value}${item.unit}</span>
+        <span class="myio-ts-btn" data-ts="${item.label}: ${item.value}${item.unit}\\n${item.ts}" style="
+          cursor: pointer; font-size: 9px; color: ${colors.primary}; font-weight: 600;
+        " title="${item.label}: ${item.ts}">(+)</span>
+      </span>
+    `).join('');
+  };
+
+  // Render status based on loaded state
+  const renderStatusValue = () => {
+    if (!state.deviceTelemetryLoaded) {
+      return `<span style="font-size: 8px; padding: 2px 6px; border-radius: 3px; background: ${notLoadedStyle.bg}; color: ${notLoadedStyle.text}; font-style: italic;">—</span>`;
+    }
+    return `
+      <span style="font-size: 9px; padding: 2px 6px; border-radius: 3px; background: ${statusStyle.bg}; color: ${statusStyle.text};">
+        ${connStatus}
+      </span>
+      ${statusTs ? `<span class="myio-ts-btn" data-ts="${statusTs}" style="
+        cursor: pointer; font-size: 10px; color: ${colors.primary}; font-weight: 600;
+      " title="${statusTs}">(+)</span>` : ''}
+    `;
+  };
 
   return `
     <div class="myio-list-item ${isSelected ? 'selected' : ''}"
@@ -1213,40 +1302,27 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
           display: flex; align-items: center; justify-content: center; border: 1px solid ${colors.border};
         " title="Ver detalhes">ⓘ</span>
       </div>
-      <div style="width: ${state.columnWidths.type}px; padding: 0 6px; text-align: center; flex-shrink: 0;">
-        <div style="font-size: 9px; padding: 2px 4px; border-radius: 3px; display: inline-block;
+      <div style="width: ${state.columnWidths.type}px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden;">
+        <div style="font-size: 9px; padding: 2px 4px; border-radius: 3px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
           background: ${device.type?.includes('HIDRO') ? '#dbeafe' : '#fef3c7'};
-          color: ${device.type?.includes('HIDRO') ? '#1e40af' : '#92400e'};">
+          color: ${device.type?.includes('HIDRO') ? '#1e40af' : '#92400e'};" title="${device.type || ''}">
           ${device.type || '—'}
         </div>
       </div>
-      <div style="width: ${state.columnWidths.deviceType}px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden;">
-        <div style="font-size: 9px; color: ${attrs.deviceType ? colors.text : colors.textMuted}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${attrs.deviceType || ''}">
-          ${attrs.deviceType || '—'}
-        </div>
+      <div style="width: ${state.columnWidths.createdTime}px; padding: 0 6px; text-align: center; flex-shrink: 0;">
+        <span style="font-size: 9px; color: ${colors.textMuted};">${createdTimeStr}</span>
       </div>
-      <div style="width: ${state.columnWidths.deviceProfile}px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden;">
-        <div style="font-size: 9px; color: ${attrs.deviceProfile ? colors.text : colors.textMuted}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${attrs.deviceProfile || ''}">
-          ${attrs.deviceProfile || '—'}
-        </div>
+      <div style="width: ${state.columnWidths.deviceType}px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+        ${renderDeviceTypeValue()}
+      </div>
+      <div style="width: ${state.columnWidths.deviceProfile}px; padding: 0 6px; text-align: center; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+        ${renderDeviceProfileValue()}
       </div>
       <div style="width: ${state.columnWidths.telemetry}px; padding: 0 6px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
-        ${telemetryItems.length === 0 ? `<span style="font-size: 9px; color: ${colors.textMuted};">—</span>` : telemetryItems.map(item => `
-          <span style="display: inline-flex; align-items: center; gap: 1px;">
-            <span style="font-size: 9px; color: ${colors.text}; font-weight: 500;" title="${item.label}">${item.value}${item.unit}</span>
-            <span class="myio-ts-btn" data-ts="${item.label}: ${item.value}${item.unit}\\n${item.ts}" style="
-              cursor: pointer; font-size: 9px; color: ${colors.primary}; font-weight: 600;
-            " title="${item.label}: ${item.ts}">(+)</span>
-          </span>
-        `).join('')}
+        ${renderTelemetryValue()}
       </div>
       <div style="width: ${state.columnWidths.status}px; padding: 0 6px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 2px;">
-        <span style="font-size: 9px; padding: 2px 6px; border-radius: 3px; background: ${statusStyle.bg}; color: ${statusStyle.text};">
-          ${connStatus}
-        </span>
-        ${statusTs ? `<span class="myio-ts-btn" data-ts="${statusTs}" style="
-          cursor: pointer; font-size: 10px; color: ${colors.primary}; font-weight: 600;
-        " title="${statusTs}">(+)</span>` : ''}
+        ${renderStatusValue()}
       </div>
       <div style="width: 24px; flex-shrink: 0; text-align: center;">
         ${isSelected ? `<span style="color: ${colors.success}; font-size: 14px;">✓</span>` : ''}
@@ -1668,6 +1744,7 @@ function setupEventListeners(
   // Customer search
   document.getElementById(`${modalId}-customer-search`)?.addEventListener('input', (e) => {
     const search = (e.target as HTMLInputElement).value.toLowerCase();
+    state.customerSearchTerm = (e.target as HTMLInputElement).value; // Preserve original case
     filterCustomerList(container, state.customers, search, state.selectedCustomer, state.customerSort);
   });
 
@@ -1713,6 +1790,7 @@ function setupEventListeners(
   // Device search - just filter visually without re-rendering
   document.getElementById(`${modalId}-device-search`)?.addEventListener('input', (e) => {
     const search = (e.target as HTMLInputElement).value.toLowerCase();
+    state.deviceSearchTerm = (e.target as HTMLInputElement).value; // Preserve original case
     filterDeviceListVisual(container, state.devices, search, state.deviceFilters, state.deviceSort);
   });
 
@@ -1740,26 +1818,30 @@ function setupEventListeners(
     setupEventListeners(container, state, modalId, t, onClose);
   });
 
-  // Clear filters button
-  document.getElementById(`${modalId}-clear-filters`)?.addEventListener('click', () => {
-    state.deviceFilters = { types: [], deviceTypes: [], deviceProfiles: [] };
+  // Status filter (only works when telemetry is loaded)
+  (document.getElementById(`${modalId}-device-status-filter`) as HTMLSelectElement | null)?.addEventListener('change', (e) => {
+    const select = e.target as HTMLSelectElement;
+    state.deviceFilters.statuses = Array.from(select.selectedOptions).map(o => o.value);
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
   });
 
-  // Device sort buttons
-  const deviceSortFields: DeviceSortField[] = ['label', 'type', 'deviceType', 'deviceProfile'];
-  const deviceSortBtnIds: Record<DeviceSortField, string> = {
-    name: `${modalId}-sort-device-name`,
-    label: `${modalId}-sort-device-label`,
-    createdTime: `${modalId}-sort-device-date`,
-    type: `${modalId}-sort-device-type`,
-    deviceType: `${modalId}-sort-device-devicetype`,
-    deviceProfile: `${modalId}-sort-device-profile`,
-  };
+  // Clear filters button
+  document.getElementById(`${modalId}-clear-filters`)?.addEventListener('click', () => {
+    state.deviceFilters = { types: [], deviceTypes: [], deviceProfiles: [], statuses: [] };
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
 
-  deviceSortFields.forEach(field => {
-    document.getElementById(deviceSortBtnIds[field])?.addEventListener('click', () => {
+  // Sortable column headers - click to sort
+  const sortableColumns: Array<{ col: string; field: DeviceSortField }> = [
+    { col: 'label', field: 'label' },
+    { col: 'type', field: 'type' },
+    { col: 'createdTime', field: 'createdTime' },
+  ];
+
+  sortableColumns.forEach(({ col, field }) => {
+    document.getElementById(`${modalId}-sort-col-${col}`)?.addEventListener('click', () => {
       if (state.deviceSort.field === field) {
         state.deviceSort.order = state.deviceSort.order === 'asc' ? 'desc' : 'asc';
       } else {
@@ -1769,9 +1851,6 @@ function setupEventListeners(
       setupEventListeners(container, state, modalId, t, onClose);
     });
   });
-
-  // Setup drag-resize for columns
-  setupColumnResize(container, state, modalId, t, onClose);
 
   // Setup info tooltip buttons
   setupInfoTooltips(container, state);
@@ -2028,6 +2107,14 @@ function setupEventListeners(
       alert('Erro ao remover relação: ' + (error as Error).message);
     }
   });
+
+  // Apply search filters after render (to preserve filter state)
+  if (state.customerSearchTerm && state.currentStep === 1) {
+    filterCustomerList(container, state.customers, state.customerSearchTerm.toLowerCase(), state.selectedCustomer, state.customerSort);
+  }
+  if (state.deviceSearchTerm && state.currentStep === 2) {
+    filterDeviceListVisual(container, state.devices, state.deviceSearchTerm.toLowerCase(), state.deviceFilters, state.deviceSort);
+  }
 }
 
 // ============================================================================
