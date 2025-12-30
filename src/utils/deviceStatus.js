@@ -149,68 +149,57 @@ export function normalizeConnectionStatus(rawStatus) {
 }
 
 /**
- * RFC-0110: Verifica se a conexão está obsoleta baseado em timestamps
- * Usado para determinar se um device realmente está offline, mesmo que
- * connectionStatus indique online (timestamp muito antigo).
+ * RFC-0110: Verifica se a conexão está obsoleta baseado no timestamp do connectionStatus
+ * Usado para determinar se um device realmente está offline.
+ * Se o ThingsBoard não atualizou o connectionStatus há mais de X minutos,
+ * o device é considerado stale (sem comunicação recente).
  *
  * @param {Object} params
- * @param {number|Date|null} params.lastConnectTime - Timestamp da última conexão
- * @param {number|Date|null} params.lastDisconnectTime - Timestamp da última desconexão
+ * @param {number|Date|null} params.connectionStatusTs - Timestamp do connectionStatus do ThingsBoard
+ * @param {number|Date|null} params.lastActivityTime - Fallback: timestamp da última atividade
  * @param {number} [params.delayTimeConnectionInMins=60] - Tempo em minutos para considerar conexão obsoleta
  * @returns {boolean} true se conexão está obsoleta (deve ser considerado offline)
  *
  * @example
- * // Device com conexão antiga (> 60 min) → offline
+ * // Device com status atualizado recentemente → não stale
  * isConnectionStale({
- *   lastConnectTime: Date.now() - 90 * 60 * 1000, // 90 min atrás
- *   delayTimeConnectionInMins: 60
- * }); // Returns true
- *
- * @example
- * // Device com conexão recente → online
- * isConnectionStale({
- *   lastConnectTime: Date.now() - 30 * 60 * 1000, // 30 min atrás
+ *   connectionStatusTs: Date.now() - 30 * 60 * 1000, // 30 min atrás
  *   delayTimeConnectionInMins: 60
  * }); // Returns false
  *
  * @example
- * // Device que desconectou depois de conectar → offline
+ * // Device com status antigo (> 60 min) → stale
  * isConnectionStale({
- *   lastConnectTime: Date.now() - 10 * 60 * 1000, // 10 min atrás
- *   lastDisconnectTime: Date.now() - 5 * 60 * 1000, // 5 min atrás (mais recente)
+ *   connectionStatusTs: Date.now() - 90 * 60 * 1000, // 90 min atrás
+ *   delayTimeConnectionInMins: 60
  * }); // Returns true
  */
 export function isConnectionStale({
-  lastConnectTime = null,
-  lastDisconnectTime = null,
+  connectionStatusTs = null,
+  lastActivityTime = null,
   delayTimeConnectionInMins = 60,
 } = {}) {
-  // Se não há timestamp de conexão, não podemos verificar - assume online
-  if (!lastConnectTime) {
+  // RFC-0110: Use connectionStatusTs (preferred) or lastActivityTime as fallback
+  const timestamp = connectionStatusTs || lastActivityTime;
+
+  // Se não há timestamp, não podemos verificar - assume não stale (online)
+  if (!timestamp) {
     return false;
   }
 
-  const lastConnect = new Date(lastConnectTime);
-  const lastDisconnect = lastDisconnectTime ? new Date(lastDisconnectTime) : null;
+  const lastUpdate = new Date(timestamp);
   const now = new Date();
   const delayMs = delayTimeConnectionInMins * 60 * 1000;
 
-  // RFC-0110: Determinar o timestamp mais recente de atividade
-  // Se desconectou depois de conectar, usar lastDisconnectTime como referência
-  // Se conectou depois de desconectar (ou nunca desconectou), usar lastConnectTime
-  let mostRecentActivity = lastConnect;
-  if (lastDisconnect && lastDisconnect.getTime() > lastConnect.getTime()) {
-    mostRecentActivity = lastDisconnect;
-  }
+  // RFC-0110: Verificar se o timestamp está dentro do delay
+  const timeSinceUpdate = now.getTime() - lastUpdate.getTime();
 
-  // RFC-0110: Verificar se a atividade mais recente está dentro do delay
-  const timeSinceActivity = now.getTime() - mostRecentActivity.getTime();
-  if (timeSinceActivity > delayMs) {
-    // Última atividade foi há mais de [delay] minutos → stale/offline
+  if (timeSinceUpdate > delayMs) {
+    // Última atualização foi há mais de [delay] minutos → stale/offline
     return true;
   }
 
-  // Atividade recente (dentro do delay) → não é stale
+  // Atualização recente (dentro do delay) → não é stale
   return false;
 }
 

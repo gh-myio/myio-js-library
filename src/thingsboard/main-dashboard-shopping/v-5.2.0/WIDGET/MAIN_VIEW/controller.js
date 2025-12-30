@@ -3371,7 +3371,11 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'slaveid') meta.slaveId = val;
       else if (keyName === 'centralid') meta.centralId = val;
       else if (keyName === 'centralname') meta.centralName = val;
-      else if (keyName === 'connectionstatus') meta.connectionStatus = val;
+      else if (keyName === 'connectionstatus') {
+        meta.connectionStatus = val;
+        // RFC-0110: Extract timestamp of connectionStatus for stale check
+        meta.connectionStatusTs = row?.data?.[0]?.[0] ?? null;
+      }
       else if (keyName === 'lastactivitytime') meta.lastActivityTime = val;
       else if (keyName === 'lastconnecttime') meta.lastConnectTime = val;
       else if (keyName === 'lastdisconnecttime') meta.lastDisconnectTime = val;

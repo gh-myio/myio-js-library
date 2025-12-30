@@ -1479,12 +1479,12 @@ function buildAuthoritativeItems() {
     const isOfflineStatusRaw = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus);
     const isOnlineStatus = normalizedStatus === 'online' || ['online', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedStatus);
 
-    // RFC-0110: Check if connection is stale based on timestamps
+    // RFC-0110: Check if connection is stale based on connectionStatus timestamp
     const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
     const connectionStale = lib?.isConnectionStale
       ? lib.isConnectionStale({
-          lastConnectTime: attrs.lastConnectTime,
-          lastDisconnectTime: attrs.lastDisconnectTime,
+          connectionStatusTs: attrs.connectionStatusTs,
+          lastActivityTime: attrs.lastActivityTime,
           delayTimeConnectionInMins: delayMins,
         })
       : true; // Fallback: assume stale if library not available
@@ -1501,6 +1501,10 @@ function buildAuthoritativeItems() {
     } else if (isOfflineStatus) {
       deviceStatus = 'offline'; // RFC-0109+0110: offline devices with stale connection
       // DEBUG: Log ALL devices being set to offline in buildAuthoritativeItems
+      const _nowMs = Date.now();
+      const _statusTs = attrs.connectionStatusTs || attrs.lastActivityTime;
+      const _statusTsMs = _statusTs ? Number(_statusTs) : 0;
+      const _diffMinutes = _statusTsMs ? Math.round((_nowMs - _statusTsMs) / 60000) : 'N/A';
       console.warn(`🔴 [DEBUG TELEMETRY buildAuthoritativeItems] Device set to OFFLINE:`, {
         label: r.label,
         tbId: tbId,
@@ -1508,11 +1512,13 @@ function buildAuthoritativeItems() {
         normalizedStatus: normalizedStatus,
         isOfflineStatusRaw: isOfflineStatusRaw,
         connectionStale: connectionStale,
-        lastConnectTime: attrs.lastConnectTime,
-        lastConnectTimeFormatted: attrs.lastConnectTime ? new Date(attrs.lastConnectTime).toISOString() : 'N/A',
-        lastDisconnectTime: attrs.lastDisconnectTime,
-        now: new Date().toISOString(),
+        connectionStatusTs: attrs.connectionStatusTs,
+        connectionStatusTsLocal: attrs.connectionStatusTs ? new Date(attrs.connectionStatusTs).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}) : 'N/A',
+        lastActivityTime: attrs.lastActivityTime,
+        nowLocal: new Date().toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}),
+        diffMinutes: _diffMinutes,
         delayMins: delayMins,
+        isStaleReason: _diffMinutes !== 'N/A' && _diffMinutes > delayMins ? `${_diffMinutes} > ${delayMins} min` : `${_diffMinutes} <= ${delayMins} min (should NOT be stale!)`,
       });
     } else if (isEffectivelyOnline) {
       // RFC-0078: For energy devices, calculate status using ranges from mapInstantaneousPower
@@ -4175,13 +4181,13 @@ self.onInit = async function () {
       const isOfflineStatus = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus) || connectionStatus === false;
       const isOnline = normalizedStatus === 'online' || ['online', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedStatus) || connectionStatus === true;
 
-      // RFC-0110: Check if connection is stale based on timestamps
+      // RFC-0110: Check if connection is stale based on connectionStatus timestamp
       // Even if connectionStatus says "offline", if the timestamp is recent (< 60 min), treat as online
       const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
       const connectionStale = lib?.isConnectionStale
         ? lib.isConnectionStale({
-            lastConnectTime: item.lastConnectTime,
-            lastDisconnectTime: item.lastDisconnectTime,
+            connectionStatusTs: item.connectionStatusTs,
+            lastActivityTime: item.lastActivityTime,
             delayTimeConnectionInMins: delayMins,
           })
         : true; // Fallback: assume stale if library not available
@@ -4200,6 +4206,10 @@ self.onInit = async function () {
       } else if (isOffline) {
         deviceStatus = 'offline'; // RFC-0109+0110: offline devices with stale connection
         // DEBUG: Log ALL devices being set to offline
+        const _nowMs = Date.now();
+        const _statusTs = item.connectionStatusTs || item.lastActivityTime;
+        const _statusTsMs = _statusTs ? Number(_statusTs) : 0;
+        const _diffMinutes = _statusTsMs ? Math.round((_nowMs - _statusTsMs) / 60000) : 'N/A';
         console.warn(`🔴 [DEBUG TELEMETRY] Device set to OFFLINE:`, {
           label: item.label,
           id: item.id || item.tbId,
@@ -4207,9 +4217,13 @@ self.onInit = async function () {
           normalizedStatus: normalizedStatus,
           isOfflineStatus: isOfflineStatus,
           connectionStale: connectionStale,
-          lastConnectTime: item.lastConnectTime,
-          lastConnectTimeFormatted: item.lastConnectTime ? new Date(item.lastConnectTime).toISOString() : 'N/A',
-          now: new Date().toISOString(),
+          connectionStatusTs: item.connectionStatusTs,
+          connectionStatusTsLocal: item.connectionStatusTs ? new Date(item.connectionStatusTs).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}) : 'N/A',
+          lastActivityTime: item.lastActivityTime,
+          nowLocal: new Date().toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}),
+          diffMinutes: _diffMinutes,
+          delayMins: delayMins,
+          isStaleReason: _diffMinutes !== 'N/A' && _diffMinutes > delayMins ? `${_diffMinutes} > ${delayMins} min` : `${_diffMinutes} <= ${delayMins} min (should NOT be stale!)`,
         });
       } else if (isEffectivelyOnline && isEnergyDomain) {
         // For energy devices, calculate status using power ranges
