@@ -1479,15 +1479,21 @@ function buildAuthoritativeItems() {
     const isOfflineStatusRaw = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus);
     const isOnlineStatus = normalizedStatus === 'online' || ['online', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedStatus);
 
-    // RFC-0110: Check if connection is stale based on connectionStatus timestamp
-    const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
-    const connectionStale = lib?.isConnectionStale
-      ? lib.isConnectionStale({
-          connectionStatusTs: attrs.connectionStatusTs,
-          lastActivityTime: attrs.lastActivityTime,
-          delayTimeConnectionInMins: delayMins,
-        })
-      : true; // Fallback: assume stale if library not available
+    // RFC-0110: Check if telemetry is stale based on TELEMETRY timestamp (not connectionStatusTs)
+    // Use domain-specific telemetry timestamp: consumptionTs (energy), pulsesTs (water), temperatureTs (temperature)
+    const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440; // Default: 24h
+    const telemetryTs = isTankDevice ? attrs.pulsesTs
+      : isTermostatoDevice ? attrs.temperatureTs
+      : attrs.consumptionTs; // Energy devices
+    const connectionStale = lib?.isTelemetryStale
+      ? lib.isTelemetryStale(telemetryTs, attrs.lastActivityTime, delayMins)
+      : (lib?.isConnectionStale
+          ? lib.isConnectionStale({
+              connectionStatusTs: telemetryTs,
+              lastActivityTime: attrs.lastActivityTime,
+              delayTimeConnectionInMins: delayMins,
+            })
+          : true); // Fallback: assume stale if library not available
 
     // RFC-0110: Device is truly offline only if status says offline AND connection is stale
     const isOfflineStatus = isOfflineStatusRaw && connectionStale;
@@ -1505,26 +1511,25 @@ function buildAuthoritativeItems() {
         normalizedStatus: normalizedStatus,
       });
     } else if (isOfflineStatus) {
-      deviceStatus = 'offline'; // RFC-0109+0110: offline devices with stale connection
+      deviceStatus = 'offline'; // RFC-0109+0110: offline devices with stale telemetry
       // DEBUG: Log ALL devices being set to offline in buildAuthoritativeItems
       const _nowMs = Date.now();
-      const _statusTs = attrs.connectionStatusTs || attrs.lastActivityTime;
-      const _statusTsMs = _statusTs ? Number(_statusTs) : 0;
-      const _diffMinutes = _statusTsMs ? Math.round((_nowMs - _statusTsMs) / 60000) : 'N/A';
-      console.warn(`🔴 [DEBUG TELEMETRY buildAuthoritativeItems] Device set to OFFLINE:`, {
+      const _telemetryTsMs = telemetryTs ? Number(telemetryTs) : 0;
+      const _diffMinutes = _telemetryTsMs ? Math.round((_nowMs - _telemetryTsMs) / 60000) : 'N/A';
+      console.warn(`🔴 [DEBUG TELEMETRY buildAuthoritativeItems] Device set to OFFLINE (RFC-0110):`, {
         label: r.label,
         tbId: tbId,
         tbConnectionStatus: tbConnectionStatus,
         normalizedStatus: normalizedStatus,
         isOfflineStatusRaw: isOfflineStatusRaw,
         connectionStale: connectionStale,
-        connectionStatusTs: attrs.connectionStatusTs,
-        connectionStatusTsLocal: attrs.connectionStatusTs ? new Date(attrs.connectionStatusTs).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}) : 'N/A',
+        telemetryTs: telemetryTs,
+        telemetryTsLocal: telemetryTs ? new Date(telemetryTs).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}) : 'N/A',
         lastActivityTime: attrs.lastActivityTime,
         nowLocal: new Date().toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}),
         diffMinutes: _diffMinutes,
         delayMins: delayMins,
-        isStaleReason: _diffMinutes !== 'N/A' && _diffMinutes > delayMins ? `${_diffMinutes} > ${delayMins} min` : `${_diffMinutes} <= ${delayMins} min (should NOT be stale!)`,
+        isStaleReason: _diffMinutes !== 'N/A' && _diffMinutes > delayMins ? `${_diffMinutes} > ${delayMins} min (STALE)` : `${_diffMinutes} <= ${delayMins} min (should NOT be stale!)`,
       });
     } else if (isEffectivelyOnline) {
       // RFC-0078: For energy devices, calculate status using ranges from mapInstantaneousPower
@@ -1539,10 +1544,14 @@ function buildAuthoritativeItems() {
           : null;
 
         if (ranges && typeof MyIOLibrary?.calculateDeviceStatusWithRanges === 'function') {
+          // RFC-0110: Pass telemetry timestamp for offline detection
           deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
             connectionStatus: tbConnectionStatus,
             lastConsumptionValue: instantaneousPower,
             ranges: ranges,
+            telemetryTimestamp: telemetryTs,
+            lastActivityTime: attrs.lastActivityTime,
+            delayTimeConnectionInMins: delayMins,
           });
 
           const source = deviceMapLimits
@@ -4187,16 +4196,23 @@ self.onInit = async function () {
       const isOfflineStatus = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus) || connectionStatus === false;
       const isOnline = normalizedStatus === 'online' || ['online', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedStatus) || connectionStatus === true;
 
-      // RFC-0110: Check if connection is stale based on connectionStatus timestamp
-      // Even if connectionStatus says "offline", if the timestamp is recent (< 60 min), treat as online
-      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
-      const connectionStale = lib?.isConnectionStale
-        ? lib.isConnectionStale({
-            connectionStatusTs: item.connectionStatusTs,
-            lastActivityTime: item.lastActivityTime,
-            delayTimeConnectionInMins: delayMins,
-          })
-        : true; // Fallback: assume stale if library not available
+      // RFC-0110: Check if telemetry is stale based on TELEMETRY timestamp (not connectionStatusTs)
+      // Use domain-specific telemetry timestamp: consumptionTs (energy), pulsesTs (water), temperatureTs (temperature)
+      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440; // Default: 24h
+      const isTankItem = item._isTankDevice || item.deviceType === 'TANK' || item.deviceType === 'CAIXA_DAGUA';
+      const isTemperatureItem = item.deviceType === 'TERMOSTATO';
+      const telemetryTs = isTankItem ? item.pulsesTs
+        : isTemperatureItem ? item.temperatureTs
+        : item.consumptionTs; // Energy devices
+      const connectionStale = lib?.isTelemetryStale
+        ? lib.isTelemetryStale(telemetryTs, item.lastActivityTime, delayMins)
+        : (lib?.isConnectionStale
+            ? lib.isConnectionStale({
+                connectionStatusTs: telemetryTs,
+                lastActivityTime: item.lastActivityTime,
+                delayTimeConnectionInMins: delayMins,
+              })
+            : true); // Fallback: assume stale if library not available
 
       // RFC-0110: Device is truly offline only if status says offline AND connection is stale
       const isOffline = isOfflineStatus && connectionStale;
@@ -4216,26 +4232,25 @@ self.onInit = async function () {
           normalizedStatus: normalizedStatus,
         });
       } else if (isOffline) {
-        deviceStatus = 'offline'; // RFC-0109+0110: offline devices with stale connection
+        deviceStatus = 'offline'; // RFC-0109+0110: offline devices with stale telemetry
         // DEBUG: Log ALL devices being set to offline
         const _nowMs = Date.now();
-        const _statusTs = item.connectionStatusTs || item.lastActivityTime;
-        const _statusTsMs = _statusTs ? Number(_statusTs) : 0;
-        const _diffMinutes = _statusTsMs ? Math.round((_nowMs - _statusTsMs) / 60000) : 'N/A';
-        console.warn(`🔴 [DEBUG TELEMETRY] Device set to OFFLINE:`, {
+        const _telemetryTsMs = telemetryTs ? Number(telemetryTs) : 0;
+        const _diffMinutes = _telemetryTsMs ? Math.round((_nowMs - _telemetryTsMs) / 60000) : 'N/A';
+        console.warn(`🔴 [DEBUG TELEMETRY processTemperatureItems] Device set to OFFLINE (RFC-0110):`, {
           label: item.label,
           id: item.id || item.tbId,
           connectionStatus: connectionStatus,
           normalizedStatus: normalizedStatus,
           isOfflineStatus: isOfflineStatus,
           connectionStale: connectionStale,
-          connectionStatusTs: item.connectionStatusTs,
-          connectionStatusTsLocal: item.connectionStatusTs ? new Date(item.connectionStatusTs).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}) : 'N/A',
+          telemetryTs: telemetryTs,
+          telemetryTsLocal: telemetryTs ? new Date(telemetryTs).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}) : 'N/A',
           lastActivityTime: item.lastActivityTime,
           nowLocal: new Date().toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}),
           diffMinutes: _diffMinutes,
           delayMins: delayMins,
-          isStaleReason: _diffMinutes !== 'N/A' && _diffMinutes > delayMins ? `${_diffMinutes} > ${delayMins} min` : `${_diffMinutes} <= ${delayMins} min (should NOT be stale!)`,
+          isStaleReason: _diffMinutes !== 'N/A' && _diffMinutes > delayMins ? `${_diffMinutes} > ${delayMins} min (STALE)` : `${_diffMinutes} <= ${delayMins} min (should NOT be stale!)`,
         });
       } else if (isEffectivelyOnline && isEnergyDomain) {
         // For energy devices, calculate status using power ranges
@@ -4251,10 +4266,14 @@ self.onInit = async function () {
           : null;
 
         if (ranges && typeof MyIOLibrary?.calculateDeviceStatusWithRanges === 'function') {
+          // RFC-0110: Pass telemetry timestamp for offline detection
           deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
             connectionStatus: connectionStatus,
             lastConsumptionValue: instantaneousPower,
             ranges: ranges,
+            telemetryTimestamp: telemetryTs,
+            lastActivityTime: item.lastActivityTime,
+            delayTimeConnectionInMins: delayMins,
           });
         } else {
           // Fallback if no ranges or MyIOLibrary not available

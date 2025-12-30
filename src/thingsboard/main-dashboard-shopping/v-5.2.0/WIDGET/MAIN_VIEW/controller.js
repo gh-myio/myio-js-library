@@ -3385,16 +3385,28 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'label' && val && String(val).trim() !== '') meta.label = val;
       // Energy-specific fields
       else if (keyName === 'devicemapinstaneouspower') meta.deviceMapInstaneousPower = val;
-      else if (keyName === 'consumption') meta.consumption = val; // instantaneous power in Watts
+      else if (keyName === 'consumption') {
+        meta.consumption = val; // instantaneous power in Watts
+        // RFC-0110: Extract timestamp for telemetry-based offline detection
+        meta.consumptionTs = row?.data?.[0]?.[0] ?? null;
+      }
       // Water-specific fields
-      else if (keyName === 'pulses') meta.pulses = val;
+      else if (keyName === 'pulses') {
+        meta.pulses = val;
+        // RFC-0110: Extract timestamp for telemetry-based offline detection
+        meta.pulsesTs = row?.data?.[0]?.[0] ?? null;
+      }
       else if (keyName === 'litersperpulse') meta.litersPerPulse = val;
       else if (keyName === 'volume') meta.volume = val;
       // Tank-specific fields (TANK/CAIXA_DAGUA)
       else if (keyName === 'water_level') meta.waterLevel = val;
       else if (keyName === 'water_percentage') meta.waterPercentage = val;
       // Temperature-specific fields
-      else if (keyName === 'temperature') meta.temperature = val;
+      else if (keyName === 'temperature') {
+        meta.temperature = val;
+        // RFC-0110: Extract timestamp for telemetry-based offline detection
+        meta.temperatureTs = row?.data?.[0]?.[0] ?? null;
+      }
     }
 
     // Build map by ingestionId
