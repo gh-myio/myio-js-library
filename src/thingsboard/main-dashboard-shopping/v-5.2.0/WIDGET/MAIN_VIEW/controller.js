@@ -2015,36 +2015,41 @@ function buildSummary(lojas, entrada, areacomum, periodKey) {
 /**
  * Aggregate device status from items
  * Returns counts and device lists for each status
+ * RFC-0109: Added waiting and weakConnection categories
  */
 function aggregateDeviceStatus(items) {
   const NO_CONSUMPTION_THRESHOLD = 0.01;
 
   const result = {
     hasData: items.length > 0,
+    // RFC-0109: Connectivity status categories
+    waiting: 0,
+    weakConnection: 0,
+    offline: 0,
+    // Consumption status categories
     normal: 0,
     alert: 0,
     failure: 0,
     standby: 0,
-    offline: 0,
     noConsumption: 0,
+    // Device lists for connectivity
+    waitingDevices: [],
+    weakConnectionDevices: [],
+    offlineDevices: [],
+    // Device lists for consumption
     normalDevices: [],
     alertDevices: [],
     failureDevices: [],
     standbyDevices: [],
-    offlineDevices: [],
     noConsumptionDevices: [],
   };
 
-  const statusMapping = {
+  // RFC-0109: Status mapping for consumption categories (online devices only)
+  const consumptionStatusMapping = {
     power_on: 'normal',
     warning: 'alert',
     failure: 'failure',
     standby: 'standby',
-    power_off: 'offline',
-    maintenance: 'offline',
-    no_info: 'offline',
-    not_installed: 'offline',
-    offline: 'offline',
   };
 
   for (const item of items) {
@@ -2055,22 +2060,65 @@ function aggregateDeviceStatus(items) {
     };
 
     const deviceStatus = item.deviceStatus || 'no_info';
+    const connectionStatus = item.connectionStatus || '';
     const value = Number(item.value || 0);
 
-    // Check for "no consumption" (online but zero value)
-    const isOnline = !['no_info', 'offline', 'not_installed', 'maintenance', 'power_off'].includes(
-      deviceStatus
-    );
-    if (isOnline && Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
-      result.noConsumption++;
-      result.noConsumptionDevices.push(deviceInfo);
+    // RFC-0109: Check connectivity categories FIRST (mutually exclusive)
+
+    // 1. WAITING (not_installed) - highest priority
+    const isWaiting = deviceStatus === 'not_installed' ||
+                      connectionStatus === 'waiting' ||
+                      ['waiting', 'connecting', 'pending'].includes(String(connectionStatus).toLowerCase());
+    if (isWaiting) {
+      result.waiting++;
+      result.waitingDevices.push(deviceInfo);
+      continue; // Don't count in consumption categories
+    }
+
+    // 2. WEAK CONNECTION
+    const isWeakConnection = deviceStatus === 'weak_connection' ||
+                              ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(String(connectionStatus).toLowerCase());
+    if (isWeakConnection) {
+      result.weakConnection++;
+      result.weakConnectionDevices.push(deviceInfo);
+      // weakConnection devices CAN also have consumption status - continue to count below
+    }
+
+    // 3. OFFLINE
+    const isOffline = ['no_info', 'offline', 'maintenance', 'power_off'].includes(deviceStatus) ||
+                      ['offline', 'disconnected'].includes(String(connectionStatus).toLowerCase());
+    if (isOffline && !isWeakConnection) {
+      result.offline++;
+      result.offlineDevices.push(deviceInfo);
+      // Offline devices can also be in noConsumption
+      if (Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
+        result.noConsumption++;
+        result.noConsumptionDevices.push(deviceInfo);
+      }
       continue;
     }
 
-    // Map to status category
-    const mappedStatus = statusMapping[deviceStatus] || 'offline';
-    result[mappedStatus]++;
-    result[`${mappedStatus}Devices`].push(deviceInfo);
+    // 4. ONLINE devices - check consumption status
+    const isOnline = !isOffline && !isWaiting;
+    if (isOnline) {
+      // Check for "no consumption" (online but zero value)
+      if (Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
+        result.noConsumption++;
+        result.noConsumptionDevices.push(deviceInfo);
+        // Don't continue - also count in consumption category based on deviceStatus
+      }
+
+      // Map to consumption category
+      const consumptionCategory = consumptionStatusMapping[deviceStatus];
+      if (consumptionCategory) {
+        result[consumptionCategory]++;
+        result[`${consumptionCategory}Devices`].push(deviceInfo);
+      } else {
+        // Unknown status for online device - default to normal
+        result.normal++;
+        result.normalDevices.push(deviceInfo);
+      }
+    }
   }
 
   return result;
@@ -3119,6 +3167,33 @@ const MyIOOrchestrator = (() => {
       lastConnectTime: meta.lastConnectTime,
       lastDisconnectTime: meta.lastDisconnectTime,
     });
+
+    // DEBUG: Forced tracking for specific device
+    const debugLabel = meta.label || meta.identifier || overrides.label || '';
+    const isDebugDevice = debugLabel.includes('3F SCMAL3L4304ABC') || debugLabel.includes('SCMAL3L4304ABC');
+    if (isDebugDevice) {
+      const lib = window.MyIOLibrary;
+      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
+      const connectionStale = lib?.isConnectionStale
+        ? lib.isConnectionStale({
+            lastConnectTime: meta.lastConnectTime,
+            lastDisconnectTime: meta.lastDisconnectTime,
+            delayTimeConnectionInMins: delayMins,
+          })
+        : 'N/A (lib not available)';
+      console.warn(`🔴 [DEBUG MAIN_VIEW] createOrchestratorItem for "${debugLabel}":`, {
+        entityId,
+        connectionStatus: meta.connectionStatus,
+        calculatedDeviceStatus: deviceStatus,
+        lastConnectTime: meta.lastConnectTime,
+        lastDisconnectTime: meta.lastDisconnectTime,
+        lastConnectTimeFormatted: meta.lastConnectTime ? new Date(meta.lastConnectTime).toISOString() : 'N/A',
+        lastDisconnectTimeFormatted: meta.lastDisconnectTime ? new Date(meta.lastDisconnectTime).toISOString() : 'N/A',
+        connectionStale,
+        delayMins,
+        now: new Date().toISOString(),
+      });
+    }
 
     // RFC-0109: LOG for tracking waiting devices
     if (meta.connectionStatus === 'waiting' || String(meta.connectionStatus).toLowerCase() === 'waiting') {

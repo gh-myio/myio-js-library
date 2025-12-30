@@ -4505,33 +4505,65 @@ const MyIOOrchestrator = (() => {
   }
 
   /**
-   * RFC-0106: Convert ThingsBoard connectionStatus to deviceStatus
-   * ThingsBoard connectionStatus can be: 'true'/'false', 'ONLINE'/'OFFLINE', true/false, 'CONNECTED'/'DISCONNECTED'
+   * RFC-0109 + RFC-0110: Convert connectionStatus to deviceStatus
+   * Uses centralized library function for consistent status across all widgets.
    *
-   * Logic follows TELEMETRY buildAuthoritativeItems:
-   * - offline → 'no_info' (device disconnected, no consumption data available)
-   * - online → 'power_on' (simplified; energy devices may use calculateDeviceStatusWithRanges in TELEMETRY)
+   * Status mapping:
+   * - waiting, connecting, pending → 'not_installed' (RFC-0109: ABSOLUTE PRIORITY)
+   * - bad, weak, unstable → 'weak_connection' (RFC-0109)
+   * - offline + stale timestamp → 'offline' (RFC-0110)
+   * - offline + fresh timestamp → 'power_on' (treat as online) (RFC-0110)
+   * - online, connected, active → 'power_on'
    *
    * @param {string|boolean|null} connectionStatus - Raw status from ThingsBoard
-   * @returns {string} deviceStatus: 'power_on' or 'no_info'
+   * @param {object} [options] - Optional parameters for calculation
+   * @param {number|null} [options.lastConnectTime] - Timestamp of last connection
+   * @param {number|null} [options.lastDisconnectTime] - Timestamp of last disconnection
+   * @returns {string} deviceStatus: 'power_on', 'offline', 'weak_connection', 'not_installed'
    */
-  function convertConnectionStatusToDeviceStatus(connectionStatus) {
-    if (connectionStatus === null || connectionStatus === undefined || connectionStatus === '') {
-      return 'no_info';
+  function convertConnectionStatusToDeviceStatus(connectionStatus, options = {}) {
+    const lib = window.MyIOLibrary;
+
+    // RFC-0109: Normalize connection status first
+    const normalizedStatus = lib?.normalizeConnectionStatus
+      ? lib.normalizeConnectionStatus(connectionStatus)
+      : String(connectionStatus || '').toLowerCase().trim();
+
+    // RFC-0109: Waiting states → not_installed (ABSOLUTE PRIORITY)
+    const isWaiting = normalizedStatus === 'waiting' || ['waiting', 'connecting', 'pending'].includes(normalizedStatus);
+    if (isWaiting) {
+      LogHelper.log(`[MYIO-SIM Orchestrator] ✅ RFC-0109: connectionStatus='${connectionStatus}' → 'not_installed'`);
+      return 'not_installed';
     }
 
-    const statusStr = String(connectionStatus).toLowerCase().trim();
-
-    // Online/connected states → power_on
-    const ONLINE_VALUES = ['true', 'online', 'connected', '1', 'active', 'yes'];
-    if (ONLINE_VALUES.includes(statusStr)) {
-      return 'power_on';
+    // RFC-0109: Bad/weak connection states → weak_connection
+    if (normalizedStatus === 'bad' || ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus)) {
+      return 'weak_connection';
     }
 
-    // Offline/disconnected/unknown states → no_info
-    // RFC-0106: Offline devices have no consumption data, so status is 'no_info' (not 'offline')
-    // This aligns with TELEMETRY logic: tbConnectionStatus === 'offline' → deviceStatus = 'no_info'
-    return 'no_info';
+    // RFC-0110: Check if connection is stale based on timestamps
+    const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
+    const connectionStale = lib?.isConnectionStale
+      ? lib.isConnectionStale({
+          lastConnectTime: options.lastConnectTime,
+          lastDisconnectTime: options.lastDisconnectTime,
+          delayTimeConnectionInMins: delayMins,
+        })
+      : true; // Fallback: assume stale if library not available
+
+    // RFC-0110: Offline status check
+    const isOfflineStatus = normalizedStatus === 'offline' ||
+      ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus) ||
+      connectionStatus === null || connectionStatus === undefined || connectionStatus === '';
+
+    // RFC-0110: Device is truly offline only if status says offline AND connection is stale
+    if (isOfflineStatus && connectionStale) {
+      return 'offline';
+    }
+
+    // RFC-0110: Device with "offline" status but fresh timestamp → treat as online
+    // Also handles normal online states
+    return 'power_on';
   }
 
   /**
@@ -4541,7 +4573,7 @@ const MyIOOrchestrator = (() => {
    */
   const ALLOWED_ALIASES_BY_DOMAIN = {
     energy: 'equipamentos e lojas', // MYIO-SIM: Equipamentos e Lojas datasource
-    water: 'todoshidrometros', // MYIO-SIM: TodosHidrometros datasource (lowercase for matching)
+    water: 'allhidrosdevices', // MYIO-SIM: AllHidrosDevices datasource (lowercase for matching)
     temperature: 'alltemperaturedevices', // MYIO-SIM: AllTemperatureDevices datasource
   };
 
@@ -5504,7 +5536,7 @@ const MyIOOrchestrator = (() => {
       // RFC-0103: Also emit initial water-summary-ready from ctx.data when energy loads
       // This ensures HEADER gets water data without waiting for water tab to be selected
       try {
-        const waterAliases = ['todoshidrometros']; // RFC-0109: Single datasource with all water meters
+        const waterAliases = ['allhidrosdevices']; // RFC-0109: Single datasource with all water meters
         const waterDevicesMap = new Map(); // entityId -> { ownerName, consumption, pulses, aliasName }
         const ownerNameMap = new Map(); // entityId -> ownerName (from ownername dataKey)
         const ctxData = self?.ctx?.data || [];

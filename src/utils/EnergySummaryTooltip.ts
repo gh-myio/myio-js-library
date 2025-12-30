@@ -1972,6 +1972,22 @@ export const EnergySummaryTooltip = {
                         deviceStatus === 'power_off' || deviceStatus === 'maintenance' ||
                         connectionStatus === 'offline' || connectionStatus === 'disconnected';
 
+      // DEBUG: Forced tracking for specific device
+      const debugLabel = item.label || item.name || '';
+      const isDebugDevice = debugLabel.includes('3F SCMAL3L4304ABC') || debugLabel.includes('SCMAL3L4304ABC');
+      if (isDebugDevice) {
+        console.warn(`🔴 [DEBUG TOOLTIP] EnergySummaryTooltip._aggregateDeviceStatusFromOrchestrator for "${debugLabel}":`, {
+          id: item.id,
+          deviceStatus,
+          connectionStatus,
+          isWaiting,
+          isWeakConnection,
+          isOffline,
+          value,
+          willGoTo: isWaiting ? 'waiting' : isWeakConnection ? 'weakConnection' : isOffline ? 'offline' : 'online/consumption',
+        });
+      }
+
       // Add to connectivity categories (a device belongs to exactly one connectivity category)
       if (isWaiting) {
         result.waiting++;

@@ -348,6 +348,28 @@ export function renderCardComponentV5({
   const icon = getDeviceStatusIcon(deviceStatus, deviceType); // Pass deviceType for water device icons
   const connectionIcon = getConnectionStatusIcon(connectionStatus);
 
+  // DEBUG: Forced tracking for specific device
+  const isDebugDevice = labelOrName?.includes('3F SCMAL3L4304ABC') || labelOrName?.includes('SCMAL3L4304ABC') ||
+                        deviceIdentifier?.includes('SCMAL3L4304ABC');
+  if (isDebugDevice) {
+    console.warn(`🔴 [DEBUG CARD-V5] renderCardComponentV5 for "${labelOrName}":`, {
+      entityId,
+      deviceIdentifier,
+      deviceStatus,
+      connectionStatus,
+      isOffline,
+      shouldFlashIcon,
+      cardStatus: mapDeviceStatusToCardStatus(deviceStatus),
+      entityObject: {
+        lastConnectTime: entityObject.lastConnectTime,
+        lastDisconnectTime: entityObject.lastDisconnectTime,
+        connectionStatusTime: entityObject.connectionStatusTime,
+        timeVal: entityObject.timeVal,
+      },
+      now: new Date().toISOString(),
+    });
+  }
+
   // Map device type to icon category (uses centralized config)
   const mapDeviceTypeToIcon = (deviceType) => {
     const category = getDeviceCategory(deviceType);

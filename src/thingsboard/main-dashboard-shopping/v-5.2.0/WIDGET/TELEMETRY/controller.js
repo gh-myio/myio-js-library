@@ -1558,6 +1558,32 @@ function buildAuthoritativeItems() {
       */
     }
 
+    // DEBUG: Forced tracking for specific device
+    const debugLabel = r.label || '';
+    const isDebugDevice = debugLabel.includes('3F SCMAL3L4304ABC') || debugLabel.includes('SCMAL3L4304ABC');
+    if (isDebugDevice) {
+      console.warn(`🔴 [DEBUG TELEMETRY] buildAuthoritativeItems for "${debugLabel}":`, {
+        tbId: tbId,
+        itemId: itemId,
+        tbConnectionStatus: tbConnectionStatus,
+        normalizedStatus: normalizedStatus,
+        isWaitingStatus: isWaitingStatus,
+        isBadConnection: isBadConnection,
+        isOfflineStatusRaw: isOfflineStatusRaw,
+        isOnlineStatus: isOnlineStatus,
+        connectionStale: connectionStale,
+        isOfflineStatus: isOfflineStatus,
+        isEffectivelyOnline: isEffectivelyOnline,
+        finalDeviceStatus: deviceStatus,
+        lastConnectTime: attrs.lastConnectTime,
+        lastDisconnectTime: attrs.lastDisconnectTime,
+        lastConnectTimeFormatted: attrs.lastConnectTime ? new Date(attrs.lastConnectTime).toISOString() : 'N/A',
+        lastDisconnectTimeFormatted: attrs.lastDisconnectTime ? new Date(attrs.lastDisconnectTime).toISOString() : 'N/A',
+        delayMins: delayMins,
+        now: new Date().toISOString(),
+      });
+    }
+
     return {
       id: tbId || itemId, // para seleção/toggle
       tbId, // ThingsBoard deviceId (Settings)
@@ -4185,6 +4211,32 @@ self.onInit = async function () {
       } else if (isEffectivelyOnline) {
         // Non-energy devices (TANK, TERMOSTATO) - simple power_on
         deviceStatus = 'power_on';
+      }
+
+      // DEBUG: Forced tracking for specific device
+      const debugLabel = item.label || item.name || '';
+      const isDebugDevice = debugLabel.includes('3F SCMAL3L4304ABC') || debugLabel.includes('SCMAL3L4304ABC');
+      if (isDebugDevice) {
+        console.warn(`🔴 [DEBUG TELEMETRY] processTemperatureItems for "${debugLabel}":`, {
+          id: item.id || item.tbId,
+          originalDeviceStatus: item.deviceStatus,
+          finalDeviceStatus: deviceStatus,
+          connectionStatus: connectionStatus,
+          normalizedStatus: normalizedStatus,
+          isWaiting: isWaiting,
+          isBadConnection: isBadConnection,
+          isOfflineStatus: isOfflineStatus,
+          isOnline: isOnline,
+          connectionStale: connectionStale,
+          isOffline: isOffline,
+          isEffectivelyOnline: isEffectivelyOnline,
+          lastConnectTime: item.lastConnectTime,
+          lastDisconnectTime: item.lastDisconnectTime,
+          lastConnectTimeFormatted: item.lastConnectTime ? new Date(item.lastConnectTime).toISOString() : 'N/A',
+          lastDisconnectTimeFormatted: item.lastDisconnectTime ? new Date(item.lastDisconnectTime).toISOString() : 'N/A',
+          delayMins: delayMins,
+          now: new Date().toISOString(),
+        });
       }
 
       // RFC-0107: Calculate percentage and value for water tanks
