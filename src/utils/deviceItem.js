@@ -175,12 +175,14 @@ export function extractPowerLimitsForDevice(mapInstantaneousPower, deviceType, m
  * @property {string} [centralId] - Central/gateway ID
  * @property {string} [centralName] - Central/gateway name
  * @property {string} [slaveId] - Slave/modbus ID
- * @property {number} [lastActivityTime] - Last activity timestamp (fallback for RFC-0110)
+ * @property {number} [lastActivityTime] - Last activity timestamp (NOT used in v3)
  * @property {number} [lastConnectTime] - Last connect timestamp (deprecated)
  * @property {number} [lastDisconnectTime] - Last disconnect timestamp (deprecated)
- * @property {number} [consumptionTs] - RFC-0110: Timestamp of consumption telemetry
- * @property {number} [pulsesTs] - RFC-0110: Timestamp of pulses telemetry (water)
- * @property {number} [temperatureTs] - RFC-0110: Timestamp of temperature telemetry
+ * @property {number} [consumptionTs] - RFC-0110 v3: Timestamp of consumption telemetry (energy devices)
+ * @property {number} [pulsesTs] - RFC-0110 v3: Timestamp of pulses telemetry (hidrômetros)
+ * @property {number} [temperatureTs] - RFC-0110 v3: Timestamp of temperature telemetry (temp sensors)
+ * @property {number} [waterLevelTs] - RFC-0110 v3: Timestamp of water_level telemetry (tanks)
+ * @property {number} [waterPercentageTs] - RFC-0110 v3: Timestamp of water_percentage telemetry (tanks)
  * @property {string} [log_annotations] - JSON string of annotations
  * @property {number} [temperature] - Temperature reading (for temp sensors)
  * @property {number} [waterLevel] - Water level (for tanks)
@@ -307,10 +309,22 @@ export function createDeviceItem(entityId, meta, options = {}) {
   // Calculate device status
   let deviceStatus = DeviceStatusType.NO_INFO;
 
-  // RFC-0110: Get domain-specific telemetry timestamp
-  const telemetryTs = _isTankDevice ? meta.pulsesTs
-    : _isTemperatureDevice ? meta.temperatureTs
-    : meta.consumptionTs; // Energy/hydrometer devices
+  // RFC-0110 v3: Get domain-specific telemetry timestamp
+  // IMPORTANT: Each device type has its OWN specific telemetry
+  let telemetryTs = null;
+  if (_isTankDevice) {
+    // Tanks (caixa d'água) use water_level or water_percentage
+    telemetryTs = meta.waterLevelTs ?? meta.waterPercentageTs ?? null;
+  } else if (_isHidrometerDevice) {
+    // Hidrômetros use pulses
+    telemetryTs = meta.pulsesTs ?? null;
+  } else if (_isTemperatureDevice) {
+    // Temperature sensors use temperature
+    telemetryTs = meta.temperatureTs ?? null;
+  } else {
+    // Energy devices use consumption
+    telemetryTs = meta.consumptionTs ?? null;
+  }
 
   if (_isEnergyDevice && effectiveDomain === DomainType.ENERGY) {
     // Energy devices use power ranges
@@ -324,38 +338,49 @@ export function createDeviceItem(entityId, meta, options = {}) {
     const ranges = deviceMapLimits || globalLimits;
     const consumptionValue = meta.consumption ?? apiRow?.value ?? null;
 
-    // RFC-0110: Use unified calculateDeviceStatus with telemetry timestamp
+    // RFC-0110 v3: Use unified calculateDeviceStatus with domain-specific telemetry timestamp
+    // NOTE: lastActivityTime is NOT used as fallback in v3
     deviceStatus = calculateDeviceStatus({
       connectionStatus: connectionStatus,
       domain: 'energy',
       telemetryValue: consumptionValue,
-      telemetryTimestamp: telemetryTs,
-      lastActivityTime: meta.lastActivityTime ?? null,
+      telemetryTimestamp: telemetryTs, // v3: MUST be consumptionTs, NOT lastActivityTime
+      lastActivityTime: null, // v3: NOT used as fallback
       ranges: ranges,
       delayTimeConnectionInMins: delayTimeConnectionInMins,
     });
   } else {
     // Non-energy devices (TANK, TERMOSTATO, HIDROMETRO) - simple status
-    // RFC-0110 v2: Dual threshold - 60 mins for bad/offline, 24h for online
-    const SHORT_DELAY_MINS = 60;
-    const hasRecentTelemetry = !isTelemetryStale(telemetryTs, meta.lastActivityTime, SHORT_DELAY_MINS);
-    const staleTelemetryLong = isTelemetryStale(telemetryTs, meta.lastActivityTime, delayTimeConnectionInMins);
+    // RFC-0110 v3: Domain-specific telemetry required + Dual threshold
 
+    // 1. WAITING → NOT_INSTALLED (absolute priority)
     if (connectionStatus === 'waiting') {
       deviceStatus = DeviceStatusType.NOT_INSTALLED;
-    } else if (connectionStatus === 'bad') {
-      // RFC-0110 v2: bad + recent telemetry → treat as online (hide from client)
-      // bad + stale telemetry → show WEAK_CONNECTION
-      deviceStatus = hasRecentTelemetry ? DeviceStatusType.POWER_ON : DeviceStatusType.WEAK_CONNECTION;
-    } else if (connectionStatus === 'offline') {
-      // RFC-0110 v2: offline + recent telemetry (< 60 mins) → treat as online
-      // offline + stale telemetry (> 60 mins) → OFFLINE
-      deviceStatus = hasRecentTelemetry ? DeviceStatusType.POWER_ON : DeviceStatusType.OFFLINE;
-    } else if (connectionStatus === 'online') {
-      // RFC-0110 v2: online + stale telemetry (> 24h) → OFFLINE
-      deviceStatus = staleTelemetryLong ? DeviceStatusType.OFFLINE : DeviceStatusType.POWER_ON;
-    } else {
-      deviceStatus = DeviceStatusType.POWER_ON;
+    }
+    // 2. v3: No domain-specific telemetry → OFFLINE
+    else if (telemetryTs === null || telemetryTs === undefined) {
+      deviceStatus = DeviceStatusType.OFFLINE;
+    }
+    // 3. Has domain-specific telemetry → apply dual threshold logic
+    else {
+      const SHORT_DELAY_MINS = 60;
+      const hasRecentTelemetry = !isTelemetryStale(telemetryTs, null, SHORT_DELAY_MINS); // v3: No fallback
+      const staleTelemetryLong = isTelemetryStale(telemetryTs, null, delayTimeConnectionInMins); // v3: No fallback
+
+      if (connectionStatus === 'bad') {
+        // RFC-0110 v3: bad + recent telemetry → treat as online (hide from client)
+        // bad + stale telemetry → show WEAK_CONNECTION
+        deviceStatus = hasRecentTelemetry ? DeviceStatusType.POWER_ON : DeviceStatusType.WEAK_CONNECTION;
+      } else if (connectionStatus === 'offline') {
+        // RFC-0110 v3: offline + recent telemetry (< 60 mins) → treat as online
+        // offline + stale telemetry (> 60 mins) → OFFLINE
+        deviceStatus = hasRecentTelemetry ? DeviceStatusType.POWER_ON : DeviceStatusType.OFFLINE;
+      } else if (connectionStatus === 'online') {
+        // RFC-0110 v3: online + stale telemetry (> 24h) → OFFLINE
+        deviceStatus = staleTelemetryLong ? DeviceStatusType.OFFLINE : DeviceStatusType.POWER_ON;
+      } else {
+        deviceStatus = DeviceStatusType.POWER_ON;
+      }
     }
   }
 
@@ -445,10 +470,12 @@ export function createDeviceItem(entityId, meta, options = {}) {
     lastDisconnectTime: meta.lastDisconnectTime ?? null,
     connectionStatusTime: meta.lastConnectTime ?? null,
     timeVal: meta.lastActivityTime ?? null,
-    // RFC-0110: Telemetry timestamps for stale detection
+    // RFC-0110 v3: Domain-specific telemetry timestamps for offline detection
     consumptionTs: meta.consumptionTs ?? null,
     pulsesTs: meta.pulsesTs ?? null,
     temperatureTs: meta.temperatureTs ?? null,
+    waterLevelTs: meta.waterLevelTs ?? null,
+    waterPercentageTs: meta.waterPercentageTs ?? null,
 
     // Annotations
     log_annotations: logAnnotations,
@@ -518,10 +545,13 @@ export function recalculateDeviceStatus(item, newData = {}, options = {}) {
     connectionStatus: newData.connectionStatus ?? item.connectionStatus,
     consumption: newData.value ?? newData.consumption ?? item.consumptionPower ?? item.value,
     deviceMapInstaneousPower: newData.deviceMapInstaneousPower ?? item.deviceMapInstaneousPower,
-    // RFC-0110: Ensure telemetry timestamps are passed through
+    // RFC-0110 v3: Ensure domain-specific telemetry timestamps are passed through
     consumptionTs: newData.consumptionTs ?? item.consumptionTs,
     pulsesTs: newData.pulsesTs ?? item.pulsesTs,
     temperatureTs: newData.temperatureTs ?? item.temperatureTs,
+    waterLevelTs: newData.waterLevelTs ?? item.waterLevelTs,
+    waterPercentageTs: newData.waterPercentageTs ?? item.waterPercentageTs,
+    // v3: lastActivityTime is NOT used as fallback anymore
     lastActivityTime: newData.lastActivityTime ?? item.lastActivityTime,
     // @deprecated - kept for backward compatibility
     lastConnectTime: newData.lastConnectTime ?? item.lastConnectTime,

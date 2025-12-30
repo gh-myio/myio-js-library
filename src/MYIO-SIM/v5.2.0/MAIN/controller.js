@@ -4579,26 +4579,54 @@ const MyIOOrchestrator = (() => {
       return 'not_installed';
     }
 
-    // RFC-0110 v2: Dual threshold configuration
+    // RFC-0110 v3: Domain-specific telemetry required + Dual threshold
     const SHORT_DELAY_MINS = 60; // For offline/bad status
     const LONG_DELAY_MINS = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440; // For online status (24h default)
 
-    // RFC-0110: Use telemetry timestamp if available, otherwise fall back to lastConnectTime
-    const telemetryTs = options.consumptionTs || options.pulsesTs || options.temperatureTs;
+    // RFC-0110 v3: Get domain-specific telemetry timestamp
+    // IMPORTANT: Each device type has its OWN specific telemetry
+    const deviceType = (options.deviceType || '').toUpperCase();
+    const isTankDevice = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
+    const isHidrometerDevice = deviceType.startsWith('HIDROMETRO');
+    const isTemperatureDevice = deviceType === 'TERMOSTATO' || deviceType.includes('TEMP');
 
-    // RFC-0110 v2: Calculate both thresholds
+    let telemetryTs = null;
+    if (isTankDevice) {
+      // Tanks (caixa d'água) use water_level or water_percentage
+      telemetryTs = options.waterLevelTs ?? options.waterPercentageTs ?? null;
+    } else if (isHidrometerDevice) {
+      // Hidrômetros use pulses
+      telemetryTs = options.pulsesTs ?? null;
+    } else if (isTemperatureDevice) {
+      // Temperature sensors use temperature
+      telemetryTs = options.temperatureTs ?? null;
+    } else {
+      // Energy devices use consumption
+      telemetryTs = options.consumptionTs ?? null;
+    }
+
+    // RFC-0110 v3: Check if domain-specific telemetry exists
+    const hasDomainTelemetry = telemetryTs !== null && telemetryTs !== undefined;
+
+    // RFC-0110 v3: No domain-specific telemetry → OFFLINE
+    if (!hasDomainTelemetry) {
+      LogHelper.log(`[MYIO-SIM Orchestrator] 🔴 RFC-0110 v3: No domain telemetry for '${deviceType}' → 'offline'`);
+      return 'offline';
+    }
+
+    // RFC-0110 v3: Calculate both thresholds (NO lastActivityTime fallback)
     const hasRecentTelemetry = lib?.isTelemetryStale
-      ? !lib.isTelemetryStale(telemetryTs, options.lastActivityTime || options.lastConnectTime, SHORT_DELAY_MINS)
+      ? !lib.isTelemetryStale(telemetryTs, null, SHORT_DELAY_MINS) // v3: No fallback
       : false;
     const telemetryStaleForOnline = lib?.isTelemetryStale
-      ? lib.isTelemetryStale(telemetryTs, options.lastActivityTime || options.lastConnectTime, LONG_DELAY_MINS)
+      ? lib.isTelemetryStale(telemetryTs, null, LONG_DELAY_MINS) // v3: No fallback
       : true;
 
-    // RFC-0110 v2: Bad connection states - check recent telemetry (60 mins)
+    // RFC-0110 v3: Bad connection states - check recent telemetry (60 mins)
     // If device has recent telemetry, hide "bad" from client and show as online
     if (normalizedStatus === 'bad' || ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus)) {
       if (hasRecentTelemetry) {
-        LogHelper.log(`[MYIO-SIM Orchestrator] RFC-0110 v2: connectionStatus='bad' but recent telemetry → 'power_on'`);
+        LogHelper.log(`[MYIO-SIM Orchestrator] RFC-0110 v3: connectionStatus='bad' but recent telemetry → 'power_on'`);
         return 'power_on';
       }
       return 'weak_connection';
@@ -4609,23 +4637,23 @@ const MyIOOrchestrator = (() => {
       ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus) ||
       connectionStatus === null || connectionStatus === undefined || connectionStatus === '';
 
-    // RFC-0110 v2: Offline status - check recent telemetry (60 mins)
+    // RFC-0110 v3: Offline status - check recent telemetry (60 mins)
     if (isOfflineStatus) {
       if (hasRecentTelemetry) {
-        LogHelper.log(`[MYIO-SIM Orchestrator] RFC-0110 v2: connectionStatus='offline' but recent telemetry → 'power_on'`);
+        LogHelper.log(`[MYIO-SIM Orchestrator] RFC-0110 v3: connectionStatus='offline' but recent telemetry → 'power_on'`);
         return 'power_on';
       }
       return 'offline';
     }
 
-    // RFC-0110 v2: Online status - check stale telemetry (24h)
+    // RFC-0110 v3: Online status - check stale telemetry (24h)
     // If device has "online" status but telemetry is older than 24h, mark as offline
     if (telemetryStaleForOnline) {
-      LogHelper.log(`[MYIO-SIM Orchestrator] RFC-0110 v2: connectionStatus='online' but stale telemetry (>24h) → 'offline'`);
+      LogHelper.log(`[MYIO-SIM Orchestrator] RFC-0110 v3: connectionStatus='online' but stale telemetry (>24h) → 'offline'`);
       return 'offline';
     }
 
-    // RFC-0110 v2: Device with online status and fresh telemetry → power_on
+    // RFC-0110 v3: Device with online status and fresh telemetry → power_on
     return 'power_on';
   }
 
