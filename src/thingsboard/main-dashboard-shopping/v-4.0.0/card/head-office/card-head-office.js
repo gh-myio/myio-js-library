@@ -947,6 +947,9 @@ function attachDebugTooltip(element, debugInfo) {
 }
 
 /**
+ * @deprecated RFC-0110: Use MyIOLibrary.isConnectionStale() from deviceStatus.js instead.
+ * This function is kept for backward compatibility but will be removed in future versions.
+ *
  * Verify if device is online based on connection timestamps
  * @param {Object} entityObject - Entity with lastConnectTime and lastDisconnectTime
  * @param {number} delayTimeInMins - Delay time in minutes for connection probation period (default 15)

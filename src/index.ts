@@ -64,6 +64,7 @@ export {
   connectionStatusIcons,
   mapDeviceToConnectionStatus,
   normalizeConnectionStatus, // RFC-0109: Normalize raw connectionStatus values
+  isConnectionStale, // RFC-0110: Check if connection is stale based on timestamps
   mapConnectionStatus,
   mapDeviceStatusToCardStatus,
   shouldFlashIcon,

@@ -13,6 +13,7 @@ import {
   DeviceStatusType,
   ConnectionStatusType,
   normalizeConnectionStatus,
+  isConnectionStale,
   calculateDeviceStatusWithRanges,
 } from './deviceStatus.js';
 
@@ -274,6 +275,8 @@ export function createDeviceItem(entityId, meta, options = {}) {
     apiRow = null,
     globalMapInstantaneousPower = null,
     temperatureLimits = null,
+    // RFC-0110: Configurable delay time for stale connection detection (default 60 min)
+    delayTimeConnectionInMins = 60,
   } = options;
 
   // Normalize values
@@ -311,15 +314,26 @@ export function createDeviceItem(entityId, meta, options = {}) {
     const ranges = deviceMapLimits || globalLimits;
     const consumptionValue = meta.consumption ?? apiRow?.value ?? null;
 
+    // RFC-0110: Pass timestamps for stale connection detection
     deviceStatus = calculateDeviceStatusWithRanges({
       connectionStatus: connectionStatus,
       lastConsumptionValue: consumptionValue,
       ranges: ranges,
+      lastConnectTime: meta.lastConnectTime ?? null,
+      lastDisconnectTime: meta.lastDisconnectTime ?? null,
+      delayTimeConnectionInMins: delayTimeConnectionInMins,
     });
   } else {
     // Non-energy devices (TANK, TERMOSTATO, HIDROMETRO) - simple status
-    if (connectionStatus === 'offline') {
-      deviceStatus = DeviceStatusType.NO_INFO;
+    // RFC-0110: Check for stale connection
+    const staleConnection = isConnectionStale({
+      lastConnectTime: meta.lastConnectTime,
+      lastDisconnectTime: meta.lastDisconnectTime,
+      delayTimeConnectionInMins: delayTimeConnectionInMins,
+    });
+
+    if (connectionStatus === 'offline' || staleConnection) {
+      deviceStatus = DeviceStatusType.OFFLINE;
     } else if (connectionStatus === 'bad') {
       deviceStatus = DeviceStatusType.WEAK_CONNECTION;
     } else if (connectionStatus === 'waiting') {
@@ -484,6 +498,9 @@ export function recalculateDeviceStatus(item, newData = {}, options = {}) {
     connectionStatus: newData.connectionStatus ?? item.connectionStatus,
     consumption: newData.value ?? newData.consumption ?? item.consumptionPower ?? item.value,
     deviceMapInstaneousPower: newData.deviceMapInstaneousPower ?? item.deviceMapInstaneousPower,
+    // RFC-0110: Ensure timestamps are passed through
+    lastConnectTime: newData.lastConnectTime ?? item.lastConnectTime,
+    lastDisconnectTime: newData.lastDisconnectTime ?? item.lastDisconnectTime,
   };
 
   const updatedOptions = {
@@ -494,6 +511,8 @@ export function recalculateDeviceStatus(item, newData = {}, options = {}) {
       min: item.temperatureMin,
       max: item.temperatureMax,
     },
+    // RFC-0110: Pass delay time for stale connection detection
+    delayTimeConnectionInMins: options.delayTimeConnectionInMins ?? 60,
   };
 
   return createDeviceItem(item.tbId, updatedMeta, updatedOptions);

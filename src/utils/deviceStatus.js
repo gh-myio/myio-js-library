@@ -149,6 +149,67 @@ export function normalizeConnectionStatus(rawStatus) {
 }
 
 /**
+ * RFC-0110: Verifica se a conexão está obsoleta baseado em timestamps
+ * Usado para determinar se um device realmente está offline, mesmo que
+ * connectionStatus indique online (timestamp muito antigo).
+ *
+ * @param {Object} params
+ * @param {number|Date|null} params.lastConnectTime - Timestamp da última conexão
+ * @param {number|Date|null} params.lastDisconnectTime - Timestamp da última desconexão
+ * @param {number} [params.delayTimeConnectionInMins=60] - Tempo em minutos para considerar conexão obsoleta
+ * @returns {boolean} true se conexão está obsoleta (deve ser considerado offline)
+ *
+ * @example
+ * // Device com conexão antiga (> 60 min) → offline
+ * isConnectionStale({
+ *   lastConnectTime: Date.now() - 90 * 60 * 1000, // 90 min atrás
+ *   delayTimeConnectionInMins: 60
+ * }); // Returns true
+ *
+ * @example
+ * // Device com conexão recente → online
+ * isConnectionStale({
+ *   lastConnectTime: Date.now() - 30 * 60 * 1000, // 30 min atrás
+ *   delayTimeConnectionInMins: 60
+ * }); // Returns false
+ *
+ * @example
+ * // Device que desconectou depois de conectar → offline
+ * isConnectionStale({
+ *   lastConnectTime: Date.now() - 10 * 60 * 1000, // 10 min atrás
+ *   lastDisconnectTime: Date.now() - 5 * 60 * 1000, // 5 min atrás (mais recente)
+ * }); // Returns true
+ */
+export function isConnectionStale({
+  lastConnectTime = null,
+  lastDisconnectTime = null,
+  delayTimeConnectionInMins = 60,
+} = {}) {
+  // Se não há timestamp de conexão, não podemos verificar - assume online
+  if (!lastConnectTime) {
+    return false;
+  }
+
+  const lastConnect = new Date(lastConnectTime);
+  const lastDisconnect = lastDisconnectTime ? new Date(lastDisconnectTime) : null;
+  const now = new Date();
+  const delayMs = delayTimeConnectionInMins * 60 * 1000;
+
+  // Regra 1: Se desconectou depois de conectar → offline
+  if (lastDisconnect && lastDisconnect.getTime() > lastConnect.getTime()) {
+    return true;
+  }
+
+  // Regra 2: Se última conexão é mais antiga que o delay → offline
+  const timeSinceConnect = now.getTime() - lastConnect.getTime();
+  if (timeSinceConnect > delayMs) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * @deprecated Use normalizeConnectionStatus instead
  */
 export function mapConnectionStatus(rawStatus) {
@@ -377,7 +438,11 @@ export function calculateDeviceStatus({
   lastConsumptionValue,
   limitOfPowerOnStandByWatts,
   limitOfPowerOnAlertWatts,
-  limitOfPowerOnFailureWatts
+  limitOfPowerOnFailureWatts,
+  // RFC-0110: Optional timestamp parameters for stale connection detection
+  lastConnectTime = null,
+  lastDisconnectTime = null,
+  delayTimeConnectionInMins = 60,
 }) {
   // RFC-0109: Normalize connectionStatus first
   const normalizedStatus = normalizeConnectionStatus(connectionStatus);
@@ -389,7 +454,19 @@ export function calculateDeviceStatus({
 
   // If offline
   if (normalizedStatus === "offline") {
-    return DeviceStatusType.NO_INFO;
+    return DeviceStatusType.OFFLINE;
+  }
+
+  // RFC-0110: Check if connection is stale (timestamp too old)
+  // Even if connectionStatus says "online", if timestamp is old → offline
+  const connectionStale = isConnectionStale({
+    lastConnectTime,
+    lastDisconnectTime,
+    delayTimeConnectionInMins,
+  });
+
+  if (connectionStale && normalizedStatus === "online") {
+    return DeviceStatusType.OFFLINE;
   }
 
   // RFC-0109: If bad/weak connection
@@ -522,7 +599,11 @@ export function calculateDeviceStatus({
 export function calculateDeviceStatusWithRanges({
   connectionStatus,
   lastConsumptionValue,
-  ranges
+  ranges,
+  // RFC-0110: Optional timestamp parameters for stale connection detection
+  lastConnectTime = null,
+  lastDisconnectTime = null,
+  delayTimeConnectionInMins = 60,
 }) {
   // RFC-0109: Normalize connectionStatus first
   const normalizedStatus = normalizeConnectionStatus(connectionStatus);
@@ -534,7 +615,19 @@ export function calculateDeviceStatusWithRanges({
 
   // If offline
   if (normalizedStatus === "offline") {
-    return DeviceStatusType.NO_INFO;
+    return DeviceStatusType.OFFLINE;
+  }
+
+  // RFC-0110: Check if connection is stale (timestamp too old)
+  // Even if connectionStatus says "online", if timestamp is old → offline
+  const connectionStale = isConnectionStale({
+    lastConnectTime,
+    lastDisconnectTime,
+    delayTimeConnectionInMins,
+  });
+
+  if (connectionStale && normalizedStatus === "online") {
+    return DeviceStatusType.OFFLINE;
   }
 
   // RFC-0109: If bad/weak connection
