@@ -1597,6 +1597,56 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
         <div style="font-size: 12px; color: ${colors.textMuted};">
           ID: ${deviceId} • Cliente: ${state.selectedCustomer.name || state.selectedCustomer.title}
         </div>
+        <div style="font-size: 11px; color: ${colors.textMuted}; margin-top: 4px;">
+          Profile: <strong style="color: ${colors.text};">${state.selectedDevice.type || 'default'}</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Device Profile (Entity Level) -->
+    <div style="margin-bottom: 20px;">
+      <h3 style="margin: 0 0 12px 0; font-size: 14px; color: ${colors.textMuted}; font-weight: 500;">
+        🏷️ Device Profile (Entity)
+      </h3>
+      <div style="
+        padding: 16px; background: ${colors.cardBg}; border: 1px solid ${colors.border}; border-radius: 8px;
+      ">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 200px;">
+            <label style="color: ${colors.textMuted}; font-size: 10px; display: block; margin-bottom: 4px;">Profile Atual</label>
+            <div style="font-size: 13px; color: ${colors.text}; font-weight: 500;">
+              ${state.selectedDevice.type || 'default'}
+            </div>
+          </div>
+          <div style="flex: 2; min-width: 200px;">
+            <label style="color: ${colors.textMuted}; font-size: 10px; display: block; margin-bottom: 4px;">Alterar para</label>
+            <div style="display: flex; gap: 8px;">
+              <select id="${modalId}-device-profile-select" style="
+                flex: 1; padding: 8px 12px; border: 1px solid ${colors.border};
+                border-radius: 6px; font-size: 13px; color: ${colors.text};
+                background: ${colors.inputBg};
+              ">
+                <option value="">-- Selecione --</option>
+                ${state.deviceProfiles.map(p => `
+                  <option value="${p.id}" ${state.selectedDevice?.type === p.name ? 'selected' : ''}>${p.name}</option>
+                `).join('')}
+              </select>
+              <button id="${modalId}-load-profiles" style="
+                background: ${colors.cardBg}; color: ${colors.text}; border: 1px solid ${colors.border};
+                padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;
+              " title="Carregar profiles">🔄</button>
+              <button id="${modalId}-save-profile" style="
+                background: ${MYIO_PURPLE}; color: white; border: none;
+                padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 11px;
+              ">Salvar</button>
+            </div>
+          </div>
+        </div>
+        ${state.deviceProfiles.length === 0 ? `
+          <div style="margin-top: 8px; padding: 8px; background: ${colors.warning}20; border-radius: 4px; font-size: 11px; color: ${colors.warning};">
+            ⚠️ Clique em 🔄 para carregar os profiles disponíveis
+          </div>
+        ` : ''}
       </div>
     </div>
 
@@ -2474,6 +2524,57 @@ function setupEventListeners(
       setupEventListeners(container, state, modalId, t, onClose);
     } catch (error) {
       alert('Erro ao remover relação: ' + (error as Error).message);
+    }
+  });
+
+  // ========================
+  // Device Profile (Entity Level) Handlers
+  // ========================
+
+  // Load Device Profiles
+  document.getElementById(`${modalId}-load-profiles`)?.addEventListener('click', async () => {
+    try {
+      console.log('[UpsellModal] Loading device profiles...');
+      const profiles = await fetchDeviceProfiles(state);
+      state.deviceProfiles = profiles;
+      console.log('[UpsellModal] Loaded', profiles.length, 'profiles');
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+    } catch (error) {
+      console.error('[UpsellModal] Error loading profiles:', error);
+      alert('Erro ao carregar profiles: ' + (error as Error).message);
+    }
+  });
+
+  // Save Device Profile (Entity Level)
+  document.getElementById(`${modalId}-save-profile`)?.addEventListener('click', async () => {
+    if (!state.selectedDevice) return;
+
+    const select = document.getElementById(`${modalId}-device-profile-select`) as HTMLSelectElement;
+    const newProfileId = select?.value;
+
+    if (!newProfileId) {
+      alert('Selecione um profile');
+      return;
+    }
+
+    try {
+      console.log('[UpsellModal] Changing device profile to:', newProfileId);
+      await changeDeviceProfile(state, state.selectedDevice, newProfileId);
+
+      // Update local state
+      const profile = state.deviceProfiles.find(p => p.id === newProfileId);
+      if (profile && state.selectedDevice) {
+        state.selectedDevice.type = profile.name;
+        state.selectedDevice.deviceProfileId = { entityType: 'DEVICE_PROFILE', id: newProfileId };
+      }
+
+      alert('Device Profile alterado com sucesso!');
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+    } catch (error) {
+      console.error('[UpsellModal] Error changing device profile:', error);
+      alert('Erro ao alterar profile: ' + (error as Error).message);
     }
   });
 
