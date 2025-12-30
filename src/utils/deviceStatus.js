@@ -171,9 +171,11 @@ export function normalizeConnectionStatus(rawStatus) {
  */
 export function isTelemetryStale(telemetryTimestamp, lastActivityTime = null, delayMins = 1440) {
   // Use telemetryTimestamp or lastActivityTime as fallback
-  const timestamp = telemetryTimestamp || lastActivityTime;
+  // RFC-0110 v3: Treat timestamp 0 or negative as invalid
+  const timestamp = (telemetryTimestamp && telemetryTimestamp > 0) ? telemetryTimestamp :
+                    (lastActivityTime && lastActivityTime > 0) ? lastActivityTime : null;
 
-  // No timestamp available = assume not stale (conservative approach)
+  // No valid timestamp available = assume not stale (conservative approach)
   if (!timestamp) {
     return false;
   }
@@ -422,10 +424,11 @@ export function calculateDeviceStatus({
     return DeviceStatusType.NOT_INSTALLED;
   }
 
-  // 2. RFC-0110 v3: Check if domain-specific telemetry timestamp exists
+  // 2. RFC-0110 v3: Check if domain-specific telemetry timestamp exists AND is valid
   // If device NEVER received domain-specific telemetry → OFFLINE
   // IMPORTANT: We only check telemetryTimestamp, NOT lastActivityTime
-  if (telemetryTimestamp === null || telemetryTimestamp === undefined) {
+  // NOTE: Timestamp 0 (epoch 1970) is treated as invalid/missing
+  if (telemetryTimestamp === null || telemetryTimestamp === undefined || telemetryTimestamp <= 0) {
     // console.log(`[RFC-0110 v3] Device has NO domain-specific telemetry (${domain}) → OFFLINE`);
     return DeviceStatusType.OFFLINE;
   }

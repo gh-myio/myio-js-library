@@ -1278,6 +1278,12 @@ function buildTbAttrIndex() {
         consumption_power: null,
         deviceMapInstaneousPower: null, // RFC-0091: Device-specific power limits (TIER 0)
         log_annotations: null, // RFC-0096: Log annotations array
+        // RFC-0110 v3: Domain-specific telemetry timestamps
+        consumptionTs: null,
+        pulsesTs: null,
+        temperatureTs: null,
+        waterLevelTs: null,
+        waterPercentageTs: null,
       });
     const slot = byTbId.get(tbId);
     if (key === 'slaveid') slot.slaveId = val;
@@ -1293,7 +1299,17 @@ function buildTbAttrIndex() {
     // RFC-0091: Extract device-specific power limits JSON
     if (key === 'devicemapinstaneouspower') slot.deviceMapInstaneousPower = val;
     if (key === 'log_annotations') slot.log_annotations = val;
-    if (key === 'consumption') slot.consumption_power = val;
+    // RFC-0110 v3: Extract telemetry values AND timestamps
+    // Timestamp is in row.data[0][0], value is in row.data[0][1]
+    const ts = row?.data?.[0]?.[0] ?? null;
+    if (key === 'consumption') {
+      slot.consumption_power = val;
+      slot.consumptionTs = ts;
+    }
+    if (key === 'pulses') slot.pulsesTs = ts;
+    if (key === 'temperature') slot.temperatureTs = ts;
+    if (key === 'water_level') slot.waterLevelTs = ts;
+    if (key === 'water_percentage') slot.waterPercentageTs = ts;
   }
   return byTbId;
 }
@@ -1502,7 +1518,8 @@ function buildAuthoritativeItems() {
     }
 
     // RFC-0110 v3: Check if domain-specific telemetry exists
-    const hasDomainTelemetry = telemetryTs !== null && telemetryTs !== undefined;
+    // RFC-0110 v3: Timestamp must exist AND be valid (> 0, since 0 = epoch 1970 = invalid)
+    const hasDomainTelemetry = telemetryTs !== null && telemetryTs !== undefined && telemetryTs > 0;
 
     // Check telemetry freshness with both thresholds (v3: NO lastActivityTime fallback)
     const hasRecentTelemetry = hasDomainTelemetry && lib?.isTelemetryStale
@@ -4268,7 +4285,8 @@ self.onInit = async function () {
       }
 
       // RFC-0110 v3: Check if domain-specific telemetry exists
-      const hasDomainTelemetry = telemetryTs !== null && telemetryTs !== undefined;
+      // RFC-0110 v3: Timestamp must exist AND be valid (> 0, since 0 = epoch 1970 = invalid)
+    const hasDomainTelemetry = telemetryTs !== null && telemetryTs !== undefined && telemetryTs > 0;
 
       // Check telemetry freshness with both thresholds (v3: NO lastActivityTime fallback)
       const hasRecentTelemetry = hasDomainTelemetry && lib?.isTelemetryStale

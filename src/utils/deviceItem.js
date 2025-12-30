@@ -358,7 +358,8 @@ export function createDeviceItem(entityId, meta, options = {}) {
       deviceStatus = DeviceStatusType.NOT_INSTALLED;
     }
     // 2. v3: No domain-specific telemetry → OFFLINE
-    else if (telemetryTs === null || telemetryTs === undefined) {
+    // NOTE: Timestamp 0 (epoch 1970) is treated as invalid/missing
+    else if (telemetryTs === null || telemetryTs === undefined || telemetryTs <= 0) {
       deviceStatus = DeviceStatusType.OFFLINE;
     }
     // 3. Has domain-specific telemetry → apply dual threshold logic

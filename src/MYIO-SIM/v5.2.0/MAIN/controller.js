@@ -4605,8 +4605,9 @@ const MyIOOrchestrator = (() => {
       telemetryTs = options.consumptionTs ?? null;
     }
 
-    // RFC-0110 v3: Check if domain-specific telemetry exists
-    const hasDomainTelemetry = telemetryTs !== null && telemetryTs !== undefined;
+    // RFC-0110 v3: Check if domain-specific telemetry exists AND is valid
+    // NOTE: Timestamp 0 (epoch 1970) is treated as invalid/missing
+    const hasDomainTelemetry = telemetryTs !== null && telemetryTs !== undefined && telemetryTs > 0;
 
     // RFC-0110 v3: No domain-specific telemetry → OFFLINE
     if (!hasDomainTelemetry) {

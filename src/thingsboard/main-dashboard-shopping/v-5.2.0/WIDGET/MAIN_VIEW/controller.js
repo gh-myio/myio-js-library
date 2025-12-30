@@ -3399,8 +3399,16 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'litersperpulse') meta.litersPerPulse = val;
       else if (keyName === 'volume') meta.volume = val;
       // Tank-specific fields (TANK/CAIXA_DAGUA)
-      else if (keyName === 'water_level') meta.waterLevel = val;
-      else if (keyName === 'water_percentage') meta.waterPercentage = val;
+      else if (keyName === 'water_level') {
+        meta.waterLevel = val;
+        // RFC-0110: Extract timestamp for telemetry-based offline detection
+        meta.waterLevelTs = row?.data?.[0]?.[0] ?? null;
+      }
+      else if (keyName === 'water_percentage') {
+        meta.waterPercentage = val;
+        // RFC-0110: Extract timestamp for telemetry-based offline detection
+        meta.waterPercentageTs = row?.data?.[0]?.[0] ?? null;
+      }
       // Temperature-specific fields
       else if (keyName === 'temperature') {
         meta.temperature = val;
