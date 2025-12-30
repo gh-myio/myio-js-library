@@ -3,13 +3,15 @@
 - Feature Name: `device-status-main-rule`
 - Start Date: 2025-12-30
 - RFC PR: (to be assigned)
-- Status: **Draft**
+- Status: **Implemented (v2)**
 
 ---
 
 ## Summary
 
 This RFC proposes a unified approach for calculating device status based on telemetry timestamps rather than `connectionStatusTs`. The key insight is that ThingsBoard frequently updates `connectionStatusTs` even when devices are offline, making it unreliable for offline detection. Instead, we should use the timestamp of the actual telemetry data (consumption, pulses, temperature) as the source of truth.
+
+**Version 2 Update**: Implements a dual threshold system - 60 minutes for `offline`/`bad` status recovery, and 24 hours for `online` status validation.
 
 ---
 
@@ -48,20 +50,23 @@ This means telemetry timestamps are meaningful indicators of actual device activ
 
 ## Guide-level Explanation
 
-### The Main Rule
+### The Main Rule (v2 - Dual Threshold)
 
-**`connectionStatus = offline` is the TRIGGER for validation** - when we see this status, we must validate the actual telemetry timestamp to confirm if the device is truly offline.
+The system uses **two different thresholds** based on the connection status:
 
-### Status Priority Matrix
+1. **Short Threshold (60 minutes)**: For `offline` and `bad` status - if device has sent telemetry within 60 minutes, treat as online
+2. **Long Threshold (24 hours)**: For `online` status - if device hasn't sent telemetry in 24 hours, mark as offline
 
-| connectionStatus | Validation | Result |
-|-----------------|------------|--------|
-| `waiting` | None (absolute) | **NOT_INSTALLED** |
-| `bad` | None | **WEAK_CONNECTION** |
-| `offline` | Check telemetry timestamp | OFFLINE if stale, else value-based |
-| `online` | Check telemetry timestamp | OFFLINE if stale, else value-based |
+### Status Priority Matrix (v2)
 
-### Decision Flow
+| connectionStatus | Threshold | Validation | Result |
+|-----------------|-----------|------------|--------|
+| `waiting` | N/A | None (absolute) | **NOT_INSTALLED** |
+| `bad` | 60 mins | Check recent telemetry | If recent → **POWER_ON**, else **WEAK_CONNECTION** |
+| `offline` | 60 mins | Check recent telemetry | If recent → **POWER_ON**, else **OFFLINE** |
+| `online` | 24 hours | Check stale telemetry | If stale → **OFFLINE**, else value-based |
+
+### Decision Flow (v2)
 
 ```
 ┌─────────────────────────────┐
@@ -70,30 +75,35 @@ This means telemetry timestamps are meaningful indicators of actual device activ
                │ YES → NOT_INSTALLED (absolute, no discussion)
                │ NO
                ▼
-┌─────────────────────────────┐
-│ connectionStatus = bad?     │
-└──────────────┬──────────────┘
-               │ YES → WEAK_CONNECTION (not offline)
-               │ NO
-               ▼
-┌─────────────────────────────┐
-│ connectionStatus = offline  │
-│ OR online?                  │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│ Get telemetry timestamp:    │
-│ - Energy: consumptionTs     │
-│ - Water: pulsesTs           │
-│ - Temperature: temperatureTs│
-│ Fallback: lastActivityTime  │
-└──────────────┬──────────────┘
+┌─────────────────────────────────────────┐
+│ connectionStatus = bad?                 │
+└──────────────┬──────────────────────────┘
                │
                ▼
 ┌─────────────────────────────────────────┐
-│ Is (now - telemetryTs) > delayMins?     │
-│ Default: 1440 mins (24 hours)           │
+│ Has telemetry within 60 mins?           │
+└──────────────┬──────────────────────────┘
+               │ YES → POWER_ON (hide "bad" from client)
+               │ NO → WEAK_CONNECTION
+               ▼
+┌─────────────────────────────────────────┐
+│ connectionStatus = offline?             │
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│ Has telemetry within 60 mins?           │
+└──────────────┬──────────────────────────┘
+               │ YES → POWER_ON (treat as online)
+               │ NO → OFFLINE
+               ▼
+┌─────────────────────────────────────────┐
+│ connectionStatus = online?              │
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│ Telemetry older than 24 hours?          │
 └──────────────┬──────────────────────────┘
                │ YES → OFFLINE
                │ NO → Calculate from telemetry value
@@ -106,9 +116,11 @@ This means telemetry timestamps are meaningful indicators of actual device activ
 
 ### Configuration
 
-- **`delayTimeConnectionInMins`**: Configurable via settings
-- **Default value**: `1440` minutes (24 hours)
-- **Rationale**: Since telemetry only sends on value change, devices may legitimately not send data for extended periods
+- **`shortDelayMins`**: 60 minutes (for offline/bad recovery)
+- **`delayTimeConnectionInMins`**: Configurable via settings (default 1440 minutes / 24 hours)
+- **Rationale**:
+  - 60 mins: Short window to detect devices that are briefly disconnected but still working
+  - 24 hours: Long window for online devices since telemetry only sends on value change
 
 ---
 
@@ -127,11 +139,15 @@ calculateDeviceStatus({ connectionStatus, lastConsumptionValue, limits... })
 calculateDeviceStatusWithRanges({ connectionStatus, lastConsumptionValue, ranges })
 ```
 
-### New Unified Function
+### New Unified Function (v2 - Dual Threshold)
 
 ```javascript
 /**
  * Unified device status calculation based on telemetry timestamps.
+ *
+ * RFC-0110 v2: Dual threshold system
+ * - 60 mins threshold for offline/bad status (short recovery window)
+ * - 24h threshold for online status (long validation window)
  *
  * @param {Object} params
  * @param {string} params.connectionStatus - 'online' | 'offline' | 'waiting' | 'bad'
@@ -140,7 +156,8 @@ calculateDeviceStatusWithRanges({ connectionStatus, lastConsumptionValue, ranges
  * @param {number|null} [params.telemetryTimestamp] - Unix timestamp (ms) of telemetry
  * @param {number|null} [params.lastActivityTime] - Fallback timestamp from ThingsBoard
  * @param {Object} [params.ranges] - { standbyRange, normalRange, alertRange, failureRange }
- * @param {number} [params.delayTimeConnectionInMins=1440] - Stale threshold in minutes
+ * @param {number} [params.delayTimeConnectionInMins=1440] - Long threshold for online status (24h)
+ * @param {number} [params.shortDelayMins=60] - Short threshold for offline/bad status (60 mins)
  * @returns {string} DeviceStatusType
  */
 export function calculateDeviceStatus({
@@ -150,39 +167,51 @@ export function calculateDeviceStatus({
   telemetryTimestamp = null,
   lastActivityTime = null,
   ranges = null,
-  delayTimeConnectionInMins = 1440,
+  delayTimeConnectionInMins = 1440, // 24h for online status
+  shortDelayMins = 60, // 60 mins for offline/bad status
 }) {
   // 1. Normalize connectionStatus (RFC-0109)
   const normalizedStatus = normalizeConnectionStatus(connectionStatus);
 
-  // 2. WAITING → NOT_INSTALLED (absolute priority)
+  // 2. WAITING → NOT_INSTALLED (absolute priority, no discussion)
   if (normalizedStatus === 'waiting') {
     return DeviceStatusType.NOT_INSTALLED;
   }
 
-  // 3. BAD → WEAK_CONNECTION (not offline)
+  // Get timestamp to check
+  const timestampToCheck = telemetryTimestamp || lastActivityTime;
+
+  // 3. BAD → Check recent telemetry (60 mins threshold)
+  // If device has recent telemetry, hide "bad" from client and treat as online
   if (normalizedStatus === 'bad') {
-    return DeviceStatusType.WEAK_CONNECTION;
+    const hasRecentTelemetry = !isTelemetryStale(timestampToCheck, null, shortDelayMins);
+    if (hasRecentTelemetry) {
+      // Device is working fine, continue to value-based calculation
+    } else {
+      return DeviceStatusType.WEAK_CONNECTION;
+    }
   }
 
-  // 4. Check if telemetry is stale
-  const telemetryStale = isTelemetryStale(
-    telemetryTimestamp,
-    lastActivityTime,
-    delayTimeConnectionInMins
-  );
-
-  // 5. If connectionStatus = offline AND telemetry is stale → OFFLINE
-  if (normalizedStatus === 'offline' && telemetryStale) {
-    return DeviceStatusType.OFFLINE;
+  // 4. OFFLINE → Check recent telemetry (60 mins threshold)
+  // If device has recent telemetry, treat as online
+  if (normalizedStatus === 'offline') {
+    const hasRecentTelemetry = !isTelemetryStale(timestampToCheck, null, shortDelayMins);
+    if (!hasRecentTelemetry) {
+      return DeviceStatusType.OFFLINE;
+    }
+    // Has recent telemetry → continue to value-based calculation
   }
 
-  // 6. If connectionStatus = online BUT telemetry is stale → OFFLINE
-  if (normalizedStatus === 'online' && telemetryStale) {
-    return DeviceStatusType.OFFLINE;
+  // 5. ONLINE → Check stale telemetry (24h threshold)
+  // If device hasn't sent telemetry in 24h, mark as offline
+  if (normalizedStatus === 'online') {
+    const telemetryStale = isTelemetryStale(timestampToCheck, null, delayTimeConnectionInMins);
+    if (telemetryStale) {
+      return DeviceStatusType.OFFLINE;
+    }
   }
 
-  // 7. Calculate status based on telemetry value
+  // 6. Calculate status based on telemetry value
   return calculateStatusFromValue(telemetryValue, ranges, domain);
 }
 ```
@@ -246,9 +275,15 @@ const ts = row?.data?.[0]?.[0] ?? null;
 - **connectionStatusTs**: Updated by ThingsBoard internally (~1 min intervals), doesn't reflect device activity
 - **telemetryTimestamp**: Updated ONLY when device sends data, reflects actual device activity
 
-### Why 1440 minutes (24h) as default?
+### Why dual thresholds (60 mins / 24h)?
 
-- Telemetry only sends on value change
+**60 minutes for offline/bad recovery:**
+- When ThingsBoard reports `offline` or `bad`, we want to quickly validate if the device is actually working
+- If device sent telemetry within 60 minutes, it's likely just a transient network issue
+- Hides internal "bad" status from clients - no need to show connection quality details
+
+**24 hours for online validation:**
+- When ThingsBoard reports `online`, we need a longer window since telemetry only sends on value change
 - Devices may legitimately be idle for extended periods (e.g., motor not running, no water flow)
 - 24h is a reasonable "no activity" threshold before declaring offline
 
@@ -284,14 +319,18 @@ const ts = row?.data?.[0]?.[0] ?? null;
 
 ## Implementation Plan
 
-### Files to Modify
+**Status: Completed (v2)**
 
-1. **`src/utils/deviceStatus.js`**
-   - Refactor `calculateDeviceStatus()` with new API
-   - Add `isTelemetryStale()` helper
-   - Mark old functions as `@deprecated`
+### Files Modified
 
-2. **`src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/controller.js`**
+1. **`src/utils/deviceStatus.js`** ✅
+   - Added `isTelemetryStale()` helper function
+   - Refactored `calculateDeviceStatus()` with dual threshold API
+   - Added `shortDelayMins` parameter (default: 60 mins)
+   - Changed `delayTimeConnectionInMins` default to 1440 (24h)
+   - Marked old functions as `@deprecated`
+
+2. **`src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/MAIN_VIEW/controller.js`** ✅
    - Extract timestamps when parsing telemetry:
      ```javascript
      meta.consumptionTs = row?.data?.[0]?.[0] ?? null;
@@ -299,17 +338,45 @@ const ts = row?.data?.[0]?.[0] ?? null;
      meta.temperatureTs = row?.data?.[0]?.[0] ?? null;
      ```
 
-3. **`src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/TELEMETRY/controller.js`**
-   - Update calls to use new API with `telemetryTimestamp`
+3. **`src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET/TELEMETRY/controller.js`** ✅
+   - Updated both call sites with dual threshold logic
+   - Uses SHORT_DELAY_MINS (60) for offline/bad
+   - Uses LONG_DELAY_MINS (1440) for online
 
-4. **`src/utils/deviceItem.js`**
-   - Update factory function to use unified API
+4. **`src/utils/deviceItem.js`** ✅
+   - Updated factory function with dual threshold logic
+   - Non-energy devices use same dual threshold approach
 
-5. **`src/MYIO-SIM/v5.2.0/` widgets**
-   - Update all status calculations
+5. **`src/MYIO-SIM/v5.2.0/MAIN/controller.js`** ✅
+   - Updated `convertConnectionStatusToDeviceStatus()` with dual threshold
+   - Full RFC-0110 v2 implementation
 
-6. **`src/index.ts`**
-   - Update exports, maintain deprecated aliases
+6. **`src/index.ts`** ✅
+   - Updated exports with `isTelemetryStale`
+   - Maintained deprecated aliases
+
+### Dual Threshold Implementation Pattern
+
+```javascript
+// RFC-0110 v2: Dual threshold configuration
+const SHORT_DELAY_MINS = 60; // For offline/bad status
+const LONG_DELAY_MINS = 1440; // For online status (24h default)
+
+// Calculate both thresholds
+const hasRecentTelemetry = !isTelemetryStale(telemetryTs, lastActivityTime, SHORT_DELAY_MINS);
+const telemetryStaleForOnline = isTelemetryStale(telemetryTs, lastActivityTime, LONG_DELAY_MINS);
+
+// Apply status-specific logic
+if (connectionStatus === 'bad') {
+  return hasRecentTelemetry ? 'power_on' : 'weak_connection';
+}
+if (connectionStatus === 'offline') {
+  return hasRecentTelemetry ? 'power_on' : 'offline';
+}
+if (connectionStatus === 'online') {
+  return telemetryStaleForOnline ? 'offline' : 'power_on';
+}
+```
 
 ### Backward Compatibility
 
@@ -324,6 +391,7 @@ export function calculateDeviceStatusWithRanges(params) {
     telemetryTimestamp: params.telemetryTimestamp ?? null,
     ranges: params.ranges,
     delayTimeConnectionInMins: params.delayTimeConnectionInMins ?? 1440,
+    shortDelayMins: 60, // v2: Added for dual threshold
   });
 }
 ```

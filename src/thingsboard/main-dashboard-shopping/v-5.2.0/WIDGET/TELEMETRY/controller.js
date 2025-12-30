@@ -1479,57 +1479,71 @@ function buildAuthoritativeItems() {
     const isOfflineStatusRaw = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus);
     const isOnlineStatus = normalizedStatus === 'online' || ['online', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedStatus);
 
-    // RFC-0110: Check if telemetry is stale based on TELEMETRY timestamp (not connectionStatusTs)
-    // Use domain-specific telemetry timestamp: consumptionTs (energy), pulsesTs (water), temperatureTs (temperature)
-    const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440; // Default: 24h
+    // RFC-0110 v2: Dual threshold - 60 mins for bad/offline, 24h for online
+    const SHORT_DELAY_MINS = 60;
+    const LONG_DELAY_MINS = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440; // Default: 24h
     const telemetryTs = isTankDevice ? attrs.pulsesTs
       : isTermostatoDevice ? attrs.temperatureTs
       : attrs.consumptionTs; // Energy devices
-    const connectionStale = lib?.isTelemetryStale
-      ? lib.isTelemetryStale(telemetryTs, attrs.lastActivityTime, delayMins)
-      : (lib?.isConnectionStale
-          ? lib.isConnectionStale({
-              connectionStatusTs: telemetryTs,
-              lastActivityTime: attrs.lastActivityTime,
-              delayTimeConnectionInMins: delayMins,
-            })
-          : true); // Fallback: assume stale if library not available
 
-    // RFC-0110: Device is truly offline only if status says offline AND connection is stale
-    const isOfflineStatus = isOfflineStatusRaw && connectionStale;
-    // RFC-0110: Device with "offline" status but fresh timestamp should be treated as online
-    const isEffectivelyOnline = isOnlineStatus || (isOfflineStatusRaw && !connectionStale);
+    // Check telemetry freshness with both thresholds
+    const hasRecentTelemetry = lib?.isTelemetryStale
+      ? !lib.isTelemetryStale(telemetryTs, attrs.lastActivityTime, SHORT_DELAY_MINS)
+      : false;
+    const telemetryStaleForOnline = lib?.isTelemetryStale
+      ? lib.isTelemetryStale(telemetryTs, attrs.lastActivityTime, LONG_DELAY_MINS)
+      : true;
+
+    // RFC-0110 v2: Determine final status based on dual thresholds
+    // - bad/offline + recent telemetry (< 60 mins) → treat as online
+    // - bad/offline + stale telemetry (> 60 mins) → show bad/offline status
+    // - online + stale telemetry (> 24h) → show offline
+    const isOfflineStatus = isOfflineStatusRaw && !hasRecentTelemetry;
+    const isBadConnectionFinal = isBadConnection && !hasRecentTelemetry;
+    const isEffectivelyOnline = (isOnlineStatus && !telemetryStaleForOnline) ||
+                                 (isOfflineStatusRaw && hasRecentTelemetry) ||
+                                 (isBadConnection && hasRecentTelemetry);
 
     if (isWaitingStatus) {
       deviceStatus = 'not_installed'; // RFC-0109: waiting devices are not installed
-    } else if (isBadConnection) {
-      deviceStatus = 'weak_connection'; // RFC-0109: bad/weak connection
+    } else if (isBadConnectionFinal) {
+      deviceStatus = 'weak_connection'; // RFC-0110 v2: bad + stale telemetry
       console.warn(`🟠 [DEBUG TELEMETRY buildAuthoritativeItems] Device set to WEAK_CONNECTION:`, {
         label: r.label,
         tbId: tbId,
         tbConnectionStatus: tbConnectionStatus,
         normalizedStatus: normalizedStatus,
+        hasRecentTelemetry: hasRecentTelemetry,
+      });
+    } else if (isOnlineStatus && telemetryStaleForOnline) {
+      // RFC-0110 v2: online + stale telemetry (> 24h) → OFFLINE
+      deviceStatus = 'offline';
+      console.warn(`🔴 [DEBUG TELEMETRY buildAuthoritativeItems] Device set to OFFLINE (online but stale > 24h):`, {
+        label: r.label,
+        tbId: tbId,
+        telemetryTs: telemetryTs,
+        LONG_DELAY_MINS: LONG_DELAY_MINS,
       });
     } else if (isOfflineStatus) {
-      deviceStatus = 'offline'; // RFC-0109+0110: offline devices with stale telemetry
+      deviceStatus = 'offline'; // RFC-0110 v2: offline + stale telemetry (> 60 mins)
       // DEBUG: Log ALL devices being set to offline in buildAuthoritativeItems
       const _nowMs = Date.now();
       const _telemetryTsMs = telemetryTs ? Number(telemetryTs) : 0;
       const _diffMinutes = _telemetryTsMs ? Math.round((_nowMs - _telemetryTsMs) / 60000) : 'N/A';
-      console.warn(`🔴 [DEBUG TELEMETRY buildAuthoritativeItems] Device set to OFFLINE (RFC-0110):`, {
+      console.warn(`🔴 [DEBUG TELEMETRY buildAuthoritativeItems] Device set to OFFLINE (RFC-0110 v2):`, {
         label: r.label,
         tbId: tbId,
         tbConnectionStatus: tbConnectionStatus,
         normalizedStatus: normalizedStatus,
         isOfflineStatusRaw: isOfflineStatusRaw,
-        connectionStale: connectionStale,
+        hasRecentTelemetry: hasRecentTelemetry,
         telemetryTs: telemetryTs,
         telemetryTsLocal: telemetryTs ? new Date(telemetryTs).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}) : 'N/A',
         lastActivityTime: attrs.lastActivityTime,
         nowLocal: new Date().toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}),
         diffMinutes: _diffMinutes,
-        delayMins: delayMins,
-        isStaleReason: _diffMinutes !== 'N/A' && _diffMinutes > delayMins ? `${_diffMinutes} > ${delayMins} min (STALE)` : `${_diffMinutes} <= ${delayMins} min (should NOT be stale!)`,
+        SHORT_DELAY_MINS: SHORT_DELAY_MINS,
+        isStaleReason: _diffMinutes !== 'N/A' && _diffMinutes > SHORT_DELAY_MINS ? `${_diffMinutes} > ${SHORT_DELAY_MINS} min (STALE)` : `${_diffMinutes} <= ${SHORT_DELAY_MINS} min (should NOT be stale!)`,
       });
     } else if (isEffectivelyOnline) {
       // RFC-0078: For energy devices, calculate status using ranges from mapInstantaneousPower
@@ -4193,64 +4207,75 @@ self.onInit = async function () {
       }
 
       const isBadConnection = normalizedStatus === 'bad' || ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus);
-      const isOfflineStatus = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus) || connectionStatus === false;
+      const isOfflineStatusRaw = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus) || connectionStatus === false;
       const isOnline = normalizedStatus === 'online' || ['online', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedStatus) || connectionStatus === true;
 
-      // RFC-0110: Check if telemetry is stale based on TELEMETRY timestamp (not connectionStatusTs)
-      // Use domain-specific telemetry timestamp: consumptionTs (energy), pulsesTs (water), temperatureTs (temperature)
-      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440; // Default: 24h
+      // RFC-0110 v2: Dual threshold - 60 mins for bad/offline, 24h for online
+      const SHORT_DELAY_MINS = 60;
+      const LONG_DELAY_MINS = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440; // Default: 24h
       const isTankItem = item._isTankDevice || item.deviceType === 'TANK' || item.deviceType === 'CAIXA_DAGUA';
       const isTemperatureItem = item.deviceType === 'TERMOSTATO';
       const telemetryTs = isTankItem ? item.pulsesTs
         : isTemperatureItem ? item.temperatureTs
         : item.consumptionTs; // Energy devices
-      const connectionStale = lib?.isTelemetryStale
-        ? lib.isTelemetryStale(telemetryTs, item.lastActivityTime, delayMins)
-        : (lib?.isConnectionStale
-            ? lib.isConnectionStale({
-                connectionStatusTs: telemetryTs,
-                lastActivityTime: item.lastActivityTime,
-                delayTimeConnectionInMins: delayMins,
-              })
-            : true); // Fallback: assume stale if library not available
 
-      // RFC-0110: Device is truly offline only if status says offline AND connection is stale
-      const isOffline = isOfflineStatus && connectionStale;
-      // RFC-0110: Device with "offline" status but fresh timestamp should be treated as online
-      const isEffectivelyOnline = isOnline || (isOfflineStatus && !connectionStale);
+      // Check telemetry freshness with both thresholds
+      const hasRecentTelemetry = lib?.isTelemetryStale
+        ? !lib.isTelemetryStale(telemetryTs, item.lastActivityTime, SHORT_DELAY_MINS)
+        : false;
+      const telemetryStaleForOnline = lib?.isTelemetryStale
+        ? lib.isTelemetryStale(telemetryTs, item.lastActivityTime, LONG_DELAY_MINS)
+        : true;
+
+      // RFC-0110 v2: Determine final status based on dual thresholds
+      const isOfflineStatus = isOfflineStatusRaw && !hasRecentTelemetry;
+      const isBadConnectionFinal = isBadConnection && !hasRecentTelemetry;
+      const isEffectivelyOnline = (isOnline && !telemetryStaleForOnline) ||
+                                   (isOfflineStatusRaw && hasRecentTelemetry) ||
+                                   (isBadConnection && hasRecentTelemetry);
 
       // RFC-0109: WAITING HAS ABSOLUTE PRIORITY - no other rules apply
       if (isWaiting) {
         deviceStatus = 'not_installed'; // RFC-0109: waiting devices are ALWAYS not_installed
         LogHelper.log(`[TELEMETRY] ✅ RFC-0109: Set deviceStatus='not_installed' for waiting device: ${item.label}`);
-      } else if (isBadConnection) {
-        deviceStatus = 'weak_connection'; // RFC-0109: bad/weak connection
-        console.warn(`🟠 [DEBUG TELEMETRY] Device set to WEAK_CONNECTION:`, {
+      } else if (isBadConnectionFinal) {
+        deviceStatus = 'weak_connection'; // RFC-0110 v2: bad + stale telemetry
+        console.warn(`🟠 [DEBUG TELEMETRY processTemperatureItems] Device set to WEAK_CONNECTION:`, {
           label: item.label,
           id: item.id || item.tbId,
           connectionStatus: connectionStatus,
           normalizedStatus: normalizedStatus,
+          hasRecentTelemetry: hasRecentTelemetry,
         });
-      } else if (isOffline) {
-        deviceStatus = 'offline'; // RFC-0109+0110: offline devices with stale telemetry
+      } else if (isOnline && telemetryStaleForOnline) {
+        // RFC-0110 v2: online + stale telemetry (> 24h) → OFFLINE
+        deviceStatus = 'offline';
+        console.warn(`🔴 [DEBUG TELEMETRY processTemperatureItems] Device set to OFFLINE (online but stale > 24h):`, {
+          label: item.label,
+          id: item.id || item.tbId,
+          telemetryTs: telemetryTs,
+          LONG_DELAY_MINS: LONG_DELAY_MINS,
+        });
+      } else if (isOfflineStatus) {
+        deviceStatus = 'offline'; // RFC-0110 v2: offline + stale telemetry (> 60 mins)
         // DEBUG: Log ALL devices being set to offline
         const _nowMs = Date.now();
         const _telemetryTsMs = telemetryTs ? Number(telemetryTs) : 0;
         const _diffMinutes = _telemetryTsMs ? Math.round((_nowMs - _telemetryTsMs) / 60000) : 'N/A';
-        console.warn(`🔴 [DEBUG TELEMETRY processTemperatureItems] Device set to OFFLINE (RFC-0110):`, {
+        console.warn(`🔴 [DEBUG TELEMETRY processTemperatureItems] Device set to OFFLINE (RFC-0110 v2):`, {
           label: item.label,
           id: item.id || item.tbId,
           connectionStatus: connectionStatus,
           normalizedStatus: normalizedStatus,
-          isOfflineStatus: isOfflineStatus,
-          connectionStale: connectionStale,
+          isOfflineStatusRaw: isOfflineStatusRaw,
+          hasRecentTelemetry: hasRecentTelemetry,
           telemetryTs: telemetryTs,
           telemetryTsLocal: telemetryTs ? new Date(telemetryTs).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}) : 'N/A',
           lastActivityTime: item.lastActivityTime,
           nowLocal: new Date().toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'}),
           diffMinutes: _diffMinutes,
-          delayMins: delayMins,
-          isStaleReason: _diffMinutes !== 'N/A' && _diffMinutes > delayMins ? `${_diffMinutes} > ${delayMins} min (STALE)` : `${_diffMinutes} <= ${delayMins} min (should NOT be stale!)`,
+          SHORT_DELAY_MINS: SHORT_DELAY_MINS,
+          isStaleReason: _diffMinutes !== 'N/A' && _diffMinutes > SHORT_DELAY_MINS ? `${_diffMinutes} > ${SHORT_DELAY_MINS} min (STALE)` : `${_diffMinutes} <= ${SHORT_DELAY_MINS} min (should NOT be stale!)`,
         });
       } else if (isEffectivelyOnline && isEnergyDomain) {
         // For energy devices, calculate status using power ranges

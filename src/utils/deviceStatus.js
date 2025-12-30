@@ -366,7 +366,8 @@ export function getDeviceStatusInfo(deviceStatus) {
  * @param {number|null} [params.telemetryTimestamp] - Unix timestamp (ms) of the telemetry
  * @param {number|null} [params.lastActivityTime] - Fallback: ThingsBoard lastActivityTime
  * @param {Object} [params.ranges] - Consumption ranges for status calculation
- * @param {number} [params.delayTimeConnectionInMins=1440] - Stale threshold in minutes (default: 24h)
+ * @param {number} [params.delayTimeConnectionInMins=1440] - Long threshold for 'online' status (default: 24h)
+ * @param {number} [params.shortDelayMins=60] - Short threshold for 'offline'/'bad' status (default: 60 mins)
  * @param {number|null} [params.lastConsumptionValue] - @deprecated Use telemetryValue instead
  * @param {number} [params.limitOfPowerOnStandByWatts] - @deprecated Use ranges instead
  * @param {number} [params.limitOfPowerOnAlertWatts] - @deprecated Use ranges instead
@@ -397,7 +398,9 @@ export function calculateDeviceStatus({
   telemetryTimestamp = null,
   lastActivityTime = null,
   ranges = null,
-  delayTimeConnectionInMins = 1440,
+  // RFC-0110 v2: Dual threshold configuration
+  delayTimeConnectionInMins = 1440, // For 'online' status (24h default)
+  shortDelayMins = 60, // For 'offline'/'bad' status (60 mins default)
   // Legacy parameters (backward compatibility)
   lastConsumptionValue = null,
   limitOfPowerOnStandByWatts = null,
@@ -415,28 +418,42 @@ export function calculateDeviceStatus({
     return DeviceStatusType.NOT_INSTALLED;
   }
 
-  // 2. BAD → WEAK_CONNECTION (not offline)
-  if (normalizedStatus === "bad") {
-    return DeviceStatusType.WEAK_CONNECTION;
-  }
-
-  // 3. RFC-0110: Check if telemetry is stale
-  // Use telemetryTimestamp as primary, lastActivityTime as fallback
-  // Also accept deprecated lastConnectTime/lastDisconnectTime for backward compatibility
+  // RFC-0110 v2: Get timestamp for telemetry age check
   const timestampToCheck = telemetryTimestamp || lastActivityTime || lastConnectTime || lastDisconnectTime;
-  const telemetryStale = isTelemetryStale(timestampToCheck, null, delayTimeConnectionInMins);
 
-  // 4. If connectionStatus = offline AND telemetry is stale → OFFLINE
-  if (normalizedStatus === "offline" && telemetryStale) {
-    return DeviceStatusType.OFFLINE;
+  // 2. BAD → Check telemetry (60 mins threshold)
+  // If recent telemetry, treat as online (hide weak_connection from client)
+  // If stale telemetry, show WEAK_CONNECTION
+  if (normalizedStatus === "bad") {
+    const hasRecentTelemetry = !isTelemetryStale(timestampToCheck, null, shortDelayMins);
+    if (hasRecentTelemetry) {
+      // Device is working fine, continue to value-based calculation
+    } else {
+      return DeviceStatusType.WEAK_CONNECTION;
+    }
   }
 
-  // 5. If connectionStatus = online BUT telemetry is stale → OFFLINE
-  if (normalizedStatus === "online" && telemetryStale) {
-    return DeviceStatusType.OFFLINE;
+  // 3. OFFLINE → Check telemetry (60 mins threshold)
+  // If recent telemetry (< 60 mins), treat as online
+  // If stale telemetry (> 60 mins), mark as OFFLINE
+  if (normalizedStatus === "offline") {
+    const hasRecentTelemetry = !isTelemetryStale(timestampToCheck, null, shortDelayMins);
+    if (!hasRecentTelemetry) {
+      return DeviceStatusType.OFFLINE;
+    }
+    // Has recent telemetry - continue to value-based calculation
   }
 
-  // 6. Device is effectively online - calculate status from telemetry value
+  // 4. ONLINE → Check telemetry (24h threshold)
+  // If stale telemetry (> 24h), mark as OFFLINE
+  if (normalizedStatus === "online") {
+    const telemetryStale = isTelemetryStale(timestampToCheck, null, delayTimeConnectionInMins);
+    if (telemetryStale) {
+      return DeviceStatusType.OFFLINE;
+    }
+  }
+
+  // 5. Device is effectively online - calculate status from telemetry value
   // Support both new (telemetryValue) and legacy (lastConsumptionValue) parameters
   const value = telemetryValue ?? lastConsumptionValue;
 

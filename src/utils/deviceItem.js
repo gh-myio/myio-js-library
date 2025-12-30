@@ -336,16 +336,24 @@ export function createDeviceItem(entityId, meta, options = {}) {
     });
   } else {
     // Non-energy devices (TANK, TERMOSTATO, HIDROMETRO) - simple status
-    // RFC-0110: Check for stale telemetry
-    const staleTelemetry = isTelemetryStale(telemetryTs, meta.lastActivityTime, delayTimeConnectionInMins);
+    // RFC-0110 v2: Dual threshold - 60 mins for bad/offline, 24h for online
+    const SHORT_DELAY_MINS = 60;
+    const hasRecentTelemetry = !isTelemetryStale(telemetryTs, meta.lastActivityTime, SHORT_DELAY_MINS);
+    const staleTelemetryLong = isTelemetryStale(telemetryTs, meta.lastActivityTime, delayTimeConnectionInMins);
 
-    // RFC-0110: Device is truly offline only if connectionStatus=offline AND telemetry is stale
     if (connectionStatus === 'waiting') {
       deviceStatus = DeviceStatusType.NOT_INSTALLED;
     } else if (connectionStatus === 'bad') {
-      deviceStatus = DeviceStatusType.WEAK_CONNECTION;
-    } else if ((connectionStatus === 'offline' && staleTelemetry) || (connectionStatus === 'online' && staleTelemetry)) {
-      deviceStatus = DeviceStatusType.OFFLINE;
+      // RFC-0110 v2: bad + recent telemetry → treat as online (hide from client)
+      // bad + stale telemetry → show WEAK_CONNECTION
+      deviceStatus = hasRecentTelemetry ? DeviceStatusType.POWER_ON : DeviceStatusType.WEAK_CONNECTION;
+    } else if (connectionStatus === 'offline') {
+      // RFC-0110 v2: offline + recent telemetry (< 60 mins) → treat as online
+      // offline + stale telemetry (> 60 mins) → OFFLINE
+      deviceStatus = hasRecentTelemetry ? DeviceStatusType.POWER_ON : DeviceStatusType.OFFLINE;
+    } else if (connectionStatus === 'online') {
+      // RFC-0110 v2: online + stale telemetry (> 24h) → OFFLINE
+      deviceStatus = staleTelemetryLong ? DeviceStatusType.OFFLINE : DeviceStatusType.POWER_ON;
     } else {
       deviceStatus = DeviceStatusType.POWER_ON;
     }

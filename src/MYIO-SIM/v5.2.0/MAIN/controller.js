@@ -4546,15 +4546,17 @@ const MyIOOrchestrator = (() => {
   }
 
   /**
-   * RFC-0109 + RFC-0110: Convert connectionStatus to deviceStatus
+   * RFC-0109 + RFC-0110 v2: Convert connectionStatus to deviceStatus
    * Uses centralized library function for consistent status across all widgets.
    *
-   * Status mapping:
+   * RFC-0110 v2 Dual Threshold Logic:
    * - waiting, connecting, pending → 'not_installed' (RFC-0109: ABSOLUTE PRIORITY)
-   * - bad, weak, unstable → 'weak_connection' (RFC-0109)
-   * - offline + stale timestamp → 'offline' (RFC-0110)
-   * - offline + fresh timestamp → 'power_on' (treat as online) (RFC-0110)
-   * - online, connected, active → 'power_on'
+   * - bad + recent telemetry (60 mins) → 'power_on' (hide weak_connection from client)
+   * - bad + stale telemetry (60 mins) → 'weak_connection'
+   * - offline + recent telemetry (60 mins) → 'power_on' (treat as online)
+   * - offline + stale telemetry (60 mins) → 'offline'
+   * - online + stale telemetry (24h) → 'offline'
+   * - online + fresh telemetry (24h) → 'power_on'
    *
    * @param {string|boolean|null} connectionStatus - Raw status from ThingsBoard
    * @param {object} [options] - Optional parameters for calculation
@@ -4577,37 +4579,53 @@ const MyIOOrchestrator = (() => {
       return 'not_installed';
     }
 
-    // RFC-0109: Bad/weak connection states → weak_connection
-    if (normalizedStatus === 'bad' || ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus)) {
-      return 'weak_connection';
-    }
+    // RFC-0110 v2: Dual threshold configuration
+    const SHORT_DELAY_MINS = 60; // For offline/bad status
+    const LONG_DELAY_MINS = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440; // For online status (24h default)
 
-    // RFC-0110: Check if telemetry is stale based on timestamps (default 24h)
-    const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440;
     // RFC-0110: Use telemetry timestamp if available, otherwise fall back to lastConnectTime
     const telemetryTs = options.consumptionTs || options.pulsesTs || options.temperatureTs;
-    const connectionStale = lib?.isTelemetryStale
-      ? lib.isTelemetryStale(telemetryTs, options.lastActivityTime || options.lastConnectTime, delayMins)
-      : (lib?.isConnectionStale
-          ? lib.isConnectionStale({
-              connectionStatusTs: telemetryTs || options.lastConnectTime,
-              lastActivityTime: options.lastActivityTime || options.lastDisconnectTime,
-              delayTimeConnectionInMins: delayMins,
-            })
-          : true); // Fallback: assume stale if library not available
+
+    // RFC-0110 v2: Calculate both thresholds
+    const hasRecentTelemetry = lib?.isTelemetryStale
+      ? !lib.isTelemetryStale(telemetryTs, options.lastActivityTime || options.lastConnectTime, SHORT_DELAY_MINS)
+      : false;
+    const telemetryStaleForOnline = lib?.isTelemetryStale
+      ? lib.isTelemetryStale(telemetryTs, options.lastActivityTime || options.lastConnectTime, LONG_DELAY_MINS)
+      : true;
+
+    // RFC-0110 v2: Bad connection states - check recent telemetry (60 mins)
+    // If device has recent telemetry, hide "bad" from client and show as online
+    if (normalizedStatus === 'bad' || ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus)) {
+      if (hasRecentTelemetry) {
+        LogHelper.log(`[MYIO-SIM Orchestrator] RFC-0110 v2: connectionStatus='bad' but recent telemetry → 'power_on'`);
+        return 'power_on';
+      }
+      return 'weak_connection';
+    }
 
     // RFC-0110: Offline status check
     const isOfflineStatus = normalizedStatus === 'offline' ||
       ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus) ||
       connectionStatus === null || connectionStatus === undefined || connectionStatus === '';
 
-    // RFC-0110: Device is truly offline only if status says offline AND connection is stale
-    if (isOfflineStatus && connectionStale) {
+    // RFC-0110 v2: Offline status - check recent telemetry (60 mins)
+    if (isOfflineStatus) {
+      if (hasRecentTelemetry) {
+        LogHelper.log(`[MYIO-SIM Orchestrator] RFC-0110 v2: connectionStatus='offline' but recent telemetry → 'power_on'`);
+        return 'power_on';
+      }
       return 'offline';
     }
 
-    // RFC-0110: Device with "offline" status but fresh timestamp → treat as online
-    // Also handles normal online states
+    // RFC-0110 v2: Online status - check stale telemetry (24h)
+    // If device has "online" status but telemetry is older than 24h, mark as offline
+    if (telemetryStaleForOnline) {
+      LogHelper.log(`[MYIO-SIM Orchestrator] RFC-0110 v2: connectionStatus='online' but stale telemetry (>24h) → 'offline'`);
+      return 'offline';
+    }
+
+    // RFC-0110 v2: Device with online status and fresh telemetry → power_on
     return 'power_on';
   }
 
