@@ -92,6 +92,7 @@ let MyIOAuth = null;
 const STATE = {
   itemsBase: [], // lista autoritativa (TB)
   itemsEnriched: [], // lista com totals + perc
+  dataFromMain: false, // RFC-0109: Flag to indicate data came from MAIN (skip hydrateAndRender)
   searchActive: false,
   searchTerm: '',
   selectedIds: /** @type {Set<string> | null} */ (null),
@@ -1149,7 +1150,17 @@ async function hydrateAndRender() {
     }
 
     // 2) Lista autoritativa
-    STATE.itemsBase = buildAuthoritativeItems();
+    // RFC-0109: Don't overwrite valid cached data with empty data from buildAuthoritativeItems
+    const newItemsBase = buildAuthoritativeItems();
+    if (newItemsBase.length > 0) {
+      STATE.itemsBase = newItemsBase;
+      LogHelper.log(`[WATER_COMMON_AREA] hydrateAndRender: using ${newItemsBase.length} items from buildAuthoritativeItems`);
+    } else if (STATE.itemsBase.length > 0) {
+      LogHelper.log(`[WATER_COMMON_AREA] hydrateAndRender: buildAuthoritativeItems returned 0 items, keeping ${STATE.itemsBase.length} cached items`);
+    } else {
+      STATE.itemsBase = newItemsBase; // Both are empty, just set it
+      LogHelper.warn(`[WATER_COMMON_AREA] hydrateAndRender: no items available (buildAuthoritativeItems=0, cache=0)`);
+    }
 
     // 3) Totais na API
     let apiMap = new Map();
@@ -1269,7 +1280,11 @@ self.onInit = async function () {
       self.ctx.scope.startDateISO = startISO;
       self.ctx.scope.endDateISO = endISO;
 
-      hydrateAndRender();
+      // RFC-0109: Don't call hydrateAndRender() - MAIN will emit new data via events
+      // Clear current data and show busy while waiting for MAIN to provide new data
+      STATE.dataFromMain = false;
+      showBusy('Carregando dados de água...');
+      LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] Waiting for MAIN to provide new water data for updated period`);
     } catch (err) {
       LogHelper.error(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] dateUpdateHandler error:`, err);
       hideBusy();
@@ -1612,6 +1627,7 @@ self.onInit = async function () {
       });
 
       LogHelper.log(`[WATER_COMMON_AREA] Built ${STATE.itemsBase.length} items from MAIN classified data`);
+      STATE.dataFromMain = true; // RFC-0109: Mark that data came from MAIN
       reflowFromState();
       hideBusy();
     }
@@ -1717,21 +1733,9 @@ self.onInit = async function () {
     self.ctx.scope.endDateISO = end.toISOString();
   }
 
-  const hasData = Array.isArray(self.ctx.data) && self.ctx.data.length > 0;
-  LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] onInit - Waiting for orchestrator data...`);
-
-  if (hasData && (!STATE.itemsBase || STATE.itemsBase.length === 0)) {
-    LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] Building itemsBase from TB data in onInit...`);
-    STATE.itemsBase = buildAuthoritativeItems();
-    LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] Built ${STATE.itemsBase.length} items from TB`);
-
-    STATE.itemsEnriched = STATE.itemsBase.map((item) => ({
-      ...item,
-      value: 0,
-      perc: 0,
-    }));
-    reflowFromState();
-  }
+  // RFC-0109: WATER_COMMON_AREA relies on MAIN for data, not local datasources
+  // We wait for myio:water-tb-data-ready event or use cached waterClassified data
+  LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] onInit - Waiting for water data from MAIN...`);
 
   if (self.ctx?.scope?.startDateISO && self.ctx?.scope?.endDateISO) {
     LogHelper.log(`[WATER_COMMON_AREA ${WIDGET_DOMAIN}] Initial period defined, showing busy...`);
@@ -1742,19 +1746,47 @@ self.onInit = async function () {
     );
   }
 
-  if (hasData) {
-    STATE.firstHydrates++;
-    if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) {
-      await hydrateAndRender();
-    }
+  // RFC-0109: WATER_COMMON_AREA relies ONLY on data from MAIN (like EQUIPMENTS pattern)
+  // We don't use buildAuthoritativeItems() or hydrateAndRender() since widget has no datasources
+  if (STATE.dataFromMain || STATE.itemsBase.length > 0) {
+    // Data already loaded from MAIN cache or event
+    LogHelper.log(`[WATER_COMMON_AREA] ✅ Data from MAIN ready: ${STATE.itemsBase.length} items (dataFromMain: ${STATE.dataFromMain})`);
+    hideBusy();
   } else {
-    const waiter = setInterval(async () => {
-      if (Array.isArray(self.ctx.data) && self.ctx.data.length > 0) {
-        clearInterval(waiter);
-        STATE.firstHydrates++;
-        if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) await hydrateAndRender();
+    // Wait for data from MAIN via event (similar to EQUIPMENTS pattern)
+    LogHelper.log(`[WATER_COMMON_AREA] ⏳ Waiting for water data from MAIN...`);
+
+    const waterDataTimeout = setTimeout(() => {
+      if (STATE.itemsBase.length === 0) {
+        LogHelper.warn(`[WATER_COMMON_AREA] ⚠️ Timeout waiting for water data from MAIN`);
+        hideBusy();
+
+        // Show toast to reload page
+        const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
+        if (MyIOToast) {
+          MyIOToast.warning('Dados de água não carregados. Por favor, recarregue a página.', { duration: 8000 });
+        }
       }
-    }, 200);
+    }, 15000);
+
+    // The waterTbDataHandler listener is already registered and will handle the event
+    // When it receives data, it will set STATE.itemsBase, STATE.dataFromMain=true, and call reflowFromState()
+
+    // Also set up a watcher for cached data in case event was missed
+    const cacheWatcher = setInterval(() => {
+      const retryCache = window.MyIOOrchestratorData?.waterClassified;
+      if (retryCache?.commonArea?.items?.length > 0 && STATE.itemsBase.length === 0) {
+        clearInterval(cacheWatcher);
+        clearTimeout(waterDataTimeout);
+        LogHelper.log(`[WATER_COMMON_AREA] 🔄 CacheWatcher found data: ${retryCache.commonArea.items.length} items`);
+        waterTbDataHandler({ detail: retryCache });
+      } else if (STATE.itemsBase.length > 0) {
+        clearInterval(cacheWatcher);
+        clearTimeout(waterDataTimeout);
+        LogHelper.log(`[WATER_COMMON_AREA] ✅ CacheWatcher: Data already loaded, stopping`);
+        hideBusy();
+      }
+    }, 500);
   }
 };
 

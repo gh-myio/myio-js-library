@@ -436,11 +436,11 @@ function isStoreDevice(itemOrDeviceProfile) {
 }
 
 /**
- * RFC-0109: Check if a water meter device is a store (loja)
- * Classification based on deviceType and deviceProfile:
- * - LOJA: deviceType = deviceProfile = HIDROMETRO (both equal and = HIDROMETRO)
- * - ENTRADA: deviceProfile = HIDROMETRO_SHOPPING
- * - AREA_COMUM: deviceProfile = HIDROMETRO_AREA_COMUM
+ * RFC-0109: Simplified water meter classification
+ *
+ * New rule:
+ * - STORE (loja): deviceType = deviceProfile = HIDROMETRO (both must be exactly "HIDROMETRO")
+ * - AREA_COMUM: everything else
  *
  * @param {Object} item - Device item with deviceType and deviceProfile properties
  * @returns {boolean} True if device is a water store (loja)
@@ -453,17 +453,20 @@ function isWaterStoreDevice(item) {
   const dt = String(item.deviceType || '').toUpperCase();
   const dp = String(item.deviceProfile || '').toUpperCase();
 
-  // LOJA: deviceType = deviceProfile = HIDROMETRO
-  // or deviceType = HIDROMETRO and deviceProfile is empty
-  return dt === 'HIDROMETRO' && (dp === 'HIDROMETRO' || dp === '');
+  // LOJA: deviceType = deviceProfile = HIDROMETRO (ambos devem ser exatamente HIDROMETRO)
+  return dt === 'HIDROMETRO' && dp === 'HIDROMETRO';
 }
 
 /**
- * RFC-0109: Classify water meter device
- * Returns classification: 'loja', 'entrada', 'areacomum'
+ * RFC-0109: Simplified water meter classification
+ * Returns classification: 'loja' or 'areacomum'
+ *
+ * New rule:
+ * - LOJA: deviceType = deviceProfile = HIDROMETRO
+ * - AREA_COMUM: everything else
  *
  * @param {Object} item - Device item with deviceType and deviceProfile properties
- * @returns {'loja'|'entrada'|'areacomum'}
+ * @returns {'loja'|'areacomum'}
  */
 function classifyWaterMeterDevice(item) {
   if (!item || typeof item !== 'object') {
@@ -474,14 +477,11 @@ function classifyWaterMeterDevice(item) {
   const dp = String(item.deviceProfile || '').toUpperCase();
 
   // LOJA: deviceType = deviceProfile = HIDROMETRO
-  if (dt === 'HIDROMETRO' && (dp === 'HIDROMETRO' || dp === '')) {
+  if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
     return 'loja';
   }
-  // ENTRADA: deviceProfile = HIDROMETRO_SHOPPING
-  if (dp === 'HIDROMETRO_SHOPPING' || dt === 'HIDROMETRO_SHOPPING') {
-    return 'entrada';
-  }
-  // AREA_COMUM: deviceProfile = HIDROMETRO_AREA_COMUM (or default)
+
+  // AREA_COMUM: todo o resto
   return 'areacomum';
 }
 
@@ -3114,26 +3114,18 @@ function categorizeItemsByGroup(items) {
 }
 
 /**
- * RFC-0106: Categorize water items into 4 groups: entrada, lojas, banheiros, areacomum
+ * RFC-0109: Simplified water categorization into 2 groups: lojas, areacomum
  *
- * RULE ORDER:
- * 1. ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
- * 2. AREACOMUM: deviceType = HIDROMETRO_AREA_COMUM OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM)
- *    NOTE: Banheiros with HIDROMETRO_AREA_COMUM go here - they are extracted by TELEMETRY widget for TELEMETRY_INFO
- * 3. BANHEIROS: identifier/label contains BANHEIRO, WC, SANITARIO, TOALETE, LAVABO (for standalone bathroom meters)
- * 4. LOJAS: deviceType = HIDROMETRO AND (deviceProfile = HIDROMETRO OR empty)
- *
- * Fallback rules (for items not matching primary rules):
- * - ENTRADA: label/identifier contains ENTRADA, PRINCIPAL, RELOGIO
+ * NEW SIMPLIFIED RULE:
+ * - LOJAS: deviceType = deviceProfile = HIDROMETRO (both must be exactly "HIDROMETRO")
  * - AREACOMUM: everything else
+ *
+ * NOTE: entrada and banheiros are now included in areacomum for simplicity
  */
 function categorizeItemsByGroupWater(items) {
-  const BANHEIRO_PATTERNS = ['BANHEIRO', 'WC', 'SANITARIO', 'TOALETE', 'LAVABO'];
-  const ENTRADA_PATTERNS = ['ENTRADA', 'PRINCIPAL', 'RELOGIO', 'NASCENTE'];
-
-  const entrada = [];
+  const entrada = []; // Kept for backward compatibility but not populated
   const lojas = [];
-  const banheiros = [];
+  const banheiros = []; // Kept for backward compatibility but not populated
   const areacomum = [];
 
   // Helper to safely convert to uppercase string (handles objects, arrays, numbers, etc.)
@@ -3142,48 +3134,14 @@ function categorizeItemsByGroupWater(items) {
   for (const item of items) {
     const dt = toStr(item.deviceType);
     const dp = toStr(item.deviceProfile);
-    const identifier = toStr(item.identifier);
-    const label = toStr(item.label);
-    const lw = toStr(item.labelWidget);
-    const combined = `${identifier} ${label} ${lw}`;
 
-    // ========== PRIMARY RULES: Based on deviceType AND deviceProfile ==========
-
-    // Rule 1: ENTRADA - deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
-    if (dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING')) {
-      entrada.push(item);
-      continue;
-    }
-
-    // Rule 2: AREACOMUM - deviceType = HIDROMETRO_AREA_COMUM OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM)
-    // NOTE: Banheiros with deviceType HIDROMETRO_AREA_COMUM go here too - they are extracted later by TELEMETRY widget
-    if (dt === 'HIDROMETRO_AREA_COMUM' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_AREA_COMUM')) {
-      areacomum.push(item);
-      continue;
-    }
-
-    // Rule 3: BANHEIROS - check identifier for bathroom patterns (only for HIDROMETRO devices not in areacomum)
-    // These are standalone bathroom meters with deviceType = HIDROMETRO
-    if (BANHEIRO_PATTERNS.some((p) => identifier.includes(p) || label.includes(p))) {
-      banheiros.push(item);
-      continue;
-    }
-
-    // Rule 4: LOJAS - deviceType = HIDROMETRO AND (deviceProfile = HIDROMETRO OR deviceProfile is empty/missing)
-    if (dt === 'HIDROMETRO' && (dp === 'HIDROMETRO' || dp === '')) {
+    // LOJAS: deviceType = deviceProfile = HIDROMETRO (ambos devem ser exatamente HIDROMETRO)
+    if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
       lojas.push(item);
       continue;
     }
 
-    // ========== FALLBACK RULES: Pattern matching for other deviceTypes ==========
-
-    // Fallback 1: ENTRADA - main water entry points
-    if (ENTRADA_PATTERNS.some((p) => combined.includes(p))) {
-      entrada.push(item);
-      continue;
-    }
-
-    // Fallback 2: AREACOMUM - everything else
+    // AREACOMUM: todo o resto
     areacomum.push(item);
   }
 
@@ -5680,27 +5638,18 @@ const MyIOOrchestrator = (() => {
         LogHelper.log(`[Orchestrator] 💧 Water dataKeys: ${Array.from(waterDataKeys).join(', ')}`);
         LogHelper.log(`[Orchestrator] 💧 Water devices: ${withOwnerName} with ownerName, ${withoutOwnerName} without (customersList: ${customersList.length})`);
 
-        // RFC-0109: Helper function to classify water meters based on deviceType/deviceProfile
-        // LOJA: deviceType === deviceProfile === 'HIDROMETRO' (both equal and = HIDROMETRO)
-        // ENTRADA: deviceProfile === 'HIDROMETRO_SHOPPING'
-        // AREA_COMUM: deviceProfile === 'HIDROMETRO_AREA_COMUM'
+        // RFC-0109: Simplified water meter classification
+        // LOJA: deviceType = deviceProfile = HIDROMETRO (both must be exactly "HIDROMETRO")
+        // AREA_COMUM: everything else
         const classifyWaterMeter = (device) => {
           const dt = String(device.deviceType || '').toUpperCase();
           const dp = String(device.deviceProfile || '').toUpperCase();
 
           // LOJA: deviceType = deviceProfile = HIDROMETRO
-          if (dt === 'HIDROMETRO' && (dp === 'HIDROMETRO' || dp === '')) {
+          if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
             return 'loja';
           }
-          // ENTRADA: deviceProfile = HIDROMETRO_SHOPPING
-          if (dp === 'HIDROMETRO_SHOPPING' || dt === 'HIDROMETRO_SHOPPING') {
-            return 'entrada';
-          }
-          // AREA_COMUM: deviceProfile = HIDROMETRO_AREA_COMUM
-          if (dp === 'HIDROMETRO_AREA_COMUM' || dt === 'HIDROMETRO_AREA_COMUM') {
-            return 'areacomum';
-          }
-          // Fallback: use deviceProfile if available, otherwise areacomum
+          // AREA_COMUM: todo o resto
           return 'areacomum';
         };
 

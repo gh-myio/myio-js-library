@@ -110,6 +110,7 @@ let MyIOAuth = null;
 const STATE = {
   itemsBase: [], // lista autoritativa (TB)
   itemsEnriched: [], // lista com totals + perc
+  dataFromMain: false, // RFC-0109: Flag to indicate data came from MAIN (skip hydrateAndRender)
   searchActive: false,
   searchTerm: '',
   selectedIds: /** @type {Set<string> | null} */ (null),
@@ -1265,7 +1266,11 @@ self.onInit = async function () {
       self.ctx.scope.startDateISO = startISO;
       self.ctx.scope.endDateISO = endISO;
 
-      hydrateAndRender();
+      // RFC-0109: Don't call hydrateAndRender() - MAIN will emit new data via events
+      // Clear current data and show busy while waiting for MAIN to provide new data
+      STATE.dataFromMain = false;
+      showBusy('Carregando dados de água...');
+      LogHelper.log(`[WATER_STORES ${WIDGET_DOMAIN}] Waiting for MAIN to provide new water data for updated period`);
     } catch (err) {
       LogHelper.error(`[WATER_STORES ${WIDGET_DOMAIN}] dateUpdateHandler error:`, err);
       hideBusy();
@@ -1596,6 +1601,7 @@ self.onInit = async function () {
       });
 
       LogHelper.log(`[WATER_STORES] Built ${STATE.itemsBase.length} items from MAIN classified data`);
+      STATE.dataFromMain = true; // RFC-0109: Mark that data came from MAIN
       reflowFromState();
       hideBusy();
     }
@@ -1603,14 +1609,43 @@ self.onInit = async function () {
   window.addEventListener('myio:water-tb-data-ready', waterTbDataHandler);
 
   // RFC-0109: Check for cached classified data (event may have fired before widget loaded)
+  LogHelper.log(`[WATER_STORES] 🔍 Checking for cached waterClassified data...`);
   const cachedClassified = window.MyIOOrchestratorData?.waterClassified;
+
+  if (!window.MyIOOrchestratorData) {
+    LogHelper.warn(`[WATER_STORES] ⚠️ window.MyIOOrchestratorData is not available`);
+  } else if (!cachedClassified) {
+    LogHelper.warn(`[WATER_STORES] ⚠️ waterClassified not found in MyIOOrchestratorData`);
+  } else {
+    LogHelper.log(`[WATER_STORES] 📦 Found waterClassified: stores=${cachedClassified.stores?.count || 0}, commonArea=${cachedClassified.commonArea?.count || 0}, all=${cachedClassified.all?.count || 0}`);
+  }
+
   if (cachedClassified?.stores?.items?.length > 0) {
     const cacheAge = Date.now() - (cachedClassified.timestamp || 0);
+    LogHelper.log(`[WATER_STORES] 🕐 Cache age: ${cacheAge}ms (threshold: 60000ms)`);
     if (cacheAge < 60000) { // Use cache if less than 60 seconds old
-      LogHelper.log(`[WATER_STORES] Found cached classified data (${cachedClassified.stores.items.length} items, age: ${cacheAge}ms)`);
+      LogHelper.log(`[WATER_STORES] ✅ Found cached classified data (${cachedClassified.stores.items.length} items, age: ${cacheAge}ms) - using it!`);
       // Simulate event with cached data
       waterTbDataHandler({ detail: cachedClassified });
+    } else {
+      LogHelper.warn(`[WATER_STORES] ⏰ Cache too old (${cacheAge}ms > 60000ms), waiting for fresh data`);
     }
+  } else if (cachedClassified) {
+    LogHelper.warn(`[WATER_STORES] ⚠️ Cache exists but stores.items is empty or missing`);
+  }
+
+  // RFC-0109: Fallback - retry cache check after 2s in case of timing issues
+  if (!cachedClassified || !cachedClassified.stores?.items?.length) {
+    setTimeout(() => {
+      const retryCache = window.MyIOOrchestratorData?.waterClassified;
+      if (retryCache?.stores?.items?.length > 0 && STATE.itemsBase.length === 0) {
+        const cacheAge = Date.now() - (retryCache.timestamp || 0);
+        if (cacheAge < 120000) { // Extended threshold for retry
+          LogHelper.log(`[WATER_STORES] 🔄 Retry found cached data (${retryCache.stores.items.length} items, age: ${cacheAge}ms)`);
+          waterTbDataHandler({ detail: retryCache });
+        }
+      }
+    }, 2000);
   }
 
   // RFC-0094: Use credentials from MAIN via MyIOUtils (already fetched by MAIN)
@@ -1672,21 +1707,9 @@ self.onInit = async function () {
     self.ctx.scope.endDateISO = end.toISOString();
   }
 
-  const hasData = Array.isArray(self.ctx.data) && self.ctx.data.length > 0;
-  LogHelper.log(`[WATER_STORES ${WIDGET_DOMAIN}] onInit - Waiting for orchestrator data...`);
-
-  if (hasData && (!STATE.itemsBase || STATE.itemsBase.length === 0)) {
-    LogHelper.log(`[WATER_STORES ${WIDGET_DOMAIN}] Building itemsBase from TB data in onInit...`);
-    STATE.itemsBase = buildAuthoritativeItems();
-    LogHelper.log(`[WATER_STORES ${WIDGET_DOMAIN}] Built ${STATE.itemsBase.length} items from TB`);
-
-    STATE.itemsEnriched = STATE.itemsBase.map((item) => ({
-      ...item,
-      value: 0,
-      perc: 0,
-    }));
-    reflowFromState();
-  }
+  // RFC-0109: WATER_STORES relies on MAIN for data, not local datasources
+  // We wait for myio:water-tb-data-ready event or use cached waterClassified data
+  LogHelper.log(`[WATER_STORES ${WIDGET_DOMAIN}] onInit - Waiting for water data from MAIN...`);
 
   if (self.ctx?.scope?.startDateISO && self.ctx?.scope?.endDateISO) {
     LogHelper.log(`[WATER_STORES ${WIDGET_DOMAIN}] Initial period defined, showing busy...`);
@@ -1695,19 +1718,47 @@ self.onInit = async function () {
     LogHelper.log(`[WATER_STORES ${WIDGET_DOMAIN}] No initial period, waiting for myio:update-date event...`);
   }
 
-  if (hasData) {
-    STATE.firstHydrates++;
-    if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) {
-      await hydrateAndRender();
-    }
+  // RFC-0109: WATER_STORES relies ONLY on data from MAIN (like EQUIPMENTS pattern)
+  // We don't use buildAuthoritativeItems() or hydrateAndRender() since widget has no datasources
+  if (STATE.dataFromMain || STATE.itemsBase.length > 0) {
+    // Data already loaded from MAIN cache or event
+    LogHelper.log(`[WATER_STORES] ✅ Data from MAIN ready: ${STATE.itemsBase.length} items (dataFromMain: ${STATE.dataFromMain})`);
+    hideBusy();
   } else {
-    const waiter = setInterval(async () => {
-      if (Array.isArray(self.ctx.data) && self.ctx.data.length > 0) {
-        clearInterval(waiter);
-        STATE.firstHydrates++;
-        if (STATE.firstHydrates <= MAX_FIRST_HYDRATES) await hydrateAndRender();
+    // Wait for data from MAIN via event (similar to EQUIPMENTS pattern)
+    LogHelper.log(`[WATER_STORES] ⏳ Waiting for water data from MAIN...`);
+
+    const waterDataTimeout = setTimeout(() => {
+      if (STATE.itemsBase.length === 0) {
+        LogHelper.warn(`[WATER_STORES] ⚠️ Timeout waiting for water data from MAIN`);
+        hideBusy();
+
+        // Show toast to reload page
+        const MyIOToast = MyIOLibrary?.MyIOToast || window.MyIOToast;
+        if (MyIOToast) {
+          MyIOToast.warning('Dados de água não carregados. Por favor, recarregue a página.', { duration: 8000 });
+        }
       }
-    }, 200);
+    }, 15000);
+
+    // The waterTbDataHandler listener is already registered and will handle the event
+    // When it receives data, it will set STATE.itemsBase, STATE.dataFromMain=true, and call reflowFromState()
+
+    // Also set up a watcher for cached data in case event was missed
+    const cacheWatcher = setInterval(() => {
+      const retryCache = window.MyIOOrchestratorData?.waterClassified;
+      if (retryCache?.stores?.items?.length > 0 && STATE.itemsBase.length === 0) {
+        clearInterval(cacheWatcher);
+        clearTimeout(waterDataTimeout);
+        LogHelper.log(`[WATER_STORES] 🔄 CacheWatcher found data: ${retryCache.stores.items.length} items`);
+        waterTbDataHandler({ detail: retryCache });
+      } else if (STATE.itemsBase.length > 0) {
+        clearInterval(cacheWatcher);
+        clearTimeout(waterDataTimeout);
+        LogHelper.log(`[WATER_STORES] ✅ CacheWatcher: Data already loaded, stopping`);
+        hideBusy();
+      }
+    }, 500);
   }
 };
 
