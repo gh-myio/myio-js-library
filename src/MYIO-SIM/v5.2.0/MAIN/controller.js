@@ -4573,7 +4573,7 @@ const MyIOOrchestrator = (() => {
    */
   const ALLOWED_ALIASES_BY_DOMAIN = {
     energy: 'equipamentos e lojas', // MYIO-SIM: Equipamentos e Lojas datasource
-    water: 'allhidrosdevices', // MYIO-SIM: AllHidrosDevices datasource (lowercase for matching)
+    water: 'allhidrodevices', // MYIO-SIM: AllHidroDevices datasource (lowercase for matching)
     temperature: 'alltemperaturedevices', // MYIO-SIM: AllTemperatureDevices datasource
   };
 
@@ -5536,7 +5536,7 @@ const MyIOOrchestrator = (() => {
       // RFC-0103: Also emit initial water-summary-ready from ctx.data when energy loads
       // This ensures HEADER gets water data without waiting for water tab to be selected
       try {
-        const waterAliases = ['allhidrosdevices']; // RFC-0109: Single datasource with all water meters
+        const waterAliases = ['allhidrodevices']; // RFC-0109: Single datasource with all water meters
         const waterDevicesMap = new Map(); // entityId -> { ownerName, consumption, pulses, aliasName }
         const ownerNameMap = new Map(); // entityId -> ownerName (from ownername dataKey)
         const ctxData = self?.ctx?.data || [];
