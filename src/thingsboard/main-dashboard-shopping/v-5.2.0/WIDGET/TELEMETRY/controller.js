@@ -1565,7 +1565,7 @@ function buildAuthoritativeItems() {
             ranges: ranges,
             telemetryTimestamp: telemetryTs,
             lastActivityTime: attrs.lastActivityTime,
-            delayTimeConnectionInMins: delayMins,
+            delayTimeConnectionInMins: LONG_DELAY_MINS,
           });
 
           const source = deviceMapLimits
@@ -1618,9 +1618,11 @@ function buildAuthoritativeItems() {
         normalizedStatus: normalizedStatus,
         isWaitingStatus: isWaitingStatus,
         isBadConnection: isBadConnection,
+        isBadConnectionFinal: isBadConnectionFinal,
         isOfflineStatusRaw: isOfflineStatusRaw,
         isOnlineStatus: isOnlineStatus,
-        connectionStale: connectionStale,
+        hasRecentTelemetry: hasRecentTelemetry,
+        telemetryStaleForOnline: telemetryStaleForOnline,
         isOfflineStatus: isOfflineStatus,
         isEffectivelyOnline: isEffectivelyOnline,
         finalDeviceStatus: deviceStatus,
@@ -1628,7 +1630,8 @@ function buildAuthoritativeItems() {
         lastDisconnectTime: attrs.lastDisconnectTime,
         lastConnectTimeFormatted: attrs.lastConnectTime ? new Date(attrs.lastConnectTime).toISOString() : 'N/A',
         lastDisconnectTimeFormatted: attrs.lastDisconnectTime ? new Date(attrs.lastDisconnectTime).toISOString() : 'N/A',
-        delayMins: delayMins,
+        SHORT_DELAY_MINS: SHORT_DELAY_MINS,
+        LONG_DELAY_MINS: LONG_DELAY_MINS,
         now: new Date().toISOString(),
       });
     }
@@ -4298,7 +4301,7 @@ self.onInit = async function () {
             ranges: ranges,
             telemetryTimestamp: telemetryTs,
             lastActivityTime: item.lastActivityTime,
-            delayTimeConnectionInMins: delayMins,
+            delayTimeConnectionInMins: LONG_DELAY_MINS,
           });
         } else {
           // Fallback if no ranges or MyIOLibrary not available
@@ -4321,16 +4324,19 @@ self.onInit = async function () {
           normalizedStatus: normalizedStatus,
           isWaiting: isWaiting,
           isBadConnection: isBadConnection,
+          isBadConnectionFinal: isBadConnectionFinal,
+          isOfflineStatusRaw: isOfflineStatusRaw,
           isOfflineStatus: isOfflineStatus,
           isOnline: isOnline,
-          connectionStale: connectionStale,
-          isOffline: isOffline,
+          hasRecentTelemetry: hasRecentTelemetry,
+          telemetryStaleForOnline: telemetryStaleForOnline,
           isEffectivelyOnline: isEffectivelyOnline,
           lastConnectTime: item.lastConnectTime,
           lastDisconnectTime: item.lastDisconnectTime,
           lastConnectTimeFormatted: item.lastConnectTime ? new Date(item.lastConnectTime).toISOString() : 'N/A',
           lastDisconnectTimeFormatted: item.lastDisconnectTime ? new Date(item.lastDisconnectTime).toISOString() : 'N/A',
-          delayMins: delayMins,
+          SHORT_DELAY_MINS: SHORT_DELAY_MINS,
+          LONG_DELAY_MINS: LONG_DELAY_MINS,
           now: new Date().toISOString(),
         });
       }
