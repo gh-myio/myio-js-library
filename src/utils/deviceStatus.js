@@ -20,15 +20,20 @@ export const DeviceStatusType = {
   NO_INFO: "no_info",
   NOT_INSTALLED: "not_installed",
   OFFLINE: "offline",
+  WEAK_CONNECTION: "weak_connection", // RFC-0109: Device with unstable/bad connection
 };
 
 /**
  * Connection status types enum
+ * Maps raw ThingsBoard connectionStatus values to normalized status
  * @enum {string}
  */
 export const ConnectionStatusType = {
-  CONNECTED: "connected",
-  OFFLINE: "offline"
+  ONLINE: "online",
+  CONNECTED: "connected", // alias for online
+  OFFLINE: "offline",
+  WAITING: "waiting",
+  BAD: "bad", // RFC-0109: Weak/unstable connection
 };
 
 /**
@@ -45,6 +50,7 @@ export const deviceStatusIcons = {
   [DeviceStatusType.NO_INFO]: "❓️",
   [DeviceStatusType.NOT_INSTALLED]: "📦",
   [DeviceStatusType.OFFLINE]: "🔴",
+  [DeviceStatusType.WEAK_CONNECTION]: "📶", // RFC-0109: Weak signal icon
 };
 
 /**
@@ -61,6 +67,7 @@ export const waterDeviceStatusIcons = {
   [DeviceStatusType.NO_INFO]: "❓️",
   [DeviceStatusType.NOT_INSTALLED]: "📦",
   [DeviceStatusType.OFFLINE]: "🔴",
+  [DeviceStatusType.WEAK_CONNECTION]: "📶", // RFC-0109: Weak signal icon
 };
 
 /**
@@ -77,6 +84,7 @@ export const temperatureDeviceStatusIcons = {
   [DeviceStatusType.NO_INFO]: "❓️",
   [DeviceStatusType.NOT_INSTALLED]: "📦",
   [DeviceStatusType.OFFLINE]: "🔴",
+  [DeviceStatusType.WEAK_CONNECTION]: "📶", // RFC-0109: Weak signal icon
 };
 
 /**
@@ -84,43 +92,56 @@ export const temperatureDeviceStatusIcons = {
  * @type {Object.<string, string>}
  */
 export const connectionStatusIcons = {
+  [ConnectionStatusType.ONLINE]: "🟢",
   [ConnectionStatusType.CONNECTED]: "🟢",
-  [ConnectionStatusType.OFFLINE]: "🚫"
+  [ConnectionStatusType.OFFLINE]: "🚫",
+  [ConnectionStatusType.WAITING]: "🟡",
+  [ConnectionStatusType.BAD]: "🟠", // RFC-0109: Weak connection icon (orange)
 };
 
 /**
  * Maps device status to connection status
- * If device status is NO_INFO, the device is considered offline
- * Otherwise, it's connected
- *
  * @param {string} deviceStatus - The device status
- * @returns {string} The connection status (connected or offline)
+ * @returns {string} The connection status
  */
 export function mapDeviceToConnectionStatus(deviceStatus) {
   if (deviceStatus === DeviceStatusType.NO_INFO || deviceStatus === DeviceStatusType.OFFLINE) {
     return ConnectionStatusType.OFFLINE;
   }
-  return ConnectionStatusType.CONNECTED;
+  if (deviceStatus === DeviceStatusType.WEAK_CONNECTION) {
+    return ConnectionStatusType.BAD;
+  }
+  if (deviceStatus === DeviceStatusType.NOT_INSTALLED) {
+    return ConnectionStatusType.WAITING;
+  }
+  return ConnectionStatusType.ONLINE;
 }
 
 /**
- * Maps raw connection status string to normalized status
- * @param {string} rawStatus - Raw status from ThingsBoard (e.g., 'ONLINE', 'ok', 'running', 'waiting', 'offline')
- * @returns {'online' | 'waiting' | 'offline'} - Normalized status
+ * RFC-0109: Normalizes raw connection status string from ThingsBoard
+ * @param {string|boolean} rawStatus - Raw status from ThingsBoard
+ * @returns {'online' | 'waiting' | 'bad' | 'offline'} - Normalized status
  */
-export function mapConnectionStatus(rawStatus) {
-  const statusLower = String(rawStatus || '')
-    .toLowerCase()
-    .trim();
+export function normalizeConnectionStatus(rawStatus) {
+  if (rawStatus === null || rawStatus === undefined || rawStatus === '') {
+    return 'offline';
+  }
+
+  const statusLower = String(rawStatus).toLowerCase().trim();
 
   // Online states
-  if (statusLower === 'online' || statusLower === 'ok' || statusLower === 'running') {
+  if (['online', 'ok', 'running', 'true', 'connected', 'active', '1'].includes(statusLower)) {
     return 'online';
   }
 
   // Waiting/transitional states
-  if (statusLower === 'waiting' || statusLower === 'connecting' || statusLower === 'pending') {
+  if (['waiting', 'connecting', 'pending'].includes(statusLower)) {
     return 'waiting';
+  }
+
+  // RFC-0109: Bad/weak connection states
+  if (['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(statusLower)) {
+    return 'bad';
   }
 
   // Default to offline
@@ -128,11 +149,18 @@ export function mapConnectionStatus(rawStatus) {
 }
 
 /**
+ * @deprecated Use normalizeConnectionStatus instead
+ */
+export function mapConnectionStatus(rawStatus) {
+  return normalizeConnectionStatus(rawStatus);
+}
+
+/**
  * Maps device status to a simplified card status
  * Used for styling and visual representation
  *
  * @param {string} deviceStatus - The device status
- * @returns {string} Simplified status: 'ok', 'alert', 'fail', or 'unknown'
+ * @returns {string} Simplified status: 'ok', 'alert', 'fail', 'weak', 'unknown', 'offline', 'not_installed'
  */
 export function mapDeviceStatusToCardStatus(deviceStatus) {
   const statusMap = {
@@ -144,7 +172,8 @@ export function mapDeviceStatusToCardStatus(deviceStatus) {
     [DeviceStatusType.MAINTENANCE]: 'alert',
     [DeviceStatusType.NO_INFO]: 'unknown',
     [DeviceStatusType.NOT_INSTALLED]: 'not_installed',
-    [DeviceStatusType.OFFLINE]: 'offline'
+    [DeviceStatusType.OFFLINE]: 'offline',
+    [DeviceStatusType.WEAK_CONNECTION]: 'weak', // RFC-0109
   };
   return statusMap[deviceStatus] || 'unknown';
 }
@@ -161,7 +190,8 @@ export function shouldFlashIcon(deviceStatus) {
     deviceStatus === DeviceStatusType.WARNING ||
     deviceStatus === DeviceStatusType.FAILURE ||
     deviceStatus === DeviceStatusType.MAINTENANCE ||
-    deviceStatus === DeviceStatusType.OFFLINE
+    deviceStatus === DeviceStatusType.OFFLINE ||
+    deviceStatus === DeviceStatusType.WEAK_CONNECTION // RFC-0109
   );
 }
 
@@ -349,29 +379,31 @@ export function calculateDeviceStatus({
   limitOfPowerOnAlertWatts,
   limitOfPowerOnFailureWatts
 }) {
-  // Validate connectionStatus
-  const validConnectionStatuses = ["waiting", "offline", "online"];
-  if (!validConnectionStatuses.includes(connectionStatus)) {
-    return DeviceStatusType.MAINTENANCE;
-  }
+  // RFC-0109: Normalize connectionStatus first
+  const normalizedStatus = normalizeConnectionStatus(connectionStatus);
 
   // If waiting for installation
-  if (connectionStatus === "waiting") {
+  if (normalizedStatus === "waiting") {
     return DeviceStatusType.NOT_INSTALLED;
   }
 
   // If offline
-  if (connectionStatus === "offline") {
+  if (normalizedStatus === "offline") {
     return DeviceStatusType.NO_INFO;
   }
 
+  // RFC-0109: If bad/weak connection
+  if (normalizedStatus === "bad") {
+    return DeviceStatusType.WEAK_CONNECTION;
+  }
+
   // If online but no consumption data
-  if (connectionStatus === "online" && (lastConsumptionValue === null || lastConsumptionValue === undefined)) {
+  if (normalizedStatus === "online" && (lastConsumptionValue === null || lastConsumptionValue === undefined)) {
     return DeviceStatusType.POWER_ON;
   }
 
   // If online with consumption data
-  if (connectionStatus === "online" && lastConsumptionValue !== null && lastConsumptionValue !== undefined) {
+  if (normalizedStatus === "online" && lastConsumptionValue !== null && lastConsumptionValue !== undefined) {
     const consumption = Number(lastConsumptionValue);
 
     // Check if consumption is valid
@@ -492,35 +524,40 @@ export function calculateDeviceStatusWithRanges({
   lastConsumptionValue,
   ranges
 }) {
-  // Validate connectionStatus
-  const validConnectionStatuses = ["waiting", "offline", "online"];
-  if (!validConnectionStatuses.includes(connectionStatus)) {
-    return DeviceStatusType.MAINTENANCE;
-  }
+  // RFC-0109: Normalize connectionStatus first
+  const normalizedStatus = normalizeConnectionStatus(connectionStatus);
 
   // If waiting for installation
-  if (connectionStatus === "waiting") {
+  if (normalizedStatus === "waiting") {
     return DeviceStatusType.NOT_INSTALLED;
   }
 
   // If offline
-  if (connectionStatus === "offline") {
+  if (normalizedStatus === "offline") {
     return DeviceStatusType.NO_INFO;
   }
 
+  // RFC-0109: If bad/weak connection
+  if (normalizedStatus === "bad") {
+    return DeviceStatusType.WEAK_CONNECTION;
+  }
+
   // If online but no consumption data
-  if (connectionStatus === "online" && (lastConsumptionValue === null || lastConsumptionValue === undefined)) {
+  if (normalizedStatus === "online" && (lastConsumptionValue === null || lastConsumptionValue === undefined)) {
     return DeviceStatusType.POWER_ON;
   }
 
-  // Validate ranges object
+  // Validate ranges object - if no ranges, return POWER_ON for online devices
   if (!ranges || !ranges.standbyRange || !ranges.normalRange || !ranges.alertRange || !ranges.failureRange) {
-    console.error('[RFC-0077] Invalid ranges object:', ranges);
+    // No ranges available - just return POWER_ON if online
+    if (normalizedStatus === "online") {
+      return DeviceStatusType.POWER_ON;
+    }
     return DeviceStatusType.MAINTENANCE;
   }
 
   // If online with consumption data
-  if (connectionStatus === "online" && lastConsumptionValue !== null && lastConsumptionValue !== undefined) {
+  if (normalizedStatus === "online" && lastConsumptionValue !== null && lastConsumptionValue !== undefined) {
     const consumption = Number(lastConsumptionValue);
 
     // Check if consumption is valid

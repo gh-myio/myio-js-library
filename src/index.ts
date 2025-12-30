@@ -60,8 +60,10 @@ export {
   ConnectionStatusType,
   deviceStatusIcons,
   waterDeviceStatusIcons,
+  temperatureDeviceStatusIcons,
   connectionStatusIcons,
   mapDeviceToConnectionStatus,
+  normalizeConnectionStatus, // RFC-0109: Normalize raw connectionStatus values
   mapConnectionStatus,
   mapDeviceStatusToCardStatus,
   shouldFlashIcon,
@@ -74,6 +76,21 @@ export {
   calculateDeviceStatus,
   calculateDeviceStatusWithRanges // RFC-0077: Range-based device status calculation
 } from './utils/deviceStatus.js';
+
+// RFC-0109: Device Item Factory utilities
+export {
+  DomainType,
+  DeviceCategory,
+  isTankDevice,
+  isHydrometerDevice,
+  isTemperatureDevice,
+  isEnergyDevice,
+  getDomainFromDeviceType,
+  extractPowerLimitsForDevice,
+  createDeviceItem,
+  createDeviceItemsFromMap,
+  recalculateDeviceStatus
+} from './utils/deviceItem.js';
 
 // ThingsBoard utilities
 export { buildListItemsThingsboardByUniqueDatasource } from './thingsboard/utils/buildListItemsThingsboardByUniqueDatasource';
