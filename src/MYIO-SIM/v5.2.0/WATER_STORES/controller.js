@@ -88,6 +88,7 @@ let waterStoresHeaderController = null;
 let dateUpdateHandler = null;
 let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
 let waterDataReadyHandler = null; // FIX: Handler for myio:water-data-ready from MAIN
+let waterTbDataHandler = null; // RFC-0109: Handler for myio:water-tb-data-ready from MAIN (classified data)
 let MyIO = null;
 let hasRequestedInitialData = false; // Flag to prevent duplicate initial requests
 let lastProcessedPeriodKey = null; // Track last processed periodKey to prevent duplicate processing
@@ -1549,6 +1550,69 @@ self.onInit = async function () {
 
   window.addEventListener('myio:water-data-ready', waterDataReadyHandler);
 
+  // RFC-0109: Listener para dados classificados do MAIN (items já classificados por deviceType/deviceProfile)
+  waterTbDataHandler = function (ev) {
+    const { stores, classification } = ev.detail || {};
+
+    // RFC-0109: Use items already classified by MAIN
+    if (stores && stores.items && stores.items.length > 0) {
+      LogHelper.log(
+        `[WATER_STORES] Received classified data from MAIN: ${stores.items.length} items, total: ${stores.total?.toFixed(2) || 0} m³`
+      );
+      LogHelper.log(`[WATER_STORES] Classification breakdown: ${JSON.stringify(classification || {})}`);
+
+      // RFC-0109: Use items directly from MAIN (already classified as loja)
+      STATE.itemsBase = stores.items.map((item) => ({
+        id: item.tbId || item.ingestionId,
+        tbId: item.tbId,
+        ingestionId: item.ingestionId,
+        identifier: item.identifier,
+        label: item.label,
+        slaveId: item.slaveId || null,
+        centralId: item.centralId || null,
+        centralName: item.centralName || null,
+        deviceType: item.deviceType || 'HIDROMETRO',
+        deviceProfile: item.deviceProfile || 'HIDROMETRO',
+        updatedIdentifiers: {},
+        connectionStatusTime: item.lastConnectTime || null,
+        timeVal: item.lastActivityTime || null,
+        lastDisconnectTime: item.lastDisconnectTime || null,
+        lastConnectTime: item.lastConnectTime || null,
+        deviceMapInstaneousPower: item.deviceMapInstaneousPower || null,
+        customerId: item.customerId || null,
+        connectionStatus: item.connectionStatus || 'offline',
+        pulses: item.pulses || null,
+        ownerName: item.ownerName || null,
+      }));
+
+      // RFC-0109: Enrich with values from MAIN
+      STATE.itemsEnriched = STATE.itemsBase.map((item) => {
+        const sourceItem = stores.items.find((i) => i.tbId === item.tbId || i.ingestionId === item.ingestionId);
+        return {
+          ...item,
+          value: sourceItem?.value || 0,
+          perc: 0,
+        };
+      });
+
+      LogHelper.log(`[WATER_STORES] Built ${STATE.itemsBase.length} items from MAIN classified data`);
+      reflowFromState();
+      hideBusy();
+    }
+  };
+  window.addEventListener('myio:water-tb-data-ready', waterTbDataHandler);
+
+  // RFC-0109: Check for cached classified data (event may have fired before widget loaded)
+  const cachedClassified = window.MyIOOrchestratorData?.waterClassified;
+  if (cachedClassified?.stores?.items?.length > 0) {
+    const cacheAge = Date.now() - (cachedClassified.timestamp || 0);
+    if (cacheAge < 60000) { // Use cache if less than 60 seconds old
+      LogHelper.log(`[WATER_STORES] Found cached classified data (${cachedClassified.stores.items.length} items, age: ${cacheAge}ms)`);
+      // Simulate event with cached data
+      waterTbDataHandler({ detail: cachedClassified });
+    }
+  }
+
   // RFC-0094: Use credentials from MAIN via MyIOUtils (already fetched by MAIN)
   const jwt = localStorage.getItem('jwt_token');
 
@@ -1665,6 +1729,10 @@ self.onDestroy = function () {
   if (waterDataReadyHandler) {
     window.removeEventListener('myio:water-data-ready', waterDataReadyHandler);
     LogHelper.log("[WATER_STORES] Event listener 'myio:water-data-ready' removido.");
+  }
+  if (waterTbDataHandler) {
+    window.removeEventListener('myio:water-tb-data-ready', waterTbDataHandler);
+    LogHelper.log("[WATER_STORES] Event listener 'myio:water-tb-data-ready' removido.");
   }
 
   // RFC-0094: Cleanup header controller

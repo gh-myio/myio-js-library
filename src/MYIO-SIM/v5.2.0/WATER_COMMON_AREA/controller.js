@@ -1563,46 +1563,67 @@ self.onInit = async function () {
 
   window.addEventListener('myio:water-data-ready', waterDataReadyHandler);
 
-  // Listener para dados TB centralizados do MAIN (datasources HidrometrosAreaComum)
+  // RFC-0109: Listener para dados classificados do MAIN (items já classificados por deviceType/deviceProfile)
   waterTbDataHandler = (ev) => {
-    const { commonArea } = ev.detail || {};
-    if (commonArea && commonArea.datasources) {
-      mainWaterData = {
-        datasources: commonArea.datasources,
-        data: commonArea.data,
-        ids: commonArea.ids,
-        loaded: true,
-      };
+    const { commonArea, classification } = ev.detail || {};
+
+    // RFC-0109: Use items already classified by MAIN
+    if (commonArea && commonArea.items && commonArea.items.length > 0) {
       LogHelper.log(
-        `[WATER_COMMON_AREA] Received TB data from MAIN: ${commonArea.datasources.length} datasources, ${commonArea.ids.length} IDs`
+        `[WATER_COMMON_AREA] Received classified data from MAIN: ${commonArea.items.length} items, total: ${commonArea.total?.toFixed(2) || 0} m³`
       );
+      LogHelper.log(`[WATER_COMMON_AREA] Classification breakdown: ${JSON.stringify(classification || {})}`);
 
-      // Rebuild items with new data
-      STATE.itemsBase = buildAuthoritativeItems();
-      LogHelper.log(`[WATER_COMMON_AREA] Rebuilt ${STATE.itemsBase.length} items from MAIN data`);
+      // RFC-0109: Use items directly from MAIN (already classified as areacomum)
+      STATE.itemsBase = commonArea.items.map((item) => ({
+        id: item.tbId || item.ingestionId,
+        tbId: item.tbId,
+        ingestionId: item.ingestionId,
+        identifier: item.identifier,
+        label: item.label,
+        slaveId: item.slaveId || null,
+        centralId: item.centralId || null,
+        centralName: item.centralName || null,
+        deviceType: item.deviceType || 'HIDROMETRO_AREA_COMUM',
+        deviceProfile: item.deviceProfile || 'HIDROMETRO_AREA_COMUM',
+        updatedIdentifiers: {},
+        connectionStatusTime: item.lastConnectTime || null,
+        timeVal: item.lastActivityTime || null,
+        lastDisconnectTime: item.lastDisconnectTime || null,
+        lastConnectTime: item.lastConnectTime || null,
+        deviceMapInstaneousPower: item.deviceMapInstaneousPower || null,
+        customerId: item.customerId || null,
+        connectionStatus: item.connectionStatus || 'offline',
+        pulses: item.pulses || null,
+        ownerName: item.ownerName || null,
+      }));
 
-      // Se já tiver cache de água disponível, enriquecer e renderizar
-      const waterCache = window.MyIOOrchestrator?.getWaterCache?.();
-      if (waterCache && waterCache.size > 0) {
-        STATE.itemsEnriched = enrichItemsWithTotals(STATE.itemsBase, waterCache);
-        reflowFromState();
-      }
+      // RFC-0109: Enrich with values from MAIN
+      STATE.itemsEnriched = STATE.itemsBase.map((item) => {
+        const sourceItem = commonArea.items.find((i) => i.tbId === item.tbId || i.ingestionId === item.ingestionId);
+        return {
+          ...item,
+          value: sourceItem?.value || 0,
+          perc: 0,
+        };
+      });
+
+      LogHelper.log(`[WATER_COMMON_AREA] Built ${STATE.itemsBase.length} items from MAIN classified data`);
+      reflowFromState();
+      hideBusy();
     }
   };
   window.addEventListener('myio:water-tb-data-ready', waterTbDataHandler);
 
-  // Verificar se os dados já estão disponíveis (evento já disparado antes do widget carregar)
-  const cachedTbData = window.MyIOUtils?.getWaterTbData?.();
-  if (cachedTbData?.loaded && cachedTbData?.commonArea?.datasources?.length > 0) {
-    LogHelper.log('[WATER_COMMON_AREA] Found cached TB data from MAIN, loading...');
-    mainWaterData = {
-      datasources: cachedTbData.commonArea.datasources,
-      data: cachedTbData.commonArea.data,
-      ids: cachedTbData.commonArea.ids,
-      loaded: true,
-    };
-    STATE.itemsBase = buildAuthoritativeItems();
-    LogHelper.log(`[WATER_COMMON_AREA] Built ${STATE.itemsBase.length} items from cached MAIN data`);
+  // RFC-0109: Check for cached classified data (event may have fired before widget loaded)
+  const cachedClassified = window.MyIOOrchestratorData?.waterClassified;
+  if (cachedClassified?.commonArea?.items?.length > 0) {
+    const cacheAge = Date.now() - (cachedClassified.timestamp || 0);
+    if (cacheAge < 60000) { // Use cache if less than 60 seconds old
+      LogHelper.log(`[WATER_COMMON_AREA] Found cached classified data (${cachedClassified.commonArea.items.length} items, age: ${cacheAge}ms)`);
+      // Simulate event with cached data
+      waterTbDataHandler({ detail: cachedClassified });
+    }
   }
 
   // RFC-0094: Use credentials from MAIN via MyIOUtils (already fetched by MAIN)
