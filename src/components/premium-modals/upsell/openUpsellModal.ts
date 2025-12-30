@@ -2289,12 +2289,14 @@ function setupEventListeners(
   document.getElementById(`${modalId}-load-attrs`)?.addEventListener('click', async () => {
     if (state.attrsLoading) return;
 
+    console.log('[UpsellModal] Load attrs clicked - mode:', state.deviceSelectionMode, 'selected:', state.selectedDevices.length);
+
     let devicesToLoad: Device[];
 
     // Priority 1: If multi-select mode with selected devices, load only those
     if (state.deviceSelectionMode === 'multi' && state.selectedDevices.length > 0) {
-      devicesToLoad = state.selectedDevices;
-      console.log('[UpsellModal] Loading attrs for selected devices:', devicesToLoad.length);
+      devicesToLoad = [...state.selectedDevices]; // Clone array
+      console.log('[UpsellModal] Loading attrs for SELECTED devices only:', devicesToLoad.length);
     } else {
       // Priority 2: Apply filters (search term, types, deviceTypes, deviceProfiles)
       const { types: filterTypes, deviceTypes: filterDeviceTypes, deviceProfiles: filterDeviceProfiles } = state.deviceFilters;
@@ -2345,12 +2347,14 @@ function setupEventListeners(
   document.getElementById(`${modalId}-load-telemetry`)?.addEventListener('click', async () => {
     if (state.telemetryLoading) return;
 
+    console.log('[UpsellModal] Load telemetry clicked - mode:', state.deviceSelectionMode, 'selected:', state.selectedDevices.length);
+
     let devicesToLoad: Device[];
 
     // Priority 1: If multi-select mode with selected devices, load only those
     if (state.deviceSelectionMode === 'multi' && state.selectedDevices.length > 0) {
-      devicesToLoad = state.selectedDevices;
-      console.log('[UpsellModal] Loading telemetry for selected devices:', devicesToLoad.length);
+      devicesToLoad = [...state.selectedDevices]; // Clone array
+      console.log('[UpsellModal] Loading telemetry for SELECTED devices only:', devicesToLoad.length);
     } else {
       // Priority 2: Apply filters (search term, types, deviceTypes, deviceProfiles)
       const { types: filterTypes, deviceTypes: filterDeviceTypes, deviceProfiles: filterDeviceProfiles } = state.deviceFilters;
