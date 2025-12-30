@@ -64,7 +64,8 @@ export {
   connectionStatusIcons,
   mapDeviceToConnectionStatus,
   normalizeConnectionStatus, // RFC-0109: Normalize raw connectionStatus values
-  isConnectionStale, // RFC-0110: Check if connection is stale based on timestamps
+  isTelemetryStale, // RFC-0110: Check if telemetry is stale based on timestamps (preferred)
+  isConnectionStale, // @deprecated - use isTelemetryStale instead
   mapConnectionStatus,
   mapDeviceStatusToCardStatus,
   shouldFlashIcon,
@@ -74,8 +75,8 @@ export {
   isValidDeviceStatus,
   isValidConnectionStatus,
   getDeviceStatusInfo,
-  calculateDeviceStatus,
-  calculateDeviceStatusWithRanges // RFC-0077: Range-based device status calculation
+  calculateDeviceStatus, // RFC-0110: Unified device status calculation with telemetry timestamps
+  calculateDeviceStatusWithRanges // @deprecated - use calculateDeviceStatus with ranges parameter
 } from './utils/deviceStatus.js';
 
 // RFC-0109: Device Item Factory utilities

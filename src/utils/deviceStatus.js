@@ -149,58 +149,63 @@ export function normalizeConnectionStatus(rawStatus) {
 }
 
 /**
- * RFC-0110: Verifica se a conexão está obsoleta baseado no timestamp do connectionStatus
- * Usado para determinar se um device realmente está offline.
- * Se o ThingsBoard não atualizou o connectionStatus há mais de X minutos,
- * o device é considerado stale (sem comunicação recente).
+ * RFC-0110: Check if telemetry timestamp indicates stale connection
+ * Uses telemetry timestamp as the primary source of truth (not connectionStatusTs).
  *
- * @param {Object} params
- * @param {number|Date|null} params.connectionStatusTs - Timestamp do connectionStatus do ThingsBoard
- * @param {number|Date|null} params.lastActivityTime - Fallback: timestamp da última atividade
- * @param {number} [params.delayTimeConnectionInMins=60] - Tempo em minutos para considerar conexão obsoleta
- * @returns {boolean} true se conexão está obsoleta (deve ser considerado offline)
+ * Rationale: ThingsBoard updates connectionStatusTs frequently (~1min) even when
+ * device is offline. Telemetry (consumption/pulses/temperature) only updates when
+ * the device actually sends data, making it a reliable indicator of activity.
  *
- * @example
- * // Device com status atualizado recentemente → não stale
- * isConnectionStale({
- *   connectionStatusTs: Date.now() - 30 * 60 * 1000, // 30 min atrás
- *   delayTimeConnectionInMins: 60
- * }); // Returns false
+ * @param {number|Date|null} telemetryTimestamp - Primary: timestamp from telemetry data
+ * @param {number|Date|null} lastActivityTime - Fallback: ThingsBoard lastActivityTime
+ * @param {number} [delayMins=1440] - Threshold in minutes (default: 24 hours)
+ * @returns {boolean} true if telemetry is stale (device should be considered offline)
  *
  * @example
- * // Device com status antigo (> 60 min) → stale
- * isConnectionStale({
- *   connectionStatusTs: Date.now() - 90 * 60 * 1000, // 90 min atrás
- *   delayTimeConnectionInMins: 60
- * }); // Returns true
+ * // Recent telemetry (30 min ago) → not stale
+ * isTelemetryStale(Date.now() - 30 * 60 * 1000, null, 1440); // false
+ *
+ * @example
+ * // Old telemetry (25 hours ago) → stale
+ * isTelemetryStale(Date.now() - 25 * 60 * 60 * 1000, null, 1440); // true
  */
-export function isConnectionStale({
-  connectionStatusTs = null,
-  lastActivityTime = null,
-  delayTimeConnectionInMins = 60,
-} = {}) {
-  // RFC-0110: Use connectionStatusTs (preferred) or lastActivityTime as fallback
-  const timestamp = connectionStatusTs || lastActivityTime;
+export function isTelemetryStale(telemetryTimestamp, lastActivityTime = null, delayMins = 1440) {
+  // Use telemetryTimestamp or lastActivityTime as fallback
+  const timestamp = telemetryTimestamp || lastActivityTime;
 
-  // Se não há timestamp, não podemos verificar - assume não stale (online)
+  // No timestamp available = assume not stale (conservative approach)
   if (!timestamp) {
     return false;
   }
 
   const lastUpdate = new Date(timestamp);
   const now = new Date();
-  const delayMs = delayTimeConnectionInMins * 60 * 1000;
+  const delayMs = delayMins * 60 * 1000;
 
-  // RFC-0110: Verificar se o timestamp está dentro do delay
   const timeSinceUpdate = now.getTime() - lastUpdate.getTime();
 
-  if (timeSinceUpdate > delayMs) {
-    // Última atualização foi há mais de [delay] minutos → stale/offline
-    return true;
-  }
+  return timeSinceUpdate > delayMs;
+}
 
-  // Atualização recente (dentro do delay) → não é stale
-  return false;
+/**
+ * @deprecated Use isTelemetryStale() instead. This function is kept for backward compatibility.
+ *
+ * RFC-0110: Verifica se a conexão está obsoleta baseado no timestamp do connectionStatus
+ * DEPRECATED: connectionStatusTs is unreliable - ThingsBoard updates it even when device is offline.
+ *
+ * @param {Object} params
+ * @param {number|Date|null} params.connectionStatusTs - Timestamp do connectionStatus do ThingsBoard
+ * @param {number|Date|null} params.lastActivityTime - Fallback: timestamp da última atividade
+ * @param {number} [params.delayTimeConnectionInMins=1440] - Tempo em minutos para considerar conexão obsoleta
+ * @returns {boolean} true se conexão está obsoleta (deve ser considerado offline)
+ */
+export function isConnectionStale({
+  connectionStatusTs = null,
+  lastActivityTime = null,
+  delayTimeConnectionInMins = 1440,
+} = {}) {
+  // Delegate to new function
+  return isTelemetryStale(connectionStatusTs, lastActivityTime, delayTimeConnectionInMins);
 }
 
 /**
@@ -347,163 +352,138 @@ export function getDeviceStatusInfo(deviceStatus) {
 }
 
 /**
- * Calculates device status based on connection status and power consumption
+ * RFC-0110: Unified device status calculation based on telemetry timestamps.
+ *
+ * This function determines device status using:
+ * 1. connectionStatus for immediate states (waiting, bad)
+ * 2. telemetryTimestamp for stale/offline detection
+ * 3. telemetryValue for operational status (standby, power_on, warning, failure)
  *
  * @param {Object} params - Configuration object
- * @param {string} params.connectionStatus - Connection status: "waiting", "offline", or "online"
- * @param {number|null} params.lastConsumptionValue - Last power consumption value in watts
- * @param {number} params.limitOfPowerOnStandByWatts - Upper limit for standby mode in watts
- * @param {number} params.limitOfPowerOnAlertWatts - Upper limit for warning mode in watts
- * @param {number} params.limitOfPowerOnFailureWatts - Upper limit for failure mode in watts
+ * @param {string} params.connectionStatus - Connection status: "waiting", "offline", "bad", or "online"
+ * @param {string} [params.domain='energy'] - Device domain: 'energy', 'water', or 'temperature'
+ * @param {number|null} [params.telemetryValue] - Telemetry value (consumption/pulses/temperature)
+ * @param {number|null} [params.telemetryTimestamp] - Unix timestamp (ms) of the telemetry
+ * @param {number|null} [params.lastActivityTime] - Fallback: ThingsBoard lastActivityTime
+ * @param {Object} [params.ranges] - Consumption ranges for status calculation
+ * @param {number} [params.delayTimeConnectionInMins=1440] - Stale threshold in minutes (default: 24h)
+ * @param {number|null} [params.lastConsumptionValue] - @deprecated Use telemetryValue instead
+ * @param {number} [params.limitOfPowerOnStandByWatts] - @deprecated Use ranges instead
+ * @param {number} [params.limitOfPowerOnAlertWatts] - @deprecated Use ranges instead
+ * @param {number} [params.limitOfPowerOnFailureWatts] - @deprecated Use ranges instead
  * @returns {string} Device status from DeviceStatusType enum
  *
  * @example
- * // Device is waiting for installation
- * calculateDeviceStatus({
- *   connectionStatus: "waiting",
- *   lastConsumptionValue: null,
- *   limitOfPowerOnStandByWatts: 100,
- *   limitOfPowerOnAlertWatts: 1000,
- *   limitOfPowerOnFailureWatts: 2000
- * }); // Returns "not_installed"
- *
- * @example
- * // Device is offline
- * calculateDeviceStatus({
- *   connectionStatus: "offline",
- *   lastConsumptionValue: null,
- *   limitOfPowerOnStandByWatts: 100,
- *   limitOfPowerOnAlertWatts: 1000,
- *   limitOfPowerOnFailureWatts: 2000
- * }); // Returns "no_info"
- *
- * @example
- * // Device is online but no consumption data
+ * // RFC-0110: New recommended usage
  * calculateDeviceStatus({
  *   connectionStatus: "online",
- *   lastConsumptionValue: null,
- *   limitOfPowerOnStandByWatts: 100,
- *   limitOfPowerOnAlertWatts: 1000,
- *   limitOfPowerOnFailureWatts: 2000
+ *   domain: "energy",
+ *   telemetryValue: 500,
+ *   telemetryTimestamp: Date.now() - 60000, // 1 min ago
+ *   ranges: {
+ *     standbyRange: { down: 0, up: 100 },
+ *     normalRange: { down: 100, up: 1000 },
+ *     alertRange: { down: 1000, up: 2000 },
+ *     failureRange: { down: 2000, up: 99999 }
+ *   },
+ *   delayTimeConnectionInMins: 1440
  * }); // Returns "power_on"
- *
- * @example
- * // Device in standby mode
- * calculateDeviceStatus({
- *   connectionStatus: "online",
- *   lastConsumptionValue: 50,
- *   limitOfPowerOnStandByWatts: 100,
- *   limitOfPowerOnAlertWatts: 1000,
- *   limitOfPowerOnFailureWatts: 2000
- * }); // Returns "standby"
- *
- * @example
- * // Device with normal operation (power_on)
- * calculateDeviceStatus({
- *   connectionStatus: "online",
- *   lastConsumptionValue: 500,
- *   limitOfPowerOnStandByWatts: 100,
- *   limitOfPowerOnAlertWatts: 1000,
- *   limitOfPowerOnFailureWatts: 2000
- * }); // Returns "power_on"
- *
- * @example
- * // Device with warning consumption
- * calculateDeviceStatus({
- *   connectionStatus: "online",
- *   lastConsumptionValue: 1500,
- *   limitOfPowerOnStandByWatts: 100,
- *   limitOfPowerOnAlertWatts: 1000,
- *   limitOfPowerOnFailureWatts: 2000
- * }); // Returns "warning"
- *
- * @example
- * // Device with failure consumption
- * calculateDeviceStatus({
- *   connectionStatus: "online",
- *   lastConsumptionValue: 2500,
- *   limitOfPowerOnStandByWatts: 100,
- *   limitOfPowerOnAlertWatts: 1000,
- *   limitOfPowerOnFailureWatts: 2000
- * }); // Returns "failure"
  */
 export function calculateDeviceStatus({
   connectionStatus,
-  lastConsumptionValue,
-  limitOfPowerOnStandByWatts,
-  limitOfPowerOnAlertWatts,
-  limitOfPowerOnFailureWatts,
-  // RFC-0110: Optional timestamp parameters for stale connection detection
+  // RFC-0110: New parameters
+  domain = 'energy',
+  telemetryValue = null,
+  telemetryTimestamp = null,
+  lastActivityTime = null,
+  ranges = null,
+  delayTimeConnectionInMins = 1440,
+  // Legacy parameters (backward compatibility)
+  lastConsumptionValue = null,
+  limitOfPowerOnStandByWatts = null,
+  limitOfPowerOnAlertWatts = null,
+  limitOfPowerOnFailureWatts = null,
+  // @deprecated - kept for backward compatibility
   lastConnectTime = null,
   lastDisconnectTime = null,
-  delayTimeConnectionInMins = 60,
 }) {
   // RFC-0109: Normalize connectionStatus first
   const normalizedStatus = normalizeConnectionStatus(connectionStatus);
 
-  // If waiting for installation
+  // 1. WAITING → NOT_INSTALLED (absolute priority)
   if (normalizedStatus === "waiting") {
     return DeviceStatusType.NOT_INSTALLED;
   }
 
-  // RFC-0109: If bad/weak connection
+  // 2. BAD → WEAK_CONNECTION (not offline)
   if (normalizedStatus === "bad") {
     return DeviceStatusType.WEAK_CONNECTION;
   }
 
-  // RFC-0110: Check if connection is stale (timestamp too old)
-  const connectionStale = isConnectionStale({
-    lastConnectTime,
-    lastDisconnectTime,
-    delayTimeConnectionInMins,
-  });
+  // 3. RFC-0110: Check if telemetry is stale
+  // Use telemetryTimestamp as primary, lastActivityTime as fallback
+  // Also accept deprecated lastConnectTime/lastDisconnectTime for backward compatibility
+  const timestampToCheck = telemetryTimestamp || lastActivityTime || lastConnectTime || lastDisconnectTime;
+  const telemetryStale = isTelemetryStale(timestampToCheck, null, delayTimeConnectionInMins);
 
-  // RFC-0110: Device is truly offline only if connectionStatus says "offline" AND timestamp is stale
-  if (normalizedStatus === "offline") {
-    if (connectionStale) {
-      // Stale timestamp - truly offline
-      return DeviceStatusType.OFFLINE;
-    }
-    // Fresh timestamp - device recently connected, continue to consumption-based calculation
-    // (treat as effectively online)
-  }
-
-  // RFC-0110: If "online" but timestamp is stale → offline
-  if (connectionStale && normalizedStatus === "online") {
+  // 4. If connectionStatus = offline AND telemetry is stale → OFFLINE
+  if (normalizedStatus === "offline" && telemetryStale) {
     return DeviceStatusType.OFFLINE;
   }
 
-  // Device is effectively online (either connectionStatus=online, or offline with fresh timestamp)
-  // If no consumption data
-  if (lastConsumptionValue === null || lastConsumptionValue === undefined) {
+  // 5. If connectionStatus = online BUT telemetry is stale → OFFLINE
+  if (normalizedStatus === "online" && telemetryStale) {
+    return DeviceStatusType.OFFLINE;
+  }
+
+  // 6. Device is effectively online - calculate status from telemetry value
+  // Support both new (telemetryValue) and legacy (lastConsumptionValue) parameters
+  const value = telemetryValue ?? lastConsumptionValue;
+
+  // If no value data, return POWER_ON for online devices
+  if (value === null || value === undefined) {
     return DeviceStatusType.POWER_ON;
   }
 
-  // With consumption data
-  if (lastConsumptionValue !== null && lastConsumptionValue !== undefined) {
-    const consumption = Number(lastConsumptionValue);
+  const consumption = Number(value);
 
-    // Check if consumption is valid
-    if (isNaN(consumption)) {
+  // Check if value is valid
+  if (isNaN(consumption)) {
+    return DeviceStatusType.MAINTENANCE;
+  }
+
+  // If ranges provided, use range-based calculation
+  if (ranges && ranges.standbyRange && ranges.normalRange && ranges.alertRange && ranges.failureRange) {
+    const { standbyRange, normalRange, alertRange, failureRange } = ranges;
+
+    if (consumption >= standbyRange.down && consumption <= standbyRange.up) {
+      return DeviceStatusType.STANDBY;
+    }
+    if (consumption >= normalRange.down && consumption <= normalRange.up) {
+      return DeviceStatusType.POWER_ON;
+    }
+    if (consumption >= alertRange.down && consumption <= alertRange.up) {
+      return DeviceStatusType.WARNING;
+    }
+    if (consumption >= failureRange.down || consumption > failureRange.up) {
+      return DeviceStatusType.FAILURE;
+    }
+    if (consumption < standbyRange.down) {
       return DeviceStatusType.MAINTENANCE;
     }
+  }
 
-    // Standby: 0 <= consumption <= limitOfPowerOnStandByWatts
+  // Legacy limit-based calculation (backward compatibility)
+  if (limitOfPowerOnStandByWatts !== null) {
     if (consumption >= 0 && consumption <= limitOfPowerOnStandByWatts) {
       return DeviceStatusType.STANDBY;
     }
-
-    // Power On (Normal): consumption > limitOfPowerOnStandByWatts && consumption <= limitOfPowerOnAlertWatts
     if (consumption > limitOfPowerOnStandByWatts && consumption <= limitOfPowerOnAlertWatts) {
       return DeviceStatusType.POWER_ON;
     }
-
-    // Warning: consumption > limitOfPowerOnAlertWatts && consumption <= limitOfPowerOnFailureWatts
     if (consumption > limitOfPowerOnAlertWatts && consumption <= limitOfPowerOnFailureWatts) {
       return DeviceStatusType.WARNING;
     }
-
-    // Failure: consumption > limitOfPowerOnFailureWatts
     if (consumption > limitOfPowerOnFailureWatts) {
       return DeviceStatusType.FAILURE;
     }
@@ -514,186 +494,42 @@ export function calculateDeviceStatus({
 }
 
 /**
+ * @deprecated Use calculateDeviceStatus() with ranges parameter instead.
+ *
  * RFC-0077: Calculates device status based on connection status and consumption ranges
- * This function uses range-based thresholds instead of single limit values
+ * This function uses range-based thresholds instead of single limit values.
+ *
+ * NOTE: This is now a wrapper around calculateDeviceStatus() for backward compatibility.
  *
  * @param {Object} params - Configuration object
  * @param {string} params.connectionStatus - Connection status: "waiting", "offline", or "online"
  * @param {number|null} params.lastConsumptionValue - Last power consumption value in watts
- * @param {Object} params.ranges - Consumption ranges object with standbyRange, normalRange, alertRange, failureRange
- * @param {Object} params.ranges.standbyRange - Standby range: { down: number, up: number }
- * @param {Object} params.ranges.normalRange - Normal range: { down: number, up: number }
- * @param {Object} params.ranges.alertRange - Alert range: { down: number, up: number }
- * @param {Object} params.ranges.failureRange - Failure range: { down: number, up: number }
- * @param {string} [params.ranges.source] - Optional source indicator: "device", "customer", or "hardcoded"
- * @param {number} [params.ranges.tier] - Optional tier number: 1 (device), 2 (customer), or 3 (hardcoded)
+ * @param {Object} params.ranges - Consumption ranges object
+ * @param {number|null} [params.telemetryTimestamp] - RFC-0110: Timestamp of telemetry
+ * @param {number|null} [params.lastActivityTime] - RFC-0110: Fallback timestamp
+ * @param {number} [params.delayTimeConnectionInMins=1440] - RFC-0110: Stale threshold (default 24h)
  * @returns {string} Device status from DeviceStatusType enum
- *
- * @example
- * // Device is waiting for installation
- * calculateDeviceStatusWithRanges({
- *   connectionStatus: "waiting",
- *   lastConsumptionValue: null,
- *   ranges: {
- *     standbyRange: { down: 0, up: 150 },
- *     normalRange: { down: 150, up: 800 },
- *     alertRange: { down: 800, up: 1200 },
- *     failureRange: { down: 1200, up: 99999 }
- *   }
- * }); // Returns "not_installed"
- *
- * @example
- * // Device in standby mode
- * calculateDeviceStatusWithRanges({
- *   connectionStatus: "online",
- *   lastConsumptionValue: 50,
- *   ranges: {
- *     standbyRange: { down: 0, up: 150 },
- *     normalRange: { down: 150, up: 800 },
- *     alertRange: { down: 800, up: 1200 },
- *     failureRange: { down: 1200, up: 99999 }
- *   }
- * }); // Returns "standby"
- *
- * @example
- * // Device with normal operation (power_on)
- * calculateDeviceStatusWithRanges({
- *   connectionStatus: "online",
- *   lastConsumptionValue: 500,
- *   ranges: {
- *     standbyRange: { down: 0, up: 150 },
- *     normalRange: { down: 150, up: 800 },
- *     alertRange: { down: 800, up: 1200 },
- *     failureRange: { down: 1200, up: 99999 }
- *   }
- * }); // Returns "power_on"
- *
- * @example
- * // Device with warning consumption
- * calculateDeviceStatusWithRanges({
- *   connectionStatus: "online",
- *   lastConsumptionValue: 1000,
- *   ranges: {
- *     standbyRange: { down: 0, up: 150 },
- *     normalRange: { down: 150, up: 800 },
- *     alertRange: { down: 800, up: 1200 },
- *     failureRange: { down: 1200, up: 99999 }
- *   }
- * }); // Returns "warning"
- *
- * @example
- * // Device with failure consumption
- * calculateDeviceStatusWithRanges({
- *   connectionStatus: "online",
- *   lastConsumptionValue: 2500,
- *   ranges: {
- *     standbyRange: { down: 0, up: 150 },
- *     normalRange: { down: 150, up: 800 },
- *     alertRange: { down: 800, up: 1200 },
- *     failureRange: { down: 1200, up: 99999 },
- *     source: "device",
- *     tier: 1
- *   }
- * }); // Returns "failure"
  */
 export function calculateDeviceStatusWithRanges({
   connectionStatus,
   lastConsumptionValue,
   ranges,
-  // RFC-0110: Optional timestamp parameters for stale connection detection
+  // RFC-0110: New parameters
+  telemetryTimestamp = null,
+  lastActivityTime = null,
+  delayTimeConnectionInMins = 1440,
+  // @deprecated - kept for backward compatibility
   lastConnectTime = null,
   lastDisconnectTime = null,
-  delayTimeConnectionInMins = 60,
 }) {
-  // RFC-0109: Normalize connectionStatus first
-  const normalizedStatus = normalizeConnectionStatus(connectionStatus);
-
-  // If waiting for installation
-  if (normalizedStatus === "waiting") {
-    return DeviceStatusType.NOT_INSTALLED;
-  }
-
-  // RFC-0109: If bad/weak connection
-  if (normalizedStatus === "bad") {
-    return DeviceStatusType.WEAK_CONNECTION;
-  }
-
-  // RFC-0110: Check if connection is stale (timestamp too old)
-  const connectionStale = isConnectionStale({
-    lastConnectTime,
-    lastDisconnectTime,
+  // Delegate to unified calculateDeviceStatus function
+  return calculateDeviceStatus({
+    connectionStatus,
+    domain: 'energy',
+    telemetryValue: lastConsumptionValue,
+    telemetryTimestamp: telemetryTimestamp || lastConnectTime || lastDisconnectTime,
+    lastActivityTime,
+    ranges,
     delayTimeConnectionInMins,
   });
-
-  // RFC-0110: Device is truly offline only if connectionStatus says "offline" AND timestamp is stale
-  if (normalizedStatus === "offline") {
-    if (connectionStale) {
-      // Stale timestamp - truly offline
-      return DeviceStatusType.OFFLINE;
-    }
-    // Fresh timestamp - device recently connected, continue to consumption-based calculation
-    // (treat as effectively online)
-  }
-
-  // RFC-0110: If "online" but timestamp is stale → offline
-  if (connectionStale && normalizedStatus === "online") {
-    return DeviceStatusType.OFFLINE;
-  }
-
-  // Device is effectively online (either connectionStatus=online, or offline with fresh timestamp)
-  // If no consumption data
-  if (lastConsumptionValue === null || lastConsumptionValue === undefined) {
-    return DeviceStatusType.POWER_ON;
-  }
-
-  // Validate ranges object - if no ranges, return POWER_ON for online devices
-  if (!ranges || !ranges.standbyRange || !ranges.normalRange || !ranges.alertRange || !ranges.failureRange) {
-    return DeviceStatusType.POWER_ON;
-  }
-
-  // With consumption data
-  if (lastConsumptionValue !== null && lastConsumptionValue !== undefined) {
-    const consumption = Number(lastConsumptionValue);
-
-    // Check if consumption is valid
-    if (isNaN(consumption)) {
-      return DeviceStatusType.MAINTENANCE;
-    }
-
-    // Extract ranges
-    const { standbyRange, normalRange, alertRange, failureRange } = ranges;
-
-    // Standby: consumption is within standbyRange
-    if (consumption >= standbyRange.down && consumption <= standbyRange.up) {
-      return DeviceStatusType.STANDBY;
-    }
-
-    // Power On (Normal): consumption is within normalRange
-    if (consumption >= normalRange.down && consumption <= normalRange.up) {
-      return DeviceStatusType.POWER_ON;
-    }
-
-    // Warning: consumption is within alertRange
-    if (consumption >= alertRange.down && consumption <= alertRange.up) {
-      return DeviceStatusType.WARNING;
-    }
-
-    // Failure: consumption is within failureRange
-    if (consumption >= failureRange.down && consumption <= failureRange.up) {
-      return DeviceStatusType.FAILURE;
-    }
-
-    // If consumption doesn't fit any range, check if it's above failure range
-    if (consumption > failureRange.up) {
-      return DeviceStatusType.FAILURE;
-    }
-
-    // If consumption is below standby range (negative or unexpected)
-    if (consumption < standbyRange.down) {
-      return DeviceStatusType.MAINTENANCE;
-    }
-  }
-
-  // Fallback
-  return DeviceStatusType.MAINTENANCE;
 }

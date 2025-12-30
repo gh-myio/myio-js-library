@@ -13,8 +13,10 @@ import {
   DeviceStatusType,
   ConnectionStatusType,
   normalizeConnectionStatus,
-  isConnectionStale,
+  isTelemetryStale,
+  isConnectionStale, // @deprecated - kept for backward compatibility
   calculateDeviceStatusWithRanges,
+  calculateDeviceStatus,
 } from './deviceStatus.js';
 
 /**
@@ -173,9 +175,12 @@ export function extractPowerLimitsForDevice(mapInstantaneousPower, deviceType, m
  * @property {string} [centralId] - Central/gateway ID
  * @property {string} [centralName] - Central/gateway name
  * @property {string} [slaveId] - Slave/modbus ID
- * @property {number} [lastActivityTime] - Last activity timestamp
- * @property {number} [lastConnectTime] - Last connect timestamp
- * @property {number} [lastDisconnectTime] - Last disconnect timestamp
+ * @property {number} [lastActivityTime] - Last activity timestamp (fallback for RFC-0110)
+ * @property {number} [lastConnectTime] - Last connect timestamp (deprecated)
+ * @property {number} [lastDisconnectTime] - Last disconnect timestamp (deprecated)
+ * @property {number} [consumptionTs] - RFC-0110: Timestamp of consumption telemetry
+ * @property {number} [pulsesTs] - RFC-0110: Timestamp of pulses telemetry (water)
+ * @property {number} [temperatureTs] - RFC-0110: Timestamp of temperature telemetry
  * @property {string} [log_annotations] - JSON string of annotations
  * @property {number} [temperature] - Temperature reading (for temp sensors)
  * @property {number} [waterLevel] - Water level (for tanks)
@@ -275,8 +280,8 @@ export function createDeviceItem(entityId, meta, options = {}) {
     apiRow = null,
     globalMapInstantaneousPower = null,
     temperatureLimits = null,
-    // RFC-0110: Configurable delay time for stale connection detection (default 60 min)
-    delayTimeConnectionInMins = 60,
+    // RFC-0110: Configurable delay time for stale telemetry detection (default 1440 min = 24h)
+    delayTimeConnectionInMins = 1440,
   } = options;
 
   // Normalize values
@@ -302,6 +307,11 @@ export function createDeviceItem(entityId, meta, options = {}) {
   // Calculate device status
   let deviceStatus = DeviceStatusType.NO_INFO;
 
+  // RFC-0110: Get domain-specific telemetry timestamp
+  const telemetryTs = _isTankDevice ? meta.pulsesTs
+    : _isTemperatureDevice ? meta.temperatureTs
+    : meta.consumptionTs; // Energy/hydrometer devices
+
   if (_isEnergyDevice && effectiveDomain === DomainType.ENERGY) {
     // Energy devices use power ranges
     const deviceMapLimits = meta.deviceMapInstaneousPower
@@ -314,30 +324,28 @@ export function createDeviceItem(entityId, meta, options = {}) {
     const ranges = deviceMapLimits || globalLimits;
     const consumptionValue = meta.consumption ?? apiRow?.value ?? null;
 
-    // RFC-0110: Pass timestamps for stale connection detection
-    deviceStatus = calculateDeviceStatusWithRanges({
+    // RFC-0110: Use unified calculateDeviceStatus with telemetry timestamp
+    deviceStatus = calculateDeviceStatus({
       connectionStatus: connectionStatus,
-      lastConsumptionValue: consumptionValue,
+      domain: 'energy',
+      telemetryValue: consumptionValue,
+      telemetryTimestamp: telemetryTs,
+      lastActivityTime: meta.lastActivityTime ?? null,
       ranges: ranges,
-      lastConnectTime: meta.lastConnectTime ?? null,
-      lastDisconnectTime: meta.lastDisconnectTime ?? null,
       delayTimeConnectionInMins: delayTimeConnectionInMins,
     });
   } else {
     // Non-energy devices (TANK, TERMOSTATO, HIDROMETRO) - simple status
-    // RFC-0110: Check for stale connection
-    const staleConnection = isConnectionStale({
-      lastConnectTime: meta.lastConnectTime,
-      lastDisconnectTime: meta.lastDisconnectTime,
-      delayTimeConnectionInMins: delayTimeConnectionInMins,
-    });
+    // RFC-0110: Check for stale telemetry
+    const staleTelemetry = isTelemetryStale(telemetryTs, meta.lastActivityTime, delayTimeConnectionInMins);
 
-    if (connectionStatus === 'offline' || staleConnection) {
-      deviceStatus = DeviceStatusType.OFFLINE;
+    // RFC-0110: Device is truly offline only if connectionStatus=offline AND telemetry is stale
+    if (connectionStatus === 'waiting') {
+      deviceStatus = DeviceStatusType.NOT_INSTALLED;
     } else if (connectionStatus === 'bad') {
       deviceStatus = DeviceStatusType.WEAK_CONNECTION;
-    } else if (connectionStatus === 'waiting') {
-      deviceStatus = DeviceStatusType.NOT_INSTALLED;
+    } else if ((connectionStatus === 'offline' && staleTelemetry) || (connectionStatus === 'online' && staleTelemetry)) {
+      deviceStatus = DeviceStatusType.OFFLINE;
     } else {
       deviceStatus = DeviceStatusType.POWER_ON;
     }
@@ -429,6 +437,10 @@ export function createDeviceItem(entityId, meta, options = {}) {
     lastDisconnectTime: meta.lastDisconnectTime ?? null,
     connectionStatusTime: meta.lastConnectTime ?? null,
     timeVal: meta.lastActivityTime ?? null,
+    // RFC-0110: Telemetry timestamps for stale detection
+    consumptionTs: meta.consumptionTs ?? null,
+    pulsesTs: meta.pulsesTs ?? null,
+    temperatureTs: meta.temperatureTs ?? null,
 
     // Annotations
     log_annotations: logAnnotations,
@@ -498,7 +510,12 @@ export function recalculateDeviceStatus(item, newData = {}, options = {}) {
     connectionStatus: newData.connectionStatus ?? item.connectionStatus,
     consumption: newData.value ?? newData.consumption ?? item.consumptionPower ?? item.value,
     deviceMapInstaneousPower: newData.deviceMapInstaneousPower ?? item.deviceMapInstaneousPower,
-    // RFC-0110: Ensure timestamps are passed through
+    // RFC-0110: Ensure telemetry timestamps are passed through
+    consumptionTs: newData.consumptionTs ?? item.consumptionTs,
+    pulsesTs: newData.pulsesTs ?? item.pulsesTs,
+    temperatureTs: newData.temperatureTs ?? item.temperatureTs,
+    lastActivityTime: newData.lastActivityTime ?? item.lastActivityTime,
+    // @deprecated - kept for backward compatibility
     lastConnectTime: newData.lastConnectTime ?? item.lastConnectTime,
     lastDisconnectTime: newData.lastDisconnectTime ?? item.lastDisconnectTime,
   };
@@ -511,8 +528,8 @@ export function recalculateDeviceStatus(item, newData = {}, options = {}) {
       min: item.temperatureMin,
       max: item.temperatureMax,
     },
-    // RFC-0110: Pass delay time for stale connection detection
-    delayTimeConnectionInMins: options.delayTimeConnectionInMins ?? 60,
+    // RFC-0110: Pass delay time for stale telemetry detection (default 24h)
+    delayTimeConnectionInMins: options.delayTimeConnectionInMins ?? 1440,
   };
 
   return createDeviceItem(item.tbId, updatedMeta, updatedOptions);
