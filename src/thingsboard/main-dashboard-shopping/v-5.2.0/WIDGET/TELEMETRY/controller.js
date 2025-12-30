@@ -3986,6 +3986,12 @@ self.onInit = async function () {
       lastProcessedPeriodKey = null;
       STATE.itemsBase = [];
       STATE.itemsEnriched = [];
+      STATE.searchActive = false;
+      STATE.searchTerm = '';
+      STATE.selectedIds = null;
+      STATE.firstHydrates = 0;
+      hydrating = false;
+      hasRequestedInitialData = false;
     }
 
     // Prevent duplicate processing of the same periodKey

@@ -3336,6 +3336,37 @@ self.onInit = async function () {
       return;
     }
 
+    // Detect shopping change by comparing customerTB_ID in periodKey
+    // periodKey format: "customerTB_ID:domain:startISO:endISO:granularity"
+    const currentCustomerId = periodKey?.split(':')[0];
+    const lastCustomerId = lastProcessedPeriodKey?.split(':')[0];
+    if (lastCustomerId && currentCustomerId !== lastCustomerId) {
+      LogHelper.warn(`[TELEMETRY_INFO] 🔄 Shopping changed (${lastCustomerId} → ${currentCustomerId}) - clearing state`);
+      // Clear all state to prevent stale devices from previous customer
+      RECEIVED_ORCHESTRATOR_ITEMS = [];
+      STATE.entrada = { devices: [], total: 0, perc: 100 };
+      STATE.consumidores = {
+        climatizacao: { devices: [], total: 0, perc: 0 },
+        elevadores: { devices: [], total: 0, perc: 0 },
+        escadasRolantes: { devices: [], total: 0, perc: 0 },
+        lojas: { devices: [], total: 0, perc: 0 },
+        outros: { devices: [], total: 0, perc: 0 },
+        areaComum: { devices: [], total: 0, perc: 0 },
+        totalGeral: 0,
+        percGeral: 0,
+      };
+      STATE.grandTotal = 0;
+      STATE_WATER.entrada = { context: 'entrada', devices: [], total: 0, perc: 100, source: 'widget-telemetry-entrada' };
+      STATE_WATER.lojas = { context: 'lojas', devices: [], total: 0, perc: 0, source: 'widget-telemetry-lojas' };
+      STATE_WATER.banheiros = { context: 'banheiros', devices: [], total: 0, perc: 0, source: 'widget-telemetry-area-comum (banheiros breakdown)' };
+      STATE_WATER.areaComum = { context: 'areaComum', devices: [], total: 0, perc: 0, source: 'widget-telemetry-area-comum (outros)' };
+      STATE_WATER.pontosNaoMapeados = { context: 'pontosNaoMapeados', devices: [], total: 0, perc: 0, isCalculated: true, hasInconsistency: false };
+      STATE_WATER.grandTotal = 0;
+      STATE_WATER.periodKey = null;
+      STATE_WATER.lastUpdate = null;
+      lastProcessedPeriodKey = null;
+    }
+
     // Prevent duplicate processing
     if (lastProcessedPeriodKey === periodKey) {
       LogHelper.log(`Skipping duplicate periodKey: ${periodKey}`);
@@ -3468,6 +3499,10 @@ self.onInit = async function () {
 
       LogHelper.log('[CLEAR] Energy state cleared');
     }
+
+    // Clear RECEIVED_ORCHESTRATOR_ITEMS to prevent stale devices from previous customer
+    RECEIVED_ORCHESTRATOR_ITEMS = [];
+    LogHelper.log('[CLEAR] RECEIVED_ORCHESTRATOR_ITEMS cleared');
 
     // Reset period key
     lastProcessedPeriodKey = null;
