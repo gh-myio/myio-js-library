@@ -531,6 +531,14 @@ interface ModalState {
   telemetryLoadedCount: number;
   deviceRelations: DeviceRelation[];
   allRelations: Array<{ from: TbEntityId; to: TbEntityId; type: string }>;
+  // Device profiles from ThingsBoard
+  deviceProfiles: Array<{ id: string; name: string }>;
+  // Assets for relation selector
+  customerAssets: Array<{ id: string; name: string; type?: string }>;
+  // Relation selector modal
+  relationSelectorOpen: boolean;
+  relationSelectorType: 'ASSET' | 'CUSTOMER';
+  relationSelectorSearch: string;
 }
 
 // Helper: format timestamp to locale date string
@@ -645,6 +653,11 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     telemetryLoadedCount: 0,
     deviceRelations: [],
     allRelations: [],
+    deviceProfiles: [],
+    customerAssets: [],
+    relationSelectorOpen: false,
+    relationSelectorType: 'ASSET',
+    relationSelectorSearch: '',
   };
 
   // Load saved theme
@@ -1355,34 +1368,68 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
   const connStatus = state.deviceTelemetryLoaded ? (telemetry.connectionStatus?.value || 'offline') : null;
   const statusStyle = connStatus ? (statusColors[connStatus] || statusColors.offline) : notLoadedStyle;
 
-  // Telemetry display - support hybrid devices with multiple telemetry types
+  // Telemetry display - filter by device type to avoid showing irrelevant telemetry
   const telemetryItems: Array<{ label: string; value: string; unit: string; ts: string }> = [];
 
+  // Determine expected telemetry based on device type or name
+  const deviceType = (device.type || '').toLowerCase();
+  const deviceName = (device.name || device.label || '').toLowerCase();
+  const attrDeviceType = (attrs.deviceType || '').toUpperCase();
+
+  // Water devices: HIDROMETRO, CAIXA_DAGUA, TANK, or name contains 'hidr', 'agua', 'water'
+  const isWaterDevice = ['HIDROMETRO', 'CAIXA_DAGUA', 'TANK'].includes(attrDeviceType) ||
+    deviceName.includes('hidr') || deviceName.includes('agua') || deviceName.includes('water') ||
+    deviceType.includes('water');
+
+  // Energy devices: 3F_MEDIDOR, ENTRADA, MOTOR, CHILLER, FANCOIL, COMPRESSOR, ESCADA_ROLANTE, ELEVADOR
+  const isEnergyDevice = ['3F_MEDIDOR', 'ENTRADA', 'MOTOR', 'CHILLER', 'FANCOIL', 'COMPRESSOR', 'ESCADA_ROLANTE', 'ELEVADOR'].includes(attrDeviceType) ||
+    deviceType.includes('energy') || deviceType.includes('meter');
+
+  // Temperature devices: name or type contains 'temp', 'sensor'
+  const isTemperatureDevice = deviceName.includes('temp') || deviceType.includes('temp') ||
+    deviceName.includes('sensor') && !isWaterDevice && !isEnergyDevice;
+
   if (state.deviceTelemetryLoaded) {
-    // Only show telemetry if it has a valid timestamp (indicates real data exists)
+    // Only show telemetry that makes sense for the device type
+    // Energy: show consumption
     if (telemetry.consumption && telemetry.consumption.ts && telemetry.consumption.value != null) {
-      telemetryItems.push({
-        label: 'consumption',
-        value: telemetry.consumption.value.toFixed(1),
-        unit: 'W',
-        ts: formatDate(telemetry.consumption.ts, state.locale, true),
-      });
+      if (isEnergyDevice || (!isWaterDevice && !isTemperatureDevice)) {
+        telemetryItems.push({
+          label: 'consumption',
+          value: telemetry.consumption.value.toFixed(1),
+          unit: 'W',
+          ts: formatDate(telemetry.consumption.ts, state.locale, true),
+        });
+      }
     }
+
+    // Water: show pulses
     if (telemetry.pulses && telemetry.pulses.ts && telemetry.pulses.value != null) {
-      telemetryItems.push({
-        label: 'pulses',
-        value: String(telemetry.pulses.value),
-        unit: 'L',
-        ts: formatDate(telemetry.pulses.ts, state.locale, true),
-      });
+      if (isWaterDevice || (!isEnergyDevice && !isTemperatureDevice)) {
+        telemetryItems.push({
+          label: 'pulses',
+          value: String(telemetry.pulses.value),
+          unit: 'L',
+          ts: formatDate(telemetry.pulses.ts, state.locale, true),
+        });
+      }
     }
+
+    // Temperature: only show if device is a temperature sensor or has temp in name
     if (telemetry.temperature && telemetry.temperature.ts && telemetry.temperature.value != null) {
-      telemetryItems.push({
-        label: 'temperature',
-        value: telemetry.temperature.value.toFixed(1),
-        unit: '°C',
-        ts: formatDate(telemetry.temperature.ts, state.locale, true),
-      });
+      if (isTemperatureDevice || (!isWaterDevice && !isEnergyDevice)) {
+        // Additional check: don't show 0.0 temperature for water/energy devices
+        const tempValue = telemetry.temperature.value;
+        const isReasonableTemp = tempValue !== 0 || isTemperatureDevice;
+        if (isReasonableTemp) {
+          telemetryItems.push({
+            label: 'temperature',
+            value: tempValue.toFixed(1),
+            unit: '°C',
+            ts: formatDate(telemetry.temperature.ts, state.locale, true),
+          });
+        }
+      }
     }
   }
 
@@ -1606,8 +1653,8 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
 
         <!-- Add Relation Form (hidden by default) -->
         <div id="${modalId}-add-relation-form" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid ${colors.border};">
-          <div style="display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 100px;">
+          <div style="display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap;">
+            <div style="min-width: 100px;">
               <label style="color: ${colors.textMuted}; font-size: 10px; display: block; margin-bottom: 4px;">Tipo</label>
               <select id="${modalId}-relation-entity-type" style="
                 width: 100%; padding: 6px 8px; border: 1px solid ${colors.border};
@@ -1618,24 +1665,72 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
                 <option value="CUSTOMER">CUSTOMER</option>
               </select>
             </div>
-            <div style="flex: 2; min-width: 200px;">
-              <label style="color: ${colors.textMuted}; font-size: 10px; display: block; margin-bottom: 4px;">ID da Entidade</label>
-              <input type="text" id="${modalId}-relation-entity-id" placeholder="Ex: asset-id-123..." style="
+            <div style="flex: 1; min-width: 200px;">
+              <label style="color: ${colors.textMuted}; font-size: 10px; display: block; margin-bottom: 4px;">🔍 Buscar</label>
+              <input type="text" id="${modalId}-relation-search" placeholder="Buscar por nome..." style="
                 width: 100%; padding: 6px 8px; border: 1px solid ${colors.border};
                 border-radius: 4px; font-size: 12px; color: ${colors.text};
                 background: ${colors.inputBg}; box-sizing: border-box;
-              "/>
+              " value="${state.relationSelectorSearch}"/>
             </div>
-            <button id="${modalId}-save-relation" style="
-              background: ${colors.success}; color: white; border: none;
-              padding: 6px 12px; border-radius: 4px; cursor: pointer;
-              font-size: 11px;
-            ">Salvar</button>
-            <button id="${modalId}-cancel-add-relation" style="
-              background: ${colors.cardBg}; color: ${colors.text}; border: 1px solid ${colors.border};
-              padding: 6px 12px; border-radius: 4px; cursor: pointer;
-              font-size: 11px;
-            ">Cancelar</button>
+            <div style="display: flex; gap: 4px; align-items: flex-end; padding-top: 16px;">
+              <button id="${modalId}-load-relation-entities" style="
+                background: ${MYIO_PURPLE}; color: white; border: none;
+                padding: 6px 12px; border-radius: 4px; cursor: pointer;
+                font-size: 11px;
+              ">Carregar</button>
+              <button id="${modalId}-cancel-add-relation" style="
+                background: ${colors.cardBg}; color: ${colors.text}; border: 1px solid ${colors.border};
+                padding: 6px 12px; border-radius: 4px; cursor: pointer;
+                font-size: 11px;
+              ">Cancelar</button>
+            </div>
+          </div>
+
+          <!-- Entity List -->
+          <div id="${modalId}-relation-entity-list" style="
+            margin-top: 10px; max-height: 200px; overflow-y: auto;
+            border: 1px solid ${colors.border}; border-radius: 4px;
+            display: ${state.customerAssets.length > 0 || state.relationSelectorType === 'CUSTOMER' ? 'block' : 'none'};
+          ">
+            ${state.relationSelectorType === 'ASSET' ?
+              state.customerAssets
+                .filter(a => !state.relationSelectorSearch || a.name.toLowerCase().includes(state.relationSelectorSearch.toLowerCase()))
+                .map(asset => `
+                  <div class="relation-entity-item" data-entity-type="ASSET" data-entity-id="${asset.id}" data-entity-name="${asset.name}" style="
+                    padding: 8px 12px; cursor: pointer; border-bottom: 1px solid ${colors.border};
+                    display: flex; justify-content: space-between; align-items: center;
+                  ">
+                    <span style="color: ${colors.text}; font-size: 12px;">📦 ${asset.name}</span>
+                    <span style="color: ${colors.textMuted}; font-size: 10px;">${asset.type || ''}</span>
+                  </div>
+                `).join('') || `<div style="padding: 12px; color: ${colors.textMuted}; text-align: center; font-size: 11px;">Nenhum asset encontrado</div>`
+            :
+              state.customers
+                .filter(c => !state.relationSelectorSearch || (c.name || c.title || '').toLowerCase().includes(state.relationSelectorSearch.toLowerCase()))
+                .slice(0, 50)
+                .map(customer => `
+                  <div class="relation-entity-item" data-entity-type="CUSTOMER" data-entity-id="${getEntityId(customer)}" data-entity-name="${customer.name || customer.title}" style="
+                    padding: 8px 12px; cursor: pointer; border-bottom: 1px solid ${colors.border};
+                    display: flex; justify-content: space-between; align-items: center;
+                  ">
+                    <span style="color: ${colors.text}; font-size: 12px;">👤 ${customer.name || customer.title}</span>
+                  </div>
+                `).join('') || `<div style="padding: 12px; color: ${colors.textMuted}; text-align: center; font-size: 11px;">Nenhum customer encontrado</div>`
+            }
+          </div>
+
+          <!-- Selected Entity Display -->
+          <input type="hidden" id="${modalId}-relation-entity-id" value=""/>
+          <div id="${modalId}-relation-selected" style="display: none; margin-top: 10px; padding: 10px; background: ${colors.success}20; border-radius: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span id="${modalId}-relation-selected-name" style="color: ${colors.text}; font-size: 12px;"></span>
+              <button id="${modalId}-save-relation" style="
+                background: ${colors.success}; color: white; border: none;
+                padding: 6px 12px; border-radius: 4px; cursor: pointer;
+                font-size: 11px;
+              ">✓ Salvar Relação</button>
+            </div>
           </div>
         </div>
       </div>
@@ -2273,6 +2368,77 @@ function setupEventListeners(
   document.getElementById(`${modalId}-cancel-add-relation`)?.addEventListener('click', () => {
     const form = document.getElementById(`${modalId}-add-relation-form`);
     if (form) form.style.display = 'none';
+    state.customerAssets = [];
+    state.relationSelectorSearch = '';
+  });
+
+  // Load Relation Entities (Assets or Customers)
+  document.getElementById(`${modalId}-load-relation-entities`)?.addEventListener('click', async () => {
+    const entityType = (document.getElementById(`${modalId}-relation-entity-type`) as HTMLSelectElement)?.value as 'ASSET' | 'CUSTOMER';
+    state.relationSelectorType = entityType;
+
+    if (entityType === 'ASSET' && state.selectedCustomer) {
+      const customerId = getEntityId(state.selectedCustomer);
+      console.log('[UpsellModal] Loading assets for customer:', customerId);
+      state.customerAssets = await fetchCustomerAssets(state, customerId);
+    }
+    // Customers are already loaded in state.customers
+
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+
+    // Show the form again
+    const form = document.getElementById(`${modalId}-add-relation-form`);
+    if (form) form.style.display = 'block';
+  });
+
+  // Relation Type Change
+  document.getElementById(`${modalId}-relation-entity-type`)?.addEventListener('change', (e) => {
+    state.relationSelectorType = (e.target as HTMLSelectElement).value as 'ASSET' | 'CUSTOMER';
+    state.relationSelectorSearch = '';
+    // Clear selection
+    const selectedDiv = document.getElementById(`${modalId}-relation-selected`);
+    if (selectedDiv) selectedDiv.style.display = 'none';
+    const hiddenInput = document.getElementById(`${modalId}-relation-entity-id`) as HTMLInputElement;
+    if (hiddenInput) hiddenInput.value = '';
+  });
+
+  // Relation Search Input
+  document.getElementById(`${modalId}-relation-search`)?.addEventListener('input', (e) => {
+    state.relationSelectorSearch = (e.target as HTMLInputElement).value;
+    // Re-render just the list
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+    // Show the form again
+    const form = document.getElementById(`${modalId}-add-relation-form`);
+    if (form) form.style.display = 'block';
+  });
+
+  // Click on Entity Items
+  document.querySelectorAll('.relation-entity-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const entityType = item.getAttribute('data-entity-type');
+      const entityId = item.getAttribute('data-entity-id');
+      const entityName = item.getAttribute('data-entity-name');
+
+      // Set the hidden input
+      const hiddenInput = document.getElementById(`${modalId}-relation-entity-id`) as HTMLInputElement;
+      if (hiddenInput) hiddenInput.value = entityId || '';
+
+      // Show selected entity
+      const selectedDiv = document.getElementById(`${modalId}-relation-selected`);
+      const selectedName = document.getElementById(`${modalId}-relation-selected-name`);
+      if (selectedDiv && selectedName) {
+        selectedDiv.style.display = 'block';
+        selectedName.textContent = `✓ ${entityType}: ${entityName}`;
+      }
+
+      // Highlight selected item
+      document.querySelectorAll('.relation-entity-item').forEach(i => {
+        (i as HTMLElement).style.background = '';
+      });
+      (item as HTMLElement).style.background = `${MYIO_PURPLE}20`;
+    });
   });
 
   // Save Relation
@@ -2280,12 +2446,14 @@ function setupEventListeners(
     const entityType = (document.getElementById(`${modalId}-relation-entity-type`) as HTMLSelectElement)?.value;
     const entityId = (document.getElementById(`${modalId}-relation-entity-id`) as HTMLInputElement)?.value;
     if (!entityId || !state.selectedDevice) {
-      alert('ID da Entidade é obrigatório');
+      alert('Selecione uma entidade da lista');
       return;
     }
     try {
       await createRelation(state, state.selectedDevice, entityType as 'ASSET' | 'CUSTOMER', entityId);
       state.deviceRelation = { toEntityType: entityType as 'ASSET' | 'CUSTOMER', toEntityId: entityId };
+      state.customerAssets = [];
+      state.relationSelectorSearch = '';
       alert('Relação criada com sucesso!');
       renderModal(container, state, modalId, t);
       setupEventListeners(container, state, modalId, t, onClose);
@@ -2711,6 +2879,67 @@ async function deleteRelation(
   });
   console.log('[UpsellModal] Deleting relation:', params.toString());
   await tbDelete(state, `/api/relation?${params.toString()}`);
+}
+
+// Fetch device profiles from ThingsBoard
+async function fetchDeviceProfiles(state: ModalState): Promise<Array<{ id: string; name: string }>> {
+  try {
+    const profiles = await tbFetch<Array<{ id: { id: string }; name: string }>>(
+      state,
+      '/api/deviceProfile/names?activeOnly=true'
+    );
+    console.log('[UpsellModal] Fetched device profiles:', profiles.length);
+    return profiles.map(p => ({ id: p.id.id, name: p.name }));
+  } catch (error) {
+    console.error('[UpsellModal] Error fetching device profiles:', error);
+    return [];
+  }
+}
+
+// Fetch assets for a customer
+async function fetchCustomerAssets(
+  state: ModalState,
+  customerId: string
+): Promise<Array<{ id: string; name: string; type?: string }>> {
+  try {
+    const response = await tbFetch<{ data: Array<{ id: { id: string }; name: string; type?: string }> }>(
+      state,
+      `/api/customer/${customerId}/assets?pageSize=1000&page=0`
+    );
+    const assets = response.data || [];
+    console.log('[UpsellModal] Fetched customer assets:', assets.length);
+    return assets.map(a => ({ id: a.id.id, name: a.name, type: a.type }));
+  } catch (error) {
+    console.error('[UpsellModal] Error fetching customer assets:', error);
+    return [];
+  }
+}
+
+// Change device profile (entity level)
+async function changeDeviceProfile(
+  state: ModalState,
+  device: Device,
+  newProfileId: string
+): Promise<void> {
+  const deviceId = getEntityId(device);
+  // Get the current device data
+  const deviceData = await tbFetch<{
+    id: { id: string; entityType: string };
+    name: string;
+    type: string;
+    label?: string;
+    deviceProfileId: { id: string; entityType: string };
+    customerId?: { id: string; entityType: string };
+  }>(state, `/api/device/${deviceId}`);
+
+  // Update with new profile
+  const updatedDevice = {
+    ...deviceData,
+    deviceProfileId: { id: newProfileId, entityType: 'DEVICE_PROFILE' },
+  };
+
+  console.log('[UpsellModal] Changing device profile to:', newProfileId);
+  await tbPost(state, '/api/device', updatedDevice);
 }
 
 async function loadCustomers(
