@@ -252,10 +252,15 @@ interface IngestionDeviceRecord {
   id: string;
   name?: string;
   deviceType?: string;
-  centralId?: string;
   slaveId?: number;
-  gatewayId?: string;
+  gatewayId?: string; // This is the centralId in ThingsBoard
+  gateway?: {
+    id: string;
+    name?: string;
+    customerId?: string;
+  };
   customerId?: string;
+  isActive?: boolean;
 }
 
 interface IngestionPageResponse {
@@ -336,10 +341,19 @@ function findIngestionDeviceByCentralSlaveId(
   const slaveIdNum = typeof slaveId === 'string' ? parseInt(slaveId, 10) : slaveId;
 
   for (const device of devices) {
-    if (device.centralId === centralId && device.slaveId === slaveIdNum) {
+    // In ingestion API: gatewayId or gateway.id corresponds to ThingsBoard's centralId
+    const deviceGatewayId = device.gatewayId || device.gateway?.id;
+    if (deviceGatewayId === centralId && device.slaveId === slaveIdNum) {
+      console.log('[UpsellModal] Found matching device:', device.name, 'gatewayId:', deviceGatewayId, 'slaveId:', device.slaveId);
       return device;
     }
   }
+
+  console.log('[UpsellModal] No match found. Looking for centralId:', centralId, 'slaveId:', slaveIdNum);
+  // Log first few devices to help debug
+  devices.slice(0, 3).forEach((d, i) => {
+    console.log(`[UpsellModal] Sample device ${i}:`, d.name, 'gatewayId:', d.gatewayId || d.gateway?.id, 'slaveId:', d.slaveId);
+  });
 
   return null;
 }
