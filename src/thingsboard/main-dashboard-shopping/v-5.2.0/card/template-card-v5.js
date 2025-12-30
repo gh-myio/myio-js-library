@@ -349,8 +349,11 @@ export function renderCardComponentV5({
   const connectionIcon = getConnectionStatusIcon(connectionStatus);
 
   // DEBUG: Forced tracking for specific device
-  const isDebugDevice = labelOrName?.includes('3F SCMAL3L4304ABC') || labelOrName?.includes('SCMAL3L4304ABC') ||
-                        deviceIdentifier?.includes('SCMAL3L4304ABC');
+  const debugDeviceName = '3F SCMAL3L4304ABC';
+  const labelStr = String(labelOrName || '');
+  const identifierStr = String(deviceIdentifier || '');
+  const isDebugDevice = labelStr.includes(debugDeviceName) || labelStr.includes('SCMAL3L4304ABC') ||
+                        identifierStr.includes('SCMAL3L4304ABC');
   if (isDebugDevice) {
     console.warn(`🔴 [DEBUG CARD-V5] renderCardComponentV5 for "${labelOrName}":`, {
       entityId,

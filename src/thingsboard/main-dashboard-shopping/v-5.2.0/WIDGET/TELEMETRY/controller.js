@@ -1500,6 +1500,20 @@ function buildAuthoritativeItems() {
       deviceStatus = 'weak_connection'; // RFC-0109: bad/weak connection
     } else if (isOfflineStatus) {
       deviceStatus = 'offline'; // RFC-0109+0110: offline devices with stale connection
+      // DEBUG: Log ALL devices being set to offline in buildAuthoritativeItems
+      console.warn(`🔴 [DEBUG TELEMETRY buildAuthoritativeItems] Device set to OFFLINE:`, {
+        label: r.label,
+        tbId: tbId,
+        tbConnectionStatus: tbConnectionStatus,
+        normalizedStatus: normalizedStatus,
+        isOfflineStatusRaw: isOfflineStatusRaw,
+        connectionStale: connectionStale,
+        lastConnectTime: attrs.lastConnectTime,
+        lastConnectTimeFormatted: attrs.lastConnectTime ? new Date(attrs.lastConnectTime).toISOString() : 'N/A',
+        lastDisconnectTime: attrs.lastDisconnectTime,
+        now: new Date().toISOString(),
+        delayMins: delayMins,
+      });
     } else if (isEffectivelyOnline) {
       // RFC-0078: For energy devices, calculate status using ranges from mapInstantaneousPower
       const isEnergyDevice = !isTankDevice && !isTermostatoDevice;
@@ -4185,6 +4199,18 @@ self.onInit = async function () {
         deviceStatus = 'weak_connection'; // RFC-0109: bad/weak connection
       } else if (isOffline) {
         deviceStatus = 'offline'; // RFC-0109+0110: offline devices with stale connection
+        // DEBUG: Log ALL devices being set to offline
+        console.warn(`🔴 [DEBUG TELEMETRY] Device set to OFFLINE:`, {
+          label: item.label,
+          id: item.id || item.tbId,
+          connectionStatus: connectionStatus,
+          normalizedStatus: normalizedStatus,
+          isOfflineStatus: isOfflineStatus,
+          connectionStale: connectionStale,
+          lastConnectTime: item.lastConnectTime,
+          lastConnectTimeFormatted: item.lastConnectTime ? new Date(item.lastConnectTime).toISOString() : 'N/A',
+          now: new Date().toISOString(),
+        });
       } else if (isEffectivelyOnline && isEnergyDomain) {
         // For energy devices, calculate status using power ranges
         const instantaneousPower = Number(item.consumptionPower || 0);
