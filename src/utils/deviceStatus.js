@@ -195,17 +195,22 @@ export function isConnectionStale({
   const now = new Date();
   const delayMs = delayTimeConnectionInMins * 60 * 1000;
 
-  // Regra 1: Se desconectou depois de conectar → offline
+  // RFC-0110: Determinar o timestamp mais recente de atividade
+  // Se desconectou depois de conectar, usar lastDisconnectTime como referência
+  // Se conectou depois de desconectar (ou nunca desconectou), usar lastConnectTime
+  let mostRecentActivity = lastConnect;
   if (lastDisconnect && lastDisconnect.getTime() > lastConnect.getTime()) {
+    mostRecentActivity = lastDisconnect;
+  }
+
+  // RFC-0110: Verificar se a atividade mais recente está dentro do delay
+  const timeSinceActivity = now.getTime() - mostRecentActivity.getTime();
+  if (timeSinceActivity > delayMs) {
+    // Última atividade foi há mais de [delay] minutos → stale/offline
     return true;
   }
 
-  // Regra 2: Se última conexão é mais antiga que o delay → offline
-  const timeSinceConnect = now.getTime() - lastConnect.getTime();
-  if (timeSinceConnect > delayMs) {
-    return true;
-  }
-
+  // Atividade recente (dentro do delay) → não é stale
   return false;
 }
 
