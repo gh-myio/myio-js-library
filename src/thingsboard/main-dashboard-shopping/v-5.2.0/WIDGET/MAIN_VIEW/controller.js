@@ -3338,6 +3338,10 @@ const MyIOOrchestrator = (() => {
       }
     }
 
+    // DEBUG: Counter for consumption timestamp debugging
+    let _debugConsumptionCount = 0;
+    const _debugConsumptionMax = 8;
+
     // Group by entityId first - only process rows from allowed alias
     for (const row of rows) {
       // Check aliasName - only include allowed datasource (whitelist approach)
@@ -3388,13 +3392,30 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'consumption') {
         meta.consumption = val; // instantaneous power in Watts
         // RFC-0110: Extract timestamp for telemetry-based offline detection
-        meta.consumptionTs = row?.data?.[0]?.[0] ?? null;
+        // NOTE: Timestamp 0 (epoch 1970) is invalid - ThingsBoard returns 0 when no data
+        const ts = row?.data?.[0]?.[0];
+        meta.consumptionTs = (ts && ts > 0) ? ts : null;
+
+        // DEBUG: Log first 8 consumption timestamps
+        if (_debugConsumptionCount < _debugConsumptionMax) {
+          _debugConsumptionCount++;
+          console.log(`🔍 [DEBUG RFC-0110] consumption timestamp #${_debugConsumptionCount}:`, {
+            entityName: meta.entityName || meta.label,
+            consumption: val,
+            'row.data': row?.data,
+            'row.data[0]': row?.data?.[0],
+            'row.data[0][0] (ts)': ts,
+            'consumptionTs (final)': meta.consumptionTs,
+          });
+        }
       }
       // Water-specific fields
       else if (keyName === 'pulses') {
         meta.pulses = val;
         // RFC-0110: Extract timestamp for telemetry-based offline detection
-        meta.pulsesTs = row?.data?.[0]?.[0] ?? null;
+        // NOTE: Timestamp 0 (epoch 1970) is invalid - ThingsBoard returns 0 when no data
+        const ts = row?.data?.[0]?.[0];
+        meta.pulsesTs = (ts && ts > 0) ? ts : null;
       }
       else if (keyName === 'litersperpulse') meta.litersPerPulse = val;
       else if (keyName === 'volume') meta.volume = val;
@@ -3402,18 +3423,24 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'water_level') {
         meta.waterLevel = val;
         // RFC-0110: Extract timestamp for telemetry-based offline detection
-        meta.waterLevelTs = row?.data?.[0]?.[0] ?? null;
+        // NOTE: Timestamp 0 (epoch 1970) is invalid - ThingsBoard returns 0 when no data
+        const ts = row?.data?.[0]?.[0];
+        meta.waterLevelTs = (ts && ts > 0) ? ts : null;
       }
       else if (keyName === 'water_percentage') {
         meta.waterPercentage = val;
         // RFC-0110: Extract timestamp for telemetry-based offline detection
-        meta.waterPercentageTs = row?.data?.[0]?.[0] ?? null;
+        // NOTE: Timestamp 0 (epoch 1970) is invalid - ThingsBoard returns 0 when no data
+        const ts = row?.data?.[0]?.[0];
+        meta.waterPercentageTs = (ts && ts > 0) ? ts : null;
       }
       // Temperature-specific fields
       else if (keyName === 'temperature') {
         meta.temperature = val;
         // RFC-0110: Extract timestamp for telemetry-based offline detection
-        meta.temperatureTs = row?.data?.[0]?.[0] ?? null;
+        // NOTE: Timestamp 0 (epoch 1970) is invalid - ThingsBoard returns 0 when no data
+        const ts = row?.data?.[0]?.[0];
+        meta.temperatureTs = (ts && ts > 0) ? ts : null;
       }
     }
 
