@@ -1297,12 +1297,40 @@ if (!window.STATE) {
       if (!customerTB_ID) return false;
 
       if (this._customerTB_ID && this._customerTB_ID !== customerTB_ID) {
-        // Shopping changed! Clear all cached data
-        console.warn(`[STATE] 🔄 Shopping changed from ${this._customerTB_ID} to ${customerTB_ID} - clearing cache`);
+        // Shopping changed! Clear ALL cached data aggressively
+        console.warn(`[STATE] 🔄 Shopping changed from ${this._customerTB_ID} to ${customerTB_ID} - CLEARING ALL CACHES`);
+
+        // Clear window.STATE
         this.energy = null;
         this.water = null;
         this.temperature = null;
         this._lastUpdate = {};
+
+        // HARD: Clear window.MyIOOrchestratorData completely
+        if (window.MyIOOrchestratorData) {
+          console.warn('[STATE] 🧹 Clearing window.MyIOOrchestratorData');
+          delete window.MyIOOrchestratorData.energy;
+          delete window.MyIOOrchestratorData.water;
+          delete window.MyIOOrchestratorData.temperature;
+        }
+
+        // HARD: Clear CONTRACT_STATE
+        if (window.CONTRACT_STATE) {
+          console.warn('[STATE] 🧹 Resetting window.CONTRACT_STATE');
+          window.CONTRACT_STATE.isLoaded = false;
+          window.CONTRACT_STATE.isValid = false;
+          window.CONTRACT_STATE.energy = { total: 0, entries: 0, commonArea: 0, stores: 0 };
+          window.CONTRACT_STATE.water = { total: 0, entries: 0, commonArea: 0, stores: 0 };
+          window.CONTRACT_STATE.temperature = { total: 0, internal: 0, stores: 0 };
+        }
+
+        // HARD: Dispatch clear event for all widgets
+        ['energy', 'water', 'temperature'].forEach(domain => {
+          window.dispatchEvent(new CustomEvent('myio:telemetry:clear', {
+            detail: { domain, reason: 'customer_changed', fromCustomer: this._customerTB_ID, toCustomer: customerTB_ID }
+          }));
+        });
+
         this._customerTB_ID = customerTB_ID;
         return true; // Data was cleared
       }
@@ -1321,6 +1349,13 @@ if (!window.STATE) {
       this.water = null;
       this.temperature = null;
       this._lastUpdate = {};
+
+      // HARD: Also clear MyIOOrchestratorData
+      if (window.MyIOOrchestratorData) {
+        delete window.MyIOOrchestratorData.energy;
+        delete window.MyIOOrchestratorData.water;
+        delete window.MyIOOrchestratorData.temperature;
+      }
       // Keep _customerTB_ID to avoid unnecessary reloads
     },
   };

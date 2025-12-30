@@ -103,10 +103,21 @@ function aggregateDeviceStatusFromOrchestrator(domain) {
   let items = RECEIVED_ORCHESTRATOR_ITEMS;
 
   if (!items || items.length === 0) {
-    // Fallback: try window.MyIOOrchestratorData
+    // Fallback: try window.MyIOOrchestratorData - but validate customer first
     const orchestratorData = window.MyIOOrchestratorData || window.parent?.MyIOOrchestratorData;
+    const currentCustomerId = window.MyIOUtils?.customerTB_ID;
     if (orchestratorData && orchestratorData[domain]) {
-      items = orchestratorData[domain].items || [];
+      // HARD: Validate that cached data belongs to current customer
+      const cachedPeriodKey = orchestratorData[domain].periodKey || '';
+      const cachedCustomerId = cachedPeriodKey.split(':')[0];
+      if (currentCustomerId && cachedCustomerId && cachedCustomerId !== currentCustomerId) {
+        LogHelper.warn(`[TELEMETRY_INFO] 🚫 MyIOOrchestratorData customer mismatch for ${domain} (cached: ${cachedCustomerId}, current: ${currentCustomerId}) - ignoring stale cache`);
+        // Clear stale cache
+        if (window.MyIOOrchestratorData) delete window.MyIOOrchestratorData[domain];
+        items = [];
+      } else {
+        items = orchestratorData[domain].items || [];
+      }
     }
   }
 
@@ -3497,6 +3508,9 @@ self.onInit = async function () {
       RECEIVED_DATA.lojas = null;
       RECEIVED_DATA.outros = null;
 
+      // HARD: Also clear grandTotal
+      STATE.grandTotal = 0;
+
       LogHelper.log('[CLEAR] Energy state cleared');
     }
 
@@ -3506,6 +3520,18 @@ self.onInit = async function () {
 
     // Reset period key
     lastProcessedPeriodKey = null;
+
+    // HARD: Destroy chart instances to prevent stale data
+    if (pieChartInstance) {
+      pieChartInstance.destroy();
+      pieChartInstance = null;
+      LogHelper.log('[CLEAR] pieChartInstance destroyed');
+    }
+    if (modalPieChartInstance) {
+      modalPieChartInstance.destroy();
+      modalPieChartInstance = null;
+      LogHelper.log('[CLEAR] modalPieChartInstance destroyed');
+    }
 
     // Update display with cleared data
     updateDisplay();
@@ -3537,17 +3563,27 @@ self.onInit = async function () {
   // Check for stored orchestrator data (warm start)
   setTimeout(() => {
     const orchestratorData = window.MyIOOrchestratorData || window.parent?.MyIOOrchestratorData;
+    const currentCustomerId = window.MyIOUtils?.customerTB_ID;
+    const domain = getWidgetDomain();
 
-    if (orchestratorData && orchestratorData[getWidgetDomain()]) {
-      const storedData = orchestratorData[getWidgetDomain()];
+    if (orchestratorData && orchestratorData[domain]) {
+      const storedData = orchestratorData[domain];
       const age = Date.now() - storedData.timestamp;
 
-      // Use stored data if less than 30 seconds old
-      if (age < 30000 && storedData.items && storedData.items.length > 0) {
-        LogHelper.log('Using stored orchestrator data (age:', age, 'ms)');
-        processOrchestratorData(storedData.items);
+      // HARD: Validate that cached data belongs to current customer
+      const cachedPeriodKey = storedData.periodKey || '';
+      const cachedCustomerId = cachedPeriodKey.split(':')[0];
+      if (currentCustomerId && cachedCustomerId && cachedCustomerId !== currentCustomerId) {
+        LogHelper.warn(`[TELEMETRY_INFO] 🚫 Stored data customer mismatch for ${domain} - ignoring stale cache`);
+        if (window.MyIOOrchestratorData) delete window.MyIOOrchestratorData[domain];
       } else {
-        LogHelper.log('Stored data is stale or empty (age:', age, 'ms)');
+        // Use stored data if less than 30 seconds old
+        if (age < 30000 && storedData.items && storedData.items.length > 0) {
+          LogHelper.log('Using stored orchestrator data (age:', age, 'ms)');
+          processOrchestratorData(storedData.items);
+        } else {
+          LogHelper.log('Stored data is stale or empty (age:', age, 'ms)');
+        }
       }
     } else {
       LogHelper.log('No stored orchestrator data found');

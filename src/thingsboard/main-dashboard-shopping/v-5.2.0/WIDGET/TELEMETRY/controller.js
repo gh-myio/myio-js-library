@@ -783,13 +783,23 @@ function getItemsFromState(domain, labelWidget) {
       return window.STATE.temperature.items;
     }
 
-    // Fallback to MyIOOrchestratorData
+    // Fallback to MyIOOrchestratorData - but validate customer first
     const orchestratorData = window.MyIOOrchestratorData;
+    const currentCustomerId = window.MyIOUtils?.customerTB_ID;
     if (orchestratorData?.temperature?.items?.length > 0) {
-      LogHelper.log(
-        `[TELEMETRY] 🌡️ Temperature: using MyIOOrchestratorData fallback (${orchestratorData.temperature.items.length} items)`
-      );
-      return orchestratorData.temperature.items;
+      // HARD: Validate that cached data belongs to current customer
+      const cachedPeriodKey = orchestratorData.temperature.periodKey || '';
+      const cachedCustomerId = cachedPeriodKey.split(':')[0];
+      if (currentCustomerId && cachedCustomerId && cachedCustomerId !== currentCustomerId) {
+        LogHelper.warn(`[TELEMETRY] 🚫 MyIOOrchestratorData customer mismatch (cached: ${cachedCustomerId}, current: ${currentCustomerId}) - ignoring stale cache`);
+        // Clear stale cache
+        delete window.MyIOOrchestratorData.temperature;
+      } else {
+        LogHelper.log(
+          `[TELEMETRY] 🌡️ Temperature: using MyIOOrchestratorData fallback (${orchestratorData.temperature.items.length} items)`
+        );
+        return orchestratorData.temperature.items;
+      }
     }
 
     LogHelper.warn(`[TELEMETRY] 🌡️ Temperature: no items found in STATE or OrchestratorData`);
@@ -3882,13 +3892,19 @@ self.onInit = async function () {
       return;
     }
 
-    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧹 Received clear event - clearing visual content`);
+    LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🧹 Received clear event - clearing ALL state`);
 
     try {
-      // Clear the items list
+      // HARD: Clear ALL state variables
       STATE.itemsBase = [];
       STATE.itemsEnriched = [];
       STATE.selectedIds = null;
+      STATE.searchActive = false;
+      STATE.searchTerm = '';
+      STATE.firstHydrates = 0;
+      hydrating = false;
+      hasRequestedInitialData = false;
+      lastProcessedPeriodKey = null;
 
       // IMPORTANT: Use $root() to get elements within THIS widget's scope
       const $widget = $root();
@@ -4245,6 +4261,7 @@ self.onInit = async function () {
   setTimeout(() => {
     // RFC-0053: Direct access to orchestrator data (single window context)
     const orchestratorData = window.MyIOOrchestratorData;
+    const currentCustomerId = window.MyIOUtils?.customerTB_ID;
 
     LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] 🔍 Checking for stored orchestrator data...`);
 
@@ -4253,27 +4270,35 @@ self.onInit = async function () {
       const storedData = orchestratorData[WIDGET_DOMAIN];
       const age = Date.now() - storedData.timestamp;
 
-      LogHelper.log(
-        `[TELEMETRY ${WIDGET_DOMAIN}] Found stored data: ${
-          storedData.items?.length || 0
-        } items, age: ${age}ms`
-      );
-
-      // Use stored data if it's less than 30 seconds old AND has items
-      if (age < 30000 && storedData.items && storedData.items.length > 0) {
-        LogHelper.log(
-          `[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Using stored orchestrator data (single window)`
-        );
-        dataProvideHandler({
-          detail: {
-            domain: WIDGET_DOMAIN,
-            periodKey: storedData.periodKey,
-            items: storedData.items,
-          },
-        });
-        return;
+      // HARD: Validate that cached data belongs to current customer
+      const cachedPeriodKey = storedData.periodKey || '';
+      const cachedCustomerId = cachedPeriodKey.split(':')[0];
+      if (currentCustomerId && cachedCustomerId && cachedCustomerId !== currentCustomerId) {
+        LogHelper.warn(`[TELEMETRY ${WIDGET_DOMAIN}] 🚫 Stored data customer mismatch (cached: ${cachedCustomerId}, current: ${currentCustomerId}) - ignoring stale cache`);
+        delete window.MyIOOrchestratorData[WIDGET_DOMAIN];
       } else {
-        LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Stored data is too old or empty, ignoring`);
+        LogHelper.log(
+          `[TELEMETRY ${WIDGET_DOMAIN}] Found stored data: ${
+            storedData.items?.length || 0
+          } items, age: ${age}ms`
+        );
+
+        // Use stored data if it's less than 30 seconds old AND has items
+        if (age < 30000 && storedData.items && storedData.items.length > 0) {
+          LogHelper.log(
+            `[TELEMETRY ${WIDGET_DOMAIN}] ✅ RFC-0053: Using stored orchestrator data (single window)`
+          );
+          dataProvideHandler({
+            detail: {
+              domain: WIDGET_DOMAIN,
+              periodKey: storedData.periodKey,
+              items: storedData.items,
+            },
+          });
+          return;
+        } else {
+          LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ⚠️ Stored data is too old or empty, ignoring`);
+        }
       }
     } else {
       LogHelper.log(`[TELEMETRY ${WIDGET_DOMAIN}] ℹ️ No stored data found for domain ${WIDGET_DOMAIN}`);
@@ -4399,27 +4424,36 @@ self.onInit = async function () {
   // RFC-0106 FIX: Temperature domain doesn't need period - check for stored data immediately
   if (WIDGET_DOMAIN === 'temperature') {
     const orchestratorData = window.MyIOOrchestratorData;
+    const currentCustomerId = window.MyIOUtils?.customerTB_ID;
     if (orchestratorData && orchestratorData.temperature) {
       const storedData = orchestratorData.temperature;
       const age = Date.now() - storedData.timestamp;
 
-      LogHelper.log(
-        `[TELEMETRY temperature] 🌡️ Found stored temperature data: ${
-          storedData.items?.length || 0
-        } items, age: ${age}ms`
-      );
+      // HARD: Validate that cached data belongs to current customer
+      const cachedPeriodKey = storedData.periodKey || '';
+      const cachedCustomerId = cachedPeriodKey.split(':')[0];
+      if (currentCustomerId && cachedCustomerId && cachedCustomerId !== currentCustomerId) {
+        LogHelper.warn(`[TELEMETRY temperature] 🚫 Stored data customer mismatch - ignoring stale cache`);
+        delete window.MyIOOrchestratorData.temperature;
+      } else {
+        LogHelper.log(
+          `[TELEMETRY temperature] 🌡️ Found stored temperature data: ${
+            storedData.items?.length || 0
+          } items, age: ${age}ms`
+        );
 
-      // Use stored data if it's less than 60 seconds old AND has items
-      if (age < 60000 && storedData.items && storedData.items.length > 0) {
-        LogHelper.log(`[TELEMETRY temperature] ✅ Using stored temperature data directly (no period needed)`);
-        dataProvideHandler({
-          detail: {
-            domain: 'temperature',
-            periodKey: storedData.periodKey,
-            items: storedData.items,
-          },
-        });
-        return; // Don't proceed to showBusy
+        // Use stored data if it's less than 60 seconds old AND has items
+        if (age < 60000 && storedData.items && storedData.items.length > 0) {
+          LogHelper.log(`[TELEMETRY temperature] ✅ Using stored temperature data directly (no period needed)`);
+          dataProvideHandler({
+            detail: {
+              domain: 'temperature',
+              periodKey: storedData.periodKey,
+              items: storedData.items,
+            },
+          });
+          return; // Don't proceed to showBusy
+        }
       }
     }
   }
