@@ -453,20 +453,25 @@ function isWaterStoreDevice(item) {
   const dt = String(item.deviceType || '').toUpperCase();
   const dp = String(item.deviceProfile || '').toUpperCase();
 
-  // LOJA: deviceType = deviceProfile = HIDROMETRO (ambos devem ser exatamente HIDROMETRO)
+  // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
   return dt === 'HIDROMETRO' && dp === 'HIDROMETRO';
 }
 
 /**
- * RFC-0109: Simplified water meter classification
- * Returns classification: 'loja' or 'areacomum'
+ * RFC-0109: Water meter classification
+ * Returns classification: 'loja', 'areacomum', or 'entrada'
  *
- * New rule:
- * - LOJA: deviceType = deviceProfile = HIDROMETRO
- * - AREA_COMUM: everything else
+ * Rules:
+ * - LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
+ * - AREA_COMUM:
+ *   - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM
+ *   - OR deviceType = HIDROMETRO_AREA_COMUM (deviceProfile não importa)
+ * - ENTRADA:
+ *   - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING
+ *   - OR deviceType = HIDROMETRO_SHOPPING (deviceProfile não importa)
  *
  * @param {Object} item - Device item with deviceType and deviceProfile properties
- * @returns {'loja'|'areacomum'}
+ * @returns {'loja'|'areacomum'|'entrada'}
  */
 function classifyWaterMeterDevice(item) {
   if (!item || typeof item !== 'object') {
@@ -476,13 +481,38 @@ function classifyWaterMeterDevice(item) {
   const dt = String(item.deviceType || '').toUpperCase();
   const dp = String(item.deviceProfile || '').toUpperCase();
 
-  // LOJA: deviceType = deviceProfile = HIDROMETRO
+  // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
   if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
     return 'loja';
   }
 
-  // AREA_COMUM: todo o resto
+  // ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
+  if (dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING')) {
+    return 'entrada';
+  }
+
+  // AREA_COMUM: deviceType = HIDROMETRO_AREA_COMUM OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM)
+  // Also default for any other combination
   return 'areacomum';
+}
+
+/**
+ * RFC-0109: Check if device is a water entrada (shopping entrance)
+ * ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
+ *
+ * @param {Object} item - Device item with deviceType and deviceProfile properties
+ * @returns {boolean} True if device is a water entrada
+ */
+function isWaterEntradaDevice(item) {
+  if (!item || typeof item !== 'object') {
+    return false;
+  }
+
+  const dt = String(item.deviceType || '').toUpperCase();
+  const dp = String(item.deviceProfile || '').toUpperCase();
+
+  // ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
+  return dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING');
 }
 
 /**
@@ -769,6 +799,7 @@ Object.assign(window.MyIOUtils, {
   inferLabelWidget,
   isStoreDevice,
   isWaterStoreDevice, // RFC-0109: Water meter classification
+  isWaterEntradaDevice, // RFC-0109: Water meter classification (entrada/shopping)
   classifyWaterMeterDevice, // RFC-0109: Water meter classification
   EQUIPMENT_EXCLUSION_PATTERN,
 });
@@ -3114,16 +3145,20 @@ function categorizeItemsByGroup(items) {
 }
 
 /**
- * RFC-0109: Simplified water categorization into 2 groups: lojas, areacomum
+ * RFC-0109: Water categorization into 3 groups: lojas, areacomum, entrada
  *
- * NEW SIMPLIFIED RULE:
- * - LOJAS: deviceType = deviceProfile = HIDROMETRO (both must be exactly "HIDROMETRO")
- * - AREACOMUM: everything else
- *
- * NOTE: entrada and banheiros are now included in areacomum for simplicity
+ * Rules:
+ * - LOJAS: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
+ * - ENTRADA:
+ *   - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING
+ *   - OR deviceType = HIDROMETRO_SHOPPING (deviceProfile não importa)
+ * - AREACOMUM:
+ *   - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM
+ *   - OR deviceType = HIDROMETRO_AREA_COMUM (deviceProfile não importa)
+ *   - OR any other combination (default)
  */
 function categorizeItemsByGroupWater(items) {
-  const entrada = []; // Kept for backward compatibility but not populated
+  const entrada = [];
   const lojas = [];
   const banheiros = []; // Kept for backward compatibility but not populated
   const areacomum = [];
@@ -3135,13 +3170,19 @@ function categorizeItemsByGroupWater(items) {
     const dt = toStr(item.deviceType);
     const dp = toStr(item.deviceProfile);
 
-    // LOJAS: deviceType = deviceProfile = HIDROMETRO (ambos devem ser exatamente HIDROMETRO)
+    // LOJAS: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
     if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
       lojas.push(item);
       continue;
     }
 
-    // AREACOMUM: todo o resto
+    // ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
+    if (dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING')) {
+      entrada.push(item);
+      continue;
+    }
+
+    // AREACOMUM: todo o resto (includes HIDROMETRO_AREA_COMUM and any other combination)
     areacomum.push(item);
   }
 
@@ -4541,15 +4582,19 @@ const MyIOOrchestrator = (() => {
       return 'weak_connection';
     }
 
-    // RFC-0110: Check if connection is stale based on timestamps
-    const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
-    const connectionStale = lib?.isConnectionStale
-      ? lib.isConnectionStale({
-          lastConnectTime: options.lastConnectTime,
-          lastDisconnectTime: options.lastDisconnectTime,
-          delayTimeConnectionInMins: delayMins,
-        })
-      : true; // Fallback: assume stale if library not available
+    // RFC-0110: Check if telemetry is stale based on timestamps (default 24h)
+    const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440;
+    // RFC-0110: Use telemetry timestamp if available, otherwise fall back to lastConnectTime
+    const telemetryTs = options.consumptionTs || options.pulsesTs || options.temperatureTs;
+    const connectionStale = lib?.isTelemetryStale
+      ? lib.isTelemetryStale(telemetryTs, options.lastActivityTime || options.lastConnectTime, delayMins)
+      : (lib?.isConnectionStale
+          ? lib.isConnectionStale({
+              connectionStatusTs: telemetryTs || options.lastConnectTime,
+              lastActivityTime: options.lastActivityTime || options.lastDisconnectTime,
+              delayTimeConnectionInMins: delayMins,
+            })
+          : true); // Fallback: assume stale if library not available
 
     // RFC-0110: Offline status check
     const isOfflineStatus = normalizedStatus === 'offline' ||
@@ -5670,17 +5715,24 @@ const MyIOOrchestrator = (() => {
         LogHelper.log(`[Orchestrator] 💧 Water dataKeys: ${Array.from(waterDataKeys).join(', ')}`);
         LogHelper.log(`[Orchestrator] 💧 Water devices: ${withOwnerName} with ownerName, ${withoutOwnerName} without (customersList: ${customersList.length})`);
 
-        // RFC-0109: Simplified water meter classification
-        // LOJA: deviceType = deviceProfile = HIDROMETRO (both must be exactly "HIDROMETRO")
+        // RFC-0109: Water meter classification
+        // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
+        // ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
         // AREA_COMUM: everything else
         const classifyWaterMeter = (device) => {
           const dt = String(device.deviceType || '').toUpperCase();
           const dp = String(device.deviceProfile || '').toUpperCase();
 
-          // LOJA: deviceType = deviceProfile = HIDROMETRO
+          // LOJA: deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO
           if (dt === 'HIDROMETRO' && dp === 'HIDROMETRO') {
             return 'loja';
           }
+
+          // ENTRADA: deviceType = HIDROMETRO_SHOPPING OR (deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING)
+          if (dt === 'HIDROMETRO_SHOPPING' || (dt === 'HIDROMETRO' && dp === 'HIDROMETRO_SHOPPING')) {
+            return 'entrada';
+          }
+
           // AREA_COMUM: todo o resto
           return 'areacomum';
         };
@@ -5706,16 +5758,19 @@ const MyIOOrchestrator = (() => {
         LogHelper.log(`[Orchestrator] 💧 Classification breakdown: ${JSON.stringify(classificationCounts)}`);
 
         if (waterItems.length > 0) {
-          const waterTotal = waterItems.reduce((sum, item) => sum + (item.value || 0), 0);
           const storeWaterItems = waterItems.filter((item) => item._classification === 'loja');
           const commonAreaItems = waterItems.filter((item) => item._classification === 'areacomum');
           const entradaItems = waterItems.filter((item) => item._classification === 'entrada');
+
+          // RFC-0109: Exclude entrada items from calculations (no screen for entrada yet)
+          const itemsForCalculation = waterItems.filter((item) => item._classification !== 'entrada');
+          const waterTotal = itemsForCalculation.reduce((sum, item) => sum + (item.value || 0), 0);
           const storesTotal = storeWaterItems.reduce((sum, item) => sum + (item.value || 0), 0);
           const commonAreaTotal = commonAreaItems.reduce((sum, item) => sum + (item.value || 0), 0);
 
-          // Group by shopping
+          // Group by shopping (excluding entrada items)
           const waterShoppingMap = new Map();
-          waterItems.forEach((item) => {
+          itemsForCalculation.forEach((item) => {
             const name = item.ownerName;
             if (!waterShoppingMap.has(name)) {
               waterShoppingMap.set(name, { name, areaComum: 0, lojas: 0 });
@@ -5732,7 +5787,7 @@ const MyIOOrchestrator = (() => {
             filteredTotal: waterTotal,
             unfilteredTotal: waterTotal,
             isFiltered: false,
-            deviceCount: waterItems.length,
+            deviceCount: itemsForCalculation.length, // Exclude entrada from count
             commonArea: commonAreaTotal,
             stores: storesTotal,
             shoppingsWater: Array.from(waterShoppingMap.values()),
@@ -5763,9 +5818,9 @@ const MyIOOrchestrator = (() => {
               count: entradaItems.length,
             },
             all: {
-              items: waterItems,
+              items: itemsForCalculation, // Exclude entrada from "all"
               total: waterTotal,
-              count: waterItems.length,
+              count: itemsForCalculation.length,
             },
             classification: classificationCounts,
             timestamp: Date.now(),
@@ -5775,13 +5830,13 @@ const MyIOOrchestrator = (() => {
           // RFC-0109: Only store if we have valid data (don't overwrite with empty)
           window.MyIOOrchestratorData = window.MyIOOrchestratorData || {};
           const existingWaterClassified = window.MyIOOrchestratorData.waterClassified;
-          const newItemCount = waterItems.length;
+          const newItemCount = itemsForCalculation.length; // Exclude entrada from count
           const existingItemCount = existingWaterClassified?.all?.count || 0;
 
           // Only update if we have MORE items or if there's no existing data
           if (newItemCount > 0 && (newItemCount >= existingItemCount || !existingWaterClassified)) {
             window.MyIOOrchestratorData.waterClassified = waterClassifiedData;
-            LogHelper.log(`[Orchestrator] 💧 Stored waterClassified data in window.MyIOOrchestratorData (${newItemCount} items, replaced ${existingItemCount})`);
+            LogHelper.log(`[Orchestrator] 💧 Stored waterClassified data in window.MyIOOrchestratorData (${newItemCount} items, replaced ${existingItemCount}, ignored ${entradaItems.length} entrada)`);
           } else if (newItemCount > 0) {
             LogHelper.log(`[Orchestrator] 💧 Skipped storing waterClassified - existing has more items (${existingItemCount} vs ${newItemCount})`);
           }
@@ -5789,7 +5844,7 @@ const MyIOOrchestrator = (() => {
           window.dispatchEvent(new CustomEvent('myio:water-tb-data-ready', {
             detail: waterClassifiedData,
           }));
-          LogHelper.log(`[Orchestrator] 💧 Emitted myio:water-tb-data-ready (commonArea: ${commonAreaItems.length}, stores: ${storeWaterItems.length}, entrada: ${entradaItems.length})`);
+          LogHelper.log(`[Orchestrator] 💧 Emitted myio:water-tb-data-ready (commonArea: ${commonAreaItems.length}, stores: ${storeWaterItems.length}, entrada: ${entradaItems.length} ignored)`);
         }
       } catch (err) {
         LogHelper.warn(`[Orchestrator] Failed to emit initial water-summary-ready: ${err.message}`);
@@ -5817,17 +5872,19 @@ const MyIOOrchestrator = (() => {
       );
 
       // RFC-0103: Emit water-summary-ready for HEADER widget with breakdown
-      const filteredTotal = items.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
+      // RFC-0109: Exclude entrada items from calculations
+      const itemsExcludingEntrada = items.filter((item) => !isWaterEntradaDevice(item) && item._classification !== 'entrada');
+      const filteredTotal = itemsExcludingEntrada.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
       // RFC-0109: Calculate breakdown by type using isWaterStoreDevice for water domain
-      const storeItems = items.filter((item) => item._isStore || isWaterStoreDevice(item));
-      const commonAreaItems = items.filter((item) => !item._isStore && !isWaterStoreDevice(item));
+      const storeItems = itemsExcludingEntrada.filter((item) => item._isStore || isWaterStoreDevice(item));
+      const commonAreaItems = itemsExcludingEntrada.filter((item) => !item._isStore && !isWaterStoreDevice(item));
       const stores = storeItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
       const commonArea = commonAreaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
 
-      // Calculate breakdown by shopping using customerId or ownerName
+      // Calculate breakdown by shopping using customerId or ownerName (excluding entrada)
       const waterShoppingMap = new Map();
       const waterCustomerList = window.custumersSelected || window.customersList || [];
-      items.forEach((item) => {
+      itemsExcludingEntrada.forEach((item) => {
         const customerId = item.customerId;
         const ownerName = item.ownerName || item.customerName;
         if (!customerId && !ownerName) return;
@@ -5857,7 +5914,7 @@ const MyIOOrchestrator = (() => {
         filteredTotal,
         unfilteredTotal: filteredTotal,
         isFiltered: false,
-        deviceCount: items.length,
+        deviceCount: itemsExcludingEntrada.length,
         commonArea,
         stores,
         shoppingsWater,
@@ -6105,7 +6162,8 @@ const MyIOOrchestrator = (() => {
     // Get water data and calculate filtered/unfiltered totals
     const waterData = window.MyIOOrchestratorData?.water;
     if (waterData?.items?.length) {
-      const allItems = waterData.items;
+      // RFC-0109: Exclude entrada items from calculations
+      const allItems = waterData.items.filter((item) => !isWaterEntradaDevice(item) && item._classification !== 'entrada');
 
       // Build set of selected shopping names from selection array for matching
       const selectedWaterShoppingNames = new Set(selection.map((s) => s.name?.toLowerCase()).filter(Boolean));
@@ -6128,7 +6186,7 @@ const MyIOOrchestrator = (() => {
       const stores = storeItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
       const commonArea = commonAreaItems.reduce((sum, item) => sum + (item.value || item.total_value || 0), 0);
 
-      // Calculate breakdown by shopping using customerId or ownerName
+      // Calculate breakdown by shopping using customerId or ownerName (excluding entrada)
       const waterShoppingMap = new Map();
       filteredItems.forEach((item) => {
         const customerId = item.customerId;
