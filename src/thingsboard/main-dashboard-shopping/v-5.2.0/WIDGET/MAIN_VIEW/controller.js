@@ -3237,6 +3237,13 @@ const MyIOOrchestrator = (() => {
       lastConnectTime: meta.lastConnectTime || null,
       lastDisconnectTime: meta.lastDisconnectTime || null,
 
+      // RFC-0110 v5: Telemetry timestamps for offline detection
+      consumptionTs: meta.consumptionTs || null,
+      pulsesTs: meta.pulsesTs || null,
+      waterLevelTs: meta.waterLevelTs || null,
+      waterPercentageTs: meta.waterPercentageTs || null,
+      temperatureTs: meta.temperatureTs || null,
+
       // Annotations
       log_annotations: meta.log_annotations || null,
 

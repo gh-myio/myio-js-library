@@ -1519,19 +1519,25 @@ function buildAuthoritativeItems() {
       telemetryTs = attrs.consumptionTs ?? null;
     }
 
-    // RFC-0110 v4: Check if domain-specific telemetry exists
+    // RFC-0110 v5: Check if domain-specific telemetry exists
     // Timestamp must exist AND be valid (> 0, since 0 = epoch 1970 = invalid)
     const hasConsumptionTs = telemetryTs !== null && telemetryTs !== undefined && telemetryTs > 0;
 
-    // RFC-0110 v4: Calculate telemetry freshness (NO lastActivityTime fallback!)
-    const hasRecentTelemetry = hasConsumptionTs && lib?.isTelemetryStale
-      ? !lib.isTelemetryStale(telemetryTs, null, SHORT_DELAY_MINS) // < 60 mins
+    // RFC-0110 v5: Fallback to lastActivityTime if no domain telemetry
+    const lastActivityTime = attrs.lastActivityTime ?? null;
+    const hasLastActivityTime = lastActivityTime !== null && lastActivityTime !== undefined && lastActivityTime > 0;
+    const effectiveTimestamp = hasConsumptionTs ? telemetryTs : (hasLastActivityTime ? lastActivityTime : null);
+    const hasEffectiveTimestamp = effectiveTimestamp !== null;
+
+    // RFC-0110 v5: Calculate telemetry freshness (with lastActivityTime fallback)
+    const hasRecentTelemetry = hasEffectiveTimestamp && lib?.isTelemetryStale
+      ? !lib.isTelemetryStale(effectiveTimestamp, null, SHORT_DELAY_MINS) // < 60 mins
       : false;
-    const telemetryStaleForOnline = !hasConsumptionTs || (lib?.isTelemetryStale
-      ? lib.isTelemetryStale(telemetryTs, null, LONG_DELAY_MINS) // > 24h
+    const telemetryStaleForOnline = !hasEffectiveTimestamp || (lib?.isTelemetryStale
+      ? lib.isTelemetryStale(effectiveTimestamp, null, LONG_DELAY_MINS) // > 24h
       : true);
 
-    // RFC-0110 v4: MASTER RULES (based ONLY on consumptionTs)
+    // RFC-0110 v5: MASTER RULES (telemetryTs with lastActivityTime fallback)
     // 1. WAITING → NOT_INSTALLED (absolute, no discussion)
     // 2. BAD + recent telemetry (< 60 mins) → ONLINE
     //    BAD + no telemetry OR stale → BAD
@@ -1559,7 +1565,7 @@ function buildAuthoritativeItems() {
       }
     } else if (isOnlineStatus) {
       // ONLINE: Verify with telemetry - no telemetry or stale (> 24h) → OFFLINE
-      if (!hasConsumptionTs || telemetryStaleForOnline) {
+      if (!hasEffectiveTimestamp || telemetryStaleForOnline) {
         deviceStatus = 'offline'; // Can't trust ONLINE without recent telemetry
       } else {
         // Has fresh telemetry → continue to range-based calculation for energy devices
@@ -1568,7 +1574,7 @@ function buildAuthoritativeItems() {
     }
 
     // RFC-0078: For ONLINE devices with fresh telemetry, refine status using power ranges
-    const shouldCalculateRanges = deviceStatus === 'power_on' && isOnlineStatus && hasConsumptionTs && !telemetryStaleForOnline;
+    const shouldCalculateRanges = deviceStatus === 'power_on' && isOnlineStatus && hasEffectiveTimestamp && !telemetryStaleForOnline;
     if (shouldCalculateRanges) {
       // RFC-0078: For energy devices, calculate status using ranges from mapInstantaneousPower
       const isEnergyDevice = !isTankDevice && !isTermostatoDevice;
@@ -1633,7 +1639,33 @@ function buildAuthoritativeItems() {
 
     // DEBUG: Forced tracking for specific device
     const debugLabel = r.label || '';
-    const isDebugDevice = debugLabel.includes('3F SCMAL3L4304ABC') || debugLabel.includes('SCMAL3L4304ABC');
+    const isDebugDevice = debugLabel.includes('3F SCMAL3L4304ABC') || debugLabel.includes('SCMAL3L4304ABC') || debugLabel.includes('Ar 15');
+
+    // RFC-0110 v5: Debug for Casa de Máquinas Ar 15 specifically
+    if (debugLabel.includes('Ar 15')) {
+      console.warn(`🔍 [RFC-0110 v5 DEBUG] CasaAR15 status calculation:`, {
+        label: debugLabel,
+        tbConnectionStatus: tbConnectionStatus,
+        isWaitingStatus,
+        isBadConnection,
+        isOfflineStatusRaw,
+        isOnlineStatus,
+        telemetryTs,
+        lastActivityTime: attrs.lastActivityTime,
+        hasConsumptionTs,
+        hasLastActivityTime,
+        effectiveTimestamp,
+        hasEffectiveTimestamp,
+        hasRecentTelemetry,
+        telemetryStaleForOnline,
+        SHORT_DELAY_MINS,
+        LONG_DELAY_MINS,
+        deviceStatus,
+        shouldCalculateRanges,
+        now: Date.now(),
+        deltaMinutes: effectiveTimestamp ? Math.round((Date.now() - effectiveTimestamp) / 60000) : null,
+      });
+    }
     if (isDebugDevice) {
       console.warn(`🔴 [DEBUG TELEMETRY] buildAuthoritativeItems for "${debugLabel}":`, {
         tbId: tbId,
@@ -4261,19 +4293,25 @@ self.onInit = async function () {
         telemetryTs = item.consumptionTs ?? null;
       }
 
-      // RFC-0110 v4: Check if domain-specific telemetry exists
+      // RFC-0110 v5: Check if domain-specific telemetry exists
       // Timestamp must exist AND be valid (> 0, since 0 = epoch 1970 = invalid)
       const hasConsumptionTs = telemetryTs !== null && telemetryTs !== undefined && telemetryTs > 0;
 
-      // RFC-0110 v4: Calculate telemetry freshness (NO lastActivityTime fallback!)
-      const hasRecentTelemetry = hasConsumptionTs && lib?.isTelemetryStale
-        ? !lib.isTelemetryStale(telemetryTs, null, SHORT_DELAY_MINS) // < 60 mins
+      // RFC-0110 v5: Fallback to lastActivityTime if no domain telemetry
+      const lastActivityTime = item.lastActivityTime ?? null;
+      const hasLastActivityTime = lastActivityTime !== null && lastActivityTime !== undefined && lastActivityTime > 0;
+      const effectiveTimestamp = hasConsumptionTs ? telemetryTs : (hasLastActivityTime ? lastActivityTime : null);
+      const hasEffectiveTimestamp = effectiveTimestamp !== null;
+
+      // RFC-0110 v5: Calculate telemetry freshness (with lastActivityTime fallback)
+      const hasRecentTelemetry = hasEffectiveTimestamp && lib?.isTelemetryStale
+        ? !lib.isTelemetryStale(effectiveTimestamp, null, SHORT_DELAY_MINS) // < 60 mins
         : false;
-      const telemetryStaleForOnline = !hasConsumptionTs || (lib?.isTelemetryStale
-        ? lib.isTelemetryStale(telemetryTs, null, LONG_DELAY_MINS) // > 24h
+      const telemetryStaleForOnline = !hasEffectiveTimestamp || (lib?.isTelemetryStale
+        ? lib.isTelemetryStale(effectiveTimestamp, null, LONG_DELAY_MINS) // > 24h
         : true);
 
-      // RFC-0110 v4: MASTER RULES (based ONLY on consumptionTs)
+      // RFC-0110 v5: MASTER RULES (telemetryTs with lastActivityTime fallback)
       // 1. WAITING → NOT_INSTALLED (absolute, no discussion)
       // 2. BAD + recent telemetry (< 60 mins) → ONLINE
       //    BAD + no telemetry OR stale → BAD
@@ -4301,7 +4339,7 @@ self.onInit = async function () {
         }
       } else if (isOnline) {
         // ONLINE: Verify with telemetry - no telemetry or stale (> 24h) → OFFLINE
-        if (!hasConsumptionTs || telemetryStaleForOnline) {
+        if (!hasEffectiveTimestamp || telemetryStaleForOnline) {
           deviceStatus = 'offline'; // Can't trust ONLINE without recent telemetry
         } else {
           // Has fresh telemetry → continue to range-based calculation
@@ -4310,7 +4348,7 @@ self.onInit = async function () {
       }
 
       // RFC-0078: For ONLINE devices with fresh telemetry, refine status using power ranges
-      const shouldCalculateRanges = deviceStatus === 'power_on' && isOnline && hasConsumptionTs && !telemetryStaleForOnline;
+      const shouldCalculateRanges = deviceStatus === 'power_on' && isOnline && hasEffectiveTimestamp && !telemetryStaleForOnline;
       if (shouldCalculateRanges && isEnergyDomain) {
         // For energy devices, calculate status using power ranges
         const instantaneousPower = Number(item.consumptionPower || 0);
@@ -4346,7 +4384,34 @@ self.onInit = async function () {
 
       // DEBUG: Forced tracking for specific device
       const debugLabel = item.label || item.name || '';
-      const isDebugDevice = debugLabel.includes('3F SCMAL3L4304ABC') || debugLabel.includes('SCMAL3L4304ABC');
+      const isDebugDevice = debugLabel.includes('3F SCMAL3L4304ABC') || debugLabel.includes('SCMAL3L4304ABC') || debugLabel.includes('Ar 15');
+
+      // RFC-0110 v5: Debug for Casa de Máquinas Ar 15 specifically
+      if (debugLabel.includes('Ar 15')) {
+        console.warn(`🔍 [RFC-0110 v5 DEBUG] CasaAR15 (processItems):`, {
+          label: debugLabel,
+          connectionStatus: connectionStatus,
+          isWaiting,
+          isBadConnection,
+          isOfflineStatusRaw,
+          isOnline,
+          telemetryTs,
+          lastActivityTime: item.lastActivityTime,
+          hasConsumptionTs,
+          hasLastActivityTime,
+          effectiveTimestamp,
+          hasEffectiveTimestamp,
+          hasRecentTelemetry,
+          telemetryStaleForOnline,
+          SHORT_DELAY_MINS,
+          LONG_DELAY_MINS,
+          deviceStatus,
+          shouldCalculateRanges,
+          now: Date.now(),
+          deltaMinutes: effectiveTimestamp ? Math.round((Date.now() - effectiveTimestamp) / 60000) : null,
+        });
+      }
+
       if (isDebugDevice) {
         console.warn(`🔴 [DEBUG TELEMETRY] processTemperatureItems for "${debugLabel}":`, {
           id: item.id || item.tbId,
@@ -4356,17 +4421,11 @@ self.onInit = async function () {
           normalizedStatus: normalizedStatus,
           isWaiting: isWaiting,
           isBadConnection: isBadConnection,
-          isBadConnectionFinal: isBadConnectionFinal,
           isOfflineStatusRaw: isOfflineStatusRaw,
-          isOfflineStatus: isOfflineStatus,
           isOnline: isOnline,
           hasRecentTelemetry: hasRecentTelemetry,
           telemetryStaleForOnline: telemetryStaleForOnline,
           isEffectivelyOnline: isEffectivelyOnline,
-          lastConnectTime: item.lastConnectTime,
-          lastDisconnectTime: item.lastDisconnectTime,
-          lastConnectTimeFormatted: item.lastConnectTime ? new Date(item.lastConnectTime).toISOString() : 'N/A',
-          lastDisconnectTimeFormatted: item.lastDisconnectTime ? new Date(item.lastDisconnectTime).toISOString() : 'N/A',
           SHORT_DELAY_MINS: SHORT_DELAY_MINS,
           LONG_DELAY_MINS: LONG_DELAY_MINS,
           now: new Date().toISOString(),
