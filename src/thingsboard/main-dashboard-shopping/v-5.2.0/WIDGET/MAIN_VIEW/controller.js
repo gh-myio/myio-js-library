@@ -3104,45 +3104,44 @@ const MyIOOrchestrator = (() => {
   function convertConnectionStatusToDeviceStatus(connectionStatus, options = {}) {
     const lib = window.MyIOLibrary;
 
-    // RFC-0109: Normalize connection status first
-    const normalizedStatus = lib?.normalizeConnectionStatus
-      ? lib.normalizeConnectionStatus(connectionStatus)
-      : String(connectionStatus || '').toLowerCase().trim();
+    // RFC-0110 v5: Use library's calculateDeviceStatus if available
+    if (lib?.calculateDeviceStatus) {
+      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440; // 24h default
+      const shortDelayMins = 60; // 60 mins for BAD/OFFLINE recovery
 
-    // RFC-0109: Waiting states → not_installed (ABSOLUTE PRIORITY)
-    const isWaiting = normalizedStatus === 'waiting' || ['waiting', 'connecting', 'pending'].includes(normalizedStatus);
-    if (isWaiting) {
+      const status = lib.calculateDeviceStatus({
+        connectionStatus: connectionStatus,
+        domain: options.domain || 'energy',
+        telemetryTimestamp: options.telemetryTimestamp || null,
+        lastActivityTime: options.lastActivityTime || null,
+        delayTimeConnectionInMins: delayMins,
+        shortDelayMins: shortDelayMins,
+      });
+
+      // Log for WAITING devices
+      if (status === 'not_installed') {
+        LogHelper.log(`[Orchestrator] ✅ RFC-0109 convertConnectionStatusToDeviceStatus: connectionStatus='${connectionStatus}' → 'not_installed'`);
+      }
+
+      return status;
+    }
+
+    // Fallback: Simple mapping if library not available
+    const normalizedStatus = String(connectionStatus || '').toLowerCase().trim();
+
+    if (['waiting', 'connecting', 'pending'].includes(normalizedStatus)) {
       LogHelper.log(`[Orchestrator] ✅ RFC-0109 convertConnectionStatusToDeviceStatus: connectionStatus='${connectionStatus}' → 'not_installed'`);
       return 'not_installed';
     }
 
-    // RFC-0109: Bad/weak connection states → weak_connection
-    if (normalizedStatus === 'bad' || ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus)) {
+    if (['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus)) {
       return 'weak_connection';
     }
 
-    // RFC-0110: Check if connection is stale based on timestamps
-    const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
-    const connectionStale = lib?.isConnectionStale
-      ? lib.isConnectionStale({
-          lastConnectTime: options.lastConnectTime,
-          lastDisconnectTime: options.lastDisconnectTime,
-          delayTimeConnectionInMins: delayMins,
-        })
-      : true; // Fallback: assume stale if library not available
-
-    // RFC-0110: Offline status check
-    const isOfflineStatus = normalizedStatus === 'offline' ||
-      ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus) ||
-      connectionStatus === null || connectionStatus === undefined || connectionStatus === '';
-
-    // RFC-0110: Device is truly offline only if status says offline AND connection is stale
-    if (isOfflineStatus && connectionStale) {
+    if (['offline', 'disconnected', 'false', '0'].includes(normalizedStatus) || !connectionStatus) {
       return 'offline';
     }
 
-    // RFC-0110: Device with "offline" status but fresh timestamp → treat as online
-    // Also handles normal online states
     return 'power_on';
   }
 
@@ -3162,10 +3161,22 @@ const MyIOOrchestrator = (() => {
    * @returns {Object} Orchestrator item object
    */
   function createOrchestratorItem({ entityId, meta, apiRow = null, overrides = {} }) {
-    // RFC-0109 + RFC-0110: Calculate deviceStatus with timestamp verification
+    // RFC-0110 v5: Determine domain and telemetry timestamp for device status calculation
+    const effectiveDeviceType = (meta.deviceProfile || meta.deviceType || '').toLowerCase();
+    const isWaterDevice = effectiveDeviceType.includes('hidrometro') || effectiveDeviceType.includes('water') || effectiveDeviceType.includes('tank');
+    const isTempDevice = effectiveDeviceType.includes('termostato') || effectiveDeviceType.includes('temperature');
+    const domain = isWaterDevice ? 'water' : isTempDevice ? 'temperature' : 'energy';
+    const telemetryTimestamp = isWaterDevice
+      ? (meta.pulsesTs || meta.waterLevelTs || meta.waterPercentageTs)
+      : isTempDevice
+        ? meta.temperatureTs
+        : meta.consumptionTs;
+
+    // RFC-0109 + RFC-0110 v5: Calculate deviceStatus with telemetry timestamp and lastActivityTime fallback
     const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus, {
-      lastConnectTime: meta.lastConnectTime,
-      lastDisconnectTime: meta.lastDisconnectTime,
+      domain: domain,
+      telemetryTimestamp: telemetryTimestamp || null,
+      lastActivityTime: meta.lastActivityTime,
     });
 
     // DEBUG: Forced tracking for specific device
@@ -3173,24 +3184,24 @@ const MyIOOrchestrator = (() => {
     const isDebugDevice = debugLabel.includes('3F SCMAL3L4304ABC') || debugLabel.includes('SCMAL3L4304ABC');
     if (isDebugDevice) {
       const lib = window.MyIOLibrary;
-      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
-      const connectionStale = lib?.isConnectionStale
-        ? lib.isConnectionStale({
-            lastConnectTime: meta.lastConnectTime,
-            lastDisconnectTime: meta.lastDisconnectTime,
-            delayTimeConnectionInMins: delayMins,
-          })
+      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440;
+      const shortDelayMins = 60;
+      const telemetryStale = lib?.isTelemetryStale
+        ? lib.isTelemetryStale(telemetryTimestamp, meta.lastActivityTime, delayMins)
         : 'N/A (lib not available)';
-      console.warn(`🔴 [DEBUG MAIN_VIEW] createOrchestratorItem for "${debugLabel}":`, {
+      console.warn(`🔴 [DEBUG MAIN_VIEW RFC-0110 v5] createOrchestratorItem for "${debugLabel}":`, {
         entityId,
         connectionStatus: meta.connectionStatus,
         calculatedDeviceStatus: deviceStatus,
-        lastConnectTime: meta.lastConnectTime,
-        lastDisconnectTime: meta.lastDisconnectTime,
-        lastConnectTimeFormatted: meta.lastConnectTime ? new Date(meta.lastConnectTime).toISOString() : 'N/A',
-        lastDisconnectTimeFormatted: meta.lastDisconnectTime ? new Date(meta.lastDisconnectTime).toISOString() : 'N/A',
-        connectionStale,
+        // RFC-0110 v5: Domain and timestamp info
+        domain,
+        telemetryTimestamp,
+        telemetryTimestampFormatted: telemetryTimestamp ? new Date(telemetryTimestamp).toISOString() : 'N/A',
+        lastActivityTime: meta.lastActivityTime,
+        lastActivityTimeFormatted: meta.lastActivityTime ? new Date(meta.lastActivityTime).toISOString() : 'N/A',
+        telemetryStale,
         delayMins,
+        shortDelayMins,
         now: new Date().toISOString(),
       });
     }

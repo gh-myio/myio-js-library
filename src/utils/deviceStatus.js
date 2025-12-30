@@ -354,28 +354,32 @@ export function getDeviceStatusInfo(deviceStatus) {
 }
 
 /**
- * RFC-0110 v3: Unified device status calculation based on DOMAIN-SPECIFIC telemetry timestamps.
+ * RFC-0110 v5: Unified device status calculation based on telemetry timestamps with fallback.
  *
  * This function determines device status using:
  * 1. connectionStatus for immediate states (waiting)
- * 2. DOMAIN-SPECIFIC telemetryTimestamp - REQUIRED (if null → OFFLINE)
- * 3. telemetryTimestamp for stale/offline detection (dual threshold)
+ * 2. telemetryTimestamp (domain-specific) or lastActivityTime as fallback
+ * 3. Dual threshold for stale/offline detection
  * 4. telemetryValue for operational status (standby, power_on, warning, failure)
  *
- * IMPORTANT v3: telemetryTimestamp MUST be the domain-specific timestamp:
- * - Energy: consumptionTs
- * - Water (hidrômetro): pulsesTs
- * - Water (caixa d'água): waterLevelTs or waterPercentageTs
- * - Temperature: temperatureTs
+ * MASTER RULES (RFC-0110 v5):
+ * - WAITING → NOT_INSTALLED (absolute, no discussion)
+ * - BAD + recent telemetry (< 60 mins) → POWER_ON, else WEAK_CONNECTION
+ * - OFFLINE + recent telemetry (< 60 mins) → POWER_ON, else OFFLINE
+ * - ONLINE + no effective timestamp → OFFLINE
+ * - ONLINE + stale (> 24h) → OFFLINE
+ * - ONLINE + fresh (< 24h) → continue to value-based calculation
  *
- * DO NOT use lastActivityTime or connectionStatusTs as telemetryTimestamp!
+ * Timestamp priority:
+ * 1. telemetryTimestamp (domain-specific: consumptionTs, pulsesTs, etc.)
+ * 2. lastActivityTime (fallback when no domain telemetry)
  *
  * @param {Object} params - Configuration object
  * @param {string} params.connectionStatus - Connection status: "waiting", "offline", "bad", or "online"
  * @param {string} [params.domain='energy'] - Device domain: 'energy', 'water', or 'temperature'
  * @param {number|null} [params.telemetryValue] - Telemetry value (consumption/pulses/temperature)
- * @param {number|null} [params.telemetryTimestamp] - Unix timestamp (ms) of DOMAIN-SPECIFIC telemetry (REQUIRED in v3)
- * @param {number|null} [params.lastActivityTime] - NOT USED in v3 (kept for backward compat)
+ * @param {number|null} [params.telemetryTimestamp] - Unix timestamp (ms) of domain-specific telemetry
+ * @param {number|null} [params.lastActivityTime] - Fallback timestamp when no domain telemetry
  * @param {Object} [params.ranges] - Consumption ranges for status calculation
  * @param {number} [params.delayTimeConnectionInMins=1440] - Long threshold for 'online' status (default: 24h)
  * @param {number} [params.shortDelayMins=60] - Short threshold for 'offline'/'bad' status (default: 60 mins)
@@ -386,15 +390,16 @@ export function getDeviceStatusInfo(deviceStatus) {
  * @returns {string} Device status from DeviceStatusType enum
  *
  * @example
- * // RFC-0110 v3: Domain-specific telemetry required
+ * // RFC-0110 v5: With domain telemetry
  * calculateDeviceStatus({
  *   connectionStatus: "online",
  *   domain: "energy",
  *   telemetryValue: 500,
- *   telemetryTimestamp: consumptionTs, // MUST be consumptionTs, NOT lastActivityTime
+ *   telemetryTimestamp: consumptionTs, // Primary: domain-specific timestamp
+ *   lastActivityTime: lastActivityTime, // Fallback if consumptionTs is null
  *   ranges: { ... },
  *   delayTimeConnectionInMins: 1440
- * }); // Returns "power_on" or "offline" if no consumptionTs
+ * }); // Returns "power_on" if fresh telemetry, "offline" if stale/missing
  */
 export function calculateDeviceStatus({
   connectionStatus,
@@ -424,20 +429,21 @@ export function calculateDeviceStatus({
     return DeviceStatusType.NOT_INSTALLED;
   }
 
-  // 2. RFC-0110 v3: Check if domain-specific telemetry timestamp exists AND is valid
-  // If device NEVER received domain-specific telemetry → OFFLINE
-  // IMPORTANT: We only check telemetryTimestamp, NOT lastActivityTime
-  // NOTE: Timestamp 0 (epoch 1970) is treated as invalid/missing
-  if (telemetryTimestamp === null || telemetryTimestamp === undefined || telemetryTimestamp <= 0) {
-    // console.log(`[RFC-0110 v3] Device has NO domain-specific telemetry (${domain}) → OFFLINE`);
-    return DeviceStatusType.OFFLINE;
-  }
+  // 2. RFC-0110 v5: Calculate effective timestamp (telemetryTimestamp with lastActivityTime fallback)
+  // Timestamp must exist AND be valid (> 0, since 0 = epoch 1970 = invalid)
+  const hasTelemetryTs = telemetryTimestamp !== null && telemetryTimestamp !== undefined && telemetryTimestamp > 0;
+  const hasLastActivityTime = lastActivityTime !== null && lastActivityTime !== undefined && lastActivityTime > 0;
+  const effectiveTimestamp = hasTelemetryTs ? telemetryTimestamp : (hasLastActivityTime ? lastActivityTime : null);
+  const hasEffectiveTimestamp = effectiveTimestamp !== null;
 
-  // 3. BAD → Check telemetry (60 mins threshold)
+  // 3. RFC-0110 v5: If no effective timestamp at all → OFFLINE (for ONLINE status)
+  // For BAD/OFFLINE, we check below with short threshold
+
+  // 4. BAD → Check telemetry (60 mins threshold)
   // If recent telemetry, treat as online (hide weak_connection from client)
-  // If stale telemetry, show WEAK_CONNECTION
+  // If stale telemetry or no timestamp, show WEAK_CONNECTION
   if (normalizedStatus === "bad") {
-    const hasRecentTelemetry = !isTelemetryStale(telemetryTimestamp, null, shortDelayMins);
+    const hasRecentTelemetry = hasEffectiveTimestamp && !isTelemetryStale(effectiveTimestamp, null, shortDelayMins);
     if (hasRecentTelemetry) {
       // Device is working fine, continue to value-based calculation
     } else {
@@ -445,27 +451,30 @@ export function calculateDeviceStatus({
     }
   }
 
-  // 4. OFFLINE → Check telemetry (60 mins threshold)
+  // 5. OFFLINE → Check telemetry (60 mins threshold)
   // If recent telemetry (< 60 mins), treat as online
-  // If stale telemetry (> 60 mins), mark as OFFLINE
+  // If stale telemetry (> 60 mins) or no timestamp, mark as OFFLINE
   if (normalizedStatus === "offline") {
-    const hasRecentTelemetry = !isTelemetryStale(telemetryTimestamp, null, shortDelayMins);
+    const hasRecentTelemetry = hasEffectiveTimestamp && !isTelemetryStale(effectiveTimestamp, null, shortDelayMins);
     if (!hasRecentTelemetry) {
       return DeviceStatusType.OFFLINE;
     }
     // Has recent telemetry - continue to value-based calculation
   }
 
-  // 5. ONLINE → Check telemetry (24h threshold)
-  // If stale telemetry (> 24h), mark as OFFLINE
+  // 6. ONLINE → Check telemetry (24h threshold)
+  // If no effective timestamp or stale (> 24h), mark as OFFLINE
   if (normalizedStatus === "online") {
-    const telemetryStale = isTelemetryStale(telemetryTimestamp, null, delayTimeConnectionInMins);
+    if (!hasEffectiveTimestamp) {
+      return DeviceStatusType.OFFLINE;
+    }
+    const telemetryStale = isTelemetryStale(effectiveTimestamp, null, delayTimeConnectionInMins);
     if (telemetryStale) {
       return DeviceStatusType.OFFLINE;
     }
   }
 
-  // 6. Device is effectively online - calculate status from telemetry value
+  // 7. Device is effectively online - calculate status from telemetry value
   // Support both new (telemetryValue) and legacy (lastConsumptionValue) parameters
   const value = telemetryValue ?? lastConsumptionValue;
 

@@ -1515,10 +1515,21 @@ export const EnergySummaryTooltip = {
     const container = document.getElementById(this.containerId);
     if (container && container.classList.contains('visible')) {
       container.classList.add('closing');
-      // Wait for animation to complete
+      // Wait for animation to complete, then fully reset state
       setTimeout(() => {
-        container.classList.remove('visible');
-        container.classList.remove('closing');
+        // Reset all state to prevent invisible blocking divs
+        this._isMouseOverTooltip = false;
+        this._isMaximized = false;
+        this._isDragging = false;
+        this._savedPosition = null;
+        this._currentStatus = null;
+
+        // Hide device list popup
+        this.hideDeviceListPopup();
+
+        // Remove all classes and clear content
+        container.classList.remove('visible', 'closing', 'pinned', 'maximized', 'dragging');
+        container.innerHTML = '';
       }, 400);
     }
   },

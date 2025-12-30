@@ -1396,10 +1396,21 @@ export const WaterSummaryTooltip = {
     const container = document.getElementById(this.containerId);
     if (container && container.classList.contains('visible')) {
       container.classList.add('closing');
-      // Wait for animation to complete
+      // Wait for animation to complete, then fully reset state
       setTimeout(() => {
-        container.classList.remove('visible');
-        container.classList.remove('closing');
+        // Reset all state to prevent invisible blocking divs
+        this._isMouseOverTooltip = false;
+        this._isMaximized = false;
+        this._isDragging = false;
+        this._savedPosition = null;
+        this._currentStatus = null;
+
+        // Hide device list popup
+        this.hideDeviceListPopup();
+
+        // Remove all classes and clear content
+        container.classList.remove('visible', 'closing', 'pinned', 'maximized', 'dragging');
+        container.innerHTML = '';
       }, 400);
     }
   },
@@ -1590,15 +1601,17 @@ export const WaterSummaryTooltip = {
         weakConnectionDevices: widgetAggregation.weakConnectionDevices || [],
       };
 
-      // RFC-0105: Use orchestrator item count as source of truth for totalDevices
-      // This ensures consistency between total count and status breakdown
+      // RFC-0109: Total devices = unique devices (connectivity categories are mutually exclusive)
+      // Note: A device appears in exactly one connectivity category (waiting, weakConnection, offline, or online)
       const orchestratorTotal =
+        (widgetAggregation.waiting || 0) +
+        (widgetAggregation.weakConnection || 0) +
+        (widgetAggregation.offline || 0) +
         (widgetAggregation.normal || 0) +
         (widgetAggregation.alert || 0) +
         (widgetAggregation.failure || 0) +
-        (widgetAggregation.standby || 0) +
-        (widgetAggregation.offline || 0) +
-        (widgetAggregation.noConsumption || 0);
+        (widgetAggregation.standby || 0);
+      // Note: noConsumption is NOT added because devices can be both offline AND noConsumption
 
       if (orchestratorTotal > 0) {
         // Override totalDevices with orchestrator count for consistency
@@ -1611,14 +1624,15 @@ export const WaterSummaryTooltip = {
       if (statusAggregation.hasData) {
         summary.byStatus = statusAggregation.byStatus;
 
-        // Use orchestrator item count as source of truth
+        // RFC-0109: Calculate total from connectivity categories + online consumption categories
         const orchestratorTotal =
+          statusAggregation.byStatus.waiting +
+          statusAggregation.byStatus.weakConnection +
+          statusAggregation.byStatus.offline +
           statusAggregation.byStatus.normal +
           statusAggregation.byStatus.alert +
           statusAggregation.byStatus.failure +
-          statusAggregation.byStatus.standby +
-          statusAggregation.byStatus.offline +
-          statusAggregation.byStatus.noConsumption;
+          statusAggregation.byStatus.standby;
 
         if (orchestratorTotal > 0) {
           summary.totalDevices = orchestratorTotal;
@@ -1730,21 +1744,6 @@ export const WaterSummaryTooltip = {
     // Threshold for "no consumption" - devices with value below this are considered zero
     const NO_CONSUMPTION_THRESHOLD = 0.001; // m³ for water
 
-    // Map deviceStatus values to our status categories
-    // deviceStatus values: power_on, standby, power_off, warning, failure, maintenance, no_info, not_installed, offline, weak_connection
-    const statusMapping: Record<string, keyof Pick<StatusSummary, 'normal' | 'alert' | 'failure' | 'standby' | 'offline' | 'waiting' | 'weakConnection'>> = {
-      'power_on': 'normal',
-      'warning': 'alert',
-      'failure': 'failure',
-      'standby': 'standby',
-      'power_off': 'offline',
-      'maintenance': 'offline',
-      'no_info': 'offline',
-      'not_installed': 'waiting',
-      'offline': 'offline',
-      'weak_connection': 'weakConnection',
-    };
-
     items.forEach((item: any) => {
       const deviceInfo: DeviceInfo = {
         id: item.id || item.deviceId || '',
@@ -1756,48 +1755,67 @@ export const WaterSummaryTooltip = {
       const connectionStatus = item.connectionStatus || '';
       const value = Number(item.value || item.val || 0);
 
-      // RFC-0109: Check connectivity status first
-      // waiting (not_installed) - device is waiting for installation
-      if (deviceStatus === 'not_installed' || connectionStatus === 'waiting') {
+      // RFC-0109: Determine connectivity status first (independent dimension)
+      const isWaiting = deviceStatus === 'not_installed' || connectionStatus === 'waiting';
+      const isWeakConnection = deviceStatus === 'weak_connection' || connectionStatus === 'bad' ||
+                               ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(String(connectionStatus).toLowerCase());
+      const isOffline = deviceStatus === 'offline' || deviceStatus === 'no_info' ||
+                        deviceStatus === 'power_off' || deviceStatus === 'maintenance' ||
+                        connectionStatus === 'offline' || connectionStatus === 'disconnected';
+
+      // Add to connectivity categories (a device belongs to exactly one connectivity category)
+      if (isWaiting) {
         result.waiting++;
         result.waitingDevices?.push(deviceInfo);
-        // Note: waiting devices should NOT be counted in noConsumption
+        // EXCEPTION: waiting devices should NOT be counted in consumption categories
         return;
-      }
-
-      // weak_connection (bad) - device has weak signal
-      if (deviceStatus === 'weak_connection' || connectionStatus === 'bad') {
+      } else if (isWeakConnection) {
         result.weakConnection++;
         result.weakConnectionDevices?.push(deviceInfo);
-        // Note: weak connection devices CAN also be in noConsumption, so we continue
-      }
-
-      // Check for "no consumption" (value is 0 or very close to 0)
-      // Only applies to online devices (not offline/no_info/waiting)
-      const isOnline = !['no_info', 'offline', 'not_installed', 'maintenance', 'power_off'].includes(deviceStatus);
-      const isWaiting = deviceStatus === 'not_installed' || connectionStatus === 'waiting';
-
-      if (isOnline && !isWaiting && Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
-        result.noConsumption++;
-        result.noConsumptionDevices?.push(deviceInfo);
-        // Don't return - device can be in multiple categories (consumption AND connectivity)
-      }
-
-      // Skip if already counted as weakConnection (to avoid double counting in status)
-      if (deviceStatus === 'weak_connection' || connectionStatus === 'bad') {
+        // weakConnection devices CAN also have consumption status
+      } else if (isOffline) {
+        result.offline++;
+        result.offlineDevices?.push(deviceInfo);
+        // Offline devices can ALSO be in noConsumption (if they have no data)
+        if (Math.abs(value) < NO_CONSUMPTION_THRESHOLD || value === null || value === undefined) {
+          result.noConsumption++;
+          result.noConsumptionDevices?.push(deviceInfo);
+        }
         return;
       }
 
-      // Map deviceStatus to our categories
-      const mappedStatus = statusMapping[deviceStatus] || 'offline';
+      // For online devices (including weakConnection): determine consumption status
+      const isOnline = !isOffline && !isWaiting;
 
-      // Increment count and add to device list
-      result[mappedStatus]++;
+      if (isOnline) {
+        // Check for "no consumption" (value is 0 or very close to 0)
+        if (Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
+          result.noConsumption++;
+          result.noConsumptionDevices?.push(deviceInfo);
+          // Don't return - device is still counted in consumption category based on deviceStatus
+        }
 
-      const deviceListKey = `${mappedStatus}Devices` as keyof StatusSummary;
-      const deviceList = result[deviceListKey] as DeviceInfo[] | undefined;
-      if (deviceList) {
-        deviceList.push(deviceInfo);
+        // Map deviceStatus to consumption category
+        const consumptionStatusMapping: Record<string, 'normal' | 'alert' | 'failure' | 'standby'> = {
+          'power_on': 'normal',
+          'warning': 'alert',
+          'failure': 'failure',
+          'standby': 'standby',
+        };
+
+        const consumptionCategory = consumptionStatusMapping[deviceStatus];
+        if (consumptionCategory) {
+          result[consumptionCategory]++;
+          const deviceListKey = `${consumptionCategory}Devices` as keyof StatusSummary;
+          const deviceList = result[deviceListKey] as DeviceInfo[] | undefined;
+          if (deviceList) {
+            deviceList.push(deviceInfo);
+          }
+        } else {
+          // Unknown status - default to normal for online devices
+          result.normal++;
+          result.normalDevices?.push(deviceInfo);
+        }
       }
     });
 
