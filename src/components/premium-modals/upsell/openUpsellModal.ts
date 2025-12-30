@@ -1202,7 +1202,8 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
   const telemetryItems: Array<{ label: string; value: string; unit: string; ts: string }> = [];
 
   if (state.deviceTelemetryLoaded) {
-    if (telemetry.consumption) {
+    // Only show telemetry if it has a valid timestamp (indicates real data exists)
+    if (telemetry.consumption && telemetry.consumption.ts && telemetry.consumption.value != null) {
       telemetryItems.push({
         label: 'consumption',
         value: telemetry.consumption.value.toFixed(1),
@@ -1210,7 +1211,7 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
         ts: formatDate(telemetry.consumption.ts, state.locale, true),
       });
     }
-    if (telemetry.pulses) {
+    if (telemetry.pulses && telemetry.pulses.ts && telemetry.pulses.value != null) {
       telemetryItems.push({
         label: 'pulses',
         value: String(telemetry.pulses.value),
@@ -1218,7 +1219,7 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
         ts: formatDate(telemetry.pulses.ts, state.locale, true),
       });
     }
-    if (telemetry.temperature) {
+    if (telemetry.temperature && telemetry.temperature.ts && telemetry.temperature.value != null) {
       telemetryItems.push({
         label: 'temperature',
         value: telemetry.temperature.value.toFixed(1),
@@ -2151,6 +2152,64 @@ function setupEventListeners(
     }
   });
 
+  // Fetch Ingestion ID
+  document.getElementById(`${modalId}-fetch-ingestion`)?.addEventListener('click', async () => {
+    if (!state.selectedDevice) return;
+    const attrs = state.deviceAttributes;
+    const centralId = attrs.centralId;
+    const slaveId = attrs.slaveId;
+
+    if (!centralId || !slaveId) {
+      alert('centralId e slaveId são necessários para buscar o ingestionId');
+      return;
+    }
+
+    console.log('[UpsellModal] Fetching ingestionId for centralId:', centralId, 'slaveId:', slaveId);
+
+    try {
+      // Fetch from ingestion API
+      const url = `${state.ingestionApiBase}/devices?centralId=${encodeURIComponent(centralId)}&slaveId=${encodeURIComponent(slaveId)}`;
+      console.log('[UpsellModal] Ingestion API URL:', url);
+
+      const res = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${state.ingestionToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Ingestion API error: ${res.status} ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      console.log('[UpsellModal] Ingestion API response:', data);
+
+      if (data && data.id) {
+        // Found the ingestion device, set the ID in the input
+        const input = document.getElementById(`${modalId}-ingestionId`) as HTMLInputElement;
+        if (input) {
+          input.value = data.id;
+          input.style.borderColor = '#4caf50';
+        }
+        alert(`IngestionId encontrado: ${data.id}`);
+      } else if (Array.isArray(data) && data.length > 0) {
+        // Response is an array, use the first match
+        const input = document.getElementById(`${modalId}-ingestionId`) as HTMLInputElement;
+        if (input) {
+          input.value = data[0].id;
+          input.style.borderColor = '#4caf50';
+        }
+        alert(`IngestionId encontrado: ${data[0].id}`);
+      } else {
+        alert('Nenhum device encontrado na API de ingestion com centralId=' + centralId + ' e slaveId=' + slaveId);
+      }
+    } catch (error) {
+      console.error('[UpsellModal] Error fetching ingestionId:', error);
+      alert('Erro ao buscar ingestionId: ' + (error as Error).message);
+    }
+  });
+
   // Apply search filters after render (to preserve filter state)
   if (state.customerSearchTerm && state.currentStep === 1) {
     filterCustomerList(container, state.customers, state.customerSearchTerm.toLowerCase(), state.selectedCustomer, state.customerSort);
@@ -2404,6 +2463,7 @@ async function tbFetch<T>(state: ModalState, path: string): Promise<T> {
 
 async function tbPost<T>(state: ModalState, path: string, data: unknown): Promise<T> {
   const url = `${state.tbApiBase}${path}`;
+  console.log('[UpsellModal] POST', path, data);
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -2414,10 +2474,23 @@ async function tbPost<T>(state: ModalState, path: string, data: unknown): Promis
   });
 
   if (!res.ok) {
+    const errorText = await res.text().catch(() => '');
+    console.error('[UpsellModal] POST error:', res.status, res.statusText, errorText);
     throw new Error(`API error: ${res.status} ${res.statusText}`);
   }
 
-  return res.json();
+  // Handle empty responses (some endpoints return 200 with no body)
+  const text = await res.text();
+  if (!text) {
+    console.log('[UpsellModal] POST success (empty response)');
+    return {} as T;
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    console.log('[UpsellModal] POST success (non-JSON response):', text);
+    return {} as T;
+  }
 }
 
 async function tbDelete(state: ModalState, path: string): Promise<void> {
@@ -2441,38 +2514,43 @@ async function changeDeviceOwner(state: ModalState, device: Device, newCustomerI
   await tbPost(state, `/api/customer/${newCustomerId}/device/${deviceId}`, {});
 }
 
-// Create relation from device TO entity
+// Create relation: Entity (ASSET/CUSTOMER) -> DEVICE (entity "Contains" device)
 async function createRelation(
   state: ModalState,
   device: Device,
-  toEntityType: 'ASSET' | 'CUSTOMER',
-  toEntityId: string
+  fromEntityType: 'ASSET' | 'CUSTOMER',
+  fromEntityId: string
 ): Promise<void> {
   const deviceId = getEntityId(device);
+  // ASSET/CUSTOMER is the FROM (container), DEVICE is the TO (contained)
   const relation = {
-    from: { entityType: 'DEVICE', id: deviceId },
-    to: { entityType: toEntityType, id: toEntityId },
+    from: { entityType: fromEntityType, id: fromEntityId },
+    to: { entityType: 'DEVICE', id: deviceId },
     type: 'Contains',
     typeGroup: 'COMMON',
   };
+  console.log('[UpsellModal] Creating relation:', relation);
   await tbPost(state, '/api/relation', relation);
 }
 
-// Delete relation from device TO entity
+// Delete relation: Entity (ASSET/CUSTOMER) -> DEVICE
 async function deleteRelation(
   state: ModalState,
   device: Device,
   relation: DeviceRelation
 ): Promise<void> {
   const deviceId = getEntityId(device);
+  // In our model: Entity (FROM) -> Device (TO)
+  // relation.toEntityType/toEntityId stores the container entity info
   const params = new URLSearchParams({
-    fromId: deviceId,
-    fromType: 'DEVICE',
+    fromId: relation.toEntityId,
+    fromType: relation.toEntityType,
+    toId: deviceId,
+    toType: 'DEVICE',
     relationType: 'Contains',
     relationTypeGroup: 'COMMON',
-    toId: relation.toEntityId,
-    toType: relation.toEntityType,
   });
+  console.log('[UpsellModal] Deleting relation:', params.toString());
   await tbDelete(state, `/api/relation?${params.toString()}`);
 }
 
@@ -2744,19 +2822,25 @@ async function loadValidationData(
       state.deviceAttributes[a.key as keyof DeviceAttributes] = a.value as string;
     });
 
-    // Fetch relations
-    const relations = await tbFetch<Array<{ to: { entityType: string; id: string } }>>(
+    // Fetch relations - find entities that contain this device (FROM -> DEVICE)
+    // Query: what entities have this device as the TO (i.e., what contains this device)
+    const relations = await tbFetch<Array<{ from: { entityType: string; id: string }; to: { entityType: string; id: string } }>>(
       state,
-      `/api/relations?fromId=${deviceId}&fromType=DEVICE&relationTypeGroup=COMMON&direction=TO`
+      `/api/relations?toId=${deviceId}&toType=DEVICE&relationTypeGroup=COMMON`
     );
+    console.log('[UpsellModal] Device relations:', relations);
 
     if (relations.length > 0) {
+      // The FROM entity is what contains the device
+      const containerEntity = relations[0].from;
       state.deviceRelation = {
-        toEntityType: relations[0].to.entityType as 'ASSET' | 'CUSTOMER',
-        toEntityId: relations[0].to.id,
+        toEntityType: containerEntity.entityType as 'ASSET' | 'CUSTOMER',
+        toEntityId: containerEntity.id,
       };
+      console.log('[UpsellModal] Device is contained by:', state.deviceRelation);
     } else {
       state.deviceRelation = null;
+      console.log('[UpsellModal] Device has no container relation');
     }
 
     state.isLoading = false;
