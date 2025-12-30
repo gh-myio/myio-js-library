@@ -1467,12 +1467,21 @@ function buildAuthoritativeItems() {
       }
     }
 
-    // "waiting" means device is registered and awaiting data, treat as online
-    const ONLINE_STATUSES = ['online', 'waiting', 'true', 'connected', 'active'];
-    const isOnlineStatus = ONLINE_STATUSES.includes(String(tbConnectionStatus).toLowerCase());
+    // RFC-0109: Use centralized connection status normalization
+    const lib = window.MyIOLibrary;
+    const normalizedStatus = lib?.normalizeConnectionStatus
+      ? lib.normalizeConnectionStatus(tbConnectionStatus)
+      : String(tbConnectionStatus || '').toLowerCase().trim();
 
-    if (tbConnectionStatus === 'offline') {
-      deviceStatus = 'no_info'; // offline = no_info
+    // RFC-0109: Bad connection → weak_connection status
+    const isBadConnection = normalizedStatus === 'bad' || ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus);
+    const isOfflineStatus = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus);
+    const isOnlineStatus = normalizedStatus === 'online' || ['online', 'waiting', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedStatus);
+
+    if (isBadConnection) {
+      deviceStatus = 'weak_connection'; // RFC-0109: bad/weak connection
+    } else if (isOfflineStatus) {
+      deviceStatus = 'offline'; // RFC-0109: offline devices show as offline (not no_info)
     } else if (isOnlineStatus) {
       // RFC-0078: For energy devices, calculate status using ranges from mapInstantaneousPower
       const isEnergyDevice = !isTankDevice && !isTermostatoDevice;
@@ -4078,20 +4087,25 @@ self.onInit = async function () {
         }
       }
 
-      // RFC-0106: Calculate deviceStatus using power ranges for energy devices
-      // Uses the same logic as buildAuthoritativeItems
+      // RFC-0109: Calculate deviceStatus using centralized logic and power ranges
       let deviceStatus = item.deviceStatus || 'no_info';
       const connectionStatus = item.connectionStatus || 'unknown';
-      const connStatusLower = String(connectionStatus).toLowerCase();
-      // "waiting" means device is registered and awaiting data, treat as online
-      const isOnline =
-        ['online', 'waiting', 'true', 'connected', 'active'].includes(connStatusLower) ||
-        connectionStatus === true;
-      const isOffline =
-        connectionStatus === 'offline' || connectionStatus === 'false' || connectionStatus === false;
 
-      if (isOffline) {
-        deviceStatus = 'no_info';
+      // RFC-0109: Use centralized connection status normalization
+      const lib = window.MyIOLibrary;
+      const normalizedStatus = lib?.normalizeConnectionStatus
+        ? lib.normalizeConnectionStatus(connectionStatus)
+        : String(connectionStatus || '').toLowerCase().trim();
+
+      // RFC-0109: Detect status categories
+      const isBadConnection = normalizedStatus === 'bad' || ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus);
+      const isOffline = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus) || connectionStatus === false;
+      const isOnline = normalizedStatus === 'online' || ['online', 'waiting', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedStatus) || connectionStatus === true;
+
+      if (isBadConnection) {
+        deviceStatus = 'weak_connection'; // RFC-0109: bad/weak connection
+      } else if (isOffline) {
+        deviceStatus = 'offline'; // RFC-0109: offline devices show as offline (not no_info)
       } else if (isOnline && isEnergyDomain) {
         // For energy devices, calculate status using power ranges
         const instantaneousPower = Number(item.consumptionPower || 0);

@@ -5791,9 +5791,19 @@ const MyIOOrchestrator = (() => {
           };
 
           // Store in global for late-loading widgets
+          // RFC-0109: Only store if we have valid data (don't overwrite with empty)
           window.MyIOOrchestratorData = window.MyIOOrchestratorData || {};
-          window.MyIOOrchestratorData.waterClassified = waterClassifiedData;
-          LogHelper.log(`[Orchestrator] 💧 Stored waterClassified data in window.MyIOOrchestratorData`);
+          const existingWaterClassified = window.MyIOOrchestratorData.waterClassified;
+          const newItemCount = waterItems.length;
+          const existingItemCount = existingWaterClassified?.all?.count || 0;
+
+          // Only update if we have MORE items or if there's no existing data
+          if (newItemCount > 0 && (newItemCount >= existingItemCount || !existingWaterClassified)) {
+            window.MyIOOrchestratorData.waterClassified = waterClassifiedData;
+            LogHelper.log(`[Orchestrator] 💧 Stored waterClassified data in window.MyIOOrchestratorData (${newItemCount} items, replaced ${existingItemCount})`);
+          } else if (newItemCount > 0) {
+            LogHelper.log(`[Orchestrator] 💧 Skipped storing waterClassified - existing has more items (${existingItemCount} vs ${newItemCount})`);
+          }
 
           window.dispatchEvent(new CustomEvent('myio:water-tb-data-ready', {
             detail: waterClassifiedData,

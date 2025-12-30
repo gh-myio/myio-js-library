@@ -1565,7 +1565,10 @@ self.onInit = async function () {
 
   // RFC-0109: Listener para dados classificados do MAIN (items já classificados por deviceType/deviceProfile)
   waterTbDataHandler = (ev) => {
+    LogHelper.log(`[WATER_COMMON_AREA] 📨 waterTbDataHandler called with event:`, ev?.detail ? 'has detail' : 'no detail');
     const { commonArea, classification } = ev.detail || {};
+
+    LogHelper.log(`[WATER_COMMON_AREA] 📦 Event detail: commonArea=${commonArea?.items?.length || 0} items, classification=${JSON.stringify(classification || {})}`);
 
     // RFC-0109: Use items already classified by MAIN
     if (commonArea && commonArea.items && commonArea.items.length > 0) {
@@ -1616,14 +1619,43 @@ self.onInit = async function () {
   window.addEventListener('myio:water-tb-data-ready', waterTbDataHandler);
 
   // RFC-0109: Check for cached classified data (event may have fired before widget loaded)
+  LogHelper.log(`[WATER_COMMON_AREA] 🔍 Checking for cached waterClassified data...`);
   const cachedClassified = window.MyIOOrchestratorData?.waterClassified;
+
+  if (!window.MyIOOrchestratorData) {
+    LogHelper.warn(`[WATER_COMMON_AREA] ⚠️ window.MyIOOrchestratorData is not available`);
+  } else if (!cachedClassified) {
+    LogHelper.warn(`[WATER_COMMON_AREA] ⚠️ waterClassified not found in MyIOOrchestratorData. Available keys: ${Object.keys(window.MyIOOrchestratorData).join(', ')}`);
+  } else {
+    LogHelper.log(`[WATER_COMMON_AREA] 📦 Found waterClassified: commonArea=${cachedClassified.commonArea?.count || 0}, stores=${cachedClassified.stores?.count || 0}, all=${cachedClassified.all?.count || 0}`);
+  }
+
   if (cachedClassified?.commonArea?.items?.length > 0) {
     const cacheAge = Date.now() - (cachedClassified.timestamp || 0);
+    LogHelper.log(`[WATER_COMMON_AREA] 🕐 Cache age: ${cacheAge}ms (threshold: 60000ms)`);
     if (cacheAge < 60000) { // Use cache if less than 60 seconds old
-      LogHelper.log(`[WATER_COMMON_AREA] Found cached classified data (${cachedClassified.commonArea.items.length} items, age: ${cacheAge}ms)`);
+      LogHelper.log(`[WATER_COMMON_AREA] ✅ Found cached classified data (${cachedClassified.commonArea.items.length} items, age: ${cacheAge}ms) - using it!`);
       // Simulate event with cached data
       waterTbDataHandler({ detail: cachedClassified });
+    } else {
+      LogHelper.warn(`[WATER_COMMON_AREA] ⏰ Cache too old (${cacheAge}ms > 60000ms), waiting for fresh data`);
     }
+  } else if (cachedClassified) {
+    LogHelper.warn(`[WATER_COMMON_AREA] ⚠️ Cache exists but commonArea.items is empty or missing`);
+  }
+
+  // RFC-0109: Fallback - retry cache check after 2s in case of timing issues
+  if (!cachedClassified || !cachedClassified.commonArea?.items?.length) {
+    setTimeout(() => {
+      const retryCache = window.MyIOOrchestratorData?.waterClassified;
+      if (retryCache?.commonArea?.items?.length > 0 && STATE.itemsBase.length === 0) {
+        const cacheAge = Date.now() - (retryCache.timestamp || 0);
+        if (cacheAge < 120000) { // Extended threshold for retry
+          LogHelper.log(`[WATER_COMMON_AREA] 🔄 Retry found cached data (${retryCache.commonArea.items.length} items, age: ${cacheAge}ms)`);
+          waterTbDataHandler({ detail: retryCache });
+        }
+      }
+    }, 2000);
   }
 
   // RFC-0094: Use credentials from MAIN via MyIOUtils (already fetched by MAIN)

@@ -3037,34 +3037,54 @@ const MyIOOrchestrator = (() => {
   }
 
   /**
-   * RFC-0106: Convert ThingsBoard connectionStatus to deviceStatus
-   * ThingsBoard connectionStatus can be: 'true'/'false', 'ONLINE'/'OFFLINE', true/false, 'CONNECTED'/'DISCONNECTED'
+   * RFC-0109: Device status calculation using centralized library function
+   * Uses MyIOLibrary.calculateDeviceStatus for consistent status across all widgets.
    *
-   * Logic follows TELEMETRY buildAuthoritativeItems:
-   * - offline → 'no_info' (device disconnected, no consumption data available)
-   * - online → 'power_on' (simplified; energy devices may use calculateDeviceStatusWithRanges in TELEMETRY)
+   * Status mapping:
+   * - offline, disconnected, false, null, '', undefined → 'offline'
+   * - bad, weak, unstable → 'weak_connection' (RFC-0109: new status)
+   * - waiting, connecting → 'no_info'
+   * - online, connected, active → 'power_on' (default, TELEMETRY may override with ranges)
    *
    * @param {string|boolean|null} connectionStatus - Raw status from ThingsBoard
-   * @returns {string} deviceStatus: 'power_on' or 'no_info'
+   * @param {object} [options] - Optional parameters for calculation
+   * @returns {string} deviceStatus: 'power_on', 'offline', 'weak_connection', or 'no_info'
    */
-  function convertConnectionStatusToDeviceStatus(connectionStatus) {
+  function convertConnectionStatusToDeviceStatus(connectionStatus, options = {}) {
+    // Use centralized library function if available
+    const lib = window.MyIOLibrary;
+    if (lib?.calculateDeviceStatus) {
+      return lib.calculateDeviceStatus({
+        connectionStatus: connectionStatus,
+        isHydrometer: options.isHydrometer || false,
+        domain: options.domain || 'energy',
+      });
+    }
+
+    // Fallback: manual implementation (same logic as library)
     if (connectionStatus === null || connectionStatus === undefined || connectionStatus === '') {
-      return 'no_info';
+      return 'offline';
     }
 
     const statusStr = String(connectionStatus).toLowerCase().trim();
 
+    // RFC-0109: Bad/weak connection states → weak_connection
+    if (['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(statusStr)) {
+      return 'weak_connection';
+    }
+
     // Online/connected states → power_on
-    // "waiting" means device is registered and awaiting data, treat as potentially online
-    const ONLINE_VALUES = ['true', 'online', 'connected', '1', 'active', 'yes', 'waiting'];
-    if (ONLINE_VALUES.includes(statusStr)) {
+    if (['true', 'online', 'connected', '1', 'active', 'yes', 'ok', 'running'].includes(statusStr)) {
       return 'power_on';
     }
 
-    // Offline/disconnected/unknown states → no_info
-    // RFC-0106: Offline devices have no consumption data, so status is 'no_info' (not 'offline')
-    // This aligns with TELEMETRY logic: tbConnectionStatus === 'offline' → deviceStatus = 'no_info'
-    return 'no_info';
+    // Waiting states → no_info
+    if (['waiting', 'connecting', 'pending'].includes(statusStr)) {
+      return 'no_info';
+    }
+
+    // Offline/disconnected/unknown states → offline
+    return 'offline';
   }
 
   /**
