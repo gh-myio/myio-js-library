@@ -1965,20 +1965,9 @@ export const EnergySummaryTooltip = {
       const connectionStatus = item.connectionStatus || '';
       const value = Number(item.value || item.val || 0);
 
-      // RFC-0109: Determine connectivity status first (independent dimension)
+      // RFC-0109: Determine connectivity/status category
+      // IMPORTANT: Each device appears in EXACTLY ONE category (mutually exclusive)
       const isWaiting = deviceStatus === 'not_installed' || connectionStatus === 'waiting';
-
-      // RFC-0109: LOG for tracking waiting devices
-      if (connectionStatus === 'waiting' || String(connectionStatus).toLowerCase() === 'waiting') {
-        console.log(`[EnergySummaryTooltip] 📦 RFC-0109 WAITING ITEM:`, {
-          id: item.id,
-          label: item.label,
-          deviceStatus: deviceStatus,
-          connectionStatus: connectionStatus,
-          isWaiting: isWaiting,
-          willGoTo: isWaiting ? 'waiting' : 'other',
-        });
-      }
       const isWeakConnection = deviceStatus === 'weak_connection' || connectionStatus === 'bad' ||
                                ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(String(connectionStatus).toLowerCase());
       const isOffline = deviceStatus === 'offline' || deviceStatus === 'no_info' ||
@@ -1997,57 +1986,54 @@ export const EnergySummaryTooltip = {
           isWeakConnection,
           isOffline,
           value,
-          willGoTo: isWaiting ? 'waiting' : isWeakConnection ? 'weakConnection' : isOffline ? 'offline' : 'online/consumption',
         });
       }
 
-      // Add to connectivity categories (a device belongs to exactly one connectivity category)
+      // MUTUALLY EXCLUSIVE categories - device appears in exactly ONE
+      // Priority: waiting > weakConnection > offline > noConsumption > consumption status
+
+      // 1. Waiting (Não Instalado)
       if (isWaiting) {
         result.waiting++;
         result.waitingDevices?.push(deviceInfo);
-        // EXCEPTION: waiting devices should NOT be counted in consumption categories
-        return;
-      } else if (isWeakConnection) {
-        result.weakConnection++;
-        result.weakConnectionDevices?.push(deviceInfo);
-        // weakConnection devices CAN also have consumption status
-      } else if (isOffline) {
-        result.offline++;
-        result.offlineDevices?.push(deviceInfo);
-        // Offline devices can ALSO be in noConsumption (if they have no data)
-        // Check if value is zero/null
-        if (Math.abs(value) < NO_CONSUMPTION_THRESHOLD || value === null || value === undefined) {
-          result.noConsumption++;
-          result.noConsumptionDevices?.push(deviceInfo);
-        }
         return;
       }
 
-      // For online devices (including weakConnection): determine consumption status
-      const isOnline = !isOffline && !isWaiting;
+      // 2. Weak Connection (Conexão Fraca)
+      if (isWeakConnection) {
+        result.weakConnection++;
+        result.weakConnectionDevices?.push(deviceInfo);
+        return;
+      }
 
-      if (isOnline) {
-        // Check for "no consumption" (value is 0 or very close to 0)
-        if (Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
-          result.noConsumption++;
-          result.noConsumptionDevices?.push(deviceInfo);
-          // Don't return - device is still counted in consumption category based on deviceStatus
-        }
+      // 3. Offline
+      if (isOffline) {
+        result.offline++;
+        result.offlineDevices?.push(deviceInfo);
+        return;
+      }
 
-        // Map deviceStatus to consumption category
-        const consumptionCategory = consumptionStatusMapping[deviceStatus];
-        if (consumptionCategory) {
-          result[consumptionCategory]++;
-          const deviceListKey = `${consumptionCategory}Devices` as keyof StatusSummary;
-          const deviceList = result[deviceListKey] as DeviceInfo[] | undefined;
-          if (deviceList) {
-            deviceList.push(deviceInfo);
-          }
-        } else {
-          // Unknown status - default to normal for online devices
-          result.normal++;
-          result.normalDevices?.push(deviceInfo);
+      // 4. Online device - check consumption value first
+      // If no consumption (value ~= 0), goes to noConsumption category
+      if (Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
+        result.noConsumption++;
+        result.noConsumptionDevices?.push(deviceInfo);
+        return;
+      }
+
+      // 5. Online device with consumption - map to status category
+      const consumptionCategory = consumptionStatusMapping[deviceStatus];
+      if (consumptionCategory) {
+        result[consumptionCategory]++;
+        const deviceListKey = `${consumptionCategory}Devices` as keyof StatusSummary;
+        const deviceList = result[deviceListKey] as DeviceInfo[] | undefined;
+        if (deviceList) {
+          deviceList.push(deviceInfo);
         }
+      } else {
+        // Unknown status - default to normal for online devices with consumption
+        result.normal++;
+        result.normalDevices?.push(deviceInfo);
       }
     });
 
