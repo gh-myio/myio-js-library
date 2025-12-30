@@ -930,8 +930,9 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
 
   const { field: sortField, order: sortOrder } = state.deviceSort;
   const { types: filterTypes, deviceTypes: filterDeviceTypes, deviceProfiles: filterDeviceProfiles, statuses: filterStatuses } = state.deviceFilters;
+  const searchTerm = state.deviceSearchTerm.toLowerCase();
 
-  // Filter devices
+  // Filter devices by dropdown filters
   let filteredDevices = state.devices.filter(d => {
     if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
     if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || '')) return false;
@@ -942,6 +943,17 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
     }
     return true;
   });
+
+  // Apply search term filter for display count
+  const searchFilteredDevices = searchTerm ? filteredDevices.filter(d => {
+    const name = (d.name || '').toLowerCase();
+    const label = (d.label || '').toLowerCase();
+    const type = (d.type || '').toLowerCase();
+    const deviceType = (d.serverAttrs?.deviceType || '').toLowerCase();
+    const deviceProfile = (d.serverAttrs?.deviceProfile || '').toLowerCase();
+    return name.includes(searchTerm) || label.includes(searchTerm) || type.includes(searchTerm) ||
+           deviceType.includes(searchTerm) || deviceProfile.includes(searchTerm);
+  }) : filteredDevices;
 
   // Sort devices
   const sortedDevices = sortDevices(filteredDevices, sortField, sortOrder);
@@ -1064,7 +1076,7 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
               background: ${colors.cardBg}; border: 1px solid ${colors.border}; color: ${colors.text};
               display: flex; align-items: center; gap: 4px;
             ">
-              🏷️ Carregar Atributos (${state.devices.length})
+              🏷️ Carregar Atributos (${searchFilteredDevices.length})
             </button>
           `}
           ${state.telemetryLoading ? `
@@ -1081,7 +1093,7 @@ function renderStep2(state: ModalState, modalId: string, colors: ThemeColors, t:
               background: ${colors.cardBg}; border: 1px solid ${colors.border}; color: ${colors.text};
               display: flex; align-items: center; gap: 4px;
             ">
-              📡 Carregar Telemetria (${sortedDevices.length})
+              📡 Carregar Telemetria (${searchFilteredDevices.length})
             </button>
           `}
           <div style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: ${colors.surface}; border-radius: 6px; border: 1px solid ${colors.border};">
@@ -1881,12 +1893,30 @@ function setupEventListeners(
   document.getElementById(`${modalId}-load-attrs`)?.addEventListener('click', async () => {
     if (state.attrsLoading) return;
 
+    // Get filtered devices based on current filters and search term
+    const { types: filterTypes } = state.deviceFilters;
+    const searchTerm = state.deviceSearchTerm.toLowerCase();
+    const filteredDevices = state.devices.filter(d => {
+      // Apply type filter
+      if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
+      // Apply search filter
+      if (searchTerm) {
+        const name = (d.name || '').toLowerCase();
+        const label = (d.label || '').toLowerCase();
+        const type = (d.type || '').toLowerCase();
+        if (!name.includes(searchTerm) && !label.includes(searchTerm) && !type.includes(searchTerm)) {
+          return false;
+        }
+      }
+      return true;
+    });
+
     state.attrsLoading = true;
     state.attrsLoadedCount = 0;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
 
-    await loadDeviceAttrsInBatch(state, container, modalId, t, onClose);
+    await loadDeviceAttrsInBatch(state, container, modalId, t, onClose, filteredDevices);
 
     state.attrsLoading = false;
     state.deviceAttrsLoaded = true;
@@ -1901,12 +1931,25 @@ function setupEventListeners(
   document.getElementById(`${modalId}-load-telemetry`)?.addEventListener('click', async () => {
     if (state.telemetryLoading) return;
 
-    // Get filtered devices based on current filters
+    // Get filtered devices based on current filters and search term
     const { types: filterTypes, deviceTypes: filterDeviceTypes, deviceProfiles: filterDeviceProfiles } = state.deviceFilters;
+    const searchTerm = state.deviceSearchTerm.toLowerCase();
     const filteredDevices = state.devices.filter(d => {
       if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
       if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || '')) return false;
       if (filterDeviceProfiles.length > 0 && !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')) return false;
+      // Apply search filter
+      if (searchTerm) {
+        const name = (d.name || '').toLowerCase();
+        const label = (d.label || '').toLowerCase();
+        const type = (d.type || '').toLowerCase();
+        const deviceType = (d.serverAttrs?.deviceType || '').toLowerCase();
+        const deviceProfile = (d.serverAttrs?.deviceProfile || '').toLowerCase();
+        if (!name.includes(searchTerm) && !label.includes(searchTerm) && !type.includes(searchTerm) &&
+            !deviceType.includes(searchTerm) && !deviceProfile.includes(searchTerm)) {
+          return false;
+        }
+      }
       return true;
     });
 
@@ -2502,11 +2545,14 @@ async function loadDeviceAttrsInBatch(
   container: HTMLElement,
   modalId: string,
   t: typeof i18n.pt,
-  onClose?: () => void
+  onClose?: () => void,
+  filteredDevices?: Device[]
 ): Promise<void> {
-  if (state.devices.length === 0) return;
+  // Use filtered devices if provided, otherwise use all
+  const devicesToLoad = filteredDevices || state.devices;
+  if (devicesToLoad.length === 0) return;
 
-  const deviceIds = state.devices.map(d => getEntityId(d));
+  const deviceIds = devicesToLoad.map(d => getEntityId(d));
   const BATCH_SIZE = 5;
   const BATCH_DELAY_MS = 1500;
 
