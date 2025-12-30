@@ -452,35 +452,41 @@ export function calculateDeviceStatus({
     return DeviceStatusType.NOT_INSTALLED;
   }
 
-  // If offline
-  if (normalizedStatus === "offline") {
-    return DeviceStatusType.OFFLINE;
+  // RFC-0109: If bad/weak connection
+  if (normalizedStatus === "bad") {
+    return DeviceStatusType.WEAK_CONNECTION;
   }
 
   // RFC-0110: Check if connection is stale (timestamp too old)
-  // Even if connectionStatus says "online", if timestamp is old → offline
   const connectionStale = isConnectionStale({
     lastConnectTime,
     lastDisconnectTime,
     delayTimeConnectionInMins,
   });
 
+  // RFC-0110: Device is truly offline only if connectionStatus says "offline" AND timestamp is stale
+  if (normalizedStatus === "offline") {
+    if (connectionStale) {
+      // Stale timestamp - truly offline
+      return DeviceStatusType.OFFLINE;
+    }
+    // Fresh timestamp - device recently connected, continue to consumption-based calculation
+    // (treat as effectively online)
+  }
+
+  // RFC-0110: If "online" but timestamp is stale → offline
   if (connectionStale && normalizedStatus === "online") {
     return DeviceStatusType.OFFLINE;
   }
 
-  // RFC-0109: If bad/weak connection
-  if (normalizedStatus === "bad") {
-    return DeviceStatusType.WEAK_CONNECTION;
-  }
-
-  // If online but no consumption data
-  if (normalizedStatus === "online" && (lastConsumptionValue === null || lastConsumptionValue === undefined)) {
+  // Device is effectively online (either connectionStatus=online, or offline with fresh timestamp)
+  // If no consumption data
+  if (lastConsumptionValue === null || lastConsumptionValue === undefined) {
     return DeviceStatusType.POWER_ON;
   }
 
-  // If online with consumption data
-  if (normalizedStatus === "online" && lastConsumptionValue !== null && lastConsumptionValue !== undefined) {
+  // With consumption data
+  if (lastConsumptionValue !== null && lastConsumptionValue !== undefined) {
     const consumption = Number(lastConsumptionValue);
 
     // Check if consumption is valid
@@ -613,44 +619,46 @@ export function calculateDeviceStatusWithRanges({
     return DeviceStatusType.NOT_INSTALLED;
   }
 
-  // If offline
-  if (normalizedStatus === "offline") {
-    return DeviceStatusType.OFFLINE;
+  // RFC-0109: If bad/weak connection
+  if (normalizedStatus === "bad") {
+    return DeviceStatusType.WEAK_CONNECTION;
   }
 
   // RFC-0110: Check if connection is stale (timestamp too old)
-  // Even if connectionStatus says "online", if timestamp is old → offline
   const connectionStale = isConnectionStale({
     lastConnectTime,
     lastDisconnectTime,
     delayTimeConnectionInMins,
   });
 
+  // RFC-0110: Device is truly offline only if connectionStatus says "offline" AND timestamp is stale
+  if (normalizedStatus === "offline") {
+    if (connectionStale) {
+      // Stale timestamp - truly offline
+      return DeviceStatusType.OFFLINE;
+    }
+    // Fresh timestamp - device recently connected, continue to consumption-based calculation
+    // (treat as effectively online)
+  }
+
+  // RFC-0110: If "online" but timestamp is stale → offline
   if (connectionStale && normalizedStatus === "online") {
     return DeviceStatusType.OFFLINE;
   }
 
-  // RFC-0109: If bad/weak connection
-  if (normalizedStatus === "bad") {
-    return DeviceStatusType.WEAK_CONNECTION;
-  }
-
-  // If online but no consumption data
-  if (normalizedStatus === "online" && (lastConsumptionValue === null || lastConsumptionValue === undefined)) {
+  // Device is effectively online (either connectionStatus=online, or offline with fresh timestamp)
+  // If no consumption data
+  if (lastConsumptionValue === null || lastConsumptionValue === undefined) {
     return DeviceStatusType.POWER_ON;
   }
 
   // Validate ranges object - if no ranges, return POWER_ON for online devices
   if (!ranges || !ranges.standbyRange || !ranges.normalRange || !ranges.alertRange || !ranges.failureRange) {
-    // No ranges available - just return POWER_ON if online
-    if (normalizedStatus === "online") {
-      return DeviceStatusType.POWER_ON;
-    }
-    return DeviceStatusType.MAINTENANCE;
+    return DeviceStatusType.POWER_ON;
   }
 
-  // If online with consumption data
-  if (normalizedStatus === "online" && lastConsumptionValue !== null && lastConsumptionValue !== undefined) {
+  // With consumption data
+  if (lastConsumptionValue !== null && lastConsumptionValue !== undefined) {
     const consumption = Number(lastConsumptionValue);
 
     // Check if consumption is valid
