@@ -1498,6 +1498,12 @@ function buildAuthoritativeItems() {
       deviceStatus = 'not_installed'; // RFC-0109: waiting devices are not installed
     } else if (isBadConnection) {
       deviceStatus = 'weak_connection'; // RFC-0109: bad/weak connection
+      console.warn(`🟠 [DEBUG TELEMETRY buildAuthoritativeItems] Device set to WEAK_CONNECTION:`, {
+        label: r.label,
+        tbId: tbId,
+        tbConnectionStatus: tbConnectionStatus,
+        normalizedStatus: normalizedStatus,
+      });
     } else if (isOfflineStatus) {
       deviceStatus = 'offline'; // RFC-0109+0110: offline devices with stale connection
       // DEBUG: Log ALL devices being set to offline in buildAuthoritativeItems
@@ -4203,6 +4209,12 @@ self.onInit = async function () {
         LogHelper.log(`[TELEMETRY] ✅ RFC-0109: Set deviceStatus='not_installed' for waiting device: ${item.label}`);
       } else if (isBadConnection) {
         deviceStatus = 'weak_connection'; // RFC-0109: bad/weak connection
+        console.warn(`🟠 [DEBUG TELEMETRY] Device set to WEAK_CONNECTION:`, {
+          label: item.label,
+          id: item.id || item.tbId,
+          connectionStatus: connectionStatus,
+          normalizedStatus: normalizedStatus,
+        });
       } else if (isOffline) {
         deviceStatus = 'offline'; // RFC-0109+0110: offline devices with stale connection
         // DEBUG: Log ALL devices being set to offline
