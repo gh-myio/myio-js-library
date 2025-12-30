@@ -2289,30 +2289,48 @@ function setupEventListeners(
   document.getElementById(`${modalId}-load-attrs`)?.addEventListener('click', async () => {
     if (state.attrsLoading) return;
 
-    // Get filtered devices based on current filters and search term
-    const { types: filterTypes } = state.deviceFilters;
-    const searchTerm = state.deviceSearchTerm.toLowerCase();
-    const filteredDevices = state.devices.filter(d => {
-      // Apply type filter
-      if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
-      // Apply search filter
-      if (searchTerm) {
-        const name = (d.name || '').toLowerCase();
-        const label = (d.label || '').toLowerCase();
-        const type = (d.type || '').toLowerCase();
-        if (!name.includes(searchTerm) && !label.includes(searchTerm) && !type.includes(searchTerm)) {
-          return false;
+    let devicesToLoad: Device[];
+
+    // Priority 1: If multi-select mode with selected devices, load only those
+    if (state.deviceSelectionMode === 'multi' && state.selectedDevices.length > 0) {
+      devicesToLoad = state.selectedDevices;
+      console.log('[UpsellModal] Loading attrs for selected devices:', devicesToLoad.length);
+    } else {
+      // Priority 2: Apply filters (search term, types, deviceTypes, deviceProfiles)
+      const { types: filterTypes, deviceTypes: filterDeviceTypes, deviceProfiles: filterDeviceProfiles } = state.deviceFilters;
+      const searchTerm = state.deviceSearchTerm.toLowerCase();
+      const hasFilters = filterTypes.length > 0 || filterDeviceTypes.length > 0 || filterDeviceProfiles.length > 0 || searchTerm;
+
+      devicesToLoad = state.devices.filter(d => {
+        // Apply type filter
+        if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
+        // Apply deviceType filter
+        if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || '')) return false;
+        // Apply deviceProfile filter
+        if (filterDeviceProfiles.length > 0 && !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')) return false;
+        // Apply search filter
+        if (searchTerm) {
+          const name = (d.name || '').toLowerCase();
+          const label = (d.label || '').toLowerCase();
+          const type = (d.type || '').toLowerCase();
+          const deviceType = (d.serverAttrs?.deviceType || '').toLowerCase();
+          const deviceProfile = (d.serverAttrs?.deviceProfile || '').toLowerCase();
+          if (!name.includes(searchTerm) && !label.includes(searchTerm) && !type.includes(searchTerm) &&
+              !deviceType.includes(searchTerm) && !deviceProfile.includes(searchTerm)) {
+            return false;
+          }
         }
-      }
-      return true;
-    });
+        return true;
+      });
+      console.log('[UpsellModal] Loading attrs for', hasFilters ? 'filtered' : 'all', 'devices:', devicesToLoad.length);
+    }
 
     state.attrsLoading = true;
     state.attrsLoadedCount = 0;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
 
-    await loadDeviceAttrsInBatch(state, container, modalId, t, onClose, filteredDevices);
+    await loadDeviceAttrsInBatch(state, container, modalId, t, onClose, devicesToLoad);
 
     state.attrsLoading = false;
     state.deviceAttrsLoaded = true;
@@ -2327,34 +2345,45 @@ function setupEventListeners(
   document.getElementById(`${modalId}-load-telemetry`)?.addEventListener('click', async () => {
     if (state.telemetryLoading) return;
 
-    // Get filtered devices based on current filters and search term
-    const { types: filterTypes, deviceTypes: filterDeviceTypes, deviceProfiles: filterDeviceProfiles } = state.deviceFilters;
-    const searchTerm = state.deviceSearchTerm.toLowerCase();
-    const filteredDevices = state.devices.filter(d => {
-      if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
-      if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || '')) return false;
-      if (filterDeviceProfiles.length > 0 && !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')) return false;
-      // Apply search filter
-      if (searchTerm) {
-        const name = (d.name || '').toLowerCase();
-        const label = (d.label || '').toLowerCase();
-        const type = (d.type || '').toLowerCase();
-        const deviceType = (d.serverAttrs?.deviceType || '').toLowerCase();
-        const deviceProfile = (d.serverAttrs?.deviceProfile || '').toLowerCase();
-        if (!name.includes(searchTerm) && !label.includes(searchTerm) && !type.includes(searchTerm) &&
-            !deviceType.includes(searchTerm) && !deviceProfile.includes(searchTerm)) {
-          return false;
+    let devicesToLoad: Device[];
+
+    // Priority 1: If multi-select mode with selected devices, load only those
+    if (state.deviceSelectionMode === 'multi' && state.selectedDevices.length > 0) {
+      devicesToLoad = state.selectedDevices;
+      console.log('[UpsellModal] Loading telemetry for selected devices:', devicesToLoad.length);
+    } else {
+      // Priority 2: Apply filters (search term, types, deviceTypes, deviceProfiles)
+      const { types: filterTypes, deviceTypes: filterDeviceTypes, deviceProfiles: filterDeviceProfiles } = state.deviceFilters;
+      const searchTerm = state.deviceSearchTerm.toLowerCase();
+      const hasFilters = filterTypes.length > 0 || filterDeviceTypes.length > 0 || filterDeviceProfiles.length > 0 || searchTerm;
+
+      devicesToLoad = state.devices.filter(d => {
+        if (filterTypes.length > 0 && !filterTypes.includes(d.type || '')) return false;
+        if (filterDeviceTypes.length > 0 && !filterDeviceTypes.includes(d.serverAttrs?.deviceType || '')) return false;
+        if (filterDeviceProfiles.length > 0 && !filterDeviceProfiles.includes(d.serverAttrs?.deviceProfile || '')) return false;
+        // Apply search filter
+        if (searchTerm) {
+          const name = (d.name || '').toLowerCase();
+          const label = (d.label || '').toLowerCase();
+          const type = (d.type || '').toLowerCase();
+          const deviceType = (d.serverAttrs?.deviceType || '').toLowerCase();
+          const deviceProfile = (d.serverAttrs?.deviceProfile || '').toLowerCase();
+          if (!name.includes(searchTerm) && !label.includes(searchTerm) && !type.includes(searchTerm) &&
+              !deviceType.includes(searchTerm) && !deviceProfile.includes(searchTerm)) {
+            return false;
+          }
         }
-      }
-      return true;
-    });
+        return true;
+      });
+      console.log('[UpsellModal] Loading telemetry for', hasFilters ? 'filtered' : 'all', 'devices:', devicesToLoad.length);
+    }
 
     state.telemetryLoading = true;
     state.telemetryLoadedCount = 0;
     renderModal(container, state, modalId, t);
     setupEventListeners(container, state, modalId, t, onClose);
 
-    await loadDeviceTelemetryInBatch(state, container, modalId, t, onClose, filteredDevices);
+    await loadDeviceTelemetryInBatch(state, container, modalId, t, onClose, devicesToLoad);
 
     state.telemetryLoading = false;
     state.deviceTelemetryLoaded = true;
