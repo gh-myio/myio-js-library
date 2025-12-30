@@ -39,18 +39,26 @@ export interface DeviceInfo {
 }
 
 export interface StatusSummary {
+  // Connection status (RFC-0109: independent of consumption)
+  waiting: number;           // not_installed - device registered but not yet installed
+  weakConnection: number;    // bad/weak connection quality
+  offline: number;           // device is offline/disconnected
+  // Consumption status (only for online devices)
   normal: number;
   alert: number;
   failure: number;
   standby: number;
-  offline: number;
   noConsumption: number;
   // Device lists for each status (optional - for popup display)
+  // Note: A device can appear in multiple lists (e.g., offline AND noConsumption)
+  // Exception: waiting devices should NOT appear in noConsumption
+  waitingDevices?: DeviceInfo[];
+  weakConnectionDevices?: DeviceInfo[];
+  offlineDevices?: DeviceInfo[];
   normalDevices?: DeviceInfo[];
   alertDevices?: DeviceInfo[];
   failureDevices?: DeviceInfo[];
   standbyDevices?: DeviceInfo[];
-  offlineDevices?: DeviceInfo[];
   noConsumptionDevices?: DeviceInfo[];
 }
 
@@ -330,10 +338,10 @@ const WATER_SUMMARY_TOOLTIP_CSS = `
   font-size: 11px;
 }
 
-/* Status Matrix */
+/* Status Matrix - RFC-0109: 8 status items (4 columns x 2 rows) */
 .water-summary-tooltip__status-matrix {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   margin: 6px 0 12px 0;
 }
@@ -373,6 +381,17 @@ const WATER_SUMMARY_TOOLTIP_CSS = `
   color: #6b7280;
 }
 
+.water-summary-tooltip__status-item.waiting {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px dashed #f59e0b;
+}
+
+.water-summary-tooltip__status-item.weak-connection {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
 .water-summary-tooltip__status-item.no-consumption {
   background: #f8fafc;
   color: #9ca3af;
@@ -391,6 +410,8 @@ const WATER_SUMMARY_TOOLTIP_CSS = `
 .water-summary-tooltip__status-dot.failure { background: #ef4444; }
 .water-summary-tooltip__status-dot.standby { background: #3b82f6; }
 .water-summary-tooltip__status-dot.offline { background: #6b7280; }
+.water-summary-tooltip__status-dot.waiting { background: #fbbf24; }
+.water-summary-tooltip__status-dot.weak-connection { background: #fb923c; }
 .water-summary-tooltip__status-dot.no-consumption { background: #d1d5db; }
 
 .water-summary-tooltip__status-count {
@@ -454,6 +475,16 @@ const WATER_SUMMARY_TOOLTIP_CSS = `
   color: white;
 }
 
+.water-summary-tooltip__status-item.waiting .water-summary-tooltip__status-expand:hover {
+  background: #92400e;
+  color: white;
+}
+
+.water-summary-tooltip__status-item.weak-connection .water-summary-tooltip__status-expand:hover {
+  background: #c2410c;
+  color: white;
+}
+
 .water-summary-tooltip__status-item.no-consumption .water-summary-tooltip__status-expand:hover {
   background: #9ca3af;
   color: white;
@@ -468,6 +499,8 @@ const WATER_SUMMARY_TOOLTIP_CSS = `
 .water-summary-tooltip__device-dot.failure { background: #ef4444; }
 .water-summary-tooltip__device-dot.standby { background: #3b82f6; }
 .water-summary-tooltip__device-dot.offline { background: #6b7280; }
+.water-summary-tooltip__device-dot.waiting { background: #fbbf24; }
+.water-summary-tooltip__device-dot.weak-connection { background: #fb923c; }
 .water-summary-tooltip__device-dot.no-consumption { background: #d1d5db; }
 
 /* Total Consumption Footer */
@@ -493,6 +526,12 @@ const WATER_SUMMARY_TOOLTIP_CSS = `
 }
 
 /* Responsive adjustments */
+@media (max-width: 800px) {
+  .water-summary-tooltip__status-matrix {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 600px) {
   .water-summary-tooltip__content {
     min-width: 360px;
@@ -639,18 +678,27 @@ export const WaterSummaryTooltip = {
 
   /**
    * Render status matrix with expand buttons
+   * RFC-0109: Reorganized to show connectivity status separately from consumption status
+   * Note: A device can appear in multiple categories (e.g., offline AND noConsumption)
    */
   renderStatusMatrix(status: StatusSummary): string {
-    const items = [
-      { key: 'normal', label: 'Normal', count: status.normal, devices: status.normalDevices },
-      { key: 'alert', label: 'Alerta', count: status.alert, devices: status.alertDevices },
-      { key: 'failure', label: 'Falha', count: status.failure, devices: status.failureDevices },
-      { key: 'standby', label: 'Standby', count: status.standby, devices: status.standbyDevices },
-      { key: 'offline', label: 'Offline', count: status.offline, devices: status.offlineDevices },
-      { key: 'no-consumption', label: 'Sem Consumo', count: status.noConsumption, devices: status.noConsumptionDevices },
+    // Connectivity status items (RFC-0109) - use fallback to 0 for backward compatibility
+    const connectivityItems = [
+      { key: 'waiting', label: 'Não Instalado', count: status.waiting ?? 0, devices: status.waitingDevices },
+      { key: 'weak-connection', label: 'Conexão Fraca', count: status.weakConnection ?? 0, devices: status.weakConnectionDevices },
+      { key: 'offline', label: 'Offline', count: status.offline ?? 0, devices: status.offlineDevices },
     ];
 
-    return items.map(item => {
+    // Consumption status items (only for online devices)
+    const consumptionItems = [
+      { key: 'normal', label: 'Normal', count: status.normal ?? 0, devices: status.normalDevices },
+      { key: 'alert', label: 'Alerta', count: status.alert ?? 0, devices: status.alertDevices },
+      { key: 'failure', label: 'Falha', count: status.failure ?? 0, devices: status.failureDevices },
+      { key: 'standby', label: 'Standby', count: status.standby ?? 0, devices: status.standbyDevices },
+      { key: 'no-consumption', label: 'Sem Consumo', count: status.noConsumption ?? 0, devices: status.noConsumptionDevices },
+    ];
+
+    const renderItem = (item: { key: string; label: string; count: number; devices?: DeviceInfo[] }) => {
       // Always show expand button if count > 0
       const expandBtn = item.count > 0 ? `
         <button
@@ -669,7 +717,11 @@ export const WaterSummaryTooltip = {
           ${expandBtn}
         </div>
       `;
-    }).join('');
+    };
+
+    // Combine all items, connectivity first then consumption
+    const allItems = [...connectivityItems, ...consumptionItems];
+    return allItems.map(renderItem).join('');
   },
 
   /**
@@ -945,11 +997,15 @@ export const WaterSummaryTooltip = {
     if (!this._currentStatus) return [];
 
     const deviceMap: Record<string, DeviceInfo[] | undefined> = {
+      // Connectivity status (RFC-0109)
+      'waiting': this._currentStatus.waitingDevices,
+      'weak-connection': this._currentStatus.weakConnectionDevices,
+      'offline': this._currentStatus.offlineDevices,
+      // Consumption status
       'normal': this._currentStatus.normalDevices,
       'alert': this._currentStatus.alertDevices,
       'failure': this._currentStatus.failureDevices,
       'standby': this._currentStatus.standbyDevices,
-      'offline': this._currentStatus.offlineDevices,
       'no-consumption': this._currentStatus.noConsumptionDevices,
     };
 
@@ -961,11 +1017,15 @@ export const WaterSummaryTooltip = {
    */
   _getStatusIcon(statusKey: string): string {
     const icons: Record<string, string> = {
+      // Connectivity status (RFC-0109)
+      'waiting': '📦',
+      'weak-connection': '📶',
+      'offline': '📴',
+      // Consumption status
       'normal': '✅',
       'alert': '⚠️',
       'failure': '❌',
       'standby': '💤',
-      'offline': '📴',
       'no-consumption': '🔌',
     };
     return icons[statusKey] || '📋';
@@ -1420,6 +1480,8 @@ export const WaterSummaryTooltip = {
         standby: 0,
         offline: 0,
         noConsumption: 0,
+        waiting: 0,
+        weakConnection: 0,
         // Device lists - populated from orchestrator data
         normalDevices: [],
         alertDevices: [],
@@ -1427,6 +1489,8 @@ export const WaterSummaryTooltip = {
         standbyDevices: [],
         offlineDevices: [],
         noConsumptionDevices: [],
+        waitingDevices: [],
+        weakConnectionDevices: [],
       },
       lastUpdated: new Date().toISOString(),
       includeBathrooms: includeBathrooms,
@@ -1512,12 +1576,16 @@ export const WaterSummaryTooltip = {
         standby: widgetAggregation.standby || 0,
         offline: widgetAggregation.offline || 0,
         noConsumption: widgetAggregation.noConsumption || 0,
+        waiting: widgetAggregation.waiting || 0,
+        weakConnection: widgetAggregation.weakConnection || 0,
         normalDevices: widgetAggregation.normalDevices || [],
         alertDevices: widgetAggregation.alertDevices || [],
         failureDevices: widgetAggregation.failureDevices || [],
         standbyDevices: widgetAggregation.standbyDevices || [],
         offlineDevices: widgetAggregation.offlineDevices || [],
         noConsumptionDevices: widgetAggregation.noConsumptionDevices || [],
+        waitingDevices: widgetAggregation.waitingDevices || [],
+        weakConnectionDevices: widgetAggregation.weakConnectionDevices || [],
       };
 
       // RFC-0105: Use orchestrator item count as source of truth for totalDevices
@@ -1567,6 +1635,16 @@ export const WaterSummaryTooltip = {
             standby: statusData.standby || 0,
             offline: statusData.offline || 0,
             noConsumption: statusData.noConsumption || statusData.zeroConsumption || 0,
+            waiting: statusData.waiting || 0,
+            weakConnection: statusData.weakConnection || 0,
+            normalDevices: [],
+            alertDevices: [],
+            failureDevices: [],
+            standbyDevices: [],
+            offlineDevices: [],
+            noConsumptionDevices: [],
+            waitingDevices: [],
+            weakConnectionDevices: [],
           };
         } else {
           // Last resort: estimate based on device counts
@@ -1577,6 +1655,16 @@ export const WaterSummaryTooltip = {
             standby: Math.floor(totalDevices * 0.02),
             offline: Math.floor(totalDevices * 0.03),
             noConsumption: Math.floor(totalDevices * 0.08),
+            waiting: 0,
+            weakConnection: 0,
+            normalDevices: [],
+            alertDevices: [],
+            failureDevices: [],
+            standbyDevices: [],
+            offlineDevices: [],
+            noConsumptionDevices: [],
+            waitingDevices: [],
+            weakConnectionDevices: [],
           };
 
           // Adjust to ensure totals match
@@ -1606,12 +1694,16 @@ export const WaterSummaryTooltip = {
       standby: 0,
       offline: 0,
       noConsumption: 0,
+      waiting: 0,
+      weakConnection: 0,
       normalDevices: [],
       alertDevices: [],
       failureDevices: [],
       standbyDevices: [],
       offlineDevices: [],
       noConsumptionDevices: [],
+      waitingDevices: [],
+      weakConnectionDevices: [],
     };
 
     // Try to access orchestrator data
@@ -1637,8 +1729,8 @@ export const WaterSummaryTooltip = {
     const NO_CONSUMPTION_THRESHOLD = 0.001; // m³ for water
 
     // Map deviceStatus values to our status categories
-    // deviceStatus values: power_on, standby, power_off, warning, failure, maintenance, no_info, not_installed, offline
-    const statusMapping: Record<string, keyof Pick<StatusSummary, 'normal' | 'alert' | 'failure' | 'standby' | 'offline'>> = {
+    // deviceStatus values: power_on, standby, power_off, warning, failure, maintenance, no_info, not_installed, offline, weak_connection
+    const statusMapping: Record<string, keyof Pick<StatusSummary, 'normal' | 'alert' | 'failure' | 'standby' | 'offline' | 'waiting' | 'weakConnection'>> = {
       'power_on': 'normal',
       'warning': 'alert',
       'failure': 'failure',
@@ -1646,8 +1738,9 @@ export const WaterSummaryTooltip = {
       'power_off': 'offline',
       'maintenance': 'offline',
       'no_info': 'offline',
-      'not_installed': 'offline',
+      'not_installed': 'waiting',
       'offline': 'offline',
+      'weak_connection': 'weakConnection',
     };
 
     items.forEach((item: any) => {
@@ -1658,15 +1751,38 @@ export const WaterSummaryTooltip = {
       };
 
       const deviceStatus = item.deviceStatus || 'no_info';
+      const connectionStatus = item.connectionStatus || '';
       const value = Number(item.value || item.val || 0);
 
-      // Check for "no consumption" first (value is 0 or very close to 0)
-      // Only applies to online devices (not offline/no_info)
-      const isOnline = !['no_info', 'offline', 'not_installed', 'maintenance', 'power_off'].includes(deviceStatus);
+      // RFC-0109: Check connectivity status first
+      // waiting (not_installed) - device is waiting for installation
+      if (deviceStatus === 'not_installed' || connectionStatus === 'waiting') {
+        result.waiting++;
+        result.waitingDevices?.push(deviceInfo);
+        // Note: waiting devices should NOT be counted in noConsumption
+        return;
+      }
 
-      if (isOnline && Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
+      // weak_connection (bad) - device has weak signal
+      if (deviceStatus === 'weak_connection' || connectionStatus === 'bad') {
+        result.weakConnection++;
+        result.weakConnectionDevices?.push(deviceInfo);
+        // Note: weak connection devices CAN also be in noConsumption, so we continue
+      }
+
+      // Check for "no consumption" (value is 0 or very close to 0)
+      // Only applies to online devices (not offline/no_info/waiting)
+      const isOnline = !['no_info', 'offline', 'not_installed', 'maintenance', 'power_off'].includes(deviceStatus);
+      const isWaiting = deviceStatus === 'not_installed' || connectionStatus === 'waiting';
+
+      if (isOnline && !isWaiting && Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
         result.noConsumption++;
         result.noConsumptionDevices?.push(deviceInfo);
+        // Don't return - device can be in multiple categories (consumption AND connectivity)
+      }
+
+      // Skip if already counted as weakConnection (to avoid double counting in status)
+      if (deviceStatus === 'weak_connection' || connectionStatus === 'bad') {
         return;
       }
 

@@ -762,20 +762,20 @@ export const EnergySummaryTooltip = {
    * Note: A device can appear in multiple categories (e.g., offline AND noConsumption)
    */
   renderStatusMatrix(status: StatusSummary): string {
-    // Connectivity status items (RFC-0109)
+    // Connectivity status items (RFC-0109) - use fallback to 0 for backward compatibility
     const connectivityItems = [
-      { key: 'waiting', label: 'Não Instalado', count: status.waiting, devices: status.waitingDevices },
-      { key: 'weak-connection', label: 'Conexão Fraca', count: status.weakConnection, devices: status.weakConnectionDevices },
-      { key: 'offline', label: 'Offline', count: status.offline, devices: status.offlineDevices },
+      { key: 'waiting', label: 'Não Instalado', count: status.waiting ?? 0, devices: status.waitingDevices },
+      { key: 'weak-connection', label: 'Conexão Fraca', count: status.weakConnection ?? 0, devices: status.weakConnectionDevices },
+      { key: 'offline', label: 'Offline', count: status.offline ?? 0, devices: status.offlineDevices },
     ];
 
     // Consumption status items (only for online devices)
     const consumptionItems = [
-      { key: 'normal', label: 'Normal', count: status.normal, devices: status.normalDevices },
-      { key: 'alert', label: 'Alerta', count: status.alert, devices: status.alertDevices },
-      { key: 'failure', label: 'Falha', count: status.failure, devices: status.failureDevices },
-      { key: 'standby', label: 'Standby', count: status.standby, devices: status.standbyDevices },
-      { key: 'no-consumption', label: 'Sem Consumo', count: status.noConsumption, devices: status.noConsumptionDevices },
+      { key: 'normal', label: 'Normal', count: status.normal ?? 0, devices: status.normalDevices },
+      { key: 'alert', label: 'Alerta', count: status.alert ?? 0, devices: status.alertDevices },
+      { key: 'failure', label: 'Falha', count: status.failure ?? 0, devices: status.failureDevices },
+      { key: 'standby', label: 'Standby', count: status.standby ?? 0, devices: status.standbyDevices },
+      { key: 'no-consumption', label: 'Sem Consumo', count: status.noConsumption ?? 0, devices: status.noConsumptionDevices },
     ];
 
     const renderItem = (item: { key: string; label: string; count: number; devices?: DeviceInfo[] }) => {
