@@ -202,6 +202,149 @@ function hideBusyProgress(): void {
 const ingestionCache = new Map<string, IngestionCache>();
 
 // ============================================================================
+// Ingestion API Auth & Device Fetching
+// ============================================================================
+
+const INGESTION_AUTH_URL = 'https://api.data.apps.myio-bas.com/api/v1/auth';
+const INGESTION_API_BASE = 'https://api.data.apps.myio-bas.com/api/v1';
+const INGESTION_CLIENT_ID = 'myioadmi_mekj7xw7_sccibe';
+const INGESTION_CLIENT_SECRET = 'KmXhNZu0uydeWZ8scAi43h7P2pntGoWkdzNVMSjbVj3slEsZ5hGVXyayshgJAoqA';
+
+// Token cache
+let ingestionToken: string | null = null;
+let ingestionTokenExpiresAt = 0;
+
+async function getIngestionToken(): Promise<string> {
+  const now = Date.now();
+  // Return cached token if still valid (with 60s margin)
+  if (ingestionToken && now < ingestionTokenExpiresAt - 60000) {
+    return ingestionToken;
+  }
+
+  console.log('[UpsellModal] Requesting new ingestion token...');
+  const res = await fetch(INGESTION_AUTH_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: INGESTION_CLIENT_ID,
+      client_secret: INGESTION_CLIENT_SECRET,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Ingestion auth failed: ${res.status} ${res.statusText} ${text}`);
+  }
+
+  const json = await res.json();
+  if (!json?.access_token || !json?.expires_in) {
+    throw new Error('Invalid ingestion auth response');
+  }
+
+  ingestionToken = json.access_token;
+  ingestionTokenExpiresAt = now + Number(json.expires_in) * 1000;
+  console.log('[UpsellModal] Ingestion token obtained, expires in ~', Math.round(json.expires_in / 60), 'min');
+
+  return ingestionToken;
+}
+
+interface IngestionDeviceRecord {
+  id: string;
+  name?: string;
+  deviceType?: string;
+  centralId?: string;
+  slaveId?: number;
+  gatewayId?: string;
+  customerId?: string;
+}
+
+interface IngestionPageResponse {
+  data: IngestionDeviceRecord[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
+async function fetchIngestionDevicesPage(
+  token: string,
+  customerId: string,
+  page: number,
+  limit = 100
+): Promise<IngestionPageResponse> {
+  const url = `${INGESTION_API_BASE}/management/devices?page=${page}&limit=${limit}&customerId=${encodeURIComponent(customerId)}&includeInactive=false&sortBy=name&sortOrder=asc`;
+  console.log(`[UpsellModal] Fetching ingestion devices page ${page}:`, url);
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Ingestion API error: ${res.status} ${res.statusText} ${text}`);
+  }
+
+  return res.json();
+}
+
+async function fetchIngestionDevicesAllPaged(customerId: string): Promise<IngestionDeviceRecord[]> {
+  const token = await getIngestionToken();
+
+  // Check cache first
+  const cacheKey = `ingestion_${customerId}`;
+  const cached = ingestionCache.get(cacheKey);
+  if (cached && Date.now() < cached.timestamp + cached.ttl) {
+    console.log(`[UpsellModal] Using cached ingestion devices for ${customerId} (${cached.devices.length} devices)`);
+    return cached.devices as unknown as IngestionDeviceRecord[];
+  }
+
+  console.log(`[UpsellModal] Fetching all ingestion devices for customerId=${customerId}`);
+
+  // Fetch first page to get total pages
+  const firstPage = await fetchIngestionDevicesPage(token, customerId, 1, 100);
+  const allDevices: IngestionDeviceRecord[] = [...(firstPage.data || [])];
+  const totalPages = firstPage.pagination?.pages || 1;
+
+  console.log(`[UpsellModal] Ingestion has ${totalPages} pages, ${firstPage.pagination?.total || 0} total devices`);
+
+  // Fetch remaining pages
+  for (let p = 2; p <= totalPages; p++) {
+    const page = await fetchIngestionDevicesPage(token, customerId, p, 100);
+    allDevices.push(...(page.data || []));
+  }
+
+  console.log(`[UpsellModal] Fetched ${allDevices.length} devices from ingestion`);
+
+  // Cache for 5 minutes
+  ingestionCache.set(cacheKey, {
+    customerId,
+    devices: allDevices as unknown as IngestionDevice[],
+    timestamp: Date.now(),
+    ttl: CACHE_TTL_MS,
+  });
+
+  return allDevices;
+}
+
+function findIngestionDeviceByCentralSlaveId(
+  devices: IngestionDeviceRecord[],
+  centralId: string,
+  slaveId: string | number
+): IngestionDeviceRecord | null {
+  const slaveIdNum = typeof slaveId === 'string' ? parseInt(slaveId, 10) : slaveId;
+
+  for (const device of devices) {
+    if (device.centralId === centralId && device.slaveId === slaveIdNum) {
+      return device;
+    }
+  }
+
+  return null;
+}
+
+// ============================================================================
 // Theme Colors
 // ============================================================================
 
@@ -2154,7 +2297,8 @@ function setupEventListeners(
 
   // Fetch Ingestion ID
   document.getElementById(`${modalId}-fetch-ingestion`)?.addEventListener('click', async () => {
-    if (!state.selectedDevice) return;
+    if (!state.selectedDevice || !state.selectedCustomer) return;
+
     const attrs = state.deviceAttributes;
     const centralId = attrs.centralId;
     const slaveId = attrs.slaveId;
@@ -2167,42 +2311,44 @@ function setupEventListeners(
     console.log('[UpsellModal] Fetching ingestionId for centralId:', centralId, 'slaveId:', slaveId);
 
     try {
-      // Fetch from ingestion API
-      const url = `${state.ingestionApiBase}/devices?centralId=${encodeURIComponent(centralId)}&slaveId=${encodeURIComponent(slaveId)}`;
-      console.log('[UpsellModal] Ingestion API URL:', url);
+      // Step 1: Get customer's ingestionId attribute (this is the customerId for ingestion API)
+      const customerId = getEntityId(state.selectedCustomer);
+      console.log('[UpsellModal] Fetching customer attributes for customerId:', customerId);
 
-      const res = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${state.ingestionToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const customerAttrs = await tbFetch<Array<{ key: string; value: unknown }>>(
+        state,
+        `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE`
+      );
+      console.log('[UpsellModal] Customer attributes:', customerAttrs);
 
-      if (!res.ok) {
-        throw new Error(`Ingestion API error: ${res.status} ${res.statusText}`);
+      const ingestionCustomerIdAttr = customerAttrs.find(a => a.key === 'ingestionId');
+      const ingestionCustomerId = ingestionCustomerIdAttr?.value as string;
+
+      if (!ingestionCustomerId) {
+        alert('Customer não tem atributo ingestionId configurado. Configure primeiro no ThingsBoard.');
+        return;
       }
 
-      const data = await res.json();
-      console.log('[UpsellModal] Ingestion API response:', data);
+      console.log('[UpsellModal] Customer ingestionId (for ingestion API):', ingestionCustomerId);
 
-      if (data && data.id) {
-        // Found the ingestion device, set the ID in the input
+      // Step 2: Fetch all devices from ingestion API (cached for 5 min)
+      const ingestionDevices = await fetchIngestionDevicesAllPaged(ingestionCustomerId);
+      console.log('[UpsellModal] Fetched', ingestionDevices.length, 'devices from ingestion');
+
+      // Step 3: Find matching device by centralId + slaveId
+      const matchingDevice = findIngestionDeviceByCentralSlaveId(ingestionDevices, centralId, slaveId);
+
+      if (matchingDevice) {
         const input = document.getElementById(`${modalId}-ingestionId`) as HTMLInputElement;
         if (input) {
-          input.value = data.id;
+          input.value = matchingDevice.id;
           input.style.borderColor = '#4caf50';
         }
-        alert(`IngestionId encontrado: ${data.id}`);
-      } else if (Array.isArray(data) && data.length > 0) {
-        // Response is an array, use the first match
-        const input = document.getElementById(`${modalId}-ingestionId`) as HTMLInputElement;
-        if (input) {
-          input.value = data[0].id;
-          input.style.borderColor = '#4caf50';
-        }
-        alert(`IngestionId encontrado: ${data[0].id}`);
+        console.log('[UpsellModal] Found matching ingestion device:', matchingDevice);
+        alert(`IngestionId encontrado: ${matchingDevice.id}\nDevice: ${matchingDevice.name || 'N/A'}\nTipo: ${matchingDevice.deviceType || 'N/A'}`);
       } else {
-        alert('Nenhum device encontrado na API de ingestion com centralId=' + centralId + ' e slaveId=' + slaveId);
+        console.log('[UpsellModal] No matching device found for centralId:', centralId, 'slaveId:', slaveId);
+        alert(`Nenhum device encontrado na API de ingestion com:\ncentralId=${centralId}\nslaveId=${slaveId}\n\nTotal de devices no customer: ${ingestionDevices.length}`);
       }
     } catch (error) {
       console.error('[UpsellModal] Error fetching ingestionId:', error);
@@ -2533,22 +2679,21 @@ async function createRelation(
   await tbPost(state, '/api/relation', relation);
 }
 
-// Delete relation: Entity (ASSET/CUSTOMER) -> DEVICE
+// Delete relation: Entity (FROM) -> DEVICE (TO)
 async function deleteRelation(
   state: ModalState,
   device: Device,
   relation: DeviceRelation
 ): Promise<void> {
   const deviceId = getEntityId(device);
-  // In our model: Entity (FROM) -> Device (TO)
-  // relation.toEntityType/toEntityId stores the container entity info
+  // relation stores the FROM entity info (what contains this device)
   const params = new URLSearchParams({
     fromId: relation.toEntityId,
     fromType: relation.toEntityType,
     toId: deviceId,
     toType: 'DEVICE',
-    relationType: 'Contains',
-    relationTypeGroup: 'COMMON',
+    relationType: relation.relationType || 'Contains',
+    relationTypeGroup: relation.relationTypeGroup || 'COMMON',
   });
   console.log('[UpsellModal] Deleting relation:', params.toString());
   await tbDelete(state, `/api/relation?${params.toString()}`);
@@ -2824,7 +2969,13 @@ async function loadValidationData(
 
     // Fetch relations - find entities that contain this device (FROM -> DEVICE)
     // Query: what entities have this device as the TO (i.e., what contains this device)
-    const relations = await tbFetch<Array<{ from: { entityType: string; id: string }; to: { entityType: string; id: string } }>>(
+    interface RelationResponse {
+      from: { entityType: string; id: string };
+      to: { entityType: string; id: string };
+      type: string;
+      typeGroup: string;
+    }
+    const relations = await tbFetch<RelationResponse[]>(
       state,
       `/api/relations?toId=${deviceId}&toType=DEVICE&relationTypeGroup=COMMON`
     );
@@ -2832,10 +2983,12 @@ async function loadValidationData(
 
     if (relations.length > 0) {
       // The FROM entity is what contains the device
-      const containerEntity = relations[0].from;
+      const rel = relations[0];
       state.deviceRelation = {
-        toEntityType: containerEntity.entityType as 'ASSET' | 'CUSTOMER',
-        toEntityId: containerEntity.id,
+        toEntityType: rel.from.entityType as 'ASSET' | 'CUSTOMER' | 'DEVICE',
+        toEntityId: rel.from.id,
+        relationType: rel.type || 'Contains',
+        relationTypeGroup: rel.typeGroup || 'COMMON',
       };
       console.log('[UpsellModal] Device is contained by:', state.deviceRelation);
     } else {

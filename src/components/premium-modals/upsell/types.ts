@@ -115,12 +115,14 @@ export interface DeviceAttributes {
   ingestionId?: string;
 }
 
-/** Device relation (TO direction) */
+/** Device relation - stores the entity that contains/points to this device */
 export interface DeviceRelation {
-  toEntityType: 'ASSET' | 'CUSTOMER';
+  toEntityType: 'ASSET' | 'CUSTOMER' | 'DEVICE';
   toEntityId: string;
   toEntityName?: string;
-  parentType?: 'CUSTOMER' | 'ASSET' | null;
+  relationType?: string; // e.g., 'Contains', 'Manages'
+  relationTypeGroup?: string; // e.g., 'COMMON'
+  parentType?: 'CUSTOMER' | 'ASSET' | 'DEVICE' | null;
   parentName?: string;
 }
 
