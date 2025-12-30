@@ -522,6 +522,11 @@ interface ModalState {
     value: string;
     saving: boolean;
   };
+  bulkProfileModal: {
+    open: boolean;
+    selectedProfileId: string;
+    saving: boolean;
+  };
   columnWidths: ColumnWidths;
   deviceAttrsLoaded: boolean;
   attrsLoading: boolean;
@@ -644,6 +649,7 @@ export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance 
     deviceSelectionMode: 'single',
     selectedDevices: [],
     bulkAttributeModal: { open: false, attribute: 'deviceType', value: '', saving: false },
+    bulkProfileModal: { open: false, selectedProfileId: '', saving: false },
     columnWidths: { label: 280, type: 180, createdTime: 100, deviceType: 80, deviceProfile: 90, telemetry: 100, status: 70 },
     deviceAttrsLoaded: false,
     attrsLoading: false,
@@ -803,6 +809,12 @@ function renderModal(
                 font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
                 display: flex; align-items: center; gap: 6px;
               ">⚡ Forçar Atributo (${state.selectedDevices.length})</button>
+              <button id="${modalId}-bulk-profile" style="
+                background: #8b5cf6; color: white; border: none;
+                padding: 8px 16px; border-radius: 6px; cursor: pointer;
+                font-size: 14px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif;
+                display: flex; align-items: center; gap: 6px;
+              ">🏷️ Forçar Profile (${state.selectedDevices.length})</button>
             ` : ''}
             <button id="${modalId}-cancel" style="
               background: ${state.theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#f3f4f6'};
@@ -920,6 +932,79 @@ function renderModal(
             " ${state.bulkAttributeModal.saving ? 'disabled' : ''}>
               ${state.bulkAttributeModal.saving ? 'Salvando...' : 'Salvar para ' + state.selectedDevices.length + ' devices'}
             </button>
+          </div>
+        </div>
+      </div>
+    ` : ''}
+
+    ${state.bulkProfileModal.open ? `
+      <!-- Bulk Profile Modal -->
+      <div class="myio-bulk-profile-overlay" style="
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.6); z-index: 10001;
+        display: flex; align-items: center; justify-content: center;
+      ">
+        <div style="
+          background: ${colors.surface}; border-radius: 12px; padding: 24px;
+          max-width: 450px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        ">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: ${colors.text}; font-size: 18px; font-weight: 600;">
+              🏷️ Forçar Device Profile (Entity)
+            </h3>
+            <button id="${modalId}-bulk-profile-close" style="
+              background: none; border: none; font-size: 20px; cursor: pointer;
+              color: ${colors.textMuted}; padding: 4px;
+            ">✕</button>
+          </div>
+
+          <div style="margin-bottom: 16px; padding: 12px; background: ${colors.surface}; border-radius: 8px; border: 1px solid ${colors.border};">
+            <div style="font-size: 12px; color: ${colors.textMuted}; margin-bottom: 4px;">Devices selecionados:</div>
+            <div style="font-size: 14px; color: ${colors.text}; font-weight: 500;">${state.selectedDevices.length} dispositivos</div>
+          </div>
+
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; color: ${colors.textMuted}; font-size: 12px; margin-bottom: 6px; font-weight: 500;">
+              Device Profile (Entity Level)
+            </label>
+            ${state.deviceProfiles.length === 0 ? `
+              <div style="padding: 12px; background: ${colors.warning}20; border-radius: 6px; font-size: 12px; color: ${colors.warning}; margin-bottom: 12px;">
+                ⚠️ Clique em "Carregar Profiles" para listar os profiles disponíveis
+              </div>
+              <button id="${modalId}-bulk-profile-load" style="
+                background: ${MYIO_PURPLE}; color: white; border: none;
+                padding: 10px 16px; border-radius: 6px; cursor: pointer;
+                font-size: 13px; width: 100%;
+              ">🔄 Carregar Profiles</button>
+            ` : `
+              <select id="${modalId}-bulk-profile-select" style="
+                width: 100%; padding: 10px 12px; border: 1px solid ${colors.border};
+                border-radius: 6px; font-size: 14px; color: ${colors.text};
+                background: ${colors.inputBg}; cursor: pointer;
+              ">
+                <option value="">-- Selecione um Profile --</option>
+                ${state.deviceProfiles.map(p => `
+                  <option value="${p.id}" ${state.bulkProfileModal.selectedProfileId === p.id ? 'selected' : ''}>${p.name}</option>
+                `).join('')}
+              </select>
+            `}
+          </div>
+
+          <div style="display: flex; gap: 12px; justify-content: flex-end;">
+            <button id="${modalId}-bulk-profile-cancel" style="
+              background: ${colors.surface}; color: ${colors.text};
+              border: 1px solid ${colors.border}; padding: 10px 20px;
+              border-radius: 6px; cursor: pointer; font-size: 14px;
+            ">Cancelar</button>
+            ${state.deviceProfiles.length > 0 ? `
+              <button id="${modalId}-bulk-profile-save" style="
+                background: #8b5cf6; color: white; border: none;
+                padding: 10px 20px; border-radius: 6px; cursor: pointer;
+                font-size: 14px; font-weight: 500;
+              " ${state.bulkProfileModal.saving ? 'disabled' : ''}>
+                ${state.bulkProfileModal.saving ? 'Salvando...' : 'Aplicar para ' + state.selectedDevices.length + ' devices'}
+              </button>
+            ` : ''}
           </div>
         </div>
       </div>
@@ -1661,7 +1746,7 @@ function renderStep3(state: ModalState, modalId: string, colors: ThemeColors, t:
         ${renderAttrRow('centralName', attrs.centralName, false, suggestedCentralName, colors, modalId, t)}
         ${renderDeviceTypeSelect(attrs.deviceType, suggestedType, colors, modalId, t)}
         ${renderDeviceProfileSelect(attrs.deviceType || suggestedType, attrs.deviceProfile, colors, modalId)}
-        ${renderAttrRow('identifier', attrs.identifier, false, null, colors, modalId)}
+        ${renderAttrRow('identifier', attrs.identifier, false, null, colors, modalId, t, false, 'Para LOJAS: LUC/SUC da Loja. Para outros casos, use padrões como: CAG (ecossistema CAG), ESCADA_ROLANTE, ELEVADOR, BOMBA, ENTRADA, TEMPERATURA')}
         ${renderAttrRow('ingestionId', attrs.ingestionId, false, null, colors, modalId, t, true)}
       </div>
     </div>
@@ -1856,7 +1941,8 @@ function renderAttrRow(
   colors: ThemeColors,
   modalId: string,
   t?: typeof i18n.pt,
-  isFetchable = false
+  isFetchable = false,
+  helpText?: string
 ): string {
   const hasValue = value !== null && value !== undefined && value !== '';
   const icon = hasValue ? '✅' : '⚠️';
@@ -1868,7 +1954,10 @@ function renderAttrRow(
       padding: 12px 16px; border-bottom: 1px solid ${colors.border};
     ">
       <span style="font-size: 16px;">${icon}</span>
-      <span style="width: 110px; font-size: 13px; color: ${colors.textMuted}; font-weight: 500;">${key}</span>
+      <span style="width: 110px; font-size: 13px; color: ${colors.textMuted}; font-weight: 500; display: flex; align-items: center; gap: 4px;">
+        ${key}
+        ${helpText ? `<span title="${helpText}" style="cursor: help; font-size: 12px; color: ${colors.primary};">ℹ️</span>` : ''}
+      </span>
       <div style="flex: 1;">
         <input type="text" id="${modalId}-${key}" value="${value || ''}"
                ${readonly ? 'disabled' : ''} placeholder="Enter ${key}..." style="
@@ -1951,6 +2040,7 @@ function renderDeviceProfileSelect(
   const hasValue = !!value;
   const icon = hasValue ? '✅' : '⚠️';
   const profiles = getSuggestedProfiles(deviceType as InferredDeviceType);
+  const helpText = 'IMPORTANTE: deviceType + deviceProfile definem o tipo do device. Se ambos = 3F_MEDIDOR → device é LOJA (energia). Se ambos = HIDROMETRO → device é LOJA (água).';
 
   return `
     <div style="
@@ -1958,7 +2048,10 @@ function renderDeviceProfileSelect(
       padding: 12px 16px; border-bottom: 1px solid ${colors.border};
     ">
       <span style="font-size: 16px;">${icon}</span>
-      <span style="width: 110px; font-size: 13px; color: ${colors.textMuted}; font-weight: 500;">deviceProfile</span>
+      <span style="width: 110px; font-size: 13px; color: ${colors.textMuted}; font-weight: 500; display: flex; align-items: center; gap: 4px;">
+        deviceProfile
+        <span title="${helpText}" style="cursor: help; font-size: 12px; color: ${colors.primary};">ℹ️</span>
+      </span>
       <div style="flex: 1;">
         <select id="${modalId}-deviceProfile" style="
           width: 100%; padding: 8px 12px; border: 1px solid ${hasValue ? colors.border : colors.warning};
@@ -2330,6 +2423,7 @@ function setupEventListeners(
         state.selectedDevices = state.selectedDevices.filter(d => d.id?.id !== deviceId);
       }
       renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
     });
   });
 
@@ -2370,6 +2464,58 @@ function setupEventListeners(
   // Save bulk attributes
   document.getElementById(`${modalId}-bulk-save`)?.addEventListener('click', async () => {
     await saveBulkAttribute(state, container, modalId, t, onClose);
+  });
+
+  // ========================
+  // Bulk Profile Modal Handlers
+  // ========================
+
+  // Open bulk profile modal
+  document.getElementById(`${modalId}-bulk-profile`)?.addEventListener('click', () => {
+    state.bulkProfileModal.open = true;
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Close bulk profile modal (X button)
+  document.getElementById(`${modalId}-bulk-profile-close`)?.addEventListener('click', () => {
+    state.bulkProfileModal.open = false;
+    state.bulkProfileModal.selectedProfileId = '';
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Cancel bulk profile modal
+  document.getElementById(`${modalId}-bulk-profile-cancel`)?.addEventListener('click', () => {
+    state.bulkProfileModal.open = false;
+    state.bulkProfileModal.selectedProfileId = '';
+    renderModal(container, state, modalId, t);
+    setupEventListeners(container, state, modalId, t, onClose);
+  });
+
+  // Load profiles in bulk modal
+  document.getElementById(`${modalId}-bulk-profile-load`)?.addEventListener('click', async () => {
+    try {
+      console.log('[UpsellModal] Loading device profiles for bulk modal...');
+      const profiles = await fetchDeviceProfiles(state);
+      state.deviceProfiles = profiles;
+      console.log('[UpsellModal] Loaded', profiles.length, 'profiles');
+      renderModal(container, state, modalId, t);
+      setupEventListeners(container, state, modalId, t, onClose);
+    } catch (error) {
+      console.error('[UpsellModal] Error loading profiles:', error);
+      alert('Erro ao carregar profiles: ' + (error as Error).message);
+    }
+  });
+
+  // Profile select change in bulk modal
+  document.getElementById(`${modalId}-bulk-profile-select`)?.addEventListener('change', (e) => {
+    state.bulkProfileModal.selectedProfileId = (e.target as HTMLSelectElement).value;
+  });
+
+  // Save bulk profile
+  document.getElementById(`${modalId}-bulk-profile-save`)?.addEventListener('click', async () => {
+    await saveBulkProfile(state, container, modalId, t, onClose);
   });
 
   // ========================
@@ -3016,31 +3162,59 @@ async function fetchCustomerAssets(
   }
 }
 
-// Change device profile (entity level)
+// Change device profile (entity level) with retry on 409 conflict
 async function changeDeviceProfile(
   state: ModalState,
   device: Device,
-  newProfileId: string
+  newProfileId: string,
+  maxRetries = 3
 ): Promise<void> {
   const deviceId = getEntityId(device);
-  // Get the current device data
-  const deviceData = await tbFetch<{
-    id: { id: string; entityType: string };
-    name: string;
-    type: string;
-    label?: string;
-    deviceProfileId: { id: string; entityType: string };
-    customerId?: { id: string; entityType: string };
-  }>(state, `/api/device/${deviceId}`);
 
-  // Update with new profile
-  const updatedDevice = {
-    ...deviceData,
-    deviceProfileId: { id: newProfileId, entityType: 'DEVICE_PROFILE' },
-  };
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Get the current device data (fresh on each attempt)
+      const deviceData = await tbFetch<{
+        id: { id: string; entityType: string };
+        name: string;
+        type: string;
+        label?: string;
+        deviceProfileId: { id: string; entityType: string };
+        customerId?: { id: string; entityType: string };
+        tenantId?: { id: string; entityType: string };
+        createdTime?: number;
+        additionalInfo?: Record<string, unknown>;
+        firmwareId?: { id: string; entityType: string } | null;
+        softwareId?: { id: string; entityType: string } | null;
+        externalId?: { id: string; entityType: string } | null;
+      }>(state, `/api/device/${deviceId}`);
 
-  console.log('[UpsellModal] Changing device profile to:', newProfileId);
-  await tbPost(state, '/api/device', updatedDevice);
+      // Update with new profile
+      const updatedDevice = {
+        ...deviceData,
+        deviceProfileId: { id: newProfileId, entityType: 'DEVICE_PROFILE' },
+      };
+
+      console.log(`[UpsellModal] Changing device profile to: ${newProfileId} (attempt ${attempt})`);
+      await tbPost(state, '/api/device', updatedDevice);
+
+      // Success - exit the retry loop
+      return;
+    } catch (error) {
+      const errorMessage = (error as Error).message || '';
+
+      // Check if it's a 409 conflict error
+      if (errorMessage.includes('409') && attempt < maxRetries) {
+        console.warn(`[UpsellModal] 409 Conflict on attempt ${attempt}, retrying...`);
+        // Small delay before retry
+        await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+        continue;
+      }
+
+      // Not a 409 or max retries reached - throw the error
+      throw error;
+    }
+  }
 }
 
 async function loadCustomers(
@@ -3328,9 +3502,30 @@ async function loadValidationData(
     if (relations.length > 0) {
       // The FROM entity is what contains the device
       const rel = relations[0];
+      const fromEntityType = rel.from.entityType as 'ASSET' | 'CUSTOMER' | 'DEVICE';
+      const fromEntityId = rel.from.id;
+
+      // Fetch entity name
+      let entityName = '';
+      try {
+        if (fromEntityType === 'ASSET') {
+          const asset = await tbFetch<{ name: string }>(state, `/api/asset/${fromEntityId}`);
+          entityName = asset.name;
+        } else if (fromEntityType === 'CUSTOMER') {
+          const customer = await tbFetch<{ name?: string; title?: string }>(state, `/api/customer/${fromEntityId}`);
+          entityName = customer.name || customer.title || '';
+        } else if (fromEntityType === 'DEVICE') {
+          const device = await tbFetch<{ name: string }>(state, `/api/device/${fromEntityId}`);
+          entityName = device.name;
+        }
+      } catch (e) {
+        console.warn('[UpsellModal] Could not fetch entity name:', e);
+      }
+
       state.deviceRelation = {
-        toEntityType: rel.from.entityType as 'ASSET' | 'CUSTOMER' | 'DEVICE',
-        toEntityId: rel.from.id,
+        toEntityType: fromEntityType,
+        toEntityId: fromEntityId,
+        toEntityName: entityName,
         relationType: rel.type || 'Contains',
         relationTypeGroup: rel.typeGroup || 'COMMON',
       };
@@ -3447,6 +3642,89 @@ async function saveBulkAttribute(
   } else {
     alert(
       `Atributo salvo para ${successCount} dispositivos.\n` +
+      `Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
+      (errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : '')
+    );
+  }
+
+  // Clear selection and re-render
+  state.selectedDevices = [];
+  renderModal(container, state, modalId, t);
+}
+
+/**
+ * Save device profile (entity level) to multiple devices in bulk
+ */
+async function saveBulkProfile(
+  state: ModalState,
+  container: HTMLElement,
+  modalId: string,
+  t: typeof i18n.pt,
+  onClose?: () => void
+): Promise<void> {
+  const { selectedProfileId } = state.bulkProfileModal;
+  const devices = state.selectedDevices;
+
+  if (!selectedProfileId) {
+    alert('Por favor, selecione um Device Profile.');
+    return;
+  }
+
+  if (devices.length === 0) {
+    alert('Nenhum dispositivo selecionado.');
+    return;
+  }
+
+  // Get profile name for display
+  const profile = state.deviceProfiles.find(p => p.id === selectedProfileId);
+  const profileName = profile?.name || selectedProfileId;
+
+  // Update modal state to show saving
+  state.bulkProfileModal.saving = true;
+  renderModal(container, state, modalId, t);
+
+  // Show progress modal
+  showBusyProgress(`Alterando Device Profile para "${profileName}"...`, devices.length);
+
+  let successCount = 0;
+  let errorCount = 0;
+  const errors: string[] = [];
+
+  // Change profile for each device
+  for (let i = 0; i < devices.length; i++) {
+    const device = devices[i];
+
+    try {
+      await changeDeviceProfile(state, device, selectedProfileId);
+      successCount++;
+
+      // Update device in local state
+      device.type = profileName;
+      device.deviceProfileId = { entityType: 'DEVICE_PROFILE', id: selectedProfileId };
+    } catch (error) {
+      errorCount++;
+      errors.push(`${device.name}: ${(error as Error).message}`);
+      console.error(`[UpsellModal] Error changing profile for device ${device.name}:`, error);
+    }
+
+    // Update progress modal
+    updateBusyProgress(i + 1);
+  }
+
+  // Hide progress modal
+  hideBusyProgress();
+
+  // Reset modal state
+  state.bulkProfileModal.saving = false;
+  state.bulkProfileModal.open = false;
+  state.bulkProfileModal.selectedProfileId = '';
+
+  // Show result message
+  if (errorCount === 0) {
+    alert(`Device Profile alterado para "${profileName}" em ${successCount} dispositivos!`);
+  } else {
+    alert(
+      `Profile alterado para ${successCount} dispositivos.\n` +
       `Erro em ${errorCount} dispositivos:\n${errors.slice(0, 5).join('\n')}` +
       (errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : '')
     );
