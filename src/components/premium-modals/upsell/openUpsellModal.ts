@@ -1590,7 +1590,7 @@ function renderDeviceRow(device: Device, state: ModalState, modalId: string, col
           <input type="checkbox" class="myio-device-checkbox" data-device-id="${deviceId}"
             ${isSelectedMulti ? 'checked' : ''} style="
             width: 16px; height: 16px; cursor: pointer; accent-color: ${MYIO_PURPLE};
-          " onclick="event.stopPropagation();" />
+          " />
         </div>
       ` : ''}
       <div style="width: 28px; font-size: 16px; flex-shrink: 0;">${getDeviceIcon(device.type)}</div>
@@ -2405,26 +2405,37 @@ function setupEventListeners(
   });
 
   // Checkbox handlers for multi-select
-  container.querySelectorAll('.myio-device-checkbox').forEach(checkbox => {
-    checkbox.addEventListener('change', (e) => {
-      const deviceId = (e.target as HTMLInputElement).getAttribute('data-device-id');
-      const isChecked = (e.target as HTMLInputElement).checked;
-      const device = state.devices.find(d => d.id?.id === deviceId);
+  const checkboxes = container.querySelectorAll('.myio-device-checkbox');
+  checkboxes.forEach(checkbox => {
+    // Use onclick instead of onchange for more reliable behavior
+    (checkbox as HTMLInputElement).onclick = (e) => {
+      e.stopPropagation();
+      const input = e.target as HTMLInputElement;
+      const deviceId = input.getAttribute('data-device-id');
+      if (!deviceId) return;
 
+      const device = state.devices.find(d => d.id?.id === deviceId);
       if (!device) return;
 
-      if (isChecked) {
-        // Add to selection if not already present
-        if (!state.selectedDevices.some(d => d.id?.id === deviceId)) {
-          state.selectedDevices.push(device);
+      // Use setTimeout to ensure checkbox state is updated
+      setTimeout(() => {
+        const isChecked = input.checked;
+
+        if (isChecked) {
+          // Add to selection if not already present
+          if (!state.selectedDevices.some(d => d.id?.id === deviceId)) {
+            state.selectedDevices.push(device);
+          }
+        } else {
+          // Remove from selection
+          state.selectedDevices = state.selectedDevices.filter(d => d.id?.id !== deviceId);
         }
-      } else {
-        // Remove from selection
-        state.selectedDevices = state.selectedDevices.filter(d => d.id?.id !== deviceId);
-      }
-      renderModal(container, state, modalId, t);
-      setupEventListeners(container, state, modalId, t, onClose);
-    });
+
+        // Re-render and re-setup
+        renderModal(container, state, modalId, t);
+        setupEventListeners(container, state, modalId, t, onClose);
+      }, 0);
+    };
   });
 
   // ========================
