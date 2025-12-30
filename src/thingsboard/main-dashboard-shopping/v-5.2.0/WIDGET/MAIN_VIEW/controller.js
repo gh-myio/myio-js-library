@@ -3037,54 +3037,140 @@ const MyIOOrchestrator = (() => {
   }
 
   /**
-   * RFC-0109: Device status calculation using centralized library function
-   * Uses MyIOLibrary.calculateDeviceStatus for consistent status across all widgets.
+   * RFC-0109 + RFC-0110: Device status calculation using centralized library function
+   * Uses MyIOLibrary for consistent status across all widgets.
    *
    * Status mapping:
-   * - offline, disconnected, false, null, '', undefined → 'offline'
-   * - bad, weak, unstable → 'weak_connection' (RFC-0109: new status)
-   * - waiting, connecting → 'no_info'
+   * - waiting, connecting, pending → 'not_installed' (RFC-0109)
+   * - bad, weak, unstable → 'weak_connection' (RFC-0109)
+   * - offline + stale timestamp → 'offline' (RFC-0110)
+   * - offline + fresh timestamp → 'power_on' (treat as online) (RFC-0110)
    * - online, connected, active → 'power_on' (default, TELEMETRY may override with ranges)
    *
    * @param {string|boolean|null} connectionStatus - Raw status from ThingsBoard
    * @param {object} [options] - Optional parameters for calculation
-   * @returns {string} deviceStatus: 'power_on', 'offline', 'weak_connection', or 'no_info'
+   * @param {number|null} [options.lastConnectTime] - Timestamp of last connection
+   * @param {number|null} [options.lastDisconnectTime] - Timestamp of last disconnection
+   * @returns {string} deviceStatus: 'power_on', 'offline', 'weak_connection', 'not_installed'
    */
   function convertConnectionStatusToDeviceStatus(connectionStatus, options = {}) {
-    // Use centralized library function if available
     const lib = window.MyIOLibrary;
-    if (lib?.calculateDeviceStatus) {
-      return lib.calculateDeviceStatus({
-        connectionStatus: connectionStatus,
-        isHydrometer: options.isHydrometer || false,
-        domain: options.domain || 'energy',
-      });
-    }
 
-    // Fallback: manual implementation (same logic as library)
-    if (connectionStatus === null || connectionStatus === undefined || connectionStatus === '') {
-      return 'offline';
-    }
+    // RFC-0109: Normalize connection status first
+    const normalizedStatus = lib?.normalizeConnectionStatus
+      ? lib.normalizeConnectionStatus(connectionStatus)
+      : String(connectionStatus || '').toLowerCase().trim();
 
-    const statusStr = String(connectionStatus).toLowerCase().trim();
+    // RFC-0109: Waiting states → not_installed (ABSOLUTE PRIORITY)
+    const isWaiting = normalizedStatus === 'waiting' || ['waiting', 'connecting', 'pending'].includes(normalizedStatus);
+    if (isWaiting) {
+      LogHelper.log(`[Orchestrator] ✅ RFC-0109 convertConnectionStatusToDeviceStatus: connectionStatus='${connectionStatus}' → 'not_installed'`);
+      return 'not_installed';
+    }
 
     // RFC-0109: Bad/weak connection states → weak_connection
-    if (['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(statusStr)) {
+    if (normalizedStatus === 'bad' || ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus)) {
       return 'weak_connection';
     }
 
-    // Online/connected states → power_on
-    if (['true', 'online', 'connected', '1', 'active', 'yes', 'ok', 'running'].includes(statusStr)) {
-      return 'power_on';
+    // RFC-0110: Check if connection is stale based on timestamps
+    const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
+    const connectionStale = lib?.isConnectionStale
+      ? lib.isConnectionStale({
+          lastConnectTime: options.lastConnectTime,
+          lastDisconnectTime: options.lastDisconnectTime,
+          delayTimeConnectionInMins: delayMins,
+        })
+      : true; // Fallback: assume stale if library not available
+
+    // RFC-0110: Offline status check
+    const isOfflineStatus = normalizedStatus === 'offline' ||
+      ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus) ||
+      connectionStatus === null || connectionStatus === undefined || connectionStatus === '';
+
+    // RFC-0110: Device is truly offline only if status says offline AND connection is stale
+    if (isOfflineStatus && connectionStale) {
+      return 'offline';
     }
 
-    // Waiting states → no_info
-    if (['waiting', 'connecting', 'pending'].includes(statusStr)) {
-      return 'no_info';
+    // RFC-0110: Device with "offline" status but fresh timestamp → treat as online
+    // Also handles normal online states
+    return 'power_on';
+  }
+
+  /**
+   * RFC-0111: Factory function to create orchestrator items with centralized deviceStatus logic
+   *
+   * This function creates a standardized item object with:
+   * 1. Common base fields (id, tbId, timestamps, etc.)
+   * 2. Automatic deviceStatus calculation using RFC-0109/0110 logic
+   * 3. Domain-specific overrides
+   *
+   * @param {Object} params - Parameters for item creation
+   * @param {string} params.entityId - ThingsBoard entity ID
+   * @param {Object} params.meta - Metadata from ctx.data
+   * @param {Object} [params.apiRow] - Optional API row data for enrichment
+   * @param {Object} [params.overrides] - Domain-specific field overrides
+   * @returns {Object} Orchestrator item object
+   */
+  function createOrchestratorItem({ entityId, meta, apiRow = null, overrides = {} }) {
+    // RFC-0109 + RFC-0110: Calculate deviceStatus with timestamp verification
+    const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus, {
+      lastConnectTime: meta.lastConnectTime,
+      lastDisconnectTime: meta.lastDisconnectTime,
+    });
+
+    // RFC-0109: LOG for tracking waiting devices
+    if (meta.connectionStatus === 'waiting' || String(meta.connectionStatus).toLowerCase() === 'waiting') {
+      LogHelper.log(`[Orchestrator] 📦 RFC-0109 createOrchestratorItem WAITING:`, {
+        entityId: entityId,
+        label: meta.label || meta.identifier,
+        connectionStatus: meta.connectionStatus,
+        calculatedDeviceStatus: deviceStatus,
+      });
     }
 
-    // Offline/disconnected/unknown states → offline
-    return 'offline';
+    // Base item with common fields
+    const baseItem = {
+      // Identifiers
+      id: entityId,
+      tbId: entityId,
+      ingestionId: meta.ingestionId || null,
+      identifier: meta.identifier || '',
+
+      // Labels
+      label: meta.label || meta.identifier || '',
+      entityLabel: meta.label || meta.identifier || '',
+      name: meta.label || meta.identifier || '',
+
+      // Device classification
+      deviceType: meta.deviceType || '',
+      deviceProfile: meta.deviceProfile || '',
+      effectiveDeviceType: meta.deviceProfile || meta.deviceType || null,
+
+      // Status (RFC-0109 + RFC-0110)
+      deviceStatus: deviceStatus,
+      connectionStatus: meta.connectionStatus || 'unknown',
+
+      // Central/gateway info
+      centralId: meta.centralId || apiRow?.centralId || null,
+      centralName: meta.centralName || null,
+      slaveId: meta.slaveId || apiRow?.slaveId || null,
+
+      // Timestamps
+      lastActivityTime: meta.lastActivityTime || null,
+      lastConnectTime: meta.lastConnectTime || null,
+      lastDisconnectTime: meta.lastDisconnectTime || null,
+
+      // Annotations
+      log_annotations: meta.log_annotations || null,
+
+      // Metadata flags
+      _hasMetadata: true,
+    };
+
+    // Merge with domain-specific overrides
+    return { ...baseItem, ...overrides };
   }
 
   /**
@@ -3497,30 +3583,20 @@ const MyIOOrchestrator = (() => {
         const items = [];
         for (const [entityId, meta] of metadataByEntityId.entries()) {
           const temperatureValue = Number(meta.temperature || 0);
-          const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus);
 
-          items.push({
-            id: entityId,
-            tbId: entityId,
-            ingestionId: meta.ingestionId || null,
-            identifier: meta.identifier || '',
-            label: meta.label || meta.identifier || 'Sensor',
-            entityLabel: meta.label || meta.identifier || 'Sensor',
-            name: meta.label || meta.identifier || 'Sensor',
-            value: temperatureValue,
-            temperature: temperatureValue,
-            deviceType: meta.deviceType || 'TERMOSTATO',
-            deviceProfile: meta.deviceProfile || '',
-            deviceStatus: deviceStatus,
-            connectionStatus: meta.connectionStatus || 'unknown',
-            centralId: meta.centralId || null,
-            centralName: meta.centralName || '',
-            slaveId: meta.slaveId || null,
-            lastActivityTime: meta.lastActivityTime || null,
-            lastConnectTime: meta.lastConnectTime || null,
-            lastDisconnectTime: meta.lastDisconnectTime || null,
-            log_annotations: meta.log_annotations || null,
-          });
+          // RFC-0111: Use centralized factory
+          items.push(createOrchestratorItem({
+            entityId,
+            meta,
+            overrides: {
+              label: meta.label || meta.identifier || 'Sensor',
+              entityLabel: meta.label || meta.identifier || 'Sensor',
+              name: meta.label || meta.identifier || 'Sensor',
+              value: temperatureValue,
+              temperature: temperatureValue,
+              deviceType: meta.deviceType || 'TERMOSTATO',
+            },
+          }));
         }
 
         // Populate window.STATE.temperature
@@ -3588,7 +3664,6 @@ const MyIOOrchestrator = (() => {
           const isTankByType = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
           // Check for hidrometers: deviceType contains HIDROMETRO
           const isHidrometer = deviceType.includes('HIDROMETRO');
-          const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus);
 
           // RFC-0107: Build HIDROMETRO items from ctx.data
           // Categorization based on deviceType AND deviceProfile:
@@ -3612,33 +3687,24 @@ const MyIOOrchestrator = (() => {
             }
             // else: HIDROMETRO with profile = HIDROMETRO or empty → Lojas
 
-            hidrometroItems.push({
-              id: entityId,
-              tbId: entityId,
-              ingestionId: meta.ingestionId || null,
-              identifier: meta.identifier || '',
-              label: meta.label || meta.identifier || 'Hidrômetro',
-              entityLabel: meta.label || meta.identifier || 'Hidrômetro',
-              name: meta.label || meta.identifier || 'Hidrômetro',
-              value: 0, // RFC-0108 FIX: Use 0 as placeholder - real value comes from API enrichment via ingestionId
-              pulses: pulses, // Keep pulses for reference only, not for display
-              deviceType: deviceType,
-              deviceProfile: deviceProfile || deviceType,
-              effectiveDeviceType: deviceProfile || deviceType,
-              deviceStatus: deviceStatus,
-              connectionStatus: meta.connectionStatus || 'unknown',
-              centralId: meta.centralId || null,
-              centralName: meta.centralName || '',
-              slaveId: meta.slaveId || null,
-              lastActivityTime: meta.lastActivityTime || null,
-              lastConnectTime: meta.lastConnectTime || null,
-              lastDisconnectTime: meta.lastDisconnectTime || null,
-              log_annotations: meta.log_annotations || null,
-              labelWidget: labelWidget,
-              groupLabel: labelWidget,
-              _hasMetadata: true,
-              _isHidrometerDevice: isEntradaDevice, // Only true for ENTRADA devices
-            });
+            // RFC-0111: Use centralized factory
+            hidrometroItems.push(createOrchestratorItem({
+              entityId,
+              meta,
+              overrides: {
+                label: meta.label || meta.identifier || 'Hidrômetro',
+                entityLabel: meta.label || meta.identifier || 'Hidrômetro',
+                name: meta.label || meta.identifier || 'Hidrômetro',
+                value: 0, // RFC-0108 FIX: Use 0 as placeholder - real value comes from API enrichment
+                pulses: pulses,
+                deviceType: deviceType,
+                deviceProfile: deviceProfile || deviceType,
+                effectiveDeviceType: deviceProfile || deviceType,
+                labelWidget: labelWidget,
+                groupLabel: labelWidget,
+                _isHidrometerDevice: isEntradaDevice,
+              },
+            }));
             continue;
           }
 
@@ -3646,35 +3712,25 @@ const MyIOOrchestrator = (() => {
             const waterLevel = Number(meta.waterLevel || 0);
             const waterPercentage = Number(meta.waterPercentage || 0);
 
-            tankItems.push({
-              id: entityId,
-              tbId: entityId,
-              ingestionId: meta.ingestionId || null,
-              identifier: meta.identifier || '',
-              label: meta.label || meta.identifier || "Caixa d'água",
-              entityLabel: meta.label || meta.identifier || "Caixa d'água",
-              name: meta.label || meta.identifier || "Caixa d'água",
-              value: waterLevel, // water_level in liters
-              waterLevel: waterLevel,
-              waterPercentage: waterPercentage, // 0-1 range
-              // Default to TANK if detected by water data but no deviceType
-              deviceType: deviceType || 'TANK',
-              deviceProfile: meta.deviceProfile || deviceType || 'TANK',
-              effectiveDeviceType: meta.deviceProfile || deviceType || 'TANK',
-              deviceStatus: deviceStatus,
-              connectionStatus: meta.connectionStatus || 'unknown',
-              centralId: meta.centralId || null,
-              centralName: meta.centralName || '',
-              slaveId: meta.slaveId || null,
-              lastActivityTime: meta.lastActivityTime || null,
-              lastConnectTime: meta.lastConnectTime || null,
-              lastDisconnectTime: meta.lastDisconnectTime || null,
-              log_annotations: meta.log_annotations || null,
-              labelWidget: "Caixa D'Água", // Tanks go to Caixa D'Água widget
-              groupLabel: "Caixa D'Água",
-              _hasMetadata: true,
-              _isTankDevice: true,
-            });
+            // RFC-0111: Use centralized factory
+            tankItems.push(createOrchestratorItem({
+              entityId,
+              meta,
+              overrides: {
+                label: meta.label || meta.identifier || "Caixa d'água",
+                entityLabel: meta.label || meta.identifier || "Caixa d'água",
+                name: meta.label || meta.identifier || "Caixa d'água",
+                value: waterLevel,
+                waterLevel: waterLevel,
+                waterPercentage: waterPercentage,
+                deviceType: deviceType || 'TANK',
+                deviceProfile: meta.deviceProfile || deviceType || 'TANK',
+                effectiveDeviceType: meta.deviceProfile || deviceType || 'TANK',
+                labelWidget: "Caixa D'Água",
+                groupLabel: "Caixa D'Água",
+                _isTankDevice: true,
+              },
+            }));
           }
         }
 
@@ -3988,42 +4044,37 @@ const MyIOOrchestrator = (() => {
           name: name,
         });
 
-        items.push({
-          id: ingestionId || entityId,
-          tbId: entityId,
-          ingestionId: ingestionId || null,
-          identifier: identifier,
-          deviceIdentifier: identifier,
-          label: label,
-          entityLabel: label,
-          name: name,
-          value: getValueFromRow(apiRow), // 0 if no API match
-          perc: 0,
-          deviceType: deviceType,
-          deviceProfile: deviceProfile,
-          effectiveDeviceType: deviceProfile || deviceType || null,
-          deviceStatus: convertConnectionStatusToDeviceStatus(meta.connectionStatus),
-          connectionStatus: meta.connectionStatus || 'unknown',
-          slaveId: meta.slaveId || apiRow?.slaveId || null,
-          centralId: meta.centralId || apiRow?.centralId || null,
-          centralName: meta.centralName || null,
-          gatewayId: apiRow?.gatewayId || null,
-          customerId: apiRow?.customerId || null,
-          assetId: apiRow?.assetId || null,
-          assetName: apiRow?.assetName || null,
-          lastActivityTime: meta.lastActivityTime || null,
-          lastConnectTime: meta.lastConnectTime || null,
-          lastDisconnectTime: meta.lastDisconnectTime || null,
-          log_annotations: meta.log_annotations || null,
-          // Power limits and instantaneous power (for deviceStatus calculation)
-          deviceMapInstaneousPower: meta.deviceMapInstaneousPower || null,
-          consumptionPower: meta.consumption || null,
-          labelWidget: labelWidget,
-          groupLabel: labelWidget,
-          _hasMetadata: true, // All items come from metadata
-          _hasApiData: hasApiData, // Flag to indicate if API data was found
-          _matchedBy: matchedBy, // 'ingestionId', 'name', or null
-        });
+        // RFC-0111: Use centralized factory
+        items.push(createOrchestratorItem({
+          entityId,
+          meta,
+          apiRow,
+          overrides: {
+            id: ingestionId || entityId,
+            identifier: identifier,
+            deviceIdentifier: identifier,
+            label: label,
+            entityLabel: label,
+            name: name,
+            value: getValueFromRow(apiRow),
+            perc: 0,
+            deviceType: deviceType,
+            deviceProfile: deviceProfile,
+            effectiveDeviceType: deviceProfile || deviceType || null,
+            // API-specific fields
+            gatewayId: apiRow?.gatewayId || null,
+            customerId: apiRow?.customerId || null,
+            assetId: apiRow?.assetId || null,
+            assetName: apiRow?.assetName || null,
+            // Power limits and instantaneous power
+            deviceMapInstaneousPower: meta.deviceMapInstaneousPower || null,
+            consumptionPower: meta.consumption || null,
+            labelWidget: labelWidget,
+            groupLabel: labelWidget,
+            _hasApiData: hasApiData,
+            _matchedBy: matchedBy,
+          },
+        }));
       }
 
       LogHelper.log(

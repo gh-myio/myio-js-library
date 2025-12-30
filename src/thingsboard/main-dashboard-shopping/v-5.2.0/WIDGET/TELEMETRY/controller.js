@@ -1473,16 +1473,34 @@ function buildAuthoritativeItems() {
       ? lib.normalizeConnectionStatus(tbConnectionStatus)
       : String(tbConnectionStatus || '').toLowerCase().trim();
 
-    // RFC-0109: Bad connection → weak_connection status
+    // RFC-0109: Status categories
+    const isWaitingStatus = normalizedStatus === 'waiting' || ['waiting', 'connecting', 'pending'].includes(normalizedStatus);
     const isBadConnection = normalizedStatus === 'bad' || ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus);
-    const isOfflineStatus = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus);
-    const isOnlineStatus = normalizedStatus === 'online' || ['online', 'waiting', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedStatus);
+    const isOfflineStatusRaw = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus);
+    const isOnlineStatus = normalizedStatus === 'online' || ['online', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedStatus);
 
-    if (isBadConnection) {
+    // RFC-0110: Check if connection is stale based on timestamps
+    const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
+    const connectionStale = lib?.isConnectionStale
+      ? lib.isConnectionStale({
+          lastConnectTime: attrs.lastConnectTime,
+          lastDisconnectTime: attrs.lastDisconnectTime,
+          delayTimeConnectionInMins: delayMins,
+        })
+      : true; // Fallback: assume stale if library not available
+
+    // RFC-0110: Device is truly offline only if status says offline AND connection is stale
+    const isOfflineStatus = isOfflineStatusRaw && connectionStale;
+    // RFC-0110: Device with "offline" status but fresh timestamp should be treated as online
+    const isEffectivelyOnline = isOnlineStatus || (isOfflineStatusRaw && !connectionStale);
+
+    if (isWaitingStatus) {
+      deviceStatus = 'not_installed'; // RFC-0109: waiting devices are not installed
+    } else if (isBadConnection) {
       deviceStatus = 'weak_connection'; // RFC-0109: bad/weak connection
     } else if (isOfflineStatus) {
-      deviceStatus = 'offline'; // RFC-0109: offline devices show as offline (not no_info)
-    } else if (isOnlineStatus) {
+      deviceStatus = 'offline'; // RFC-0109+0110: offline devices with stale connection
+    } else if (isEffectivelyOnline) {
       // RFC-0078: For energy devices, calculate status using ranges from mapInstantaneousPower
       const isEnergyDevice = !isTankDevice && !isTermostatoDevice;
 
@@ -4097,16 +4115,51 @@ self.onInit = async function () {
         ? lib.normalizeConnectionStatus(connectionStatus)
         : String(connectionStatus || '').toLowerCase().trim();
 
-      // RFC-0109: Detect status categories
-      const isBadConnection = normalizedStatus === 'bad' || ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus);
-      const isOffline = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus) || connectionStatus === false;
-      const isOnline = normalizedStatus === 'online' || ['online', 'waiting', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedStatus) || connectionStatus === true;
+      // RFC-0109: Detect status categories - WAITING FIRST (highest priority)
+      const isWaiting = normalizedStatus === 'waiting' || ['waiting', 'connecting', 'pending'].includes(normalizedStatus);
 
-      if (isBadConnection) {
+      // RFC-0109: LOG for tracking waiting devices
+      if (isWaiting || connectionStatus === 'waiting' || String(connectionStatus).toLowerCase() === 'waiting') {
+        LogHelper.log(`[TELEMETRY] 📦 RFC-0109 WAITING DEVICE DETECTED:`, {
+          id: item.id || item.tbId,
+          label: item.label,
+          connectionStatus: connectionStatus,
+          normalizedStatus: normalizedStatus,
+          isWaiting: isWaiting,
+          originalDeviceStatus: item.deviceStatus,
+          willSetTo: 'not_installed',
+        });
+      }
+
+      const isBadConnection = normalizedStatus === 'bad' || ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedStatus);
+      const isOfflineStatus = normalizedStatus === 'offline' || ['offline', 'disconnected', 'false', '0'].includes(normalizedStatus) || connectionStatus === false;
+      const isOnline = normalizedStatus === 'online' || ['online', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedStatus) || connectionStatus === true;
+
+      // RFC-0110: Check if connection is stale based on timestamps
+      // Even if connectionStatus says "offline", if the timestamp is recent (< 60 min), treat as online
+      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
+      const connectionStale = lib?.isConnectionStale
+        ? lib.isConnectionStale({
+            lastConnectTime: item.lastConnectTime,
+            lastDisconnectTime: item.lastDisconnectTime,
+            delayTimeConnectionInMins: delayMins,
+          })
+        : true; // Fallback: assume stale if library not available
+
+      // RFC-0110: Device is truly offline only if status says offline AND connection is stale
+      const isOffline = isOfflineStatus && connectionStale;
+      // RFC-0110: Device with "offline" status but fresh timestamp should be treated as online
+      const isEffectivelyOnline = isOnline || (isOfflineStatus && !connectionStale);
+
+      // RFC-0109: WAITING HAS ABSOLUTE PRIORITY - no other rules apply
+      if (isWaiting) {
+        deviceStatus = 'not_installed'; // RFC-0109: waiting devices are ALWAYS not_installed
+        LogHelper.log(`[TELEMETRY] ✅ RFC-0109: Set deviceStatus='not_installed' for waiting device: ${item.label}`);
+      } else if (isBadConnection) {
         deviceStatus = 'weak_connection'; // RFC-0109: bad/weak connection
       } else if (isOffline) {
-        deviceStatus = 'offline'; // RFC-0109: offline devices show as offline (not no_info)
-      } else if (isOnline && isEnergyDomain) {
+        deviceStatus = 'offline'; // RFC-0109+0110: offline devices with stale connection
+      } else if (isEffectivelyOnline && isEnergyDomain) {
         // For energy devices, calculate status using power ranges
         const instantaneousPower = Number(item.consumptionPower || 0);
         const deviceTypeForRanges = item.effectiveDeviceType || item.deviceProfile || item.deviceType || '';
@@ -4129,7 +4182,7 @@ self.onInit = async function () {
           // Fallback if no ranges or MyIOLibrary not available
           deviceStatus = 'power_on';
         }
-      } else if (isOnline) {
+      } else if (isEffectivelyOnline) {
         // Non-energy devices (TANK, TERMOSTATO) - simple power_on
         deviceStatus = 'power_on';
       }

@@ -1954,6 +1954,18 @@ export const EnergySummaryTooltip = {
 
       // RFC-0109: Determine connectivity status first (independent dimension)
       const isWaiting = deviceStatus === 'not_installed' || connectionStatus === 'waiting';
+
+      // RFC-0109: LOG for tracking waiting devices
+      if (connectionStatus === 'waiting' || String(connectionStatus).toLowerCase() === 'waiting') {
+        console.log(`[EnergySummaryTooltip] 📦 RFC-0109 WAITING ITEM:`, {
+          id: item.id,
+          label: item.label,
+          deviceStatus: deviceStatus,
+          connectionStatus: connectionStatus,
+          isWaiting: isWaiting,
+          willGoTo: isWaiting ? 'waiting' : 'other',
+        });
+      }
       const isWeakConnection = deviceStatus === 'weak_connection' || connectionStatus === 'bad' ||
                                ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(String(connectionStatus).toLowerCase());
       const isOffline = deviceStatus === 'offline' || deviceStatus === 'no_info' ||
