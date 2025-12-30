@@ -90,7 +90,7 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
 .energy-summary-tooltip {
   position: fixed;
   z-index: 99999;
-  pointer-events: auto;
+  pointer-events: none; /* IMPORTANT: Disable pointer events when hidden to prevent blocking navigation */
   opacity: 0;
   transition: opacity 0.3s ease, transform 0.3s ease;
   transform: translateY(8px);
@@ -99,12 +99,14 @@ const ENERGY_SUMMARY_TOOLTIP_CSS = `
 .energy-summary-tooltip.visible {
   opacity: 1;
   transform: translateY(0);
+  pointer-events: auto; /* Enable pointer events only when visible */
 }
 
 .energy-summary-tooltip.closing {
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.4s ease, transform 0.4s ease;
+  pointer-events: none; /* Disable pointer events during close animation */
 }
 
 .energy-summary-tooltip__content {

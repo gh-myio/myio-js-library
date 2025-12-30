@@ -93,6 +93,7 @@ const CONTRACT_SUMMARY_TOOLTIP_CSS = `
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.4s ease, transform 0.4s ease;
+  pointer-events: none; /* Disable pointer events during close animation */
 }
 
 .myio-contract-summary-tooltip.pinned {

@@ -84,7 +84,7 @@ const WATER_SUMMARY_TOOLTIP_CSS = `
 .water-summary-tooltip {
   position: fixed;
   z-index: 99999;
-  pointer-events: auto;
+  pointer-events: none; /* IMPORTANT: Disable pointer events when hidden to prevent blocking navigation */
   opacity: 0;
   transition: opacity 0.3s ease, transform 0.3s ease;
   transform: translateY(8px);
@@ -93,12 +93,14 @@ const WATER_SUMMARY_TOOLTIP_CSS = `
 .water-summary-tooltip.visible {
   opacity: 1;
   transform: translateY(0);
+  pointer-events: auto; /* Enable pointer events only when visible */
 }
 
 .water-summary-tooltip.closing {
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.4s ease, transform 0.4s ease;
+  pointer-events: none; /* Disable pointer events during close animation */
 }
 
 .water-summary-tooltip__content {
