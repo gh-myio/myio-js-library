@@ -429,12 +429,15 @@ export function calculateDeviceStatus({
     return DeviceStatusType.NOT_INSTALLED;
   }
 
-  // 2. RFC-0110 v5: Calculate effective timestamp (telemetryTimestamp with lastActivityTime fallback)
+  // 2. RFC-0110 v5: Calculate timestamps for status detection
   // Timestamp must exist AND be valid (> 0, since 0 = epoch 1970 = invalid)
   const hasTelemetryTs = telemetryTimestamp !== null && telemetryTimestamp !== undefined && telemetryTimestamp > 0;
   const hasLastActivityTime = lastActivityTime !== null && lastActivityTime !== undefined && lastActivityTime > 0;
-  const effectiveTimestamp = hasTelemetryTs ? telemetryTimestamp : (hasLastActivityTime ? lastActivityTime : null);
-  const hasEffectiveTimestamp = effectiveTimestamp !== null;
+
+  // RFC-0110 v5 FIX: For BAD/OFFLINE recovery, use lastActivityTime as fallback
+  // For ONLINE → OFFLINE stale detection, use ONLY telemetryTimestamp (no fallback)
+  const effectiveTimestampForRecovery = hasTelemetryTs ? telemetryTimestamp : (hasLastActivityTime ? lastActivityTime : null);
+  const hasEffectiveTimestampForRecovery = effectiveTimestampForRecovery !== null;
 
   // 3. RFC-0110 v5: If no effective timestamp at all → OFFLINE (for ONLINE status)
   // For BAD/OFFLINE, we check below with short threshold
@@ -443,7 +446,7 @@ export function calculateDeviceStatus({
   // If recent telemetry, treat as online (hide weak_connection from client)
   // If stale telemetry or no timestamp, show WEAK_CONNECTION
   if (normalizedStatus === "bad") {
-    const hasRecentTelemetry = hasEffectiveTimestamp && !isTelemetryStale(effectiveTimestamp, null, shortDelayMins);
+    const hasRecentTelemetry = hasEffectiveTimestampForRecovery && !isTelemetryStale(effectiveTimestampForRecovery, null, shortDelayMins);
     if (hasRecentTelemetry) {
       // Device is working fine, continue to value-based calculation
     } else {
@@ -455,7 +458,7 @@ export function calculateDeviceStatus({
   // If recent telemetry (< 60 mins), treat as online
   // If stale telemetry (> 60 mins) or no timestamp, mark as OFFLINE
   if (normalizedStatus === "offline") {
-    const hasRecentTelemetry = hasEffectiveTimestamp && !isTelemetryStale(effectiveTimestamp, null, shortDelayMins);
+    const hasRecentTelemetry = hasEffectiveTimestampForRecovery && !isTelemetryStale(effectiveTimestampForRecovery, null, shortDelayMins);
     if (!hasRecentTelemetry) {
       return DeviceStatusType.OFFLINE;
     }
@@ -463,12 +466,16 @@ export function calculateDeviceStatus({
   }
 
   // 6. ONLINE → Check telemetry (24h threshold)
-  // If no effective timestamp or stale (> 24h), mark as OFFLINE
+  // RFC-0110 v5 FIX: Use ONLY telemetryTimestamp for ONLINE → OFFLINE stale detection
+  // lastActivityTime is updated by keepalive/heartbeat, not actual domain telemetry
+  // So a device can have recent lastActivityTime but stale/missing domain-specific telemetry
   if (normalizedStatus === "online") {
-    if (!hasEffectiveTimestamp) {
+    // No domain-specific telemetry timestamp = device is not sending actual data = OFFLINE
+    if (!hasTelemetryTs) {
       return DeviceStatusType.OFFLINE;
     }
-    const telemetryStale = isTelemetryStale(effectiveTimestamp, null, delayTimeConnectionInMins);
+    // Has telemetry timestamp but it's stale (> 24h) = OFFLINE
+    const telemetryStale = isTelemetryStale(telemetryTimestamp, null, delayTimeConnectionInMins);
     if (telemetryStale) {
       return DeviceStatusType.OFFLINE;
     }
