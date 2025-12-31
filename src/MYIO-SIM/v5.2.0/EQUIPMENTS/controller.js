@@ -894,7 +894,8 @@ self.onInit = async function () {
             ? null
             : parsedInstantaneousPower;
 
-          // RFC-0110: Pass telemetryTimestamp and lastActivityTime for proper status calculation
+          // RFC-0110 v5: Pass telemetryTimestamp and lastActivityTime for proper status calculation
+          // FORCE 24h (1440 min) threshold for ONLINE → OFFLINE stale detection per RFC-0110 v5
           const deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
             connectionStatus: mappedConnectionStatus,
             lastConsumptionValue,
@@ -906,7 +907,7 @@ self.onInit = async function () {
             },
             telemetryTimestamp: instantaneousPowerTs.getTime() > 0 ? instantaneousPowerTs.getTime() : null,
             lastActivityTime: lastActivityTime > 0 ? lastActivityTime : null,
-            delayTimeConnectionInMins,
+            delayTimeConnectionInMins: 1440, // RFC-0110 v5: Always 24h for stale telemetry detection
           });
 
           // DEBUG // TODO REMOVER DEPOIS

@@ -4569,7 +4569,10 @@ const MyIOOrchestrator = (() => {
 
     // RFC-0110 v5: Use library's calculateDeviceStatus if available
     if (lib?.calculateDeviceStatus) {
-      const delayMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 1440; // 24h default
+      // RFC-0110 v5: FORCE 24h (1440 min) threshold for ONLINE → OFFLINE stale detection
+      // Widget setting (delayTimeConnectionInMins) may be configured for other purposes (alerts, notifications)
+      // but for device status, RFC-0110 v5 mandates 24h threshold
+      const delayMins = 1440; // RFC-0110 v5: Always 24h for stale telemetry detection
       const shortDelayMins = 60; // 60 mins for BAD/OFFLINE recovery
 
       // RFC-0110 v5: Determine domain and telemetry timestamp
@@ -4587,6 +4590,16 @@ const MyIOOrchestrator = (() => {
             ? (options.temperatureTs ?? null)
             : (options.consumptionTs ?? null);
 
+      // DEBUG RFC-0110: Log calculation inputs for stale telemetry detection
+      if (!window._debugDeviceStatusLogged) window._debugDeviceStatusLogged = 0;
+      if (window._debugDeviceStatusLogged < 10) {
+        window._debugDeviceStatusLogged++;
+        const now = Date.now();
+        const telemetryAgeMs = telemetryTimestamp ? now - telemetryTimestamp : 'N/A';
+        const telemetryAgeMins = telemetryTimestamp ? Math.round((now - telemetryTimestamp) / 60000) : 'N/A';
+        LogHelper.log(`[Orchestrator] 🔍 RFC-0110 DEBUG deviceStatus #${window._debugDeviceStatusLogged}: connectionStatus='${connectionStatus}', domain='${domain}', telemetryTimestamp=${telemetryTimestamp}, telemetryAge=${telemetryAgeMins} mins, consumptionTs=${options.consumptionTs}, lastActivityTime=${options.lastActivityTime}, delayMins=${delayMins}`);
+      }
+
       const status = lib.calculateDeviceStatus({
         connectionStatus: connectionStatus,
         domain: domain,
@@ -4599,6 +4612,15 @@ const MyIOOrchestrator = (() => {
       // Log for WAITING devices
       if (status === 'not_installed') {
         LogHelper.log(`[MYIO-SIM Orchestrator] ✅ RFC-0109 convertConnectionStatusToDeviceStatus: connectionStatus='${connectionStatus}' → 'not_installed'`);
+      }
+
+      // DEBUG RFC-0110: Log when online device should be offline due to stale telemetry
+      if (connectionStatus === 'online' && status === 'offline') {
+        if (!window._debugStaleLogged) window._debugStaleLogged = 0;
+        if (window._debugStaleLogged < 5) {
+          window._debugStaleLogged++;
+          LogHelper.log(`[Orchestrator] 🔍 RFC-0110 DEBUG stale #${window._debugStaleLogged}: ONLINE with stale telemetry → OFFLINE`);
+        }
       }
 
       return status;
@@ -4725,6 +4747,10 @@ const MyIOOrchestrator = (() => {
       const entityId = row?.datasource?.entityId?.id || row?.datasource?.entityId || null;
       const keyName = String(row?.dataKey?.name || '').toLowerCase();
       const val = row?.data?.[0]?.[1] ?? null;
+      // RFC-0110 v5: Capture timestamp for telemetry
+      // NOTE: Timestamp 0 (epoch 1970) is invalid - ThingsBoard returns 0 when no data
+      const rawTs = row?.data?.[0]?.[0];
+      const ts = (rawTs && rawTs > 0) ? rawTs : null;
 
       if (!entityId) continue;
 
@@ -4755,18 +4781,27 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'lastdisconnecttime') meta.lastDisconnectTime = val;
       else if (keyName === 'log_annotations') meta.log_annotations = val;
       else if (keyName === 'label') meta.label = val;
-      // Energy-specific fields
+      // Energy-specific fields (RFC-0110 v5: capture timestamp for telemetry)
       else if (keyName === 'devicemapinstaneouspower') meta.deviceMapInstaneousPower = val;
-      else if (keyName === 'consumption') meta.consumption = val; // instantaneous power in Watts
-      // Water-specific fields
-      else if (keyName === 'pulses') meta.pulses = val;
+      else if (keyName === 'consumption') {
+        meta.consumption = val;
+        meta.consumptionTs = ts;
+        // DEBUG RFC-0110: Log consumption timestamp capture
+        if (!window._debugConsumptionTsLogged) window._debugConsumptionTsLogged = 0;
+        if (window._debugConsumptionTsLogged < 5) {
+          window._debugConsumptionTsLogged++;
+          LogHelper.log(`[Orchestrator] 🔍 RFC-0110 DEBUG consumption #${window._debugConsumptionTsLogged}: label='${meta.label || meta.entityName}', consumption=${val}, ts=${ts}, rawTs=${rawTs}`);
+        }
+      }
+      // Water-specific fields (RFC-0110 v5: capture timestamp for telemetry)
+      else if (keyName === 'pulses') { meta.pulses = val; meta.pulsesTs = ts; }
       else if (keyName === 'litersperpulse') meta.litersPerPulse = val;
       else if (keyName === 'volume') meta.volume = val;
-      // Tank-specific fields (TANK/CAIXA_DAGUA)
-      else if (keyName === 'water_level') meta.waterLevel = val;
-      else if (keyName === 'water_percentage') meta.waterPercentage = val;
-      // Temperature-specific fields
-      else if (keyName === 'temperature') meta.temperature = val;
+      // Tank-specific fields (TANK/CAIXA_DAGUA) (RFC-0110 v5: capture timestamp for telemetry)
+      else if (keyName === 'water_level') { meta.waterLevel = val; meta.waterLevelTs = ts; }
+      else if (keyName === 'water_percentage') { meta.waterPercentage = val; meta.waterPercentageTs = ts; }
+      // Temperature-specific fields (RFC-0110 v5: capture timestamp for telemetry)
+      else if (keyName === 'temperature') { meta.temperature = val; meta.temperatureTs = ts; }
     }
 
     // Build map by ingestionId
@@ -4958,7 +4993,13 @@ const MyIOOrchestrator = (() => {
         const items = [];
         for (const [entityId, meta] of metadataByEntityId.entries()) {
           const temperatureValue = Number(meta.temperature || 0);
-          const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus);
+          // RFC-0110 v5: Pass telemetry timestamp and lastActivityTime for proper status calculation
+          const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus, {
+            deviceType: meta.deviceType,
+            deviceProfile: meta.deviceProfile,
+            temperatureTs: meta.temperatureTs,
+            lastActivityTime: meta.lastActivityTime,
+          });
 
           items.push({
             id: entityId,
@@ -5044,7 +5085,14 @@ const MyIOOrchestrator = (() => {
           if (deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA') {
             const waterLevel = Number(meta.waterLevel || 0);
             const waterPercentage = Number(meta.waterPercentage || 0);
-            const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus);
+            // RFC-0110 v5: Pass telemetry timestamp and lastActivityTime for proper status calculation
+            const deviceStatus = convertConnectionStatusToDeviceStatus(meta.connectionStatus, {
+              deviceType: meta.deviceType,
+              deviceProfile: meta.deviceProfile,
+              waterLevelTs: meta.waterLevelTs,
+              waterPercentageTs: meta.waterPercentageTs,
+              lastActivityTime: meta.lastActivityTime,
+            });
 
             tankItems.push({
               id: entityId,
@@ -5278,7 +5326,13 @@ const MyIOOrchestrator = (() => {
           deviceType: deviceType,
           deviceProfile: deviceProfile,
           effectiveDeviceType: deviceProfile || deviceType || null,
-          deviceStatus: convertConnectionStatusToDeviceStatus(meta.connectionStatus),
+          // RFC-0110 v5: Pass telemetry timestamp and lastActivityTime for proper status calculation
+          deviceStatus: convertConnectionStatusToDeviceStatus(meta.connectionStatus, {
+            deviceType: meta.deviceType,
+            deviceProfile: meta.deviceProfile,
+            consumptionTs: meta.consumptionTs,
+            lastActivityTime: meta.lastActivityTime,
+          }),
           connectionStatus: meta.connectionStatus || 'unknown',
           slaveId: meta.slaveId || row.slaveId || null,
           centralId: meta.centralId || row.centralId || null,
