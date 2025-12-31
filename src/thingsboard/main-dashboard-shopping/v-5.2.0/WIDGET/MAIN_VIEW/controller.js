@@ -2063,7 +2063,8 @@ function aggregateDeviceStatus(items) {
     const connectionStatus = item.connectionStatus || '';
     const value = Number(item.value || 0);
 
-    // RFC-0109: Check connectivity categories FIRST (mutually exclusive)
+    // RFC-0109: MUTUALLY EXCLUSIVE categories - device appears in exactly ONE
+    // Priority: waiting > weakConnection > offline > noConsumption > consumption status
 
     // 1. WAITING (not_installed) - highest priority
     const isWaiting = deviceStatus === 'not_installed' ||
@@ -2072,7 +2073,7 @@ function aggregateDeviceStatus(items) {
     if (isWaiting) {
       result.waiting++;
       result.waitingDevices.push(deviceInfo);
-      continue; // Don't count in consumption categories
+      continue;
     }
 
     // 2. WEAK CONNECTION
@@ -2081,43 +2082,35 @@ function aggregateDeviceStatus(items) {
     if (isWeakConnection) {
       result.weakConnection++;
       result.weakConnectionDevices.push(deviceInfo);
-      // weakConnection devices CAN also have consumption status - continue to count below
+      continue;
     }
 
     // 3. OFFLINE
     const isOffline = ['no_info', 'offline', 'maintenance', 'power_off'].includes(deviceStatus) ||
                       ['offline', 'disconnected'].includes(String(connectionStatus).toLowerCase());
-    if (isOffline && !isWeakConnection) {
+    if (isOffline) {
       result.offline++;
       result.offlineDevices.push(deviceInfo);
-      // Offline devices can also be in noConsumption
-      if (Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
-        result.noConsumption++;
-        result.noConsumptionDevices.push(deviceInfo);
-      }
       continue;
     }
 
-    // 4. ONLINE devices - check consumption status
-    const isOnline = !isOffline && !isWaiting;
-    if (isOnline) {
-      // Check for "no consumption" (online but zero value)
-      if (Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
-        result.noConsumption++;
-        result.noConsumptionDevices.push(deviceInfo);
-        // Don't continue - also count in consumption category based on deviceStatus
-      }
+    // 4. ONLINE device - check consumption value first
+    // If no consumption (value ~= 0), goes to noConsumption category
+    if (Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
+      result.noConsumption++;
+      result.noConsumptionDevices.push(deviceInfo);
+      continue;
+    }
 
-      // Map to consumption category
-      const consumptionCategory = consumptionStatusMapping[deviceStatus];
-      if (consumptionCategory) {
-        result[consumptionCategory]++;
-        result[`${consumptionCategory}Devices`].push(deviceInfo);
-      } else {
-        // Unknown status for online device - default to normal
-        result.normal++;
-        result.normalDevices.push(deviceInfo);
-      }
+    // 5. ONLINE device with consumption - map to status category
+    const consumptionCategory = consumptionStatusMapping[deviceStatus];
+    if (consumptionCategory) {
+      result[consumptionCategory]++;
+      result[`${consumptionCategory}Devices`].push(deviceInfo);
+    } else {
+      // Unknown status for online device with consumption - default to normal
+      result.normal++;
+      result.normalDevices.push(deviceInfo);
     }
   }
 

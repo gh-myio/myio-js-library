@@ -84,17 +84,24 @@ function getDomainLabel(domain = 'energy') {
 function aggregateDeviceStatusFromOrchestrator(domain) {
   const result = {
     hasData: false,
+    // RFC-0109: Connectivity status categories
+    waiting: 0,
+    weakConnection: 0,
+    offline: 0,
+    // Consumption status categories
     normal: 0,
     alert: 0,
     failure: 0,
     standby: 0,
-    offline: 0,
     noConsumption: 0,
+    // Device lists
+    waitingDevices: [],
+    weakConnectionDevices: [],
+    offlineDevices: [],
     normalDevices: [],
     alertDevices: [],
     failureDevices: [],
     standbyDevices: [],
-    offlineDevices: [],
     noConsumptionDevices: [],
   };
 
@@ -132,17 +139,12 @@ function aggregateDeviceStatusFromOrchestrator(domain) {
   // Threshold for "no consumption" - devices with value below this are considered zero
   const NO_CONSUMPTION_THRESHOLD = domain === 'water' ? 0.001 : 0.01; // m³ for water, kWh for energy
 
-  // Map deviceStatus values to our status categories
-  const statusMapping = {
+  // RFC-0109: Status mapping for consumption categories (online devices only)
+  const consumptionStatusMapping = {
     'power_on': 'normal',
     'warning': 'alert',
     'failure': 'failure',
     'standby': 'standby',
-    'power_off': 'offline',
-    'maintenance': 'offline',
-    'no_info': 'offline',
-    'not_installed': 'offline',
-    'offline': 'offline',
   };
 
   items.forEach((item) => {
@@ -153,24 +155,58 @@ function aggregateDeviceStatusFromOrchestrator(domain) {
     };
 
     const deviceStatus = item.deviceStatus || 'no_info';
+    const connectionStatus = item.connectionStatus || '';
     const value = Number(item.value || item.val || 0);
 
-    // Check for "no consumption" first (value is 0 or very close to 0)
-    // Only applies to online devices (not offline/no_info)
-    const isOnline = !['no_info', 'offline', 'not_installed', 'maintenance', 'power_off'].includes(deviceStatus);
+    // RFC-0109: MUTUALLY EXCLUSIVE categories - device appears in exactly ONE
+    // Priority: waiting > weakConnection > offline > noConsumption > consumption status
 
-    if (isOnline && Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
+    // 1. WAITING (not_installed) - highest priority
+    const isWaiting = deviceStatus === 'not_installed' ||
+                      connectionStatus === 'waiting' ||
+                      ['waiting', 'connecting', 'pending'].includes(String(connectionStatus).toLowerCase());
+    if (isWaiting) {
+      result.waiting++;
+      result.waitingDevices.push(deviceInfo);
+      return;
+    }
+
+    // 2. WEAK CONNECTION
+    const isWeakConnection = deviceStatus === 'weak_connection' ||
+                              ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(String(connectionStatus).toLowerCase());
+    if (isWeakConnection) {
+      result.weakConnection++;
+      result.weakConnectionDevices.push(deviceInfo);
+      return;
+    }
+
+    // 3. OFFLINE
+    const isOffline = ['no_info', 'offline', 'maintenance', 'power_off'].includes(deviceStatus) ||
+                      ['offline', 'disconnected'].includes(String(connectionStatus).toLowerCase());
+    if (isOffline) {
+      result.offline++;
+      result.offlineDevices.push(deviceInfo);
+      return;
+    }
+
+    // 4. ONLINE device - check consumption value first
+    // If no consumption (value ~= 0), goes to noConsumption category
+    if (Math.abs(value) < NO_CONSUMPTION_THRESHOLD) {
       result.noConsumption++;
       result.noConsumptionDevices.push(deviceInfo);
       return;
     }
 
-    // Map deviceStatus to our categories
-    const mappedStatus = statusMapping[deviceStatus] || 'offline';
-
-    // Increment count and add to device list
-    result[mappedStatus]++;
-    result[mappedStatus + 'Devices'].push(deviceInfo);
+    // 5. ONLINE device with consumption - map to status category
+    const consumptionCategory = consumptionStatusMapping[deviceStatus];
+    if (consumptionCategory) {
+      result[consumptionCategory]++;
+      result[consumptionCategory + 'Devices'].push(deviceInfo);
+    } else {
+      // Unknown status for online device with consumption - default to normal
+      result.normal++;
+      result.normalDevices.push(deviceInfo);
+    }
   });
 
   LogHelper.log(`[RFC-0105] Device status aggregation complete: ${items.length} items processed`);

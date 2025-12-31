@@ -901,7 +901,14 @@ export const TempRangeTooltip = {
     if (container && container.classList.contains('visible')) {
       container.classList.add('closing');
       setTimeout(() => {
-        container.classList.remove('visible', 'closing');
+        // Reset state to prevent invisible blocking divs
+        this._isMouseOverTooltip = false;
+        this._isMaximized = false;
+        this._isDragging = false;
+        this._savedPosition = null;
+
+        container.classList.remove('visible', 'closing', 'pinned', 'maximized', 'dragging');
+        container.innerHTML = '';
       }, 400);
     }
   },

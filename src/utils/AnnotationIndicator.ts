@@ -747,7 +747,9 @@ export class AnnotationIndicator {
       this.tooltipElement.classList.add('closing');
       setTimeout(() => {
         if (this.tooltipElement) {
-          this.tooltipElement.classList.remove('visible', 'closing');
+          // Reset state and clear content to prevent invisible blocking divs
+          this.tooltipElement.classList.remove('visible', 'closing', 'pinned', 'maximized', 'dragging');
+          this.tooltipElement.innerHTML = '';
         }
       }, 400);
     }

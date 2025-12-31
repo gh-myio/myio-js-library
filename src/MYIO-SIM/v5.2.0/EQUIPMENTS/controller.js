@@ -877,12 +877,16 @@ self.onInit = async function () {
           );
           const now = new Date();
           // RFC-0091: Use configurable delay time (in minutes) instead of hardcoded 15 minutes
-          const delayLimitTimeInMiliseconds = window.MyIOUtils?.getDelayTimeConnectionInMins?.() * 60 * 1000;
+          const delayTimeConnectionInMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() || 1440;
+          const delayLimitTimeInMiliseconds = delayTimeConnectionInMins * 60 * 1000;
           const timeSinceLastTelemetry = now.getTime() - instantaneousPowerTs.getTime();
 
           if (timeSinceLastTelemetry > delayLimitTimeInMiliseconds) {
             instantaneousPower = null;
           }
+
+          // RFC-0110: Get lastActivityTime for timestamp fallback
+          const lastActivityTime = findValue(device.values, 'lastActivityTime', null);
 
           // Calculate device status using range-based calculation
           const parsedInstantaneousPower = Number(instantaneousPower);
@@ -890,6 +894,7 @@ self.onInit = async function () {
             ? null
             : parsedInstantaneousPower;
 
+          // RFC-0110: Pass telemetryTimestamp and lastActivityTime for proper status calculation
           const deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
             connectionStatus: mappedConnectionStatus,
             lastConsumptionValue,
@@ -899,6 +904,9 @@ self.onInit = async function () {
               alertRange: rangesWithSource.alertRange,
               failureRange: rangesWithSource.failureRange,
             },
+            telemetryTimestamp: instantaneousPowerTs.getTime() > 0 ? instantaneousPowerTs.getTime() : null,
+            lastActivityTime: lastActivityTime > 0 ? lastActivityTime : null,
+            delayTimeConnectionInMins,
           });
 
           // DEBUG // TODO REMOVER DEPOIS

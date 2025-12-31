@@ -698,7 +698,9 @@ function hideWithAnimation(): void {
   if (container && container.classList.contains('visible')) {
     container.classList.add('closing');
     setTimeout(() => {
-      container.classList.remove('visible', 'closing');
+      // Reset state and clear content to prevent invisible blocking divs
+      container.classList.remove('visible', 'closing', 'pinned', 'maximized', 'dragging');
+      container.innerHTML = '';
     }, 400);
   }
 }
