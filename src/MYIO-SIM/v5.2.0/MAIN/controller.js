@@ -1580,6 +1580,115 @@ function createFilterModal(config) {
       #${containerId} .filter-tab[data-filter="others"] { background: #e7e5e4; color: #57534e; }
       #${containerId} .filter-tab[data-filter="commonArea"] { background: #e0f2fe; color: #0284c7; }
       #${containerId} .filter-tab[data-filter="stores"] { background: #f3e8ff; color: #9333ea; }
+      /* RFC-0110: Expand button (+) for device list tooltip */
+      #${containerId} .filter-tab-expand {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(0, 0, 0, 0.1);
+        color: inherit;
+        font-size: 10px;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 4px;
+        transition: all 0.15s ease;
+        flex-shrink: 0;
+        opacity: 0.7;
+      }
+      #${containerId} .filter-tab-expand:hover {
+        background: rgba(0, 0, 0, 0.25);
+        transform: scale(1.1);
+        opacity: 1;
+      }
+      /* Device list tooltip */
+      .myio-filter-device-tooltip {
+        position: fixed;
+        z-index: 100001;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        min-width: 200px;
+        max-width: 320px;
+        max-height: 300px;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 12px;
+        opacity: 0;
+        transform: translateY(4px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        pointer-events: none;
+      }
+      .myio-filter-device-tooltip.visible {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+      .myio-filter-device-tooltip__header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        font-weight: 600;
+        color: #334155;
+      }
+      .myio-filter-device-tooltip__header-icon {
+        font-size: 14px;
+      }
+      .myio-filter-device-tooltip__body {
+        padding: 8px 0;
+        max-height: 240px;
+        overflow-y: auto;
+      }
+      .myio-filter-device-tooltip__item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        font-size: 11px;
+        color: #475569;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      .myio-filter-device-tooltip__item:last-child {
+        border-bottom: none;
+      }
+      .myio-filter-device-tooltip__item:hover {
+        background: #f8fafc;
+      }
+      .myio-filter-device-tooltip__dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .myio-filter-device-tooltip__dot.online { background: #22c55e; }
+      .myio-filter-device-tooltip__dot.offline { background: #6b7280; }
+      .myio-filter-device-tooltip__dot.normal { background: #3b82f6; }
+      .myio-filter-device-tooltip__dot.standby { background: #22c55e; }
+      .myio-filter-device-tooltip__dot.alert { background: #f59e0b; }
+      .myio-filter-device-tooltip__dot.failure { background: #ef4444; }
+      .myio-filter-device-tooltip__dot.elevators { background: #7c3aed; }
+      .myio-filter-device-tooltip__dot.escalators { background: #db2777; }
+      .myio-filter-device-tooltip__dot.hvac { background: #0891b2; }
+      .myio-filter-device-tooltip__dot.others { background: #57534e; }
+      .myio-filter-device-tooltip__label {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .myio-filter-device-tooltip__empty {
+        padding: 16px;
+        text-align: center;
+        color: #94a3b8;
+        font-style: italic;
+      }
       #${containerId} .filter-search {
         position: relative;
         display: flex;
@@ -1736,9 +1845,12 @@ function createFilterModal(config) {
           <div class="filter-group-tabs">
             ${groupTabs.map((tab) => {
               const icon = filterTabIcons[tab.id] || '';
+              const count = counts[tab.id] || 0;
+              // RFC-0110: Add expand button (+) if count > 0
+              const expandBtn = count > 0 ? `<button class="filter-tab-expand" data-expand-filter="${tab.id}" title="Ver dispositivos">+</button>` : '';
               return `
               <button class="filter-tab active" data-filter="${tab.id}">
-                ${icon} ${tab.label} (<span id="count${tab.id.charAt(0).toUpperCase() + tab.id.slice(1)}">${counts[tab.id] || 0}</span>)
+                ${icon} ${tab.label} (<span id="count${tab.id.charAt(0).toUpperCase() + tab.id.slice(1)}">${count}</span>)${expandBtn}
               </button>
             `;
             }).join('')}
@@ -2076,6 +2188,155 @@ function createFilterModal(config) {
         const filteredItems = getFilteredItems();
         updateFilterCounts(filteredItems);
         syncTodosButton();
+      });
+    });
+
+    // RFC-0110: Setup expand button (+) event listeners for device list tooltip
+    setupExpandButtonListeners(modal, items, filterTabs, filterTabIcons, getItemLabel, getItemSubLabel);
+  }
+
+  // RFC-0110: Device list tooltip for expand buttons (+)
+  // These variables are shared across all filter modals
+  let deviceTooltipEl = null;
+  let deviceTooltipHideTimer = null;
+
+  function getOrCreateDeviceTooltip() {
+    if (!deviceTooltipEl) {
+      deviceTooltipEl = document.createElement('div');
+      deviceTooltipEl.className = 'myio-filter-device-tooltip';
+      deviceTooltipEl.id = 'myioFilterDeviceTooltip';
+      document.body.appendChild(deviceTooltipEl);
+    }
+    return deviceTooltipEl;
+  }
+
+  function hideDeviceTooltip() {
+    deviceTooltipHideTimer = setTimeout(() => {
+      if (deviceTooltipEl) {
+        deviceTooltipEl.classList.remove('visible');
+      }
+    }, 200);
+  }
+
+  function showDeviceTooltip(triggerEl, filterId, devices, filterTabs, filterTabIcons, getItemLabel, getItemSubLabel) {
+    LogHelper.log(`[MAIN] RFC-0110: showDeviceTooltip called for '${filterId}' with ${devices.length} devices`);
+    const tooltip = getOrCreateDeviceTooltip();
+    LogHelper.log(`[MAIN] RFC-0110: Tooltip element:`, tooltip);
+
+    // Cancel any pending hide
+    if (deviceTooltipHideTimer) {
+      clearTimeout(deviceTooltipHideTimer);
+      deviceTooltipHideTimer = null;
+    }
+
+    // Setup hover listeners on tooltip (only once)
+    if (!tooltip._listenersSetup) {
+      tooltip.addEventListener('mouseenter', () => {
+        if (deviceTooltipHideTimer) {
+          clearTimeout(deviceTooltipHideTimer);
+          deviceTooltipHideTimer = null;
+        }
+      });
+      tooltip.addEventListener('mouseleave', () => {
+        hideDeviceTooltip();
+      });
+      tooltip._listenersSetup = true;
+    }
+
+    // Get icon and label for the filter
+    const filterTabConfig = filterTabs.find((t) => t.id === filterId);
+    const label = filterTabConfig?.label || filterId;
+    const icon = filterTabIcons[filterId] || '📋';
+
+    // Build device list HTML with customerName
+    let devicesHtml = '';
+    if (devices.length === 0) {
+      devicesHtml = '<div class="myio-filter-device-tooltip__empty">Nenhum dispositivo</div>';
+    } else {
+      devicesHtml = devices.slice(0, 50).map((device) => {
+        const deviceLabel = getItemLabel(device) || 'Sem nome';
+        const customerName = getItemSubLabel ? getItemSubLabel(device) : '';
+        const displayLabel = customerName ? `${deviceLabel} (${customerName})` : deviceLabel;
+        return `
+          <div class="myio-filter-device-tooltip__item">
+            <span class="myio-filter-device-tooltip__dot ${filterId}"></span>
+            <span class="myio-filter-device-tooltip__label" title="${displayLabel}">${displayLabel}</span>
+          </div>
+        `;
+      }).join('');
+      if (devices.length > 50) {
+        devicesHtml += `<div class="myio-filter-device-tooltip__item" style="font-style: italic; color: #94a3b8;">... e mais ${devices.length - 50} dispositivos</div>`;
+      }
+    }
+
+    tooltip.innerHTML = `
+      <div class="myio-filter-device-tooltip__header">
+        <span class="myio-filter-device-tooltip__header-icon">${icon}</span>
+        <span>${label} (${devices.length})</span>
+      </div>
+      <div class="myio-filter-device-tooltip__body">
+        ${devicesHtml}
+      </div>
+    `;
+
+    // Position tooltip next to trigger element
+    const rect = triggerEl.getBoundingClientRect();
+    let left = rect.right + 8;
+    let top = rect.top;
+
+    // Adjust for viewport bounds
+    const tooltipWidth = 280;
+    const tooltipHeight = Math.min(devices.length * 30 + 50, 300);
+
+    if (left + tooltipWidth > window.innerWidth - 16) {
+      left = rect.left - tooltipWidth - 8;
+    }
+    if (left < 16) {
+      left = 16;
+    }
+    if (top + tooltipHeight > window.innerHeight - 16) {
+      top = window.innerHeight - tooltipHeight - 16;
+    }
+    if (top < 16) top = 16;
+
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+    tooltip.classList.add('visible');
+    LogHelper.log(`[MAIN] RFC-0110: Tooltip positioned at left=${left}px, top=${top}px, visible=${tooltip.classList.contains('visible')}`);
+  }
+
+  function setupExpandButtonListeners(modal, items, filterTabs, filterTabIcons, getItemLabel, getItemSubLabel) {
+    const expandBtns = modal.querySelectorAll('.filter-tab-expand');
+    LogHelper.log(`[MAIN] RFC-0110: Found ${expandBtns.length} expand buttons to setup`);
+
+    expandBtns.forEach((btn) => {
+      const filterId = btn.getAttribute('data-expand-filter');
+      if (!filterId) return;
+
+      // Get the filter function for this filter
+      const filterTabConfig = filterTabs.find((t) => t.id === filterId);
+      const filterFn = filterTabConfig?.filter || (() => false);
+
+      btn.addEventListener('mouseenter', (e) => {
+        e.stopPropagation();
+        // Filter devices matching this filter
+        const matchingDevices = items.filter(filterFn);
+        LogHelper.log(`[MAIN] RFC-0110: Expand hover on '${filterId}', found ${matchingDevices.length} devices`);
+        showDeviceTooltip(btn, filterId, matchingDevices, filterTabs, filterTabIcons, getItemLabel, getItemSubLabel);
+      });
+
+      btn.addEventListener('mouseleave', (e) => {
+        e.stopPropagation();
+        hideDeviceTooltip();
+      });
+
+      // Prevent click from toggling the filter tab
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Also show tooltip on click for better UX
+        const matchingDevices = items.filter(filterFn);
+        LogHelper.log(`[MAIN] RFC-0110: Expand CLICK on '${filterId}', found ${matchingDevices.length} devices`);
+        showDeviceTooltip(btn, filterId, matchingDevices, filterTabs, filterTabIcons, getItemLabel, getItemSubLabel);
       });
     });
   }
