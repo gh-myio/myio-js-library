@@ -1001,6 +1001,12 @@ self.onInit = async function () {
             });
           }
 
+          // RFC-0110 v5: Clear instantaneousPower for offline devices (show "-" instead of stale value)
+          const isOfflineDevice = ['offline', 'no_info', 'not_installed'].includes(deviceStatus);
+          if (isOfflineDevice) {
+            instantaneousPower = null;
+          }
+
           // DEBUG // TODO REMOVER DEPOIS
           if (device.label && device.label.toLowerCase().includes('er 14') && 3 > 2) {
             console.log('╔══════════════════════════════════════════════════════════════╗');
@@ -1669,14 +1675,15 @@ function getDeviceStatus(device) {
 }
 
 /**
- * RFC-0103: Check if device is offline based on both connectionStatus and deviceStatus
- * The header uses connectionStatus directly, so filter should too for consistency
+ * RFC-0110 v5: Check if device is offline based on deviceStatus ONLY
+ * deviceStatus is calculated using RFC-0110 MASTER RULES (stale telemetry detection)
+ * This must match the header's logic in updateFromDevices for consistent counts
  */
 function isDeviceOffline(device) {
-  const connStatus = (device.connectionStatus || '').toLowerCase();
   const devStatus = (device.deviceStatus || '').toLowerCase();
-  // Device is offline if connectionStatus is offline OR deviceStatus is no_info/offline
-  return connStatus === 'offline' || ['offline', 'no_info'].includes(devStatus);
+  // Device is offline if deviceStatus is one of the offline states
+  // Must match MAIN/controller.js updateFromDevices: ['offline', 'no_info', 'not_installed']
+  return ['offline', 'no_info', 'not_installed'].includes(devStatus);
 }
 
 /**
