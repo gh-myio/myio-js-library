@@ -5325,6 +5325,8 @@ const MyIOOrchestrator = (() => {
           // consumption from datasource = instantaneous power in Watts
           deviceMapInstaneousPower: meta.deviceMapInstaneousPower || null,
           consumptionPower: meta.consumption || null,
+          // RFC-0110 v5: Include consumptionTs for EQUIPMENTS to use correct timestamp
+          consumptionTs: meta.consumptionTs || null,
           labelWidget: labelWidget,
           groupLabel: labelWidget,
           // Flag to indicate if metadata was found
@@ -5542,10 +5544,20 @@ const MyIOOrchestrator = (() => {
     // EQUIPMENTS widget listens for myio:energy-data-ready with cache
     if (domain === 'energy') {
       // Create a Map cache from items for EQUIPMENTS compatibility
+      // RFC-0110 v5 FIX: Add entries by BOTH tbId AND ingestionId (EQUIPMENTS looks up by ingestionId)
       const energyCache = new Map();
       items.forEach((item) => {
-        if (item.tbId || item.id) {
-          energyCache.set(item.tbId || item.id, item);
+        // Add by tbId for ThingsBoard entity lookup
+        if (item.tbId) {
+          energyCache.set(item.tbId, item);
+        }
+        // Add by ingestionId for EQUIPMENTS lookup (CRITICAL for RFC-0110 consumptionTs)
+        if (item.ingestionId && item.ingestionId !== item.tbId) {
+          energyCache.set(item.ingestionId, item);
+        }
+        // Fallback to id if neither exists
+        if (!item.tbId && !item.ingestionId && item.id) {
+          energyCache.set(item.id, item);
         }
       });
       window.dispatchEvent(

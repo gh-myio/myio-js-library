@@ -894,21 +894,112 @@ self.onInit = async function () {
             ? null
             : parsedInstantaneousPower;
 
-          // RFC-0110 v5: Pass telemetryTimestamp and lastActivityTime for proper status calculation
-          // FORCE 24h (1440 min) threshold for ONLINE → OFFLINE stale detection per RFC-0110 v5
-          const deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
-            connectionStatus: mappedConnectionStatus,
-            lastConsumptionValue,
-            ranges: {
-              standbyRange: rangesWithSource.standbyRange,
-              normalRange: rangesWithSource.normalRange,
-              alertRange: rangesWithSource.alertRange,
-              failureRange: rangesWithSource.failureRange,
-            },
-            telemetryTimestamp: instantaneousPowerTs.getTime() > 0 ? instantaneousPowerTs.getTime() : null,
-            lastActivityTime: lastActivityTime > 0 ? lastActivityTime : null,
-            delayTimeConnectionInMins: 1440, // RFC-0110 v5: Always 24h for stale telemetry detection
-          });
+          // RFC-0110 v5: MASTER RULES implementation (same as shopping TELEMETRY)
+          const lib = window.MyIOLibrary;
+          const SHORT_DELAY_MINS = 60;
+          const LONG_DELAY_MINS = 1440; // 24h for stale detection
+
+          // RFC-0110 v5 FIX: Get telemetry timestamp from MAIN's cache (correct timestamp)
+          // The subscription timestamp (instantaneousPowerTs) is always "now", not the real telemetry time
+          // MAIN's cache has consumptionTs extracted correctly from ctx.data
+          const ingestionId = findValue(device.values, 'ingestionId', null);
+          const cachedItem = ingestionId && energyCacheFromMain ? energyCacheFromMain.get(ingestionId) : null;
+          const consumptionTsFromMain = cachedItem?.consumptionTs || null;
+
+          // DEBUG: Log cache lookup for first 3 devices
+          if (!window._debugCacheLookup) window._debugCacheLookup = 0;
+          if (window._debugCacheLookup < 3 && ingestionId) {
+            window._debugCacheLookup++;
+            const cacheSize = energyCacheFromMain?.size || 0;
+            const cacheKeys = energyCacheFromMain ? Array.from(energyCacheFromMain.keys()).slice(0, 3) : [];
+            LogHelper.log(`[EQUIPMENTS] 🔎 RFC-0110 cache lookup #${window._debugCacheLookup}: ingestionId='${ingestionId}', found=${!!cachedItem}, cacheSize=${cacheSize}, sampleKeys=[${cacheKeys.join(', ')}]`);
+            if (cachedItem) {
+              LogHelper.log(`[EQUIPMENTS] 🔎   cachedItem keys: ${Object.keys(cachedItem).join(', ')}`);
+              LogHelper.log(`[EQUIPMENTS] 🔎   cachedItem.consumptionTs=${cachedItem.consumptionTs}, cachedItem.connectionStatus='${cachedItem.connectionStatus}'`);
+            }
+          }
+
+          // Use MAIN's consumptionTs (correct) or fallback to subscription ts (always recent, incorrect)
+          const telemetryTs = consumptionTsFromMain || (instantaneousPowerTs.getTime() > 0 ? instantaneousPowerTs.getTime() : null);
+          const hasConsumptionTs = telemetryTs !== null && telemetryTs > 0;
+
+          // DEBUG RFC-0110: Log first 5 devices to see timestamps
+          if (!window._debugEquipTsLogged) window._debugEquipTsLogged = 0;
+          if (window._debugEquipTsLogged < 5) {
+            window._debugEquipTsLogged++;
+            const nowMs = Date.now();
+            const ageMs = telemetryTs ? nowMs - telemetryTs : 'N/A';
+            const ageMins = telemetryTs ? Math.round(ageMs / 60000) : 'N/A';
+            LogHelper.log(`[EQUIPMENTS] 🔍 RFC-0110 ts #${window._debugEquipTsLogged}: label='${device.label}', telemetryTs=${telemetryTs}, consumptionTsFromMain=${consumptionTsFromMain}, ageMins=${ageMins}, lastActivityTime=${lastActivityTime}, connectionStatus='${mappedConnectionStatus}'`);
+          }
+
+          // DEBUG: Log specific device "Bombas Hidráulicas 6"
+          if (device.label && device.label.includes('Hidráulicas 6')) {
+            const nowMs = Date.now();
+            const ageMs = telemetryTs ? nowMs - telemetryTs : 'N/A';
+            const ageMins = telemetryTs ? Math.round(ageMs / 60000) : 'N/A';
+            const staleCheck = telemetryTs ? lib?.isTelemetryStale(telemetryTs, null, LONG_DELAY_MINS) : 'N/A';
+            LogHelper.log(`[EQUIPMENTS] 🎯 BOMBAS 6 DEBUG: telemetryTs=${telemetryTs}, consumptionTsFromMain=${consumptionTsFromMain}, ageMins=${ageMins}, staleCheck=${staleCheck}, lastActivityTime=${lastActivityTime}, connectionStatus='${mappedConnectionStatus}'`);
+          }
+
+          // RFC-0110 v5: Fallback to lastActivityTime if no domain telemetry
+          const hasLastActivityTime = lastActivityTime !== null && lastActivityTime !== undefined && lastActivityTime > 0;
+          const effectiveTimestamp = hasConsumptionTs ? telemetryTs : (hasLastActivityTime ? lastActivityTime : null);
+          const hasEffectiveTimestamp = effectiveTimestamp !== null;
+
+          // RFC-0110 v5: Calculate telemetry freshness
+          const hasRecentTelemetry = hasEffectiveTimestamp && lib?.isTelemetryStale
+            ? !lib.isTelemetryStale(effectiveTimestamp, null, SHORT_DELAY_MINS) // < 60 mins
+            : false;
+          const telemetryStaleForOnline = !hasEffectiveTimestamp || (lib?.isTelemetryStale
+            ? lib.isTelemetryStale(effectiveTimestamp, null, LONG_DELAY_MINS) // > 24h
+            : true);
+
+          // Normalize connection status
+          const normalizedConnStatus = String(mappedConnectionStatus || '').toLowerCase().trim();
+          const isWaitingStatus = ['waiting', 'connecting', 'pending'].includes(normalizedConnStatus);
+          const isBadConnection = ['bad', 'weak', 'unstable', 'poor', 'degraded'].includes(normalizedConnStatus);
+          const isOfflineStatusRaw = ['offline', 'disconnected', 'false', '0'].includes(normalizedConnStatus) || !mappedConnectionStatus;
+          const isOnlineStatus = normalizedConnStatus === 'online' || ['online', 'true', 'connected', 'active', 'ok', 'running', '1'].includes(normalizedConnStatus);
+
+          // RFC-0110 v5: MASTER RULES (telemetryTs with lastActivityTime fallback)
+          let deviceStatus;
+          if (isWaitingStatus) {
+            deviceStatus = 'not_installed'; // WAITING = NOT_INSTALLED
+          } else if (isBadConnection) {
+            // BAD: Check recent telemetry (< 60 mins) → ONLINE, otherwise BAD
+            deviceStatus = hasRecentTelemetry ? 'power_on' : 'weak_connection';
+          } else if (isOfflineStatusRaw) {
+            // OFFLINE: Check recent telemetry (< 60 mins) → ONLINE, otherwise OFFLINE
+            deviceStatus = hasRecentTelemetry ? 'power_on' : 'offline';
+          } else if (isOnlineStatus) {
+            // ONLINE: Verify with telemetry - no telemetry or stale (> 24h) → OFFLINE
+            if (!hasEffectiveTimestamp || telemetryStaleForOnline) {
+              deviceStatus = 'offline'; // Can't trust ONLINE without recent telemetry
+            } else {
+              deviceStatus = 'power_on'; // Default, may be refined below
+            }
+          } else {
+            deviceStatus = 'no_info';
+          }
+
+          // RFC-0078: For ONLINE devices with fresh telemetry, refine status using power ranges
+          const shouldCalculateRanges = deviceStatus === 'power_on' && isOnlineStatus && hasEffectiveTimestamp && !telemetryStaleForOnline;
+          if (shouldCalculateRanges && rangesWithSource) {
+            deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
+              connectionStatus: mappedConnectionStatus,
+              lastConsumptionValue,
+              ranges: {
+                standbyRange: rangesWithSource.standbyRange,
+                normalRange: rangesWithSource.normalRange,
+                alertRange: rangesWithSource.alertRange,
+                failureRange: rangesWithSource.failureRange,
+              },
+              telemetryTimestamp: telemetryTs,
+              lastActivityTime: lastActivityTime > 0 ? lastActivityTime : null,
+              delayTimeConnectionInMins: LONG_DELAY_MINS,
+            });
+          }
 
           // DEBUG // TODO REMOVER DEPOIS
           if (device.label && device.label.toLowerCase().includes('er 14') && 3 > 2) {
@@ -948,7 +1039,7 @@ self.onInit = async function () {
             console.log('════════════════════════════════════════════════════════════════');
           }
 
-          const ingestionId = findValue(device.values, 'ingestionId', null);
+          // ingestionId já declarado acima (RFC-0110 cache lookup)
           let customerId = findValue(device.values, 'customerId', null);
 
           // Fallback: Try to get customerId from MAIN's energyCache (API has it, ctx.data doesn't)
