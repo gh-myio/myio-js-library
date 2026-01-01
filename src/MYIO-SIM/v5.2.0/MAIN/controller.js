@@ -1302,48 +1302,23 @@ function buildHeaderDevicesGrid(config) {
     },
 
     updateFromDevices(devices, options = {}) {
-      const { cache, ctxData } = options;
+      const { cache } = options;
 
       let online = 0;
       let totalWithStatus = 0;
 
-      if (ctxData && Array.isArray(ctxData)) {
-        const deviceMap = new Map();
-        ctxData.forEach((data) => {
-          const entityId = data.datasource?.entityId;
-          const dataKeyName = data.dataKey?.name;
-          if (!entityId) return;
-          if (!deviceMap.has(entityId)) {
-            deviceMap.set(entityId, { hasConnectionStatus: false, isOnline: false });
-          }
-          if (dataKeyName === 'connectionStatus') {
-            const status = String(data.data?.[0]?.[1] || '').toLowerCase();
-            deviceMap.get(entityId).hasConnectionStatus = true;
-            deviceMap.get(entityId).isOnline = status === 'online';
-          }
-        });
-
-        devices.forEach((device) => {
-          const deviceData = deviceMap.get(device.entityId);
-          if (deviceData && deviceData.hasConnectionStatus) {
-            totalWithStatus++;
-            if (deviceData.isOnline) online++;
-          }
-        });
-      } else {
-        // RFC-0103: Use consistent offline detection logic with EQUIPMENTS filter modal
-        // A device is offline if connectionStatus is 'offline' OR deviceStatus is 'offline'/'no_info'
-        // Count as online if NOT offline (inverse of isDeviceOffline logic)
-        devices.forEach((device) => {
-          const connStatus = (device.connectionStatus || '').toLowerCase();
-          const devStatus = (device.deviceStatus || '').toLowerCase();
-          const isOffline = connStatus === 'offline' || ['offline', 'no_info'].includes(devStatus);
-          if (!isOffline) {
-            online++;
-          }
-        });
-        totalWithStatus = devices.length;
-      }
+      // RFC-0110 v5 FIX: ALWAYS use deviceStatus from devices array, not connectionStatus from ctxData
+      // The deviceStatus was calculated using RFC-0110 logic (stale telemetry detection)
+      // Using connectionStatus from ctxData would bypass this logic
+      devices.forEach((device) => {
+        const devStatus = (device.deviceStatus || '').toLowerCase();
+        // Count as online if deviceStatus is NOT one of the offline states
+        const isOffline = ['offline', 'no_info', 'not_installed'].includes(devStatus);
+        if (!isOffline) {
+          online++;
+        }
+      });
+      totalWithStatus = devices.length;
 
       let totalConsumption = 0;
       let zeroCount = 0;

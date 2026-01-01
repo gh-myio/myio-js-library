@@ -1036,6 +1036,22 @@ self.onInit = async function () {
       // ✅ Save ONLY equipment devices to global STATE for filtering
       STATE.allDevices = equipmentDevices;
 
+      // RFC-0110 v5 DEBUG: Log deviceStatus distribution
+      const statusCounts = {};
+      equipmentDevices.forEach((d) => {
+        const status = d.deviceStatus || 'undefined';
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+      });
+      LogHelper.log('[EQUIPMENTS] RFC-0110 DEBUG deviceStatus distribution:', JSON.stringify(statusCounts));
+
+      // Count offline devices using isDeviceOffline logic
+      const offlineCount = equipmentDevices.filter(d => {
+        const connStatus = (d.connectionStatus || '').toLowerCase();
+        const devStatus = (d.deviceStatus || '').toLowerCase();
+        return connStatus === 'offline' || ['offline', 'no_info'].includes(devStatus);
+      }).length;
+      LogHelper.log(`[EQUIPMENTS] RFC-0110 DEBUG offline count: ${offlineCount} of ${equipmentDevices.length}`);
+
       // Log device-to-shopping mapping stats
       if (window.myioDeviceToShoppingMap) {
         LogHelper.log(
