@@ -70,6 +70,23 @@ const getCustomerNameForDevice =
 const getConsumptionRangesHierarchical = window.MyIOUtils?.getConsumptionRangesHierarchical;
 const mapConnectionStatus = window.MyIOUtils?.mapConnectionStatus || ((status) => status || 'offline');
 
+// RFC-0110: Centralized functions from MAIN for device status calculation
+const calculateDeviceStatusMasterRules =
+  window.MyIOUtils?.calculateDeviceStatusMasterRules ||
+  (() => 'no_info');
+
+const createStandardFilterTabs =
+  window.MyIOUtils?.createStandardFilterTabs ||
+  (() => [{ id: 'all', label: 'Todos', filter: () => true }]);
+
+const clearValueIfOffline =
+  window.MyIOUtils?.clearValueIfOffline ||
+  ((value, status) => value);
+
+const calculateOperationTime =
+  window.MyIOUtils?.calculateOperationTime ||
+  ((lastConnectTime) => ({ durationMs: 0, formatted: '-' }));
+
 // RFC-0094: formatarDuracao for operationHours calculation (from MAIN)
 const formatarDuracao = window.MyIOUtils?.formatarDuracao || ((ms) => `${Math.round(ms / 1000)}s`);
 
@@ -595,24 +612,38 @@ function updateWaterStoresStats(stores) {
     return;
   }
 
-  // RFC-0094: Calculate connectivity from connectionStatus (same as STORES)
+  // RFC-0110: Calculate connectivity using MASTER RULES (same as card rendering)
   let onlineCount = 0;
-  let totalWithStatus = 0;
+  let offlineCount = 0;
+  let notInstalledCount = 0;
   let totalConsumption = 0;
   let zeroConsumptionCount = 0;
 
   stores.forEach((store) => {
-    // Connectivity: based on connectionStatus, not consumption
-    const status = (store.connectionStatus || '').toLowerCase();
-    if (status) {
-      totalWithStatus++;
-      if (status === 'online') {
-        onlineCount++;
-      }
+    // RFC-0110: Get telemetry timestamp for status calculation
+    const telemetryTimestamp = store.pulsesTs || store.waterVolumeTs || store.timeVal || store.lastActivityTime || null;
+    const mappedStatus = mapConnectionStatus(store.connectionStatus || 'offline');
+
+    // RFC-0110: Calculate device status using MASTER RULES (same as card rendering)
+    const deviceStatus = calculateDeviceStatusMasterRules({
+      connectionStatus: mappedStatus,
+      telemetryTimestamp: telemetryTimestamp,
+      delayMins: 1440, // 24h threshold for stale telemetry
+      domain: 'water',
+    });
+
+    // RFC-0110: Count by calculated deviceStatus
+    if (deviceStatus === 'not_installed') {
+      notInstalledCount++;
+    } else if (deviceStatus === 'offline' || deviceStatus === 'no_info') {
+      offlineCount++;
+    } else {
+      onlineCount++;
     }
 
-    // Consumption calculation
-    const consumption = Number(store.value) || Number(store.val) || 0;
+    // Consumption calculation - RFC-0110: Clear for offline devices
+    const rawConsumption = Number(store.value) || Number(store.val) || 0;
+    const consumption = clearValueIfOffline(rawConsumption, deviceStatus) || 0;
     totalConsumption += consumption;
 
     if (consumption === 0) {
@@ -620,10 +651,7 @@ function updateWaterStoresStats(stores) {
     }
   });
 
-  // If no connectionStatus available, fallback to total count
-  if (totalWithStatus === 0) {
-    totalWithStatus = stores.length;
-  }
+  const totalWithStatus = stores.length;
 
   // Calculate connectivity percentage
   const connectivityPercentage =
@@ -662,14 +690,21 @@ async function renderList(visible) {
 
     const valNum = Number(it.value || 0);
 
-    // RFC-0094: Calculate device status using STORES pattern
-    let deviceStatus = 'power_off';
-    if (it.connectionStatus) {
-      const status = mapConnectionStatus(it.connectionStatus);
-      deviceStatus = status === 'online' ? 'power_on' : 'power_off';
-    } else if (valNum > 0) {
-      deviceStatus = 'power_on';
-    }
+    // RFC-0110: Get telemetry timestamp for water domain
+    // For water, use pulsesTs, waterVolumeTs, or timeVal/lastActivityTime as fallback
+    const telemetryTimestamp = it.pulsesTs || it.waterVolumeTs || it.timeVal || it.lastActivityTime || null;
+
+    // RFC-0110: Calculate device status using MASTER RULES
+    const mappedConnectionStatus = mapConnectionStatus(it.connectionStatus || 'offline');
+    let deviceStatus = calculateDeviceStatusMasterRules({
+      connectionStatus: mappedConnectionStatus,
+      telemetryTimestamp: telemetryTimestamp,
+      delayMins: 1440, // 24h threshold for stale telemetry
+      domain: 'water',
+    });
+
+    // RFC-0110: Clear value for offline devices
+    const finalValue = clearValueIfOffline(valNum, deviceStatus);
 
     // RFC-0094: Resolve TB id
     let resolvedTbId = it.tbId;
@@ -718,9 +753,10 @@ async function renderList(visible) {
       deviceIdentifier: deviceIdentifierToDisplay,
 
       // Valores e Tipos - RFC-0094: Water domain uses M³
-      val: valNum,
-      value: valNum,
-      lastValue: valNum,
+      // RFC-0110: Use finalValue (cleared for offline devices)
+      val: finalValue,
+      value: finalValue,
+      lastValue: finalValue,
       valType: 'volume_m3',
       unit: 'm³',
       icon: 'water',

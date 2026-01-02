@@ -68,6 +68,23 @@ const getCustomerNameForDevice =
 const getConsumptionRangesHierarchical = window.MyIOUtils?.getConsumptionRangesHierarchical;
 const mapConnectionStatus = window.MyIOUtils?.mapConnectionStatus || ((status) => status || 'offline');
 
+// RFC-0110: Centralized functions from MAIN for device status calculation
+const calculateDeviceStatusMasterRules =
+  window.MyIOUtils?.calculateDeviceStatusMasterRules ||
+  (() => 'no_info');
+
+const createStandardFilterTabs =
+  window.MyIOUtils?.createStandardFilterTabs ||
+  (() => [{ id: 'all', label: 'Todos', filter: () => true }]);
+
+const clearValueIfOffline =
+  window.MyIOUtils?.clearValueIfOffline ||
+  ((value, status) => value);
+
+const calculateOperationTime =
+  window.MyIOUtils?.calculateOperationTime ||
+  ((lastConnectTime) => ({ durationMs: 0, formatted: '-' }));
+
 // RFC-0091: formatarDuracao for operationHours calculation (from MAIN)
 const formatarDuracao = window.MyIOUtils?.formatarDuracao || ((ms) => `${Math.round(ms / 1000)}s`);
 
@@ -557,24 +574,38 @@ function updateStoresStats(stores) {
     return;
   }
 
-  // RFC-0093: Calculate connectivity from connectionStatus (same as EQUIPMENTS)
+  // RFC-0110: Calculate connectivity using MASTER RULES (same as card rendering)
   let onlineCount = 0;
-  let totalWithStatus = 0;
+  let offlineCount = 0;
+  let notInstalledCount = 0;
   let totalConsumption = 0;
   let zeroConsumptionCount = 0;
 
   stores.forEach((store) => {
-    // Connectivity: based on connectionStatus, not consumption
-    const status = (store.connectionStatus || '').toLowerCase();
-    if (status) {
-      totalWithStatus++;
-      if (status === 'online') {
-        onlineCount++;
-      }
+    // RFC-0110: Get telemetry timestamp for status calculation
+    const telemetryTimestamp = store.consumptionTs || store.timeVal || store.lastActivityTime || null;
+    const mappedStatus = mapConnectionStatus(store.connectionStatus || 'offline');
+
+    // RFC-0110: Calculate device status using MASTER RULES (same as card rendering)
+    const deviceStatus = calculateDeviceStatusMasterRules({
+      connectionStatus: mappedStatus,
+      telemetryTimestamp: telemetryTimestamp,
+      delayMins: 1440, // 24h threshold for stale telemetry
+      domain: 'energy',
+    });
+
+    // RFC-0110: Count by calculated deviceStatus
+    if (deviceStatus === 'not_installed') {
+      notInstalledCount++;
+    } else if (deviceStatus === 'offline' || deviceStatus === 'no_info') {
+      offlineCount++;
+    } else {
+      onlineCount++;
     }
 
-    // Consumption calculation
-    const consumption = Number(store.value) || Number(store.val) || 0;
+    // Consumption calculation - RFC-0110: Clear for offline devices
+    const rawConsumption = Number(store.value) || Number(store.val) || 0;
+    const consumption = clearValueIfOffline(rawConsumption, deviceStatus) || 0;
     totalConsumption += consumption;
 
     if (consumption === 0) {
@@ -582,10 +613,7 @@ function updateStoresStats(stores) {
     }
   });
 
-  // If no connectionStatus available, fallback to total count
-  if (totalWithStatus === 0) {
-    totalWithStatus = stores.length;
-  }
+  const totalWithStatus = stores.length;
 
   // Calculate connectivity percentage
   const connectivityPercentage =
@@ -675,8 +703,17 @@ async function renderList(visible) {
 
     const deviceType = it.label.includes('dministra') ? '3F_MEDIDOR' : it.deviceType;
 
-    // RFC-0091: Calculate deviceStatus using hierarchical ranges (same as EQUIPMENTS)
-    let deviceStatus = mappedConnectionStatus === 'online' ? 'power_on' : 'power_off';
+    // RFC-0110: Get telemetry timestamp for status calculation
+    // For energy domain, use consumptionTs (from orchestrator) or timeVal/lastActivityTime as fallback
+    const telemetryTimestamp = it.consumptionTs || it.timeVal || it.lastActivityTime || null;
+
+    // RFC-0110: Calculate initial deviceStatus using MASTER RULES
+    let deviceStatus = calculateDeviceStatusMasterRules({
+      connectionStatus: mappedConnectionStatus,
+      telemetryTimestamp: telemetryTimestamp,
+      delayMins: 1440, // 24h threshold for stale telemetry
+      domain: 'energy',
+    });
 
     // Parse deviceMapInstaneousPower if available (TIER 0 - highest priority)
     let deviceMapLimits = null;
@@ -702,9 +739,13 @@ async function renderList(visible) {
       operationHoursFormatted = formatarDuracao(durationMs > 0 ? durationMs : 0);
     }
 
-    // Calculate deviceStatus using ranges if available
+    // RFC-0110: Calculate deviceStatus using ranges ONLY if device is online
+    // If RFC-0110 already determined device is offline/not_installed, don't override
     let rangesWithSource = null;
+    const isOnlineForRanges = deviceStatus === 'online' || deviceStatus === 'power_on';
+
     if (
+      isOnlineForRanges &&
       getConsumptionRangesHierarchical &&
       typeof MyIOLibrary.calculateDeviceStatusWithRanges === 'function'
     ) {
@@ -729,8 +770,8 @@ async function renderList(visible) {
         const lastConsumptionValue = Number.isNaN(parsedInstantaneousPower)
           ? null
           : parsedInstantaneousPower;
-        
-            deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
+
+        deviceStatus = MyIOLibrary.calculateDeviceStatusWithRanges({
           connectionStatus: mappedConnectionStatus,
           lastConsumptionValue,
           ranges: {
@@ -739,11 +780,17 @@ async function renderList(visible) {
             alertRange: rangesWithSource.alertRange,
             failureRange: rangesWithSource.failureRange,
           },
+          // RFC-0110: Pass telemetry info for proper status calculation
+          telemetryTimestamp: telemetryTimestamp,
+          delayTimeConnectionInMins: 1440,
         });
       } catch (e) {
         LogHelper.warn(`[RFC-0091] Failed to calculate deviceStatus for ${resolvedTbId}:`, e.message);
       }
     }
+
+    // RFC-0110: Clear instantaneous power for offline/not_installed devices
+    const finalInstantaneousPower = clearValueIfOffline(instantaneousPower, deviceStatus);
 
     // 3. Montagem do Objeto idêntico ao widget de Equipamentos
     const entityObject = {
@@ -787,7 +834,7 @@ async function renderList(visible) {
       lastDisconnectTime: it.lastDisconnectTime || 0,
       lastConnectTime: it.lastConnectTime || 0,
       lastActivityTime: it.timeVal || null,
-      instantaneousPower: instantaneousPower, // Potência instantânea (kW)
+      instantaneousPower: finalInstantaneousPower, // RFC-0110: Cleared for offline devices
       operationHours: operationHoursFormatted, // Tempo em operação (formatado)
       temperatureC: 0, // Temperatura (não disponível para lojas)
       mapInstantaneousPower: MAP_INSTANTANEOUS_POWER, // Global map from settings

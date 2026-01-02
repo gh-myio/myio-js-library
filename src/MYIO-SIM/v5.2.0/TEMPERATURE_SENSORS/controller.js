@@ -23,6 +23,23 @@ const getCustomerNameForDevice =
   window.MyIOUtils?.getCustomerNameForDevice ||
   ((device) => device.customerName || device.customerId || 'N/A');
 
+// RFC-0110: Centralized functions from MAIN
+const calculateDeviceStatusMasterRules =
+  window.MyIOUtils?.calculateDeviceStatusMasterRules ||
+  (() => 'no_info');
+
+const createStandardFilterTabs =
+  window.MyIOUtils?.createStandardFilterTabs ||
+  (() => [{ id: 'all', label: 'Todos', filter: () => true }]);
+
+const clearValueIfOffline =
+  window.MyIOUtils?.clearValueIfOffline ||
+  ((value, status) => value);
+
+const calculateOperationTime =
+  window.MyIOUtils?.calculateOperationTime ||
+  ((lastConnectTime) => ({ durationMs: 0, formatted: '-' }));
+
 // ============================================
 // TEMPERATURE_SENSORS WIDGET STATE
 // ============================================
@@ -123,44 +140,36 @@ function initializeSensorCards(sensors) {
     grid.appendChild(container);
 
     if (typeof MyIOLibrary !== 'undefined' && MyIOLibrary.renderCardComponentHeadOffice) {
-      
-      // 1. CONFIGURAÇÃO DE TEMPO LIMITE
-      // Lembre-se: use delayInMins = 0.1 para testar o "traço" se quiser ver ele offline
-      const delayInMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
-      const delayLimitMs = delayInMins * 60 * 1000;
-      
-      const now = Date.now();
-      const lastTs = new Date(sensor.lastUpdate || sensor.lastActivityTime || 0).getTime();
-      const timeDiff = now - lastTs;
 
-      // Validação: Não pode ter expirado E tem que ter valor
-      const isExpired = timeDiff > delayLimitMs;
+      // RFC-0110: Get telemetry timestamp for temperature domain
+      const telemetryTimestamp = sensor.lastUpdate || sensor.lastActivityTime || null;
       const hasValue = sensor.temperature !== null && sensor.temperature !== undefined;
-      const hasValidData = !isExpired && hasValue;
 
-      // --- 2. CÁLCULO DO TEMPO EM OPERAÇÃO (AQUI ESTÁ A MÁGICA) ---
-      let operationTimeFormatted = null;
-      
-      // Só calculamos se o dado for válido e tivermos a data de conexão
-      if (hasValidData && sensor.lastConnectTime) {
-          const connectTs = new Date(sensor.lastConnectTime).getTime();
-          const duration = now - connectTs;
-          // Se a duração for lógica (positiva), formata. Senão fica null.
-          if (duration >= 0) {
-              operationTimeFormatted = formatDuration(duration);
-          }
-      }
+      // RFC-0110: Calculate device status using MASTER RULES
+      const deviceStatus = calculateDeviceStatusMasterRules({
+        connectionStatus: sensor.connectionStatus || 'offline',
+        telemetryTimestamp: telemetryTimestamp,
+        delayMins: 1440, // 24h threshold for stale telemetry
+        domain: 'temperature',
+      });
 
-      // 3. PREPARAÇÃO VISUAL
-      const displayValue = hasValidData ? sensor.temperature : null;
-      // Se inválido, data vira null -> exibe "-"
+      // RFC-0110: Determine if device is online for display purposes
+      const isDeviceOnline = deviceStatus === 'online' || deviceStatus === 'power_on' || deviceStatus === 'running';
+      const hasValidData = isDeviceOnline && hasValue;
+
+      // RFC-0110: Calculate operation time using centralized function
+      const operationResult = calculateOperationTime(sensor.lastConnectTime);
+      const operationTimeFormatted = hasValidData ? operationResult.formatted : null;
+
+      // RFC-0110: Clear values for offline devices
+      const displayValue = clearValueIfOffline(sensor.temperature, deviceStatus);
       const displayDate = hasValidData ? sensor.lastActivityTime : null;
-      // Se inválido, tempo de operação vira null -> exibe "-"
       const displayOperation = hasValidData ? operationTimeFormatted : null;
 
+      // RFC-0110: Map to visual status for rendering
       const STATUS_ONLINE = window.MyIOLibrary?.DeviceStatusType?.POWER_ON || 'running';
       const STATUS_OFFLINE = window.MyIOLibrary?.DeviceStatusType?.NO_INFO || 'no_info';
-      const visualStatus = hasValidData ? STATUS_ONLINE : STATUS_OFFLINE;
+      const visualStatus = isDeviceOnline ? STATUS_ONLINE : STATUS_OFFLINE;
 
       const entityObject = {
         entityId: sensor.id,
@@ -203,11 +212,14 @@ function initializeSensorCards(sensors) {
         deviceStatus: visualStatus,
       };
 
+      // RFC-0110: Get delay from MAIN settings (default 60 minutes for card display)
+      const delayTimeInMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
+
       MyIOLibrary.renderCardComponentHeadOffice(container, {
         entityObject: entityObject,
         debugActive: DEBUG_ACTIVE,
         activeTooltipDebug: ACTIVE_TOOLTIP_DEBUG,
-        delayTimeConnectionInMins: delayInMins,
+        delayTimeConnectionInMins: delayTimeInMins,
         handleActionDashboard: async () => { openTemperatureModal(sensor); },
         handleActionSettings: async () => { 
             const jwt = localStorage.getItem('jwt_token');
@@ -636,21 +648,48 @@ function updateSensorStats(sensors) {
 
   if (statsTotal) statsTotal.textContent = sensors.length;
 
-  // Calculate average temperature
-  const validTemps = sensors.filter((s) => s.temperature !== null && !isNaN(s.temperature));
-  const avgTemp =
-    validTemps.length > 0
-      ? validTemps.reduce((sum, s) => sum + Number(s.temperature), 0) / validTemps.length
-      : 0;
+  // RFC-0110: Calculate stats using MASTER RULES
+  let onlineCount = 0;
+  let alertCount = 0;
+  let validTempSum = 0;
+  let validTempCount = 0;
+
+  sensors.forEach((sensor) => {
+    // RFC-0110: Get telemetry timestamp for status calculation
+    const telemetryTimestamp = sensor.lastUpdate || sensor.lastActivityTime || null;
+
+    // RFC-0110: Calculate device status using MASTER RULES
+    const deviceStatus = calculateDeviceStatusMasterRules({
+      connectionStatus: sensor.connectionStatus || 'offline',
+      telemetryTimestamp: telemetryTimestamp,
+      delayMins: 1440, // 24h threshold for stale telemetry
+      domain: 'temperature',
+    });
+
+    // RFC-0110: Determine if device is online
+    const isOnline = deviceStatus === 'online' || deviceStatus === 'power_on' || deviceStatus === 'running';
+
+    if (isOnline) {
+      onlineCount++;
+
+      // Only count valid temperatures from online sensors
+      if (sensor.temperature !== null && !isNaN(sensor.temperature)) {
+        validTempSum += Number(sensor.temperature);
+        validTempCount++;
+      }
+
+      // Count alerts only for online sensors
+      if (sensor.status === 'hot' || sensor.status === 'cold') {
+        alertCount++;
+      }
+    }
+  });
+
+  // Calculate average temperature (only from online sensors)
+  const avgTemp = validTempCount > 0 ? validTempSum / validTempCount : 0;
 
   if (statsAvg) statsAvg.textContent = formatTemperature(avgTemp);
-
-  // Count online sensors (with recent data)
-  const onlineCount = sensors.filter((s) => s.status !== 'no_info' && s.status !== 'offline').length;
   if (statsOnline) statsOnline.textContent = onlineCount;
-
-  // Count alert sensors (hot or cold)
-  const alertCount = sensors.filter((s) => s.status === 'hot' || s.status === 'cold').length;
   if (statsAlert) statsAlert.textContent = alertCount;
 }
 

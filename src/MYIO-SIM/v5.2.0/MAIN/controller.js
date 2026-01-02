@@ -2305,6 +2305,307 @@ Object.assign(window.MyIOUtils, {
 // End RFC-0093: CENTRALIZED HEADER AND MODAL
 // ============================================================================
 
+// ============================================================================
+// RFC-0110: SHARED WIDGET UTILITIES
+// Centralized functions for all domain widgets (STORES, WATER, TEMPERATURE, etc.)
+// ============================================================================
+
+/**
+ * RFC-0110: MASTER RULES for device status calculation
+ * Applies consistent status logic across all domains
+ *
+ * @param {Object} options
+ * @param {string} options.connectionStatus - Raw connectionStatus from ThingsBoard
+ * @param {number|null} options.telemetryTimestamp - Timestamp of last telemetry data
+ * @param {number} options.delayMins - Threshold in minutes for stale telemetry (default: 1440 = 24h)
+ * @param {string} options.domain - Domain type: 'energy', 'water', 'temperature'
+ * @returns {string} Calculated deviceStatus: 'online', 'offline', 'not_installed', 'standby', etc.
+ */
+function calculateDeviceStatusMasterRules(options = {}) {
+  const {
+    connectionStatus = '',
+    telemetryTimestamp = null,
+    delayMins = 1440, // 24 hours default
+    domain = 'energy',
+  } = options;
+
+  const normalizedStatus = (connectionStatus || '').toLowerCase().trim();
+
+  // 1. WAITING → NOT_INSTALLED (absolute, no discussion)
+  const isWaitingStatus = normalizedStatus === 'waiting' || ['waiting', 'connecting', 'pending'].includes(normalizedStatus);
+  if (isWaitingStatus) {
+    return 'not_installed';
+  }
+
+  // 2. Check telemetry staleness
+  const now = Date.now();
+  const hasTelemetryTs = telemetryTimestamp && telemetryTimestamp > 0;
+  const telemetryAgeMs = hasTelemetryTs ? now - telemetryTimestamp : Infinity;
+  const telemetryAgeMins = telemetryAgeMs / 60000;
+  const isTelemetryStale = telemetryAgeMins > delayMins;
+  const isTelemetryRecent = hasTelemetryTs && telemetryAgeMins <= 60; // < 60 mins = recent
+
+  // 3. BAD → WEAK_CONNECTION or ONLINE (based on telemetry)
+  if (normalizedStatus === 'bad') {
+    return isTelemetryRecent ? 'online' : 'weak_connection';
+  }
+
+  // 4. OFFLINE → Check telemetry for recovery
+  if (normalizedStatus === 'offline') {
+    return isTelemetryRecent ? 'online' : 'offline';
+  }
+
+  // 5. ONLINE → Check for stale telemetry
+  if (normalizedStatus === 'online') {
+    if (!hasTelemetryTs || isTelemetryStale) {
+      return 'offline'; // ONLINE + no/stale telemetry = actually OFFLINE
+    }
+    return 'online';
+  }
+
+  // 6. Default fallback
+  return normalizedStatus || 'offline';
+}
+
+/**
+ * RFC-0110: Check if device is offline based on deviceStatus
+ * @param {string} deviceStatus - Calculated device status
+ * @returns {boolean}
+ */
+function isDeviceStatusOffline(deviceStatus) {
+  const status = (deviceStatus || '').toLowerCase();
+  return ['offline', 'no_info'].includes(status);
+}
+
+/**
+ * RFC-0110: Check if device is not installed (waiting)
+ * @param {string} deviceStatus - Calculated device status
+ * @returns {boolean}
+ */
+function isDeviceStatusNotInstalled(deviceStatus) {
+  const status = (deviceStatus || '').toLowerCase();
+  return status === 'not_installed';
+}
+
+/**
+ * RFC-0110: Check if device is online
+ * @param {string} deviceStatus - Calculated device status
+ * @returns {boolean}
+ */
+function isDeviceStatusOnline(deviceStatus) {
+  const status = (deviceStatus || '').toLowerCase();
+  return !isDeviceStatusOffline(status) && !isDeviceStatusNotInstalled(status);
+}
+
+/**
+ * RFC-0110: Create standard filter tabs for any domain widget
+ * @param {Object} config
+ * @param {string} config.domain - 'energy', 'water', 'temperature'
+ * @param {Function} config.getItemStatus - Function to get item status
+ * @param {Function} config.getItemConsumption - Function to get item consumption/value
+ * @param {boolean} config.includeTypeFilters - Include type filters (elevators, hvac, etc.)
+ * @returns {Array} Array of filterTab configurations
+ */
+function createStandardFilterTabs(config = {}) {
+  const {
+    domain = 'energy',
+    getItemStatus = (item) => (item.deviceStatus || item.status || '').toLowerCase(),
+    getItemConsumption = (item) => Number(item.value) || 0,
+    includeTypeFilters = false,
+  } = config;
+
+  const isOnline = (item) => isDeviceStatusOnline(getItemStatus(item));
+  const isOffline = (item) => isDeviceStatusOffline(getItemStatus(item));
+  const isNotInstalled = (item) => isDeviceStatusNotInstalled(getItemStatus(item));
+
+  const baseTabs = [
+    { id: 'all', label: 'Todos', filter: () => true },
+    { id: 'online', label: 'Online', filter: isOnline },
+    { id: 'offline', label: 'Offline', filter: isOffline },
+    { id: 'notInstalled', label: 'Não Instalado', filter: isNotInstalled },
+    { id: 'withConsumption', label: 'Com Consumo', filter: (item) => getItemConsumption(item) > 0 },
+    { id: 'noConsumption', label: 'Sem Consumo', filter: (item) => getItemConsumption(item) === 0 },
+  ];
+
+  // Domain-specific status tabs
+  if (domain === 'temperature') {
+    baseTabs.push(
+      { id: 'normal', label: 'Normal', filter: (item) => isOnline(item) && getItemStatus(item) === 'normal' },
+      { id: 'alert', label: 'Alerta', filter: (item) => isOnline(item) && ['hot', 'cold', 'warning', 'alert'].includes(getItemStatus(item)) }
+    );
+  } else {
+    // energy/water domains
+    baseTabs.push(
+      { id: 'normal', label: 'Normal', filter: (item) => isOnline(item) && ['power_on', 'normal', 'running'].includes(getItemStatus(item)) },
+      { id: 'standby', label: 'Stand By', filter: (item) => isOnline(item) && getItemStatus(item) === 'standby' },
+      { id: 'alert', label: 'Alerta', filter: (item) => isOnline(item) && ['warning', 'alert', 'maintenance'].includes(getItemStatus(item)) },
+      { id: 'failure', label: 'Falha', filter: (item) => isOnline(item) && ['failure', 'power_off'].includes(getItemStatus(item)) }
+    );
+  }
+
+  // Type filters for energy domain (equipment types)
+  if (includeTypeFilters && domain === 'energy') {
+    const isElevator = (item) => {
+      const cat = (item.category || item.labelWidget || '').toLowerCase();
+      return cat.includes('elevator') || cat.includes('elevador');
+    };
+    const isEscalator = (item) => {
+      const cat = (item.category || item.labelWidget || '').toLowerCase();
+      return cat.includes('escada') || cat.includes('escalator');
+    };
+    const isHVAC = (item) => {
+      const cat = (item.category || item.labelWidget || '').toLowerCase();
+      return cat.includes('climatiza') || cat.includes('hvac') || cat.includes('ar condicionado');
+    };
+
+    baseTabs.push(
+      { id: 'elevators', label: 'Elevadores', filter: isElevator },
+      { id: 'escalators', label: 'Escadas', filter: isEscalator },
+      { id: 'hvac', label: 'Climatização', filter: isHVAC },
+      { id: 'others', label: 'Outros', filter: (item) => !isElevator(item) && !isEscalator(item) && !isHVAC(item) }
+    );
+  }
+
+  return baseTabs;
+}
+
+/**
+ * RFC-0110: Calculate operation time from lastConnectTime
+ * @param {string|number} lastConnectTime - Timestamp or ISO string
+ * @returns {Object} { durationMs, formatted }
+ */
+function calculateOperationTime(lastConnectTime) {
+  if (!lastConnectTime) {
+    return { durationMs: 0, formatted: '-' };
+  }
+
+  const connectTs = typeof lastConnectTime === 'string'
+    ? new Date(lastConnectTime).getTime()
+    : lastConnectTime;
+
+  if (isNaN(connectTs) || connectTs <= 0) {
+    return { durationMs: 0, formatted: '-' };
+  }
+
+  const now = Date.now();
+  const durationMs = now - connectTs;
+
+  if (durationMs < 0) {
+    return { durationMs: 0, formatted: '-' };
+  }
+
+  // Use formatarDuracao if available, otherwise format manually
+  const formatarDuracao = window.MyIOUtils?.formatarDuracao || ((ms) => {
+    const totalMins = Math.floor(ms / 60000);
+    const hours = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    if (hours >= 24) {
+      const days = Math.floor(hours / 24);
+      const remainingHours = hours % 24;
+      return `${days}d ${remainingHours}h`;
+    }
+    if (hours > 0) {
+      return `${hours}h ${mins}min`;
+    }
+    return `${mins}min`;
+  });
+
+  return {
+    durationMs,
+    formatted: formatarDuracao(durationMs),
+  };
+}
+
+/**
+ * RFC-0110: Calculate header stats for any domain
+ * @param {Array} items - Array of device items
+ * @param {Object} config
+ * @param {Function} config.getItemStatus - Function to get item status
+ * @param {Function} config.getItemConsumption - Function to get item consumption
+ * @returns {Object} { online, offline, notInstalled, total, withConsumption, zeroConsumption, totalConsumption }
+ */
+function calculateHeaderStats(items, config = {}) {
+  const {
+    getItemStatus = (item) => (item.deviceStatus || item.status || '').toLowerCase(),
+    getItemConsumption = (item) => Number(item.value) || 0,
+  } = config;
+
+  let online = 0;
+  let offline = 0;
+  let notInstalled = 0;
+  let withConsumption = 0;
+  let zeroConsumption = 0;
+  let totalConsumption = 0;
+
+  items.forEach((item) => {
+    const status = getItemStatus(item);
+    const consumption = getItemConsumption(item);
+
+    if (isDeviceStatusNotInstalled(status)) {
+      notInstalled++;
+    } else if (isDeviceStatusOffline(status)) {
+      offline++;
+    } else {
+      online++;
+    }
+
+    if (consumption > 0) {
+      withConsumption++;
+      totalConsumption += consumption;
+    } else {
+      zeroConsumption++;
+    }
+  });
+
+  const total = items.length;
+  const onlinePercentage = total > 0 ? ((online / total) * 100).toFixed(1) : '0.0';
+
+  return {
+    online,
+    offline,
+    notInstalled,
+    total,
+    withConsumption,
+    zeroConsumption,
+    totalConsumption,
+    onlinePercentage,
+    connectivityText: `${online}/${total} (${onlinePercentage}%)`,
+  };
+}
+
+/**
+ * RFC-0110: Clear instantaneous power/value for offline devices
+ * @param {*} value - The value to check
+ * @param {string} deviceStatus - The device status
+ * @returns {*} The value or null if device is offline/not_installed
+ */
+function clearValueIfOffline(value, deviceStatus) {
+  const status = (deviceStatus || '').toLowerCase();
+  if (isDeviceStatusOffline(status) || isDeviceStatusNotInstalled(status)) {
+    return null;
+  }
+  return value;
+}
+
+// Expose shared widget utilities globally
+Object.assign(window.MyIOUtils, {
+  // RFC-0110: Master status rules
+  calculateDeviceStatusMasterRules,
+  isDeviceStatusOffline,
+  isDeviceStatusNotInstalled,
+  isDeviceStatusOnline,
+
+  // RFC-0110: Shared widget functions
+  createStandardFilterTabs,
+  calculateOperationTime,
+  calculateHeaderStats,
+  clearValueIfOffline,
+});
+
+// ============================================================================
+// End RFC-0110: SHARED WIDGET UTILITIES
+// ============================================================================
+
 (function () {
   // Utilitários DOM
   const $ = (sel, root = document) => root.querySelector(sel);
