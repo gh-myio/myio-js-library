@@ -45,7 +45,7 @@ const INFO_TOOLTIP_CSS = `
 
 .myio-info-tooltip {
   position: fixed;
-  z-index: 99999;
+  z-index: 9999999;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.25s ease, transform 0.25s ease;
