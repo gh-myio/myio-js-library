@@ -642,7 +642,8 @@ function updateWaterCommonAreaStats(items) {
 
   items.forEach((item) => {
     // RFC-0110: Get telemetry timestamp for status calculation
-    const telemetryTimestamp = item.pulsesTs || item.waterVolumeTs || item.timeVal || item.lastActivityTime || null;
+    // RFC-0110: Use ONLY pulsesTs/waterVolumeTs for water domain - NOT lastActivityTime!
+    const telemetryTimestamp = item.pulsesTs || item.waterVolumeTs || null;
     const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
 
     // RFC-0110: Calculate device status using MASTER RULES (same as card rendering)
@@ -713,7 +714,8 @@ async function renderList(visible) {
 
     // RFC-0110: Get telemetry timestamp for water domain
     // For water, use pulsesTs, waterVolumeTs, or timeVal/lastActivityTime as fallback
-    const telemetryTimestamp = it.pulsesTs || it.waterVolumeTs || it.timeVal || it.lastActivityTime || null;
+    // RFC-0110: Use ONLY pulsesTs/waterVolumeTs for water domain - NOT lastActivityTime!
+    const telemetryTimestamp = it.pulsesTs || it.waterVolumeTs || null;
 
     // RFC-0110: Calculate device status using MASTER RULES
     const mappedConnectionStatus = mapConnectionStatus(it.connectionStatus || 'offline');
@@ -800,9 +802,11 @@ async function renderList(visible) {
       timeVal: it.timeVal || Date.now(),
 
       // Additional data for Settings modal and card display
+      // RFC-0110 FIX: Use lastActivityTime as fallback for lastConnectTime
+      // If lastConnectTime is 0/undefined, verifyOfflineStatus() would mark device as offline
       lastDisconnectTime: it.lastDisconnectTime || 0,
-      lastConnectTime: it.lastConnectTime || 0,
-      lastActivityTime: it.timeVal || null,
+      lastConnectTime: it.lastConnectTime || it.lastActivityTime || it.timeVal || Date.now(),
+      lastActivityTime: it.timeVal || it.lastActivityTime || null,
       instantaneousPower: 0, // Not applicable for water meters
       operationHours: operationHoursFormatted, // RFC-0094: Calculated from lastConnectTime
       temperatureC: 0,
@@ -811,9 +815,10 @@ async function renderList(visible) {
     };
 
     // RFC-0094: Use renderCardComponentHeadOffice like WATER_STORES
+    // RFC-0110: Use 1440 (24h) to match RFC-0110 master rules for consistency
     MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: entityObject,
-      delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
+      delayTimeConnectionInMins: 1440, // RFC-0110: 24h threshold for consistency
 
       handleClickCard: (ev, entity) => {
         console.log(`[WATER_COMMON_AREA] Card clicked: ${entity.name}`);
@@ -984,8 +989,21 @@ function getItemConsumption(item) {
 }
 
 // Helper function to get item status (for filter tabs)
+// RFC-0110: Calculate deviceStatus using MASTER RULES for consistent filtering
 function getItemStatus(item) {
-  return (item.deviceStatus || '').toLowerCase();
+  // If deviceStatus is already calculated (from updateFromDevices), use it
+  if (item.deviceStatus) {
+    return item.deviceStatus.toLowerCase();
+  }
+  // Otherwise, calculate it using RFC-0110 rules
+  const telemetryTimestamp = item.pulsesTs || item.waterVolumeTs || item.timeVal || item.lastActivityTime || null;
+  const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
+  return calculateDeviceStatusMasterRules({
+    connectionStatus: mappedStatus,
+    telemetryTimestamp: telemetryTimestamp,
+    delayMins: 1440, // 24h threshold for stale telemetry
+    domain: 'water',
+  });
 }
 
 // Filter modal instance (lazy initialized)
@@ -1010,10 +1028,12 @@ function initFilterModal() {
     itemIdAttr: 'data-entity',
 
     // Filter tabs configuration - specific for WATER_COMMON_AREA
+    // RFC-0110: Include not_installed status and ensure consistent filtering
     filterTabs: [
       { id: 'all', label: 'Todos', filter: () => true },
-      { id: 'online', label: 'Online', filter: (s) => !['offline', 'no_info'].includes(getItemStatus(s)) },
+      { id: 'online', label: 'Online', filter: (s) => !['offline', 'no_info', 'not_installed'].includes(getItemStatus(s)) },
       { id: 'offline', label: 'Offline', filter: (s) => ['offline', 'no_info'].includes(getItemStatus(s)) },
+      { id: 'notInstalled', label: 'Não Instalado', filter: (s) => getItemStatus(s) === 'not_installed' },
       { id: 'withConsumption', label: 'Com Consumo', filter: (s) => getItemConsumption(s) > 0 },
       { id: 'noConsumption', label: 'Sem Consumo', filter: (s) => getItemConsumption(s) === 0 },
     ],
@@ -1075,8 +1095,24 @@ function openFilterModal() {
   const items =
     STATE.itemsEnriched && STATE.itemsEnriched.length > 0 ? STATE.itemsEnriched : STATE.itemsBase || [];
 
+  // RFC-0110: Calculate deviceStatus for each item before opening modal
+  // This ensures getItemStatus() will have deviceStatus available
+  const itemsWithDeviceStatus = items.map((item) => {
+    if (item.deviceStatus) return item; // Already calculated
+    // RFC-0110: Use ONLY pulsesTs/waterVolumeTs for water domain - NOT lastActivityTime!
+    const telemetryTimestamp = item.pulsesTs || item.waterVolumeTs || null;
+    const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
+    const deviceStatus = calculateDeviceStatusMasterRules({
+      connectionStatus: mappedStatus,
+      telemetryTimestamp: telemetryTimestamp,
+      delayMins: 1440,
+      domain: 'water',
+    });
+    return { ...item, deviceStatus };
+  });
+
   // Open with current items and state
-  waterCommonAreaFilterModal.open(items, {
+  waterCommonAreaFilterModal.open(itemsWithDeviceStatus, {
     selectedIds: STATE.selectedIds,
     sortMode: STATE.sortMode,
   });
@@ -1103,9 +1139,24 @@ async function filterAndRender() {
   await renderList(withPerc);
 
   // RFC-0094: Update stats header via centralized controller
+  // RFC-0110: Calculate deviceStatus for each item before passing to updateFromDevices
   if (STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
+    // RFC-0110: Map items with calculated deviceStatus for accurate stats
+    const itemsWithDeviceStatus = STATE.itemsEnriched.map((item) => {
+      // RFC-0110: Use ONLY pulsesTs/waterVolumeTs for water domain - NOT lastActivityTime!
+    const telemetryTimestamp = item.pulsesTs || item.waterVolumeTs || null;
+      const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
+      const deviceStatus = calculateDeviceStatusMasterRules({
+        connectionStatus: mappedStatus,
+        telemetryTimestamp: telemetryTimestamp,
+        delayMins: 1440, // 24h threshold for stale telemetry
+        domain: 'water',
+      });
+      return { ...item, deviceStatus };
+    });
+
     if (waterCommonAreaHeaderController) {
-      waterCommonAreaHeaderController.updateFromDevices(STATE.itemsEnriched, {});
+      waterCommonAreaHeaderController.updateFromDevices(itemsWithDeviceStatus, {});
     } else {
       updateWaterCommonAreaStats(STATE.itemsEnriched);
     }

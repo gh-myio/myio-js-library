@@ -2345,14 +2345,15 @@ function calculateDeviceStatusMasterRules(options = {}) {
   const isTelemetryStale = telemetryAgeMins > delayMins;
   const isTelemetryRecent = hasTelemetryTs && telemetryAgeMins <= 60; // < 60 mins = recent
 
-  // 3. BAD → WEAK_CONNECTION or ONLINE (based on telemetry)
+  // 3. BAD → WEAK_CONNECTION or POWER_ON (based on telemetry)
+  // RFC-0110 v2: Return 'power_on' instead of 'online' to match MyIOLibrary expected values
   if (normalizedStatus === 'bad') {
-    return isTelemetryRecent ? 'online' : 'weak_connection';
+    return isTelemetryRecent ? 'power_on' : 'weak_connection';
   }
 
   // 4. OFFLINE → Check telemetry for recovery
   if (normalizedStatus === 'offline') {
-    return isTelemetryRecent ? 'online' : 'offline';
+    return isTelemetryRecent ? 'power_on' : 'offline';
   }
 
   // 5. ONLINE → Check for stale telemetry
@@ -2360,7 +2361,7 @@ function calculateDeviceStatusMasterRules(options = {}) {
     if (!hasTelemetryTs || isTelemetryStale) {
       return 'offline'; // ONLINE + no/stale telemetry = actually OFFLINE
     }
-    return 'online';
+    return 'power_on'; // RFC-0110 v2: Use 'power_on' to match MyIOLibrary expected values
   }
 
   // 6. Default fallback

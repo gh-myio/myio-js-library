@@ -92,6 +92,36 @@ function getStatusLabel(status) {
   return labels[status] || status;
 }
 
+// RFC-0110: Helper to get device connection status using MASTER RULES
+function getSensorDeviceStatus(sensor) {
+  const telemetryTimestamp = sensor.lastUpdate || sensor.lastActivityTime || null;
+  const deviceStatus = calculateDeviceStatusMasterRules({
+    connectionStatus: sensor.connectionStatus || 'offline',
+    telemetryTimestamp: telemetryTimestamp,
+    delayMins: 1440, // 24h threshold for stale telemetry
+    domain: 'temperature',
+  });
+  return deviceStatus;
+}
+
+// RFC-0110: Check if sensor is online based on RFC-0110 rules
+function isSensorOnline(sensor) {
+  const status = getSensorDeviceStatus(sensor);
+  return status === 'online' || status === 'power_on' || status === 'running';
+}
+
+// RFC-0110: Check if sensor is not installed (waiting)
+function isSensorNotInstalled(sensor) {
+  const status = getSensorDeviceStatus(sensor);
+  return status === 'not_installed';
+}
+
+// RFC-0110: Check if sensor is offline (not online and not not_installed)
+function isSensorOffline(sensor) {
+  const status = getSensorDeviceStatus(sensor);
+  return ['offline', 'no_info'].includes(status);
+}
+
 function showLoadingOverlay(show) {
   const overlay = document.getElementById('temperature-sensors-loading-overlay');
   if (overlay) {
@@ -207,19 +237,18 @@ function initializeSensorCards(sensors) {
         centralName: sensor.centralName,
         identifier: sensor.identifier,
         connectionStatus: sensor.connectionStatus,
-        lastConnectTime: sensor.lastConnectTime || sensor.lastUpdate,
-        lastDisconnectTime: sensor.lastDisconnectTime,
+        // RFC-0110 FIX: Use lastUpdate/lastActivityTime as fallback for lastConnectTime
+        lastConnectTime: sensor.lastConnectTime || sensor.lastUpdate || sensor.lastActivityTime || Date.now(),
+        lastDisconnectTime: sensor.lastDisconnectTime || 0,
         deviceStatus: visualStatus,
       };
 
-      // RFC-0110: Get delay from MAIN settings (default 60 minutes for card display)
-      const delayTimeInMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60;
-
+      // RFC-0110: Use 1440 (24h) to match RFC-0110 master rules for consistency
       MyIOLibrary.renderCardComponentHeadOffice(container, {
         entityObject: entityObject,
         debugActive: DEBUG_ACTIVE,
         activeTooltipDebug: ACTIVE_TOOLTIP_DEBUG,
-        delayTimeConnectionInMins: delayTimeInMins,
+        delayTimeConnectionInMins: 1440, // RFC-0110: 24h threshold for consistency
         handleActionDashboard: async () => { openTemperatureModal(sensor); },
         handleActionSettings: async () => { 
             const jwt = localStorage.getItem('jwt_token');
@@ -719,6 +748,7 @@ function initFilterModal() {
     itemIdAttr: 'data-entity',
 
     // Filter tabs configuration - specific for TEMPERATURE_SENSORS
+    // RFC-0110: Use isSensorOnline/isSensorOffline/isSensorNotInstalled for consistent status calculation
     filterTabs: [
       {
         id: 'all',
@@ -728,22 +758,27 @@ function initFilterModal() {
       {
         id: 'online',
         label: 'Online',
-        filter: (s) => s.status !== 'no_info' && s.status !== 'offline',
+        filter: (s) => isSensorOnline(s),
       },
       {
         id: 'offline',
         label: 'Offline',
-        filter: (s) => s.status === 'no_info' || s.status === 'offline',
+        filter: (s) => isSensorOffline(s),
+      },
+      {
+        id: 'notInstalled',
+        label: 'Não Instalado',
+        filter: (s) => isSensorNotInstalled(s),
       },
       {
         id: 'normal',
         label: 'Normal',
-        filter: (s) => s.status === 'normal',
+        filter: (s) => isSensorOnline(s) && s.status === 'normal',
       },
       {
         id: 'alert',
         label: 'Alerta',
-        filter: (s) => s.status === 'hot' || s.status === 'cold',
+        filter: (s) => isSensorOnline(s) && (s.status === 'hot' || s.status === 'cold'),
       },
     ],
 

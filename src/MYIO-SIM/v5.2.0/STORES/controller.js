@@ -704,8 +704,10 @@ async function renderList(visible) {
     const deviceType = it.label.includes('dministra') ? '3F_MEDIDOR' : it.deviceType;
 
     // RFC-0110: Get telemetry timestamp for status calculation
-    // For energy domain, use consumptionTs (from orchestrator) or timeVal/lastActivityTime as fallback
-    const telemetryTimestamp = it.consumptionTs || it.timeVal || it.lastActivityTime || null;
+    // For energy domain, use ONLY consumptionTs - NOT lastActivityTime as fallback!
+    // lastActivityTime is updated by ThingsBoard communication, not actual energy telemetry
+    // If consumptionTs is missing/stale, device should be considered offline
+    const telemetryTimestamp = it.consumptionTs || null;
 
     // RFC-0110: Calculate initial deviceStatus using MASTER RULES
     let deviceStatus = calculateDeviceStatusMasterRules({
@@ -831,9 +833,11 @@ async function renderList(visible) {
       timeVal: it.timeVal || Date.now(),
 
       // RFC-0091: Additional data for Settings modal and card display
+      // RFC-0110 FIX: Use lastActivityTime as fallback for lastConnectTime/lastDisconnectTime
+      // If lastConnectTime is 0/undefined, verifyOfflineStatus() would mark device as offline
       lastDisconnectTime: it.lastDisconnectTime || 0,
-      lastConnectTime: it.lastConnectTime || 0,
-      lastActivityTime: it.timeVal || null,
+      lastConnectTime: it.lastConnectTime || it.lastActivityTime || it.timeVal || Date.now(),
+      lastActivityTime: it.timeVal || it.lastActivityTime || null,
       instantaneousPower: finalInstantaneousPower, // RFC-0110: Cleared for offline devices
       operationHours: operationHoursFormatted, // Tempo em operação (formatado)
       temperatureC: 0, // Temperatura (não disponível para lojas)
@@ -850,12 +854,19 @@ async function renderList(visible) {
       } : null,
     };
 
-    // RFC-0091: delayTimeConnectionInMins - configurable via MAIN settings (default 60 minutes)
+    // RFC-0110 DEBUG: Log first 5 cards to verify entityObject data
+    const cardIndex = visible.indexOf(it);
+    if (cardIndex < 5) {
+      LogHelper.log(`[STORES] RFC-0110 card #${cardIndex + 1}: label='${it.label}', deviceStatus='${deviceStatus}', connectionStatus='${mappedConnectionStatus}', consumptionTs=${telemetryTimestamp}, lastActivityTime=${it.lastActivityTime}`);
+    }
+
+    // RFC-0110: delayTimeConnectionInMins - use 1440 (24h) to match RFC-0110 master rules
+    // This ensures card visual status matches header stats calculation
     const handle = MyIOLibrary.renderCardComponentHeadOffice(container, {
       entityObject: entityObject,
       debugActive: DEBUG_ACTIVE,
       activeTooltipDebug: ACTIVE_TOOLTIP_DEBUG,
-      delayTimeConnectionInMins: window.MyIOUtils?.getDelayTimeConnectionInMins?.() ?? 60,
+      delayTimeConnectionInMins: 1440, // RFC-0110: 24h threshold for consistency
 
       // --- DIFERENÇA 2: Callback de clique (mesmo que apenas logue) ---
       // Isso muitas vezes ativa o wrapper interativo do card
@@ -1032,8 +1043,22 @@ function getStoreConsumption(store) {
 }
 
 // Helper function to get store status (for filter tabs)
+// RFC-0110: Calculate deviceStatus using MASTER RULES for consistent filtering
 function getStoreStatus(store) {
-  return (store.deviceStatus || '').toLowerCase();
+  // If deviceStatus is already calculated (from updateFromDevices), use it
+  if (store.deviceStatus) {
+    return store.deviceStatus.toLowerCase();
+  }
+  // Otherwise, calculate it using RFC-0110 rules
+  // Use ONLY consumptionTs for energy domain - NOT lastActivityTime!
+  const telemetryTimestamp = store.consumptionTs || null;
+  const mappedStatus = mapConnectionStatus(store.connectionStatus || 'offline');
+  return calculateDeviceStatusMasterRules({
+    connectionStatus: mappedStatus,
+    telemetryTimestamp: telemetryTimestamp,
+    delayMins: 1440, // 24h threshold for stale telemetry
+    domain: 'energy',
+  });
 }
 
 // Filter modal instance (lazy initialized)
@@ -1058,10 +1083,12 @@ function initFilterModal() {
     itemIdAttr: 'data-entity',
 
     // Filter tabs configuration - specific for STORES (simpler than EQUIPMENTS)
+    // RFC-0110: Include not_installed status and ensure consistent filtering
     filterTabs: [
       { id: 'all', label: 'Todos', filter: () => true },
-      { id: 'online', label: 'Online', filter: (s) => !['offline', 'no_info'].includes(getStoreStatus(s)) },
+      { id: 'online', label: 'Online', filter: (s) => !['offline', 'no_info', 'not_installed'].includes(getStoreStatus(s)) },
       { id: 'offline', label: 'Offline', filter: (s) => ['offline', 'no_info'].includes(getStoreStatus(s)) },
+      { id: 'notInstalled', label: 'Não Instalado', filter: (s) => getStoreStatus(s) === 'not_installed' },
       { id: 'withConsumption', label: 'Com Consumo', filter: (s) => getStoreConsumption(s) > 0 },
       { id: 'noConsumption', label: 'Sem Consumo', filter: (s) => getStoreConsumption(s) === 0 },
     ],
@@ -1123,8 +1150,24 @@ function openFilterModal() {
   const items =
     STATE.itemsEnriched && STATE.itemsEnriched.length > 0 ? STATE.itemsEnriched : STATE.itemsBase || [];
 
+  // RFC-0110: Calculate deviceStatus for each item before opening modal
+  // This ensures getStoreStatus() will have deviceStatus available
+  // Use ONLY consumptionTs for energy domain - NOT lastActivityTime!
+  const itemsWithDeviceStatus = items.map((item) => {
+    if (item.deviceStatus) return item; // Already calculated
+    const telemetryTimestamp = item.consumptionTs || null;
+    const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
+    const deviceStatus = calculateDeviceStatusMasterRules({
+      connectionStatus: mappedStatus,
+      telemetryTimestamp: telemetryTimestamp,
+      delayMins: 1440,
+      domain: 'energy',
+    });
+    return { ...item, deviceStatus };
+  });
+
   // Open with current stores and state
-  storesFilterModal.open(items, {
+  storesFilterModal.open(itemsWithDeviceStatus, {
     selectedIds: STATE.selectedIds,
     sortMode: STATE.sortMode,
   });
@@ -1714,9 +1757,35 @@ async function reflowFromState() {
 
   // RFC-0093: Update stats header via centralized controller
   // Use all enriched items for stats, not just visible/filtered ones
+  // RFC-0110: Calculate deviceStatus for each item before passing to updateFromDevices
   if (STATE.itemsEnriched && STATE.itemsEnriched.length > 0) {
+    // RFC-0110: Map items with calculated deviceStatus for accurate stats
+    // Use ONLY consumptionTs for energy domain - NOT lastActivityTime!
+    const itemsWithDeviceStatus = STATE.itemsEnriched.map((item) => {
+      const telemetryTimestamp = item.consumptionTs || null;
+      const mappedStatus = mapConnectionStatus(item.connectionStatus || 'offline');
+      const deviceStatus = calculateDeviceStatusMasterRules({
+        connectionStatus: mappedStatus,
+        telemetryTimestamp: telemetryTimestamp,
+        delayMins: 1440, // 24h threshold for stale telemetry
+        domain: 'energy',
+      });
+      return { ...item, deviceStatus };
+    });
+
+    // RFC-0110 DEBUG: Log deviceStatus distribution
+    const statusDistribution = {};
+    itemsWithDeviceStatus.forEach((item) => {
+      const status = item.deviceStatus || 'unknown';
+      statusDistribution[status] = (statusDistribution[status] || 0) + 1;
+    });
+    LogHelper.log('[STORES] RFC-0110 DEBUG deviceStatus distribution:', JSON.stringify(statusDistribution));
+    const offlineCount = (statusDistribution['offline'] || 0) + (statusDistribution['no_info'] || 0);
+    const notInstalledCount = statusDistribution['not_installed'] || 0;
+    LogHelper.log(`[STORES] RFC-0110 DEBUG: offline=${offlineCount}, not_installed=${notInstalledCount}, total=${itemsWithDeviceStatus.length}`);
+
     if (storesHeaderController) {
-      storesHeaderController.updateFromDevices(STATE.itemsEnriched, {});
+      storesHeaderController.updateFromDevices(itemsWithDeviceStatus, {});
     } else {
       // Fallback to old function if header controller not available
       updateStoresStats(STATE.itemsEnriched);
