@@ -33,30 +33,21 @@ const getDataApiHost = () => {
 
 // RFC-0110: Centralized functions from MAIN
 const calculateDeviceStatusMasterRules =
-  window.MyIOUtils?.calculateDeviceStatusMasterRules ||
-  (() => 'no_info');
+  window.MyIOUtils?.calculateDeviceStatusMasterRules || (() => 'no_info');
 
-const mapConnectionStatus =
-  window.MyIOUtils?.mapConnectionStatus ||
-  ((status) => status || 'offline');
+const mapConnectionStatus = window.MyIOUtils?.mapConnectionStatus || ((status) => status || 'offline');
 
-const getConsumptionRangesHierarchical =
-  window.MyIOUtils?.getConsumptionRangesHierarchical;
+const getConsumptionRangesHierarchical = window.MyIOUtils?.getConsumptionRangesHierarchical;
 
-const getCachedConsumptionLimits =
-  window.MyIOUtils?.getCachedConsumptionLimits;
+const getCachedConsumptionLimits = window.MyIOUtils?.getCachedConsumptionLimits;
 
 const formatRelativeTime =
-  window.MyIOUtils?.formatRelativeTime ||
-  ((ts) => (ts ? new Date(ts).toLocaleString() : '—'));
+  window.MyIOUtils?.formatRelativeTime || ((ts) => (ts ? new Date(ts).toLocaleString() : '—'));
 
-const formatarDuracao =
-  window.MyIOUtils?.formatarDuracao ||
-  ((ms) => `${Math.round(ms / 1000)}s`);
+const formatarDuracao = window.MyIOUtils?.formatarDuracao || ((ms) => `${Math.round(ms / 1000)}s`);
 
 const getCustomerNameForDevice =
-  window.MyIOUtils?.getCustomerNameForDevice ||
-  ((device) => device.customerId || 'N/A');
+  window.MyIOUtils?.getCustomerNameForDevice || ((device) => device.customerId || 'N/A');
 
 const findValue =
   window.MyIOUtils?.findValue ||
@@ -185,6 +176,18 @@ const CONTEXT_CONFIG = {
     headerLabel: 'Total de Lojas',
     idPrefix: 'stores',
     widgetName: 'TELEMETRY_STORES',
+    filterChipIcon: '🏪',
+  },
+  head_office: {
+    filterFn: (device) => !isStoreDevice(device),
+    aliasNames: {
+      water: ['HidrometrosMatriz', 'HidrometrosSede'],
+      energy: ['EquipamentosMatriz', 'EquipamentosSede'],
+      temperature: ['SensoresMatriz', 'SensoresSede'],
+    },
+    headerLabel: 'Total Sede/Matriz',
+    idPrefix: 'head_office',
+    widgetName: 'TELEMETRY_HEAD_OFFICE',
     filterChipIcon: '🏬',
   },
   with_climate_control: {
@@ -329,7 +332,7 @@ function filterDevicesByConfig(devices) {
     return devices;
   }
 
-  return devices.filter(device => {
+  return devices.filter((device) => {
     // 1. Apply context filter function (isStoreDevice, etc.)
     if (contextConfig.filterFn && !contextConfig.filterFn(device)) {
       return false;
@@ -386,7 +389,8 @@ function initializeCards(devices) {
   grid.innerHTML = '';
 
   const domainConfig = DOMAIN_CONFIG[WIDGET_DOMAIN];
-  const delayTimeConnectionInMins = window.MyIOUtils?.getDelayTimeConnectionInMins?.() || domainConfig.delayMins;
+  const delayTimeConnectionInMins =
+    window.MyIOUtils?.getDelayTimeConnectionInMins?.() || domainConfig.delayMins;
 
   devices.forEach((device) => {
     const container = document.createElement('div');
@@ -511,7 +515,9 @@ function initializeCards(devices) {
               centralName: device.centralName || customerName,
               connectionStatusTime: device.lastConnectTime,
               timeVal: device.lastActivityTime || new Date('1970-01-01').getTime(),
-              deviceStatus: ['power_off', 'not_installed'].includes(device.deviceStatus) ? 'power_off' : 'power_on',
+              deviceStatus: ['power_off', 'not_installed'].includes(device.deviceStatus)
+                ? 'power_off'
+                : 'power_on',
               lastDisconnectTime: device.lastDisconnectTime || 0,
             },
             ui: { title: 'Configuracoes', width: 900 },
@@ -735,7 +741,7 @@ async function processAndRenderDevices(cache) {
 
     // Clear value if device is offline
     const isOfflineDevice = ['offline', 'no_info', 'not_installed'].includes(deviceStatus);
-    const displayValue = isOfflineDevice ? null : (item.value ?? item.total_value ?? 0);
+    const displayValue = isOfflineDevice ? null : item.value ?? item.total_value ?? 0;
 
     allDevices.push({
       entityId: item.tbId || item.entityId || ingestionId,
@@ -1044,7 +1050,6 @@ self.onInit = async function () {
       // Reload data with new dates if needed
     };
     window.addEventListener('myio:date-params', self._onDateParams);
-
   }, 0);
 };
 

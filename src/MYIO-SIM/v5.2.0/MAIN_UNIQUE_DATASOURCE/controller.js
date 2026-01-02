@@ -197,13 +197,10 @@ self.onInit = async function () {
     }
 
     // Update header KPIs
+    // NOTE: RFC-0113 header updates via events, not direct method calls
+    // The header component listens to 'myio:data-ready' event automatically
     if (headerInstance && deviceCounts) {
-      headerInstance.updateKPIs?.({
-        equip: { totalStr: `${deviceCounts.total}`, percent: 100 },
-        energy: { kpi: formatEnergy(deviceCounts.energyTotal), trendDir: 'up', trendText: '' },
-        temp: { kpi: formatTemperature(deviceCounts.tempAvg), rangeText: '18-26°C' },
-        water: { kpi: formatWater(deviceCounts.waterTotal), percent: 100 },
-      });
+      logDebug('[MAIN] Header will update via event listeners');
     }
 
     // Update menu shoppings
