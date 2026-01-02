@@ -1678,12 +1678,21 @@ function getDeviceStatus(device) {
  * RFC-0110 v5: Check if device is offline based on deviceStatus ONLY
  * deviceStatus is calculated using RFC-0110 MASTER RULES (stale telemetry detection)
  * This must match the header's logic in updateFromDevices for consistent counts
+ * NOTE: not_installed is now a separate category, not counted as offline
  */
 function isDeviceOffline(device) {
   const devStatus = (device.deviceStatus || '').toLowerCase();
-  // Device is offline if deviceStatus is one of the offline states
-  // Must match MAIN/controller.js updateFromDevices: ['offline', 'no_info', 'not_installed']
-  return ['offline', 'no_info', 'not_installed'].includes(devStatus);
+  // Device is offline if deviceStatus is offline or no_info (not_installed is separate)
+  return ['offline', 'no_info'].includes(devStatus);
+}
+
+/**
+ * RFC-0110: Check if device is not installed (waiting status)
+ * WAITING → NOT_INSTALLED (absolute, no discussion)
+ */
+function isDeviceNotInstalled(device) {
+  const devStatus = (device.deviceStatus || '').toLowerCase();
+  return devStatus === 'not_installed';
 }
 
 /**
@@ -1720,6 +1729,7 @@ function initFilterModal() {
       { id: 'all', label: 'Todos', filter: () => true },
       { id: 'online', label: 'Online', filter: isDeviceOnline },
       { id: 'offline', label: 'Offline', filter: isDeviceOffline },
+      { id: 'notInstalled', label: 'Não Instalado', filter: isDeviceNotInstalled },
       {
         id: 'normal',
         label: 'Normal',

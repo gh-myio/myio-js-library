@@ -1310,11 +1310,14 @@ function buildHeaderDevicesGrid(config) {
       // RFC-0110 v5 FIX: ALWAYS use deviceStatus from devices array, not connectionStatus from ctxData
       // The deviceStatus was calculated using RFC-0110 logic (stale telemetry detection)
       // Using connectionStatus from ctxData would bypass this logic
+      // NOTE: not_installed is now a separate category - only offline/no_info count as offline
       devices.forEach((device) => {
         const devStatus = (device.deviceStatus || '').toLowerCase();
         // Count as online if deviceStatus is NOT one of the offline states
-        const isOffline = ['offline', 'no_info', 'not_installed'].includes(devStatus);
-        if (!isOffline) {
+        // not_installed is separate, so we only check offline and no_info
+        const isOffline = ['offline', 'no_info'].includes(devStatus);
+        const isNotInstalled = devStatus === 'not_installed';
+        if (!isOffline && !isNotInstalled) {
           online++;
         }
       });
@@ -1406,7 +1409,7 @@ function createFilterModal(config) {
 
   // RFC-0103: Filter tab icons
   const filterTabIcons = {
-    online: '⚡', normal: '⚡', offline: '🔴', standby: '🔌', alert: '⚠️', failure: '🚨',
+    online: '⚡', normal: '⚡', offline: '🔴', notInstalled: '📦', standby: '🔌', alert: '⚠️', failure: '🚨',
     withConsumption: '✓', noConsumption: '○',
     elevators: '🏙', escalators: '📶', hvac: '❄️', others: '⚙️',
     commonArea: '💧', stores: '🏪', all: '📊'
@@ -1569,6 +1572,7 @@ function createFilterModal(config) {
       #${containerId} .filter-tab[data-filter="online"],
       #${containerId} .filter-tab[data-filter="normal"] { background: #dbeafe; color: #1d4ed8; }
       #${containerId} .filter-tab[data-filter="offline"] { background: #e2e8f0; color: #475569; }
+      #${containerId} .filter-tab[data-filter="notInstalled"] { background: #fef3c7; color: #92400e; }
       #${containerId} .filter-tab[data-filter="standby"],
       #${containerId} .filter-tab[data-filter="withConsumption"] { background: #dcfce7; color: #15803d; }
       #${containerId} .filter-tab[data-filter="alert"] { background: #fef3c7; color: #b45309; }
@@ -1732,7 +1736,7 @@ function createFilterModal(config) {
   // RFC-0103: Generate grouped filter tabs HTML
   function generateFilterTabsHTML(counts) {
     const filterGroups = [
-      { id: 'connectivity', label: 'Conectividade', filters: ['online', 'offline'] },
+      { id: 'connectivity', label: 'Conectividade', filters: ['online', 'offline', 'notInstalled'] },
       { id: 'status', label: 'Status', filters: ['normal', 'standby', 'alert', 'failure'] },
       { id: 'consumption', label: 'Consumo', filters: ['withConsumption', 'noConsumption'] },
       { id: 'type', label: 'Tipo', filters: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
@@ -1953,7 +1957,7 @@ function createFilterModal(config) {
   function bindFilterTabHandlers(modal, items) {
     const filterTabsEl = modal.querySelectorAll('.filter-tab');
     const filterGroups = [
-      { name: 'connectivity', ids: ['online', 'offline'] },
+      { name: 'connectivity', ids: ['online', 'offline', 'notInstalled'] },
       { name: 'status', ids: ['normal', 'standby', 'alert', 'failure'] },
       { name: 'consumption', ids: ['withConsumption', 'noConsumption'] },
       { name: 'type', ids: ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'] }
@@ -2120,12 +2124,9 @@ function createFilterModal(config) {
       || window.InfoTooltip;
 
     if (!InfoTooltip) {
-      LogHelper.warn('[MAIN] InfoTooltip not available. Paths tried: MyIOLibrary.InfoTooltip, MyIO.InfoTooltip, window.InfoTooltip');
-      LogHelper.log('[MAIN] Available on window.MyIOLibrary:', Object.keys(window.MyIOLibrary || {}));
+      LogHelper.warn('[MAIN] InfoTooltip not available');
       return;
     }
-
-    LogHelper.log('[MAIN] RFC-0110: Using InfoTooltip for filter:', filterId, 'devices:', devices.length);
 
     // Get icon and label for the filter
     const filterTabConfig = filterTabs.find((t) => t.id === filterId);
@@ -2145,7 +2146,7 @@ function createFilterModal(config) {
     } else {
       // Get status dot color based on filter
       const dotColors = {
-        online: '#22c55e', offline: '#6b7280', normal: '#3b82f6', standby: '#22c55e',
+        online: '#22c55e', offline: '#6b7280', notInstalled: '#92400e', normal: '#3b82f6', standby: '#22c55e',
         alert: '#f59e0b', failure: '#ef4444', elevators: '#7c3aed', escalators: '#db2777',
         hvac: '#0891b2', others: '#57534e', commonArea: '#0284c7', stores: '#9333ea'
       };
