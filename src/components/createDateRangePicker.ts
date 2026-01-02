@@ -1,11 +1,16 @@
 /**
  * MyIOLibrary DateRangePicker - Public API
- * 
+ *
  * A simplified, user-friendly wrapper around the internal DateRangePickerJQ component.
  * Provides a clean API for creating date range pickers with MyIO styling and Portuguese localization.
  */
 
-import { DateRangePickerJQ, type AttachOptions, type DateRangeControl, type DateRangeResult } from './premium-modals/internal/DateRangePickerJQ';
+import {
+  DateRangePickerJQ,
+  type AttachOptions,
+  type DateRangeControl,
+  type DateRangeResult,
+} from './premium-modals/internal/DateRangePickerJQ';
 
 export interface CreateDateRangePickerOptions {
   /** Preset start date (ISO string or YYYY-MM-DD) */
@@ -30,11 +35,11 @@ export interface CreateDateRangePickerOptions {
 
 /**
  * Creates a MyIO-styled date range picker on the specified input element.
- * 
+ *
  * @param input - The input element to attach the date range picker to
  * @param options - Configuration options for the date range picker
  * @returns A DateRangeControl instance with methods to interact with the picker
- * 
+ *
  * @example
  * ```typescript
  * const input = document.getElementById('date-range') as HTMLInputElement;
@@ -47,22 +52,33 @@ export interface CreateDateRangePickerOptions {
  *     'Últimos 30 dias': 'last30days'
  *   }
  * });
- * 
+ *
  * // Set a default range
  * picker.setRange('thismonth');
- * 
+ *
  * // Get selected dates
  * const { startDate, endDate } = picker;
  * ```
  */
 export async function createDateRangePicker(
-  input: HTMLInputElement, 
+  input: HTMLInputElement,
   options: CreateDateRangePickerOptions = {}
 ): Promise<DateRangeControl> {
+  // Validate input element
+  if (!(input instanceof HTMLElement)) {
+    console.error('DateRangePicker: Invalid input element provided.', input);
+    // Return a dummy control to prevent further errors
+    return {
+      getDates: () => ({ startISO: '', endISO: '', startLabel: '', endLabel: '' }),
+      setDates: (startISO: string, endISO: string) => {},
+      destroy: () => {},
+    };
+  }
+
   // Set default options
   const defaultOptions: AttachOptions = {
     maxRangeDays: 31,
-    ...options
+    ...options,
   };
 
   // Use the internal DateRangePickerJQ component

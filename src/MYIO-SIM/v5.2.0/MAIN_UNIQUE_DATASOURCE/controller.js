@@ -9,6 +9,11 @@
 self.onInit = async function () {
   'use strict';
 
+  // Debug helper function
+  const logDebug = self.ctx.settings?.enableDebugMode
+    ? (...args) => console.log('[MAIN_UNIQUE]', ...args)
+    : () => {};
+
   // === 1. CONFIGURATION ===
   const settings = self.ctx.settings || {};
   let currentThemeMode = settings.defaultThemeMode || 'dark';
@@ -200,7 +205,7 @@ self.onInit = async function () {
     // NOTE: RFC-0113 header updates via events, not direct method calls
     // The header component listens to 'myio:data-ready' event automatically
     if (headerInstance && deviceCounts) {
-      logDebug('[MAIN] Header will update via event listeners');
+      logDebug('[MAIN_UNIQUE] Header will update via event listeners');
     }
 
     // Update menu shoppings

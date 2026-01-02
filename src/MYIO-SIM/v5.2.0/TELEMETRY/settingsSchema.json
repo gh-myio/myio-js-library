@@ -14,15 +14,16 @@
         "type": "string",
         "title": "Context (Contexto)",
         "enum": [
-          "equipments",
+          "entry",
+          "common_area",
           "stores",
-          "hidrometro_area_comum",
-          "hidrometro",
-          "termostato",
-          "termostato_external"
+          "head_office",
+          "equipments",
+          "with_climate_control",
+          "without_climate_control"
         ],
-        "default": "equipments",
-        "description": "Contexto: equipments/stores (energy), hidrometro_area_comum/hidrometro (water), termostato/termostato_external (temp)"
+        "default": "entry",
+        "description": "Contexto: entry (equipamentos em geral), common_area (área comum), stores (lojas), head_office (sede/matriz), equipments (energia), with_climate_control (temperatura com climatização), without_climate_control (temperatura sem climatização)"
       },
       "useNewComponents": {
         "type": "boolean",

@@ -190,6 +190,18 @@ const CONTEXT_CONFIG = {
     widgetName: 'TELEMETRY_HEAD_OFFICE',
     filterChipIcon: '🏬',
   },
+  equipments: {
+    filterFn: (device) => !isStoreDevice(device),
+    aliasNames: {
+      energy: null,
+      water: null,
+      temperature: null,
+    },
+    headerLabel: 'Total de Equipamentos',
+    idPrefix: 'equipments',
+    widgetName: 'TELEMETRY_EQUIPMENTS',
+    filterChipIcon: '⚡',
+  },
   with_climate_control: {
     filterFn: (device) => {
       // Temperature sensors WITH climate control
