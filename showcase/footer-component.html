@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Footer Component - RFC-0115 Showcase</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
+      min-height: 100vh;
+      color: #f5f7fa;
+      padding: 40px;
+      padding-bottom: 120px; /* Space for footer */
+    }
+
+    .showcase-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #9E8CBE 0%, #8472A8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: #b8c2d8;
+      margin-bottom: 32px;
+    }
+
+    .section {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #f5f7fa;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .demo-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 16px 24px;
+      background: linear-gradient(135deg, #9E8CBE 0%, #8472A8 100%);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 20px rgba(158, 140, 190, 0.3);
+    }
+
+    .demo-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(158, 140, 190, 0.4);
+    }
+
+    .demo-btn:active {
+      transform: translateY(0);
+    }
+
+    .demo-btn.secondary {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: none;
+    }
+
+    .demo-btn.secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .demo-btn.success {
+      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+    }
+
+    .demo-btn.warning {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
+    }
+
+    .demo-btn.danger {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+    }
+
+    /* Device Cards Grid */
+    .device-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .device-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .device-card:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(158, 140, 190, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .device-card.selected {
+      background: rgba(158, 140, 190, 0.2);
+      border-color: rgba(158, 140, 190, 0.6);
+    }
+
+    .device-card.dragging {
+      opacity: 0.5;
+    }
+
+    .device-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .device-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f5f7fa;
+      margin-bottom: 4px;
+    }
+
+    .device-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #9E8CBE;
+    }
+
+    .device-customer {
+      font-size: 11px;
+      color: #b8c2d8;
+      margin-top: 4px;
+    }
+
+    .code-block {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: 'Monaco', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #e6e6e6;
+    }
+
+    .code-block .keyword {
+      color: #c678dd;
+    }
+
+    .code-block .string {
+      color: #98c379;
+    }
+
+    .code-block .function {
+      color: #61afef;
+    }
+
+    .code-block .property {
+      color: #e5c07b;
+    }
+
+    .code-block .comment {
+      color: #5c6370;
+    }
+
+    .log-container {
+      margin-top: 16px;
+      max-height: 200px;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-entry .time {
+      color: #6b7280;
+    }
+
+    .log-entry .event {
+      color: #9E8CBE;
+      font-weight: 600;
+    }
+
+    .log-entry .data {
+      color: #98c379;
+    }
+
+    .info-box {
+      background: rgba(158, 140, 190, 0.1);
+      border: 1px solid rgba(158, 140, 190, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+
+    .info-box p {
+      margin: 0;
+      font-size: 14px;
+      color: #b8c2d8;
+    }
+
+    .info-box code {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      color: #9E8CBE;
+    }
+
+    /* Footer Container */
+    #footer-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+    }
+
+    /* Domain tabs */
+    .domain-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .domain-tab {
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: #b8c2d8;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .domain-tab:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .domain-tab.active {
+      background: rgba(158, 140, 190, 0.2);
+      border-color: rgba(158, 140, 190, 0.5);
+      color: #f5f7fa;
+    }
+  </style>
+</head>
+<body>
+  <div class="showcase-container">
+    <h1>Footer Component</h1>
+    <p class="subtitle">RFC-0115: Footer Component Library - MYIO Library Showcase</p>
+
+    <!-- Demo Section -->
+    <div class="section">
+      <h2 class="section-title">Demo - Select Devices</h2>
+      <p style="color: #b8c2d8; margin-bottom: 16px;">
+        Click on device cards to add them to the footer dock. The footer will appear at the bottom of the page.
+        You can also drag cards to the footer.
+      </p>
+
+      <!-- Domain Tabs -->
+      <div class="domain-tabs">
+        <button class="domain-tab active" data-domain="energy" onclick="switchDomain('energy')">
+          Energy
+        </button>
+        <button class="domain-tab" data-domain="water" onclick="switchDomain('water')">
+          Water
+        </button>
+        <button class="domain-tab" data-domain="temperature" onclick="switchDomain('temperature')">
+          Temperature
+        </button>
+      </div>
+
+      <!-- Device Cards -->
+      <div class="device-grid" id="deviceGrid">
+        <!-- Populated by JavaScript -->
+      </div>
+
+      <div class="info-box">
+        <p>
+          <strong>Features:</strong> Selection dock with chips, unit type validation,
+          drag & drop support, comparison modal integration, limit alerts.
+        </p>
+        <p style="margin-top: 8px;">
+          <strong>Limit:</strong> Maximum <code>6</code> devices can be selected for comparison.
+          Selecting devices of different types (energy vs water) will show an alert.
+        </p>
+      </div>
+    </div>
+
+    <!-- Control Buttons -->
+    <div class="section">
+      <h2 class="section-title">Controls</h2>
+      <div class="button-grid">
+        <button class="demo-btn" onclick="addRandomDevice()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Add Random Device
+        </button>
+        <button class="demo-btn secondary" onclick="clearSelection()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          Clear All
+        </button>
+        <button class="demo-btn warning" onclick="showLimitAlert()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          Show Limit Alert
+        </button>
+        <button class="demo-btn danger" onclick="showMixedAlert()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+          Show Mixed Types Alert
+        </button>
+        <button class="demo-btn success" onclick="toggleTheme()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+          </svg>
+          Toggle Theme
+        </button>
+        <button class="demo-btn secondary" onclick="destroyFooter()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18"></path>
+            <path d="M6 6l12 12"></path>
+          </svg>
+          Destroy Footer
+        </button>
+      </div>
+    </div>
+
+    <!-- Event Log Section -->
+    <div class="section">
+      <h2 class="section-title">Event Log</h2>
+      <div class="log-container" id="eventLog">
+        <div class="log-entry">
+          <span class="time">[--:--:--]</span>
+          <span class="event">Ready</span>
+          <span class="data">Click device cards to add to footer</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Code Example Section -->
+    <div class="section">
+      <h2 class="section-title">Usage Example</h2>
+      <div class="code-block">
+<span class="keyword">import</span> { <span class="function">createFooterComponent</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="keyword">const</span> footer = <span class="function">createFooterComponent</span>({
+  <span class="property">container</span>: <span class="function">document</span>.<span class="function">getElementById</span>(<span class="string">'footer-container'</span>),
+  <span class="property">theme</span>: <span class="string">'dark'</span>,
+  <span class="property">maxSelections</span>: <span class="number">6</span>,
+  <span class="property">emptyMessage</span>: <span class="string">'Selecione dispositivos para comparar'</span>,
+  <span class="property">compareButtonLabel</span>: <span class="string">'Comparar'</span>,
+  <span class="property">onCompareClick</span>: (entities, unitType) => {
+    <span class="function">console</span>.<span class="function">log</span>(<span class="string">'Compare:'</span>, entities.<span class="property">length</span>, unitType);
+  },
+  <span class="property">onSelectionChange</span>: (entities) => {
+    <span class="function">console</span>.<span class="function">log</span>(<span class="string">'Selection:'</span>, entities.<span class="property">length</span>);
+  },
+  <span class="property">onLimitReached</span>: (limit) => {
+    <span class="function">console</span>.<span class="function">log</span>(<span class="string">'Limit reached:'</span>, limit);
+  },
+});
+
+<span class="comment">// Add entity programmatically</span>
+footer.<span class="function">addEntity</span>({
+  <span class="property">id</span>: <span class="string">'device-1'</span>,
+  <span class="property">name</span>: <span class="string">'Medidor 01'</span>,
+  <span class="property">customerName</span>: <span class="string">'Shopping A'</span>,
+  <span class="property">lastValue</span>: <span class="number">1250.5</span>,
+  <span class="property">unit</span>: <span class="string">'kWh'</span>,
+  <span class="property">icon</span>: <span class="string">'energy'</span>,
+  <span class="property">ingestionId</span>: <span class="string">'ing-123'</span>,
+});
+
+<span class="comment">// Clear selection</span>
+footer.<span class="function">clearSelection</span>();
+
+<span class="comment">// Destroy when done</span>
+footer.<span class="function">destroy</span>();
+      </div>
+    </div>
+
+    <!-- API Reference Section -->
+    <div class="section">
+      <h2 class="section-title">API Reference</h2>
+      <div class="code-block">
+<span class="keyword">interface</span> FooterComponentParams {
+  <span class="property">container</span>: HTMLElement;             <span class="comment">// Required: container element</span>
+  <span class="property">ctx</span>?: ThingsboardWidgetContext;     <span class="comment">// For navigation & date range</span>
+  <span class="property">selectionStore</span>?: SelectionStore;   <span class="comment">// Custom store (default: window.MyIOSelectionStore)</span>
+  <span class="property">maxSelections</span>?: <span class="keyword">number</span>;            <span class="comment">// Max selections (default: 6)</span>
+  <span class="property">emptyMessage</span>?: <span class="keyword">string</span>;             <span class="comment">// Empty dock message</span>
+  <span class="property">compareButtonLabel</span>?: <span class="keyword">string</span>;       <span class="comment">// Compare button text</span>
+  <span class="property">theme</span>?: <span class="string">'dark'</span> | <span class="string">'light'</span>;          <span class="comment">// Theme mode (default: 'dark')</span>
+  <span class="property">colors</span>?: FooterColors;               <span class="comment">// Custom colors</span>
+  <span class="property">chartsBaseUrl</span>?: <span class="keyword">string</span>;            <span class="comment">// Charts SDK base URL</span>
+  <span class="property">getDateRange</span>?: () => DateRange;     <span class="comment">// Date range getter</span>
+  <span class="property">getIngestionToken</span>?: () => <span class="keyword">string</span>;  <span class="comment">// Token getter for API</span>
+  <span class="property">onCompareClick</span>?: (entities, type) => <span class="keyword">void</span>;
+  <span class="property">onSelectionChange</span>?: (entities) => <span class="keyword">void</span>;
+  <span class="property">onLimitReached</span>?: (limit) => <span class="keyword">void</span>;
+  <span class="property">onMixedTypes</span>?: (types) => <span class="keyword">void</span>;
+  <span class="property">onChipRemove</span>?: (entityId) => <span class="keyword">void</span>;
+  <span class="property">onClearClick</span>?: () => <span class="keyword">void</span>;
+}
+
+<span class="keyword">interface</span> FooterComponentInstance {
+  <span class="property">addEntity</span>: (entity) => <span class="keyword">boolean</span>;    <span class="comment">// Add entity to selection</span>
+  <span class="property">removeEntity</span>: (id) => <span class="keyword">void</span>;        <span class="comment">// Remove entity by ID</span>
+  <span class="property">clearSelection</span>: () => <span class="keyword">void</span>;        <span class="comment">// Clear all selections</span>
+  <span class="property">getSelectedEntities</span>: () => Entity[];
+  <span class="property">getSelectionCount</span>: () => <span class="keyword">number</span>;
+  <span class="property">getCurrentUnitType</span>: () => <span class="keyword">string</span> | <span class="keyword">null</span>;
+  <span class="property">setDateRange</span>: (start, end) => <span class="keyword">void</span>;
+  <span class="property">setTheme</span>: (theme) => <span class="keyword">void</span>;
+  <span class="property">getTheme</span>: () => <span class="keyword">string</span>;
+  <span class="property">openCompareModal</span>: () => Promise&lt;<span class="keyword">void</span>&gt;;
+  <span class="property">showLimitAlert</span>: () => <span class="keyword">void</span>;
+  <span class="property">showMixedTypesAlert</span>: () => <span class="keyword">void</span>;
+  <span class="property">hideAlert</span>: () => <span class="keyword">void</span>;
+  <span class="property">destroy</span>: () => <span class="keyword">void</span>;
+  <span class="property">element</span>: HTMLElement;
+}
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer Container -->
+  <div id="footer-container"></div>
+
+  <!-- Load the library -->
+  <script src="../dist/myio-js-library.umd.js"></script>
+
+  <script>
+    // Event logging helper
+    function logEvent(event, data) {
+      const log = document.getElementById('eventLog');
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `
+        <span class="time">[${time}]</span>
+        <span class="event">${event}</span>
+        <span class="data">${data || ''}</span>
+      `;
+      log.insertBefore(entry, log.firstChild);
+    }
+
+    // Mock devices by domain
+    const MOCK_DEVICES = {
+      energy: [
+        { id: 'energy-1', name: 'Medidor 01', customerName: 'Shopping A', lastValue: 1250.5, unit: 'kWh', icon: 'energy', ingestionId: 'ing-e1' },
+        { id: 'energy-2', name: 'Medidor 02', customerName: 'Shopping A', lastValue: 980.3, unit: 'kWh', icon: 'energy', ingestionId: 'ing-e2' },
+        { id: 'energy-3', name: 'Medidor 03', customerName: 'Shopping B', lastValue: 2100.8, unit: 'kWh', icon: 'energy', ingestionId: 'ing-e3' },
+        { id: 'energy-4', name: 'Medidor 04', customerName: 'Shopping B', lastValue: 750.2, unit: 'kWh', icon: 'energy', ingestionId: 'ing-e4' },
+        { id: 'energy-5', name: 'Medidor 05', customerName: 'Shopping C', lastValue: 1890.1, unit: 'kWh', icon: 'energy', ingestionId: 'ing-e5' },
+        { id: 'energy-6', name: 'Medidor 06', customerName: 'Shopping C', lastValue: 1456.7, unit: 'kWh', icon: 'energy', ingestionId: 'ing-e6' },
+        { id: 'energy-7', name: 'Medidor 07', customerName: 'Shopping D', lastValue: 2340.9, unit: 'kWh', icon: 'energy', ingestionId: 'ing-e7' },
+        { id: 'energy-8', name: 'Medidor 08', customerName: 'Shopping D', lastValue: 890.4, unit: 'kWh', icon: 'energy', ingestionId: 'ing-e8' },
+      ],
+      water: [
+        { id: 'water-1', name: 'Hidrometro 01', customerName: 'Shopping A', lastValue: 45.2, unit: 'm3', icon: 'water', ingestionId: 'ing-w1' },
+        { id: 'water-2', name: 'Hidrometro 02', customerName: 'Shopping A', lastValue: 32.8, unit: 'm3', icon: 'water', ingestionId: 'ing-w2' },
+        { id: 'water-3', name: 'Hidrometro 03', customerName: 'Shopping B', lastValue: 67.5, unit: 'm3', icon: 'water', ingestionId: 'ing-w3' },
+        { id: 'water-4', name: 'Hidrometro 04', customerName: 'Shopping B', lastValue: 28.1, unit: 'm3', icon: 'water', ingestionId: 'ing-w4' },
+        { id: 'water-5', name: 'Hidrometro 05', customerName: 'Shopping C', lastValue: 51.9, unit: 'm3', icon: 'water', ingestionId: 'ing-w5' },
+        { id: 'water-6', name: 'Hidrometro 06', customerName: 'Shopping C', lastValue: 39.4, unit: 'm3', icon: 'water', ingestionId: 'ing-w6' },
+      ],
+      temperature: [
+        { id: 'temp-1', name: 'Sensor 01', customerName: 'Shopping A', lastValue: 22.5, unit: 'C', icon: 'temperature', ingestionId: 'ing-t1', temperatureMin: 18, temperatureMax: 26 },
+        { id: 'temp-2', name: 'Sensor 02', customerName: 'Shopping A', lastValue: 24.1, unit: 'C', icon: 'temperature', ingestionId: 'ing-t2', temperatureMin: 18, temperatureMax: 26 },
+        { id: 'temp-3', name: 'Sensor 03', customerName: 'Shopping B', lastValue: 21.8, unit: 'C', icon: 'temperature', ingestionId: 'ing-t3', temperatureMin: 18, temperatureMax: 26 },
+        { id: 'temp-4', name: 'Sensor 04', customerName: 'Shopping B', lastValue: 23.4, unit: 'C', icon: 'temperature', ingestionId: 'ing-t4', temperatureMin: 18, temperatureMax: 26 },
+        { id: 'temp-5', name: 'Sensor 05', customerName: 'Shopping C', lastValue: 25.2, unit: 'C', icon: 'temperature', ingestionId: 'ing-t5', temperatureMin: 18, temperatureMax: 26 },
+        { id: 'temp-6', name: 'Sensor 06', customerName: 'Shopping C', lastValue: 20.9, unit: 'C', icon: 'temperature', ingestionId: 'ing-t6', temperatureMin: 18, temperatureMax: 26 },
+      ],
+    };
+
+    const DOMAIN_ICONS = {
+      energy: '&#9889;', // Lightning bolt
+      water: '&#128167;', // Water drop
+      temperature: '&#127777;', // Thermometer
+    };
+
+    let currentDomain = 'energy';
+    let footerInstance = null;
+    let selectedIds = new Set();
+
+    // Map for device lookup by ID (for drag & drop)
+    const deviceMap = new Map();
+    Object.values(MOCK_DEVICES).flat().forEach(d => deviceMap.set(d.id, d));
+
+    // Handle drop event - convert ID to entity and add
+    function handleDropOnFooter(entityId) {
+      const device = deviceMap.get(entityId);
+      if (device && footerInstance) {
+        // Check if mixing types
+        const currentType = footerInstance.getCurrentUnitType();
+        if (currentType && device.icon !== currentType) {
+          logEvent('Drop Rejected', `Cannot mix ${currentType} with ${device.icon}`);
+          return;
+        }
+
+        const success = footerInstance.addEntity(device);
+        if (success) {
+          selectedIds.add(entityId);
+          renderDeviceCards();
+          logEvent('Drop Added', `Device: ${device.name}`);
+        }
+      }
+    }
+
+    // Initialize footer component
+    function initFooter() {
+      if (footerInstance) {
+        footerInstance.destroy();
+      }
+
+      footerInstance = MyIOLibrary.createFooterComponent({
+        container: document.getElementById('footer-container'),
+        theme: 'dark',
+        maxSelections: 6,
+        emptyMessage: 'Selecione dispositivos para comparar',
+        compareButtonLabel: 'Comparar',
+        debug: true,
+        onCompareClick: (entities, unitType) => {
+          logEvent('onCompareClick', `${entities.length} entities, type: ${unitType}`);
+        },
+        onSelectionChange: (entities) => {
+          logEvent('onSelectionChange', `${entities.length} entities selected`);
+          updateCardStates(entities);
+        },
+        onLimitReached: (limit) => {
+          logEvent('onLimitReached', `Limit: ${limit}`);
+        },
+        onMixedTypes: (types) => {
+          logEvent('onMixedTypes', `Types: ${types.join(', ')}`);
+        },
+        onChipRemove: (entityId) => {
+          logEvent('onChipRemove', `Entity: ${entityId}`);
+          selectedIds.delete(entityId);
+          renderDeviceCards();
+        },
+        onClearClick: () => {
+          logEvent('onClearClick', 'Selection cleared');
+          selectedIds.clear();
+          renderDeviceCards();
+        },
+      });
+
+      // Add drop listener to footer element
+      const footerEl = footerInstance.element;
+      footerEl.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const entityId = e.dataTransfer?.getData('text/myio-id') || e.dataTransfer?.getData('text/plain');
+        if (entityId) {
+          handleDropOnFooter(entityId);
+        }
+      });
+      footerEl.addEventListener('dragover', (e) => e.preventDefault());
+
+      logEvent('Footer Created', 'Footer component initialized');
+    }
+
+    // Render device cards for current domain
+    function renderDeviceCards() {
+      const grid = document.getElementById('deviceGrid');
+      const devices = MOCK_DEVICES[currentDomain];
+      const icon = DOMAIN_ICONS[currentDomain];
+
+      grid.innerHTML = devices.map(device => `
+        <div
+          class="device-card ${selectedIds.has(device.id) ? 'selected' : ''}"
+          data-device-id="${device.id}"
+          draggable="true"
+          onclick="toggleDevice('${device.id}')"
+          ondragstart="handleDragStart(event, '${device.id}')"
+        >
+          <div class="device-icon">${icon}</div>
+          <div class="device-name">${device.name}</div>
+          <div class="device-value">${device.lastValue} ${device.unit}</div>
+          <div class="device-customer">${device.customerName}</div>
+        </div>
+      `).join('');
+    }
+
+    // Update card states based on selection
+    function updateCardStates(entities) {
+      selectedIds.clear();
+      entities.forEach(e => selectedIds.add(e.id));
+      renderDeviceCards();
+    }
+
+    // Toggle device selection
+    function toggleDevice(deviceId) {
+      const device = MOCK_DEVICES[currentDomain].find(d => d.id === deviceId);
+      if (!device) return;
+
+      if (selectedIds.has(deviceId)) {
+        footerInstance.removeEntity(deviceId);
+        selectedIds.delete(deviceId);
+      } else {
+        const success = footerInstance.addEntity(device);
+        if (success) {
+          selectedIds.add(deviceId);
+        }
+      }
+      renderDeviceCards();
+    }
+
+    // Handle drag start
+    function handleDragStart(event, deviceId) {
+      event.dataTransfer.setData('text/myio-id', deviceId);
+      event.dataTransfer.setData('text/plain', deviceId);
+      event.target.classList.add('dragging');
+      setTimeout(() => event.target.classList.remove('dragging'), 0);
+    }
+
+    // Switch domain (energy/water/temperature)
+    function switchDomain(domain) {
+      currentDomain = domain;
+
+      // Update tab styles
+      document.querySelectorAll('.domain-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.domain === domain);
+      });
+
+      // Clear selection when switching domains
+      if (footerInstance) {
+        footerInstance.clearSelection();
+      }
+      selectedIds.clear();
+
+      // Re-render cards
+      renderDeviceCards();
+
+      logEvent('Domain Switched', `Now showing ${domain} devices`);
+    }
+
+    // Add random device
+    function addRandomDevice() {
+      const devices = MOCK_DEVICES[currentDomain];
+      const unselected = devices.filter(d => !selectedIds.has(d.id));
+
+      if (unselected.length === 0) {
+        logEvent('Add Random', 'All devices already selected');
+        return;
+      }
+
+      const randomDevice = unselected[Math.floor(Math.random() * unselected.length)];
+      const success = footerInstance.addEntity(randomDevice);
+
+      if (success) {
+        selectedIds.add(randomDevice.id);
+        renderDeviceCards();
+        logEvent('Add Random', `Added: ${randomDevice.name}`);
+      }
+    }
+
+    // Clear selection
+    function clearSelection() {
+      footerInstance.clearSelection();
+      selectedIds.clear();
+      renderDeviceCards();
+      logEvent('Clear', 'Selection cleared');
+    }
+
+    // Show limit alert
+    function showLimitAlert() {
+      footerInstance.showLimitAlert();
+      logEvent('Alert', 'Showing limit alert');
+    }
+
+    // Show mixed types alert
+    function showMixedAlert() {
+      footerInstance.showMixedTypesAlert();
+      logEvent('Alert', 'Showing mixed types alert');
+    }
+
+    // Toggle theme
+    function toggleTheme() {
+      const currentTheme = footerInstance.getTheme();
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      footerInstance.setTheme(newTheme);
+      logEvent('Theme', `Changed to: ${newTheme}`);
+    }
+
+    // Destroy footer
+    function destroyFooter() {
+      if (footerInstance) {
+        footerInstance.destroy();
+        footerInstance = null;
+        selectedIds.clear();
+        renderDeviceCards();
+        logEvent('Destroyed', 'Footer component destroyed');
+      }
+    }
+
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('[Footer Showcase] MyIOLibrary loaded:', !!window.MyIOLibrary);
+      console.log('[Footer Showcase] createFooterComponent available:', !!window.MyIOLibrary?.createFooterComponent);
+
+      initFooter();
+      renderDeviceCards();
+    });
+  </script>
+</body>
+</html>

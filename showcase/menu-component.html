@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RFC-0114: Menu Component - Showcase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      min-height: 100vh;
+      padding: 20px;
+      color: #e2e8f0;
+    }
+
+    .showcase-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .showcase-header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 8px;
+    }
+
+    .showcase-header p {
+      color: #94a3b8;
+      font-size: 14px;
+    }
+
+    /* Main Layout */
+    .showcase-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Error Display */
+    .error-display {
+      background: #7f1d1d;
+      border: 2px solid #dc2626;
+      border-radius: 12px;
+      padding: 20px;
+      color: #fecaca;
+      display: none;
+    }
+
+    .error-display.visible {
+      display: block;
+    }
+
+    .error-display h3 {
+      color: #fca5a5;
+      margin-bottom: 10px;
+    }
+
+    .error-display pre {
+      background: #450a0a;
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
+    /* Menu Mount Area */
+    .menu-mount-container {
+      background: #fff;
+      border-radius: 12px;
+      padding: 0;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      min-height: 60px;
+      transition: background 0.3s ease;
+    }
+
+    .menu-mount-container.dark-mode {
+      background: #1f2937;
+    }
+
+    #menu-mount {
+      /* Menu will be rendered here */
+    }
+
+    /* Theme Toggle Button */
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: #fbbf24;
+      color: #1f2937;
+      border: none;
+    }
+
+    .theme-toggle:hover {
+      background: #f59e0b;
+    }
+
+    .theme-toggle.dark {
+      background: #4f46e5;
+      color: #fff;
+    }
+
+    .theme-toggle.dark:hover {
+      background: #4338ca;
+    }
+
+    /* Content Area (simulated MAIN_VIEW) */
+    .content-area {
+      background: #1e293b;
+      border-radius: 12px;
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      border: 2px dashed #334155;
+      color: #94a3b8;
+    }
+
+    .content-area .state-label {
+      font-size: 24px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .content-area .state-info {
+      font-size: 14px;
+      color: #64748b;
+    }
+
+    /* Controls Panel */
+    .controls-panel {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid #334155;
+    }
+
+    .controls-panel h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 16px;
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .controls-panel button {
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .controls-panel button.primary {
+      background: #3b82f6;
+      color: white;
+      border: none;
+    }
+
+    .controls-panel button.primary:hover {
+      background: #2563eb;
+    }
+
+    .controls-panel button.secondary {
+      background: transparent;
+      color: #e2e8f0;
+      border: 1px solid #475569;
+    }
+
+    .controls-panel button.secondary:hover {
+      background: #334155;
+    }
+
+    .controls-panel button.danger {
+      background: #dc2626;
+      color: white;
+      border: none;
+    }
+
+    .controls-panel button.danger:hover {
+      background: #b91c1c;
+    }
+
+    /* Event Log */
+    .event-log {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 16px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 12px;
+    }
+
+    .event-log-entry {
+      padding: 6px 10px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+      background: #1e293b;
+      display: flex;
+      gap: 10px;
+    }
+
+    .event-log-entry .time {
+      color: #64748b;
+      min-width: 80px;
+    }
+
+    .event-log-entry .event-name {
+      color: #22c55e;
+      min-width: 180px;
+    }
+
+    .event-log-entry .event-data {
+      color: #94a3b8;
+      flex: 1;
+      word-break: break-all;
+    }
+
+    .event-log-entry.error .event-name {
+      color: #f87171;
+    }
+
+    /* Status indicator */
+    .status-indicator {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .status-indicator.success {
+      background: #166534;
+      color: #86efac;
+    }
+
+    .status-indicator.error {
+      background: #7f1d1d;
+      color: #fca5a5;
+    }
+
+    .status-indicator.loading {
+      background: #1e3a5f;
+      color: #93c5fd;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+
+      .controls-row {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="showcase-header">
+    <h1>RFC-0114: Menu Component</h1>
+    <p>Componente de menu reutilizavel para dashboards MYIO - Inline (nao modal)</p>
+  </div>
+
+  <div class="showcase-container">
+    <!-- Error Display -->
+    <div id="error-display" class="error-display">
+      <h3>Erro ao inicializar</h3>
+      <p id="error-message"></p>
+      <pre id="error-stack"></pre>
+    </div>
+
+    <!-- Status -->
+    <div id="status" class="status-indicator loading">Carregando biblioteca...</div>
+
+    <!-- Menu Mount Area -->
+    <div class="menu-mount-container">
+      <div id="menu-mount"></div>
+    </div>
+
+    <!-- Simulated Content Area -->
+    <div class="content-area" id="content-area">
+      <div class="state-label" id="state-label">content_equipments</div>
+      <div class="state-info">Area de conteudo (simula o MAIN_VIEW)</div>
+      <div class="state-info">Clique nas abas e contextos para ver a troca de estados</div>
+    </div>
+
+    <!-- Controls Panel -->
+    <div class="controls-panel">
+      <h3>Controles Programaticos</h3>
+
+      <div class="controls-row">
+        <button class="primary" onclick="setTabEnergy()">Ativar Energia</button>
+        <button class="primary" onclick="setTabWater()">Ativar Agua</button>
+        <button class="primary" onclick="setTabTemperature()">Ativar Temperatura</button>
+      </div>
+
+      <div class="controls-row">
+        <button class="secondary" onclick="openFilter()">Abrir Filtro</button>
+        <button class="secondary" onclick="triggerLoad()">Simular Load</button>
+        <button class="secondary" onclick="triggerClear()">Simular Clear</button>
+        <button class="secondary" onclick="updateShoppings()">Carregar Shoppings</button>
+      </div>
+
+      <div class="controls-row">
+        <button class="secondary" onclick="setDateRange()">Definir Datas (Julho 2024)</button>
+        <button class="secondary" onclick="getState()">Log Estado Atual</button>
+        <button class="danger" onclick="destroyMenu()">Destruir Menu</button>
+        <button class="primary" onclick="recreateMenu()">Recriar Menu</button>
+      </div>
+
+      <div class="controls-row">
+        <button id="theme-toggle" class="theme-toggle" onclick="toggleTheme()">
+          <span id="theme-icon">☀️</span>
+          <span id="theme-label">Modo Claro</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Event Log -->
+    <div class="controls-panel">
+      <h3>Log de Eventos</h3>
+      <div class="event-log" id="event-log">
+        <div class="event-log-entry">
+          <span class="time">--:--:--</span>
+          <span class="event-name">Aguardando eventos...</span>
+          <span class="event-data"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load the library -->
+  <script src="../dist/myio-js-library.umd.js"></script>
+  <script>
+    // Global menu instance
+    let menuInstance = null;
+
+    // Show error
+    function showError(message, error) {
+      const errorDisplay = document.getElementById('error-display');
+      const errorMessage = document.getElementById('error-message');
+      const errorStack = document.getElementById('error-stack');
+      const status = document.getElementById('status');
+
+      errorDisplay.classList.add('visible');
+      errorMessage.textContent = message;
+      errorStack.textContent = error?.stack || error?.message || String(error);
+
+      status.textContent = 'Erro';
+      status.className = 'status-indicator error';
+
+      console.error('[Showcase Error]', message, error);
+    }
+
+    // Update status
+    function updateStatus(text, type) {
+      const status = document.getElementById('status');
+      status.textContent = text;
+      status.className = `status-indicator ${type}`;
+    }
+
+    // Event log helper
+    function logEvent(eventName, data, isError = false) {
+      const logEl = document.getElementById('event-log');
+      const time = new Date().toLocaleTimeString('pt-BR');
+      const dataStr = data ? JSON.stringify(data) : '';
+
+      const entry = document.createElement('div');
+      entry.className = `event-log-entry${isError ? ' error' : ''}`;
+      entry.innerHTML = `
+        <span class="time">${time}</span>
+        <span class="event-name">${eventName}</span>
+        <span class="event-data">${dataStr}</span>
+      `;
+
+      // Insert at top
+      logEl.insertBefore(entry, logEl.firstChild);
+
+      // Limit to 50 entries
+      while (logEl.children.length > 50) {
+        logEl.removeChild(logEl.lastChild);
+      }
+    }
+
+    // Update content area to show current state
+    function updateContentArea(target) {
+      const label = document.getElementById('state-label');
+      if (label) {
+        label.textContent = target || 'N/A';
+      }
+    }
+
+    // Listen for custom events
+    document.addEventListener('myio:switch-main-state', (e) => {
+      logEvent('myio:switch-main-state', e.detail);
+      updateContentArea(e.detail.targetStateId);
+    });
+
+    document.addEventListener('myio:dashboard-state', (e) => {
+      logEvent('myio:dashboard-state', e.detail);
+    });
+
+    document.addEventListener('myio:update-date', (e) => {
+      logEvent('myio:update-date', e.detail);
+    });
+
+    document.addEventListener('myio:filter-applied', (e) => {
+      logEvent('myio:filter-applied', { count: e.detail.selection?.length });
+    });
+
+    document.addEventListener('myio:request-reload', (e) => {
+      logEvent('myio:request-reload', e.detail);
+    });
+
+    document.addEventListener('myio:force-refresh', (e) => {
+      logEvent('myio:force-refresh', e.detail);
+    });
+
+    document.addEventListener('myio:customers-ready', (e) => {
+      logEvent('myio:customers-ready', { count: e.detail.count });
+    });
+
+    document.addEventListener('myio:open-goals-panel', (e) => {
+      logEvent('myio:open-goals-panel', e.detail);
+    });
+
+    document.addEventListener('myio:theme-change', (e) => {
+      logEvent('myio:theme-change', e.detail);
+    });
+
+    // Create the menu
+    function createMenu(config = {}) {
+      try {
+        const container = document.getElementById('menu-mount');
+        if (!container) {
+          throw new Error('Container #menu-mount not found');
+        }
+
+        // Clear container
+        container.innerHTML = '';
+
+        // Check if library is loaded
+        if (typeof MyIOLibrary === 'undefined') {
+          throw new Error('MyIOLibrary not loaded. The UMD bundle may not have loaded correctly.');
+        }
+
+        // Check if createMenuComponent exists
+        if (typeof MyIOLibrary.createMenuComponent !== 'function') {
+          const availableKeys = Object.keys(MyIOLibrary).slice(0, 20);
+          throw new Error(`createMenuComponent not found in MyIOLibrary. Available exports: ${availableKeys.join(', ')}...`);
+        }
+
+        logEvent('Criando menu...', {});
+
+        const defaultConfig = {
+          tabSelecionadoBackgroundColor: '#2F5848',
+          tabSelecionadoFontColor: '#F2F2F2',
+          tabNaoSelecionadoBackgroundColor: '#FFFFFF',
+          tabNaoSelecionadoFontColor: '#1C2743',
+          botaoCarregarBackgroundColor: '#2F5848',
+          botaoCarregarFontColor: '#F2F2F2',
+          botaoLimparBackgroundColor: '#FFFFFF',
+          botaoLimparFontColor: '#1C2743',
+          botaoMetasBackgroundColor: '#6a1b9a',
+          botaoMetasFontColor: '#F2F2F2',
+          enableDebugMode: true,
+        };
+
+        menuInstance = MyIOLibrary.createMenuComponent({
+          container,
+          configTemplate: { ...defaultConfig, ...config },
+          initialTab: 'energy',
+          initialDateRange: {
+            start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+            end: new Date(),
+          },
+          onTabChange: (tabId, contextId, target) => {
+            console.log('[Showcase] Tab changed:', tabId, contextId, target);
+          },
+          onContextChange: (tabId, contextId, target) => {
+            console.log('[Showcase] Context changed:', tabId, contextId, target);
+          },
+          onDateRangeChange: (start, end) => {
+            console.log('[Showcase] Date range changed:', start, end);
+            logEvent('Date Range Changed', {
+              start: start.toLocaleDateString('pt-BR'),
+              end: end.toLocaleDateString('pt-BR')
+            });
+          },
+          onFilterApply: (selection) => {
+            console.log('[Showcase] Filter applied:', selection);
+          },
+          onLoad: () => {
+            console.log('[Showcase] Load clicked');
+          },
+          onClear: () => {
+            console.log('[Showcase] Clear clicked');
+          },
+          onGoals: () => {
+            console.log('[Showcase] Goals clicked');
+          },
+          onShoppingsReady: (shoppings) => {
+            console.log('[Showcase] Shoppings ready:', shoppings.length);
+          },
+          onThemeChange: (themeMode) => {
+            console.log('[Showcase] Theme changed:', themeMode);
+            updateThemeUI(themeMode);
+          },
+        });
+
+        updateStatus('Menu criado com sucesso!', 'success');
+        logEvent('Menu criado', { tabs: 3 });
+
+        // Load shoppings after creation
+        setTimeout(updateShoppings, 500);
+
+      } catch (error) {
+        showError('Erro ao criar menu', error);
+        logEvent('ERRO: ' + error.message, {}, true);
+      }
+    }
+
+    // Control functions
+    function setTabEnergy() {
+      if (menuInstance) {
+        menuInstance.setActiveTab('energy');
+        logEvent('setActiveTab', { tabId: 'energy' });
+      } else {
+        logEvent('Menu nao inicializado', {}, true);
+      }
+    }
+
+    function setTabWater() {
+      if (menuInstance) {
+        menuInstance.setActiveTab('water');
+        logEvent('setActiveTab', { tabId: 'water' });
+      } else {
+        logEvent('Menu nao inicializado', {}, true);
+      }
+    }
+
+    function setTabTemperature() {
+      if (menuInstance) {
+        menuInstance.setActiveTab('temperature');
+        logEvent('setActiveTab', { tabId: 'temperature' });
+      } else {
+        logEvent('Menu nao inicializado', {}, true);
+      }
+    }
+
+    function openFilter() {
+      if (menuInstance) {
+        menuInstance.openFilterModal();
+        logEvent('openFilterModal', {});
+      } else {
+        logEvent('Menu nao inicializado', {}, true);
+      }
+    }
+
+    function triggerLoad() {
+      if (menuInstance) {
+        menuInstance.triggerLoad();
+        logEvent('triggerLoad', {});
+      } else {
+        logEvent('Menu nao inicializado', {}, true);
+      }
+    }
+
+    function triggerClear() {
+      if (menuInstance) {
+        menuInstance.triggerClear();
+        logEvent('triggerClear', {});
+      } else {
+        logEvent('Menu nao inicializado', {}, true);
+      }
+    }
+
+    function updateShoppings() {
+      if (menuInstance) {
+        const shoppings = [
+          { name: 'Shopping Mestre Alvaro', value: 'ing-ma', customerId: 'cust-ma', ingestionId: 'ing-ma' },
+          { name: 'Shopping Mont Serrat', value: 'ing-ms', customerId: 'cust-ms', ingestionId: 'ing-ms' },
+          { name: 'Vitoria Mall', value: 'ing-vm', customerId: 'cust-vm', ingestionId: 'ing-vm' },
+          { name: 'Shopping Norte', value: 'ing-norte', customerId: 'cust-norte', ingestionId: 'ing-norte' },
+          { name: 'Shopping Sul', value: 'ing-sul', customerId: 'cust-sul', ingestionId: 'ing-sul' },
+          { name: 'Shopping Leste', value: 'ing-leste', customerId: 'cust-leste', ingestionId: 'ing-leste' },
+        ];
+        menuInstance.updateShoppings(shoppings);
+        logEvent('updateShoppings', { count: shoppings.length });
+      } else {
+        logEvent('Menu nao inicializado', {}, true);
+      }
+    }
+
+    function setDateRange() {
+      if (menuInstance) {
+        const start = new Date(2024, 6, 1); // 1 de Julho 2024
+        const end = new Date(2024, 6, 31);   // 31 de Julho 2024
+        menuInstance.setDateRange(start, end);
+        logEvent('setDateRange', { start: '01/07/2024', end: '31/07/2024' });
+      } else {
+        logEvent('Menu nao inicializado', {}, true);
+      }
+    }
+
+    function getState() {
+      if (menuInstance) {
+        const state = {
+          activeTab: menuInstance.getActiveTab(),
+          themeMode: menuInstance.getThemeMode(),
+          dateRange: menuInstance.getDateRange(),
+          selectedShoppings: menuInstance.getSelectedShoppings().length,
+          energyContext: menuInstance.getContext('energy'),
+          waterContext: menuInstance.getContext('water'),
+          temperatureContext: menuInstance.getContext('temperature'),
+        };
+        console.log('[Showcase] Current state:', state);
+        logEvent('Estado atual', state);
+      } else {
+        logEvent('Menu nao inicializado', {}, true);
+      }
+    }
+
+    function destroyMenu() {
+      if (menuInstance) {
+        menuInstance.destroy();
+        menuInstance = null;
+        logEvent('Menu destruido', {});
+        updateStatus('Menu destruido', 'loading');
+      } else {
+        logEvent('Menu nao inicializado', {}, true);
+      }
+    }
+
+    function recreateMenu() {
+      destroyMenu();
+      setTimeout(createMenu, 100);
+    }
+
+    // Current theme state
+    let currentTheme = 'light';
+
+    // Toggle theme
+    function toggleTheme() {
+      if (menuInstance) {
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        menuInstance.setThemeMode(newTheme);
+        currentTheme = newTheme;
+        updateThemeUI(newTheme);
+        logEvent('toggleTheme', { themeMode: newTheme });
+      } else {
+        logEvent('Menu nao inicializado', {}, true);
+      }
+    }
+
+    // Update theme UI (button and container)
+    function updateThemeUI(themeMode) {
+      currentTheme = themeMode;
+
+      // Update toggle button
+      const toggleBtn = document.getElementById('theme-toggle');
+      const themeIcon = document.getElementById('theme-icon');
+      const themeLabel = document.getElementById('theme-label');
+
+      if (toggleBtn && themeIcon && themeLabel) {
+        if (themeMode === 'dark') {
+          toggleBtn.classList.add('dark');
+          themeIcon.textContent = '🌙';
+          themeLabel.textContent = 'Modo Escuro';
+        } else {
+          toggleBtn.classList.remove('dark');
+          themeIcon.textContent = '☀️';
+          themeLabel.textContent = 'Modo Claro';
+        }
+      }
+
+      // Update menu container background
+      const container = document.querySelector('.menu-mount-container');
+      if (container) {
+        if (themeMode === 'dark') {
+          container.classList.add('dark-mode');
+        } else {
+          container.classList.remove('dark-mode');
+        }
+      }
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => {
+      logEvent('DOM carregado', {});
+
+      // Check library
+      if (typeof MyIOLibrary === 'undefined') {
+        showError(
+          'MyIOLibrary nao carregada',
+          new Error('O arquivo ../dist/myio-js-library.umd.js nao foi encontrado ou nao carregou corretamente. Execute: npm run build:umd')
+        );
+        return;
+      }
+
+      logEvent('MyIOLibrary carregada', {
+        exports: Object.keys(MyIOLibrary).length,
+        hasCreateMenuComponent: typeof MyIOLibrary.createMenuComponent === 'function'
+      });
+
+      // Create menu
+      createMenu();
+    });
+
+    // Global error handler
+    window.addEventListener('error', (e) => {
+      showError('Erro JavaScript', e.error || e.message);
+    });
+  </script>
+</body>
+</html>

@@ -233,6 +233,57 @@ export type {
   WaterTankModalStyleOverrides
 } from './components/premium-modals/water-tank/openDashboardPopupWaterTank';
 
+// RFC-0112: Welcome Modal Head Office
+export { openWelcomeModal } from './components/premium-modals/welcome/openWelcomeModal';
+export type {
+  WelcomeModalParams,
+  WelcomeModalInstance,
+  WelcomePalette,
+  ShoppingCard,
+  ShoppingCardDeviceCounts,
+  ShoppingCardMetaCounts,
+  UserInfo as WelcomeUserInfo
+} from './components/premium-modals/welcome/types';
+export { DEFAULT_PALETTE as WELCOME_DEFAULT_PALETTE, DEFAULT_SHOPPING_CARDS } from './components/premium-modals/welcome/types';
+
+// RFC-0115: Footer Component
+export { createFooterComponent } from './components/footer';
+export type {
+  FooterComponentParams,
+  FooterComponentInstance,
+  FooterColors,
+  FooterThemeMode,
+  SelectedEntity as FooterSelectedEntity,
+  UnitType as FooterUnitType,
+} from './components/footer';
+export { DEFAULT_FOOTER_COLORS } from './components/footer';
+
+// RFC-0113: Header Component
+export { createHeaderComponent } from './components/premium-modals/header/createHeaderComponent';
+export { HeaderView } from './components/premium-modals/header/HeaderView';
+export type {
+  HeaderComponentParams,
+  HeaderComponentInstance,
+  HeaderConfigTemplate,
+  HeaderCardColors,
+  CardColorConfig as HeaderCardColorConfig,
+  CardKPIs,
+  EquipmentKPI,
+  EnergyKPI,
+  TemperatureKPI,
+  WaterKPI,
+  Shopping as HeaderShopping,
+  FilterSelection as HeaderFilterSelection,
+  FilterPreset as HeaderFilterPreset,
+  CardType as HeaderCardType,
+  HeaderEventType,
+} from './components/premium-modals/header/types';
+export {
+  HEADER_DEFAULT_CONFIG_TEMPLATE,
+  DEFAULT_CARD_COLORS as HEADER_DEFAULT_CARD_COLORS,
+  HEADER_DEFAULT_LOGO_URL,
+} from './components/premium-modals/header/types';
+
 // DateRangePicker - Public API
 export { createDateRangePicker, type CreateDateRangePickerOptions, type DateRangeControl, type DateRangeResult } from './components/createDateRangePicker';
 
@@ -323,6 +374,18 @@ export type { TempSensorSummaryData, TempSensorDevice } from './utils/TempSensor
 // RFC-0107: Contract Summary Tooltip (Shopping Dashboard contract status)
 export { ContractSummaryTooltip } from './utils/ContractSummaryTooltip';
 export type { ContractSummaryData, ContractDomainCounts, ContractTemperatureCounts } from './utils/ContractSummaryTooltip';
+
+// RFC-0112 Rev-001: Users Summary Tooltip (Welcome Modal meta icons)
+export { UsersSummaryTooltip } from './utils/UsersSummaryTooltip';
+export type { UsersSummaryData, UsersByRole, UserInfo as UsersTooltipUserInfo } from './utils/UsersSummaryTooltip';
+
+// RFC-0116: Alarms Summary Tooltip (Not yet released - placeholder)
+export { AlarmsSummaryTooltip } from './utils/AlarmsSummaryTooltip';
+export type { AlarmsSummaryData, AlarmInfo } from './utils/AlarmsSummaryTooltip';
+
+// Notifications Summary Tooltip (Not yet released - placeholder)
+export { NotificationsSummaryTooltip } from './utils/NotificationsSummaryTooltip';
+export type { NotificationsSummaryData, NotificationInfo } from './utils/NotificationsSummaryTooltip';
 
 // Modal Header Component (Reusable)
 export {
@@ -533,3 +596,25 @@ export type {
   UpsellModalStyles,
   UpsellModalError,
 } from './components/premium-modals/upsell';
+
+// RFC-0114: Menu Component
+export { createMenuComponent } from './components/menu';
+export { MenuView, MenuController } from './components/menu';
+
+export type {
+  MenuComponentParams,
+  MenuComponentInstance,
+  MenuConfigTemplate,
+  TabConfig,
+  ContextOption,
+  Shopping,
+  ThingsboardWidgetContext as MenuThingsboardWidgetContext,
+  MenuEventType,
+  MenuEventHandler,
+  MenuState,
+} from './components/menu';
+
+export {
+  DEFAULT_MENU_CONFIG,
+  DEFAULT_TABS,
+} from './components/menu';

@@ -1,0 +1,70 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "TELEMETRY Widget Settings",
+    "properties": {
+      "domain": {
+        "type": "string",
+        "title": "Domain (Dominio)",
+        "enum": ["energy", "water", "temperature"],
+        "default": "energy",
+        "description": "Dominio: energy (kWh), water (m3), temperature (C)"
+      },
+      "context": {
+        "type": "string",
+        "title": "Context (Contexto)",
+        "enum": [
+          "equipments",
+          "stores",
+          "hidrometro_area_comum",
+          "hidrometro",
+          "termostato",
+          "termostato_external"
+        ],
+        "default": "equipments",
+        "description": "Contexto: equipments/stores (energy), hidrometro_area_comum/hidrometro (water), termostato/termostato_external (temp)"
+      },
+      "useNewComponents": {
+        "type": "boolean",
+        "title": "Use New Components",
+        "default": true
+      },
+      "enableSelection": {
+        "type": "boolean",
+        "title": "Enable Selection",
+        "default": true
+      },
+      "enableDragDrop": {
+        "type": "boolean",
+        "title": "Enable Drag Drop",
+        "default": true
+      },
+      "hideInfoMenuItem": {
+        "type": "boolean",
+        "title": "Hide Info Menu Item",
+        "default": true
+      },
+      "debugActive": {
+        "type": "boolean",
+        "title": "Debug Active",
+        "default": false
+      },
+      "activeTooltipDebug": {
+        "type": "boolean",
+        "title": "Active Tooltip Debug",
+        "default": false
+      }
+    },
+    "required": []
+  },
+  "form": [
+    "domain",
+    "context",
+    "useNewComponents",
+    "enableSelection",
+    "enableDragDrop",
+    "hideInfoMenuItem",
+    "debugActive",
+    "activeTooltipDebug"
+  ]
+}

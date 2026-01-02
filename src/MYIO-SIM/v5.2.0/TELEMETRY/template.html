@@ -1,0 +1,34 @@
+<div class="telemetry-wrap" id="telemetryWrap">
+    <!-- Toolbar with filter chips and controls -->
+    <div class="toolbar-zoom" style="display: flex">
+        <div class="shopping-filter-chips" id="shoppingFilterChips"></div>
+        <div class="realtime-controls" style="display: flex; padding: 7px; gap: 10px;" id="realtimeControls">
+            <!-- Domain-specific controls will be injected here -->
+        </div>
+    </div>
+
+    <!-- Header injected dynamically via buildHeaderDevicesGrid -->
+    <div id="telemetryHeaderContainer"></div>
+
+    <!-- Loading overlay -->
+    <div id="telemetry-loading-overlay" class="telemetry-loading-overlay" style="display: none">
+        <div class="loading-spinner">
+            <svg style="width: 48px; height: 48px; animation: spin 1s linear infinite" viewBox="0 0 50 50">
+                <circle cx="25" cy="25" r="20" fill="none"
+                    stroke="var(--telemetry-primary)"
+                    stroke-width="5"
+                    stroke-linecap="round"
+                    stroke-dasharray="90,150"
+                    stroke-dashoffset="0"></circle>
+            </svg>
+            <p id="telemetry-loading-text">Carregando dados...</p>
+        </div>
+    </div>
+
+    <!-- Cards Grid -->
+    <section class="telemetry-grid" id="telemetryGrid">
+        <div id="cards-grid" class="cards-grid"></div>
+    </section>
+
+    <!-- Filter Modal injected dynamically via createFilterModal -->
+</div>

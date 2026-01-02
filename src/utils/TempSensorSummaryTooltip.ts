@@ -34,6 +34,10 @@ export interface TempSensorSummaryData {
   temperatureMin?: number;
   temperatureMax?: number;
   title?: string;
+  /** Optional customer name to display in header (e.g., "Mestre Álvaro") */
+  customerName?: string;
+  /** Last updated timestamp */
+  lastUpdated?: string;
 }
 
 // ============================================
@@ -390,13 +394,30 @@ const state: TooltipState = {
 // ============================================
 
 /**
+ * Format timestamp for display (date and time)
+ */
+function formatTimestamp(isoString?: string): string {
+  if (!isoString) return '';
+  try {
+    const date = new Date(isoString);
+    const dateStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return `${dateStr} ${timeStr}`;
+  } catch {
+    return '';
+  }
+}
+
+/**
  * Generate header HTML with action buttons
  */
-function generateHeaderHTML(title: string): string {
+function generateHeaderHTML(title: string, timestamp?: string): string {
+  const timestampHtml = timestamp ? `<span style="font-size: 10px; color: #9ca3af; margin-right: 8px;">${timestamp}</span>` : '';
   return `
     <div class="myio-temp-sensor-tooltip__header" data-drag-handle>
       <span class="myio-temp-sensor-tooltip__icon">🌡️</span>
       <span class="myio-temp-sensor-tooltip__title">${title}</span>
+      ${timestampHtml}
       <div class="myio-temp-sensor-tooltip__header-actions">
         <button class="myio-temp-sensor-tooltip__header-btn" data-action="pin" title="Fixar na tela">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -845,12 +866,15 @@ export const TempSensorSummaryTooltip = {
     const container = this.getContainer();
     container.classList.remove('closing');
 
-    const title = data.title || 'Detalhes de Temperatura';
+    const baseTitle = data.title || 'Resumo de Temperatura';
+    const titleSuffix = data.customerName ? ` (${data.customerName})` : '';
+    const title = baseTitle + titleSuffix;
+    const timestamp = formatTimestamp(data.lastUpdated);
 
     // Build HTML
     container.innerHTML = `
       <div class="myio-temp-sensor-tooltip__panel">
-        ${generateHeaderHTML(title)}
+        ${generateHeaderHTML(title, timestamp)}
         <div class="myio-temp-sensor-tooltip__content">
           ${generateContentHTML(data)}
         </div>

@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome Modal - RFC-0112 Showcase</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
+      min-height: 100vh;
+      color: #f5f7fa;
+      padding: 40px;
+    }
+
+    .showcase-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #7A2FF7 0%, #5A1FD1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: #b8c2d8;
+      margin-bottom: 32px;
+    }
+
+    .section {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #f5f7fa;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .demo-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 16px 24px;
+      background: linear-gradient(135deg, #7A2FF7 0%, #5A1FD1 100%);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 20px rgba(122, 47, 247, 0.3);
+    }
+
+    .demo-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(122, 47, 247, 0.4);
+    }
+
+    .demo-btn:active {
+      transform: translateY(0);
+    }
+
+    .demo-btn.secondary {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: none;
+    }
+
+    .demo-btn.secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .code-block {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: 'Monaco', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #e6e6e6;
+    }
+
+    .code-block .keyword {
+      color: #c678dd;
+    }
+
+    .code-block .string {
+      color: #98c379;
+    }
+
+    .code-block .function {
+      color: #61afef;
+    }
+
+    .code-block .property {
+      color: #e5c07b;
+    }
+
+    .log-container {
+      margin-top: 16px;
+      max-height: 200px;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-entry .time {
+      color: #6b7280;
+    }
+
+    .log-entry .event {
+      color: #7A2FF7;
+      font-weight: 600;
+    }
+
+    .log-entry .data {
+      color: #98c379;
+    }
+
+    .info-box {
+      background: rgba(122, 47, 247, 0.1);
+      border: 1px solid rgba(122, 47, 247, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+
+    .info-box p {
+      margin: 0;
+      font-size: 14px;
+      color: #b8c2d8;
+    }
+
+    .info-box code {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      color: #7A2FF7;
+    }
+  </style>
+</head>
+<body>
+  <div class="showcase-container">
+    <h1>Welcome Modal Component</h1>
+    <p class="subtitle">RFC-0112: Welcome Modal Head Office (Rev-001) - MYIO Library Showcase</p>
+
+    <!-- Demo Section -->
+    <div class="section">
+      <h2 class="section-title">Demo</h2>
+      <div class="button-grid">
+        <button class="demo-btn" onclick="openDefaultWelcome()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+          Open Welcome Modal
+        </button>
+        <button class="demo-btn secondary" onclick="openCustomWelcome()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+          Custom Colors
+        </button>
+        <button class="demo-btn secondary" onclick="openMinimalWelcome()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+          </svg>
+          Minimal (No Cards)
+        </button>
+        <button class="demo-btn secondary" onclick="openNoUserMenu()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="7" r="4"/>
+            <path d="M5.5 21a7.5 7.5 0 0 1 13 0"/>
+          </svg>
+          Without User Menu
+        </button>
+        <button class="demo-btn" onclick="openWithConfigTemplate()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          With configTemplate
+        </button>
+        <button class="demo-btn" onclick="openLightTheme()" style="background: linear-gradient(135deg, #f8f9fc 0%, #e5e7eb 100%); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); color: #1a1a2e;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          Light Theme
+        </button>
+        <button class="demo-btn secondary" onclick="openWithThemeCallback()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+          Theme with Callback
+        </button>
+      </div>
+
+      <div class="info-box">
+        <p>
+          <strong>Rev-001 Features:</strong> 90% viewport modal with backdrop blur, large floating logo (180px),
+          centered card titles, enhanced hover effects (scale 1.03), and interactive device counts per domain.
+        </p>
+        <p style="margin-top: 8px;">
+          <strong>Theme Mode:</strong> Click the <code>☀️</code> / <code>🌙</code> button (floating on the right, below user menu) to toggle between dark and light themes.
+          The theme state is controlled by MAIN component via <code>onThemeChange</code> callback.
+        </p>
+        <p style="margin-top: 8px;">
+          Press <code>Escape</code> to close. Hover over device counts <code>⚡ 45  💧 12  🌡️ 8</code> to trigger summary tooltips.
+          Click anywhere else on the card to navigate.
+        </p>
+      </div>
+    </div>
+
+    <!-- Event Log Section -->
+    <div class="section">
+      <h2 class="section-title">Event Log</h2>
+      <div class="log-container" id="eventLog">
+        <div class="log-entry">
+          <span class="time">[--:--:--]</span>
+          <span class="event">Ready</span>
+          <span class="data">Click a button to open the modal</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Code Example Section -->
+    <div class="section">
+      <h2 class="section-title">Usage Example</h2>
+      <div class="code-block">
+<span class="keyword">import</span> { <span class="function">openWelcomeModal</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="keyword">const</span> modal = <span class="function">openWelcomeModal</span>({
+  <span class="property">logoUrl</span>: <span class="string">'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG'</span>,
+  <span class="property">heroTitle</span>: <span class="string">'Bem-vindo ao MYIO Platform'</span>,
+  <span class="property">heroDescription</span>: <span class="string">'Gestão inteligente de energia, água e recursos.'</span>,
+  <span class="property">ctaLabel</span>: <span class="string">'ACESSAR PAINEL'</span>,
+  <span class="property">shoppingCards</span>: [
+    { <span class="property">title</span>: <span class="string">'Mestre Álvaro'</span>, <span class="property">dashboardId</span>: <span class="string">'dash-1'</span>, <span class="property">entityId</span>: <span class="string">'ent-1'</span> },
+    { <span class="property">title</span>: <span class="string">'Mont Serrat'</span>, <span class="property">dashboardId</span>: <span class="string">'dash-2'</span>, <span class="property">entityId</span>: <span class="string">'ent-2'</span> },
+  ],
+  <span class="property">onCardClick</span>: (card) => <span class="function">console</span>.<span class="function">log</span>(<span class="string">'Navigating to:'</span>, card.<span class="property">title</span>),
+  <span class="property">onCtaClick</span>: () => <span class="function">console</span>.<span class="function">log</span>(<span class="string">'CTA clicked'</span>),
+  <span class="property">onClose</span>: () => <span class="function">console</span>.<span class="function">log</span>(<span class="string">'Modal closed'</span>),
+});
+
+<span class="comment">// Close programmatically</span>
+modal.<span class="function">close</span>();
+      </div>
+    </div>
+
+    <!-- API Reference Section -->
+    <div class="section">
+      <h2 class="section-title">API Reference</h2>
+      <div class="code-block">
+<span class="keyword">interface</span> WelcomeModalParams {
+  <span class="property">ctx</span>?: ThingsboardWidgetContext;  <span class="comment">// For navigation</span>
+  <span class="property">configTemplate</span>?: WelcomeConfigTemplate; <span class="comment">// Widget settings from settingsSchema.json</span>
+  <span class="property">themeMode</span>?: <span class="string">'dark'</span> | <span class="string">'light'</span>;   <span class="comment">// Initial theme (default: 'dark')</span>
+  <span class="property">showThemeToggle</span>?: <span class="keyword">boolean</span>;       <span class="comment">// Show sun/moon toggle (default: true)</span>
+  <span class="property">logoUrl</span>?: <span class="keyword">string</span>;                <span class="comment">// Brand logo URL</span>
+  <span class="property">palette</span>?: WelcomePalette;          <span class="comment">// Color customization</span>
+  <span class="property">backgroundUrl</span>?: <span class="keyword">string</span>;           <span class="comment">// Hero background image</span>
+  <span class="property">heroTitle</span>?: <span class="keyword">string</span>;               <span class="comment">// Main heading</span>
+  <span class="property">heroDescription</span>?: <span class="keyword">string</span>;         <span class="comment">// Description text</span>
+  <span class="property">ctaLabel</span>?: <span class="keyword">string</span>;                <span class="comment">// CTA button text</span>
+  <span class="property">ctaState</span>?: <span class="keyword">string</span>;                <span class="comment">// State to navigate to</span>
+  <span class="property">showUserMenu</span>?: <span class="keyword">boolean</span>;           <span class="comment">// Show user menu (default: true)</span>
+  <span class="property">userInfo</span>?: UserInfo;              <span class="comment">// Pre-populated user info</span>
+  <span class="property">shoppingCards</span>?: ShoppingCard[];   <span class="comment">// Shopping center cards</span>
+  <span class="property">closeOnBackdrop</span>?: <span class="keyword">boolean</span>;        <span class="comment">// Close on backdrop click</span>
+  <span class="property">closeOnEscape</span>?: <span class="keyword">boolean</span>;          <span class="comment">// Close on Escape key</span>
+  <span class="property">closeOnCtaClick</span>?: <span class="keyword">boolean</span>;        <span class="comment">// Close on CTA click</span>
+  <span class="property">closeOnCardClick</span>?: <span class="keyword">boolean</span>;       <span class="comment">// Close on card click</span>
+  <span class="property">onClose</span>?: () => <span class="keyword">void</span>;             <span class="comment">// Modal closed callback</span>
+  <span class="property">onCtaClick</span>?: () => <span class="keyword">void</span>;          <span class="comment">// CTA clicked callback</span>
+  <span class="property">onCardClick</span>?: (card) => <span class="keyword">void</span>;    <span class="comment">// Card clicked callback</span>
+  <span class="property">onLogout</span>?: () => <span class="keyword">void</span>;            <span class="comment">// Logout clicked callback</span>
+  <span class="property">onThemeChange</span>?: (theme) => <span class="keyword">void</span>; <span class="comment">// Theme toggle callback (for MAIN)</span>
+}
+
+<span class="keyword">interface</span> WelcomeModalInstance {
+  <span class="property">close</span>: () => <span class="keyword">void</span>;                 <span class="comment">// Close modal</span>
+  <span class="property">element</span>: HTMLElement;              <span class="comment">// Modal DOM element</span>
+  <span class="property">on</span>: (event, handler) => <span class="keyword">void</span>;     <span class="comment">// Register event handlers</span>
+  <span class="property">setThemeMode</span>: (mode) => <span class="keyword">void</span>;     <span class="comment">// Set theme from MAIN</span>
+  <span class="property">getThemeMode</span>: () => <span class="keyword">string</span>;       <span class="comment">// Get current theme</span>
+}
+      </div>
+    </div>
+  </div>
+
+  <!-- Load the library -->
+  <script src="../dist/myio-js-library.umd.js"></script>
+
+  <script>
+    // Event logging helper
+    function logEvent(event, data) {
+      const log = document.getElementById('eventLog');
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `
+        <span class="time">[${time}]</span>
+        <span class="event">${event}</span>
+        <span class="data">${data || ''}</span>
+      `;
+      log.insertBefore(entry, log.firstChild);
+    }
+
+    // Mock shopping cards with device counts and meta counts
+    const MOCK_SHOPPING_CARDS = [
+      {
+        title: 'Mestre Álvaro',
+        dashboardId: 'a6272d20-c974-11f0-84a2-1f4ed3957b2a',
+        entityId: 'customer-mestre-alvaro',
+        entityType: 'CUSTOMER',
+        deviceCounts: { energy: 45, water: 12, temperature: 8 },
+        metaCounts: { users: 12, alarms: 3, notifications: 5 },
+      },
+      {
+        title: 'Mont Serrat',
+        dashboardId: 'b7383e31-d085-22f1-95b3-2f5fe4068c3b',
+        entityId: 'customer-mont-serrat',
+        entityType: 'CUSTOMER',
+        deviceCounts: { energy: 38, water: 10, temperature: 6 },
+        metaCounts: { users: 8, alarms: 1, notifications: 2 },
+      },
+      {
+        title: 'Vitória Mall',
+        dashboardId: 'c8494f42-e196-33f2-a6c4-3f6gf5179d4c',
+        entityId: 'customer-vitoria-mall',
+        entityType: 'CUSTOMER',
+        deviceCounts: { energy: 52, water: 15, temperature: 10 },
+        metaCounts: { users: 15, alarms: 5, notifications: 8 },
+      },
+      {
+        title: 'Shopping Norte',
+        dashboardId: 'd9505g53-f2a7-44f3-b7d5-4g7hg628ae5d',
+        entityId: 'customer-norte',
+        entityType: 'CUSTOMER',
+        deviceCounts: { energy: 33, water: 8, temperature: 5 },
+        metaCounts: { users: 6, alarms: 0, notifications: 1 },
+      },
+      {
+        title: 'Shopping Sul',
+        dashboardId: 'e0616h64-g3b8-55f4-c8e6-5h8ih739bf6e',
+        entityId: 'customer-sul',
+        entityType: 'CUSTOMER',
+        deviceCounts: { energy: 41, water: 11, temperature: 7 },
+        metaCounts: { users: 10, alarms: 2, notifications: 4 },
+      },
+      {
+        title: 'Shopping Leste',
+        dashboardId: 'f1727i75-h4c9-66f5-d9f7-6i9ji840cg7f',
+        entityId: 'customer-leste',
+        entityType: 'CUSTOMER',
+        deviceCounts: { energy: 29, water: 7, temperature: 4 },
+        metaCounts: { users: 5, alarms: 1, notifications: 0 },
+      },
+    ];
+
+    // Default welcome modal
+    function openDefaultWelcome() {
+      logEvent('openWelcomeModal', 'Default configuration');
+
+      const modal = MyIOLibrary.openWelcomeModal({
+        logoUrl: 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG',
+        heroTitle: 'Bem-vindo ao MYIO Platform',
+        heroDescription: 'Plataforma inteligente de gestão de energia, água e recursos para shoppings centers. Monitore em tempo real, compare consumo e otimize operações.',
+        ctaLabel: 'ACESSAR PAINEL',
+        showUserMenu: true,
+        userInfo: {
+          fullName: 'João Silva',
+          email: 'joao.silva@myio.com.br'
+        },
+        shoppingCards: MOCK_SHOPPING_CARDS,
+        closeOnEscape: true,
+        closeOnCtaClick: true,
+        closeOnCardClick: true,
+        onCtaClick: () => {
+          logEvent('onCtaClick', 'CTA button clicked');
+        },
+        onCardClick: (card) => {
+          logEvent('onCardClick', `Card clicked: ${card.title} (Dashboard: ${card.dashboardId})`);
+        },
+        onLogout: () => {
+          logEvent('onLogout', 'Logout button clicked');
+        },
+        onClose: () => {
+          logEvent('onClose', 'Modal closed');
+        }
+      });
+    }
+
+    // Custom colors welcome modal
+    function openCustomWelcome() {
+      logEvent('openWelcomeModal', 'Custom colors (green theme)');
+
+      const modal = MyIOLibrary.openWelcomeModal({
+        logoUrl: 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG',
+        heroTitle: 'Dashboard Sustentável',
+        heroDescription: 'Monitore e reduza o impacto ambiental dos seus shoppings com nossa plataforma inteligente.',
+        ctaLabel: 'VER MÉTRICAS',
+        palette: {
+          primary: '#10B981',
+          secondary: '#059669',
+          gradientStart: 'rgba(5, 46, 22, 0.7)',
+          gradientEnd: 'rgba(5, 46, 22, 0.2)',
+          ink: '#ECFDF5',
+          muted: '#A7F3D0',
+        },
+        userInfo: {
+          fullName: 'Maria Santos',
+          email: 'maria.santos@holding.com.br'
+        },
+        shoppingCards: MOCK_SHOPPING_CARDS.slice(0, 4),
+        onCardClick: (card) => {
+          logEvent('onCardClick', `Green theme - Card: ${card.title}`);
+        },
+        onClose: () => {
+          logEvent('onClose', 'Custom colors modal closed');
+        }
+      });
+    }
+
+    // Minimal welcome modal (no cards)
+    function openMinimalWelcome() {
+      logEvent('openWelcomeModal', 'Minimal (no shopping cards)');
+
+      const modal = MyIOLibrary.openWelcomeModal({
+        logoUrl: 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG',
+        heroTitle: 'Bem-vindo!',
+        heroDescription: 'Clique no botão abaixo para acessar seu painel de controle.',
+        ctaLabel: 'ENTRAR',
+        showUserMenu: true,
+        userInfo: {
+          fullName: 'Admin',
+          email: 'admin@myio.com.br'
+        },
+        shoppingCards: [], // No cards
+        onCtaClick: () => {
+          logEvent('onCtaClick', 'Minimal modal - CTA clicked');
+        },
+        onClose: () => {
+          logEvent('onClose', 'Minimal modal closed');
+        }
+      });
+    }
+
+    // Welcome modal without user menu
+    function openNoUserMenu() {
+      logEvent('openWelcomeModal', 'Without user menu');
+
+      const modal = MyIOLibrary.openWelcomeModal({
+        logoUrl: 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG',
+        heroTitle: 'Selecione um Shopping',
+        heroDescription: 'Escolha um dos shoppings abaixo para acessar seu dashboard específico.',
+        ctaLabel: 'VER TODOS',
+        showUserMenu: false,
+        shoppingCards: MOCK_SHOPPING_CARDS,
+        onCardClick: (card) => {
+          logEvent('onCardClick', `No user menu - Card: ${card.title}`);
+        },
+        onClose: () => {
+          logEvent('onClose', 'No user menu modal closed');
+        }
+      });
+    }
+
+    // Welcome modal starting in Light Theme
+    function openLightTheme() {
+      logEvent('openWelcomeModal', 'Light Theme mode');
+
+      const modal = MyIOLibrary.openWelcomeModal({
+        logoUrl: 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG',
+        heroTitle: 'Bem-vindo ao MYIO Platform',
+        heroDescription: 'Plataforma inteligente de gestão de energia, água e recursos para shoppings centers.',
+        ctaLabel: 'ACESSAR PAINEL',
+        themeMode: 'light', // Start in light mode
+        showThemeToggle: true, // Show sun/moon toggle button
+        userInfo: {
+          fullName: 'João Silva',
+          email: 'joao.silva@myio.com.br'
+        },
+        shoppingCards: MOCK_SHOPPING_CARDS,
+        onThemeChange: (newTheme) => {
+          logEvent('onThemeChange', `Theme changed to: ${newTheme}`);
+        },
+        onCtaClick: () => {
+          logEvent('onCtaClick', 'Light theme - CTA clicked');
+        },
+        onCardClick: (card) => {
+          logEvent('onCardClick', `Light theme - Card: ${card.title}`);
+        },
+        onClose: () => {
+          logEvent('onClose', 'Light theme modal closed');
+        }
+      });
+    }
+
+    // Welcome modal with theme change callback (simulates MAIN component control)
+    function openWithThemeCallback() {
+      logEvent('openWelcomeModal', 'With onThemeChange callback (MAIN component integration)');
+
+      // Store modal reference to demonstrate external theme control
+      window.currentModal = MyIOLibrary.openWelcomeModal({
+        logoUrl: 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG',
+        heroTitle: 'Controle de Tema pela MAIN',
+        heroDescription: 'O tema pode ser alterado pelo botão na modal ou externamente pela MAIN. Clique no ícone de sol/lua no topo.',
+        ctaLabel: 'ACESSAR',
+        themeMode: 'dark', // Start in dark mode
+        showThemeToggle: true,
+        userInfo: {
+          fullName: 'Admin Theme',
+          email: 'admin@myio.com.br'
+        },
+        shoppingCards: MOCK_SHOPPING_CARDS.slice(0, 4),
+        onThemeChange: (newTheme) => {
+          logEvent('onThemeChange', `MAIN received theme change: ${newTheme}`);
+          // In a real app, MAIN component would update global theme here
+          console.log('[MAIN] Global theme updated to:', newTheme);
+        },
+        onClose: () => {
+          logEvent('onClose', 'Theme callback modal closed');
+          window.currentModal = null;
+        }
+      });
+
+      // Log info about programmatic control
+      logEvent('info', 'Use window.currentModal.setThemeMode("light") or .getThemeMode() in console');
+    }
+
+    // Welcome modal with configTemplate (simulates ThingsBoard widget settings)
+    // NEW STRUCTURE: Uses darkMode and lightMode for theme-specific settings
+    function openWithConfigTemplate() {
+      logEvent('openWelcomeModal', 'With configTemplate (darkMode/lightMode structure)');
+
+      // This simulates passing settings from ThingsBoard widget settingsSchema.json
+      // NEW: Theme-specific settings are now in darkMode and lightMode objects
+      const configTemplate = {
+        enableDebugMode: true,
+        // Common settings (shared across themes)
+        defaultHeroTitle: 'MYIO Premium Dashboard',
+        defaultHeroDescription: 'Acesse todos os recursos premium da plataforma de gestão inteligente.',
+        defaultPrimaryLabel: 'INICIAR SESSÃO',
+        defaultPrimaryState: 'main',
+        showUserMenuByDefault: true,
+        enableLazyLoading: true,
+        lazyLoadRootMargin: '100px',
+
+        // Dark mode specific settings
+        darkMode: {
+          backgroundUrl: 'https://dashboard.myio-bas.com/api/images/public/wntqPf1KcpLX2l182DY86Y4p8pa3bj6F',
+          logoUrl: 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG',
+          primaryColor: '#f59e0b',
+          secondaryColor: '#d97706',
+          textColor: '#fffbeb',
+          mutedTextColor: '#fde68a',
+          gradientStartColor: 'rgba(120, 53, 15, 0.6)',
+          gradientEndColor: 'rgba(120, 53, 15, 0.2)',
+          userMenuBackgroundColor: 'rgba(251, 191, 36, 0.2)',
+          userMenuBorderColor: 'rgba(251, 191, 36, 0.4)',
+          logoutButtonBackgroundColor: 'rgba(251, 191, 36, 0.3)',
+          logoutButtonBorderColor: 'rgba(251, 191, 36, 0.5)',
+          shoppingCardBackgroundColor: 'rgba(251, 191, 36, 0.15)',
+          shoppingCardBorderColor: 'rgba(251, 191, 36, 0.3)',
+        },
+
+        // Light mode specific settings
+        lightMode: {
+          backgroundUrl: 'https://dashboard.myio-bas.com/api/images/public/wntqPf1KcpLX2l182DY86Y4p8pa3bj6F',
+          logoUrl: 'https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG',
+          primaryColor: '#f59e0b',
+          secondaryColor: '#d97706',
+          textColor: '#78350f',
+          mutedTextColor: '#92400e',
+          gradientStartColor: 'rgba(255, 251, 235, 0.8)',
+          gradientEndColor: 'rgba(254, 243, 199, 0.9)',
+          userMenuBackgroundColor: 'rgba(254, 243, 199, 0.9)',
+          userMenuBorderColor: 'rgba(245, 158, 11, 0.3)',
+          logoutButtonBackgroundColor: 'rgba(245, 158, 11, 0.15)',
+          logoutButtonBorderColor: 'rgba(245, 158, 11, 0.3)',
+          shoppingCardBackgroundColor: 'rgba(255, 255, 255, 0.9)',
+          shoppingCardBorderColor: 'rgba(245, 158, 11, 0.2)',
+        },
+      };
+
+      const modal = MyIOLibrary.openWelcomeModal({
+        // Pass configTemplate - all defaults come from here
+        configTemplate,
+        // Shopping cards still need to be passed
+        shoppingCards: MOCK_SHOPPING_CARDS,
+        // User info
+        userInfo: {
+          fullName: 'Config Template User',
+          email: 'config@myio.com.br'
+        },
+        // Theme change callback
+        onThemeChange: (newTheme) => {
+          logEvent('onThemeChange', `configTemplate - Theme: ${newTheme}`);
+        },
+        // Callbacks
+        onCtaClick: () => {
+          logEvent('onCtaClick', 'configTemplate modal - CTA clicked');
+        },
+        onCardClick: (card) => {
+          logEvent('onCardClick', `configTemplate modal - Card: ${card.title}`);
+        },
+        onClose: () => {
+          logEvent('onClose', 'configTemplate modal closed');
+        }
+      });
+    }
+
+    // Log initial load
+    console.log('[Welcome Modal Showcase] MyIOLibrary loaded:', !!window.MyIOLibrary);
+    console.log('[Welcome Modal Showcase] openWelcomeModal available:', !!window.MyIOLibrary?.openWelcomeModal);
+  </script>
+</body>
+</html>

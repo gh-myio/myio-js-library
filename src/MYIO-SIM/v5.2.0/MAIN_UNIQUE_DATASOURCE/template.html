@@ -1,0 +1,30 @@
+<div class="main-unique-wrap" id="mainUniqueWrap" data-theme="dark">
+  <!-- RFC-0113: Header (rendered via createHeaderComponent) -->
+  <section
+    id="headerContainer"
+    class="myio-header-section"
+    style="height: 145px; min-height: 145px; max-height: 145px"
+  ></section>
+
+  <!-- RFC-0114: Menu (rendered via createMenuComponent) -->
+  <section
+    id="menuContainer"
+    class="myio-menu-section"
+    style="height: 80px; min-height: 80px; max-height: 80px"
+  ></section>
+
+  <!-- Main Content: TELEMETRY widget via tb-dashboard-state -->
+  <section id="mainViewContainer" class="myio-main-view-section" style="flex: 1; overflow: auto">
+    <tb-dashboard-state class="content" [ctx]="ctx" stateId="telemetry"></tb-dashboard-state>
+  </section>
+
+  <!-- RFC-0115: Footer (rendered via createFooterComponent) -->
+  <section
+    id="footerContainer"
+    class="myio-footer-section"
+    style="height: 46px; min-height: 46px; max-height: 46px"
+  ></section>
+
+  <!-- Modal containers for panel views (RFC-0117, 0118, 0119) -->
+  <div id="panelModalContainer"></div>
+</div>

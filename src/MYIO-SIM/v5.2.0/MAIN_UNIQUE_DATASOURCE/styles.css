@@ -1,0 +1,116 @@
+/* RFC-0111: MAIN_UNIQUE_DATASOURCE Layout Styles */
+
+.main-unique-wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--tb-background, transparent);
+}
+
+.main-unique-wrap[data-theme='dark'] {
+  --myio-bg: #0f172a;
+  --myio-text: #f1f5f9;
+}
+
+.main-unique-wrap[data-theme='light'] {
+  --myio-bg: #f8fafc;
+  --myio-text: #1e293b;
+}
+
+/* Sections */
+.myio-header-section {
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.myio-menu-section {
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.myio-main-view-section {
+  flex: 1;
+  overflow: auto;
+}
+
+.myio-footer-section {
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* Panel Modal Overlay */
+.myio-panel-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.myio-panel-modal {
+  width: 95vw;
+  height: 95vh;
+  background: var(--myio-bg, #1a1a2e);
+  border-radius: 16px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.myio-panel-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--myio-text, #fff);
+  font-size: 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.2s ease;
+}
+
+.myio-panel-modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.myio-panel-modal-content {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+}

@@ -1,0 +1,255 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "MAIN_UNIQUE_DATASOURCE Settings",
+    "description": "RFC-0111: Unified Main Single Datasource Architecture",
+    "properties": {
+      "enableDebugMode": {
+        "title": "Enable Debug Mode",
+        "type": "boolean",
+        "default": false
+      },
+      "defaultThemeMode": {
+        "title": "Default Theme Mode",
+        "type": "string",
+        "enum": ["dark", "light"],
+        "default": "dark"
+      },
+      "darkMode": {
+        "type": "object",
+        "title": "Dark Mode Settings",
+        "properties": {
+          "backgroundUrl": {
+            "title": "Background URL",
+            "type": "string",
+            "default": "https://dashboard.myio-bas.com/api/images/public/wntqPf1KcpLX2l182DY86Y4p8pa3bj6F"
+          },
+          "logoUrl": {
+            "title": "Logo URL",
+            "type": "string",
+            "default": "https://dashboard.myio-bas.com/api/images/public/1Tl6OQO9NWvexQw18Kkb2VBkN04b8tYG"
+          },
+          "primaryColor": {
+            "title": "Primary Color",
+            "type": "string",
+            "default": "#7A2FF7"
+          },
+          "secondaryColor": {
+            "title": "Secondary Color",
+            "type": "string",
+            "default": "#5A1FD1"
+          },
+          "textColor": {
+            "title": "Text Color",
+            "type": "string",
+            "default": "#F5F7FA"
+          },
+          "mutedTextColor": {
+            "title": "Muted Text Color",
+            "type": "string",
+            "default": "#B8C2D8"
+          }
+        }
+      },
+      "lightMode": {
+        "type": "object",
+        "title": "Light Mode Settings",
+        "properties": {
+          "backgroundUrl": {
+            "title": "Background URL",
+            "type": "string"
+          },
+          "logoUrl": {
+            "title": "Logo URL",
+            "type": "string"
+          },
+          "primaryColor": {
+            "title": "Primary Color",
+            "type": "string",
+            "default": "#7A2FF7"
+          },
+          "secondaryColor": {
+            "title": "Secondary Color",
+            "type": "string",
+            "default": "#5A1FD1"
+          },
+          "textColor": {
+            "title": "Text Color",
+            "type": "string",
+            "default": "#1a1a2e"
+          },
+          "mutedTextColor": {
+            "title": "Muted Text Color",
+            "type": "string",
+            "default": "#64748b"
+          }
+        }
+      },
+      "defaultHeroTitle": {
+        "title": "Hero Title",
+        "type": "string",
+        "default": "Bem-vindo ao MYIO Platform"
+      },
+      "defaultHeroDescription": {
+        "title": "Hero Description",
+        "type": "string",
+        "default": "Gestão inteligente de energia, água e recursos para shoppings centers"
+      },
+      "defaultPrimaryLabel": {
+        "title": "CTA Button Label",
+        "type": "string",
+        "default": "ACESSAR PAINEL"
+      },
+      "cardEquipamentosBackgroundColor": {
+        "title": "Card Equipamentos - Background",
+        "type": "string",
+        "default": "#1F3A35"
+      },
+      "cardEquipamentosFontColor": {
+        "title": "Card Equipamentos - Font",
+        "type": "string",
+        "default": "#F2F2F2"
+      },
+      "cardEnergiaBackgroundColor": {
+        "title": "Card Energia - Background",
+        "type": "string",
+        "default": "#1F3A35"
+      },
+      "cardEnergiaFontColor": {
+        "title": "Card Energia - Font",
+        "type": "string",
+        "default": "#F2F2F2"
+      },
+      "cardTemperaturaBackgroundColor": {
+        "title": "Card Temperatura - Background",
+        "type": "string",
+        "default": "#1F3A35"
+      },
+      "cardTemperaturaFontColor": {
+        "title": "Card Temperatura - Font",
+        "type": "string",
+        "default": "#F2F2F2"
+      },
+      "cardAguaBackgroundColor": {
+        "title": "Card Agua - Background",
+        "type": "string",
+        "default": "#1F3A35"
+      },
+      "cardAguaFontColor": {
+        "title": "Card Agua - Font",
+        "type": "string",
+        "default": "#F2F2F2"
+      },
+      "tabSelecionadoBackgroundColor": {
+        "title": "Tab Selecionado - Background",
+        "type": "string",
+        "default": "#2F5848"
+      },
+      "tabSelecionadoFontColor": {
+        "title": "Tab Selecionado - Font",
+        "type": "string",
+        "default": "#F2F2F2"
+      },
+      "tabNaoSelecionadoBackgroundColor": {
+        "title": "Tab Não Selecionado - Background",
+        "type": "string",
+        "default": "#FFFFFF"
+      },
+      "tabNaoSelecionadoFontColor": {
+        "title": "Tab Não Selecionado - Font",
+        "type": "string",
+        "default": "#1C2743"
+      }
+    }
+  },
+  "form": [
+    {
+      "key": "enableDebugMode",
+      "type": "checkbox"
+    },
+    {
+      "key": "defaultThemeMode",
+      "type": "select"
+    },
+    {
+      "type": "fieldset",
+      "title": "Dark Mode",
+      "items": ["darkMode.backgroundUrl", "darkMode.logoUrl", "darkMode.primaryColor", "darkMode.textColor"]
+    },
+    {
+      "type": "fieldset",
+      "title": "Light Mode",
+      "items": [
+        "lightMode.backgroundUrl",
+        "lightMode.logoUrl",
+        "lightMode.primaryColor",
+        "lightMode.textColor"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Welcome Modal Content",
+      "items": ["defaultHeroTitle", "defaultHeroDescription", "defaultPrimaryLabel"]
+    },
+    {
+      "type": "fieldset",
+      "title": "Header Card Colors",
+      "items": [
+        {
+          "key": "cardEquipamentosBackgroundColor",
+          "type": "color"
+        },
+        {
+          "key": "cardEquipamentosFontColor",
+          "type": "color"
+        },
+        {
+          "key": "cardEnergiaBackgroundColor",
+          "type": "color"
+        },
+        {
+          "key": "cardEnergiaFontColor",
+          "type": "color"
+        },
+        {
+          "key": "cardTemperaturaBackgroundColor",
+          "type": "color"
+        },
+        {
+          "key": "cardTemperaturaFontColor",
+          "type": "color"
+        },
+        {
+          "key": "cardAguaBackgroundColor",
+          "type": "color"
+        },
+        {
+          "key": "cardAguaFontColor",
+          "type": "color"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Menu Tab Colors",
+      "items": [
+        {
+          "key": "tabSelecionadoBackgroundColor",
+          "type": "color"
+        },
+        {
+          "key": "tabSelecionadoFontColor",
+          "type": "color"
+        },
+        {
+          "key": "tabNaoSelecionadoBackgroundColor",
+          "type": "color"
+        },
+        {
+          "key": "tabNaoSelecionadoFontColor",
+          "type": "color"
+        }
+      ]
+    }
+  ]
+}

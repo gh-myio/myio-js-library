@@ -70,6 +70,8 @@ export interface DashboardWaterSummary {
   byStatus: StatusSummary;
   lastUpdated: string;
   includeBathrooms?: boolean;
+  /** Optional customer name to display in header (e.g., "Mestre Álvaro") */
+  customerName?: string;
 }
 
 // ============================================
@@ -598,16 +600,21 @@ function formatConsumption(value: number, unit: string = 'm³'): string {
 }
 
 /**
- * Format timestamp for display
+ * Format timestamp for display (date and time)
  */
 function formatTimestamp(isoString: string): string {
   if (!isoString) return '';
   try {
     const date = new Date(isoString);
-    return date.toLocaleTimeString('pt-BR', {
+    const dateStr = date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+    });
+    const timeStr = date.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
     });
+    return `${dateStr} ${timeStr}`;
   } catch {
     return '';
   }
@@ -733,12 +740,13 @@ export const WaterSummaryTooltip = {
     const categoryRows = this.renderCategoryTree(summary.byCategory, summary.unit);
     const statusMatrix = this.renderStatusMatrix(summary.byStatus);
     const timestamp = formatTimestamp(summary.lastUpdated);
+    const titleSuffix = summary.customerName ? ` (${summary.customerName})` : '';
 
     return `
       <div class="water-summary-tooltip__content">
         <div class="water-summary-tooltip__header" data-drag-handle>
           <span class="water-summary-tooltip__icon">💧</span>
-          <span class="water-summary-tooltip__title">Resumo de Água</span>
+          <span class="water-summary-tooltip__title">Resumo de Água${titleSuffix}</span>
           ${timestamp ? `<span class="water-summary-tooltip__timestamp">${timestamp}</span>` : ''}
           <div class="water-summary-tooltip__header-actions">
             <button class="water-summary-tooltip__header-btn" data-action="pin" title="Fixar na tela">

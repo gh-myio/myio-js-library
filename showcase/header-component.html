@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Header Component - RFC-0113 Showcase</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
+      min-height: 100vh;
+      color: #f5f7fa;
+      padding: 40px;
+    }
+
+    .showcase-container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #1d4f91 0%, #1f9d55 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: #b8c2d8;
+      margin-bottom: 32px;
+    }
+
+    .section {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #f5f7fa;
+    }
+
+    /* Header Demo Container */
+    .header-demo-container {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .header-mount {
+      min-height: 140px;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .demo-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: linear-gradient(135deg, #1d4f91 0%, #1a3d70 100%);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 20px rgba(29, 79, 145, 0.3);
+    }
+
+    .demo-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(29, 79, 145, 0.4);
+    }
+
+    .demo-btn:active {
+      transform: translateY(0);
+    }
+
+    .demo-btn.secondary {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: none;
+    }
+
+    .demo-btn.secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .demo-btn.success {
+      background: linear-gradient(135deg, #1f9d55 0%, #15803d 100%);
+      box-shadow: 0 4px 20px rgba(31, 157, 85, 0.3);
+    }
+
+    .demo-btn.warning {
+      background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+      box-shadow: 0 4px 20px rgba(217, 119, 6, 0.3);
+    }
+
+    .code-block {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: 'Monaco', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #e6e6e6;
+    }
+
+    .code-block .keyword {
+      color: #c678dd;
+    }
+
+    .code-block .string {
+      color: #98c379;
+    }
+
+    .code-block .function {
+      color: #61afef;
+    }
+
+    .code-block .property {
+      color: #e5c07b;
+    }
+
+    .code-block .comment {
+      color: #5c6370;
+    }
+
+    .log-container {
+      margin-top: 16px;
+      max-height: 200px;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-entry .time {
+      color: #6b7280;
+    }
+
+    .log-entry .event {
+      color: #1d4f91;
+      font-weight: 600;
+    }
+
+    .log-entry .data {
+      color: #98c379;
+    }
+
+    .info-box {
+      background: rgba(29, 79, 145, 0.1);
+      border: 1px solid rgba(29, 79, 145, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+
+    .info-box p {
+      margin: 0;
+      font-size: 14px;
+      color: #b8c2d8;
+    }
+
+    .info-box code {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      color: #1d4f91;
+    }
+
+    .info-box p + p {
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="showcase-container">
+    <h1>Header Component</h1>
+    <p class="subtitle">RFC-0113: HeaderComponent for MAIN Dashboard - Inline KPI Cards with Filter Modal</p>
+
+    <!-- Live Demo Section -->
+    <div class="section">
+      <h2 class="section-title">Live Demo</h2>
+      <div class="header-demo-container">
+        <div id="headerMount" class="header-mount"></div>
+      </div>
+
+      <div class="button-grid">
+        <button class="demo-btn" onclick="createDefaultHeader()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <path d="M3 9h18"/>
+          </svg>
+          Create Header
+        </button>
+        <button class="demo-btn secondary" onclick="simulateEquipUpdate()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h16v16H4z"/>
+            <path d="M8 8h8v8H8z"/>
+          </svg>
+          Equip Data
+        </button>
+        <button class="demo-btn secondary" onclick="simulateEnergyUpdate()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/>
+          </svg>
+          Energy Data
+        </button>
+        <button class="demo-btn secondary" onclick="simulateTempUpdate()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 3v10a4 4 0 104 0V3"/>
+          </svg>
+          Temp Data
+        </button>
+        <button class="demo-btn secondary" onclick="simulateWaterUpdate()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3c-4 5-6 8-6 11a6 6 0 0012 0c0-3-2-6-6-11z"/>
+          </svg>
+          Water Data
+        </button>
+        <button class="demo-btn success" onclick="openFilter()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+          Open Filter
+        </button>
+        <button class="demo-btn warning" onclick="changeColors()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 2a10 10 0 0 1 0 20"/>
+          </svg>
+          Change Colors
+        </button>
+        <button class="demo-btn secondary" onclick="destroyHeader()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+          Destroy
+        </button>
+      </div>
+
+      <div class="info-box">
+        <p>
+          <strong>Key Difference:</strong> Unlike WelcomeModal (popup), HeaderComponent is an <strong>inline component</strong>
+          that renders into a container element. It's designed for the MAIN dashboard header section.
+        </p>
+        <p>
+          <strong>Data Updates:</strong> Click the data buttons to simulate orchestrator events
+          (<code>myio:energy-summary-ready</code>, etc.) or use the API methods directly.
+        </p>
+        <p>
+          <strong>Filter Modal:</strong> Click "Open Filter" to see the shopping selection modal with preset management.
+        </p>
+      </div>
+    </div>
+
+    <!-- Event Log Section -->
+    <div class="section">
+      <h2 class="section-title">Event Log</h2>
+      <div class="log-container" id="eventLog">
+        <div class="log-entry">
+          <span class="time">[--:--:--]</span>
+          <span class="event">Ready</span>
+          <span class="data">Click "Create Header" to start</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Code Example Section -->
+    <div class="section">
+      <h2 class="section-title">Usage Example</h2>
+      <div class="code-block">
+<span class="keyword">import</span> { <span class="function">createHeaderComponent</span>, <span class="property">HEADER_DEFAULT_CONFIG_TEMPLATE</span> } <span class="keyword">from</span> <span class="string">'myio-js-library'</span>;
+
+<span class="comment">// Create the header component</span>
+<span class="keyword">const</span> header = <span class="function">createHeaderComponent</span>({
+  <span class="property">container</span>: document.<span class="function">getElementById</span>(<span class="string">'header-mount'</span>),
+  <span class="property">configTemplate</span>: {
+    ...<span class="property">HEADER_DEFAULT_CONFIG_TEMPLATE</span>,
+    <span class="property">cardEquipamentosBackgroundColor</span>: <span class="string">'#1F3A35'</span>,
+    <span class="property">cardEquipamentosFontColor</span>: <span class="string">'#F2F2F2'</span>,
+    <span class="comment">// ... other card colors</span>
+  },
+  <span class="property">logoUrl</span>: <span class="string">'https://dashboard.myio-bas.com/api/images/...'</span>,
+  <span class="property">enableTooltips</span>: <span class="keyword">true</span>,
+  <span class="property">enableFilterModal</span>: <span class="keyword">true</span>,
+  <span class="property">onFilterApply</span>: (selection) => {
+    console.<span class="function">log</span>(<span class="string">'Filter applied:'</span>, selection);
+  },
+  <span class="property">onBackClick</span>: () => {
+    <span class="comment">// Navigate to welcome dashboard</span>
+    ctx.stateController.<span class="function">openState</span>(<span class="string">'welcome'</span>);
+  },
+});
+
+<span class="comment">// Header automatically listens to orchestrator events:</span>
+<span class="comment">// - myio:energy-summary-ready</span>
+<span class="comment">// - myio:water-summary-ready</span>
+<span class="comment">// - myio:temperature-data-ready</span>
+<span class="comment">// - myio:equipment-count-updated</span>
+
+<span class="comment">// Or update manually:</span>
+header.<span class="function">updateEnergyKPI</span>({ <span class="property">customerTotal</span>: 12500.5, ... });
+header.<span class="function">updateWaterKPI</span>({ <span class="property">filteredTotal</span>: 567.89, ... });
+
+<span class="comment">// Open filter modal programmatically</span>
+header.<span class="function">openFilterModal</span>();
+
+<span class="comment">// Cleanup</span>
+header.<span class="function">destroy</span>();
+      </div>
+    </div>
+
+    <!-- API Reference Section -->
+    <div class="section">
+      <h2 class="section-title">API Reference</h2>
+      <div class="code-block">
+<span class="keyword">interface</span> HeaderComponentParams {
+  <span class="property">container</span>: HTMLElement;            <span class="comment">// Required: container to render into</span>
+  <span class="property">ctx</span>?: ThingsboardWidgetContext;    <span class="comment">// ThingsBoard context for navigation</span>
+  <span class="property">configTemplate</span>?: HeaderConfigTemplate; <span class="comment">// Colors from settingsSchema.json</span>
+  <span class="property">logoUrl</span>?: <span class="keyword">string</span>;                 <span class="comment">// Logo image URL</span>
+  <span class="property">homeUrl</span>?: <span class="keyword">string</span>;                 <span class="comment">// URL for back button</span>
+  <span class="property">cardColors</span>?: HeaderCardColors;      <span class="comment">// Override card colors</span>
+  <span class="property">initialKPIs</span>?: Partial&lt;CardKPIs&gt;;   <span class="comment">// Initial KPI values</span>
+  <span class="property">shoppings</span>?: Shopping[];            <span class="comment">// Available shoppings for filter</span>
+  <span class="property">enableTooltips</span>?: <span class="keyword">boolean</span>;          <span class="comment">// Show info tooltips (default: true)</span>
+  <span class="property">enableFilterModal</span>?: <span class="keyword">boolean</span>;       <span class="comment">// Enable filter modal (default: true)</span>
+  <span class="property">showBackButton</span>?: <span class="keyword">boolean</span>;          <span class="comment">// Show back button (default: true)</span>
+  <span class="property">onFilterApply</span>?: (selection) => <span class="keyword">void</span>;
+  <span class="property">onBackClick</span>?: () => <span class="keyword">void</span>;
+  <span class="property">onCardClick</span>?: (cardType) => <span class="keyword">void</span>;
+  <span class="property">onCardHover</span>?: (cardType, isHovering) => <span class="keyword">void</span>;
+}
+
+<span class="keyword">interface</span> HeaderComponentInstance {
+  <span class="comment">// Update methods</span>
+  <span class="property">updateKPIs</span>: (kpis: Partial&lt;CardKPIs&gt;) => <span class="keyword">void</span>;
+  <span class="property">updateEquipmentKPI</span>: (data: EquipmentKPI) => <span class="keyword">void</span>;
+  <span class="property">updateEnergyKPI</span>: (data: EnergyKPI) => <span class="keyword">void</span>;
+  <span class="property">updateTemperatureKPI</span>: (data: TemperatureKPI) => <span class="keyword">void</span>;
+  <span class="property">updateWaterKPI</span>: (data: WaterKPI) => <span class="keyword">void</span>;
+  <span class="property">updateTooltipData</span>: (cardType, data) => <span class="keyword">void</span>;
+
+  <span class="comment">// Filter methods</span>
+  <span class="property">updateShoppings</span>: (shoppings) => <span class="keyword">void</span>;
+  <span class="property">openFilterModal</span>: () => <span class="keyword">void</span>;
+  <span class="property">closeFilterModal</span>: () => <span class="keyword">void</span>;
+  <span class="property">getSelectedShoppings</span>: () => Shopping[];
+  <span class="property">setSelectedShoppings</span>: (shoppings) => <span class="keyword">void</span>;
+
+  <span class="comment">// Lifecycle</span>
+  <span class="property">destroy</span>: () => <span class="keyword">void</span>;
+  <span class="property">element</span>: HTMLElement;
+  <span class="property">on</span>: (event, handler) => <span class="keyword">void</span>;
+  <span class="property">off</span>: (event, handler) => <span class="keyword">void</span>;
+}
+      </div>
+    </div>
+
+    <!-- Settings Schema Section -->
+    <div class="section">
+      <h2 class="section-title">Settings Schema (from HEADER widget)</h2>
+      <div class="code-block">
+<span class="comment">// These are the 8 color properties from settingsSchema.json</span>
+<span class="comment">// They should be mapped in the MAIN widget's settingsSchema.json</span>
+
+<span class="keyword">interface</span> HeaderConfigTemplate {
+  <span class="property">cardEquipamentosBackgroundColor</span>?: <span class="keyword">string</span>;  <span class="comment">// default: "#1F3A35"</span>
+  <span class="property">cardEquipamentosFontColor</span>?: <span class="keyword">string</span>;       <span class="comment">// default: "#F2F2F2"</span>
+  <span class="property">cardEnergiaBackgroundColor</span>?: <span class="keyword">string</span>;      <span class="comment">// default: "#1F3A35"</span>
+  <span class="property">cardEnergiaFontColor</span>?: <span class="keyword">string</span>;            <span class="comment">// default: "#F2F2F2"</span>
+  <span class="property">cardTemperaturaBackgroundColor</span>?: <span class="keyword">string</span>;  <span class="comment">// default: "#1F3A35"</span>
+  <span class="property">cardTemperaturaFontColor</span>?: <span class="keyword">string</span>;        <span class="comment">// default: "#F2F2F2"</span>
+  <span class="property">cardAguaBackgroundColor</span>?: <span class="keyword">string</span>;         <span class="comment">// default: "#1F3A35"</span>
+  <span class="property">cardAguaFontColor</span>?: <span class="keyword">string</span>;               <span class="comment">// default: "#F2F2F2"</span>
+
+  <span class="comment">// Additional settings</span>
+  <span class="property">logoUrl</span>?: <span class="keyword">string</span>;
+  <span class="property">logoBackgroundColor</span>?: <span class="keyword">string</span>;
+  <span class="property">enableTooltips</span>?: <span class="keyword">boolean</span>;
+  <span class="property">enableFilterModal</span>?: <span class="keyword">boolean</span>;
+  <span class="property">showBackButton</span>?: <span class="keyword">boolean</span>;
+  <span class="property">enableDebugMode</span>?: <span class="keyword">boolean</span>;
+}
+      </div>
+    </div>
+  </div>
+
+  <!-- Load the library -->
+  <script src="../dist/myio-js-library.umd.js"></script>
+
+  <script>
+    // Global header instance
+    let headerInstance = null;
+
+    // Mock shoppings for filter modal
+    const MOCK_SHOPPINGS = [
+      { name: 'Mestre Alvaro', value: 'mestre-alvaro-001', customerId: 'cust-001' },
+      { name: 'Mont Serrat', value: 'mont-serrat-002', customerId: 'cust-002' },
+      { name: 'Vitoria Mall', value: 'vitoria-mall-003', customerId: 'cust-003' },
+      { name: 'Shopping Norte', value: 'norte-004', customerId: 'cust-004' },
+      { name: 'Shopping Sul', value: 'sul-005', customerId: 'cust-005' },
+      { name: 'Shopping Leste', value: 'leste-006', customerId: 'cust-006' },
+    ];
+
+    // Event logging helper
+    function logEvent(event, data) {
+      const log = document.getElementById('eventLog');
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `
+        <span class="time">[${time}]</span>
+        <span class="event">${event}</span>
+        <span class="data">${data || ''}</span>
+      `;
+      log.insertBefore(entry, log.firstChild);
+    }
+
+    // Create default header
+    function createDefaultHeader() {
+      if (headerInstance) {
+        headerInstance.destroy();
+        headerInstance = null;
+      }
+
+      const container = document.getElementById('headerMount');
+
+      headerInstance = MyIOLibrary.createHeaderComponent({
+        container,
+        configTemplate: MyIOLibrary.HEADER_DEFAULT_CONFIG_TEMPLATE,
+        logoUrl: 'https://dashboard.myio-bas.com/api/images/public/Gi9qaUMi2Z7G2wrdReKzMCZu5epG17lX',
+        enableTooltips: true,
+        enableFilterModal: true,
+        showBackButton: true,
+        shoppings: MOCK_SHOPPINGS,
+        onFilterApply: (selection) => {
+          logEvent('onFilterApply', `${selection.length} shopping(s) selected`);
+        },
+        onBackClick: () => {
+          logEvent('onBackClick', 'Back button clicked');
+        },
+        onCardClick: (cardType) => {
+          logEvent('onCardClick', `Card: ${cardType}`);
+        },
+        onCardHover: (cardType, isHovering) => {
+          if (isHovering) {
+            logEvent('onCardHover', `Hovering: ${cardType}`);
+          }
+        },
+      });
+
+      logEvent('createHeaderComponent', 'Header created successfully');
+    }
+
+    // Simulate equipment update
+    function simulateEquipUpdate() {
+      if (!headerInstance) {
+        logEvent('Error', 'Create header first!');
+        return;
+      }
+
+      const data = {
+        totalEquipments: 150,
+        filteredEquipments: 135,
+        allShoppingsSelected: false,
+        categories: {
+          'Medidores de Energia': 45,
+          'Hidrometros': 30,
+          'Sensores de Temperatura': 25,
+          'Chillers': 20,
+          'Bombas': 15,
+          'Fancoils': 15,
+        },
+      };
+
+      // Option 1: Use instance method
+      headerInstance.updateEquipmentKPI(data);
+
+      // Note: EquipmentSummaryTooltip is not yet implemented
+      // When available, update tooltip data like this:
+      // headerInstance.updateTooltipData('equipment', { ... });
+
+      logEvent('updateEquipmentKPI', `${data.filteredEquipments}/${data.totalEquipments}`);
+    }
+
+    // Simulate energy update
+    function simulateEnergyUpdate() {
+      if (!headerInstance) {
+        logEvent('Error', 'Create header first!');
+        return;
+      }
+
+      const data = {
+        customerTotal: 12543.75,
+        unfilteredTotal: 25000.00,
+        isFiltered: true,
+        equipmentsTotal: 8000,
+        lojasTotal: 4543.75,
+        shoppingsEnergy: [
+          { name: 'Mestre Alvaro', value: 'ma', total: 4500, percentage: 35.9 },
+          { name: 'Mont Serrat', value: 'ms', total: 3800, percentage: 30.3 },
+          { name: 'Vitoria Mall', value: 'vm', total: 4243.75, percentage: 33.8 },
+        ],
+      };
+
+      headerInstance.updateEnergyKPI(data);
+
+      // Update tooltip data in correct format for EnergySummaryTooltip
+      const tooltipData = {
+        totalDevices: 45,
+        totalConsumption: 12543.75,
+        unit: 'kWh',
+        byCategory: [
+          { id: 'entrada', name: 'Entrada', icon: '📥', deviceCount: 3, consumption: 12000, percentage: 100 },
+          { id: 'lojas', name: 'Lojas', icon: '🏪', deviceCount: 12, consumption: 4543.75, percentage: 36.2 },
+          { id: 'areaComum', name: 'Area Comum', icon: '🏢', deviceCount: 30, consumption: 8000, percentage: 63.8 },
+        ],
+        byStatus: {
+          waiting: 0,
+          weakConnection: 2,
+          offline: 3,
+          normal: 35,
+          alert: 3,
+          failure: 1,
+          standby: 1,
+          noConsumption: 0,
+        },
+        lastUpdated: new Date().toISOString(),
+      };
+      headerInstance.updateTooltipData('energy', tooltipData);
+
+      logEvent('updateEnergyKPI', `${data.customerTotal.toFixed(2)} kWh`);
+    }
+
+    // Simulate temperature update
+    function simulateTempUpdate() {
+      if (!headerInstance) {
+        logEvent('Error', 'Create header first!');
+        return;
+      }
+
+      const data = {
+        globalAvg: 23.5,
+        filteredAvg: 22.8,
+        isFiltered: true,
+        shoppingsInRange: [
+          { name: 'Mestre Alvaro', avg: 22.5, range: '18-25C' },
+          { name: 'Mont Serrat', avg: 23.0, range: '18-25C' },
+        ],
+        shoppingsOutOfRange: [
+          { name: 'Vitoria Mall', avg: 26.5, range: '18-25C', status: 'warning' },
+        ],
+        devices: [
+          { name: 'Sensor Piso 1', value: 22.3, location: 'Piso 1' },
+          { name: 'Sensor Piso 2', value: 23.8, location: 'Piso 2' },
+        ],
+      };
+
+      headerInstance.updateTemperatureKPI(data);
+
+      // Update tooltip data in correct format for TempSensorSummaryTooltip
+      const tooltipData = {
+        totalSensors: 25,
+        overallAverage: 23.5,
+        overallMin: 18.2,
+        overallMax: 28.5,
+        lastUpdated: new Date().toISOString(),
+        inRange: [
+          { id: 'sensor-1', name: 'Sensor Piso 1', value: 22.3, location: 'Mestre Alvaro', status: 'normal' },
+          { id: 'sensor-2', name: 'Sensor Piso 2', value: 23.8, location: 'Mont Serrat', status: 'normal' },
+        ],
+        outOfRange: [
+          { id: 'sensor-3', name: 'Sensor Vitoria', value: 26.5, location: 'Vitoria Mall', status: 'warning' },
+        ],
+        offline: [
+          { id: 'sensor-4', name: 'Sensor Offline', value: null, location: 'Norte', status: 'offline' },
+        ],
+      };
+      headerInstance.updateTooltipData('temperature', tooltipData);
+
+      logEvent('updateTemperatureKPI', `${data.globalAvg} C - ${data.shoppingsOutOfRange.length} fora da faixa`);
+    }
+
+    // Simulate water update
+    function simulateWaterUpdate() {
+      if (!headerInstance) {
+        logEvent('Error', 'Create header first!');
+        return;
+      }
+
+      const data = {
+        filteredTotal: 567.89,
+        unfilteredTotal: 1200.00,
+        isFiltered: true,
+        commonArea: 300.50,
+        stores: 267.39,
+        shoppingsWater: [
+          { name: 'Mestre Alvaro', value: 'ma', total: 200.5, percentage: 35.3 },
+          { name: 'Mont Serrat', value: 'ms', total: 180.2, percentage: 31.7 },
+          { name: 'Vitoria Mall', value: 'vm', total: 187.19, percentage: 33.0 },
+        ],
+      };
+
+      headerInstance.updateWaterKPI(data);
+
+      // Update tooltip data in correct format for WaterSummaryTooltip
+      const tooltipData = {
+        totalDevices: 30,
+        totalConsumption: 567.89,
+        unit: 'm3',
+        byCategory: [
+          { id: 'areaComum', name: 'Area Comum', icon: '🏢', deviceCount: 12, consumption: 300.50, percentage: 52.9 },
+          { id: 'lojas', name: 'Lojas', icon: '🏪', deviceCount: 18, consumption: 267.39, percentage: 47.1 },
+        ],
+        byStatus: {
+          normal: 25,
+          alert: 3,
+          failure: 1,
+          offline: 1,
+        },
+        lastUpdated: new Date().toISOString(),
+      };
+      headerInstance.updateTooltipData('water', tooltipData);
+
+      logEvent('updateWaterKPI', `${data.filteredTotal.toFixed(2)} m3`);
+    }
+
+    // Open filter modal
+    function openFilter() {
+      if (!headerInstance) {
+        logEvent('Error', 'Create header first!');
+        return;
+      }
+
+      headerInstance.openFilterModal();
+      logEvent('openFilterModal', 'Filter modal opened');
+    }
+
+    // Change card colors
+    function changeColors() {
+      if (headerInstance) {
+        headerInstance.destroy();
+        headerInstance = null;
+      }
+
+      const container = document.getElementById('headerMount');
+
+      // Create with custom colors
+      headerInstance = MyIOLibrary.createHeaderComponent({
+        container,
+        configTemplate: {
+          cardEquipamentosBackgroundColor: '#1a365d',
+          cardEquipamentosFontColor: '#bee3f8',
+          cardEnergiaBackgroundColor: '#744210',
+          cardEnergiaFontColor: '#fefcbf',
+          cardTemperaturaBackgroundColor: '#285e61',
+          cardTemperaturaFontColor: '#b2f5ea',
+          cardAguaBackgroundColor: '#2a4365',
+          cardAguaFontColor: '#90cdf4',
+          logoBackgroundColor: '#1a202c',
+        },
+        logoUrl: 'https://dashboard.myio-bas.com/api/images/public/Gi9qaUMi2Z7G2wrdReKzMCZu5epG17lX',
+        shoppings: MOCK_SHOPPINGS,
+        onFilterApply: (selection) => {
+          logEvent('onFilterApply', `${selection.length} shopping(s) selected`);
+        },
+        onBackClick: () => {
+          logEvent('onBackClick', 'Back button clicked');
+        },
+      });
+
+      logEvent('changeColors', 'Header recreated with custom colors');
+    }
+
+    // Destroy header
+    function destroyHeader() {
+      if (!headerInstance) {
+        logEvent('Error', 'No header to destroy');
+        return;
+      }
+
+      headerInstance.destroy();
+      headerInstance = null;
+      logEvent('destroy', 'Header destroyed');
+    }
+
+    // Log initial load
+    console.log('[Header Component Showcase] MyIOLibrary loaded:', !!window.MyIOLibrary);
+    console.log('[Header Component Showcase] createHeaderComponent available:', !!window.MyIOLibrary?.createHeaderComponent);
+  </script>
+</body>
+</html>
