@@ -18,8 +18,9 @@ export class EnergyDataFetcher {
       dataApiHost: config.dataApiHost || 'https://api.data.apps.myio-bas.com',
       ...config
     };
-    
-    // Initialize AuthClient if client credentials are provided
+
+    // Create AuthClient when clientId/clientSecret are provided
+    // SDK charts require client credentials for authentication
     if (config.clientId && config.clientSecret) {
       this.authClient = new AuthClient({
         clientId: config.clientId,

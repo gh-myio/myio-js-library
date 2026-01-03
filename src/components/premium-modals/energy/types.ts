@@ -37,11 +37,12 @@ export interface OpenDashboardPopupEnergyOptions {
   dataApiHost?: string;                // default: https://api.data.apps.myio-bas.com
   chartsBaseUrl?: string;              // default: https://graphs.apps.myio-bas.com
   timezone?: string;                   // default: "America/Sao_Paulo"
-  theme?: 'light' | 'dark' | string;   // default: 'light'
+  theme?: 'light' | 'dark';            // default: 'light'
 
   // Behavior Configuration
-  readingType?: 'energy' | 'water' | 'tank';  // default: 'energy'
+  readingType?: 'energy' | 'water' | 'tank' | 'temperature';  // default: 'energy'
   granularity?: '1d' | '1h' | '15m';   // default: '1d' (REQUIRED for comparison mode)
+  deviceLabel?: string;               // Display label for device (used in demand modal)
   closeOnEsc?: boolean;                // default: true
   zIndex?: number;                     // default: 10000
   deep?: boolean;                      // default: false (used in comparison mode)

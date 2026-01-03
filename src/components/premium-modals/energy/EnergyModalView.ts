@@ -53,8 +53,16 @@ export class EnergyModalView {
    * Initializes theme from localStorage
    */
   private initializeTheme(): void {
-    const savedTheme = localStorage.getItem('myio-modal-theme') as 'dark' | 'light' | null;
-    this.currentTheme = savedTheme || this.config.params.theme || 'dark';
+    const savedTheme = localStorage.getItem('myio-modal-theme');
+    const configTheme = this.config.params.theme;
+    // Validate theme value - only accept 'dark' or 'light'
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+      this.currentTheme = savedTheme;
+    } else if (configTheme === 'dark' || configTheme === 'light') {
+      this.currentTheme = configTheme;
+    } else {
+      this.currentTheme = 'dark';
+    }
   }
 
   /**
@@ -1249,8 +1257,8 @@ export class EnergyModalView {
       granularityButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
           const target = e.currentTarget as HTMLElement;
-          const newGranularity = target.dataset.granularity as '1h' | '1d' | '1w' | '1M';
-          if (newGranularity) {
+          const newGranularity = target.dataset.granularity as '1h' | '1d';
+          if (newGranularity && (newGranularity === '1h' || newGranularity === '1d')) {
             this.setGranularity(newGranularity);
           }
         });
