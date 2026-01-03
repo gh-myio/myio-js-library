@@ -10,6 +10,58 @@
 let _onDataUpdatedCallCount = 0;
 const MAX_DATA_UPDATED_CALLS = 4;
 
+// RFC-0111: Default shopping cards with correct dashboard IDs (from WELCOME controller)
+const DEFAULT_SHOPPING_CARDS = [
+  {
+    title: 'Mestre Álvaro',
+    subtitle: 'Dashboard Principal',
+    buttonId: 'ShoppingMestreAlvaro',
+    dashboardId: '6c188a90-b0cc-11f0-9722-210aa9448abc',
+    entityId: '6c188a90-b0cc-11f0-9722-210aa9448abc',
+    entityType: 'ASSET',
+  },
+  {
+    title: 'Mont Serrat',
+    subtitle: 'Dashboard Principal',
+    buttonId: 'ShoppingMontSerrat',
+    dashboardId: '39e4ca30-b503-11f0-be7f-e760d1498268',
+    entityId: '39e4ca30-b503-11f0-be7f-e760d1498268',
+    entityType: 'ASSET',
+  },
+  {
+    title: 'Moxuara',
+    subtitle: 'Dashboard Principal',
+    buttonId: 'ShoppingMoxuara',
+    dashboardId: '4b53bbb0-b5a7-11f0-be7f-e760d1498268',
+    entityId: '4b53bbb0-b5a7-11f0-be7f-e760d1498268',
+    entityType: 'ASSET',
+  },
+  {
+    title: 'Rio Poty',
+    subtitle: 'Dashboard Principal',
+    buttonId: 'ShoppingRioPoty',
+    dashboardId: 'd432db90-cee9-11f0-998e-25174baff087',
+    entityId: 'd432db90-cee9-11f0-998e-25174baff087',
+    entityType: 'ASSET',
+  },
+  {
+    title: 'Shopping da Ilha',
+    subtitle: 'Dashboard Principal',
+    buttonId: 'ShoppingDaIlha',
+    dashboardId: 'd2754480-b668-11f0-be7f-e760d1498268',
+    entityId: 'd2754480-b668-11f0-be7f-e760d1498268',
+    entityType: 'ASSET',
+  },
+  {
+    title: 'Metrópole Ananindeua',
+    subtitle: 'Dashboard Principal',
+    buttonId: 'ShoppingMetropoleAnanindeua',
+    dashboardId: 'aaa21b80-d6e9-11f0-998e-25174baff087',
+    entityId: 'aaa21b80-d6e9-11f0-998e-25174baff087',
+    entityType: 'ASSET',
+  },
+];
+
 self.onInit = async function () {
   'use strict';
 
@@ -197,6 +249,40 @@ self.onInit = async function () {
     return null;
   };
 
+  // RFC-0111: Fetch logged-in user info from ThingsBoard API
+  const fetchUserInfo = async () => {
+    try {
+      const tbToken = localStorage.getItem('jwt_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (tbToken) {
+        headers['X-Authorization'] = `Bearer ${tbToken}`;
+      }
+
+      const response = await fetch('/api/auth/user', {
+        method: 'GET',
+        headers: headers,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        logDebug('Failed to fetch user info:', response.status);
+        return null;
+      }
+
+      const user = await response.json();
+      logDebug('User data from API:', user);
+
+      const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || 'Usuário';
+      return {
+        fullName,
+        email: user.email || '',
+      };
+    } catch (error) {
+      LogHelper.error('Error fetching user info:', error);
+      return null;
+    }
+  };
+
   // Expose utilities globally for TELEMETRY widget (initial state)
   window.MyIOUtils = {
     DATA_API_HOST,
@@ -238,15 +324,20 @@ self.onInit = async function () {
     lightMode: settings.lightMode || {},
   };
 
-  // === 4. RFC-0112: OPEN WELCOME MODAL (LOADING STATE) ===
+  // === 4. RFC-0112: FETCH USER INFO AND OPEN WELCOME MODAL ===
+  // Fetch user info for display in the modal
+  const userInfo = await fetchUserInfo();
+  logDebug('User info fetched:', userInfo);
+
   const welcomeModal = MyIOLibrary.openWelcomeModal({
     ctx: self.ctx,
     themeMode: currentThemeMode,
     showThemeToggle: true,
     configTemplate: welcomeConfig,
-    shoppingCards: [], // Empty initially - loading state
-    ctaLabel: 'Aguarde...',
-    ctaDisabled: true,
+    shoppingCards: DEFAULT_SHOPPING_CARDS, // Use hardcoded cards with correct dashboardIds
+    userInfo: userInfo, // Pass user info for display
+    ctaLabel: welcomeConfig.defaultPrimaryLabel || 'ACESSAR PAINEL',
+    ctaDisabled: false,
     closeOnCtaClick: true,
     closeOnCardClick: true,
     onThemeChange: (newTheme) => {
@@ -395,14 +486,11 @@ self.onInit = async function () {
 
   // === 9. LISTEN FOR DATA READY EVENT ===
   window.addEventListener('myio:data-ready', (e) => {
-    const { shoppingCards, deviceCounts } = e.detail;
+    const { deviceCounts } = e.detail;
 
-    // Update welcome modal with shopping cards
-    if (welcomeModal && shoppingCards) {
-      welcomeModal.updateShoppingCards?.(shoppingCards);
-      welcomeModal.setCtaLabel?.('ACESSAR PAINEL');
-      welcomeModal.setCtaDisabled?.(false);
-    }
+    // NOTE: We use DEFAULT_SHOPPING_CARDS with hardcoded dashboardIds
+    // Do NOT update shopping cards from dynamically generated data
+    // The hardcoded cards have the correct navigation dashboardIds
 
     // Update header KPIs
     // NOTE: RFC-0113 header updates via events, not direct method calls
