@@ -47,7 +47,7 @@ export function openWelcomeModal(params: WelcomeModalParams): WelcomeModalInstan
   const closeHandlers: (() => void)[] = [];
 
   /**
-   * Close the modal
+   * Close the modal (hide, but don't destroy - allows re-opening)
    */
   function close(): void {
     // Animate out
@@ -58,18 +58,16 @@ export function openWelcomeModal(params: WelcomeModalParams): WelcomeModalInstan
       // Restore body scroll
       document.body.style.overflow = originalBodyOverflow;
 
-      // Remove from DOM
-      if (element.parentNode) {
-        element.parentNode.removeChild(element);
-      }
+      // Hide element instead of removing (allows re-open)
+      element.style.display = 'none';
 
       // Restore focus
       if (originalActiveElement && 'focus' in originalActiveElement) {
         (originalActiveElement as HTMLElement).focus();
       }
 
-      // Cleanup view
-      view.destroy();
+      // NOTE: Do NOT call view.destroy() here - it breaks re-opening
+      // The view will be destroyed when the page unloads
 
       // Call close handlers
       closeHandlers.forEach(handler => handler());

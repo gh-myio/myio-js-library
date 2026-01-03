@@ -1176,6 +1176,119 @@ body.filter-modal-open { overflow: hidden !important; }
         #${containerId} .icon-btn svg { width: 18px; height: 18px; fill: #1C2743; }
         @keyframes filterModalFadeIn { from { opacity: 0; } to { opacity: 1; } }
         body.filter-modal-open { overflow: hidden !important; }
+
+        /* ========== DARK THEME SUPPORT ========== */
+        [data-theme="dark"] #${containerId} .${modalClass}-card {
+          background: #1e293b;
+          border-color: #334155;
+        }
+        [data-theme="dark"] #${containerId} .${modalClass}-header {
+          border-bottom-color: #334155;
+        }
+        [data-theme="dark"] #${containerId} .${modalClass}-header h3 {
+          color: #f1f5f9;
+        }
+        [data-theme="dark"] #${containerId} .${modalClass}-footer {
+          border-top-color: #334155;
+        }
+        [data-theme="dark"] #${containerId} .filter-sidebar {
+          border-right-color: #334155;
+        }
+        [data-theme="dark"] #${containerId} .filter-content {
+          border-right-color: #334155;
+        }
+        [data-theme="dark"] #${containerId} .block-label {
+          color: #f1f5f9;
+        }
+        [data-theme="dark"] #${containerId} .filter-group-label {
+          color: #94a3b8;
+        }
+        [data-theme="dark"] #${containerId} .filter-group-all {
+          border-bottom-color: #334155;
+        }
+        [data-theme="dark"] #${containerId} .filter-search input {
+          background: #0f172a;
+          border-color: #334155;
+          color: #f1f5f9;
+        }
+        [data-theme="dark"] #${containerId} .filter-search input::placeholder {
+          color: #64748b;
+        }
+        [data-theme="dark"] #${containerId} .filter-search input:focus {
+          border-color: ${primaryColor};
+          box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+        }
+        [data-theme="dark"] #${containerId} .filter-search svg {
+          fill: #94a3b8;
+        }
+        [data-theme="dark"] #${containerId} .filter-search .clear-x {
+          background: #334155;
+        }
+        [data-theme="dark"] #${containerId} .filter-search .clear-x:hover {
+          background: #475569;
+        }
+        [data-theme="dark"] #${containerId} .filter-search .clear-x svg {
+          fill: #94a3b8;
+        }
+        [data-theme="dark"] #${containerId} .checklist {
+          background: #0f172a;
+          border-color: #334155;
+        }
+        [data-theme="dark"] #${containerId} .check-item:hover {
+          background: #334155;
+        }
+        [data-theme="dark"] #${containerId} .check-item label {
+          color: #e2e8f0;
+        }
+        [data-theme="dark"] #${containerId} .radio-grid label {
+          border-color: #334155;
+          color: #e2e8f0;
+          background: #0f172a;
+        }
+        [data-theme="dark"] #${containerId} .radio-grid label:hover {
+          background: #1e293b;
+          border-color: ${primaryColor};
+        }
+        [data-theme="dark"] #${containerId} .radio-grid label:has(input:checked) {
+          background: rgba(37, 99, 235, 0.15);
+          border-color: ${primaryColor};
+          color: #60a5fa;
+        }
+        [data-theme="dark"] #${containerId} .tiny-btn {
+          background: #0f172a;
+          border-color: #334155;
+          color: #e2e8f0;
+        }
+        [data-theme="dark"] #${containerId} .tiny-btn:hover {
+          background: #1e293b;
+          border-color: ${primaryColor};
+          color: #60a5fa;
+        }
+        [data-theme="dark"] #${containerId} .btn {
+          border-color: #334155;
+          color: #e2e8f0;
+          background: #0f172a;
+        }
+        [data-theme="dark"] #${containerId} .btn:hover {
+          background: #1e293b;
+        }
+        [data-theme="dark"] #${containerId} .btn.primary {
+          background: ${primaryColor};
+          color: #fff;
+          border-color: ${primaryColor};
+        }
+        [data-theme="dark"] #${containerId} .icon-btn:hover {
+          background: #334155;
+        }
+        [data-theme="dark"] #${containerId} .icon-btn svg {
+          fill: #f1f5f9;
+        }
+        [data-theme="dark"] #${containerId} .filter-tab-expand {
+          background: rgba(255, 255, 255, 0.1);
+        }
+        [data-theme="dark"] #${containerId} .filter-tab-expand:hover {
+          background: rgba(255, 255, 255, 0.25);
+        }
       `;
     };
 
