@@ -347,7 +347,7 @@ export class MenuController implements MenuComponentInstance {
   }
 
   /**
-   * Dispatch a custom event on the document
+   * Dispatch a custom event on window (global scope)
    */
   private dispatchCustomEvent(eventName: string, detail: unknown): void {
     const event = new CustomEvent(eventName, {
@@ -355,7 +355,7 @@ export class MenuController implements MenuComponentInstance {
       bubbles: true,
       cancelable: true,
     });
-    document.dispatchEvent(event);
+    window.dispatchEvent(event);
 
     if (this.config.enableDebugMode) {
       console.log(`[MenuController] Dispatched ${eventName}:`, detail);

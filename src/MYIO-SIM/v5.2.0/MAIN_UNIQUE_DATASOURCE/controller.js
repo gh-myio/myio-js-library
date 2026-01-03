@@ -382,6 +382,50 @@ self.onInit = async function () {
   fill: #1c2743;
 }
 
+/* ====== DARK THEME SUPPORT FOR HEADER ====== */
+[data-theme="dark"] .equip-stats-header {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-color: #334155;
+  border-bottom-color: #475569;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+[data-theme="dark"] .equip-stats-header .stat-label {
+  color: #94a3b8;
+}
+[data-theme="dark"] .equip-stats-header .stat-value {
+  color: #f1f5f9;
+}
+[data-theme="dark"] .equip-stats-header .stat-item.highlight {
+  background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 100%);
+  border-color: #3b82f6;
+}
+[data-theme="dark"] .equip-stats-header .stat-item.highlight .stat-value {
+  color: #93c5fd;
+}
+[data-theme="dark"] .equip-stats-header .search-wrap input {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+[data-theme="dark"] .equip-stats-header .search-wrap input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+[data-theme="dark"] .equip-stats-header .search-wrap input::placeholder {
+  color: #64748b;
+}
+[data-theme="dark"] .equip-stats-header .icon-btn {
+  background: #1e293b;
+  border-color: #334155;
+}
+[data-theme="dark"] .equip-stats-header .icon-btn:hover {
+  background: #334155;
+  border-color: #3b82f6;
+}
+[data-theme="dark"] .equip-stats-header .icon-btn svg {
+  fill: #f1f5f9;
+}
+
 /* ====== RFC-0090: CENTRALIZED FILTER MODAL STYLES ====== */
 .myio-filter-modal {
   position: fixed;
@@ -2083,6 +2127,27 @@ body.filter-modal-open { overflow: hidden !important; }
   window.addEventListener('myio:panel-modal-request', (e) => {
     const { domain, panelType } = e.detail;
     handlePanelModalRequest(domain, panelType);
+  });
+
+  // === 11. LISTEN FOR GLOBAL THEME CHANGES (from Menu) ===
+  window.addEventListener('myio:theme-change', (e) => {
+    const themeMode = e.detail?.themeMode;
+    if (!themeMode) return;
+
+    logDebug('Global theme change received:', themeMode);
+    currentThemeMode = themeMode;
+
+    // Apply to main wrapper
+    const wrap = document.getElementById('mainUniqueWrap');
+    if (wrap) {
+      wrap.setAttribute('data-theme', themeMode);
+    }
+
+    // Update all components with new theme
+    if (headerInstance) headerInstance.setThemeMode?.(themeMode);
+    if (menuInstance) menuInstance.setThemeMode?.(themeMode);
+    if (footerInstance) footerInstance.setThemeMode?.(themeMode);
+    if (welcomeModal) welcomeModal.setThemeMode?.(themeMode);
   });
 
   // === HELPER FUNCTIONS ===

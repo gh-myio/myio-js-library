@@ -68,6 +68,54 @@ export const CSS_STRING = `
   --myio-badge-border-failure: rgba(244, 67, 54, .45);
 }
 
+/* Dark Theme Support */
+[data-theme="dark"] {
+  --myio-card-bg: #1e293b;
+  --myio-card-border: #334155;
+  --myio-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --myio-text-1: #f1f5f9;
+  --myio-text-2: #94a3b8;
+  --myio-muted: #64748b;
+  --myio-eff-bar-bg: #334155;
+}
+
+[data-theme="dark"] .myio-ho-card {
+  background: var(--myio-card-bg);
+  border-color: var(--myio-card-border);
+  color: var(--myio-text-1);
+}
+
+[data-theme="dark"] .myio-ho-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .4);
+}
+
+[data-theme="dark"] .myio-ho-label,
+[data-theme="dark"] .myio-ho-value,
+[data-theme="dark"] .myio-ho-unit {
+  color: var(--myio-text-1);
+}
+
+[data-theme="dark"] .myio-ho-subtitle {
+  color: var(--myio-text-2);
+}
+
+[data-theme="dark"] .myio-ho-secondary-info {
+  color: var(--myio-muted);
+}
+
+[data-theme="dark"] .myio-ho-icon-bg {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .myio-ho-dropdown {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .myio-ho-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* Main card container */
 .myio-ho-card {
   background: var(--myio-card-bg);

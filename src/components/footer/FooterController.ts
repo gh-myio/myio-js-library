@@ -410,6 +410,13 @@ export class FooterController {
   }
 
   /**
+   * Set theme mode (dark/light)
+   */
+  setThemeMode(mode: 'dark' | 'light'): void {
+    this.view.setTheme(mode);
+  }
+
+  /**
    * Open the comparison modal
    */
   async openCompareModal(): Promise<void> {
