@@ -943,23 +943,64 @@ function extractDeviceMetadataFromRows(rows, logDebug) {
   // Extract deviceProfile from dataKey values
   const deviceProfile = dataKeyValues['deviceProfile'] || dataKeyValues['profile'] || '';
 
+  // Get consumption value
+  const consumptionValue = dataKeyValues['consumption'] || 0;
+
+  // Get identifier - normalize empty values
+  const rawIdentifier = String(dataKeyValues['identifier'] || dataKeyValues['slaveId'] || '').trim();
+  const deviceIdentifier = !rawIdentifier
+    ? 'Sem identificador'
+    : rawIdentifier.toUpperCase().includes('SEM IDENTIFICADOR')
+      ? 'Sem identificador'
+      : rawIdentifier;
+
+  // Get connection status
+  const rawConnectionStatus = dataKeyValues['connectionStatus'] || 'offline';
+  const connectionStatus = window.MyIOUtils?.mapConnectionStatus?.(rawConnectionStatus) || rawConnectionStatus;
+
   return {
+    // Core IDs
     id: entityId,
     entityId: entityId,
+
+    // Names - include both formats for compatibility
     name: deviceName,
+    labelOrName: deviceName, // RFC-0111: Card component expects labelOrName
     aliasName: datasource.aliasName || '',
+
+    // Device classification
     deviceType: deviceType,
     deviceProfile: deviceProfile,
+
+    // Identifiers
     ingestionId: dataKeyValues['ingestionId'] || '',
+    identifier: deviceIdentifier,
+    deviceIdentifier: deviceIdentifier, // Alias for card component
+    centralName: dataKeyValues['centralName'] || '',
+
+    // Customer info
     customerId: dataKeyValues['customerId'] || datasource.entity?.customerId?.id || '',
     customerName: dataKeyValues['customerName'] || dataKeyValues['ownerName'] || '',
+
+    // Timestamps
     lastActivityTime: dataKeyValues['lastActivityTime'],
     lastConnectTime: dataKeyValues['lastConnectTime'],
     lastDisconnectTime: dataKeyValues['lastDisconnectTime'],
-    consumption: dataKeyValues['consumption'],
+
+    // Telemetry values - include both formats for compatibility
+    consumption: consumptionValue,
+    val: consumptionValue, // RFC-0111: Card component expects val
     pulses: dataKeyValues['pulses'],
     temperature: dataKeyValues['temperature'],
     water_level: dataKeyValues['water_level'],
+
+    // Status
+    connectionStatus: connectionStatus,
+
+    // Additional fields for card component
+    valType: deviceType.includes('HIDROMETRO') ? 'water_m3' : 'power_w',
+    unit: deviceType.includes('HIDROMETRO') ? 'm³' : 'kWh',
+    icon: deviceType.includes('HIDROMETRO') ? 'water' : deviceType.includes('TERMOSTATO') ? 'temperature' : 'energy',
   };
 }
 
