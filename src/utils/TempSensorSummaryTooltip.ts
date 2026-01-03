@@ -448,22 +448,25 @@ function generateContentHTML(data: TempSensorSummaryData): string {
   const { devices, temperatureMin, temperatureMax } = data;
   const hasLimits = temperatureMin != null && temperatureMax != null;
 
+  // FIX: Guard against undefined/null devices
+  const deviceList = devices && Array.isArray(devices) ? devices : [];
+
   // Calculate statistics
   let devicesInRange = 0;
   let devicesOutOfRange = 0;
   let totalTemp = 0;
 
-  devices.forEach((d) => {
+  deviceList.forEach((d) => {
     totalTemp += d.temp;
     if (d.status === 'ok') devicesInRange++;
     else if (d.status === 'warn') devicesOutOfRange++;
   });
 
-  const avgTemp = devices.length > 0 ? totalTemp / devices.length : 0;
+  const avgTemp = deviceList.length > 0 ? totalTemp / deviceList.length : 0;
 
   // Build status badge
   let statusBadge = '';
-  if (devices.length === 0) {
+  if (deviceList.length === 0) {
     statusBadge = '<span class="myio-temp-sensor-tooltip__badge myio-temp-sensor-tooltip__badge--info">Aguardando dados</span>';
   } else if (!hasLimits) {
     statusBadge = '<span class="myio-temp-sensor-tooltip__badge myio-temp-sensor-tooltip__badge--info">Faixa nao configurada</span>';
@@ -477,15 +480,15 @@ function generateContentHTML(data: TempSensorSummaryData): string {
 
   // Build device list HTML
   let deviceListHtml = '';
-  if (devices.length > 0) {
-    const sortedDevices = [...devices].sort((a, b) => b.temp - a.temp);
+  if (deviceList.length > 0) {
+    const sortedDevices = [...deviceList].sort((a, b) => b.temp - a.temp);
     const displayDevices = sortedDevices.slice(0, 8);
     const hasMore = sortedDevices.length > 8;
 
     deviceListHtml = `
       <div class="myio-temp-sensor-tooltip__section">
         <div class="myio-temp-sensor-tooltip__section-title">
-          <span>🌡️</span> Sensores (${devices.length})
+          <span>🌡️</span> Sensores (${deviceList.length})
         </div>
         <div class="myio-temp-sensor-tooltip__list">
           ${displayDevices.map((d) => {

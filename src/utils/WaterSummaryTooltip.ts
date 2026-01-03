@@ -649,6 +649,11 @@ export const WaterSummaryTooltip = {
   renderCategoryTree(categories: WaterCategorySummary[], unit: string): string {
     let html = '';
 
+    // FIX: Guard against undefined/null categories
+    if (!categories || !Array.isArray(categories)) {
+      return html;
+    }
+
     categories.forEach(cat => {
       const icon = WATER_CATEGORY_ICONS[cat.id] || WATER_CATEGORY_ICONS.areaComum;
       const isParent = cat.children && cat.children.length > 0;

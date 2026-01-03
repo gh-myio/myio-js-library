@@ -2588,12 +2588,18 @@ self.onDataUpdated = function () {
     })
   );
 
+  // FIX: Calculate online equipment count (same logic as TELEMETRY header)
+  const onlineEquipments = classified.energy.equipments.filter((device) => {
+    const status = (device.deviceStatus || '').toLowerCase();
+    return !['offline', 'no_info', 'not_installed'].includes(status);
+  }).length;
+
   // Equipment count event
   window.dispatchEvent(
     new CustomEvent('myio:equipment-count-updated', {
       detail: {
         totalEquipments: classified.energy.equipments.length,
-        filteredEquipments: classified.energy.equipments.length,
+        filteredEquipments: onlineEquipments, // FIX: Use online count, not total
         allShoppingsSelected: true,
       },
     })
@@ -3619,12 +3625,18 @@ async function triggerApiEnrichment() {
       })
     );
 
+    // FIX: Calculate online equipment count (same logic as TELEMETRY header)
+    const onlineEquipmentsAfterEnrich = enriched.energy.equipments.filter((device) => {
+      const status = (device.deviceStatus || '').toLowerCase();
+      return !['offline', 'no_info', 'not_installed'].includes(status);
+    }).length;
+
     // Equipment count event
     window.dispatchEvent(
       new CustomEvent('myio:equipment-count-updated', {
         detail: {
           totalEquipments: enriched.energy.equipments.length,
-          filteredEquipments: enriched.energy.equipments.length,
+          filteredEquipments: onlineEquipmentsAfterEnrich, // FIX: Use online count, not total
           allShoppingsSelected: true,
         },
       })

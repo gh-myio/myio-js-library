@@ -643,6 +643,15 @@ function initFilterModal() {
       { id: 'online', label: 'Online', filter: (d) => d.deviceStatus === 'power_on' },
       { id: 'offline', label: 'Offline', filter: (d) => d.deviceStatus === 'offline' },
       { id: 'notInstalled', label: 'Nao Instalado', filter: (d) => d.deviceStatus === 'not_installed' },
+      // FIX: Add consumption filters to match header stats display
+      { id: 'withConsumption', label: 'Com Consumo', filter: (d) => {
+        const consumption = Number(d.val) || Number(d.value) || Number(d.lastValue) || 0;
+        return consumption > 0;
+      }},
+      { id: 'noConsumption', label: 'Sem Consumo', filter: (d) => {
+        const consumption = Number(d.val) || Number(d.value) || Number(d.lastValue) || 0;
+        return consumption === 0;
+      }},
     ],
     sortOptions: [
       { id: 'cons_desc', label: `${domainConfig.headerLabel} (maior)`, icon: '↓' },

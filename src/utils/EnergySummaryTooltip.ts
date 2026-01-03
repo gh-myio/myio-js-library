@@ -729,6 +729,11 @@ export const EnergySummaryTooltip = {
   renderCategoryTree(categories: CategorySummary[], unit: string): string {
     let html = '';
 
+    // FIX: Guard against undefined/null categories
+    if (!categories || !Array.isArray(categories)) {
+      return html;
+    }
+
     categories.forEach(cat => {
       const icon = CATEGORY_ICONS[cat.id] || CATEGORY_ICONS.outros;
       const isParent = cat.children && cat.children.length > 0;
