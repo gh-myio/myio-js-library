@@ -415,8 +415,8 @@ export class WelcomeModalView {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  width: 80%;
-  max-width: 80%;
+  width: 80vw;
+  max-width: 900px;
   padding: 40px 20px;
 }
 
@@ -565,8 +565,8 @@ export class WelcomeModalView {
 
 .myio-welcome-card-title {
   margin: 0 0 8px 0;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--wm-ink);
   letter-spacing: 0.02em;
   text-shadow: 0 1px 3px rgba(0,0,0,0.25);
@@ -748,7 +748,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-card-title {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .myio-welcome-card-device-counts {
@@ -825,7 +825,7 @@ export class WelcomeModalView {
   }
 
   .myio-welcome-card-title {
-    font-size: 11px;
+    font-size: 12px;
     margin-bottom: 6px;
   }
 
