@@ -13,6 +13,8 @@ const MAX_DATA_UPDATED_CALLS = 4;
 self.onInit = async function () {
   'use strict';
 
+  console.log('[MAIN_UNIQUE] onInit called', self.ctx);
+
   // Debug helper function - stored on self for access from onDataUpdated
   self._logDebug = self.ctx.settings?.enableDebugMode
     ? (...args) => console.log('[MAIN_UNIQUE]', ...args)
@@ -653,54 +655,50 @@ self.onDataUpdated = function () {
 // ===================================================================
 function classifyAllDevices(data, logDebug) {
   const classified = {
-    energy: { equipments: [], stores: [] },
-    water: { hidrometro_area_comum: [], hidrometro: [] },
+    energy: { equipments: [], stores: [], entrada: [] },
+    water: { hidrometro_area_comum: [], hidrometro: [], entrada: [] },
     temperature: { termostato: [], termostato_external: [] },
   };
 
-  // RFC-0111: Deduplicate by entityId - ThingsBoard sends 1 row per (device, dataKey)
-  // We only need 1 entry per unique device
-  const seenDeviceIds = new Set();
-  const uniqueDevices = [];
+  // RFC-0111: Group all rows by entityId - ThingsBoard sends 1 row per (device, dataKey)
+  // We need to collect ALL dataKeys for each device to get deviceType AND deviceProfile
+  const deviceRowsMap = new Map();
 
-  // First pass: deduplicate and extract unique devices
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
     const entityId = row.datasource?.entityId || row.datasource?.entity?.id?.id;
 
-    if (!entityId || seenDeviceIds.has(entityId)) {
-      continue; // Skip duplicates
-    }
+    if (!entityId) continue;
 
-    seenDeviceIds.add(entityId);
-    uniqueDevices.push(row);
+    if (!deviceRowsMap.has(entityId)) {
+      deviceRowsMap.set(entityId, []);
+    }
+    deviceRowsMap.get(entityId).push(row);
   }
 
   if (logDebug) {
-    logDebug(`Deduplication: ${data.length} rows → ${uniqueDevices.length} unique devices`);
+    logDebug(`Grouping: ${data.length} rows → ${deviceRowsMap.size} unique devices`);
   }
 
-  // Debug: log first row structure (only once)
-  if (uniqueDevices.length > 0 && logDebug) {
-    const firstRow = uniqueDevices[0];
-    logDebug('First device structure:', {
-      entityId: firstRow.datasource?.entityId,
-      entityName: firstRow.datasource?.entityName,
-      entityType: firstRow.datasource?.entityType,
-      aliasName: firstRow.datasource?.aliasName,
-    });
+  // Debug: log first device's rows structure
+  if (deviceRowsMap.size > 0 && logDebug) {
+    const firstDeviceRows = deviceRowsMap.values().next().value;
+    const dataKeysFound = firstDeviceRows.map((r) => r.dataKey?.name).filter(Boolean);
+    logDebug('First device dataKeys:', dataKeysFound);
   }
 
-  // Second pass: classify unique devices
-  for (let i = 0; i < uniqueDevices.length; i++) {
-    const device = extractDeviceMetadata(uniqueDevices[i]);
+  // Process each device with all its rows
+  let deviceIndex = 0;
+  for (const [entityId, rows] of deviceRowsMap) {
+    const device = extractDeviceMetadataFromRows(rows, logDebug);
 
     // Debug: log first 3 devices
-    if (i < 3 && logDebug) {
-      logDebug(`Device ${i}:`, {
+    if (deviceIndex < 3 && logDebug) {
+      logDebug(`Device ${deviceIndex}:`, {
         id: device.id,
         name: device.name,
         deviceType: device.deviceType,
+        deviceProfile: device.deviceProfile,
       });
     }
 
@@ -710,15 +708,47 @@ function classifyAllDevices(data, logDebug) {
     if (classified[domain]?.[context]) {
       classified[domain][context].push(device);
     }
+
+    deviceIndex++;
   }
 
   // Log classification summary - always log this for debugging
   const summary = {
-    energy: { equipments: classified.energy.equipments.length, stores: classified.energy.stores.length },
-    water: { area_comum: classified.water.hidrometro_area_comum.length, lojas: classified.water.hidrometro.length },
-    temperature: { climatizado: classified.temperature.termostato.length, externo: classified.temperature.termostato_external.length },
+    energy: {
+      equipments: classified.energy.equipments.length,
+      stores: classified.energy.stores.length,
+      entrada: classified.energy.entrada.length,
+    },
+    water: {
+      area_comum: classified.water.hidrometro_area_comum.length,
+      lojas: classified.water.hidrometro.length,
+      entrada: classified.water.entrada.length,
+    },
+    temperature: {
+      climatizado: classified.temperature.termostato.length,
+      externo: classified.temperature.termostato_external.length,
+    },
   };
   console.log('[MAIN_UNIQUE] Classification summary:', JSON.stringify(summary));
+
+  // Debug: Log sample of energy/equipments devices to understand why there are so many
+  if (classified.energy.equipments.length > 0 && logDebug) {
+    // Count by deviceType
+    const typeCounts = {};
+    classified.energy.equipments.forEach((d) => {
+      const t = d.deviceType || '(empty)';
+      typeCounts[t] = (typeCounts[t] || 0) + 1;
+    });
+    logDebug('Energy/equipments by deviceType:', typeCounts);
+
+    const sampleSize = Math.min(10, classified.energy.equipments.length);
+    const samples = classified.energy.equipments.slice(0, sampleSize).map((d) => ({
+      name: d.name,
+      deviceType: d.deviceType || '(empty)',
+      deviceProfile: d.deviceProfile || '(empty)',
+    }));
+    logDebug('Sample energy/equipments devices (first ' + sampleSize + '):', samples);
+  }
 
   // Cache for getDevices
   window.MyIOOrchestratorData = { classified, timestamp: Date.now() };
@@ -726,43 +756,49 @@ function classifyAllDevices(data, logDebug) {
   return classified;
 }
 
-function extractDeviceMetadata(row) {
-  // Extract device info from ThingsBoard data row
-  const datasource = row.datasource || {};
+/**
+ * Extract device metadata from ALL rows for a single device
+ * ThingsBoard sends 1 row per (device, dataKey), so we need to merge all rows
+ */
+function extractDeviceMetadataFromRows(rows, logDebug) {
+  if (!rows || rows.length === 0) return null;
 
-  // ThingsBoard entityId can be an object { id: "uuid", entityType: "DEVICE" } or a string
+  // Use first row for datasource info (same for all rows of same device)
+  const firstRow = rows[0];
+  const datasource = firstRow.datasource || {};
+
+  // Extract entityId
   const extractEntityId = (entityIdObj) => {
     if (!entityIdObj) return null;
     if (typeof entityIdObj === 'string') return entityIdObj;
     return entityIdObj.id || null;
   };
 
-  // Try multiple paths for entity ID
   const entityId =
     extractEntityId(datasource.entity?.id) ||
     extractEntityId(datasource.entityId) ||
-    extractEntityId(row.entityId) ||
     datasource.entity?.id?.id ||
     null;
 
-  // Try multiple paths for device name
-  const deviceName =
-    datasource.entityName ||
-    datasource.entity?.name ||
-    datasource.name ||
-    findDataValue(row, 'name') ||
-    findDataValue(row, 'deviceName') ||
-    'Unknown';
+  const deviceName = datasource.entityName || datasource.entity?.name || 'Unknown';
 
-  // Try multiple paths for deviceType
-  let deviceType =
-    findDataValue(row, 'deviceType') ||
-    findDataValue(row, 'type') ||
-    datasource.entity?.type ||
-    datasource.entity?.deviceType ||
-    '';
+  // Build a map of dataKey values from all rows
+  const dataKeyValues = {};
+  for (const row of rows) {
+    const keyName = row.dataKey?.name;
+    if (keyName && row.data && row.data.length > 0) {
+      // Get the latest value (last element in data array, index [1] is the value)
+      const latestData = row.data[row.data.length - 1];
+      if (Array.isArray(latestData) && latestData.length >= 2) {
+        dataKeyValues[keyName] = latestData[1];
+      }
+    }
+  }
 
-  // Skip generic entity types - these are not device types
+  // Extract deviceType from dataKey values
+  let deviceType = dataKeyValues['deviceType'] || dataKeyValues['type'] || '';
+
+  // Skip generic entity types
   if (deviceType === 'DEVICE' || deviceType === 'CUSTOMER' || deviceType === 'ASSET') {
     deviceType = '';
   }
@@ -770,52 +806,71 @@ function extractDeviceMetadata(row) {
   // RFC-0111: Infer deviceType from device name if not available
   if (!deviceType && deviceName) {
     const nameLower = deviceName.toLowerCase();
-    if (nameLower.includes('hidr') || nameLower.includes('hidro') || nameLower.includes('água') || nameLower.includes('water')) {
+
+    // Water detection
+    if (
+      nameLower.includes('hidr') ||
+      nameLower.includes('hidro') ||
+      nameLower.includes('água') ||
+      nameLower.includes('water')
+    ) {
       deviceType = 'HIDROMETRO';
-    } else if (nameLower.includes('termo') || nameLower.includes('temp') || nameLower.includes('sensor')) {
+    }
+    // Temperature detection
+    else if (nameLower.includes('termo') || nameLower.includes('temp') || nameLower.includes('sensor')) {
       deviceType = 'TERMOSTATO';
-    } else if (nameLower.includes('medidor') || nameLower.includes('energia') || nameLower.includes('kwh') || nameLower.includes('3f')) {
+    }
+    // Energy - Equipment detection (transformers, substations, main meters)
+    else if (
+      nameLower.includes('trafo') ||
+      nameLower.includes('transformador') ||
+      nameLower.includes('subestacao') ||
+      nameLower.includes('sub_') ||
+      nameLower.includes('entrada') ||
+      nameLower.includes('de_entrada') ||
+      nameLower.includes('relogio') ||
+      nameLower.includes('geral') ||
+      nameLower.includes('total') ||
+      nameLower.includes('principal')
+    ) {
+      deviceType = 'ENTRADA';
+    }
+    // Energy - Store meters (3F_MEDIDOR)
+    else if (
+      nameLower.includes('loja') ||
+      nameLower.includes('luc') ||
+      nameLower.includes('medidor') ||
+      nameLower.includes('energia') ||
+      nameLower.includes('kwh') ||
+      nameLower.includes('3f') ||
+      /^\d{1,4}[a-z]?[_-]?[a-z]?\d*$/i.test(deviceName) ||
+      /^[a-z]{1,3}\d{1,4}$/i.test(deviceName)
+    ) {
       deviceType = '3F_MEDIDOR';
     }
   }
 
-  // Try multiple paths for deviceProfile
-  // NOTE: Do NOT use deviceType as fallback - it causes wrong classification
-  const deviceProfile =
-    findDataValue(row, 'deviceProfile') ||
-    findDataValue(row, 'profile') ||
-    datasource.entity?.deviceProfileId?.id ||
-    '';
+  // Extract deviceProfile from dataKey values
+  const deviceProfile = dataKeyValues['deviceProfile'] || dataKeyValues['profile'] || '';
 
   return {
     id: entityId,
-    entityId: entityId, // Also expose as entityId for card components
+    entityId: entityId,
     name: deviceName,
     aliasName: datasource.aliasName || '',
     deviceType: deviceType,
     deviceProfile: deviceProfile,
-    ingestionId: findDataValue(row, 'ingestionId') || '',
-    customerId: findDataValue(row, 'customerId') || datasource.entity?.customerId?.id || '',
-    customerName: findDataValue(row, 'customerName') || findDataValue(row, 'ownerName') || '',
-    lastActivityTime: findDataValue(row, 'lastActivityTime'),
-    lastConnectTime: findDataValue(row, 'lastConnectTime'),
-    lastDisconnectTime: findDataValue(row, 'lastDisconnectTime'),
-    // Domain-specific values
-    consumption: findDataValue(row, 'consumption'),
-    pulses: findDataValue(row, 'pulses'),
-    temperature: findDataValue(row, 'temperature'),
-    water_level: findDataValue(row, 'water_level'),
+    ingestionId: dataKeyValues['ingestionId'] || '',
+    customerId: dataKeyValues['customerId'] || datasource.entity?.customerId?.id || '',
+    customerName: dataKeyValues['customerName'] || dataKeyValues['ownerName'] || '',
+    lastActivityTime: dataKeyValues['lastActivityTime'],
+    lastConnectTime: dataKeyValues['lastConnectTime'],
+    lastDisconnectTime: dataKeyValues['lastDisconnectTime'],
+    consumption: dataKeyValues['consumption'],
+    pulses: dataKeyValues['pulses'],
+    temperature: dataKeyValues['temperature'],
+    water_level: dataKeyValues['water_level'],
   };
-}
-
-function findDataValue(row, key) {
-  if (!row.data) return null;
-  for (const d of row.data) {
-    if (d.dataKey?.name === key || d.dataKey?.label === key) {
-      return d.data?.[0]?.[1];
-    }
-  }
-  return null;
 }
 
 function detectDomain(device) {
@@ -841,13 +896,14 @@ function detectDomain(device) {
  * WATER Rules:
  * - deviceType = deviceProfile = HIDROMETRO → STORE (hidrometro)
  * - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM → AREA_COMUM
+ * - deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_SHOPPING → ENTRADA WATER
  * - deviceType = HIDROMETRO_AREA_COMUM → AREA_COMUM
  *
  * ENERGY Rules:
  * - deviceType = deviceProfile = 3F_MEDIDOR → STORE (stores)
  * - deviceType = 3F_MEDIDOR AND deviceProfile != 3F_MEDIDOR → equipments
  * - deviceType != 3F_MEDIDOR AND NOT (ENTRADA/RELOGIO/TRAFO/SUBESTACAO) → equipments
- * - deviceType = ENTRADA/RELOGIO/TRAFO/SUBESTACAO → equipments
+ * - deviceType = ENTRADA/RELOGIO/TRAFO/SUBESTACAO → ENTRADA ENERGY
  *
  * TEMPERATURE Rules:
  * - deviceType = deviceProfile = TERMOSTATO → termostato (climatized)
@@ -858,47 +914,45 @@ function detectContext(device, domain) {
   const deviceType = String(device?.deviceType || '').toUpperCase();
   const deviceProfile = String(device?.deviceProfile || '').toUpperCase();
 
-  // Special equipment types (always equipments, not stores)
-  const specialEquipmentTypes = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO', 'DE_ENTRADA'];
-  const isSpecialEquipment = specialEquipmentTypes.some(
-    (t) => deviceType.includes(t) || deviceProfile.includes(t)
-  );
+  // ENTRADA types - main shopping meters (not individual stores or equipment)
+  const entradaTypes = ['ENTRADA', 'RELOGIO', 'TRAFO', 'SUBESTACAO', 'DE_ENTRADA'];
+  const isEntrada = entradaTypes.some((t) => deviceType.includes(t) || deviceProfile.includes(t));
 
   if (domain === 'water') {
-    // HIDROMETRO_AREA_COMUM in deviceType → area comum
-    if (deviceType.includes('HIDROMETRO_AREA_COMUM') || deviceType.includes('AREA_COMUM')) {
+    // RFC-0111: HIDROMETRO_SHOPPING → ENTRADA WATER (main water meter for shopping)
+    if (deviceProfile.includes('HIDROMETRO_SHOPPING') || deviceProfile.includes('SHOPPING')) {
+      return 'entrada';
+    }
+    // HIDROMETRO_AREA_COMUM in deviceType or deviceProfile → area comum
+    if (
+      deviceType.includes('HIDROMETRO_AREA_COMUM') ||
+      deviceType.includes('AREA_COMUM') ||
+      deviceProfile.includes('AREA_COMUM')
+    ) {
       return 'hidrometro_area_comum';
     }
-    // deviceType = HIDROMETRO AND deviceProfile = HIDROMETRO_AREA_COMUM → area comum
-    if (deviceType.includes('HIDROMETRO') && deviceProfile.includes('AREA_COMUM')) {
-      return 'hidrometro_area_comum';
-    }
-    // deviceType = deviceProfile = HIDROMETRO → store
-    if (deviceType.includes('HIDROMETRO') && deviceProfile.includes('HIDROMETRO') && !deviceProfile.includes('AREA_COMUM')) {
+    // deviceType = deviceProfile = HIDROMETRO → store (hidrometro)
+    if (deviceType.includes('HIDROMETRO') && deviceProfile.includes('HIDROMETRO')) {
       return 'hidrometro'; // Store
     }
-    // Default for water
+    // Default for water: hidrometro (store)
     return 'hidrometro';
   }
 
   if (domain === 'energy') {
-    // Special equipment → always equipments (not stores)
-    if (isSpecialEquipment) {
-      return 'equipments';
+    // RFC-0111: ENTRADA/RELOGIO/TRAFO/SUBESTACAO → ENTRADA ENERGY (main meters)
+    if (isEntrada) {
+      return 'entrada';
     }
-    // deviceType = deviceProfile = 3F_MEDIDOR → store
+    // RFC-0111: deviceType = deviceProfile = 3F_MEDIDOR → STORE (stores)
     if (deviceType === '3F_MEDIDOR' && deviceProfile === '3F_MEDIDOR') {
       return 'stores';
     }
-    // deviceType = 3F_MEDIDOR AND deviceProfile != 3F_MEDIDOR → equipments
+    // RFC-0111: deviceType = 3F_MEDIDOR AND deviceProfile != 3F_MEDIDOR → equipments
     if (deviceType === '3F_MEDIDOR' && deviceProfile !== '3F_MEDIDOR') {
       return 'equipments';
     }
-    // deviceType != 3F_MEDIDOR → equipments
-    if (deviceType !== '3F_MEDIDOR') {
-      return 'equipments';
-    }
-    // Default fallback
+    // RFC-0111: deviceType != 3F_MEDIDOR → equipments
     return 'equipments';
   }
 
@@ -912,7 +966,11 @@ function detectContext(device, domain) {
       return 'termostato_external';
     }
     // deviceType = deviceProfile = TERMOSTATO → climatized
-    if (deviceType.includes('TERMOSTATO') && deviceProfile.includes('TERMOSTATO') && !deviceProfile.includes('EXTERNAL')) {
+    if (
+      deviceType.includes('TERMOSTATO') &&
+      deviceProfile.includes('TERMOSTATO') &&
+      !deviceProfile.includes('EXTERNAL')
+    ) {
       return 'termostato'; // Climatized
     }
     // Default for temperature
@@ -920,6 +978,54 @@ function detectContext(device, domain) {
   }
 
   return 'equipments'; // Default
+}
+
+/**
+ * Extract device metadata from a single row
+ * Used by buildShoppingsList where we iterate row by row
+ */
+function extractDeviceMetadata(row) {
+  const datasource = row?.datasource || {};
+
+  const extractEntityId = (entityIdObj) => {
+    if (!entityIdObj) return null;
+    if (typeof entityIdObj === 'string') return entityIdObj;
+    return entityIdObj.id || null;
+  };
+
+  const entityId =
+    extractEntityId(datasource.entity?.id) ||
+    extractEntityId(datasource.entityId) ||
+    datasource.entity?.id?.id ||
+    null;
+
+  const deviceName = datasource.entityName || datasource.entity?.name || 'Unknown';
+
+  // Get value from single row's data
+  const getLatestValue = () => {
+    if (row.data && row.data.length > 0) {
+      const latestData = row.data[row.data.length - 1];
+      if (Array.isArray(latestData) && latestData.length >= 2) {
+        return latestData[1];
+      }
+    }
+    return null;
+  };
+
+  const keyName = row.dataKey?.name;
+  const value = getLatestValue();
+
+  return {
+    id: entityId,
+    entityId: entityId,
+    name: deviceName,
+    aliasName: datasource.aliasName || '',
+    deviceType: keyName === 'deviceType' ? value : '',
+    deviceProfile: keyName === 'deviceProfile' ? value : '',
+    ingestionId: keyName === 'ingestionId' ? value : '',
+    customerId: datasource.entity?.customerId?.id || '',
+    customerName: keyName === 'customerName' || keyName === 'ownerName' ? value : '',
+  };
 }
 
 function buildShoppingCards(classified) {
